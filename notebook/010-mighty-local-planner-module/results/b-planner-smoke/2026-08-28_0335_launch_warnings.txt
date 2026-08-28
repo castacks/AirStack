@@ -1,0 +1,6 @@
+[mighty-2] [33m[WARN] [1787901912.803591917] [mighty.mighty_node]: Transform error: "map" passed to lookupTransform argument target_frame does not exist. [0m
+[mighty_bridge_node-3] [0m[INFO] [1787901912.854767353] [mighty.mighty_bridge]: mighty_bridge up (waypoint_tolerance=2.0 m, stride=10, world_frame=map)[0m
+[mighty-2] [33m[WARN] [1787901914.025061780] [mighty]: updateMap: member pclptr_map_ was null or empty; skipping KD-tree update[0m
+[mighty-2] [33m[WARN] [1787901914.025926889] [mighty.mighty_node]: publishGround2DOccupied: has2DMap()=false[0m
+[mighty_bridge_node-3] [33m[WARN] [1787901926.885566480] [mighty.mighty_bridge]: set_trajectory_mode service not available[0m
+[mighty-2] Changing DroneStatus from status_=GOAL_REACHED to status_=TRAVELING

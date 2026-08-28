@@ -19,7 +19,7 @@
 >   the content. Never rewrite or prune it; correct an old entry only
 >   by appending a newer one.
 >
-> Last updated: 2026-08-27
+> Last updated: 2026-08-28
 
 ## Current direction
 
@@ -36,19 +36,20 @@ instrument are PRIMARY; Sec. VI (sim fidelity, defect mining, agent
 study, threats) is SUPPORTING
 ([positioning.md §Evidence hierarchy](../ICRA_2027_AirStack_Paper/paper_positioning.md)).
 
-Current phase (as of 2026-08-27): the **agent study (Sec. VI-C)** is
+Current phase (as of 2026-08-28): the **agent study (Sec. VI-C)** is
 the active sprint — it is the paper's longest-wall-clock item (START
-FIRST). Prerequisites P-1…P-4, P-6, P-8 are done; campaign **v5** is
-ready pending two small lead decisions (R7 waypoint budget 120→240 s;
-reference-solvability re-demonstration under frozen params) — see
-[agent_study/HANDOFF.md](../agent_study/HANDOFF.md) and
-[008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md).
-In parallel: prose-ifying `main.tex` section by section, and the
-release gate (7 paper-blocking items; ~63 tasks still `\task{}` in
-`release_gate_and_tasks.tex` as of today). Watch item: this branch now
-sits on post-restructure develop (rebased 2026-08-27) while the
-study's pins and judge budgets predate the restructure — a re-pin
-means a new campaign id (see §Direction log).
+FIRST). Campaign v5 was superseded before running: droan_gl hit its
+architectural R7 ceiling and the lead decided (2026-08-28) to swap the
+local planner to **MIGHTY** (MIT ACL, RA-L 2026) delivered as an
+external module `asm_mighty` — entry
+[010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md)
+is the active work item. Campaign **v6** bundles the swap re-pin with
+the queued judge changes (R7 budget 240 s, HARD_CAP_S 1800,
+practice/eval layout split) and the 2026-08-27 restructure re-pin, so
+recalibration happens once. In parallel: prose-ifying `main.tex`
+section by section, and the release gate (7 paper-blocking items; ~63
+tasks still `\task{}` in `release_gate_and_tasks.tex` as of
+2026-08-27).
 
 Hard calendar gates: **2026-09-15** ICRA submission; case-study
 interviews and release-gate items must land before the final claims
@@ -101,7 +102,7 @@ come from the entries' own labels.
 
 | Campaign | Goal | Entries | Status |
 |---|---|---|---|
-| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10) — campaign blocked on the lead's local-planner-swap decision (see 2026-08-28 log entry) |
+| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DESIGN/TODO` — swap decided 2026-08-28: MIGHTY as `asm_mighty` external module, campaign v6 (see log) |
 | Paper writing & positioning | Sec. I–V prose, case-study interviews, figures | — (lives in the `ICRA_2027_AirStack_Paper/` submodule; no notebook entries) | Related Work + Design Principles prose done 2026-08-03; interviews not recorded anywhere yet |
 | Release gate / v1.0 readiness | The seven paper-blocking items (clone-and-run, verified hardware path, …) | — (no notebook entries yet) | ~63 open `\task{}` vs 1 `\done{}` in `release_gate_and_tasks.tex` |
 | Modular AirStack (RFC #379/#380) | Monolith → modules, stacks, fleets — built to support the paper's modularity positioning: module swapping (C1) and easy upstreaming of features from forked projects (lead, recorded 2026-08-27) | [002-rfc-modular-airstack](002-rfc-modular-airstack/design_spec.md) | `WIP` per its header (impl merged to develop 2026-08-24 as PRs #388–#396; release mechanics, module CI tags, P3 dispatch smoke open) |
@@ -116,6 +117,29 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+### 2026-08-28 — local planner swap DECIDED: MIGHTY as external module `asm_mighty`; diffaero postponed; campaign v6 bundles everything
+
+The pending swap decision (previous entry) resolved the same day. Two
+candidates were researched (repos + papers): **MIGHTY** (mit-acl,
+RA-L 2026, arXiv:2511.10822 — A*/safe-corridor/Hermite-spline NLP,
+Gurobi-free, ROS 2 Humble, BSD-3, actively maintained, PX4-proven) and
+**diffaero** (BIT, arXiv:2509.10247 — differentiable-sim training
+framework for depth-only visuomotor policies). Lead decided:
+**MIGHTY** — its persistent map + omnidirectional lidar input +
+hard-margin corridors address exactly droan_gl's two terminal R7
+failure modes (vote-blocked pockets, FOV-hole near-contacts), while
+diffaero would re-import the same reactive/memoryless/narrow-FOV
+failure class, bypass the trajectory-controller safety seam, and carry
+sim-to-sim transfer risk against the deadline. **diffaero is postponed**
+(future candidate for the hardware depth-only story — no heavy lidar;
+overnight-trainable on one GPU). Delivery decision: `asm_mighty` as an
+**external module repo, explicitly to stress-test the RFC #379 module
+integration workflow** (feeds Modular AirStack campaign + C1
+module-swap evidence). Confirmed: the swap folds into **campaign v6**
+together with the queued judge changes and the restructure re-pin —
+one recalibration. Evidence:
+[010 design spec](010-mighty-local-planner-module/design_spec.md).
 
 ### 2026-08-28 — droan_gl hit its R7 ceiling; local-planner swap recommended; R7 confirmed as a composition rung
 

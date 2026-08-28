@@ -1,0 +1,186 @@
+#usda 1.0
+(
+    defaultPrim = "r7_world"
+    upAxis = "Z"
+    metersPerUnit = 1
+)
+
+def Xform "r7_world"
+{
+    def Mesh "ground" (
+        prepend apiSchemas = ["PhysicsCollisionAPI"]
+    )
+    {
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0, 1, 2, 3]
+        point3f[] points = [(-250, -250, 0), (250, -250, 0), (250, 250, 0), (-250, 250, 0)]
+        normal3f[] normals = [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)]
+        color3f[] primvars:displayColor = [(0.35, 0.4, 0.45)]
+    }
+
+    def DistantLight "sun"
+    {
+        float inputs:intensity = 1000
+        float inputs:angle = 1.0
+        double3 xformOp:rotateXYZ = (0, 40, 20)
+        uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+    }
+
+    def Scope "r7_obstacles"
+    {
+
+        def Cylinder "pillar_0" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.74
+            double height = 18
+            double3 xformOp:translate = (46.64, 8.19, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_1" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.91
+            double height = 18
+            double3 xformOp:translate = (28.34, 25.72, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_2" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 1.08
+            double height = 18
+            double3 xformOp:translate = (32.67, 31.75, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_3" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.71
+            double height = 18
+            double3 xformOp:translate = (13.46, 32.25, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_4" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.82
+            double height = 18
+            double3 xformOp:translate = (32.63, -0.68, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_5" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.94
+            double height = 18
+            double3 xformOp:translate = (48.31, 21.34, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_6" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.91
+            double height = 18
+            double3 xformOp:translate = (36.25, -4.16, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_7" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.97
+            double height = 18
+            double3 xformOp:translate = (29.26, 7.45, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_8" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.94
+            double height = 18
+            double3 xformOp:translate = (11.51, -3.08, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_9" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.88
+            double height = 18
+            double3 xformOp:translate = (44.34, 30.22, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_10" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.87
+            double height = 18
+            double3 xformOp:translate = (40.13, 25.66, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_11" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.63
+            double height = 18
+            double3 xformOp:translate = (49.34, 13.57, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_12" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.62
+            double height = 18
+            double3 xformOp:translate = (20.6, 21.29, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+
+        def Cylinder "pillar_13" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.86
+            double height = 18
+            double3 xformOp:translate = (26.82, -2.28, 9.0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            color3f[] primvars:displayColor = [(0.8, 0.3, 0.1)]
+        }
+    }
+}

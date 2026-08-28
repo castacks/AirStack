@@ -1,0 +1,55 @@
+Sourcing /root/AirStack/robot/ros_ws/install/local_setup.bash
+Summary: 50 tests, 0 errors, 0 failures, 0 skipped
+1: [       OK ] OccGrid2DUnknownTest.RoundTripFromOccupancyGrid (0 ms)
+1: [       OK ] OccGrid2DUnknownTest.OutOfBoundsIsUnknownAndOccupied (0 ms)
+1: [       OK ] OccGrid2DUnknownTest.ComputeDistanceFieldOnlyFromOccupied (0 ms)
+1: [       OK ] OccGrid2DUnknownTest.FromTristateMatchesFromOccupancyGrid (0 ms)
+1: [  PASSED  ] 4 tests.
+2: [       OK ] PathUtilsTest.GoalBeyondHorizonTruncatesAtBoundary (0 ms)
+2: [       OK ] PathUtilsTest.GoalWithinHorizonKeepsPath (0 ms)
+2: [       OK ] PathUtilsTest.ShortPathReturnsFalse (0 ms)
+2: [       OK ] PathUtilsTest.CrossingInLaterSegment (0 ms)
+2: [       OK ] PathUtilsTest.DiagonalCrossingInterpolatesCorrectly (0 ms)
+2: [       OK ] PathUtilsTest.ReanchorDropsPassedVerticesAndPrependsStart (0 ms)
+2: [       OK ] PathUtilsTest.ReanchorDeviationReflectsLateralOffset (0 ms)
+2: [       OK ] PathUtilsTest.ReanchorEmptyReturnsFalse (0 ms)
+2: [  PASSED  ] 8 tests.
+3: [       OK ] FrontierDetectorTest.EmptyAllFreeGridYieldsNoFrontiers (0 ms)
+3: [       OK ] FrontierDetectorTest.HalfFreeHalfUnknownYieldsOneCluster (0 ms)
+3: [       OK ] FrontierDetectorTest.TwoDisconnectedFrontiersYieldTwoClusters (0 ms)
+3: [       OK ] FrontierDetectorTest.MinClusterSizeFiltersTinyClusters (0 ms)
+3: [       OK ] FrontierDetectorTest.BorderMarginExcludesEdgeFrontiers (0 ms)
+3: [       OK ] FrontierDetectorTest.RobotOnOccupiedCellSnapsAndDetects (0 ms)
+3: [       OK ] FrontierDetectorTest.ObstacleClearanceFiltersWallHuggingFrontiers (0 ms)
+3: [       OK ] FrontierDetectorTest.FreeIslandDisconnectedFromUnknownYieldsNothing (0 ms)
+3: [       OK ] FrontierDetectorTest.IsStillFrontierTrueOnLiveFrontier (0 ms)
+3: [       OK ] FrontierDetectorTest.IsStillFrontierFalseAfterAreaExplored (0 ms)
+3: [       OK ] FrontierDetectorTest.IsStillFrontierFalseForSubThresholdRemnant (0 ms)
+3: [       OK ] FrontierDetectorTest.IsStillFrontierToleratesCentroidDrift (0 ms)
+3: [       OK ] FrontierDetectorTest.NearFieldSeamStrandsRobotWithoutBridging (0 ms)
+3: [       OK ] FrontierDetectorTest.BridgingMustCoverTheFullSeamWidth (0 ms)
+3: [       OK ] FrontierDetectorTest.BridgingReconnectsRobotToMainFreeRegion (0 ms)
+3: [       OK ] FrontierDetectorTest.BridgingDoesNotLeakThroughOccupiedCells (0 ms)
+3: [  PASSED  ] 16 tests.
+4: [       OK ] FrontierManagerTest.FirstDetectInsertsAsActive (0 ms)
+4: [       OK ] FrontierManagerTest.NearbyDetectionMergesViaEMA (0 ms)
+4: [       OK ] FrontierManagerTest.FreeCellNoUnknownNeighborsBecomesVisited (0 ms)
+4: [       OK ] FrontierManagerTest.OccupiedCellBecomesInvalidated (0 ms)
+4: [       OK ] FrontierManagerTest.OutOfWindowRecordBecomesDormant (0 ms)
+4: [       OK ] FrontierManagerTest.RobotDwellMarksVisited (0 ms)
+4: [       OK ] FrontierManagerTest.SelectNextGoalPrefersActiveOverDormant (0 ms)
+4: [       OK ] FrontierManagerTest.EvictionPrefersVisitedOverDormant (0 ms)
+4: [       OK ] FrontierManagerTest.RepeatedTimeoutsEscalateToPermanentBlacklist (0 ms)
+4: [       OK ] FrontierManagerTest.SelectNearestIgnoresSizeAndRetiredRecords (0 ms)
+4: [  PASSED  ] 10 tests.
+5: [       OK ] GradientCheck.DirectionalMatchesFiniteDiff (0 ms)
+5: [       OK ] GradientCheck.CoordinatesMatchFiniteDiff (0 ms)
+5: [  PASSED  ] 2 tests.
+6: [       OK ] FormationCost.ZeroWeightBitIdentical (0 ms)
+6: [       OK ] FormationCost.IsolatedStationaryNeighbor (0 ms)
+6: [       OK ] FormationCost.IsolatedGradientMatchesFiniteDiff (0 ms)
+6: [       OK ] FormationCost.GradientMatchesFiniteDiff (0 ms)
+6: [  PASSED  ] 4 tests.
+100% tests passed, 0 tests failed out of 6
+Total Test time (real) =   0.28 sec
+commit asm_mighty=1c1021b airstack=4c104385 image=v0.20.0-alpha.16_robot-x86-64_dev-ma7c089ea

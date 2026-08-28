@@ -1,0 +1,21 @@
+# modules.repos : module pins for the full_mighty stack.
+#
+# vcstool format, PINNED to tags/commits (never branches). `airstack module sync`
+# reads this file into the gitignored modules/ dir; a stack with a pinned .repos
+# IS a localized release set.
+#
+# airstack_compat is a top-level sibling of repositories: (vcstool ignores it,
+# AirStack tooling reads it) declaring the trunk semver range this stack was
+# tested against. sync warns on mismatch; it never gates.
+#
+# full_mighty pulls the asm_mighty module (MIGHTY local planner + acl-mapping
+# world model + NavigateTask bridge); everything else is trunk-resident.
+# TODO(asm_mighty v0.1.0): repoint url to https://github.com/castacks/asm_mighty
+# once the repo is pushed; the local path is the development pin.
+airstack_compat: ">=0.20.0-alpha.16 <0.21.0"
+repositories:
+  asm_mighty:
+    type: git
+    url: /home/andrew/Development/asm_mighty
+    version: v0.1.0-dev1
+x-local-modules: []
