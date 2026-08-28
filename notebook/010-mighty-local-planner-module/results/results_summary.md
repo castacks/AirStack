@@ -23,6 +23,7 @@ Raw: [`a-module-build/`](a-module-build/).
 2. Root `modules.repos` is gitignored, so a branch that wants to COMMIT module pins (our study pin) needs `git add -f` — silent skip otherwise (bit us once).
 3. `airstack module add <local path>` records under `x-local-modules` (machine-local); switching to a git pin for reproducibility is a manual edit.
 4. Module `validate_module.py` + manifest schema: no friction.
+5. `airstack module sync` cannot advance an EXISTING module checkout to a newly pushed tag — `vcs import` doesn't fetch first ("Could not checkout ref"); workaround is `rm -rf modules/<name>` + re-sync (or `module remove`/`add`). Bit us when repinning v0.1.0-dev1→dev2.
 
 **Port defects found & fixed** (all upstream-facing, patches marked `asm_mighty` in-tree):
 - namespace id parsing: `stoi(ns[-2:])` crashes on `robot_1`-style names;
@@ -84,10 +85,24 @@ Raw: [`c-isaac-empty-world/`](c-isaac-empty-world/).
 
 ## (e) R7 reference-solvability re-demonstration (frozen v6)
 
-**Setup:** frozen campaign v6 (`2026-08-icra27-vic-v6`): pin `study/mighty-swap` @ `89097539`, asm_mighty v0.1.0-dev1, R7 budget 240 s/checkpoint, HARD_CAP_S 1800, EVAL layout (seed 20260825) staged judge-time only. Fresh pinned workspace (module synced from `castacks/asm_mighty`), reference solution planner B applied, 5 × `./judge --scoring R7` with fresh judge-issued routes.
-**Run at:** 2026-08-28 04:20 · IN PROGRESS
+**Setup:** frozen campaign v6 (`2026-08-icra27-vic-v6`): final pin `study/mighty-swap` @ `8c66f884` (asm_mighty **v0.1.0-dev3**), R7 budget 240 s/checkpoint, HARD_CAP_S 1800, EVAL layout (seed 20260825) staged judge-time only. Fresh pinned workspace (module synced from `castacks/asm_mighty`), reference solution planner B applied, `./judge --scoring R7` with fresh judge-issued routes per run. Full attempt trail: `agent_study/runs/ref_validation_v6_mighty_001/PURPOSE.md`.
+**Run at:** 2026-08-28 04:15–05:00 (iteration) + official batch 05:03– · commit chain in PURPOSE.md
 
-*(results pending — batch running)*
+**The judged eval runs were the failure-finder they're meant to be.** Five distinct integration defects surfaced and were fixed during iteration (each on a different fresh route):
+
+| # | Defect (judged-run symptom) | Fix (asm_mighty commit) |
+|---|------------------------------|--------------------------|
+| 1 | first-bring-up race: judge's 20 s route-capture window expired before the planner had odometry (cold 53-pkg build) | infra rerun per study rule |
+| 2 | module pin predated the follower's `global_plan` launch remap — bridge subscribed the wrong topic | dev2 repin |
+| 3 | dense drone-anchored path (104 poses, republished 1 Hz) thrashed the checkpoint-walking follower | carrot/pure-pursuit follower (`ef44672`) |
+| 4 | hairpin deadlock: arc-length carrot wrapped an out-and-back route corner onto the vehicle → GOAL_REACHED hover; plus the controller merge-reject on planner resume | hairpin clamp + near-zero-carrot guard + resume-triggered timeline reset |
+| 5 | goal-in-pillar: upstream relocation BFS dead (planning-map copy never sets `map_initialized_`) → goals on route legs through pillar footprints dropped forever, vehicle idled at the previous checkpoint | `map_util.hpp` guard fix (`5bc62c5`) |
+
+Plus one clearance retune from measurement: a completed judged flight shaved 0.713 m (1.2 m plan margin − ~0.5 m double-tracking error) → `planner_Co` 1.2, `inflation_hgp` 0.8, `v_max` 1.5, segment stride 5 (margin now 1.5 m nominal; justified from the gate + measured tracking error, never a layout).
+
+**Pre-formalization validation run (content-identical to dev3): PASS — 7 checkpoints in order, final goal error 0.05 m, min clearance 1.641 m.**
+
+**Official frozen-pin batch (5 × fresh routes):** *(running — table below to be filled)*
 
 ## (f) Docs + catalog
 

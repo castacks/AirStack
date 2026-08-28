@@ -9,10 +9,12 @@
 > through the untouched seams; 2.4 DONE — practice pillar field 5/5 action
 > runs PASS (min clearances 1.06–1.37 m) + follower-mode (global_plan
 > topic, study route contract) validated; 2.5 WIP — campaign v6 pinned
-> (study/mighty-swap 89097539, asm_mighty v0.1.0-dev1 at PRIVATE
+> (final: study/mighty-swap 8c66f884, asm_mighty v0.1.0-dev3 at PRIVATE
 > castacks/asm_mighty), judge deltas implemented (R7 budget 240 s,
-> practice/eval split with judge-time eval-scene staging), reference
-> workspace prepared; solvability batch pending)
+> practice/eval split with judge-time eval-scene staging); judged-eval
+> iteration surfaced+fixed 5 integration defects and one measured margin
+> retune; pre-formalization judged run PASS (goal error 0.05 m,
+> clearance 1.641 m); official 5-run frozen-pin batch running)
 
 ## 1. Problem Context
 
