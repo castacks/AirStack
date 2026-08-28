@@ -1,0 +1,1 @@
+Reference-solvability validation for the R7 budget decision (120 vs 240 s/checkpoint). NOT a scored trial. Judge shim edited: STUDY_WAYPOINT_TIMEOUT=240. Reference solution planner b applied. Pinned commit: 891ca138ff86e6b5238063f0c3e94028ec985be0

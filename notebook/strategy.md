@@ -101,7 +101,7 @@ come from the entries' own labels.
 
 | Campaign | Goal | Entries | Status |
 |---|---|---|---|
-| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `IN PROGRESS`; campaign v5 pending two lead decisions |
+| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10) — campaign blocked on the lead's local-planner-swap decision (see 2026-08-28 log entry) |
 | Paper writing & positioning | Sec. I–V prose, case-study interviews, figures | — (lives in the `ICRA_2027_AirStack_Paper/` submodule; no notebook entries) | Related Work + Design Principles prose done 2026-08-03; interviews not recorded anywhere yet |
 | Release gate / v1.0 readiness | The seven paper-blocking items (clone-and-run, verified hardware path, …) | — (no notebook entries yet) | ~63 open `\task{}` vs 1 `\done{}` in `release_gate_and_tasks.tex` |
 | Modular AirStack (RFC #379/#380) | Monolith → modules, stacks, fleets — built to support the paper's modularity positioning: module swapping (C1) and easy upstreaming of features from forked projects (lead, recorded 2026-08-27) | [002-rfc-modular-airstack](002-rfc-modular-airstack/design_spec.md) | `WIP` per its header (impl merged to develop 2026-08-24 as PRs #388–#396; release mechanics, module CI tags, P3 dispatch smoke open) |
@@ -116,6 +116,28 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+### 2026-08-28 — droan_gl hit its R7 ceiling; local-planner swap recommended; R7 confirmed as a composition rung
+
+The agent study's R7 blocker resolved into a strategic finding
+(evidence: [008](008-droan-gl-r7-avoidance-fix/design_spec.md) addendum
++ [009](009-droan-gl-yaw-sweep-unstick/design_spec.md)): the frozen
+droan_gl config fails R7 0/5 with the budget question moot; a yaw-sweep
+unstick (active-perception pause recovery, implemented + validated in
+10 judge flights) eliminates the dominant absorbing-hover mode with
+zero crashes but still 0/10 — residuals (vote-blocked pockets,
+0.01–0.26 m near-contacts from sensor FOV holes) are architectural to
+the 2018 reactive design. Per the lead's pre-registered criterion
+(2026-08-27: "if the yaw heuristic doesn't work, swap planners"), the
+recommendation is a modern map-based local planner as the R7
+prerequisite — decision pending. Standing choices recorded the same
+session: R7 stays a **composition rung** (the platform's local layer
+must work; agents integrate against it — feeds C1), the R7 scene
+layout becomes answer-key material with a practice/eval (val/test)
+layout split, and the lead's positioning bar is explicit: "the
+reference stack that lets you focus on your global planner and not
+worry about local planning" requires a reliably-performing local
+planner.
 
 ### 2026-08-27 — airstack-paper rebased onto latest develop; restructure flagged as an agent-study variable
 

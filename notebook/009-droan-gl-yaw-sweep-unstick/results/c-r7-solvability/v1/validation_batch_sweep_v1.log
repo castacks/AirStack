@@ -1,0 +1,407 @@
+=== R7 validation run 1/5 start 2026-08-28T02:30:29Z ===
+[r5-provenance] R7 route issued (seed 884229): 33.7,4.3,10.0; 19.4,20.3,10.0; 34.1,-4.4,10.0
+[r5-provenance] bringing the agent's stack up
+[r5-provenance] waiting for px4 (0s; container=workspace-robot-desktop-1)
+[r5-provenance] waiting for px4 (61s; container=workspace-robot-desktop-1)
+[r5-provenance] px4 ready in 84s
+[r5-provenance] planner /route_planner_beta publishing on /robot_1/global_plan
+[r5-provenance] R7 conformance ok: planner path passes all issued waypoints
+[r5-provenance] 7 checkpoints from planner route
+[r5-provenance] commanding takeoff (the ONLY judge-driven motion)
+[r5-provenance] observing flight (cap 900s); the integration must fly the route
+[r5-provenance] drone stationary — flight concluded
+[r5-provenance]  "closest_approach_m": 7.531,
+      "reached": true,
+      "elapsed_from_prev_s": 4.23,
+      "within_budget": true
+    },
+    {
+      "index": 2,
+      "target": [
+        29.39,
+        1.94,
+        8.29
+      ],
+      "closest_approach_m": 5.095,
+      "reached": true,
+      "elapsed_from_prev_s": 36.03,
+      "within_budget": true
+    },
+    {
+      "index": 3,
+      "target": [
+        28.19,
+        12.77,
+        10.46
+      ],
+      "closest_approach_m": 2.22,
+      "reached": true,
+      "elapsed_from_prev_s": 9.54,
+      "within_budget": true
+    },
+    {
+      "index": 4,
+      "target": [
+        21.03,
+        16.84,
+        10.0
+      ],
+      "closest_approach_m": 1.657,
+      "reached": true,
+      "elapsed_from_prev_s": 225.15,
+      "within_budget": true
+    },
+    {
+      "index": 5,
+      "target": [
+        29.12,
+        3.69,
+        10.0
+      ],
+      "closest_approach_m": 8.011,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 6,
+      "target": [
+        34.1,
+        -4.4,
+        10.0
+      ],
+      "closest_approach_m": 16.147,
+      "reached": false
+    }
+  ],
+  "total_time_s": 525.51
+}
+
+[r5-provenance] FAIL: flown track did not follow the planner route in order
+=== R7 validation run 1/5 exit=1 end 2026-08-28T02:40:05Z ===
+=== R7 validation run 2/5 start 2026-08-28T02:40:05Z ===
+[r5-provenance] R7 route issued (seed 884805): 34.5,34.9,10.0; 21.4,21.3,10.0; 43.1,13.3,10.0
+[r5-provenance] bringing the agent's stack up
+[r5-provenance] waiting for px4 (0s; container=workspace-robot-desktop-1)
+[r5-provenance] waiting for px4 (60s; container=workspace-robot-desktop-1)
+[r5-provenance] px4 ready in 85s
+[r5-provenance] planner /route_planner_beta publishing on /robot_1/global_plan
+[r5-provenance] R7 conformance ok: planner path passes all issued waypoints
+[r5-provenance] 7 checkpoints from planner route
+[r5-provenance] commanding takeoff (the ONLY judge-driven motion)
+[r5-provenance] observing flight (cap 900s); the integration must fly the route
+[r5-provenance] sed_from_prev_s": 26.31,
+      "within_budget": true
+    },
+    {
+      "index": 2,
+      "target": [
+        21.14,
+        21.44,
+        5.65
+      ],
+      "closest_approach_m": 3.897,
+      "reached": true,
+      "elapsed_from_prev_s": 18.24,
+      "within_budget": true
+    },
+    {
+      "index": 3,
+      "target": [
+        31.65,
+        32.06,
+        8.66
+      ],
+      "closest_approach_m": 2.28,
+      "reached": true,
+      "elapsed_from_prev_s": 45.63,
+      "within_budget": true
+    },
+    {
+      "index": 4,
+      "target": [
+        26.06,
+        27.97,
+        10.24
+      ],
+      "closest_approach_m": 2.645,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 5,
+      "target": [
+        27.75,
+        17.44,
+        10.0
+      ],
+      "closest_approach_m": 0.388,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 6,
+      "target": [
+        43.1,
+        13.3,
+        10.0
+      ],
+      "closest_approach_m": 8.891,
+      "reached": true,
+      "elapsed_from_prev_s": 4.11,
+      "within_budget": true
+    }
+  ],
+  "total_time_s": 1077.51
+}
+
+[r5-provenance] FAIL: final goal error 8.89m > 2.5m
+=== R7 validation run 2/5 exit=1 end 2026-08-28T02:58:41Z ===
+=== R7 validation run 3/5 start 2026-08-28T02:58:41Z ===
+[r5-provenance] R7 route issued (seed 885921): 33.8,25.8,10.0; 41.6,4.8,10.0; 24.5,24.6,10.0
+[r5-provenance] bringing the agent's stack up
+[r5-provenance] waiting for px4 (0s; container=workspace-robot-desktop-1)
+[r5-provenance] waiting for px4 (60s; container=workspace-robot-desktop-1)
+[r5-provenance] px4 ready in 85s
+[r5-provenance] planner /route_planner_beta publishing on /robot_1/global_plan
+[r5-provenance] R7 conformance ok: planner path passes all issued waypoints
+[r5-provenance] 7 checkpoints from planner route
+[r5-provenance] commanding takeoff (the ONLY judge-driven motion)
+[r5-provenance] observing flight (cap 900s); the integration must fly the route
+[r5-provenance] drone stationary — flight concluded
+[r5-provenance] sed_from_prev_s": 27.09,
+      "within_budget": true
+    },
+    {
+      "index": 2,
+      "target": [
+        22.68,
+        20.51,
+        6.98
+      ],
+      "closest_approach_m": 1.431,
+      "reached": true,
+      "elapsed_from_prev_s": 16.86,
+      "within_budget": true
+    },
+    {
+      "index": 3,
+      "target": [
+        35.66,
+        24.41,
+        10.29
+      ],
+      "closest_approach_m": 0.556,
+      "reached": true,
+      "elapsed_from_prev_s": 21.15,
+      "within_budget": true
+    },
+    {
+      "index": 4,
+      "target": [
+        41.34,
+        9.47,
+        10.19
+      ],
+      "closest_approach_m": 4.401,
+      "reached": true,
+      "elapsed_from_prev_s": 30.18,
+      "within_budget": true
+    },
+    {
+      "index": 5,
+      "target": [
+        34.33,
+        12.41,
+        10.0
+      ],
+      "closest_approach_m": 5.997,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 6,
+      "target": [
+        24.5,
+        24.6,
+        10.0
+      ],
+      "closest_approach_m": 1.346,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    }
+  ],
+  "total_time_s": 806.7
+}
+
+[r5-provenance] R7 clearance: {"samples": 24200, "min_clearance_m": 0.045, "required_m": 1.0, "violation": true}
+[r5-provenance] FAIL: obstacle clearance violated (see r7_clearance.json)
+=== R7 validation run 3/5 exit=1 end 2026-08-28T03:12:16Z ===
+=== R7 validation run 4/5 start 2026-08-28T03:12:16Z ===
+[r5-provenance] R7 route issued (seed 886736): 15.3,11.5,10.0; 48.3,6.6,10.0; 18.3,13.3,10.0
+[r5-provenance] bringing the agent's stack up
+[r5-provenance] waiting for px4 (0s; container=workspace-robot-desktop-1)
+[r5-provenance] waiting for px4 (63s; container=workspace-robot-desktop-1)
+[r5-provenance] px4 ready in 87s
+[r5-provenance] planner /route_planner_beta publishing on /robot_1/global_plan
+[r5-provenance] R7 conformance ok: planner path passes all issued waypoints
+[r5-provenance] 7 checkpoints from planner route
+[r5-provenance] commanding takeoff (the ONLY judge-driven motion)
+[r5-provenance] observing flight (cap 900s); the integration must fly the route
+[r5-provenance] drone stationary — flight concluded
+[r5-provenance] d_from_prev_s": 2.31,
+      "within_budget": true
+    },
+    {
+      "index": 2,
+      "target": [
+        24.62,
+        11.41,
+        10.98
+      ],
+      "closest_approach_m": 7.256,
+      "reached": true,
+      "elapsed_from_prev_s": 72.24,
+      "within_budget": true
+    },
+    {
+      "index": 3,
+      "target": [
+        39.77,
+        8.55,
+        10.62
+      ],
+      "closest_approach_m": 5.384,
+      "reached": true,
+      "elapsed_from_prev_s": 56.43,
+      "within_budget": true
+    },
+    {
+      "index": 4,
+      "target": [
+        42.12,
+        8.15,
+        10.0
+      ],
+      "closest_approach_m": 4.259,
+      "reached": true,
+      "elapsed_from_prev_s": 1.74,
+      "within_budget": true
+    },
+    {
+      "index": 5,
+      "target": [
+        26.27,
+        11.57,
+        10.0
+      ],
+      "closest_approach_m": 8.883,
+      "reached": true,
+      "elapsed_from_prev_s": 105.99,
+      "within_budget": true
+    },
+    {
+      "index": 6,
+      "target": [
+        18.3,
+        13.3,
+        10.0
+      ],
+      "closest_approach_m": 1.35,
+      "reached": true,
+      "elapsed_from_prev_s": 13.47,
+      "within_budget": true
+    }
+  ],
+  "total_time_s": 358.98
+}
+
+[r5-provenance] R7 clearance: {"samples": 10770, "min_clearance_m": 0.557, "required_m": 1.0, "violation": true}
+[r5-provenance] FAIL: obstacle clearance violated (see r7_clearance.json)
+=== R7 validation run 4/5 exit=1 end 2026-08-28T03:19:21Z ===
+=== R7 validation run 5/5 start 2026-08-28T03:19:21Z ===
+[r5-provenance] R7 route issued (seed 887161): 46.4,25.7,10.0; 17.6,-1.5,10.0; 34.0,6.0,10.0
+[r5-provenance] bringing the agent's stack up
+[r5-provenance] waiting for px4 (0s; container=workspace-robot-desktop-1)
+[r5-provenance] waiting for px4 (63s; container=workspace-robot-desktop-1)
+[r5-provenance] px4 ready in 88s
+[r5-provenance] planner /route_planner_beta publishing on /robot_1/global_plan
+[r5-provenance] R7 conformance ok: planner path passes all issued waypoints
+[r5-provenance] 9 checkpoints from planner route
+[r5-provenance] commanding takeoff (the ONLY judge-driven motion)
+[r5-provenance] observing flight (cap 900s); the integration must fly the route
+[r5-provenance] drone stationary — flight concluded
+[r5-provenance] apsed_from_prev_s": 45.99,
+      "within_budget": true
+    },
+    {
+      "index": 4,
+      "target": [
+        41.31,
+        20.25,
+        10.57
+      ],
+      "closest_approach_m": 3.604,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 5,
+      "target": [
+        29.77,
+        10.15,
+        10.44
+      ],
+      "closest_approach_m": 9.22,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 6,
+      "target": [
+        18.6,
+        0.02,
+        10.05
+      ],
+      "closest_approach_m": 6.651,
+      "reached": true,
+      "elapsed_from_prev_s": 140.04,
+      "within_budget": true
+    },
+    {
+      "index": 7,
+      "target": [
+        30.04,
+        4.06,
+        10.0
+      ],
+      "closest_approach_m": 9.448,
+      "reached": true,
+      "elapsed_from_prev_s": 6.18,
+      "within_budget": true
+    },
+    {
+      "index": 8,
+      "target": [
+        34.0,
+        6.0,
+        10.0
+      ],
+      "closest_approach_m": 13.285,
+      "reached": true,
+      "elapsed_from_prev_s": 5.04,
+      "within_budget": true
+    }
+  ],
+  "total_time_s": 327.09
+}
+
+[r5-provenance] FAIL: final goal error 13.29m > 2.5m
+=== R7 validation run 5/5 exit=1 end 2026-08-28T03:26:05Z ===
+=== batch complete 2026-08-28T03:26:05Z ===

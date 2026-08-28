@@ -1,0 +1,151 @@
+diff --git a/robot/ros_ws/src/local/planners/droan_gl/config/droan_gl.yaml b/robot/ros_ws/src/local/planners/droan_gl/config/droan_gl.yaml
+index d455eb54..10a48b06 100644
+--- a/robot/ros_ws/src/local/planners/droan_gl/config/droan_gl.yaml
++++ b/robot/ros_ws/src/local/planners/droan_gl/config/droan_gl.yaml
+@@ -72,6 +72,18 @@
+     # controller's virtual-time tracking across the discontinuity
+     # (ballistic dives observed); needs a controller-level primitive
+     auto_unstick: false
++    # yaw-sweep unstick: when boxed and PAUSEd for yaw_sweep_delay_s, fly
++    # a yaw_sweep_radius circle with yaw rotating through
++    # yaw_sweep_revolutions so the forward camera sweeps the surroundings
++    # ('unseen' arcs become real evidence and planning resumes). Every
++    # commanded position stays within the circle, so the appended-segment
++    # race that disqualified auto_unstick cannot command an escape.
++    auto_yaw_sweep: true
++    yaw_sweep_delay_s: 5.0
++    yaw_sweep_radius: 0.5
++    yaw_sweep_velocity: 0.35
++    yaw_sweep_revolutions: 1.25
++    yaw_sweep_max_attempts: 2
+     # breadcrumb corridor: recently flown positions are treated as
+     # verified-free for the 'unseen' check (collision still overrides),
+     # making retreat/turn arcs plannable with a forward-only camera
+diff --git a/robot/ros_ws/src/local/planners/droan_gl/src/droan_gl_node.cpp b/robot/ros_ws/src/local/planners/droan_gl/src/droan_gl_node.cpp
+index 652ac18b..4489eff1 100644
+--- a/robot/ros_ws/src/local/planners/droan_gl/src/droan_gl_node.cpp
++++ b/robot/ros_ws/src/local/planners/droan_gl/src/droan_gl_node.cpp
+@@ -100,6 +100,17 @@ private:
+   double paused_since_ = -1.;
+   double no_pause_until_ = -1.;
+   double rewind_cooldown_until_ = -1.;
++  // Yaw-sweep unstick: active-perception pause recovery (see the sweep
++  // block in the planning loop). Attempts reset when planning resumes.
++  bool auto_yaw_sweep;
++  float yaw_sweep_delay_s, yaw_sweep_radius, yaw_sweep_velocity, yaw_sweep_revolutions;
++  int yaw_sweep_max_attempts;
++  int sweep_attempts_ = 0;
++  // Far-boxed stall anchor: detects a no-candidate hover that never
++  // trips the PAUSE brake (camera-voted collision with LiDAR beyond
++  // auto_brake_range) so the sweep can fire there too.
++  tf2::Vector3 stall_anchor_;
++  double stall_anchor_time_ = -1.;
+   // Breadcrumbs: recently flown positions (target frame). Physically
+   // verified free space — candidates through them are never blocked as
+   // 'unseen', which makes retreat/turn arcs plannable with a
+@@ -185,6 +196,12 @@ public:
+     auto_rewind = airstack::get_param(this, "auto_rewind", false);
+     auto_pause = airstack::get_param(this, "auto_pause", true);
+     auto_unstick = airstack::get_param(this, "auto_unstick", false);
++    auto_yaw_sweep = airstack::get_param(this, "auto_yaw_sweep", true);
++    yaw_sweep_delay_s = airstack::get_param(this, "yaw_sweep_delay_s", 5.0);
++    yaw_sweep_radius = airstack::get_param(this, "yaw_sweep_radius", 0.5);
++    yaw_sweep_velocity = airstack::get_param(this, "yaw_sweep_velocity", 0.35);
++    yaw_sweep_revolutions = airstack::get_param(this, "yaw_sweep_revolutions", 1.25);
++    yaw_sweep_max_attempts = airstack::get_param(this, "yaw_sweep_max_attempts", 2);
+     breadcrumb_radius = airstack::get_param(this, "breadcrumb_radius", 1.5);
+     breadcrumb_spacing = airstack::get_param(this, "breadcrumb_spacing", 1.0);
+     breadcrumb_max = airstack::get_param(this, "breadcrumb_max", 150);
+@@ -625,6 +642,83 @@ private:
+         no_pause_until_ = now_s + 8.;
+         no_safe_traj_since_ = -1.;
+       }
++      // Yaw-sweep unstick: a paused, boxed vehicle hovers with a frozen
++      // camera viewpoint, so the belief map never changes and the pause
++      // is absorbing. Fly a tiny circle around the hover point with yaw
++      // rotating through a full revolution: the stereo camera sweeps the
++      // surroundings, 'unseen' arcs become real free/occupied evidence,
++      // and normal candidate evaluation resumes planning. Unlike the
++      // breadcrumb retreat above, every commanded position stays within
++      // yaw_sweep_radius of the hover point, so a virtual-time race
++      // across the merge discontinuity cannot command a ballistic
++      // escape — the segment is bounded by construction.
++      // Far-boxed stall detection: a camera-voted box with the LiDAR
++      // beyond auto_brake_range never trips the PAUSE brake — the
++      // controller flies the committed segment out and hovers with no
++      // recovery path (validation runs 1 and 5, 2026-08-28). Anchor the
++      // tracking point during consecutive no-candidate ticks; a
++      // sustained (< 1 m displacement) hover arms the sweep too.
++      bool far_boxed_hover = false;
++      if (!paused_ && tracking_point_valid_)
++      {
++        tf2::Vector3 cur = tflib::to_tf(tracking_point_odom_.pose.position);
++        if (stall_anchor_time_ < 0. || cur.distance(stall_anchor_) > 1.0)
++        {
++          stall_anchor_ = cur;
++          stall_anchor_time_ = now_s;
++        }
++        far_boxed_hover = displaced && now_s >= no_pause_until_ &&
++                          now_s - stall_anchor_time_ > yaw_sweep_delay_s;
++      }
++      if (auto_yaw_sweep && !auto_unstick &&
++          ((paused_ && now_s - paused_since_ > yaw_sweep_delay_s) ||
++           far_boxed_hover) &&
++          sweep_attempts_ < yaw_sweep_max_attempts && tracking_point_valid_)
++      {
++        tf2::Vector3 start = tflib::to_tf(tracking_point_odom_.pose.position);
++        double yaw0 = tf2::getYaw(
++            tflib::to_tf(tracking_point_odom_.pose.orientation));
++        // Circle through the current position, centered to its left, so
++        // the segment starts exactly at the tracking point (duplicate
++        // positions are erased by the trajectory library and time comes
++        // from distance/velocity — a yaw-only segment would collapse).
++        double cx = start.x() + yaw_sweep_radius * std::cos(yaw0 + M_PI_2);
++        double cy = start.y() + yaw_sweep_radius * std::sin(yaw0 + M_PI_2);
++        double theta0 = std::atan2(start.y() - cy, start.x() - cx);
++        int steps = std::max(8, (int)std::round(yaw_sweep_revolutions * 24.));
++        double dtheta = yaw_sweep_revolutions * 2. * M_PI / steps;
++        airstack_msgs::msg::TrajectoryXYZVYaw sweep;
++        sweep.header.stamp = look_ahead.header.stamp;
++        sweep.header.frame_id = target_frame;
++        for (int k = 0; k <= steps; k++)
++        {
++          airstack_msgs::msg::WaypointXYZVYaw w;
++          w.position.x = cx + yaw_sweep_radius * std::cos(theta0 + k * dtheta);
++          w.position.y = cy + yaw_sweep_radius * std::sin(theta0 + k * dtheta);
++          w.position.z = start.z();
++          // Unwrapped monotone yaw: the trajectory library interpolates
++          // raw values, so continuously increasing yaw rotates the
++          // camera uniformly with arc progress (no wrap snap).
++          w.yaw = yaw0 + k * dtheta;
++          w.velocity = yaw_sweep_velocity;
++          sweep.waypoints.push_back(w);
++        }
++        double sweep_duration =
++            yaw_sweep_revolutions * 2. * M_PI * yaw_sweep_radius / yaw_sweep_velocity;
++        RCLCPP_WARN(get_logger(),
++                    "%s — yaw-sweep unstick %d/%d "
++                    "(%.2f rev, ~%.0fs) to regain camera coverage",
++                    paused_ ? "boxed while paused" : "far-boxed hover (no pause)",
++                    sweep_attempts_ + 1,
++                    yaw_sweep_max_attempts, yaw_sweep_revolutions, sweep_duration);
++        send_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT);
++        traj_pub->publish(sweep);
++        paused_ = false;
++        sweep_attempts_++;
++        no_pause_until_ = now_s + sweep_duration + 4.;
++        no_safe_traj_since_ = -1.;
++        stall_anchor_time_ = -1.;
++      }
+       if (auto_rewind && displaced &&
+           now_s - no_safe_traj_since_ > auto_rewind_blocked_threshold &&
+           now_s >= rewind_cooldown_until_)
+@@ -649,6 +743,8 @@ private:
+     }
+     no_safe_traj_since_ = -1.;
+     consecutive_rewinds_ = 0;
++    sweep_attempts_ = 0;
++    stall_anchor_time_ = -1.;
+     if (paused_)
+     {
+       send_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT);

@@ -68,3 +68,27 @@ turns — motion is what sweeps the camera), strict vote at all ranges
 2. Campaign id bump (config sha changes: local_mirror, pinned commit,
    regenerated `obstacles_r7.usda`). No v4 trials were ever scored, so
    nothing is pooled across the change.
+
+---
+
+## ADDENDUM 2026-08-28 — (c) re-demonstration: 0/5, budget question moot
+
+The pending re-demonstration of reference R7 solvability ran as a
+5-flight batch under the frozen safe config (pin `891ca138`) with the
+candidate 240 s/checkpoint budget: **0/5 PASS**, full record in
+`c-ref-solvability-b240/summary.md` (raw:
+`agent_study/runs/ref_validation_r7_b240_001/`).
+
+- Verdict (c) is now **❌ under the frozen config** (the earlier ⚠️
+  relied on two mid-tuning passes from configs later rejected as
+  unsafe).
+- Every completed leg finished in ≤ 25 s — **the 120→240 s budget
+  recalibration is moot**. Failures are absorbing PAUSE hovers (3),
+  local-minimum churn (1), and a 0.30 m clearance shave (1); all
+  structural to reactive-only avoidance with recovery mechanisms
+  gated off pending the controller safe-retreat primitive.
+- The lead decision replacing "sign off a budget" is: recalibrate R7
+  difficulty into the frozen stack's envelope (cheapest; run 3 passes
+  at a 0.5 m clearance gate), or fix the controller safe-retreat
+  primitive and re-enable retreat unstick, or adopt a map-based local
+  planner (biggest lift). Options detailed in the addendum summary.

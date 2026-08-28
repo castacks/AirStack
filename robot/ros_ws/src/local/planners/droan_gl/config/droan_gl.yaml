@@ -72,6 +72,18 @@
     # controller's virtual-time tracking across the discontinuity
     # (ballistic dives observed); needs a controller-level primitive
     auto_unstick: false
+    # yaw-sweep unstick: when boxed and PAUSEd for yaw_sweep_delay_s, fly
+    # a yaw_sweep_radius circle with yaw rotating through
+    # yaw_sweep_revolutions so the forward camera sweeps the surroundings
+    # ('unseen' arcs become real evidence and planning resumes). Every
+    # commanded position stays within the circle, so the appended-segment
+    # race that disqualified auto_unstick cannot command an escape.
+    auto_yaw_sweep: true
+    yaw_sweep_delay_s: 5.0
+    yaw_sweep_radius: 0.5
+    yaw_sweep_velocity: 0.35
+    yaw_sweep_revolutions: 1.25
+    yaw_sweep_max_attempts: 2
     # breadcrumb corridor: recently flown positions are treated as
     # verified-free for the 'unseen' check (collision still overrides),
     # making retreat/turn arcs plannable with a forward-only camera

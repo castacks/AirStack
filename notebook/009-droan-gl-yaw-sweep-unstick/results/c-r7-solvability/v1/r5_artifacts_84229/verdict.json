@@ -1,0 +1,91 @@
+{
+  "success": false,
+  "num_odom_samples": 15760,
+  "tolerance_m": 15.0,
+  "budget_s_per_waypoint": 240.0,
+  "waypoints": [
+    {
+      "index": 0,
+      "target": [
+        0.02,
+        -0.01,
+        -0.01
+      ],
+      "closest_approach_m": 0.008,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 1,
+      "target": [
+        14.62,
+        0.78,
+        4.07
+      ],
+      "closest_approach_m": 7.531,
+      "reached": true,
+      "elapsed_from_prev_s": 4.23,
+      "within_budget": true
+    },
+    {
+      "index": 2,
+      "target": [
+        29.39,
+        1.94,
+        8.29
+      ],
+      "closest_approach_m": 5.095,
+      "reached": true,
+      "elapsed_from_prev_s": 36.03,
+      "within_budget": true
+    },
+    {
+      "index": 3,
+      "target": [
+        28.19,
+        12.77,
+        10.46
+      ],
+      "closest_approach_m": 2.22,
+      "reached": true,
+      "elapsed_from_prev_s": 9.54,
+      "within_budget": true
+    },
+    {
+      "index": 4,
+      "target": [
+        21.03,
+        16.84,
+        10.0
+      ],
+      "closest_approach_m": 1.657,
+      "reached": true,
+      "elapsed_from_prev_s": 225.15,
+      "within_budget": true
+    },
+    {
+      "index": 5,
+      "target": [
+        29.12,
+        3.69,
+        10.0
+      ],
+      "closest_approach_m": 8.011,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 6,
+      "target": [
+        34.1,
+        -4.4,
+        10.0
+      ],
+      "closest_approach_m": 16.147,
+      "reached": false
+    }
+  ],
+  "total_time_s": 525.51
+}
