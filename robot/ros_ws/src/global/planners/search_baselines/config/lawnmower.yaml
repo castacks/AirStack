@@ -80,7 +80,7 @@ search_planner:
 
     # Sector the region and stay in it. At 1 robot this is the region itself,
     # so the pipeline is exercised without changing behaviour.
-    sector_partition: 'strips'
+    sector_partition: 'rect'
     # NO pad. The other arms fly the unpadded search_area_xy, and the lanes
     # must cover the same ground or the comparison is not controlled. It also
     # has to FIT: goals are grid cells, and a padded sector wider than

@@ -148,6 +148,37 @@ def resolve_cfg(config):
     return cfg
 
 
+def _axes(cfg):
+    """`(origin, along-unit, left-unit)` of the track frame."""
+    ox, oy = (float(cfg["origin_m"][0]), float(cfg["origin_m"][1]))
+    th = math.radians(float(cfg["heading_deg"]))
+    return ((ox, oy), (math.cos(th), math.sin(th)),
+            (-math.sin(th), math.cos(th)))       # left of travel
+
+
+def _wobble(cfg):
+    """`a -> lateral offset of the centreline` at `a` metres downtrack.
+
+    Pulled out of `frame` so `from_track` can invert it EXACTLY. It was inline
+    there, and the inverse map is the one place where a re-derived copy of a
+    formula is worse than useless: a second wobble that agreed to three
+    decimals would put the authored ground relief a metre off the corridor the
+    intensity field actually cut, and nothing in a render says which of the two
+    moved.
+    """
+    amp = float(cfg.get("wobble_m", 0.0))
+    per = max(1e-6, float(cfg.get("wobble_period_m", 340.0)))
+
+    def wobble(a):
+        if amp <= 0.0:
+            return 0.0
+        return amp * (0.62 * math.sin(2.0 * math.pi * a / per)
+                      + 0.38 * math.sin(2.0 * math.pi * a / (per * 0.37)
+                                        + 1.71))
+
+    return wobble
+
+
 def frame(cfg):
     """`to_track(x, y) -> (along_m, cross_m)` and the unit vectors.
 
@@ -156,20 +187,8 @@ def frame(cfg):
     vortex actually was rather than from the straight line through the origin.
     Returns `(to_track, (ux, uy), (vx, vy))`.
     """
-    ox, oy = (float(cfg["origin_m"][0]), float(cfg["origin_m"][1]))
-    th = math.radians(float(cfg["heading_deg"]))
-    ux, uy = math.cos(th), math.sin(th)
-    vx, vy = -math.sin(th), math.cos(th)          # left of travel
-    amp = float(cfg.get("wobble_m", 0.0))
-    per = max(1e-6, float(cfg.get("wobble_period_m", 340.0)))
-
-    def wobble(a):
-        """Lateral offset of the centreline at `a` metres downtrack."""
-        if amp <= 0.0:
-            return 0.0
-        return amp * (0.62 * math.sin(2.0 * math.pi * a / per)
-                      + 0.38 * math.sin(2.0 * math.pi * a / (per * 0.37)
-                                        + 1.71))
+    (ox, oy), (ux, uy), (vx, vy) = _axes(cfg)
+    wobble = _wobble(cfg)
 
     def to_track(x, y):
         dx, dy = float(x) - ox, float(y) - oy
@@ -178,6 +197,33 @@ def frame(cfg):
         return a, c - wobble(a)
 
     return to_track, (ux, uy), (vx, vy)
+
+
+def from_track(cfg):
+    """`(along_m, cross_m) -> (x, y)`: the exact inverse of `frame`'s `to_track`.
+
+    Everything in this file so far reads the track field at a world point and
+    asks how hard the wind hit it. `disaster.scour_relief` needs the other
+    direction — it draws the marks a suction vortex leaves, and those are
+    generated in the vortex's own frame (a trochoid in `(along, cross)`) and
+    then placed. Without this they would have to be traced by searching the
+    world for points with the right track coordinates, which is both slow and
+    a second implementation of the meander.
+
+    Note the map is a SHEAR, not a rigid motion: `wobble` is a function of
+    `along`, so a straight line of constant `cross` comes out bent by the same
+    meander the damage corridor has. That is the point — a mark authored at
+    `cross = +12` lies 12 m left of the centreline wherever the centreline
+    happens to be, which is what "12 m left of the track" means.
+    """
+    (ox, oy), (ux, uy), (vx, vy) = _axes(cfg)
+    wobble = _wobble(cfg)
+
+    def to_world(a, c):
+        cc = float(c) + wobble(float(a))
+        return (ox + ux * float(a) + vx * cc, oy + uy * float(a) + vy * cc)
+
+    return to_world
 
 
 def _smoothstep(t):
@@ -427,6 +473,351 @@ def tornado_plan(level):
 
 
 # ---------------------------------------------------------------------------
+# the log debris surface
+# ---------------------------------------------------------------------------
+#
+# WHAT A TORNADO LOG IS MADE OF, AND WHY IT IS NOT WHAT THE FIRE PATH USES.
+#
+# Reported off the first assembled plate: *"the logs that are thrown around
+# ... their material looks to be the 'burnt forest floor' one. I can't have
+# that."* Nothing bound the burnt floor. What was bound, measured out of the
+# baked archetypes, was each tree's OWN bark diffuse through
+# `damage._pbr` — diffuse map only, no normal, no ORM — at
+# `texture_scale = (0.3, 0.3)`, i.e. ONE TILE PER 3.33 M:
+#
+#   species            log diffuse             mean luma
+#   Douglas_Fir        alter49_tree10           0.195      near-charcoal
+#   American_Beech     bark3                    0.324
+#   Black_Oak          alter49_tree7            0.362
+#   Shumard_Oak        alter49_tree7            0.362
+#   Largetooth_Aspen   alter49_tree4            0.535 (sd 0.223)  white birch
+#
+# A 1.5 m stick under a 3.33 m tile shows a crop about 6% wide by 45% long of
+# one photograph, with no normal to give the cylinder any relief — so what
+# renders is a soft mottled patch whose value depends on which species the
+# tree happened to be. Two of the six read as burnt ground at any scale, and
+# the stand as a whole covers a 2.7x value range, which says nothing about
+# species and everything about a bug.
+#
+# THE FIX IS ONE SURFACE PAIR FOR THE WHOLE STAND, not six lotteries. Species
+# identity is worth nothing at these sizes — a 0.2 m limb photographed from 40
+# m — and it costs a debris field that swings between charcoal and birch bark.
+# `vegetation.split_wood_material` carries the derivation of which piece gets
+# which: `wood_debris` cuts riven columns out of the bole rather than branches
+# off the outside, so most pieces have no bark on them at all.
+#
+# THE VALUES ARE THE POINT. A tornado debris field photographs LIGHT against
+# green grass and a burn scar photographs dark — the same argument
+# `planks.WOOD_BASE` is chosen on. So the bark is tinted UP and warm (mean
+# luma 0.44 -> ~0.49) where `scene_api._load_burnt_wood` tints the identical
+# surface DOWN to ~0.13 for the wildfire path. Getting these two the same way
+# round is the fastest way to build the wrong disaster.
+LOG_BARK_TILE_M = 1.25
+LOG_BARK_TINT = (1.22, 1.10, 0.94)
+LOG_SPLIT_TILE_M = 0.75
+LOG_SPLIT_TINT = (1.06, 1.03, 0.98)
+
+# 1.25 m rather than `bark_material`'s 1.7 m default, and the difference is
+# trunk bark against LIMB bark. `bark_oak_diff`'s author scale is 2.0 m a tile
+# (`Wood_Bark.mdl` annotates `texture_scale` with `dimension(float2(1,1))` and
+# halves it internally) and the sheet carries ~52 furrow ridges, so 3.8 cm a
+# ridge as photographed — a mature bole. `_WIND_THICK` debris is 0.10-0.30 m
+# through, and bark on a piece that size is finer; 1.25 m puts a ridge at
+# 2.4 cm and about twenty of them round the girth of a 0.2 m stick, which is
+# what makes it read as bark rather than as a brown tube.
+
+
+def log_materials(stage, parent_path, suffix=""):
+    """`(bark_path, split_path)` for tornado tree debris. Authors both.
+
+    Built once by a bake or an assembly and handed to every `wind_tree` call,
+    the same way the bake already shares one soil material for the root balls
+    — a material per tree would be six identical surfaces on the stage and a
+    different `Looks` name in every archetype.
+    """
+    from . import vegetation as veg
+
+    bark = "{0}/WindLooks/log_bark{1}".format(parent_path, suffix)
+    split = "{0}/WindLooks/log_split{1}".format(parent_path, suffix)
+    veg.bark_material(stage, bark, tile_m=LOG_BARK_TILE_M,
+                      tint=LOG_BARK_TINT)
+    veg.split_wood_material(stage, split, tile_m=LOG_SPLIT_TILE_M,
+                            tint=LOG_SPLIT_TINT)
+    return bark, split
+
+
+# ---------------------------------------------------------------------------
+# how far a baked tree archetype reaches, and which way to point it
+# ---------------------------------------------------------------------------
+#
+# THE SECOND HALF OF THE SAME REPORT: *"the logs that are thrown around look
+# like they're floating"*. They are not floating and there is no z bug in the
+# bake — every `log*` mesh in every archetype has a world minimum BELOW zero,
+# so inside its own frame each piece is seated or slightly buried. What is
+# missing is the GROUND. `suburb_scene.apply_ground` lays its sheet over
+# exactly `region` and nothing beyond it, and a tree archetype throws its
+# debris up to 27 m from the trunk, so any tree within a reach of the plate
+# boundary puts part of its debris bed over the void. Same defect
+# `scour_relief.clip_to_region` already fixes for spoil heaps, arriving from
+# the other side: there the feature can simply be dropped, and here it cannot,
+# because a tree archetype is referenced as an INSTANCE and USD forbids
+# authoring inside one. The only levers are WHICH archetype and WHICH YAW.
+#
+# MEASURED, NOT ASSUMED — and the measurement is why this is a table of
+# sixteen numbers rather than one radius. Sampling every mesh point of all 23
+# baked archetypes gives a reach that is a tight LOBE about local +X (the
+# throw direction every archetype is baked with): sectors spanning roughly
+# -68 to +68 degrees carry 12-27 m and everything behind the tree is under
+# 4 m. A single circular radius would therefore reject about six times the
+# area it needs to.
+#
+# ONLY NEAR-GROUND GEOMETRY COUNTS. The profile is taken over points below
+# 2 m, and dropping the crown is deliberate: a standing tree whose canopy
+# overhangs the plate edge is what a tree on a boundary looks like, while a
+# LOG lying past the edge is a log hanging over nothing. Including the crown
+# would have put Black_Oak's 25 m canopy into every `limbed` entry and
+# downgraded half the plate for no visual gain.
+#
+# THREE THINGS THE FIRST DIAGNOSIS OF THIS MISSED, all of which the numbers
+# show and all of which change the fix:
+#
+#   * IT IS NOT ONLY `leaning` AND `fallen`. `snapped` reaches 20.9-24.8 m and
+#     `limbed` 13.0-26.7 m, and NEITHER is in the launcher's
+#     `_TREE_TRACK_YAWED`, so both are placed at the tree's own arbitrary
+#     layout yaw. Those are the worse cases: at least a track-yawed tree
+#     throws its debris in a direction somebody chose.
+#   * THE REACH IS THE DEBRIS, NOT THE TREE. `_WIND_DEBRIS` scatters to 8-17 m
+#     and then `settle` throws the big pieces further with its +X bias at
+#     `THROW_MPS`, which is where 24 m off a 9 m/s bias comes from. Retuning
+#     either moves this table.
+#   * IT IS SEED-DEPENDENT. These are one bake's scatter (`ARCH_SEED=7`,
+#     `THROW_MPS=9`). Re-bake with a different seed and the numbers move by a
+#     metre or two, which is why every entry is rounded UP and why
+#     `_REACH_ANY` — the per-level envelope over all species — is the fallback
+#     for a combination that is not in the table.
+#
+# Re-measure after any re-bake, from a bare `python.sh` with no SimulationApp
+# (safe beside a running sim): open each `tree_*.usd`, transform every mesh
+# point to world, and take the max radius per sector over points with z < 2.
+
+REACH_SECTORS = 16
+
+# (species, level) -> 16 radii in metres, sector 0 spanning local azimuth
+# -180..-157.5 and running counter-clockwise, so local +X straddles the
+# boundary between sectors 7 and 8. Measured 2026-08-27 off the ARCH_SEED=7
+# bake.
+TREE_REACH = {
+    ("American_Beech", "limbed"):    (1.8, 2.2, 2.1, 2.2, 1.8, 1.6, 3.4, 14.7,
+                                      16.0, 13.1, 4.3, 1.3, 0.9, 1.0, 1.5, 2.1),
+    ("American_Beech", "leaning"):   (1.0, 0.5, 1.2, 1.6, 2.2, 2.3, 2.4, 14.0,
+                                      12.6, 2.9, 2.6, 0.8, 0.7, 0.5, 0.8, 0.9),
+    ("American_Beech", "fallen"):    (0.4, 0.4, 0.5, 0.2, 1.5, 2.6, 16.7, 20.5,
+                                      19.1, 17.7, 1.7, 0.5, 0.4, 0.3, 0.4, 0.4),
+    ("American_Beech", "snapped"):   (1.8, 2.3, 2.2, 2.2, 2.1, 6.4, 19.8, 23.5,
+                                      23.1, 21.1, 8.3, 2.0, 1.7, 2.0, 2.1, 2.2),
+    ("Black_Oak", "limbed"):         (1.0, 0.8, 0.8, 0.8, 0.9, 0.9, 0.8, 23.6,
+                                      26.7, 16.2, 0.9, 0.6, 0.9, 0.9, 1.0, 0.7),
+    ("Black_Oak", "leaning"):        (0.9, 0.7, 0.8, 0.6, 0.9, 1.0, 17.1, 19.2,
+                                      16.8, 15.8, 11.0, 0.6, 0.9, 0.8, 0.9, 0.6),
+    ("Black_Oak", "snapped"):        (1.1, 0.9, 0.8, 0.8, 1.0, 0.9, 16.2, 24.5,
+                                      23.9, 21.9, 0.9, 0.6, 1.0, 0.9, 1.0, 0.7),
+    ("Common_Apple", "limbed"):      (3.1, 2.9, 3.0, 0.8, 1.3, 7.1, 6.6, 12.5,
+                                      13.0, 5.9, 6.0, 2.0, 1.7, 1.3, 2.4, 3.0),
+    ("Common_Apple", "leaning"):     (1.9, 2.5, 2.4, 2.6, 1.2, 2.2, 4.6, 14.3,
+                                      13.4, 13.4, 6.3, 2.4, 0.7, 0.3, 2.1, 2.1),
+    ("Common_Apple", "fallen"):      (0.7, 0.8, 0.9, 2.2, 2.3, 4.2, 13.4, 14.9,
+                                      18.3, 17.6, 9.0, 0.6, 0.2, 0.6, 1.1, 1.0),
+    ("Common_Apple", "snapped"):     (3.1, 2.9, 3.0, 2.3, 2.3, 10.7, 19.1, 22.9,
+                                      22.8, 16.2, 8.9, 2.2, 2.1, 2.2, 2.4, 3.1),
+    ("Douglas_Fir", "limbed"):       (0.3, 0.6, 0.5, 0.2, 0.5, 0.5, 0.5, 13.8,
+                                      15.9, 2.4, 0.5, 0.8, 0.8, 0.5, 0.4, 0.6),
+    ("Douglas_Fir", "leaning"):      (0.1, 0.1, 0.1, 0.2, 0.2, 0.5, 1.8, 13.1,
+                                      13.1, 13.8, 0.7, 0.8, 0.8, 0.6, 0.4, 0.4),
+    ("Douglas_Fir", "fallen"):       (0.4, 0.4, 0.5, 0.3, 0.2, 0.3, 16.0, 17.5,
+                                      19.4, 16.2, 0.3, 0.8, 0.8, 0.6, 0.4, 0.4),
+    ("Douglas_Fir", "snapped"):      (0.2, 0.1, 0.1, 0.2, 0.2, 0.2, 15.6, 21.4,
+                                      24.8, 20.7, 0.5, 0.8, 0.8, 0.5, 0.3, 0.3),
+    ("Largetooth_Aspen", "limbed"):  (0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 4.1, 13.6,
+                                      13.3, 2.8, 2.7, 0.2, 0.2, 0.2, 0.2, 0.2),
+    ("Largetooth_Aspen", "leaning"): (0.1, 0.2, 0.2, 0.2, 0.2, 3.6, 3.7, 12.9,
+                                      12.3, 2.8, 2.9, 0.2, 0.2, 0.2, 0.0, 0.1),
+    ("Largetooth_Aspen", "fallen"):  (0.4, 0.1, 0.4, 0.3, 0.2, 3.4, 16.7, 20.1,
+                                      20.6, 19.0, 3.5, 0.3, 0.4, 0.5, 0.4, 0.4),
+    ("Largetooth_Aspen", "snapped"): (2.6, 2.4, 1.7, 2.4, 2.6, 12.4, 16.7, 19.1,
+                                      20.9, 16.1, 2.5, 2.7, 2.3, 2.4, 2.4, 2.5),
+    ("Shumard_Oak", "limbed"):       (3.1, 2.6, 0.4, 0.4, 0.3, 0.3, 2.1, 13.5,
+                                      12.3, 12.3, 0.4, 0.4, 2.2, 2.5, 3.1, 3.7),
+    ("Shumard_Oak", "leaning"):      (2.4, 2.3, 0.5, 0.3, 0.3, 0.4, 3.3, 13.5,
+                                      14.7, 4.6, 4.7, 0.3, 2.2, 2.4, 2.5, 2.8),
+    ("Shumard_Oak", "fallen"):       (2.2, 2.3, 0.5, 0.3, 0.4, 9.5, 17.8, 18.6,
+                                      21.5, 17.3, 3.3, 0.4, 2.2, 2.4, 2.4, 2.3),
+    ("Shumard_Oak", "snapped"):      (3.1, 2.6, 0.4, 0.4, 0.3, 0.3, 20.6, 24.3,
+                                      19.9, 22.7, 5.8, 0.4, 2.2, 2.5, 3.1, 3.7),
+}
+
+# Per-level envelope over every species, for a combination the table has not
+# seen — a new species in the asset set, or a bake this file has not been
+# re-measured against. Conservative by construction (it is the elementwise
+# max), so an unknown tree is treated as the worst one measured rather than as
+# a point object, which fails toward downgrading a tree that could have
+# stayed rather than toward debris over the void.
+_REACH_ANY = {
+    "limbed":  (3.1, 2.9, 3.0, 2.2, 1.8, 7.1, 6.6, 23.6,
+                26.7, 16.2, 6.0, 2.0, 2.2, 2.5, 3.1, 3.7),
+    "leaning": (2.4, 2.5, 2.4, 2.6, 2.2, 3.6, 17.1, 19.2,
+                16.8, 15.8, 11.0, 2.4, 2.2, 2.4, 2.5, 2.8),
+    "fallen":  (2.2, 2.3, 0.9, 2.2, 2.3, 9.5, 17.8, 20.5,
+                21.5, 19.0, 9.0, 0.8, 2.2, 2.4, 2.4, 2.3),
+    "snapped": (3.1, 2.9, 3.0, 2.4, 2.6, 12.4, 20.6, 24.5,
+                24.8, 22.7, 8.9, 2.7, 2.3, 2.5, 3.1, 3.7),
+}
+
+
+def tree_reach(species, level):
+    """The 16-sector reach profile for one archetype, or None if unbounded.
+
+    `pristine` returns None because it is not an archetype at all — the
+    assembly references the green species USD, whose only geometry is a
+    standing tree, and a canopy over the plate edge is not the defect this
+    guards against.
+    """
+    if not level or str(level) == "pristine":
+        return None
+    r = TREE_REACH.get((str(species), str(level)))
+    if r is not None:
+        return r
+    return _REACH_ANY.get(str(level))
+
+
+def _arc_extremes(a0, a1):
+    """Azimuths (deg) at which an arc a0..a1 can touch an axis-aligned box.
+
+    An arc of constant radius touches a rectangle either at one of its own
+    ENDS or where it crosses an axis direction — that is where x or y is
+    stationary along the arc — so testing those points is EXACT rather than a
+    sampling approximation, and it is at most six points per sector. Sampling
+    the arc instead would miss a tangent by up to `r * (1 - cos(11.25 deg))`,
+    half a metre at the reach of a snapped oak, which is exactly the size of
+    the overhang being hunted.
+    """
+    out = [a0, a1]
+    for base in (0.0, 90.0, 180.0, 270.0):
+        a = a0 + ((base - a0) % 360.0)
+        if a <= a1:
+            out.append(a)
+    return out
+
+
+def reach_fits(reach, x, y, yaw_deg, region, margin_m=0.0):
+    """True when an archetype at `(x, y)` yawed by `yaw_deg` stays on the plate.
+
+    `region` is `(x0, y0, x1, y1)` — the same tuple `suburb_scene.apply_ground`
+    lays its sheet over and `scour_relief.clip_to_region` tests against, so
+    "inside" means "there is ground underneath".
+    """
+    if not reach:
+        return True
+    x0, y0, x1, y1 = (float(q) for q in region)
+    m = float(margin_m)
+    x0, y0, x1, y1 = x0 + m, y0 + m, x1 - m, y1 - m
+    n = len(reach)
+    step = 360.0 / n
+    for k in range(n):
+        r = float(reach[k])
+        if r <= 0.0:
+            continue
+        a0 = -180.0 + step * k + float(yaw_deg)
+        for a in _arc_extremes(a0, a0 + step):
+            t = math.radians(a)
+            px = float(x) + r * math.cos(t)
+            py = float(y) + r * math.sin(t)
+            if px < x0 or px > x1 or py < y0 or py > y1:
+                return False
+    return True
+
+
+# How finely the inward sweep is searched, in degrees. 9 is a third of the
+# ladder's own +-38 deg fall jitter, so a tree that only needs nudging keeps a
+# bearing indistinguishable from the one it drew, and 40 candidates covers the
+# full circle for the ones that need turning right round.
+YAW_STEP_DEG = 9.0
+
+
+def tree_level_and_yaw(intensity, rng, species, x, y, region, *,
+                       track_yaw_deg, base_yaw_deg=0.0, jitter_deg=38.0,
+                       track_yawed=("leaning", "fallen"), margin_m=0.0,
+                       step_deg=YAW_STEP_DEG):
+    """Level and yaw for one tree, with its debris kept ON the plate.
+
+    Returns `(level, yaw_deg, info)` where `info` is
+    `{"drawn", "turned_deg", "downgraded"}` for the assembly's banner.
+
+    TURN IT BEFORE YOU DOWNGRADE IT. Both moves keep the debris on the ground,
+    and they are not equally cheap: the fall bearing is already a ±38 degree
+    draw, because "trees go over in the direction their own rooting and
+    neighbours allow as much as in the direction the wind was going", so
+    turning one further costs a little of the stand's grain and nothing else.
+    Downgrading it changes what the scene SAYS — it puts an intact tree where
+    the intensity field asked for a fallen one, and near a plate edge that
+    would print a ring of undamaged vegetation round the whole scene, which is
+    the exact artefact `clip_to_region` rejects an inset for. So: the drawn
+    level is tried at every yaw first, and the ladder is only walked down when
+    no yaw on the circle fits.
+
+    The candidate yaws are searched OUTWARD FROM THE NATURAL ONE, so a tree
+    that needs a nudge gets a nudge and only a tree in a corner is turned right
+    round. `turned_deg` is how far it had to go; a scene where that is large
+    for many trees is a scene whose archetypes out-reach its plate, and the
+    answer to that is a smaller `_WIND_DEBRIS` radius, not a bigger sweep.
+
+    THE JITTER IS DRAWN UNCONDITIONALLY, one `rng` value per tree whatever
+    happens next. Drawing it lazily — only for the levels that use it, which is
+    what the launcher did — makes the number of draws depend on the outcome, so
+    one tree changing level re-rolls every tree after it and a re-tune of the
+    plate size silently reshuffles the whole stand.
+    """
+    drawn = tree_level_for_intensity(intensity, rng, species=species)
+    jit = rng.uniform(-float(jitter_deg), float(jitter_deg))
+
+    order = list(TREE_LEVELS)
+    try:
+        start = order.index(drawn)
+    except ValueError:
+        start = 0
+    n_yaw = max(1, int(round(360.0 / max(1e-6, float(step_deg)))))
+    for idx in range(start, -1, -1):
+        level = order[idx]
+        if level == "pristine":
+            break
+        # The promotion `tree_level_for_intensity` applies has to be applied
+        # again on the way DOWN, or a wide-crowned species walking back from
+        # `snapped` lands on `fallen` — a combination the bake deliberately
+        # never wrote, so the assembly would reference a missing archetype and
+        # fall back to a green tree anyway.
+        if level == "fallen" and species and str(species) in NO_UPROOT:
+            continue
+        reach = tree_reach(species, level)
+        natural = (float(track_yaw_deg) + jit if level in track_yawed
+                   else float(base_yaw_deg))
+        if reach_fits(reach, x, y, natural, region, margin_m=margin_m):
+            return level, natural, {"drawn": drawn, "turned_deg": 0.0,
+                                    "downgraded": level != drawn}
+        for i in range(1, n_yaw + 1):
+            for sign in (1.0, -1.0):
+                d = sign * float(step_deg) * i
+                if abs(d) > 180.0:
+                    continue
+                if reach_fits(reach, x, y, natural + d, region,
+                              margin_m=margin_m):
+                    return level, natural + d, {"drawn": drawn,
+                                                "turned_deg": d,
+                                                "downgraded": level != drawn}
+    return "pristine", float(base_yaw_deg), {"drawn": drawn,
+                                             "turned_deg": 0.0,
+                                             "downgraded": drawn != "pristine"}
+
+
+# ---------------------------------------------------------------------------
 # the ground scour
 # ---------------------------------------------------------------------------
 
@@ -527,6 +918,348 @@ def _island_field(region, rng, islands, n=256, band_m=(18.0, 55.0)):
 
 
 # ---------------------------------------------------------------------------
+# vehicles in the track
+# ---------------------------------------------------------------------------
+#
+# WHY A VEHICLE GETS ITS OWN MODEL AND A TRASH CAN DOES NOT. A car is the most
+# legible object in a debris field: a viewer knows its correct resting pose
+# without being told, so a wrong one is read instantly and a right one carries
+# the whole severity of the frame. It was also the explicit second element of
+# Joplin's search doctrine — "house by house, CAR BY CAR, block by block" —
+# which is the reason this dataset has any business modelling it carefully.
+#
+# EVERY RATE BELOW IS Paulikas, Schmidlin & Marshall 2016, 959 vehicles across
+# 12 tornadoes, and the ladder is built from it rather than from taste:
+#
+#     EF0        10% shifted
+#     EF1-EF2    36% displaced,   5% rolled or lofted
+#     EF3-EF4    63% displaced,  15% rolled or lofted
+#     EF5        69% moved,      31% tipped
+#
+# Two things fall straight out of that table and both are easy to get wrong.
+# First, even on the centreline only about a third go over: TWO THIRDS OF THE
+# MOVED CARS ARE MERELY SHOVED — parked askew, nosed into a kerb, pushed off a
+# drive — and a corridor where every car is upside down is as wrong as one
+# where none is. Second, those are UNCONDITIONAL shares of all vehicles in the
+# damage zone: "EF5 69% moved, 31% tipped" means 31% of ALL cars, not 31% of
+# the 69% that moved. Testing a tip probability only after a car has already
+# passed a move probability multiplies the two and produces an effective 6%
+# where the data says 15% — MEASURED on the first tornado run, 5 of 25 cars in
+# the path moved and NONE tipped. A tipped car is displaced by definition, so
+# the correct structure is ONE draw against nested thresholds, which is what
+# `car_pose` does.
+CAR_P_MOVE = (0.10, 0.62)      # p_move = a + b * intensity
+CAR_P_TIP = (0.05, 0.30)       # p_tip  = a + b * intensity ** 1.5
+
+# Below this the wind is not doing anything to a parked car worth authoring;
+# above it and below `CAR_MIN_TIP_INTENSITY` a car can be shoved but not rolled.
+CAR_MIN_INTENSITY = 0.12
+
+# The saloon the rates are quoted against. `Paulikas`' population is
+# overwhelmingly light passenger vehicles, and the residential pool here is
+# 4.60-4.84 m, so the reference is the pool's own median rather than a round
+# number.
+CAR_REF_LEN_M = 4.60
+
+# HOW FAR, and it has to be conditioned on WHICH OUTCOME. A car that only slid
+# still has four tyres on the ground: friction dominates, and it stops inside a
+# car length or two — that is what "pushed off the drive" means. A car that
+# went over left the ground, and those are the ones a survey finds tens of
+# metres away. Driving both from one distribution (which the first cut of this
+# did, using the plank field's reach for everything) teleports a wheels-down
+# car ten metres down the street with no mark on it, which reads as a
+# continuity error rather than as damage.
+CAR_SHOVE_M = (1.0, 3.4)       # d = (a + b * intensity) * U(0.55, 1.6)
+CAR_SHOVE_JITTER = (0.55, 1.6)
+
+# The cone the travel bearing is drawn in, about the throw heading. A shoved
+# car is pushed by the near-surface flow it is standing in and goes broadly
+# where that flow goes; a lofted one is at the mercy of the vortex and scatters
+# far wider. A nosed-in car was arrested head-on, so its bearing is the bearing
+# it was travelling.
+CAR_SPREAD_DEG = {"shoved": 22.0, "side": 52.0, "roof": 52.0, "nose": 30.0}
+
+# Shares WITHIN the tipped population, and the order is by how often a damage
+# photograph shows them.
+CAR_TIP_MIX = (0.55, 0.30, 0.15)          # side, roof, nose
+
+# How close a jammed car comes to rest against the thing that stopped it, and
+# how far a blocker search steps. 0.35 m is a bumper's worth of crush plus the
+# fact that the blocker radii below are nominal.
+CAR_JAM_GAP_M = 0.35
+CAR_MARCH_M = 0.5
+
+# A car shoved hard into something rides up it — the nose lifts and the car
+# rests leaning on whatever stopped it. CAPPED BELOW 30 DEGREES ON PURPOSE:
+# the launcher's `toppled` flag (and therefore `tornado_people`'s `in_vehicle`
+# scenario, which is UPRIGHT CARS ONLY) is `|roll| > 30 or |pitch| > 30`, so a
+# jammed-but-upright car has to stay under that line or the occupant planner
+# loses it. 18 degrees is a visible lean and not a rolled car.
+CAR_JAM_PITCH_DEG = (8.0, 18.0)
+
+# What can actually stop a car, as a nominal radius in metres. Everything not
+# in here is transparent to a sliding car, and the omissions are as deliberate
+# as the entries: a FENCE does not stop a car (and by the time this runs the
+# corridor's fences have been deactivated anyway), a mailbox and a sign shear
+# off, and a hydrant is a 0.5 m casting that a car rides over. A tree bole and
+# a house wall stop one dead, and a car stops against another car — that pile
+# is one of the most characteristic things in a real track.
+CAR_BLOCKER_R_M = {"tree": 0.7, "car": 2.4, "streetlight": 0.3}
+
+
+def _wrap180(deg):
+    """Fold an angle into (-180, 180]. Used so a yaw DELTA is the short way
+    round: a car does not need to be told to spin 340 degrees to end up 20."""
+    d = float(deg) % 360.0
+    return d - 360.0 if d > 180.0 else d
+
+
+def car_blockers(standing=(), trees=(), cars=(), extra=(), cell_m=12.0):
+    """``(x, y) -> tag`` for the first thing a sliding car would jam against.
+
+    THE POINT OF THIS IS THAT A CAR COMES TO REST AGAINST SOMETHING. Left to
+    a bare throw vector a displaced car lands wherever the vector put it, which
+    in an open plat is most often the middle of a lawn — and a car sitting
+    politely in open grass twelve metres from its drive is the one vehicle pose
+    that reads as "somebody moved this asset" rather than as wind. In a real
+    track they pile against standing walls, wrap round tree boles, and end up
+    nose to nose in the gutter. Arresting the travel is what buys that.
+
+    *standing* is the launcher's own list of houses that still have a building
+    on the lot, as `(x, y, footprint_m)` — a WRECKED house is still a heap of
+    material that stops a car, so this is deliberately `standing` and not
+    `intact`. *trees* and *cars* are `(x, y)`, *extra* is `(x, y, radius, tag)`
+    for anything a caller wants to add. Same hash grid, and the same reason,
+    as `suburb_scene._CarKeepout`.
+
+    RADII ARE NOMINAL AND THAT IS FINE HERE. A house is entered as half its
+    footprint, which is a disc round a rectangle and therefore generous at the
+    corners; the consequence of being generous is a car that stops a metre
+    early, and the consequence of being exact would be a car authored inside
+    somebody's living room. The asymmetry is the whole argument for not
+    measuring properly.
+
+    A CAR DOES NOT BLOCK ITSELF, and the caller does not have to filter the
+    list per vehicle. `car_pose` probes the car's NOSE, which starts one march
+    step plus half a car length ahead of the origin — 2.7 m for the shortest
+    vehicle in the suburban pool (4.40 m) against a 2.40 m `car` radius — so
+    the first probe is already clear of the disc the car is standing on. That
+    margin is thin, so it is written down: a vehicle shorter than about 3.8 m
+    WOULD arrest itself at zero displacement, and the fix if one is ever added
+    is to drop the moving car's own entry rather than to shrink the radius.
+    """
+    grid, cell = {}, float(cell_m)
+    def _add(x, y, r, tag):
+        x, y, r = float(x), float(y), float(r)
+        for gx in range(int(math.floor((x - r) / cell)),
+                        int(math.floor((x + r) / cell)) + 1):
+            for gy in range(int(math.floor((y - r) / cell)),
+                            int(math.floor((y + r) / cell)) + 1):
+                grid.setdefault((gx, gy), []).append((x, y, r, tag))
+    for h in (standing or ()):
+        _add(h[0], h[1], float(h[2] if len(h) > 2 else 12.0) * 0.5, "house")
+    for t in (trees or ()):
+        _add(t[0], t[1], CAR_BLOCKER_R_M["tree"], "tree")
+    for c in (cars or ()):
+        _add(c[0], c[1], CAR_BLOCKER_R_M["car"], "car")
+    for e in (extra or ()):
+        _add(e[0], e[1], e[2], str(e[3]))
+
+    def blocked(x, y):
+        key = (int(math.floor(x / cell)), int(math.floor(y / cell)))
+        for (bx, by, r, tag) in grid.get(key, ()):
+            if math.hypot(x - bx, y - by) <= r:
+                return tag
+        return None
+
+    return blocked
+
+
+def car_pose(intensity, rng, throw_deg, throw_m, x=0.0, y=0.0,
+             long_axis_deg=None, length_m=CAR_REF_LEN_M, blocked=None,
+             force=None):
+    """Where one parked car ends up, and in what attitude. Pure geometry.
+
+    Returns a dict — `moved`, `pose`, `dx`, `dy`, `d_m`, `roll_deg`,
+    `pitch_deg`, `yaw_delta_deg`, `arrested_by`, `toppled` — which the caller
+    hands to `toss_prim`. Nothing here touches USD, so it is testable offline
+    and it is the only place the vehicle ladder lives.
+
+    *intensity* is the track field at the car's parked position, *throw_deg*
+    the scene's debris heading (`heading_deg + curl_deg`), *throw_m* the
+    scene's reach knob. *long_axis_deg* is the world bearing of the car's own
+    long axis BEFORE the toss — the placement's `yaw_deg` with the asset's art
+    `yaw-offset` taken back off — and passing it is what makes the resting
+    heading physical rather than a jitter; omit it and the yaw degrades to the
+    old undirected wobble. *blocked* is a `car_blockers` predicate.
+
+    THE FOUR POSES, and what each one is:
+
+      shoved  wheels down, slewed, moved a car length or two. TWO THIRDS OF
+              EVERY MOVED CAR, per the rates above.
+      side    rolled about its own long axis and stopped against its roof
+              rail. The commonest tipped pose by far.
+      roof    all the way over, resting on roof and pillars — a flatter,
+              wider silhouette than `side` and it reads differently from the
+              air, which is why it is worth separating.
+      nose    thrown against something and left standing on its front end.
+              Rare, and the single most arresting vehicle pose in a real
+              damage photograph.
+
+    THE RESTING HEADING IS SET BY THE OUTCOME, and this is the part the first
+    version got wrong — it applied one `U(-80, 80)` yaw wobble to everything,
+    which is a heading drawn from nothing.
+
+      * A SHOVED car SLEWS, it does not spin. Four tyres on tarmac resist
+        rotation far better than they resist sliding, so what a survey
+        photographs is a car pushed askew across its own bay by a few tens of
+        degrees, not one facing back down the street. Hence a delta about the
+        car's EXISTING heading.
+      * A ROLLED car rolls about its LONG AXIS, so when it stops that axis is
+        ACROSS the direction it travelled. This is the same argument
+        `planks.py` makes for board yaw (heading + 90, sigma 46) and it comes
+        from the same place: a long thin object driven by a flow ends up lying
+        across it. Hence an ABSOLUTE bearing of `travel + 90`, either hand.
+      * A NOSED-IN car hit something head-on, so its long axis points at what
+        it hit — the travel bearing, tightly.
+
+    MASS MATTERS AND LENGTH IS THE PROXY. Paulikas' population is light
+    passenger vehicles; the same wind does not roll a 9.5 m transit bus. For
+    geometrically similar vehicles the wind force goes as frontal area and the
+    resistance as mass, so force/mass scales as 1/L and both probabilities take
+    `CAR_REF_LEN_M / length_m`, capped at 1. That puts the bus at 0.48 of a
+    saloon's rates and leaves the residential pool (4.60-4.84 m) within 5% of
+    the reference, which is the intended behaviour: this exists to stop a bus
+    cartwheeling, not to re-rank the saloons. IT IS A POOR PROXY FOR A HIGH-
+    SIDED VAN, which is light for its frontal area and in reality flips early;
+    the honest fix is a mass/area field on the asset entry and there is not one.
+    """
+    it = max(0.0, min(1.0, float(intensity)))
+    rest = {"moved": False, "pose": "parked", "dx": 0.0, "dy": 0.0, "d_m": 0.0,
+            "roll_deg": 0.0, "pitch_deg": 0.0, "yaw_delta_deg": 0.0,
+            "arrested_by": None, "toppled": False}
+    if it <= CAR_MIN_INTENSITY and force is None:
+        return rest
+
+    mass = min(1.0, CAR_REF_LEN_M / max(1.0, float(length_m)))
+    p_move = (CAR_P_MOVE[0] + CAR_P_MOVE[1] * it) * mass
+    p_tip = (CAR_P_TIP[0] + CAR_P_TIP[1] * it ** 1.5) * mass
+
+    # ONE DRAW, NESTED THRESHOLDS — see the block comment above for why this
+    # is not two independent coins.
+    #
+    # `force` SKIPS THE DRAW AND NOTHING ELSE. `"tip"` takes the tipped branch
+    # and `"move"` the shoved one; the attitude mix, the throw distance, the
+    # march against the blockers and the resting heading are all the ordinary
+    # model. It exists for REVIEW SCENES — a 100 m plate holds about eight
+    # in-track cars, mostly on the shoulder where p_tip is under a tenth, so
+    # "no rolled car anywhere" is the ordinary outcome of a deterministic seed
+    # and re-rolling the seed until one appears is a poor way to answer "show
+    # me what a rolled car looks like". The caller that uses it says so in its
+    # banner (`TOR_MIN_TIPPED`); nothing sets it by default.
+    draw = rng.random()
+    if force is None and draw > p_move:
+        return rest
+
+    if force == "tip" or (force is None and draw < p_tip):
+        r = rng.random()
+        if r < CAR_TIP_MIX[0]:
+            pose = "side"
+            roll = rng.choice((-1.0, 1.0)) * rng.uniform(74.0, 106.0)
+            pitch = 0.0
+        elif r < CAR_TIP_MIX[0] + CAR_TIP_MIX[1]:
+            # THE FULL TURN, not 90 more degrees: a car that has gone all the
+            # way over rests on its roof and pillars.
+            pose = "roof"
+            roll = rng.choice((-1.0, 1.0)) * rng.uniform(158.0, 202.0)
+            pitch = 0.0
+        else:
+            pose = "nose"
+            roll = rng.uniform(-22.0, 22.0)
+            # 38-72 STOOD A VAN ON END. Reviewed on sight 2026-08-27 — "the
+            # car seems to have been turned 90 into the ground, which looks
+            # weird" — and the render is a 4.7 m box standing vertically in
+            # the middle of a road like a monolith. At 72 degrees plus 30 of
+            # roll the silhouette is indistinguishable from 90, and a car
+            # balanced on its bumper is not a pose anything comes to rest in.
+            # 30-52 is a car with its nose down and its tail in the air,
+            # which is what the damage photographs actually show.
+            pitch = rng.choice((-1.0, 1.0)) * rng.uniform(30.0, 52.0)
+        # The plank field's reach, and the same exponent, so a vehicle and the
+        # boards off the house beside it are thrown by one gradient.
+        d = float(throw_m) * (it ** 1.6) * rng.uniform(0.2, 0.9)
+    else:
+        pose = "shoved"
+        roll = rng.uniform(-7.0, 7.0)
+        pitch = 0.0
+        d = ((CAR_SHOVE_M[0] + CAR_SHOVE_M[1] * it)
+             * rng.uniform(*CAR_SHOVE_JITTER))
+
+    spread = CAR_SPREAD_DEG[pose]
+    travel = float(throw_deg) + rng.uniform(-spread, spread)
+    ta = math.radians(travel)
+
+    # ---- march until something stops it -----------------------------------
+    # Stepped rather than solved, because the blocker set is a soup of discs
+    # and the first one HIT is what matters, not the nearest one. The probe is
+    # the car's NOSE (its centre plus half its length), so a car jams when its
+    # bumper reaches the wall rather than when its middle does.
+    arrested = None
+    if blocked is not None and d > 0.0:
+        half = float(length_m) * 0.5
+        s = 0.0
+        while s < d:
+            s = min(d, s + CAR_MARCH_M)
+            tag = blocked(float(x) + math.cos(ta) * (s + half),
+                          float(y) + math.sin(ta) * (s + half))
+            if tag is not None:
+                arrested = tag
+                d = max(0.0, s - CAR_JAM_GAP_M)
+                break
+
+    # A car that slammed into something and stayed on its wheels does not stop
+    # level — it rides up whatever stopped it. Under the 30 degree `toppled`
+    # line by construction; see `CAR_JAM_PITCH_DEG`.
+    if arrested is not None and pose == "shoved" and it > 0.5:
+        pitch = rng.choice((-1.0, 1.0)) * rng.uniform(*CAR_JAM_PITCH_DEG)
+
+    # A NOSED-IN CAR HAS TO HAVE HIT SOMETHING. This is the physical content
+    # of the pose and it was missing: `nose` was drawn from the tip mix and
+    # then thrown down an empty street, so the scene got a car standing on its
+    # bumper in open carriageway with nothing in front of it. A car pitches
+    # onto its nose because its front end stopped against a wall, a tree or
+    # another car and its back end kept going — no blocker, no nose. Demoted
+    # to the pose it would otherwise have taken, which is the commonest one.
+    if pose == "nose" and arrested is None:
+        pose = "side"
+        roll = rng.choice((-1.0, 1.0)) * rng.uniform(74.0, 106.0)
+        pitch = 0.0
+
+    # ---- the resting heading ----------------------------------------------
+    if long_axis_deg is None:
+        # No art offset was supplied, so an absolute bearing cannot be
+        # computed — fall back to an undirected wobble and say so here rather
+        # than authoring a confidently wrong heading.
+        yaw_delta = rng.uniform(-38.0, 38.0) if pose == "shoved" \
+            else rng.uniform(-80.0, 80.0)
+    elif pose in ("side", "roof"):
+        target = travel + rng.choice((-90.0, 90.0)) + rng.gauss(0.0, 30.0)
+        yaw_delta = _wrap180(target - float(long_axis_deg))
+    elif pose == "nose":
+        yaw_delta = _wrap180(travel + rng.gauss(0.0, 22.0)
+                             - float(long_axis_deg))
+    else:
+        yaw_delta = rng.uniform(-38.0, 38.0)
+
+    rest.update({"moved": True, "pose": pose,
+                 "dx": math.cos(ta) * d, "dy": math.sin(ta) * d, "d_m": d,
+                 "roll_deg": roll, "pitch_deg": pitch,
+                 "yaw_delta_deg": yaw_delta, "arrested_by": arrested,
+                 "toppled": abs(roll) > 30.0 or abs(pitch) > 30.0})
+    return rest
+
+
+# ---------------------------------------------------------------------------
 # posing props that are already on the stage
 # ---------------------------------------------------------------------------
 
@@ -574,6 +1307,35 @@ def toss_prim(stage, prim_path, dx, dy, roll_deg, yaw_jitter_deg, pitch_deg=0.0,
     sx, sy, sz = ((float(sc[0]), float(sc[1]), float(sc[2])) if sc is not None
                   else (1.0, 1.0, 1.0))
 
+    # CLEAR THE OPS BEFORE MEASURING, and this is not tidiness — it is a bug
+    # fix (2026-08-27).
+    #
+    # `ComputeUntransformedBound` does NOT exclude the prim's own `rotateZ`.
+    # Measured on a 2.0 x 0.5 x 1.0 m box referenced under translate +
+    # rotateZ + scale:
+    #
+    #     yaw   0     -> (-1.000, -0.250, 0) .. (1.000, 0.250, 1)   correct
+    #     yaw  37 deg -> (-1.240, -1.211, 0) .. (1.240, 1.211, 1)   WRONG
+    #
+    # The box comes back rotated and then re-aligned, so the across-axis half
+    # extent is inflated 0.25 -> 1.211 m, nearly five-fold. `lift` is computed
+    # from exactly those x/y extents (`|y| sin roll`, `|x| sin pitch`), so a
+    # 4.7 x 1.8 m car parked at yaw 45 reported a half-width of ~3.25 m
+    # instead of 0.9 and, rolled onto its side, was lifted 3.25 m — 2.35 m of
+    # air under it. Worst at 45 degrees, exact at multiples of 90, which is
+    # why it hid for so long. `scale` IS correctly excluded, so the separate
+    # multiply below is right and stays.
+    #
+    # Clearing the op order first makes the query measure the referenced
+    # geometry and nothing else. The ops are rebuilt from `vals` below either
+    # way, so nothing is lost by clearing early.
+    #
+    # (The obvious other suspect — that an INSTANCED prim returns an empty
+    # bound and silently drops `lift` to 0 — was tested and is FALSE: the
+    # bound comes back byte-identical to the non-instanced case.)
+    old_yaw = float(vals.get("rotateZ") or 0.0)
+    xf.SetXformOpOrder([])
+
     lift = 0.0
     if seat and (abs(roll_deg) > 0.01 or abs(pitch_deg) > 0.01):
         try:
@@ -606,11 +1368,9 @@ def toss_prim(stage, prim_path, dx, dy, roll_deg, yaw_jitter_deg, pitch_deg=0.0,
         except Exception:
             lift = 0.0
 
-    xf.SetXformOpOrder([])
     xf.AddTranslateOp().Set(Gf.Vec3d(float(t[0]) + dx, float(t[1]) + dy,
                                      float(t[2]) + lift))
-    xf.AddRotateZOp().Set(float(vals.get("rotateZ") or 0.0)
-                          + float(yaw_jitter_deg))
+    xf.AddRotateZOp().Set(old_yaw + float(yaw_jitter_deg))
     # ORDER IS Rz * Ry * Rx, matching the seating maths above. Pitch before
     # roll in the list means roll is applied first about the car's own long
     # axis, which is what "rolled onto its side" means; pitching a car that is

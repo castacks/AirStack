@@ -115,7 +115,12 @@ DEFAULTS = {
                            # One fills a single court and leaves the rest
                            # empty — see `_parking_refuge`.
                            "lots_used": 3,
-                           "cars": [2, 5], "police": True,
+                           # NO SQUAD CAR. The only place the `livery` pool is
+                           # drawn was one police car at a refuge lot mouth;
+                           # the user excluded the police cars (and the taxi)
+                           # from this dataset (2026-08-27), and with `livery`
+                           # unused here that is the whole exclusion. Was True.
+                           "cars": [2, 5], "police": False,
                            "cluster_r_m": [2.0, 9.0]},
         "open_ground": {"share": 0.20, "groups": [2, 3], "group_size": [3, 8],
                         "clear_m": 15.0, "cluster_r_m": [2.0, 8.0],
@@ -165,7 +170,77 @@ SCENARIOS = ("parking_refuge", "open_ground", "pools", "gridlock",
 # everywhere; `GROUND_POSES` are refused in peacetime unless the caller
 # supplies the seat (`in_vehicle` or `seat`).
 BANNED_POSES = ("wave",)
-GROUND_POSES = ("sit_ground", "sit_edge", "crouch")
+# GROUND_POSES grew on 2026-08-27 with the tornado survivor postures. The rule
+# it enforces is "in an undamaged scene nobody sits or lies on the ground", and
+# every one of the new names fails it for the same reason the old three do: a
+# person kneeling in a front garden with their hands in the lawn, or slumped
+# with their head on their knees on a driveway, is a person a peacetime scene
+# cannot explain. `dig_bent` and `stand_slump` are in the list even though
+# their contact is the SOLES — the test is not "is this figure on the floor",
+# it is "does this posture need a disaster to make sense".
+GROUND_POSES = ("sit_ground", "sit_edge", "crouch",
+                "dig_bent", "dig_kneel", "sit_slump", "stand_slump",
+                "trapped_sit")
+
+# THE POSES THAT ARE AUTHORED UPRIGHT AND PLACED LYING DOWN — see the comment
+# above them in `scene_generator._HUMAN_POSES`. The value is the `roll_deg`
+# that lays each one down correctly, and the pairing is not a preference: roll
+# +90 maps the character's front to world DOWN and roll -90 maps it to UP, so a
+# face-up pose laid down with +90 is face-down with its raised knee driven
+# through the ground.
+LYING_POSES = {
+    "lying_prone": 90.0,          # face-down
+    "lying_prone_reach": 90.0,    # face-down, both arms overhead
+    "lying_supine": -90.0,        # face-up
+    "lying_supine_open": -90.0,   # face-up, arms out, legs straight
+    "lying_side_l": 90.0,         # on the left side   (+ LYING_SPIN)
+    "lying_side_r": 90.0,         # on the right side  (+ LYING_SPIN)
+    "lying_curled_l": 90.0,       # drawn up, on the left side
+}
+
+# ...AND THE SPIN ABOUT THE BODY'S OWN LONG AXIS THAT PUTS ONE ON ITS SIDE.
+#
+# `scene_generator.apply_placements` authors rotateXYZ, so the ops compose X
+# (roll) then Y (pitch) then Z (yaw). The roll above lays the body down along
+# the pre-yaw -+Y axis; the PITCH axis is world Y, which is now the body's own
+# long axis, so `pitch_deg` rolls the laid-out figure over without moving its
+# head, its feet or its placement point. +90 puts it on its LEFT side and -90
+# on its RIGHT.
+#
+# WHY THIS AND NOT A THIRD ROLL VALUE. Roll is applied about the pre-yaw X axis
+# — the body's TRANSVERSE axis while it is still standing — so roll 45 does not
+# put a figure on its side, it stands it up at 45 degrees. Only a rotation
+# applied AFTER the lay-down acts about the long axis, and in an XYZ order that
+# is the pitch. `tornado_people._body_axis` is unaffected and stays a function
+# of the roll alone: a rotation about Y cannot move a vector that lies along Y.
+LYING_SPIN = {"lying_side_l": 90.0, "lying_side_r": -90.0,
+              "lying_curled_l": 90.0}
+
+# HOW HIGH THE PLACEMENT POINT SITS ABOVE THE SURFACE, per lying attitude.
+#
+# The rig's origin is between its SOLES, and `roll_deg` turns the whole body
+# about that point, so the body's centre line finishes exactly on the surface
+# and half of it is underground unless it is lifted. How far depends on which
+# way up it is:
+#
+#   face-up / face-down   half the A-pose bbox DEPTH (`sy`), 0.33-0.40 m across
+#                         this pack. MEASURED, and exact for the attitude.
+#   on the side           half the body's BREADTH — and `sx` cannot supply it,
+#                         because the A-pose bbox is 1.20-1.34 m wide with the
+#                         arms out. MODELLED from stature instead: biacromial
+#                         breadth is 0.245 H (Drillis & Contini 1966) so the
+#                         spine sits 0.22 m up at 1.80 m; the hips are 0.191 H
+#                         and shoulder flesh compresses under load, so 0.115 H
+#                         is the figure used. VERIFY ON SIGHT — a shoulder in
+#                         the debris with a floating hip means it is too small.
+_LATERAL_HALF_BREADTH_H = 0.115
+
+
+def _lying_lift(pose, depth_m, height_m):
+    """Metres to raise a laid-down rig so its body rests ON the surface."""
+    if str(pose) in LYING_SPIN:
+        return _LATERAL_HALF_BREADTH_H * float(height_m)
+    return 0.5 * float(depth_m)
 
 # House damage levels that read as "this house did not shelter anybody" — the
 # ones a pool refugee is sheltering FROM, and the ones whose floor plate is
@@ -848,17 +923,52 @@ def _human_placement(ctx, usd, x, y, z_ground, yaw, pose, prone=False):
     au = ap.axis_of(usd)
     fp = ctx["resolver"].get(usd, "human", scale=sc, axis_up=au)
     height = float(fp.get("sz", 1.8)) or 1.8
+    if str(pose) in LYING_POSES and not prone:
+        # A LYING POSE THAT IS NOT LAID DOWN IS THE WORST FAILURE IN THIS FILE.
+        # `lying_prone` authored upright is a standing figure with one arm
+        # stretched straight out over its head — the exact silhouette the
+        # raised-arm pose was cut for on 2026-08-26 — and it would compose
+        # without a single warning. Refuse instead.
+        raise ValueError(
+            "pose %r must be placed with prone=True; it is authored upright "
+            "and laid down by the placement's roll (see LYING_POSES)" % pose)
     if prone:
-        # `scene_generator._human_down`: face-down/up, i.e. +-90 of roll about
-        # the body's facing axis on the PRE-YAW frame, lifted by half the body
-        # DEPTH (sy in an arms-down pose, not the T-pose arm span).
+        # LAID DOWN BY THE PLACEMENT'S ROLL, POSED BY THE SKELETON. The pose
+        # bends the limbs (`scene_generator._HUMAN_POSES`: lying_supine /
+        # lying_prone) and the +-90 roll about the pre-yaw X axis turns the
+        # whole rig onto its face or its back, lifted by half the body DEPTH
+        # (sy in an arms-down pose, not the T-pose arm span).
+        #
+        # THE ROLL SIGN NOW COMES FROM THE POSE. It used to be
+        # `90 if (x + y) >= 0 else -90` — a coin flip on the placement's own
+        # coordinates, which was harmless only because the pose was hard-coded
+        # to `idle` and a rolled stander looks equally wrong either way up. It
+        # is not harmless now: roll +90 puts the character's front DOWN and
+        # roll -90 puts it UP, so `lying_supine` (raised knee, forearm across
+        # the chest, face to the sky) rolled +90 is face-down with its knee
+        # buried. Legacy callers that pass `idle` keep the old coordinate
+        # flip, so nothing that was already correct moves.
+        #
+        # AND THE PITCH SPINS IT ABOUT ITS OWN LONG AXIS, which is how a figure
+        # gets onto its SIDE. After the roll the body lies along the pre-yaw
+        # +-Y and the rotateXYZ order applies pitch about world Y next, so
+        # `LYING_SPIN` turns the laid-out figure over without moving its head,
+        # its feet or its placement point. The lift changes with it: on its
+        # back the body is half its measured DEPTH deep, on its side half its
+        # (modelled) BREADTH — see `_lying_lift`.
+        pose = str(pose or "idle")
+        roll = LYING_POSES.get(pose)
+        if roll is None:
+            roll = 90.0 if (x + y) >= 0 else -90.0
         return {
             "usd": usd, "x_m": float(x), "y_m": float(y),
-            "z_m": float(z_ground) + float(fp.get("sy", 0.35)) / 2.0,
+            "z_m": float(z_ground) + _lying_lift(
+                pose, float(fp.get("sy", 0.35)) or 0.35, height),
             "yaw_deg": float(yaw) + ap.yaw_of(usd),
-            "roll_deg": ap.roll_of(usd) + (90.0 if (x + y) >= 0 else -90.0),
-            "pitch_deg": 0.0, "scale": sc, "category": "human", "axis_up": au,
-            "pose": "idle",
+            "roll_deg": ap.roll_of(usd) + roll,
+            "pitch_deg": float(LYING_SPIN.get(pose, 0.0)),
+            "scale": sc, "category": "human", "axis_up": au,
+            "pose": pose,
         }
     return {
         "usd": usd, "x_m": float(x), "y_m": float(y),

@@ -729,6 +729,18 @@ class SemanticSearchTaskNode(Node):
         except Exception as e:
             self.get_logger().warn(f'Failed to cancel NavigateTask: {e}')
 
+    def _stamp_speed(self, goal):
+        """Put the task's max_flight_speed on a NavigateTask goal (droan_gl
+        applies it per goal). Loud if task_msgs predates the field."""
+        mps = float(getattr(self, '_max_flight_speed', 0.0) or 0.0)
+        if hasattr(goal, 'max_speed_mps'):
+            goal.max_speed_mps = mps
+        elif mps > 0.0:
+            self.get_logger().warn(
+                'task_msgs NavigateTask has no max_speed_mps — rebuild (bws); '
+                'max_flight_speed is NOT reaching droan_gl')
+        return mps
+
     def _send_navigate_activator(self, robot_name: str, retries: int = 4):
         """Activate droan_gl with an empty-plan NavigateTask: it enters
         ADD_SEGMENT and steers by the /global_plan topic (raven's waypoint)
@@ -746,6 +758,7 @@ class SemanticSearchTaskNode(Node):
             return None, None
         goal = NavigateTask.Goal()
         goal.goal_tolerance_m = 1.0
+        self._stamp_speed(goal)
         for attempt in range(retries):
             send_future = client.send_goal_async(goal)
             deadline = time.time() + 3.0
@@ -791,6 +804,7 @@ class SemanticSearchTaskNode(Node):
         goal = NavigateTask.Goal()
         goal.global_plan = plan
         goal.goal_tolerance_m = float(goal_tolerance_m)
+        self._stamp_speed(goal)
         send_future = client.send_goal_async(goal)
         self.get_logger().info(
             f'NavigateTask (approach) sent to droan_gl → '
@@ -895,6 +909,14 @@ class SemanticSearchTaskNode(Node):
 
     def _execute(self, goal_handle):
         goal = goal_handle.request
+        # The task's speed bound rides down to droan_gl on every NavigateTask
+        # this executor sends (NavigateTask.Goal.max_speed_mps; 0 = droan's
+        # own max_velocity). It used to be logged and dropped.
+        self._max_flight_speed = float(getattr(goal, 'max_flight_speed', 0.0) or 0.0)
+        self.get_logger().info(
+            f'SemanticSearchTask max_flight_speed {self._max_flight_speed:.1f} m/s '
+            '-> NavigateTask.max_speed_mps' if self._max_flight_speed > 0.0 else
+            'SemanticSearchTask max_flight_speed unset -> droan_gl max_velocity default')
         # Debug/manual-fly mode: spin up rayfronts + raven and publish all their
         # visualization, but skip every drone-commanding path (droan follow,
         # out-of-bounds approach, stuck recovery) so the operator can hand-fly

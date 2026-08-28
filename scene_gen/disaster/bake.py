@@ -581,11 +581,245 @@ def _write_bucket(out, path, bucket):
 
 
 _SINK_TOL_M = 0.02      # below this a root counts as "sank", not as "resting"
+# ...AND ABOVE THIS ONE IT COUNTS AS AIRBORNE. A fragment resting on the pile
+# has a few centimetres of daylight under its axis-aligned box simply because
+# the box is bigger than the shape; a fragment the solver froze in mid-flight
+# has tens of centimetres. 0.10 m is comfortably past the first and well short
+# of the second — measured on the tornado archetypes, the airborne population
+# has a MEDIAN gap of 0.18-0.24 m and a tail to 2.98 m.
+_AIR_TOL_M = 0.10
+
+
+def _reseat_roots(bc, roots, rz, sink_tol=_SINK_TOL_M, air_tol=_AIR_TOL_M,
+                  min_ovl=0.20, freeze=(), pre=None):
+    """Per-root Z corrections that put a settled pile back on the ground.
+
+    PURE GEOMETRY, NO SOLVER. Returns `{root path: dz}` for the roots that
+    need moving, and it does two separate things:
+
+      RAISE what fell through the floor. The bake's harness ground is a
+      four-vertex quad added to the static set, and at `THROW_MPS = 9` the
+      loose fragments reach ~20 m/s — fast enough to tunnel it. Measured on
+      the 2026-08-27 tornado archetypes, 21-42% of the meshes in every wrecked
+      house sat below -0.05 m and whole-object `z_min` ran to -2.9 m. That is
+      material simply lost from the pile.
+
+      LOWER what was frozen in the air. `settle.run` treats `steps` as a
+      CEILING with an early exit, not as a convergence test — the last bake
+      used all 1200 steps with 4 bodies still moving, and earlier ones left
+      182 of 7,219 "frozen mid-flight". Measured on the same archetypes,
+      11-29% of the meshes in a `leveled` or `partial_collapse` house had NO
+      other mesh under them within 0.10 m: a median 0.19 m of daylight and a
+      tail to 2.6 m. With the scene's sun at 24.4 degrees of elevation that is
+      0.42 m of detached shadow at the median, which is what "floating debris"
+      looks like from the air.
+
+    THE SUPPORT TEST IS AXIS-ALIGNED, so it OVER-counts support and therefore
+    UNDER-counts floaters. That is the safe direction: a piece wrongly judged
+    supported is left where the solver put it, which is the status quo.
+
+    Roots are placed from the bottom up and each one's box is updated as it
+    lands, so a stack settles rather than every piece being dropped onto the
+    original surface.
+
+    `freeze` NAMES ROOTS THAT ARE SUPPORT BUT NEVER MOVE, and the tree path is
+    why it exists. A windthrown tree's pose is AUTHORED, not settled:
+    `tip_tree` bisects the lean down until the crown is just into the turf
+    (`seat_band = (-1.1, -0.15)`) and `wind_tree` lifts the base by the root
+    plate's own radius on purpose. Both of those look exactly like "sank
+    through the floor" to the test above, so reseating a tree along with its
+    debris would stand every fallen trunk back up on the lawn and undo the one
+    thing that makes it read as windthrow. A frozen root still contributes its
+    box, so a log CAN come to rest on a fallen trunk.
+
+    NO `pxr` IMPORT. Everything below is arithmetic on six floats a box, and
+    `bc` is only ever asked for a world bound — so this function runs, and is
+    unit-tested, on the host with a stand-in cache. That matters: it is the
+    one piece of the bake whose correctness is not obvious (the support test
+    got the intact roofs wrong on the first try) and it is the only piece that
+    can be checked without a GPU.
+    """
+    boxes = []
+    pre = pre or {}
+    for r in roots:
+        wr = bc.ComputeWorldBound(r).ComputeAlignedRange()
+        if wr.IsEmpty():
+            continue
+        mn, mx = wr.GetMin(), wr.GetMax()
+        # `pre` is a shift the caller has ALREADY decided for this root, so
+        # measure it where it is going rather than where it is.
+        dz = float(pre.get(r.GetPath().pathString, 0.0))
+        boxes.append([r.GetPath().pathString,
+                      float(mn[0]), float(mn[1]), float(mn[2]) + dz,
+                      float(mx[0]), float(mx[1]), float(mx[2]) + dz])
+    out = {}
+    held_fast = set(str(p) for p in freeze)
+    # Bottom up, so a piece lands on what has already been placed under it.
+    boxes.sort(key=lambda b: b[3])
+    for i, b in enumerate(boxes):
+        path, x0, y0, z0, x1, y1, z1 = b
+        if path in held_fast:
+            continue
+        if z0 < rz - sink_tol:
+            dz = rz - z0                       # lost through the floor
+            out[path] = dz
+            b[3] += dz
+            b[6] += dz
+            continue
+        # WHAT COUNTS AS HOLDING US UP, and this took two goes to get right.
+        #
+        # v1 asked only for boxes lying ENTIRELY below (`q_top <= z0`). A gable
+        # roof sitting on its walls FAILS that — the roof's box includes its
+        # overhanging soffit, so the walls' tops are above the roof's own
+        # min-z — and every intact roof in the library would have been dropped
+        # to the lawn.
+        #
+        # v2 asked for anything overlapping in plan that REACHES our underside
+        # (`q_top >= z0 - air_tol`). That fixed the roofs and did almost
+        # nothing else: measured on the rebake, `house_ranch_leveled` went
+        # 17.0% airborne to 15.1%. The reason is that a levelled pile is full
+        # of tall wall stubs, and a stub spanning 0 to 2.5 m "supports"
+        # everything within its plan footprint at every height — including a
+        # fragment frozen at 1.75 m with nothing but air under it.
+        #
+        # v3, here: the support's top has to land IN OUR VERTICAL SPAN —
+        # `z0 - air_tol <= q_top <= z1`. Something whose top is at our
+        # underside, or inside us, is plausibly what we came to rest on. A box
+        # that simply TOWERS PAST us is not: it might be a wall we are wedged
+        # against, and an axis-aligned test cannot tell, so the tie is broken
+        # toward dropping. That is the right way to break it — a fragment
+        # lying on the ground is a pose the solver could plausibly have
+        # reached, and a fragment hanging in mid-air never is.
+        #
+        # And the overlap has to be a SEAT rather than a corner clip: at least
+        # `min_ovl` of the smaller of the two plan areas. Measured against the
+        # smaller so a small stub can still hold up a large sheet, which is
+        # exactly how a wall holds up a roof.
+        a_self = max(1e-6, (x1 - x0) * (y1 - y0))
+        support, held = rz, False
+        for j, q in enumerate(boxes):
+            if j == i:
+                continue
+            ox = min(q[4], x1) - max(q[1], x0)
+            oy = min(q[5], y1) - max(q[2], y0)
+            if ox <= 0.0 or oy <= 0.0:
+                continue                       # no plan overlap
+            a_q = max(1e-6, (q[4] - q[1]) * (q[5] - q[2]))
+            if (ox * oy) / min(a_self, a_q) < min_ovl:
+                continue                       # a corner clip, not a seat
+            if z0 - air_tol <= q[6] <= z1:
+                held = True
+                break
+            if q[6] <= z0 and q[6] > support:
+                support = q[6]
+        if not held and (z0 - support) > air_tol:
+            dz = -(z0 - support)
+            out[path] = dz
+            b[3] += dz
+            b[6] += dz
+    return out
+
+
+def _seat_plan(bc, roots, recenter=None, drop_to_ground=False,
+               reseat=False, reseat_first=True, reseat_freeze=None):
+    """Decide `(rz, {root path: dz})` — every Z correction one export makes.
+
+    SLICED OUT OF `export_object` SO IT CAN BE TESTED WITHOUT KIT. `bc` is
+    only ever asked for `ComputeWorldBound(prim).ComputeAlignedRange()`, and
+    a root is only ever asked for `GetPath().pathString`, so a dozen lines of
+    stand-in stand in for the whole of USD — see `tests/test_bake_reseat.py`.
+    The composition of the two corrections is the part worth pinning: it is
+    where the floating-debris bug lived, and it is invisible in a render until
+    it is wrong.
+
+    `rz` is what the caller subtracts from EVERY mesh; `dz` is the extra shift
+    for one root. So a root finishes at `z_src - rz + dz`.
+    """
+    rx, ry, rz = (recenter or (0.0, 0.0, 0.0))
+    lift = {}
+    if not (drop_to_ground or reseat):
+        return rz, lift
+    # THE GRADE IS THE DATUM EVERYTHING WAS AUTHORED AGAINST — the harness
+    # ground, `recenter`'s own Z, normally 0. `drop_to_ground` moves the
+    # OBJECT relative to it; it must never move the ground.
+    grade = rz
+
+    def _min_z(prim):
+        wr = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+        return None if wr.IsEmpty() else wr.GetMin()[2]
+
+    def _add(path, dz):
+        lift[path] = lift.get(path, 0.0) + dz
+
+    if drop_to_ground:
+        # The object itself sets the offset. When its own geometry is gone
+        # (a `stump`, or a `snap`/`topple` that deactivated the bole) there is
+        # nothing to measure and `recenter`'s Z stands — everything was
+        # authored against a harness ground at z=0, so that is right.
+        z0 = _min_z(roots[0])
+        if z0 is not None:
+            rz = z0
+        # DROP THE OBJECT, NOT ITS DEBRIS — the second half of the lesson in
+        # `export_object`'s docstring, arriving from the other direction. The
+        # offset is subtracted from EVERY mesh, so a first root whose own
+        # geometry dips BELOW grade (a root flare under the turf, a low branch
+        # past the trunk's base) makes `rz` negative and LIFTS the whole file,
+        # including every stick `wood_debris` placed analytically at exactly
+        # `ground_z - 0.001`. Measured 2026-08-27 on the shipped library: in
+        # `tree_Shumard_Oak_snapped` and `_limbed` the seated sticks sat at
+        # EXACTLY 0.530 m with clear air under them and 35-40% of all meshes
+        # were unsupported, while every species whose base is at its origin was
+        # clean and both `_NO_DROP` levels were clean at every species. The
+        # float appeared exactly, and only, where the drop was applied.
+        #
+        # So the datum shift is compensated back out for every root that is NOT
+        # the object: debris keeps the absolute Z it was authored at, and the
+        # reseat pass below is what corrects a piece the solver misplaced.
+        if rz != grade:
+            for r in roots[1:]:
+                _add(r.GetPath().pathString, rz - grade)
+        if not reseat:
+            # The old per-root rescue, for callers that do not ask for the full
+            # geometric pass: raise anything left under the grade.
+            for r in roots[1:]:
+                zr = _min_z(r)
+                if zr is not None and (zr - grade) < -_SINK_TOL_M:
+                    _add(r.GetPath().pathString, grade - zr)
+
+    if reseat:
+        # A wrecked building is not DROPPED — it was authored on the harness
+        # ground and that is where it belongs — but its individual fragments
+        # still have to be put back on the pile. `drop_to_ground` cannot be
+        # reused for that: its first act is to redefine the datum from the
+        # first root, and for a house the first root is one module of many.
+        #
+        # `reseat_first=False` is the TREE case: the first root's pose is
+        # authored deliberately (see `_reseat_roots(freeze=...)`) and only what
+        # it shed needs seating.
+        #
+        # `pre` measures a root WHERE IT WILL ACTUALLY END UP rather than where
+        # the solver left it, so a log lying across a trunk that is about to be
+        # dropped comes down with it. ONLY THE FIRST ROOT NEEDS ONE: the pass
+        # works in source coordinates against `grade`, which is already where
+        # the debris finishes — its entry above exists purely to cancel the
+        # datum shift, so its net movement is zero and pre-shifting it too
+        # would count the same offset twice.
+        pre = {}
+        if drop_to_ground and rz != grade:
+            pre[roots[0].GetPath().pathString] = grade - rz
+        frozen = set(str(q) for q in (reseat_freeze or ()))
+        if not reseat_first:
+            frozen.add(roots[0].GetPath().pathString)
+        for path, dz in _reseat_roots(
+                bc, roots, grade, pre=pre, freeze=frozen).items():
+            _add(path, dz)
+    return rz, lift
 
 
 def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
                   recenter=None, drop_to_ground=False, merge=None,
-                  stats_out=None):
+                  stats_out=None, reseat=False, reseat_first=True,
+                  reseat_freeze=None):
     """Write one object's meshes + materials to a self-contained USD by value.
 
     `src_stage` is a stage (typically the Kit-flattened scene) that has the
@@ -620,6 +854,24 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
     the debris count is part of what the level looks like; a missing log is a
     more visible loss than a log lying in a slightly different place.
 
+    AND THE DATUM SHIFT IS COMPENSATED BACK OUT FOR THE DEBRIS. That fix above
+    stopped one sunk LOG lifting the file; the same defect arrives again from
+    the tree itself. `_off` is subtracted from every mesh, so a first root
+    whose own geometry dips below grade makes `rz` negative and RAISES
+    everything — including sticks `wood_debris` placed analytically at exactly
+    `ground_z - 0.001`. Both halves are now separated: the drop moves the
+    object, the debris keeps the absolute Z it was authored at, and `reseat`
+    is what corrects a piece the solver actually misplaced.
+
+    `reseat_first=False` leaves the FIRST root alone during that pass — the
+    tree case, where the pose is authored (`tip_tree`'s seat band, the root
+    plate's lift) rather than settled. `reseat_freeze` names any OTHER root
+    that is authored rather than settled; `vegetation.wind_tree` publishes
+    exactly that list as `res["anchored"]`, and the root ball is on it — it is
+    centred on `lift = r_plate * 0.5` so that it straddles the tipped trunk's
+    open base, which puts it below grade on purpose. See
+    `_reseat_roots(freeze=...)`.
+
     `merge` (agent O): `False`/"off" writes one prim per source mesh, the way
     this always did; `True`/"on" (the default, `BAKE_MERGE`) welds the meshes
     into ONE per material per shading signature — see the MERGE block above.
@@ -648,28 +900,23 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
         return False
 
     _off = None
-    _lift = {}          # root path -> extra Z lift, for pieces below ground
-    if recenter or drop_to_ground:
-        rx, ry, rz = (recenter or (0.0, 0.0, 0.0))
-        if drop_to_ground:
-            _bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
-                                    [UsdGeom.Tokens.default_])
-
-            def _min_z(prim):
-                wr = _bc.ComputeWorldBound(prim).ComputeAlignedRange()
-                return None if wr.IsEmpty() else wr.GetMin()[2]
-
-            # The object itself sets the offset. When its own geometry is gone
-            # (a `stump`, or a `snap`/`topple` that deactivated the bole) there
-            # is nothing to measure and `recenter`'s Z stands — everything was
-            # authored against a harness ground at z=0, so that is right.
-            z0 = _min_z(roots[0])
-            if z0 is not None:
-                rz = z0
-            for r in roots[1:]:
-                zr = _min_z(r)
-                if zr is not None and (zr - rz) < -_SINK_TOL_M:
-                    _lift[r.GetPath().pathString] = rz - zr
+    _lift = {}          # root path -> extra Z shift; NEGATIVE means dropped
+    if recenter or drop_to_ground or reseat:
+        # X and Y only: the Z comes back from `_seat_plan`, which owns every
+        # decision about it.
+        rx, ry, _ = (recenter or (0.0, 0.0, 0.0))
+        # BOTH PURPOSES, to agree with the renderer and with
+        # `audit_archetype`. A cache built over `default_` alone misses
+        # anything authored `purpose = render`, and a root it cannot measure is
+        # a root it silently declines to correct — which audits as floating
+        # debris that the bake reported as clean.
+        _bc = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+        rz, _lift = _seat_plan(_bc, roots, recenter=recenter,
+                               drop_to_ground=drop_to_ground, reseat=reseat,
+                               reseat_first=reseat_first,
+                               reseat_freeze=reseat_freeze)
         _off = Gf.Vec3d(rx, ry, rz)
 
     out = Usd.Stage.CreateNew(out_path)
@@ -930,7 +1177,11 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
 
     out.GetRootLayer().Save()
     if stats_out is not None:
-        stats_out.update(src_meshes=n_mesh, merged_src=n_src_merged,
+        stats_out.update(seat_rz=float(rz if _off is not None else 0.0),
+                         seat_lifted=len(_lift),
+                         seat_lift_max=(max((abs(v) for v in _lift.values()),
+                                            default=0.0)),
+                         src_meshes=n_mesh, merged_src=n_src_merged,
                          kept_src=n_src_kept, merged_prims=n_merged_prims,
                          repeat_kept=n_repeat_kept,
                          materials=len(matmap), mode=mode,
@@ -964,6 +1215,105 @@ def validate(out_path, root="/Baked"):
 def write_manifest(path, records):
     with open(path, "w") as fh:
         json.dump(records, fh, indent=1)
+
+
+# LEVELS WHOSE JOB IS TO BE A LOW PILE. A `pristine` house has a roof with air
+# under it and so does a `roof_stripped` one — reading those rows as floating
+# debris is how an investigation nearly chased a non-bug. These are the only
+# rows where "nothing underneath" is a defect. Both the wind and the fire
+# ladders are here; the names do not collide.
+PILE_LEVELS = ("leveled", "swept", "partial_collapse", "fallen", "snapped",
+               "burned_out", "rubble", "stump")
+
+
+def audit_archetype(path, grade=-0.05, air_min=0.10, air_tol=0.10,
+                    seat_frac=0.2):
+    """What fraction of one exported archetype's meshes has nothing under it.
+
+    THE MEASUREMENT THE COMPLAINT IS ABOUT, produced by the bake that caused
+    it rather than by a probe run afterwards. Per mesh, from the exported USD
+    (so this is what actually ships, `bake._reseat_roots` included):
+
+      * SUNK — world bbox min-z below `grade`. Material the solver pushed
+        through the ground.
+      * AIRBORNE — sits more than `air_min` up and no other mesh both
+        overlaps it in plan by at least `seat_frac` of the smaller of the two
+        footprints AND has its top inside [z0 - air_tol, z1].
+
+    The support test is `bake._reseat_roots` v3, and the two rules matter for
+    opposite reasons. Requiring the support's top to land IN OUR VERTICAL SPAN
+    is what stops a 2.5 m wall stub "supporting" everything inside its plan
+    footprint at every height; requiring a SEAT rather than a corner clip is
+    what stops a passing overlap counting. Measured against the SMALLER of the
+    two areas so a stub can still hold up a sheet — that is how a wall holds
+    up a roof.
+
+    Axis-aligned boxes still over-count support (a mesh can be inside another
+    mesh's box and touch nothing), so every number here is a LOWER bound on
+    what is really floating.
+    """
+    import numpy as np
+    from pxr import Usd, UsdGeom
+
+    st = Usd.Stage.Open(path)
+    if not st:
+        return None
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                           [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+    # INSTANCE PROXIES INCLUDED, or an archetype that ships its debris as
+    # instances audits as empty and reports a clean bill of health.
+    try:
+        walk = Usd.PrimRange.Stage(st, Usd.TraverseInstanceProxies())
+    except Exception:
+        walk = st.Traverse()
+    box = []
+    for prim in walk:
+        if not prim.IsA(UsdGeom.Mesh) or not prim.IsActive():
+            continue
+        try:
+            r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+        except Exception:
+            continue
+        if r.IsEmpty():
+            continue
+        mn, mx = r.GetMin(), r.GetMax()
+        box.append((mn[0], mn[1], mn[2], mx[0], mx[1], mx[2]))
+    if not box:
+        return None
+    return _air_and_sunk(np.asarray(box, dtype=float), grade=grade,
+                         air_min=air_min, air_tol=air_tol,
+                         seat_frac=seat_frac)
+
+
+def _air_and_sunk(a, grade=-0.05, air_min=0.10, air_tol=0.10, seat_frac=0.2):
+    """The measurement itself, over an (N, 6) array of x0,y0,z0,x1,y1,z1.
+
+    Split out from `audit_archetype` so the support test can be exercised on
+    the host with hand-built boxes and no Isaac — it is the part that has been
+    wrong twice (see the docstring above) and it is worth pinning.
+    """
+    import numpy as np
+
+    if not len(a):
+        return None
+    x0, y0, z0, x1, y1, z1 = a.T
+    area = np.maximum(x1 - x0, 1e-6) * np.maximum(y1 - y0, 1e-6)
+    air = 0
+    for i in range(len(a)):
+        if z0[i] <= air_min:
+            continue
+        ox = np.minimum(x1, x1[i]) - np.maximum(x0, x0[i])
+        oy = np.minimum(y1, y1[i]) - np.maximum(y0, y0[i])
+        ov = np.maximum(ox, 0.0) * np.maximum(oy, 0.0)
+        sup = (ov >= seat_frac * np.minimum(area, area[i])) \
+            & (z1 >= z0[i] - air_tol) & (z1 <= z1[i])
+        sup[i] = False
+        if not sup.any():
+            air += 1
+    return dict(meshes=int(len(a)), airborne=air,
+                sunk=int((z0 < grade).sum()), z_min=float(z0.min()),
+                air_max=float(z0[z0 > air_min].max()) if (z0 > air_min).any()
+                else 0.0)
 
 
 def read_manifest(path):

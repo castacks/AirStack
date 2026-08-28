@@ -90,7 +90,8 @@ _PLANNER_BODY = ''.join([
     _slice(SRC, '    def _goal_xy', '    def _agent_xy'),
     _slice(SRC, '    def _agent_xy', '    def _frontier_altitude'),
     _slice(SRC, '    def _clamp_alt', '    def _path_msg'),
-    _slice(SRC, '    def _command', '    def _await'),
+    # _intent_speed (target / transit-to-sector / explore), then _command
+    _slice(SRC, '    def _intent_speed', '    def _await'),
 ])
 exec(compile('class _StubPlanner:\n' + _PLANNER_BODY,
              '<planner_node:lawnmower>', 'exec'), _NS)
@@ -197,6 +198,11 @@ def make_planner(*, poly=SQUARE_130, offset=None, leg_m=25.0, reach=8.0,
     p._nav_mode = 'lawnmower'
     p._speeds = []
     p._explore_speed, p._target_speed = 3.0, 1.5
+    # no third gear here: transit_speed_mps 0 is the shipped default, so the
+    # sweep asks for explore/target only (test_search_area_source.py covers
+    # the transit gear)
+    p._transit_speed = 0.0
+    p._search_poly_converted = True
     p._set_local_speed = lambda i, v: p._speeds.append(v)
     p._lm_path = lm.boustrophedon(poly, spacing)
     p._lm_needs_anchor = True
@@ -384,8 +390,9 @@ def test_04b_speed_follows_intent():
     assert p._speeds[-1] == 3.0
     src = _slice(SRC, '    def _command', '    def _await')
     assert 'self._set_local_speed(' in src and 'self._nav_mode' not in src
-    setter = _slice(SRC, '    def _set_local_speed', '    def _command')
+    setter = _slice(SRC, '    def _set_local_speed', '    def _speed_label')
     assert "self._nav_mode == 'gpt'" in setter, 'the gpt arm must be left at one speed'
+    assert 'self._send_activator(i' in setter, 'the cap rides on a re-sent NavigateTask goal'
     print('    transit 3.0 -> target 1.5 -> transit 3.0; gpt arm exempt')
 
 

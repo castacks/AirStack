@@ -1,0 +1,285 @@
+# HIGH-LEVEL scene spec — a 100 x 100 m block of suburb with a tornado track
+# cut across it. THE CLOSE-UP COUSIN of `suburb_tornado`, and it exists for a
+# different question.
+#
+# `suburb_tornado` is 500 x 500 m and it is about the CORRIDOR: does the
+# swathe read as a track, is there intact fabric on both sides, does the
+# damage ladder spread. Everything in it is judged from altitude and the
+# ground is one texture among many.
+#
+# This one is 100 x 100 m and it is about the GROUND. At this size a drone
+# sits 30-50 m up and the whole plate is one frame, which is the only range at
+# which the 3D scour relief — `disaster/scour_relief.py`: the cycloidal marks,
+# the windrows, the spoil heaps, the rolled sod mats, the clods — can actually
+# be judged. On the 500 m plate they are correct and three pixels tall.
+#
+# WHAT CHANGED FROM `suburb_tornado`, AND WHY. Presets have no inheritance, so
+# this is a short file rather than a copy: everything not repeated here falls
+# through to `compile_locale.compile_suburban` and `low_level/default.yaml`,
+# both of which are already right for a suburb. Only what the PLATE SIZE
+# breaks is restated.
+#
+#   region_m               500 -> 100
+#   width_m                155 -> 46      (a third of the plate is still a
+#                                          corridor; the compiler's own cap is
+#                                          32% and that is tuned for a scene
+#                                          judged from altitude)
+#   block_area_target_m2   19000 -> 3200  ) 19000 is larger than this whole
+#   block_area_min_m2      5000  -> 1100  ) plate — every face would refuse to
+#   collectors             2 -> 1         ) split and the plat would be a
+#   min_gap_m              64 -> 40       ) single block inside a ring road
+#   neighbourhood_m        180 -> 55      (a district has to turn over inside
+#   grain_period_m         320 -> 90       the plate to be visible at all)
+#   dead_end_target        0.24 -> 0.0    (a 14.6 m cul-de-sac bulb plus a
+#   lollipop_len_m         [55,170] -> —   55 m stick is most of the plate)
+#   lot_width_m            [22,32] -> [16,22]  (frontage per dwelling: at
+#                                          [22,32] a 100 m street holds three
+#                                          houses and the fabric never reads.
+#                                          The narrow band does reject the
+#                                          kit's 20 m L-plans on some lots,
+#                                          which is the trade — more houses,
+#                                          fewer garage wings)
+#   undeveloped_share      0.15 -> 0.0    (a share of THREE blocks is a coin
+#                                          flip; measured 0-5 houses a plate)
+#   z_scale                0.16 -> 0.10   (road-paint height, by view distance;
+#                                          this is looked at from 40 m, not 300)
+#
+# Everything about the track itself EXCEPT the width is left to
+# `compile_tornado`, which already scales the meander, the breathing and the
+# edge noise as fractions of the plate — so a 100 m scene gets a 3.2 m wobble
+# on a 160 m period instead of the 500 m plate's 16 m on 800 m, and the track
+# drifts visibly within the frame rather than crossing it as a ruled line.
+#
+# BUILD IT. The archetype library is the SAME one the 500 m scene uses — the
+# bake is per (style, damage level) and has nothing to do with plate size, so
+# if `scene_gen/assets/archetypes_tornado` is populated there is nothing to
+# rebake:
+#
+#     ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado \
+#     SCENE_CONFIG=suburb_tornado_100 \
+#     ISAAC_SIM_SCRIPT_NAME=suburb_tornado_launch_script.py \
+#     ./airstack.sh up isaac-sim
+#
+# TWO SETS OF ENV KNOBS BELONG WITH THIS PRESET and cannot live in it, because
+# the ground passes read the environment rather than the config. They are here
+# so the recommendation travels with the scene that needs it:
+#
+#     TOR_SEED=5                     the damage draws; the LAYOUT seed is
+#                                    `seed:` below, and the two must agree or
+#                                    the plan PNG is not the scene you get
+#     MUD_CELL=1.0 MUD_BANDS=18      the flat overlay is diced into `MUD_CELL`
+#                                    quads, bucketed by coverage and greedy-
+#                                    meshed per band. At the 500 m plate's 3 m
+#                                    those steps are sub-pixel from altitude;
+#                                    on a 100 m plate seen from 40 m they are
+#                                    3 m rectangles of flat colour with square
+#                                    corners, which is what the first render
+#                                    showed. Finer cells and more bands cost
+#                                    nothing here — 10k cells against 1.1k on
+#                                    a plate this size.
+#     SCOUR_MOUNDS_PER_100M2=2.6     the ground relief rates, turned UP because
+#     SCOUR_SOD_PER_100M2=0.7        this plate is one frame rather than a
+#     SCOUR_RIDGES_PER_100M2=0.45    corner of one. The defaults in
+#                                    `scour_relief.DEFAULT_KNOBS` are tuned so
+#                                    a 120 m window holds four or five heaps,
+#                                    which is right when the window is a crop
+#                                    of a 500 m plate and thin when it IS the
+#                                    plate. `SCOUR_HEIGHT` is the other knob
+#                                    worth a sweep here.
+#
+# Or check it on the host first, no Isaac Sim needed — this prints the relief
+# budget as well as the damage ladder:
+#     python3 scene_gen/tools/tornado_png.py --config suburb_tornado_100
+
+locale: suburban
+asset-set: suburban_park
+
+disaster-type: tornado
+# Same EF3/low-EF4 as the 500 m scene: the centreline is swept, the shoulders
+# keep standing walls, the path edge is roofs with their covering off. The
+# ground relief scales with the same number — `arc_min_coverage` is only
+# cleared in the core, so a weaker track has heaps and no cycloidal marks.
+severity: 0.82
+
+region_m: [100, 100]
+seed: 5
+
+# A POINT ON THE CENTRELINE. Offset to the south-west of the middle so the
+# corridor enters at one corner and leaves at the far edge, crossing the plate
+# diagonally — a track through the exact centre at 45 degrees is symmetrical,
+# and symmetry is the tell for an authored scene.
+epicenter: [-18, -26]
+heading_deg: 38
+
+overrides:
+  disaster:
+    tornado:
+      # Tip to tip, in METRES. 46 on a 100 m plate leaves ~27 m of intact
+      # suburb on each side, which is one lot depth — enough to read as "the
+      # track missed this house" and no more. The compiler's 0.32 cap would
+      # give 32 m; that is the right answer for a scene judged from altitude
+      # and the wrong one for a scene whose SUBJECT is the ground inside the
+      # corridor.
+      width_m: 46.0
+      # Fraction of the half-width at full intensity before the falloff. The
+      # shoulders are where the interesting damage classes live and where the
+      # sod rolls sit, so keep it low.
+      core_frac: 0.22
+      # How far plank debris travels at full intensity. Scaled down with the
+      # plate: at the 500 m scene's 34 m every board off a wrecked house
+      # leaves the frame.
+      throw_m: 16.0
+      throw_speed_mps: 9.0
+  # ---- street furniture -----------------------------------------------------
+  # ONE LAMP EVERY 45 m, NOT EVERY 120. The 500 m preset's spacing puts FOUR
+  # streetlights on this whole plate and typically one or two of those inside
+  # the corridor — so "are the streetlights damaged?" was being answered by a
+  # sample of one, and the review's answer was no. 45 m is an ordinary
+  # residential lamp run and gives the 100 m plate eight or nine, enough that
+  # the corridor reads as a corridor: some carried away, most bent over, the
+  # ones outside the track standing.
+  detail:
+    categories:
+      streetlights: {zone: furnishing, spacing_m: 45.0}
+
+  roads:
+    z_scale: 0.10
+    driveway_asphalt_share: 0.5
+  usds:
+    materials:
+      asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+      driveway: "airstack://scene_gen/assets/materials/megascans/Brick_Wall_Worn.usda"
+      driveway_asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+  instance_categories: ["plant", "sidewalk", "streetlight",
+                        "fire_hydrant", "sign", "crosswalk"]
+  layout:
+    region_m: [100, 100]
+
+  suburb_net:
+    # Splitting stops when a face is under this. The whole plate is 10,000 m2,
+    # so the 500 m preset's 19,000 would refuse every split and leave one block
+    # inside a boundary ring — a scene with no street in it.
+    block_area_target_m2: 2000.0
+    block_area_min_m2: 700.0
+    collectors: 1
+    collector_wander: 0.22
+    # Centreline to centreline: two lot depths back to back plus a road.
+    min_gap_m: 32.0
+    # NO UNDEVELOPED PARCELS. The default 0.15 is a share, and a share of the
+    # THREE OR FOUR blocks that fit on a 100 m plate is a coin flip that
+    # routinely took two of them: measured over seeds 1-10 it left 0-5 houses
+    # a plate, most often 1 or 2. On the 500 m plate the same knob is what
+    # stops the plat reading as a masterplan; here there is not enough fabric
+    # for a hole in it to read as anything but a missing row of houses.
+    undeveloped_share: 0.0
+    junction_skew_deg: 30.0
+    four_way_chance: 0.35
+    # NO CUL-DE-SACS. The bulb alone is a 29 m circle and the stick that
+    # reaches it is 55-170 m — on a 100 m plate one lollipop is the scene.
+    dead_end_target: 0.0
+    grain_weight: 2.6
+    grain_swirl_deg: 28.0
+    grain_period_m: 90.0
+
+  suburb_parcel:
+    modular_houses: true
+    modular_share: 1.0
+    # FRONTAGE PER DWELLING. The 500 m preset's [22, 32] was chosen so the
+    # kit's 20 m L-plans keep a real side yard; here the constraint that bites
+    # first is how many dwellings a 100 m street can hold, so this sits at the
+    # narrow end of the same band and the widest styles are simply rarer.
+    lot_width_m: [16.0, 22.0]
+    min_lot_depth_m: 16.0
+    house_gap_m: 3.0
+    # SETBACK IS WHY A DRIVEWAY ON THIS PLATE CANNOT HOLD A CAR, and it is
+    # worth writing down rather than leaving to be re-derived. `suburb_parcel`
+    # strikes the drive from the front lot line (which IS the kerb line — the
+    # footway is laid inside it) to the garage face, so the drive is exactly
+    # `setback + 0.2` long, and `density_mix` then scales it: `tight` takes
+    # 0.80 of it and is 60% of the lots here. MEASURED over seeds 1/3/5/7/11:
+    # 9-13 drives a plate, 3.9 m shortest, 5.1 m median, 6.5 m longest.
+    # The residential pool is 4.60-4.84 m of car. That is the whole story of
+    # the `drive:drive_too_short` tally, and the `cars:` block below is what
+    # is done about it — NOT a bigger setback, which buys 2-5 driveway cars
+    # instead of 1-3 and costs a house off an 11-house plate (measured at
+    # [6.0, 9.0]). On the 500 m preset the same knob is [6.5, 11.0] and the
+    # median drive is 8-10 m, which is why none of this bites there.
+    setback_m: [4.5, 7.5]
+    # A district has to turn over inside the plate or the whole scene is one
+    # density class, which is the same as having no districts.
+    neighbourhood_m: 55.0
+    density_mix: {tight: 0.60, normal: 0.34, loose: 0.06, estate: 0.0}
+    # NO ROW HOMES. A development is 60-93 m across the frontage by 50-90 m
+    # deep — it does not fit on this plate, and a refused one costs a whole
+    # block of fabric while it is being refused.
+    row_share: 0.0
+
+  # ---- parked cars (suburb_scene.build_cars) ---------------------------------
+  # THE SCENE HAD NO CARS AT ALL and there were two independent reasons. The
+  # first was the asset URLs (`asset_sets/suburban.yaml`, now fixed — the
+  # eleven vehicles live in per-asset FOLDERS on Nucleus). The second is this
+  # block, and it is entirely a consequence of plate size.
+  #
+  # MEASURED, `tools/suburb_net_png.py`'s code path over seeds 1/3/5/7/11,
+  # before: 1-5 cars a plate, EVERY ONE of them at the kerb, `rejected
+  # {'drive:drive_too_short': 5-7}`. After: 8-21 cars (median 13), 3-6 of them
+  # on driveways. Carried through the tornado pass that is 4-9 vehicles in the
+  # corridor, 2-5 displaced and 0-4 tipped onto a side, roof or nose — against
+  # zero of everything before, because the assets did not load either.
+  # Nothing outside this preset moved, so `suburb_tornado` is untouched.
+  #
+  # `row_share: 0.0` above is why the court rank contributes nothing here and
+  # why its share is absent from this block: a cluster court is where ALL of a
+  # row-home development's cars are, and there are no row homes on this plate.
+  cars:
+    # THE TAIL SITS ON THE APRON, OVER THE DROPPED KERB. This is the knob that
+    # unlocks the driveway rank, and it is not a fudge: the default 1.0 keeps
+    # the rear bumper a metre inside the front lot line "so the tail is not
+    # hanging over the footway", which is a comfort a 6.5 m setback can afford
+    # and a 3.9 m one cannot. What a car on a short drive actually does is
+    # exactly this — nose to the garage door, back end across its own dropped
+    # kerb — and it is the commonest parking pose in any tight-setback tract.
+    # It is also SAFE at 0.0 rather than negative: the pass still refuses any
+    # car whose box reaches the carriageway (`road.on_road` on the tail
+    # corners), so the overhang stops at the gutter and no car is left parked
+    # in the street. Measured contribution: driveway 0 -> 1-3 on its own.
+    drive_rear_clear_m: 0.0
+    # ...and the nose goes closer to the door for the same reason. 0.8 m is a
+    # comfortable stop; 0.5 is still the width of a hand plus a wing mirror,
+    # and on a 5 m drive those 30 cm are 6% of the whole run.
+    drive_nose_clear_m: 0.5
+    # 0.55 is "a real suburb at midday — the rest are at work". THIS SCENE IS
+    # NOT MIDDAY. The US tornado diurnal maximum is late afternoon into early
+    # evening (the peak of severe convection), which is when the commute has
+    # landed, and a warned population goes home rather than out. 0.80 is that
+    # afternoon, and on an 11-house plate it is also the difference between
+    # a driveway rank of two cars and one of five.
+    driveway_chance: 0.80
+    # WHERE THE SECOND HOUSEHOLD CAR GOES. GENERATION.md calls suburban
+    # on-street parking "sparse" against downtown's "dense both sides", and
+    # the default 0.12 is one car per ~65 m of kerb. That reasoning holds
+    # *because* cars belong in driveways — and it stops holding on a plate
+    # where the drives are 3.9-6.5 m and hold one car at most.
+    #
+    # The arithmetic, and it is the reason for the number rather than a
+    # decoration on it. US households average 1.88 vehicles (ACS), so this
+    # plate's 11 dwellings own about 20; call it two thirds of them home in
+    # the late afternoon and the plate should carry 13. The driveway rank
+    # supplies 3-6 of those. The rest have nowhere to be except the kerb in
+    # front of the house they belong to, which is exactly what a photograph of
+    # any tight-setback tract shows. 0.34 is one car per ~24 m of kerb, and at
+    # 16-22 m of frontage per dwelling that is very nearly one per house — not
+    # a rank, one car out front. MEASURED over seeds 1/3/5/7/11: 8-21 cars a
+    # plate, median 13, which is the number the ACS asks for.
+    # RAISED AGAIN, 0.34 -> 0.55, after the first build on the fixed asset paths
+    # placed only FIVE cars: 1 drive + 4 kerb, with 8 driveway candidates
+    # rejected (4 too short, 2 on a planted bed, 1 on a streetlight, 1 off the
+    # plate) and 4 kerb slots rejected on driveway aprons. Those rejections are
+    # hard geometry and no density moves them — the only lever left is more
+    # attempts. The consequence downstream is what matters: 3 cars in the
+    # corridor at `p_move = 0.10 + 0.62 i` is an expectation of 1.6 moved and
+    # 0.7 tipped, so a build showing NO toppled car is the ordinary outcome
+    # rather than a fault. 0.55 is about one car per 15 m of kerb, which is a
+    # full residential street and not a car park, and puts 8-12 on the plate
+    # with 4-6 of them in the track.
+    street_density: 0.55

@@ -45,6 +45,7 @@ from compile_disaster import load_scene_config
 from detail import modular_house as mh
 from disaster import damage, fire, ground
 from disaster import people as ppl
+from disaster import region as region_poly
 from disaster import vegetation as veg
 from scene_generator import resolve_sky
 from suburb_scene import generate_suburb_on_stage
@@ -496,6 +497,11 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
         t = arrival(x, y)
         return -1.0 if not math.isfinite(t) else elapsed - t
 
+    # 2a) THE PLAT RECT, resolved ONCE. Wanted by the affected-area polygons in
+    # step 4a and by the ground scar in step 5; both read this one. Same
+    # expression and same fallback the ground scar always had.
+    region = tuple(binfo.get("region") or (-800, -600, 800, 600))
+
     # 3) REFERENCE A HOUSE ARCHETYPE PER INSTANCE
     UsdGeom.Scope.Define(stage, Sdf.Path(parent + "/inst"))
     n_h = miss_h = 0
@@ -585,6 +591,28 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
                          age, elapsed, span, arch=arch, levels=hlevels)
     p_cars, p_blockers, p_humans, p_recs = ppl.plan_people(
         pcfg, pctx, random.Random(int(pcfg.get("seed", 91)) + seed))
+
+    # THE AFFECTED AREA, AS A POLYGON — and it has to be HERE, not back with
+    # `age`, because it is sized off the people.
+    #
+    # `age` is the ellipse at T = elapsed and that ellipse is the BURN. It is
+    # not the search area: `people.at_home` stages survivors AHEAD of the
+    # front and the gridlock queue runs OUTBOUND, away from the fire, so the
+    # answer key is outside the black by construction. `affected` is run on to
+    # cover the furthest-ahead survivor in `p_recs` (with 0.20*span as the
+    # floor) — see disaster/region.py for the measurement behind that.
+    affected = (region_poly.affected_polygons(
+        fcfg, elapsed, span, region,
+        people_lead_s=region_poly.people_lead_s(p_recs))
+        if has_disaster else None)
+    if affected:
+        print("[scene] affected area: {0:.0f} m2 at t+{1:.0f} s "
+              "(lead {2:.0f} s, bound by {3}; burn {4:.0f} m2 at t+{5:.0f} s)"
+              .format(region_poly.polygon_area(affected["affected"]),
+                      affected["t_affected_s"], affected["lead_s"],
+                      affected["lead_bound"],
+                      region_poly.polygon_area(affected["burn"]),
+                      affected["t_burn_s"]))
     n_blocked = n_deb = 0
     _deb_mat = None
     try:
@@ -746,7 +774,7 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
     print("[scene] park ground: {0} surface(s) scorched".format(n_park))
 
     # 5) GROUND SCAR (built on the fly, cheap)
-    region = tuple(binfo.get("region") or (-800, -600, 800, 600))
+    # `region` is the plat rect resolved in step 2a — same value, one place.
     zs = float(binfo.get("z_scale") or ss.ground_z_scale(config, region))
     burn_z = (ss._Z_GRASS + 0.5 * (ss._Z_ASPHALT - ss._Z_GRASS)) * zs
     # The scar reads straight off the fire field rather than off `age`, so it
@@ -880,6 +908,24 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
     return {
         "scene_config": cfg_name, "seed": seed, "seconds": time.time() - t0,
         "region": region, "elapsed_s": elapsed, "span_s": span,
+        # THE SEARCH AREA. `burn_xy` is the ground the front reached at
+        # `elapsed_s`; `affected_xy` is the one the survivors are inside — the
+        # front run on far enough to cover the furthest-ahead of them, or
+        # 0.20*span, whichever is longer (`lead_bound` says which won). Both
+        # are clipped to `region`, both are `[[x, y], ...]` in metres, and both
+        # are None when the scene carries no disaster.
+        "burn_xy": (affected["burn"] if affected else None),
+        "affected_xy": (affected["affected"] if affected else None),
+        "t_burn_s": (affected["t_burn_s"] if affected else None),
+        "t_affected_s": (affected["t_affected_s"] if affected else None),
+        "lead_s": (affected["lead_s"] if affected else None),
+        "lead_bound": (affected["lead_bound"] if affected else None),
+        "people_lead_s": (affected["people_lead_s"] if affected else None),
+        "lead_frac": (affected["lead_frac"] if affected else None),
+        "margin_s": (affected["margin_s"] if affected else None),
+        "fire_origin_m": ([float(ox), float(oy)] if has_disaster else None),
+        "fire_heading_deg": (float(fcfg["heading_deg"])
+                             if has_disaster else None),
         "burn_frac": burn_frac, "arch_dir": arch_dir,
         "houses": n_h, "houses_missing": miss_h, "house_tally": htally,
         "trees": n_t, "trees_missing": miss_t, "tree_tally": ttally,

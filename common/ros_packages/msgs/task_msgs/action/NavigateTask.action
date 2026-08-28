@@ -1,9 +1,15 @@
 # Navigate along a global plan path to its final pose.
 # goal_tolerance_m: distance from the final pose to consider the goal reached
+# max_speed_mps: cap on droan_gl's rollout speed for THIS goal, in m/s.
+#   0 = droan's own `max_velocity` parameter. Sending a new goal while one is
+#   active PREEMPTS it (the old goal is aborted with "Preempted ..."), which is
+#   how a planner changes speed mid-run: re-send the activator with a new cap.
+#   A goal past droan's 15 m/s ceiling is rejected.
 
 # Goal
 nav_msgs/Path global_plan
 float32 goal_tolerance_m
+float32 max_speed_mps
 ---
 # Result
 bool success

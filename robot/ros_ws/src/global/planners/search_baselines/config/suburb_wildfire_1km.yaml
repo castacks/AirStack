@@ -30,11 +30,43 @@ search_planner:
     map_extent_m: 1080.0
     frame_mode: 'local'
 
+    # THE SEARCH AREA IS THE DAMAGED GROUND, NOT THE PLAT — for EVERY arm,
+    # since all four load this scene layer. The launcher writes
+    # SuburbWildfire1km_region.json at scene build (GT_ANNOTATIONS=on;
+    # scene_gen/disaster/region.py): 'burn' is the fire-front ellipse at the
+    # scene's burn time, i.e. exactly the ground scene_api's damage field
+    # (`age() >= 0`) scorched — measured off the 2026-08-27 run's overhead,
+    # a SW-NE band ~880 x 300 m, ~46% of the 1 km2 plat. The method overlays
+    # cut it with sector_partition 'rect': five equal-width bands, each
+    # drone's area the bounding RECTANGLE of its band's share of the (padded)
+    # burn. The burn runs SW-NE, so the bands are cut along ITS axis
+    # (sector_axis 'principal': rotated rectangles, 245 m along the burn by
+    # 500-620 m across it, 123-152k m2 each, union ~70% of the plat of which
+    # the burn is 46% and the 50 m pad most of the rest) — with axis-aligned
+    # bands the middle drone's rectangle would span the diagonal (888 m).
+    # Old whole-plat strips: 960 x 192 m, 184,500 m2 each. Log line:
+    # `sector N/5 (rect, pad 50 m): 4 pts, <area> m2`. 'affected' (also in the file) grows the ellipse
+    # until every staged survivor is inside — the evacuation queue and the
+    # at-home band sit AHEAD of the front by design — and on this scene
+    # that is most of the plat again, so it is NOT the default: survivors
+    # outside the scar are outside the search by design, and the launcher's
+    # `people inside k/n` line says how many.
+    search_area_source: 'scene'
+    search_area_scene_key: 'burn'
+    sector_axis: 'principal'
+    # Slightly larger than the scar: the ground scar fingers up to ~80 m past
+    # the front on a 1 km plat (ground.knobs_from_env) and a drone working
+    # the edge needs room to turn. Applied BEFORE the sector split, so every
+    # arm — lawnmower included — gets the same padded ground (this scene
+    # layer is loaded last, so it wins over vlfm.yaml's 0).
+    search_area_pad_m: 50.0
+
     # WORLD frame (§9.z): the planner subtracts its measured map origin
     # (enu(GPS fix) - odom, the map_anchor_node derivation) once on the first
     # tick with a fix, so the polygon is authored in scene/world coordinates and
     # EVERY robot cuts the SAME strips from it regardless of where each spawned.
-    # Covers the 1 km block minus a 20 m edge margin.
+    # `search_area_xy` is the FALLBACK for `search_area_source: 'config'` (a
+    # scene without the region file): the 1 km block minus a 20 m margin.
     search_area_frame: 'world'
     search_area_xy: [-480.0, -480.0,
                       480.0, -480.0,
@@ -95,6 +127,14 @@ search_planner:
     # canopy the plat profile flies over.
     inspect_altitude_m: 10.0
     depth_max_m: 80.0
+
+    # SPEEDS are planner.yaml's (transit 7.0 m/s outside the sector, 1.5 m/s
+    # searching and on a target), carried on the NavigateTask goal. The fleet
+    # spawns clustered at x = -30 and the outer strips start ~200-350 m away:
+    # at the 1 m/s the 2026-08-27 run actually flew that was up to 330 s of
+    # a 600 s budget; at 7 m/s it is under a minute. Log line to look for:
+    # `[robot_N] NavigateTask max_speed -> 7.0 m/s (transit to sector)` then
+    # `[robot_N] ground speed ... | cap 7.0 (transit to sector) | OUTSIDE sector`.
 
     # Arrival radii on a 2.25 m grid. frontier_unlock_radius_m must be
     # >= goal_tolerance_m or the lock releases before droan considers the goal

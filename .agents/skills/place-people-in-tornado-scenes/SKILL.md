@@ -1,274 +1,365 @@
 ---
 name: place-people-in-tornado-scenes
-description: Where survivors, diggers, trapped and thrown people go in a post-tornado scene, and why — the epidemiology behind every share, the `disaster/tornado_people.py` planner API, the T+30-60 min epoch, and the bench that is the only way to verify a partially-buried figure. Read before touching tornado_people.py, the people pass in suburb_tornado_launch_script, or tornado_people_preview_launch_script. The wildfire people model does NOT transfer and this file says exactly which parts and why.
+description: Where the CASUALTIES of a tornado go in a post-tornado scene and how much of each one a drone can see — the two axes the benchmark is defined on (attitude: face-up / face-down / on a side / pinned sitting; occlusion: thirteen named patterns over named body parts), the `disaster/tornado_people.py` planner API, the measured debris deck that stops a body lying through the boards, the A-pose trap that stands limbs upright, and the bench that is the only way to check any of it. Read before touching tornado_people.py, the lying poses in scene_generator._HUMAN_POSES, the people pass in suburb_tornado_launch_script, or tornado_people_preview_launch_script. The wildfire people model does NOT transfer and neither does this module's own first draft.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
   repository: AirStack
 ---
 
-# Skill: Place People in a Post-Tornado Scene
+# Skill: Place Casualties in a Post-Tornado Scene
 
-## Read this first: the visual verification is OUTSTANDING
+## The one-paragraph version
 
-As of this writing the planner is **host-tested but never rendered**. What has
-been checked:
-
-- head counts, share normalisation and absolute caps
-- the no-interpenetration invariant across a full 90-figure plan
-- every bench unit produces figures, with the expected poses
-- both launchers compile on 3.10 and 3.11; an AST pass finds no undefined
-  names in the wired `main()`
-
-What has **not** been checked, because it cannot be checked any other way:
-
-- whether a figure stands ON debris rather than through or above it
-  (`DEBRIS_Z_M` is an ESTIMATE — see below)
-- whether a `trapped_partial` figure reads as partially buried from capture
-  altitude, which is the entire premise of that scenario
-- whether a toppled car is seated
-- whether a prone figure is legible against mud
-
-**Run `tornado_people_preview_launch_script.py` and look at it before trusting
-any of this.** The bench exists precisely so those four questions get answered
-in one launch instead of inside a twenty-minute full-scene build.
+Every figure this module places is a **casualty lying in or on the debris**.
+There are no diggers, no walkers, no bystanders and no occupants standing beside
+cars — they were all there once, and they were all cut. The module controls two
+axes explicitly because those two axes ARE the benchmark: **attitude** (face-up,
+face-down, on the left side, on the right side, drawn up, pinned sitting) and
+**occlusion** (nothing at all, or one of thirteen patterns that cover a *named*
+stretch of the body and leave the rest proud). Nothing is ever fully buried —
+`max_covered_frac` is a hard ceiling enforced while the covering pieces are
+generated. The ground truth records the attitude, the pattern, the covered
+fraction and the list of body parts a camera can still see.
 
 ---
 
-## Why the wildfire model does not transfer
+## Read this first: the two renders that produced this design
 
-`disaster/people.py` is a good model of the wrong thing. The difference is not
-cosmetic and it is not about assets:
+### Render 1 — "a pavement full of commuters"
 
-| | wildfire | tornado |
-|---|---|---|
-| warning | **hours** | **10-15 minutes** |
-| what people do | **MOVE** — evacuate by car | **STAY** — shelter where they are |
-| what the model is | a geography of EGRESS: refuge car parks, roadways, gridlocked queues, the cul-de-sac trap | a geography of WHERE THEY LIVED and what the wind did to it |
-| location is a function of | the road network and refuge features | the housing distribution x the intensity field x did they emerge |
+67 figures on a 100 x 100 m plate, of which **55 were standing or walking**:
+neighbours digging, survivors picking through their own house, walking wounded
+on the carriageway, occupants beside displaced cars. Twelve were casualties.
 
-Four of the six wildfire scenarios have **no tornado counterpart at all** (see
-*What is deliberately absent*). Do not port them. `tornado_people.py` shares
-exactly one thing with `people.py` — `_human_placement`, the measured pose
-geometry — and that is reused rather than reimplemented on purpose.
+That was defensible sociology and a useless dataset, for two reasons:
+
+1. **Most of the figures had not been hit by anything.** A digger at T+45 min
+   is real — Greensburg had 68% of households doing search and rescue, Joplin
+   fielded seventeen professional rubble-rescue personnel against 1,371 injured
+   — but this dataset scores *finding the people the tornado hit*.
+2. **A standing figure on a debris pile is the easy problem anyway.** It is a
+   vertical object on a horizontal one: high contrast from any altitude and any
+   azimuth. What is hard, and what nobody has a labelled set of, is a
+   HORIZONTAL body in a horizontal field of pale boards with an unknown part of
+   it under a sheet of plywood.
+
+### Render 2 — the bench, and the two geometry faults it caught
+
+Nothing here was findable by reading the code, and both are pinned by
+`scene_gen/tests/test_tornado_people_poses.py` now:
+
+- **LIMBS STANDING STRAIGHT UP off every side-lying figure.** The rig's REST
+  pose is an A-pose: the arm already hangs 45 degrees out to the side, in the
+  character's X. Spin the body about its own long axis to put it on its side
+  and that 45 degrees becomes **vertical**. Swinging the arm forward about X
+  without first bringing it to plumb leaves it standing in the air. Every
+  lateral pose now starts each arm with the `+-40` plumb correction — the same
+  correction `idle` measures — and only then swings it.
+- **COVERING BOARDS PASSING THROUGH RAISED KNEES AND HEELS.** A piece was
+  seated at `z_m + lift`, the top of the body's *centre line*, which is right
+  for a flat chest and wrong for everything else on a body. `_BODY_RISE` now
+  gives the body's height at each station and `_crest` takes the maximum over
+  the piece's own footprint — a rigid board rests on the highest thing under
+  it.
+
+A third fault was cosmetic and cost a whole review pass: the bench's ground was
+`planks.wood_material`, so the floor and the debris were the same sawn-timber
+map and a pale figure had no contrast against either. **The bench floor is mud
+now.** Contrast against the corridor floor is half of what the bench is for.
 
 ---
 
 # The research
 
-Every share in the module traces to something here. If you change a share,
-change this section too, or the next reader will trust a number that no longer
-has anything behind it.
+Every number in the module traces to something here. Change a share, change
+this section too.
 
-## The fact the whole module turns on: almost everybody survives, on their feet
+## Where the bodies are
 
-Joplin is the only event with a real denominator — NIST geolocated all 161
-fatalities (NCSTAR 3) and Paul & Stimers 2014 mapped population by damage zone.
+- **Almost everybody survives.** Joplin's catastrophic zone — total structural
+  destruction — held 4,716 people and killed 122: **97.4% survived** (NIST
+  NCSTAR 3 geolocated all 161 fatalities; Paul & Stimers 2014 supplied the
+  population denominators). Whole path: 13,547 people, 161 dead (1.2%), ~1,371
+  injured. Of the injured **89% are minor** (ISS < 10) and 86% are discharged
+  home (Niederkrotenthaler et al. 2013, 1,398 patients across 39 hospitals).
+  **So the casualties in this scene are deliberately over-represented** — a
+  true rate over ~39 damaged houses puts one or two in a 500 m corridor and
+  there is nothing to score. That is a dataset decision and it is recorded as
+  one in the module.
+- **They are where the houses were.** Ten to fifteen minutes of warning means
+  nobody evacuates: people shelter on the ground floor, interior — bathroom
+  39%, closet 37%, hallway 10%, other 14% (Hammer & Schmidlin 2002, 190
+  occupants of 65 F4/F5-damaged homes, none with a basement). So the head count
+  is driven **per wrecked house** (`per_wreck`, weighted by damage level), not
+  by a global number spread over the plate.
+- **A third of the dead are recovered off their own footprint.** CDC MMWR
+  61(28) recorded injury location and recovery location separately for all 338
+  April-2011 deaths: **90.5% injured indoors, 3.3% outdoors, 37.0% recovered
+  outdoors.** The MMWR records no distance, and most of that is "went out with
+  the wall that failed and landed in the yard" — which is why `where` puts most
+  of the population in the debris skirt and the yard, a little on the road in
+  front of its own house, and only one or two far downtrack.
+- **They cluster.** Chiu et al. 2013 (247 Alabama decedents) recorded who each
+  victim was found with: with other deceased and survivors 26.3%, with other
+  deceased 24.7%, with other survivors 21.1%, **ALONE 7.7%**. `cluster_chance`
+  puts a second body within a few metres of the first — and two bodies together
+  is the strongest aerial cue there is.
+- **Correct shelter does not guarantee survival.** In Joplin, **20 of the 62**
+  single-family-home decedents had taken correct interior refuge. NIST NCSTAR 3
+  p.203: best-available refuge areas *"are not expected to offer life-safety
+  protection against tornado hazards."*
+- **Basements are rare and they worked.** Joplin: **17%** of path homes (1,237
+  of 7,411); 80% had crawl spaces. Moore OK: "10% or less". West South Central
+  new construction is 96-98% slab. NIST found **no evidence any fatality
+  occurred below grade** in Joplin. None of it is placeable — see *What is
+  deliberately absent*.
 
-| zone | population | deaths | survived |
-|---|---|---|---|
-| **catastrophic** (total structural destruction) | 4,716 | 122 | **97.4%** |
-| whole path | 13,547 | 161 (1.2%) | **~89% alive and mobile** |
+## Long-range throw is record-book territory, not a category
 
-And of the injured, **89% are minor** (ISS < 10), 6% moderate, 5% severe;
-**86% are discharged home** (Niederkrotenthaler et al. 2013, chart abstraction
-of 1,398 patients across 39 Alabama hospitals). Deaths are near-instantaneous:
-**86.6% died on scene** (Chiu et al. 2013), 94% in May et al. 2000. There is no
-large population of "dying but savable" victims the way an earthquake collapse
-produces.
+The number most likely to be "corrected" upward by someone who has seen a
+documentary, so the derivation is written out.
 
-**Consequence, and it is counterintuitive enough to state twice: a levelled
-block is not a morgue.** A scene built on that intuition would be EMPTY of the
-targets the benchmark exists to find. The corridor is full of standing, walking,
-digging people — and the visible population does **not** thin toward the
-centreline, because with the houses gone there is nothing left to occlude
-anyone. (An earlier draft of this design had it backwards and the Joplin
-denominator is what corrected it.)
+Applied to ~39 damaged houses (~100 residents present, Joplin path rates of
+0.77% dead and 4.8% injured):
 
-## People cluster — over 90% of them
+    0.8 dead          x 37% recovered outdoors  = 0.3 people
+    1.25 hospitalised x 43% thrown              = 0.5 people
+    ------------------------------------------------------------
+    UNDER ONE PERSON in the whole 500 x 500 m scene
 
-Chiu et al. 2013 recorded who each victim was found with:
+(Brown et al. 2002, OKC 1999: "picked up / blown by tornado" was the mechanism
+for **43% of hospitalised** injuries and only **6% of treated-and-released** —
+being thrown is a severity marker, not a common experience.) The documented
+survivals are **398 m** (Matt Suter, an F2, GPS-measured by an NWS official)
+and **76 m** (a mother and two children on a mattress, Dawson Springs 2021).
+There is **no published distribution of human throw distances**. `trail` is
+therefore short and capped.
 
-| | share |
-|---|---|
-| with other deceased **and** survivors | 26.3% |
-| with other deceased | 24.7% |
-| with other survivors | 21.1% |
-| **ALONE** | **7.7%** |
+### Do NOT drive deposition with a throw field
 
-Group placement is the empirical default, not a rendering convenience. And a
-CLUSTER is itself the strongest aerial indicator that somebody is trapped
-underneath it — which is why `neighbour_dig` is the anchor scenario and why its
-figures all face the dig point.
+- The **78%-left** deposition statistic (Snow et al. 1995, 163 debris reports)
+  is for **lightweight** debris lofted into the parent storm and deposited tens
+  of kilometres downstream. Cheques and photographs, not people.
+- Bodies are heavy debris and stay in the swath.
+- Near-surface flow is **CONVERGENT toward the centreline** — Karstens et al.
+  2013 digitised **10,300 tree falls at Joplin and 94,500 at
+  Tuscaloosa-Birmingham** and found inward-pointing falls across most of the
+  path.
+- There is **no published azimuthal distribution for victim deposition**.
+
+A modest downtrack displacement with a wide spread (`spread_deg` 55, Gaussian)
+is defensible. A tight fan is an invented claim.
 
 ## The epoch is T+30-60 min, and it is not a lighting choice
 
 | window | what is in frame |
 |---|---|
 | T+0-15 min | self-extrication; roads impassable; **nobody in uniform** |
-| **T+15-60 min** | **PEAK visible density.** Neighbours digging, injured moved in private pickups. Joplin: 100 patients arrived at Freeman in 16 minutes, starting T+39 |
+| **T+15-60 min** | **PEAK.** Joplin: 100 patients arrived at Freeman in 16 minutes, starting T+39 |
 | T+1-6 h | mutual-aid apparatus, field triage on hard standing |
 | T+6-24 h | organised grid search, task forces, heavy equipment, orange search markings — **and nobody left alive to find** |
 
-Joplin's professional rubble-rescue count was **seventeen**, against 1,371
-injured. The earthquake literature puts civilian extrication at **60-100%**
-(Bartolucci et al. 2020: Armenia 1988 95% by local inhabitants, 0.9% by
-international teams; Turkey 2002 48% by neighbours; Philippines 1990 84% of
-survivors rescued < 1 hour). Greensburg: **68% of households did SAR**, 28%
-starting immediately, 28% within the hour.
-
-**So: no responders, no heavy equipment, no search markings, no triage tents.**
+**No responders, no heavy equipment, no search markings, no triage tents.**
 A scene with those is depicting T+24 h and a different problem. `epoch_min`
 records the choice.
 
-## `thrown` is capped at one or two, and here is the arithmetic
+---
 
-This is the number most likely to be "corrected" upward by someone who has seen
-a documentary, so the derivation is written out.
+# The two axes
 
-CDC ran mortality surveillance on all 338 deaths in the April 2011 outbreak,
-recording location of **injury** and location of **recovery** separately
-(MMWR 61(28)):
+## Attitude — front, back, sideways
 
-| | injured there | recovered there |
+| pose | attitude | what it is | reach |
+|---|---|---|---|
+| `lying_supine` | `face_up` | one knee drawn up, forearm across the chest, head lolled | 1.00 H |
+| `lying_supine_open` | `face_up` | arms out, legs straight — the **widest** silhouette in the set | 1.00 H |
+| `lying_prone` | `face_down` | one arm sprawled in the ground plane, one heel up, cheek down | 1.00 H |
+| `lying_prone_reach` | `face_down` | both arms overhead — **2.1 m of ground length** | 1.14 H |
+| `lying_side_l` | `side` | recovery position, on the left side | 0.88 H |
+| `lying_side_r` | `side` | mirrored, on the right side | 0.88 H |
+| `lying_curled_l` | `side` | drawn up — the **SHORT** silhouette, ~1.1 m | 0.62 H |
+
+**EVERY ATTITUDE IS HORIZONTAL.** `trapped_sit` — pinned sitting, legs under
+the pile, head and shoulders proud — was the one upright casualty and it was
+**cut on the second review**: a figure sitting bolt upright in a levelled block
+reads as somebody who sat down, not as somebody a building fell on. It was the
+same objection that removed the standing figures and it is settled the same way.
+The pose survives in `scene_generator._HUMAN_POSES` (`disaster.people` still
+names it in `GROUND_POSES`); nothing in `tornado_people` can draw it, and
+`_visible_parts` has no seated branch any more.
+
+Roughly a third face-up, a third face-down, a third on a side. **There is no
+literature on the attitude distribution of tornado casualties** — there is
+barely any on their location — so the mix is a DATASET decision to cover the
+space evenly, and it says so in the module.
+
+### How a figure gets onto its side, and the trap that comes with it
+
+`apply_placements` authors `rotateXYZ`, so the ops compose X (roll), then Y
+(pitch), then Z (yaw).
+
+    roll +90, pitch   0    face-down            (`lying_prone`)
+    roll -90, pitch   0    face-up              (`lying_supine`)
+    roll +90, pitch +90    on the LEFT side     (`lying_side_l`)
+    roll +90, pitch -90    on the RIGHT side    (`lying_side_r`)
+
+The roll lays the body down along the pre-yaw `-+Y`; the **pitch axis is then
+world Y, which IS the body's own long axis**, so `people.LYING_SPIN` spins the
+laid-out figure about itself without moving its head, its feet or its placement
+point. `_body_axis` therefore still reads the **roll alone** — a rotation about
+an axis cannot move a vector lying along it.
+
+**THE AXIS TRAP, and it is the mirror image of the face-up one.** For a face-up
+or face-down figure the ground plane is span(X, Z), so a delta about **Y** keeps
+a limb on the ground — which is why every arm delta in `lying_supine` and
+`lying_prone` is `((0, 1, 0), a)`. Spin the body 90 degrees about its long axis
+and the plane becomes span(Y, Z): now it is a delta about **X** that keeps a
+limb down and a Y delta that lifts it. Every swing in a lateral pose is about X;
+the Y deltas that remain are the plumb correction and the deliberate lift of the
+top limb clear of the bottom one.
+
+**AND THE REST POSE IS AN A-POSE.** The arm hangs 45 degrees out in the
+character's X, which after the spin is vertical. Bring it to plumb (`+-40` about
+Y, which is what `idle` measures: the hand finishes 7 mm off plumb under the
+shoulder) BEFORE swinging it. The forearm needs no correction of its own — it
+inherits the upper arm's posed frame.
+
+**THE LIFT CHANGES WITH THE ATTITUDE.** On its back or its face a body is half
+its measured A-pose DEPTH deep (`sy`, 0.33-0.40 m across this pack, so ~0.17 m).
+On its side the vertical dimension is its BREADTH — and `sx` cannot supply it,
+because the A-pose bbox is 1.20-1.34 m wide with the arms out.
+`people._lying_lift` models it: biacromial breadth is 0.245 H (Drillis &
+Contini 1966) so the spine sits 0.22 m up at 1.80 m; hips are narrower (0.191 H)
+and shoulder flesh compresses, so **0.115 H** is the figure used. VERIFY ON
+SIGHT — a shoulder in the debris with a floating hip means it is too small.
+
+**NOTHING MAY STAND UP.** A limb may be flexed — a drawn-up knee is what makes a
+casualty read as a body rather than a mannequin — but the bound is **45 degrees
+off the ground**, and `test_03_no_limb_of_a_lying_figure_stands_up` carries every
+limb of every lying pose through its own deltas and its lay-down rotation
+analytically to check it. `lying_prone`'s heel was at 57 and is now at 36;
+`lying_supine`'s knee solve was softened with it.
+
+## Occlusion — which parts of the body are visible
+
+Each pattern names the stretch (or stretches) of the body that goes UNDER, in
+fractions of the figure's own ground reach, soles at 0 and crown at 1.
+`_visible_parts` turns the covered spans back into the list the record carries.
+
+| pattern | covers | what stays visible |
 |---|---|---|
-| indoors | **90.5%** | — |
-| outdoors | **3.3%** | **37.0%** |
+| `none` | — | everything. **The fully-observable class, and the largest single entry (0.30)** |
+| `feet_shins` | 0.00-0.30 | everything above the knee |
+| `legs` | 0.00-0.52 | head, torso, arms |
+| `legs_hips` | 0.00-0.62 | head, torso, shoulders |
+| `midriff` | 0.42-0.70 | head, arms, legs |
+| `torso` | 0.46-0.84 | head, legs, feet |
+| `torso_head` | 0.52-1.04 | legs only |
+| `head_only` | 0.80-1.04 | a body with no head |
+| `upper_body` | 0.40-1.04 | legs and feet |
+| `all_but_head` | 0.00-0.80 | a head and shoulders |
+| `all_but_feet` | 0.20-1.04 | feet and shins |
+| `banded` | 0.06-0.30 and 0.56-0.86 | head, hips, thighs — two slots |
+| `flank` | one SIDE, along 0.55-0.78 of the length | one arm, one leg, half of everything |
 
-An ~11x displacement ratio — about a third of the **dead** end up off their own
-footprint. But the MMWR records **no distance**, so "outdoors" does not
-distinguish the front yard from two blocks away, and most of that 37% is
-"went out with the wall that failed and landed in the yard".
+A part counts as visible while **less than half** of its own extent is under
+something — because the ground truth is read by a scorer, not by a renderer, so
+the useful answer is "would a human labeller draw this part", not "is a single
+pixel of it lit".
 
-Brown et al. 2002 (OKC 1999) gives the severity link: "picked up / blown by
-tornado" was the mechanism for **43% of hospitalised** injuries and only **6% of
-treated-and-released**. Being thrown is a severity marker, not a common
-experience.
+**Any single pattern is something a debris photograph shows. The DISTRIBUTION is
+a dataset decision**, because the point is that a detector meets every partial
+silhouette rather than the one that happens to be commonest.
 
-Applied to ~39 damaged houses (~100 residents present, Joplin path rates of
-0.77% dead and 4.8% injured):
+### NOTHING IS FULLY BURIED, and it is enforced, not checked
 
-    0.8 dead      x 37% recovered outdoors  = 0.3 people
-    1.25 hospitalised x 43% thrown          = 0.5 people
-    ------------------------------------------------------
-    UNDER ONE PERSON in the whole 500 x 500 m scene
+`max_covered_frac` (0.80) is a hard ceiling. `_trim_spans` SHORTENS any pattern
+that would exceed it *before* the pieces are generated, so the module cannot
+author a body it would then have to describe as invisible. This is
+`disaster.people`'s `exposed_interior` lesson and it is the most important line
+in the file: **a target that cannot be seen cannot be labelled, and an
+annotation for an invisible one is worse than no annotation at all.**
 
-Long-range lofting is record-book territory, not a category: the documented
-survivals are **398 m** (Matt Suter, an **F2**, GPS-measured by an NWS official,
-Guinness record) and **76 m** (a mother and two children on a mattress, Dawson
-Springs 2021). There is **no published distribution of human throw distances**.
-`range_m` is therefore deliberately short.
+### The pieces are mostly SHEET GOODS, deliberately
 
-And a thrown figure is **PRONE**. Anyone walking in the open emerged and walked
-there, which `street` and `on_the_rubble` already cover.
+`planks.STOCK` draws a field that is 34% studs by count, because that is what a
+stick-built house is made of. A 2x4 laid across a casualty covers 0.12 m of them
+and is a stick at any altitude a drone flies at. What actually buries somebody,
+and what actually reads from 40 m, is a broken half sheet of OSB or a slab of
+roof deck with its shingles on. `_COVER_STOCK` is therefore **not** the field
+mix: 52% sheathing, 22% deck, 26% lumber, and the lumber is there to break up
+the edges rather than to hide anything.
 
-### Do NOT drive deposition with the `throw` field
-
-The tempting move is to reuse `tornado.throw_field` — the same one that fans the
-plank debris — for bodies. It would be wrong:
-
-- The **78%-left** deposition statistic everyone quotes (Snow et al. 1995, 163
-  debris reports) is for **lightweight** debris lofted into the parent storm and
-  deposited tens of kilometres downstream. Cheques and photographs, not people.
-- Bodies are **heavy** debris and stay in the swath.
-- Near-surface flow is **CONVERGENT toward the centreline** — Karstens et al.
-  2013 digitised **10,300 tree falls at Joplin and 94,500 at
-  Tuscaloosa-Birmingham** and found inward-pointing falls across most of the
-  path.
-- There is **no published azimuthal distribution for victim deposition**.
-  Nobody has done for bodies what Snow did for cancelled cheques.
-
-A modest downtrack displacement with a wide spread (`gauss(0, 55 deg)`) is
-defensible. A tight fan is an invented claim.
-
-## Where people shelter, and why almost none of it is placeable
-
-Useful background, and the reason so much of the real population is out of
-scope:
-
-- **Basements are rare.** Joplin: **17%** of path homes (1,237 of 7,411); 80%
-  had crawl spaces, which NIST notes are typically accessed from OUTSIDE and as
-  little as a foot high. Moore OK: **"10% or less"** have below-ground shelters.
-  West South Central new construction is **96-98% slab**. Note OK is *not* in
-  the basement-rich Plains group — that is KS/NE/IA/MO.
-- **In-house sheltering is ground-floor interior**: bathroom 39%, closet 37%,
-  hallway 10%, other 14% (Hammer & Schmidlin 2002, 190 occupants of 65 homes
-  with F4/F5 damage, none with a basement).
-- **Correct shelter does not guarantee survival.** In Joplin, **20 of the 62**
-  single-family-home decedents had taken correct interior refuge. NIST NCSTAR 3
-  p.203: best-available refuge areas *"are not expected to offer life-safety
-  protection against tornado hazards."*
-- **Basements did work where they existed**: NIST found **no evidence any
-  fatality occurred below grade** in Joplin.
-
-None of this is placeable in a drone benchmark. See *What is deliberately
-absent*.
-
-## Vehicles: use the measured displacement rates
-
-Paulikas, Schmidlin & Marshall 2016 — **959 vehicles across 12 tornadoes**:
-
-| | displaced | rolled / tipped |
-|---|---|---|
-| EF0 | 10% | — |
-| EF1-EF2 | 36% | 5% |
-| EF3-EF4 | 63% | 15% |
-| EF5 | 69% | **31%** |
-
-Even on the centreline only about a third go over; two thirds are merely
-**shoved**. A corridor where every car is upside down is as wrong as one where
-none is.
-
-Two more findings that shape the scenario:
-
-- **Fleeing by car was protective in every study that measured it.** Daley et
-  al. 2005: severe-injury **OR 0.2 (0.1-0.6)** for those who fled vs stayed.
-  Hammer & Schmidlin: **0 of 90 who fled were injured**, against 30% injured
-  among those who stayed. The "cars are deathtraps" guidance traces to a single
-  1979 event (Wichita Falls, 25 of 44 deaths in cars). **Moore 2013 had ZERO
-  vehicle deaths.**
-- So `in_vehicle` places people **beside** displaced cars, not as casualties
-  inside them — and **upright cars only** (see the traps).
+A quarter of the pieces are **propped** — one end on the debris surface, the
+piece rising over the body and overhanging past it. That is the one that gives
+an aerial frame a shadow and a depth cue. `planks._box` puts the LENGTH along
+local +X and lands that end at `-sin(pitch) * L/2`, so **the high end needs a
+NEGATIVE pitch**; a propped piece with a launcher-randomised pitch is a piece
+that has fallen off.
 
 ---
 
-# The scenarios
+# Where the bodies go, and the surface they lie on
 
-`scene_gen/disaster/tornado_people.py`, `DEFAULTS["scenarios"]`. Shares are of
-`total` and are normalised, so editing one does not silently change the head
-count.
+| class | share | where |
+|---|---|---|
+| `pile` | 0.36 | on the board mat over and around the wrecked house, 0.42-1.00 footprints out |
+| `skirt` | 0.28 | the outer mat, 1.00-1.85 footprints out — thinner, so the body has contrast under it |
+| `yard` | 0.26 | open ground beside the wreck. The highest-contrast targets in the scene and the control case |
+| `street` | 0.10 | the carriageway **in front of this house** — nearest six road points, refused past 45 m |
+| `trail` | 1-3 absolute | thrown clear, 8-26 m downtrack of a flattened house |
 
-| scenario | share | what it is | grounding |
-|---|---|---|---|
-| `on_the_rubble` | 0.28 | survivors standing / walking on the wreckage of their own house (nobody waves — the pose was cut, see below) | 97.4% survive even in the catastrophic zone; nothing left to occlude them |
-| `neighbour_dig` | 0.24 | **the anchor.** 3-6 at ONE collapsed house, all facing the dig point | 92% of victims found with others; civilians did 60-100% of extrications |
-| `trapped_partial` | 0.12 | prone, sunk into the pile, boards across the lower body | over-represented on purpose — see below |
-| `street` | 0.16 | walkers on the carriageway | the only navigable ground; Joplin searched "house by house, car by car, block by block" |
-| `assisted` | 0.08 | trios, two supporting one | 89% of injuries are minor and walking; private vehicles were 38% of transport vs 31% by ambulance |
-| `in_vehicle` | 0.08 | standing beside **upright** displaced cars | Paulikas rates; fleeing was protective |
-| `thrown` | 0.04, **capped at 2** | prone, downtrack, wide spread | the arithmetic above |
+## Two gates every body passes, and why they exist
 
-`total` defaults to **90** over a 500 m corridor — an order of magnitude denser
-per hectare than the wildfire plat's 60 over 1600 x 1200 m, because an evacuated
-suburb is genuinely empty and a struck one is not.
+**`min_intensity` — ONLY WHERE THE TORNADO WENT.** `yard` draws 1.15-2.00
+footprints off a wreck, and a wreck on the shoulder of a 46 m track has much of
+that annulus outside the corridor. The first 100 m render laid a casualty on an
+untouched green lawn two lots away: a person the tornado did not hit, which is
+exactly what the whole module was rebuilt to stop showing.
+`ctx["intensity_at"]` is `tornado.intensity_field` — the same field the damage
+ladder, the scour and the plank scatter are drawn from, so the planner refuses
+against the scene's own definition of "in the path" rather than a second one.
+Tested at all three stations, because feet inside the corridor can still put a
+head on an untouched lawn.
 
-## `trapped_partial` is the hard one, and it is a dataset decision
+**`canopies` — AND NOT UNDER A TREE.** The other half of that same frame: the
+body was under an intact crown, so its top-down view was leaves. A canopy hides
+a figure far more completely than any board this module lays, and the whole
+`max_covered_frac` argument applies. Trees in the corridor are snapped, limbed
+or down and hide nothing, so the launcher passes only the ones that still have
+a crown — `pristine` 4.2 m, `leaning` 3.0 m, `limbed` 2.6 m — as
+`[(x, y, radius)]`.
 
-Fully buried is an **unlabellable target**; fully exposed is **not a trapped
-person**. The whole scenario lives or dies on a fraction.
+## `_Deck` — the debris surface is MEASURED now
 
-Mechanically: the figure goes at the **pile EDGE** (the middle of a collapsed
-house is where the material is deepest and a body there is invisible from any
-angle), is sunk by `sink_frac` of the local debris depth, and the module emits
-its **own** boards laid **across** the body axis — a plank parallel to a prone
-figure hides nothing and reads as coincidence. It emits its own rather than
-trusting whatever the wreck archetype happens to have left at that spot.
+Every figure in the first render was seated on `DEBRIS_Z_M[level]`, one constant
+per damage class, in a field of 755 boards whose real top surface swings from 0
+to about 1.4 m over a couple of metres. Some floated, some were buried to the
+shins, several stood on the tilted face of a half sheet of plywood.
 
-**It is deliberately over-represented.** Chiu records "trapped in rubble" as the
-mechanism for **1.7%** of fatalities and "crushed" for 18.7%; Brown puts
-structural collapse behind 11-13% of injuries. A true rate would put well under
-one of these in the scene. A dozen is a **benchmark decision**, recorded as such
-in the module so nobody later reads the share as an estimate of the world.
+The launcher now hands the planner **the plank specs it just authored**
+(`ctx["plank_specs"]`) and `_Deck` stamps the top of every board's eight corners
+into a 0.8 m grid. Then, per body:
+
+- **seated on `max(profile)`, not the mean.** A body laid at the mean of its
+  three stations is INSIDE whatever board stands above that mean. Laid on the
+  maximum it rests on the highest board and merely bridges the lower ones,
+  which is what a body on a plank mat actually does;
+- **refused if the three stations disagree by more than `max_deck_tilt_m`**
+  (0.26 m over ~1.8 m, about 8 degrees);
+- **laid along the FLAT DIRECTION.** Eight bearings are tried per candidate
+  point and the flattest is kept. A plank mat is not flat but it is not
+  isotropic either — `planks._lay` aligns boards weakly across the flow — so at
+  most points there IS a bearing along which a metre and a half of surface
+  agrees. Measured on the bench's own field this took `pile`/`skirt` acceptance
+  from about 1 candidate in 12 to better than half, and it is also what a body
+  does: something that comes to rest on rubble settles along the surface rather
+  than across it.
+
+`DEBRIS_Z_M` survives as the **fallback** for the bench and the host-side tests,
+which have no board field; with it the deck is flat and the tilt test cannot
+fail. Say so if you are quoting a result that used it.
 
 ---
 
@@ -277,8 +368,7 @@ in the module so nobody later reads the share as an estimate of the world.
 ## The planner — `scene_gen/disaster/tornado_people.py`
 
 A **pure planner**: no stage, no Isaac imports, no USD. The whole plan runs and
-asserts on the host, which is how the spacing and count invariants are actually
-tested.
+asserts on the host, which is how the geometry is actually tested.
 
     cfg = tornado_people.resolve_cfg(scene_config)   # merges a `people:` block
     humans, debris, records = tornado_people.plan_people(cfg, ctx, rng)
@@ -288,28 +378,44 @@ tested.
 | key | shape | owner |
 |---|---|---|
 | `wrecks` | `[{x, y, fp, intensity, level}]` | the assembly launcher |
-| `intact` | `[(x, y)]` standing houses | the assembly launcher |
 | `road_pts` | `[(x, y, tangent_deg)]` | the assembly launcher, off `binfo["net"]` |
-| `cars` | `[{x, y, toppled}]` | the assembly launcher |
+| **`plank_specs`** | the list handed to `planks.build` | the assembly launcher |
 | `throw_deg` | float | `disaster.tornado` |
+| `region` | `(x0, y0, x1, y1)` metres, **optional** | the assembly launcher |
 | `humans` | `[usd]` RIGGED RenderPeople | `suburb_scene.AssetPools` |
 | `resolver`, `asset_pools` | | `scene_generator`, `suburb_scene` |
 
+**PASS `region` OR THE PLANNER WILL LAY SOMEBODY HALF OFF THE EDGE OF THE
+WORLD.** A lying figure extends its whole reach past its placement point, so
+feet a metre inside the boundary still put a head outside it. Every body is
+tested at three stations. **Dropped, not clamped** — same argument as
+`planks.clip_to_region`: clamping piles figures along the boundary in a line,
+which is a worse artefact than the one it fixes. `plan_people` prints its
+refusal tally (`off_plate` / `too_close` / `deck_tilt` / `wrong_surface`) so a
+scene that comes back short says why.
+
 Returns:
 
-- **`humans`** — `category: "human"` placements carrying a `pose`, ready for
-  `sg.apply_placements(..., instance_categories=set())`
-- **`debris`** — plank specs for `trapped_partial`, to be authored with
-  `disaster.planks`. Returned rather than authored because this module never
-  touches a stage.
-- **`records`** — ground truth, one dict per person: scenario, pose, alive,
-  **`visibility`** (`full` / `partial`), note. `write_records()` dumps it.
+- **`humans`** — `category: "human"` placements carrying `pose`, `roll_deg` and
+  `pitch_deg`, ready for `sg.apply_placements(..., instance_categories=set())`
+- **`debris`** — the plank specs that do the occluding, to be authored with
+  `disaster.planks`
+- **`records`** — ground truth, one dict per casualty:
 
-`summarise(records)` gives counts by scenario and by visibility.
+      x, y, z, pose, attitude, where, yaw, body_axis_deg, reach_m,
+      alive, visibility, occlusion, covered_frac, sunk_frac,
+      visible_parts, boards, note
+
+`summarise(records)` gives counts by attitude, occlusion, visibility, location
+and pose, plus `max_covered_frac`.
+
+`plan_catalogue(cfg, ctx, rng, poses, patterns, origin, step)` lays one casualty
+per (pose, pattern) cell of a grid through **the same code path**, and returns
+`(humans, debris, records, cells)`. That is what the bench photographs.
 
 ## Wired into the scene
 
-`suburb_tornado_launch_script.py`, step **7b**, **after** the scour — a survivor
+`suburb_tornado_launch_script.py`, step **7b**, **after** the scour — a casualty
 is not debris, and every pass before it moves, deletes or re-materialises
 something. Env knobs:
 
@@ -317,102 +423,127 @@ something. Env knobs:
 |---|---|---|
 | `TOR_PEOPLE` | 1 | 0 disables the whole pass |
 | `PEOPLE_JSON` | `$ARCH_DIR/humans_<seed>.json` | ground truth |
+| `PEOPLE_SNAPS` | 0 | photograph this many casualties CLOSE IN (11 m top-down, 9 m oblique), named after the record |
+
+**`PEOPLE_SNAPS` is how you review this pass.** A 100 m plate at
+`views_around`'s 60 m default puts a body lying flat at about twenty pixels,
+which is exactly the range at which a scene full of standing commuters shipped
+and nobody could tell.
 
 ## The bench — `tornado_people_preview_launch_script.py`
 
-Six set-pieces on a 60 m grid over mud, each with its own top-down and oblique
-camera at **26 m / 20 m** (not `views_around`'s 60 m default — a 1.8 m figure
-at 60 m is a handful of pixels, which is exactly the condition this bench
-exists to avoid judging from).
+Two units, `UNITS=GRID,HOUSE`:
 
-    A  on_the_rubble     B  trapped_partial   C  neighbour_dig
-    D  vehicles          E  thrown+assisted   F  street
+- **GRID** — the catalogue. 8 attitudes x 13 occlusion patterns on a
+  3.4 x 4.6 m lattice over **mud**, every body laid along +X so a row reads left
+  to right and a column compares like with like. Photographed one row at a time
+  in two halves at 13 m, close enough that a hand is a hand.
+- **HOUSE** — one wrecked archetype, a real `planks` field scattered off it, and
+  the real `plan_people` running over that field **with `plank_specs` in the
+  context** — so what is photographed is the code the assembly runs, including
+  the measured deck and the tilt refusal. Every casualty gets its own close
+  top-down and oblique, plus a wide pair of the whole plate.
 
-`UNITS=B,D` narrows it. **It calls the real `plan_people`** with all shares
-zeroed but one (`_only()`), so what is photographed is the code the assembly
-runs — a bench that reimplements the thing it is checking proves nothing.
+## The host tests — `scene_gen/tests/test_tornado_people_poses.py`
 
-Unit B deliberately places **three** trapped figures across the full
-`sink_frac` range so one frame shows the shallow, middle and deep cases
-together.
+19 checks, no Isaac, no `pxr` (the pose table is read as SOURCE and
+`literal_eval`'d). The load-bearing ones:
+
+- `test_03` — **no limb of a lying figure stands up**, analytically, through the
+  real deltas and the real lay-down rotation.
+- `test_04` — the lateral poses swing about X and start each arm with the plumb
+  correction; the flat ones swing about Y.
+- `test_10` — nothing is ever fully buried, over five seeds.
+- `test_11` — the pattern means what it says: `legs` covers the legs and leaves
+  the head, `all_but_head` leaves a head.
+- `test_13` — a covering piece clears the body's crest and does not float.
+- `test_08` — every figure is a casualty AND every attitude is horizontal, so
+  neither the standing population nor the seated one can come back by accident.
+- `test_17` — no body is inside the board it lies on.
+- `test_18` — turning the tilt cap down places FEWER bodies (with `max_total`
+  off the critical path, or both runs simply hit the cap and the comparison
+  says nothing).
 
 ---
 
 # Traps
 
-**`DEBRIS_Z_M` IS AN ESTIMATE, and it is the one number here with no literature
-behind it.** How deep the pile is by damage level, used to stand a figure ON the
-wreckage rather than through it. A levelled house leaves the deepest pile
-(everything is still on the lot); a swept slab the shallowest (the material is
-downwind). If figures float or sink in the bench, **this table is the thing to
-correct** — not the pose code.
+**ONLY RIGGED HUMANS CAN TAKE A POSE.** `posed_standing` assets are static
+meshes frozen in one attitude; binding `lying_side_l` to one does nothing at all
+and the figure ships upright, silently. `_rigged_humans()` in the launcher makes
+the same selection `disaster.people.build_ctx` does.
 
-**Only RIGGED humans can take a pose.** `posed_standing` assets are static
-meshes frozen in one attitude; binding `walk` or `crouch` to one does nothing at
-all and the figure ships in whatever attitude it was authored in — silently.
-`_rigged_humans()` makes the same selection `disaster.people.build_ctx` does,
-with the same fallback.
+**A LYING POSE PLACED UPRIGHT IS REFUSED.** `people._human_placement` raises
+rather than composing: authored upright, `lying_prone` is a figure with an arm
+stretched over its head.
 
-**`in_vehicle` uses UPRIGHT CARS ONLY.** The pose rig seats a figure against a
-horizontal seat plane, so a `seated_car` pose in a rolled car comes out sideways
-in mid-air. Toppled cars in this scene are empty — which is also the likelier
-truth, since being in a vehicle that rolls is how you stop being seated in it.
+**`_measure`'s `sy` IS THE A-POSE BBOX DEPTH** and it is used as the lying
+body's thickness. For a posed lying figure with a raised knee the true
+silhouette is deeper — which is what `_BODY_RISE` exists for, and if boards over
+the thighs read as sunk into them, that table is the number, not this one.
 
-**`toss_prim` MEASURES the prop to seat it.** It lives in `disaster.tornado` so
-the bench and the scene share one copy. A car pivots about its own origin on the
-ground, so rolling it 90 degrees swings half the BODY below grade by half the
-car's **width** — not the 0.7 m an earlier version guessed for everything, and
-not the same for a hatchback and a pickup. Half of them sank into the road and
-the rest hovered.
+**THE RECORD'S x/y ARE 3 DP, NOT 2, AND THAT IS DELIBERATE.** `_Deck`'s cells
+are 0.8 m with hard edges, so a centimetre of rounding can move a body's
+recorded position into the next cell and make the ground truth disagree with the
+surface it was actually seated on.
 
-**Vehicle displacement probabilities are UNCONDITIONAL.** Paulikas' "EF5 69%
-moved, 31% tipped" means 31% of ALL cars, not 31% of the 69%. Testing a tip
-probability only on cars that had already passed a move probability multiplies
-the two: measured, that produced an effective 6% where the data says 15% —
-**5 of 25 cars in the path moved and NONE tipped.** One draw against nested
-thresholds.
+**`DEBRIS_Z_M` IS STILL AN ESTIMATE.** It is only reached when there are no
+plank specs. Do not quote a bench result about float or sink as though it
+measured the assembly.
 
-**`assisted` trios are tighter than `min_separation_m` on purpose** — they are
-touching. They bypass the spacing check and register afterwards.
-
-**Scenario order is load-bearing.** `plan_people` runs the scenarios that need a
-SPECIFIC spot before the ones that can go anywhere, so a trapped figure is never
-crowded out of the pile edge by a bystander who could have stood two metres
-away.
+**BODIES CANNOT SEE THE ARCHETYPE PILE.** `_Deck` knows about the plank field
+and nothing else, so the baked wreck USD — which on a levelled house is the
+tallest thing on the lot — is invisible to it. Bodies therefore go on the plank
+mat around and over the footprint, never into the archetype mound. That is also
+the likelier truth (a body in the middle of the deepest material is invisible
+from any angle) but it is a limitation, not a model.
 
 ---
 
 # What is deliberately absent
 
-**`parking_refuge`** — the LARGEST wildfire scenario at 0.30, and it has no
-tornado counterpart. Moore, Joplin and Mayfield all had **no public tornado
-shelters**. Moore's emergency management says so explicitly and explains why:
-10-15 minutes of warning is not enough to receive it, decide, lock up, drive,
-park and get inside. Madison County AL — Huntsville, among the most
-tornado-conscious counties in the US — lists 14 safe rooms totalling ~2,700
-capacity, all in the rural fringe, and states the cities of Huntsville and
-Madison have none. Observed public-shelter use is **~4% where one exists and 0%
-where none does**.
+**Every upright figure who was not hit** — `neighbour_dig`, `on_the_rubble`,
+`street` walkers, `assisted` trios, `in_vehicle` occupants. Removed 2026-08-27.
+Nothing about the research behind them was found to be wrong: Greensburg's 68%
+of households doing SAR, Bartolucci et al. 2020's 60-100% civilian extrication
+share, Paulikas, Schmidlin & Marshall 2016's 959-vehicle displacement rates
+(EF5: 69% moved, 31% tipped — **unconditional**, not 31% of the 69%), Daley et
+al. 2005's severe-injury **OR 0.2** for fleeing by car. They are gone because
+the benchmark scores the people the tornado HIT, and because they are the easy
+problem. The code is in git history if a distractor population is ever wanted.
 
-**`gridlock`** — a neighbourhood-scale traffic jam is not supported. Across six
-metros over 2011-2018 only Oklahoma City ever produced a mass traffic reversal
-(Hatzis & Klockow-McClain 2022), it was **broadcast-directed**, and it is a
-metro-arterial phenomenon. Note also that the authors state plainly they *"have
-no way to quantify the number of people who actually evacuated"* — the
-"hundreds of thousands fled" figure that circulates is not a measured finding.
+**`parking_refuge`** — the largest WILDFIRE scenario at 0.30, and it has no
+tornado counterpart. Moore, Joplin and Mayfield all had **no public tornado
+shelters**. Madison County AL — Huntsville, among the most tornado-conscious
+counties in the US — lists 14 safe rooms totalling ~2,700 capacity, all in the
+rural fringe, and states the cities of Huntsville and Madison have none.
+Observed public-shelter use is **~4% where one exists and 0% where none does**.
+
+**`gridlock`** — across six metros over 2011-2018 only Oklahoma City ever
+produced a mass traffic reversal (Hatzis & Klockow-McClain 2022), it was
+broadcast-directed, and it is a metro-arterial phenomenon. The authors state
+plainly they *"have no way to quantify the number of people who actually
+evacuated"*.
 
 **`pools` / `cul_de_sac`** — wildfire refuge geography. A pool is shelter from
 radiant heat and nothing at all in a wind event.
 
 **Cellars, safe rooms and house interiors** — real, and where people actually
-shelter, but a drone benchmark cannot score a target it cannot see. This is
-`disaster.people`'s `exposed_interior` lesson: *a target that cannot be seen
-cannot be labelled, and an annotation for an invisible one is worse than no
-annotation at all.* Not relitigated here.
+shelter, but a drone benchmark cannot score a target it cannot see.
+
+**Fully buried figures** — same argument, now enforced by `_trim_spans`.
+
+**Figures under an intact tree canopy, and figures outside the track** — same
+argument again, enforced by `canopies` and `min_intensity`. A body on a mown
+lawn beside an untouched house is a person the tornado did not hit; a body
+under a crown is one no camera can see.
+
+**`trapped_sit`, the one upright casualty** — cut on the second review. See
+*Attitude* above.
 
 **Bystanders and onlookers at the track edge** — real (40% of people go outside
 to look during a warning, Sherman-Morris 2010, n=2,921) but out of scope by
-request: this scene is about the people the tornado HIT.
+request.
 
 **Responders, heavy equipment, search markings, triage tents** — T+12-24 h
 artefacts. See the epoch.
@@ -421,28 +552,27 @@ artefacts. See the epoch.
 
 # Known gaps and open decisions
 
-- **The bench has never been run.** See the top of this file.
-- **Mobile homes are structurally absent.** 38-47% of US tornado deaths against
-  ~5.4% of housing stock, and a **~10x exposure-adjusted** per-capita risk
-  (Fricker & Friesenhahn 2022; the ~20x figure elsewhere is unconditional and
-  also picks up where mobile homes are sited). Our suburb is entirely
-  site-built modular kit, so the scene cannot represent the highest-risk
-  housing type at all. **A small manufactured-home park is the single
-  highest-value asset addition available.**
-- **Casualties are on for `thrown` only.** Those figures are recorded
-  `alive: false`; everyone else is alive. There is no global `casualty_share`
-  knob yet — `disaster.people` has one and this module does not.
+- **`_BODY_RISE` is estimated from the pose arithmetic, not measured off a
+  render.** A board that floats over a body is that table too high; one that
+  cuts through a knee is it too low.
+- **`_lying_lift`'s 0.115 H lateral half-breadth is MODELLED.** Same status.
 - **Demographics are not modelled.** 60+ are **39.7%** of tornado fatalities and
   65+ are 28% against 12% of exposed — a 5x per-capita rate. If the
-  RenderPeople pool has older figures, casualty and assisted placements should
-  prefer them. Nothing does this today.
+  RenderPeople pool has older figures, casualties should prefer them. Nothing
+  does this today.
+- **`casualty_share` is a coin flip, not a model.** A quarter of the records are
+  `alive: false`. 86.6% of tornado deaths are on-scene (Chiu et al. 2013) and
+  94% in May et al. 2000, so a corridor at T+45 min genuinely holds both — but
+  nothing correlates death with occlusion, attitude or location, and it
+  probably should.
+- **Mobile homes are structurally absent.** 38-47% of US tornado deaths against
+  ~5.4% of housing stock, and a **~10x exposure-adjusted** per-capita risk
+  (Fricker & Friesenhahn 2022). Our suburb is entirely site-built modular kit.
+  **A small manufactured-home park is the single highest-value asset addition
+  available.**
 - **Time of day is not a parameter.** Peak tornado hour is 16:00-17:00 CST and
   the scene is bright daylight, which is self-consistent — but a nocturnal
-  scene would invert the mix entirely (nearly everyone in a bedroom, essentially
-  nobody outdoors or in vehicles, mobile-home share of deaths roughly doubling).
-- **"En route" is real and unmodelled** — people caught in hallways moving
-  toward a refuge when it hit (NIST Joplin Findings 43/44). Not placeable
-  anyway, being indoors.
+  scene would invert the mix entirely.
 - **No drone has ever been documented finding a live tornado victim.** Lee
   County AL 2019 flew thermal drones; the sheriff's stated value was *negative
   assurance* — confidence nothing was missed — not detection. CRASAR flew
@@ -454,26 +584,24 @@ artefacts. See the epoch.
 
 # Sources
 
-The load-bearing ones, so a future reader can check rather than trust.
-
 - **NIST NCSTAR 3** — Technical Investigation of the May 22, 2011 Joplin
-  Tornado. 494 pp. All 161 fatalities geolocated; interviews; basement and
-  refuge findings. https://nvlpubs.nist.gov/nistpubs/NCSTAR/NIST.NCSTAR.3.pdf
+  Tornado. 494 pp. All 161 fatalities geolocated; refuge and basement findings.
+  https://nvlpubs.nist.gov/nistpubs/NCSTAR/NIST.NCSTAR.3.pdf
 - **CDC MMWR 61(28):529-533** — Tornado-Related Fatalities, Five States,
   Southeastern US, April 25-28 2011. The injury-location vs recovery-location
   table (90.5% / 3.3% / 37.0%).
 - **Chiu et al. 2013**, *Am J Public Health* 103(8) — Alabama 27 Apr 2011, 247
   decedents. Room-level locations; who victims were found with; 86.6% on-scene.
 - **Niederkrotenthaler et al. 2013**, *PLoS ONE* 8:e83038 — 1,398 patients, 39
-  hospitals. Injury severity distribution; within-house odds ratios.
+  hospitals. Injury severity distribution.
 - **Hammer & Schmidlin 2002**, *Wea. Forecasting* 17:577 — 190 occupants of 65
   F4/F5-damaged homes, OKC 1999. Shelter-room shares; 47% fled; 0 of 90 injured.
-- **Brown et al. 2002**, *Wea. Forecasting* 17:343 — OKC 1999 deaths and
-  injuries; "picked up / blown" mechanism shares.
+- **Brown et al. 2002**, *Wea. Forecasting* 17:343 — OKC 1999; "picked up /
+  blown" mechanism shares.
 - **Daley et al. 2005**, *Am J Epidemiol* 161:1144 — odds ratios including
   fleeing by vehicle.
-- **Paul & Stimers 2014**, *Wea. Climate Soc.* 6(2) — Joplin mortality by
-  damage zone, with population denominators.
+- **Paul & Stimers 2014**, *Wea. Climate Soc.* 6(2) — Joplin mortality by damage
+  zone, with population denominators.
 - **Paulikas, Schmidlin & Marshall 2016**, *Wea. Climate Soc.* 8:85 — 959
   vehicles, displacement and rollover rates by EF.
 - **Karstens et al. 2013**, *J. Appl. Meteor. Climatol.* 52 — 10,300 + 94,500
@@ -484,10 +612,12 @@ The load-bearing ones, so a future reader can check rather than trust.
   extrication across earthquake events.
 - **Fricker & Friesenhahn 2022**, *Wea. Climate Soc.* 14:75 — fatality location
   shares 1995-2018; exposure-adjusted mobile-home risk.
-- **Sherman-Morris 2010**, *Natural Hazards* 52:623 — n=2,921; 40% went outside
-  to look.
+- **Sherman-Morris 2010**, *Natural Hazards* 52:623 — n=2,921; 40% went outside.
 - **Hatzis & Klockow-McClain 2022**, *Wea. Climate Soc.* 14 — the 31 May 2013
   OKC traffic reversal, and its limits.
+- **Drillis & Contini 1966** — the anthropometric segment fractions (`_LANDMARK`,
+  the biacromial breadth behind `_lying_lift`), as reproduced in Winter,
+  *Biomechanics and Motor Control of Human Movement*.
 - **FEMA/DHS 2011** — Joplin Lessons Learned Study; response timeline.
-- **Paul, Che, Stimers & Dutt** (Natural Hazards Center QR) — Greensburg;
-  68% of households participated in SAR, with timing.
+- **Paul, Che, Stimers & Dutt** (Natural Hazards Center QR) — Greensburg; 68% of
+  households participated in SAR, with timing.

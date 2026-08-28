@@ -980,8 +980,19 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
     # neighbours' canopies and the purse ate.
     n_screen_lot = n_screen_elig = n_screen_tree = n_screen_blocked = 0
 
-    def emit(entry, x, y, yaw, category, purse):
+    def emit(entry, x, y, yaw, category, purse, prop_kind=None):
         """Charge the purse, then place. Returns False if unaffordable.
+
+        `prop_kind` NAMES WHAT THE THING ACTUALLY IS, and it exists because
+        `category` cannot. Everything this pass places is charged to the
+        `plant` budget — that is what the purse is denominated in — so a
+        mailbox, a wheelie bin and a patio table all ship with
+        `category: "plant"`, and a downstream pass looking for street furniture
+        finds a shrub. The tornado corridor pass is exactly that reader: it
+        blows fences, bins, mailboxes and signs out of the track and left every
+        mailbox on the plate standing perfectly upright in a levelled block,
+        because none of them said "mailbox" anywhere. This does, without
+        moving a single prop between budgets.
 
         KEEP-OUTS ARE CHECKED FIRST, and before the purse is charged: a prop
         refused for standing on a cul-de-sac turnaround must not also spend the
@@ -1026,6 +1037,7 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
             "roll_deg": 90.0 if entry.get("axis_up") == "Y" else 0.0,
             "pitch_deg": 0.0, "scale": entry.get("scale", 1.0),
             "category": category, "axis_up": entry.get("axis_up", "Z"),
+            "prop_kind": prop_kind,
         })
         tally[category] = tally.get(category, 0) + 1
         return True
@@ -1184,7 +1196,7 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
             # is at yaw_deg - 90; `+ 90` pointed every one of these into the
             # block. Same convention `build_frontage` uses for its kerb props.
             emit(_pick(mailboxes, rng), x, y, yaw_deg - 90.0, "plant",
-                 budget.other)
+                 budget.other, prop_kind="mailbox")
 
         # -- SIDE YARDS: the gap between the houses, which had nothing in it --
         # The width is DERIVED, never assumed. `house_gap_m` is a 4.0 m minimum,
@@ -1588,13 +1600,14 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
         # alone at the far offset of a group that was never placed is worse
         # than the empty lawn it replaces.
         e0, (x0, y0), yw0, _a0, _d0 = stations[0]
-        if not emit(e0, x0, y0, yw0, "plant", budget.other):
+        if not emit(e0, x0, y0, yw0, "plant", budget.other,
+                    prop_kind="patio"):
             n_patio_blocked += 1
             continue
         n_patio += 1
         n_patio_pieces += 1
         for (e, (x, y), yw, _ea, _ed) in stations[1:]:
-            if emit(e, x, y, yw, "plant", budget.other):
+            if emit(e, x, y, yw, "plant", budget.other, prop_kind="patio"):
                 n_patio_pieces += 1
         if len(stations) < 2:
             n_patio_solo += 1
@@ -1616,7 +1629,8 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
                            half_d + clear_house + b_d / 2.0)
             if b_lim > 0.0 \
                     and free_at(bx, by, max(b_a, b_d) / 2.0, fences) \
-                    and emit(be, bx, by, yaw_deg, "plant", budget.other):
+                    and emit(be, bx, by, yaw_deg, "plant", budget.other,
+                             prop_kind="bin"):
                 n_bin += 1
                 n_patio_pieces += 1
 

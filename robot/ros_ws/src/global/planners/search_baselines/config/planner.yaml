@@ -169,6 +169,16 @@ search_planner:
     # 0.65 sits above the highest FALSE positive measured on the house bench
     # (a spurious `person` at 0.32) and under the confident real detections.
     sem_threshold: 0.65
+    # LOGGING ONLY — does not move the gate. Every tick with a goal-class box
+    # at or above this is logged unthrottled with each box's score and pixel
+    # rect: "detector SEEN" when the best is under sem_threshold (seen, not
+    # mapped), "detector PASS" when it cleared it (mapped). The annotated
+    # frame goes out on /{robot}/search/detection_image on the same ticks.
+    # 0.5 shows the band a threshold decision is made from.
+    detector_log_conf: 0.5
+    # SIM seconds between "detector summary" log lines per robot (ticks, goal
+    # proposals, gate passes, run max, confidence histogram).
+    detector_log_period_s: 30.0
 
     # ── actuation ───────────────────────────────────────────────────────────
     flight_altitude_m: 15.0
@@ -176,13 +186,27 @@ search_planner:
     nav_goal_timeout_s: 60.0
     goal_change_threshold_m: 5.0
     path_extension_m: 2.0
-    # Speed by INTENT, set on droan_gl's `max_velocity` parameter: transit
-    # to a frontier / lane goal at explore_speed_mps, the approach to a
-    # detected person at target_speed_mps. Not applied by the gpt arm. 0 on
-    # either leaves droan's own default (2 m/s).
-    explore_speed_mps: 3.0
+    # Speed by INTENT, carried to droan_gl ON THE NavigateTask GOAL
+    # (task_msgs NavigateTask.Goal.max_speed_mps; droan applies it per goal
+    # and PREEMPTS the running goal when a new cap arrives). Three gears:
+    #   transit_speed_mps  OUTSIDE the robot's own sector and not on a
+    #                      target — only travelling, so the fleet gets to
+    #                      its strips fast (robot_5 spent 330 s of a 600 s
+    #                      budget reaching its strip at 1 m/s, 2026-08-27).
+    #   explore_speed_mps  inside the sector, searching.
+    #   target_speed_mps   the approach to a detected person.
+    # droan_gl's ceiling is 15 m/s. Not applied by the gpt arm (the paper
+    # flies one speed). 0 on transit = no third gear; 0 on the others leaves
+    # droan's own `max_velocity` (2 m/s). Log lines that prove it took:
+    #   planner  `[robot_1] NavigateTask max_speed -> 7.0 m/s (transit to sector)`
+    #            `[robot_1] ground speed 6.4 m/s over 10 s sim | cap 7.0 (...)`
+    #   droan_gl `NavigateTask accepted: activator ..., max_speed 7.0 m/s (from the goal)`
+    #            `[droan_gl] rollout speed cap -> 7 m/s`
+    transit_speed_mps: 7.0
+    explore_speed_mps: 1.5
     target_speed_mps: 1.5
-    droan_node_template: '/{robot}/droan/disparity_expander_node'
+    # SIM seconds between measured-ground-speed log lines per robot.
+    speed_log_period_s: 10.0
     # How droan_gl is driven.
     #   'activator'      one EMPTY NavigateTask goal; droan enters ADD_SEGMENT
     #                    and steers by the global_plan TOPIC this node
@@ -333,12 +357,32 @@ search_planner:
     # [0.0] means UNBOUNDED. Not [] — rclpy infers a parameter's type from its
     # value and an empty list has none, so it raises at declare time.
     search_area_xy: [0.0]
+    # WHERE THE POLYGON COMES FROM.
+    #   'config'  search_area_xy above.
+    #   'scene'   the DISASTER-AFFECTED AREA the Isaac launcher writes for a
+    #             generated scene with GT_ANNOTATIONS=on:
+    #             <RESULTS_SCENE>_region.json beside the people GT and the
+    #             obstacle boxes (scene_gen/disaster/region.py). Entry
+    #             'affected' = the fire-front ellipse at the scene's burn time
+    #             PLUS the evacuation band the survivors are staged in;
+    #             'burn' = the burnt ground alone. Authored in WORLD, so
+    #             search_area_frame is forced to 'world'; search_area_pad_m
+    #             and the sector split then apply as for a config polygon.
+    #             A missing file is FATAL (no silent whole-map fallback).
+    search_area_source: 'config'
+    search_area_scene_key: 'affected'
     # Sector partitioning. 'none' = the whole search area. 'strips' splits it
-    # into NUM_ROBOTS equal-AREA slices along its long axis; 'grid' uses roughly
-    # square tiles. Every robot computes the same partition and reads off its
+    # into NUM_ROBOTS equal-AREA slices along its long axis; 'rect' cuts
+    # NUM_ROBOTS equal-WIDTH bands and hands each robot the bounding
+    # RECTANGLE of its band's share of the region — tight to a non-rectangular
+    # damage footprint (the fire ellipse), only roughly equal in area, and
+    # what the method overlays use; 'grid' uses roughly square tiles. Every robot computes the same partition and reads off its
     # own index, so nothing is exchanged — that is the defining property of a
     # static-sector arm. At NUM_ROBOTS=1 all modes are a no-op.
     sector_partition: 'none'
+    # 'auto' (the longer x/y extent) | 'x' | 'y' | 'principal' (rect only:
+    # bands along the region's own major axis, rotated rectangles — for a
+    # diagonal damage footprint).
     sector_axis: 'auto'
     sector_index: -1               # -1 -> derive from ROBOT_NAME
     # Grow the region before splitting, so a drone may work slightly outside the

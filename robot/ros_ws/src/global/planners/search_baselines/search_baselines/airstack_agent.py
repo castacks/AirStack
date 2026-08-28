@@ -183,16 +183,28 @@ class AirStackAgent(ROS_Agent):
                             if cid is not None and int(cid[i]) < len(self.classes)
                             else '?', round(float(conf[i]), 3)) for i in order]
                 hits, gmax = 0, 0.0
+                goal_boxes = []
                 if n and cid is not None:
                     gc = [float(conf[i]) for i in range(n)
                           if int(cid[i]) == self.goal_id]
                     hits = len(gc)
                     gmax = max(gc) if gc else 0.0
+                    # Every goal-class box with its pixel rect, best first,
+                    # so the planner can log WHAT scored and where in the
+                    # frame (not just the best score). Ten is plenty; a
+                    # frame with more is a swarm, not a survivor.
+                    xyxy = getattr(det, 'xyxy', None)
+                    for i in sorted((i for i in range(n) if int(cid[i]) == self.goal_id),
+                                    key=lambda i: -float(conf[i]))[:10]:
+                        box = [int(round(float(v))) for v in xyxy[i]] \
+                            if xyxy is not None else []
+                        goal_boxes.append((round(float(conf[i]), 3), box))
                 # goal_max is the number that decides everything: it separates
                 # "the detector never proposes the goal class" from "it does,
                 # below sem_threshold".
                 self.last_detection = {'n': n, 'top': top, 'goal_hits': hits,
-                                       'goal_max': round(gmax, 3)}
+                                       'goal_max': round(gmax, 3),
+                                       'goal_boxes': goal_boxes}
             except Exception:
                 pass
             return det

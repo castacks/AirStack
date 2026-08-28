@@ -181,6 +181,48 @@ docker exec isaac-sim tmux send-keys -t isaac \
   of them onto a USD render-settings property and the renderer reads the
   property from then on, so a late `set_bool` is never copied across — the
   fractional-cutout overlay silently vanished the run that tried it.
+### THE CONTAINER EXPORTS LAUNCHER ENV VARS AS EMPTY STRINGS
+
+`docker exec isaac-sim env` on this image prints, among others:
+
+    SETTLE_STEPS=
+    ARCH_DIR=
+    ARCH_SEED=
+    ARCH_STYLES=
+    ARCH_GRADES=
+    ARCH_VARIANTS=
+
+**Declared, unset, and therefore PRESENT as `""`.** So the near-universal
+launcher idiom
+
+    SEED = int(os.environ.get("ARCH_SEED", "7"))
+
+never reaches its default — `get` returns `""` because the key exists — and
+fails two different ways depending on the type:
+
+- **numeric knobs raise**, `ValueError: invalid literal for int() with base 10:
+  ''`, about fourteen seconds into the launch, well after `app ready`. It reads
+  like a code bug in the launcher and it is an environment one. Measured on
+  `bake_tornado_archetypes_launch_script.py` 2026-08-27: a clean-looking start,
+  then a traceback, then a 15 s shutdown.
+- **path knobs DO NOT RAISE, which is worse.** `ARCH_DIR` becomes `""`,
+  `os.makedirs("", exist_ok=True)` is a silent no-op, and the whole archetype
+  library is written into the container's CWD under a banner that says it
+  succeeded.
+
+Two fixes, use both:
+
+- in the launcher, read every knob through a helper that treats empty as
+  absent — `v = os.environ.get(name); return default if not (v or "").strip()
+  else v.strip()`;
+- on the command line you send to the pane, **pass every knob you care about
+  explicitly**, even the ones you want at their default. `ARCH_SEED=7
+  ARCH_DIR=/isaac-sim/AirStack/... SETTLE_STEPS=1800 ...` costs nothing and
+  removes the whole class.
+
+The same trap applies to `SCENE_CONFIG`, which is why section 0 already says to
+pass it explicitly on every line.
+
 ### Ctrl-C ORPHANS PX4, and the next run fails in a way that blames the sim
 
 Pegasus starts one `px4` process per drone as a CHILD of the Kit process, and
@@ -405,6 +447,41 @@ USD resolver below has no such RPATH.
 
 Credentials need nothing: the image env carries `OMNI_USER=$omni-api-token`
 and `OMNI_PASS`, and `initialize()` picks them up.
+
+### `pxr` STANDALONE TOO — measuring a baked USD without booting anything
+
+The same trick, different two paths. Opening a stage and walking its bounding
+boxes is how an archetype is checked for floaters, sunk fragments or lost
+materials, and none of it needs an app:
+
+```bash
+docker exec isaac-sim bash -lc '
+  D=$(ls -d /isaac-sim/extscache/omni.usd.libs-*/ | head -1)
+  PYTHONPATH="$D" LD_LIBRARY_PATH="$D/bin:$LD_LIBRARY_PATH" \
+  /isaac-sim/python.sh /tmp/probe.py \
+    /isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_leveled.usd'
+```
+
+**`PYTHONPATH="$ISAAC_SIM_PYTHONPATH"` DOES NOT WORK FOR THIS and it is the
+first thing anyone tries**, because it is what the compose file and every
+launcher line in this skill use. In this image that variable resolves to a
+single `rclpy` path, so setting it *replaces* whatever `python.sh` would have
+arranged and you get `ModuleNotFoundError: No module named 'pxr'` — which reads
+like the stale "you must boot SimulationApp first" folklore and is not.
+
+The two failures, so they are recognisable:
+
+| dropped | failure |
+|---|---|
+| `PYTHONPATH=<omni.usd.libs>` | `ModuleNotFoundError: No module named 'pxr'` |
+| `<omni.usd.libs>/bin` on `LD_LIBRARY_PATH` | `ImportError: libusd_tf.so: cannot open shared object file`, raised from `pxr/Tf/__init__.py` |
+
+Same shape as the `libcarb.so` case above and the same lesson: the blocker is a
+library path, not an app.
+
+Write the probe to `/tmp` INSIDE the container (`cat > /tmp/probe.py <<EOF`) —
+the repo is bind-mounted read-write, but a throwaway probe does not belong in
+it.
 
 ### API surface (all blocking wrappers over `*_with_callback`)
 

@@ -98,8 +98,37 @@ DAMAGED_LEVELS = ("roof_stripped", "roof_collapsed", "partial_collapse",
 # cladding, per level. Climbing, because the further a building is taken apart
 # the more of what you are looking at is its INSIDE — studs, joists, the
 # unpainted back of sheathing — and that is pale where the outside is painted.
-_BARE = {"roof_stripped": 0.30, "roof_collapsed": 0.42,
-         "partial_collapse": 0.55, "leveled": 0.68, "swept": 0.72}
+#
+# CUT ACROSS THE BOARD ON REVIEW (2026-08-27): "the house texture all seem to
+# change and become wood instead of matching the pre collapse material of the
+# house, roof, etc." Measured on the baked archetypes before the change, the
+# share of bound targets wearing the sawn-timber map was 63-75% at `leveled`
+# and `swept` for EVERY style — a brick ranch, a stucco villa and a painted
+# cottage all converged on the same pale plank. Two faults compounded:
+#
+#   * these numbers were too high to begin with. 0.68 says two thirds of what
+#     you can see of a levelled house is its framing, which is true of the
+#     VOLUME and not of the AREA: cladding and roof covering are sheet goods
+#     and they are most of the surface in any debris photograph;
+#   * and the bare draw was reaching into `planks.STOCK`'s `siding` and `deck`
+#     classes, which are not bare timber at all — see `_debris_material`.
+#
+# Halved-ish, and the roof bonus with it. The remaining share is real: the
+# inside of a wall genuinely is pale, and a scene with no bare framing in it
+# looks like a house that came apart along its paint lines.
+_BARE = {"roof_stripped": 0.18, "roof_collapsed": 0.26,
+         "partial_collapse": 0.34, "leveled": 0.40, "swept": 0.44}
+
+# WHAT "BARE TIMBER" IS MADE OF, and it is NOT the whole cutting list.
+# `planks.STOCK` gained `siding` and `deck` on 2026-08-27 precisely because
+# those two are the classes that carry a HOUSE'S OWN COLOUR — the outside of
+# the wall and the roof slab with its covering on. Drawing them here handed a
+# third of every "bare" fragment to a class whose material only exists to be
+# skinned, and on the shared `planks.materials` map that is the fallback tint:
+# the same `Ash_Planks` a stud gets. So a third of the bare draw was silently
+# turning cladding and shingle back into pale timber, which is most of what
+# the review was looking at.
+_BARE_STOCK = ("stud", "joist", "sheathing", "board")
 
 
 def cascade_supports(items, broken, radius_m=4.0, z_eps=0.5):
@@ -132,16 +161,22 @@ def _debris_material(stage, parent, cache, texture, rng, bare_p, planks_mats):
         # near-white framing to dark decking, and these are the same five
         # materials the loose plank field carries — so a fragment and a board
         # lying beside it still agree about what a house is made of.
-        return planks_mats.get(planks._weighted(rng)) \
-            or planks_mats.get("stud")
+        k = _BARE_STOCK[rng.randrange(len(_BARE_STOCK))]
+        return planks_mats.get(k) or planks_mats.get("stud")
     m = cache.get(texture)
     if m is None:
-        # 0.45 repeats per metre = one tile a bit over two metres, which is
-        # `damage._pbr`'s own documented reference value for world-projected
-        # debris. Fragments carry no UVs, so this MUST be the triplanar path.
+        # ONE TILE PER METRE, not per 2.2 m. Fragments carry no UVs so this
+        # MUST be the triplanar path, but 0.45 repeats/m was `damage._pbr`'s
+        # generic reference value and it is wrong for cladding: a brick course
+        # is 0.075 m and a clapboard run about 0.15, so at 2.2 m a tile the
+        # bricks come out the size of a door and the wall reads as a smear.
+        # The loose plank field settled on 1.05 m for the same maps
+        # (`planks.skin_material`) and the two have to agree — a fragment and a
+        # board lying beside it are the same material at the same scale or the
+        # pile reads as two different buildings.
         m = damage._pbr(stage, "{0}/WreckLooks/clad_{1}".format(
             parent, len(cache)), (1.0, 1.0, 1.0), 0.82,
-            texture=texture, scale_uv=(0.45, 0.45))
+            texture=texture, scale_uv=(0.95, 0.95))
         cache[texture] = m
     return m
 

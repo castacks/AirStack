@@ -1774,6 +1774,22 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
 # ---------------------------------------------------------------------------
 
 _CAR_TAG_RESIDENTIAL = "residential"
+# ...AND THE ONES THAT MAY STAND ON THE STREET BUT NEVER ON A DRIVE.
+#
+# A taxi, a squad car, a construction truck and a parcel van are ordinary
+# things to see on a residential street and absurd things to see parked at a
+# particular house: a driveway is somebody's, and what is on it says who lives
+# there. The pool was drawn ONCE for all three ranks, so the only way to let a
+# van onto the street was to tag it `residential` — which put it in driveways
+# too, and that is exactly what shipped (user, 2026-08-27: "you've placed the
+# delivery van in someone's house parking ... you can use them as props on the
+# street but not parked at someone's house").
+#
+# So the kerb rank draws from `residential` PLUS this, and the driveway and
+# court ranks keep drawing `residential` alone. A row-home court is residential
+# parking — it is the households' own bays, just shared — so it stays with the
+# drives.
+_CAR_TAG_STREET = "street"
 _CAR_TAG_VINTAGE = "vintage"
 _CAR_TAG_GLASS = "glass_separable"
 
@@ -1814,6 +1830,56 @@ _CAR_POINT_CLEAR_M = {
     "tree": 1.2,
     "plant": 0.8,
 }
+
+
+def car_dims(resolver, pools, usd):
+    """(length along the nose, width across it) in metres, MEASURED.
+
+    `resolver.get` returns the world-XY footprint of the UNROTATED asset (the
+    Y-up correction is already folded in). Its world rotation is ``desired +
+    yaw-offset``, so the box sits at ``yaw-offset`` to the heading and the
+    extent along the heading is the projection of the box through that angle.
+    For the RetroNeighborhood and Muyang vehicles (`yaw-offset: 90`) this
+    reduces to length = sy, width = sx; the 2026-08-26 standalone drop is
+    authored nose along +X and carries no offset, so for those it is the
+    identity.
+
+    MODULE LEVEL RATHER THAN A CLOSURE IN `build_cars`, because two other
+    places need exactly this answer and neither can reach inside that
+    function: the tornado launcher sizes a thrown vehicle by its own length
+    (`disaster/tornado.py` `car_pose`, whose mass proxy is the length), and
+    `disaster.people` re-derives it for the occupant passes. A second copy of
+    a projection this fiddly is a second chance to get the axes the wrong way
+    round, which `fallback_sizes.car` already records having happened once.
+    """
+    fp = resolver.get(usd, "car", scale=pools.scale_of(usd),
+                      axis_up=pools.axis_of(usd))
+    yo = math.radians(pools.yaw_of(usd))
+    c, s = abs(math.cos(yo)), abs(math.sin(yo))
+    sx, sy = float(fp.get("sx", 4.5)), float(fp.get("sy", 2.0))
+    ln, wd = c * sx + s * sy, s * sx + c * sy
+    # A CAR IS NEVER WIDER THAN IT IS LONG. If the projection says otherwise
+    # the asset's `yaw-offset` and its measured box disagree, and the only
+    # recoverable reading is the one that fits a car. This affects the FIT
+    # numbers only — the yaw is authored from the offset either way, so a
+    # genuinely wrong offset still shows up as a broadside car.
+    return (ln, wd) if ln >= wd else (wd, ln)
+
+
+def car_heading(pools, placement):
+    """World bearing of a parked car's LONG AXIS, in degrees.
+
+    The placement's `yaw_deg` is the world Z rotation that was AUTHORED, which
+    already carries the asset's art `yaw-offset`; taking that back off is what
+    turns it into a bearing you can compare with a wind direction. `build_cars`
+    makes exactly this derivation to box an already-standing car, and the
+    tornado pass needs it to decide which way a rolled car comes to rest — a
+    car rolls about its long axis, so where that axis ends up relative to the
+    way it travelled is the whole difference between an authored heading and a
+    random one.
+    """
+    return (float(placement.get("yaw_deg", 0.0))
+            - float(pools.yaw_of(placement.get("usd"))))
 
 
 def _obb_corners(cx, cy, ux, uy, hl, hw):
@@ -1968,6 +2034,7 @@ def build_cars(config, resolver, net, parcels, rng, pools,
     """
     raw = _raw_pool(config, "cars")
     res = pools.load_tagged(raw, _CAR_TAG_RESIDENTIAL)
+    street_only = pools.load_tagged(raw, _CAR_TAG_STREET)
     vintage = pools.load_tagged(raw, _CAR_TAG_VINTAGE)
     glassy = frozenset(pools.load_tagged(raw, _CAR_TAG_GLASS))
     if not res:
@@ -1987,6 +2054,33 @@ def build_cars(config, resolver, net, parcels, rng, pools,
     street_density = float(ccfg.get("street_density", 0.12))
     cap = int(ccfg.get("max_cars", 700))
     vintage_chance = float(ccfg.get("vintage_chance", 0.06)) if vintage else 0.0
+    # SHARE OF KERB SLOTS that get a taxi / squad car / truck / van rather than
+    # a household car. A minority by construction: one of these on every block
+    # is as wrong as none at all, and the street still has to read as somebody's
+    # street.
+    #
+    # CUT 0.22 -> 0.08 ON REVIEW (2026-08-27). One in five was chosen against a
+    # plate with a dozen kerb cars, where it puts two or three trade vehicles on
+    # a long street and reads as ordinary. It does not survive the small plate
+    # or the eye: these are the four most VISUALLY DISTINCTIVE assets in the
+    # pool — a white parcel van, a yellow construction truck, a taxi and a
+    # squad car, against seven ordinary saloons — so at one in five the street
+    # reads as a depot. The review was blunt about it ("reduce the rate of
+    # spawning delivery truck/police car, spawn more of the normal cars") and
+    # the number is what changes, not the model: about one kerb car in twelve,
+    # so a 100 m plate usually has none and a 500 m corridor has a handful.
+    street_chance = float(ccfg.get("street_livery_chance", 0.08)) if street_only else 0.0
+    # ...AND THE MOTORHOME IS NOT AN ORDINARY CAR EITHER. It carries
+    # `residential` because it is somebody's and it is one of only three
+    # vehicles in the pool a person can be SEEN inside, so it must stay
+    # reachable — but as one of seven `residential` entries drawn uniformly it
+    # was 14% of every driveway and kerb slot on the plate, which is about ten
+    # times the real rate and is the other half of what the review saw. Drawn
+    # off its own band, out of the middle of the same single draw so the two
+    # end bands are untouched.
+    rv = [u for u in pools.load_tagged(raw, "rv") if u in res]
+    rv_chance = float(ccfg.get("rv_chance", 0.03)) if rv else 0.0
+    res_plain = [u for u in res if u not in rv] or list(res)
     spacing = ccfg.get("slot_spacing_m") or (7.0, 9.0)
     sp_lo, sp_hi = float(spacing[0]), float(spacing[-1])
     gap_chance = float(ccfg.get("slot_gap_chance", 0.18))
@@ -1997,36 +2091,34 @@ def build_cars(config, resolver, net, parcels, rng, pools,
     apron_clear = float(ccfg.get("apron_clear_m", 1.5))
     hyd_clear = float(ccfg.get("hydrant_clear_m", 3.0))
 
-    def _pick():
-        # ONE rng draw either way, so the sequence does not depend on whether
-        # there is a vintage sub-pool: seeds stay comparable across asset sets.
+    def _pick(kerb=False):
+        """One asset. `kerb=True` also reaches the street-only pool.
+
+        ONE rng draw whichever branch is taken, so the sequence does not depend
+        on whether an asset set has a vintage or a street sub-pool: seeds stay
+        comparable across sets, and a DRIVEWAY draws exactly the value it drew
+        before this pool existed.
+
+        The two bands are taken from OPPOSITE ENDS of the draw so they cannot
+        collide: street off the top, vintage off the bottom. Nesting them at
+        the same end would make a vintage car unreachable at the kerb whenever
+        `street_livery_chance` exceeds `vintage_chance`, which is the same
+        multiply-two-probabilities bug `tornado.car_pose` records for the
+        displacement ladder.
+        """
         v = rng.random()
+        if kerb and street_only and v >= 1.0 - street_chance:
+            return street_only[rng.randrange(len(street_only))]
         if vintage and v < vintage_chance:
             return vintage[rng.randrange(len(vintage))]
-        return res[rng.randrange(len(res))]
+        # THE MOTORHOME'S OWN BAND, taken out of the MIDDLE so it cannot
+        # collide with either end — same argument as the two bands above.
+        if rv and vintage_chance <= v < vintage_chance + rv_chance:
+            return rv[rng.randrange(len(rv))]
+        return res_plain[rng.randrange(len(res_plain))]
 
     def _dims(usd):
-        """(length along the nose, width across it) in metres, MEASURED.
-
-        `resolver.get` returns the world-XY footprint of the UNROTATED asset
-        (the Y-up correction is already folded in). Its world rotation is
-        ``desired + yaw-offset``, so the box sits at ``yaw-offset`` to the
-        heading and the extent along the heading is the projection of the box
-        through that angle. For the whole pool (`yaw-offset: 90`) this reduces
-        to length = sy, width = sx.
-        """
-        fp = resolver.get(usd, "car", scale=pools.scale_of(usd),
-                          axis_up=pools.axis_of(usd))
-        yo = math.radians(pools.yaw_of(usd))
-        c, s = abs(math.cos(yo)), abs(math.sin(yo))
-        sx, sy = float(fp.get("sx", 4.5)), float(fp.get("sy", 2.0))
-        ln, wd = c * sx + s * sy, s * sx + c * sy
-        # A CAR IS NEVER WIDER THAN IT IS LONG. If the projection says
-        # otherwise the asset's `yaw-offset` and its measured box disagree, and
-        # the only recoverable reading is the one that fits a car. This affects
-        # the FIT numbers only — the yaw is authored from the offset either way,
-        # so a genuinely wrong offset still shows up as a broadside car.
-        return (ln, wd) if ln >= wd else (wd, ln)
+        return car_dims(resolver, pools, usd)
 
     # -- what a car may not sit on -----------------------------------------
     # Two indexes, because a driveway crosses the pavement and a kerb slot must
@@ -2057,11 +2149,12 @@ def build_cars(config, resolver, net, parcels, rng, pools,
             # of `_CAR_POINT_CLEAR_M` would be the wrong shape for it (a 4.6 m
             # box is not a disc), and the failure would be two cars in the same
             # bay rather than an error. Same derivation the pass uses for its
-            # own cars: `_dims` for the extents, and the heading is the
-            # placement's yaw with the pool's art offset taken back off.
-            _ln, _wd = _dims(q["usd"])
-            _a = math.radians(float(q.get("yaw_deg", 0.0))
-                              - pools.yaw_of(q["usd"]))
+            # own cars: `car_dims` for the extents and `car_heading` for the
+            # long axis — the same two module-level derivations the tornado
+            # pass reads, so a car boxed here and a car thrown there cannot
+            # disagree about which way it is pointing.
+            _ln, _wd = car_dims(resolver, pools, q["usd"])
+            _a = math.radians(car_heading(pools, q))
             keep.add_box(_obb_corners(float(q.get("x_m", 0.0)),
                                       float(q.get("y_m", 0.0)),
                                       math.cos(_a), math.sin(_a),
@@ -2304,7 +2397,7 @@ def build_cars(config, resolver, net, parcels, rng, pools,
                 s_here, s = s, s + step
                 if not take or len(out) >= cap:
                     continue
-                usd = _pick()
+                usd = _pick(kerb=True)
                 ln, wd = _dims(usd)
                 hl, hw = ln * 0.5, wd * 0.5
                 # Hard against the kerb, `kerb_gap` of gutter showing. The

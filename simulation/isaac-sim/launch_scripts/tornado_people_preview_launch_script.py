@@ -1,53 +1,70 @@
 #!/usr/bin/env python
 """
-The tornado PEOPLE bench — every placement type as its own set-piece, side by
-side on open ground, with the camera aimed at each one.
+The tornado CASUALTY bench — every attitude against every occlusion pattern on
+one grid, and one wrecked house with the real planner running over it.
 
     ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado \
     SNAP_DIR=/isaac-sim/.nvidia-omniverse/logs/people_bench \
     ISAAC_SIM_SCRIPT_NAME=tornado_people_preview_launch_script.py \
-    airstack up isaac-sim
+    ./airstack.sh up isaac-sim
 
 WHY A BENCH AND NOT THE FULL SCENE
 ----------------------------------
-Every one of these placements is a claim about what a drone can SEE, and one
-of them — `trapped_partial` — is a claim that cannot be checked any other way.
-A figure that is meant to be mostly buried and partly visible is either right
-or worthless, and the difference is a few centimetres of sink and where a
-handful of boards landed. In the assembled 500 m scene that figure is one of
-ninety, somewhere in a corridor, at whatever altitude the overview camera
-happens to be at. Here it is the subject of its own photograph.
+Every figure this module places is a claim about what a drone can SEE, and the
+whole of `tornado_people` now turns on two axes that only a photograph can
+settle:
 
-This is the same argument `burn_ground_preview_launch_script.py` makes for the
-ground scar, and it was made after four approaches had each been diagnosed
-slowly inside a twenty-minute full-block build.
+    ATTITUDE   face-up, face-down, on the left side, on the right side, drawn
+               up, pinned sitting. Six silhouettes, five of them added on
+               2026-08-27 and NONE of them ever rendered — the lateral poses in
+               particular are the first thing in this repo to use `pitch_deg`
+               as a spin about the body's own long axis, and if the sign is
+               wrong the figure is face-down with a knee through the ground.
+    OCCLUSION  thirteen named patterns, each covering a NAMED stretch of the
+               body. `legs` has to mean the legs. `head_only` has to leave a
+               body with no head and everything else. `all_but_head` has to
+               leave a head.
 
-IT RUNS THE REAL PLANNER
-------------------------
-Each unit builds a synthetic `ctx` — one wreck, some cars, a few road points —
-and calls `tornado_people.plan_people` with the shares zeroed except for the
-scenario under test. So what is photographed is the code the assembly runs,
-not a second implementation that agrees with it today and drifts tomorrow. A
-bench that reimplements the thing it is checking proves nothing.
+In the assembled 100 m scene any one of those is one figure of twenty,
+somewhere in a plank field, at whatever altitude the overview camera happened
+to be at. Here each is the subject of its own photograph.
 
-THE UNITS
+THE TWO UNITS
 
-    A  on_the_rubble      survivors standing and walking on a levelled house,
-                          one of them signalling
-    B  trapped_partial    the hard one: mostly under debris, head and torso
-                          showing, with boards authored across the lower body
-    C  neighbour_dig      3-6 working one collapsed house, all facing in
-    D  vehicles           a car on its side, one on its roof, one nosed in,
-                          and occupants standing at an upright one
-    E  thrown + assisted  a prone figure downtrack, and a supported trio
-    F  street             walkers on a carriageway strip
+    GRID    the catalogue. 8 attitudes x 13 occlusion patterns on a 3.4 x 4.6 m
+            lattice over flat mud, every body laid along +X so a row reads left
+            to right and a column compares like with like. Photographed one row
+            at a time in two halves, close enough that a hand is a hand.
+
+    HOUSE   one wrecked house, a real `planks` field scattered off it, and the
+            REAL `plan_people` running over that field with `plank_specs` in
+            the context — so what is photographed is the code the 100 m
+            assembly runs, including `_Deck`'s measured debris surface and the
+            tilt refusal. Every casualty it places gets its own close top-down
+            and oblique.
+
+    UNITS=GRID or UNITS=HOUSE narrows it.
+
+WHAT TO LOOK AT, in order:
+
+    1. Is a side-lying figure ON ITS SIDE — one shoulder up, the other in the
+       debris — rather than face-down with a floating hip? (`_lying_lift`'s
+       0.115 H is MODELLED, and it is the number to correct if not.)
+    2. Does a covered body still show exactly the parts the record names in
+       `visible_parts`?
+    3. Is anything effectively invisible? `max_covered_frac` says nothing may
+       be, and a body that is has to be caught here.
+    4. In HOUSE: does each body lie ON the boards, not through them and not
+       hovering over them?
 
 Env knobs:
 
-    ARCH_DIR   archetype library (default `scene_gen/assets/archetypes_tornado`)
+    ARCH_DIR     archetype library (default `scene_gen/assets/archetypes_tornado`)
     PEOPLE_SEED  rng seed (default 5)
-    SNAP_DIR   viewport PNGs; MUST be under the mounted log directory
-    UNITS      comma-separated subset, e.g. `UNITS=B,D` (default all)
+    SNAP_DIR     viewport PNGs; MUST be under the mounted log directory
+    UNITS        GRID,HOUSE (default both)
+    WRECK_LEVEL  the HOUSE archetype's damage level (default `leveled`)
+    WRECK_STYLE  the HOUSE archetype's style (default `ranch`)
 """
 
 import math
@@ -93,15 +110,18 @@ ARCH_DIR = os.environ.get(
     "ARCH_DIR", os.path.join(_SCENE_GEN_DIR, "assets", "archetypes_tornado"))
 SNAP_DIR = os.environ.get("SNAP_DIR", "")
 UNITS = set(u.strip().upper() for u in
-            os.environ.get("UNITS", "A,B,C,D,E,F").split(",") if u.strip())
+            os.environ.get("UNITS", "GRID,HOUSE").split(",") if u.strip())
+WRECK_LEVEL = os.environ.get("WRECK_LEVEL", "leveled")
+WRECK_STYLE = os.environ.get("WRECK_STYLE", "ranch")
 
-# Units on a grid, far enough apart that one unit's debris never lands in
-# another's photograph. 60 m: the widest set-piece is the vehicle row at ~24 m
-# and a thrown figure reaches 40 m from its wreck.
-GRID_M = 60.0
-_UNIT_XY = {"A": (0.0, 0.0), "B": (GRID_M, 0.0), "C": (2 * GRID_M, 0.0),
-            "D": (0.0, GRID_M), "E": (GRID_M, GRID_M),
-            "F": (2 * GRID_M, GRID_M)}
+# The catalogue lattice. 3.4 m between columns is a body length plus a metre —
+# close enough that two cells fit in one frame, far enough that one body's
+# propped board never lands in its neighbour's photograph. 4.6 m between rows
+# because `lying_prone_reach` is 2.1 m of ground length.
+GRID_STEP = (3.4, 4.6)
+GRID_ORIGIN = (0.0, 0.0)
+# The house unit sits well clear of the catalogue's north-east corner.
+HOUSE_XY = (-56.0, 26.0)
 
 
 def build_ground_and_light(stage, ssf):
@@ -109,13 +129,12 @@ def build_ground_and_light(stage, ssf):
     corridor floor is and a figure's contrast against it is half of what this
     bench exists to judge."""
     plane = UsdGeom.Mesh.Define(stage, Sdf.Path("/World/bench_ground"))
-    e = 260.0
-    plane.CreatePointsAttr([Gf.Vec3f(-e, -e, 0), Gf.Vec3f(e * 3, -e, 0),
-                            Gf.Vec3f(e * 3, e * 2, 0), Gf.Vec3f(-e, e * 2, 0)])
+    plane.CreatePointsAttr([Gf.Vec3f(-140, -60, 0), Gf.Vec3f(120, -60, 0),
+                            Gf.Vec3f(120, 90, 0), Gf.Vec3f(-140, 90, 0)])
     plane.CreateFaceVertexCountsAttr([4])
     plane.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
     plane.CreateNormalsAttr([Gf.Vec3f(0, 0, 1)] * 4)
-    plane.CreateDisplayColorAttr([Gf.Vec3f(0.34, 0.28, 0.17)])
+    plane.CreateDisplayColorAttr([Gf.Vec3f(0.30, 0.25, 0.17)])
     try:
         mat = tn_mud_material(stage)
         if mat:
@@ -131,17 +150,48 @@ def build_ground_and_light(stage, ssf):
 
 
 def tn_mud_material(stage):
-    """The scour surface as a plain opaque material — no cutout, no bands.
+    """The scour surface as a plain OPAQUE mud — no cutout, no opacity bands.
+
+    THE FIRST BENCH RUN USED `planks.wood_material` FOR THE GROUND and it made
+    every judgement on the sheet worthless: the floor and the debris were then
+    the same sawn-timber map at different tile sizes, so a pale figure on a
+    pale board on a pale floor had no contrast anywhere and "can you see this
+    casualty" could not be answered. Contrast against the corridor floor is
+    half of what this bench exists to judge, so the floor has to be the
+    corridor floor.
 
     The assembled scene lays `Soil_Mud` as a TRANSLUCENT overlay in opacity
     bands, which needs the fractional-cutout Kit flag and a coverage field.
-    Neither is wanted on a bench whose subject is the people: here it is just
-    the floor, bound opaque, so nothing about the ground can be blamed for a
-    figure that reads badly.
+    Neither is wanted here: this is just the ground, bound opaque.
     """
-    return planks.wood_material(stage, PARENT + "/BenchLooks/mud",
-                                tile_m=6.0, tint=(0.52, 0.42, 0.28),
-                                roughness=0.95)
+    from pxr import Gf as _Gf, Sdf as _Sdf, UsdShade as _UsdShade
+    path = PARENT + "/BenchLooks/mud"
+    existing = _UsdShade.Material.Get(stage, path)
+    if existing:
+        return existing
+    mat = _UsdShade.Material.Define(stage, _Sdf.Path(path))
+    sh = _UsdShade.Shader.Define(stage, _Sdf.Path(path).AppendChild("Shader"))
+    sh.CreateIdAttr("OmniPBR")
+    sh.SetSourceAsset(_Sdf.AssetPath("OmniPBR.mdl"), "mdl")
+    sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+    sh.CreateInput("diffuse_texture", _Sdf.ValueTypeNames.Asset).Set(
+        _Sdf.AssetPath(sg._join_asset_root(tn.MUD_TEXTURE, "")))
+    sh.CreateInput("diffuse_color_constant",
+                   _Sdf.ValueTypeNames.Color3f).Set(_Gf.Vec3f(0.62, 0.58, 0.54))
+    sh.CreateInput("project_uvw", _Sdf.ValueTypeNames.Bool).Set(True)
+    sh.CreateInput("world_or_object", _Sdf.ValueTypeNames.Bool).Set(True)
+    k = 1.0 / 2.6
+    sh.CreateInput("texture_scale",
+                   _Sdf.ValueTypeNames.Float2).Set(_Gf.Vec2f(k, k))
+    sh.CreateInput("reflection_roughness_constant",
+                   _Sdf.ValueTypeNames.Float).Set(0.95)
+    sh.CreateInput("metallic_constant",
+                   _Sdf.ValueTypeNames.Float).Set(0.0)
+    mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+    mat.CreateDisplacementOutput("mdl").ConnectToSource(sh.ConnectableAPI(),
+                                                        "out")
+    mat.CreateVolumeOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+    return mat
 
 
 def _ref(stage, dst, usd, x, y, yaw, ssf, scale=1.0):
@@ -156,27 +206,35 @@ def _ref(stage, dst, usd, x, y, yaw, ssf, scale=1.0):
     return True
 
 
-def _only(scenario, total, **over):
-    """A `tornado_people` config with every share zeroed but one.
+def _build_planks(stage, specs, root, ssf):
+    if not specs:
+        return 0
+    planks.build(stage, root, specs, planks.materials(stage, PARENT), ssf,
+                 verbose=False)
+    return len(specs)
 
-    This is what makes the bench exercise the real planner: rather than
-    calling a private `_neighbour_dig` directly, each unit asks
-    `plan_people` for a population that happens to be entirely one scenario.
-    Same entry point, same ordering, same spacing rules as the assembly.
+
+def _to_plank_spec(d, rng):
+    """One `_cover` output as a `planks.build` spec.
+
+    THE POSE, THE THICKNESS AND THE TILT COME FROM THE PLANNER. `_cover_piece`
+    solves each piece against the body it is lying on — a propped one runs from
+    the debris surface up over the casualty and its pitch is `-atan(rise/run)`
+    — so randomising the tilt here is the difference between a piece resting on
+    somebody and one that has fallen off them.
     """
-    cfg = tpp.resolve_cfg({})
-    cfg = dict(cfg)
-    cfg["total"] = int(total)
-    sc = {k: dict(v) for k, v in cfg["scenarios"].items()}
-    for k in sc:
-        sc[k]["share"] = 1.0 if k == scenario else 0.0
-    if over:
-        sc[scenario].update(over)
-    cfg["scenarios"] = sc
-    return cfg
+    return {"x": d["x"], "y": d["y"], "z": d["z"],
+            "l": d["len"], "w": d["wide"],
+            "t": d.get("t", rng.uniform(0.02, 0.05)),
+            "yaw": d["yaw"],
+            "pitch": d.get("pitch", rng.uniform(-8.0, 8.0)),
+            "roll": d.get("roll", rng.uniform(-10.0, 10.0)),
+            "class": d.get("class",
+                           "sheathing" if d["wide"] > 0.4 else "board")}
 
 
 def main():
+    t0 = time.time()
     omni.timeline.get_timeline_interface().stop()
     ctx_usd = omni.usd.get_context()
     ctx_usd.new_stage()
@@ -198,196 +256,143 @@ def main():
     if not rigged:
         posed = pools.load_tagged(raw_h, "posed_standing")
         rigged = [u for u in pools.load(raw_h) if u not in posed]
-    raw_c = _raw_pool(config, "cars")
-    car_usds = pools.load_tagged(raw_c, "residential") or pools.load(raw_c)
-    print("[bench] {0} rigged human asset(s), {1} car asset(s)"
-          .format(len(rigged), len(car_usds)))
+    print("[bench] {0} rigged human asset(s)".format(len(rigged)))
+    if not rigged:
+        print("[bench] !! NO RIGGED HUMANS. Only rigged characters can take a "
+              "pose; a posed_standing static mesh ships in whatever attitude "
+              "it was authored in and this bench would photograph nothing.")
 
     arch = {os.path.splitext(f)[0]: os.path.join(ARCH_DIR, f)
             for f in (os.listdir(ARCH_DIR) if os.path.isdir(ARCH_DIR) else [])
             if f.endswith(".usd")}
     if not arch:
-        print("[bench] !! ARCH_DIR {0} has no archetypes — the wrecks will be "
-              "missing and only the people will show".format(ARCH_DIR))
+        print("[bench] !! ARCH_DIR {0} has no archetypes — the HOUSE unit will "
+              "have no wreck in it and only the people will show"
+              .format(ARCH_DIR))
 
     base_ctx = {"humans": rigged, "resolver": resolver, "asset_pools": pools,
                 "throw_deg": 58.0}
     rng = random.Random(SEED)
-    all_humans, all_debris, all_records = [], [], []
+    cfg = tpp.resolve_cfg({})
     subjects = {}
+    # SUBJECTS THAT NEED ALTITUDE. `subjects` is shot at 13 m because its
+    # subject is a body; a 52 m house plate at 13 m is a crop of one corner.
+    wide = {}
+    all_humans, all_cover, all_records = [], [], []
 
-    def wreck_at(x, y, level, style="cottage", fp=14.0):
-        """Reference a wrecked-house archetype and return its planner dict."""
-        key = "house_{0}_{1}".format(style, level)
+    # ---- GRID: the catalogue ----------------------------------------------
+    if "GRID" in UNITS:
+        c = dict(base_ctx)
+        h, d, r, cells = tpp.plan_catalogue(
+            cfg, c, random.Random(SEED + 11),
+            origin=GRID_ORIGIN, step=GRID_STEP)
+        all_humans += h
+        all_cover += d
+        all_records += r
+        print("[bench] GRID  {0} figure(s), {1} covering piece(s), "
+              "{2} cell(s)".format(len(h), len(d), len(cells)))
+        # ONE CAMERA PER HALF-ROW. A whole row of thirteen cells is 41 m wide;
+        # at the 18 mm lens `snapshots.place_camera` uses that needs 21 m of
+        # altitude and puts a 1.8 m body at ~55 px, which is the condition this
+        # bench exists to avoid judging from. Two frames per row at 13 m each
+        # is ~90 px a body and a hand is a hand.
+        n_pat = len(tpp.CATALOGUE_OCCLUSION)
+        for j, pose in enumerate(tpp.CATALOGUE_POSES):
+            y = GRID_ORIGIN[1] + j * GRID_STEP[1]
+            for half in (0, 1):
+                lo = half * (n_pat // 2)
+                hi = n_pat if half else (n_pat // 2)
+                if hi <= lo:
+                    continue
+                cx = GRID_ORIGIN[0] + (lo + hi - 1) * 0.5 * GRID_STEP[0]
+                subjects["row_%d_%s_%d" % (j, pose, half)] = (cx, y + 0.9)
+
+    # ---- HOUSE: the real planner over one wrecked house --------------------
+    if "HOUSE" in UNITS:
+        hx, hy = HOUSE_XY
+        fp = 15.0
+        key = "house_{0}_{1}".format(WRECK_STYLE, WRECK_LEVEL)
         usd = arch.get(key)
         if usd:
-            _ref(stage, "{0}/wreck_{1:.0f}_{2:.0f}".format(PARENT, x, y), usd,
-                 x, y, rng.uniform(0.0, 360.0), ssf)
-        return {"x": x, "y": y, "fp": fp, "intensity": 0.85, "level": level}
-
-    def run(unit, scenario, ctx_extra, total, at=None, **over):
-        """Plan one unit with the real planner and collect its output.
-
-        `at` is where the CAMERA goes. It defaults to the unit's own grid cell,
-        but a scenario that deliberately places away from that cell has to say
-        so — the assisted trio stands on a road stub 20 m off, and a camera
-        left on the cell centre photographs empty mud beside it.
-        """
-        if unit not in UNITS:
-            return
-        cfg = _only(scenario, total, **over)
+            _ref(stage, PARENT + "/wreck", usd, hx, hy,
+                 rng.uniform(0.0, 360.0), ssf)
+        else:
+            print("[bench] !! no archetype {0} in {1}".format(key, ARCH_DIR))
+        # A REAL PLANK FIELD, scattered by the same call the assembly makes, so
+        # `_Deck` has the same kind of surface to measure that it will have in
+        # the scene. Without this the bench would test the flat-deck fallback
+        # and prove nothing about the thing that was actually wrong.
+        prng = random.Random(SEED + 77)
+        field = planks.scatter_from_wreck(hx, hy, fp, 0.9, 58.0, 16.0, prng,
+                                          n_pieces=620)
+        region = (hx - 26.0, hy - 26.0, hx + 26.0, hy + 26.0)
+        field, _off = planks.clip_to_region(field, region, verbose=False)
+        _build_planks(stage, field, PARENT + "/debris", ssf)
         c = dict(base_ctx)
-        c.update(ctx_extra)
-        h, d, r = tpp.plan_people(cfg, c, random.Random(SEED + ord(unit)))
-        all_humans.extend(h)
-        all_debris.extend(d)
-        for rec in r:
-            rec["unit"] = unit
-        all_records.extend(r)
-        # AIM AT WHAT WAS ACTUALLY PLACED. Better still than the declared
-        # point: the centroid of the figures this unit produced, so the frame
-        # is centred on the subject even when the planner scattered it.
-        if h:
-            subjects["%s_%s" % (unit, scenario)] = (
-                sum(float(q["x_m"]) for q in h) / len(h),
-                sum(float(q["y_m"]) for q in h) / len(h))
-        elif at is not None:
-            subjects["%s_%s" % (unit, scenario)] = at
-        print("[bench] unit {0}  {1:<16} {2} figure(s), {3} plank spec(s)"
-              .format(unit, scenario, len(h), len(d)))
+        c.update({
+            "wrecks": [{"x": hx, "y": hy, "fp": fp, "intensity": 0.9,
+                        "level": WRECK_LEVEL}],
+            "road_pts": [(hx + t, hy - 21.0, 0.0) for t in range(-14, 15, 5)],
+            "plank_specs": field,
+            "region": region,
+        })
+        hcfg = dict(cfg)
+        # ONE HOUSE HAS TO CARRY THE WHOLE UNIT, so it is asked for more bodies
+        # than a house in the corridor would get. Everything else — where they
+        # go, how flat the deck has to be, what goes on top — is the assembly's
+        # own configuration, untouched.
+        hcfg["per_wreck"] = dict(cfg["per_wreck"])
+        hcfg["per_wreck"][WRECK_LEVEL] = [8, 10]
+        hcfg["max_total"] = 12
+        h, d, r = tpp.plan_people(hcfg, c, random.Random(SEED + 23))
+        all_humans += h
+        all_cover += d
+        all_records += r
+        print("[bench] HOUSE {0} board(s) in the field, {1} casualt(ies), "
+              "{2} covering piece(s)".format(len(field), len(h), len(d)))
+        subjects["house_all"] = (hx, hy)
+        wide["house_all"] = (hx, hy)
+        for i, rec in enumerate(r):
+            subjects["house_%d_%s_%s" % (i, rec["attitude"],
+                                         rec["occlusion"])] = (
+                rec["x"] + math.cos(math.radians(rec["body_axis_deg"]))
+                * rec["reach_m"] * 0.5,
+                rec["y"] + math.sin(math.radians(rec["body_axis_deg"]))
+                * rec["reach_m"] * 0.5)
 
-    # ---- A: survivors on the rubble of a levelled house -------------------
-    ax, ay = _UNIT_XY["A"]
-    if "A" in UNITS:
-        w = wreck_at(ax, ay, "leveled", "wide_house", 16.0)
-        run("A", "on_the_rubble", {"wrecks": [w], "intact": []}, 4,
-            per_wreck=[4, 4])
-
-    # ---- B: the hard one — partially buried --------------------------------
-    bx, by = _UNIT_XY["B"]
-    if "B" in UNITS:
-        w = wreck_at(bx, by, "partial_collapse", "two_storey", 15.0)
-        # THREE OF THEM, at different sink fractions across the allowed range,
-        # so one photograph shows the shallow, middle and deep cases together
-        # and the band can be judged rather than guessed at from one sample.
-        run("B", "trapped_partial", {"wrecks": [w] * 3, "intact": []}, 3,
-            sink_frac=[0.28, 0.58], planks_over=[5, 9])
-
-    # ---- C: the dig cluster ------------------------------------------------
-    cx, cy = _UNIT_XY["C"]
-    if "C" in UNITS:
-        w = wreck_at(cx, cy, "leveled", "ranch", 18.0)
-        run("C", "neighbour_dig",
-            {"wrecks": [w], "intact": [(cx + 26.0, cy + 8.0)]}, 6,
-            group_size=[6, 6])
-
-    # ---- D: vehicles, one of each pose ------------------------------------
-    dx, dy = _UNIT_XY["D"]
-    cars_ctx = []
-    if "D" in UNITS and car_usds:
-        # roll, pitch, label — the three tipped poses plus one merely shoved,
-        # which is the majority case and the control.
-        # Three tipped poses plus TWO merely shoved. The shoved pair are the
-        # control and the majority case — Paulikas' rates put roughly two
-        # thirds of displaced vehicles upright even on the centreline — and
-        # `in_vehicle` needs an upright car to stand its occupants beside.
-        poses = ((92.0, 0.0, "on its side"), (178.0, 0.0, "on its roof"),
-                 (14.0, 58.0, "nosed in"), (4.0, 0.0, "shoved"),
-                 (-3.0, 0.0, "shoved"))
-        for i, (roll, pitch, label) in enumerate(poses):
-            x = dx - 13.0 + i * 6.5
-            usd = car_usds[i % len(car_usds)]
-            q = [{"usd": usd, "x_m": x, "y_m": dy, "z_m": 0.0,
-                  "yaw_deg": rng.uniform(0.0, 360.0), "roll_deg": 0.0,
-                  "pitch_deg": 0.0, "scale": pools.scale_of(usd),
-                  "category": "car",
-                  "axis_up": pools.axis_of(usd)}]
-            sg.apply_placements(stage, q, "{0}/car_{1}".format(PARENT, i),
-                                ssf, resolver=resolver,
-                                instance_categories=set())
-            path = q[0].get("prim_path")
-            if path:
-                # THE SAME `toss_prim` THE ASSEMBLY USES — it measures the
-                # prop's own bounding box and seats it, which is the thing
-                # this unit exists to confirm. A car that floats or sinks
-                # here floats or sinks in the scene.
-                tn.toss_prim(stage, path, 0.0, 0.0, roll,
-                             rng.uniform(-30.0, 30.0), pitch_deg=pitch)
-            print("[bench]   car {0}: {1}".format(i, label))
-            cars_ctx.append({"x": x, "y": dy,
-                             "toppled": abs(roll) > 30.0 or abs(pitch) > 30.0})
-        run("D", "in_vehicle", {"cars": cars_ctx}, 3, per_car=[1, 2])
-
-    # ---- E: thrown, and the assisted trio ----------------------------------
-    ex, ey = _UNIT_XY["E"]
-    if "E" in UNITS:
-        w = wreck_at(ex, ey, "swept", "cottage", 12.0)
-        run("E", "thrown", {"wrecks": [w] * 2, "intact": []}, 2,
-            max_count=2, range_m=[12.0, 26.0])
-        run("E", "assisted",
-            {"road_pts": [(ex + 16.0, ey - 12.0, 38.0)]}, 3,
-            at=(ex + 16.0, ey - 12.0))
-
-    # ---- F: the street -----------------------------------------------------
-    fx, fy = _UNIT_XY["F"]
-    if "F" in UNITS:
-        strip = UsdGeom.Mesh.Define(stage, Sdf.Path(PARENT + "/road_strip"))
-        hw, hl = 4.0, 22.0
-        pts = [(-hl, -hw), (hl, -hw), (hl, hw), (-hl, hw)]
-        strip.CreatePointsAttr([Gf.Vec3f((fx + px) * ssf, (fy + py) * ssf,
-                                         0.03 * ssf) for (px, py) in pts])
-        strip.CreateFaceVertexCountsAttr([4])
-        strip.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
-        strip.CreateNormalsAttr([Gf.Vec3f(0, 0, 1)] * 4)
-        strip.CreateDisplayColorAttr([Gf.Vec3f(0.18, 0.18, 0.19)])
-        rp = [(fx + t, fy + rng.uniform(-2.0, 2.0), 0.0)
-              for t in range(-18, 19, 6)]
-        run("F", "street", {"road_pts": rp}, 6, groups=[1, 1])
-
-    # ---- author everything the planner produced ----------------------------
-    n_people = 0
+    # ---- author everything -------------------------------------------------
     if all_humans:
         sg.apply_placements(stage, all_humans, PARENT + "/people", ssf,
                             resolver=resolver, instance_categories=set())
-        n_people = len(all_humans)
-    n_boards = 0
-    if all_debris:
-        # THE BOARDS THAT MAKE `trapped_partial` PARTIAL. Authored through the
-        # same `planks` path the scene's debris field uses, so they take the
-        # same sawn-timber material and read as the same material.
-        specs = []
-        for d in all_debris:
-            specs.append({"x": d["x"], "y": d["y"], "z": d["z"],
-                          "l": d["len"], "w": d["wide"],
-                          "t": random.Random(SEED).uniform(0.02, 0.05),
-                          "yaw": d["yaw"],
-                          "pitch": rng.uniform(-8.0, 8.0),
-                          "roll": rng.uniform(-10.0, 10.0),
-                          "class": "sheathing" if d["wide"] > 0.4 else "board"})
-        pmats = planks.materials(stage, PARENT)
-        planks.build(stage, PARENT + "/trap_debris", specs, pmats, ssf)
-        n_boards = len(specs)
+    if all_cover:
+        _build_planks(stage, [_to_plank_spec(x, rng) for x in all_cover],
+                      PARENT + "/cover", ssf)
 
-    for _ in range(20):
+    for _ in range(25):
         omni.kit.app.get_app().update()
 
     summ = tpp.summarise(all_records)
     print("\n" + "=" * 72)
-    print("TORNADO PEOPLE BENCH   units: {0}".format(",".join(sorted(UNITS))))
-    print("  people      {0} authored".format(n_people))
-    print("  by scenario {0}".format(
-        ", ".join("%s=%d" % kv for kv in sorted(summ["by_scenario"].items()))))
-    print("  visibility  {0}".format(
-        ", ".join("%s=%d" % kv for kv in sorted(summ["by_visibility"].items()))))
-    print("  boards      {0} laid over trapped figures".format(n_boards))
+    print("TORNADO CASUALTY BENCH   units: {0}   {1:.0f} s"
+          .format(",".join(sorted(UNITS)), time.time() - t0))
+    print("  bodies      {0}".format(summ["total"]))
+    print("  attitude    {0}".format(", ".join(
+        "%s=%d" % kv for kv in sorted(summ["by_attitude"].items()))))
+    print("  occlusion   {0}".format(", ".join(
+        "%s=%d" % kv for kv in sorted(summ["by_occlusion"].items()))))
+    print("  visibility  {0}  (max covered {1:.0%}, mean partial {2:.0%})"
+          .format(", ".join("%s=%d" % kv
+                            for kv in sorted(summ["by_visibility"].items())),
+                  summ["max_covered_frac"], summ["mean_covered_frac"]))
+    print("  parts seen  {0}".format(", ".join(
+        "%s=%d" % kv for kv in sorted(summ["visible_parts"].items()))))
+    print("  pieces      {0} laid on bodies".format(summ["boards"]))
     print("  LOOK FOR:")
-    print("    A  do figures stand ON the debris, not through or above it?")
-    print("    B  is the head AND torso of each trapped figure visible from")
-    print("       straight above, with the lower body genuinely hidden?")
-    print("    C  does the ring read as purposeful — everyone facing in?")
-    print("    D  is each car SEATED — no float, no sink — in all four poses?")
-    print("    E  is the prone figure legible against the mud at altitude?")
-    print("    F  do the walkers read as walking rather than as standing?")
+    print("    1  is a side-lying figure on its SIDE, both hips level, one")
+    print("       shoulder up — not face-down and not floating?")
+    print("    2  does each covered body show the parts its record names?")
+    print("    3  is anything effectively invisible? nothing may be.")
+    print("    4  HOUSE: is every body ON the boards — not through, not over?")
     print("=" * 72 + "\n")
 
     if SNAP_DIR:
@@ -400,16 +405,22 @@ def main():
             _snaps = _ilu.module_from_spec(_spec)
             _spec.loader.exec_module(_snaps)
             os.makedirs(SNAP_DIR, exist_ok=True)
-            # TIGHTER THAN THE SCENE'S DEFAULTS. The subject here is a figure
-            # about 1.8 m tall, not a 500 m plate: `views_around`'s 60 m
-            # top-down would put a person at a handful of pixels, which is
-            # precisely the condition this bench exists to avoid judging from.
+            # CLOSE. The subject is a body about 1.8 m long lying flat, not a
+            # 100 m plate: `views_around`'s 60 m top-down puts it at a dozen
+            # pixels, which is exactly the condition that let a bad pose ship.
             _snaps.views_around(stage, subjects, SNAP_DIR, ssf,
-                                top_h=26.0, obl_dist=20.0, obl_h=11.0)
+                                top_h=13.0, obl_dist=11.0, obl_h=7.0)
+            if wide:
+                _snaps.views_around(stage, {k + "_wide": v
+                                            for k, v in wide.items()},
+                                    SNAP_DIR, ssf, top_h=46.0, obl_dist=40.0,
+                                    obl_h=26.0)
             print("[bench] snapshots -> {0} ({1} subject(s))"
-                  .format(SNAP_DIR, len(subjects)))
+                  .format(SNAP_DIR, len(subjects) + len(wide)))
         except Exception as _exc:
+            import traceback
             print("[bench] snapshots FAILED: {0}".format(_exc))
+            traceback.print_exc()
 
     app = omni.kit.app.get_app()
     while simulation_app.is_running():

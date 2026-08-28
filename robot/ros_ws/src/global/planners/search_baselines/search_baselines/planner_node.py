@@ -46,7 +46,8 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
 from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
                        ReliabilityPolicy)
-from sensor_msgs.msg import CameraInfo, Image, NavSatFix, PointCloud2, PointField
+from sensor_msgs.msg import (CameraInfo, CompressedImage, Image, NavSatFix,
+                             PointCloud2, PointField)
 from std_msgs.msg import Bool, ColorRGBA, String
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -221,6 +222,17 @@ class CoNavGPT2Node(Node):
         self._plan_tpl = self._p('global_plan_topic_template', '/{robot}/global_plan')
         self._agent_image_tpl = self._p(
             'agent_image_topic_template', '/{robot}/search/agent_image')
+        # THE EVIDENCE for a detection: the annotated FPV, JPEG, published
+        # ONLY on a tick where the goal class scored >= detector_log_conf
+        # (0.5) — the frames the "detector SEEN"/"detector PASS" log lines
+        # describe, mapped or not. Event-driven, so it is cheap to bridge
+        # and record (hundreds of frames a run, not tens of thousands), and
+        # it is the only way to tell a false positive from a mis-projected
+        # person after the fact: the 2026-08-27 fleet run committed to 15
+        # targets, every one 78-226 m from any GT person, with no image in
+        # the bag to say what YOLO had actually seen.
+        self._det_image_tpl = self._p(
+            'detection_image_topic_template', '/{robot}/search/detection_image')
         # Templates, formatted against the FIRST robot: one node drives the
         # whole team, so its map and round table are the team's, but they still
         # live under a robot namespace so the rest of the stack (dds_router,
@@ -607,6 +619,44 @@ class CoNavGPT2Node(Node):
             raise ValueError(
                 f"search_area_frame must be 'map' or 'world', got "
                 f"{self._search_area_frame!r}")
+        # WHERE THE POLYGON COMES FROM. 'config' is `search_area_xy` above.
+        # 'scene' reads the DISASTER-AFFECTED AREA the launcher wrote for
+        # this scene — `<RESULTS_SCENE>_region.json`, beside the people GT and
+        # the obstacle boxes (scene_gen/disaster/region.py): the fire-front
+        # ellipse at the scene's burn time plus the evacuation band the
+        # survivors are staged in ('affected'), or the burnt ground alone
+        # ('burn'). The search then covers the ground the disaster touched
+        # rather than the whole plat, and it follows the scene instead of a
+        # number typed into a config. The file is authored in WORLD, so the
+        # frame is forced to 'world'; `search_area_pad_m` grows it (the scar
+        # fingers ~80 m past the front on a 1 km plat) and the sector split
+        # cuts it, exactly as for a config polygon. A MISSING FILE IS FATAL:
+        # a run that quietly fell back to the whole map would be
+        # indistinguishable from one that searched the affected area, only
+        # slower — the same reason an unreachable detector is fatal.
+        self._search_area_source = str(
+            self._p('search_area_source', 'config')).lower()
+        self._search_area_scene_key = str(
+            self._p('search_area_scene_key', 'affected'))
+        if self._search_area_source not in ('config', 'scene'):
+            raise ValueError(
+                f"search_area_source must be 'config' or 'scene', got "
+                f"{self._search_area_source!r}")
+        if self._search_area_source == 'scene':
+            path, scene_poly = self._load_scene_region(self._search_area_scene_key)
+            self._search_poly = np.asarray(scene_poly, dtype=float)
+            if self._search_area_frame != 'world':
+                self.get_logger().warn(
+                    f"search_area_source=scene: the region file is authored in "
+                    f"WORLD; overriding search_area_frame={self._search_area_frame!r}")
+                self._search_area_frame = 'world'
+            lo = self._search_poly.min(axis=0)
+            hi = self._search_poly.max(axis=0)
+            self.get_logger().info(
+                f"search area from the SCENE ({self._search_area_scene_key!r} in "
+                f"{path}): {len(self._search_poly)} pts, "
+                f"{sect.polygon_area(self._search_poly):.0f} m2, world bbox "
+                f"x [{lo[0]:.0f}, {hi[0]:.0f}] y [{lo[1]:.0f}, {hi[1]:.0f}]")
         self._search_poly_converted = (self._search_area_frame != 'world')
         self._min_alt = float(self._p('min_altitude_agl_m', 0.0))
         self._max_alt = float(self._p('max_altitude_agl_m', 0.0))
@@ -680,6 +730,22 @@ class CoNavGPT2Node(Node):
             classes = classes + [self._goal_name]
         self._classes = classes
         self._sem_threshold = float(self._p('sem_threshold', 0.5))
+        # DETECTOR BOOKKEEPING, per robot, so the run's log answers "what did
+        # YOLO score the goal class, how often, and how often above the gate"
+        # without a sample-throttled line: every gate pass is logged, every
+        # near miss is logged (throttled), and a summary with the run max and
+        # a confidence histogram goes out every detector_log_period_s of SIM
+        # time and once more when the budget ends. (The 2026-08-27 review had
+        # only a 10 s-throttled sample to read the max off.)
+        self._detector_log_period = float(self._p('detector_log_period_s', 30.0))
+        # LOGGING-ONLY floor: every tick with a goal-class box at or above it
+        # is logged UNTHROTTLED with each box's score and pixel rect (and the
+        # annotated frame goes out as a detection_image), whether or not it
+        # cleared the mapping gate. What the detector is SEEING at 0.5-0.65
+        # is exactly what a threshold decision needs and what no gate-only
+        # log can show. Does not touch sem_threshold.
+        self._detector_log_conf = float(self._p('detector_log_conf', 0.5))
+        self._det_stats = {}
 
         # ── actuation ─────────────────────────────────────────────────────────
         self._altitude = float(self._p('flight_altitude_m', 15.0))
@@ -695,12 +761,28 @@ class CoNavGPT2Node(Node):
         # approach and the look are flown slowly. Set on droan's parameter
         # service the tick the intent changes, and never for the gpt arm,
         # whose paper flies one speed (0 on either leaves droan alone).
-        self._explore_speed = float(self._p('explore_speed_mps', 3.0))
+        self._explore_speed = float(self._p('explore_speed_mps', 1.5))
         self._target_speed = float(self._p('target_speed_mps', 1.5))
-        self._droan_node_tpl = str(self._p(
-            'droan_node_template', '/{robot}/droan/disparity_expander_node'))
-        self._speed_set = {}             # robot index -> last speed requested
-        self._speed_clients = {}
+        # A THIRD GEAR FOR THE WAY TO THE SECTOR. A fleet spawns in one
+        # cluster and a drone's own strip can start hundreds of metres away
+        # (robot_1 on the 1 km plat: 355 m to its centroid = 2 min at 3 m/s
+        # of a 10 min budget, flown over ground it was told not to search).
+        # While the drone is OUTSIDE its sector and not on a target it is
+        # only travelling, so it may go faster; droan_gl caps at 15 m/s.
+        # 0 = no third gear, explore_speed_mps applies everywhere.
+        self._transit_speed = float(self._p('transit_speed_mps', 7.0))
+        # HOW THE CAP REACHES droan_gl: on the NavigateTask goal itself
+        # (task_msgs NavigateTask.Goal.max_speed_mps). The activator is
+        # re-sent with the new cap the tick the intent changes and droan
+        # PREEMPTS the running goal with it, so the change is one goal
+        # round-trip, not a parameter service. (The parameter path is gone:
+        # measured 2026-08-27, it never moved the drone anyway.)
+        self._speed_set = {}             # robot index -> cap on the live goal
+        # MEASURED ground speed, logged every speed_log_period_s SIM seconds
+        # per robot with the cap and the intent, so the next run's log says
+        # whether the cap took ("ground speed 6.4 m/s ... cap 7.0").
+        self._speed_log_period = float(self._p('speed_log_period_s', 10.0))
+        self._speed_hist = {}            # robot index -> (sim_t, xy)
         # How droan_gl is driven. 'activator' sends ONE empty NavigateTask and
         # steers by the /global_plan topic this node already publishes every
         # tick; 'goal_per_round' sends a fresh goal carrying the path. See
@@ -870,6 +952,7 @@ class CoNavGPT2Node(Node):
         self._syncs = []
         self._plan_pubs = []
         self._agent_image_pubs = []
+        self._det_image_pubs = []
         self._nav_clients = []
         for i, robot in enumerate(self._robots):
             # ON THE REENTRANT GROUP, like every other subscription here.
@@ -910,6 +993,8 @@ class CoNavGPT2Node(Node):
                 Path, self._plan_tpl.format(robot=robot), 10))
             self._agent_image_pubs.append(self.create_publisher(
                 Image, self._agent_image_tpl.format(robot=robot), 1))
+            self._det_image_pubs.append(self.create_publisher(
+                CompressedImage, self._det_image_tpl.format(robot=robot), 5))
             self._nav_clients.append(ActionClient(
                 self, NavigateTask, self._nav_tpl.format(robot=robot),
                 callback_group=self._cbg))
@@ -980,6 +1065,17 @@ class CoNavGPT2Node(Node):
             f'camera pitch {math.degrees(self._camera_pitch):.1f} deg down | '
             f'<= {self._max_frontiers} frontiers ({self._frontier_order} kept) | '
             f'vlm={model} @ {base_url}')
+
+        self.get_logger().info(
+            f'detector gate: a "{self._goal_name}" box is mapped only when its '
+            f'confidence > sem_threshold {self._sem_threshold:.2f} (the server '
+            f'proposes boxes from conf 0.1 up). Logging floor '
+            f'{self._detector_log_conf:.2f}: every tick with a box at or above '
+            f'it is logged as "detector SEEN" (below the gate) or "detector '
+            f'PASS" (mapped) with each box\'s score and pixel rect; "detector '
+            f'below gate" (throttled) covers proposals under the floor; '
+            f'"detector summary" every {self._detector_log_period:.0f} s sim '
+            f'and at the end')
 
         # YOLO-World + MobileSAM load takes tens of seconds; keep callbacks live.
         threading.Thread(target=self._init_agents, daemon=True).start()
@@ -1474,6 +1570,8 @@ class CoNavGPT2Node(Node):
         msg = Bool()
         msg.data = True
         self._complete_pub.publish(msg)
+        for i in range(len(self._robots)):
+            self._log_detector_summary(i, final=True)
         self.get_logger().info(
             f'search_planner: sim budget spent ({self._max_sim_seconds:.0f} s) after '
             f'{self._round} VLM rounds — planning stopped, node left up for the '
@@ -1525,6 +1623,7 @@ class CoNavGPT2Node(Node):
                    'cam_K': snap[i]['cam_K'], 'pose': pose}
 
             agent.mapping(obs)
+            self._track_detector(i, agent)
             if self._nav_mode == 'vlfm':
                 self._vlfm_keyframe(i, agent, pose)
             if self._visit_cost is not None:
@@ -1611,6 +1710,7 @@ class CoNavGPT2Node(Node):
             agent.found_goal = found_goal
             goal_maps.append(agent.goal_map)
             self._command(i, agent, offsets[i])
+            self._log_ground_speed(i, agent)
 
         if self._publish_vis:
             self._publish_map_image(step, vis_pose_pred, obstacle_map, explored_map,
@@ -1624,6 +1724,7 @@ class CoNavGPT2Node(Node):
                 self._publish_voxel_cloud()
             if self._publish_agent_images:
                 self._publish_agent_images_now()
+            self._publish_detection_images()
 
     def _voxel_frontiers(self, merged):
         """Integrate this tick's cloud and extract 3D frontiers.
@@ -2147,6 +2248,80 @@ class CoNavGPT2Node(Node):
                          lo=self._min_alt, hi=self._max_alt,
                          lift_m=float(lift) * self._lm_lift_m)
 
+    @staticmethod
+    def _annotation_dirs():
+        """Where the launcher writes a generated scene's annotations, most
+        authoritative first.
+
+        THE SOURCE TREE, not a sibling of wherever this file runs from. Under
+        colcon this module executes from build/search_baselines/, whose
+        sibling build/raven_nav/annotations is a stale copy from raven_nav's
+        last build — the launcher writes into
+        src/global/planners/raven_nav/annotations. Walk up to the workspace
+        root and go down the source path from there; the installed share is
+        whatever colcon last saw and comes last."""
+        here = os.path.dirname(os.path.abspath(__file__))
+        dirs = []
+        anc = here
+        for _ in range(8):
+            anc = os.path.dirname(anc)
+            cand = os.path.join(anc, 'src', 'global', 'planners',
+                                'raven_nav', 'annotations')
+            if os.path.isdir(cand):
+                dirs.append(cand)
+                break
+        dirs.append(os.path.normpath(os.path.join(
+            here, '..', '..', 'raven_nav', 'annotations')))
+        try:
+            from ament_index_python.packages import get_package_share_directory
+            dirs.append(os.path.join(get_package_share_directory('raven_nav'),
+                                     'annotations'))
+        except Exception:
+            pass
+        return dirs
+
+    @classmethod
+    def _annotation_file(cls, scene, suffixes):
+        """First existing `<scene><suffix>.json` over `suffixes` (major) x
+        `_annotation_dirs()` (minor), or ''."""
+        cands = [os.path.join(d, f'{scene}{suffix}.json')
+                 for suffix in suffixes for d in cls._annotation_dirs()]
+        return next((c for c in cands if os.path.exists(c)), '')
+
+    def _load_scene_region(self, key):
+        """The scene's disaster-affected polygon, WORLD xy, from
+        `<scene>_region.json` — `(path, [[x, y], ...])`, or raise.
+
+        `key` names the entry ('affected' | 'burn' | 'region'; see
+        scene_gen/disaster/region.py for what each is). Raises rather than
+        returns nothing: see search_area_source in __init__."""
+        scene = self._obst_scene or os.environ.get('RESULTS_SCENE', '').strip()
+        if not scene:
+            raise RuntimeError(
+                'search_area_source=scene needs the scene name: set '
+                'RESULTS_SCENE (the launcher names the annotation files after '
+                'it) or known_obstacles_scene')
+        path = self._annotation_file(scene, ('_region',))
+        if not path:
+            raise RuntimeError(
+                f'search_area_source=scene: no {scene}_region.json in '
+                f'{self._annotation_dirs()} — the Isaac launcher writes it at '
+                f'scene build with GT_ANNOTATIONS=on (a wildfire scene; '
+                f'scene_gen/disaster/region.py). Use search_area_source: '
+                f'config to fly search_area_xy instead')
+        with open(path) as fh:
+            doc = json.load(fh)
+        entry = next((e for e in doc if isinstance(e, dict)
+                      and e.get('class') == key), None) if isinstance(doc, list) else None
+        poly = [[float(p[0]), float(p[1])] for p in (entry or {}).get('polygon_xy') or []]
+        if len(poly) < 3:
+            have = sorted({e.get('class') for e in doc if isinstance(e, dict)}) \
+                if isinstance(doc, list) else []
+            raise RuntimeError(
+                f'search_area_source=scene: {path} has no usable '
+                f'{key!r} polygon (entries: {have})')
+        return path, poly
+
     def _load_known_obstacles(self):
         """The scene's ground-truth obstacle boxes, as authored (WORLD).
 
@@ -2163,33 +2338,7 @@ class CoNavGPT2Node(Node):
             # houses / trees / cars (the GT file itself is people only);
             # `<scene>.json` is accepted too, for a hand-authored scene whose
             # one file carries every class — the class filter below sorts it.
-            # THE SOURCE TREE, not a sibling of wherever this file runs from.
-            # Under colcon this module executes from build/search_baselines/,
-            # whose sibling build/raven_nav/annotations is a stale copy from
-            # raven_nav's last build — the launcher writes into
-            # src/global/planners/raven_nav/annotations. Walk up to the
-            # workspace root and go down the source path from there.
-            here = os.path.dirname(os.path.abspath(__file__))
-            dirs = []
-            anc = here
-            for _ in range(8):
-                anc = os.path.dirname(anc)
-                cand = os.path.join(anc, 'src', 'global', 'planners',
-                                    'raven_nav', 'annotations')
-                if os.path.isdir(cand):
-                    dirs.append(cand)
-                    break
-            dirs.append(os.path.normpath(os.path.join(
-                here, '..', '..', 'raven_nav', 'annotations')))
-            try:
-                from ament_index_python.packages import get_package_share_directory
-                dirs.append(os.path.join(get_package_share_directory('raven_nav'),
-                                         'annotations'))
-            except Exception:
-                pass
-            cands = [os.path.join(d, f'{scene}{suffix}.json')
-                     for suffix in ('_obstacles', '') for d in dirs]
-            path = next((c for c in cands if os.path.exists(c)), '')
+            path = self._annotation_file(scene, ('_obstacles', ''))
         if not path or not os.path.exists(path):
             self.get_logger().warn(
                 f'known obstacles: no annotation file (file={self._obst_file!r}, '
@@ -3243,42 +3392,97 @@ class CoNavGPT2Node(Node):
         return path
 
     def _set_local_speed(self, i, mps):
-        """Ask this robot's droan to cap its rollouts at `mps` (asynchronous,
-        idempotent). Logged once per change; a missing service is logged
-        once and then left alone."""
+        """Carry `mps` to droan_gl on the NavigateTask goal.
+
+        `NavigateTask.Goal.max_speed_mps` caps that goal's rollouts (0 =
+        droan's own max_velocity). In 'activator' mode the activator is
+        RE-SENT with the new cap; droan_gl preempts the running goal with it
+        (`execute_navigate`: the old handle is aborted "Preempted ...", the
+        new one takes the plan, the mode and the cap), so there is no cancel
+        window to race. A 'goal_per_round' goal carries the cap anyway.
+        Idempotent per robot: nothing is sent while the cap is unchanged."""
         # The gpt arm is exempt: the paper flies one speed. Decided HERE, so
         # the actuation path (_command) stays identical for every arm.
         if self._nav_mode == 'gpt' or mps <= 0.0 or self._speed_set.get(i) == mps:
             return
-        from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
-        from rcl_interfaces.srv import SetParameters
-        cli = self._speed_clients.get(i)
-        if cli is None:
-            cli = self.create_client(
-                SetParameters,
-                self._droan_node_tpl.format(robot=self._robots[i]) + '/set_parameters',
-                callback_group=self._cbg)
-            self._speed_clients[i] = cli
-        if not cli.service_is_ready():
-            if self._speed_set.get(i) != 'unavailable':
-                self.get_logger().warn(
-                    f'[{self._robots[i]}] droan parameter service not up yet at '
-                    f'{cli.srv_name}; speed left as droan has it',
-                    throttle_duration_sec=30.0)
-                self._speed_set[i] = 'unavailable'
-            return
-        req = SetParameters.Request()
-        pv = ParameterValue(type=ParameterType.PARAMETER_DOUBLE, double_value=float(mps))
-        req.parameters = [Parameter(name='max_velocity', value=pv)]
-        cli.call_async(req)
-        self._speed_set[i] = mps
+        self._speed_set[i] = float(mps)
         self.get_logger().info(
-            f'[{self._robots[i]}] droan max_velocity -> {mps:.1f} m/s '
-            f'({"target approach" if mps == self._target_speed else "transit"})')
+            f'[{self._robots[i]}] NavigateTask max_speed -> {mps:.1f} m/s '
+            f'({self._speed_label(mps)})')
+        if self._nav_activation == 'activator' and not getattr(self, '_stop', False):
+            self._send_activator(i, why=f'speed {mps:.1f} m/s')
+
+    def _speed_label(self, mps):
+        """Which gear a cap is, for the log."""
+        if self._transit_speed > 0.0 and mps == self._transit_speed \
+                and mps != self._explore_speed:
+            return 'transit to sector'
+        if mps == self._target_speed and mps != self._explore_speed:
+            return 'target approach'
+        if mps == self._target_speed:
+            return 'search'
+        return 'explore'
+
+    def _stamp_speed(self, goal, i):
+        """Put this robot's cap on a NavigateTask goal, if the message has the
+        field. A task_msgs built before `max_speed_mps` existed has not, and
+        that must be loud: the cap would silently never reach droan."""
+        mps = float(self._speed_set.get(i) or 0.0)
+        if hasattr(goal, 'max_speed_mps'):
+            goal.max_speed_mps = mps
+        elif mps > 0.0:
+            self.get_logger().warn(
+                'task_msgs NavigateTask has no max_speed_mps — rebuild the '
+                'workspace (bws); the speed cap is NOT reaching droan_gl',
+                throttle_duration_sec=60.0)
+        return mps
+
+    def _log_ground_speed(self, i, agent):
+        """`[robot] ground speed V m/s over T s sim | cap C (gear) | in/out of
+        sector` every speed_log_period_s of SIM time — the line that says
+        whether a requested cap actually moved the drone."""
+        try:
+            now = self.get_clock().now().nanoseconds / 1e9
+        except Exception:
+            return
+        xy = np.array(self._agent_xy(agent), dtype=float)
+        last = self._speed_hist.get(i)
+        if last is None:
+            self._speed_hist[i] = (now, xy)
+            return
+        dt = now - last[0]
+        if dt < self._speed_log_period:
+            return
+        v = float(np.linalg.norm(xy - last[1])) / dt if dt > 0 else 0.0
+        self._speed_hist[i] = (now, xy)
+        cap = self._speed_set.get(i)
+        where = ''
+        if self._search_poly is not None and self._search_poly_converted:
+            here = np.array([self._to_map(*xy)], dtype=float)
+            inside = bool(self._points_in_polygon(here, self._search_poly)[0])
+            where = ' | inside sector' if inside else ' | OUTSIDE sector'
+        self.get_logger().info(
+            f'[{self._robots[i]}] ground speed {v:.2f} m/s over {dt:.0f} s sim'
+            + (f' | cap {cap:.1f} ({self._speed_label(cap)})' if cap
+               else ' | cap: droan default')
+            + where)
+
+    def _intent_speed(self, agent):
+        """droan's cap for what this robot is doing NOW: the approach to a
+        detected person, the transit to a sector it is not yet inside, or
+        exploring inside it. Judged in the MAP frame like every other
+        search-area test, and only once the polygon is placed there."""
+        if self._on_target(agent):
+            return self._target_speed
+        if (self._transit_speed > 0.0 and self._search_poly is not None
+                and self._search_poly_converted):
+            here = np.array([self._to_map(*self._agent_xy(agent))], dtype=float)
+            if not bool(self._points_in_polygon(here, self._search_poly)[0]):
+                return self._transit_speed
+        return self._explore_speed
 
     def _command(self, i, agent, offset):
-        self._set_local_speed(
-            i, self._target_speed if self._on_target(agent) else self._explore_speed)
+        self._set_local_speed(i, self._intent_speed(agent))
         goal_xy = self._goal_xy(i, agent)
         path = self._build_path(agent, goal_xy, offset,
                                 through_xy=self._through_xy(agent))
@@ -3325,6 +3529,7 @@ class CoNavGPT2Node(Node):
         goal = NavigateTask.Goal()
         goal.global_plan = path
         goal.goal_tolerance_m = self._goal_tolerance
+        self._stamp_speed(goal, i)
         send_future = self._nav_clients[i].send_goal_async(goal)
         deadline = time.time() + 3.0
         while not send_future.done() and time.time() < deadline and rclpy.ok() \
@@ -3359,10 +3564,8 @@ class CoNavGPT2Node(Node):
         FMM path every tick anyway, that makes the topic the single steering
         source and a new VLM assignment takes effect within one plan tick.
 
-        A fresh goal per round cannot do that: it has to cancel the previous one
-        first, droan notices a cancel only on its 1 Hz tick, and the re-send lands
-        inside that window and is rejected with "task already active" — leaving
-        the drone flying round 1's assignment for the rest of the run.
+        The goal also carries the speed cap (`max_speed_mps`); a change of cap
+        re-sends it through `_set_local_speed`, and droan preempts.
         """
         # Shutting down: release_nav_goals() spins this node to flush the
         # cancels, which keeps timers running. Without this guard the tick
@@ -3378,6 +3581,12 @@ class CoNavGPT2Node(Node):
         # still winding a cancelled goal down is not hammered every tick.
         if nav.sent_at and (time.time() - nav.sent_at) < self._activator_retry_s:
             return
+        self._send_activator(i)
+
+    def _send_activator(self, i, why=''):
+        """Send the activator goal now — a fresh one, or a replacement that
+        droan_gl preempts the live one with (a new cap)."""
+        nav = self._nav[i]
         nav.sent_at = time.time()
         robot = self._robots[i]
         if not self._nav_clients[i].wait_for_server(timeout_sec=2.0):
@@ -3388,6 +3597,7 @@ class CoNavGPT2Node(Node):
             return
         goal = NavigateTask.Goal()          # empty global_plan == activator
         goal.goal_tolerance_m = self._goal_tolerance
+        mps = self._stamp_speed(goal, i)
         send_future = self._nav_clients[i].send_goal_async(goal)
         self._await(send_future, 3.0)
         handle = send_future.result() if send_future.done() else None
@@ -3401,7 +3611,8 @@ class CoNavGPT2Node(Node):
         nav.endpoint = None
         self.get_logger().info(
             f'[{robot}] droan_gl activated — steering by '
-            f'{self._plan_tpl.format(robot=robot)}')
+            f'{self._plan_tpl.format(robot=robot)}, max_speed '
+            f'{mps:.1f} m/s' + (f' ({why})' if why else ''))
 
     # ── visualisation ─────────────────────────────────────────────────────────
 
@@ -3777,11 +3988,118 @@ class CoNavGPT2Node(Node):
         if tiles:
             self._publish_image(self._vlm_image_pub, np.hstack(tiles), self._map_frame)
 
+    _DET_BINS = ((0.0, 0.3), (0.3, 0.5), (0.5, 0.65), (0.65, 0.8), (0.8, 1.01))
+
+    def _track_detector(self, i, agent):
+        """Fold this tick's detector result into the run's per-robot tally
+        and log the gate decision (see detector_log_period_s in __init__).
+        `last_detection` is what the `_detect` wrapper recorded for THIS
+        tick's frame: `goal_hits` boxes of the goal class, best `goal_max`."""
+        ld = getattr(agent, 'last_detection', None) or {}
+        st = self._det_stats.get(i)
+        if st is None:
+            st = {'ticks': 0, 'proposed': 0, 'passed': 0, 'max': 0.0,
+                  'bins': [0] * len(self._DET_BINS), 'last_summary': None,
+                  'max_at_tick': 0}
+            self._det_stats[i] = st
+        st['ticks'] += 1
+        hits = int(ld.get('goal_hits', 0) or 0)
+        gmax = float(ld.get('goal_max', 0.0) or 0.0)
+        gate = self._sem_threshold
+        robot = self._robots[i]
+        if hits:
+            st['proposed'] += 1
+            for k, (lo, hi) in enumerate(self._DET_BINS):
+                if lo <= gmax < hi:
+                    st['bins'][k] += 1
+                    break
+            if gmax > st['max']:
+                st['max'] = gmax
+                st['max_at_tick'] = st['ticks']
+            floor = self._detector_log_conf
+            boxes = [(c, b) for c, b in (ld.get('goal_boxes') or []) if c >= floor]
+            boxes_txt = ', '.join(
+                f'{c:.2f} @ px{b} {b[2] - b[0]}x{b[3] - b[1]}' if len(b) == 4
+                else f'{c:.2f}' for c, b in boxes)
+            if gmax > gate:
+                st['passed'] += 1
+                self.get_logger().info(
+                    f'[{robot}] detector PASS: {self._goal_name} {gmax:.3f} > gate '
+                    f'{gate:.2f} -> mapped into object_pcd | {len(boxes)} box(es) '
+                    f'>= {floor:.2f}: {boxes_txt} | other classes '
+                    f'{[t for t in ld.get("top", []) if t[0] != self._goal_name][:3]} '
+                    f'| run max {st["max"]:.3f} | passes {st["passed"]}'
+                    f'/{st["proposed"]} proposals')
+            elif gmax >= floor:
+                # Unthrottled on purpose: this is the band a threshold
+                # decision is made from, and every frame of it is wanted.
+                self.get_logger().info(
+                    f'[{robot}] detector SEEN: {self._goal_name} {gmax:.3f} '
+                    f'(below gate {gate:.2f}, not mapped) | {len(boxes)} box(es) '
+                    f'>= {floor:.2f}: {boxes_txt} | other classes '
+                    f'{[t for t in ld.get("top", []) if t[0] != self._goal_name][:3]} '
+                    f'| run max {st["max"]:.3f}')
+            else:
+                self.get_logger().info(
+                    f'[{robot}] detector below gate: {self._goal_name} best '
+                    f'{gmax:.3f} < {floor:.2f} ({hits} box(es)) — not mapped | '
+                    f'run max {st["max"]:.3f}', throttle_duration_sec=10.0)
+        now = None
+        try:
+            now = self.get_clock().now().nanoseconds / 1e9
+        except Exception:
+            pass
+        if now is not None:
+            if st['last_summary'] is None:
+                st['last_summary'] = now
+            elif now - st['last_summary'] >= self._detector_log_period:
+                st['last_summary'] = now
+                self._log_detector_summary(i)
+
+    def _log_detector_summary(self, i, final=False):
+        st = self._det_stats.get(i)
+        if st is None:
+            return
+        labels = ('<0.3', '0.3-0.5', '0.5-0.65', '0.65-0.8', '>=0.8')
+        bins = ' '.join(f'{lab}:{n}' for lab, n in zip(labels, st['bins']))
+        self.get_logger().info(
+            f'[{self._robots[i]}] detector summary{" (FINAL)" if final else ""}: '
+            f'{st["ticks"]} ticks | "{self._goal_name}" proposed on {st["proposed"]} '
+            f'| passed gate {self._sem_threshold:.2f} on {st["passed"]} '
+            f'| run max {st["max"]:.3f} (tick {st["max_at_tick"]}) '
+            f'| conf bins {bins}')
+
     def _publish_agent_images_now(self):
         for i, agent in enumerate(self._agents):
             if agent.annotated_image is not None:
                 self._publish_image(self._agent_image_pubs[i], agent.annotated_image,
                                     self._robots[i])
+
+    def _publish_detection_images(self):
+        """The annotated FPV as JPEG, only on a tick whose best goal-class
+        score reached `detector_log_conf` (see detection_image_topic_template).
+        `annotated_image` is BGR (what `_publish_image` flips); the JPEG
+        encoder takes BGR as is."""
+        for i, agent in enumerate(self._agents):
+            ld = getattr(agent, 'last_detection', None) or {}
+            img = getattr(agent, 'annotated_image', None)
+            if img is None or float(ld.get('goal_max', 0.0)) < self._detector_log_conf:
+                continue
+            try:
+                ok, buf = cv2.imencode(
+                    '.jpg', np.ascontiguousarray(img.astype(np.uint8)),
+                    [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                if not ok:
+                    continue
+                msg = CompressedImage()
+                msg.header.stamp = self.get_clock().now().to_msg()
+                msg.header.frame_id = self._robots[i]
+                msg.format = 'jpeg'
+                msg.data = buf.tobytes()
+                self._det_image_pubs[i].publish(msg)
+            except Exception as exc:
+                self.get_logger().warn(f'detection image publish failed: {exc}',
+                                       throttle_duration_sec=10.0)
 
 
 def main(args=None):

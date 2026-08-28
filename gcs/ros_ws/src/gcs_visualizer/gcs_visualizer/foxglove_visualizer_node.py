@@ -17,7 +17,7 @@ from sensor_msgs.msg import NavSatFix, Image, PointCloud2
 from nav_msgs.msg import OccupancyGrid, Odometry, Path
 from visualization_msgs.msg import Marker, MarkerArray
 from builtin_interfaces.msg import Duration
-from geometry_msgs.msg import Point, TransformStamped
+from geometry_msgs.msg import Point, PointStamped, TransformStamped
 from std_msgs.msg import ColorRGBA, Float32, Float64
 from tf2_ros import StaticTransformBroadcaster
 
@@ -189,6 +189,11 @@ class FoxgloveVisualizerNode(Node):
         # Per-robot NavSatFix re-publisher (frame_id rewritten to 'map' so
         # Foxglove's Map panel will accept it as a location source).
         self._location_pubs: dict = {}
+        # /gcs/<robot>/map_origin: the locked boot ENU, LATCHED. A bag of the
+        # raw /robot_N/odometry_conversion/odometry and /global_plan (each in
+        # that robot's own takeoff-anchored `map`) is unplaceable without it;
+        # the number used to live only in this node's log line.
+        self._origin_pubs: dict = {}
         self._subscribed_gps  = set()
         self._subscribed_odom = set()
         self._subscribed_traj = set()
@@ -528,9 +533,26 @@ class FoxgloveVisualizerNode(Node):
             self.get_logger().info(
                 f'{robot_name} map origin locked at ENU ({dx:.2f}, {dy:.2f}, '
                 f'{dz:.2f}) [{n} samples, spread {spread:.2f} m]')
+            self._publish_map_origin_of(robot_name, dx, dy, dz)
             if robot_name in self._vdb_markers:
                 self._vdb_global[robot_name] = _translate_marker(
                     self._vdb_markers[robot_name], dx, dy, dz)
+
+    def _publish_map_origin_of(self, robot_name: str, dx: float, dy: float,
+                               dz: float) -> None:
+        """Latch this robot's map origin (its takeoff point, global ENU) on
+        /gcs/<robot>/map_origin, so a recording can place the robot's raw
+        map-frame topics: world = local + this point."""
+        pub = self._origin_pubs.get(robot_name)
+        if pub is None:
+            pub = self.create_publisher(
+                PointStamped, f'/gcs/{robot_name}/map_origin', LATCHED_QOS)
+            self._origin_pubs[robot_name] = pub
+        msg = PointStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'map'
+        msg.point.x, msg.point.y, msg.point.z = float(dx), float(dy), float(dz)
+        pub.publish(msg)
 
     def _try_lock_ground(self, robot_name: str) -> None:
         """Lock _alt_ground = msl - odom_z for the first robot with both signals.

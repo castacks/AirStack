@@ -661,6 +661,87 @@ def _grid(p, n):
     return tiles
 
 
+def _principal_frame(p):
+    """Rotation matrix R whose FIRST row is the polygon's major axis (unit),
+    second row the minor: `(p - c) @ R.T` puts the polygon in its own frame.
+
+    PCA of the vertex set. That is exact for the evenly sampled front ellipse
+    the wildfire scenes hand in and for a rectangle's four corners, and only
+    approximate for a polygon whose vertices are unevenly spaced — which is
+    the sampling bias `lawnmower._axis_direction` avoids with rotating
+    calipers; here a few degrees of tilt only costs a little slack in the
+    rectangles, so the cheaper estimate is taken. The sign is fixed so the
+    major axis points into +x (or +y on a tie), which keeps the band order
+    the same on every robot.
+    """
+    q = p - p.mean(axis=0)
+    cov = q.T @ q
+    w, v = np.linalg.eigh(cov)
+    major = v[:, int(np.argmax(w))]
+    if major[0] < 0 or (major[0] == 0 and major[1] < 0):
+        major = -major
+    minor = np.array([-major[1], major[0]])
+    return np.stack([major, minor])
+
+
+def _rect_bands(p, axis_idx, n, frame=None):
+    """n equal-WIDTH bands across the polygon's extent along `axis_idx`, each
+    sector the axis-aligned BOUNDING RECTANGLE of (band ∩ polygon).
+
+    With `frame` (a 2x2 rotation, see `_principal_frame`) the same is done in
+    the polygon's OWN frame and the rectangles are rotated back: bands along
+    the region's major axis, each rectangle only as wide across as the region
+    is there. For a diagonal footprint that is the difference between hugging
+    the damage and covering the diagonal of the map — measured on the 1 km
+    wildfire burn (+50 m pad, 5 robots): axis-aligned rectangles are 196 m
+    wide by 626-888 m long (the middle one spans the diagonal), oriented ones
+    245 m along the burn by 500-620 m across it, 123-152k m^2 each, union 70%
+    of the plat against 74% axis-aligned and 92% for the old whole-plat strips.
+
+    For a region that is not a rectangle — the fire ellipse on the wildfire
+    plats — equal-area strips of the region itself are slanted slivers, and
+    a drone confined to one spends its time on the seam. A rectangle per band
+    that reaches only as far as the damage does in that band is the shape a
+    search actually wants: axis-aligned, so lawnmower lanes and the half-open
+    seam rule hold; short where the region is short, so the fleet is not sent
+    over ground the disaster never touched; and roughly, not exactly, equal —
+    the ends of a diagonal ellipse get less, which is what is there.
+
+    Adjacent rectangles share their seam coordinate exactly (the same
+    arithmetic on both sides), so a point on the seam belongs to exactly one.
+    A band that misses the polygon entirely (only possible with a concave
+    region) gets the band's slice of the polygon's bounding box instead, so
+    an index never comes back empty.
+    """
+    centre = p.mean(axis=0)
+    if frame is not None:
+        p = (p - centre) @ frame.T
+    lo = float(p[:, axis_idx].min())
+    hi = float(p[:, axis_idx].max())
+    other = 1 - axis_idx
+    o_lo = float(p[:, other].min())
+    o_hi = float(p[:, other].max())
+    cuts = [lo + (hi - lo) * k / float(n) for k in range(n + 1)]
+    out = []
+    for k in range(n):
+        a, b = cuts[k], cuts[k + 1]
+        piece = clip_polygon_halfplane(p, axis_idx, a, keep='above')
+        if piece.shape[0]:
+            piece = clip_polygon_halfplane(piece, axis_idx, b, keep='below')
+        if piece.shape[0] >= 3 and polygon_area(piece) > _EPS:
+            p_lo = float(piece[:, other].min())
+            p_hi = float(piece[:, other].max())
+        else:
+            p_lo, p_hi = o_lo, o_hi
+        rect = np.zeros((4, 2), dtype=float)
+        rect[:, axis_idx] = [a, b, b, a]
+        rect[:, other] = [p_lo, p_lo, p_hi, p_hi]
+        if frame is not None:
+            rect = rect @ frame + centre
+        out.append(rect)
+    return out
+
+
 def partition(poly_xy, n, mode='strips', axis='auto'):
     """Split a polygon into `n` sectors of approximately equal AREA.
 
@@ -674,6 +755,13 @@ def partition(poly_xy, n, mode='strips', axis='auto'):
     'x'/'y' force it. This is the shape the roster asks for, and it is also
     the shape the lawnmower generator wants, since a strip of a rectangle is a
     rectangle and `generate_lawnmower` takes length/width directly.
+
+    mode='rect' cuts n equal-WIDTH bands along the axis and hands each robot
+    the bounding RECTANGLE of its band's share of the region — see
+    `_rect_bands`: the shape for a non-rectangular damage footprint, tight to
+    the damage in each band and only roughly equal in area. axis='principal'
+    (rect only) cuts along the region's own major axis and returns ROTATED
+    rectangles, which is what hugs a diagonal footprint.
 
     mode='grid' lays out near-square tiles, choosing the row count from n and
     the region's aspect ratio. `axis` is ignored in this mode — the aspect
@@ -710,9 +798,13 @@ def partition(poly_xy, n, mode='strips', axis='auto'):
     if mode == 'strips':
         axis_idx = _pick_axis(p, axis)
         return _slice_by_fracs(p, axis_idx, [k / float(n) for k in range(1, n)])
+    if mode == 'rect':
+        if str(axis).lower() == 'principal':
+            return _rect_bands(p, 0, n, frame=_principal_frame(p))
+        return _rect_bands(p, _pick_axis(p, axis), n)
     if mode == 'grid':
         return _grid(p, n)
-    raise ValueError("mode must be 'strips' or 'grid', got %r" % (mode,))
+    raise ValueError("mode must be 'strips', 'rect' or 'grid', got %r" % (mode,))
 
 
 def sector_for(poly_xy, n, index, mode='strips', axis='auto', margin_m=0.0):
@@ -877,6 +969,48 @@ def _selftest():
     assert abs((tall[0][:, 1].max() - tall[0][:, 1].min()) - 100.) < 1e-6, \
         "auto must follow the long axis when it is y"
     print("ok  axis='auto' cuts along the long axis (x on 400x50, y on 50x400)")
+
+    # -- rect: equal-width bands, bbox of the region in each --------------
+    ang = np.linspace(0., 2. * np.pi, 72, endpoint=False)
+    ELL = np.stack([250. * np.cos(ang), 120. * np.sin(ang)], axis=1)
+    c, sn = np.cos(np.pi / 4.), np.sin(np.pi / 4.)
+    ELL = ELL @ np.array([[c, sn], [-sn, c]])        # a 45-degree ellipse
+    rects = partition(ELL, 5, mode='rect', axis='auto')
+    assert len(rects) == 5 and all(r.shape == (4, 2) for r in rects)
+    xs = sorted(float(r[:, 0].min()) for r in rects)
+    assert abs((xs[1] - xs[0]) - (ELL[:, 0].max() - ELL[:, 0].min()) / 5.) < 1e-9, "equal width"
+    for k in range(4):
+        assert rects[k][:, 0].max() == rects[k + 1][:, 0].min(), "seams shared exactly"
+    inside = sample_inside(ELL, 3000)
+    owners = np.zeros(len(inside), dtype=int)
+    for r in rects:
+        owners += points_in_polygon(inside, r).astype(int)
+    assert (owners == 1).all(), "every point of the region in exactly one rectangle"
+    for r in rects:                                   # each rect hugs its band's share
+        band = clip_polygon_halfplane(clip_polygon_halfplane(ELL, 0, r[:, 0].min(), 'above'),
+                                      0, r[:, 0].max(), 'below')
+        assert abs(r[:, 1].min() - band[:, 1].min()) < 1e-9
+        assert abs(r[:, 1].max() - band[:, 1].max()) < 1e-9
+    areas = [polygon_area(r) for r in rects]
+    assert sum(areas) < polygon_area(_padded_bbox(ELL, 0.)) - 1., "tighter than the bbox"
+    print("ok  rect: 45-deg ellipse -> 5 equal-width rectangles, areas %s m^2, "
+          "union %.0f%% of the bbox, tiling exact"
+          % ([int(a) for a in areas],
+             100. * sum(areas) / polygon_area(_padded_bbox(ELL, 0.))))
+    orects = partition(ELL, 5, mode='rect', axis='principal')
+    owners = np.zeros(len(inside), dtype=int)
+    for r in orects:
+        owners += points_in_polygon(inside, r).astype(int)
+    assert (owners == 1).all(), "oriented rectangles tile the region exactly"
+    oareas = [polygon_area(r) for r in orects]
+    assert sum(oareas) < sum(areas), "oriented rectangles are tighter on a diagonal region"
+    for r in orects:                                   # never wider than the minor axis
+        R = _principal_frame(ELL)
+        q = (r - ELL.mean(axis=0)) @ R.T
+        assert q[:, 1].max() - q[:, 1].min() <= 2. * 120. + 1e-6
+    print("ok  rect/principal: same ellipse -> rotated rectangles, areas %s m^2, "
+          "union %.0f%% of the axis-aligned union"
+          % ([int(a) for a in oareas], 100. * sum(oareas) / sum(areas)))
 
     # -- padding ------------------------------------------------------------
     pad = pad_polygon(SQUARE, 10.)

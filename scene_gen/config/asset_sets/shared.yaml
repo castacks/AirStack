@@ -371,8 +371,10 @@ usds:
     # hovercar, so not a street car. Old_Rusty_Car is BROKEN: it measures
     # 17 x 21 m because a ground plane is baked into the asset, so it paves a
     # lot wherever it lands. Do not add it back without fixing the asset.
+    # `street`: a trade vehicle on a residential street is ordinary and one on
+    # somebody's DRIVE is not — see `suburb_scene._CAR_TAG_STREET`.
     - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SK_ConstructionTruck01FullyRigged.usd"
-      tags: ["commercial"]
+      tags: ["commercial", "street"]
     # THE KIT'S OWN CAR, and the best-matched vehicle in the pool for a
     # suburb: it ships with `ModularNeighborhood`, which is where every house
     # on this plat comes from, so it is the same art direction rather than a
@@ -395,14 +397,17 @@ usds:
       scale: 0.01
       yaw-offset: 90.0       # measured 2.15 x 5.44 m: the long axis IS local Y
       tags: ["parked_only"]
+    # `street` ON BOTH: a squad car and a taxi standing at a kerb are part of
+    # what a street looks like; on somebody's DRIVEWAY they say the wrong thing
+    # about who lives there. See `suburb_scene._CAR_TAG_STREET` for the split.
     - usd: "Muyang/DownTown/Assets/Vehicle_Police.usd"
       scale: 0.01
       yaw-offset: 90.0
-      tags: ["livery"]
+      tags: ["livery", "street"]
     - usd: "Muyang/DownTown/Assets/Vehicle_Taxi.usd"
       scale: 0.01
       yaw-offset: 90.0
-      tags: ["livery"]
+      tags: ["livery", "street"]
 
   # RenderPeople rigged humans: cm-authored (scale 0.01), art faces -Y
   # (yaw-offset 90). UsdSkel rigs with no animation clip — the generator

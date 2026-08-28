@@ -1,4 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
+#include <atomic>
+#include <mutex>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <airstack_common/ros2_helper.hpp>
 #include <airstack_msgs/srv/trajectory_mode.hpp>
@@ -81,6 +83,14 @@ private:
   rclcpp::Client<airstack_msgs::srv::TrajectoryMode>::SharedPtr trajectory_mode_client_;
   std::atomic<bool> task_active_{false};
   std::atomic<bool> cancel_requested_{false};
+  // THE ONE ACTIVE NavigateTask. A new goal takes over under nav_mutex_: the
+  // previous handle is aborted ("Preempted ...") right there, and the loop
+  // serving it sees it is no longer active_nav_ and returns without touching
+  // the plan, the track mode or the speed cap — those belong to the successor
+  // now. That is what lets a planner change speed by re-sending its activator
+  // instead of cancelling and racing the 1 Hz loop for the re-send.
+  std::mutex nav_mutex_;
+  std::shared_ptr<NavigateGoalHandle> active_nav_;
   airstack_msgs::msg::Odometry tracking_point_odom_;
   bool tracking_point_valid_ = false;
 
@@ -467,20 +477,30 @@ private:
 
   rclcpp_action::GoalResponse handle_navigate_goal(
       const rclcpp_action::GoalUUID&,
-      std::shared_ptr<const NavigateTask::Goal> /*goal*/)
+      std::shared_ptr<const NavigateTask::Goal> goal)
   {
-    if (task_active_) {
-      RCLCPP_WARN(get_logger(), "Rejecting NavigateTask goal: task already active");
+    if (goal->max_speed_mps < 0.f || goal->max_speed_mps > 15.f) {
+      RCLCPP_WARN(get_logger(),
+                  "Rejecting NavigateTask goal: max_speed_mps %.1f must be 0 (node "
+                  "default) or in (0, 15] m/s", goal->max_speed_mps);
       return rclcpp_action::GoalResponse::REJECT;
     }
+    if (task_active_)
+      RCLCPP_INFO(get_logger(),
+                  "NavigateTask goal accepted while one is active: it PREEMPTS the "
+                  "running goal");
     task_active_ = true;
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
   }
 
   rclcpp_action::CancelResponse handle_navigate_cancel(
-      std::shared_ptr<NavigateGoalHandle> /*goal_handle*/)
+      std::shared_ptr<NavigateGoalHandle> goal_handle)
   {
-    cancel_requested_ = true;
+    // Only the ACTIVE goal can be cancelled into a stop; a cancel arriving for
+    // a goal that was already preempted must not stop its successor.
+    std::lock_guard<std::mutex> lk(nav_mutex_);
+    if (goal_handle == active_nav_)
+      cancel_requested_ = true;
     return rclcpp_action::CancelResponse::ACCEPT;
   }
 
@@ -490,10 +510,60 @@ private:
                           std::placeholders::_1), goal_handle}.detach();
   }
 
+  // Terminal transition for `goal_handle` — succeed (0), abort (1) or
+  // canceled (2) — only if it is STILL the active goal. A preempted goal was
+  // already aborted by its successor under the same lock, and then nothing
+  // here may touch the handle, the track mode or the speed cap. Returns
+  // whether this call owned the finish.
+  bool finish_navigate(const std::shared_ptr<NavigateGoalHandle> &goal_handle,
+                       int how, const std::string &message)
+  {
+    std::lock_guard<std::mutex> lk(nav_mutex_);
+    if (active_nav_ != goal_handle)
+      return false;
+    auto result = std::make_shared<NavigateTask::Result>();
+    result->success = (how == 0);
+    result->message = message;
+    if (how == 0)
+      goal_handle->succeed(result);
+    else if (how == 2)
+      goal_handle->canceled(result);
+    else
+      goal_handle->abort(result);
+    active_nav_ = nullptr;
+    task_active_ = false;
+    return true;
+  }
+
+  // The goal is done and nothing succeeded it: hand the controller back and
+  // drop the rollout cap to the node's own `max_velocity`.
+  void release_navigate(const char *why)
+  {
+    restore_track_mode();
+    gl_interface->set_vel_max((float)max_velocity);
+    RCLCPP_INFO(get_logger(), "NavigateTask %s: speed cap back to node default %.1f m/s",
+                why, max_velocity);
+  }
+
   void execute_navigate(std::shared_ptr<NavigateGoalHandle> goal_handle)
   {
     const auto goal = goal_handle->get_goal();
-    cancel_requested_ = false;
+
+    // TAKE OVER, under the lock, so the loop serving a running goal can never
+    // race this on its handle (see active_nav_).
+    bool preempted_prev = false;
+    {
+      std::lock_guard<std::mutex> lk(nav_mutex_);
+      if (active_nav_) {
+        auto result = std::make_shared<NavigateTask::Result>();
+        result->success = false;
+        result->message = "Preempted by a new NavigateTask goal";
+        active_nav_->abort(result);
+        preempted_prev = true;
+      }
+      active_nav_ = goal_handle;
+      cancel_requested_ = false;
+    }
 
     // A goal with a path sets the plan and completes on arrival. An EMPTY goal
     // is a pure activator: leave the plan alone (steer by the global_plan topic,
@@ -502,6 +572,21 @@ private:
     if (have_goal_plan)
       global_plan->set_global_plan(
           std::make_shared<nav_msgs::msg::Path>(goal->global_plan));
+
+    // THE SPEED RIDES ON THE GOAL. max_speed_mps > 0 caps this goal's rollouts
+    // (applied on the GL thread, which logs "rollout speed cap -> N m/s");
+    // 0 leaves the node's `max_velocity` parameter in charge. Logged here so a
+    // run's log shows what every goal asked for and whether it came from the
+    // goal or the default.
+    const float cap = goal->max_speed_mps > 0.f ? goal->max_speed_mps
+                                               : (float)max_velocity;
+    gl_interface->set_vel_max(cap);
+    RCLCPP_INFO(get_logger(),
+                "NavigateTask accepted: %s, max_speed %.1f m/s (%s)%s",
+                have_goal_plan ? "plan with poses" : "activator (steer by /global_plan)",
+                cap,
+                goal->max_speed_mps > 0.f ? "from the goal" : "node default max_velocity",
+                preempted_prev ? " — preempting the previous goal" : "");
 
     // Set trajectory controller to ADD_SEGMENT mode
     auto mode_req = std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
@@ -520,13 +605,16 @@ private:
     rclcpp::Rate rate(1.0);
 
     while (rclcpp::ok()) {
+      {
+        // Preempted: the successor owns the plan, the mode and the cap.
+        std::lock_guard<std::mutex> lk(nav_mutex_);
+        if (active_nav_ != goal_handle)
+          return;
+      }
+
       if (cancel_requested_) {
-        restore_track_mode();
-        auto result = std::make_shared<NavigateTask::Result>();
-        result->success = false;
-        result->message = "Canceled";
-        task_active_ = false;
-        goal_handle->canceled(result);
+        if (finish_navigate(goal_handle, 2, "Canceled"))
+          release_navigate("canceled");
         return;
       }
 
@@ -542,15 +630,16 @@ private:
         feedback->current_position.x = tracking_point_odom_.pose.position.x;
         feedback->current_position.y = tracking_point_odom_.pose.position.y;
         feedback->current_position.z = tracking_point_odom_.pose.position.z;
-        goal_handle->publish_feedback(feedback);
+        {
+          std::lock_guard<std::mutex> lk(nav_mutex_);
+          if (active_nav_ != goal_handle)
+            return;
+          goal_handle->publish_feedback(feedback);
+        }
 
         if (have_goal_plan && dist < goal->goal_tolerance_m) {
-          restore_track_mode();
-          auto result = std::make_shared<NavigateTask::Result>();
-          result->success = true;
-          result->message = "Goal reached";
-          task_active_ = false;
-          goal_handle->succeed(result);
+          if (finish_navigate(goal_handle, 0, "Goal reached"))
+            release_navigate("goal reached");
           return;
         }
       }
@@ -558,12 +647,8 @@ private:
       rate.sleep();
     }
 
-    restore_track_mode();
-    auto result = std::make_shared<NavigateTask::Result>();
-    result->success = false;
-    result->message = "Node shutting down";
-    task_active_ = false;
-    goal_handle->abort(result);
+    if (finish_navigate(goal_handle, 1, "Node shutting down"))
+      release_navigate("node shutting down");
   }
 
   void restore_track_mode()

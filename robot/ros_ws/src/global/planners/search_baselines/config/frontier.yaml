@@ -44,7 +44,7 @@ search_planner:
 
     # Sector the region and stay in it. At 1 robot this is the region itself,
     # so the pipeline is exercised without changing behaviour.
-    sector_partition: 'strips'
+    sector_partition: 'rect'
     # NO pad, same as lawnmower.yaml. The other arms fly the unpadded
     # search_area_xy; a padded frontier arm searches ground no one else sees,
     # which breaks the "same search area, only the selection policy differs"

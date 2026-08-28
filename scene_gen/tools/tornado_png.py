@@ -59,7 +59,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt                                # noqa: E402
 
 import fence_png                                               # noqa: E402
-from disaster import planks, tornado as tn                     # noqa: E402
+from disaster import ground, planks, scour_relief as srl       # noqa: E402
+from disaster import tornado as tn                             # noqa: E402
 
 # Pale for light damage through to dark for a swept slab, so the plot reads
 # the way the ladder does rather than by hue lookup.
@@ -118,6 +119,8 @@ def main():
     ap.add_argument("--seed", type=int, default=None,
                     help="override the layout seed")
     ap.add_argument("--out", default="_plans/tornado.png")
+    ap.add_argument("--no-relief", action="store_true",
+                    help="skip the 3D scour relief layer and its budget")
     args = ap.parse_args()
 
     scene = fence_png.build(seed=args.seed, config_name=args.config,
@@ -184,6 +187,46 @@ def main():
     print("  plank debris  {0} off the wrecks + {1} across the corridor "
           "= {2} board(s)".format(n_plank, n_track, n_plank + n_track))
 
+    # THE 3D SCOUR RELIEF, on the same terms as the plank budget: the same
+    # functions the launcher calls, with the same skips, so what is counted
+    # here is what gets built. It is the layer that decides whether the track
+    # reads as ground that was taken away or as a stain on a billiard table,
+    # and it is the one thing in this scene whose density is impossible to
+    # judge from the config.
+    relief = []
+    r_summ = None
+    if not args.no_relief:
+        kn_r = srl.knobs_from_env()
+        cov = tn.scour_coverage(tcfg, region, np.random.default_rng(seed + 31),
+                                intensity=inten,
+                                gamma=tn.knobs_from_env(max(rw, rh))["gamma"],
+                                islands=tn.knobs_from_env(max(rw, rh))["islands"])
+        _corr = [(list(getattr(e, "pts", ()) or ()),
+                  float(getattr(e, "half_w", 0.0)))
+                 for e in (getattr(scene["net"], "edges", {}) or {}).values()]
+        pave_at = srl.pavement_mask(_corr, region) if _corr else None
+        _pool = ground.skip_rects(scene.get("pool_holes") or (), pad=0.0)
+        _keep = [(x, y, 0.55 * fp + 0.8)
+                 for (x, y, fp), lv in zip(houses, h_lv)
+                 if lv not in ("leveled", "swept")]
+
+        def _skip(px, py):
+            if _pool(px, py, px, py):
+                return True
+            return any(abs(px - hx) <= hr and abs(py - hy) <= hr
+                       for (hx, hy, hr) in _keep)
+
+        relief = srl.scatter(tcfg, region, cov, random.Random(seed + 61),
+                             flow_deg=float(tcfg["heading_deg"])
+                             + float(tcfg["curl_deg"]),
+                             pavement_at=pave_at, skip=_skip, knobs=kn_r)
+        r_summ = srl.summarise(relief)
+        print("  scour relief  {0} feature(s), {1} point(s), tallest "
+              "{2:.2f} m".format(r_summ["features"], r_summ["points"],
+                                 r_summ["max_height_m"]))
+        for k in sorted(r_summ["by_kind"]):
+            print("    {0:<18} {1:>4}".format(k, r_summ["by_kind"][k]))
+
     # WHAT TO LOOK FOR IN THESE NUMBERS, printed rather than left implicit,
     # because they are the three ways this scene fails and all three are
     # cheap to fix here and expensive to fix after a build.
@@ -201,6 +244,16 @@ def main():
     if dmg < 8:
         warn.append("fewer than 8 damaged houses — the corridor is missing "
                     "the fabric; check `epicenter` against the plan below")
+    if r_summ is not None:
+        if not r_summ["by_kind"].get("arc"):
+            warn.append("no cycloidal marks — the track never reaches "
+                        "`arc_min_coverage`; the ground read will be heaps "
+                        "with no direction in them, so lower it or raise "
+                        "`peak`")
+        if r_summ["points"] > 400000:
+            warn.append("the relief is {0} points — an order over a plank "
+                        "field; halve the SCOUR_*_PER_100M2 rates".format(
+                            r_summ["points"]))
     for w in warn:
         print("  !! {0}".format(w))
     if not warn:
@@ -277,15 +330,44 @@ def main():
         (ox + arrow * math.cos(th), oy + arrow * math.sin(th)),
         fontsize=8, color="#1f4fd8", zorder=6)
 
+    # THE RELIEF, drawn in plan under the houses. Each kind by its own mark,
+    # because what is being judged is not "is there enough of it" but "is each
+    # kind where its rule says it should be" — the marks right of the
+    # centreline, the heaps left of it, the sod rolls on the EDGE of the band
+    # rather than in its middle. All three are obvious here and none of them
+    # is obvious in a render.
+    if relief:
+        for kind, colour, lw in (("arc", "#7b1fa2", 2.4),
+                                 ("ridge", "#00695c", 1.4),
+                                 ("sod", "#0288d1", 1.4)):
+            segs = [q["stations"] for q in relief if q["kind"] == kind]
+            for k, st in enumerate(segs):
+                ax.plot([p[0] for p in st], [p[1] for p in st], color=colour,
+                        lw=lw, solid_capstyle="round", zorder=1.6,
+                        label=("{0} ({1})".format(kind, len(segs))
+                               if k == 0 else None))
+        for kind, colour, size in (("mound", "#6d4c41", 12),
+                                   ("fan", "#a1887f", 8),
+                                   ("clod", "#8d6e63", 1.2)):
+            pts = [q for q in relief if q["kind"] == kind]
+            if not pts:
+                continue
+            ax.scatter([q["x"] for q in pts], [q["y"] for q in pts], s=size,
+                       c=colour, marker="o", linewidths=0, zorder=1.5,
+                       alpha=0.85 if kind != "clod" else 0.45,
+                       label="{0} ({1})".format(kind, len(pts)))
+
     ax.add_patch(plt.Rectangle((region[0], region[1]), rw, rh, fill=False,
                                ec="0.35", lw=1.4, zorder=5))
     ax.set_xlim(region[0] - rw * 0.05, region[2] + rw * 0.05)
     ax.set_ylim(region[1] - rh * 0.05, region[3] + rh * 0.05)
     ax.set_aspect("equal")
     ax.set_title("{0} — {1:.0f} m track toward {2:.0f} deg, seed {3}\n"
-                 "{4} of {5} houses damaged, {6} board(s) of debris".format(
+                 "{4} of {5} houses damaged, {6} board(s) of debris, "
+                 "{7} relief feature(s)".format(
                      args.config, tcfg["width_m"], tcfg["heading_deg"], seed,
-                     dmg, len(houses), n_plank + n_track))
+                     dmg, len(houses), n_plank + n_track,
+                     r_summ["features"] if r_summ else 0))
     ax.legend(loc="upper left", fontsize=7, framealpha=0.9, ncol=2)
 
     out = args.out

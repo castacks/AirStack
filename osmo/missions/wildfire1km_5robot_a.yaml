@@ -127,22 +127,39 @@ record:
   # (published ONCE, persisted), so the bag keeps the top-down view for one
   # message instead of thousands. No image topics at all (image_rect,
   # agent_image, map_image go with the per-robot recorder).
+  #
+  # FRAMES (the 2026-08-27 run's lesson). Every raw /robot_N/... layer is in
+  # THAT ROBOT'S OWN `map`, anchored at its takeoff point (spawn (-30, y_N)),
+  # while /gcs/robot_markers, /gcs/sim_ground and the GT are in global ENU —
+  # and all of them are stamped `frame_id: map`. A bag of the raw names
+  # replays each robot's voxels / frontiers / occupancy / detections shifted
+  # by its spawn (30 m ahead of the drone along +x, ±12 m in y) with nothing
+  # in the bag to say so. foxglove_visualizer_node republishes every one of
+  # those layers translated into global ENU under /gcs/<robot>/<layer>
+  # (SEARCH_OVERLAY_TOPICS) — record THOSE for the picture, plus each
+  # robot's latched /gcs/<robot>/map_origin so the raw odometry / global_plan
+  # kept below for analysis can be placed. /tf is not bridged to the GCS
+  # domain by design (dds_router.yaml) and records nothing here.
   enabled: true
   scope: gcs
   required: true
   topics:
-    - /tf
     - /tf_static
     - /{robot}/odometry_conversion/odometry
     - /{robot}/global_plan
-    - /{robot}/occupancy
-    - /{robot}/frontiers
-    - /{robot}/frontier_cloud
-    - /{robot}/voxel_map
-    - /{robot}/value_map
-    - /{robot}/search/markers
     - /{robot}/search/round_stats
     - /{robot}/search/run_complete
+    # JPEG of the annotated FPV, only on ticks where a goal-class box scored
+    # >= detector_log_conf (0.5): the evidence behind every "detector SEEN" /
+    # "detector PASS" line (event-driven, bridged by dds_router.yaml; ~50 KB).
+    - /{robot}/search/detection_image
+    - /gcs/{robot}/map_origin
+    - /gcs/{robot}/occupancy
+    - /gcs/{robot}/frontiers
+    - /gcs/{robot}/frontier_cloud
+    - /gcs/{robot}/voxel_map
+    - /gcs/{robot}/value_map
+    - /gcs/{robot}/search/markers
     - /gcs/robot_markers
     - /gcs/sim_ground
     - /gcs/annotations/bboxes
@@ -291,8 +308,18 @@ steps:
           echo "# ticks with a detection / total"
           grep -ac "targets:" /tmp/search/planner.log
           grep -a "targets:" /tmp/search/planner.log | grep -acv "'n': 0,"
-          echo "# best goal_max (goal-class confidence; 0 => detector never proposed the goal)"
-          grep -ao "goal_max': [0-9.]*" /tmp/search/planner.log | sort -t' ' -k2 -g | tail -1
+          echo "# detector gate line, last summary (ticks | proposed | passed gate | run max | conf bins), and gate passes"
+          grep -a "detector gate:" /tmp/search/planner.log | head -1
+          grep -a "detector summary" /tmp/search/planner.log | tail -1
+          grep -ac "detector PASS" /tmp/search/planner.log
+          echo "# seen at >= 0.5 but under the gate (count), and the last three such lines"
+          grep -ac "detector SEEN" /tmp/search/planner.log
+          grep -a "detector SEEN" /tmp/search/planner.log | tail -3
+          echo "# speed: cap changes and the last measured ground-speed lines"
+          grep -a "NavigateTask max_speed ->" /tmp/search/planner.log | head -6
+          grep -a "ground speed" /tmp/search/planner.log | tail -3
+          echo "# sector (rect) and search-area source"
+          grep -a "search area from the SCENE\|sector [0-9]*/" /tmp/search/planner.log | head -2
           echo "# people visited / given up / goals blacklisted"
           grep -ac "target VISITED" /tmp/search/planner.log
           grep -ac "GIVING UP" /tmp/search/planner.log

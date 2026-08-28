@@ -633,14 +633,43 @@ usds:
   # is the disaster pass's job and no such pass exists yet — and tagging them
   # `residential` would park a burnt-out car in the driveway of an untouched
   # house, which is what `parked_only` exists to prevent for other assets.
+  #
+  # ---- EVERY URL BELOW IS `cars/<stem>/<stem>.usdc`, NOT `cars/<stem>.usdc` --
+  # This block shipped with the FLAT shape and not one of the eleven ever
+  # loaded. The first tornado run said so three times over —
+  #
+  #   Error in 'UsdStage::Open' ... Failed to open layer
+  #   @omniverse://.../standalone/cars/lowpoly_sedan.usdc@
+  #
+  # — and the pass under it printed `cars: 0 placed`. It is not a broken
+  # upload: MEASURED with `omni.client.list` against the live server (the
+  # standalone listing in `run-isaac-sim-launcher` section 6, ~1 s, no app
+  # boot), `.../standalone/cars/` holds ELEVEN FOLDERS and no loose files, and
+  # each folder holds `<stem>.usdc` PLUS a `textures/` sibling — 97,050 B for
+  # `lowpoly_sedan/lowpoly_sedan.usdc`, `MISS` for `lowpoly_sedan.usdc`. The
+  # folder exists BECAUSE of `textures/`: every one of these assets names its
+  # maps relatively (`@./textures/...@`), exactly as a megascans material
+  # names its own, so the USD and its textures have to share a directory or
+  # the stage opens with untextured meshes.
+  #
+  # `urban_v2.yaml` had the shape right for the same drop — buildings, cars
+  # and debris all foldered — so this file was the outlier, and the two sets
+  # disagreeing is what made it look like an open question rather than a typo.
+  #
+  # A NOTE ON PROVING IT. `Usd.Stage.Open` on an `omniverse://` URL from a
+  # bare `python.sh` reports MISS for EVERY path shape, correct ones included,
+  # unless `PXR_PLUGINPATH_NAME` points at the OmniUsdResolver resources and
+  # `omni.client.lib/bin` is on `LD_LIBRARY_PATH` — the resolver plugin fails
+  # to load and USD reports only "Failed to open layer". A stage probe missing
+  # those two is not evidence that an asset is gone; `omni.client.stat` is.
   cars+:
-    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_sedan.usdc", tags: ["residential"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_sedan/lowpoly_sedan.usdc", tags: ["residential"]}
       # 4.60 x 1.76 x 1.31 m, 2,840 pts — low-poly saloon
-    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_coupe.usdc", tags: ["residential"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_coupe/lowpoly_coupe.usdc", tags: ["residential"]}
       # 4.60 x 1.89 x 1.36 m, 3,557 pts — low-poly coupe
-    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_wagon.usdc", tags: ["residential"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_wagon/lowpoly_wagon.usdc", tags: ["residential"]}
       # 4.60 x 1.73 x 1.39 m, 1,648 pts — low-poly estate
-    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_pickup.usdc", tags: ["residential"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_pickup/lowpoly_pickup.usdc", tags: ["residential"]}
       # 4.60 x 2.03 x 1.65 m, 5,180 pts — low-poly pickup — the one truck a driveway actually gets
     # ---- PRICED OUT, and kept so nobody re-adds them -----------------------
     # `parked_only`, which is this library's existing word for "stays in the
@@ -659,19 +688,28 @@ usds:
     #
     # Re-tag to `residential` if a ground-level or driveway-close shot ever
     # needs the fidelity; the cost is the number above, per instance.
-    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/generic_sedan.usdc", tags: ["parked_only"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/generic_sedan/generic_sedan.usdc", tags: ["parked_only"]}
       # 4.98 x 2.16 x 1.50 m, 79,181 pts — saloon, as authored
-    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/red_car.usdc", tags: ["parked_only"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/red_car/red_car.usdc", tags: ["parked_only"]}
       # 4.40 x 1.90 x 1.56 m, 55,818 pts — small hatchback
-    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/delivery_van.usdc", tags: ["residential", "commercial"]}
-      # 4.84 x 2.21 x 2.32 m, 840 pts — panel van — BOTH tags: a parcel van on a residential street is ordinary, unlike the construction truck
-    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/police_car.usdc", tags: ["livery"]}
-      # 5.40 x 2.00 x 1.46 m, 60,479 pts — squad car — `livery`, so it never parks in a driveway
-    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/citybus.usdc", tags: ["commercial"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/delivery_van/delivery_van.usdc", tags: ["commercial", "street"]}
+      # 4.84 x 2.21 x 2.32 m, 840 pts — panel van.
+      # WAS `residential`, AND THAT WAS THE BUG. The reasoning was right — a
+      # parcel van on a residential STREET is ordinary, unlike the construction
+      # truck — but `build_cars` drew one pool for all three ranks, so the only
+      # tag that put it on the street also put it on people's driveways, and
+      # that is what shipped: "you've placed the delivery van in someone's
+      # house parking" (user, 2026-08-27). `street` is the tag that means what
+      # the old comment was trying to say; see `suburb_scene._CAR_TAG_STREET`.
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/police_car/police_car.usdc", tags: ["parked_only"]}
+      # 5.40 x 2.00 x 1.46 m, 60,479 pts — squad car — EXCLUDED (user, 2026-08-27:
+      # "don't use the police car"). `parked_only`, like Car_01_0/generic_sedan:
+      # stays in the pool but nothing draws it. Was `livery`.
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/citybus/citybus.usdc", tags: ["commercial"]}
       # 9.48 x 2.41 x 2.40 m, 10,215 pts — 9.5 m transit bus — NEVER residential; it does not fit a drive and `build_cars` would refuse it anyway
-    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/burned_car_01.usdc", tags: ["wreck"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/burned_car_01/burned_car_01.usdc", tags: ["wreck"]}
       # 4.80 x 2.02 x 1.39 m, 1,804 pts — burnt-out shell
-    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/burned_car_02.usdc", tags: ["wreck"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/burned_car_02/burned_car_02.usdc", tags: ["wreck"]}
       # 4.80 x 2.04 x 1.34 m, 1,429 pts — burnt-out shell
 
   # ---- PEOPLE: the /Projects/SEI-COA copy, plus the three POSED statics ------

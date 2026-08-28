@@ -29,12 +29,55 @@ fit and cooks in a fraction of the time convex decomposition takes. Anything
 with a deep opening — a garage wall, a bay window — is the case where this
 shows, and the fix there is `approximation="convexDecomposition"` on that prim
 rather than on all of them.
+
+NOTHING MAY BE MOVING WHEN THIS BAKES
+-------------------------------------
+`bake()` freezes whatever it finds, so a body still in flight is exported as a
+fragment hanging in the air, and no amount of downstream geometry cleanup can
+tell it from one that legitimately came to rest on something. Three mechanisms
+put material where it does not belong, and all three are handled here rather
+than after the fact:
+
+  * **the step count runs out.** `steps` has always been a ceiling with an
+    early exit; `converge=True` makes it a floor as well — the loop keeps
+    going, up to `max_steps`, until nothing is moving or the count of moving
+    bodies stops improving. A ceiling is a guess about the slowest pile in
+    the scene; convergence is a measurement.
+  * **the throw never ends.** A settle with a `bias` is ballistic: pieces are
+    still travelling when a plain collapse would be long finished.
+    `quiet_steps` runs a second phase after the throw with the damping raised
+    and the speed cap lowered — no new impulse, so the downwind lean the bias
+    bought is untouched, but airborne pieces come down and resting ones stop
+    creeping.
+  * **the floor is not a floor.** A four-vertex ground quad cooked as a
+    triangle mesh is infinitely thin, and a fragment thrown at 9 m/s covers a
+    third of a metre per 60 Hz step — more than its own thickness, so it can
+    be wholly through the mesh by the end of the step and never generate a
+    contact. `ground_plane_z` authors a real PhysX half-space (a
+    `UsdGeomPlane` collider, the shape omni.physx's own `add_ground_plane`
+    uses) which cannot be tunnelled at any speed, and `ccd=True` turns on
+    continuous collision detection so the pieces cannot tunnel each other
+    either. `floor_z` is the belt to that braces: anything that still
+    finishes below grade is lifted back onto it.
+
+`SettleNotConverged` and the `!!!!` banner exist because the previous version
+of this printed a note. A bake that ships 200 airborne fragments must be
+impossible to mistake for one that worked.
 """
 
 import carb
 
 
-def _apply_collider(prim, approximation="convexHull"):
+class SettleNotConverged(RuntimeError):
+    """The pile was still moving, or below grade, when it was asked to bake.
+
+    Raised only when the caller asks for it (`strict=True`, or the
+    `SETTLE_STRICT` env var). Everything it reports is also printed, loudly,
+    whether or not it is raised — see `run`.
+    """
+
+
+def _apply_collider(prim, approximation="convexHull", decomp_limits=None):
     """Collision on every mesh under *prim*. Returns how many were set."""
     from pxr import UsdGeom, UsdPhysics
 
@@ -50,8 +93,35 @@ def _apply_collider(prim, approximation="convexHull"):
         UsdPhysics.CollisionAPI.Apply(p)
         mesh_api = UsdPhysics.MeshCollisionAPI.Apply(p)
         mesh_api.CreateApproximationAttr().Set(approximation)
+        if approximation == "convexDecomposition":
+            _bound_decomposition(p, decomp_limits)
         n += 1
     return n
+
+
+# What the cooker is allowed to spend on ONE decomposition. Uncapped, a
+# branchy or long-thin piece hits `ConvexDecompositionTask: polygon limit
+# reached`, and the hull set that comes out of that makes every solver step
+# crawl — the process sits at 30% of one core, logging nothing, looking hung.
+# That is a measured 20-minute settle where hulls take 61 seconds.
+DECOMP_LIMITS = {"max_hulls": 8, "vertex_limit": 32,
+                 "voxel_resolution": 100000, "min_thickness": 0.01}
+
+
+def _bound_decomposition(prim, limits=None):
+    """Cap the convex decomposition of one mesh. Silent if the API is absent."""
+    lim = dict(DECOMP_LIMITS)
+    lim.update(limits or {})
+    try:
+        from pxr import PhysxSchema
+        api = PhysxSchema.PhysxConvexDecompositionCollisionAPI.Apply(prim)
+        api.CreateMaxConvexHullsAttr(int(lim["max_hulls"]))
+        api.CreateHullVertexLimitAttr(int(lim["vertex_limit"]))
+        api.CreateVoxelResolutionAttr(int(lim["voxel_resolution"]))
+        api.CreateMinThicknessAttr(float(lim["min_thickness"]))
+    except Exception as exc:                       # pragma: no cover
+        carb.log_warn("[settle] convex decomposition limits unavailable "
+                      "({0}); cooking with the defaults".format(exc))
 
 
 def _iter(prim):
@@ -63,7 +133,8 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
             scene_path="/World/physicsScene", kick=0.0, rng=None,
             dynamic_approximation="convexHull", approx_map=None, gpu=True,
             bias=None, max_speed=None, damping=None, velocity_map=None,
-            density=420.0):
+            density=420.0, ccd=False, ground_plane_z=None,
+            decompose_larger_than=None, decomp_limits=None):
     """Physics scene, static colliders, and a rigid body per loose piece.
 
     `velocity_map` is `{prim_path: (vx, vy, vz)}` in m/s, a PER-BODY initial
@@ -96,7 +167,34 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         than half the speed away every second. Fine for a piece that is only
         meant to topple; ruinous for one meant to travel.
 
-    Leave all three None and this behaves exactly as it did before."""
+    Leave all three None and this behaves exactly as it did before.
+
+    ANTI-TUNNELLING, all three off by default so existing callers are
+    untouched:
+
+      * `ground_plane_z=0.0` authors a real infinite PhysX plane at that
+        height — `UsdGeomPlane` + `CollisionAPI`, purpose `guide`, bound to
+        the rubble material — and disables the legacy backstop below so there
+        is exactly one floor. A half-space has no thickness to pass through:
+        a body that ends a step below it is in penetration, not through it,
+        and is pushed back out. A triangle-mesh ground quad has no such
+        property, which is how 21-42% of a thrown archetype's meshes ended up
+        under the world.
+      * `ccd=True` sets `physxScene:enableCCD` plus `physxRigidBody:enableCCD`
+        and `enableSpeculativeCCD` on every body, so fast pieces sweep against
+        each other instead of teleporting through. Speculative CCD is the
+        cheap one and is always safe; both are set because the failure is
+        silent. (CCD is disabled by PhysX if `suppressReadback` is on — this
+        path never sets it, because the whole bake reads results back through
+        USD.)
+      * `decompose_larger_than=<metres>` sends any loose piece whose world
+        bounding box diagonal reaches that size to `convexDecomposition`
+        instead of a hull, with `DECOMP_LIMITS` capping the cook. The hull of
+        an L-shaped wall section or a folded roof panel encloses its own
+        concavity, and a piece resting on that invisible volume is a floater
+        with no geometry under it — the exact defect, at the exact scale, of
+        "the bigger house debris parts". Off by default because it costs
+        cooking time; use it on the big pieces only."""
     import random as _random
 
     from pxr import Gf, Sdf, UsdPhysics, UsdShade
@@ -134,6 +232,15 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         sx.CreateGpuHeapCapacityAttr(256 * 1024 * 1024)
         sx.CreateGpuTempBufferCapacityAttr(64 * 1024 * 1024)
         sx.CreateGpuMaxNumPartitionsAttr(8)
+    # CONTINUOUS COLLISION DETECTION, opt-in. Discrete collision only asks
+    # "do these two overlap at the end of the step"; at 20 m/s a 0.1 m plank
+    # travels three of its own thicknesses per step and the answer is no,
+    # every step, all the way through the floor. CCD sweeps the motion.
+    if ccd:
+        try:
+            sx.CreateEnableCCDAttr(True)
+        except Exception as exc:                   # pragma: no cover
+            carb.log_warn("[settle] scene CCD unavailable ({0})".format(exc))
 
     # A true infinite plane as a backstop. Even with the fix above, one
     # uncooked collider is enough to lose a piece to infinity, and a piece
@@ -150,12 +257,56 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
     from pxr import UsdGeom
     floor = UsdGeom.Xform.Define(stage, scene_path + "/floor").GetPrim()
     plane = UsdPhysics.CollisionAPI.Apply(floor)
-    plane.CreateCollisionEnabledAttr(True)
+    plane.CreateCollisionEnabledAttr(ground_plane_z is None)
     floor.CreateAttribute("physics:approximation",
                           Sdf.ValueTypeNames.Token).Set("none")
-    UsdGeom.Plane.Define(stage, scene_path + "/floor/plane").CreateAxisAttr("Z")
-    UsdPhysics.CollisionAPI.Apply(
+    legacy_plane = UsdGeom.Plane.Define(stage, scene_path + "/floor/plane")
+    legacy_plane.CreateAxisAttr("Z")
+    lp = UsdPhysics.CollisionAPI.Apply(
         stage.GetPrimAtPath(scene_path + "/floor/plane"))
+
+    # THE BACKSTOP ABOVE IS AUTHORED NESTED, and that is the reason for this
+    # second one. `CollisionAPI` sits on the `floor` Xform AND on the
+    # `UsdGeomPlane` beneath it, which is a nested collider — omni.physx has
+    # an `ancestorHasAPI` test for precisely that shape, an Xform is not
+    # valid collision geometry on its own, and whether the descendant plane
+    # survives the parse is not something this module can assert from the
+    # host. The measured symptom is a bake in which 21-42% of every wrecked
+    # archetype's meshes finished BELOW the world, down to -2.9 m, which is
+    # what a scene with no working floor and a 900 m triangle-mesh quad looks
+    # like at 20 m/s.
+    #
+    # So when a caller names a grade, author the floor the way omni.physx's
+    # own `physicsUtils.add_ground_plane` does — a plain Xform, a
+    # `UsdGeomPlane` child with purpose `guide` carrying the ONLY
+    # `CollisionAPI` in its chain, outside the `UsdPhysicsScene` prim — bind
+    # it to the rubble material so pieces land dead, and switch the legacy
+    # pair off so there is exactly one floor and no duplicate contact.
+    plane_path = ""
+    if ground_plane_z is not None:
+        lp.CreateCollisionEnabledAttr(False)
+        try:
+            root = Sdf.Path(scene_path).GetParentPath()
+            gp = root.AppendChild("settleGroundPlane")
+            gx = UsdGeom.Xform.Define(stage, gp)
+            gx.ClearXformOpOrder()
+            gx.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, float(ground_plane_z)))
+            cp = UsdGeom.Plane.Define(stage, gp.AppendChild("CollisionPlane"))
+            cp.CreateAxisAttr().Set("Z")
+            cp.CreatePurposeAttr().Set("guide")
+            cprim = cp.GetPrim()
+            UsdPhysics.CollisionAPI.Apply(cprim).CreateCollisionEnabledAttr(True)
+            UsdShade.MaterialBindingAPI.Apply(cprim).Bind(
+                UsdShade.Material(stage.GetPrimAtPath(mat_path)),
+                bindingStrength=UsdShade.Tokens.weakerThanDescendants,
+                materialPurpose="physics")
+            plane_path = str(cprim.GetPath())
+        except Exception as exc:                   # pragma: no cover
+            lp.CreateCollisionEnabledAttr(True)
+            plane.CreateCollisionEnabledAttr(True)
+            carb.log_warn("[settle] could not author a ground plane at z={0} "
+                          "({1}); falling back to the legacy backstop"
+                          .format(ground_plane_z, exc))
 
     # STATIC GEOMETRY GETS A TRIANGLE MESH, NOT A HULL. The ground is a flat
     # quad and the convex hull of a planar polygon is degenerate — PhysX has
@@ -169,7 +320,27 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         if prim and prim.IsValid():
             n_static += _apply_collider(prim, approximation="none")
 
+    # BIG PIECES ONLY, and only when asked. One BBoxCache pass over the loose
+    # set, so the size test costs nothing per body.
+    sizes = {}
+    if decompose_larger_than:
+        from pxr import Usd as _Usd
+        _bc = UsdGeom.BBoxCache(_Usd.TimeCode.Default(),
+                               [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+        for path in loose_paths:
+            pr = stage.GetPrimAtPath(path)
+            if not pr or not pr.IsValid():
+                continue
+            try:
+                rng_ = _bc.ComputeWorldBound(pr).ComputeAlignedRange()
+                sizes[path] = 0.0 if rng_.IsEmpty() else float(
+                    rng_.GetSize().GetLength())
+            except Exception:
+                sizes[path] = 0.0
+
     bodies = []
+    no_collider = []
+    n_decomp = 0
     for path in loose_paths:
         prim = stage.GetPrimAtPath(path)
         if not prim or not prim.IsValid():
@@ -187,10 +358,23 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         # decomposition for three thousand of them buys nothing and dominates
         # start-up. `approx_map` lets the caller spend it where it matters.
         approx = dynamic_approximation
-        if approx_map:
-            approx = approx_map.get(path, dynamic_approximation)
-        if not _apply_collider(prim, approximation=approx):
-            continue          # nothing to collide with; leave it where it is
+        if decompose_larger_than and sizes.get(path, 0.0) >= float(
+                decompose_larger_than):
+            approx = "convexDecomposition"
+        if approx_map and path in approx_map:
+            approx = approx_map[path]
+        if approx == "convexDecomposition":
+            n_decomp += 1
+        if not _apply_collider(prim, approximation=approx,
+                               decomp_limits=decomp_limits):
+            # NOT A HARMLESS SKIP. A loose prim that never becomes a body is
+            # not "left where it is" in any useful sense — it is left where
+            # the DAMAGE stage authored it, which for a wrecked house is
+            # part-way up a wall that no longer exists. Every one of these is
+            # a floater by construction, so they are counted and reported
+            # rather than passed over in silence.
+            no_collider.append(path)
+            continue
         body = UsdPhysics.RigidBodyAPI.Apply(prim)
         body.CreateRigidBodyEnabledAttr(True)
         # DAMPED AND STICKY, so this reads as a collapse and not a detonation.
@@ -211,6 +395,16 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         px.CreateSolverPositionIterationCountAttr(16)
         px.CreateSolverVelocityIterationCountAttr(2)
         px.CreateSleepThresholdAttr(0.02)
+        if ccd:
+            try:
+                px.CreateEnableCCDAttr(True)
+                # The cheap one, and the one that is always available: it
+                # inflates the contact prediction by the distance the body
+                # will travel this step instead of sweeping it. Both are set
+                # because a silently-ignored flag is how this failed before.
+                px.CreateEnableSpeculativeCCDAttr(True)
+            except Exception as exc:               # pragma: no cover
+                carb.log_warn("[settle] body CCD unavailable ({0})".format(exc))
         UsdShade.MaterialBindingAPI.Apply(prim).Bind(
             UsdShade.Material(stage.GetPrimAtPath(mat_path)),
             bindingStrength=UsdShade.Tokens.weakerThanDescendants,
@@ -245,7 +439,9 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         bodies.append(prim)
         n_body += 1
 
-    return {"bodies": bodies, "static_meshes": n_static, "rigid": n_body}
+    return {"bodies": bodies, "static_meshes": n_static, "rigid": n_body,
+            "no_collider": no_collider, "decomposed": n_decomp,
+            "ground_plane": plane_path, "ccd": bool(ccd)}
 
 
 def bake(stage, bodies):
@@ -386,11 +582,194 @@ def _cull_ledges(stage, bodies, zones=None, z_min=None, band_m=None):
     return n
 
 
+# ---------------------------------------------------------------------------
+# Convergence, the quiet phase, and grade
+# ---------------------------------------------------------------------------
+
+
+def _settle_phase(bodies, chunk, cap, tol=0.001, rest_tol=0.004,
+                  stall_chunks=0):
+    """Step in chunks until the pile stops moving or `cap` steps are gone.
+
+    Returns `(steps_used, moving, driver, at_rest)`, where `moving` is how
+    many bodies travelled more than `rest_tol` during the LAST chunk and
+    `at_rest` says the loop stopped because the pile stopped rather than
+    because it ran out of budget. `stall_chunks=0`
+    keeps the historical behaviour exactly: chunked stepping with an early
+    exit as soon as the busiest body moves less than a millimetre. A non-zero
+    value adds the other half of a convergence test — give up when the number
+    of moving bodies stops falling, because at that point more steps are not
+    buying anything and something is wrong with the scene, not the budget.
+    """
+    import numpy as np
+
+    used, driver, moving = 0, None, 0
+    at_rest = False
+    best, stalled = None, 0
+    prev = _positions(bodies)
+    while used < cap:
+        n = min(chunk, cap - used)
+        driver = _step(n)
+        used += n
+        now = _positions(bodies)
+        keys = [k for k in prev if k in now]
+        if keys:
+            d = np.linalg.norm(
+                np.array([list(now[k]) for k in keys])
+                - np.array([list(prev[k]) for k in keys]), axis=1)
+            moved, moving = float(d.max()), int((d > rest_tol).sum())
+        else:
+            moved, moving = 0.0, 0
+        prev = now
+        if moved < tol:
+            at_rest = True
+            break
+        if stall_chunks:
+            if best is None or moving < best:
+                best, stalled = moving, 0
+            else:
+                stalled += 1
+                if stalled >= int(stall_chunks):
+                    break
+    return used, moving, driver, at_rest
+
+
+def _quiet_bodies(bodies, damping=(1.6, 5.0), max_speed=6.0):
+    """Raise the damping and drop the speed cap for the settling-out phase.
+
+    NO NEW IMPULSE, which is the whole point: the throw has already happened,
+    so the downwind lean the `bias` bought is in the transforms and stays
+    there. What this removes is everything AFTER the throw — the piece still
+    sailing when the budget expires, and the piece creeping a millimetre a
+    second down a pile forever. Terminal velocity under 1.6/s damping is
+    still ~6 m/s, so an airborne fragment lands in well under a second; it
+    just does not travel while it does so.
+    """
+    from pxr import PhysxSchema
+
+    lin, ang = float(damping[0]), float(damping[1])
+    n = 0
+    for prim in bodies:
+        if not prim or not prim.IsValid() or not prim.IsActive():
+            continue
+        try:
+            px = PhysxSchema.PhysxRigidBodyAPI(prim)
+            if not px:
+                px = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+            px.CreateLinearDampingAttr(lin)
+            px.CreateAngularDampingAttr(ang)
+            if max_speed:
+                px.CreateMaxLinearVelocityAttr(float(max_speed))
+            n += 1
+        except Exception:                          # pragma: no cover
+            pass
+    return n
+
+
+def _bbox_cache():
+    from pxr import Usd, UsdGeom
+    return UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                             [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+
+
+def _z_min(bc, prim):
+    """World-space min-z of a prim's geometry, or None if it has no extent."""
+    try:
+        r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+    except Exception:                              # pragma: no cover
+        return None
+    if r.IsEmpty():
+        return None
+    return float(r.GetMin()[2])
+
+
+def _below_grade(stage, bodies, floor_z, tol=0.02):
+    """(count, worst_z, [(path, z_min), ...]) for bodies that finished under
+    the floor. Geometry, not origins: a fragment whose pivot is above grade
+    with half its mesh under it is still a hole in the ground."""
+    bc = _bbox_cache()
+    worst, out = 0.0, []
+    for prim in bodies:
+        if not prim or not prim.IsValid() or not prim.IsActive():
+            continue
+        z0 = _z_min(bc, prim)
+        if z0 is None or z0 >= floor_z - tol:
+            continue
+        out.append((str(prim.GetPath()), z0))
+        worst = min(worst, z0 - floor_z)
+    out.sort(key=lambda q: q[1])
+    return len(out), worst, out[:5]
+
+
+def _lift_below_grade(stage, bodies, floor_z, tol=0.02, live=False):
+    """Raise anything under the floor until its lowest point is ON the floor.
+
+    THE TIE BREAKS TOWARD THE GROUND, the same call `bake._reseat_roots`
+    records: a fragment lying on the ground is a pose the solver could
+    plausibly have reached, and one buried three metres under the lawn — or
+    hanging in the air — is not.
+
+    `live=True` is the mid-solve rescue: it also zeroes the body's velocity
+    so the quiet phase that follows re-settles it onto the pile properly
+    instead of shooting it back down. `live=False` is the post-bake clamp,
+    which is pure geometry on transforms `bake()` has already frozen and is
+    therefore guaranteed to land, whatever PhysX did or did not do with the
+    teleport. Returns (lifted, failed).
+    """
+    from pxr import Gf, UsdGeom, UsdPhysics
+
+    bc = _bbox_cache()
+    xf = UsdGeom.XformCache()
+    lifted = failed = 0
+    for prim in bodies:
+        if not prim or not prim.IsValid() or not prim.IsActive():
+            continue
+        z0 = _z_min(bc, prim)
+        if z0 is None or z0 >= floor_z - tol:
+            continue
+        dz = floor_z - z0
+        x = UsdGeom.Xformable(prim)
+        ops = [o for o in x.GetOrderedXformOps()
+               if o.GetOpType() == UsdGeom.XformOp.TypeTranslate]
+        if not ops:
+            failed += 1
+            continue
+        # PARENT SPACE, NOT WORLD. The translate op is authored in the
+        # prim's parent frame, and a Scope is not always the identity.
+        try:
+            inv = xf.GetParentToWorldTransform(prim).GetInverse()
+            d = inv.TransformDir(Gf.Vec3d(0.0, 0.0, dz))
+        except Exception:                          # pragma: no cover
+            d = Gf.Vec3d(0.0, 0.0, dz)
+        op = ops[0]
+        v = op.Get()
+        if v is None:
+            v = Gf.Vec3d(0.0, 0.0, 0.0)
+        try:
+            op.Set(type(v)(v[0] + d[0], v[1] + d[1], v[2] + d[2]))
+        except Exception:                          # pragma: no cover
+            failed += 1
+            continue
+        if live:
+            try:
+                body = UsdPhysics.RigidBodyAPI(prim)
+                body.CreateVelocityAttr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+                body.CreateAngularVelocityAttr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+            except Exception:                      # pragma: no cover
+                pass
+        lifted += 1
+    return lifted, failed
+
+
 def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         gravity=-9.81, kick=0.0, rng=None, bake_result=True,
         dynamic_approximation="convexHull", approx_map=None, gpu=True,
         bias=None, max_speed=None, damping=None, velocity_map=None,
-        density=420.0, cull_ledges=None):
+        density=420.0, cull_ledges=None, ccd=False, ground_plane_z=None,
+        decompose_larger_than=None, decomp_limits=None, converge=False,
+        max_steps=None, quiet_steps=0, quiet_damping=(1.6, 5.0),
+        quiet_max_speed=6.0, rest_tol=0.004, stall_chunks=3, floor_z=None,
+        floor_tol=0.02, strict=None):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -402,6 +781,33 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     hand-testing in the viewport: drag a piece into the air, press play, and
     it should fall. With baking on (the default for capture) every body is
     disabled at the end and pressing play correctly does nothing.
+
+    CONVERGENCE, off by default so existing callers step exactly as before:
+
+      * `converge=True` makes `steps` a target rather than a ceiling. The
+        throw phase keeps going up to `max_steps` (default 3x `steps`) until
+        the busiest body moves less than a millimetre in a chunk, or until
+        the number of bodies still moving stops falling for `stall_chunks`
+        chunks — at which point more steps are demonstrably not the fix and
+        the report says so.
+      * `quiet_steps=N` runs a second phase after the throw with the damping
+        raised and the speed cap lowered (`quiet_damping`, `quiet_max_speed`).
+        The bias is an INITIAL velocity, so nothing about this touches the
+        downwind lean already in the transforms; what it removes is the
+        piece still airborne at the end of the budget and the piece creeping
+        down a pile forever. This is the single cheapest way to drive
+        `still_moving` to zero.
+      * `floor_z=<grade>` audits the result against the ground and repairs
+        it: bodies whose geometry finished under the floor are lifted back
+        onto it before the quiet phase (velocity zeroed, so they re-settle
+        properly), and anything still under it after the bake is clamped
+        geometrically. That is the belt to `ground_plane_z`/`ccd`'s braces —
+        with a real half-space and CCD nothing should get under the world in
+        the first place.
+      * `strict=True` (or `SETTLE_STRICT=1`) turns a bad settle into a raised
+        `SettleNotConverged` instead of a warning, for callers that would
+        rather lose the run than export debris frozen in mid-air. The report
+        is printed either way, and loudly.
     """
     import numpy as np
 
@@ -410,7 +816,10 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
                    dynamic_approximation=dynamic_approximation,
                    approx_map=approx_map, gpu=gpu, bias=bias,
                    max_speed=max_speed, damping=damping,
-                   velocity_map=velocity_map, density=density)
+                   velocity_map=velocity_map, density=density, ccd=ccd,
+                   ground_plane_z=ground_plane_z,
+                   decompose_larger_than=decompose_larger_than,
+                   decomp_limits=decomp_limits)
     if not info["bodies"]:
         carb.log_warn("[settle] nothing to settle")
         return info
@@ -425,37 +834,57 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     # what "a lot of the house hasn't fallen" is. Raising the number is only
     # ever a bigger guess; measuring is not.
     #
-    # `steps` is now a CEILING. The loop advances in chunks and stops early
-    # once the busiest body in a chunk moves less than a millimetre, and it
-    # reports how much of the budget it actually needed — so "not enough
-    # steps" becomes visible instead of being inferred from the render.
+    # The loop advances in chunks and stops early once the busiest body in a
+    # chunk moves less than a millimetre. With `converge=True` it may also
+    # run PAST `steps` — up to `max_steps` — because the measured failure was
+    # the opposite of an early exit: 1200 of 1200 steps consumed with bodies
+    # still in flight, baked as they were.
     chunk = max(30, int(steps) // 12)
-    used = 0
-    prev = before
-    info["driver"] = None
-    while used < int(steps):
-        n = min(chunk, int(steps) - used)
-        info["driver"] = _step(n)
-        used += n
-        now = _positions(info["bodies"])
-        moved = max((float(np.linalg.norm(np.array(now[k]) - np.array(prev[k])))
-                     for k in prev if k in now), default=0.0)
-        prev = now
-        if moved < 0.001:
-            break
+    cap = int(steps)
+    if converge:
+        cap = max(cap, int(max_steps) if max_steps is not None
+                  else 3 * int(steps))
+    used, moving, driver, at_rest = _settle_phase(
+        info["bodies"], chunk, cap, tol=0.001, rest_tol=rest_tol,
+        stall_chunks=stall_chunks if converge else 0)
+    info["driver"] = driver
     info["steps_used"] = used
+    info["steps_cap"] = cap
+    info["converged"] = bool(at_rest)
     after = _positions(info["bodies"])
+
+    # THE QUIET PHASE. Everything up to here was the throw; this is the pile
+    # coming to rest. Rescue first — a piece that tunnelled the floor before
+    # the plane existed, or that a bad collider let through, is lifted back
+    # to grade with its velocity zeroed so the quiet steps settle it onto the
+    # pile instead of into it.
+    info["rescued"] = info["rescue_failed"] = 0
+    if floor_z is not None and int(quiet_steps or 0) > 0:
+        info["rescued"], info["rescue_failed"] = _lift_below_grade(
+            stage, info["bodies"], float(floor_z), tol=floor_tol, live=True)
+    info["quiet_used"] = 0
+    if int(quiet_steps or 0) > 0:
+        _quiet_bodies(info["bodies"], quiet_damping, quiet_max_speed)
+        q_chunk = max(20, int(quiet_steps) // 8)
+        info["quiet_used"], moving, qdriver, q_rest = _settle_phase(
+            info["bodies"], q_chunk, int(quiet_steps), tol=0.001,
+            rest_tol=rest_tol, stall_chunks=stall_chunks)
+        info["driver"] = qdriver or info["driver"]
+        # The quiet phase is the one that has to reach rest — it is the
+        # phase whose whole job is to stop things.
+        info["converged"] = bool(q_rest)
+        after = _positions(info["bodies"])
 
     # And one last look: how many bodies were STILL MOVING when the budget ran
     # out. Zero means the pile is genuinely at rest and baking is safe; a
-    # non-zero count is the scene telling you the ceiling is too low.
+    # non-zero count is the scene telling you it was baked mid-flight.
     _step(20)
     settled = _positions(info["bodies"])
     info["still_moving"] = sum(
         1 for k in after
         if k in settled
         and float(np.linalg.norm(np.array(settled[k]) - np.array(after[k])))
-        > 0.004)
+        > rest_tol)
     after = settled
 
     # HORIZONTAL vs VERTICAL is the whole question. A collapse drops pieces:
@@ -474,6 +903,17 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     info["spread_mean"] = float(np.mean(dh)) if dh else 0.0
     info["spread_max"] = float(np.max(dh)) if dh else 0.0
 
+    # BELOW GRADE IS A SEPARATE FAILURE FROM STILL MOVING, and it is the one
+    # a step budget cannot fix: material under the world was let through the
+    # floor, not caught in flight.
+    info["below_grade"] = 0
+    info["below_grade_worst"] = 0.0
+    info["below_grade_examples"] = []
+    if floor_z is not None:
+        (info["below_grade"], info["below_grade_worst"],
+         info["below_grade_examples"]) = _below_grade(
+            stage, info["bodies"], float(floor_z), tol=floor_tol)
+
     info["solve_s"] = _time.time() - _t0
     # THE LEDGE CULL, off by default. `cull_ledges=True` (or the env var, so
     # the bench and the bake can turn it on without a code change) deletes
@@ -491,21 +931,41 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         info["bodies"] = [b for b in info["bodies"] if b and b.IsValid()
                           and b.IsActive()]
     info["baked"] = bake(stage, info["bodies"]) if bake_result else 0
+
+    # THE LAST CLAMP, and the only one that cannot fail quietly: the bodies
+    # are frozen, the transforms are plain translate/orient/scale, and
+    # raising one is arithmetic. Anything still under the floor here got
+    # there despite a half-space and CCD, and shipping it is not an option —
+    # a hole in the lawn reads worse than a plank lying flat in it.
+    info["clamped"] = info["clamp_failed"] = 0
+    if floor_z is not None and bake_result and info["below_grade"]:
+        info["clamped"], info["clamp_failed"] = _lift_below_grade(
+            stage, info["bodies"], float(floor_z), tol=floor_tol, live=False)
+
     if settle_note:
         print("[settle] {0} rigid, {1} static, driver={2}, baked {3}".format(
             info["rigid"], info["static_meshes"], info["driver"],
             info["baked"]))
-        print("[settle]   {0:.1f}s solving ({1})".format(
-            info.get("solve_s", 0.0), "GPU" if gpu else "CPU"))
+        print("[settle]   {0:.1f}s solving ({1}){2}{3}".format(
+            info.get("solve_s", 0.0), "GPU" if gpu else "CPU",
+            ", CCD" if info.get("ccd") else "",
+            ", ground plane " + info["ground_plane"]
+            if info.get("ground_plane") else ""))
+        if info.get("decomposed"):
+            print("[settle]   {0} body(s) cooked as convex DECOMPOSITIONS "
+                  "(the rest are hulls)".format(info["decomposed"]))
         if info.get("culled_ledges"):
             print("[settle]   {0} body(s) culled off façade ledges "
                   "({1} zone(s))".format(info["culled_ledges"], len(LEDGE_ZONES)))
-        print("[settle]   {0} of {1} steps used; {2} body(s) STILL MOVING at "
-              "bake time{3}".format(
-                  info.get("steps_used", steps), steps,
-                  info.get("still_moving", 0),
-                  "" if not info.get("still_moving")
-                  else "  <-- RAISE THE STEP BUDGET"))
+        print("[settle]   {0} of {1} steps used{2}; {3} quiet step(s); "
+              "{4} body(s) STILL MOVING at bake time".format(
+                  info.get("steps_used", steps), info.get("steps_cap", steps),
+                  "" if info.get("converged") else "  <-- CAP REACHED",
+                  info.get("quiet_used", 0), info.get("still_moving", 0)))
+        if info.get("rescued") or info.get("clamped"):
+            print("[settle]   {0} body(s) lifted back to grade before the "
+                  "quiet phase, {1} clamped after the bake".format(
+                      info.get("rescued", 0), info.get("clamped", 0)))
         print("[settle]   drop  mean {0:+.2f} m   (down = collapsing)".format(
             info["drop_mean"]))
         # THE READING INVERTS WHEN THERE IS A BIAS. Horizontal spread is the
@@ -520,4 +980,55 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         if info["moved_max"] < 0.01:
             print("[settle] NOTHING MOVED — the solver did not run, or every "
                   "body was already resting and interlocked")
+
+    # ---- the verdict, and it is not a footnote ---------------------------
+    faults = []
+    if info.get("still_moving"):
+        faults.append(
+            "{0} body(s) STILL MOVING at bake time — they are frozen "
+            "mid-flight in the export".format(info["still_moving"]))
+    if info.get("no_collider"):
+        faults.append(
+            "{0} loose prim(s) NEVER SIMULATED (no cookable mesh under them); "
+            "they are still wherever the damage stage authored them, e.g. {1}"
+            .format(len(info["no_collider"]), info["no_collider"][0]))
+    if info.get("below_grade"):
+        faults.append(
+            "{0} body(s) finished BELOW GRADE (worst {1:.2f} m under the "
+            "floor) — the ground collider is not holding{2}".format(
+                info["below_grade"], info["below_grade_worst"],
+                "" if not info.get("clamped")
+                else "; {0} were clamped back onto it".format(
+                    info["clamped"])))
+    if info.get("rescue_failed") or info.get("clamp_failed"):
+        faults.append(
+            "{0} body(s) could NOT be lifted (no translate op to edit)".format(
+                info.get("rescue_failed", 0) + info.get("clamp_failed", 0)))
+    if not info.get("converged"):
+        faults.append(
+            "the step cap ({0}) was reached without the pile coming to rest"
+            .format(info.get("steps_cap", steps)))
+    info["faults"] = faults
+    if faults:
+        head = ("SETTLE DID NOT CONVERGE" if not bake_result
+                else "SETTLE BAKED A PILE THAT WAS NOT AT REST")
+        msg = head + ": " + "; ".join(faults)
+        print("[settle] " + "!" * 68)
+        print("[settle] !! " + head)
+        for f in faults:
+            print("[settle] !!   - " + f)
+        for path, z0 in (info.get("below_grade_examples") or [])[:3]:
+            print("[settle] !!     {0}  z_min {1:+.2f}".format(path, z0))
+        print("[settle] !! FIX: raise `steps`/`max_steps`, add `quiet_steps`, "
+              "and check `ground_plane_z`/`ccd` are set for a thrown settle.")
+        print("[settle] " + "!" * 68)
+        carb.log_error("[settle] " + msg)
+        if strict is None:
+            import os as _os
+            strict = _os.environ.get("SETTLE_STRICT", "").strip() \
+                not in ("", "0", "false", "False")
+        if strict:
+            raise SettleNotConverged(msg)
+    elif settle_note:
+        print("[settle]   AT REST: nothing moving, nothing below grade.")
     return info

@@ -486,8 +486,16 @@ the previous run's people for the whole run.
 
 **Fleet.** NUM_ROBOTS=3 + three `SPAWN_CONFIGS` entries; each robot container
 runs its own planner (`num_robots` is the TEAM size, `team_mode: false` makes
-the node drive one robot and cut NUM_ROBOTS strips, taking slice `robot_N`-1).
-Targets outside the sector are ignored. All arms detect on the shared
+the node drive one robot and cut NUM_ROBOTS sectors, taking slice `robot_N`-1).
+`sector_partition` in the method overlays is now `rect` — equal-WIDTH bands,
+each robot's sector the bounding rectangle of its band's share of the search
+polygon, roughly (not exactly) equal in area; `sector_axis: principal` (the
+1 km wildfire scene) cuts along the polygon's own major axis and hands out
+ROTATED rectangles, which is what hugs a diagonal burn (measured: 245 m along
+the burn x 500-620 m across, 123-152k m2 each, vs 960 x 192 m whole-plat strips
+before). `strips` (equal area) and `grid` remain. Log:
+`sector 2/5 (rect, pad 50 m): 4 pts, 149101 m2`. Targets outside the sector
+are ignored. All arms detect on the shared
 `offboard-compute` server (§2); the VLM / ITM servers start there with
 `START_VLM_SERVER` / `START_ITM_SERVER` in `.env`, and the detector checkpoint
 is `CONAVGPT2_YOLO_WORLD_WEIGHTS` (yolov8x for suburb_mini, yolov8l-world for
@@ -514,12 +522,15 @@ before: 12/13 rounds failed at 26 s x 5 retries with `/global_plan` silent —
 that was the "stuck" drone. The VLM server accepts up to 12 images per request
 (`--max-images`), matching `max_frontiers_limit`.
 
-**Speed by intent.** droan_gl's rollout cap is now a LIVE parameter
-(`max_velocity`, 2 m/s as shipped; `robot/ros_ws/src/local/planners/droan_gl`).
-Every arm except gpt sets it from `_command`: `explore_speed_mps` (3.0) while
-crossing the sector to a frontier / lane goal, `target_speed_mps` (1.5) the
-moment a detected person is the goal. Log: `droan max_velocity -> 3.0 m/s
-(transit)`. 0 on either leaves droan alone.
+**Speed by intent.** droan_gl's rollout cap is a LIVE parameter
+(`max_velocity`; `robot/ros_ws/src/local/planners/droan_gl`) — and until
+2026-08-27 it did nothing, see §9.u. Every arm except gpt sets it from
+`_command`, carried on the NavigateTask goal (`max_speed_mps`, §9.u):
+`transit_speed_mps` (7.0) while OUTSIDE its sector, `explore_speed_mps` (1.5)
+inside it, `target_speed_mps` (1.5) the moment a detected person is the goal.
+Log: `NavigateTask max_speed -> 7.0 m/s (transit to sector)` / `(search)` /
+`(target approach)`, then `ground speed ... | cap ...` every 10 sim-s. 0 on
+explore/target leaves droan's own `max_velocity`.
 
 **Colours and entry edges in a fleet.** `search/markers` (robot, trail,
 sector outline, lanes) use the GCS's own `ROBOT_COLORS[N-1]` through
@@ -588,6 +599,24 @@ ground nobody has covered). Use `'largest'` on the plats.
 ---
 
 ## 6. Detector thresholds — ONE gate, measured, never inherited
+
+**Reading the gate off a run's log (2026-08-27 on).** The planner logs, per
+robot: `detector gate: a "person" box is mapped only when its confidence >
+sem_threshold 0.65 ...` at startup; `detector PASS: person 0.712 > gate 0.65
+-> mapped into object_pcd | 1 box(es) >= 0.50: 0.71 @ px[312, 201, 330, 240]
+18x39 | other classes [...] | run max 0.745 | passes 7/41 proposals` on EVERY
+pass; `detector SEEN: person 0.580 (below gate 0.65, not mapped) | 2 box(es)
+>= 0.50: ...` on EVERY tick with a person at or above `detector_log_conf`
+(0.5, logging only — the gate does not move) — both unthrottled, both with
+each box's score and pixel rect, and both ticks also emit the
+`detection_image` JPEG; `detector below gate: ... < 0.50` for proposals under
+the floor (10 s throttle); and
+`detector summary: 312 ticks | "person" proposed on 41 | passed gate 0.65 on 7
+| run max 0.745 (tick 188) | conf bins <0.3:20 0.3-0.5:12 0.5-0.65:6
+0.65-0.8:7 >=0.8:0` every `detector_log_period_s` (30 s sim) and once more
+marked `(FINAL)` when the budget ends. The mission's summary step greps these.
+Before this the only score in the log was a 10 s-throttled sample, and the
+"max confidence" read off it was a lower bound.
 
 **There are two thresholds in series, and only the second is configurable.**
 
@@ -852,6 +881,84 @@ overlays) makes the planner subtract its measured map origin
 with a GPS fix (log: `search area authored in WORLD ... polygon shifted by`).
 Size `map_extent_m` to contain the SHIFTED polygon (300 m here, not 280).
 Lawnmower lanes are shifted with it.
+
+### 9.v The bag's raw `/robot_N/...` layers are in the ROBOT'S map — record the `/gcs/` copies
+
+Measured on `wildfire1km_5robot_a` (2026-08-27): every `/robot_N/voxel_map`,
+`frontier_cloud`, `occupancy`, `value_map`, `frontiers`, `search/markers`,
+`odometry` and `global_plan` is stamped `frame_id: map` but lives in THAT
+robot's takeoff-anchored map (origin = its spawn, (-30, y_N) there), while
+`/gcs/robot_markers`, `/gcs/sim_ground` and `/gcs/annotations/bboxes` are
+global ENU under the same `map` name; `/tf` is not bridged (dds_router.yaml)
+and records nothing on the GCS scope. A replay draws each robot's voxels and
+frontiers 30 m ahead of its mesh along +x — "the drones are behind the
+voxels". `foxglove_visualizer_node` republishes every one of those layers
+translated under `/gcs/<robot>/<layer>` and latches the origin it used on
+`/gcs/<robot>/map_origin` (PointStamped): record THOSE (see the wildfire1km
+mission's `record.topics`), keep the raw odometry/global_plan only for
+analysis, and add the origin back when you read them
+(`world = local + map_origin`).
+
+### 9.u Every drone flew 1 m/s — droan's rollouts converged to a UNIT vector
+
+Same run: p90 ground speed 0.98 m/s on a 330 m open transit with the planner
+logging `droan max_velocity -> 3.0 m/s`. `trajectory.cs` drives every rollout
+to `vel_desired`, which `gl_interface.cpp` filled with a unit direction and
+never scaled; `vel_max` sat in the params buffer unread, so the "2 m/s as
+shipped" cap was never real either. Fixed by scaling `vel_desired` by
+`vel_max` (init and the live rescale). Speeds above ~3 m/s have NOT been
+flown yet: the rollout's collision samples are `vel * dt` (0.2 s) apart and
+the trajectory controller's spheres are 1 m, so watch the first fast run.
+
+**The cap rides on the NavigateTask goal.** `task_msgs/NavigateTask.Goal.
+max_speed_mps` (0 = droan's `max_velocity`); droan_gl applies it per goal and
+ACCEPTS a new goal while one runs — the old one is aborted "Preempted by a
+new NavigateTask goal" — so a planner changes gear by re-sending its
+activator. No parameter service any more. Three gears in `planner.yaml`:
+`transit_speed_mps` 7.0 while OUTSIDE the robot's own sector and not on a
+target, `explore_speed_mps` 1.5 inside it, `target_speed_mps` 1.5 on a
+person. `semantic_search_task` passes its `max_flight_speed` the same way
+(it used to log it and drop it). Four of five drones spent 88-330 s of the
+600 s budget reaching their strips at 1 m/s.
+
+**Proving it in the next run's logs** (planner.log / droan pane):
+```
+[robot_1] NavigateTask max_speed -> 7.0 m/s (transit to sector)
+[robot_1] droan_gl activated — steering by /robot_1/global_plan, max_speed 7.0 m/s (speed 7.0 m/s)
+NavigateTask accepted: activator (steer by /global_plan), max_speed 7.0 m/s (from the goal) — preempting the previous goal
+[droan_gl] rollout speed cap -> 7 m/s
+[robot_1] ground speed 6.4 m/s over 10 s sim | cap 7.0 (transit to sector) | OUTSIDE sector
+[robot_1] NavigateTask max_speed -> 1.5 m/s (search)
+[robot_1] ground speed 1.4 m/s over 10 s sim | cap 1.5 (search) | inside sector
+```
+A `ground speed` line far under its cap with `OUTSIDE sector` is the
+airframe/controller, not the planner; a `task_msgs NavigateTask has no
+max_speed_mps — rebuild` warning means the container's msgs predate the field.
+
+### 9.t `search_area_source: scene` — the search area is the scorched ground, not the plat
+
+The launcher (GT_ANNOTATIONS=on) now writes `<RESULTS_SCENE>_region.json`
+beside the GT: `burn` (the fire-front ellipse at the scene's `elapsed`, i.e.
+exactly the ground `age() >= 0` scorched), `affected` (that ellipse run on
+until the survivor staged furthest ahead of the front is inside — on the 1 km
+plat most of the map again, because `at_home` and the gridlock queue sit past
+the front by design), `region` (the plat) and `meta`. `search_area_scene_key:
+burn` + `search_area_pad_m: 50` is the tight search every arm flies on
+`suburb_wildfire_1km.yaml`; the launcher prints `people inside k/n` for both
+polygons, and survivors outside `burn` are outside the search by design. A
+missing file is FATAL for a `scene` source (no silent whole-map fallback);
+`search_area_source: config` flies `search_area_xy`. scene_gen/disaster/region.py
+is pure python — `python3 -m pytest scene_gen/tests/test_affected_region.py`.
+
+### 9.s Detections you cannot check are detections you cannot trust
+
+Same run: 15 committed `person` targets, every one 78-226 m from the nearest
+GT person, all projected 52-92 m out (the `depth_max_m` limit) at ground
+height, no rigid transform maps them onto the GT — false positives, not a
+frame error, and the 1-robot wildfire runs show the same. There was no image
+in the bag to say what YOLO saw. `/{robot}/search/detection_image` (JPEG of
+the annotated FPV, published ONLY on a tick whose goal-class score cleared
+`sem_threshold`, bridged and recorded) is the evidence to open first.
 
 ### 9.w The GCS cloud layers need a BEST_EFFORT reader
 

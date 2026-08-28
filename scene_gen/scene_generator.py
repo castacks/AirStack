@@ -3088,6 +3088,629 @@ _HUMAN_POSES = {
         "lowerarm_l": ((1.0, 0.0, 0.0), -50.0),
         "lowerarm_r": ((1.0, 0.0, 0.0), -50.0),
     },
+
+    # ---- DISASTER-SURVIVOR POSES (disaster/tornado_people.py). ADDED 2026-08-27
+    # after the first 100 m tornado render came back as "a pavement full of
+    # commuters": the whole scene was idle / walk / crouch because those were
+    # the only postures that existed. VERIFY ON SIGHT, all seven, and the note
+    # on each says what to look at.
+    #
+    # SEGMENT LENGTHS ARE rp_carla's MEASURED ONES — thigh 0.472, calf 0.364,
+    # pelvis 0.983, ankle 0.147 at a 1.731 m stature — the same numbers the
+    # `sit_ground` correction above was solved on, because those are the ones
+    # somebody actually read off a rig. The 1.80 m mannequin nominals in the
+    # block header (0.45 / 0.42 / 0.95 / 0.08) are kept only to convert a solved
+    # drop into this table's 1.80 m reference for `_POSE_Z_OFFSET`, by the ratio
+    # 1.80 / 1.731 = 1.040.
+    #
+    # JOINTS THIS PACK IS NOT KNOWN TO HAVE. Everything above uses only joints
+    # attested in the shipped poses (thigh/calf/foot, upperarm/lowerarm,
+    # spine_02). The postures below also drive `spine_01`, `spine_03`,
+    # `neck_01` and `head`, which are UE4-mannequin standard and so almost
+    # certainly present in a 95-joint UE4-compatible skeleton — but nobody has
+    # listed this pack's joints. `_pose_joint_transforms` IGNORES a delta whose
+    # joint it cannot find, so a missing one degrades the pose (a flatter back,
+    # a head that does not hang) instead of breaking it; `_bind_human_pose`
+    # now prints one WARN per (asset, pose) naming exactly which deltas were
+    # dropped, so this stops being a silent failure the moment a scene is
+    # built.
+
+    # DIGGING, STANDING — hinged at the waist over the pile with the arms
+    # hanging into it. THE POSE `neighbour_dig` SHOULD ALWAYS HAVE HAD: it was
+    # using `crouch`, whose forearms are carried forward over the knees at
+    # -18/-50, and a squat with the forearms out in front is the silhouette of
+    # somebody sitting at a steering wheel. That is the literal review comment
+    # the rebuild started from.
+    #
+    #   trunk   spine_01 -46 + spine_02 -22 + spine_03 -10 = 78 deg of forward
+    #           pitch. 78 rather than 66: at 66 the shoulder lands at 1.19 m
+    #           and the fingertips (shoulder-to-tip 0.79 m on a 1.8 m figure,
+    #           Drillis & Contini 1966 segment fractions) at 0.40 m — a third
+    #           of a metre of clear air between the hands and the debris, which
+    #           reads as bowing, not digging.
+    #   legs    thigh -30, calf +62 -> shin at +32 (raked back), foot -32 to
+    #           put the sole back flat. Ankle solves to 0.718 m below the hip
+    #           against 0.836 m at rest, so the whole body drops 0.118 m and
+    #           the fingertips finish ~0.18 m off the surface: hands IN the
+    #           pile, which is the point.
+    #   arms    the arms are children of the spine, so the 78 deg trunk pitch
+    #           carries them 78 deg forward with it and they would point nearly
+    #           horizontally ahead. +55 about X on each upper arm takes that
+    #           back out so they hang under the shoulders the way loaded arms
+    #           do; -20 on each forearm is the reach into the gap.
+    #
+    # WHAT TO LOOK AT: the hands. If they are level with the knees rather than
+    # buried in the surface the figure is bowing at something, and the fix is
+    # more knee (calf up from +62) rather than more back.
+    "dig_bent": {
+        "spine_01": ((1.0, 0.0, 0.0), -46.0),
+        "spine_02": ((1.0, 0.0, 0.0), -22.0),
+        "spine_03": ((1.0, 0.0, 0.0), -10.0),
+        "neck_01": ((1.0, 0.0, 0.0), 12.0),       # un-tuck: the eyes on the pile
+        "thigh_l": ((1.0, 0.0, 0.0), -30.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -26.0),      # stance a little open
+        "calf_l": ((1.0, 0.0, 0.0), 62.0),
+        "calf_r": ((1.0, 0.0, 0.0), 58.0),
+        "foot_l": ((1.0, 0.0, 0.0), -32.0),       # cancel the shin: sole flat
+        "foot_r": ((1.0, 0.0, 0.0), -32.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0),    # down out of the A-pose
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), 55.0),   # ...and back under the
+        "upperarm_r+": ((1.0, 0.0, 0.0), 55.0),   # pitched shoulder: hanging
+        "lowerarm_l": ((1.0, 0.0, 0.0), -20.0),   # into the gap
+        "lowerarm_r": ((1.0, 0.0, 0.0), -24.0),
+    },
+
+    # DIGGING, HALF-KNEELING — one knee on the pile, the other foot planted.
+    # The posture rubble work actually happens in, because a hinged stand
+    # cannot be held and cannot pull: kneeling puts the shoulder 0.87 m up
+    # instead of 1.19 and gives the hands the whole surface.
+    #
+    #   LEFT leg (down)     thigh +4, calf +86 -> shin at +90, i.e. flat on
+    #                       the ground running back from the knee. Knee lands
+    #                       0.471 m below the hip; that is the contact, and it
+    #                       is why this pose needs a KNEE ground solve rather
+    #                       than a sole one (see `_POSE_GROUND_CONTACT`).
+    #   RIGHT leg (planted) solved rather than guessed. Want the ankle 0.380 m
+    #                       below the hip (hip 0.527 = 0.471 knee + 0.056 knee
+    #                       radius; ankle 0.147 above ground) and 0.30 m
+    #                       forward. |hip->ankle| = 0.484; with a 0.472 thigh
+    #                       and a 0.364 shin the cosine rule gives 44.7 deg
+    #                       between the thigh and that line, whose own angle is
+    #                       -38.3, so thigh = -83 and shin = +28: knee flexion
+    #                       111 deg, front knee at hip height. That is a
+    #                       half-kneel, not a lunge.
+    #   trunk               42 deg forward (24 + 12 + 6). Less than `dig_bent`
+    #                       needs, because the kneel has already lowered the
+    #                       shoulder.
+    #   arms                +34 about X to hang them back under the pitched
+    #                       shoulder, -30 on the forearms to reach. Hands land
+    #                       ~0.08 m above the surface: in it.
+    #
+    # WHAT TO LOOK AT: the down shin. If it stands proud of the debris the
+    # figure is doing a lunge, and `calf_l` is short of +86.
+    "dig_kneel": {
+        "spine_01": ((1.0, 0.0, 0.0), -24.0),
+        "spine_02": ((1.0, 0.0, 0.0), -12.0),
+        "spine_03": ((1.0, 0.0, 0.0), -6.0),
+        "neck_01": ((1.0, 0.0, 0.0), 10.0),
+        "thigh_l": ((1.0, 0.0, 0.0), 4.0),        # kneeling leg: thigh plumb
+        "calf_l": ((1.0, 0.0, 0.0), 86.0),        # shin flat on the ground
+        "foot_l": ((1.0, 0.0, 0.0), 18.0),        # instep down, toes back
+        "thigh_r": ((1.0, 0.0, 0.0), -83.0),      # planted leg, solved above
+        "calf_r": ((1.0, 0.0, 0.0), 111.0),
+        "foot_r": ((1.0, 0.0, 0.0), -28.0),       # cancel the shin: sole flat
+        "thigh_r+": ((0.0, 1.0, 0.0), 14.0),      # front knee out, not crossed
+        "upperarm_l": ((0.0, 1.0, 0.0), 42.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -42.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), 34.0),
+        "upperarm_r+": ((1.0, 0.0, 0.0), 34.0),
+        "lowerarm_l": ((1.0, 0.0, 0.0), -30.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -34.0),
+    },
+
+    # SITTING ON THE GROUND, KNEES UP, HEAD DOWN — the injured survivor who
+    # has stopped. Distinct from `sit_ground`, which is legs-out and propped
+    # back on the hands: that is waiting, this is hurt. 89% of tornado injuries
+    # are minor (ISS < 10) and 86% are discharged home (Niederkrotenthaler et
+    # al. 2013, 1,398 patients / 39 hospitals) — the walking wounded are the
+    # LARGEST visible group at T+45 min and until now the scene had no posture
+    # for them at all.
+    #
+    #   THE FOLD IS DEEPER THAN IT LOOKS. Sitting on the floor with the feet
+    #   flat means the hip joint and the ankle joint are BOTH about 0.10-0.15 m
+    #   up, i.e. level with each other, with the knee ~0.45 m up and the foot
+    #   ~0.40 m forward. Solving that against a 0.472 thigh and a 0.364 shin:
+    #     knee   = hip + (0, -0.316, +0.351)   -> thigh at -138 deg
+    #     ankle  = knee + (0, -0.082, -0.355)  -> shin  at  -13 deg
+    #   hip flexion 138, knee flexion 125. A first pass at "hip 105 / knee 100"
+    #   put the ankle 0.24 m BELOW the hip and the ground solve then sat the
+    #   figure 0.35 m up, on an invisible stool.
+    #   The heels-and-seat check: ankle finishes 0.004 m below the hip, so the
+    #   sole solve lands the pelvis at 0.151 m — which is where a seated hip
+    #   joint belongs, and 0.07 m higher than `sit_ground`'s heel solve puts it.
+    #   foot +13 cancels the shin and returns the sole to flat.
+    #   The right leg is 2 deg shallower and abducted 14 so the knees are not
+    #   welded together; abduction is about Y and costs ~5 mm of ankle height,
+    #   which is inside the debris surface's own roughness.
+    #   Trunk 40 deg of ROUNDED flexion spread over three spine joints (a
+    #   single -40 on spine_02 hinges like a mannequin), head hanging.
+    #   Arms: elbows carried forward onto the knees (-30) with the forearms
+    #   folded across the shins (-58).
+    #
+    # WHAT TO LOOK AT: the seat. If daylight shows under it the pelvis solve is
+    # wrong, and it is `_POSE_GROUND_CONTACT`, not this table, that is wrong.
+    "sit_slump": {
+        "thigh_l": ((1.0, 0.0, 0.0), -138.0),
+        "calf_l": ((1.0, 0.0, 0.0), 125.0),
+        "foot_l": ((1.0, 0.0, 0.0), 13.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -136.0),
+        "thigh_r+": ((0.0, 1.0, 0.0), 14.0),      # right knee falls outward
+        "calf_r": ((1.0, 0.0, 0.0), 122.0),
+        "foot_r": ((1.0, 0.0, 0.0), 14.0),
+        "spine_01": ((1.0, 0.0, 0.0), -14.0),
+        "spine_02": ((1.0, 0.0, 0.0), -16.0),
+        "spine_03": ((1.0, 0.0, 0.0), -10.0),
+        "neck_01": ((1.0, 0.0, 0.0), -16.0),      # head hanging, not looking up
+        "head": ((1.0, 0.0, 0.0), -8.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 46.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -46.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), -30.0),  # elbows forward onto the
+        "upperarm_r+": ((1.0, 0.0, 0.0), -30.0),  # knees
+        "lowerarm_l": ((1.0, 0.0, 0.0), -58.0),   # forearms across the shins
+        "lowerarm_r": ((1.0, 0.0, 0.0), -58.0),
+    },
+
+    # STANDING, BUT NOT WALKING SOMEWHERE — head down, shoulders rolled, knees
+    # soft, arms hanging dead. The casualty in an `assisted` trio (two people
+    # holding a third up) and the shocked stander on a wrecked lot. `idle` is a
+    # person waiting for a bus; this is a person who has just lost their house,
+    # and at a hundred metres the difference is the head angle.
+    #
+    #   legs   thigh -10 / calf +20 / foot -10: 20 deg of knee, sole flat, and
+    #          the ankle only 0.013 m above rest, so the ground solve is almost
+    #          a no-op — this is a STANDER and it stays anchored at the soles.
+    #   trunk  28 deg (10 + 12 + 6), then neck -18 and head -10: the chin ends
+    #          on the chest, which is the whole read from above.
+    #   arms   hanging at +44/-44 with 12 deg of forward drift and 18 deg of
+    #          elbow, i.e. limp rather than placed.
+    #
+    # WHAT TO LOOK AT: from directly overhead this figure must still read as a
+    # person and not as a shoulder-shaped blob — if the head has vanished
+    # inside the torso outline, neck_01 has gone too far.
+    "stand_slump": {
+        "thigh_l": ((1.0, 0.0, 0.0), -10.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -8.0),
+        "calf_l": ((1.0, 0.0, 0.0), 20.0),
+        "calf_r": ((1.0, 0.0, 0.0), 18.0),
+        "foot_l": ((1.0, 0.0, 0.0), -10.0),
+        "foot_r": ((1.0, 0.0, 0.0), -10.0),
+        "spine_01": ((1.0, 0.0, 0.0), -10.0),
+        "spine_02": ((1.0, 0.0, 0.0), -12.0),
+        "spine_03": ((1.0, 0.0, 0.0), -6.0),
+        "neck_01": ((1.0, 0.0, 0.0), -18.0),
+        "head": ((1.0, 0.0, 0.0), -10.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 44.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -44.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), -12.0),
+        "upperarm_r+": ((1.0, 0.0, 0.0), -12.0),
+        "lowerarm_l": ((1.0, 0.0, 0.0), -18.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -18.0),
+    },
+
+    # ---- THE TWO LYING POSES, AND WHY THEY ARE NOT A ROTATED STANDER.
+    #
+    # Until now "prone" was `idle` rolled 90 deg about the facing axis
+    # (`scene_generator._human_down`, and the `prone=True` branch of
+    # `disaster.people._human_placement`, which hard-coded the pose to `idle`).
+    # A rigid stander turned on its side has its arms pinned along its flanks
+    # and its legs straight and touching, and that is not what a body on the
+    # ground looks like from any altitude: what makes a casualty legible is the
+    # ASYMMETRY — one limb out, one knee up, the head turned.
+    #
+    # THE ROLL STILL DOES THE LAYING DOWN. These are authored as UPRIGHT rigs
+    # and the placement's `roll_deg` lays them over, because joint deltas
+    # cannot move the root: rotating `pelvis` would swing the whole body about
+    # a pelvis that stays at 0.95 m and the figure would hang in the air. So
+    # the arithmetic below is in the CHARACTER's own frame (facing -Y, up +Z)
+    # and the mapping into the world is:
+    #
+    #   roll +90  y' = -z, z' = +y   front -> DOWN.  FACE-DOWN. Head at world
+    #                                +u where u = (cos yaw, sin yaw).
+    #   roll -90  y' = +z, z' = -y   front -> UP.    FACE-UP.   Head at -u.
+    #
+    # so "forward" in a delta becomes DOWN (into the ground) for `lying_prone`
+    # and UP for `lying_supine`, and the two poses therefore CANNOT share
+    # limbs. `disaster.people._human_placement` now picks the roll SIGN from
+    # the pose name rather than from a coin flip on (x + y), and refuses a
+    # lying pose that is not laid down — a `lying_prone` standing upright is a
+    # figure with an arm stretched overhead, which is precisely the silhouette
+    # that got the old raised-arm pose cut on review.
+    #
+    # Neither appears in `_POSE_GROUND_CONTACT` or needs a `_POSE_Z_OFFSET`:
+    # the prone branch never calls `pose_z_offset`, it seats the body by half
+    # its measured depth (`fp["sy"] / 2`) instead.
+
+    # FACE-UP. The attitude of somebody pulled out, or trapped on their back
+    # under boards — the one that shows a face and a chest to a camera looking
+    # down, which is why `trapped_partial` prefers it.
+    #   right leg  hip 25 / knee 90, solved so the raised knee stands 0.20 m
+    #              above the hip and the sole still reaches the ground:
+    #              knee = hip + 0.472*(0,-0.423,+0.423) after the mapping,
+    #              ankle = knee + 0.364*(0,-0.154,-0.553) -> 0.58 m toward the
+    #              feet and 0.13 m below the hip, i.e. 0.045 m off the ground
+    #              once the body is lifted by half its depth. More hip flexion
+    #              than this cannot reach the ground at all: at hip 50 the foot
+    #              would have to drop 0.46 m over a 0.364 m shin.
+    #   left leg   straight, abducted 10 deg so the ankles are not touching.
+    #   arms       left 30 deg off the body with the forearm swung 50 deg
+    #              inboard (about Y, i.e. ACROSS the chest — an X delta would
+    #              lift it vertically off the ground); right 40 deg off the
+    #              body, elbow barely bent, palm up beside the hip.
+    #   head       28 deg about the character's Z, which after the roll is the
+    #              body's LONG axis: the head lolls to one side instead of
+    #              staring at the sky.
+    #
+    # WHAT TO LOOK AT: the raised knee, from oblique. It is the single feature
+    # that separates a casualty from a fallen mannequin, and it is also the
+    # thing a board laid across the thighs has to clear.
+    "lying_supine": {
+        # SOFTENED 2026-08-27 with `lying_prone`'s heel and for the same
+        # reason. -25/+90 put the knee 0.20 m up with the shin running down at
+        # 62 deg; -19/+72 puts it 0.154 m up with the shin at 45, which still
+        # reads as one knee drawn up and no longer reads as a leg in the air.
+        # The foot still reaches: the knee is then 0.329 m above the surface
+        # and the shin drops 0.257 m over its 0.364 m, landing the ankle
+        # 0.072 m up.
+        "thigh_r": ((1.0, 0.0, 0.0), -19.0),
+        "calf_r": ((1.0, 0.0, 0.0), 72.0),
+        "thigh_r+": ((0.0, 1.0, 0.0), 12.0),      # knee falls outward
+        "thigh_l": ((1.0, 0.0, 0.0), -4.0),
+        "thigh_l+": ((0.0, 1.0, 0.0), -10.0),     # left leg abducted
+        "spine_02": ((1.0, 0.0, 0.0), 6.0),       # arched back over the debris
+        "head": ((0.0, 0.0, 1.0), 28.0),          # lolled, not staring up
+        "upperarm_l": ((0.0, 1.0, 0.0), 15.0),    # 30 deg off the body
+        "upperarm_r": ((0.0, 1.0, 0.0), -5.0),    # 40 deg off the body
+        "lowerarm_l": ((0.0, 1.0, 0.0), 50.0),    # forearm across the chest
+        "lowerarm_r": ((0.0, 1.0, 0.0), -25.0),   # palm up beside the hip
+    },
+
+    # FACE-DOWN. `thrown` uses it — being picked up by a tornado is a
+    # severe-injury and fatality mechanism (43% of hospitalised injuries at
+    # OKC 1999 against 6% of treated-and-released, Brown et al. 2002), and
+    # somebody who lands face-down does not roll over.
+    #   left arm   the sprawl. Upper arm 95 deg out about Y (horizontal, out
+    #              to the side) and the forearm 50 deg further about Y, so the
+    #              whole L of the arm stays IN the plane that becomes the
+    #              ground after roll +90. An X delta on the forearm would drive
+    #              it into the ground on one sign and hold it in the air on the
+    #              other, which is the trap this pose exists to document.
+    #   right arm  down along the flank, 15 deg off the body.
+    #   right leg  knee flexed 55 (calf positive = heel toward the buttock,
+    #              which after roll +90 lifts the heel UP) with 18 deg of
+    #              abduction so the knee falls out: a body face-down with one
+    #              leg drawn up.
+    #   head       turned 30 deg about the long axis; a face-down figure with
+    #              its nose in the debris has no head at all from above.
+    #
+    # WHAT TO LOOK AT: the outstretched arm must lie ON the ground, not float
+    # over it and not sink into it. If it does either, the upper-arm delta has
+    # picked up an X component from somewhere.
+    "lying_prone": {
+        "upperarm_l": ((0.0, 1.0, 0.0), -95.0),   # out to the side, in-plane
+        "lowerarm_l": ((0.0, 1.0, 0.0), -50.0),   # forearm angled to the head
+        "upperarm_r": ((0.0, 1.0, 0.0), -25.0),   # down the flank
+        "lowerarm_r": ((0.0, 1.0, 0.0), -15.0),
+        "thigh_l": ((1.0, 0.0, 0.0), 2.0),
+        "thigh_r": ((1.0, 0.0, 0.0), 6.0),
+        "thigh_r+": ((0.0, 1.0, 0.0), 18.0),      # knee falls outward
+        # HEEL UP, NOT LEG UP. 55 put the shin 57 deg off the ground — a leg
+        # standing in the air, which is the one thing the second review picked
+        # out of the bench render by eye. 32 lifts the heel 0.19 m over a
+        # 0.364 m shin, which is a knee relaxed open on uneven ground and
+        # still asymmetric enough to read as a body rather than a plank.
+        "calf_r": ((1.0, 0.0, 0.0), 32.0),
+        "spine_02": ((1.0, 0.0, 0.0), 4.0),
+        "head": ((0.0, 0.0, 1.0), -30.0),         # cheek down, face in profile
+    },
+
+    # ---- THE LATERAL POSES, AND THE AXIS TRAP THAT COMES WITH THEM --------
+    #
+    # ADDED 2026-08-27 (second review). The pose table could put a body FACE-UP
+    # and FACE-DOWN and nothing else, so a corridor full of casualties showed a
+    # camera exactly two silhouettes. Real bodies on debris are as often on
+    # their SIDE as either — it is the attitude somebody comes to rest in when
+    # they are rolled rather than dropped, and it is the one that reads
+    # differently from above: a side-lying figure is NARROW (0.4 m of shoulder
+    # against 0.6 m of chest) and its limbs stack rather than spread.
+    #
+    # HOW A FIGURE GETS ONTO ITS SIDE. `apply_placements` authors rotateXYZ, so
+    # the ops go X (roll) then Y (pitch) then Z (yaw). Roll +-90 lays the body
+    # down and puts its long axis along the pre-yaw -+Y; the PITCH axis is then
+    # world Y, which IS the body's own long axis, so `pitch_deg` spins the laid
+    # body about itself:
+    #
+    #     roll +90, pitch   0    face-down            (`lying_prone`)
+    #     roll -90, pitch   0    face-up              (`lying_supine`)
+    #     roll +90, pitch +90    on the LEFT side     (`lying_side_l`)
+    #     roll +90, pitch -90    on the RIGHT side    (`lying_side_r`)
+    #
+    # The head still points at +u = (cos yaw, sin yaw) for every roll +90 pose
+    # and at -u for roll -90, because a rotation about Y does not move a vector
+    # that lies along Y. `disaster.people.LYING_POSES` / `LYING_SPIN` carry the
+    # pair and `tornado_people._body_axis` reads the roll alone, unchanged.
+    #
+    # THE TRAP, AND IT IS THE MIRROR IMAGE OF THE ONE `lying_prone` DOCUMENTS.
+    # For a face-up or face-down figure the ground plane is spanned by the
+    # character's X (left-right) and Z (up) axes, so a delta about **Y** keeps
+    # a limb ON the ground — which is why every arm delta in the two poses
+    # above is `((0, 1, 0), a)`. Spin the body 90 deg about its long axis and
+    # the ground plane becomes span(Y, Z): now it is a delta about **X** that
+    # keeps a limb down, and a Y delta lifts it into the air. Every limb delta
+    # in the three poses below is therefore about X, and the handful of Y
+    # deltas are there deliberately, to lift the TOP limb clear of the bottom
+    # one.
+    #
+    # THE LIFT IS NOT `sy / 2` EITHER. The prone branch seats a laid-down body
+    # on half its measured A-pose DEPTH (0.33-0.40 m across this pack, so
+    # ~0.17 m). On its side the vertical dimension is the body's BREADTH, and
+    # `sx` cannot supply it — the A-pose bbox is 1.20-1.34 m wide because the
+    # arms are out. `disaster.people._lying_lift` models it from stature
+    # instead: biacromial breadth is 0.245 H (Drillis & Contini 1966) and the
+    # spine sits at half of it, 0.22 m at 1.80 m; the hips are narrower
+    # (0.191 H) and the shoulder flesh compresses, so 0.115 H = 0.207 m is the
+    # figure used. VERIFY ON SIGHT: a side-lying figure whose shoulder is
+    # buried and whose hip floats means this number is too small, and the
+    # reverse means it is too big.
+
+    # ON THE LEFT SIDE — the recovery-position silhouette, and the commonest
+    # attitude a body settles into on an uneven surface: hips and knees flexed
+    # forward so the legs stack in front of the trunk, the underneath (left)
+    # arm reaching forward along the ground, the top (right) arm draped across
+    # and resting in front of the chest, the head tipped down onto the debris.
+    #   legs   hip -32 / -58 (the TOP leg drawn up further, which is what makes
+    #          the stagger read from above as two legs and not one) with knees
+    #          at 48 and 88 of flexion.
+    #   arms   both swung forward about X — the bottom one nearly straight and
+    #          reaching (-78 / -34), the top one folded (-52 / -62) so the hand
+    #          finishes in front of the face rather than out on the ground.
+    #   the +Y deltas on the RIGHT limbs are the lift: on this side the right
+    #          arm and leg are the upper ones, and without 12-16 deg of
+    #          abduction they lie exactly inside the left ones and the figure
+    #          reads as a single limb from directly overhead.
+    "lying_side_l": {
+        # legs — the thighs hang plumb at rest, so an X delta is already in
+        # the ground plane and needs no correction.
+        "thigh_l": ((1.0, 0.0, 0.0), -32.0),
+        "calf_l": ((1.0, 0.0, 0.0), 48.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -58.0),
+        "calf_r": ((1.0, 0.0, 0.0), 88.0),
+        "thigh_r+": ((0.0, 1.0, 0.0), 14.0),      # top leg lifted clear
+        # arms — KILL THE A-POSE ABDUCTION FIRST. This is the whole bug the
+        # first render showed: the rest arm hangs 45 deg OUT to the side, and
+        # that 45 deg is in the character's X, which after the long-axis spin
+        # is straight UP. Swinging it forward about X without first bringing
+        # it to plumb leaves an arm standing 45 deg into the air off every
+        # side-lying figure in the scene, which is exactly what happened.
+        # +-40 about Y is the plumb correction `idle` measures (hand 7 mm off
+        # plumb under the shoulder); the X swing then runs along the ground.
+        # The FOREARM needs no correction of its own — it inherits the upper
+        # arm's posed frame, so once that is plumb the elbow is too.
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0),    # bottom arm: to plumb...
+        "upperarm_l+": ((1.0, 0.0, 0.0), -74.0),  # ...then forward, flat
+        "lowerarm_l": ((1.0, 0.0, 0.0), -32.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),   # top arm: to plumb...
+        "upperarm_r+": ((1.0, 0.0, 0.0), -50.0),  # ...forward, folded over...
+        "upperarm_r++": ((0.0, 1.0, 0.0), 18.0),  # ...and lifted clear
+        "lowerarm_r": ((1.0, 0.0, 0.0), -58.0),
+        "spine_02": ((1.0, 0.0, 0.0), -12.0),     # trunk curled forward
+        "neck_01": ((1.0, 0.0, 0.0), -8.0),
+        "head": ((0.0, 1.0, 0.0), 16.0),          # cheek down onto the debris
+    },
+
+    # ON THE RIGHT SIDE. A real mirror rather than the same dict with a
+    # different spin: the flexions about X are UNCHANGED (forward is forward
+    # whichever side you are on), the plumb corrections keep their own signs
+    # because they are per-arm, and only the LIFT deltas swap limb and sign,
+    # because the top limbs are now the left ones.
+    "lying_side_r": {
+        "thigh_r": ((1.0, 0.0, 0.0), -32.0),
+        "calf_r": ((1.0, 0.0, 0.0), 48.0),
+        "thigh_l": ((1.0, 0.0, 0.0), -58.0),
+        "calf_l": ((1.0, 0.0, 0.0), 88.0),
+        "thigh_l+": ((0.0, 1.0, 0.0), -14.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "upperarm_r+": ((1.0, 0.0, 0.0), -74.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -32.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), -50.0),
+        "upperarm_l++": ((0.0, 1.0, 0.0), -18.0),
+        "lowerarm_l": ((1.0, 0.0, 0.0), -58.0),
+        "spine_02": ((1.0, 0.0, 0.0), -12.0),
+        "neck_01": ((1.0, 0.0, 0.0), -8.0),
+        "head": ((0.0, 1.0, 0.0), -16.0),
+    },
+
+    # CURLED ON THE LEFT SIDE. The other lateral silhouette, and the one that
+    # matters most to a detector: a body drawn up is SHORT — knees to chest
+    # takes a 1.8 m target down to about 1.1 m of ground length — so a model
+    # trained only on extended figures has never seen the aspect ratio. It is
+    # also what somebody who took cover and was buried actually looks like:
+    # Hammer & Schmidlin's interior-refuge occupants were in bathrooms and
+    # closets, curled, when the structure failed on them.
+    #   hips 88 / 96 of flexion, knees 104 / 112, so both heels finish under
+    #   the thighs; the arms fold in front of the face; the trunk flexes 24
+    #   and the head tucks. Same plumb-first rule for the arms.
+    "lying_curled_l": {
+        "thigh_l": ((1.0, 0.0, 0.0), -88.0),
+        "calf_l": ((1.0, 0.0, 0.0), 104.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -96.0),
+        "calf_r": ((1.0, 0.0, 0.0), 112.0),
+        "thigh_r+": ((0.0, 1.0, 0.0), 12.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), -62.0),
+        "lowerarm_l": ((1.0, 0.0, 0.0), -98.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "upperarm_r+": ((1.0, 0.0, 0.0), -56.0),
+        "upperarm_r++": ((0.0, 1.0, 0.0), 16.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -104.0),
+        "spine_02": ((1.0, 0.0, 0.0), -24.0),
+        "neck_01": ((1.0, 0.0, 0.0), -14.0),
+        "head": ((0.0, 1.0, 0.0), 12.0),
+    },
+
+    # ---- TWO MORE FACE-UP / FACE-DOWN VARIANTS ---------------------------
+    # Same laying-down mechanics as `lying_supine` / `lying_prone` (deltas
+    # about Y stay in the ground plane), different limb story. They exist
+    # because a dozen casualties drawn from two poses is a dozen copies of two
+    # figures, which is a texture rather than a population.
+
+    # FACE-UP, ARMS OUT, LEGS STRAIGHT. The "dropped where they stood"
+    # attitude — no limb drawn up, both arms away from the trunk in the ground
+    # plane. It is the WIDEST silhouette in the set (about 1.5 m across the
+    # hands) and the easiest of all of them to see from directly above, which
+    # is why it carries the fully-visible end of the mix.
+    "lying_supine_open": {
+        # THE SIGN GOES THE OTHER WAY FROM `idle`. For the LEFT arm a POSITIVE
+        # Y delta brings the limb IN — 40 is plumb under the shoulder, which
+        # is what `idle` measures — so taking it OUT to the side needs a
+        # NEGATIVE one, and -45 is the arm exactly horizontal. The first
+        # authoring had +52 / -46 here, which is 12 degrees PAST plumb and
+        # across the body: the pose meant to be the widest silhouette in the
+        # set came out with both arms pinned to its flanks.
+        "upperarm_l": ((0.0, 1.0, 0.0), -38.0),   # out to ~85 deg from the
+        "upperarm_r": ((0.0, 1.0, 0.0), 42.0),    # trunk, both in-plane
+        "lowerarm_l": ((0.0, 1.0, 0.0), -18.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), 16.0),
+        "thigh_l": ((0.0, 1.0, 0.0), -9.0),       # legs apart, both straight
+        "thigh_r": ((0.0, 1.0, 0.0), 13.0),
+        "calf_l": ((1.0, 0.0, 0.0), 8.0),
+        "calf_r": ((1.0, 0.0, 0.0), 5.0),
+        "spine_02": ((1.0, 0.0, 0.0), 4.0),
+        "head": ((0.0, 0.0, 1.0), -34.0),         # face turned to one side
+    },
+
+    # FACE-DOWN, BOTH ARMS UP BESIDE THE HEAD. The other end of the same
+    # argument: a prone figure with its arms overhead is 2.1 m of ground length
+    # and reads as a person at an altitude where a compact one reads as a
+    # board. Both arms go out about Y (in-plane, as `lying_prone` documents),
+    # one leg trails straight and the other is abducted 16 deg.
+    "lying_prone_reach": {
+        "upperarm_l": ((0.0, 1.0, 0.0), -128.0),  # up beside the head
+        "lowerarm_l": ((0.0, 1.0, 0.0), -26.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), 118.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), 34.0),
+        "thigh_l": ((0.0, 1.0, 0.0), -6.0),
+        "thigh_r": ((0.0, 1.0, 0.0), 16.0),
+        "calf_l": ((1.0, 0.0, 0.0), 14.0),
+        "spine_02": ((1.0, 0.0, 0.0), 3.0),
+        "head": ((0.0, 0.0, 1.0), 38.0),          # cheek down, other way round
+    },
+
+    # PINNED SITTING UP. The other half of `trapped_partial`, and it is a
+    # genuinely different labelling problem from a lying figure: the trunk is
+    # VERTICAL, so what a board can hide is the legs and the lap, and what is
+    # unavoidably visible is a head and shoulders standing above the pile.
+    # Both attitudes are recorded in the ground truth as `partial` and a
+    # detector that only ever sees one of them has learnt half the target.
+    #   legs   `sit_ground`'s legs out in front, 2 deg less hip so the heel
+    #          solve lands the pelvis at 0.127 m: thigh -88 / calf +5 puts the
+    #          ankle 0.833 m forward and 0.061 m below the hip.
+    #   left   the prop. Arm carried BACK behind the hip (+34 about X) and
+    #          wide (+58 about Y), elbow nearly straight — the arm somebody
+    #          holds themselves up on when their legs are under something.
+    #   right  the free arm: upper arm 25 deg off the body and 20 deg forward,
+    #          forearm folded 95 deg so it stands VERTICALLY from the elbow.
+    #          A bent forearm at chest height, not a straight arm overhead:
+    #          the straight-overhead silhouette is the one that read as a
+    #          mannequin with a broken limb and got cut, and nothing here
+    #          brings it back.
+    #   trunk  6 deg of forward lean and 10 deg of turn about the vertical, so
+    #          the shoulders are not square to the boards across the lap.
+    #
+    # WHAT TO LOOK AT: whether the head and the free forearm still clear the
+    # boards `tornado_people._trapped_partial` lays across the lap. That pairing
+    # is the whole scenario and it is the one thing only a render can settle.
+    "trapped_sit": {
+        "thigh_l": ((1.0, 0.0, 0.0), -88.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -88.0),
+        "thigh_r+": ((0.0, 1.0, 0.0), 10.0),
+        "calf_l": ((1.0, 0.0, 0.0), 5.0),
+        "calf_r": ((1.0, 0.0, 0.0), 9.0),
+        "foot_l": ((1.0, 0.0, 0.0), 14.0),
+        "foot_r": ((1.0, 0.0, 0.0), 14.0),
+        "spine_01": ((1.0, 0.0, 0.0), -6.0),
+        "spine_02": ((0.0, 0.0, 1.0), 10.0),      # shoulders turned off square
+        "upperarm_l": ((0.0, 1.0, 0.0), 58.0),    # propping arm, wide...
+        "upperarm_l+": ((1.0, 0.0, 0.0), 34.0),   # ...and behind the hip
+        "lowerarm_l": ((0.0, 1.0, 0.0), 6.0),     # nearly straight: weight on it
+        "upperarm_r": ((0.0, 1.0, 0.0), 20.0),    # free arm, 25 deg off body
+        "upperarm_r+": ((1.0, 0.0, 0.0), -20.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -95.0),   # forearm vertical from elbow
+    },
+
+    # ---- THE ASSIST, MIRRORED. Two poses because an assist is not symmetric:
+    # the supporter has ONE arm around the person they are holding up and the
+    # other hanging, and which arm depends on which side of them they are
+    # standing. `_assisted` builds its trio as (casualty, one either side) at
+    # +-0.62 m along the road normal, so the figure on the casualty's LEFT
+    # reaches across with its RIGHT arm and vice versa; a single pose used for
+    # both would put one supporter's arm through the casualty's back.
+    #
+    # THIS IS THE ONE PLACE A RAISED ARM IS CORRECT, and it is worth being
+    # explicit about why it is not the cut raised-arm pose coming back: that
+    # one was a signalling gesture, a lone figure with a straight arm over its
+    # head, and it read as a broken limb. This is a bent arm carried at
+    # SHOULDER HEIGHT across a body that is touching it, in a group of three.
+    # The silhouette that makes it legible from altitude is the group, not the
+    # limb.
+    #
+    # Derived from `walk`, which is what the supporters used to be:
+    #   stride  halved (thigh -10 / +7, calf +9). Two people carrying a third
+    #           take short steps; a full stride also drove them out of contact
+    #           with the casualty inside one frame's worth of animation had
+    #           anything ever animated these.
+    #   inboard shoulder abducted to ~15 deg below horizontal (Y +/-30 from
+    #           the A-pose's 45) and carried 22 deg forward, elbow flexed 70:
+    #           the forearm crosses in front at chest height, which is where
+    #           an arm around somebody's back sits.
+    #   outboard arm hanging at `idle`'s +-40 with a slight swing.
+    #   trunk   8 deg of lateral lean TOWARD the casualty (a Y-axis delta on
+    #           spine_01 tips the trunk sideways: the trunk's up vector goes
+    #           to (-sin b, 0, cos b), i.e. toward the character's right for
+    #           positive b).
+    # No ground-contact entry and a zero offset, exactly as `walk` has: the
+    # legs are scissored, one heel is off the ground and that is what walking
+    # looks like. VERIFY ON SIGHT: the reaching hand should finish over the
+    # casualty's far shoulder, not inside its head.
+
+    # For the supporter standing on the casualty's LEFT — reaches with the RIGHT.
+    "support_r": {
+        "thigh_l": ((1.0, 0.0, 0.0), -10.0),
+        "thigh_r": ((1.0, 0.0, 0.0), 7.0),
+        "calf_r": ((1.0, 0.0, 0.0), 9.0),
+        "spine_01": ((0.0, 1.0, 0.0), 8.0),       # lean toward the casualty
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0),    # outboard arm hangs
+        "upperarm_l+": ((1.0, 0.0, 0.0), 8.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -30.0),   # inboard arm up to the
+        "upperarm_r+": ((1.0, 0.0, 0.0), -22.0),  # shoulder, carried forward
+        "lowerarm_r": ((0.0, 1.0, 0.0), -70.0),   # forearm across the back
+    },
+
+    # For the supporter standing on the casualty's RIGHT — reaches with the LEFT.
+    "support_l": {
+        "thigh_r": ((1.0, 0.0, 0.0), -10.0),
+        "thigh_l": ((1.0, 0.0, 0.0), 7.0),
+        "calf_l": ((1.0, 0.0, 0.0), 9.0),
+        "spine_01": ((0.0, 1.0, 0.0), -8.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "upperarm_r+": ((1.0, 0.0, 0.0), 8.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 30.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), -22.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 70.0),
+    },
 }
 
 # Metres to ADD to a placement's z so the pose's own support surface lands on
@@ -3135,9 +3758,44 @@ POSE_REF_HEIGHT_M = 1.80
 #   heel  a toes-up sitting foot rocks back onto its heel, which sits well
 #         above the sole plane — measured as a fraction of the rig's own
 #         rest ankle height, so it scales with the foot.
+#   knee  a kneeling figure carries its weight on the KNEE, and no amount of
+#         foot arithmetic finds that: `dig_kneel`'s down shin lies flat on the
+#         ground with the ankle at the same height as the knee, so a sole or
+#         heel solve would seat the shin and leave the knee 6 cm under it.
 _POSE_GROUND_CONTACT = {
     "sit_ground": "heel",
     "crouch": "sole",
+    # ---- the 2026-08-27 survivor poses. `lying_supine` / `lying_prone` are
+    # deliberately absent: those are placed by the prone branch of
+    # `disaster.people._human_placement`, which seats the body on half its
+    # measured DEPTH and never calls `pose_z_offset` at all.
+    "dig_bent": "sole",
+    "dig_kneel": "knee",
+    "sit_slump": "sole",
+    "stand_slump": "sole",
+    "trapped_sit": "heel",
+}
+
+# WHICH JOINT each contact is measured at, and how far the flesh extends BELOW
+# that joint at the moment of contact, as a multiple of the rig's own rest
+# ankle height. The ankle is the scale reference because it is the one
+# joint-to-surface distance the rig states for itself: a character stands on
+# the ground at rest, so its rest ankle height IS its ankle-to-sole distance,
+# and it runs 0.090-0.148 m across this pack.
+#
+#   sole  1.00  the whole measured ankle-to-sole distance. Exact, not modelled.
+#   heel  0.45  a toes-up sitting foot rocks back onto its heel, which stands
+#               well above the sole plane.
+#   knee  0.50  MODELLED, and the only number here that is. A kneeling knee
+#               puts roughly 0.055-0.07 m of patella and flesh under the joint
+#               centre on an adult; against a 0.09-0.148 m ankle height that is
+#               almost exactly half, and scaling it off the ankle keeps it
+#               per-rig rather than making it one more global constant that
+#               fits the 1.73 m character and buries the 1.86 m one.
+_CONTACT_JOINT = {
+    "sole": ("foot_l", 1.00),
+    "heel": ("foot_l", 0.45),
+    "knee": ("calf_l", 0.50),
 }
 _HEEL_FRAC = 0.45
 
@@ -3179,28 +3837,32 @@ def _ground_contact_drop(usd: str, pose: str, contact: str):
 
     At rest the character stands on the ground, so its rest ankle height IS
     that rig's ankle-to-sole distance — and it runs 0.090 to 0.148 m across
-    this pack, which is most of why one global offset never fitted.
+    this pack, which is most of why one global offset never fitted. THE ANKLE
+    IS THE RULER even when the contact is somewhere else: `_CONTACT_JOINT`
+    names the joint whose posed height is being solved for, and the flesh
+    beneath it as a multiple of that same measured ankle height, so a kneeling
+    figure is seated in the rig's own units rather than in a constant.
     """
     data = _read_skeleton(usd)
     deltas = _HUMAN_POSES.get(pose)
-    if data is None or not deltas:
+    joint, frac = _CONTACT_JOINT.get(contact, (None, None))
+    if data is None or not deltas or joint is None:
         return None
     joints, rest = data
     leaf = [str(j).rsplit("/", 1)[-1] for j in joints]
-    if "foot_l" not in leaf:
+    if "foot_l" not in leaf or joint not in leaf:
         return None
     try:
         stage = Usd.Stage.Open(usd)
         mpu = (UsdGeom.GetStageMetersPerUnit(stage) or 0.01) if stage else 0.01
-        i = leaf.index("foot_l")
+        i, ia = leaf.index(joint), leaf.index("foot_l")
         _l0, rest_w = _pose_joint_transforms(joints, rest, {})
         _l1, posed_w = _pose_joint_transforms(joints, rest, deltas)
-        ankle_rest = rest_w[i].ExtractTranslation()[2] * mpu
-        ankle_posed = posed_w[i].ExtractTranslation()[2] * mpu
+        ankle_rest = rest_w[ia].ExtractTranslation()[2] * mpu
+        contact_posed = posed_w[i].ExtractTranslation()[2] * mpu
     except Exception:
         return None
-    below = ankle_rest * (_HEEL_FRAC if contact == "heel" else 1.0)
-    return -(ankle_posed - below)
+    return -(contact_posed - ankle_rest * float(frac))
 
 
 def pose_z_offset(usd: str, pose: str, height_m: float) -> float:
@@ -3240,6 +3902,37 @@ _POSE_Z_OFFSET = {
     "seated_car": -0.85,
     "seated_car_arms_down": -0.85,
     "crouch": -0.43,
+    # ---- THE 2026-08-27 SURVIVOR POSES, as FALLBACKS ONLY. Every one of them
+    # is in `_POSE_GROUND_CONTACT`, so on a machine that can open the rig the
+    # solved drop wins and none of these numbers is ever read. They are what a
+    # HOST-SIDE plan gets — `tools/tornado_png.py`, the dry runs, the test
+    # suite — where there is no Nucleus and `_read_skeleton` returns None, and
+    # a plan whose z values were all zero would hide exactly the floating and
+    # sinking these poses have to be checked for.
+    #
+    # Derived on rp_carla (pelvis 0.983, thigh 0.472, calf 0.364, ankle 0.147)
+    # and converted into this table's 1.80 m reference by 1.80 / 1.731 = 1.040,
+    # since `pose_z_offset` scales them back down by the character's stature:
+    #   dig_bent      ankle 0.718 below the hip vs 0.836 at rest  -0.118 -> -0.12
+    #   dig_kneel     knee 0.512 up, 0.074 of flesh under it      -0.438 -> -0.46
+    #   sit_slump     ankle 0.979 up, sole solve                  -0.832 -> -0.87
+    #   stand_slump   ankle 0.823 below the hip                   -0.013 -> -0.01
+    #   trapped_sit   ankle 0.922 up, heel solve at 0.066         -0.856 -> -0.89
+    "dig_bent": -0.12,
+    "dig_kneel": -0.46,
+    "sit_slump": -0.87,
+    "stand_slump": -0.01,
+    "trapped_sit": -0.89,
+    # A LYING FIGURE IS NOT DROPPED AT ALL. The prone branch of
+    # `disaster.people._human_placement` computes its own z from half the
+    # measured body depth and never asks for an offset; these are here so the
+    # table lists every pose rather than so anything reads them.
+    "lying_supine": 0.0,
+    "lying_prone": 0.0,
+    # The two assist poses are `walk` with an arm and a lean, and like `walk`
+    # they scissor the legs and lift a heel: anchored at the soles, no drop.
+    "support_l": 0.0,
+    "support_r": 0.0,
 }
 
 
@@ -3323,6 +4016,22 @@ def _bind_human_pose(stage, prim, usd: str, pose: str, pose_cache: dict):
             pose_cache[key] = None
         else:
             joints, rest = skel_data
+            # A DELTA ON A JOINT THE RIG HAS NOT GOT IS SILENTLY DROPPED by
+            # `_pose_joint_transforms`, which is the right behaviour (a pose
+            # that loses its head turn is still a pose) and the wrong silence.
+            # The survivor poses added 2026-08-27 drive `spine_01`, `spine_03`,
+            # `neck_01` and `head` — UE4-mannequin standard, but nobody has
+            # ever listed THIS pack's 95 joints — so a rig without them would
+            # quietly ship a figure with a straight back and its chin up, which
+            # is most of what those poses are for. Printed once per (asset,
+            # pose) because the cache is only missed once.
+            leaf = {str(j).rsplit("/", 1)[-1] for j in joints}
+            missing = sorted({n.rstrip("+") for n in deltas} - leaf)
+            if missing:
+                print("[scene_gen] WARN: pose %r on %s: %d delta(s) dropped, "
+                      "joint(s) not in this rig: %s"
+                      % (pose, os.path.basename(str(usd)), len(missing),
+                         ", ".join(missing)))
             new_local, _ = _pose_joint_transforms(joints, rest, deltas)
             pose_cache[key] = (Vt.TokenArray([str(j) for j in joints]),
                                Vt.Matrix4dArray(new_local))

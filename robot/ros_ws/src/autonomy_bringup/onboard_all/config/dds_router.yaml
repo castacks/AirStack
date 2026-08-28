@@ -80,6 +80,12 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/frontiers"
   # Robot pose, trail and target visit state, in the map frame. A few KB.
   - name: "rt/$(env ROBOT_NAME)/search/markers"
+  # The annotated FPV, JPEG, published ONLY on a tick where the goal class
+  # scored >= detector_log_conf (0.5) — the evidence behind every "detector
+  # SEEN" / "detector PASS" log line. Event-driven (a
+  # few hundred ~50 KB frames a run), so it is not the per-tick stream the
+  # note above refuses; it is what says whether a chased "person" was one.
+  - name: "rt/$(env ROBOT_NAME)/search/detection_image"
   # The three-state voxel cloud behind the 3D frontiers, and the VLFM value
   # map. Measured on the preview scene at 1 Hz: 240 KB and 230 KB per message
   # — the same order as the occupancy grid above, and ~1/40th of a rayfronts

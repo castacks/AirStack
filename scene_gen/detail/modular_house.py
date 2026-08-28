@@ -1080,6 +1080,165 @@ def dress_plot(style, x, y, yaw, rng, lot_w=None, lot_d=None):
 # ---------------------------------------------------------------------------
 # On-stage material pass
 # ---------------------------------------------------------------------------
+def palette_material(stage, parent_path, name, cache=None):
+    """Reference one kit / `MATERIAL_SOURCE` material by NAME and return it.
+
+    LIFTED OUT OF `apply_palette` (2026-08-27) so the DEBRIS can use it. A
+    tornado's plank field is scattered off the houses it destroyed, and until
+    now every board in it took the same sawn-timber map — so a levelled block
+    came out as a lumber yard with no siding and no shingle anywhere in it,
+    when what a debris photograph actually shows is a mat of house-coloured
+    cladding and grey roof slab with bare framing between. `disaster.planks`
+    now asks for the wrecked house's own `wall` and `roof` materials by the
+    same names `PALETTES` uses, and gets exactly what the standing houses are
+    wearing.
+
+    *cache* is an optional dict so a caller building many of these reuses the
+    referenced prims; without one every call re-defines the same prim, which
+    is harmless but wasteful.
+    """
+    from pxr import Gf, Sdf, Usd, UsdShade
+
+    if cache is not None and name in cache:
+        return cache[name]
+    looks = Sdf.Path(parent_path).AppendChild("Looks")
+    stage.DefinePrim(looks, "Scope")
+    p = looks.AppendChild(name)
+    existing = UsdShade.Material.Get(stage, p)
+    if existing and existing.GetPrim().IsValid():
+        if cache is not None:
+            cache[name] = existing
+        return existing
+    prim = stage.DefinePrim(p)
+    asset, sub, tint = MATERIAL_SOURCE.get(name, (_usd(name), None, None))
+    # A RetroNeighborhood material lives INSIDE a prop rather than in a
+    # standalone USD, so it is referenced by (asset, primPath). Its texture
+    # paths are relative to that layer and resolve from there.
+    if sub:
+        prim.GetReferences().AddReference(asset, Sdf.Path(sub))
+    else:
+        prim.GetReferences().AddReference(asset)
+    if tint is not None:
+        # Override the MDL's albedo tint on the referenced shader. Legal
+        # because these prims are NOT instanced — which is the same reason the
+        # subset rebinding works at all.
+        for q in Usd.PrimRange(stage.GetPrimAtPath(p)):
+            sh = UsdShade.Shader(q)
+            if not sh:
+                continue
+            inp = sh.GetInput("Tint_AlbedoTexture_")
+            if inp:
+                inp.Set(Gf.Vec4f(*tint))
+    mat = UsdShade.Material(stage.GetPrimAtPath(p))
+    if cache is not None:
+        cache[name] = mat
+    return mat
+
+
+def palette_skins(palette_name):
+    """`{"siding": <material>, "deck": <material>}` for one house palette.
+
+    WHAT THE DEBRIS OFF THIS HOUSE IS MADE OF, in the two classes that carry a
+    colour. `siding` is the cladding that was on the outside of the wall;
+    `deck` is the roof slab with its covering still on. Everything else in the
+    plank field — studs, joists, OSB sheathing — is bare timber and stays the
+    sawn-timber material, because that is what the inside of a wall looks like.
+
+    A flat-roofed style has no shingle, so it falls back to `roof_flat`.
+    """
+    pal = PALETTES.get(str(palette_name) or "") or {}
+    if not pal:
+        return {}
+    return {"siding": pal.get("wall") or "Cladding_01",
+            "deck": pal.get("roof") or pal.get("roof_flat") or ROOF_SHINGLE}
+
+
+# What a diffuse/albedo texture is called in the packs this kit draws on —
+# BY FILENAME, which is how `apply_palette.current()` identifies a surface.
+_BASECOLOR_HINTS = ("basecolor", "base_color", "albedo", "diffuse", "_bc",
+                    "_col", "_d.", "_alb")
+# ...AND BY INPUT NAME, because the filename test is not enough. It works on
+# the standalone kit materials (`Wood_01_White_BaseColor.png`) and it does NOT
+# work on the RetroNeighborhood ones, whose maps are called things like
+# `T_Rooftiles_03_1K.png` — no hint anywhere in the name. That is why the
+# first run that skinned the debris reported "no base-colour map" for both
+# shingle materials and dropped the roof slab back to sawn timber. The MDL
+# INPUT is unambiguous where the filename is not, so it is tried first.
+_BASECOLOR_INPUTS = ("diffuse_texture", "diffuse_color_texture",
+                     "basecolor_texture", "base_color_texture",
+                     "albedo_texture", "AlbedoTexture", "BaseColorTexture",
+                     "Albedo_Texture", "DiffuseTexture", "inputs:diffuseColor")
+
+
+def palette_texture(stage, parent_path, name):
+    """`(diffuse_texture_path_or_None, (r, g, b))` for a palette material.
+
+    WHY THE MATERIAL ITSELF CANNOT BE BOUND TO DEBRIS. `palette_material`
+    returns the kit's own MDL, and those are UV-space materials: the meshes
+    they were authored for carry `st`, and `disaster.planks` authors boxes with
+    NO UVs AT ALL (which is why `planks.wood_material` is triplanar in the
+    first place — see the note there). Bound to a plank mesh a kit material
+    renders BLACK. The first attempt at house-coloured debris did exactly that
+    and put a field of black roof slab into the corridor.
+
+    So the debris takes the TEXTURE rather than the material, and projects it
+    from world coordinates like everything else in the field. This walks the
+    referenced material for the first asset input that looks like a base
+    colour — the same walk `apply_palette`'s `current()` makes to identify a
+    surface — and returns it with the palette's own albedo multiplier folded
+    into an RGB tint, so `shingle_slate` and `shingle_grey` still differ from
+    `shingle_charcoal` even though all three share one map.
+    """
+    from pxr import Sdf, Usd, UsdShade
+
+    mat = palette_material(stage, parent_path, name)
+    tint = MATERIAL_SOURCE.get(name, (None, None, None))[2]
+    rgb = (1.0, 1.0, 1.0) if not tint else tuple(float(q) for q in tint[:3])
+    # TWO PASSES, INPUT NAME FIRST. Any asset-valued input whose NAME says
+    # diffuse is the diffuse map whatever the file is called; only if none of
+    # them exists is the filename worth guessing from. A third pass takes the
+    # first asset input of any kind, because a material with exactly one
+    # texture on it has already told you which one it is — the kit has several
+    # of those and the alternative is an untextured slab.
+    by_name, by_file, any_tex = None, None, None
+    if mat and mat.GetPrim().IsValid():
+        for prim in Usd.PrimRange(mat.GetPrim()):
+            sh = UsdShade.Shader(prim)
+            if not sh:
+                continue
+            for inp in sh.GetInputs():
+                # Some shader inputs in this kit raise on Get() rather than
+                # returning None, so this cannot be a bare read.
+                try:
+                    v = inp.Get()
+                except Exception:
+                    continue
+                if not isinstance(v, Sdf.AssetPath):
+                    continue
+                f = (v.resolvedPath or v.path or "")
+                if not f:
+                    continue
+                nm = inp.GetBaseName()
+                low = f.lower()
+                # ...but never a NORMAL, ROUGHNESS or ORM map, which are the
+                # other asset inputs on every one of these and which would come
+                # out as a blue slab or a grey one.
+                if any(b in low for b in ("normal", "_orm", "roughness",
+                                          "metallic", "_n.", "_rma", "height",
+                                          "opacity", "emissive")):
+                    continue
+                if any_tex is None:
+                    any_tex = f
+                if by_name is None and any(
+                        nm.lower() == h.lower().split(":")[-1]
+                        for h in _BASECOLOR_INPUTS):
+                    by_name = f
+                if by_file is None and any(h in low
+                                           for h in _BASECOLOR_HINTS):
+                    by_file = f
+    return (by_name or by_file or any_tex), rgb
+
+
 def apply_palette(stage, placements, parent_path="/World/stage/generated"):
     """Rebind wall / gable / roof subsets per building.
 
@@ -1099,32 +1258,7 @@ def apply_palette(stage, placements, parent_path="/World/stage/generated"):
     cache = {}
 
     def material(name):
-        if name not in cache:
-            p = looks.AppendChild(name)
-            prim = stage.DefinePrim(p)
-            asset, sub, tint = MATERIAL_SOURCE.get(
-                name, (_usd(name), None, None))
-            # A RetroNeighborhood material lives INSIDE a prop rather than in a
-            # standalone USD, so it is referenced by (asset, primPath). Its
-            # texture paths are relative to that layer and resolve from there.
-            if sub:
-                prim.GetReferences().AddReference(asset, Sdf.Path(sub))
-            else:
-                prim.GetReferences().AddReference(asset)
-            if tint is not None:
-                # Override the MDL's albedo tint on the referenced shader. Legal
-                # because these prims are NOT instanced — which is the same
-                # reason the subset rebinding works at all.
-                from pxr import Gf
-                for q in Usd.PrimRange(stage.GetPrimAtPath(p)):
-                    sh = UsdShade.Shader(q)
-                    if not sh:
-                        continue
-                    inp = sh.GetInput("Tint_AlbedoTexture_")
-                    if inp:
-                        inp.Set(Gf.Vec4f(*tint))
-            cache[name] = UsdShade.Material(stage.GetPrimAtPath(p))
-        return cache[name]
+        return palette_material(stage, parent_path, name, cache)
 
     def current(prim):
         m = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]

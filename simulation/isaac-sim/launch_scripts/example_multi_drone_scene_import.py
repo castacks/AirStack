@@ -175,6 +175,7 @@ if _GENERATED:
         _LAUNCH_SCRIPTS_DIR, "..", "..", "..", "scene_gen")))
     from scene_api import build_scene, LOCAL_ARCH_DIR
     from disaster import people as ppl
+    from disaster import region as region_poly
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -800,6 +801,93 @@ class PegasusApp:
             sa.write_annotations(scene + "_obstacles", obstacles,
                                  sa.annotation_dirs(repo))
 
+        # THE DISASTER-AFFECTED AREA goes to a THIRD file. The boxes above say
+        # WHERE the answer is; this says where it is WORTH LOOKING, which is
+        # what lets the planner size a search area to the fire instead of to
+        # the plat. `burn` is the ground the front reached at `elapsed_s`;
+        # `affected` is that ellipse run on until it covers the survivor
+        # furthest AHEAD of the front (or 0.20*span, whichever is longer):
+        # the people pass stages figures ahead of the front and runs the
+        # gridlock queue outbound, so part of the answer key is outside the
+        # black by construction. The planner's scene overlay chooses which
+        # to fly (`search_area_scene_key`): `burn` + a pad is the search
+        # that hugs the damage and gives up the survivors staged beyond it;
+        # `affected` finds everyone and, on the 1 km plat, is most of the
+        # map again. `region` is the plat, so a consumer can tell "the fire
+        # covers a fifth of the map" from "the fire IS the map". See
+        # scene_gen/disaster/region.py.
+        aff = (st or {}).get("affected_xy") if isinstance(st, dict) else None
+        if aff:
+            burn = (st or {}).get("burn_xy") or []
+            rx0, ry0, rx1, ry1 = [float(v) for v in st["region"]]
+            entries = [
+                {"class": "burn", "polygon_xy": burn,
+                 "t_s": st.get("t_burn_s")},
+                {"class": "affected", "polygon_xy": aff,
+                 "t_s": st.get("t_affected_s")},
+                {"class": "region",
+                 "polygon_xy": [[rx0, ry0], [rx1, ry0], [rx1, ry1],
+                                [rx0, ry1]]},
+                {"class": "meta",
+                 "scene_config": st.get("scene_config"),
+                 "seed": st.get("seed"),
+                 "elapsed_s": st.get("elapsed_s"),
+                 "span_s": st.get("span_s"),
+                 "fire_origin_m": st.get("fire_origin_m"),
+                 "fire_heading_deg": st.get("fire_heading_deg"),
+                 # WHICH BOUND SIZED THE POLYGON. "people" means the affected
+                 # area was grown until it covered the furthest-ahead survivor
+                 # (`people_lead_s` + `margin_s`); "lead_frac" means nobody was
+                 # further out than `lead_frac * span` and the model's own
+                 # floor won. A consumer that wants to know how much to trust
+                 # the area wants this line.
+                 "lead_frac": st.get("lead_frac"),
+                 "lead_s": st.get("lead_s"),
+                 "lead_bound": st.get("lead_bound"),
+                 "people_lead_s": st.get("people_lead_s"),
+                 "margin_s": st.get("margin_s")},
+            ]
+            sa.write_annotations(scene + "_region", entries,
+                                 sa.annotation_dirs(repo))
+
+            # AND THEN CHECK IT AGAINST THE ANSWER KEY. A search area that
+            # does not contain the people is a benchmark that cannot be won,
+            # and the only way to know is to put the GT written a few lines
+            # above through the polygon written on this one. Every person
+            # outside is printed, because "3 of 41 are out" is a real finding
+            # — the lead is derived from these same records, so anyone outside
+            # means the derivation is wrong — and a silent count is not.
+            a = region_poly.polygon_area(aff)
+            bb = region_poly.polygon_bbox(aff)
+            people = [b for b in boxes if b.get("class") == "person"]
+            out = []
+            in_burn = 0
+            for b in people:
+                cx, cy = b["bbox_world"]["center_xyz_m"][:2]
+                if not region_poly.point_in_polygon(cx, cy, aff):
+                    out.append((cx, cy))
+                if burn and region_poly.point_in_polygon(cx, cy, burn):
+                    in_burn += 1
+            print("[annotations] affected area: {0} pts, {1:.0f} m2 "
+                  "(bbox {2:.0f}..{3:.0f}, {4:.0f}..{5:.0f}); t+{6:.0f} s, "
+                  "lead {7:.0f} s bound by {8}; people inside {9}/{10}"
+                  .format(len(aff), a, bb[0], bb[2], bb[1], bb[3],
+                          st.get("t_affected_s") or 0.0,
+                          st.get("lead_s") or 0.0, st.get("lead_bound"),
+                          len(people) - len(out), len(people)))
+            # The number a `search_area_scene_key: burn` run is scored
+            # against: survivors on the scorched ground itself. The rest were
+            # staged past the front and are outside that search by design.
+            if burn:
+                print("[annotations] burn area: {0:.0f} m2 at t+{1:.0f} s; "
+                      "people inside {2}/{3} (the tight search; the rest "
+                      "sit past the front)".format(
+                          region_poly.polygon_area(burn),
+                          st.get("t_burn_s") or 0.0, in_burn, len(people)))
+            for cx, cy in out:
+                print("[annotations]   WARNING person at ({0:.1f}, {1:.1f}) is "
+                      "OUTSIDE the affected polygon".format(cx, cy))
+
     def _print_scene_banner(self, st):
         r = st["region"]
         print("\n" + "=" * 72, flush=True)
@@ -818,6 +906,14 @@ class PegasusApp:
             ", ".join("%s=%d" % kv for kv in sorted(st["tree_tally"].items()))))
         print("  ground scar {0} band(s); {1} Flow emitter(s)".format(
             st["bands"], st["flow"]))
+        if st.get("affected_xy"):
+            print("  affected    {0:.0f} m2 ellipse at t+{1:.0f} s, lead "
+                  "{2:.0f} s by {3} (burn {4:.0f} m2 at t+{5:.0f} s)".format(
+                      region_poly.polygon_area(st["affected_xy"]),
+                      st["t_affected_s"], st.get("lead_s") or 0.0,
+                      st.get("lead_bound"),
+                      region_poly.polygon_area(st.get("burn_xy") or []),
+                      st["t_burn_s"]))
         print("  people      {0} authored ({1} alive), {2} car(s), "
               "{3} blocker(s) -> {4}".format(
                   st["people"], st["people_alive"], st["cars"], st["blockers"],

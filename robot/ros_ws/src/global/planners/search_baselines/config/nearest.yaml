@@ -26,5 +26,5 @@ search_planner:
     # seen across the line is another drone's). Pad 0 so every arm — lawnmower
     # included — is held to exactly the same ground. At NUM_ROBOTS=1 this is
     # the whole area and a no-op.
-    sector_partition: 'strips'
+    sector_partition: 'rect'
     search_area_pad_m: 0.0

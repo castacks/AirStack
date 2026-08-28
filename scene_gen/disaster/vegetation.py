@@ -1829,6 +1829,19 @@ def wood_debris(stage, info, out_parent, rng, n_pieces=9, radius_m=6.5,
         pr = max(0.0, r_trunk - 0.5 * max(t_w, t_d)) * math.sqrt(rng.random())
         px = cx + math.cos(pa) * pr
         py = cy + math.sin(pa) * pr
+        # HOW MUCH OF THE BOLE'S OWN SURFACE THIS PIECE KEEPS, 0..1, and it is
+        # the only thing that says whether the piece should wear BARK or the
+        # pale inside of the tree. The four clip planes bound a `t_w x t_d`
+        # box centred at `pr` from the axis, so the box's furthest corner is
+        # at `hypot(pr + t_w/2, t_d/2)`; a piece whose corner reaches the
+        # fitted bole radius was cut through the outside of the trunk and has
+        # bark on it, and one drawn near the pith is four sawn faces of
+        # interior wood and has none. Published rather than acted on here
+        # because the material choice belongs to the caller — the burnt path
+        # dresses everything in char and does not care.
+        info.setdefault("bark_frac", {})
+        _bark = min(1.0, math.hypot(pr + 0.5 * t_w, 0.5 * t_d)
+                    / max(1e-6, r_trunk))
         ok = True
         for nrm, orig in (([1.0, 0.0, 0.0], px - t_w * 0.5),
                           ([-1.0, 0.0, 0.0], px + t_w * 0.5),
@@ -1885,6 +1898,7 @@ def wood_debris(stage, info, out_parent, rng, n_pieces=9, radius_m=6.5,
             made.append(fracture._write_mesh(
                 stage, "{0}/log_{1:03d}".format(out, len(made) + len(seated)),
                 piece))
+            info["bark_frac"][made[-1]] = _bark
         else:
             # SEATED: move it so its own lowest point rests on the ground, and
             # bury a millimetre so it does not read as hovering.
@@ -1896,6 +1910,7 @@ def wood_debris(stage, info, out_parent, rng, n_pieces=9, radius_m=6.5,
             seated.append(fracture._write_mesh(
                 stage, "{0}/log_{1:03d}".format(out, len(made) + len(seated)),
                 piece))
+            info["bark_frac"][seated[-1]] = _bark
 
     info.setdefault("made", []).extend(made + seated)
     if verbose:
@@ -2123,7 +2138,7 @@ def ash_ring(stage, path, x_m, y_m, radius_m, rng, mat_prim_path="",
 def burn_tree(stage, tree_path, level, parent_path, out_parent, rng,
               bole_material="", bole_scale_uv=(0.28, 0.28), debris=True,
               debris_scale=1.0, limbs=True, ground_z=0.0,
-              seated_collide=True, verbose=False):
+              seated_collide=True, simulate_above_m=None, verbose=False):
     """Take one placed tree to *level*. Returns a dict of what it produced.
 
     `{"statics": [...], "loose": [...], "seated": [...], "info": <survey>}` —
@@ -2149,8 +2164,13 @@ def burn_tree(stage, tree_path, level, parent_path, out_parent, rng,
     the physics cost once and keep it small.
     """
     info = survey(stage, tree_path, verbose=verbose)
+    # `anchored` — the prims a bake's seating pass must never move. The burnt
+    # path has no root ball and no tipped pose, so it is just the tree itself:
+    # a standing (possibly stripped, possibly snapped) trunk authored at
+    # `ground_z`, not something the solver placed. Same contract as
+    # `wind_tree`, so a launcher can treat the two interchangeably.
     res = {"statics": [], "loose": [], "seated": [], "info": info,
-           "level": level}
+           "level": level, "anchored": [tree_path]}
     if not info.get("bole") and not info.get("leaf_pi"):
         return res
 
@@ -2174,9 +2194,15 @@ def burn_tree(stage, tree_path, level, parent_path, out_parent, rng,
         n_d, plen, rad = spec
         n_d = max(0, int(round(n_d * float(debris_scale))))
     if spec and n_d > 0:
+        # `simulate_above_m=0.0` makes EVERY piece a rigid body instead of
+        # seating the short ones by arithmetic — see `wood_debris`. Left at
+        # `None` the module default (0.8 m) stands, which is what a full plate
+        # wants and what a "why did these not settle" investigation does not.
+        _sim = {} if simulate_above_m is None else \
+            {"simulate_above_m": float(simulate_above_m)}
         _loose, _seated = wood_debris(stage, info, out_parent, rng,
                                       n_pieces=n_d, piece_len=plen,
-                                      radius_m=rad, ground_z=ground_z,
+                                      radius_m=rad, ground_z=ground_z, **_sim,
                                       verbose=verbose)
         res["loose"] += _loose
         # Seated debris is static geometry, not a body: it never settles. It
@@ -2348,8 +2374,58 @@ def wind_plan(level):
     return _WIND_PLAN[level]
 
 
-def plain_wood(stage, parent_path, texture="", scale_uv=(0.30, 0.30),
-               brightness=1.0):
+def _sibling_map(texture, suffixes):
+    """The first existing sibling of `texture` whose tail matches `suffixes`.
+
+    EVERY BARK DIFFUSE IN THIS LIBRARY SHIPS A NORMAL AND A ROUGHNESS BESIDE
+    IT and nothing was ever reading them. The naming is consistent across both
+    vendor packs — `<name>_basecolor.png` next to `<name>_normal.png` and
+    `<name>_roughness.png`, and the Poly-Haven-derived ones `<name>_diff_2k`
+    next to `<name>_nor_2k` / `<name>_rough_2k` — so the map is recoverable
+    from the diffuse path alone, with no per-species table to keep in step
+    with the asset set. Returns "" when nothing is on disk, which is the
+    correct answer for a caller that then simply does not bind that input.
+
+    Checked with `os.path.exists` rather than assumed, because a missing map
+    authored as an asset path does not fail: OmniPBR silently renders as if
+    the input were absent, and a normal map that is quietly not there is the
+    exact failure this whole function exists to end.
+    """
+    if not texture:
+        return ""
+    root, ext = os.path.splitext(str(texture))
+    low = root.lower()
+    for want, repl in suffixes:
+        if not low.endswith(want):
+            continue
+        cand = root[:len(root) - len(want)] + repl + ext
+        if os.path.exists(cand):
+            return cand
+        # The packs ship both cases of every filename; try the capitalised
+        # twin before giving up rather than dropping the map.
+        alt = os.path.join(os.path.dirname(cand),
+                           os.path.basename(cand).capitalize())
+        if os.path.exists(alt):
+            return alt
+    return ""
+
+
+# ORDER MATTERS ONLY IN ONE PLACE and it is worth naming: `_diff_2k` has to
+# be tried before `_diff`, because a Poly-Haven sheet ends with both and
+# rewriting the shorter tail gives `bark_brown_01_diff_nor_2k`. Everything
+# else is a free list — `_sibling_map` keeps walking until a candidate is
+# actually ON DISK, so `bark_oak_diff` -> `bark_oak_nor` (absent) falls through
+# to `bark_oak_norm` (present) with no per-pack special case.
+_NORMAL_SIBLINGS = (("_basecolor", "_normal"), ("_diffuse", "_normal"),
+                    ("_diff_2k", "_nor_2k"), ("_diff", "_norm"),
+                    ("_diff", "_nor"))
+_ROUGH_SIBLINGS = (("_basecolor", "_roughness"), ("_diffuse", "_roughness"),
+                   ("_diff_2k", "_rough_2k"), ("_diff", "_roughness"),
+                   ("_diff", "_rough"))
+
+
+def plain_wood(stage, parent_path, texture="", tile_m=1.1,
+               brightness=1.0, roughness=0.84):
     """A NOT-CHARRED wood material for wind debris. Returns the Material.
 
     `wood_material` cannot produce this and it is worth saying why, because
@@ -2362,16 +2438,95 @@ def plain_wood(stage, parent_path, texture="", scale_uv=(0.30, 0.30),
     With no `texture`, falls back to `disaster.planks`' own sawn-lumber
     surface, which is the same material the plank debris field carries: a
     snapped limb and a broken stud lying beside it then agree.
-    """
-    from . import damage, planks
 
-    if texture:
-        return damage._pbr(stage, "{0}/WindLooks/wood_{1}".format(
-            parent_path, abs(hash(texture)) % 10000),
-            (brightness, brightness * 0.97, brightness * 0.93), 0.80,
-            texture=texture, scale_uv=scale_uv)
-    return planks.wood_material(stage, parent_path + "/WindLooks/timber",
-                                tile_m=1.1)
+    IT USED TO ROUTE THROUGH `damage._pbr` AND THAT WAS THE BUG. Reported off
+    the first assembled tornado plate, verbatim: *"the logs that are thrown
+    around ... their material looks to be the 'burnt forest floor' one"*.
+    Nothing in the scene bound the burnt floor; what was bound was the tree's
+    own bark diffuse through `_pbr`, which carries A DIFFUSE MAP AND NOTHING
+    ELSE, at `scale_uv=(0.30, 0.30)` — repeats per metre under world
+    triplanar, so ONE TILE PER 3.33 M. Three separate faults, and each one on
+    its own is enough to lose the read:
+
+      * NO NORMAL MAP. A log is a near-cylinder lit by one sun; with no
+        normal every point of the curved face returns the same shading term
+        and the piece is a flat patch of colour. `planks.wood_material`
+        authors its own OmniPBR rather than calling `_pbr` for precisely this
+        reason and says so.
+      * A 3.33 M TILE ON A 0.2 x 1.5 M STICK is a 6% x 45% crop of one
+        photograph. Whatever the sheet shows, a crop that size shows one or
+        two of its largest blotches and nothing else — which is what "mottled
+        brown patch" means.
+      * THE DIFFUSE WAS A PER-SPECIES LOTTERY, measured off the baked
+        archetypes: Douglas_Fir got `alter49_tree10` at mean luma 0.195 (dark
+        enough to read as charcoal in a scene whose whole thesis is PALE),
+        Largetooth_Aspen got `alter49_tree4` at 0.535 with sd 0.223 — white
+        birch bark with 40 cm black blotches on it — and the others landed
+        between. One stand of debris covering a 2.7x value range says nothing
+        about species and a great deal about a bug.
+
+    So this authors the material itself, binds the normal and roughness maps
+    that were sitting unread beside every one of those diffuses (see
+    `_sibling_map`), and takes `tile_m` in METRES so the call site states a
+    physical size instead of a reciprocal.
+
+    THE PRIM NAME IS AN MD5 DIGEST, NOT `hash()`. Python salts string hashing
+    per process unless `PYTHONHASHSEED` is set, so the old
+    `abs(hash(texture)) % 10000` gave the same surface a different `Looks`
+    name in every bake run — harmless to a render, and quietly poisonous to
+    diffing two bakes or to any caller that tries to look a material up by
+    path. Same digest this module already uses to key its foliage cache.
+    """
+    from pxr import Gf, Sdf, UsdShade
+
+    from . import planks
+
+    if not texture:
+        return planks.wood_material(stage, parent_path + "/WindLooks/timber",
+                                    tile_m=tile_m)
+
+    path = "{0}/WindLooks/wood_{1}".format(
+        parent_path,
+        hashlib.md5(str(texture).encode("utf-8")).hexdigest()[:8])
+    existing = UsdShade.Material.Get(stage, path)
+    if existing:
+        return existing
+    mat = UsdShade.Material.Define(stage, Sdf.Path(path))
+    sh = UsdShade.Shader.Define(stage, Sdf.Path(path).AppendChild("Shader"))
+    sh.CreateIdAttr("OmniPBR")
+    sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
+    sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+    sh.CreateInput("diffuse_texture",
+                   Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(str(texture)))
+    nrm = _sibling_map(texture, _NORMAL_SIBLINGS)
+    if nrm:
+        sh.CreateInput("normalmap_texture",
+                       Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(nrm))
+    rgh = _sibling_map(texture, _ROUGH_SIBLINGS)
+    if rgh:
+        sh.CreateInput("reflectionroughness_texture",
+                       Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(rgh))
+        sh.CreateInput("reflection_roughness_texture_influence",
+                       Sdf.ValueTypeNames.Float).Set(1.0)
+    sh.CreateInput("diffuse_color_constant", Sdf.ValueTypeNames.Color3f).Set(
+        Gf.Vec3f(brightness, brightness * 0.97, brightness * 0.93))
+    # TRIPLANAR, IN WORLD SPACE, AND NOT OPTIONAL: `fracture._write_mesh`
+    # authors no UVs at all, so a UV-space material falls back to a per-face
+    # default and repeats inside every triangle.
+    sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
+    sh.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
+    k = 1.0 / max(1e-6, float(tile_m))
+    sh.CreateInput("texture_scale",
+                   Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(k, k))
+    sh.CreateInput("reflection_roughness_constant",
+                   Sdf.ValueTypeNames.Float).Set(float(roughness))
+    sh.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(0.0)
+    sh.CreateInput("specular_level", Sdf.ValueTypeNames.Float).Set(0.10)
+    mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+    mat.CreateDisplacementOutput("mdl").ConnectToSource(sh.ConnectableAPI(),
+                                                        "out")
+    mat.CreateVolumeOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+    return mat
 
 
 def tip_tree(stage, tree_path, lean_deg, azimuth_deg=0.0, lift_m=0.0,
@@ -2581,9 +2736,11 @@ def root_plate(stage, path, x_m, y_m, radius_m, azimuth_deg, rng,
 
 
 def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
-              azimuth_deg=0.0, wood_material_path="", soil_material_path="",
+              azimuth_deg=0.0, wood_material_path="", split_material_path="",
+              bark_at=0.90, soil_material_path="",
               debris=True, debris_scale=1.0, ground_z=0.0,
-              seated_collide=True, root_balls=True, verbose=False):
+              seated_collide=True, root_balls=True, simulate_above_m=None,
+              verbose=False):
     """Take one tree apart with WIND. The tornado counterpart of `burn_tree`.
 
     Returns the same dict shape — `{"statics", "loose", "seated", "info",
@@ -2608,9 +2765,38 @@ def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
     NOTHING HERE CHARS. `scorch_foliage` and `char_bole` are not called and
     the level table has zeros where `burn_tree`'s has coverages, so the only
     materials this authors are plain timber and soil.
+
+    `simulate_above_m` OVERRIDES WHICH DEBRIS IS SIMULATED, and `0.0` means
+    ALL OF IT. `wood_debris` seats anything under the threshold analytically —
+    laid flat, handed back as static geometry, never a rigid body — because a
+    0.2 m stick lying flat looks the same whether PhysX put it there or
+    arithmetic did, and the count is what hurts. That trade is right for a
+    plate with thousands of sticks on it and wrong when the question being
+    asked is "why did these not settle", so the caller can turn it off. Left
+    at `None` the module's own default (0.8 m) stands.
+
+    TWO WOOD MATERIALS, NOT ONE, AND THE SPLIT IS MEASURED. `wood_debris`
+    publishes a per-piece `bark_frac` — how far its clip box reached toward
+    the fitted bole radius — and a piece at or above `bark_at` kept the tree's
+    own surface while one below it is four sawn faces of the inside of the
+    trunk. Give `split_material_path` and the pale interior wood goes on the
+    latter; leave it empty and everything takes the bark material, which is
+    the old behaviour. See `split_wood_material` for the share this produces
+    (roughly a fifth of the pieces keep bark on a big bole, closer to half on
+    a slim one) and for why getting it wrong makes a wind scene read as a
+    burn scar.
     """
+    # `anchored` NAMES THE PRIMS WHOSE POSE IS AUTHORED RATHER THAN SETTLED,
+    # for a bake that seats its debris geometrically afterwards. Two of them,
+    # and both look exactly like "sank through the floor" to a sink test:
+    # `tip_tree` bisects the lean down until the crown is just INTO the turf
+    # (`seat_band = (-1.1, -0.15)`), and the root ball is authored centred on
+    # `lift = r_plate * 0.5` so it straddles the tipped trunk's open base and
+    # therefore reaches `-r_plate / 2` below grade. Reseating either one stands
+    # a windthrown tree back up on the lawn, or lifts its root ball off the end
+    # of the trunk it exists to cover. See `bake._reseat_roots(freeze=...)`.
     res = {"statics": [], "loose": [], "seated": [], "info": None,
-           "level": level}
+           "level": level, "anchored": [tree_path]}
     info = survey(stage, tree_path, verbose=verbose)
     res["info"] = info
     if not info.get("bole") and not info.get("leaf_pi"):
@@ -2628,9 +2814,11 @@ def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
         n_d, plen, rad = spec
         n_d = max(0, int(round(n_d * float(debris_scale))))
         if n_d > 0:
+            _sim = {} if simulate_above_m is None else \
+                {"simulate_above_m": float(simulate_above_m)}
             _loose, _seated = wood_debris(
                 stage, info, out_parent, rng, n_pieces=n_d, piece_len=plen,
-                radius_m=rad, thick_m=_WIND_THICK, ground_z=ground_z,
+                radius_m=rad, thick_m=_WIND_THICK, ground_z=ground_z, **_sim,
                 # NEARLY UNIFORM lengths, against the burnt path's 2.2. What
                 # a wind leaves under a tree is limbs, and a distribution
                 # tuned to produce mostly charcoal produces mostly nothing
@@ -2746,6 +2934,7 @@ def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
                 (cx, cy), cz, tdir, r_plate, rng,
                 mat_prim_path=soil_material_path, ssf=1.0)
             res["statics"].append(plate)
+            res["anchored"].append(plate)
 
     # ---- 5. one material for everything generated ------------------------
     made, seen = [], set()
@@ -2754,11 +2943,25 @@ def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
             seen.add(p)
             made.append(p)
     if made:
-        # THE TREE'S OWN BARK, NEVER SAWN LUMBER. A broken limb is the same
-        # wood as the tree it came off, and binding `planks`' Ash_Planks
-        # milled-timber surface to it is visibly wrong — a pale, flat-sawn
-        # board texture wrapped round a branch. That fallback belongs to the
-        # HOUSE debris, where the material really is dimensional lumber.
+        # "THE TREE'S OWN BARK, NEVER SAWN LUMBER" IS WHAT THIS SAID, AND THE
+        # GEOMETRY DOES NOT SUPPORT IT. The argument was that a broken limb is
+        # the same wood as the tree it came off, so a milled-timber surface
+        # wrapped round a branch is visibly wrong. True of a branch — and
+        # `wood_debris` does not cut branches. It cuts an off-axis COLUMN
+        # through the low bole, four vertical clip planes round a point drawn
+        # area-uniformly over the cross-section, so most pieces never touch
+        # the bole surface at all: worked through against `_WIND_THICK`, only
+        # 19% (0.9 m bole) to 45% (0.25 m bole) of them keep any bark. The
+        # rest are riven billets whose faces are the pale inside of the tree,
+        # and dressing those in bark is what made the tornado debris field
+        # read dark when a wind event photographs light.
+        #
+        # So: `bark_frac` decides per piece, `split_material_path` supplies
+        # the interior wood, and the bark material below is now the surface
+        # for the minority that actually kept some. A caller that gives no
+        # split material gets the old single-material behaviour unchanged,
+        # which is what the wildfire path wants — a burnt log is charred bark
+        # whichever way it was cut.
         #
         # The bark texture is not in the USD. These shaders carry only
         # `info:mdl:sourceAsset = TreeBark_07.mdl` and the map lives inside
@@ -2791,7 +2994,29 @@ def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
                     print("[veg]   {0}: no readable bark texture; binding the "
                           "tree's own bark material to its debris"
                           .format(_tag(info, tree_path)))
-        if mat:
+        split = None
+        if split_material_path:
+            from pxr import UsdShade as _US3
+            split = _US3.Material(
+                stage.GetPrimAtPath(split_material_path)) or None
+        if mat and split:
+            # ANYTHING WITHOUT A `bark_frac` ENTRY COUNTS AS BARKED, and that
+            # default is doing real work: `made` also carries the limbs
+            # `fell_branches` baked out of the crown and the stub `snap` left
+            # behind, and those are whole pieces of the outside of the tree
+            # with their bark intact. Only `wood_debris`'s riven columns are
+            # ever in question.
+            frac = (info or {}).get("bark_frac") or {}
+            barked = [p for p in made if frac.get(p, 1.0) >= float(bark_at)]
+            riven = [p for p in made if frac.get(p, 1.0) < float(bark_at)]
+            bind_all(stage, barked, mat, verbose=False)
+            bind_all(stage, riven, split, verbose=False)
+            if verbose:
+                print("[veg]   {0}: {1} piece(s) bark, {2} split wood "
+                      "(bark_at={3:.2f})".format(_tag(info, tree_path),
+                                                 len(barked), len(riven),
+                                                 float(bark_at)))
+        elif mat:
             bind_all(stage, made, mat, verbose=verbose)
         elif verbose:
             print("[veg]   {0}: NO wood material for debris — it will render "
@@ -2822,14 +3047,73 @@ BARK_BASE = ("airstack://scene_gen/assets/aec/brownstone/Materials/"
 BARK_NORMAL = ("airstack://scene_gen/assets/aec/brownstone/Materials/"
                "vMaterials_2/Wood/textures/bark_oak_norm.jpg")
 
+# THE THIRD MAP IN THAT SET IS A TRAP AND IT IS DELIBERATELY NOT BOUND.
+# `bark_oak_multi_R_rough_G_ao_B_height.jpg` looks like an ORM and is not one:
+# its channels are R=roughness, G=ambient occlusion, B=HEIGHT, while OmniPBR's
+# `ORM_texture` reads R=AO, G=roughness, B=METALLIC. Binding it swaps the
+# first two — every deep furrow reads as a polished groove — and, far worse,
+# drives metallic off a height map, so the ridges of every log in the scene
+# come out part metal. There is no channel-swizzle input on OmniPBR to fix it,
+# so bark takes a roughness CONSTANT and the map stays unused. (Contrast
+# `planks.WOOD_ORM`, which is a genuine ORM and is bound.)
 
-def bark_material(stage, path, tile_m=1.7, tint=(1.0, 1.0, 1.0)):
+# THE OTHER HALF OF A BROKEN LOG, AND IT IS THE MAJORITY HALF.
+#
+# `wood_debris` does not cut branches: it cuts an off-axis COLUMN through the
+# low bole — four vertical clip planes round a point drawn area-uniformly over
+# the cross-section — so a piece is a riven billet whose four long faces are
+# SPLIT WOOD and which carries the tree's own bark only where its clip box
+# reached the bole surface. Working that draw through against `_WIND_THICK`
+# (0.10-0.30 m) gives, per fitted bole radius:
+#
+#   r_trunk    0.25   0.35   0.50   0.70   0.90 m
+#   with bark    45%    29%    22%    20%    19%
+#
+# so between four fifths and half of every tree's debris has no bark on it at
+# all. Dressing all of it in bark — which is what this module did until the
+# tornado scene was looked at — is therefore wrong for most of the pieces, and
+# wrong in the direction that matters: it makes the field DARK. A wind event
+# photographs pale against green grass because breaking exposes the inside of
+# what it breaks, and `planks.py` opens with the same argument for the house
+# debris.
+#
+# Pine rather than `planks.WOOD_BASE` (Ash_Planks): both are pale sawn timber
+# at essentially the same value (mean luma 0.614 vs 0.620), but this one is 4K
+# against 2K and ships a real roughness map, and a run of knotty structural
+# boards reads as raw wood where flooring reads as a finished floor. Tree
+# debris and house debris being adjacent-but-distinct surfaces is also correct
+# — a snapped bole and a snapped stud are not the same material.
+SPLIT_BASE = ("airstack://scene_gen/assets/aec/brownstone/Materials/"
+              "vMaterials_2/Wood/textures/pine_diff.jpg")
+SPLIT_NORMAL = ("airstack://scene_gen/assets/aec/brownstone/Materials/"
+                "vMaterials_2/Wood/textures/pine_norm.jpg")
+SPLIT_ROUGH = ("airstack://scene_gen/assets/aec/brownstone/Materials/"
+               "vMaterials_2/Wood/textures/pine_rough_grain.jpg")
+
+
+def bark_material(stage, path, tile_m=1.7, tint=(1.0, 1.0, 1.0),
+                  roughness=0.88):
     """Oak bark, world-triplanar, for generated log geometry.
 
     Triplanar because a generated log carries no UVs. `tile_m` ~1.7 puts a
     bark tile a bit under two metres, so a half-metre log gets a plausible
     patch of grain rather than the whole 4K sheet squeezed onto it. `tint`
     darkens it for a burnt scene without reaching for a different surface.
+
+    THE TILE IS METRIC AND IT IS NOT ARBITRARY. `texture_scale` here is
+    repeats per metre (world triplanar), so `tile_m` is its reciprocal, and
+    the vMaterial this is built out of declares its own physical footprint:
+    `Wood_Bark.mdl` annotates `texture_scale` with
+    `core_definitions::dimension(float2(1,1))` and then halves it internally
+    (`corrected_texture_scale = texture_scale * 0.5`), i.e. one tile of
+    `bark_oak_diff` is 2.0 m of trunk. Counted off the sheet that is ~52
+    furrow ridges, so 3.8 cm a ridge at the author's scale. The default 1.7 m
+    puts a ridge at 3.3 cm, which is right for a mature trunk; a caller
+    dressing LIMB debris wants finer than that (see `tornado.LOG_TILE_M`).
+
+    `specular_level` is pinned low. OmniPBR defaults it to 0.5, which puts a
+    broad dielectric sheen on a surface that in life has none, and every other
+    material in this pipeline (`damage._pbr` at 0.12) already says so.
     """
     from pxr import Gf, Sdf, UsdShade
 
@@ -2855,8 +3139,83 @@ def bark_material(stage, path, tile_m=1.7, tint=(1.0, 1.0, 1.0)):
     sh.CreateInput("texture_scale",
                    Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(k, k))
     sh.CreateInput("reflection_roughness_constant",
-                   Sdf.ValueTypeNames.Float).Set(0.88)
+                   Sdf.ValueTypeNames.Float).Set(float(roughness))
     sh.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(0.0)
+    sh.CreateInput("specular_level", Sdf.ValueTypeNames.Float).Set(0.10)
+    mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+    mat.CreateDisplacementOutput("mdl").ConnectToSource(sh.ConnectableAPI(),
+                                                        "out")
+    mat.CreateVolumeOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+    return mat
+
+
+def split_wood_material(stage, path, tile_m=0.75, tint=(1.0, 1.0, 1.0),
+                        roughness=0.82):
+    """PALE RIVEN WOOD — the inside of a broken bole. Returns the Material.
+
+    The companion to `bark_material`, and on a wind-damaged tree it is the
+    material MOST of the debris wants: see the derivation at `SPLIT_BASE` —
+    four fifths to half of what `wood_debris` cuts never touches the bole
+    surface, because a piece is a column clipped out of the cross-section
+    rather than a branch taken off the outside.
+
+    WHY THIS DOES NOT GO THROUGH `damage._pbr`, which is the obvious route and
+    is the actual bug this function exists to fix. `_pbr` carries a DIFFUSE
+    MAP AND NOTHING ELSE. A log is a near-cylinder lit by one sun, so with no
+    normal map every point on its curved face returns the same shading term
+    and the piece renders as a flat patch of colour — "painted pipe", in
+    `planks.wood_material`'s words, which authors its own OmniPBR for exactly
+    this reason. On a photographed BARK sheet with big features that failure
+    mode is what got reported as the logs looking like burnt forest floor.
+
+    THE TILE, DERIVED. `texture_scale` is repeats per metre under world
+    triplanar, so `tile_m` is its reciprocal. `pine_diff` is a run of ~11
+    boards across the 4K sheet; at 0.75 m a board is 6.8 cm, so a piece from
+    the `_WIND_THICK` band (0.10-0.30 m through) shows two to four grain runs
+    across its face and a metre of length carries about fifteen. Wider than
+    that and a stick is one flat board face; much finer and the grain aliases
+    into noise from any altitude worth flying.
+
+    The roughness MAP is bound as well as a constant — `pine_rough_grain.jpg`
+    is a genuine single-channel roughness sheet, unlike the bark set's
+    mis-ordered `_multi` map (see `SPLIT_BASE`'s neighbours), so the grain
+    catches light differently from the summerwood between it, which is most of
+    what says "wood" rather than "brown".
+    """
+    from pxr import Gf, Sdf, UsdShade
+
+    import scene_generator as sg
+
+    existing = UsdShade.Material.Get(stage, path)
+    if existing:
+        return existing
+    mat = UsdShade.Material.Define(stage, Sdf.Path(path))
+    sh = UsdShade.Shader.Define(stage, Sdf.Path(path).AppendChild("Shader"))
+    sh.CreateIdAttr("OmniPBR")
+    sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
+    sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+    sh.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath(sg._join_asset_root(SPLIT_BASE, "")))
+    sh.CreateInput("normalmap_texture", Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath(sg._join_asset_root(SPLIT_NORMAL, "")))
+    sh.CreateInput("reflectionroughness_texture",
+                   Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath(sg._join_asset_root(SPLIT_ROUGH, "")))
+    sh.CreateInput("reflection_roughness_texture_influence",
+                   Sdf.ValueTypeNames.Float).Set(1.0)
+    # MULTIPLIES the map in OmniPBR, so this is a tint and not a replacement
+    # colour — the grain survives it.
+    sh.CreateInput("diffuse_color_constant",
+                   Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*tint))
+    sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
+    sh.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
+    k = 1.0 / max(1e-6, float(tile_m))
+    sh.CreateInput("texture_scale",
+                   Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(k, k))
+    sh.CreateInput("reflection_roughness_constant",
+                   Sdf.ValueTypeNames.Float).Set(float(roughness))
+    sh.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(0.0)
+    sh.CreateInput("specular_level", Sdf.ValueTypeNames.Float).Set(0.10)
     mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
     mat.CreateDisplacementOutput("mdl").ConnectToSource(sh.ConnectableAPI(),
                                                         "out")

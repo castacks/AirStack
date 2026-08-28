@@ -341,10 +341,17 @@ void GLInterface::evaluate_trajectories(const airstack_msgs::msg::Odometry &look
   // setter, because only this thread owns the GL context.
   if (pending_vel_max > 0.f && pending_vel_max != vel_max)
   {
+    // vel_desired carries the speed (see the rollout set-up): rescale the
+    // direction along with the cap, or the parameter changes nothing.
+    const float scale = pending_vel_max / vel_max;
     vel_max = pending_vel_max;
     pending_vel_max = -1.f;
     for (auto &p : traj_params)
+    {
       p.vel_max = vel_max;
+      for (int k = 0; k < 3; k++)
+        p.vel_desired[k] *= scale;
+    }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, params_ssbo);
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0,
                     traj_params.size() * sizeof(TrajectoryParams), traj_params.data());
@@ -605,9 +612,17 @@ void GLInterface::initGL(int original_width, int original_height, int downsample
       float pitch = p * M_PI / 180.f;
 
       TrajectoryParams params;
-      params.vel_desired[0] = sin(yaw);
-      params.vel_desired[1] = cos(yaw);
-      params.vel_desired[2] = sin(pitch); // 0.f;
+      // THE ROLLOUT'S STEADY-STATE SPEED IS |vel_desired|. trajectory.cs
+      // integrates snap = -k_v*(vel - vel_desired) - ..., so every rollout
+      // converges to vel_desired and nothing in the shader reads vel_max.
+      // With a UNIT direction here every drone flew 1 m/s whatever
+      // `max_velocity` said (measured 2026-08-27 on the 1 km plat: p90 speed
+      // 0.98 m/s in open transit with the planner asking for 3). The cap is
+      // applied by SCALING the direction; vel_max rides along for the
+      // collision shader's struct layout.
+      params.vel_desired[0] = sin(yaw) * vel_max;
+      params.vel_desired[1] = cos(yaw) * vel_max;
+      params.vel_desired[2] = sin(pitch) * vel_max; // 0.f;
       params.vel_max = vel_max;   // the `max_velocity` parameter, 2 m/s as shipped
 
       traj_params.push_back(params);
