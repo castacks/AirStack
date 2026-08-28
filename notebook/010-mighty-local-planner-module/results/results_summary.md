@@ -148,6 +148,23 @@ The clearance profiles make the margin story visible: after the initial descent 
 
 Module README (architecture, interfaces, install, testing) and `stacks/full_mighty` README + docs-nav entry done; `mkdocs build --strict` clean apart from three pre-existing warnings from study-workspace clones on this machine only. **Deferred to study conclusion:** registering asm_mighty in `castacks/airstack-modules-index` and regenerating the public module catalog — the repo is PRIVATE until the study concludes (strategic choice #6), and a public index entry pointing at a private repo would 404. `full_mighty/wiring.md` generation is likewise deferred to the develop-track PR.
 
+**Addendum 2026-08-28 (upstreaming, lead request):** the deferral above was
+overridden — registration done NOW with the private status noted in every
+entry (the catalog links 404 for non-members until the flip; docs-deploy
+failure isolation handles the unfetchable repo). Artifacts: asm_mighty
+**v0.1.1** = v0.1.0 + README "Why MIGHTY replaced DROAN" (quant table +
+same-field track/clearance figures; eval-field figure noted as one of the
+repo's privacy-gate reasons); registry PR
+[airstack-modules-index#1](https://github.com/castacks/airstack-modules-index/pull/1)
+(mighty + full_mighty entries, registered_ref v0.1.1, merge before the
+trunk PR); trunk PR
+[AirStack#405](https://github.com/castacks/AirStack/pull/405) to develop
+(`stacks/full_mighty` pinned v0.1.1, regenerated docs/modules catalog,
+fixture-index entries, nav + stack enumerations, VERSION 0.20.0-alpha.17 +
+release notes). wiring.md still bootstrap-deferred to the first validated
+wiring-snapshot run. Campaign v6's frozen pin (study/mighty-swap @
+961fb9e1, asm_mighty tag v0.1.0) is untouched by all of this.
+
 ## Overall Verdict
 
 | Spec section | Verdict |

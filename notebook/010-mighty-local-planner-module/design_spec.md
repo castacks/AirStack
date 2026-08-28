@@ -15,6 +15,13 @@
 > defects (results_summary §(e)) — the module workflow, the judge, and
 > the planner all hardened en route. Catalog/index registration deferred
 > until the repo goes public (study conclusion).
+>
+> **2026-08-28 upstreaming addendum:** deferral overridden by the lead —
+> registration + develop PR done with the private status noted in every
+> entry: asm_mighty v0.1.1 (= v0.1.0 + README DROAN comparison),
+> [airstack-modules-index#1](https://github.com/castacks/airstack-modules-index/pull/1),
+> [AirStack#405](https://github.com/castacks/AirStack/pull/405). Campaign
+> v6 pin (asm_mighty v0.1.0) untouched. See results_summary §(f) addendum.
 
 ## 1. Problem Context
 
