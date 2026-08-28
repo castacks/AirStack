@@ -1,0 +1,62 @@
+Run: 2026-08-24 ~20:45 EDT
+[0;32m[INFO][0m Launch config: profiles=desktop,isaac-sim robots=1 autolaunch=true play_on_start=false
+[0;32m[INFO][0m   isaac: script=example_one_px4_pegasus_launch_script.py headless= scene=omniverse://airlab-nucleus.andrew.cmu.edu:443/Public/AirStack/Stages/ConstructionSite/ConstructionSite.stage.usd
+[0;32m[INFO][0m   urdf=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+[0;32m[INFO][0m   stack: dir=/root/AirStack/stacks/full_default entry=stack
+--- effective launch config ---
+COMPOSE_PROFILES=desktop,isaac-sim
+NUM_ROBOTS=1
+URDF_FILE=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+AUTOLAUNCH=true
+PLAY_SIM_ON_START=false
+ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py
+ISAAC_SIM_USE_STANDALONE=true
+ISAAC_SIM_HEADLESS=
+MS_AIRSIM_HEADLESS=
+AIRSTACK_STACK_DIR=/root/AirStack/stacks/full_default
+AIRSTACK_STACK_ENTRY=stack
+VERSION=0.20.0-alpha.11
+DOCKER_IMAGE_BUILD_MODE=dev
+ISAAC_SIM_SCENE=omniverse://airlab-nucleus.andrew.cmu.edu:443/Public/AirStack/Stages/ConstructionSite/ConstructionSite.stage.usd
+ISAAC_SIM_STAGE_SCALE=0.01
+--- end effective launch config ---
+[0;32m[INFO][0m   effective config saved to .airstack/runs/2026-08-24_20-44-32_227103/effective_config.env
+[0;32m[INFO][0m   pruning 1 old run record(s) from .airstack/runs/ (keeping newest 50)
+[0;32m[INFO][0m --dry-run: configuration validated; not starting services.
+
+== airsim blocks ==
+[0;32m[INFO][0m --scene blocks → MS_AIRSIM_SCENE=blocks
+[0;32m[INFO][0m   ms-airsim: scene=blocks
+MS_AIRSIM_SCENE=blocks
+[0;32m[INFO][0m --dry-run: configuration validated; not starting services.
+
+== isaac+blocks (exit 1) ==
+ERROR: scene 'blocks' is not available for Isaac (only: MS AirSim). Available scenes:
+SCENE                      ISAAC                                  MS AIRSIM
+-------------------------  -------------------------------------  ------------------
+abandoned-factory          nucleus:AbandonedFactory.stage.usd     -
+abandoned-park             -                                      abandonedpark
+abandoned-warehouse-day    nucleus:Warehouse_02_day.stage.usd     -
+
+== forest not downloaded ==
+[0;33m[WARN][0m MS AirSim scene 'Forest' is not present locally under /home/andrew/Development/AirStack/simulation/ms-airsim/assets/scenes.
+[0;32m[INFO][0m Non-interactive run: the airsim container will auto-fetch 'Forest' on first launch (progress in the airsim tmux window).
+[0;33m[WARN][0m Images not present locally — compose will BUILD them from scratch (can take a long time):
+[0;33m[WARN][0m To use prebuilt images instead: airstack image-pull   (set AIRSTACK_NO_IMAGE_BUILD=1 to forbid implicit builds)
+
+== no scene: keys absent ==
+--- effective launch config ---
+COMPOSE_PROFILES=desktop,isaac-sim
+NUM_ROBOTS=1
+URDF_FILE=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+AUTOLAUNCH=true
+PLAY_SIM_ON_START=false
+ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py
+ISAAC_SIM_USE_STANDALONE=true
+ISAAC_SIM_HEADLESS=
+MS_AIRSIM_HEADLESS=
+AIRSTACK_STACK_DIR=/root/AirStack/stacks/full_default
+AIRSTACK_STACK_ENTRY=stack
+VERSION=0.20.0-alpha.11
+DOCKER_IMAGE_BUILD_MODE=dev
+--- end effective launch config ---

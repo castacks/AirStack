@@ -1,6 +1,6 @@
 # Design Spec: Agent Study Prerequisites (ICRA'27 Sec. VI-C)
 
-> Notebook entry: `notebook/001-agent-study-prereqs/` · Date started: 2026-08-03 · Branch: `airstack-paper`
+> Notebook entry: `notebook/007-agent-study-prereqs/` · Date started: 2026-08-03 · Branch: `airstack-paper`
 >
 > **Status: `WIP`** <!-- P-1/P-2 DONE; P-3..P-8 not started -->
 >

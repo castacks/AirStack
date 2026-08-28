@@ -1,0 +1,15 @@
+{
+  "campaign_fingerprint": "",
+  "complete": true,
+  "completed_tests": 6,
+  "failed": 0,
+  "mark_expression": "optitrack",
+  "outcome": "non_simulation",
+  "passed": 6,
+  "pytest_exitstatus": 0,
+  "schema_version": 1,
+  "selected_tests": 6,
+  "simulation_completed": 0,
+  "simulation_selected": 0,
+  "skipped": 0
+}

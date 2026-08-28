@@ -95,6 +95,12 @@ tests/results/
 # local-only via its own .gitignore — expect a trivial conflict here on
 # rebase, resolve in favor of this branch).
 # See .agents/skills/use-feature-notebook
+# Exception: raw demo-video screen captures (~750 MB) stay local-only;
+# the final deliverables are committed under docs/assets/media/.
+notebook/005-landing-page-demo-video/results/a-isaac-footage/
+notebook/005-landing-page-demo-video/results/b-foxglove-footage/
+notebook/005-landing-page-demo-video/results/c-msairsim-footage/
+notebook/005-landing-page-demo-video/results/d-hero-video/
 
 # Local-only — embedded sibling repo, not part of this branch
 common/rayfronts/

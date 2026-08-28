@@ -1,0 +1,70 @@
+{
+  "system/test_takeoff_hover_land.TestTakeoffHoverLand.test_px4_ready[isaacsim-rob#1-v0.5-iter0]": {
+    "airstack_up_duration_s": {
+      "value": 0.89,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 84.04,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.26,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_takeoff_hover_land.TestTakeoffHoverLand.test_takeoff[isaacsim-rob#1-v0.5-iter0]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.138,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 16.71,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.velocity_rmse_m_sim_s": {
+      "value": 0.162,
+      "unit": "m/s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_takeoff_hover_land.TestTakeoffHoverLand.test_hover[isaacsim-rob#1-v0.5-iter0]": {
+    "robot_1.hover_altitude_mean_error_m": {
+      "value": 0.013,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.hover_position_stddev_m": {
+      "value": 0.051,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_takeoff_hover_land.TestTakeoffHoverLand.test_landing[isaacsim-rob#1-v0.5-iter0]": {
+    "robot_1.final_altitude_m": {
+      "value": -0.022,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 14.13,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.velocity_rmse_m_sim_s": {
+      "value": 0.098,
+      "unit": "m/s",
+      "direction": "lower_is_better"
+    }
+  }
+}

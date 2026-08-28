@@ -1,0 +1,91 @@
+# Agent report A — getting_started / tutorials / top-level docs
+
+(Verbatim classifier output, archived for the audit design doc.)
+
+## 1. `docs/index.md`
+
+1. **Title:** "Home". Content: 8 lines of MkDocs front-matter only (`template: home.html`, hides nav/toc) — the actual landing content lives in a custom theme template.
+2. **Quadrant:** None — it is a navigation/marketing shell, not documentation content. Confidence: high (there is literally no prose to classify).
+3. **Purity:** N/A.
+4. **Audience:** newcomer (landing page).
+5. **Staleness:** none assessable in this file; whatever `home.html` renders is outside this audit's scope. Recent commits (`shorten version selector titles`, `hero no longer clips CTAs`) show the template is actively maintained.
+6. **Duplication:** none in-file.
+
+## 2. `docs/README.md`
+
+1. **Title:** "AirStack: Democratizing Intelligent Mobile Robotics". A GitHub-README-style project overview: features, requirements, quick start pointer, architecture tree, repo structure, license/contact.
+2. **Quadrant:** genuinely ambiguous — closest is **Explanation** (low confidence). Tiebreaker: it describes what the system *is* (features, architecture, repo layout) with no procedures and no complete reference tables; but its real genre is "marketing README", which Diátaxis doesn't have a slot for. It functions as an orientation page.
+3. **Purity:** hybrid. "🚀 Features" (L12–26) and "🏗️ System Architecture" (L38–57) are explanation-lite; "📋 System Requirements" (L27–32) and "📁 Repository Structure" (L59–69) are reference fragments; "🔧 Quick Start" (L34–36) is a one-line how-to pointer.
+4. **Audience:** newcomer / prospective user.
+5. **Staleness:** content is current on the modular model (stacks/modules/fleets, `airstack module add`, registry link at L57 — all real). Minor issues: (a) L36 Quick Start links the **absolute production URL** `https://docs.theairlab.org/latest/docs/getting_started/` instead of a relative link, which will pin readers of an old/`develop` docs version to `latest`; (b) L32 "Ubuntu 22.04 recommended" contradicts `about.md` L71 ("Ubuntu 22.04/24.04"); (c) L30 "RTX 3070 or better" contradicts `getting_started/index.md` L28 ("RTX 4080 or higher is recommended"). No AUTONOMY_ROLE or `./airstack.sh` references.
+6. **Duplication:** architecture tree duplicates `docs/robot/autonomy/system_architecture.md` and AGENTS.md; requirements duplicate `getting_started/index.md` §Requirements and `about.md` FAQ; repo structure duplicates AGENTS.md.
+
+## 3. `docs/about.md`
+
+1. **Title:** "About AirStack". Mission, team, alpha-status warning, architecture bullets, supported platforms, license, a 12-question FAQ, contact, roadmap.
+2. **Quadrant:** **Explanation** (medium confidence). The FAQ and platform tables pull it toward reference, but the dominant register is understanding-oriented ("what is this, who is it for, why").
+3. **Purity:** hybrid. Explanation: "Project Mission" (L5–13), "Architecture" (L45–55), "Status" (L34–43), "Roadmap" (L171–182). Reference: "Supported Platforms" (L57–71), "License" (L73–78). How-to-flavored: the Technical/Development FAQ answers (L95–137) are miniature recipes with "See:" pointers ("Create a ROS 2 package… wire it into a stack's entry launch file", L104–107).
+4. **Audience:** newcomer / prospective user; FAQ tail drifts toward competent user.
+5. **Staleness:** links verified good — `robot/autonomy_modes.md`, `robot/docker/robot_identity.md`, `development/development_environment.md`, `robot/autonomy/integration_checklist.md`, `development/stacks.md` all exist. The FAQ is *already modular-aware* (L105 "wire it into a stack's entry launch file" — post-AUTONOMY_ROLE language, good). Suspect items: L64 Jetson "Xavier NX, TX2" (EOL platforms, likely aspirational/stale); L60–61 "Gazebo (planned)" (roadmap claim of unknown vintage); L88 FAQ says "100GB+ free storage" vs README/getting_started's "25GB" — direct numeric contradiction; the whole page omits MS AirSim, which AGENTS.md still ships as a legacy sim (arguably intentional). Note the doc links two *different* files named development_environment: `development/development_environment.md` (L127) and tutorials_reference links `development/beginner/development_environment.md` — both exist in the repo, a likely accidental fork of the same topic.
+6. **Duplication:** alpha warning duplicates `getting_started/index.md` L10–18; FAQ hardware answers duplicate README §System Requirements; architecture bullets duplicate README and system_architecture.md.
+
+## 4. `docs/getting_started/index.md`
+
+1. **Title:** "Getting Started". Clone → install → pull/build images → `airstack up` → fly via Foxglove → shutdown.
+2. **Quadrant:** **Tutorial** (high confidence). L21: "By the end of this tutorial, you will have the autonomy stack running on your machine" — explicit learning promise, single golden path, ends with "Congratulations! You did it." (L122).
+3. **Purity:** mostly clean tutorial with two hybrid intrusions: (a) "Docker Images" (L46–84) forks into Option 1 / Option 2 `<details>` blocks — a how-to decision point, though defensibly handled by defaulting Option 1 open; (b) "Launch" tail (L100–105, "Useful variants (see `airstack help up`)… `--sim airsim`… `--robots 3`") is reference/how-to material that dilutes the single path.
+4. **Audience:** newcomer (with an AirLab account — L17 gates on internal registry/Nucleus access).
+5. **Staleness:** low. `./airstack.sh install/setup` (L41–42) is **not** stale — `airstack.sh` exists at repo root and bootstrapping before the `airstack` alias exists is correct; `airstack images pull/build/push`, `--no-play`, `airstack ready`, `--wait`, `--sim`, `--robots` all verified real in `airstack.sh`. Issues found: (a) **Move Robot (L109) instructs a manual layout import** (`/root/airstack_layout_num_robots_1.json`, connect `ws://localhost:8765`), but `docs/gcs/foxglove.md` L16 says the layout now **loads automatically with no manual import** and Foxglove opens itself via deep link — the manual path still works (foxglove.md L27) but the tutorial teaches obsolete friction; also for host-side Foxglove the port is 8766, not 8765 (compose maps `8766:8765`) — the doc doesn't say the import is done *inside the GCS container's* Foxglove, so a newcomer running Foxglove on the host will fail on 8765. (b) L30 "Ubuntu 22.04" vs about.md's 22.04/24.04. (c) L28 GPU rec (4080) vs README (3070). No AUTONOMY_ROLE.
+6. **Duplication:** Clone/Install/Images sections are repeated nearly verbatim as `modular_airstack.md` §1 (L13–20 there). The OSMO tip (L3–8) duplicates positioning text in `airstack_on_osmo.md` — with a **contradiction**, see synthesis.
+
+**Direct answer:** Yes, this is a real golden-path tutorial — a newcomer *with AirLab credentials* can follow it clone→sim→Foxglove takeoff→land, with a video for the flying step. Its two weaknesses as a tutorial are the Option-1/Option-2 fork and the Move Robot section, which is terse (three UI actions compressed into one sentence), teaches a superseded manual-import flow, and leans on a YouTube video for the actual "fly" payoff.
+
+## 5. `docs/getting_started/modular_airstack.md`
+
+1. **Title:** "Modular AirStack Walkthrough". The RFC #379/#380 journey: fly a reference stack → read wiring.md → add a module → make your own stack → fleet → doctor.
+2. **Quadrant:** **Tutorial** (high confidence). "The end-to-end journey… for a developer new to the project" (L3–5); ordered, numbered, cumulative; every step runs a real command with a visible result.
+3. **Purity:** largely clean tutorial; hybrid edges: "§3 Read the wiring" (L42–55) is explanation (why wiring.md can't lie) wrapped in a one-command exercise — acceptable in Diátaxis as motivated learning; the pervasive "Guide: …" / "Full CLI reference: …" outlinks (L82–84, L101–102, L118) correctly push how-to/reference material elsewhere rather than inlining it. Best-factored doc in this set.
+4. **Audience:** newcomer-to-modular who has completed Getting Started (stated prerequisite, L7–9).
+5. **Staleness:** very low — this is the freshest doc audited. Verified: all 5 reference stacks concept, `airstack stack new`, `airstack module add/list`, `airstack doctor --live`, `module doctor --drift` match AGENTS.md and `.airstack/modules/`; the `wiring` pytest mark exists (`tests/pytest.ini` L8) and `tests/conftest.py` accepts `--stack` (L32), so §5.4's `airstack test -m wiring --stack my_stack` is real; `config/fleets/sim_three_mixed.yaml` exists. One nit: §4's launch command (L77–79) explicitly passes `-f .airstack/generated/docker-compose.modules.yaml`, but `airstack.sh` L1943–1945 auto-includes that file whenever it exists — the flag is redundant and teaches an unnecessary incantation (harmless, but a newcomer will cargo-cult it). §1 repeats `./airstack.sh install/setup` legitimately (bootstrap).
+6. **Duplication:** §1 (L13–20) duplicates `getting_started/index.md` clone/install/images wholesale; the doc itself says "Prerequisites: the base Getting Started setup", making §1 redundant with its own prerequisite line.
+
+## 6. `docs/getting_started/tutorials_reference.md`
+
+1. **Title:** "What's Next? Tutorials by Topic". A categorized link catalog (6 topic tables with Beginner/Intermediate/Advanced levels) plus four "Learning Paths".
+2. **Quadrant:** none of the four — it is **navigation/curriculum scaffolding** (a "learning pathways" page, which Diátaxis treats as site architecture, not a doc type). If forced: closest to Reference (an index), low confidence. It contains zero instructional content of its own.
+3. **Purity:** N/A (pure link catalog). But it **mislabels quadrants of its targets**: it calls `system_architecture.md` (explanation), `integration_checklist.md` (reference), and `development/modules|stacks|fleets.md` (how-to/reference guides) "Tutorials" (L22–23, L32–34). That mislabeling is itself a Diátaxis finding.
+4. **Audience:** newcomer who just finished Getting Started ("you are here! ✓", L74/L84/L90/L97 — assumes arrival from the previous nav page, which matches its mkdocs.yml position at nav L75).
+5. **Staleness:** all 15 distinct link targets verified to exist on disk (spawning_drones, scene_setup, pegasus_scene_setup, autonomy_modes, robot_identity-adjacent, waypoints_and_geofences, fork_your_own_project, `development/beginner/development_environment.md`, deploying_to_hardware, HITL/index, etc.). Content is modular-aware (Modular AirStack Tutorials section, L25–34). No AUTONOMY_ROLE / airstack.sh remnants. Only soft staleness: the Beginner/Intermediate/Advanced level column is unverifiable editorial metadata that tends to rot silently.
+6. **Duplication:** substantially overlaps `docs/tutorials/index.md` (same job: post-getting-started catalog) — the two disagree on scope and on which pages count as tutorials. "Additional Resources" (L104–109) re-links pages already in the tables above.
+
+**Direct answer:** `tutorials_reference.md` is a **"where next" link hub / curriculum page**, not a tutorial and not reference despite its filename. It is the page actually wired into the nav (mkdocs.yml L75) as the Getting Started section's closer.
+
+## 7. `docs/tutorials/index.md`
+
+1. **Title:** "Tutorials". A 5-row table linking Getting Started, AirStack on OSMO, and three pages living elsewhere (robot_identity, autonomy_modes, deploying_to_hardware).
+2. **Quadrant:** none — index/stub (high confidence).
+3. **Purity:** N/A.
+4. **Audience:** newcomer.
+5. **Staleness:** all links resolve. **However, the page is orphaned**: `grep docs/tutorials` in mkdocs.yml matches only `airstack_on_osmo.md` (nav L74); `tutorials/index.md` appears nowhere in the nav and no other doc links to it (repo-wide grep found zero inbound references). It row-labels `robot/docker/robot_identity.md` ("Multi-Robot Simulation") and `autonomy_modes.md` as tutorials when those are reference/explanation pages. Descriptions are modular-current (row 4 names `full_default`/`lite_default`/`lite_offload_global` — post-AUTONOMY_ROLE vocabulary).
+6. **Duplication:** direct functional duplicate of `tutorials_reference.md` (a smaller, differently-scoped catalog of the same kind), and of the nav itself.
+
+**Direct answer:** `docs/tutorials/` contains exactly **one actual tutorial** (`airstack_on_osmo.md`) plus this orphaned stub index. It is not a tutorials section in any real sense — the de-facto tutorials live in `getting_started/`.
+
+## 8. `docs/tutorials/airstack_on_osmo.md`
+
+1. **Title:** "AirStack on OSMO — Recommended Remote Development Workflow". End-to-end remote dev on an OSMO GPU pod: credentials → SSH config → submit → attach IDE → WebRTC → Foxglove → push → teardown.
+2. **Quadrant:** ambiguous between Tutorial and How-to; call it **How-to guide** (medium confidence). Tiebreaker: numbered Step 0–9 and one-time-setup framing look tutorial-ish, but it is goal-directed ("get a working remote dev session"), assumes git/SSH competence (L42–45), branches constantly ("Override with `--branch main`…", `--no-open`, env-var overrides), and is meant for repeated operational use — the troubleshooting table and "what survives" matrix are for a practitioner, not a learner. The `tutorials/index.md` row even describes it operationally.
+3. **Purity:** heavy hybrid, though well-organized. Explanation: intro rationale bullets (L9–29), "Architecture in a sentence" + mermaid (L40–70), "Why three credentials?" callout (L178–183), SSH-config security commentary (L198–218). How-to: Steps 0–9 (L94–548). Reference: Prerequisites table (L72–86), every "Under the hood — raw `osmo …`" `<details>` block (L143–176, L276–292, L316–332, L367–387, L429–447, L483–495, L537–548 — effectively an embedded CLI reference for `.airstack/modules/osmo.sh`), Troubleshooting table (L550–564), "What survives" table (L566–578).
+4. **Audience:** competent user (comfortable with git/SSH/IDE remoting); admin tasks explicitly split out to `osmo/README.md` (L88–91).
+5. **Staleness:** very low; clearly recently written against the code. Verified: `cmd_osmo_setup/up/logs/ide/webrtc/foxglove/down` all exist in `.airstack/modules/osmo.sh` at the described locations; `osmo/README.md`, `osmo/workflows/airstack-dev.yaml`, `gcs/foxglove_extensions/airstack_default.json` exist; Foxglove host port 8766 matches compose (`8766:8765`). `./airstack.sh osmo …` usage is legitimate (no local `airstack setup` on this path — the doc says so at L84–86). One real inconsistency: **positioning** — the H1 and L3 declare OSMO "AirStack's recommended day-to-day development path" / "recommended default" (L29), while `getting_started/index.md` L3–8 frames OSMO as the fallback *only* "if that's not you" (Mac/Windows/no-GPU), and mkdocs nav buries it third inside Getting Started. The two pages disagree about which workflow is primary. Minor: prerequisites table clones via HTTPS (L76) vs getting_started's SSH clone (L34).
+6. **Duplication:** Foxglove connection steps (L468–476) partially duplicate `docs/gcs/foxglove.md` (acknowledged at L477–480); rationale bullets overlap the getting_started OSMO tip; "same `docker exec` pattern" section duplicates AGENTS.md by design (linked, L407–409).
+
+## 9. `docs/release_notes/index.md` (skim)
+
+Characterization: a 463-line, well-curated changelog with exactly two sections — "0.20.0 (Unreleased)" (the modules/stacks/fleets restructuring, RFC #379/#380/#385, with a breaking-changes migration table for the **removed `AUTONOMY_ROLE`**) and "0.19.0 — 2026-08-22" (launch intent flags, `airstack ready`, OSMO-adjacent CI). It states an explicit editorial policy (L3–6): feature docs describe only the present system; all change context lives here — and a build hook trims each deployed docs version to its own section. Diátaxis: closest to **Reference** (a record), high confidence; clean for its genre. Notably it is where AUTONOMY_ROLE, `local_bringup`, `LAUNCH_NATNET`, and `SKIP_MACVO` are *supposed* to appear — and none of the other eight audited files reference those removed concepts, which is exactly right. Current (0.19.0 dated three days ago) and consistent with `bump-version-and-release` workflow.
+
+---
+
+## Synthesis
+
+The onboarding corridor is in better Diátaxis shape than most robotics repos: two genuine tutorials exist (`getting_started/index.md` — a real golden path, and `modular_airstack.md` — the best-factored doc here, which teaches by doing and correctly *links out* to how-to/reference instead of inlining it), the release-notes page enforces an unusually disciplined present-tense/changelog separation, and no audited file leaks removed concepts (AUTONOMY_ROLE, old bringup packages) — the recent modularization docs sweep was thorough. The problems are structural rather than staleness: (1) **two competing "what next" catalogs** — `tutorials_reference.md` (in nav) and the orphaned `docs/tutorials/index.md` — that both mislabel reference/explanation pages as "Tutorials"; the orphan should be deleted or merged and the level-labeled tables re-typed by quadrant; (2) a **positioning contradiction** on the primary workflow: `airstack_on_osmo.md` declares itself "the recommended day-to-day path" while Getting Started treats it as the non-Linux fallback — one of them is lying to newcomers about the golden path; (3) **numeric drift across the orientation pages** (GPU: 3070 vs 4080; disk: 25GB vs 100GB; Ubuntu: 22.04 vs 22.04/24.04) — classic symptom of requirements living in four places (README, about FAQ, getting_started, docs/index template); (4) the Getting Started **"Move Robot" step teaches the superseded manual Foxglove layout import** that `docs/gcs/foxglove.md` says is now automatic, and omits the host-vs-container port distinction (8765 vs 8766); and (5) `modular_airstack.md` §1 needlessly duplicates the Getting Started setup it already declares as a prerequisite, and §4 teaches a redundant `-f docker-compose.modules.yaml` flag that `airstack up` applies automatically. Quadrant-wise, `about.md` and `docs/README.md` overlap heavily as explanation/orientation and could be consolidated, and `airstack_on_osmo.md` — though excellent — carries an embedded CLI reference (the "Under the hood" blocks) and troubleshooting matrix that would eventually merit extraction into a dedicated `airstack osmo` reference page.

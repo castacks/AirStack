@@ -1,0 +1,103 @@
+# CLI dry-run matrix (2026-08-20 04:56:02, commit a5ff5723)
+
+## airstack up --dry-run --sim airsim
+[INFO] Launch config: profiles=desktop,isaac-sim robots=1 autolaunch=true play_on_start=false
+[INFO]   isaac: script=example_one_px4_pegasus_launch_script.py headless=
+[INFO]   urdf=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+--- effective launch config ---
+COMPOSE_PROFILES=desktop,isaac-sim
+NUM_ROBOTS=1
+URDF_FILE=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+AUTOLAUNCH=true
+PLAY_SIM_ON_START=false
+ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py
+ISAAC_SIM_USE_STANDALONE=true
+ISAAC_SIM_HEADLESS=
+MS_AIRSIM_HEADLESS=
+VERSION=0.19.0-alpha.17
+DOCKER_IMAGE_BUILD_MODE=dev
+--- end effective launch config ---
+[INFO]   effective config saved to .airstack/runs/2026-08-20_04-56-02/effective_config.env
+[INFO] --dry-run: configuration validated; not starting services.
+
+## airstack up --dry-run --sim isaac --robots 3
+[INFO] Launch config: profiles=desktop,isaac-sim robots=1 autolaunch=true play_on_start=false
+[INFO]   isaac: script=example_one_px4_pegasus_launch_script.py headless=
+[INFO]   urdf=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+--- effective launch config ---
+COMPOSE_PROFILES=desktop,isaac-sim
+NUM_ROBOTS=1
+URDF_FILE=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+AUTOLAUNCH=true
+PLAY_SIM_ON_START=false
+ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py
+ISAAC_SIM_USE_STANDALONE=true
+ISAAC_SIM_HEADLESS=
+MS_AIRSIM_HEADLESS=
+VERSION=0.19.0-alpha.17
+DOCKER_IMAGE_BUILD_MODE=dev
+--- end effective launch config ---
+[INFO]   effective config saved to .airstack/runs/2026-08-20_04-56-02/effective_config.env
+[INFO] --dry-run: configuration validated; not starting services.
+
+## airstack up --dry-run --sim isaac --headless --no-play
+[INFO] Launch config: profiles=desktop,isaac-sim robots=1 autolaunch=true play_on_start=false
+[INFO]   isaac: script=example_one_px4_pegasus_launch_script.py headless=
+[INFO]   urdf=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+--- effective launch config ---
+COMPOSE_PROFILES=desktop,isaac-sim
+NUM_ROBOTS=1
+URDF_FILE=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+AUTOLAUNCH=true
+PLAY_SIM_ON_START=false
+ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py
+ISAAC_SIM_USE_STANDALONE=true
+ISAAC_SIM_HEADLESS=
+MS_AIRSIM_HEADLESS=
+VERSION=0.19.0-alpha.17
+DOCKER_IMAGE_BUILD_MODE=dev
+--- end effective launch config ---
+[INFO]   effective config saved to .airstack/runs/2026-08-20_04-56-02/effective_config.env
+[INFO] --dry-run: configuration validated; not starting services.
+
+## airstack up --dry-run --env-file overrides/ms-airsim.env
+[INFO] Launch config: profiles=desktop,isaac-sim robots=1 autolaunch=true play_on_start=false
+[INFO]   isaac: script=example_one_px4_pegasus_launch_script.py headless=
+[INFO]   urdf=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+--- effective launch config ---
+COMPOSE_PROFILES=desktop,isaac-sim
+NUM_ROBOTS=1
+URDF_FILE=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+AUTOLAUNCH=true
+PLAY_SIM_ON_START=false
+ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py
+ISAAC_SIM_USE_STANDALONE=true
+ISAAC_SIM_HEADLESS=
+MS_AIRSIM_HEADLESS=
+VERSION=0.19.0-alpha.17
+DOCKER_IMAGE_BUILD_MODE=dev
+--- end effective launch config ---
+[INFO]   effective config saved to .airstack/runs/2026-08-20_04-56-03/effective_config.env
+[INFO] --dry-run: configuration validated; not starting services.
+
+## NUM_ROBOTS=3 + single script (expect preflight error, rc!=0)
+[INFO] Launch config: profiles=desktop,isaac-sim robots=3 autolaunch=true play_on_start=false
+[INFO]   isaac: script=example_one_px4_pegasus_launch_script.py headless=
+[INFO]   urdf=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+--- effective launch config ---
+COMPOSE_PROFILES=desktop,isaac-sim
+NUM_ROBOTS=3
+URDF_FILE=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+AUTOLAUNCH=true
+PLAY_SIM_ON_START=false
+ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py
+ISAAC_SIM_USE_STANDALONE=true
+ISAAC_SIM_HEADLESS=
+MS_AIRSIM_HEADLESS=
+VERSION=0.19.0-alpha.17
+DOCKER_IMAGE_BUILD_MODE=dev
+--- end effective launch config ---
+[INFO]   effective config saved to .airstack/runs/2026-08-20_04-56-03/effective_config.env
+[ERROR] NUM_ROBOTS=3 but ISAAC_SIM_SCRIPT_NAME='example_one_px4_pegasus_launch_script.py' spawns exactly 1 drone: robots 2..3 would have no PX4 to talk to. Fix: 'airstack up --sim isaac --robots 3' (auto-selects the multi script) or set ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py
+[ERROR] Preflight failed — not starting services. (AIRSTACK_SKIP_PREFLIGHT=1 to override.)
+rc=0

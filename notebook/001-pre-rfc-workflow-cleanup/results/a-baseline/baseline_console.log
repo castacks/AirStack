@@ -1,0 +1,1268 @@
+=== BASELINE RUN commit=9e2e0e39 date=2026-08-20 04:11:58 ===
+=== 1/3 unit ===
+access control disabled, clients can connect from any host
+ Image airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_tests Building 
+ Image airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_tests Built 
+ Container docker-test-run-7bcb9a6c7c99 Creating 
+ Container docker-test-run-7bcb9a6c7c99 Created 
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/bin/python3.12
+cachedir: /tmp/.pytest_cache
+rootdir: /home/andrew/Development/AirStack/tests
+configfile: pytest.ini
+testpaths: .
+plugins: dependency-0.6.1, timeout-2.4.0
+collecting ... collected 290 items / 97 deselected / 193 selected
+
+::test_canonical_quaternion_positive_w_unchanged <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  0%]
+::test_canonical_quaternion_negative_w_flipped <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  1%]
+::test_canonical_quaternion_zero_w_unchanged <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  1%]
+::test_canonical_quaternion_identity <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  2%]
+::test_canonical_quaternion_returns_same_object <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  2%]
+::test_canonical_quaternion_w_stays_non_negative <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  3%]
+::test_canonical_quaternion_dual_sign_produces_same_result <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  3%]
+::test_vision_pose_converter_default_topics <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  4%]
+::test_vision_pose_converter_topic_overrides_applied <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  4%]
+::test_expand_env_uses_default_when_unset <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  5%]
+::test_expand_env_uses_environment_value <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  5%]
+::test_namespaced_strips_and_prefixes <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  6%]
+::test_build_node_params_flattens_bodies <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  6%]
+::test_build_node_params_empty_profile <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py PASSED [  7%]
+::test_near_range_tolerance <- ../robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py PASSED [  7%]
+::test_ranges_xyz_from_points_xyz <- ../robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py PASSED [  8%]
+::test_ranges_xyz_rejects_nonfinite <- ../robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py PASSED [  8%]
+::test_validate_filtered_ranges_ok <- ../robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py PASSED [  9%]
+::test_validate_filtered_ranges_too_close <- ../robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py PASSED [  9%]
+::test_validate_filtered_ranges_no_long_range <- ../robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py PASSED [ 10%]
+::test_raw_filtered_near_range_ok <- ../robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py PASSED [ 10%]
+::test_no_bodies_packs_empty_catalog <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_catalog.py PASSED [ 11%]
+::test_single_body_field_fidelity <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_catalog.py PASSED [ 11%]
+::test_multiple_bodies_preserve_order_and_fields <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_catalog.py PASSED [ 12%]
+::test_long_name_is_truncated_not_rejected <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_catalog.py PASSED [ 12%]
+::test_too_many_bodies_raises <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_catalog.py PASSED [ 13%]
+::test_find_duplicate_targets_none <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_catalog.py PASSED [ 13%]
+::test_find_duplicate_targets_flags_shared_prim <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_catalog.py PASSED [ 14%]
+::test_find_duplicate_targets_ignores_empty_targets <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_catalog.py PASSED [ 15%]
+::test_default_drone_binding_matches_natnet_ros2_config <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_defaults.py PASSED [ 15%]
+::test_default_tracked_body_bindings_contains_drone_only <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_defaults.py PASSED [ 16%]
+::test_format_interface_includes_server_params_and_bodies <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_discovery.py PASSED [ 16%]
+::test_format_interface_reports_no_bodies <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_discovery.py PASSED [ 17%]
+::test_to_motive_pose_z_is_identity <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 17%]
+::test_to_motive_pose_y_swaps_axes_and_quat <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 18%]
+::test_to_motive_pose_y_maps_isaac_up_to_motive_up <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 18%]
+::test_make_rigid_body_data_copies_pose_and_sets_valid_bit <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 19%]
+::test_lost_sample_clears_valid_bit_and_is_nan <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 19%]
+::test_build_frame_no_bodies <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 20%]
+::test_apply_pose_noise_zero_std_is_identity <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 20%]
+::test_apply_pose_noise_preserves_y_position <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 21%]
+::test_apply_pose_noise_adds_position_jitter <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 21%]
+::test_build_frame_multiple_bodies_preserve_order <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 22%]
+::test_model_list_changed_sets_frame_param_bit <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 22%]
+::test_frame_packs_and_rigid_body_section_decodes <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py PASSED [ 23%]
+::test_author_then_find_locates_the_interface <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_authoring.py PASSED [ 23%]
+::test_author_read_round_trip <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_authoring.py PASSED [ 24%]
+::test_reauthoring_removes_stale_bodies <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_authoring.py PASSED [ 24%]
+::test_up_axis_authors_and_reads_back <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_authoring.py PASSED [ 25%]
+::test_pose_noise_authors_and_reads_back <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_authoring.py PASSED [ 25%]
+::test_empty_target_round_trips <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_authoring.py PASSED [ 26%]
+::test_invalid_config_raises_before_authoring <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_authoring.py PASSED [ 26%]
+::test_defaults_match_server_expectations <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 27%]
+::test_up_axis_from_dict_normalizes_case <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 27%]
+::test_up_axis_survives_round_trip <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 28%]
+::test_pose_noise_survives_round_trip <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 29%]
+::test_from_dict_with_bodies_as_list <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 29%]
+::test_from_dict_with_bodies_as_prim_mapping <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 30%]
+::test_to_dict_round_trip <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 30%]
+::test_body_from_dict_requires_target_and_name <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 31%]
+::test_body_attr_name_builder <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 31%]
+::test_make_instance_key_sanitizes_and_dedupes <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 32%]
+::test_assign_instance_keys_are_unique <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 32%]
+::test_validate_rejects_bad_server_config[overrides0] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 33%]
+::test_validate_rejects_bad_server_config[overrides1] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 33%]
+::test_validate_rejects_bad_server_config[overrides2] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 34%]
+::test_validate_rejects_bad_server_config[overrides3] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 34%]
+::test_validate_rejects_bad_server_config[overrides4] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 35%]
+::test_validate_rejects_bad_server_config[overrides5] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 35%]
+::test_validate_rejects_bad_server_config[overrides6] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 36%]
+::test_validate_rejects_bad_server_config[overrides7] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 36%]
+::test_validate_rejects_bad_server_config[overrides8] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 37%]
+::test_validate_rejects_duplicate_streaming_ids <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 37%]
+::test_validate_rejects_blank_rigid_body_name <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 38%]
+::test_validate_allows_empty_target <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 38%]
+::test_validate_accepts_good_config <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_interface_config.py PASSED [ 39%]
+::test_read_world_pose_returns_translation <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_sampling.py PASSED [ 39%]
+::test_read_world_pose_invalid_prim_is_none <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_sampling.py PASSED [ 40%]
+::test_sample_once_no_bodies <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_sampling.py PASSED [ 40%]
+::test_sample_once_streams_world_pose <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_sampling.py PASSED [ 41%]
+::test_sample_once_missing_prim_is_lost <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_sampling.py PASSED [ 41%]
+::test_moving_prim_updates_streamed_position <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_sampling.py PASSED [ 42%]
+::test_up_axis_z_streams_isaac_pose_as_is <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_sampling.py PASSED [ 43%]
+::test_up_axis_y_reaxes_streamed_pose <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_sampling.py PASSED [ 43%]
+::test_body_added_while_live_is_picked_up_on_resync <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_sampling.py PASSED [ 44%]
+::test_target_prim_created_after_start_becomes_valid <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_sampling.py PASSED [ 44%]
+::test_sample_once_noop_without_server <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_sampling.py PASSED [ 45%]
+::test_streamed_frame_carries_sampled_usd_pose <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_pose_streaming.py PASSED [ 45%]
+::test_default_interface_path <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_scene_setup.py PASSED [ 46%]
+::test_single_drone_maps_name_id_and_target <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_scene_setup.py PASSED [ 46%]
+::test_multi_drone_unique_names_and_ids <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_scene_setup.py PASSED [ 47%]
+::test_no_drones_yields_empty_catalog <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_scene_setup.py PASSED [ 47%]
+::test_server_params_are_forwarded <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_scene_setup.py PASSED [ 48%]
+::test_duplicate_names_raise <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_scene_setup.py PASSED [ 48%]
+::test_duplicate_ids_raise <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_scene_setup.py PASSED [ 49%]
+::test_pose_noise_params_are_forwarded <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_scene_setup.py PASSED [ 49%]
+::test_packet_header_pack_size_and_endianness <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 50%]
+::test_packet_header_length_exceeds_max_packetsize <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 50%]
+::test_empty_frame_pack_length_is_stable <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 51%]
+::test_single_rigid_body_frame_contains_id_and_params <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 51%]
+::test_frame_pack_rejects_rigid_body_count_above_max <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 52%]
+::test_frame_pack_negative_collection_counts_encode_without_validation <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 52%]
+::test_labeled_marker_pack_round_trips_every_field <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 53%]
+::test_frame_with_labeled_markers_packs_each_marker <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 53%]
+::test_connect_response_uses_sender_server_wire_format <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 54%]
+::test_server_description_pack_includes_connection_fields <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 54%]
+::test_server_init_rejects_invalid_local_interface <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 55%]
+::test_server_init_rejects_identical_command_and_data_ports <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 55%]
+::test_rigid_body_description_pack_zero_markers <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 56%]
+::test_rigid_body_description_pack_rejects_marker_count_above_max <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 56%]
+::test_rigid_body_description_pack_negative_marker_count_encodes_without_validation <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 57%]
+::test_rigid_body_description_pack_empty_name <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 58%]
+::test_data_descriptions_pack_single_rigid_body <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 58%]
+::test_data_descriptions_pack_empty <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 59%]
+::test_data_descriptions_pack_multiple_rigid_bodies <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 59%]
+::test_data_description_pack_rejects_unsupported_type <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 60%]
+::test_data_description_pack_rejects_negative_type <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 60%]
+::test_data_descriptions_pack_rejects_count_above_max <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 61%]
+::test_data_descriptions_pack_negative_count_encodes_without_validation <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_serializers.py PASSED [ 61%]
+::test_make_default_drone_catalog_packs_drone_body <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_catalog.py PASSED [ 62%]
+::test_server_init_loads_default_drone_modeldef_payload <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_catalog.py PASSED [ 62%]
+::test_set_model_def_payload_replaces_cache <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_catalog.py PASSED [ 63%]
+::test_set_model_def_from_descriptions_packs_once <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_catalog.py PASSED [ 63%]
+::test_server_from_config_serves_matching_catalog <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_from_config.py PASSED [ 64%]
+::test_stop_frees_port_for_restart <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_from_config.py PASSED [ 64%]
+::test_start_creates_and_starts_server_once <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_lifecycle.py PASSED [ 65%]
+::test_start_is_idempotent_only_one_server <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_lifecycle.py PASSED [ 65%]
+::test_stop_shuts_down_and_is_idempotent <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_lifecycle.py PASSED [ 66%]
+::test_toggle_starts_then_stops <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_lifecycle.py PASSED [ 66%]
+::test_apply_enabled_reconciles_to_flag <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_lifecycle.py PASSED [ 67%]
+::test_on_shutdown_stops_running_server <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_lifecycle.py PASSED [ 67%]
+::test_start_handles_no_single_and_multiple_bodies[0] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_lifecycle.py PASSED [ 68%]
+::test_start_handles_no_single_and_multiple_bodies[1] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_lifecycle.py PASSED [ 68%]
+::test_start_handles_no_single_and_multiple_bodies[3] <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_lifecycle.py PASSED [ 69%]
+::test_default_factory_rejects_multicast_without_constructing <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_lifecycle.py PASSED [ 69%]
+::test_default_factory_builds_unicast_server_without_starting <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_server_lifecycle.py PASSED [ 70%]
+::test_no_bodies_resolves_empty <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_target_resolution.py PASSED [ 70%]
+::test_single_existing_target <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_target_resolution.py PASSED [ 71%]
+::test_missing_target_is_reported <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_target_resolution.py PASSED [ 72%]
+::test_empty_target_is_missing <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_target_resolution.py PASSED [ 72%]
+::test_mixed_existing_and_missing <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_target_resolution.py PASSED [ 73%]
+::test_multiple_entries_same_prim_all_resolve <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_target_resolution.py PASSED [ 73%]
+::test_nat_connect_receives_serverinfo_on_command_port <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 74%]
+::test_enqueued_frame_arrives_on_data_port <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 74%]
+::test_no_frame_sent_without_connected_client <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 75%]
+::test_connect_registers_client_for_subsequent_frames <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 75%]
+::test_truncated_datagram_is_ignored <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 76%]
+::test_empty_datagram_is_ignored <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 76%]
+::test_unknown_message_id_from_unregistered_client_gets_no_reply <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 77%]
+::test_request_modeldef_without_connect_gets_no_reply <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 77%]
+::test_lie_about_payload_length_in_header_still_handshake_on_connect <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 78%]
+::test_request_modeldef_after_connect_returns_drone_payload <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 78%]
+::test_keepalive_after_connect_gets_no_reply <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 79%]
+::test_unknown_message_from_registered_client_gets_no_reply <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 79%]
+::test_server_survives_malformed_burst_then_valid_connect <- ../simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_unicast_protocol.py PASSED [ 80%]
+meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd0-args0] PASSED [ 80%]
+meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd1-args1] PASSED [ 81%]
+meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd2-args2] PASSED [ 81%]
+meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd3-args3] PASSED [ 82%]
+meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd4-args4] PASSED [ 82%]
+meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd5-args5] PASSED [ 83%]
+meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd0-args0] PASSED [ 83%]
+meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd1-args1] PASSED [ 84%]
+meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd2-args2] PASSED [ 84%]
+meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd3-args3] PASSED [ 85%]
+meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd4-args4] PASSED [ 86%]
+meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd5-args5] PASSED [ 86%]
+meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd6-args6] PASSED [ 87%]
+meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd7-args7] PASSED [ 87%]
+meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd8-args8] PASSED [ 88%]
+meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd9-args9] PASSED [ 88%]
+meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd10-args10] PASSED [ 89%]
+meta/test_collection_contract.py::test_ci_invocation_is_broad PASSED     [ 89%]
+meta/test_collection_contract.py::test_ci_empty_args_do_not_emit_an_empty_positional PASSED [ 90%]
+meta/test_collection_contract.py::test_cpu_unit_workflow_uses_the_broad_harness_path PASSED [ 90%]
+meta/test_collection_contract.py::test_automatic_pr_gates_are_fast_and_repeat_on_updates PASSED [ 91%]
+meta/test_collection_contract.py::test_report_uses_the_revision_that_was_actually_tested PASSED [ 91%]
+meta/test_collection_contract.py::test_pr_head_check_is_finalized_after_metrics PASSED [ 92%]
+meta/test_collection_contract.py::test_cross_run_baseline_uses_supported_download_inputs PASSED [ 92%]
+meta/test_collection_contract.py::test_injection_actually_produced_items PASSED [ 93%]
+meta/test_metrics_reporting_contract.py::test_completed_simulation_failure_is_a_valid_campaign PASSED [ 93%]
+meta/test_metrics_reporting_contract.py::test_collection_exit_is_not_simulation_performance PASSED [ 94%]
+meta/test_metrics_reporting_contract.py::test_interrupted_partial_simulation_is_not_comparable PASSED [ 94%]
+meta/test_metrics_reporting_contract.py::test_setup_only_failure_is_not_policy_performance PASSED [ 95%]
+meta/test_metrics_reporting_contract.py::test_fail_fast_partial_campaign_is_not_comparable PASSED [ 95%]
+meta/test_metrics_reporting_contract.py::test_teardown_error_makes_campaign_incomplete PASSED [ 96%]
+meta/test_metrics_reporting_contract.py::test_only_identical_campaigns_are_comparable PASSED [ 96%]
+meta/test_metrics_reporting_contract.py::test_campaign_fingerprint_matches_pytest_and_junit_ids PASSED [ 97%]
+meta/test_metrics_reporting_contract.py::test_collection_error_report_suppresses_pass_rates PASSED [ 97%]
+meta/test_metrics_reporting_contract.py::test_sim_setup_error_report_is_not_policy_performance PASSED [ 98%]
+meta/test_metrics_reporting_contract.py::test_incomplete_artifact_is_not_simulation_performance PASSED [ 98%]
+meta/test_metrics_reporting_contract.py::test_truncated_junit_is_not_simulation_performance PASSED [ 99%]
+meta/test_metrics_reporting_contract.py::test_real_sim_failure_keeps_metrics_and_pass_rate PASSED [100%]
+---------------------------- live log sessionfinish ----------------------------
+[08:12:40] INFO Wrote run metadata to /home/andrew/Development/AirStack/tests/results/2026-08-20_08-12-21/run_meta.json
+[08:12:40] INFO Wrote run summary to /home/andrew/Development/AirStack/tests/results/2026-08-20_08-12-21/summary.txt
+
+
+- generated xml file: /home/andrew/Development/AirStack/tests/results/2026-08-20_08-12-21/results.xml -
+============================== slowest durations ===============================
+2.10s call     ::test_stop_frees_port_for_restart
+1.61s call     ::test_no_frame_sent_without_connected_client
+1.56s call     ::test_connect_registers_client_for_subsequent_frames
+1.55s call     ::test_unknown_message_from_registered_client_gets_no_reply
+1.55s call     ::test_keepalive_after_connect_gets_no_reply
+1.55s call     ::test_request_modeldef_without_connect_gets_no_reply
+1.55s call     ::test_unknown_message_id_from_unregistered_client_gets_no_reply
+1.05s call     ::test_enqueued_frame_arrives_on_data_port
+1.05s call     ::test_request_modeldef_after_connect_returns_drone_payload
+1.05s call     ::test_server_from_config_serves_matching_catalog
+1.05s call     ::test_server_survives_malformed_burst_then_valid_connect
+1.05s call     ::test_lie_about_payload_length_in_header_still_handshake_on_connect
+1.05s call     ::test_nat_connect_receives_serverinfo_on_command_port
+1.01s call     ::test_streamed_frame_carries_sampled_usd_pose
+0.01s call     ::test_author_then_find_locates_the_interface
+0.01s call     ::test_target_prim_created_after_start_becomes_valid
+0.01s call     ::test_body_added_while_live_is_picked_up_on_resync
+0.01s call     ::test_moving_prim_updates_streamed_position
+0.01s call     meta/test_collection_contract.py::test_injection_actually_produced_items
+0.01s call     ::test_up_axis_z_streams_isaac_pose_as_is
+0.00s call     ::test_build_frame_no_bodies
+0.00s call     ::test_empty_frame_pack_length_is_stable
+0.00s call     ::test_data_descriptions_pack_rejects_count_above_max
+0.00s call     ::test_no_bodies_packs_empty_catalog
+0.00s call     ::test_single_body_field_fidelity
+0.00s call     ::test_sample_once_no_bodies
+0.00s call     ::test_build_frame_multiple_bodies_preserve_order
+0.00s call     ::test_up_axis_y_reaxes_streamed_pose
+0.00s call     ::test_sample_once_streams_world_pose
+0.00s call     ::test_truncated_datagram_is_ignored
+0.00s call     ::test_sample_once_missing_prim_is_lost
+0.00s setup    meta/test_metrics_reporting_contract.py::test_collection_error_report_suppresses_pass_rates
+0.00s call     meta/test_metrics_reporting_contract.py::test_real_sim_failure_keeps_metrics_and_pass_rate
+0.00s call     ::test_single_rigid_body_frame_contains_id_and_params
+0.00s call     ::test_model_list_changed_sets_frame_param_bit
+0.00s call     ::test_frame_pack_rejects_rigid_body_count_above_max
+0.00s call     ::test_connect_response_uses_sender_server_wire_format
+0.00s call     ::test_too_many_bodies_raises
+0.00s call     ::test_author_read_round_trip
+0.00s call     ::test_start_creates_and_starts_server_once
+0.00s call     ::test_reauthoring_removes_stale_bodies
+0.00s call     ::test_up_axis_authors_and_reads_back
+0.00s call     ::test_server_description_pack_includes_connection_fields
+0.00s call     ::test_start_is_idempotent_only_one_server
+0.00s call     ::test_toggle_starts_then_stops
+0.00s call     ::test_server_init_loads_default_drone_modeldef_payload
+0.00s call     ::test_set_model_def_from_descriptions_packs_once
+0.00s call     ::test_set_model_def_payload_replaces_cache
+0.00s call     ::test_pose_noise_authors_and_reads_back
+0.00s call     ::test_frame_with_labeled_markers_packs_each_marker
+0.00s call     ::test_vision_pose_converter_default_topics
+0.00s call     ::test_frame_packs_and_rigid_body_section_decodes
+0.00s call     ::test_frame_pack_negative_collection_counts_encode_without_validation
+0.00s call     ::test_empty_target_round_trips
+0.00s call     ::test_read_world_pose_returns_translation
+0.00s call     ::test_no_bodies_resolves_empty
+0.00s call     ::test_data_descriptions_pack_single_rigid_body
+0.00s call     ::test_multiple_bodies_preserve_order_and_fields
+0.00s call     ::test_default_factory_builds_unicast_server_without_starting
+0.00s call     ::test_apply_pose_noise_zero_std_is_identity
+0.00s call     ::test_vision_pose_converter_topic_overrides_applied
+0.00s call     ::test_stop_shuts_down_and_is_idempotent
+0.00s call     ::test_empty_datagram_is_ignored
+0.00s call     ::test_single_existing_target
+0.00s call     meta/test_collection_contract.py::test_ci_invocation_is_broad
+0.00s call     ::test_data_descriptions_pack_empty
+0.00s call     ::test_data_descriptions_pack_multiple_rigid_bodies
+0.00s call     ::test_long_name_is_truncated_not_rejected
+0.00s call     ::test_start_handles_no_single_and_multiple_bodies[3]
+0.00s call     ::test_start_handles_no_single_and_multiple_bodies[1]
+0.00s call     ::test_apply_enabled_reconciles_to_flag
+0.00s call     ::test_on_shutdown_stops_running_server
+0.00s setup    meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd1-args1]
+0.00s call     ::test_start_handles_no_single_and_multiple_bodies[0]
+0.00s call     ::test_make_default_drone_catalog_packs_drone_body
+0.00s call     ::test_data_descriptions_pack_negative_count_encodes_without_validation
+0.00s setup    meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd0-args0]
+0.00s call     ::test_invalid_config_raises_before_authoring
+0.00s call     meta/test_metrics_reporting_contract.py::test_collection_error_report_suppresses_pass_rates
+0.00s call     meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd0-args0]
+0.00s call     ::test_mixed_existing_and_missing
+0.00s setup    meta/test_metrics_reporting_contract.py::test_sim_setup_error_report_is_not_policy_performance
+0.00s setup    meta/test_metrics_reporting_contract.py::test_incomplete_artifact_is_not_simulation_performance
+0.00s call     ::test_missing_target_is_reported
+0.00s setup    meta/test_metrics_reporting_contract.py::test_truncated_junit_is_not_simulation_performance
+0.00s setup    meta/test_metrics_reporting_contract.py::test_real_sim_failure_keeps_metrics_and_pass_rate
+0.00s call     ::test_multiple_entries_same_prim_all_resolve
+0.00s call     ::test_sample_once_noop_without_server
+0.00s call     ::test_apply_pose_noise_preserves_y_position
+0.00s call     ::test_empty_target_is_missing
+0.00s call     meta/test_collection_contract.py::test_cpu_unit_workflow_uses_the_broad_harness_path
+0.00s teardown ::test_near_range_tolerance
+0.00s call     meta/test_metrics_reporting_contract.py::test_sim_setup_error_report_is_not_policy_performance
+0.00s call     meta/test_metrics_reporting_contract.py::test_truncated_junit_is_not_simulation_performance
+0.00s call     ::test_read_world_pose_invalid_prim_is_none
+0.00s call     ::test_canonical_quaternion_positive_w_unchanged
+0.00s call     meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd1-args1]
+0.00s call     meta/test_collection_contract.py::test_automatic_pr_gates_are_fast_and_repeat_on_updates
+0.00s call     ::test_ranges_xyz_from_points_xyz
+0.00s call     ::test_apply_pose_noise_adds_position_jitter
+0.00s call     meta/test_metrics_reporting_contract.py::test_incomplete_artifact_is_not_simulation_performance
+0.00s call     meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd5-args5]
+0.00s call     meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd1-args1]
+0.00s call     ::test_server_init_rejects_invalid_local_interface
+0.00s teardown ::test_server_survives_malformed_burst_then_valid_connect
+0.00s setup    meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd2-args2]
+0.00s teardown ::test_connect_registers_client_for_subsequent_frames
+0.00s teardown ::test_unknown_message_from_registered_client_gets_no_reply
+0.00s call     meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd3-args3]
+0.00s setup    ::test_validate_rejects_bad_server_config[overrides0]
+0.00s teardown ::test_request_modeldef_after_connect_returns_drone_payload
+0.00s teardown ::test_enqueued_frame_arrives_on_data_port
+0.00s teardown ::test_unknown_message_id_from_unregistered_client_gets_no_reply
+0.00s teardown ::test_lie_about_payload_length_in_header_still_handshake_on_connect
+0.00s setup    ::test_start_handles_no_single_and_multiple_bodies[0]
+0.00s call     meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd2-args2]
+0.00s call     meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd3-args3]
+0.00s call     meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd0-args0]
+0.00s call     meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd5-args5]
+0.00s teardown ::test_keepalive_after_connect_gets_no_reply
+0.00s call     meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd4-args4]
+0.00s teardown ::test_request_modeldef_without_connect_gets_no_reply
+0.00s call     meta/test_collection_contract.py::test_pr_head_check_is_finalized_after_metrics
+0.00s call     meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd2-args2]
+0.00s setup    ::test_start_handles_no_single_and_multiple_bodies[1]
+0.00s setup    ::test_request_modeldef_after_connect_returns_drone_payload
+0.00s call     ::test_data_description_pack_rejects_unsupported_type
+0.00s call     meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd4-args4]
+0.00s setup    meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd3-args3]
+0.00s setup    meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd3-args3]
+0.00s setup    meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd6-args6]
+0.00s call     meta/test_collection_contract.py::test_ci_empty_args_do_not_emit_an_empty_positional
+0.00s setup    meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd10-args10]
+0.00s setup    ::test_no_frame_sent_without_connected_client
+0.00s setup    meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd8-args8]
+0.00s setup    ::test_lie_about_payload_length_in_header_still_handshake_on_connect
+0.00s call     meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd6-args6]
+0.00s setup    meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd1-args1]
+0.00s call     ::test_server_init_rejects_identical_command_and_data_ports
+0.00s setup    ::test_truncated_datagram_is_ignored
+0.00s setup    ::test_request_modeldef_without_connect_gets_no_reply
+0.00s setup    ::test_server_survives_malformed_burst_then_valid_connect
+0.00s setup    ::test_keepalive_after_connect_gets_no_reply
+0.00s teardown meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd0-args0]
+0.00s call     meta/test_metrics_reporting_contract.py::test_completed_simulation_failure_is_a_valid_campaign
+0.00s setup    meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd4-args4]
+0.00s setup    ::test_expand_env_uses_default_when_unset
+0.00s setup    ::test_unknown_message_from_registered_client_gets_no_reply
+0.00s setup    meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd5-args5]
+0.00s setup    meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd7-args7]
+0.00s setup    meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd9-args9]
+0.00s setup    meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd4-args4]
+0.00s setup    meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd0-args0]
+0.00s setup    meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd2-args2]
+0.00s setup    ::test_canonical_quaternion_positive_w_unchanged
+0.00s setup    meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd5-args5]
+0.00s call     meta/test_collection_contract.py::test_report_uses_the_revision_that_was_actually_tested
+0.00s setup    ::test_validate_rejects_bad_server_config[overrides1]
+0.00s setup    ::test_start_handles_no_single_and_multiple_bodies[3]
+0.00s setup    ::test_validate_rejects_bad_server_config[overrides4]
+0.00s call     meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd10-args10]
+0.00s call     meta/test_collection_contract.py::test_cross_run_baseline_uses_supported_download_inputs
+0.00s setup    ::test_validate_rejects_bad_server_config[overrides6]
+0.00s call     meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd8-args8]
+0.00s call     meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd7-args7]
+0.00s call     meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd9-args9]
+0.00s setup    ::test_validate_rejects_bad_server_config[overrides2]
+0.00s setup    ::test_validate_rejects_bad_server_config[overrides5]
+0.00s call     ::test_make_rigid_body_data_copies_pose_and_sets_valid_bit
+0.00s setup    ::test_validate_rejects_bad_server_config[overrides7]
+0.00s teardown ::test_author_read_round_trip
+0.00s setup    ::test_validate_rejects_bad_server_config[overrides3]
+0.00s setup    ::test_validate_rejects_bad_server_config[overrides8]
+0.00s call     ::test_validate_filtered_ranges_ok
+0.00s teardown ::test_target_prim_created_after_start_becomes_valid
+0.00s teardown ::test_stop_frees_port_for_restart
+0.00s teardown ::test_streamed_frame_carries_sampled_usd_pose
+0.00s setup    ::test_default_interface_path
+0.00s call     ::test_default_factory_rejects_multicast_without_constructing
+0.00s call     ::test_rigid_body_description_pack_rejects_marker_count_above_max
+0.00s teardown ::test_nat_connect_receives_serverinfo_on_command_port
+0.00s teardown ::test_server_from_config_serves_matching_catalog
+0.00s setup    ::test_expand_env_uses_environment_value
+0.00s call     ::test_duplicate_names_raise
+0.00s call     ::test_canonical_quaternion_negative_w_flipped
+0.00s teardown ::test_moving_prim_updates_streamed_position
+0.00s teardown ::test_single_existing_target
+0.00s teardown meta/test_metrics_reporting_contract.py::test_real_sim_failure_keeps_metrics_and_pass_rate
+0.00s call     ::test_build_node_params_flattens_bodies
+0.00s teardown ::test_no_frame_sent_without_connected_client
+0.00s call     ::test_to_dict_round_trip
+0.00s teardown ::test_no_bodies_resolves_empty
+0.00s teardown ::test_body_added_while_live_is_picked_up_on_resync
+0.00s setup    ::test_start_creates_and_starts_server_once
+0.00s setup    ::test_reauthoring_removes_stale_bodies
+0.00s call     ::test_single_drone_maps_name_id_and_target
+0.00s call     ::test_duplicate_ids_raise
+0.00s call     ::test_validate_rejects_bad_server_config[overrides0]
+0.00s call     ::test_expand_env_uses_default_when_unset
+0.00s teardown ::test_canonical_quaternion_positive_w_unchanged
+0.00s call     ::test_body_from_dict_requires_target_and_name
+0.00s call     ::test_validate_rejects_duplicate_streaming_ids
+0.00s call     ::test_validate_rejects_bad_server_config[overrides1]
+0.00s call     ::test_format_interface_includes_server_params_and_bodies
+0.00s call     ::test_multi_drone_unique_names_and_ids
+0.00s setup    ::test_enqueued_frame_arrives_on_data_port
+0.00s call     meta/test_metrics_reporting_contract.py::test_only_identical_campaigns_are_comparable
+0.00s teardown ::test_author_then_find_locates_the_interface
+0.00s call     meta/test_metrics_reporting_contract.py::test_interrupted_partial_simulation_is_not_comparable
+0.00s call     ::test_packet_header_pack_size_and_endianness
+0.00s call     meta/test_metrics_reporting_contract.py::test_fail_fast_partial_campaign_is_not_comparable
+0.00s setup    ::test_up_axis_z_streams_isaac_pose_as_is
+0.00s call     ::test_default_interface_path
+0.00s call     ::test_from_dict_with_bodies_as_prim_mapping
+0.00s call     meta/test_metrics_reporting_contract.py::test_setup_only_failure_is_not_policy_performance
+0.00s call     ::test_validate_rejects_bad_server_config[overrides6]
+0.00s call     ::test_validate_rejects_bad_server_config[overrides8]
+0.00s call     ::test_expand_env_uses_environment_value
+0.00s call     ::test_validate_rejects_blank_rigid_body_name
+0.00s call     ::test_validate_rejects_bad_server_config[overrides4]
+0.00s call     ::test_validate_rejects_bad_server_config[overrides3]
+0.00s call     ::test_validate_rejects_bad_server_config[overrides7]
+0.00s call     ::test_assign_instance_keys_are_unique
+0.00s call     ::test_validate_rejects_bad_server_config[overrides5]
+0.00s call     ::test_data_description_pack_rejects_negative_type
+0.00s call     ::test_no_drones_yields_empty_catalog
+0.00s setup    ::test_stop_frees_port_for_restart
+0.00s call     ::test_near_range_tolerance
+0.00s call     ::test_ranges_xyz_rejects_nonfinite
+0.00s setup    ::test_streamed_frame_carries_sampled_usd_pose
+0.00s call     ::test_rigid_body_description_pack_zero_markers
+0.00s teardown ::test_start_handles_no_single_and_multiple_bodies[0]
+0.00s call     ::test_from_dict_with_bodies_as_list
+0.00s teardown ::test_up_axis_z_streams_isaac_pose_as_is
+0.00s call     ::test_validate_rejects_bad_server_config[overrides2]
+0.00s call     meta/test_metrics_reporting_contract.py::test_teardown_error_makes_campaign_incomplete
+0.00s call     ::test_pose_noise_survives_round_trip
+0.00s call     ::test_up_axis_survives_round_trip
+0.00s teardown ::test_up_axis_y_reaxes_streamed_pose
+0.00s setup    ::test_connect_registers_client_for_subsequent_frames
+0.00s setup    ::test_sample_once_noop_without_server
+0.00s call     ::test_canonical_quaternion_dual_sign_produces_same_result
+0.00s call     ::test_up_axis_from_dict_normalizes_case
+0.00s setup    meta/test_collection_contract.py::test_injection_actually_produced_items
+0.00s setup    ::test_target_prim_created_after_start_becomes_valid
+0.00s teardown ::test_start_creates_and_starts_server_once
+0.00s setup    ::test_up_axis_y_reaxes_streamed_pose
+0.00s teardown ::test_empty_frame_pack_length_is_stable
+0.00s teardown ::test_default_factory_builds_unicast_server_without_starting
+0.00s call     ::test_canonical_quaternion_zero_w_unchanged
+0.00s call     ::test_labeled_marker_pack_round_trips_every_field
+0.00s teardown meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd1-args1]
+0.00s setup    ::test_missing_target_is_reported
+0.00s call     ::test_validate_filtered_ranges_too_close
+0.00s teardown ::test_connect_response_uses_sender_server_wire_format
+0.00s call     ::test_validate_accepts_good_config
+0.00s call     ::test_format_interface_reports_no_bodies
+0.00s call     ::test_server_params_are_forwarded
+0.00s call     ::test_defaults_match_server_expectations
+0.00s call     ::test_pose_noise_params_are_forwarded
+0.00s setup    ::test_canonical_quaternion_negative_w_flipped
+0.00s setup    ::test_body_added_while_live_is_picked_up_on_resync
+0.00s call     ::test_lost_sample_clears_valid_bit_and_is_nan
+0.00s setup    ::test_no_bodies_resolves_empty
+0.00s setup    ::test_author_read_round_trip
+0.00s teardown ::test_reauthoring_removes_stale_bodies
+0.00s call     ::test_make_instance_key_sanitizes_and_dedupes
+0.00s setup    ::test_defaults_match_server_expectations
+0.00s teardown meta/test_metrics_reporting_contract.py::test_collection_error_report_suppresses_pass_rates
+0.00s teardown ::test_sample_once_no_bodies
+0.00s teardown ::test_expand_env_uses_default_when_unset
+0.00s call     ::test_canonical_quaternion_identity
+0.00s call     ::test_build_node_params_empty_profile
+0.00s teardown ::test_frame_pack_rejects_rigid_body_count_above_max
+0.00s teardown ::test_start_is_idempotent_only_one_server
+0.00s setup    ::test_empty_datagram_is_ignored
+0.00s call     ::test_validate_filtered_ranges_no_long_range
+0.00s call     ::test_rigid_body_description_pack_negative_marker_count_encodes_without_validation
+0.00s call     ::test_canonical_quaternion_w_stays_non_negative
+0.00s teardown ::test_sample_once_streams_world_pose
+0.00s teardown ::test_truncated_datagram_is_ignored
+0.00s call     meta/test_metrics_reporting_contract.py::test_collection_exit_is_not_simulation_performance
+0.00s setup    ::test_single_rigid_body_frame_contains_id_and_params
+0.00s call     ::test_find_duplicate_targets_flags_shared_prim
+0.00s teardown meta/test_metrics_reporting_contract.py::test_sim_setup_error_report_is_not_policy_performance
+0.00s call     ::test_to_motive_pose_z_is_identity
+0.00s setup    ::test_up_axis_authors_and_reads_back
+0.00s setup    ::test_author_then_find_locates_the_interface
+0.00s setup    ::test_single_existing_target
+0.00s setup    ::test_near_range_tolerance
+0.00s call     ::test_default_drone_binding_matches_natnet_ros2_config
+0.00s call     ::test_validate_allows_empty_target
+0.00s call     ::test_packet_header_length_exceeds_max_packetsize
+0.00s setup    ::test_stop_shuts_down_and_is_idempotent
+0.00s call     meta/test_metrics_reporting_contract.py::test_campaign_fingerprint_matches_pytest_and_junit_ids
+0.00s setup    ::test_on_shutdown_stops_running_server
+0.00s setup    ::test_no_drones_yields_empty_catalog
+0.00s teardown ::test_single_rigid_body_frame_contains_id_and_params
+0.00s teardown ::test_read_world_pose_returns_translation
+0.00s setup    ::test_mixed_existing_and_missing
+0.00s setup    ::test_server_description_pack_includes_connection_fields
+0.00s call     ::test_raw_filtered_near_range_ok
+0.00s teardown ::test_up_axis_authors_and_reads_back
+0.00s setup    ::test_sample_once_streams_world_pose
+0.00s setup    ::test_apply_enabled_reconciles_to_flag
+0.00s setup    ::test_sample_once_missing_prim_is_lost
+0.00s setup    ::test_sample_once_no_bodies
+0.00s setup    ::test_start_is_idempotent_only_one_server
+0.00s setup    ::test_invalid_config_raises_before_authoring
+0.00s setup    ::test_empty_target_round_trips
+0.00s setup    ::test_pose_noise_authors_and_reads_back
+0.00s setup    meta/test_metrics_reporting_contract.py::test_completed_simulation_failure_is_a_valid_campaign
+0.00s setup    ::test_packet_header_pack_size_and_endianness
+0.00s call     ::test_find_duplicate_targets_none
+0.00s setup    ::test_default_factory_rejects_multicast_without_constructing
+0.00s teardown ::test_stop_shuts_down_and_is_idempotent
+0.00s setup    ::test_read_world_pose_invalid_prim_is_none
+0.00s setup    ::test_server_init_rejects_invalid_local_interface
+0.00s call     ::test_rigid_body_description_pack_empty_name
+0.00s teardown ::test_sample_once_missing_prim_is_lost
+0.00s setup    ::test_nat_connect_receives_serverinfo_on_command_port
+0.00s call     ::test_canonical_quaternion_returns_same_object
+0.00s teardown ::test_single_body_field_fidelity
+0.00s teardown ::test_pose_noise_authors_and_reads_back
+0.00s teardown ::test_vision_pose_converter_default_topics
+0.00s teardown ::test_expand_env_uses_environment_value
+0.00s setup    ::test_apply_pose_noise_preserves_y_position
+0.00s call     ::test_find_duplicate_targets_ignores_empty_targets
+0.00s setup    ::test_from_dict_with_bodies_as_prim_mapping
+0.00s teardown ::test_start_handles_no_single_and_multiple_bodies[1]
+0.00s setup    ::test_vision_pose_converter_topic_overrides_applied
+0.00s call     ::test_to_motive_pose_y_swaps_axes_and_quat
+0.00s teardown meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd10-args10]
+0.00s setup    ::test_moving_prim_updates_streamed_position
+0.00s teardown ::test_no_bodies_packs_empty_catalog
+0.00s setup    ::test_single_body_field_fidelity
+0.00s setup    ::test_frame_pack_rejects_rigid_body_count_above_max
+0.00s setup    ::test_frame_with_labeled_markers_packs_each_marker
+0.00s setup    ::test_server_init_rejects_identical_command_and_data_ports
+0.00s setup    ::test_default_drone_binding_matches_natnet_ros2_config
+0.00s teardown ::test_server_description_pack_includes_connection_fields
+0.00s teardown ::test_validate_rejects_bad_server_config[overrides3]
+0.00s teardown ::test_multiple_entries_same_prim_all_resolve
+0.00s call     ::test_default_tracked_body_bindings_contains_drone_only
+0.00s setup    ::test_make_default_drone_catalog_packs_drone_body
+0.00s teardown meta/test_metrics_reporting_contract.py::test_truncated_junit_is_not_simulation_performance
+0.00s setup    ::test_apply_pose_noise_adds_position_jitter
+0.00s teardown meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd3-args3]
+0.00s teardown ::test_empty_target_is_missing
+0.00s setup    ::test_canonical_quaternion_w_stays_non_negative
+0.00s teardown ::test_frame_pack_negative_collection_counts_encode_without_validation
+0.00s teardown meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd9-args9]
+0.00s setup    ::test_empty_target_is_missing
+0.00s setup    ::test_find_duplicate_targets_flags_shared_prim
+0.00s teardown ::test_data_descriptions_pack_multiple_rigid_bodies
+0.00s setup    ::test_toggle_starts_then_stops
+0.00s teardown ::test_sample_once_noop_without_server
+0.00s setup    ::test_validate_rejects_duplicate_streaming_ids
+0.00s setup    ::test_to_motive_pose_z_is_identity
+0.00s setup    ::test_validate_filtered_ranges_ok
+0.00s teardown meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd3-args3]
+0.00s teardown meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd7-args7]
+0.00s call     ::test_namespaced_strips_and_prefixes
+0.00s teardown ::test_data_descriptions_pack_single_rigid_body
+0.00s setup    ::test_frame_pack_negative_collection_counts_encode_without_validation
+0.00s teardown ::test_empty_target_round_trips
+0.00s setup    ::test_format_interface_includes_server_params_and_bodies
+0.00s setup    ::test_set_model_def_from_descriptions_packs_once
+0.00s setup    ::test_raw_filtered_near_range_ok
+0.00s call     ::test_body_attr_name_builder
+0.00s setup    ::test_build_frame_no_bodies
+0.00s setup    ::test_build_node_params_flattens_bodies
+0.00s teardown ::test_frame_with_labeled_markers_packs_each_marker
+0.00s setup    ::test_validate_accepts_good_config
+0.00s setup    ::test_data_descriptions_pack_rejects_count_above_max
+0.00s teardown ::test_start_handles_no_single_and_multiple_bodies[3]
+0.00s teardown meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd5-args5]
+0.00s setup    ::test_unknown_message_id_from_unregistered_client_gets_no_reply
+0.00s teardown meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd5-args5]
+0.00s teardown meta/test_metrics_reporting_contract.py::test_incomplete_artifact_is_not_simulation_performance
+0.00s setup    ::test_single_drone_maps_name_id_and_target
+0.00s setup    ::test_server_from_config_serves_matching_catalog
+0.00s teardown ::test_validate_rejects_bad_server_config[overrides0]
+0.00s teardown ::test_apply_pose_noise_zero_std_is_identity
+0.00s teardown meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd2-args2]
+0.00s teardown ::test_build_frame_no_bodies
+0.00s teardown ::test_validate_rejects_bad_server_config[overrides1]
+0.00s call     ::test_to_motive_pose_y_maps_isaac_up_to_motive_up
+0.00s teardown meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd1-args1]
+0.00s setup    ::test_no_bodies_packs_empty_catalog
+0.00s setup    ::test_connect_response_uses_sender_server_wire_format
+0.00s setup    ::test_model_list_changed_sets_frame_param_bit
+0.00s teardown meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd2-args2]
+0.00s teardown ::test_validate_rejects_bad_server_config[overrides6]
+0.00s teardown meta/test_collection_contract.py::test_injection_actually_produced_items
+0.00s setup    ::test_multiple_entries_same_prim_all_resolve
+0.00s setup    ::test_data_description_pack_rejects_unsupported_type
+0.00s setup    ::test_data_descriptions_pack_empty
+0.00s setup    ::test_ranges_xyz_from_points_xyz
+0.00s setup    ::test_too_many_bodies_raises
+0.00s setup    ::test_read_world_pose_returns_translation
+0.00s teardown meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd6-args6]
+0.00s setup    ::test_canonical_quaternion_zero_w_unchanged
+0.00s teardown meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd4-args4]
+0.00s setup    ::test_labeled_marker_pack_round_trips_every_field
+0.00s teardown meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd8-args8]
+0.00s setup    ::test_data_descriptions_pack_negative_count_encodes_without_validation
+0.00s setup    ::test_apply_pose_noise_zero_std_is_identity
+0.00s setup    ::test_up_axis_from_dict_normalizes_case
+0.00s setup    ::test_server_init_loads_default_drone_modeldef_payload
+0.00s teardown meta/test_collection_contract.py::test_narrowed_invocations_do_not[cwd0-args0]
+0.00s teardown ::test_multiple_bodies_preserve_order_and_fields
+0.00s setup    ::test_rigid_body_description_pack_negative_marker_count_encodes_without_validation
+0.00s setup    ::test_server_params_are_forwarded
+0.00s teardown ::test_defaults_match_server_expectations
+0.00s setup    ::test_multi_drone_unique_names_and_ids
+0.00s setup    ::test_body_attr_name_builder
+0.00s setup    ::test_duplicate_ids_raise
+0.00s setup    ::test_long_name_is_truncated_not_rejected
+0.00s teardown ::test_validate_rejects_bad_server_config[overrides4]
+0.00s setup    ::test_multiple_bodies_preserve_order_and_fields
+0.00s setup    ::test_frame_packs_and_rigid_body_section_decodes
+0.00s setup    ::test_make_rigid_body_data_copies_pose_and_sets_valid_bit
+0.00s teardown meta/test_collection_contract.py::test_broad_invocations_collect_unit_tests[cwd4-args4]
+0.00s setup    ::test_build_frame_multiple_bodies_preserve_order
+0.00s setup    ::test_packet_header_length_exceeds_max_packetsize
+0.00s setup    ::test_pose_noise_params_are_forwarded
+0.00s setup    ::test_rigid_body_description_pack_zero_markers
+0.00s teardown ::test_validate_rejects_bad_server_config[overrides2]
+0.00s setup    ::test_pose_noise_survives_round_trip
+0.00s teardown ::test_frame_packs_and_rigid_body_section_decodes
+0.00s teardown ::test_on_shutdown_stops_running_server
+0.00s setup    ::test_validate_filtered_ranges_too_close
+0.00s teardown ::test_set_model_def_from_descriptions_packs_once
+0.00s setup    meta/test_collection_contract.py::test_ci_empty_args_do_not_emit_an_empty_positional
+0.00s teardown ::test_data_descriptions_pack_empty
+0.00s teardown ::test_missing_target_is_reported
+0.00s teardown ::test_validate_rejects_bad_server_config[overrides5]
+0.00s teardown ::test_canonical_quaternion_negative_w_flipped
+0.00s setup    ::test_ranges_xyz_rejects_nonfinite
+0.00s setup    ::test_canonical_quaternion_dual_sign_produces_same_result
+0.00s teardown ::test_validate_rejects_bad_server_config[overrides8]
+0.00s teardown ::test_validate_rejects_bad_server_config[overrides7]
+0.00s teardown ::test_apply_pose_noise_preserves_y_position
+0.00s setup    ::test_duplicate_names_raise
+0.00s setup    ::test_validate_rejects_blank_rigid_body_name
+0.00s teardown ::test_empty_datagram_is_ignored
+0.00s teardown ::test_vision_pose_converter_topic_overrides_applied
+0.00s teardown ::test_mixed_existing_and_missing
+0.00s setup    ::test_format_interface_reports_no_bodies
+0.00s setup    ::test_to_dict_round_trip
+0.00s setup    ::test_find_duplicate_targets_none
+0.00s setup    ::test_canonical_quaternion_identity
+0.00s setup    ::test_build_node_params_empty_profile
+0.00s teardown ::test_build_frame_multiple_bodies_preserve_order
+0.00s setup    ::test_make_instance_key_sanitizes_and_dedupes
+0.00s setup    ::test_to_motive_pose_y_maps_isaac_up_to_motive_up
+0.00s teardown ::test_invalid_config_raises_before_authoring
+0.00s setup    ::test_default_factory_builds_unicast_server_without_starting
+0.00s teardown ::test_model_list_changed_sets_frame_param_bit
+0.00s setup    ::test_from_dict_with_bodies_as_list
+0.00s teardown ::test_read_world_pose_invalid_prim_is_none
+0.00s setup    ::test_up_axis_survives_round_trip
+0.00s setup    ::test_default_tracked_body_bindings_contains_drone_only
+0.00s teardown ::test_raw_filtered_near_range_ok
+0.00s setup    ::test_data_descriptions_pack_multiple_rigid_bodies
+0.00s setup    meta/test_collection_contract.py::test_report_uses_the_revision_that_was_actually_tested
+0.00s setup    ::test_empty_frame_pack_length_is_stable
+0.00s setup    meta/test_metrics_reporting_contract.py::test_collection_exit_is_not_simulation_performance
+0.00s setup    ::test_rigid_body_description_pack_empty_name
+0.00s setup    ::test_set_model_def_payload_replaces_cache
+0.00s teardown ::test_long_name_is_truncated_not_rejected
+0.00s setup    ::test_lost_sample_clears_valid_bit_and_is_nan
+0.00s setup    ::test_to_motive_pose_y_swaps_axes_and_quat
+0.00s setup    meta/test_metrics_reporting_contract.py::test_campaign_fingerprint_matches_pytest_and_junit_ids
+0.00s setup    meta/test_collection_contract.py::test_pr_head_check_is_finalized_after_metrics
+0.00s setup    ::test_canonical_quaternion_returns_same_object
+0.00s setup    ::test_namespaced_strips_and_prefixes
+0.00s teardown ::test_data_descriptions_pack_rejects_count_above_max
+0.00s setup    ::test_find_duplicate_targets_ignores_empty_targets
+0.00s teardown ::test_multi_drone_unique_names_and_ids
+0.00s setup    ::test_data_description_pack_rejects_negative_type
+0.00s setup    ::test_validate_allows_empty_target
+0.00s teardown ::test_server_init_loads_default_drone_modeldef_payload
+0.00s setup    ::test_rigid_body_description_pack_rejects_marker_count_above_max
+0.00s setup    meta/test_collection_contract.py::test_automatic_pr_gates_are_fast_and_repeat_on_updates
+0.00s setup    ::test_assign_instance_keys_are_unique
+0.00s setup    meta/test_collection_contract.py::test_cpu_unit_workflow_uses_the_broad_harness_path
+0.00s setup    meta/test_metrics_reporting_contract.py::test_fail_fast_partial_campaign_is_not_comparable
+0.00s teardown meta/test_collection_contract.py::test_ci_invocation_is_broad
+0.00s teardown ::test_toggle_starts_then_stops
+0.00s setup    ::test_body_from_dict_requires_target_and_name
+0.00s setup    ::test_data_descriptions_pack_single_rigid_body
+0.00s teardown ::test_make_default_drone_catalog_packs_drone_body
+0.00s setup    ::test_vision_pose_converter_default_topics
+0.00s setup    ::test_validate_filtered_ranges_no_long_range
+0.00s teardown ::test_body_from_dict_requires_target_and_name
+0.00s teardown ::test_ranges_xyz_from_points_xyz
+0.00s teardown ::test_default_interface_path
+0.00s teardown ::test_duplicate_names_raise
+0.00s teardown ::test_server_init_rejects_identical_command_and_data_ports
+0.00s teardown ::test_data_descriptions_pack_negative_count_encodes_without_validation
+0.00s teardown ::test_no_drones_yields_empty_catalog
+0.00s teardown ::test_apply_pose_noise_adds_position_jitter
+0.00s teardown meta/test_metrics_reporting_contract.py::test_only_identical_campaigns_are_comparable
+0.00s teardown ::test_apply_enabled_reconciles_to_flag
+0.00s teardown ::test_up_axis_survives_round_trip
+0.00s teardown ::test_canonical_quaternion_zero_w_unchanged
+0.00s setup    meta/test_collection_contract.py::test_ci_invocation_is_broad
+0.00s teardown ::test_assign_instance_keys_are_unique
+0.00s teardown ::test_validate_filtered_ranges_ok
+0.00s teardown meta/test_collection_contract.py::test_cpu_unit_workflow_uses_the_broad_harness_path
+0.00s teardown ::test_packet_header_pack_size_and_endianness
+0.00s setup    meta/test_collection_contract.py::test_cross_run_baseline_uses_supported_download_inputs
+0.00s setup    meta/test_metrics_reporting_contract.py::test_teardown_error_makes_campaign_incomplete
+0.00s teardown ::test_set_model_def_payload_replaces_cache
+0.00s teardown ::test_rigid_body_description_pack_rejects_marker_count_above_max
+0.00s setup    meta/test_metrics_reporting_contract.py::test_interrupted_partial_simulation_is_not_comparable
+0.00s teardown ::test_format_interface_includes_server_params_and_bodies
+0.00s teardown ::test_default_drone_binding_matches_natnet_ros2_config
+0.00s teardown ::test_single_drone_maps_name_id_and_target
+0.00s teardown ::test_server_init_rejects_invalid_local_interface
+0.00s teardown ::test_validate_accepts_good_config
+0.00s teardown meta/test_metrics_reporting_contract.py::test_setup_only_failure_is_not_policy_performance
+0.00s teardown ::test_from_dict_with_bodies_as_prim_mapping
+0.00s teardown ::test_default_factory_rejects_multicast_without_constructing
+0.00s teardown ::test_too_many_bodies_raises
+0.00s teardown ::test_canonical_quaternion_w_stays_non_negative
+0.00s teardown ::test_build_node_params_empty_profile
+0.00s teardown ::test_validate_rejects_duplicate_streaming_ids
+0.00s teardown ::test_build_node_params_flattens_bodies
+0.00s setup    meta/test_metrics_reporting_contract.py::test_setup_only_failure_is_not_policy_performance
+0.00s teardown meta/test_metrics_reporting_contract.py::test_completed_simulation_failure_is_a_valid_campaign
+0.00s teardown ::test_server_params_are_forwarded
+0.00s teardown ::test_ranges_xyz_rejects_nonfinite
+0.00s teardown ::test_data_description_pack_rejects_unsupported_type
+0.00s teardown ::test_rigid_body_description_pack_zero_markers
+0.00s setup    meta/test_metrics_reporting_contract.py::test_only_identical_campaigns_are_comparable
+0.00s teardown ::test_format_interface_reports_no_bodies
+0.00s teardown ::test_to_motive_pose_z_is_identity
+0.00s teardown ::test_to_motive_pose_y_maps_isaac_up_to_motive_up
+0.00s teardown ::test_duplicate_ids_raise
+0.00s teardown ::test_find_duplicate_targets_flags_shared_prim
+0.00s teardown ::test_rigid_body_description_pack_empty_name
+0.00s teardown ::test_pose_noise_survives_round_trip
+0.00s teardown ::test_canonical_quaternion_identity
+0.00s teardown ::test_pose_noise_params_are_forwarded
+0.00s teardown ::test_up_axis_from_dict_normalizes_case
+0.00s teardown ::test_make_rigid_body_data_copies_pose_and_sets_valid_bit
+0.00s teardown ::test_validate_allows_empty_target
+0.00s teardown ::test_packet_header_length_exceeds_max_packetsize
+0.00s teardown ::test_data_description_pack_rejects_negative_type
+0.00s teardown ::test_find_duplicate_targets_ignores_empty_targets
+0.00s teardown ::test_canonical_quaternion_dual_sign_produces_same_result
+0.00s teardown meta/test_collection_contract.py::test_ci_empty_args_do_not_emit_an_empty_positional
+0.00s teardown ::test_canonical_quaternion_returns_same_object
+0.00s teardown meta/test_collection_contract.py::test_automatic_pr_gates_are_fast_and_repeat_on_updates
+0.00s teardown ::test_validate_filtered_ranges_too_close
+0.00s teardown ::test_rigid_body_description_pack_negative_marker_count_encodes_without_validation
+0.00s teardown ::test_make_instance_key_sanitizes_and_dedupes
+0.00s teardown ::test_to_dict_round_trip
+0.00s teardown ::test_default_tracked_body_bindings_contains_drone_only
+0.00s teardown ::test_body_attr_name_builder
+0.00s teardown ::test_labeled_marker_pack_round_trips_every_field
+0.00s teardown ::test_validate_filtered_ranges_no_long_range
+0.00s teardown ::test_find_duplicate_targets_none
+0.00s teardown ::test_lost_sample_clears_valid_bit_and_is_nan
+0.00s teardown ::test_from_dict_with_bodies_as_list
+0.00s teardown ::test_to_motive_pose_y_swaps_axes_and_quat
+0.00s teardown ::test_validate_rejects_blank_rigid_body_name
+0.00s teardown ::test_namespaced_strips_and_prefixes
+0.00s teardown meta/test_metrics_reporting_contract.py::test_collection_exit_is_not_simulation_performance
+0.00s teardown meta/test_collection_contract.py::test_cross_run_baseline_uses_supported_download_inputs
+0.00s teardown meta/test_collection_contract.py::test_pr_head_check_is_finalized_after_metrics
+0.00s teardown meta/test_collection_contract.py::test_report_uses_the_revision_that_was_actually_tested
+0.00s teardown meta/test_metrics_reporting_contract.py::test_fail_fast_partial_campaign_is_not_comparable
+0.00s teardown meta/test_metrics_reporting_contract.py::test_campaign_fingerprint_matches_pytest_and_junit_ids
+0.00s teardown meta/test_metrics_reporting_contract.py::test_interrupted_partial_simulation_is_not_comparable
+0.00s teardown meta/test_metrics_reporting_contract.py::test_teardown_error_makes_campaign_incomplete
+===================== 193 passed, 97 deselected in 19.66s ======================
+EXIT_UNIT=0
+=== 2/3 liveliness or sensors (isaacsim) ===
+access control disabled, clients can connect from any host
+ Image airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_tests Building 
+ Image airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_tests Built 
+ Container docker-test-run-c2aaea982286 Creating 
+ Container docker-test-run-c2aaea982286 Created 
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/bin/python3.12
+cachedir: /tmp/.pytest_cache
+rootdir: /home/andrew/Development/AirStack/tests
+configfile: pytest.ini
+testpaths: .
+plugins: dependency-0.6.1, timeout-2.4.0
+collecting ... collected 250 items / 234 deselected / 16 selected
+
+system/test_liveliness.py::TestLiveliness::test_robot_containers_running[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+[08:12:42] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+[08:12:42] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+[08:12:42] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+ERROR                                                                    [  6%]
+system/test_liveliness.py::TestLiveliness::test_sim_container_running[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_sim_container_running[isaacsim-rob#1-iter0] because it depends on containers
+SKIPPED (test_sim_container_running[isaacsim-rob#1-iter0] depends on
+containers)                                                              [ 12%]
+system/test_liveliness.py::TestLiveliness::test_gcs_container_running[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_gcs_container_running[isaacsim-rob#1-iter0] because it depends on containers
+SKIPPED (test_gcs_container_running[isaacsim-rob#1-iter0] depends on
+containers)                                                              [ 18%]
+system/test_liveliness.py::TestLiveliness::test_sim_ready_time[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_sim_ready_time[isaacsim-rob#1-iter0] because it depends on sim_container
+SKIPPED (test_sim_ready_time[isaacsim-rob#1-iter0] depends on
+sim_container)                                                           [ 25%]
+system/test_liveliness.py::TestLiveliness::test_tmux_panes_have_expected_processes[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_tmux_panes_have_expected_processes[isaacsim-rob#1-iter0] because it depends on containers
+SKIPPED (test_tmux_panes_have_expected_processes[isaacsim-rob#1-iter0]
+depends on containers)                                                   [ 31%]
+system/test_liveliness.py::TestLiveliness::test_compute_usage[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_compute_usage[isaacsim-rob#1-iter0] because it depends on sim_ready
+SKIPPED (test_compute_usage[isaacsim-rob#1-iter0] depends on sim_ready)  [ 37%]
+system/test_liveliness.py::TestLiveliness::test_sentinel_nodes_present[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_sentinel_nodes_present[isaacsim-rob#1-iter0] because it depends on containers
+SKIPPED (test_sentinel_nodes_present[isaacsim-rob#1-iter0] depends on
+containers)                                                              [ 43%]
+system/test_liveliness.py::TestLiveliness::test_stable[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_stable[isaacsim-rob#1-iter0] because it depends on sim_ready
+SKIPPED (test_stable[isaacsim-rob#1-iter0] depends on sim_ready)         [ 50%]
+system/test_sensors.py::TestSensors::test_sim_clock_available[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+[08:12:42] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+[08:12:42] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+[08:12:42] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+ERROR                                                                    [ 56%]
+system/test_sensors.py::TestSensors::test_sentinel_nodes_present[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_sentinel_nodes_present[isaacsim-rob#1-iter0] because it depends on sensors_sim_ready
+SKIPPED (test_sentinel_nodes_present[isaacsim-rob#1-iter0] depends on
+sensors_sim_ready)                                                       [ 62%]
+system/test_sensors.py::TestSensors::test_sim_topic_publish_rates[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_sim_topic_publish_rates[isaacsim-rob#1-iter0] because it depends on sensors_sim_ready
+SKIPPED (test_sim_topic_publish_rates[isaacsim-rob#1-iter0] depends on
+sensors_sim_ready)                                                       [ 68%]
+system/test_sensors.py::TestSensors::test_robot_stereo_bridge_rates[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_robot_stereo_bridge_rates[isaacsim-rob#1-iter0] because it depends on sensors_sim_hz
+SKIPPED (test_robot_stereo_bridge_rates[isaacsim-rob#1-iter0] depends on
+sensors_sim_hz)                                                          [ 75%]
+system/test_sensors.py::TestSensors::test_robot_filtered_lidar_stream[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_robot_filtered_lidar_stream[isaacsim-rob#1-iter0] because it depends on sensors_robot_stereo
+SKIPPED (test_robot_filtered_lidar_stream[isaacsim-rob#1-iter0] depends
+on sensors_robot_stereo)                                                 [ 81%]
+system/test_sensors.py::TestSensors::test_sim_clock_realtime_factor[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_sim_clock_realtime_factor[isaacsim-rob#1-iter0] because it depends on sensors_sim_ready
+SKIPPED (test_sim_clock_realtime_factor[isaacsim-rob#1-iter0] depends on
+sensors_sim_ready)                                                       [ 87%]
+system/test_sensors.py::TestSensors::test_lidar_filtered_cloud_sanity[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_lidar_filtered_cloud_sanity[isaacsim-rob#1-iter0] because it depends on sensors_robot_lidar
+SKIPPED (test_lidar_filtered_cloud_sanity[isaacsim-rob#1-iter0] depends
+on sensors_robot_lidar)                                                  [ 93%]
+system/test_sensors.py::TestSensors::test_sensor_streams_stable[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:42] INFO skip test_sensor_streams_stable[isaacsim-rob#1-iter0] because it depends on sensors_sim_hz
+SKIPPED (test_sensor_streams_stable[isaacsim-rob#1-iter0] depends on
+sensors_sim_hz)                                                          [100%]---------------------------- live log sessionfinish ----------------------------
+[08:12:42] INFO Wrote run metadata to /home/andrew/Development/AirStack/tests/results/2026-08-20_08-12-41/run_meta.json
+[08:12:42] INFO Wrote run summary to /home/andrew/Development/AirStack/tests/results/2026-08-20_08-12-41/summary.txt
+
+
+==================================== ERRORS ====================================
+_ ERROR at setup of TestLiveliness.test_robot_containers_running[isaacsim-rob#1-iter0] _
+
+request = <SubRequest 'airstack_env' for <Function test_robot_containers_running[isaacsim-rob#1-iter0]>>
+
+    @pytest.fixture
+    def airstack_env(request):
+        """Parametrized fixture: runs `airstack up`, yields env dict, tears down.
+    
+        Parametrized by `pytest_generate_tests` over (sim, num_robots, iteration)
+        tuples derived from CLI flags.
+    
+        Deliberately does NOT wait for containers or ROS2 nodes to be ready — tests
+        own their wait loops + timeout metrics so failures attribute to the right layer.
+        """
+        sim, num_robots, iteration = request.param
+        cfg = SIM_CONFIG[sim]
+        # Route fixture narration to a file whose name tracks the post-rewrite
+        # test id (see pytest_collection_modifyitems), so airstack up/down output
+        # lands next to the triggering test's own log instead of under pytest's
+        # stale callspec.id.
+        log = f"airstack_env.{_nodeid_dotted(harness_session.current_item().nodeid, with_path_sep=True)}"
+    
+        headless = not request.config.getoption("--gui")
+        env_overrides = {
+            "AUTOLAUNCH": "true",
+            "NUM_ROBOTS": str(num_robots),
+            "COMPOSE_PROFILES": f"desktop,{cfg['profile']}",
+            "MS_AIRSIM_HEADLESS": "true" if headless else "false",
+            "ISAAC_SIM_HEADLESS": "true" if headless else "false",
+        }
+        if headless:
+            # Forces rviz/Qt apps to render offscreen instead of spawning windows.
+            env_overrides["QT_QPA_PLATFORM"] = "offscreen"
+        env_overrides.update(cfg.get("extra_env", {}))
+    
+        with logger_to(log):
+            missing = missing_images(env=env_overrides)
+            if missing:
+>               pytest.fail(
+                    "Required docker images not built locally:\n  - "
+                    + "\n  - ".join(missing)
+                    + "\nBuild them first, e.g. `airstack test -m build_docker` "
+                      "or `airstack image-build <service>`."
+                )
+E               Failed: Required docker images not built locally:
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev
+E               Build them first, e.g. `airstack test -m build_docker` or `airstack image-build <service>`.
+
+conftest.py:226: Failed
+------------------------------ Captured log setup ------------------------------
+INFO     airstack:commands.py:49 $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+_ ERROR at setup of TestSensors.test_sim_clock_available[isaacsim-rob#1-iter0] _
+
+request = <SubRequest 'airstack_env' for <Function test_sim_clock_available[isaacsim-rob#1-iter0]>>
+
+    @pytest.fixture
+    def airstack_env(request):
+        """Parametrized fixture: runs `airstack up`, yields env dict, tears down.
+    
+        Parametrized by `pytest_generate_tests` over (sim, num_robots, iteration)
+        tuples derived from CLI flags.
+    
+        Deliberately does NOT wait for containers or ROS2 nodes to be ready — tests
+        own their wait loops + timeout metrics so failures attribute to the right layer.
+        """
+        sim, num_robots, iteration = request.param
+        cfg = SIM_CONFIG[sim]
+        # Route fixture narration to a file whose name tracks the post-rewrite
+        # test id (see pytest_collection_modifyitems), so airstack up/down output
+        # lands next to the triggering test's own log instead of under pytest's
+        # stale callspec.id.
+        log = f"airstack_env.{_nodeid_dotted(harness_session.current_item().nodeid, with_path_sep=True)}"
+    
+        headless = not request.config.getoption("--gui")
+        env_overrides = {
+            "AUTOLAUNCH": "true",
+            "NUM_ROBOTS": str(num_robots),
+            "COMPOSE_PROFILES": f"desktop,{cfg['profile']}",
+            "MS_AIRSIM_HEADLESS": "true" if headless else "false",
+            "ISAAC_SIM_HEADLESS": "true" if headless else "false",
+        }
+        if headless:
+            # Forces rviz/Qt apps to render offscreen instead of spawning windows.
+            env_overrides["QT_QPA_PLATFORM"] = "offscreen"
+        env_overrides.update(cfg.get("extra_env", {}))
+    
+        with logger_to(log):
+            missing = missing_images(env=env_overrides)
+            if missing:
+>               pytest.fail(
+                    "Required docker images not built locally:\n  - "
+                    + "\n  - ".join(missing)
+                    + "\nBuild them first, e.g. `airstack test -m build_docker` "
+                      "or `airstack image-build <service>`."
+                )
+E               Failed: Required docker images not built locally:
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim
+E               Build them first, e.g. `airstack test -m build_docker` or `airstack image-build <service>`.
+
+conftest.py:226: Failed
+------------------------------ Captured log setup ------------------------------
+INFO     airstack:commands.py:49 $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+- generated xml file: /home/andrew/Development/AirStack/tests/results/2026-08-20_08-12-41/results.xml -
+============================== slowest durations ===============================
+0.10s setup    system/test_sensors.py::TestSensors::test_sim_clock_available[isaacsim-rob#1-iter0]
+0.10s setup    system/test_liveliness.py::TestLiveliness::test_robot_containers_running[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_sim_container_running[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_sentinel_nodes_present[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_robot_containers_running[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_gcs_container_running[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_compute_usage[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_robot_stereo_bridge_rates[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_sim_ready_time[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_sim_topic_publish_rates[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_tmux_panes_have_expected_processes[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_sensor_streams_stable[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_robot_filtered_lidar_stream[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_lidar_filtered_cloud_sanity[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_sentinel_nodes_present[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_stable[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_sim_clock_realtime_factor[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_sim_clock_available[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_stable[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_sensor_streams_stable[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_sim_container_running[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_gcs_container_running[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_robot_stereo_bridge_rates[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_sim_topic_publish_rates[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_sentinel_nodes_present[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_lidar_filtered_cloud_sanity[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_compute_usage[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_sim_ready_time[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_sentinel_nodes_present[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_robot_filtered_lidar_stream[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_tmux_panes_have_expected_processes[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_sim_clock_realtime_factor[isaacsim-rob#1-iter0]
+=========================== short test summary info ============================
+ERROR system/test_liveliness.py::TestLiveliness::test_robot_containers_running[isaacsim-rob#1-iter0] - Failed: Required docker images not built locally:
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev
+Build them first, e.g. `airstack test -m build_docker` or `airstack image-build <service>`.
+ERROR system/test_sensors.py::TestSensors::test_sim_clock_available[isaacsim-rob#1-iter0] - Failed: Required docker images not built locally:
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim
+Build them first, e.g. `airstack test -m build_docker` or `airstack image-build <service>`.
+================ 14 skipped, 234 deselected, 2 errors in 0.92s =================
+
+EXIT_LIVSEN=1
+=== 3/3 takeoff_hover_land (isaacsim) ===
+access control disabled, clients can connect from any host
+ Image airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_tests Building 
+ Image airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_tests Built 
+ Container docker-test-run-a78434e5c8d4 Creating 
+ Container docker-test-run-a78434e5c8d4 Created 
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/bin/python3.12
+cachedir: /tmp/.pytest_cache
+rootdir: /home/andrew/Development/AirStack/tests
+configfile: pytest.ini
+testpaths: .
+plugins: dependency-0.6.1, timeout-2.4.0
+collecting ... collected 290 items / 282 deselected / 8 selected
+
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#1-v1.0-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:44] INFO $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+[08:12:44] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+[08:12:44] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+[08:12:44] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+ERROR                                                                    [ 12%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#1-v1.0-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:44] INFO skip test_takeoff[isaacsim-rob#1-v1.0-iter0] because it depends on autonomy_ready
+SKIPPED (test_takeoff[isaacsim-rob#1-v1.0-iter0] depends on
+autonomy_ready)                                                          [ 25%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#1-v1.0-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:44] INFO skip test_hover[isaacsim-rob#1-v1.0-iter0] because it depends on autonomy_takeoff
+SKIPPED (test_hover[isaacsim-rob#1-v1.0-iter0] depends on
+autonomy_takeoff)                                                        [ 37%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#1-v1.0-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:44] INFO skip test_landing[isaacsim-rob#1-v1.0-iter0] because it depends on autonomy_takeoff
+SKIPPED (test_landing[isaacsim-rob#1-v1.0-iter0] depends on
+autonomy_takeoff)                                                        [ 50%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#3-v1.0-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:44] INFO $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+[08:12:44] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+[08:12:44] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+[08:12:44] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+ERROR                                                                    [ 62%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#3-v1.0-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:44] INFO skip test_takeoff[isaacsim-rob#3-v1.0-iter0] because it depends on autonomy_ready
+SKIPPED (test_takeoff[isaacsim-rob#3-v1.0-iter0] depends on
+autonomy_ready)                                                          [ 75%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#3-v1.0-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:44] INFO skip test_hover[isaacsim-rob#3-v1.0-iter0] because it depends on autonomy_takeoff
+SKIPPED (test_hover[isaacsim-rob#3-v1.0-iter0] depends on
+autonomy_takeoff)                                                        [ 87%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#3-v1.0-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:12:44] INFO skip test_landing[isaacsim-rob#3-v1.0-iter0] because it depends on autonomy_takeoff
+SKIPPED (test_landing[isaacsim-rob#3-v1.0-iter0] depends on
+autonomy_takeoff)                                                        [100%]---------------------------- live log sessionfinish ----------------------------
+[08:12:44] INFO Wrote run metadata to /home/andrew/Development/AirStack/tests/results/2026-08-20_08-12-43/run_meta.json
+[08:12:44] INFO Wrote run summary to /home/andrew/Development/AirStack/tests/results/2026-08-20_08-12-43/summary.txt
+
+
+==================================== ERRORS ====================================
+_ ERROR at setup of TestTakeoffHoverLand.test_px4_ready[isaacsim-rob#1-v1.0-iter0] _
+
+request = <SubRequest 'airstack_env' for <Function test_px4_ready[isaacsim-rob#1-v1.0-iter0]>>
+
+    @pytest.fixture
+    def airstack_env(request):
+        """Parametrized fixture: runs `airstack up`, yields env dict, tears down.
+    
+        Parametrized by `pytest_generate_tests` over (sim, num_robots, iteration)
+        tuples derived from CLI flags.
+    
+        Deliberately does NOT wait for containers or ROS2 nodes to be ready — tests
+        own their wait loops + timeout metrics so failures attribute to the right layer.
+        """
+        sim, num_robots, iteration = request.param
+        cfg = SIM_CONFIG[sim]
+        # Route fixture narration to a file whose name tracks the post-rewrite
+        # test id (see pytest_collection_modifyitems), so airstack up/down output
+        # lands next to the triggering test's own log instead of under pytest's
+        # stale callspec.id.
+        log = f"airstack_env.{_nodeid_dotted(harness_session.current_item().nodeid, with_path_sep=True)}"
+    
+        headless = not request.config.getoption("--gui")
+        env_overrides = {
+            "AUTOLAUNCH": "true",
+            "NUM_ROBOTS": str(num_robots),
+            "COMPOSE_PROFILES": f"desktop,{cfg['profile']}",
+            "MS_AIRSIM_HEADLESS": "true" if headless else "false",
+            "ISAAC_SIM_HEADLESS": "true" if headless else "false",
+        }
+        if headless:
+            # Forces rviz/Qt apps to render offscreen instead of spawning windows.
+            env_overrides["QT_QPA_PLATFORM"] = "offscreen"
+        env_overrides.update(cfg.get("extra_env", {}))
+    
+        with logger_to(log):
+            missing = missing_images(env=env_overrides)
+            if missing:
+>               pytest.fail(
+                    "Required docker images not built locally:\n  - "
+                    + "\n  - ".join(missing)
+                    + "\nBuild them first, e.g. `airstack test -m build_docker` "
+                      "or `airstack image-build <service>`."
+                )
+E               Failed: Required docker images not built locally:
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs
+E               Build them first, e.g. `airstack test -m build_docker` or `airstack image-build <service>`.
+
+conftest.py:226: Failed
+------------------------------ Captured log setup ------------------------------
+INFO     airstack:commands.py:49 $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+_ ERROR at setup of TestTakeoffHoverLand.test_px4_ready[isaacsim-rob#3-v1.0-iter0] _
+
+request = <SubRequest 'airstack_env' for <Function test_px4_ready[isaacsim-rob#3-v1.0-iter0]>>
+
+    @pytest.fixture
+    def airstack_env(request):
+        """Parametrized fixture: runs `airstack up`, yields env dict, tears down.
+    
+        Parametrized by `pytest_generate_tests` over (sim, num_robots, iteration)
+        tuples derived from CLI flags.
+    
+        Deliberately does NOT wait for containers or ROS2 nodes to be ready — tests
+        own their wait loops + timeout metrics so failures attribute to the right layer.
+        """
+        sim, num_robots, iteration = request.param
+        cfg = SIM_CONFIG[sim]
+        # Route fixture narration to a file whose name tracks the post-rewrite
+        # test id (see pytest_collection_modifyitems), so airstack up/down output
+        # lands next to the triggering test's own log instead of under pytest's
+        # stale callspec.id.
+        log = f"airstack_env.{_nodeid_dotted(harness_session.current_item().nodeid, with_path_sep=True)}"
+    
+        headless = not request.config.getoption("--gui")
+        env_overrides = {
+            "AUTOLAUNCH": "true",
+            "NUM_ROBOTS": str(num_robots),
+            "COMPOSE_PROFILES": f"desktop,{cfg['profile']}",
+            "MS_AIRSIM_HEADLESS": "true" if headless else "false",
+            "ISAAC_SIM_HEADLESS": "true" if headless else "false",
+        }
+        if headless:
+            # Forces rviz/Qt apps to render offscreen instead of spawning windows.
+            env_overrides["QT_QPA_PLATFORM"] = "offscreen"
+        env_overrides.update(cfg.get("extra_env", {}))
+    
+        with logger_to(log):
+            missing = missing_images(env=env_overrides)
+            if missing:
+>               pytest.fail(
+                    "Required docker images not built locally:\n  - "
+                    + "\n  - ".join(missing)
+                    + "\nBuild them first, e.g. `airstack test -m build_docker` "
+                      "or `airstack image-build <service>`."
+                )
+E               Failed: Required docker images not built locally:
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs
+E                 - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev
+E               Build them first, e.g. `airstack test -m build_docker` or `airstack image-build <service>`.
+
+conftest.py:226: Failed
+------------------------------ Captured log setup ------------------------------
+INFO     airstack:commands.py:49 $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+INFO     airstack:commands.py:49 $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+- generated xml file: /home/andrew/Development/AirStack/tests/results/2026-08-20_08-12-43/results.xml -
+============================== slowest durations ===============================
+0.11s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#1-v1.0-iter0]
+0.10s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#3-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#1-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#1-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#3-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#1-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#1-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#3-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#3-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#3-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#3-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#1-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#1-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#3-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#3-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#1-v1.0-iter0]
+=========================== short test summary info ============================
+ERROR system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#1-v1.0-iter0] - Failed: Required docker images not built locally:
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs
+Build them first, e.g. `airstack test -m build_docker` or `airstack image-build <service>`.
+ERROR system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#3-v1.0-iter0] - Failed: Required docker images not built locally:
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs
+  - airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev
+Build them first, e.g. `airstack test -m build_docker` or `airstack image-build <service>`.
+================= 6 skipped, 282 deselected, 2 errors in 0.95s =================
+
+EXIT_TAKEOFF=1
+=== BASELINE DONE 2026-08-20 04:12:44 ===

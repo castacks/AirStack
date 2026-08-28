@@ -1,0 +1,19 @@
+AirStack Test Run Summary
+Run directory: 2026-08-20_17-29-33
+Overall: 4 passed, 0 failed, 0 skipped (4 tests)
+
+── takeoff-hover-land @ 0.5 m/s | isaacsim ──
+Result: PASSED
+
+PX4 ready time: 85.47 s
+Takeoff duration: 16.44 s
+Altitude error after takeoff: -0.145 m
+Takeoff overshoot: 0 m
+Landing duration: 14.76 s
+Final altitude: 0.02 m
+
+Phase wall times:
+  test_px4_ready: 86.5s (PASSED)
+  test_takeoff: 20.6s (PASSED)
+  test_hover: 10.0s (PASSED)
+  test_landing: 37.4s (PASSED)

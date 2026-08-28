@@ -1,0 +1,12 @@
+AirStack Test Run Summary
+Run directory: 2026-08-21_00-41-36
+Overall: 1 passed, 1 failed, 0 skipped (2 tests)
+
+── isaacsim-rob#1 ──
+Result: FAILED
+
+(no key metrics recorded)
+
+Phase wall times:
+  test_sentinel_nodes_present: 13.6s (PASSED)
+  test_wiring_matches_golden: 54.0s (FAILED)

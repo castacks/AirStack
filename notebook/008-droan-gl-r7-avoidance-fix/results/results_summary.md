@@ -1,4 +1,4 @@
-# 002 — droan_gl obstacle-avoidance fix: results summary
+# 008 — droan_gl obstacle-avoidance fix: results summary
 
 **Session: 2026-08-26 17:30 → 2026-08-27 (overnight), RTX 5090 box.**
 ~25 full judge-evaluated Isaac flights (fresh seeded routes each), plus

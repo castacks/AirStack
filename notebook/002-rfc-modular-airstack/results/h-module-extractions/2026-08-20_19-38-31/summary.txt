@@ -1,0 +1,61 @@
+AirStack Test Run Summary
+Run directory: 2026-08-20_19-38-31
+Overall: 6 passed, 0 failed, 0 skipped (6 tests)
+
+── system.test_optitrack_e2e.TestOptitrackE2E.test_circle_trajectory ──
+Result: PASSED
+
+(no key metrics recorded)
+
+Phase wall times:
+  test_circle_trajectory: 47.8s (PASSED)
+
+── system.test_optitrack_e2e.TestOptitrackE2E.test_ev_params_applied ──
+Result: PASSED
+
+(no key metrics recorded)
+
+Phase wall times:
+  test_ev_params_applied: 8.7s (PASSED)
+
+── system.test_optitrack_e2e.TestOptitrackE2E.test_landing ──
+Result: PASSED
+
+(no key metrics recorded)
+
+Phase wall times:
+  test_landing: 28.7s (PASSED)
+
+── system.test_optitrack_e2e.TestOptitrackE2E.test_natnet_pose_alive ──
+Result: PASSED
+
+(no key metrics recorded)
+
+Phase wall times:
+  test_natnet_pose_alive: 80.9s (PASSED)
+
+── system.test_optitrack_e2e.TestOptitrackE2E.test_px4_fuses_vision ──
+Result: PASSED
+
+(no key metrics recorded)
+
+Phase wall times:
+  test_px4_fuses_vision: 1.2s (PASSED)
+
+── system.test_optitrack_e2e.TestOptitrackE2E.test_takeoff ──
+Result: PASSED
+
+(no key metrics recorded)
+
+Phase wall times:
+  test_takeoff: 20.4s (PASSED)
+
+── test_optitrack_e2e.natnet_pose_hz ──
+Result: UNKNOWN
+
+(no key metrics recorded)
+
+── unknown ──
+Result: UNKNOWN
+
+(no key metrics recorded)

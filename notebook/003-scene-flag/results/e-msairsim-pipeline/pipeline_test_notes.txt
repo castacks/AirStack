@@ -1,0 +1,14 @@
+Run: 2026-08-24 20:57-21:10 EDT — ms-airsim pipeline with --scene
+
+== blocks (present locally): milestones ==
+MS_AIRSIM_SCENE=blocks -> entrypoint: 'Blocks already present' -> Blocks.sh -RenderOffScreen
+PX4: 'Startup script returned successfully' / 'home set' / 'Ready for takeoff!'
+AirSim: 'received first heartbeat' / 'Ground control connected over UDP'
+Bridge: 'Bridge running: robot_1 (lazy) @ 15.0Hz, clock @ 50.0Hz' ; /clock echoed on ROS_DOMAIN_ID=1
+
+== BUG FOUND: image-baked entrypoint ==
+First soccer-field run executed the OLD entrypoint (baked into image via Dockerfile COPY) -> still fetched blocks. Fixed by rebuilding the ms-airsim image.
+
+== BUG FOUND: fictional fetch_scene.sh catalog ==
+SoccerField.zip 404s — v1.8.1 release assets are: Blocks 135MB, AirSimNH 2012MB, AbandonedPark 1587MB, LandscapeMountains 1092MB, ZhangJiajie 840MB, Africa_Savannah 1055MB, MSBuild2018 754MB, Building_99 0MB(broken).
+Catalog corrected (forest/soccerfield/building99 removed, airsimnh zip fixed Neighborhood.zip->AirSimNH.zip, africasavannah+msbuild2018 added); entrypoint now glob-resolves the launcher .sh post-extract.

@@ -1,0 +1,15 @@
+{
+  "campaign_fingerprint": "73de124dc32bc1168a11fe4f564cfb98c6ca29a0300e1861092d5b45f23a8897",
+  "complete": true,
+  "completed_tests": 2,
+  "failed": 1,
+  "mark_expression": "wiring",
+  "outcome": "simulation",
+  "passed": 1,
+  "pytest_exitstatus": 1,
+  "schema_version": 1,
+  "selected_tests": 2,
+  "simulation_completed": 2,
+  "simulation_selected": 2,
+  "skipped": 0
+}

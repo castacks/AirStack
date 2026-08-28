@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="67.979" timestamp="2026-08-21T00:41:36.246811+00:00" hostname="wildfire-inferno"><testcase classname="system.test_wiring_snapshot.TestWiringSnapshot" name="test_sentinel_nodes_present[isaacsim-rob#1-iter0]" time="13.618" /><testcase classname="system.test_wiring_snapshot.TestWiringSnapshot" name="test_wiring_matches_golden[isaacsim-rob#1-iter0]" time="53.951"><failure message="Failed: observed wiring drifted from golden wiring.md — if the change is intentional, regenerate the golden from /home/andrew/Development/AirStack/tests/results/2026-08-21_00-41-36/wiring/observed_full_macvo.md and commit it:&#10;{&#10;  &quot;identical&quot;: false,&#10;  &quot;missing_nodes&quot;: [&#10;    &quot;/robot_1/perception/static_transform_publisher&quot;&#10;  ],&#10;  &quot;extra_nodes&quot;: [&#10;    &quot;/robot_1/perception/macvo/macvo_node&quot;,&#10;    &quot;/robot_1/perception/macvo_ned_tf&quot;&#10;  ],&#10;  &quot;missing_edges&quot;: [&#10;    &quot;pub:/robot_1/perception/static_transform_publisher:/tf_static&quot;,&#10;    &quot;sub:/robot_1/perception/static_transform_publisher:/clock&quot;,&#10;    &quot;sub:/robot_1/topic_keepalive:/robot_1/macvo/odometry&quot;,&#10;    &quot;sub:/robot_1/topic_keepalive:/robot_1/perception/macvo/disparity&quot;,&#10;    &quot;sub:/robot_1/topic_keepalive:/robot_1/perception/macvo/point_cloud&quot;&#10;  ],&#10;  &quot;extra_edges&quot;: [&#10;    &quot;pub:/robot_1/perception/macvo/macvo_node:/robot_1/perception/macvo/disparity&quot;,&#10;    &quot;pub:/robot_1/perception/macvo/macvo_node:/robot_1/perception/macvo/odometry&quot;,&#10;    &quot;pub:/robot_1/perception/macvo/macvo_node:/robot_1/perception/macvo/point_cloud&quot;,&#10;    &quot;pub:/robot_1/perception/macvo_ned_tf:/tf_static&quot;,&#10;    &quot;sub:/robot_1/perception/macvo/macvo_node:/clock&quot;,&#10;    &quot;sub:/robot_1/perception/macvo/macvo_node:/robot_1/sensors/front_stereo/left/image_rect&quot;,&#10;    &quot;sub:/robot_1/perception/macvo/macvo_node:/robot_1/sensors/front_stereo/right/camera_info&quot;,&#10;    &quot;sub:/robot_1/perception/macvo/macvo_node:/robot_1/sensors/front_stereo/right/image_rect&quot;,&#10;    &quot;sub:/robot_1/perception/macvo_ned_tf:/clock&quot;&#10;  ],&#10;  &quot;qos_mismatches&quot;: [],&#10;  &quot;type_mismatches&quot;: []&#10;}">self = &lt;system.test_wiring_snapshot.TestWiringSnapshot object at 0x7084aea74830&gt;
+airstack_env = {'sim': 'isaacsim', 'num_robots': 1, 'iteration': 0, 'sim_container': 'isaac-sim', ...}
+
+    @pytest.mark.dependency(depends=["wiring_nodes"])
+    def test_wiring_matches_golden(self, airstack_env):
+        """Snapshot the running graph, render wiring.md, diff against golden."""
+        sim = airstack_env["sim"]
+        num_robots = airstack_env["num_robots"]
+        m = get_metrics()
+        tid = current_test_id()
+    
+        # Legacy (no --stack) keeps the full_default naming and the
+        # tests/goldens/wiring golden; a selected stack owns its golden at
+        # stacks/&lt;name&gt;/wiring.md.
+        stack = airstack_env.get("stack")
+        stack_name = stack or "full_default"
+    
+        _wait_for_settled_node_sets(airstack_env)
+        t0 = time.time()
+        graph = _capture_merged_graph(airstack_env)
+        m.record(tid, "wiring_capture_duration_s",
+                 round(time.time() - t0, 2), unit="s")
+    
+        meta = {
+            "stack": stack_name,
+            "generated-by": "tests/system/test_wiring_snapshot.py",
+            "date": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "sim": sim,
+            "num_robots": num_robots,
+            "source-sha": _git_short_sha(),
+        }
+        out_dir = run_dir() / "wiring"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        observed_path = out_dir / f"observed_{stack_name}.md"
+        observed_path.write_text(ws.render_wiring_md(graph, meta))
+        logger.info("Wrote observed wiring snapshot to %s", observed_path)
+    
+        # Counts are drift telemetry: a silently vanishing node/edge should
+        # read as a regression, hence higher_is_better.
+        m.record(tid, "wiring_node_count", len(graph["nodes"]),
+                 unit="count", direction="higher_is_better")
+        m.record(tid, "wiring_edge_count", len(graph["edges"]),
+                 unit="count", direction="higher_is_better")
+        m.record(tid, "wiring_topic_count", len(graph["topics"]),
+                 unit="count", direction="higher_is_better")
+    
+        if stack:
+            golden_path = repo_path("stacks", stack, "wiring.md")
+        else:
+            golden_path = repo_path(
+                "tests", "goldens", "wiring",
+                f"full_default.{sim}.{num_robots}robot.md",
+            )
+        if not golden_path.exists():
+            logger.info(
+                "INSTRUCTION: no golden at %s — bootstrap by validating the "
+                "observed snapshot (%s) and copying it to that path, then "
+                "commit it (see tests/goldens/wiring/README.md).",
+                golden_path, observed_path,
+            )
+            return
+    
+        expected = ws.extract_graph_from_md(golden_path.read_text())
+        verdict = ws.diff_graphs(expected, graph)
+        if not verdict["identical"]:
+&gt;           pytest.fail(
+                f"observed wiring drifted from golden {golden_path.name} — "
+                "if the change is intentional, regenerate the golden from "
+                f"{observed_path} and commit it:\n"
+                + json.dumps(verdict, indent=2)
+            )
+E           Failed: observed wiring drifted from golden wiring.md — if the change is intentional, regenerate the golden from /home/andrew/Development/AirStack/tests/results/2026-08-21_00-41-36/wiring/observed_full_macvo.md and commit it:
+E           {
+E             "identical": false,
+E             "missing_nodes": [
+E               "/robot_1/perception/static_transform_publisher"
+E             ],
+E             "extra_nodes": [
+E               "/robot_1/perception/macvo/macvo_node",
+E               "/robot_1/perception/macvo_ned_tf"
+E             ],
+E             "missing_edges": [
+E               "pub:/robot_1/perception/static_transform_publisher:/tf_static",
+E               "sub:/robot_1/perception/static_transform_publisher:/clock",
+E               "sub:/robot_1/topic_keepalive:/robot_1/macvo/odometry",
+E               "sub:/robot_1/topic_keepalive:/robot_1/perception/macvo/disparity",
+E               "sub:/robot_1/topic_keepalive:/robot_1/perception/macvo/point_cloud"
+E             ],
+E             "extra_edges": [
+E               "pub:/robot_1/perception/macvo/macvo_node:/robot_1/perception/macvo/disparity",
+E               "pub:/robot_1/perception/macvo/macvo_node:/robot_1/perception/macvo/odometry",
+E               "pub:/robot_1/perception/macvo/macvo_node:/robot_1/perception/macvo/point_cloud",
+E               "pub:/robot_1/perception/macvo_ned_tf:/tf_static",
+E               "sub:/robot_1/perception/macvo/macvo_node:/clock",
+E               "sub:/robot_1/perception/macvo/macvo_node:/robot_1/sensors/front_stereo/left/image_rect",
+E               "sub:/robot_1/perception/macvo/macvo_node:/robot_1/sensors/front_stereo/right/camera_info",
+E               "sub:/robot_1/perception/macvo/macvo_node:/robot_1/sensors/front_stereo/right/image_rect",
+E               "sub:/robot_1/perception/macvo_ned_tf:/clock"
+E             ],
+E             "qos_mismatches": [],
+E             "type_mismatches": []
+E           }
+
+system/test_wiring_snapshot.py:301: Failed</failure></testcase></testsuite></testsuites>

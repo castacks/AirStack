@@ -1,0 +1,88 @@
+=== up --sim isaac --play --wait  2026-08-20 04:52:52 commit=a5ff5723 ===
+[0;32m[INFO][0m Shutting down services: all
+ Container airstack-gcs-1 Stopping 
+ Container isaac-sim Stopping 
+ Container airstack-robot-desktop-1 Stopping 
+ Container airstack-robot-desktop-1 Stopped 
+ Container airstack-robot-desktop-1 Removing 
+ Container airstack-robot-desktop-1 Removed 
+ Container airstack-gcs-1 Stopped 
+ Container airstack-gcs-1 Removing 
+ Container airstack-gcs-1 Removed 
+ Container isaac-sim Stopped 
+ Container isaac-sim Removing 
+ Container isaac-sim Removed 
+ Network airstack_airstack_network Removing 
+ Network airstack_airstack_network Removed 
+[0;32m[INFO][0m Services shutdown successfully
+[0;32m[INFO][0m Launch config: profiles=desktop,isaac-sim robots=1 autolaunch=true play_on_start=true
+[0;32m[INFO][0m   isaac: script=example_one_px4_pegasus_launch_script.py headless=
+[0;32m[INFO][0m   urdf=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+--- effective launch config ---
+COMPOSE_PROFILES=desktop,isaac-sim
+NUM_ROBOTS=1
+URDF_FILE=robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+AUTOLAUNCH=true
+PLAY_SIM_ON_START=true
+ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py
+ISAAC_SIM_USE_STANDALONE=true
+ISAAC_SIM_HEADLESS=
+MS_AIRSIM_HEADLESS=
+VERSION=0.19.0-alpha.17
+DOCKER_IMAGE_BUILD_MODE=dev
+--- end effective launch config ---
+[0;32m[INFO][0m   effective config saved to .airstack/runs/2026-08-20_04-53-03/effective_config.env
+[0;32m[INFO][0m Starting services...
+ Network airstack_airstack_network Creating 
+ Network airstack_airstack_network Creating 
+ Network airstack_airstack_network Created 
+ Network airstack_airstack_network Created 
+ Container airstack-robot-desktop-1 Creating 
+ Container airstack-gcs-1 Creating 
+ Container isaac-sim Creating 
+ Container airstack-robot-desktop-1 Created 
+ Container airstack-gcs-1 Created 
+ Container isaac-sim Created 
+ Container isaac-sim Starting 
+ Container airstack-gcs-1 Starting 
+ Container airstack-robot-desktop-1 Starting 
+ Container airstack-robot-desktop-1 Started 
+ Container isaac-sim Started 
+ Container airstack-gcs-1 Started 
+[0;32m[INFO][0m Containers started. (Workspaces may still be building and the sim loading — run 'airstack ready' to wait for flight-readiness.)
+Waiting for the AirStack stack to become flight-ready...
+  [0;32m✓[0m robot containers running (0s)
+  [0;32m✓[0m sim publishing /clock (77s)
+  [0;32m✓[0m robot_1 (domain 1): autonomy nodes up (0s)
+  [0;32m✓[0m robot_1: MAVROS connected to PX4 (12s)
+  [0;32m✓[0m robot_1: PX4 EKF ready (armable) (2s)
+[0;32m[INFO][0m Stack is flight-ready (92s). Takeoff is available (GCS Robot Tasks panel, or: ros2 action send_goal /robot_1/tasks/takeoff ...).
+UP_WAIT_RC=0
+=== docker logs excerpt (robot, teeing check) ===
+[?2004lRunning `colcon build ` in /root/AirStack/robot/ros_ws
+]0;colcon build [0/58 done] [1 ongoing]Starting >>> mav_msgs
+]0;colcon build [0/58 done] [2 ongoing]Starting >>> coordination_msgs
+]0;colcon build [0/58 done] [3 ongoing]Starting >>> behavior_tree_msgs
+]0;colcon build [0/58 done] [4 ongoing]Starting >>> disparity_graph
+]0;colcon build [0/58 done] [5 ongoing]Starting >>> lidar_point_cloud_filter
+]0;colcon build [0/58 done] [6 ongoing]Starting >>> mav_state_machine_msgs
+]0;colcon build [0/58 done] [7 ongoing]Starting >>> mav_system_msgs
+]0;colcon build [0/58 done] [8 ongoing]Starting >>> pid_controller_msgs
+]0;colcon build [0/58 done] [9 ongoing]Starting >>> px4_msgs
+]0;colcon build [0/58 done] [10 ongoing]Starting >>> rviz_polygon_selection_tool
+]0;colcon build [0/58 done] [11 ongoing]Starting >>> sensor_interfaces
+]0;colcon build [0/58 done] [12 ongoing]Starting >>> vdb_mapping
+]0;colcon build [0/58 done] [13 ongoing]Starting >>> vdb_mapping_interfaces
+]0;colcon build [0/58 done] [14 ongoing]Starting >>> waypoint_rviz2_plugin
+]0;colcon build [0/58 done] [15 ongoing]Starting >>> bag_record_pid
+]0;colcon build [0/58 done] [16 ongoing][0.2s] [0/58 complete] [16 ongoing] [airstack_msgs - 0.1s] ...                                                              Starting >>> behavior_bringup
+]0;colcon build [0/58 done] [17 ongoing]Starting >>> disparity_expansion
+]0;colcon build [0/58 done] [18 ongoing]Starting >>> ensemble_global_planner
+]0;colcon build [0/58 done] [19 ongoing]Starting >>> exploration_planner
+=== docker logs line counts (robot / isaac) ===
+535
+576
+=== ready --json on already-ready stack ===
+{"ready": true, "elapsed_s": 8, "gates": {"px4_ready_robot_1": "ok", "containers": "ok", "px4_connected_robot_1": "ok", "nodes_robot_1": "ok", "sim_clock": "ok"}}
+READY_JSON_RC=0
+=== DONE 2026-08-20 04:54:44 ===

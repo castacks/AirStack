@@ -1,7 +1,7 @@
 # Research Strategy — AirStack / ICRA 2027
 
-> **How to use this file.** Notebook entries
-> (`notebook/`, `notebook_docs/`) are single-topic evidence;
+> **How to use this file.** Notebook entries (`notebook/NNN-*/`) are
+> single-topic evidence;
 > [`paper_positioning.md`](../ICRA_2027_AirStack_Paper/paper_positioning.md)
 > is the deep framing record; **this file is the big picture** — the
 > current strategic direction, the campaigns that group the notebook
@@ -42,7 +42,7 @@ FIRST). Prerequisites P-1…P-4, P-6, P-8 are done; campaign **v5** is
 ready pending two small lead decisions (R7 waypoint budget 120→240 s;
 reference-solvability re-demonstration under frozen params) — see
 [agent_study/HANDOFF.md](../agent_study/HANDOFF.md) and
-[002-droan-gl-r7-avoidance-fix](002-droan-gl-r7-avoidance-fix/design_spec.md).
+[008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md).
 In parallel: prose-ifying `main.tex` section by section, and the
 release gate (7 paper-blocking items; ~63 tasks still `\task{}` in
 `release_gate_and_tasks.tex` as of today).
@@ -77,12 +77,12 @@ audit ([positioning.md §Release gate](../ICRA_2027_AirStack_Paper/paper_positio
    they expose get fixed in AirStack. Study assets (planners, prompts,
    judge, reference solution) stay in the PRIVATE `agent_study/` repo
    until the study concludes. In force 2026-08-25/26.
-   [002 design spec](002-droan-gl-r7-avoidance-fix/design_spec.md),
+   [008 design spec](008-droan-gl-r7-avoidance-fix/design_spec.md),
    [agent_study/HANDOFF.md](../agent_study/HANDOFF.md).
 7. **The study proceeds without a human reference baseline** (test
    plan (c) skipped) — lead decision 2026-08-24; revisit before
    submission.
-   [001 design spec §3(c)](001-agent-study-prereqs/design_spec.md).
+   [007 design spec §3(c)](007-agent-study-prereqs/design_spec.md).
 8. **Release gate = claim–reality consistency, not feature
    completeness.** Everything beyond the seven gate items → tabled to
    Limitations/Future Work.
@@ -90,18 +90,20 @@ audit ([positioning.md §Release gate](../ICRA_2027_AirStack_Paper/paper_positio
 
 ## Campaigns
 
-Entries `001`/`002` live in `notebook/` (tracked on `airstack-paper`);
-`d001`–`d006` live in `notebook_docs/` (**local-only on this machine**,
-develop-branch work). Statuses come from the entries' own labels.
+All entries live under `notebook/` (tracked on `airstack-paper`):
+001–006 are the develop-track platform/docs work (merged in from the
+former local-only `notebook_docs/` on 2026-08-27; 005's raw footage
+stays local-only per `.gitignore`), 007–008 the agent study. Statuses
+come from the entries' own labels.
 
 | Campaign | Goal | Entries | Status |
 |---|---|---|---|
-| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [001-agent-study-prereqs](001-agent-study-prereqs/design_spec.md), [002-droan-gl-r7-avoidance-fix](002-droan-gl-r7-avoidance-fix/design_spec.md) | 001 `WIP` (P-5, P-7 open, non-blocking); 002 `IN PROGRESS`; campaign v5 pending two lead decisions |
+| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `IN PROGRESS`; campaign v5 pending two lead decisions |
 | Paper writing & positioning | Sec. I–V prose, case-study interviews, figures | — (lives in the `ICRA_2027_AirStack_Paper/` submodule; no notebook entries) | Related Work + Design Principles prose done 2026-08-03; interviews not recorded anywhere yet |
 | Release gate / v1.0 readiness | The seven paper-blocking items (clone-and-run, verified hardware path, …) | — (no notebook entries yet) | ~63 open `\task{}` vs 1 `\done{}` in `release_gate_and_tasks.tex` |
-| Modular AirStack (RFC #379/#380) | Monolith → modules, stacks, fleets; the shipped architecture claim C1 describes | d002 ([notebook_docs/002](../notebook_docs/002-rfc-modular-airstack/design_spec.md)) | `WIP` per its header (impl merged to develop 2026-08-24 as PRs #388–#396; release mechanics, module CI tags, P3 dispatch smoke open) |
-| Launch & CLI developer experience | Kill sim-launch friction: intent flags, readiness signal, scene selection, command groups | d001 ([pre-rfc-workflow-cleanup](../notebook_docs/001-pre-rfc-workflow-cleanup/design_spec.md)), d003 (scene flag), d004 (osmo/config/images groups) | d001 `DONE`; d003 `DONE`; d004 results PASS (no header status) |
-| Docs & public presentation | Accurate, Diátaxis-organized docs site; demo-video landing page | d005 (landing-page video), d006 (Diátaxis audit) | d005 deliverables committed 2026-08-24/25; d006 audit done, 9-commit overhaul branch built — **merge to develop not recorded** |
+| Modular AirStack (RFC #379/#380) | Monolith → modules, stacks, fleets — built to support the paper's modularity positioning: module swapping (C1) and easy upstreaming of features from forked projects (lead, recorded 2026-08-27) | [002-rfc-modular-airstack](002-rfc-modular-airstack/design_spec.md) | `WIP` per its header (impl merged to develop 2026-08-24 as PRs #388–#396; release mechanics, module CI tags, P3 dispatch smoke open) |
+| Launch & CLI developer experience | Kill sim-launch friction — intent flags, readiness signal, scene selection, command groups — purely for developer usage and adoption (lead, recorded 2026-08-27) | [001-pre-rfc-workflow-cleanup](001-pre-rfc-workflow-cleanup/design_spec.md), [003-scene-flag](003-scene-flag/design_spec.md), [004-osmo-command-group](004-osmo-command-group/design_spec.md) | 001 `DONE`; 003 `DONE`; 004 results PASS (no header status) |
+| Docs & public presentation | Accurate, Diátaxis-organized docs site and a demo-video landing page — likewise for developer usage and adoption (lead, recorded 2026-08-27) | [005-landing-page-demo-video](005-landing-page-demo-video/design_spec.md), [006-diataxis-docs-audit](006-diataxis-docs-audit/design_spec.md) | 005 deliverables committed 2026-08-24/25; 006 audit done, 9-commit overhaul branch built — **merge to develop not recorded** |
 
 ## Direction log
 
@@ -112,13 +114,18 @@ the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
 
-### 2026-08-27 — strategy layer created; log seeded retroactively
+### 2026-08-27 — strategy layer created; log seeded retroactively; notebook consolidated
 
 This file created as the layer between single-topic notebook entries
 and positioning.md. All entries below were reconstructed today from
 paper_positioning.md, the notebook entries' own dates and statuses,
 agent_study/HANDOFF.md, and `git log`; gaps are flagged inline rather
-than guessed.
+than guessed. Same day: the local-only `notebook_docs/` (develop-track
+platform/docs entries 001–006) was merged into `notebook/` and
+committed, and the agent-study entries renumbered 001→007, 002→008 so
+the sequence follows the architectural work. The lead also recorded
+the motives behind the platform campaigns (see the 2026-08-19→25
+entry and §Campaigns).
 
 ### 2026-08-27 — R8 passes; campaign v5 frozen config has caveats
 
@@ -131,7 +138,7 @@ safe-retreat primitive is the real fix). Study re-pinned to
 `891ca138`. What it changed: campaign v5 is unblocked *except* two
 lead decisions — R7 per-checkpoint budget 120→240 s, and re-demonstrating
 reference solvability under the frozen params. Evidence:
-[002 results summary](002-droan-gl-r7-avoidance-fix/results/results_summary.md),
+[008 results summary](008-droan-gl-r7-avoidance-fix/results/results_summary.md),
 [agent_study/HANDOFF.md](../agent_study/HANDOFF.md).
 
 ### 2026-08-26 → 2026-08-27 — v4 "stock stack fails R7" verdict RETRACTED; eight real avoidance defects found and fixed
@@ -151,8 +158,8 @@ rungs now require visual confirmation the scene loaded; (b) the
 benchmark stays frozen and the *stack* gets fixed (choice #6);
 (c) the campaign blocker shrank from "platform can't avoid obstacles"
 to "lead must sign off the R7 budget." Evidence:
-[002 design spec](002-droan-gl-r7-avoidance-fix/design_spec.md),
-[002 results](002-droan-gl-r7-avoidance-fix/results/results_summary.md).
+[008 design spec](008-droan-gl-r7-avoidance-fix/design_spec.md),
+[008 results](008-droan-gl-r7-avoidance-fix/results/results_summary.md).
 
 ### 2026-08-26 — study made portable and private
 
@@ -176,7 +183,7 @@ appeared to fail R7 (−0.87 m) — a verdict later retracted (see
 2026-08-26→27 entry). What it changed: study scope grew from
 "integrate and fly" to "integrate, fly, avoid, land"; the blocker
 spawned notebook entry 002. Evidence:
-[001 design spec §2.9, §3(h)](001-agent-study-prereqs/design_spec.md).
+[007 design spec §2.9, §3(h)](007-agent-study-prereqs/design_spec.md).
 
 ### 2026-08-25 — judge v2 validated; campaign cleared for real trials
 
@@ -188,7 +195,7 @@ batch (real A1/A2 trials) found and fixed three harness defects
 (bg-task ceiling, 100-turn cap, bottom-up scoring) and produced the
 first full-ladder R6 completion. What it changed: the study moved from
 "pipeline works" to "trials may be scored." Evidence:
-[001 results §(f),(g)](001-agent-study-prereqs/results/results_summary.md).
+[007 results §(f),(g)](007-agent-study-prereqs/results/results_summary.md).
 
 ### 2026-08-24 → 2026-08-25 — pilot trial done; models frozen; human baseline dropped
 
@@ -199,27 +206,31 @@ prompts frozen; campaign models fixed at Sonnet + Opus (2026-08-24).
 Lead decision 2026-08-24: **skip the human reference-integration
 baseline** (test plan (c)) — study proceeds without it, revisit before
 submission. Evidence:
-[001 design spec §2.8, §3(c),(e)](001-agent-study-prereqs/design_spec.md),
+[007 design spec §2.8, §3(c),(e)](007-agent-study-prereqs/design_spec.md),
 commits `69f30648`, `0dfe6a2c`.
 
 ### 2026-08-19 → 2026-08-25 — platform sprint: modular AirStack shipped; DX + docs overhauled (develop track)
 
 A design session (2026-08-19/20) mapped sim-launch friction and split
-the work into a pre-RFC cleanup campaign (d001, DONE 2026-08-20:
+the work into a pre-RFC cleanup campaign (entry 001, DONE 2026-08-20:
 intent flags, `airstack ready`, guards, logs) and the RFC #379/#380
-modular campaign (d002: modules/stacks/fleets, staged as PRs #388–#396,
-merged to develop 2026-08-24; legacy `AUTONOMY_ROLE` removed). Around
-it: Release 0.19.0 + relicense to BSD-3-Clause-Clear (2026-08-22),
-scene flag + CLI command groups + landing-page demo video (2026-08-24,
-d003/d004/d005), Diátaxis docs audit (2026-08-25, d006 — 18 accuracy
-defects fixed on a 9-commit overhaul branch). What it changed for the
-research direction: the modular architecture claim C1 describes is now
-the *shipped* architecture, not a plan, and the docs/artifact story
-feeds the release gate's clone-and-run item. Evidence:
-[d001](../notebook_docs/001-pre-rfc-workflow-cleanup/design_spec.md),
-[d002](../notebook_docs/002-rfc-modular-airstack/design_spec.md),
-[d006](../notebook_docs/006-diataxis-docs-audit/design_spec.md)
-(local-only).
+modular campaign (entry 002: modules/stacks/fleets, staged as
+PRs #388–#396, merged to develop 2026-08-24; legacy `AUTONOMY_ROLE`
+removed). Around it: Release 0.19.0 + relicense to BSD-3-Clause-Clear
+(2026-08-22), scene flag + CLI command groups + landing-page demo
+video (2026-08-24, entries 003/004/005), Diátaxis docs audit
+(2026-08-25, entry 006 — 18 accuracy defects fixed on a 9-commit
+overhaul branch). Motives (recorded by the lead 2026-08-27): the
+modular restructure was done **to support the paper's modularity
+positioning** — module swapping (C1) and ease of upstreaming features
+from forked projects — while the docs overhaul and CLI cleanup were
+done simply **for improved developer usage and adoption**. What it
+changed for the research direction: the modular architecture claim C1
+describes is now the *shipped* architecture, not a plan, and the
+docs/artifact story feeds the release gate's clone-and-run item.
+Evidence: [001](001-pre-rfc-workflow-cleanup/design_spec.md),
+[002](002-rfc-modular-airstack/design_spec.md),
+[006](006-diataxis-docs-audit/design_spec.md).
 
 ### 2026-08-03 → 2026-08-04 — evidence hierarchy restructured; agent study designed and prerequisites started
 
@@ -236,7 +247,7 @@ PR #378) and P-2 fresh planners + contract. DFM2 reuse analysis
 integrated (+34k LOC on 110k base, 97 % additive). AGENTS.md pointed
 at positioning.md as mandatory reading. Evidence:
 [positioning.md §Evidence hierarchy](../ICRA_2027_AirStack_Paper/paper_positioning.md),
-[001 design spec](001-agent-study-prereqs/design_spec.md), commits
+[007 design spec](007-agent-study-prereqs/design_spec.md), commits
 `29d86cec`, `c8f98f7f`, `dd13017a`, `6fdd3329`, `b145660d`.
 
 ### 2026-07-20 → 2026-07-21 — paper founded: positioning, claims, case-study corrections, release gate

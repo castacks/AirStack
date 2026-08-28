@@ -1,0 +1,1505 @@
+{
+  "system/test_liveliness.TestLiveliness.test_robot_containers_running[isaacsim-rob#1-iter0]": {
+    "airstack_up_duration_s": {
+      "value": 0.55,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.15,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_liveliness.TestLiveliness.test_sim_ready_time[isaacsim-rob#1-iter0]": {
+    "sim_ready_duration_s": {
+      "value": 19.95,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_liveliness.TestLiveliness.test_stable[isaacsim-rob#1-iter0]": {
+    "isaac-sim.cpu_pct_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 2884.97
+        },
+        {
+          "t": 20,
+          "value": 2507.06
+        },
+        {
+          "t": 30,
+          "value": 1349.07
+        },
+        {
+          "t": 40,
+          "value": 104.46
+        },
+        {
+          "t": 50,
+          "value": 828.81
+        },
+        {
+          "t": 60,
+          "value": 764.8
+        },
+        {
+          "t": 70,
+          "value": 832.11
+        },
+        {
+          "t": 80,
+          "value": 782.4
+        },
+        {
+          "t": 90,
+          "value": 822.34
+        },
+        {
+          "t": 100,
+          "value": 826.36
+        },
+        {
+          "t": 110,
+          "value": 713.88
+        },
+        {
+          "t": 120,
+          "value": 823.43
+        }
+      ]
+    },
+    "isaac-sim.mem_mb_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 8006.656
+        },
+        {
+          "t": 20,
+          "value": 11120.64
+        },
+        {
+          "t": 30,
+          "value": 11776.0
+        },
+        {
+          "t": 40,
+          "value": 11304.96
+        },
+        {
+          "t": 50,
+          "value": 11397.12
+        },
+        {
+          "t": 60,
+          "value": 11397.12
+        },
+        {
+          "t": 70,
+          "value": 11397.12
+        },
+        {
+          "t": 80,
+          "value": 11397.12
+        },
+        {
+          "t": 90,
+          "value": 11397.12
+        },
+        {
+          "t": 100,
+          "value": 11397.12
+        },
+        {
+          "t": 110,
+          "value": 11397.12
+        },
+        {
+          "t": 120,
+          "value": 11397.12
+        }
+      ]
+    },
+    "isaac-sim.disk_io_mb_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 322.0
+        },
+        {
+          "t": 20,
+          "value": 326.0
+        },
+        {
+          "t": 30,
+          "value": 426.0
+        },
+        {
+          "t": 40,
+          "value": 483.0
+        },
+        {
+          "t": 50,
+          "value": 987.0
+        },
+        {
+          "t": 60,
+          "value": 1007.0
+        },
+        {
+          "t": 70,
+          "value": 1012.0
+        },
+        {
+          "t": 80,
+          "value": 1017.0
+        },
+        {
+          "t": 90,
+          "value": 1022.0
+        },
+        {
+          "t": 100,
+          "value": 1027.0
+        },
+        {
+          "t": 110,
+          "value": 1032.0
+        },
+        {
+          "t": 120,
+          "value": 1037.0
+        }
+      ]
+    },
+    "isaac-sim.net_io_mb_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 29.4
+        },
+        {
+          "t": 20,
+          "value": 30.0
+        },
+        {
+          "t": 30,
+          "value": 30.32
+        },
+        {
+          "t": 40,
+          "value": 30.64
+        },
+        {
+          "t": 50,
+          "value": 1638.4
+        },
+        {
+          "t": 60,
+          "value": 4448.7
+        },
+        {
+          "t": 70,
+          "value": 7259.0
+        },
+        {
+          "t": 80,
+          "value": 10129.4
+        },
+        {
+          "t": 90,
+          "value": 13029.7
+        },
+        {
+          "t": 100,
+          "value": 15430.0
+        },
+        {
+          "t": 110,
+          "value": 18430.3
+        },
+        {
+          "t": 120,
+          "value": 20930.6
+        }
+      ]
+    },
+    "airstack-robot-desktop-1.cpu_pct_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 46.43
+        },
+        {
+          "t": 20,
+          "value": 39.44
+        },
+        {
+          "t": 30,
+          "value": 33.62
+        },
+        {
+          "t": 40,
+          "value": 12.12
+        },
+        {
+          "t": 50,
+          "value": 246.5
+        },
+        {
+          "t": 60,
+          "value": 273.79
+        },
+        {
+          "t": 70,
+          "value": 304.5
+        },
+        {
+          "t": 80,
+          "value": 303.76
+        },
+        {
+          "t": 90,
+          "value": 295.81
+        },
+        {
+          "t": 100,
+          "value": 294.41
+        },
+        {
+          "t": 110,
+          "value": 254.46
+        },
+        {
+          "t": 120,
+          "value": 190.11
+        }
+      ]
+    },
+    "airstack-robot-desktop-1.mem_mb_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 934.0
+        },
+        {
+          "t": 20,
+          "value": 939.4
+        },
+        {
+          "t": 30,
+          "value": 945.1
+        },
+        {
+          "t": 40,
+          "value": 943.6
+        },
+        {
+          "t": 50,
+          "value": 1090.56
+        },
+        {
+          "t": 60,
+          "value": 1097.728
+        },
+        {
+          "t": 70,
+          "value": 1092.608
+        },
+        {
+          "t": 80,
+          "value": 1097.728
+        },
+        {
+          "t": 90,
+          "value": 1097.728
+        },
+        {
+          "t": 100,
+          "value": 1096.704
+        },
+        {
+          "t": 110,
+          "value": 1095.68
+        },
+        {
+          "t": 120,
+          "value": 1100.8
+        }
+      ]
+    },
+    "airstack-robot-desktop-1.disk_io_mb_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 109.4
+        },
+        {
+          "t": 20,
+          "value": 109.4
+        },
+        {
+          "t": 30,
+          "value": 109.4
+        },
+        {
+          "t": 40,
+          "value": 109.4
+        },
+        {
+          "t": 50,
+          "value": 109.4
+        },
+        {
+          "t": 60,
+          "value": 109.4
+        },
+        {
+          "t": 70,
+          "value": 109.6
+        },
+        {
+          "t": 80,
+          "value": 109.6
+        },
+        {
+          "t": 90,
+          "value": 109.6
+        },
+        {
+          "t": 100,
+          "value": 109.6
+        },
+        {
+          "t": 110,
+          "value": 109.6
+        },
+        {
+          "t": 120,
+          "value": 109.6
+        }
+      ]
+    },
+    "airstack-robot-desktop-1.net_io_mb_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 50.42
+        },
+        {
+          "t": 20,
+          "value": 51.11
+        },
+        {
+          "t": 30,
+          "value": 51.620000000000005
+        },
+        {
+          "t": 40,
+          "value": 52.12
+        },
+        {
+          "t": 50,
+          "value": 1426.9
+        },
+        {
+          "t": 60,
+          "value": 4479.7
+        },
+        {
+          "t": 70,
+          "value": 7292.3
+        },
+        {
+          "t": 80,
+          "value": 10154.9
+        },
+        {
+          "t": 90,
+          "value": 12857.3
+        },
+        {
+          "t": 100,
+          "value": 15760.0
+        },
+        {
+          "t": 110,
+          "value": 18462.6
+        },
+        {
+          "t": 120,
+          "value": 21065.0
+        }
+      ]
+    },
+    "airstack-gcs-1.cpu_pct_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 27.38
+        },
+        {
+          "t": 20,
+          "value": 5.56
+        },
+        {
+          "t": 30,
+          "value": 4.91
+        },
+        {
+          "t": 40,
+          "value": 2.51
+        },
+        {
+          "t": 50,
+          "value": 21.92
+        },
+        {
+          "t": 60,
+          "value": 22.35
+        },
+        {
+          "t": 70,
+          "value": 24.78
+        },
+        {
+          "t": 80,
+          "value": 22.97
+        },
+        {
+          "t": 90,
+          "value": 24.01
+        },
+        {
+          "t": 100,
+          "value": 23.16
+        },
+        {
+          "t": 110,
+          "value": 20.04
+        },
+        {
+          "t": 120,
+          "value": 15.4
+        }
+      ]
+    },
+    "airstack-gcs-1.mem_mb_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 702.7
+        },
+        {
+          "t": 20,
+          "value": 681.8
+        },
+        {
+          "t": 30,
+          "value": 682.3
+        },
+        {
+          "t": 40,
+          "value": 672.1
+        },
+        {
+          "t": 50,
+          "value": 673.0
+        },
+        {
+          "t": 60,
+          "value": 672.4
+        },
+        {
+          "t": 70,
+          "value": 668.4
+        },
+        {
+          "t": 80,
+          "value": 669.1
+        },
+        {
+          "t": 90,
+          "value": 668.7
+        },
+        {
+          "t": 100,
+          "value": 669.5
+        },
+        {
+          "t": 110,
+          "value": 670.1
+        },
+        {
+          "t": 120,
+          "value": 670.7
+        }
+      ]
+    },
+    "airstack-gcs-1.disk_io_mb_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 51.3
+        },
+        {
+          "t": 20,
+          "value": 51.3
+        },
+        {
+          "t": 30,
+          "value": 51.3
+        },
+        {
+          "t": 40,
+          "value": 51.400000000000006
+        },
+        {
+          "t": 50,
+          "value": 51.400000000000006
+        },
+        {
+          "t": 60,
+          "value": 51.400000000000006
+        },
+        {
+          "t": 70,
+          "value": 51.400000000000006
+        },
+        {
+          "t": 80,
+          "value": 51.400000000000006
+        },
+        {
+          "t": 90,
+          "value": 51.400000000000006
+        },
+        {
+          "t": 100,
+          "value": 51.400000000000006
+        },
+        {
+          "t": 110,
+          "value": 51.400000000000006
+        },
+        {
+          "t": 120,
+          "value": 51.5
+        }
+      ]
+    },
+    "airstack-gcs-1.net_io_mb_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 23.12
+        },
+        {
+          "t": 20,
+          "value": 23.42
+        },
+        {
+          "t": 30,
+          "value": 23.72
+        },
+        {
+          "t": 40,
+          "value": 23.91
+        },
+        {
+          "t": 50,
+          "value": 25.53
+        },
+        {
+          "t": 60,
+          "value": 27.92
+        },
+        {
+          "t": 70,
+          "value": 30.43
+        },
+        {
+          "t": 80,
+          "value": 32.72
+        },
+        {
+          "t": 90,
+          "value": 35.4
+        },
+        {
+          "t": 100,
+          "value": 37.82
+        },
+        {
+          "t": 110,
+          "value": 40.21
+        },
+        {
+          "t": 120,
+          "value": 42.620000000000005
+        }
+      ]
+    },
+    "host.cpu_pct_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 94.7
+        },
+        {
+          "t": 20,
+          "value": 81.6
+        },
+        {
+          "t": 30,
+          "value": 43.8
+        },
+        {
+          "t": 40,
+          "value": 4.6
+        },
+        {
+          "t": 50,
+          "value": 26.4
+        },
+        {
+          "t": 60,
+          "value": 37.4
+        },
+        {
+          "t": 70,
+          "value": 32.2
+        },
+        {
+          "t": 80,
+          "value": 40.7
+        },
+        {
+          "t": 90,
+          "value": 37.6
+        },
+        {
+          "t": 100,
+          "value": 36.2
+        },
+        {
+          "t": 110,
+          "value": 37.8
+        },
+        {
+          "t": 120,
+          "value": 33.3
+        }
+      ]
+    },
+    "host.mem_mb_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 22022.359375
+        },
+        {
+          "t": 20,
+          "value": 25314.77734375
+        },
+        {
+          "t": 30,
+          "value": 26012.53125
+        },
+        {
+          "t": 40,
+          "value": 25496.11328125
+        },
+        {
+          "t": 50,
+          "value": 25515.296875
+        },
+        {
+          "t": 60,
+          "value": 25514.95703125
+        },
+        {
+          "t": 70,
+          "value": 25464.30078125
+        },
+        {
+          "t": 80,
+          "value": 25504.5390625
+        },
+        {
+          "t": 90,
+          "value": 25414.25390625
+        },
+        {
+          "t": 100,
+          "value": 25436.47265625
+        },
+        {
+          "t": 110,
+          "value": 25451.83203125
+        },
+        {
+          "t": 120,
+          "value": 25432.5546875
+        }
+      ]
+    },
+    "host.gpu_pct_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 1.0
+        },
+        {
+          "t": 20,
+          "value": 1.0
+        },
+        {
+          "t": 30,
+          "value": 1.0
+        },
+        {
+          "t": 40,
+          "value": 1.0
+        },
+        {
+          "t": 50,
+          "value": 27.0
+        },
+        {
+          "t": 60,
+          "value": 30.0
+        },
+        {
+          "t": 70,
+          "value": 30.0
+        },
+        {
+          "t": 80,
+          "value": 29.0
+        },
+        {
+          "t": 90,
+          "value": 26.0
+        },
+        {
+          "t": 100,
+          "value": 30.0
+        },
+        {
+          "t": 110,
+          "value": 30.0
+        },
+        {
+          "t": 120,
+          "value": 26.0
+        }
+      ]
+    },
+    "host.vram_mb_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 2302.0
+        },
+        {
+          "t": 20,
+          "value": 2349.0
+        },
+        {
+          "t": 30,
+          "value": 2352.0
+        },
+        {
+          "t": 40,
+          "value": 4365.0
+        },
+        {
+          "t": 50,
+          "value": 5517.0
+        },
+        {
+          "t": 60,
+          "value": 5516.0
+        },
+        {
+          "t": 70,
+          "value": 5519.0
+        },
+        {
+          "t": 80,
+          "value": 5513.0
+        },
+        {
+          "t": 90,
+          "value": 5513.0
+        },
+        {
+          "t": 100,
+          "value": 5513.0
+        },
+        {
+          "t": 110,
+          "value": 5513.0
+        },
+        {
+          "t": 120,
+          "value": 5513.0
+        }
+      ]
+    },
+    "host.gpu_temp_c_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 35.0
+        },
+        {
+          "t": 20,
+          "value": 35.0
+        },
+        {
+          "t": 30,
+          "value": 35.0
+        },
+        {
+          "t": 40,
+          "value": 35.0
+        },
+        {
+          "t": 50,
+          "value": 37.0
+        },
+        {
+          "t": 60,
+          "value": 38.0
+        },
+        {
+          "t": 70,
+          "value": 38.0
+        },
+        {
+          "t": 80,
+          "value": 38.0
+        },
+        {
+          "t": 90,
+          "value": 39.0
+        },
+        {
+          "t": 100,
+          "value": 39.0
+        },
+        {
+          "t": 110,
+          "value": 39.0
+        },
+        {
+          "t": 120,
+          "value": 39.0
+        }
+      ]
+    },
+    "host.gpu_power_w_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 72.23
+        },
+        {
+          "t": 20,
+          "value": 71.0
+        },
+        {
+          "t": 30,
+          "value": 73.1
+        },
+        {
+          "t": 40,
+          "value": 70.79
+        },
+        {
+          "t": 50,
+          "value": 137.6
+        },
+        {
+          "t": 60,
+          "value": 142.18
+        },
+        {
+          "t": 70,
+          "value": 130.07
+        },
+        {
+          "t": 80,
+          "value": 130.45
+        },
+        {
+          "t": 90,
+          "value": 130.02
+        },
+        {
+          "t": 100,
+          "value": 133.17
+        },
+        {
+          "t": 110,
+          "value": 143.38
+        },
+        {
+          "t": 120,
+          "value": 134.34
+        }
+      ]
+    }
+  },
+  "system/test_sensors.TestSensors.test_sim_clock_available[isaacsim-rob#1-iter0]": {
+    "airstack_up_duration_s": {
+      "value": 0.55,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "sensors_sim_ready_duration_s": {
+      "value": 79.63,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.31,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_sensors.TestSensors.test_sim_clock_realtime_factor[isaacsim-rob#1-iter0]": {
+    "sim.realtime_factor": {
+      "value": 1.276,
+      "unit": "",
+      "direction": "higher_is_better"
+    }
+  },
+  "system/test_sensors.TestSensors.test_sensor_streams_stable[isaacsim-rob#1-iter0]": {
+    "sim.clock.hz_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 47.872
+        },
+        {
+          "t": 20,
+          "value": 44.634
+        },
+        {
+          "t": 30,
+          "value": 45.24
+        },
+        {
+          "t": 40,
+          "value": 43.754
+        },
+        {
+          "t": 50,
+          "value": 45.015
+        },
+        {
+          "t": 60,
+          "value": 44.769
+        },
+        {
+          "t": 70,
+          "value": 45.115
+        },
+        {
+          "t": 80,
+          "value": 40.158
+        },
+        {
+          "t": 90,
+          "value": 42.52
+        },
+        {
+          "t": 100,
+          "value": 16.597
+        },
+        {
+          "t": 110,
+          "value": 43.372
+        },
+        {
+          "t": 120,
+          "value": 14.43
+        }
+      ]
+    },
+    "sim.robot_1.sensors.front_stereo.left.image_rect.hz_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 40.582
+        },
+        {
+          "t": 20,
+          "value": 45.187
+        },
+        {
+          "t": 30,
+          "value": 44.039
+        },
+        {
+          "t": 40,
+          "value": 45.262
+        },
+        {
+          "t": 50,
+          "value": 44.722
+        },
+        {
+          "t": 60,
+          "value": 44.948
+        },
+        {
+          "t": 70,
+          "value": 43.273
+        },
+        {
+          "t": 80,
+          "value": 45.591
+        },
+        {
+          "t": 90,
+          "value": 44.508
+        },
+        {
+          "t": 100,
+          "value": 45.025
+        },
+        {
+          "t": 110,
+          "value": 44.891
+        },
+        {
+          "t": 120,
+          "value": 42.798
+        }
+      ]
+    },
+    "sim.robot_1.sensors.front_stereo.right.image_rect.hz_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 38.39
+        },
+        {
+          "t": 20,
+          "value": 42.431
+        },
+        {
+          "t": 30,
+          "value": 44.218
+        },
+        {
+          "t": 40,
+          "value": 44.88
+        },
+        {
+          "t": 50,
+          "value": 19.664
+        },
+        {
+          "t": 60,
+          "value": 44.113
+        },
+        {
+          "t": 70,
+          "value": 44.906
+        },
+        {
+          "t": 80,
+          "value": 43.561
+        },
+        {
+          "t": 90,
+          "value": 44.135
+        },
+        {
+          "t": 100,
+          "value": 42.581
+        },
+        {
+          "t": 110,
+          "value": 45.972
+        },
+        {
+          "t": 120,
+          "value": 44.33
+        }
+      ]
+    },
+    "sim.robot_1.sensors.front_stereo.left.depth_ground_truth.hz_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 42.604
+        },
+        {
+          "t": 20,
+          "value": 34.956
+        },
+        {
+          "t": 30,
+          "value": 43.588
+        },
+        {
+          "t": 40,
+          "value": 16.829
+        },
+        {
+          "t": 50,
+          "value": 45.201
+        },
+        {
+          "t": 60,
+          "value": 42.073
+        },
+        {
+          "t": 70,
+          "value": 37.397
+        },
+        {
+          "t": 80,
+          "value": 44.296
+        },
+        {
+          "t": 90,
+          "value": 40.609
+        },
+        {
+          "t": 100,
+          "value": 41.773
+        },
+        {
+          "t": 110,
+          "value": 47.09
+        },
+        {
+          "t": 120,
+          "value": 43.32
+        }
+      ]
+    },
+    "sim.robot_1.sensors.front_stereo.right.depth_ground_truth.hz_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 44.313
+        },
+        {
+          "t": 20,
+          "value": 43.253
+        },
+        {
+          "t": 30,
+          "value": 43.853
+        },
+        {
+          "t": 40,
+          "value": 24.624
+        },
+        {
+          "t": 50,
+          "value": 22.471
+        },
+        {
+          "t": 60,
+          "value": 44.53
+        },
+        {
+          "t": 70,
+          "value": 45.012
+        },
+        {
+          "t": 80,
+          "value": 43.81
+        },
+        {
+          "t": 90,
+          "value": 41.34
+        },
+        {
+          "t": 100,
+          "value": 42.337
+        },
+        {
+          "t": 110,
+          "value": 35.376
+        },
+        {
+          "t": 120,
+          "value": 43.347
+        }
+      ]
+    },
+    "robot.robot_1.sensors.front_stereo.left.image_rect.hz_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 44.14
+        },
+        {
+          "t": 20,
+          "value": 43.369
+        },
+        {
+          "t": 30,
+          "value": 44.441
+        },
+        {
+          "t": 40,
+          "value": 44.089
+        },
+        {
+          "t": 50,
+          "value": 46.118
+        },
+        {
+          "t": 60,
+          "value": 44.078
+        },
+        {
+          "t": 70,
+          "value": 44.118
+        },
+        {
+          "t": 80,
+          "value": 41.02
+        },
+        {
+          "t": 90,
+          "value": 24.224
+        },
+        {
+          "t": 100,
+          "value": 43.059
+        },
+        {
+          "t": 110,
+          "value": 44.48
+        },
+        {
+          "t": 120,
+          "value": 44.141
+        }
+      ]
+    },
+    "robot.robot_1.sensors.front_stereo.right.image_rect.hz_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 43.7
+        },
+        {
+          "t": 20,
+          "value": 45.832
+        },
+        {
+          "t": 30,
+          "value": 40.645
+        },
+        {
+          "t": 40,
+          "value": 43.353
+        },
+        {
+          "t": 50,
+          "value": 42.786
+        },
+        {
+          "t": 60,
+          "value": 44.178
+        },
+        {
+          "t": 70,
+          "value": 45.573
+        },
+        {
+          "t": 80,
+          "value": 42.92
+        },
+        {
+          "t": 90,
+          "value": 24.294
+        },
+        {
+          "t": 100,
+          "value": 43.224
+        },
+        {
+          "t": 110,
+          "value": 44.322
+        },
+        {
+          "t": 120,
+          "value": 25.689
+        }
+      ]
+    },
+    "robot.robot_1.sensors.front_stereo.left.depth_ground_truth.hz_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 16.192
+        },
+        {
+          "t": 20,
+          "value": 16.074
+        },
+        {
+          "t": 30,
+          "value": 44.25
+        },
+        {
+          "t": 40,
+          "value": 44.606
+        },
+        {
+          "t": 50,
+          "value": 45.309
+        },
+        {
+          "t": 60,
+          "value": 42.82
+        },
+        {
+          "t": 70,
+          "value": 45.471
+        },
+        {
+          "t": 80,
+          "value": 43.657
+        },
+        {
+          "t": 90,
+          "value": 44.463
+        },
+        {
+          "t": 100,
+          "value": 43.268
+        },
+        {
+          "t": 110,
+          "value": 43.051
+        },
+        {
+          "t": 120,
+          "value": 43.743
+        }
+      ]
+    },
+    "robot.robot_1.sensors.front_stereo.right.depth_ground_truth.hz_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 22.998
+        },
+        {
+          "t": 20,
+          "value": 16.049
+        },
+        {
+          "t": 30,
+          "value": 44.276
+        },
+        {
+          "t": 40,
+          "value": 44.471
+        },
+        {
+          "t": 50,
+          "value": 46.166
+        },
+        {
+          "t": 60,
+          "value": 23.713
+        },
+        {
+          "t": 70,
+          "value": 45.368
+        },
+        {
+          "t": 80,
+          "value": 41.778
+        },
+        {
+          "t": 90,
+          "value": 42.838
+        },
+        {
+          "t": 100,
+          "value": 44.295
+        },
+        {
+          "t": 110,
+          "value": 42.83
+        },
+        {
+          "t": 120,
+          "value": 21.269
+        }
+      ]
+    },
+    "lidar.robot_1.sensors.ouster.point_cloud.received_samples": {
+      "samples": [
+        {
+          "t": 10,
+          "value": 1.0
+        },
+        {
+          "t": 20,
+          "value": 1.0
+        },
+        {
+          "t": 30,
+          "value": 1.0
+        },
+        {
+          "t": 40,
+          "value": 1.0
+        },
+        {
+          "t": 50,
+          "value": 1.0
+        },
+        {
+          "t": 60,
+          "value": 1.0
+        },
+        {
+          "t": 70,
+          "value": 1.0
+        },
+        {
+          "t": 80,
+          "value": 1.0
+        },
+        {
+          "t": 90,
+          "value": 1.0
+        },
+        {
+          "t": 100,
+          "value": 1.0
+        },
+        {
+          "t": 110,
+          "value": 1.0
+        },
+        {
+          "t": 120,
+          "value": 1.0
+        }
+      ]
+    }
+  }
+}

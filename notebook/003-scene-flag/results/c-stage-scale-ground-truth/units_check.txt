@@ -1,0 +1,10 @@
+Run: 2026-08-24 ~20:40 EDT — Sdf layer metadata of the 5 Nucleus stages (read via omni.client in the isaac-sim image)
+
+RESULT AbandonedFactory/AbandonedFactory.stage.usd: metersPerUnit=1.0 upAxis=Z defaultPrim=World
+RESULT AbandonedWarehouse/Warehouse_01_night.stage.usd: metersPerUnit=0.01 upAxis=Z defaultPrim=Root
+RESULT AbandonedWarehouse/Warehouse_02_day.stage.usd: metersPerUnit=0.01 upAxis=Z defaultPrim=Root
+RESULT ChemicalPlant/Map_ChemicalPlant_2.stage.usd: metersPerUnit=1.0 upAxis=Z defaultPrim=Root
+RESULT ConstructionSite/ConstructionSite.stage.usd: metersPerUnit=0.01 upAxis=Z defaultPrim=World
+RESULT RetroNeighborhood/RetroNeighborhood.stage.usd: metersPerUnit=0.01 upAxis=Z defaultPrim=Root
+
+scenes.yaml stage_scale set to metersPerUnit per stage: factory=1.0, warehouses=0.01, chemical=1.0, construction=0.01, retro=0.01

@@ -498,7 +498,7 @@ session), `git submodule update --init agent_study` and read in order:
    — current state, campaign blocker, new-machine setup, hazards
 2. [`agent_study/agent_study_protocol.md`](agent_study/agent_study_protocol.md)
    — canonical design + Amendment 1 + P-1…P-8 statuses
-3. [`notebook/001-agent-study-prereqs/`](notebook/001-agent-study-prereqs/)
+3. [`notebook/007-agent-study-prereqs/`](notebook/007-agent-study-prereqs/)
    — status-tracked design spec and the full experimental record
    (`results/results_summary.md`, sections (a)–(h))
 

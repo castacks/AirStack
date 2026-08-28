@@ -1,0 +1,1336 @@
+=== BASELINE SYSTEM RERUN commit=9e2e0e39 date=2026-08-20 04:17:04 ===
+=== liveliness or sensors (isaacsim) ===
+access control disabled, clients can connect from any host
+ Image airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_tests Building 
+ Image airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_tests Built 
+ Container docker-test-run-a23a852067af Creating 
+ Container docker-test-run-a23a852067af Created 
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/bin/python3.12
+cachedir: /tmp/.pytest_cache
+rootdir: /home/andrew/Development/AirStack/tests
+configfile: pytest.ini
+testpaths: .
+plugins: dependency-0.6.1, timeout-2.4.0
+collecting ... collected 250 items / 234 deselected / 16 selected
+
+system/test_liveliness.py::TestLiveliness::test_robot_containers_running[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:17:07] INFO $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+[08:17:07] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+[08:17:07] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+[08:17:07] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+[08:17:07] INFO Shutting down any previously running stack
+[08:17:07] INFO $ /home/andrew/Development/AirStack/airstack.sh down
+[08:17:18] INFO Bringing up stack: sim=isaacsim num_robots=1 iter=0 headless=True
+[08:17:18] INFO $ /home/andrew/Development/AirStack/airstack.sh up
+[08:17:18] INFO airstack up returned 0 in 0.55s
+-------------------------------- live log call ---------------------------------
+[08:17:18] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:17:18] INFO $ docker inspect -f '{{.State.Running}}' airstack-robot-desktop-1
+PASSED                                                                   [  6%]
+system/test_liveliness.py::TestLiveliness::test_sim_container_running[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:17:18] INFO $ docker inspect -f '{{.State.Running}}' isaac-sim
+PASSED                                                                   [ 12%]
+system/test_liveliness.py::TestLiveliness::test_gcs_container_running[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:17:18] INFO $ docker ps --filter name=gcs --format '{{.Names}}'
+[08:17:18] INFO $ docker inspect -f '{{.State.Running}}' airstack-gcs-1
+PASSED                                                                   [ 18%]
+system/test_liveliness.py::TestLiveliness::test_sim_ready_time[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:17:18] INFO Probing /clock on domain 1 in isaac-sim (timeout=600s)
+[08:17:18] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:17:20] WARNING Attempt 1 failed for /clock, retrying
+[08:17:22] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:17:22] WARNING Attempt 2 failed for /clock, retrying
+[08:17:24] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:17:35] WARNING Attempt 3 failed for /clock, retrying
+[08:17:37] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:17:38] INFO Got first message on /clock after 19.34s (attempt 4)
+PASSED                                                                   [ 25%]
+system/test_liveliness.py::TestLiveliness::test_tmux_panes_have_expected_processes[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:17:38] INFO Listing tmux panes in isaac-sim
+[08:17:38] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:17:38] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:17:38] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:17:38] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:17:38] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+PASSED                                                                   [ 31%]
+system/test_liveliness.py::TestLiveliness::test_compute_usage[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:17:38] INFO Sampling compute usage
+[08:17:38] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:17:40] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:17:41] INFO Sampled 18 compute metrics
+PASSED                                                                   [ 37%]
+system/test_liveliness.py::TestLiveliness::test_sentinel_nodes_present[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:17:41] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:17:41] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:17:41] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:17:42] INFO All 3 sentinel nodes present
+PASSED                                                                   [ 43%]
+system/test_liveliness.py::TestLiveliness::test_stable[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:17:52] INFO Listing tmux panes in isaac-sim
+[08:17:52] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:17:52] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:17:52] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:17:52] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:17:52] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:17:52] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:17:52] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:17:52] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:17:53] INFO All 3 sentinel nodes present
+[08:17:53] INFO Sampling compute usage
+[08:17:53] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:17:56] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:17:56] INFO Sampled 18 compute metrics
+[08:18:06] INFO Listing tmux panes in isaac-sim
+[08:18:06] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:18:06] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:18:06] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:18:06] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:18:06] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:18:06] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:18:06] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:18:06] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:18:07] INFO All 3 sentinel nodes present
+[08:18:07] INFO Sampling compute usage
+[08:18:07] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:18:09] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:18:09] INFO Sampled 18 compute metrics
+[08:18:19] INFO Listing tmux panes in isaac-sim
+[08:18:19] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:18:19] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:18:19] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:18:19] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:18:19] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:18:19] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:18:19] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:18:19] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:18:20] INFO All 3 sentinel nodes present
+[08:18:20] INFO Sampling compute usage
+[08:18:20] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:18:23] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:18:23] INFO Sampled 18 compute metrics
+[08:18:33] INFO Listing tmux panes in isaac-sim
+[08:18:33] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:18:33] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:18:33] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:18:33] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:18:33] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:18:33] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:18:33] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:18:33] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:18:33] INFO All 3 sentinel nodes present
+[08:18:33] INFO Sampling compute usage
+[08:18:33] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:18:36] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:18:36] INFO Sampled 18 compute metrics
+[08:18:46] INFO Listing tmux panes in isaac-sim
+[08:18:46] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:18:46] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:18:46] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:18:46] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:18:46] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:18:46] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:18:46] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:18:46] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:18:46] INFO All 3 sentinel nodes present
+[08:18:46] INFO Sampling compute usage
+[08:18:46] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:18:49] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:18:49] INFO Sampled 18 compute metrics
+[08:18:59] INFO Listing tmux panes in isaac-sim
+[08:18:59] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:18:59] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:18:59] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:18:59] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:18:59] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:18:59] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:18:59] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:18:59] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:18:59] INFO All 3 sentinel nodes present
+[08:18:59] INFO Sampling compute usage
+[08:18:59] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:19:02] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:19:02] INFO Sampled 18 compute metrics
+[08:19:12] INFO Listing tmux panes in isaac-sim
+[08:19:12] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:19:12] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:19:12] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:19:12] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:19:12] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:19:12] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:19:12] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:19:12] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:19:13] INFO All 3 sentinel nodes present
+[08:19:13] INFO Sampling compute usage
+[08:19:13] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:19:15] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:19:15] INFO Sampled 18 compute metrics
+[08:19:25] INFO Listing tmux panes in isaac-sim
+[08:19:25] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:19:25] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:19:25] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:19:25] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:19:25] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:19:25] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:19:25] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:19:25] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:19:26] INFO All 3 sentinel nodes present
+[08:19:26] INFO Sampling compute usage
+[08:19:26] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:19:28] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:19:28] INFO Sampled 18 compute metrics
+[08:19:38] INFO Listing tmux panes in isaac-sim
+[08:19:38] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:19:38] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:19:38] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:19:38] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:19:38] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:19:38] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:19:38] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:19:38] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:19:39] INFO All 3 sentinel nodes present
+[08:19:39] INFO Sampling compute usage
+[08:19:39] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:19:42] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:19:42] INFO Sampled 18 compute metrics
+[08:19:52] INFO Listing tmux panes in isaac-sim
+[08:19:52] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:19:52] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:19:52] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:19:52] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:19:52] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:19:52] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:19:52] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:19:52] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:19:52] INFO All 3 sentinel nodes present
+[08:19:52] INFO Sampling compute usage
+[08:19:52] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:19:55] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:19:55] INFO Sampled 18 compute metrics
+[08:20:05] INFO Listing tmux panes in isaac-sim
+[08:20:05] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:20:05] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:20:05] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:20:05] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:20:05] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:20:05] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:20:05] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:20:05] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:20:06] INFO All 3 sentinel nodes present
+[08:20:06] INFO Sampling compute usage
+[08:20:06] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:20:08] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:20:08] INFO Sampled 18 compute metrics
+[08:20:18] INFO Listing tmux panes in isaac-sim
+[08:20:18] INFO $ docker exec isaac-sim bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:20:18] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:20:18] INFO Listing tmux panes in airstack-robot-desktop-1
+[08:20:18] INFO $ docker exec airstack-robot-desktop-1 bash -c 'tmux list-panes -a -F '"'"'#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}'"'"' | while IFS='"'"'|'"'"' read -r w pid t; do kids=$(pgrep -P "$pid" | wc -l); printf '"'"'%s|%s|%s|%s\n'"'"' "$w" "$pid" "$t" "$kids"; done'
+[08:20:18] INFO All tmux panes active (isaac-sim=1, airstack-robot-desktop-1=1)
+[08:20:18] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:20:18] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:20:18] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:20:19] INFO All 3 sentinel nodes present
+[08:20:19] INFO Sampling compute usage
+[08:20:19] INFO $ docker stats --no-stream --format '{{json .}}'
+[08:20:21] INFO $ docker exec isaac-sim nvidia-smi --query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits
+[08:20:21] INFO Sampled 18 compute metrics
+PASSED                                                                   [ 50%]
+------------------------------ live log teardown -------------------------------
+[08:20:21] INFO Tearing down stack
+[08:20:21] INFO $ /home/andrew/Development/AirStack/airstack.sh down
+[08:20:32] INFO Teardown finished in 11.15s
+
+system/test_sensors.py::TestSensors::test_sim_clock_available[isaacsim-rob#1-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:20:32] INFO $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+[08:20:32] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+[08:20:32] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+[08:20:33] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+[08:20:33] INFO Shutting down any previously running stack
+[08:20:33] INFO $ /home/andrew/Development/AirStack/airstack.sh down
+[08:20:33] INFO Bringing up stack: sim=isaacsim num_robots=1 iter=0 headless=True
+[08:20:33] INFO $ /home/andrew/Development/AirStack/airstack.sh up
+[08:20:33] INFO airstack up returned 0 in 0.55s
+-------------------------------- live log call ---------------------------------
+[08:20:33] INFO Probing /clock on domain 1 in isaac-sim (timeout=600s)
+[08:20:33] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:20:34] WARNING Attempt 1 failed for /clock, retrying
+[08:20:36] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:20:37] WARNING Attempt 2 failed for /clock, retrying
+[08:20:39] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:20:49] WARNING Attempt 3 failed for /clock, retrying
+[08:20:51] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:21:02] WARNING Attempt 4 failed for /clock, retrying
+[08:21:04] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:21:15] WARNING Attempt 5 failed for /clock, retrying
+[08:21:17] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:21:28] WARNING Attempt 6 failed for /clock, retrying
+[08:21:30] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:21:40] WARNING Attempt 7 failed for /clock, retrying
+[08:21:42] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 10 ros2 topic echo --once /clock'
+[08:21:52] INFO Got first message on /clock after 79.08s (attempt 8)
+PASSED                                                                   [ 56%]
+system/test_sensors.py::TestSensors::test_sentinel_nodes_present[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:21:52] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:21:52] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:21:52] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:21:54] WARNING robot_1 missing nodes: ['/robot_1/interface/mavros/mavros', '/robot_1/robot_state_publisher', '/robot_1/trajectory_controller/trajectory_control_node']
+[08:21:59] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:21:59] INFO Checking sentinel nodes for robot_1 on domain 1 in airstack-robot-desktop-1
+[08:21:59] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 node list 2>/dev/null'
+[08:21:59] INFO All 3 sentinel nodes present
+PASSED                                                                   [ 62%]
+system/test_sensors.py::TestSensors::test_sim_topic_publish_rates[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:21:59] INFO Sampling Hz for 5 sim-side topics (duration=10s)
+[08:21:59] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:21:59] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 10 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:22:10] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:22:10] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 10 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 10 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:22:20] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:22:20] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 10 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 10 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:22:30] INFO 5 topics healthy
+PASSED                                                                   [ 68%]
+system/test_sensors.py::TestSensors::test_robot_stereo_bridge_rates[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:22:30] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:22:30] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=10s)
+[08:22:30] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:22:30] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 10 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 10 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:22:41] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:22:41] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 10 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 10 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:22:51] INFO 4 robot stereo/depth topics healthy
+PASSED                                                                   [ 75%]
+system/test_sensors.py::TestSensors::test_robot_filtered_lidar_stream[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:22:51] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:22:51] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:22:51] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:22:51] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:22:54] INFO 1 robot lidar topic(s) received a message
+PASSED                                                                   [ 81%]
+system/test_sensors.py::TestSensors::test_sim_clock_realtime_factor[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:22:54] INFO RTF: reading initial /clock from isaac-sim
+[08:22:54] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once /clock'
+[08:22:55] INFO RTF: initial sim_t=77.960, sleeping 20.0s
+[08:23:15] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash && source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once /clock'
+[08:23:17] INFO RTF: final sim_t=106.070 (sim Δ=28.110s, wall Δ=22.028s)
+[08:23:17] INFO RTF: 1.276
+PASSED                                                                   [ 87%]
+system/test_sensors.py::TestSensors::test_lidar_filtered_cloud_sanity[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:23:17] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:23:17] INFO Lidar cloud sanity robot_1 in airstack-robot-desktop-1
+[08:23:17] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && python3 /root/AirStack/robot/ros_ws/src/sensors/lidar_point_cloud_filter/scripts/validate_lidar_filter_clouds.py --robot-num 1'
+PASSED                                                                   [ 93%]
+system/test_sensors.py::TestSensors::test_sensor_streams_stable[isaacsim-rob#1-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:23:34] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:23:34] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:23:34] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:23:39] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:23:39] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:23:45] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:23:45] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:23:50] INFO 5 topics healthy
+[08:23:50] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:23:50] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:23:50] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:23:50] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:23:56] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:23:56] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:24:01] INFO 4 robot stereo/depth topics healthy
+[08:24:01] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:24:01] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:24:01] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:24:01] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:24:03] INFO 1 robot lidar topic(s) received a message
+[08:24:13] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:24:13] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:24:13] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:24:18] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:24:18] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:24:24] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:24:24] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:24:29] INFO 5 topics healthy
+[08:24:29] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:24:29] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:24:29] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:24:29] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:24:35] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:24:35] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:24:40] INFO 4 robot stereo/depth topics healthy
+[08:24:40] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:24:40] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:24:40] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:24:40] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:24:41] INFO 1 robot lidar topic(s) received a message
+[08:24:51] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:24:51] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:24:51] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:24:57] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:24:57] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:25:02] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:25:02] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:25:08] INFO 5 topics healthy
+[08:25:08] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:25:08] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:25:08] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:25:08] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:25:13] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:25:13] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:25:19] INFO 4 robot stereo/depth topics healthy
+[08:25:19] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:25:19] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:25:19] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:25:19] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:25:21] INFO 1 robot lidar topic(s) received a message
+[08:25:31] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:25:31] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:25:31] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:25:36] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:25:36] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:25:42] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:25:42] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:25:47] INFO 5 topics healthy
+[08:25:47] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:25:47] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:25:47] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:25:47] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:25:53] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:25:53] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:25:58] INFO 4 robot stereo/depth topics healthy
+[08:25:58] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:25:58] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:25:58] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:25:58] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:25:59] INFO 1 robot lidar topic(s) received a message
+[08:26:09] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:26:09] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:26:09] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:26:15] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:26:15] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:26:20] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:26:20] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:26:26] INFO 5 topics healthy
+[08:26:26] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:26:26] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:26:26] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:26:26] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:26:31] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:26:31] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:26:37] INFO 4 robot stereo/depth topics healthy
+[08:26:37] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:26:37] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:26:37] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:26:37] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:26:39] INFO 1 robot lidar topic(s) received a message
+[08:26:49] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:26:49] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:26:49] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:26:54] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:26:54] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:27:00] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:27:00] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:27:05] INFO 5 topics healthy
+[08:27:05] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:27:05] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:27:05] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:27:05] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:27:11] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:27:11] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:27:16] INFO 4 robot stereo/depth topics healthy
+[08:27:16] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:27:16] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:27:16] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:27:16] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:27:17] INFO 1 robot lidar topic(s) received a message
+[08:27:27] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:27:27] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:27:27] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:27:33] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:27:33] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:27:38] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:27:38] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:27:44] INFO 5 topics healthy
+[08:27:44] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:27:44] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:27:44] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:27:44] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:27:49] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:27:49] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:27:54] INFO 4 robot stereo/depth topics healthy
+[08:27:54] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:27:54] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:27:55] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:27:55] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:27:56] INFO 1 robot lidar topic(s) received a message
+[08:28:06] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:28:06] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:28:06] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:28:11] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:28:11] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:28:17] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:28:17] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:28:22] INFO 5 topics healthy
+[08:28:22] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:28:22] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:28:22] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:28:22] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:28:27] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:28:27] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:28:33] INFO 4 robot stereo/depth topics healthy
+[08:28:33] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:28:33] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:28:33] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:28:33] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:28:34] INFO 1 robot lidar topic(s) received a message
+[08:28:44] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:28:44] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:28:44] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:28:50] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:28:50] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:28:55] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:28:55] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:29:00] INFO 5 topics healthy
+[08:29:00] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:29:00] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:29:00] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:29:00] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:29:06] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:29:06] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:29:11] INFO 4 robot stereo/depth topics healthy
+[08:29:11] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:29:11] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:29:11] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:29:11] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:29:15] INFO 1 robot lidar topic(s) received a message
+[08:29:25] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:29:25] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:29:25] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:29:30] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:29:30] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:29:36] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:29:36] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:29:41] INFO 5 topics healthy
+[08:29:41] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:29:41] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:29:41] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:29:41] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:29:47] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:29:47] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:29:52] INFO 4 robot stereo/depth topics healthy
+[08:29:52] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:29:52] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:29:52] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:29:52] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:29:54] INFO 1 robot lidar topic(s) received a message
+[08:30:04] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:30:04] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:30:04] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:30:09] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:30:09] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:30:15] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:30:15] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:30:20] INFO 5 topics healthy
+[08:30:20] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:30:20] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:30:20] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:30:20] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:30:26] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:30:26] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:30:31] INFO 4 robot stereo/depth topics healthy
+[08:30:31] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:30:31] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:30:31] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:30:31] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:30:32] INFO 1 robot lidar topic(s) received a message
+[08:30:42] INFO Sampling Hz for 5 sim-side topics (duration=5s)
+[08:30:42] INFO Isaac sim Hz: batch 1 — 1 /clock topic(s)
+[08:30:42] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /clock > /tmp/hz_0.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true'
+[08:30:48] INFO Isaac sim Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:30:48] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:30:53] INFO Isaac sim Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:30:53] INFO $ docker exec isaac-sim bash -c 'source /opt/ros/jazzy/setup.bash
+source /opt/ros/jazzy/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:30:59] INFO 5 topics healthy
+[08:30:59] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:30:59] INFO Sampling Hz for 4 robot-side stereo/depth topics (duration=5s)
+[08:30:59] INFO Isaac robot Hz: stereo image chunk 1/1 — 2 topic(s)
+[08:30:59] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/image_rect > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/image_rect > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:31:04] INFO Isaac robot Hz: stereo depth chunk 1/1 — 2 topic(s)
+[08:31:04] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash
+source /root/AirStack/robot/ros_ws/install/setup.bash
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/left/depth_ground_truth > /tmp/hz_0.out 2>&1) &
+(ROS_DOMAIN_ID=1 timeout 5 ros2 topic hz --window 5 /robot_1/sensors/front_stereo/right/depth_ground_truth > /tmp/hz_1.out 2>&1) &
+wait
+echo '"'"'===FILE /tmp/hz_0.out==='"'"'
+cat /tmp/hz_0.out 2>/dev/null || true
+echo '"'"'===FILE /tmp/hz_1.out==='"'"'
+cat /tmp/hz_1.out 2>/dev/null || true'
+[08:31:09] INFO 4 robot stereo/depth topics healthy
+[08:31:09] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:31:09] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:31:09] INFO Filtered LiDAR: echo-once for 1 topic(s) (isaacsim, timeout=40s per topic)
+[08:31:09] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 40 ros2 topic echo --once /robot_1/sensors/ouster/point_cloud'
+[08:31:11] INFO 1 robot lidar topic(s) received a message
+PASSED                                                                   [100%]
+------------------------------ live log teardown -------------------------------
+[08:31:11] INFO Tearing down stack
+[08:31:11] INFO $ /home/andrew/Development/AirStack/airstack.sh down
+[08:31:22] INFO Teardown finished in 11.31s
+---------------------------- live log sessionfinish ----------------------------
+[08:31:22] INFO Wrote run metadata to /home/andrew/Development/AirStack/tests/results/2026-08-20_08-17-06/run_meta.json
+[08:31:22] INFO Wrote run summary to /home/andrew/Development/AirStack/tests/results/2026-08-20_08-17-06/summary.txt
+
+
+- generated xml file: /home/andrew/Development/AirStack/tests/results/2026-08-20_08-17-06/results.xml -
+============================== slowest durations ===============================
+466.74s call     system/test_sensors.py::TestSensors::test_sensor_streams_stable[isaacsim-rob#1-iter0]
+159.22s call     system/test_liveliness.py::TestLiveliness::test_stable[isaacsim-rob#1-iter0]
+79.08s call     system/test_sensors.py::TestSensors::test_sim_clock_available[isaacsim-rob#1-iter0]
+31.35s call     system/test_sensors.py::TestSensors::test_sim_topic_publish_rates[isaacsim-rob#1-iter0]
+23.12s call     system/test_sensors.py::TestSensors::test_sim_clock_realtime_factor[isaacsim-rob#1-iter0]
+20.85s call     system/test_sensors.py::TestSensors::test_robot_stereo_bridge_rates[isaacsim-rob#1-iter0]
+19.34s call     system/test_liveliness.py::TestLiveliness::test_sim_ready_time[isaacsim-rob#1-iter0]
+11.50s setup    system/test_liveliness.py::TestLiveliness::test_robot_containers_running[isaacsim-rob#1-iter0]
+11.32s teardown system/test_sensors.py::TestSensors::test_sensor_streams_stable[isaacsim-rob#1-iter0]
+11.15s teardown system/test_liveliness.py::TestLiveliness::test_stable[isaacsim-rob#1-iter0]
+6.97s call     system/test_sensors.py::TestSensors::test_lidar_filtered_cloud_sanity[isaacsim-rob#1-iter0]
+6.80s call     system/test_sensors.py::TestSensors::test_sentinel_nodes_present[isaacsim-rob#1-iter0]
+2.68s call     system/test_sensors.py::TestSensors::test_robot_filtered_lidar_stream[isaacsim-rob#1-iter0]
+2.62s call     system/test_liveliness.py::TestLiveliness::test_compute_usage[isaacsim-rob#1-iter0]
+1.49s call     system/test_liveliness.py::TestLiveliness::test_sentinel_nodes_present[isaacsim-rob#1-iter0]
+0.76s setup    system/test_sensors.py::TestSensors::test_sim_clock_available[isaacsim-rob#1-iter0]
+0.11s call     system/test_liveliness.py::TestLiveliness::test_tmux_panes_have_expected_processes[isaacsim-rob#1-iter0]
+0.02s call     system/test_liveliness.py::TestLiveliness::test_gcs_container_running[isaacsim-rob#1-iter0]
+0.02s call     system/test_liveliness.py::TestLiveliness::test_robot_containers_running[isaacsim-rob#1-iter0]
+0.01s call     system/test_liveliness.py::TestLiveliness::test_sim_container_running[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_stable[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_tmux_panes_have_expected_processes[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_sim_container_running[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_robot_stereo_bridge_rates[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_compute_usage[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_sentinel_nodes_present[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_sentinel_nodes_present[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_lidar_filtered_cloud_sanity[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_robot_containers_running[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_sim_topic_publish_rates[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_sim_ready_time[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_sim_clock_available[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_sentinel_nodes_present[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_robot_stereo_bridge_rates[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_robot_filtered_lidar_stream[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_sensor_streams_stable[isaacsim-rob#1-iter0]
+0.00s setup    system/test_sensors.py::TestSensors::test_sim_clock_realtime_factor[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_gcs_container_running[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_sim_topic_publish_rates[isaacsim-rob#1-iter0]
+0.00s setup    system/test_liveliness.py::TestLiveliness::test_sim_ready_time[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_tmux_panes_have_expected_processes[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_sim_clock_realtime_factor[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_compute_usage[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_sentinel_nodes_present[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_lidar_filtered_cloud_sanity[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_sim_container_running[isaacsim-rob#1-iter0]
+0.00s teardown system/test_liveliness.py::TestLiveliness::test_gcs_container_running[isaacsim-rob#1-iter0]
+0.00s teardown system/test_sensors.py::TestSensors::test_robot_filtered_lidar_stream[isaacsim-rob#1-iter0]
+================ 16 passed, 234 deselected in 855.95s (0:14:15) ================
+EXIT_LIVSEN=0
+=== takeoff_hover_land (isaacsim) ===
+access control disabled, clients can connect from any host
+ Image airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_tests Building 
+ Image airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_tests Built 
+ Container docker-test-run-730f69433f42 Creating 
+ Container docker-test-run-730f69433f42 Created 
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0 -- /usr/local/bin/python3.12
+cachedir: /tmp/.pytest_cache
+rootdir: /home/andrew/Development/AirStack/tests
+configfile: pytest.ini
+testpaths: .
+plugins: dependency-0.6.1, timeout-2.4.0
+collecting ... collected 290 items / 282 deselected / 8 selected
+
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#1-v1.0-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:31:24] INFO $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+[08:31:24] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+[08:31:24] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+[08:31:24] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+[08:31:24] INFO Shutting down any previously running stack
+[08:31:24] INFO $ /home/andrew/Development/AirStack/airstack.sh down
+[08:31:24] INFO Bringing up stack: sim=isaacsim num_robots=1 iter=0 headless=True
+[08:31:24] INFO $ /home/andrew/Development/AirStack/airstack.sh up
+[08:31:25] INFO airstack up returned 0 in 0.56s
+-------------------------------- live log call ---------------------------------
+[08:31:25] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:31:25] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:31:26] INFO px4_ready: connected=[] pending=[1] elapsed=1s
+[08:31:28] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:31:29] INFO px4_ready: connected=[] pending=[1] elapsed=4s
+[08:31:31] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:31:36] INFO px4_ready: connected=[] pending=[1] elapsed=11s
+[08:31:38] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:31:40] INFO px4_ready: connected=[] pending=[1] elapsed=15s
+[08:31:42] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:31:43] INFO px4_ready: connected=[] pending=[1] elapsed=19s
+[08:31:45] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:31:49] INFO px4_ready: connected=[] pending=[1] elapsed=25s
+[08:31:51] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:31:53] INFO px4_ready: connected=[] pending=[1] elapsed=28s
+[08:31:55] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:31:58] INFO px4_ready: connected=[] pending=[1] elapsed=34s
+[08:32:00] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:32:04] INFO px4_ready: connected=[] pending=[1] elapsed=39s
+[08:32:06] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:32:10] INFO px4_ready: connected=[] pending=[1] elapsed=46s
+[08:32:12] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:32:16] INFO px4_ready: connected=[] pending=[1] elapsed=51s
+[08:32:18] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:32:22] INFO px4_ready: connected=[] pending=[1] elapsed=57s
+[08:32:24] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:32:28] INFO px4_ready: connected=[] pending=[1] elapsed=63s
+[08:32:30] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:32:31] INFO px4_ready: connected=[] pending=[1] elapsed=67s
+[08:32:33] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:32:35] INFO px4_ready: connected=[] pending=[1] elapsed=70s
+[08:32:37] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:32:38] INFO px4_ready: connected=[] pending=[1] elapsed=73s
+[08:32:40] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:32:42] INFO px4_ready: connected=[] pending=[1] elapsed=77s
+[08:32:44] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:32:46] INFO px4_ready: connected=[] pending=[1] elapsed=82s
+[08:32:48] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:32:52] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once /robot_1/interface/mavros/local_position/odom'
+PASSED                                                                   [ 12%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#1-v1.0-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:32:55] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:32:55] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 action send_goal --feedback /robot_1/tasks/takeoff task_msgs/action/TakeoffTask "{target_altitude_m: 10.0, velocity_m_s: 1.0}"'
+[08:33:09] WARNING ground truth not available — skipping state-estimation error metrics.
+PASSED                                                                   [ 25%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#1-v1.0-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:33:09] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:33:19] WARNING ground truth not available — skipping state-estimation error metrics.
+PASSED                                                                   [ 37%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#1-v1.0-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:33:19] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:33:19] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 action send_goal --feedback /robot_1/tasks/land task_msgs/action/LandTask "{velocity_m_s: 1.0}"'
+[08:33:33] WARNING ground truth not available — skipping state-estimation error metrics.
+PASSED                                                                   [ 50%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#3-v1.0-iter0] 
+-------------------------------- live log setup --------------------------------
+[08:33:33] INFO Tearing down stack
+[08:33:33] INFO $ /home/andrew/Development/AirStack/airstack.sh down
+[08:33:44] INFO Teardown finished in 11.19s
+[08:33:44] INFO $ docker compose -f /home/andrew/Development/AirStack/docker-compose.yaml config --images
+[08:33:44] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_isaac-sim --format '{{.Id}}'
+[08:33:44] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_gcs --format '{{.Id}}'
+[08:33:44] INFO $ docker image inspect airlab-docker.andrew.cmu.edu/airstack/airstack:v0.19.0-alpha.17_robot-x86-64_dev --format '{{.Id}}'
+[08:33:44] INFO Shutting down any previously running stack
+[08:33:44] INFO $ /home/andrew/Development/AirStack/airstack.sh down
+[08:33:44] INFO Bringing up stack: sim=isaacsim num_robots=3 iter=0 headless=True
+[08:33:44] INFO $ /home/andrew/Development/AirStack/airstack.sh up
+[08:33:45] INFO airstack up returned 0 in 1.06s
+-------------------------------- live log call ---------------------------------
+[08:33:45] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:33:45] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:33:47] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:33:48] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once --csv --field connected /robot_3/interface/mavros/state'
+[08:33:49] INFO px4_ready: connected=[] pending=[1, 2, 3] elapsed=4s
+[08:33:51] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:33:52] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:33:54] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once --csv --field connected /robot_3/interface/mavros/state'
+[08:33:55] INFO px4_ready: connected=[] pending=[1, 2, 3] elapsed=10s
+[08:33:57] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:33:58] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:34:00] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once --csv --field connected /robot_3/interface/mavros/state'
+[08:34:02] INFO px4_ready: connected=[] pending=[1, 2, 3] elapsed=17s
+[08:34:04] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:34:06] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:34:09] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once --csv --field connected /robot_3/interface/mavros/state'
+[08:34:12] INFO px4_ready: connected=[] pending=[1, 2, 3] elapsed=27s
+[08:34:14] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:34:16] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:34:19] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once --csv --field connected /robot_3/interface/mavros/state'
+[08:34:21] INFO px4_ready: connected=[] pending=[1, 2, 3] elapsed=35s
+[08:34:23] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:34:25] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:34:27] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once --csv --field connected /robot_3/interface/mavros/state'
+[08:34:29] INFO px4_ready: connected=[] pending=[1, 2, 3] elapsed=44s
+[08:34:31] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:34:34] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:34:36] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once --csv --field connected /robot_3/interface/mavros/state'
+[08:34:37] INFO px4_ready: connected=[] pending=[1, 2, 3] elapsed=52s
+[08:34:39] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:34:43] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:34:45] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once --csv --field connected /robot_3/interface/mavros/state'
+[08:34:47] INFO px4_ready: connected=[] pending=[1, 2, 3] elapsed=62s
+[08:34:49] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:34:52] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:34:54] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once --csv --field connected /robot_3/interface/mavros/state'
+[08:34:56] INFO px4_ready: connected=[] pending=[1, 2, 3] elapsed=71s
+[08:34:58] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:34:59] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:35:03] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once --csv --field connected /robot_3/interface/mavros/state'
+[08:35:04] INFO px4_ready: connected=[] pending=[1, 2, 3] elapsed=79s
+[08:35:06] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:35:10] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:35:12] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once --csv --field connected /robot_3/interface/mavros/state'
+[08:35:14] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && timeout 5 ros2 topic echo --once /robot_3/interface/mavros/local_position/odom'
+[08:35:17] INFO px4_ready: connected=[3] pending=[1, 2] elapsed=92s
+[08:35:19] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once --csv --field connected /robot_1/interface/mavros/state'
+[08:35:20] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && timeout 5 ros2 topic echo --once /robot_1/interface/mavros/local_position/odom'
+[08:35:22] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once --csv --field connected /robot_2/interface/mavros/state'
+[08:35:24] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && timeout 5 ros2 topic echo --once /robot_2/interface/mavros/local_position/odom'
+PASSED                                                                   [ 62%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#3-v1.0-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:35:27] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:35:27] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 action send_goal --feedback /robot_1/tasks/takeoff task_msgs/action/TakeoffTask "{target_altitude_m: 10.0, velocity_m_s: 1.0}"'
+[08:35:27] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && ros2 action send_goal --feedback /robot_2/tasks/takeoff task_msgs/action/TakeoffTask "{target_altitude_m: 10.0, velocity_m_s: 1.0}"'
+[08:35:27] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && ros2 action send_goal --feedback /robot_3/tasks/takeoff task_msgs/action/TakeoffTask "{target_altitude_m: 10.0, velocity_m_s: 1.0}"'
+[08:35:55] WARNING ground truth not available — skipping state-estimation error metrics.
+[08:35:55] WARNING ground truth not available — skipping state-estimation error metrics.
+[08:35:56] WARNING ground truth not available — skipping state-estimation error metrics.
+PASSED                                                                   [ 75%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#3-v1.0-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:35:56] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:36:06] WARNING ground truth not available — skipping state-estimation error metrics.
+[08:36:06] WARNING ground truth not available — skipping state-estimation error metrics.
+[08:36:06] WARNING ground truth not available — skipping state-estimation error metrics.
+PASSED                                                                   [ 87%]
+system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#3-v1.0-iter0] 
+-------------------------------- live log call ---------------------------------
+[08:36:06] INFO $ docker ps --filter 'name=robot.*desktop' --format '{{.Names}}'
+[08:36:06] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=1 && ros2 action send_goal --feedback /robot_1/tasks/land task_msgs/action/LandTask "{velocity_m_s: 1.0}"'
+[08:36:06] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=3 && ros2 action send_goal --feedback /robot_3/tasks/land task_msgs/action/LandTask "{velocity_m_s: 1.0}"'
+[08:36:06] INFO $ docker exec airstack-robot-desktop-1 bash -c 'source /opt/ros/jazzy/setup.bash && source /root/AirStack/robot/ros_ws/install/setup.bash && export ROS_DOMAIN_ID=2 && ros2 action send_goal --feedback /robot_2/tasks/land task_msgs/action/LandTask "{velocity_m_s: 1.0}"'
+[08:36:38] WARNING ground truth not available — skipping state-estimation error metrics.
+[08:36:39] WARNING ground truth not available — skipping state-estimation error metrics.
+[08:36:40] WARNING ground truth not available — skipping state-estimation error metrics.
+PASSED                                                                   [100%]
+------------------------------ live log teardown -------------------------------
+[08:36:40] INFO Tearing down stack
+[08:36:40] INFO $ /home/andrew/Development/AirStack/airstack.sh down
+[08:36:51] INFO Teardown finished in 11.24s
+---------------------------- live log sessionfinish ----------------------------
+[08:36:51] INFO Wrote run metadata to /home/andrew/Development/AirStack/tests/results/2026-08-20_08-31-23/run_meta.json
+[08:36:51] INFO Wrote run summary to /home/andrew/Development/AirStack/tests/results/2026-08-20_08-31-23/summary.txt
+
+
+- generated xml file: /home/andrew/Development/AirStack/tests/results/2026-08-20_08-31-23/results.xml -
+============================== slowest durations ===============================
+101.86s call     system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#3-v1.0-iter0]
+90.14s call     system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#1-v1.0-iter0]
+33.87s call     system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#3-v1.0-iter0]
+29.07s call     system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#3-v1.0-iter0]
+13.93s call     system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#1-v1.0-iter0]
+13.82s call     system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#1-v1.0-iter0]
+12.47s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#3-v1.0-iter0]
+11.25s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#3-v1.0-iter0]
+10.04s call     system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#3-v1.0-iter0]
+10.04s call     system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#1-v1.0-iter0]
+0.79s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#1-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#3-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#3-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#1-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#1-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#1-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#3-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#3-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_px4_ready[isaacsim-rob#3-v1.0-iter0]
+0.00s setup    system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#1-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#3-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_hover[isaacsim-rob#1-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_landing[isaacsim-rob#1-v1.0-iter0]
+0.00s teardown system/test_takeoff_hover_land.py::TestTakeoffHoverLand::test_takeoff[isaacsim-rob#1-v1.0-iter0]
+================ 8 passed, 282 deselected in 327.99s (0:05:27) =================
+EXIT_TAKEOFF=0
+=== DONE 2026-08-20 04:36:51 ===

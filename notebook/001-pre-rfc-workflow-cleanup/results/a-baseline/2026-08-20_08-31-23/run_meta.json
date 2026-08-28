@@ -1,0 +1,15 @@
+{
+  "campaign_fingerprint": "08602640d5aff30002ca12fc963fa22e53d4a297b0312acb251b8ea2c1e95713",
+  "complete": true,
+  "completed_tests": 8,
+  "failed": 0,
+  "mark_expression": "takeoff_hover_land",
+  "outcome": "simulation",
+  "passed": 8,
+  "pytest_exitstatus": 0,
+  "schema_version": 1,
+  "selected_tests": 8,
+  "simulation_completed": 8,
+  "simulation_selected": 8,
+  "skipped": 0
+}

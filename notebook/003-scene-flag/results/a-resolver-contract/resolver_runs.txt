@@ -1,0 +1,47 @@
+Run: 2026-08-24 ~20:45 EDT
+
+ISAAC_SIM_SCENE=Warehouse
+ISAAC_SIM_STAGE_SCALE=1.0
+ISAAC_SIM_SCENE=omniverse://airlab-nucleus.andrew.cmu.edu:443/Public/AirStack/Stages/ConstructionSite/ConstructionSite.stage.usd
+ISAAC_SIM_STAGE_SCALE=0.01
+MS_AIRSIM_SCENE=blocks
+ISAAC_SIM_SCENE=Default Environment
+ISAAC_SIM_STAGE_SCALE=1.0
+MS_AIRSIM_SCENE=blocks
+-- errors --
+ERROR: unknown scene 'nonsense'. Available scenes:
+SCENE                      ISAAC                                  MS AIRSIM
+-------------------------  -------------------------------------  ------------------
+abandoned-factory          nucleus:AbandonedFactory.stage.usd     -
+abandoned-park             -                                      abandonedpark
+abandoned-warehouse-day    nucleus:Warehouse_02_day.stage.usd     -
+abandoned-warehouse-night  nucleus:Warehouse_01_night.stage.usd   -
+black-gridroom             pegasus:Black Gridroom                 -
+blocks                     -                                      blocks
+building99                 -                                      building99
+chemical-plant             nucleus:Map_ChemicalPlant_2.stage.usd  -
+construction-site          nucleus:ConstructionSite.stage.usd     -
+curved-gridroom            pegasus:Curved Gridroom                -
+default                    pegasus:Default Environment            blocks
+exhibition-hall            pegasus:Exhibition Hall                -
+flat-plane                 pegasus:Flat Plane                     -
+forest                     -                                      forest
+full-warehouse             pegasus:Full Warehouse                 -
+hospital                   pegasus:Hospital                       -
+landscape-mountains        -                                      landscapemountains
+neighborhood               -                                      airsimnh
+office                     pegasus:Office                         -
+retro-neighborhood         nucleus:RetroNeighborhood.stage.usd    -
+rough-plane                pegasus:Rough Plane                    -
+simple-room                pegasus:Simple Room                    -
+slope-plane                pegasus:Slope Plane                    -
+soccer-field               -                                      soccerfield
+stairs-plane               pegasus:Stairs Plane                   -
+warehouse                  pegasus:Warehouse                      -
+warehouse-forklifts        pegasus:Warehouse with Forklifts       -
+warehouse-shelves          pegasus:Warehouse with Shelves         -
+zhangjiajie                -                                      zhangjiajie
+exit=1
+ERROR: scene 'blocks' is not available for Isaac (only: MS AirSim). Available scenes:
+SCENE                      ISAAC                                  MS AIRSIM
+-------------------------  -------------------------------------  ------------------

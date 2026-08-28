@@ -1,0 +1,33 @@
+AirStack Test Run Summary
+Run directory: 2026-08-20_08-55-52
+Overall: 16 passed, 0 failed, 0 skipped (16 tests)
+
+── isaacsim-rob#1 ──
+Result: PASSED
+
+Sim ready time: 76.82 s
+
+Phase wall times:
+  test_compute_usage: 2.6s (PASSED)
+  test_gcs_container_running: 0.0s (PASSED)
+  test_robot_containers_running: 1.0s (PASSED)
+  test_sentinel_nodes_present: 6.8s (PASSED)
+  test_sim_container_running: 0.0s (PASSED)
+  test_sim_ready_time: 76.0s (PASSED)
+  test_stable: 169.4s (PASSED)
+  test_tmux_panes_have_expected_processes: 0.1s (PASSED)
+
+── isaacsim-rob#1 ──
+Result: PASSED
+
+Sensors sim ready time: 73.54 s
+
+Phase wall times:
+  test_lidar_filtered_cloud_sanity: 3.6s (PASSED)
+  test_robot_filtered_lidar_stream: 3.6s (PASSED)
+  test_robot_stereo_bridge_rates: 20.9s (PASSED)
+  test_sensor_streams_stable: 480.1s (PASSED)
+  test_sentinel_nodes_present: 6.7s (PASSED)
+  test_sim_clock_available: 73.8s (PASSED)
+  test_sim_clock_realtime_factor: 24.8s (PASSED)
+  test_sim_topic_publish_rates: 31.2s (PASSED)

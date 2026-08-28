@@ -1,0 +1,13 @@
+Run: 2026-08-24 20:44-20:48 EDT — ./airstack.sh up --sim isaac --headless --scene construction-site isaac-sim (RTX 5090)
+
+[68.287s] Simulation App Startup Complete
+[example_one] Scene: omniverse://airlab-nucleus.andrew.cmu.edu:443/Public/AirStack/Stages/ConstructionSite/ConstructionSite.stage.usd (stage_scale=0.01)
+[scene_prep] Added collider: /World/stage/ConstructionSite/AsphaltRoller/SM_AsphaltRoller/Section0/Mesh
+[scene_prep] Added collider: /World/stage/ConstructionSite/AsphaltRoller/SM_AsphaltRoller/Section1/Mesh
+[scene_prep] Added collider: /World/stage/ConstructionSite/BP_RoadTrack/NODE_AddSplineMeshComponent_14/BP_RoadTrack_NODE_AddSplineMeshComponent_14
+[scene_prep] Added collider: /World/stage/ConstructionSite/BP_RoadTrack/NODE_AddSplineMeshComponent_14_0/BP_RoadTrack_NODE_AddSplineMeshComponent_14_0
+[scene_prep] Added collider: /World/stage/ConstructionSite/BP_RoadTrack/NODE_AddSplineMeshComponent_14_1/BP_RoadTrack_NODE_AddSplineMeshComponent_14_1
+[scene_prep] Added collider: /World/stage/ConstructionSite/BP_RoadTrack/NODE_AddSplineMeshComponent_14_2/BP_RoadTrack_NODE_AddSplineMeshComponent_14_2
+...
+total colliders: 682
+errors (Traceback/Stage failed/ERROR_ACCESS/ERROR_CONNECTION): 0

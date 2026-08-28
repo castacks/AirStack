@@ -1,0 +1,53 @@
+=== docker logs excerpt (robot, teeing check) ===
+[?2004lRunning `colcon build ` in /root/AirStack/robot/ros_ws
+]0;colcon build [0/58 done] [1 ongoing]Starting >>> mav_msgs
+]0;colcon build [0/58 done] [2 ongoing]Starting >>> coordination_msgs
+]0;colcon build [0/58 done] [3 ongoing]Starting >>> behavior_tree_msgs
+]0;colcon build [0/58 done] [4 ongoing]Starting >>> disparity_graph
+]0;colcon build [0/58 done] [5 ongoing]Starting >>> lidar_point_cloud_filter
+]0;colcon build [0/58 done] [6 ongoing]Starting >>> mav_state_machine_msgs
+]0;colcon build [0/58 done] [7 ongoing]Starting >>> mav_system_msgs
+]0;colcon build [0/58 done] [8 ongoing]Starting >>> pid_controller_msgs
+]0;colcon build [0/58 done] [9 ongoing]Starting >>> px4_msgs
+]0;colcon build [0/58 done] [10 ongoing]Starting >>> rviz_polygon_selection_tool
+]0;colcon build [0/58 done] [11 ongoing]Starting >>> sensor_interfaces
+]0;colcon build [0/58 done] [12 ongoing]Starting >>> vdb_mapping
+]0;colcon build [0/58 done] [13 ongoing]Starting >>> vdb_mapping_interfaces
+]0;colcon build [0/58 done] [14 ongoing]Starting >>> waypoint_rviz2_plugin
+]0;colcon build [0/58 done] [15 ongoing]Starting >>> bag_record_pid
+]0;colcon build [0/58 done] [16 ongoing][0.2s] [0/58 complete] [16 ongoing] [airstack_msgs - 0.1s] ...                                                              Starting >>> behavior_bringup
+]0;colcon build [0/58 done] [17 ongoing]Starting >>> disparity_expansion
+]0;colcon build [0/58 done] [18 ongoing]Starting >>> ensemble_global_planner
+]0;colcon build [0/58 done] [19 ongoing]Starting >>> exploration_planner
+=== docker logs line counts (robot / isaac) ===
+535
+PYTHONPATH=$ISAAC_SIM_PYTHONPATH /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/example_multi_px4_pegasus_launch_script.py --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts
+rm: cannot remove '/isaac-sim/.bash_history': No such file or directory
+No existing .bash_history to remove
+[?2004h[DOCKER Isaac][01;32mroot@837de700b6d3[00m:[01;34m~[00m# PYTHONPATH=$ISAAC_SIM_PYTHONPATH /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/example_multi_px4_pegasus_launch_script.py --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts
+[?2004lStarting kit application with the following args:  ['/isaac-sim/exts/isaacsim.simulation_app/isaacsim/simulation_app/simulation_app.py', '/isaac-sim/apps/isaacsim.exp.base.python.kit', '--/app/tokens/exe-path=/isaac-sim/kit', '--/persistent/app/viewport/displayOptions=3094', '--/rtx/materialDb/syncLoads=True', '--/rtx/hydra/materialSyncLoads=True', '--/omni.kit.plugin/syncUsdLoads=True', '--/app/renderer/resolution/width=1280', '--/app/renderer/resolution/height=720', '--/app/window/width=1440', '--/app/window/height=900', '--/renderer/multiGpu/enabled=True', '--/app/fastShutdown=True', '--/app/installSignalHandlers=0', '--ext-folder', '/isaac-sim/exts', '--ext-folder', '/isaac-sim/apps', '--/physics/cudaDevice=0', '--/plugins/carb.tasking.plugin/threadCount=32', '--/plugins/omni.tbb.globalcontrol/maxThreadCount=32', '--portable', '--no-window', '--/app/window/hideUi=1', '--allow-root']
+Passing the following args to the base kit application:  ['--ext-folder', '/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts']
+[Info] [carb] Logging to file: /isaac-sim/kit/logs/Kit/Isaac-Sim Python/5.1/kit_20260820_085555.log
+[0.034s] [ext: omni.kit.async_engine-0.0.3] startup
+[0.574s] [ext: omni.metrics.core-0.0.3] startup
+[0.574s] [ext: omni.client.lib-1.1.0] startup
+[0.592s] [ext: omni.blobkey-1.1.2] startup
+[0.592s] [ext: omni.stats-1.0.1] startup
+[0.594s] [ext: omni.datastore-0.0.0] startup
+[0.600s] [ext: omni.client-1.3.0] startup
+[0.604s] [ext: omni.ujitso.default-1.0.0] startup
+[0.606s] [ext: omni.hsscclient-1.1.2] startup
+[0.612s] [ext: omni.gpu_foundation.shadercache.vulkan-1.0.0] startup
+[0.620s] [ext: omni.assets.plugins-0.0.0] startup
+[0.622s] [ext: omni.gpu_foundation-0.0.0] startup
+[0.631s] [ext: carb.windowing.plugins-1.0.0] startup
+[1m[93m2026-08-20T08:55:55Z [825ms] [Warning] [carb.windowing-glfw.gamepad] Joystick with unknown remapping detected (will be ignored):  Logitech Gaming Mouse G402 Keyboard [030000006d0400007ec0000011010000]
+[0m[1m[93m2026-08-20T08:55:55Z [825ms] [Warning] [carb.windowing-glfw.gamepad] Joystick with unknown remapping detected (will be ignored):  Logitech K350 [030000006d0400000a20000011010000]
+[0m[0.835s] [ext: omni.kit.renderer.init-0.0.0] startup
+
+|---------------------------------------------------------------------------------------------|
+| Driver Version: 580.178.04    | Graphics API: Vulkan
+|=============================================================================================|
+| GPU | Name                             | Active | LDA | GPU Memory | Vendor-ID | LUID       |
+|     |                                  |        |     |            | Device-ID | UUID       |
+|     |                                  |        |     |            | Bus-ID    |            |

@@ -1,0 +1,61 @@
+{
+  "test_optitrack_e2e.natnet_pose_hz": {
+    "natnet_pose_hz": {
+      "value": 103.995,
+      "unit": "Hz",
+      "direction": "lower_is_better"
+    }
+  },
+  "unknown": {
+    "robot_1.altitude_error_m": {
+      "value": -0.151,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 10.11,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 47.19,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.961,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 4.988,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 1.535,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.final_altitude_m": {
+      "value": 0.06,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 7.38,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  }
+}

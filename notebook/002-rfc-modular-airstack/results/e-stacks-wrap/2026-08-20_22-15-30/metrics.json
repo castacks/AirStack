@@ -1,0 +1,36 @@
+{
+  "system/test_wiring_snapshot.TestWiringSnapshot.test_sentinel_nodes_present[isaacsim-rob#1-iter0]": {
+    "airstack_up_duration_s": {
+      "value": 0.76,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.17,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_wiring_snapshot.TestWiringSnapshot.test_wiring_matches_golden[isaacsim-rob#1-iter0]": {
+    "wiring_capture_duration_s": {
+      "value": 25.63,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "wiring_node_count": {
+      "value": 84,
+      "unit": "count",
+      "direction": "higher_is_better"
+    },
+    "wiring_edge_count": {
+      "value": 419,
+      "unit": "count",
+      "direction": "higher_is_better"
+    },
+    "wiring_topic_count": {
+      "value": 250,
+      "unit": "count",
+      "direction": "higher_is_better"
+    }
+  }
+}

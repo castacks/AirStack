@@ -1,0 +1,15 @@
+{
+  "campaign_fingerprint": "af9b09ebdf0268ee64535ae541734958769d0c978028fb6562c8e0088575219f",
+  "complete": true,
+  "completed_tests": 16,
+  "failed": 0,
+  "mark_expression": "liveliness or sensors",
+  "outcome": "simulation",
+  "passed": 16,
+  "pytest_exitstatus": 0,
+  "schema_version": 1,
+  "selected_tests": 16,
+  "simulation_completed": 16,
+  "simulation_selected": 16,
+  "skipped": 0
+}

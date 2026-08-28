@@ -1,4 +1,4 @@
-# 002 — droan_gl obstacle-avoidance fix (agent-study R7 blocker)
+# 008 — droan_gl obstacle-avoidance fix (agent-study R7 blocker)
 
 **Status: IN PROGRESS (2026-08-26)**
 
@@ -8,7 +8,7 @@ Campaign v4 of the agent study (Sec. VI-C) is blocked: the reference
 solution on the STOCK stack fails its own R7 obstacle rung — the drone
 followed the judge-issued route through the pillar field but flew
 through a pillar (min ground-truth clearance −0.87 m; see
-`notebook/001-agent-study-prereqs/results/h-amendment-r7r8/`).
+`notebook/007-agent-study-prereqs/results/h-amendment-r7r8/`).
 Previously logged suspects: droan_gl's 1:1 `deviation - path_distance`
 cost and the forward-only stereo FOV.
 
