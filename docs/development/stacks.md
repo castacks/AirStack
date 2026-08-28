@@ -30,6 +30,7 @@ Anatomy is enforced by a unit test: `tests/meta/test_stack_layout_contract.py`
 | [`full_default`](https://github.com/castacks/AirStack/tree/develop/stacks/full_default) | The full-autonomy topology (GPU `droan_gl` planner) — the baseline, and what launches when no stack is selected. |
 | [`full_droan_cpu`](https://github.com/castacks/AirStack/tree/develop/stacks/full_droan_cpu) | CPU DROAN planner + live `disparity_expansion` (for machines without the GPU planner). |
 | [`full_macvo`](https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo) | MAC-VO as the planner's disparity source. Requires the `asm_macvo` module (`airstack module add asm_macvo`). |
+| [`full_mighty`](https://github.com/castacks/AirStack/tree/develop/stacks/full_mighty) | The MIGHTY map-based local planner (+ acl-mapping voxel world model) in place of `droan_gl`. Requires the `asm_mighty` module (pinned in the stack's `modules.repos`). |
 | [`lite_default`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_default) | Onboard-lite topology, unsplit: interface, sensors, perception, flat Local layer, behavior; **no global, no logging**. |
 | [`lite_offload_global`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_offload_global) | A **split stack**: `onboard.launch.xml` (= lite topology) + `offboard.launch.xml` (global layer only) + `bridge.yaml`. |
 
@@ -283,5 +284,6 @@ ignored. Select the topology with `--stack`:
 | The full-autonomy baseline | Nothing — `full_default` launches by default (or be explicit: `--stack full_default`) |
 | CPU DROAN topology | `--stack full_droan_cpu` |
 | MAC-VO disparity topology | `--stack full_macvo` (requires the `asm_macvo` module) |
+| MIGHTY map-based local planner | `--stack full_mighty` (requires the `asm_mighty` module) |
 | Onboard-lite, unsplit | `--stack lite_default` |
 | Split onboard/offboard | `--stack lite_offload_global:onboard` / `:offboard` (+ generate the router config from `bridge.yaml`) |

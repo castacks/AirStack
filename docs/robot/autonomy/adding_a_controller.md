@@ -5,7 +5,7 @@ AirStack splits control into two roles ([Controls overview](local/controls/index
 - **Trajectory controller** — a pure-pursuit trajectory *manager*, not itself a feedback controller. It **owns the [trajectory group (spec §5)](interface_conventions.md#5-trajectory-group-the-trajectory-controllers-contract-onboard-only)**: it consumes `trajectory_controller/trajectory_segment_to_add` and `trajectory_override` (`airstack_msgs/msg/TrajectoryXYZVYaw`), serves the `set_trajectory_mode` service, and emits `tracking_point` and `look_ahead` (`airstack_msgs/msg/Odometry` — not `nav_msgs`). Reference: [Trajectory Controller](../../../robot/ros_ws/src/local/controls/trajectory_controller/README.md).
 - **Feedback controller** — closes the loop between the tracking point and the vehicle's actual state and emits the [`control_setpoint` (spec §6)](interface_conventions.md#6-control_setpoint-controller-interface-command-onboard-only) command into the interface. Reference: `pid_controller` (`robot/ros_ws/src/local/controls/pid_controller` — no README; the cascaded position→velocity PID is described in the [Trajectory Controller README's Control Architecture section](../../../robot/ros_ws/src/local/controls/trajectory_controller/README.md#control-architecture)).
 
-The verified chain in every reference stack (`full_default`, `full_droan_cpu`, `full_macvo`, `lite_default`, `lite_offload_global` onboard) is:
+The verified chain in every reference stack (`full_default`, `full_droan_cpu`, `full_macvo`, `full_mighty`, `lite_default`, `lite_offload_global` onboard) is:
 
 ```text
 trajectory_controller/tracking_point (airstack_msgs/Odometry, §5)

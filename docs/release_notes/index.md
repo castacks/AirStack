@@ -19,6 +19,20 @@ its own notes. -->
 
 ## 0.20.0 (Unreleased)
 
+- **New reference stack `full_mighty` + registered `mighty` module.** The
+  MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its
+  acl-mapping voxel world model and a NavigateTask/trajectory_controller
+  bridge, packaged as the external
+  [asm_mighty](https://github.com/castacks/asm_mighty) module (pinned at
+  v0.1.1 in the stack's `modules.repos`; repo private until the AirStack
+  agent study concludes). [`full_mighty`](../../stacks/full_mighty/README.md)
+  is `full_default` with only the local-planner include swapped — the
+  module-swap demonstration for the modular architecture. Registered in the
+  [module catalog](../modules/index.md); validated on Isaac Sim (44/44
+  vendored gtests, empty-world route flight, 7/7 pillar-field traversals,
+  5/5 judged obstacle-route flights at 1.59–1.65 m min clearance vs a 1.0 m
+  gate).
+
 - Fixed: the docs search dropdown rendered behind the nav-tabs bar and the
   version-selector text (custom z-indexes inside the header's stacking
   context); the search subtree is now lifted above both.
