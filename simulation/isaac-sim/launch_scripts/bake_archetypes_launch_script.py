@@ -469,10 +469,28 @@ def main():
         return 0
 
     for st, lv, X, Y, parent, pls, frags in house_specs:
+        # A PRISTINE HOUSE HAS NOTHING TO RESEAT, AND RESEATING IT BREAKS IT.
+        #
+        # `reseat` exists for a WRECKED house: it puts a fragment the solver
+        # lost through the floor back on the pile and drops one it froze in
+        # mid-air. An undamaged house has no fragments, no fracture and no
+        # settle — every module is exactly where `modular_house` put it — so
+        # there is nothing for the pass to correct and everything for it to get
+        # wrong. Its support test is axis-aligned and cannot tell an OVERHANG
+        # from a floater, so it lowered `house_terrace_pristine`'s
+        # `house_roof_7_37` from its eaves to grade: measured z -0.000..2.405
+        # against 2.994..9.271 for every other roof piece on the same house,
+        # i.e. a roof plane lying on the lawn. Reported on sight, 2026-08-28.
+        #
+        # The same argument holds for `scorched`, which is a MATERIAL change
+        # with no geometry change — `damage_flow` fractures nothing below
+        # `roof_collapsed`. Reseat only what was actually broken.
+        _intact = lv in ("pristine", "scorched")
         miss += _safe_export(
             [q["prim_path"] for q in pls] + frags,
             os.path.join(OUT_DIR, "house_{0}_{1}.usd".format(st, lv)),
-            (X, Y, 0.0), dict(kind="house", style=st, level=lv), reseat=True)
+            (X, Y, 0.0), dict(kind="house", style=st, level=lv),
+            reseat=not _intact)
     for sp, lv, X, Y, tp, extra, anchored in tree_specs:
         # SEAT THE DEBRIS, FREEZE THE TREE. `drop_to_ground` places the tree;
         # `reseat` is the pure-geometry pass that puts a fragment the solver

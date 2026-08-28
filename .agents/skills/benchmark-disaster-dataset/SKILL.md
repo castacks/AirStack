@@ -18,39 +18,77 @@ those numbers are only correct at one scene scale and silently wrong at another.
 
 ---
 
-## 1. The method matrix
+## 1. The method matrix — FIVE baselines, nothing else
 
-Two families, and they are launched differently.
+| baseline | where it lives | how it chooses where to go | area assignment | needs running |
+|---|---|---|---|---|
+| **lawnmower** | `search_baselines` `lawnmower.launch.xml` | NO frontier: boustrophedon lanes over its sector, fed to droan as short legs (see below) | its own sector | nothing, no GPU service |
+| **frontier** (information gain) | `search_baselines` `frontier.launch.xml` | information gain minus visit cost — VLFM without the VLM | its own sector | nothing, no GPU service |
+| **vlfm** | `search_baselines` `vlfm.launch.xml` | BLIP-2 ITM scores the live RGB into a VALUE MAP; highest-value cell wins, minus a distance penalty (§3) | its own sector | `itm_server` on :8100, ~2.5 GiB |
+| **conavgpt2** | `search_baselines` `conavgpt2_team.launch.xml` (team mode) | a generative VLM sees ONE merged map and, in one call per round, assigns every robot a numbered frontier (arXiv 2310.07937) | **NONE — the whole map.** Cooperative assignment IS the method; sectoring it would be a different arm | `vlm_server` on :8000, ~5.9 GiB at 7B nf4 |
+| **raven** | `raven_nav` inside `semantic_search_task` (no env flag) | rayfronts semantic voxels + ray/voxel behaviours — the house method | its own sector: the per-robot `search_area` polygon in the SemanticSearchTask goal, cut from the same damage footprint (§9.t) | rayfronts in-process + the shared detector |
 
-**raven_nav-hosted arms.** Chosen by env vars in the mission `env:` (or `.env`
-locally). They are mutually exclusive and resolved in a fixed precedence:
-`FRONTIER_ONLY_BASELINE` > `VLFM_BASELINE` > `CONAVGPT_BASELINE`.
+Every one of the four `search_baselines` arms is the SAME `search_planner`
+node with `nav_mode` as a parameter, and that is the experiment rather than a
+convenience. They build the SAME map from the SAME frames, apply the SAME
+search polygon and altitude bounds, and steer through the SAME droan actuation,
+so **a difference in results is attributable to the selection policy and to
+nothing else**. Two separate implementations would each have to be argued
+equivalent before any comparison meant anything.
 
-| method | env | what it is |
-|---|---|---|
-| raven_nav | (none set) | the house method: rayfronts semantic voxels + ray/voxel behaviours |
-| frontier-only | `FRONTIER_ONLY_BASELINE=true` | geometric frontier exploration, no semantics |
-| VLFM-in-raven | `VLFM_BASELINE=true` | greedy semantic-ray baseline in raven_nav. **NOT canonical BLIP-2 VLFM** — the ITM one is the `search_baselines` arm below, and they share nothing but the name |
-| LVLM | `LVLM_BASELINE=true` | LVLM waypoint baseline |
-| conavgpt_baseline | `CONAVGPT_BASELINE=true` | HYBRID: raven still navigates; an InternVL3-2B assigner hands it a region |
+**Area assignment.** Every baseline except CoNavGPT2 flies its OWN sector: the
+damage footprint from the scene (`search_area_source: scene`, §9.t) is cut
+into NUM_ROBOTS rectangles (`sector_partition: rect`, §4b) and robot N flies
+rectangle N — for the `search_baselines` arms inside the node, for raven as
+the polygon the mission hands each robot in its SemanticSearchTask goal. A
+detection across the line is another drone's. CoNavGPT2 is the one exception:
+one planner in `team_mode` sees every robot and the whole map, and hands out
+frontiers itself (`sector_partition: none` in `conavgpt2_team.yaml`).
 
-**`search_baselines` arms.** No flag anywhere: one launch file per method, so a
-run is named after the METHOD.
+**Scoring is not yet on one axis.** raven runs inside `semantic_search_task`,
+which owns the search polygon, the sim-time budget and coverage/recall
+scoring; the four `search_baselines` arms are launched standalone and report
+their own round table. `max_sim_seconds` matches the task's budget, so the
+sim-time axis lines up, but say in any result table that the two are scored
+by different code until the shared planner is wired into
+`semantic_search_task`.
 
-| method | launch | how a frontier is chosen | needs running |
-|---|---|---|---|
-| **conavgpt2** | `conavgpt2.launch.xml` | a generative VLM picks from numbered top-down BEVs | `vlm_server` on :8000, ~5.9 GiB at 7B nf4 |
-| **vlfm** | `vlfm.launch.xml` | BLIP-2 ITM scores the live RGB into a VALUE MAP; highest-value cell wins, minus a distance penalty (§3) | `itm_server` on :8100, ~2.5 GiB |
-| **nearest** | `nearest.launch.xml` | closest in-bounds frontier, no model at all | nothing, no GPU service |
-| **frontier** | `frontier.launch.xml` | information gain minus visit cost — VLFM without the VLM | nothing, no GPU service |
-| **lawnmower** | `lawnmower.launch.xml` | NO frontier: boustrophedon lanes over the sector, fed to droan as short legs (see below) | nothing, no GPU service |
+**What is in the tree but is NOT a baseline.** `nearest.launch.xml`, the
+raven-side env flags `FRONTIER_ONLY_BASELINE` / `VLFM_BASELINE` /
+`LVLM_BASELINE` / `CONAVGPT_BASELINE` (the InternVL "VLM-Assign" assigner in
+`conavgpt_baseline/`) and `conavgpt2.launch.xml` (the per-robot, sectored
+CoNavGPT2) all still launch, and none of them is in any result table. Leave
+every flag unset (`false`) in a mission `env:`; a set one silently swaps the
+raven arm for something that is not being compared.
 
-All of them are ONE node — `search_planner`, with `nav_mode` as a parameter — and
-that is the experiment rather than a convenience. They build the SAME map from
-the SAME frames, apply the SAME search polygon and altitude bounds, and steer
-through the SAME droan actuation, so **a difference in results is attributable
-to the selection policy and to nothing else**. Two separate implementations
-would each have to be argued equivalent before any comparison meant anything.
+### The experiment plan: fleets of 4 and 8
+
+**Every scored experiment is flown at NUM_ROBOTS=4 and NUM_ROBOTS=8. There are
+no 1-drone experiments any more.** The `*_1robot` missions (and the 3- and
+5-robot ones the 2026-08-27 review was done on) are smoke tests and history,
+not results — do not add rows from them. Each (scene, baseline) cell of the
+table is therefore two runs, and a mission file is named for its fleet:
+`<scene>_4robot_<x>.yaml`, `<scene>_8robot_<x>.yaml` (template:
+`osmo/missions/wildfire1km_5robot_a.yaml`, change NUM_ROBOTS and the spawn
+list; conavgpt2 has its own team-mode file, `wildfire1km_5robot_conavgpt2.yaml`).
+
+What must change with the fleet, because nothing scales it for you:
+
+* `SPAWN_CONFIGS` must have exactly NUM_ROBOTS entries (the Isaac launcher
+  takes the fleet from the list; 6 m apart on the kerb, within
+  `map_extent_m`'s slack).
+* the ITM scorer: one serves ~3 robots at the shipped 5 Hz keyframe rate —
+  `vlfm_keyframe_period_s` 0.5 for 4 robots, 1.0 for 8 (§3), then READ
+  `/metrics` on :8100 in the poller rather than assuming.
+* the sectors: 4 or 8 `rect` bands of the damage footprint along its
+  principal axis — on the 1 km burn ~300 m and ~150 m along the burn
+  respectively, 500-620 m across, so at 8 the rectangles are short and fat
+  and every drone's transit is under a minute at 7 m/s (§4b, §9.u).
+* the detector and VLM servers are shared and stateless, so 8 robots is 8x
+  the request rate on one card — the backlog poller in the mission is the
+  measurement of whether that holds.
+* the bag: `/gcs/{robot}/...` layers (§9.v) x8 is still small; never add
+  image streams per robot.
 
 **The lawnmower never sends its path to the drone.** droan_gl steers by the
 closest point of the Path it holds, so a whole coverage path — or a bare lane
@@ -105,8 +143,8 @@ Nothing else is needed to get a flying drone.
 
 **THE MODELS DO NOT LIVE IN THE ROBOT CONTAINERS.** They run in one container
 of their own, `offboard-compute`, and every robot reaches them over plain HTTP
-on the docker bridge. That is not tidiness: at `NUM_ROBOTS=3` a model loaded
-in-process is loaded three times on one card, and the detector — which EVERY arm
+on the docker bridge. That is not tidiness: at `NUM_ROBOTS=8` a model loaded
+in-process is loaded eight times on one card, and the detector — which EVERY arm
 runs — is the worst offender, because YOLO and MobileSAM both come with it. All
 three services are stateless (one frame in, an answer out, no per-robot
 history), so interleaving robots cannot produce cross-talk. Frames travel in the
@@ -151,12 +189,13 @@ docker exec $R bash -c "tmux new-window -t bringup -n search; tmux send-keys -t 
    2>&1 | tee /tmp/conavgpt2/live.log' ENTER"
 ```
 
-Swap `vlfm.launch.xml` for `conavgpt2.launch.xml` or `nearest.launch.xml` and
-change NOTHING else — same scene file, same map, same bounds, same actuation.
-That is the whole point of the shared node, and it is also the cheapest way to
-get a control arm: `nearest` and `frontier` need no VLM at all — only the shared
-detector, which every arm needs — so they can be flown while a big model is
-still downloading.
+Swap `vlfm.launch.xml` for `frontier.launch.xml` or `lawnmower.launch.xml`
+(or `conavgpt2_team.launch.xml` for the team-mode arm) and change NOTHING else
+— same scene file, same map, same bounds, same actuation. That is the whole
+point of the shared node, and it is also the cheapest way to get a control
+arm: `frontier` and `lawnmower` need no VLM at all — only the shared detector,
+which every arm needs — so they can be flown while a big model is still
+downloading.
 
 **Restart the ROBOT stack after every sim restart.** Sim time resets to 0 and the
 robot keeps stale TF and PX4 state; the symptom is `TakeoffTask rejected: state
@@ -484,7 +523,7 @@ stage (`scene_annotations.boxes_from_scopes`) — read only by the planner's
 changes, because the GCS comes up before the scene is built and used to show
 the previous run's people for the whole run.
 
-**Fleet.** NUM_ROBOTS=3 + three `SPAWN_CONFIGS` entries; each robot container
+**Fleet.** NUM_ROBOTS=4 or 8 + as many `SPAWN_CONFIGS` entries; each robot container
 runs its own planner (`num_robots` is the TEAM size, `team_mode: false` makes
 the node drive one robot and cut NUM_ROBOTS sectors, taking slice `robot_N`-1).
 `sector_partition` in the method overlays is now `rect` — equal-WIDTH bands,
@@ -1015,22 +1054,20 @@ real frame of the real scene and read the number before trusting it.
 
 ## 11. Submitting to OSMO
 
-`osmo/missions/conavgpt2_wildfire_1robot.yaml` + `osmo/workflows/airstack-mission-2gpu.yaml`.
+The fleet template is `osmo/missions/wildfire1km_5robot_a.yaml` (one planner
+per robot container, sectored, `/gcs/` layers recorded) and, for conavgpt2,
+`osmo/missions/wildfire1km_5robot_conavgpt2.yaml` (one team-mode planner);
+copy them to `_4robot_` / `_8robot_` files per §1.
 
 ```bash
-airstack osmo:mission osmo/missions/conavgpt2_wildfire_1robot.yaml \
+airstack osmo:mission osmo/missions/<scene>_8robot_a.yaml \
   --pool <gpu-pool> --branch <branch> \
-  --workflow osmo/workflows/airstack-mission-2gpu.yaml
+  --workflow osmo/workflows/airstack-mission-1gpu.yaml
 ```
 
-`conavgpt2_wildfire_1robot.yaml` has been migrated to the refactor: it starts
-`search_baselines.vlm_server` and launches `search_baselines
-conavgpt2.launch.xml` with `scene_params_file:=$CFG/suburb_wildfire.yaml`,
-taking `paper.yaml` from the launch file's own default. **There is no `vlfm`
-mission yet** — writing one means swapping the launch file, starting
-`itm_server` on :8100 instead of the generative server, and gating on
-`localhost:8100/health`. Check any mission you inherit against §9.8 before
-submitting; a pre-refactor line fails at the launch step, 20 minutes in.
+The `*_1robot` missions are pre-plan smoke tests — a launch that works, not an
+experiment. Check any mission you inherit against §9.8 before submitting; a
+pre-refactor line fails at the launch step, 20 minutes in.
 
 Before submitting, check all of:
 
@@ -1039,7 +1076,7 @@ Before submitting, check all of:
 - [ ] the mission names `search_baselines` everywhere — launch package, server
       module, and config paths
 - [ ] it starts the service THAT method needs: `itm_server` on :8100 for `vlfm`,
-      `vlm_server` on :8000 for `conavgpt2`, neither for `nearest`
+      `vlm_server` on :8000 for `conavgpt2`, neither for `frontier` / `lawnmower`
 - [ ] the robot image is newer than `Dockerfile.robot`'s last change (`clip` for
       YOLO-World's `set_classes`; the mission self-heals but a rebuild is clean)
 - [ ] `sem_threshold` left at the shared 0.65 — or, if the scene truly needs
@@ -1049,7 +1086,10 @@ Before submitting, check all of:
       VLM preflight is fatal, so a bringup-time launch dies before the server
       exists. `vlfm` preflights the ITM endpoint instead and never contacts the
       generative one at all
-- [ ] `vlfm_keyframe_period_s` raised if more than ~3 robots share one scorer (§3)
+- [ ] `vlfm_keyframe_period_s` 0.5 at 4 robots, 1.0 at 8 — one scorer serves ~3
+      at the shipped 0.2 (§3); `SPAWN_CONFIGS` has NUM_ROBOTS entries
+- [ ] every raven-side baseline flag (`FRONTIER_ONLY_BASELINE`, `VLFM_BASELINE`,
+      `LVLM_BASELINE`, `CONAVGPT_BASELINE`) is `false` — none is a baseline (§1)
 - [ ] a results-collection step exists — `record:` captures ROS topics only, and
       the round table and server metrics live on the container filesystem
 - [ ] `ENABLE_LIDAR` off unless something needs `vdb_mapping` (§9.5) — `voxel3d`

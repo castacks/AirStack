@@ -107,6 +107,68 @@ Disaster scenes keep `sit_ground` (open-ground refuge), `sit_edge` (kerb,
 front step, coping), `crouch` and prone — those postures are the story there.
 `scene_gen/tests/test_people_rules.py` pins all of the above without Isaac.
 
+## Nobody outside the burn — hard, requested on sight (2026-08-28)
+
+**A survivor on ground the fire never reached is not in this dataset.** Asked
+for in those words: *"I don't want people who are not in the fire damaged
+area. No people in undamaged areas."*
+
+It was not a bug — it was **three deliberate designs**, all of which put
+figures ahead of the front, and all of which the gate now overrides:
+
+| pass | why it was out there |
+|---|---|
+| `parking_refuge` | `_parking_refuge` sorts the lots by burn age and takes the `lots_used` deepest. **"Deepest" is not "inside"** — with one lot in the black the other two are just the least-unburnt, and the code prints each lot's age and takes it anyway (*"a TRA on unburnt asphalt beside the fire is exactly what a TRA is"*) |
+| `gridlock` | the queue runs **outbound past the blockage by construction** — that is the direction people are driving — so its walkers are ahead of the front on purpose |
+| `at_home` | admits the whole band `-0.20*span < age < 0.12*span`, i.e. up to a fifth of a span **ahead** of the front, because the stay-or-go decision is only live at the edge |
+
+`people.DEFAULTS["min_burn_age_s"]` (0.0, i.e. ON; `null` disables) is the
+gate, tested in `_Plan.add_person` against **the person's own `ctx["age"](x,
+y)`** — the same field the damage ladder, the ground scar and the archetype
+levels key off, so the people agree with the scene's own definition of burnt
+rather than with a second one. It is the counterpart of what `min_intensity`
+would be for `tornado_people` against `ctx["intensity_at"]`.
+
+**Measured on `suburb_wildfire_1000`**, host-side, `total: 95`,
+`build_scene(burn_frac=0.45, seed=11)`:
+
+| layout seed | gate off | gate on | were on `age < 0` | which pass |
+|---|---|---|---|---|
+| 23 | 95 | **69** | 26 (27%) | refuge 19, at_home 5, queue 2 |
+| 10 | 86 | **80** | 6 (7%) | queue 3, at_home 3 |
+
+**IT IS A FILTER, NOT A RE-SITING, and the head count is meant to drop.**
+Nothing retries and nothing moves; on both seeds the kept plan measured as a
+strict subset of the ungated one (95−26=69, 86−6=80, every kept figure at a
+position the ungated plan also used). Do not "fix" the shortfall by raising
+`total` — an all-unburnt refuge lot with a bigger quota is still an all-unburnt
+refuge lot. `plan_people` prints `unburnt:<scenario>` per refusal, so the pass
+that disagrees with the fire names itself.
+
+**THE GATE SITS AFTER THE CHARACTER DRAW, and that looks wrong until you count
+draws.** `add_person` calls `pick_human` (1–3 values out of the shared `rng`)
+before it tests anything. Refusing above that call takes those draws out of the
+stream and **every survivor planned afterwards moves** — the plan stops being
+comparable to the one you measured. Refuse after it. Same reason the gate does
+not retry.
+
+**Peacetime is exempt, and it has to be.** `resolve_cfg(..., has_disaster=False)`
+runs against an `age` that is `-1.0` everywhere by construction, so an
+unconditional gate refuses the entire population and every peacetime scene
+comes back empty. `_Plan.min_burn_age_s` is `None` under `peacetime`.
+`scene_gen/tests/test_people_rules.py` is what catches this — its peacetime
+fixture is exactly that `age`.
+
+**One thing downstream goes quiet.** `scene_api` sizes the affected-area polygon
+from `region.people_lead_s(p_recs)` = `max(-burn_age_s)`, i.e. off the survivor
+furthest **ahead** of the front. With the gate on there is no such survivor, so
+that term is 0 on every scene and `affected_polygons` falls back to its
+`lead_frac * span` floor — `lead_bound` reads `"floor"` where it used to read
+`"people"`. Correct (there is nobody out there to cover), but
+`tests/test_affected_region.py` pins the old behaviour against hand-entered
+points from a **pre-gate** run, so that test is now describing a scene the
+planner no longer produces.
+
 ## Making a person visible at all
 
 **A trunk keep-out is not a clearing.** `open_ground` requires 15 m from any
@@ -291,6 +353,19 @@ carriageway is at 0.02 and a piece authored at 0 sinks into it.
 plain colour has no normal or ORM map, so a cylinder lit by one sun reads as
 painted pipe.
 
+**AND SEAT IT ON MEASURED VERTICES, AT THE GROUND DATUM.** "Lift everything to
+~0.10 m" was the rule here and it was wrong three ways, each of which shipped
+and was reported: the 0.10 is the 1600 m plat's carriageway height and the z
+ladder scales with plate span; a limb "resting on the trunks" must have ONE end
+on a trunk and the other on the ground, not be balanced at its middle; and
+`log_mesh` jitters every ring vertex by +-17% of the radius, so the lowest
+VERTEX is not at `z - r` and no spec-level check can see the difference.
+`people._seat_debris` measures each piece through `vegetation.log_points` and
+drops it; the datum is `_Z_GRASS * z_scale`, not the road, because the litter
+scatters onto the verge and the ladder puts grass below asphalt. Full account
+in [build-wildfire-scenes](../build-wildfire-scenes/SKILL.md); pinned by
+`scene_gen/tests/test_blocker_debris.py`.
+
 **Do not roll or pitch a baked archetype.** It was settled by PhysX and its
 debris laid on the ground at z=0, all frozen into one object; turning it about
 X or Y tips the debris field with it and a third of the sticks end up on end
@@ -362,6 +437,7 @@ at ~30 locations is a very different set from 95 at 8.
 | `glade_r_m` | `open_ground` | trees deactivated around a group |
 | `queues`, `fire_chance`, `blocker_gap_m` | `gridlock` | number of jams; whether each burns; how far the head stands back |
 | `bulbs`, `cars` | `cul_de_sac` | fewer bulbs = bigger clusters |
+| `min_burn_age_s` | top level | seconds of burn a person's own ground must have; 0.0 (on) refuses anyone on `age < 0`, `null` turns it off. A filter — the head count drops |
 | `casualty_share` | top level | 0.0 by default — this set is about finding LIVE people |
 | `PEOPLE_POLES=1` | env | reveals the locator poles at build time. They are authored deactivated on every run, so the prim toggle is the usual route. NOT in a scored run — see above. |
 | `PEOPLE_JSON` | env | ground-truth path |

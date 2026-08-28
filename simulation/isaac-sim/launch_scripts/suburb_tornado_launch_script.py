@@ -268,8 +268,20 @@ def main():
     placements = generate_suburb_on_stage(stage, config, parent_path=PARENT,
                                           scene_scale_factor=ssf,
                                           info_out=binfo, assembly=True)
-    add_sky(stage, resolve_sky(config))
+    # THE DOME'S EXPOSURE IS PART OF THE SKY, not a separate decision. A night
+    # HDRI at `add_sky`'s daylight defaults (intensity 3500, exposure -3) comes
+    # out as flat bright grey: the image is right and it is about three stops
+    # too hot, which reads as "that is not a night sky". The preset carries
+    # `sky_intensity` / `sky_exposure` beside `sky` so the two cannot drift.
+    _sky = resolve_sky(config)
+    _si = config.get("sky_intensity")
+    _se = config.get("sky_exposure")
+    add_sky(stage, _sky,
+            **({"intensity": float(_si)} if _si is not None else {}),
+            **({"exposure": float(_se)} if _se is not None else {}))
     houses = binfo.get("house_instances", [])
+    # Per-object ground-truth records, filled as each archetype is referenced.
+    _h_recs, _t_recs = [], []
     trees = binfo.get("tree_instances", [])
     print("[tornado] layout in {0:.0f}s: {1} house + {2} tree instance(s)"
           .format(time.time() - t0, len(houses), len(trees)))
@@ -376,6 +388,16 @@ def main():
         if _ref(stage, _hp, usd, h["x"], h["y"], yaw, ssf,
                 instance=not _recolour):
             n_h += 1
+            # FOR THE GROUND TRUTH. The damage level lives in the ARCHETYPE'S
+            # FILENAME and a USD reference does not publish it, so a stage walk
+            # can never recover it — the same reason `scene_api.build_scene`
+            # keeps `house_objects`. Collected here because this is the only
+            # place that knows the prim path, the style and the level together.
+            _h_recs.append({"prim_path": _hp, "style": h["style"],
+                            "level": level, "x": float(h["x"]),
+                            "y": float(h["y"]), "yaw_deg": float(yaw),
+                            "row": bool(h.get("row")),
+                            "intensity": float(it)})
             if _recolour:
                 pal_jobs.append({"prim_path": _hp, "palette": _pal,
                                  "category": "house"})
@@ -466,6 +488,10 @@ def main():
         if _ref(stage, "{0}/inst/t_{1}".format(PARENT, i), usd,
                 t["x"], t["y"], yaw, ssf, scale=scale):
             n_t += 1
+            _t_recs.append({"prim_path": "{0}/inst/t_{1}".format(PARENT, i),
+                            "species": sp, "level": level,
+                            "x": float(t["x"]), "y": float(t["y"]),
+                            "yaw_deg": float(yaw)})
 
     # The resolver measures every asset's real footprint and the pools resolve
     # tag queries; both are needed by the people pass and neither is cheap, so
@@ -871,6 +897,13 @@ def main():
     # house that still has a floor.
     made_r = []
     _sm = None
+    # THE RELIEF'S OWN SPECS, KEPT FOR THE PEOPLE PASS. 4,631 features on the
+    # 1 km plate — mounds to 0.48 m — authored HERE, before 7b, and until now
+    # invisible to the planner that lays bodies on top of them: `_Deck`
+    # measures boards and archetype meshes and nothing made of soil, so a
+    # casualty could be planned inside a dome of earth half a metre deep and
+    # its ground truth would record it as unobstructed.
+    relief_specs = []
     # GATED ON THE OVERLAY, not only on its own switch. `cov`, `mud_z` and
     # `zs` are computed in the block above, and the relief has no meaning
     # without the film it stands on: bare heaps of earth on an unstained lawn
@@ -911,6 +944,7 @@ def main():
             ground_z=mud_z + 0.002 * zs,
             pave_z=ss._Z_ASPHALT * zs + 0.002 * zs,
             pavement_at=_pave_at, skip=_relief_skip, knobs=_kn_r)
+        relief_specs = _specs
         _rmats = srl.materials(stage, PARENT)
         made_r = srl.build(stage, PARENT + "/scourRelief", _specs, _rmats, ssf)
         _sm = srl.summarise(_specs)
@@ -1035,6 +1069,15 @@ def main():
                 # the damage draw above.
                 "intensity_at": inten,
                 "canopies": canopies,
+                # ...AND NOT INSIDE ANYTHING ELSE THAT STANDS OVER A BODY.
+                # `intact` is the houses still up, the wrecks carry their own
+                # footprint (so the baked pile on a levelled slab is a keepout
+                # rather than a surface), and `blockers` is the scour relief
+                # reduced to the features tall enough to swallow a lying
+                # figure — see `tornado_people.relief_blockers`. All four are
+                # things `_Deck` cannot measure and `covered_frac` does not
+                # count, which is what "some are completely obscured" was.
+                "blockers": tpp.relief_blockers(relief_specs),
                 "humans": _rigged_humans(config, resolver_pools),
                 "resolver": resolver_pools[0],
                 "asset_pools": resolver_pools[1],
@@ -1217,7 +1260,18 @@ def main():
             # record — `p03_side_legs_hips` — so the frame and the ground
             # truth can be read against each other without counting.
             if PEOPLE_SNAPS > 0 and p_recs:
-                _sel = p_recs[:PEOPLE_SNAPS]
+                # THE LEAST VISIBLE ONES FIRST, not the first n in record
+                # order. The review question this exists to answer is "can I
+                # see them", so the frames worth spending are the WORST cases:
+                # `p00` is now the most-covered casualty in the scene and the
+                # tail of the list is the easy end. A run that looks acceptable
+                # at p00 needs no further pictures; a run that does not has its
+                # counter-example named in the first frame.
+                _sel = sorted(p_recs,
+                              key=lambda _q: (-float(_q.get("covered_frac",
+                                                            0.0)),
+                                              float(_q.get("sunk_frac", 0.0))
+                                              * -1.0))[:PEOPLE_SNAPS]
                 _pp = {}
                 for _i, _r in enumerate(_sel):
                     _a = math.radians(float(_r.get("body_axis_deg", 0.0)))
@@ -1292,6 +1346,73 @@ def main():
                   .format(SNAP_DIR, len(_pts)))
         except Exception as _exc:
             print("[tornado] snapshots FAILED: {0}".format(_exc))
+
+    # ---- DATASET FREEZE ---------------------------------------------------
+    #
+    # The wildfire path gets this from `freeze_dataset_launch_script.py`, which
+    # drives `scene_api.build_scene`. A tornado scene is assembled by THIS
+    # script instead — different damage model, different debris, its own people
+    # planner — so the freeze steps are wired here rather than teaching the
+    # other launcher a second assembly. Same env knobs and the same output
+    # contract, so a cell looks identical whichever disaster wrote it.
+    _out = (os.environ.get("FREEZE_OUT") or "").strip()
+    if _out:
+        import json as _json
+        from disaster import gt_hints as _gth
+        os.makedirs(_out, exist_ok=True)
+        _info = {"parent": PARENT, "binfo": binfo,
+                 "house_objects": _h_recs, "tree_objects": _t_recs,
+                 "placements": placements, "cars": car_recs,
+                 "blockers": [], "config": config}
+        try:
+            _recs = _gth.build(stage, _info, ssf, disaster="tornado")
+            _reg = binfo.get("region") or (-500, -500, 500, 500)
+            _gth.write(os.path.join(_out, "GT_hints.json"), _recs, meta={
+                "scene_config": SCENE_CONFIG, "seed": SEED,
+                "disaster": "tornado",
+                "region_m": [float(v) for v in _reg],
+                "track_heading_deg": float(tcfg.get("heading_deg", 0.0)),
+                "arch_dir": ARCH_DIR,
+                "units": "metres, world frame, plate centred on the origin",
+            })
+        except Exception as _exc:
+            print("[tornado] GT_hints FAILED: {0}".format(_exc))
+        # The people GT is already written by the casualty pass; copy it into
+        # the cell under the dataset's own name rather than leaving it beside
+        # the archetypes.
+        try:
+            if os.path.exists(PEOPLE_JSON):
+                with open(PEOPLE_JSON) as _f:
+                    _p = _f.read()
+                with open(os.path.join(_out, "GT_people.json"), "w") as _f:
+                    _f.write(_p)
+        except Exception as _exc:
+            print("[tornado] GT_people copy FAILED: {0}".format(_exc))
+        if (os.environ.get("FREEZE_EXPORT") or "").strip().lower() in (
+                "1", "true", "yes"):
+            from disaster import freeze as _frz
+            _nm = (os.environ.get("FREEZE_NAME") or "").strip()
+            if not _nm:
+                _parts = [q for q in os.path.abspath(_out).split(os.sep) if q]
+                _nm = ("{0}_{1}_lvl{2}_{3}".format(
+                    _parts[-4].lower(), _parts[-3].lower(),
+                    _parts[-2].split("_", 1)[1], _parts[-1])
+                    if len(_parts) >= 4 and _parts[-2].startswith("level_")
+                    else "scene")
+            try:
+                _fi = _frz.export_scene(_out, _nm, collect=False)
+                _frz.report(_fi)
+                with open(os.path.join(_out, "freeze_report.json"), "w") as _f:
+                    _json.dump(_fi, _f, indent=1)
+            except Exception as _exc:
+                import traceback
+                print("[tornado] EXPORT FAILED: {0}".format(_exc))
+                traceback.print_exc()
+        if (os.environ.get("FREEZE_EXIT") or "").strip().lower() in (
+                "1", "true", "yes"):
+            print("[tornado] FREEZE_EXIT set — closing after the export")
+            simulation_app.close()
+            return
 
     app = omni.kit.app.get_app()
     omni.timeline.get_timeline_interface().play()

@@ -92,6 +92,22 @@ against the 40-120/ha a municipal park's planted ground carries and the 85/ha
 the undeveloped-land pass in this same scene uses. See `lawn_tree_per_1000m2`,
 `tree_open_frac` and `tree_margin_m`.
 
+...BUT A COURT IS NOT PLANTED UP TO
+-----------------------------------
+The keep-outs are struck from the facility RECTANGLE, so they clear a TRUNK.
+A crown is what hangs over the baseline, and the pool the park draws from spans
+4.09 m (American_Beech) to 25.42 m (Black_Oak) across — measured, in
+`config/asset_sets/suburban.yaml` — drawn UNIFORMLY, so one park tree in five
+is the 12.71 m-radius oak. A trunk standing a legal 4 m off the compound put
+that canopy 8.7 m INSIDE it, which is what "the trees are too close to the
+court" looks like and is the same fault the wildfire scenes hit with
+`open_tree_clear_m` (see `.agents/skills/build-wildfire-scenes`): the keep-out
+was sized for the smallest crown in the pool and the pool had a park specimen
+in it. `court_tree_clear_m` is sized for the BIGGEST instead, and only the
+courts pay for it — a fountain or a picnic table is a destination to arrive at,
+not something to hold trees off, and the strips between the soft facilities are
+supposed to read as planted.
+
 THE FOUNTAINS ARE PLAZAS, NOT POINTS
 ------------------------------------
 Ported from the urban park (`parks.py`, "THE ATTRACTION AS A COMPOSED
@@ -154,6 +170,29 @@ PARKING = {
     "loop": 7.0,
     "edge": 1.0,
 }
+
+# THE CROWN A KEEP-OUT HAS TO CLEAR, and the one number here that comes from
+# outside this module. Every clearance below is struck from a facility
+# RECTANGLE and therefore clears a TRUNK; what overhangs a baseline is the
+# canopy, so a planting clearance is only meaningful next to the widest crown
+# that can land in it.
+#
+# MEASURED, NOT ASSUMED. `suburb_scene._park_placements` draws the park's trees
+# from the asset set's `trees` pool with a flat `rng.randrange`, and
+# `config/asset_sets/suburban.yaml` records that pool's crown WIDTHS from
+# tools/measure_assets.py:
+#
+#     American_Beech    4.09      Shumard_Oak      10.29
+#     Largetooth_Aspen  5.09      Black_Oak        25.42
+#     Common_Apple      5.86
+#
+# so the draw is one chance in five of a 12.71 m radius. Sizing a keep-out on
+# the 5.08 m MEAN of that pool is the `open_tree_clear_m` bug from the wildfire
+# scenes written out again: four trees in five clear the court and the fifth
+# sits on it. The pool cannot be measured host-side (the AEC assets are USD
+# crate and there is no pxr outside the container), so this is the asset set's
+# own recorded figure — re-measure it there, not here, if the pool changes.
+POOL_CROWN_R_M = 25.42 / 2.0
 
 DEFAULTS = {
     "region_m": [420.0, 300.0],
@@ -280,6 +319,27 @@ DEFAULTS = {
     "lawn_tree_per_1000m2": 3.8,
     "tree_open_frac": 0.26,
     "tree_margin_m": 28.0,
+    # TRUNK KEEP-OUT off a facility, i.e. how much of the rejection-sample
+    # candidate box is grass. 4.0 is what the pass always enforced (a 6 m
+    # probe box padded 1 m) and is left where it was on purpose: the strips
+    # between the soft facilities are supposed to read as PLANTED, and what
+    # makes them read that way is trees right up against the picnic ground.
+    "tree_clear_m": 4.0,
+    # ...AND THE COURTS, which are the exception and the reason `tree_clear`
+    # exists. Measured on `suburb_wildfire_1000` seeds 23 and 10 at the flat
+    # 4.0: the nearest trunk stood 4.1-4.6 m off the basketball compound and
+    # the tennis block, and 21-25 trees per court sat inside one worst-case
+    # crown radius of it — so the canopy of any Black_Oak among them reached
+    # 8.1-8.6 m over the fence and 4.3-6.5 m over the paint. Reported as "the
+    # trees surrounding the basketball court are too close to the court".
+    #
+    # `POOL_CROWN_R_M` + 3 m: the widest crown the pool can hand this pass,
+    # plus a strip of grass you can actually see between canopy and chain-link
+    # from the air. Not applied to the pitches, the picnic grounds, the
+    # playground or the lot — a court is the only facility here whose EDGE is
+    # played on, and inflating the rest would empty the park's margins, which
+    # is where a park's planting lives.
+    "court_tree_clear_m": POOL_CROWN_R_M + 3.0,
     # Crowns are ~7 m across on the plan; two stems closer than this read as
     # one blob. Not a hard forest rule — real stands do touch — just enough to
     # keep a Poisson scatter from clumping into rosettes at park density.
@@ -1319,6 +1379,33 @@ def facility_pad(z, c):
     return float(c["facility_pad_m"])
 
 
+# THE COURTS, AND ONLY THE COURTS — see `tree_clear`.
+_COURT_KINDS = ("basketball_compound", "tennis_block")
+
+
+def tree_clear(z, c):
+    """Grass between facility *z* and the nearest TRUNK that may be planted.
+
+    NOT `facility_pad`, and the difference is the whole point of the function.
+    That band is what a PATH keeps, and it is a property of what stands on the
+    facility's edge — a fence, a gate swinging outward, a rank of bike racks.
+    This one is a property of what stands on the TREE: every keep-out here is
+    struck from a rectangle, so it clears a TRUNK, and a crown out of this pool
+    reaches `POOL_CROWN_R_M` further.
+
+    Which is survivable everywhere but a court. A canopy over a picnic ground
+    is what a picnic ground is for; a canopy over a baseline is the defect that
+    was reported. So the courts get a keep-out sized to the crown and every
+    other facility keeps the 4 m trunk offset the pass always used — inflating
+    all of them would clear the courts by emptying the strips between the soft
+    facilities, and those strips are where a park's planting actually is (see
+    `tree_margin_m`).
+    """
+    if z["kind"] in _COURT_KINDS:
+        return float(c.get("court_tree_clear_m", c.get("tree_clear_m", 4.0)))
+    return float(c.get("tree_clear_m", 4.0))
+
+
 # ---------------------------------------------------------------------------
 # the path network — a GRAPH, not a heap of polylines
 # ---------------------------------------------------------------------------
@@ -2124,6 +2211,11 @@ def plan(rng, cfg=None):
     # fountain is a destination to arrive at, not an edge to respect.
     for z in zones:
         z["pad_m"] = facility_pad(z, c)
+        # AND THE PLANTING BAND, which is a different number for a different
+        # reason — see `tree_clear`. Recorded here rather than re-derived in
+        # (c) so `check_tree_clear` measures what the plan promised, the same
+        # way `check_pad` reads `pad_m`.
+        z["tree_clear_m"] = tree_clear(z, c)
     pads = [z["pad_m"] for z in zones] + [clear] * len(features)
 
     def clears(width_m):
@@ -2670,10 +2762,29 @@ def plan(rng, cfg=None):
                         return True
         return False
 
+    # ONE KEEP-OUT PER OBSTACLE, because a court is not a picnic ground. The
+    # apron and the fountain/gazebo keep-outs are in `features` and carry no
+    # zone, so they take 0 here and land on the historic 1 m floor below —
+    # they are set pieces you walk to, not edges to hold a crown off.
+    tclear = [z["tree_clear_m"] for z in zones] + [0.0] * len(features)
+
     def free(q, size, path_d=5.0):
+        # `size` IS THE PROBE, `tclear` IS THE ANSWER. The old test padded a
+        # `size` x `size` box by a flat metre, so the trunk clearance it
+        # enforced was whatever the caller's box happened to be — 4 m for the
+        # scatter, 9 m for an inland copse centre. Subtracting the half-box
+        # makes the TOTAL come out at the facility's own figure whichever probe
+        # asks, and the 1 m floor is what keeps every non-court obstacle
+        # bit-identical to what this enforced before: at `tree_clear_m` 4.0 the
+        # scatter's 6 m probe lands exactly ON the floor and the copse's 16 m
+        # one below it, so both come out where they always did. Checked, not
+        # assumed — with `court_tree_clear_m` forced back to 4.0 the whole prop
+        # list matches the old pass to nine decimals on seeds 0-7.
         box = _obb(q[0], q[1], size, size, 0.0)
-        if any(_sat_overlap(box, r, 1.0) for r in obstacles):
-            return False
+        half = size / 2.0
+        for r, tc in zip(obstacles, tclear):
+            if _sat_overlap(box, r, max(1.0, tc - half)):
+                return False
         return not near_path(q, path_d)
 
     # STEMS DO NOT STACK. There was no tree-to-tree test at all, survivable at
@@ -2711,8 +2822,12 @@ def plan(rng, cfg=None):
     #
     # `d` is measured to the facility BOX, not to its padding band, on purpose:
     # what makes a strip between two facilities read as planted is trees right
-    # up against the fence line, and `free()` already holds them the 4 m off it
-    # that stops a crown sitting on the court.
+    # up against the fence line, and `free()` is what decides how close that
+    # is allowed to get. It was a flat 4 m here and the claim beside it was
+    # that 4 m "stops a crown sitting on the court" — it does not, it stops a
+    # TRUNK, and the crown carries on for up to another 12.7 m. The courts now
+    # take `court_tree_clear_m` and everything else keeps the 4 m, which is
+    # what leaves this weighting meaning what it says.
     marg = float(c["tree_margin_m"])
     openf = float(c["tree_open_frac"])
 
@@ -3035,6 +3150,38 @@ def check_pad(park, eps=0.05):
                 if (sp[1] - sp[0]) * L > eps:
                     n += 1
     return n
+
+
+def check_tree_clear(park, crown_r=None):
+    """``(breaches, worst_crown_m)`` for the planting keep-outs.
+
+    THE SECOND NUMBER IS THE ONE THAT WAS WRONG. `breaches` counts trunks
+    inside a facility's own `tree_clear_m`, which is a check that the pass did
+    what it was told and was passing all along — the flat 4 m was enforced
+    exactly. `worst_crown_m` is the same measurement taken at the CROWN: the
+    nearest trunk to a court, less the widest radius the pool can hand it
+    (`POOL_CROWN_R_M`). Negative means a canopy over the paint, and on
+    `suburb_wildfire_1000` seeds 23 and 10 it read -8.29 and -8.09 m with
+    `breaches` at zero, which is why a trunk test alone cannot be the check.
+
+    Reported for the COURTS only, for the reason `tree_clear` gives: a crown
+    over a picnic ground is shade and a crown over a baseline is the bug.
+    """
+    r = POOL_CROWN_R_M if crown_r is None else float(crown_r)
+    trees = [pr["c"] for pr in park["props"] if pr["kind"] == "tree"]
+    breaches, worst = 0, float("inf")
+    for z in park["zones"]:
+        want = float(z.get("tree_clear_m", 0.0))
+        court = z["kind"] in _COURT_KINDS
+        for q in trees:
+            _pt, inside, d = _nearest_on_obb(q, z["corners"])
+            if inside:
+                d = -d
+            if d < want:
+                breaches += 1
+            if court:
+                worst = min(worst, d - r)
+    return breaches, (None if worst == float("inf") else worst)
 
 
 def check_reach(park, tol=0.5):

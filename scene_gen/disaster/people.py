@@ -40,6 +40,17 @@ WHAT THE RESEARCH SAYS
   `exposed_interior` puts one person on the floor plate of a house whose roof
   has fallen in, visible from above precisely because it has.
 
+BUT EVERY ONE OF THEM IS INSIDE THE BURN, and that overrides all of the above.
+`min_burn_age_s` (0.0, i.e. on) refuses any figure whose own ground has
+`age(x, y) < 0` — ground the front never reached. Requested in those words:
+*I don't want people who are not in the fire damaged area.* It is a FILTER and
+not a re-siting: nothing retries, nothing moves, the head count drops, and
+`plan_people` prints an `unburnt:<scenario>` count for every refusal. Measured
+on `suburb_wildfire_1000`, it takes 95 people to 69 (layout seed 23) and 86 to
+80 (seed 10), and the count on unburnt ground from 26 and 6 to zero; the
+argument in `DEFAULTS` says which scenarios paid, why they were putting people
+out there in the first place, and what goes quiet downstream.
+
 WHAT THIS MODULE IS
 
 A PURE PLANNER. `plan_people` takes a context dict of things somebody else
@@ -108,6 +119,61 @@ DEFAULTS = {
     # Nobody stands inside anybody else. 1.2 m is a shoulder-to-shoulder
     # crowd; below ~0.9 m two 0.5 m-wide figures interpenetrate.
     "min_separation_m": 1.2,
+
+    # NOBODY OUTSIDE THE BURN. The seconds of fire a person's own ground has
+    # seen — `ctx["age"](x, y)`, which is NEGATIVE where the front never got —
+    # that a placement must have before it is kept. 0.0 is "on ground the front
+    # reached", i.e. the gate is ON; `None` turns it off and restores the
+    # behaviour below. Requested in those words on 2026-08-28: *I don't want
+    # people who are not in the fire damaged area.*
+    #
+    # WHAT IT IS OVERRIDING, because none of this was an accident and it is
+    # worth knowing what the scene loses. Three scenarios put people ahead of
+    # the front ON PURPOSE, and `scene_api` sizes the affected-area polygon off
+    # exactly those people (`region.people_lead_s` is `max(-burn_age_s)`):
+    #
+    #   parking_refuge  `_parking_refuge` sorts the lots by burn age and takes
+    #                   the `lots_used` deepest — but "deepest" is not "inside",
+    #                   and on a plat with only one lot in the black the other
+    #                   two are simply the least-unburnt. A TRA on clean asphalt
+    #                   beside the fire is what a TRA IS, which is why the code
+    #                   prints the lot's age and takes it either way.
+    #   gridlock        the queue runs OUTBOUND past the blockage by
+    #                   construction — that is the direction people are driving
+    #                   — so its walkers are ahead of the front by design.
+    #   at_home         admits the whole band `-0.20*span < age < 0.12*span`,
+    #                   i.e. up to a fifth of a span AHEAD of the front, because
+    #                   the stay-or-go decision is only live at the edge.
+    #
+    # MEASURED on `suburb_wildfire_1000`, host-side, `total: 95` and
+    # `build_scene(burn_frac=0.45, seed=11)` — the shipped scene at the
+    # launcher's own defaults, gate off then on:
+    #
+    #     layout seed   off    on    on age < 0, and which pass put them there
+    #     23             95    69    26 (27%)  refuge 19, at_home 5, queue 2
+    #     10             86    80     6 ( 7%)  queue 3, at_home 3
+    #
+    # so on seed 23 more than a quarter of the answer key was standing on green
+    # grass. THE HEAD COUNT DROPS AND IS MEANT TO — this is a filter, not a
+    # re-siting: nothing retries and nothing moves, and on both seeds the kept
+    # plan measured as a STRICT SUBSET of the ungated one (95 - 26 = 69,
+    # 86 - 6 = 80, every kept figure at a position the ungated plan also used).
+    # That is a measurement rather than a guarantee — a refused figure does not
+    # reserve its ground, so a later candidate can land where one was turned
+    # away — which is why `plan_people` prints `unburnt:<scenario>` for every
+    # refusal instead of leaving the shortfall to be inferred.
+    #
+    # AND ONE THING DOWNSTREAM GOES QUIET. `scene_api` sizes the affected-area
+    # polygon off `region.people_lead_s(p_recs)` = `max(-burn_age_s)`, i.e. off
+    # the survivor furthest AHEAD of the front. With this gate on there is no
+    # such survivor and that term is 0 on every scene, so the affected area
+    # falls back to its `lead_frac * span` floor. Correct — there is nobody out
+    # there to cover — but `region.affected_polygons`'s `lead_bound` will now
+    # read "floor" rather than "people" on scenes where it used to read the
+    # latter, and `tests/test_affected_region.py` pins the old behaviour
+    # against hand-entered points from a pre-gate run.
+    "min_burn_age_s": 0.0,
+
     "scenarios": {
         "parking_refuge": {"share": 0.30, "groups": [2, 3],
                            "in_car_share": 0.35,
@@ -427,6 +493,13 @@ def _seat_person(plan, scenario, group, q, ln, wd, ht, seat, note=""):
         note="%s seat, pan %.2f m, roof %.2f m, offsets %s%s"
              % (seat.get("seat", "driver"), pan, ht, seat["source"],
                 ("; " + note) if note else ""))
+    # `None` IS A REFUSAL, NOT AN ERROR. `add_person` turns away a person on
+    # ground the front never reached (`min_burn_age_s`), and a car sitting on
+    # an unburnt refuge lot is exactly that case — a driver in it is somebody
+    # the fire did not touch. The caller counts the slot either way, which is
+    # what keeps the draw order of everybody after them intact.
+    if rec is None:
+        return None
     rec["seat_source"] = seat["source"]
     rec["seat"] = seat.get("seat", "driver")
     return rec
@@ -1097,6 +1170,18 @@ class _Plan:
         # scenario made that the rules turned into a stander, by pose.
         self.peacetime = bool(cfg.get("peacetime", False))
         self.coerced = {}
+        # WHY A PERSON WAS NOT PLACED, keyed `reason:scenario` — the same shape
+        # and the same argument as `car_why` above and as
+        # `tornado_people._Field.refused`: a scene that comes back with 71 of
+        # the 95 it was asked for is useless information unless it also says
+        # which pass gave up and on what.
+        self.refused = {}
+        # THE BURN GATE. `None` (or peacetime, where `age` is -1.0 everywhere
+        # by construction and this would refuse the entire population) turns it
+        # off. Read once: `cfg` is not meant to change under a running plan and
+        # a per-person dict lookup is a per-person chance to disagree.
+        self.min_burn_age_s = (
+            None if self.peacetime else cfg.get("min_burn_age_s", 0.0))
 
     # -- assets ----------------------------------------------------------
     def pick_human(self, pose, prone=False):
@@ -1146,6 +1231,31 @@ class _Plan:
             usd, pose = self.pick_human(pose, prone=prone)
         elif prone:
             pose = "idle"
+        # NOBODY OUTSIDE THE BURN — `min_burn_age_s`, argued in `DEFAULTS`.
+        # THE PERSON'S OWN GROUND, not their lot's and not their house's: a
+        # front yard can straddle the front, and the whole point of the request
+        # is that the FIGURE a camera sees is standing in the damage.
+        #
+        # GATED ON `ctx["age"]` AND NOTHING ELSE, which is the same field the
+        # damage ladder, the ground scar and the archetype levels all key off.
+        # A second definition of "burnt" here — a distance to the nearest
+        # gutted house, a level lookup — is a second definition that can
+        # disagree with the one the scene was built from.
+        #
+        # AND IT SITS *AFTER* THE CHARACTER DRAW, which looks like the wrong
+        # place until you count draws: a refusal that skips `pick_human` takes
+        # one to three values out of the shared generator and every survivor
+        # planned after it moves. Refusing here costs the plan the person and
+        # nothing else. (`ground.take` below is skipped, so the spot is not
+        # reserved for somebody who is not there; that can still let a later
+        # candidate land where this one was refused, which is why the tally is
+        # printed rather than assumed.)
+        if self.min_burn_age_s is not None:
+            burn = float(self.ctx["age"](x, y))
+            if burn < float(self.min_burn_age_s):
+                key = "unburnt:" + str(scenario)
+                self.refused[key] = self.refused.get(key, 0) + 1
+                return None
         q = _human_placement(self.ctx, usd, x, y, z_ground, yaw, pose,
                              prone=prone)
         idx = len(self.humans)
@@ -1254,6 +1364,19 @@ def plan_people(cfg, ctx, rng=None):
         dict(sorted((r, sum(1 for q in plan.cars if q.get("role") == r))
                     for r in {q.get("role") for q in plan.cars})),
         dict(sorted(plan.car_why.items())) or "none"))
+    # ...AND THE SAME LINE FOR PEOPLE, for the same reason. A scene that comes
+    # back 24 short of its `total` has to say so and say where: `unburnt:` is
+    # the burn gate (`min_burn_age_s`), and every one of those is a person a
+    # scenario sited on ground the front never reached. A big number against
+    # one scenario is that scenario disagreeing with the fire — an
+    # all-unburnt refuge lot, a queue whose whole outbound half is green — not
+    # a bug in the gate.
+    print("[people] people refused: {0} ({1} of {2} placed; gate "
+          "min_burn_age_s {3})".format(
+              dict(sorted(plan.refused.items())) or "none",
+              len(plan.humans), int(cfg.get("total", 0)),
+              plan.min_burn_age_s if plan.min_burn_age_s is not None
+              else "off"))
     _n_fire = sum(1 for b in plan.blockers if b.get("fire"))
     print("[people] blockages: {0} of {1} burning (fire_chance {2:.2f})"
           .format(_n_fire, len(plan.blockers),
@@ -2070,7 +2193,92 @@ def _pick_queue_street(plan, sn, used=(), relax=0):
     return best[1], best[2], best[3], best[4], best[5]
 
 
-def _blocker_debris(cx, cy, across, half_w, rng):
+def _road_z(plan):
+    """The height to SEAT blockage debris at, metres. The GROUND, not the road.
+
+    SEAT ON THE LOWER OF THE TWO SURFACES, WHICH IS THE GRASS. A blockage's
+    litter is scattered over `half_w` either side of the centreline and +-9 m
+    along it, so most of it lands on the VERGE rather than on the carriageway —
+    and `apply_ground`'s z ladder puts grass BELOW asphalt (`_Z_GRASS` 0.02
+    against `_Z_ASPHALT` 0.10, both times the plate's `z_scale`). Seating the
+    whole field on the road datum therefore leaves every verge piece standing
+    proud of the lawn by the difference. Reported on sight: "most of the debris
+    is not on asphalt but on the ground so we need to account for that".
+
+    Seating on the grass instead buries the minority that DO lie on the
+    carriageway by that same difference — 1.2 cm on this plate, about 2.5% of a
+    trunk section's diameter — which is invisible, and it is the right way for
+    the error to point: a piece slightly bedded into a surface is a pose the
+    world produces and one hovering over it is not.
+
+    STILL DERIVED, NOT PINNED, even though the dataset is now fixed at 1 km.
+    It is one multiply, it costs nothing, and a constant here is exactly the
+    bug this function was written to remove — `_blocker_debris` carried a
+    hard-coded 0.10 m that was right on the 1600 m plat and 8.5 cm wrong on
+    this one.
+    """
+    zs = (plan.ctx or {}).get("z_scale")
+    return _Z_GRASS_M * (1.0 if zs is None else float(zs))
+
+
+#: MIRRORS `suburb_scene._Z_GRASS`, and it is a copy on purpose. This module's
+#: contract is that it touches no stage and imports no `pxr`, which is what lets
+#: the whole survivor plan run and be asserted on the host — and `suburb_scene`
+#: imports `pxr` at module scope, so importing the constant from it (as the
+#: first version of `_road_z` did) breaks that for every caller. One float,
+#: pinned by `tests/test_blocker_debris.py` against the real module.
+_Z_GRASS_M = 0.02
+
+#: Jitter passed to `vegetation.log_mesh` for blockage pieces. The planner has
+#: to know it, because it is what makes the nominal bottom (`z - r`) wrong.
+_DEBRIS_ROUGH = 0.17
+#: How far a seated piece sinks below the carriageway. A piece whose lowest
+#: vertex is EXACTLY on the surface reads as balanced on a tangent line; a
+#: centimetre under reads as lying on it. Same argument as the plank field's
+#: `_BED_M`, and the tie breaks toward sinking for the same reason.
+_DEBRIS_BED_M = 0.012
+
+
+def _seat_debris(specs, road_z, index):
+    """Drop every piece so its LOWEST AUTHORED VERTEX rests on the carriageway.
+
+    THE NOMINAL BOTTOM IS NOT THE MESH. `vegetation.log_mesh` jitters every
+    ring vertex radially by `_DEBRIS_ROUGH` and only has a vertex at the exact
+    bottom when `sides` puts one there, so a piece seated on `z - r` can float
+    by up to `rough * r` — 8 cm on a 0.48 m trunk section, which under this
+    scene's 24-degree sun is 18 cm of detached shadow. Reasoning about radii
+    cannot fix that; measuring the vertices can, and `vegetation.log_points`
+    exists so this can measure them without a stage.
+
+    THE SEED IS SHARED WITH THE AUTHOR. `vegetation.piece_seed` is what makes
+    the piece measured here the piece built later — `scene_api._tube` used to
+    seed off `hash(prim_path)`, which Python randomises per process.
+
+    Uses its own rng per piece and never touches the planner's, so the survivor
+    draws that follow are unmoved.
+    """
+    from disaster import vegetation as veg
+
+    for j, sp in enumerate(specs):
+        pts = veg.log_points(sp["p0"], sp["p1"], sp["r0"], sp["r1"], 1.0,
+                             sides=sp["sides"],
+                             rng=random.Random(veg.piece_seed(sp["kind"],
+                                                              index, j)),
+                             rough=_DEBRIS_ROUGH)
+        low = min(q[2] for q in pts)
+        dz = (road_z - _DEBRIS_BED_M) - low
+        # ONLY EVER DOWN for a piece that floats; a piece already in the road
+        # is left where it is rather than lifted, because the one pose that is
+        # always defensible is "lying on the ground" and the one that never is
+        # is "hanging over it". Same tie-break `bake._reseat_roots` records.
+        if dz > 0.0:
+            continue
+        sp["p0"] = (sp["p0"][0], sp["p0"][1], sp["p0"][2] + dz)
+        sp["p1"] = (sp["p1"][0], sp["p1"][1], sp["p1"][2] + dz)
+    return specs
+
+
+def _blocker_debris(cx, cy, across, half_w, rng, road_z=0.015, index=0):
     """Timber and wreckage strewn over the carriageway at the blockage.
 
     AN ARCHETYPE ALONE DOES NOT BLOCK A ROAD. A `tree_*_fallen` reference is
@@ -2087,15 +2295,23 @@ def _blocker_debris(cx, cy, across, half_w, rng):
     dropped where a fallen one was wanted.
 
     Returns a list of `{"kind","p0","p1","r0","r1"}` in WORLD metres; the
-    launcher authors each as a tapered tube. Z is absolute and already lifted
-    clear of the carriageway.
+    launcher authors each as a tapered tube. Z is absolute and seated on the
+    carriageway.
+
+    *road_z* IS THE CARRIAGEWAY'S OWN HEIGHT AND MUST BE PASSED. It used to be
+    a hard-coded 0.10 m with the comment "the carriageway is at ~0.10", which
+    was true on the 1600 m plat and on nothing else: `apply_ground`'s z ladder
+    SCALES WITH PLATE SPAN (`ground_z_scale`), so the 1000 m wildfire preset
+    puts its asphalt at `_Z_ASPHALT * 0.15 = 0.015 m` and every piece of this
+    field stood 8.5 cm in the air. At the scene's 24-degree sun that is 19 cm
+    of detached shadow per piece, which is exactly what reads as floating.
+    `binfo["z_scale"]` is the factor; the caller multiplies.
     """
     out = []
     th = math.radians(across)
     # Along the road is perpendicular to the bole's bearing.
     ax, ay = math.cos(th), math.sin(th)
     bx, by = -ay, ax
-    lift = 0.10                     # the carriageway is at ~0.10; sit ON it
     # Trunk sections, staggered along the road and crossing it at a spread of
     # bearings. Radii are real: a 0.3-0.5 m bole is what comes down on a
     # street tree, and it is what a car cannot drive over.
@@ -2109,11 +2325,30 @@ def _blocker_debris(cx, cy, across, half_w, rng):
         hx, hy = math.cos(ph) * ln / 2.0, math.sin(ph) * ln / 2.0
         px = cx + bx * along + ax * off
         py = cy + by * along + ay * off
-        out.append({"kind": "log",
-                    "p0": (px - hx, py - hy, lift + r0),
-                    "p1": (px + hx, py + hy, lift + r1),
+        # BED IT IN. A log whose axis sits exactly `r` above the road touches
+        # the surface along a mathematical tangent line, so any error in either
+        # number is air. Sinking the axis a few centimetres puts the contact
+        # patch under the tarmac instead — the tornado plank field's `_BED_M`,
+        # and the same "the tie breaks toward dropping" argument: a piece
+        # slightly buried in the debris is a pose the world produces, one
+        # hovering is not.
+        bed = min(0.03, r0 * 0.15)
+        out.append({"kind": "log", "sides": 9,
+                    "p0": (px - hx, py - hy, road_z + r0 - bed),
+                    "p1": (px + hx, py + hy, road_z + r1 - bed),
                     "r0": r0, "r1": r1})
     # Limbs. Most on the road, a third resting on the trunks.
+    #
+    # "RESTING ON THE TRUNKS" HAS TO MEAN A TRUNK IS UNDER IT. The first
+    # version added 0.30-0.75 m to a limb whose x/y had already been drawn
+    # INDEPENDENTLY of where the trunk sections went, so a third of the field
+    # hung up to three quarters of a metre over bare asphalt. Same fault the
+    # tornado plank field records for its tilted boards: a piece raised over
+    # open ground is not "came to rest on something else", it is a floater.
+    # The roll and the magnitude draw are kept in place and REINTERPRETED —
+    # which trunk, and where along it — so the rng sequence is byte-identical
+    # to the version this replaces and no downstream survivor moves.
+    logs = list(out)
     for i in range(34):
         along = rng.uniform(-9.0, 9.0)
         off = rng.uniform(-1.0, 1.0) * half_w
@@ -2123,12 +2358,55 @@ def _blocker_debris(cx, cy, across, half_w, rng):
         hx, hy = math.cos(ph) * ln / 2.0, math.sin(ph) * ln / 2.0
         px = cx + bx * along + ax * off
         py = cy + by * along + ay * off
-        z = lift + r + (rng.uniform(0.30, 0.75) if rng.random() < 0.32 else 0.0)
-        out.append({"kind": "limb",
-                    "p0": (px - hx, py - hy, z),
-                    "p1": (px + hx, py + hy, z + rng.uniform(-0.2, 0.2)),
+        # A LIMB LYING ON TARMAC HAS ITS AXIS ONE RADIUS UP. 0.80 beds it a
+        # fifth of its own thickness into the surface, which hides the contact
+        # error without half-burying a 0.14 m limb — `r * 0.4` sank the thick
+        # end 8 cm and read as a stick pushed into the road.
+        floor = road_z + r * 0.80                 # bedded, never hovering
+        on_log = rng.random() < 0.32
+        if on_log and logs:
+            # A LEAN-TO, NOT A SEE-SAW. Seating the limb's CENTRE on the log
+            # crown was the first fix's mistake and it looked worse than the
+            # bug it replaced: a 3 m stick balanced at its midpoint has BOTH
+            # ends 0.8 m in the air with nothing under them, and because every
+            # propped piece was seated the same way they lined up in a band at
+            # crown height. Measured on the authored field: 15 of 38 pieces a
+            # blockage, ends at 0.62-1.01 m, all unsupported.
+            #
+            # What a limb across a log actually does is rest ONE end on it and
+            # reach the ground with the other. So the contact point is an END,
+            # the piece runs away from the log on its own drawn bearing, and
+            # the far end is bedded on the carriageway.
+            u = rng.uniform(0.30, 0.75)
+            lg = logs[int(u * 1000.0) % len(logs)]
+            t = (u * 7.0) % 1.0                   # where along that section
+            cx0 = lg["p0"][0] + (lg["p1"][0] - lg["p0"][0]) * t
+            cy0 = lg["p0"][1] + (lg["p1"][1] - lg["p0"][1]) * t
+            lz = lg["p0"][2] + (lg["p1"][2] - lg["p0"][2]) * t
+            lr = lg["r0"] + (lg["r1"] - lg["r0"]) * t
+            # `ph` was drawn as a plan bearing for the flat case; here it is
+            # the direction the limb reaches AWAY from its contact point, so no
+            # extra draw is taken and the rng sequence is unchanged — which is
+            # what keeps the survivors planned after this exactly where they
+            # were.
+            p0 = (cx0, cy0, lz + lr + r * 0.55)   # propped on the crown
+            p1 = (cx0 + 2.0 * hx, cy0 + 2.0 * hy, floor)
+            dz = rng.uniform(-0.2, 0.2)           # jitter the high end only
+            p0 = (p0[0], p0[1], max(floor + r, p0[2] + dz * 0.35))
+        else:
+            # FLAT ON THE ROAD. The far end used to take the full +-0.2 m,
+            # which stands one end of a 0.1 m stick 20 cm off the tarmac over
+            # nothing. On a flat surface a stick is flat; the jitter is a
+            # centimetre or two of unevenness, not a prop.
+            p0 = (px - hx, py - hy, floor)
+            dz = rng.uniform(-0.2, 0.2)
+            p1 = (px + hx, py + hy, max(floor - r * 0.25, floor + dz * 0.12))
+        out.append({"kind": "limb", "sides": 7, "p0": p0, "p1": p1,
                     "r0": r, "r1": r * rng.uniform(0.6, 0.9)})
-    return out
+    # SEAT LAST, ON THE GEOMETRY. Everything above reasons about radii, which
+    # is what the planner can do; this corrects it against the vertices the
+    # author will actually write.
+    return _seat_debris(out, road_z, index)
 
 
 def _add_blocker(plan, pts, s_b, half_w, out_bear):
@@ -2185,7 +2463,9 @@ def _add_blocker(plan, pts, s_b, half_w, out_bear):
         sy = cy + ny * (half_w + 0.6)
         spec = {
             "kind": "fallen_tree", "species": sp, "usd": usd,
-            "debris": _blocker_debris(cx, cy, across, half_w, rng),
+            "debris": _blocker_debris(cx, cy, across, half_w, rng,
+                                      road_z=_road_z(plan),
+                                      index=len(plan.blockers)),
             "x": sx, "y": sy, "yaw_deg": across - bearing,
             "bole_bearing_deg": bearing,
             "bole_reach_m": _BOLE_REACH_M.get(sp, 4.0),
@@ -2220,7 +2500,9 @@ def _add_blocker(plan, pts, s_b, half_w, out_bear):
         # A DOWNED POLE ALSO NEEDS THE LITTER. Same argument as the tree: one
         # object across a lane is a thing lying in the road; the strewn field
         # is what makes the road impassable.
-        "debris": _blocker_debris(cx, cy, beta + 90.0, half_w, rng),
+        "debris": _blocker_debris(cx, cy, beta + 90.0, half_w, rng,
+                                  road_z=_road_z(plan),
+                                  index=len(plan.blockers)),
         "prim_path": cand.get("prim_path"), "scale": float(cand.get("scale", 1.0)),
         "axis_up": cand.get("axis_up", "Z"),
         "x": lx, "y": ly, "z": 0.20,
@@ -2729,6 +3011,12 @@ def build_ctx(config, info, placements, resolver, asset_pools, age, elapsed,
         # Row-home courts, in `parking_info`'s schema — see `_parking_refuge`.
         "clusters": info.get("clusters"),
         "pools": info.get("pools"), "cars": info.get("cars"),
+        # THE GROUND Z LADDER'S SCALE FACTOR. `apply_ground` derives it from
+        # the plate span, so the carriageway is at `_Z_ASPHALT * z_scale` and
+        # NOT at a fixed height — `_blocker_debris` seats its litter on that
+        # number and floated 8.5 cm on every plate but the 1600 m one until it
+        # was passed through.
+        "z_scale": info.get("z_scale"),
         "trees": info.get("tree_instances"),
         "houses": house_table(info.get("parcels") or [],
                               info.get("house_instances"), levels),

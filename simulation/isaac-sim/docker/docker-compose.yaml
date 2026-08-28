@@ -179,6 +179,13 @@ services:
       - ../../..:/isaac-sim/AirStack:rw
       - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw
       - ../../../.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json:rw
+      # THE FROZEN DATASET, OUTSIDE THE REPO ON PURPOSE. `final_disaster_dataset`
+      # is hundreds of MB of binary USD and texture per scene and 120 scenes at
+      # the full matrix; inside the AirStack mount it sits in the working tree
+      # where a stray `git add -A` can pick it up and where every `du` on the
+      # repo counts it. Its own mount keeps the artefact and the source apart.
+      # Override the host side with FINAL_DATASET_DIR in .env.
+      - ${FINAL_DATASET_DIR:-$HOME/SEI-COA/final_disaster_dataset}:/isaac-sim/final_disaster_dataset:rw
 
   # ===================================================================================================================
   isaac-sim-gui:
@@ -350,3 +357,10 @@ services:
       - ../../..:/isaac-sim/AirStack:rw
       - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw
       - ../../../.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json:rw
+      # THE FROZEN DATASET, OUTSIDE THE REPO ON PURPOSE. `final_disaster_dataset`
+      # is hundreds of MB of binary USD and texture per scene and 120 scenes at
+      # the full matrix; inside the AirStack mount it sits in the working tree
+      # where a stray `git add -A` can pick it up and where every `du` on the
+      # repo counts it. Its own mount keeps the artefact and the source apart.
+      # Override the host side with FINAL_DATASET_DIR in .env.
+      - ${FINAL_DATASET_DIR:-$HOME/SEI-COA/final_disaster_dataset}:/isaac-sim/final_disaster_dataset:rw

@@ -3223,6 +3223,66 @@ def split_wood_material(stage, path, tile_m=0.75, tint=(1.0, 1.0, 1.0),
     return mat
 
 
+def log_points(p0, p1, r0, r1, ssf=1.0, sides=9, rng=None, rough=0.17):
+    """The BARREL vertices of `log_mesh`, as plain tuples. No pxr, no stage.
+
+    WHY THIS IS SEPARATE. The nominal bottom of a log is `z - r`, and that is
+    NOT where its mesh is: every ring vertex is jittered radially by `rough`
+    (+-17% of the radius by default), and a ring only has a vertex at the
+    bottom when `sides` puts one there — at `sides=6` the lowest vertex sits at
+    `cos(30) * r`, i.e. 13.4% of the radius PROUD of where the axis height
+    implies. On a 0.48 m trunk section that is 8 cm of air, and under this
+    scene's 24-degree sun 8 cm of height is 18 cm of detached shadow, which is
+    what "the debris looks like it's floating" is.
+
+    A seating pass that reasons about `z - r` therefore cannot be right, and a
+    test that asserts on the SPEC cannot catch it. Both need the vertices, so
+    the vertices come out of the pxr-only path and into a function `people.py`
+    can call to seat a piece and `tests/test_blocker_debris.py` can call to
+    check one — on the host, with no Isaac Sim.
+    """
+    import random as _random
+
+    rng = rng or _random.Random(0)
+    ax, ay, az = p0
+    bx, by, bz = p1
+    dx, dy, dz = bx - ax, by - ay, bz - az
+    ln = math.sqrt(dx * dx + dy * dy + dz * dz) or 1.0
+    ux, uy, uz = dx / ln, dy / ln, dz / ln
+    tmp = (0.0, 0.0, 1.0) if abs(uz) < 0.9 else (1.0, 0.0, 0.0)
+    vx = uy * tmp[2] - uz * tmp[1]
+    vy = uz * tmp[0] - ux * tmp[2]
+    vz = ux * tmp[1] - uy * tmp[0]
+    vl = math.sqrt(vx * vx + vy * vy + vz * vz) or 1.0
+    vx, vy, vz = vx / vl, vy / vl, vz / vl
+    wx, wy, wz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+
+    pts = []
+    for k in range(sides):
+        a = 2.0 * math.pi * k / sides
+        ca, sa = math.cos(a), math.sin(a)
+        for (px, py, pz, r) in ((ax, ay, az, r0), (bx, by, bz, r1)):
+            rr = r * (1.0 + rng.uniform(-float(rough), float(rough)))
+            pts.append(((px + (vx * ca + wx * sa) * rr) * ssf,
+                        (py + (vy * ca + wy * sa) * rr) * ssf,
+                        (pz + (vz * ca + wz * sa) * rr) * ssf))
+    return pts
+
+
+def piece_seed(kind, i, j):
+    """The rng seed for one authored debris piece.
+
+    DETERMINISTIC, AND IT WAS NOT. `scene_api._tube` seeded `log_mesh` with
+    `random.Random(abs(hash(path)) % 99991)`, and Python randomises `hash()` of
+    a str per PROCESS unless PYTHONHASHSEED is pinned — so the jitter on every
+    log differed between two runs of the same seed, and a piece measured in the
+    planner was not the piece the author built. The planner and the author both
+    call this, so the mesh that is seated is the mesh that is authored.
+    """
+    return (1000003 * (int(i) + 1) + 31 * int(j)
+            + (7 if str(kind) == "log" else 13)) % 99991
+
+
 def log_mesh(stage, path, p0, p1, r0, r1, ssf, sides=9, rng=None,
              rough=0.17, cap=True):
     """A CAPPED, IRREGULAR tapered log from p0 to p1. Returns the prim.
@@ -3250,37 +3310,13 @@ def log_mesh(stage, path, p0, p1, r0, r1, ssf, sides=9, rng=None,
     shared vertices, which rounds the cap edge into the barrel and undoes the
     point of capping.
     """
-    import random as _random
-
     from pxr import Gf, Sdf, UsdGeom, Vt
 
-    rng = rng or _random.Random(0)
-    ax, ay, az = p0
-    bx, by, bz = p1
-    dx, dy, dz = bx - ax, by - ay, bz - az
-    ln = math.sqrt(dx * dx + dy * dy + dz * dz) or 1.0
-    ux, uy, uz = dx / ln, dy / ln, dz / ln
-    tmp = (0.0, 0.0, 1.0) if abs(uz) < 0.9 else (1.0, 0.0, 0.0)
-    vx = uy * tmp[2] - uz * tmp[1]
-    vy = uz * tmp[0] - ux * tmp[2]
-    vz = ux * tmp[1] - uy * tmp[0]
-    vl = math.sqrt(vx * vx + vy * vy + vz * vz) or 1.0
-    vx, vy, vz = vx / vl, vy / vl, vz / vl
-    wx, wy, wz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
-
-    pts = []
-    for k in range(sides):
-        a = 2.0 * math.pi * k / sides
-        ca, sa = math.cos(a), math.sin(a)
-        for (px, py, pz, r) in ((ax, ay, az, r0), (bx, by, bz, r1)):
-            rr = r * (1.0 + rng.uniform(-float(rough), float(rough)))
-            pts.append(((px + (vx * ca + wx * sa) * rr) * ssf,
-                        (py + (vy * ca + wy * sa) * rr) * ssf,
-                        (pz + (vz * ca + wz * sa) * rr) * ssf))
+    pts = log_points(p0, p1, r0, r1, ssf, sides=sides, rng=rng, rough=rough)
     c0 = len(pts)
-    pts.append((ax * ssf, ay * ssf, az * ssf))
+    pts.append((p0[0] * ssf, p0[1] * ssf, p0[2] * ssf))
     c1 = len(pts)
-    pts.append((bx * ssf, by * ssf, bz * ssf))
+    pts.append((p1[0] * ssf, p1[1] * ssf, p1[2] * ssf))
 
     counts, idx, nrm = [], [], []
 

@@ -481,6 +481,18 @@ overrides:
     # entirely to those three; pools and front yards are small by nature and
     # keep roughly what they had.
     total: 95
+    # NOBODY OUTSIDE THE BURN. The seconds of fire a person's own ground has
+    # seen (`age(x, y)`, negative where the front never reached) that a
+    # placement must have. 0.0 = on burnt ground; `null` turns the gate off.
+    # Requested in those words: *I don't want people who are not in the fire
+    # damaged area.* IT IS A FILTER — nothing retries and nothing moves, so the
+    # head count drops and `plan_people` prints an `unburnt:<scenario>` count
+    # for every refusal. On this scene it costs the refuge lots that are only
+    # the LEAST-unburnt of the three, the outbound half of each gridlock queue,
+    # and most of `at_home` (whose band deliberately straddles the front).
+    # Measured 2026-08-28, layout seeds 23 / 10: 95 -> 69 and 86 -> 80 people,
+    # 26 and 6 of them on `age < 0`, both now 0. See `people.DEFAULTS`.
+    min_burn_age_s: 0.0
     seed: 91
     # EVERY PERSON IS ALIVE, and that is a dataset decision rather than an
     # oversight. This set is about FINDING LIVE PEOPLE; a prone body is a

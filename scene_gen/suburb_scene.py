@@ -61,6 +61,21 @@ _Z_WALK = 0.17
 # unmarked, the same answer `damage.INCOMBUSTIBLE` gives the pool itself.
 _Z_POOL_APRON = _Z_DRIVE
 WALK_W_M = 1.2      # a US front walk; 1.1-1.4 m is the whole range
+# How far short of the house wall a GATE RETURN may stop and still be worth
+# having. Past this it has closed nothing and is a stub sticking out of the
+# side fence — see the returns pass. One module of the shortest fence asset in
+# the pool is 2.0 m, so 1.2 m keeps any return that got within half a panel.
+_RETURN_REACH_M = 1.2
+
+
+def _fmt_short(v):
+    """`; short p50/p90/max` for the gate-return shortfall, or ''."""
+    if not v:
+        return ""
+    q = sorted(v)
+    n = len(q)
+    return ("; short p50 %.2f p90 %.2f max %.2f m"
+            % (q[n // 2], q[min(n - 1, int(0.9 * n))], q[-1]))
 UV_DRIVE_M = 2.5    # Driveway_Brick_Old_01: a brick course, not a road
 UV_PATH_M = 2.0     # Concrete_02: slab joints at walk scale
 # Park surfaces sit just above the block grass they are laid on, with their
@@ -222,27 +237,64 @@ class _RoadIndex:
     width plus `_PAD`, touches — which means a query only ever has to look in
     the single cell containing the point: anything closer than `half_w + margin`
     for any margin up to `_PAD` necessarily registered itself there.
+
+    A CUL-DE-SAC TURNAROUND IS NOT A CENTRELINE, and the half-width model
+    cannot see it. `apply_ground` discs every lollipop end at `bulb_radius_m`
+    (14.64 m across against a ~5.5 m half carriageway), so a point out near the
+    edge of a bulb is comfortably further than `half_w + margin` from the stem's
+    last segment and `on_road` said no — which put streetlights, hydrants, bins
+    and pavement tiles ON the turnaround. `suburb_yards` and `build_placements`
+    already keep out of the bulbs with their own disc lists; this makes the one
+    positive road test know about them too, so every consumer gets it. Modelled
+    as a ZERO-LENGTH segment with `half_w = bulb radius`, which is exactly what
+    a disc is to `seg_seg_dist`.
     """
 
     _PAD = 6.0
 
-    def __init__(self, net, cell=40.0):
+    def __init__(self, net, cell=40.0, bulb_r=None):
         self.cell = float(cell)
         self.cells = {}
         self.segs = []
+
+        def _register(a, b, hw):
+            seg = (a, b, hw)
+            self.segs.append(seg)
+            grow = hw + self._PAD
+            cx0 = int(math.floor((min(a[0], b[0]) - grow) / self.cell))
+            cx1 = int(math.floor((max(a[0], b[0]) + grow) / self.cell))
+            cy0 = int(math.floor((min(a[1], b[1]) - grow) / self.cell))
+            cy1 = int(math.floor((max(a[1], b[1]) + grow) / self.cell))
+            for cx in range(cx0, cx1 + 1):
+                for cy in range(cy0, cy1 + 1):
+                    self.cells.setdefault((cx, cy), []).append(seg)
+
         for e in net.edges.values():
             if e.road_class == "boundary":
                 continue
             hw = e.half_w
-            grow = hw + self._PAD
             for i in range(len(e.pts) - 1):
-                a, b = e.pts[i], e.pts[i + 1]
-                seg = (a, b, hw)
-                self.segs.append(seg)
-                cx0 = int(math.floor((min(a[0], b[0]) - grow) / self.cell))
-                cx1 = int(math.floor((max(a[0], b[0]) + grow) / self.cell))
-                cy0 = int(math.floor((min(a[1], b[1]) - grow) / self.cell))
-                cy1 = int(math.floor((max(a[1], b[1]) + grow) / self.cell))
+                _register(e.pts[i], e.pts[i + 1], hw)
+
+        # THE BULBS. Registered AFTER the segments and NOT added to `self.segs`
+        # for `nearest` to find: `nearest` exists to snap a prop back toward the
+        # kerb along the half-width model, and its own docstring says a bulb's
+        # kerb is an arc that model does not describe. A disc here would have it
+        # snapping props onto turnarounds — the fault this is fixing.
+        self.bulbs = []
+        if bulb_r:
+            r = float(bulb_r)
+            for e in net.edges.values():
+                if getattr(e, "street_type", None) != "lollipop":
+                    continue
+                q = e.pts[-1]
+                self.bulbs.append((q, r))
+                grow = r + self._PAD
+                cx0 = int(math.floor((q[0] - grow) / self.cell))
+                cx1 = int(math.floor((q[0] + grow) / self.cell))
+                cy0 = int(math.floor((q[1] - grow) / self.cell))
+                cy1 = int(math.floor((q[1] + grow) / self.cell))
+                seg = (q, q, r)
                 for cx in range(cx0, cx1 + 1):
                     for cy in range(cy0, cy1 + 1):
                         self.cells.setdefault((cx, cy), []).append(seg)
@@ -290,6 +342,49 @@ class _RoadIndex:
     # (~15% beyond 4 m over seeds 1/2/3/42 at 400 m). 0.75 m is wider than any
     # rounding and far narrower than any real drift.
     _KERB_TOL_M = 0.75
+
+    def bulb_verge(self, p, standoff):
+        """Push a kerbside prop OFF a cul-de-sac turnaround. ``(point, n)`` or None.
+
+        A bulb's kerb is a CIRCLE, so the half-width model `verge` uses cannot
+        describe it and `verge` deliberately falls back at a segment endpoint.
+        The fallback offsets the prop from the block ring, and the ring at a
+        turnaround is the spliced arc `_arc_cap_bulbs` put there — which lands
+        the prop measured at **14.62 m from the bulb centre against a 14.64 m
+        paved radius** (`tests/test_streetlight_placement.py`, section 6). That
+        is exactly ON the kerb line: half a 0.4 m pole base over the tarmac,
+        with a 2.79 m mast arm cantilevered inward over the turnaround, and a
+        hydrant on the same line beside it. Reported on sight as street lights
+        and hydrants standing on top of the cul-de-sac, 2026-08-27.
+
+        The circle is as easy to offset from as a line — go RADIALLY OUT to
+        `r + standoff` — so this pushes rather than drops. A cul-de-sac head
+        with no lamp at all would be the other way to satisfy `on_road`, and it
+        is worse: a real turnaround is lit, and the arm reaching over the
+        paving is what the arm is for. The normal returned points AWAY from the
+        bulb centre, which is `build_frontage`'s "inward" convention, so the
+        lamp still faces the road it stands on.
+        """
+        best = None
+        for (c, r) in self.bulbs:
+            dx, dy = p[0] - c[0], p[1] - c[1]
+            d = math.hypot(dx, dy)
+            # ONLY WHAT NEEDS PUSHING. A prop already at or beyond the verge
+            # radius is on ordinary frontage that happens to pass near a
+            # turnaround; snapping it to the bulb's radial ring would teleport
+            # street furniture from a straight kerb onto a circle.
+            if d >= r + standoff:
+                continue
+            if best is None or d < best[0]:
+                best = (d, c, r, dx, dy)
+        if best is None:
+            return None
+        d, c, r, dx, dy = best
+        if d < 1e-6:                      # dead centre: no radial direction
+            return None
+        ux, uy = dx / d, dy / d
+        return ((c[0] + ux * (r + standoff), c[1] + uy * (r + standoff)),
+                (ux, uy))
 
     def verge(self, p, inward_n, standoff):
         """Where a kerbside prop goes: *standoff* metres in from the KERB.
@@ -1561,8 +1656,24 @@ def _park_placements(config, resolver, park, rng, pools):
     cache = {}
 
     def pool_for(key):
+        """The pool for *key*, PREFERRING its `park`-tagged entries.
+
+        THE STREET FURNITURE POOLS ARE SHARED AND THE PARK ONES ARE A SUBSET OF
+        THEM. `benches`, `trash_cans` and `bike_racks` live in `shared.yaml` /
+        `suburban_nucleus.yaml` because the kerb pass uses them too, and the
+        art is tagged accordingly — `SM_MLitterBin` carries `park` and is the
+        0.6 m civic bin, while `SM_Bin_003` is a blue two-wheel WHEELIE BIN,
+        the thing a house puts out on collection day. Drawing from the whole
+        pool put a domestic wheelie bin on the park trails (reported on sight,
+        2026-08-27), which is exactly what `suburban_nucleus.yaml`'s own comment
+        says the tag exists to prevent — nothing was reading it.
+
+        Falls back to the untagged pool, so a set that tags nothing is
+        unaffected and no kind can be silently emptied by a missing tag.
+        """
         if key not in cache:
-            cache[key] = pools.load(_raw_pool(config, key))
+            raw = _raw_pool(config, key)
+            cache[key] = pools.load_tagged(raw, "park") or pools.load(raw)
         return cache[key]
 
     # BENCH YAW. `shared.yaml` carries `yaw-offset: -90` on the bench art, and
@@ -1609,8 +1720,18 @@ def _park_placements(config, resolver, park, rng, pools):
             fix = _BENCH_QUARTER_TURN - pools.yaw_of(u)
         else:
             fix = _BENCH_FIX.get(spec[1], 0.0)
-        out.append(pools.place(resolver, u, spec[1], pr["c"][0], pr["c"][1],
-                               pr.get("yaw", 0.0) + fix, rng))
+        _pl = pools.place(resolver, u, spec[1], pr["c"][0], pr["c"][1],
+                          pr.get("yaw", 0.0) + fix, rng)
+        # THE PARK KIND, STAMPED ALONGSIDE THE CATEGORY. `category` is what
+        # every placement pass keys off (instancing, keep-outs, the burnable
+        # list) and must stay coarse: a hoop, a gazebo, a fountain and a tennis
+        # court are all `park_feature`. A disaster pass that has to treat ONE
+        # of those differently — the wildfire scorch does, for the court — has
+        # nothing else to tell them apart by, because the art is an objaverse
+        # hash with no name in it. Same fix `suburb_yardplan` made with
+        # `prop_kind` when the corridor pass could not find the mailboxes.
+        _pl["park_kind"] = pr["kind"]
+        out.append(_pl)
 
     # Fence panels: one asset per panel, yawed along its run.
     fence = pool_for("park_fence")
@@ -1629,9 +1750,11 @@ def _park_placements(config, resolver, park, rng, pools):
             continue
         for court in z.get("courts", []):
             u = tennis[rng.randrange(len(tennis))]
-            out.append(pools.place(resolver, u, "park_feature",
-                                   court["centre"][0], court["centre"][1],
-                                   court["yaw"], rng))
+            _ct = pools.place(resolver, u, "park_feature",
+                              court["centre"][0], court["centre"][1],
+                              court["yaw"], rng)
+            _ct["park_kind"] = "tennis_court"
+            out.append(_ct)
     if missing:
         print("[suburb_scene] park: no asset pool for %s — skipped"
               % ", ".join(sorted(missing)))
@@ -1689,7 +1812,15 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
         step = 4.0
 
     corners = _junction_zones(net, extra=_SIDEWALK_CORNER_M)
-    road = _RoadIndex(net)
+    # WITH THE BULBS. A cul-de-sac turnaround is a 14.64 m disc of carriageway
+    # that no centreline half-width describes, so without this every lollipop
+    # head came out with a streetlight, a hydrant or a bin standing in the
+    # middle of the asphalt — reported on sight, 2026-08-27. `_arc_cap_bulbs`
+    # splices the turnaround arc into the block boundary, which is exactly why
+    # the ring walk goes round it and offers points inside the paving.
+    road = _RoadIndex(net, bulb_r=float(
+        (config.get("suburb_net") or {}).get("bulb_radius_m",
+                                             sn.DEFAULTS["bulb_radius_m"])))
     n_corner = n_walk_road = n_prop_road = 0
 
     for blk in blocks:
@@ -1750,6 +1881,13 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
                     t = sn.tangent_at(ring, s)
                     n = sp._inward(poly, p, t)
                     q, n = road.verge(p, n, verge)
+                    # OFF THE TURNAROUND FIRST. `verge` cannot describe a bulb
+                    # kerb and leaves the prop on the arc the block ring was
+                    # spliced with, i.e. on the paving; this moves it radially
+                    # out to the verge instead of letting `on_road` delete it.
+                    _bq = road.bulb_verge(q, verge)
+                    if _bq is not None:
+                        q, n = _bq
                     # A lamp or hydrant standing in the carriageway is worse
                     # than a missing one, so the margin here is wider than for
                     # a flat paving slab: it must clear the kerb, not touch it.
@@ -2087,7 +2225,14 @@ def build_cars(config, resolver, net, parcels, rng, pools,
     junction_clear = float(ccfg.get("junction_clear_m", 8.0))
     kerb_gap = float(ccfg.get("kerb_gap_m", 0.35))
     rear_clear = float(ccfg.get("drive_rear_clear_m", 1.0))
-    nose_clear = float(ccfg.get("drive_nose_clear_m", 0.8))
+    # 0.8 m PUT THE BUMPER IN THE PORCH. A car whose nose stops 0.8 m short of
+    # the garage face reads as parked inside the house from the air, and with
+    # `back` capped at 1.0 m the whole population sat 0.8-1.8 m off the wall —
+    # reported on sight, 2026-08-28. A real drive parks a car with room to walk
+    # round the front of it. 2.0 m plus up to 1.5 m of set-back puts the nose
+    # 2.0-3.5 m out, which still leaves the tail clear of the footway on the
+    # 8-12 m drives this plat generates.
+    nose_clear = float(ccfg.get("drive_nose_clear_m", 2.0))
     apron_clear = float(ccfg.get("apron_clear_m", 1.5))
     hyd_clear = float(ccfg.get("hydrant_clear_m", 3.0))
 
@@ -2292,7 +2437,7 @@ def build_cars(config, resolver, net, parcels, rng, pools,
             # Nose up to the garage, then let it sit back by up to a metre —
             # a drive with every car pressed against the door reads as parked
             # by a machine.
-            back = rng.uniform(0.0, min(1.0, slack))
+            back = rng.uniform(0.0, min(1.5, slack))
             s_c = L - nose_clear - back - ln * 0.5
             cx, cy = a[0] + ux * s_c, a[1] + uy * s_c
             hl, hw = ln * 0.5, wd * 0.5
@@ -2311,6 +2456,37 @@ def build_cars(config, resolver, net, parcels, rng, pools,
             if tag is not None:
                 _reject("drive", tag)
                 continue
+            # DO NOT PARK ON THE FRONT WALK. `modular_house.plan_lot` strikes
+            # the drive from the kerb to the GARAGE and the walk from the kerb
+            # to the DOOR, and on a style whose door sits beside its garage the
+            # two runs are within a metre of each other — so they are drawn as
+            # one strip of paving and a car on the drive stands across the path
+            # to the front door. Reported on sight, 2026-08-28: "the driveway
+            # and walkway is the same, which is fine, but then don't park a car
+            # there."
+            #
+            # Tested against the car that was actually drawn rather than
+            # against the lot's geometry, because whether the two overlap
+            # depends on the car's width: a coupe on a wide drive clears the
+            # walk that a pickup would stand on. Lots where they are properly
+            # apart are unaffected, which is most of them.
+            _walk = (plan or {}).get("path")
+            if _walk and len(_walk) >= 2:
+                _pad = WALK_W_M * 0.5
+                _wa, _wb = _walk[0], _walk[1]
+                _blocked = False
+                for _k in range(25):
+                    _t = _k / 24.0
+                    _px = _wa[0] + (_wb[0] - _wa[0]) * _t
+                    _py = _wa[1] + (_wb[1] - _wa[1]) * _t
+                    _rx, _ry = _px - cx, _py - cy
+                    if (abs(_rx * ux + _ry * uy) <= hl + _pad
+                            and abs(-_rx * uy + _ry * ux) <= hw + _pad):
+                        _blocked = True
+                        break
+                if _blocked:
+                    _reject("drive", "front_walk")
+                    continue
             yaw = math.degrees(math.atan2(uy, ux)) + rng.uniform(-1.5, 1.5)
             q = pools.place(resolver, usd, "car", cx, cy, yaw, rng)
             q["role"] = "driveway"
@@ -3152,6 +3328,193 @@ def _yard_enclosed(h, fences=(), trees=()):
     return (closed, worst)
 
 
+# WHEN A LOT'S RUN ON A SHARED BOUNDARY IS NOT WORTH STANDING UP.
+#
+# A boundary belongs to TWO lots and is drawn once, by whichever of them the
+# plat issued first — so a lot that finds its own side line already fenced lays
+# only whatever is left of it, and what is left can be 1.7 m. That short piece
+# is what a viewer reads as "this fence for the house doesn't go all the way
+# around, it's on 2 sides and stops": two full sides, and then an orphan panel
+# floating in a line somebody else already drew. Reported on sight against
+# `/World/stage/generated/fence_2_1175`, 2026-08-28.
+#
+# TWO NUMBERS, ASKING TWO DIFFERENT QUESTIONS. `_ORPHAN_OWN_MAX` is "am I a
+# PARTIAL on this boundary" — a lot carrying half an edge or more IS the fence
+# on it and is never taken away, whatever a neighbour duplicates.
+# `_ORPHAN_ALT_COVER` is "does the boundary care" — what the edge scores with
+# this lot's runs on it lifted off the ground. It sits well above
+# `_YARD_FENCE_COVER` (0.85) deliberately: the sweep below has already ruled
+# that every yard still standing closes, and spending the 0.85-1.00 margin to
+# tidy a stub would trade a defect you can see for one you cannot see until a
+# later change moves a fence by a metre.
+#
+# MEASURED ON SEED 23: of the 279 (lot, rear-yard-edge) pairs where a lot lays
+# a run ALONG the edge, exactly six are partials under 0.5 — and all six score
+# >= 0.95 without themselves, so on that seed `_ORPHAN_ALT_COVER` rejects none
+# of them and the `own` test is what selects. IT IS NOT DECORATION, THOUGH: on
+# seed 10 there are THIRTEEN such partials and the bar refuses one of them, in
+# the 0.90-0.95 band — a lot genuinely completing a boundary the neighbour
+# leaves short, which is the case this pass must never take. Twelve go.
+#
+# In other words the plat almost never lays a genuine partial along a shared
+# boundary; the ones it does lay are the front-corner FILLS (see
+# `_gate_returns`), redundant for the ordering reason the strip's docstring
+# gives. Per seed, runs withdrawn: 6 (23), 12 (10), 15 (1), 15 (3), 10 (5),
+# 13 (7).
+_ORPHAN_OWN_MAX = 0.5
+_ORPHAN_ALT_COVER = 0.95
+
+# PARALLEL, NOT MERELY NEAR — and this is the whole safety of the attribution.
+# A gate return crosses its side edge at the corner and therefore covers about
+# a tenth of it; the rear run does the same at the other end. Attribute by
+# proximity alone and both count as "this lot's fence on that edge", so the
+# pass is then offered a 10 m return or a 40 m rear run for deletion on the
+# grounds that a SIDE edge stays covered without it — which is true and
+# irrelevant, because that run is not what closes the side. Measured on seed
+# 23: 42 (lot, edge) pairs covering 79 runs qualify with proximity alone
+# against 6 runs with the parallel test, and every one of the 73 extra is a
+# perpendicular return or a rear run clipping a corner. cos 0.94 is ~20 deg,
+# which a lot line on a curving block face needs and a right-angle return can
+# never reach.
+_ORPHAN_COS = 0.94
+
+
+def _run_on_edge(span, e0, e1):
+    """Is this drawn span laid ALONG the boundary ``e0 -> e1``?
+
+    BOTH ENDS AND THE MIDDLE within `_YARD_FENCE_REACH_M`, which is the same
+    1.2 m `_edge_cover` counts an edge as covered at and the same tolerance
+    `suburb_parcel._line_dupe` calls two lines one boundary — so a run this
+    test accepts is a run the cover test is already crediting to this edge.
+    Testing the midpoint as well as the ends is what stops a long run that
+    merely touches both corners of a short edge from being adopted by it.
+    """
+    a, b = span[0], span[1]
+    ex, ey = e1[0] - e0[0], e1[1] - e0[1]
+    e2 = ex * ex + ey * ey
+    sx, sy = b[0] - a[0], b[1] - a[1]
+    s2 = sx * sx + sy * sy
+    if e2 < 1e-12 or s2 < 1e-12:
+        return False
+    if abs(ex * sx + ey * sy) < _ORPHAN_COS * math.sqrt(e2 * s2):
+        return False
+    rr = _YARD_FENCE_REACH_M ** 2
+    for q in (a, b, (0.5 * (a[0] + b[0]), 0.5 * (a[1] + b[1]))):
+        t = ((q[0] - e0[0]) * ex + (q[1] - e0[1]) * ey) / e2
+        t = 0.0 if t < 0.0 else (1.0 if t > 1.0 else t)
+        if ((q[0] - e0[0] - ex * t) ** 2
+                + (q[1] - e0[1] - ey * t) ** 2) > rr:
+            return False
+    return True
+
+
+def _strip_redundant_runs(all_houses, lot_mods):
+    """Take back every run a lot laid on a boundary the ground carries anyway.
+
+    Returns ``(gone, n_run, n_edge)`` — the ids of the withdrawn placements,
+    how many runs they were, and on how many (lot, boundary) pairs.
+
+    THE THIRD TIME THIS PASS SHAPE APPEARS IN THIS FUNCTION, and for the third
+    time the reason is that a shared boundary cannot be judged while it is
+    still being built. The gate returns moved out of the house loop because
+    `first_on` answers "nothing is standing there" for about half the lots when
+    it is asked mid-plat; the enclosure sweep is a second pass because a lot's
+    side line is often the neighbour's fence and the neighbour may not have
+    been reached yet. THE FILL RUNS ARE THE SAME TRAP ONE LEVEL DOWN: the
+    returns pass walks the suburb laying, for each lot, the strip in front of
+    where the boundary fence begins — and a lot early in that walk fills a
+    strip that a lot LATER in the same walk then covers with its own return,
+    one lot line away. `first_on` was told the truth at the time it asked. It
+    stopped being the truth eleven lots later. So the fill stands, 1.7 m of it,
+    inside a line that is now complete without it. All six of the runs this
+    pass withdraws on seed 23 are fills, and that is why.
+
+    ONE PASS IS A FIXED POINT, AND THE ARGUMENT IS THE MIRROR OF THE SWEEP'S.
+    The enclosure sweep has to ITERATE because deleting a lot's fence can
+    un-close a neighbour, so a deletion CREATES work — the failing set grows.
+    Here a deletion can only lower `alt` for every run still to be considered,
+    never raise it, so the candidate set only ever SHRINKS: a run that does not
+    qualify at the top of the pass can never qualify by the bottom of it. What
+    a deletion can do is disqualify a run that WOULD have qualified — two lots
+    stubbing the same boundary, each redundant only while the other stands —
+    which is why every candidate is re-tested against the ground AS IT IS at
+    the moment it is reached rather than against a snapshot taken up front.
+    Ring order therefore decides which of such a pair survives, deterministically
+    for a given seed; both surviving would leave the defect, and neither is the
+    hole this whole file exists to prevent.
+
+    AND NOTHING IS REMOVED UNTIL THE WHOLE SUBURB HAS BEEN RE-ASKED. `closed`
+    is every lot whose back yard the ground closes when this pass starts —
+    including lots that own no fence at all and are closed entirely by their
+    neighbours, which is the population `yards_fenced` counts and `lots_fenced`
+    does not. A candidate is committed only if every one of them is STILL
+    closed with the run gone. Shortlisting that check by bounding box would be
+    a second, private definition of "affected"; the pass fires a handful of
+    times per suburb, so it can afford to ask the real question.
+
+    AND IT DOES NOT SHOW UP IN THE DANGLING-END COUNT, WHICH IS THE REASON IT
+    HAD TO BE FOUND BY COVER. `tools/fence_png.dangling` is the usual detector
+    for "a fence stopping in mid-air", and measured across this change it does
+    not move at all — 48 open ends on seed 23 and 33 on seed 10, before and
+    after. A fill is struck from the rear-yard edge's front end, which IS the
+    building line and is one of the termini `dangling` excuses by construction,
+    and it runs to exactly the station `first_on` reported, so its far end
+    abuts the boundary run it was struck to meet. Both ends legitimate, and a
+    redundant fence in between. An orphan is not always a loose end.
+
+    A LOT'S LAST RUN IS NEVER TAKEN. Emptying `fence_drawn` here would put the
+    lot through the wrong door downstream: the block below reads an empty list
+    as "the enclosure sweep stripped this lot" and withdraws its pool with it,
+    which is exactly the wrong conclusion about a lot whose yard is closed and
+    whose only crime was a redundant stub. `lots_fenced` would drop with it,
+    and that number is the one that says the plat still has fences.
+    """
+    gone = set()
+    n_run = n_edge = 0
+
+    def _ground():
+        return [(a, b) for h in all_houses for (a, b, _t) in h["fence_drawn"]]
+
+    closed = [h for h in all_houses
+              if _rear_yard_edges(h) and _yard_enclosed(h, fences=_ground())[0]]
+    for h in all_houses:
+        edges = _rear_yard_edges(h)
+        if not edges or not h["fence_drawn"]:
+            continue
+        for (e0, e1) in edges:
+            drawn, mods = h["fence_drawn"], lot_mods.get(id(h)) or []
+            # THE ALIGNMENT, STATED RATHER THAN ASSUMED. `_lay` writes one
+            # group here per span it writes to `fence_drawn`, so these two are
+            # the same length; if a future caller ever appends to one without
+            # the other, this leaves the lot alone instead of taking the wrong
+            # modules off the ground by index.
+            if len(mods) != len(drawn):
+                continue
+            hit = [i for i, s in enumerate(drawn) if _run_on_edge(s, e0, e1)]
+            # `len(hit) == len(drawn)` is the last-run guard, stated over the
+            # WHOLE lot rather than over this edge: a lot whose every run is on
+            # one boundary has nothing else holding its yard.
+            if not hit or len(hit) == len(drawn):
+                continue
+            if _edge_cover(e0, e1, fences=[(drawn[i][0], drawn[i][1])
+                                           for i in hit]) >= _ORPHAN_OWN_MAX:
+                continue
+            h["fence_drawn"] = [s for i, s in enumerate(drawn) if i not in hit]
+            lot_mods[id(h)] = [m for i, m in enumerate(mods) if i not in hit]
+            rest = _ground()
+            if (_edge_cover(e0, e1, fences=rest) < _ORPHAN_ALT_COVER
+                    or not all(_yard_enclosed(h2, fences=rest)[0]
+                               for h2 in closed)):
+                h["fence_drawn"], lot_mods[id(h)] = drawn, mods
+                continue
+            n_edge += 1
+            for i in hit:
+                n_run += 1
+                for _pl in mods[i]:
+                    gone.add(id(_pl))
+    return gone, n_run, n_edge
+
+
 # WHICH FENCE A HOUSE GETS, weighted toward a full-height panel. A fenced US
 # back yard is a 6 ft wood or chain-link fence; a 3 ft picket or rail right
 # round a lot is real but is the minority case, and 3:1 is what keeps it one.
@@ -3239,7 +3602,7 @@ def _trim_offroad(p0, p1, road, margin, step=0.75):
             (p0[0] + ux * t1, p0[1] + uy * t1))
 
 
-def _fence_run(p0, p1, mod_len, min_fit=0.45, max_fit=1.15):
+def _fence_run(p0, p1, mod_len, min_fit=0.45, max_fit=1.0):
     """Module centres, yaw and fit-scale for a fence along p0->p1.
 
     THE RUN IS COVERED END TO END. Laying whole modules and dropping the
@@ -3253,6 +3616,22 @@ def _fence_run(p0, p1, mod_len, min_fit=0.45, max_fit=1.15):
     The scale is UNIFORM (a placement carries one scale), so a squeezed panel is
     also shorter. Hence the [min_fit, max_fit] band: missing 1.5 m of fence
     reads better than a 2.7 m one towering over a bungalow.
+
+    **NOTHING IS EVER STRETCHED — `max_fit` IS 1.0.** A fence panel is a
+    manufactured object and every copy of it is the same length; a run that
+    reaches its corner by making its panels LONGER is the thing that reads as
+    "this fence is extending for no reason" (reported on sight against
+    `fence_1_283`, 2026-08-28). Measured on seed 23 before the change: of 1,713
+    modules, **803 (47%) were stretched**, by a median 2.3% and up to 14.7% —
+    only 45 were at their authored length. A 5.28 m park railing at 1.147 is
+    6.06 m, three quarters of a metre of panel poking past where the boundary
+    ends.
+
+    Squeezing stays, and the asymmetry is the point: a squeezed panel is
+    SHORTER than its boundary and therefore cannot overhang anything, while a
+    stretched one always can. The residual now lands as a slightly narrow panel
+    instead of a slightly long one, which is what a real fence does when the
+    last bay is cut to fit.
     """
     dx, dy = p1[0] - p0[0], p1[1] - p0[1]
     length = math.hypot(dx, dy)
@@ -3267,7 +3646,10 @@ def _fence_run(p0, p1, mod_len, min_fit=0.45, max_fit=1.15):
     # stood bare. Measured over 1..60 m at four module sizes, that left
     # stretches of up to 7 m unfenced, which is the "incomplete fence" in a
     # render. A squeezed panel is merely short; a stretched one towers over a
-    # bungalow, which is why the cap stays at 1.15 while the floor drops.
+    # bungalow, which is why the cap stayed high while the floor dropped — and
+    # why the cap is now 1.0: see the docstring. With no stretch available the
+    # search is effectively "the fewest panels that still fit", and `n_lo` only
+    # ever wins when it happens to land exactly.
     # n_hi + 1 is included so a run one squeeze short of fitting has somewhere
     # to go rather than falling off the band.
     best = None
@@ -3902,14 +4284,25 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
     fence_taken = _FenceGrid()
     fence_road = _RoadIndex(net) if net is not None else None
     n_fence_road = n_fence_clash = n_fence_front = 0
-    n_fence_adopt = n_fence_return = n_fence_fill = 0
+    n_fence_adopt = n_fence_return = n_fence_fill = n_fence_stub = 0
+    _short = []   # per-return shortfall to the house wall, metres
     # EVERY MODULE THIS LOT PUT ON THE GROUND, keyed by `id(house record)`.
     # The all-or-nothing sweep after the loop has to be able to take a lot's
     # fence back OUT of `out`, and a placement carries no owner — so the
     # ownership is recorded as it is built rather than reconstructed by
     # matching coordinates afterwards, which is guesswork against a scene where
     # two neighbours' modules abut to the centimetre.
+    #
+    # GROUPED BY RUN, INDEX-ALIGNED WITH `h["fence_drawn"]`, because the sweep
+    # is no longer the only thing that deletes. `_strip_redundant_runs` takes
+    # back ONE run off a lot that keeps the rest, and a flat list of modules
+    # cannot say which of them that run was — the modules of two runs on one
+    # lot are the same shape of object in the same list. `_lay` writes exactly
+    # one entry here per span it writes to `fence_drawn`, so the two lists
+    # index each other and neither can drift from the other.
     lot_mods = {}
+    # id(house) -> (its pool placements, its ground hole). See the pool block.
+    lot_pool = {}
 
     def _lay(h, a, b, tag, trim_bl, walls=None):
         """Put one of *h*'s boundaries on the ground; return `why` it did not.
@@ -3942,12 +4335,20 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
         # authority for fences, so cancel the declaration out.
         my = fix - pools.yaw_of(uf)
         n_fence += len(run)
+        mine = []                 # this run's modules, its own group in `lot_mods`
         for (fx, fy, fyaw, fit) in run:
             fence_taken.add(fx, fy, fyaw, ml * fit, uf)
             pl = pools.place(resolver, uf, "fence", fx, fy, fyaw + my, rng,
                              scale_mul=fit)
+            # WHICH RUN LAID IT. A dangling fence end is the thing that reads
+            # as "a random extension", and without this there is no way to say
+            # which of the four passes (front / side+rear / return / fill) put
+            # it there — the placements are interchangeable once they are in
+            # `out`. Costs one key and makes the defect attributable.
+            pl["fence_tag"] = tag
             out.append(pl)
-            lot_mods.setdefault(id(h), []).append(pl)
+            mine.append(pl)
+        lot_mods.setdefault(id(h), []).append(mine)
         h["fence_drawn"].append(_run_span(run, ml, tag))
         return why
 
@@ -4061,6 +4462,21 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                     pool_holes.append(hole)
                     if pool_info_out is not None:
                         _record_pool(pool_info_out, hole, n_mod - 1)
+                    # RECORDED SO IT CAN BE TAKEN BACK. A pool is only ever
+                    # issued to the `large` package, which also carries a
+                    # fence — so the plat never plats one without the other.
+                    # But the all-or-nothing sweep at the end of this function
+                    # STRIPS the fence off any lot that cannot close its back
+                    # yard, and it knows nothing about pools, so a `large` lot
+                    # that fails to close ends up with an unfenced pool in an
+                    # open garden. Reported on sight, 2026-08-28: "I see some
+                    # houses with pools but no fences. I thought we made it so
+                    # houses without fences can't get pools."
+                    #
+                    # By IDENTITY, like `lot_mods`, and for the same reason:
+                    # `out` has had modules appended between one lot and the
+                    # next, so a lot's placements are not a contiguous slice.
+                    lot_pool[id(h)] = (list(pool), hole)
             elif ent is None or "style" in ent:
                 # No measurement, so no wing: without the two centroids there is
                 # no way to place it beside its parent rather than inside it.
@@ -4271,6 +4687,50 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                              for q in _drawn[-1][:2]) - _stop
             _lat = (_e0[0] - _p[0]) * _u[0] + (_e0[1] - _p[1]) * _u[1]
             for (_a, _b) in _gate_returns(h, _stop + _t, _lat):
+                # A RETURN THAT DOES NOT REACH THE HOUSE IS A STUB, AND A STUB
+                # IS WHAT READS AS A RANDOM EXTENSION.
+                #
+                # `_gate_returns` exists to close the U at a side yard by
+                # running from the side lot line INTO the wall, and its own
+                # docstring records that the road trim, a wall or a clash can
+                # shorten one — "a return the road trim, a wall or a clash
+                # shortens no longer touches the fence it was struck from". A
+                # shortened return closes nothing (the hole it existed to fill
+                # is still there) and leaves a panel or two sticking out of the
+                # side fence into the middle of the yard, attached at one end
+                # and dangling at the other. Reported on sight, 2026-08-28:
+                # "some fences had random extensions even though the rest
+                # looked good."
+                #
+                # DRY-RUN FIRST. `_lay_fence_run` is non-mutating — `_lay` is
+                # what writes to `out`, `fence_taken`, `lot_mods` and
+                # `fence_drawn` — so the run can be costed before anything is
+                # committed, which avoids a rollback across four structures
+                # that have no remove.
+                #
+                # THE TEST IS THE FAR END, NOT THE COVERAGE. A whole return is
+                # allowed to have a hole in the middle: it crosses the drive by
+                # construction and gives way to the same `front_gaps` the front
+                # run breaks at. What it may not do is stop short of the wall.
+                _uf = h.get("_fence_pick")
+                if _uf not in fence_mod:
+                    continue
+                _ml = fence_mod[_uf][0]
+                _cand, _cwhy = _lay_fence_run(_a, _b, h, _ml, fence_road,
+                                              fence_taken, False, _walls)
+                if not _cand:
+                    n_fence_road += int(_cwhy == "road")
+                    n_fence_clash += int(_cwhy == "clash")
+                    continue
+                _rl = math.hypot(_b[0] - _a[0], _b[1] - _a[1]) or 1.0
+                _rux, _ruy = (_b[0] - _a[0]) / _rl, (_b[1] - _a[1]) / _rl
+                _reach = max(((_fx - _a[0]) * _rux + (_fy - _a[1]) * _ruy)
+                             + _ml * _fit * 0.5
+                             for (_fx, _fy, _fyw, _fit) in _cand)
+                _short.append(_rl - _reach)
+                if (_rl - _reach) > _RETURN_REACH_M:
+                    n_fence_stub += 1
+                    continue
                 _n0 = len(_drawn)
                 _why = _lay(h, _a, _b, "return", False, _walls)
                 n_fence_road += int(_why == "road")
@@ -4338,19 +4798,66 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
             h["fence_drawn"] = []
         n_drop += len(_doomed)
         rounds.append(len(_doomed))
-    _gone = set()
+    # AND THEN THE STUBS, ON THE LOTS THAT SURVIVED. It runs AFTER the sweep,
+    # never before it: the sweep's argument is that a fence which does not
+    # enclose is worse than none, so it must get to see every module the plat
+    # laid before it decides. Taking runs away first could only strip more lots
+    # — which is the one thing this pass is forbidden to do. Running it after a
+    # converged sweep cannot reopen the sweep either, because every removal is
+    # gated on no closed yard opening, so the sweep's fixed point is still a
+    # fixed point when this returns.
+    _gone, n_fence_orphan, n_orphan_edge = _strip_redundant_runs(_all_houses,
+                                                                 lot_mods)
     for h in _all_houses:
         if not h["fence_drawn"]:
-            for _pl in lot_mods.pop(id(h), ()):
-                _gone.add(id(_pl))
-    if _gone:
+            for _run in lot_mods.pop(id(h), ()):
+                for _pl in _run:
+                    _gone.add(id(_pl))
+    # AND THE POOL GOES WITH THE FENCE. A pool in an unfenced garden is the one
+    # thing this plat must never show — it is a package that comes with a fence
+    # by construction, so an unfenced one can only be the strip sweep having
+    # taken the fence away afterwards. Withdraw the water rather than keeping a
+    # fence that could not close: the sweep's whole argument is that a fence
+    # which does not enclose is worse than none, and that argument does not
+    # change because there is a pool behind it.
+    n_pool_drop = 0
+    _gone_pool = set()          # kept apart from `_gone` so `n_fence` stays true
+    for h in _all_houses:
+        if h["fence_drawn"]:
+            continue
+        _pp = lot_pool.pop(id(h), None)
+        if not _pp:
+            continue
+        _pls, _hole = _pp
+        for _pl in _pls:
+            _gone_pool.add(id(_pl))
+        if _hole in pool_holes:
+            pool_holes.remove(_hole)
+        if pool_info_out is not None:
+            # `house_index` is an absolute house ordinal, not a position in
+            # this list, so dropping a record does not renumber the others.
+            pool_info_out[:] = [_r for _r in pool_info_out
+                                if _r.get("water_ring") != [
+                                    (float(q[0]), float(q[1]))
+                                    for q in _hole[:4]]]
+        h["has_pool"] = False
+        n_pool_drop += 1
+    if _gone or _gone_pool:
         # BY IDENTITY, NOT BY INDEX. `out` has had houses, garage wings and kit
         # modules appended between one lot's fence and the next, so a lot's
         # placements are not a contiguous slice of it; and two neighbours'
         # modules abut to the centimetre, so matching on coordinates would take
-        # the wrong one. `lot_mods` recorded the objects themselves.
-        out[:] = [_pl for _pl in out if id(_pl) not in _gone]
+        # the wrong one. `lot_mods` and `lot_pool` recorded the objects
+        # themselves. The two sets are kept APART so `n_fence` counts fence and
+        # nothing else — a tally that quietly absorbs a second population is
+        # how a number stops meaning what its name says.
+        _drop = _gone | _gone_pool
+        out[:] = [_pl for _pl in out if id(_pl) not in _drop]
         n_fence -= len(_gone)
+    if n_pool_drop:
+        print(f"[suburb_scene] pools: {n_pool_drop} withdrawn from lots whose "
+              f"fence the enclosure sweep stripped (a pool is only platted "
+              f"with a fence, so an unfenced one is the sweep's doing)")
     # WHAT THE FENCE ENCLOSES, written back onto every house record.
     n_yard = n_yard_closed = 0
     _drawn_all = [(a, b) for h in _all_houses for (a, b, _t) in h["fence_drawn"]]
@@ -4435,8 +4942,12 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
           f"({n_fence_road} runs dropped off the carriageway, "
           f"{n_fence_clash} shortened off a standing fence, "
           f"{n_fence_front} left in an open front yard, "
-          f"{n_fence_return} gate returns over {n_fence_fill} filled "
+          f"{n_fence_return} gate returns ({n_fence_stub} dropped as stubs"
+          f"{_fmt_short(_short)}) "
+          f"over {n_fence_fill} filled "
           f"front corners, "
+          f"{n_fence_orphan} orphan runs on {n_orphan_edge} boundaries "
+          f"withdrawn as redundant, "
           f"{n_fence_adopt} lots adopting a neighbour's asset)")
     if fence_pool and fence_road is None:
         print("[suburb_scene] WARNING: no street net handed to build_placements"

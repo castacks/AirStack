@@ -1,6 +1,6 @@
 ---
 name: build-earthquake-scenes
-description: Build or modify EARTHQUAKE-damaged URBAN scenes in scene_gen — the kit-building fit-out (floors, columns, furniture), the per-construction-type damage ladder (URM wall peel / parapet / corner / masonry collapse; RC infill / soft storey / pancake; glass fallout; lean-and-sink), the archetype bake and the downtown assembly. Read before touching disaster/quake_flow.py, disaster/quake.py, the eq_building_bench, bake_quake_archetypes or downtown_quake launchers, or the urban_quake asset set / downtown_earthquake preset. The wildfire and tornado skills are prerequisites; this one is about what a quake does that neither does, and why the urban buildings needed an interior first.
+description: Build or modify EARTHQUAKE-damaged URBAN scenes in scene_gen — the state of the pipeline after three review rounds (2026-08-28), what it costs, and what gates it (building diversity). The kit-building fit-out, the per-construction-type damage ladder (URM wall peel / corner / parapet / masonry collapse on a brick lattice; RC infill / soft storey / pancake as prisms and rafts; curtain-wall bands with the mullion cage kept; lean-and-sink with a ground response; building-to-building pairs), solid walls before fracture, the merged archetype bake, the multi-city assembly by magnitude, the headless runner, every knob, and the bug catalogue. Read before touching disaster/quake_flow.py, disaster/quake.py, disaster/fracture.py, disaster/bake.py, the eq_building_bench / bake_quake_archetypes / downtown_quake launchers, the urban_quake asset sets or the downtown_earthquake preset. The wildfire and tornado skills are prerequisites.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -8,6 +8,68 @@ metadata:
 ---
 
 # Skill: Build Earthquake Scenes (urban building damage)
+
+## Status on 2026-08-28 — read this first
+
+**What exists and works.** A complete, measured pipeline: 16 kit building
+styles (5 façade families + storefront / civic / church) × 9 damage levels
+(EMS-98 DG0-DG5 + SETTLE / TILT / OV) baked as 144 merged archetypes
+(`scene_gen/assets/archetypes_quake/`, 631 MB, 81 min two-at-a-time), and a
+city launcher that lays out any number of plates, draws every building's
+grade from a magnitude-derived shaking field, swaps in the archetypes,
+leans / sinks buildings on a soft-soil patch, runs a few building pairs LIVE
+(lean-on, collapse-onto), and authors the ground (heave, gaps, fissures,
+boils, dust). The last accepted scene is two 200 m cities with a 100 m gap,
+M9.5 west / M5.5 east: 35 buildings DG5=14 DG4=3 DG3=5 LEAN=3 TILT=2 versus 21
+buildings DG0=9 DG1=4 DG2=6 DG3=2; **env→ready 74 s** (48.7 s of it the three
+live pairs), 95,293 stage prims, first frame 2.0 s, 75 fps at 1280x720.
+Captures: `/home/krrishjain/docker/isaac-sim/logs/final_r3/` (`plat_top.png`,
+`c0_*` / `c1_*` corner views, `b0..b9_*` the ten worst buildings). Every
+capture directory named in this file lives under
+`/home/krrishjain/docker/isaac-sim/logs/`.
+
+**Three review rounds, each driven by the user's verdicts** (the tables are
+in "History" below): round 1 built the vocabulary; round 2 fixed floating
+roof plant, missing soil at tilts, machined edges, white debris, rectangular
+roof pieces, and added building interaction; round 3 answered "very
+triangular" (failed caps of open meshes + Voronoi seeds in a thin skin →
+`fracture.solidify` + brick-lattice / prism seeding), "random glass panes"
+(curtain-wall bands with the cage kept, 65 measured punched windows), and
+"scenes can't take hours to load" (bake-time merge: 142 → 74 s, 297k → 95k
+prims).
+
+**What gates it now: BUILDING DIVERSITY.** The user's verdict on the last
+scene: "the buildings look good but the diversity in number of buildings just
+isn't there — if we don't have diversity in terms of more buildings it's
+pointless." 16 styles from 5 façade textures repeat 2-3× per block. The two
+levers, in order of payoff:
+
+1. **Damage the monoliths.** Last night's drop (`asset_sets/urban_v2.yaml`,
+   118 buildings, 173 assets) is the diversity — 85 `selected_citydemo`
+   towers/midrises with their own façade textures — but the earthquake path
+   only ever used 5 of them (the untextured `standalone/intact` set, as rigid
+   lean/sink). Round 3 built what a monolith needs: `solidify` gives a shell
+   wall real thickness, `brick`/`prism` seeding cuts it on a material grid; a
+   fitted interior from the bbox (slabs / columns behind the skin) would let
+   the same recipes (corner, out-of-plane, soft storey, collapse heap) run on
+   a monolith. Cost estimate from round-3 timings: ~5-8 min per model × 9
+   levels two-at-a-time ≈ 5-6 h of bake, 2-3 GB of merged archetypes; verify
+   textures per model with a pxr probe first (the census cannot tell textured
+   from untextured).
+2. **More kit styles.** `detail/urban_building.py`'s grammar can emit 40-60
+   silhouettes (storey counts × band mixes × wings × façade seeds) — more
+   counts, still 5 façade textures.
+
+**Minor details still wrong in the current cities** (the user: "a later
+issue"): a mullion frame hovering off the tower glass at the epicentre camera
+(`final_r3/c0_ne_obl.png`), punched-window interiors reading cartoonish from
+40 m, timber deck plates on DG5 crowns, the family-02 curved corner bay never
+loses glass, `apartment_tall_DG5` is 34 MB. Full list in "Known gaps".
+
+**Do not** start Isaac or containers for this work without the user's go
+(their instruction on 2026-08-28); design and code can proceed offline
+(`ast.parse`, the host-side tests, `scene_gen/tools/_t_pxr.sh` for pxr-only
+probes needs the container).
 
 ## Read `build-wildfire-scenes` and `build-tornado-scenes` first
 
@@ -23,33 +85,47 @@ The plan and the research it rests on: `scene_gen/_plans/earthquake_plan.md`
 / Amatrice / Niigata reconnaissance; the two source reports are summarised
 there).
 
-## The pipeline
+## The pipeline and its files
 
-    downtown layout -> [bake once per (style x grade)] -> assemble (swap by field) -> tilt
+    downtown layout -> [bake once per (style x level), merged] -> assemble (swap by field) -> foundation pass -> live pairs -> ground -> captures
 
 | piece | file |
 |---|---|
-| per-building damage (the recipes, the fit-out, the materials) | `scene_gen/disaster/quake_flow.py` |
-| scene assembly: field -> grade -> archetype swap, lean-and-sink | `scene_gen/disaster/quake.py` |
-| single-building bench (one style per row, one recipe per column) | `simulation/isaac-sim/launch_scripts/eq_building_bench_launch_script.py` |
-| archetype bake, settled one style-row at a time | `bake_quake_archetypes_launch_script.py` |
-| the 250 m scene, no drone | `downtown_quake_launch_script.py` |
-| building pools = pristine bakes | `scene_gen/config/asset_sets/urban_quake.yaml` |
-| the preset (downtown.yaml shrunk to 250 m, earthquake on) | `scene_gen/config/presets/downtown_earthquake.yaml` |
+| per-building damage: fit-out, materials, every recipe, the ladders, the grade draw | `scene_gen/disaster/quake_flow.py` (~7k lines; owner prefixes `_a_ _b_ _c_ _d_` round 2, `_t_ _p_ _g_ _g2_` round 3) |
+| scene assembly: field → grade → archetype swap, soft-soil foundation pass, mild lean + ground, monolith pass, live pairs, ground effects | `scene_gen/disaster/quake.py` |
+| fracture: `solidify`, seeding modes (`uniform`, `char`, `plank`, `brick`, `prism`), `fracture_split` two-scale, `slice_plane` cap/retry, `ensure_deps` + `_reload_trimesh` | `scene_gen/disaster/fracture.py` |
+| physics settle (per-body velocity, density, ledge cull) | `scene_gen/disaster/settle.py` |
+| by-value archetype export with export-time merge (`BAKE_MERGE`) | `scene_gen/disaster/bake.py` |
+| magnitude → severity / field / soft soil / dust / grade_scale / duration_boost | `scene_gen/compile_disaster.py` (`compile_earthquake`, `magnitude_to_severity`) |
+| single-building bench (one style per row, one recipe or grade per column, 7 review cameras) | `simulation/isaac-sim/launch_scripts/eq_building_bench_launch_script.py` |
+| archetype bake, one style per process | `bake_quake_archetypes_launch_script.py` |
+| the city / multi-city looking launcher (no drone) | `downtown_quake_launch_script.py` |
+| headless serialised runner (2 GPU slots), bake driver | `scene_gen/tools/eq_bench.sh`, `scene_gen/tools/bake_quake_headless.sh` |
+| offline tests (no Isaac) | `scene_gen/tools/test_break_lines.py`, `test_break_shape.py`, `_o_merge_check.py`, `_g2_check_table.py`, `_c_offline/` |
+| census and probes (standalone pxr, no Kit) | `scene_gen/tools/wall_thickness_census.sh`, `_t_pxr.sh`, `_t_shell_probe.py`, `_g_*`/`_g2_*` glazing probes, `_o_usd_stat.py`, `_o_geom_diff.py` |
+| building pools = pristine bakes (+ opt-in monoliths) | `scene_gen/config/asset_sets/urban_quake.yaml`, `urban_quake_v2.yaml` |
+| the preset (downtown.yaml shrunk to 250 m, earthquake on, no metres — everything compiled) | `scene_gen/config/presets/downtown_earthquake.yaml` |
+| research | `scene_gen/_plans/earthquake_research.md` (§1-§10 round 1; §11 break geometry by material, §12 glass and curtain walls, §13 magnitude classes / duration), `eq_round3_glass_recon_dump.md` (ten-event field evidence, provenance-tagged) |
+| plan, timings, agent notes | `scene_gen/_plans/earthquake_plan.md`, `earthquake_timings.md`, `eq_round2_{A,B,C,D}.md`, `eq_round3_{M,R,T,P,G,G2,O}.md` |
 
-Bench (iterate here first — everything is fractured and settled live):
+## How to run (headless, from the host)
 
-    docker exec isaac-sim tmux send-keys -t isaac 'clear; SCENE_CONFIG=downtown \
-      EQ_STYLE=commercial,office EQ_RECIPES=pristine,parapet_fall,corner_fail,out_of_plane,soft_storey,masonry_collapse,pancake,tilt_sink \
-      SNAP_DIR=/isaac-sim/.nvidia-omniverse/logs/eq_bench PYTHONPATH="$ISAAC_SIM_PYTHONPATH" \
-      /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/eq_building_bench_launch_script.py \
-      --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts' ENTER
+    # bench: iterate here first — everything is fractured and settled live
+    scene_gen/tools/eq_bench.sh <snap> EQ_STYLE=commercial EQ_RECIPES=DG3,DG5,out_of_plane EQ_SEED=4 SETTLE_STEPS=3000
+    # bake the library (16 styles, two Isaac processes at a time, merge on)
+    SETTLE_STEPS=3000 EQ_SOLID_N=0.85 scene_gen/tools/bake_quake_headless.sh            # or: ... commercial tower
+    # the city / two cities — alone on the GPU
+    GPU_SLOTS=1 LAUNCHER=downtown_quake_launch_script.py scene_gen/tools/eq_bench.sh <snap> \
+        CITIES=M9.5,M5.5 CITY_SIZE_M=200 CITY_GAP_M=100 QUAKE_SEED=8 QUAKE_INTERACT=3
+    # on screen instead (the tmux pane; stays open): same env, `docker exec isaac-sim tmux send-keys -t isaac '...' ENTER`
 
-An `EQ_RECIPES` entry is a grade (`DG1..DG5`, looked up in
-`quake_flow.LADDER` for the style's construction type), a bare recipe name
-run with its defaults, or `pristine`. Every building gets six camera prims
-under `/World/ReviewCams` (top, four compass obliques, street) and a PNG
-each.
+`EQ_RECIPES` entries: a grade (`DG1..DG5`, `SETTLE`, `TILT`, `OV`, looked up
+in `quake_flow.LADDER` for the style's type), a bare recipe name with its
+defaults, or `pristine`. Every column gets seven camera prims under
+`/World/ReviewCams` (top, four obliques, street at 35 m, close at 2 m) and a
+PNG each; the runner leaves captures in `~/docker/isaac-sim/logs/<snap>/`
+and the launcher's stdout in `<snap>.log` beside it (`docker logs` is empty).
+
 
 ---
 
@@ -87,6 +163,7 @@ Reusing one ladder for all of them is the fastest way to build the wrong
 disaster: a brick block does not pancake and an office does not shed its
 whole street wall.
 
+
 The full recipe vocabulary (`quake_flow.RECIPES`), grouped as they were built:
 
 | batch | recipe | what it does | where |
@@ -105,6 +182,8 @@ The full recipe vocabulary (`quake_flow.RECIPES`), grouped as they were built:
 | C | `rooftop_fail` (+ `dress_roof`) | water tanks / AC units on every roof; tipped from DG1 | all |
 | C | `signage_fail` | shop signs on end on the sidewalk | DG2-3 |
 | C | `_lantern`, `_shaft` | buckled-bar column heads at a crushed storey; a lift shaft left standing in a pancake | inside soft_storey / pancake |
+| 2 | `lean_on`, `collapse_onto`, `pounding`, `_d_party_collapse` | a building pair: bearing failure to the contact angle; upper storeys thrown onto a lower roof; slab-level spall bands; a terrace unit collapsing beside its party wall | city `_d_interactions`; bench `EQ_NEIGHBOUR` |
+| 3 | `curtain_wall`, `storefront_glass`, `window_glass`, `glass_follow` | curtain-wall bands with the cage kept, Zhao's in-plane ladder for shopfronts and punched windows, glass riding its wall through later movers | rc_glass DG1-5; every ladder's glass slot |
 
 The foundation family is chosen by the ASSEMBLY, not the field: `quake.
 _soft_soil` draws one ellipse per scene (`disaster.soft_soil: {center, rx_m,
@@ -130,56 +209,10 @@ reconnaissance figures (URM 5/20/30/25/20 % none/DG1-2/DG3/DG4/DG5, RC
 made every building inside the strong-shaking radius DG5, which no real
 block is — total collapse is a minority even in Antakya.
 
----
-
-# Round 2 (2026-08-27): the review, and what it changed
-
-The user's review of city 9 named six things; each was traced to a cause on
-the bench before anything was changed, and each fix is a set of functions with
-an owner prefix (`_a_` ragged breaks, `_b_` props and scars, `_c_` ground,
-`_d_` pairs) so the next reader can find the round's work by grep.
-
-| review item | cause (measured) | fix |
-|---|---|---|
-| floating tanks / AC units | `dress_roof` authored plant at the pristine roof height as STATIC; any recipe that moved or removed the roof left it hanging | `_b_settle_roof_plant` hands every plant prim to the solver after the recipes (rests on an intact roof, drops through a hole, rides a tilt, buried on total collapse); tanks are one merged mesh; per-object edge inset |
-| no soil where a building tilted / sank | round 1 put one small `_berm` ring on the hot side only, and the CITY's mild lean (`_tilt_prim`) had no ground at all; the heave was on the wrong side (rotation sign) | `_c_ground_response`: heave wedge + buckled slabs + kerb on the low side, opened gap + exposed raft + lip on the high side, subsidence dish for settlement, mud line, fissures, boils; used by all four foundation recipes AND by `quake._tilt_prim`; everything clamped to the plate |
-| straight shear lines | single-scale Voronoi (4-5 m cells) judged cell by cell; `shrink` is a ratio (8 cm on a 5 m cell = a black crack); `roughen` per fragment crazes the survivor; kit module seams; box-shaped roof-hole outline | `fracture.fracture_split` — two-scale split (dense 0.3 m cells along the break, refinement of boundary cells, chewed edges both ways), `roughen_field`/`inset` in metres; stepped course judges for URM, torn lines for RC; neighbouring storeys/bays lose a ragged band so no edge is a seam; `_a_roofify` converts a whole roof at once (no seam), face normals on fragments |
-| white debris and wooden Xs | `damage._pbr` colours are LINEAR albedo: `plaster` 0.66 rendered 0.84 (white); scars were proud white blobs and 45 mm bars; signs were plaster boxes; glass white; `planks` tint is a no-op with a texture bound | palette darkened (`plaster` 0.32, `mortar` 0.24 linear; `plaster_dusty` etc.), recessed dark spall patches + jagged crack polylines within the pier, painted sign panels, tinted glass, `SETTLE_CULL_LEDGES` drops fragments resting on sills; heap material mix table |
-| rectangular roof-collapse pieces | `r_roof_hole` outline was a rounded box; margins were rectangles | `_a_hole_outline` (closed wobbly polygon), sagging rim pieces, dropped pieces on the floor below, radiating cracks |
-| buildings interacting | never modelled; `_blocked` refused any overturn toward a neighbour | `r_lean_on` (bearing failure to the contact angle, both buildings damaged at the contact), `r_collapse_onto` (upper storeys thrown onto a lower roof, punch-through), `r_pounding`, `_d_party_collapse` for terraces; `quake._d_interactions` runs a capped number of pairs LIVE at assembly (`QUAKE_INTERACT`, ~35 s each) and the rest geometrically |
-
-Also in this round: `magnitude` (compile_disaster), several cities in one
-stage (`CITIES`), monoliths (`urban_quake_v2`), the headless serialised runner
-(`scene_gen/tools/eq_bench.sh`) and the two-at-a-time bake driver
-(`bake_quake_headless.sh`). The agents' full notes: `scene_gen/_plans/
-eq_round2_{A,B,C,D}.md`.
-
-## Headless: how the bench, bake and city are run now
-
-    scene_gen/tools/eq_bench.sh <snap> EQ_STYLE=commercial EQ_RECIPES=DG3,DG5 EQ_SEED=4 SETTLE_STEPS=2200
-    LAUNCHER=downtown_quake_launch_script.py scene_gen/tools/eq_bench.sh city CITIES=M9.5,M5.5 CITY_SIZE_M=200
-    scene_gen/tools/bake_quake_headless.sh            # all 16 styles, two Isaac processes at a time
-
-* `docker exec` + `ISAAC_SIM_HEADLESS=true`, NOT the tmux pane, so several
-  agents can queue runs; at most `GPU_SLOTS` (2) processes run on the card
-  (a 16 GB card holds two fracturing benches; three do not fit). Captures
-  under `~/docker/isaac-sim/logs/<snap>/`, the launcher's stdout in
-  `<snap>.log` beside it (`docker logs` is empty).
-* A CITY run wants the card to itself: two concurrent two-city runs with
-  live pairs and the round-2 archetypes (a DG5 is ~4k static prims now) hit
-  `ERROR_OUT_OF_DEVICE_MEMORY` and segfaulted in `librtx.scenedb` (final_2city,
-  2026-08-27). Bench and bake rows fit two at a time; cities run with
-  `GPU_SLOTS=1` or after the other slot is free.
-* `PYTHONUNBUFFERED=1` is load-bearing: Kit hard-exits on `close()` and
-  block-buffered prints never reach the log, so the DONE banner was lost.
-* `.env` leaks EMPTY strings for every var compose forwards (`SETTLE_STEPS`,
-  `SCENE_CONFIG=suburb`, ...): the runner supplies defaults, the launchers
-  read ints with `os.environ.get(X) or default`. A city run that reports
-  "0 buildings" compiled the SUBURB preset — check `SCENE_CONFIG`.
-* The city prints its TIMING banner BEFORE its captures: the runner waits for
-  `snapshots ->` or `EXIT 0`, never the banner.
-* Editing `eq_bench.sh` while a run is in flight kills that run (bash reads
-  the script incrementally).
+`duration_boost` (round 3, research §13): a long record (M8+, minutes of
+shaking) lowers the collapse capacity of engineered frames — the compiled
+boost (1.0 at M6.5 → 2.5 at M9+) multiplies the rc / rc_glass DG4-DG5 share
+in the draw; URM is left alone.
 
 ## Building interaction (agent D)
 
@@ -221,7 +254,218 @@ lowering it further; the guillotine packer leaves the slack at the block edge).
   for half the DG3s. Sizes come from the world bound (`_mono_dims`), so the
   layout's 0/90/180/270 yaws are exact and a 45 deg one would be overestimated.
 
-# Round 3 (2026-08-27): triangles, glass, solid walls, load time
+## Solid walls, and breaks on the material grid (round 3)
+
+Every kit piece goes through `fracture.solidify` before it is sliced
+(`EQ_SOLID=1`): a rim is capped or a single skin is extruded to the type's
+thickness (`T_SOLID_M`: URM wall 0.38, parapet 0.25, RC wall 0.20; glass
+stays a 10 mm CLOSED plate), window openings get reveals, and the new inner
+faces are bound to a brick-core / dark-concrete material — so every chunk
+reads as masonry from any angle. Then the seeding comes from the plane of
+weakness, not from noise: `mode="brick"` (a running-bond lattice at the
+course / stretcher / wythe pitch of `P_BOND`, clusters by `keep`, jitter ≤
+0.1 pitch, no roughening), `mode="prism"` (2-D seeds on the surface extruded
+through the thickness — never a 3-D seed in a member thinner than the cell
+pitch), staircase judges quantised to the bond (`_p_staircase`: risers k ×
+course, runs m × half-stretcher), 1-4 rocking MACROBLOCKS for out-of-plane
+failure, lintels / quoins emitted as monoliths, needle rejection.
+`scene_gen/tools/test_break_shape.py` scores a bench's fragments (oblique
+face area, elongation, blades, rafts > 2 m, equidimensional share, flakiness)
+against research §11.
+
+## Glass (round 3)
+
+`r_curtain_wall`: the storeys that racked (soft storey / podium transition /
+lower third; top storey for a roof push; one elevation preferentially) lose
+glass in CONTIGUOUS bands with survivors inside and strays outside; mullions,
+transoms, spandrels and gaskets stay; per-grade "out" fractions 0-1 / 2-5 /
+10-20 / 25-40 / 40-55 %; cracked panes keep a corner-rooted crack (annealed /
+laminated only — tempered goes straight to an empty frame); dice piles ≈
+1.2 × panel area under the band; one merged mesh per (kind, side, storey), ≤ 5
+materials, no bodies. The tower's mullion grid is PAINTED (0.3326 tiles/m;
+panes 1.645 / 1.362 × 2.89 m), so openings are authored on that grid and the
+painted cage frames every hole. `r_storefront_glass` / `r_window_glass` do the
+in-plane ladder on shopfronts and the 65 measured punched windows of the
+brick families (`_G2_WIN_FACES`; probe outputs under `_plans/glazing_probe/`);
+`r_glass_follow` carries authored glass through any later mover. The kit's
+mirror curtain wall is softened in `urban_building.apply_glass_tint`
+(`GLASS_ROUGHNESS` 0.22) — its perfect reflections read as damage.
+
+
+---
+
+# Tuning — every knob, what it moves, and what it was calibrated against
+
+## The three scales, and how they are coupled
+
+    region_m  (plate size)  ──┐
+    severity  (0..1)        ──┼─> compile_earthquake ─> disaster.field      (WHERE the shaking is strong)
+    epicenter (x, y)        ──┘                        disaster.grade_scale (HOW hard the ladder is drawn)
+                                                       disaster.soft_soil   (WHERE the ground fails)
+                                                       disaster.dust        (how far the halo reaches)
+
+Everything downstream reads those four, so `REGION_M=400 SEVERITY=0.6
+EPICENTER=80,-30` on the launch line re-derives the whole scene. Nothing in
+the earthquake path is in metres unless a preset pins it deliberately.
+
+| what | formula (compile_disaster.compile_earthquake) | 250 m, sev 0.85 | 250 m, sev 0.5 | 800 m, sev 0.85 |
+|---|---|---|---|---|
+| full-intensity core radius | `max(w,h) * lerp(0.10, 0.28, sev)` | 63 m | 48 m | 202 m |
+| falloff beyond it | `max(w,h) * 0.45` | 112 m | 112 m | 360 m |
+| intensity at the far corners | `lerp(0.05, 0.35, sev)` | 0.31 | 0.20 | 0.31 |
+| grade_scale (multiplies the field before the draw) | `min(1, lerp(0.55, 1.1, sev))` — 1.0 from severity ~0.8 | 1.0 | 0.83 | 1.0 |
+| soft-soil ellipse | opposite quadrant to the epicentre, `0.36 w x 0.24 h` | 90 x 60 m | 90 x 60 m | 288 x 192 m |
+| foundation rate inside it | `lerp(0.25, 0.85, sev)` | 0.76 | 0.55 | 0.76 |
+| dust reach DG5 / DG4 (x H) | `lerp(0.7, 1.2, sev)` / `lerp(0.35, 0.6, sev)` | 1.1 / 0.56 | 0.95 / 0.48 | 1.1 / 0.56 |
+| dust opacity max | `lerp(0.25, 0.45, sev)` | 0.42 | 0.35 | 0.42 |
+
+Calibration: the ladder cuts in `quake_flow.level_for_intensity` reproduce
+the worst-block mixes from the reconnaissance literature at intensity 1.0
+(URM 5/8/12/30/25/20 % across DG0..DG5, RC 20/16/13/27/13/11, glass towers
+mostly DG0-2); so severity 1.0 with a large core is "Antakya", 0.5 is a
+district where most buildings are cracked and a handful collapsed. The
+compiler's first cut (0.15-0.45 core, 0.55 falloff, 0.10-0.45 outside) put a
+whole 250 m plate at intensity 1.0 and a quarter of it pancaked — that is why
+the fractions above are what they are.
+
+## Where each knob lives
+
+**Launch line / `.env` (forwarded by `docker-compose.yaml`; both service blocks):**
+
+| env | launcher | does |
+|---|---|---|
+| `SCENE_CONFIG` | all | preset; `downtown_earthquake` |
+| `REGION_M` | city | plate size, `250`, `400x400` |
+| `SEVERITY` | city | 0..1, drives everything in the table above |
+| `EPICENTER` | city | `x,y` metres |
+| `SOFT_SOIL` | city | `off`, or `x,y[,rx,ry[,rate]]` |
+| `DISASTER_TYPE` | city | only `earthquake` is honoured (`.env` leaks `none`) |
+| `QUAKE_SEED` | city | grade / foundation / ground draws (the layout seed is the preset's `seed`) |
+| `QUAKE_TILT` | city | mild-lean chance (`disaster.debris.tilt_chance`), `0` disables |
+| `QUAKE_GROUND` | city | `0` skips dust / fissures / boils / pounding |
+| `ARCH_DIR` | city, bake | the archetype library |
+| `SNAP_DIR` | all | captures, under `/isaac-sim/.nvidia-omniverse/logs/` |
+| `ARCH_STYLES`, `ARCH_GRADES`, `ARCH_SEED`, `ARCH_VARIANTS`, `SETTLE_STEPS` | bake | which styles / levels, façade seed (4), variants per level, physics ceiling |
+| `EQ_STYLE`, `EQ_RECIPES`, `EQ_SEED`, `EQ_SPACING`, `KEEP_PHYSICS` | bench | rows, columns, seed, pitch, leave bodies live |
+| `MAGNITUDE` | city | e.g. `9.5` — defines severity and the field shape (see Round 2); `SEVERITY` still pins the plain path |
+| `CITIES`, `CITY_SIZE_M`, `CITY_GAP_M`, `CITY_SEEDS` | city | a row of plates, one magnitude/severity each |
+| `ASSET_SET` | city | `urban_quake` (kit only) or `urban_quake_v2` (+ monoliths and ruin towers) |
+| `QUAKE_INTERACT`, `QUAKE_INTERACT_PAIRS`, `QUAKE_POUND_GAP` | city | live pairs (default 3, 0 = geometric only), total pairs, pounding gap threshold |
+| `SETTLE_CULL_LEDGES` | bench, bake | `1` deletes bodies that came to rest on sills / cornices (19-142 per row) |
+| `EQ_REFINE_MAX` | bench, bake | second-scale refinement cap for `fracture_split` (0 = single scale, 3-4x cheaper, straight edges again) |
+| `EQ_NEIGHBOUR` | bench | `<style>,<gap_m>,<side>` — a pristine neighbour for lean_on / collapse_onto / pounding |
+| `EQ_MILD_TILT`, `EQ_YAW` | bench | `<deg>,<sink>` runs the CITY's `_tilt_prim` path on a `pristine` column; build the column at a yaw |
+| `ISAAC_SIM_HEADLESS`, `KEEP_OPEN` | all | off-screen; stay open after the captures |
+| `EQ_SOLID` (1), `EQ_SOLID_N` (1.0; 0.85 = -16 % fracture time), `EQ_SOLID_CORE`, `EQ_SOLID_EDGE`, `FRACTURE_CAP` (fan / contour — contour can hang) | bench, bake | round 3: solid walls before slicing |
+| `EQ_SLIVER` (1), `EQ_SLIVER_SEEDS`, `EQ_DUMP_FRAGS` (1 writes `frags.jsonl` for `test_break_shape.py`) | bench | round 3: needle rejection; shape acceptance dump |
+| `BAKE_MERGE` (on / off / both), `BAKE_MERGE_REPEAT`, `BAKE_MERGE_UNIFORM_N` | bake | round 3: export-time consolidation (`both` keeps a `_raw` twin for `_o_geom_diff`) |
+| `MAGNITUDE` → `duration_boost` (compiled) | city | round 3: rc DG4/DG5 share x 1.0-2.5 |
+
+**Preset (`config/presets/downtown_earthquake.yaml`):** `severity`, `region_m`,
+`epicenter`, `seed`, optional top-level `soft-soil: false | {center, rx_m,
+ry_m, rate, angle_deg}`; under `overrides.disaster`: `field`, `soft_soil`,
+`dust`, `grade_scale`, `debris.tilt_chance` pin any compiled value in metres.
+The layout block sizes there are tuned for 250 m (`block_short_m` 52-72,
+`block_long_m` 90-130, `min_region_m` 120); `REGION_M` up to 800 reuses them
+(denser grid than `downtown.yaml`'s 800 m defaults — raise the block targets
+for a full-scale city).
+
+**Asset set (`config/asset_sets/urban_quake.yaml`):** which kit styles the
+packer may place, per pool (`intact`, `midrise`, `tower`). Adding a style =
+add its `bld_<style>_DG0.usd` here and bake it (`bake_quake_headless.sh
+<style>`).
+
+**Per-building (`disaster/quake_flow.py`):**
+
+| table / constant | does |
+|---|---|
+| `LADDER[type][grade]` | the recipe list per construction type and grade — the vocabulary |
+| `FOUNDATION` | the three foundation levels' recipes |
+| `level_for_intensity` cuts | the grade mix at a given intensity (per type) |
+| `FAMILY_TYPE` | kit family -> `urm` / `rc` / `rc_glass` |
+| `SLAB_T`, `WALL_INSET`, `COLUMN_W`, `FURNITURE`, `FURNITURE_PER_100M2` | the fit-out |
+| recipe kwargs (`frac`, `sides`, `storeys`, `from_storey`, `tilt_deg`, `sink_m`, `angle_deg`, …) | per-recipe strength; every recipe takes its numbers as kwargs so a ladder entry can dial it |
+| `_heap` args (`spread_frac`, `depth_m`), `RAFT_T`, `ROOF_T`, `HEAP_MIX`, `A_DEBRIS` | rubble geometry and its material mix per construction type |
+| `EDGE_CELL_M` 0.32, `EDGE_MAX` 16, `REFINE_MAX` 12, `CHEW_OUT` 0.20, `CHEW_IN` 0.14, `CRACK_FRAC` 0.16, `GAP_*`, `ROUGH_M`, `STEP_H`/`STEP_V` | the two-scale break line: cell size along the break, refinement, chewed edges, radiating cracks, masonry course toothing |
+| `B_ROOF_PLANT_BURIED` 0.55, `SCARS_MAX_PROJ`, `r_facade_scars(patches, cracks, crack_p, crumb_p)` | roof plant on total collapse; scar counts |
+| `C_TILT_PIVOT_FRAC` 0.35, `C_DROP_REF` 1.8, `C_RISE_REF` 0.9, `C_CREST_M`, `C_REACH_M`, `C_GAP_W`/`C_GAP_D`, `C_BOIL_DROP`, `C_FISSURE_M`, `_C_TEX` | the ground response: pivot, crest and reach vs sink, gap size, boil threshold, ground looks |
+| `r_lean_on(max_deg, crush_m, sink_frac, crush_storeys, band_storeys)`, `r_collapse_onto(storeys, spill_frac)`, `r_pounding(p_break, corner_m)`, `D_LEAN_MIN_INTENSITY` | pair recipes |
+| `MONO_RUIN_MIN_H` 35, `MONO_HEAVY_DEG/SINK`, `MONO_MILD_P/DEG/SINK` (quake.py) | what a monolith may do |
+| `T_SOLID_M` (urm wall 0.38, parapet 0.25, rc wall 0.20), `T_GLASS_M` 0.010 | round 3: solidified thickness per type/role |
+| `P_BOND` / `P_STYLE_BOND` (course / stretcher / wythe per style), `P_ROUGH_M` 0.003, `BRICK_BLOCKY` 1.5, `BRICK_NMAX` 2.4, `PRISM_AR_MAX` 2.2, `SLIVER_MAX_DROP` 0.40 | round 3: the brick lattice and prism seeding |
+| `G_GRADE`, `G_GLASS_KIND`, `G_SHOP_GRADE`, `_G_PEEL_BUDGET`, `G2_WIN_GRADE`, `G2_SASH_SHARE`, `G2_LEAN/BULGE`, `G2_FLOOR_BAND`, `G2_REMNANT_P/M`, `_G_CW_FACES` / `_G_SHOP_FACES` / `_G2_WIN_FACES` (measured pane tables) | round 3: glass per grade, per glass type; which faces are glazed |
+| `GLASS_ROUGHNESS` 0.22 (`detail/urban_building.py`) | the kit's mirror curtain wall softened |
+| `materials()` colours | the dusty palette |
+
+**Scene (`disaster/quake.py`):** `_soft_soil` (reads `disaster.soft_soil`),
+the OV gate (`slender > 1.5`, `inten > 0.4`, not a tower, `H <= 36`, clear
+fall), `_blocked` sweep, `ground_effects` (reads `disaster.dust`; fissure count
+2-4 per patch, boil count from patch area).
+
+## Reading a run
+
+The city banner prints the grade tally, the soft-soil patch and its
+SETTLE/TILT/OV counts, the ground pass counts and `TIMING`. A scene that
+prints DG5 > ~25 % of buildings has too large a core for its plate; one that
+prints `SETTLE 0, TILT 0` has its patch on the collapsed side of town.
+
+# Current knob values, and why
+
+| knob | value | why |
+|---|---|---|
+| slab thickness | 0.30 timber / 0.22 concrete | research: 150-250 mm RC slabs; a joisted floor is deeper |
+| wall inset for slabs | 0.55 m | inside the thickest kit module |
+| column | 0.45 m at the module pitch | reads as a frame, not a forest |
+| `FURNITURE_PER_100M2` | 1.6 | enough to see through an opening; ~30 props on a 22 x 18 x 5 block |
+| shell fragment seeds | 7-12 per wall | fewer than fire (9-16); the heap carries the mass |
+| shell `consume` | 0.22 peel / 0.30 collapse | thins the foil; the material is in the heap |
+| heap height, total collapse | 0.28 H | FEMA 0.33 air-space factor, Amatrice LiDAR |
+| heap spread, masonry | 0.2-0.34 H | research 0.4-0.7 H beyond the footprint at the toe |
+| windrow, shed wall | 1.0-1.9 m deep, 0.22-0.4 H | research 1-2 m, 0.3-0.6 H |
+| windrow, parapet | 0.5-1.1 m deep, 0.14 H | Christchurch: 1-4 m into the roadway |
+| soft storey crush | 0.28-0.42 of the storey | the crushed storey is rubble, not air |
+| soft storey lean | 2.5-6.5 deg | Northridge Meadows / Antakya photos |
+| pancake pitch | 0.55-0.95 m per slab | ~1 m of debris per 3 m storey |
+| `tilt_sink` | 8 deg / 1.0 m default; assembly draws 3-9 deg, 0.4-1.4 m | Adapazarı 0.004-1.6 m; Niigata 80 deg is a once-per-scene event |
+| tilt gate | slender (H/B > 1.6) x 1.3, else x 0.6 | Adapazarı: only H/B > 2 blocks tilted significantly |
+| `density` | 1900 kg/m3 | masonry / concrete, not the fire path's 420 timber |
+| `max_speed` | 6.0 m/s | the 4.0 default clamps the wall-top fan |
+| settle steps | 3000 (round 3; 2200 left a pancake with 31 movers) | 1500 left 49 bodies moving on a masonry collapse; `highrise_04`'s DG5 still had 465 movers at 2200. A style row of 1.4-4.2k bodies solves in 2-8 min; the whole 96-archetype library was 19 min fracture + 77 min settle — `_plans/earthquake_timings.md` |
+| grade cuts (URM) | 0.05/0.14/0.25/0.55/0.80 on `i * u` | worst-block mix 5/8/12/30/25/20 |
+
+---
+
+# History — the three review rounds
+
+The user reviews captures; every item is traced to a measured cause on the
+bench before anything changes. Round 1 (2026-08-26) built the vocabulary
+(`earthquake_plan.md` v1-v8). Rounds 2 and 3 are below; the agent notes hold
+the run tables and per-agent bug lists.
+
+
+## Round 2 (2026-08-27)
+
+The user's review of city 9 named six things; each was traced to a cause on
+the bench before anything was changed, and each fix is a set of functions with
+an owner prefix (`_a_` ragged breaks, `_b_` props and scars, `_c_` ground,
+`_d_` pairs) so the next reader can find the round's work by grep.
+
+| review item | cause (measured) | fix |
+|---|---|---|
+| floating tanks / AC units | `dress_roof` authored plant at the pristine roof height as STATIC; any recipe that moved or removed the roof left it hanging | `_b_settle_roof_plant` hands every plant prim to the solver after the recipes (rests on an intact roof, drops through a hole, rides a tilt, buried on total collapse); tanks are one merged mesh; per-object edge inset |
+| no soil where a building tilted / sank | round 1 put one small `_berm` ring on the hot side only, and the CITY's mild lean (`_tilt_prim`) had no ground at all; the heave was on the wrong side (rotation sign) | `_c_ground_response`: heave wedge + buckled slabs + kerb on the low side, opened gap + exposed raft + lip on the high side, subsidence dish for settlement, mud line, fissures, boils; used by all four foundation recipes AND by `quake._tilt_prim`; everything clamped to the plate |
+| straight shear lines | single-scale Voronoi (4-5 m cells) judged cell by cell; `shrink` is a ratio (8 cm on a 5 m cell = a black crack); `roughen` per fragment crazes the survivor; kit module seams; box-shaped roof-hole outline | `fracture.fracture_split` — two-scale split (dense 0.3 m cells along the break, refinement of boundary cells, chewed edges both ways), `roughen_field`/`inset` in metres; stepped course judges for URM, torn lines for RC; neighbouring storeys/bays lose a ragged band so no edge is a seam; `_a_roofify` converts a whole roof at once (no seam), face normals on fragments |
+| white debris and wooden Xs | `damage._pbr` colours are LINEAR albedo: `plaster` 0.66 rendered 0.84 (white); scars were proud white blobs and 45 mm bars; signs were plaster boxes; glass white; `planks` tint is a no-op with a texture bound | palette darkened (`plaster` 0.32, `mortar` 0.24 linear; `plaster_dusty` etc.), recessed dark spall patches + jagged crack polylines within the pier, painted sign panels, tinted glass, `SETTLE_CULL_LEDGES` drops fragments resting on sills; heap material mix table |
+| rectangular roof-collapse pieces | `r_roof_hole` outline was a rounded box; margins were rectangles | `_a_hole_outline` (closed wobbly polygon), sagging rim pieces, dropped pieces on the floor below, radiating cracks |
+| buildings interacting | never modelled; `_blocked` refused any overturn toward a neighbour | `r_lean_on` (bearing failure to the contact angle, both buildings damaged at the contact), `r_collapse_onto` (upper storeys thrown onto a lower roof, punch-through), `r_pounding`, `_d_party_collapse` for terraces; `quake._d_interactions` runs a capped number of pairs LIVE at assembly (`QUAKE_INTERACT`, ~35 s each) and the rest geometrically |
+
+Also in this round: `magnitude` (compile_disaster), several cities in one
+stage (`CITIES`), monoliths (`urban_quake_v2`), the headless serialised runner
+(`scene_gen/tools/eq_bench.sh`) and the two-at-a-time bake driver
+(`bake_quake_headless.sh`). The agents' full notes: `scene_gen/_plans/
+eq_round2_{A,B,C,D}.md`.
+
+## Round 3 (2026-08-27)
 
 The user's second review (two-city scene): breaks "very triangular — like
 something added to the edge of a rectangular break"; glass towers "just had
@@ -242,15 +486,11 @@ then the census, then the code. Agent notes: `eq_round3_{M,R,T,P,G,G2,O}.md`.
 | duration, not magnitude, drives engineered-frame collapse (42 s vs 6 s record: -29 % capacity); magnitude is a poor severity proxy (Christchurch M6.2 > M7.1) | `disaster.duration_boost` (1.0 at M6.5 → 2.5 at M9+) multiplies the rc DG4/DG5 share in `level_for_intensity`; URM untouched |
 | load time was NOT the archetype USD read: it was Hydra sync + collider cooking of ~300k prims, and the live pairs | `bake.py` merge at export (`BAKE_MERGE=on`, default in the driver; `both` writes a `_raw` twin): one mesh per (material x shading signature) for unique geometry, material dedup by network fingerprint, flat faceVarying normals → uniform, dead specs dropped; repeats (kit modules) left alone (crate already shares their points — merging them GREW files); PointInstancer measured and rejected (`_a_lump` corners are jittered, not prototypes). Two 200 m cities: env→ready 142 s → 78 s, 297k → 93k prims, first frame 16 s → 1.6 s, library 749 → 425 MB, 20 copies of a DG5 to first frame 5.6 s → 0.5 s; look unchanged (`_o_geom_diff`, control run) |
 
-Still open after round 3 (also in Known gaps): live pairs are 62 % of the city
-load (bake pairs as archetypes-of-two); `bld_apartment_tall_DG5` 33 MB
-(1.4 M points); the 8.2 m curved corner bay of family 02 has no glazing
-entry; DG1-DG2 glass is sub-pixel from the air (correct per the record,
-unsatisfying); `_shard_field` at agent D's two call sites is round-2 code;
-`dw_terrace`'s `storefront_a_3_5m` piece is 1.5 m off between the asset and
-`ub.PIECES`; no cars/cordon under glass fall zones; timber deck plates on
-the DG5 crown.
+---
 
+# The bug catalogue
+
+## Round 1
 
 **Kit roof tiles are ZERO-THICKNESS QUADS.** `SM_MBuilding01_Roof` is
 5 x 5 x 0.000 m, four points. Fractured, they come out as paper and PhysX
@@ -266,7 +506,7 @@ up covered in windows in the assembled city (the tile samples one patch of
 the atlas through UVs; a UV-less slab gets the whole sheet). Roof slabs are
 plain concrete now — grey from the air is what a flat roof is.
 
-**Kit façades are single-sided OPEN SHELLS, so their fragments are foil.**
+**Kit façades are single-sided OPEN SHELLS, so their fragments are foil.** *(Round 3 superseded the workaround: `fracture.solidify` gives them thickness before slicing; the heap is still authored.)*
 0.2-0.75 m deep but no back face. A pile made only of them read as crumpled
 paper on the first bench. The pile's MASS is now an authored heap of solid
 chunks (`_heap`: a dome over the footprint for a collapse, a windrow along a
@@ -322,7 +562,7 @@ heights over the stack — a grid of white panels in mid-air. `pancake`,
 `masonry_collapse` and `soft_storey` (for the crushed storey) now break
 partitions and drop props along with the slabs.
 
-**A long bake process can stop fracturing, silently.** The first full bake
+**A long bake process can stop fracturing, silently.** *(Round 3 found the mechanism: `trimesh.creation` resolves its triangulation engines once at import and `ensure_deps` installed `shapely` afterwards — `_reload_trimesh` fixes it; the one-process-per-style driver stays.)* The first full bake
 ran 16 styles in one process; from the 7th style on, every module came back
 with a handful of fragments or none (DG3 6 loose where the same family gave
 199 earlier), heaps still authored, no error anywhere, and the bench never
@@ -447,8 +687,6 @@ halves the block targets, drops the ring floor to 120 m, zeroes the rowhouse
 mix (the kit has no party-wall units for the terrace morphology) and
 lowers the tower heights — measured 6 blocks / ~36 buildings on the dry run.
 
----
-
 
 ## Round 3 additions (2026-08-27)
 
@@ -548,183 +786,42 @@ lowers the tower heights — measured 6 blocks / ~36 buildings on the dry run.
 * **A squat block cannot lean on anything** (`H sin(theta) - B (1 - cos(theta))`
   is 1.4 m for a 22 x 40 m block at 30 deg): `r_lean_on` says so and does nothing.
 
-# Current knob values, and why
+---
 
-| knob | value | why |
-|---|---|---|
-| slab thickness | 0.30 timber / 0.22 concrete | research: 150-250 mm RC slabs; a joisted floor is deeper |
-| wall inset for slabs | 0.55 m | inside the thickest kit module |
-| column | 0.45 m at the module pitch | reads as a frame, not a forest |
-| `FURNITURE_PER_100M2` | 1.6 | enough to see through an opening; ~30 props on a 22 x 18 x 5 block |
-| shell fragment seeds | 7-12 per wall | fewer than fire (9-16); the heap carries the mass |
-| shell `consume` | 0.22 peel / 0.30 collapse | thins the foil; the material is in the heap |
-| heap height, total collapse | 0.28 H | FEMA 0.33 air-space factor, Amatrice LiDAR |
-| heap spread, masonry | 0.2-0.34 H | research 0.4-0.7 H beyond the footprint at the toe |
-| windrow, shed wall | 1.0-1.9 m deep, 0.22-0.4 H | research 1-2 m, 0.3-0.6 H |
-| windrow, parapet | 0.5-1.1 m deep, 0.14 H | Christchurch: 1-4 m into the roadway |
-| soft storey crush | 0.28-0.42 of the storey | the crushed storey is rubble, not air |
-| soft storey lean | 2.5-6.5 deg | Northridge Meadows / Antakya photos |
-| pancake pitch | 0.55-0.95 m per slab | ~1 m of debris per 3 m storey |
-| `tilt_sink` | 8 deg / 1.0 m default; assembly draws 3-9 deg, 0.4-1.4 m | Adapazarı 0.004-1.6 m; Niigata 80 deg is a once-per-scene event |
-| tilt gate | slender (H/B > 1.6) x 1.3, else x 0.6 | Adapazarı: only H/B > 2 blocks tilted significantly |
-| `density` | 1900 kg/m3 | masonry / concrete, not the fire path's 420 timber |
-| `max_speed` | 6.0 m/s | the 4.0 default clamps the wall-top fan |
-| settle steps | 2200 | 1500 left 49 bodies moving on a masonry collapse; `highrise_04`'s DG5 still had 465 movers at 2200. A style row of 1.4-4.2k bodies solves in 2-8 min; the whole 96-archetype library was 19 min fracture + 77 min settle — `_plans/earthquake_timings.md` |
-| grade cuts (URM) | 0.05/0.14/0.25/0.55/0.80 on `i * u` | worst-block mix 5/8/12/30/25/20 |
+# Known gaps and next work
 
-# Tuning — every knob, what it moves, and what it was calibrated against
+**Gate: diversity** (see Status) — damage the `selected_citydemo` monoliths;
+more kit styles.
 
-## The three scales, and how they are coupled
+Open after round 3 (user: "a later issue", but real):
 
-    region_m  (plate size)  ──┐
-    severity  (0..1)        ──┼─> compile_earthquake ─> disaster.field      (WHERE the shaking is strong)
-    epicenter (x, y)        ──┘                        disaster.grade_scale (HOW hard the ladder is drawn)
-                                                       disaster.soft_soil   (WHERE the ground fails)
-                                                       disaster.dust        (how far the halo reaches)
-
-Everything downstream reads those four, so `REGION_M=400 SEVERITY=0.6
-EPICENTER=80,-30` on the launch line re-derives the whole scene. Nothing in
-the earthquake path is in metres unless a preset pins it deliberately.
-
-| what | formula (compile_disaster.compile_earthquake) | 250 m, sev 0.85 | 250 m, sev 0.5 | 800 m, sev 0.85 |
-|---|---|---|---|---|
-| full-intensity core radius | `max(w,h) * lerp(0.10, 0.28, sev)` | 63 m | 48 m | 202 m |
-| falloff beyond it | `max(w,h) * 0.45` | 112 m | 112 m | 360 m |
-| intensity at the far corners | `lerp(0.05, 0.35, sev)` | 0.31 | 0.20 | 0.31 |
-| grade_scale (multiplies the field before the draw) | `min(1, lerp(0.55, 1.1, sev))` — 1.0 from severity ~0.8 | 1.0 | 0.83 | 1.0 |
-| soft-soil ellipse | opposite quadrant to the epicentre, `0.36 w x 0.24 h` | 90 x 60 m | 90 x 60 m | 288 x 192 m |
-| foundation rate inside it | `lerp(0.25, 0.85, sev)` | 0.76 | 0.55 | 0.76 |
-| dust reach DG5 / DG4 (x H) | `lerp(0.7, 1.2, sev)` / `lerp(0.35, 0.6, sev)` | 1.1 / 0.56 | 0.95 / 0.48 | 1.1 / 0.56 |
-| dust opacity max | `lerp(0.25, 0.45, sev)` | 0.42 | 0.35 | 0.42 |
-
-Calibration: the ladder cuts in `quake_flow.level_for_intensity` reproduce
-the worst-block mixes from the reconnaissance literature at intensity 1.0
-(URM 5/8/12/30/25/20 % across DG0..DG5, RC 20/16/13/27/13/11, glass towers
-mostly DG0-2); so severity 1.0 with a large core is "Antakya", 0.5 is a
-district where most buildings are cracked and a handful collapsed. The
-compiler's first cut (0.15-0.45 core, 0.55 falloff, 0.10-0.45 outside) put a
-whole 250 m plate at intensity 1.0 and a quarter of it pancaked — that is why
-the fractions above are what they are.
-
-## Where each knob lives
-
-**Launch line / `.env` (forwarded by `docker-compose.yaml`; both service blocks):**
-
-| env | launcher | does |
-|---|---|---|
-| `SCENE_CONFIG` | all | preset; `downtown_earthquake` |
-| `REGION_M` | city | plate size, `250`, `400x400` |
-| `SEVERITY` | city | 0..1, drives everything in the table above |
-| `EPICENTER` | city | `x,y` metres |
-| `SOFT_SOIL` | city | `off`, or `x,y[,rx,ry[,rate]]` |
-| `DISASTER_TYPE` | city | only `earthquake` is honoured (`.env` leaks `none`) |
-| `QUAKE_SEED` | city | grade / foundation / ground draws (the layout seed is the preset's `seed`) |
-| `QUAKE_TILT` | city | mild-lean chance (`disaster.debris.tilt_chance`), `0` disables |
-| `QUAKE_GROUND` | city | `0` skips dust / fissures / boils / pounding |
-| `ARCH_DIR` | city, bake | the archetype library |
-| `SNAP_DIR` | all | captures, under `/isaac-sim/.nvidia-omniverse/logs/` |
-| `ARCH_STYLES`, `ARCH_GRADES`, `ARCH_SEED`, `ARCH_VARIANTS`, `SETTLE_STEPS` | bake | which styles / levels, façade seed (4), variants per level, physics ceiling |
-| `EQ_STYLE`, `EQ_RECIPES`, `EQ_SEED`, `EQ_SPACING`, `KEEP_PHYSICS` | bench | rows, columns, seed, pitch, leave bodies live |
-| `MAGNITUDE` | city | e.g. `9.5` — defines severity and the field shape (see Round 2); `SEVERITY` still pins the plain path |
-| `CITIES`, `CITY_SIZE_M`, `CITY_GAP_M`, `CITY_SEEDS` | city | a row of plates, one magnitude/severity each |
-| `ASSET_SET` | city | `urban_quake` (kit only) or `urban_quake_v2` (+ monoliths and ruin towers) |
-| `QUAKE_INTERACT`, `QUAKE_INTERACT_PAIRS`, `QUAKE_POUND_GAP` | city | live pairs (default 3, 0 = geometric only), total pairs, pounding gap threshold |
-| `SETTLE_CULL_LEDGES` | bench, bake | `1` deletes bodies that came to rest on sills / cornices (19-142 per row) |
-| `EQ_REFINE_MAX` | bench, bake | second-scale refinement cap for `fracture_split` (0 = single scale, 3-4x cheaper, straight edges again) |
-| `EQ_NEIGHBOUR` | bench | `<style>,<gap_m>,<side>` — a pristine neighbour for lean_on / collapse_onto / pounding |
-| `EQ_MILD_TILT`, `EQ_YAW` | bench | `<deg>,<sink>` runs the CITY's `_tilt_prim` path on a `pristine` column; build the column at a yaw |
-| `ISAAC_SIM_HEADLESS`, `KEEP_OPEN` | all | off-screen; stay open after the captures |
-| `EQ_SOLID` (1), `EQ_SOLID_N` (1.0; 0.85 = -16 % fracture time), `EQ_SOLID_CORE`, `EQ_SOLID_EDGE`, `FRACTURE_CAP` (fan / contour — contour can hang) | bench, bake | round 3: solid walls before slicing |
-| `EQ_SLIVER` (1), `EQ_SLIVER_SEEDS`, `EQ_DUMP_FRAGS` (1 writes `frags.jsonl` for `test_break_shape.py`) | bench | round 3: needle rejection; shape acceptance dump |
-| `BAKE_MERGE` (on / off / both), `BAKE_MERGE_REPEAT`, `BAKE_MERGE_UNIFORM_N` | bake | round 3: export-time consolidation (`both` keeps a `_raw` twin for `_o_geom_diff`) |
-| `MAGNITUDE` → `duration_boost` (compiled) | city | round 3: rc DG4/DG5 share x 1.0-2.5 |
-
-**Preset (`config/presets/downtown_earthquake.yaml`):** `severity`, `region_m`,
-`epicenter`, `seed`, optional top-level `soft-soil: false | {center, rx_m,
-ry_m, rate, angle_deg}`; under `overrides.disaster`: `field`, `soft_soil`,
-`dust`, `grade_scale`, `debris.tilt_chance` pin any compiled value in metres.
-The layout block sizes there are tuned for 250 m (`block_short_m` 52-72,
-`block_long_m` 90-130, `min_region_m` 120); `REGION_M` up to 800 reuses them
-(denser grid than `downtown.yaml`'s 800 m defaults — raise the block targets
-for a full-scale city).
-
-**Asset set (`config/asset_sets/urban_quake.yaml`):** which kit styles the
-packer may place, per pool (`intact`, `midrise`, `tower`). Adding a style =
-add its `bld_<style>_DG0.usd` here and bake it (`bake_quake_by_style.sh
-<style>`).
-
-**Per-building (`disaster/quake_flow.py`):**
-
-| table / constant | does |
-|---|---|
-| `LADDER[type][grade]` | the recipe list per construction type and grade — the vocabulary |
-| `FOUNDATION` | the three foundation levels' recipes |
-| `level_for_intensity` cuts | the grade mix at a given intensity (per type) |
-| `FAMILY_TYPE` | kit family -> `urm` / `rc` / `rc_glass` |
-| `SLAB_T`, `WALL_INSET`, `COLUMN_W`, `FURNITURE`, `FURNITURE_PER_100M2` | the fit-out |
-| recipe kwargs (`frac`, `sides`, `storeys`, `from_storey`, `tilt_deg`, `sink_m`, `angle_deg`, …) | per-recipe strength; every recipe takes its numbers as kwargs so a ladder entry can dial it |
-| `_heap` args (`spread_frac`, `depth_m`), `RAFT_T`, `ROOF_T`, `HEAP_MIX`, `A_DEBRIS` | rubble geometry and its material mix per construction type |
-| `EDGE_CELL_M` 0.32, `EDGE_MAX` 16, `REFINE_MAX` 12, `CHEW_OUT` 0.20, `CHEW_IN` 0.14, `CRACK_FRAC` 0.16, `GAP_*`, `ROUGH_M`, `STEP_H`/`STEP_V` | the two-scale break line: cell size along the break, refinement, chewed edges, radiating cracks, masonry course toothing |
-| `B_ROOF_PLANT_BURIED` 0.55, `SCARS_MAX_PROJ`, `r_facade_scars(patches, cracks, crack_p, crumb_p)` | roof plant on total collapse; scar counts |
-| `C_TILT_PIVOT_FRAC` 0.35, `C_DROP_REF` 1.8, `C_RISE_REF` 0.9, `C_CREST_M`, `C_REACH_M`, `C_GAP_W`/`C_GAP_D`, `C_BOIL_DROP`, `C_FISSURE_M`, `_C_TEX` | the ground response: pivot, crest and reach vs sink, gap size, boil threshold, ground looks |
-| `r_lean_on(max_deg, crush_m, sink_frac, crush_storeys, band_storeys)`, `r_collapse_onto(storeys, spill_frac)`, `r_pounding(p_break, corner_m)`, `D_LEAN_MIN_INTENSITY` | pair recipes |
-| `MONO_RUIN_MIN_H` 35, `MONO_HEAVY_DEG/SINK`, `MONO_MILD_P/DEG/SINK` (quake.py) | what a monolith may do |
-| `T_SOLID_M` (urm wall 0.38, parapet 0.25, rc wall 0.20), `T_GLASS_M` 0.010 | round 3: solidified thickness per type/role |
-| `P_BOND` / `P_STYLE_BOND` (course / stretcher / wythe per style), `P_ROUGH_M` 0.003, `BRICK_BLOCKY` 1.5, `BRICK_NMAX` 2.4, `PRISM_AR_MAX` 2.2, `SLIVER_MAX_DROP` 0.40 | round 3: the brick lattice and prism seeding |
-| `G_GRADE`, `G_GLASS_KIND`, `G_SHOP_GRADE`, `_G_PEEL_BUDGET`, `G2_WIN_GRADE`, `G2_SASH_SHARE`, `G2_LEAN/BULGE`, `G2_FLOOR_BAND`, `G2_REMNANT_P/M`, `_G_CW_FACES` / `_G_SHOP_FACES` / `_G2_WIN_FACES` (measured pane tables) | round 3: glass per grade, per glass type; which faces are glazed |
-| `GLASS_ROUGHNESS` 0.22 (`detail/urban_building.py`) | the kit's mirror curtain wall softened |
-| `materials()` colours | the dusty palette |
-
-**Scene (`disaster/quake.py`):** `_soft_soil` (reads `disaster.soft_soil`),
-the OV gate (`slender > 1.5`, `inten > 0.4`, not a tower, `H <= 36`, clear
-fall), `_blocked` sweep, `ground_effects` (reads `disaster.dust`; fissure count
-2-4 per patch, boil count from patch area).
-
-## Reading a run
-
-The city banner prints the grade tally, the soft-soil patch and its
-SETTLE/TILT/OV counts, the ground pass counts and `TIMING`. A scene that
-prints DG5 > ~25 % of buildings has too large a core for its plate; one that
-prints `SETTLE 0, TILT 0` has its patch on the collapsed side of town.
-
-# Known gaps
-
-Round 2 (2026-08-27), still open:
-
-* (was wrongly written up as "zero-thickness quads fail to fracture") The 169
-  `[fracture] EMPTY` modules in `commercial`'s round-2 bake all carry
-  `first: ValueError: No available triangulation engine!` — trimesh's cap
-  triangulation (`mapbox_earcut`) was not importable in THAT process: a fresh
-  container, two bakes starting together, both racing `fracture.ensure_deps`'
-  pip install. The pieces themselves are ordinary open-shell kit panels
-  (4 triangles, 4 x 0.7 x 3 m) and a 454-face cornice, and they fracture fine
-  once the engine imports. Symptom to recognise: every EMPTY line in a log
-  with the same `first:`; cure: re-bake that style (`ensure_deps` now checks
-  the engine and serialises the install).
-* In a LIVE city pair only the leaner is rebuilt from the kit; the neighbour
-  stays a reference, so its contact damage is authored bands, not fracture
-  ("0 module(s) crushed on the neighbour" in the banner is expected).
-* `r_collapse_onto` lands little of the thrown mass on the neighbour's roof.
-* `urban_quake_v2`'s standalone monoliths and ruin towers render untextured.
-* Pounding scars need a gap under `QUAKE_POUND_GAP` (1.5 m); the packer's
-  `building_gap_m` 2.0 gives a closest pair of ~2-2.4 m, so cities print
-  "0 pounding scar(s)" unless the preset goes lower.
-* The downtown-quake path is NOT wired into the drone launcher
-  (`scene_api.build_scene` is the suburb builder and the launcher's banner /
-  annotations read suburb-only stats); `downtown_quake_launch_script.py` is
-  the looking launcher.
-
-- **Lateral spreading** (whole rafts of buildings translated 5-50 m over a
-  torn road) is not built; fissures and boils on the soft-soil patch stand
-  in for it.
-- **Chimneys and gables** — the kits have neither; the suburb kit does.
-- **Stair flights, standing water, crushed cars** — not built.
-- **Repeated styles repeat their wreckage.** One bake per (style, level);
-  `ARCH_VARIANTS=2` on the bake launcher and `quake._variants` already
-  support `_vN` suffixes, so this is a bake-time cost, not code.
-- **Overturning is rare by design** (one per scene, slender, clear fall,
-  never a tower); a seed can draw none. Force one with a preset `soft_soil`
-  centred on a slender block if a scene needs it.
-- **The drone launcher** (`example_multi_drone_scene_import.py`) only knows
-  the suburb `scene_api.build_scene` path; the downtown quake plat is a
-  looking-launcher scene until that is wired.
+* a mullion frame hovering off the tower glass at the epicentre camera
+  (`final_r3/c0_ne_obl.png`) — G's one-per-scene peel or a remnant; check;
+* punched-window interiors (G2's pale floor band + head remnant) read a
+  little cartoonish from 40 m; DG1-DG2 glass is sub-pixel from the air
+  (correct per the record, unsatisfying);
+* the 8.2 m curved corner bay of family 02 (`SM_MBuilding02_FirstFloor_A`)
+  has no glazing entry — a curved-face pass is needed, not another rectangle;
+* `dw_terrace`'s `storefront_a_3_5m` disagrees with `ub.PIECES` by 1.5 m
+  (pre-existing, flagged, not fixed);
+* timber deck plates on the DG5 crown (`plank` mode is exempt from the
+  round-3 seeding); `_shard_field` at agent D's two call sites is round-2
+  code; no cars / cordon under glass fall zones;
+* `bld_apartment_tall_DG5` is 34 MB (1.4 M points; levers `EQ_SOLID_N`,
+  `BRICK_BLOCKY`); the live pairs are 62 % of the city load — bake pairs as
+  archetypes-of-two;
+* in a LIVE pair only the leaner is rebuilt from the kit; the neighbour stays a
+  reference and gets authored bands, not fracture; `r_collapse_onto` lands
+  little of the thrown mass on the neighbour's roof;
+* pounding scars need a gap under `QUAKE_POUND_GAP` (1.5 m); the packer's
+  `building_gap_m` 2.0 gives ~2-2.4 m, so cities print "0 pounding scar(s)";
+* `urban_quake_v2`'s `standalone/intact` monoliths and the ruin towers render
+  untextured (their materials do not resolve in Isaac) — opt-in only;
+* the downtown-quake path is NOT wired into the drone launcher
+  (`scene_api.build_scene` is the suburb builder; the launcher's banner and
+  annotations read suburb-only stats) — `downtown_quake_launch_script.py` is
+  the looking launcher;
+* lateral spreading, chimneys / gables (the kit has none), stair flights,
+  standing water, crushed cars — not built; overturning is rare by design
+  (one per scene, slender, clear fall, never a tower); `ARCH_VARIANTS=2`
+  is supported but not baked.

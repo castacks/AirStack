@@ -1,76 +1,167 @@
-# 500 x 500 m LOCAL cut of `suburb_wildfire`. Same fire, same seed, a plat
-# small enough to build and fly on ONE 16 GB card.
+# TORNADO, SUBURBAN, LEVEL 1 of the frozen dataset.
 #
-# WHY THIS EXISTS: the 1600 x 1200 plat put an RTX 5070 Ti (and a single-GPU
-# OSMO pod) into driver-level `NV_ERR_NO_MEMORY` — Isaac alone is ~10 GB before
-# rayfronts' encoder and the CoNavGPT assigner ask for theirs, and PX4 never
-# reached MAVROS as a result. 500 m is ~10x less fabric and still well clear of
-# `suburb_net`'s 250 m floor, below which the street hierarchy yields no houses
-# at all.
+# EF1-2. A narrow track: covering off, soffits out, a garage door in.
+# `roof_stripped` / `roof_collapsed` dominate and `swept` should not appear
+# at all — at this width and peak the core never reaches the top of the
+# ladder, which is the point of a level 1.
 #
-# A COPY, NOT AN INHERIT. Presets have no inheritance here (see the note at the
-# top of suburb_wildfire.yaml, which says the same about suburb_net.yaml), so
-# when you retune the parent, copy the `overrides:` block across. The ONLY
-# deliberate differences are region_m and epicenter.
+# A LEVEL IS A DIFFERENT LAYOUT AND A DIFFERENT TRACK, not the same
+# plat hit harder — three intensities of one plat would score as three
+# views of one scene. Seed 13, ignition [-350, 380] heading 320.
 #
-# The epicenter is scaled to keep the front in the same relative place: it sat
-# at (-0.25, -0.25) of the plat on 1600 x 1200, so it sits at (-125, -125) here.
-#     SCENE_CONFIG=suburb_wildfire_500
+#     SCENE_CONFIG=suburb_tornado_1000_l1
 #
-# HIGH-LEVEL scene spec — the graph-based suburb, on fire.
+# 1000 x 1000 m cut of `suburb_tornado`. Same track, same seed, same overrides.
 #
-# `suburb_net.yaml` with a wildfire on it, and NOTHING ELSE CHANGED. The whole
-# layout block below is a verbatim copy, so the two scenes are the same suburb
-# from the same seed and the only difference you are looking at is the fire.
-# Edit the layout in `suburb_net.yaml` and copy the `overrides:` block across —
-# presets have no inheritance, which is the price of that guarantee.
+# A COPY, NOT AN INHERIT — presets have no inheritance here, so when you retune
+# the parent, copy its `overrides:` block across. The ONLY deliberate
+# differences from `suburb_tornado.yaml` are the ones that scale with the
+# region; diff the two and you should see exactly these:
 #
-# FIRE ONLY, DELIBERATELY. Nothing is scorched, collapsed or displaced:
-# `compile_wildfire` zeroes every structural knob so the fire itself can be
-# judged first. Damage comes later, on the same ellipse.
+#     region_m           [500, 500]  ->  [1000, 1000]
+#     epicenter          [-90, -150] ->  [-180, -300]
 #
-# View it with:
-#     SCENE_CONFIG=suburb_wildfire \
-#     ISAAC_SIM_SCRIPT_NAME=suburb_preview_launch_script.py \
+# The epicenter is scaled by the same factor as the plate so the track enters
+# at the same relative point and crosses the same proportion of the fabric.
+#
+# `width_m` IS IN METRES AND IS NOT SCALED, which is the whole argument
+# `build-tornado-scenes` makes about it: a tornado path is a physical width, so
+# a 1 km plate should show a NARROWER path through MORE houses than a 500 m one
+# — not the same picture at a different zoom. The compiler caps it at 32% of
+# the plate, which at 1 km is 320 m and well above anything this preset asks
+# for.
+#
+# CHECK IT HOST-SIDE BEFORE BUILDING:
+#     python3 scene_gen/tools/tornado_png.py --config suburb_tornado_1000
+# A run that does not print "OK  gradient and coverage both in band" is not
+# worth the container launch.
+#
+#     SCENE_CONFIG=suburb_tornado_1000
+#
+# HIGH-LEVEL scene spec — a 500 x 500 m block of suburb with a tornado track
+# cut across it.
+#
+# THE COMPANION TO `suburb_wildfire`, AND THE CONTRAST IS THE POINT. Both are
+# the same graph-based suburb from the same generator; what a capture has to
+# learn to tell apart is the DAMAGE SIGNATURE, and these two are as far apart
+# as two structural-damage events get:
+#
+#            wildfire                       tornado
+#   shape    a lobe growing from an         a CORRIDOR — total destruction on
+#            ignition point; radial         a centreline, near-nothing a
+#            gradient, conic edge           hundred metres either side
+#   colour   dark. char, soot, ash,         PALE. bare sawn timber, and brown
+#            blackened ground               scoured soil where the turf was
+#   debris   collapses into its own         BLOWN. everything downtrack of
+#            footprint; gravity is the      where it started, fanning as it
+#            only vector                    goes
+#   trees    STANDING black poles,          DOWN, with their leaves still on.
+#            crowns consumed                root plates in the air
+#   ground   burn scar                      mud, darkest on the centreline
+#
+# Getting the colour backwards is the single most visible way to build the
+# wrong scene, and it follows from the mechanism: fire consumes and blackens,
+# wind breaks and exposes the pale inside of everything it breaks.
+#
+# 500 x 500 m rather than the wildfire plat's 1600 x 1200. A tornado track is
+# a physical width — a few hundred metres — so a scene has to be small enough
+# that the corridor AND the intact fabric on both sides of it are in one
+# frame. On the full plat a 160 m path is a thread; here it is a third of the
+# picture, which is what `tornado.jpeg` in the repo root looks like.
+#
+# THE LAYOUT BLOCK BELOW IS `suburb_wildfire`'s, with the plate size and the
+# knobs that scale with it changed and nothing else — presets have no
+# inheritance, which is the price of the two scenes being the same suburb.
+# What changed and why:
+#
+#   region_m               1600 x 1200 -> 500 x 500
+#   collectors             3 -> 2        (a 500 m plate has room for two)
+#   block_area_target_m2   40000 -> 26000  ) denser fabric, so the corridor
+#   lot_width_m            [30,44] -> [26,38]  ) crosses ~35-40 houses rather
+#                                          ) than a dozen
+#   min_gap_m              88 -> 78
+#   neighbourhood_m        400 -> 180    (a district is 2-3 blocks; at 400 the
+#                                         whole plate is one district)
+#   grain_period_m         620 -> 320    (the plat grain has to turn over
+#                                         inside the plate to be visible)
+#   z_scale                0.15 -> 0.16  (road paint height, by view distance)
+#   max_cars               700 -> 220
+#   people                 REMOVED       (survivors are a later pass; nothing
+#                                         in this scene places them)
+#
+# BUILD IT IN TWO STEPS — the archetype bake, then the assembly. The whole
+# scene is referenced geometry; nothing is fractured or settled at assembly
+# time. See `.agents/skills/build-tornado-scenes`.
+#
+#     ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado \
+#     ISAAC_SIM_SCRIPT_NAME=bake_tornado_archetypes_launch_script.py \
 #     airstack up isaac-sim
 #
-# Or check the plan on the host, no Isaac Sim needed:
-#     python3 tools/suburb_net_png.py --seed 3 --out _plans/suburb_net.png
+#     ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado \
+#     SCENE_CONFIG=suburb_tornado \
+#     ISAAC_SIM_SCRIPT_NAME=suburb_tornado_launch_script.py \
+#     airstack up isaac-sim
+#
+# Or check the track on the host, no Isaac Sim needed:
+#     python3 scene_gen/tools/tornado_png.py --config suburb_tornado
 
 locale: suburban
 
-disaster-type: wildfire
-# 0 is a fire creeping through the understory; 1 is a crown fire running the
-# length of the plat. Everything about the burn scales off this — see
-# `compile_wildfire` in compile_disaster.py.
-severity: 0.6
+disaster-type: tornado
+# 0 is an EF0 that takes shingles off; 1 is an EF5 that sweeps slabs. Width,
+# peak intensity, how far debris travels and how continuous the track is all
+# scale off this — see `compile_tornado` in compile_disaster.py.
+#
+# 0.82 is a strong EF3 / low EF4: the centreline is swept, the shoulders keep
+# standing walls, and the path edge is roofs with their covering gone. That
+# spread is the whole reason to build the scene — a uniform EF5 corridor is
+# one damage class repeated, and there is nothing to learn from it.
+severity: 0.55
 
-# Where it was set. Upwind of centre rather than in the far corner: the plat's
-# planting is even, so a corner ignition spends most of the run crossing the
-# thin edge. From here the front is into dense fabric almost immediately and
-# still leaves a clear unburnt half to fly toward.
-epicenter: [-125, -125]
-# Which way the wind pushes it. 45 deg = toward +x +y, i.e. up the diagonal.
-heading_deg: 45
+# A POINT ON THE CENTRELINE, not an ignition point. The track is a line
+# through here at `heading_deg`, so it runs off both ends of the plate — which
+# is correct and is what a track does. Offset toward the south-west corner so
+# the corridor crosses the fabric diagonally rather than running along one
+# edge; a track through the exact centre at 45 degrees is symmetrical, and
+# symmetry is the tell for an authored scene.
+epicenter: [-350, 380]
+# Direction of travel, deg, 0 = +X / East. 38 puts it toward the north-east,
+# across the plat grain rather than along it, so it cuts streets instead of
+# following one.
+heading_deg: 320
+
 # suburban for the houses and street furniture, park.yaml for the recreation
 # pools; suburban_park joins the two (see its `extends` note).
 asset-set: suburban_park
 
-# 1600 x 1200 m is one plat's worth of fabric: enough for three collectors and
-# a proper cul-de-sac population, and it measures in band on every seed.
-region_m: [500, 500]
-# SEED 10, CHOSEN FOR WHERE THE ROW HOMES LAND. Row districts are a draw and
-# the fire is an ellipse from a fixed epicenter, so whether the two coincide
-# is a property of the seed rather than of either feature. Swept 1-24 at
-# `row_share: 0.225`: seed 3 (the previous value) put ZERO of its 8 courts
-# inside the burn, which is why a burnt row home was never findable. Seed 10
-# puts 12 of 16 courts in the black at 556 houses, with row units about a
-# quarter of dwellings — enough to be a fabric without the plat ceasing to be
-# detached suburbia (seed 5 maximises burnt courts at 20, but 63% of its
-# houses are row units, which is a different kind of place).
-seed: 10
+region_m: [1000, 1000]
+
+# Seed 10 for the same reason `suburb_wildfire` uses it — it is the seed whose
+# row-home courts land where the damage is. Re-sweep it if the track moves.
+seed: 13
 
 overrides:
+  # ---- THE TRACK ----------------------------------------------------------
+  # `compile_tornado` derives all of this from `severity` and the plate size;
+  # anything set here overrides it. These are the knobs worth reaching for
+  # first, with what they are measured against.
+  disaster:
+    tornado:
+      # Tip to tip, in METRES. Capped by the compiler at 32% of the plate, so
+      # on this 500 m square anything over 160 loses the intact fabric that
+      # makes the corridor read as a corridor.
+      width_m: 95.0
+      # Fraction of the half-width at full intensity before the falloff. Low
+      # gives a ridge, high gives a top-hat with a hard edge; the shoulders
+      # are where the interesting damage classes live, so keep it under a
+      # third.
+      core_frac: 0.18
+      # How far debris travels at full intensity, and how fast the settle
+      # throws the structural fragments. `throw_m` is the plank field (which
+      # is authored, so it is free); `throw_speed_mps` is PhysX, and every
+      # metre of it costs settle steps.
+      throw_m: 34.0
+      throw_speed_mps: 9.0
   # ROAD + DRIVEWAY MATERIALS, matched to the 250 m mini: the local megascans
   # asphalt swatch (mixed 50/50 with shared.yaml's ModularNeighborhood road
   # tile), and a brick/asphalt driveway mix (`driveway` stays the shared brick).
@@ -88,7 +179,7 @@ overrides:
     # which puts markings the full ~14 cm above the road — sub-pixel from
     # capture altitude but visibly FLOATING at a closer look. Pin it to the
     # 250 m mini's effective value (~2 cm gap), the range this is viewed at.
-    z_scale: 0.15
+    z_scale: 0.16
   # UN-INSTANCE FENCES so the wildfire pass can scorch and consume them (USD
   # forbids authoring inside an instance). Same list the mini uses; metal
   # street furniture stays instanced. `tree` is out too but harmless — the
@@ -96,7 +187,7 @@ overrides:
   instance_categories: ["plant", "sidewalk", "streetlight",
                         "fire_hydrant", "sign", "crosswalk"]
   layout:
-    region_m: [500, 500]
+    region_m: [1000, 1000]
 
   # ---- street network (suburb_net.py) ----------------------------------------
   # Every knob here has a default in suburb_net.DEFAULTS; only the ones worth
@@ -106,16 +197,16 @@ overrides:
     # control on the fabric: raising it trades street density for block size,
     # and the two cannot both be pushed at once. 40k m2 is where all four
     # measured morphology stats sit in band on 8/8 seeds.
-    block_area_target_m2: 40000.0
-    block_area_min_m2: 7000.0
+    block_area_target_m2: 19000.0
+    block_area_min_m2: 5000.0
 
     # Curvilinear routes crossing the interior. These are the spine the whole
     # fabric hangs off, so three is a floor rather than a target.
-    collectors: 3
+    collectors: 2
     collector_wander: 0.28
 
     # Centreline to centreline. Two lot depths back to back plus the road.
-    min_gap_m: 88.0
+    min_gap_m: 64.0
 
     # Real plats meet at 70-110 degrees, not exactly 90; the swing is also what
     # keeps the curve between two junctions inside its 30 m minimum radius.
@@ -142,7 +233,7 @@ overrides:
     # American.
     grain_weight: 2.6
     grain_swirl_deg: 34.0
-    grain_period_m: 620.0
+    grain_period_m: 320.0
 
   # ---- the park (suburb_park.py) ---------------------------------------------
   # ONLY THE REFUGE LOT IS SURFACED HERE. Every other park dimension is a
@@ -205,7 +296,7 @@ overrides:
     # fit but the street reads as a terrace. 26-38 m gives the widest style
     # 6-18 m of side yard and still keeps the tight density class at a real
     # post-war 20 m frontage.
-    lot_width_m: [30.0, 44.0]
+    lot_width_m: [22.0, 32.0]
     # SIDE YARD between neighbours. 4 m put a 20 m house 2 m off the next one;
     # 6 m is a real gap without thinning the street much (702 houses vs 865).
     # DISTRICTS. Density was one independent draw per BLOCK, so a tight block
@@ -219,13 +310,13 @@ overrides:
     #   300 m                   61.8%
     #   400 m                   67.6%
     # 400 m is ~2-3 blocks across, which is a plat phase.
-    neighbourhood_m: 400.0
+    neighbourhood_m: 180.0
     # Shifted off the DENSITY defaults toward the roomier classes, which is what
     # buys the spacing. With the district `size` bias this yields a real
     # gradient rather than four differently-sized lot maps carrying the same
     # houses — mean footprint by district: tight 160, normal 229, loose 272,
     # estate 304 m2, and the share of the largest styles goes 10% -> 55%.
-    density_mix: {tight: 0.15, normal: 0.36, loose: 0.34, estate: 0.15}
+    density_mix: {tight: 0.34, normal: 0.40, loose: 0.20, estate: 0.06}
     # Zoning ordinances put the front setback at 20-30 ft almost everywhere.
     setback_m: [6.5, 11.0]
     # ---- ROW HOMES: attached rows around a shared parking court ------------
@@ -330,7 +421,7 @@ overrides:
     # It is also the side yard the FIT CHECK uses -- `house_sizes` admits an
     # entry only if it clears half of this -- so raising it narrows the
     # reachable catalogue, and the widest entries go first.
-    house_gap_m: 6.0
+    house_gap_m: 4.5
     min_lot_depth_m: 21.0
     # ---- SKEWED BLOCK CORNERS: WHERE A LOT IS NOT PLATTED AT ALL -----------
     # `suburb_net.junction_skew_deg` above lets two streets meet up to 38
@@ -474,7 +565,7 @@ overrides:
     # so a 0.2-opacity windscreen renders SOLID and hides anyone inside. Only
     # the `glass_separable` assets have anything to strip.
     strip_glass: true
-    max_cars: 700                # un-instanced geometry; this is the ceiling
+    max_cars: 220                # un-instanced geometry; this is the ceiling
 
   # ---- SURVIVORS  (disaster/people.py) ---------------------------------------
   # WHERE PEOPLE ACTUALLY ARE IN A WILDFIRE EVACUATION, not where they would be
@@ -491,89 +582,3 @@ overrides:
   # A MODEL TRAINED ON A UNIFORM SCATTER LEARNS THAT A PERSON IS EQUALLY LIKELY
   # ANYWHERE, which is the one thing every after-action report contradicts. The
   # shares are the point of this block; `total` is only how many.
-  people:
-    # RAISED FROM 60. The three scenarios that occupy LARGE OPEN GROUND — a
-    # refuge lot, a cul-de-sac turnaround, a jammed carriageway — were coming
-    # out with one or two figures apiece, which is not what any of those
-    # places looks like: they are where people COLLECT, and a 72-bay lot with
-    # three people on it reads as empty. The extra head count goes almost
-    # entirely to those three; pools and front yards are small by nature and
-    # keep roughly what they had.
-    total: 95
-    # NOBODY OUTSIDE THE BURN. The seconds of fire a person's own ground has
-    # seen (`age(x, y)`, negative where the front never reached) that a
-    # placement must have. 0.0 = on burnt ground; `null` turns the gate off.
-    # Requested in those words: *I don't want people who are not in the fire
-    # damaged area.* IT IS A FILTER — nothing retries and nothing moves, so the
-    # head count drops and `plan_people` prints an `unburnt:<scenario>` count
-    # for every refusal. On this scene it costs the refuge lots that are only
-    # the LEAST-unburnt of the three, the outbound half of each gridlock queue,
-    # and most of `at_home` (whose band deliberately straddles the front).
-    # Measured 2026-08-28, layout seeds 23 / 10: 95 -> 69 and 86 -> 80 people,
-    # 26 and 6 of them on `age < 0`, both now 0. See `people.DEFAULTS`.
-    min_burn_age_s: 0.0
-    seed: 91
-    # EVERY PERSON IS ALIVE, and that is a dataset decision rather than an
-    # oversight. This set is about FINDING LIVE PEOPLE; a prone body is a
-    # different labelling problem with a different confuser (debris, clothing,
-    # shadow). The knob reuses `scene_generator`'s prone-casualty geometry, so
-    # the other dataset is this one line.
-    casualty_share: 0.0
-    # Shoulder-to-shoulder. Below ~0.9 m two figures interpenetrate.
-    min_separation_m: 1.2
-    scenarios:
-      # 14 of 30 Camp Fire TRAs. `suburb_park` sites the lot and publishes its
-      # bays; the preset's `suburb_park.parking_m` above is what sets how many
-      # people the shot can hold. Whether the lot is INSIDE the burn depends on
-      # where the plat put the park relative to the epicenter — the planner
-      # prints the lot's burn age every run, and both cases are real (a TRA on
-      # unburnt asphalt beside the fire is exactly what a TRA is).
-      # `lots_used`: the crowd is SPREAD over the three lots deepest in the
-      # burn rather than piled onto one. With row homes on the plat most of
-      # those lots are cluster courts, which is the better refuge of the two
-      # kinds — a court sits inside the burning fabric, the park's lot sits in
-      # open ground.
-      parking_refuge: {share: 0.30, groups: [2, 3], lots_used: 3,
-                       in_car_share: 0.35,
-                       cars: [2, 5], police: true,
-                       cluster_r_m: [2.0, 9.0]}
-      # 3 of 30, and the smallest share for the right reason: open ground is
-      # what people fall back to when there is no lot. 15 m of clearance from
-      # any structure or tree IS the scenario — a group of eight on a lawn 4 m
-      # from a hedge is a garden party, not a refuge.
-      open_ground: {share: 0.14, groups: [2, 3], group_size: [3, 8],
-                    clear_m: 15.0, cluster_r_m: [2.0, 8.0]}
-      # The suburban seawall. Pools are `damage.INCOMBUSTIBLE`, so they come
-      # through the fire intact and are among the highest-contrast features
-      # left in the black; the planner prefers pools behind houses that BURNED,
-      # so the scene reads as shelter rather than as a swim.
-      pools: {share: 0.07, pools: [2, 3], per_pool: [1, 3]}
-      # 7 of 30 TRAs were roadways, and this is the densest single scene in the
-      # event: a queue stopped behind a blockage, its head 3-6 m short of a
-      # fallen tree or a downed pole, people in and beside the cars and more
-      # walking out past it. The cars are handed to the assembly BEFORE the
-      # scorch pass so they char like every other car on the plat.
-      # `fire_chance` is per BLOCKAGE, not per scene: a tree that came down
-      # an hour ahead of the front never caught, one the front reached is
-      # still alight, and the two look nothing alike from the air. At 0.6 with
-      # 2-3 queues a typical build gets a burning blockage and a cold one,
-      # which is the pair worth having in one frame. The planner only sets
-      # `spec["fire"]`; the assembly launcher owns the Flow emitters.
-      gridlock: {share: 0.28, queues: [2, 3], in_car_share: 0.40, cars: [6, 12], gap_m: 1.5,
-                 blocker_gap_m: [9.0, 15.0], walk_ahead_m: [20.0, 120.0],
-                 rv_chance: 0.5, fire_chance: 0.6}
-      # The stay-or-go case, and it belongs at the burn EDGE: a front yard deep
-      # in the black is one whose house burned an hour ago.
-      # THE DEAD-END TRAP, and it only exists because cul-de-sacs are back
-      # on in `suburb_net`. One way in, a 14.6 m turnaround at the end of it:
-      # a household that met a blocked stem has nowhere to go but round the
-      # bulb, which is why its cars sit at angles rather than in a queue.
-      # Lahaina has the case on record. It is also the one place a drone finds
-      # a tight cluster of cars and people that is NOT a car park.
-      cul_de_sac: {share: 0.16, cars: [3, 5], bulbs: [2, 3]}
-      # `houses` LOWERED FROM [3, 6]: with a share of 0.08 that split five
-      # people across five houses, i.e. ONE lone figure per front yard, and a
-      # single 1.7 m person beside a car is the least findable thing on the
-      # plat. Two or three houses puts 2-3 people in a yard, which reads as a
-      # household rather than as a stray pedestrian.
-      at_home: {share: 0.05, houses: [2, 3]}

@@ -720,6 +720,228 @@ def _reseat_roots(bc, roots, rz, sink_tol=_SINK_TOL_M, air_tol=_AIR_TOL_M,
     return out
 
 
+def world_point_bounds(prim, xcache):
+    """TIGHT world AABB of a mesh, computed from its POINTS.
+
+    **`UsdGeom.BBoxCache` IS NOT USABLE FOR SEATING, AND THIS IS THE SINGLE
+    MOST EXPENSIVE THING IN THIS FILE TO NOT KNOW.** It returns the AABB of an
+    AABB: it takes the prim's LOCAL extent box, transforms its eight corners,
+    and re-axis-aligns. For a piece whose geometry is a thin sliver lying
+    DIAGONALLY inside its local box — which is most Voronoi debris — that
+    inflates enormously, and it inflates DOWNWARD as much as upward.
+
+    Measured on `tree_Black_Oak_snag/log_017` in a built scene::
+
+        local points fill  x +-0.471  y +-0.284  z +-0.240  (extent exact)
+        world z from POINTS      0.4208 .. 0.5649   span 0.144
+        world z from BBoxCache   0.0000 .. 0.9857   span 0.986
+
+    The piece hangs 42 cm in the air and its bbox bottom reads 0.000. So every
+    pass that seats or audits through `BBoxCache` — `_reseat_roots`,
+    `audit_archetype`, `_seat_plan`, `vegetation.wood_debris`' own
+    `piece.bounds[0][2] = ground_z - 0.001` — calls it grounded, and a whole
+    library audits clean while the scene is full of floating debris.
+
+    Reading points is more expensive. It is also the only number that is true.
+    """
+    from pxr import Gf, UsdGeom
+
+    mesh = UsdGeom.Mesh(prim)
+    pts = mesh.GetPointsAttr().Get() if mesh else None
+    if not pts:
+        return None
+    m = xcache.GetLocalToWorldTransform(prim)
+    lo = [1e30, 1e30, 1e30]
+    hi = [-1e30, -1e30, -1e30]
+    for q in pts:
+        w = m.Transform(Gf.Vec3d(float(q[0]), float(q[1]), float(q[2])))
+        for k in range(3):
+            v = float(w[k])
+            if v < lo[k]:
+                lo[k] = v
+            if v > hi[k]:
+                hi[k] = v
+    return lo, hi
+
+
+def _shift_z(prim, dz):
+    """Move *prim* by *dz* in WORLD z, whatever transform it already carries.
+
+    **DO NOT APPEND A TRANSLATE OP.** These fragments carry an
+    `xformOp:transform` WITH SCALE, and an appended translate composes INSIDE
+    it — measured on `house_l_family_partial_collapse`: an authored -1.579 m
+    moved the piece -1.279 m, exactly `dz * 0.8098`, its own z scale; a second
+    fragment with a 0.3616 z scale moved -0.327 m against an authored -0.904.
+    A repair that silently applies a fraction of what it computed is worse than
+    none, because the audit after it reports a smaller number and looks like
+    progress.
+
+    The matrix's translation is applied after the linear part, so adding `dz`
+    to it is exactly `dz` in the parent frame — and `/Baked` is identity, so
+    the parent frame is world. A prim with no ops at all gets a plain
+    translate, which for that case is unambiguous.
+
+    The `extent` hint is updated with it. Nothing here reads it (every cache is
+    built `useExtentsHint=False`), but a stale hint hands a consumer that DOES
+    trust it the pre-repair box.
+    """
+    from pxr import Gf, UsdGeom
+
+    xf = UsdGeom.Xformable(prim)
+    ops = xf.GetOrderedXformOps()
+    hit = False
+    for o in ops:
+        if o.GetOpType() == UsdGeom.XformOp.TypeTransform:
+            m = Gf.Matrix4d(o.Get())
+            t = m.ExtractTranslation()
+            m.SetTranslateOnly(Gf.Vec3d(t[0], t[1], t[2] + dz))
+            o.Set(m)
+            hit = True
+            break
+    if not hit:
+        for o in ops:
+            if o.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+                v = o.Get()
+                o.Set(type(v)(v[0], v[1], v[2] + dz))
+                hit = True
+                break
+    if not hit:
+        xf.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble,
+                          "reseat").Set(Gf.Vec3d(0.0, 0.0, dz))
+    ext = prim.GetAttribute("extent")
+    if ext and ext.HasAuthoredValue():
+        v = ext.Get()
+        if v:
+            ext.Set([Gf.Vec3f(v[0][0], v[0][1], v[0][2] + dz),
+                     Gf.Vec3f(v[1][0], v[1][1], v[1][2] + dz)])
+    return hit
+
+
+def reseat_meshes_in_file(path, grade=0.0, air_tol=_AIR_TOL_M, min_ovl=0.20,
+                          names=("log_", "debris", "frag_", "brk_", "bole_"),
+                          ground_only=("bole_",),
+                          dry_run=False, verbose=True):
+    """Lower genuinely airborne DEBRIS MESHES in an already-baked archetype.
+
+    WHY THIS EXISTS SEPARATELY FROM `_reseat_roots`, which already runs at bake
+    time and is supposed to prevent exactly this. The two disagree on
+    GRANULARITY, and the disagreement is the bug:
+
+      * `_reseat_roots` compares ROOT boxes. A root that holds several meshes
+        is measured by its COMBINED bbox, so a module spanning 0 to 3 m
+        "supports" anything whose underside falls in that span — even when no
+        actual surface is under the piece. A tall box is not a surface.
+      * `audit_archetype` compares MESH boxes and does find them. On the
+        2026-08-27 wildfire bake it reported "2 of 4691 meshes with nothing
+        under them (0.0%)" — the finding was there and the percentage rounded
+        it away.
+
+    Measured consequence on the 1 km plate: 18 fragments hanging at 2.15-3.08 m
+    across the scene, every one of them from `house_l_family_partial_collapse`
+    or `house_l_family_roof_collapsed`. Four discrete heights, because two
+    files are instanced many times — which is the signature of a defect in a
+    FILE rather than in a placement.
+
+    PURE GEOMETRY AND PURE `pxr`. No solver, no Kit, no SimulationApp — it
+    opens the archetype, measures, authors a translate on the offending mesh
+    and saves. So an existing library can be repaired in place instead of
+    re-baked, and the repair can be verified by re-running the same audit that
+    found the fault.
+
+    The support rule is `_reseat_roots`' v3 test, unchanged: a supporter's top
+    must land IN our vertical span (something that merely TOWERS PAST us might
+    be a wall we are wedged against, and the tie breaks toward dropping), and
+    the plan overlap must be a SEAT — `min_ovl` of the SMALLER of the two plan
+    areas, so a small stub can still hold up a large sheet.
+
+    Returns `[(prim path, dz), ...]`.
+    """
+    from pxr import Usd, UsdGeom
+
+    stage = Usd.Stage.Open(path)
+    if stage is None:
+        raise RuntimeError("cannot open " + path)
+    xc = UsdGeom.XformCache(Usd.TimeCode.Default())
+    root = stage.GetPrimAtPath("/Baked") or stage.GetPseudoRoot()
+    boxes = []
+    for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdGeom.Mesh):
+            continue
+        # POINTS, NOT `BBoxCache` — see `world_point_bounds`. Measuring this
+        # through the bbox cache is what let a library of floating debris audit
+        # as clean.
+        b = world_point_bounds(prim, xc)
+        if b is None:
+            continue
+        (mnx, mny, mnz), (mxx, mxy, mxz) = b
+        boxes.append([prim, mnx, mny, mnz, mxx, mxy, mxz])
+
+    # BOTTOM UP, and the boxes are mutated as pieces land, so a stack settles
+    # rather than every piece being dropped onto the original surface.
+    #
+    # `ground_only` PIECES GO FIRST, whatever their height. A felled bole is
+    # the heaviest thing in the archetype and it rests on the GROUND; the loose
+    # wood rests on IT. Ordering by z alone put the logs down first and then
+    # dropped a 7.8 m Black_Oak trunk onto the only thing under it — the
+    # 1.15 m `stump` — which is a support the test accepts and gravity does
+    # not: a trunk balanced across a stump top with its far end 2.3 m in the
+    # air slides off in reality. Seat it on grade and let the debris follow.
+    _first = tuple(k.lower() for k in (ground_only or ()))
+    boxes.sort(key=lambda b: (0 if any(k in b[0].GetName().lower()
+                                       for k in _first) else 1, b[3]))
+    moved = []
+    for i, b in enumerate(boxes):
+        prim, x0, y0, z0, x1, y1, z1 = b
+        nm = prim.GetName().lower()
+        if not any(k in nm for k in names):
+            continue                       # structure stays where it is
+        # `bole_*` IS LOOSE, and leaving it out of the family list cost a
+        # round. It is the felled trunk of a `*_fallen` tree — cut by
+        # `vegetation.topple` and settled by PhysX, so it is exactly the
+        # population a settle can freeze mid-flight. All twelve in the library
+        # were airborne, Black_Oak's `bole_00` by 2.07 m. It never showed in a
+        # name census because there are only two per archetype and the census
+        # was cut off at the commonest 25 names.
+        a_self = max(1e-6, (x1 - x0) * (y1 - y0))
+        support, held = grade, False
+        # A `ground_only` piece ignores every candidate support: it is defined
+        # to rest on the earth, not on whatever the settle happened to leave
+        # beneath it.
+        scan = () if any(k in nm for k in _first) else enumerate(boxes)
+        for j, q in scan:
+            if j == i:
+                continue
+            ox = min(q[4], x1) - max(q[1], x0)
+            oy = min(q[5], y1) - max(q[2], y0)
+            if ox <= 0.0 or oy <= 0.0:
+                continue
+            a_q = max(1e-6, (q[4] - q[1]) * (q[5] - q[2]))
+            if (ox * oy) / min(a_self, a_q) < min_ovl:
+                continue
+            if z0 - air_tol <= q[6] <= z1:
+                held = True
+                break
+            if q[6] <= z0 and q[6] > support:
+                support = q[6]
+        if held or (z0 - support) <= air_tol:
+            continue
+        dz = -(z0 - support)
+        moved.append((prim.GetPath().pathString, round(dz, 4)))
+        b[3] += dz
+        b[6] += dz
+        if dry_run:
+            continue
+        _shift_z(prim, dz)
+    if moved and not dry_run:
+        stage.GetRootLayer().Save()
+    if verbose:
+        print("[reseat] {0}: {1} mesh(es) lowered{2}".format(
+            os.path.basename(path), len(moved), " (dry run)" if dry_run else ""))
+        for pth, dz in moved:
+            print("           {0:<44} {1:+.3f} m".format(pth, dz))
+    return moved
+
+
 def _seat_plan(bc, roots, recenter=None, drop_to_ground=False,
                reseat=False, reseat_first=True, reseat_freeze=None):
     """Decide `(rz, {root path: dz})` — every Z correction one export makes.

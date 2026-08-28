@@ -326,6 +326,19 @@ def main():
     pads = sorted({round(z.get("pad_m", 0.0), 1) for z in park["zones"]})
     print(f"[park] padding breaches (band {pads} m off the path EDGE): {graze}"
           + ("  <-- BROKEN" if graze else "  OK"))
+    # AND THE SAME QUESTION FOR THE TREES, which the two above do not ask: they
+    # measure PATHS. A trunk keep-out passes at 4 m and still hangs a 12.71 m
+    # Black_Oak crown 8 m over the baseline, so the figure printed is the CROWN
+    # edge — trunk distance less the widest radius the pool can supply — and it
+    # is the only one here that has to be positive rather than zero.
+    tb, tcrown = pk.check_tree_clear(park)
+    ntree = s["props"].get("tree", 0)
+    print(f"[park] tree keep-out breaches: {tb}"
+          + ("  <-- BROKEN" if tb else "  OK")
+          + f"; {ntree} trees, nearest CROWN EDGE to a court "
+          + ("n/a" if tcrown is None else f"{tcrown:+.2f} m")
+          + ("" if tcrown is None
+             else ("  OK" if tcrown > 0 else "  <-- BROKEN")))
     # THE REFUGE LOT. `check`/`check_pad`/`check_reach` measure paths against
     # facilities and cover the lot for free, because it is a zone like any
     # other; what they do NOT measure is facility-on-facility overlap, which is

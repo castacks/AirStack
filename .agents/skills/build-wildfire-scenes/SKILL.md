@@ -804,6 +804,49 @@ looks like, and the generator's keep-outs are working exactly as written. Fix
 it by matching the pool to the clearance, not by widening the clearance until
 a park specimen fits.
 
+**A SUBURB FENCE IS DECIDED TWICE, AND THE FIRST ANSWER GOES STALE.** Every
+lot-line fence in `suburb_scene.build_placements` is laid against a ground that
+is still being built, and three separate defects have now come out of that one
+fact. A lot line is SHARED and drawn once, by whichever of the two lots the
+plat issued first, so any in-loop question about "is there already a fence
+here" is answered by a ring order rather than by the suburb. The three answers
+so far, all the same answer: the gate returns moved OUT of the house loop
+(`first_on` said "nothing there" for about half the lots when asked mid-plat);
+the all-or-nothing enclosure sweep is a second pass that ITERATES to a fixed
+point (stripping one lot's fence un-closes the neighbour whose side line it
+was — 5 rounds on seed 23); and now `_strip_redundant_runs`, which takes back
+the FRONT-CORNER FILL a lot laid in a strip that a lot reached LATER in the
+same returns pass then covered with its own return, one lot line away. Measured
+on seed 23: 6 such runs of 596, seed 10: 12 of 488, seeds 1/3/5/7: 15/15/10/13.
+`first_on` was told the truth at the moment it asked; it stopped being the
+truth eleven lots later.
+
+Two things worth keeping from that pass. **The removal pass is ONE pass and the
+sweep is ITERATIVE, and the asymmetry is the whole safety argument**: a strip
+here can only LOWER the "is this boundary covered without me" score of every
+run still to be judged, so the candidate set only ever shrinks and a single
+walk is a fixed point — whereas the sweep's deletions CREATE work, so it must
+iterate. Anything that deletes fence has to say which of the two it is. And
+**attribute a run to a boundary by PARALLELISM, never by proximity alone**: a
+gate return crosses its own side edge at the corner and so covers about a tenth
+of it, which makes proximity-only attribution offer a 10 m return or a 40 m rear
+run for deletion because a SIDE edge stays covered without it — true, and
+irrelevant. Measured on seed 23, 42 (lot, edge) pairs / 79 runs qualify on
+proximity against 6 with the parallel test.
+
+**A "fence on 2 sides that stops" is usually CORRECT and there is nothing to
+delete.** The reported case (`fence_2_1175`) reads as a lot whose fence gives up
+partway round, and the instinct is that the lot laid an orphan stub. Measured on
+seed 23 over the 23 lots showing that exact cover profile — one rear-yard edge
+at 0.15-0.45 own cover, the other two at 1.00, and all three at 1.00 from every
+fence on the ground — **all 23 lay NOTHING along the weak edge**. Their 0.2 of
+"own cover" is corner SPILL: `_edge_cover` credits any fence within 1.2 m, and
+this lot's own rear run and its own gate return each clip about a tenth of the
+side edge at the two corners. The side is the neighbour's fence, drawn once, as
+designed. So an own-cover statistic computed without attributing runs to
+boundaries will hand you a 45-strong "defect" population of which 6 are real —
+attribute first, then measure.
+
 **The container has `SCENE_CONFIG=downtown` in its environment**, which
 silently beats a launch script's own default. Symptom: a "250 x 250 m" scene
 generating 83 houses and 3,284 trees. The only tell is the
@@ -821,6 +864,230 @@ number is knowable in advance because it depends on where the generator put
 houses relative to the ignition point. DERIVE it: run the clock to the moment
 the last building is reached and scale the phase lengths to the spread of
 arrival times.
+
+**THE BLOCKAGE DEBRIS FLOATED THREE TIMES, AND EACH ROUND'S CHECK PASSED.**
+`people._blocker_debris` plans the litter that makes a road blockage read as
+impassable, and it is the most-reported defect in this pipeline. All three
+faults are different, and the third is invisible to any test that asserts on
+the planner's own output. Pinned now by
+`scene_gen/tests/test_blocker_debris.py` (2,432 pieces, 4 plate sizes, 16
+seeds, no Isaac).
+
+*1 — WRONG DATUM.* It lifted everything to a hard-coded `0.10` with the comment
+"the carriageway is at ~0.10": true on the 1600 m plat and on nothing else,
+because `apply_ground`'s z ladder SCALES WITH PLATE SPAN. The 1 km wildfire
+preset pins `roads.z_scale: 0.15`, so its asphalt is at 0.015 m and every piece
+stood 8.5 cm up. At this scene's 24-degree sun that is 19 cm of detached shadow
+per piece.
+
+*2 — WRONG SUPPORT.* The fix for (1) seated the third of limbs that "rest on
+the trunks" at their CENTRE on a log crown — so a 3 m stick had BOTH ends 0.8 m
+in the air, and because every propped piece was seated identically they lined
+up in a band at crown height, which reads worse than the scatter it replaced.
+Measured on the authored scene: 15 of 38 pieces a blockage, ends at
+0.62-1.01 m. **A spec-level check passed this**, because per-piece the limb
+genuinely was touching something. A limb across a log rests with ONE END on it
+and the other on the ground; the contact point is an END, not the middle.
+
+*3 — WRONG GEOMETRY, and this is the one to remember.* `vegetation.log_mesh`
+jitters every ring vertex radially by `rough` (+-17% of the radius) and only
+has a vertex at the exact bottom when `sides` puts one there. **So the lowest
+VERTEX is not at `z - r`** — measured spread 0.039 m on a real field, up to
+8 cm on a 0.48 m trunk section, always in the float direction. No amount of
+reasoning about radii fixes that, and no test on `{p0, p1, r0, r1}` can see it.
+`vegetation.log_points` is the barrel-vertex maths split out of `log_mesh` so
+that `people._seat_debris` can MEASURE each piece and drop it, and so the test
+can measure the same thing on the host.
+
+**AND THE PIECE MEASURED HAS TO BE THE PIECE BUILT.** `scene_api._tube`
+silently turned the caller's `sides` into `max(7, sides + 1)` AND seeded the
+jitter with `abs(hash(prim_path))` — which Python randomises per PROCESS unless
+`PYTHONHASHSEED` is pinned, so the mesh differed between two runs of the same
+seed. `vegetation.piece_seed` is shared by planner and author, and the side
+count now travels in the spec.
+
+**SEAT ON THE GROUND, NOT ON THE ROAD.** The litter scatters over `half_w`
+either side of the centreline and +-9 m along it, so most of it lands on the
+VERGE — and the ladder puts grass BELOW asphalt (`_Z_GRASS` 0.02 against
+`_Z_ASPHALT` 0.10, both scaled). Seating the field on the road datum leaves
+every verge piece proud; seating it on the grass buries the minority that are
+on the carriageway by 1.2 cm on this plate, about 2.5% of a trunk's diameter,
+which is invisible. The error must point that way: a piece slightly bedded into
+a surface is a pose the world produces and one hovering over it is not — the
+same tie-break `bake._reseat_roots` records.
+
+**`disaster/people.py` MAY NOT IMPORT `suburb_scene`.** Its contract is that it
+touches no stage and no `pxr`, which is what lets the whole survivor plan run
+and be asserted host-side; `suburb_scene` imports `pxr` at module scope. The
+first cut of `_road_z` imported `_Z_GRASS` from it and broke that for every
+caller. The constant is copied, and the test pins the copy against the real
+module so it cannot drift.
+
+**A CORRECTION AFTER SIGN-OFF MUST NOT MOVE THE RNG.** These fixes landed on a
+scene whose survivor placement had already been approved, and `_blocker_debris`
+draws from `plan.rng` — so a changed draw COUNT moves every survivor planned
+after it. Each fix therefore kept the existing draws in place and reinterpreted
+them (the "on a log" roll and its magnitude became *which* log and *where along
+it*), and the seating pass uses its own per-piece rng. The tallies came out
+identical across the fix, which is the check that it worked.
+
+**`UsdGeom.BBoxCache` CANNOT SEAT DEBRIS, AND EVERY PASS IN THIS REPO WAS
+USING IT.** This is the single most expensive thing in this file not to know:
+it cost four rounds of "the debris is still floating", each of which ended in a
+measurement saying it was not.
+
+`ComputeWorldBound` returns **the AABB of an AABB** — it takes the prim's LOCAL
+extent box, transforms its eight corners, and re-axis-aligns. For a piece whose
+geometry is a thin sliver lying DIAGONALLY inside its own local box, which is
+most Voronoi debris, that inflates several-fold, **and it inflates DOWNWARD as
+much as upward**. Measured on `tree_Black_Oak_snag/log_017` in a built scene:
+
+    local points fill   x +-0.471  y +-0.284  z +-0.240  (extent EXACT)
+    world z from POINTS       0.4208 .. 0.5649   span 0.144   <- the truth
+    world z from BBoxCache    0.0000 .. 0.9857   span 0.986   <- 6.8x, and
+                                                                 reaches 0.42 m
+                                                                 BELOW the piece
+
+So a chunk hanging 42 cm in the air reports a bbox bottom of exactly `0.000`
+and reads as resting on the ground. The extent attribute is not stale — it
+matches the points exactly in LOCAL space. The error is entirely in
+box-of-a-box.
+
+Everything that seats or audits through that cache inherits the blindness:
+`bake._reseat_roots`, `bake.audit_archetype`, `bake._seat_plan`, and
+`vegetation.wood_debris`'s own `piece.bounds[0][2] = ground_z - 0.001`. Which
+is why the archetype library audited **clean** while the scene was full of
+floating wood, why a bench eye-test of the same archetypes looked fine, and why
+three successive probes written against the bbox each reported zero offenders.
+
+**Measured the same library on POINTS: 3,570 pieces unsupported across 62 of
+the 78 archetypes, drops to 1.01 m.** The bbox-based sweep had found four.
+
+`bake.world_point_bounds` is the tight world AABB from a mesh's transformed
+vertices, and `bake.reseat_meshes_in_file` uses it for both the piece and its
+supporters. Pure `pxr`, offline, ~11 s over the whole library, converges in
+three passes — so a shipped set is repaired in place rather than re-baked.
+Acceptance is measured, not asserted: p50/p90/p99 clearance 0.0000 m, **max
+0.0197 m**, zero pieces over the 2 cm bar.
+
+**AND `bole_*` WAS NOT IN THE FAMILY LIST, WHICH COST ANOTHER ROUND.** The
+felled trunk segments of a `*_fallen` tree are cut by `vegetation.topple` and
+settled by PhysX, so they are exactly the population a settle freezes
+mid-flight — and all twelve in the library were airborne, Black_Oak's `bole_00`
+by **2.07 m**. They never appeared in a name census because there are only two
+per archetype and the census was printed as the commonest 25 names.
+**Enumerate families exhaustively or not at all**; a truncated census reads as
+a complete one.
+
+**A BOLE SEATS ON THE GROUND, NOT ON WHAT IS UNDER IT.** Dropping it by the
+ordinary support rule landed Black_Oak's 7.8 m trunk at exactly 1.1500 m — the
+top of its own `stump` — leaving the far end 2.3 m in the air. The support test
+accepts that and gravity does not: a trunk balanced across a stump slides off.
+`reseat_meshes_in_file(ground_only=("bole_",))` seats those on grade and
+processes them FIRST, so the loose wood then settles onto the trunk rather than
+the trunk onto the wood.
+
+Two rules follow, and they are the general ones:
+
+- **Seat on vertices, never on a derived box.** The blockage litter needed the
+  identical fix one file over (`vegetation.log_points`, because the lowest
+  vertex is not at `z - r` once the girth is jittered). Same lesson, two
+  independent code paths, found weeks apart.
+- **A support test is only as good as its boxes.** The v3 span-and-seat rule is
+  right; fed bbox-of-bbox boxes it is worthless, and fed point boxes it is
+  exact. When a look defect survives a measurement, suspect the measurement.
+
+**THE OTHER FLOATING DEBRIS WAS IN THE BAKED HOUSES, AND `_reseat_roots`
+PASSED IT.** After the blockage litter was fixed, floaters were still reported.
+A full sweep of the built 1 km plate (`tools/debris_float_probe.py`, bare pxr,
+no Isaac) settled where they came from, and the answer was none of the obvious
+candidates:
+
+| population | debris meshes | unsupported |
+|---|---|---|
+| blockage litter (live) | 114 | 0 |
+| tree archetypes | 182,256 | **0** |
+| house archetypes | 13,584 | **18** |
+
+All 18 at 2.15-3.08 m, at **four discrete heights** (2.64 x8, 2.15 x7, 2.93 x2,
+3.08 x1) — because they come from TWO FILES, `house_l_family_partial_collapse`
+and `house_l_family_roof_collapsed`, instanced across the plate. A defect in an
+archetype is a defect in every instance of it, which is why the population that
+matters is FILES (78 of them), not scene objects.
+
+**THE CAUSE IS A GRANULARITY MISMATCH.** `bake._reseat_roots` tests support
+between ROOTS, using each root's combined bbox — so a multi-mesh module whose
+box spans 0 to 3 m "holds" anything with its underside in that span, even with
+no surface beneath. `bake.audit_archetype` tests between MESHES and did find
+them: the bake banner said *"2 of 4691 meshes with nothing under them (0.0%)"*
+and the percentage rounded the finding away. **A tall box is not a surface, and
+a 0.0% that is not 0 is a finding.**
+
+`bake.reseat_meshes_in_file` is the repair: the same v3 support test at MESH
+granularity, pure `pxr`, run offline against the baked library — so an existing
+set is fixed in place in seconds instead of re-baked in sixteen minutes. Four
+meshes across two files; the sweep then reports the whole library clean.
+
+**AND THE SHIFT MUST GO INTO THE TRANSFORM, NOT ONTO IT.** The first repair
+appended an `xformOp:translate` and moved each piece by `dz * its own z scale`
+— these fragments carry an `xformOp:transform` WITH SCALE and an appended
+translate composes INSIDE it. Measured: an authored -1.579 m moved the piece
+-1.279 m (scale 0.8098); an authored -0.904 moved it -0.327 (scale 0.3616).
+**A repair that silently applies a fraction of what it computed is worse than
+none**, because the audit after it reports a smaller number and reads as
+progress. `bake._shift_z` adds `dz` to the matrix's translation instead.
+
+**MEASURE THE POPULATION, NOT THE FIRST TEN.** The first probe stopped at ten
+floaters and reported them all as `tree_Black_Oak_snag`, which pointed the
+investigation at the tree bake — and it was a FALSE POSITIVE: that probe had no
+support test, and those sticks are resting on other sticks. A sample presented
+as a finding costs a whole round. Sweep every file, and apply the support test.
+
+**Park hard surfaces do not char, and charring them reads as paint.** The park
+pass bound the char map to every `park_*` ground prim the front reached. A grass
+fire runs OVER a basketball slab, a tennis block, a tarred path and a car park
+and leaves cracked, scorch-streaked pavement — not a black sheet ("the textures
+in the park actually look weird", 2026-08-27). Hard surfaces
+(`park_parking*`, `park_basketball*`, `park_tennis*`, `park_path*`) now take the
+same `Damaged_Asphalt` the roads and drives in the burn take, so a park path and
+the street it runs to are one surface in one condition; the pitch, the picnic
+lawn and the playground floor keep the char. **And the line work is left
+alone** — court markings and parking bays are paint on pavement, paint survives
+a front passing over it, and charring them black on a now-grey slab deleted
+every marking in the park. (`park_parking` used to be skipped entirely on the
+argument that a lot reads as a refuge BECAUSE it is bare pavement. Still true:
+`Damaged_Asphalt` is visibly pavement.)
+
+**A CUL-DE-SAC TURNAROUND IS ROAD AND THE CENTRELINE TEST CANNOT SEE IT.**
+`_RoadIndex` knew only segments and half widths, and a turnaround is a **disc**
+at `bulb_radius_m` = 14.64 m against a ~5 m half carriageway. So a point near
+the bulb kerb is far outside `half_w + margin` of the stem's last segment and
+`on_road` said "clear" — while `_RoadIndex.verge` declines to snap at a segment
+ENDPOINT (a bulb kerb is an arc the half-width model cannot describe) and falls
+back to offsetting from the block ring, which at a turnaround is the arc
+`_arc_cap_bulbs` spliced in. Between them, street lights, hydrants and bins
+landed **measured at 14.62 m from the bulb centre against a 14.64 m paved
+radius** — dead on the kerb line, a 0.4 m pole half over the tarmac with its
+2.79 m mast arm cantilevered inward. Reported on sight as props standing on top
+of the cul-de-sac. Two halves, both needed: `_RoadIndex(net, bulb_r=...)`
+registers each lollipop end as a ZERO-LENGTH segment whose `half_w` is the bulb
+radius (which is what a disc is to a segment-distance test), so every caller
+gets the right answer; and `bulb_verge` PUSHES the prop radially out to
+`r + inset` rather than letting `on_road` delete it — a real turnaround is lit,
+and the arm over the paving is what the arm is for. Pinned offline in
+`scene_gen/tests/test_road_index_bulbs.py`.
+
+**The park draws from the STREET furniture pools, so it must draw by TAG.**
+`benches`, `trash_cans` and `bike_racks` live in `shared.yaml` /
+`suburban_nucleus.yaml` because the kerb pass uses them too, and the art is
+tagged for it: `SM_MLitterBin` carries `park` and is the 0.6 m civic bin, while
+`SM_Bin_003` is a blue two-wheel WHEELIE BIN — what a house puts out on
+collection day. `_park_placements` used `pools.load` (the whole pool), so which
+of the two furnished a park came down to the seed, and this one picked the
+wheelie bin. `suburban_nucleus.yaml`'s own comment says the tag exists "so a
+domestic wheelie bin never turns up on a park trail"; nothing was reading it.
+`pool_for` now prefers the `park`-tagged subset and falls back to the full pool,
+so a set that tags nothing is unaffected.
 
 **The road z ladder scales with the plate.** `_Z_ASPHALT = 0.10`,
 `_Z_DASH = 0.24` were chosen for a 1600 x 1200 m plate where 14 cm is

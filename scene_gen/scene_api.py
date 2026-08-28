@@ -289,16 +289,25 @@ def _load_burnt_wood(stage, parent):
                              tile_m=1.7, tint=(0.30, 0.26, 0.23))
 
 
-def _tube(stage, path, p0, p1, r0, r1, ssf, sides=8):
+def _tube(stage, path, p0, p1, r0, r1, ssf, sides=9, seed=0):
     """One log or limb of a blockage — see `veg.log_mesh`.
 
     `log_mesh` caps both ends and jitters the girth. Bare barrel quads gave an
     open tube you could see down the inside of, on a mathematically exact
     cylinder — the one shape nothing in a forest has.
+
+    THE SIDE COUNT AND THE SEED BOTH COME FROM THE SPEC NOW, and both had to.
+    `people._seat_debris` drops each piece onto the carriageway by MEASURING
+    the vertices `log_mesh` will write, so the piece it measured has to be the
+    piece that gets built — which it was not, twice over: this function silently
+    turned the caller's `sides` into `max(7, sides + 1)`, and it seeded the
+    jitter with `abs(hash(path))`, which Python randomises per PROCESS unless
+    `PYTHONHASHSEED` is pinned. A seated piece and an authored piece disagreed
+    by up to `rough * r` in a direction nothing corrected.
     """
     return veg.log_mesh(stage, path, p0, p1, r0, r1, ssf,
-                        sides=max(7, int(sides) + 1),
-                        rng=random.Random(abs(hash(path)) % 99991))
+                        sides=int(sides), rng=random.Random(int(seed)),
+                        rough=ppl._DEBRIS_ROUGH)
 
 
 def _place_debris(stage, spec, ssf, i, mat, parent):
@@ -311,7 +320,8 @@ def _place_debris(stage, spec, ssf, i, mat, parent):
     for j, d in enumerate(spec.get("debris") or ()):
         prim = _tube(stage, "{0}/inst/blockdeb_{1}_{2}".format(parent, i, j),
                      d["p0"], d["p1"], d["r0"], d["r1"], ssf,
-                     sides=8 if d["kind"] == "log" else 6)
+                     sides=d.get("sides", 9),
+                     seed=veg.piece_seed(d["kind"], i, j))
         if mat is not None:
             UsdShade.MaterialBindingAPI(prim).Bind(mat)
         n += 1
@@ -507,6 +517,12 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
     n_h = miss_h = 0
     htally = {}
     hlevels = []
+    # PER-INSTANCE RECORDS FOR GROUND TRUTH. `hlevels` is a bare list of level
+    # names, which is all `people` ever wanted; a dataset export needs the prim
+    # path and the pose beside it, and both are known ONLY here (the prim path
+    # is composed on the next line and never written back to `h`). See
+    # `disaster.gt_hints`.
+    h_recs = []
     pal_jobs = []
     for i, h in enumerate(houses):
         d = age(h["x"], h["y"])
@@ -532,6 +548,11 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
         if _ref(stage, _hp, usd, h["x"], h["y"], h["yaw"], ssf,
                 instance=not _recolour):
             n_h += 1
+            h_recs.append({"prim_path": _hp, "style": h["style"],
+                           "level": level, "x": float(h["x"]),
+                           "y": float(h["y"]), "yaw_deg": float(h["yaw"]),
+                           "row": bool(h.get("row")), "archetype": key,
+                           "burn_age_s": (float(d) if d >= 0 else None)})
             if _recolour:
                 pal_jobs.append({"prim_path": _hp, "palette": _pal,
                                  "category": "house"})
@@ -548,6 +569,7 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
     n_t = miss_t = 0
     ttally = {}
     tree_prims = []
+    t_recs = []
     trng = random.Random(seed + 71)
     for i, t in enumerate(trees):
         d = age(t["x"], t["y"])
@@ -578,6 +600,10 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
         if _ref(stage, _tpath, usd, t["x"], t["y"], t["yaw"], ssf, scale=scale):
             n_t += 1
             tree_prims.append((_tpath, float(t["x"]), float(t["y"])))
+            t_recs.append({"prim_path": _tpath, "species": sp,
+                           "level": level, "x": float(t["x"]),
+                           "y": float(t["y"]), "yaw_deg": float(t["yaw"]),
+                           "burn_age_s": (float(d) if d >= 0 else None)})
 
     # 4a) SURVIVORS, PLANNED. Nothing is authored here except the EVACUATION
     # QUEUE and its blockage: those are cars and they belong to the fire, so
@@ -712,15 +738,39 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
                 "trash_can", "play_structure", "planter", "bin", "cafe_set",
                 "swing", "seesaw", "bike_rack", "mailbox", "bus_stop",
                 "park_feature", "goal", "basket", "hoop")
+    # THE SOOT COMPOSITE IS NOT RIGHT FOR EVERY SURFACE, and two park items
+    # were reviewed off it on sight (2026-08-27).
+    #
+    # BENCHES CAME OUT WHITE. `soot_materials` reads a surface's own
+    # base-colour texture and builds an OmniPBR around it; where it cannot find
+    # one it falls through, and on this bench art the result was a pale, washed
+    # surface rather than a darkened one. An undamaged bench in a burnt park is
+    # a defensible thing to see — park furniture is steel and slats, and the
+    # ones that burn are gone rather than grey — so the decision was to leave
+    # them alone rather than to chase the picker.
+    _NO_SOOT_CAT = ("bench",)
     brng = random.Random(seed + 5)
     n_gone = n_char = 0
     scorch_props = []
+    tennis_courts = []
     for q in placements:
         path = q.get("prim_path")
         cat = str(q.get("category", ""))
         if not path or not any(k in cat for k in BURNABLE):
             continue                                   # only combustibles
         if damage.is_incombustible(cat):
+            continue
+        if any(k in cat for k in _NO_SOOT_CAT):
+            continue
+        # THE TENNIS COURT IS A SLAB, NOT A PROP. It is one whole asset with
+        # its own painted surface, and a soot wash over it read as a stain on
+        # a court rather than as a court that had a fire go over it. It takes
+        # `Damaged_Asphalt` below, like every other hard surface in the park.
+        # Identified by `park_kind` because `category` is `park_feature` for
+        # the hoops, the gazebo and the fountain too, and the art is an
+        # objaverse hash with no name to match on.
+        if q.get("park_kind") == "tennis_court":
+            tennis_courts.append(path)
             continue
         d = age(float(q.get("x_m", 0.0)), float(q.get("y_m", 0.0)))
         if d <= 0.0:
@@ -745,21 +795,83 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
           "{2} prop subset(s) scorched (cars/park/furniture)"
           .format(n_gone, n_char, n_soot))
 
-    # PARK GROUND SURFACES scorched. The court slabs, pitch, line markings and
-    # paths are drawn geometry (not placements), so they miss the soot pass
-    # above; re-bind the ones the front reached to the dark char material.
+    # FIRE-DAMAGED PAVING -> Damaged_Asphalt, built here because BOTH the park
+    # pass immediately below and the road/drive re-bind further down need it.
+    dmg_url = sg._join_asset_root(
+        "airstack://scene_gen/assets/materials/megascans/Damaged_Asphalt.usda", "")
+    dmg_path = parent + "/ground/materials/damaged_asphalt"
+    dprim = stage.DefinePrim(Sdf.Path(dmg_path))
+    dprim.GetReferences().AddReference(dmg_url)
+    dprim.Load()
+    dmat = UsdShade.Material(stage.GetPrimAtPath(dmg_path))
+
+    # PARK GROUND SURFACES. The court slabs, pitch, line markings and paths are
+    # drawn geometry (not placements), so they miss the soot pass above.
+    #
+    # HARD SURFACES DO NOT CHAR, AND CHARRING THEM READS AS PAINT. A grass fire
+    # runs over a basketball slab, a tennis block, a tarred path and a car park
+    # and leaves CRACKED, SCORCH-STREAKED PAVEMENT — not a black sheet, which is
+    # what binding the char map to all of them produced ("the textures in the
+    # park actually look weird", 2026-08-27). They take the same
+    # `Damaged_Asphalt` the roads and drives in the burn take, so a park path
+    # and the street it runs to are the same surface in the same condition.
+    #
+    # WHAT COUNTS AS HARD IS A LOOK DECISION, NOT A MATERIALS ONE. The picnic
+    # ground and the playground were soft on the argument that one is lawn and
+    # the other is sand — and both read better as the same cracked pavement the
+    # rest of the park's furnished areas are on (reviewed 2026-08-27). Only the
+    # PITCH is left as burnt ground.
+    #
+    # AND THE PITCH TAKES A PHOTOGRAPHED BURNT SURFACE, NOT THE FLAT CHAR PBR.
+    # `char` is a constant dark OmniPBR with no map at all, which is fine on a
+    # fence panel at 120 m spacing and reads as a black sheet across a
+    # 100 x 64 m football ground — "the textures still look weird on the
+    # football ground". `Burnt_Forest_Floor` is the same 4K photographed
+    # surface the ground scar is drawn with.
+    #
+    # ONE TILE, CROPPED ONTO THE PITCH — the ground scar's own answer, and for
+    # the same reason. `disaster.ground` runs at `GROUND_TILE_M=0` (one tile
+    # across the WHOLE overlay) because the burnt floor tiled at ~8 m "read as
+    # a grid of small squares from altitude"; tiled at 8 m across a pitch it
+    # reads as exactly that again — "it's in a repetitive pattern". So the
+    # material is built PER SURFACE with `texture_scale = 1 / span` and the
+    # half-tile `texture_translate` centred on that surface, which is
+    # `ground.overlay_material`'s construction with the opacity left out.
+    # `span` is the LONGER side, so the short axis crops rather than stretches
+    # and the surface keeps the map's aspect. A 4K map over a 105 m pitch is
+    # 2.6 cm a pixel — four times finer than the scar's own 12 cm, which is the
+    # price that section records for going tile-less.
+    #
+    # THE LINE WORK IS LEFT ALONE. Court markings and parking bays are paint on
+    # pavement and paint survives a fire front passing over it; charring them
+    # black on a now-grey slab deleted every marking in the park.
+    _PARK_HARD = ("park_parking", "park_basketball", "park_tennis", "park_path",
+                  "park_picnic", "park_playground")
+    _burnt_tex = sg._join_asset_root(ground.BURNT_TEXTURE, "")
+
+    def _burnt_ground_mat(idx, rng_m):
+        """One un-tiled burnt-ground OmniPBR, fitted to `rng_m` (metres)."""
+        lo, hi = rng_m.GetMin(), rng_m.GetMax()
+        w = (hi[0] - lo[0]) / ssf
+        h = (hi[1] - lo[1]) / ssf
+        cx = 0.5 * (hi[0] + lo[0]) / ssf
+        cy = 0.5 * (hi[1] + lo[1]) / ssf
+        k = 1.0 / max(1e-3, max(w, h))
+        return damage._pbr(
+            stage, "{0}/BurnLooks/burnt_ground_{1}".format(parent, idx),
+            (1.0, 1.0, 1.0), 0.94, texture=_burnt_tex,
+            scale_uv=(k, k), offset_uv=(0.5 - cx * k, 0.5 - cy * k))
+
     gnd_prim = stage.GetPrimAtPath(parent + "/ground")
     _bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
-    n_park = 0
+    n_park = n_park_hard = 0
     if gnd_prim and gnd_prim.IsValid():
         for prim in gnd_prim.GetChildren():
             _nm = prim.GetName()
-            if not _nm.startswith("park_"):
+            if not _nm.startswith("park_") or _nm.startswith("park_line_"):
                 continue
-            # ASPHALT DOES NOT CHAR, and charring the refuge lot black would
-            # delete the feature the survivors are standing on: a parking lot
-            # reads as a refuge BECAUSE it is bare pavement.
-            if _nm.startswith("park_parking"):
+            hard = _nm.startswith(_PARK_HARD)
+            if hard and not dmat:
                 continue
             r = _bc.ComputeWorldBound(prim).ComputeAlignedRange()
             if r.IsEmpty():
@@ -767,11 +879,35 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
             c = r.GetMidpoint()
             if age(c[0] / ssf, c[1] / ssf) < 0.0:
                 continue
+            _mat = dmat if hard else _burnt_ground_mat(n_park, r)
             for m in Usd.PrimRange(prim):
                 if m.IsA(UsdGeom.Mesh):
-                    UsdShade.MaterialBindingAPI(m).Bind(char)
-            n_park += 1
-    print("[scene] park ground: {0} surface(s) scorched".format(n_park))
+                    UsdShade.MaterialBindingAPI(m).Bind(_mat)
+            if hard:
+                n_park_hard += 1
+            else:
+                n_park += 1
+    # The tennis court asset rides the same decision as the slab under it.
+    n_tennis = 0
+    if dmat:
+        for _tp in tennis_courts:
+            _tprim = stage.GetPrimAtPath(_tp)
+            if not (_tprim and _tprim.IsValid()):
+                continue
+            r = _bc.ComputeWorldBound(_tprim).ComputeAlignedRange()
+            if r.IsEmpty():
+                continue
+            c = r.GetMidpoint()
+            if age(c[0] / ssf, c[1] / ssf) < 0.0:
+                continue
+            for m in Usd.PrimRange(_tprim, Usd.TraverseInstanceProxies()):
+                if m.IsA(UsdGeom.Mesh):
+                    UsdShade.MaterialBindingAPI(m).Bind(dmat)
+            n_tennis += 1
+    print("[scene] park ground: {0} burnt-ground surface(s), {1} hard "
+          "surface(s) + {2} tennis court(s) -> Damaged_Asphalt"
+          .format(n_park, n_park_hard, n_tennis))
+    n_park += n_park_hard + n_tennis
 
     # 5) GROUND SCAR (built on the fly, cheap)
     # `region` is the plat rect resolved in step 2a — same value, one place.
@@ -797,16 +933,10 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
         print("[scene] no disaster in config — pristine plat: no ground scar, "
               "no scorch, no damage archetypes")
 
-    # FIRE-DAMAGED PAVING -> Damaged_Asphalt. `apply_ground` builds the road
-    # and drive ribbons before any fire field exists, so re-bind here. Brick
-    # drives are left alone — worn brick already reads as damaged.
-    dmg_url = sg._join_asset_root(
-        "airstack://scene_gen/assets/materials/megascans/Damaged_Asphalt.usda", "")
-    dmg_path = parent + "/ground/materials/damaged_asphalt"
-    dprim = stage.DefinePrim(Sdf.Path(dmg_path))
-    dprim.GetReferences().AddReference(dmg_url)
-    dprim.Load()
-    dmat = UsdShade.Material(stage.GetPrimAtPath(dmg_path))
+    # ROAD AND DRIVE RIBBONS -> Damaged_Asphalt. `apply_ground` builds them
+    # before any fire field exists, so re-bind here. Brick drives are left
+    # alone — worn brick already reads as damaged. `dmat` was built above the
+    # park pass, which needs the same material.
     gnd = stage.GetPrimAtPath(parent + "/ground")
     bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
     n_dmg = 0
@@ -900,7 +1030,17 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
         info_out.update({"binfo": binfo, "placements": placements,
                          "records": p_recs, "blockers": p_blockers,
                          "cars": p_cars, "config": config, "arch": arch,
-                         "parent": parent})
+                         "parent": parent,
+                         # WHAT THE DATASET EXPORT READS. One record per
+                         # REFERENCED archetype, carrying the prim path, the
+                         # damage level and the pose — none of which is
+                         # recoverable from the stage (the level lives in the
+                         # archetype's FILENAME, and a reference does not
+                         # publish it).
+                         "house_objects": h_recs, "tree_objects": t_recs,
+                         "humans": p_humans,
+                         "elapsed_s": float(elapsed),
+                         "has_disaster": bool(has_disaster)})
 
     _ptally = {}
     for _r in p_recs:

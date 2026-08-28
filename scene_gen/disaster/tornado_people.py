@@ -110,6 +110,25 @@ debris rather than through it. A body needs a metre and a half of something
 flat, and in a plank field that is a real constraint: the refusal tally
 (`deck_tilt`) is printed with the rest.
 
+WHERE A BODY MAY NOT GO, AND WHY BOTH GATES ARE NEW
+--------------------------------------------------
+Two rules were written down in the skill for a fortnight and were NOT in this
+file — `intensity_at` and `canopies` were in the ctx, documented, and read by
+nothing. Both exist now, both are tested at the body's THREE stations (feet,
+waist, head — one helper, `_Field.stations`), and both increment the refusal
+tally `plan_people` prints:
+
+  * `min_intensity` — ONLY WHERE THE TORNADO WENT (`off_track`). The corridor
+    is `ctx["intensity_at"]`, the same field the damage ladder, the scour and
+    the plank scatter read. Degrades OPENLY when the caller passes no field:
+    the gate goes off and says so on stdout.
+  * the KEEPOUTS — and not inside anything `_Deck` cannot measure
+    (`in_wreck` / `in_house` / `under_canopy` / `in_relief`). `covered_frac`
+    counts the boards THIS MODULE lays and nothing else, so the baked wreck
+    pile, a standing house, an intact crown and the 4,631-feature scour relief
+    could all stand over a body that the ground truth called clear. On the
+    1 km plate that was 15 of 40 casualties. See `_blocker_list`.
+
 A PURE PLANNER
 --------------
 No stage, no Isaac imports, no USD. `plan_people` takes a context of things
@@ -162,6 +181,61 @@ DEFAULTS = {
     # plus a margin, tested at three stations down each body.
     "min_separation_m": 2.4,
 
+    # ONLY WHERE THE TORNADO WENT. The minimum `ctx["intensity_at"]` a body
+    # may lie at, tested at all THREE of its stations — feet inside the
+    # corridor can still put a head on an untouched lawn, and 1.8 m is a third
+    # of the way across the shoulder of a 155 m track.
+    #
+    # WHY 0.12 AND NOT A NUMBER OF THIS MODULE'S OWN. It is
+    # `planks.scatter_over_region`'s `min_intensity`: the floor below which the
+    # corridor lays NO BOARDS AT ALL. So the rule this enforces is not an
+    # opinion about wind speed, it is "a casualty lies where the scene put
+    # debris" — the same field the damage ladder (`tornado._HOUSE_CUTS` cuts
+    # `pristine` at 0.08), the scour and the plank scatter are all drawn from,
+    # so the planner refuses against the scene's own definition of "in the
+    # path" rather than a second one that can drift away from it.
+    #
+    # ON BY DEFAULT. Set it to 0 (or null) in the `people:` block to disable
+    # the gate; it also self-disables, WITH A PRINTED WARNING, when the caller
+    # supplies no `intensity_at` — the bench and the host tests have no field.
+    "min_intensity": 0.12,
+
+    # ---- AND NOT UNDER ANYTHING THE PLANNER CANNOT MEASURE ----------------
+    #
+    # `_Deck` measures the plank field and the archetype's own mesh tops, and
+    # NOTHING ELSE in the scene. Four things can stand over a body and none of
+    # them is in `covered_frac`; three of them are known to the launcher, cost
+    # nothing to pass, and are refused here as keepouts.
+    #
+    #   wreck_clear_m   THE BAKED WRECK PILE. On a levelled house the archetype
+    #                   IS the tallest thing on the lot, and `pile` used to draw
+    #                   from 0.42 footprints — inside the walls. The keepout is
+    #                   the house's own footprint (`0.5 * fp`) plus this margin,
+    #                   so a body lies in the debris mat AROUND the mound rather
+    #                   than in the deepest material. Applies to every wreck
+    #                   level, because `roof_collapsed` and `partial_collapse`
+    #                   still have walls and a body inside those is indoors.
+    #   house_clear_m   A STANDING HOUSE. `ctx["intact"]` carries no footprint,
+    #                   so this is a flat radius: the kit's houses are 10-16 m
+    #                   across, and 7 m clears the wall line of all of them.
+    #   avoid_canopies  AN INTACT CROWN, from `ctx["canopies"]`. The 100 m
+    #                   render's `yard` figure was photographed as leaves. A
+    #                   canopy hides a figure more completely than any board
+    #                   this module lays, and the whole `max_covered_frac`
+    #                   argument applies to it.
+    #   avoid_blockers  ANYTHING ELSE THE CALLER KNOWS ABOUT, as
+    #                   `ctx["blockers"]`. The tornado launcher fills it with
+    #                   the SCOUR RELIEF (`relief_blockers`) — 4,631 features on
+    #                   the 1 km plate, mounds to 0.48 m, authored before the
+    #                   people pass and previously invisible to it, so a body
+    #                   could be planned inside a soil dome half a metre deep.
+    #
+    # Set any of them to 0 / False to drop that class of keepout.
+    "wreck_clear_m": 0.6,
+    "house_clear_m": 7.0,
+    "avoid_canopies": True,
+    "avoid_blockers": True,
+
     # NOBODY OFF THE EDGE OF THE WORLD. `suburb_scene.apply_ground` lays its
     # sheet over exactly `region` and nothing beyond it, and a LYING figure
     # lies entirely on ONE side of its placement point — feet a metre inside
@@ -206,7 +280,11 @@ DEFAULTS = {
     # occluding, and it is measurable, whereas sink is neither controllable nor
     # visible in the record. A body sunk past its own half-depth has its
     # silhouette eaten from below and nothing in `visible_parts` says so.
-    "sink_frac": [0.0, 0.32],
+    # 0.32 -> 0.18 WITH THE COVER CAP, and for the same reason. Sink is the
+    # occluder NOTHING records: `covered_frac` counts boards, so a body a third
+    # of its depth into the deck is filed as clear and is not. It eats the
+    # silhouette from below, which is the half a top-down camera loses first.
+    "sink_frac": [0.0, 0.18],
 
     # ---- THE TWO AXES THE BENCHMARK IS ABOUT ------------------------------
 
@@ -245,20 +323,35 @@ DEFAULTS = {
     # trained on before it is asked to do the hard one. Everything else names
     # the stretch of body that goes UNDER and therefore the parts that stay
     # visible; see `_OCCLUSION`.
+    # REWEIGHTED 2026-08-28 AFTER THE 1 KM REVIEW: "some are completely
+    # obscured and a lot of them are very slightly visible. I need more
+    # visibility." The four heaviest patterns are OFF (weight 0) rather than
+    # deleted — the vocabulary is the benchmark's occlusion axis and the bench
+    # still photographs all thirteen — and the weight they carried has gone to
+    # `none` and to the light end. A zero here is not "this never happens in a
+    # tornado"; it is "this dataset does not ask a detector to score a target
+    # whose head, torso and legs are all under the same sheet".
+    #
+    # EVERY DRAWABLE PATTERN'S NOMINAL SPAN IS AT OR UNDER `max_covered_frac`,
+    # and that is a rule rather than a coincidence. `_trim_spans` will shorten
+    # anything longer, which keeps the figure visible but makes the LABEL a
+    # lie: an `all_but_head` record trimmed to 0.55 is a body with its head,
+    # arms and chest in clear view, filed under the name of the pattern that
+    # hides them. `test_20` pins it.
     "occlusion": {
-        "none": 0.30,
-        "feet_shins": 0.07,
-        "legs": 0.09,
-        "legs_hips": 0.07,
-        "midriff": 0.07,
-        "torso": 0.08,
-        "torso_head": 0.07,
-        "head_only": 0.05,
-        "upper_body": 0.06,
-        "all_but_head": 0.05,
-        "all_but_feet": 0.04,
-        "banded": 0.05,
-        "flank": 0.06,
+        "none": 0.44,
+        "feet_shins": 0.12,
+        "legs": 0.10,
+        "legs_hips": 0.0,        # 0.62 span — over the cap
+        "midriff": 0.09,
+        "torso": 0.09,
+        "torso_head": 0.05,
+        "head_only": 0.04,
+        "upper_body": 0.0,       # 0.64 span — over the cap
+        "all_but_head": 0.0,     # 0.80 span — over the cap
+        "all_but_feet": 0.0,     # 0.84 span — over the cap
+        "banded": 0.03,
+        "flank": 0.04,
     },
 
     # THE HARD CEILING ON HOW MUCH OF A BODY MAY BE HIDDEN. Enforced while the
@@ -266,7 +359,14 @@ DEFAULTS = {
     # would exceed it is TRIMMED, so a figure is never authored that the record
     # then has to describe as invisible. See the top of the file for why this
     # is the most important number in the module.
-    "max_covered_frac": 0.80,
+    #
+    # 0.80 -> 0.55 ON THE 1 KM REVIEW. 0.80 was defensible as a ceiling and
+    # indefensible as a dataset: a fifth of a body is two limbs and a hip, and
+    # the built scene had a p90 of 0.76 — most of its targets were "very
+    # slightly visible", which is the review's own phrase. 0.55 leaves at
+    # minimum a head, a shoulder and an arm on every figure, and it is the
+    # number the `occlusion` weights above are consistent with.
+    "max_covered_frac": 0.55,
 
     # WHERE, as shares. All four are debris-field locations; there is no
     # "somewhere else" any more.
@@ -684,6 +784,95 @@ class _Deck(object):
                 for t in (0.08, 0.5, 0.92)]
 
 
+class _Keepout(object):
+    """Circles a body may not lie in, on or under, with a grid index.
+
+    ONE LIST, FOUR SOURCES, one refusal each — see the `*_clear_m` knobs in
+    `DEFAULTS`. Everything in it is something the launcher already knows about
+    and `_Deck` cannot see: the baked wreck pile, a standing house, an intact
+    tree crown, and whatever the caller passes in `ctx["blockers"]` (the scour
+    relief, on the tornado assembly).
+
+    THE INDEX IS NOT PREMATURE. The 1 km plate has 56 wrecks, 423 standing
+    houses, 653 crowns and ~1,400 relief features; the planner tests three
+    stations per candidate and takes up to 22 candidates per body, so a linear
+    scan is ~200 million distance tests for forty casualties. Bucketed on the
+    largest radius it holds, it is a few thousand.
+    """
+
+    def __init__(self, items):
+        self.items = [(float(x), float(y), float(r),
+                       str(why) if why else "blocked")
+                      for (x, y, r, why) in items if float(r) > 0.0]
+        self.cell = max(4.0, max([q[2] for q in self.items] or [4.0]))
+        self.g = {}
+        for q in self.items:
+            i0 = int(math.floor((q[0] - q[2]) / self.cell))
+            i1 = int(math.floor((q[0] + q[2]) / self.cell))
+            j0 = int(math.floor((q[1] - q[2]) / self.cell))
+            j1 = int(math.floor((q[1] + q[2]) / self.cell))
+            for i in range(i0, i1 + 1):
+                for j in range(j0, j1 + 1):
+                    self.g.setdefault((i, j), []).append(q)
+
+    def __len__(self):
+        return len(self.items)
+
+    def hit(self, x, y):
+        """The reason this point is unusable, or None."""
+        for (px, py, r, why) in self.g.get(
+                (int(math.floor(x / self.cell)),
+                 int(math.floor(y / self.cell))), ()):
+            if (px - x) ** 2 + (py - y) ** 2 < r * r:
+                return why
+        return None
+
+
+def relief_blockers(specs, min_h_m=0.20, min_r_m=0.35):
+    """`[(x, y, r, "in_relief")]` for the scour features tall enough to hide a
+    body — for `ctx["blockers"]`.
+
+    THE RELIEF IS AUTHORED BEFORE THE PEOPLE AND KNEW NOTHING ABOUT THEM.
+    `disaster.scour_relief` laid 4,631 features across the 1 km corridor — 3,852
+    of them clods, 453 mounds to 0.48 m, 89 arcs, 97 sod rolls — and the people
+    pass that runs after it seats every body on `_Deck`, which measures boards
+    and archetype meshes and NOT soil. A body planned where a 0.48 m mound
+    already stands is a body inside a dome of earth, and `covered_frac` records
+    it as clear.
+
+    `min_h_m` IS THE BODY, NOT THE FEATURE. A lying figure's top is about 0.2 m
+    off the ground (`people._lying_lift`), so anything shorter than that cannot
+    swallow one and is ground texture — which is most of the clods, and keeping
+    them would blanket the corridor in keepouts and empty it of casualties.
+
+    Reads the spec dicts directly rather than through `scour_relief.geometry`:
+    a polyline feature (a windrow, a sod roll, an arc) is a chain of stations
+    and its BOUNDING CIRCLE is metres across, so one keepout per station is
+    both cheaper and very much tighter than one per feature.
+    """
+    out = []
+    for sp in (specs or ()):
+        k = sp.get("kind")
+        st = sp.get("stations")
+        if st:
+            for q in st:
+                h = max(float(q[2]), float(q[3]))
+                r = max(float(q[4]), float(q[5]))
+                if h >= min_h_m and r >= min_r_m:
+                    out.append((float(q[0]), float(q[1]), r, "in_relief"))
+        elif k == "mound":
+            if float(sp.get("h", 0.0)) >= min_h_m:
+                out.append((float(sp["x"]), float(sp["y"]),
+                            max(float(sp.get("rx", 0.0)),
+                                float(sp.get("ry", 0.0))), "in_relief"))
+        elif k == "clod":
+            h = float(sp.get("t", 0.0))
+            r = 0.5 * max(float(sp.get("l", 0.0)), float(sp.get("w", 0.0)))
+            if h >= min_h_m and r >= min_r_m:
+                out.append((float(sp["x"]), float(sp["y"]), r, "in_relief"))
+    return out
+
+
 class _FlatDeck(object):
     """The no-plank-field fallback: `DEBRIS_Z_M`, flat, tilt test disabled.
 
@@ -787,6 +976,39 @@ def _wreck_z(level):
     return float(DEBRIS_Z_M.get(str(level), 0.4))
 
 
+def _blocker_list(cfg, ctx):
+    """Everything a body may not lie in, as `[(x, y, r, why)]`.
+
+    ASSEMBLED FROM THE CONTEXT THE LAUNCHER ALREADY PASSES. Not one line of new
+    machinery on the caller's side for the first three: `wrecks` carry their own
+    footprint, `intact` is the standing houses and `canopies` is the crowns that
+    survived — all three have been in the ctx since the pass was written and
+    none of them was read.
+    """
+    out = []
+    clear = float(cfg.get("wreck_clear_m") or 0.0)
+    if clear > 0.0:
+        for w in (ctx.get("wrecks") or ()):
+            # `fp` IS THE LONGER PLAN DIMENSION, so half of it plus the margin
+            # is a circle that contains the walls of a kit house and the debris
+            # mound standing on their slab.
+            out.append((float(w["x"]), float(w["y"]),
+                        0.5 * float(w.get("fp", 12.0)) + clear, "in_wreck"))
+    hclear = float(cfg.get("house_clear_m") or 0.0)
+    if hclear > 0.0:
+        for h in (ctx.get("intact") or ()):
+            out.append((float(h[0]), float(h[1]), hclear, "in_house"))
+    if cfg.get("avoid_canopies", True):
+        for c in (ctx.get("canopies") or ()):
+            out.append((float(c[0]), float(c[1]), float(c[2]),
+                        "under_canopy"))
+    if cfg.get("avoid_blockers", True):
+        for b in (ctx.get("blockers") or ()):
+            out.append((float(b[0]), float(b[1]), float(b[2]),
+                        b[3] if len(b) > 3 else "blocked"))
+    return out
+
+
 class _Field(object):
     """Accumulates placements, plank specs and ground truth, and enforces the
     no-interpenetration and on-the-plate rules."""
@@ -813,6 +1035,21 @@ class _Field(object):
         self.deck = _Deck(specs, points=pts) if (specs or pts) else None
         self.max_tilt = float(cfg.get("max_deck_tilt_m", 0.26))
         self.max_tilt_pile = float(cfg.get("max_deck_tilt_pile_m", 0.55))
+        # EVERYTHING A BODY MAY NOT LIE IN — the wreck pile, a standing house,
+        # an intact crown, the scour relief. See `_blocker_list`.
+        self.keepout = _Keepout(_blocker_list(cfg, ctx))
+        # THE TRACK. `intensity_at` is `tornado.intensity_field`, handed
+        # straight through by the launcher, so "in the path" here is the same
+        # 0..1 the house ladder, the scour coverage and the plank scatter read.
+        # DEGRADES OPENLY, NOT SILENTLY: with no field the gate cannot run, and
+        # `plan_people` says so on stdout rather than leaving a reader to
+        # believe a scene was filtered when it was not.
+        self.track = ctx.get("intensity_at")
+        self.min_intensity = float(cfg.get("min_intensity") or 0.0)
+        self.track_gated = bool(self.min_intensity > 0.0
+                                and callable(self.track))
+        self.track_ungated = bool(self.min_intensity > 0.0
+                                  and not callable(self.track))
 
     # -- refusals -----------------------------------------------------------
     def _no(self, why):
@@ -826,6 +1063,69 @@ class _Field(object):
         p = self.margin if pad is None else float(pad)
         x0, y0, x1, y1 = self.region
         return (x0 + p) <= x <= (x1 - p) and (y0 + p) <= y <= (y1 - p)
+
+    def stations(self, x, y, ux, uy, reach):
+        """THE THREE POINTS A BODY OCCUPIES: feet, waist, head.
+
+        ONE DEFINITION, because every whole-body test in this module has to
+        agree about where the body is. A lying figure lies entirely on ONE side
+        of its placement point, so testing that point tests its feet and
+        nothing else — the plate check, the track check and the spacing check
+        all run here.
+        """
+        return ((x, y), (x + ux * reach * 0.5, y + uy * reach * 0.5),
+                (x + ux * reach, y + uy * reach))
+
+    # -- the track ----------------------------------------------------------
+    def in_track(self, pts):
+        """ONLY WHERE THE TORNADO WENT. True if every station is in the path.
+
+        `yard` draws 1.15-2.00 footprints off a wreck and `trail` throws a body
+        8-26 m downtrack, so a wreck on the SHOULDER of the corridor has much
+        of both annuli outside it: the first 100 m render laid a casualty on an
+        untouched green lawn two lots away, a person the tornado did not hit,
+        which is exactly what this module was rebuilt to stop showing.
+
+        ALL THREE STATIONS, not the placement point — feet inside the corridor
+        can still put a head on an untouched lawn, and the corridor's edge is a
+        smoothstep, so the intensity across one body length near the boundary
+        swings by more than the threshold itself.
+
+        The BEARING IS ALREADY FIXED by the time this runs: `_one_casualty`
+        keeps the flattest of eight, and a candidate whose flattest bearing
+        points out of the path is refused rather than turned back in. Same
+        treatment `off_plate` gets, and for the same reason — turning a body to
+        satisfy a boundary aligns every marginal figure with the track edge,
+        which is a worse artefact than dropping it.
+        """
+        if not self.track_gated:
+            return True
+        thr = self.min_intensity
+        for (ex, ey) in pts:
+            if float(self.track(ex, ey)) < thr:
+                return False
+        return True
+
+    def clear_of(self, pts):
+        """...AND NOT UNDER ANYTHING. The refusal name, or None if clear.
+
+        Same three stations as everything else: a body whose feet are clear of
+        a wreck mound can still have its head inside it, and that is the half
+        of the figure a searcher would have found.
+        """
+        if not len(self.keepout):
+            return None
+        for (ex, ey) in pts:
+            why = self.keepout.hit(ex, ey)
+            if why:
+                return why
+        return None
+
+    def track_at(self, pts):
+        """Weakest intensity over a body's three stations, or None."""
+        if not callable(self.track):
+            return None
+        return min(float(self.track(ex, ey)) for (ex, ey) in pts)
 
     def free(self, x, y):
         s2 = self.sep * self.sep
@@ -849,11 +1149,15 @@ class _Field(object):
         that turned "a figure on the tilted face of a sheet of plywood" into a
         refusal instead of a render.
         """
-        pts = [(x, y), (x + ux * reach * 0.5, y + uy * reach * 0.5),
-               (x + ux * reach, y + uy * reach)]
+        pts = self.stations(x, y, ux, uy, reach)
         for (ex, ey) in pts:
             if not self.inside(ex, ey, pad):
                 return self._no("off_plate")
+        if not self.in_track(pts):
+            return self._no("off_track")
+        why = self.clear_of(pts)
+        if why:
+            return self._no(why)
         for (ex, ey) in pts:
             if not self.free(ex, ey):
                 return self._no("too_close")
@@ -887,10 +1191,11 @@ class _Field(object):
         ux, uy = _body_axis(pose, yaw, _lying_roll(pose))
         # A BODY OCCUPIES A LINE, NOT A POINT. Registering only the placement
         # point leaves 1.8 m of body invisible to the spacing check and the
-        # next draw is free to lay somebody across its chest.
-        self.taken.append((x, y))
-        self.taken.append((x + ux * reach * 0.5, y + uy * reach * 0.5))
-        self.taken.append((x + ux * reach, y + uy * reach))
+        # next draw is free to lay somebody across its chest. Same three
+        # stations `body_ok` and `in_track` test, from the same helper.
+        st = self.stations(x, y, ux, uy, reach)
+        self.taken.extend(st)
+        i_min = self.track_at(st)
         self.humans.append(p)
         rec = {
             # 3 DP, NOT 2. `_Deck`'s cells are 0.8 m and its steps are hard
@@ -904,6 +1209,12 @@ class _Field(object):
             # reader has to decode: front, back, sideways, or sitting.
             "attitude": plan.get("attitude", "upright"),
             "where": where,
+            # THE TRACK, AT THE WEAKEST POINT OF THIS BODY. `None` when the
+            # caller passed no `intensity_at`. Recorded so "is anybody outside
+            # the corridor" is answerable from the ground truth alone, without
+            # rebuilding the field — which is how the gate that was supposed to
+            # be here went a whole review unnoticed.
+            "intensity": (None if i_min is None else round(i_min, 3)),
             "yaw": round(float(yaw) % 360.0, 1),
             # WHICH WAY THE BODY POINTS. A box drawn round a prone target has
             # to know which end is which, and it is not recoverable from `yaw`
@@ -1173,7 +1484,18 @@ def _candidate(f, w, where, near=None):
     # slow way to say "draw closer to the house", and closer is also the better
     # model: the MMWR's 37%-recovered-outdoors is displacement of metres to
     # tens of metres, not of blocks.
-    lo, hi = {"pile": (0.42, 1.00), "skirt": (0.95, 1.60),
+    # `pile` STARTS OUTSIDE THE WALL LINE NOW. It ran from 0.42 footprints —
+    # measured from the house CENTRE, so a third of that annulus was inside the
+    # building — and on a levelled lot the baked archetype standing on that
+    # slab is the tallest thing for fifty metres. `_Field.clear_of` refuses
+    # those (`in_wreck`), and 0.62 is where the draw has to start for the
+    # refusal not to be doing all the work: half a footprint is the wall line,
+    # `wreck_clear_m` is the margin outside it, and the body still has to fit
+    # its own length outward from there. `pile` is therefore the debris mat
+    # AROUND the mound, which is where a body on a levelled house reads from
+    # the air — one in the middle of the deepest material is invisible from
+    # every angle, which is the fault this fixes rather than a target.
+    lo, hi = {"pile": (0.62, 1.05), "skirt": (0.95, 1.60),
               "yard": (1.15, 2.00)}.get(where, (0.6, 1.4))
     a = rng.uniform(0.0, 2.0 * math.pi)
     # sqrt so the draw is uniform over the ANNULUS rather than over the radius,
@@ -1405,6 +1727,9 @@ def plan_people(cfg, ctx, rng):
         deck_points  [(x, y, top_z)] off the ARCHETYPE, OPTIONAL — see `_Deck`
         intensity_at f(x, y) -> 0..1, OPTIONAL           `disaster.tornado`
         canopies     [(x, y, r)] trees that still have a crown, OPTIONAL
+        intact       [(x, y)] houses still standing, OPTIONAL
+        blockers     [(x, y, r[, why])] anything else that hides a body,
+                     OPTIONAL — the tornado launcher passes the scour relief
         throw_deg    float                               `disaster.tornado`
         region       (x0, y0, x1, y1) metres, OPTIONAL   the assembly launcher
         humans       [usd]  RIGGED RenderPeople          `suburb_scene`
@@ -1414,6 +1739,22 @@ def plan_people(cfg, ctx, rng):
     — see `_Deck`. Optional, because the bench and the host-side tests have no
     board field; without it the deck is `DEBRIS_Z_M[level]`, flat, and the tilt
     test cannot fail.
+
+    `intensity_at` IS THE TRACK and it drives the `min_intensity` gate: a body
+    every one of whose three stations is not in the path is REFUSED
+    (`off_track` in the tally). Optional, and the gate DEGRADES OPENLY without
+    it — `plan_people` prints a warning and places without the filter, because
+    the bench and the host tests have no field and a planner that refused
+    everything there would be untestable off a GPU. A caller that has a field
+    and does not pass it gets a scene with casualties on untouched lawns and no
+    indication that anything was skipped.
+
+    `wrecks`, `intact`, `canopies` and `blockers` ARE ALSO KEEPOUTS. Every one
+    of them is something that can stand over a body and that `_Deck` cannot
+    measure — the baked wreck pile, a standing house, an intact crown, and the
+    scour relief (`relief_blockers`) — and a station inside any of them is
+    refused (`in_wreck` / `in_house` / `under_canopy` / `in_relief`). See
+    `_blocker_list` and the `*_clear_m` knobs.
 
     `region` IS THE PLATE and without it the planner will lay somebody half off
     the edge of the world: a lying figure extends its whole length past its
@@ -1428,6 +1769,15 @@ def plan_people(cfg, ctx, rng):
     that has fallen off them.
     """
     f = _Field(cfg, ctx, rng)
+    if f.track_ungated:
+        # SAY IT OUT LOUD. The `min_intensity` gate is on by default, so a
+        # caller that has an intensity field and forgot to pass it would
+        # otherwise get an unfiltered scene that looks exactly like a filtered
+        # one — which is the failure this whole gate was added to fix, one
+        # level up. The bench and the host tests land here deliberately.
+        print("[tornado_people] no ctx['intensity_at']: the min_intensity "
+              "gate ({0:.2f}) is OFF and bodies may be placed outside the "
+              "track".format(f.min_intensity))
     wrecks = [w for w in (ctx.get("wrecks") or ())
               if w.get("level") in _WRECKED]
     budget = int(cfg.get("max_total", 40))
@@ -1463,7 +1813,11 @@ def plan_people(cfg, ctx, rng):
         # actionable; `deck_tilt` says the plank field has no flat metre and a
         # half anywhere near that wreck, `wrong_surface` says the location
         # class could not find its own kind of ground, `off_plate` says the
-        # plate is too small and `too_close` says it is too crowded.
+        # plate is too small, `too_close` says it is too crowded and
+        # `off_track` says the wreck is on the SHOULDER of the corridor and the
+        # `yard`/`trail` annulus around it is mostly untouched ground — lower
+        # `min_intensity` only if you are prepared to defend a casualty on a
+        # lawn the tornado missed.
         print("[tornado_people] {0} casualt(ies) placed; refusals {1}".format(
             len(f.humans), dict(sorted(f.refused.items()))))
     return f.humans, f.debris, f.records

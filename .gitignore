@@ -164,3 +164,9 @@ osmo/bags/*
 osmo/weights/*
 .agent_logs/*
 .agent_tmp/*
+
+# Frozen dataset scenes — large binary USD + textures, not source.
+final_disaster_dataset/
+
+# Paper source is maintained as a separate Overleaf Git repository.
+/overleaf/

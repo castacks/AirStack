@@ -407,6 +407,11 @@ def modules(scene):
         ang = math.radians(p["yaw_deg"] - fix)
         out.append({"x": p["x_m"], "y": p["y_m"], "ang": ang,
                     "L": ln * fit, "T": th * fit, "usd": u,
+                    # WHICH RUN LAID IT, carried through from
+                    # `suburb_scene._lay`. A dangling end is what reads as "a
+                    # random extension" in a render, and this is what makes one
+                    # attributable to the pass that produced it.
+                    "tag": p.get("fence_tag"),
                     "box": sp._corners(p["x_m"], p["y_m"], ln * fit, th * fit,
                                        math.cos(ang), math.sin(ang))})
     return out

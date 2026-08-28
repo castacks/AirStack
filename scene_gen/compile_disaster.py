@@ -736,6 +736,25 @@ def compile_spec(spec: dict, base: dict) -> dict:
         cfg["seed"] = spec["seed"]
     if "region_m" in spec:
         cfg.setdefault("layout", {})["region_m"] = spec["region_m"]
+    # THE SKY, and it was being DROPPED. `cfg` starts as a copy of the base
+    # low-level config and only the keys named here are carried across from the
+    # spec, so a top-level `sky:` in a high-level preset never reached
+    # `scene_generator.resolve_sky` — which documents it as "the top-level
+    # `sky` config entry" and is therefore describing something that could not
+    # work from a preset. The symptom is the worst kind: no error, no warning,
+    # and a scene that quietly keeps whatever sky its asset set inherits.
+    # Found 2026-08-28 setting a night dome on the tornado preset; the give-away
+    # was that `scene_prep.add_sky`'s own "Dome light set at ..." line never
+    # appeared in the log.
+    if "sky" in spec:
+        cfg["sky"] = spec["sky"]
+    # The dome's brightness travels with it. A moonlit HDRI at `add_sky`'s
+    # daylight default (intensity 3500, exposure -3) renders as a flat bright
+    # grey — the image is right and the exposure is three stops wrong, which
+    # reads as "that is not a night sky".
+    for _k in ("sky_intensity", "sky_exposure"):
+        if _k in spec:
+            cfg[_k] = spec[_k]
 
     # ---- LOCALE axis: how the place is laid out (see compile_locale.py).
     # Applied before the disaster so a disaster's overrides still win, and

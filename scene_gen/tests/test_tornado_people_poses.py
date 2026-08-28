@@ -454,9 +454,19 @@ def test_10_nothing_is_ever_fully_buried():
 
 def test_11_the_pattern_means_what_it_says():
     """`legs` covers the legs and leaves the head. `all_but_head` leaves a
-    head. Read off `visible_parts`, which is what a scorer reads."""
+    head. Read off `visible_parts`, which is what a scorer reads.
+
+    RUN AT A CAP THAT ADMITS EVERY PATTERN, and that is the point rather than a
+    dodge. This checks the VOCABULARY — what each name in `_OCCLUSION` means —
+    and `_trim_spans` shortens any pattern wider than `max_covered_frac`, which
+    after the 2026-08-28 visibility pass (0.80 -> 0.55) is the four widest.
+    A trimmed `all_but_head` genuinely does leave a torso, so asserting the
+    untrimmed meaning against the scene's ceiling would be asserting that the
+    trim does not work. The scene's own ceiling is `test_10`; that the four
+    trimmed names are NOT drawable in a scene is `test_20`.
+    """
     ctx = make_ctx(region=None, planks_on=False)
-    cfg = tpp.resolve_cfg({})
+    cfg = tpp.resolve_cfg({"people": {"max_covered_frac": 0.90}})
     want = {
         "none": (("head", "torso", "feet", "thighs"), ()),
         "legs": (("head", "torso"), ("thighs",)),
@@ -681,6 +691,131 @@ def test_19_the_record_says_what_was_actually_authored():
     assert set(s["by_attitude"]) <= {"face_up", "face_down", "side"}
     print("    ground truth matches the placements; summary keys %s"
           % sorted(s))
+
+
+# ── 8. the gates: the track, and the occluders nobody could see ─────────────
+
+def test_20_every_drawable_occlusion_fits_under_the_cap():
+    """A PATTERN THE SCENE CAN DRAW HAS TO MEAN ITS OWN NAME.
+
+    `_trim_spans` shortens anything wider than `max_covered_frac`, which keeps
+    the FIGURE visible and makes the LABEL wrong: an `all_but_head` record
+    trimmed from 0.80 to 0.55 is a body with its head, arms and chest in clear
+    view, filed under the name of the pattern that hides them — a wrong label,
+    which this module's whole occlusion argument is against. So every pattern
+    with a non-zero default weight must fit under the default cap untrimmed,
+    and the four that do not are weighted 0 rather than deleted (the bench
+    still photographs all thirteen).
+    """
+    cap = tpp.DEFAULTS["max_covered_frac"]
+    drawn = [k for k, v in tpp.DEFAULTS["occlusion"].items() if float(v) > 0.0]
+    assert drawn, "no occlusion pattern is drawable at all"
+    for name in sorted(drawn):
+        spans = tpp._OCCLUSION[name]
+        if spans == "lateral":
+            continue
+        span = sum(min(b, 1.0) - max(a, 0.0) for (a, b) in spans)
+        assert span <= cap + 1e-6, (
+            "%s covers %.2f of a body but the cap is %.2f: it would be trimmed "
+            "and the record would carry a name that no longer describes it"
+            % (name, span, cap))
+    off = sorted(k for k, v in tpp.DEFAULTS["occlusion"].items()
+                 if float(v) <= 0.0)
+    print("    %d drawable pattern(s) all fit under the %.2f cap; %s are off"
+          % (len(drawn), cap, off or "none"))
+
+
+def test_21_nobody_is_placed_outside_the_track():
+    """`min_intensity`, AT ALL THREE STATIONS.
+
+    The gate the skill described for a fortnight and the code did not have. A
+    synthetic corridor (intensity 1 inside a band, 0 outside) with wrecks
+    straddling its edge: with the gate on, no station of any body may be
+    outside the band, and with it off some are — otherwise the test would pass
+    against an unwired gate, which is exactly the failure being fixed.
+    """
+    half = 30.0
+
+    def inten(x, y):
+        return 1.0 if abs(y) <= half else 0.0
+
+    ctx = make_ctx(planks_on=False)
+    ctx["intensity_at"] = inten
+
+    def _stations(r):
+        roll = tpp._lying_roll(r["pose"])
+        ux, uy = tpp._body_axis(r["pose"], r["yaw"], roll)
+        reach = float(r["reach_m"])
+        return ((r["x"], r["y"]),
+                (r["x"] + ux * reach * 0.5, r["y"] + uy * reach * 0.5),
+                (r["x"] + ux * reach, r["y"] + uy * reach))
+
+    out = {}
+    for on in (True, False):
+        cfg = tpp.resolve_cfg({"people": {
+            "min_intensity": 0.5 if on else 0.0,
+            # the keepouts are a different gate and would confuse the count
+            "wreck_clear_m": 0.0, "house_clear_m": 0.0,
+            "avoid_canopies": False, "avoid_blockers": False}})
+        _h, _d, recs = tpp.plan_people(cfg, ctx, random.Random(91))
+        out[on] = sum(1 for r in recs
+                      for (px, py) in _stations(r) if abs(py) > half)
+        if on:
+            for r in recs:
+                assert r.get("intensity") is not None, (
+                    "the record does not carry the intensity it was gated on")
+    assert out[True] == 0, (
+        "%d station(s) outside the corridor with the gate ON" % out[True])
+    assert out[False] > 0, (
+        "the gate-off run put nothing outside the corridor either, so this "
+        "test proves nothing about the gate")
+    print("    stations outside the corridor: gate off %d -> gate on %d"
+          % (out[False], out[True]))
+
+
+def test_22_nobody_lies_inside_an_occluder_the_deck_cannot_see():
+    """THE WRECK PILE, A STANDING HOUSE, A CROWN, AND THE SCOUR RELIEF.
+
+    `covered_frac` counts only the boards this module lays, so the four things
+    that can stand OVER a body and are not in it have to be refused instead.
+    Same three stations. Off, some bodies land inside one; on, none does.
+    """
+    ctx = make_ctx()
+    ctx["intact"] = [(w["x"] + 40.0, w["y"] + 40.0) for w in ctx["wrecks"]]
+    ctx["canopies"] = [(w["x"] - 9.0, w["y"] + 9.0, 4.2) for w in ctx["wrecks"]]
+    ctx["blockers"] = [(w["x"] + 11.0, w["y"] - 11.0, 2.0, "in_relief")
+                       for w in ctx["wrecks"]]
+    ko = tpp._Keepout(tpp._blocker_list(tpp.resolve_cfg({}), ctx))
+    assert len(ko) > 0
+
+    def _inside(recs):
+        n = 0
+        for r in recs:
+            roll = tpp._lying_roll(r["pose"])
+            ux, uy = tpp._body_axis(r["pose"], r["yaw"], roll)
+            reach = float(r["reach_m"])
+            for t in (0.0, 0.5, 1.0):
+                if ko.hit(r["x"] + ux * reach * t, r["y"] + uy * reach * t):
+                    n += 1
+                    break
+        return n
+
+    on = {"min_intensity": 0.0}
+    off = {"min_intensity": 0.0, "wreck_clear_m": 0.0, "house_clear_m": 0.0,
+           "avoid_canopies": False, "avoid_blockers": False}
+    got = {}
+    for name, over in (("on", on), ("off", off)):
+        _h, _d, recs = tpp.plan_people(tpp.resolve_cfg({"people": over}), ctx,
+                                       random.Random(91))
+        got[name] = (_inside(recs), len(recs))
+    assert got["on"][0] == 0, (
+        "%d of %d bodies lie inside an occluder with the keepouts ON"
+        % got["on"])
+    assert got["off"][0] > 0, (
+        "the keepouts-off run put nothing inside an occluder either, so this "
+        "test proves nothing")
+    print("    bodies inside an unseen occluder: keepouts off %d/%d -> on "
+          "%d/%d" % (got["off"] + got["on"]))
 
 
 def main():
