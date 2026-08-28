@@ -144,6 +144,10 @@ notebook/001-add-new-planner/
 
 **Full workflow and templates:** [.agents/skills/use-feature-notebook](.agents/skills/use-feature-notebook)
 
+### Research strategy layer (`notebook/strategy.md`)
+
+[`notebook/strategy.md`](notebook/strategy.md) (tracked on the `airstack-paper` branch) is the layer between single-topic notebook entries and `ICRA_2027_AirStack_Paper/paper_positioning.md`: it charts the current strategic direction, groups every notebook entry into a campaign, and keeps an append-only log of direction changes. **Read its §Current direction and §Campaigns at the start of any session that creates or advances a notebook entry**, and keep it current per its header rules (top sections edited in place, §Direction log append-only). positioning.md remains the framing-detail reference.
+
 ## Reference Implementations
 
 Study these well-structured modules as examples for different types:

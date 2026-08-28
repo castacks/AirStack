@@ -45,9 +45,11 @@ Naming rules:
 
 ## Workflow
 
-### 1. On starting a feature — write `design_spec.md`
+### 1. On starting a feature — read the strategy, then write `design_spec.md`
 
-Before writing any implementation code, create `notebook/NNN-feature-slug/design_spec.md` from [assets/design_spec_template.md](assets/design_spec_template.md). It must capture:
+First read `notebook/strategy.md` (§Current direction and §Campaigns) — every entry serves a campaign, and the strategy file is what tells you which ones exist and where the work currently stands. Name the campaign the entry serves in the spec header's `Campaign:` line. If the entry genuinely starts a new theme, add a campaign row to strategy.md's §Campaigns table rather than stretching an existing campaign to fit.
+
+Then, before writing any implementation code, create `notebook/NNN-feature-slug/design_spec.md` from [assets/design_spec_template.md](assets/design_spec_template.md). It must capture:
 
 - **Problem context** — what the developer is trying to solve, in the developer's own framing from the session: motivation, constraints, prior attempts, and any decisions already made in the conversation. This is the section that preserves context which exists nowhere else.
 - **Proposed implementation** — the design: affected packages, new/changed nodes and topics, algorithms, data flow. Diagrams (mermaid) welcome. Split into subsections if the implementation has multiple parts.
@@ -86,9 +88,14 @@ The PR body for the feature is built from the notebook, since reviewers cannot s
 - **What changed** ← proposed implementation (as-built)
 - **Validation** ← `results_summary.md`: paste the summary tables, upload the key figures as PR attachments, and state the per-section verdicts
 
+### 6. On finishing — update `notebook/strategy.md` if the strategy moved
+
+If the findings changed the strategic picture — a claim strengthened or weakened, a descope, a new campaign, a priority shift — append a dated entry to strategy.md's §Direction log (append-only, newest first: what was learned or decided, what it changed, link to the entry's evidence), and edit the in-place sections (§Current direction, §Strategic choices in force, §Campaigns) if a standing choice flipped or a status changed. **Escape valve:** routine feature completions that don't move the strategy get no log entry — just keep the entry's row in §Campaigns current.
+
 ## Pitfalls
 
 - ❌ Writing the spec after the code — the spec exists to record intent and session context before they're lost.
+- ❌ **Strategy drift** — creating an entry without reading `notebook/strategy.md` or naming its campaign in the spec header, or finishing an entry whose findings moved the strategic direction without appending a §Direction log entry. The strategy file is only trustworthy if entries feed it.
 - ❌ Stale status labels — a spec still marked `DESIGN/TODO` (or a section marked `WIP`) after the work shipped misleads the next reader; update statuses as you go.
 - ❌ Committing `notebook/` or referencing `notebook/...` paths from committed code, docs, or tests — it doesn't exist on other machines or in CI.
 - ❌ Results subfolder letters that don't match the spec's test-plan letters.

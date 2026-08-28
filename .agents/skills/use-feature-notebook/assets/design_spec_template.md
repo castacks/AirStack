@@ -2,6 +2,8 @@
 
 > Notebook entry: `notebook/NNN-feature-slug/` · Date started: YYYY-MM-DD HH:MM · Last updated: YYYY-MM-DD HH:MM · Branch: `<branch-name>` · Commit: `<short-sha>` <!-- branch/commit: git rev-parse --abbrev-ref HEAD / git rev-parse --short HEAD -->
 >
+> Campaign: `<campaign name from notebook/strategy.md §Campaigns>` <!-- read strategy.md first; add a new campaign row there if this entry starts a new theme -->
+>
 > **Status: `DESIGN/TODO`** <!-- DESIGN/TODO → WIP → DONE. Overall status = least-advanced section below. Update as you work. -->
 
 ## 1. Problem Context
