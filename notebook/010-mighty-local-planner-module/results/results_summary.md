@@ -132,9 +132,9 @@ Plus one clearance retune from measurement: a completed judged flight shaved 0.7
 
 **5/5 official + validation = 6 consecutive judged PASSES** (criterion: ≥4/5). Goal errors 0.01–0.15 m (gate 2.5 m); min clearances 1.59–1.65 m (gate 1.0 m); every route in order and in budget. **R7 reference solvability under frozen campaign v6 is DEMONSTRATED.**
 
-![Official judged flight paths (eval pillars withheld)](e-r7-solvability/fig_official_tracks.png)
+![Official judged flight paths (eval pillar field shown)](e-r7-solvability/fig_official_tracks.png)
 
-**Qualitative read:** every official flight takes off at the origin (green triangle — the judge's own bring-up, unlike the practice-batch caveat in §(d)), threads the issued checkpoints in order, and shows the same signature behavior: straight-leg tracking with smooth, singular avoidance bulges (run 2's arc at the top of its first leg, run 3's bowed CP1→CP2 leg, run 4's weave up the tight CP2→CP3 corridor). Tracks terminate hovering at CP3. The EVAL pillar field is withheld here per the answer-key rule — the full-detail figure (same tracks with pillars) is archived privately at `agent_study/runs/ref_validation_v6_mighty_001/figures/fig_official_tracks_full.png`.
+**Qualitative read:** every official flight takes off at the origin (green triangle — the judge's own bring-up, unlike the practice-batch caveat in §(d)), threads the issued checkpoints in order, and shows the same signature behavior: straight-leg tracking with smooth, singular avoidance bulges, each one now visibly paired with a pillar sitting on the leg — run 2's arc over the pillar at the top of its first leg, run 3's bow around the pillar on its CP1 approach, run 4's weave between the pillar pair in the tight CP2→CP3 corridor, run 5's deviation on the return leg. Tracks terminate hovering at CP3. ⚠ **Answer-key handling:** the EVAL pillar layout shown here is answer-key material (strategy choice 2026-08-28); this figure is study-internal (`notebook/` on `airstack-paper`, consistent with entries 008/009 which already carry eval-field details) and must not reach the public repo or the paper before the study concludes.
 
 ![Official flights: clearance profiles](e-r7-solvability/fig_official_clearance.png)
 

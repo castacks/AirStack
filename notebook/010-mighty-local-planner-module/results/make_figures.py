@@ -155,24 +155,26 @@ def main():
                          load_csv(oc)))
     runs.sort(key=lambda r: r[0])
 
-    for private, fname, pil in (
-            (False, e / 'fig_official_tracks.png', None),
-            (True, RUN_DIR / 'figures' / 'fig_official_tracks_full.png',
-             eval_pillars)):
+    # NOTE: the EVAL pillar layout is answer-key material (strategy choice
+    # 2026-08-28). It is shown here because notebook/ is the study-internal
+    # record (entries 008/009 already contain eval-field details) — this
+    # figure must NOT reach the public repo or the paper before the study
+    # concludes.
+    for fname in (e / 'fig_official_tracks.png',
+                  RUN_DIR / 'figures' / 'fig_official_tracks_full.png'):
         fname.parent.mkdir(exist_ok=True)
         fig, axes = plt.subplots(2, 3, figsize=(15, 10))
         for ax, (label, route, pts) in zip(axes.flat, runs):
             prof = [c for c in clearance_profile(pts, eval_pillars)
                     if c is not None]
-            draw_run(ax, pts, route, pil, title=label,
+            draw_run(ax, pts, route, eval_pillars, title=label,
                      clearance=min(prof) if prof else None)
         for ax in axes.flat[len(runs):]:
             ax.axis('off')
-        note = ('EVAL pillar field shown (PRIVATE — answer key)' if private
-                else 'EVAL pillar field withheld (answer-key rule); '
-                     'full-detail figure archived in the private study repo')
         fig.suptitle('Official frozen-v6 judged R7 flights (asm_mighty v0.1.0) '
-                     f'— 5/5 PASS\n{note}', fontsize=13)
+                     '— 5/5 PASS\nEVAL pillar field shown '
+                     '(answer-key material: study-internal figure only)',
+                     fontsize=13)
         fig.tight_layout(rect=(0, 0, 1, 0.94))
         fig.savefig(fname, dpi=130)
         plt.close(fig)
