@@ -4,17 +4,17 @@
 >
 > Campaign: `Agent study (paper Sec. VI-C)` — primary (R7 prerequisite). Secondary: `Modular AirStack (RFC #379/#380)` — the lead explicitly wants this integration to **stress-test the external-module workflow** (`airstack module add`), so module-system friction findings are a deliverable, not incidental.
 >
-> **Status: `WIP`** (2.1/2.2/2.3 DONE — module builds on Jazzy, 44/44
-> gtests, smoke passes, full_mighty flies takeoff→route→land in Isaac
-> through the untouched seams; 2.4 DONE — practice pillar field 5/5 action
-> runs PASS (min clearances 1.06–1.37 m) + follower-mode (global_plan
-> topic, study route contract) validated; 2.5 WIP — campaign v6 pinned
-> (final: study/mighty-swap 8c66f884, asm_mighty v0.1.0-dev3 at PRIVATE
-> castacks/asm_mighty), judge deltas implemented (R7 budget 240 s,
-> practice/eval split with judge-time eval-scene staging); judged-eval
-> iteration surfaced+fixed 5 integration defects and one measured margin
-> retune; pre-formalization judged run PASS (goal error 0.05 m,
-> clearance 1.641 m); official 5-run frozen-pin batch running)
+> **Status: `DONE`** (2026-08-28 07:00). All sections DONE. Final pin:
+> `study/mighty-swap` @ `961fb9e1`, asm_mighty **v0.1.0** (≡ v0.1.0-dev10,
+> `5547954`) at PRIVATE castacks/asm_mighty. Test plan (a)–(f) complete:
+> 44/44 gtests; smoke; Isaac takeoff→route→land through untouched seams;
+> practice field 7/7 (both command paths); **R7 reference solvability
+> under frozen campaign v6: 5/5 official judged flights + validation
+> flight (goal errors 0.01–0.15 m, min clearances 1.59–1.65 m)**. The
+> judged-eval iteration surfaced and fixed TEN distinct integration
+> defects (results_summary §(e)) — the module workflow, the judge, and
+> the planner all hardened en route. Catalog/index registration deferred
+> until the repo goes public (study conclusion).
 
 ## 1. Problem Context
 

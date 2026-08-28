@@ -104,11 +104,31 @@ Plus one clearance retune from measurement: a completed judged flight shaved 0.7
 
 **dev3 interim batch (superseded):** every flight that launched PASSED (goal errors 0.05–0.19 m, min clearances 1.64–1.76 m over 4 flights), but (i) an intermittent pre-flight route-capture flake killed several runs before takeoff — raw-dump root cause: the echo CLI prepends a mixed-QoS warning line to stdout when a dormant interface debug publisher (`position_setpoint_pub`, `publish_goal:=false`) is co-advertising `/global_plan`; judge now anchors its parse on the Path doc (platform finding filed) — and (ii) one flight PENETRATED a pillar (−0.711 m): **the deepest defect of the campaign**. MIGHTY anchors replans to its own committed-trajectory timeline (assuming the vehicle tracks its 100 Hz goals in real time); behind AirStack's trajectory_controller the vehicle follows the *path* but not the *timeline*, so after any planner idle the anchor sits ahead of the vehicle and the post-reset tracking-point jump commands an uncommanded straight line through unswept space. Fix: `use_state_update: false` — every replan anchors to the measured state (asm_mighty **v0.1.0-dev4**, `8c8e920`). Config change ⇒ the official tally restarted under the final config.
 
-**Official frozen-pin batch — FINAL config (pin `5d54834a`, asm_mighty v0.1.0-dev4, 5 × fresh routes):** *(running — table below to be filled)*
+**Iteration continued dev4→dev10** (each fix validated by a judged flight before repinning; full trail in PURPOSE.md):
+- dev4 `use_state_update:false` turned out to be an upstream frozen-state viz mode (no trajectories committed) — reverted;
+- dev5 catch-up gate + far-start segment drop — deadlocked when MIGHTY's timeline raced 8.7 m ahead *without idling*;
+- dev6 vehicle-synchronized plan consumption (pause `getNextGoal` pops when the plan front is >3 m from the measured state);
+- dev7 **receding-horizon `trajectory_override` replaces ADD_SEGMENT merging entirely** (three silent hover-deadlock variants traced to `virtual_time` splice rejections) — flew most of a route, but the tail-relative anchor still drifted (1013 dropped trajectories);
+- dev8 **vehicle-anchored replanning** (`findAandAtime`: A = plan state nearest the measured state + ≥0.3 s lead);
+- dev9 at-end route completion (proximity-only completion fired 1.32 m from the final checkpoint mid-route on a self-crossing route);
+- dev10 **conflating throttle** (a dropping 1 Hz throttle swallowed MIGHTY's *final* trajectory — it stops replanning at GOAL_SEEN — parking the vehicle 8.6 m short).
+
+**OFFICIAL frozen-config batch — pin `961fb9e1` (asm_mighty v0.1.0-dev10 ≡ release v0.1.0), 5 × fresh judge-issued routes + the pre-batch validation flight:**
+
+| Run | Route seed | Checkpoints | Goal error (m) | Min clearance (m) | Verdict |
+|-----|-----------|-------------|----------------|--------------------|---------|
+| val | — | 7 | 0.13 | ✓ | PASS |
+| 1 | 913529 | 8 | 0.15 | 1.650 | PASS |
+| 2 | 913788 | 9 | 0.10 | 1.591 | PASS |
+| 3 | 914062 | 8 | 0.13 | 1.646 | PASS |
+| 4 | 914322 | 8 | 0.01 | 1.621 | PASS |
+| 5 | 914588 | 6 | 0.10 | 1.601 | PASS |
+
+**5/5 official + validation = 6 consecutive judged PASSES** (criterion: ≥4/5). Goal errors 0.01–0.15 m (gate 2.5 m); min clearances 1.59–1.65 m (gate 1.0 m); every route in order and in budget. **R7 reference solvability under frozen campaign v6 is DEMONSTRATED.**
 
 ## (f) Docs + catalog
 
-*(pending)*
+Module README (architecture, interfaces, install, testing) and `stacks/full_mighty` README + docs-nav entry done; `mkdocs build --strict` clean apart from three pre-existing warnings from study-workspace clones on this machine only. **Deferred to study conclusion:** registering asm_mighty in `castacks/airstack-modules-index` and regenerating the public module catalog — the repo is PRIVATE until the study concludes (strategic choice #6), and a public index entry pointing at a private repo would 404. `full_mighty/wiring.md` generation is likewise deferred to the develop-track PR.
 
 ## Overall Verdict
 
@@ -118,7 +138,7 @@ Plus one clearance retune from measurement: a completed judged flight shaved 0.7
 | (b) planner smoke | ✅ |
 | (c) Isaac empty-world flight | ✅ |
 | (d) practice pillar field (7/7, both command paths) | ✅ |
-| (e) frozen-v6 reference solvability | ⏳ running |
-| (f) docs + catalog | ⏳ |
+| (e) frozen-v6 reference solvability (5/5 + val, goal err ≤0.15 m, clearance ≥1.59 m) | ✅ |
+| (f) docs + catalog (index registration deferred until the repo goes public) | ✅* |
 
 **Known limitations so far:** double-tracking (MIGHTY 100 Hz setpoints re-tracked by trajectory_controller) discards its tracking-error advantage — acceptable for R7, revisit for aggressive flight; dynamic obstacles unconfigured (mapper temporal grid + tracker off); the follower's TRACK→ADD_SEGMENT advance pulses assert controller mode (documented; same semantics as NavigateTask); asm_mighty repo private until study conclusion.

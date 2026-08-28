@@ -36,17 +36,16 @@ instrument are PRIMARY; Sec. VI (sim fidelity, defect mining, agent
 study, threats) is SUPPORTING
 ([positioning.md §Evidence hierarchy](../ICRA_2027_AirStack_Paper/paper_positioning.md)).
 
-Current phase (as of 2026-08-28): the **agent study (Sec. VI-C)** is
-the active sprint — it is the paper's longest-wall-clock item (START
-FIRST). Campaign v5 was superseded before running: droan_gl hit its
-architectural R7 ceiling and the lead decided (2026-08-28) to swap the
-local planner to **MIGHTY** (MIT ACL, RA-L 2026) delivered as an
-external module `asm_mighty` — entry
-[010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md)
-is the active work item. Campaign **v6** bundles the swap re-pin with
-the queued judge changes (R7 budget 240 s, HARD_CAP_S 1800,
-practice/eval layout split) and the 2026-08-27 restructure re-pin, so
-recalibration happens once. In parallel: prose-ifying `main.tex`
+Current phase (as of 2026-08-28 07:00): **campaign v6 is READY FOR
+TRIALS.** The MIGHTY local-planner swap (entry
+[010](010-mighty-local-planner-module/design_spec.md), DONE) replaced
+droan_gl with the `asm_mighty` external module; R7 reference
+solvability under the frozen v6 config is **demonstrated 5/5** (goal
+errors 0.01–0.15 m, clearances 1.59–1.65 m vs the 1.0 m gate). v6
+bundles the swap pin (`study/mighty-swap` @ `961fb9e1`, asm_mighty
+v0.1.0) with the queued judge changes (R7 budget 240 s, HARD_CAP_S
+1800, practice/eval layout split) and the restructure re-pin. Next:
+run the A1–A4 trial campaign. In parallel: prose-ifying `main.tex`
 section by section, and the release gate (7 paper-blocking items; ~63
 tasks still `\task{}` in `release_gate_and_tasks.tex` as of
 2026-08-27).
@@ -102,7 +101,7 @@ come from the entries' own labels.
 
 | Campaign | Goal | Entries | Status |
 |---|---|---|---|
-| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DESIGN/TODO` — swap decided 2026-08-28: MIGHTY as `asm_mighty` external module, campaign v6 (see log) |
+| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DONE` — MIGHTY swapped in as `asm_mighty` v0.1.0; R7 reference solvability 5/5 under frozen v6; campaign READY (see log) |
 | Paper writing & positioning | Sec. I–V prose, case-study interviews, figures | — (lives in the `ICRA_2027_AirStack_Paper/` submodule; no notebook entries) | Related Work + Design Principles prose done 2026-08-03; interviews not recorded anywhere yet |
 | Release gate / v1.0 readiness | The seven paper-blocking items (clone-and-run, verified hardware path, …) | — (no notebook entries yet) | ~63 open `\task{}` vs 1 `\done{}` in `release_gate_and_tasks.tex` |
 | Modular AirStack (RFC #379/#380) | Monolith → modules, stacks, fleets — built to support the paper's modularity positioning: module swapping (C1) and easy upstreaming of features from forked projects (lead, recorded 2026-08-27) | [002-rfc-modular-airstack](002-rfc-modular-airstack/design_spec.md) | `WIP` per its header (impl merged to develop 2026-08-24 as PRs #388–#396; release mechanics, module CI tags, P3 dispatch smoke open) |
@@ -117,6 +116,30 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+### 2026-08-28 (07:00) — MIGHTY swap COMPLETE; R7 reference-solvable 5/5; campaign v6 ready for trials
+
+The swap decided this morning (next entry) was implemented, validated,
+and frozen in one session (entry
+[010](010-mighty-local-planner-module/design_spec.md), DONE). What
+landed: `asm_mighty` v0.1.0 (PRIVATE castacks repo until the study
+concludes) — MIGHTY + acl-mapping Jazzy-ported and bridged onto the
+untouched NavigateTask / trajectory_controller seams; `full_mighty`
+reference stack; campaign v6 frozen (pin `study/mighty-swap` @
+`961fb9e1`; R7 budget 240 s; practice/eval layout split with
+judge-time-only eval-scene staging). Evidence: practice field 7/7;
+**official frozen-config judged batch 5/5** (goal errors 0.01–0.15 m,
+min clearances 1.59–1.65 m). What it changed: (a) the v5 blocker is
+closed — trials may start; (b) C1 gains a real module-swap
+demonstration (the swap is one include + one pin, and the module
+workflow survived a planner-scale stress test with 5 usability
+findings); (c) a transferable systems lesson for the paper: a
+timeline-open-loop planner behind a tracking controller needs
+vehicle-anchored replanning + receding-horizon override handoff — ten
+distinct integration defects were surfaced BY the judged solvability
+protocol itself and fixed (notebook 010 §(e)); (d) diffaero remains
+postponed (depth-only hardware track). Watch item: asm_mighty must
+flip public at study conclusion (index/catalog registration deferred).
 
 ### 2026-08-28 — local planner swap DECIDED: MIGHTY as external module `asm_mighty`; diffaero postponed; campaign v6 bundles everything
 
