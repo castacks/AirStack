@@ -17,5 +17,5 @@ repositories:
   asm_mighty:
     type: git
     url: git@github.com:castacks/asm_mighty.git
-    version: v0.1.0-dev3
+    version: v0.1.0-dev4
 x-local-modules: []

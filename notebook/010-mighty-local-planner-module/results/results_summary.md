@@ -102,7 +102,9 @@ Plus one clearance retune from measurement: a completed judged flight shaved 0.7
 
 **Pre-formalization validation run (content-identical to dev3): PASS — 7 checkpoints in order, final goal error 0.05 m, min clearance 1.641 m.**
 
-**Official frozen-pin batch (5 × fresh routes):** *(running — table below to be filled)*
+**dev3 interim batch (superseded):** every flight that launched PASSED (goal errors 0.05–0.19 m, min clearances 1.64–1.76 m over 4 flights), but (i) an intermittent pre-flight route-capture flake killed several runs before takeoff — raw-dump root cause: the echo CLI prepends a mixed-QoS warning line to stdout when a dormant interface debug publisher (`position_setpoint_pub`, `publish_goal:=false`) is co-advertising `/global_plan`; judge now anchors its parse on the Path doc (platform finding filed) — and (ii) one flight PENETRATED a pillar (−0.711 m): **the deepest defect of the campaign**. MIGHTY anchors replans to its own committed-trajectory timeline (assuming the vehicle tracks its 100 Hz goals in real time); behind AirStack's trajectory_controller the vehicle follows the *path* but not the *timeline*, so after any planner idle the anchor sits ahead of the vehicle and the post-reset tracking-point jump commands an uncommanded straight line through unswept space. Fix: `use_state_update: false` — every replan anchors to the measured state (asm_mighty **v0.1.0-dev4**, `8c8e920`). Config change ⇒ the official tally restarted under the final config.
+
+**Official frozen-pin batch — FINAL config (pin `5d54834a`, asm_mighty v0.1.0-dev4, 5 × fresh routes):** *(running — table below to be filled)*
 
 ## (f) Docs + catalog
 
