@@ -119,7 +119,7 @@ sudo bash /tmp/airstack/.github/orchestrator/setup.sh
 | `cpu` / `gpu` / `memory` / `storage` | Resource request for the worker | size for full stack + sim |
 | `privileged` | Must be `true` (docker compose inside the pod) | — |
 | `priority` | `HIGH` \| `NORMAL` \| `LOW` | — |
-| `repo` | `owner/name` of the repo to poll | from GitHub URL |
+| `repos` | list of `owner/name` repos to poll (legacy `repo:` accepted) | from GitHub URLs |
 | `runner_version` | Runner version baked into `runner_image` | matches step 1 |
 | `max_concurrent` | Max simultaneous in-flight workflows | — |
 | `max_job_minutes` | Straggler cancel ceiling | exceed the longest job |
@@ -131,7 +131,7 @@ sudo systemctl enable --now airstack-orchestrator.service
 journalctl -u airstack-orchestrator.service -f
 ```
 
-You should see `orchestrator started (OSMO backend): repo=... pool=... max_concurrent=N`, an `osmo login succeeded` line, and then periodic poll activity.
+You should see `orchestrator started (OSMO backend): repos=[...] pool=... max_concurrent=N`, an `osmo login succeeded` line, and then periodic poll activity.
 
 ## End-to-end verification
 
@@ -155,20 +155,29 @@ osmo workflow list --name gha-runner- --pool airstack-ci --status RUNNING PENDIN
 Module repos (`asm_*`) that call trunk's reusable
 [`module-system-tests.yml`](https://github.com/castacks/AirStack/blob/main/.github/workflows/module-system-tests.yml) with the
 default `runs-on: [self-hosted, airstack-ephemeral]` queue jobs **in their own
-repo**, and the orchestrator polls exactly one `repo:` per instance. To add an
-`asm_` repo to the poll list, run a second orchestrator instance against it:
+repo**. One orchestrator instance polls them all — list every repo under
+`repos:` in `/etc/airstack-orchestrator/config.yaml`:
 
-1. **Extend the PAT.** The fine-grained GitHub PAT must also cover the module
+```yaml
+repos:
+  - "castacks/AirStack"
+  - "castacks/asm_dfm2_disturbances"
+  - "castacks/asm_optitrack"
+  - "castacks/asm_macvo"
+```
+
+(The legacy singular `repo:` key is still accepted.) Two requirements when
+adding a repo:
+
+1. **Extend the PAT.** The fine-grained GitHub PAT must cover each listed
    repo with `Actions: read/write` + `Administration: read/write` (JIT runner
-   registration is per-repo). Reuse the existing PAT file if it covers the
-   repo, else stage a second one.
-2. **Copy the config.** `/etc/airstack-orchestrator/config.yaml` →
-   `config-asm-<name>.yaml` with `repo: "castacks/asm_<name>"` and a
-   **distinct `workflow_name_prefix`** (e.g. `gha-runner-asm<name>-`) so the
-   two instances' orphan sweeps don't cancel each other's OSMO workflows.
-3. **Run a second service instance** pointing at the new config and its own
-   state file (copy `airstack-orchestrator.service`, adjust `ExecStart`'s
-   `--config` and `--state`, e.g. `--state /var/lib/airstack-orchestrator/state-asm-<name>.json`).
+   registration is per-repo).
+2. **Restart the service** (`systemctl restart airstack-orchestrator`) and
+   confirm the startup line lists every repo:
+   `orchestrator started (OSMO backend): repos=[...]`.
+
+The shared `max_concurrent` cap and the orphan sweep span all polled repos —
+no per-repo instances, prefixes, or state files needed.
 
 First-party only: the reusable workflow refuses callers outside the castacks
 org, mirroring the fork-PR block. Org-level polling across registered repos

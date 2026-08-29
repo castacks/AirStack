@@ -21,6 +21,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # The tests/meta contract tests exercise `airstack up --dry-run`,
+          # whose preflight requires the PegasusSimulator submodule, and the
+          # docs-catalog contract resolves nav entries that live inside
+          # submodules (e.g. vdb_mapping_ros2/README.md).
+          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,6 +37,20 @@ jobs:
 
       - name: Install test dependencies
         run: python -m pip install -r tests/requirements.txt
+
+      # `airstack up --dry-run --sim isaac` preflight hard-errors without
+      # Nucleus credentials. Provision the same guest stub that
+      # module-system-tests.yml creates; hosted runners never launch Isaac.
+      - name: Create Isaac Sim omni_pass.env (preflight stub)
+        run: |
+          mkdir -p simulation/isaac-sim/docker
+          cat > simulation/isaac-sim/docker/omni_pass.env <<'EOF'
+          OMNI_USER=guest
+          OMNI_PASS=guest
+          OMNI_SERVER="omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1"
+          ACCEPT_EULA=Y
+          OMNI_ENV_PRIVACY_CONSENT=Y
+          EOF
 
       - name: Run unit tests
         env:

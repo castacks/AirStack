@@ -566,7 +566,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install report dependencies
-        run: pip install -r tests/report-requirements.txt
+        # parse_metrics.py imports the tests/harness package, so it needs the
+        # full test requirements (pyyaml et al.), not just tabulate.
+        run: pip install -r tests/requirements.txt
 
       - name: Resolve PR base branch
         if: github.event_name == 'issue_comment' || github.event_name == 'pull_request'
@@ -729,6 +731,9 @@ jobs:
 
       - name: Fail on report integrity error
         if: steps.report.outcome == 'failure'
+        # Numeric metric deltas are advisory (parse_metrics.py exits 0 on
+        # them); this step fires only on parser/integrity failures (exit 2)
+        # or an uncaught crash, and never labels either a metric regression.
         run: |
           echo "::error::Metrics report generation failed — see the report step log."
           exit 1

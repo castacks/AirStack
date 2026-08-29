@@ -64,8 +64,15 @@ runner_version: "2.336.0"
 
 # --- GitHub ---
 
-# owner/name of the repo whose queued workflow_jobs to pick up.
-repo: "castacks/AirStack"
+# Repos whose queued workflow_jobs to pick up. Trunk plus every module repo
+# whose CI calls the reusable module-system-tests workflow. The PAT must have
+# admin (self-hosted runner) rights on each. The legacy singular `repo:` key
+# is still accepted.
+repos:
+  - "castacks/AirStack"
+  - "castacks/asm_dfm2_disturbances"
+  - "castacks/asm_optitrack"
+  - "castacks/asm_macvo"
 
 # Labels the orchestrator polls for. A queued workflow_job whose `labels`
 # array is a superset of this list gets a workflow submitted for it. These are
