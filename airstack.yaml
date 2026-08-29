@@ -18,7 +18,7 @@
 #     file is future work — launch behavior without --fleet is unchanged).
 
 # Informational: the trunk release this checkout tracks (see `.env` VERSION).
-release: "0.20.0"
+release: "0.21.0-dev"
 
 # The fleet this checkout flies (config/fleets/*.yaml — RFC #380 §2).
 # sim_one_default == today's defaults: one quad_default on full_default.
