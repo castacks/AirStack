@@ -1,0 +1,61 @@
+# pid_controller node parameters (position + velocity PID cascade gains).
+# Values moved verbatim from the inline <param> block the legacy
+# local_bringup/launch/local.launch.xml carried for pid_controller
+# (P5-E2, RFC #379); loaded by launch/pid_controller.launch.xml.
+/**:
+  ros__parameters:
+    target_frame: base_link_stabilized
+
+    x_p: 1.0
+    x_i: 0.0
+    x_d: 0.0
+    x_ff: 0.0
+    x_d_alpha: 0.0
+    x_min: -3.0
+    x_max: 3.0
+    x_constant: 0.0
+
+    y_p: 1.0
+    y_i: 0.0
+    y_d: 0.0
+    y_ff: 0.0
+    y_d_alpha: 0.0
+    y_min: -3.0
+    y_max: 3.0
+    y_constant: 0.0
+
+    z_p: 1.0
+    z_i: 0.0
+    z_d: 0.0
+    z_ff: 0.0
+    z_d_alpha: 0.0
+    z_min: -1.0
+    z_max: 1.0
+    z_constant: 0.0
+
+    vx_p: 0.2
+    vx_i: 0.025
+    vx_d: 0.0
+    vx_ff: 0.0
+    vx_d_alpha: 0.9
+    vx_min: -0.34
+    vx_max: 0.34
+    vx_constant: 0.0
+
+    vy_p: 0.2
+    vy_i: 0.025
+    vy_d: 0.0
+    vy_ff: 0.0
+    vy_d_alpha: 0.9
+    vy_min: -0.34
+    vy_max: 0.34
+    vy_constant: 0.0
+
+    vz_p: 0.2
+    vz_i: 0.1
+    vz_d: 0.0
+    vz_ff: 0.0
+    vz_d_alpha: 0.0
+    vz_min: -0.5
+    vz_max: 1.0
+    vz_constant: 0.5

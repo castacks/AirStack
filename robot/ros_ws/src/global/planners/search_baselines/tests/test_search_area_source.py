@@ -333,6 +333,41 @@ def main():
     check("'goal_boxes': goal_boxes" in AG and 'xyxy' in AG,
           'the detect wrapper records every goal-class box with its pixel rect')
 
+    # ── [6] nav_activation follows LOCAL_PLANNER; MIGHTY's bridge takes the cap ─
+    print('\n[6] LOCAL_PLANNER=mighty -> follower activation; the bridge caps waypoint speed')
+    i_na = SRC.index("self._nav_activation = str(self._p('nav_activation'")
+    blk = SRC[i_na:SRC.index('\n\n', i_na)]
+    check("os.environ.get('LOCAL_PLANNER'" in blk and "'follower' if lp == 'mighty' else 'activator'" in blk,
+          "nav_activation 'auto' resolves from LOCAL_PLANNER (mighty -> follower)")
+    cmd = _method_src('_command')
+    check("if self._nav_activation == 'follower':" in cmd
+          and "self._nav_activation in ('activator', 'follower')" in _method_src('_set_local_speed'),
+          'follower mode sends no keep-alive goal but still sends the speed-only goal on a gear change')
+    BR = os.path.normpath(os.path.join(HERE, '..', '..', '..', '..', 'modules',
+                                       'asm_mighty', 'mighty_bridge', 'mighty_bridge', 'bridge_node.py'))
+    if os.path.exists(BR):
+        bsrc = open(BR).read()
+        ns = {}
+        i = bsrc.index('def capped_speed('); j = bsrc.index('\n\n\n', i)
+        exec(bsrc[i:j], ns)
+        cs = ns['capped_speed']
+        check(cs(6.9, 1.5) == 1.5 and cs(1.2, 1.5) == 1.2 and cs(6.9, 0.0) == 6.9,
+              'bridge: waypoint speed is min(v, cap), and cap 0 means uncapped')
+        check('if not goal_request.global_plan.poses:\n            return GoalResponse.ACCEPT' in bsrc
+              and "speed-only NavigateTask" in bsrc and 'wp.velocity = capped_speed(' not in bsrc,
+              'bridge: an empty-plan goal is accepted as a speed-only activator; the cap is NOT applied to waypoints (MIGHTY anchoring)')
+        check("speed cap requested {cap:.1f} m/s" in bsrc
+              and 'self._set_mode(TrajectoryMode.Request.TRACK)' in bsrc,
+              'bridge logs the requested cap and switches the controller to TRACK on engage')
+    else:
+        check(False, f'asm_mighty bridge not found at {BR}')
+    LL = os.path.normpath(os.path.join(HERE, '..', '..', '..', '..', 'local', 'local_bringup',
+                                       'launch', 'local.launch.xml'))
+    lsrc = open(LL).read()
+    check('$(env LOCAL_PLANNER droan)' in lsrc and 'mighty_module.launch.xml' in lsrc
+          and 'stereo_image_proc/point_cloud' in lsrc and 'camera_left' in lsrc,
+          'local.launch.xml: LOCAL_PLANNER switch, MIGHTY fed the stereo cloud in camera_left')
+
     print('\n' + ('ALL PASS' if not FAILS else f'{len(FAILS)} FAILED:'))
     for f in FAILS:
         print('   - ' + f)

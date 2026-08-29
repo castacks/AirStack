@@ -1,0 +1,6 @@
+<launch>
+  <arg name="kill_switch_channel_1" default="7" />
+  <arg name="kill_switch_channel_2" default="8" />
+  <arg name="kill_switch_threshold" default="1900" />
+  <node name="kill_switch_node" pkg="fla_utils" type="kill_switch" args="$(arg kill_switch_channel_1) $(arg kill_switch_channel_2) $(arg kill_switch_threshold)" />
+</launch>

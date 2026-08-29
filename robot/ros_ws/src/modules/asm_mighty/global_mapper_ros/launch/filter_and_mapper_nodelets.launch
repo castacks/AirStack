@@ -1,0 +1,26 @@
+<launch>
+	<arg name="quad" default="SQ01s"/>
+	<arg name="manager" default="global_mapper_ros"/>	    
+
+    <!--Note that the manager will be common for both nodelets (in this way we can take advantage of zero-copy)-->
+   
+	<!-- Launch manager and launch mapper nodelet-->
+	<include file="$(find global_mapper_ros)/launch/global_mapper_nodelet.launch">
+		<arg name="quad" value="$(arg quad)"/>
+        <arg name="manager" value="$(arg manager)"/>
+
+	</include>
+
+    <!-- Launch filter nodelet -->
+	<include file="$(find depthmap_filter)/launch/depthmap_filter.launch">
+		<arg name="quad" value="$(arg quad)"/>
+		<arg name="manager" value="$(arg manager)"/>
+	</include>
+
+
+   <!--  <node pkg="timed_roslaunch" type="timed_roslaunch.sh"
+        args="2 depthmap_filter depthmap_filter.launch quad:=$(arg quad) manager:=$(arg manager)"
+        name="timed_roslaunch" output="screen" />-->
+
+
+</launch>

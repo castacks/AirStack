@@ -1,0 +1,380 @@
+# --------------------------------------------------------------------------
+# Copyright 2025, Kota Kondo, Aerospace Controls Laboratory
+# Massachusetts Institute of Technology
+# All Rights Reserved
+# Authors: Kota Kondo, et al.
+# See LICENSE file for the license information
+# --------------------------------------------------------------------------
+
+# =============================================================================
+# MIGHTY Configuration — Ground Robot Hardware
+# =============================================================================
+# Parameters are organized into three tiers:
+#
+#   [CONFIGURE]  — You should set these for your vehicle and environment
+#   [TUNE]       — Adjust these to trade off performance vs. computation
+#   [INTERNAL]   — Safe defaults; change only if you understand the algorithm
+#
+# Units are indicated in brackets: [m], [m/s], [s], [-] (unitless)
+# =============================================================================
+
+mighty_node:
+
+    ros__parameters:
+
+        # =====================================================================
+        # [CONFIGURE] — Set these for your setup
+        # =====================================================================
+
+        # --- Environment & Vehicle ---
+        sim_env: "fake_sim"                             # ["gazebo", "fake_sim"]
+        vehicle_type: "ground_robot"                    # ["uav", "ground_robot", "quadruped_robot"]
+        use_hardware: true                              # [-] Real hardware vs simulation
+        provide_goal_in_global_frame: false             # [-] Goal given in global frame (true for hardware with Vicon)
+        visual_level: 2                                 # [-] Visualization level (0: none, 1: minimal, 2: full)
+
+        # --- Multi-Agent / Frame Alignment ---
+        share_traj: true                               # [-] Publish own planned traj on /trajs (off for solo HW runs to skip the swarm channel)
+        use_frame_alignment: false                      # [-] Use inter-agent frame alignment - if false, until we receive frame alignment, we drop the msg from that agent
+        num_agents: 10                                  # [-] Number of agents (for frame alignment subscriptions)
+        sim_frame_offset_qx: 0.0                        # [-] Simulated frame offset quaternion (for testing in fake_sim)
+        sim_frame_offset_qy: 0.0                        # [-]
+        sim_frame_offset_qz: 0.0                        # [-]
+        sim_frame_offset_qw: 1.0                        # [-]
+
+        # --- Vehicle Dynamic Limits ---
+        v_max: 0.5                                      # [m/s]   Max velocity
+        a_max: 1.0                                      # [m/s^2] Max acceleration
+        j_max: 2.0                                     # [m/s^3] Max jerk
+        w_max: 1.0                                      # [rad/s] Max yaw rate (~4.0 for hardware)
+        drone_bbox: [0.6, 0.6, 0.5]                     # [m] Vehicle bounding box
+
+        # --- UAV-Specific Dynamics (not used for ground robot, but must be declared) ---
+        omega_max: 0.10472                              # [rad/s] Max body rate (6 deg/s)
+        tilt_max_rad: 0.610865                          # [rad] Max tilt angle (35 deg)
+        f_min: 2.0                                      # [N] Min thrust
+        f_max: 12.0                                     # [N] Max thrust
+        mass: 1.0                                       # [kg] Vehicle mass
+        g: 9.81                                         # [m/s^2] Gravitational acceleration
+
+        # --- Trajectory Segments ---
+        num_N: 7                                        # [-] Number of trajectory pieces for local optimization
+
+        # --- Map Bounds ---
+        x_min: -1000.0                                  # [m] Map x lower bound
+        x_max: 1000.0                                   # [m] Map x upper bound
+        y_min: -1000.0                                  # [m] Map y lower bound
+        y_max: 1000.0                                   # [m] Map y upper bound
+        z_min: -0.5                                     # [m] Min altitude (matches global mapper z_ground)
+        z_max: 1.0                                      # [m] Max altitude (must include real obstacle heights from lidar)
+        mighty_map_res: 0.15                             # [m] Voxel map resolution (coarser for ground robot)
+
+        # --- Goal ---
+        force_goal_z: true                              # [-] Force goal to a fixed height (RViz GUI goals have z=0)
+        default_goal_z: 0.1                            # [m] Default goal height (ground level)
+
+        # --- Ground Robot Planning ---
+        ground_robot_L_min: 0.2                         # [m] Lookahead distance for point A (planning start point)
+        ground_robot_v_max: 0.5                         # [m/s] Max linear velocity for ground robot
+        ground_robot_w_max: 0.5                         # [rad/s] Max angular velocity for smooth tracking
+
+        # --- Dynamic Obstacles ---
+        obst_max_vel: 0.3                               # [m/s] Expected max velocity of dynamic obstacles
+
+        # =====================================================================
+        # [TUNE] — Adjust for performance / behavior trade-offs
+        # =====================================================================
+
+        # --- Global Planner ---
+        global_planner: "astar_heat"                    # ["sjps", "astar_heat"]
+        inflation_hgp: 0.3                              # [m] Static obstacle inflation (0 when using ESDF/occ_2d)
+        hgp_timeout_duration_ms: 10000                  # [ms] Global planner timeout
+        max_expand: 1000000                               # [-] Max A* node expansions
+
+        # --- Local Planning ---
+        horizon: 30.0                                   # [m] Planning horizon
+        goal_radius: 1.0                                # [m] Goal reached threshold
+        goal_seen_radius: 2.0                           # [m] Distance to stop replanning
+
+        # --- L-BFGS Optimization Weights ---
+        dynamic_weight: 1e+1                            # [-] Dynamic obstacle avoidance weight
+        time_weight: 1e+3                               # [-] Time cost weight
+        stat_weight: 0.0                                # [-] Static obstacle weight
+        jerk_weight: 1e+4                               # [-] Jerk smoothness weight
+        dyn_constr_vel_weight: 1e+3                     # [-] Velocity constraint violation weight
+        dyn_constr_acc_weight: 1e+3                     # [-] Acceleration constraint violation weight
+        dyn_constr_jerk_weight: 1e+3                    # [-] Jerk constraint violation weight
+        planner_Co: 0.1                                 # [m] Collision clearance for static obstacles
+        planner_Cw: 3.0                                 # [m] Collision clearance for dynamic obstacles
+
+        # --- Safety Corridors ---
+        local_box_size: [1.0, 1.0, 0.5]                # [m] Local planning window (smaller = faster, larger = smoother)
+        traj_lifetime: 1.0                              # [s] Discard obstacle trajectories older than this
+
+        # --- Dynamic Obstacle Heat (soft costs) ---
+        heat_alpha0: 0.5                                # [-] Weight for reachability blob (smaller for ground robot)
+        heat_alpha1: 0.8                                # [-] Weight for trajectory tube
+        heat_Hmax: 10.0                                  # [-] Maximum dynamic heat value
+        dyn_base_inflation_m: 0.8                       # [m] Base inflation for dynamic obstacle bboxes
+        dyn_heat_tube_radius_m: 3.0                     # [m] Heat corridor radius (tighter for ground robot)
+
+        # --- Static Obstacle Heat (boundary halo) ---
+        static_heat_alpha: 1.0                           # [-] Peak heat at obstacle boundary
+        static_heat_Hmax: 1.0                           # [-] Maximum static heat value
+        static_heat_rmax_m: 1.0                         # [m] Maximum halo radius
+
+        # --- Obstacle Tracking ---
+        cluster_tolerance: 1.0                          # [m] Clustering distance for obstacle detection
+        prediction_horizon: 4.0                         # [s] How far ahead to predict obstacle motion
+        prediction_mask_distance: 1.0                    # [m] Drop predicted trajs if an agent traj is within this distance
+        velocity_threshold: 0.8                         # [m/s] Speed threshold: below = static, above = dynamic
+
+        # --- Map Window ---
+        initial_wdx: 30.0                               # [m] Initial map window width
+        initial_wdy: 30.0                               # [m] Initial map window depth
+        initial_wdz: 0.15                               # [m] Match map res — 2D ground-robot mode only needs a single z-layer
+
+        # --- Sensor ---
+        depth_camera_depth_max: 10.0                    # [m] Max depth camera range (d435 in simulation)
+
+        # =====================================================================
+        # [INTERNAL] — Safe defaults, change only if you understand the algorithm
+        # =====================================================================
+
+        # --- Mode ---
+        flight_mode: "terminal_goal"                    # ["terminal_goal"] Only one mode exists
+
+        # --- Global Planner Internals ---
+        factor_hgp: 1.0                                # [-] Do not change — resolution = factor_hgp * map_res
+        use_free_start: false                            # [-] Free the start voxel if occupied
+        free_start_factor: 1.0                          # [-] Radius factor for start freeing
+        use_free_goal: false                            # [-] Free the goal voxel if occupied
+        free_goal_factor: 2.0                           # [-] Radius factor for goal freeing
+        global_planner_heuristic_weight: 1.0             # [-] A* heuristic weight (higher = greedier)
+        heat_weight: 5.0                                # [-] Overall heat map weight in A* cost
+        max_dist_vertexes: 0.5                          # [m] Max distance between path vertices
+        w_unknown: 1.0                                  # [-] Cost weight for unknown cells
+        w_align: 0.0                                    # [-] Cost weight for alignment with initial velocity
+        decay_len_cells: 100.0                          # [-] Decay length for alignment cost
+        w_side: 0.0                                     # [-] Cost weight for lateral tie-breaking
+
+        # --- Heat Map Internals ---
+        use_heat_map: true                              # [-] Master toggle for heat map
+        dynamic_heat_enabled: true                      # [-] Enable dynamic heat for ground robot
+        dynamic_as_occupied_current: false              # [-] Mark obstacle's current cell as hard-occupied (false = pure soft heat, lets heat fill the obstacle's current footprint instead of leaving a hard-blocked hole that swallows the heat tube)
+        dynamic_as_occupied_future: false                # [-] Mark obstacle's future cells as hard-occupied
+        heat_p: 1                                       # [-] Reachability blob falloff power
+        heat_q: 1                                       # [-] Trajectory tube falloff power
+        heat_tau_ratio: 50.0                             # [-] Time decay ratio for heat
+        heat_gamma: 0.5                                 # [m/s] Tube radius growth rate
+        heat_num_samples: 15                            # [-] Samples for heat computation
+        static_heat_enabled: true                       # [-] Enable static obstacle heat
+        static_heat_p: 2                                # [-] Static heat falloff power
+        static_heat_default_radius_m: 0.5               # [m] Default static heat radius
+        static_heat_boundary_only: true                 # [-] Apply heat only at boundary voxels
+        static_heat_apply_on_unknown: false             # [-] Apply static heat on unknown cells
+        static_heat_exclude_dynamic: true               # [-] Exclude dynamic obstacles from static heat
+
+        # --- Soft-Cost Obstacles ---
+        use_soft_cost_obstacles: false                   # [-] Enable soft-cost traversal mode
+        obstacle_soft_cost: 50.0                        # [-] Cost per occupied cell step
+
+        # --- Path Smoothing ---
+        skip_path_smoothing: false                       # [-] Use heat-aware Laplacian smoothing instead of corner removal
+        disable_all_smoothing: false                    # [-] Disable all path smoothing (use raw A* output)
+        smooth_iterations: 50                           # [-] Number of heat-aware Laplacian smoothing passes
+        smooth_alpha: 0.3                               # [-] Smoothing relaxation factor (0=none, 1=aggressive)
+        heat_cutoff_ratio: 0.0                          # [-] Cells with heat > ratio * Hmax are impassable (0=disabled)
+        los_cells: 3                                    # [cells] Line-of-sight inflation
+        min_len: 0.0                                    # [m] Min segment length
+        min_turn: 0.0                                   # [deg] Min turn angle
+
+        # --- Convex Decomposition Internals ---
+        min_dist_from_agent_to_traj: 10.0               # [m] Min distance from agent to trajectory
+        use_shrinked_box: false                         # [-] Use shrunk box for decomposition
+        shrinked_box_size: 0.0                          # [m] Shrunk box size
+        sfc_use_unknown_as_obstacle: false              # [-] Treat unknown cells as obstacles in SFC generation
+
+        # --- L-BFGS Solver Internals ---
+        spline_degree: 3                                # [-] Hermite spline degree (3=cubic, 5=quintic)
+        dc: 0.01                                        # [s] Interpolation timestep
+        pos_anchor_weight: 1.0e+3                         # [-] Position anchor weight (penalizes deviation from HGP waypoints)
+        dyn_constr_bodyrate_weight: 0.0                 # [-] Body rate constraint weight
+        dyn_constr_tilt_weight: 0.0                     # [-] Tilt constraint weight
+        dyn_constr_thrust_weight: 0.0                   # [-] Thrust constraint weight
+        num_dyn_obst_samples: 10                        # [-] Dynamic obstacle samples in optimization
+        integral_resolution: 8                          # [-] Integral resolution
+        hinge_mu: 1e-2                                  # [-] Hinge loss parameter
+        fopt_threshold: 1.0e+6                        # [-] Optimization success threshold
+        init_turn_bf: 80.0                              # [deg] Initial turn buffer
+        f_dec_coeff: 1e-3                               # [-] Armijo step coefficient
+        cautious_factor: 1.0e-6                         # [-] BFGS update threshold
+        past: 3                                         # [-] Past iterations for convergence check
+        max_linesearch: 64                              # [-] Max backtracking tries
+        max_iterations: 0                               # [-] Max L-BFGS iterations (0 = unlimited)
+        g_epsilon: 1.0e-5                               # [-] Gradient norm convergence threshold
+        delta: 1.0e-6                                   # [-] Function improvement convergence threshold
+
+        # --- Dynamic Obstacle Internals ---
+        freq_dynamic_obstacle_update_to_tmap: 10.0      # [Hz] Dynamic obstacle update frequency
+
+        # --- K-Value Adaptation ---
+        num_replanning_before_adapt: 10                 # [-] Replanning cycles before adapting k-value
+        default_k_value: 50                             # [-] Default k-value at trajectory end
+        alpha_k_value_filtering: 0.9                    # [-] K-value filter coefficient
+        k_value_factor: 5.0                             # [-] K-value scaling factor
+
+        # --- Yaw Internals ---
+        alpha_filter_dyaw: 0.8                          # [-] Yaw rate filter (higher = more aggressive)
+        yaw_spinning_threshold: 10000                   # [-] Failures before switching to spinning mode
+        yaw_spinning_dyaw: 1.0                          # [rad/s] Spinning yaw rate
+
+        # --- Map Internals ---
+        map_buffer: 0.0                                 # [m] Buffer for goal & A point
+        center_shift_factor: 0.5                        # [-] Map center shift factor
+        min_wdx: 30.0                                   # [m] Min map window width
+        min_wdy: 30.0                                   # [m] Min map window depth
+        min_wdz: 0.15                                   # [m] Match map res — 2D ground-robot mode only needs a single z-layer
+
+        # --- Communication Delay ---
+        use_comm_delay_inflation: true                  # [-] Enable communication delay inflation
+        comm_delay_inflation_alpha: 0.2                 # [-] Communication delay inflation alpha
+        comm_delay_inflation_max: 0.1                   # [m] Max communication delay inflation
+        comm_delay_filter_alpha: 0.9                    # [-] Communication delay filter coefficient
+
+        # --- Sensor Internals ---
+        fov_visual_depth: 10.0                          # [m] FOV visual depth
+        fov_visual_x_deg: 76.0                          # [deg] FOV horizontal angle
+        fov_visual_y_deg: 47.0                          # [deg] FOV vertical angle
+
+        # --- Obstacle Tracking Internals ---
+        use_adaptive_kf: true                           # [-] Use adaptive Kalman filter
+        adaptive_kf_alpha: 0.90                         # [-] Adaptive KF alpha (1.0 = standard KF)
+        adaptive_kf_dt: 0.1                             # [s] KF time step
+        min_cluster_size: 20                            # [-] Min cluster pointcloud size
+        max_cluster_size: 70                            # [-] Max cluster pointcloud size
+        prediction_dt: 0.1                              # [s] Prediction time step
+        time_to_delete_old_obstacles: 5.0               # [s] Remove obstacles not seen for this long
+        cluster_bbox_cutoff_size: 2.0                   # [m] Max cluster bounding box size
+        acceleration_threshold: 2.0                     # [m/s^2] Acceleration threshold for dynamic classification
+        use_life_time_for_box_visualization: true       # [-] Use lifetime for box visualization
+        box_visualization_duration: 1.0                 # [s] Box visualization duration
+
+        # --- Initial Guess ---
+        use_multiple_initial_guesses: false             # [-] Use multiple initial guesses
+        num_perturbation_for_ig: 8                      # [-] Number of perturbations
+        r_max_for_ig: 1.0                               # [m] Perturbation radius
+
+        # --- 2D Ground Robot Planning (not used for UAV) ---
+        use_2d_planning: true                          # [-] Enable 2D terrain-aware planning for ground robots
+        robot_height: 0.5                               # [m] Robot height for obstacle column detection
+        obstacle_min_height: -0.2                       # [m] Min column height span to classify as obstacle
+        use_column_any_occupied: true                    # [-] Any occupied voxel in column → 2D occupied
+        column_min_z: -0.4                              # [m] Ignore occupied voxels below this z (set to z_min)
+        terrain_cost_weight: 1.0                        # [-] Multiplier for terrain gradient cost in A*
+        terrain_cost_mode: "max"                        # ["max", "avg"] Height delta aggregation mode
+        ground_slab_margin: 0.3                         # [m] Z margin for floor/ceiling virtual obstacles in corridors
+
+        # --- ESDF-Based Obstacle Avoidance (ground robot only) ---
+        use_esdf_cost: true                             # [-] Enable ESDF distance cost in L-BFGS
+        esdf_weight: 5.0e+4                             # [-] ESDF cost weight in objective
+        esdf_d_safe: 0.7                                # [m] Safety distance threshold
+        esdf_truncation_distance: 15                    # [voxels] Must match mapper's distance_grid_2d.truncation_distance
+
+        # --- Bend Pre-Alignment (ground robot only) ---
+        # At each sharp HGP bend, back-off the subgoal along the incoming direction
+        # so the robot stops *short* of the inside corner, TIPs to face the outgoing
+        # segment, then drives straight through the bend without clipping the wall.
+        # Narrow corridors are fine because the robot never gets close to the inside
+        # corner during the turn. Only real bends (angle >= corridor_corner_angle_deg)
+        # trigger a stop; shallow curves are left to L-BFGS.
+        corridor_hop_enabled: false                      # [-] Master switch
+        corridor_corner_angle_deg: 75.0                 # [deg] Min direction change to count as a real bend (L/T/+ junctions)
+        corridor_detection_window_m: 0.8                # [m] Arclength to average incoming/outgoing direction over (larger = more robust, less sensitive to resample phase)
+        corridor_backoff_m: 0.5                         # [m] Distance to back off the subgoal along the incoming direction
+        corridor_min_leg_m: 0.3                         # [m] Min distance from robot to the (backed-off) subgoal
+        # Snap params are vestigial — kept so the existing wiring compiles. The
+        # snap is a no-op in practice because narrow corridors leave nowhere for
+        # the gradient ascent to push to.
+        corridor_clearance_threshold_m: 0.7
+        corridor_max_ascent_m: 0.0                      # 0 disables the ascent entirely
+        corridor_ascent_step_m: 0.05
+        corridor_ascent_max_iters: 0                    # 0 disables the ascent entirely
+
+        # --- Trajectory Publishing ---
+        trajectory_downsample_points: 500               # [-] Number of points to downsample trajectory to
+        mpc_path_spacing: 0.1                           # [m] Spacing between waypoints in MPC path
+
+        # --- Debug ---
+        global_planner_verbose: false                   # [-] Global planner debug output
+        debug_verbose: false                            # [-] General debug output
+        closed_form_traj_verbose: false                 # [-] Closed-form trajectory debug
+        verbose_computation_time: false                 # [-] Print computation times
+
+        # --- Paper Visualization (development only) ---
+        use_state_update: true                          # [-] Use state update (false = freeze agent for viz)
+        use_random_color_for_global_path: false         # [-] Random color for global path
+        use_path_push_for_visualization: false          # [-] Only do global planning (paper viz mode)
+
+        # --- Benchmarking ---
+        use_benchmark: true                             # [-] Enable benchmarking data logging
+        file_path: ""                                   # Path to save benchmark CSV
+        use_only_global_planner: false                  # [-] Use only global planner for benchmarking
+
+        # --- Frontier-Based Exploration ---
+        # Hardware default: OFF. Flip exploration.enabled to true to autonomously
+        # drive to frontiers detected on occ_2d_topic. See plan: snazzy-moseying-donut.md
+        exploration.enabled: true
+        exploration.select_rate_hz: 1.0
+        exploration.default_goal_z: 0.0
+        exploration.detector.cluster_min_cells: 10
+        exploration.detector.border_margin_cells: 1
+        exploration.detector.obstacle_clearance_cells: 1
+        exploration.detector.min_obstacle_distance_m: 0.1
+        exploration.detector.robot_snap_radius_m: 0.5
+        exploration.detector.unknown_bridge_cells: 4             # [cells] treat known-free regions separated by <= N UNKNOWN cells as connected during the reachability BFS (0 = strict free-only). The mapper clears only a small cylinder around the robot while the first ray-cleared cells sit farther out, so at startup the robot's own free pocket is ringed by UNKNOWN and disconnected from everything it can see — a free-only BFS then finds a single cluster centred on the robot, dwell retires it VISITED, and exploration deadlocks before the robot moves. 4 cells = 0.6 m at 0.15 m resolution. OCCUPIED always blocks, so this never bridges through walls.
+        exploration.bounds.enabled: true
+        exploration.bounds.min_x: -6.0
+        exploration.bounds.max_x:  18.0
+        exploration.bounds.min_y: -17.5
+        exploration.bounds.max_y:  0.0
+        exploration.utility.w_size: 1.0
+        exploration.utility.w_dist: 20.0
+        exploration.utility.w_info: 1.0
+        exploration.utility.w_revisit: 0.5
+        exploration.utility.w_heading: 0.3
+        exploration.utility.size_ref_m2: 5.0
+        exploration.utility.dist_ref_m: 25.0
+        exploration.utility.sensor_radius_m: 5.0
+        exploration.utility.goal_select_threshold: -1.0e9
+        exploration.manager.merge_radius_m: 1.0
+        exploration.manager.centroid_ema_alpha: 0.5
+        exploration.manager.visit_radius_m: 0.5
+        exploration.manager.visit_dwell_sec: 3.0
+        exploration.manager.verify_radius_cells: 2
+        exploration.manager.max_frontiers: 1000
+        exploration.manager.unreachable_consec_thresh: 5
+        # Pursuit timeout: auto-INVALIDATE a frontier we've been chasing longer
+        # than max(min_sec, dist/v_ref*factor). Set factor <= 0 to disable.
+        exploration.manager.pursuit_timeout_factor: 3.0
+        exploration.manager.pursuit_timeout_v_ref: 0.5
+        exploration.manager.pursuit_timeout_min_sec: 10.0
+        exploration.manager.invalidation_keep_out_radius_m: 1.0
+        exploration.manager.invalidation_cooldown_sec: 600.0
+        exploration.visited_map.center_x: 0.0
+        exploration.visited_map.center_y: 0.0
+        exploration.visited_map.width_m: 100.0
+        exploration.visited_map.height_m: 100.0
+        exploration.visited_map.resolution_m: 0.15
+        exploration.visited_map.publish: true
+        exploration.visited_map.fuse_into_local: true  # disabled to stop stale observations re-seeding phantom FREE inside closed rooms
+        exploration.visited_map.detect_on_visited_map: true  # run frontier WFD on the persistent map so revisited corridors still surface their far-end frontier
+        # MinPos multi-robot frontier allocation. Solo HW today (RR04 only) so
+        # this no-ops to nearest-frontier when no peers are heard. Flip to true
+        # before running multi-rover HW so peers de-duplicate their frontiers.
+        exploration.minpos.enabled: true                   # [-] enable rank-based peer-aware allocation
+        exploration.minpos.peer_timeout_sec: 5.0            # [s] drop peer after this silence
+        exploration.minpos.peer_publish_rate_hz: 5.0        # [Hz] pose broadcast throttle
+        exploration.minpos.min_frontier_dist_to_peers_m: 3.0 # [m] reject frontier candidates within this radius of any active peer (0 disables)
+        exploration.minpos.peer_visit_radius_m: 2.0          # [m] sticky: mark frontier VISITED when any active peer is within this radius (robust to frame drift; 0 disables)
+        exploration.visualization.publish_markers: true

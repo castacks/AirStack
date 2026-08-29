@@ -1,0 +1,48 @@
+<launch>
+
+  <!-- name of the quad -->
+  <arg name="quad" default="SQ01s"/>
+
+  <arg name="load_params" default="true" />
+  <arg name="param_file" default="sim_uav.yaml" />
+
+  <!-- input topics -->
+  <!--NORMAL:  camera/depth/image_rect_raw -->
+  <!--FILTERED:  depthmap_filter/depth_filt -->
+  <arg name="pose_topic" default="state" /> <!--/pose-->
+  <arg name="goal_topic" default="/move_base_simple/goal" />
+  <arg name="depth_pointcloud_topic" default="/NX01/mid360_PointCloud2" />
+  <!-- used for the Jackal -->
+  <!-- <arg name="odom_topic" default="odometry/local_filtered" /> -->
+  <arg name="odom_topic" default="odometry/filtered_no" />
+
+  <!-- output topics -->
+  <arg name="occupancy_grid_topic" default="~occupancy_grid" />
+  <arg name="unknown_grid_topic" default="~unknown_grid" />
+  <arg name="frontier_grid_topic" default="~frontier_grid" />
+  <arg name="distance_grid_topic" default="~distance_grid" />
+  <arg name="cost_grid_topic" default="~cost_grid" />
+  <arg name="path_topic" default="~path" />
+  <arg name="sparse_path_topic" default="~sparse_path" />
+
+  <!-- node -->
+  <node namespace="$(arg quad)" pkg="global_mapper_ros" exec="global_mapper_node" name="global_mapper_ros" output="screen">
+      <!-- params -->
+      <rosparam command="load" if="$(arg load_params)" file="$(find global_mapper_ros)/cfg/$(arg param_file)"/>
+
+      <!-- input remaps -->
+      <remap from="~depth_image_topic" to="$(arg depth_image_topic)" />
+      <remap from="~pose_topic" to="$(arg pose_topic)" />
+      <remap from="~goal_topic" to="$(arg goal_topic)" />
+      <remap from="~odom_topic" to="$(arg odom_topic)" />
+
+      <!-- output remaps -->
+      <remap from="~occupancy_grid_topic" to="$(arg occupancy_grid_topic)" />
+      <remap from="~unknown_grid_topic" to="$(arg unknown_grid_topic)" />
+      <remap from="~frontier_grid_topic" to="$(arg frontier_grid_topic)" />
+      <remap from="~distance_grid_topic" to="$(arg distance_grid_topic)" />
+      <remap from="~cost_grid_topic" to="$(arg cost_grid_topic)" />
+      <remap from="~path_topic" to="$(arg path_topic)" />
+      <remap from="~sparse_path_topic" to="$(arg sparse_path_topic)" />
+  </node>
+</launch>

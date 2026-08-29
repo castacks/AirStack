@@ -1,0 +1,57 @@
+# ASSET SET: urban_gac — the GreatAmericanCity buildings, nothing else.
+#
+# `extends: urban_nucleus` for the streets, furniture, greenery and vehicles,
+# then REPLACES the building pool. A bare `intact:` key replaces the inherited
+# pool; `intact+:` would have appended to it and left the ModernCityEnvironment
+# and DownTown blocks in the mix.
+#
+# THE FIFTEEN. Selected because each one is modelled on one or two elevations
+# only and is flat on the rest (`tools/gac_faces.py` measures triangle density
+# per elevation): they read correctly in a terrace and read as a missing wall
+# on an open corner. Their `front`/`blank` measurements live in
+# `_plans/gac_faces.json`.
+#
+# ABSOLUTE URLS ON PURPOSE. `shared.yaml` sets `asset_root` to
+# `.../Library/Stages/` and this pack lives under `.../Projects/SEI-COA/`;
+# `_join_asset_root` passes anything containing "://" through untouched, so an
+# absolute path is the honest way to reach outside the root rather than
+# relative-path games.
+#
+# `scale: 0.01` on every one: the pack is centimetre-authored and USD converts
+# NOTHING on reference. Without it a single building fills the region.
+
+extends: urban_nucleus
+
+usds:
+  buildings:
+    intact:
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_01.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_02.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_03.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_04.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_05.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_06_Small.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_07.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_09.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_20.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_21.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_22.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_24.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_25.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_26.usd"
+        scale: 0.01
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_29.usd"
+        scale: 0.01

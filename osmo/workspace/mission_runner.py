@@ -1132,7 +1132,8 @@ def run_step(stack, container, step_spec, step_index):
 # lvlm_baseline / semantic_search_task are here too so the planner's rcl log is
 # captured as a SECOND path independent of the /tmp tee (TEE_LOG_GLOBS) — if one
 # collection path misses, the other still shows why the drone wasn't commanded.
-CONTROL_STACK_GLOBS = ("droan_gl*", "droan_local_planner*", "trajectory_controller*",
+CONTROL_STACK_GLOBS = ("droan_gl*", "droan_local_planner*", "mighty*", "global_mapper*",
+                       "trajectory_controller*",
                        "fixed_trajectory*", "takeoff_landing*", "mavros*",
                        "lvlm_baseline*", "semantic_search_task*", "raven_nav*")
 

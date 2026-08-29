@@ -1,0 +1,100 @@
+<!--
+  full_mighty : the disaster-dataset eval stack (RFC #379 stack entry).
+
+  full autonomy with the MIGHTY Hermite-spline local planner (asm_mighty
+  module, in-tree under robot/ros_ws/src/modules/asm_mighty) behind the
+  exact same NavigateTask / trajectory_controller seam droan_gl served.
+  Modelled on upstream develop's stacks/full_macvo (a module replacing one
+  trunk node): the LOCAL layer is composed FLAT from canonical module launch
+  files — each include reads "this module, these connections", deviations
+  from canonical appear as include args — and the one wiring deviation of
+  this stack is the local planner:
+
+    droan_gl.launch.xml  ->  mighty_module.launch.xml
+        with our planner/mapper configs and the STEREO cloud as the world
+        model's input (no Ouster in the eval missions), registered from
+        `camera_left`, the frame stereo_image_proc publishes the cloud in.
+
+  The other layers are included through this branch's layer bringup files
+  (interface / sensors / perception / global / behavior / logging) rather
+  than flattened: they are unchanged by this stack, and flattening them is
+  the remaining part of the develop port (see the README).
+
+  Launched by autonomy_bringup/launch/robot.launch.xml when AIRSTACK_STACK_DIR
+  points at this folder (`airstack up` with the stack flag full_mighty, or
+  AIRSTACK_STACK=full_mighty in .env). The shared preamble (ROBOT_NAME
+  namespace push, use_sim_time, robot_state_publisher, world->map anchor)
+  runs there unconditionally, so it is NOT repeated here.
+-->
+<launch>
+  <arg name="gcs_domain" default="0" />
+  <arg name="gossip_domain" default="99" />
+  <arg name="gossip_publish_rate" default="1.0" />
+  <arg name="local_odometry_in_topic"
+       default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+
+  <!-- ── Interface (wrapped by design: MAVROS wiring is dense, FCU_URL is
+          env-computed in python, and it is the safety boundary) ─────────── -->
+  <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.py" />
+
+  <!-- ── Sensors / Perception (this branch's layer bringups, unchanged) ─── -->
+  <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
+  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
+
+  <!-- ── Local layer, FLAT (canonical module launch files) ──────────────── -->
+
+  <!-- Takeoff/Land task server: odometry in from odometry_conversion;
+       trajectory_override + mode out to the trajectory controller;
+       arming/extended state from the interface; actions at tasks/{takeoff,land} -->
+  <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.launch.xml" />
+
+  <!-- Fixed-trajectory task server: trajectory_override + mode out to the
+       trajectory controller; action at tasks/fixed_trajectory -->
+  <include file="$(find-pkg-share trajectory_controller)/launch/fixed_trajectory_task.launch.xml" />
+
+  <!-- MIGHTY local planner (asm_mighty module): mapper + planner + bridge in
+       the `mighty` sub-namespace. Stereo cloud in (perception/stereo_image_proc),
+       odometry in from odometry_conversion, global_plan in from the global
+       planner (the bridge follows it once airborne), trajectory_override +
+       mode out to the trajectory controller; navigate action at tasks/navigate.
+       Configs: stack-tuned copies of the module's (v_max 1.5, z band to 60 m,
+       32x32x16 m window @ 0.25 m) — see local_bringup/config/*.yaml headers. -->
+  <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml">
+    <arg name="mighty_config"
+         value="$(find-pkg-share local_bringup)/config/mighty_disaster.yaml" />
+    <arg name="mighty_mapper_config"
+         value="$(find-pkg-share local_bringup)/config/global_mapper_disaster.yaml" />
+    <arg name="mighty_lidar_topic"
+         value="/$(env ROBOT_NAME)/perception/stereo_image_proc/point_cloud" />
+    <arg name="mighty_lidar_frame" value="camera_left" />
+    <arg name="mighty_odometry_topic" value="$(var local_odometry_in_topic)" />
+  </include>
+
+  <!-- Trajectory controller: odometry in from odometry_conversion; serves the
+       trajectory_controller/* topic group (override, segment, mode, tracking
+       point, look_ahead) by relative name in its namespace -->
+  <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.launch.xml" />
+
+  <!-- PID controller: odometry in from odometry_conversion, tracking_point in
+       from the trajectory controller; attitude/thrust command out to the
+       interface (cmd_roll_pitch_yawrate_thrust) -->
+  <include file="$(find-pkg-share pid_controller)/launch/pid_controller.launch.xml" />
+
+  <!-- ── Global / Behavior / Logging (this branch's layer bringups) ─────── -->
+  <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
+  <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
+  <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
+
+  <!-- ── Cross-domain extras (robot.launch.xml's full-role group) ───────── -->
+  <!-- Domain Bridge (GCS) -->
+  <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
+    <arg name="config_file"
+         value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
+    <arg name="args" value="gcs_domain:=$(var gcs_domain)" />
+  </include>
+  <!-- Gossip coordination layer -->
+  <include file="$(find-pkg-share coordination_bringup)/launch/gossip.launch.xml">
+    <arg name="gossip_domain"  value="$(var gossip_domain)" />
+    <arg name="publish_rate"   value="$(var gossip_publish_rate)" />
+  </include>
+</launch>

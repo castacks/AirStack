@@ -1,0 +1,60 @@
+#!/usr/bin/env python
+import rospy
+import mavros
+import sys
+
+from mavros.utils import *
+from mavros_msgs.srv import SetMode, SetModeRequest
+from mavros_msgs.srv import CommandBool
+from mavros_msgs.msg import RCIn
+from functools import partial
+
+
+def kill_motors():
+	rospy.logwarn('KILLING MOTORS NOW')
+	try:
+		mode_service = rospy.ServiceProxy('/mavros/set_mode', SetMode)
+		arming_service = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
+		if not mode_service(SetModeRequest.MAV_MODE_MANUAL_DISARMED, ''):
+			rospy.logwarn('Mode Switch failed!')
+
+		if not arming_service(False):
+			rospy.logwarn('Disarming motors failed!')
+
+	except rospy.ServiceException as ex:
+		fault(ex)
+
+def callback(kill_switch_channel_1, kill_switch_channel_2, kill_threshold, data):
+	if data.channels[kill_switch_channel_1 - 1] > kill_threshold \
+	and data.channels[kill_switch_channel_2 - 1] > kill_threshold:
+		kill_motors()
+
+def main():
+  rospy.init_node('kill_switch', anonymous=True)
+
+  if len(sys.argv) < 4:
+  	rospy.logerr ('Usage: kill_switch <kill_channel_1> <kill_channel_2> <kill_threshold>')
+  	return
+
+  channel_1 = int(sys.argv[1])
+  channel_2 = int(sys.argv[2])
+  threshold = int(sys.argv[3])
+
+  if channel_1 < 1 or channel_1 > 10:
+  	rospy.logerr ('Channel 1 must be between 1 and 10')
+  	return 
+
+  if channel_2 < 1 or channel_2 > 10:
+  	rospy.logerr ('Channel 2 must be between 1 and 10')
+  	return
+
+  if threshold < 900 or threshold > 2000:
+  	rospy.logerr ('Threshold must be between 900 and 2000')
+  	return
+  
+  rospy.logwarn("KILL_SWITCH node started on channels %d, %d with threshold %d" % (channel_1, channel_2, threshold))
+  rospy.Subscriber('/mavros/rc/in', RCIn, partial(callback, channel_1, channel_2 ,threshold))
+  rospy.spin()
+
+if __name__ == '__main__':
+  main()

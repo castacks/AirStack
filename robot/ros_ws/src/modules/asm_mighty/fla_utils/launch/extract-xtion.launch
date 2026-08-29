@@ -1,0 +1,14 @@
+<launch>
+  <arg name="bagfile" default="~/bags/xtion_timestamp.bag" />
+  
+  <node pkg="rosbag" type="play" name="rosbag_mpeg" args="-s 0 -d 2 $(arg bagfile)"/>
+
+  <node name="saver" pkg="image_view" type="image_saver" respawn="false" output="screen" cwd="ROS_HOME" args="">
+
+    <remap from="image" to="/flight/xtion_rgb/image_raw"/>
+  </node>
+  
+  <!-- To encode to mpeg2: -->
+  <!-- mencoder "mf://*.jpg" -mf type=jpg:fps=30 -o output.mpg -speed 1 -ofps 30 -ovc lavc -lavcopts vcodec=mpeg2video:vbitrate=6000 -oac copy -of mpeg -->
+
+</launch>

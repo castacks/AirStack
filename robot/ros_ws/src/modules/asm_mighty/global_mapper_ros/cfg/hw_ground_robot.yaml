@@ -1,0 +1,88 @@
+/**:
+    ros__parameters:
+
+        global_frame: map
+        origin: [0.0, 0.0, 1.5]        # centered at z=1.5 for ground robot (covers z=-0.5 to 3.5)
+        world_dimensions: [15.0, 15.0, 1.0]  # map covers z from -0.5 to 3.5
+        resolution: 0.15
+        radius_drone: 0.35
+        clear_unknown_radius: 0.8         # [m] horizontal clearing radius for unknown cells (cylinder around drone)
+        clear_unknown_height: 2.0         # [m] vertical clearing half-height for unknown cells
+        clear_occupied_radius: 0.1        # [m] horizontal clearing radius for occupied cells (clears self-hits)
+        clear_occupied_height: 0.5        # [m] vertical clearing half-height for occupied cells
+        z_ground: -0.4  #[m] points below z_ground are not published in the known grid (allow ground points)
+        skip: 0
+        depth_max: 15.0
+        r1: 0.8
+        r2: 20.0
+        z_min_unknown: -0.5 #[m] points below z_min_unknown are not published in the unknown grid (allow ground)
+        z_max_unknown: 2.0 #[m] points above z_max_unknown are not published in the unknown grid (lower for ground robot)
+
+        occupancy_grid:
+          init_value: -1.0                    # hardware: start unknown (real lidar needs evidence)
+          hit_inc: 0.8                        # hardware: accumulate evidence faster
+          miss_inc: -0.1                     # hardware: slower decay — keeps occupied voxels stable
+          occupancy_threshold: 0.4            # hardware: lower threshold for real sensor noise
+          publish_occupancy_grid: true
+          downsample_resolution: 0.6       # [m] leaf size for downsampled occupancy grid sent over network (0=disabled)
+          occupancy_publish_rate: 10.0                # [Hz] rate for occupancy grid
+          downsampled_occupancy_publish_rate: 5.0    # [Hz] rate for downsampled occupancy grid
+          min_occupied_neighbors: 2                  # drop occupied voxels with fewer than N occupied 26-neighbors before publishing (0 = disabled)
+          unknown_publish_rate: 10.0                  # [Hz] rate for unknown grid
+          publish_unknown_grid: true        # required: DYNUS syncs occupancy_grid + unknown_grid together
+          clear_unknown_distance: 5.0       # hardware: larger clearing distance
+
+        distance_grid:
+          truncation_distance: 15  # [voxels]
+          publish_distance_grid: false
+
+        distance_grid_2d:
+          enabled: true
+          truncation_distance: 15  # [voxels] can be larger since 2D is cheaper
+          publish: true
+          publish_rate: 10.0  # [Hz]
+          height_diff_threshold: 0.3  # [m] max height difference between neighbors for traversability
+          agent_height: 1.0          # [m] robot height — obstacles starting above this are passable
+          min_obstacle_height: 0.3   # [m] min vertical extent to count as obstacle
+          inflation_cells: 0        # [cells] inflate non-traversable cells by this radius (0=disabled)
+          visibility_check_z: 0.0   # [m] single z-slice at which a voxel must be observed-free before the 2D cell is marked FREE. Must match the lidar's actual z in the map frame or (a) beams miss the slice → no FREE cells, or (b) rays passing over walls mark voxels free above the wall and the column-collapse paints cells behind the wall as FREE. Red rover: DLIO starts base_link at z=0 and base_link↔lidar have zero translation (see run_hw_red_rover.py static TF), so the lidar lives at z≈0.
+
+        cost_grid:
+          publish_cost_grid: false
+          publish_path: false
+          inflation_distance: 4  # inflate obstacles by this many squared voxels
+          altitude_weight: 20
+          inflation_weight: 0
+          unknown_weight: 20
+          obstacle_weight: 10000
+          target_altitude: 1.0  # target altitude [m] for ground robot
+
+        temporal_grid:
+          use_temporal_grid: false  # disabled for ground robot
+          publish_dynamic_grid: false  
+          occupied_thresh: 2.0
+          unoccupied_thresh: 0.5 # 0.3
+          dynamic_neighbor_thresh: 1 # 8 # NOTE: Should be called static neighbor thresh not dynamic neighbor thresh 
+          dynamic_persistence: 0.01 # 1.0
+          dynamic_maturity_time: 3.0
+
+        obstacle_tracker:
+          enabled: false             
+          use_adaptive_kf: false
+          adaptive_kf_alpha: 0.95
+          adaptive_kf_dt: 0.1
+          cluster_tolerance: 0.5 
+          min_cluster_size: 10 # 15
+          max_cluster_size: 2000 # 200
+          prediction_horizon: 2.0 # 3.0
+          prediction_dt: 0.1
+          time_to_delete_old_obstacles: 3.0
+          cluster_bbox_cutoff_size: 3.5 # 1.5
+          velocity_threshold: 0.3
+          acceleration_threshold: 1.0
+          cutoff_length_threshold: 0.1
+          degree_for_pwp: 3
+          degree_for_poly: 5
+          max_history_size: 30
+          min_observations_for_prediction: 8
+          max_obstacle_velocity: 10.0 # 1.0

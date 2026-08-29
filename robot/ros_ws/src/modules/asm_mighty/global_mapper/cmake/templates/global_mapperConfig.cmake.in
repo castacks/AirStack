@@ -1,0 +1,36 @@
+# --- find each of the four libraries in install/lib
+find_library(global_mapper_LIBRARY     global_mapper     PATHS @CMAKE_INSTALL_PREFIX@/lib NO_DEFAULT_PATH)
+find_library(occupancy_grid_LIBRARY    occupancy_grid    PATHS @CMAKE_INSTALL_PREFIX@/lib NO_DEFAULT_PATH)
+find_library(distance_grid_LIBRARY     distance_grid     PATHS @CMAKE_INSTALL_PREFIX@/lib NO_DEFAULT_PATH)
+find_library(cost_grid_LIBRARY         cost_grid         PATHS @CMAKE_INSTALL_PREFIX@/lib NO_DEFAULT_PATH)
+
+# --- export them all as the “LIBRARIES” variable
+set(${PROJECT_NAME}_LIBRARIES
+  ${global_mapper_LIBRARY}
+  ${occupancy_grid_LIBRARY}
+  ${distance_grid_LIBRARY}
+  ${cost_grid_LIBRARY}
+)
+
+# --- tell downstream where to look for those .so files
+set(${PROJECT_NAME}_LIBRARY_DIRS
+  @CMAKE_INSTALL_PREFIX@/lib
+)
+
+# --- include dirs (unchanged except you can prune PCL/Eigen here if you want)
+find_path(${PROJECT_NAME}_INCLUDE_DIR
+  global_mapper/global_mapper.h
+  PATHS @CMAKE_INSTALL_PREFIX@/include
+  NO_DEFAULT_PATH
+)
+
+set(${PROJECT_NAME}_INCLUDE_DIRS
+  ${${PROJECT_NAME}_INCLUDE_DIR}
+  src/cost_grid
+  src/distance_grid
+  src/voxel_grid
+  src/occupancy_grid
+)
+
+# --- any compiler defs you need downstream
+set(${PROJECT_NAME}_DEFINITIONS "")

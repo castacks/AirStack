@@ -1,0 +1,15 @@
+# modules.repos : module pins for the full_mighty stack.
+#
+# vcstool/vcs2l format, PINNED to tags/commits (never branches) — the file an
+# `airstack module sync` on a module-CLI trunk (upstream develop >= 0.20)
+# would read into modules/. THIS branch has no module CLI: asm_mighty is
+# carried IN-TREE at robot/ros_ws/src/modules/asm_mighty with local patches
+# (its ORIGIN.md lists them against the pin below), the way a fork keeps a
+# module it changed. Re-pull = re-copy at a new pin and re-apply ORIGIN.md.
+airstack_compat: ">=0.19.0-alpha.1 <0.21.0"
+repositories:
+  asm_mighty:
+    type: git
+    url: https://github.com/castacks/asm_mighty.git
+    version: 55479549343245e01fd06413fa381be05b674e13
+x-local-modules: []

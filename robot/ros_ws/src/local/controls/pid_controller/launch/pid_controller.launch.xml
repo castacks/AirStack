@@ -1,0 +1,43 @@
+<!--
+  pid_controller : canonical module launch file (RFC #379 §2/§4).
+
+  Starts the position/velocity PID cascade as the legacy local bringup did:
+  node `pid_controller` in the `control` namespace. Every topic endpoint is
+  a declared <arg> defaulting to the canonical name (today's graph). Wiring
+  deviations are passed as include args by the stack entry file
+  (stacks/<name>/launch/) — the single-locus rule: endpoints are declared args,
+  applied locally via <set_remap>; cross-module REWIRING lives only in
+  stack entry files.
+
+  PORTED to branch krrishj/disaster-dataset from origin/develop, unchanged; the
+  package had no launch/ or config/ here at all. develop's config/pid_controller.yaml
+  reproduces this branch's local_bringup/launch/local.launch.xml gain block
+  value for value (target_frame base_link_stabilized, x/y/z and vx/vy/vz
+  p,i,d,ff,d_alpha,min,max,constant), so there was nothing to resolve.
+-->
+<launch>
+  <arg name="pid_controller_config"
+       default="$(find-pkg-share pid_controller)/config/pid_controller.yaml"
+       description="Node parameter YAML with the PID gains (loaded with allow_substs)" />
+
+  <arg name="pid_controller_odometry_topic"
+       default="/$(env ROBOT_NAME)/odometry_conversion/odometry"
+       description="Input robot odometry (nav_msgs/Odometry)" />
+  <arg name="pid_controller_tracking_point_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/tracking_point"
+       description="Input trajectory-controller tracking point setpoint (airstack_msgs/Odometry)" />
+  <arg name="pid_controller_command_topic"
+       default="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust"
+       description="Output attitude/thrust command to the robot interface (mav_msgs/RollPitchYawrateThrust)" />
+
+  <group>
+    <push-ros-namespace namespace="control" />
+    <set_remap from="odometry" to="$(var pid_controller_odometry_topic)" />
+    <set_remap from="tracking_point" to="$(var pid_controller_tracking_point_topic)" />
+    <set_remap from="command" to="$(var pid_controller_command_topic)" />
+
+    <node pkg="pid_controller" exec="pid_controller" output="screen">
+      <param from="$(var pid_controller_config)" allow_substs="true" />
+    </node>
+  </group>
+</launch>

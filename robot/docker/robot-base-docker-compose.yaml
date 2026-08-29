@@ -14,6 +14,13 @@ services:
       - RECORD_BAGS=${RECORD_BAGS}
       # docker compose interpolation to env variables
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
+      # local planner behind /tasks/navigate: droan (default) | mighty
+      # (legacy AUTONOMY_ROLE path only; a stack composes its own local layer)
+      - LOCAL_PLANNER=${LOCAL_PLANNER:-droan}
+      # Stack dispatch (RFC #379): container paths exported by `airstack up
+      # --stack <name>` / AIRSTACK_STACK; 'none' = legacy role dispatch
+      - AIRSTACK_STACK_DIR=${AIRSTACK_STACK_DIR:-none}
+      - AIRSTACK_STACK_ENTRY=${AIRSTACK_STACK_ENTRY:-stack}
       - FRONTIER_ONLY_BASELINE=${FRONTIER_ONLY_BASELINE:-false}
       - VLFM_BASELINE=${VLFM_BASELINE:-false}
       - VLFM_USE_VOXEL_TARGETS=${VLFM_USE_VOXEL_TARGETS:-false}
@@ -101,6 +108,8 @@ services:
       - .bashrc:/root/.bashrc:rw # bash config
       - ../../common/inputrc:/etc/inputrc:rw  
       - ../../common/.tmux.conf:/root/.tmux.conf:rw  
+      # stacks/<name>/launch/*.launch.xml — the stack entry files robot.launch.xml dispatches to
+      - ../../stacks:/root/AirStack/stacks:rw
       - ../../.devcontainer/robot/launch.json:/root/AirStack/.vscode/launch.json:rw
       - ../../.devcontainer/robot/tasks.json:/root/AirStack/.vscode/tasks.json:rw
       - ./robot_name_map:/root/AirStack/robot/docker/robot_name_map:rw

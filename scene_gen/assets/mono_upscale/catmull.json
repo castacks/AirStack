@@ -1,0 +1,42 @@
+{
+ "src": "/isaac-sim/AirStack/scene_gen/assets/mono_upscale/tower_03_0015.usd",
+ "method": "catmull",
+ "target": 0.0,
+ "parts": [
+  {
+   "part": "shape_66",
+   "pts_in": 200,
+   "tris_in": 100,
+   "pts_out": 1650,
+   "tris_out": 2400,
+   "sec": 0.3659,
+   "uv": true,
+   "tex": true
+  },
+  {
+   "part": "shape_67",
+   "pts_in": 16,
+   "tris_in": 8,
+   "pts_out": 132,
+   "tris_out": 192,
+   "sec": 0.0051,
+   "uv": true,
+   "tex": true
+  },
+  {
+   "part": "shape_68",
+   "pts_in": 50,
+   "tris_in": 26,
+   "pts_out": 424,
+   "tris_out": 624,
+   "sec": 0.016,
+   "uv": true,
+   "tex": true
+  }
+ ],
+ "pts_in": 266,
+ "pts_out": 2206,
+ "tris_in": 134,
+ "tris_out": 3216,
+ "sec_total": 0.406
+}

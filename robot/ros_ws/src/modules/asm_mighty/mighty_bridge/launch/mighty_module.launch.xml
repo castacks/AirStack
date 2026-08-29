@@ -1,0 +1,89 @@
+<!--
+  asm_mighty : canonical module launch file (RFC #379 §2/§4).
+
+  Starts the MIGHTY local-planning group in the `mighty` sub-namespace:
+    - global_mapper_ros  (acl-mapping voxel world model: occupied + unknown grids)
+    - mighty_node        (MIGHTY Hermite-spline planner)
+    - mighty_bridge      (NavigateTask action + odometry->State +
+                          Trajectory->TrajectoryXYZVYaw adapter)
+    - a static TF map -> mighty/init_pose (identity; satisfies the planner's
+      hardware-mode initial-pose lookup — our map frame IS the global frame)
+
+  Every cross-module topic endpoint is a declared <arg> defaulting to the
+  canonical name (today's graph). Wiring deviations are passed as include args
+  by the stack entry file — the single-locus rule. Topics internal to the
+  module (state, term_goal, occupancy_grid, unknown_grid, trajectory) stay
+  inside the mighty namespace and are not stack-visible endpoints.
+-->
+<launch>
+  <arg name="mighty_config"
+       default="$(find-pkg-share mighty_bridge)/config/mighty_airstack.yaml"
+       description="MIGHTY planner parameter YAML" />
+  <arg name="mighty_mapper_config"
+       default="$(find-pkg-share mighty_bridge)/config/global_mapper_airstack.yaml"
+       description="global_mapper (acl-mapping) parameter YAML" />
+
+  <arg name="mighty_lidar_topic"
+       default="/$(env ROBOT_NAME)/sensors/ouster/point_cloud"
+       description="Input point cloud (sensor_msgs/PointCloud2) for the voxel world model" />
+  <arg name="mighty_lidar_frame"
+       default="ouster"
+       description="TF frame the input cloud is registered from (mapper drone_frame)" />
+  <arg name="mighty_odometry_topic"
+       default="/$(env ROBOT_NAME)/odometry_conversion/odometry"
+       description="Input odometry (nav_msgs/Odometry, map frame, body-frame twist)" />
+  <arg name="mighty_global_plan_topic"
+       default="/$(env ROBOT_NAME)/global_plan"
+       description="Input global route (nav_msgs/Path) the follower executes once airborne" />
+  <arg name="mighty_set_trajectory_mode_service"
+       default="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
+       description="Trajectory-controller mode service (airstack_msgs/srv/TrajectoryMode)" />
+  <arg name="mighty_trajectory_override_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override"
+       description="Output trajectory replacement (airstack_msgs/TrajectoryXYZVYaw, receding-horizon override)" />
+  <arg name="mighty_navigate_task_action"
+       default="/$(env ROBOT_NAME)/tasks/navigate"
+       description="Navigate task action server name (task_msgs/action/NavigateTask)" />
+  <!-- AirStack patch (ORIGIN.md): the follower engages after this much climb
+       from the first odometry it sees; <= 0 engages as soon as the vehicle is
+       level (a bridge restarted on an airborne drone would otherwise wait
+       forever). -->
+  <arg name="mighty_follow_min_climb_m" default="8.0"
+       description="Climb since first odometry before the global_plan follower engages" />
+
+  <group>
+    <push-ros-namespace namespace="mighty" />
+
+    <!-- Voxel world model: lidar cloud in, occupied+unknown voxel clouds out -->
+    <node pkg="global_mapper_ros" exec="global_mapper_node" name="global_mapper_ros" output="screen">
+      <param from="$(var mighty_mapper_config)" allow_substs="true" />
+      <param name="pose_type" value="state" />
+      <param name="drone_frame" value="$(var mighty_lidar_frame)" />
+      <remap from="depth_pointcloud_topic" to="$(var mighty_lidar_topic)" />
+      <remap from="pose_topic" to="state" />
+      <remap from="goal_topic" to="term_goal" />
+      <remap from="occupancy_grid_topic" to="occupancy_grid" />
+      <remap from="unknown_grid_topic" to="unknown_grid" />
+    </node>
+
+    <!-- MIGHTY planner -->
+    <node pkg="mighty" exec="mighty" name="mighty_node" output="screen">
+      <param from="$(var mighty_config)" allow_substs="true" />
+    </node>
+
+    <!-- Bridge: NavigateTask action, odometry->State, Trajectory->segments -->
+    <node pkg="mighty_bridge" exec="mighty_bridge_node" name="mighty_bridge" output="screen">
+      <param name="follow_min_climb_m" value="$(var mighty_follow_min_climb_m)" />
+      <remap from="odometry" to="$(var mighty_odometry_topic)" />
+      <remap from="global_plan" to="$(var mighty_global_plan_topic)" />
+      <remap from="mighty_trajectory" to="trajectory" />
+      <remap from="trajectory_override" to="$(var mighty_trajectory_override_topic)" />
+      <remap from="set_trajectory_mode" to="$(var mighty_set_trajectory_mode_service)" />
+      <remap from="~/navigate_task" to="$(var mighty_navigate_task_action)" />
+    </node>
+
+    <!-- Identity init-pose frame for the planner's hardware-mode TF lookup -->
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="mighty_init_pose_tf"
+          args="--frame-id map --child-frame-id mighty/init_pose" output="screen" />
+  </group>
+</launch>

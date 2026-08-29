@@ -1,0 +1,8 @@
+uint8 CMD_TAKEOFF=0
+uint8 CMD_GO=1
+uint8 CMD_LAND=2
+uint8 CMD_HOVER=3
+uint8 CMD_INIT=4
+uint8 CMD_KILL=5
+uint8 CMD_START_SEARCH=6
+uint8 command

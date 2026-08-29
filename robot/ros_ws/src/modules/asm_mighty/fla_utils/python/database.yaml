@@ -1,0 +1,8 @@
+objects:
+- {frame_id: body, type: vehicle}
+- {frame_id: overhead, theta: 8.526435190523753, type: overhead, x: 3.5712260647705634,
+  y: -78.6207101911246}
+- {explored: 'false', near: 'false', radius: 4, type: start, x: 0.0, y: 0.0}
+- {explored: 'false', near: 'false', radius: 1000, type: goal, x: 0.0, y: 0.0}
+- {explored: 'false', near: 'false', order: 0, radius: 4, type: subgoal, x: 102.22356970447177,
+  y: 0.0}

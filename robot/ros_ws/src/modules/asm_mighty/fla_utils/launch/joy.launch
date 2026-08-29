@@ -1,0 +1,17 @@
+<launch>
+
+  <arg name="joy" default="js0" />
+
+  <!-- joy node -->
+  <node pkg="joy"
+        type="joy_node" name="joystick" >
+    <param name="dev" type="string" value="/dev/input/$(arg joy)" />
+
+    <param name="deadzone" value="0.18" />
+    <param name="autorepeat_rate" value="100" />
+  </node>
+
+  <!-- translate joystick messages into flight commands -->
+  <node name="joystick_commands" pkg="fla_utils" type="joystick_commands.py" />
+
+</launch>

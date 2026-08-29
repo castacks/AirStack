@@ -3,113 +3,8 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    -62.29,
-    -41.351,
-    0.17
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -61.897,
-    -40.627,
-    0.15
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -46.467,
-    -45.999,
-    0.207
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -46.901,
-    -45.312,
-    0.207
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -49.771,
-    -52.899,
-    -0.027
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -49.781,
-    -53.723,
-    -0.017
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -52.607,
-    -43.043,
-    1.397
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -53.793,
-    -43.876,
+    -48.926,
+    -48.039,
     1.416
    ],
    "size_xyz_m": [
@@ -123,9 +18,9 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    -61.519,
-    -49.483,
-    0.901
+    -49.701,
+    -46.814,
+    1.397
    ],
    "size_xyz_m": [
     0.7,
@@ -138,9 +33,9 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    -65.735,
-    -55.85,
-    0.905
+    -62.495,
+    -53.837,
+    0.898
    ],
    "size_xyz_m": [
     0.7,
@@ -153,8 +48,23 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    -53.203,
-    -38.748,
+    -64.793,
+    -49.84,
+    0.9
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -55.731,
+    -43.12,
     0.904
    ],
    "size_xyz_m": [
@@ -168,9 +78,39 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    -66.029,
-    -57.361,
-    0.906
+    -64.942,
+    -43.925,
+    0.91
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -59.168,
+    -44.547,
+    0.91
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -63.868,
+    -51.449,
+    0.905
    ],
    "size_xyz_m": [
     0.7,
@@ -198,9 +138,39 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    -68.397,
-    -46.313,
-    0.904
+    -53.062,
+    -38.806,
+    0.906
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -53.457,
+    -43.903,
+    0.903
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -57.089,
+    -56.638,
+    0.906
    ],
    "size_xyz_m": [
     0.7,
@@ -228,23 +198,8 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    -63.492,
-    -53.946,
-    0.906
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -50.956,
-    -41.599,
+    -56.869,
+    -41.531,
     0.903
    ],
    "size_xyz_m": [
@@ -258,8 +213,53 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    -56.235,
-    -56.862,
+    -56.114,
+    -54.69,
+    0.903
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -61.577,
+    -51.155,
+    0.91
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -61.491,
+    -58.596,
+    0.907
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -59.765,
+    -60.952,
     0.901
    ],
    "size_xyz_m": [
@@ -273,9 +273,9 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    10.934,
-    -120.557,
-    0.903
+    12.567,
+    -104.194,
+    0.907
    ],
    "size_xyz_m": [
     0.7,
@@ -288,83 +288,8 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    10.978,
-    -108.776,
-    0.91
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    10.688,
-    -116.217,
-    0.903
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    7.171,
-    -113.353,
-    0.91
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    8.89,
-    -119.938,
-    0.906
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    8.31,
-    -114.496,
-    0.898
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    9.473,
-    -116.519,
+    13.385,
+    -74.892,
     0.9
    ],
    "size_xyz_m": [
@@ -378,8 +303,38 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    5.976,
-    -119.959,
+    10.607,
+    -108.291,
+    0.898
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    13.31,
+    -85.654,
+    0.91
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    10.038,
+    -104.509,
     0.901
    ],
    "size_xyz_m": [
@@ -393,323 +348,8 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    7.968,
-    -109.825,
-    0.907
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -78.077,
-    -51.66,
-    0.906
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -75.985,
-    -51.528,
-    0.905
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -75.637,
-    -55.637,
-    0.903
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -74.576,
-    -54.809,
-    0.898
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -77.165,
-    -55.709,
-    0.904
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -76.965,
-    -50.158,
-    0.905
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -76.969,
-    -52.231,
-    0.905
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -73.723,
-    -53.385,
-    0.905
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -31.902,
-    -37.849,
-    0.907
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -36.754,
-    -35.214,
-    0.905
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -34.231,
-    -34.307,
-    0.898
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -38.496,
-    -34.699,
-    0.904
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -32.957,
-    -38.492,
-    0.907
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -41.815,
-    -29.554,
-    0.901
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -35.463,
-    -35.229,
-    0.904
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -37.042,
-    -31.596,
-    0.898
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -40.426,
-    -31.11,
-    0.905
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -54.539,
-    -70.179,
-    0.901
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -65.107,
-    -70.274,
-    0.903
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -50.162,
-    -69.759,
-    0.898
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -55.286,
-    -68.312,
+    16.366,
+    -76.028,
     0.9
    ],
    "size_xyz_m": [
@@ -723,53 +363,8 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    -50.067,
-    -71.324,
-    0.91
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -66.392,
-    -71.396,
-    0.906
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -54.648,
-    -71.405,
-    0.905
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    -61.223,
-    -69.995,
+    11.309,
+    -104.627,
     0.903
    ],
    "size_xyz_m": [
@@ -783,8 +378,23 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    8.961,
-    29.652,
+    -3.171,
+    116.397,
+    0.905
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    1.063,
+    113.721,
     0.898
    ],
    "size_xyz_m": [
@@ -798,23 +408,8 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    10.158,
-    35.617,
-    0.905
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    6.713,
-    29.918,
+    -0.995,
+    112.823,
     0.903
    ],
    "size_xyz_m": [
@@ -828,53 +423,8 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    10.142,
-    40.995,
-    0.901
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    9.399,
-    26.235,
-    0.901
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    8.805,
-    37.694,
-    0.901
-   ],
-   "size_xyz_m": [
-    0.7,
-    0.7,
-    1.8
-   ]
-  }
- },
- {
-  "class": "person",
-  "bbox_world": {
-   "center_xyz_m": [
-    8.061,
-    25.92,
+    -2.406,
+    111.835,
     0.905
    ],
    "size_xyz_m": [
@@ -888,9 +438,459 @@
   "class": "person",
   "bbox_world": {
    "center_xyz_m": [
-    9.179,
-    34.627,
+    -1.548,
+    116.303,
+    0.905
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -1.589,
+    109.498,
+    0.904
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -1.64,
+    106.548,
+    0.898
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    24.334,
+    -37.954,
+    0.903
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    27.185,
+    -39.532,
+    0.901
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    25.096,
+    -42.098,
     0.91
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    22.804,
+    -44.989,
+    0.904
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    23.689,
+    -41.736,
+    0.904
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    26.499,
+    -42.145,
+    0.905
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    25.957,
+    -38.218,
+    0.904
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -50.342,
+    -71.42,
+    0.907
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -61.11,
+    -69.52,
+    0.901
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -53.922,
+    -71.736,
+    0.904
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -54.066,
+    -69.799,
+    0.906
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -50.542,
+    -69.809,
+    0.907
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -50.137,
+    -72.972,
+    0.9
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -57.253,
+    -70.823,
+    0.906
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    29.57,
+    1.742,
+    0.9
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    27.706,
+    -8.963,
+    0.901
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    28.367,
+    -2.183,
+    0.9
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    28.555,
+    -12.802,
+    0.91
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    30.902,
+    1.928,
+    0.898
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    31.6,
+    -3.581,
+    0.898
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    30.506,
+    -1.799,
+    0.91
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -68.785,
+    -28.045,
+    0.9
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -72.125,
+    -31.213,
+    0.91
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -72.828,
+    -30.074,
+    0.906
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -60.95,
+    -23.198,
+    0.898
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -72.958,
+    -28.679,
+    0.903
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -58.923,
+    -25.081,
+    0.904
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -68.899,
+    -26.609,
+    0.907
    ],
    "size_xyz_m": [
     0.7,

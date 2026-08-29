@@ -578,6 +578,87 @@ sector. Lawnmower robots with an odd index enter their strip at the corner
 FARTHEST from the spawn (`lawnmower: robot index 1 enters at the FAR edge`), so
 drones spawned together do not sweep in step.
 
+## 4c. The local planner is MIGHTY, not DROAN (2026-08-28)
+
+droan_gl spent its time spinning in place on the wildfire plat however it
+was tuned; MIGHTY (MIT ACL, RA-L 2026, `castacks/asm_mighty`) flies smooth
+straight paths to the same waypoints, so the eval runs on it. It sits behind
+the SAME seam — `/tasks/navigate` NavigateTask and the trajectory controller —
+so nothing above the local layer changed.
+
+* **Integrated the way upstream develop / airstack-paper integrate a module
+  (RFC #379), ported onto this branch:** the module is IN-TREE at
+  `robot/ros_ws/src/modules/asm_mighty/` (the fork-owned module dir; its
+  `ORIGIN.md` lists the upstream pin and every local patch), the eval graph
+  is a STACK — `stacks/full_mighty/launch/stack.launch.xml`, a flat entry of
+  canonical module launch files where `mighty_module.launch.xml` stands
+  where `droan_gl.launch.xml` would (stereo cloud in, our configs in
+  `local_bringup/config/`) — and `robot.launch.xml` dispatches to it when
+  `AIRSTACK_STACK_DIR` is set, which `./airstack.sh up --stack full_mighty`
+  (or `AIRSTACK_STACK=full_mighty` in `.env` / a mission `env:`) exports.
+  `stacks/full_mighty/modules.repos` carries the pin the module CLI would
+  read; `airstack module add/sync/lock` themselves are not on this branch
+  (nor on upstream `main` 0.19.0), so apt deps are in `Dockerfile.robot`
+  (pcl-ros, pcl-conversions, tf2-sensor-msgs, tf2-eigen, libpcl-dev,
+  nlohmann-json3-dev) — REBUILD THE ROBOT IMAGE.
+* **Legacy path kept:** with no stack (`AIRSTACK_STACK=none`) the
+  AUTONOMY_ROLE layer dispatch runs and `LOCAL_PLANNER=mighty|droan` picks
+  the local planner inside `local.launch.xml`. Either way the search
+  planners' `nav_activation: auto` reads `LOCAL_PLANNER` and becomes
+  `follower` for MIGHTY: its bridge follows the `/global_plan` TOPIC itself
+  (engages after "takeoff settled": climbed 8 m and level 3 s; the bridge
+  switches the trajectory controller to TRACK — the takeoff task leaves it in
+  ROBOT_POSE, where an override is stored but never walked), so no
+  keep-alive activator goal is sent.
+* **The speed cap rides on NavigateTask but is NOT applied yet.** The bridge
+  accepts an EMPTY-plan goal as a speed-only goal (`max_speed_mps`; succeeds
+  at once) and logs `speed cap requested N m/s`; it does NOT throttle the
+  forwarded waypoints — MIGHTY anchors every replan on its own committed
+  trajectory, so a vehicle paced below its `v_max` drifts behind the anchor
+  and the bridge's 4 m start guard drops every trajectory (measured: v_max 7
+  with a 1.5 cap = 4.5 m lead, 2856 drops, 0 m/s). MIGHTY flies its `v_max`
+  (1.5, the module default) everywhere until a live v_max is wired into
+  mighty_node. Waypoint YAW is the direction of travel (droan's convention):
+  MIGHTY's trajectory yaw is the DYNUS spline ψ, which was 0 and flew the
+  drone sideways.
+* **World model from the STEREO cloud.** No Ouster in these missions
+  (`ENABLE_LIDAR=false`): the mapper gets
+  `/{robot}/perception/stereo_image_proc/point_cloud` registered from
+  `camera_left` (the left camera's optical frame). Raycast clearing to 25 m;
+  a 32 x 32 x 16 m window at 0.25 m (~1M voxels, CPU) follows the drone.
+  Unknown space is planned THROUGH (`w_unknown 0`,
+  `sfc_use_unknown_as_obstacle false`) — with a 30 deg down camera the air
+  ahead at altitude is never observed, so this is what lets it move at all.
+* **Bounds changed for the flight band:** `z_max` 14 -> 60, `horizon` 15 ->
+  25, `z_max_unknown` 16 -> 60. The map bounds are +-1000 m in the robot's
+  own map frame — and a NavigateTask goal is in THAT frame (takeoff-anchored;
+  the GCS relay subtracts the boot origin, a hand-sent `ros2 action
+  send_goal` does not): the first flight went 39 m "wrong" for exactly that.
+* **NOT yet built or flown here.** Watch on the first run: the mapper's CPU
+  at 8 robots on one box; `lookupTransform(map -> camera_left) failed` in
+  the mapper log (TF for the camera frame); `dropping trajectory starting
+  N m from the vehicle` from the bridge (its 4 m guard vs a 7 m/s drone);
+  whether `goal_seen_radius` (5 m) vs the planner's 8 m unlock radius leaves
+  the drone idling at a frontier. `droan_gl` is one env var away if it does.
+
+Log lines that prove the swap took (robot bringup pane / planner.log):
+```
+stack dispatch: /root/AirStack/stacks/full_mighty/launch/stack.launch.xml
+mighty_bridge up (waypoint_tolerance=2.0 m, stride=5, world_frame=map, follow_global_plan=True)
+follower gate: z0=0.01 z=... climb_needed=8.0 vz=... settled_for=...   (until airborne)
+follower: takeoff settled
+follower: adopted global_plan (2 poses)
+follower: engaging (lookahead 8.0 m)
+trajectory controller mode -> TRACK: ok
+override -> controller: 86 wps, starts 2.5 m from vehicle at (...) v1.5, ends (...), cap 0.0
+nav_activation auto -> 'follower' (LOCAL_PLANNER=mighty)
+[robot_1] NavigateTask max_speed -> 1.5 m/s (search)
+speed cap requested 1.5 m/s (speed-only NavigateTask) — recorded only; ...
+[robot_1] ground speed 1.4 m/s over 10 s sim | cap 1.5 (search) | inside sector
+```
+
+---
+
 ## 5. The numbers that MUST scale with the scene
 
 This is the part that silently ruins comparisons. `map_cells` is **fixed at 480**
@@ -973,6 +1054,8 @@ NavigateTask accepted: activator (steer by /global_plan), max_speed 7.0 m/s (fro
 A `ground speed` line far under its cap with `OUTSIDE sector` is the
 airframe/controller, not the planner; a `task_msgs NavigateTask has no
 max_speed_mps — rebuild` warning means the container's msgs predate the field.
+With `LOCAL_PLANNER=mighty` (§4c) the droan lines above are replaced by the
+bridge's `speed cap -> 7.0 m/s (speed-only NavigateTask)`.
 
 ### 9.t `search_area_source: scene` — the search area is the scorched ground, not the plat
 
@@ -998,6 +1081,35 @@ frame error, and the 1-robot wildfire runs show the same. There was no image
 in the bag to say what YOLO saw. `/{robot}/search/detection_image` (JPEG of
 the annotated FPV, published ONLY on a tick whose goal-class score cleared
 `sem_threshold`, bridged and recorded) is the evidence to open first.
+
+### 9.r A planner launched from a fresh tmux window lands on DOMAIN 0 — export ROBOT_NAME / ROS_DOMAIN_ID first
+
+Measured 2026-08-28: `tmux new-window` + `ros2 launch search_baselines
+frontier.launch.xml ...` in the robot container gave a planner with NO
+`ROS_DOMAIN_ID` / `ROBOT_NAME` in its environment (the .bashrc mapping did
+not run in that shell), i.e. domain 0 = the GCS domain. Everything then
+LOOKS alive — it logs ticks, detections, `activator accepted` (the DDS router
+bridges the NavigateTask action) — but `ros2 node list` on the robot domain
+does not show `search_planner`, its `/robot_1/global_plan` reaches the robot
+domain only as the router's BEST_EFFORT copy, which the local planner's
+RELIABLE subscriber refuses (`New publisher discovered on topic
+'global_plan', offering incompatible QoS`), and the drone parks at its last
+goal with `ground speed 0.00`. The GCS relay's own NavigateTask keeps
+working (its client is created on domain N), which is what makes it look
+like a planner bug. Always launch as the missions do:
+`export ROBOT_NAME=robot_N ROS_DOMAIN_ID=N; sws && ros2 launch ...`, and
+check `ros2 topic info -v /robot_N/global_plan` lists `search_planner` as a
+RELIABLE publisher before reading anything else.
+
+### 9.q A RELIABLE image publisher can hang the whole plan loop
+
+Same day: the planner's tick sat inside `Publisher.publish` of the per-tick
+`map_image` for minutes (py-spy: `_publish_map_image -> rclpy/publisher.py`)
+after the GCS — and with it the DDS router's reliable reader — had been
+restarted; the writer waited for acks that never came, the node dropped off
+`ros2 node list`, the drone parked. Every image publisher in the planner
+(map_image, agent_image, vlm_prompt_image, detection_image) is BEST_EFFORT
+now; keep it that way.
 
 ### 9.w The GCS cloud layers need a BEST_EFFORT reader
 

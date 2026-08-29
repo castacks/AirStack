@@ -1,0 +1,7 @@
+# Per-stack compose override. On a module-CLI trunk `airstack module lock
+# --build` composes each module's dependency layer on top of the trunk image
+# and generates the real override; here asm_mighty's apt deps (module.yaml
+# deps.apt: nlohmann-json3-dev, plus PCL) are baked into
+# robot/docker/Dockerfile.robot instead. Empty services map keeps the
+# stack-anatomy shape valid.
+services: {}

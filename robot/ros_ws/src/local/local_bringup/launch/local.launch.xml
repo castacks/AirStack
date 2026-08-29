@@ -14,6 +14,20 @@
 
     <log message="local_odometry_in_topic has $(var local_odometry_in_topic)" />
 
+    <!-- WHICH LOCAL PLANNER serves /tasks/navigate and steers by /global_plan.
+         'droan'  droan_gl (GPU rollouts over the disparity image) — historical
+         'mighty' asm_mighty: MIGHTY Hermite-spline planner over an acl-mapping
+                  voxel map built from the STEREO cloud, behind the same
+                  NavigateTask / trajectory_controller seam (vendored under
+                  modules/asm_mighty, see its ORIGIN.md). The 2026-08-27
+                  eval swapped to it: droan spent its time spinning in place,
+                  MIGHTY flies smooth straight paths to the same waypoints.
+         From LOCAL_PLANNER (compose passes it through); empty/unset = droan.
+         The search planners read the same variable to pick their activation
+         (search_baselines planner.yaml nav_activation: auto). -->
+    <arg name="local_planner" default="$(env LOCAL_PLANNER droan)" />
+    <log message="local_planner is '$(var local_planner)'" />
+
 
     <!-- Takeoff/Landing Task Action Servers -->
     <node pkg="takeoff_landing_planner" exec="takeoff_landing_task"
@@ -52,7 +66,25 @@
         <remap from="~/fixed_trajectory_task" to="/$(env ROBOT_NAME)/tasks/fixed_trajectory" />
     </node>
 
-    <group>
+    <group if="$(eval '&quot;$(var local_planner)&quot; == &quot;mighty&quot;')">
+        <!-- MIGHTY (asm_mighty): mapper + planner + NavigateTask bridge, in the
+             `mighty` sub-namespace. Wiring the module's stack file would do:
+             our configs, the stereo cloud instead of an Ouster, and the frame
+             that cloud is expressed in (stereo_image_proc publishes it in the
+             LEFT camera's optical frame, `camera_left`). -->
+        <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml">
+            <arg name="mighty_config"
+                 value="$(find-pkg-share local_bringup)/config/mighty_disaster.yaml" />
+            <arg name="mighty_mapper_config"
+                 value="$(find-pkg-share local_bringup)/config/global_mapper_disaster.yaml" />
+            <arg name="mighty_lidar_topic"
+                 value="/$(env ROBOT_NAME)/perception/stereo_image_proc/point_cloud" />
+            <arg name="mighty_lidar_frame" value="camera_left" />
+            <arg name="mighty_odometry_topic" value="$(var local_odometry_in_topic)" />
+        </include>
+    </group>
+
+    <group unless="$(eval '&quot;$(var local_planner)&quot; == &quot;mighty&quot;')">
         <push-ros-namespace namespace="droan" />
         <!-- DROAN Local Planner -->
         <node pkg="droan_gl" exec="droan_gl_node" output="screen"

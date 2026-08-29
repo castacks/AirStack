@@ -1,0 +1,55 @@
+<launch>
+
+  <!-- name of the quad -->
+  <arg name="quad" default="SQ01s"/>
+
+  <arg name="load_params" default="true" />
+  <arg name="param_file" default="sim_uav.yaml" />
+
+  <!-- input topics -->
+  <!--<arg name="pointcloud_topic" default="camera/cloud" />-->
+  <arg name="pose_topic" default="vicon" />
+  <arg name="goal_topic" default="/move_base_simple/goal" />
+  <arg name="depth_image_topic" default="depthmap_filter/depth_filt" /> 
+ 
+
+  <!-- output topics -->
+  <arg name="occupancy_grid_topic" default="~occupancy_grid" />
+  <arg name="unknown_grid_topic" default="~unknown_grid" />
+  <arg name="distance_grid_topic" default="~distance_grid" />
+  <arg name="frontier_grid_topic" default="~frontier_grid" />
+  <arg name="cost_grid_topic" default="~cost_grid" />
+  <arg name="path_topic" default="~path" />
+  
+  <!-- nodelet setup -->
+  <arg name="manager" default="my_manager" />
+  <arg name="standalone" default="true" />
+
+  <!-- manager -->
+  <node if="$(arg standalone)"
+        ns="$(arg quad)"
+        pkg="nodelet" type="nodelet" name="$(arg manager)"
+        args="manager" output="screen" >
+    <!-- params -->
+    <rosparam command="load" if="$(arg load_params)" file="$(find global_mapper_ros)/cfg/$(arg param_file)"/>
+
+    <!-- input remaps -->
+    <!-- <remap from="~pointcloud_topic" to="$(arg pointcloud_topic)" />-->
+    <remap from="~pose_topic" to="$(arg pose_topic)" />
+    <remap from="~goal_topic" to="$(arg goal_topic)" />
+    <remap from="~depth_image_topic" to="$(arg depth_image_topic)" />
+
+    <!-- output remaps -->
+    <remap from="~occupancy_grid_topic" to="$(arg occupancy_grid_topic)" />
+    <remap from="~unknown_grid_topic" to="$(arg unknown_grid_topic)" />
+    <remap from="~frontier_grid_topic" to="$(arg frontier_grid_topic)" />
+    <remap from="~distance_grid_topic" to="$(arg distance_grid_topic)" />
+    <remap from="~cost_grid_topic" to="$(arg cost_grid_topic)" />
+    <remap from="~path_topic" to="$(arg path_topic)" />
+  </node>
+
+  <!-- nodelet -->
+  <node ns="$(arg quad)" pkg="nodelet" type="nodelet" name="global_mapper_nodelet"
+        args="load global_mapper_ros/GlobalMapperNodelet $(arg manager)" output="screen">
+  </node>
+</launch>

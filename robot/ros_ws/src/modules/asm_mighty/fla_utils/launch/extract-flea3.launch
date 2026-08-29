@@ -1,0 +1,20 @@
+<launch>
+  <arg name="bagfile" default="~/bags/flea3_timestamp.bag" />
+
+  <node pkg="rosbag" type="play" name="rosbag_mpeg" args="-s 17.5 -d 2 -r 0.1 -u 103 $(arg bagfile)"/>
+
+  <node name="saver" pkg="image_view" type="image_saver" respawn="false" output="screen" cwd="ROS_HOME" args="">
+    <param name="filename_format" value="image%05d.png" />
+    <remap from="image" to="/flea3/image_raw"/>
+  </node>
+  
+  <!-- To rotate images: -->
+  <!-- mogrify -rotate 180 *.png -->
+
+  <!-- To encode to mpeg2: -->
+  <!-- mencoder "mf://*.png" -mf type=jpg:fps=60 -o output.mpg -speed 1 -ofps 60 -ovc lavc -lavcopts vcodec=mpeg2video:vbitrate=6000 -oac copy -of mpeg -->
+
+  <!-- To encode to mp4: -->
+  <!-- ffmpeg -framerate 60 -i image%05d.png -s:v 640x512 -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p video.mp4 -->
+
+</launch>

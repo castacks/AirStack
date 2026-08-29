@@ -769,8 +769,55 @@ function classify_compose_args {
     done
 }
 
+# Stack dispatch (RFC #379 S3, ported from upstream develop): validate a
+# --stack selection against stacks/ and export the CONTAINER paths the launch
+# dispatch reads (stacks/ is bind-mounted at /root/AirStack/stacks). Accepts
+# `<name>[:<entry>]`; entry names launch/<entry>.launch.xml (default: stack).
+function apply_stack_intent {
+    local stack_name="$1" stack_entry="stack"
+    if [[ "$stack_name" == *:* ]]; then
+        stack_entry="${stack_name#*:}"
+        stack_name="${stack_name%%:*}"
+    fi
+    if [[ -z "$stack_name" || -z "$stack_entry" ]]; then
+        log_error "--stack requires a stack name (expected <name> or <name>:<entry>)"
+        return 1
+    fi
+    local stack_host_dir="$PROJECT_ROOT/stacks/$stack_name"
+    if [[ ! -d "$stack_host_dir" ]]; then
+        local available
+        available=$(ls -1 "$PROJECT_ROOT/stacks" 2>/dev/null | grep -v '^\.' | tr '\n' ' ')
+        log_error "Unknown stack '$stack_name' — $stack_host_dir does not exist. Available stacks: ${available:-<none>}"
+        return 1
+    fi
+    if [[ ! -f "$stack_host_dir/launch/$stack_entry.launch.xml" ]]; then
+        log_error "Stack '$stack_name' has no entry point launch/$stack_entry.launch.xml"
+        return 1
+    fi
+    export AIRSTACK_STACK_DIR="/root/AirStack/stacks/$stack_name"
+    export AIRSTACK_STACK_ENTRY="$stack_entry"
+    log_info "Stack: $stack_name (entry $stack_entry) -> AIRSTACK_STACK_DIR=$AIRSTACK_STACK_DIR"
+    return 0
+}
+
 function cmd_up {
     check_docker
+
+    # `--stack NAME[:entry]` / `--stack=NAME` on the command line, else
+    # AIRSTACK_STACK from the environment or .env; nothing/none = legacy role dispatch.
+    local stack_sel="${AIRSTACK_STACK:-$(sed -n 's/^AIRSTACK_STACK=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"' | head -1)}"
+    local passthrough=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --stack) stack_sel="$2"; shift 2 ;;
+            --stack=*) stack_sel="${1#--stack=}"; shift ;;
+            *) passthrough+=("$1"); shift ;;
+        esac
+    done
+    set -- "${passthrough[@]}"
+    if [[ -n "$stack_sel" && "$stack_sel" != "none" ]]; then
+        apply_stack_intent "$stack_sel" || exit 1
+    fi
 
     local global_args=()
     local subcmd_args=()

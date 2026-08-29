@@ -1,0 +1,19 @@
+<!-- Launches node to convert from Vicon PoseStamped to TF -->
+<!-- Launch file specifies child frame id and input pose topic -->
+<launch>
+
+  <!-- REQUIRED: set this to relevant Vicon output topic -->
+  <arg name="pose_topic_in" />
+  <arg name="use_local_time" default="true" />
+
+  <!-- What we want to call the child frame -->
+  <arg name="child_frame_id"  default="/body" />
+
+  <arg name="world_frame" default="/world" />
+
+  <node name="$(anon pose2tf)" type="pose2tf.py" pkg="fla_utils" >
+    <param name="child_frame_id"  value="$(arg child_frame_id)"/>
+    <param name="use_local_time"  value="$(arg use_local_time)"/>
+    <remap from="pose_in" to="$(arg pose_topic_in)" />
+  </node>
+</launch>

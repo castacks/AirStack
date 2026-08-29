@@ -99,6 +99,14 @@ RUN apt update -y && apt install -y --no-install-recommends \
   ros-jazzy-foxglove-bridge \
   libcgal-dev \
   python3-colcon-common-extensions \
+  # asm_mighty (MIGHTY local planner + acl-mapping world model): PCL for the
+  # voxel map, nlohmann for the solver config loader — module.yaml deps
+  ros-jazzy-pcl-ros \
+  ros-jazzy-pcl-conversions \
+  ros-jazzy-tf2-sensor-msgs \
+  ros-jazzy-tf2-eigen \
+  libpcl-dev \
+  nlohmann-json3-dev \
   && rm -rf /var/lib/apt/lists/*
 
 RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
@@ -337,6 +345,14 @@ RUN apt update -y && apt install -y --no-install-recommends \
   ros-jazzy-xacro \
   ros-jazzy-foxglove-bridge \
   python3-colcon-common-extensions \
+  # asm_mighty (MIGHTY local planner + acl-mapping world model): PCL for the
+  # voxel map, nlohmann for the solver config loader — module.yaml deps
+  ros-jazzy-pcl-ros \
+  ros-jazzy-pcl-conversions \
+  ros-jazzy-tf2-sensor-msgs \
+  ros-jazzy-tf2-eigen \
+  libpcl-dev \
+  nlohmann-json3-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # Install emoji font support and refresh font cache

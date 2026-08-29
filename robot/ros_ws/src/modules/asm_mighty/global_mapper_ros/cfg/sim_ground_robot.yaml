@@ -1,0 +1,108 @@
+/**:
+    ros__parameters:
+
+        global_frame: map
+        origin: [0.0, 0.0, 1.5]        # centered at z=1.5 for ground robot (covers z=-0.5 to 3.5)
+        world_dimensions: [20.0, 20.0, 3.0]  # map covers z from -0.5 to 3.5
+        resolution: 0.15
+
+        # When false (default), the grid slides with the robot — bounded
+        # memory but cells that fall off the window are forgotten. Set true
+        # for missions where the robot stays inside the world_dimensions box
+        # and you want a single persistent global map. (For frontier-based
+        # exploration, MIGHTY's VisitedMap suppresses revisited frontiers,
+        # so a sliding window here is fine.)
+        lock_origin: false
+        clear_unknown_radius: 0.8         # [m] horizontal clearing radius for unknown cells (cylinder around drone)
+        clear_unknown_height: 2.0         # [m] vertical clearing half-height for unknown cells
+        clear_occupied_radius: 0.1        # [m] horizontal clearing radius for occupied cells (clears self-hits)
+        clear_occupied_height: 0.5        # [m] vertical clearing half-height for occupied cells
+        z_ground: 0.1  #[m] points below z_ground are not published in the known grid (allow ground points)
+        skip: 0  #[pixels] Numbers of pixels to skip in the depth map. Should be >=0
+        depth_max: 15.0 #[m] In the depth image, points farther than depth_max, are treated as inf
+        r1: 0.8 #[m] Points in the sphere centered in the robot with r>r1 and r<r2 are published as unknown space
+        r2: 20.0 #[m] See above
+        z_min_unknown: -0.5 #[m] points below z_min_unknown are not published in the unknown grid (allow ground)
+        z_max_unknown: 2.0 #[m] points above z_max_unknown are not published in the unknown grid (lower for ground robot)
+
+        occupancy_grid:
+          # init_value < 0 == UNKNOWN (per OccupancyGrid::IsUnknown). Frontier
+          # exploration needs unobserved cells to start as UNKNOWN, otherwise
+          # the 2D projection has no unknown cells and the WFD detector finds
+          # nothing until the robot starts moving and the window slides.
+          init_value: -1.0
+          hit_inc: 0.4 #Was 0.4
+          miss_inc: -0.1
+          occupancy_threshold: 0.6  # [0.0, 1.0]
+          publish_occupancy_grid: true
+          downsample_resolution: 0.6       # [m] leaf size for downsampled occupancy grid sent over network (0=disabled)
+          occupancy_publish_rate: 10.0                # [Hz] rate for occupancy grid
+          downsampled_occupancy_publish_rate: 5.0    # [Hz] rate for downsampled occupancy grid
+          min_occupied_neighbors: 0                  # drop occupied voxels with fewer than N occupied 26-neighbors before publishing (0 = disabled)
+          unknown_publish_rate: 10.0                  # [Hz] rate for unknown grid
+          publish_unknown_grid: true
+          publish_free_grid: true
+          clear_unknown_distance: 1.0  # [m]  #Nan and inf? --> Clear the unknown voxels up to this distance
+
+        distance_grid:
+          truncation_distance: 15  # [voxels]
+          publish_distance_grid: false
+
+        distance_grid_2d:
+          enabled: true
+          truncation_distance: 15  # [voxels] can be larger since 2D is cheaper
+          publish: true
+          publish_rate: 10.0  # [Hz]
+          height_diff_threshold: 0.3  # [m] max height difference between neighbors for traversability
+          agent_height: 1.2          # [m] column OCCUPIED check upper bound — any occupied voxel up to here blocks the 2D cell
+          min_obstacle_height: 0.3   # [m] min vertical extent to count as obstacle
+          inflation_cells: 0        # [cells] inflate non-traversable cells by this radius (0=disabled)
+          # 2D FREE check uses the voxel at this z slice. Originally this was
+          # 0.95 (lidar mount height) so horizontal beams directly cleared the
+          # slice — but that turned out to let beams sneak through wall gaps
+          # (or over short/partial obstacles) at mount height and mark cells
+          # inside closed rooms as FREE, spawning phantom frontiers. Lowering
+          # to 0.3 m (robot-belly height) forces clearance via off-axis beams
+          # that must sweep nearer the ground, which is much harder to spoof.
+          # Trade-off: slower legitimate FREE-clearance in open space.
+          visibility_check_z: 0.3
+
+        cost_grid:
+          publish_cost_grid: false
+          publish_path: false
+          inflation_distance: 4  # inflate obstacles by this many squared voxels
+          altitude_weight: 20
+          inflation_weight: 0
+          unknown_weight: 20
+          obstacle_weight: 10000
+          target_altitude: 1.0  # target altitude [m] for ground robot
+
+        temporal_grid:
+          use_temporal_grid: false   # set to false to disable temporal grid, dynamic segmentation, and obstacle tracker
+          publish_dynamic_grid: false
+          occupied_thresh: 2.0           # [s] how long a voxel must be occupied to become static (longer = fewer false dynamics)
+          unoccupied_thresh: 0.3         # [s] how long unoccupied before marked free (longer = more stable)
+          dynamic_neighbor_thresh: 8     # min static neighbors to suppress dynamic label (higher = fewer false positives)
+          dynamic_persistence: 1.0       # [s] keep voxel dynamic after last detection (shorter = less lingering)
+          dynamic_maturity_time: 3.0     # [s] voxel must exist this long before it can be labeled dynamic (longer = fewer startup false positives)
+
+        obstacle_tracker:
+          enabled: false
+          use_adaptive_kf: true
+          adaptive_kf_alpha: 0.95        # higher = smoother KF, less noise sensitivity
+          adaptive_kf_dt: 0.1
+          cluster_tolerance: 0.5         # [m] tighter clustering to avoid merging separate objects
+          min_cluster_size: 15           # require more points to form a cluster (was 5, filters noise)
+          max_cluster_size: 200
+          prediction_horizon: 3.0
+          prediction_dt: 0.1
+          time_to_delete_old_obstacles: 3.0  # [s] faster cleanup of stale tracks
+          cluster_bbox_cutoff_size: 1.5  # [m] reject oversized clusters (likely false positives)
+          velocity_threshold: 0.3        # [m/s] lower = must move faster to be considered dynamic (was 0.8)
+          acceleration_threshold: 1.0    # [m/s^2] lower = stricter dynamic classification (was 2.0)
+          cutoff_length_threshold: 0.1   # [m] ignore very short trajectory predictions
+          degree_for_pwp: 3
+          degree_for_poly: 5
+          max_history_size: 30
+          min_observations_for_prediction: 8  # require more observations before publishing (was 3)
+          max_obstacle_velocity: 1.0     # [m/s] clamp predicted velocity

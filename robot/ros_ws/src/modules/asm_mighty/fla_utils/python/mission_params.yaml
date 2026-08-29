@@ -1,0 +1,8 @@
+start_x: 0  #pixels relative to lower left of overhead
+start_y: 0
+click_start: true  #set to false to use the above values instead of clicking
+
+goal_radius: 1000
+subgoal_radius: 4
+overhead_image: /home/jakeware/fla-gtsc/fla_root/fla_configuration/mission/overhead.png
+meters_per_pixel: 0.15625

@@ -787,7 +787,21 @@ class CoNavGPT2Node(Node):
         # steers by the /global_plan topic this node already publishes every
         # tick; 'goal_per_round' sends a fresh goal carrying the path. See
         # _ensure_activator() for why the first is the default.
-        self._nav_activation = self._p('nav_activation', 'activator')
+        self._nav_activation = str(self._p('nav_activation', 'activator'))
+        # 'auto' follows LOCAL_PLANNER (the same variable local.launch.xml
+        # picks the local planner with): droan_gl wants the empty activator
+        # goal kept alive; MIGHTY's bridge follows /global_plan on its own
+        # and takes an empty goal only as a speed cap ('follower').
+        if self._nav_activation == 'auto':
+            lp = os.environ.get('LOCAL_PLANNER', '').strip().lower()
+            self._nav_activation = 'follower' if lp == 'mighty' else 'activator'
+            self.get_logger().info(
+                f"nav_activation auto -> '{self._nav_activation}' "
+                f"(LOCAL_PLANNER={lp or 'unset'})")
+        if self._nav_activation not in ('activator', 'follower', 'goal_per_round'):
+            raise ValueError(
+                f'nav_activation must be activator | follower | goal_per_round | '
+                f'auto, got {self._nav_activation!r}')
         self._activator_retry_s = float(self._p('activator_retry_s', 3.0))
         # What goes on /global_plan.
         #   'waypoints' two poses — the goal, and one path_extension_m beyond it
@@ -953,6 +967,16 @@ class CoNavGPT2Node(Node):
         self._plan_pubs = []
         self._agent_image_pubs = []
         self._det_image_pubs = []
+        # IMAGES ARE BEST-EFFORT. A RELIABLE image writer blocks in publish()
+        # when a matched reliable reader stops acking — measured 2026-08-28:
+        # the DDS router's reader for map_image went stale across a GCS
+        # restart and the plan loop sat inside Publisher.publish for minutes
+        # (py-spy: _publish_map_image -> rclpy/publisher.py:70), the node
+        # vanished from `ros2 node list`, the drone parked. Nothing downstream
+        # needs every frame; a dropped image costs one tick of a picture.
+        self._image_qos = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,
+                                     durability=DurabilityPolicy.VOLATILE,
+                                     history=HistoryPolicy.KEEP_LAST, depth=1)
         self._nav_clients = []
         for i, robot in enumerate(self._robots):
             # ON THE REENTRANT GROUP, like every other subscription here.
@@ -992,15 +1016,18 @@ class CoNavGPT2Node(Node):
             self._plan_pubs.append(self.create_publisher(
                 Path, self._plan_tpl.format(robot=robot), 10))
             self._agent_image_pubs.append(self.create_publisher(
-                Image, self._agent_image_tpl.format(robot=robot), 1))
+                Image, self._agent_image_tpl.format(robot=robot), self._image_qos))
             self._det_image_pubs.append(self.create_publisher(
-                CompressedImage, self._det_image_tpl.format(robot=robot), 5))
+                CompressedImage, self._det_image_tpl.format(robot=robot),
+                QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,
+                           durability=DurabilityPolicy.VOLATILE,
+                           history=HistoryPolicy.KEEP_LAST, depth=5)))
             self._nav_clients.append(ActionClient(
                 self, NavigateTask, self._nav_tpl.format(robot=robot),
                 callback_group=self._cbg))
 
-        self._map_image_pub = self.create_publisher(Image, self._map_image_topic, 1)
-        self._vlm_image_pub = self.create_publisher(Image, self._vlm_image_topic, 1)
+        self._map_image_pub = self.create_publisher(Image, self._map_image_topic, self._image_qos)
+        self._vlm_image_pub = self.create_publisher(Image, self._vlm_image_topic, self._image_qos)
         # TRANSIENT_LOCAL: a Foxglove panel that connects mid-run should draw the
         # map it already has rather than stay blank until the next tick.
         latched = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
@@ -3409,7 +3436,8 @@ class CoNavGPT2Node(Node):
         self.get_logger().info(
             f'[{self._robots[i]}] NavigateTask max_speed -> {mps:.1f} m/s '
             f'({self._speed_label(mps)})')
-        if self._nav_activation == 'activator' and not getattr(self, '_stop', False):
+        if (self._nav_activation in ('activator', 'follower')
+                and not getattr(self, '_stop', False)):
             self._send_activator(i, why=f'speed {mps:.1f} m/s')
 
     def _speed_label(self, mps):
@@ -3490,6 +3518,10 @@ class CoNavGPT2Node(Node):
 
         if self._nav_activation == 'activator':
             self._ensure_activator(i)
+            return
+        if self._nav_activation == 'follower':
+            # The local planner follows /global_plan itself (MIGHTY's bridge);
+            # the only NavigateTask it gets is the speed-only goal above.
             return
 
         nav = self._nav[i]
@@ -3610,7 +3642,7 @@ class CoNavGPT2Node(Node):
         nav.result_future = handle.get_result_async()
         nav.endpoint = None
         self.get_logger().info(
-            f'[{robot}] droan_gl activated — steering by '
+            f'[{robot}] NavigateTask activator accepted — local planner steering by '
             f'{self._plan_tpl.format(robot=robot)}, max_speed '
             f'{mps:.1f} m/s' + (f' ({why})' if why else ''))
 

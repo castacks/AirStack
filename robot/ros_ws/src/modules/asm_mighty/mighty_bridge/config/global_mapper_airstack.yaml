@@ -1,0 +1,95 @@
+# asm_mighty: acl-mapping global_mapper configuration for AirStack Isaac sim
+# (Ouster point cloud in the robot's map frame TF tree). Derived from the
+# vendored global_mapper_ros/cfg/sim_uav.yaml: resolution 0.15, a taller
+# sliding window (z 0..6), lidar-appropriate ranges, temporal grid and
+# obstacle tracker disabled (R7 is static; enable for dynamic obstacles).
+/**:
+    ros__parameters:
+
+        global_frame: map
+        # drone_frame (the TF frame the input cloud is registered from) is set
+        # from the launch file so the stack can rewire the sensor.
+        lock_origin: false
+        origin: [0.0, 0.0, 0.0]            # initial center; UpdateOrigin recenters on the drone
+        world_dimensions: [24.0, 24.0, 12.0]  # window follows drone in all axes; +/-6 m vertical
+        resolution: 0.2
+        clear_unknown_radius: 0.8
+        clear_unknown_height: 2.0
+        clear_occupied_radius: 0.2
+        clear_occupied_height: 0.5
+        z_ground: 0.25                     # points below are not marked occupied
+        skip: 0
+        depth_max: 20.0                    # range cap for ray clearing
+        r1: 0.8
+        r2: 15.0                           # unknown-space sphere radius
+        z_min_unknown: 0.1
+        z_max_unknown: 16.0                # absolute filter; must cover flight altitude
+
+        occupancy_grid:
+          init_value: -1.0                 # start unknown
+          hit_inc: 0.6
+          miss_inc: -0.2
+          occupancy_threshold: 0.5
+          publish_occupancy_grid: true
+          downsample_resolution: 0.0
+          occupancy_publish_rate: 10.0
+          downsampled_occupancy_publish_rate: 0.0
+          min_occupied_neighbors: 0
+          unknown_publish_rate: 10.0
+          publish_unknown_grid: true
+          clear_unknown_distance: 5.0
+
+        distance_grid:
+          truncation_distance: 15
+          publish_distance_grid: false
+
+        distance_grid_2d:
+          enabled: false
+          truncation_distance: 15
+          publish: false
+          publish_rate: 5.0
+          height_diff_threshold: 0.3
+          agent_height: 1.0
+          min_obstacle_height: 0.3
+          inflation_cells: 0
+          visibility_check_z: 0.0
+
+        cost_grid:
+          publish_cost_grid: false
+          publish_path: false
+          inflation_distance: 4
+          altitude_weight: 20
+          inflation_weight: 0
+          unknown_weight: 20
+          obstacle_weight: 10000
+          target_altitude: 2.0
+
+        temporal_grid:
+          use_temporal_grid: false
+          publish_dynamic_grid: false
+          occupied_thresh: 2.0
+          unoccupied_thresh: 0.3
+          dynamic_neighbor_thresh: 8
+          dynamic_persistence: 1.0
+          dynamic_maturity_time: 3.0
+
+        obstacle_tracker:
+          enabled: false
+          use_adaptive_kf: true
+          adaptive_kf_alpha: 0.95
+          adaptive_kf_dt: 0.1
+          cluster_tolerance: 0.5
+          min_cluster_size: 15
+          max_cluster_size: 200
+          prediction_horizon: 3.0
+          prediction_dt: 0.1
+          time_to_delete_old_obstacles: 3.0
+          cluster_bbox_cutoff_size: 1.5
+          velocity_threshold: 0.3
+          acceleration_threshold: 1.0
+          cutoff_length_threshold: 0.1
+          degree_for_pwp: 3
+          degree_for_poly: 5
+          max_history_size: 30
+          min_observations_for_prediction: 3
+          max_obstacle_velocity: 1.0

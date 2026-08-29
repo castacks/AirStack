@@ -79,6 +79,20 @@ env:
 
   MAP_ANCHOR_ENU: "true"
 
+  # THE STACK (RFC #379, as on upstream develop): stacks/full_mighty composes
+  # the autonomy graph with the MIGHTY local planner (asm_mighty, in-tree under
+  # robot/ros_ws/src/modules) behind /tasks/navigate instead of droan_gl, which
+  # spun in place on this scene however it was tuned. `airstack up` reads
+  # AIRSTACK_STACK from this env and exports AIRSTACK_STACK_DIR to the robot
+  # containers; robot.launch.xml dispatches to the stack entry. LOCAL_PLANNER
+  # keeps the search planners' nav_activation 'auto' on 'follower' (MIGHTY's
+  # bridge follows /global_plan itself). Log lines to look for:
+  # `stack dispatch: /root/AirStack/stacks/full_mighty/launch/stack.launch.xml`,
+  # `mighty_bridge up (...)`, `follower: takeoff settled`,
+  # `trajectory controller mode -> TRACK: ok`, `override -> controller: ...`.
+  AIRSTACK_STACK: "full_mighty"
+  LOCAL_PLANNER: "mighty"
+
   CONAVGPT_BASELINE: "false"
   FRONTIER_ONLY_BASELINE: "false"
   VLFM_BASELINE: "false"

@@ -1,0 +1,30 @@
+# AirStack module manifest — deps, identity, and test metadata only; no wiring
+# (RFC #379 §2). Validated against trunk's common/module_schema/module.schema.json
+# by tools/validate_module.py.
+name: mighty
+description: MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its acl-mapping voxel world model and a bridge to AirStack's NavigateTask / trajectory_controller seam — a map-based replacement for the DROAN local planner
+maintainer: ajong@andrew.cmu.edu
+# NOTE(license): BSD-3-Clause-Clear covers the module wrapper (mighty_bridge,
+# decomp_ros_utils shim, test_stack). Vendored upstream packages keep their own
+# permissive licenses (mighty: BSD-3; DecompUtil/DecompROS2: Apache-2.0/BSD;
+# acl-mapping: BSD-3) — see VENDORED.md for pins and per-package licenses.
+license: BSD-3-Clause-Clear
+type: ros_package
+airstack_compat: ">=0.20.0-alpha.16 <0.21.0"
+targets: [robot]
+
+# nlohmann json is header-only and used by the mighty solver config loader.
+deps:
+  apt: [nlohmann-json3-dev]
+  pip: []
+dockerfile: null
+overlay_image: null
+compose: null
+assets: []
+
+docs: {readme: README.md}
+foxglove: null
+
+tests:
+  packages: [mighty]
+  marks: [build_docker, liveliness]

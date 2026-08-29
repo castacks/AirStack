@@ -1,0 +1,86 @@
+/**:
+    ros__parameters:
+
+        global_frame: map
+        origin: [0.0, 0.0, 3.0]        # now grid covers x,y ∈ [–10, +10]
+        world_dimensions: [20.0, 20.0, 3.0]
+        resolution: 0.3
+        clear_unknown_radius: 0.8         # [m] horizontal clearing radius for unknown cells (cylinder around drone)
+        clear_unknown_height: 2.0         # [m] vertical clearing half-height for unknown cells
+        clear_occupied_radius: 0.1        # [m] horizontal clearing radius for occupied cells (clears self-hits)
+        clear_occupied_height: 0.5        # [m] vertical clearing half-height for occupied cells
+        z_ground: 0.5  #[m] points below z_ground are not published in the known grid
+        skip: 0  #[pixels] Numbers of pixels to skip in the depth map. Should be >=0
+        depth_max: 15.0 #[m] In the depth image, points farther than depth_max, are treated as inf (i.e. along its ray (and up to that point) only unknown voxels are cleared. If doing simulation, this should be the value of pointCloudCutoffMax in the file `asus_camera_urdf.xacro`
+        r1: 0.8 #[m] Points in the sphere centerd in the drone with r>r1 and r<r2 are published as unkown space
+        r2: 15.0 #[m] See above
+        z_min_unknown: 0.1 #[m] points below z_min_unkown are not published in the unkown grid
+        z_max_unknown: 6.0 #[m] points above z_max_unkown are not published in the unkown grid
+        
+        occupancy_grid:
+          init_value: -1.0
+          hit_inc: 0.4 #Was 0.4  
+          miss_inc: -0.4
+          occupancy_threshold: 0.6  # [0.0, 1.0]
+          publish_occupancy_grid: true
+          downsample_resolution: 0.6       # [m] leaf size for downsampled occupancy grid sent over network (0=disabled)
+          occupancy_publish_rate: 10.0                # [Hz] rate for occupancy grid
+          downsampled_occupancy_publish_rate: 5.0    # [Hz] rate for downsampled occupancy grid
+          min_occupied_neighbors: 0                  # drop occupied voxels with fewer than N occupied 26-neighbors before publishing (0 = disabled)
+          unknown_publish_rate: 10.0                  # [Hz] rate for unknown grid
+          publish_unknown_grid: true
+          clear_unknown_distance: 5.0  # [m]  #Nan ¿and inf? --> Clear the unkown voxels up to this distance
+
+        distance_grid:
+          truncation_distance: 15  # [voxels]
+          publish_distance_grid: false
+
+        distance_grid_2d:
+          enabled: false
+          truncation_distance: 15  # [voxels] can be larger since 2D is cheaper
+          publish: false
+          publish_rate: 5.0  # [Hz]
+          height_diff_threshold: 0.3  # [m] max height difference between neighbors for traversability
+          agent_height: 1.0          # [m] robot height — obstacles starting above this are passable
+          min_obstacle_height: 0.3   # [m] min vertical extent to count as obstacle
+          inflation_cells: 0        # [cells] inflate non-traversable cells by this radius (0=disabled)
+
+        cost_grid:
+          publish_cost_grid: false
+          publish_path: false
+          inflation_distance: 4  # inflate obstacles by this many squared voxels
+          altitude_weight: 20
+          inflation_weight: 0
+          unknown_weight: 20
+          obstacle_weight: 10000
+          target_altitude: 2.0  # target altitude [m]
+
+        temporal_grid:
+          use_temporal_grid: true    # set to false to disable temporal grid, dynamic segmentation, and obstacle tracker
+          publish_dynamic_grid: true
+          occupied_thresh: 2.0           # [s] how long a voxel must be occupied to become static (longer = fewer false dynamics)
+          unoccupied_thresh: 0.3         # [s] how long unoccupied before marked free (longer = more stable)
+          dynamic_neighbor_thresh: 8     # min static neighbors to suppress dynamic label (higher = fewer false positives)
+          dynamic_persistence: 1.0       # [s] keep voxel dynamic after last detection (shorter = less lingering)
+          dynamic_maturity_time: 3.0     # [s] voxel must exist this long before it can be labeled dynamic (longer = fewer startup false positives)
+
+        obstacle_tracker:
+          enabled: true
+          use_adaptive_kf: true
+          adaptive_kf_alpha: 0.95        # higher = smoother KF, less noise sensitivity
+          adaptive_kf_dt: 0.1
+          cluster_tolerance: 0.5         # [m] tighter clustering
+          min_cluster_size: 15           # require more points to form a cluster (filters noise)
+          max_cluster_size: 200
+          prediction_horizon: 3.0
+          prediction_dt: 0.1
+          time_to_delete_old_obstacles: 3.0  # [s] faster cleanup of stale tracks
+          cluster_bbox_cutoff_size: 1.5  # [m] reject oversized clusters
+          velocity_threshold: 0.3        # [m/s] must move faster to be dynamic
+          acceleration_threshold: 1.0    # [m/s^2] stricter dynamic classification
+          cutoff_length_threshold: 0.1
+          degree_for_pwp: 3
+          degree_for_poly: 5
+          max_history_size: 30             # rolling window of past observations per obstacle
+          min_observations_for_prediction: 3  # require this many observations before publishing trajectory
+          max_obstacle_velocity: 1.0             # [m/s] clamp predicted velocity to this max

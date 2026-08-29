@@ -135,15 +135,21 @@ def _build_navigate_goal(d, ts):
     hdr = plan_data.get('header', {})
     in_frame = str(hdr.get('frame_id', 'map'))
     # Waypoints from the Foxglove editor are in *global* ENU (gcs_visualizer's
-    # shared map). The robot's own TF tree uses 'map' rooted at its takeoff
-    # position, so we subtract the boot offset and keep the 'map' frame_id —
-    # the on-robot planner (droan_gl, target_frame=map) expects this.
-    if in_frame == 'map':
+    # shared map). On the GCS `world` IS that frame too (world->map is the
+    # identity TF gcs_visualizer publishes), so BOTH names mean global ENU
+    # here. The robot's own TF tree uses 'map' rooted at its takeoff
+    # position, so we subtract the boot offset and stamp the result 'map' —
+    # what the on-robot planners (droan_gl, mighty_bridge; target_frame=map)
+    # take literally. A 'world'-stamped path used to be forwarded UNCHANGED
+    # and flown as robot-map coordinates: 39 m off on the 250 m bench
+    # (2026-08-28, spawn (-30, 25)).
+    global_enu = in_frame in ('map', 'world', '')
+    if global_enu:
         if ts is None or ts.get('boot') is None:
             raise RuntimeError(
-                'Cannot transform map-frame waypoints: robot GPS boot pose '
+                'Cannot transform global-frame waypoints: robot GPS boot pose '
                 'not yet received. Wait for first GPS fix and retry.')
-    header.frame_id = in_frame
+    header.frame_id = 'map' if global_enu else in_frame
     stamp = hdr.get('stamp', {})
     header.stamp = Time(sec=int(stamp.get('sec', 0)),
                         nanosec=int(stamp.get('nanosec', 0)))
@@ -156,7 +162,7 @@ def _build_navigate_goal(d, ts):
         x = float(pos.get('x', 0))
         y = float(pos.get('y', 0))
         z = float(pos.get('z', 0))
-        if in_frame == 'map':
+        if global_enu:
             x, y, z = _map_to_robot(x, y, z, ts)
         ps.pose.position = Point(x=x, y=y, z=z)
         ps.pose.orientation.x = float(ori.get('x', 0))
@@ -165,6 +171,12 @@ def _build_navigate_goal(d, ts):
         ps.pose.orientation.w = float(ori.get('w', 1))
         path.poses.append(ps)
     g.global_plan = path
+    if path.poses:
+        p0, p1 = path.poses[0].pose.position, path.poses[-1].pose.position
+        boot = (ts or {}).get('boot')
+        _diag(f"navigate: {len(path.poses)} pose(s) in '{in_frame}' -> robot map "
+              f"(boot {tuple(round(v, 2) for v in boot) if boot else None}): "
+              f"first ({p0.x:.1f}, {p0.y:.1f}, {p0.z:.1f}) last ({p1.x:.1f}, {p1.y:.1f}, {p1.z:.1f})")
     return g
 
 
@@ -513,7 +525,15 @@ def main(args=None):
     # current_z is the most recent altitude AGL (relative to alt_ground), used
     # to gate non-takeoff tasks so the user can't accidentally send a navigate
     # command while the drone is on the ground.
-    transform_state = {'boot': None, 'alt_ground': None, 'current_z': None}
+    transform_state = {'boot': None, 'alt_ground': None, 'current_z': None,
+                       'odom': None, 'samples': []}
+    # The robot's map origin is enu(fix) - odom AT THE SAME INSTANT — the
+    # derivation gcs_visualizer and map_anchor_node use — averaged over a few
+    # pairs, then frozen. NOT "the first fix": a relay (re)started with the
+    # drone already away from the pad took the drone's CURRENT position as
+    # boot and every later waypoint was off by the drone's displacement
+    # (measured 2026-08-28: boot (-46, 74) for a pad at (-30, 25)).
+    _BOOT_SAMPLES = 10
     gps_qos = QoSProfile(
         depth=1,
         reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -529,11 +549,45 @@ def main(args=None):
         if transform_state['boot'] is None:
             pos = gps_to_enu(msg.latitude, msg.longitude, msg.altitude,
                              transform_state['alt_ground'])
-            transform_state['boot'] = pos
-            node0.get_logger().info(
-                f"[relay] {robot_name} boot ENU = "
-                f"({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
+            od = transform_state['odom']
+            if od is not None:
+                transform_state['samples'].append(
+                    (pos[0] - od[0], pos[1] - od[1], pos[2] - od[2]))
+                n = len(transform_state['samples'])
+                if n >= _BOOT_SAMPLES:
+                    bx = sum(v[0] for v in transform_state['samples']) / n
+                    by = sum(v[1] for v in transform_state['samples']) / n
+                    # z: the robot's map z is AGL from the pad, and the
+                    # editors' z is AGL too, so the boot z is 0 by
+                    # construction. The GROUND altitude is fix altitude minus
+                    # the odom z at that instant (a relay started airborne
+                    # used to take its first fix as ground, 10 m up).
+                    bz = 0.0
+                    transform_state['alt_ground'] = msg.altitude - od[2]
+                    transform_state['boot'] = (bx, by, bz)
+                    node0.get_logger().info(
+                        f"[relay] {robot_name} boot ENU = ({bx:.2f}, {by:.2f}, {bz:.2f}) "
+                        f"= enu(fix) - odom over {n} samples (drone at odom "
+                        f"({od[0]:.1f}, {od[1]:.1f}, {od[2]:.1f}))")
+                    _diag(f"boot ENU = ({bx:.2f}, {by:.2f}, {bz:.2f}) from enu(fix)-odom, {n} samples")
+            else:
+                node0.get_logger().info(
+                    f'[relay] {robot_name}: GPS fix seen, waiting for odometry to '
+                    f'derive the boot origin (enu(fix) - odom)',
+                    throttle_duration_sec=10.0)
         transform_state['current_z'] = msg.altitude - transform_state['alt_ground']
+
+    def _on_odom(msg):
+        p = msg.pose.pose.position
+        transform_state['odom'] = (p.x, p.y, p.z)
+
+    from nav_msgs.msg import Odometry as _Odometry
+    node0.create_subscription(
+        _Odometry,
+        f'/{robot_name}/odometry_conversion/odometry',
+        _on_odom,
+        gps_qos,
+    )
 
     node0.create_subscription(
         NavSatFix,

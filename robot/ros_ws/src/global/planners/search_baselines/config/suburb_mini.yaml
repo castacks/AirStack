@@ -108,3 +108,11 @@ search_planner:
     # Raising this needs upstream's canvas raised with it.
     frame_width: 640
     frame_height: 480
+
+    # ── detector ──────────────────────────────────────────────────────────
+    # 0.75 on the 250 m suburb (2026-08-28): the 0.65 gate mapped 'person'
+    # boxes of 12x26 px at 0.67-0.73 on this scene; the detector log
+    # ("detector SEEN" >= 0.50) shows what sits between 0.5 and 0.75 so the
+    # number stays measured. Scene layer, so it wins over planner.yaml's 0.65
+    # for every arm flown here.
+    sem_threshold: 0.75

@@ -1,0 +1,32 @@
+{
+ "src": "scene_gen/assets/mono_upscale/g_f001_t002_Transport_001.jpg",
+ "size": [
+  64,
+  128
+ ],
+ "classical": {
+  "sec": 0.001,
+  "depth_p5": 0.006,
+  "depth_p95": 0.976,
+  "cols": 2,
+  "rows": 1,
+  "grid": {
+   "cols": [
+    [
+     0.0,
+     0.03125
+    ],
+    [
+     0.046875,
+     0.96875
+    ]
+   ],
+   "rows": [
+    [
+     0.0,
+     1.0
+    ]
+   ]
+  }
+ }
+}

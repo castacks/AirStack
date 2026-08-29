@@ -27,7 +27,12 @@ search_planner:
     depth_topic_template: '/{robot}/sensors/front_stereo/right/depth_ground_truth'
     camera_info_topic_template: '/{robot}/sensors/front_stereo/left/camera_info'
     odom_topic_template: '/{robot}/odometry_conversion/odometry'
-    navsat_topic_template: '/{robot}/interface/mavros/global_position/raw/fix'
+    # The EKF-fused fix, NOT raw/fix: raw/fix (GPS_RAW_INT) went silent for a
+    # whole session on 2026-08-28 while global ran at 44 Hz, and the planner
+    # sat at "waiting for a GPS fix to place the search area" forever. The GCS
+    # relay and visualizer anchor on `global` too, so the map origin every
+    # side computes is the same number.
+    navsat_topic_template: '/{robot}/interface/mavros/global_position/global'
 
     # ── outputs ─────────────────────────────────────────────────────────────
     navigate_action_template: '/{robot}/tasks/navigate'
@@ -202,7 +207,10 @@ search_planner:
     #            `[robot_1] ground speed 6.4 m/s over 10 s sim | cap 7.0 (...)`
     #   droan_gl `NavigateTask accepted: activator ..., max_speed 7.0 m/s (from the goal)`
     #            `[droan_gl] rollout speed cap -> 7 m/s`
-    transit_speed_mps: 7.0
+    # 0 for now (2026-08-28): MIGHTY flies its own v_max (1.5) and the bridge
+    # does not push a higher one (push_vmax_to_mighty off) — a 7 m/s transit
+    # gear is logged but not flown until the live v_max path is proven.
+    transit_speed_mps: 0.0
     explore_speed_mps: 1.5
     target_speed_mps: 1.5
     # SIM seconds between measured-ground-speed log lines per robot.
@@ -217,7 +225,12 @@ search_planner:
     #                    only at 1 Hz, so the re-send can be rejected with
     #                    "task already active" and the drone keeps flying the
     #                    previous assignment.
-    nav_activation: 'activator'
+    #   'follower'       the local planner follows the /global_plan TOPIC on
+    #                    its own (asm_mighty's bridge); the only NavigateTask
+    #                    sent is the empty speed-cap goal when the gear changes.
+    #   'auto'           'follower' when LOCAL_PLANNER=mighty, else 'activator'
+    #                    — one variable picks the local planner and this.
+    nav_activation: 'auto'
     # What goes on /global_plan.
     #   'waypoints' two poses (goal + path_extension_m beyond it), droan's
     #               local planner does the rest. This is raven_nav's shape

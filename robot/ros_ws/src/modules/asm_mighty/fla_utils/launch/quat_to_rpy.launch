@@ -1,0 +1,7 @@
+<launch>
+  <node pkg="fla_utils" type="quat_to_rpy" name="quat_to_rpy" output="screen">
+    <remap from="pose_pixhawk" to="/mavros/local_position/pose" />
+    <remap from="pose_samwise" to="/pose" /> 
+    <remap from="attitude_setpoint" to="/mavros/setpoint_raw/attitude" />
+  </node>
+</launch>

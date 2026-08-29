@@ -1,0 +1,45 @@
+# droan_gl node parameters.
+# Values moved verbatim from the inline <param> block the legacy
+# local_bringup/launch/local.launch.xml carried for droan_gl_node (P5-E2,
+# RFC #379); loaded by launch/droan_gl.launch.xml with allow_substs.
+#
+# PORTED from origin/develop onto branch krrishj/disaster-dataset. Two keys are
+# this branch's, not develop's (branch's local.launch.xml / branch source wins):
+#   min_seen_views: 1     -- local.launch.xml's value (compiled default is 2)
+#   max_velocity:   2.0   -- live parameter in this branch's droan_gl_node.cpp
+#                            (get_param default 2.0); absent from develop's YAML.
+#                            Written at the compiled default: no behaviour change,
+#                            it is just no longer invisible.
+/**:
+  ros__parameters:
+    target_frame: map
+    look_ahead_frame: look_ahead_point_stabilized
+    rewind_info_frame: base_link_stabilized
+    visualize: true
+
+    # graph / expansion (see gl_interface.cpp)
+    graph_nodes: 10
+    expansion_radius: 2.0
+    seen_radius: 1.0
+    # 1, not the historical 2: a vertical takeoff leaves droan a column of
+    # views under the hover point and every candidate "unseen" (see
+    # droan_gl_node.cpp). One view is enough to leave the pad; the graph
+    # refills with overlapping views as soon as the drone moves.
+    min_seen_views: 1
+    dt: 0.2
+    ht: 7.0
+    downsample_scale: 2
+    graph_distance_threshold: 1.0
+    graph_angle_threshold: 30.0  # degrees
+
+    # rewind monitor (see rewind_monitor.cpp)
+    all_in_collision_duration_threshold: 2.0
+    all_in_collision_rewind_duration: 6.0
+    stationary_distance_threshold: 0.5
+    stationary_history_duration: 10.0
+    stationary_rewind_distance: 10.0
+    stationary_rewind_duration: 20.0
+
+    # velocity cap on the emitted trajectory segment (droan_gl_node.cpp);
+    # never set by local.launch.xml -- this is the node's compiled default.
+    max_velocity: 2.0
