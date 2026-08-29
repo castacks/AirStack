@@ -136,6 +136,13 @@ single source). Add your bullets under the current version's `##` section
 suffix), stamp that section's heading with the release date and open a fresh
 `## <next-version> (Unreleased)` section above it.
 
+**Hotfixes on `main` are not exempt.** Every hotfix patch bump (e.g.
+`0.20.4 → 0.20.5`) must add its own dated section
+`## <VERSION> — <YYYY-MM-DD>` with the patch notes — even for docs-only or
+CI-only hotfixes. The MAJOR.MINOR docs build renders all of that line's
+patch sections together, so a hotfix without a section is invisible
+history on the published site.
+
 ### 4. Verify locally
 
 ```bash
@@ -218,6 +225,7 @@ Rules:
 - Use the H3 sections **Added**, **Changed**, **Fixed**, **Removed**, **Deprecated**, **Security** as needed; a release may also open with a short narrative and breaking-changes subsection.
 - For pre-release bumps (`-dev.N`, `-beta.N`, `-rc.N`), keep your bullets under the current `(Unreleased)` section. Do not create a section per dev bump.
 - For a release bump (no suffix), retitle the section to `## <VERSION> — <YYYY-MM-DD>` and open a fresh `## <next-version> (Unreleased)` above it.
+- For a **hotfix on `main`** (patch bump on an already-released line, e.g. `0.20.4 → 0.20.5`), always add a **new dated section** `## <VERSION> — <YYYY-MM-DD>` with the patch notes, placed above the previous patch's section. This applies to every hotfix, including docs-only and CI-only ones.
 - Write user-facing prose, not commit log dumps. Mention new modules, breaking changes, and notable behavior shifts, with what changed FROM what.
 
 ## Common Pitfalls
@@ -239,7 +247,7 @@ For a normal feature/fix PR:
 1. [ ] Confirm the PR changes Docker image content or otherwise warrants a bump (see "When to Use").
 2. [ ] Pick the bump type (see "Choosing the Bump Type").
 3. [ ] Edit `/.env` — change only the `VERSION=` line.
-4. [ ] Add your bullets to `docs/release_notes/index.md` under the current `(Unreleased)` version section.
+4. [ ] Add your bullets to `docs/release_notes/index.md` — under the current `(Unreleased)` section for pre-release bumps, or as a new dated `## <VERSION> — <YYYY-MM-DD>` section for a hotfix on `main`.
 5. [ ] `airstack version` and `git diff .env docs/release_notes/index.md` to verify.
 6. [ ] Commit (`Bump version to <new>` is the established style).
 7. [ ] Push and open the PR. Confirm `Check VERSION Increment` passes green.
