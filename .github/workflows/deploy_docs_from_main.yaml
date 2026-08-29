@@ -10,6 +10,12 @@ on:
       - ".github/workflows/deploy_docs_from_main.yaml"
     branches:
       - main
+# Serialize gh-pages pushes: concurrent docs deploys race on the branch
+# push (observed: develop deploy rejected with 'fetch first' when the main
+# deploy pushed at the same time).
+concurrency:
+  group: docs-deploy-gh-pages
+  cancel-in-progress: false
 permissions:
   contents: write
 jobs:
@@ -65,8 +71,8 @@ jobs:
           VERSION=$(grep -m1 '^VERSION=' .env | cut -d= -f2- | tr -d '"')
           SLUG=$(echo "${VERSION}" | cut -d. -f1-2)
           echo "Deploying main's docs: slug ${SLUG}, title ${VERSION}"
-          mike deploy --push --update-aliases --title "${VERSION}" "${SLUG}" latest
-          mike set-default latest --push
+          mike deploy --push --update-aliases --title "${VERSION}" "${SLUG}" main
+          mike set-default main --push
       # mike re-sorts versions.json on every deploy, so pin develop — the
       # higher, unreleased version — back to the top of the version selector
       # after each deploy.
