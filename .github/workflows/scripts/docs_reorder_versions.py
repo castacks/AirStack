@@ -4,8 +4,8 @@
 mike re-sorts versions.json on every deploy, and the non-numeric
 "develop" version does not reliably sort above the MAJOR.MINOR release
 slugs. We want develop (which carries the higher, unreleased version
-number) listed first, while the `main` alias stays the set-default
-landing version. Every workflow that runs `mike deploy` must re-run
+number) listed first, while the site default (root redirect) points at
+the current MAJOR.MINOR release slug. Every workflow that runs `mike deploy` must re-run
 this script afterwards, since any mike write restores mike's own
 ordering.
 
