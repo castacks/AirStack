@@ -19,6 +19,22 @@ its own notes. -->
 
 ## 0.20.0 (Unreleased)
 
+- **CI un-redded: Metrics Report and Unit Tests fixed.** Every PR had been
+  failing since ~2026-08-20 for reasons unrelated to the code under test.
+  The system-tests **Metrics Report** job installed only `tabulate`, so
+  `tests/parse_metrics.py` (which imports the `tests/harness` package)
+  crashed with `ModuleNotFoundError: No module named 'yaml'` — and the crash
+  was misreported as "Metric regression detected"; the job now installs
+  `tests/requirements.txt`, and the regression verdict additionally requires
+  a written `report.md` so a parser crash can never masquerade as a metric
+  regression. The **Unit Tests** workflow ran the `tests/meta/` contract
+  suite on a checkout with no submodules and no `omni_pass.env`, so every
+  `airstack up --dry-run --sim isaac` contract hard-failed preflight and the
+  docs-catalog contract missed the submodule-resident vdb_mapping_ros2
+  README; the workflow now checks out submodules recursively and provisions
+  the same guest `omni_pass.env` stub that `module-system-tests.yml` uses
+  (preflight itself stays strict).
+
 - **New reference stack `full_mighty` + registered `mighty` module.** The
   MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its
   acl-mapping voxel world model and a NavigateTask/trajectory_controller

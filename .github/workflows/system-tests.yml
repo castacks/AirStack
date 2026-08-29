@@ -505,7 +505,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install report dependencies
-        run: pip install tabulate
+        # parse_metrics.py imports the tests/harness package, so it needs the
+        # full test requirements (pyyaml et al.), not just tabulate.
+        run: pip install -r tests/requirements.txt
 
       - name: Resolve PR base branch
         if: github.event_name == 'issue_comment' || github.event_name == 'pull_request'
@@ -655,8 +657,11 @@ jobs:
 
       - name: Fail on regression
         if: steps.report.outcome == 'failure'
+        # parse_metrics.py writes report.md before exiting 1 on a regression;
+        # an uncaught crash also exits 1 but never writes the report. Require
+        # both so a parser crash cannot masquerade as a metric regression.
         run: |
-          if [ "${{ steps.report.outputs.parser_exit }}" = "1" ]; then
+          if [ "${{ steps.report.outputs.parser_exit }}" = "1" ] && [ -f report.md ]; then
             echo "::error::Metric regression detected — see the report above for details."
           else
             echo "::error::Metrics report generation failed — see the report step log."
