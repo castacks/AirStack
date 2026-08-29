@@ -1,7 +1,7 @@
 ---
 name: add-unit-tests
 description: Add Python or C++ unit tests to an AirStack ROS 2 package. Covers the co-location pattern (test source in package/test/), registering the package in colcon_unit_test_packages.yaml so pytest tests/ and airstack test -m unit collect it, and how to extend to sim components.
-license: MIT
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack
@@ -68,8 +68,8 @@ Whether `colcon test` *also* picks up a package's Python tests depends on its bu
 
 | Package | Build type | Python tests under `colcon test` |
 |---|---|---|
-| `natnet_ros2` | `ament_cmake` | **No** — `CMakeLists.txt` registers `ament_add_gtest` but no `ament_add_pytest_test` |
 | `lidar_point_cloud_filter` | `ament_python` | **Yes** — `setup.cfg` sets `testpaths = test`, so colcon's pytest runner finds them |
+| any `ament_cmake` package | `ament_cmake` | **No** unless `CMakeLists.txt` registers `ament_add_pytest_test` (an `ament_add_gtest` alone covers only C++) |
 
 So a Python test in an `ament_cmake` package runs *only* via the root harness — which is
 fine, since that is what CI invokes.
@@ -89,8 +89,8 @@ Good candidates are functions/classes with **no ROS or hardware dependencies**:
 - Data-structure converters
 - Any function that takes plain Python types and returns plain Python types
 
-If the code imports ROS types, stub them out at the import boundary
-(see `test_natnet_ros2.py` for the `sys.modules` stub pattern).
+If the code imports ROS types, stub them out at the import boundary with
+`sys.modules.setdefault(...)` before importing your module (pattern below).
 
 ### 2. Write the test source in the package
 
@@ -145,7 +145,7 @@ sys.modules.setdefault("geometry_msgs.msg", MagicMock())
 
 For `rclpy.node.Node` subclasses use a real dummy base class instead of a
 `MagicMock()` to ensure `__init_subclass__` fires and method bodies are defined
-(see `test_natnet_ros2.py` for the full pattern).
+(the asm_optitrack module's `test_natnet_ros2.py` shows the full pattern).
 
 ### 3. Register the package in colcon_unit_test_packages.yaml
 
@@ -155,7 +155,6 @@ If the package isn't already listed, add it under the `robot` workspace in
 ```yaml
 robot:
   packages:
-    - natnet_ros2
     - lidar_point_cloud_filter
     - <your_package>          # ← add here
   pytest_args: []
@@ -282,16 +281,17 @@ sim:
 | How do I run them? | `airstack test -m unit`, `cd tests && pytest -m unit`, or `pytest tests/ -m unit` |
 | What CI workflow runs them? | Python: `unit-tests.yml`; C++: the `build_packages` path in `system-tests.yml` — see §5 |
 | Do system tests (`liveliness`, etc.) run too? | No — `-m unit` filters to hermetic tests only |
-| Does `colcon test` also run these? | Only if the package registers them. `ament_add_gtest` covers C++; a Python test needs `ament_add_pytest_test`, which `natnet_ros2` does **not** have — its Python tests run only under the root harness |
+| Does `colcon test` also run these? | Only if the package registers them. `ament_add_gtest` covers C++; a Python test in an `ament_cmake` package needs `ament_add_pytest_test` — without it, its Python tests run only under the root harness |
 | Can I add pure C++ gtests? | Yes — `ament_add_gtest` in CMakeLists.txt |
 
 ## Reference Implementations
 
 | Package | Python test | What it covers |
 |---|---|---|
-| `natnet_ros2` | `robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py` | `VisionPoseConverterNode._canonical_quaternion` (ROS-stubbed) |
-| `natnet_ros2` (C++) | `robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_logic.cpp` | `build_covariance_6x6`, `negotiate()`, `INatNetClient` seam |
 | `lidar_point_cloud_filter` | `robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py` | Pure-numpy range validation rules |
+
+For an `ament_cmake` example (ROS-stubbed Python tests + gtests with a client seam), see
+`natnet_ros2` in the [asm_optitrack module](https://github.com/castacks/asm_optitrack).
 
 Both are collected from their package `test/` dir.
 

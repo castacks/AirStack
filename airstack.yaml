@@ -1,0 +1,43 @@
+# airstack.yaml — the one hand-edited entry point for this checkout (RFC #380 §3).
+#
+# Answers "what does this checkout run?": the release it tracks, the fleet it
+# flies, the simulator, and any module/stack sources beyond the defaults.
+# `airstack sync` reads this file: it runs the module sync (modules.repos),
+# fetches declared external stack repos into gitignored stacks/.external/,
+# validates the declared fleet, and records what it resolved in
+# .airstack/generated/effective_sources.yaml.
+#
+# Scope today (opt-in, RFC #380 scales 1–2):
+#   - `.env` stays HAND-EDITED. Generating .env from this file is future work;
+#     until then airstack.yaml layers on top of it and never rewrites it.
+#   - `release:` is informational: release-SET resolution (trunk + pinned
+#     module versions from a registry) is registry work (RFC #379 §7). A
+#     stack's pinned modules.repos is already a localized release set.
+#   - The declared fleet is validated by `airstack sync`; select it at launch
+#     with `airstack up --fleet <name>` (deriving the launch default from this
+#     file is future work — launch behavior without --fleet is unchanged).
+
+# Informational: the trunk release this checkout tracks (see `.env` VERSION).
+release: "0.20.0-alpha"
+
+# The fleet this checkout flies (config/fleets/*.yaml — RFC #380 §2).
+# sim_one_default == today's defaults: one quad_default on full_default.
+fleet: config/fleets/sim_one_default.yaml
+
+# isaacsim | msairsim | none (real hardware). Informational selector today —
+# `airstack up --sim isaac|airsim` is what actually swaps compose profiles.
+sim: isaacsim
+
+# Module ADDITIONS beyond the release pins (RFC #380 §3). Each entry is
+# upserted into modules.repos by `airstack sync` (which names every deviation):
+#   my_planner:        {path: ../my_planner}                       # local checkout
+#   asm_optitrack:     {repo: "git@github.com:castacks/asm_optitrack.git", version: v0.1.0}
+# A bare {version: ...} without repo: needs registry resolution — not
+# implemented yet; sync names it as an error.
+modules: {}
+
+# External STACK repos (RFC #380 §3): fetched by `airstack sync` into
+# gitignored stacks/.external/<alias>/; fleets then reference their stacks as
+# <alias>/<stack>. Refs must be pinned (tag or SHA — never a branch):
+#   swarm_stacks: {repo: "git@github.com:airlab-internal/swarm-stacks.git", ref: v1.3}
+stacks: {}

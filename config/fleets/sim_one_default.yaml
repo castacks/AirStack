@@ -1,0 +1,26 @@
+# Fleet: sim_one_default (RFC #380 §2) — today's default checkout, as a fleet.
+#
+# One quad_default flying the full_default stack in the default sim scene:
+# resolves EXACTLY like the legacy path (robot_1 on domain 1, full autonomy) —
+# `tests/meta/test_fleet_contract.py` pins that parity. This is the fleet
+# `airstack.yaml` declares; select it at launch with:
+#
+#     airstack up --fleet sim_one_default --sim isaac
+#
+# Homogeneous fleet: deploy.replicas stamps it (NUM_ROBOTS derived from the
+# robot count) — no generated compose needed.
+
+defaults:
+  vehicle: quad_default
+  stack: stacks/full_default
+
+robots:
+  robot_1:
+    spawn: [0, 0, 0.07]        # sim-only; ignored on hardware
+
+sim:
+  scene: default               # the Pegasus "Default Environment"
+
+network:
+  domain_policy: auto          # robot N → domain N (today's rule)
+  gossip_domain: 99

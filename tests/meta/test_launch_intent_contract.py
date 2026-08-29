@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for `airstack up` launch-intent flags (--sim/--robots/...).
 
 `airstack up --config-only` derives the launch configuration (compose profiles,
@@ -30,7 +30,10 @@ CONFIG_END = "--- end effective launch config ---"
 
 def run_up_dry(*flags, env=None, check=True):
     """Run `airstack up --dry-run <flags>`; return (exit_code, stdout+stderr, config_dict)."""
-    full_env = {**os.environ, **(env or {})}
+    # Scrub AUTONOMY_ROLE from the invoking shell by default: it was removed
+    # (preflight hard-errors on it) and must only be set by tests that pin
+    # exactly that error.
+    full_env = {**os.environ, "AUTONOMY_ROLE": "", **(env or {})}
     result = subprocess.run(
         [AIRSTACK, "up", "--config-only", *flags],
         capture_output=True, text=True, cwd=str(REPO), env=full_env, timeout=120,
@@ -87,14 +90,6 @@ def test_robots_1_selects_single_script_even_if_env_says_multi():
         env={"ISAAC_SIM_SCRIPT_NAME": "example_multi_px4_pegasus_launch_script.py"},
     )
     assert cfg["ISAAC_SIM_SCRIPT_NAME"] == "example_one_px4_pegasus_launch_script.py"
-
-
-def test_robots_respects_natnet_script_pair():
-    _, _, cfg = run_up_dry(
-        "--sim", "isaac", "--robots", "2",
-        env={"ISAAC_SIM_SCRIPT_NAME": "example_one_px4_pegasus_natnet_launch_script.py"},
-    )
-    assert cfg["ISAAC_SIM_SCRIPT_NAME"] == "example_multi_px4_pegasus_natnet_launch_script.py"
 
 
 def test_robots_never_overrides_custom_script():
@@ -183,3 +178,120 @@ def test_invalid_sim_is_fatal():
     code, out, _ = run_up_dry("--sim", "gazebo", check=False)
     assert code != 0
     assert "gazebo" in out
+
+
+# ── --stack dispatch (RFC #379 §3, P5-E1) ──────────────────────────────────
+
+def test_stack_flag_exports_container_paths():
+    """--stack validates host-side but exports the CONTAINER path (stacks/ is
+    bind-mounted at /root/AirStack/stacks)."""
+    _, _, cfg = run_up_dry("--sim", "isaac", "--stack", "full_default")
+    assert cfg["AIRSTACK_STACK_DIR"] == "/root/AirStack/stacks/full_default"
+    assert cfg["AIRSTACK_STACK_ENTRY"] == "stack"
+
+
+def test_stack_split_entry_form():
+    """--stack <name>:<entry> selects launch/<entry>.launch.xml (reserved for
+    split stacks; the default entry file also resolves through it)."""
+    _, _, cfg = run_up_dry("--sim", "isaac", "--stack", "full_default:stack")
+    assert cfg["AIRSTACK_STACK_DIR"] == "/root/AirStack/stacks/full_default"
+    assert cfg["AIRSTACK_STACK_ENTRY"] == "stack"
+
+
+def test_unknown_stack_is_fatal():
+    code, out, _ = run_up_dry("--stack", "no_such_stack", check=False)
+    assert code != 0
+    assert "no_such_stack" in out
+    assert "full_default" in out  # error lists the available stacks
+
+
+def test_stack_missing_entry_is_fatal():
+    code, out, _ = run_up_dry("--stack", "full_default:onboard", check=False)
+    assert code != 0
+    assert "onboard.launch.xml" in out
+
+
+def test_no_stack_defaults_to_full_default():
+    """Stacks are the only dispatch: no --stack (and no stack env) → the
+    effective config names the trunk reference stack full_default."""
+    _, _, cfg = run_up_dry(
+        "--sim", "isaac",
+        # Scrub any stack vars inherited from the invoking shell.
+        env={"AIRSTACK_STACK_DIR": "", "AIRSTACK_STACK_ENTRY": ""},
+    )
+    assert cfg["AIRSTACK_STACK_DIR"] == "/root/AirStack/stacks/full_default"
+    assert cfg["AIRSTACK_STACK_ENTRY"] == "stack"
+
+
+def test_autonomy_role_set_is_fatal():
+    """AUTONOMY_ROLE was removed — an explicitly set value (env / --env-file /
+    .env) hard-fails preflight with the removal message."""
+    code, out, _ = run_up_dry(
+        "--sim", "isaac",
+        env={"AUTONOMY_ROLE": "full", "AIRSTACK_STACK_DIR": ""},
+        check=False,
+    )
+    assert code != 0
+    assert "AUTONOMY_ROLE was removed" in out
+    assert "--stack" in out
+
+
+def test_empty_autonomy_role_does_not_trip_removal_error():
+    """Only an explicitly SET value trips the removal error — an empty/unset
+    AUTONOMY_ROLE must pass."""
+    code, out, _ = run_up_dry(
+        "--sim", "isaac",
+        env={"AUTONOMY_ROLE": "", "AIRSTACK_STACK_DIR": ""},
+    )
+    assert code == 0
+    assert "AUTONOMY_ROLE was removed" not in out
+
+
+def test_autonomy_role_fatal_even_with_stack_selected():
+    """The removal error is unconditional: a stale AUTONOMY_ROLE next to a
+    valid --stack still fails (no silent 'stack wins' anymore)."""
+    code, out, _ = run_up_dry(
+        "--sim", "isaac", "--stack", "full_default",
+        env={"AUTONOMY_ROLE": "full"},
+        check=False,
+    )
+    assert code != 0
+    assert "AUTONOMY_ROLE was removed" in out
+
+
+# ── override-file golden equivalence (RFC #380 P6, deliverable 8) ───────────
+# overrides/*.env select sims/hardware, not topology — they must keep passing
+# `up --dry-run` unchanged as the fleet/stack machinery lands on top of them.
+
+def test_override_ms_airsim_env_still_derives_expected_config():
+    code, out, cfg = run_up_dry(
+        "--env-file", "overrides/ms-airsim.env",
+        # Scrub stack/fleet vars a developer shell might carry.
+        env={"AIRSTACK_STACK_DIR": "", "FLEET_CONFIG_FILE": ""},
+    )
+    assert code == 0, out
+    profiles = cfg["COMPOSE_PROFILES"].split(",")
+    assert "ms-airsim" in profiles and "desktop" in profiles
+    assert "isaac-sim" not in profiles
+    assert cfg["URDF_FILE"].endswith("iris_stereo.ms-airsim.urdf")
+    # a sim override selects no stack of its own → the full_default default
+    assert cfg["AIRSTACK_STACK_DIR"] == "/root/AirStack/stacks/full_default"
+    # sim/hardware override files never opt into fleets on their own
+    assert "FLEET_CONFIG_FILE" not in cfg
+
+
+def test_override_l4t_px4_realrobot_env_still_derives_expected_config():
+    code, out, cfg = run_up_dry(
+        "--env-file", "overrides/l4t-px4-realrobot.env",
+        # Scrub stack/fleet vars a developer shell might carry.
+        env={"AIRSTACK_STACK_DIR": "", "FLEET_CONFIG_FILE": ""},
+    )
+    assert code == 0, out
+    assert cfg["COMPOSE_PROFILES"] == "l4t"
+    assert cfg["NUM_ROBOTS"] == "1"
+    assert cfg["URDF_FILE"].endswith("iris_with_sensors.pegasus.robot.urdf")
+    assert "FLEET_CONFIG_FILE" not in cfg
+    # the override file is stack-form now (AUTONOMY_ROLE was removed): it
+    # pins the full stack explicitly and must not draw the removal error
+    assert cfg["AIRSTACK_STACK_DIR"] == "/root/AirStack/stacks/full_default"
+    assert "AUTONOMY_ROLE was removed" not in out

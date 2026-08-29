@@ -1,24 +1,33 @@
+<!--
+  trajectory_controller : canonical module launch file (RFC #379 §2/§4).
+
+  Starts the trajectory controller as the legacy local bringup did: node
+  `trajectory_control_node` (the executable's self-declared name) in the
+  `trajectory_controller` namespace. Its command topics (trajectory_override,
+  trajectory_segment_to_add, set_trajectory_mode, tracking_point, look_ahead,
+  ...) live under that namespace by relative name — the canonical
+  /$ROBOT_NAME/trajectory_controller/* group. Every external topic endpoint
+  is a declared <arg> defaulting to the canonical name (today's graph).
+  Wiring deviations are passed as include args by the stack entry file
+  (stacks/<name>/launch/) — the single-locus rule: endpoints are declared args,
+  applied locally via <set_remap>; cross-module REWIRING lives only in
+  stack entry files.
+-->
 <launch>
+  <arg name="trajectory_controller_config"
+       default="$(find-pkg-share trajectory_controller)/config/trajectory_controller.yaml"
+       description="Node parameter YAML (loaded with allow_substs)" />
 
-  <arg name="robot_name" default="" /> <!-- include a / at the end if you need to, for example, uav1/ -->
+  <arg name="trajectory_controller_odometry_topic"
+       default="/$(env ROBOT_NAME)/odometry_conversion/odometry"
+       description="Input robot odometry (nav_msgs/Odometry)" />
 
-  <node pkg="trajectory_controller" exec="trajectory_controller" output="screen">
-    <param name="tf_prefix" value="$(var robot_name)" />
-    <param name="target_frame" value="$(var robot_name)map" />
-    <param name="tracking_point_distance_limit" value="10.5" />
-    <param name="velocity_look_ahead_time" value="0.9" />
-    <param name="look_ahead_time" value="1.0" />
-    <param name="virtual_tracking_ahead_time" value="0.5" />
-    <param name="min_virtual_tracking_velocity" value="0.1" />
-    <param name="sphere_radius" value="1." />
-    <param name="ff_min_velocity" value="0." />
-    <param name="search_ahead_factor" value="1.5" />
-    <param name="transition_velocity_scale" value="1.0" />
-    <param name="traj_vis_thickness" value="0.03" />
+  <group>
+    <push-ros-namespace namespace="trajectory_controller" />
+    <set_remap from="odometry" to="$(var trajectory_controller_odometry_topic)" />
 
-    <param name="rewind_skip_max_velocity" value="0.1" />
-    <param name="rewind_skip_max_distance" value="0.1" />
-
-  </node>
-
+    <node pkg="trajectory_controller" exec="trajectory_controller" output="screen">
+      <param from="$(var trajectory_controller_config)" allow_substs="true" />
+    </node>
+  </group>
 </launch>

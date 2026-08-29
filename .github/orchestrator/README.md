@@ -2,7 +2,7 @@
 
 This describes how a small always-on orchestrator service runs GitHub Actions jobs on truly ephemeral GPU workers scheduled by [NVIDIA OSMO](https://nvidia.github.io/OSMO/). The orchestrator is a Python service that continuously polls GitHub for queued workflow jobs, submits a fresh **OSMO workflow** for each one (a single-use JIT runner in a privileged, GPU-enabled container), and reaps it when the job completes. Each CI job runs on a clean pod with no state shared between runs and no long-lived credentials on the worker.
 
-This is a drop-in replacement for the previous OpenStack-Nova backend. The GitHub side is unchanged — `system-tests.yml` still uses `runs-on: [self-hosted, airstack-ephemeral]`, the single-use JIT runner config, and the same-repo fork guard. Only the *spawn target* changed from "create a Nova VM" to "submit an OSMO workflow", so the one-job-per-worker, destroy-after semantics are identical: when the runner's `run.sh` exits after one job, the OSMO task completes and the pod is torn down.
+On the GitHub side, `system-tests.yml` uses `runs-on: [self-hosted, airstack-ephemeral]`, a single-use JIT runner config, and a same-repo fork guard. The worker semantics are one-job-per-worker, destroy-after: when the runner's `run.sh` exits after one job, the OSMO task completes and the pod is torn down.
 
 The orchestrator host is the only machine that holds the GitHub PAT and the OSMO service-account token; workers are destroyed after a single job.
 
@@ -46,7 +46,7 @@ Key properties:
 
 - **Truly ephemeral**: every job runs on a clean pod. No Docker layer cache pollution, no leftover containers, no carry-over from prior runs.
 - **PAT isolation**: the GitHub PAT lives only on the orchestrator. Workers receive a single-use [JIT runner config](https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#create-configuration-for-a-just-in-time-runner-for-a-repository) — a base64 token bound to one runner registration, valid only for a short window.
-- **Service-account auth**: the orchestrator authenticates to OSMO with a shared, non-personal [service-account token](https://nvidia.github.io/OSMO/main/deployment_guide/appendix/authentication/service_accounts.html) (the analog of the old OpenStack application credential). CI runs never route through an individual's account, so PRs don't consume anyone's personal GPU quota and nothing breaks when a person leaves.
+- **Service-account auth**: the orchestrator authenticates to OSMO with a shared, non-personal [service-account token](https://nvidia.github.io/OSMO/main/deployment_guide/appendix/authentication/service_accounts.html). CI runs never route through an individual's account, so PRs don't consume anyone's personal GPU quota and nothing breaks when a person leaves.
 - **Crash-safe reaping**: every workflow is named `gha-runner-<job_id>-<ts>`. The reap loop cancels any active workflow with that prefix not present in `state.json`, so a crashed orchestrator can't leak workflows.
 
 ## Prerequisites
@@ -63,7 +63,7 @@ Key properties:
 
 ### 1. Build & push the runner image
 
-The worker image bakes in Docker CE + compose, the NVIDIA container toolkit, and the GitHub Actions runner (what cloud-init used to install at boot on the VM), so pod start is fast and the JIT token can't expire mid-bootstrap.
+The worker image bakes in Docker CE + compose, the NVIDIA container toolkit, and the GitHub Actions runner, so pod start is fast and the JIT token can't expire mid-bootstrap (no install work at boot).
 
 ```bash
 cd .github/orchestrator
@@ -150,6 +150,31 @@ osmo workflow list --name gha-runner- --pool airstack-ci
 osmo workflow list --name gha-runner- --pool airstack-ci --status RUNNING PENDING WAITING
 ```
 
+## Module repos
+
+Module repos (`asm_*`) that call trunk's reusable
+[`module-system-tests.yml`](https://github.com/castacks/AirStack/blob/main/.github/workflows/module-system-tests.yml) with the
+default `runs-on: [self-hosted, airstack-ephemeral]` queue jobs **in their own
+repo**, and the orchestrator polls exactly one `repo:` per instance. To add an
+`asm_` repo to the poll list, run a second orchestrator instance against it:
+
+1. **Extend the PAT.** The fine-grained GitHub PAT must also cover the module
+   repo with `Actions: read/write` + `Administration: read/write` (JIT runner
+   registration is per-repo). Reuse the existing PAT file if it covers the
+   repo, else stage a second one.
+2. **Copy the config.** `/etc/airstack-orchestrator/config.yaml` →
+   `config-asm-<name>.yaml` with `repo: "castacks/asm_<name>"` and a
+   **distinct `workflow_name_prefix`** (e.g. `gha-runner-asm<name>-`) so the
+   two instances' orphan sweeps don't cancel each other's OSMO workflows.
+3. **Run a second service instance** pointing at the new config and its own
+   state file (copy `airstack-orchestrator.service`, adjust `ExecStart`'s
+   `--config` and `--state`, e.g. `--state /var/lib/airstack-orchestrator/state-asm-<name>.json`).
+
+First-party only: the reusable workflow refuses callers outside the castacks
+org, mirroring the fork-PR block. Org-level polling across registered repos
+(one instance, many repos) is planned as a future replacement for this
+per-repo setup.
+
 ## Operational notes
 
 - **State file**: `/var/lib/airstack-orchestrator/state.json` is the in-flight job tracker (`job_id → workflow_id`). Wiping it triggers an orphan sweep on the next reap iteration — active `gha-runner-*` workflows will be cancelled. Don't wipe it while jobs are mid-flight unless that's what you want.
@@ -226,7 +251,7 @@ osmo workflow logs "$WF" --task runner -n 300    # last 300 lines
 
 ### 4. Break-glass shell into a running worker
 
-If the workflow is still `RUNNING`, exec into the pod (replaces the old SSH-via-floating-IP path):
+If the workflow is still `RUNNING`, exec into the pod:
 
 ```bash
 osmo workflow exec "$WF" runner            # /bin/bash in the runner task
@@ -279,7 +304,7 @@ That signature took out all four `build_docker` tests and all four
 `build_packages` tests in one run, with each failure looking like an unrelated
 `apt-get`/`WORKDIR` problem.
 
-[`runner-entrypoint.sh`](runner-entrypoint.sh) handles this before starting
+[`runner-entrypoint.sh`](https://github.com/castacks/AirStack/blob/main/.github/orchestrator/runner-entrypoint.sh) handles this before starting
 dockerd. It picks a storage backend by **performing a real overlay mount** to
 test each option rather than trusting the filesystem type, and falls back in
 this order:
@@ -301,6 +326,6 @@ osmo workflow logs "$WF" --task runner | grep -E 'runner-entrypoint|storage driv
 Backends 3 and 4 also set `features.containerd-snapshotter: false`, because
 `storage-driver` is only honoured by the classic image store.
 
-The one-shot [`build-runner-on-osmo.yaml`](build-runner-on-osmo.yaml) builder
+The one-shot [`build-runner-on-osmo.yaml`](https://github.com/castacks/AirStack/blob/main/.github/orchestrator/build-runner-on-osmo.yaml) builder
 sidesteps the same problem differently — `vfs` plus `DOCKER_BUILDKIT=0` — which
 is fine there because it builds one small image.

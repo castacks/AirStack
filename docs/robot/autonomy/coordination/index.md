@@ -49,7 +49,7 @@ Key parameters:
 | Parameter | Default | Description |
 |---|---|---|
 | `robot_name` | `$ROBOT_NAME` | Robot identifier and topic namespace |
-| `publish_rate` | `1.0` | Publish rate in Hz (wall-clock) |
+| `gossip_publish_rate` | `1.0` | Publish rate in Hz (wall-clock); launch arg (`publish_rate` is a deprecated alias) |
 | `gossip_domain` | `99` | Shared DDS domain |
 
 ## Monitoring

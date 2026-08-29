@@ -5,6 +5,8 @@ per-module phase chains for the autonomy flight tests, and a readable rewrite of
 parametrize ids. conftest's ``pytest_collection_modifyitems`` hook delegates to
 ``modify_items``.
 """
+import pytest
+
 from harness.discovery import _is_unit_item
 
 # Run cheap/fast-fail tests first so real problems surface early:
@@ -25,10 +27,13 @@ _MODULE_ORDER = [
     # build, so they run after build_packages and before the sim tiers.
     "__integration__",
     "system.test_liveliness",
+    # simple-sim smoke test: own mark (simple_sim), never part of the
+    # isaac/airsim campaigns (not in run_meta.SIMULATION_MODULES).
+    "system.test_simple_sim",
+    "system.test_wiring_snapshot",
     "system.test_sensors",
     "system.test_takeoff_hover_land",
     "system.test_fixed_trajectory",
-    "system.test_optitrack_e2e",
 ]
 
 # Within test_takeoff_hover_land, each (env, velocity) runs phases in this chain order.
@@ -73,7 +78,40 @@ def _module_key(item):
     return _rank(getattr(item.module, "__name__", ""), _MODULE_ORDER)
 
 
+def _apply_simplesim_guard(items):
+    """Skip mismatched (test, sim-target) pairs involving simplesim.
+
+    The `simple_sim` smoke test gates only on what simple-sim provides, and the
+    isaac/airsim campaign tests gate on PX4/MAVROS that simple-sim never runs.
+    Skipping at collection time (rather than inside a test) prevents the
+    class-scoped airstack_env fixture from bringing up a stack that the test
+    would immediately skip. isaac/airsim campaigns are untouched: without a
+    simplesim target or a simple_sim item nothing here fires.
+    """
+    for item in items:
+        cs = getattr(item, "callspec", None)
+        env = cs.params.get("airstack_env") if cs else None
+        if not env:
+            continue
+        sim, num_robots, _ = env
+        is_simple_test = item.get_closest_marker("simple_sim") is not None
+        if is_simple_test and sim != "simplesim":
+            item.add_marker(pytest.mark.skip(
+                reason="simple_sim smoke test runs only with --sim simplesim"))
+        elif is_simple_test and num_robots != 1:
+            item.add_marker(pytest.mark.skip(
+                reason="simple-sim is single-robot (topics hardcoded to "
+                       "robot_1); use --num-robots 1"))
+        elif not is_simple_test and sim == "simplesim":
+            item.add_marker(pytest.mark.skip(
+                reason="--sim simplesim only drives the simple_sim smoke test "
+                       "(-m simple_sim)"))
+
+
 def modify_items(items):
+    # 0. simplesim pairing guard (skip markers only; no reordering).
+    _apply_simplesim_guard(items)
+
     # 1. Cross-module: enforce `_MODULE_ORDER`. Stable sort keeps within-module
     #    order intact, so pytest's default file/class order survives.
     items.sort(key=_module_key)

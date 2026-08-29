@@ -16,7 +16,7 @@ The cost map is built by three supporting packages:
 2. **disparity_graph** — maintains a rolling graph of (pose, obstacle cloud) observations, discarding old entries as the drone moves
 3. **disparity_graph_cost_map** — queries the disparity graph to assign a collision cost to any 3D point in space
 
-The cost map plugin is configurable via the `cost_map` parameter (default: `disparity_graph_cost_map::DisparityGraphCostMap`).
+The cost map plugin is configurable via the `cost_map` parameter; the shipped `config/droan.yaml` sets `disparity_graph_cost_map::DisparityGraphCostMap` (the code's declared default is `PointCloudMapRepresentation`).
 
 ### 2. Trajectory Library
 

@@ -12,15 +12,15 @@ The sensors layer is responsible for:
 
 ## Launch
 
-Launch files are located under `robot/ros_ws/src/sensors/sensors_bringup/launch/`.
-
-The main launch command is:
+Sensor modules ship their own canonical launch files and are composed by the
+stack entry file under the `sensors` namespace. E.g. the trunk stacks
+include:
 
 ```bash
-ros2 launch sensors_bringup sensors.launch.xml
+ros2 launch lidar_point_cloud_filter lidar_point_cloud_filter.launch.xml
 ```
 
-The bringup group uses the `sensors` namespace under each robot; see that package for which nodes are started.
+See `stacks/full_default/launch/stack.launch.xml` for the composed wiring.
 
 ## Key Topics
 
@@ -31,16 +31,16 @@ The bringup group uses the `sensors` namespace under each robot; see that packag
 ### Inputs
 
 - `/{robot_name}/sensors/ouster/point_cloud_raw` — Raw cloud from the simulator or driver (typical input to the LiDAR filter)
-- Other hardware- or bridge-specific topics as wired in `sensors_bringup`
+- Other hardware- or bridge-specific topics as wired in the stack entry file (e.g. `stacks/full_default/launch/stack.launch.xml`; the observed graph is recorded in the stack's `wiring.md`)
 
 Topic strings are parameterized with `$(env ROBOT_NAME)` in YAML; override `input_topic` / `output_topic` in the filter config if your stack uses different names.
 
 ## Modules
 
 - [**LiDAR point cloud filter**](#lidar-point-cloud-filter) (`lidar_point_cloud_filter`) — near-range sphere filter for `PointCloud2`
-- [**Gimbal stabilizer**](gimbal.md) — gimbal extension usage in simulation
+- [**Gimbal (simulation)**](gimbal.md) — gimbal extension usage in simulation (documentation only; no robot-side package)
 
-## LiDAR point cloud filter (`lidar_point_cloud_filter`){#lidar-point-cloud-filter}
+## LiDAR point cloud filter
 
 **Package:** `robot/ros_ws/src/sensors/lidar_point_cloud_filter`
 
@@ -58,7 +58,8 @@ Topic strings are parameterized with `$(env ROBOT_NAME)` in YAML; override `inpu
 
 ## Configuration
 
-- **Bringup:** `robot/ros_ws/src/sensors/sensors_bringup/config/` and launch XML under `sensors_bringup/launch/`
+- **Module launch files:** each sensor package ships its own canonical launch file — `robot/ros_ws/src/sensors/lidar_point_cloud_filter/launch/lidar_point_cloud_filter.launch.xml`
+- **Stack wiring:** the stack entry files include these under the `sensors` namespace (`stacks/<name>/launch/*.launch.xml`, e.g. `stacks/full_default/launch/stack.launch.xml`); the observed graph is recorded in `stacks/full_default/wiring.md`
 - **LiDAR filter:** `robot/ros_ws/src/sensors/lidar_point_cloud_filter/config/lidar_point_cloud_filter.yaml` (`near_range_m`, topics, QoS)
 
 ## See Also

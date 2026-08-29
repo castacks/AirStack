@@ -30,11 +30,12 @@ services:
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
-      - AUTONOMY_ROLE=full
       - SIM_IP=${SIM_IP:-172.31.0.200}
-      - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
       # FCU_URL and TGT_SYSTEM not set, dynamically calculated in interface.launch.py
-    # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
+    # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with
+    # different launch packages. The stack to launch comes from AIRSTACK_STACK_DIR /
+    # AIRSTACK_STACK_ENTRY (robot-base defaults: stacks/full_default) — stacks are the only
+    # dispatch (the legacy AUTONOMY_ROLE role arg was removed).
     command: >
       bash -c "
       if [ -z \"$$DISPLAY\" ] && command -v Xvfb >/dev/null 2>&1; then
@@ -45,7 +46,7 @@ services:
       service ssh restart;
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;
+        tmux send-keys -t bringup:0.0 'autolaunch $$LAUNCH_PACKAGE robot.launch.xml' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
@@ -55,7 +56,6 @@ services:
     ports:
       # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
       - "2223-2243:22"
-      - "8767-8787:8765" # for Foxglove remote display (range supports up to 21 robots; GCS uses 8765)
     # for multiple robots
     deploy:
       replicas: ${NUM_ROBOTS:-1}
@@ -68,8 +68,9 @@ services:
 
   # ===================================================================================================================
   # desktop_split: simulates onboard computer on desktop for debugging the split configuration.
-  # Same image as robot-desktop; role=onboard means only lite autonomy modules launch.
-  # robot-offboard (below) runs concurrently on the same machine with role=offboard.
+  # Same image as robot-desktop; the lite_default stack launches only the lite autonomy modules
+  # (interface, sensors, perception, local, behavior — no global/logging).
+  # robot-offboard (below) runs concurrently on the same machine with the split stack's offboard half.
   robot-desktop-onboard:
     profiles: !override
       - desktop_split
@@ -77,7 +78,7 @@ services:
       file: ./docker-compose.yaml
       service: robot-desktop
     environment:
-      - AUTONOMY_ROLE=onboard
+      - AIRSTACK_STACK_DIR=/root/AirStack/stacks/lite_default
       - LAUNCH_PACKAGE=desktop_bringup  # for no RViz, change to autonomy_bringup to treat as simulated onboard computer
 
   # ===================================================================================================================
@@ -105,9 +106,16 @@ services:
     ports: !reset {}  # offboard containers don't need ssh ports
     environment:
       - ROBOT_NAME_SOURCE=container_name  # robot_name_map resolves replica index → robot_N
-      - ROS_DOMAIN_ID=0                   # all offboard containers share domain 0; domain_bridge connects to per-robot onboard domains
+      - ROS_DOMAIN_ID=0                   # all offboard containers share domain 0; the split stack's DDS router connects to per-robot onboard domains
       - LAUNCH_PACKAGE=autonomy_bringup   # no RViz per-robot; visualization lives in the GCS container
-      - AUTONOMY_ROLE=offboard            # runs global planner only
+      # Ground half of the split stack: global planning only (RFC #380 §2).
+      # NOTE: the paired vehicle half (lite_offload_global:onboard) loads the
+      # DDS-router config GENERATED from the stack's bridge.yaml — run
+      # `airstack fleet generate <fleet>` or
+      # `python3 tools/gen_dds_router.py stacks/lite_offload_global/bridge.yaml`
+      # before bringing this profile up.
+      - AIRSTACK_STACK_DIR=/root/AirStack/stacks/lite_offload_global
+      - AIRSTACK_STACK_ENTRY=offboard
     # inherit deploy.replicas from robot-desktop (NUM_ROBOTS)
     # inherit bridge network from robot-desktop
 
@@ -125,8 +133,6 @@ services:
       args:
         BASE_IMAGE: ubuntu:24.04
         REAL_ROBOT: true
-        SKIP_MACVO: true
-        SKIP_TENSORRT: true
         TARGET_ARCH: aarch64
         ROS_DISTRO: jazzy
       tags:
@@ -135,17 +141,18 @@ services:
       cache_from:
         - *voxl_image
         - *voxl_cache
-    environment: 
+    environment:
       - ROBOT_NAME_SOURCE=hostname # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
-      - AUTONOMY_ROLE=onboard  # VOXL is always lite-only; never runs global planning
-      - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
+      # VOXL is compute-constrained: default to the lite stack (no global
+      # planning/logging). Hardware default — redefine at will via env/--env-file.
+      - AIRSTACK_STACK_DIR=${AIRSTACK_STACK_DIR:-/root/AirStack/stacks/lite_default}
     command: >
       bash -c "
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE sim:=false' ENTER;
+        tmux send-keys -t bringup 'autolaunch $$LAUNCH_PACKAGE robot.launch.xml sim:=false' ENTER;
       fi;
       sleep infinity"
     network_mode: host
@@ -153,7 +160,7 @@ services:
 
   # ===================================================================================================================
   # Intermediate Jetson stack: dusty Jazzy + ROS keyring / pip / OpenCV shim for Dockerfile.robot (same recipe as Ubuntu).
-  # `airstack image-build --profile l4t robot-l4t` builds this first automatically; raw `compose build robot-l4t` may parallelize incorrectly.
+  # `airstack images build --profile l4t robot-l4t` builds this first automatically; raw `compose build robot-l4t` may parallelize incorrectly.
   robot-l4t-stack-base:
     profiles:
       - l4t
@@ -187,8 +194,6 @@ services:
       args:
         BASE_IMAGE: *l4t_stack_base_image
         REAL_ROBOT: true
-        SKIP_MACVO: true
-        SKIP_TENSORRT: true
         TARGET_ARCH: aarch64
         ROS_DISTRO: jazzy
       tags:
@@ -206,7 +211,7 @@ services:
       service ssh restart;
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE sim:=false' ENTER;
+        tmux send-keys -t bringup 'autolaunch $$LAUNCH_PACKAGE robot.launch.xml sim:=false' ENTER;
       fi;
       sleep infinity"
     deploy:
@@ -221,8 +226,9 @@ services:
       - ROBOT_NAME_SOURCE=hostname
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
-      - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
-      - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
+      # Autonomous Jetson runs the full stack by default. Hardware default —
+      # redefine at will via env/--env-file (e.g. a lite stack for weak Jetsons).
+      - AIRSTACK_STACK_DIR=${AIRSTACK_STACK_DIR:-/root/AirStack/stacks/full_default}
       # mavros mavlink settings
       - FCU_URL=${FCU_URL:-/dev/ttyTHS4:115200}
       - TGT_SYSTEM=1
@@ -241,7 +247,9 @@ services:
       file: ./docker-compose.yaml
       service: robot-l4t
     environment:
-      - AUTONOMY_ROLE=onboard
+      # Hardware default — redefine at will (e.g. lite_offload_global:onboard
+      # when pairing with a ground host running the offboard half).
+      - AIRSTACK_STACK_DIR=${AIRSTACK_STACK_DIR:-/root/AirStack/stacks/lite_default}
 
   # -----------------------
   # for running the zed camera driver on an NVIDIA jetson (linux for tegra) device. This ONLY runs the zed driver
@@ -265,7 +273,7 @@ services:
         - *zed_l4t_image
         - *zed_l4t_cache
     command: >
-      bash -c "ssh service restart;
+      bash -c "service ssh restart;
       tmux new -d -s zed_driver && 
       tmux send-keys -t zed_driver
       'bws && sws && ros2 launch zed_wrapper zed_dual_camera.launch.py pose_cam_serial:='41591402' wire_cam_serial:='44405253' camera_name:=\"robot_1/sensors\" node_name:=\"front_stereo\" ' ENTER
@@ -312,8 +320,8 @@ services:
       bash -il -c "
       echo 'Building and sourcing workspace...';
       bws &> /dev/null && sws &> /dev/null &&
-      echo 'Starting tests for packages: takeoff_landing_planner';
-      colcon test --packages-select takeoff_landing_planner --event-handlers=console_direct+;
+      echo 'Starting colcon tests for the workspace';
+      colcon test --event-handlers=console_direct+;
       TEST_EXIT_CODE=$$?;
       echo \"Tests completed with exit code: $$TEST_EXIT_CODE\";
       exit $$TEST_EXIT_CODE"

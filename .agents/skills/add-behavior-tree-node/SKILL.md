@@ -1,7 +1,7 @@
 ---
 name: add-behavior-tree-node
 description: Create behavior tree nodes for high-level mission logic and decision-making. Use when implementing actions, conditions, or decorators for behavior trees. Covers BT node types, registration, and integration with behavior executive.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

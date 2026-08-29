@@ -16,8 +16,8 @@ Key inputs:
 | `ROS_DISTRO` | ROS 2 distro to install (e.g. `jazzy`) |
 | `PYTHON_VERSION` | Must match the ROS Python path; **quote in YAML** (e.g. `"3.12"`) |
 | `REAL_ROBOT` | Platform-specific content toggles |
-| `SKIP_MACVO` | Skip MACVO in image when set |
-| `SKIP_TENSORRT` | Skip TensorRT in image when set |
+
+Heavy, algorithm-specific dependencies (e.g. MAC-VO's torch/TensorRT stack) are **not** build-args — they live in each module's `Dockerfile.module` and are layered onto the trunk base image by `airstack module lock --build` (see [Docker layer composition](../modules.md#docker-layer-composition)).
 
 ## Example profiles
 
@@ -44,8 +44,6 @@ robot-l4t:
     args:
       BASE_IMAGE: *l4t_stack_base_image   # from robot-l4t-stack-base
       REAL_ROBOT: true
-      SKIP_MACVO: true
-      SKIP_TENSORRT: true
       ROS_DISTRO: jazzy
 ```
 
@@ -61,7 +59,6 @@ robot-myboard:
       ROS_DISTRO: jazzy
       PYTHON_VERSION: "3.12"
       REAL_ROBOT: true
-      SKIP_MACVO: true
     # L4T only, when needed:
     # network: host
 ```
@@ -97,17 +94,17 @@ Prefer the `airstack` CLI over raw `docker compose` for day-to-day use:
 
 ```bash
 # Build a compose service image
-airstack image-build robot-desktop
+airstack images build robot-desktop
 
 # Build and start a service
-airstack image-build robot-desktop
+airstack images build robot-desktop
 airstack up robot-desktop
 
 # Inspect the robot image build with full output
-airstack image-build --target builder --progress=plain robot-desktop
+airstack images build --target builder --progress=plain robot-desktop
 
 # Jetson: stack-base is built first automatically
-airstack image-build --profile l4t robot-l4t
+airstack images build --profile l4t robot-l4t
 
 # Open a shell in a running container
 airstack connect robot-desktop --command=bash
@@ -121,6 +118,6 @@ airstack logs robot-desktop
 1. Pick a service name and `BASE_IMAGE` for the target platform.
 2. Add a service block in `robot/docker/docker-compose.yaml` with quoted `build.args`.
 3. For L4T/Jetson, consider `network: host` on `build:` and the stack-base image pattern.
-4. Run `airstack image-build <service>` and verify the builder stage imports ROS Python packages.
+4. Run `airstack images build <service>` and verify the builder stage imports ROS Python packages.
 
 For copy-paste validation commands, compose templates, and agent-oriented checklists, see `.agents/skills/docker-build-profiles/SKILL.md`.

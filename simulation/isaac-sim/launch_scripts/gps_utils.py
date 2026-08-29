@@ -8,7 +8,14 @@ spawns each vehicle.
 import math
 import os
 
-# Lisbon — matches the Pegasus configs.yaml default.
+# ── Global ENU world origin — Lisbon (the Pegasus configs.yaml default) ──────
+# KEEP IN SYNC: the same anchor is replicated in three other files that can't
+# import each other across container/mount boundaries (this file runs inside
+# the isaac container, where the checkout is mounted at /isaac-sim/AirStack):
+#   - common/ros_packages/coordination/coordination_bringup/coordination_bringup/frame_utils.py
+#   - gcs/ros_ws/src/gcs_visualizer/gcs_visualizer/gcs_utils.py
+#   - gcs/ros_ws/src/action_relay/action_relay/relay_node.py
+# If you change the anchor here, change all four together.
 DEFAULT_WORLD_ORIGIN = (38.736832, -9.137977, 90.0)
 
 

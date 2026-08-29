@@ -1,11 +1,11 @@
 # AI Agent Quick Reference Guide
 
-This guide provides a concise reference for AI agents working with AirStack. For comprehensive documentation, see [AGENTS.md](../../AGENTS.md).
+This guide provides a concise reference for AI agents working with AirStack. For comprehensive documentation, see [AGENTS.md](../../../AGENTS.md).
 
 ## Quick Start
 
-1. **Understand the architecture:** Review [System Architecture](../robot/autonomy/system_architecture.md)
-2. **Choose a workflow:** Select appropriate skill from [.agents/skills/](../../.agents/skills/)
+1. **Understand the architecture:** Review [System Architecture](../../robot/autonomy/system_architecture.md)
+2. **Choose a workflow:** Select appropriate skill from [.agents/skills/](../../../.agents/skills/)
 3. **Follow the skill:** Execute step-by-step instructions
 4. **Test and document:** Verify functionality and update docs
 
@@ -13,11 +13,11 @@ This guide provides a concise reference for AI agents working with AirStack. For
 
 | Task | Skill | Time Estimate |
 |------|-------|---------------|
-| Add new planner | [add-ros2-package](../../.agents/skills/add-ros2-package) → [integrate-module-into-layer](../../.agents/skills/integrate-module-into-layer) | 2-4 hours |
-| Debug module | [debug-module](../../.agents/skills/debug-module) | 30 min - 2 hours |
-| Create test scenario | [write-isaac-sim-scene](../../.agents/skills/write-isaac-sim-scene) | 1-2 hours |
-| Add behavior tree node | [add-behavior-tree-node](../../.agents/skills/add-behavior-tree-node) | 1-3 hours |
-| Update documentation | [update-documentation](../../.agents/skills/update-documentation) | 30 min - 1 hour |
+| Add new planner | [add-ros2-package](../../../.agents/skills/add-ros2-package) → [integrate-module-into-layer](../../../.agents/skills/integrate-module-into-layer) | 2-4 hours |
+| Debug module | [debug-module](../../../.agents/skills/debug-module) | 30 min - 2 hours |
+| Create test scenario | [write-isaac-sim-scene](../../../.agents/skills/write-isaac-sim-scene) | 1-2 hours |
+| Add behavior tree node | [add-behavior-tree-node](../../../.agents/skills/add-behavior-tree-node) | 1-3 hours |
+| Update documentation | [update-documentation](../../../.agents/skills/update-documentation) | 30 min - 1 hour |
 
 ## Development Workflow
 
@@ -25,7 +25,7 @@ This guide provides a concise reference for AI agents working with AirStack. For
 graph LR
     Study[Study Reference<br/>Implementation] --> Create[Create Package<br/>add-ros2-package]
     Create --> Implement[Implement<br/>Algorithm]
-    Implement --> Integrate[Integrate to Layer<br/>integrate-module-into-layer]
+    Implement --> Integrate[Integrate into Stack<br/>integrate-module-into-layer]
     Integrate --> Document[Document<br/>update-documentation]
     Document --> Test[Test in Sim<br/>test-in-simulation]
     Test --> Debug{Works?}
@@ -39,7 +39,7 @@ graph LR
 ### Container Management
 ```bash
 # Start robot container (no autolaunch)
-AUTOLAUNCH=false airstack up robot-desktop
+airstack up robot-desktop --no-autolaunch
 
 # Build specific package
 docker exec airstack-robot-desktop-1 bash -c "bws --packages-select <package>"
@@ -88,7 +88,7 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 bag record -a -o /tmp/test"
 /[robot_name]/[layer]/[module]/[data_type]
 ```
 
-Example: `/drone1/local_planner/droan/trajectory`
+Example: `/drone1/trajectory_controller/trajectory_segment_to_add`
 
 ### Standard Topics
 - `/[robot]/odometry` - State estimate
@@ -96,7 +96,7 @@ Example: `/drone1/local_planner/droan/trajectory`
 - `/[robot]/trajectory_controller/trajectory_segment_to_add` - Local trajectory
 - `/[robot]/trajectory_controller/look_ahead` - Tracking reference
 
-See [Integration Checklist](../robot/autonomy/integration_checklist.md) for complete list.
+See [Integration Checklist](../../robot/autonomy/integration_checklist.md) for complete list.
 
 ## Integration Checklist
 
@@ -105,16 +105,16 @@ Quick checklist when adding a module:
 - [ ] Package in correct layer directory
 - [ ] `package.xml` with all dependencies
 - [ ] CMakeLists.txt / setup.py configured
-- [ ] Launch file with topic remapping
+- [ ] Launch file with topic args (canonical defaults, no `<remap>`)
 - [ ] Config file with parameters
 - [ ] README.md with documentation
-- [ ] Added to layer bringup
+- [ ] Included in the stack's entry launch file (`stacks/<name>/launch/`)
 - [ ] Added to mkdocs.yml navigation
 - [ ] Tested standalone
 - [ ] Tested in full stack
 - [ ] Tested in simulation
 
-Full details: [Integration Checklist](../robot/autonomy/integration_checklist.md)
+Full details: [Integration Checklist](../../robot/autonomy/integration_checklist.md)
 
 ## Reference Implementations
 
@@ -123,10 +123,10 @@ Study these before implementing similar modules:
 | Module Type | Reference | Location |
 |------------|-----------|----------|
 | Local Planner | DROAN | `robot/ros_ws/src/local/planners/droan_local_planner` |
-| Controller | Trajectory Controller | `robot/ros_ws/src/local/c_controls/trajectory_controller` |
+| Controller | Trajectory Controller | `robot/ros_ws/src/local/controls/trajectory_controller` |
 | World Model | Disparity Expansion | `robot/ros_ws/src/local/world_models/disparity_expansion` |
 | Global Planner | Random Walk | `robot/ros_ws/src/global/planners/random_walk` |
-| Behavior Node | Example Actions | `robot/ros_ws/src/behavior/behavior_tree_example` |
+| Behavior / Safety | Drone Safety Monitor | `robot/ros_ws/src/behavior/drone_safety_monitor` |
 
 ## Autonomous Debugging Strategy
 
@@ -142,13 +142,13 @@ When a module doesn't work:
 8. **Add instrumentation:** Debug publishers/logging
 9. **Create minimal test:** Isolate the problem
 
-Full strategy: [debug-module skill](../../.agents/skills/debug-module)
+Full strategy: [debug-module skill](../../../.agents/skills/debug-module)
 
 ## Package Template
 
 Use the template when creating new packages:
 
-**Location:** `../../.agents/skills/add-ros2-package/assets/package_template/`
+**Location:** `../../../.agents/skills/add-ros2-package/assets/package_template/`
 
 **Includes:**
 
@@ -184,7 +184,7 @@ nav:
                   - robot/ros_ws/src/<layer>/<module>/README.md
 ```
 
-Full documentation workflow: [update-documentation skill](../../.agents/skills/update-documentation)
+Full documentation workflow: [update-documentation skill](../../../.agents/skills/update-documentation)
 
 ## Common Pitfalls
 
@@ -200,9 +200,9 @@ Full documentation workflow: [update-documentation skill](../../.agents/skills/u
 - ✅ Use launch arguments for all topics
 
 ### Integration Issues
-- ❌ Not adding module to bringup package
-- ❌ Not updating bringup `package.xml` dependencies
-- ✅ Follow [integrate-module-into-layer](../../.agents/skills/integrate-module-into-layer)
+- ❌ Not including the module in the stack's entry launch file
+- ❌ Putting `<remap>` in the module launch file instead of the stack file
+- ✅ Follow [integrate-module-into-layer](../../../.agents/skills/integrate-module-into-layer)
 
 ### Documentation Issues
 - ❌ Not updating `mkdocs.yml`
@@ -228,21 +228,21 @@ Full documentation workflow: [update-documentation skill](../../.agents/skills/u
 ## Links
 
 ### Primary References
-- [AGENTS.md](../../AGENTS.md) - Main agent guide
-- [System Architecture](../robot/autonomy/system_architecture.md) - Architecture diagrams
-- [Integration Checklist](../robot/autonomy/integration_checklist.md) - Integration requirements
+- [AGENTS.md](../../../AGENTS.md) - Main agent guide
+- [System Architecture](../../robot/autonomy/system_architecture.md) - Architecture diagrams
+- [Integration Checklist](../../robot/autonomy/integration_checklist.md) - Integration requirements
 
 ### Skills
-- [add-ros2-package](../../.agents/skills/add-ros2-package)
-- [integrate-module-into-layer](../../.agents/skills/integrate-module-into-layer)
-- [write-isaac-sim-scene](../../.agents/skills/write-isaac-sim-scene)
-- [debug-module](../../.agents/skills/debug-module)
-- [update-documentation](../../.agents/skills/update-documentation)
-- [test-in-simulation](../../.agents/skills/test-in-simulation)
-- [add-behavior-tree-node](../../.agents/skills/add-behavior-tree-node)
+- [add-ros2-package](../../../.agents/skills/add-ros2-package)
+- [integrate-module-into-layer](../../../.agents/skills/integrate-module-into-layer)
+- [write-isaac-sim-scene](../../../.agents/skills/write-isaac-sim-scene)
+- [debug-module](../../../.agents/skills/debug-module)
+- [update-documentation](../../../.agents/skills/update-documentation)
+- [test-in-simulation](../../../.agents/skills/test-in-simulation)
+- [add-behavior-tree-node](../../../.agents/skills/add-behavior-tree-node)
 
 ### Package Template
-- [../../.agents/skills/add-ros2-package/assets/package_template/](../../../../.agents/skills/add-ros2-package/assets/package_template/)
+- [../../../.agents/skills/add-ros2-package/assets/package_template/](../../../.agents/skills/add-ros2-package/assets/package_template/)
 
 ### ROS 2 Documentation
 - [ROS 2 Jazzy](https://docs.ros.org/en/jazzy/)

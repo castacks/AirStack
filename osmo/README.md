@@ -69,7 +69,7 @@ store. Every student registers their own three credentials with `osmo
 credential set` once on their laptop. The full walkthrough — including the
 exact `osmo credential set ...` commands and how to obtain a Nucleus API
 token — lives in
-[`docs/tutorials/airstack_on_osmo.md` Step 0](../docs/tutorials/airstack_on_osmo.md#step-0--register-your-osmo-credentials-one-time).
+[`docs/tutorials/airstack_on_osmo.md` Step 0](../docs/tutorials/airstack_on_osmo.md#step-0-register-your-osmo-credentials-one-time).
 
 The three credentials, summarized for quick reference:
 
@@ -79,7 +79,7 @@ The three credentials, summarized for quick reference:
 | `airlab-docker-login` | `GENERIC` | `entrypoint.sh` calls `docker login airlab-docker.andrew.cmu.edu` on the **inner** dockerd before `airstack up`, so the inner Compose stack can pull AirStack images | Yes — exposed as env vars `AIRLAB_REGISTRY_USER`/`AIRLAB_REGISTRY_PASS`. |
 | `airlab-nucleus` | `GENERIC` | `entrypoint.sh` materializes `simulation/isaac-sim/docker/omni_pass.env` from it so Compose can env-file it into the Isaac Sim container | Yes — exposed as env vars `OMNI_USER`/`OMNI_PASS`/`OMNI_SERVER`. |
 
-The convenience helper `airstack osmo:setup` in
+The convenience helper `airstack osmo setup` in
 [`.airstack/modules/osmo.sh`](../.airstack/modules/osmo.sh) prompts for the
 underlying values (Andrew ID, AirLab password, Nucleus API token) and runs
 all three `osmo credential set` commands.
@@ -215,7 +215,7 @@ If any container is missing or restarting, the most common causes (in order):
 
 1. The user's `airlab-docker-login` GENERIC credential is wrong / unset →
    inner `docker pull` from `airlab-docker.andrew.cmu.edu` failed.
-   Re-run `airstack osmo:setup` (or the explicit `osmo credential set
+   Re-run `airstack osmo setup` (or the explicit `osmo credential set
    airlab-docker-login ...` command in the tutorial Step 0).
 2. `nvidia-container-toolkit` is not configured on the node → inner Isaac Sim
    can't see the GPU. Check `docker info | grep -i runtime` inside the
@@ -280,7 +280,7 @@ If you see Isaac Sim's "Login Required" popup at startup:
 2. **Regenerate the token** at
    <https://airlab-nucleus.andrew.cmu.edu/omni/web3/> → right-click the
    cloud icon → **API Tokens** → create a new one.
-3. **Update the OSMO credential** with `airstack osmo:setup` (or the
+3. **Update the OSMO credential** with `airstack osmo setup` (or the
    raw `osmo credential set airlab-nucleus ...` command from the
    tutorial Step 0) and **resubmit the workflow** so the new token
    lands in `omni_pass.env` on pod boot. To live-patch a running pod

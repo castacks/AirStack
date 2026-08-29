@@ -1,7 +1,7 @@
 ---
 name: update-documentation
 description: Document new modules and update mkdocs navigation. Use after implementing any new feature or module. Covers README templates, mkdocs.yml updates, mermaid diagrams, and documentation standards for AirStack.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack
@@ -183,12 +183,12 @@ ros2 launch your_package your_package.launch.xml
 
 # With custom config
 ros2 launch your_package your_package.launch.xml \
-    config_file:=/path/to/custom/config.yaml
+    your_module_config:=/path/to/custom/config.yaml
 
-# With topic remapping
+# With custom topic wiring (prefixed args; in a stack these are include args)
 ros2 launch your_package your_package.launch.xml \
-    odometry_topic:=/robot/custom_odom \
-    output_topic:=/robot/custom_output
+    your_module_odometry_topic:=/robot/custom_odom \
+    your_module_output_topic:=/robot/custom_output
 ```
 
 ### Integrated in Autonomy Stack
@@ -196,11 +196,11 @@ ros2 launch your_package your_package.launch.xml \
 The module is automatically launched when the autonomy stack starts:
 
 ```bash
-# Full autonomy stack
+# Full autonomy stack (autolaunches by default)
 airstack up robot-desktop
 
-# Or with specific configuration
-AUTOLAUNCH=true airstack up robot-desktop
+# Or start idle and launch manually
+airstack up robot-desktop --no-autolaunch
 ```
 
 The module is integrated in: `<layer>_bringup/launch/<layer>.launch.xml`
@@ -333,13 +333,11 @@ Specify license (typically Apache-2.0 for AirStack).
 - **Maintainer:** Name (email)
 - **Contributors:** List contributors
 
-## Changelog
-
-### Version X.Y.Z (YYYY-MM-DD)
-- Feature: Added new capability
-- Fix: Resolved issue with X
-- Change: Modified behavior of Y
 ```
+
+Do not add a per-README "Changelog" section — change records live in the
+versioned Release Notes (`docs/release_notes/index.md`), and READMEs
+describe only the current system.
 
 **Reference template:** `../add-ros2-package/assets/package_template/README.md`
 
@@ -353,15 +351,12 @@ Find the appropriate section based on your module type:
 
 ```yaml
 nav:
-  - Robot:
-      - Autonomy Modules:
+  - Reference:
+      - Autonomy Packages:
           - Local:
-              - Planning:
-                  # Existing modules
-                  - Trajectory Library:
-                      - robot/ros_ws/src/local/planners/trajectory_library/README.md
-                  - DROAN Local Planner:
-                      - robot/ros_ws/src/local/planners/droan_local_planner/README.md
+              # Existing modules
+              - Trajectory Library: robot/ros_ws/src/local/planners/trajectory_library/README.md
+              - DROAN Local Planner: robot/ros_ws/src/local/planners/droan_local_planner/README.md
                   # Add your module HERE
                   - Your Module Name:
                       - robot/ros_ws/src/local/planners/your_package/README.md
@@ -585,10 +580,10 @@ class YourClass:
 
 If your module introduces breaking changes or deprecations:
 
-**File:** `CHANGELOG.md` (repository root)
+**File:** `docs/release_notes/index.md` (the versioned Release Notes — the only place change-relative language belongs; feature docs describe only the current system)
 
 ```markdown
-## [Unreleased]
+## <current version> (Unreleased)
 
 ### Added
 - New module: your_package for <purpose>
@@ -726,7 +721,7 @@ feat: Add YourModule local planner
 
 - Implement algorithm based on XYZ paper
 - Add configuration and launch files
-- Integrate into local_bringup
+- Integrate into the stack entry file (stacks/full_default)
 - Add comprehensive README documentation
 - Update mkdocs navigation
 ```

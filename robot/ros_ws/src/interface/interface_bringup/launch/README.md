@@ -1,69 +1,27 @@
-# Interface Launch File Documentation
+# interface_bringup launch files
 
-## Overview
+- `interface.launch.py` — the canonical interface bringup, included by the
+  stack entry files under `stacks/*/launch/`. Launches MAVROS (via
+  `mavros_px4.launch.xml`, skipped when `SIM_TYPE=simple`), the
+  `robot_interface_node`, the position setpoint publisher, and the odometry
+  conversion node.
+- `mavros_px4.launch.xml` — wraps the upstream `mavros` `node.launch` with the
+  AirStack MAVROS config (`../config/px4_config.yaml`) and PX4 plugin list.
 
-This directory contains both XML and Python versions of the interface launch file:
+There is no `sim` launch argument. The MAVLink connection is computed from
+environment variables (see `interface.launch.py`):
 
-- `interface.launch.xml` - Original XML launch file
-- `interface.launch.py` - New Python launch file with dynamic FCU URL calculation
-
-## Python Launch File Features
-
-The Python launch file (`interface.launch.py`) implements the same functionality as the XML version but with the following enhancements:
-
-### Dynamic FCU URL Calculation
-
-The FCU URL for MAVROS is now calculated programmatically based on the `robot_id` (from `ROS_DOMAIN_ID` environment variable), following the same logic as the `px4_mavlink_backend.py` in the Pegasus simulator:
-
-**Simulation Mode:**
-- Connection format: `tcpin:localhost:PORT`
-- Port calculation: `4560 + robot_id`
-- Examples:
-  - robot_id=0 → `tcpin:localhost:4560`
-  - robot_id=1 → `tcpin:localhost:4561`
-  - robot_id=2 → `tcpin:localhost:4562`
-
-**Real Hardware Mode:**
-- Connection: `/dev/ttyTHS4:115200` (unchanged from original)
-
-### Usage
-
-Launch the interface system:
-
-```bash
-# For simulation (sim=true)
-ros2 launch interface_bringup interface.launch.py sim:=true
-
-# For real hardware (sim=false, default)
-ros2 launch interface_bringup interface.launch.py sim:=false
-
-# With custom odometry topic
-ros2 launch interface_bringup interface.launch.py \
-    sim:=true \
-    interface_odometry_in_topic:=/custom/robot/interface/mavros/local_position/odom
+```text
+OFFBOARD_PORT = OFFBOARD_BASE_PORT (default 14540) + ROS_DOMAIN_ID
+ONBOARD_PORT  = ONBOARD_BASE_PORT  (default 14580) + ROS_DOMAIN_ID
+FCU_URL       = udp://:<OFFBOARD_PORT>@<SIM_IP>:<ONBOARD_PORT>
+                (unless FCU_URL is set; SIM_IP default 172.31.0.200)
+TGT_SYSTEM    = 1 + ROS_DOMAIN_ID (unless TGT_SYSTEM is set)
 ```
 
-### Environment Variables Required
+One launch argument: `interface_odometry_in_topic` — the odometry topic
+remapped into `odometry_conversion` (default
+`/$ROBOT_NAME/interface/mavros/local_position/odom`).
 
-- `ROS_DOMAIN_ID`: Used as the robot_id for port calculation
-- `ROBOT_NAME`: Used for topic remapping
-
-### Integration with Pegasus Simulator
-
-This launch file is designed to work seamlessly with the Pegasus Isaac Sim integration where:
-
-1. Isaac Sim launches PX4 SITL instances with calculated ports
-2. The PX4MavlinkBackend uses the same port calculation logic
-3. MAVROS connects to the correct PX4 instance using the calculated FCU URL
-
-### Node Configuration
-
-The launch file starts the following nodes:
-
-1. **MAVROS** - MAVLink communication with PX4
-2. **robot_interface_node** - Robot interface abstraction
-3. **position_setpoint_pub.py** - Position setpoint publisher
-4. **odometry_conversion** - Converts odometry topics and publishes TF
-5. **drone_safety_monitor** - Safety monitoring
-
-All nodes maintain the same configuration and remapping as the original XML launch file.
+The drone safety monitor is NOT launched here — the stack entry files launch it
+(`drone_safety_monitor.launch.xml`).

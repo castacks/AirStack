@@ -1,0 +1,566 @@
+name: Module System Tests
+
+# Reusable system-test workflow for AirStack module repos (RFC #379 §5).
+#
+# A module repo (asm_*) calls this workflow to run trunk's existing system-test
+# suite — unchanged — against a pinned AirStack ref with the module added to
+# the checkout. The module repo never copies a test.
+#
+#   jobs:
+#     system-tests:
+#       uses: castacks/AirStack/.github/workflows/module-system-tests.yml@v0.19.0
+#       with:
+#         airstack_ref: v0.19.0     # pin and checkout ref move together
+#         marks: "build_packages or liveliness"
+#         sim: isaacsim
+#
+# First-party only: the job refuses callers outside the castacks org. External
+# modules go through the dispatch-triggered test bench (RFC #379 §5, Phase 4).
+#
+# Registry secrets are optional. When the caller passes them (castacks org
+# secrets provide DOCKER_REGISTRY_* to org repos — the internal registry is
+# airlab-docker.andrew.cmu.edu/airstack, NOT ghcr), image prep pulls versioned
+# and floating cache tags instead of cold-building. Without them the workflow
+# still works; it just image-builds from scratch when pulls miss.
+#
+# The workflow_dispatch trigger exists so trunk maintainers can smoke-test this
+# workflow against any module repo without a caller in place:
+#
+#   gh workflow run module-system-tests.yml --repo castacks/AirStack \
+#     --ref <branch-with-this-file> \
+#     -f module_repo=castacks/asm_dfm2_disturbances -f module_ref=main \
+#     -f airstack_ref=develop -f marks="build_packages or liveliness"
+#
+# GPU runner note: with the default runs_on, the job queues for the ephemeral
+# OSMO-backed runners (.github/orchestrator/). The orchestrator polls one repo
+# per instance, so a module repo must be added to the poll list before its
+# calls can be picked up — see .github/orchestrator/README.md "Module repos".
+#
+# Docs: docs/development/module_ci.md
+
+on:
+  workflow_call:
+    inputs:
+      airstack_ref:
+        description: "Tag/branch/SHA of castacks/AirStack to test the module against. Pin it together with the workflow's own @<ref>. Must include the module CLI (airstack module add/sync)."
+        type: string
+        required: true
+      marks:
+        description: "pytest marks expression (see tests/pytest.ini). build_packages is auto-prepended when absent so code is built before launch tests run."
+        type: string
+        default: "build_packages or liveliness"
+      sim:
+        description: "Sim targets, comma-separated: isaacsim,msairsim."
+        type: string
+        default: "isaacsim"
+      num_robots:
+        description: "Robot counts, comma-separated (e.g. 1,3)."
+        type: string
+        default: "1"
+      stress_iterations:
+        description: "Iterations per (sim, num_robots) config."
+        type: string
+        default: "1"
+      stable_duration:
+        description: "Seconds for the test_stable polling window."
+        type: string
+        default: "120"
+      module_tests_dir:
+        description: "Module-relative directory of extra pytest tests, appended to the pytest paths only if it exists in the module checkout."
+        type: string
+        default: "tests"
+      hook_env:
+        description: "Newline-separated KEY=VALUE pairs exported when running the module's hooks.host_setup (e.g. an explicit proprietary-license acceptance like NATNET_ACCEPT_LICENSE=1). Values are caller-visible in logs — never secrets."
+        type: string
+        default: ""
+      runs_on:
+        description: "JSON array string parsed into runs-on."
+        type: string
+        default: '["self-hosted","airstack-ephemeral"]'
+      timeout_minutes:
+        description: "Job timeout in minutes."
+        type: number
+        default: 120
+    secrets:
+      DOCKER_REGISTRY_URL:
+        description: "Internal Docker registry host (castacks org secret; airlab-docker.andrew.cmu.edu). Optional — enables registry-cache image prep."
+        required: false
+      DOCKER_REGISTRY_USERNAME:
+        description: "Registry username (castacks org secret). Optional."
+        required: false
+      DOCKER_REGISTRY_PASSWORD:
+        description: "Registry password (castacks org secret). Optional."
+        required: false
+
+  # Trunk-maintainer smoke path: same inputs as workflow_call, plus the module
+  # repo/ref to test (workflow_call derives those from the caller instead).
+  # timeout_minutes is omitted here (workflow_dispatch caps at 10 inputs); the
+  # job falls back to 120 when it is unset.
+  workflow_dispatch:
+    inputs:
+      module_repo:
+        description: "Module repo to test (owner/name, e.g. castacks/asm_dfm2_disturbances)."
+        type: string
+        required: true
+      module_ref:
+        description: "Module ref (tag/branch/SHA)."
+        type: string
+        default: "main"
+      airstack_ref:
+        description: "Tag/branch/SHA of castacks/AirStack to test the module against."
+        type: string
+        default: "develop"
+      marks:
+        description: "pytest marks expression. build_packages is auto-prepended when absent."
+        type: string
+        default: "build_packages or liveliness"
+      sim:
+        description: "Sim targets, comma-separated: isaacsim,msairsim."
+        type: string
+        default: "isaacsim"
+      num_robots:
+        description: "Robot counts, comma-separated (e.g. 1,3)."
+        type: string
+        default: "1"
+      stress_iterations:
+        description: "Iterations per (sim, num_robots) config."
+        type: string
+        default: "1"
+      stable_duration:
+        description: "Seconds for the test_stable polling window."
+        type: string
+        default: "120"
+      module_tests_dir:
+        description: "Module-relative extra pytest dir (appended only if it exists)."
+        type: string
+        default: "tests"
+      runs_on:
+        description: "JSON array string parsed into runs-on."
+        type: string
+        default: '["self-hosted","airstack-ephemeral"]'
+
+permissions:
+  contents: read
+
+jobs:
+  module-tests:
+    name: Module System Tests
+    runs-on: ${{ fromJSON(inputs.runs_on) }}
+    timeout-minutes: ${{ inputs.timeout_minutes || 120 }}
+    # Mirror the registry secrets into env so step-level `if:` expressions can
+    # check whether registry-cache mode is available — `secrets.*` itself is
+    # not addressable from `if:` expressions.
+    env:
+      DOCKER_REGISTRY_URL: ${{ secrets.DOCKER_REGISTRY_URL }}
+      DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+    steps:
+      # First-party policy (RFC #379 §5): org GPU runners and registry secrets
+      # never serve repos outside castacks. In a reusable workflow the github
+      # context is the CALLER's, so repository_owner is the module repo's org.
+      # External modules use the dispatch-triggered test bench when it lands
+      # (Phase 4); until then this is a hard refusal, not a degraded mode.
+      - name: Enforce first-party module policy
+        if: github.repository_owner != 'castacks'
+        run: |
+          echo "::error::module-system-tests.yml is first-party only: the calling repository must live in the castacks org (caller is '${{ github.repository }}'). External modules will be served by the dispatch-triggered test bench (RFC #379 §5); it does not exist yet."
+          exit 1
+
+      - name: Checkout AirStack (trunk under test)
+        uses: actions/checkout@v4
+        with:
+          repository: castacks/AirStack
+          ref: ${{ inputs.airstack_ref }}
+          submodules: recursive
+
+      # workflow_call: the module is the calling repo at the triggering SHA.
+      # workflow_dispatch: the module is named explicitly by inputs.
+      - name: Resolve module source
+        id: module_src
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_REPO: ${{ inputs.module_repo }}
+          DISPATCH_REF: ${{ inputs.module_ref }}
+          CALLER_REPO: ${{ github.repository }}
+          CALLER_SHA: ${{ github.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            repo="$DISPATCH_REPO"
+            ref="${DISPATCH_REF:-main}"
+          else
+            repo="$CALLER_REPO"
+            ref="$CALLER_SHA"
+          fi
+          if [[ -z "$repo" ]]; then
+            echo "::error::No module repository resolved (module_repo input is required for workflow_dispatch)."
+            exit 1
+          fi
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Module under test: $repo @ $ref"
+
+      - name: Checkout module under test
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.module_src.outputs.repo }}
+          ref: ${{ steps.module_src.outputs.ref }}
+          path: module-under-test
+          submodules: recursive
+
+      - name: Install test dependencies
+        # Ubuntu 24.04 marks the system Python as externally-managed (PEP 668),
+        # so `pip install` outside a venv is rejected. Use a venv and prepend
+        # its bin/ to $GITHUB_PATH so subsequent steps pick up `pytest`
+        # automatically.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-venv
+          python3 -m venv .venv
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r tests/requirements.txt
+
+      - name: Validate module manifest
+        run: python3 tools/validate_module.py module-under-test
+
+      # Artifact/summary identity: the manifest name, falling back to the repo
+      # basename. Sanitized because artifact names reject several characters.
+      - name: Resolve module name
+        id: module
+        env:
+          MODULE_REPO: ${{ steps.module_src.outputs.repo }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, re
+          name = ""
+          try:
+              import yaml
+              with open("module-under-test/module.yaml") as f:
+                  name = str(yaml.safe_load(f).get("name") or "")
+          except Exception:
+              pass
+          if not name:
+              name = os.environ["MODULE_REPO"].rsplit("/", 1)[-1]
+          name = re.sub(r'[^A-Za-z0-9._-]+', "-", name)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"name={name}\n")
+          print(f"Module name: {name}")
+          PYEOF
+
+      - name: Ensure airstack.sh is executable
+        run: chmod +x airstack.sh
+
+      # Register the module with the trunk checkout via the module CLI
+      # (contract: `airstack module add <local-path>` places the module and
+      # runs its declared hooks.host_setup; `airstack module sync` materializes
+      # the overlay — ROS packages into robot/ros_ws/src/modules/, Isaac
+      # extensions onto the extension path, compose fragments into
+      # COMPOSE_FILE). `--no-hooks` is attempted first so a hook failure can't
+      # masquerade as an add failure; the fallback covers a CLI that doesn't
+      # know the flag. hooks.host_setup is then run explicitly below — the
+      # manifest schema requires hooks to be idempotent, so running it after an
+      # add that already ran it is safe.
+      - name: Add module to the AirStack checkout
+        run: |
+          ./airstack.sh module add ./module-under-test --no-hooks \
+            || ./airstack.sh module add ./module-under-test
+          ./airstack.sh module sync
+
+      - name: Run module host_setup hook (if declared)
+        run: |
+          hook="$(python3 -c "
+          import yaml
+          with open('module-under-test/module.yaml') as f:
+              m = yaml.safe_load(f) or {}
+          print((m.get('hooks') or {}).get('host_setup') or '')
+          ")"
+          if [[ -n "$hook" ]]; then
+            echo "Running hooks.host_setup: $hook (idempotent by manifest contract)"
+            # Export caller-provided hook env (e.g. explicit license acceptance).
+            while IFS= read -r kv; do
+              [[ -n "$kv" ]] && export "${kv?}" && echo "hook env: $kv"
+            done <<< "${{ inputs.hook_env }}"
+            (cd module-under-test && bash "$hook")
+          else
+            echo "No hooks.host_setup declared."
+          fi
+
+      - name: Create Isaac Sim omni_pass.env
+        if: contains(inputs.sim, 'isaacsim')
+        run: |
+          mkdir -p simulation/isaac-sim/docker
+          cat > simulation/isaac-sim/docker/omni_pass.env <<'EOF'
+          OMNI_USER=guest
+          OMNI_PASS=guest
+          OMNI_SERVER="omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1"
+          ACCEPT_EULA=Y
+          OMNI_ENV_PRIVACY_CONSENT=Y
+          EOF
+
+      # Compose the pytest argv from the explicit inputs. Modeled on trunk's
+      # system-tests.yml parse block, minus the issue_comment parsing (inputs
+      # arrive structured here). Rules kept from trunk:
+      #   - build_packages is auto-prepended when marks lack it, so code is
+      #     built before launch tests run;
+      #   - marks that never launch a sim (pure build_packages) switch to
+      #     pull-only image prep so we don't bake isaac-sim for a colcon test;
+      #   - build_docker marks skip image prep entirely (those tests rebuild).
+      # Added here: the module's own pytest dir is appended when it exists,
+      # and -c tests/pytest.ini pins the config when a second path would move
+      # pytest's rootdir/inifile discovery off tests/.
+      - name: Compose pytest args
+        id: parse
+        env:
+          INPUT_MARKS: ${{ inputs.marks }}
+          INPUT_SIM: ${{ inputs.sim }}
+          INPUT_NUM_ROBOTS: ${{ inputs.num_robots }}
+          INPUT_ITERATIONS: ${{ inputs.stress_iterations }}
+          INPUT_STABLE: ${{ inputs.stable_duration }}
+          INPUT_MODULE_TESTS_DIR: ${{ inputs.module_tests_dir }}
+        run: |
+          python3 <<'PYEOF'
+          import os, shlex
+
+          marks = os.environ.get('INPUT_MARKS', '').strip() or 'build_packages or liveliness'
+          sim = os.environ.get('INPUT_SIM', '').strip() or 'isaacsim'
+
+          # When the caller specified marks without build_packages, prepend it
+          # so code is built before launch tests try to use it (same rule as
+          # trunk system-tests.yml).
+          if 'build_packages' not in marks:
+              marks = f'build_packages or {marks}'
+
+          args = ['-m', marks, '--sim', sim]
+          if (n := os.environ.get('INPUT_NUM_ROBOTS', '').strip()):
+              args.extend(['--num-robots', n])
+          if (it := os.environ.get('INPUT_ITERATIONS', '').strip()):
+              args.extend(['--stress-iterations', it])
+          if (st := os.environ.get('INPUT_STABLE', '').strip()):
+              args.extend(['--stable-duration', st])
+
+          # Marks that bring up sim/robot containers need compose images; a
+          # pure build_packages selection does not, so pull-only there (trunk's
+          # `only_packages` rule). waypoint_flight is included in the heavy set
+          # for correctness even though trunk's list predates the mark.
+          heavy = any(m in marks for m in (
+              'liveliness', 'sensors', 'takeoff_hover_land', 'autonomy',
+              'waypoint_flight', 'build_docker', 'optitrack',
+          ))
+          no_image_build = not heavy
+          skip_prep = 'build_docker' in marks
+
+          # Append the module's own pytest dir when it exists. Adding a second
+          # collection path moves pytest's rootdir to the common ancestor, so
+          # pin the config file explicitly in that case.
+          module_tests = ''
+          tests_dir = os.environ.get('INPUT_MODULE_TESTS_DIR', '').strip()
+          if tests_dir:
+              candidate = os.path.join('module-under-test', tests_dir)
+              if os.path.isdir(candidate):
+                  module_tests = candidate
+                  args.extend(['-c', 'tests/pytest.ini'])
+
+          quoted = ' '.join(shlex.quote(a) for a in args)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'pytest_args={quoted}\n')
+              f.write(f'resolved_marks={marks}\n')
+              f.write(f'sim={sim}\n')
+              f.write(f'skip_image_prep={"true" if skip_prep else "false"}\n')
+              f.write(f'no_image_build={"true" if no_image_build else "false"}\n')
+              f.write(f'module_tests_dir={module_tests}\n')
+
+          print(f'Resolved pytest args: {quoted}')
+          print(f'Module tests dir: {module_tests or "(none)"}')
+          print(f'Skip image prep: {skip_prep}')
+          print(f'No image build (pull/retag only): {no_image_build}')
+          PYEOF
+
+      # Optional registry-cache mode. When the caller passes the registry
+      # secrets we log in to the internal Docker registry; the next step then
+      # sets AIRSTACK_REGISTRY_CACHE=1 so airstack.sh pre-pulls + uses BuildKit
+      # inline cache. When secrets are absent both steps are skipped and image
+      # prep falls back to cold builds.
+      #
+      # Read-only on purpose: AIRSTACK_REGISTRY_CACHE_PUSH stays unset here so
+      # a module run can consume the floating cache tag but never republish
+      # it. Only trunk's docker-build.yml (main/develop) writes it.
+      - name: Log in to internal Docker registry
+        id: docker_login
+        if: ${{ env.DOCKER_REGISTRY_URL != '' && env.DOCKER_REGISTRY_PASSWORD != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY_URL }}
+          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+
+      - name: Enable registry-cache mode
+        if: ${{ steps.docker_login.outcome == 'success' }}
+        run: echo "AIRSTACK_REGISTRY_CACHE=1" >> "$GITHUB_ENV"
+
+      - name: Disable compose image builds
+        if: ${{ steps.parse.outputs.no_image_build == 'true' }}
+        run: echo "AIRSTACK_NO_IMAGE_BUILD=1" >> "$GITHUB_ENV"
+
+      # The ephemeral runner starts with no local images. `airstack_env` in
+      # tests/conftest.py fails fast if compose images are missing, so prep
+      # them here. Profile-gated services (ms-airsim, isaac-sim) are skipped
+      # by compose unless their profile is active, so we mirror the fixture's
+      # profile selection from the sim input. Pull versioned tags, then retag
+      # floating cache_* tags onto the VERSION name (unreleased trunk refs
+      # have no versioned tag). Fall back to image-build only when pull-only
+      # mode is off. Skipped when marks contain build_docker — those tests
+      # build themselves.
+      - name: Ensure Docker images present
+        if: ${{ steps.parse.outputs.skip_image_prep != 'true' }}
+        env:
+          AIRSTACK_ROOT: ${{ github.workspace }}
+          SIM_INPUT: ${{ steps.parse.outputs.sim }}
+          NO_IMAGE_BUILD: ${{ steps.parse.outputs.no_image_build }}
+        run: |
+          profiles=desktop
+          [[ ",$SIM_INPUT," == *,msairsim,* ]] && profiles="$profiles,ms-airsim"
+          [[ ",$SIM_INPUT," == *,isaacsim,* ]] && profiles="$profiles,isaac-sim"
+          export COMPOSE_PROFILES="$profiles"
+          echo "Pulling images for COMPOSE_PROFILES=$COMPOSE_PROFILES (no_image_build=$NO_IMAGE_BUILD)"
+
+          # Pull from registry; tolerate per-image failures so we can detect
+          # what's still missing afterwards instead of aborting on the first
+          # gap. `--progress=quiet` suppresses per-layer progress; errors
+          # still surface on stderr.
+          ./airstack.sh --progress=quiet images pull --ignore-pull-failures || true
+
+          # Versioned tags can miss (unreleased trunk refs). Seed from floating
+          # cache_* tags.
+          cache_tag="$(grep -E '^CACHE_TAG=' .env 2>/dev/null | cut -d= -f2 | tr -d '"' || true)"
+          cache_tag="${cache_tag:-cache}"
+          while IFS= read -r img; do
+            [[ -z "$img" ]] && continue
+            if docker image inspect "$img" --format '{{.Id}}' >/dev/null 2>&1; then
+              continue
+            fi
+            # Replace :v<semver>_ with :<cache_tag>_  (unpublished versioned tags)
+            cache_img="$(python3 -c "import re,sys; print(re.sub(r':v[^_]+_', f':{sys.argv[2]}_', sys.argv[1], count=1))" "$img" "$cache_tag")"
+            echo "Versioned tag missing; trying cache tag $cache_img"
+            if docker pull --quiet "$cache_img"; then
+              docker tag "$cache_img" "$img"
+              echo "Retagged $cache_img -> $img"
+            else
+              echo "Cache tag pull failed for $cache_img"
+            fi
+          done < <(docker compose -f docker-compose.yaml config --images)
+
+          missing=()
+          while IFS= read -r img; do
+            [[ -z "$img" ]] && continue
+            if ! docker image inspect "$img" --format '{{.Id}}' >/dev/null 2>&1; then
+              missing+=("$img")
+            fi
+          done < <(docker compose -f docker-compose.yaml config --images)
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "Images still missing after pull/retag:"
+            printf '  - %s\n' "${missing[@]}"
+            if [[ "$NO_IMAGE_BUILD" == "true" ]]; then
+              echo "::error::Pull-only mode (pure build_packages marks) will not run 'images build'. Include a mark that launches the sim, or run trunk's /pytest -m build_docker once to publish cache tags."
+              exit 1
+            fi
+            echo "Falling back to images build"
+            ./airstack.sh --progress=quiet images build
+          else
+            echo "All required images present after pull/retag — skipping build."
+          fi
+
+      # Build the module's Docker layer chain (RFC #379 §6) — must run AFTER
+      # the trunk base images are present (chain builds FROM them). The
+      # zero-module identity rule makes this a fast no-op for modules with no
+      # docker-relevant declarations; for tier-2/3 modules (Dockerfile.module /
+      # overlay_image) it builds the composed image and points the generated
+      # compose override at it, so the test bring-up actually exercises the
+      # module's dependency layers.
+      - name: Build module Docker layers
+        run: ./airstack.sh module lock --build
+
+      - name: Run tests
+        env:
+          AIRSTACK_ROOT: ${{ github.workspace }}
+          DISPLAY: ""
+          PYTEST_ARGS: ${{ steps.parse.outputs.pytest_args }}
+          MODULE_TESTS_DIR: ${{ steps.parse.outputs.module_tests_dir }}
+        run: |
+          # Re-split the shell-quoted args from the parse step so we forward
+          # them to pytest as a proper argv list (preserving values like
+          # `-m 'a or b'`). sys.stdout.write is intentional: print('') emits
+          # one blank line, which mapfile turns into an empty positional path
+          # and makes pytest recurse from the repository root.
+          mapfile -t ARGS < <(python3 -c "import os, shlex, sys; sys.stdout.write(''.join(f'{arg}\\n' for arg in shlex.split(os.environ['PYTEST_ARGS'])))")
+          for arg in "${ARGS[@]}"; do
+            if [[ -z "$arg" ]]; then
+              echo "::error::Refusing an empty pytest argument because it expands collection to the repository root."
+              exit 2
+            fi
+          done
+          PATHS=(tests/)
+          if [[ -n "$MODULE_TESTS_DIR" ]]; then
+            PATHS+=("$MODULE_TESTS_DIR")
+          fi
+          set +e
+          pytest "${PATHS[@]}" \
+            "${ARGS[@]}" \
+            -v -s \
+            --log-cli-level=INFO \
+            --log-cli-format='%(asctime)s [%(levelname)s] %(name)s: %(message)s' \
+            --log-cli-date-format='%H:%M:%S'
+          pytest_status=$?
+          set -e
+          if (( pytest_status != 0 )); then
+            exit "$pytest_status"
+          fi
+
+          # A successful collect-only/non-executed campaign is not a passing
+          # system test. Make that distinction visible in the job conclusion.
+          python3 <<'PYEOF'
+          import json
+          from pathlib import Path
+
+          candidates = list(Path("tests/results").glob("*/run_meta.json"))
+          if not candidates:
+              raise SystemExit("::error::pytest succeeded without run_meta.json")
+          latest = max(candidates, key=lambda path: path.stat().st_mtime)
+          outcome = json.loads(latest.read_text()).get("outcome")
+          if outcome not in {"simulation", "non_simulation"}:
+              raise SystemExit(
+                  f"::error::pytest did not execute a complete campaign ({outcome})"
+              )
+          PYEOF
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-test-results-${{ steps.module.outputs.name }}-${{ github.run_id }}
+          path: tests/results/
+          retention-days: 90
+
+      - name: Write job summary
+        if: always()
+        env:
+          MODULE_NAME: ${{ steps.module.outputs.name }}
+          MODULE_REPO: ${{ steps.module_src.outputs.repo }}
+          MODULE_REF: ${{ steps.module_src.outputs.ref }}
+          AIRSTACK_REF: ${{ inputs.airstack_ref }}
+          RESOLVED_MARKS: ${{ steps.parse.outputs.resolved_marks }}
+          SIM: ${{ steps.parse.outputs.sim }}
+          NUM_ROBOTS: ${{ inputs.num_robots }}
+          MODULE_TESTS_DIR: ${{ steps.parse.outputs.module_tests_dir }}
+        run: |
+          {
+            echo "## Module System Tests"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Module | \`$MODULE_NAME\` (\`$MODULE_REPO\` @ \`$MODULE_REF\`) |"
+            echo "| AirStack ref | \`${AIRSTACK_REF:-develop}\` |"
+            echo "| Marks | \`${RESOLVED_MARKS:-—}\` |"
+            echo "| Sim | \`${SIM:-—}\` |"
+            echo "| Robots | \`${NUM_ROBOTS:-1}\` |"
+            echo "| Module pytest dir | \`${MODULE_TESTS_DIR:-—}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

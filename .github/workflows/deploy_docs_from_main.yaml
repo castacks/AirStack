@@ -1,10 +1,12 @@
-name: Build/Publish Main Docs 
+name: Build/Publish Main Docs
 on:
   push:
     paths:
       - "docs/**"
       - "mkdocs.yml"
       - "*.md"
+      - "stacks/**"
+      - "tools/gen_docs_catalog.py"
       - ".github/workflows/deploy_docs_from_main.yaml"
     branches:
       - main
@@ -22,13 +24,51 @@ jobs:
           python-version: 3.10.6
       - name: Install Dependencies
         run: |
-          pip install mkdocs-material mkdocs-same-dir mkdocs-redirects
+          pip install mkdocs-material mkdocs-same-dir mkdocs-redirects pyyaml
           pip install pillow cairosvg mike
+      # RFC #379 §9: module docs ride the docs deploy. Shallow-clone the
+      # registry index and each REGISTERED module repo at its registered_ref
+      # into the gitignored modules/ dir, then regenerate docs/modules/ so
+      # the published catalog is fresh even when the committed pages lag.
+      # FAILURE ISOLATION: nothing in this step may fail the deploy — an
+      # unreachable registry or module repo degrades to the committed pages /
+      # a stub note on the module's page.
+      - name: Fetch registry index and registered module repos
+        run: |
+          rm -rf .modules-index modules
+          git clone --depth 1 https://github.com/castacks/airstack-modules-index .modules-index \
+            || echo "skipped: registry index unreachable (committed catalog pages will be served)"
+          if [ -d .modules-index/modules ]; then
+            mkdir -p modules
+            python3 tools/gen_docs_catalog.py --index .modules-index --list-refs |
+            while IFS=$'\t' read -r name repo ref; do
+              ( git init -q "modules/$name" \
+                && git -C "modules/$name" remote add origin "$repo" \
+                && git -C "modules/$name" fetch -q --depth 1 origin "$ref" \
+                && git -C "modules/$name" checkout -q FETCH_HEAD ) \
+                || { rm -rf "modules/$name"; echo "skipped: module $name ($repo @ $ref) unreachable — its page keeps the stub note"; }
+            done
+            python3 tools/gen_docs_catalog.py --index .modules-index --modules-dir modules \
+              || echo "skipped: catalog regeneration failed (committed pages will be served)"
+          fi
       - name: Setup Docs Deploy
         run: |
           git config --global user.name "Docs Deploy"
           git config --global user.email "docs.deploy@example.co.uk"
       - name: Build Docs Website
         run: |
-          mike deploy --push main
+          VERSION=$(grep -m1 '^VERSION=' .env | cut -d= -f2- | tr -d '"')
+          mike deploy --push --title "${VERSION} (stable)" main
           mike set-default main --push
+      # mike re-sorts versions.json on every deploy ("main" sorts above
+      # "develop"), so pin develop — the higher, unreleased version — back
+      # to the top of the version selector after each deploy.
+      - name: Reorder version selector (develop above main)
+        run: |
+          git worktree add ../ghp-reorder gh-pages
+          python3 .github/workflows/scripts/docs_reorder_versions.py ../ghp-reorder/versions.json
+          if ! git -C ../ghp-reorder diff --quiet -- versions.json; then
+            git -C ../ghp-reorder commit -m "Reorder version selector: develop above main" versions.json
+            git push origin gh-pages
+          fi
+          git worktree remove ../ghp-reorder

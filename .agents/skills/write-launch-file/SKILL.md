@@ -1,7 +1,7 @@
 ---
 name: write-launch-file
-description: Author a ROS 2 launch file for AirStack with the correct conventions. Use when creating or editing any .launch.xml/.launch.py for the robot autonomy stack — covers ROBOT_NAME namespacing, topic remapping, allow_substs parameter loading, conditional launch, and layer bringup composition.
-license: Apache-2.0
+description: Author a ROS 2 launch file for AirStack with the correct conventions. Use when creating or editing any .launch.xml/.launch.py — covers the single-locus wiring rule (remaps live ONLY in stack launch files), canonical-default topic args with descriptions, ROBOT_NAME namespacing, allow_substs parameter loading, and stack-folder composition.
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack
@@ -12,181 +12,108 @@ metadata:
 ## When to Use
 
 - Creating a launch file for a brand-new module package (paired with [add-ros2-package](../add-ros2-package))
-- Editing a layer's bringup launch file to wire in a new module (paired with [integrate-module-into-layer](../integrate-module-into-layer))
-- Adding optional/conditional behavior (e.g. `enable_rviz`, `use_alt_planner`) to an existing launch file
-- Composing multiple module launch files into a higher-level launch
-- Any time a module's topic names, parameters, or remappings need to change
+- Wiring a module into a stack's entry launch file (`stacks/<name>/launch/*.launch.xml`)
+- Adding optional/conditional behavior (e.g. `enable_rviz`) to an existing launch file
+- Any time a module's topic names, parameters, or connections need to change
 
-If you only need to tweak runtime parameters and the launch file already exists with sensible launch arguments, override via `<arg>` rather than editing the file.
+If you only need different runtime wiring and the module already declares topic args, override the args from the stack launch file — never edit the module.
 
-## Core Conventions (Read First)
+## The Two Kinds of Launch File (Read First)
 
-These are non-negotiable in AirStack:
+AirStack separates launch files into exactly two roles (RFC #379 §4 — the **single-locus wiring rule**):
 
-1. **Every robot-side topic is under `/$(env ROBOT_NAME)/...`.** Never hardcode `/drone1`, `/robot`, etc. Multi-robot scenarios depend on this.
-2. **Module nodes use *relative* topic names internally** (e.g. `odometry`, `global_plan`). The launch file **remaps** them to the correct global topic.
-3. **YAML config files load with `allow_substs="true"`.** Without it, `$(env ...)` and `$(var ...)` inside the YAML are not expanded.
-4. **XML is the AirStack default.** Use `*.launch.xml`. Use Python (`*.launch.py`) only when you need real control flow (loops, conditional graph construction, computed values).
-5. **Launch files are installed at build time.** After editing, you must rebuild the package (`bws --packages-select <pkg>`) before the change takes effect.
-6. **ROS 2 does NOT scope launch arguments.** A `<arg name="odometry_topic">` declared in a child launch file leaks to the parent. Prefix args with the layer/module name (e.g. `local_odometry_in_topic`) — see the warning at the top of `local.launch.xml`.
+| | Module launch file | Stack launch file |
+|---|---|---|
+| Lives in | `<package>/launch/` | `stacks/<name>/launch/` |
+| Declares topic `<arg>`s | YES — with **canonical defaults** and a `description=` on every arg | May declare args (each needs `description=`) |
+| `<remap>` / `remappings=` | **NEVER** | YES — this is the only place cross-module wiring lives |
+| Hardcodes cross-module topics | NEVER | N/A — the stack file IS the wiring document |
+| Format | XML default; Python only for real control flow | **XML only** — declarative, greppable, statically parseable |
 
-## XML vs. Python Launch Files
+Consequences:
 
-| Use XML when… | Use Python when… |
-|---------------|------------------|
-| Launching a fixed set of nodes | You need to loop (e.g. spawn N robots from a list) |
-| Static remappings, parameter files, conditional groups | You need to compute values at launch time |
-| Including other launch files | You need conditional logic that XML's `if`/`unless` cannot express |
-| You want a config that is easy to diff and read | You need to read JSON/YAML and generate nodes from it |
+- **All cross-module wiring lives in the stack's entry launch file(s).** One flat file where every `<include>` block reads "this module, these connections." `grep -r global_plan stacks/my_stack/` answers "who touches this."
+- **A CI lint enforces it** ([`tests/meta/test_launch_single_locus.py`](../../../tests/meta/test_launch_single_locus.py)): any `<remap>`/`remappings=` outside `stacks/*/launch/` fails unless the file is in the frozen [`launch_lint_allowlist.txt`](../../../tests/meta/launch_lint_allowlist.txt). The allowlist only shrinks — never add to it. Legacy layer-bringup files still carry remaps (wrap form); they flatten into the stack files over time, deleting their allowlist lines as they go.
+- **Module topic args default to the canonical names** from [docs/robot/autonomy/integration_checklist.md](../../../docs/robot/autonomy/integration_checklist.md). A module launched with zero overrides connects to a default stack correctly.
 
-Almost every module launch file and every layer bringup launch file in `robot/ros_ws/src/` is XML. Defaulting to XML keeps the codebase consistent and reviewable. If you find yourself reaching for Python, first check whether environment variables + `<arg>` + `<group if=...>` can express the same thing.
+Current status: **wrap form**. Reference stacks (`stacks/full_default/` etc.) include the existing layer bringups; flattening the nodes and remaps into the stack files arrives in a later phase. New wiring you write goes in the stack file, not in a module or bringup file. See [docs/development/stacks.md](../../../docs/development/stacks.md).
+
+## Core Conventions
+
+1. **Every robot-side topic is under `/$(env ROBOT_NAME)/...`.** Never hardcode `/drone1`, `/robot`, etc. — multi-robot depends on this.
+2. **Module nodes use *relative* topic names internally** (e.g. `odometry`, `global_plan`); the module launch file exposes them as prefixed `<arg>`s; the **stack** launch file overrides those args (or remaps) to wire modules together.
+3. **Every `<arg>` gets a `description=`.** The lint requires it for stack launch files; treat it as mandatory everywhere — an undescribed arg is unwireable by the next person.
+4. **YAML config files load with `allow_substs="true"`.** Without it, `$(env ...)`/`$(var ...)` inside the YAML are not expanded.
+5. **ROS 2 does NOT scope launch arguments.** A child's `<arg name="odometry_topic">` collides with a sibling's. Prefix args with the module name: `my_planner_odometry_in_topic`.
+6. **Launch files are installed at build time.** Rebuild (`bws --packages-select <pkg>`) after editing — except stack launch files, which are read from the bind-mounted `stacks/` folder and need no build.
 
 ## Steps (Module Launch File)
 
-This is the typical "I just made a new package" workflow. The result is a single `<package>/launch/<package>.launch.xml`.
-
-### 1. Locate the Launch Directory
-
-```
-robot/ros_ws/src/<layer>/<category>/<package_name>/launch/<package_name>.launch.xml
-```
-
-Make sure your `CMakeLists.txt` (C++) or `setup.py` (Python) installs the `launch/` directory — see [add-ros2-package](../add-ros2-package). A launch file that is not installed does not exist as far as `ros2 launch` is concerned.
-
-### 2. Declare Launch Arguments
-
-Put every topic name, every config path, and every toggleable feature behind an `<arg>` with a sensible default. This is what lets the layer bringup file remap your module without editing your launch file.
+Result: a single `<package>/launch/<package>.launch.xml` that declares its interface and starts its nodes — **no remaps, no cross-module topic knowledge beyond canonical defaults**.
 
 ```xml
 <launch>
-  <!-- Topic args: prefix with module name to avoid collisions in parent launches -->
+  <!-- Topic args: module-name prefix, canonical defaults, described. -->
   <arg name="my_planner_odometry_in_topic"
-       default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+       default="/$(env ROBOT_NAME)/odometry_conversion/odometry"
+       description="Input odometry (nav_msgs/Odometry)" />
   <arg name="my_planner_global_plan_in_topic"
-       default="/$(env ROBOT_NAME)/global_plan" />
+       default="/$(env ROBOT_NAME)/global_plan"
+       description="Input global waypoint path (nav_msgs/Path)" />
   <arg name="my_planner_trajectory_out_topic"
-       default="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
+       default="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add"
+       description="Output planned trajectory segment (airstack_msgs/TrajectorySegment)" />
 
-  <!-- Config -->
   <arg name="my_planner_config"
-       default="$(find-pkg-share my_planner)/config/my_planner.yaml" />
+       default="$(find-pkg-share my_planner)/config/my_planner.yaml"
+       description="Node parameter YAML" />
 
-  <!-- Toggles -->
-  <arg name="enable_my_planner_debug" default="false" />
-```
-
-### 3. Launch the Node with Param + Remap
-
-```xml
   <node pkg="my_planner" exec="my_planner_node" name="my_planner" output="screen">
-    <!-- allow_substs="true" is required if the YAML uses $(env ...) or $(var ...) -->
     <param from="$(var my_planner_config)" allow_substs="true" />
-
-    <!-- Remap relative topic names from the node's code to global AirStack topics -->
-    <remap from="odometry"            to="$(var my_planner_odometry_in_topic)" />
-    <remap from="global_plan"         to="$(var my_planner_global_plan_in_topic)" />
-    <remap from="trajectory_segment"  to="$(var my_planner_trajectory_out_topic)" />
+    <!-- Topics come from the args: pass them as parameters or use the args
+         directly in code via declared parameters. Do NOT add <remap> here —
+         wiring is the stack file's job. -->
+    <param name="odometry_topic" value="$(var my_planner_odometry_in_topic)" />
+    <param name="global_plan_topic" value="$(var my_planner_global_plan_in_topic)" />
+    <param name="trajectory_topic" value="$(var my_planner_trajectory_out_topic)" />
   </node>
 </launch>
 ```
 
-The `<remap from="X" to="Y"/>` direction always reads as: "the topic the node calls **X** in its source code should resolve to **Y** at runtime."
+If the node subscribes by relative name in code (the common ROS pattern), keep the relative names and let the **stack** launch file remap them — the prohibition is on remaps *in module files*, not on nodes using relative names.
 
-### 4. (Optional) Add Conditional Sub-Components
-
-Anything that should only sometimes run goes in a `<group if=...>`:
+Sub-namespace grouping is still fine inside a module:
 
 ```xml
-  <group if="$(var enable_my_planner_debug)">
-    <node pkg="rviz2" exec="rviz2"
-          args="-d $(find-pkg-share my_planner)/rviz/debug.rviz" output="screen" />
-  </group>
+<group>
+  <push-ros-namespace namespace="my_planner" />
+  <node pkg="my_planner" exec="planner_node" output="screen" />
+  <node pkg="my_planner" exec="visualizer" output="screen" />
+</group>
 ```
 
-Use `<group unless="$(var ...)">` for the inverse. For mutually exclusive alternatives, pair an `if` group with an `unless` group on the same arg.
+## Steps (Stack Launch File)
 
-### 5. (Optional) Push a Sub-Namespace
+A stack folder (`stacks/<name>/`) is the unit of topology — see [docs/development/stacks.md](../../../docs/development/stacks.md) for the full anatomy. Its `launch/stack.launch.xml` is **THE wiring document**: a flat list of module `<include>`s, each block stating that module's connections.
 
-If your module spawns several supporting nodes, group them under a namespace so all of their topics get a clean prefix:
+1. **Start from a reference stack.** Copy `stacks/full_default/` and rename (`airstack stack new` arrives in a later phase).
+2. **One `<include>` per module.** Pass the module's declared topic args to wire it:
 
 ```xml
-  <group>
-    <push-ros-namespace namespace="my_planner" />
-    <node pkg="my_planner" exec="planner_node"   output="screen"> ... </node>
-    <node pkg="my_planner" exec="visualizer"     output="screen"> ... </node>
-  </group>
+<!-- Local planner: disparity from MAC-VO instead of stereo -->
+<include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml">
+  <arg name="droan_gl_disparity_topic"
+       value="/$(env ROBOT_NAME)/perception/macvo/disparity" />
+</include>
 ```
 
-This is exactly the pattern `local.launch.xml` uses for the `droan` group and `px4_interface.launch.xml` uses for the `fmu` group.
+3. **Remaps (when a module exposes relative names) go here and only here.**
+4. **Swap a module = edit one include.** Point the include at a different package/launch file and adjust the args — nothing else changes.
+5. **XML only** in stack launch files. Python launch stays available *inside* modules where genuinely needed.
+6. **No rebuild needed** — `stacks/` is bind-mounted into the robot container at `/root/AirStack/stacks`; re-launch to pick up edits.
+7. Run it: `airstack up --stack <name> --sim isaac`.
 
-## Steps (Layer Bringup Launch File)
-
-A layer bringup file (e.g. `local_bringup/launch/local.launch.xml`) is a *composition* — it does not start a single node, it starts every node the layer needs and wires them together with shared topic args.
-
-### 1. Define Shared Topic Args at the Top
-
-Use prefixed argument names so they cannot collide with sibling layers' args:
-
-```xml
-<launch>
-    <!-- WARNING: ROS2 does NOT scope launch arguments. Use unique names. -->
-    <arg name="local_odometry_in_topic"
-         default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
-    <arg name="local_disparity_in_topic"
-         default="/$(env ROBOT_NAME)/perception/stereo_image_proc/disparity" />
-    <arg name="local_camera_info_in_topic"
-         default="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
-```
-
-### 2. For Each Module: Add a `<node>` (or `<include>`) Block
-
-Two valid styles:
-
-**Style A — direct `<node>`** (when the module's launch file is small or you need to override most of its params):
-
-```xml
-    <node pkg="trajectory_controller" exec="trajectory_controller"
-          namespace="trajectory_controller" output="screen">
-        <param name="target_frame" value="map" />
-        <param name="look_ahead_time" value="1.0" />
-        <!-- ... -->
-        <remap from="odometry" to="$(var local_odometry_in_topic)" />
-    </node>
-```
-
-**Style B — `<include>` the module's own launch file** (preferred when the module already exposes good launch args):
-
-```xml
-    <include file="$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py">
-        <arg name="config" value="$(find-pkg-share global_bringup)/config/vdb_params.yaml" />
-    </include>
-```
-
-Style B keeps wiring concerns in the bringup file and parameter concerns in the module — that's the goal.
-
-### 3. Wire Cross-Module Topics Using AirStack Standard Names
-
-Use the canonical names from AGENTS.md → "Standard Topic Patterns":
-
-| Topic | Where it comes from | Where it goes to |
-|-------|---------------------|------------------|
-| `/$(env ROBOT_NAME)/odometry_conversion/odometry` | `px4_interface` (or other interface) | every consumer (planners, controllers) |
-| `/$(env ROBOT_NAME)/global_plan` | global planner | local planner |
-| `/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add` | local planner | trajectory controller |
-| `/$(env ROBOT_NAME)/trajectory_controller/look_ahead` | trajectory controller | local planner |
-| `/$(env ROBOT_NAME)/trajectory_controller/tracking_point` | trajectory controller | controllers, action servers |
-| `/$(env ROBOT_NAME)/trajectory_controller/trajectory_override` | takeoff/land/fixed-traj action servers | trajectory controller |
-| `/$(env ROBOT_NAME)/tasks/<task_name>` | behavior tree / GCS | task executor action server |
-
-### 4. Add the Module to the Bringup `package.xml`
-
-`ros2 launch` does not need this, but `colcon build --packages-up-to <bringup>` and the install dependency tracking do. Add `<depend>my_planner</depend>` to `<bringup>/package.xml`. See [integrate-module-into-layer](../integrate-module-into-layer) step 5.
-
-### 5. Rebuild
-
-```bash
-docker exec airstack-robot-desktop-1 bash -c "bws --packages-select <bringup_pkg> my_planner"
-```
+The shared per-robot preamble (ROBOT_NAME namespace push, `use_sim_time`, `robot_state_publisher`, world→map static TF) runs in `autonomy_bringup/launch/robot.launch.xml` before your stack entry file is included — do not repeat it.
 
 ## Loading YAML Config Files
 
@@ -194,190 +121,77 @@ docker exec airstack-robot-desktop-1 bash -c "bws --packages-select <bringup_pkg
 <param from="$(find-pkg-share my_planner)/config/my_planner.yaml" allow_substs="true" />
 ```
 
-`allow_substs="true"` enables `$(env VAR)` and `$(var arg)` substitution **inside the YAML file itself**. Without it, a YAML line like:
-
-```yaml
-/**:
-  ros__parameters:
-    frame_id: $(env ROBOT_NAME)/base_link
-```
-
-…will load the literal string `"$(env ROBOT_NAME)/base_link"` and downstream code will fail in confusing ways. **When in doubt, set `allow_substs="true"` — there is no downside.**
-
-YAML structure for ROS 2 parameters (this is what your `config/<package>.yaml` should look like):
+`allow_substs="true"` enables `$(env VAR)` / `$(var arg)` substitution **inside the YAML**. Without it a line like `frame_id: $(env ROBOT_NAME)/base_link` loads as a literal string. When in doubt, set it — there is no downside.
 
 ```yaml
 /**:
   ros__parameters:
     update_rate: 10.0
     target_frame: map
-    enable_visualization: true
 ```
 
-The `/**:` wildcard matches any node name, which is the most portable form when the launch file may rename the node.
-
-## Including Child Launch Files
-
-```xml
-<include file="$(find-pkg-share other_pkg)/launch/other.launch.xml">
-  <arg name="some_arg"  value="some_value" />
-  <arg name="namespace" value="$(env ROBOT_NAME)/foo" />
-</include>
-```
-
-Notes:
-- Use `$(find-pkg-share <pkg>)` to locate launch files — never hardcode absolute paths.
-- `<include>` runs the child launch file in the parent's argument scope (remember: ROS 2 does NOT scope args). Set every argument you depend on explicitly.
-- You can include `.launch.xml` from a `.launch.xml`, and either format from a `.launch.py`.
+The `/**:` wildcard matches any node name — the most portable form.
 
 ## Conditional Launch Patterns
 
-### Toggle a node on/off
-
 ```xml
-<arg name="enable_logger" default="false" />
-
+<arg name="enable_logger" default="false" description="Record a rosbag of all topics" />
 <group if="$(var enable_logger)">
   <node pkg="rosbag2" exec="record" args="-a" output="screen" />
 </group>
 ```
 
-### Pick one of two implementations
-
-```xml
-<arg name="use_droan" default="true" />
-
-<group if="$(var use_droan)">
-  <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"> ... </node>
-</group>
-<group unless="$(var use_droan)">
-  <node pkg="alt_local_planner"   exec="alt_local_planner"   output="screen"> ... </node>
-</group>
-```
-
-### Read a default from an env var
-
-```xml
-<arg name="enable_rviz" default="$(env ENABLE_RVIZ false)" />
-```
-
-The second positional value to `$(env VAR default)` is the fallback when the env var is unset.
+- `<group unless="...">` for the inverse; pair `if`/`unless` on one arg for two-way alternatives.
+- Env-var default: `<arg name="enable_rviz" default="$(env ENABLE_RVIZ false)" description="..."/>` — the second token is the fallback when unset (`''` for an empty-string fallback).
+- String comparison in conditions uses the escaped-quote eval idiom:
+  `<group if="$(eval '&quot;$(var mode)&quot; == &quot;sim&quot;')">`.
 
 ## Common Pitfalls
 
-This list also appears in AGENTS.md → "Critical Pitfalls #5"; this is the expanded version.
-
-- **Hardcoded topic names in node code.**
-  - Bad: `create_subscription<Odometry>("/drone1/odometry", ...)`
-  - Good: `create_subscription<Odometry>("odometry", ...)` and remap in the launch file.
-- **Hardcoded topic prefixes in launch files.**
-  - Bad: `<remap from="odometry" to="/drone1/odometry"/>`
-  - Good: `<remap from="odometry" to="/$(env ROBOT_NAME)/odometry"/>`
-- **Forgetting `allow_substs="true"` on a `<param from=...>`.** YAML substitutions silently fail to expand. Symptom: parameters look like literal `$(env ROBOT_NAME)` strings at runtime.
-- **`ROBOT_NAME` env var not set.** All `$(env ROBOT_NAME)` substitutions become an empty string, producing topic names like `//odometry`. `ROBOT_NAME` is normally resolved at container shell startup by `robot/docker/.bashrc` via `robot/docker/robot_name_map/resolve_robot_name.py` — see [configure-multi-robot](../configure-multi-robot). For ad-hoc overrides, pass `-e ROBOT_NAME=robot_X` to `docker exec`.
-- **`<arg>` name collisions across layers.** Two child launch files that both define `<arg name="odometry_topic">` will silently fight. Always prefix: `local_odometry_in_topic`, `global_odometry_in_topic`, etc.
-- **Missing `install(DIRECTORY launch …)` in CMakeLists.txt.** The launch file builds fine but `ros2 launch` cannot find it. Run `ls install/<pkg>/share/<pkg>/launch/` to verify after build.
-- **Editing a launch file but not rebuilding.** Launch files are *installed* by `colcon build`. The source `launch/` directory is NOT what `ros2 launch` reads. Always rebuild after editing.
-- **Forgetting `output="screen"`.** The node runs but its logs go to a file you have to hunt for. Use `output="screen"` on every node during development.
-- **Wrong `<remap from/to>` direction.** `from` is what the *node's source code* calls the topic; `to` is what it should resolve to at runtime. Swapping these is one of the most common silent failures.
-- **Using `~/topic` without understanding it.** `~/foo` resolves to `<node_name>/foo`. Useful for action server private namespaces (see `random_walk` and `takeoff_landing_planner` examples) but confusing if you don't expect it.
-- **Pushing a namespace and then absolute-path remapping anyway.** `<push-ros-namespace>` only affects *relative* topic names. `<remap from="odometry" to="/drone1/odometry">` ignores the pushed namespace entirely. That's usually what you want, but be aware of the interaction.
+- **Adding a `<remap>` to a module or layer launch file.** The single-locus lint fails CI. Wiring belongs in `stacks/<name>/launch/`.
+- **Hardcoded topic names in node code.** Bad: `create_subscription("/drone1/odometry", ...)`. Good: relative `"odometry"` (stack remaps it) or a declared parameter fed by a launch arg.
+- **Hardcoded topic prefixes.** Always `/$(env ROBOT_NAME)/...`, never a literal robot name.
+- **Missing `description=` on an `<arg>`.** Mandatory in stack files (lint rule 3); expected everywhere.
+- **Forgetting `allow_substs="true"`.** Symptom: parameters contain literal `$(env ROBOT_NAME)` at runtime.
+- **`ROBOT_NAME` unset** → topics like `//odometry`. It is resolved by `robot/docker/.bashrc` via `resolve_robot_name.py`; for ad-hoc `docker exec`, pass `-e ROBOT_NAME=robot_1`.
+- **`<arg>` name collisions across included files.** ROS 2 does not scope args — prefix them (`local_odometry_in_topic`, not `odometry_in_topic`). Passing a wrongly-named arg to an include fails *silently* (the bug that broke the legacy macvo local-bringup variant — superseded by `stacks/full_macvo/`, which deleted it; see that stack's README).
+- **Editing a module launch file but not rebuilding.** `ros2 launch` reads the *installed* copy. (Stack launch files are exempt — bind-mounted, no build.)
+- **Missing `install(DIRECTORY launch …)` in CMakeLists.txt.** Builds fine, `ros2 launch` can't find it.
+- **Wrong `<remap from/to>` direction** (stack files only): `from` = the name in the node's code, `to` = what it should resolve to.
+- **`~/topic`** resolves to `<node_name>/topic` — used for action-server private namespaces.
 
 ## Verification
 
-After writing or editing the launch file, run through this checklist:
-
 ```bash
-# 1. Rebuild
+# Module files: rebuild + confirm installed
 docker exec airstack-robot-desktop-1 bash -c "bws --packages-select <pkg>"
-
-# 2. Confirm the file was installed
 docker exec airstack-robot-desktop-1 bash -c "ls install/<pkg>/share/<pkg>/launch/"
 
-# 3. Dry-run launch to catch XML/syntax errors
-docker exec airstack-robot-desktop-1 bash -c "sws && ros2 launch <pkg> <pkg>.launch.xml --print"
+# Static parse (host): stack files are plain XML
+xmllint --noout stacks/<name>/launch/stack.launch.xml
 
-# 4. Actually launch and watch logs
-docker exec airstack-robot-desktop-1 bash -c "sws && ros2 launch <pkg> <pkg>.launch.xml"
+# Dry-run launch to catch errors
+docker exec airstack-robot-desktop-1 bash -c "sws && ros2 launch <pkg> <file>.launch.xml --print"
 
-# 5. Verify the node and its topics resolved correctly
-docker exec airstack-robot-desktop-1 bash -c "ros2 node list"
-docker exec airstack-robot-desktop-1 bash -c "ros2 node info /<robot_name>/<namespace>/<node>"
-docker exec airstack-robot-desktop-1 bash -c "ros2 topic info /<robot_name>/<expected_topic>"
+# Verify actual connections
+docker exec airstack-robot-desktop-1 bash -c "ros2 node info /<robot_name>/<node>"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic info /<robot_name>/<topic>"
+
+# The observed-truth check: snapshot the running graph and diff against the
+# stack's committed wiring.md
+airstack test -m wiring --stack <name> --sim isaacsim --num-robots 1
+
+# The static lint (runs in CI as a unit test)
+airstack test -m unit -v
 ```
 
-If `ros2 node info` shows a node subscribing to `/odometry` instead of `/<robot_name>/odometry_conversion/odometry`, your remap is wrong or `ROBOT_NAME` is unset.
-
-## Skeleton Template
-
-Copy-paste this into `robot/ros_ws/src/<layer>/<category>/<my_package>/launch/<my_package>.launch.xml` and replace the `MY_*` / `my_*` tokens.
-
-```xml
-<launch>
-  <!-- =========================================================
-       MY_MODULE_NAME launch file
-       Wires MY_MODULE into the AirStack autonomy stack.
-       Topic args use the `my_module_*` prefix to avoid collision
-       when this file is included from a layer bringup.
-       ========================================================= -->
-
-  <!-- ── Topic arguments ─────────────────────────────────────── -->
-  <arg name="my_module_odometry_in_topic"
-       default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
-  <arg name="my_module_global_plan_in_topic"
-       default="/$(env ROBOT_NAME)/global_plan" />
-  <arg name="my_module_output_topic"
-       default="/$(env ROBOT_NAME)/my_module/output" />
-
-  <!-- ── Config + toggles ────────────────────────────────────── -->
-  <arg name="my_module_config"
-       default="$(find-pkg-share my_package)/config/my_package.yaml" />
-  <arg name="enable_my_module_debug" default="false" />
-
-  <!-- ── Main node ───────────────────────────────────────────── -->
-  <group>
-    <push-ros-namespace namespace="my_module" />
-
-    <node pkg="my_package" exec="my_module_node"
-          name="my_module" output="screen">
-      <!-- allow_substs lets the YAML use $(env ROBOT_NAME) etc. -->
-      <param from="$(var my_module_config)" allow_substs="true" />
-      <param name="enable_debug" value="$(var enable_my_module_debug)" />
-
-      <!-- Inputs -->
-      <remap from="odometry"    to="$(var my_module_odometry_in_topic)" />
-      <remap from="global_plan" to="$(var my_module_global_plan_in_topic)" />
-
-      <!-- Outputs -->
-      <remap from="output"      to="$(var my_module_output_topic)" />
-    </node>
-  </group>
-
-  <!-- ── Optional debug visualization ────────────────────────── -->
-  <group if="$(var enable_my_module_debug)">
-    <node pkg="rviz2" exec="rviz2"
-          args="-d $(find-pkg-share my_package)/rviz/debug.rviz"
-          output="screen" />
-  </group>
-</launch>
-```
+If `ros2 node info` shows a node subscribing to `/odometry` instead of `/<robot_name>/...`, the stack wiring or `ROBOT_NAME` is wrong.
 
 ## References
 
-- **Real launch files to study:**
-  - Module: `robot/ros_ws/src/interface/px4_interface/launch/px4_interface.launch.xml`
-  - Module: `robot/ros_ws/src/local/planners/droan_local_planner/launch/droan_local_planner.launch.xml`
-  - Layer bringup (global): `robot/ros_ws/src/global/global_bringup/launch/global.launch.xml`
-  - Layer bringup (local): `robot/ros_ws/src/local/local_bringup/launch/local.launch.xml`
-  - Template: `.agents/skills/add-ros2-package/assets/package_template/launch/template.launch.xml`
-
-- **ROS 2 docs:**
-  - [ROS 2 Launch Tutorials](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Launch-Main.html)
-  - [Using ROS 2 Launch For Large Projects](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Using-ROS2-Launch-For-Large-Projects.html)
-  - [Launch XML format reference](https://design.ros2.org/articles/roslaunch_xml.html)
-
-- **Related skills:**
-  - [add-ros2-package](../add-ros2-package) — full package creation flow that includes a launch file
-  - [integrate-module-into-layer](../integrate-module-into-layer) — wiring your launch file into a layer bringup
-  - [debug-module](../debug-module) — diagnosing launch and topic issues
-  - [test-in-simulation](../test-in-simulation) — verifying the launched stack end-to-end
+- **Stacks:** [docs/development/stacks.md](../../../docs/development/stacks.md) — anatomy, wiring.md generation, the AUTONOMY_ROLE removal/migration table
+- **Canonical topic names:** [docs/robot/autonomy/integration_checklist.md](../../../docs/robot/autonomy/integration_checklist.md)
+- **Reference stack launch files:** `stacks/full_default/launch/stack.launch.xml`, `stacks/full_droan_cpu/`, `stacks/full_macvo/`
+- **Lint:** `tests/meta/test_launch_single_locus.py` + `tests/meta/launch_lint_allowlist.txt`
+- **ROS 2 docs:** [Launch tutorials](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Launch-Main.html) · [Launch XML format](https://design.ros2.org/articles/roslaunch_xml.html)
+- **Related skills:** [add-ros2-package](../add-ros2-package) · [integrate-module-into-layer](../integrate-module-into-layer) (legacy wrap-form path) · [debug-module](../debug-module) · [test-in-simulation](../test-in-simulation)

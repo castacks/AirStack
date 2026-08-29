@@ -3,8 +3,8 @@
 # config.sh - Configuration-related commands for AirStack
 # This module provides commands for configuring the AirStack environment
 
-# Helper function for confirmation prompts
-function confirm_no {
+# Confirmation prompt defaulting to No (returns 0 only on an explicit yes)
+function _config_confirm {
     read -r -p "${1:-Are you sure? [y/N]} " response
     case "$response" in
         [yY][eE][sS]|[yY]) 
@@ -26,7 +26,7 @@ function cmd_config_isaac_sim {
     
     log_info "Generating Default IsaacSim Config ($USER_CONFIG_JSON_DESTINATION)"
     
-    if [ -d "$USER_CONFIG_JSON_DESTINATION" ] && [ $(ls -A "$USER_CONFIG_JSON_DESTINATION" | wc -l) == 0 ]; then
+    if [ -d "$USER_CONFIG_JSON_DESTINATION" ] && [ "$(ls -A "$USER_CONFIG_JSON_DESTINATION" | wc -l)" -eq 0 ]; then
         # delete an empty directory with the same name as $USER_CONFIG_JSON_DESTINATION which gets created when
         # docker compose up is run before this script. Doing this will create a directory name user.config.json because
         # it is being mounted as a volume but it doesn't exist yet.
@@ -35,7 +35,11 @@ function cmd_config_isaac_sim {
     
     if [ -f "$USER_CONFIG_JSON_DESTINATION" ]; then
         log_warn "The file $USER_CONFIG_JSON_DESTINATION already exists."
-        confirm_no "Do you want to reset it to the default? [y/N]" && cp "$USER_CONFIG_JSON_SOURCE" "$USER_CONFIG_JSON_DESTINATION"
+        # `_config_confirm && cp` would abort the script under set -e on "no";
+        # keep the decline path alive with an explicit if.
+        if _config_confirm "Do you want to reset it to the default? [y/N]"; then
+            cp "$USER_CONFIG_JSON_SOURCE" "$USER_CONFIG_JSON_DESTINATION"
+        fi
     else
         cp "$USER_CONFIG_JSON_SOURCE" "$USER_CONFIG_JSON_DESTINATION"
     fi
@@ -67,9 +71,14 @@ function cmd_config_nucleus {
             -e "s/^OMNI_PASS=.*$/OMNI_PASS=$escaped_api_token/" \
             "$OMNI_PASS_SOURCE" > "$OMNI_PASS_DESTINATION"
         log_info "Nucleus login configuration complete"
+    elif [ -f "$OMNI_PASS_DESTINATION" ]; then
+        # Blank input must actually skip: the file may hold a working API
+        # token, and overwriting it with the guest template would silently
+        # break Nucleus auth.
+        log_info "Skipping Nucleus login configuration (keeping existing $OMNI_PASS_DESTINATION)"
     else
         cp "$OMNI_PASS_SOURCE" "$OMNI_PASS_DESTINATION"
-        log_info "Skipping Nucleus login configuration"
+        log_info "Skipping Nucleus login configuration (created guest defaults)"
     fi
 }
 
@@ -101,16 +110,43 @@ function cmd_config_all {
     log_info "All configuration tasks complete"
 }
 
+# Dispatcher for the `config` command group. Bare `airstack config` keeps
+# its historical meaning: run all configuration tasks.
+function cmd_config_dispatch {
+    local sub="${1:-all}"
+    if [ $# -gt 0 ]; then shift; fi
+    case "$sub" in
+        all)       cmd_config_all "$@" ;;
+        isaac-sim) cmd_config_isaac_sim "$@" ;;
+        nucleus)   cmd_config_nucleus "$@" ;;
+        git-hooks) cmd_config_git_hooks "$@" ;;
+        help|-h|--help) print_command_help config ;;
+        *)
+            log_error "Unknown config subcommand: '$sub'"
+            print_command_help config
+            return 1
+            ;;
+    esac
+}
+
+# Legacy `config:<sub>` spellings — hidden from help, forward with a nudge.
+function _cmd_config_legacy {
+    local sub="$1"; shift
+    log_warn "'airstack config:${sub}' is deprecated; use 'airstack config ${sub}'."
+    cmd_config_dispatch "$sub" "$@"
+}
+
 # Register commands from this module
 function register_config_commands {
-    COMMANDS["config"]="cmd_config_all"
-    COMMANDS["config:isaac-sim"]="cmd_config_isaac_sim"
-    COMMANDS["config:nucleus"]="cmd_config_nucleus"
-    COMMANDS["config:git-hooks"]="cmd_config_git_hooks"
-    
-    # Add command help
-    COMMAND_HELP["config"]="Run all configuration tasks"
-    COMMAND_HELP["config:isaac-sim"]="Configure Isaac Sim settings"
-    COMMAND_HELP["config:nucleus"]="Configure AirLab Nucleus login"
-    COMMAND_HELP["config:git-hooks"]="Set up Git hooks"
+    COMMANDS["config"]="cmd_config_dispatch"
+    COMMAND_HELP["config"]="Configure AirStack: all (default)|isaac-sim|nucleus|git-hooks (see 'airstack help config')"
+
+    # Deprecated colon-form aliases (pre command-group syntax). Registered so
+    # old muscle memory / scripts keep working, but COMMAND_HIDDEN keeps them
+    # out of `airstack help` and `airstack commands`.
+    local sub
+    for sub in isaac-sim nucleus git-hooks; do
+        COMMANDS["config:${sub}"]="_cmd_config_legacy ${sub}"
+        COMMAND_HIDDEN["config:${sub}"]=1
+    done
 }

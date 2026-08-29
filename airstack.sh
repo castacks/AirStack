@@ -58,6 +58,13 @@ MODULES_DIR="$PROJECT_ROOT/.airstack/modules"
 # Create modules directory if it doesn't exist
 mkdir -p "$MODULES_DIR"
 
+# Shared helpers (_require_python_yaml, _env_value, _robot_containers,
+# _container_identity) — sourced explicitly BEFORE load_command_modules so
+# both built-in commands and every command module can rely on them.
+if [ -f "$MODULES_DIR/_lib.sh" ]; then
+    source "$MODULES_DIR/_lib.sh"
+fi
+
 # Color codes for output formatting
 BOLDCYAN='\033[38;5;14;1m'
 RED='\033[0;31m'
@@ -92,11 +99,11 @@ function print_usage {
     
     # Print each command with its help text
     for cmd in "${sorted_commands[@]}"; do
-        # Skip hidden commands (those starting with _)
-        if [[ "$cmd" == _* ]]; then
+        # Skip hidden commands (those starting with _ or marked hidden)
+        if [[ "$cmd" == _* || -n "${COMMAND_HIDDEN[$cmd]:-}" ]]; then
             continue
         fi
-        
+
         # Get help text or use a default
         local help_text="${COMMAND_HELP[$cmd]:-No description available}"
         
@@ -141,7 +148,6 @@ function print_command_help {
             echo "Options:"
             echo "  --force       Force reinstallation of components"
             echo "  --no-docker   Skip Docker installation"
-            echo "  --with-wintak Install WinTAK VirtualBox environment"
             ;;
         setup)
             echo "Usage: airstack setup [options]"
@@ -149,7 +155,6 @@ function print_command_help {
             echo "Options:"
             echo "  --no-shell    Don't modify shell configuration"
             echo "  --no-config   Skip configuration tasks (Isaac Sim, Nucleus, Git hooks)"
-            echo "  --no-natnet   Skip NatNet SDK installation for OptiTrack motion capture support"
             echo ""
             echo "This command adds an 'airstack' function to your shell profile that will"
             echo "automatically find and use the airstack.sh script from the current directory"
@@ -158,30 +163,143 @@ function print_command_help {
         up)
             echo "Usage: airstack up [service_name] [options]"
             echo ""
+            echo "Launch-intent options (consumed by airstack; they derive + export env vars):"
+            echo "  --sim isaac|airsim|simple"
+            echo "                      Select the simulator: swaps the compose profile and"
+            echo "                      the matching URDF_FILE. 'simple' launches the"
+            echo "                      lightweight kinematic simple-sim (no PX4/MAVROS):"
+            echo "                      the simple-robot service replaces robot-desktop"
+            echo "                      (SIM_TYPE=simple), the 'desktop' profile is dropped"
+            echo "                      (no GCS), and URDF_FILE is left unchanged."
+            echo "  --robots N          Robot count (NUM_ROBOTS); on Isaac also selects the"
+            echo "                      matching one-/multi-drone launch script."
+            echo "  --stack NAME        Launch a stack folder (stacks/NAME/launch/stack.launch.xml)."
+            echo "                      Stacks are the only launch dispatch; no --stack (and no stack"
+            echo "                      env) launches the trunk reference stack full_default."
+            echo "                      NAME:ENTRY selects an alternate entry file"
+            echo "                      (launch/ENTRY.launch.xml). See docs/development/stacks.md."
+            echo "  --fleet NAME        Launch a fleet (config/fleets/NAME.yaml): exports FLEET_CONFIG_FILE,"
+            echo "                      derives NUM_ROBOTS, selects the Isaac fleet spawner, and (for"
+            echo "                      heterogeneous fleets) generates the per-robot services plus"
+            echo "                      split-stack DDS-router configs. Mutually exclusive with"
+            echo "                      --robots. See docs/development/fleets.md."
+            echo "  --scene NAME        Select the simulation scene by shortname (simulation/scenes.yaml):"
+            echo "                      maps NAME to the selected simulator's scene reference and"
+            echo "                      exports it (Isaac: ISAAC_SIM_SCENE [+ ISAAC_SIM_STAGE_SCALE] —"
+            echo "                      a Pegasus catalog key or Nucleus USD URL; MS AirSim:"
+            echo "                      MS_AIRSIM_SCENE — a pre-built UE4 scene, auto-fetched if"
+            echo "                      missing). Unknown scene = error + table of available scenes."
+            echo "  --headless          Run the sim without a GUI (ISAAC_SIM_HEADLESS/MS_AIRSIM_HEADLESS)."
+            echo "  --play / --no-play  Start the sim playing, or paused (PLAY_SIM_ON_START)."
+            echo "  --no-autolaunch     Start containers idle (AUTOLAUNCH=false; launch manually)."
+            echo "  --wait              After starting, block until flight-ready (airstack ready)."
+            echo "  --dry-run           Validate + print the derived launch config; start nothing."
+            echo ""
+            echo "Anything else (e.g. --build, service names) is passed through to"
+            echo "'docker compose up'."
+            ;;
+        fleet)
+            echo "Usage: airstack fleet <subcommand>"
+            echo ""
+            echo "Manage fleet files (RFC #380 §2): config/fleets/*.yaml declare who"
+            echo "exists, which vehicle (body), which stack (brain), and which ground"
+            echo "hosts run each split stack's offboard half."
+            echo "Guide: docs/development/fleets.md"
+            echo ""
+            echo "Subcommands:"
+            echo "  list             Table of fleets: robots, vehicles, stacks, shape"
+            echo "                   (homogeneous / heterogeneous / +split)."
+            echo "  generate <fleet> Write .airstack/generated/docker-compose.fleet.yaml:"
+            echo "                   one self-contained service per robot plus one per"
+            echo "                   (ground host x offboard tenant) — AND the DDS-router"
+            echo "                   configs for every split stack the fleet places"
+            echo "                   (.airstack/generated/dds_router.<stack>.yaml)."
+            echo "                   Homogeneous fleets need no generation"
+            echo "                   (deploy.replicas handles them) — the command says so"
+            echo "                   and writes nothing."
+            echo ""
+            echo "Run a fleet:  airstack up --fleet <name> [--sim isaac|airsim]"
+            ;;
+        osmo)
+            echo "Usage: airstack osmo <subcommand> [options]"
+            echo ""
+            echo "Develop AirStack on an ephemeral OSMO GPU pod from any laptop (Mac/"
+            echo "Windows/Linux) — wraps 'osmo workflow submit/port-forward/logs/cancel'"
+            echo "for osmo/workflows/airstack-dev.yaml. Needs only the cross-platform"
+            echo "'osmo' CLI (no local Docker). Tutorial: docs/tutorials/airstack_on_osmo.md"
+            echo ""
+            echo "Subcommands:"
+            echo "  setup         One-time per-user credential registration (airlab-docker-"
+            echo "                registry, airlab-docker-login, airlab-nucleus). Re-run to"
+            echo "                rotate credentials (e.g. a new Nucleus API token)."
+            echo "  up [--pool POOL] [--key PATH] [--branch BRANCH]"
+            echo "                Submit the airstack-dev workflow with your SSH pubkey"
+            echo "                injected. --branch defaults to your current local branch;"
+            echo "                the workflow id is saved to ~/.airstack/osmo-state for the"
+            echo "                other subcommands (override with AIRSTACK_OSMO_WF)."
+            echo "  logs          Follow the workspace task logs (OSMO_LOGS_TASK /"
+            echo "                OSMO_LOGS_TAIL override task and tail length)."
+            echo "  ide [--no-open] [code|cursor]"
+            echo "                Port-forward sshd (2200:22) and open VS Code/Cursor on"
+            echo "                Host airstack-osmo."
+            echo "  webrtc        Port-forward the Isaac Sim WebRTC ports (TCP foreground"
+            echo "                + UDP background)."
+            echo "  foxglove      Install the AirStack Foxglove extensions locally, then"
+            echo "                port-forward the GCS Foxglove websocket (8766:8766)."
+            echo "                OSMO_FOXGLOVE_EXT_DIR overrides the target dir;"
+            echo "                OSMO_FOXGLOVE_SKIP_EXTENSIONS=1 skips the install."
+            echo "  down          Cancel the active workflow (push your work to git first"
+            echo "                — the pod filesystem is ephemeral)."
+            echo ""
+            echo "Typical session: airstack osmo up --pool airstack && airstack osmo ide"
+            ;;
+        sync)
+            echo "Usage: airstack sync [--no-hooks]"
+            echo ""
             echo "Options:"
-            echo "  --build       Build images before starting containers"
-            echo "  --recreate    Recreate containers even if their configuration and image haven't changed"
+            echo "  --no-hooks    Skip module host_setup hooks during the module sync step"
+            echo ""
+            echo "Sync the checkout from airstack.yaml (RFC #380 §3): upsert its"
+            echo "modules: additions into modules.repos (naming every deviation), run"
+            echo "the module sync, fetch declared external stack repos into gitignored"
+            echo "stacks/.external/<alias>/ (fleets address them as <alias>/<stack>),"
+            echo "validate the declared fleet, warn if release: has drifted off the"
+            echo ".env VERSION line, and record the resolved sources in"
+            echo ".airstack/generated/effective_sources.yaml."
+            echo ""
+            echo "NOT done (future work): rewriting .env (it stays hand-edited) and"
+            echo "release-set pin resolution against a registry (RFC #379 §7)."
             ;;
         images)
-            echo "Usage: airstack images"
+            echo "Usage: airstack images [subcommand] [service_name...] [options]"
             echo ""
-            echo "List Docker images whose repository/tag contains the PROJECT_NAME value from .env."
-            echo "Shows all images if PROJECT_NAME is not set."
-            ;;
-        image-build)
-            echo "Usage: airstack image-build [service_name...] [options]"
+            echo "Manage the Docker Compose service images. Compose subcommands pass"
+            echo "env variables from .env and any prepended environment variables"
+            echo "(e.g. VERSION=x airstack images build robot-desktop)."
             echo ""
-            echo "Build or rebuild Docker Compose services. Passes ENV variables from .env"
-            echo "and any prepended environment variables (e.g. VERSION=x airstack build robot)."
-            echo ""
-            echo "Options:"
-            echo "  --no-cache         Do not use cache when building the image"
-            echo "  --pull             Always attempt to pull a newer version of the image"
-            echo "  --push             Push service images"
-            echo "  --progress=VALUE   Set type of progress output (auto, tty, plain, json, quiet)"
-            echo "  --env-file         Specify an alternate environment file"
-            echo ""
-            echo "Any additional flags are passed directly to 'docker compose build'."
+            echo "Subcommands:"
+            echo "  list (default)  List Docker images whose repository/tag contains the"
+            echo "                  PROJECT_NAME value from .env (all images if unset)."
+            echo "  build [service...]"
+            echo "                  Build or rebuild Docker Compose services."
+            echo "                  Options (any other flags pass through to"
+            echo "                  'docker compose build'):"
+            echo "                    --no-cache         Build without using the cache"
+            echo "                    --pull             Always pull newer base images"
+            echo "                    --push             Push service images after build"
+            echo "                    --progress=VALUE   auto|tty|plain|json|quiet"
+            echo "                    --env-file FILE    Alternate environment file"
+            echo "  push [service...]"
+            echo "                  Push service images to the registry."
+            echo "  pull [service...]"
+            echo "                  Pull service images from the registry."
+            echo "  delete [-y|--yes]"
+            echo "                  Delete all local images matching PROJECT_NAME"
+            echo "                  (lists the matches and asks first unless -y)."
+            echo "  rm [-f|--force] [-y|--yes] <search_term>"
+            echo "                  Remove images whose repository:tag contains the"
+            echo "                  search term (fixed-string match; asks first"
+            echo "                  unless -y). E.g. airstack images rm -f -y myimage"
             ;;
         connect)
             echo "Usage: airstack connect [container_name] [options]"
@@ -216,17 +334,36 @@ function print_command_help {
             echo ""
             echo "Display the current AirStack version from VERSION in .env file."
             ;;
-        rmi)
-            echo "Usage: airstack rmi [flags] <search_term>"
+        config)
+            echo "Usage: airstack config [subcommand]"
             echo ""
-            echo "Remove Docker images whose tag matches the given search term."
+            echo "Configure the AirStack environment. With no subcommand, runs all"
+            echo "configuration tasks in order (isaac-sim, nucleus, git-hooks)."
+            echo ""
+            echo "Subcommands:"
+            echo "  all (default)  Run all configuration tasks below."
+            echo "  isaac-sim      Generate the default Isaac Sim user.config.json"
+            echo "                 (asks before resetting an existing one)."
+            echo "  nucleus        Configure the AirLab Omniverse Nucleus login"
+            echo "                 (prompts for an API token; blank to skip)."
+            echo "  git-hooks      Install the repo's pre-commit hook"
+            echo "                 (docker image tag versioning)."
+            ;;
+        ready)
+            echo "Usage: airstack ready [--json]"
+            echo ""
+            echo "Wait until the running stack is flight-ready, gate by gate:"
+            echo "  1. robot containers running"
+            echo "  2. sim publishing /clock"
+            echo "  3. sentinel autonomy nodes up (per robot)"
+            echo "  4. PX4 ready: MAVROS connected, then EKF odometry streaming"
             echo ""
             echo "Options:"
-            echo "  -f    Force removal of the image"
+            echo "  --json    Print a JSON verdict on stdout (progress goes to stderr):"
+            echo "            {\"ready\": bool, \"elapsed_s\": N, \"gates\": {...}}"
             echo ""
-            echo "Examples:"
-            echo "  airstack rmi myimage"
-            echo "  airstack rmi -f myimage"
+            echo "Budgets are env-overridable: READY_CONTAINERS_TIMEOUT, READY_CLOCK_TIMEOUT,"
+            echo "READY_NODES_TIMEOUT, READY_PX4_TIMEOUT, READY_POLL_INTERVAL."
             ;;
         test)
             echo "Usage: airstack test [pytest options]"
@@ -235,23 +372,43 @@ function print_command_help {
             echo "inside it. All arguments are forwarded directly to pytest."
             echo "Results are written to tests/results/<timestamp>/."
             echo ""
-            echo "Test marks (-m):"
-            echo "  unit            Fast hermetic tests (robot/sim mirrored layout; no Docker stack)"
+            echo "Test marks (-m) — see tests/pytest.ini:"
+            echo "  unit            Fast hermetic tests (no Docker stack)"
             echo "  build_docker    Docker image build tests (no GPU needed)"
             echo "  build_packages  colcon workspace build tests (no GPU needed)"
-            echo "  liveliness      Full stack up: nodes, topics, compute, stability"
+            echo "  integration     Robot container + a host-side component (no sim/GPU)"
+            echo "  liveliness      Container and process health (Docker, tmux, sentinel nodes)"
+            echo "  wiring          Observed wiring snapshot, drift-checked vs the committed golden"
+            echo "  sensors         Sim and robot sensor topic rates, LiDAR validation, sim RTF"
             echo "  takeoff_hover_land  Takeoff / hover / land flight chain"
+            echo "  autonomy        Fixed-pattern trajectory path-tracker benchmark"
+            echo "  waypoint_flight Ordered-waypoint navigation judged on the odometry track"
+            echo "  simple_sim      Simple-sim smoke test (containers, /clock, sentinel nodes;"
+            echo "                  run with --sim simplesim --num-robots 1)"
+            echo "  optitrack       OptiTrack NatNet end-to-end (tests live in the asm_optitrack module)"
             echo ""
-            echo "AirStack-specific options:"
-            echo "  --sim=TARGETS              Comma-separated sim targets"
-            echo "                             (default: msairsim,isaacsim)"
+            echo "AirStack-specific options (defaults from tests/conftest.py):"
+            echo "  --sim=TARGETS              Comma-separated sim targets: isaacsim, msairsim,"
+            echo "                             simplesim (default: isaacsim)"
             echo "  --num-robots=COUNTS        Comma-separated robot counts (default: 1,3)"
-            echo "  --stress-iterations=N      Up/down cycles per config (default: 3)"
+            echo "  --stack=NAME               Stack folder under stacks/ to launch (default:"
+            echo "                             the full_default dispatch)"
+            echo "  --fleet=NAME               Fleet preset under config/fleets/ (derives the"
+            echo "                             robot count, overriding --num-robots)"
+            echo "  --stress-iterations=N      Up/down cycles per config (default: 1)"
             echo "  --stable-duration=SECS     Seconds test_stable polls for (default: 120)"
             echo "  --stable-interval=SECS     Seconds between polls (default: 10)"
             echo "  --takeoff-velocities=LIST  Comma-separated takeoff/land speeds in m/s"
-            echo "                             for autonomy tests (default: 0.5,1,2)"
+            echo "                             (default: 0.5)"
+            echo "  --trajectory-types=LIST    Fixed trajectory types for the autonomy mark"
+            echo "                             (default: Circle,Figure8,Racetrack,Line)"
+            echo "  --waypoints='x,y,z; ...'   Ordered waypoint route for waypoint_flight"
+            echo "                             (default: open 30 m square, 3 corners, +10 m)"
+            echo "  --waypoint-tolerance=M     Pass distance to intermediate waypoints (default: 15)"
+            echo "  --goal-tolerance=M         Pass distance to the final waypoint (default: 2.5)"
+            echo "  --waypoint-timeout=SECS    Per-waypoint time budget (default: 120)"
             echo "  --gui                      Show simulator GUI (default: headless)"
+            echo "  --no-image-build           CI flag for system-tests.yml (ignored by pytest)"
             echo ""
             echo "Examples:"
             echo "  # Build tests only — fast, no GPU needed"
@@ -269,6 +426,100 @@ function print_command_help {
             echo "Usage: airstack docs [serve]"
             echo ""
             echo "Build documentation. If 'serve' is specified, also start a local server."
+            ;;
+        module)
+            echo "Usage: airstack module <subcommand> [options]"
+            echo ""
+            echo "Manage AirStack modules (RFC #379): thin external repos declared in"
+            echo "./modules.repos (vcs2l format, PINNED to tags/SHAs — never branches),"
+            echo "synced into the gitignored ./modules/ dir and overlaid into the checkout"
+            echo "by tools/module_overlay.py. Guide: docs/development/modules.md"
+            echo ""
+            echo "Subcommands:"
+            echo "  add <git-url|local-path> [--version <tag-or-sha>] [--no-hooks]"
+            echo "                Record a module in modules.repos and sync. Git URLs MUST be"
+            echo "                pinned with --version (branch names like main/develop are"
+            echo "                refused). Local paths are recorded under x-local-modules."
+            echo "  sync [--no-hooks]"
+            echo "                Clone/link everything in modules.repos (vcs import --recursive),"
+            echo "                validate each module.yaml, place overlay symlinks, regenerate"
+            echo "                .airstack/generated/docker-compose.modules.yaml, run host_setup"
+            echo "                hooks (skipped with --no-hooks)."
+            echo "  list          Table of modules: name, type, version/pin, targets, valid."
+            echo "  remove <name> Drop the modules.repos entry, checkout, and overlay artifacts."
+            echo "  create --in-tree <name>"
+            echo "                Scaffold robot/ros_ws/src/modules/<name>/ (stub module.yaml,"
+            echo "                ament_python package, launch file with canonical-default topic"
+            echo "                args and no remaps, test/) for fork research (RFC #379 §11)."
+            echo "  lock [--check-conflicts] [--build]"
+            echo "                Recompute the Docker layer plan + modules.lock (RFC #379 §6:"
+            echo "                .airstack/generated/layer_plan.json); extra flags pass through"
+            echo "                to tools/compose_module_layers.py."
+            echo "  doctor [--drift]"
+            echo "                No args: validate all manifests + overlay integrity (exit 1"
+            echo "                only when the overlay is broken). --drift: classify changes"
+            echo "                vs merge-base with origin/develop into module-contained vs"
+            echo "                extraction debt — informs, never blocks (always exit 0)."
+            echo ""
+            echo "After sync, just start the stack: 'airstack up' includes the generated"
+            echo "module mounts automatically (opt out with AIRSTACK_NO_MODULE_COMPOSE=1)."
+            ;;
+        stack)
+            echo "Usage: airstack stack <subcommand> [options]"
+            echo ""
+            echo "Manage stack folders (RFC #379 §3): self-contained topologies under"
+            echo "stacks/ — pinned modules.repos, launch/ entry points (one per host"
+            echo "role for split stacks, plus bridge.yaml), docker-compose stub, and a"
+            echo "generated wiring.md. Guide: docs/development/stacks.md"
+            echo ""
+            echo "Subcommands:"
+            echo "  list          Table of stacks: name, entry points (+bridge marker for"
+            echo "                split stacks), wiring.md present?, airstack_compat."
+            echo "  new <source> <dest>"
+            echo "                Copy a reference stack to stacks/<dest>. Refuses to"
+            echo "                overwrite; deliberately does NOT copy wiring.md (it is"
+            echo "                the source's observed graph) — regenerate it with"
+            echo "                'airstack test -m wiring --stack <dest>'."
+            echo "  diff <a> <b> [--json]"
+            echo "                Compare two stacks' generated wiring.md graphs"
+            echo "                (tools/stack_diff.py over the wiring-graph trailers):"
+            echo "                nodes/edges/topics added or removed, QoS and type"
+            echo "                mismatches — topology differences, not XML noise."
+            echo ""
+            echo "Run a stack:      airstack up --stack <name>[:<entry>]"
+            echo "Check a checkout: airstack doctor"
+            ;;
+        doctor)
+            echo "Usage: airstack doctor [--live | --snapshot] [--stack NAME] [--strict]"
+            echo ""
+            echo "Observe-and-report health checks (RFC #379 §4). Doctor never edits"
+            echo "anything and exits non-zero in default mode only on the two enumerated"
+            echo "hard gates."
+            echo ""
+            echo "Default (compose-time) checks, in order:"
+            echo "  1. module manifests valid            (tools/validate_module.py)"
+            echo "  2. overlay integrity                 (module_overlay.py --check)"
+            echo "  3. HARD GATE #1: module dep conflicts (compose_module_layers.py"
+            echo "     --check-conflicts — a conflict would compose a broken image)"
+            echo "  4. stack folder anatomy (incl. split stack => bridge.yaml required)"
+            echo "  5. HARD GATE #2: control-setpoint / trajectory-group names in any"
+            echo "     bridge.yaml (gen_dds_router.py --check — command authority stays"
+            echo "     onboard, RFC #380 §2)"
+            echo ""
+            echo "Modes:"
+            echo "  --live        Capture the RUNNING graph (docker exec per robot) and"
+            echo "                diff it against the stack's committed wiring.md; exit 1"
+            echo "                on drift. Also scans for publishers of control-setpoint"
+            echo "                / trajectory-group topics outside the blessed controller"
+            echo "                chain (reported loudly; fatal only with --strict)."
+            echo "  --snapshot    Same capture, WRITTEN to stacks/<name>/wiring.md with a"
+            echo "                provenance line ('observed on <host>, <date>, <sha> —"
+            echo "                unverified-in-CI') — the hardware bring-up path."
+            echo "  --stack NAME  Stack to diff/snapshot (default: inferred from"
+            echo "                AIRSTACK_STACK_DIR as exported by 'airstack up ...stack')."
+            echo "  --strict      Make --live safety-floor warnings fatal."
+            echo ""
+            echo "Module-scoped checks only: airstack module doctor [--drift]"
             ;;
         *)
             # For commands without specific help, just show the general help
@@ -292,25 +543,17 @@ function log_error {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
-# Get VERSION from .env file
+# Get VERSION from .env file (parsing shared with cmd_version via _env_value)
 function get_VERSION {
-    local env_file="$PROJECT_ROOT/.env"
-    
-    if [ ! -f "$env_file" ]; then
-        log_warn ".env file not found, using 'latest' tag"
-        echo "latest"
-        return
-    fi
-    
-    # Extract VERSION from .env file
-    local version=$(grep -E "^VERSION=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
-    
+    local version
+    version=$(_env_value VERSION "$PROJECT_ROOT/.env")
+
     if [ -z "$version" ]; then
         log_warn "VERSION not found in .env, using 'latest' tag"
         echo "latest"
         return
     fi
-    
+
     echo "$version"
 }
 
@@ -327,7 +570,11 @@ function check_docker {
     fi
 }
 
-# Wrapper function to run docker compose natively on the host
+# Wrapper function to run docker compose natively on the host.
+# The base compose file ($PROJECT_ROOT/docker-compose.yaml) is folded in here —
+# callers pass only ADDITIONAL -f overlay files (module/fleet overlays), never
+# the base one. (The tests runner uses its own separate compose file and calls
+# `docker compose` directly — see .airstack/modules/dev.sh.)
 function run_docker_compose {
     local env_args=()
     local env_file="$PROJECT_ROOT/.env"
@@ -336,7 +583,7 @@ function run_docker_compose {
         env_args+=("--env-file" "$env_file")
     fi
 
-    docker compose "${env_args[@]}" "$@"
+    docker compose "${env_args[@]}" -f "$PROJECT_ROOT/docker-compose.yaml" "$@"
 }
 
 # Find container by partial name using regex
@@ -430,16 +677,12 @@ function cmd_install {
     local force=false
     # Check for --no-docker flag
     local install_docker=true
-    # Check for --with-wintak flag
-    local install_wintak=false
-    
+
     for arg in "$@"; do
         if [ "$arg" == "--force" ]; then
             force=true
         elif [ "$arg" == "--no-docker" ]; then
             install_docker=false
-        elif [ "$arg" == "--with-wintak" ]; then
-            install_wintak=true
         fi
     done
     
@@ -605,31 +848,7 @@ function cmd_install {
         fi
     fi
     
-    # Install WINTAK if requested
-    if [ "$install_wintak" = true ]; then
-        # Check if the wintak module is available
-        if declare -f "cmd_wintak_install" > /dev/null; then
-            log_info "Installing WINTAK..."
-            cmd_wintak_install
-        else
-            log_error "WINTAK module not loaded. Cannot install WINTAK."
-            log_info "Please make sure the wintak.sh module is in the .airstack/modules directory."
-        fi
-    fi
-    
     log_info "Installation complete!"
-}
-
-function cmd_setup_natnet_sdk {
-    local sdk_script="$PROJECT_ROOT/robot/ros_ws/src/perception/natnet_ros2/scripts/download-natnet-sdk.sh"
-
-    if [ ! -f "$sdk_script" ]; then
-        log_warn "NatNet SDK installer not found at $sdk_script"
-        return 0
-    fi
-
-    log_info "Checking NatNet SDK installation..."
-    bash "$sdk_script"
 }
 
 function cmd_setup {
@@ -638,15 +857,12 @@ function cmd_setup {
     # Check for --no-shell flag
     local modify_shell=true
     local skip_config=false
-    local skip_natnet=false # initially set to false so that the --no-natnet flag can determine whether to skip the NatNet SDK installation
-    
+
     for arg in "$@"; do
         if [ "$arg" == "--no-shell" ]; then
             modify_shell=false
         elif [ "$arg" == "--no-config" ]; then
             skip_config=true
-        elif [ "$arg" == "--no-natnet" ]; then
-            skip_natnet=true
         fi
     done
     
@@ -711,15 +927,6 @@ function cmd_setup {
         fi
     fi
     
-    # Install NatNet SDK unless explicitly skipped.
-    if [ "$skip_natnet" = false ]; then
-        if declare -f "cmd_setup_natnet_sdk" > /dev/null; then
-            cmd_setup_natnet_sdk
-        else
-            log_warn "NatNet SDK setup helper not loaded. Skipping NatNet SDK installation."
-        fi
-    fi
-
     # Run configuration tasks if not skipped
     if [ "$skip_config" = false ]; then
         # Check if the config module is available
@@ -733,7 +940,18 @@ function cmd_setup {
 
     log_info "Making sure git submodules are initialized and updated..."
     git submodule update --init --recursive || log_warn "Failed to update git submodules. Some packages may not launch, please check your git credentials."
-    
+
+    # Sync modules (RFC #379): module hooks (hooks.host_setup) cover host-side
+    # setup steps like proprietary SDK downloads, so setup just re-runs sync.
+    if [ -f "$PROJECT_ROOT/modules.repos" ]; then
+        if declare -f "cmd_module_dispatch" > /dev/null; then
+            log_info "Syncing modules from modules.repos..."
+            cmd_module_dispatch sync || log_warn "Module sync failed — run 'airstack module sync' manually."
+        else
+            log_warn "Module command module not loaded — skipping module sync. Run 'airstack module sync' manually."
+        fi
+    fi
+
     log_info "Setup complete!"
 }
 
@@ -774,7 +992,7 @@ function classify_compose_args {
             if [ $i -lt ${#args[@]} ]; then
                 _global+=("${args[$i]}")
             else
-                echo "[ERROR] Missing value for compose global flag: $arg" >&2
+                log_error "Missing value for compose global flag: $arg"
                 return 1
             fi
         elif [[ -n "${_is_bool[$arg]+x}" ]]; then
@@ -821,7 +1039,7 @@ function ensure_robot_l4t_stack_base() {
             build_opts+=("$arg")
         fi
     done
-    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${_ga[@]}" build "${build_opts[@]}" robot-l4t-stack-base
+    run_docker_compose "${_ga[@]}" build "${build_opts[@]}" robot-l4t-stack-base
 }
 
 # `docker compose push` only publishes each service's `image:`. The floating
@@ -844,7 +1062,7 @@ function push_cache_tags() {
     done
 
     local tags
-    tags=$(run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${_ga[@]}" config --format json 2>/dev/null \
+    tags=$(run_docker_compose "${_ga[@]}" config --format json 2>/dev/null \
         | jq -r --arg svcs "${services[*]}" --arg pfx ":${CACHE_TAG:-cache}_" '
             .services | to_entries[]
             | select($svcs == "" or (($svcs | split(" ")) | index(.key)))
@@ -866,7 +1084,7 @@ function push_cache_tags() {
 
 # ---------------------------------------------------------------------------
 # Launch intent: airstack-specific flags on `airstack up`
-# (--sim isaac|airsim, --robots N, --headless, --play/--no-play,
+# (--sim isaac|airsim|simple, --robots N, --headless, --play/--no-play,
 #  --no-autolaunch, --wait, --dry-run)
 #
 # Flags derive and EXPORT env vars; docker compose interpolation gives shell
@@ -875,21 +1093,7 @@ function push_cache_tags() {
 # configurations and never define new structure (RFC #380 §4 discipline).
 # ---------------------------------------------------------------------------
 
-# Value of NAME in an env file, stripped of quotes and trailing comments.
-function _env_file_value {
-    local name="$1" file="$2" line
-    [ -f "$file" ] || return 0
-    line=$(grep -E "^${name}=" "$file" 2>/dev/null | tail -1)
-    [[ -z "$line" ]] && return 0
-    line="${line#*=}"
-    line="${line%%#*}"
-    # trim whitespace, then surrounding quotes
-    line="${line#"${line%%[![:space:]]*}"}"
-    line="${line%"${line##*[![:space:]]}"}"
-    line="${line%\"}"; line="${line#\"}"
-    line="${line%\'}"; line="${line#\'}"
-    echo "$line"
-}
+# (env-file value parsing lives in .airstack/modules/_lib.sh: _env_value)
 
 # Resolve NAME the way docker compose interpolation will: OS environment wins,
 # then user --env-file files (later wins), then .env. Extra args are scanned
@@ -897,7 +1101,7 @@ function _env_file_value {
 function resolve_launch_var {
     local name="$1"; shift
     local val
-    val=$(_env_file_value "$name" "$PROJECT_ROOT/.env")
+    val=$(_env_value "$name" "$PROJECT_ROOT/.env")
     local args=("$@") i=0 file
     while [ $i -lt ${#args[@]} ]; do
         file=""
@@ -908,7 +1112,7 @@ function resolve_launch_var {
         fi
         if [[ -n "$file" ]]; then
             [[ "$file" != /* ]] && file="$PROJECT_ROOT/$file"
-            local v; v=$(_env_file_value "$name" "$file")
+            local v; v=$(_env_value "$name" "$file")
             [[ -n "$v" ]] && val="$v"
         fi
         i=$((i+1))
@@ -926,6 +1130,10 @@ function parse_launch_intent {
     AIRSTACK_INTENT_HEADLESS=""
     AIRSTACK_INTENT_PLAY=""
     AIRSTACK_INTENT_AUTOLAUNCH=""
+    AIRSTACK_INTENT_STACK=""
+    AIRSTACK_INTENT_FLEET=""
+    AIRSTACK_INTENT_SCENE=""
+    AIRSTACK_FLEET_COMPOSE_FILE=""
     AIRSTACK_DRY_RUN=""
     AIRSTACK_CONFIG_ONLY=""
     AIRSTACK_UP_WAIT=""
@@ -942,6 +1150,12 @@ function parse_launch_intent {
             --play)         AIRSTACK_INTENT_PLAY="true";;
             --no-play)      AIRSTACK_INTENT_PLAY="false";;
             --no-autolaunch) AIRSTACK_INTENT_AUTOLAUNCH="false";;
+            --stack)        i=$((i+1)); AIRSTACK_INTENT_STACK="${args[$i]:-}";;
+            --stack=*)      AIRSTACK_INTENT_STACK="${a#--stack=}";;
+            --fleet)        i=$((i+1)); AIRSTACK_INTENT_FLEET="${args[$i]:-}";;
+            --fleet=*)      AIRSTACK_INTENT_FLEET="${a#--fleet=}";;
+            --scene)        i=$((i+1)); AIRSTACK_INTENT_SCENE="${args[$i]:-}";;
+            --scene=*)      AIRSTACK_INTENT_SCENE="${a#--scene=}";;
             --wait)         AIRSTACK_UP_WAIT="1";;
             # NOTE: shadows compose's own `up --dry-run`; ours validates the
             # derived launch config and exits without starting services.
@@ -957,17 +1171,180 @@ function parse_launch_intent {
         return 1
     fi
     case "$AIRSTACK_INTENT_SIM" in
-        ""|isaac|isaacsim|airsim|msairsim|ms-airsim) ;;
-        *) log_error "Unknown --sim '$AIRSTACK_INTENT_SIM' (expected: isaac | airsim)"; return 1;;
+        ""|isaac|isaacsim|airsim|msairsim|ms-airsim|simple|simplesim|simple-sim) ;;
+        *) log_error "Unknown --sim '$AIRSTACK_INTENT_SIM' (expected: isaac | airsim | simple)"; return 1;;
     esac
+    if [[ -n "$AIRSTACK_INTENT_FLEET" && -n "$AIRSTACK_INTENT_ROBOTS" ]]; then
+        log_error "--fleet and --robots are mutually exclusive: the fleet file defines the robot count (RFC #380 §2)."
+        return 1
+    fi
+    return 0
+}
+
+# Validate a --stack selection against the host stacks/ tree and export the
+# CONTAINER paths the launch dispatch reads (stacks/ is bind-mounted at
+# /root/AirStack/stacks by robot-base-docker-compose.yaml). Accepts the
+# split-entry form `<name>:<entry>` (entry names launch/<entry>.launch.xml;
+# reserved for split stacks — RFC #380 §2). Default entry: stack.
+function apply_stack_intent {
+    local stack_name="$AIRSTACK_INTENT_STACK" stack_entry="stack"
+    if [[ "$stack_name" == *:* ]]; then
+        stack_entry="${stack_name#*:}"
+        stack_name="${stack_name%%:*}"
+    fi
+    if [[ -z "$stack_name" || -z "$stack_entry" ]]; then
+        log_error "--stack requires a stack name (got '$AIRSTACK_INTENT_STACK'; expected <name> or <name>:<entry>)"
+        return 1
+    fi
+    local stack_host_dir="$PROJECT_ROOT/stacks/$stack_name"
+    if [[ ! -d "$stack_host_dir" ]]; then
+        local available
+        available=$(ls -1 "$PROJECT_ROOT/stacks" 2>/dev/null | grep -v '^\.' | tr '\n' ' ')
+        log_error "Unknown stack '$stack_name' — $stack_host_dir does not exist. Available stacks: ${available:-<none>}"
+        return 1
+    fi
+    if [[ ! -f "$stack_host_dir/launch/$stack_entry.launch.xml" ]]; then
+        log_error "Stack '$stack_name' has no entry point launch/$stack_entry.launch.xml (expected $stack_host_dir/launch/$stack_entry.launch.xml)"
+        return 1
+    fi
+    export AIRSTACK_STACK_DIR="/root/AirStack/stacks/$stack_name"
+    export AIRSTACK_STACK_ENTRY="$stack_entry"
+    return 0
+}
+
+# Fleet dispatch (RFC #380 §2): validate the fleet file, export
+# FLEET_CONFIG_FILE (the CONTAINER path — config/ is bind-mounted at
+# /root/AirStack/config) plus the derived NUM_ROBOTS, switch an
+# untouched-default Isaac script to the generic fleet spawner, and — for
+# HETEROGENEOUS fleets — regenerate the per-robot compose services and swap
+# the desktop profile for the generated services' `fleet` profile (so
+# deploy.replicas doesn't double-spawn identical containers next to them).
+#
+# Everything is leaf-value precedence: explicit OS-env NUM_ROBOTS /
+# ISAAC_SIM_SCRIPT_NAME still win, with an override banner.
+#
+# Arg 1: fleet selector — a name under config/fleets/, a host path, or the
+# container path form (as the test harness passes via FLEET_CONFIG_FILE).
+# Remaining args: passed through to resolve_launch_var (--env-file scanning).
+function apply_fleet_intent {
+    local fleet_ref="$1"; shift
+    fleet_ref="${fleet_ref#/root/AirStack/}"   # container path → checkout-relative
+    local fleet_host
+    if [[ "$fleet_ref" == *.yaml || "$fleet_ref" == */* ]]; then
+        fleet_host="$fleet_ref"
+        [[ "$fleet_host" != /* ]] && fleet_host="$PROJECT_ROOT/$fleet_ref"
+    else
+        fleet_host="$PROJECT_ROOT/config/fleets/$fleet_ref.yaml"
+    fi
+    if [[ ! -f "$fleet_host" ]]; then
+        local available
+        available=$(ls -1 "$PROJECT_ROOT/config/fleets" 2>/dev/null | sed 's/\.yaml$//' | tr '\n' ' ')
+        log_error "Unknown fleet '$fleet_ref' — $fleet_host does not exist. Available fleets: ${available:-<none>}"
+        return 1
+    fi
+    local fleet_name
+    fleet_name="$(basename "$fleet_host" .yaml)"
+
+    if ! python3 "$PROJECT_ROOT/tools/fleet/resolve_fleet.py" "$fleet_host" \
+            --project-root "$PROJECT_ROOT" --validate >/dev/null; then
+        log_error "Fleet '$fleet_name' failed validation (named errors above)."
+        return 1
+    fi
+
+    local fleet_rel="${fleet_host#$PROJECT_ROOT/}"
+    export FLEET_CONFIG_FILE="/root/AirStack/$fleet_rel"
+
+    # NUM_ROBOTS is implicit in the fleet (RFC #380 §3 migration table).
+    local fleet_robots
+    fleet_robots=$(FLEET_HOST="$fleet_host" python3 -c '
+import os, yaml
+with open(os.environ["FLEET_HOST"], encoding="utf-8") as f:
+    print(len((yaml.safe_load(f) or {}).get("robots") or {}))')
+    if [[ -n "${NUM_ROBOTS:-}" && "$NUM_ROBOTS" != "$fleet_robots" ]]; then
+        log_warn "OVERRIDE: explicit NUM_ROBOTS=$NUM_ROBOTS wins over fleet '$fleet_name' ($fleet_robots robot(s)) — containers and sim spawns will disagree with the fleet file."
+    else
+        export NUM_ROBOTS="$fleet_robots"
+    fi
+
+    # Isaac: the fleet spawner reads spawns/vehicles/scene from the fleet file,
+    # replacing the hardcoded one-/multi-drone example scripts. Explicit OS-env
+    # ISAAC_SIM_SCRIPT_NAME still wins; the stock defaults get switched.
+    local profiles script
+    profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
+    if [[ ",$profiles," == *",isaac-sim,"* ]]; then
+        if [[ -n "${ISAAC_SIM_SCRIPT_NAME:-}" ]]; then
+            [[ "$ISAAC_SIM_SCRIPT_NAME" != "fleet_spawn.py" ]] && \
+                log_warn "OVERRIDE: explicit ISAAC_SIM_SCRIPT_NAME='$ISAAC_SIM_SCRIPT_NAME' wins over the fleet spawner — make sure it spawns fleet '$fleet_name' (reads FLEET_CONFIG_FILE)."
+        else
+            script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@")
+            case "$script" in
+                example_one_px4_pegasus_launch_script.py|example_multi_px4_pegasus_launch_script.py|"")
+                    log_info "--fleet $fleet_name → ISAAC_SIM_SCRIPT_NAME=fleet_spawn.py (was ${script:-<unset>})"
+                    export ISAAC_SIM_SCRIPT_NAME="fleet_spawn.py";;
+                fleet_spawn.py) ;;
+                *)
+                    log_warn "Custom ISAAC_SIM_SCRIPT_NAME='$script' with a fleet: make sure it spawns fleet '$fleet_name' (reads FLEET_CONFIG_FILE).";;
+            esac
+        fi
+    fi
+
+    # Heterogeneous fleet → deploy.replicas cannot stamp it: regenerate the
+    # per-robot services AND the split stacks' bridge-derived DDS-router
+    # configs (one pipeline: tools/fleet/generate_fleet_compose.py does both
+    # and prints what it generated), then include the compose file (cmd_up
+    # adds the -f); homogeneous fleets keep replicas untouched. On --dry-run
+    # nothing is written — the generator prints what it WOULD generate.
+    AIRSTACK_FLEET_COMPOSE_FILE=""
+    local shape
+    shape=$(python3 "$PROJECT_ROOT/tools/fleet/generate_fleet_compose.py" \
+        "$fleet_host" --project-root "$PROJECT_ROOT" --check-homogeneous) || return 1
+    if [[ "$shape" == "heterogeneous" ]]; then
+        local gen_flags=()
+        [[ "${AIRSTACK_DRY_RUN:-}" == "1" ]] && gen_flags+=(--dry-run)
+        python3 "$PROJECT_ROOT/tools/fleet/generate_fleet_compose.py" \
+            "$fleet_host" --project-root "$PROJECT_ROOT" "${gen_flags[@]}" || return 1
+        if [[ "${AIRSTACK_DRY_RUN:-}" != "1" ]]; then
+            AIRSTACK_FLEET_COMPOSE_FILE="$PROJECT_ROOT/.airstack/generated/docker-compose.fleet.yaml"
+        fi
+        local cur kept=() p
+        cur=$(resolve_launch_var COMPOSE_PROFILES "$@")
+        IFS=',' read -ra _fparr <<< "$cur"
+        for p in "${_fparr[@]}"; do
+            case "$p" in desktop|fleet|"") ;; *) kept+=("$p");; esac
+        done
+        kept+=("fleet")
+        export COMPOSE_PROFILES=$(IFS=','; echo "${kept[*]}")
+        if [[ "${AIRSTACK_DRY_RUN:-}" == "1" ]]; then
+            log_info "--fleet $fleet_name is heterogeneous → would generate per-robot services (profile 'fleet' replaces 'desktop')"
+        else
+            log_info "--fleet $fleet_name is heterogeneous → generated per-robot services (profile 'fleet' replaces 'desktop')"
+        fi
+    fi
     return 0
 }
 
 # Derive + export env vars from the parsed intent. Args: remaining CLI args
 # (scanned for --env-file when resolving current values).
 function apply_launch_intent {
+    if [[ -n "$AIRSTACK_INTENT_STACK" ]]; then
+        apply_stack_intent || return 1
+    fi
+
+    # Stacks are the ONLY launch dispatch (the legacy AUTONOMY_ROLE dispatch
+    # was removed): no stack selected anywhere (--stack / env / --env-file /
+    # .env) = the trunk reference stack full_default. Exported here so the
+    # effective config always names the stack that will actually launch.
+    # (Fleet runs re-resolve per container: robot/docker/.bashrc overrides
+    # these from the fleet file when FLEET_CONFIG_FILE is set.)
+    if [[ -z "$(resolve_launch_var AIRSTACK_STACK_DIR "$@")" ]]; then
+        export AIRSTACK_STACK_DIR="/root/AirStack/stacks/full_default"
+    fi
+    if [[ -z "$(resolve_launch_var AIRSTACK_STACK_ENTRY "$@")" ]]; then
+        export AIRSTACK_STACK_ENTRY="stack"
+    fi
+
     if [[ -n "$AIRSTACK_INTENT_SIM" ]]; then
-        local sim_profile urdf
+        local sim_profile urdf=""
         case "$AIRSTACK_INTENT_SIM" in
             isaac|isaacsim)
                 sim_profile="isaac-sim"
@@ -975,17 +1352,44 @@ function apply_launch_intent {
             airsim|msairsim|ms-airsim)
                 sim_profile="ms-airsim"
                 urdf="robot_descriptions/iris/urdf/iris_stereo.ms-airsim.urdf";;
+            simple|simplesim|simple-sim)
+                # simple-sim (lightweight kinematic sim, no PX4/MAVROS): the
+                # simple-robot service (SIM_TYPE=simple) IS the robot container,
+                # so the 'desktop' profile must go too — keeping it would start
+                # robot-desktop alongside simple-robot: two robot_1 graphs on
+                # domain 1. No URDF swap: the sim publishes its own camera TFs
+                # and doesn't consume URDF_FILE.
+                sim_profile="simple";;
         esac
         # Swap only the simulator profile; preserve the others (desktop, l4t, ...)
+        # — except for simple, which also drops 'desktop' (see above).
         local profiles kept=() p
         profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
         IFS=',' read -ra _parr <<< "$profiles"
         for p in "${_parr[@]}"; do
-            case "$p" in isaac-sim|ms-airsim|simple|"") ;; *) kept+=("$p");; esac
+            case "$p" in
+                isaac-sim|ms-airsim|simple|"") ;;
+                desktop) [[ "$sim_profile" == "simple" ]] || kept+=("$p");;
+                *) kept+=("$p");;
+            esac
         done
         kept+=("$sim_profile")
         export COMPOSE_PROFILES=$(IFS=','; echo "${kept[*]}")
-        export URDF_FILE="$urdf"
+        [[ -n "$urdf" ]] && export URDF_FILE="$urdf"
+        if [[ "$sim_profile" == "simple" ]]; then
+            log_info "--sim simple → simple-robot replaces robot-desktop (profile 'desktop' dropped; no GCS, no MAVROS/PX4)"
+        fi
+    fi
+
+    # Fleet dispatch (RFC #380 §2): triggered by --fleet, or by an env /
+    # --env-file / .env FLEET_CONFIG_FILE (the opt-in path the test harness
+    # uses). No fleet anywhere = byte-identical legacy behavior.
+    local _fleet_sel="$AIRSTACK_INTENT_FLEET"
+    if [[ -z "$_fleet_sel" ]]; then
+        _fleet_sel=$(resolve_launch_var FLEET_CONFIG_FILE "$@")
+    fi
+    if [[ -n "$_fleet_sel" ]]; then
+        apply_fleet_intent "$_fleet_sel" "$@" || return 1
     fi
 
     [[ -n "$AIRSTACK_INTENT_ROBOTS" ]]     && export NUM_ROBOTS="$AIRSTACK_INTENT_ROBOTS"
@@ -1010,10 +1414,6 @@ function apply_launch_intent {
                 (( AIRSTACK_INTENT_ROBOTS > 1 )) \
                     && want="example_multi_px4_pegasus_launch_script.py" \
                     || want="example_one_px4_pegasus_launch_script.py";;
-            example_one_px4_pegasus_natnet_launch_script.py|example_multi_px4_pegasus_natnet_launch_script.py)
-                (( AIRSTACK_INTENT_ROBOTS > 1 )) \
-                    && want="example_multi_px4_pegasus_natnet_launch_script.py" \
-                    || want="example_one_px4_pegasus_natnet_launch_script.py";;
             *)
                 if (( AIRSTACK_INTENT_ROBOTS > 1 )); then
                     log_warn "Custom ISAAC_SIM_SCRIPT_NAME='$script' with --robots $AIRSTACK_INTENT_ROBOTS: make sure it spawns $AIRSTACK_INTENT_ROBOTS drones (reads NUM_ROBOTS)."
@@ -1024,6 +1424,77 @@ function apply_launch_intent {
             export ISAAC_SIM_SCRIPT_NAME="$want"
         fi
     fi
+
+    # --scene: map the shortname to the ACTIVE simulator's scene reference via
+    # simulation/scenes.yaml and export it (leaf values only). Unknown scene or
+    # wrong simulator = the resolver prints the availability table and we fail.
+    if [[ -n "$AIRSTACK_INTENT_SCENE" ]]; then
+        local scene_sim=""
+        [[ ",$profiles_final," == *",isaac-sim,"* ]] && scene_sim="isaac"
+        [[ ",$profiles_final," == *",ms-airsim,"* ]] && scene_sim="msairsim"
+        if [[ -z "$scene_sim" ]]; then
+            log_error "--scene requires an Isaac or MS AirSim profile (resolved profiles: ${profiles_final:-<none>}); simple-sim has no scene catalog. Use 'airstack up --sim isaac|airsim --scene $AIRSTACK_INTENT_SCENE'."
+            python3 "$PROJECT_ROOT/simulation/resolve_scene.py" --table >&2 || true
+            return 1
+        fi
+        local scene_exports line
+        if ! scene_exports=$(python3 "$PROJECT_ROOT/simulation/resolve_scene.py" \
+                --sim "$scene_sim" --scene "$AIRSTACK_INTENT_SCENE"); then
+            return 1  # resolver already printed the error + table on stderr
+        fi
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            export "${line?}"
+            log_info "--scene $AIRSTACK_INTENT_SCENE → $line"
+        done <<< "$scene_exports"
+        if [[ "$scene_sim" == "msairsim" ]]; then
+            ensure_msairsim_scene "$(resolve_launch_var MS_AIRSIM_SCENE "$@")" "$@" || return 1
+        fi
+    fi
+    return 0
+}
+
+# MS AirSim scenes are pre-built UE4 binaries fetched into the (bind-mounted)
+# scenes dir on first use. When --scene selects one that is not present
+# locally, offer to download it now (interactive) so the multi-GB fetch
+# doesn't silently happen inside the container; non-interactive runs keep the
+# in-container auto-fetch (visible in the airsim tmux window).
+function ensure_msairsim_scene {
+    local scene_key="$1"; shift
+    local fetch_sh="$PROJECT_ROOT/simulation/ms-airsim/assets/scenes/fetch_scene.sh"
+
+    # An explicit binary path bypasses the catalog entirely.
+    local bin
+    bin=$(resolve_launch_var MS_AIRSIM_BINARY_PATH "$@")
+    if [[ -n "$bin" ]]; then
+        log_warn "--scene is overridden by MS_AIRSIM_BINARY_PATH=$bin (the explicit binary path wins in the container). Unset MS_AIRSIM_BINARY_PATH to use --scene."
+        return 0
+    fi
+
+    local env_dir name
+    env_dir=$(resolve_launch_var MS_AIRSIM_ENV_DIR "$@")
+    [[ -z "$env_dir" ]] && env_dir="$PROJECT_ROOT/simulation/ms-airsim/assets/scenes"
+    [[ "$env_dir" != /* ]] && env_dir="$PROJECT_ROOT/${env_dir#./}"
+    name=$(bash "$fetch_sh" --name "$scene_key") || {
+        log_error "fetch_scene.sh does not know scene key '$scene_key' (simulation/scenes.yaml out of sync?)"
+        return 1
+    }
+    if compgen -G "$env_dir/$name/LinuxNoEditor/*.sh" > /dev/null; then
+        return 0
+    fi
+    log_warn "MS AirSim scene '$name' is not present locally under $env_dir."
+    if [[ -t 0 && -t 1 && "${AIRSTACK_ASSUME_YES:-}" != "1" ]]; then
+        local ans
+        read -r -p "Download it now from github.com/microsoft/AirSim v1.8.1 (can be several GB)? [Y/n] " ans
+        case "$ans" in
+            n|N|no|NO)
+                log_error "Aborted. Point MS_AIRSIM_BINARY_PATH at an existing scene binary, or rerun and accept the download."
+                return 1;;
+        esac
+        SCENES_DIR="$env_dir" bash "$fetch_sh" "$scene_key" || return 1
+    else
+        log_info "Non-interactive run: the airsim container will auto-fetch '$name' on first launch (progress in the airsim tmux window)."
+    fi
     return 0
 }
 
@@ -1032,7 +1503,18 @@ function apply_launch_intent {
 function print_launch_config {
     local keys=(COMPOSE_PROFILES NUM_ROBOTS URDF_FILE AUTOLAUNCH PLAY_SIM_ON_START
                 ISAAC_SIM_SCRIPT_NAME ISAAC_SIM_USE_STANDALONE ISAAC_SIM_HEADLESS
-                MS_AIRSIM_HEADLESS VERSION DOCKER_IMAGE_BUILD_MODE)
+                MS_AIRSIM_HEADLESS AIRSTACK_STACK_DIR AIRSTACK_STACK_ENTRY
+                VERSION DOCKER_IMAGE_BUILD_MODE)
+    # FLEET_CONFIG_FILE only appears when a fleet is selected — the no-fleet
+    # effective config stays byte-identical to the pre-fleet contract.
+    local _fleet_cfg
+    _fleet_cfg=$(resolve_launch_var FLEET_CONFIG_FILE "$@")
+    [[ -n "$_fleet_cfg" ]] && keys+=(FLEET_CONFIG_FILE)
+    # Scene keys likewise only appear when a scene is selected (--scene or env).
+    local _sk
+    for _sk in ISAAC_SIM_SCENE ISAAC_SIM_STAGE_SCALE MS_AIRSIM_SCENE; do
+        [[ -n "$(resolve_launch_var "$_sk" "$@")" ]] && keys+=("$_sk")
+    done
     local k v lines=()
     for k in "${keys[@]}"; do
         v=$(resolve_launch_var "$k" "$@")
@@ -1043,9 +1525,32 @@ function print_launch_config {
     profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
     log_info "Launch config: profiles=$profiles robots=$(resolve_launch_var NUM_ROBOTS "$@") autolaunch=$(resolve_launch_var AUTOLAUNCH "$@") play_on_start=$(resolve_launch_var PLAY_SIM_ON_START "$@")"
     if [[ ",$profiles," == *",isaac-sim,"* ]]; then
-        log_info "  isaac: script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@") headless=$(resolve_launch_var ISAAC_SIM_HEADLESS "$@")"
+        local _isaac_scene
+        _isaac_scene=$(resolve_launch_var ISAAC_SIM_SCENE "$@")
+        log_info "  isaac: script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@") headless=$(resolve_launch_var ISAAC_SIM_HEADLESS "$@")${_isaac_scene:+ scene=$_isaac_scene}"
+    fi
+    if [[ ",$profiles," == *",ms-airsim,"* ]]; then
+        local _airsim_scene
+        _airsim_scene=$(resolve_launch_var MS_AIRSIM_SCENE "$@")
+        [[ -n "$_airsim_scene" ]] && log_info "  ms-airsim: scene=$_airsim_scene"
     fi
     log_info "  urdf=$(resolve_launch_var URDF_FILE "$@")"
+    local _stack_dir
+    _stack_dir=$(resolve_launch_var AIRSTACK_STACK_DIR "$@")
+    if [[ -n "$_stack_dir" ]]; then
+        log_info "  stack: dir=$_stack_dir entry=$(resolve_launch_var AIRSTACK_STACK_ENTRY "$@")"
+    fi
+    if [[ -n "$_fleet_cfg" ]]; then
+        local _fleet_host="${_fleet_cfg#/root/AirStack/}"
+        [[ "$_fleet_host" != /* ]] && _fleet_host="$PROJECT_ROOT/$_fleet_host"
+        log_info "  fleet: $_fleet_cfg — resolved robots:"
+        if [[ -f "$_fleet_host" ]]; then
+            python3 "$PROJECT_ROOT/tools/fleet/resolve_fleet.py" "$_fleet_host" \
+                --project-root "$PROJECT_ROOT" --table 2>/dev/null | sed 's/^/    /'
+        else
+            log_warn "  fleet file not found on the host side: $_fleet_host"
+        fi
+    fi
 
     echo "--- effective launch config ---"
     printf '%s\n' "${lines[@]}"
@@ -1053,9 +1558,20 @@ function print_launch_config {
 
     # Dump for reproducibility (precursor of RFC #380's effective_config.yaml).
     # Best-effort: a read-only checkout (e.g. the tests container) skips it.
-    local run_dir="$PROJECT_ROOT/.airstack/runs/$(date +%Y-%m-%d_%H-%M-%S)"
+    # PID suffix keeps back-to-back runs within the same second in distinct dirs.
+    local run_dir="$PROJECT_ROOT/.airstack/runs/$(date +%Y-%m-%d_%H-%M-%S)_$$"
     if mkdir -p "$run_dir" 2>/dev/null && printf '%s\n' "${lines[@]}" > "$run_dir/effective_config.env" 2>/dev/null; then
         log_info "  effective config saved to ${run_dir#$PROJECT_ROOT/}/effective_config.env"
+
+        # Prune: keep only the newest 50 run records (dir names are
+        # timestamp_pid — no spaces, xargs-safe). This also clears any
+        # historical backlog opportunistically.
+        local stale
+        stale=$(ls -1dt "$PROJECT_ROOT/.airstack/runs"/*/ 2>/dev/null | tail -n +51)
+        if [[ -n "$stale" ]]; then
+            log_info "  pruning $(echo "$stale" | wc -l) old run record(s) from .airstack/runs/ (keeping newest 50)"
+            echo "$stale" | xargs -r rm -rf
+        fi
     fi
     return 0
 }
@@ -1063,9 +1579,9 @@ function print_launch_config {
 # Fail-fast validation of the RESOLVED configuration (env > --env-file > .env),
 # fixing the historical bypass where guards sed'd .env only and missed
 # --env-file overrides. AIRSTACK_SKIP_PREFLIGHT=1 downgrades errors to warnings.
+# Takes ONE nameref: the compose global args (--env-file/--profile scanning).
 function preflight_up {
     local -n _pf_global=$1
-    local -n _pf_subcmd=$2
     local errors=0
 
     function _pf_error {
@@ -1095,7 +1611,7 @@ function preflight_up {
     if (( n > 1 )); then
         _pf_error "Only one simulator profile can be active at a time (isaac-sim, ms-airsim, simple). Resolved: $profiles"
     elif (( n == 0 )); then
-        log_warn "No simulator profile active — robot containers will wait for a sim that never starts. Use 'airstack up --sim isaac|airsim' (or add a sim profile)."
+        log_warn "No simulator profile active — robot containers will wait for a sim that never starts. Use 'airstack up --sim isaac|airsim|simple' (or add a sim profile)."
     fi
 
     # 2. URDF must match the simulator
@@ -1135,14 +1651,14 @@ function preflight_up {
 
     # 5. Missing images: compose 'up' silently starts a very long build
     local imgs img missing=()
-    imgs=$(run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${_pf_global[@]}" config --images 2>/dev/null | sort -u)
+    imgs=$(run_docker_compose "${_pf_global[@]}" config --images 2>/dev/null | sort -u)
     for img in $imgs; do
         docker image inspect "$img" >/dev/null 2>&1 || missing+=("$img")
     done
     if (( ${#missing[@]} > 0 )); then
         log_warn "Images not present locally — compose will BUILD them from scratch (can take a long time):"
         printf '  - %s\n' "${missing[@]}" >&2
-        log_warn "To use prebuilt images instead: airstack image-pull   (set AIRSTACK_NO_IMAGE_BUILD=1 to forbid implicit builds)"
+        log_warn "To use prebuilt images instead: airstack images pull   (set AIRSTACK_NO_IMAGE_BUILD=1 to forbid implicit builds)"
     fi
 
     # 6. ROBOT_NAME resolution needs Docker >= 29 (see robot/docker/.bashrc)
@@ -1150,6 +1666,24 @@ function preflight_up {
     docker_major=$(docker version --format '{{.Server.Version}}' 2>/dev/null | cut -d. -f1)
     if [[ "$docker_major" =~ ^[0-9]+$ ]] && (( docker_major < 29 )); then
         log_warn "Docker $docker_major < 29: container-name DNS resolution fails, robots will resolve as 'unknown_robot' on domain 0 (MAVROS will not connect). Upgrade Docker or set ROBOT_NAME_SOURCE=hostname."
+    fi
+
+    # 7. Deprecation shim (remove in 0.21.0): LAUNCH_NATNET no longer does
+    # anything — OptiTrack was extracted to the asm_optitrack module.
+    local _pf_natnet
+    _pf_natnet=$(resolve_launch_var LAUNCH_NATNET "${_pf_global[@]}")
+    if [[ -n "$_pf_natnet" ]]; then
+        log_warn "LAUNCH_NATNET is gone — OptiTrack moved to the asm_optitrack module (airstack module add https://github.com/castacks/asm_optitrack --version <tag>); see docs/development/modules.md"
+    fi
+
+    # 8. Deprecation shim (remove in 0.21.0): AUTONOMY_ROLE was REMOVED
+    # (stacks — RFC #379 — are the only launch dispatch). A set value counts
+    # only via env / --env-file / .env; nothing in the compose files defaults
+    # it anymore.
+    local _pf_role
+    _pf_role=$(resolve_launch_var AUTONOMY_ROLE "${_pf_global[@]}")
+    if [[ -n "$_pf_role" ]]; then
+        _pf_error "AUTONOMY_ROLE was removed — select a stack: airstack up --stack <name> (see docs/development/stacks.md). Migration: full → full_default (the no-stack default), onboard → lite_default, onboard/offboard split → lite_offload_global:onboard / :offboard."
     fi
 
     unset -f _pf_error
@@ -1169,8 +1703,26 @@ function cmd_up {
     local subcmd_args=()
     classify_compose_args global_args subcmd_args "${rest_args[@]}"
 
+    # Module overlay: when `airstack module sync` has generated a compose
+    # override (volume mounts for synced modules), include it automatically so
+    # module packages/extensions reach the containers. Opt out with
+    # AIRSTACK_NO_MODULE_COMPOSE=1. Absent file = no modules = no change.
+    local module_compose="$PROJECT_ROOT/.airstack/generated/docker-compose.modules.yaml"
+    if [[ -f "$module_compose" && "${AIRSTACK_NO_MODULE_COMPOSE:-}" != "1" ]]; then
+        log_info "Module overlay active → including ${module_compose#$PROJECT_ROOT/}"
+        global_args+=(-f "$module_compose")
+    fi
+
+    # Fleet overlay (RFC #380 §2): apply_fleet_intent regenerated per-robot
+    # services for a heterogeneous fleet — include them (the fleet profile is
+    # already active in COMPOSE_PROFILES; homogeneous fleets never set this).
+    if [[ -n "${AIRSTACK_FLEET_COMPOSE_FILE:-}" ]]; then
+        log_info "Fleet overlay active → including ${AIRSTACK_FLEET_COMPOSE_FILE#$PROJECT_ROOT/}"
+        global_args+=(-f "$AIRSTACK_FLEET_COMPOSE_FILE")
+    fi
+
     print_launch_config "${global_args[@]}"
-    if ! preflight_up global_args subcmd_args; then
+    if ! preflight_up global_args; then
         log_error "Preflight failed — not starting services. (AIRSTACK_SKIP_PREFLIGHT=1 to override.)"
         exit 1
     fi
@@ -1188,7 +1740,7 @@ function cmd_up {
     # when AIRSTACK_REGISTRY_CACHE is unset.
     if [[ "${AIRSTACK_REGISTRY_CACHE:-}" == "1" ]]; then
         log_info "AIRSTACK_REGISTRY_CACHE=1 → pulling images before up..."
-        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" pull --ignore-pull-failures "${subcmd_args[@]}" || \
+        run_docker_compose "${global_args[@]}" pull --ignore-pull-failures "${subcmd_args[@]}" || \
             log_warn "Pre-up pull encountered failures; continuing with whatever is local"
     fi
 
@@ -1198,7 +1750,7 @@ function cmd_up {
         log_info "AIRSTACK_NO_IMAGE_BUILD=1 → compose up --no-build"
         up_opts+=(--no-build)
     fi
-    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${up_opts[@]}" "${subcmd_args[@]}" -d
+    run_docker_compose "${global_args[@]}" up "${up_opts[@]}" "${subcmd_args[@]}" -d
     log_info "Containers started. (Workspaces may still be building and the sim loading — run 'airstack ready' to wait for flight-readiness.)"
 
     if [[ "$AIRSTACK_UP_WAIT" == "1" ]]; then
@@ -1234,15 +1786,15 @@ function cmd_image_build {
     # set AIRSTACK_REGISTRY_CACHE_PUSH=1.
     if [[ "${AIRSTACK_REGISTRY_CACHE:-}" == "1" ]]; then
         log_info "AIRSTACK_REGISTRY_CACHE=1 → pulling for cache seed..."
-        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" pull --ignore-pull-failures "${subcmd_args[@]}" || \
+        run_docker_compose "${global_args[@]}" pull --ignore-pull-failures "${subcmd_args[@]}" || \
             log_warn "Pre-build pull encountered failures; continuing without cache seed"
 
         log_info "Building services with BUILDKIT_INLINE_CACHE=1..."
-        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build --build-arg BUILDKIT_INLINE_CACHE=1 "${subcmd_args[@]}"
+        run_docker_compose "${global_args[@]}" build --build-arg BUILDKIT_INLINE_CACHE=1 "${subcmd_args[@]}"
 
         if [[ "${AIRSTACK_REGISTRY_CACHE_PUSH:-}" == "1" ]]; then
             log_info "Pushing built images for next-run cache..."
-            run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" push --ignore-push-failures "${subcmd_args[@]}" || \
+            run_docker_compose "${global_args[@]}" push --ignore-push-failures "${subcmd_args[@]}" || \
                 log_warn "Post-build push encountered failures; future runs may not benefit from cache"
             push_cache_tags global_args subcmd_args
         else
@@ -1250,7 +1802,7 @@ function cmd_image_build {
         fi
     else
         log_info "Building services..."
-        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build "${subcmd_args[@]}"
+        run_docker_compose "${global_args[@]}" build "${subcmd_args[@]}"
     fi
     log_info "Build completed successfully"
 }
@@ -1263,7 +1815,7 @@ function cmd_image_push {
     classify_compose_args global_args subcmd_args "$@"
 
     log_info "Pushing service images..."
-    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" push "${subcmd_args[@]}"
+    run_docker_compose "${global_args[@]}" push "${subcmd_args[@]}"
     log_info "Push completed successfully"
 }
 
@@ -1275,11 +1827,11 @@ function cmd_image_pull {
     classify_compose_args global_args subcmd_args "$@"
 
     log_info "Pulling service images..."
-    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" pull "${subcmd_args[@]}"
+    run_docker_compose "${global_args[@]}" pull "${subcmd_args[@]}"
     log_info "Pull completed successfully"
 }
 
-function cmd_images {
+function cmd_images_list {
     check_docker
 
     local env_file="$PROJECT_ROOT/.env"
@@ -1340,19 +1892,76 @@ function cmd_image_delete {
     log_info "Done."
 }
 
+# Dispatcher for the `images` command group. Unlike the other groups, the
+# subcommand is the first NON-FLAG argument: callers legitimately put compose
+# global flags before it (e.g. `airstack --progress=quiet images pull`, and
+# the top-level dispatcher hands the flags through in order). Bare
+# `airstack images` keeps its historical meaning: list.
+function cmd_images_dispatch {
+    local sub=""
+    local rest=()
+    for arg in "$@"; do
+        if [ -z "$sub" ] && [[ "$arg" != -* ]]; then
+            sub="$arg"
+        else
+            rest+=("$arg")
+        fi
+    done
+    # A lone -h/--help with no subcommand means help for the group.
+    if [ -z "$sub" ]; then
+        for arg in "$@"; do
+            [[ "$arg" == "-h" || "$arg" == "--help" ]] && sub="help"
+        done
+    fi
+
+    case "${sub:-list}" in
+        list)   cmd_images_list "${rest[@]}" ;;
+        build)  cmd_image_build "${rest[@]}" ;;
+        push)   cmd_image_push "${rest[@]}" ;;
+        pull)   cmd_image_pull "${rest[@]}" ;;
+        delete) cmd_image_delete "${rest[@]}" ;;
+        rm)     cmd_rmi "${rest[@]}" ;;
+        help)   print_command_help images ;;
+        *)
+            log_error "Unknown images subcommand: '$sub'"
+            print_command_help images
+            return 1
+            ;;
+    esac
+}
+
+# Legacy top-level spellings (image-build, rmi, ...) — hidden from help,
+# forward with a nudge.
+function _cmd_images_legacy {
+    local old="$1" sub="$2"; shift 2
+    log_warn "'airstack ${old}' is deprecated; use 'airstack images ${sub}'."
+    cmd_images_dispatch "$sub" "$@"
+}
+
 function cmd_down {
     check_docker
     
     local services=("$@")
-    
-    # Build compose arguments
-    local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
-    
+
+    # Build compose arguments (the base compose file is folded into
+    # run_docker_compose; only overlay -f files are added here)
+    local compose_args=()
+
+    # Generated overlays (module mounts, fleet services) must be visible to
+    # `down` too — a fleet-generated service that `down` can't see becomes an
+    # invisible orphan spinning at full CPU (ddsrouters busy-loop without a
+    # sim /clock). --remove-orphans below is the belt-and-braces backstop.
+    local _gen
+    for _gen in "$PROJECT_ROOT/.airstack/generated/docker-compose.modules.yaml" \
+                "$PROJECT_ROOT/.airstack/generated/docker-compose.fleet.yaml"; do
+        [ -f "$_gen" ] && compose_args+=("-f" "$_gen")
+    done
+
     # Add services if specified
     if [ ${#services[@]} -gt 0 ]; then
         compose_args+=("down" "${services[@]}")
     else
-        compose_args+=("--profile" "*" "down")
+        compose_args+=("--profile" "*" "down" "--remove-orphans")
     fi
     
     log_info "Shutting down services: ${services[*]:-all}"
@@ -1431,41 +2040,41 @@ function cmd_connect {
         fi
     done
     
-    # Find container by pattern
+    # Find container by pattern. NOTE: `var=$(fn)` + `[ $? -eq 0 ]` is a trap
+    # under `set -e` — a failing assignment exits the script before the check
+    # runs — so test the assignment directly.
     local container
-    container=$(find_container "$container_pattern")
-    
-    if [ $? -eq 0 ]; then
-        log_info "Connecting to container: $container"
-        
-        if [ "$command_specified" = true ]; then
-            # Run the specified command directly, no tmux involvement
-            if ! docker exec "$container" which "$command" &> /dev/null; then
-                log_warn "Command '$command' not found in container. Falling back to /bin/sh"
-                command="sh"
-            fi
-            docker exec -it "$container" "$command"
-        else
-            # Default: attach to an existing tmux session. Exiting tmux fully disconnects from the container.
-            if docker exec "$container" which tmux &> /dev/null; then
-                docker exec -it "$container" tmux a
-            else
-                log_warn "tmux not found in container. Falling back to bash."
-                local fallback="bash"
-                if ! docker exec "$container" which bash &> /dev/null; then
-                    fallback="sh"
-                fi
-                docker exec -it "$container" "$fallback"
-            fi
-        fi
-        
-        # Check exit status
-        local exit_status=$?
-        if [ $exit_status -ne 0 ]; then
-            log_warn "Command exited with status $exit_status"
-        fi
-    else
+    if ! container=$(find_container "$container_pattern"); then
         log_error "Failed to connect to container. Please try again with a more specific name."
+        return 1
+    fi
+
+    log_info "Connecting to container: $container"
+
+    local exit_status=0
+    if [ "$command_specified" = true ]; then
+        # Run the specified command directly, no tmux involvement
+        if ! docker exec "$container" which "$command" &> /dev/null; then
+            log_warn "Command '$command' not found in container. Falling back to /bin/sh"
+            command="sh"
+        fi
+        docker exec -it "$container" "$command" || exit_status=$?
+    else
+        # Default: attach to an existing tmux session. Exiting tmux fully disconnects from the container.
+        if docker exec "$container" which tmux &> /dev/null; then
+            docker exec -it "$container" tmux a || exit_status=$?
+        else
+            log_warn "tmux not found in container. Falling back to bash."
+            local fallback="bash"
+            if ! docker exec "$container" which bash &> /dev/null; then
+                fallback="sh"
+            fi
+            docker exec -it "$container" "$fallback" || exit_status=$?
+        fi
+    fi
+
+    if [ $exit_status -ne 0 ]; then
+        log_warn "Command exited with status $exit_status"
     fi
 }
 
@@ -1486,15 +2095,10 @@ function cmd_status {
     # Collect rows: container_name, robot_name, ros_domain_id, status, ports
     local -a rows=()
     while IFS=$'\t' read -r name status ports; do
-        local robot_name ros_domain_id vars
-        # Single exec: unique prefix lets us grep out .bashrc echo noise
-        vars=$(docker exec "$name" bash --login -c \
-            'printf "AIRSTACK_VARS:%s:%s\n" "$ROBOT_NAME" "$ROS_DOMAIN_ID"' 2>/dev/null \
-            | grep "^AIRSTACK_VARS:" | tail -1)
-        if [ -n "$vars" ]; then
-            robot_name="${vars#AIRSTACK_VARS:}"  # strip leading prefix
-            ros_domain_id="${robot_name##*:}"    # everything after last colon
-            robot_name="${robot_name%%:*}"        # everything before first colon
+        local robot_name="" ros_domain_id="" identity
+        # Single exec per container (shared helper in _lib.sh)
+        if identity=$(_container_identity "$name"); then
+            IFS=$'\t' read -r robot_name ros_domain_id <<< "$identity"
         fi
         [ -z "$robot_name" ]    && robot_name="N/A"
         [ -z "$ros_domain_id" ] && ros_domain_id="N/A"
@@ -1571,78 +2175,89 @@ function cmd_logs {
         fi
     done
     
-    # Find container by pattern
+    # Find container by pattern (see cmd_connect for the set -e note).
     local container
-    container=$(find_container "$container_pattern")
-    
-    if [ $? -eq 0 ]; then
-        log_info "Showing logs for container: $container"
-        
-        # Build the logs command
-        local cmd="docker logs"
-        
-        if [ "$follow" = true ]; then
-            cmd="$cmd -f"
-        fi
-        
-        if [ "$tail" != "all" ]; then
-            cmd="$cmd --tail $tail"
-        fi
-        
-        # Execute the command
-        eval "$cmd $container"
-    else
+    if ! container=$(find_container "$container_pattern"); then
         log_error "Failed to find container. Please try again with a more specific name."
+        return 1
     fi
+
+    log_info "Showing logs for container: $container"
+
+    # Build the logs command
+    local logs_args=()
+    if [ "$follow" = true ]; then
+        logs_args+=(-f)
+    fi
+    if [ "$tail" != "all" ]; then
+        logs_args+=(--tail "$tail")
+    fi
+
+    docker logs "${logs_args[@]}" "$container"
 }
 
 function cmd_version {
-    local env_file="$PROJECT_ROOT/.env"
-    
-    if [ ! -f "$env_file" ]; then
-        log_error ".env file not found at $env_file"
-        return 1
-    fi
-    
-    # Extract VERSION from .env file
-    local version=$(grep -E "^VERSION=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
-    
+    local version
+    version=$(_env_value VERSION "$PROJECT_ROOT/.env")
+
     if [ -z "$version" ]; then
-        log_error "VERSION not found in .env file"
+        log_error "VERSION not found in .env file ($PROJECT_ROOT/.env)"
         return 1
     fi
-    
+
     echo -e "${BOLDCYAN}AirStack Version:${NC} $version"
 }
 
+# Remove images by search term: same engine as cmd_image_delete (full
+# repo:tag refs from `docker images --format`, never positional-column
+# parsing) but matching a user-given term instead of PROJECT_NAME.
 function cmd_rmi {
     check_docker
-    
-    if [ $# -eq 0 ]; then
-        log_error "Search term required"
-        print_command_help "rmi"
-        exit 1
-    fi
-    
-    local search_term=""
-    local rmi_flags=()
-    
+
+    local search_term="" force=false auto_yes=false
     for arg in "$@"; do
-        if [[ "$arg" == -* ]]; then
-            rmi_flags+=("$arg")
-        else
-            search_term="$arg"
-        fi
+        case "$arg" in
+            -f|--force) force=true ;;
+            -y|--yes)   auto_yes=true ;;
+            -*) log_error "Unknown option for 'images rm': $arg"; print_command_help "images"; return 1 ;;
+            *)
+                if [ -n "$search_term" ]; then
+                    log_error "'images rm' takes exactly one search term (got '$search_term' and '$arg')"
+                    return 1
+                fi
+                search_term="$arg" ;;
+        esac
     done
-    
+
     if [ -z "$search_term" ]; then
         log_error "Search term required"
-        print_command_help "rmi"
-        exit 1
+        print_command_help "images"
+        return 1
     fi
-    
-    log_info "Removing images matching: $search_term"
-    docker images -a | grep "$search_term" | awk '{print $2}' | xargs docker rmi "${rmi_flags[@]}"
+
+    # Fixed-string match against the full repo:tag ref; dangling <none>
+    # images have no removable ref, so skip them.
+    local refs
+    refs=$(docker images --format '{{.Repository}}:{{.Tag}}' \
+        | grep -v '<none>' | grep -F -- "$search_term" || true)
+
+    if [ -z "$refs" ]; then
+        log_info "No images match '$search_term'."
+        return 0
+    fi
+
+    log_info "The following images will be removed:"
+    echo "$refs" | sed 's/^/  /'
+
+    if ! $auto_yes; then
+        read -r -p "Remove these images? [y/N] " reply
+        [[ "$reply" =~ ^[Yy]$ ]] || { log_info "Aborted."; return 0; }
+    fi
+
+    local rmi_flags=()
+    $force && rmi_flags+=(-f)
+    echo "$refs" | xargs -r docker rmi "${rmi_flags[@]}"
+    log_info "Done."
 }
 
 # Function to load external command modules
@@ -1655,12 +2270,18 @@ function load_command_modules {
     # Load all .sh files in the modules directory
     for module in "$MODULES_DIR"/*.sh; do
         if [ -f "$module" ]; then
-            # Source the module file
-            source "$module"
-            
             # Extract module name from filename
             module_name=$(basename "$module" .sh)
-            
+
+            # _*.sh files are shared libraries (already sourced explicitly
+            # by airstack.sh), not command modules.
+            if [[ "$module_name" == _* ]]; then
+                continue
+            fi
+
+            # Source the module file
+            source "$module"
+
             # Register the module's commands if it has a register_commands function
             if declare -f "register_${module_name}_commands" > /dev/null; then
                 "register_${module_name}_commands"
@@ -1672,16 +2293,15 @@ function load_command_modules {
 # Arrays to store available commands and their help text
 declare -A COMMANDS
 declare -A COMMAND_HELP
+# Commands registered here still dispatch but are omitted from `airstack help`
+# and `airstack commands` (e.g. deprecated aliases kept for muscle memory).
+declare -A COMMAND_HIDDEN
 
 # Register built-in commands
 function register_builtin_commands {
     COMMANDS["install"]="cmd_install"
     COMMANDS["setup"]="cmd_setup"
-    COMMANDS["image-build"]="cmd_image_build"
-    COMMANDS["image-push"]="cmd_image_push"
-    COMMANDS["image-pull"]="cmd_image_pull"
-    COMMANDS["images"]="cmd_images"
-    COMMANDS["image-delete"]="cmd_image_delete"
+    COMMANDS["images"]="cmd_images_dispatch"
     COMMANDS["up"]="cmd_up"
     COMMANDS["down"]="cmd_down"
     COMMANDS["clean"]="cmd_clean"
@@ -1689,25 +2309,42 @@ function register_builtin_commands {
     COMMANDS["status"]="cmd_status"
     COMMANDS["logs"]="cmd_logs"
     COMMANDS["version"]="cmd_version"
-    COMMANDS["rmi"]="cmd_rmi"
     COMMANDS["help"]="cmd_help"
-    
+
+    # Deprecated flat spellings (pre command-group syntax). Registered so old
+    # muscle memory / scripts keep working, but COMMAND_HIDDEN keeps them out
+    # of `airstack help` and `airstack commands`.
+    COMMANDS["image-build"]="_cmd_images_legacy image-build build"
+    COMMANDS["image-push"]="_cmd_images_legacy image-push push"
+    COMMANDS["image-pull"]="_cmd_images_legacy image-pull pull"
+    COMMANDS["image-delete"]="_cmd_images_legacy image-delete delete"
+    COMMANDS["rmi"]="_cmd_images_legacy rmi rm"
+    COMMAND_HIDDEN["image-build"]=1
+    COMMAND_HIDDEN["image-push"]=1
+    COMMAND_HIDDEN["image-pull"]=1
+    COMMAND_HIDDEN["image-delete"]=1
+    COMMAND_HIDDEN["rmi"]=1
+
     # Register help text for built-in commands
     COMMAND_HELP["install"]="Install dependencies (Docker Engine, NVIDIA Container Toolkit)"
     COMMAND_HELP["setup"]="Configure AirStack settings and add to shell profile"
+<<<<<<< HEAD
     COMMAND_HELP["image-build"]="Build or rebuild Docker Compose service images"
     COMMAND_HELP["image-push"]="Push Docker Compose service images to a registry"
     COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
     COMMAND_HELP["images"]="List Docker images filtered by PROJECT_NAME from .env"
     COMMAND_HELP["image-delete"]="Delete all Docker images matching PROJECT_NAME (prompts unless -y)"
     COMMAND_HELP["up"]="Start services [--sim isaac|airsim] [--robots N] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run] [--config-only]"
+=======
+    COMMAND_HELP["images"]="Manage Docker Compose service images: list (default)|build|push|pull|delete|rm (see 'airstack help images')"
+    COMMAND_HELP["up"]="Start services [--sim isaac|airsim|simple] [--robots N] [--stack NAME] [--fleet NAME] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run]"
+>>>>>>> origin/develop
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["clean"]="Remove all ROS 2 build artifacts (build/, install/, log/)"
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"
     COMMAND_HELP["status"]="Show status of all containers"
     COMMAND_HELP["logs"]="View logs for a container (supports partial name matching)"
     COMMAND_HELP["version"]="Display the current AirStack version"
-    COMMAND_HELP["rmi"]="Remove Docker images by search term"
     COMMAND_HELP["help"]="Show help information"
 }
 
@@ -1743,11 +2380,11 @@ function list_commands {
     declare -A modules
     
     for cmd in "${sorted_commands[@]}"; do
-        # Skip hidden commands (those starting with _)
-        if [[ "$cmd" == _* ]]; then
+        # Skip hidden commands (those starting with _ or marked hidden)
+        if [[ "$cmd" == _* || -n "${COMMAND_HIDDEN[$cmd]:-}" ]]; then
             continue
         fi
-        
+
         # Determine module based on command name prefix
         local module="core"
         if [[ "$cmd" == *_* ]]; then

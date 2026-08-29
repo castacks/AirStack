@@ -20,16 +20,14 @@ Through this approach, AirStack leverages Pegasus to create a flexible, reusable
 
 ## Launch Configuration
 
-Launch Configuration
-
 At the top level of the AirStack simulation environment, a `.env` file controls how Pegasus and Isaac Sim are launched:
 ```bash
-ISAAC_SIM_GUI="omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Pegasus/iris_with_sensors.pegasus.robot.usd"
+ISAAC_SIM_GUI="/isaac-sim/AirStack/simulation/isaac-sim/assets/scenes/simple_pegasus.scene.usd"
 # Set to "true" to launch Isaac Sim using a standalone Python script instead of a USD file
-ISAAC_SIM_USE_STANDALONE="false"  # "true" or "false"
+ISAAC_SIM_USE_STANDALONE="true"  # "true" or "false"
 # Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)
 ISAAC_SIM_SCRIPT_NAME="example_one_px4_pegasus_launch_script.py"
-PLAY_SIM_ON_START="false"  # honored in both modes; `airstack up --play` overrides
+PLAY_SIM_ON_START="true"  # honored in both modes; `airstack up --no-play` overrides
 ```
 
 There are *two modes* for launching Pegasus simulations:
@@ -54,15 +52,7 @@ Example scripts are provided in `simulation/isaac-sim/launch_scripts/`. They are
 
 **Location:** `simulation/isaac-sim/utils/scene_prep.py`
 
-`scene_prep.py` provides helpers that are shared across all example launch scripts:
-
-| Function | Purpose |
-|----------|---------|
-| `scale_stage_prim(stage, prim_path, scale_factor)` | Applies a uniform XYZ scale transform to the prim at `prim_path`, clearing any existing xform ops first. Use `0.01` for Nucleus assets authored in centimeters; use `1.0` for assets already in meters. |
-| `add_colliders(stage_prim)` | Recursively walks every child of `stage_prim` and applies `UsdPhysics.CollisionAPI` to each `UsdGeom.Mesh`. **Must be called or drones fall through the floor.** Skips prims that already have the API. |
-| `add_dome_light(stage, intensity=3500, exposure=-3)` | Adds a hemisphere light at `/World/DomeLight` (or updates it if it already exists). Pass `intensity` / `exposure` keyword arguments to override the defaults. |
-| `save_scene_as_contained_usd(source_usd_url, output_dir)` | Copies the stage and all its dependencies (textures, MDL materials) from a Nucleus `omniverse://` URL into a local directory via `omni.kit.usd.collect.Collector`. Set `SAVE_SCENE_TO = None` in your script to skip this step. |
-| `get_stage_meters_per_unit(stage)` | Returns `(meters_per_unit, scene_scale_factor)`. Multiply metric coordinates by `scene_scale_factor` to convert them into stage-space units. Useful for computing drone spawn heights when `STAGE_SCALE != 1.0`. |
+`scene_prep.py` provides helpers that are shared across all example launch scripts — scaling, colliders, dome lighting, self-contained saving, and stage-unit conversion. The full per-function reference lives in [Spawning Drones → Scene prep helpers](spawning_drones.md#scene-prep-helpers).
 
 #### Loading `scene_prep`
 
@@ -112,13 +102,13 @@ Scripts must live in `simulation/isaac-sim/launch_scripts/`. Set `ISAAC_SIM_SCRI
 
 ## RTX OmniLidar and near range (`min_range`) — known limitation {#rtx-lidar-near-range}
 
-AirStack’s Pegasus fork (Isaac Sim **5.1+**) wires **RTX OmniLidar** through OmniGraph helpers such as `add_rtx_lidar_subgraph` in `pegasus.simulator.ogn.api.spawn_rtx_lidar` (used from `simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py`, `example_multi_px4_pegasus_launch_script.py`, etc.). Recent work in this repo switched those scripts from the legacy Ouster graph path to this **RTX** API and reconciled ROS topic names (e.g. raw cloud on `…/sensors/ouster/point_cloud_raw`, filtered consumer topic `…/sensors/ouster/point_cloud`).
+AirStack’s Pegasus fork (Isaac Sim **5.1+**) wires **RTX OmniLidar** through OmniGraph helpers such as `add_rtx_lidar_subgraph` in `pegasus.simulator.ogn.api.spawn_rtx_lidar` (used from `simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py`, `example_multi_px4_pegasus_launch_script.py`, etc.). The lidar publishes the raw cloud on `…/sensors/ouster/point_cloud_raw`; consumers read the filtered topic `…/sensors/ouster/point_cloud`.
 
 ### `min_range` → `nearRangeM` in simulation
 
 The spawn code maps the Python argument **`min_range`** to the OmniLidar prim attribute **`omni:sensor:Core:nearRangeM`** when it exists, and logs a warning when it does not. The module docstring in `spawn_rtx_lidar.py` states the reality: some Kit builds only express echo spacing in the **vendor lidar JSON profile**, not as a writable **Core** prim attribute, so **setting near range in Isaac does not consistently remove short-range returns**.
 
-**Known bug / policy:** Do **not** rely on Isaac-only `min_range` / `nearRangeM` as your primary near-field cleanup. Use the **robot-side** package **`lidar_point_cloud_filter`** (see [Sensors — LiDAR filter](../../../robot/autonomy/sensors/index.md#lidar-point-cloud-filter)), which applies a configurable **`near_range_m`** sphere filter in the ROS graph and publishes a stable cloud for VDB, exploration, and RViz.
+**Known bug / policy:** Do **not** rely on Isaac-only `min_range` / `nearRangeM` as your primary near-field cleanup. Use the **robot-side** package **`lidar_point_cloud_filter`** (see [Sensors — LiDAR filter](../../robot/autonomy/sensors/index.md#lidar-point-cloud-filter)), which applies a configurable **`near_range_m`** sphere filter in the ROS graph and publishes a stable cloud for VDB, exploration, and RViz.
 
 ## Known bugs and workarounds for Scripted Scene Generation
 

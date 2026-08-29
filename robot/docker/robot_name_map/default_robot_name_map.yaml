@@ -6,7 +6,7 @@
 # More specific rules should be higher up. The last rule is a catch-all for anything that doesn't match above.
 mappings:
   # extract the number from any input that contains "robot-" followed by a number, and use that number in the robot name and domain ID
-  - pattern: '.*robot-.*(\d+)'
+  - pattern: '.*robot-\D*(\d+)'
     robot: 'robot_{1}'
     domain_id: '{1}'
 

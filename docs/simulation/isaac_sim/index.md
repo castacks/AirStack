@@ -5,6 +5,11 @@ We chose Isaac Sim as the best balance between photorealism and physics simulati
 
 Isaac Sim is built on [NVIDIA Omniverse](https://developer.nvidia.com/omniverse), which provides a physically-based rendering engine and accurate rigid-body physics. This combination allows us to create realistic scenes that behave and look close to the real world.
 
+<video controls muted loop playsinline preload="metadata" style="max-width: 100%;">
+  <source src="../../assets/media/isaac_sim_demo.mp4" type="video/mp4">
+</video>
+*Three drones running the full AirStack autonomy stack in Isaac Sim (`airstack up --sim isaac --robots 3 --scene full-warehouse`): parallel `TakeoffTask` actions followed by concurrent Circle and Figure-8 `FixedTrajectoryTask` patterns, viewed from the built-in follow camera (`ISAAC_SIM_FOLLOW_CAM`).*
+
 ## Why Isaac Sim
 
 ### ROS 2 Integration

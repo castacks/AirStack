@@ -46,7 +46,7 @@ All topics are **bidirectional** by default.
 
 ## Launch file: `interpolate_dds_router.launch.py`
 
-**Location:** [`robot/ros_ws/src/autonomy_bringup/launch/interpolate_dds_router.launch.py`](../../../../robot/ros_ws/src/autonomy_bringup/launch/interpolate_dds_router.launch.py)
+**Location:** [`robot/ros_ws/src/autonomy_bringup/launch/interpolate_dds_router.launch.py`](../../../robot/ros_ws/src/autonomy_bringup/launch/interpolate_dds_router.launch.py)
 
 DDS Router consumes a plain YAML file, but the router configs in AirStack need runtime values (domain IDs, robot names) and shared base configs. `interpolate_dds_router.launch.py` adds three capabilities on top of plain YAML before handing the file to `ddsrouter`:
 
@@ -57,18 +57,26 @@ The launch file recognises the same `$(...)` token syntax used in ROS 2 XML laun
 | Token | Resolved from | Error if missing? |
 |---|---|---|
 | `$(env VAR_NAME)` | Shell environment variable | Yes — `RuntimeError` |
-| `$(var VAR_NAME)` | `args` launch argument (space-separated `key:=value` pairs) | Yes — `RuntimeError` |
+| `$(var VAR_NAME)` | `dds_router_args` launch argument (space-separated `key:=value` pairs) | Yes — `RuntimeError` |
 | `$(find-pkg-share PKG)` | `ament_index` share directory of `PKG` | Yes — `RuntimeError` |
 
 **Example** — calling the launch file from XML:
 
 ```xml
 <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
-  <arg name="config_file"
-       value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
-  <arg name="args" value="gcs_domain:=0" />
+  <arg name="dds_router_config_file"
+       value="$(find-pkg-share autonomy_bringup)/config/dds_router.yaml" />
+  <arg name="dds_router_args" value="gcs_domain:=0" />
 </include>
 ```
+
+!!! note "Prefixed launch arguments"
+    The canonical arguments are the prefixed `dds_router_config_file` /
+    `dds_router_args` — generic names like `config_file` leak across sibling
+    includes in the same launch scope, because ROS 2 launch configurations
+    are global. The generic `config_file` / `args` names are accepted as
+    **deprecated aliases** (the prefixed name wins when both are set);
+    prefer the prefixed names in all callers.
 
 ### 2 — Config inheritance via `extends:`
 
@@ -100,11 +108,12 @@ some_key: !reset
 
 ## Config files
 
-### `onboard_all/config/dds_router.yaml` — base config
+### `autonomy_bringup/config/dds_router.yaml` — shared allowlist
 
-**Location:** [`robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml`](../../../../robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml)
+**Location:** [`robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml)
 
-Used when the robot role is `full` or `onboard` and both robot and GCS share the same physical machine or are bridged by this router.
+Selected by the `full_*` stacks and `lite_default` (their entry files pass it
+to `interpolate_dds_router.launch.py`).
 
 **Participants:**
 
@@ -117,50 +126,45 @@ Used when the robot role is `full` or `onboard` and both robot and GCS share the
 
 | Topic / Service |
 |---|
+| `rt/<ROBOT_NAME>/sensors/ouster/point_cloud` |
+| `rt/<ROBOT_NAME>/vdb_mapping/vdb_map_visualization` |
+| `rt/<ROBOT_NAME>/sensors/front_stereo/{left,right}/image_rect` + `camera_info` |
+| `rt/<ROBOT_NAME>/perception/stereo_image_proc/point_cloud` |
 | `rt/<ROBOT_NAME>/odometry_conversion/odometry` |
-| `rt/<ROBOT_NAME>/interface/mavros/global_position/raw/fix` |
-| `rt/<ROBOT_NAME>/behavior/behavior_tree_commands` |
-| `rt/<ROBOT_NAME>/behavior/behavior_tree_graphviz` |
+| `rt/<ROBOT_NAME>/interface/mavros/global_position/global` |
+| `rt/<ROBOT_NAME>/trajectory_controller/trajectory_vis` |
+| `rt/<ROBOT_NAME>/global_plan` |
 | `rq+rr/<ROBOT_NAME>/interface/robot_command` |
 | `rq+rr/<ROBOT_NAME>/trajectory_controller/set_trajectory_mode` |
 | `rq+rr/<ROBOT_NAME>/takeoff_landing_planner/set_takeoff_landing_command` |
 | `rq+rr/<ROBOT_NAME>/behavior/global_plan_toggle` |
 | `rt/<ROBOT_NAME>/bag_record/bag_recording_status` |
 | `rt/<ROBOT_NAME>/bag_record/set_recording_status` |
-| `rt/<ROBOT_NAME>/fixed_trajectory_generator/fixed_trajectory_command` |
+
+Gossip peer profiles are deliberately **not** in this allowlist — they are
+bridged by the dedicated gossip DDS router on domain 99 (bridging them here
+too would cause message amplification).
 
 
 ---
 
-### `onboard_local_offboard_global/config/dds_router.yaml` — extended config
+### Split-stack router config — generated from `bridge.yaml`
 
-**Location:** [`robot/ros_ws/src/autonomy_bringup/onboard_local_offboard_global/config/dds_router.yaml`](../../../../robot/ros_ws/src/autonomy_bringup/onboard_local_offboard_global/config/dds_router.yaml)
+The split stack (`stacks/lite_offload_global`) does NOT use a hand-written
+router config: its [`bridge.yaml`](../../../stacks/lite_offload_global/bridge.yaml)
+is the authoritative boundary document, and `tools/gen_dds_router.py`
+generates `.airstack/generated/dds_router.lite_offload_global.yaml` from it
+(loaded by the stack's `onboard` entry).
 
-Used for the `desktop_split`, `l4t_lite + offboard`, and `voxl + offboard` deployment profiles where local planning runs onboard and global planning runs on the GCS.
-
-This config **inherits from `onboard_all`** via `extends:` and appends additional topics:
-
-```yaml
-extends: "$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml"
-```
-
-**Additional topics (appended to the base allowlist):**
-
-| Topic |
-|---|
-| `rt/<ROBOT_NAME>/sensors/front_stereo/left/image_rect` |
-| `rt/<ROBOT_NAME>/sensors/front_stereo/left/camera_info` |
-| `rt/<ROBOT_NAME>/sensors/front_stereo/right/image_rect` |
-| `rt/<ROBOT_NAME>/sensors/front_stereo/right/camera_info` |
-| `rt/<ROBOT_NAME>/global_plan` |
-
-
-The stereo image topics let the global planner on the GCS observe the robot's environment. `global_plan` carries the resulting path back to the onboard local planner.
+The generated config deliberately contains no `set_trajectory_mode`
+crossing: command authority stays onboard — control-mode and
+trajectory-group names may never cross a split-stack bridge
+(`airstack doctor` hard gate #2).
 
 ---
 
 ## Adding a new bridged topic
 
-1. Decide which config applies (`onboard_all` for all roles, `onboard_local_offboard_global` for split-only).
-2. Add the topic to the appropriate `allowlist`, using the correct DDS prefix (`rt/`, `rq/`, `rr/`, etc.) and the `$(env ROBOT_NAME)` substitution for the robot namespace.
+1. Decide where it belongs: the shared `autonomy_bringup/config/dds_router.yaml` allowlist (full/lite stacks), or the split stack's `bridge.yaml` (then regenerate with `tools/gen_dds_router.py`; the doctor hard gate rejects control-setpoint / trajectory-group names).
+2. For the shared allowlist, add the topic using the correct DDS prefix (`rt/`, `rq/`, `rr/`, etc.) and the `$(env ROBOT_NAME)` substitution for the robot namespace.
 3. If overriding inherited list entries is needed, use the `!override` tag on the list.

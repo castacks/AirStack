@@ -2,6 +2,11 @@
 
 [Microsoft AirSim (legacy)](https://microsoft.github.io/AirSim/) is an open-source simulator for drones built on Unreal Engine, with built-in PX4 SITL integration.
 
+<video controls muted loop playsinline preload="metadata" style="max-width: 100%;">
+  <source src="../../assets/media/ms_airsim_demo.mp4" type="video/mp4">
+</video>
+*The AirStack autonomy stack flying `TakeoffTask` + `FixedTrajectoryTask` patterns in the AirSimNH neighborhood scene (`airstack up --sim airsim --robots 2 --scene neighborhood`).*
+
 ## Overview
 
 Microsoft AirSim (legacy) provides an alternative simulation backend for AirStack, offering:
@@ -18,19 +23,29 @@ Microsoft AirSim (legacy) provides an alternative simulation backend for AirStac
 - Archived project (no new features, but stable)
 - UE 4.27 only (older engine)
 
+## Project status
+
+Microsoft archived AirSim, which is why AirStack labels it "legacy": it remains a stable, supported simulation backend here, but the upstream project receives no new features. For a maintained successor, see [Project AirSim](https://github.com/iamaisim/ProjectAirSim) (UE5, new API).
+
 ## Quick Start
 
 ### 1. Scene (auto-fetched on first launch)
 
-If `MS_AIRSIM_BINARY_PATH` is unset, the container's entrypoint auto-downloads the Blocks scene (~200 MB) into `simulation/ms-airsim/assets/scenes/Blocks/` inside the `airsim` tmux window on first launch. Progress and any errors are visible there.
+If `MS_AIRSIM_BINARY_PATH` is unset, the container's entrypoint auto-downloads the selected scene (Blocks by default, ~200 MB) into `simulation/ms-airsim/assets/scenes/` inside the `airsim` tmux window on first launch. Progress and any errors are visible there.
+
+The easiest way to pick a scene is the launch flag — it maps a shortname to the right UE4 binary and, when the scene isn't downloaded yet, asks before fetching it (see [Simulation Scenes](../scenes.md) for the full catalog):
+
+```bash
+airstack up --sim airsim --scene neighborhood
+```
 
 To pre-fetch (e.g. before CI) or pick a different scene, run the helper directly:
 
 ```bash
 ./simulation/ms-airsim/assets/scenes/fetch_scene.sh              # blocks (default)
-./simulation/ms-airsim/assets/scenes/fetch_scene.sh airsimnh     # or: abandonedpark, forest,
-                                                                 # landscapemountains, soccerfield,
-                                                                 # building99, zhangjiajie
+./simulation/ms-airsim/assets/scenes/fetch_scene.sh airsimnh     # or: abandonedpark,
+                                                                 # landscapemountains, zhangjiajie,
+                                                                 # africasavannah, msbuild2018
 ```
 
 To use a scene that isn't one of the presets, extract it yourself into `simulation/ms-airsim/assets/scenes/` and set `MS_AIRSIM_BINARY_PATH` to its `.sh` path inside the container.
@@ -40,30 +55,18 @@ Scenes are pulled from the [AirSim Linux releases](https://github.com/microsoft/
 ### 2. Launch Microsoft AirSim (legacy) + Robot
 
 ```bash
-airstack up --env-file overrides/ms-airsim.env
+airstack up --sim airsim
 ```
 
-To build the images first:
+(Equivalently: `airstack up --env-file overrides/ms-airsim.env`, which sets the same compose profiles and URDF.)
 
-```bash
-airstack image-build --profile ms-airsim
-```
+To build or pull the images first, see [Docker reference → Image Management](docker.md#image-management).
 
-The container runs `1 + 2*NUM_ROBOTS` tmux windows:
-- **Window 0**: AirSim binary (Unreal Engine rendering)
-- **Windows 1..N**: one PX4 SITL instance per robot
-- **Windows N+1..2N**: one ROS 2 bridge node per robot (depth + stereo RGB + camera_info)
-
-To attach to the tmux session:
+To attach to the container's tmux session (window layout and startup sequence are detailed in the [Docker reference](docker.md#accessing-the-container)):
 
 ```bash
 airstack connect ms-airsim
 ```
-
-A video is below:
-
-<iframe src="https://private-user-images.githubusercontent.com/4943471/574307425-90c3d9d0-f53a-46a6-a11d-f3690f682e51.mp4?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzU2NjY4NTIsIm5iZiI6MTc3NTY2NjU1MiwicGF0aCI6Ii80OTQzNDcxLzU3NDMwNzQyNS05MGMzZDlkMC1mNTNhLTQ2YTYtYTExZC1mMzY5MGY2ODJlNTEubXA0P1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI2MDQwOCUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjA0MDhUMTY0MjMyWiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9YjM4NjEyODA5Nzg0MzY2ODNmZDlkYzlmODNmMmJhNzkwODA2YWViYjU3Nzc2YjA4ZDhiZThjY2MzNWUyYWViYSZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.N11vdWatLn7F3mLDdctHIu3p9eZzO52M9oVnnjwW88M" allowfullscreen width="1920" height="500"></iframe>
-
 
 ## Architecture
 
@@ -107,10 +110,10 @@ Key settings:
 | `ClockType` | `SteppableClock` | Lockstep with PX4 |
 | `VehicleType` | `PX4Multirotor` | PX4 SITL vehicle |
 | `TcpPort` | `4560 + i` | PX4 lockstep connection (per robot `i`) |
-| `ControlPortLocal` | `24540 + i` | AirSim MAVLink proxy local port (moved off `14540+i` so it doesn't intercept PX4 ↔ MAVROS traffic) |
+| `ControlPortLocal` | `24540 + i` | AirSim MAVLink proxy local port (deliberately offset from `14540+i` so the proxy doesn't intercept PX4 ↔ MAVROS traffic) |
 | `ControlPortRemote` | `24580 + i` | AirSim MAVLink proxy remote port |
 
-`settings.json` is generated at container start from [`settings.json.j2`](https://github.com/.../simulation/ms-airsim/config/settings.json.j2) via [`generate_settings.py`](https://github.com/.../simulation/ms-airsim/config/generate_settings.py), which expands per-robot port offsets, spawn positions, and camera parameters.
+`settings.json` is generated at container start from [`settings.json.j2`](https://github.com/castacks/AirStack/blob/main/simulation/ms-airsim/config/settings.json.j2) via [`generate_settings.py`](https://github.com/castacks/AirStack/blob/main/simulation/ms-airsim/config/generate_settings.py), which expands per-robot port offsets, spawn positions, and camera parameters.
 
 ### Cameras
 
@@ -122,13 +125,14 @@ The default configuration is a forward-facing **stereo pair** (left + right) plu
 | FOV | 90° | `AIRSIM_CAM_FOV` |
 | Baseline (2 × Y offset) | 0.12 m | `AIRSIM_CAM_Y` |
 | Forward (X) offset | 0.4 m | `AIRSIM_CAM_X` |
+| Vertical (Z) offset | 0 m | `AIRSIM_CAM_Z` |
 | Pitch | 0° | `AIRSIM_CAM_PITCH` |
 
-Cameras are defined per vehicle in the generated `settings.json` under `Vehicles.robot_<i>.Cameras`.
+Cameras are defined per vehicle in the generated `settings.json` under `Vehicles.robot_<i>.Cameras`. Override the `.env` variables and restart the container to regenerate `settings.json` (see [Docker reference → Settings Generation](docker.md#settings-generation)).
 
 ### Bridge node parameters
 
-Located at `simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/config/bridge.yaml`:
+Declared (with these defaults) in `simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/ms_airsim_ros_bridge/bridge_node.py`; the entrypoint starts each bridge with `ros2 run ... --ros-args -p robot_name:=robot_<i>`:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -139,11 +143,7 @@ Located at `simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/config/bridge.y
 
 ### Environment variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SIM_IP` | `172.31.0.200` | Simulation container IP |
-| `MS_AIRSIM_ENV_DIR` | `simulation/ms-airsim/assets/scenes` | Host path to extracted AirSim scenes |
-| `MS_AIRSIM_BINARY_PATH` | _(unset → auto-fetch Blocks)_ | Path to binary inside container. If unset, the entrypoint fetches Blocks and points at it. |
+Container-level environment variables (`AUTOLAUNCH`, `NUM_ROBOTS`, `SIM_IP`, `MS_AIRSIM_*`) are documented in the [Docker reference → Environment Variables](docker.md#environment-variables).
 
 ## Published ROS 2 Topics
 
@@ -156,24 +156,30 @@ Located at `simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/config/bridge.y
 | `/{robot_name}/sensors/front_stereo/depth` | `sensor_msgs/Image` | Depth image (32FC1, meters) |
 | `/clock` | `rosgraph_msgs/Clock` | Simulation clock from AirSim |
 
-### Project status
-
-Microsoft archived AirSim. For a maintained successor, see [Project AirSim](https://github.com/iamaisim/ProjectAirSim) (UE5, new API — integration planned as a future AirStack feature).
-
 ## Troubleshooting
 
 **Bridge can't connect to Microsoft AirSim (legacy):**
 
-- Ensure the AirSim binary is running and `settings.json` is loaded
-- Check that `ms_airsim_ip` parameter matches where AirSim is running
+- Ensure the AirSim binary is running (`airsim` tmux window) and `settings.json` is loaded
+- The entrypoint retries until the AirSim API is ready; check for connection errors in the container logs
+- Check that the bridge node's `ms_airsim_ip` parameter matches where AirSim is running (default: `127.0.0.1` — same container)
 
 **No depth images:**
 
-- Verify the camera name in `settings.json` matches `bridge.yaml`
+- Verify the camera names in the generated `settings.json` are `front_left` / `front_right` — the names the bridge node requests images by
 - Check AirSim console for rendering errors
+- Echo the topic: `ros2 topic echo /robot_1/sensors/front_stereo/depth --once`
 
 **MAVROS won't connect:**
 
 - Verify `SIM_IP=172.31.0.200` is set in `.env` (default)
-- Ensure PX4 SITL has started (check AirSim console for MAVLink messages)
-- Check port configuration: offboard=24540+i, onboard=24580+i
+- Ensure PX4 SITL has started (look for `[mavlink]` output in the `robot_<i>_px4` tmux window)
+- Check port configuration: offboard `14540 + ROS_DOMAIN_ID` (see Data flow above); AirSim's own control channel uses `24540+i`/`24580+i`
+
+For container-level issues (UE4 binary won't launch, GPU/Vulkan access, PX4 lockstep connection, DDS topic visibility across containers), see the [Docker reference → Troubleshooting](docker.md#troubleshooting).
+
+## See Also
+
+- [Docker Configuration](docker.md) — container reference: services, env vars, networking, tmux layout, startup sequence
+- [Simulation Scenes](../scenes.md) — scene catalog and fetch helper
+- [Simulation Overview](../index.md) — choosing between simulators

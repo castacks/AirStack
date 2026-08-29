@@ -1,6 +1,6 @@
 # System Architecture
 
-This document provides a comprehensive overview of the AirStack autonomy system architecture, data flow, and module interactions.
+This document explains the AirStack autonomy architecture: how the layers relate, the two kinds of nodes the stack is built from, and how data and task goals flow through the system.
 
 ## Overview
 
@@ -43,7 +43,7 @@ They receive data over topics and publish results immediately — there
 is no external activation step. Most of the autonomy stack consists
 of perpetual nodes.
 
-Examples: state estimator, VDB mapper, disparity expander, trajectory controller, behavior tree tick loop.
+Examples: state estimator, VDB mapper, disparity expander, trajectory controller, safety monitor.
 
 ### Task Executors
 
@@ -71,21 +71,22 @@ All task action servers are remapped to `/{robot_name}/tasks/{task_name}` by con
 
 ### Task Cascade
 
-High-level tasks (sent by the behavior layer) cascade down through the stack:
+High-level task goals (sent by the operator from the GCS — the Foxglove
+robot-commands panel or the RViz Tasks Panel) cascade down through the stack:
 
 ```mermaid
 graph TD
-    BE[behavior_executive] -->|ExplorationTask| RW[random_walk_planner]
+    GCS[GCS operator] -->|ExplorationTask| RW[random_walk_planner]
     RW -->|NavigateTask| DG[droan_gl]
     DG -->|trajectory_segment_to_add| TC[trajectory_controller]
 
-    style BE fill:#cce5ff
+    style GCS fill:#cce5ff
     style TC fill:#cce5ff
     style RW fill:#d4edda
     style DG fill:#d4edda
 ```
 
-*Blue = perpetual node, green = task executor.*
+*Blue = perpetual node / external client, green = task executor.*
 
 The global-layer task executor (e.g. `random_walk_planner`) decides
 *where* to go and delegates the actual flying to the local-layer task
@@ -136,327 +137,124 @@ graph LR
 
 ## Detailed Layer Architecture
 
+The exact topic names, message types, and QoS settings that connect the layers
+are specified once, normatively, in the
+[Interface Conventions Specification](interface_conventions.md) — the
+subsections below describe each layer's *role* and link to its documentation
+rather than restating that data.
+
 ### Interface Layer
 
-**Purpose:** Abstract hardware/simulation and provide safety monitoring.
+The interface layer abstracts the flight controller behind a stable
+command/status boundary: it converts controller setpoints into vehicle
+commands (MAVROS ↔ PX4 in the trunk) and publishes vehicle state — arming,
+flight mode, battery — back up to the rest of the stack. Nothing above this
+layer talks to hardware directly, which is what makes simulation and real
+vehicles interchangeable.
 
-```mermaid
-graph TB
-    MAVROS[MAVROS Interface]
-    Safety[Safety Monitor]
-    RobotIF[Robot Interface]
-    
-    PX4[PX4 Flight Controller] --> MAVROS
-    MAVROS --> Safety
-    Safety --> RobotIF
-    
-    RobotIF -->|State| Perception
-    RobotIF -->|Safety Status| Behavior
-    
-    Control[Trajectory Controller] -->|Commands| MAVROS
-    MAVROS -->|Actuator Commands| PX4
-```
-
-**Key Modules:**
-
-- `mavros_interface`: MAVLink communication with flight controller
-- `drone_safety_monitor`: Safety checks and emergency handling
-- `robot_interface`: High-level robot state abstraction
-
-**Topics:**
-
-- **Published:**
-    - `/[robot]/interface/mavros/state`
-    - `/[robot]/interface/mavros/local_position/pose`
-    - `/[robot]/interface/battery_state`
-
-- **Subscribed:**
-    - `/[robot]/trajectory_controller/cmd_vel`
+See the [Interface layer documentation](interface/index.md); the
+command and status contracts are
+[`control_setpoint` (§6)](interface_conventions.md#6-control_setpoint-controller-interface-command-onboard-only)
+and the
+[`interface_status` group (§7)](interface_conventions.md#7-interface_status-group-vehicle-state-out-of-the-interface-layer).
 
 ### Sensors Layer
 
-**Purpose:** Process and calibrate sensor data.
+The sensors layer wraps drivers and low-level processing (e.g. point-cloud
+filtering) so that downstream layers consume calibrated, consistently named
+streams instead of device-specific topics.
 
-```mermaid
-graph LR
-    Camera[Camera Sensors] --> ImgProc[Image Processing]
-    Stereo[Stereo Cameras] --> Disparity[Disparity Computation]
-    Gimbal[Gimbal] --> Stabilizer[Gimbal Stabilizer]
-    
-    ImgProc --> Perception
-    Disparity --> Perception
-    Stabilizer --> Camera
-```
-
-**Key Modules:**
-
-- `camera_param_server`: Camera calibration management
-- `gimbal_stabilizer`: Gimbal control and stabilization
-- Sensor drivers and processors
-
-**Topics:**
-
-- **Published:**
-    - `/[robot]/sensors/[sensor_name]/image`
-    - `/[robot]/sensors/[sensor_name]/camera_info`
-    - `/[robot]/sensors/front_stereo/disparity`
+See the [Sensors layer documentation](sensors/index.md) and the
+[`sensors/*` naming convention (§1)](interface_conventions.md#1-sensors-sensor-naming-convention).
 
 ### Perception Layer
 
-**Purpose:** Estimate robot state and understand environment.
+The perception layer turns sensor streams into the robot's estimate of itself
+and its surroundings: the primary state estimate (`odometry`) and depth /
+point-cloud products consumed by the world models. The trunk default stereo
+pipeline is `stereo_image_proc`; learned visual odometry (MAC-VO) is available
+as the external [asm_macvo](https://github.com/castacks/asm_macvo) module
+rather than in the trunk.
 
-```mermaid
-graph TB
-    subgraph "State Estimation"
-        VIO[Visual-Inertial Odometry]
-        Fusion[Sensor Fusion]
-    end
-    
-    subgraph "Environment Perception"
-        Depth[Depth Estimation]
-        Features[Feature Detection]
-        Tracking[Object Tracking]
-    end
-    
-    Sensors -->|Images + IMU| VIO
-    Sensors -->|Multi-sensor| Fusion
-    VIO --> Odometry[Odometry Output]
-    Fusion --> Odometry
-    
-    Sensors -->|Stereo| Depth
-    Sensors -->|Images| Features
-    Features --> Tracking
-    
-    Odometry --> Local
-    Odometry --> Global
-    Depth --> Local
-```
-
-**Key Modules:**
-
-- `macvo_ros2`: Visual-inertial odometry system
-
-**Topics:**
-
-- **Published:**
-    - `/[robot]/odometry` - Primary state estimate
-    - `/[robot]/perception/macvo/depth`
-    - `/[robot]/perception/macvo/features`
-
-- **Subscribed:**
-    - `/[robot]/sensors/*/image`
-    - `/[robot]/sensors/*/camera_info`
-    - `/[robot]/interface/mavros/imu`
+See the [Perception layer documentation](perception/index.md) and the
+[`odometry` contract (§2)](interface_conventions.md#2-odometry-primary-state-estimate).
 
 ### Local Layer
 
-**Purpose:** Reactive obstacle avoidance and trajectory control.
+The local layer is the reactive, short-horizon part of the stack, organized in
+three sub-layers: **world models** (e.g. disparity expansion) maintain an
+obstacle representation around the robot, **planners** (DROAN, takeoff/landing)
+generate collision-free trajectories through it, and **controllers**
+(trajectory controller, PID controller) track those trajectories at high rate
+and hand setpoints to the interface layer.
 
-The local layer has three sub-layers:
-
-```mermaid
-graph TB
-    subgraph "Local World Models"
-        Disparity[Disparity Expansion]
-        Graph[Disparity Graph]
-        CostMap[Cost Map]
-        
-        Disparity --> Graph
-        Graph --> CostMap
-    end
-    
-    subgraph "Local Planners"
-        DROAN[DROAN Planner]
-        TakeoffLanding[Takeoff/Landing]
-        
-        CostMap --> DROAN
-    end
-    
-    subgraph "Controllers"
-        TrajControl[Trajectory Controller]
-        AttControl[Attitude Controller]
-        
-        DROAN --> TrajControl
-        TakeoffLanding --> TrajControl
-        TrajControl --> AttControl
-    end
-    
-    Perception -->|Odometry| DROAN
-    Perception -->|Disparity| Disparity
-    Global -->|Global Plan| DROAN
-    
-    AttControl -->|Commands| Interface
-```
-
-**Key Modules:**
-
-- **World Models:**
-
-    - `disparity_expansion`: Obstacle detection from stereo
-    - `disparity_graph`: Graph-based obstacle representation
-    - `disparity_graph_cost_map`: Cost map generation
-
-- **Planners:**
-
-    - `droan_local_planner`: DROAN obstacle avoidance
-    - `takeoff_landing_planner`: Specialized maneuvers
-    - `trajectory_library`: Trajectory generation utilities
-
-- **Controllers:**
-
-    - `trajectory_controller`: Trajectory tracking
-    - `attitude_controller`: Attitude control
-
-**Topics:**
-
-- **Subscribed:**
-
-    - `/[robot]/odometry`
-    - `/[robot]/global_plan`
-    - `/[robot]/sensors/front_stereo/disparity`
-
-- **Published:**
-
-    - `/[robot]/trajectory_controller/trajectory_segment_to_add`
-    - `/[robot]/trajectory_controller/look_ahead`
-    - `/[robot]/trajectory_controller/tracking_point`
-    - `/[robot]/local/cost_map`
+See the [Local layer documentation](local/index.md); the handoff between
+planners and the trajectory controller is the
+[`trajectory` group (§5)](interface_conventions.md#5-trajectory-group-the-trajectory-controllers-contract-onboard-only).
 
 ### Global Layer
 
-**Purpose:** Strategic path planning and global mapping.
+The global layer is the strategic counterpart: it maintains a persistent 3D
+map of everywhere the robot has been (VDB mapping) and decides where to go
+next — exploration and global path planning — handing global plans down to the
+local layer for execution.
 
-```mermaid
-graph TB
-    subgraph "Global World Models"
-        VDBMap[VDB Mapping]
-        Occupancy[Occupancy Grid]
-    end
-    
-    subgraph "Global Planners"
-        RandomWalk[Random Walk Explorer]
-        Ensemble[Ensemble Planner]
-    end
-    
-    Perception -->|Pose| VDBMap
-    Sensors -->|Point Clouds| VDBMap
-    VDBMap --> Occupancy
-    
-    Occupancy --> RandomWalk
-    Occupancy --> Ensemble
-    Behavior -->|Goals| RandomWalk
-    Behavior -->|Goals| Ensemble
-    
-    RandomWalk --> GlobalPlan[Global Plan]
-    Ensemble --> GlobalPlan
-    GlobalPlan --> Local
-```
-
-**Key Modules:**
-
-- **World Models:**
-
-    - `vdb_mapping_ros2`: VDB-based 3D mapping
-
-- **Planners:**
-
-    - `random_walk`: Random exploration planner
-    - `ensemble_planner`: Multi-planner coordination
-
-**Topics:**
-
-- **Subscribed:**
-
-    - `/[robot]/odometry`
-    - `/[robot]/sensors/*/pointcloud`
-    - `/[robot]/behavior/mission_goal`
-
-- **Published:**
-
-    - `/[robot]/global_plan`
-    - `/[robot]/global/map`
-    - `/[robot]/global/occupancy`
+See the [Global layer documentation](global/index.md) and the
+[`global_plan` contract (§4)](interface_conventions.md#4-global_plan-global-waypoint-path).
 
 ### Behavior Layer
 
-**Purpose:** High-level mission execution and decision making.
+Onboard safety supervision. Mission-level sequencing is driven
+by the operator from the GCS through [task executors](tasks.md); the
+behavior layer's job is the part that must never depend on a ground link —
+watching the robot's health and forcing a safe reaction when something
+breaks (the `drone_safety_monitor` watches the state estimate and issues
+safety commands when it times out).
 
-```mermaid
-graph TB
-    Mission[Mission Manager] -->|Goals| BT[Behavior Tree]
-    BT -->|Evaluate| Conditions{Conditions}
-    Conditions -->|True| Actions[Actions]
-    Conditions -->|False| Fallback[Fallback]
-    
-    Actions -->|Global Goals| Global
-    Actions -->|Local Commands| Local
-    Actions -->|Mode Changes| Interface
-    
-    subgraph "Behavior Tree Components"
-        BT
-        Conditions
-        Actions
-        Fallback
-    end
-    
-    GCS[Ground Control Station] -->|Commands| Mission
-    Autonomy[Autonomy State] --> BT
-```
-
-**Key Modules:**
-
-- `behavior_tree`: Behavior tree framework
-- `behavior_executive`: Mission execution engine
-- `rqt_behavior_tree_command`: GUI for behavior tree control
-
-**Topics:**
-
-- **Subscribed:**
-
-    - `/[robot]/odometry`
-    - `/[robot]/interface/mavros/state`
-    - `/[robot]/trajectory_controller/trajectory_completion_percentage`
-
-- **Published:**
-
-    - `/[robot]/global/goal`
-    - `/[robot]/trajectory_controller/trajectory_override`
-    - `/[robot]/behavior/mission_state`
+See the [Behavior layer documentation](behavior/index.md) and the
+[`safety` contract (§9)](interface_conventions.md#9-safety-safety-executive-onboard-only).
 
 ## Complete Data Flow
 
 ### Autonomous Flight Scenario
 
-Here's the complete data flow for an autonomous flight with obstacle avoidance:
+An autonomous flight is a [task cascade](tasks.md#task-cascade). The GCS
+operator is an **action client**: they send a task goal (e.g.
+`ExplorationTask`) to a global-layer task executor, which decides where to go
+and delegates the flying to the local-layer task executor via `NavigateTask`.
+The local planner feeds trajectory segments to the perpetual trajectory
+controller, which produces setpoints for the interface layer. Each action
+**result returns to the client that sent the goal** — `NavigateTask` results
+to the global executor, and the top-level task result (with ~1 Hz feedback
+along the way) to the GCS:
 
 ```mermaid
 sequenceDiagram
-    participant BEH as Behavior
-    participant GLO as Global Planner
-    participant LOC as Local Planner
-    participant CTL as Controller
+    participant GCS as GCS (action client)
+    participant GLO as Global Task Executor<br/>(random_walk_planner)
+    participant LOC as Local Task Executor<br/>(droan_gl)
+    participant CTL as Trajectory Controller
     participant IF as Interface
     participant HW as Hardware/Sim
     
-    Note over BEH: Mission: Navigate to waypoint
-    BEH->>GLO: Goal Position
-    GLO->>GLO: Plan global path
-    GLO->>LOC: Global Plan
+    GCS->>GLO: ExplorationTask goal
+    GLO->>GLO: Choose next goal point
+    GLO->>LOC: NavigateTask goal (global plan)
     
     loop Obstacle Avoidance
-        HW->>IF: Sensor Data
-        IF->>LOC: Disparity Image
+        HW->>LOC: Sensor data (via sensors + perception)
         LOC->>LOC: Detect obstacles
         LOC->>LOC: Generate local trajectory
         LOC->>CTL: Trajectory Segment
-        CTL->>CTL: Compute control commands
-        CTL->>IF: Velocity Commands
+        CTL->>CTL: Compute control setpoint
+        CTL->>IF: Control setpoint
         IF->>HW: Actuator Commands
     end
     
-    Note over CTL: Waypoint reached
-    CTL->>BEH: Completion notification
-    BEH->>BEH: Next waypoint or mission complete
+    Note over LOC: Goal reached
+    LOC-->>GLO: NavigateTask result
+    GLO->>GLO: Next goal point, or done
+    GLO-->>GCS: ExplorationTask result
 ```
 
 ## Module Communication Patterns
@@ -500,94 +298,19 @@ This enables:
 
 ## Coordinate Frames
 
-### Frame Hierarchy
+The frame tree, units, and the ENU convention are specified normatively in
+[Interface Conventions — TF frames and units](interface_conventions.md#tf-frames-and-units).
+For the reasoning behind the conventions — including the NED↔ENU conversion at
+the PX4/MAVROS boundary and Isaac Sim's FLU convention — see the
+[Frame Conventions](../../development/intermediate/frame_conventions.md)
+concept page.
 
-```mermaid
-graph TB
-    World[world] --> Map[map]
-    Map --> Odom[odom]
-    Odom --> BaseLink[base_link]
-    BaseLink --> BaseLinkStab[base_link_stabilized]
-    BaseLinkStab --> Camera[camera_link]
-    BaseLinkStab --> Lidar[lidar_link]
-    BaseLink --> LookAhead[look_ahead_point]
-```
+## Integrating a New Module
 
-**Standard Frames:**
-
-- `world`: Fixed world frame
-- `map`: Global map frame (may drift from world)
-- `odom`: Odometry frame (continuous, may drift)
-- `base_link`: Robot body frame
-- `base_link_stabilized`: Stabilized body frame (yaw-only)
-- `camera_link`: Camera sensor frame
-- `look_ahead_point`: Trajectory tracking reference
-
-## Performance Characteristics
-
-### Typical Update Rates
-
-| Layer | Module | Rate | Latency |
-|-------|--------|------|---------|
-| Interface | MAVROS | 50 Hz | <5 ms |
-| Sensors | Camera | 30 Hz | <10 ms |
-| Sensors | Disparity | 15 Hz | <30 ms |
-| Perception | VIO | 30 Hz | <20 ms |
-| Local Planner | DROAN | 10 Hz | <50 ms |
-| Local Controller | Trajectory | 50 Hz | <10 ms |
-| Global Planner | Path | 1 Hz | <500 ms |
-| Behavior | BT Tick | 10 Hz | <5 ms |
-
-### Resource Usage (Typical)
-
-| Component | CPU | Memory | GPU |
-|-----------|-----|--------|-----|
-| Full Stack | 60-80% | 4-6 GB | 20-40% |
-| Perception | 15-20% | 500 MB | 10-20% |
-| Local Planning | 10-15% | 300 MB | 5-10% |
-| Global Planning | 5-10% | 200 MB | 0% |
-| Simulation | 30-40% | 2-3 GB | 60-80% |
-
-## Module Integration Guidelines
-
-When adding a new module, follow these integration patterns:
-
-### 1. Determine Layer Placement
-
-Place module in appropriate layer based on its function:
-
-- Real-time obstacle avoidance? → Local planning
-- State estimation? → Perception
-- Path planning? → Global planning
-- Mission logic? → Behavior
-
-### 2. Define Interfaces
-
-Specify input and output topics:
-
-- Use standard topics when available
-- Create custom topics with appropriate namespaces
-- Document expected message rates and latencies
-
-### 3. Configure Launch Integration
-
-Add module to layer bringup with:
-
-- Topic remapping
-- Namespace configuration
-- Parameter loading
-- Conditional launching (if needed)
-
-### 4. Test Integration
-
-Verify:
-
-- Topics connect correctly
-- Data flows as expected
-- Performance meets requirements
-- Works with other modules
-
-See [Integration Checklist](integration_checklist.md) for detailed steps.
+When adding a new module to the stack — choosing its layer, defining its topic
+interfaces, wiring it into a stack entry launch file, and verifying the
+connections — follow the [Integration Checklist](integration_checklist.md),
+which is the canonical step-by-step guide.
 
 ## Multi-Robot Architecture
 
@@ -642,8 +365,9 @@ graph TB
 
 ## References
 
+- [Interface Conventions Specification](interface_conventions.md) - Normative topic, action, and frame contracts
 - [Integration Checklist](integration_checklist.md) - Module integration guidelines
-- [AI Agent Guide](../../development/ai_agent_guide.md) - Guide for AI agents
+- [AI Agent Guide](../../development/advanced/ai_agent_guide.md) - Guide for AI agents
 - [Layer Documentation](index.md) - Detailed layer descriptions
 - Skills:
 

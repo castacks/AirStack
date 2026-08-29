@@ -61,8 +61,8 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
 - Gazebo (planned)
 
 ### Hardware
-- NVIDIA Jetson (Orin, Xavier NX, TX2)
-- ModalAI VOXL (VOXL 2, VOXL Flight)
+- NVIDIA Jetson (Orin AGX/NX)
+- ModalAI VOXL 2 (Docker profile exists; docs in progress)
 - x86-64 desktop/laptop (development)
 
 ### Software
@@ -72,10 +72,10 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
 
 ## License
 
-!!! note "License Pending"
-    License to be determined. Likely Apache 2.0 or MIT for open source components.
-    
-    For now, access requires AirLab account and approval.
+!!! note "License"
+    AirStack is licensed under the BSD 3-Clause Clear License (SPDX: BSD-3-Clause-Clear),
+    copyright Carnegie Mellon University, AirLab. Vendored third-party packages retain
+    their upstream licenses.
 
 ## FAQ
 
@@ -85,7 +85,7 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
     Currently, AirStack is in alpha and limited to AirLab members and collaborators. We plan to release it publicly once it reaches a stable state.
 
 !!! question "What hardware do I need?"
-    **For development**: Ubuntu 22.04 machine with NVIDIA GPU (RTX 3070+ recommended), 16GB+ RAM, and 100GB+ free storage.
+    **For development**: Ubuntu 22.04 or 24.04 machine with NVIDIA GPU (RTX 3070 minimum, RTX 4080 or better recommended), 16GB+ RAM, and 100GB free storage recommended (Docker images take ~25GB).
     
     **For deployment**: NVIDIA Jetson or ModalAI VOXL onboard computer.
 
@@ -99,12 +99,12 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
     
     **Global planning** generates waypoint paths at lower frequency (1 Hz) for exploration and goal navigation.
     
-    See: [Autonomy Modes Tutorial](tutorials/autonomy_modes.md)
+    See: [Autonomy Modes Tutorial](robot/autonomy_modes.md)
 
 !!! question "Can I use my own planner/controller?"
-    Yes! AirStack is designed for easy module swapping. Create a ROS 2 package with the correct interface, integrate it into the bringup layer, and you're ready.
+    Yes! AirStack is designed for easy module swapping. Create a ROS 2 package with the correct interface, wire it into a stack's entry launch file, and you're ready.
     
-    See: [Integration Checklist](robot/autonomy/integration_checklist.md)
+    See: [Integration Checklist](robot/autonomy/integration_checklist.md) and [AirStack Stacks](development/stacks.md)
 
 !!! question "How do I add a new sensor?"
     Add sensor integration to the sensors layer, ensuring data is published to standard topics (with correct frame IDs and timestamps).
@@ -114,7 +114,7 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
 !!! question "Does AirStack support multi-robot missions?"
     Yes! Each robot gets a unique ROS_DOMAIN_ID and namespace. All run independently while coordinating through the Ground Control Station.
     
-    See: [Multi-Robot Simulation Tutorial](tutorials/multi_robot_simulation.md)
+    See: [Robot Identity (multi-robot naming and domains)](robot/docker/robot_identity.md)
 
 !!! question "Can I run AirStack without Docker?"
     While technically possible, we **strongly recommend using Docker**. It ensures consistent environments, simplifies dependency management, and matches how we test and deploy.
@@ -124,17 +124,17 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
 !!! question "How do I debug a module?"
     Build with debug symbols, use ROS 2 tools (`ros2 topic echo`, `ros2 node info`), and leverage the debug-module skill from the AI Agent Guide.
     
-    See: [Development Environment](development/development_environment.md)
+    See: [Development Environment](development/beginner/development_environment.md)
 
 !!! question "Where should I add my custom module?"
     Place it in the appropriate layer under `robot/ros_ws/src/<layer>/<type>/<your_module>/`. For example, a new planner goes in `robot/ros_ws/src/local/planners/my_planner/`.
     
-    See: [AI Agent Guide](development/ai_agent_guide.md)
+    See: [AI Agent Guide](development/advanced/ai_agent_guide.md)
 
 !!! question "How do I test in simulation?"
     Launch AirStack with Isaac Sim, run your module, and verify behavior. Record ROS bags for offline analysis.
     
-    See: [Testing Guide](development/testing/index.md)
+    See: [Testing Guide](development/intermediate/testing/index.md)
 
 ## Contact and Support
 
@@ -158,7 +158,7 @@ Special thanks to all contributors and early adopters who provide valuable feedb
 
 We welcome contributions from AirLab members and collaborators!
 
-See: [Contributing Guide](development/contributing.md)
+See: [Contributing Guide](development/intermediate/contributing.md)
 
 Areas where we especially need help:
 

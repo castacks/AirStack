@@ -47,11 +47,18 @@ from task_msgs.action import (
     ExplorationTask,
 )
 
-# ── Map-frame ENU origin (must match gcs_visualizer/gcs_utils.py) ────────────
+# ── Map-frame ENU origin — Lisbon (must match gcs_visualizer/gcs_utils.py) ───
 # Foxglove panels publish waypoints/polygons in this same global ENU frame, and
 # the gcs_visualizer renders the robot at gps_to_enu(...) - boot. The robot's
 # task executors expect coordinates relative to its own boot pose, so we
 # subtract the robot's boot ENU position before forwarding.
+#
+# KEEP IN SYNC: the same anchor lives in three other files (single-sourcing
+# across container/mount boundaries is deferred — documented in the audit):
+#   - common/ros_packages/coordination/coordination_bringup/coordination_bringup/frame_utils.py
+#   - gcs/ros_ws/src/gcs_visualizer/gcs_visualizer/gcs_utils.py
+#   - simulation/isaac-sim/launch_scripts/gps_utils.py (isaac container)
+# If you change the anchor here, change all four together.
 ORIGIN_LAT = 38.736832
 ORIGIN_LON = -9.137977
 

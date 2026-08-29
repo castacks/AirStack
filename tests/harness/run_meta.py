@@ -15,11 +15,11 @@ RUN_META_FILENAME = "run_meta.json"
 
 SIMULATION_MODULES = (
     "system.test_liveliness.",
+    "system.test_wiring_snapshot.",
     "system.test_sensors.",
     "system.test_takeoff_hover_land.",
     "system.test_fixed_trajectory.",
     "system.test_waypoint_flight.",
-    "system.test_optitrack_e2e.",
 )
 
 

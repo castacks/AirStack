@@ -5,7 +5,7 @@
             "name": "ROS2: Launch GCS Bringup",
             "type": "ros2",
             "request": "launch",
-            "target": "${workspaceFolder}/gcs/ros_ws/src/gcs_bringup/launch/gcs.launch.xml"
+            "target": "${workspaceFolder}/gcs/ros_ws/src/common/desktop_bringup/launch/gcs.launch.xml"
         },
         {
             "name": "ROS2: Attach",
