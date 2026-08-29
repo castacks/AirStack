@@ -49,7 +49,7 @@ Planner variants are named stacks, not launch arguments — the [single-locus ru
 <include file="$(find-pkg-share disparity_expansion)/launch/disparity_expansion.launch.xml" />
 ```
 
-Do the same for yours: `airstack stack new full_default full_my_planner`, then in `stacks/full_my_planner/launch/stack.launch.xml` replace the DROAN include with your planner's include (plus any world-model include it needs). Only deviations from canonical names appear as include args — see how `full_macvo` passes exactly one (`droan_gl_disparity_topic`).
+Do the same for yours: `airstack stack new full_default full_my_planner`, then in `stacks/full_my_planner/launch/stack.launch.xml` replace the DROAN include with your planner's include (plus any world-model include it needs). Only deviations from canonical names appear as include args — see how `full_macvo` passes exactly one (`droan_gl_disparity_topic`). For a planner that ships as an **external module**, the worked example is [full_mighty](../../../stacks/full_mighty/README.md): its `modules.repos` pins the [mighty module](../../modules/mighty.md) (planner + voxel world model + bridge), and the local-planner block is one `mighty_module.launch.xml` include.
 
 **Verify:** `airstack up --stack full_my_planner --sim isaac --robots 1 && airstack ready` succeeds and `ros2 node list` shows your planner in place of DROAN.
 

@@ -14,6 +14,7 @@ environment variable is a preflight error.)
 | **`lite_offload_global:offboard`** | Global planner + world model only — runs on the GCS paired with onboard robots |
 | **`full_droan_cpu`** | `full_default` with the CPU DROAN local planner (`droan_local_planner` + `disparity_expansion`) instead of the GPU `droan_gl` node |
 | **`full_macvo`** | `full_default` with MAC-VO as the disparity source — requires `airstack module add asm_macvo` first |
+| **`full_mighty`** | `full_default` with the MIGHTY map-based local planner (`asm_mighty` module: planner + acl-mapping voxel world model + NavigateTask bridge) in place of `droan_gl` |
 
 Instead of picking a stack per container, `airstack up --fleet <name>` launches
 a whole **fleet**: `config/fleets/<name>.yaml` declares who exists, which
