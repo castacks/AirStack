@@ -1,5 +1,0 @@
-geometry_msgs/Point position
-float64 velocity
-float64 yaw
-geometry_msgs/Vector3 acceleration
-geometry_msgs/Vector3 jerk

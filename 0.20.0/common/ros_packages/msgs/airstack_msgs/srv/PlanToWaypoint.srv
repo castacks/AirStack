@@ -1,5 +1,0 @@
-geometry_msgs/Pose goal_pose
-
-uint8 command
----
-bool success
