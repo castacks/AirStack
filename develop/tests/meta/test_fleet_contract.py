@@ -15,7 +15,7 @@ Pins the promises the fleet machinery makes:
 - **The trajectory hard-gate holds through fleet placement** — every split
   stack the generated compose places passes ``gen_dds_router.py --check``
   (doctor hard gate #2: command authority stays onboard).
-- **Launch intent** — ``airstack up --dry-run --fleet`` exports
+- **Launch intent** — ``airstack up --config-only --fleet`` exports
   FLEET_CONFIG_FILE + derived NUM_ROBOTS + the fleet spawner; explicit env
   NUM_ROBOTS beats the fleet (banner); no fleet ⇒ no new effective-config
   keys (byte-identical legacy contract).
@@ -76,9 +76,11 @@ def run_tool(script, *args):
 
 
 def run_up_dry(*flags, env=None, check=True):
-    full_env = {**os.environ, **(env or {})}
+    # Scrub AUTONOMY_ROLE: preflight hard-errors on a leftover value, and
+    # --config-only still enforces that configuration contract.
+    full_env = {**os.environ, "AUTONOMY_ROLE": "", **(env or {})}
     result = subprocess.run(
-        [AIRSTACK, "up", "--dry-run", *flags],
+        [AIRSTACK, "up", "--config-only", *flags],
         capture_output=True, text=True, cwd=str(REPO), env=full_env, timeout=120,
     )
     out = result.stdout + result.stderr
@@ -96,7 +98,7 @@ def run_up_dry(*flags, env=None, check=True):
             key, _, value = line.partition("=")
             cfg[key] = value
     if check:
-        assert result.returncode == 0, f"dry-run failed unexpectedly:\n{out}"
+        assert result.returncode == 0, f"config-only failed unexpectedly:\n{out}"
         assert cfg, f"no effective-config block in output:\n{out}"
     return result.returncode, out, cfg
 
@@ -225,7 +227,7 @@ def test_split_stacks_placed_by_fleet_pass_bridge_hard_gate(gen, rf):
         assert code == 0, f"bridge gate failed for {stack_rel}:\n{out}\n{err}"
 
 
-# ── launch intent: --fleet dry-run exports + precedence ─────────────────────
+# ── launch intent: --fleet config-only exports + precedence ─────────────────
 
 def test_dry_run_fleet_exports():
     code, out, cfg = run_up_dry("--fleet", "sim_one_default", "--sim", "isaac")
@@ -237,7 +239,7 @@ def test_dry_run_fleet_exports():
 
 
 def test_dry_run_heterogeneous_fleet_swaps_profile_and_would_generate():
-    """--dry-run derives the fleet config but WRITES NOTHING: the generator
+    """--config-only derives the fleet config but WRITES NOTHING: the generator
     prints what it would generate (compose services + split-stack routers)."""
     code, out, cfg = run_up_dry("--fleet", "sim_three_mixed", "--sim", "isaac")
     assert code == 0, out

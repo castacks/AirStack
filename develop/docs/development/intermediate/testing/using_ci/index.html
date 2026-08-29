@@ -6252,8 +6252,8 @@ campaign fingerprint (selected tests and parameters).</p>
 <strong>Metrics</strong> table, a <strong>Sim publishing rates</strong> pivot (topic Hz aggregates from
 the <code>sensors</code> mark), and a <strong>Compute usage</strong> pivot (CPU / memory / GPU per
 container). Regressions are marked with a red circle, improvements with a
-green one, and the job <strong>fails</strong> if any comparable metric moves more than the
-20% threshold in the wrong direction.</p>
+green one. These numeric deltas are advisory: they inform review but do not
+fail the PR.</p>
 <p><code>run_meta.json</code> separates those policy results from CI failures. A collection
 error, zero-test selection, internal pytest error, cancellation, or timeout is
 reported as <strong>simulation metrics are not comparable</strong>. Pass-rate and regression
@@ -6265,8 +6265,9 @@ simulation result and keeps its recorded error metrics.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>tests/results/2026-08-06_14-30-00/
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>├── summary.txt    # human-readable per-chain summary — open this first
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>├── results.xml    # JUnit XML: durations, pass/fail per test
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>├── run_meta.json  # completion state, pytest exit, selected/executed sim counts
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>└── metrics.json   # every recorded metric, including time series
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>├── run_meta.json  # schema-v2 completion/failure class + exact campaign config
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>├── metrics.json   # every recorded metric, including time series
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>└── diagnostics/   # on failure: bounded config, panes, logs, ROS/GPU/command ring
 </span></code></pre></div>
 <p>There are no per-test log files. Live output streams to the Actions log via
 pytest's <code>log_cli</code>, and failed assertions embed the tail of the relevant
@@ -6343,7 +6344,7 @@ each class of failure as far left as it will go.</p>
 <tr>
 <td>Metrics report job failed with no test failures</td>
 <td>Report</td>
-<td>A like-for-like metric regressed past the 20% threshold, or report generation itself failed; read the report step log</td>
+<td>Report generation or artifact integrity failed; numeric metric deltas are advisory and do not cause this conclusion</td>
 </tr>
 <tr>
 <td>Job sits <code>queued</code> forever, no runner appears</td>

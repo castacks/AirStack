@@ -154,12 +154,26 @@ def pytest_sessionfinish(session, exitstatus):
             for entries in getattr(terminal, "stats", {}).values()
             for report in entries
         ]
+        campaign_config = {}
+        for key in (
+            "sim", "num_robots", "stress_iterations", "stable_duration",
+            "stable_interval", "gui", "takeoff_velocities",
+            "trajectory_types", "waypoints", "waypoint_tolerance",
+            "goal_tolerance", "waypoint_timeout",
+        ):
+            try:
+                campaign_config[key] = session.config.getoption(
+                    f"--{key.replace('_', '-')}"
+                )
+            except (ValueError, AttributeError):
+                continue
         meta_path = write_run_meta(
             run_dir,
             session.items,
             exitstatus,
             session.config.option.markexpr,
             reports,
+            campaign_config,
         )
         logger.info("Wrote run metadata to %s", meta_path)
     except Exception as exc:
@@ -174,9 +188,20 @@ def pytest_sessionfinish(session, exitstatus):
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    """Attach phase reports to the item so fixtures can inspect pass/fail."""
+    """Attach phase reports and preserve the assertion/infrastructure boundary."""
     outcome = yield
     rep = outcome.get_result()
+    if rep.failed:
+        text = str(rep.longrepr).lower()
+        is_infrastructure = bool(
+            item.get_closest_marker("infrastructure")
+            or rep.when in ("setup", "teardown")
+            or "infrastructure prerequisite" in text
+            or "infrastructure simulator process failure" in text
+        )
+        rep.airstack_failure_class = (
+            "infrastructure" if is_infrastructure else "assertion"
+        )
     setattr(item, f"_rep_{rep.when}", rep)
 
 
@@ -303,8 +328,16 @@ def airstack_env(request):
         up_cmd_duration_s = round(time.time() - t0, 2)
         logger.info("airstack up returned %d in %.2fs",
                     up_result.returncode, up_cmd_duration_s)
-        assert up_result.returncode == 0, \
-            f"airstack up failed:\n{read_log_tail(log)}"
+        if up_result.returncode != 0:
+            diagnostics = collect_failure_diagnostics(
+                env_overrides,
+                f"airstack up failed with status {up_result.returncode}",
+                harness_session.current_item().nodeid,
+            )
+            pytest.fail(
+                f"airstack up failed:\n{read_log_tail(log)}\n"
+                f"diagnostics: {diagnostics}"
+            )
 
     env = {
         "sim": sim,

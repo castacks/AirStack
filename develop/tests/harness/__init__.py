@@ -34,10 +34,12 @@ from harness.discovery import (
     unit_test_dirs,
     unit_test_files,
 )
+from harness.diagnostics import collect_failure_diagnostics
 from harness.metrics import MetricsRecorder, current_test_id, get_metrics
 from harness.session import logger
 from harness.sim import (
     SIM_CONFIG,
+    SimulatorHealthError,
     parallel_echo_once_robot_topics,
     parallel_sample_hz,
     sample_hz,
@@ -50,7 +52,7 @@ __all__ = [
     "colcon_test_robot_command", "collection_is_broad", "format_pytest_addopts",
     "load_colcon_unit_test_config", "unit_test_dirs", "unit_test_files",
     # session
-    "logger",
+    "logger", "collect_failure_diagnostics",
     # commands
     "ROS_DISTRO_SETUP", "airstack_cmd", "current_log", "docker_exec",
     "read_log_tail", "ros2_env", "ros2_exec",
@@ -61,6 +63,6 @@ __all__ = [
     # metrics
     "MetricsRecorder", "get_metrics", "current_test_id",
     # sim
-    "SIM_CONFIG", "wait_for_first_message", "sample_hz", "parallel_sample_hz",
+    "SIM_CONFIG", "SimulatorHealthError", "wait_for_first_message", "sample_hz", "parallel_sample_hz",
     "parallel_echo_once_robot_topics",
 ]

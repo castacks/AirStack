@@ -6236,10 +6236,12 @@ select the module):</p>
 </span></code></pre></div>
 <h2 id="gpu-runners-for-module-repos">GPU runners for module repos<a class="headerlink" href="#gpu-runners-for-module-repos" title="Permanent link">&para;</a></h2>
 <p>With the default <code>runs_on</code>, jobs queue for the label pair
-<code>[self-hosted, airstack-ephemeral]</code> — the ephemeral OSMO-backed runners. The
-orchestrator polls <strong>one repo per instance</strong>, so a module repo must be added
-to the poll list before its jobs are picked up: see
-<a href="../../../tests/ci-cd-orchestrator/#module-repos">CI/CD Orchestrator → Module repos</a>.</p>
+<code>[self-hosted, airstack-ephemeral]</code> — the ephemeral OSMO-backed runners. One
+orchestrator instance polls a <strong><code>repos:</code> list</strong> (trunk plus module repos), so
+a module repo must be added to that list — and be covered by the
+orchestrator's GitHub PAT — before its jobs are picked up: see
+<a href="../../../tests/ci-cd-orchestrator/#module-repos">CI/CD Orchestrator → Module repos</a>.
+<code>castacks/asm_optitrack</code> is polled today.</p>
 
 
 

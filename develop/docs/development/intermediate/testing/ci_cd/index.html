@@ -6032,11 +6032,11 @@ marks, and reading the results.</p>
 </tr>
 <tr>
 <td>How do I see results?</td>
-<td>Checks plus a report comment and <code>test-results-*</code> artifact (<code>summary.txt</code>, <code>results.xml</code>, <code>run_meta.json</code>, <code>metrics.json</code>).</td>
+<td>Checks plus a report comment and <code>test-results-*</code> artifact (<code>summary.txt</code>, <code>results.xml</code>, <code>run_meta.json</code>, <code>metrics.json</code>, and bounded failure diagnostics when needed).</td>
 </tr>
 <tr>
 <td>What fails the build?</td>
-<td>Any failed test, or a comparable simulation metric regressing more than 20%. Invalid/incomplete campaigns are labeled, not scored as policy failures.</td>
+<td>Test assertions, infrastructure/prerequisite failures, or report integrity failures. Comparable numeric metric deltas are advisory.</td>
 </tr>
 <tr>
 <td>Who holds the secrets?</td>
@@ -6214,8 +6214,8 @@ follows what <code>system-tests.yml</code> does once a run is requested.</p>
   k --&gt; m["pytest tests/ with resolved args"]
   l --&gt; m
   m --&gt; n["Upload tests/results/ artifact, 90-day retention"]
-  n --&gt; o["Finalize Check Run with the job conclusion"]
-  o --&gt; p["report job on ubuntu-latest"]</code></pre>
+  n --&gt; p["report job on ubuntu-latest"]
+  p --&gt; o["Post report, then finalize Check Run"]</code></pre>
 <p>The image-prep step is what makes runs on a cold pod tolerable: it pulls the
 published images for exactly the compose profiles the selected <code>--sim</code> implies,
 then falls back to a local build only for images the registry did not have (a
@@ -6511,7 +6511,7 @@ developer's side in <a href="../using_ci/#troubleshooting">Using CI → Troubles
 </tr>
 <tr>
 <td><a href="../../../../../tests/parse_metrics.py"><code>tests/parse_metrics.py</code></a></td>
-<td>Report generation and the regression gate</td>
+<td>Comparable advisory report generation and report-integrity gate</td>
 </tr>
 <tr>
 <td><a href="../../../../../tests/run_summary.py"><code>tests/run_summary.py</code></a></td>

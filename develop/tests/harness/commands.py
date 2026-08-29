@@ -51,7 +51,7 @@ def _run_teed(cmd_list, timeout, log_name=None, env=None, cwd=None):
         cmd_list, capture_output=True, text=True, timeout=timeout, env=env, cwd=cwd,
     )
     combined = (result.stdout or "") + (result.stderr or "")
-    record_cmd_output(combined, log_name)
+    record_cmd_output(combined, log_name, quoted)
     return result
 
 

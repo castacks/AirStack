@@ -6117,20 +6117,22 @@ and are driven by <a href="system/test_sensors.py"><code>system/test_sensors.py<
 <h3 id="output-files">Output files<a class="headerlink" href="#output-files" title="Permanent link">&para;</a></h3>
 <p>Every test run produces a timestamped directory containing <code>summary.txt</code>,
 <code>results.xml</code>, <code>run_meta.json</code>, and <code>metrics.json</code> (plus a <code>wiring/</code> subdirectory
-when the <code>wiring</code> mark runs) — there is <strong>no</strong> <code>logs/</code> subdirectory and no
-per-test log files are written under the run directory.</p>
+when the <code>wiring</code> mark runs, and a bounded <code>diagnostics/</code> JSON bundle on
+simulator/startup failures). There is <strong>no</strong> <code>logs/</code> subdirectory and no
+per-test log files are written under the run directory. Full unbounded logs
+are never copied into the artifact.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>tests/results/
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>└── 2025-04-21_14-30-00/
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    ├── summary.txt        # Human-readable key metrics — open this first
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    ├── results.xml        # JUnit XML — test durations and pass/fail status
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    ├── run_meta.json      # Completion/outcome and campaign fingerprint
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    ├── run_meta.json      # Schema-v2 completion/failure class + exact campaign
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    ├── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    └── wiring/            # (wiring mark only) observed_&lt;stack&gt;.md graph snapshots
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    ├── diagnostics/       # On failure: config, panes, log tails, ROS/GPU/commands
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    └── wiring/            # (wiring mark only) observed_&lt;stack&gt;.md graph snapshots
 </span></code></pre></div>
-<p>Live test output goes to the terminal (pytest <code>log_cli</code>). On failure, assertion
-messages include the tail of the last subprocess output (the in-memory
-<code>read_log_tail</code> of the relevant <code>docker</code> / <code>ros2</code> subprocess) — no per-test log
-files are written under the run directory.</p>
+<p>Live test output goes to the terminal (pytest <code>log_cli</code>). Diagnostics are
+bounded (container log tails and a 30-command ring) and exclude secret-bearing
+environment variables.</p>
 <hr />
 <h2 id="running-tests">Running Tests<a class="headerlink" href="#running-tests" title="Permanent link">&para;</a></h2>
 <h3 id="airstack-test-primary-interface"><code>airstack test</code> (primary interface)<a class="headerlink" href="#airstack-test-primary-interface" title="Permanent link">&para;</a></h3>
@@ -6769,14 +6771,16 @@ frame</strong> (the pytest wrapper does the relative-to-world transform).</p>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>--current<span class="w"> </span>tests/results/2025-04-21_14-30-00/
 </span></code></pre></div>
 <p>Prints a markdown table of all recorded metrics. Always exits 0.</p>
-<h3 id="diff-regression-check">Diff / regression check<a class="headerlink" href="#diff-regression-check" title="Permanent link">&para;</a></h3>
+<h3 id="advisory-comparison">Advisory comparison<a class="headerlink" href="#advisory-comparison" title="Permanent link">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>--current<span class="w">  </span>tests/results/2025-04-21_14-30-00/<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>--baseline<span class="w"> </span>tests/results/2025-04-20_09-00-00/<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">20</span><span class="w">          </span><span class="c1"># optional: regression if change% exceeds this (default 20)</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">20</span><span class="w">          </span><span class="c1"># optional: highlight if change% exceeds this (default 20)</span>
 </span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span>--output<span class="w">   </span>report.md<span class="w">    </span><span class="c1"># optional: also write to file</span>
 </span></code></pre></div>
-<p>Prints a side-by-side comparison. Exits <strong>1</strong> if any metric regresses beyond the threshold; exits 0 otherwise.</p>
+<p>Prints a side-by-side comparison. Numeric deltas are advisory and always exit
+0. Report parsing/integrity failures exit 2 and block CI; pytest assertions and
+infrastructure failures are enforced by the test job.</p>
 <p>For a completed test campaign, the report has three sections per test module:</p>
 <ul>
 <li><strong>Metrics</strong> — flat table of scalar metrics (test name, metric key, value/baseline, change%)</li>
@@ -6787,7 +6791,10 @@ frame</strong> (the pytest wrapper does the relative-to-world transform).</p>
 Collection errors, command/internal errors, zero-test runs, and jobs that stop before
 pytest finalizes are labeled <strong>not comparable</strong>. Their pass-rate and regression tables
 are suppressed so an infrastructure failure cannot appear as 0% policy performance.
-<code>run_meta.json</code> records the pytest exit status and simulation tests selected/completed.</p>
+<code>run_meta.json</code> records normalized selected IDs, behavior-changing CLI options,
+completion state, and failure class. Its fingerprint includes both tests and
+configuration, preventing unlike robot counts, trajectories, tolerances, or
+stress settings from being compared. Per-robot metric keys remain visible.</p>
 <hr />
 <h2 id="cicd-integration">CI/CD Integration<a class="headerlink" href="#cicd-integration" title="Permanent link">&para;</a></h2>
 <div class="admonition note">
@@ -6843,6 +6850,16 @@ opened, updated, or reopened against <code>main</code> or <code>develop</code>.<
 <td>Stability polling seconds</td>
 </tr>
 <tr>
+<td><code>trajectory_types</code></td>
+<td><code>Circle,Figure8,Racetrack,Line</code></td>
+<td>Fixed-trajectory sweep; set <code>Circle</code> for a minimal campaign</td>
+</tr>
+<tr>
+<td><code>takeoff_velocities</code></td>
+<td><code>0.5</code></td>
+<td>Takeoff velocity sweep</td>
+</tr>
+<tr>
 <td><code>baseline_run_id</code></td>
 <td><em>(blank)</em></td>
 <td>Run ID for comparison; blank = latest <code>main</code> run</td>
@@ -6854,13 +6871,11 @@ opened, updated, or reopened against <code>main</code> or <code>develop</code>.<
 <p><strong><code>report</code></strong> runs on <code>ubuntu-latest</code> after <code>run-tests</code> (even if it failed). It:</p>
 <ol>
 <li>Downloads the current artifact</li>
-<li>Downloads a baseline artifact (from the base branch for PRs, from <code>main</code> for manual runs, or from the specified <code>baseline_run_id</code>)</li>
-<li>Runs <code>parse_metrics.py</code> in diff mode only when both artifacts have the same complete simulation campaign fingerprint; otherwise reports the current run without comparison</li>
+<li>Downloads baseline candidates (from the base branch for PRs, from <code>main</code> for manual runs, or from the specified <code>baseline_run_id</code>)</li>
+<li>Selects the newest completed candidate with the exact same test/configuration fingerprint; otherwise reports the current run without comparison</li>
 <li>Posts the markdown report as a PR comment (PR runs) or to the job summary (all runs)</li>
-<li>Fails with <code>::error::</code> only for a comparable metric regression; invalid/incomplete campaigns are reported as infrastructure outcomes</li>
+<li>Fails only if report generation/integrity fails. Comparable metric deltas are advisory; assertions and infrastructure failures remain blocking in <code>run-tests</code></li>
 </ol>
-<h4 id="required-third-party-action">Required third-party action<a class="headerlink" href="#required-third-party-action" title="Permanent link">&para;</a></h4>
-<p>The workflow uses <a href="https://github.com/dawidd6/action-download-artifact"><code>dawidd6/action-download-artifact@v6</code></a> to download artifacts from other workflow runs by branch name. This is a community action and must be trusted in your repository's Actions settings if you use a restricted allowed-actions policy.</p>
 <hr />
 <h2 id="cicd-orchestrator-osmo-backed-ephemeral-runners">CI/CD Orchestrator (OSMO-backed ephemeral runners)<a class="headerlink" href="#cicd-orchestrator-osmo-backed-ephemeral-runners" title="Permanent link">&para;</a></h2>
 <p>AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on <strong>truly ephemeral <a href="https://nvidia.github.io/OSMO/">NVIDIA OSMO</a> pods</strong> submitted per-job by an orchestrator. Each test job gets a fresh GPU pod that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state.</p>
