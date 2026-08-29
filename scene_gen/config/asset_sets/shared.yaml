@@ -90,6 +90,12 @@ usds:
   materials:
     grass: "Muyang/StandaloneMaterials/Grass/MI_Grass.usd"
     asphalt: "Muyang/StandaloneMaterials/Asphalt/MI_Asphalt.usd"
+    # Procedural downtown block paving. One UV-tiled quad is authored per block
+    # instead of filling a 1 km city with ~60,000 SM_GroundModule references.
+    concrete: "Muyang/ModularNeighborhood/Assets/Concrete_02.usd"
+    # The same neutral paving look on procedural sidewalk strips replaces
+    # thousands of SM_GroundModule references while retaining the old height.
+    sidewalk: "Muyang/ModularNeighborhood/Assets/Concrete_02.usd"
     # A SECOND road surface, mixed with the one above so a suburb does not
     # read as a single resurfacing job. This is ModularNeighborhood's road
     # material, and its defaultPrim IS a Material, so it binds directly with

@@ -196,12 +196,45 @@ does not print `OK  gradient and coverage both in band` is not worth building.
 (a `severity:` in the same spec is ignored and says so). So levels are
 magnitudes — M5.5 / M6.5 / M7.5 — and the damage-grade ladder follows.
 
-## Hurricane — NOT DESIGNED
+## Hurricane — DESIGNED 2026-08-29, NOT BUILT
 
 `presets/hurricane.yaml` exists and compiles ("tornado-like damage mechanisms
-spread evenly over the whole region at lower intensity"), but there is no
+spread evenly over the whole region at lower intensity"), but there is still no
 hurricane PIPELINE: no archetype ladder, no surge water, no debris model. See
 the status table.
+
+**The design now exists** — read
+[build-hurricane-scenes](../build-hurricane-scenes/SKILL.md) before building any
+hurricane cell, plus `scene_gen/_plans/hurricane_{research,water,wind_field,survey}.md`.
+
+The proposed ladder, following the measured contract above (a level is a
+different seed + a different severity + a moved event + one geometry override).
+**Not yet built, and the user sets these when the cell comes up for export:**
+
+| level | `site_gust_mps` | reads as | `surge_m` |
+|---|---|---|---|
+| 1 | ~38 (85 mph) | cladding only; **green** scene with litter; screen cages down | 0.9 |
+| 2 | ~55 (123 mph) | the **brown** scene; roofs are the story; structural damage a minority | 2.0 |
+| 3 | ~70 (157 mph) | you can see INTO buildings; canopy is bare sticks; poles down in runs | 2.8 |
+
+Three things about that ladder that differ from every other disaster here:
+
+- **It is driven by a LOCAL SITE GUST, not the Saffir-Simpson category.**
+  Marshall's 11,105-structure Katrina survey found damage-derived gusts averaging
+  41 m/s inside a storm rated Cat 3 at landfall.
+- **The spatial variance comes from the BUILDINGS, not the field.** The field is
+  uniform over a 1 km plate; what makes neighbours differ is construction era.
+  A hurricane cell needs a per-house quality attribute no other cell has.
+- **Level 3 surge is 2.8 m deliberately, not 3.6.** At 3.6 the whole plate is
+  under water and the surface is featureless — true to the reference imagery, and
+  also the level where a search benchmark has the least to find. 2.8 leaves ~35%
+  of the plate dry: the inland edge of a Cat 4 surge rather than its centre.
+
+`gt_hints.EXTRA_CLASSES["hurricane"]` gains `Flooded Road`, `Standing Water`,
+`Debris Raft`, `Washover Fan`; submersion is carried as `water_state` /
+`submerged_m` **attributes** on the existing `Car`/`Building`/`Tree` records
+rather than as new classes, because a 20 cm waterline is not a box a human
+labeller would draw from the air.
 
 ---
 
@@ -490,8 +523,8 @@ something named is missing; **gap** = no pipeline.
 | Tornado | Urban | **gap** | no urban wind ladder |
 | Earthquake | Urban | **partial** | `downtown_earthquake` + `archetypes_quake` exist; PAUSED 2026-08-27 with the damage judged good and building diversity judged lacking |
 | Earthquake | Suburban | **partial** | `suburb_earthquake.yaml` compiles; no suburban quake archetype bake |
-| Hurricane | Urban | **gap** | preset compiles, no pipeline |
-| Hurricane | Suburban | **gap** | preset compiles, no pipeline |
+| Hurricane | Urban | **gap** | preset compiles; DESIGNED 2026-08-29, no pipeline |
+| Hurricane | Suburban | **gap** | preset compiles; DESIGNED 2026-08-29, no pipeline |
 
 **Six of eight cells need work before they can be frozen, and two of them need
 a pipeline that does not exist.** Fire/Suburban is the one that is ready today,

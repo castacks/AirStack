@@ -79,6 +79,11 @@
 
 extends: urban
 
+# Keep yesterday's complete mixed library, but reject this reviewed pack at
+# resolution time wherever it appears in any inherited or local pool.
+asset_blacklist_prefixes:
+  - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/selected_citydemo/"
+
 usds:
   buildings:
 
@@ -140,6 +145,11 @@ usds:
         material: concrete  # 65.0 x 78.0 x 81.3 m, 4,170 pts — stepped low-poly office cluster (inches, x0.0254), 24 storeys
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Amar_Tower.usdc"
         material: glass     # 42.3 x 48.8 x 231.4 m, 557,167 pts
+      # GreatAmericanCity stock that is safe in pack morphology: only the back
+      # elevation is blank, so no blank flank can face a street.
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_20.usd", scale: 0.01, yaw-offset: 180, tags: [place_corner]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_21.usd", scale: 0.01, yaw-offset: 180, tags: [place_corner]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_22.usd", scale: 0.01, yaw-offset: 0, tags: [place_corner]}
       # --- MEASURED AND HELD OUT, with the drop file's reasons.
       # The BlackthornProd low-poly city set (`city_tower_01..07`): 104-694
       # mesh points each and useful when a map needs many towers, but they are
@@ -330,12 +340,27 @@ usds:
         material: concrete  # 30.9 x 35.4 x 32.6 m, 122,950 pts
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Building_12.usdc"
         material: concrete  # 44.3 x 18.7 x 38.9 m, 49,903 pts
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_09.usd", scale: 0.01, yaw-offset: 180, tags: [place_end]}
 
     # ---- ROW HOUSES: laid in party-wall runs, fronts on -X ------------------
     # Three-storey rendered houses and two brick end-of-terrace shops. Much
     # shallower than the brownstones they join — see the header note on
     # `_lay_terrace` before adding anything else here.
     rowhouse+:
+      # GreatAmericanCity elevations are not uniformly modelled. yaw-offset
+      # normalises the detailed front to -X; place_* constrains blank flanks to
+      # party-wall positions in districts._order_run.
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_01.usd", scale: 0.01, yaw-offset: 180, tags: [place_mid]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_02.usd", scale: 0.01, yaw-offset: 180, tags: [place_end]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_03.usd", scale: 0.01, yaw-offset: 270, tags: [place_end]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_04.usd", scale: 0.01, yaw-offset: 180, tags: [place_mid]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_05.usd", scale: 0.01, yaw-offset: 180, tags: [place_mid]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_06_Small.usd", scale: 0.01, yaw-offset: 180, tags: [place_mid]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_07.usd", scale: 0.01, yaw-offset: 180, tags: [place_mid]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_24.usd", scale: 0.01, yaw-offset: 90, tags: [place_end]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_25.usd", scale: 0.01, yaw-offset: 180, tags: [place_mid]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_26.usd", scale: 0.01, yaw-offset: 180, tags: [place_mid]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_29.usd", scale: 0.01, yaw-offset: 180, tags: [place_end]}
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/graffiti_brick_house/graffiti_brick_house.usdc"
         material: brick     # 8.4 x 7.2 x 12.3 m, 33,839 pts
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_01/house_01.usdc"

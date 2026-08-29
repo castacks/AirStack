@@ -49,7 +49,10 @@ locale: downtown
 disaster-type: none
 severity: 0.0
 
-asset-set: urban_v2
+# Exact two-days-ago reproducibility baseline (dbf6d8a4): the original urban
+# pack and its calibrated placement/detail configuration. New building packs
+# stay out of this review preset until they are integrated deliberately.
+asset-set: urban
 # 1000 m. The OSM-calibrated block targets below are 70-105 x 190-260 m, so a
 # 1000 m region fits roughly 4 x 5 of them: measured on this preset that is 74
 # blocks against `downtown.yaml`'s 31 at 800 m, with the same core/mid/edge
@@ -59,11 +62,19 @@ region_m: [1000, 1000]
 seed: 42
 
 overrides:
+  # Dress GreatAmericanCity buildings with their measured rooftop plant,
+  # tanks, masts, vents and stacked wall/fire-escape pieces.
+  building_props:
+    enabled: true
+
   # ROAD ASPHALT, matched to the suburb wildfire scene: the local megascans
   # asphalt swatch instead of shared.yaml's Nucleus MI_Asphalt. `apply_ground_planes`
   # reads `usds.materials.asphalt`; the urban marking vocabulary is drawn on
   # top by `road_markings.py` and is unchanged.
   usds:
+    # Keep the 1 km review city focused on the built environment and avoid
+    # loading hundreds of rigged RenderPeople assets.
+    humans: []
     materials:
       asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
   # ---- block shape -----------------------------------------------------------

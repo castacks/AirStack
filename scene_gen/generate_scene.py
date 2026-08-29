@@ -310,10 +310,23 @@ def generate_scene_on_stage(stage,
         districts.remap_buildings(config, layout, placements, resolver, rng,
                                   district_at)
 
+    # District zoning can promote a reserved superblock to a park after the
+    # initial build pass recorded its paving rectangle. Keep the procedural
+    # ground optimization, but remove those rectangles so the park's grass
+    # plane remains visible beneath its trail and park furniture.
+    park_rects = districts.park_blocks(layout, placements)
+    if park_rects and layout.get("paved_blocks"):
+        layout["paved_blocks"] = [
+            r for r in layout["paved_blocks"]
+            if not any(r[0] >= b[0] and r[1] >= b[1]
+                       and r[2] <= b[2] and r[3] <= b[3]
+                       for b in park_rects)]
+
     detail = city_detail.build(
         config, layout, resolver, rng,
         district_of=districts.block_lookup(district_at) if rings else None)
     detail += city_detail.build_road_surface(config, layout, resolver, rng)
+
     placements = placements + detail
 
     ground_snap = sg._make_physx_ground_snap() if snap_to_ground else None

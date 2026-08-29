@@ -169,6 +169,22 @@ def _load_asset_set(name: str, dirs: list, chain: list = None) -> tuple:
     return _merge_asset_set(base, doc), paths + [path]
 
 
+def _filter_asset_prefixes(value, prefixes):
+    """Remove USD entries whose path begins with a blacklisted prefix."""
+    if isinstance(value, list):
+        kept = []
+        for item in value:
+            usd = item.get("usd", "") if isinstance(item, dict) else item
+            if isinstance(usd, str) and any(usd.startswith(p) for p in prefixes):
+                continue
+            kept.append(_filter_asset_prefixes(item, prefixes))
+        return kept
+    if isinstance(value, dict):
+        return {k: _filter_asset_prefixes(v, prefixes)
+                for k, v in value.items()}
+    return value
+
+
 def resolve_asset_set(config: dict, config_path: str = None) -> dict:
     """Merge the asset set named by ``config['asset_set']`` into *config*.
 
@@ -201,6 +217,9 @@ def resolve_asset_set(config: dict, config_path: str = None) -> dict:
                     os.path.join(cfg_dir, "..", "..", "asset_sets")]
 
     assets, paths = _load_asset_set(str(name), dirs)
+    prefixes = assets.pop("asset_blacklist_prefixes", []) or []
+    if prefixes:
+        assets = _filter_asset_prefixes(assets, tuple(str(p) for p in prefixes))
 
     merged = _deep_merge(assets, config)      # config overrides the set
     merged["asset_set"] = name
@@ -1107,14 +1126,18 @@ def apply_ground_planes(stage, config: dict, layout: dict,
                          parent_path: str, ssf: float):
     """Create procedural ground geometry (asphalt, grass, lane markings).
 
-    Three layers are written under *parent_path/ground*:
+    Five layers are written under *parent_path/ground*:
     1. One asphalt UsdGeom.Mesh spanning the whole region at z=0.
     2. One grass UsdGeom.Mesh per block at z=0.01 (sits above asphalt so
        exposed road gaps between blocks show asphalt through).
-    3. Lane-marking dashes at z=0.02 per road corridor: a yellow double
+    3. One material-bound pavement mesh per downtown block interior at z=0.02.
+       This replaces tens of thousands of referenced concrete tile assets.
+    4. Four material-bound sidewalk strip meshes per block, at the original
+       sidewalk tile's measured walking-surface height.
+    5. Lane-marking dashes at z=0.02 per road corridor: a yellow double
        centre-line (opposing-direction boundary) and white dashes at each
        same-direction lane boundary.
-    4. Placeholder filler buildings (*parent_path/placeholders*): mild-colored
+    6. Placeholder filler buildings (*parent_path/placeholders*): mild-colored
        box meshes filling block gaps no library building fits
        (``layout["placeholder_buildings"]``, computed by :func:`build_city`).
 
@@ -1129,6 +1152,8 @@ def apply_ground_planes(stage, config: dict, layout: dict,
     lane_w_m   = float(roads_cfg.get("lane_width_m", 3.5))
     uv_asphalt = float(roads_cfg.get("asphalt_uv_scale_m", 4.0))
     uv_grass   = float(roads_cfg.get("grass_uv_scale_m", 3.0))
+    uv_concrete = float(roads_cfg.get("concrete_uv_scale_m", 4.0))
+    uv_sidewalk = float(roads_cfg.get("sidewalk_uv_scale_m", 4.0))
     ll_cfg     = roads_cfg.get("lane_lines", {})
     dash_len   = float(ll_cfg.get("dash_length_m", 3.0))
     dash_gap   = float(ll_cfg.get("dash_gap_m", 3.0))
@@ -1162,6 +1187,8 @@ def apply_ground_planes(stage, config: dict, layout: dict,
 
     asphalt_mat = _load_mat("asphalt")
     grass_mat   = _load_mat("grass")
+    concrete_mat = _load_mat("concrete")
+    sidewalk_mat = _load_mat("sidewalk") or concrete_mat
 
     # 1) Asphalt base (whole region, z=0)
     _make_plane_mesh(stage, gnd + "/asphalt_base",
@@ -1176,7 +1203,26 @@ def apply_ground_planes(stage, config: dict, layout: dict,
                          display_color=(0.2, 0.5, 0.1),
                          mat_prim_path=grass_mat)
 
-    # 3) Lane markings (z=0.02)
+    # 3) Downtown block paving.  The grass remains as a harmless underlay;
+    # parks simply have no entry in paved_blocks and therefore stay grass.
+    paved_blocks = layout.get("paved_blocks") or []
+    for idx, (px0, py0, px1, py1) in enumerate(paved_blocks):
+        _make_plane_mesh(stage, f"{gnd}/concrete_{idx}",
+                         px0, py0, px1, py1, 0.02, uv_concrete, ssf,
+                         display_color=(0.42, 0.42, 0.40),
+                         mat_prim_path=concrete_mat)
+
+    # 4) Sidewalk rings.  These retain the old slab's measured top elevation,
+    # which is also the surface height used by the street-furniture placer.
+    sidewalk_rects = layout.get("sidewalk_rects") or []
+    sidewalk_z = float(layout.get("sidewalk_top_m", 0.02))
+    for idx, (sx0, sy0, sx1, sy1) in enumerate(sidewalk_rects):
+        _make_plane_mesh(stage, f"{gnd}/sidewalk_{idx}",
+                         sx0, sy0, sx1, sy1, sidewalk_z, uv_sidewalk, ssf,
+                         display_color=(0.48, 0.48, 0.46),
+                         mat_prim_path=sidewalk_mat)
+
+    # 5) Lane markings (z=0.02)
     period = dash_len + dash_gap
     dash_i = 0
     for corr in road_corridors:
@@ -1246,6 +1292,8 @@ def apply_ground_planes(stage, config: dict, layout: dict,
                            0.0, b["height"], ssf, display_color=b["color"])
 
     print(f"[scene_gen] Ground: 1 asphalt base, {len(blocks)} grass blocks, "
+          f"{len(paved_blocks)} paved block meshes, "
+          f"{len(sidewalk_rects)} sidewalk strip meshes, "
           f"{dash_i} lane dashes across {len(road_corridors)} corridors, "
           f"{len(placeholders)} placeholder buildings")
 
@@ -1691,6 +1739,8 @@ def build_city(config: dict, resolver: SizeResolver):
     placeholder_bldgs: list = []
     city_layout["placeholder_buildings"] = placeholder_bldgs
     park_blocks: list = []      # (block, inset) rects of blocks kept as parks
+    paved_blocks: list = []     # block interiors rendered as procedural paving
+    sidewalk_rects: list = []   # four procedural strips around each block
     residential_blocks: list = []  # (block, inset) of packed blocks — lawn when
                                    # pave_blocks is off (suburban/rural)
     n_buildings = n_damaged = n_destroyed = n_parks = 0
@@ -1791,10 +1841,12 @@ def build_city(config: dict, resolver: SizeResolver):
             vx0, vy0 = x0 + verge_m, y0 + verge_m
             vx1, vy1 = x1 - verge_m, y1 - verge_m
             if vx1 - vx0 > 2 * sw_w and vy1 - vy0 > 2 * sw_w:
-                _tile_rect(sidewalk_usds, (vx0, vy0, vx1, vy0 + sw_w), sw_w, sw_w, 0.015, "sidewalk")
-                _tile_rect(sidewalk_usds, (vx0, vy1 - sw_w, vx1, vy1), sw_w, sw_w, 0.015, "sidewalk")
-                _tile_rect(sidewalk_usds, (vx0, vy0 + sw_w, vx0 + sw_w, vy1 - sw_w), sw_w, sw_w, 0.015, "sidewalk")
-                _tile_rect(sidewalk_usds, (vx1 - sw_w, vy0 + sw_w, vx1, vy1 - sw_w), sw_w, sw_w, 0.015, "sidewalk")
+                sidewalk_rects.extend([
+                    (vx0, vy0, vx1, vy0 + sw_w),
+                    (vx0, vy1 - sw_w, vx1, vy1),
+                    (vx0, vy0 + sw_w, vx0 + sw_w, vy1 - sw_w),
+                    (vx1 - sw_w, vy0 + sw_w, vx1, vy1 - sw_w),
+                ])
                 inset = (vx0 + sw_w, vy0 + sw_w, vx1 - sw_w, vy1 - sw_w)
 
         # Park blocks stay grassy — this is where trees, plants, rocks and
@@ -1811,8 +1863,7 @@ def build_city(config: dict, resolver: SizeResolver):
         # (pave_blocks false): the block stays lawn, and only the ground each
         # building and driveway actually covers is hard surface.
         if concrete_fp is not None and pave_blocks:
-            _tile_rect(concrete_usds[0], inset, concrete_fp["sx"], concrete_fp["sy"],
-                       0.02, "concrete")
+            paved_blocks.append(inset)
 
         # Front setback: hold buildings off the sidewalk so the strip between
         # them and the street stays lawn. Skipped if it would leave no room.
@@ -2898,6 +2949,9 @@ def build_city(config: dict, resolver: SizeResolver):
     print(f"[scene_gen] Placements by category: {counts} "
           f"(total {len(placements)}, {n_buildings} buildings, {n_damaged} damaged, "
           f"{n_destroyed} destroyed, {len(placeholder_bldgs)} placeholder prisms)")
+    city_layout["paved_blocks"] = paved_blocks
+    city_layout["sidewalk_rects"] = sidewalk_rects
+    city_layout["sidewalk_top_m"] = sidewalk_top
     return placements, city_layout
 
 

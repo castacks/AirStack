@@ -49,7 +49,7 @@ Exported materials (pick with `info:mdl:sourceAsset:subIdentifier`):
 | `Water_Ocean_Light_Blue` | shallower / lighter |
 | `Water_Ocean_Blue_Reef`, `Water_Ocean_Green_Reef` | murkier |
 | `Water_Pool_Clear_Blue`, `Water_Pool_Clear_Green` | still water, pools |
-| `Water_Ocean_` | plain variant |
+| ~~`Water_Ocean_`~~ | **DOES NOT EXIST** — commented out at `Water_Blue_Ocean_Perlinwaves.mdl:363-386` inside a `/* PRESET TEMPLATE */` block. Binding this subIdentifier resolves to nothing |
 
 Parameters worth driving from a disaster config:
 
@@ -64,14 +64,41 @@ Parameters worth driving from a disaster config:
 | `water_tint`, `water_absorbtion`, `water_scattering_amount` | murk / colour | flood water is brown, not Caribbean |
 | `ior` | 1.333 | leave it |
 
+> ### DO NOT USE THIS MATERIAL FOR FLOODWATER — verified 2026-08-28
+>
+> The line below ("flood water is brown") is right, and this material **cannot
+> do it**. Reading `Water_Blue_Ocean_Perlinwaves.mdl:193`:
+>
+> - `water_tint` lerps **hue 0.47 -> 0.53** in HSV — cyan to blue — with
+>   saturation pinned at 0.5 and value at 0.85. Brown needs hue ~0.08.
+> - the scattering colour is the hard-coded literal `(0.306, 0.448, 0.656)`;
+>   `water_scattering_amount` only scales *how much blue*.
+> - `material_surface` is a pure `df::specular_bsdf` — **no diffuse lobe, no
+>   opacity control**, so it cannot be made opaque, and turbid floodwater is
+>   opaque past 30-50 cm (USGS measured 100-1,300 FNU after Harvey/Florence).
+>
+> **Use `OmniPBR_ClearCoat` instead** — a Fresnel coat at `clearcoat_ior 1.333`
+> over a diffuse sediment body. It is core Kit MDL already in the container and
+> needs no vendored asset. Full recipe and numbers:
+> `scene_gen/_plans/hurricane_water.md` S3.7.
+>
+> This material remains correct for a **swimming pool**.
+
 ### Why this tier is the right one for a dataset
 
 Flood **depth becomes a config knob**, not an emergent property. Drive
 `water_level_m` from `severity` and you get, for free:
 
 - correct partial submersion of every prop by geometry alone
-- **exact per-object ground truth**: object bbox min-z vs. water plane z. That is a
-  cleaner label than any fluid sim would produce.
+- **exact per-object ground truth**: `bake.world_point_bounds(prim, xcache)` min-z
+  vs. water plane z. That is a cleaner label than any fluid sim would produce.
+
+  **NOT `UsdGeom.BBoxCache`.** It returns the AABB of an AABB and inflates
+  downward as much as upward — measured 6.8x span error on a real debris piece,
+  and 3,570 floating offenders in a library a bbox audit called clean. See
+  `bake.py:723` and the `fix-floating-debris` skill. Using it here would produce
+  systematically wrong submersion labels on exactly the objects that matter most:
+  rolled cars, prone people, debris.
 - composition with the existing `disaster.field` — in `compile_flood` the radial
   field already biases toward low ground at the epicentre, so the water level can
   follow the field and flood deeper there.

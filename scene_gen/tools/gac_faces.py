@@ -28,12 +28,19 @@ import numpy as np
 from pxr import Sdf, Usd, UsdGeom, UsdShade
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
-        "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/")
-OUT = os.path.join(HERE, "..", "_plans", "gac_faces.json")
-NAMES = (["SM_Building_%02d" % i for i in range(1, 6)] +
+# Any building library, not just GreatAmericanCity: FACES_ROOT / FACES_NAMES /
+# FACES_OUT override the defaults, so a new pack is classified with the same
+# measurement rather than by eye.
+ROOT = os.environ.get("FACES_ROOT") or (
+    "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
+    "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/")
+OUT = os.path.join(HERE, "..", "_plans",
+                   os.environ.get("FACES_OUT") or "gac_faces.json")
+NAMES = ([q for q in (os.environ.get("FACES_NAMES") or "").split(",") if q]
+         or ["SM_Building_%02d" % i for i in range(1, 6)] +
          ["SM_Building_06_Small"] +
          ["SM_Building_%02d" % i for i in range(7, 32)])
+EXT = os.environ.get("FACES_EXT", ".usd")
 SIDES = ("E", "N", "W", "S")          # +X, +Y, -X, -Y
 NORMALS = {"E": (1, 0), "N": (0, 1), "W": (-1, 0), "S": (0, -1)}
 # a side is blank when it is a real wall (enough area) and carries almost no
@@ -71,7 +78,7 @@ def _texture_of(prim):
 
 
 def measure(name):
-    st = Usd.Stage.Open(ROOT + name + ".usd")
+    st = Usd.Stage.Open(ROOT + name + EXT)
     st.Load()
     S = UsdGeom.GetStageMetersPerUnit(st)
     mesh = None
@@ -133,7 +140,10 @@ def measure(name):
             t = tex[sub_of[f]] if sub_of[f] >= 0 else ""
             acc[best]["tex"][t] = acc[best]["tex"].get(t, 0.0) + ar
 
-    out = {"name": name, "W": round(W, 1), "D": round(D, 1), "H": round(H, 1),
+    out = {"name": name, "usd": ROOT + name + EXT,
+           "W": round(W, 1), "D": round(D, 1), "H": round(H, 1),
+           "cx": round(0.5 * (lo[0] + hi[0]), 3),
+           "cy": round(0.5 * (lo[1] + hi[1]), 3), "z0": round(lo[2], 3),
            "sides": {}}
     dens = {}
     for k in SIDES:
@@ -152,6 +162,14 @@ def measure(name):
             "tex": [t for t, _ in top]}
     out["front"] = max(SIDES, key=lambda k: dens[k])
     out["blank_sides"] = [k for k in SIDES if out["sides"][k]["blank"]]
+    # THE PLACEMENT CLASS FALLS OUT OF THE COUNT, and this is the rule the
+    # layout enforces (user, 2026-08-29): a building modelled on three
+    # elevations belongs on a corner, two belongs at the end of a run, one
+    # belongs in the middle with neighbours covering both flanks.
+    n_good = 4 - len(out["blank_sides"])
+    out["detailed_sides"] = n_good
+    out["place"] = ("any" if n_good >= 4 else "corner" if n_good == 3
+                    else "end" if n_good == 2 else "mid")
     return out
 
 

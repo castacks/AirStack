@@ -1,166 +1,318 @@
-# ASSET SET: urban_gac — the GreatAmericanCity buildings, nothing else.
+# ASSET SET: urban_gac — GreatAmericanCity, filled out with downtowncity.
 #
-# `extends: urban_nucleus` for streets, furniture, greenery and vehicles, then
-# REPLACES the building pools. A bare key replaces the inherited pool; `intact+`
-# would have appended and left the other packs in the mix.
+# `extends: urban_nucleus` for streets, ground and vehicles, then REPLACES the
+# building and greenery pools. A bare key replaces the inherited pool; `key+`
+# would append and leave the rejected stock in.
 #
-# THREE THINGS THIS FILE ENCODES, all of them measured rather than guessed
-# (`tools/gac_faces.py` -> `_plans/gac_faces.json`, triangle density per
-# elevation against each building's own best side):
+# See `.agents/skills/urban-layout` for the reasoning. In short, three per-asset
+# facts, all MEASURED (`tools/gac_faces.py`, triangle density per elevation
+# against that building's own best side):
 #
-# 1. `yaw-offset` PER ASSET. These buildings do not share a front: 01 fronts E,
-#    03 fronts S, 22 fronts W, 24 fronts N. A layout rule can only orient a pool
-#    that agrees on which way is forward, so each asset is turned here until its
-#    good elevation points -X, which is what `_terrace_rows` assumes at
-#    `facing_deg` 0. Without this one rule oriented some correctly and spun the
-#    rest to face the block interior.
+# 1. `yaw-offset` — these packs do not agree on which way is forward. Among the
+#    fifteen GreatAmericanCity buildings, 01 fronts E, 03 fronts S, 22 fronts W
+#    and 24 fronts N. A layout rule can only orient a pool that agrees on a
+#    front, so each asset is turned here until its best elevation points -X,
+#    which is what `_lay_terrace` assumes at `facing_deg` 0. Without this, one
+#    rule oriented some correctly and spun the rest to face the block interior.
 #
-# 2. WHICH POOL. `districts.typologies.<name>.pools` names KEYS under
-#    `usds.buildings` — not tags. `urban.yaml` defines rowhouse/midrise/tower;
+# 2. `tags: [place_*]` — HOW MANY ELEVATIONS ARE MODELLED decides where a
+#    building may stand (user, 2026-08-29):
+#       place_mid     1 modelled side  — interior of a run, both flanks covered
+#       place_end     2 modelled sides — an end of a run, one flank covered
+#       place_corner  3 modelled sides — a corner; only its back is blank
+#       (untagged)    4 modelled sides — anywhere
+#    `districts._order_run` orders each terrace run by these and DROPS a run it
+#    cannot lay legally, rather than laying a blank wall against a street.
+#
+# 3. WHICH POOL. `districts.typologies.<name>.pools` names KEYS under
+#    `usds.buildings`, not tags. `urban.yaml` defines rowhouse/midrise/tower;
 #    `urban_nucleus` does not, so extending the nucleus alone leaves all three
-#    EMPTY and the zoning pass replaces every building with nothing
-#    ("POOL EMPTY (asset paths unresolved?)", 325 replaced by 0).
+#    EMPTY and zoning replaces every building with nothing ("POOL EMPTY (asset
+#    paths unresolved?)", 325 replaced by 0).
 #
-# 3. DEPTH DECIDES THE POOL. `_terrace_strips` lays two back-to-back rows only
-#    where the block's short side is in `[2*depth + alley, 2*depth + alley_max]`.
-#    Terrace is the morphology these assets want — two rows is the cap asked
-#    for, and a party wall covers the blank flanks that most of them have — so
-#    everything shallow enough to terrace goes to `rowhouse`, the 44 m-deep 09
-#    to `midrise`, and only the three too deep to terrace at this block size
-#    (20, 21, 22 at 58-62 m) fall back to `tower`/pack. Those three are also the
-#    ones with the fewest blank flanks, so pack costs least there.
+# UNITS ARE PER PACK AND MUST BE MEASURED, NOT ASSUMED. GreatAmericanCity is
+# centimetre-authored (`scale: 0.01`); downtowncity is METRES (`mpu = 1`, so
+# `scale: 1.0`). Assuming 0.01 for both shrank every downtowncity building to
+# ~0.4 m, and the packer duly fitted 5628 of them into 26 blocks instead of
+# ~120. A wrong scale does not error — it changes the layout.
 #
-# BLANK-FLANK CLASSES, for the record and for whoever wires the run-end rule:
-#   mid-terrace only (both flanks blank): 01 04 05 06_Small 07 25 26
-#   end or corner ok (one flank blank)  : 02 03 09 22 24 29
-#   anywhere         (no blank flank)   : 20 21
+# FILLERS: `scene_gen/assets/downtowncity/` — 15 buildings, 11 of them modelled
+# on all four elevations, so they are what a block gets when the run rules leave
+# a hole. `selected_citydemo` is deliberately absent: those 112 low-poly
+# monoliths were excluded by review.
 
-extends: urban_nucleus
+# The 2026-08-13 urban library/layout is the baseline.  The newer GAC and
+# downtowncity buildings below are additive; they must not replace the AEC
+# brownstones, Dmytro mid-rises, or Muyang towers that produced urban_v2.json.
+extends: urban
 
 usds:
   buildings:
-    # every one of the fifteen, so nothing can drop out of the city
-    intact:
+    intact+:
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_01.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 29x28x55 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_02.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_end"]   # 2-sided end, front E, blank W,S, 28x14x39 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_03.usd"
         scale: 0.01
-        yaw-offset: 270    # front S -> W
+        yaw-offset: 270
+        tags: ["place_end"]   # 2-sided end, front S, blank N,W, 29x29x63 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_04.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 32x29x53 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_05.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 30x28x72 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_06_Small.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 29x15x59 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_07.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 29x15x71 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_09.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_end"]   # 2-sided end, front E, blank N,W, 44x58x59 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_20.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_corner"]   # 3-sided corner, front E, blank W, 62x85x151 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_21.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_corner"]   # 3-sided corner, front E, blank W, 58x73x78 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_22.usd"
         scale: 0.01
-        yaw-offset: 0    # front W -> W
+        yaw-offset: 0
+        tags: ["place_corner"]   # 3-sided corner, front W, blank N, 58x71x61 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_24.usd"
         scale: 0.01
-        yaw-offset: 90    # front N -> W
+        yaw-offset: 90
+        tags: ["place_end"]   # 2-sided end, front N, blank W,S, 29x58x43 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_25.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 28x28x69 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_26.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 14x28x69 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_29.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
-    # shallow enough for a two-row terrace at this block size
-    rowhouse:
+        yaw-offset: 180
+        tags: ["place_end"]   # 2-sided end, front E, blank N,W, 14x28x48 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Amar_Tower.usdc"
+        scale: 1.0
+        yaw-offset: 90
+        tags: ["place_mid"]   # 1-sided mid, front N, blank E,W,S, 42x49x231 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Building_11.usdc"
+        scale: 1.0
+        yaw-offset: 270   # 4-sided any, front S, blank -, 31x35x33 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Building_12.usdc"
+        scale: 1.0
+        yaw-offset: 270
+        tags: ["place_end"]   # 2-sided end, front S, blank E,W, 44x19x39 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_01.usdc"
+        scale: 1.0
+        yaw-offset: 270   # 4-sided any, front S, blank -, 43x44x28 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_02.usdc"
+        scale: 1.0
+        yaw-offset: 0   # 4-sided any, front W, blank -, 43x44x22 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_03.usdc"
+        scale: 1.0
+        yaw-offset: 0   # 4-sided any, front W, blank -, 43x44x28 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_04.usdc"
+        scale: 1.0
+        yaw-offset: 270   # 4-sided any, front S, blank -, 34x39x16 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_05.usdc"
+        scale: 1.0
+        yaw-offset: 0
+        tags: ["place_corner"]   # 3-sided corner, front W, blank S, 44x44x19 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_06.usdc"
+        scale: 1.0
+        yaw-offset: 270   # 4-sided any, front S, blank -, 40x44x19 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_13.usdc"
+        scale: 1.0
+        yaw-offset: 270   # 4-sided any, front S, blank -, 84x44x31 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_14.usdc"
+        scale: 1.0
+        yaw-offset: 180   # 4-sided any, front E, blank -, 84x40x25 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_15.usdc"
+        scale: 1.0
+        yaw-offset: 0   # 4-sided any, front W, blank -, 84x44x19 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_17.usdc"
+        scale: 1.0
+        yaw-offset: 270
+        tags: ["place_corner"]   # 3-sided corner, front S, blank W, 44x24x17 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_18.usdc"
+        scale: 1.0
+        yaw-offset: 180   # 4-sided any, front E, blank -, 44x44x29 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_21.usdc"
+        scale: 1.0
+        yaw-offset: 90   # 4-sided any, front N, blank -, 37x44x21 m
+    # SHALLOW ENOUGH TO TERRACE, AND DEPTH MEANS sx. `_lay_terrace` takes
+    # `max(e[3]["sx"])` over the pool — the asset's X extent — and derives the
+    # admissible block band from it. Filtering this pool on `min(W, D)` instead
+    # let two 44 m-deep downtowncity fillers in, which pushed the band to
+    # [91, 115] against blocks of [67, 82] and refused 5 of 12 terraces.
+    # One deep member disqualifies the whole pool, so keep it tight.
+    rowhouse+:
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_01.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 29x28x55 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_02.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_end"]   # 2-sided end, front E, blank W,S, 28x14x39 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_03.usd"
         scale: 0.01
-        yaw-offset: 270    # front S -> W
+        yaw-offset: 270
+        tags: ["place_end"]   # 2-sided end, front S, blank N,W, 29x29x63 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_04.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 32x29x53 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_05.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 30x28x72 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_06_Small.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 29x15x59 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_07.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 29x15x71 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_24.usd"
         scale: 0.01
-        yaw-offset: 90    # front N -> W
+        yaw-offset: 90
+        tags: ["place_end"]   # 2-sided end, front N, blank W,S, 29x58x43 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_25.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 28x28x69 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_26.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_mid"]   # 1-sided mid, front E, blank N,W,S, 14x28x69 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_29.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
-    # 44 m deep — terraces only in the wider blocks
-    midrise:
+        yaw-offset: 180
+        tags: ["place_end"]   # 2-sided end, front E, blank N,W, 14x28x48 m
+    midrise+:
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_09.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
-      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_21.usd"
-        scale: 0.01
-        yaw-offset: 180    # front E -> W
-    # 58-62 m deep: too deep to terrace here, and the least blank stock
-    tower:
+        yaw-offset: 180
+        tags: ["place_end"]   # 2-sided end, front E, blank N,W, 44x58x59 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_02.usdc"
+        scale: 1.0
+        yaw-offset: 0   # 4-sided any, front W, blank -, 43x44x22 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_03.usdc"
+        scale: 1.0
+        yaw-offset: 0   # 4-sided any, front W, blank -, 43x44x28 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_04.usdc"
+        scale: 1.0
+        yaw-offset: 270   # 4-sided any, front S, blank -, 34x39x16 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_05.usdc"
+        scale: 1.0
+        yaw-offset: 0
+        tags: ["place_corner"]   # 3-sided corner, front W, blank S, 44x44x19 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_06.usdc"
+        scale: 1.0
+        yaw-offset: 270   # 4-sided any, front S, blank -, 40x44x19 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_14.usdc"
+        scale: 1.0
+        yaw-offset: 180   # 4-sided any, front E, blank -, 84x40x25 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_15.usdc"
+        scale: 1.0
+        yaw-offset: 0   # 4-sided any, front W, blank -, 84x44x19 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_21.usdc"
+        scale: 1.0
+        yaw-offset: 90   # 4-sided any, front N, blank -, 37x44x21 m
+    # pack morphology shows every side, so only all-round or corner
+    # stock belongs here
+    tower+:
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_20.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_corner"]   # 3-sided corner, front E, blank W, 62x85x151 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_21.usd"
         scale: 0.01
-        yaw-offset: 180    # front E -> W
+        yaw-offset: 180
+        tags: ["place_corner"]   # 3-sided corner, front E, blank W, 58x73x78 m
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_22.usd"
         scale: 0.01
-        yaw-offset: 0    # front W -> W
+        yaw-offset: 0
+        tags: ["place_corner"]   # 3-sided corner, front W, blank N, 58x71x61 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Building_11.usdc"
+        scale: 1.0
+        yaw-offset: 270   # 4-sided any, front S, blank -, 31x35x33 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_01.usdc"
+        scale: 1.0
+        yaw-offset: 270   # 4-sided any, front S, blank -, 43x44x28 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_13.usdc"
+        scale: 1.0
+        yaw-offset: 270   # 4-sided any, front S, blank -, 84x44x31 m
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Carved_18.usdc"
+        scale: 1.0
+        yaw-offset: 180   # 4-sided any, front E, blank -, 44x44x29 m
 
-  # ---- CityPark greenery is BLACKLISTED --------------------------------------
-  # Bare keys, so these REPLACE the inherited pools rather than adding to them.
-  # The CityPark props were reviewed and rejected once already (only the boulder
-  # SM_Rock_03 and the lantern SM_Lantern survived that pass), and `shared.yaml`
-  # was still feeding five CityPark trees and three stumps into every urban
-  # scene. RetroNeighborhood trees and the ModernCityEnvironment shrubs stay.
+  # ---- GREENERY: ONE TREE, NO PLANTS -----------------------------------------
+  # Reviewed in the built scene (user, 2026-08-29): of everything standing in
+  # the park, only SM_Tree_04 belongs. Every other tree and every plant is out.
+  # Bare keys, so these REPLACE the inherited pools — `shared.yaml` feeds five
+  # CityPark trees, three CityPark stumps and eleven shrubs in through
+  # `urban_nucleus`, and a first pass that replaced only `trees` and `plants`
+  # still left CityPark in three more pools below.
   trees:
-    - usd: "RetroNeighborhood/Props/SM_Tree_02.prop.usd"
-      scale: 0.01
-    - usd: "RetroNeighborhood/Props/SM_Tree_03.prop.usd"
-      scale: 0.01
     - usd: "RetroNeighborhood/Props/SM_Tree_04.prop.usd"
       scale: 0.01
-    - usd: "RetroNeighborhood/Props/SM_Tree_05.prop.usd"
+  plants: []
+  # The other three pools CityPark was still reaching the scene through — the
+  # non-CityPark members kept verbatim rather than emptied, because an empty
+  # pool is a different change from a filtered one and some passes pick from
+  # these without a guard.
+  rocks:
+    - usd: "Muyang/DownTown/Assets/Rock_A.usd"
       scale: 0.01
-    - usd: "RetroNeighborhood/Props/SM_Tree_06.prop.usd"
+    - usd: "Muyang/DownTown/Assets/Rock_B.usd"
       scale: 0.01
-    - usd: "RetroNeighborhood/Props/SM_Tree_07.prop.usd"
+    - usd: "Muyang/DownTown/Assets/Rock_C.usd"
       scale: 0.01
-  plants:
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass.usd"
+    - usd: "Muyang/DownTown/Assets/Rock_D.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Rock_E.usd"
+      scale: 0.01
+  benches:
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench01.usd"
+      yaw-offset: -90.0
+      tags: ["sidewalk"]
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench02.usd"
+      yaw-offset: -90.0
+      tags: ["sidewalk"]
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench03.usd"
+      yaw-offset: -90.0
+      tags: ["sidewalk"]
+    - usd: "Muyang/DownTown/Assets/Bench.usd"
+      scale: 0.01
+      yaw-offset: 0.0
+      tags: ["sidewalk","park"]
+  trash_cans:
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_MTrashCan.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003_01.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003_02.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_004.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_006.usd"
+    - usd: "Muyang/DownTown/Assets/garbageCan.usd"
+      scale: 0.01

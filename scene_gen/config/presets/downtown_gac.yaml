@@ -73,6 +73,14 @@ region_m: [800, 800]
 seed: 42
 
 overrides:
+  # Roof plant, water tanks, masts and fire escapes from the pack's own 122
+  # props (`detail/gac_props.py`). UNDER `overrides`, not at the top level:
+  # this preset is a HIGH-LEVEL spec compiled against `low_level/default.yaml`,
+  # and the compiler drops top-level keys it does not know — the pass silently
+  # never ran and printed nothing, which is indistinguishable from "placed 0".
+  building_props:
+    enabled: true
+
   # ROAD ASPHALT, matched to the suburb wildfire scene: the local megascans
   # asphalt swatch instead of shared.yaml's Nucleus MI_Asphalt. `apply_ground_planes`
   # reads `usds.materials.asphalt`; the urban marking vocabulary is drawn on
@@ -139,7 +147,14 @@ overrides:
       # and rebuilt as mid-rise — which is also where the three-rows-per-block
       # came from, since `pack` has no row limit. The GreatAmericanCity terrace
       # pool is up to ~29 m deep, putting the band near [61, 66].
-      block_short_m: [58, 72]    # street-to-street, the dense axis
+      # The terrace band is `[2*depth + alley_m, 2*depth + alley_max_m]`, and
+      # `_terrace_rows` takes the pool's DEEPEST member: 31.5 m here, with
+      # alley 2..26, so the band is [65, 89]. Blocks have to be generated
+      # INSIDE that band or every terrace is refused and rebuilt as pack —
+      # which is where both complaints came from, the three-rows-per-block
+      # (pack has no row limit) and half the wrong facings (pack does not
+      # orient to the street; terrace does, by construction).
+      block_short_m: [66, 80]    # street-to-street, the dense axis
       block_long_m: [190, 260]   # avenue-to-avenue, the sparse axis
       # Road width follows the axis. MEASURED (Manhattan, share of segments by
       # class and median lane count):
@@ -1075,7 +1090,17 @@ overrides:
         # (k=3 on the row-house strip), and brownstones only need 25.1 m, so
         # this is set by the terrace composition rather than by fit. Only the
         # long axis moves, for the anisotropy reason given under midrise.
-        block_short_m: [60.0, 72.0]    # terrace-tuned; assets need >= 25.1
+        # SIZED TO THE POOL, and this is the number that matters — the
+        # `layout.anisotropic.block_short_m` above is only a FALLBACK while
+        # zoning is on, so tuning it alone changes nothing.
+        # `_terrace_strips` accepts a block only when its short side is in
+        # `[2*depth + alley_m, 2*depth + alley_max_m]`, where depth is the
+        # pool's DEEPEST member (SM_Building_04 at 31.5 m) — so the band is
+        # [65, 83.5]. At the inherited [60, 72] most blocks came out under 65
+        # and every terrace was refused ("rowhouse_refused=9"), falling back to
+        # pack: which is both the 3-rows-per-block and half the wrong facings,
+        # since pack has no row limit and does not orient to the street.
+        block_short_m: [67.0, 82.0]    # terrace-tuned; assets need >= 25.1
         block_long_m: [165.0, 230.0]   # ratio ~3.0x, matching a brownstone strip
         # MEASURED terrace runs: 6 houses / 43-48 m frontage median,
         # 17-29 houses / 105-130 m at p90 — a run is NOT a whole block face.

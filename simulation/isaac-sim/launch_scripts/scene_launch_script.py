@@ -83,6 +83,26 @@ SCENE_CONFIG = os.environ.get("SCENE_CONFIG") or os.path.join(
 # -------------------------
 
 
+def _spec_overrides():
+    """Per-run size override, matching the generated-scene drone launcher."""
+    raw = (os.environ.get("REGION_M") or "").strip()
+    if not raw:
+        return None
+    parts = [p.strip() for p in raw.replace("x", ",").replace("X", ",").split(",")
+             if p.strip()]
+    try:
+        vals = [float(p) for p in parts]
+    except ValueError:
+        raise SystemExit("REGION_M={0!r}: expected N, NxN or N,N".format(raw))
+    if not vals:
+        raise SystemExit("REGION_M={0!r}: expected N, NxN or N,N".format(raw))
+    vals = [vals[0], vals[0]] if len(vals) == 1 else vals[:2]
+    if any(v <= 0.0 for v in vals):
+        raise SystemExit("REGION_M sides must be positive: {0}".format(vals))
+    print("[scene_gen] spec override: region_m={0}".format(vals))
+    return {"region_m": vals}
+
+
 _ENV_CLUTTER = {"GroundPlane", "Environment"}
 
 
@@ -210,7 +230,8 @@ class CityV2PreviewApp:
         else:
             carb.log_warn("/World/stage not found — skipping scale and collision.")
 
-        config = load_scene_config(SCENE_CONFIG)
+        config = load_scene_config(SCENE_CONFIG,
+                                   spec_overrides=_spec_overrides())
 
         _, ssf = get_stage_meters_per_unit(stage)
         placements = generate_scene_on_stage(
@@ -292,11 +313,16 @@ class CityV2PreviewApp:
                                     0.42 * d + tall * 0.55),
                             (cx, cy, tall * 0.22))
             sn.snapshot(os.path.join(out_dir, "city_" + nm + ".png"))
+        # STREET VIEWS FROM OUTSIDE THE PLATE, NOT FROM ITS CENTRE. Aimed at
+        # the middle of a generated city the camera lands inside whatever
+        # building happens to be there — the first pair came back solid black
+        # with a lit soffit at the top of frame. Backing off past the edge and
+        # looking in along the axis always has open ground in front of it.
         for nm, eye, tgt in (
-                ("street_ew", (cx - span * 0.45, cy, 3.0),
-                 (cx + span * 0.4, cy, 14.0)),
-                ("street_ns", (cx, cy - span * 0.45, 3.0),
-                 (cx, cy + span * 0.4, 14.0))):
+                ("street_ew", (cx - span * 0.62, cy, 6.0),
+                 (cx + span * 0.5, cy, 26.0)),
+                ("street_ns", (cx, cy - span * 0.62, 6.0),
+                 (cx, cy + span * 0.5, 26.0))):
             sn.place_camera(stage, eye, tgt)
             sn.snapshot(os.path.join(out_dir, nm + ".png"))
         print("[scene] snapshots -> {0}".format(out_dir))
