@@ -1,12 +1,12 @@
 [
   {
-    "version": "main",
-    "title": "0.20.0 (stable)",
+    "version": "develop",
+    "title": "0.21.0-dev.2 (unstable)",
     "aliases": []
   },
   {
-    "version": "develop",
-    "title": "0.21.0-dev.2 (unstable)",
+    "version": "main",
+    "title": "0.20.0 (stable)",
     "aliases": []
   },
   {
