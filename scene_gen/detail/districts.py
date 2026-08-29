@@ -443,19 +443,26 @@ def zone_field(config: dict, region=None):
 def _entry_meta(tags: frozenset, yaw_offset: float) -> dict:
     """Turn one asset's raw `tags` frozenset into the placement-facing dict
     every consumer below reads: ``place``, ``front``, ``blank`` (all in the
-    asset's OWN unrotated frame, exactly as measured/authored) and ``blank0``
+    asset's OWN unrotated frame, exactly as measured/authored), ``blank0``
     (the same blank set folded through this asset's `yaw-offset`, i.e. the
     frame the pool's assets share once every yaw-offset has been applied —
-    see the module docstring's per-asset `yaw-offset` note). A pool entry
-    with no tags at all gets ``place="any"``, empty `front`/`blank`/`blank0`
-    — every consumer of this dict has to treat that as "impose no
-    constraint", which is what makes the whole facing system a no-op for a
-    library nobody has measured yet.
+    see the module docstring's per-asset `yaw-offset` note), ``front0`` (the
+    same fold applied to `front` — always "W" for a correctly-authored
+    `yaw-offset`, since that offset's whole job is to turn the front to -X,
+    but computed rather than assumed so a bad `yaw-offset` fails as a wrong
+    score instead of silently trusting a convention it violates), and
+    ``never_corner`` (`place_never_corner` — see `_pack_free`'s scoring
+    docstring). A pool entry with no tags at all gets ``place="any"``, empty
+    `front`/`blank`/`blank0`/`front0` and `never_corner=False` — every
+    consumer of this dict has to treat that as "impose no constraint", which
+    is what makes the whole facing system a no-op for a library nobody has
+    measured yet.
     """
     place = ("mid" if "place_mid" in tags else
              "end" if "place_end" in tags else
              "corner" if "place_corner" in tags else
              "none" if "place_none" in tags else "any")
+    never_corner = "place_never_corner" in tags
     front = None
     blank: frozenset = frozenset()
     for t in tags:
@@ -464,7 +471,9 @@ def _entry_meta(tags: frozenset, yaw_offset: float) -> dict:
         elif t.startswith("blank:"):
             blank = frozenset(s for s in t.split(":", 1)[1].split(",") if s)
     return {"place": place, "front": front, "blank": blank,
-            "blank0": _rot_sides(blank, yaw_offset)}
+            "blank0": _rot_sides(blank, yaw_offset),
+            "front0": _rot_side(front, yaw_offset) if front else None,
+            "never_corner": never_corner}
 
 
 def _pool_entries(config: dict, resolver, key: str):
@@ -1766,6 +1775,115 @@ def _typ_gap(typ: dict, default: float) -> float:
     return float(typ.get("building_gap_m", default))
 
 
+def _has_facing_pref(meta: dict) -> bool:
+    """Whether *meta* carries enough to prefer one yaw over another at all —
+    gates the extra candidate `_pack_free` generates per footprint shape
+    (0 vs 180, 90 vs 270) and whether a shape's survivors get COLLAPSED to
+    one by `_yaw_score` rather than left as separate draws.
+
+    Broader than "has a `blank:` tag" on purpose. `SM_Building_22`
+    (`front:W`, no `blank:`) used to get no say in its own orientation at
+    all: the old gate was `bool(meta.get("blank"))`, so an entry with only a
+    `front:` tag never even had its 180-degree twin generated, and the
+    `front:` tag was dead weight in `_pack_free` — read by nothing there.
+    `place` and `never_corner` are included too, since either can eliminate
+    a candidate on its own (the corner check in `_pack_free`) even with no
+    `blank:`/`front:` at all.
+
+    False for a pool nobody has measured (`place="any"`, `front=None`,
+    `blank` empty, `never_corner=False`) — the exact case this predicate has
+    to stay a no-op for, so `downtown`/`downtown_1000`'s untagged pools draw
+    exactly as many candidates as they always have.
+    """
+    return bool(meta.get("front") or meta.get("blank")
+               or meta.get("place", "any") not in ("any",)
+               or meta.get("never_corner"))
+
+
+def _frontage_len(block_rect, side) -> float:
+    """Length of the BLOCK's own edge on *side* — a W or E edge runs
+    north-south (parallel to Y), so its length is the block's Y extent; a N
+    or S edge runs east-west, so it is the X extent. ``None`` (no side, i.e.
+    nothing to measure) returns 0.
+
+    Used only to break a tie between two streets a corner slot can front
+    (`_yaw_score`'s "longest frontage" term) — `house_26_707`:
+    SM_Building_26's 28.4 m face belongs on the long street it was standing
+    across from, not the short one it was defaulting to. The block's own
+    plan size is the only measure of "how long is this street" available
+    this early in the pipeline, before an actual road width is decided.
+    """
+    if side not in ("N", "E", "S", "W"):
+        return 0.0
+    bx0, by0, bx1, by1 = block_rect
+    return (by1 - by0) if side in ("W", "E") else (bx1 - bx0)
+
+
+def _depth_into_block(bw: float, bh: float, fsides: frozenset) -> bool:
+    """True when THIS candidate's longer footprint extent runs perpendicular
+    to one of its street sides — the short face meets the sidewalk, the
+    long one runs back into the block.
+
+    A W/E street's own edge runs north-south (parallel to Y), so putting the
+    depth into the block wants the LONGER extent along X there; a N/S
+    street's edge runs east-west, so it wants the longer extent along Y.
+    `house_42_734` (SM_Building_02, 28.0 x 14.4 m, front the 14.4 m face):
+    only correct when the 28.0 m runs into the block and the windowed
+    14.4 m meets the street — which coincides with `_yaw_score`'s tier 1
+    (front on street) by construction whenever that tier is satisfied, so
+    this only has independent teeth as the LAST tiebreak, among candidates
+    that all failed to put a front on any street at all.
+    """
+    if not fsides:
+        return False
+    for side in fsides:
+        if side in ("W", "E") and bw >= bh:
+            return True
+        if side in ("N", "S") and bh >= bw:
+            return True
+    return False
+
+
+def _yaw_score(bw: float, bh: float, yaw: float, block_rect, meta: dict,
+              fsides: frozenset):
+    """4-tier score for one candidate orientation that has ALREADY cleared
+    the hard reject (no blank side on the street, no illegal `place`/corner
+    combination) — a higher tuple wins `_pack_free`'s per-entry vote.
+
+    Replaces a VETO ("first yaw that is not illegal") with a SCORE, per the
+    four counter-examples the user gave reviewing a built scene (2026-08-29):
+    a building can be LEGAL at more than one yaw and still be WRONG at all
+    but one of them — "this isn't a hard rule, you have to change
+    orientation based on where the streets are to the building."
+
+      1. FRONT ON THE STREET. `front0` is the asset's front direction in the
+         WORLD frame at placement yaw 0 (mirrors `blank0` — see
+         `_pool_entries`); rotating it by *yaw* gives the direction THIS
+         candidate actually points. `house_32_698` (SM_Building_22): the one
+         elevation without windows was left facing the street, because
+         nothing here ever preferred the alternative — `front:` was parsed
+         and then never consulted.
+      2. LONGEST STREET FRONTAGE, among the front-on-street candidates —
+         `house_26_707`: the long face belongs on the long street, not
+         whichever one a blind veto happened to land on first.
+      3. MOST DETAILED ELEVATIONS ON THE STREET. Every surviving candidate
+         already has NO blank side on a street — that is the hard reject —
+         so this is just how many street sides it actually engages: a
+         corner candidate that reaches both streets outranks one that only
+         reaches one of them.
+      4. DEPTH INTO THE BLOCK — see `_depth_into_block`. Genuinely the last
+         tiebreak: whenever tier 1 holds this is already implied by
+         construction, so it only decides anything among candidates that
+         all failed to put a front on the street.
+    """
+    front = meta.get("front0")
+    front_world = _rot_side(front, yaw) if front else None
+    on_street = bool(front_world) and front_world in fsides
+    frontage = _frontage_len(block_rect, front_world) if on_street else 0.0
+    return (on_street, frontage, len(fsides),
+            _depth_into_block(bw, bh, fsides))
+
+
 def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
                area_band: float = 0.55, reach=None, block_rect=None,
                street_tol_m: float = 6.0):
@@ -1793,18 +1911,32 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
     to leave them something to choose between.
 
     *block_rect* is the block's own inset rect (the same one `_street_reach`
-    is built from) and turns on the FACING test: a candidate whose `blank:`
-    sides, rotated to the yaw it would stand at, include a side the slot's
-    footprint puts on the street is dropped, and so is any candidate whose
-    `place` class cannot legally stand there at all (`_place_ok`, used only
-    when the entry has no `blank:` tag to test directly). When every
-    candidate for a sub-rectangle fails this test the rectangle is left
-    EMPTY rather than building the least-bad option — the same discipline
-    `reach` already applies to frontage — and counted in the returned
-    *refused* tally so a run that is quietly refusing everything shows up in
-    the `[districts]` log instead of just being a smaller city. ``None``
-    (the default) skips the whole test, which is what keeps this a no-op for
-    any caller that has not been updated to pass a block rect.
+    is built from) and turns on the FACING test, run per candidate
+    ORIENTATION rather than per asset:
+
+      1. HARD REJECT — unchanged discipline, now unconditional rather than a
+         fallback: a `place_mid` asset (one modelled elevation) or one
+         tagged `place_never_corner` is refused at any slot with 2+ street
+         sides regardless of whether it also carries a `blank:` tag; then,
+         as before, a candidate whose `blank:` sides (rotated to this yaw)
+         land on the street is dropped, or — when it carries no `blank:` at
+         all — one whose `place` class cannot legally stand there
+         (`_place_ok`).
+      2. SCORE the survivors (`_yaw_score`) and keep the single best
+         orientation PER ENTRY — see that function for the four tiers. Only
+         entries carrying enough metadata to prefer one yaw over another
+         (`_has_facing_pref`) are collapsed this way; an entry with none is
+         left with exactly as many candidates as it always had, which is
+         what keeps a pool nobody has tagged drawing byte-identical to
+         before this scoring existed.
+
+    When every candidate for a sub-rectangle fails the hard reject the
+    rectangle is left EMPTY rather than building the least-bad option — the
+    same discipline `reach` already applies to frontage — and counted in the
+    returned *refused* tally so a run that is quietly refusing everything
+    shows up in the `[districts]` log instead of just being a smaller city.
+    ``None`` (the default) skips the whole test, which is what keeps this a
+    no-op for any caller that has not been updated to pass a block rect.
     """
     out, stack, refused = [], [tuple(rect)], 0
     while stack:
@@ -1818,23 +1950,21 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
             if meta.get("place") == "none":
                 continue           # all-blank stock: never a pack candidate
             sx, sy = e[3]["sx"], e[3]["sy"]
-            # The 180-degree-flipped facing is only worth adding as a SEPARATE
-            # candidate when there is a `blank:` tag to distinguish it from
-            # its un-flipped twin (same bw/bh either way, so it is otherwise
-            # indistinguishable to the fit test) and a `block_rect` to judge
-            # it against. Anything else would just hand `sky.choose` two
-            # copies of an entry that look identical to it, silently doubling
-            # that entry's odds for every draw in the scene — including
-            # every scene with no facing metadata at all, which is exactly
-            # the byte-identical regression this feature must not cause.
-            flip = block_rect is not None and bool(meta.get("blank"))
+            # The 180-degree-flipped facing (and, on the swapped shape, the
+            # 270 twin) is only worth generating as a SEPARATE candidate when
+            # there is something to prefer one over the other — otherwise it
+            # is a geometrically-identical duplicate and would silently
+            # double that entry's odds in `sky.choose` for nothing. See
+            # `_has_facing_pref` — broader than "has a `blank:` tag" now, so
+            # a `front:`-only entry (SM_Building_22) finally gets a say too.
+            pref = block_rect is not None and _has_facing_pref(meta)
             if sx <= w and sy <= h:
                 fits.append((e, sx, sy, 0.0))
-                if flip:
+                if pref:
                     fits.append((e, sx, sy, 180.0))
             if sy <= w and sx <= h and abs(sx - sy) > 1e-6:
                 fits.append((e, sy, sx, 90.0))
-                if flip:
+                if pref:
                     fits.append((e, sy, sx, 270.0))
         # A LANDMARK SLOT SKIPS THE AREA BAND. Asked before the band because
         # that is what the band would remove — see `_Skyline.landmark_picks`.
@@ -1852,30 +1982,71 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
         if not fits:
             continue
         if block_rect is not None:
-            sides = None
-            kept = []
+            hard = []          # [(f, fsides)] — survivors of the hard reject
             for f in fits:
                 e, bw, bh, yaw = f
                 meta = e[5] if len(e) > 5 else {}
                 fsides = _street_sides(block_rect, x0, y0, bw, bh,
                                        street_tol_m)
+                n_sides = len(fsides)
+                if n_sides >= 2 and (meta.get("place") == "mid"
+                                     or meta.get("never_corner")):
+                    # A one-sided (`mid`) asset shows a blank flank on
+                    # whichever of its two uncovered sides a neighbour is
+                    # NOT standing against, and a corner needs BOTH covered
+                    # at once — no yaw ever supplies that, so this is
+                    # refused unconditionally rather than left to the
+                    # `blank:`/`_place_ok` test below, which only fires when
+                    # `blank:` is unset. `place_never_corner` is the same
+                    # rule for an asset that is otherwise fine on a straight
+                    # block face but was authored as wrong at a corner
+                    # regardless.
+                    continue
                 blank = meta.get("blank") or frozenset()
                 if blank:
                     bad = _rot_sides(meta.get("blank0") or frozenset(), yaw) \
                         & fsides
                     ok = not bad
                 else:
-                    ok = _place_ok(meta.get("place", "any"), len(fsides))
+                    ok = _place_ok(meta.get("place", "any"), n_sides)
                 if ok:
-                    kept.append(f)
-            if not kept:
+                    hard.append((f, fsides))
+            if not hard:
                 # Something fit AND reached the street, but every surviving
-                # orientation would show a blank wall or an illegal `place`
-                # class to it. Leaving the rectangle bare is the same call
-                # `reach` makes for a landlocked gap — a blank wall on a
-                # street is worse than an empty lot, not better.
+                # orientation would show a blank wall, an illegal `place`
+                # class, or a one-sided asset at a corner. Leaving the
+                # rectangle bare is the same call `reach` makes for a
+                # landlocked gap — a blank wall on a street is worse than an
+                # empty lot, not better.
                 refused += 1
                 continue
+            # COLLAPSE TO ONE ORIENTATION PER ENTRY, but only for an entry
+            # that actually has a preference to express (`_has_facing_pref`)
+            # — an untagged entry may legally have TWO surviving candidates
+            # here (its two fitting SHAPES, not two facings of one shape),
+            # and both have to stay in play for the ORIGINAL area-band/
+            # `along` selection below to choose between them exactly as it
+            # always has. This is also where `_yaw_score`'s tiers 3-4 get
+            # their only real say: within one shape, 0 and 180 share the
+            # same `(bw, bh)` and hence the same `fsides`, so only tier 1
+            # (front) can ever separate them there — tiers 3-4 only matter
+            # comparing ACROSS an entry's two shapes, which happens here.
+            # `hard` is never empty at this point, so every entry that
+            # contributes to it lands in `kept` one way or the other — via
+            # this loop directly, or via `best_by_entry` below.
+            best_by_entry: dict = {}
+            kept = []
+            for f, fsides in hard:
+                e, bw, bh, yaw = f
+                meta = e[5] if len(e) > 5 else {}
+                if not _has_facing_pref(meta):
+                    kept.append(f)
+                    continue
+                score = _yaw_score(bw, bh, yaw, block_rect, meta, fsides)
+                cur = best_by_entry.get(id(e))
+                if cur is None or score > cur[0]:
+                    best_by_entry[id(e)] = (score, f)
+            kept.extend(f for _score, f in best_by_entry.values())
             fits = kept
         if marks:
             marks = [f for f in marks if f in fits]      # survived `reach` + facing
@@ -1911,6 +2082,85 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
             if right_w > 0:
                 stack.append((x0 + bw + gap, y0, x1, y0 + bh))
     return out, refused
+
+
+def _lay_terrace_end_caps(rect, depth: float, pool, rng, sky, typ,
+                          area_band: float, max_depth_m: float, gap: float,
+                          reach, street_tol_m: float = 6.0):
+    """Compact stock at the two ends of a plain terrace pair's alley —
+    ``[(entry, cx, cy, yaw)]``, `_lay_terrace`'s own return shape, so the
+    caller appends it the same way.
+
+    No `alley_m` parameter, deliberately — unlike `_terrace_strips`, which
+    needs it to judge whether a block qualifies for a terrace pair at all,
+    this only runs AFTER two rows have already been laid successfully, so
+    the alley that matters here is whatever is ACTUALLY left between them:
+    exactly `rect`'s own short side minus `2 * depth`, with no need to go
+    back to the config value that merely bounded it during sizing.
+
+    `_lay_terrace` builds two rows along a block's LONG faces and leaves the
+    alley between them open on purpose — right for the alley itself, a
+    terrace's back yards and service lane are supposed to stay paved and
+    empty. But a block generous enough to leave a WIDE alley also leaves its
+    own SHORT edges — themselves streets, the two rows never reach them —
+    entirely unbuilt. `house_25_621` (user, 2026-08-29): "this house is fine
+    but it's block is 2 rows... lots of free space in the middle... The
+    smaller edges can place house 42 there since it's very compact and we
+    can afford depth in a block like that."
+
+    OPT-IN, per typology (`districts.typologies.<name>.terrace_end_caps`) —
+    see `rezone_blocks`, which only calls this when a scene has set it.
+
+    IMPLEMENTED BY REUSING `_pack_free` rather than a bespoke placer: the
+    alley's two ends are ordinary free rectangles against the SAME
+    `block_rect` (the terrace block itself), so `_street_sides`/`_yaw_score`
+    already know these ends front the block's short edges and will orient
+    whatever lands there outward, exactly as they would for any other
+    packed slot — nothing about facing needs re-deriving here.
+
+    *max_depth_m* caps how far EACH cap zone reaches down the alley's own
+    LENGTH (parallel to the rows, away from the short edge it fronts) — not
+    the alley's cross-width, which is fixed by the rows already laid and is
+    simply handed to `_pack_free` whole, exactly as any other free rect's
+    height is. 0 falls back to the pool's own deepest member, which is what
+    keeps a single row of caps from becoming a THIRD row of buildings
+    marching down the alley toward the middle: capped this way, `_pack_free`
+    still guillotine-packs the zone (so more than one compact building can
+    stand side by side along the short edge if the pool has room for it),
+    but nothing can extend past roughly one building's own depth toward the
+    alley's centre, which is what keeps the middle open. Also hard-clamped
+    to under half the alley's length so the two ends can never meet.
+    """
+    x0r, y0r, x1r, y1r = rect
+    w, h = x1r - x0r, y1r - y0r
+    along_x = w >= h                    # matches `_terrace_strips`'s own test
+    cross = (h if along_x else w) - 2.0 * depth     # the alley's own width
+    if cross <= 0.0:
+        return []                       # no alley at all — nothing to cap
+    min_side = min(min(e[3]["sx"], e[3]["sy"]) for e in pool)
+    if cross < min_side:
+        return []                       # too narrow for anything in the pool
+    length = w if along_x else h        # the alley's own length, end to end
+    reach_m = max_depth_m if max_depth_m > 0.0 \
+        else max(e[3]["sx"] for e in pool)
+    reach_m = min(reach_m, length / 2.0 - 1e-6)
+    if reach_m < min_side:
+        return []                       # the cap budget can't fit anything
+    out = []
+    if along_x:
+        lo, hi = y0r + depth, y1r - depth               # the alley band
+        ends = [(x0r, lo, x0r + reach_m, hi),            # west end
+                (x1r - reach_m, lo, x1r, hi)]             # east end
+    else:
+        lo, hi = x0r + depth, x1r - depth
+        ends = [(lo, y0r, hi, y0r + reach_m),            # south end
+                (lo, y1r - reach_m, hi, y1r)]             # north end
+    for fr in ends:
+        got, _refused = _pack_free(fr, pool, gap, min_side, rng, sky, typ,
+                                   area_band, reach, block_rect=rect,
+                                   street_tol_m=street_tol_m)
+        out += got
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -2312,7 +2562,28 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                 # sharing-a-block artefact the superblock exists to avoid. The
                 # space stays open — rear gardens, which is what is actually
                 # behind a terrace.
-                pass
+                #
+                # UNLESS the typology opts into `terrace_end_caps` — compact
+                # stock at the alley's own two ends, fronting the block's
+                # SHORT edges (themselves streets the two long-face rows
+                # never reach at all). `house_25_621`: a block wide enough to
+                # leave a generous alley leaves those short edges bare, and
+                # "we can afford depth in a block like that." OFF BY
+                # DEFAULT — every existing rowhouse block is unchanged unless
+                # a scene sets this per typology.
+                ec_cfg = typ.get("terrace_end_caps")
+                if ec_cfg:
+                    ec_pool = _pools_for(config, resolver,
+                                         ec_cfg.get("pools") or [], cache)
+                    if ec_pool:
+                        caps = _lay_terrace_end_caps(
+                            rect, depth0, ec_pool, rng, sky, typ,
+                            area_band, float(ec_cfg.get("max_depth_m", 0.0)),
+                            _typ_gap(typ, gap),
+                            _street_reach(rect, frontage_max))
+                        laid += caps
+                        counts["terrace_end_caps"] = \
+                            counts.get("terrace_end_caps", 0) + len(caps)
         else:
             laid = []
             min_side = min(min(e[3]["sx"], e[3]["sy"]) for e in pool)

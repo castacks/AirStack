@@ -358,10 +358,17 @@ def summarise(buildings, plan, elapsed_s):
     rows = []
     for p in plan:
         b = buildings[p["i"]]
-        rows.append((-1e9 if p["t_ignite"] is None else -p["t_ignite"], p, b))
-    rows.sort()
+        rows.append((-1e9 if p["t_ignite"] is None else -p["t_ignite"],
+                     p["i"], p, b))
+    # SORT ON THE KEY AND THE INDEX ONLY. A plain `rows.sort()` compares the
+    # tuples elementwise, so ANY TIE on the first element falls through to
+    # comparing the `plan` dicts and raises `TypeError: '<' not supported
+    # between instances of 'dict' and 'dict'`. Every building the fire never
+    # reached ties at -1e9, so this fires the moment a plate has two of them
+    # — which a 100 m block never had and a 500 m city has eighteen of.
+    rows.sort(key=lambda r: (r[0], r[1]))
     lines = []
-    for _k, p, b in rows:
+    for _k, _i, p, b in rows:
         if p["t_ignite"] is None:
             lines.append("  {0:<18} {1}  not reached".format(
                 b.get("style", "?"), p["level"]))

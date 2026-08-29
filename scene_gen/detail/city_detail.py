@@ -930,19 +930,28 @@ def _order_categories(categories: dict, clearances: dict, size_of):
     return ordered
 
 
-def _pool(usds: dict, key: str, default_scale: float, asset_root: str):
+def _pool(usds: dict, key: str, default_scale: float, asset_root: str,
+         tag: str = None):
     """Normalized ``(paths, scale, axis_up, yaw_offset)`` lookups for a category.
 
     Returns ``None`` when the pool is empty or absent, which is how a category
     with no art sourced yet is skipped without any code change.
+
+    *tag*, when given, prefers members carrying it and falls back to the whole
+    pool when none do — the same rule `parks.py`'s `_Lib.pool` uses for its
+    ``tag="park"`` lookups (a plaza wants the park-register bench over the
+    kerb one, and this is the one place outside `parks.py` that needs it).
     """
     raw = usds.get(key)
     if not raw:
         return None
-    paths, sc_ovr, au_ovr, yaw_ovr, _tags = _normalize_usd_list(
+    paths, sc_ovr, au_ovr, yaw_ovr, tag_ovr = _normalize_usd_list(
         raw, default_scale, asset_root)
     if not paths:
         return None
+    if tag is not None:
+        tagged = [p for p in paths if tag in tag_ovr.get(p, ())]
+        paths = tagged or paths
     return {
         "paths": paths,
         "scale": lambda p: sc_ovr.get(p, default_scale),
@@ -1335,14 +1344,464 @@ def build_road_surface(config: dict, layout: dict, resolver, rng=None) -> list:
     return out
 
 
+# ---------------------------------------------------------------------------
+# plazas: composed open ground inside the highrise district
+# ---------------------------------------------------------------------------
+#
+# WHERE THE SPACE IS. `districts.typologies.highrise` packs its blocks at
+# `perimeter_depth_m: 0` with a 30 m `building_gap_m` — see that typology's
+# own comment in the preset — so a highrise block holds one to four towers
+# with wide paved gaps between them instead of a perimeter frontage band.
+# MEASURED on `downtown_gac`'s three highrise blocks: decomposing each
+# block's inset rect minus its towers (`districts.free_rects`) gives gaps up
+# to 30 x 108 m (3,228 m2), alongside a scatter of slivers down to 2 m wide
+# where a tower sits close to the block edge. The slivers are not a plaza;
+# the wide gaps are — `min_side_m`/`min_area_m2` below are the gate, chosen
+# off that measured distribution.
+#
+# ONE ARRANGEMENT FAMILY, SIZED TO WHAT FITS. A prior AC-unit pass read as
+# "random instead of structured on an actual building" — the fix there and
+# here is the same: pick ONE composition and vary its parameters, never its
+# shape. Every plaza gets a centrepiece at its own centre; a ring of benches
+# around it at an even pitch, seat normal toward the centre (`parks.py`'s
+# attraction ring — see its module docstring — reused verbatim: the yaw IS
+# the position angle plus 90, the same convention, the same asset family);
+# a café row against whichever tower wall actually borders the gap; and a
+# planter line walked around the plaza's own edge. What varies is which
+# centrepiece fits (fountain, a planter cluster, a rock cluster, or — if
+# none of those assets are sourced — an empty seating court), the ring's
+# radius (bounded by the gap, not by a fixed number), and a random rotation.
+#
+# THE PLAZA'S OWN FOOTPRINT, NOT THE WHOLE GAP. A 30 x 108 m gap is not one
+# plaza-sized thing — the ring composition only ever spans `2 * max_radius_m`
+# or so. Walking the café row or the planter line along the FULL free rect's
+# perimeter (its first-drafted form) put a table every 4.5 m for the entire
+# 108 m run — fifty-odd tables down one wall, nothing like the sidewalk-cafe
+# register this is meant to match. Both are instead walked around a small
+# square keyed to `ring_r`, so their count scales with the COMPOSED plaza,
+# and the rest of a long gap stays quiet paving, which is what a real
+# corridor between two towers actually looks like.
+#
+# WHY THE CAFÉ ROW IS FOUND, NOT ASSUMED. A gap between two towers borders a
+# real wall on at least one side — that is what makes it a gap rather than
+# open ground. `_plaza_wall_runs` finds the side(s) of the free rect where a
+# tower footprint actually sits flush against it, so the row of tables ends
+# up against a building the way a real café frontage does, rather than
+# floating in the middle of the paving. A free rect with no adjacent tower
+# (walled only by other block edges) gets no café row, which is correct.
+def _plaza_wall_runs(free_rect, obstacles, eps: float = 0.3,
+                     min_run_m: float = 1.0):
+    """``[(out_yaw, edge_coord, lo, hi)]`` — runs of *free_rect*'s own
+    boundary that a tower footprint stands flush against, long enough to be
+    worth a café row. *out_yaw* points away from the wall into the gap, the
+    same convention `_frontage_edges` uses for a block edge (south -90,
+    north 90, west 180, east 0), so the row can be placed with the existing
+    `_ALONG`/`_prop_yaw` machinery exactly as a sidewalk café is.
+
+    *obstacles* are already the margin-inflated tower rects `free_rects` was
+    decomposed against, so a matching edge lines up to float precision — the
+    tolerance only has to cover that, not a real search radius.
+    """
+    fx0, fy0, fx1, fy1 = free_rect
+    runs = []
+    for ox0, oy0, ox1, oy1 in obstacles:
+        if abs(ox1 - fx0) <= eps:
+            lo, hi = max(oy0, fy0), min(oy1, fy1)
+            if hi - lo >= min_run_m:
+                runs.append((180.0, fx0, lo, hi))
+        if abs(ox0 - fx1) <= eps:
+            lo, hi = max(oy0, fy0), min(oy1, fy1)
+            if hi - lo >= min_run_m:
+                runs.append((0.0, fx1, lo, hi))
+        if abs(oy1 - fy0) <= eps:
+            lo, hi = max(ox0, fx0), min(ox1, fx1)
+            if hi - lo >= min_run_m:
+                runs.append((-90.0, fy0, lo, hi))
+        if abs(oy0 - fy1) <= eps:
+            lo, hi = max(ox0, fx0), min(ox1, fx1)
+            if hi - lo >= min_run_m:
+                runs.append((90.0, fy1, lo, hi))
+    return runs
+
+
+def _place_plazas(config, layout, placements, resolver, rng, occ, surface_z,
+                  usds, default_scale, asset_root, exclusions, tally) -> list:
+    """Fountain-or-planter plazas in the large paved gaps of a highrise block.
+
+    See the module section above for the arrangement itself; this is the
+    free-space search and the per-plaza compose loop.
+
+    Off unless `city_detail.plazas.enabled` is set, and — critically — a
+    no-op that draws NOTHING from *rng* when it is not, so a preset that
+    never sets it (every non-GAC preset today) reproduces its RNG sequence
+    and its output exactly. Also a no-op if *placements* is empty: this pass
+    needs to see where the towers actually stood after `districts` rezoned
+    the blocks, which `layout` alone does not carry (`layout["placeholder_
+    buildings"]` is build_city's PRE-rezone prisms and goes stale the moment
+    a district remaps a block) — the caller has to pass the same placement
+    list `districts.remap_buildings` already edited in place.
+    """
+    cfg = (config.get("city_detail") or {}).get("plazas") or {}
+    if not cfg.get("enabled", False):
+        return []
+    if not placements:
+        print("[city_detail] plazas: enabled but no `placements` given — "
+              "skipped (pass the post-districts placement list so this pass "
+              "can see where the towers are)")
+        return []
+
+    from detail import districts
+
+    typ_of = layout.get("_typology_of") or {}
+    wanted = set(cfg.get("typologies") or ("highrise",))
+    houses = [p for p in placements if p.get("category") == "house"]
+    if not houses:
+        return []
+
+    inset = districts.block_inset(config, resolver)
+    podium_m = float(cfg.get("podium_margin_m", 1.5))
+    min_side = float(cfg.get("min_side_m", 15.0))
+    min_area = float(cfg.get("min_area_m2", 280.0))
+    max_per_block = max(0, int(cfg.get("max_per_block", 2)))
+    edge_margin = float(cfg.get("edge_margin_m", 2.5))
+    max_radius = float(cfg.get("max_radius_m", 13.0))
+    min_radius = float(cfg.get("min_radius_m", 5.0))
+    fountain_chance = float(cfg.get("fountain_chance", 0.65))
+    # Wider than parks.py's 1.0 m ring_gap_m on purpose: a bench reserved by
+    # its own conservative square (see `place_free`) can reach back nearly
+    # half its own depth, and there is no trail width here to absorb that
+    # the way there is in a park. This is what keeps a bench from clipping
+    # the fountain's own keep-out box.
+    ring_gap = float(cfg.get("ring_gap_m", 2.2))
+    bench_spacing = max(2.0, float(cfg.get("bench_spacing_m", 6.5)))
+    trash_n = max(0, int(cfg.get("trash_cans_per_plaza", 2)))
+    light_n = max(0, int(cfg.get("streetlights_per_plaza", 4)))
+    planter_spacing = max(1.5, float(cfg.get("planter_spacing_m", 5.0)))
+    planter_inset = float(cfg.get("planter_inset_m", 1.2))
+    cafe_setback = float(cfg.get("cafe_setback_m", 3.0))
+    cafe_spacing = max(2.0, float(cfg.get("cafe_spacing_m", 4.5)))
+    cafe_min_run = float(cfg.get("cafe_min_run_m", 8.0))
+    cluster_radius_frac = float(cfg.get("cluster_radius_frac", 0.35))
+
+    features = (config.get("usds") or {}).get("park_features") or []
+    planter_pool = _pool(usds, "planters", default_scale, asset_root)
+    rock_pool = _pool(usds, "rocks", default_scale, asset_root)
+    bench_pool = (_pool(usds, "benches", default_scale, asset_root, tag="park")
+                 or _pool(usds, "benches", default_scale, asset_root))
+    trash_pool = _pool(usds, "trash_cans", default_scale, asset_root)
+    light_pool = _pool(usds, "streetlights", default_scale, asset_root)
+    cafe_pool = _pool(usds, "cafe_sets", default_scale, asset_root)
+
+    if not bench_pool or not (features or planter_pool or rock_pool):
+        print("[city_detail] plazas: no bench or centrepiece assets in the "
+              "set — skipped")
+        return []
+
+    def radius_of(usd, cat, pool):
+        fp = resolver.get(usd, cat, scale=pool["scale"](usd),
+                          axis_up=pool["axis_up"](usd))
+        return math.hypot(fp["sx"], fp["sy"]) / 2.0
+
+    def half_of(usd, cat, pool):
+        fp = resolver.get(usd, cat, scale=pool["scale"](usd),
+                          axis_up=pool["axis_up"](usd))
+        return max(fp["sx"], fp["sy"]) / 2.0
+
+    # Largest conservative half-extent any ring item can draw — MEASURED,
+    # not assumed, because the fountain ring math below has to clear it
+    # exactly. See that comment for what this is for.
+    ring_item_half = max(
+        [half_of(u, "bench", bench_pool) for u in bench_pool["paths"]]
+        + ([half_of(u, "trash_can", trash_pool) for u in trash_pool["paths"]]
+           if trash_pool else [])
+        + [0.5])
+
+    out, plaza_tally = [], {}
+
+    def emit(usd, cat, x, y, yaw, pool):
+        """Unconditional placement, for a part of a stack whose ground was
+        already reserved as one keep-out (the fountain: basin plus three
+        co-located water discs, one reservation for all four)."""
+        sc, au = pool["scale"](usd), pool["axis_up"](usd)
+        fp = resolver.get(usd, cat, scale=sc, axis_up=au)
+        out.append({
+            "usd": usd, "x_m": x, "y_m": y, "z_m": surface_z + fp["base"],
+            "yaw_deg": yaw + pool["yaw"](usd),
+            "roll_deg": 90.0 if au == "Y" else 0.0, "pitch_deg": 0.0,
+            "scale": sc, "axis_up": au, "category": cat,
+        })
+        tally[cat] = tally.get(cat, 0) + 1
+        plaza_tally[cat] = plaza_tally.get(cat, 0) + 1
+        return fp
+
+    def place_free(usd, cat, x, y, yaw, pool, pole=False):
+        """Reserve the conservative square a free-yaw prop reserves elsewhere
+        in this file (`_occ_extent`'s `_FREE` mode) and place, or skip on
+        collision — the ring, the clusters and the edge planters all stand at
+        a yaw with no edge to derive an oriented box from.
+
+        *pole* switches to `_POLE`'s reservation instead: a streetlight's arm
+        reaches out over nothing (it is meant to overhang the seating, the
+        way it overhangs a sidewalk), only the pole stands on the ground, and
+        reserving the FULL arm reach as if the whole assembly needed ground
+        clearance is what put a light 1 m outside the bench ring's own radius
+        into occupancy collision with the bench directly across the 11-45
+        degree gap between them — `max(sx,sy)` counted the 2.19 m arm as
+        ground footprint.
+        """
+        fp = resolver.get(usd, cat, scale=pool["scale"](usd),
+                          axis_up=pool["axis_up"](usd))
+        half = (min(fp["sx"], fp["sy"]) if pole
+               else max(fp["sx"], fp["sy"])) / 2.0
+        if exclusions and _in_exclusion(x, y, exclusions):
+            return None
+        if not occ.reserve((x - half, y - half, x + half, y + half)):
+            return None
+        return emit(usd, cat, x, y, yaw, pool)
+
+    def place_along(usd, cat, x, y, out_yaw, pool):
+        """Reserve the true oriented footprint against a wall — the same
+        `_occ_extent`/`_half_extents` pair `build()` uses for every sidewalk
+        category, reused so a café row occupies exactly what it will occupy
+        in the real scene rather than the conservative square."""
+        sc, au = pool["scale"](usd), pool["axis_up"](usd)
+        fp = resolver.get(usd, cat, scale=sc, axis_up=au)
+        along, across = _occ_extent(fp, _ALONG, 0.25)
+        hx, hy = _half_extents(out_yaw, along, across)
+        if exclusions and _in_exclusion(x, y, exclusions):
+            return None
+        if not occ.reserve((x - hx, y - hy, x + hx, y + hy)):
+            return None
+        yaw = _prop_yaw(out_yaw, fp, _ALONG, pool["yaw"](usd), rng)
+        return emit(usd, cat, x, y, yaw, pool)
+
+    n_plazas, n_candidates = 0, 0
+    kinds = {"fountain": 0, "planters": 0, "rocks": 0, "empty": 0}
+
+    for raw in layout.get("blocks") or ():
+        t = typ_of.get(tuple(raw)) or typ_of.get(raw)
+        if t not in wanted:
+            continue
+        bx0, by0, bx1, by1 = _rect(raw)
+        rect = (bx0 + inset, by0 + inset, bx1 - inset, by1 - inset)
+        obstacles = [districts._rect_of(p, resolver, margin=podium_m)
+                    for p in houses
+                    if bx0 <= p["x_m"] <= bx1 and by0 <= p["y_m"] <= by1]
+        if not obstacles:
+            continue
+
+        # build_city's own human/car scatter runs long before this pass and
+        # has no idea a plaza is coming — a pedestrian standing where the
+        # fountain lands is a real defect (MEASURED on downtown_gac), and
+        # nothing else in this file protects against it because `occ` here
+        # is fresh, seeded only by this pass's own placements. Towers do not
+        # need the same treatment: `free_rects` already excludes them (with
+        # `podium_m` to spare) from the ground being searched at all.
+        for p in placements:
+            if (p.get("category") not in ("human", "car")
+                    or not (bx0 <= p["x_m"] <= bx1 and by0 <= p["y_m"] <= by1)):
+                continue
+            fp = resolver.get(p.get("usd", ""), p.get("category"),
+                              scale=p.get("scale"), axis_up=p.get("axis_up", "Z"))
+            h = max(fp["sx"], fp["sy"]) / 2.0
+            occ.reserve((p["x_m"] - h, p["y_m"] - h,
+                        p["x_m"] + h, p["y_m"] + h))
+
+        free = districts.free_rects(rect, obstacles, min_side=min_side)
+        free = [f for f in free if (f[2] - f[0]) * (f[3] - f[1]) >= min_area]
+        free.sort(key=lambda f: -(f[2] - f[0]) * (f[3] - f[1]))
+        n_candidates += len(free)
+
+        for fr in free[:max_per_block]:
+            fx0, fy0, fx1, fy1 = fr
+            cx, cy = (fx0 + fx1) / 2.0, (fy0 + fy1) / 2.0
+            r_avail = min((fx1 - fx0) / 2.0, (fy1 - fy0) / 2.0) - edge_margin
+            if r_avail < min_radius - 1e-6:
+                continue          # belt-and-braces; min_side already implies this
+            r_max = max(min_radius, min(r_avail, max_radius))
+
+            phase = rng.uniform(0.0, 360.0)
+            keep_r, kind, ring_r_floor = 0.0, "empty", 0.0
+
+            # ---- the centrepiece: fountain first if it is rolled AND fits,
+            # else a planter cluster, else a rock cluster, else nothing.
+            if features and rng.random() < fountain_chance:
+                feat = rng.choice(features)
+                fparts, f_sc, f_au, f_yaw, _tg = _normalize_usd_list(
+                    feat.get("parts") or [], default_scale, asset_root)
+                if fparts:
+                    fpool = {"scale": lambda p: f_sc.get(p, default_scale),
+                            "axis_up": lambda p: f_au.get(p, "Z"),
+                            "yaw": lambda p: f_yaw.get(p, 0.0)}
+                    fr_keep = max([float(feat.get("radius_m", 6.0))]
+                                 + [radius_of(p, "park_feature", fpool)
+                                    for p in fparts])
+                    # fr_keep is a circumscribing-CIRCLE radius (hypot(sx,sy)/2
+                    # is rotation-invariant, so it bounds the mesh at every
+                    # `spin`, not just axis-aligned). Reserving the matching
+                    # circumscribing SQUARE (half=fr_keep) was tried first and
+                    # is wrong: that square's own CORNERS sit at fr_keep*sqrt2
+                    # from centre — MEASURED, it silently ate every other ring
+                    # slot (an exact, phase-independent 50%, because 45 degrees
+                    # is exactly half the square's 90 degree period) even
+                    # though the true circular mesh never reaches past
+                    # fr_keep. The inscribed square (half=fr_keep/sqrt2) never
+                    # reserves ground the mesh doesn't occupy, so it can no
+                    # longer refuse a ring slot the mesh was never near; ring_r
+                    # is what still keeps every ring item outside the true
+                    # circle, computed exactly below rather than by the
+                    # occupancy grid.
+                    q = fr_keep / math.sqrt(2.0)
+                    diag_safe_r = fr_keep + (ring_item_half + occ.pad) \
+                        * math.sqrt(2.0) * 1.05
+                    if diag_safe_r <= r_max and occ.reserve(
+                            (cx - q, cy - q, cx + q, cy + q)):
+                        spin = rng.uniform(0.0, 360.0)
+                        for p in fparts:
+                            emit(p, "park_feature", cx, cy, spin, fpool)
+                        keep_r, kind, ring_r_floor = fr_keep, "fountain", diag_safe_r
+
+            if kind == "empty" and planter_pool:
+                keep_r = min(2.5, max(1.5, r_max * cluster_radius_frac))
+                n_p = rng.randint(3, 5)
+                placed_any = False
+                for i in range(n_p):
+                    th = math.radians(phase + i * 360.0 / n_p)
+                    if place_free(rng.choice(planter_pool["paths"]),
+                                  "planter", cx + math.cos(th) * keep_r,
+                                  cy + math.sin(th) * keep_r,
+                                  rng.uniform(0.0, 360.0), planter_pool):
+                        placed_any = True
+                if placed_any:
+                    keep_r, kind = keep_r + 1.0, "planters"
+
+            if kind == "empty" and rock_pool:
+                keep_r = min(2.0, max(1.0, r_max * cluster_radius_frac * 0.7))
+                for _i in range(rng.randint(2, 3)):
+                    th = rng.uniform(0.0, 2.0 * math.pi)
+                    rr = rng.uniform(0.0, keep_r)
+                    place_free(rng.choice(rock_pool["paths"]), "rock",
+                              cx + math.cos(th) * rr, cy + math.sin(th) * rr,
+                              rng.uniform(0.0, 360.0), rock_pool)
+                keep_r, kind = max(keep_r, 1.5), "rocks"
+
+            if kind == "empty":
+                # Nothing sourced to stand at the centre — a seating court
+                # around open paving, sized the way `parks.py`'s bare
+                # `plaza_radius_m` attraction is, not by a keep-out that
+                # doesn't exist.
+                keep_r = min(4.0, max(2.0, r_max * 0.4))
+            kinds[kind] += 1
+
+            # ---- the ring: benches facing inward, evenly pitched, no jitter
+            ring_r = min(max(keep_r + ring_gap, ring_r_floor), r_max)
+            if ring_r > 1.0:
+                n_b = max(3, round(2.0 * math.pi * ring_r / bench_spacing))
+                bench_pitch = 360.0 / n_b
+                for i in range(n_b):
+                    th = phase + i * bench_pitch
+                    rad = math.radians(th)
+                    # Seat normal is placement yaw + 90 (parks.py's ring
+                    # convention — same asset family — see the module note
+                    # above): th + 90 points the seat at the centre.
+                    place_free(rng.choice(bench_pool["paths"]), "bench",
+                              cx + math.cos(rad) * ring_r,
+                              cy + math.sin(rad) * ring_r,
+                              th + 90.0, bench_pool)
+                # Offset by a FRACTION of the bench pitch, not a fixed 45/22.5
+                # degrees — MEASURED: n_b came out to exactly 8 on the
+                # downtown_gac run, so a fixed +45 degree offset landed a
+                # trash can EXACTLY on a bench slot (45 is 360/8) and every
+                # one of them was refused by the shared occupancy grid. A
+                # fraction of whatever the real pitch is can never land on a
+                # bench slot for any n_b.
+                for i in range(trash_n if trash_pool else 0):
+                    th = math.radians(phase + bench_pitch * 0.5
+                                      + i * 360.0 / max(1, trash_n))
+                    place_free(rng.choice(trash_pool["paths"]), "trash_can",
+                              cx + math.cos(th) * ring_r,
+                              cy + math.sin(th) * ring_r,
+                              math.degrees(th) + 180.0, trash_pool)
+                for i in range(light_n if light_pool else 0):
+                    th = math.radians(phase + bench_pitch * 0.25
+                                      + i * 360.0 / max(1, light_n))
+                    place_free(rng.choice(light_pool["paths"]), "streetlight",
+                              cx + math.cos(th) * (ring_r + 1.0),
+                              cy + math.sin(th) * (ring_r + 1.0),
+                              math.degrees(th) + 180.0, light_pool, pole=True)
+
+            # The plaza's own footprint, not the free rect's — see the module
+            # note above on why the café row and the planter line are walked
+            # around THIS, a square keyed to the ring, rather than the whole
+            # (possibly 100 m long) gap.
+            r_plaza = min(ring_r + edge_margin, r_avail + edge_margin)
+            plaza_rect = (max(fx0, cx - r_plaza), max(fy0, cy - r_plaza),
+                         min(fx1, cx + r_plaza), min(fy1, cy + r_plaza))
+
+            # ---- café row against whichever tower wall borders this gap,
+            # clipped to the plaza's own footprint along that wall.
+            if cafe_pool:
+                centre_of = lambda yaw: cy if yaw in (180.0, 0.0) else cx
+                runs = []
+                for out_yaw, edge, lo, hi in _plaza_wall_runs(fr, obstacles):
+                    c = centre_of(out_yaw)
+                    lo2, hi2 = max(lo, c - r_plaza), min(hi, c + r_plaza)
+                    if hi2 - lo2 >= cafe_min_run:
+                        runs.append((out_yaw, edge, lo2, hi2, hi2 - lo2))
+                if runs:
+                    runs.sort(key=lambda r: -r[4])
+                    out_yaw, edge, lo, hi, run_len = runs[0]
+                    n_c = max(1, round(run_len / cafe_spacing))
+                    step = run_len / n_c
+                    for k in range(n_c):
+                        s = lo + (k + 0.5) * step
+                        wx, wy = ((edge, s) if out_yaw in (180.0, 0.0)
+                                 else (s, edge))
+                        px, py = _inset(wx, wy, out_yaw, cafe_setback)
+                        place_along(rng.choice(cafe_pool["paths"]),
+                                   "cafe_set", px, py, out_yaw, cafe_pool)
+
+            # ---- planters around the plaza's own edge, defining it rather
+            # than sprinkled through it — the same edge-walk `build()` uses
+            # for sidewalk furniture, run against the plaza's footprint
+            # instead of a block. No jitter: an edge line is meant to read
+            # as regular.
+            if planter_pool:
+                for x, y, _oy, _blk, _appr, _corner in _frontage_slots(
+                        [plaza_rect], planter_spacing, rng,
+                        inset_m=planter_inset):
+                    place_free(rng.choice(planter_pool["paths"]), "planter",
+                              x, y, rng.uniform(0.0, 360.0), planter_pool)
+
+            n_plazas += 1
+
+    if n_plazas:
+        detail = "  ".join(f"{k}={v}" for k, v in sorted(plaza_tally.items()))
+        print(f"[city_detail] plazas: {n_plazas} composed of "
+              f"{n_candidates} candidate free rect(s) on "
+              f"{len(wanted)} typolog{'y' if len(wanted) == 1 else 'ies'} "
+              f"(fountain={kinds['fountain']} planters={kinds['planters']} "
+              f"rocks={kinds['rocks']} empty={kinds['empty']})\n"
+              f"[city_detail]   {detail}")
+    elif n_candidates:
+        print(f"[city_detail] plazas: 0 composed ({n_candidates} candidate "
+              f"free rect(s) found, but 0 fit — check min_side_m/min_area_m2)")
+    return out
+
+
 def build(config: dict, layout: dict, resolver, rng=None,
-          district_of=None) -> list:
+          district_of=None, placements=None) -> list:
     """Return placement dicts for zoned street furniture.
 
     *layout* is build_city's second return value (``region``/``blocks``/
     ``road_corridors``). *district_of*, if given, maps a block rect to a
     district dict carrying ``furniture_scale`` — spacings are multiplied by it,
-    so an outer ring thins out without a second config tree.
+    so an outer ring thins out without a second config tree. *placements*, if
+    given, is the placement list AFTER `districts.remap_buildings` has run —
+    the caller's own building list, not a copy — and is read (never mutated)
+    only by the `city_detail.plazas` pass, to find the towers standing in a
+    highrise block; every other pass here ignores it, so a caller that has
+    no use for plazas can go on omitting it.
 
     Emits the same placement schema `apply_placements` consumes, so the caller
     can simply extend build_city's list.
@@ -1697,6 +2156,15 @@ def build(config: dict, layout: dict, resolver, rng=None,
         if n == 0:
             print(f"[city_detail] {name}: 0 placed "
                   f"(spacing {base_spacing} m, zone {zone}) — check clearances")
+
+    # Plazas last: they read the SAME `occ` grid every sidewalk category above
+    # just filled, so a plaza's furniture can never land on top of a kerb prop
+    # even though the two passes never coordinate directly. Gated and RNG-free
+    # when off — see `_place_plazas` — so this cannot perturb the sequence
+    # every category above already drew.
+    out.extend(_place_plazas(config, layout, placements, resolver, rng, occ,
+                             surface_z, usds, default_scale, asset_root,
+                             exclusions, tally))
 
     total = sum(tally.values())
     detail = "  ".join(f"{k}={v}" for k, v in sorted(tally.items()))

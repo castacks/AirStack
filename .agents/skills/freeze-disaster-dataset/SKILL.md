@@ -518,10 +518,10 @@ something named is missing; **gap** = no pipeline.
 | disaster | locale | state | what is missing |
 |---|---|---|---|
 | Fire | Suburban | **ready** | 1 km preset (`suburb_wildfire_1000`) exists and archetypes are freshly baked (78 archetypes, 154 MB, 0 unresolved, 2026-08-27). Levels 2 and 3 need their own seeds and a `fire_png` check |
-| Fire | Urban | **gap** | no urban FIRE damage ladder. The urban kit has an earthquake archetype library (`archetypes_quake`) and nothing else; a fire ladder over the same kit is a bake, not a new pipeline |
+| Fire | Urban | **gap** | no urban FIRE damage ladder. The urban kit has an earthquake archetype library (`archetype`) and nothing else; a fire ladder over the same kit is a bake, not a new pipeline |
 | Tornado | Suburban | **partial** | pipeline complete at 500 x 500 (`suburb_tornado`); needs a 1 km preset and an archetype bake — `scene_gen/assets/archetypes_tornado/` currently holds only house cells |
 | Tornado | Urban | **gap** | no urban wind ladder |
-| Earthquake | Urban | **partial** | `downtown_earthquake` + `archetypes_quake` exist; PAUSED 2026-08-27 with the damage judged good and building diversity judged lacking |
+| Earthquake | Urban | **partial** | `downtown_earthquake` + `archetype` exist; PAUSED 2026-08-27 with the damage judged good and building diversity judged lacking |
 | Earthquake | Suburban | **partial** | `suburb_earthquake.yaml` compiles; no suburban quake archetype bake |
 | Hurricane | Urban | **gap** | preset compiles; DESIGNED 2026-08-29, no pipeline |
 | Hurricane | Suburban | **gap** | preset compiles; DESIGNED 2026-08-29, no pipeline |

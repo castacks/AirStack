@@ -72,21 +72,26 @@ asset-set: urban_gac
 region_m: [800, 800]
 seed: 42
 
-# ---- SKY AND LIGHT -----------------------------------------------------------
-# An HDRI dome, not the built-in sky rig (user, 2026-08-29: "replace the sky
-# with /NVIDIA/Environments/2024_1/DomeLights/Clear/mealie_road.hdr"). Verified
-# to resolve on Nucleus with `omni.client.stat` before being set here.
+# ---- LIGHT -------------------------------------------------------------------
+# NO `sky:` KEY, deliberately — reverted (user, 2026-08-29: "revert the sky back
+# to what it was before"). With no `sky` configured, `resolve_sky` returns "" and
+# `scene_prep.add_sky` takes its empty branch: a plain untextured dome light, and
+# the sky itself comes from the Pegasus "Default Environment" the launcher loads.
+# The `mealie_road.hdr` dome that briefly sat here is what made the city read as
+# evening — a clear-sky HDRI carries its own low sun baked into the image, and no
+# intensity setting can raise that sun.
 #
-# `scene_prep.add_sky` dispatches on the extension: a `.usd` sky is BORROWED
-# (its root prims referenced under /World), anything else non-empty is treated
-# as an equirect HDRI for the dome's `textureFile` with latlong projection. So
-# this takes the HDRI branch and no sky rig is built — which also means the
-# launcher's `_disable_sky_sun` finds nothing to switch off, because there is
-# no `/Environment/sky/.../DistantLight` under an HDRI dome.
-sky: "omniverse://airlab-nucleus.andrew.cmu.edu:443/NVIDIA/Environments/2024_1/DomeLights/Clear/mealie_road.hdr"
-# MORE LIGHT. The defaults are intensity 3500 at exposure -3.0, and exposure is
-# a power of two, so the effective figure is 3500 * 2^-3 = 437 — which is what
-# made the city read flat and grey. 2000 at exposure 0.0 is about 4.6x that.
+# WHAT IS KEPT is the brightness. `add_sky`'s own defaults are intensity 3500 at
+# exposure -3.0, and exposure is a power of two, so the effective figure is
+# 3500 * 2^-3 = 437 — which is what made the city read flat and dim. 2000 at
+# exposure 0.0 is about 4.6x that, and on an UNTEXTURED dome it arrives as even
+# ambient from every direction with no low-sun colour cast, which is the closest
+# this rig gets to overhead noon.
+#
+# Note the launcher's `_disable_sky_sun` switches off any DistantLight under
+# `/World/Environment/sky/`, so there is no hard directional sun on top of this;
+# the dome is doing all the lighting. If a real sun angle is ever wanted, that
+# pass is where to stop disabling it, not here.
 sky_intensity: 2000.0
 sky_exposure: 0.0
 
@@ -140,6 +145,19 @@ overrides:
     # `roof_flatness.py` does not catch this: it measures the share of
     # upward-facing area within 1.5 m of the asset's own max Z, and a big flat
     # crown ON TOP of a setback still scores well. Judged by eye, recorded here.
+    # A ROOF HOUSE MUST BE CLAD LIKE THE BUILDING IT STANDS ON — brick on
+    # brick, concrete on concrete (user, 2026-08-29, said it twice: "brick
+    # doesn't go with concrete"). MEASURED per asset off `info:unreal:
+    # sourceAsset` on each bound material, area-weighted: 01 and 04 are 35-36%
+    # `M_Bricks_Superior_Construction_Inst`, 02 and 03 are the identical mesh
+    # carrying `M_Wall_...` (this pack's precast skin) instead, Glass_Roof is
+    # 100% glass. The building's own cladding comes from the dominant texture
+    # on its `front` elevation in `_plans/gac_faces.json`.
+    #
+    # A building with no matching bulkhead gets NO bulkhead — a bare roof
+    # beats a brick hut on a concrete tower. Measured: 3 of 8 roof houses were
+    # mismatched before this, 0 of 9 after.
+    roof_house_match_material: true
     no_roof_props: ["SM_Building_31", "SM_Building_16"]
 
   # ROAD ASPHALT, matched to the suburb wildfire scene: the local megascans
@@ -251,6 +269,38 @@ overrides:
       # resolves to the lo or hi kerb. Used when zoning is off or a ring below
       # omits its own.
       parking_policy: {none: 0.15, one_side: 0.35, both: 0.50}
+
+      # ---- ROAD WIDTH BY THE DISTRICTS A ROAD SEPARATES ----------------------
+      # (user, 2026-08-29, looking at the built city): "The Skyscraper
+      # districts have to be surrounded by the widest roads that we do ...
+      # With the smaller roads it looks odd next to skyscrapers, they're too
+      # close to other blocks", and "all roads that surround high rises and
+      # high rise <-> mid rise and mid rise <-> mid rise need to widen."
+      #
+      # The `zones` block below keys road width off the concentric RING, which
+      # is not the same thing as the typology: zoning grows irregular areas
+      # from nuclei, so a ring says roughly how far from the centre a road is
+      # and nothing about what stands either side of it. These rules read the
+      # typology on BOTH flanks (median over five samples along the run, the
+      # same discipline `zone_of` uses, because a corridor crossing several
+      # districts must take what it is MOSTLY between).
+      #
+      # Matched MOST-SPECIFIC FIRST: two literal names beat one, which beats
+      # ["*","*"]; ties keep list order. A pair no rule matches falls through
+      # to the ring behaviour below, unchanged.
+      #
+      # NO PARKING beside a tower, per the request. Bike lanes need no rule
+      # here — `road_markings.plan_bike_lanes` already draws them on any
+      # corridor of 4+ lanes, so widening alone took eligible corridors from
+      # 4 to 11 and drawn lanes from 4 to 14 with no change to that module.
+      typology_roads:
+        enabled: true
+        rules:
+          - {between: [highrise, "*"],           lanes: 6, parking: none}
+          - {between: [tower, midrise],          lanes: 4, parking: one_side}
+          - {between: [tower, brick_midrise],    lanes: 4, parking: one_side}
+          - {between: [midrise, midrise],        lanes: 4, parking: one_side}
+          - {between: [midrise, brick_midrise],  lanes: 4, parking: one_side}
 
       # ---- road hierarchy per district ring ----------------------------------
       # Keys must match districts.rings names. Anything omitted falls back to the
@@ -453,6 +503,43 @@ overrides:
       sign_face_z_m:    2.1    # MUTCD 2A.18 urban mounting height
       min_obstruction_m: 1.0
 
+    # ---- PLAZAS: composed open ground between the towers --------------------
+    # (user, 2026-08-29): "In large empty sidewalk areas you can place cafe
+    # tables and benches, fountain, some sort of attraction, etc ... arrangement
+    # has to look nice not just a different ones put together, need some sort of
+    # pattern" — and, on scope: "only in the skyscraper districts".
+    #
+    # That is where the ground actually is: `highrise` runs `perimeter_depth_m:
+    # 0` with a 30 m `building_gap_m`, so a block holds two to four towers with
+    # large paved gaps between them, and those gaps read as bare concrete.
+    #
+    # ONE ARRANGEMENT FAMILY, varied by fit — a centrepiece on the gap's
+    # centroid, a bench ring around it at even pitch facing inward, a cafe row
+    # against whichever tower wall actually borders the gap, and a planter line
+    # on the plaza's own edge. Radius, centrepiece and rotation vary; the
+    # pattern does not. Scattering was rejected once already on the roofs
+    # ("the AC units seem random instead of structured").
+    plazas:
+      enabled: true
+      typologies: [highrise]
+      min_side_m:    15.0
+      min_area_m2:   280.0
+      max_per_block: 2
+      podium_margin_m: 1.5
+      edge_margin_m:   2.5
+      max_radius_m:   13.0
+      min_radius_m:    5.0
+      fountain_chance: 0.65
+      ring_gap_m:      2.2
+      bench_spacing_m: 6.5
+      trash_cans_per_plaza: 2
+      streetlights_per_plaza: 4
+      planter_spacing_m: 5.0
+      planter_inset_m:   1.2
+      cafe_setback_m:    3.0
+      cafe_spacing_m:    4.5
+      cafe_min_run_m:    8.0
+      cluster_radius_frac: 0.35
     categories:
       # UNITS. spacing_m is metres of BLOCK FRONTAGE RING per prop, and the
       # ring runs along one kerb. A street has two kerbs, belonging to two
@@ -1296,6 +1383,21 @@ overrides:
         # is correct rather than a fudge: the measurement is of 5-8 m wide row
         # houses, and these units are 14-42 m of frontage each, so the same
         # HOUSE COUNT costs twice the metres.
+        # END-CAPS ON THE TWO SHORT EDGES (user, 2026-08-29, on a brick
+        # terrace block): "it's block is 2 rows. Which is fine but lots of free
+        # space in the middle. The smaller edges can place the house 42 there
+        # since it's very compact and we can afford depth in a block like that."
+        #
+        # `_lay_terrace` deliberately builds NOTHING behind the pair — the
+        # middle is the service alley and rear yards. That is still right; what
+        # was missing is the block's two SHORT edges, which are street frontage
+        # like any other and were being left bare. `SM_Building_02` is 28.0 x
+        # 14.4 m and fronts its 14.4 m face, so it closes a short edge without
+        # eating the alley. `max_depth_m` is set just past its 28 m depth so
+        # only genuinely compact stock qualifies.
+        terrace_end_caps:
+          pools: [midrise_v2]
+          max_depth_m: 30.0
         run_median_m: 95.0
         run_sigma: 0.45
         run_gap_m: [3.0, 8.0]

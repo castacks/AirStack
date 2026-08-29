@@ -3,7 +3,7 @@
 Bake one USD per (urban kit style x earthquake grade) — the archetype library
 `downtown_quake_launch_script.py` assembles the damaged district from.
 
-    ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes_quake \
+    ARCH_DIR=/isaac-sim/AirStack/omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype \
     ISAAC_SIM_SCRIPT_NAME=bake_quake_archetypes_launch_script.py \
     airstack up isaac-sim
 
@@ -29,9 +29,11 @@ archetype, applied at assembly, so it costs no archetype and any building
 can get it.
 
 Env:
-    ARCH_DIR      output directory (default scene_gen/assets/archetypes_quake)
+    ARCH_DIR      output directory (default omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype)
     ARCH_SEED     rng seed (default 4 — see the note at SEED)
-    ARCH_STYLES   comma list of urban_building styles (default: the 250 m mix)
+    ARCH_STYLES   comma list of urban_building styles, OR one of the group
+                  names `mix250` (default, the 16-style 250 m mix), `tall`
+                  (the 14 the 250 m mix omits) or `full` (all 30)
     ARCH_GRADES   comma list of levels (default DG0..DG5,SETTLE,TILT,OV — the
                   last three are the foundation family, quake_flow.FOUNDATION)
     ARCH_VARIANTS variants per damaged grade (default 1) — `_v1`, `_v2`, ...
@@ -77,7 +79,7 @@ PARENT = "/World/stage/generated"
 # had nothing for `balcony_fail` to break. Measured host-side over seeds 1-12.
 SEED = int(os.environ.get("ARCH_SEED") or "4")
 OUT_DIR = os.environ.get(
-    "ARCH_DIR", os.path.join(_SCENE_GEN_DIR, "assets", "archetypes_quake"))
+    "ARCH_DIR", os.path.join(_SCENE_GEN_DIR, "assets", "archetype"))
 # THE 250 m MIX. Nothing taller than ~60 m: an 88-103 m skyscraper on a
 # 250 m plate is a landmark, not a district, and its ladder is glass loss
 # anyway. Eight families are represented.
@@ -86,8 +88,30 @@ DEFAULT_STYLES = ("apartment", "office", "brownstone", "commercial", "tower",
                   "apartment_long", "walkup", "brownstone_row",
                   "commercial_mid", "department_store", "dw_terrace",
                   "civic_offices", "highrise_04")
-STYLES = [q.strip() for q in os.environ.get(
-    "ARCH_STYLES", ",".join(DEFAULT_STYLES)).split(",") if q.strip()]
+# THE 1 km MIX. The 14 styles `urban_building` kitbashes that the 250 m mix
+# leaves on the floor — every skyscraper, every high-rise above 41 m, the slab
+# office, all four full-block massings, the long storefront terrace, the
+# government hall and the church. On a 1 km plate the argument above inverts:
+# a 103 m tower is a DISTRICT CORE, not a landmark, and their absence is what
+# "the diversity in buildings just isn't there" was about. Nothing here is
+# baked yet — see the urban-layout skill.
+TALL_STYLES = ("skyscraper_a", "skyscraper_b", "skyscraper_c", "highrise_step",
+               "highrise_01", "highrise_02", "office_slab", "block_residential",
+               "block_office", "block_stone", "block_commercial",
+               "dw_terrace_long", "civic_hall", "church")
+# Named groups for ARCH_STYLES, so a 1 km bake does not mean pasting a
+# 30-item comma list into a shell and getting one of them wrong.
+STYLE_GROUPS = {
+    "mix250": DEFAULT_STYLES,          # the shipped default, unchanged
+    "tall": TALL_STYLES,               # only what mix250 omits
+    "full": DEFAULT_STYLES + TALL_STYLES,   # all 30 kitbashed styles
+}
+_req = os.environ.get("ARCH_STYLES", "").strip()
+if _req in STYLE_GROUPS:
+    STYLES = list(STYLE_GROUPS[_req])
+else:
+    STYLES = [q.strip() for q in (_req or ",".join(DEFAULT_STYLES)).split(",")
+              if q.strip()]
 GRADES = [q.strip() for q in os.environ.get(
     "ARCH_GRADES", "DG0,DG1,DG2,DG3,DG4,DG5,SETTLE,TILT,OV").split(",") if q.strip()]
 VARIANTS = max(1, int(os.environ.get("ARCH_VARIANTS") or "1"))

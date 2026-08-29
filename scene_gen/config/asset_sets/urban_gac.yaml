@@ -239,6 +239,13 @@ usds:
     # and the earthquake preset build from and is not this scene's business);
     # the GAC preset's typologies simply draw from THIS key instead.
     lowrise:
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_civic_offices_DG0.usd", scale: 1.0}   # 30.0 x 20.0 x 12.5 m — rc, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_DG0.usd", scale: 1.0}   # 22.0 x 14.0 x 14.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_row_DG0.usd", scale: 1.0}   # 38.0 x 14.0 x 17.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_department_store_DG0.usd", scale: 1.0}   # 42.0 x 30.0 x 17.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_dw_terrace_DG0.usd", scale: 1.0}   # 25.0 x 15.0 x 17.5 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_DG0.usd", scale: 1.0}   # 22.0 x 17.0 x 18.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_DG0.usd", scale: 1.0}   # 32.0 x 16.0 x 19.0 m — rc, kit
       - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeC_A.usd"
         # 25.1 x 25.1 x 11.1 m — Dmytro FactoryDistrict shed
       - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeD_A.usd"
@@ -268,6 +275,15 @@ usds:
     # two are the short end of the brick terrace stock as well as the tall end
     # of the free-standing mid-rise.
     midrise_v2:
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 20.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_long_DG0.usd", scale: 1.0}   # 42.0 x 12.0 x 21.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_wide_DG0.usd", scale: 1.0}   # 40.0 x 24.0 x 22.0 m — rc, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_walkup_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 23.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_plain_DG0.usd", scale: 1.0}   # 32.0 x 24.0 x 25.0 m — rc, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_mid_DG0.usd", scale: 1.0}   # 30.0 x 18.0 x 26.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_tall_DG0.usd", scale: 1.0}   # 27.0 x 17.0 x 33.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_highrise_04_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 41.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_tower_DG0.usd", scale: 1.0}   # 25.0 x 20.0 x 43.0 m — rc_glass, kit
       - {usd: "Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd", scale: 1.0}
         # 28.5 x 18.5 x 29.0 m — metre-authored, unlike its neighbours
       - {usd: "Muyang/DownTown/Assets/BG_Building_D.usd", scale: 0.01}

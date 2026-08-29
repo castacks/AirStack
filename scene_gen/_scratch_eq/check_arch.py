@@ -1,6 +1,6 @@
 import sys, glob, os
 from pxr import Usd, UsdGeom, UsdShade
-d = "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake"
+d = "/isaac-sim/AirStack/omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype"
 for f in sorted(glob.glob(d + "/bld_*.usd")):
     st = Usd.Stage.Open(f)
     dp = st.GetDefaultPrim()

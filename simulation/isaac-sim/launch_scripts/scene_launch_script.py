@@ -70,6 +70,7 @@ _SCENE_GEN_DIR = os.path.normpath(
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
 sys.path.insert(0, _SCENE_GEN_DIR)
 from scene_prep import (scale_stage_prim, add_colliders, add_sky,
+                        add_dome_light,
                         get_stage_meters_per_unit, settle_rigid_props)
 from scene_generator import resolve_sky
 from generate_scene import generate_scene_on_stage
@@ -269,15 +270,32 @@ class CityV2PreviewApp:
             ground_path="/World/stage/generated/ground",
         )
 
-        # Intensity and exposure from the PRESET, not the library default.
-        # `add_sky`'s defaults are 3500 at exposure -3.0, and exposure is a
-        # power of two — an effective 437, which is what made this city read
-        # flat and grey. A scene that wants more light should be able to say
-        # so in its own config rather than by editing the shared helper.
         add_sky(stage, resolve_sky(config),
                 intensity=float(config.get("sky_intensity", 3500.0)),
                 exposure=float(config.get("sky_exposure", -3.0)))
         _disable_sky_sun(stage)
+
+        # AMBIENT FILL, AND IT HAS TO BE ADDED SEPARATELY. `add_sky` RETURNS
+        # EARLY when it borrows a `.usd` sky — the `if pulled: return` branch —
+        # so on this scene, whose `sky` resolves to a stage rather than an HDRI,
+        # it never reaches `add_dome_light` and the intensity/exposure passed to
+        # it above are silently ignored. What lights the city is then only
+        # whatever ambient the borrowed stage brought, minus the sun that
+        # `_disable_sky_sun` has just switched off — which is why it read as
+        # evening rather than noon.
+        #
+        # A dome added here is uniform from every direction, so it arrives as
+        # flat overhead light with no low-sun colour cast. That is the closest
+        # this rig gets to noon without re-enabling the borrowed stage's own
+        # directional sun, which sits at whatever elevation its author baked in
+        # and cannot be aimed from config.
+        #
+        # Off unless the scene asks: a preset with no `sky_intensity` keeps
+        # exactly the lighting it has today.
+        fill = float(config.get("sky_intensity", 0.0) or 0.0)
+        if fill > 0.0:
+            add_dome_light(stage, "/World/FillDome", intensity=fill,
+                           exposure=float(config.get("sky_exposure", 0.0)))
 
         print("\n" + "=" * 70)
         print("CITY V2 PREVIEW READY")

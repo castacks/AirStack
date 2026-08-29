@@ -4,7 +4,7 @@ Earthquake-damaged downtown: the detailed city (`generate_scene.py`) built
 from the PRISTINE kit archetypes, then every building re-pointed at its
 damaged archetype by the disaster field (`disaster/quake.assemble`).
 
-    ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes_quake \
+    ARCH_DIR=/isaac-sim/AirStack/omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype \
     SCENE_CONFIG=downtown_earthquake \
     SNAP_DIR=/isaac-sim/.nvidia-omniverse/logs/quake_city \
     ISAAC_SIM_SCRIPT_NAME=downtown_quake_launch_script.py airstack up isaac-sim
@@ -17,7 +17,7 @@ bake, so the plat loads in seconds after the ~30-60 s layout.
 
 Env:
     SCENE_CONFIG   preset (default downtown_earthquake)
-    ARCH_DIR       the quake archetype bake (default scene_gen/assets/archetypes_quake)
+    ARCH_DIR       the quake archetype bake (default omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype)
     QUAKE_SEED     the grade / tilt draws (default 11); the layout seed is the preset's
     QUAKE_TILT     override `disaster.debris.tilt_chance` (0 disables leaning)
     QUAKE_GROUND   0 skips the ground pass (dust halo, fissures, boils, pounding)
@@ -129,7 +129,7 @@ def _wait_for_stage(stage, timeout_s=10.0):
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
 SCENE_CONFIG = os.environ.get("SCENE_CONFIG") or "downtown_earthquake"
 ARCH_DIR = os.environ.get("ARCH_DIR") or os.path.join(
-    _SCENE_GEN_DIR, "assets", "archetypes_quake")
+    _SCENE_GEN_DIR, "assets", "archetype")
 QUAKE_SEED = int(os.environ.get("QUAKE_SEED") or "11")
 QUAKE_TILT = os.environ.get("QUAKE_TILT", "").strip()
 SNAP_DIR = os.environ.get("SNAP_DIR", "").strip()

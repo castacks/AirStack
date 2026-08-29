@@ -238,7 +238,16 @@ def cut_shell(stage, source_root, desc, recipe):
                     elif diff.geom_type == "Polygon":
                         pieces = [diff]
                     else:
-                        pieces = [g for g in diff.geoms if g.geom_type == "Polygon"]
+                        # `.geoms` ONLY EXISTS ON A COLLECTION. A triangle that
+                        # meets the cutter along an edge differences to a
+                        # LineString — not empty, not a Polygon, and with no
+                        # `.geoms` — so this raised `'LineString' object has no
+                        # attribute 'geoms'` and took the whole building with
+                        # it (downtowncity Building_12, 2026-08-29). A
+                        # degenerate result has no area to keep, so an empty
+                        # piece list is the right answer for it.
+                        pieces = [g for g in getattr(diff, "geoms", ())
+                                  if g.geom_type == "Polygon"]
                 for piece in pieces:
                     coords = list(piece.exterior.coords)[:-1]
                     if len(coords) < 3 or piece.area < 1e-7:

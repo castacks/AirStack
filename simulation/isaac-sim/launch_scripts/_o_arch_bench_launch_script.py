@@ -22,7 +22,7 @@ and captures the SAME two cameras of copy 0 in both variants, so "the merge
 did not change the look" is something to look at rather than to assert.
 
 Env:
-    ARCH_DIR      merged archetypes  (default scene_gen/assets/archetypes_quake)
+    ARCH_DIR      merged archetypes  (default omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype)
     ARCH_RAW_DIR  unmerged twins     (default <ARCH_DIR>/_raw; "off" to skip)
     ARCH_NAMES    comma list of `bld_<style>_<level>` (no .usd)
     ARCH_COPIES   copies per stage   (default 20)
@@ -60,7 +60,7 @@ sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
 sys.path.insert(0, _SCENE_GEN_DIR)
 
 ARCH_DIR = os.environ.get("ARCH_DIR") or os.path.join(
-    _SCENE_GEN_DIR, "assets", "archetypes_quake")
+    _SCENE_GEN_DIR, "assets", "archetype")
 ARCH_RAW_DIR = os.environ.get("ARCH_RAW_DIR", "").strip() or os.path.join(
     ARCH_DIR, "_raw")
 NAMES = [q.strip() for q in os.environ.get("ARCH_NAMES", "").split(",") if q.strip()]

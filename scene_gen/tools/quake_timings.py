@@ -15,7 +15,7 @@ import os
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT = os.path.join(_HERE, "..", "assets", "archetypes_quake", "archetypes.json")
+DEFAULT = os.path.join(_HERE, "..", "assets", "archetype", "archetypes.json")
 
 
 _REPO = os.path.normpath(os.path.join(_HERE, "..", ".."))

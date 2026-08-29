@@ -14,7 +14,7 @@ metadata:
 **What exists and works.** A complete, measured pipeline: 16 kit building
 styles (5 façade families + storefront / civic / church) × 9 damage levels
 (EMS-98 DG0-DG5 + SETTLE / TILT / OV) baked as 144 merged archetypes
-(`scene_gen/assets/archetypes_quake/`, 631 MB, 81 min two-at-a-time), and a
+(`omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/`, 631 MB, 81 min two-at-a-time), and a
 city launcher that lays out any number of plates, draws every building's
 grade from a magnitude-derived shaking field, swaps in the archetypes,
 leans / sinks buildings on a soft-soil patch, runs a few building pairs LIVE

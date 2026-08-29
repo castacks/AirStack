@@ -3,13 +3,16 @@
 test_districts_facing.py — the blank-wall-off-the-street mechanism, pinned
 without Isaac.
 
-`districts.py` carries per-asset `yaw-offset` and `blank:`/`place` metadata
-into the pool entry (`_pool_entries`), uses it to keep a blank elevation off
-a street (`_pack_free`'s facing filter, `_lay_terrace`'s per-strip filter and
-`_order_run`), and to suppress a model repeating too close to itself. Five
-claims are worth pinning here, because a wrong compass rotation or a wrong
-street-side test looks identical to a correct one until a render shows a
-blank wall facing traffic:
+`districts.py` carries per-asset `yaw-offset` and `blank:`/`front:`/`place`
+metadata into the pool entry (`_pool_entries`), uses it to keep a blank
+elevation off a street AND, since the 2026-08-29 veto-to-score rewrite, to
+prefer the yaw that puts the asset's FRONT on a street over one that merely
+isn't illegal (`_pack_free`'s `_yaw_score`, `_lay_terrace`'s per-strip filter
+and `_order_run`), and to suppress a model repeating too close to itself.
+Six claims are worth pinning here, because a wrong compass rotation or a
+wrong street-side test looks identical to a correct one until a render shows
+a blank wall facing traffic — or, since the rewrite, a windowless face
+standing where a windowed one was available:
 
   1. `_rot_side`/`_rot_sides` implement the documented CCW convention (+90
      maps E->N, N->W, W->S, S->E) for all four letters at all four multiples
@@ -22,7 +25,12 @@ blank wall facing traffic:
   4. `_pack_free` REFUSES a synthetic one-sided ("place_mid") asset at a
      corner slot (two street sides, one modelled flank cannot cover both) and
      ACCEPTS the same asset at a single-street-side slot where its modelled
-     side lines up with the street.
+     side lines up with the street; then, past that hard reject, `_yaw_score`
+     ranks the survivors — front-on-street beats not, the longer of two
+     available streets beats the shorter, more streets engaged beats fewer,
+     and depth-into-the-block is the last tiebreak (section "4c" below,
+     including `place_never_corner` and `_lay_terrace_end_caps`, the compact
+     stock this rewrite lets a generous terrace alley's own short ends take).
   5. `_order_run` puts a `mid` entry in the run's interior, drops a run that
      cannot be laid legally (all-mid, or a lone `mid`), and — the case that
      must stay inert for a pool with no metadata — leaves an all-`any` run's
@@ -83,14 +91,16 @@ def strict(fn):
 
 
 def _entry(usd, sx, sy, sz=10.0, base=0.0, yaw_offset=0.0, place="any",
-          front=None, blank=frozenset()):
+          front=None, blank=frozenset(), never_corner=False):
     """A synthetic 6-tuple pool entry, built the same way `_pool_entries`
     builds a real one — footprint UNROTATED (as the resolver would report
-    it), `blank0` derived from `blank` and `yaw_offset` via `_rot_sides`,
-    exactly what `_pool_entries` does."""
+    it), `blank0`/`front0` derived from `blank`/`front` and `yaw_offset` via
+    `_rot_sides`/`_rot_side`, exactly what `_pool_entries` does."""
     fp = {"sx": float(sx), "sy": float(sy), "sz": float(sz), "base": float(base)}
     meta = {"place": place, "front": front, "blank": frozenset(blank),
-            "blank0": dd._rot_sides(frozenset(blank), yaw_offset)}
+            "blank0": dd._rot_sides(frozenset(blank), yaw_offset),
+            "front0": dd._rot_side(front, yaw_offset) if front else None,
+            "never_corner": never_corner}
     return (usd, 1.0, "Z", fp, float(yaw_offset), meta)
 
 
@@ -336,6 +346,271 @@ def test_pack_free_place_none_never_placed():
             sky=sky, typ={}, block_rect=br)
         check(placed == [],
               f"place_none never placed (block_rect={'set' if br else 'None'})")
+
+
+# ---------------------------------------------------------------------------
+# 4c. the SCORE, not the veto — 2026-08-29 rewrite, per four counter-examples
+# the user gave reviewing a built scene: a building can be LEGAL at more than
+# one yaw and still be WRONG at all but one of them, so `_pack_free` now
+# scores every surviving candidate (`_yaw_score`) instead of taking the
+# first one the old veto didn't drop. `_has_facing_pref` gates it (blank/
+# front/place/never_corner), which is what keeps an untagged pool
+# (`downtown`/`downtown_1000`) drawing byte-identical to before this existed
+# — confirmed separately via `plan_png.py --json`, not repeated here.
+# ---------------------------------------------------------------------------
+
+@strict
+def test_pool_entries_front0_and_never_corner():
+    print("\n[4c-1] _pool_entries: front0 = front rotated by yaw-offset "
+          "(the module's own convention makes it always 'W'), "
+          "place_never_corner parsed")
+    res = _FakeResolver(sx=29.0, sy=28.0)
+    cfg = {"usds": {"buildings": {"pool": [
+        {"usd": "A.usd", "yaw-offset": 180,
+         "tags": ["front:E", "place_never_corner"]},
+    ]}}, "asset_scale": 1.0, "asset_root": ""}
+    _u, _s, _a, _fp, _yo, meta = dd._pool_entries(cfg, res, "pool")[0]
+    check(meta["front0"] == dd._rot_side("E", 180.0),
+          f"front0 = front rotated by yaw-offset: {meta['front0']}")
+    check(meta["front0"] == "W",
+          "a correctly-authored yaw-offset always turns front0 to W")
+    check(meta["never_corner"] is True, "place_never_corner parsed")
+
+    res2 = _FakeResolver(sx=10.0, sy=10.0)
+    cfg2 = {"usds": {"buildings": {"pool": ["plain.usd"]}},
+           "asset_scale": 1.0, "asset_root": ""}
+    _u, _s, _a, _fp, _yo, meta2 = dd._pool_entries(cfg2, res2, "pool")[0]
+    check(meta2["front0"] is None, "no front tag: front0 is None")
+    check(meta2["never_corner"] is False, "no tag: never_corner False")
+
+
+@strict
+def test_has_facing_pref():
+    print("\n[4c-2] _has_facing_pref: gates on front/blank/place/"
+          "never_corner, false only for a fully untagged entry")
+    check(dd._has_facing_pref({"place": "any", "front": None,
+                               "blank": frozenset(), "never_corner": False})
+          is False, "untagged entry: no preference to express")
+    check(dd._has_facing_pref({"place": "any", "front": "W",
+                               "blank": frozenset(), "never_corner": False}),
+          "a front tag alone is enough")
+    check(dd._has_facing_pref({"place": "any", "front": None,
+                               "blank": frozenset({"N"}), "never_corner": False}),
+          "a blank tag alone is enough")
+    check(dd._has_facing_pref({"place": "mid", "front": None,
+                               "blank": frozenset(), "never_corner": False}),
+          "a non-'any' place alone is enough")
+    check(dd._has_facing_pref({"place": "any", "front": None,
+                               "blank": frozenset(), "never_corner": True}),
+          "never_corner alone is enough")
+
+
+@strict
+def test_frontage_len_and_depth_into_block():
+    print("\n[4c-3] _frontage_len / _depth_into_block: the tier 2 and "
+          "tier 4 helpers")
+    block = (0.0, 0.0, 200.0, 50.0)      # wide (200 m) and shallow (50 m)
+    check(dd._frontage_len(block, "W") == 50.0, "W frontage = block's Y extent")
+    check(dd._frontage_len(block, "E") == 50.0, "E frontage = block's Y extent")
+    check(dd._frontage_len(block, "N") == 200.0, "N frontage = block's X extent")
+    check(dd._frontage_len(block, "S") == 200.0, "S frontage = block's X extent")
+    check(dd._frontage_len(block, None) == 0.0, "no side to measure: 0")
+
+    # The SHORT footprint face should be the one meeting the street.
+    check(dd._depth_into_block(28.0, 14.4, frozenset({"W"})) is True,
+          "wide-in-X shape (28x14.4) at a W street (runs N-S): the long "
+          "axis (X) is perpendicular to it -- depth into the block")
+    check(dd._depth_into_block(14.4, 28.0, frozenset({"W"})) is False,
+          "the same footprint rotated 90: now the LONG face meets the W "
+          "street -- wrong")
+    check(dd._depth_into_block(28.0, 14.4, frozenset({"N"})) is False,
+          "a N street runs E-W; this shape's long axis (X) runs PARALLEL "
+          "to it, not perpendicular")
+    check(dd._depth_into_block(14.4, 28.0, frozenset({"N"})) is True,
+          "rotated 90, the long axis (Y) is now perpendicular to the N "
+          "street")
+    check(dd._depth_into_block(10.0, 10.0, frozenset()) is False,
+          "no street sides at all: nothing to be perpendicular to")
+
+
+@strict
+def test_yaw_score_tiers():
+    print("\n[4c-4] _yaw_score: front-on-street beats not, longest "
+          "frontage beats shortest, more streets engaged beats fewer, "
+          "depth-into-block is the LAST tiebreak")
+    block = (0.0, 0.0, 200.0, 50.0)      # N/S frontage 200 m, W/E 50 m
+    meta_w = {"front0": "W"}
+
+    # Tier 1.
+    s_on = dd._yaw_score(10.0, 6.0, 0.0, block, meta_w, frozenset({"W"}))
+    s_off = dd._yaw_score(10.0, 6.0, 90.0, block, meta_w, frozenset({"N"}))
+    check(s_on > s_off,
+          f"front-on-street ({s_on}) beats front-not-on-street ({s_off})")
+
+    # Tier 2: SAME asset, front reaches the LONG (N, 200 m) street at one
+    # yaw and the SHORT (W, 50 m) street at another (see the module
+    # docstring: each of the 4 yaws gives a different world-facing
+    # direction, so a single `front0` legitimately competes for both).
+    score_w = dd._yaw_score(10.0, 6.0, 0.0, block, meta_w, frozenset({"W"}))
+    score_n = dd._yaw_score(10.0, 6.0, 270.0, block, meta_w, frozenset({"N"}))
+    check(score_w[1] == 50.0 and score_n[1] == 200.0,
+          f"frontage term matches the block's own edge length: "
+          f"W={score_w[1]}, N={score_n[1]}")
+    check(score_n > score_w,
+          "front on the 200 m N street outscores front on the 50 m W one")
+
+    # Tier 3: no front at all (both False/0.0 on tiers 1-2) -- more street
+    # sides actually engaged wins.
+    meta_none = {"front0": None}
+    s_one_side = dd._yaw_score(10.0, 6.0, 0.0, block, meta_none,
+                               frozenset({"W"}))
+    s_two_sides = dd._yaw_score(10.0, 6.0, 0.0, block, meta_none,
+                                frozenset({"W", "S"}))
+    check(s_two_sides > s_one_side,
+          "tier 3: two street sides engaged beats one, once tiers 1-2 tie")
+
+    # Tier 4: the LAST tiebreak, only visible once 1-3 all tie too.
+    s_deep = dd._yaw_score(28.0, 14.4, 0.0, block, meta_none, frozenset({"W"}))
+    s_wide = dd._yaw_score(14.4, 28.0, 0.0, block, meta_none, frozenset({"W"}))
+    check(s_deep[:3] == s_wide[:3],
+          f"tiers 1-3 tied by construction: {s_deep[:3]} vs {s_wide[:3]}")
+    check(s_deep > s_wide,
+          "tier 4 breaks the tie: depth-into-the-block wins")
+
+
+@strict
+def test_pack_free_front_only_entry_now_oriented():
+    print("\n[4c-5] _pack_free: a front-ONLY entry (no `blank:` at all -- "
+          "SM_Building_22's real tags) now gets its orientation chosen, "
+          "where the old `flip = bool(meta.get('blank'))` gate meant its "
+          "180-degree twin was never even generated")
+    block = (0.0, 0.0, 100.0, 100.0)
+    # Flush against the block's EAST edge only -- the one street side here
+    # is E, and this asset's front (W at yaw 0) has to flip to E to face it.
+    pool = [_entry("front_only.usd", sx=10.0, sy=6.0, yaw_offset=0.0,
+                   place="any", front="W")]
+    rng = random.Random(11)
+    sky = dd._Skyline({}, rng)
+    placed, refused = dd._pack_free(
+        (90.0, 40.0, 100.0, 46.0), pool, gap=2.0, min_side=1.0, rng=rng,
+        sky=sky, typ={}, block_rect=block, street_tol_m=6.0)
+    check(len(placed) == 1, f"expected one placement, got {placed}")
+    if placed:
+        e, cx, cy, yaw = placed[0]
+        check(yaw % 360.0 == 180.0,
+              f"expected yaw 180 (front flips to face the E street), "
+              f"got {yaw}")
+    check(refused == 0, "the correct orientation was always legal")
+
+
+@strict
+def test_pack_free_prefers_longer_street_frontage():
+    print("\n[4c-6] _pack_free: at a corner with two viable streets, front "
+          "goes on the LONGER one -- house_26_707's case")
+    block = (0.0, 0.0, 200.0, 40.0)      # S/N frontage 200 m, W/E 40 m
+    pool = [_entry("corner26.usd", sx=10.0, sy=6.0, place="any", front="W")]
+    rng = random.Random(7)
+    sky = dd._Skyline({}, rng)
+    placed, refused = dd._pack_free(
+        (0.0, 0.0, 10.0, 10.0), pool, gap=2.0, min_side=1.0, rng=rng,
+        sky=sky, typ={}, block_rect=block, street_tol_m=6.0)
+    check(len(placed) == 1, f"one candidate placed, got {placed}")
+    if placed:
+        e, cx, cy, yaw = placed[0]
+        check(yaw % 360.0 == 90.0,
+              f"expected yaw 90 (front swings onto the 200 m S street, not "
+              f"the 40 m W one), got {yaw}")
+    check(refused == 0, "something legal was always available")
+
+
+@strict
+def test_pack_free_never_corner():
+    print("\n[4c-7] _pack_free: place_never_corner refused at 2+ street "
+          "sides, accepted elsewhere -- with no blank tag at all")
+    block = (0.0, 0.0, 100.0, 100.0)
+    pool = [_entry("nc.usd", sx=10.0, sy=6.0, place="any", never_corner=True)]
+    rng = random.Random(5)
+    sky = dd._Skyline({}, rng)
+    placed, refused = dd._pack_free(
+        (0.0, 0.0, 10.0, 6.0), pool, gap=2.0, min_side=1.0, rng=rng, sky=sky,
+        typ={}, block_rect=block, street_tol_m=6.0)
+    check(placed == [], "never_corner: refused at a 2-side corner")
+    check(refused == 1, "never_corner: the refusal is counted")
+
+    rng2 = random.Random(5)
+    sky2 = dd._Skyline({}, rng2)
+    placed2, refused2 = dd._pack_free(
+        (0.0, 45.0, 10.0, 51.0), pool, gap=2.0, min_side=1.0, rng=rng2,
+        sky=sky2, typ={}, block_rect=block, street_tol_m=6.0)
+    check(len(placed2) == 1, "never_corner: accepted at a single street side")
+    check(refused2 == 0, "never_corner: no refusal off a corner")
+
+
+@strict
+def test_pack_free_mid_refused_at_corner_without_blank():
+    print("\n[4c-8] _pack_free: place_mid refused at a corner even with NO "
+          "`blank:` tag -- the defensive, unconditional version of a rule "
+          "that used to rely entirely on `blank:` being set")
+    block = (0.0, 0.0, 100.0, 100.0)
+    pool = [_entry("mid_no_blank.usd", sx=10.0, sy=6.0, place="mid")]
+    rng = random.Random(6)
+    sky = dd._Skyline({}, rng)
+    placed, refused = dd._pack_free(
+        (0.0, 0.0, 10.0, 6.0), pool, gap=2.0, min_side=1.0, rng=rng, sky=sky,
+        typ={}, block_rect=block, street_tol_m=6.0)
+    check(placed == [], "place_mid, no blank tag: still refused at a corner")
+    check(refused == 1, "and counted")
+
+
+@strict
+def test_lay_terrace_end_caps_basic():
+    print("\n[4c-9] _lay_terrace_end_caps: compact stock at both alley "
+          "ends, each fronting its own short edge, the middle left open")
+    rect = (0.0, 0.0, 100.0, 50.0)        # rows run along X, alley cross 20 m
+    depth = 15.0
+    pool = [_entry("cap.usd", sx=18.0, sy=8.0, place="any", front="W")]
+    rng = random.Random(9)
+    sky = dd._Skyline({}, rng)
+    caps = dd._lay_terrace_end_caps(rect, depth, pool, rng, sky, typ={},
+                                    area_band=0.55, max_depth_m=0.0, gap=2.0,
+                                    reach=None, street_tol_m=6.0)
+    # AT LEAST one cap per end, not EXACTLY one: the alley's cross-width
+    # (20 m here) can hold more than one 8 m-facade building side by side
+    # along the short edge, and `_pack_free`'s own guillotine step does
+    # exactly that -- which is realistic (a real short edge holds more than
+    # one small building too) and not a defect this test should chase.
+    check(len(caps) >= 2, f"at least one cap at each end, got {len(caps)}")
+    if caps:
+        yaws = {round(c[3] % 360.0) for c in caps}
+        check(yaws <= {0, 180},
+              f"only west-facing (0) or east-facing (180) yaws: {yaws}")
+        check(0 in yaws and 180 in yaws,
+              f"both ends got at least one cap: {yaws}")
+        for _e, cx, _cy, _yaw in caps:
+            check(cx < 30.0 or cx > 70.0,
+                  f"cap at x={cx} sits too close to the block's own middle "
+                  f"(30-70) -- the alley must stay open there")
+
+
+@strict
+def test_lay_terrace_end_caps_needs_an_alley():
+    print("\n[4c-10] _lay_terrace_end_caps: nothing placed when the block "
+          "leaves no alley, or leaves one too narrow for the pool")
+    pool = [_entry("cap.usd", sx=18.0, sy=8.0, place="any", front="W")]
+    rng = random.Random(9)
+    sky = dd._Skyline({}, rng)
+    # depth * 2 == the block's own short side: the alley's cross-width is 0.
+    tight = dd._lay_terrace_end_caps((0.0, 0.0, 100.0, 30.0), 15.0, pool, rng,
+                                     sky, typ={}, area_band=0.55,
+                                     max_depth_m=0.0, gap=2.0, reach=None)
+    check(tight == [], "no alley at all: nothing placed")
+
+    # Alley present (4 m) but narrower than the pool's shortest side (8 m).
+    narrow = dd._lay_terrace_end_caps((0.0, 0.0, 100.0, 34.0), 15.0, pool,
+                                      rng, sky, typ={}, area_band=0.55,
+                                      max_depth_m=0.0, gap=2.0, reach=None)
+    check(narrow == [], "alley narrower than anything in the pool: nothing "
+                        "placed")
 
 
 # ---------------------------------------------------------------------------

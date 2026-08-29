@@ -75,6 +75,57 @@ corridor is more often promoted to an avenue and less often allows parking; a
 residential edge street is narrow and parks on both sides. ``zone`` and
 ``road_class`` are published per corridor so `city_detail` can tell an arterial
 junction (signal) from a minor one (stop sign) — see :func:`junction_control`.
+
+TYPOLOGY-DRIVEN WIDTH (``anisotropic.typology_roads``, OFF by default)
+------------------------------------------------------------------------
+The ring gives every corridor at a given distance from the centre the same
+odds of being an avenue, whatever the corridor actually separates. That is
+wrong at a district seam: a skyscraper block next to a two-lane street reads
+as too close to its neighbour regardless of which ring drew the street, and
+the ring model has no way to single that seam out — it can only make ALL of
+`core` wider, which also widens the rowhouse cell that a `bleed` roll dropped
+into the same ring.
+
+``typology_roads.rules`` sizes a corridor from the TYPOLOGIES it separates
+instead: each corridor samples ``districts.zone_field`` on both sides — same
+median-over-five-samples discipline as ``zone_of`` and for the same reason, a
+corridor spanning several districts takes what it is MOSTLY between rather
+than a single sample — and the first rule whose ``between: [a, b]`` matches
+that pair (``"*"`` matches anything) sets its lane count and parking outright,
+no chance involved. Rules are tried MOST SPECIFIC FIRST regardless of list
+order — specificity is how many of the two names in ``between`` are literal,
+so ``[highrise, highrise]`` (2) beats ``[highrise, "*"]`` (1) beats
+``["*", "*"]`` (0); two rules at the same specificity are tried in the order
+written, first match wins. A pair with no rule, or a sample that lands where
+typology zoning is off or unresolved, falls straight through to the ring
+behaviour above, unchanged.
+
+MEASURED on `downtown_gac` (800 m, seed 42): 22 of the scene's 40 corridors —
+every `core`, `inner`, `mid` and `outer` corridor tagged 3-lane in the zone
+census — come from `split`'s k-way even-cut, not from the single-corridor
+`road_at` call below. That branch bisects nothing; it lays several interior
+streets across one oversized cell in a single pass, all at the SAME width
+(``even_split_road_m``, which only the `edge` ring sets — every other ring
+falls back to ``min_road``, an ordinary 2-lane local street). A feature that
+only reached the single-corridor path would leave more than half a district's
+own internal streets untouched, `core` included — so `typology_roads` reaches
+INTO the k-way loop too, sampling and matching each interior cut on its own
+rather than sizing the whole pass from one cell-wide zone lookup. A cut a rule
+does not match keeps the pass's ordinary ``even_split_road_m`` width exactly
+as before, byte for byte.
+
+A corridor a k-way cut produces is always all-carriageway — ``road_at``'s
+``width=`` path forces ``parking: "none"`` whatever policy a matched rule
+asks for, the same as it already does for the terrace mews this branch was
+built for. Only a rule matched on the ordinary single-corridor path can carry
+a non-``none`` parking policy through.
+
+No bike-lane flag: ``road_markings.plan_bike_lanes`` already draws a bike lane
+on any corridor with ``n_lanes >= min_lanes`` (default 4), picked at random
+per corridor citywide (``corridor_chance``) — it does not consult ``zone`` or
+anything else per-corridor. Widening a highrise-adjacent street to 4+ lanes
+already makes it ELIGIBLE for that pass; there is no per-corridor "give this
+one a bike lane" hook to plug a rule flag into, so none is added here.
 """
 
 from scene_generator import _jitter_posf
@@ -444,6 +495,89 @@ def make_subdivider(layout_cfg: dict, config: dict = None):
         # that is the whole width a cell has to give up to be splittable.
         min_road = sec_lanes * lane_w + 2.0 * park_w
 
+        # ---- typology_roads: width follows what a corridor SEPARATES, not
+        # the ring it happens to sit in. See the module docstring. OFF by
+        # default (``tr_enabled`` false) leaves every line below dead code —
+        # `_typology_rule` is never called, so `road_at` and `split` fall
+        # through to exactly their original arithmetic.
+        tr_cfg = aniso.get("typology_roads") or {}
+        tr_enabled = bool(tr_cfg.get("enabled", False))
+        typ_rank, tr_matchers = {}, []
+        if tr_enabled:
+            for n, t in ((config or {}).get("districts") or {}).get(
+                    "typologies", {}).items():
+                typ_rank[n] = float((t or {}).get("rank", 0.0))
+            scored = []
+            for i, r in enumerate(tr_cfg.get("rules") or []):
+                between = r.get("between") or []
+                if len(between) != 2 or "lanes" not in r:
+                    print(f"[city_layout] typology_roads rule {i} skipped "
+                          f"(needs between: [a, b] and lanes): {r}")
+                    continue
+                t1, t2 = str(between[0]), str(between[1])
+                # MOST SPECIFIC FIRST: a literal name on both sides of
+                # `between` beats one wildcard beats two, so a blanket
+                # `[highrise, "*"]` rule cannot shadow a more exact
+                # `[highrise, tower]` one placed after it in the list. Ties
+                # at the same specificity keep list order — `sorted` is
+                # stable, so writing the more important rule first still
+                # settles a genuine tie.
+                specificity = (t1 != "*") + (t2 != "*")
+                scored.append((-specificity, i, t1, t2, r))
+            scored.sort(key=lambda e: (e[0], e[1]))
+            tr_matchers = [(t1, t2, r) for _, _, t1, t2, r in scored]
+
+        _tr_max_lanes = max(main_lanes, sec_lanes)
+        for _, _, r in tr_matchers:
+            _tr_max_lanes = max(_tr_max_lanes, int(r["lanes"]))
+        # Past the widest road this config could now produce, kerb strips
+        # included, so a typology sample lands on the neighbouring block
+        # instead of back on the corridor's own pavement. +5 m for the
+        # sidewalk a real block still keeps between its building line and
+        # the kerb — sampling exactly at the pavement edge is one bad float
+        # away from picking up the road's own (unzoned) point instead.
+        _tr_offset = (_tr_max_lanes * lane_w + 2.0 * park_w) / 2.0 + 5.0
+
+        def _typ_at(cross, r0, r1, ns):
+            """Median typology over the run, same technique as `zone_of` and
+            for the same reason — a corridor spanning several districts takes
+            what it is MOSTLY next to. Typologies aren't alphabetically
+            ordered the way ring names are, so the sort key is `rank`
+            (rowhouse 0 .. highrise 5), which IS the intensity ladder the
+            ``between`` pairs are written against.
+            """
+            if area_at is None:
+                return None
+            names = []
+            for k in range(5):
+                s = r0 + (r1 - r0) * (k / 4.0)
+                d = area_at(*((cross, s) if ns else (s, cross)))
+                n = (d or {}).get("name") if d else None
+                if n is not None:
+                    names.append(n)
+            if not names:
+                return None
+            names.sort(key=lambda n: typ_rank.get(n, 0.0))
+            return names[len(names) // 2]
+
+        def _typology_rule(axis, sp, x0, y0, x1, y1):
+            """The `typology_roads` rule for the corridor at (axis, sp), or
+            None. `x0, y0, x1, y1` is the CELL being cut, not the corridor's
+            own rect — the run is exact either way, a split spans its cell
+            end to end, same convention `road_at`'s own `zone_of` calls use.
+            """
+            ns = axis == "x"
+            r0, r1 = (y0, y1) if ns else (x0, x1)
+            lo = _typ_at(sp - _tr_offset, r0, r1, ns)
+            hi = _typ_at(sp + _tr_offset, r0, r1, ns)
+            if lo is None or hi is None:
+                return None
+            for t1, t2, rule in tr_matchers:
+                if ((t1 in ("*", lo) and t2 in ("*", hi)) or
+                        (t1 in ("*", hi) and t2 in ("*", lo))):
+                    return rule
+            return None
+
         def road_at(axis, sp, x0, y0, x1, y1, zone=None, lanes=None,
                     width=None):
             """Emit one corridor centred on *sp*; return the two child rects.
@@ -463,16 +597,36 @@ def make_subdivider(layout_cfg: dict, config: dict = None):
                 # run is exact either way — a split spans its cell end to end.
                 zone = (zone_of((x0 + x1) / 2.0, y0, y1, True) if ns
                         else zone_of((y0 + y1) / 2.0, x0, x1, False))
-            if lanes is None:
-                is_long = (axis == long_axis)
-                chance = float(zone_knob(
-                    zone, "main_road_chance_long" if is_long
-                    else "main_road_chance_short", 0.85 if is_long else 0.05))
-                lanes = int(zone_knob(zone, "lanes_main", main_lanes)
-                            if rng.random() < chance
-                            else zone_knob(zone, "lanes_secondary", sec_lanes))
-            policy = _weighted(zone_knob(zone, "parking_policy", base_policy),
-                               rng, "both")
+
+            # A typology rule is a DIRECT statement of what the road between
+            # these two districts is, not a chance to draw one -- it takes
+            # both numbers outright and skips the ring's weighted picks
+            # entirely. Never consulted for a `width=` (mews) call: that
+            # branch is reached from `split`'s k-way loop, which already ran
+            # this same match per interior cut — see the module docstring.
+            tr_rule = (_typology_rule(axis, sp, x0, y0, x1, y1)
+                       if tr_enabled and width is None else None)
+
+            if tr_rule is not None:
+                lanes = int(tr_rule["lanes"])
+                policy = tr_rule.get("parking")
+                if isinstance(policy, dict):
+                    policy = _weighted(policy, rng, "none")
+            else:
+                if lanes is None:
+                    is_long = (axis == long_axis)
+                    chance = float(zone_knob(
+                        zone, "main_road_chance_long" if is_long
+                        else "main_road_chance_short",
+                        0.85 if is_long else 0.05))
+                    lanes = int(
+                        zone_knob(zone, "lanes_main", main_lanes)
+                        if rng.random() < chance
+                        else zone_knob(zone, "lanes_secondary", sec_lanes))
+                policy = None
+            if policy is None:
+                policy = _weighted(zone_knob(zone, "parking_policy",
+                                             base_policy), rng, "both")
             if policy == "one_side":
                 policy = "lo" if rng.random() < 0.5 else "hi"
             if park_w <= 0.0:
@@ -552,24 +706,53 @@ def make_subdivider(layout_cfg: dict, config: dict = None):
                 stuck = k == 2 and extent < 2.0 * t_lo + min_road
                 if (k >= 3 or stuck) and child >= t_lo:
                     rect = (x0, y0, x1, y1)
-                    widths = _jittered_widths(extent - (k - 1) * mews, k,
+                    # Every interior cut is `mews` wide by default -- but a
+                    # k-way pass is itself a run of ordinary corridors, one
+                    # per gap, so `typology_roads` matches each one on its
+                    # own rather than sizing the whole pass off one cell-wide
+                    # zone lookup. Position is a plain even-split GUESS, not
+                    # the jittered one `widths` produces below: sampling only
+                    # needs to land in roughly the right district, not on the
+                    # exact final cut, and the widths themselves aren't known
+                    # until the road reservation they have to fit around is.
+                    road_ws = [mews] * (k - 1)
+                    total_road = (k - 1) * mews
+                    if tr_enabled and k > 1:
+                        step = extent / k
+                        hit = False
+                        for i in range(k - 1):
+                            rule = _typology_rule(axis, base + (i + 1) * step,
+                                                  x0, y0, x1, y1)
+                            if rule is not None:
+                                road_ws[i] = max(1.0, float(rule["lanes"])
+                                                  ) * lane_w
+                                hit = True
+                        if hit:
+                            total_road = sum(road_ws)
+                    widths = _jittered_widths(extent - total_road, k,
                                               t_lo, t_hi, jitter, rng)
                     pos = base
                     for i in range(k - 1):
                         pos += widths[i]
-                        sp = pos + mews / 2.0
+                        rw = road_ws[i]
+                        sp = pos + rw / 2.0
                         near, rect = road_at(axis, sp, *rect, zone=z,
-                                             width=mews)
+                                             width=rw)
                         _recurse(*near)
-                        pos += mews
+                        pos += rw
                     _recurse(*rect)
                     return
 
             lead = t_lo
             # Widest road this cut could turn into, so the margin holds
-            # whichever width road_at picks.
-            worst = (max(int(main_lanes), int(sec_lanes)) * lane_w
-                     + 2.0 * park_w) / 2.0
+            # whichever width road_at picks. `_tr_max_lanes` is
+            # `max(main_lanes, sec_lanes)` whenever `typology_roads` is off or
+            # defines no rule wider than those two, so this is the original
+            # figure byte for byte in every scene that doesn't ask for the
+            # feature; a rule allowed to pick MORE lanes than either ring
+            # default widens the margin that holds it, or `road_at` could
+            # return a corridor wider than the cell had reserved for it.
+            worst = (_tr_max_lanes * lane_w + 2.0 * park_w) / 2.0
             lo = (x0 if axis == "x" else y0) + lead + worst
             hi = (x1 if axis == "x" else y1) - lead - worst
             if lo >= hi:

@@ -24,6 +24,21 @@ violate:
     3. no stacking — no two roof props on the same building overlap.
     4. identity  — every prop's `of` tag names a real building this run
                    actually placed.
+    5. material  — every placed `roof_house`'s own material (`gac_props_
+                   measure.py`'s `_classify_material`) equals the building
+                   it stands on's cladding (`gac_props._cladding_material`,
+                   from `_plans/gac_faces.json`'s `front` elevation) — "brick
+                   doesn't go with concrete" (user, 2026-08-29, about two
+                   separate placements). Skipped for a building `_cladding_
+                   material` could not classify at all (`MATERIAL_UNKNOWN`)
+                   — nothing to check a mismatch AGAINST — and skipped
+                   entirely when `building_props.roof_house_match_material`
+                   is off in *cfg*, since that is a deliberate opt-out, not a
+                   defect. `--force-mismatch` proves this assertion can
+                   actually fail rather than passing vacuously: it corrupts
+                   one already-placed `roof_house`'s asset to a different
+                   material family after generation, and this assertion is
+                   what is expected to catch it.
 
 That pass is deliberately independent of `gac_props.py`'s own internals: it
 recomputes each prop's TRUE world footprint from the measured JSON rather
@@ -270,7 +285,8 @@ def check_points(props, bldg):
     return n_fail == 0, n_pass, n_fail, fails
 
 
-def run(config_name="downtown_gac", verbose=False, points=False):
+def run(config_name="downtown_gac", verbose=False, points=False,
+        force_mismatch=False):
     cfg, layout, placements, resolver = plan_png.build(config_name)
     seed = int(cfg.get("seed", 0))
     import random
@@ -282,6 +298,9 @@ def run(config_name="downtown_gac", verbose=False, points=False):
 
     bp_cfg = (cfg.get("building_props") or {})
     flat_roof = {str(n) for n in (bp_cfg.get("flat_roof") or [])}
+    match_material_cfg = bool(bp_cfg.get("roof_house_match_material", True))
+    roof_house_max_h = float(bp_cfg.get("roof_house_max_h_m",
+                                        gac_props.ROOF_HOUSE_MAX_H_M))
 
     # Rebuild the SAME (tag -> building record) map `dress()` built
     # internally, so every prop's `of` resolves to the building it was
@@ -309,6 +328,63 @@ def run(config_name="downtown_gac", verbose=False, points=False):
                      "z0": float(d.get("z0", 0.0)),
                      "face": faces.get(nm)}
 
+    material_by_bld = gac_props.building_materials(faces)
+
+    if force_mismatch:
+        # Deliberately corrupt ONE already-placed roof_house's asset to a
+        # DIFFERENT material family than the one that was actually matched,
+        # proving the assertion below can fail rather than passing
+        # vacuously — the acceptance test for this feature per the task
+        # that added it. Only ever mutates this run's in-memory `props`
+        # list, never `_plans/gac_props.json` or a preset.
+        #
+        # ONLY a placement on a building with a KNOWN material (`bmat !=
+        # MATERIAL_UNKNOWN`) is eligible to corrupt — assertion 5 skips
+        # every other one by design (see its own comment), so corrupting
+        # those would pass vacuously instead of demonstrating a catch (this
+        # was tried first: it picked a non-GAC `flat_roof` building, which
+        # has no cladding measurement to check against at all, and the
+        # material assertion correctly stayed silent while UNRELATED
+        # footprint/overlap assertions failed instead, from swapping in a
+        # differently-SIZED asset — not what this flag is for).
+        #
+        # The replacement is chosen to be the SAME measured footprint
+        # (`W`/`D`, either orientation) as the original wherever one exists,
+        # so ONLY the material assertion is exercised, not footprint/
+        # overlap too — `SM_Superior_Construction_01`/`_02` are exactly this
+        # pair (24.21 x 39.71 m each, brick vs concrete).
+        house_pool = by_kind.get("roof_house", [])
+        target = None
+        for pl in props:
+            if pl["category"] != "roof_house":
+                continue
+            b = bldg.get(pl["of"])
+            if b is None or material_by_bld.get(
+                    b["nm"], gac_props.MATERIAL_UNKNOWN) == gac_props.MATERIAL_UNKNOWN:
+                continue
+            target = pl
+            break
+        if target is None:
+            print("[gac_props_check --force-mismatch] no roof_house "
+                 "placement on a material-known building in this run -- "
+                 "nothing to demonstrate")
+        else:
+            cur = props_by_name.get(gac_props._name_of(target["usd"]))
+            cur_mat = cur.get("material") if cur else None
+            same_size = [r for r in house_pool if r.get("material") != cur_mat
+                        and ({round(r["W"], 1), round(r["D"], 1)} ==
+                             {round(cur["W"], 1), round(cur["D"], 1)})] if cur else []
+            alt = (same_size[0] if same_size else
+                  next((r for r in house_pool if r.get("material") != cur_mat), None))
+            if alt is not None:
+                print(f"[gac_props_check --force-mismatch] {target['of']}: "
+                     f"swapping {gac_props._name_of(target['usd'])} "
+                     f"({cur_mat}) -> {alt['name']} ({alt['material']})"
+                     + ("" if same_size else "  (no same-footprint "
+                        "alternate found -- footprint/overlap assertions "
+                        "may also fire as a side effect)"))
+                target["usd"] = alt["usd"]
+
     n_pass, n_fail = 0, 0
     fails = []
 
@@ -328,6 +404,77 @@ def run(config_name="downtown_gac", verbose=False, points=False):
         of = pl.get("of")
         check(f"identity[{i}] {pl['category']} of={of!r}", of in bldg,
               "no matching building record" if of not in bldg else "")
+
+    # ---- 5. material — a roof_house is clad like the building it stands on
+    # See this run()'s own `--force-mismatch` block above for how this
+    # assertion is proven to actually fail, not just pass by construction.
+    # `material_by_bld` was already computed above, before that block, so
+    # the corruption logic and this assertion read the identical table.
+    n_material_checked = 0
+    for pl in props:
+        if pl["category"] != "roof_house":
+            continue
+        b = bldg.get(pl["of"])
+        if b is None:
+            continue   # already flagged by the identity check above
+        bmat = material_by_bld.get(b["nm"], gac_props.MATERIAL_UNKNOWN)
+        if not match_material_cfg or bmat == gac_props.MATERIAL_UNKNOWN:
+            continue   # feature off, or this building has no cladding to
+                       # check against at all (see docstring's assertion 5)
+        rec = props_by_name.get(gac_props._name_of(pl["usd"]))
+        pmat = rec.get("material") if rec else None
+        n_material_checked += 1
+        check(f"material[{pl['of']} {gac_props._name_of(pl['usd'])}]",
+              pmat == bmat,
+              f"roof_house material={pmat!r}, building {b['nm']} "
+              f"(front={(b['face'] or {}).get('front')!r}) "
+              f"material={bmat!r}")
+    print(f"[gac_props_check] material assertion checked on "
+         f"{n_material_checked} roof_house placement(s)"
+         + ("" if match_material_cfg else
+            " (building_props.roof_house_match_material is off in this "
+            "config, so 0 is expected)"))
+
+    # ---- eligible-but-blocked: how many buildings the gate actually costs
+    # Computed DIRECTLY against `by_kind['roof_house']`, not by re-dressing
+    # with the flag off: `dress()` shares ONE `rng` across every building in
+    # placement order, and `roof_props`'s `rng.shuffle(house_pool)` /
+    # `rng.sample(...)` calls consume a number of draws that depends on the
+    # POOL'S OWN LENGTH — a shorter (material-filtered) pool desyncs every
+    # random draw for every building placed AFTER the first one where the
+    # two pools differ in length, not just the buildings the filter actually
+    # changes. Tried first; the "after" count came out HIGHER than "before"
+    # on this exact config (18 vs 16) — the signature of a desynced shared
+    # RNG, not of the feature costing negative buildings. This instead
+    # replicates only `roof_props`'s SIZE gate (the parapet-inset W/D fit,
+    # the `ROOF_HOUSE_MIN_M2` roof area, `roof_house_max_h_m`) — no RNG
+    # anywhere — against every "house" placement `bldg` already carries, so
+    # the two counts are exactly comparable and the 0.55 coin flip / edge
+    # fit (legitimately random, and unrelated to material) are left out of
+    # both.
+    house_pool_all = by_kind.get("roof_house", [])
+    n_size_eligible = n_material_blocked = 0
+    for b in bldg.values():
+        W, D, H = b["W"], b["D"], b["H"]
+        if not (W * D >= gac_props.ROOF_HOUSE_MIN_M2 and H <= roof_house_max_h):
+            continue
+        fitting = [r for r in house_pool_all
+                  if r["W"] + 2 * gac_props.PARAPET_M < W
+                  and r["D"] + 2 * gac_props.PARAPET_M < D]
+        if not fitting:
+            continue
+        n_size_eligible += 1
+        bmat = material_by_bld.get(b["nm"], gac_props.MATERIAL_UNKNOWN)
+        if (match_material_cfg and bmat != gac_props.MATERIAL_UNKNOWN
+                and not any(r.get("material") == bmat for r in fitting)):
+            n_material_blocked += 1
+    print(f"[gac_props_check] roof_house SIZE-eligible buildings: "
+         f"{n_size_eligible} (big enough roof, under the height ceiling, "
+         f"some roof_house asset fits under the parapet inset) -- of those, "
+         f"{n_material_blocked} have NO roof_house asset matching their own "
+         f"cladding, reduced to zero candidates by the material gate "
+         f"regardless of how the 0.55 coin flip and edge fit would have "
+         f"landed")
 
     # ---- 1 & 2: roof props -------------------------------------------------
     by_building_roof = defaultdict(list)
@@ -498,8 +645,14 @@ def main():
                     help="also independently re-measure every roof prop's "
                          "seating on transformed mesh points (needs pxr — "
                          "run inside usd_python.sh)")
+    ap.add_argument("--force-mismatch", action="store_true",
+                    help="deliberately corrupt one placed roof_house's "
+                         "material after generation, to prove assertion 5 "
+                         "(material) can actually fail rather than passing "
+                         "vacuously; exits 1 by design when it does")
     a = ap.parse_args()
-    ok, *_ = run(a.config, a.verbose, points=a.points)
+    ok, *_ = run(a.config, a.verbose, points=a.points,
+                force_mismatch=a.force_mismatch)
     sys.exit(0 if ok else 1)
 
 

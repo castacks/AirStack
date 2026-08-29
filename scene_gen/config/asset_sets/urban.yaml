@@ -69,6 +69,53 @@ usds:
     # over verbatim; build_city packs from this pool before districts rezone,
     # so leaving it here would keep placing it on blocks that never get rezoned.
     intact:
+      # ---- MODULAR KIT BUILDINGS (bld_*_DG0) --------------------------------
+      # THE ONLY BUILDINGS IN THIS LIBRARY A FIRE CAN ACTUALLY DAMAGE.
+      #
+      # `detail/urban_building.py` styles — assembled from the
+      # ModernCityEnvironment01 / Downtown_West / CivilianArea FAÇADE KITS —
+      # baked to one USD each by `bake_quake_archetypes_launch_script.py`.
+      # (Note ModernCityEnvironment01 with the `01` is the KIT OF PIECES;
+      # `ModernCityEnvironment` without it is a different pack of whole merged
+      # buildings, also in this file. One character apart.)
+      #
+      # Every other building here is a single whole-asset mesh with no
+      # elements, and the entire urban-fire ladder — `gut_interior`,
+      # `window_burnout`, `floor_burnthrough`, `roof_burnthrough`,
+      # `fire_collapse`, per-storey `smoke_stain` / `char_facade` — walks the
+      # ELEMENT table `quake_flow.describe` builds out of those pieces. With
+      # the kit absent from every pool, 137 of 137 buildings fell through to
+      # `urban_fire.burn_monolith`, whose whole repertoire is ONE FLAT
+      # MULTIPLIER over every material on the asset. That is why a burnt
+      # 500 m downtown rendered as a field of uniformly grey boxes
+      # (user, 2026-08-29: "it kinda looks like you just made the whole
+      # building a fixed grey color").
+      #
+      # `scale: 1.0` — the bake is authored in METRES, unlike most packs here.
+      # Sizes are the manifest's own measured W x D x H.
+      # Untagged deliberately: a kit building is modelled on all four
+      # elevations, so unlike the GAC stock it may stand anywhere.
+      #
+      # DELIBERATELY NOT IN `rowhouse`: that is the TERRACE pool, and
+      # `_lay_terrace` derives each block's admissible alley band from the
+      # pool's DEEPEST member — dropping 22-38 m stock in would re-band every
+      # terrace block and refuse the runs. See the urban-layout skill.
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_civic_offices_DG0.usd", scale: 1.0}   # 30.0 x 20.0 x 12.5 m — rc, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_DG0.usd", scale: 1.0}   # 22.0 x 14.0 x 14.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_row_DG0.usd", scale: 1.0}   # 38.0 x 14.0 x 17.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_department_store_DG0.usd", scale: 1.0}   # 42.0 x 30.0 x 17.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_dw_terrace_DG0.usd", scale: 1.0}   # 25.0 x 15.0 x 17.5 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_DG0.usd", scale: 1.0}   # 22.0 x 17.0 x 18.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_DG0.usd", scale: 1.0}   # 32.0 x 16.0 x 19.0 m — rc, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 20.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_long_DG0.usd", scale: 1.0}   # 42.0 x 12.0 x 21.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_wide_DG0.usd", scale: 1.0}   # 40.0 x 24.0 x 22.0 m — rc, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_walkup_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 23.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_plain_DG0.usd", scale: 1.0}   # 32.0 x 24.0 x 25.0 m — rc, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_mid_DG0.usd", scale: 1.0}   # 30.0 x 18.0 x 26.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_tall_DG0.usd", scale: 1.0}   # 27.0 x 17.0 x 33.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_highrise_04_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 41.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_tower_DG0.usd", scale: 1.0}   # 25.0 x 20.0 x 43.0 m — rc_glass, kit
       - "Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd"
         # authored in metres; already matches the global default (1.0)
       - {usd: "Muyang/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd", scale: 0.01}
@@ -94,6 +141,19 @@ usds:
     # the library at 88k/140k points. A mid-rise district costs roughly 100x a
     # tower district per block, which is why the ring mixes keep it a minority.
     midrise:
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_civic_offices_DG0.usd", scale: 1.0}   # 30.0 x 20.0 x 12.5 m — rc, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_DG0.usd", scale: 1.0}   # 22.0 x 14.0 x 14.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_row_DG0.usd", scale: 1.0}   # 38.0 x 14.0 x 17.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_department_store_DG0.usd", scale: 1.0}   # 42.0 x 30.0 x 17.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_dw_terrace_DG0.usd", scale: 1.0}   # 25.0 x 15.0 x 17.5 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_DG0.usd", scale: 1.0}   # 22.0 x 17.0 x 18.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_DG0.usd", scale: 1.0}   # 32.0 x 16.0 x 19.0 m — rc, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 20.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_long_DG0.usd", scale: 1.0}   # 42.0 x 12.0 x 21.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_wide_DG0.usd", scale: 1.0}   # 40.0 x 24.0 x 22.0 m — rc, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_walkup_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 23.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_plain_DG0.usd", scale: 1.0}   # 32.0 x 24.0 x 25.0 m — rc, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_mid_DG0.usd", scale: 1.0}   # 30.0 x 18.0 x 26.0 m — urm, kit
       # NO scale override: this one is authored in METRES, unlike every other
       # Muyang building. urban.yaml lists it bare for that reason; copying the
       # 0.01 off its neighbours renders it 28 cm tall.
@@ -125,6 +185,9 @@ usds:
     # what makes a bigger city affordable. Footprints are 50-96 m, so these
     # only fit where the subdivider cut a downtown-sized block.
     tower:
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_tall_DG0.usd", scale: 1.0}   # 27.0 x 17.0 x 33.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_highrise_04_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 41.0 m — urm, kit
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_tower_DG0.usd", scale: 1.0}   # 25.0 x 20.0 x 43.0 m — rc_glass, kit
       - {usd: "Muyang/DownTown/Assets/BG_Building_A.usd", scale: 0.01}                                        # 51.3 x 51.3 x  44.7 m, 3.5k
       - {usd: "Muyang/DownTown/Assets/BG_Building_C.usd", scale: 0.01}                                        # 50.1 x 40.1 x  66.0 m,   756
       - {usd: "Muyang/DownTown/Assets/BG_Building_E.usd", scale: 0.01}                                        # 60.5 x 36.5 x 131.0 m, 3.5k

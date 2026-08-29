@@ -51,6 +51,30 @@ domed roof reads worse than a bare roof, so any OTHER building is eligible only
 when its basename is named explicitly in `building_props.flat_roof`, and its
 W/D/H then come from the generator's own `SizeResolver` rather than a measured
 JSON — see `dress()`.
+
+A ROOF HOUSE MUST BE CLAD IN THE SAME MATERIAL AS THE BUILDING IT STANDS ON.
+Reviewed against the built 800 m scene, pointed at two placements directly:
+"/World/stage/generated/roof_house_125_4768 — don't have this roof house on
+the one it's on, they don't match. One is brick the other is concrete" and
+"/World/stage/generated/roof_house_129_5053 — don't do roof houses that don't
+match with the base building (brick doesn't go with concrete)" (user,
+2026-08-29). Resolved from `_scene_assets.tsv`: both flagged prims are
+`SM_Superior_Construction_04` and `SM_Superior_Construction_01` — and a direct
+material probe of all five `roof_house` assets (walking each bound material's
+own `info:unreal:sourceAsset`, area-weighted per subset — see
+`gac_props_measure.py`'s `_classify_material`) found EXACTLY the fault line
+the user described: `_01` and `_04` are 35-36% `M_Bricks_Superior_
+Construction_Inst` by triangle area (BRICK), `_02` and `_03` are the same
+bulkhead mesh with the same secondary materials but 35-38%
+`M_Wall_Superior_Construction_Inst` instead (this pack's non-brick precast/
+stucco skin — CONCRETE), and `SM_Glass_Roof` is 100% named glass materials.
+Both complaints were a brick variant landing on a building whose own front
+elevation reads concrete. `_cladding_material` derives the SAME four-way
+classification for a building from its already-measured `_plans/gac_faces.json`
+(`front` side's `tex_areas` plus `glass_frac` — never re-measured here, see
+that function's own docstring), and `roof_props` filters its `roof_house`
+candidates to the building's own material before choosing one — see
+`building_props.roof_house_match_material` in `dress()`.
 """
 
 import json
@@ -95,6 +119,137 @@ def load(props=None, faces=None, bldgs=None):
     B = {r["name"]: r for r in
          json.load(open(os.path.normpath(bldgs or _BLDGS)))}
     return by_kind, F, B
+
+
+# ---------------------------------------------------------------------------
+# MATERIAL CLASSIFICATION — a roof house must be clad like the building it
+# stands on. See this module's own docstring for the review that forced this
+# and the measurement behind it.
+# ---------------------------------------------------------------------------
+
+# `roof_props` compares a `roof_house` record's `material` (set by
+# `gac_props_measure.py`'s `_classify_material`, from the asset's own bound
+# material names) against a building's material from `_cladding_material`
+# below (from the building's already-measured `_plans/gac_faces.json`) — both
+# land in this same four-way vocabulary, so a plain `==` is the whole test.
+MATERIAL_UNKNOWN = "unknown"
+
+# (substring, family) — checked in this order, first match wins. Applied to
+# a texture BASENAME from `_plans/gac_faces.json`'s `tex_areas` (a building
+# elevation, measured by `gac_faces.py`'s image-name probe), not to a bound
+# material's own asset name (a roof house, measured differently — see
+# `gac_props_measure.py`'s own `_MATERIAL_FAMILY`, which independently
+# derived the identical "wall" -> concrete mapping from the SAME pack's roof
+# kit — two different probes on two different asset classes agreeing on what
+# "wall" means here is what makes it safe to use unguessed). Excludes
+# "wallback"/"wall_back" explicitly: that is `gac_faces.py`'s own
+# `BLANK_TOKENS` — the pack's blank REAR-panel material — never a street
+# elevation's cladding, so it must never fall through to "wall" -> concrete.
+_BUILDING_MATERIAL_FAMILY = (("brick", "brick"), ("concrete", "concrete"),
+                             ("metal", "metal"), ("glass", "glass"))
+
+
+def _cladding_material(front_side):
+    """(material, evidence_m2) for one building's FRONT elevation record —
+    the `sides["<front>"]` dict `_plans/gac_faces.json` already carries, with
+    its own `tex_areas` (per-texture triangle area) and `glass_frac` (the
+    PBR-material glazing test `gac_faces.py`'s `_is_glass` already ran, for
+    the curtain-wall towers whose glazing carries no texture name at all —
+    see that module's own docstring). NEVER RE-MEASURES A BUILDING: every
+    number this reads was already produced by `gac_faces.py`, independently,
+    for a different purpose (blank-elevation detection) — this is a second
+    reading of the same data, not a fourth pass over the geometry.
+
+    `material` is `"brick"` / `"concrete"` / `"glass"` / `"metal"`, or
+    `None` when nothing on the front elevation clears any family — a
+    building that big a mystery gets no roof house at all rather than a
+    guessed one (see `roof_props`). `evidence_m2` is the per-family area
+    tally, kept for `dress()`'s and `gac_props_check.py`'s own printing so a
+    verdict can be read back to the numbers that produced it, the same
+    discipline `gac_faces.py` itself uses for `blank_by`.
+
+    TOKEN MATCH FIRST, PBR GLASS SECOND. Every texture basename in
+    `tex_areas` is matched against `_BUILDING_MATERIAL_FAMILY` — "wall" (not
+    "wallback") counts as concrete, per this pack's own naming (see that
+    tuple's own comment). A real curtain wall's glazing has NO texture name
+    at all (`gac_faces.py`: "GLASS HAS NO TEXTURE NAME TO MATCH" — a flat
+    PBR colour, indistinguishable from a bare slab by name), so its area
+    never appears under any texture key; `glass_frac * area_m2` is added to
+    the glass family directly, on top of whatever a literal "glass" token
+    already contributed, so a glazed tower still reads as glass even though
+    none of its area is reachable by name.
+    """
+    cats = {"brick": 0.0, "concrete": 0.0, "glass": 0.0, "metal": 0.0}
+    for tex, area in (front_side.get("tex_areas") or {}).items():
+        n = (tex or "").lower()
+        if not n:
+            continue
+        if "wallback" in n or "wall_back" in n:
+            continue
+        matched = False
+        for token, family in _BUILDING_MATERIAL_FAMILY:
+            if token in n:
+                cats[family] += area
+                matched = True
+                break
+        if not matched and "wall" in n:
+            cats["concrete"] += area
+    cats["glass"] += float(front_side.get("glass_frac", 0.0)) * \
+        float(front_side.get("area_m2", 0.0))
+    total = sum(cats.values())
+    material = max(cats, key=cats.get) if total > 0.0 else None
+    return material, {k: round(v, 1) for k, v in cats.items()}
+
+
+def building_materials(faces):
+    """{building_name: material_or_None} for every building in *faces* —
+    `_plans/gac_faces.json`'s own dict, keyed by name (`load()`'s second
+    return value). A name ABSENT from this dict (never mapped to
+    `MATERIAL_UNKNOWN` here — that is the caller's job, see `dress()`) is a
+    non-GAC building `_cladding_material` was never asked about; a name
+    PRESENT with value `None` is a GAC building that WAS measured and came
+    up with no material signal at all on its front elevation (`SM_
+    Building_04`'s front is a 49.9 m2 sliver of pure trim — see
+    `_cladding_material`'s own evidence tally for it). The two cases read
+    identically to `roof_props`'s filter once `dress()` has substituted
+    `MATERIAL_UNKNOWN` for the first — see that function's own docstring for
+    why they nonetheless behave differently.
+    """
+    out = {}
+    for nm, rec in faces.items():
+        front = rec.get("front")
+        side = (rec.get("sides") or {}).get(front) if front else None
+        out[nm] = _cladding_material(side)[0] if side is not None else None
+    return out
+
+
+def _dump_material_audit(out_path=None):
+    """Write `_plans/gac_building_material.json` — the classification this
+    module derives from `_plans/gac_faces.json`, WITH its evidence, so the
+    next reader can audit the call without re-deriving it (the acceptance
+    test this exists for: `gac_props_check.py`'s material assertion checks
+    the SAME live computation, not this file — this is a record, not a
+    cache). Run directly: `python3 scene_gen/detail/gac_props.py`.
+    """
+    _, faces, _ = load()
+    rows = []
+    for nm in sorted(faces):
+        rec = faces[nm]
+        front = rec.get("front")
+        side = (rec.get("sides") or {}).get(front) if front else None
+        material, evidence = (None, {}) if side is None else \
+            _cladding_material(side)
+        rows.append({"name": nm, "front": front, "material": material,
+                     "evidence_m2": evidence})
+    path = out_path or os.path.join(_SG_DIR, "_plans",
+                                    "gac_building_material.json")
+    json.dump(rows, open(os.path.normpath(path), "w"), indent=1)
+    print(f"wrote {os.path.normpath(path)}")
+    for r in rows:
+        print("  %-22s front=%-4s material=%-9s %s" %
+              (r["name"], r["front"] or "-", r["material"] or "-",
+               r["evidence_m2"]))
+    return rows
 
 
 _URL_SCHEMES = ("omniverse://", "airstack://", "file:")
@@ -178,7 +333,8 @@ def _name_of(usd):
 
 def roof_props(bld, dims, by_kind, rng, max_props=6, of=None,
                tank_window=(30.0, 90.0), ac_min_h=0.0,
-               roof_house_max_h_m=ROOF_HOUSE_MAX_H_M):
+               roof_house_max_h_m=ROOF_HOUSE_MAX_H_M,
+               bld_material=MATERIAL_UNKNOWN, match_material=True):
     """A STRUCTURED rooftop installation, in the order a real roof is built.
     Returns [placement].
 
@@ -235,6 +391,26 @@ def roof_props(bld, dims, by_kind, rng, max_props=6, of=None,
     a mid-rise; on a 130-310 m tower it is a shed on a mountain. Everything
     else (tank, mast, vents, condensers) has no such ceiling — a tower's roof
     still has AC and a tank, just not a stair head sized for six storeys.
+
+    *bld_material* is *bld*'s own cladding family (`"brick"`/`"concrete"`/
+    `"glass"`/`"metal"`/`None`, from `_cladding_material`) or `MATERIAL_
+    UNKNOWN` when the caller has no cladding measurement for this building at
+    all (a non-GAC `flat_roof` building — `_plans/gac_faces.json` only
+    covers the 31 GAC names). *match_material* (`building_props.roof_house_
+    match_material`, defaulted on) gates whether the bulkhead pool is
+    filtered by it at all. THE POOL IS FILTERED, NEVER SUBSTITUTED: with
+    *match_material* true and a REAL material (not `MATERIAL_UNKNOWN`),
+    `house_pool` below drops every `roof_house` record whose own measured
+    `material` (`gac_props_measure.py`'s `_classify_material`) does not
+    equal *bld_material* — including when *bld_material* is `None` (a GAC
+    building whose front elevation carried no material signal at all), which
+    matches NO recorded `roof_house` material and empties the pool outright.
+    An empty pool means no bulkhead gets placed on this roof this call, not a
+    fallback to an unfiltered pick — "a bare roof is better than a brick hut
+    on a concrete tower" (user, 2026-08-29, said twice about two different
+    buildings). `MATERIAL_UNKNOWN` is the one value that skips filtering
+    altogether, since there the caller has no evidence to filter BY, not
+    evidence that nothing matches.
     """
     W, D, H = dims["W"], dims["D"], dims["H"]
     yaw = float(bld.get("yaw_deg", 0.0))
@@ -335,12 +511,19 @@ def roof_props(bld, dims, by_kind, rng, max_props=6, of=None,
     #    version — these assets are 18-40 m across and only suit a big roof.
     #    `roof_house_max_h_m` is the OTHER half: too tall a building looks
     #    just as wrong as too small a roof (see the docstring above).
+    #    `bld_material` narrows the pool ONE MORE TIME, after the size fit —
+    #    a roof_house clad wrong for this building is not a candidate at
+    #    all, not a candidate that loses a coin flip (see the docstring's
+    #    *bld_material*/*match_material* paragraph for why an empty result
+    #    here means no bulkhead, never an unfiltered fallback pick).
     # ------------------------------------------------------------------
     side = rng.choice(("N", "E", "S", "W"))
     bulkhead_run = None            # run-axis coordinate the tank/vents/mast anchor to
     bulkhead_lx = bulkhead_ly = None   # its actual local centre, for the row's off_sign
     house_pool = [r for r in by_kind.get("roof_house", [])
                   if r["W"] + 2 * PARAPET_M < W and r["D"] + 2 * PARAPET_M < D]
+    if match_material and bld_material != MATERIAL_UNKNOWN:
+        house_pool = [r for r in house_pool if r.get("material") == bld_material]
     if (house_pool and W * D >= ROOF_HOUSE_MIN_M2 and H <= roof_house_max_h_m
             and rng.random() < 0.55):
         rng.shuffle(house_pool)
@@ -566,6 +749,16 @@ def dress(config, placements, rng, by_kind=None, faces=None, dims=None,
     `_plans/gac_faces.json` carries — a building absent from *faces* is
     skipped there, never guessed.
 
+    ``building_props.roof_house_match_material`` (default ``True``) gates
+    whether a building's own cladding (`building_materials(faces)`, derived
+    from *faces* — see `_cladding_material`) restricts which `roof_house`
+    record it can be given; see `roof_props`'s own docstring for exactly how
+    the filter behaves, including why an empty result means no bulkhead
+    rather than an unfiltered one. A correctness rule, not a taste knob —
+    defaulted on — but a knob all the same, since the review that forced it
+    is about THIS pack's specific brick/concrete split and a future asset
+    set might have nothing worth matching.
+
     Returns the NEW prop placements only; *placements* is read, not mutated.
     """
     cfg = (config or {}).get("building_props") or {}
@@ -581,6 +774,13 @@ def dress(config, placements, rng, by_kind=None, faces=None, dims=None,
     roof_house_max_h = float(cfg.get("roof_house_max_h_m", ROOF_HOUSE_MAX_H_M))
     flat_roof = {str(n) for n in (cfg.get("flat_roof") or [])}
     no_roof = {str(n) for n in (cfg.get("no_roof_props") or [])}
+    match_material = bool(cfg.get("roof_house_match_material", True))
+    # {building_name: material_or_None} for the 31 GAC names *faces* carries
+    # — a name this loop meets that is NOT a key here (a non-GAC `flat_roof`
+    # building) gets `MATERIAL_UNKNOWN` below, which `roof_props` reads as
+    # "no evidence to filter by" rather than "measured, no match" (see
+    # `building_materials`'s own docstring for that distinction).
+    bld_material_of = building_materials(faces) if match_material else {}
 
     out = []
     gac_seen, other_seen, dressed = set(), set(), 0
@@ -610,9 +810,12 @@ def dress(config, placements, rng, by_kind=None, faces=None, dims=None,
         tag = "%s@%.1f,%.1f" % (nm, p["x_m"], p["y_m"])
         n_before = len(out)
         if nm not in no_roof:
+            bld_material = bld_material_of.get(nm, MATERIAL_UNKNOWN)
             out += roof_props(p, d, by_kind, rng, max_props=max_props,
                               tank_window=tank_window, ac_min_h=ac_min_h,
-                              roof_house_max_h_m=roof_house_max_h, of=tag)
+                              roof_house_max_h_m=roof_house_max_h,
+                              bld_material=bld_material,
+                              match_material=match_material, of=tag)
         if nm in faces:
             out += wall_props(p, d, faces[nm], by_kind, rng, of=tag)
         if len(out) > n_before:
@@ -708,3 +911,10 @@ def roof_plant_of(placements, usd, x, y):
         elif cat in ROOF_PLANT_KINDS:
             plant.append(path)
     return fixed, plant
+
+
+if __name__ == "__main__":
+    # `python3 scene_gen/detail/gac_props.py` — regenerate the building
+    # material audit (`_dump_material_audit`'s own docstring). No `pxr`
+    # needed: this only reads the already-measured `_plans/gac_faces.json`.
+    _dump_material_audit()

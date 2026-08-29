@@ -113,13 +113,6 @@ FINISH = {"F0": None, "F1": "scorch", "F2": "char", "F3": "char",
 # fire is far more likely to start in an occupied lower storey and because a
 # fire that started high leaves nothing below it to show the contrast.
 BAND = {
-    # F0 IS A REAL ENTRY, NOT AN OMISSION. `plan_fire` runs before
-    # `burn_building`'s "no recipes" early-out, so an untouched building
-    # still asks for a band — and a table without F0 raises `KeyError: F0`
-    # thirty seconds into a city build. The 100 m launcher never saw it
-    # because it skipped F0 buildings itself; a caller that does not have to
-    # know that.
-    "F0": (0, 0, 0.0),
     "F1": (1, 2, 0.0),      # (min storeys, max storeys, share above origin)
     "F2": (1, 2, 0.35),
     "F3": (3, 6, 0.75),
@@ -588,12 +581,6 @@ def plan_fire(info, level, rng, origin=None, sides=None):
     if origin is None:
         origin = int(min(max(0, n - 2), (n * (rng.random() ** 1.7))))
     origin = max(0, min(n - 1, int(origin)))
-    if hi <= 0:
-        # untouched: no storeys involved, and every downstream `_severity`
-        # returns 0 because `storeys` is empty.
-        return {"origin": 0, "storeys": [], "top": -1, "sides": (),
-                "n_storeys": n, "mass": mtag, "roof": False, "level": level,
-                "state": None, "finish": FINISH.get(level) or "char"}
     if hi >= 99:
         # F4/F5 mean "the fire went through everything above where it
         # started", so the band runs to the TOP OF THE MASS and `roof` is
@@ -603,16 +590,7 @@ def plan_fire(info, level, rng, origin=None, sides=None):
         # all had happened to it.
         k = n - origin
     else:
-        # CLAMP AGAINST WHAT IS LEFT ABOVE THE ORIGIN. `BAND` says F3 involves
-        # at least three storeys, and the spread model can put the origin on
-        # the TOP floor of a three-storey building (a brand lands on the roof
-        # — `origin_frac` 0.88), leaving one. `randint(3, 1)` is a
-        # `ValueError: empty range`, forty seconds into a city build
-        # (uf_city, 2026-08-28). The building cannot burn more storeys than
-        # it has; take what there is.
-        avail = max(1, n - origin)
-        lo_e, hi_e = min(lo, avail), min(hi, avail)
-        k = rng.randint(lo_e, hi_e) if hi_e >= lo_e else avail
+        k = rng.randint(lo, min(hi, n - origin))
     storeys = list(range(origin, min(n, origin + k)))
     if sides is None:
         # The elevation the fire vents through is the one the compartment
@@ -686,58 +664,6 @@ def _severity(ctx, storey, mass=None, e=None):
         edge = (1.0 - min(d, n - 1 - d) / max(1.0, (n - 1) / 2.0)) if n > 1 else 1.0
         peak += 0.7 * _el_jitter(e) * max(0.0, edge)
     return max(0.0 if e is not None else 0.25, min(1.0, peak))
-
-
-# HOW FAR ROUND A CORNER A PLUME REACHES. A fire venting out of the south
-# windows does mark the return walls either side of it — the plume leans on
-# the corner and the wind wraps it — but as a GRADIENT that dies within a few
-# metres of that corner, and it never touches the opposite elevation at all.
-WRAP_M = 4.5              # e-folding distance along the return wall
-WRAP_MAX = 0.55           # strength at the corner itself, vs the fire face
-
-
-def _opposite(side):
-    return {"S": "N", "N": "S", "E": "W", "W": "E"}[side]
-
-
-def _side_weight(ctx, e):
-    """0..1 — how much of the fire this elevation sees.
-
-    THE FIRST VERSION WAS A FLAT 0.28 ON EVERY NON-BURNING SIDE, and the user
-    caught both halves of what is wrong with that (2026-08-28): "we need the
-    scortching to more naturally spread across the sides", and "I see random
-    windows that are on the opposite sides of the fire that are scortched,
-    that shouldn't happen". One number for "not the fire face" cannot be
-    right, because the two cases it lumps together are physically opposite:
-
-      * THE RETURN WALL, perpendicular to the venting face and sharing a
-        corner with it. This genuinely gets marked — but only NEAR THAT
-        CORNER, and less the further along it you go. A uniform value reads
-        as a second, weaker fire on that side.
-      * THE OPPOSITE ELEVATION, which sees nothing at all. There is no path
-        from a plume on the south face to a window on the north face: the
-        building is in the way. Marking there is a bug, and at 0.28 with the
-        band-edge jitter on top it was enough to blacken scattered windows on
-        the wrong side of the building.
-
-    So: 1.0 on a venting face, an exponential decay along a return measured
-    from the corner it shares with the fire, and hard zero opposite.
-    """
-    f = ctx["fire"]
-    side = e["side"]
-    if side in f["sides"]:
-        return 1.0
-    m = ctx["info"]["masses"].get(e["mass"]) or ctx["info"]["masses"]["main"]
-    W, D = m["W"], m["D"]
-    u = e["ly"] if side in ("E", "W") else e["lx"]
-    best = 0.0
-    for fs in f["sides"]:
-        if (fs in ("E", "W")) == (side in ("E", "W")):
-            continue                      # parallel: this IS the far face
-        corner = {"S": -D / 2.0, "N": D / 2.0,
-                  "W": -W / 2.0, "E": W / 2.0}[fs]
-        best = max(best, WRAP_MAX * math.exp(-abs(u - corner) / WRAP_M))
-    return best
 
 
 def _in_band(ctx, e):
@@ -976,31 +902,30 @@ def r_smoke_stain(ctx, heavy=1.0, above=2):
     top = f["top"]
     for e in qf._els(ctx, role=("wall", "corner", "parapet", "parapet_corner",
                                "balcony")):
-        wgt = (1.0 if e["role"] in ("parapet", "parapet_corner")
-               else _side_weight(ctx, e))
-        if wgt <= 0.02:
+        if e["side"] not in f["sides"] and e["role"] not in ("parapet",
+                                                             "parapet_corner"):
             continue
-        sev = _severity(ctx, e["storey"], e["mass"], e) * float(heavy) * wgt
+        sev = _severity(ctx, e["storey"], e["mass"], e) * float(heavy)
         if sev < 0.10 or e["storey"] > top + above:
             continue
         path = e["p"].get("prim_path")
         if glassy:
-            # A CURTAIN WALL IS NOT COMPOSITED, AND IT IS NOT PAINTED OVER
-            # EITHER. `scorched_material` paints a soot wash INTO the
-            # surface's own base-colour map, which is right on brick — the
-            # courses survive under the staining — and wrong on a glazing
-            # atlas, which came out as white panes with black ink-runs.
-            # The FIRST fix for that was to bind a flat `soot` over the
-            # module instead, and it was worse: a flat opaque tone replaces
-            # the glass outright, so the tower's burning elevation rendered
-            # as a solid black slab with no panes in it at all — reported on
-            # a named prim (`bld_tower_wing0_storey_corner_9_154`, "look just
-            # black instead of scortched", 2026-08-28).
-            # `scorch_glazing` is the answer for both: it MULTIPLIES the
-            # kit's own glass texture and roughens its shader, so the mullion
-            # grid, the pane divisions and the reflected sky all survive at
-            # whatever fraction of their brightness is left.
-            if scorch_glazing(stage, e["p"], min(1.0, 0.35 + 0.6 * sev), rng):
+            # A CURTAIN WALL IS NOT COMPOSITED. `scorched_material` paints a
+            # soot wash INTO the surface's own base-colour map, which is
+            # exactly right on brick or stone — the courses survive under the
+            # staining — and wrong on the tower families, whose base colour
+            # is a pale glazing atlas: the result is white panes with black
+            # ink-runs down them (uf5 skyscraper_a, 2026-08-28). Soot on
+            # glass is an opaque film, so bind the flat tone.
+            # A SHARE, NOT ALL OF IT. At full coverage every pane in the
+            # band went opaque black and the burning storeys came out as one
+            # flat dark slab with no glazing left in them (uf6
+            # skyscraper_a, 2026-08-28). A curtain wall on fire keeps some
+            # bays clear, some filmed and some gone — `r_curtain_burn` owns
+            # the "gone", this owns the "filmed".
+            mat = ctx["mats"]["soot" if sev > 0.72 else "soot_mid"]
+            if _bind_subsets(stage, e["p"], lambda: mat,
+                             min(0.9, 0.35 + 0.55 * sev), rng):
                 n_wash += 1
             continue
         tex = damage.bound_texture(stage, path) if path else None
@@ -1101,104 +1026,24 @@ def r_window_burnout(ctx, frac=1.0, empty=True):
                         .format(n_void, n_lit))
 
 
-def scorch_glazing(stage, placement, sev, rng):
-    """Scorch a module's glass BY MULTIPLYING ITS OWN MATERIAL, in place.
-
-    THE PANES ARE NOT COVERED, THEY ARE DARKENED. The first version drew
-    opaque quads over each pane in three tones, and the user's verdict was
-    exact: "instead of making each rectangle in a grey/black color, looks
-    unnatural" (2026-08-28). It is unnatural because it is not what happens —
-    soot does not replace a window, it forms a film ON it, and the pane keeps
-    its frame, its mullion pattern and its specular the whole time.
-
-    `urban_building.apply_glass_tint` already owns the mechanism and the
-    argument for it: the kit's glass is a `UsdPreviewSurface` whose BaseColor
-    is a `UsdUVTexture`, and setting that texture's `scale` multiplies the
-    sample — "which is why this is done instead of binding a flat-coloured
-    material". Exactly the same reach-in is what a fire wants. Two inputs:
-
-      * BaseColor `scale` DOWN and slightly WARM. Tar deposit is brown-black,
-        not neutral; the mullion grid and the reflected sky survive at
-        whatever fraction is left, so a lightly-marked pane still reads as
-        glass and a heavily-marked one reads as glass with the room behind it
-        gone.
-      * `roughness` UP. A clean pane mirrors; a filmed one scatters. This is
-        the input that actually kills the "black rectangle" look, because a
-        rough dark surface still picks up the sky gradient across it while a
-        matte quad does not.
-
-    This is the same treatment every other surface in the module gets from
-    `r_smoke_stain` — the wall's own texture, composited with soot — which is
-    the consistency the review asked for.
-    """
-    from pxr import Gf, Sdf, Usd, UsdShade
-
-    path = placement.get("prim_path")
-    if not path:
-        return 0
-    root = stage.GetPrimAtPath(path)
-    if not root or not root.IsValid() or not root.IsActive():
-        return 0
-    s = max(0.0, min(1.0, float(sev)))
-    # 1.0 -> 0.14 of the original, warm: soot is brown-black
-    k = 1.0 - 0.86 * s
-    tint = (k * (1.0 + 0.10 * s), k * (1.0 - 0.04 * s), k * (1.0 - 0.12 * s))
-    rough = 0.22 + 0.55 * s
-    n = 0
-    for prim in Usd.PrimRange(root):
-        sh = UsdShade.Shader(prim)
-        if not sh:
-            continue
-        sid = sh.GetIdAttr().Get()
-        if sid == "UsdPreviewSurface":
-            r = sh.GetInput("roughness")
-            rv = r.Get() if r else None
-            # only the SHINY shaders are glass. A kit façade module carries
-            # one preview surface for the masonry too, and roughening that
-            # would do nothing visible while darkening it would double up on
-            # the wall wash `r_smoke_stain` has already applied.
-            if rv is not None and float(rv) < 0.45:
-                sh.CreateInput("roughness",
-                               Sdf.ValueTypeNames.Float).Set(float(rough))
-                n += 1
-            continue
-        if sid != "UsdUVTexture":
-            continue
-        f = sh.GetInput("file")
-        v = f.Get() if f else None
-        pth = (v.path or "") if isinstance(v, Sdf.AssetPath) else ""
-        if "BaseColor" not in pth:
-            continue
-        low = pth.lower()
-        if not any(q in low for q in ("glass", "window", "curtain", "glazing")):
-            continue
-        cur = sh.GetInput("scale")
-        c = cur.Get() if cur else None
-        base = (float(c[0]), float(c[1]), float(c[2]), float(c[3])) \
-            if c is not None else (1.0, 1.0, 1.0, 1.0)
-        sh.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(
-            Gf.Vec4f(base[0] * tint[0], base[1] * tint[1],
-                     base[2] * tint[2], base[3]))
-        n += 1
-    return n
-
-
 def _glass_pane(ctx, op, u0, u1, v0, v1, sev, out=0.012):
-    """What is left to author on a pane that is still IN: the CRACKS.
+    """A pane that is still IN, with fire on the other side of it.
 
-    The deposit itself is not authored at all any more — `scorch_glazing`
-    multiplies the module's own glass material, and on the families whose
-    glazing is painted into the façade atlas `r_smoke_stain`'s wall
-    composite already carries it. What geometry still has to supply is the
-    fracture, because there is no texture in the kit that has cracks in it:
+    Three things, and all three are needed — drop any one and it goes back to
+    reading as a grey rectangle:
 
-    1. CRACKS ARE THE LIGHT PART. Thermal fracture starts at the EDGE, where
-       the frame shades the glass and holds it cool while the centre heats —
-       so cracks root at the frame and run inward, and they SCATTER light, so
-       they render BRIGHTER than the pane, not darker. That is the opposite
-       of a masonry crack, which is a shadow, and it is why they read at all
-       against a darkened pane.
-    2. A MISSING CORNER once it has really gone. A thermally-cracked pane
+    1. THE DEPOSIT IS GRADED, HEAVIEST AT THE TOP. A compartment fire fills
+       from the ceiling down (the smoke layer sits above the neutral plane),
+       so the pane is opaque at the head, brown through the middle and
+       comparatively clear at the cill. That vertical gradient is the single
+       most recognisable thing about a window with fire behind it, and one
+       flat tone throws it away. Three stacked quads.
+    2. CRACKS, AND THEY ARE THE LIGHT PART. Thermal fracture starts at the
+       EDGE, where the frame shades the glass and holds it cool while the
+       centre heats — so the cracks root at the frame and run inward, and
+       they scatter light, so they render BRIGHTER than the pane, not darker
+       (the opposite of a masonry crack, which is a shadow).
+    3. A MISSING CORNER once it has really gone. A thermally-cracked pane
        loses a triangle at one edge long before the whole thing falls out.
     """
     from . import quake_flow as qf
@@ -1210,7 +1055,23 @@ def _glass_pane(ctx, op, u0, u1, v0, v1, sev, out=0.012):
         return 0
     um = 0.5 * (u0 + u1)
     made = 0
-    # the cracks — rooted at an edge, running in
+    # 1) the graded deposit — top band heaviest
+    bands = (("glass_sooted", 0.62, 1.00),
+             ("glass_smoked", 0.26, 0.66),
+             ("glass_clear", 0.00, 0.30))
+    for i, (key, t0, t1) in enumerate(bands):
+        # heavier fires push the smoke layer further down the pane
+        lo = max(0.0, t0 - 0.22 * sev)
+        hi = min(1.0, t1 - 0.18 * sev) if i else 1.0
+        if hi - lo < 0.06:
+            continue
+        _face_polygon(ctx, fr, um, v0 + lo * h,
+                      [(-w / 2, 0.0), (w / 2, 0.0),
+                       (w / 2, (hi - lo) * h), (-w / 2, (hi - lo) * h)],
+                      ctx["mats"][key], out=out + 0.0012 * i, kind="pane",
+                      owner=op["e"])
+        made += 1
+    # 2) the cracks — rooted at an edge, running in
     n_cr = 2 + int(round(3 * sev))
     for _ in range(n_cr):
         edge = rng.random()
@@ -1228,7 +1089,7 @@ def _glass_pane(ctx, op, u0, u1, v0, v1, sev, out=0.012):
                     width=rng.uniform(0.008, 0.018), proud=out + 0.006,
                     n_seg=rng.randrange(3, 6), jag=0.06)
         made += 1
-    # a lost corner on a badly cracked pane
+    # 3) a lost corner on a badly cracked pane
     if sev > 0.55 and rng.random() < 0.45:
         cw, ch = w * rng.uniform(0.18, 0.38), h * rng.uniform(0.18, 0.38)
         cu = u0 if rng.random() < 0.5 else u1 - cw
@@ -1332,10 +1193,11 @@ def r_char_facade(ctx, coverage=0.34):
         if e["role"] in ("roof", "parapet", "parapet_corner"):
             # the roof and its parapet see the fire only if it got that high
             sev = _severity(ctx, f["n_storeys"] - 1, e["mass"])
-        else:
-            # THE RETURN, AS A GRADIENT FROM THE CORNER — and nothing at all
-            # on the far face. See `_side_weight`.
-            sev *= _side_weight(ctx, e)
+        elif e["side"] not in f["sides"]:
+            # THE RETURN. A fire venting on the south face still blackens a
+            # metre or two round the corner, and a stripe that stops dead at
+            # the building's corner is the tell of a decal. Quarter strength.
+            sev *= 0.28
         # The spill storey below the origin takes the smoke WASH (which
         # `r_smoke_stain` has already applied) and no char maps: it was never
         # alight, and stamping char on it puts the fire a floor lower than it
@@ -2790,612 +2652,6 @@ RECIPES = {
     "street_debris": r_street_debris,
     "flames": r_flames,
 }
-
-
-# ---------------------------------------------------------------------------
-# MONOLITHS — the 112 standalone building assets
-# ---------------------------------------------------------------------------
-# `detail/urban_building.py` assembles 30 buildings out of façade modules, and
-# everything above this line depends on that: `quake_flow.describe` turns the
-# modules into elements with a side, a storey and a measured window table, and
-# every recipe walks them. The project also ships 112 STANDALONE building USDs
-# (`config/asset_sets/urban_v2.yaml`: 25 towers, 80 midrise, 7 rowhouse, on
-# Nucleus under `selected_citydemo/` and `standalone/buildings/intact/`), and
-# the fire scenes had never used one — "these still look like the same
-# buildings/modifications of the modular buildings... we have 100+ types"
-# (user review, 2026-08-28).
-#
-# A monolith is three meshes and three materials. There are no elements, no
-# storeys and no openings, so NONE of the recipes above can run on it. What
-# saves this is that a FIRE is the one disaster whose signature is mostly
-# SURFACE and PLUME rather than dismantling: soot, a stripe up one elevation,
-# flame out of a band of windows, a blackened roof, glass on the pavement.
-# All of that can be driven off the world bounding box.
-#
-# The earthquake pipeline reached the opposite conclusion for the same assets
-# and was right to: `quake._mono_pass` gives a monolith "what a rigid body can
-# show" — a lean, a sink, a ruin swap — because shaking damage IS dismantling
-# and there is nothing there to dismantle. Fire is the exception.
-#
-# Measured footprints for all 112 are cached in
-# `scene_gen/_plans/urban_monoliths.json` (bare `pxr`, no Kit — see the
-# run-isaac-sim-launcher skill), so a layout can pack them host-side.
-MONO_BAY_M = 3.6          # assumed façade bay, for spacing stripes and vents
-MONO_STOREY_M = 3.4       # assumed floor-to-floor, for the fire band
-
-
-def _darken_asset(stage, root_path, k, rough_add=0.0, warm=0.10,
-                  seen=None):
-    """Darken a referenced asset IN PLACE, whatever shader it uses.
-
-    THE SAME ARGUMENT AS `scorch_glazing`, GENERALISED. Binding one material
-    over a monolith replaces all three of its materials with a flat tone and
-    the building stops being that building — which is the whole reason for
-    using the 112-asset library in the first place. Multiplying what is
-    already there keeps the brick, the glazing bands and the parapet detail
-    and just puts smoke on them.
-
-    Two shader families turn up in this library and they need different
-    knobs, neither of which is `diffuse_color_constant`:
-
-      * `UsdPreviewSurface` — a constant `diffuseColor` is multiplied
-        directly; a textured one is multiplied through its `UsdUVTexture`
-        `scale`, exactly as `urban_building.apply_glass_tint` does.
-      * `OmniPBR` / MDL — `albedo_brightness`, the float the wildfire path
-        settled on. NOT `diffuse_color_constant`, which a bound texture
-        REPLACES (the earthquake round-2 finding), and NOT `albedo_add`,
-        which is a float that turns things blue.
-    """
-    from pxr import Gf, Sdf, Usd, UsdShade
-
-    pr = stage.GetPrimAtPath(root_path)
-    if not pr or not pr.IsValid():
-        return 0
-    # ALLOWED ABOVE 1.0. Two of the DownTown blocks ship a base colour
-    # that is deliberately near-black (`Glass_Opaque_BaseColor.png`,
-    # `MetalPainted_Black_BaseColor.png`); multiplying those DOWN turns a
-    # curtain wall into a hole, so the glazing pass asks for a lift.
-    k = max(0.02, min(4.0, float(k)))
-    tint = (k * (1.0 + warm), k, k * (1.0 - warm))
-    n = 0
-    # SHARED ACROSS THE WHOLE BUILDING WHEN THE CALLER PASSES ONE.
-    # These assets bind ONE material to several subsets, and the scale is
-    # multiplied IN PLACE, so a per-call set means a material shared by
-    # three subsets is darkened three times: k^3, which at F4 is 0.014 —
-    # a black box where a sooted building should be.
-    seen = set() if seen is None else seen
-
-    def _scale_tex(tex_sh):
-        """Multiply one `UsdUVTexture`'s `scale`, once."""
-        key = str(tex_sh.GetPath())
-        if key in seen:
-            return 0
-        seen.add(key)
-        cur = tex_sh.GetInput("scale")
-        c = cur.Get() if cur else None
-        b = ((float(c[0]), float(c[1]), float(c[2]), float(c[3]))
-             if c is not None else (1.0, 1.0, 1.0, 1.0))
-        tex_sh.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(
-            Gf.Vec4f(b[0] * tint[0], b[1] * tint[1], b[2] * tint[2], b[3]))
-        return 1
-
-    for prim in Usd.PrimRange(pr):
-        sh = UsdShade.Shader(prim)
-        if not sh:
-            continue
-        sid = sh.GetIdAttr().Get()
-        if sid == "UsdPreviewSurface":
-            d = sh.GetInput("diffuseColor")
-            if d is not None:
-                # FOLLOW THE CONNECTION, DO NOT GUESS FROM THE FILENAME.
-                # The first version darkened a `UsdUVTexture` only if its file
-                # name matched one of basecolor/albedo/diffuse/_b/_d — which
-                # is how the wildfire path picks a base-colour map, and it is
-                # the right test THERE, where the material is being rebuilt
-                # from a folder of maps with no network to read. Here there
-                # IS a network: the surface's `diffuseColor` input says which
-                # texture is the base colour, exactly, and anything it does
-                # not point at is a normal or ORM map that must not be
-                # touched. Going by name left every asset whose roof map is
-                # called something else at full brightness — a block of
-                # BRIGHT WHITE roofs over a burning city (uf_city3,
-                # 2026-08-28), and the first thing the eye goes to from any
-                # oblique.
-                src = d.GetConnectedSource() if d.HasConnectedSource() else None
-                if src:
-                    n += _scale_tex(UsdShade.Shader(src[0].GetPrim()))
-                elif d.Get() is not None:
-                    c = d.Get()
-                    d.Set(Gf.Vec3f(float(c[0]) * tint[0],
-                                   float(c[1]) * tint[1],
-                                   float(c[2]) * tint[2]))
-                    n += 1
-            if rough_add:
-                r = sh.GetInput("roughness")
-                rv = r.Get() if r else None
-                if rv is not None and not r.HasConnectedSource():
-                    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(
-                        float(min(1.0, float(rv) + rough_add)))
-            continue
-        # MDL / OmniPBR — `albedo_brightness` is the float that works. NOT
-        # `diffuse_color_constant`, which a bound texture REPLACES (the
-        # earthquake round-2 finding), and NOT `albedo_add`, which is also a
-        # float and turns things blue (the wildfire bug catalogue).
-        try:
-            src_id = sh.GetSourceAssetSubIdentifier("mdl")
-        except Exception:
-            src_id = None
-        if src_id or prim.HasAttribute("info:mdl:sourceAsset"):
-            key = str(sh.GetPath())
-            if key in seen:
-                continue
-            seen.add(key)
-            cur = sh.GetInput("albedo_brightness")
-            base = float(cur.Get()) if (cur and cur.Get() is not None) else 1.0
-            sh.CreateInput("albedo_brightness",
-                           Sdf.ValueTypeNames.Float).Set(base * k)
-            if rough_add:
-                rr = sh.GetInput("reflection_roughness_constant")
-                rb = float(rr.Get()) if (rr and rr.Get() is not None) else 0.4
-                sh.CreateInput("reflection_roughness_constant",
-                               Sdf.ValueTypeNames.Float).Set(
-                                   float(min(1.0, rb + rough_add)))
-            n += 1
-    return n
-
-
-# WHAT A MONOLITH IS MADE OF — measured over all 112 (bare `pxr`, no Kit):
-#
-#   308 meshes over 112 assets: 68 assets have 3, 27 have 1, 14 have 4, 3 have 7
-#   96 of 112 are under 1,000 points and 40 are under 100 — these are stacks
-#     of extruded prisms with a photograph on them, not modelled buildings
-#   every one is `UsdPreviewSurface` + `UsdUVTexture` (112/112)
-#   UVs are `primvars:uv0` on 85 and `primvars:st` on 23 — they ARE mapped
-#   97 of 112 carry a texture whose name contains "roof" (`flatRoof*` 102x)
-#
-# The last line is the useful one, and it is the same rule the kit needs:
-# every material in these assets is literally named `material`, so identity is
-# the TEXTURE FILENAME — exactly what `modular_house.apply_palette` and
-# `damage.bound_texture` do one library over. A part whose texture is
-# `flatRoof_40.jpg` is a roof; one whose texture is
-# `u_f003_t001_Residential_000.jpg` is a façade.
-_MONO_ROOF_TEX = ("roof", "flatroof")
-_MONO_GLASS_TEX = ("glass", "window", "curtain", "glazing")
-
-
-def _darken_part(stage, part, k, rough_add=0.0, warm=0.10, seen=None):
-    """Darken the MATERIAL one monolith part is bound to.
-
-    Not the part's own subtree: a `GeomSubset` has no shaders under it and
-    neither does the mesh — the material lives in a `Looks` scope beside them
-    or, on the DownTown blocks, inside a separate `*_Inst.usd`. Following the
-    binding is the only route that reaches the texture.
-    """
-    return _darken_asset(stage, part.get("mat") or part["path"], k,
-                         rough_add=rough_add, warm=warm, seen=seen)
-
-
-def _bound_texture(prim):
-    """(material prim, base-colour texture filename) for a bound prim."""
-    from pxr import Sdf, Usd, UsdShade
-    mat = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]
-    if not mat or not mat.GetPrim().IsValid():
-        return None, ""
-    tex = ""
-    for c in Usd.PrimRange(mat.GetPrim()):
-        sh = UsdShade.Shader(c)
-        if not sh or sh.GetIdAttr().Get() != "UsdPreviewSurface":
-            continue
-        d = sh.GetInput("diffuseColor")
-        if d is not None and d.HasConnectedSource():
-            ts = UsdShade.Shader(d.GetConnectedSource()[0].GetPrim())
-            f = ts.GetInput("file")
-            v = f.Get() if f else None
-            if isinstance(v, Sdf.AssetPath) and v.path:
-                tex = v.path.rsplit("/", 1)[-1]
-        break
-    return mat.GetPrim(), tex
-
-
-def mono_parts(stage, holder):
-    """The parts of a referenced monolith, classified and measured.
-
-    Returns [{path, mat, kind, texture, x0,y0,x1,y1, z0,z1}] sorted by base
-    height. `kind` is roof / glass / wall.
-
-    THIS IS WHAT THE BOUNDING BOX WAS STANDING IN FOR, AND WHY THINGS
-    FLOATED. `burn_monolith` drove everything off ONE box round the whole
-    asset: debris was scattered at the box's top and flames were placed on
-    the box's side. These buildings are STEPPED, so the box top is the stair
-    bulkhead's roof and the box SIDE is metres outside the wall the fire is
-    supposed to be coming out of. Hence "a bunch of floating debris and fire"
-    (user, 2026-08-28).
-
-    A PART IS A `GeomSubset`, NOT A MESH — and getting that wrong made the
-    whole surface pass a no-op. Measured over all ten whole assets (bare
-    `pxr`): every one of them is a SINGLE mesh carrying 3 to 31 `GeomSubset`
-    children, and every material binding is on the SUBSET. So walking meshes
-    found exactly one "part" per building, `ComputeBoundMaterial` on it
-    returned nothing, it classified as `wall` with an empty texture name, and
-    `_darken_asset` — handed the mesh path — traversed a subtree with no
-    shaders in it and touched zero. Every whole building in the 250 m city
-    therefore rendered at FULL brightness in a burning block, six of them
-    with the same pale `Roof_Inst_BaseColor.png` membrane facing the drone.
-    That is the white-roof complaint, one level deeper than where it was
-    first fixed for the kit.
-
-    The subset's own box is computed from its face indices rather than
-    inherited from the mesh, because the point of a part is that it is a
-    PIECE: on `BG_Building_E` the roof subset and the glazing subset share
-    one mesh, and only the per-face box tells the plume where the wall is.
-    """
-    import numpy as np
-    from pxr import Usd, UsdGeom
-
-    root = stage.GetPrimAtPath(holder)
-    if not root or not root.IsValid():
-        return []
-    out = []
-    xc = UsdGeom.XformCache()
-    for prim in Usd.PrimRange(root):
-        if not prim.IsA(UsdGeom.Mesh):
-            continue
-        me = UsdGeom.Mesh(prim)
-        pts = me.GetPointsAttr().Get()
-        if pts is None or not len(pts):
-            continue
-        M = np.asarray(xc.GetLocalToWorldTransform(prim), dtype=float)
-        P = np.asarray(pts, dtype=float)
-        P = (np.c_[P, np.ones(len(P))] @ M)[:, :3]
-        subs = [s for s in UsdGeom.Subset.GetAllGeomSubsets(
-            UsdGeom.Imageable(prim))
-            if (s.GetElementTypeAttr().Get() or "face") == "face"]
-        counts = np.asarray(me.GetFaceVertexCountsAttr().Get() or [],
-                            dtype=np.int64)
-        fvi = np.asarray(me.GetFaceVertexIndicesAttr().Get() or [],
-                         dtype=np.int64)
-        usable = bool(subs) and len(counts) and len(fvi) == int(counts.sum())
-        targets = ([(s.GetPrim(), s) for s in subs] if usable
-                   else [(prim, None)])
-        for tgt, sub in targets:
-            if sub is None:
-                V = P
-            else:
-                fi = np.asarray(sub.GetIndicesAttr().Get() or [],
-                                dtype=np.int64)
-                fi = fi[(fi >= 0) & (fi < len(counts))]
-                if not len(fi):
-                    continue
-                # per-corner mask by RUN-LENGTH EXPANSION of the face mask —
-                # a python loop over faces costs seconds on a 470k-point asset
-                mask = np.zeros(len(counts), dtype=bool)
-                mask[fi] = True
-                V = P[np.unique(fvi[np.repeat(mask, counts)])]
-            if not len(V):
-                continue
-            mat, tex = _bound_texture(tgt)
-            low = tex.lower()
-            kind = ("roof" if any(q in low for q in _MONO_ROOF_TEX) else
-                    "glass" if any(q in low for q in _MONO_GLASS_TEX) else
-                    "wall")
-            mn, mx = V.min(axis=0), V.max(axis=0)
-            out.append({"path": str(tgt.GetPath()),
-                        "mat": str(mat.GetPath()) if mat is not None else "",
-                        "kind": kind, "texture": tex,
-                        "x0": float(mn[0]), "y0": float(mn[1]),
-                        "z0": float(mn[2]), "x1": float(mx[0]),
-                        "y1": float(mx[1]), "z1": float(mx[2])})
-    out.sort(key=lambda q: (q["z0"], -(q["z1"] - q["z0"])))
-    return out
-
-
-def mono_roof_plane(parts, W, D):
-    """(z, x0, y0, x1, y1) of the biggest roof surface, or None.
-
-    THE BIGGEST, NOT THE HIGHEST. The highest roof-textured part on a stepped
-    block is usually the stair bulkhead — 6 x 5.7 m on a 28 x 40 m building —
-    and scattering a roof's worth of debris over it puts almost all of it in
-    the air beside the bulkhead. The plant deck is the one with the AREA.
-    """
-    roofs = [q for q in parts if q["kind"] == "roof"]
-    if not roofs:
-        # 27 OF THE 112 ARE A SINGLE MESH — one prism with one photograph
-        # wrapped round it, so there is no separate roof part to find and
-        # `flatRoof*` never appears. For those the top of the one part IS the
-        # roof, which is the case the bounding box was always right about.
-        walls = [q for q in parts if q["kind"] in ("wall", "glass")]
-        if not walls:
-            return None
-        best = max(walls, key=lambda q: q["z1"])
-        return (best["z1"], best["x0"], best["y0"], best["x1"], best["y1"])
-    best = max(roofs, key=lambda q: (q["x1"] - q["x0"]) * (q["y1"] - q["y0"]))
-    return (best["z1"], best["x0"], best["y0"], best["x1"], best["y1"])
-
-
-def mono_wall_at(parts, z):
-    """The wall part whose z-range contains `z`, or the tallest one."""
-    walls = [q for q in parts if q["kind"] in ("wall", "glass")]
-    if not walls:
-        return None
-    hit = [q for q in walls if q["z0"] - 0.2 <= z <= q["z1"] + 0.2]
-    if hit:
-        return max(hit, key=lambda q: (q["x1"] - q["x0"]) * (q["y1"] - q["y0"]))
-    return max(walls, key=lambda q: q["z1"])
-
-
-def _part_frame(part, side, yaw=0.0):
-    """A `_piece_frame`-shaped tuple for one elevation of ONE PART.
-
-    Same contract as `_mono_frame` but measured on the part that is actually
-    there at that height, so a tongue or a flame slot lands on the wall
-    instead of on the bounding box's idea of where the wall might be.
-    """
-    cx = 0.5 * (part["x0"] + part["x1"])
-    cy = 0.5 * (part["y0"] + part["y1"])
-    W = part["x1"] - part["x0"]
-    D = part["y1"] - part["y0"]
-    m = {"cx": cx, "cy": cy, "W": W, "D": D, "H": part["z1"], "yaw": yaw}
-    return _mono_frame(m, side), m
-
-
-def _mono_frame(m, side):
-    """A `_piece_frame`-shaped tuple for one elevation of a bbox.
-
-    So the tongue, scar and flame code above — all of which take a `fr` —
-    works unchanged on a building that has no kit pieces in it. The frame
-    runs left-to-right along the face when seen from outside, with `depth`
-    negative outward, matching what `quake_flow._piece_frame` returns for a
-    kit wall piece.
-    """
-    W, D, yaw = m["W"], m["D"], math.radians(m["yaw"])
-    nx, ny = {"S": (0.0, -1.0), "N": (0.0, 1.0),
-              "E": (1.0, 0.0), "W": (-1.0, 0.0)}[side]
-    # the face's outward normal and half-depth in world
-    ox = nx * math.cos(yaw) - ny * math.sin(yaw)
-    oy = nx * math.sin(yaw) + ny * math.cos(yaw)
-    half = (D / 2.0) if side in ("S", "N") else (W / 2.0)
-    width = W if side in ("S", "N") else D
-    # the along-face direction is the outward normal turned +90 deg
-    ax, ay = -oy, ox
-    # origin at the left end of the face, on the wall line
-    orx = m["cx"] + ox * half - ax * width / 2.0
-    ory = m["cy"] + oy * half - ay * width / 2.0
-    return (orx, ory, math.atan2(ay, ax), width, m["H"], -0.02, False)
-
-
-def burn_monolith(stage, parent, usd, x, y, yaw, dims, level, rng, nrng, mats,
-                  tag, flow_root=None, entry_side="S", origin_frac=0.2,
-                  ssf=1.0, asset_scale=1.0):
-    """Set one STANDALONE building asset on fire. Bounding-box driven.
-
-    `dims` is the measured `{W, D, H, cx, cy, zmin}` from
-    `_plans/urban_monoliths.json`. Returns the same ctx shape
-    `burn_building` does.
-    """
-    import scene_generator as sg
-    from pxr import Gf, Sdf, UsdGeom
-
-    from . import quake_flow as qf
-
-    holder = "{0}/mono".format(parent)
-    hp = UsdGeom.Xform.Define(stage, Sdf.Path(holder))
-    # A TYPELESS CHILD TAKES THE REFERENCE, NOT THE XFORM ITSELF.
-    # `DownTown/Assets/BG_Building_A.usd`'s default prim is a **Mesh**;
-    # referencing it onto a prim already declared `Xform` leaves the local
-    # type winning, so the composed prim holds mesh attributes but is not a
-    # Mesh — nothing draws it and its world bound is empty (every DownTown
-    # block measured 0 x 0 x 0 m in the showcase). Same family as the quake
-    # bake's "a Scope is not Xformable so the ops are skipped".
-    kid = stage.DefinePrim(Sdf.Path(holder + "/asset"))
-    kid.GetReferences().AddReference(sg._join_asset_root(usd, ""))
-    # ...and LOAD ITS PAYLOADS, or a 53-payload asset measures as nothing.
-    stage.Load(Sdf.Path(holder))
-    xf = UsdGeom.Xformable(hp)
-    xf.ClearXformOpOrder()
-    # the asset's own bbox centre is not its origin; place by CENTRE so the
-    # packer's rectangle is the rectangle that lands
-    ca, sa = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
-    ox = -(dims.get("cx", 0.0)) * ca + (dims.get("cy", 0.0)) * sa
-    oy = -(dims.get("cx", 0.0)) * sa - (dims.get("cy", 0.0)) * ca
-    xf.AddTranslateOp().Set(Gf.Vec3d((x + ox) * ssf, (y + oy) * ssf,
-                                     -dims.get("zmin", 0.0) * ssf))
-    xf.AddRotateZOp().Set(float(yaw))
-    # THE PACKS DISAGREE ABOUT UNITS AND USD DOES NOT CONVERT.
-    # `metersPerUnit` measured per pack: CityPark 0.01, DownTown 0.01,
-    # ModernCityEnvironment 1.0 (but only Building01 carries a scale op — the
-    # other three have centimetre POINTS), selected_citydemo 1.0. Opening an
-    # asset applies its own mpu so it measures fine in isolation; REFERENCING
-    # it into a metres stage rescales nothing, so an unscaled DownTown block
-    # arrives 100x and a 3.7 m bench arrives 370 m long.
-    if abs(float(asset_scale) - 1.0) > 1e-9:
-        xf.AddScaleOp().Set(Gf.Vec3f(float(asset_scale), float(asset_scale),
-                                     float(asset_scale)))
-
-    W, D, H = dims["W"], dims["D"], dims["H"]
-    m = {"cx": x, "cy": y, "W": W, "D": D, "H": H, "yaw": yaw,
-         "z0": 0.0, "top": H, "levels": [0.0], "module": MONO_BAY_M}
-    n_st = max(1, int(round(H / MONO_STOREY_M)))
-    m["levels"] = [i * MONO_STOREY_M for i in range(n_st)]
-    ctx = {"stage": stage, "parent": parent, "rng": rng, "nrng": nrng,
-           "mats": mats, "cache": {}, "tag": tag, "loose": [],
-           "static_extra": [holder], "velocity": {}, "authored": [],
-           "notes": [], "flow_root": flow_root,
-           "info": {"style": "mono", "type": "rc", "masses": {"main": m},
-                    "elements": [], "H": H, "x": x, "y": y, "yaw": yaw},
-           "fit": {"slabs": {}, "columns": {}, "partitions": [], "props": {},
-                   "all": []}}
-    lvl = level if isinstance(level, str) else "F3"
-    origin = max(0, min(n_st - 1, int(round(origin_frac * (n_st - 1)))))
-    band = BAND.get(lvl, BAND["F3"])
-    k = (n_st - origin) if band[1] >= 99 else max(
-        1, min(band[1], n_st - origin))
-    ctx["fire"] = {"origin": origin, "storeys": list(range(origin, origin + k)),
-                   "top": origin + k - 1, "sides": (entry_side,),
-                   "n_storeys": n_st, "mass": "main",
-                   "roof": origin + k >= n_st, "level": lvl,
-                   "state": ACTIVE.get(lvl), "finish": FINISH.get(lvl) or "char"}
-    f = ctx["fire"]
-    sev_top = _severity(ctx, f["top"])
-
-    # 1) THE WHOLE BUILDING IS SMOKE-STAINED, in its own materials.
-    # A LITTLE DARKER THAN LOOKS RIGHT ON PAPER. These assets are authored
-    # for a clean daylit city and several carry a near-white roof membrane
-    # and pale render; under this scene's low warm key a 0.55 multiplier
-    # still left them the brightest objects on a burning block.
-    heavy = {"F1": 0.62, "F2": 0.48, "F3": 0.34, "F4": 0.24,
-             "F5": 0.20}.get(lvl, 0.4)
-    parts = mono_parts(stage, holder)
-    n_sh, seen = 0, set()
-    for q in parts:
-        # A ROOF IS NOT A WALL, AND A CURTAIN WALL IS NEITHER.
-        #
-        # roof   every one of these assets puts a pale membrane on top (six
-        #        of the ten share the same `Roof_Inst_BaseColor.png`), and the
-        #        smoke settles on it harder than anywhere else because the
-        #        plume goes straight up over it. Darkening the asset by one
-        #        factor left the roofs the brightest surface on a burning
-        #        block (`/World/stage/generated/b8/mono/shape_3063`, user,
-        #        2026-08-28). Roofs take an extra factor of ~0.45.
-        # glass  `Glass_Opaque_BaseColor.png` and `MetalPainted_Black` are
-        #        already near-black by design. Multiplying them down is how a
-        #        tower turns into a silhouette with a white lid; they get a
-        #        LIFT instead, tapering as the building burns, so a curtain
-        #        wall reads as dark glazing rather than a hole in the city.
-        if q["kind"] == "roof":
-            kk = heavy * 0.45
-        elif q["kind"] == "glass":
-            kk = 1.45 * max(0.55, heavy)
-        else:
-            kk = heavy
-        n_sh += _darken_part(stage, q, kk, rough_add=0.22, seen=seen)
-    if not parts:
-        n_sh = _darken_asset(stage, holder, heavy, rough_add=0.22)
-
-    # 2) A STRIPE UP THE BURNING FACE. No window table exists, so the tongues
-    #    are spaced on an assumed bay rather than on measured openings — the
-    #    lick pattern is what reads at any distance, not which pane it came
-    #    out of.
-    n_plume = 0
-    for st_ in f["storeys"]:
-        z = m["levels"][st_] if st_ < n_st else H
-        sev = _severity(ctx, st_)
-        if sev < 0.2:
-            continue
-        # THE WALL AT THIS HEIGHT, NOT THE BOUNDING BOX. On a stepped asset
-        # the upper block is inboard of the lower one, so a tongue placed on
-        # the bbox face hangs in the air beside the setback.
-        part = mono_wall_at(parts, z + MONO_STOREY_M * 0.5) if parts else None
-        if part is None:
-            fr, pm = _mono_frame(m, entry_side), m
-        else:
-            fr, pm = _part_frame(part, entry_side, yaw)
-        face_w = fr[3]
-        n_bay = max(2, int(face_w / MONO_BAY_M))
-        top_here = part["z1"] if part else H
-        head = min(top_here - 0.4, z + MONO_STOREY_M * 0.72)
-        if head <= z:
-            continue
-        for b in range(n_bay):
-            if rng.random() > PLUME_P * min(1.0, 0.45 + sev):
-                continue
-            u = (b + 0.5) * face_w / n_bay
-            h = min(PLUME_H * sev * rng.uniform(0.6, 1.4),
-                    top_here - head - 0.2)
-            if h < 0.4:
-                continue
-            n_plume += _plume(ctx, fr, u, head, MONO_BAY_M * 0.55, h)
-    # 3) the roof: charred, with debris on it
-    n_deb = 0
-    plane = mono_roof_plane(parts, W, D) if parts else None
-    if sev_top > 0.25 and plane is not None:
-        # ON THE MEASURED ROOF, INSIDE ITS OWN OUTLINE. Scattered at the
-        # bounding box's top over the bounding box's plan, the debris sat a
-        # metre above the roof it was supposed to be lying on and spilled out
-        # past the parapet into the air (user: "a bunch of floating debris").
-        rz, rx0, ry0, rx1, ry1 = plane
-        for _ in range(int(34 * sev_top * rng.uniform(0.7, 1.3))):
-            wx = rng.uniform(rx0 + 0.8, rx1 - 0.8)
-            wy = rng.uniform(ry0 + 0.8, ry1 - 0.8)
-            sz = 0.14 + 0.5 * rng.random() ** 1.9
-            path = "{0}/rdeb_{1}_{2}".format(parent, tag, qf._uid(ctx))
-            qf._a_lump(stage, path, wx, wy, rz + sz * 0.30, sz, rng,
-                       _debris_mat(ctx) if rng.random() < 0.5
-                       else ctx["mats"]["char_concrete"], jitter=0.5)
-            ctx["authored"].append(path)
-            ctx["static_extra"].append(path)
-            n_deb += 1
-    # 4) the street under the fire
-    r_street_debris(ctx, density=0.8)
-    # 5) flame and smoke out of the burning band
-    if flow_root and f["state"]:
-        _mono_flames(ctx, parts, m, entry_side, yaw)
-    ctx["notes"].append(
-        "monolith {0}: {1}, {2} shader(s) sooted, {3} tongue(s) on {4}, "
-        "{5} roof piece(s), storeys {6}-{7} of {8}".format(
-            usd.rsplit("/", 1)[-1], lvl, n_sh, n_plume, entry_side, n_deb,
-            f["origin"], f["top"], n_st))
-    return ctx
-
-
-def _mono_flames(ctx, parts, m, side, yaw, max_emitters=9):
-    """Flow slots along the burning face of a monolith.
-
-    One slot list per storey, each built on the wall part that actually
-    exists at that height — a fire cannot vent out of a face that is not
-    there, and on a stepped block the bounding box has one where the setback
-    is (user: "floating ... fire", 2026-08-28)."""
-    from pxr import Gf, Sdf, UsdGeom
-
-    from . import fire as fx, quake_flow as qf
-
-    f, rng = ctx["fire"], ctx["rng"]
-    root = ctx["flow_root"]
-    UsdGeom.Xform.Define(ctx["stage"], Sdf.Path(root + "/emitters"))
-    ox, oy = qf._outward(m, side)
-    slots = []
-    for st_ in f["storeys"]:
-        sev = _severity(ctx, st_)
-        if sev < 0.45:
-            continue
-        z = m["levels"][st_] if st_ < len(m["levels"]) else m["H"]
-        part = mono_wall_at(parts, z + MONO_STOREY_M * 0.5) if parts else None
-        if part is None:
-            pfr = _mono_frame(m, side)
-        else:
-            pfr, _pm = _part_frame(part, side, yaw)
-            if z > part["z1"] - 0.6:
-                continue                    # no wall left above this storey
-        face_w = pfr[3]
-        n_bay = max(2, int(face_w / MONO_BAY_M))
-        for b in range(n_bay):
-            slots.append((z + MONO_STOREY_M * (0.62 + 0.2 * rng.random()),
-                          (b + 0.5) * face_w / n_bay, sev, pfr))
-    rng.shuffle(slots)
-    n = 0
-    for i, (v, u, sev, pfr) in enumerate(slots[:max_emitters]):
-        x, y, _z = qf._b_face_pt(pfr, u, v, FLAME_OUT)
-        path = "{0}/emitters/{1}_m{2:02d}".format(root, ctx["tag"], i)
-        prim = fx._flow_create(ctx["stage"], path, "FlowEmitterBox")
-        if not prim or not prim.IsValid():
-            continue
-        fx._set(prim, "layer", Sdf.ValueTypeNames.Int, int(fx.FLOW_LAYER))
-        fx._set(prim, "position", Sdf.ValueTypeNames.Float3,
-                Gf.Vec3f(float(x), float(y), float(v)))
-        hw = MONO_BAY_M * 0.32
-        fx._set(prim, "halfSize", Sdf.ValueTypeNames.Float3,
-                Gf.Vec3f(float(hw), float(hw), float(0.16 + 0.22 * sev)))
-        fx._set(prim, "halfSizeIsWorldSpace", Sdf.ValueTypeNames.Bool, True)
-        fx._set(prim, "coupleRateFuel", Sdf.ValueTypeNames.Float, 2.0)
-        fx._set(prim, "coupleRateSmoke", Sdf.ValueTypeNames.Float, 2.0)
-        fx._set(prim, "velocity", Sdf.ValueTypeNames.Float3,
-                Gf.Vec3f(float(ox * FLAME_PUSH), float(oy * FLAME_PUSH),
-                         float(FLAME_UP)))
-        fx._set(prim, "velocityIsWorldSpace", Sdf.ValueTypeNames.Bool, True)
-        fx.set_emission(prim, f["state"],
-                        scale=FLAME_SCALE * (0.6 + 0.7 * sev)
-                        * rng.uniform(0.8, 1.2))
-        n += 1
-    ctx["notes"].append("monolith flames: {0} emitter(s)".format(n))
 
 
 # ---------------------------------------------------------------------------

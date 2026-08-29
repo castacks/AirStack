@@ -12,7 +12,7 @@ Run through the same bare-pxr wrapper `measure_fences.sh` uses:
     scene_gen/tools/_t_pxr.sh scene_gen/tools/_t_shell_probe.py
 
 Env:
-    T_USD     archetype/stage to open  (default assets/archetypes_quake/bld_commercial_DG0.usd)
+    T_USD     archetype/stage to open  (default assets/archetype/bld_commercial_DG0.usd)
     T_OUT     json report path
     T_DUMP    directory for the OBJ dumps ("" = don't dump)
 """
@@ -27,7 +27,7 @@ SCENE_GEN = os.path.dirname(HERE)
 REPO = os.path.dirname(SCENE_GEN)
 
 USD = os.environ.get("T_USD", os.path.join(
-    SCENE_GEN, "assets", "archetypes_quake", "bld_commercial_DG0.usd"))
+    SCENE_GEN, "assets", "archetype", "bld_commercial_DG0.usd"))
 OUT = os.environ.get("T_OUT", "/tmp/_t_shell_probe.json")
 DUMP = os.environ.get("T_DUMP", "/tmp/_t_dump")
 

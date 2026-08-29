@@ -119,18 +119,92 @@ Keep `pack` pools to `any`/`corner` stock, since a packed building is free-stand
 
 ## Building libraries
 
+### Whole buildings
+
 | library | count | state |
 |---|---|---|
 | `GreatAmericanCity/.../Meshes/SM_Building_NN` | 31 | whole buildings, `scale: 0.01`, ships LOD0–LOD4 variants |
 | `scene_gen/assets/downtowncity/` | 15 | 12 modelled all round — the fillers |
 | `Muyang/DownTown/BG_Building_A..F` | 6 | `urban.yaml` tower/midrise pools |
-| `Muyang/ModernCityEnvironment` | 4 | `urban.yaml` |
+| `Muyang/ModernCityEnvironment` | 4 | `urban.yaml`. **Not the kit — see the warning below** |
 | AEC brownstones (`airstack://`) | 8 | `urban.yaml` rowhouse, 21.1 m deep |
 | `selected_citydemo` | 112 | **excluded by review** — low-poly monoliths |
 | `CitySample` | 20 | needs assembly, see its own notes; Nanite, no LOD |
 
 `urban_v2.yaml` adds `selected_citydemo` via `tower+`; do not extend it unless
 you want those back.
+
+### Façade KITS — pieces, not buildings
+
+These three are **not placeable assets**. They are libraries of façade MODULES
+that `detail/urban_building.build_building` kitbashes into whole buildings, which
+`bake_quake_archetypes_launch_script.py` then bakes to one USD per style in
+`omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_<style>_DG0.usd`. **The pools reference
+the BAKE, never these paths.** Piece counts measured from `urban_building.PIECES`
+(111 total).
+
+Paths are `urban_building.KIT` / `.DW_B` / `.CIV`, all under
+`omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/`
+(`urban_building.SEI`).
+
+| kit | pieces | module / storey | frame | in `PIECES` |
+|---|---|---|---|---|
+| `ModernCityEnvironment01/Meshes/` | **73** | 5 m / 4 m module, 3 m storey | pivot LEFT end on the wall line, outward −Y | 5 families + roof tiles |
+| `Downtown_West/Assets/building_b/` | **14** | 3 m / 5 m wide; storefront 4.3 m, window bands 6 m | along +Y, **CENTRED**, outward +X — frame `"dw"` normalises it | Dmytro's storefront kit |
+| `CivilianArea/Assets/` | **24** | 2.5 m module and storey (church set 2.75 m) | outward −Y, **authored in CENTIMETRES** (`scale: 0.01`) | generic + government portico + church |
+
+> **`ModernCityEnvironment01` (with the `01`) is the KIT OF PIECES.
+> `ModernCityEnvironment` (without it) is a different pack of 4 whole merged
+> buildings, in the table above. One character apart, both in `urban.yaml`,
+> neither errors if you pick the wrong one.**
+
+**What they kitbash into: 30 styles**, of which 25 are pure MCE01, 3 are
+CivilianArea + MCE01 roofs (`civic_hall`, `civic_offices`, `church`) and 2 are
+Downtown_West + MCE01 roofs (`dw_terrace`, `dw_terrace_long`).
+
+### Only 16 of the 30 styles are baked — and the missing 14 are the tall ones
+
+`DEFAULT_STYLES` in the bake launcher is the **250 m mix**, chosen when the plate
+was 250 m with an explicit rationale: *"Nothing taller than ~60 m: an 88-103 m
+skyscraper on a 250 m plate is a landmark, not a district."* On a **1 km** plate
+that argument inverts, and the 14 it omits are exactly the stock whose absence
+reads as "the diversity in buildings just isn't there":
+
+    skyscraper_a/_b/_c      103 / 88 / 85 m towers
+    highrise_01/_02/_step   54 / 61 / 61 m
+    office_slab             48 x 16, 28 m
+    block_residential       88 x 56, 67 m -- podium + three 16-20-storey slabs
+    block_office            70 x 50, 91 m -- podium + three towers
+    block_stone             62 x 47, 30 m
+    block_commercial        54 x 34, 23 m
+    dw_terrace_long         40 x 15, 12 m
+    civic_hall              60 x 30, 13 m -- 9 m colonnade
+    church                  17 x 28,  8 m
+
+The launcher now takes a **group name** as well as a comma list
+(`ARCH_STYLES=mix250 | tall | full`), so a 1 km bake is one word instead of a
+30-item list pasted into a shell:
+
+```bash
+ARCH_STYLES=tall \
+ISAAC_SIM_SCRIPT_NAME=bake_quake_archetypes_launch_script.py \
+airstack up isaac-sim
+```
+
+`mix250` is the unchanged default, so every existing bake and preset is
+byte-identical.
+
+> **DO NOT add the 14 to an asset-set pool before they are baked.** A `usd:`
+> entry that does not resolve does not error — it falls through to
+> `fallback_sizes.house` (30 × 20 × 24 m), which is *"a silent wall of
+> identically-sized boxes"* (`urban_v2.yaml`'s own warning). Bake first, measure
+> the manifest, then add pool entries with their measured W × D × H in the
+> comment like every other kit row.
+
+Two sizing traps when they do go in, both already documented above: the four
+`block_*` massings are 54-88 m long and will re-band any terrace pool they are
+added to (**keep them out of `rowhouse`**), and the towers belong in `tower` /
+`midrise_v2`, not in a `pack` pool.
 
 ### The `urban_v2.json` baseline
 

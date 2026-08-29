@@ -31,13 +31,32 @@ mesh, so no single call to it is the whole story; see `_points_bounds`).
 placement time rather than trusting this file's output, which is the other
 half of the fix: a checker built on the same blind spot as the measurement
 cannot see the defect either.
+
+`roof_house` RECORDS ALSO CARRY A `material` — brick/concrete/glass/metal,
+read off each bound material's own name (`_classify_material`) — because a
+roof house is a STAIR/LIFT BULKHEAD, not a scatter prop, and the wrong one
+reads as a mistake, not variety: "don't do roof houses that don't match with
+the base building (brick doesn't go with concrete)" (user, 2026-08-29,
+pointed at two placements built from `SM_Superior_Construction_04` and
+`SM_Superior_Construction_01`). Measured directly: `_01`/`_04` are 35-36%
+`M_Bricks_Superior_Construction_Inst` by triangle area (brick); `_02`/`_03`
+are the SAME bulkhead mesh with the SAME secondary materials (trim, slab,
+metal vents, window glass, all within a percentage point of each other
+across all four) but 35-38% `M_Wall_Superior_Construction_Inst` instead — the
+one thing that differs between the two pairs is brick vs this pack's plain
+"wall" (non-brick precast/stucco) skin; `SM_Glass_Roof` is 100% named glass
+materials, no brick/concrete/wall material bound anywhere on it. `gac_props.
+roof_props` reads this field and refuses to put a `roof_house` of the wrong
+material on a building — see that module's own docstring for the fuller
+account and `_classify_material` below for how "material" is actually read.
 """
 import json
 import os
 import sys
 import time
 
-from pxr import Usd, UsdGeom
+import numpy as np
+from pxr import Usd, UsdGeom, UsdShade
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _SCENE_GEN = os.path.dirname(_HERE)
@@ -83,6 +102,120 @@ KINDS = {
                  "SM_Tube_Curve_02", "SM_Cable", "SM_Protective_Grid"],
     "wall_door": ["SM_Exit_Door_02"],
 }
+
+# (substring, family) for `_classify_material` below — checked in this
+# order, first match wins. "wall" is last and deliberately excludes
+# "wallback"/"wall_back" (this pack's blank REAR-panel material elsewhere,
+# per `gac_faces.py`'s own `BLANK_TOKENS`; it has not been seen on this
+# kit's single-mass bulkheads, but the substring is excluded anyway so a
+# future asset with one does not silently classify as concrete). "wall" ->
+# concrete is MEASURED, not guessed: see the module docstring's account of
+# `SM_Superior_Construction_01`/`_04` (brick-dominant) against `_02`/`_03`
+# (the identical bulkhead, the identical secondary materials, "wall"-
+# dominant instead of brick) — the same mapping `gac_props.py`'s
+# `_BUILDING_MATERIAL_FAMILY` independently derives for a BUILDING's own
+# cladding, from a completely different measurement (image texture names on
+# `_plans/gac_faces.json`, not bound-material names) agreeing with this one.
+_MATERIAL_FAMILY = (("brick", "brick"), ("concrete", "concrete"),
+                    ("glass", "glass"), ("metal", "metal"), ("wall", "concrete"))
+
+
+def _mat_source_name(mat_prim):
+    """The bound material's own asset basename, read off `info:unreal:
+    sourceAsset` wherever it is set inside the material's prim subtree —
+    this pack's Unreal-sourced materials carry it directly there (e.g.
+    `/Game/.../M_Bricks_Superior_Construction_Inst.M_Bricks_Superior_
+    Construction_Inst`; take the asset-path component before the final `.`,
+    then its basename). NOT the diffuseColor -> texture-file chain
+    `gac_faces.py` uses for a building: that chain returned nothing for
+    every subset tried here (probed directly, on this exact pack, before
+    writing this — the connection exists in the shading graph but did not
+    resolve through `UsdShade.Shader(...).GetInput("file").Get()` the way it
+    does for a building's own materials), while `info:unreal:sourceAsset` is
+    unambiguous, always present, and IS the artist's own name for the
+    material — better evidence than an image basename would be anyway. A
+    roof house is also one boxy mass with no front/back elevations to
+    reason about the way a building has, so there is no per-side logic to
+    port from `gac_faces.py` in the first place — only "which material
+    covers the most of it"."""
+    for c in Usd.PrimRange(mat_prim):
+        attr = c.GetAttribute("info:unreal:sourceAsset")
+        if attr and attr.IsValid():
+            v = attr.Get()
+            if v:
+                return str(v).split(".")[0].rsplit("/", 1)[-1]
+    return None
+
+
+def _classify_material(stage, S):
+    """(material, evidence_m2) for a `roof_house` asset — the dominant bound
+    material FAMILY by triangle area (`brick`/`concrete`/`glass`/`metal`),
+    or `(None, {})` if nothing on it matches any family. `evidence_m2` is
+    {material_asset_name: area_m2} for every DISTINCT bound material found
+    (not yet collapsed into a family), largest first, in real square metres
+    (points scaled by *S* — this pack's own `metersPerUnit` — before the
+    cross product, same as `gac_faces.py`'s own per-triangle loop) — kept so
+    a reader can see exactly what areas produced the verdict without
+    re-running this. Which material has the plurality does not actually
+    depend on the scale (a uniform per-asset factor scales every triangle
+    the same way), but the evidence is reported in real units anyway since
+    it is meant to be read, not just compared.
+    """
+    by_name = {}
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdGeom.Mesh):
+            continue
+        me = UsdGeom.Mesh(prim)
+        pts = me.GetPointsAttr().Get()
+        if not pts:
+            continue
+        V = np.asarray(pts, dtype=np.float64) * S
+        counts = np.asarray(me.GetFaceVertexCountsAttr().Get() or [],
+                            dtype=np.int64)
+        if len(counts) == 0:
+            continue
+        idx = np.asarray(me.GetFaceVertexIndicesAttr().Get() or [],
+                         dtype=np.int64)
+        start = np.zeros(len(counts) + 1, dtype=np.int64)
+        np.cumsum(counts, out=start[1:])
+        subs = UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim))
+        sub_of = np.full(len(counts), -1, dtype=np.int64)
+        names = []
+        if subs:
+            for si, s in enumerate(subs):
+                fi = np.asarray(s.GetIndicesAttr().Get() or [], dtype=np.int64)
+                fi = fi[(fi >= 0) & (fi < len(counts))]
+                sub_of[fi] = si
+                mat, _ = UsdShade.MaterialBindingAPI(s.GetPrim()).ComputeBoundMaterial()
+                names.append(_mat_source_name(mat.GetPrim()) if mat else None)
+        else:
+            mat, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
+            names = [_mat_source_name(mat.GetPrim()) if mat else None]
+        for f in range(len(counts)):
+            b, c = start[f], counts[f]
+            if c < 3:
+                continue
+            # fan triangulation, same as `gac_faces.py`'s own per-face loop
+            for j in range(1, c - 1):
+                a0, a1, a2 = V[idx[b]], V[idx[b + j]], V[idx[b + j + 1]]
+                ar = 0.5 * float(np.linalg.norm(np.cross(a1 - a0, a2 - a0)))
+                si = sub_of[f] if subs else 0
+                nm = names[si] if 0 <= si < len(names) else None
+                by_name[nm] = by_name.get(nm, 0.0) + ar
+
+    fam = {"brick": 0.0, "concrete": 0.0, "glass": 0.0, "metal": 0.0}
+    for nm, area in by_name.items():
+        n = (nm or "").lower()
+        for token, family in _MATERIAL_FAMILY:
+            if token == "wall" and ("wallback" in n or "wall_back" in n):
+                continue
+            if token in n:
+                fam[family] += area
+                break
+    material = max(fam, key=fam.get) if any(fam.values()) else None
+    evidence = {nm: round(ar, 1) for nm, ar in
+               sorted(by_name.items(), key=lambda kv: -kv[1]) if nm}
+    return material, evidence
 
 
 def _bbox_bounds(stage):
@@ -172,11 +305,20 @@ def main():
                    # carries full `omniverse://` URLs for exactly this reason.
                    "usd": ROOT + nm + ".usd",
                    "points": npts, **pts_d}
+            mat_flag = ""
+            if kind == "roof_house":
+                # a property of the ASSET, same as `kind` itself (see module
+                # docstring) — measured once here, not re-derived at
+                # placement time the way a building's cladding is.
+                material, evidence = _classify_material(st, S)
+                rec["material"] = material
+                rec["material_evidence_m2"] = evidence
+                mat_flag = "  material=%s" % (material or "?")
             out.append(rec)
             flag = "  <-- %+.3f vs bbox" % dz if bbox_d and abs(dz) > 0.02 else ""
-            print("%-14s %-30s %6.2f x %6.2f x %6.2f m  base z %7.3f  %6dk pts%s"
+            print("%-14s %-30s %6.2f x %6.2f x %6.2f m  base z %7.3f  %6dk pts%s%s"
                   % (kind, nm, rec["W"], rec["D"], rec["H"], rec["z0"],
-                     npts // 1000, flag), flush=True)
+                     npts // 1000, flag, mat_flag), flush=True)
     json.dump(out, open(os.path.normpath(OUT), "w"), indent=1)
     print("\n%d props in %.0f s -> %s" % (len(out), time.time()-t0,
                                           os.path.normpath(OUT)))

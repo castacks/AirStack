@@ -51,7 +51,7 @@ THE TWO POPULATIONS
 1. KIT MODULES.  The 16 styles the earthquake pipeline bakes are not single
    assets: `detail/urban_building.build_building` assembles each one out of
    Nucleus kit pieces (SM_MBuilding*, SM_build_b_*, SM_SetGoverment_*).  The
-   BAKED archetype (`assets/archetypes_quake/bld_<style>_DG0.usd`) is flattened
+   BAKED archetype (`assets/archetype/bld_<style>_DG0.usd`) is flattened
    and its prims are renamed `LOD0_37`, so the module identity is gone there —
    measuring the archetype tells you the total but never WHICH piece is the
    shell.  So the modules are measured ONE BY ONE at their source URLs and
@@ -616,7 +616,7 @@ def population_kit():
 # ===========================================================================
 # POPULATION 1b — the flattened DG0 archetypes (what the fracture code sees)
 # ===========================================================================
-ARCH_DIR = os.path.join(SCENE_GEN, "assets", "archetypes_quake")
+ARCH_DIR = os.path.join(SCENE_GEN, "assets", "archetype")
 
 
 def population_archetypes():

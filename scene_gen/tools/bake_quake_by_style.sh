@@ -25,7 +25,7 @@ if [ ${#STYLES[@]} -eq 0 ]; then
           apartment_tall apartment_long walkup brownstone_row commercial_mid
           department_store dw_terrace civic_offices highrise_04)
 fi
-ARCH_DIR=${ARCH_DIR:-/isaac-sim/AirStack/scene_gen/assets/archetypes_quake}
+ARCH_DIR=${ARCH_DIR:-/isaac-sim/AirStack/omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype}
 ARCH_GRADES=${ARCH_GRADES:-DG0,DG1,DG2,DG3,DG4,DG5,SETTLE,TILT,OV}
 LOG=${LOG:-/tmp/quake_bake_by_style.log}   # NOT under ~/docker/isaac-sim/logs: that dir is root-owned
 KITLOG='D="/isaac-sim/kit/logs/Kit/Isaac-Sim Python/5.1"; F="$D/$(ls -t "$D" | head -1)"; echo "$F"'

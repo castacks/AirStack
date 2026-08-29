@@ -88,6 +88,19 @@ overrides:
     # `roof_flatness.py` does not catch this: it measures the share of
     # upward-facing area within 1.5 m of the asset's own max Z, and a big flat
     # crown ON TOP of a setback still scores well. Judged by eye, recorded here.
+    # A ROOF HOUSE MUST BE CLAD LIKE THE BUILDING IT STANDS ON — brick on
+    # brick, concrete on concrete (user, 2026-08-29, said it twice: "brick
+    # doesn't go with concrete"). MEASURED per asset off `info:unreal:
+    # sourceAsset` on each bound material, area-weighted: 01 and 04 are 35-36%
+    # `M_Bricks_Superior_Construction_Inst`, 02 and 03 are the identical mesh
+    # carrying `M_Wall_...` (this pack's precast skin) instead, Glass_Roof is
+    # 100% glass. The building's own cladding comes from the dominant texture
+    # on its `front` elevation in `_plans/gac_faces.json`.
+    #
+    # A building with no matching bulkhead gets NO bulkhead — a bare roof
+    # beats a brick hut on a concrete tower. Measured: 3 of 8 roof houses were
+    # mismatched before this, 0 of 9 after.
+    roof_house_match_material: true
     no_roof_props: ["SM_Building_31", "SM_Building_16"]
   # ROAD ASPHALT, matched to the suburb wildfire scene: the local megascans
   # asphalt swatch instead of shared.yaml's Nucleus MI_Asphalt. `apply_ground_planes`

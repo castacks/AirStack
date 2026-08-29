@@ -46,7 +46,7 @@ DST = os.path.join(PRESETS, "downtown_gac_probe.yaml")
 #     6 blocks -> 11/11
 # Re-run the sweep if the pool or the tall-separation knobs change; fewer
 # towers per block means more blocks are needed for the same coverage.
-PROBE = {"brick_midrise": 3, "highrise": 5}
+PROBE = {"brick_midrise": 3, "highrise": 7}
 
 HEADER = '''# GENERATED FILE — DO NOT EDIT.
 #     python3 scene_gen/tools/make_probe_preset.py

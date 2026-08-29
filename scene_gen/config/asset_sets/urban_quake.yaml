@@ -5,7 +5,7 @@
 # debris pools come across unchanged. Only the BUILDING pools are replaced,
 # and they are replaced with the PRISTINE (DG0) bakes of `detail/
 # urban_building.py`'s kit styles — `bake_quake_archetypes_launch_script.py`
-# writes them to `scene_gen/assets/archetypes_quake/`. The layout packs these
+# writes them to `omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/`. The layout packs these
 # by their measured footprint exactly as it packs any other building; the
 # earthquake pass (`disaster/quake.assemble`) then re-points each reference at
 # the damaged bake of the grade the field assigns.
@@ -33,38 +33,38 @@ usds:
     # build_city's first pack, before districts rezone. Mid-rise, so a
     # region too small for rings (< min_region_m) still gets a sane mix.
     intact:
-      - "airstack://scene_gen/assets/archetypes_quake/bld_apartment_DG0.usd"        # 22 x 17, 18 m, stone URM
-      - "airstack://scene_gen/assets/archetypes_quake/bld_office_DG0.usd"           # 32 x 16, 19 m, RC frame
-      - "airstack://scene_gen/assets/archetypes_quake/bld_brownstone_DG0.usd"       # 22 x 14, 14 m, brownstone URM
-      - "airstack://scene_gen/assets/archetypes_quake/bld_commercial_DG0.usd"       # 22 x 18, 20 m, brick URM
-      - "airstack://scene_gen/assets/archetypes_quake/bld_office_plain_DG0.usd"     # 32 x 24, 25 m, RC
-      - "airstack://scene_gen/assets/archetypes_quake/bld_walkup_DG0.usd"           # 22 x 18, 23 m, brownstone URM
-      - "airstack://scene_gen/assets/archetypes_quake/bld_dw_terrace_DG0.usd"       # 25 x 15, 18 m, storefront URM
-      - "airstack://scene_gen/assets/archetypes_quake/bld_civic_offices_DG0.usd"    # 30 x 20, 13 m, RC
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_DG0.usd"        # 22 x 17, 18 m, stone URM
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_DG0.usd"           # 32 x 16, 19 m, RC frame
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_DG0.usd"       # 22 x 14, 14 m, brownstone URM
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_DG0.usd"       # 22 x 18, 20 m, brick URM
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_plain_DG0.usd"     # 32 x 24, 25 m, RC
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_walkup_DG0.usd"           # 22 x 18, 23 m, brownstone URM
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_dw_terrace_DG0.usd"       # 25 x 15, 18 m, storefront URM
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_civic_offices_DG0.usd"    # 30 x 20, 13 m, RC
 
     midrise:
-      - "airstack://scene_gen/assets/archetypes_quake/bld_apartment_DG0.usd"
-      - "airstack://scene_gen/assets/archetypes_quake/bld_office_DG0.usd"
-      - "airstack://scene_gen/assets/archetypes_quake/bld_brownstone_DG0.usd"
-      - "airstack://scene_gen/assets/archetypes_quake/bld_commercial_DG0.usd"
-      - "airstack://scene_gen/assets/archetypes_quake/bld_office_wide_DG0.usd"      # 40 x 24, 22 m
-      - "airstack://scene_gen/assets/archetypes_quake/bld_office_plain_DG0.usd"
-      - "airstack://scene_gen/assets/archetypes_quake/bld_apartment_long_DG0.usd"   # 42 x 12, 21 m
-      - "airstack://scene_gen/assets/archetypes_quake/bld_walkup_DG0.usd"
-      - "airstack://scene_gen/assets/archetypes_quake/bld_brownstone_row_DG0.usd"   # 38 x 14, 17 m
-      - "airstack://scene_gen/assets/archetypes_quake/bld_commercial_mid_DG0.usd"   # 30 x 18, 26 m
-      - "airstack://scene_gen/assets/archetypes_quake/bld_department_store_DG0.usd" # 42 x 30, 17 m
-      - "airstack://scene_gen/assets/archetypes_quake/bld_dw_terrace_DG0.usd"
-      - "airstack://scene_gen/assets/archetypes_quake/bld_civic_offices_DG0.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_DG0.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_DG0.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_DG0.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_DG0.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_wide_DG0.usd"      # 40 x 24, 22 m
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_plain_DG0.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_long_DG0.usd"   # 42 x 12, 21 m
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_walkup_DG0.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_row_DG0.usd"   # 38 x 14, 17 m
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_mid_DG0.usd"   # 30 x 18, 26 m
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_department_store_DG0.usd" # 42 x 30, 17 m
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_dw_terrace_DG0.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_civic_offices_DG0.usd"
 
     tower:
-      - "airstack://scene_gen/assets/archetypes_quake/bld_tower_DG0.usd"            # 25 x 20, 43 m, podium + glass
-      - "airstack://scene_gen/assets/archetypes_quake/bld_highrise_04_DG0.usd"      # 22 x 18, 41 m, brick
-      - "airstack://scene_gen/assets/archetypes_quake/bld_apartment_tall_DG0.usd"   # 27 x 17, 33 m, stone
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_tower_DG0.usd"            # 25 x 20, 43 m, podium + glass
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_highrise_04_DG0.usd"      # 22 x 18, 41 m, brick
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_tall_DG0.usd"   # 27 x 17, 33 m, stone
 
     # The terrace morphology assumes ~21 m-deep party-wall units; the kit
     # has none, so the earthquake preset zeroes the rowhouse mix and this
     # pool only exists so a stray rowhouse draw cannot come up empty.
     rowhouse:
-      - "airstack://scene_gen/assets/archetypes_quake/bld_brownstone_row_DG0.usd"
-      - "airstack://scene_gen/assets/archetypes_quake/bld_dw_terrace_DG0.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_row_DG0.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_dw_terrace_DG0.usd"

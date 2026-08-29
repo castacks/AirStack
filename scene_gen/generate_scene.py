@@ -324,8 +324,12 @@ def generate_scene_on_stage(stage,
                        and r[2] <= b[2] and r[3] <= b[3]
                        for b in park_rects)]
 
+    # `placements` is passed so the PLAZA pass can see the towers it has to
+    # compose around — it is the only consumer, and it reads the list after
+    # `districts.remap_buildings` has rebuilt every block, so the footprints
+    # are the ones actually standing. Every other category ignores it.
     detail = city_detail.build(
-        config, layout, resolver, rng,
+        config, layout, resolver, rng, placements=placements,
         district_of=districts.block_lookup(district_at) if rings else None)
     detail += city_detail.build_road_surface(config, layout, resolver, rng)
 
