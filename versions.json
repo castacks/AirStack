@@ -6,8 +6,9 @@
   },
   {
     "version": "0.20",
-    "title": "0.20.2",
+    "title": "0.20.3",
     "aliases": [
+      "main",
       "latest"
     ]
   },
