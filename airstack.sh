@@ -2328,17 +2328,8 @@ function register_builtin_commands {
     # Register help text for built-in commands
     COMMAND_HELP["install"]="Install dependencies (Docker Engine, NVIDIA Container Toolkit)"
     COMMAND_HELP["setup"]="Configure AirStack settings and add to shell profile"
-<<<<<<< HEAD
-    COMMAND_HELP["image-build"]="Build or rebuild Docker Compose service images"
-    COMMAND_HELP["image-push"]="Push Docker Compose service images to a registry"
-    COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
-    COMMAND_HELP["images"]="List Docker images filtered by PROJECT_NAME from .env"
-    COMMAND_HELP["image-delete"]="Delete all Docker images matching PROJECT_NAME (prompts unless -y)"
-    COMMAND_HELP["up"]="Start services [--sim isaac|airsim] [--robots N] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run] [--config-only]"
-=======
     COMMAND_HELP["images"]="Manage Docker Compose service images: list (default)|build|push|pull|delete|rm (see 'airstack help images')"
-    COMMAND_HELP["up"]="Start services [--sim isaac|airsim|simple] [--robots N] [--stack NAME] [--fleet NAME] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run]"
->>>>>>> origin/develop
+    COMMAND_HELP["up"]="Start services [--sim isaac|airsim|simple] [--robots N] [--stack NAME] [--fleet NAME] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run] [--config-only]"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["clean"]="Remove all ROS 2 build artifacts (build/, install/, log/)"
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"

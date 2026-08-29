@@ -32,8 +32,8 @@ security model. It is aimed at maintainers of the pipeline itself.
 | Where do CI jobs run? | Python unit tests: `ubuntu-latest`. Build and simulation tests: a fresh OSMO GPU pod, destroyed afterward. |
 | What triggers a run? | PR open/update/reopen runs unit + package-build gates; maintainers select simulations with `/pytest`; `workflow_dispatch` is also available. |
 | What gets tested? | Automatically: Python units/contracts and ROS package builds/tests. Selectably: Docker builds, liveliness, sensors, and flight policies. (OptiTrack system tests live in the asm_optitrack module's CI.) |
-| How do I see results? | Checks plus a report comment and `test-results-*` artifact (`summary.txt`, `results.xml`, `run_meta.json`, `metrics.json`). |
-| What fails the build? | Any failed test, or a comparable simulation metric regressing more than 20%. Invalid/incomplete campaigns are labeled, not scored as policy failures. |
+| How do I see results? | Checks plus a report comment and `test-results-*` artifact (`summary.txt`, `results.xml`, `run_meta.json`, `metrics.json`, and bounded failure diagnostics when needed). |
+| What fails the build? | Test assertions, infrastructure/prerequisite failures, or report integrity failures. Comparable numeric metric deltas are advisory. |
 | Who holds the secrets? | Only the orchestrator host. Workers get a single-use JIT token valid for one registration. |
 
 ---
@@ -281,170 +281,6 @@ Manual dispatch accepts `force_rebuild=true` to rebuild and relabel everything
 
 ---
 
-<<<<<<< HEAD
-## What the pipeline tests, and what that catches
-
-Tests are selected with pytest marks. Collection order is fixed in
-`tests/conftest.py` so cheap and prerequisite suites always run first — a
-`colcon` break fails in minutes instead of after a sim bring-up.
-
-```mermaid
-flowchart LR
-  u["unit<br/>seconds, no Docker"] --> bd["build_docker<br/>image builds"]
-  bd --> bp["build_packages<br/>colcon build in containers"]
-  bp --> lv["liveliness<br/>stack comes up"]
-  lv --> sn["sensors<br/>streams flow at rate"]
-  sn --> th["takeoff_hover_land<br/>flight chain"]
-  th --> au["autonomy<br/>trajectory tracking"]
-```
-
-| Mark | Module | What it verifies | Bugs it is good at catching |
-|---|---|---|---|
-| `unit` | `<pkg>/test/` (co-located) | Hermetic Python/numpy logic co-located with each ROS 2 package | Off-by-one and boundary errors in filters, converters, validators; regressions in pure algorithm code |
-| `build_docker` | `system/test_build_docker.py` | Every image builds; records image sizes | Broken Dockerfiles, deleted apt packages, upstream base-image drift, accidental image bloat |
-| `build_packages` | `system/test_build_packages.py` | `colcon build` inside robot, GCS, and ms-airsim workspaces | Missing `package.xml` dependencies, uninstalled launch/config files, C++ breakage on a clean tree |
-| `liveliness` | `system/test_liveliness.py` | Containers reach Running, `/clock` publishes, tmux panes alive, sentinel ROS 2 nodes present, compute snapshot, stability poll | Launch files that crash on start, nodes that die after 30 s, `ROBOT_NAME`/domain-ID misconfiguration, runaway CPU or memory |
-| `sensors` | `system/test_sensors.py` | Stereo and depth publish rates on both sim and robot side, filtered LiDAR liveness plus geometry sanity, sim real-time factor, time-series stability | Broken sim-to-ROS bridges, sensor Hz that silently halves, RTF collapse from a heavy new node, LiDAR filter range regressions |
-| `takeoff_hover_land` | `system/test_takeoff_hover_land.py` | Four-phase chain per (sim, robots, iteration, velocity): PX4 ready → takeoff to 10 m → hover → land | Controller tuning regressions, altitude overshoot, hover drift, state-estimation bias against ground truth, PX4/MAVROS handshake breakage |
-| `autonomy` | `system/test_fixed_trajectory.py` | Same chain with a Circle / Figure8 / Racetrack / Line pattern in the middle; records cross-track error and path RMSE | Path-tracker regressions, trajectory-library math errors, velocity/acceleration limit violations that show up as corner-cutting |
-
-### The flight chain
-
-Both flight suites run as an ordered chain per parametrization, so the drone
-always ends on the ground before the next configuration starts:
-
-```mermaid
-flowchart LR
-  r["test_px4_ready<br/>MAVROS + EKF"] --> t["test_takeoff<br/>within 10% of 10 m"]
-  t --> x["test_hover or test_fixed_trajectory"]
-  x --> l["test_landing<br/>final altitude < 0.5 m"]
-  r -. "failure" .-> s["remaining phases skipped"]
-  t -. "failure" .-> s
-  x -. "failure still lands" .-> l
-```
-
-A failure in the middle phase (`test_hover` or `test_fixed_trajectory`) does
-**not** skip landing — a bad tracker must not leave a drone stuck in the air
-blocking the rest of the sweep. A failure in `test_px4_ready` or `test_takeoff`
-does skip the remaining phases for that configuration.
-
-### Bring-up scope, and why mark selection costs money
-
-`airstack_env` is **class-scoped** and parametrized over
-`(sim, num_robots, iteration)`. Each test class does its own `airstack up` and
-`airstack down`. Selecting two suites with `or` therefore performs **two full
-stack cycles per tuple**:
-
-```text
--m liveliness                  → 1 bring-up per (sim, robots, iter)
--m "liveliness or sensors"     → 2 bring-ups per (sim, robots, iter)
---sim msairsim                 → opt in; both sims doubles all of the above
---num-robots 1,3               → doubles it again
-```
-
-Run one mark at a time unless you genuinely need both.
-
----
-
-## Reading the results
-
-### The PR comment
-
-After `run-tests` finishes — pass or fail — a `report` job on `ubuntu-latest`
-downloads the current artifact plus a **baseline** artifact and runs
-[`parse_metrics.py`](https://github.com/castacks/AirStack/blob/main/tests/parse_metrics.py)
-in diff mode only after selecting the newest completed artifact with the same
-simulation campaign fingerprint (normalized selected tests and all relevant
-CLI/configuration parameters).
-
-| Run type | Baseline used |
-|---|---|
-| PR opened or `/pytest` | Latest `system-tests.yml` artifact on the PR's base branch |
-| `workflow_dispatch` with `baseline_run_id` | That specific run |
-| `workflow_dispatch` without it | Latest artifact on `main` |
-
-For a complete simulation campaign, the comment has pass rates plus a flat
-**Metrics** table, a **Sim publishing rates** pivot (topic Hz aggregates from
-the `sensors` mark), and a **Compute usage** pivot (CPU / memory / GPU per
-container). Regressions are marked with a red circle, improvements with a
-green one, and the job **fails** if any comparable metric moves more than the
-20% display threshold in the wrong direction. These numeric deltas are advisory:
-they inform review but do not fail the PR.
-
-`run_meta.json` separates those policy results from CI failures. A collection
-error, zero-test selection, internal pytest error, cancellation, or timeout is
-reported as **simulation metrics are not comparable**. Pass-rate and regression
-tables are suppressed in that case; the infrastructure problem cannot appear as
-a false 0% policy score. A policy assertion that runs and fails remains a real
-simulation result and keeps its recorded error metrics.
-
-### The artifact
-
-`test-results-<sha>-<run_id>`, retained 90 days:
-
-```text
-tests/results/2026-08-06_14-30-00/
-├── summary.txt    # human-readable per-chain summary — open this first
-├── results.xml    # JUnit XML: durations, pass/fail per test
-├── run_meta.json  # schema-v2 completion/failure class + exact campaign config
-├── metrics.json   # every recorded metric, including time series
-└── diagnostics/   # on failure: bounded config, panes, logs, ROS/GPU/command ring
-```
-
-There are no per-test log files. Live output streams to the Actions log via
-pytest's `log_cli`, and failed assertions embed the tail of the relevant
-`docker` or `ros2` subprocess output directly in the failure message.
-
-Regenerate a report locally from a downloaded artifact:
-
-```bash
-python tests/parse_metrics.py \
-  --current  path/to/current-run/ \
-  --baseline path/to/baseline-run/ \
-  --threshold 20
-```
-
----
-
-## Using CI well while developing
-
-The pipeline is expensive at the far end and nearly free at the near end. Push
-each class of failure as far left as it will go.
-
-```mermaid
-flowchart TD
-  q{"What did you change?"}
-  q -- "Pure Python / numpy logic" --> u["airstack test -m unit<br/>seconds, no GPU"]
-  q -- "Dockerfile / dependency" --> b["airstack test -m build_docker or build_packages<br/>minutes, no GPU"]
-  q -- "Launch file / new node" --> l["airstack test -m liveliness --sim msairsim --num-robots 1"]
-  q -- "Sensor or bridge" --> s["airstack test -m sensors --sim isaacsim --num-robots 1"]
-  q -- "Controller / planner" --> a["airstack test -m autonomy --sim msairsim --trajectory-types Circle"]
-  u --> pr["Push branch, open PR"]
-  b --> pr
-  l --> pr
-  s --> pr
-  a --> pr
-  pr --> fast["unit-tests.yml on ubuntu-latest"]
-  pr --> ci["build_packages on an ephemeral OSMO pod"]
-  fast --> rep["Read automatic check results"]
-  ci --> rep
-  rep --> iter["/pytest with the relevant simulation mark"]
-  iter --> metrics["Read like-for-like policy metrics"]
-```
-
-Practical rules that follow from how the system is built:
-
-- **Reproduce CI locally with the same command.** `airstack test` and CI both call `pytest tests/` with the same flags. If a run fails in CI, copy the resolved command from the acknowledgment comment and run it on any GPU box — including an [interactive OSMO dev pod](../../../tutorials/airstack_on_osmo.md) if you do not have a local GPU.
-- **Narrow before you re-run.** A `/pytest` with no args re-runs everything. `/pytest -m autonomy --sim msairsim --trajectory-types Circle` re-runs the one chain you are fixing, in a fraction of the time.
-- **Never trust a green launch test against a stale build.** This is why `build_packages` is auto-prepended; keep it that way when writing your own `/pytest` line.
-- **Read `summary.txt` before the raw log.** It groups each flight chain with per-phase wall times and status, so the failing phase is obvious without scrolling a 40-minute log.
-- **Treat a like-for-like metrics diff as a review artifact.** The reporter compares only identical selected simulation campaigns; a PR that turns a metric red needs an explanation even when every assertion passed.
-- **Bump `VERSION` in `.env` when image content changes.** [`check-version-increment.yml`](https://github.com/castacks/AirStack/blob/main/.github/workflows/check-version-increment.yml) gates the PR on a strictly-greater semver, and merging that bump is what triggers the release build below.
-
----
-
-=======
->>>>>>> origin/develop
 ## The release path
 
 `system-tests.yml` is not the only workflow on the ephemeral runners.
@@ -548,7 +384,7 @@ Full runbook, including credential rotation and worker-side diagnostics:
 | [`.github/orchestrator/config.example.yaml`](../../../../.github/orchestrator/config.example.yaml) | Every tunable: pool, platform, resources, limits, poll intervals |
 | [`.github/orchestrator/setup.sh`](../../../../.github/orchestrator/setup.sh) | One-time orchestrator host install |
 | [`tests/conftest.py`](../../../../tests/conftest.py) | `airstack_env` fixture, collection order, `MetricsRecorder` |
-| [`tests/parse_metrics.py`](../../../../tests/parse_metrics.py) | Report generation and the regression gate |
+| [`tests/parse_metrics.py`](../../../../tests/parse_metrics.py) | Comparable advisory report generation and report-integrity gate |
 | [`tests/run_summary.py`](../../../../tests/run_summary.py) | `summary.txt` generation |
 
 ## See also

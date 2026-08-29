@@ -410,7 +410,7 @@ jobs:
           # what's still missing afterwards instead of aborting on the first
           # gap. `--progress=quiet` suppresses per-layer progress; errors
           # still surface on stderr.
-          ./airstack.sh --progress=quiet image-pull --ignore-pull-failures || true
+          ./airstack.sh --progress=quiet images pull --ignore-pull-failures || true
           while IFS= read -r img; do
             [[ -z "$img" || -n "${present_before[$img]:-}" ]] && continue
             if docker image inspect "$img" --format '{{.Id}}' >/dev/null 2>&1; then
@@ -452,20 +452,16 @@ jobs:
             echo "Images still missing after pull/retag:"
             printf '  - %s\n' "${missing[@]}"
             if [[ "$NO_IMAGE_BUILD" == "true" ]]; then
-              echo "::error::Pull-only mode (--no-image-build or -m build_packages) will not image-build. Run /pytest -m build_docker once, or omit --no-image-build."
-              exit 1
-            fi
-            echo "Falling back to image-build"
-            ./airstack.sh --progress=quiet image-build
-            built=("${missing[@]}")
-            image_outcome=locally-built
-=======
+              IMAGE_OUTCOME=missing IMAGE_RESULT="$image_result" \
+                MISSING_IMAGES="$(printf '%s\n' "${missing[@]}")" \
+                PYTHONPATH=tests python3 -m harness.image_prep "$image_result"
               echo "::error::Pull-only mode (--no-image-build or -m build_packages) will not run 'images build'. Run /pytest -m build_docker once, or omit --no-image-build."
               exit 1
             fi
             echo "Falling back to images build"
             ./airstack.sh --progress=quiet images build
->>>>>>> origin/develop
+            built=("${missing[@]}")
+            image_outcome=locally-built
           else
             echo "All required images present after pull/retag — skipping build."
           fi

@@ -142,8 +142,8 @@ For a complete simulation campaign, the comment has pass rates plus a flat
 **Metrics** table, a **Sim publishing rates** pivot (topic Hz aggregates from
 the `sensors` mark), and a **Compute usage** pivot (CPU / memory / GPU per
 container). Regressions are marked with a red circle, improvements with a
-green one, and the job **fails** if any comparable metric moves more than the
-20% threshold in the wrong direction.
+green one. These numeric deltas are advisory: they inform review but do not
+fail the PR.
 
 `run_meta.json` separates those policy results from CI failures. A collection
 error, zero-test selection, internal pytest error, cancellation, or timeout is
@@ -160,8 +160,9 @@ simulation result and keeps its recorded error metrics.
 tests/results/2026-08-06_14-30-00/
 ├── summary.txt    # human-readable per-chain summary — open this first
 ├── results.xml    # JUnit XML: durations, pass/fail per test
-├── run_meta.json  # completion state, pytest exit, selected/executed sim counts
-└── metrics.json   # every recorded metric, including time series
+├── run_meta.json  # schema-v2 completion/failure class + exact campaign config
+├── metrics.json   # every recorded metric, including time series
+└── diagnostics/   # on failure: bounded config, panes, logs, ROS/GPU/command ring
 ```
 
 There are no per-test log files. Live output streams to the Actions log via
@@ -226,7 +227,7 @@ The failures a CI *user* can act on from the GitHub side:
 | `system-tests.yml` never ran on a fork PR | Trigger guard | Expected: the `pull_request` path only runs for same-repo branches; only the `ubuntu-latest` unit gate runs on forks |
 | Runner registered, then pytest failed | Tests | A real test failure — the GitHub Actions log and `summary.txt` are canonical |
 | Report says “simulation metrics are not comparable” | Collection/infrastructure | Read the run outcome and pytest exit status in `run_meta.json`; no policy regression was scored |
-| Metrics report job failed with no test failures | Report | A like-for-like metric regressed past the 20% threshold, or report generation itself failed; read the report step log |
+| Metrics report job failed with no test failures | Report | Report generation or artifact integrity failed; numeric metric deltas are advisory and do not cause this conclusion |
 | Job sits `queued` forever, no runner appears | Orchestrator / pod | Not fixable from the PR — an admin needs to inspect the orchestrator and pod; see the [pipeline troubleshooting table](ci_cd.md#troubleshooting) |
 
 Orchestrator-, OSMO-, and pod-level failures (auth errors, `dockerd did not

@@ -142,31 +142,22 @@ Writes custom metrics to `tests/results/<timestamp>/metrics.json` after each `re
 
 ### Output files
 
-<<<<<<< HEAD
-Every test run produces a timestamped directory with the finalized results.
-Simulator/startup failures additionally create a bounded `diagnostics/` JSON
-bundle; full unbounded logs are never copied into the artifact.
-=======
 Every test run produces a timestamped directory containing `summary.txt`,
 `results.xml`, `run_meta.json`, and `metrics.json` (plus a `wiring/` subdirectory
-when the `wiring` mark runs) — there is **no** `logs/` subdirectory and no
-per-test log files are written under the run directory.
->>>>>>> origin/develop
+when the `wiring` mark runs, and a bounded `diagnostics/` JSON bundle on
+simulator/startup failures). There is **no** `logs/` subdirectory and no
+per-test log files are written under the run directory. Full unbounded logs
+are never copied into the artifact.
 
 ```
 tests/results/
 └── 2025-04-21_14-30-00/
     ├── summary.txt        # Human-readable key metrics — open this first
     ├── results.xml        # JUnit XML — test durations and pass/fail status
-<<<<<<< HEAD
     ├── run_meta.json      # Schema-v2 completion/failure class + exact campaign
     ├── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
-    └── diagnostics/       # On failure: config, panes, log tails, ROS/GPU/commands
-=======
-    ├── run_meta.json      # Completion/outcome and campaign fingerprint
-    ├── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
+    ├── diagnostics/       # On failure: config, panes, log tails, ROS/GPU/commands
     └── wiring/            # (wiring mark only) observed_<stack>.md graph snapshots
->>>>>>> origin/develop
 ```
 
 Live test output goes to the terminal (pytest `log_cli`). Diagnostics are
