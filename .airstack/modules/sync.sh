@@ -11,7 +11,8 @@
 #   3. run the module sync (modules.repos → modules/ → overlay → layer plan)
 #   4. fetch declared external stack repos into gitignored stacks/.external/
 #      <alias>/ (same vcs machinery as the module sync; pinned refs only)
-#   5. validate the declared fleet file (tools/fleet/resolve_fleet.py)
+#   5. validate the declared fleet file (tools/fleet/resolve_fleet.py) and
+#      the sim/release fields (release drift vs .env VERSION is a warning)
 #   6. write .airstack/generated/effective_sources.yaml — what this sync
 #      actually resolved
 #
@@ -223,6 +224,18 @@ PY
             ""|isaacsim|msairsim|none) ;;
             *) log_error "airstack.yaml sim: '${sim_sel}' (expected isaacsim | msairsim | none)"; errors=1;;
         esac
+        # release: is informational until registry release-set resolution
+        # lands (RFC #379 §7), but it names the release LINE this checkout
+        # tracks — warn (never fail) when .env VERSION has moved off it.
+        local release_line env_version
+        release_line="$(_sync_yaml_scalar release)"
+        env_version="$(_env_value VERSION "$PROJECT_ROOT/.env")"
+        if [ -n "$release_line" ] && [ -n "$env_version" ]; then
+            case "$env_version" in
+                "$release_line"|"$release_line".*|"$release_line"-*) ;;
+                *) log_warn "airstack.yaml release: '${release_line}' has drifted off .env VERSION '${env_version}' — update release: to the current line (informational only; nothing consumes it yet)." ;;
+            esac
+        fi
     fi
 
     # ── 6. record what this sync resolved ───────────────────────────────────

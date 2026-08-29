@@ -71,9 +71,14 @@ function cmd_config_nucleus {
             -e "s/^OMNI_PASS=.*$/OMNI_PASS=$escaped_api_token/" \
             "$OMNI_PASS_SOURCE" > "$OMNI_PASS_DESTINATION"
         log_info "Nucleus login configuration complete"
+    elif [ -f "$OMNI_PASS_DESTINATION" ]; then
+        # Blank input must actually skip: the file may hold a working API
+        # token, and overwriting it with the guest template would silently
+        # break Nucleus auth.
+        log_info "Skipping Nucleus login configuration (keeping existing $OMNI_PASS_DESTINATION)"
     else
         cp "$OMNI_PASS_SOURCE" "$OMNI_PASS_DESTINATION"
-        log_info "Skipping Nucleus login configuration"
+        log_info "Skipping Nucleus login configuration (created guest defaults)"
     fi
 }
 
@@ -105,16 +110,43 @@ function cmd_config_all {
     log_info "All configuration tasks complete"
 }
 
+# Dispatcher for the `config` command group. Bare `airstack config` keeps
+# its historical meaning: run all configuration tasks.
+function cmd_config_dispatch {
+    local sub="${1:-all}"
+    if [ $# -gt 0 ]; then shift; fi
+    case "$sub" in
+        all)       cmd_config_all "$@" ;;
+        isaac-sim) cmd_config_isaac_sim "$@" ;;
+        nucleus)   cmd_config_nucleus "$@" ;;
+        git-hooks) cmd_config_git_hooks "$@" ;;
+        help|-h|--help) print_command_help config ;;
+        *)
+            log_error "Unknown config subcommand: '$sub'"
+            print_command_help config
+            return 1
+            ;;
+    esac
+}
+
+# Legacy `config:<sub>` spellings — hidden from help, forward with a nudge.
+function _cmd_config_legacy {
+    local sub="$1"; shift
+    log_warn "'airstack config:${sub}' is deprecated; use 'airstack config ${sub}'."
+    cmd_config_dispatch "$sub" "$@"
+}
+
 # Register commands from this module
 function register_config_commands {
-    COMMANDS["config"]="cmd_config_all"
-    COMMANDS["config:isaac-sim"]="cmd_config_isaac_sim"
-    COMMANDS["config:nucleus"]="cmd_config_nucleus"
-    COMMANDS["config:git-hooks"]="cmd_config_git_hooks"
-    
-    # Add command help
-    COMMAND_HELP["config"]="Run all configuration tasks"
-    COMMAND_HELP["config:isaac-sim"]="Configure Isaac Sim settings"
-    COMMAND_HELP["config:nucleus"]="Configure AirLab Nucleus login"
-    COMMAND_HELP["config:git-hooks"]="Set up Git hooks"
+    COMMANDS["config"]="cmd_config_dispatch"
+    COMMAND_HELP["config"]="Configure AirStack: all (default)|isaac-sim|nucleus|git-hooks (see 'airstack help config')"
+
+    # Deprecated colon-form aliases (pre command-group syntax). Registered so
+    # old muscle memory / scripts keep working, but COMMAND_HIDDEN keeps them
+    # out of `airstack help` and `airstack commands`.
+    local sub
+    for sub in isaac-sim nucleus git-hooks; do
+        COMMANDS["config:${sub}"]="_cmd_config_legacy ${sub}"
+        COMMAND_HIDDEN["config:${sub}"]=1
+    done
 }

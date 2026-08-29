@@ -1,33 +1,23 @@
-# Git Hooks
+# Git Hooks (deprecated)
 
-This directory contains git hooks used in the AirStack repository.
+!!! warning "These hooks are obsolete — do not install them."
 
-## Available Hooks
+The docker-versioning pre-commit hook in this directory wrote the current git
+commit hash into the `.env` `VERSION` variable. That scheme has been replaced:
+`VERSION` must now be **valid semver, strictly greater than the base branch**,
+enforced by the `check-version-increment.yml` CI gate on every pull request.
+A hook-written commit hash fails that gate.
 
-### Docker Versioning Hook
+The supported flow is:
 
-The `update-docker-image-tag.pre-commit` hook automatically updates the `VERSION` in the `.env` file with the current git commit hash whenever Docker-related files (Dockerfile or docker-compose.yaml) are modified. It also adds a comment above the variable indicating that the value is auto-generated from the git commit hash.
+1. Bump `VERSION` in `.env` to the next semver value.
+2. Record the change in the versioned Release Notes
+   (`docs/release_notes/index.md`).
 
-This ensures that Docker images are always tagged with the exact commit they were built from, eliminating version conflicts between parallel branches.
+See the `bump-version-and-release` skill (`.agents/skills/bump-version-and-release`)
+for the full workflow.
 
-### Installation
-
-To install the hooks:
-
-1. Copy the hook to your local .git/hooks directory:
-   ```bash
-   cp git-hooks/docker-versioning/update-docker-image-tag.pre-commit .git/hooks/pre-commit
-   ```
-
-2. Make sure the hook file is executable:
-   ```bash
-   chmod +x .git/hooks/pre-commit
-   ```
-
-## How the Docker Versioning Hook Works
-
-1. When you commit changes, the hook checks if any Dockerfile or docker-compose.yaml files are being committed
-2. If Docker-related files are detected, it updates the VERSION in the .env file with the current git commit hash and adds a comment above the variable
-3. The modified .env file is automatically added to the commit
-
-This approach eliminates version conflicts between parallel branches by ensuring Docker images are tagged with the exact commit they were built from.
+> Note: `airstack config git-hooks` (and `airstack config all`) still installs
+> the old hook from this directory; until that CLI path is removed, avoid
+> running it. The hook script is kept only so existing installs can be
+> identified and removed (`rm .git/hooks/pre-commit`).

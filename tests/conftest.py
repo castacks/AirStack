@@ -291,7 +291,7 @@ def airstack_env(request):
                 "Required docker images not built locally:\n  - "
                 + "\n  - ".join(missing)
                 + "\nBuild them first, e.g. `airstack test -m build_docker` "
-                  "or `airstack image-build <service>`."
+                  "or `airstack images build <service>`."
             )
         logger.info("Shutting down any previously running stack")
         airstack_cmd("down", timeout=120, log_name=log)

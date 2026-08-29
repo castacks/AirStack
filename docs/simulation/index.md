@@ -43,8 +43,8 @@ Simulation components are launched via Docker Compose. Each simulator has its ow
 
 - **Launch command:** `airstack up --sim isaac` (or `airstack up isaac-sim` to start only the sim service)
 - **Main process:** The `command:` in docker-compose.yaml starts the simulator
-- **Scene selection (Isaac Sim):** the standalone launch script named by `ISAAC_SIM_SCRIPT_NAME` (in `.env`) defines the scene and drones; with `ISAAC_SIM_USE_STANDALONE=false`, `ISAAC_SIM_GUI` points at a USD file to open instead
-- **Auto-play:** Controlled by `PLAY_SIM_ON_START` (or `airstack up --play`)
+- **Scene selection:** `airstack up --scene <shortname>` picks the environment for whichever simulator is active — see [Simulation Scenes](scenes.md). The standalone launch script named by `ISAAC_SIM_SCRIPT_NAME` (in `.env`) defines the drones and honors the selected scene; with `ISAAC_SIM_USE_STANDALONE=false`, `ISAAC_SIM_GUI` points at a USD file to open instead
+- **Auto-play:** On by default — controlled by `PLAY_SIM_ON_START` (`airstack up --no-play` starts paused)
 
 **Example:**
 ```bash
@@ -74,7 +74,6 @@ Isaac Sim is our primary simulation platform, offering:
 
 - [Isaac Sim Overview](isaac_sim/index.md)
 - [Pegasus Scene Setup](isaac_sim/pegasus_scene_setup.md)
-- [Ascent SITL Extension](isaac_sim/ascent_sitl_extension.md)
 - [Export from Unreal Engine](isaac_sim/export_stages_from_unreal.md)
 
 ### Microsoft AirSim (legacy) (Unreal Engine)
@@ -157,7 +156,7 @@ Key environment variables for simulation (set in `.env` or at runtime):
 | `ISAAC_SIM_SCRIPT_NAME` | Standalone launch script (scene + drones) in `simulation/isaac-sim/launch_scripts/` | `example_one_px4_pegasus_launch_script.py` |
 | `ISAAC_SIM_USE_STANDALONE` | `true`: run the launch script; `false`: open the USD in `ISAAC_SIM_GUI` | `true` |
 | `ISAAC_SIM_GUI` | USD file to open when not using a standalone script | `simple_pegasus.scene.usd` |
-| `PLAY_SIM_ON_START` | Auto-start simulation | `false` |
+| `PLAY_SIM_ON_START` | Auto-start simulation | `true` |
 | `NUM_ROBOTS` | Number of robot containers (use `--robots` so the sim matches) | `1` |
 
 **Example:**
@@ -165,8 +164,8 @@ Key environment variables for simulation (set in `.env` or at runtime):
 # Custom launch script
 ISAAC_SIM_SCRIPT_NAME=my_custom_scene.py airstack up --sim isaac
 
-# Auto-play on start
-airstack up --sim isaac --play
+# Start paused (press Play in the sim window yourself)
+airstack up --sim isaac --no-play
 ```
 
 **Pre-built scenes:** Located in `simulation/isaac-sim/assets/scenes/` (e.g. `simple_pegasus.scene.usd`); standalone launch scripts in `simulation/isaac-sim/launch_scripts/` build scenes programmatically.

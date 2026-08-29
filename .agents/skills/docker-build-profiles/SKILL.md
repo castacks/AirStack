@@ -99,7 +99,7 @@ Guidance for agents when editing the repo
 Troubleshooting notes
 - YAML quirk: unquoted `3.10` may be parsed as float `3.1` — this changes path strings and breaks imports (e.g., `python3.1` instead of `python3.10`).
 - Jetson/L4T builds may require `network: host` during the build to avoid kernel iptables/raw table missing-module errors.
-- Jetson **`robot-l4t`** builds from **`robot-l4t-stack-base`** (`robot/docker/Dockerfile.l4t-stack-base`), not raw dustynv, so **`Dockerfile.robot` stays Ubuntu-shaped.** `airstack image-build --profile l4t robot-l4t` triggers **`robot-l4t-stack-base`** first (`airstack.sh`); bare `compose build robot-l4t` can still parallelize badly, so list stack-base explicitly if not using AirStack CLI.
+- Jetson **`robot-l4t`** builds from **`robot-l4t-stack-base`** (`robot/docker/Dockerfile.l4t-stack-base`), not raw dustynv, so **`Dockerfile.robot` stays Ubuntu-shaped.** `airstack images build --profile l4t robot-l4t` triggers **`robot-l4t-stack-base`** first (`airstack.sh`); bare `compose build robot-l4t` can still parallelize badly, so list stack-base explicitly if not using AirStack CLI.
 - **dustynv `/ros_entrypoint.sh` shadows the apt Jazzy runtime (mavros symbol-lookup crash).** The dustynv base sources a prebuilt *source* ROS at `$ROS_ROOT/install` from PID 1, prepending its older libs (e.g. `fastcdr` 2.2.5) ahead of the apt Jazzy (2.2.7) that `Dockerfile.robot` layers on top — apt-built nodes like mavros then die with symbol-lookup errors under tmux autolaunch. `Dockerfile.l4t-stack-base` neutralizes it by overwriting `/ros_entrypoint.sh` with a `exec "$@"` passthrough; shells get ROS from `/opt/ros/jazzy/setup.bash` via `.bashrc`. If a Jetson node suddenly can't resolve symbols after a base-image bump, check whether the entrypoint passthrough is still in place.
 - **ZED SDK version is pinned across `zed/Dockerfile.zed-l4t`** — the `ZED_SDK_URL` (e.g. `.../zedsdk/5.2/...`) and the ROS dep args (`ZED_MSGS_VERSION`, `POINTCLOUD_TRANSPORT*_VERSION`, `BACKWARD_ROS_VERSION`) must move together; a mismatched `zed_msgs` vs SDK breaks the driver build. Bumping the SDK is camera-firmware-coupled, so confirm the target camera runs that SDK line before merging.
 - **`pytest` is pinned in `Dockerfile.robot` — do not remove or bump past 8.0.** The builder stage installs `pytest==7.4.*` and a later `RUN` constrains `pytest>=7.4,<8.1`: ROS Jazzy's `launch_testing` still implements `pytest_pycollect_makemodule(path=...)`, which pluggy rejects after pytest 8.1 removed the `py.path` hook argument — an unpinned pytest aborts **every** pytest run in the container at plugin registration, breaking `colcon test` for `ament_python` packages while `ament_cmake` gtest packages are unaffected. The `tests/docker` runner is a separate interpreter and is free to use a newer pytest.
@@ -117,7 +117,7 @@ SKILL vs human docs
 
 - Keep SKILLs low-level and exact: this file contains raw `docker` commands and copyable build-time snippets intended for agents and automation.
 - Keep human-facing docs (`docs/`) showing the `airstack` CLI equivalents and higher-level workflows. This reduces cognitive load for maintainers while preserving exact commands in SKILLs for automation and debugging.
-- For the robot profile, human docs should prefer `airstack image-build --target builder --progress=plain <service>` when showing how to inspect build output.
+- For the robot profile, human docs should prefer `airstack images build --target builder --progress=plain <service>` when showing how to inspect build output.
 
 Creating a new profile (step-by-step)
 
@@ -160,7 +160,7 @@ This section shows the minimal, recommended steps an agent or maintainer should 
 
 5. Smoke-run the full compose build (optional but recommended)
 
-  - Use `airstack image-build robot-myboard` (or `docker compose -f robot/docker/docker-compose.yaml build robot-myboard`) to ensure compose passes the args correctly.
+  - Use `airstack images build robot-myboard` (or `docker compose -f robot/docker/docker-compose.yaml build robot-myboard`) to ensure compose passes the args correctly.
 
 6. Prepare the PR with clear validation notes
 

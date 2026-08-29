@@ -51,3 +51,20 @@ jobs:
           git config --global user.email "docs.deploy@example.co.uk"
       - name: Build Docs Website
         run: mike deploy --push --update-aliases ${{ github.event.release.tag_name }} latest
+      # mike re-sorts versions.json on every deploy ("main" sorts above
+      # "develop"), so pin develop — the higher, unreleased version — back
+      # to the top of the version selector after each deploy. Guarded:
+      # the script may be absent on release tags cut before it existed.
+      - name: Reorder version selector (develop above main)
+        run: |
+          if [ ! -f .github/workflows/scripts/docs_reorder_versions.py ]; then
+            echo "skipped: docs_reorder_versions.py not on this tag"
+            exit 0
+          fi
+          git worktree add ../ghp-reorder gh-pages
+          python3 .github/workflows/scripts/docs_reorder_versions.py ../ghp-reorder/versions.json
+          if ! git -C ../ghp-reorder diff --quiet -- versions.json; then
+            git -C ../ghp-reorder commit -m "Reorder version selector: develop above main" versions.json
+            git push origin gh-pages
+          fi
+          git worktree remove ../ghp-reorder

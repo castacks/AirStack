@@ -82,10 +82,10 @@ canonical launch file; the stack entry file is the single wiring locus.
 airstack up robot-desktop
 
 # Start without auto-launch (for development)
-AUTOLAUNCH=false airstack up robot-desktop
+airstack up robot-desktop --no-autolaunch
 
 # Multiple robots
-NUM_ROBOTS=3 airstack up robot-desktop
+airstack up robot-desktop --robots 3
 
 # Different platforms (profiles)
 airstack up --profile l4t        # NVIDIA Jetson
@@ -100,19 +100,19 @@ airstack up --profile voxl       # ModalAI VOXL
 
 ## Common Topics
 
-Standard ROS 2 topics used across the autonomy stack:
+The canonical topic/service/action names, message types, and QoS profiles for every interchange point live in the versioned [Interface Conventions Specification](autonomy/interface_conventions.md). A few examples (types per the spec):
 
-| Topic | Type | Description |
+| Topic (example) | Type | Description |
 |-------|------|-------------|
-| `/$ROBOT_NAME/odometry` | [nav_msgs/Odometry](https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Odometry.html) | Best estimate of robot state |
-| `/$ROBOT_NAME/global_plan` | [nav_msgs/Path](https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Path.html) | Target global trajectory |
-| `/$ROBOT_NAME/trajectory_controller/trajectory_override` | airstack_msgs/TrajectoryXYZVYaw | Direct trajectory commands |
-| `/$ROBOT_NAME/trajectory_controller/look_ahead` | airstack_msgs/Odometry | Look-ahead point for planning |
+| `/$ROBOT_NAME/odometry_conversion/odometry` | [nav_msgs/msg/Odometry](https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Odometry.html) | Primary state estimate |
+| `/$ROBOT_NAME/global_plan` | [nav_msgs/msg/Path](https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Path.html) | Global waypoint path |
+| `/$ROBOT_NAME/trajectory_controller/trajectory_override` | airstack_msgs/msg/TrajectoryXYZVYaw | Direct trajectory commands |
 
 **See also:**
 
+- [Interface Conventions Specification](autonomy/interface_conventions.md) - The full topic/service/action reference
 - [System Architecture](autonomy/system_architecture.md) - Complete data flow diagrams
-- [Integration Checklist](autonomy/integration_checklist.md) - Full topic reference
+- [Integration Checklist](autonomy/integration_checklist.md) - Step-by-step module integration
 
 ## Next Steps
 

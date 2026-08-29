@@ -42,7 +42,7 @@ robot_base  (robot-base-docker-compose.yaml)
 | **ROS workspace** | `common/ros_packages` is mounted into the ROS 2 workspace `src/common` |
 | **Shell config** | `.bashrc` and `inputrc` are bind-mounted so the developer experience is consistent across rebuilds |
 | **Bags** | `robot/bags/` is mounted at `/bags` for recording and playback |
-| **Launch variables** | All `*_LAUNCH_PACKAGE` / `*_LAUNCH_FILE` environment variables are forwarded from the host `.env` file |
+| **Launch variables** | `LAUNCH_PACKAGE` is set per service in the compose files; the launch file is `robot.launch.xml` (hardcoded in the compose command) |
 
 ## Platform Profiles
 
@@ -55,7 +55,7 @@ Select a profile by passing `--profile <name>` to `docker compose` (or via the `
 This is the DEFAULT profile as specified by `COMPOSE_PROFILES=desktop` in the root level `.env` file. It will run by default if no profile is passed or with `airstack up --profile desktop`. Use this profile when developing or running simulations on an x86-64 Linux workstation.
 
 - **Image:** `...:v<TAG>_robot-x86-64_<MODE>`
-- **Base image:** `nvidia/cuda:13.0.2-base-ubuntu22.04`
+- **Base image:** `nvidia/cuda:13.0.2-base-ubuntu24.04`
 - **Network:** isolated `airstack_network` bridge (prevents conflicts with other developers on the same LAN)
 - **SSH:** host ports `2223–2243` forwarded to port `22` in each container, one port per robot replica
 - **Scaling:** `NUM_ROBOTS` env var controls the number of replicas (default: 1)
@@ -71,7 +71,7 @@ Runs with `airstack up --profile simple`. Extends `desktop` with `SIM_TYPE=simpl
 Runs with `airstack up --profile voxl` (service `robot-voxl-onboard`). Use this profile when deploying on a ModalAI VOXL flight computer.
 
 - **Image:** `...:v<TAG>_robot-voxl_<MODE>`
-- **Base image:** `ubuntu:22.04` (no CUDA; VOXL has its own compute stack)
+- **Base image:** `ubuntu:24.04` (no CUDA; VOXL has its own compute stack)
 - **Skipped components:** OpenVDB (MAC-VO and TensorRT are not part of any trunk robot image — they arrive via the `asm_macvo` module's `Dockerfile.module`)
 - **Network:** `host` (relies on the physical network for DDS discovery)
 - **Robot identity:** derived from the device hostname → `ROBOT_NAME_SOURCE=hostname`
@@ -81,7 +81,7 @@ Runs with `airstack up --profile voxl` (service `robot-voxl-onboard`). Use this 
 Runs with `airstack up --profile l4t`. Use this profile when deploying on an NVIDIA Jetson device running L4T.
 
 - **Image:** `...:v<TAG>_robot-l4t_<MODE>`
-- **Base image:** `nvcr.io/nvidia/l4t-jetpack:r36.4.0`
+- **Base image:** `dustynv/ros:jazzy-ros-base-r36.4.0-cu128-24.04` (via `Dockerfile.l4t-stack-base`)
 - **Network:** `host`
 - **IPC:** `host` (needed for shared-memory DDS transports on Jetson)
 - **Storage:** `/media/airlab/Storage/airstack_collection` mounted at `/bags`
@@ -105,7 +105,7 @@ Key variables are set in the project's `.env` file and forwarded into the contai
 | `PROJECT_NAME` | Project / image name |
 | `NUM_ROBOTS` | Number of robot replicas (desktop only, default `1`) |
 | `AUTOLAUNCH` | Whether to auto-start the ROS 2 stack on container start (default `true`) |
-| `ROBOT_LAUNCH_PACKAGE` / `ROBOT_LAUNCH_FILE` | Top-level ROS 2 launch target |
+| `LAUNCH_PACKAGE` | Top-level ROS 2 launch package: `desktop_bringup` (adds RViz; desktop/sim) or `autonomy_bringup` (real robots / headless). The launch file is always `robot.launch.xml`, hardcoded in the compose command |
 | `OFFBOARD_BASE_PORT` / `ONBOARD_BASE_PORT` | MAVLink UDP port base values (desktop/sim only) |
 | `ROBOT_NAME_MAP_CONFIG_FILE` | YAML mapping config used to resolve a name to `ROBOT_NAME` and `ROS_DOMAIN_ID` (default: `default_robot_name_map.yaml`) |
 | `DEBUG_RVIZ` | If `true`, launches RViz alongside the robot via `desktop_bringup/robot.launch.xml` (default: `false`) |

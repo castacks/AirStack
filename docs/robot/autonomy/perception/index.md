@@ -23,9 +23,7 @@ ros2 launch perception_bringup topic_keepalive.launch.xml
 ## Key Topics
 
 ### Outputs
-- `/{robot_name}/odometry` - Best estimate of robot state (position, orientation, velocities)
-- `/{robot_name}/pose` - Current robot pose
-- `/{robot_name}/imu/data` - Processed IMU data
+- `/{robot_name}/odometry_conversion/odometry` (`nav_msgs/Odometry`) - Best estimate of robot state (position, orientation, velocities). This is the v1 canonical state topic — see [Interface Conventions §2](../interface_conventions.md); plain `/{robot_name}/odometry` is the intended v2 name.
 
 ### Inputs
 - Raw sensor data from sensors layer (cameras, IMU, GPS, depth sensors)

@@ -28,7 +28,7 @@ platform class  →  vehicle type   →  vehicle unit      →  robot instance  
 - **Vehicle type** — data: `config/vehicles/<name>/vehicle.yaml` (URDF,
   sensor suite with each sensor's real driver + sim representation declared
   together, sim asset). See
-  [config/vehicles/README.md](https://github.com/castacks/AirStack/tree/develop/config/vehicles).
+  [config/vehicles/README.md](../../config/vehicles/README.md).
 - **Vehicle unit** — one serial number's calibration, in the gitignored
   `config/local/calibration/<serial>/` overlay; a fleet entry binds it with
   `unit:` (exported as `CALIBRATION_DIR`).

@@ -27,6 +27,14 @@ Env vars honored by ``create_simulation_app`` (uniform across all scripts):
 
 Env vars honored by ``PegasusApp``:
  - ``PLAY_SIM_ON_START`` (default true): autoplay the timeline after setup.
+ - ``ISAAC_SIM_FOLLOW_CAM`` (default ``1``): domain id of the drone the
+   viewport follow-camera tracks; ``off``/``none``/``0`` disables it. The
+   follow-cam (``/World/follow_cam``) chases the drone with smoothing and
+   keeps it centered — the stock perspective camera often starts inside
+   geometry on cm-authored stages (black viewport), so the viewport is
+   switched to the follow-cam at startup.
+ - ``ISAAC_SIM_FOLLOW_CAM_OFFSET`` (default ``-5,-5,2.5``): world-frame
+   ``x,y,z`` offset (meters) from the tracked drone to the camera.
 """
 
 import os
@@ -176,13 +184,84 @@ def wait_for_stage(stage, timeout_s: float = 10.0):
     return False
 
 
-def row_spawn_configs(num_robots, spacing_m=2.0, z_m=0.07):
-    """Drone configs in a row along X, centered near the origin: -2, 0, 2, …"""
+def resolve_spawn_center_from_env(default=(0.0, 0.0)):
+    """Parse ISAAC_SIM_SPAWN_XY ("x,y" in meters) — where the spawn row is
+    centered. Useful for scenes whose origin is cluttered or unlit."""
+    raw = os.environ.get("ISAAC_SIM_SPAWN_XY", "").strip()
+    if not raw:
+        return default
+    try:
+        x, y = (float(v) for v in raw.split(","))
+        return (x, y)
+    except ValueError:
+        carb.log_warn(f"ISAAC_SIM_SPAWN_XY='{raw}' is not 'x,y' — using {default}.")
+        return default
+
+
+def row_spawn_configs(num_robots, spacing_m=2.0, z_m=0.07, center_xy=(0.0, 0.0)):
+    """Drone configs in a row along X, centered on ``center_xy``."""
+    cx, cy = center_xy
     configs = []
     for i in range(1, num_robots + 1):
-        init_x = spacing_m * (i - 1) - spacing_m * (num_robots - 1) / 2.0
-        configs.append({"domain_id": i, "x_m": init_x, "y_m": 0.0, "z_m": z_m})
+        init_x = cx + spacing_m * (i - 1) - spacing_m * (num_robots - 1) / 2.0
+        configs.append({"domain_id": i, "x_m": init_x, "y_m": cy, "z_m": z_m})
     return configs
+
+
+def resolve_scene_from_env(simulation_environments,
+                           default_key="Default Environment"):
+    """Resolve the ISAAC_SIM_SCENE / ISAAC_SIM_STAGE_SCALE env vars set by
+    `airstack up --scene <shortname>` (simulation/scenes.yaml).
+
+    Returns ``(env_url, stage_scale)``. ISAAC_SIM_SCENE may be a Pegasus
+    ``SIMULATION_ENVIRONMENTS`` key, or a USD reference (``omniverse://`` /
+    ``https://`` URL or ``*.usd*`` path) used verbatim. Unset → ``default_key``.
+    """
+    scene = os.environ.get("ISAAC_SIM_SCENE", "").strip()
+    scale = float(os.environ.get("ISAAC_SIM_STAGE_SCALE") or 1.0)
+    if not scene:
+        return simulation_environments[default_key], scale
+    if scene in simulation_environments:
+        return simulation_environments[scene], scale
+    if "://" in scene or scene.endswith((".usd", ".usda", ".usdc", ".usdz")):
+        return scene, scale
+    raise ValueError(
+        f"ISAAC_SIM_SCENE '{scene}' is neither a SIMULATION_ENVIRONMENTS key "
+        f"nor a USD reference (keys: {', '.join(sorted(simulation_environments))})"
+    )
+
+
+FOLLOW_CAM_PATH = "/World/follow_cam"
+
+
+def resolve_follow_cam_from_env():
+    """Parse ISAAC_SIM_FOLLOW_CAM / ISAAC_SIM_FOLLOW_CAM_OFFSET.
+
+    Returns ``(domain_id, offset_xyz)``; ``domain_id`` is ``None`` when the
+    follow-cam is disabled.
+    """
+    raw = os.environ.get("ISAAC_SIM_FOLLOW_CAM", "").strip().lower()
+    if raw in ("off", "false", "none", "0"):
+        return None, None
+    try:
+        target = int(raw) if raw else 1
+    except ValueError:
+        carb.log_warn(
+            f"ISAAC_SIM_FOLLOW_CAM='{raw}' is not a domain id — following drone 1."
+        )
+        target = 1
+    offset = (-5.0, -5.0, 2.5)
+    off_raw = os.environ.get("ISAAC_SIM_FOLLOW_CAM_OFFSET", "").strip()
+    if off_raw:
+        try:
+            x, y, z = (float(v) for v in off_raw.split(","))
+            offset = (x, y, z)
+        except ValueError:
+            carb.log_warn(
+                f"ISAAC_SIM_FOLLOW_CAM_OFFSET='{off_raw}' is not 'x,y,z' — "
+                f"using default {offset}."
+            )
+    return target, offset
 
 
 class PegasusApp:
@@ -317,9 +396,34 @@ class PegasusApp:
         else:
             carb.log_warn("/World/stage not found — skipping scale and collision.")
 
+        # ISAAC_SIM_LIGHT_BOOST=<factor>: multiply the scene's own lights
+        # (e.g. office/hospital ceiling lights, which are authored very dim).
+        boost_raw = os.environ.get("ISAAC_SIM_LIGHT_BOOST", "").strip()
+        if boost_raw:
+            from scene_prep import boost_scene_lights
+
+            try:
+                n = boost_scene_lights(stage, float(boost_raw))
+                carb.log_warn(f"[light_boost] boosted {n} scene lights x{boost_raw}")
+            except ValueError:
+                carb.log_warn(f"ISAAC_SIM_LIGHT_BOOST='{boost_raw}' is not a number — ignored.")
+
         # Dome light for uniform illumination: True → defaults, dict → kwargs.
+        # ISAAC_SIM_DOME_LIGHT="intensity[,exposure]" overrides either source —
+        # useful for dim indoor scenes (office/hospital corners).
         if self.dome_light:
             kwargs = self.dome_light if isinstance(self.dome_light, dict) else {}
+            raw = os.environ.get("ISAAC_SIM_DOME_LIGHT", "").strip()
+            if raw:
+                try:
+                    parts = [float(v) for v in raw.split(",")]
+                    kwargs["intensity"] = parts[0]
+                    if len(parts) > 1:
+                        kwargs["exposure"] = parts[1]
+                except ValueError:
+                    carb.log_warn(
+                        f"ISAAC_SIM_DOME_LIGHT='{raw}' is not 'intensity[,exposure]' — ignored."
+                    )
             add_dome_light(stage, **kwargs)
 
         self._maybe_export_scene()
@@ -341,6 +445,8 @@ class PegasusApp:
             self.spawn_drone(cfg)
 
         self.post_spawn(stage)
+
+        self._setup_follow_cam(stage)
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
 
@@ -430,6 +536,148 @@ class PegasusApp:
 
         return graph_handle
 
+    # --- Follow camera -------------------------------------------------
+
+    def _setup_follow_cam(self, stage):
+        """Author the follow-camera and switch the viewport to it.
+
+        The stock perspective camera often starts inside geometry on
+        cm-authored stages (black viewport), so a chase camera that tracks a
+        drone is both the fix and a nicer default view. The tracked drone
+        prim only materializes on the first Play tick, so the per-frame
+        update tolerates a missing target until then.
+        """
+        self._follow_target_path = None
+        self._follow_cam_pos = None
+        self._follow_look = None
+        self._follow_vehicle_logged = False
+
+        target, offset = resolve_follow_cam_from_env()
+        if target is None or not self.drone_configs:
+            return
+
+        cfg = next(
+            (c for c in self.drone_configs if c["domain_id"] == target),
+            self.drone_configs[0],
+        )
+        if cfg["domain_id"] != target:
+            carb.log_warn(
+                f"ISAAC_SIM_FOLLOW_CAM={target} has no matching drone — "
+                f"following drone {cfg['domain_id']}."
+            )
+        i = cfg["domain_id"]
+        self._follow_target_path = cfg.get("prim", f"/World/drone{i}/base_link")
+
+        from pxr import Gf, UsdGeom
+
+        self._follow_offset = Gf.Vec3d(*offset)
+        cam = UsdGeom.Camera.Define(stage, FOLLOW_CAM_PATH)
+        cam.GetFocalLengthAttr().Set(16.0)
+        # Generous range: cm-scaled stages have geometry both very near and
+        # (pre-scale) very far from the camera.
+        cam.GetClippingRangeAttr().Set(Gf.Vec2f(0.1, 1.0e6))
+
+        # ISAAC_SIM_FOLLOW_CAM_LIGHT=<intensity>: headlight riding the camera,
+        # for scenes too dark to film (interiors the dome light can't reach).
+        light_raw = os.environ.get("ISAAC_SIM_FOLLOW_CAM_LIGHT", "").strip()
+        if light_raw:
+            from pxr import UsdLux
+
+            try:
+                headlight = UsdLux.SphereLight.Define(
+                    stage, FOLLOW_CAM_PATH + "/headlight"
+                )
+                headlight.GetIntensityAttr().Set(float(light_raw))
+                headlight.GetRadiusAttr().Set(0.05)
+                headlight.CreateNormalizeAttr().Set(True)
+            except ValueError:
+                carb.log_warn(
+                    f"ISAAC_SIM_FOLLOW_CAM_LIGHT='{light_raw}' is not a number — ignored."
+                )
+
+        # Frame the spawn point immediately so the viewport is never black
+        # while the sim is still paused.
+        s = self._position_scale
+        spawn = Gf.Vec3d(
+            cfg.get("x_m", 0.0) * s, cfg.get("y_m", 0.0) * s, cfg.get("z_m", 0.07) * s
+        )
+        self._follow_cam_pos = spawn + self._follow_offset
+        self._follow_look = spawn
+        self._author_follow_cam()
+
+        try:
+            from omni.kit.viewport.utility import get_active_viewport
+
+            viewport = get_active_viewport()
+            if viewport is not None:
+                viewport.camera_path = FOLLOW_CAM_PATH
+        except Exception as exc:  # headless variants may have no viewport
+            carb.log_warn(f"Could not switch viewport to follow cam: {exc}")
+
+    def _author_follow_cam(self):
+        from isaacsim.core.utils.viewports import set_camera_view
+
+        set_camera_view(
+            eye=self._follow_cam_pos,
+            target=self._follow_look,
+            camera_prim_path=FOLLOW_CAM_PATH,
+        )
+
+    def _follow_target_position(self):
+        """Live world position of the tracked drone, or ``None`` pre-spawn.
+
+        PhysX (fabric) does not write simulated poses back to USD, so the
+        authoritative source is the Pegasus vehicle state; the USD transform
+        only covers the pre-play window before the vehicle registers.
+        """
+        from pxr import Gf
+
+        # OGN-spawned vehicles register under the full drone prim path
+        # (e.g. "/World/drone2/base_link"); UI-spawned ones may use the parent.
+        target_path = self._follow_target_path.rstrip("/")
+        parent = target_path.rsplit("/", 1)[0]
+        try:
+            from pegasus.simulator.logic.vehicle_manager import VehicleManager
+
+            for stage_prefix, vehicle in VehicleManager.get_vehicle_manager().vehicles.items():
+                sp = stage_prefix.rstrip("/")
+                if sp in (target_path, parent) or sp.startswith(parent + "/"):
+                    if not self._follow_vehicle_logged:
+                        self._follow_vehicle_logged = True
+                        carb.log_warn(f"[follow_cam] tracking Pegasus vehicle '{sp}'")
+                    p = vehicle.state.position
+                    return Gf.Vec3d(float(p[0]), float(p[1]), float(p[2]))
+        except Exception:
+            pass
+
+        import omni.usd
+
+        stage = omni.usd.get_context().get_stage()
+        if stage is None:
+            return None
+        prim = stage.GetPrimAtPath(self._follow_target_path)
+        if not prim.IsValid():
+            return None  # drone spawns on the first Play tick
+        try:
+            return omni.usd.get_world_transform_matrix(prim).ExtractTranslation()
+        except Exception:
+            return None
+
+    def _update_follow_cam(self):
+        if not self._follow_target_path:
+            return
+        from pxr import Gf
+
+        target = self._follow_target_position()
+        if target is None:
+            return
+        desired = target + self._follow_offset
+        # Exponential smoothing keeps the chase fluid through sharp maneuvers.
+        alpha = 0.08
+        self._follow_cam_pos += (desired - self._follow_cam_pos) * alpha
+        self._follow_look += (Gf.Vec3d(target) - self._follow_look) * alpha
+        self._author_follow_cam()
+
     def run(self):
         """Play (unless PLAY_SIM_ON_START=false) and step until closed."""
         import omni.kit.app
@@ -442,6 +690,7 @@ class PegasusApp:
 
         app = omni.kit.app.get_app()
         while SIMULATION_APP.is_running() and not self.stop_sim:
+            self._update_follow_cam()
             # File → Save re-opens the stage, which invalidates the World.
             # Fall back to app.update() until the extension re-creates it.
             world = World.instance()

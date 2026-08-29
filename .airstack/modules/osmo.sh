@@ -9,12 +9,12 @@
 # This module is pure bash + the cross-platform `osmo` CLI — no Docker
 # dependency. Safe to run on a laptop with no AirStack runtime.
 #
-# Most commands need a workflow id. `osmo:up` saves the id to
+# Most commands need a workflow id. `osmo up` saves the id to
 # $OSMO_STATE_FILE; the other commands read it from there. You can also
 # override it for a single invocation by exporting AIRSTACK_OSMO_WF.
 
 # State directory and file: ~/.airstack/osmo-state stores the most recent
-# workflow id submitted with `airstack osmo:up`.
+# workflow id submitted with `airstack osmo up`.
 OSMO_STATE_DIR="${HOME}/.airstack"
 OSMO_STATE_FILE="${OSMO_STATE_DIR}/osmo-state"
 
@@ -121,7 +121,7 @@ function _osmo_prompt {
     fi
 }
 
-# osmo:setup — interactively register the three OSMO credentials AirStack
+# osmo setup — interactively register the three OSMO credentials AirStack
 # needs (airlab-docker-registry, airlab-docker-login, airlab-nucleus).
 # Idempotent — re-running rotates the credentials.
 function cmd_osmo_setup {
@@ -174,7 +174,7 @@ EOF
 
     # `osmo credential set` is NOT an upsert for GENERIC credentials — re-setting
     # one that already exists fails with `400 duplicate key value violates unique
-    # constraint "credential_pkey"`. Delete first so re-running osmo:setup
+    # constraint "credential_pkey"`. Delete first so re-running osmo setup
     # (e.g. to rotate a Nucleus token) is idempotent. The `|| true` swallows the
     # "credential not found" case on a first-time run.
     log_info "Refreshing airlab-docker-registry (REGISTRY)..."
@@ -204,7 +204,7 @@ EOF
         || { log_error "osmo credential set airlab-nucleus failed"; return 1; }
 
     log_info "All three credentials registered. List them with: osmo credential list"
-    log_info "Next: airstack osmo:up [--pool POOL]"
+    log_info "Next: airstack osmo up [--pool POOL]"
 }
 
 # Helper: pick the first existing SSH public key on the host.
@@ -237,7 +237,7 @@ function _osmo_wf_id {
     elif [ -f "${OSMO_STATE_FILE}" ]; then
         wf="$(cat "${OSMO_STATE_FILE}")"
     else
-        log_error "No workflow id found. Run 'airstack osmo:up' first, or export AIRSTACK_OSMO_WF=<id>."
+        log_error "No workflow id found. Run 'airstack osmo up' first, or export AIRSTACK_OSMO_WF=<id>."
         return 1
     fi
 
@@ -252,7 +252,7 @@ function _osmo_wf_id {
                 ;;
             *)
                 log_error "Saved workflow '${wf}' is ${status}, not running."
-                log_warn  "Run 'airstack osmo:up' to launch a fresh one, or:"
+                log_warn  "Run 'airstack osmo up' to launch a fresh one, or:"
                 log_warn  "  rm ${OSMO_STATE_FILE}"
                 log_warn  "  export AIRSTACK_OSMO_WF=<id-of-a-running-workflow>"
                 return 1
@@ -272,7 +272,7 @@ function _osmo_save_wf_id {
 }
 
 # Helper: best-effort detection of the user's current AirStack branch so
-# `airstack osmo:up` can default --branch to whatever the user is editing
+# `airstack osmo up` can default --branch to whatever the user is editing
 # locally. Returns the branch name on stdout, or empty if we shouldn't
 # auto-pin (detached HEAD, not a git repo, etc.).
 #
@@ -282,7 +282,7 @@ function _osmo_save_wf_id {
 # defaults to `main` — and any developer testing branch-only OSMO
 # changes (compose services, entrypoint tweaks, workflow yaml edits)
 # silently runs against stale `main` code instead of their work.
-# Defaulting to the local branch makes "edit on laptop, push, osmo:up"
+# Defaulting to the local branch makes "edit on laptop, push, osmo up"
 # the natural workflow.
 function _osmo_local_branch {
     if ! command -v git >/dev/null 2>&1; then
@@ -338,9 +338,9 @@ function _osmo_check_branch_pushed {
     fi
 }
 
-# osmo:up — submit airstack-dev.yaml with the local pubkey injected.
+# osmo up — submit airstack-dev.yaml with the local pubkey injected.
 #
-# Usage: airstack osmo:up [--pool POOL] [--key PATH] [--branch BRANCH]
+# Usage: airstack osmo up [--pool POOL] [--key PATH] [--branch BRANCH]
 #
 # --branch defaults to the local repo's current branch (or `main` if we
 # can't detect one), and is passed through as AIRSTACK_BRANCH so the
@@ -432,14 +432,14 @@ function cmd_osmo_up {
     _osmo_save_wf_id "$wf_id"
 
     log_info "Next steps:"
-    log_info "  airstack osmo:logs       # follow startup until 'sshd listening'"
-    log_info "  airstack osmo:ide        # port-forward sshd + open VS Code"
-    log_info "  airstack osmo:webrtc     # forward Isaac Sim WebRTC ports"
-    log_info "  airstack osmo:foxglove   # forward GCS Foxglove websocket"
-    log_info "  airstack osmo:down       # cancel the workflow"
+    log_info "  airstack osmo logs       # follow startup until 'sshd listening'"
+    log_info "  airstack osmo ide        # port-forward sshd + open VS Code"
+    log_info "  airstack osmo webrtc     # forward Isaac Sim WebRTC ports"
+    log_info "  airstack osmo foxglove   # forward GCS Foxglove websocket"
+    log_info "  airstack osmo down       # cancel the workflow"
 }
 
-# osmo:logs — follow the workspace task logs.
+# osmo logs — follow the workspace task logs.
 #
 # Despite the `osmo workflow logs --help` output advertising only `-n
 # LAST_N_LINES` (no `--follow`), the CLI in fact streams the tail and keeps
@@ -465,11 +465,11 @@ function cmd_osmo_logs {
         2> >(_osmo_pf_filter "${wf}")
 }
 
-# osmo:ide — port-forward sshd + (optionally) launch VS Code/Cursor on the
+# osmo ide — port-forward sshd + (optionally) launch VS Code/Cursor on the
 # `airstack-osmo` host. Runs the port-forward in the foreground so closing
 # the terminal closes the tunnel.
 #
-# Usage: airstack osmo:ide [--no-open] [code|cursor]
+# Usage: airstack osmo ide [--no-open] [code|cursor]
 function cmd_osmo_ide {
     _osmo_check_cli || return 1
     local wf; wf="$(_osmo_wf_id)" || return 1
@@ -480,7 +480,7 @@ function cmd_osmo_ide {
         case "$1" in
             --no-open) open_ide=false; shift ;;
             code|cursor) ide_cmd="$1"; shift ;;
-            *) log_warn "Ignoring unknown osmo:ide arg: $1"; shift ;;
+            *) log_warn "Ignoring unknown osmo ide arg: $1"; shift ;;
         esac
     done
 
@@ -510,14 +510,14 @@ function cmd_osmo_ide {
     # The recommended ~/.ssh/config block for `airstack-osmo` uses
     # `UserKnownHostsFile /dev/null`, which sidesteps this entirely — but
     # users who set up before that change still have a stale entry on
-    # disk. Scrub it defensively on every osmo:ide invocation. ssh-keygen
+    # disk. Scrub it defensively on every osmo ide invocation. ssh-keygen
     # -R is idempotent: a no-op if the entry doesn't exist.
     if command -v ssh-keygen >/dev/null 2>&1; then
         ssh-keygen -R "[localhost]:${local_port}" >/dev/null 2>&1 || true
     fi
 
     # Reuse an existing forward if one is already listening (the user might
-    # have run this from a second terminal, or osmo:foxglove already opened
+    # have run this from a second terminal, or osmo foxglove already opened
     # a multi-port forward). Otherwise spawn one in the background and wait
     # for it to bind before launching the IDE — this avoids the race where
     # Cursor/VS Code tries to SSH before the tunnel exists and dies with
@@ -565,13 +565,13 @@ function cmd_osmo_ide {
         wait "$pf_pid"
     else
         log_info "Existing port-forward owns the tunnel; this command will exit immediately."
-        log_info "Stop the tunnel with: pkill -f 'osmo workflow port-forward'  or  airstack osmo:down"
+        log_info "Stop the tunnel with: pkill -f 'osmo workflow port-forward'  or  airstack osmo down"
     fi
 }
 
 # Helper: filter `osmo workflow port-forward` stderr through awk to
 # suppress the asyncio traceback that erupts whenever the workflow gets
-# canceled mid-flight (e.g. via osmo:down in another shell, or because
+# canceled mid-flight (e.g. via osmo down in another shell, or because
 # OSMO timed it out). The CLI raises OSMOUserError("Workflow X is not
 # running!") from inside an asyncio Task, which then prints "Task
 # exception was never retrieved" + a multi-line Traceback that obscures
@@ -586,11 +586,11 @@ function _osmo_pf_filter {
         /^  File "/                                   { next }
         /^src\.lib\.utils\.osmo_errors\.OSMOUserError/ {
             sub(/^src\.lib\.utils\.osmo_errors\.OSMOUserError: */, "")
-            printf "\033[0;31m[ERROR]\033[0m %s (run `airstack osmo:up` to start a new workflow)\n", $0
+            printf "\033[0;31m[ERROR]\033[0m %s (run `airstack osmo up` to start a new workflow)\n", $0
             next
         }
         /OSMOUserError: Workflow .* is not running!/ {
-            printf "\033[0;31m[ERROR]\033[0m Workflow %s is no longer running (run `airstack osmo:up` to start a new one).\n", WF
+            printf "\033[0;31m[ERROR]\033[0m Workflow %s is no longer running (run `airstack osmo up` to start a new one).\n", WF
             next
         }
         skipping && /^$/                              { skipping=0; next }
@@ -607,7 +607,7 @@ function _osmo_run_port_forward {
     osmo workflow port-forward "$@" 2> >(_osmo_pf_filter "$1")
 }
 
-# osmo:webrtc — forward both Isaac Sim WebRTC port ranges (TCP in this
+# osmo webrtc — forward both Isaac Sim WebRTC port ranges (TCP in this
 # terminal, spawn UDP in the background). Cleans up the UDP child on
 # exit (Ctrl+C, foreground TCP failure, or the workflow disappearing
 # mid-stream) so we don't leak a port-forward into the user's process
@@ -644,7 +644,7 @@ function cmd_osmo_webrtc {
         --connect-timeout "$OSMO_PF_TIMEOUT"
 }
 
-# osmo:foxglove — install the AirStack Foxglove extensions into the local
+# osmo foxglove — install the AirStack Foxglove extensions into the local
 # Foxglove Desktop user-extensions dir, then forward the GCS Foxglove
 # websocket.
 #
@@ -687,7 +687,7 @@ function cmd_osmo_foxglove {
         --connect-timeout "$OSMO_PF_TIMEOUT"
 }
 
-# osmo:down — cancel the active workflow. Reminds you to push first.
+# osmo down — cancel the active workflow. Reminds you to push first.
 function cmd_osmo_down {
     _osmo_check_cli || return 1
     local wf; wf="$(_osmo_wf_id)" || return 1
@@ -700,21 +700,45 @@ function cmd_osmo_down {
     rm -f "${OSMO_STATE_FILE}"
 }
 
+# Dispatcher for the `osmo` command group.
+function cmd_osmo_dispatch {
+    local sub="${1:-help}"
+    if [ $# -gt 0 ]; then shift; fi
+    case "$sub" in
+        setup)    cmd_osmo_setup "$@" ;;
+        up)       cmd_osmo_up "$@" ;;
+        logs)     cmd_osmo_logs "$@" ;;
+        ide)      cmd_osmo_ide "$@" ;;
+        webrtc)   cmd_osmo_webrtc "$@" ;;
+        foxglove) cmd_osmo_foxglove "$@" ;;
+        down)     cmd_osmo_down "$@" ;;
+        help|-h|--help) print_command_help osmo ;;
+        *)
+            log_error "Unknown osmo subcommand: '$sub'"
+            print_command_help osmo
+            return 1
+            ;;
+    esac
+}
+
+# Legacy `osmo:<sub>` spellings — hidden from help, forward with a nudge.
+function _cmd_osmo_legacy {
+    local sub="$1"; shift
+    log_warn "'airstack osmo:${sub}' is deprecated; use 'airstack osmo ${sub}'."
+    cmd_osmo_dispatch "$sub" "$@"
+}
+
 # Register commands from this module.
 function register_osmo_commands {
-    COMMANDS["osmo:setup"]="cmd_osmo_setup"
-    COMMANDS["osmo:up"]="cmd_osmo_up"
-    COMMANDS["osmo:logs"]="cmd_osmo_logs"
-    COMMANDS["osmo:ide"]="cmd_osmo_ide"
-    COMMANDS["osmo:webrtc"]="cmd_osmo_webrtc"
-    COMMANDS["osmo:foxglove"]="cmd_osmo_foxglove"
-    COMMANDS["osmo:down"]="cmd_osmo_down"
+    COMMANDS["osmo"]="cmd_osmo_dispatch"
+    COMMAND_HELP["osmo"]="Develop AirStack on an OSMO GPU pod: setup|up|logs|ide|webrtc|foxglove|down (see 'airstack help osmo')"
 
-    COMMAND_HELP["osmo:setup"]="One-time per-user OSMO credential setup (airlab-docker-registry, airlab-docker-login, airlab-nucleus)"
-    COMMAND_HELP["osmo:up"]="Submit osmo/workflows/airstack-dev.yaml with your SSH pubkey injected (--pool POOL, --key PATH, --branch BRANCH)"
-    COMMAND_HELP["osmo:logs"]="Follow the workspace task logs (osmo workflow logs <id> -t workspace -n 500; OSMO_LOGS_TASK / OSMO_LOGS_TAIL override)"
-    COMMAND_HELP["osmo:ide"]="Port-forward sshd (2200:22) and open VS Code/Cursor on Host airstack-osmo"
-    COMMAND_HELP["osmo:webrtc"]="Port-forward Isaac Sim WebRTC ranges (TCP foreground + UDP background)"
-    COMMAND_HELP["osmo:foxglove"]="Install AirStack Foxglove extensions locally, then port-forward GCS Foxglove websocket (8766:8766). Override target dir with OSMO_FOXGLOVE_EXT_DIR; skip install with OSMO_FOXGLOVE_SKIP_EXTENSIONS=1."
-    COMMAND_HELP["osmo:down"]="Cancel the active workflow (push to git before running this)"
+    # Deprecated colon-form aliases (pre command-group syntax). Registered so
+    # old muscle memory / scripts keep working, but COMMAND_HIDDEN keeps them
+    # out of `airstack help` and `airstack commands`.
+    local sub
+    for sub in setup up logs ide webrtc foxglove down; do
+        COMMANDS["osmo:${sub}"]="_cmd_osmo_legacy ${sub}"
+        COMMAND_HIDDEN["osmo:${sub}"]=1
+    done
 }

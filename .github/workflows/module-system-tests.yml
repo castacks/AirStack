@@ -426,7 +426,7 @@ jobs:
           # what's still missing afterwards instead of aborting on the first
           # gap. `--progress=quiet` suppresses per-layer progress; errors
           # still surface on stderr.
-          ./airstack.sh --progress=quiet image-pull --ignore-pull-failures || true
+          ./airstack.sh --progress=quiet images pull --ignore-pull-failures || true
 
           # Versioned tags can miss (unreleased trunk refs). Seed from floating
           # cache_* tags.
@@ -460,11 +460,11 @@ jobs:
             echo "Images still missing after pull/retag:"
             printf '  - %s\n' "${missing[@]}"
             if [[ "$NO_IMAGE_BUILD" == "true" ]]; then
-              echo "::error::Pull-only mode (pure build_packages marks) will not image-build. Include a mark that launches the sim, or run trunk's /pytest -m build_docker once to publish cache tags."
+              echo "::error::Pull-only mode (pure build_packages marks) will not run 'images build'. Include a mark that launches the sim, or run trunk's /pytest -m build_docker once to publish cache tags."
               exit 1
             fi
-            echo "Falling back to image-build"
-            ./airstack.sh --progress=quiet image-build
+            echo "Falling back to images build"
+            ./airstack.sh --progress=quiet images build
           else
             echo "All required images present after pull/retag — skipping build."
           fi

@@ -191,7 +191,7 @@ robot-desktop:
     replicas: ${NUM_ROBOTS:-1}
 ```
 
-So `NUM_ROBOTS=3 airstack up` produces **three** robot containers (`airstack-robot-desktop-1`, `-2`, `-3`), each with its own `ROBOT_NAME` and its own `ROS_DOMAIN_ID`. Each container runs the full autonomy stack independently. Cross-robot communication, when needed, goes through the DDS router (see the shared allowlist [`autonomy_bringup/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml)) which bridges allowlisted topics from each per-robot domain into a shared GCS domain.
+So `NUM_ROBOTS=3` (set by `airstack up --robots 3`) produces **three** robot containers (`airstack-robot-desktop-1`, `-2`, `-3`), each with its own `ROBOT_NAME` and its own `ROS_DOMAIN_ID`. Each container runs the full autonomy stack independently. Cross-robot communication, when needed, goes through the DDS router (see the shared allowlist [`autonomy_bringup/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml)) which bridges allowlisted topics from each per-robot domain into a shared GCS domain.
 
 ```bash
 airstack up --sim isaac --robots 3   # sets NUM_ROBOTS and the multi-drone Isaac script together
@@ -445,11 +445,11 @@ Before merging a change that touches anything robot-namespaced:
 - [ ] Every cross-module topic uses `$(env ROBOT_NAME)` (in launch files) or a relative name remapped at launch time (in node code)
 - [ ] Every YAML config file that references `$(env ...)` is loaded with `allow_substs="true"`
 - [ ] TF frames in node code are either relative (`base_link`, `odom`) or built from `os.environ["ROBOT_NAME"]`
-- [ ] If you added a new module to a layer bringup, you tested it with `NUM_ROBOTS=2` and confirmed both robots' namespaces look identical under `ros2 node list`
+- [ ] If you added a new module to a layer bringup, you tested it with `--robots 2` and confirmed both robots' namespaces look identical under `ros2 node list`
 - [ ] If you added a sim launch script, it reads `NUM_ROBOTS` and spawns vehicles named `robot_1`, `robot_2`, … with matching `vehicle_id` / `domain_id`
 - [ ] If you added a system test that addresses a robot, it loops over `range(1, num_robots + 1)` and uses `domain_id=n` in `ros2_exec(...)`
 - [ ] DDS router allowlists in `autonomy_bringup/config/dds_router.yaml` (or the split stack's `bridge.yaml`) include any new cross-domain topic your module exposes — otherwise it will not appear on the GCS
-- [ ] Verified end-to-end: `NUM_ROBOTS=3 airstack up`, then `docker exec airstack-robot-desktop-2 bash -c 'ros2 topic list | grep robot_2'` shows the same topics that `airstack-robot-desktop-1` shows under `robot_1`
+- [ ] Verified end-to-end: `airstack up --sim isaac --robots 3`, then `docker exec airstack-robot-desktop-2 bash -c 'ros2 topic list | grep robot_2'` shows the same topics that `airstack-robot-desktop-1` shows under `robot_1`
 
 ## Verification Commands
 

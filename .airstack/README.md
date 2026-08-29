@@ -5,7 +5,9 @@ on macOS). It wraps the native `docker compose` on the host — there is no
 containerized CLI — and loads drop-in command modules from
 `.airstack/modules/*.sh` at startup: each module defines `cmd_*` functions and
 a `register_<name>_commands` function that fills the `COMMANDS` /
-`COMMAND_HELP` maps. `_lib.sh` holds shared helpers and is sourced first.
+`COMMAND_HELP` maps (plus `COMMAND_HIDDEN` for deprecated alias spellings
+that should dispatch but stay out of the help listings). `_lib.sh` holds
+shared helpers and is sourced first.
 
 `airstack setup` installs a shell function that finds the nearest checkout's
 `airstack.sh`, so `airstack <command>` works from any subdirectory.
@@ -14,13 +16,13 @@ a `register_<name>_commands` function that fills the `COMMANDS` /
 
 | Source | Commands |
 | ------ | -------- |
-| `airstack.sh` (built-ins) | `install`, `setup`, `up`, `down`, `clean`, `connect`, `status`, `logs`, `version`, `images`, `image-build`, `image-push`, `image-pull`, `image-delete`, `rmi`, `help` (+ `commands` to list everything) |
-| `modules/config.sh` | `config`, `config:isaac-sim`, `config:nucleus`, `config:git-hooks` |
+| `airstack.sh` (built-ins) | `install`, `setup`, `up`, `down`, `clean`, `connect`, `status`, `logs`, `version`, `images` (`list`, `build`, `push`, `pull`, `delete`, `rm`), `help` (+ `commands` to list everything) |
+| `modules/config.sh` | `config` (`all`, `isaac-sim`, `nucleus`, `git-hooks`) |
 | `modules/dev.sh` | `test` (containerized pytest runner), `docs`, `lint` |
 | `modules/doctor.sh` | `doctor` (observe-and-report checks; `--live`, `--snapshot`) |
 | `modules/fleet.sh` | `fleet` (`list`, `generate` — per-robot compose + split-stack DDS-router configs) |
 | `modules/module.sh` | `module` (`add`, `remove`, `list`, `sync`, `create`, `lock`, `doctor`) |
-| `modules/osmo.sh` | `osmo:setup`, `osmo:up`, `osmo:logs`, `osmo:ide`, `osmo:webrtc`, `osmo:foxglove`, `osmo:down` |
+| `modules/osmo.sh` | `osmo` (`setup`, `up`, `logs`, `ide`, `webrtc`, `foxglove`, `down`) |
 | `modules/ready.sh` | `ready` (wait for flight-readiness; `--json`) |
 | `modules/stack.sh` | `stack` (`list`, `new`, `diff`) |
 | `modules/sync.sh` | `sync` (checkout sync from `airstack.yaml`; `--no-hooks`) |

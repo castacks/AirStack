@@ -46,7 +46,7 @@ services:
       service ssh restart;
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml' ENTER;
+        tmux send-keys -t bringup:0.0 'autolaunch $$LAUNCH_PACKAGE robot.launch.xml' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
@@ -152,7 +152,7 @@ services:
       bash -c "
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml sim:=false' ENTER;
+        tmux send-keys -t bringup 'autolaunch $$LAUNCH_PACKAGE robot.launch.xml sim:=false' ENTER;
       fi;
       sleep infinity"
     network_mode: host
@@ -160,7 +160,7 @@ services:
 
   # ===================================================================================================================
   # Intermediate Jetson stack: dusty Jazzy + ROS keyring / pip / OpenCV shim for Dockerfile.robot (same recipe as Ubuntu).
-  # `airstack image-build --profile l4t robot-l4t` builds this first automatically; raw `compose build robot-l4t` may parallelize incorrectly.
+  # `airstack images build --profile l4t robot-l4t` builds this first automatically; raw `compose build robot-l4t` may parallelize incorrectly.
   robot-l4t-stack-base:
     profiles:
       - l4t
@@ -211,7 +211,7 @@ services:
       service ssh restart;
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml sim:=false' ENTER;
+        tmux send-keys -t bringup 'autolaunch $$LAUNCH_PACKAGE robot.launch.xml sim:=false' ENTER;
       fi;
       sleep infinity"
     deploy:

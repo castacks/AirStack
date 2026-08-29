@@ -135,7 +135,7 @@ Here's what a typical development session looks like:
 
 ```bash
 # 1. Start containers (without auto-launching the stack)
-AUTOLAUNCH=false airstack up robot-desktop
+airstack up robot-desktop --no-autolaunch
 
 # 2. Connect to the robot container
 airstack connect robot
@@ -175,19 +175,17 @@ ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py
 
 **Runtime overrides**:
 ```bash
-# Don't auto-launch (useful for development)
-airstack up --no-autolaunch
+# Pick the simulator and robot count without editing .env
+airstack up --sim isaac --robots 3
 
 # Different scene (launch scripts live in simulation/isaac-sim/launch_scripts/)
 ISAAC_SIM_SCRIPT_NAME=my_scene_script.py airstack up
 
-# Pick the simulator and robot count without editing .env
-airstack up --sim airsim
-airstack up --sim isaac --robots 3
-
 # Custom env file with overrides
 airstack up --env-file overrides/custom.env
 ```
+
+Launch-intent flags like `--sim` and `--robots` derive the right env vars for you — the full flags table is in the [CLI reference](airstack-cli/index.md#airstack-up-flags).
 
 You can layer multiple env files to compose configurations. **NOTE**: Unlike docker compose, the airstack cli always uses the root `.env` file as the base, and then applies any additional env files on top of it. This ensures that essential defaults are always present, while still allowing for flexible overrides.
 

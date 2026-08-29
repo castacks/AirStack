@@ -61,8 +61,8 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
 - Gazebo (planned)
 
 ### Hardware
-- NVIDIA Jetson (Orin, Xavier NX, TX2)
-- ModalAI VOXL (VOXL 2, VOXL Flight)
+- NVIDIA Jetson (Orin AGX/NX)
+- ModalAI VOXL 2 (Docker profile exists; docs in progress)
 - x86-64 desktop/laptop (development)
 
 ### Software
@@ -85,7 +85,7 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
     Currently, AirStack is in alpha and limited to AirLab members and collaborators. We plan to release it publicly once it reaches a stable state.
 
 !!! question "What hardware do I need?"
-    **For development**: Ubuntu 22.04 machine with NVIDIA GPU (RTX 3070+ recommended), 16GB+ RAM, and 100GB+ free storage.
+    **For development**: Ubuntu 22.04 or 24.04 machine with NVIDIA GPU (RTX 3070 minimum, RTX 4080 or better recommended), 16GB+ RAM, and 100GB free storage recommended (Docker images take ~25GB).
     
     **For deployment**: NVIDIA Jetson or ModalAI VOXL onboard computer.
 
@@ -124,7 +124,7 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
 !!! question "How do I debug a module?"
     Build with debug symbols, use ROS 2 tools (`ros2 topic echo`, `ros2 node info`), and leverage the debug-module skill from the AI Agent Guide.
     
-    See: [Development Environment](development/development_environment.md)
+    See: [Development Environment](development/beginner/development_environment.md)
 
 !!! question "Where should I add my custom module?"
     Place it in the appropriate layer under `robot/ros_ws/src/<layer>/<type>/<your_module>/`. For example, a new planner goes in `robot/ros_ws/src/local/planners/my_planner/`.

@@ -52,7 +52,7 @@ For details on the co-located layout and adding new unit tests, see the
 
 | File | Mark | What it tests | Hardware required |
 |------|------|---------------|-------------------|
-| `tests/system/test_build_docker.py` | `build_docker` | `airstack image-build` for `robot-desktop`, `gcs`, `isaac-sim`, `ms-airsim`; records image size to `metrics.json` | Docker daemon |
+| `tests/system/test_build_docker.py` | `build_docker` | `airstack images build` for `robot-desktop`, `gcs`, `isaac-sim`, `ms-airsim`; records image size to `metrics.json` | Docker daemon |
 | `tests/system/test_build_packages.py` | `build_packages` | `colcon build` (`bws`) inside the robot, GCS, and ms-airsim ROS workspaces — brought up with `AUTOLAUNCH=false` | Docker daemon |
 | `tests/system/test_liveliness.py` | `liveliness` | Stack bring-up: containers Running, `/clock` readiness, tmux panes, sentinel ROS 2 nodes, compute, infra-only `test_stable` | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
 | `tests/system/test_sensors.py` | `sensors` | Topic Hz (Isaac: batched on sim + robot; LiDAR `echo-once` + cloud sanity), RTF, `test_sensor_streams_stable` | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
@@ -118,7 +118,7 @@ The `system-tests.yml` workflow's `Parse pytest args` step automatically prepend
 - `/pytest -m takeoff_hover_land` → effectively runs `-m "build_packages or takeoff_hover_land"`
 - `/pytest` (no marks) → pytest defaults (everything)
 - `/pytest -m build_docker` → unchanged (the build_docker tests rebuild from scratch anyway)
-- `/pytest -m build_packages` → **pull-only** (retag `cache_*`, no `image-build`, no Isaac). Add `--no-image-build` on other marks to skip the bake.
+- `/pytest -m build_packages` → **pull-only** (retag `cache_*`, no `images build`, no Isaac). Add `--no-image-build` on other marks to skip the bake.
 
 This guarantees that ROS 2 workspaces are built inside the containers before any launch/liveliness test tries to source them. If you intentionally want to skip `build_packages` (e.g. you trust the prebuilt images), include it explicitly: `-m "liveliness and not build_packages"` would work, but the simpler path is to run locally where the prepend logic doesn't apply.
 
@@ -196,7 +196,7 @@ Total parametrize cardinality for sim tests = `len(sims) × len(num_robots) × s
 - For `liveliness` / `sensors` / `takeoff_hover_land`: NVIDIA driver + `nvidia-container-toolkit`
 - For `isaacsim`: `simulation/isaac-sim/docker/omni_pass.env` populated with Omniverse credentials (CI generates a `guest`/`guest` version automatically)
 - `airstack setup` already run so `airstack` is on `PATH`
-- All required compose images present locally — `airstack_env` calls `missing_images()` and fails fast otherwise. Build them first via `airstack test -m build_docker` or `airstack image-build <service>`.
+- All required compose images present locally — `airstack_env` calls `missing_images()` and fails fast otherwise. Build them first via `airstack test -m build_docker` or `airstack images build <service>`.
 
 ## Running Tests via PR Comment
 

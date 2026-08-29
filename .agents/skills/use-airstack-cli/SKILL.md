@@ -385,19 +385,19 @@ airstack format
 
 ```bash
 airstack images          # List AirStack images
-airstack image-build     # Build images locally
-airstack image-push      # Push to registry
-airstack image-pull      # Pull from registry
-airstack image-delete    # Remove all matching images
+airstack images build     # Build images locally
+airstack images push      # Push to registry
+airstack images pull      # Pull from registry
+airstack images delete    # Remove all matching images
 ```
 
 ### Configuration helpers
 
 ```bash
 airstack config              # Run all config steps
-airstack config:isaac-sim    # Configure Isaac Sim cache/settings
-airstack config:nucleus      # Configure Omniverse Nucleus credentials
-airstack config:git-hooks    # Install git pre-commit hooks
+airstack config isaac-sim   # Configure Isaac Sim cache/settings
+airstack config nucleus     # Configure Omniverse Nucleus credentials
+airstack config git-hooks   # Install git pre-commit hooks
 ```
 
 ### Per-command help

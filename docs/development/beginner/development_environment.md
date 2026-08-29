@@ -63,7 +63,7 @@ These are defined in `robot/docker/.bashrc` and available in all robot container
 **Quick iteration:**
 ```bash
 # Start without auto-launch
-AUTOLAUNCH=false airstack up robot-desktop
+airstack up robot-desktop --no-autolaunch
 
 # In another terminal, build and test
 docker exec airstack-robot-desktop-1 bash -c "bws --packages-select my_package && sws && ros2 launch my_package test.launch.xml"

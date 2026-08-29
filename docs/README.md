@@ -27,13 +27,13 @@ AirStack is a comprehensive, modular autonomy stack for embodied AI and robotics
 ## 📋 System Requirements
 
 - **Docker**: With NVIDIA Container Toolkit support
-- **NVIDIA GPU**: RTX 3070 or better (for local Isaac Sim)
-- **Storage**: At least 25GB free space for Docker images
-- **OS**: Ubuntu 22.04 recommended
+- **NVIDIA GPU**: RTX 3070 minimum, RTX 4080 or better recommended (for local Isaac Sim)
+- **Storage**: Docker images take ~25GB; 100GB free disk space recommended
+- **OS**: Ubuntu 22.04 or 24.04
 
 ## 🔧 Quick Start
 
-Follow the instructions at https://docs.theairlab.org/latest/docs/getting_started/ to set up AirStack on your machine, then take the [Modular AirStack Walkthrough](getting_started/modular_airstack.md).
+Follow the instructions in [Getting Started](./getting_started/index.md) to set up AirStack on your machine, then take the [Modular AirStack Walkthrough](getting_started/modular_airstack.md).
 
 ## 🏗️ System Architecture
 

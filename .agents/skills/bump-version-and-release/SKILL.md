@@ -169,6 +169,18 @@ change-relative language ("changed from", "renamed", "removed", RFC/PR
 references) is allowed; feature docs describe only the current system (see
 the `write-mkdocs-documentation` skill).
 
+The source file keeps one section per version from 0.19.0 onward (notes for
+0.18.0 and earlier live only on the GitHub releases page, which the page's
+standing intro links to), but the rendered site shows
+only the section matching the repo-root `.env` `VERSION` at build time: the
+MkDocs hook `docs/hooks/release_notes_current_version.py` (registered under
+`hooks:` in `mkdocs.yml`) trims the rest, so each mike-deployed docs version
+carries only its own notes and readers reach older ones via the site's
+version selector or the GitHub releases page. Section headings must
+therefore start with the literal base semver (`## <X.Y.Z> ...`) or the hook
+won't match them; if VERSION has no matching section, the hook logs a
+warning and publishes the page unfiltered.
+
 Layout:
 
 ```markdown

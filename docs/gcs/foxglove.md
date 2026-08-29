@@ -2,24 +2,35 @@
 
 The GCS runs a **Foxglove Studio** interface backed by a single ROS 2 node — `foxglove_visualizer_node` — that gathers per-robot data from the cross-domain bridge and republishes it on a small set of GCS-side topics. Foxglove subscribes to those topics and shows the fleet in 3D.
 
-This page describes what the node visualizes today, the topic naming convention, and where to edit when you want to change or add a marker type. For the gossip payload visualization (filtered rays, voxel maps, etc.) see [Coordination Payloads](../robot/autonomy/coordination/payloads.md).
+This page describes what the node visualizes today and the topic naming convention. To change or add a marker type, see [Extending the Foxglove Visualizer](extending_foxglove.md). For the gossip payload visualization (filtered rays, voxel maps, etc.) see [Coordination Payloads](../robot/autonomy/coordination/payloads.md).
 
 ![Full GCS Foxglove view — overhead-textured 3D panel on top, Robot Tasks panel and per-robot camera + depth feeds along the bottom](foxglove_full_screen.png)
 
+<video controls muted loop playsinline preload="metadata" style="max-width: 100%;">
+  <source src="../../assets/media/foxglove_demo.mp4" type="video/mp4">
+</video>
+*Foxglove during a live 3-robot Isaac Sim run: the 3D panel draws each drone's trajectory (Circle / Figure-8 `FixedTrajectoryTask` patterns) while the per-robot tabs show Robot Tasks and live camera + depth feeds.*
+
 ## Connecting to Foxglove and loading the custom layout
 
-The GCS container regenerates `/root/airstack_layout_num_robots_<N>.json` on every startup, where `<N>` is the current `NUM_ROBOTS`, using `gcs/foxglove_extensions/airstack_default.json` as the single-robot template (see `gcs/foxglove_extensions/render_layout.py`). The file lives only in the container — it's regenerated on startup and disappears on removal.
+**The `NUM_ROBOTS`-matched layout loads automatically — no manual import.** On every GCS container startup, `gcs/foxglove_extensions/render_layout.py` renders an `<N>`-robot layout from the single-robot template (`gcs/foxglove_extensions/airstack_default.json`) and seeds it straight into the Foxglove desktop app's local layout store (`/root/.config/Foxglove/studio-datastores/layouts-local/airstack_default_<N>_robots` — bind-mounted from `gcs/docker/Foxglove`, so it persists across container restarts). `gcs.launch.xml` then opens Foxglove with a deep link that both connects to `ws://localhost:8765` and selects that layout by id, so the app comes up showing **AirStack default (`<N>` robots)** immediately.
 
-To use the locally-rendered, `NUM_ROBOTS`-matched layout:
+### Editing and saving the layout
 
-1. In the Foxglove dashboard, click **Layouts** → **Import from file...**.
-2. The file browser opens in `/root/` by default — select the `airstack_layout_num_robots_<N>.json` matching your `NUM_ROBOTS`.
-3. Back on the dashboard, click **Open connection** and enter:
-    - `ws://localhost:8765` if Foxglove is running inside the GCS container
-    - `ws://localhost:8766` if Foxglove is running on the host
-4. In the top-right corner, click the current layout name and select the imported layout from the dropdown.
+The seeded layout is an ordinary local layout — edit it and use **Save** as usual. Your saved edits are preserved: the seeder detects that the layout no longer matches what it generated and will not overwrite it on later startups (this also means template updates stop propagating to an edited layout). Two ways to manage this:
 
-Foxglove keeps the imported layout in its IndexedDB and re-activates it on subsequent launches — re-import only when you change `NUM_ROBOTS` or edit the template.
+- **Reset to the generated default:** delete the layout in Foxglove's **Layouts** menu — the next container start re-seeds a fresh copy.
+- **Keep your own variant safe forever:** **Save As** a personal copy under a different name; the seeder never touches layouts it didn't create.
+
+### Manual fallback
+
+The rendered layout is also still written to `/root/airstack_layout_num_robots_<N>.json` inside the container, so **Layouts → Import from file...** keeps working — useful when running Foxglove on the host instead of in the container (connect to `ws://localhost:8766` in that case).
+
+!!! note "Foxglove version pin"
+    `Dockerfile.gcs` pins the Foxglove desktop version (`FOXGLOVE_VERSION` build arg) because the auto-load mechanism writes the app's on-disk local-layout record format directly. Before bumping the pin, verify the format in the new version's `studio-datastores/layouts-local/` still matches what `render_layout.py::seed_layout_store` writes.
+
+!!! warning "Robot naming assumption"
+    Layout rendering assumes robots are named `robot_1..robot_N` (the default robot-name map). Fleets with custom robot names (RFC #380) still get the default-named tabs; name-aware rendering is future work.
 
 ## What gets visualized
 
@@ -52,81 +63,6 @@ All of these are published by individual robots in their **local `map` frame** (
 
 To change which prefix is matched (e.g. you renamed robots from `robot_*` to `drone_*`), set the `robot_name_prefix` parameter on the visualizer node.
 
-## How to modify or add a marker type
-
-The visualizer is designed to be extended in-place. The pattern, taken from `gcs/ros_ws/src/gcs_visualizer/gcs_visualizer/foxglove_visualizer_node.py`:
-
-### 1. Add a suffix and regex
-
-```python
-PLAN_SUFFIX = '/global_plan'
-self._plan_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(PLAN_SUFFIX)}$')
-```
-
-### 2. Add state
-
-```python
-self._global_plans   = {}   # robot_name -> latest msg
-self._subscribed_plan = set()
-```
-
-### 3. Subscribe in `_discover_robots`
-
-```python
-if topic not in self._subscribed_plan:
-    m = self._plan_pattern.match(topic)
-    if m and 'nav_msgs/msg/Path' in type_list:
-        name = m.group(1)
-        self.create_subscription(
-            Path, topic,
-            lambda msg, n=name: self._plan_callback(msg, n),
-            10,   # 10 = default RELIABLE for planning topics;
-                  # SENSOR_QOS for high-rate sensor streams
-        )
-        self._subscribed_plan.add(topic)
-```
-
-
-### 4. Add a callback
-
-```python
-def _plan_callback(self, msg: Path, robot_name: str):
-    self._global_plans[robot_name] = msg
-```
-
-### 5. Render in `_publish_markers`
-
-```python
-plan = self._global_plans.get(robot_name)
-boot = self._gps_boot.get(robot_name)
-if plan is not None and boot is not None:
-    bx, by, bz = boot
-    line = Marker()
-    line.header.frame_id = 'map'
-    line.ns = f'{robot_name}_global_plan'
-    line.type = Marker.LINE_STRIP
-    for ps in plan.poses:
-        p = ps.pose.position
-        line.points.append(Point(x=p.x + bx, y=p.y + by, z=p.z + bz))
-    array.markers.append(line)
-```
-
-
-### 6. Bridge the source topic across DDS domains
-
-The visualizer can only subscribe to topics that crossed the DDS bridge. Add the source topic to `robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml` under `allowlist` (or, for the split stack, to `stacks/lite_offload_global/bridge.yaml` and regenerate):
-
-```yaml
-allowlist:
-  - name: "rt/$(env ROBOT_NAME)/your/new_topic"
-```
-
-Then restart the robot containers — the router only re-reads its allowlist on startup.
-
-## Bridging a topic without writing a callback
-
-If your topic is already in a Foxglove-native type (`nav_msgs/Path`, `sensor_msgs/PointCloud2`, `visualization_msgs/MarkerArray`) and doesn't need the GPS offset, you can skip the visualizer entirely — just bridge it through the DDS router and add a panel in Foxglove pointing at the topic. The visualizer is only required when you need georeferencing or want everything to flow through the combined `/gcs/robot_markers` namespace.
-
 ## Sim-only: textured overhead ground
 
 When running in sim, the visualizer also subscribes to `/sim/overhead/image` + `/sim/overhead/spec`. On receiving both, it builds one `TRIANGLE_LIST` marker on `/gcs/sim_ground` (latched) and tears down its subscriptions. See [2D World Map in Foxglove](../simulation/isaac_sim/overhead_camera.md) for the producer side.
@@ -143,7 +79,7 @@ When running in sim, the visualizer also subscribes to `/sim/overhead/image` + `
 
 ## See also
 
+- [Extending the Foxglove Visualizer](extending_foxglove.md) — maintainer guide: modifying or adding marker types, bridging topics
 - [Coordination Payloads](../robot/autonomy/coordination/payloads.md) — extending visualization with gossip-broadcast payloads
 - [Adding Waypoints and Geofences](waypoints_and_geofences.md) — interactive click-to-place editors
 - [Overhead Camera](../simulation/isaac_sim/overhead_camera.md) — sim-side ground texture producer
-- [`.agents/skills/visualize-in-foxglove`](../../.agents/skills/visualize-in-foxglove/SKILL.md) — agent workflow for adding a topic

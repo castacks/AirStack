@@ -10,14 +10,9 @@ images pulled or built).
 
 ## 1. Clone and set up
 
-```bash
-git clone --recursive -j8 git@github.com:castacks/AirStack.git
-cd AirStack
-./airstack.sh install   # docker, compose, NVIDIA Container Toolkit
-./airstack.sh setup     # enables the `airstack` command
-source ~/.bashrc        # or ~/.zshrc
-airstack image-pull     # or: airstack image-build
-```
+This is the base [Getting Started](index.md) setup — follow it there (clone,
+`install`/`setup`, images pulled or built). Everything below assumes a working
+`airstack` command in the repo root.
 
 ## 2. Fly a reference stack
 
@@ -70,13 +65,13 @@ airstack module list     # name, type, pin, targets, valid?
 `module add` records the pin in `modules.repos`, syncs the repo into the
 gitignored `modules/` dir, validates its `module.yaml`, places overlay
 symlinks, and regenerates a compose override that mounts the module into the
-right containers. Then bring the stack up with the module mounts, selecting
-one of the module's Isaac scene scripts:
+right containers (`airstack up` includes that override automatically whenever
+it exists). Then bring the stack up, selecting one of the module's Isaac scene
+scripts:
 
 ```bash
 ISAAC_SIM_SCRIPT_NAME=modules/dfm2_disturbances/one_px4_pegasus_fan_force_field.py \
-  airstack up --stack full_default --sim isaac \
-  -f .airstack/generated/docker-compose.modules.yaml
+  airstack up --stack full_default --sim isaac
 ```
 
 Full CLI reference (sync, remove, hooks, the pinning rule):

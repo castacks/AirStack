@@ -99,11 +99,11 @@ function print_usage {
     
     # Print each command with its help text
     for cmd in "${sorted_commands[@]}"; do
-        # Skip hidden commands (those starting with _)
-        if [[ "$cmd" == _* ]]; then
+        # Skip hidden commands (those starting with _ or marked hidden)
+        if [[ "$cmd" == _* || -n "${COMMAND_HIDDEN[$cmd]:-}" ]]; then
             continue
         fi
-        
+
         # Get help text or use a default
         local help_text="${COMMAND_HELP[$cmd]:-No description available}"
         
@@ -183,6 +183,12 @@ function print_command_help {
             echo "                      heterogeneous fleets) generates the per-robot services plus"
             echo "                      split-stack DDS-router configs. Mutually exclusive with"
             echo "                      --robots. See docs/development/fleets.md."
+            echo "  --scene NAME        Select the simulation scene by shortname (simulation/scenes.yaml):"
+            echo "                      maps NAME to the selected simulator's scene reference and"
+            echo "                      exports it (Isaac: ISAAC_SIM_SCENE [+ ISAAC_SIM_STAGE_SCALE] —"
+            echo "                      a Pegasus catalog key or Nucleus USD URL; MS AirSim:"
+            echo "                      MS_AIRSIM_SCENE — a pre-built UE4 scene, auto-fetched if"
+            echo "                      missing). Unknown scene = error + table of available scenes."
             echo "  --headless          Run the sim without a GUI (ISAAC_SIM_HEADLESS/MS_AIRSIM_HEADLESS)."
             echo "  --play / --no-play  Start the sim playing, or paused (PLAY_SIM_ON_START)."
             echo "  --no-autolaunch     Start containers idle (AUTOLAUNCH=false; launch manually)."
@@ -214,6 +220,39 @@ function print_command_help {
             echo ""
             echo "Run a fleet:  airstack up --fleet <name> [--sim isaac|airsim]"
             ;;
+        osmo)
+            echo "Usage: airstack osmo <subcommand> [options]"
+            echo ""
+            echo "Develop AirStack on an ephemeral OSMO GPU pod from any laptop (Mac/"
+            echo "Windows/Linux) — wraps 'osmo workflow submit/port-forward/logs/cancel'"
+            echo "for osmo/workflows/airstack-dev.yaml. Needs only the cross-platform"
+            echo "'osmo' CLI (no local Docker). Tutorial: docs/tutorials/airstack_on_osmo.md"
+            echo ""
+            echo "Subcommands:"
+            echo "  setup         One-time per-user credential registration (airlab-docker-"
+            echo "                registry, airlab-docker-login, airlab-nucleus). Re-run to"
+            echo "                rotate credentials (e.g. a new Nucleus API token)."
+            echo "  up [--pool POOL] [--key PATH] [--branch BRANCH]"
+            echo "                Submit the airstack-dev workflow with your SSH pubkey"
+            echo "                injected. --branch defaults to your current local branch;"
+            echo "                the workflow id is saved to ~/.airstack/osmo-state for the"
+            echo "                other subcommands (override with AIRSTACK_OSMO_WF)."
+            echo "  logs          Follow the workspace task logs (OSMO_LOGS_TASK /"
+            echo "                OSMO_LOGS_TAIL override task and tail length)."
+            echo "  ide [--no-open] [code|cursor]"
+            echo "                Port-forward sshd (2200:22) and open VS Code/Cursor on"
+            echo "                Host airstack-osmo."
+            echo "  webrtc        Port-forward the Isaac Sim WebRTC ports (TCP foreground"
+            echo "                + UDP background)."
+            echo "  foxglove      Install the AirStack Foxglove extensions locally, then"
+            echo "                port-forward the GCS Foxglove websocket (8766:8766)."
+            echo "                OSMO_FOXGLOVE_EXT_DIR overrides the target dir;"
+            echo "                OSMO_FOXGLOVE_SKIP_EXTENSIONS=1 skips the install."
+            echo "  down          Cancel the active workflow (push your work to git first"
+            echo "                — the pod filesystem is ephemeral)."
+            echo ""
+            echo "Typical session: airstack osmo up --pool airstack && airstack osmo ide"
+            ;;
         sync)
             echo "Usage: airstack sync [--no-hooks]"
             echo ""
@@ -224,32 +263,43 @@ function print_command_help {
             echo "modules: additions into modules.repos (naming every deviation), run"
             echo "the module sync, fetch declared external stack repos into gitignored"
             echo "stacks/.external/<alias>/ (fleets address them as <alias>/<stack>),"
-            echo "validate the declared fleet, and record the resolved sources in"
+            echo "validate the declared fleet, warn if release: has drifted off the"
+            echo ".env VERSION line, and record the resolved sources in"
             echo ".airstack/generated/effective_sources.yaml."
             echo ""
             echo "NOT done (future work): rewriting .env (it stays hand-edited) and"
             echo "release-set pin resolution against a registry (RFC #379 §7)."
             ;;
         images)
-            echo "Usage: airstack images"
+            echo "Usage: airstack images [subcommand] [service_name...] [options]"
             echo ""
-            echo "List Docker images whose repository/tag contains the PROJECT_NAME value from .env."
-            echo "Shows all images if PROJECT_NAME is not set."
-            ;;
-        image-build)
-            echo "Usage: airstack image-build [service_name...] [options]"
+            echo "Manage the Docker Compose service images. Compose subcommands pass"
+            echo "env variables from .env and any prepended environment variables"
+            echo "(e.g. VERSION=x airstack images build robot-desktop)."
             echo ""
-            echo "Build or rebuild Docker Compose services. Passes ENV variables from .env"
-            echo "and any prepended environment variables (e.g. VERSION=x airstack build robot)."
-            echo ""
-            echo "Options:"
-            echo "  --no-cache         Do not use cache when building the image"
-            echo "  --pull             Always attempt to pull a newer version of the image"
-            echo "  --push             Push service images"
-            echo "  --progress=VALUE   Set type of progress output (auto, tty, plain, json, quiet)"
-            echo "  --env-file         Specify an alternate environment file"
-            echo ""
-            echo "Any additional flags are passed directly to 'docker compose build'."
+            echo "Subcommands:"
+            echo "  list (default)  List Docker images whose repository/tag contains the"
+            echo "                  PROJECT_NAME value from .env (all images if unset)."
+            echo "  build [service...]"
+            echo "                  Build or rebuild Docker Compose services."
+            echo "                  Options (any other flags pass through to"
+            echo "                  'docker compose build'):"
+            echo "                    --no-cache         Build without using the cache"
+            echo "                    --pull             Always pull newer base images"
+            echo "                    --push             Push service images after build"
+            echo "                    --progress=VALUE   auto|tty|plain|json|quiet"
+            echo "                    --env-file FILE    Alternate environment file"
+            echo "  push [service...]"
+            echo "                  Push service images to the registry."
+            echo "  pull [service...]"
+            echo "                  Pull service images from the registry."
+            echo "  delete [-y|--yes]"
+            echo "                  Delete all local images matching PROJECT_NAME"
+            echo "                  (lists the matches and asks first unless -y)."
+            echo "  rm [-f|--force] [-y|--yes] <search_term>"
+            echo "                  Remove images whose repository:tag contains the"
+            echo "                  search term (fixed-string match; asks first"
+            echo "                  unless -y). E.g. airstack images rm -f -y myimage"
             ;;
         connect)
             echo "Usage: airstack connect [container_name] [options]"
@@ -284,19 +334,20 @@ function print_command_help {
             echo ""
             echo "Display the current AirStack version from VERSION in .env file."
             ;;
-        rmi)
-            echo "Usage: airstack rmi [flags] <search_term>"
+        config)
+            echo "Usage: airstack config [subcommand]"
             echo ""
-            echo "Remove Docker images whose repository:tag contains the search term"
-            echo "(fixed-string match; lists the matches and asks before removing)."
+            echo "Configure the AirStack environment. With no subcommand, runs all"
+            echo "configuration tasks in order (isaac-sim, nucleus, git-hooks)."
             echo ""
-            echo "Options:"
-            echo "  -f, --force   Force removal (docker rmi -f)"
-            echo "  -y, --yes     Skip the confirmation prompt"
-            echo ""
-            echo "Examples:"
-            echo "  airstack rmi myimage"
-            echo "  airstack rmi -f -y myimage"
+            echo "Subcommands:"
+            echo "  all (default)  Run all configuration tasks below."
+            echo "  isaac-sim      Generate the default Isaac Sim user.config.json"
+            echo "                 (asks before resetting an existing one)."
+            echo "  nucleus        Configure the AirLab Omniverse Nucleus login"
+            echo "                 (prompts for an API token; blank to skip)."
+            echo "  git-hooks      Install the repo's pre-commit hook"
+            echo "                 (docker image tag versioning)."
             ;;
         ready)
             echo "Usage: airstack ready [--json]"
@@ -1081,6 +1132,7 @@ function parse_launch_intent {
     AIRSTACK_INTENT_AUTOLAUNCH=""
     AIRSTACK_INTENT_STACK=""
     AIRSTACK_INTENT_FLEET=""
+    AIRSTACK_INTENT_SCENE=""
     AIRSTACK_FLEET_COMPOSE_FILE=""
     AIRSTACK_DRY_RUN=""
     AIRSTACK_UP_WAIT=""
@@ -1101,6 +1153,8 @@ function parse_launch_intent {
             --stack=*)      AIRSTACK_INTENT_STACK="${a#--stack=}";;
             --fleet)        i=$((i+1)); AIRSTACK_INTENT_FLEET="${args[$i]:-}";;
             --fleet=*)      AIRSTACK_INTENT_FLEET="${a#--fleet=}";;
+            --scene)        i=$((i+1)); AIRSTACK_INTENT_SCENE="${args[$i]:-}";;
+            --scene=*)      AIRSTACK_INTENT_SCENE="${a#--scene=}";;
             --wait)         AIRSTACK_UP_WAIT="1";;
             # NOTE: shadows compose's own `up --dry-run`; ours validates the
             # derived launch config and exits without starting services.
@@ -1368,6 +1422,77 @@ function apply_launch_intent {
             export ISAAC_SIM_SCRIPT_NAME="$want"
         fi
     fi
+
+    # --scene: map the shortname to the ACTIVE simulator's scene reference via
+    # simulation/scenes.yaml and export it (leaf values only). Unknown scene or
+    # wrong simulator = the resolver prints the availability table and we fail.
+    if [[ -n "$AIRSTACK_INTENT_SCENE" ]]; then
+        local scene_sim=""
+        [[ ",$profiles_final," == *",isaac-sim,"* ]] && scene_sim="isaac"
+        [[ ",$profiles_final," == *",ms-airsim,"* ]] && scene_sim="msairsim"
+        if [[ -z "$scene_sim" ]]; then
+            log_error "--scene requires an Isaac or MS AirSim profile (resolved profiles: ${profiles_final:-<none>}); simple-sim has no scene catalog. Use 'airstack up --sim isaac|airsim --scene $AIRSTACK_INTENT_SCENE'."
+            python3 "$PROJECT_ROOT/simulation/resolve_scene.py" --table >&2 || true
+            return 1
+        fi
+        local scene_exports line
+        if ! scene_exports=$(python3 "$PROJECT_ROOT/simulation/resolve_scene.py" \
+                --sim "$scene_sim" --scene "$AIRSTACK_INTENT_SCENE"); then
+            return 1  # resolver already printed the error + table on stderr
+        fi
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            export "${line?}"
+            log_info "--scene $AIRSTACK_INTENT_SCENE → $line"
+        done <<< "$scene_exports"
+        if [[ "$scene_sim" == "msairsim" ]]; then
+            ensure_msairsim_scene "$(resolve_launch_var MS_AIRSIM_SCENE "$@")" "$@" || return 1
+        fi
+    fi
+    return 0
+}
+
+# MS AirSim scenes are pre-built UE4 binaries fetched into the (bind-mounted)
+# scenes dir on first use. When --scene selects one that is not present
+# locally, offer to download it now (interactive) so the multi-GB fetch
+# doesn't silently happen inside the container; non-interactive runs keep the
+# in-container auto-fetch (visible in the airsim tmux window).
+function ensure_msairsim_scene {
+    local scene_key="$1"; shift
+    local fetch_sh="$PROJECT_ROOT/simulation/ms-airsim/assets/scenes/fetch_scene.sh"
+
+    # An explicit binary path bypasses the catalog entirely.
+    local bin
+    bin=$(resolve_launch_var MS_AIRSIM_BINARY_PATH "$@")
+    if [[ -n "$bin" ]]; then
+        log_warn "--scene is overridden by MS_AIRSIM_BINARY_PATH=$bin (the explicit binary path wins in the container). Unset MS_AIRSIM_BINARY_PATH to use --scene."
+        return 0
+    fi
+
+    local env_dir name
+    env_dir=$(resolve_launch_var MS_AIRSIM_ENV_DIR "$@")
+    [[ -z "$env_dir" ]] && env_dir="$PROJECT_ROOT/simulation/ms-airsim/assets/scenes"
+    [[ "$env_dir" != /* ]] && env_dir="$PROJECT_ROOT/${env_dir#./}"
+    name=$(bash "$fetch_sh" --name "$scene_key") || {
+        log_error "fetch_scene.sh does not know scene key '$scene_key' (simulation/scenes.yaml out of sync?)"
+        return 1
+    }
+    if compgen -G "$env_dir/$name/LinuxNoEditor/*.sh" > /dev/null; then
+        return 0
+    fi
+    log_warn "MS AirSim scene '$name' is not present locally under $env_dir."
+    if [[ -t 0 && -t 1 && "${AIRSTACK_ASSUME_YES:-}" != "1" ]]; then
+        local ans
+        read -r -p "Download it now from github.com/microsoft/AirSim v1.8.1 (can be several GB)? [Y/n] " ans
+        case "$ans" in
+            n|N|no|NO)
+                log_error "Aborted. Point MS_AIRSIM_BINARY_PATH at an existing scene binary, or rerun and accept the download."
+                return 1;;
+        esac
+        SCENES_DIR="$env_dir" bash "$fetch_sh" "$scene_key" || return 1
+    else
+        log_info "Non-interactive run: the airsim container will auto-fetch '$name' on first launch (progress in the airsim tmux window)."
+    fi
     return 0
 }
 
@@ -1383,6 +1508,11 @@ function print_launch_config {
     local _fleet_cfg
     _fleet_cfg=$(resolve_launch_var FLEET_CONFIG_FILE "$@")
     [[ -n "$_fleet_cfg" ]] && keys+=(FLEET_CONFIG_FILE)
+    # Scene keys likewise only appear when a scene is selected (--scene or env).
+    local _sk
+    for _sk in ISAAC_SIM_SCENE ISAAC_SIM_STAGE_SCALE MS_AIRSIM_SCENE; do
+        [[ -n "$(resolve_launch_var "$_sk" "$@")" ]] && keys+=("$_sk")
+    done
     local k v lines=()
     for k in "${keys[@]}"; do
         v=$(resolve_launch_var "$k" "$@")
@@ -1393,7 +1523,14 @@ function print_launch_config {
     profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
     log_info "Launch config: profiles=$profiles robots=$(resolve_launch_var NUM_ROBOTS "$@") autolaunch=$(resolve_launch_var AUTOLAUNCH "$@") play_on_start=$(resolve_launch_var PLAY_SIM_ON_START "$@")"
     if [[ ",$profiles," == *",isaac-sim,"* ]]; then
-        log_info "  isaac: script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@") headless=$(resolve_launch_var ISAAC_SIM_HEADLESS "$@")"
+        local _isaac_scene
+        _isaac_scene=$(resolve_launch_var ISAAC_SIM_SCENE "$@")
+        log_info "  isaac: script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@") headless=$(resolve_launch_var ISAAC_SIM_HEADLESS "$@")${_isaac_scene:+ scene=$_isaac_scene}"
+    fi
+    if [[ ",$profiles," == *",ms-airsim,"* ]]; then
+        local _airsim_scene
+        _airsim_scene=$(resolve_launch_var MS_AIRSIM_SCENE "$@")
+        [[ -n "$_airsim_scene" ]] && log_info "  ms-airsim: scene=$_airsim_scene"
     fi
     log_info "  urdf=$(resolve_launch_var URDF_FILE "$@")"
     local _stack_dir
@@ -1510,7 +1647,7 @@ function preflight_up {
     if (( ${#missing[@]} > 0 )); then
         log_warn "Images not present locally — compose will BUILD them from scratch (can take a long time):"
         printf '  - %s\n' "${missing[@]}" >&2
-        log_warn "To use prebuilt images instead: airstack image-pull   (set AIRSTACK_NO_IMAGE_BUILD=1 to forbid implicit builds)"
+        log_warn "To use prebuilt images instead: airstack images pull   (set AIRSTACK_NO_IMAGE_BUILD=1 to forbid implicit builds)"
     fi
 
     # 6. ROBOT_NAME resolution needs Docker >= 29 (see robot/docker/.bashrc)
@@ -1682,7 +1819,7 @@ function cmd_image_pull {
     log_info "Pull completed successfully"
 }
 
-function cmd_images {
+function cmd_images_list {
     check_docker
 
     local env_file="$PROJECT_ROOT/.env"
@@ -1741,6 +1878,52 @@ function cmd_image_delete {
 
     echo "$refs" | xargs -r docker rmi -f
     log_info "Done."
+}
+
+# Dispatcher for the `images` command group. Unlike the other groups, the
+# subcommand is the first NON-FLAG argument: callers legitimately put compose
+# global flags before it (e.g. `airstack --progress=quiet images pull`, and
+# the top-level dispatcher hands the flags through in order). Bare
+# `airstack images` keeps its historical meaning: list.
+function cmd_images_dispatch {
+    local sub=""
+    local rest=()
+    for arg in "$@"; do
+        if [ -z "$sub" ] && [[ "$arg" != -* ]]; then
+            sub="$arg"
+        else
+            rest+=("$arg")
+        fi
+    done
+    # A lone -h/--help with no subcommand means help for the group.
+    if [ -z "$sub" ]; then
+        for arg in "$@"; do
+            [[ "$arg" == "-h" || "$arg" == "--help" ]] && sub="help"
+        done
+    fi
+
+    case "${sub:-list}" in
+        list)   cmd_images_list "${rest[@]}" ;;
+        build)  cmd_image_build "${rest[@]}" ;;
+        push)   cmd_image_push "${rest[@]}" ;;
+        pull)   cmd_image_pull "${rest[@]}" ;;
+        delete) cmd_image_delete "${rest[@]}" ;;
+        rm)     cmd_rmi "${rest[@]}" ;;
+        help)   print_command_help images ;;
+        *)
+            log_error "Unknown images subcommand: '$sub'"
+            print_command_help images
+            return 1
+            ;;
+    esac
+}
+
+# Legacy top-level spellings (image-build, rmi, ...) — hidden from help,
+# forward with a nudge.
+function _cmd_images_legacy {
+    local old="$1" sub="$2"; shift 2
+    log_warn "'airstack ${old}' is deprecated; use 'airstack images ${sub}'."
+    cmd_images_dispatch "$sub" "$@"
 }
 
 function cmd_down {
@@ -2024,10 +2207,10 @@ function cmd_rmi {
         case "$arg" in
             -f|--force) force=true ;;
             -y|--yes)   auto_yes=true ;;
-            -*) log_error "Unknown option for 'rmi': $arg"; print_command_help "rmi"; return 1 ;;
+            -*) log_error "Unknown option for 'images rm': $arg"; print_command_help "images"; return 1 ;;
             *)
                 if [ -n "$search_term" ]; then
-                    log_error "'rmi' takes exactly one search term (got '$search_term' and '$arg')"
+                    log_error "'images rm' takes exactly one search term (got '$search_term' and '$arg')"
                     return 1
                 fi
                 search_term="$arg" ;;
@@ -2036,7 +2219,7 @@ function cmd_rmi {
 
     if [ -z "$search_term" ]; then
         log_error "Search term required"
-        print_command_help "rmi"
+        print_command_help "images"
         return 1
     fi
 
@@ -2098,16 +2281,15 @@ function load_command_modules {
 # Arrays to store available commands and their help text
 declare -A COMMANDS
 declare -A COMMAND_HELP
+# Commands registered here still dispatch but are omitted from `airstack help`
+# and `airstack commands` (e.g. deprecated aliases kept for muscle memory).
+declare -A COMMAND_HIDDEN
 
 # Register built-in commands
 function register_builtin_commands {
     COMMANDS["install"]="cmd_install"
     COMMANDS["setup"]="cmd_setup"
-    COMMANDS["image-build"]="cmd_image_build"
-    COMMANDS["image-push"]="cmd_image_push"
-    COMMANDS["image-pull"]="cmd_image_pull"
-    COMMANDS["images"]="cmd_images"
-    COMMANDS["image-delete"]="cmd_image_delete"
+    COMMANDS["images"]="cmd_images_dispatch"
     COMMANDS["up"]="cmd_up"
     COMMANDS["down"]="cmd_down"
     COMMANDS["clean"]="cmd_clean"
@@ -2115,17 +2297,26 @@ function register_builtin_commands {
     COMMANDS["status"]="cmd_status"
     COMMANDS["logs"]="cmd_logs"
     COMMANDS["version"]="cmd_version"
-    COMMANDS["rmi"]="cmd_rmi"
     COMMANDS["help"]="cmd_help"
-    
+
+    # Deprecated flat spellings (pre command-group syntax). Registered so old
+    # muscle memory / scripts keep working, but COMMAND_HIDDEN keeps them out
+    # of `airstack help` and `airstack commands`.
+    COMMANDS["image-build"]="_cmd_images_legacy image-build build"
+    COMMANDS["image-push"]="_cmd_images_legacy image-push push"
+    COMMANDS["image-pull"]="_cmd_images_legacy image-pull pull"
+    COMMANDS["image-delete"]="_cmd_images_legacy image-delete delete"
+    COMMANDS["rmi"]="_cmd_images_legacy rmi rm"
+    COMMAND_HIDDEN["image-build"]=1
+    COMMAND_HIDDEN["image-push"]=1
+    COMMAND_HIDDEN["image-pull"]=1
+    COMMAND_HIDDEN["image-delete"]=1
+    COMMAND_HIDDEN["rmi"]=1
+
     # Register help text for built-in commands
     COMMAND_HELP["install"]="Install dependencies (Docker Engine, NVIDIA Container Toolkit)"
     COMMAND_HELP["setup"]="Configure AirStack settings and add to shell profile"
-    COMMAND_HELP["image-build"]="Build or rebuild Docker Compose service images"
-    COMMAND_HELP["image-push"]="Push Docker Compose service images to a registry"
-    COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
-    COMMAND_HELP["images"]="List Docker images filtered by PROJECT_NAME from .env"
-    COMMAND_HELP["image-delete"]="Delete all Docker images matching PROJECT_NAME (prompts unless -y)"
+    COMMAND_HELP["images"]="Manage Docker Compose service images: list (default)|build|push|pull|delete|rm (see 'airstack help images')"
     COMMAND_HELP["up"]="Start services [--sim isaac|airsim|simple] [--robots N] [--stack NAME] [--fleet NAME] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run]"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["clean"]="Remove all ROS 2 build artifacts (build/, install/, log/)"
@@ -2133,7 +2324,6 @@ function register_builtin_commands {
     COMMAND_HELP["status"]="Show status of all containers"
     COMMAND_HELP["logs"]="View logs for a container (supports partial name matching)"
     COMMAND_HELP["version"]="Display the current AirStack version"
-    COMMAND_HELP["rmi"]="Remove Docker images by search term"
     COMMAND_HELP["help"]="Show help information"
 }
 
@@ -2169,11 +2359,11 @@ function list_commands {
     declare -A modules
     
     for cmd in "${sorted_commands[@]}"; do
-        # Skip hidden commands (those starting with _)
-        if [[ "$cmd" == _* ]]; then
+        # Skip hidden commands (those starting with _ or marked hidden)
+        if [[ "$cmd" == _* || -n "${COMMAND_HIDDEN[$cmd]:-}" ]]; then
             continue
         fi
-        
+
         # Determine module based on command name prefix
         local module="core"
         if [[ "$cmd" == *_* ]]; then
