@@ -46,8 +46,8 @@ FYI Docs are updated via mkdocs.yml and markdown files under `docs/`. It should 
 
 <!-- 
   1. Look at the current version on main
-  2. If the version ENDS WITH A LABEL ALPHA/BETA/RC followed by a number, just bump the trailing label number (0.18.0-alpha.5 -> 0.18.0-alpha.6)
+  2. If the version ENDS WITH A LABEL DEV/BETA/RC followed by a number, just bump the trailing label number (0.21.0-dev.5 -> 0.21.0-dev.6)
   3. If the version is ONLY numbers, e.g. 0.18.3
-      a. if it's a new feature, consider bumping the MINOR number and adding the ALPHA label (0.18.3 -> 0.19.0-alpha.1)
+      a. if it's a new feature, consider bumping the MINOR number and adding the DEV label (0.20.3 -> 0.21.0-dev.1)
       b. if it's a hot fix just bump the PATCH number (0.18.3 -> 0.18.4)
 -->

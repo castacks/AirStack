@@ -9,7 +9,7 @@ These variables assemble every image tag as `${PROJECT_DOCKER_REGISTRY}/${PROJEC
 | Variable | Purpose | Default | Consumed by |
 | -------- | ------- | ------- | ----------- |
 | `PROJECT_NAME` | Repository name for Docker images and part of every image tag | `"airstack"` | `image:` tags in all compose files (`robot/docker/`, `gcs/docker/`, `simulation/*/docker/`) |
-| `VERSION` | Semver image version; bumped per release, so the value in `.env` is always the current release (e.g. `0.20.0-alpha.15`) | current release semver | `image:` tags in all compose files; CI version gate (`check-version-increment.yml`) |
+| `VERSION` | Semver image version; bumped per release, so the value in `.env` is always the current release (e.g. `0.21.0-dev.15`) | current release semver | `image:` tags in all compose files; CI version gate (`check-version-increment.yml`) |
 | `DOCKER_IMAGE_BUILD_MODE` | Image-tag discriminator **only** — no Dockerfile consumes it. Keep `dev` (mounted code, built live); a real `prebuilt` workspace-baked stage is future work | `"dev"` | Tag suffix of the robot images (`robot/docker/docker-compose.yaml`) |
 | `PROJECT_DOCKER_REGISTRY` | Registry to push/pull images from | `"airlab-docker.andrew.cmu.edu/airstack"` | `image:` tags in all compose files |
 | `COMPOSE_PROFILES` | Default compose profiles when none are passed explicitly | `"desktop,isaac-sim"` | Docker Compose profile selection; rewritten by `airstack up --sim <sim>` (swaps the simulator profile) and `--fleet` (heterogeneous fleets swap `desktop` for `fleet`) |

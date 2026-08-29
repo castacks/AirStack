@@ -62,7 +62,7 @@ canonical-defaults launch rule, repo anatomy) defer to
   - Large pinned files (model weights) → `assets:` with `url` + `sha256` +
     `dest`, no Git LFS.
   - `airstack_compat`: a real semver range against the trunk `VERSION` you
-    tested (e.g. `">=0.19.0-alpha.18 <0.20.0"`), never a branch.
+    tested (e.g. `">=0.21.0-dev.18 <0.22.0"`), never a branch.
 - [ ] Validate:
 
   ```bash

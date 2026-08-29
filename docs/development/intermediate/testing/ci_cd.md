@@ -222,7 +222,7 @@ declares two `cache_from` entries:
 
 | Entry | Example | Who writes it |
 |---|---|---|
-| Versioned | `airstack:v0.19.0-alpha.7_isaac-sim` | `docker-build.yml`, per release |
+| Versioned | `airstack:v0.21.0-dev.7_isaac-sim` | `docker-build.yml`, per release |
 | Floating | `airstack:cache_isaac-sim` | `docker-build.yml`, republished every build |
 
 The versioned entry alone cannot work on a pull request. `check-version-increment`

@@ -17,7 +17,26 @@ registered in mkdocs.yml) trims the rendered page to the section matching
 the repo-root .env VERSION, so each mike-deployed docs version carries only
 its own notes. -->
 
-## 0.20.0 (Unreleased)
+## 0.21.0 (Unreleased)
+
+- Nothing yet.
+
+## 0.20.0 — 2026-08-29
+
+- **Pre-release versioning terminology: `-alpha.N` → `-dev.N`.** The
+  development line on `develop` now uses `X.Y.Z-dev.N` pre-release versions
+  (first: `0.21.0-dev.0`) instead of `X.Y.Z-alpha.N`. The
+  `check-version-increment` PR gate accepts exactly `dev`, `beta`, `rc`
+  (ordering `dev < beta < rc < release`); the main→develop sync workflow
+  rolls develop forward to the next minor's `-dev.0` after a release. Docs,
+  skills, and the PR template were updated to match. Existing `-alpha.N`
+  versions in git history and in declared module-compat ranges remain valid
+  historical references.
+
+- **Single, revamped repo README.** The repo now has one `README.md` (at the
+  root — `docs/README.md` was removed), rewritten around the redesigned docs
+  home page: quickstart, one-command bring-up, sim-to-real parity, CI flight
+  campaigns, and agent-driven workflows.
 
 - **Module-catalog sync automation + drift alarm.** Registering a module is
   two merges (registry PR to

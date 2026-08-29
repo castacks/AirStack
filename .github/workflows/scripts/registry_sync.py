@@ -82,7 +82,7 @@ def bump_version() -> "tuple[str, str]":
     if not m:
         sys.exit('.env has no VERSION="..." line')
     old = m.group(1)
-    pre = re.fullmatch(r"(\d+\.\d+\.\d+-(?:alpha|beta|rc)\.)(\d+)", old)
+    pre = re.fullmatch(r"(\d+\.\d+\.\d+-(?:dev|alpha|beta|rc)\.)(\d+)", old)
     if pre:
         new = f"{pre.group(1)}{int(pre.group(2)) + 1}"
     else:
