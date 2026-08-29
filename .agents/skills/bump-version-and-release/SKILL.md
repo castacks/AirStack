@@ -75,7 +75,7 @@ Three workflows in `.github/workflows/` interact with `VERSION`:
 ### 3. `deploy_docs_from_release.yaml` — versioned docs
 
 - **Trigger:** GitHub `release` event with `types: [published]`.
-- **Behavior:** publishes the docs under the release's **MAJOR.MINOR slug** (tag `0.21.0` → `/0.21/`) titled with the full tag, points the `latest` alias at it, and makes `latest` the site default. A later hotfix republishes the same slug in place (retitled to the new patch version), so URLs never break within a minor line.
+- **Behavior:** publishes the docs under the release's **MAJOR.MINOR slug** (tag `0.21.0` → `/0.21/`) titled with the full tag, points the `main` alias at it, and makes `main` the site default. A later hotfix republishes the same slug in place (retitled to the new patch version), so URLs never break within a minor line.
 - Companion workflows publish `develop` (slug `develop`, titled `<VERSION> (unstable)`, pinned to the top of the version selector) and `main` (same MAJOR.MINOR slug mechanism as releases, so docs hotfixes go live without a release). There is no separate `main` docs version.
 
 So the full release path is: bump `VERSION` → PR → merge to `main`/`develop` (retag unchanged images and/or rebuild changed ones + push + sign) → cut a GitHub Release matching that VERSION (versioned docs go live).
@@ -253,8 +253,8 @@ For a true release (dropping the pre-release suffix):
 3. [ ] In the same PR, retitle the Release Notes section to `## X.Y.Z — YYYY-MM-DD` and open a fresh `## <next-version> (Unreleased)` above it.
 4. [ ] Merge to `main`.
 5. [ ] Wait for `docker-build.yml` to push and sign all images.
-6. [ ] Create a GitHub Release with tag `X.Y.Z` (matching `VERSION` exactly). Publishing the release fires `deploy_docs_from_release.yaml`, which publishes the docs under the `X.Y` slug (titled `X.Y.Z`) and points the `latest` alias and site default at it.
-7. [ ] Verify the docs site shows the new version under the version selector and that `latest` resolves to it.
+6. [ ] Create a GitHub Release with tag `X.Y.Z` (matching `VERSION` exactly). Publishing the release fires `deploy_docs_from_release.yaml`, which publishes the docs under the `X.Y` slug (titled `X.Y.Z`) and points the `main` alias and site default at it.
+7. [ ] Verify the docs site shows the new version under the version selector and that the `main` alias (site default) resolves to it.
 
 ## References
 
