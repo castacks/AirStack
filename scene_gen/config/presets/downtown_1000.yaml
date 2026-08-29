@@ -66,6 +66,12 @@ overrides:
   # tanks, masts, vents and stacked wall/fire-escape pieces.
   building_props:
     enabled: true
+    # See `downtown_gac.yaml` for the full set of knobs and the measurements
+    # behind them. These two are excluded everywhere: SM_Building_31 (302 m)
+    # and SM_Building_16 (312 m) carry a crown/setback rather than a flat deck,
+    # so roof plant seats on a height only part of the footprint reaches
+    # (user, 2026-08-29 scene review).
+    no_roof_props: ["SM_Building_31", "SM_Building_16"]
 
   # ROAD ASPHALT, matched to the suburb wildfire scene: the local megascans
   # asphalt swatch instead of shared.yaml's Nucleus MI_Asphalt. `apply_ground_planes`

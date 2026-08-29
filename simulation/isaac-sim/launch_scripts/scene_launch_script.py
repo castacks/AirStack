@@ -39,7 +39,7 @@ Open the Kit Script Editor (Window -> Script Editor) and run:
     generate_scene.reload_scene_on_stage(
         stage, os.path.join(SCENE_GEN, "config", "presets", "downtown.yaml"),
         scene_scale_factor=ssf, add_colliders_fn=sl.add_colliders_skip_empty)
-    omni.timeline.get_timeline_interface().play()
+    # timeline deliberately left STOPPED; call .play() yourself if needed
 """
 
 import os
@@ -78,6 +78,10 @@ from compile_disaster import load_scene_config
 # ----- CONFIGURATION -----
 ENV_URL     = SIMULATION_ENVIRONMENTS["Default Environment"]
 STAGE_SCALE = 1.00
+# The timeline stays STOPPED unless asked for — see CityV2PreviewApp.
+AUTOPLAY = (os.environ.get("AUTOPLAY") or "").strip().lower() in (
+    "1", "true", "yes", "on")
+
 SCENE_CONFIG = os.environ.get("SCENE_CONFIG") or os.path.join(
     _SCENE_GEN_DIR, "config", "presets", "downtown.yaml")
 # -------------------------
@@ -265,16 +269,31 @@ class CityV2PreviewApp:
             ground_path="/World/stage/generated/ground",
         )
 
-        add_sky(stage, resolve_sky(config))
+        # Intensity and exposure from the PRESET, not the library default.
+        # `add_sky`'s defaults are 3500 at exposure -3.0, and exposure is a
+        # power of two — an effective 437, which is what made this city read
+        # flat and grey. A scene that wants more light should be able to say
+        # so in its own config rather than by editing the shared helper.
+        add_sky(stage, resolve_sky(config),
+                intensity=float(config.get("sky_intensity", 3500.0)),
+                exposure=float(config.get("sky_exposure", -3.0)))
         _disable_sky_sun(stage)
 
         print("\n" + "=" * 70)
         print("CITY V2 PREVIEW READY")
         print(f"  config: {SCENE_CONFIG}")
         print("  reload: see the snippet in this script's docstring")
+        print(f"  timeline: {'PLAYING' if AUTOPLAY else 'STOPPED (AUTOPLAY=1 to play)'}")
         print("=" * 70 + "\n")
 
-        self.timeline.play()
+        # DO NOT AUTOPLAY (user, 2026-08-29). This is a REVIEW scene: nothing
+        # here needs the timeline running, and a running timeline is not free
+        # — animated art advances, any settle/physics that does get enabled
+        # starts integrating, and the viewport is no longer the deterministic
+        # frame the layout is being judged on. Opt in with AUTOPLAY=1 when a
+        # scene actually has something to simulate.
+        if AUTOPLAY:
+            self.timeline.play()
 
     def snapshot_city(self, out_dir):
         """Nadir, four obliques and two street-level views of the region.

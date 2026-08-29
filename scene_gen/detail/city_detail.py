@@ -346,6 +346,67 @@ def _class_rank(corridor: dict) -> int:
     return 2 if n >= 4 else (1 if n == 3 else 0)
 
 
+def _facing_corridor(px: float, py: float, out_yaw: float, corridors,
+                     step_m: float = 1.0, search_m: float = 6.0):
+    """The road corridor a frontage slot ``(px, py, out_yaw)`` fronts, or None.
+
+    ``(px, py)`` is the block's own edge in the same frame `build_road_surface`
+    and the marking pass already walk — the kerb line, with the corridor
+    starting right where the block ends. A short step OUT of the block (the
+    direction *out_yaw* already faces) therefore lands inside the corridor
+    rect with no gap to cross. Falls back to the nearest corridor within
+    *search_m* for a slot the direct step misses — a jittered corner, a
+    corridor rect that does not quite reach the block edge — and returns None
+    only for a genuinely interior slot with no road nearby, which street trees
+    never see (city_detail's own frontage slots are always kerb-facing) but a
+    caller reusing this against another category's slot might.
+    """
+    if not corridors:
+        return None
+    ax, ay = _unit(out_yaw)
+    tx, ty = px + ax * step_m, py + ay * step_m
+    for c in corridors:
+        if (c["x0"] - 1e-6 <= tx <= c["x1"] + 1e-6
+                and c["y0"] - 1e-6 <= ty <= c["y1"] + 1e-6):
+            return c
+    best, best_d = None, search_m
+    for c in corridors:
+        cx = min(max(tx, c["x0"]), c["x1"])
+        cy = min(max(ty, c["y0"]), c["y1"])
+        d = math.hypot(tx - cx, ty - cy)
+        if d < best_d:
+            best, best_d = c, d
+    return best
+
+
+def _max_crown_m(corridor: dict, sidewalk_depth_m: float, carriage_frac: float,
+                 min_crown_m: float, lane_w: float) -> float:
+    """How wide a street tree's crown may be at this frontage before it reads
+    as swallowing the street rather than shading it.
+
+    ``carriage_frac`` of the corridor's ``carriage`` span — the travelled
+    way's own width, kerb to kerb, parking excluded, the same field
+    `build_road_surface` paints the asphalt to — plus the sidewalk depth on
+    the tree's own side (the NACTO zone stack this module already sums to
+    place furniture, kerb line to building line). A crown overhanging part of
+    the near lane is what a street tree is FOR, so the cap is deliberately
+    NOT "fits the sidewalk"; it is "does not read as closing the carriageway
+    over", which `carriage_frac` alone controls — see the `crown_by_road`
+    config block for the value chosen and why.
+
+    Falls back to ``n_lanes * lane_w`` when *corridor* predates the
+    ``carriage`` key (e.g. the legacy corridor dicts
+    `scene_generator._subdivide_region_metric` builds for a plain suburb),
+    the same fallback `_class_rank` already uses for a missing `road_class`.
+    """
+    car = corridor.get("carriage")
+    if car and len(car) == 2:
+        carriage_w = abs(float(car[1]) - float(car[0]))
+    else:
+        carriage_w = float(corridor.get("n_lanes", 2)) * lane_w
+    return max(min_crown_m, carriage_w * carriage_frac + sidewalk_depth_m)
+
+
 def _junction_control(a: dict, b: dict, signal_lanes: int, stop_zones):
     """``(control, all_way, minor)`` for the junction between *a* and *b*.
 
@@ -1306,6 +1367,14 @@ def build(config: dict, layout: dict, resolver, rng=None,
     # reserving the whole canopy would leave room for about one tree per block.
     canopy_frac = float(cfg.get("canopy_footprint_frac", 0.25))
     interior_inset = _interior_inset(zones_cfg)
+    # Kerb to building line: the sum of every NACTO zone, i.e. the far edge of
+    # `frontage`, the last one. Used by `crown_by_road` as "the sidewalk depth
+    # on the tree's own side" — reusing `_zone_bounds` rather than re-summing
+    # `_ZONES` so the two stay locked to the same zone widths a preset sets.
+    sidewalk_depth_m = _zone_bounds(zones_cfg, "frontage")[1]
+    # Same fallback `_class_rank`/`eye_off` already use for a corridor with no
+    # measured lane width.
+    default_lane_w = float((config.get("roads") or {}).get("lane_width_m", 3.5))
     # How many lateral positions inside a zone a prop may try before giving up.
     # One line at the zone centre makes the kerb a strictly linear budget, and
     # the categories at the end of the queue starve; a real street tucks a bin
@@ -1465,6 +1534,24 @@ def build(config: dict, layout: dict, resolver, rng=None,
         # generic margin is measured to the footprint edge, which for a canopy
         # is metres out from the trunk.
         cat_curb = float(spec.get("curb_margin_m", curb_margin))
+
+        # Street-tree crown sized to the road each slot fronts, so an avenue
+        # canopy does not stand over a row-house street — see `_facing_corridor`
+        # / `_max_crown_m`. Config-gated under this one category (a "crown"
+        # is a tree concept, not a general street-furniture one) and OFF
+        # unless a preset opts in, so every config that does not set
+        # `crown_by_road` keeps the old uniform draw exactly. `pool_fps` is
+        # measured once per category, not per slot: the pool a slot draws
+        # from never changes mid-run, only which member of it fits.
+        crown_cfg = (spec.get("crown_by_road") or {}) if name == "street_trees" else {}
+        crown_enabled = bool(crown_cfg.get("enabled", False))
+        carriage_frac = float(crown_cfg.get("carriage_frac", 0.6))
+        crown_min_m = float(crown_cfg.get("min_crown_m", 0.0))
+        pool_fps = None
+        if crown_enabled:
+            pool_fps = [(p, resolver.get(p, cat_default, scale=pool["scale"](p),
+                                         axis_up=pool["axis_up"](p)))
+                       for p in pool["paths"]]
         n = 0
 
         # District thins furniture toward the edge by scaling spacing, but the
@@ -1506,9 +1593,34 @@ def build(config: dict, layout: dict, resolver, rng=None,
                 cat = "planter_fence" if use_guard else cat_default
                 slot_mode = _ORIENT.get(cat, _FREE) if use_guard else mode
 
-                u = rng.choice(src["paths"])
-                sc, au = src["scale"](u), src["axis_up"](u)
-                fp = resolver.get(u, cat, scale=sc, axis_up=au)
+                # Crown-filtered draw: a guarded slot carries the guard's OWN
+                # bundled tree (see the tree-guard note above), not a pick from
+                # this pool, so `use_guard` skips the filter same as it skips
+                # everything else about the bare-tree pool.
+                max_crown = None
+                if crown_enabled and not use_guard and pool_fps:
+                    corridor = _facing_corridor(px, py, out_yaw, corridors)
+                    if corridor is not None:
+                        max_crown = _max_crown_m(corridor, sidewalk_depth_m,
+                                                 carriage_frac, crown_min_m,
+                                                 default_lane_w)
+
+                if max_crown is not None:
+                    fits = [t for t in pool_fps
+                           if max(t[1]["sx"], t[1]["sy"]) <= max_crown]
+                    if not fits:
+                        # Nothing this small exists — the smallest species in
+                        # the pool is still the right call. A small tree on a
+                        # narrow street is correct; no tree at all (dropping
+                        # the slot) is a different, worse defect.
+                        fits = [min(pool_fps,
+                                   key=lambda t: max(t[1]["sx"], t[1]["sy"]))]
+                    u, fp = rng.choice(fits)
+                    sc, au = src["scale"](u), src["axis_up"](u)
+                else:
+                    u = rng.choice(src["paths"])
+                    sc, au = src["scale"](u), src["axis_up"](u)
+                    fp = resolver.get(u, cat, scale=sc, axis_up=au)
 
                 along, across = _occ_extent(fp, slot_mode, canopy_frac)
                 if slot_mode == _POLE:

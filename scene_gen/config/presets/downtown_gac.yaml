@@ -72,14 +72,75 @@ asset-set: urban_gac
 region_m: [800, 800]
 seed: 42
 
+# ---- SKY AND LIGHT -----------------------------------------------------------
+# An HDRI dome, not the built-in sky rig (user, 2026-08-29: "replace the sky
+# with /NVIDIA/Environments/2024_1/DomeLights/Clear/mealie_road.hdr"). Verified
+# to resolve on Nucleus with `omni.client.stat` before being set here.
+#
+# `scene_prep.add_sky` dispatches on the extension: a `.usd` sky is BORROWED
+# (its root prims referenced under /World), anything else non-empty is treated
+# as an equirect HDRI for the dome's `textureFile` with latlong projection. So
+# this takes the HDRI branch and no sky rig is built — which also means the
+# launcher's `_disable_sky_sun` finds nothing to switch off, because there is
+# no `/Environment/sky/.../DistantLight` under an HDRI dome.
+sky: "omniverse://airlab-nucleus.andrew.cmu.edu:443/NVIDIA/Environments/2024_1/DomeLights/Clear/mealie_road.hdr"
+# MORE LIGHT. The defaults are intensity 3500 at exposure -3.0, and exposure is
+# a power of two, so the effective figure is 3500 * 2^-3 = 437 — which is what
+# made the city read flat and grey. 2000 at exposure 0.0 is about 4.6x that.
+sky_intensity: 2000.0
+sky_exposure: 0.0
+
 overrides:
   # Roof plant, water tanks, masts and fire escapes from the pack's own 122
   # props (`detail/gac_props.py`). UNDER `overrides`, not at the top level:
   # this preset is a HIGH-LEVEL spec compiled against `low_level/default.yaml`,
   # and the compiler drops top-level keys it does not know — the pass silently
   # never ran and printed nothing, which is indistinguishable from "placed 0".
+  # ---- rooftop plant and wall kit (detail/gac_props.py) ----------------------
+  # AC units, water tanks, roof bulkheads and fire escapes, from the
+  # GreatAmericanCity pack's own 122 props. Placed by the LAYOUT GENERATOR, not
+  # by a disaster pass (user, 2026-08-29: "remove the extra ones from earthquake
+  # and fire. Keep it central with the urban layout generator. Those can pick it
+  # up from here") — the earthquake and fire pipelines adopt what is already on
+  # the roof and settle it, rather than authoring a second set.
   building_props:
     enabled: true
+    max_roof_props: 6
+    # A TANK IS A MID-RISE THING. The user's rule verbatim: "Don't add water
+    # tower to low rises. Only mid rises(higher ones)." Tested against the
+    # building's own measured height; SM_Water_Tank_02 is 5.0 x 5.0 x 11.3 m and
+    # has no business on a 15 m shed.
+    water_tank_min_h_m: 30.0
+    water_tank_max_h_m: 90.0
+    # A fire escape is low- and mid-rise too. Without the cap, SM_Building_20
+    # (151 m) took one continuous 35-segment stack to the roof, and fire escapes
+    # were 76% of every prop in the scene.
+    fire_escape_min_h_m: 12.0
+    fire_escape_max_h_m: 80.0
+    fire_escape_max_storeys: 12
+    ac_min_h_m: 0.0          # AC goes on any eligible flat roof
+    # MEASURED, not guessed (`tools/roof_flatness.py`): the share of each
+    # asset's upward-facing area lying within 1.5 m of its own top. A flat
+    # massing shell is near 1.0; a pitched or stepped roof is far below it.
+    #   BG_Building_D 0.90  BG_Building_A 0.82  MBuilding01 0.74
+    #   BG_Building_B 0.69  BG_Building_C 0.69
+    # Left out: BG_Building_F 0.53 and BG_Building_E 0.31 (a spire lifts E's
+    # max-Z above its real roof deck, which understates it — worth a look
+    # before adding), every Dmytro shed 0.06-0.51, and the brownstones
+    # 0.07-0.48, which are cornices and mansards.
+    flat_roof: ["BG_Building_A", "BG_Building_B", "BG_Building_C",
+                "BG_Building_D", "SM_MERGED_BP_MBuilding01"]
+    # NO PROPS ON THESE TWO (user, 2026-08-29 scene review, pointed at
+    # /World/stage/generated/house_19_541 and house_21_547): "the tops are odd
+    # shaped". SM_Building_31 (302 m) and SM_Building_16 (312 m) are the two
+    # tallest in the library and neither has a flat deck to stand plant on —
+    # they carry a crown/setback, so the parapet-inset maths seats a tank on a
+    # roof height that only part of the footprint actually reaches.
+    #
+    # `roof_flatness.py` does not catch this: it measures the share of
+    # upward-facing area within 1.5 m of the asset's own max Z, and a big flat
+    # crown ON TOP of a setback still scores well. Judged by eye, recorded here.
+    no_roof_props: ["SM_Building_31", "SM_Building_16"]
 
   # ROAD ASPHALT, matched to the suburb wildfire scene: the local megascans
   # asphalt swatch instead of shared.yaml's Nucleus MI_Asphalt. `apply_ground_planes`
@@ -126,7 +187,11 @@ overrides:
   layout:
     # Inherited max_block_m 70 is BELOW every measured block short side
     # (60-116 m) and silently caps the per-typology targets below.
-    max_block_m: 200
+    # 340, not 200. The `highrise` typology below targets a 235-320 m long
+    # axis because SM_Building_31 is 60.3 x 142.2 m in plan and no smaller
+    # block holds it. A cap under the target silently clamps it and the
+    # district comes out unable to place the very buildings it exists for.
+    max_block_m: 340
     anisotropic:
       enabled: true
       long_axis: x            # blocks run long east-west, as Manhattan's do
@@ -192,6 +257,10 @@ overrides:
       # un-zoned value above. A corridor takes the median ring over five samples
       # along its run: a single midpoint sample makes every full-length road a
       # core road and the outer ring never appears.
+      # KEYS MUST MATCH `districts.rings` NAMES. `inner` and `outer` were added
+      # with the five-ring gradient; a ring with no entry here silently falls
+      # back to the un-zoned values above, which is a road hierarchy that does
+      # not match its own district.
       zones:
         core:
           main_road_chance_long: 0.95
@@ -200,12 +269,24 @@ overrides:
           lanes_secondary: 2
           # Downtown gives its kerb to loading and bus stops, not to parking.
           parking_policy: {none: 0.45, one_side: 0.35, both: 0.20}
+        inner:
+          main_road_chance_long: 0.90
+          main_road_chance_short: 0.40
+          lanes_main: 4
+          lanes_secondary: 2
+          parking_policy: {none: 0.30, one_side: 0.40, both: 0.30}
         mid:
           main_road_chance_long: 0.85
           main_road_chance_short: 0.30
           lanes_main: 4
           lanes_secondary: 2
           parking_policy: {none: 0.15, one_side: 0.35, both: 0.50}
+        outer:
+          main_road_chance_long: 0.60
+          main_road_chance_short: 0.15
+          lanes_main: 4
+          lanes_secondary: 2
+          parking_policy: {none: 0.10, one_side: 0.30, both: 0.60}
         edge:
           # Residential: narrow streets, avenues rare, parking on both kerbs.
           main_road_chance_long: 0.40
@@ -433,8 +514,20 @@ overrides:
       # was already a knowing deviation. It buys three species instead of one
       # and geometry that renders correctly; the honest cost is a visibly
       # sparser street. One cheap bound 8-12 m tree would undo the whole trade.
+      # CROWN SIZED TO THE ROAD IT STANDS ON (user, 2026-08-29): the 11.4 m
+      # Shumard_Oak "is too big to be used on the narrower roads, esp
+      # brownstones. It looks good on bigger roads and in the park."
+      # max_crown_m = carriageway_width * carriage_frac + sidewalk_depth, so a
+      # crown may reach about six-tenths of the way over the carriageway and
+      # never the far side. With this preset's 3.3 m lanes and 3.50 m sidewalk
+      # that is 7.5 m on a 2-lane residential street against the oak's measured
+      # 10.5 m crown, and 11.4 m on a 4-lane avenue. Row-house frontage went
+      # from 51.7% oak to 7.8%, with the total street-tree count unchanged
+      # (553 -> 554) — the filter re-species a slot, it never drops one.
       street_trees:   {zone: furnishing, spacing_m:  22.0, guard_chance: 0.10,
-                       curb_margin_m: 0.9}
+                       curb_margin_m: 0.9,
+                       crown_by_road: {enabled: true, carriage_frac: 0.6,
+                                       min_crown_m: 0.0}}
       # NO NATIONAL CODE for street lighting spacing. ANSI/IES RP-8 is a
       # STANDARD and sets illuminance and uniformity, not a pitch; a minority of
       # municipalities codify a maximum outright. CODE, Larimer County Urban
@@ -921,15 +1014,73 @@ overrides:
     # alone concentrated the city: an asset is eligible whenever it FITS, so
     # small footprints won far more slots and two models took 66% of every
     # building. 0 restores pure height matching.
-    repeat_penalty: 1.0
+    repeat_penalty: 1.6
     # The last run reported repeat_radius_m=0, which disables the LOCAL repeat
     # penalty entirely — one model took 56.3% of 119 buildings. With a library
     # of fifteen that is the difference between seeing all of them and seeing
     # three. The radius is in metres and wants to be about a block.
-    repeat_radius_m: 70.0
-    repeat_local_penalty: 0.35
+    repeat_radius_m: 110.0
+    repeat_local_penalty: 0.05
+    # HARD EXCLUSION, on top of the graded penalty above. MEASURED on the
+    # 800 m baseline: MBuilding05 stood 13 times with its nearest twin 26.9 m
+    # away, and four whole tower blocks were the same model twice over — which
+    # is the "buildings appear to be repeating too close to each other"
+    # complaint exactly. A multiplier alone cannot guarantee a separation; this
+    # removes a candidate outright when a copy of it stands inside the radius,
+    # and falls back to the graded penalty only when that would leave the slot
+    # with nothing to build.
+    repeat_hard_radius_m: 45.0
+    # LANDMARKS — the tall tail the height model cannot reach on its own.
+    # MEASURED on the probe: of the eleven `highrise` assets, the four most
+    # distinctive were never placed — SM_Building_16 (312 m), _31 (302 m),
+    # _14 (193 m) and _18 (150 m) — while 134-140 m stock took every slot.
+    # That is the feedback loop `_Skyline` documents: `neighbour_weight` blends
+    # each draw halfway in log space toward the mean height ALREADY standing
+    # nearby, so short neighbours beget shorter targets, and `pick_sigma` is a
+    # Gaussian in log height so a 312 m model against a ~150 m target scores
+    # near zero. Raising `height_median_m` lifts the WHOLE skyline instead of
+    # giving it a tail, and raising `height_max_m` does nothing because the cap
+    # was never the binding constraint.
+    #
+    # So a landmark is a BUDGET rather than a hoped-for tail event: this many
+    # slots may ignore the height match and the packer's area band and take a
+    # tall model outright. The threshold sits just under SM_Building_14 (193 m)
+    # so all four of the missing ones qualify, and the repeat penalties still
+    # decide WHICH landmark — two identical towers facing each other is no
+    # better for being tall.
+    # TWO TALL BUILDINGS MAY SHARE A BLOCK BUT NOT TOUCH (user, 2026-08-29,
+    # looking at the built scene): "don't have 2 of the really tall buildings
+    # immediately next to each other. They can be in the same city block but
+    # not right next to each other." This is NOT the repeat penalty — that
+    # keeps two copies of ONE model apart; this applies to any two tall
+    # buildings whatever they are, because the 312 m and the 302 m tower ended
+    # up shoulder to shoulder and read as a single mass.
+    #
+    # The gap is measured between FOOTPRINTS, not centres: these plans run from
+    # 42 x 42 m to 60 x 142 m, so a centre-to-centre rule would treat a slender
+    # tower beside a broad one completely differently from the reverse.
+    # MEASURED before the rule: 7 towers on a 116 x 261 m block with closest
+    # pairs at 42-51 m centre to centre on 42-86 m wide footprints — touching.
+    # 30 m is what the block density actually allows; 60 m rejects nearly every
+    # candidate and empties the district.
+    tall_min_h_m: 120.0
+    tall_min_gap_m: 30.0
+    landmark_count: 4
+    landmark_min_height_m: 190.0
+    # Terrace runs never reach the skyline's penalties — `_tile_run` lays them
+    # by length — so a run would happily put the same model twice in a row.
+    # OFF by default because it shifts the RNG stream and would restyle
+    # `downtown.yaml`, which `downtown_earthquake.yaml` builds on.
+    terrace_no_repeat: true
     infill:
       enabled: true
+      # INFILL FROM THE BLOCK'S OWN DISTRICT. Off, infill merges every
+      # non-terrace typology into one pool and fills every block from it, which
+      # put an 11.8 m Dmytro factory shed inside a block of 134-312 m glass
+      # towers — invisible in the typology counts, because the block still
+      # reports as `highrise`. Default off so `downtown` and the earthquake
+      # scene keep the mix they were tuned with.
+      per_block_pool: true
       gap_m: 2.0              # clearance between infilled buildings
       # min_gap_m: 8.0        # raise to leave courtyards / cap the point budget
     # Ring names are load-bearing: layout.anisotropic.zones is keyed by them.
@@ -937,34 +1088,68 @@ overrides:
     # likely at that distance, which is the prior on where a zoning nucleus
     # lands. `mix` is that prior.
     rings:
-      # to_frac widened from 0.40: we are modelling A DOWNTOWN, not a
-      # uniformly-sampled 800 m of Philadelphia. The measured core mix is
-      # only 17% tower, so a narrow core ring yields ~1 tower in the whole
-      # city. The mixes below are measured and unchanged; this is not.
-      # Row houses are 14-15 m against 22-33 m midrise and 44-131 m towers, so
-      # a lone terrace standing among them reads as a small building in the
-      # wrong place. Real brownstone stock is not distributed that way — the
-      # West Village and Brooklyn Heights are their OWN districts, block after
-      # block of one height. Concentrating rowhouse in `edge` and taking it out
-      # of `mid` almost entirely is what turns those buildings from scattered
-      # oddities into a neighbourhood.
-      - {name: core, to_frac: 0.56, furniture_scale: 1.0,
-         mix: {tower: 0.85, midrise: 0.15, rowhouse: 0.00}}   # downtown, not the measured mix
-      - {name: mid,  to_frac: 0.68, furniture_scale: 1.3,
-         mix: {tower: 0.50, midrise: 0.47, rowhouse: 0.03}}
-      # Pulled in from 0.72 and the share raised from 0.75: the terrace ring is
-      # the one district that loses blocks to its own geometry, since any block
-      # too deep for a pair refuses and rebuilds as mid-rise. Widening the ring
-      # is what buys brownstones; raising the share alone just re-rolls blocks
-      # that were going to refuse anyway.
-      - {name: edge, to_frac: 1.01, furniture_scale: 1.9,
-         mix: {tower: 0.03, midrise: 0.12, rowhouse: 0.85}}
+      # FIVE RINGS, NOT THREE. The user asked for "a more gradual high rise to
+      # mid rise to lower mid rise to low rise", and the ladder that delivers it
+      # is `_AreaMap._ladder`, which forbids a rank jump greater than one
+      # between neighbouring zoning cells. With three typologies a tower could
+      # sit one cell from a terrace; with the six ranked typologies below, the
+      # ladder is forced to insert every intermediate step, so the gradient is a
+      # property of the zoning rather than something tuned into the mixes.
+      #
+      # The mixes overlap deliberately — each ring shares a typology with the
+      # ring inside and outside it, so no ring boundary is also a typology
+      # boundary. A ring whose mix is disjoint from its neighbour's reads as a
+      # wall however gradual the ranks are.
+      #
+      # A RING'S MIX MAY ONLY SPAN ADJACENT RANKS. `_ladder` resolves a rank
+      # gap greater than one by REPLACING THE HIGHER-RANKED CELL with the
+      # intermediate typology, and it sweeps three times — so a mix that puts
+      # rank 5 beside rank 3 does not produce a gradient, it erodes the rank 5
+      # away. MEASURED: with `brick_midrise` (rank 3) at 0.05 in the core mix
+      # and `midrise` (rank 2) at 0.05 in inner, `highrise` ended with ZERO
+      # blocks in the whole city and all eleven of its towers unplaced. Each
+      # mix below spans at most three consecutive ranks.
+      #
+      # `to_frac` IS A FRACTION OF THE HALF-DIAGONAL, NOT OF THE HALF-WIDTH, and
+      # on a square plate those differ by sqrt(2). On this 800 m region the
+      # half-diagonal is 565.7 m while the plate only reaches 400 m along its
+      # axes, so a ring boundary at 0.83 sits at radius 470 m — outside the
+      # region except in its four corners. MEASURED consequence: `edge` held
+      # about 4% of the ground, drew well under one nucleus at the measured
+      # 30,000 m2 per nucleus, and `rowhouse` came out with ZERO blocks while
+      # `highrise` — 12% of the ground and 2.6 expected nuclei — lost its only
+      # draws to the 0.28 tower share and came out at zero too.
+      #
+      # These are solved for an even-ish AREA share by integrating the
+      # square-disc intersection: 12 / 18 / 22 / 25 / 23 % per ring.
+      #     core 0.276 -> r 156 m    inner 0.437 -> r 247 m
+      #     mid  0.575 -> r 326 m    outer 0.700 -> r 396 m
+      # Re-solve if the region changes SHAPE; a different aspect ratio moves
+      # every one of them.
+      #
+      # CORE WIDENED 0.276 -> 0.36 AND `inner` GIVEN A REAL HIGHRISE SHARE.
+      # MEASURED over 24 seeds at the narrower core (`tools/asset_fit_audit.py
+      # --seeds 24`): the core held ~12% of the ground, which is 2-3 blocks,
+      # and the skyscrapers were rare rather than absent —
+      #     SM_Building_18  P(placed) 8%    _17 12%    _31 (302 m) 12%
+      #     _10 / _23 / _20 21%             _16 (312 m) 33%   _15 33%
+      # None of that is a fit problem: every one of them fits every highrise
+      # block. There were simply too few highrise blocks for eleven models to
+      # appear in any one run.
+      - {name: core,  to_frac: 0.360, furniture_scale: 1.0,
+         mix: {highrise: 0.85, tower: 0.15}}
+      - {name: inner, to_frac: 0.500, furniture_scale: 1.1,
+         mix: {highrise: 0.40, tower: 0.40, brick_midrise: 0.20}}
+      - {name: mid,   to_frac: 0.575, furniture_scale: 1.3,
+         mix: {tower: 0.25, brick_midrise: 0.50, midrise: 0.25}}
+      - {name: outer, to_frac: 0.700, furniture_scale: 1.6,
+         mix: {brick_midrise: 0.25, midrise: 0.42, lowrise: 0.33}}
+      # Row houses concentrated at the edge for the reason the old comment gave:
+      # real brownstone stock is a DISTRICT — the West Village, Brooklyn Heights —
+      # block after block of one height, not scattered oddities among towers.
+      - {name: edge,  to_frac: 1.01, furniture_scale: 1.9,
+         mix: {midrise: 0.15, lowrise: 0.25, rowhouse: 0.60}}
 
-    # ZONING MAP. Concentric rings alone give a city where every block is the
-    # same KIND of place and only the storey count changes. Land use is grown
-    # instead from a few nuclei into irregular contiguous areas — Harris &
-    # Ullman's multiple-nuclei model rather than Burgess's concentric one, and
-    # closer to what OSM landuse polygons actually look like.
     zoning:
       cell_m: 40.0              # lattice the areas are grown on. MEASURED
                                 # green patches are 29-44 m; at 120 m a 400 m
@@ -990,191 +1175,188 @@ overrides:
     # a morphology. `rank` orders them by intensity for the adjacency ladder and
     # for the fallback when a pool cannot fit the block it landed on.
     typologies:
+      # SIX TYPOLOGIES, RANKED. `rank` drives two things: the adjacency ladder
+      # above, and the fallback when a pool cannot fit the block it landed on.
+      # The ranks are the height ladder — 0 terrace, 1 low, 2 mid, 3 brick mid,
+      # 4 tower, 5 high — so "one rank apart" and "one step in height" are the
+      # same statement.
       rowhouse:
         rank: 0
         pools: [rowhouse]
-        morphology: terrace     # party-wall runs along the block's long faces
-        facing_offset_deg: 0.0  # EYEBALL THIS: if the stoops face the back
-                                # yards, set 180
-        # MEASURED: Philly row-house height p50 10.6 m (LiDAR, 96% coverage),
-        # Boston Back Bay 16.0 m; log-normal sigma 0.21.
-        # RETUNED FOR THIS LIBRARY. The inherited 12.5 m is a
-        # Philadelphia row house; the shallowest GreatAmericanCity
-        # building is 38.6 m, so a 12.5 m target leaves every draw
-        # far outside `pick_sigma` and the match degenerates to
-        # "nearest available" every time.
-        height_median_m: 48.0
+        morphology: terrace
+        facing_offset_deg: 0.0
+        # BROWNSTONES ONLY. The GreatAmericanCity brick stock used to be
+        # appended here, and being 28-31 m deep against the brownstones' 21.1 m
+        # it moved the admissible band for the whole pool to [65, 89] and
+        # refused all eight brownstone blocks. It now has its own district
+        # (`brick_midrise`), which is both what the user asked for and what
+        # keeps this band where the brownstones need it.
+        height_median_m: 14.5
         height_sigma: 0.18
-        # Sized so the two terraces back to back very nearly ARE the block:
-        # 2 x 21.1 = 42.2 m of building, leaving 4-8 m down the middle. That is
-        # a service alley, which is what a downtown terrace block has — not a
-        # rear yard. Anything wider reads as back gardens and makes the row
-        # houses look like suburban detached stock that happens to be touching.
-        # This is deliberately BELOW the measured 61 m p50: the measurement is
-        # of real blocks whose buildings are ~15 m deep, and our asset is 21.1 m,
-        # so matching the block size would leave the gap the asset does not fill.
-        # 2 x 21.1 m of terrace + the alley. _terrace_strips only lays TWO
-        # rows when short >= 2*depth + alley_m, i.e. >= 45.7 at alley_m 3.5;
-        # at [46,50] with the old 6.0 alley the threshold was 48.2 and most
-        # blocks fell short, so they got one lonely row down the middle.
-        # A terrace SUPERBLOCK is the row-house district cut on its own,
-        # finer grid — four rows around an internal street:
-        #     row | alley | row  ||street||  row | alley | row
-        # which is 4*21.1 + 2*3.5 + 11.4 = 102.8 m buildable, 110 m outer.
-        # It exists because a terrace pair on a deep block leaves its back row
-        # fronting nothing; real row-house districts answer that with MORE
-        # STREETS, not with unrelated buildings behind. The street is appended
-        # to layout["road_corridors"] so apply_ground_planes builds it for real.
-        #
-        # Capped at 2 per city: these are the distinctive part of the district,
-        # not the default, and each consumes a 110 m+ block. Rowhouse blocks
-        # that are not superblocks keep the pair-against-one-face layout, so
-        # the overall brownstone share is unchanged.
-        # Run the terrace blocks ACROSS the city's grain. Every block in the
-        # scene is elongated the same way by one global long_axis, which is much
-        # of why a terrace district reads as more of the same; a quarter turn
-        # makes it legible as its own district. The rows follow the block's long
-        # face, so they turn with it.
-        # true turns EVERY terrace block the same quarter, which is the same
-        # uniformity one rotation further on. A number turns it by section of
-        # that many metres, so one district runs with the city grain and the
-        # next across it. 400 puts the two row-house sections of an 800 m region
-        # on opposite grains.
         cross_grain: 400.0
-        # The two 102.6 m blocks have 95.6 m buildable, which is exactly what a
-        # QUAD needs (two pairs around a 6 m internal mews = 94.4 m). At 2 only
-        # one could form; the rest of the deep blocks have nothing they can be.
-        max_superblocks: 6
-        street_w_m: 6.0         # a quad's internal street is a mews, not a through road
-        # 11.4 needed a 110 m block and none exists, so no quad ever formed.
+        max_superblocks: 4
+        street_w_m: 6.0
         street_park_w_m: 2.4
-        alley_m: 2.0            # tight end of the alley band
-        # Loose end. A terrace block is TWO rows back to back with a service
-        # alley and nothing else, so the block short side has to land in
-        # [2*21.1 + 2.2, 2*21.1 + 6.0] = [44.4, 48.2] m. Outside that the block
-        # is refused and built as the next typology up: one row down the middle
-        # of a narrow block leaves both frontages bare, and two rows on the
-        # faces of a deep block leaves a courtyard where an alley belongs.
-        #
-        # The band ALSO has to stay wide enough to contain the block size the
-        # subdivider can actually produce, which is quantised — see
-        # even_split_road_m. A band that excludes it refuses every block and the
-        # district comes out empty, which is the failure this has hit before.
-        # 18.0. The block sizes this subdivider can actually produce are
-        # quantised: a 212 m row-house strip yields 66.7 m blocks at k=3 or
-        # 48.5 m at k=4, nothing between. After the 7.00 m the sidewalk takes
-        # off every block, k=4 leaves -0.6 m for the terrace pair — it does not
-        # fit at all, which is why ten blocks were refused as too narrow and the
-        # district came out nearly empty. k=3 leaves 17.5 m, so the band has to
-        # reach that far or the same blocks are refused as too deep instead.
-        #
-        # 17.5 m between the backs is a garden court, not the 35 m void the old
-        # one-face fallback left. Both rows still front their own street.
-        # 26.0. MEASURED, the blocks this scene actually makes: six row-house
-        # blocks land at 72.0-74.3 m (65.0-67.3 m buildable), leaving 22.9-25.2 m
-        # behind the two rows. Capping below that refused all six and rebuilt
-        # them as mid-rise. A court that deep is a garden court rather than an
-        # alley, but both rows still front their own street, which is the thing
-        # that actually matters — and it is far better than losing the blocks.
-        alley_max_m: 26.0
-        # THESE ARE OUTER BLOCK SIZES; the terrace band is tested against the
-        # BUILDABLE rect, which build_city insets by block_inset() on BOTH
-        # sides. MEASURED off the placed rows, that inset is 2.00 m per side,
-        # 4.00 m total — NOT the verge-plus-full-tile the earlier note here
-        # assumed. So the buildable band [44.4, 48.2] wants an outer block of
-        # [48.4, 52.2], and the 48.5 m the subdivider yields sits just inside it.
-        # Targets k=3 on the row-house strip (t_mid 66 -> 66.7 m blocks), which
-        # is the only reachable size that fits a terrace pair once the sidewalk
-        # inset is taken off. [46, 52] targeted k=4 and could not fit one.
-        # SHORT AXIS IS NOT TOUCHED: the terrace band above is tuned to it
-        # (k=3 on the row-house strip), and brownstones only need 25.1 m, so
-        # this is set by the terrace composition rather than by fit. Only the
-        # long axis moves, for the anisotropy reason given under midrise.
-        # SIZED TO THE POOL, and this is the number that matters — the
-        # `layout.anisotropic.block_short_m` above is only a FALLBACK while
-        # zoning is on, so tuning it alone changes nothing.
-        # `_terrace_strips` accepts a block only when its short side is in
-        # `[2*depth + alley_m, 2*depth + alley_max_m]`, where depth is the
-        # pool's DEEPEST member (SM_Building_04 at 31.5 m) — so the band is
-        # [65, 83.5]. At the inherited [60, 72] most blocks came out under 65
-        # and every terrace was refused ("rowhouse_refused=9"), falling back to
-        # pack: which is both the 3-rows-per-block and half the wrong facings,
-        # since pack has no row limit and does not orient to the street.
-        block_short_m: [67.0, 82.0]    # terrace-tuned; assets need >= 25.1
-        block_long_m: [165.0, 230.0]   # ratio ~3.0x, matching a brownstone strip
-        # MEASURED terrace runs: 6 houses / 43-48 m frontage median,
-        # 17-29 houses / 105-130 m at p90 — a run is NOT a whole block face.
+        alley_m: 2.0
+        # 20, not 12. MEASURED: at 12 the buildable band is [44.2, 54.2] and
+        # SIX of nine row-house blocks fell outside it and were rebuilt as the
+        # next rank up (`rowhouse_refused=6`). The block sizes this subdivider
+        # can produce are quantised, so a band has to be wide enough to contain
+        # one — a court 20 m deep behind two rows is a garden court rather than
+        # an alley, and both rows still front their own street, which is the
+        # thing that actually matters.
+        # 30, and this number is set by MEASUREMENT of the blocks the
+        # subdivider actually delivers, not by what a terrace ideally wants.
+        # Block size is sampled at the CELL CENTRE during a top-down recursion,
+        # so a cut made while the cell still straddled two districts carries the
+        # other district's target — which is why row-house blocks come out
+        # 57.0-74.1 m however this typology is tuned. At alley_max 20 the band
+        # topped out at 66.2 m outer and nine blocks were refused and rebuilt a
+        # rank up. A 30 m court behind two rows is a garden court rather than a
+        # service alley, but both rows still front their own street, which is
+        # the thing that actually matters.
+        alley_max_m: 30.0
+        # 2 x 21.1 m of terrace plus the court, then the 4.00 m the sidewalk
+        # inset takes off both sides: buildable [44.2, 72.2], outer [48.2, 76.2].
+        block_short_m: [52.0, 64.0]
+        block_long_m: [150.0, 210.0]
         run_median_m: 45.0
         run_sigma: 0.70
         run_gap_m: [3.0, 9.0]
-      midrise:
+
+      lowrise:
         rank: 1
-        pools: [midrise]
+        pools: [lowrise]
         morphology: pack
-        # Build the block's frontage BAND and leave the middle as courtyard.
-        # Packing the whole interior let buildings sit at the back of the block
-        # with a deep apron of bare paving at the street, which from the
-        # pavement reads as an enormous sidewalk. 45 m takes the deepest asset
-        # in the pool plus room to shuffle; the slack moves to the middle, where
-        # a dense block actually keeps it.
-        # 32, not 45. `_perimeter_rects` only carves a courtyard when the block
-        # exceeds 2*depth + min_side, and min_side across this pool is 18.5 m
-        # (MBuilding01), so 45 demanded a 108.5 m block short side while the
-        # targets below produced 80-115 m. The courtyard therefore almost never
-        # formed and packing fell back to the whole interior -- which is exactly
-        # the "built at the back with an apron of paving" artefact the band
-        # exists to prevent, and why measured built_frac sat at 0.60. At 32 the
-        # threshold is 82.5 m, under the floor below, so EVERY midrise block now
-        # forms a real perimeter block. 32 m is also about one building deep:
-        # the pool's depths run 18.5-45.1 m, median 32.0.
-        perimeter_depth_m: 32.0
-        height_median_m: 27.0          # MEASURED levels p50 4-9 fl (13-29 m)
-        height_sigma: 0.45
-        # ASSET CHECK, all 13 midrise assets: narrowest side per asset runs
-        # 18.5-45.1 m (widest narrow side is Building_TypeB_C at 45.1), so the
-        # pool needs a 49.1 m block short side and NOT the 80-115 m set here
-        # before -- the old comment called this asset-anchored, and it was not.
-        # The short axis is held near Manhattan's measured 79.7 m because that
-        # is what the perimeter band wants, and the LONG axis is what moves:
-        # at [135, 200] the achieved ratio was 1.64x against a measured 2.3x,
-        # which is why the city read as a fine uniform lattice at 62.5
-        # blocks/km2 against Manhattan's 35.
-        block_short_m: [85.0, 112.0]   # assets need >= 49.1; Manhattan 79.7
-        block_long_m: [205.0, 270.0]   # Manhattan 273.9 -> ratio ~2.4x
-      tower:
+        perimeter_depth_m: 26.0
+        # MEASURED across the eleven Dmytro sheds: 11.1-16.7 m.
+        height_median_m: 13.5
+        height_sigma: 0.22
+        # Narrowest side per asset runs 25.0-45.1 m, so the pool needs a 49 m
+        # short side for its widest member to have anywhere to stand.
+        block_short_m: [62.0, 84.0]
+        block_long_m: [150.0, 210.0]
+
+      midrise:
         rank: 2
+        pools: [midrise_v2]
+        morphology: pack
+        # NOT `midrise` — that key is `urban.yaml`'s and still holds the eleven
+        # 11-17 m Dmytro sheds. Drawing from `midrise_v2` is what actually
+        # answers "there's too many low rises, we need more mid rises": the
+        # typology keeps its name and its rank, and only its draw list changes.
+        perimeter_depth_m: 32.0
+        # MEASURED across the pool: 29.0-48.0 m.
+        height_median_m: 36.0
+        height_sigma: 0.28
+        block_short_m: [85.0, 112.0]
+        block_long_m: [205.0, 270.0]
+
+      brick_midrise:
+        rank: 3
+        pools: [brick_midrise]
+        morphology: terrace
+        facing_offset_deg: 0.0
+        # MEASURED across the pool: 38.6-71.8 m, p50 59.3.
+        height_median_m: 58.0
+        height_sigma: 0.22
+        # Its own grain, offset from the row-house district's 400 m sections so
+        # the two terrace districts do not run parallel where they meet.
+        cross_grain: 260.0
+        max_superblocks: 2
+        street_w_m: 6.0
+        street_park_w_m: 2.4
+        alley_m: 2.0
+        # 30, for the same measured reason as `rowhouse` above: this district's
+        # blocks are delivered at 79.9-124.8 m short side (median 104), well
+        # above anything this typology asks for, because the cut that made them
+        # was sized by whatever district the parent cell's centre was in.
+        alley_max_m: 30.0
+        # THE BAND IS SET BY THE POOL'S DEEPEST MEMBER, SM_Building_04 at 31.5 m
+        # in X after its yaw-offset: `_terrace_strips` accepts a block only when
+        # the BUILDABLE short side is in [2*31.5 + 2, 2*31.5 + 20] = [65, 83],
+        # and `build_city` insets 2.00 m per side, so the OUTER block has to
+        # land in [69, 87]. Read `rowhouse_refused` / the terrace-refused line
+        # in the run log: if it is non-zero this band and the block targets have
+        # drifted apart, and the district silently rebuilt as the next rank up.
+        block_short_m: [72.0, 84.0]
+        block_long_m: [190.0, 250.0]
+        # 95, NOT 48, AND THE FLOOR IS ARITHMETIC. A run has to pay for two
+        # end-capable pieces before it can have any interior at all, and in
+        # this pool the two cheapest are SM_Building_26 (28.4 m along the run)
+        # and SM_Building_03 (28.9 m) — 57.3 m of frontage spent on the
+        # brackets. At a 48 m median most log-normal draws landed BELOW that
+        # floor, so a run could only ever be a bracket with nothing between:
+        # measured, 10 runs laid at a 42.4 m median and house counts of
+        # [1,3,1,1,1,2,1,2,1,2]. No amount of end-picking heuristic fixes a
+        # target below the minimum. At 95 m a typical run is the two ends plus
+        # two to four interior pieces, which is what a terrace looks like.
+        #
+        # This is ABOVE the 43-48 m measured for real row-house runs, and that
+        # is correct rather than a fudge: the measurement is of 5-8 m wide row
+        # houses, and these units are 14-42 m of frontage each, so the same
+        # HOUSE COUNT costs twice the metres.
+        run_median_m: 95.0
+        run_sigma: 0.45
+        run_gap_m: [3.0, 8.0]
+
+      tower:
+        rank: 4
         pools: [tower]
         morphology: pack
-        # Towers are 50-96 m in plan, so the band has to clear the largest of
-        # them or _perimeter_rects falls back to the whole block anyway.
         perimeter_depth_m: 60.0
-        # 85, not the measured 66: the core is meant to READ as a high-rise
-        # district. At 66 with sigma 0.45 the typical draw is 60-70 m, which the
-        # library answers with BG_Building_B/F and MBuilding02, so the 131 m
-        # BG_Building_E sits in a tail that ~16 draws almost never reach. Moving
-        # the median up makes tall the norm here rather than the exception.
-        height_median_m: 85.0
-        height_sigma: 0.45
+        # MEASURED: the merged pool (Muyang + GreatAmericanCity 08/09/11/12/19/
+        # 21/22/26/27/28) runs 44.7-131.0 m.
+        height_median_m: 78.0
+        height_sigma: 0.35
         height_max_m: 140.0
-        # 70-110, not 95-120. A tower block holds exactly ONE building, so the
-        # bigger the tower block the FEWER towers exist: at 95-120 m the core
-        # produced only 16 towers against 149 midrise, because a midrise block
-        # packs ten small buildings while a tower block packs one. Dropping the
-        # floor to 70 m both multiplies the tower count and gives the 50-60 m
-        # BG_Building_A / C / E blocks they fit, instead of only the 80-96 m
-        # BG_Building_F and MBuilding02. The top stays at 110 so MBuilding02
-        # (91.1 x 96.1) still has somewhere to stand.
-        # ASSET CHECK, all 7 tower assets: narrowest sides are 20.6 / 36.5 /
-        # 40.1 / 40.2 / 50.4 / 51.3 / 91.1 m. MBuilding02 (91.1 x 96.1) is the
-        # binding one and needs a 95.1 m short side; at the previous 70 m floor
-        # it could never be placed at all. The floor moves to 78 so most of the
-        # pool still fits in a modest block, and the ceiling to 118 so
-        # MBuilding02 has somewhere to stand. This does cost tower COUNT -- a
-        # tower block holds exactly one building -- which is the trade the note
-        # above describes, now made against measured footprints rather than a
-        # guess.
-        block_short_m: [78.0, 118.0]   # assets need >= 95.1 for the full pool
-        block_long_m: [190.0, 250.0]   # ratio ~2.2x, was 1.8x
+        block_short_m: [78.0, 118.0]
+        block_long_m: [190.0, 250.0]
+
+      highrise:
+        rank: 5
+        pools: [highrise]
+        morphology: pack
+        # NO COURTYARD. A highrise block holds one or two buildings and the
+        # building IS the block; a perimeter band would carve a frontage strip
+        # narrower than the tower standing in it.
+        perimeter_depth_m: 0.0
+        # MEASURED across the pool: 103.7-312.0 m, p50 143.
+        height_median_m: 165.0
+        height_sigma: 0.40
+        height_max_m: 320.0
+        # SIZED TO SM_Building_31, which is 60.3 x 142.2 m in plan once its
+        # yaw-offset is applied — the binding footprint in the whole library and
+        # the reason these towers went unplaced before. The next largest are
+        # 10 (86.0 x 60.1), 20 (85.4 x 61.5), 14 (85.4 x 58.0) and 17
+        # (85.4 x 57.4), so a 95 m floor lets most of the pool into a modest
+        # block while the 320 m ceiling gives 31 somewhere to stand.
+        # `layout.max_block_m` is raised to 340 for this; at the inherited 200
+        # the long axis is clamped and 31 can never be placed.
+        # A TOWER BLOCK HOLDS ONE OR TWO TOWERS, NOT EIGHT. This is the real
+        # answer to "don't have 2 of the really tall buildings immediately next
+        # to each other", and the separation knobs above are NOT — measured,
+        # `tall_min_gap_m` is inert for this typology whatever it is set to,
+        # because the whole `highrise` pool is 134-312 m and the rule can only
+        # redirect a slot to SHORTER stock. There is none, so every candidate
+        # is tall, the filter empties the list and falls through. The largest
+        # gap that changed anything at the old block size was about 6 m.
+        #
+        # At 235-320 m long a block took 5-8 towers packed shoulder to
+        # shoulder (closest pairs 38-42 m centre to centre on 42-86 m wide
+        # plans — touching). At 150-210 m it takes one or two, and the space
+        # between towers becomes STREET, which is what actually separates them
+        # and what a real downtown looks like. The floor stays at 150 because
+        # SM_Building_31 is 142.2 m along its long axis and no shorter block
+        # can hold it at all.
+        # THE GAP THE PACKER ITSELF LEAVES, and this is what actually keeps
+        # towers apart — see `_typ_gap`. 30 m of clear ground between two
+        # towers reads as a plaza or a service street; 2.5 m (the global
+        # default, right for a mid-rise block built to its edges) reads as one
+        # mass.
+        building_gap_m: 30.0
+        block_short_m: [95.0, 130.0]
+        block_long_m: [150.0, 210.0]
 
   # ---- parks (parks.py) ------------------------------------------------------
   # build_city gives a park ONE trail entering and leaving at opposite edge

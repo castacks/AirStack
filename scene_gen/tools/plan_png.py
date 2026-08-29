@@ -23,6 +23,7 @@ are the ones not to trust.
 """
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -42,8 +43,17 @@ for _n in ("Gf", "Sdf", "Usd", "UsdGeom", "UsdShade", "UsdSkel", "Vt",
 
 import yaml                                                    # noqa: E402
 
-# "# 21.1 x  6.8 x 14.2 m" — the format every measured comment already uses.
-_SIZE = re.compile(r"#\s*([\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)\s*m")
+# "# 21.1 x  6.8 x 14.2 m" was the first format every measured comment used,
+# and the ORIGINAL regex anchored the three numbers immediately after the
+# `#`. `urban_gac.yaml` broke that anchor on purpose — its comments put the
+# measured place/front/blank prose FIRST and the size last: "# 1-sided mid,
+# front E, blank N,W,S, 29x28x55 m". Anchoring only on "a `#` appears
+# somewhere earlier on the line", not on the size immediately following it,
+# reads both orderings; `.*?` is non-greedy so it still finds the FIRST size
+# pattern after the `#`, not some later one. Tolerates both the compact
+# rounded form GAC/downtowncity comments use ("29x28x55 m") and the spaced
+# decimal form the original brownstone comments use ("21.1 x  6.8 x 14.2 m").
+_SIZE = re.compile(r"#.*?([\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)\s*m\b")
 # `.usdc` too: every asset in the 2026-08-26 building drop is a `.usdc`, and
 # without it they scraped no size, fell back to `fallback_sizes.house` and drew
 # as 100 identical 30 x 20 m boxes — a plan that looks like a packing bug and
@@ -57,6 +67,12 @@ def measured_sizes(paths):
     The comment may sit on the entry's own line or the line after it, so both
     are considered. Basename rather than full path: the same asset is written
     with different prefixes in different pools.
+
+    THE FALLBACK SOURCE, not the primary one — see `measured_json`. A comment
+    is prose a human wrote for a human; nothing enforces that its numbers
+    stay in sync with the asset, or that the regex above keeps matching
+    whatever style the next asset-set author picks. Kept only for libraries
+    nobody has run a `gac_faces.py`-style measurement pass over yet.
     """
     out, pending = {}, None
     for path in paths:
@@ -77,28 +93,77 @@ def measured_sizes(paths):
     return out
 
 
-class StubResolver:
-    """Answers footprint queries from the measured table, or the config's
-    `fallback_sizes`. Records which assets fell back so the plan can flag them."""
+def measured_json(paths, default_ext=".usd"):
+    """`{usd basename: (sx, sy, sz)}` from `gac_faces.py`-style measurement
+    files: a JSON list of ``{"name", "usd"?, "W", "D", "H", ...}`` records,
+    one per building, written by actually opening the USD and measuring its
+    bbox — `tools/gac_faces.py`, `tools/gac_props_measure.py`'s building
+    counterpart. AUTHORITATIVE over `measured_sizes`'s comment-scrape: a
+    comment is free text that happens to describe the asset, this is the
+    measurement the comment was transcribed FROM.
 
-    def __init__(self, sizes, fallbacks):
+    Keyed by the record's own ``usd`` field when present (its basename is
+    exact — `dtc_faces.json` and `gac_faces.json` both carry it); falls back
+    to ``name + default_ext`` when it is not (`gac_buildings.json` has no
+    `usd` field, and every GreatAmericanCity asset is `.usd`, never `.usdc`).
+    W/D/H map to sx/sy/sz — the same axis order `measured_sizes`'s comments
+    already use, because those comments were generated FROM these numbers
+    (`tools/faces_to_yaml.py`).
+    """
+    out = {}
+    for path in paths:
+        if not os.path.exists(path):
+            continue
+        try:
+            rows = json.load(open(path))
+        except (OSError, ValueError):
+            continue
+        for row in rows or ():
+            w, d, h = row.get("W"), row.get("D"), row.get("H")
+            if w is None or d is None or h is None:
+                continue
+            usd = row.get("usd")
+            base = (os.path.basename(str(usd)) if usd
+                    else (str(row.get("name", "")) + default_ext))
+            if base and base != default_ext:
+                out[base] = (float(w), float(d), float(h))
+    return out
+
+
+class StubResolver:
+    """Answers footprint queries from the measured JSON table (authoritative),
+    the comment-scrape table (fallback), or the config's `fallback_sizes`
+    (last resort). Records which assets fell back — split by BUILDING vs prop
+    category, because a plan built from fallback boxes for the buildings it
+    exists to validate is worse than no plan, and a bare count buried that."""
+
+    def __init__(self, sizes, fallbacks, json_sizes=None):
         self.sizes = sizes
+        self.json_sizes = json_sizes or {}
         self.fallbacks = fallbacks or {}
-        self.guessed = set()
+        self.guessed = set()                # union, for callers that don't care
+        self.guessed_buildings = set()
+        self.guessed_props = set()
 
     def get(self, usd, category, scale=1.0, axis_up="Z", **_kw):
         name = os.path.basename(str(usd))
-        wh = self.sizes.get(name)
+        wh = self.json_sizes.get(name) or self.sizes.get(name)
         if wh is None:
             fb = self.fallbacks.get(category) or [4.0, 4.0, 4.0]
             wh = (float(fb[0]), float(fb[1]),
                   float(fb[2]) if len(fb) > 2 else 4.0)
-            self.guessed.add(name or category)
+            tag = name or category
+            self.guessed.add(tag)
+            (self.guessed_buildings if category in ("house", "building")
+             else self.guessed_props).add(tag)
         return {"sx": wh[0], "sy": wh[1], "sz": wh[2], "base": 0.0,
                 "cx": 0.0, "cy": 0.0}
 
 
-def build(config_name):
+def build(config_name, seed=None):
+    """*seed*, when given, overrides the preset's own — so a caller can
+    run the same scene many times and get a DISTRIBUTION rather than one
+    roll of the dice. See `tools/asset_fit_audit.py --seeds`."""
     import random
     from compile_disaster import resolve_config_path, compile_spec, DEFAULT_BASE
     import scene_generator as sg
@@ -110,11 +175,24 @@ def build(config_name):
                        yaml.safe_load(open(DEFAULT_BASE)))
     cfg = sg.resolve_asset_set(cfg, path)
     cfg["measure_usds"] = False
+    if seed is not None:
+        cfg["seed"] = int(seed)
 
     sets = os.path.join(_SCENE_GEN, "config", "asset_sets")
     sizes = measured_sizes([os.path.join(sets, f)
                             for f in os.listdir(sets) if f.endswith(".yaml")])
-    res = StubResolver(sizes, cfg.get("fallback_sizes"))
+    # AUTHORITATIVE over the comment-scrape: real per-asset measurements from
+    # actually opening the USD, keyed by exact basename where the file gives
+    # one. `gac_buildings.json` has no `usd` field (GAC is always `.usd`);
+    # `dtc_faces.json`/`gac_faces.json` do, so they win on any name collision
+    # via dict update order below.
+    plans = os.path.join(_SCENE_GEN, "_plans")
+    json_sizes = {}
+    json_sizes.update(measured_json([os.path.join(plans, "gac_buildings.json")],
+                                    default_ext=".usd"))
+    json_sizes.update(measured_json([os.path.join(plans, "gac_faces.json")]))
+    json_sizes.update(measured_json([os.path.join(plans, "dtc_faces.json")]))
+    res = StubResolver(sizes, cfg.get("fallback_sizes"), json_sizes)
     rng = random.Random(int(cfg.get("seed", 0)) + 7717)
 
     with city_layout.patched(cfg):
@@ -122,6 +200,13 @@ def build(config_name):
     da, rings = districts.assign(cfg, layout)
     if rings:
         districts.remap_buildings(cfg, layout, placements, res, rng, da)
+    if res.guessed_buildings and seed is None:
+        print(f"[plan] {len(res.guessed_buildings)} BUILDING asset(s) "
+              f"un-measured, drawn as fallback boxes: "
+              f"{', '.join(sorted(res.guessed_buildings))}")
+    if res.guessed_props and seed is None:
+        print(f"[plan] {len(res.guessed_props)} prop asset(s) un-measured: "
+              f"{', '.join(sorted(res.guessed_props))}")
     return cfg, layout, placements, res
 
 
@@ -302,6 +387,178 @@ def dump_json(cfg, layout, placements, res, out_path):
     return doc
 
 
+def audit(cfg, layout, placements, res):
+    """Print, without drawing anything: per-typology block/building counts,
+    the per-model histogram (WITH each model's height — a count alone cannot
+    show a height-distribution problem, only a repetition one), the unused
+    model list, and the blank-wall-to-street audit.
+
+    The last of those is the acceptance test for the whole facing feature
+    (`_pool_entries`'s `blank0`, `_pack_free`'s street filter, `_lay_terrace`'s
+    per-strip filter and `_order_run`): for every PLACED building that
+    carries a `blank:` tag, recompute its WORLD blank sides straight from its
+    final `yaw_deg` (no need to go through `blank0` here — that intermediate
+    exists only because `_pack_free`/`_lay_terrace` don't know `yaw-offset`
+    at the point they choose a placement yaw; the placed building's `yaw_deg`
+    already has it folded in) and test them against its own block's edges
+    with `districts._street_sides`, the exact function `_pack_free` used to
+    decide whether to place it there in the first place. Zero violations
+    means the placement pass and the audit agree; anything else is a real
+    defect, not a measurement artefact.
+    """
+    from detail import districts
+
+    typ_of = layout.get("_typology_of") or {}
+    blocks = layout.get("blocks", [])
+    blocks_by_typ, buildings_by_typ = {}, {}
+    for b in blocks:
+        t = typ_of.get(tuple(b)) or typ_of.get(b) or "(unzoned)"
+        blocks_by_typ[t] = blocks_by_typ.get(t, 0) + 1
+    counts, heights = {}, {}
+    for p in placements:
+        if p.get("category") not in ("house", "building"):
+            continue
+        t = typ_of.get(_block_of(layout, p)) or "(unzoned)"
+        buildings_by_typ[t] = buildings_by_typ.get(t, 0) + 1
+        name = os.path.basename(str(p.get("usd", "")))
+        counts[name] = counts.get(name, 0) + 1
+        if name not in heights:
+            heights[name] = res.get(p.get("usd", ""), "house")["sz"]
+
+    print("[audit] blocks by typology:  " +
+          "  ".join(f"{k}={v}" for k, v in sorted(blocks_by_typ.items())))
+    print("[audit] buildings by typology:  " +
+          "  ".join(f"{k}={v}" for k, v in sorted(buildings_by_typ.items())))
+
+    n_total = sum(counts.values())
+    top = sorted(counts.items(), key=lambda kv: -kv[1])[:15]
+    print(f"[audit] model histogram (top {len(top)} of {len(counts)} "
+          f"distinct, {n_total} buildings):")
+    for name, n in top:
+        pct = 100.0 * n / n_total if n_total else 0.0
+        print(f"[audit]   {name:28s} {n:4d} ({pct:5.1f}%)   "
+              f"H {heights.get(name, 0.0):6.1f}")
+
+    # `usd -> meta` rebuilt from config through the SAME pool machinery the
+    # real pipeline used — `_pool_entries` is pure (config, resolver) -> pool,
+    # so calling it again after the fact is exactly as valid as the call the
+    # pipeline itself made, and it is the only place `blank:`/`place` tags
+    # get parsed out of the YAML.
+    usds_cfg = (cfg.get("usds") or {}).get("buildings") or {}
+    meta_by_usd = {}
+    for key in usds_cfg:
+        for e in districts._pool_entries(cfg, res, key):
+            meta_by_usd[os.path.basename(e[0])] = e[5]
+
+    # `models_unused` is scoped to the TYPOLOGY pools (`districts.typologies.
+    # *.pools`, non-terrace), matching exactly what `[districts] models_unused`
+    # already reports in the real pipeline log. The wider `usds.buildings.*`
+    # set also carries `damaged`/`destroyed` stock that `build_city` places
+    # directly and `districts` never touches — counting those as "unused"
+    # would be true but meaningless, since they were never candidates here.
+    dcfg = cfg.get("districts") or {}
+    typologies = dcfg.get("typologies") or {}
+    pool_names = set()
+    for name, t in typologies.items():
+        if str(t.get("morphology", "pack")) == "terrace":
+            continue                    # ROW HOUSES NEVER REACH THE SKYLINE
+        for key in (t.get("pools") or [name]):
+            for e in districts._pool_entries(cfg, res, key):
+                pool_names.add(os.path.basename(e[0]))
+    unused = sorted(pool_names - set(counts))
+    if unused:
+        print(f"[audit] models_unused ({len(unused)} of {len(pool_names)}): "
+              f"{', '.join(unused)}")
+
+    violations = _blank_wall_violations(cfg, layout, placements, res,
+                                        meta_by_usd)
+    print(f"[audit] blank-wall-to-street violations: {len(violations)}")
+    for name, x, y, yaw, bad in violations[:20]:
+        print(f"[audit]   {name} at ({x:.1f}, {y:.1f}) yaw={yaw:.0f}  "
+              f"blank side(s) {','.join(bad)} face the street")
+    if len(violations) > 20:
+        print(f"[audit]   ... and {len(violations) - 20} more")
+
+
+def _blank_wall_violations(cfg, layout, placements, res, meta_by_usd=None):
+    """The list the `--audit` blank-wall count is built from —
+    ``[(usd_basename, x, y, yaw_deg, bad_sides)]`` for every PLACED building
+    carrying a `blank:` tag whose world-frame blank sides overlap its own
+    block's street-facing sides. Pulled out of `audit()` so `audit_selftest`
+    can run the identical measurement against a differently-built placement
+    list — see there for why that matters.
+    """
+    from detail import districts
+    if meta_by_usd is None:
+        meta_by_usd = {}
+        for key in (cfg.get("usds") or {}).get("buildings") or {}:
+            for e in districts._pool_entries(cfg, res, key):
+                meta_by_usd[os.path.basename(e[0])] = e[5]
+    inset = districts.block_inset(cfg, res)
+    violations = []
+    for p in placements:
+        if p.get("category") not in ("house", "building"):
+            continue
+        meta = meta_by_usd.get(os.path.basename(str(p.get("usd", ""))))
+        if not meta or not meta.get("blank"):
+            continue
+        blk = _block_of(layout, p)
+        if blk is None:
+            continue
+        rect = (blk[0] + inset, blk[1] + inset, blk[2] - inset, blk[3] - inset)
+        x0, y0, x1, y1 = districts._rect_of(p, res)
+        sides = districts._street_sides(rect, x0, y0, x1 - x0, y1 - y0)
+        yaw = float(p.get("yaw_deg", 0.0))
+        bad = districts._rot_sides(meta["blank"], yaw) & sides
+        if bad:
+            violations.append((os.path.basename(str(p.get("usd", ""))),
+                              p["x_m"], p["y_m"], yaw, sorted(bad)))
+    return violations
+
+
+def audit_selftest(config_name):
+    """Prove the blank-wall audit is not vacuous.
+
+    `_pack_free`'s facing filter and the audit's own violation count share
+    the same two functions (`_street_sides`, `_rot_sides`) by design — that
+    is what makes "the placement pass and the audit agree" a meaningful
+    claim in `audit()`'s docstring. It also means a run with the real
+    metadata in place will show 0 violations EVEN IF the audit's measurement
+    were silently broken, because the filter already refused every
+    candidate that would have violated it — corrupting a tag to be
+    maximally wrong (as the initial manual check for this feature did)
+    proves the FILTER works, not that the AUDIT would have caught it if the
+    filter hadn't.
+
+    So this rebuilds the SAME scene with `districts._street_sides`
+    monkey-patched to report NO street sides ever — `_pack_free`'s filter
+    then has nothing to refuse, so a `blank:`-tagged building can land with
+    its blank side on the street exactly as it would if the filter did not
+    exist — and audits THAT placement list with the real `_street_sides`
+    restored. A working audit MUST report violations here; if it is 0 too,
+    "0 violations" in the real run is unfalsifiable and cannot be trusted as
+    this feature's acceptance gate.
+    """
+    from detail import districts
+    real_street_sides = districts._street_sides
+    districts._street_sides = lambda *a, **kw: frozenset()
+    try:
+        cfg, layout, placements, res = build(config_name)
+    finally:
+        districts._street_sides = real_street_sides   # restore before auditing
+    violations = _blank_wall_violations(cfg, layout, placements, res)
+    print(f"[audit] SELF-TEST ({config_name}): facing filter neutered "
+          f"during placement (nothing was ever refused), then audited with "
+          f"the REAL _street_sides — violations: {len(violations)} "
+          f"(this must be > 0, or the audit above is untestable)")
+    for name, x, y, yaw, bad in violations[:10]:
+        print(f"[audit]   SELF-TEST   {name} at ({x:.1f}, {y:.1f}) "
+              f"yaw={yaw:.0f}  blank side(s) {','.join(bad)} face the street")
+    if len(violations) > 10:
+        print(f"[audit]   SELF-TEST   ... and {len(violations) - 10} more")
+    return violations
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", action="store_true",
@@ -313,12 +570,26 @@ def main():
     ap.add_argument("--by-model", action="store_true",
                     help="colour each building by MODEL instead of by "
                          "typology — reads for repetition, not for zoning")
+    ap.add_argument("--audit", action="store_true",
+                    help="print typology/model/facing diagnostics and draw "
+                         "nothing — the acceptance test for the facing "
+                         "system, see plan_png.audit()")
+    ap.add_argument("--audit-selftest", action="store_true",
+                    help="prove the blank-wall audit is not vacuous: rebuild "
+                         "with the facing filter neutered and confirm the "
+                         "audit then reports violations > 0 — see "
+                         "plan_png.audit_selftest(). Implies --audit.")
     a = ap.parse_args()
     if not a.out:
         d = os.path.join(_SCENE_GEN, "_plans")
         os.makedirs(d, exist_ok=True)
         a.out = os.path.join(d, f"{a.config}.png")
     cfg, layout, placements, res = build(a.config)
+    if a.audit or a.audit_selftest:
+        audit(cfg, layout, placements, res)
+        if a.audit_selftest:
+            audit_selftest(a.config)
+        return
     draw(cfg, layout, placements, res, a.out, title=a.config,
          by_model=a.by_model)
     if a.json:

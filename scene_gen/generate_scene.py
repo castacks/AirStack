@@ -9,6 +9,7 @@ interleaved around them.
     build_city                 roads, blocks, buildings, parks, cars   (unchanged)
       + districts.remap        swap building art per ring              (NEW)
       + city_detail.build      zoned street furniture                  (NEW)
+      + gac_props.dress        AC units / tanks / masts / fire escapes (NEW, opt-in)
     apply_placements                                                   (unchanged)
     apply_ground_planes        asphalt, grass, lane dashes             (unchanged)
       + road_markings.apply    crosswalks, stop bars, parking bays     (NEW)
@@ -30,6 +31,7 @@ import scene_generator as sg
 from detail import city_detail
 from layout import city_layout
 from detail import districts
+from detail import gac_props
 from detail import road_markings
 
 
@@ -328,6 +330,18 @@ def generate_scene_on_stage(stage,
     detail += city_detail.build_road_surface(config, layout, resolver, rng)
 
     placements = placements + detail
+
+    # AC units, water tanks, comms masts, stair overruns and fire escapes on
+    # GAC buildings (and any other building named in `building_props.flat_roof`
+    # — see `detail/gac_props.py`). Off by default: `dress()` itself reads
+    # `building_props.enabled` and no-ops without it, but the RNG stream is
+    # still drawn from unconditionally so a preset that later turns this on
+    # doesn't shift every OTHER pass's draws by however many calls this would
+    # have made. `+ 6301` is its own offset, unused by any other pass, so
+    # enabling this can't perturb `districts`/`city_detail`'s sequences either.
+    props_rng = random.Random(int(config.get("seed", 0)) + 6301)
+    placements = placements + gac_props.dress(config, placements, props_rng,
+                                              resolver=resolver)
 
     ground_snap = sg._make_physx_ground_snap() if snap_to_ground else None
     sg.apply_placements(stage, placements, parent_path, scene_scale_factor,

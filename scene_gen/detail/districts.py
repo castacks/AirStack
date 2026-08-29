@@ -68,6 +68,7 @@ rather than to "empty block".
 """
 
 import math
+import os
 import random
 
 from scene_generator import _in_exclusion, _normalize_usd_list
@@ -82,6 +83,43 @@ _FIT_TOL_M = 0.05
 # ground, which floats the stoop. Anything shallower than this is sunk back to
 # grade; deeper, and the origin probably isn't the ground floor.
 _BELOW_GRADE_MAX_M = 1.2
+
+
+# ---------------------------------------------------------------------------
+# compass rotation — the frame every `front:`/`blank:` tag is written in
+# ---------------------------------------------------------------------------
+
+# CCW about +Z, matching the yaw the placer applies: +90 walks E -> N -> W ->
+# S -> E. `tools/faces_to_yaml.py` derives each asset's `yaw-offset` by
+# solving "rotate `front` onto W" against this exact sequence (front W needs
+# 0, N needs 90, E needs 180, S needs 270), so any rotation done here has to
+# agree with that table or the two halves of the facing system disagree with
+# each other while each individually looks correct.
+_COMPASS = ("E", "N", "W", "S")
+
+
+def _rot_side(letter: str, deg: float) -> str:
+    """Rotate a compass letter (``"N"``/``"E"``/``"S"``/``"W"``) CCW about +Z
+    by *deg*, which must be a multiple of 90 (placement yaws always are).
+
+    This is the one piece of arithmetic the whole facing system hangs off:
+    `_pool_entries` uses it to fold a `blank:` tag through an asset's own
+    `yaw-offset` into `blank0`, `_pack_free`/`_lay_terrace` use it again to
+    fold `blank0` through the placement yaw into WORLD sides, and the
+    `--audit` pass in `plan_png.py` uses it a third time, straight from the
+    raw tag, through the placement's final `yaw_deg`. All three have to mean
+    the same rotation or a building that measures fine in isolation ends up
+    wrong on the ground.
+    """
+    i = _COMPASS.index(letter)
+    steps = int(round(deg / 90.0)) % 4
+    return _COMPASS[(i + steps) % 4]
+
+
+def _rot_sides(sides, deg: float) -> frozenset:
+    """`_rot_side` over a whole set of letters. Empty in, empty out — the
+    no-metadata case this whole mechanism has to be a no-op for."""
+    return frozenset(_rot_side(s, deg) for s in sides)
 
 
 def assign(config: dict, layout: dict):
@@ -402,14 +440,55 @@ def zone_field(config: dict, region=None):
 # building library
 # ---------------------------------------------------------------------------
 
+def _entry_meta(tags: frozenset, yaw_offset: float) -> dict:
+    """Turn one asset's raw `tags` frozenset into the placement-facing dict
+    every consumer below reads: ``place``, ``front``, ``blank`` (all in the
+    asset's OWN unrotated frame, exactly as measured/authored) and ``blank0``
+    (the same blank set folded through this asset's `yaw-offset`, i.e. the
+    frame the pool's assets share once every yaw-offset has been applied —
+    see the module docstring's per-asset `yaw-offset` note). A pool entry
+    with no tags at all gets ``place="any"``, empty `front`/`blank`/`blank0`
+    — every consumer of this dict has to treat that as "impose no
+    constraint", which is what makes the whole facing system a no-op for a
+    library nobody has measured yet.
+    """
+    place = ("mid" if "place_mid" in tags else
+             "end" if "place_end" in tags else
+             "corner" if "place_corner" in tags else
+             "none" if "place_none" in tags else "any")
+    front = None
+    blank: frozenset = frozenset()
+    for t in tags:
+        if t.startswith("front:"):
+            front = t.split(":", 1)[1] or None
+        elif t.startswith("blank:"):
+            blank = frozenset(s for s in t.split(":", 1)[1].split(",") if s)
+    return {"place": place, "front": front, "blank": blank,
+            "blank0": _rot_sides(blank, yaw_offset)}
+
+
 def _pool_entries(config: dict, resolver, key: str):
-    """``[(usd, scale, axis_up, footprint)]`` for one ``usds.buildings`` pool."""
+    """``[(usd, scale, axis_up, footprint, yaw_offset, meta)]`` for one
+    ``usds.buildings`` pool.
+
+    *footprint* is the resolver's measured ``{sx, sy, sz, base}`` for
+    *yaw_offset* 0, SWAPPED on sx/sy when *yaw_offset* is an odd multiple of
+    90 — a yaw-offset that turns a building a quarter turn also turns which
+    of its two horizontal extents ends up along world X once it is placed,
+    and every consumer downstream (`_lay_terrace`'s terrace depth,
+    `_pack_free`'s guillotine fit, `_fits_block`, `min_side`) needs the
+    footprint IT WILL ACTUALLY STAND AT, not the one the resolver measured
+    before any rotation. Concretely: `SM_Building_24` measures 29.0 x 58.0 m
+    with `yaw-offset: 90`; its true depth in a terrace is 58 m. A copy of the
+    dict is swapped, never the resolver's own cached one — that cache is
+    shared across every pool that references the same asset.
+    """
     usds = config.get("usds") or {}
     bld = usds.get("buildings") or usds.get("houses") or {}
     raw = bld.get(key) or []
     default_scale = float(config.get("asset_scale", 1.0))
     asset_root = str(config.get("asset_root", "") or "")
-    paths, sc_ovr, au_ovr, _yaw, _tags = _normalize_usd_list(
+    paths, sc_ovr, au_ovr, yaw_ovr, tag_ovr = _normalize_usd_list(
         raw, default_scale, asset_root)
 
     out, seen = [], set()
@@ -419,7 +498,12 @@ def _pool_entries(config: dict, resolver, key: str):
         seen.add(p)
         sc = sc_ovr.get(p, default_scale)
         au = au_ovr.get(p, "Z")
-        out.append((p, sc, au, resolver.get(p, "house", scale=sc, axis_up=au)))
+        yaw_offset = float(yaw_ovr.get(p, 0.0))
+        fp = dict(resolver.get(p, "house", scale=sc, axis_up=au))
+        if round(yaw_offset) % 180 == 90:
+            fp["sx"], fp["sy"] = fp["sy"], fp["sx"]
+        meta = _entry_meta(tag_ovr.get(p) or frozenset(), yaw_offset)
+        out.append((p, sc, au, fp, yaw_offset, meta))
     return out
 
 
@@ -443,9 +527,19 @@ def _place_z(fp):
 
 
 def _new_placement(entry, x, y, yaw, category="house"):
-    usd, sc, au, fp = entry
+    """*yaw* is the PLACEMENT yaw the packer/terrace code computed — it does
+    not know about `yaw-offset`, which lives on the entry, not the slot. The
+    offset is added here, once, at the only point every pool entry funnels
+    through on its way into `placements`. Tolerated as a 4-tuple (no offset,
+    no meta) defensively, but every entry this module itself builds is now a
+    6-tuple (`_pool_entries`) — see that function before relying on the
+    fallback.
+    """
+    usd, sc, au, fp = entry[0], entry[1], entry[2], entry[3]
+    yaw_offset = entry[4] if len(entry) > 4 else 0.0
     return {"usd": usd, "x_m": x, "y_m": y, "z_m": _place_z(fp),
-            "yaw_deg": yaw, "roll_deg": 90.0 if au == "Y" else 0.0,
+            "yaw_deg": (yaw + yaw_offset) % 360.0,
+            "roll_deg": 90.0 if au == "Y" else 0.0,
             "pitch_deg": 0.0, "scale": sc, "category": category,
             "axis_up": au}
 
@@ -518,6 +612,23 @@ class _Skyline:
         # costs pen^1 (50x), with everything between graded smoothly. 0
         # restores the flat count.
         self.local_falloff = float(cfg.get("repeat_local_falloff", 2.0))
+        # -- HARD REPEAT BAN: never THIS close, no matter the weight ----------
+        # `repeat_local_penalty` is a multiplier, deliberately, because a slot
+        # whose only fitting model is already standing nearby still has to be
+        # filled. But a multiplier can still lose the draw to a heavily
+        # height-favoured repeat, and at close range there is no distance at
+        # which a viewer reads two copies of the same building touching or
+        # near-touching as anything but a rendering glitch — the case the
+        # multiplier alone was letting through. Inside `repeat_hard_radius_m`
+        # a copy of itself is REMOVED from the candidate list outright rather
+        # than just down-weighted; only if that removal would empty the list
+        # does the soft multiplier path run instead, so a slot is still filled
+        # when the hard-excluded model is the only thing that fits at all.
+        #
+        # 0 disables it, which is the default — it is a stricter version of
+        # `repeat_radius_m` and every existing scene was tuned against the
+        # soft penalty alone.
+        self.hard_r2 = float(cfg.get("repeat_hard_radius_m", 0.0)) ** 2
         # -- LANDMARKS: the tall tail the height model cannot reach -----------
         # A downtown has a few buildings well above its own norm, and the
         # log-normal cannot produce them here for two compounding reasons,
@@ -545,10 +656,41 @@ class _Skyline:
         # earthquake preset keep the pure log-normal they were tuned with.
         self.landmark_budget = int(cfg.get("landmark_count", 0))
         self.landmark_min_h = float(cfg.get("landmark_min_height_m", 110.0))
+        # -- TALL SEPARATION: two skyscrapers must not stand shoulder to
+        # shoulder ------------------------------------------------------------
+        # `repeat_hard_radius_m` keeps two copies of the SAME model apart;
+        # this is about any two TALL buildings regardless of which models
+        # they are — a 312 m tower and a 302 m tower of DIFFERENT models
+        # ending up adjacent reads as one mass exactly like two copies of one
+        # model do (user, looking at the built scene).
+        #
+        # Measured between FOOTPRINT RECTANGLES, not centres — see
+        # `_tall_ok`. This library runs 42 x 42 m to 60 x 142 m, and a
+        # centre-to-centre rule would treat a slender tower next to a broad
+        # one completely differently from the reverse; "immediately next to
+        # each other" is about the space between the buildings, which the
+        # footprints define and the centres do not.
+        #
+        # A HARD exclusion, not a multiplier like the repeat penalties:
+        # unlike a repeated MODEL, a pool always has SHORTER members to fall
+        # back to, and a shorter building next to a tower is exactly the
+        # right outcome — there is no equivalent of "the only thing that
+        # fits is already standing here" to rescue with a soft weight. Only
+        # when the filter would empty the candidate list entirely does the
+        # slot fall through to whatever is left (`tall_fallback` counts it,
+        # so a scene where every tall slot is falling through shows up in
+        # the log instead of silently building a wall of towers anyway).
+        #
+        # BOTH default to 0 (off): a building is never "tall" until
+        # `tall_min_h_m` says so, which is what keeps every scene that has
+        # not set both knobs unmoved.
+        self.tall_min_h = float(cfg.get("tall_min_h_m", 0.0))
+        self.tall_gap = float(cfg.get("tall_min_gap_m", 0.0))
+        self.tall_fallback = 0
 
         self.used: dict = {}            # usd -> times placed
         self.at: dict = {}              # usd -> [(x, y)] of each placement
-        self.placed: list = []          # (x, y, height_m)
+        self.placed: list = []          # (x, y, height_m, footprint_or_None)
 
     def landmark_picks(self, fits):
         """The tall entries in *fits* if a landmark is still owed, else ().
@@ -575,7 +717,7 @@ class _Skyline:
         if cap:
             t = min(t, float(cap))
         if self.w > 0.0:
-            near = [h for (px, py, h) in self.placed
+            near = [h for (px, py, h, _fp) in self.placed
                     if (px - x) ** 2 + (py - y) ** 2 <= self.r2]
             if near:
                 mean = sum(near) / len(near)
@@ -623,6 +765,33 @@ class _Skyline:
                 w += 1.0 + self.local_falloff * (1.0 - d)
         return w
 
+    def _within(self, usd, x, y, r2):
+        return any((px - x) ** 2 + (py - y) ** 2 < r2
+                   for (px, py) in self.at.get(usd, ()))
+
+    def _tall_ok(self, sx, sy, x, y):
+        """False if a footprint *(sx, sy)* centred at *(x, y)* would land
+        within `tall_min_gap_m` of an already-placed TALL building's own
+        footprint.
+
+        PLAN-DISTANCE BETWEEN THE TWO RECTANGLES, not between centres — the
+        standard axis-aligned-box gap: 0 along an axis where the boxes'
+        extents already overlap, the leftover span where they do not. A
+        neighbour recorded with no footprint (`record`'s `footprint=None` —
+        every pre-existing call site) is treated as a point, i.e. `(0, 0)`
+        extent, which is the same "conservative for a point, exact for a
+        box" contract `_street_sides`'s tolerance uses elsewhere.
+        """
+        for (px, py, h, fp) in self.placed:
+            if h < self.tall_min_h:
+                continue
+            psx, psy = fp if fp is not None else (0.0, 0.0)
+            dx = max(0.0, abs(x - px) - (sx + psx) / 2.0)
+            dy = max(0.0, abs(y - py) - (sy + psy) / 2.0)
+            if math.hypot(dx, dy) < self.tall_gap - 1e-6:
+                return False
+        return True
+
     def _pick(self, candidates, w, x, y):
         """Weighted draw, damped by how often each model is used and by whether
         one is already standing within sight of *(x, y)*.
@@ -646,6 +815,49 @@ class _Skyline:
         and penalising the repeat would destroy the one typology whose whole
         character is uniformity.
         """
+        if self.tall_min_h > 0.0 and self.tall_gap > 0.0:
+            # TALL SEPARATION, a hard drop like the repeat-radius one below
+            # rather than a multiplier — see `__init__`. `(x, y)` is the
+            # slot's corner (same convention `choose` documents); each
+            # candidate's own footprint gives a per-candidate centre
+            # estimate, which is as precise an answer as exists before the
+            # packer has picked an orientation for it.
+            #
+            # THIS IS ALSO THE LANDMARK PATH. `_pack_free` calls
+            # `sky.choose(...)` on the landmark shortlist exactly the same
+            # way it does on the ordinary band, and `choose` always funnels
+            # into `_pick` — so a landmark candidate is tested here too,
+            # without a second copy of this filter at the landmark call
+            # site. That matters: `landmark_min_height_m` sits well above
+            # `tall_min_h_m` in every scene that sets both, so EVERY
+            # landmark candidate is "tall" by this test, which is exactly
+            # the case a viewer notices most — two 300 m towers stacked
+            # from the landmark budget alone.
+            tall = []
+            for e, wi in zip(candidates, w):
+                sz = e[3]["sz"]
+                if sz >= self.tall_min_h:
+                    sx, sy = e[3]["sx"], e[3]["sy"]
+                    if not self._tall_ok(sx, sy, x + sx / 2.0, y + sy / 2.0):
+                        continue          # would stand shoulder to shoulder
+                tall.append((e, wi))
+            if tall:
+                candidates, w = (list(t) for t in zip(*tall))
+            else:
+                # Every tall candidate is too close to one already standing.
+                # NOT rescued by falling back to "place it anyway" — that is
+                # the multiplier's job and this is deliberately not a
+                # multiplier. Fall through to the ORIGINAL list so a shorter
+                # member of the pool can still fill the slot, and count it.
+                self.tall_fallback += 1
+        if self.hard_r2 > 0.0:
+            hard = [(e, wi) for e, wi in zip(candidates, w)
+                    if not self._within(e[0], x, y, self.hard_r2)]
+            if hard:
+                candidates, w = (list(t) for t in zip(*hard))
+            # else: every candidate already has a copy inside the hard
+            # radius — fall through to the soft path below with the ORIGINAL
+            # lists, because something still has to fill this slot.
         if self.repeat > 0.0:
             w = [wi / ((1.0 + self.used.get(e[0], 0)) ** self.repeat)
                  for e, wi in zip(candidates, w)]
@@ -677,8 +889,12 @@ class _Skyline:
         self.at.setdefault(e[0], []).append((float(x), float(y)))
         return e
 
-    def record(self, x, y, height):
-        self.placed.append((x, y, height))
+    def record(self, x, y, height, footprint=None):
+        """*footprint*, when given, is ``(sx, sy)`` in world plan dimensions
+        — used only by the tall-separation filter (`_tall_ok`). ``None``
+        (the default) treats the building as a point; every call site that
+        predates the tall-separation feature still works unchanged."""
+        self.placed.append((x, y, height, footprint))
 
     def note(self, usd, x, y):
         """Book a model that some EARLIER pass already stood at *(x, y)*.
@@ -818,26 +1034,222 @@ def block_inset(config: dict, resolver):
 # morphology: terrace
 # ---------------------------------------------------------------------------
 
-def _tile_run(length: float, pool, rng, jitter=0.35):
+def _tile_run(length: float, pool, rng, jitter=0.35, no_repeat: bool = False):
     """Choose row assets whose lengths sum as close to *length* as possible.
 
     Longest-first with a random pick among the top few, so consecutive block
     faces don't all come out as the same sequence. *pool* entries are measured
     with their long axis on y.
+
+    *no_repeat* — NEVER THE SAME USD TWICE IN A ROW. A HARD guarantee, not a
+    preference: if the only entry that still fits the remaining span is the
+    one just placed, the run ENDS there rather than repeating it — the first
+    version of this fell back to placing it anyway ("something has to fill
+    the space") and still produced Brownstone02-Brownstone02 pairs in 6 of
+    25 multi-house runs on `downtown`, because a narrow leftover span after
+    a long house is often only wide enough for the pool's SHORTEST member,
+    twice. A run ending a little short of `length` is what `_lay_terrace`'s
+    end-of-face centring already tolerates; a forced duplicate is not
+    tolerable at any length. Beyond that, a USD not yet anywhere in this run
+    is preferred over one already used, when both still fit: `_tile_run`
+    never reaches `_Skyline` (ROW HOUSES NEVER REACH HERE — see that class's
+    docstring), so nothing else in the pipeline damps a repeat inside one
+    run, and two identical houses back to back inside a run is the single
+    worst case a repeat can be — they are touching.
+
+    OFF BY DEFAULT (`districts.terrace_no_repeat`, read once by
+    `rezone_blocks`), and the two branches below are kept as two SEPARATE
+    loops rather than one with the filtering made conditional, on purpose:
+    narrowing the candidate list changes not just WHICH entry a draw picks
+    but whether `rng.random()` is even called at all (the `len(fits) == 1`
+    short-circuit below), which perturbs the RNG stream for every scene that
+    reaches a terrace, including one with no facing metadata whatsoever —
+    `downtown`'s eight-brownstone rowhouse pool went 216 -> 223 buildings
+    with this rule unconditional, because the shifted stream propagates to
+    every later draw in the pipeline. `downtown_earthquake` builds on
+    `downtown` and is mid-flight; a silent restyle there is not this
+    feature's business, so OFF has to reproduce the ORIGINAL algorithm
+    exactly, draw for draw, not merely "the same choices most of the time."
     """
     by_len = sorted(pool, key=lambda e: -e[3]["sy"])
     if not by_len:
         return []
     shortest = by_len[-1][3]["sy"]
     out, rem = [], length
+    if not no_repeat:
+        while rem >= shortest - 1e-6:
+            fits = [e for e in by_len if e[3]["sy"] <= rem + 1e-6]
+            if not fits:
+                break
+            k = (1 if len(fits) == 1 or rng.random() > jitter
+                 else min(len(fits), 2))
+            e = fits[rng.randrange(k)]
+            out.append(e)
+            rem -= e[3]["sy"]
+        return out
+    used = set()
     while rem >= shortest - 1e-6:
         fits = [e for e in by_len if e[3]["sy"] <= rem + 1e-6]
         if not fits:
             break
-        k = 1 if len(fits) == 1 or rng.random() > jitter else min(len(fits), 2)
-        e = fits[rng.randrange(k)]
+        last = out[-1][0] if out else None
+        not_last = [e for e in fits if e[0] != last]
+        if not not_last:
+            # The ONLY thing that still fits the remaining span is the piece
+            # just placed — MEASURED to fire repeatedly on the brownstone
+            # pool: after a longer row eats most of `want`, the leftover is
+            # often inside [shortest, 2*shortest), where only the shortest
+            # model (6.8 m Brownstone02) fits at all, twice. Falling back to
+            # "place it again anyway" is what first shipped here, and it
+            # still produced Brownstone02-Brownstone02 pairs in 6 of 25
+            # multi-house runs — visibly worse than the plain length-driven
+            # algorithm was ever accused of, since these two are TOUCHING.
+            # Ending the run here instead leaves it short of `length`, which
+            # `_lay_terrace`'s end-of-face centring already tolerates; a
+            # forced duplicate is not tolerable at any length.
+            break
+        fresh = [e for e in not_last if e[0] not in used]
+        cand = fresh or not_last
+        k = 1 if len(cand) == 1 or rng.random() > jitter else min(len(cand), 2)
+        e = cand[rng.randrange(k)]
         out.append(e)
+        used.add(e[0])
         rem -= e[3]["sy"]
+    return out
+
+
+def _tile_run_ended(length: float, pool, rng, jitter: float = 0.35,
+                    no_repeat: bool = False):
+    """Build one terrace run END-FIRST: the two houses that will stand at
+    the run's two open ends are chosen BEFORE the interior, from stock that
+    may legally stand there (`place` != `mid`), and the interior is filled
+    only with whatever room is left between them.
+
+    WHY END-FIRST, NOT END-FILTERED. `_tile_run` picks purely by length, and
+    only afterward did `_order_run` ask whether the result has two
+    end-capable pieces for its ends — dropping the whole run if not. Against
+    a pool that is mostly `mid` (measured: `brick_midrise`'s first cut was
+    8 of 11 members `mid`, because 09/21/22/08 are 44-86 m deep, too deep to
+    terrace at all, leaving three shallow end-capable buildings in the whole
+    library) most length-driven draws come back all-`mid` and get thrown
+    away wholesale — the run either vanishes or degenerates to whatever thin
+    slice of end-capable stock survived. MEASURED: that produced a "terrace
+    district" of 6 buildings on 3 blocks, 2 per block, the exact defect this
+    function exists to fix — end-capacity is a constraint ON the tiling now,
+    not a filter applied after it.
+
+    ALGORITHM. `end_capable` is every entry whose `place` is not `mid`
+    (`end`/`corner`/`any`). `_face_runs` only calls this function when the
+    pool has a `mid` member at all (see `ends_matter` there) — an untagged
+    pool, or one with no `mid`, has nothing here to protect and takes the
+    plain `_tile_run` path unchanged.
+
+      1. Can the two SMALLEST end-capable entries even fit together in
+         *length*? If not, no bracketed (2+-piece) run is possible at this
+         length, so the run is a single `place_any` piece if one fits — the
+         existing "a run of ONE only takes `any`" rule — or nothing.
+      2. FIRST END: chosen to leave room for an interior AND a close when
+         that is at all achievable — NOT just the longest thing that fits,
+         which is what `_tile_run`'s own style would do. MEASURED on
+         `brick_midrise` (2 `any` at 28.4/42.4 m, 1 `end` at 28.9 m, 8 `mid`
+         from 14.4-28.8 m): picking the 42.4 m `any` first because it is
+         longest left only 9.7 m of interior budget against a 14.4 m
+         shortest `mid` — every run came back a bracket with NO interior, or
+         a lone `any`, never a real row. So `first` draws PREFERENTIALLY
+         from end-capable stock short enough to leave room for the close
+         AND at least one interior piece; only when nothing end-capable
+         leaves that much room does it fall back to "leaves room for the
+         close alone" (which `2*min_end <= length`, checked above,
+         guarantees is non-empty).
+      3. INTERIOR: filled preferentially from `mid` stock (that is what an
+         interior house's blank flanks are FOR — covered by a neighbour on
+         each side), longest-first-with-jitter, falling back to any pool
+         member when no `mid` piece fits the remaining gap so a fillable gap
+         is never left bare for want of the "right" class. Stops once what
+         remains would leave no room for the reserved close.
+      4. CLOSE: the second end, drawn from whatever end-capable stock fits
+         whatever is ACTUALLY left after the interior — non-empty by the
+         reservation in step 2/3, so this step never fails.
+
+    Only step 1 (no bracket possible) or an empty `end_capable`/no fitting
+    `any` can end the run before it starts. That is the whole point: "only
+    drop a run when it genuinely cannot be laid," never because a
+    length-driven draw happened to pick badly.
+
+    *no_repeat* narrows each of the three draws exactly as `_tile_run`
+    does — never the immediately-preceding USD, and a USD not yet anywhere
+    in the run preferred over one already used, when either still fits.
+    """
+    def sy(e):
+        return e[3]["sy"]
+
+    def draw(cands, last_usd, used_here):
+        by_len = sorted(cands, key=lambda e: -sy(e))
+        if no_repeat:
+            not_last = [e for e in by_len if e[0] != last_usd]
+            base = not_last or by_len
+            fresh = [e for e in base if e[0] not in used_here]
+            cand = fresh or base
+        else:
+            cand = by_len
+        k = (1 if len(cand) == 1 or rng.random() > jitter
+             else min(len(cand), 2))
+        return cand[rng.randrange(k)]
+
+    def lone_any(budget):
+        any_fits = [e for e in pool if e[5].get("place", "any") == "any"
+                   and sy(e) <= budget + 1e-6]
+        return [draw(any_fits, None, set())] if any_fits else []
+
+    end_capable = [e for e in pool if e[5].get("place", "any") != "mid"]
+    if not end_capable:
+        return lone_any(length)          # nothing to bracket with at all
+
+    min_end = min(sy(e) for e in end_capable)
+    if 2.0 * min_end > length + 1e-6:
+        return lone_any(length)          # cannot bracket two ends here
+
+    shortest_pool = min(sy(e) for e in pool)
+    # Tier A leaves room for the close AND >= 1 interior piece; tier B (the
+    # old, sole test) leaves room for the close alone. A is tried first.
+    first_fits = [e for e in end_capable
+                 if sy(e) <= length - min_end - shortest_pool + 1e-6]
+    if not first_fits:
+        first_fits = [e for e in end_capable
+                     if sy(e) <= length - min_end + 1e-6]
+    if not first_fits:
+        # `2*min_end <= length` already guarantees the piece achieving
+        # `min_end` itself qualifies tier B, so this is unreachable outside
+        # floating-point boundary noise — kept as a defensive fallback
+        # rather than trusted to never fire.
+        return lone_any(length)
+
+    first = draw(first_fits, None, set())
+    out = [first]
+    used = {first[0]}
+    rem = length - sy(first)
+
+    # INTERIOR, reserving `min_end` off the top so the close always has
+    # somewhere to land.
+    budget = rem - min_end
+    while budget >= shortest_pool - 1e-6:
+        mid_fits = [e for e in pool if e[5].get("place", "any") == "mid"
+                   and sy(e) <= budget + 1e-6]
+        fits = mid_fits or [e for e in pool if sy(e) <= budget + 1e-6]
+        if not fits:
+            break
+        piece = draw(fits, out[-1][0], used)
+        out.append(piece)
+        used.add(piece[0])
+        budget -= sy(piece)
+        rem -= sy(piece)
+
+    # CLOSE. `rem` >= `min_end` by construction (the interior loop only ever
+    # spends out of `budget = rem - min_end`, never touching the reserve),
+    # so `close_fits` is never empty.
+    close_fits = [e for e in end_capable if sy(e) <= rem + 1e-6]
+    close = draw(close_fits, out[-1][0], used)
+    out.append(close)
     return out
 
 
@@ -944,12 +1356,56 @@ def _terrace_quad(rect, depth: float, alley_m: float, road_w: float):
 
 
 def _next_typology(typologies: dict, name: str):
-    """The next typology up the intensity ladder, for a refused block."""
+    """The next typology up the intensity ladder, for a refused block.
+
+    Excludes every terrace-morphology typology, not just *name* itself — a
+    refused terrace should never fall back to another terrace, with two of
+    them (`rowhouse` and a second one) that now matters for real. It also
+    cannot return *name*: the `rank > here` test is strict, so a candidate
+    with *name*'s own rank (itself included) never qualifies regardless of
+    morphology.
+    """
     here = (typologies.get(name) or {}).get("rank", 0)
     up = sorted(((t.get("rank", 0), n) for n, t in typologies.items()
                  if t.get("rank", 0) > here
                  and str(t.get("morphology", "pack")) != "terrace"))
     return up[0][1] if up else None
+
+
+def _terrace_fit_pool(pool, block_short: float, alley_m: float):
+    """Narrow *pool* to the entries a terrace pair on a block of short side
+    *block_short* can actually hold, and the deepest depth among them —
+    ``(fitting_pool, depth)``, or ``([], 0.0)`` when nothing fits at all.
+
+    `_lay_terrace` used to size the WHOLE admissible-block band off the
+    pool's single deepest member (`max(e[3]["sx"] for e in pool)`), so
+    appending one deep building moved the band for every block in the scene.
+    MEASURED: appending 31.5 m GreatAmericanCity stock to a pool of 21.1 m
+    AEC brownstones moved the band to [65, 89] m and refused all eight
+    existing brownstone blocks outright, with nothing reporting why beyond
+    `rowhouse_refused=8`. Filtering to what fits THIS block's short side
+    before taking the max keeps the shallow blocks building shallow stock and
+    only admits the deep stock on blocks that can actually hold it — a block
+    is disqualified by its own size now, never by an unrelated pool member's.
+    """
+    fitting = [e for e in pool if 2.0 * e[3]["sx"] + alley_m <= block_short]
+    if not fitting:
+        return [], 0.0
+    return fitting, max(e[3]["sx"] for e in fitting)
+
+
+def _terrace_band(depth: float, alley_m: float, alley_max_m: float = 0.0):
+    """The admissible block-short-side band a terrace PAIR needs —
+    ``(lo, hi)`` — factored out of `_terrace_strips` so `_select_probe_blocks`
+    tests a candidate block against the EXACT same arithmetic rather than a
+    second copy of it that can drift. *depth* is the pool's deepest member
+    (`sx`, already post yaw-offset swap — see `_pool_entries`), tight end at
+    ``2*depth + alley_m``, loose end at ``2*depth + alley_max_m`` (or
+    ``2*depth + alley_m*2.5`` when no `alley_max_m` is configured).
+    """
+    lo = 2.0 * depth + alley_m
+    hi = 2.0 * depth + (alley_max_m if alley_max_m > alley_m else alley_m * 2.5)
+    return lo, hi
 
 
 def _terrace_strips(rect, depth: float, alley_m: float, alley_max_m: float = 0.0):
@@ -970,8 +1426,7 @@ def _terrace_strips(rect, depth: float, alley_m: float, alley_max_m: float = 0.0
     """
     x0, y0, x1, y1 = rect
     w, h = x1 - x0, y1 - y0
-    lo = 2.0 * depth + alley_m
-    hi = 2.0 * depth + (alley_max_m if alley_max_m > alley_m else alley_m * 2.5)
+    lo, hi = _terrace_band(depth, alley_m, alley_max_m)
     short = min(w, h)
     if short < lo:
         return []                               # cannot fit a pair at all
@@ -993,7 +1448,7 @@ def _terrace_strips(rect, depth: float, alley_m: float, alley_max_m: float = 0.0
 
 
 def _face_runs(face_len: float, pool, rng, med: float, sigma: float,
-               gap_lo: float, gap_hi: float):
+               gap_lo: float, gap_hi: float, no_repeat: bool = False):
     """Break a block face into terrace runs separated by gaps.
 
     MEASURED (Philadelphia, Boston Back Bay, Baltimore; contiguous party-wall
@@ -1002,12 +1457,29 @@ def _face_runs(face_len: float, pool, rng, med: float, sigma: float,
     the face end to end makes a 120 m unbroken wall, which is why runs are
     sampled log-normally instead. 93-97% of row-house stock sits in runs of >=3,
     so single houses only ever appear closing out a run.
+
+    *no_repeat* passes straight through to whichever tiler is used — see
+    `_tile_run`'s docstring for why OFF has to be the literal original
+    algorithm rather than a conditional inside one shared loop.
+
+    ENDS_MATTER decides which tiler: `_tile_run_ended` (end-capacity as a
+    construction constraint) when *pool* has any `place_mid` member, plain
+    `_tile_run` (length only) when it does not. Computed ONCE per strip, not
+    per run, because the pool does not change within a strip. A pool with no
+    `mid` — including every pool with NO place tags at all, since the
+    untagged default is `any` — has nothing for the end-anchored
+    construction to protect, so it never reaches that code path: this is
+    what keeps a metadata-less pool (`downtown`'s brownstones) on the
+    ORIGINAL `_tile_run` call, unchanged, draw for draw.
     """
     shortest = min(e[3]["sy"] for e in pool)
+    ends_matter = any(e[5].get("place", "any") == "mid" for e in pool)
     out, cursor = [], 0.0
     while face_len - cursor >= shortest:
         want = min(face_len - cursor, med * math.exp(rng.gauss(0.0, sigma)))
-        chosen = _tile_run(want, pool, rng)
+        chosen = (_tile_run_ended(want, pool, rng, no_repeat=no_repeat)
+                  if ends_matter else
+                  _tile_run(want, pool, rng, no_repeat=no_repeat))
         if not chosen:
             break
         used = sum(e[3]["sy"] for e in chosen)
@@ -1016,10 +1488,70 @@ def _face_runs(face_len: float, pool, rng, med: float, sigma: float,
     return out
 
 
+def _order_run(chosen, rng):
+    """Reorder one terrace run so a `mid` piece never ends up at either end,
+    or refuse the run outright when it cannot be arranged legally.
+
+    A `place_mid` asset is blank on BOTH flanks (`gac_faces.py`'s 1-modelled-
+    side case) — it only ever reads correctly with a neighbour covering each
+    side, i.e. strictly inside a run. `end`/`corner`/`any` have at least one
+    flank covered (or none needed) and can close a run out. A run of exactly
+    ONE shows both its flanks to the open air, so it only accepts `any` — a
+    lone `mid` or `end` would bare a flank nothing is there to hide.
+
+    Documented in `urban_gac.yaml` as `districts._order_run` before this
+    function existed to do it: "orders each terrace run by these and DROPS a
+    run it cannot lay legally, rather than laying a blank wall against a
+    street." Returns the reordered list, or ``[]`` — the caller must skip a
+    ``[]`` run rather than lay it, exactly as it already skips a block whose
+    terrace band the short side falls outside: a hole in a terrace is a
+    vacant lot, which is real; a blank wall at the end of a row is not.
+
+    THIS IS NOW AN INVARIANT CHECK, NOT THE MECHANISM. `_tile_run_ended`
+    builds a run end-first — it puts a legal end-capable piece at both ends
+    BEFORE it ever touches the interior — so by the time a run reaches here
+    it should ALREADY satisfy everything below, and this function is just
+    confirming that rather than repairing it. It is kept anyway as the
+    single place that enforces the rule, in front of every source of a
+    `chosen` list this pass has (including plain `_tile_run`, which knows
+    nothing about `place` at all). A run this function actually has to
+    DROP or REORDER for cause — as opposed to the harmless cosmetic
+    reshuffling it still does among interchangeable end-capable pieces —
+    means the construction step upstream produced something illegal, which
+    is a real bug in `_tile_run_ended`, not routine attrition to expect in
+    normal operation.
+    """
+    n = len(chosen)
+    if n == 0:
+        return []
+    places = [(e[5].get("place", "any") if len(e) > 5 else "any")
+             for e in chosen]
+    if n == 1:
+        return [chosen[0]] if places[0] == "any" else []
+    # NOTHING TO ORDER when no piece in the run is `mid` — every entry can
+    # legally stand at an end, so `_tile_run`'s own sequence is already
+    # legal and reordering it would only spend an `rng.shuffle` proving
+    # that. This is what keeps a pool nobody has tagged (`place="any"`
+    # everywhere, the untagged default) byte-identical to before this
+    # function existed: it never draws from `rng` and never touches the
+    # sequence for exactly the pools this feature has nothing to say about.
+    if "mid" not in places:
+        return list(chosen)
+    idx = list(range(n))
+    end_ok = [i for i in idx if places[i] != "mid"]
+    if len(end_ok) < 2:
+        return []              # not enough flank-covered stock to close it
+    rng.shuffle(end_ok)
+    first_i, last_i = end_ok[0], end_ok[1]
+    middle_i = [i for i in idx if i not in (first_i, last_i)]
+    rng.shuffle(middle_i)
+    return [chosen[i] for i in ([first_i] + middle_i + [last_i])]
+
+
 def _lay_terrace(rect, pool, rng, facing_deg: float, alley_m: float,
                  run_median_m: float = 45.0, run_sigma: float = 0.70,
                  run_gap_m=(3.0, 9.0), alley_max_m: float = 0.0,
-                 strips=None):
+                 strips=None, no_repeat: bool = False):
     """Place party-wall rows around *rect*. Returns ``[(entry, x, y, yaw)]``.
 
     Rows inside a run butt end to end with no gap — a terrace shares walls, and
@@ -1039,22 +1571,60 @@ def _lay_terrace(rect, pool, rng, facing_deg: float, alley_m: float,
     exactly where the brownstones tuned it and lets a shallow house sit on the
     same frontage line with a deeper back alley behind it, which is what a
     mixed-depth terrace actually looks like.
+
+    FACING: each strip has ONE outward yaw for every building in it (a row's
+    whole point is a shared, consistent front), so the pool is filtered once
+    per strip to entries whose `blank:` sides do not include that outward
+    direction — an entry that would show a blank wall to this particular
+    street cannot be used on THIS strip even if it is fine on the opposite
+    one. `facing_deg` 0 assumes -X (WEST) is the canonical front every
+    asset's `yaw-offset` has already been turned to (see the module
+    docstring's per-asset `yaw-offset` note and `tools/faces_to_yaw.py`'s
+    `FRONT_TO_YAW` table), so the outward letter for a given strip yaw is
+    ``_rot_side("W", yaw)`` — the same rotation `_pack_free` applies to
+    `blank0`, just solved from the strip's geometry instead of a candidate
+    footprint's.
     """
-    depth = max(e[3]["sx"] for e in pool)
+    x0r, y0r, x1r, y1r = rect
+    pool, depth = _terrace_fit_pool(pool, min(x1r - x0r, y1r - y0r), alley_m)
+    if not pool:
+        return []
     out = []
     for (sx0, sy0, sx1, sy1), axis, near_lo in (
             strips if strips is not None
             else _terrace_strips(rect, depth, alley_m, alley_max_m)):
         face_len = (sx1 - sx0) if axis == "x" else (sy1 - sy0)
-        runs = _face_runs(face_len, pool, rng, run_median_m, run_sigma,
-                          run_gap_m[0], run_gap_m[1])
+        if axis == "x":
+            yaw = 90.0 + (facing_deg if near_lo else 180.0 + facing_deg)
+        else:
+            yaw = facing_deg if near_lo else 180.0 + facing_deg
+        outward = _rot_side("W", yaw)
+        strip_pool = [e for e in pool
+                     if outward not in _rot_sides(
+                         (e[5].get("blank0") if len(e) > 5 else None)
+                         or frozenset(), yaw)]
+        if not strip_pool:
+            continue           # nothing in the pool may legally face here
+        runs = _face_runs(face_len, strip_pool, rng, run_median_m, run_sigma,
+                          run_gap_m[0], run_gap_m[1], no_repeat=no_repeat)
         if not runs:
             continue
-        # Centre the whole sequence on the face so the end gaps match.
+        # Centre the whole sequence on the face so the end gaps match. Uses
+        # the RAW runs (pre-`_order_run`), which is correct — reordering a
+        # run's contents does not change its total length.
         span = runs[-1][0] + sum(e[3]["sy"] for e in runs[-1][1])
         shift = (face_len - span) / 2.0
         for start, chosen in runs:
+            chosen = _order_run(chosen, rng)
+            if not chosen:
+                # This run cannot be laid with a legal flank arrangement —
+                # dropped, not laid wrong. Leaves a gap in the frontage,
+                # which is a vacant lot; that is a real thing a block face
+                # has, a `place_mid` house standing alone at the end of a
+                # row is not.
+                continue
             cursor = start + shift
+            positions = []          # (entry, cx, cy, world_w, world_h)
             for e in chosen:
                 ln, dp = e[3]["sy"], e[3]["sx"]
                 if axis == "x":
@@ -1062,14 +1632,45 @@ def _lay_terrace(rect, pool, rng, facing_deg: float, alley_m: float,
                     # street edge, the face nearer the block boundary.
                     cx = sx0 + cursor + ln / 2.0
                     cy = sy0 + dp / 2.0 if near_lo else sy1 - dp / 2.0
-                    yaw = 90.0 + (facing_deg if near_lo
-                                  else 180.0 + facing_deg)
+                    w, h = ln, dp
                 else:
                     cy = sy0 + cursor + ln / 2.0
                     cx = sx0 + dp / 2.0 if near_lo else sx1 - dp / 2.0
-                    yaw = facing_deg if near_lo else 180.0 + facing_deg
-                out.append((e, cx, cy, yaw))
+                    w, h = dp, ln
+                positions.append((e, cx, cy, w, h))
                 cursor += ln
+            # THE TWO ENDS OF THE RUN, AND ONLY THEM, CAN HAVE AN EXPOSED
+            # FLANK. Every interior house's flanks are covered by its two
+            # neighbours by construction, so the per-strip `outward`-only
+            # filter above is sufficient for them — but a house at either
+            # END of a run has one side open to whatever lies beyond the
+            # run, and when a run ends at a block CORNER that open side can
+            # itself be a street the outward check never looks at (it only
+            # ever tests the row's single shared front/back direction).
+            # MEASURED: this is what a `place_end` piece with `front:S,
+            # blank:N,W` produced at a superblock corner — 3 of 3 real
+            # violations traced to this pass were exactly this shape. Full
+            # `_street_sides` on just these two houses catches it; checking
+            # every house in the run would too, but redundantly.
+            ok = True
+            for e, cx, cy, w, h in (positions[0], positions[-1]):
+                blank0 = (e[5].get("blank0") if len(e) > 5 else None) \
+                    or frozenset()
+                if not blank0:
+                    continue
+                fx0, fy0 = cx - w / 2.0, cy - h / 2.0
+                fsides = _street_sides(rect, fx0, fy0, w, h)
+                if _rot_sides(blank0, yaw) & fsides:
+                    ok = False
+                    break
+            if not ok:
+                # Dropped for the same reason an unlayable `_order_run` is:
+                # the run's own composition is fine, but where it LANDS puts
+                # a blank flank on a street its outward face was never
+                # tested against. A shorter frontage here, not a bad one.
+                continue
+            for e, cx, cy, w, h in positions:
+                out.append((e, cx, cy, yaw))
     return out
 
 
@@ -1100,9 +1701,75 @@ def _street_reach(block_rect, max_m: float):
     return reach
 
 
+def _street_sides(block_rect, x0: float, y0: float, w: float, h: float,
+                  tol_m: float = 6.0) -> frozenset:
+    """Which of a footprint's four WORLD faces look at a street.
+
+    *block_rect* is already inset to the sidewalk line (see `block_inset`),
+    same as `_street_reach`'s. A face looks at a street when ITS OWN edge — not
+    the footprint's centre, not the whole footprint — sits within *tol_m* of
+    the matching block edge; the other three faces may still be well inside
+    the block (a corner lot's back two sides) without that counting against
+    them. `tol_m` defaults to 6 m: wider than `_street_reach`'s frontage test
+    needs to be exact, because a face is either basically on the sidewalk line
+    or basically not — there is no "partially on the street" the way there is
+    a graded "how far in from it".
+    """
+    bx0, by0, bx1, by1 = block_rect
+    sides = set()
+    if x0 - bx0 <= tol_m:
+        sides.add("W")
+    if bx1 - (x0 + w) <= tol_m:
+        sides.add("E")
+    if y0 - by0 <= tol_m:
+        sides.add("S")
+    if by1 - (y0 + h) <= tol_m:
+        sides.add("N")
+    return frozenset(sides)
+
+
+def _place_ok(place: str, n_street_sides: int) -> bool:
+    """Coarse version of the same rule `blank:` enforces exactly: how many
+    street sides a slot has decides which `place` classes may stand there.
+    2+ sides is a corner slot (`corner`/`any` only); exactly 1 is an end/mid
+    slot with one flank exposed and one covered (`end`/`corner`/`any`); 0 is
+    interior, where nothing is street-facing and every class is fine.
+
+    Used only as a FALLBACK when an entry has no `blank:` tag to test
+    directly — see `_pack_free`. An entry with `place="any"` (the untagged
+    default) always passes, which is what keeps this a no-op for a pool
+    nobody has measured.
+    """
+    if n_street_sides >= 2:
+        return place in ("corner", "any")
+    if n_street_sides == 1:
+        return place in ("end", "corner", "any")
+    return True
+
+
+def _typ_gap(typ: dict, default: float) -> float:
+    """The clear gap `_pack_free` leaves between buildings, PER TYPOLOGY.
+
+    `packing.building_gap_m` is one global number, and 2.5 m is right for a
+    mid-rise block built to its edges. It is wrong for a tower district, and
+    that turned out to be the only lever that actually separates tall
+    buildings: `tall_min_gap_m` can only redirect a slot to SHORTER stock, and
+    the `highrise` pool is 134-312 m throughout — every candidate is tall, so
+    the filter empties the list and falls through. Measured, no value of it
+    changed the layout above ~6 m.
+
+    The packer's own gap has no such escape hatch: it is the guillotine step,
+    so it holds by construction. MEASURED on the probe at the default 2.5 m,
+    towers stood 38-42 m apart centre to centre on 42-86 m wide plans — i.e.
+    touching.
+    """
+    return float(typ.get("building_gap_m", default))
+
+
 def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
-               area_band: float = 0.55, reach=None):
-    """Guillotine-pack *pool* into *rect*; returns ``[(entry, cx, cy, yaw)]``.
+               area_band: float = 0.55, reach=None, block_rect=None,
+               street_tol_m: float = 6.0):
+    """Guillotine-pack *pool* into *rect*; returns ``([(entry, cx, cy, yaw)], refused)``.
 
     Candidates are tried largest-footprint-first so a gap closes with one big
     building rather than several small ones, and the orientation putting the
@@ -1124,8 +1791,22 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
     reads as unbuilt block interior. What the band must NOT be used for is
     diversity on its own — that is the skyline's two penalties. This just has
     to leave them something to choose between.
+
+    *block_rect* is the block's own inset rect (the same one `_street_reach`
+    is built from) and turns on the FACING test: a candidate whose `blank:`
+    sides, rotated to the yaw it would stand at, include a side the slot's
+    footprint puts on the street is dropped, and so is any candidate whose
+    `place` class cannot legally stand there at all (`_place_ok`, used only
+    when the entry has no `blank:` tag to test directly). When every
+    candidate for a sub-rectangle fails this test the rectangle is left
+    EMPTY rather than building the least-bad option — the same discipline
+    `reach` already applies to frontage — and counted in the returned
+    *refused* tally so a run that is quietly refusing everything shows up in
+    the `[districts]` log instead of just being a smaller city. ``None``
+    (the default) skips the whole test, which is what keeps this a no-op for
+    any caller that has not been updated to pass a block rect.
     """
-    out, stack = [], [tuple(rect)]
+    out, stack, refused = [], [tuple(rect)], 0
     while stack:
         x0, y0, x1, y1 = stack.pop()
         w, h = x1 - x0, y1 - y0
@@ -1133,11 +1814,28 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
             continue
         fits = []
         for e in pool:
+            meta = e[5] if len(e) > 5 else {}
+            if meta.get("place") == "none":
+                continue           # all-blank stock: never a pack candidate
             sx, sy = e[3]["sx"], e[3]["sy"]
+            # The 180-degree-flipped facing is only worth adding as a SEPARATE
+            # candidate when there is a `blank:` tag to distinguish it from
+            # its un-flipped twin (same bw/bh either way, so it is otherwise
+            # indistinguishable to the fit test) and a `block_rect` to judge
+            # it against. Anything else would just hand `sky.choose` two
+            # copies of an entry that look identical to it, silently doubling
+            # that entry's odds for every draw in the scene — including
+            # every scene with no facing metadata at all, which is exactly
+            # the byte-identical regression this feature must not cause.
+            flip = block_rect is not None and bool(meta.get("blank"))
             if sx <= w and sy <= h:
                 fits.append((e, sx, sy, 0.0))
+                if flip:
+                    fits.append((e, sx, sy, 180.0))
             if sy <= w and sx <= h and abs(sx - sy) > 1e-6:
                 fits.append((e, sy, sx, 90.0))
+                if flip:
+                    fits.append((e, sy, sx, 270.0))
         # A LANDMARK SLOT SKIPS THE AREA BAND. Asked before the band because
         # that is what the band would remove — see `_Skyline.landmark_picks`.
         # Still subject to `reach`: a 231 m tower with no street frontage is
@@ -1153,8 +1851,34 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
             fits = [f for f in fits if reach(x0, y0, f[1], f[2])]
         if not fits:
             continue
+        if block_rect is not None:
+            sides = None
+            kept = []
+            for f in fits:
+                e, bw, bh, yaw = f
+                meta = e[5] if len(e) > 5 else {}
+                fsides = _street_sides(block_rect, x0, y0, bw, bh,
+                                       street_tol_m)
+                blank = meta.get("blank") or frozenset()
+                if blank:
+                    bad = _rot_sides(meta.get("blank0") or frozenset(), yaw) \
+                        & fsides
+                    ok = not bad
+                else:
+                    ok = _place_ok(meta.get("place", "any"), len(fsides))
+                if ok:
+                    kept.append(f)
+            if not kept:
+                # Something fit AND reached the street, but every surviving
+                # orientation would show a blank wall or an illegal `place`
+                # class to it. Leaving the rectangle bare is the same call
+                # `reach` makes for a landlocked gap — a blank wall on a
+                # street is worse than an empty lot, not better.
+                refused += 1
+                continue
+            fits = kept
         if marks:
-            marks = [f for f in marks if f in fits]      # survived `reach`
+            marks = [f for f in marks if f in fits]      # survived `reach` + facing
         if marks:
             # The tallest band, drawn among themselves so the repeat penalties
             # still decide WHICH landmark — two identical towers facing each
@@ -1173,7 +1897,7 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
 
         cx, cy = x0 + bw / 2.0, y0 + bh / 2.0
         out.append((e, cx, cy, yaw))
-        sky.record(cx, cy, e[3]["sz"])
+        sky.record(cx, cy, e[3]["sz"], (bw, bh))
 
         right_w, top_h = x1 - (x0 + bw) - gap, y1 - (y0 + bh) - gap
         if right_w >= top_h:
@@ -1186,7 +1910,7 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
                 stack.append((x0, y0 + bh + gap, x1, y1))
             if right_w > 0:
                 stack.append((x0 + bw + gap, y0, x1, y0 + bh))
-    return out
+    return out, refused
 
 
 # ---------------------------------------------------------------------------
@@ -1198,6 +1922,119 @@ def _fits_block(pool, rect):
     return any(min(e[3]["sx"], e[3]["sy"]) <= min(w, h) + _FIT_TOL_M
                and max(e[3]["sx"], e[3]["sy"]) <= max(w, h) + _FIT_TOL_M
                for e in pool)
+
+
+# Minimum centre-to-centre separation between two `districts.probe` picks,
+# including two picks for DIFFERENT named typologies. MEASURED (the
+# urban-layout skill's BLOCK SIZE section): footprints and the blocks sized
+# for them span roughly 40-100 m short side across every library this
+# generator has been pointed at, so a separation comfortably past the widest
+# of those guarantees at least one full unzoned block between any two probe
+# picks — "spread them out, do not take three adjacent blocks."
+_PROBE_SPREAD_M = 120.0
+
+
+def _select_probe_blocks(layout: dict, parks: set, pool_of: dict,
+                         typologies: dict, inset: float, probe_cfg: dict,
+                         rng):
+    """Which blocks a `districts.probe` config zones, and to what.
+
+    The FIT TEST is per morphology, because "the block short side is inside
+    `block_short_m`" is the wrong question for a terrace typology — what
+    actually decides whether a terrace pair can be laid is `_terrace_strips`'
+    band, `[2*depth + alley_m, 2*depth + alley_max_m]`, measured against the
+    BUILDABLE rect (the block inset by `block_inset()` on both sides), with
+    *depth* the pool's deepest member's `sx` — already swapped for
+    yaw-offset, see `_pool_entries`. Picking a terrace probe block by
+    `block_short_m`/`_fits_block` alone (the pack test) is exactly what
+    zoned three "brick_midrise" blocks whose bands then refused them at
+    build time, forcing the next-typology-up fallback and putting a THIRD,
+    uninvited typology in a scene meant to show two. `_terrace_band` is the
+    same arithmetic `_terrace_strips` itself uses, not a second copy of it.
+
+    A PACK typology keeps the original test: `_fits_block` for "can stand at
+    all", `block_short_m` as a soft preference (a block outside it can still
+    take the typology's smallest member, so it is a fallback candidate, not
+    excluded). A terrace typology has no such fallback tier — either the
+    block's short side is in the band or a pair cannot be laid there at all,
+    so every terrace candidate ranks equally and there is nothing to prefer
+    between them beyond the spread rule below.
+
+    Picks greedily off that ranking, refusing a candidate closer than
+    `_PROBE_SPREAD_M` to any pick already made — for this typology or an
+    earlier one in *probe_cfg*, so two different probe typologies do not end
+    up sharing a corner either — then relaxes that spacing on a second pass
+    rather than hand back fewer blocks than asked.
+
+    Returns ``({block: typology_name}, {typology_name: n_qualified})`` — the
+    second dict is how many blocks passed the fit test at all, BEFORE the
+    spread rule or the count cap trimmed it, so the caller can say plainly
+    when fewer blocks qualify than were asked for rather than silently
+    zoning fewer than it looks like it did. Every block missing from the
+    first dict is the caller's to leave unzoned — `rezone_blocks` treats a
+    block missing from this map as "not built", and the `doomed` pass it
+    already runs before zoning has stripped whatever `build_city` put there,
+    so an unpicked block comes out genuinely empty rather than merely
+    unlabelled.
+    """
+    blocks = [b for b in layout.get("blocks", []) if b not in parks]
+    chosen: dict = {}
+    qualified: dict = {}
+    centers: list = []
+    for name, count in probe_cfg.items():
+        count = int(count)
+        pool = pool_of.get(name)
+        if count <= 0 or not pool:
+            qualified[name] = 0
+            continue
+        t = typologies.get(name) or {}
+        is_terrace = str(t.get("morphology", "pack")) == "terrace"
+        if is_terrace:
+            depth = max(e[3]["sx"] for e in pool)
+            alley_m = float(t.get("alley_m", 6.0))
+            alley_max_m = float(t.get("alley_max_m", 0.0))
+            lo, hi = _terrace_band(depth, alley_m, alley_max_m)
+        else:
+            band = t.get("block_short_m")
+        cands = []
+        for blk in blocks:
+            if blk in chosen:
+                continue
+            rect = (blk[0] + inset, blk[1] + inset,
+                    blk[2] - inset, blk[3] - inset)
+            w, h = rect[2] - rect[0], rect[3] - rect[1]
+            if w < 4.0 or h < 4.0:
+                continue
+            short = min(w, h)
+            if is_terrace:
+                if not (lo <= short <= hi):
+                    continue                  # a pair cannot be laid here
+                rank = 0
+            else:
+                if not _fits_block(pool, rect):
+                    continue
+                in_band = bool(band) and float(band[0]) <= short <= float(band[1])
+                rank = 0 if in_band else 1
+            cands.append((rank, blk,
+                         (blk[0] + blk[2]) / 2.0, (blk[1] + blk[3]) / 2.0))
+        qualified[name] = len(cands)
+        rng.shuffle(cands)                    # break ties within a rank
+        cands.sort(key=lambda c: c[0])        # stable: shuffle order survives
+        picked = 0
+        for relax in (False, True):
+            if picked >= count:
+                break
+            for _rank, blk, cx, cy in cands:
+                if picked >= count or blk in chosen:
+                    continue
+                if not relax and any(
+                        math.hypot(cx - pcx, cy - pcy) < _PROBE_SPREAD_M
+                        for pcx, pcy in centers):
+                    continue
+                chosen[blk] = name
+                centers.append((cx, cy))
+                picked += 1
+    return chosen, qualified
 
 
 def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
@@ -1236,6 +2073,12 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
     # How far in from the sidewalk line a building may sit and still count as
     # fronting the street. 0 disables the test. See `_street_reach`.
     frontage_max = float(cfg.get("frontage_max_m", 0.0))
+    # Suppress a terrace run repeating the same USD back to back — see
+    # `_tile_run`. OFF BY DEFAULT: it perturbs the whole scene's `rng` stream
+    # even for a pool with no facing metadata (`downtown`'s brownstones have
+    # none), and `downtown_earthquake` builds on `downtown` mid-flight.
+    # A scene opts in explicitly; `downtown_gac.yaml` is the first to.
+    no_repeat = bool(cfg.get("terrace_no_repeat", False))
     parks = set(park_blocks(layout, placements))
 
     # Ruins and their debris are immovable; everything else already standing
@@ -1246,11 +2089,49 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
     survivors = [p for p in placements
                  if p.get("category") != "house" or p.get("usd") not in intact]
 
+    # `districts.probe`: zone only the NAMED typologies below, onto at most
+    # that many blocks each, and leave every other block unzoned — see
+    # `_select_probe_blocks`. A probe run replaces the zone-map-driven
+    # selection entirely rather than layering on top of it, because the
+    # whole point is reviewing a typology on a handful of blocks in
+    # isolation, with nothing else in the city competing for attention.
+    probe_cfg = cfg.get("probe") or {}
+    probe_map: dict = {}
+    if probe_cfg:
+        probe_map, probe_qualified = _select_probe_blocks(
+            layout, parks, pool_of, typologies, inset, probe_cfg, rng)
+        got = {}
+        for n in probe_map.values():
+            got[n] = got.get(n, 0) + 1
+        want = "  ".join(f"{n}={got.get(n, 0)}/{int(c)}"
+                         for n, c in probe_cfg.items())
+        n_nonpark = len(layout.get("blocks", [])) - len(parks)
+        print(f"[districts] probe: {want}  "
+              f"({len(probe_map)} of {n_nonpark} non-park blocks zoned; "
+              f"the rest stay empty)")
+        # SAY SO PLAINLY when fewer blocks qualified than were asked for,
+        # rather than silently handing back a smaller probe than it looks
+        # like was requested — `got[n]/count` above already shows the
+        # shortfall in the COUNT, this says WHY: not enough blocks passed
+        # the fit test at all, as opposed to the spread rule crowding them
+        # out (which the two-pass relax already recovers from).
+        short = [f"{n} (found {probe_qualified.get(n, 0)}, wanted {int(c)})"
+                for n, c in probe_cfg.items()
+                if probe_qualified.get(n, 0) < int(c)]
+        if short:
+            print(f"[districts] probe: not enough qualifying blocks for "
+                  f"{', '.join(short)}")
+
     # Terrace superblocks are deliberately rare: they are the distinctive part
-    # of the city, and each one eats a large block and adds a street.
-    max_super = int((cfg.get("typologies", {}).get("rowhouse") or {})
-                    .get("max_superblocks", 2))
-    n_super = 0
+    # of the city, and each one eats a large block and adds a street. THE
+    # BUDGET IS PER TYPOLOGY, not one shared counter — `rowhouse` and a second
+    # terrace typology (e.g. `brick_midrise`) must not exhaust each other's
+    # allowance depending only on which one a given block happens to zone as
+    # first. Read off each typology's own `max_superblocks` at the point its
+    # block is built; default 2, the historical single-counter value, so a
+    # scene with exactly one terrace typology — every scene before a second
+    # one existed — sees no change.
+    n_super_by_typ: dict = {}
     splits = []          # (original block, [sub-blocks], typology)
 
     doomed = set()
@@ -1269,7 +2150,7 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                  for p in placements
                  if p.get("category") in keep_cats or p.get("category") == "house"]
 
-    typ_of, counts, added = {}, {}, 0
+    typ_of, counts, added, blank_refused, probe_refused = {}, {}, 0, 0, 0
     paved: list = []                 # terrace-block interiors to un-pave
     for blk in layout.get("blocks", []):
         if blk in parks:
@@ -1280,24 +2161,35 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
         if rect[2] - rect[0] < 4.0 or rect[3] - rect[1] < 4.0:
             continue
 
-        bcx, bcy = (blk[0] + blk[2]) / 2.0, (blk[1] + blk[3]) / 2.0
-        here = zone_at(bcx, bcy) or {}
-        # `remap_buildings` passes `zone_field`, which yields a TYPOLOGY, so
-        # `.get("name")` is the typology name. The `mix` branch is for a caller
-        # that hands in `assign`'s RING instead — a ring name is not a key in
-        # pool_of and would silently fall through to "first typology that fits".
-        name = (_pick(here["mix"], rng) if here.get("mix")
-                else here.get("name"))
-        if rng.random() < bleed and hasattr(zone_at, "bleed_name"):
-            name = zone_at.bleed_name(bcx, bcy, rng) or name
-        # A typology whose pool cannot fit this block would leave it empty;
-        # step down through the ranks until something can be built.
-        for cand in [name] + [n for n in order if n != name]:
-            if cand in pool_of and _fits_block(pool_of[cand], rect):
-                name = cand
-                break
+        if probe_cfg:
+            # PROBE MODE: the block was already picked (or wasn't) by
+            # `_select_probe_blocks`. No zone map, no bleed, no rank ladder —
+            # a block this pass did not name for a typology stays unzoned,
+            # and the `doomed` pass above has already stripped whatever
+            # `build_city` put on it, so it comes out genuinely empty.
+            name = probe_map.get(blk)
+            if name is None:
+                continue
         else:
-            continue
+            bcx, bcy = (blk[0] + blk[2]) / 2.0, (blk[1] + blk[3]) / 2.0
+            here = zone_at(bcx, bcy) or {}
+            # `remap_buildings` passes `zone_field`, which yields a TYPOLOGY,
+            # so `.get("name")` is the typology name. The `mix` branch is for
+            # a caller that hands in `assign`'s RING instead — a ring name is
+            # not a key in pool_of and would silently fall through to "first
+            # typology that fits".
+            name = (_pick(here["mix"], rng) if here.get("mix")
+                    else here.get("name"))
+            if rng.random() < bleed and hasattr(zone_at, "bleed_name"):
+                name = zone_at.bleed_name(bcx, bcy, rng) or name
+            # A typology whose pool cannot fit this block would leave it
+            # empty; step down through the ranks until something can be built.
+            for cand in [name] + [n for n in order if n != name]:
+                if cand in pool_of and _fits_block(pool_of[cand], rect):
+                    name = cand
+                    break
+            else:
+                continue
         typ = dict(typologies.get(name) or {})
         typ["name"] = name
         typ_of[blk] = name
@@ -1311,16 +2203,23 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
         if str(typ.get("morphology", "pack")) == "terrace" and not local:
             gaps = typ.get("run_gap_m") or (3.0, 9.0)
             alley = float(typ.get("alley_m", 6.0))
-            # The pool's DEEPEST, matching `_lay_terrace` — a quad sized off
-            # the shallowest house would cut four strips no brownstone fits in.
-            depth0 = max(e[3]["sx"] for e in pool)
+            # The pool NARROWED TO WHAT THIS BLOCK CAN HOLD, and the deepest
+            # depth among what's left — see `_terrace_fit_pool`. A quad sized
+            # off the pool's single deepest member, unfiltered, is what used
+            # to let one deep building disqualify blocks a shallower member
+            # would have fit fine.
+            depth0_pool, depth0 = _terrace_fit_pool(
+                pool, min(rect[2] - rect[0], rect[3] - rect[1]), alley)
             road_w = float(typ.get("street_w_m", 11.4))
             quad = None
             # A terrace SUPERBLOCK: four rows around an internal street, the
             # row-house district cut on its own finer grid. Budgeted, because
             # the whole point is that these are a distinctive few rather than
             # the default — and because each one consumes a large block.
-            if n_super < max_super:
+            # PER TYPOLOGY, not global — see the budget comment above.
+            max_super_here = int(typ.get("max_superblocks", 2))
+            n_super_here = n_super_by_typ.get(name, 0)
+            if depth0_pool and n_super_here < max_super_here:
                 quad = _terrace_quad(rect, depth0, alley, road_w)
             if quad:
                 strips, road_spans, road_axis = quad
@@ -1331,9 +2230,9 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                                     float(typ.get("run_sigma", 0.70)),
                                     (float(gaps[0]), float(gaps[1])),
                                     float(typ.get("alley_max_m", 0.0)),
-                                    strips=strips)
+                                    strips=strips, no_repeat=no_repeat)
                 if laid:
-                    n_super += 1
+                    n_super_by_typ[name] = n_super_here + 1
                     for span in road_spans:
                         _add_internal_street(layout, rect, span, road_axis,
                                              road_w, typ)
@@ -1357,28 +2256,47 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                                     float(typ.get("run_median_m", 45.0)),
                                     float(typ.get("run_sigma", 0.70)),
                                     (float(gaps[0]), float(gaps[1])),
-                                    float(typ.get("alley_max_m", 0.0)))
+                                    float(typ.get("alley_max_m", 0.0)),
+                                    no_repeat=no_repeat)
             # The interior stays PAVED. A row-house block in NYC or Boston has
             # a paved service alley behind it, not lawn — exposing the grass
             # plane here is what made these blocks read as suburban houses with
             # back gardens.
             if not laid:
-                # The block is outside the terrace band, so it is not a terrace
-                # block. Build it as the next typology up rather than leaving a
-                # hole — refusing here is the whole point, but refusing AND
-                # leaving it empty would just trade one artefact for another.
-                alt = _next_typology(typologies, name)
-                if alt and pool_of.get(alt):
-                    name, typ, pool = alt, dict(typologies[alt]), pool_of[alt]
-                    typ["name"] = alt
-                    counts[alt] = counts.get(alt, 0) + 1
-                    counts[  # the refused terrace no longer counts as one
-                        "rowhouse_refused"] = counts.get("rowhouse_refused", 0) + 1
-                    min_side = min(min(e[3]["sx"], e[3]["sy"]) for e in pool)
-                    reach = _street_reach(rect, frontage_max)
-                    for fr in free_rects(rect, local, min_side):
-                        laid += _pack_free(fr, pool, gap, min_side, rng, sky,
-                                           typ, area_band, reach)
+                if probe_cfg:
+                    # PROBE MODE: refusing here is exactly the discipline a
+                    # probe exists to demonstrate — nothing else may compete
+                    # for the isolation the probe promised, so a block whose
+                    # terrace band refuses it stays EMPTY rather than
+                    # quietly becoming an uninvited third typology. Outside
+                    # probe mode the fallback below is correct and unchanged
+                    # — "refusing AND leaving it empty would just trade one
+                    # artefact for another" is only true when something else
+                    # in the scene would otherwise draw the eye there; a
+                    # probe scene has nothing else to draw it to.
+                    probe_refused += 1
+                else:
+                    # The block is outside the terrace band, so it is not a
+                    # terrace block. Build it as the next typology up rather
+                    # than leaving a hole — refusing here is the whole
+                    # point, but refusing AND leaving it empty would just
+                    # trade one artefact for another.
+                    alt = _next_typology(typologies, name)
+                    if alt and pool_of.get(alt):
+                        name, typ, pool = alt, dict(typologies[alt]), pool_of[alt]
+                        typ["name"] = alt
+                        counts[alt] = counts.get(alt, 0) + 1
+                        counts[  # the refused terrace no longer counts as one
+                            "rowhouse_refused"] = counts.get(
+                                "rowhouse_refused", 0) + 1
+                        min_side = min(min(e[3]["sx"], e[3]["sy"]) for e in pool)
+                        reach = _street_reach(rect, frontage_max)
+                        for fr in free_rects(rect, local, min_side):
+                            got, refused = _pack_free(
+                                fr, pool, _typ_gap(typ, gap), min_side, rng,
+                                sky, typ, area_band, reach, block_rect=rect)
+                            laid += got
+                            blank_refused += refused
             elif quad:
                 # A SUPERBLOCK IS ENTIRELY ITS OWN. Four rows and their street
                 # are the whole composition, so nothing else is built here —
@@ -1405,15 +2323,18 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
             reach = _street_reach(rect, frontage_max)
             for outer in _perimeter_rects(rect, band, min_side):
                 for fr in free_rects(outer, local, min_side):
-                    laid += _pack_free(fr, pool, gap, min_side, rng, sky, typ,
-                                       area_band, reach)
+                    got, refused = _pack_free(
+                        fr, pool, _typ_gap(typ, gap), min_side, rng, sky, typ,
+                        area_band, reach, block_rect=rect)
+                    laid += got
+                    blank_refused += refused
 
         for entry, cx, cy, yaw in laid:
             if exclusions and _in_exclusion(cx, cy, exclusions):
                 continue
             placements.append(_new_placement(entry, cx, cy, yaw))
             obstacles.append(_rect_of(placements[-1], resolver, margin=gap))
-            sky.record(cx, cy, entry[3]["sz"])
+            sky.record(cx, cy, entry[3]["sz"], (entry[3]["sx"], entry[3]["sy"]))
             added += 1
 
     n_paving = 0
@@ -1445,6 +2366,21 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
               f"{sum(len(p) for _o, p, _t in splits)} blocks around their "
               f"own streets")
 
+    if blank_refused:
+        # SAME LINE the rest of the run summary is in, on purpose — a run
+        # that is quietly refusing every candidate on some blocks produces a
+        # smaller city with no other symptom, and this is the number that
+        # would otherwise only show up as "fewer buildings than expected"
+        # after a render.
+        counts["blank_wall_refused"] = blank_refused
+    if probe_refused:
+        # A probe block whose terrace band refused it — left EMPTY rather
+        # than rebuilt as the next typology up, which is the whole point of
+        # a probe (nothing else may compete for the isolation it promised).
+        # Reported so the log still says what happened instead of a probe
+        # scene quietly zoning fewer blocks than it looked like it asked
+        # for.
+        counts["probe_refused"] = probe_refused
     layout["_typology_of"] = typ_of
     detail = "  ".join(f"{k}={v}" for k, v in sorted(counts.items()))
     print(f"[districts] rezoned {len(typ_of)} blocks -> {added} buildings "
@@ -1467,7 +2403,43 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
               f"repeat_radius_m={math.sqrt(sky.local_r2):.0f}, "
               f"repeat_local_penalty={sky.local_pen}, "
               f"repeat_local_falloff={sky.local_falloff}, "
+              f"repeat_hard_radius_m={math.sqrt(sky.hard_r2):.0f}, "
+              f"tall_min_h_m={sky.tall_min_h:.0f}, "
+              f"tall_min_gap_m={sky.tall_gap:.0f}, "
               f"pack_area_band={area_band})")
+        if sky.tall_fallback:
+            # Every tall candidate was too close to one already standing, on
+            # this many slots — the slot still filled (from the pool's
+            # shorter members, or a tall repeat if that is truly all that
+            # fits), but the separation rule did not get its way there. A
+            # scene where this is large is a scene asking for more towers
+            # than its blocks have room to space out.
+            print(f"[districts] tall_fallback={sky.tall_fallback} slot(s) "
+                  f"where every tall candidate was too close to an existing "
+                  f"tall building")
+        # PER-MODEL HISTOGRAM AND THE UNUSED LIST. "a lot of the building
+        # assets are not being used" (user) is otherwise only visible by
+        # counting distinct colours in a render. `sky.used` already IS this
+        # histogram — it is what the two repeat penalties above read from —
+        # so this is printing state that already existed, not computing new
+        # state. Terrace-pool models are excluded from `models_unused`
+        # (`pool_size` above already excludes them from its denominator, for
+        # the same reason: ROW HOUSES NEVER REACH THE SKYLINE, so an unused
+        # brownstone is not a diversity defect the way an unused mid-rise is
+        # — ­`_lay_terrace`/`_tile_run` have their own repeat rule instead).
+        top_models = sorted(sky.used.items(), key=lambda kv: -kv[1])[:15]
+        hist = "  ".join(f"{os.path.basename(u)}={n}" for u, n in top_models)
+        print(f"[districts] model histogram (top {len(top_models)} of "
+              f"{n_models}): {hist}")
+        pack_names = {os.path.basename(e[0]) for n in typologies
+                     for e in (pool_of.get(n) or ())
+                     if str((typologies[n] or {}).get("morphology",
+                                                      "pack")) != "terrace"}
+        used_names = {os.path.basename(u) for u in sky.used}
+        unused = sorted(pack_names - used_names)
+        if unused:
+            print(f"[districts] models_unused ({len(unused)} of "
+                  f"{pool_size}): {', '.join(unused)}")
     # Per-typology accounting, because "I don't see any X" has cost several
     # rounds of guessing. A typology can come out at zero for four different
     # reasons and they are indistinguishable in the viewport: no block was
@@ -1491,6 +2463,11 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
         print(f"[districts]   terrace refused on "
               f"{counts['rowhouse_refused']} block(s) outside the alley band "
               f"— rebuilt as the next typology up")
+    if counts.get("terrace_rows") or counts.get("rowhouse") or \
+            counts.get("rowhouse_refused"):
+        print(f"[districts]   terrace_no_repeat={no_repeat} "
+              f"(districts.terrace_no_repeat; off reproduces the original "
+              f"_tile_run draw for draw)")
     return typ_of
 
 
@@ -1502,6 +2479,11 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
     fits it, and with `packing.placeholders.enabled` false those leftovers keep
     the block's concrete tiles and nothing else — which is the "the sidewalk is
     enormous here" effect: it is not sidewalk, it is unbuilt paved interior.
+
+    Draws from one pool merged across every non-terrace typology by
+    default, or from each block's OWN typology's pool when
+    `districts.infill.per_block_pool` is set — see the flag's own comment
+    below for why it defaults off and what it fixes.
     """
     cfg = (config.get("districts") or {}).get("infill") or {}
     if not cfg.get("enabled", True):
@@ -1516,12 +2498,36 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
     typs = dcfg.get("typologies") or {}
     names = [n for n, t in typs.items()
              if str(t.get("morphology", "pack")) != "terrace"]
-    pool = _pools_for(config, resolver,
-                      (cfg.get("pools") or names or ["intact"]), cache)
-    if not pool:
+    explicit_pools = cfg.get("pools")
+    # PER-BLOCK TYPOLOGY POOL: infill a block from ITS OWN typology's stock,
+    # not one pool merged from every non-terrace typology in the scene. OFF
+    # BY DEFAULT (`districts.infill.per_block_pool`) — it moves which model
+    # can land in which block's leftover gap, and every scene that has not
+    # opted in must not restyle for it. MEASURED on `downtown_gac_probe`,
+    # where only `highrise` and `brick_midrise` were zoned at all: the
+    # merged pool put an 11.8 m Dmytro factory shed and two Muyang mid-rises
+    # inside HIGHRISE blocks (134-312 m glass towers) — invisible in the
+    # typology counts, because the BLOCK still reports as `highrise`, and
+    # exactly what the six-typology ladder's district separation exists to
+    # prevent. `districts.infill.pools`, when a scene sets one, still wins
+    # over per-block selection either way — it already overrides the merged
+    # pool today, and an explicit override is still explicit.
+    per_block = bool(cfg.get("per_block_pool", False)) and not explicit_pools
+    pool_by_typ: dict = {}
+    if per_block:
+        # Sized off the UNION of every non-terrace typology's pool, exactly
+        # as the merged-pool path is below, so `min_gap`/`gap`/`margin` do
+        # not themselves become a second, harder-to-see behaviour change —
+        # only WHICH pool `_pack_free` draws from, per block, moves.
+        sizing_pool = _pools_for(config, resolver, names or ["intact"], cache)
+    else:
+        pool = _pools_for(config, resolver,
+                          (explicit_pools or names or ["intact"]), cache)
+        sizing_pool = pool
+    if not sizing_pool:
         return 0
 
-    smallest = min(min(e[3]["sx"], e[3]["sy"]) for e in pool)
+    smallest = min(min(e[3]["sx"], e[3]["sy"]) for e in sizing_pool)
     min_gap = float(cfg.get("min_gap_m", 0.0)) or smallest
     gap = float(cfg.get("gap_m", config.get("packing", {})
                         .get("building_gap_m", 2.5)))
@@ -1559,23 +2565,54 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
         if p.get("category") == "house":
             fp = resolver.get(p["usd"], "house", scale=p.get("scale"),
                               axis_up=p.get("axis_up", "Z"))
-            sky.record(float(p["x_m"]), float(p["y_m"]), fp["sz"])
+            # WORLD footprint, not the resolver's raw one — swapped exactly
+            # as `_rect_of` swaps it, so a pre-existing house's recorded
+            # extent matches how it actually sits on the ground and the
+            # tall-separation gap test (`_Skyline._tall_ok`) measures the
+            # real footprint, not the pre-rotation one.
+            psx, psy = fp["sx"], fp["sy"]
+            if abs((float(p.get("yaw_deg", 0.0)) % 180.0) - 90.0) < 45.0:
+                psx, psy = psy, psx
+            sky.record(float(p["x_m"]), float(p["y_m"]), fp["sz"], (psx, psy))
             # ...and WHICH model, and where. See `_Skyline.note`.
             sky.note(str(p.get("usd") or ""), float(p["x_m"]), float(p["y_m"]))
 
     parks = set(park_blocks(layout, placements))
     typ_of = layout.get("_typology_of") or {}
-    added = gaps = 0
+    added = gaps = blank_refused = 0
     gap_area = 0.0
     for blk in layout.get("blocks", []):
         if blk in parks:
             continue
+        tname = typ_of.get(blk)
+        if tname is None:
+            # No typology reached this block in `rezone_blocks` — too small,
+            # no pool fit it, or (`districts.probe`) deliberately left
+            # unzoned. Any of those means infill has no business here: it
+            # used to fall through to an EMPTY `typ` dict and the general
+            # infill pool, which is exactly the "probe leaves the rest of the
+            # city empty" guarantee breaking — a block with no typology is
+            # not a gap inside a typed block.
+            continue
         # A terrace block's middle is its back yards and service alley, not a
         # gap to be filled.
-        tname = typ_of.get(blk)
         tcfg = (dcfg.get("typologies") or {}).get(tname) or {}
         if str(tcfg.get("morphology", "pack")) == "terrace":
             continue
+        if per_block:
+            if tname not in pool_by_typ:
+                pool_by_typ[tname] = _pools_for(
+                    config, resolver, tcfg.get("pools") or [tname], cache)
+            this_pool = pool_by_typ[tname]
+            if not this_pool:
+                # This typology's OWN pool resolved to nothing — the merged
+                # pool used to paper over that with whatever else the scene
+                # had; per-block selection means a block with no library of
+                # its own gets no infill rather than a stray building from
+                # somewhere else's district.
+                continue
+        else:
+            this_pool = pool
         rect = (blk[0] + inset, blk[1] + inset, blk[2] - inset, blk[3] - inset)
         typ = dict(tcfg)
         typ["name"] = tname
@@ -1585,9 +2622,17 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
             for fr in free_rects(outer, obstacles, min_gap):
                 gaps += 1
                 gap_area += (fr[2] - fr[0]) * (fr[3] - fr[1])
-                for entry, cx, cy, yaw in _pack_free(
-                        fr, pool, gap, min_gap, rng, sky, typ, area_band,
-                        reach):
+                # PER-TYPOLOGY GAP HERE TOO. Without it infill undoes the
+                # separation `rezone_blocks` just established: measured on the
+                # probe, 11 of the 21 buildings standing in highrise blocks
+                # came from this pass, packed at the global gap, and the
+                # closest tower pair was 2.0 m apart however `building_gap_m`
+                # was set on the typology.
+                got, refused = _pack_free(
+                    fr, this_pool, _typ_gap(tcfg, gap), min_gap, rng, sky,
+                    typ, area_band, reach, block_rect=rect)
+                blank_refused += refused
+                for entry, cx, cy, yaw in got:
                     if exclusions and _in_exclusion(cx, cy, exclusions):
                         continue
                     placements.append(_new_placement(entry, cx, cy, yaw))
@@ -1596,10 +2641,14 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
                     added += 1
 
     n_models, n_packed, top_share = sky.diversity()
+    refused_note = f"; blank_wall_refused={blank_refused}" if blank_refused else ""
+    per_block_note = "; per_block_pool=True" if per_block else ""
+    tall_note = (f"; tall_fallback={sky.tall_fallback}" if sky.tall_fallback
+                else "")
     print(f"[districts] infill: {gaps} unbuilt gaps ({gap_area:,.0f} m2) "
           f"-> {added} buildings; {n_models} models in play across "
           f"{n_packed} (the city so far), top model "
-          f"{100.0 * top_share:.1f}%")
+          f"{100.0 * top_share:.1f}%{refused_note}{per_block_note}{tall_note}")
     return added
 
 
