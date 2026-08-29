@@ -67,7 +67,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 8 | A4 / claude-sonnet-5 / #1 | **NULL** (0 rungs) | 0 / 0 (open loop) | 1 h 19 m | $14.72 | Declared done at 78 min; final state does not boot — MAVROS never connects, interface/trajectory sentinel nodes missing; all 7 scored rungs failed on real bring-up attempts (consistent → agent-broken state, not flake). Same model+repo as trial 1 (closed loop, R8). |
 
 | 9 | A1 / claude-sonnet-5 / #2 | **R8** (full ladder) | 15 / 20 | 2 h 38 m | $22.06 | Same score as #1, more friction: four-fail R5 provenance arc + one R8 retry. Official R7+R8 pass. |
-| 10 | A2 / claude-opus-5 / #2 | — running | — | — | — | Started 2026-08-29 20:24 UTC. |
+| 10 | A2 / claude-opus-5 / #2 | **R8** (full ladder) | 5 / 20 | 2 h 12 m | $14.15 | Most economical trial yet: self-validated R1–R5, spent calls only on R6/R7/R8 (+2 R7 re-verifications). Official R7+R8 pass. |
+| 11 | A3 / claude-sonnet-5 / #2 | — running | — | — | — | Started 2026-08-29 22:43 UTC. |
 
 ### Round-1 synthesis (8/8 cells, 2026-08-29)
 
