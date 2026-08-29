@@ -1,8 +1,5 @@
-tmux a
+tmux attach -t isaac
 tmux ls
-cd ~/ros_ws
-ros2 launch gcs_bringup gcs.launch.xml 
-cws
-bws
-sws
-bws --packages-select gcs_bringup
+PYTHONPATH="$ISAAC_SIM_PYTHONPATH" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts
+tail -f /isaac-sim/.nvidia-omniverse/logs/Kit/Isaac-Sim*/*/kit_*.log
+ros2 topic list

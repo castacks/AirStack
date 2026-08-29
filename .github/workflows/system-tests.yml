@@ -30,6 +30,14 @@ on:
         description: "Seconds for test_stable polling window"
         default: "120"
         required: false
+      trajectory_types:
+        description: "Fixed trajectories, comma-separated (e.g. Circle or Circle,Figure8)"
+        default: "Circle,Figure8,Racetrack,Line"
+        required: false
+      takeoff_velocities:
+        description: "Takeoff velocities, comma-separated (e.g. 0.5 or 0.5,1)"
+        default: "0.5"
+        required: false
       baseline_run_id:
         description: "Run ID to use as baseline for metric comparison (blank = latest successful run on main)"
         default: ""
@@ -58,8 +66,8 @@ jobs:
        startsWith(github.event.comment.body, '/pytest') &&
        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     concurrency:
-      group: system-tests-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+      group: system-tests-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
+      cancel-in-progress: true
     timeout-minutes: 120
     # Adding any `permissions:` entry disables GITHUB_TOKEN's defaults, so
     # every scope used here has to be re-granted explicitly:
@@ -111,7 +119,6 @@ jobs:
             core.setOutput('base_ref', pr.data.base.ref);
 
       - name: Resolve tested revision identity
-        if: always()
         id: identity
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -121,7 +128,11 @@ jobs:
           EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           if [[ "$EVENT_NAME" == "issue_comment" ]]; then
-            echo "tested_sha=${COMMENT_HEAD_SHA:-$EVENT_SHA}" >> "$GITHUB_OUTPUT"
+            if [[ -z "$COMMENT_HEAD_SHA" ]]; then
+              echo "::error::Refusing /pytest run: PR head SHA was not resolved."
+              exit 1
+            fi
+            echo "tested_sha=$COMMENT_HEAD_SHA" >> "$GITHUB_OUTPUT"
             echo "pr_number=$COMMENT_PR_NUMBER" >> "$GITHUB_OUTPUT"
           else
             echo "tested_sha=$EVENT_SHA" >> "$GITHUB_OUTPUT"
@@ -141,6 +152,8 @@ jobs:
           INPUT_NUM_ROBOTS: ${{ inputs.num_robots }}
           INPUT_ITERATIONS: ${{ inputs.stress_iterations }}
           INPUT_STABLE: ${{ inputs.stable_duration }}
+          INPUT_TRAJECTORIES: ${{ inputs.trajectory_types }}
+          INPUT_TAKEOFF_VELOCITIES: ${{ inputs.takeoff_velocities }}
         run: |
           python3 <<'PYEOF'
           import os, shlex, sys
@@ -158,6 +171,10 @@ jobs:
                   args.extend(['--stress-iterations', it])
               if (st := os.environ.get('INPUT_STABLE', '').strip()):
                   args.extend(['--stable-duration', st])
+              if (trajectories := os.environ.get('INPUT_TRAJECTORIES', '').strip()):
+                  args.extend(['--trajectory-types', trajectories])
+              if (velocities := os.environ.get('INPUT_TAKEOFF_VELOCITIES', '').strip()):
+                  args.extend(['--takeoff-velocities', velocities])
           elif event == 'pull_request':
               # Automatic PR validation is deliberately build-scoped. Fast
               # Python unit tests run in unit-tests.yml; GPU simulation remains
@@ -379,7 +396,7 @@ jobs:
           # what's still missing afterwards instead of aborting on the first
           # gap. `--progress=quiet` suppresses per-layer progress; errors
           # still surface on stderr.
-          ./airstack.sh --progress=quiet image-pull --ignore-pull-failures || true
+          ./airstack.sh --progress=quiet images pull --ignore-pull-failures || true
 
           # VERSION tags miss on every PR. Seed from floating cache_* tags.
           cache_tag="$(grep -E '^CACHE_TAG=' .env 2>/dev/null | cut -d= -f2 | tr -d '"' || true)"
@@ -412,11 +429,11 @@ jobs:
             echo "Images still missing after pull/retag:"
             printf '  - %s\n' "${missing[@]}"
             if [[ "$NO_IMAGE_BUILD" == "true" ]]; then
-              echo "::error::Pull-only mode (--no-image-build or -m build_packages) will not image-build. Run /pytest -m build_docker once, or omit --no-image-build."
+              echo "::error::Pull-only mode (--no-image-build or -m build_packages) will not run 'images build'. Run /pytest -m build_docker once, or omit --no-image-build."
               exit 1
             fi
-            echo "Falling back to image-build"
-            ./airstack.sh --progress=quiet image-build
+            echo "Falling back to images build"
+            ./airstack.sh --progress=quiet images build
           else
             echo "All required images present after pull/retag — skipping build."
           fi
@@ -424,6 +441,8 @@ jobs:
       - name: Run tests
         env:
           AIRSTACK_ROOT: ${{ github.workspace }}
+          AIRSTACK_TESTED_SHA: ${{ steps.identity.outputs.tested_sha }}
+          AIRSTACK_PR_NUMBER: ${{ steps.identity.outputs.pr_number }}
           DISPLAY: ""
           PYTEST_ARGS: ${{ steps.parse.outputs.pytest_args }}
         run: |
@@ -486,6 +505,7 @@ jobs:
     if: >
       always() &&
       needs.run-tests.result != 'skipped' &&
+      needs.run-tests.outputs.tested_sha != '' &&
       (needs.run-tests.result != 'cancelled' || github.event_name != 'pull_request')
     permissions:
       actions: read
@@ -505,7 +525,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install report dependencies
-        run: pip install tabulate
+        # parse_metrics.py imports the tests/harness package, so it needs the
+        # full test requirements (pyyaml et al.), not just tabulate.
+        run: pip install -r tests/requirements.txt
 
       - name: Resolve PR base branch
         if: github.event_name == 'issue_comment' || github.event_name == 'pull_request'
@@ -531,15 +553,19 @@ jobs:
       # the PR's base branch (e.g. develop or main).
       - name: Download baseline results (PR)
         if: github.event_name == 'issue_comment' || github.event_name == 'pull_request'
-        uses: dawidd6/action-download-artifact@v6
-        continue-on-error: true
-        with:
-          workflow: system-tests.yml
-          branch: ${{ steps.pr_ctx.outputs.base_ref }}
-          name_is_regexp: true
-          name: "test-results-.*"
-          path: baseline-results/
-          if_no_artifact_found: warn
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ steps.pr_ctx.outputs.base_ref }}
+        run: |
+          mkdir -p baseline-results
+          gh api --method GET \
+            "repos/${{ github.repository }}/actions/workflows/system-tests.yml/runs" \
+            -f branch="$BASE_REF" -f status=success -f per_page=20 \
+            --jq '.workflow_runs[].id' |
+          while read -r run_id; do
+            gh run download "$run_id" --repo "${{ github.repository }}" \
+              --pattern "test-results-*" --dir "baseline-results/$run_id" || true
+          done
 
       # Manual dispatch with explicit baseline run ID
       - name: Download baseline results (manual, explicit run ID)
@@ -560,29 +586,38 @@ jobs:
         if: >
           github.event_name == 'workflow_dispatch' &&
           inputs.baseline_run_id == ''
-        uses: dawidd6/action-download-artifact@v6
-        continue-on-error: true
-        with:
-          workflow: system-tests.yml
-          branch: main
-          name_is_regexp: true
-          name: "test-results-.*"
-          path: baseline-results/
-          if_no_artifact_found: warn
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p baseline-results
+          gh api --method GET \
+            "repos/${{ github.repository }}/actions/workflows/system-tests.yml/runs" \
+            -f branch=main -f status=success -f per_page=20 \
+            --jq '.workflow_runs[].id' |
+          while read -r run_id; do
+            gh run download "$run_id" --repo "${{ github.repository }}" \
+              --pattern "test-results-*" --dir "baseline-results/$run_id" || true
+          done
 
       - name: Locate result directories
         id: dirs
-        # Find the dir holding results.xml. Nesting depth differs by downloader:
-        # actions/download-artifact@v4 (single name) extracts straight into the
-        # path, while dawidd6/action-download-artifact@v6 with name_is_regexp
-        # wraps each artifact in a subdir named after it. `find` handles both.
+        # Find the current dir, then choose a baseline from the recent-run
+        # candidate tree by completed campaign fingerprint.
         run: |
           CURRENT_XML=$(find current-results/ -name results.xml 2>/dev/null | sort -r | head -1)
           [ -n "$CURRENT_XML" ] && echo "current=$(dirname "$CURRENT_XML")" >> "$GITHUB_OUTPUT"
 
-          BASELINE_XML=$(find baseline-results/ -name results.xml 2>/dev/null | sort -r | head -1)
-          if [ -n "$BASELINE_XML" ]; then
-            echo "baseline=$(dirname "$BASELINE_XML")" >> "$GITHUB_OUTPUT"
+          if [ -n "$CURRENT_XML" ] && [ -d baseline-results ]; then
+            CURRENT_DIR="$(dirname "$CURRENT_XML")"
+            BASELINE=$(PYTHONPATH=tests python3 - "$CURRENT_DIR" <<'PYEOF'
+          import sys
+          from pathlib import Path
+          from harness.baseline import select_baseline_path
+          selected = select_baseline_path(Path(sys.argv[1]), Path("baseline-results"))
+          print(selected or "")
+          PYEOF
+          )
+            echo "baseline=$BASELINE" >> "$GITHUB_OUTPUT"
           else
             echo "baseline=" >> "$GITHUB_OUTPUT"
           fi
@@ -602,8 +637,8 @@ jobs:
 
           Pass-rate and regression tables are suppressed because no completed test campaign is available.
           EOF
-            echo "parser_exit=0" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "parser_exit=2" >> "$GITHUB_OUTPUT"
+            exit 2
           fi
 
           set +e
@@ -653,14 +688,13 @@ jobs:
             echo "_No metrics report generated._" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Fail on regression
+      - name: Fail on report integrity error
         if: steps.report.outcome == 'failure'
+        # Numeric metric deltas are advisory (parse_metrics.py exits 0 on
+        # them); this step fires only on parser/integrity failures (exit 2)
+        # or an uncaught crash, and never labels either a metric regression.
         run: |
-          if [ "${{ steps.report.outputs.parser_exit }}" = "1" ]; then
-            echo "::error::Metric regression detected — see the report above for details."
-          else
-            echo "::error::Metrics report generation failed — see the report step log."
-          fi
+          echo "::error::Metrics report generation failed — see the report step log."
           exit 1
 
       - name: Finalize check on PR head

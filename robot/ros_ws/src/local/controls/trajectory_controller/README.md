@@ -48,10 +48,6 @@ The `pid_controller` subscribes to `~/tracking_point` and runs a **cascaded (nes
 
 Each PID includes an **exponential moving-average filter** on the derivative term (controlled by `_d_alpha`) and **integral windup clamping** against the configured output limits.
 
-### Attitude Controller (`attitude_controller` node)
-
-An alternative higher-fidelity controller is available in `attitude_controller`. It uses a PD position/velocity loop augmented with an **Extended Kalman Filter (EKF)** for disturbance estimation and compensation. The EKF estimates external forces (e.g. wind) acting on the drone; these estimates are fed forward to cancel the disturbance before the PD feedback acts on the residual error. Gains are grouped as `kp*` (proportional), `kd*` (derivative), `ki*` (integral, in both body and ground frames), and `kf*` (feed-forward scaling).
-
 ## Algorithm
 
 ### Core Concepts

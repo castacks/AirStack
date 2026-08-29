@@ -184,12 +184,12 @@ ros2 launch your_package your_package.launch.xml
 
 # With custom config
 ros2 launch your_package your_package.launch.xml \
-    config_file:=/path/to/custom/config.yaml
+    your_module_config:=/path/to/custom/config.yaml
 
-# With topic remapping
+# With custom topic wiring (prefixed args; in a stack these are include args)
 ros2 launch your_package your_package.launch.xml \
-    odometry_topic:=/robot/custom_odom \
-    output_topic:=/robot/custom_output
+    your_module_odometry_topic:=/robot/custom_odom \
+    your_module_output_topic:=/robot/custom_output
 ```
 
 ### Integrated in Autonomy Stack
@@ -197,11 +197,11 @@ ros2 launch your_package your_package.launch.xml \
 The module is automatically launched when the autonomy stack starts:
 
 ```bash
-# Full autonomy stack
+# Full autonomy stack (autolaunches by default)
 airstack up robot-desktop
 
-# Or with autolaunch
-AUTOLAUNCH=true airstack up robot-desktop
+# Or start idle and launch manually
+airstack up robot-desktop --no-autolaunch
 ```
 
 The module is integrated in: `<layer>_bringup/launch/<layer>.launch.xml`
@@ -254,7 +254,7 @@ airstack up isaac-sim robot
 # Run test scenario...
 ```
 
-See [test_in_simulation.md](../../.agents/skills/test_in_simulation.md) for detailed testing procedures.
+See the [test-in-simulation skill](../../../test-in-simulation/SKILL.md) for detailed testing procedures.
 
 ## Visualization
 
@@ -351,8 +351,6 @@ Apache-2.0 (consistent with AirStack)
 - **Maintainer:** Your Name (your.email@example.com)
 - **Contributors:** List additional contributors here
 
-## Changelog
-
-### Version 0.0.1 (YYYY-MM-DD)
-- Initial implementation
-- TODO: Add changelog entries as the module evolves
+<!-- No per-README changelog: change records live in the versioned Release
+     Notes (docs/release_notes/index.md); this README describes only the
+     current system. -->

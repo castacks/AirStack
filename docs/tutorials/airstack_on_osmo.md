@@ -1,12 +1,14 @@
 # AirStack on OSMO — Recommended Remote Development Workflow
 
-This is AirStack's recommended day-to-day development path going forward.
+This is AirStack's recommended **remote** development path — for Mac and
+Windows users, machines without a local NVIDIA GPU, or anyone who wants to
+develop against the lab's shared GPU pool.
 You submit one OSMO workflow that spins up a GPU pod running the full
 three-container AirStack stack (Isaac Sim, robot-desktop, GCS), attach VS
 Code or Cursor to it over Remote-SSH, and stream Isaac Sim and the GCS
 Foxglove dashboard back to your browser.
 
-Why this is the recommended path:
+Why this is the recommended remote path:
 
 - **Pooled GPUs.** A lab's GPUs are shared on-demand across the whole team
   instead of pinned one-per-desktop. Onboarding doesn't require buying
@@ -18,20 +20,20 @@ Why this is the recommended path:
   Docker images that the system tests and deployed robots run, so your
   dev environment can't drift away from production.
 - **One-command onboarding.** A new student goes from zero to "Isaac Sim
-  streaming into my browser" with `airstack osmo:setup` followed by
-  `airstack osmo:up` — no install marathon.
+  streaming into my browser" with `airstack osmo setup` followed by
+  `airstack osmo up` — no install marathon.
 - **Hardware bigger than your laptop.** The pod has more CPU/RAM/GPU than
   most dev laptops, even if you have a GPU laptop.
 
-> **Still want local development on a Linux+GPU desktop?** It works and
-> can be faster for tight inner loops — see
-> [Getting Started](../getting_started/index.md). It just isn't the
-> recommended default anymore.
+> **Have a Linux+GPU desktop?** Local development is the golden path —
+> it's faster for tight inner loops. See
+> [Getting Started](../getting_started/index.md). OSMO is the recommended
+> alternative when local isn't an option.
 
 ## Who is this for?
 
-Anyone developing AirStack — Mac, Windows, or Linux, with or without a
-local GPU.
+Anyone developing AirStack remotely — Mac, Windows, or Linux, especially
+without a local GPU.
 
 You're comfortable using `git` from a terminal, you have an SSH key
 (`~/.ssh/id_ed25519` or similar), and you have either VS Code or Cursor
@@ -39,7 +41,7 @@ installed. That's the entire local-machine bar.
 
 ## Architecture in a sentence
 
-`airstack osmo:up` (which wraps `osmo workflow submit`) spins up a GPU pod
+`airstack osmo up` (which wraps `osmo workflow submit`) spins up a GPU pod
 that runs sshd plus a Docker-in-Docker daemon. Inside that pod, `airstack
 up` brings up the familiar three AirStack containers (Isaac Sim,
 robot-desktop, GCS). Your IDE attaches over Remote-SSH; Isaac Sim and
@@ -107,7 +109,7 @@ From your AirStack clone, run:
 ```bash
 git clone https://github.com/castacks/AirStack.git
 cd AirStack
-./airstack.sh osmo:setup
+./airstack.sh osmo setup
 ```
 
 This prompts for your Andrew ID, AirLab Docker password, and Nucleus API
@@ -138,12 +140,12 @@ osmo credential list
 
 You should see all three (`airlab-docker-registry`, `airlab-docker-login`,
 `airlab-nucleus`). To rotate any of them later, just re-run
-`./airstack.sh osmo:setup`.
+`./airstack.sh osmo setup`.
 
 <details>
 <summary><strong>Under the hood — the three raw `osmo credential set` calls</strong></summary>
 
-`airstack osmo:setup` (defined in
+`airstack osmo setup` (defined in
 [`.airstack/modules/osmo.sh`](https://github.com/castacks/AirStack/blob/main/.airstack/modules/osmo.sh)
 as `cmd_osmo_setup`) is equivalent to running these three commands by hand
 — useful for debugging or rotating one credential at a time:
@@ -196,7 +198,7 @@ Host airstack-osmo
   User root
   # Every OSMO workflow boots a fresh pod with a fresh sshd host key, so
   # any saved fingerprint for [localhost]:2200 will be wrong on the next
-  # `airstack osmo:up`. Skip the host-key check here: this alias only
+  # `airstack osmo up`. Skip the host-key check here: this alias only
   # connects via the local port-forward, so the security boundary is
   # OSMO's authenticated control-plane tunnel — not the SSH fingerprint.
   # /dev/null keeps known_hosts clean (no stale entries pile up); LogLevel
@@ -221,17 +223,17 @@ EOF
 
 The `localhost:2200` is what we'll port-forward to in step 4.
 
-> **Already added the old block?** If your `~/.ssh/config` still has
-> `StrictHostKeyChecking accept-new` for `airstack-osmo` from an earlier
-> setup, replace it with the three lines above. As a one-time cleanup of
-> the stale fingerprint left behind by previous pods, also run:
+> **`~/.ssh/config` already has a different `airstack-osmo` block?** If
+> your config carries `StrictHostKeyChecking accept-new` for
+> `airstack-osmo`, replace it with the three lines above, and clean out
+> any saved fingerprint for the port-forward once:
 >
 > ```bash
 > ssh-keygen -R "[localhost]:2200"
 > ```
 >
-> `airstack osmo:ide` does this scrub for you on every run, so you only
-> need it once when migrating.
+> `airstack osmo ide` does this scrub for you on every run, so at most you
+> need it once.
 
 > **Smoke-test the agent forward** once the pod is up: SSH in and run
 > `ssh-add -l` — you should see your local key listed. If you see "The
@@ -243,7 +245,7 @@ The `localhost:2200` is what we'll port-forward to in step 4.
 From the AirStack clone:
 
 ```bash
-./airstack.sh osmo:up --pool airstack
+./airstack.sh osmo up --pool airstack
 ```
 
 This submits
@@ -263,11 +265,11 @@ with two things injected:
 
 > **The pod clones from GitHub, not your laptop.** Local edits (and
 > commits you haven't pushed) won't make it into the pod. `airstack
-> osmo:up` warns you up-front if your branch is ahead of origin or has
+> osmo up` warns you up-front if your branch is ahead of origin or has
 > uncommitted changes — `git push` first if you want the pod to pick
 > them up.
 
-`airstack osmo:up` prints a workflow id like `airstack-dev-1` and stores
+`airstack osmo up` prints a workflow id like `airstack-dev-1` and stores
 it in `~/.airstack/osmo-state`, so the rest of the `airstack osmo:*`
 commands in this tutorial pick it up automatically — no `export WF=...`
 needed. To target a specific workflow for a single invocation, export
@@ -276,7 +278,7 @@ needed. To target a specific workflow for a single invocation, export
 <details>
 <summary><strong>Under the hood — raw `osmo workflow submit`</strong></summary>
 
-`airstack osmo:up` (defined in
+`airstack osmo up` (defined in
 [`.airstack/modules/osmo.sh`](https://github.com/castacks/AirStack/blob/main/.airstack/modules/osmo.sh)
 as `cmd_osmo_up`) is equivalent to:
 
@@ -296,7 +298,7 @@ substitute it for `airstack osmo:*` in the rest of the tutorial.
 Tail the lead task's logs and watch for milestones:
 
 ```bash
-./airstack.sh osmo:logs
+./airstack.sh osmo logs
 ```
 
 Expected milestones, in order (each is one line in the log):
@@ -315,7 +317,7 @@ spinning up — the bring-up will continue in the background.
 <details>
 <summary><strong>Under the hood — raw `osmo workflow logs`</strong></summary>
 
-`airstack osmo:logs` (defined in
+`airstack osmo logs` (defined in
 [`.airstack/modules/osmo.sh`](https://github.com/castacks/AirStack/blob/main/.airstack/modules/osmo.sh)
 as `cmd_osmo_logs`) just exec's:
 
@@ -336,7 +338,7 @@ stop. Override the task / tail length with `OSMO_LOGS_TASK` /
 In one terminal, run:
 
 ```bash
-./airstack.sh osmo:ide
+./airstack.sh osmo ide
 ```
 
 This (a) starts the `localhost:2200 → pod:22` port-forward with a 24h
@@ -367,7 +369,7 @@ You should see four containers: `airstack-isaac-sim-livestream-1`,
 <details>
 <summary><strong>Under the hood — raw port-forward + manual IDE attach</strong></summary>
 
-`airstack osmo:ide` (defined in
+`airstack osmo ide` (defined in
 [`.airstack/modules/osmo.sh`](https://github.com/castacks/AirStack/blob/main/.airstack/modules/osmo.sh)
 as `cmd_osmo_ide`) is equivalent to running the port-forward by hand:
 
@@ -381,7 +383,7 @@ osmo workflow port-forward $WF workspace --port 2200:22 --connect-timeout 86400
   `airstack-osmo`.
 - **Cursor:** the same flow under its remote-development menu.
 
-Add `--no-open` to `airstack osmo:ide` to only run the port-forward and
+Add `--no-open` to `airstack osmo ide` to only run the port-forward and
 attach the IDE manually.
 
 </details>
@@ -415,7 +417,7 @@ Isaac Sim runs headless inside the pod with the Kit
 `isaac-sim-livestream` Compose profile). To view it locally:
 
 ```bash
-./airstack.sh osmo:webrtc
+./airstack.sh osmo webrtc
 ```
 
 This spawns the UDP port-forward (media, `49099`) in the background and
@@ -429,7 +431,7 @@ way it would on a local Linux desktop.
 <details>
 <summary><strong>Under the hood — raw TCP + UDP port-forwards</strong></summary>
 
-`airstack osmo:webrtc` (defined in
+`airstack osmo webrtc` (defined in
 [`.airstack/modules/osmo.sh`](https://github.com/castacks/AirStack/blob/main/.airstack/modules/osmo.sh)
 as `cmd_osmo_webrtc`) is equivalent to running the two raw port-forwards
 in separate terminals — Kit's WebRTC needs both TCP signaling and UDP
@@ -454,7 +456,7 @@ AirStack Foxglove extensions locally and forward the websocket in one
 step:
 
 ```bash
-./airstack.sh osmo:foxglove
+./airstack.sh osmo foxglove
 ```
 
 This copies the AirStack Foxglove extensions (Robot Tasks, Waypoint
@@ -477,12 +479,12 @@ Desktop):
 The full Foxglove flow — layout import, panel customisation, DDS bridge
 naming — is documented at
 [Foxglove Visualization](../gcs/foxglove.md). The only OSMO-specific
-difference is the `osmo:foxglove` line in front of it.
+difference is the `osmo foxglove` line in front of it.
 
 <details>
 <summary><strong>Under the hood — raw `osmo workflow port-forward`</strong></summary>
 
-`airstack osmo:foxglove` (defined in
+`airstack osmo foxglove` (defined in
 [`.airstack/modules/osmo.sh`](https://github.com/castacks/AirStack/blob/main/.airstack/modules/osmo.sh)
 as `cmd_osmo_foxglove`) wraps the extension install plus:
 
@@ -521,7 +523,7 @@ laptop, a fresh pod tomorrow, a colleague's machine.
 When you're done:
 
 ```bash
-./airstack.sh osmo:down
+./airstack.sh osmo down
 ```
 
 This prints a 5-second warning then cancels the workflow stored in
@@ -537,7 +539,7 @@ by accident.
 <details>
 <summary><strong>Under the hood — raw `osmo workflow cancel`</strong></summary>
 
-`airstack osmo:down` (defined in
+`airstack osmo down` (defined in
 [`.airstack/modules/osmo.sh`](https://github.com/castacks/AirStack/blob/main/.airstack/modules/osmo.sh)
 as `cmd_osmo_down`) is equivalent to:
 
@@ -551,19 +553,19 @@ osmo workflow cancel $WF
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `Remote-SSH: Connection refused` after a working session | Port-forward died (laptop slept, network blip) | Re-run `./airstack.sh osmo:ide` |
-| `Permission denied (publickey)` on Remote-SSH | The pod authorised a different pubkey than the one your local SSH client is offering | Confirm `cat ~/.ssh/id_ed25519.pub` matches the key that was injected at submit time. Re-submit with `./airstack.sh osmo:down && ./airstack.sh osmo:up --pool airstack`. |
-| `airstack osmo:logs` shows `ERROR: SSH_PUB_KEY not set` | The submit didn't inject a pubkey (e.g. you ran raw `osmo workflow submit` without `--set-env`) | `./airstack.sh osmo:down`, then resubmit with `./airstack.sh osmo:up --pool airstack` (it injects `SSH_PUB_KEY` automatically). |
-| `docker pull` fails inside the pod with `unauthorized` | Your `airlab-docker-login` credential is missing or has the wrong Andrew ID/password | Re-run `./airstack.sh osmo:setup`. |
+| `Remote-SSH: Connection refused` after a working session | Port-forward died (laptop slept, network blip) | Re-run `./airstack.sh osmo ide` |
+| `Permission denied (publickey)` on Remote-SSH | The pod authorised a different pubkey than the one your local SSH client is offering | Confirm `cat ~/.ssh/id_ed25519.pub` matches the key that was injected at submit time. Re-submit with `./airstack.sh osmo down && ./airstack.sh osmo up --pool airstack`. |
+| `airstack osmo logs` shows `ERROR: SSH_PUB_KEY not set` | The submit didn't inject a pubkey (e.g. you ran raw `osmo workflow submit` without `--set-env`) | `./airstack.sh osmo down`, then resubmit with `./airstack.sh osmo up --pool airstack` (it injects `SSH_PUB_KEY` automatically). |
+| `docker pull` fails inside the pod with `unauthorized` | Your `airlab-docker-login` credential is missing or has the wrong Andrew ID/password | Re-run `./airstack.sh osmo setup`. |
 | Logs show `WARN: airlab-nucleus OSMO credential not set` and Isaac Sim asset loads fail, **or** Isaac Sim shows "Login Required: Unable to connect server omniverse://airlab-nucleus..." with the auth-service log showing `InternalCredentials.auth … 'username': '<your_andrew_id>' … status: 'DENIED'` (no `Tokens.auth_with_api_token` call) | The pod is doing **password auth** instead of **API-token auth**. Inside the pod, `simulation/isaac-sim/docker/omni_pass.env` must have `OMNI_USER=$$omni-api-token` (literal `$$`, the sentinel for API-token auth — docker-compose v2 collapses `$$` to `$` on its way to the container). The OSMO entrypoint sets this automatically when `OMNI_PASS` looks like a JWT; if you see `OMNI_USER=<your_andrew_id>` in the file, recreate the container with `docker compose --profile desktop --profile isaac-sim-livestream up -d isaac-sim-livestream` (`restart` does NOT re-read `env_file`). |
-| Logs show `WARN: airlab-nucleus OSMO credential not set` and Isaac Sim asset loads fail, **or** Isaac Sim shows "Login Required: Unable to connect server omniverse://airlab-nucleus..." with the auth-service log showing `Tokens.auth_with_api_token … status: 'DENIED'` | Your `airlab-nucleus` API token is missing, expired, or revoked (rotation invalidates the predecessor). Confirm by SSH'ing the Nucleus host and running `sudo docker logs --tail 200 base_stack-nucleus-auth-1`. Regenerate the token at <https://airlab-nucleus.andrew.cmu.edu/omni/web3/>, then `./airstack.sh osmo:setup` and `./airstack.sh osmo:down && ./airstack.sh osmo:up --pool airstack` to resubmit (or live-edit `simulation/isaac-sim/docker/omni_pass.env` in the pod and recreate the `isaac-sim-livestream` container — see row above). |
+| Logs show `WARN: airlab-nucleus OSMO credential not set` and Isaac Sim asset loads fail, **or** Isaac Sim shows "Login Required: Unable to connect server omniverse://airlab-nucleus..." with the auth-service log showing `Tokens.auth_with_api_token … status: 'DENIED'` | Your `airlab-nucleus` API token is missing, expired, or revoked (rotation invalidates the predecessor). Confirm by SSH'ing the Nucleus host and running `sudo docker logs --tail 200 base_stack-nucleus-auth-1`. Regenerate the token at <https://airlab-nucleus.andrew.cmu.edu/omni/web3/>, then `./airstack.sh osmo setup` and `./airstack.sh osmo down && ./airstack.sh osmo up --pool airstack` to resubmit (or live-edit `simulation/isaac-sim/docker/omni_pass.env` in the pod and recreate the `isaac-sim-livestream` container — see row above). |
 | Isaac Sim container restarts repeatedly | GPU not visible to the inner Docker daemon (toolkit not configured on the node) | Lab admin task. From inside the pod: `docker info \| grep -i runtime` should list `nvidia`. |
 | Isaac Sim is up but the WebRTC stream is blank | The Pegasus script isn't getting `--/app/livestream/enabled=true`, or the wrong Compose profile is active | In the integrated terminal: `docker logs airstack-isaac-sim-livestream-1`. Confirm `ISAAC_SIM_LIVESTREAM=true` and that the `isaac-sim-livestream` profile is the one running (`docker ps`). |
-| Foxglove "no connection" | Port-forward died, GCS container hasn't started yet, or browser is caching an old connection | Re-run `./airstack.sh osmo:foxglove`; check `docker ps` shows `airstack-gcs-1` Up; try `ws://127.0.0.1:8766` instead of `ws://localhost:8766`. |
+| Foxglove "no connection" | Port-forward died, GCS container hasn't started yet, or browser is caching an old connection | Re-run `./airstack.sh osmo foxglove`; check `docker ps` shows `airstack-gcs-1` Up; try `ws://127.0.0.1:8766` instead of `ws://localhost:8766`. |
 | First Remote-SSH connect takes forever | VS Code / Cursor downloading its remote server (~50 MB) into the fresh pod | Wait it out the first time. Subsequent connects to the same pod hit the cache. |
-| **I forgot to push before tearing down** | The pod is still up; cancel hasn't fired yet | Don't run `./airstack.sh osmo:down`. SSH in via the existing port-forward (`./airstack.sh osmo:ide --no-open` if the tunnel is gone), push from the IDE terminal, *then* tear down. If the workflow has already terminated and the pod is gone, the work is gone — git is the only persistence layer. |
+| **I forgot to push before tearing down** | The pod is still up; cancel hasn't fired yet | Don't run `./airstack.sh osmo down`. SSH in via the existing port-forward (`./airstack.sh osmo ide --no-open` if the tunnel is gone), push from the IDE terminal, *then* tear down. If the workflow has already terminated and the pod is gone, the work is gone — git is the only persistence layer. |
 
-## What survives `airstack osmo:down`?
+## What survives `airstack osmo down`?
 
 | Artifact | Lives in | Survives? |
 |---|---|---|
@@ -583,7 +585,7 @@ git-tracked sense.** The Source Control panel is the persistence boundary.
   — lab-admin reference (pool prerequisites, OSMO credential registration,
   workspace image build, validation stages).
 - [Foxglove Visualization](../gcs/foxglove.md) — full layout import +
-  panel-customisation flow once your `airstack osmo:foxglove` is up.
+  panel-customisation flow once your `airstack osmo foxglove` is up.
 - [AGENTS.md](https://github.com/castacks/AirStack/blob/main/AGENTS.md) —
   inside-the-pod workflow once you're attached: `bws`, `sws`, `docker exec`,
   ROS 2 commands.

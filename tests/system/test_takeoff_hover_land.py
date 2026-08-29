@@ -64,8 +64,15 @@ METRIC_UNITS = {
 
 
 def _phase_timeout(velocity):
-    """Takeoff/land timeout scaled so 0.5 m/s runs don't time out spuriously."""
-    return max(30.0, TARGET_ALTITUDE_M / velocity + 15.0)
+    """Takeoff/land timeout scaled so 0.5 m/s runs don't time out spuriously.
+
+    The constant covers velocity-independent overhead (touchdown detection,
+    land-detector dwell, disarm). +15 was marginal: 2026-08-20 runs show
+    v=0.5 landings completing at 45.1-45.2s against a 45s send_goal cap —
+    a coin-flip that produced spurious landing timeouts (also observed on
+    3-robot campaigns and the optitrack e2e).
+    """
+    return max(45.0, TARGET_ALTITUDE_M / velocity + 35.0)
 
 
 # ── pytest hooks ───────────────────────────────────────────────────────────
@@ -366,7 +373,33 @@ def _run_parallel(num_robots, fn):
         list(ex.map(fn, range(1, num_robots + 1)))
 
 
+def _wait_state_estimate_healthy(n, robot_container, cfg, budget_s=45):
+    """Wait for the safety monitor to report the state estimate healthy.
+
+    px4_ready proves EKF/MAVROS signals, but the takeoff task server rejects
+    (or PX4 refuses arming for) goals sent before the drone_safety_monitor's
+    state-estimate watchdog has cleared — a race observed as 'Goal was
+    rejected' / 'failed to arm' right after slow sim loads. One message with
+    data: false = healthy.
+    """
+    deadline = time.time() + budget_s
+    while time.time() < deadline:
+        result = ros2_exec(
+            robot_container,
+            f"timeout 8 ros2 topic echo --once "
+            f"/robot_{n}/behavior/drone_safety_monitor/state_estimate_timed_out "
+            f"2>/dev/null",
+            domain_id=n, setup_bash=cfg["robot_setup_bash"], timeout=20,
+        )
+        if "data: false" in result.stdout:
+            return
+        time.sleep(2)
+    logger.warning("robot_%d: state-estimate watchdog not confirmed healthy "
+                   "after %ds; sending takeoff anyway", n, budget_s)
+
+
 def _takeoff_one_robot(n, robot_container, cfg, velocity):
+    _wait_state_estimate_healthy(n, robot_container, cfg)
     timeout = _phase_timeout(velocity)
     target = TARGET_ALTITUDE_M
     streams = _start_captures(robot_container, cfg["robot_setup_bash"],

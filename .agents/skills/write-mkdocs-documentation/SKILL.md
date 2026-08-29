@@ -1,7 +1,7 @@
 ---
 name: write-mkdocs-documentation
 description: Guidelines for writing effective MkDocs documentation for AirStack. Covers organization, flow, visuals, markdown syntax, navigation structure, module vs system docs, and quality checks. Use when creating or updating documentation.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack
@@ -18,6 +18,76 @@ metadata:
 - Ensuring documentation quality and consistency
 
 ## Core Principles
+
+### 0. Docs Are Standalone Snapshots (read this first)
+
+Documentation describes the system **as it exists now**, for a reader
+encountering it fresh — someone with no access to the development history,
+the diffs, the RFCs, or the conversations that produced the current design.
+It is not a changelog, not a diff annotation, and not a record of decisions.
+
+**Never include change-relative language in docs pages.** Prohibited patterns:
+
+- "changed from X to Y", "updated from X", "previously this was X"
+- "renamed from X", "moved from X", "no longer does X"
+- "decided by [person]", "pinned by [person]", "per discussion with [person]"
+- "as of this PR / this change / this version" framing inside feature docs
+- References to RFCs, design discussions, issue/PR numbers, or review
+  decisions as justification ("per RFC #379", "see discussion #380")
+- Any sentence that only makes sense if the reader knows the prior state
+
+The test: **a first-time reader must be able to parse every sentence without
+knowing any previous version, diff, or conversation.** If a sentence fails
+that test, it belongs in Release Notes, not in the page.
+
+**Where change context goes: Release Notes.** All change-relative
+information coalesces into a single Release Notes page for the current
+version (`docs/release_notes/index.md`, one `##` section per version). That
+page is the only place where "changed from", "replaces", "deprecated",
+"decided in review", and RFC/PR references are appropriate.
+
+When your edit involves a behavioral change, do both:
+
+1. Update the relevant docs pages to describe only the new behavior, written
+   as if it had always been that way.
+2. Add an entry to the current version's Release Notes page describing what
+   changed, from what, and (if relevant) why or who drove the decision.
+
+If a Release Notes page for the current version does not exist, create one.
+Never scatter per-page "changelog"/"migration" sections across the docs.
+
+**Motivation before mechanics.** Every page (and every major section) starts
+with a brief motivation: why this component exists and why it is built the
+way it is — one short paragraph. Only then the details (API, configuration,
+usage, internals). A reader should be able to answer "why would I use this,
+and why does it look like this?" before the first code block or parameter
+table.
+
+❌ **Bad opening:**
+
+> AirStack builds are defined in `docker-compose.yaml` with per-module
+> Dockerfiles. The following build arguments are supported: ...
+
+✅ **Good opening:**
+
+> AirStack targets both x86 workstations and Jetson/Orin robots from a
+> single codebase, so its build system is organized around per-module Docker
+> images rather than one monolithic environment. This keeps modules
+> independently buildable and lets each one pin platform-specific
+> dependencies without breaking the others. Builds are defined in
+> `docker-compose.yaml` with per-module Dockerfiles: ...
+
+**Standalone-snapshot checklist** (verify before finalizing any docs edit):
+
+- [ ] No sentence requires knowledge of a previous version, a diff, an RFC,
+      or a conversation to parse.
+- [ ] All change-relative content has been moved to the current version's
+      Release Notes page.
+- [ ] The page/section opens with motivation (why it exists, why this
+      design) before details.
+- [ ] A first-time reader could use the page without any other context.
+- [ ] Names, defaults, and behaviors described match the current code, not
+      an intermediate state.
 
 ### 1. Progressive Disclosure
 
@@ -170,20 +240,25 @@ nav:
 
 ### Organization Pattern
 
+The site nav is organized by the [Diátaxis](https://diataxis.fr) quadrants — top-level tabs are document *kinds*, with product areas grouped inside each tab:
+
 ```
-docs/
-├── getting_started/        # New user onboarding
-├── development/            # Developer guides
-│   ├── beginner/          # Entry-level tutorials
-│   ├── intermediate/      # Testing, best practices
-│   └── advanced/          # Deep dives
-├── robot/                 # Robot-specific docs
-│   ├── autonomy/          # Autonomy stack integration
-│   └── configuration/     # Configuration guides
-└── simulation/            # Simulation setup
+nav tabs (mkdocs.yml)
+├── Tutorials        # learning-oriented lessons (getting_started/, guided walkthroughs)
+├── How-to Guides    # task recipes (dev env, docker, simulation, GCS, field, testing, contributing)
+├── Reference        # look-up material (CLI, configuration schemas, interface spec, containers, packages)
+├── Concepts         # explanation (architecture, modular design, identity, sim platforms)
+├── Release Notes
+└── About
+
+File locations stay stable (docs/development/, docs/robot/, docs/simulation/, …);
+the nav labels — not directories — carry the taxonomy. New pages: pick the
+quadrant first (see the decision tree in docs/development/intermediate/documentation.md),
+then add the file under the closest existing directory and nav-link it in the
+matching tab.
 
 robot/ros_ws/src/
-├── local/planners/my_planner/README.md    # Module docs
+├── local/planners/my_planner/README.md    # Module docs (all-in-one; exempt from the one-quadrant rule)
 └── perception/state_est/README.md         # Module docs
 ```
 
@@ -921,11 +996,14 @@ airstack up robot-desktop  # Start robot container
    grep -r "old_topic_name" docs/
    ```
 
-2. **Update all references**
+2. **Update all references** — rewrite each page to describe only the new
+   behavior, as if it had always been that way (no "renamed from",
+   "no longer", "previously")
 3. **Update diagrams** (if architecture changed)
-4. **Add migration notes** (if breaking change)
-5. **Update CHANGELOG.md**
-6. **Verify all links still work**
+4. **Record the change in Release Notes** (`docs/release_notes/index.md`,
+   under the current version's section) — the only place change-relative
+   language belongs
+5. **Verify all links still work**
 
 ### Periodic Reviews
 
@@ -941,6 +1019,13 @@ airstack up robot-desktop  # Start robot container
 
 When creating or updating documentation:
 
+- [ ] No change-relative language (no "previously", "renamed from",
+      "no longer", RFC/PR/discussion references) — pages are standalone
+      snapshots of the current system
+- [ ] Behavioral changes recorded in `docs/release_notes/index.md` under
+      the current version's section, not as per-page migration notes
+- [ ] Page and major sections open with motivation (why it exists, why this
+      design) before mechanics
 - [ ] Content follows progressive disclosure (concept → example → depth)
 - [ ] All lists have blank line before them
 - [ ] Code blocks have language tags

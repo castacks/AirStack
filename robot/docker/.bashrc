@@ -66,16 +66,102 @@ function cws(){
     fi
 }
 
+# Build → source → launch, with an unmissable banner when a stage fails.
+# Used by the docker-compose AUTOLAUNCH tmux commands: a bare
+# `bws && sws && ros2 launch ...` dies silently on a build failure — the tmux
+# pane just returns to a prompt and `docker logs` shows nothing — so bringup
+# failures went unnoticed. Also fine to use interactively.
+function _autolaunch_banner(){
+    local line='!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+    printf '\n\033[1;97;41m%s\033[0m\n' "$line" "  AUTOLAUNCH FAILED on $(hostname) (ROBOT_NAME=${ROBOT_NAME:-unset})" "  $1" "  Scroll up in this tmux pane (airstack connect) or 'airstack logs'" "  for the first error." "$line"
+    # Plain repeat so the message survives log processors that strip ANSI.
+    printf '%s\n' "AUTOLAUNCH FAILED: $1"
+}
+function autolaunch(){
+    if ! bws; then
+        _autolaunch_banner "colcon build (bws) failed — the stack was NOT launched"
+        return 1
+    fi
+    sws
+    ros2 launch "$@"
+    local rc=$?
+    if [ $rc -ne 0 ]; then
+        _autolaunch_banner "ros2 launch $* exited with code $rc — the stack is DOWN"
+        return $rc
+    fi
+}
+
 source /opt/ros/jazzy/setup.bash
 sws # source the ROS2 workspace by default
+
+# Resolve this container's docker compose container name from inside the
+# container: reverse-DNS the container IP (hostname -> IP -> PTR record),
+# then strip the network suffix. Docker's embedded DNS serves the PTR record
+# with the compose container name (e.g. airstack-robot-desktop-1).
+# https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
+# WARNING: this technique ONLY works with docker version 29 and up.
+_resolve_container_name() {
+    host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}'
+}
+
+# --- Fleet resolution (RFC #380 §2, OPT-IN) ---
+# When FLEET_CONFIG_FILE is set (airstack up --fleet <name>), resolve this
+# container's WHOLE fleet entry — name, domain, stack placement, vehicle,
+# calibration overlay — via tools/fleet/resolve_fleet.py. Contract:
+#   - pre-set ROBOT_NAME skips resolution entirely (same guard as the legacy
+#     branch below; heterogeneous-fleet services set it explicitly);
+#   - pre-set non-empty ROS_DOMAIN_ID / AIRSTACK_STACK_DIR(+ENTRY) / URDF_FILE
+#     win over the fleet's values (leaf-value precedence);
+#   - resolution failure warns and falls through to the legacy resolver.
+# FLEET_CONFIG_FILE unset or empty = byte-identical legacy behavior.
+if [ -n "${FLEET_CONFIG_FILE:-}" ] && [ -z "${ROBOT_NAME:-}" ]; then
+    if [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
+        fleet_identity=$(hostname)
+    else
+        # container-name resolution (shared helper; needs docker >= 29)
+        fleet_identity=$(_resolve_container_name)
+        CONTAINER_NAME=":$fleet_identity"
+    fi
+    fleet_resolver="$HOME/AirStack/tools/fleet/resolve_fleet.py"
+    if [ -f "$fleet_resolver" ]; then
+        _fleet_prev_domain="${ROS_DOMAIN_ID:-}"
+        _fleet_prev_stack_dir="${AIRSTACK_STACK_DIR:-}"
+        _fleet_prev_stack_entry="${AIRSTACK_STACK_ENTRY:-}"
+        _fleet_prev_urdf="${URDF_FILE:-}"
+        _fleet_exports=$(python3 "$fleet_resolver" "$FLEET_CONFIG_FILE" --name "$fleet_identity")
+        if [ $? -eq 0 ] && [ -n "$_fleet_exports" ]; then
+            eval "$_fleet_exports"
+            export ROBOT_NAME VEHICLE CALIBRATION_DIR
+            # pre-set env wins per variable
+            [ -n "$_fleet_prev_domain" ] && ROS_DOMAIN_ID="$_fleet_prev_domain"
+            export ROS_DOMAIN_ID
+            if [ -n "$_fleet_prev_stack_dir" ]; then
+                AIRSTACK_STACK_DIR="$_fleet_prev_stack_dir"
+                AIRSTACK_STACK_ENTRY="$_fleet_prev_stack_entry"
+            fi
+            export AIRSTACK_STACK_DIR AIRSTACK_STACK_ENTRY
+            [ -n "$_fleet_prev_urdf" ] && URDF_FILE="$_fleet_prev_urdf"
+            export URDF_FILE
+        else
+            echo "WARNING: fleet resolution failed for '$fleet_identity' via" \
+                 "$FLEET_CONFIG_FILE (resolver error above) — falling back to the" \
+                 "legacy robot_name_map resolver."
+        fi
+        unset _fleet_prev_domain _fleet_prev_stack_dir _fleet_prev_stack_entry \
+              _fleet_prev_urdf _fleet_exports
+    else
+        echo "WARNING: FLEET_CONFIG_FILE=$FLEET_CONFIG_FILE is set but $fleet_resolver" \
+             "is missing (tools/fleet should be bind-mounted) — falling back to the" \
+             "legacy robot_name_map resolver."
+    fi
+fi
 
 # If ROBOT_NAME is pre-set (e.g. via docker compose), keep it.
 # Otherwise extract robot name and ROS domain ID from the container/hostname mapping.
 if [ -z "${ROBOT_NAME:-}" ]; then
     if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
-        # https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
-        # WARNING: this technique ONLY works with docker version 29 and up.
-        name_to_map=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
+        # container-name resolution (shared helper; needs docker >= 29)
+        name_to_map=$(_resolve_container_name)
         CONTAINER_NAME=":$name_to_map"
     elif [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
         name_to_map=$(hostname)
@@ -229,8 +315,8 @@ if [ ! -h $HISTFILE ]; then
     # remove existing .bash_history file if it exists
     rm $HISTFILE > /dev/null 2>&1
     # initialize .bash_history file if doesn't exist yet
-    if [ ! -d /.dev/.bash_history ]; then
-        cp $HOME/.dev/.bash_history_init $HOME/.dev/.bash_history
+    if [ ! -f "$HOME/.dev/.bash_history" ]; then
+        cp $HOME/.dev/.bash_history_init $HOME/.dev/.bash_history 2>/dev/null
     fi
     # symlink to /.dev/.bash_history, silently on error
     ln -s $HOME/.dev/.bash_history $HISTFILE > /dev/null 2>&1

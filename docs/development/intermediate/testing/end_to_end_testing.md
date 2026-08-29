@@ -8,7 +8,7 @@ AirStack currently has two e2e suites:
 - **Fixed-trajectory path-tracker benchmark** (`autonomy` mark) — takeoff → execute a fixed pattern (Circle / Figure8 / Racetrack / Line) → land, measuring cross-track error. Documented below.
 
 !!! note "Future work: unify the e2e marks"
-    `takeoff_hover_land` and `autonomy` are separate marks today. As the suite grows they can be consolidated into a single general **e2e** mark/pipeline. Tracked as follow-up — not part of this change.
+    `takeoff_hover_land` and `autonomy` are separate marks today. As the suite grows they can be consolidated into a single general **e2e** mark/pipeline.
 
 ---
 
@@ -362,9 +362,9 @@ The workflow auto-prepends `build_packages` when not already specified.
 
 | Layer | Location | Examples |
 | ----- | -------- | -------- |
-| Tracker params | `robot/ros_ws/src/local/local_bringup/launch/local.launch.xml` (or `local_droan_cpu.launch.xml`) | `sphere_radius`, `look_ahead_time`, `search_ahead_factor`, `min_virtual_tracking_velocity` |
+| Tracker params | `robot/ros_ws/src/local/controls/trajectory_controller/config/trajectory_controller.yaml` (selected by the stack entry file) | `sphere_radius`, `look_ahead_time`, `search_ahead_factor`, `min_virtual_tracking_velocity` |
 | Tracker implementation | Replace or fork `trajectory_controller` node | Alternative pure-pursuit, different intersection logic |
-| Low-level control | Swap `pid_controller` for `attitude_controller` in launch | Changes end-to-end error, not tracker-only |
+| Low-level control | Swap `pid_controller` for an alternative controller in launch | Changes end-to-end error, not tracker-only |
 
 Key `trajectory_controller` parameters today:
 
@@ -385,7 +385,7 @@ airstack test -m "build_packages or autonomy" \
   --trajectory-types Circle -v
 BASELINE=$(ls -1t tests/results/ | head -1)
 
-# 2. Edit tracker params in local.launch.xml, rebuild
+# 2. Edit tracker params in trajectory_controller.yaml, rebuild
 airstack test -m build_packages -v
 
 # 3. Candidate run
@@ -407,7 +407,7 @@ Focus on: `cross_track_error_mean_m`, `cross_track_error_max_m`, `path_rmse_m`, 
 
 ## Manual stack usage (without pytest)
 
-Bring up the stack and take off as described in **[Getting Started](../../../getting_started/index.md)** (`airstack up`, then use the RViz task panel). Once the drone is hovering, dispatch a fixed trajectory directly:
+Bring up the stack and take off as described in **[Getting Started](../../../getting_started/index.md)** (`airstack up`, then press `Takeoff` in the Foxglove Robot Tasks panel). Once the drone is hovering, dispatch a fixed trajectory directly:
 
 ```bash
 docker exec -it airstack-robot-desktop-1 bash -c '
@@ -432,7 +432,6 @@ Action server: `/{robot_name}/tasks/fixed_trajectory` — see also [Tasks and Ta
 | `trajectory_success = 0` | Tracker stall or timeout | Check trajectory_controller logs; rebuild the workspace (`-m build_packages`) |
 | Cross-track error &gt;&gt; 5 m | Wrong tracker params or frame bug | Compare launch params; check world-frame transform |
 | Tests run for hours | Default `--num-robots 1,3` (and `--sim msairsim` if opted in) | Pin `--sim isaacsim --num-robots 1 --stress-iterations 1` |
-| Unknown mark warning `autonomy` | Mark not in `pytest.ini` | Harmless; filter still works |
 
 ---
 
@@ -448,7 +447,7 @@ Action server: `/{robot_name}/tasks/fixed_trajectory` — see also [Tasks and Ta
 | [`robot/.../fixed_trajectory_task.cpp`](../../../../robot/ros_ws/src/local/controls/trajectory_controller/src/fixed_trajectory_task.cpp) | C++ reference path generators |
 | [`robot/.../trajectory_controller.cpp`](../../../../robot/ros_ws/src/local/controls/trajectory_controller/src/trajectory_controller.cpp) | Pure-pursuit path tracker |
 | [`robot/.../trajectory_library.cpp`](../../../../robot/ros_ws/src/local/planners/trajectory_library/src/trajectory_library.cpp) | Trajectory math, sphere intersection |
-| [`robot/.../local.launch.xml`](../../../../robot/ros_ws/src/local/local_bringup/launch/local.launch.xml) | Tracker + PID params |
+| [`robot/.../trajectory_controller.yaml`](../../../../robot/ros_ws/src/local/controls/trajectory_controller/config/trajectory_controller.yaml) + [`pid_controller.yaml`](../../../../robot/ros_ws/src/local/controls/pid_controller/config/pid_controller.yaml) | Tracker + PID params |
 
 ---
 

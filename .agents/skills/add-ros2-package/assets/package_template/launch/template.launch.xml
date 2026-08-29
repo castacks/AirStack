@@ -1,68 +1,77 @@
+<!--
+  your_package_name : canonical module launch file (RFC #379 §2/§4).
+
+  Conventions this template follows (see .agents/skills/write-launch-file):
+  - Every topic endpoint is a declared <arg> with a description= and a
+    default equal to the CANONICAL topic name (docs/robot/autonomy/
+    integration_checklist.md), so a bare include means "wired canonically".
+  - Args are PREFIXED with the module name (never generic names like
+    `config_file` or `namespace` — generic launch configurations leak
+    across sibling includes in the same launch scope).
+  - Wiring uses set_remap inside the module's namespace group. Module launch
+    files never use remap tags — cross-module rewiring lives in the stack
+    entry file (stacks/<name>/launch/), the single-locus rule enforced by
+    tests/meta/test_launch_single_locus.py.
+-->
 <launch>
   <!-- ============================================ -->
-  <!-- Launch Arguments -->
+  <!-- Launch Arguments (all prefixed + described)  -->
   <!-- ============================================ -->
-  
-  <!-- TODO: Add launch arguments for configurability -->
-  
-  <!-- Input topics (for remapping) -->
-  <arg name="odometry_topic" default="/$(env ROBOT_NAME)/odometry" 
-       description="Odometry input topic"/>
-  <arg name="sensor_topic" default="/$(env ROBOT_NAME)/sensors/data" 
-       description="Sensor data input topic"/>
-  
-  <!-- Output topics (for remapping) -->
-  <arg name="output_topic" default="/$(env ROBOT_NAME)/your_module/output" 
-       description="Module output topic"/>
-  
-  <!-- Configuration -->
-  <arg name="config_file" 
-       default="$(find-pkg-share your_package_name)/config/template.yaml"
-       description="Path to configuration file"/>
-  
+
+  <!-- TODO: rename the your_module_ prefix to your module name -->
+
   <!-- Namespace -->
-  <arg name="namespace" default="your_module" 
-       description="Namespace for the node"/>
-  
+  <arg name="your_module_namespace" default="your_module"
+       description="Namespace to run in"/>
+
+  <!-- Input topics -->
+  <arg name="your_module_odometry_topic" default="/$(env ROBOT_NAME)/odometry"
+       description="Input odometry (nav_msgs/Odometry)"/>
+  <arg name="your_module_sensor_topic" default="/$(env ROBOT_NAME)/sensors/data"
+       description="Input sensor data"/>
+
+  <!-- Output topics -->
+  <arg name="your_module_output_topic" default="/$(env ROBOT_NAME)/your_module/output"
+       description="Module output topic"/>
+
+  <!-- Configuration -->
+  <arg name="your_module_config"
+       default="$(find-pkg-share your_package_name)/config/template.yaml"
+       description="Node parameter YAML (loaded with allow_substs)"/>
+
   <!-- Other options -->
-  <arg name="enable_debug" default="false" 
+  <arg name="your_module_enable_debug" default="false"
        description="Enable debug mode"/>
-  
+
   <!-- ============================================ -->
   <!-- Node Launch -->
   <!-- ============================================ -->
-  
+
   <group>
     <!-- Apply namespace -->
-    <push-ros-namespace namespace="$(var namespace)" />
-    
+    <push-ros-namespace namespace="$(var your_module_namespace)" />
+
+    <!-- Bind the node's relative topic names to the declared args.
+         Sources are the names the node uses in code (relative, resolved in
+         its namespace); targets are the absolute arg values. -->
+    <set_remap from="odometry" to="$(var your_module_odometry_topic)" />
+    <set_remap from="sensor_data" to="$(var your_module_sensor_topic)" />
+    <set_remap from="output" to="$(var your_module_output_topic)" />
+
     <!-- TODO: Replace with your package/node name -->
-    <node pkg="your_package_name" 
-          exec="your_node_name" 
+    <node pkg="your_package_name"
+          exec="your_node_name"
           name="your_node_name"
           output="screen">
-      
+
       <!-- Load parameters from config file -->
       <!-- allow_substs="true" enables environment variable substitution -->
-      <param from="$(var config_file)" allow_substs="true" />
-      
+      <param from="$(var your_module_config)" allow_substs="true" />
+
       <!-- Override specific parameters from launch args -->
-      <param name="enable_debug" value="$(var enable_debug)" />
-      
-      <!-- ======================================== -->
-      <!-- Topic Remapping -->
-      <!-- ======================================== -->
-      
-      <!-- Remap input topics -->
-      <remap from="odometry" to="$(var odometry_topic)" />
-      <remap from="sensor_data" to="$(var sensor_topic)" />
-      
-      <!-- Remap output topics -->
-      <remap from="output" to="$(var output_topic)" />
-      
-      <!-- TODO: Add additional topic remappings as needed -->
-      
+      <param name="enable_debug" value="$(var your_module_enable_debug)" />
+
     </node>
   </group>
-  
+
 </launch>

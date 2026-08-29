@@ -1,7 +1,7 @@
 ---
 name: write-isaac-sim-scene
 description: Create custom simulation scenarios in Isaac Sim by declaring them on top of the shared pegasus_app.PegasusApp base class. Use when creating test scenarios, multi-robot simulations, or custom environments for testing autonomy modules.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack
@@ -19,7 +19,7 @@ Creating custom simulation environments for testing autonomy modules, multi-robo
 
 ## Prerequisites
 
-- Isaac Sim container image present (`airstack image-pull`)
+- Isaac Sim container image present (`airstack images pull`)
 - The scenario you want: which environment, how many drones, which sensors
 
 ## How a Scene Reaches the Simulator
@@ -32,7 +32,7 @@ Env vars every script honors automatically (via the base class — do not re-imp
 |---|---|
 | `ISAAC_SIM_HEADLESS` | run without a window |
 | `ISAAC_SIM_LIVESTREAM` (+`_UDP_PORT`) | headless + WebRTC livestream |
-| `PLAY_SIM_ON_START` | auto-play the timeline after setup (`airstack up --play`) |
+| `PLAY_SIM_ON_START` | auto-play the timeline after setup — on by default (`airstack up --no-play` starts paused) |
 
 ## Steps
 
@@ -92,9 +92,9 @@ Subclass `PegasusApp` and override (each receives the loaded USD stage):
 
 - `pre_scene_prep(stage)` — right after the environment loads (e.g. `dedupe_physics_scenes`, `reference_root_prims_under_world` for imported scenes)
 - `post_scene_prep(stage)` — after scale/colliders/dome light, before drones (e.g. overhead map camera)
-- `post_spawn(stage)` — after all drones exist (e.g. author the NatNet mocap interface)
+- `post_spawn(stage)` — after all drones exist (e.g. author extra scene-level prims such as a mocap interface)
 
-Reference subclasses to study (not copy): `example_multi_drone_scene_import.py` (Nucleus scene import, explicit poses, overhead camera, GPS origins) and `example_multi_px4_pegasus_natnet_launch_script.py` (`post_spawn` mocap authoring).
+Reference subclass to study (not copy): `example_multi_drone_scene_import.py` (Nucleus scene import, explicit poses, overhead camera, GPS origins). For a `post_spawn` example (mocap authoring), see the asm_optitrack module's launch scripts.
 
 Stage-prep helpers live in `simulation/isaac-sim/utils/scene_prep.py` (`add_colliders`, `scale_stage_prim`, `add_dome_light`, `add_orthographic_camera`, …) — documented in [spawning_drones.md](../../../docs/simulation/isaac_sim/spawning_drones.md).
 

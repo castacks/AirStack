@@ -30,8 +30,6 @@ SERVICE_FINGERPRINT_ROOTS: dict[str, list[str]] = {
         "robot/docker/Dockerfile.robot",
         "robot/docker/docker-compose.yaml",
         "robot/docker/robot-base-docker-compose.yaml",
-        "robot/docker/custom_rosdep.yaml",
-        "robot/docker/wait_for_px4.py",
         "robot/docker/.bashrc",
         "robot/docker/robot_name_map",
     ],

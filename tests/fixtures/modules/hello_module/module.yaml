@@ -1,0 +1,13 @@
+# Minimal valid module manifest — fixture for tests/meta/test_module_manifest_contract.py.
+# Schema: common/module_schema/module.schema.json (RFC #379 §2).
+name: hello_module
+description: Minimal hello-world module fixture for manifest-contract tests.
+maintainer: test@example.com
+license: BSD-3-Clause-Clear
+type: ros_package
+airstack_compat: ">=0.19.0 <0.21.0"
+targets: [robot]
+
+tests:
+  packages: [hello_module]
+  marks: []

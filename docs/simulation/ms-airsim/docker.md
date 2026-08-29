@@ -39,29 +39,28 @@ The Microsoft AirSim (legacy) service is defined in `simulation/ms-airsim/docker
 
 ### Starting Microsoft AirSim (legacy)
 
-Microsoft AirSim (legacy) is gated behind a Docker Compose profile:
+For the user-facing launch path (scene selection + `airstack up --sim airsim`), see the [Quick Start in the overview](index.md#quick-start). At the container level, the service is gated behind a Docker Compose profile:
 
 ```bash
-# Start alongside the robot stack
+# Explicit-profile form (equivalent to `airstack up --sim airsim`)
 airstack up --profile ms-airsim --profile desktop
-
-# Build the image first
-airstack image-build --profile ms-airsim
 ```
 
 Alternatively, set `COMPOSE_PROFILES=ms-airsim,desktop` in `.env` and run `airstack up`.
 
 ### What happens on startup
 
-The container runs `entrypoint.sh`, which:
+The container runs `entrypoint.sh` (`simulation/ms-airsim/docker/entrypoint.sh`), which:
 
 1. Generates `settings.json` from the Jinja2 template using current environment variables
-2. Creates a tmux session named `ms-airsim`
-3. Builds the ROS 2 bridge workspace (`colcon build`)
-4. In the `airsim` window: if `MS_AIRSIM_BINARY_PATH` is unset, runs `fetch_scene.sh blocks` to download + extract the default scene, then launches the UE4 binary as the `ms-airsim` user (UE4 refuses to run as root)
-5. Launches one bridge node per robot, each with `ROS_DOMAIN_ID=<robot_index>`
-6. Waits for the AirSim API to become available (TCP port 41451)
-7. Spawns one PX4 SITL instance per robot, each in its own tmux window
+2. Creates a tmux session named `ms-airsim` with a first window named `airsim`
+3. Resolves the scene: an explicit `MS_AIRSIM_BINARY_PATH` wins (and must exist); otherwise `MS_AIRSIM_SCENE` (default `blocks`) selects a `fetch_scene.sh` key
+4. Builds the ROS 2 bridge workspace (`colcon build`)
+5. In the `airsim` window: auto-fetches the selected scene if it isn't downloaded yet (so progress is visible), then launches the UE4 binary as the `ms-airsim` user (UE4 refuses to run as root)
+6. Creates one bridge window per robot (`robot_<i>_bridge`), each running the bridge node with `ROS_DOMAIN_ID=<robot_index>`
+7. Waits for the AirSim API to become available (TCP port 41451)
+8. Sleeps `MS_AIRSIM_PX4_START_DELAY` seconds (default 3) so AirSim sensors settle before PX4's EKF snapshots a local origin
+9. Creates one PX4 SITL window per robot (`robot_<i>_px4`), each running `px4 ... -i <robot_index>`
 
 ## Environment Variables
 
@@ -71,34 +70,24 @@ The container runs `entrypoint.sh`, which:
 | `MS_AIRSIM_BINARY_PATH` | _(unset → auto-fetch Blocks)_ | Path to UE4 binary inside container. If unset, the entrypoint fetches Blocks into the mounted scenes dir and points at it. |
 | `MS_AIRSIM_ENV_DIR` | `../assets/scenes` | Host path to extracted UE4 scenes |
 | `MS_AIRSIM_HEADLESS` | `false` | Run UE4 without a window (`-RenderOffScreen -nosound`) |
+| `MS_AIRSIM_SCENE` | _(empty → `blocks`)_ | Scene shortname (a `fetch_scene.sh` key, set by `airstack up --scene <shortname>`); ignored when `MS_AIRSIM_BINARY_PATH` is set |
 | `MS_AIRSIM_PX4_START_DELAY` | `3` | Seconds to wait after AirSim becomes ready before starting PX4, so sensors settle before the EKF snapshots a local origin |
 | `NUM_ROBOTS` | `1` | Number of vehicles and PX4 SITL instances |
 | `SIM_IP` | `172.31.0.200` | Simulator IP on `airstack_network` |
 
-**Camera template variables** (override in `.env` to regenerate `settings.json`):
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AIRSIM_CAM_WIDTH` | `480` | Camera image width (px) |
-| `AIRSIM_CAM_HEIGHT` | `300` | Camera image height (px) |
-| `AIRSIM_CAM_FOV` | `90` | Camera horizontal FOV (degrees) |
-| `AIRSIM_CAM_X` | `0.4` | Camera X offset from body center (m) |
-| `AIRSIM_CAM_Y` | `0.06` | Camera Y half-baseline (m) |
-| `AIRSIM_CAM_Z` | `0.0` | Camera Z offset from body center (m) |
-| `AIRSIM_CAM_PITCH` | `0.0` | Camera pitch angle (degrees) |
-| `AIRSIM_SPAWN_SPACING` | `3.0` | Y-axis spacing between robots (m) |
+The camera template variables (`AIRSIM_CAM_*`) and their defaults are documented in the [camera configuration reference](index.md#cameras); `AIRSIM_SPAWN_SPACING` (default `3.0`) sets the Y-axis spacing between spawned robots in meters.
 
 **Example overrides:**
 
 ```bash
 # Two robots
-NUM_ROBOTS=2 airstack up --profile ms-airsim
+airstack up --sim airsim --robots 2
 
 # Headless (no GUI, uses UE4's -RenderOffScreen)
-MS_AIRSIM_HEADLESS=true airstack up --profile ms-airsim
+airstack up --sim airsim --headless
 
-# Custom scene binary
-MS_AIRSIM_ENV_DIR=/data/airsim_envs MS_AIRSIM_BINARY_PATH=/ms-airsim-env/CityEnviron/LinuxNoEditor/CityEnviron.sh airstack up --profile ms-airsim
+# Custom scene binary (no flag equivalent)
+MS_AIRSIM_ENV_DIR=/data/airsim_envs MS_AIRSIM_BINARY_PATH=/ms-airsim-env/CityEnviron/LinuxNoEditor/CityEnviron.sh airstack up --sim airsim
 ```
 
 ## Settings Generation
@@ -131,9 +120,9 @@ NUM_ROBOTS=2 python3 generate_settings.py
 | Port | Protocol | Purpose |
 |------|----------|---------|
 | 41451 | TCP | AirSim Python API |
-| 4561–456N | TCP | PX4 lockstep (one per robot, N = robot index) |
-| 24541–2454N | UDP | MAVLink offboard (one per robot) |
-| 24581–2458N | UDP | MAVLink onboard (one per robot) |
+| `4560 + i` | TCP | PX4 lockstep (`TcpPort`, one per robot `i` = 1..N) |
+| `24540 + i` | UDP | AirSim MAVLink control channel, local (`ControlPortLocal`, one per robot) |
+| `24580 + i` | UDP | AirSim MAVLink control channel, remote (`ControlPortRemote`, one per robot) |
 
 ## GPU Access
 
@@ -210,13 +199,13 @@ airstack connect ms-airsim
 tmux a -t ms-airsim
 ```
 
-**Tmux windows layout:**
+**Tmux windows layout** (`1 + 2*NUM_ROBOTS` windows, in creation order — see [What happens on startup](#what-happens-on-startup)):
 
-| Window | Contents |
-|--------|---------|
-| 0 | AirSim UE4 binary |
-| 1..N | PX4 SITL instance for robot 1..N |
-| N+1..2N | ROS 2 bridge node for robot 1..N |
+| Window | Name | Contents |
+|--------|------|----------|
+| 0 | `airsim` | Scene fetch (if needed) + AirSim UE4 binary |
+| 1..N | `robot_<i>_bridge` | ROS 2 bridge node for robot `i` = 1..N |
+| N+1..2N | `robot_<i>_px4` | PX4 SITL instance for robot `i` = 1..N (created only after the AirSim API is ready + `MS_AIRSIM_PX4_START_DELAY`) |
 
 **Useful tmux commands:**
 
@@ -232,7 +221,8 @@ airstack logs ms-airsim
 
 ## Multi-Robot Support
 
-Set `NUM_ROBOTS` to spawn multiple vehicles. Each robot gets:
+Use `airstack up --robots N` (which sets `NUM_ROBOTS`) to spawn multiple
+vehicles. Each robot gets:
 
 - A named vehicle in `settings.json` (`robot_1`, `robot_2`, …)
 - Its own PX4 SITL instance with unique ports
@@ -241,7 +231,7 @@ Set `NUM_ROBOTS` to spawn multiple vehicles. Each robot gets:
 
 ```bash
 # Launch with 3 robots
-NUM_ROBOTS=3 airstack up --profile ms-airsim --profile desktop
+airstack up --sim airsim --robots 3
 ```
 
 ## Image Management
@@ -260,7 +250,7 @@ docker compose -f simulation/ms-airsim/docker/docker-compose.yaml pull
 
 ```bash
 # Build image
-airstack image-build --profile ms-airsim
+airstack images build --profile ms-airsim
 
 # Or directly
 docker compose -f simulation/ms-airsim/docker/docker-compose.yaml build
@@ -285,7 +275,7 @@ docker exec ms-airsim bash -c "cd /root/ros_ws && colcon build --symlink-install
 Change camera or vehicle parameters via environment variables and restart the container — `settings.json` is regenerated each time.
 
 ```bash
-AIRSIM_CAM_FOV=120 airstack up --profile ms-airsim
+AIRSIM_CAM_FOV=120 airstack up --sim airsim
 ```
 
 ## Troubleshooting
@@ -297,29 +287,11 @@ AIRSIM_CAM_FOV=120 airstack up --profile ms-airsim
 - Verify `DISPLAY` is set and X11 socket is mounted: `echo $DISPLAY`, `xhost +local:docker`
 - Check disk space: pre-built environments are 3–10 GB
 
-**Bridge can't connect to AirSim API:**
-
-- Ensure AirSim binary started successfully (check tmux window 0)
-- The entrypoint retries until the API is ready; check for connection errors in the container logs
-- Verify `ms_airsim_ip` in `bridge.yaml` matches where AirSim is running (default: `127.0.0.1` — same container)
-
 **PX4 SITL won't connect:**
 
-- Confirm `settings.json` was generated with correct `TcpPort` values
+- Confirm `settings.json` was generated with correct `TcpPort` values (`4560 + i`)
 - Check AirSim console for "Waiting for TCP connection" messages
 - Verify the PX4 lockstep port is not blocked by a firewall
-
-**MAVROS won't connect (robot container):**
-
-- Verify `SIM_IP=172.31.0.200` is set in `.env`
-- Ensure PX4 SITL has started (look for `[mavlink]` output in the PX4 tmux window)
-- Check MAVLink ports match: offboard `24541+i`, onboard `24581+i`
-
-**No depth images on ROS 2 topics:**
-
-- Verify the camera names in `settings.json` match those in `bridge.yaml`
-- Check bridge node output for connection errors (tmux bridge window)
-- Echo the topic: `ros2 topic echo /robot_1/sensors/front_stereo/depth --once`
 
 **ROS 2 topics not visible from robot container:**
 
@@ -327,9 +299,11 @@ AIRSIM_CAM_FOV=120 airstack up --profile ms-airsim
 - Check `ROS_DOMAIN_ID` is consistent between containers
 - Verify DDS multicast is working: `ros2 topic list` from inside each container
 
+For user-facing issues (bridge can't connect to AirSim, no depth images, MAVROS won't connect), see the [overview → Troubleshooting](index.md#troubleshooting).
+
 ## See Also
 
-- [Microsoft AirSim (legacy) Overview](index.md) — capabilities, configuration, and architecture
+- [Microsoft AirSim (legacy) Overview](index.md) — quick start, settings/camera/bridge configuration, published topics
 - [Simulation Overview](../index.md) — Choosing between simulators
 - [Isaac Sim Docker](../isaac_sim/docker.md) — Isaac Sim container reference
 - [Docker Workflow](../../development/beginner/airstack-cli/docker_usage.md) — General Docker operations

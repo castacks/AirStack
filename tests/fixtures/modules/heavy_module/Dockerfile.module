@@ -1,0 +1,6 @@
+# Tier-2 Dockerfile fragment fixture (RFC #379 §6): always written against
+# ARG BASE_IMAGE — never a fixed base — so it composes onto whatever the
+# previous link in the module layer chain produced.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+RUN echo heavy-module-layer > /heavy_module_marker

@@ -1,0 +1,28 @@
+# droan_gl node parameters.
+# Values moved verbatim from the inline <param> block the legacy
+# local_bringup/launch/local.launch.xml carried for droan_gl_node (P5-E2,
+# RFC #379); loaded by launch/droan_gl.launch.xml with allow_substs.
+/**:
+  ros__parameters:
+    target_frame: map
+    look_ahead_frame: look_ahead_point_stabilized
+    rewind_info_frame: base_link_stabilized
+    visualize: true
+
+    # graph / expansion (see gl_interface.cpp)
+    graph_nodes: 10
+    expansion_radius: 2.0
+    seen_radius: 1.0
+    dt: 0.2
+    ht: 7.0
+    downsample_scale: 2
+    graph_distance_threshold: 1.0
+    graph_angle_threshold: 30.0  # degrees
+
+    # rewind monitor (see rewind_monitor.cpp)
+    all_in_collision_duration_threshold: 2.0
+    all_in_collision_rewind_duration: 6.0
+    stationary_distance_threshold: 0.5
+    stationary_history_duration: 10.0
+    stationary_rewind_distance: 10.0
+    stationary_rewind_duration: 20.0

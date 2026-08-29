@@ -24,7 +24,7 @@ jobs:
           import sys
 
           SEMVER_RE = re.compile(
-              r'^(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$'
+              r'^(\d+)\.(\d+)\.(\d+)(?:-(dev|beta|rc)\.(\d+))?$'
           )
 
           def parse_version(v):
@@ -32,9 +32,9 @@ jobs:
               Parse a version string into a comparable tuple.
               Returns None if the format is invalid.
 
-              Pre-release ordering: alpha < beta < rc < (release)
+              Pre-release ordering: dev < beta < rc < (release)
               Tuple: (major, minor, patch, pre_rank, pre_num)
-                where pre_rank: alpha=0, beta=1, rc=2, release=3
+                where pre_rank: dev=0, beta=1, rc=2, release=3
               """
               m = SEMVER_RE.fullmatch(v)
               if not m:
@@ -44,7 +44,7 @@ jobs:
               patch = int(m.group(3))
               pre_type = m.group(4)   # None for release versions
               pre_num  = int(m.group(5)) if m.group(5) else 0
-              pre_rank = {'alpha': 0, 'beta': 1, 'rc': 2, None: 3}[pre_type]
+              pre_rank = {'dev': 0, 'beta': 1, 'rc': 2, None: 3}[pre_type]
               return (major, minor, patch, pre_rank, pre_num)
 
           def extract_version(content):
@@ -87,7 +87,7 @@ jobs:
               print(f"::error::VERSION '{pr_version}' does not match the required format.")
               print("  Accepted formats:")
               print("    MAJOR.MINOR.PATCH            (e.g. 1.2.3)")
-              print("    MAJOR.MINOR.PATCH-alpha.N    (e.g. 1.3.0-alpha.1)")
+              print("    MAJOR.MINOR.PATCH-dev.N      (e.g. 1.3.0-dev.1)")
               print("    MAJOR.MINOR.PATCH-beta.N     (e.g. 1.3.0-beta.2)")
               print("    MAJOR.MINOR.PATCH-rc.N       (e.g. 1.3.0-rc.3)")
               failed = True

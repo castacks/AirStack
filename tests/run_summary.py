@@ -14,7 +14,7 @@ import statistics
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from harness.run_meta import classify_run
+from harness.run_meta import classify_run, comparability_reason
 from harness.test_ids import canonical_test_id
 
 PARAM_RE = re.compile(r"\[(.+)\]$")
@@ -298,9 +298,11 @@ def build_summary_lines(run_dir: Path) -> list[str]:
         "",
     ]
     if run_meta.get("outcome") not in ("simulation", "non_simulation"):
-        reason = run_meta.get("reason", run_meta.get("outcome", "unknown"))
+        reason = run_meta.get("reason") or comparability_reason(run_meta)
         lines.extend([
             f"Run status: {run_meta.get('outcome', 'unknown')}",
+            f"Failure class: {run_meta.get('failure_class', 'unavailable')}",
+            f"Completion state: {run_meta.get('completion_state', 'unavailable')}",
             f"Simulation metrics are not comparable: {reason}.",
             "",
         ])
@@ -344,6 +346,22 @@ def build_summary_lines(run_dir: Path) -> list[str]:
 
         if not emitted:
             lines.append("(no key metrics recorded)")
+
+        per_robot: dict[str, list[str]] = {}
+        for name in test_names:
+            for key, entry in _metrics_blob(metrics, name).items():
+                match = ROBOT_METRIC_RE.match(key)
+                if not match or match.group(1) not in {item[0] for item in schema}:
+                    continue
+                robot = key.split(".", 1)[0]
+                per_robot.setdefault(robot, []).append(
+                    f"{match.group(1)}={_format_value(match.group(1), entry)}"
+                )
+        if len(per_robot) > 1:
+            lines.append("")
+            lines.append("Per-robot metrics:")
+            for robot, values in sorted(per_robot.items()):
+                lines.append(f"  {robot}: {', '.join(values)}")
 
         if n_iter > 1:
             lines.append("")

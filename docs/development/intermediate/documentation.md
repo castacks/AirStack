@@ -68,7 +68,7 @@ graph LR
 - `/robot1/obstacle_map` (sensor_msgs/PointCloud2) - Obstacles
 
 ### Published
-- `/robot1/trajectory` (airstack_msgs/TrajectorySegment) - Planned trajectory
+- `/robot1/trajectory` (airstack_msgs/TrajectoryXYZVYaw) - Planned trajectory
 
 ## Parameters
 
@@ -84,7 +84,7 @@ Edit `config/my_planner.yaml`...
 ## Usage
 
 \`\`\`bash
-ros2 launch my_planner_bringup my_planner.launch.xml
+ros2 launch my_planner my_planner.launch.xml
 \`\`\`
 
 ## Testing
@@ -100,13 +100,21 @@ colcon test --packages-select my_planner
 
 ### 2. System Documentation
 
-High-level documentation under `docs/` directory.
+High-level documentation under `docs/` directory. The site is organized by the [Diátaxis](https://diataxis.fr) framework — every page is exactly one of four kinds, and the nav tabs mirror them:
 
-**Categories**:
+- **Tutorials**: learning-oriented lessons — a guided path to a working result (e.g. `docs/getting_started/index.md`)
+- **How-to Guides**: task recipes for a competent user, goal in the title (e.g. `docs/gcs/waypoints_and_geofences.md`)
+- **Reference**: austere, complete look-up material — tables over prose (e.g. `docs/robot/autonomy/interface_conventions.md`)
+- **Concepts** (explanation): why the system is shaped this way — no steps (e.g. `docs/robot/autonomy/system_architecture.md`)
 
-- **Tutorials**: Step-by-step workflows (`docs/tutorials/`)
-- **Guides**: In-depth topic coverage (`docs/robot/autonomy/`)
-- **Reference**: Technical specifications (`docs/robot/autonomy/integration_checklist.md`)
+**Which kind is my new doc?** Walk this decision tree:
+
+1. Is the reader *learning by doing*, following you step-by-step to a guaranteed result, with no decisions to make? → **Tutorial**. One golden path, numbered steps, ends with something working. Repeating reference/how-to content is fine here.
+2. Is the reader *accomplishing a task* they already understand, possibly with their own context (different robot, different sim)? → **How-to Guide**. Assume competence; link concepts, don't teach them.
+3. Is the reader *looking something up* — a flag, a topic, a schema, a default? → **Reference**. One canonical home per fact — link to it from everywhere else, never copy it.
+4. Is the reader trying to *understand why*? → **Concepts**. No steps, no option tables. Written standalone — no RFC/PR references (that context belongs in Release Notes).
+
+If your draft does two of these, it's two pages. The most common failure: a how-to that stops to explain design rationale (move it to a Concepts page and link), or a concept page that accumulates setup steps (move them to a how-to). Package READMEs are exempt — they intentionally combine all four for one package (use the template below).
 
 **Structure**:
 ```markdown
@@ -392,7 +400,7 @@ Output in `site/` directory.
 
 - **Module**: A ROS 2 package that implements specific functionality
 - **Layer**: A high-level grouping (interface, sensors, perception, local, global, behavior)
-- **Bringup**: Launch package that orchestrates a layer
+- **Stack**: A folder under `stacks/` whose entry launch file wires modules together (see [AirStack Stacks](../stacks.md))
 - **Topic**: ROS 2 topic for inter-node communication
 - **Node**: ROS 2 node (running process)
 
@@ -416,7 +424,7 @@ When adding or modifying documentation:
 
 ### AI-Assisted Documentation
 
-Use the [AI Agent Guide](ai_agent_guide.md) for automated documentation tasks:
+Use the [AI Agent Guide](../advanced/ai_agent_guide.md) for automated documentation tasks:
 
 - Generate README.md from code
 - Update mkdocs.yml navigation
@@ -427,7 +435,7 @@ Use the [AI Agent Guide](ai_agent_guide.md) for automated documentation tasks:
 
 Use the `update-documentation` skill:
 
-See: [.agents/skills/update-documentation](.agents/skills/update-documentation)
+See: [.agents/skills/update-documentation](../../../.agents/skills/update-documentation/SKILL.md)
 
 ## Common Issues
 
@@ -457,6 +465,6 @@ See: [.agents/skills/update-documentation](.agents/skills/update-documentation)
 ## See Also
 
 - [Contributing Guide](contributing.md) - Overall contribution workflow
-- [AI Agent Guide](ai_agent_guide.md) - Automated documentation generation
+- [AI Agent Guide](../advanced/ai_agent_guide.md) - Automated documentation generation
 - [MkDocs Material Documentation](https://squidfunk.github.io/mkdocs-material/) - MkDocs features
 - [Mermaid Documentation](https://mermaid.js.org/) - Diagram syntax

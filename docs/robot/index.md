@@ -21,28 +21,26 @@ robot/
 ├── ros_ws/                           # ROS 2 workspace
 │   └── src/                          # Source packages (layered architecture)
 │       ├── autonomy_bringup/         # Top-level launch orchestration
+│       ├── common/                   # Shared packages & utilities
 │       ├── interface/                # Hardware interface & safety
 │       │   ├── interface_bringup/
 │       │   ├── mavros_interface/
-│       │   └── ...
+│       │   └── robot_interface/
 │       ├── sensors/                  # Sensor integration
-│       │   ├── sensors_bringup/
-│       │   └── ...
+│       │   └── lidar_point_cloud_filter/
 │       ├── perception/               # State estimation & perception
-│       │   ├── perception_bringup/
-│       │   └── ...
+│       │   └── perception_bringup/
 │       ├── local/                    # Local planning, control, world models
-│       │   ├── local_bringup/
 │       │   ├── planners/
-│       │   ├── c_controls/
+│       │   ├── controls/
 │       │   └── world_models/
 │       ├── global/                   # Global planning & mapping
 │       │   ├── global_bringup/
 │       │   ├── planners/
 │       │   └── world_models/
-│       └── behavior/                 # High-level decision making
-│           ├── behavior_bringup/
-│           └── ...
+│       ├── behavior/                 # High-level decision making
+│       │   └── drone_safety_monitor/
+│       └── modules/                  # Synced external modules
 └── bags/                             # ROS 2 bag recordings
 ```
 
@@ -58,20 +56,24 @@ The robot autonomy stack is launched via Docker Compose. The configuration is in
 
 ### Launch Command Hierarchy
 
-The Docker `command:` attribute launches the top-level ROS 2 launch file, which cascades through autonomy layers:
+The Docker `command:` attribute launches the top-level ROS 2 launch file,
+which runs a shared preamble and then the selected **stack** entry file —
+the stack is the only dispatch mechanism (see
+[Stacks](../development/stacks.md)):
 
 ```
-robot.launch.xml                      # Entry point (robot_bringup)
-  └── autonomy.launch.xml             # Autonomy orchestration (autonomy_bringup)
-      ├── interface.launch.xml        # Hardware interface
-      ├── sensors.launch.xml          # Sensor drivers
-      ├── perception.launch.xml       # State estimation
-      ├── local.launch.xml            # Local planning & control
-      ├── global.launch.xml           # Global planning & mapping
-      └── behavior.launch.xml         # Mission execution
+robot.launch.xml                        # Entry point (autonomy_bringup):
+  ├── (preamble: namespace, use_sim_time, robot_state_publisher, world→map TF)
+  └── stacks/<name>/launch/<entry>.launch.xml   # The stack entry file —
+      ├── interface.launch.py                   # a flat list of module
+      ├── lidar_point_cloud_filter.launch.xml   # includes; every connection
+      ├── stereo_image_proc.launch.xml          # is written down here
+      ├── ... (local, global, behavior modules)
+      └── interpolate_dds_router / gossip
 ```
 
-Each `*_bringup` package contains launch files that orchestrate modules in that layer.
+No stack selected = `stacks/full_default`. Each module package ships its own
+canonical launch file; the stack entry file is the single wiring locus.
 
 ### Quick Reference
 
@@ -80,10 +82,10 @@ Each `*_bringup` package contains launch files that orchestrate modules in that 
 airstack up robot-desktop
 
 # Start without auto-launch (for development)
-AUTOLAUNCH=false airstack up robot-desktop
+airstack up robot-desktop --no-autolaunch
 
 # Multiple robots
-NUM_ROBOTS=3 airstack up robot-desktop
+airstack up robot-desktop --robots 3
 
 # Different platforms (profiles)
 airstack up --profile l4t        # NVIDIA Jetson
@@ -98,19 +100,19 @@ airstack up --profile voxl       # ModalAI VOXL
 
 ## Common Topics
 
-Standard ROS 2 topics used across the autonomy stack:
+The canonical topic/service/action names, message types, and QoS profiles for every interchange point live in the versioned [Interface Conventions Specification](autonomy/interface_conventions.md). A few examples (types per the spec):
 
-| Topic | Type | Description |
+| Topic (example) | Type | Description |
 |-------|------|-------------|
-| `/$ROBOT_NAME/odometry` | [nav_msgs/Odometry](https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Odometry.html) | Best estimate of robot state |
-| `/$ROBOT_NAME/global_plan` | [nav_msgs/Path](https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Path.html) | Target global trajectory |
-| `/$ROBOT_NAME/trajectory_controller/trajectory_override` | airstack_msgs/TrajectoryOverride | Direct trajectory commands |
-| `/$ROBOT_NAME/trajectory_controller/look_ahead` | geometry_msgs/PointStamped | Look-ahead point for planning |
+| `/$ROBOT_NAME/odometry_conversion/odometry` | [nav_msgs/msg/Odometry](https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Odometry.html) | Primary state estimate |
+| `/$ROBOT_NAME/global_plan` | [nav_msgs/msg/Path](https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Path.html) | Global waypoint path |
+| `/$ROBOT_NAME/trajectory_controller/trajectory_override` | airstack_msgs/msg/TrajectoryXYZVYaw | Direct trajectory commands |
 
 **See also:**
 
+- [Interface Conventions Specification](autonomy/interface_conventions.md) - The full topic/service/action reference
 - [System Architecture](autonomy/system_architecture.md) - Complete data flow diagrams
-- [Integration Checklist](autonomy/integration_checklist.md) - Full topic reference
+- [Integration Checklist](autonomy/integration_checklist.md) - Step-by-step module integration
 
 ## Next Steps
 

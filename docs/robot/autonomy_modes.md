@@ -1,13 +1,25 @@
-# Onboard/Offboard Distributed Computing 
+# Onboard/Offboard Distributed Computing
 
-AirStack uses a **role** system to control which planning modules launch inside each container.
-The role is hardcoded per compose service — no environment variables need to be set by hand.
+AirStack uses **stacks** ([docs/development/stacks.md](../development/stacks.md))
+to control which autonomy modules launch inside each container. Each compose
+service carries a default stack — no environment variables need to be set by
+hand. (Stacks are the only dispatch mechanism; a set `AUTONOMY_ROLE`
+environment variable is a preflight error.)
 
-| Role | Value | What runs |
-|---|---|---|
-| **Full** | `full` | Every autonomy module: interface, sensors, perception, local planning, global planning, behavior |
-| **Onboard** | `onboard` | Lite modules only: interface, sensors, perception, local planning, behavior — no global planner |
-| **Offboard** | `offboard` | Global planner only — runs on the GCS paired with onboard robots |
+| Stack | What runs |
+|---|---|
+| **`full_default`** | Every autonomy module: interface, sensors, perception, local planning, global planning, behavior, logging — the default when no stack is selected |
+| **`lite_default`** | Lite modules only: interface, sensors, perception, local planning, behavior — no global planner |
+| **`lite_offload_global:onboard`** | The lite set on the vehicle, bridged to an offboard global half per the stack's `bridge.yaml` |
+| **`lite_offload_global:offboard`** | Global planner + world model only — runs on the GCS paired with onboard robots |
+| **`full_droan_cpu`** | `full_default` with the CPU DROAN local planner (`droan_local_planner` + `disparity_expansion`) instead of the GPU `droan_gl` node |
+| **`full_macvo`** | `full_default` with MAC-VO as the disparity source — requires `airstack module add asm_macvo` first |
+| **`full_mighty`** | `full_default` with the MIGHTY map-based local planner (`asm_mighty` module: planner + acl-mapping voxel world model + NavigateTask bridge) in place of `droan_gl` |
+
+Instead of picking a stack per container, `airstack up --fleet <name>` launches
+a whole **fleet**: `config/fleets/<name>.yaml` declares who exists, which
+vehicle each robot flies, which stack it runs, and which ground hosts run each
+split stack's offboard half — see [Fleets](../development/fleets.md).
 
 ---
 
@@ -17,21 +29,24 @@ Profiles are split into **deployment** and **simulator** categories.
 
 **Deployment profiles:**
 
-| Profile | Machine | Services started | Role(s) |
+| Profile | Machine | Services started | Default stack(s) |
 |---|---|---|---|
-| `desktop` | Dev desktop | `robot-desktop` + `gcs` | `full` |
-| `desktop_split` | Dev desktop | `robot-desktop-onboard` + `robot-offboard` + `gcs` | `onboard` + `offboard` |
-| `l4t` | Jetson | `robot-l4t` + `zed-l4t` | `full` |
-| `l4t_lite` | Jetson | `robot-l4t-onboard` + `zed-l4t` | `onboard` |
-| `voxl` | VOXL2 | `robot-voxl-onboard` | `onboard` (always) |
-| `offboard` | Ground station | `robot-offboard` ×N + `gcs-real` | `offboard` |
+| `desktop` | Dev desktop | `robot-desktop` + `gcs` | `full_default` |
+| `desktop_split` | Dev desktop | `robot-desktop-onboard` + `robot-offboard` + `gcs` | `lite_default` + `lite_offload_global:offboard` |
+| `l4t` | Jetson | `robot-l4t` + `zed-l4t` | `full_default` |
+| `l4t_lite` | Jetson | `robot-l4t-onboard` | `lite_default` |
+| `voxl` (alias `voxl_onboard`) | VOXL2 | `robot-voxl-onboard` | `lite_default` (compute-constrained) |
+| `offboard` | Ground station | `robot-offboard` ×N + `gcs-real` | `lite_offload_global:offboard` |
+
+The hardware-profile defaults are redefinable per deployment (env /
+`--env-file` / `--stack`).
 
 **Simulator profiles (mutually exclusive, `desktop`/`desktop_split` only):**
 
 | Profile | Simulator |
 |---|---|
 | `isaac-sim` | NVIDIA Isaac Sim (Pegasus) |
-| `ms-ms-airsim` | Microsoft AirSim (legacy) (UE4) |
+| `ms-airsim` | Microsoft AirSim (legacy) (UE4) |
 | `simple` | Simple Sim |
 
 Only one simulator profile can be active at a time. `airstack up` will error if multiple are set.
@@ -46,19 +61,19 @@ Combine with a simulator profile.
 ```
 Dev desktop
 ├── simulator (isaac-sim / ms-airsim / simple)
-├── robot-desktop × N   [role: full]
+├── robot-desktop × N   [stack: full_default]
 └── gcs
 ```
 
 ```bash
-# Isaac Sim (set in .env: COMPOSE_PROFILES="desktop,isaac-sim"):
-airstack up
+# Isaac Sim:
+airstack up --sim isaac
 
 # Microsoft AirSim (legacy):
-COMPOSE_PROFILES="desktop,ms-airsim" airstack up
+airstack up --sim airsim
 
 # Multiple simulated robots:
-NUM_ROBOTS=3 airstack up
+airstack up --sim isaac --robots 3
 ```
 
 Each replica gets a unique `ROBOT_NAME` (`robot_1`, `robot_2`, `robot_3`) and `ROS_DOMAIN_ID` (1, 2, 3)
@@ -76,8 +91,8 @@ Use this to debug the split configuration and domain bridge without needing phys
 ```
 Dev desktop
 ├── simulator (isaac-sim / ms-airsim / simple)
-├── robot-desktop-onboard × N   [role: onboard, ROS_DOMAIN_ID = 1..N]
-├── robot-offboard × N          [role: offboard, ROS_DOMAIN_ID = 0]
+├── robot-desktop-onboard × N   [stack: lite_default, ROS_DOMAIN_ID = 1..N]
+├── robot-offboard × N          [stack: lite_offload_global:offboard, ROS_DOMAIN_ID = 0]
 └── gcs                         [domain 0]
 ```
 
@@ -91,8 +106,11 @@ airstack --profile desktop_split --profile isaac-sim up
 !!! note "Domain isolation"
     Onboard containers run on `ROS_DOMAIN_ID` 1, 2, 3… (one per robot).
     All offboard containers and the GCS share `ROS_DOMAIN_ID=0`.
-    A `domain_bridge` node inside each `robot-offboard` container bridges only the
-    necessary topics across the domain boundary to avoid flooding the radio link.
+    The DDS router bridges only the topics listed in the split stack's
+    `bridge.yaml` across the domain boundary to avoid flooding the radio
+    link — generate its config first:
+    `python3 tools/gen_dds_router.py stacks/lite_offload_global/bridge.yaml`
+    (or `airstack fleet generate <fleet>`).
 
 ---
 
@@ -116,8 +134,8 @@ Lite modules run on the Jetson; global planning runs on the ground station.
 # On the Jetson:
 airstack --profile l4t_lite up
 
-# On the ground station (set NUM_ROBOTS to match fleet size):
-NUM_ROBOTS=3 airstack --profile offboard up
+# On the ground station (--robots must match the fleet size):
+airstack --profile offboard up --robots 3
 ```
 
 ---
@@ -132,7 +150,7 @@ for global planning. Global planning must always run on the GCS.
 airstack --profile voxl up
 
 # On the ground station:
-NUM_ROBOTS=3 airstack --profile offboard up
+airstack --profile offboard up --robots 3
 ```
 
 ---
@@ -142,18 +160,23 @@ NUM_ROBOTS=3 airstack --profile offboard up
 If `AUTOLAUNCH=false`, containers start idle. Launch manually inside the container:
 
 ```bash
-# Full role (desktop or l4t):
-ros2 launch autonomy_bringup robot.launch.xml role:=full sim:=false
+# Full stack (desktop or l4t) — also the default with no stack args:
+ros2 launch autonomy_bringup robot.launch.xml sim:=false \
+    stack_dir:=/root/AirStack/stacks/full_default
 
-# Onboard role (VOXL, l4t_lite, desktop_split onboard):
-ros2 launch autonomy_bringup robot.launch.xml role:=onboard sim:=false
+# Lite stack (VOXL, l4t_lite, desktop_split onboard):
+ros2 launch autonomy_bringup robot.launch.xml sim:=false \
+    stack_dir:=/root/AirStack/stacks/lite_default
 
-# Offboard role (GCS):
-ros2 launch autonomy_bringup robot.launch.xml role:=offboard sim:=false
+# Offboard half of the split stack (GCS):
+ros2 launch autonomy_bringup robot.launch.xml sim:=false \
+    stack_dir:=/root/AirStack/stacks/lite_offload_global stack_entry:=offboard
 ```
 
-`desktop_bringup` wraps the above and adds RViz (only when `sim:=true`):
+`desktop_bringup` wraps the above and adds RViz (only when `sim:=true`);
+the stack selection flows through the `AIRSTACK_STACK_DIR` /
+`AIRSTACK_STACK_ENTRY` env vars:
 
 ```bash
-ros2 launch desktop_bringup robot.launch.xml role:=full sim:=true
+ros2 launch desktop_bringup robot.launch.xml sim:=true
 ```

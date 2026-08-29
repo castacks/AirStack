@@ -54,6 +54,7 @@ install(TARGETS trajectory_controller fixed_trajectory_task
 
 install(DIRECTORY
   launch
+  config
   DESTINATION share/${PROJECT_NAME}/
   )
 

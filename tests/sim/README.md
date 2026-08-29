@@ -16,5 +16,7 @@ are not part of the onboard ROS workspace, so `colcon test` does not run them.
 
 Tests needing a GPU, a full sim, or Docker belong in [`../system/`](../system/) instead.
 
-Currently listed: `optitrack.natnet.emulator`
-([source](../../simulation/isaac-sim/extensions/optitrack.natnet.emulator/)).
+Currently listed: none. The OptiTrack NatNet emulator moved to the
+[asm_optitrack module](https://github.com/castacks/asm_optitrack), whose unit tests run
+in the module repo's CI. Add new sim-side components under the `sim:` key when they
+gain a co-located `test/` dir.

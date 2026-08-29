@@ -40,12 +40,27 @@ function cmd_mymodule_action {
     return 0
 }
 
+# Dispatcher: routes `airstack mymodule <subcommand>` to the right function.
+function cmd_mymodule_dispatch {
+    local sub="${1:-help}"
+    if [ $# -gt 0 ]; then shift; fi
+    case "$sub" in
+        action) cmd_mymodule_action "$@" ;;
+        help|-h|--help) print_command_help mymodule ;;
+        *)
+            log_error "Unknown mymodule subcommand: '$sub'"
+            print_command_help mymodule
+            return 1
+            ;;
+    esac
+}
+
 # Register commands from this module
 function register_mymodule_commands {
-    COMMANDS["mymodule:action"]="cmd_mymodule_action"
+    COMMANDS["mymodule"]="cmd_mymodule_dispatch"
     
     # Add command help
-    COMMAND_HELP["mymodule:action"]="Description of your command"
+    COMMAND_HELP["mymodule"]="Description of your command group: action (see 'airstack help mymodule')"
 }
 ```
 
@@ -62,7 +77,14 @@ To ensure consistency and avoid conflicts:
 - Module filenames should use lowercase and end with `.sh`
 - Command functions should be prefixed with `cmd_`
 - Registration functions should be named `register_<modulename>_commands`
-- Command names should use the format `<module>:<command>`
+- A module registers ONE top-level command (its group name); subcommands are
+  routed by a `cmd_<modulename>_dispatch` function, invoked as
+  `airstack <module> <subcommand>` (see the `fleet`, `osmo`, `config`, and
+  `images` groups for reference)
+- To rename or deprecate a command spelling without breaking scripts, register
+  the old name as a forwarding alias and set `COMMAND_HIDDEN["<old-name>"]=1`
+  so it keeps working but no longer appears in `airstack help` /
+  `airstack commands`
 
 ## Available Utilities
 
@@ -112,12 +134,27 @@ function cmd_sysinfo_resources {
     return 0
 }
 
+# Dispatcher for the `sysinfo` command group.
+function cmd_sysinfo_dispatch {
+    local sub="${1:-help}"
+    if [ $# -gt 0 ]; then shift; fi
+    case "$sub" in
+        resources) cmd_sysinfo_resources "$@" ;;
+        help|-h|--help) print_command_help sysinfo ;;
+        *)
+            log_error "Unknown sysinfo subcommand: '$sub'"
+            print_command_help sysinfo
+            return 1
+            ;;
+    esac
+}
+
 # Register commands from this module
 function register_sysinfo_commands {
-    COMMANDS["sysinfo:resources"]="cmd_sysinfo_resources"
+    COMMANDS["sysinfo"]="cmd_sysinfo_dispatch"
     
     # Add command help
-    COMMAND_HELP["sysinfo:resources"]="Check system resources (CPU, memory, disk)"
+    COMMAND_HELP["sysinfo"]="System information: resources (see 'airstack help sysinfo')"
 }
 ```
 
@@ -130,7 +167,7 @@ chmod +x .airstack/modules/sysinfo.sh
 Now you can use your new command:
 
 ```bash
-./airstack.sh sysinfo:resources
+./airstack.sh sysinfo resources
 ```
 
 ## Best Practices for Module Development
@@ -145,54 +182,76 @@ When developing modules for the AirStack CLI, follow these best practices:
 6. **Use consistent formatting**: Follow the style of the existing modules
 7. **Document your module**: Include comments explaining what your module does
 
-## Real-World Example: WinTAK Module
+## Real-World Example: Config Module
 
-The WinTAK module provides commands for installing and managing the WinTAK virtual machine:
+The config module (`.airstack/modules/config.sh`) provides commands for configuring the AirStack environment:
 
 ```bash
 #!/usr/bin/env bash
 
-# wintak.sh - WINTAK-related commands for AirStack
-# This module provides commands for installing and managing WINTAK
+# config.sh - Configuration-related commands for AirStack
+# This module provides commands for configuring the AirStack environment
 
-# Function to install WINTAK
-function cmd_wintak_install {
-    log_info "Installing WINTAK..."
-    
+# Function to configure Isaac Sim settings
+function cmd_config_isaac_sim {
+    log_info "Configuring Isaac Sim..."
+
     # Implementation details...
-    
+
     return 0
 }
 
-# Function to start WINTAK
-function cmd_wintak_start {
-    log_info "Starting WinTAK..."
-    
+# Function to configure AirLab Omniverse Nucleus Server login
+function cmd_config_nucleus {
+    log_info "Configuring Nucleus..."
+
     # Implementation details...
-    
+
     return 0
 }
 
-# Function to stop WINTAK
-function cmd_wintak_stop {
-    log_info "Stopping WinTAK..."
-    
+# Function to set up Git hooks
+function cmd_config_git_hooks {
+    log_info "Configuring Git hooks..."
+
     # Implementation details...
-    
+
     return 0
+}
+
+# Function to run all configuration tasks
+function cmd_config_all {
+    cmd_config_isaac_sim
+    cmd_config_nucleus
+    cmd_config_git_hooks
+}
+
+# Dispatcher for the `config` command group. Bare `airstack config` runs
+# all configuration tasks.
+function cmd_config_dispatch {
+    local sub="${1:-all}"
+    if [ $# -gt 0 ]; then shift; fi
+    case "$sub" in
+        all)       cmd_config_all "$@" ;;
+        isaac-sim) cmd_config_isaac_sim "$@" ;;
+        nucleus)   cmd_config_nucleus "$@" ;;
+        git-hooks) cmd_config_git_hooks "$@" ;;
+        help|-h|--help) print_command_help config ;;
+        *)
+            log_error "Unknown config subcommand: '$sub'"
+            print_command_help config
+            return 1
+            ;;
+    esac
 }
 
 # Register commands from this module
-function register_wintak_commands {
-    COMMANDS["wintak:install"]="cmd_wintak_install"
-    COMMANDS["wintak:start"]="cmd_wintak_start"
-    COMMANDS["wintak:stop"]="cmd_wintak_stop"
-    
-    # Add command help
-    COMMAND_HELP["wintak:install"]="Install WinTAK VirtualBox environment"
-    COMMAND_HELP["wintak:start"]="Start WinTAK virtual machine"
-    COMMAND_HELP["wintak:stop"]="Stop WinTAK virtual machine"
+function register_config_commands {
+    COMMANDS["config"]="cmd_config_dispatch"
+    COMMAND_HELP["config"]="Configure AirStack: all (default)|isaac-sim|nucleus|git-hooks"
 }
 ```
 
-This module provides three commands for managing WinTAK: `wintak:install`, `wintak:start`, and `wintak:stop`.
+This module provides one command group for configuring the environment:
+`airstack config` (all tasks), `airstack config isaac-sim`,
+`airstack config nucleus`, and `airstack config git-hooks`.

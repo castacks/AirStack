@@ -12,19 +12,18 @@ Perception forms the foundation of the autonomy stack by:
 
 ## Launch
 
-Launch files are located under `robot/ros_ws/src/perception/perception_bringup/launch/`.
-
-The main launch command is:
+Module launch files are located under
+`robot/ros_ws/src/perception/perception_bringup/launch/`. The stack entry
+files include them directly:
 ```bash
-ros2 launch perception_bringup perception.launch.xml
+ros2 launch perception_bringup stereo_image_proc.launch.xml
+ros2 launch perception_bringup topic_keepalive.launch.xml
 ```
 
 ## Key Topics
 
 ### Outputs
-- `/{robot_name}/odometry` - Best estimate of robot state (position, orientation, velocities)
-- `/{robot_name}/pose` - Current robot pose
-- `/{robot_name}/imu/data` - Processed IMU data
+- `/{robot_name}/odometry_conversion/odometry` (`nav_msgs/Odometry`) - Best estimate of robot state (position, orientation, velocities). This is the v1 canonical state topic — see [Interface Conventions §2](../interface_conventions.md); plain `/{robot_name}/odometry` is the intended v2 name.
 
 ### Inputs
 - Raw sensor data from sensors layer (cameras, IMU, GPS, depth sensors)
@@ -35,11 +34,11 @@ State estimation and related perception packages live under `robot/ros_ws/src/pe
 
 ### External pose (motion capture)
 
-- [**NatNet (OptiTrack)**](../../../../robot/ros_ws/src/perception/natnet_ros2/README.md) — Receives rigid-body poses from an external Motive PC over NatNet UDP and publishes `/{robot_name}/perception/optitrack/...` topics. Optional MAVROS bridge for PX4 vision pose. Enabled with `LAUNCH_NATNET=true` in `.env` (off by default).
+- [**OptiTrack (asm_optitrack module)**](../../optitrack.md) — NatNet mocap support (rigid-body poses from a Motive PC, PX4 external-vision fusion bridges), provided by the [asm_optitrack module](https://github.com/castacks/asm_optitrack). Add it with `airstack module add https://github.com/castacks/asm_optitrack --version <tag>`; see [AirStack Modules](../../../development/modules.md).
 
 ## Configuration
 
-Perception parameters are configured in `perception_bringup/config/` directory. Common parameters include:
+Perception parameters live in each module package's own `config/` YAML files, overridden per-stack via launch arguments in the stack entry file (`stacks/<name>/launch/*.launch.xml`). Common parameters include:
 
 - Sensor topics to subscribe to
 - Fusion algorithm parameters

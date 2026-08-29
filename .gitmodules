@@ -4,12 +4,6 @@
 [submodule "robot/ros_ws/src/global/world_models/vdb_mapping_ros2"]
 	path = robot/ros_ws/src/global/world_models/vdb_mapping_ros2
 	url = https://github.com/castacks/vdb_mapping_ros2.git
-[submodule "robot/ros_ws/src/perception/macvo_ros2/macvo_ros2/macvo"]
-	path = robot/ros_ws/src/perception/macvo_ros2/macvo_ros2/macvo
-	url = https://github.com/MAC-VO/MAC-VO.git
-[submodule "robot/ros_ws/src/rviz_behavior_tree_panel/xdot_cpp"]
-	path = common/ros_packages/gui/rviz/rviz_behavior_tree_panel/xdot_cpp
-	url = https://github.com/castacks/xdot_cpp.git
 [submodule "simulation/isaac-sim/extensions/PegasusSimulator"]
 	path = simulation/isaac-sim/extensions/PegasusSimulator
 	url = https://github.com/castacks/PegasusSimulator-AirStack-Integration.git
@@ -17,4 +11,3 @@
 [submodule "common/ros_packages/gui/rviz/rviz_polygon_selection_tool"]
 	path = common/ros_packages/gui/rviz/rviz_polygon_selection_tool
 	url = https://github.com/swri-robotics/rviz_polygon_selection_tool.git
-

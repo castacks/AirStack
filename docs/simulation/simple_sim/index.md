@@ -1,177 +1,67 @@
 # Simple Sim
 
-Simple Sim is a lightweight 2D/3D simulator for basic testing and development when full Isaac Sim fidelity isn't needed.
-
-## Overview
-
-Simple Sim provides a faster, more resource-efficient alternative to Isaac Sim for:
-
-- **Quick algorithm prototyping** - Faster iteration cycles
-- **CI/CD testing** - Lightweight enough for automated testing pipelines
-- **Lower hardware requirements** - Works on systems without high-end GPUs
-- **Basic flight dynamics** - Sufficient for many planning and control algorithms
-
-**Trade-offs:**
-
-- ✅ Faster startup and execution
-- ✅ Lower computational requirements
-- ✅ Simpler scene setup
-- ❌ Less realistic physics
-- ❌ Limited sensor simulation
-- ❌ Basic graphics (no photorealism)
-
-## Use Cases
-
-### Algorithm Development
-
-Test planning and control algorithms without full simulation overhead:
-
-```bash
-airstack up simple-sim robot
-```
-
-Your ROS 2 autonomy stack connects to Simple Sim just like Isaac Sim.
-
-### Continuous Integration
-
-Run automated tests in CI pipelines:
-
-```bash
-# In CI script
-airstack up --profile simple simple-robot
-# Run tests...
-airstack down
-```
-
-### Resource-Constrained Environments
-
-Develop on laptops or systems without high-end GPUs:
-
-- Works with integrated graphics
-- Lower RAM requirements (~4GB vs 16GB+)
-- Faster container startup
-
-## Architecture
-
-Simple Sim is built on:
-
-- **ROS 2 native** - Direct ROS 2 integration
-- **Lightweight physics** - Basic dynamics simulation
-- **2D/3D visualization** - RViz-compatible
-- **Configurable dynamics** - Tune flight characteristics
-
-### Comparison with Isaac Sim
-
-| Feature | Isaac Sim | Simple Sim |
-|---------|-----------|------------|
-| **Graphics** | Photorealistic raytracing | Basic 3D rendering |
-| **Physics** | NVIDIA PhysX (high-fidelity) | Simplified dynamics |
-| **Sensors** | Full suite (cameras, LiDAR, etc.) | Basic sensors |
-| **Startup time** | 30-60 seconds | 5-10 seconds |
-| **GPU requirements** | RTX 3070+ | Integrated graphics OK |
-| **RAM requirements** | 16GB+ | 4GB+ |
-| **Scene authoring** | USD format (Omniverse) | Configuration files |
-| **Multi-robot** | Full support | Full support |
+Simple Sim is AirStack's lightweight kinematic simulator: a single C++ ROS 2
+node that flies a simplified drone model through one OpenGL-rendered mesh
+world — **no PX4, no MAVROS, no Isaac Sim**. It is actively used by core
+maintainer John Keller for fast planner/perception iteration.
 
 ## Quick Start
 
-### Launch Simple Sim
+```bash
+airstack up --sim simple
+```
+
+This starts two containers:
+
+- **`simple-sim`** — the simulator ([`simulation/simple-sim/`](https://github.com/castacks/AirStack/tree/main/simulation/simple-sim)). On first start it downloads the world mesh (`models/download.sh`), colcon-builds its small workspace, then runs `ros2 launch sim sim.launch.xml` on `ROS_DOMAIN_ID=1`.
+- **`airstack-simple-robot-1`** — the autonomy stack. The `simple-robot` compose service extends `robot-desktop` with `SIM_TYPE=simple`, which makes the interface layer **skip MAVROS** (`interface_bringup/launch/interface.launch.py`); everything else in the stack launches as usual.
+
+`--sim simple` deliberately drops the `desktop` profile: `simple-robot`
+*replaces* `robot-desktop` (both would otherwise claim `robot_1` on domain 1),
+and no GCS container is started.
+
+## How it works
+
+The sim node (`MavrosMockNode`, launched as `/sim`) **impersonates the MAVROS
+surface** the autonomy stack talks to, so the stack runs unmodified minus
+MAVROS itself:
+
+| Direction | Interface |
+|---|---|
+| Serves | `/robot_1/interface/mavros/set_mode`, `.../cmd/arming`, `.../cmd/takeoff` |
+| Subscribes | `/robot_1/interface/mavros/setpoint_raw/attitude` (attitude + thrust setpoints) |
+| Publishes | `/robot_1/interface/mavros/state`, `/robot_1/interface/mavros/local_position/odom`, `/clock` |
+| Publishes | `/robot_1/sensors/front_stereo/{left,right}/image_rect` + `camera_info` (OpenGL-rendered stereo pair of the FBX world) |
+
+Static TFs for the stereo pair (`base_link` → camera links → optical frames)
+are published by the sim's launch file. After a takeoff service call the sim
+briefly runs in a fast-forward mode to skip the stack's post-takeoff wait.
+
+**Single robot only:** all topics and services are hardcoded to `robot_1` on
+`ROS_DOMAIN_ID=1`. There is no multi-robot support.
+
+## When to use it
+
+- Fast iteration on planning / control / stereo-perception code — startup is a
+  small colcon build plus a mesh load, not an Isaac Sim boot.
+- Machines without an Isaac-class GPU or Omniverse credentials. (The container
+  still needs OpenGL: an X display is mounted in, and the compose file
+  reserves an NVIDIA GPU via the nvidia container runtime.)
+- Not for: PX4/MAVROS behavior, LiDAR, physics fidelity, multi-robot, or
+  final validation — use [Isaac Sim](../isaac_sim/index.md) for those.
+
+## Smoke test
+
+A dedicated system test verifies the simple-sim bring-up (containers,
+`/clock`, mock-MAVROS odometry reaching the robot, and the `SIM_TYPE=simple`
+sentinel nodes — MAVROS intentionally absent):
 
 ```bash
-# Launch Simple Sim only
-airstack up --profile simple simple-sim
-
-# Launch with robot stack
-airstack up --profile simple simple-robot
+airstack test -m simple_sim --sim simplesim --num-robots 1 -v
 ```
-
-### Verify Connection
-
-```bash
-# Check ROS 2 topics
-docker exec airstack-simple-robot-1 bash -c "ros2 topic list | grep simple"
-```
-
-## Configuration
-
-Simple Sim configuration is in `simulation/simple-sim/ros_ws/`:
-
-```
-simulation/simple-sim/
-├── docker/                    # Docker configuration
-│   ├── docker-compose.yaml
-│   └── Dockerfile.sim
-├── models/                    # 3D models
-│   └── download.sh            # Model download script
-└── ros_ws/                    # Simple Sim ROS workspace
-    └── src/
-        └── sim/               # Simulator package
-            ├── config/        # Configuration files
-            └── launch/        # Launch files
-```
-
-### Customizing Flight Dynamics
-
-Edit configuration in `simulation/simple-sim/ros_ws/src/sim/config/`:
-
-```yaml
-# Example: drone dynamics parameters
-mass: 1.5  # kg
-max_thrust: 20.0  # N
-drag_coefficient: 0.1
-```
-
-## Development Workflow
-
-### Testing Algorithm Changes
-
-1. **Start Simple Sim:**
-   ```bash
-   airstack up --profile simple simple-robot
-   ```
-
-2. **Make changes** to autonomy code on host
-
-3. **Rebuild in container:**
-   ```bash
-   docker exec airstack-simple-robot-1 bash -c "bws --packages-select my_planner"
-   ```
-
-4. **Test immediately** (faster than Isaac Sim restart)
-
-### Transitioning to Isaac Sim
-
-Once algorithms work in Simple Sim, test in Isaac Sim:
-
-```bash
-# Stop Simple Sim
-airstack down
-
-# Start Isaac Sim
-airstack up robot isaac-sim
-```
-
-Code changes are minimal - same ROS 2 topics and interfaces.
-
-## Limitations
-
-**What Simple Sim can't do:**
-
-- Photorealistic rendering
-- Complex sensor simulation (cameras, LiDAR)
-- Accurate aerodynamic effects
-- Detailed collision physics
-- Custom 3D environments (limited to basic models)
-
-**When to use Isaac Sim instead:**
-
-- Visual perception algorithm development
-- Realistic sensor simulation needed
-- Complex environment interactions
-- Final validation before hardware deployment
 
 ## See Also
 
-- [Docker Configuration](docker.md) - Simple Sim container setup
-- [Isaac Sim](../isaac_sim/index.md) - High-fidelity simulation alternative
-- [Simulation Overview](../index.md) - Main simulation documentation
+- [Docker Configuration](docker.md) — the `simple-sim` container in detail
+- [Isaac Sim](../isaac_sim/index.md) — high-fidelity alternative
+- [Simulation Overview](../index.md)

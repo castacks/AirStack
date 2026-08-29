@@ -38,10 +38,41 @@ SIM_CONFIG = {
             "ENABLE_LIDAR": "true",
         },
     },
+    # simple-sim (lightweight kinematic sim, no PX4/MAVROS): the sim node mocks
+    # the MAVROS surface directly, hardcoded to robot_1 on domain 1. Only the
+    # `simple_sim` smoke test (tests/system/test_simple_sim.py) targets it —
+    # run `airstack test -m simple_sim --sim simplesim --num-robots 1`.
+    "simplesim": {
+        "profile": "simple",
+        "sim_container": "simple-sim",  # container_name in simple-sim compose
+        # /clock is rosgraph_msgs — the base distro setup is enough (the sim
+        # workspace colcon-builds at container start, so its setup.bash may
+        # not exist yet on early probe attempts).
+        "sim_setup_bash": "/opt/ros/jazzy/setup.bash",
+        "robot_setup_bash": "/root/AirStack/robot/ros_ws/install/setup.bash",
+        # simple-robot (SIM_TYPE=simple) REPLACES robot-desktop: the desktop
+        # profile must stay off or both robot containers claim robot_1/domain 1.
+        # No GCS either — matches `airstack up --sim simple`.
+        "compose_profiles": "simple",
+        "robot_pattern": "simple-robot",
+        "extra_env": {},
+    },
 }
 
 
-def wait_for_first_message(container, topic, domain_id, setup_bash, timeout=60):
+class SimulatorHealthError(RuntimeError):
+    """A readiness wait stopped because its simulator process became unhealthy."""
+
+
+def wait_for_first_message(
+    container,
+    topic,
+    domain_id,
+    setup_bash,
+    timeout=60,
+    health_check=None,
+    health_grace=15,
+):
     """Wait up to `timeout` seconds for one message on `topic`. Returns seconds
     elapsed on success, None on timeout. Each attempt sources the workspace
     and runs `ros2 topic echo --once`; if the workspace isn't built yet or the
@@ -54,6 +85,17 @@ def wait_for_first_message(container, topic, domain_id, setup_bash, timeout=60):
     attempt = 0
     while time.time() < deadline:
         attempt += 1
+        if health_check is not None and time.time() - start >= health_grace:
+            health = health_check()
+            if isinstance(health, tuple):
+                healthy, detail = health
+            else:
+                healthy, detail = bool(health), "simulator health probe failed"
+            if not healthy:
+                raise SimulatorHealthError(
+                    f"infrastructure simulator process failure while waiting "
+                    f"for {topic}: {detail}"
+                )
         per_attempt = min(max(1, int(deadline - time.time())), 10)
         try:
             result = ros2_exec(

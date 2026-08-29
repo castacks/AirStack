@@ -110,8 +110,10 @@ tmux source ~/.tmux.conf
 if [ ! -h ~/.bash_history ]; then
     # File is not a symlink
     rm ~/.bash_history || echo "No existing .bash_history to remove"
-    # initialize .bash_history file if doesn't exist yet
-    if [ ! -d ~/.dev/.bash_history ]; then
+    # Seed .bash_history only when the file doesn't exist yet (-f, not -d:
+    # the old directory test was always false for a file, so every shell
+    # start clobbered the persisted history with the init seed).
+    if [ ! -f ~/.dev/.bash_history ]; then
         cp ~/.dev/.bash_history_init ~/.dev/.bash_history
     fi
     # symlink to ~/.dev/.bash_history
@@ -134,7 +136,9 @@ export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 export ISAAC_SIM_PYTHONPATH=$(echo "${PYTHONPATH:-}" | tr ':' '\n' | grep -v 'lib/python3.12/site-packages' | paste -sd ':' -):/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy
 
 # --- Isaac Setup ---
-alias runapp="/isaac-sim/runapp.sh --path omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Ascent_Aerosystems/Spirit_UAV/spirit_uav_red_yellow.prop.usd"
+# Opens the plain Isaac Sim GUI (no scene). AirStack scenes are launched via
+# the launch_scripts/ standalone path instead — see the compose command.
+alias runapp="/isaac-sim/runapp.sh"
 alias runheadless.native=/isaac-sim/runheadless.native.sh
 alias runheadless.webrtc=/isaac-sim/runheadless.webrtc.sh
 

@@ -1,0 +1,15 @@
+# Registry entry for the full_macvo trunk reference stack (schema/stack-entry.schema.json).
+name: full_macvo
+repo: https://github.com/castacks/AirStack
+path: stacks/full_macvo
+description: >-
+  Full autonomy with MAC-VO learned stereo visual odometry as the disparity
+  source for the local planner (droan_gl consumes
+  /$ROBOT_NAME/perception/macvo/disparity)
+airstack_compat: ">=0.19.0-alpha.18 <0.21.0"   # from the stack's modules.repos airstack_compat key
+wiring: stacks/full_macvo/wiring.md            # docs site embeds the CI-generated wiring.md from trunk
+notes: >-
+  Requires the macvo module (registry: modules/macvo.yaml) — its modules.repos
+  pins asm_macvo, currently at a placeholder v0.1.0 tag pending the module's
+  first release (asm_macvo TRUNK_REMOVAL.md §0). One of the presets absorbing
+  trunk's local_*.launch.xml variant explosion into named stacks.

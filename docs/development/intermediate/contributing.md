@@ -13,16 +13,17 @@ If you need to add a dependency that's not in the docker image, please add a sec
 Please make sure to document your work.
 Docs are under `AirStack/docs/`. The navigation tree is under `AirStack/mkdocs.yml`.
 
+The site nav is organized by the [Diátaxis](https://diataxis.fr) quadrants — **Tutorials**, **How-to Guides**, **Reference**, and **Concepts**. Every new page is exactly one of the four: pick the quadrant first with the decision tree in the [Documentation Guide](documentation.md#2-system-documentation), then nav-link the page under the matching tab. Module `README.md` files are exempt (they intentionally combine all four for one package).
+
 This documentation is built with Material MKDocs.
 Visit [mkdocs.org](https://www.mkdocs.org) and [mkdocs-material](https://squidfunk.github.io/mkdocs-material/) to learn how to use it.
 
 ### Commands
 
 ```
-pip install mkdocs-material
-mkdocs serve
+airstack docs
 ```
-Launches docs on https://localhost:8000.
+Launches docs on https://localhost:8000 (containerized — no local Python needed; changes auto-reload).
 
 - `mkdocs -h` - Print help message and exit.
 
@@ -81,12 +82,12 @@ To keep the git histories of `main` and `develop` related, a GitHub Actions work
 
 ### VERSION handling on develop
 
-`develop` always carries a pre-release VERSION (e.g. `0.19.0-alpha.3`) so that it stays strictly greater than `main` and satisfies the `Verify VERSION is valid and incremented` check (`.github/workflows/check-version-increment.yml`), which requires every PR to bump `.env`'s `VERSION` above its base branch. The sync workflow bumps `develop`'s VERSION as part of the merge using two rules:
+`develop` always carries a pre-release VERSION (e.g. `0.21.0-dev.3`) so that it stays strictly greater than `main` and satisfies the `Verify VERSION is valid and incremented` check (`.github/workflows/check-version-increment.yml`), which requires every PR to bump `.env`'s `VERSION` above its base branch. The sync workflow bumps `develop`'s VERSION as part of the merge using two rules:
 
 | Condition | Action | Example |
 |---|---|---|
-| `main`'s `x.y.z` ≥ `develop`'s base `x.y.z` (a release just landed on main) | Roll `develop` to the next minor's `alpha.0` | main `0.19.0`, develop `0.19.0-alpha.7` → develop `0.20.0-alpha.0` |
-| `main`'s `x.y.z` < `develop`'s base (a hotfix landed on main) | Preserve `develop`'s pre-release channel and bump the counter | main `0.19.1`, develop `0.20.0-alpha.0` → develop `0.20.0-alpha.1` |
+| `main`'s `x.y.z` ≥ `develop`'s base `x.y.z` (a release just landed on main) | Roll `develop` to the next minor's `dev.0` | main `0.20.0`, develop `0.20.0-dev.7` → develop `0.21.0-dev.0` |
+| `main`'s `x.y.z` < `develop`'s base (a hotfix landed on main) | Preserve `develop`'s pre-release channel and bump the counter | main `0.20.1`, develop `0.21.0-dev.0` → develop `0.21.0-dev.1` |
 
 The workflow auto-resolves conflicts on the `VERSION=` line of `.env` (keeps `develop`'s side, then applies the bump). Any other merge conflict aborts the sync and must be resolved manually:
 

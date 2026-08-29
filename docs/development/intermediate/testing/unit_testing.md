@@ -26,7 +26,7 @@ tests/
 Collected items point straight at the co-located source:
 
 ```
-../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py::test_canonical_quaternion_identity  PASSED
+../robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py::test_validate_filtered_ranges_ok  PASSED
 ```
 
 ## Running unit tests
@@ -60,9 +60,9 @@ gated in CI:
 
 `colcon test` picks up Python tests only when the package's build type makes it: an
 `ament_python` package like `lidar_point_cloud_filter` exposes them through
-`setup.cfg` (`testpaths = test`), while an `ament_cmake` package like `natnet_ros2`
-would need an explicit `ament_add_pytest_test` — it has none, so its Python tests reach
-CI only through the root harness.
+`setup.cfg` (`testpaths = test`), while an `ament_cmake` package would need an
+explicit `ament_add_pytest_test` — without it, its Python tests reach CI only
+through the root harness.
 
 Python unit tests are collected by `unit-tests.yml`'s `pytest tests/ -m unit`
 invocation on PR open, synchronize, and reopen. That job uses GitHub-hosted
@@ -80,9 +80,11 @@ AIRSTACK_ROOT=$(pwd) pytest tests/ -m unit -v
 
 | Package | Test file | What is covered |
 |---|---|---|
-| `natnet_ros2` | `perception/natnet_ros2/test/test_natnet_ros2.py` | `VisionPoseConverterNode._canonical_quaternion` (ROS stubbed with `sys.modules`) |
-| `natnet_ros2` (C++) | `perception/natnet_ros2/test/test_natnet_logic.cpp` | `build_covariance_6x6`, topic name helpers, `ConnectConfig`, `negotiate()` via `FakeNatNetClient` |
 | `lidar_point_cloud_filter` | `sensors/lidar_point_cloud_filter/test/test_validation_core.py` | Pure-numpy LiDAR range validation rules |
+
+(Unit tests for module-owned packages — e.g. `natnet_ros2` in the
+[asm_optitrack module](https://github.com/castacks/asm_optitrack) — live in
+the module repo and run in its CI.)
 
 ## Adding a new unit test
 
@@ -209,4 +211,4 @@ or CI needed.
 - [`.agents/skills/add-unit-tests`](../../../../.agents/skills/add-unit-tests/SKILL.md) — step-by-step agent workflow
 - [System tests](../../../../tests/README.md) — full Docker-stack integration tests
 - [CI/CD](ci_cd.md) — pipeline overview and ephemeral runner architecture
-- [Testing frameworks](testing_frameworks.md) — `colcon test`, ament linters
+- [System test suite reference](../../../../tests/README.md) — marks, fixtures, CLI options
