@@ -197,10 +197,7 @@ ls $HOME/docker/isaac-sim/logs/
 ### Pulling Pre-built Images
 
 ```bash
-# Login to AirLab registry
-docker login airlab-docker.andrew.cmu.edu
-
-# Pull Isaac Sim image
+# Pull Isaac Sim image (the AirLab registry is public — no login needed)
 docker compose -f simulation/isaac-sim/docker/docker-compose.yaml pull
 ```
 
