@@ -66,6 +66,9 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 7 | A3 / claude-opus-5 / #1 | **R3** | 13 / 20 | 4 h 00 m (killed) | n/a (kill lost usage event) | Bare parts: ~2 h 47 m assembling before first R1 pass; in-session reached R6, but the 4 h wall-clock kill hit before consolidation. Final-state scoring: R7 fail (no avoidance), R6 fail (beta up but route degenerate — "route too straight", spline never materialized), R5/R4 unsatisfiable post-swap (designed cascade), R3 pass. |
 | 8 | A4 / claude-sonnet-5 / #1 | **NULL** (0 rungs) | 0 / 0 (open loop) | 1 h 19 m | $14.72 | Declared done at 78 min; final state does not boot — MAVROS never connects, interface/trajectory sentinel nodes missing; all 7 scored rungs failed on real bring-up attempts (consistent → agent-broken state, not flake). Same model+repo as trial 1 (closed loop, R8). |
 
+| 9 | A1 / claude-sonnet-5 / #2 | **R8** (full ladder) | 15 / 20 | 2 h 38 m | $22.06 | Same score as #1, more friction: four-fail R5 provenance arc + one R8 retry. Official R7+R8 pass. |
+| 10 | A2 / claude-opus-5 / #2 | — running | — | — | — | Started 2026-08-29 20:24 UTC. |
+
 ### Round-1 synthesis (8/8 cells, 2026-08-29)
 
 Rung-survival by arm (pooled over models): **A1 R8,R8 · A2 R8,R8 ·
