@@ -47,6 +47,23 @@ services:
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
       # Scene to generate; empty falls back to the launch script default
       - SCENE_CONFIG=${SCENE_CONFIG:-}
+      # A FROZEN DATASET CELL instead of a procedural build. FROZEN_SCENE
+      # WINS over SCENE_CONFIG in the launch script, but only if it gets in
+      # here: without these lines a mission that sets FROZEN_SCENE loses it at
+      # the container boundary, the script sees only SCENE_CONFIG (`suburb`,
+      # from the repo's .env, because `Stack.apply_env` MERGES and cannot
+      # unset), rebuilds the plat procedurally and dies in `load_archetypes` —
+      # the archetype bake is not in git and a pod's clone has none. The crash
+      # names the archetypes, so it reads like a missing-asset problem rather
+      # than like a scene that was never asked for.
+      - FROZEN_SCENE=${FROZEN_SCENE:-}
+      - FROZEN_DATASET_ROOT=${FROZEN_DATASET_ROOT:-}
+      # BARE NAME, like DETECTOR_URL in robot-base-docker-compose.yaml: the
+      # script's default is 'ground' and `${SUBURB_COLLIDERS:-}` would define
+      # this EMPTY, which is not 'off' and not 'ground' — it falls through to
+      # colliding the WHOLE plat (6k+ referenced objects) instead of the ground
+      # sheet. Unset must mean unset.
+      - SUBURB_COLLIDERS
       # Spec overrides: a preset names a KIND of scene, these pick the
       # instance (size, disaster, severity). Unset leaves the preset alone.
       - REGION_M=${REGION_M:-}
@@ -238,6 +255,23 @@ services:
       # import) and a compose default silently overrides both.
       - ENABLE_LIDAR=${ENABLE_LIDAR:-}
       - SCENE_CONFIG=${SCENE_CONFIG:-}
+      # A FROZEN DATASET CELL instead of a procedural build. FROZEN_SCENE
+      # WINS over SCENE_CONFIG in the launch script, but only if it gets in
+      # here: without these lines a mission that sets FROZEN_SCENE loses it at
+      # the container boundary, the script sees only SCENE_CONFIG (`suburb`,
+      # from the repo's .env, because `Stack.apply_env` MERGES and cannot
+      # unset), rebuilds the plat procedurally and dies in `load_archetypes` —
+      # the archetype bake is not in git and a pod's clone has none. The crash
+      # names the archetypes, so it reads like a missing-asset problem rather
+      # than like a scene that was never asked for.
+      - FROZEN_SCENE=${FROZEN_SCENE:-}
+      - FROZEN_DATASET_ROOT=${FROZEN_DATASET_ROOT:-}
+      # BARE NAME, like DETECTOR_URL in robot-base-docker-compose.yaml: the
+      # script's default is 'ground' and `${SUBURB_COLLIDERS:-}` would define
+      # this EMPTY, which is not 'off' and not 'ground' — it falls through to
+      # colliding the WHOLE plat (6k+ referenced objects) instead of the ground
+      # sheet. Unset must mean unset.
+      - SUBURB_COLLIDERS
       # Spec overrides: a preset names a KIND of scene, these pick the
       # instance (size, disaster, severity). Unset leaves the preset alone.
       - REGION_M=${REGION_M:-}

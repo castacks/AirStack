@@ -465,11 +465,23 @@ def main():
         omni.kit.app.get_app().update()
 
     if loose:
+        # `ccd` + `ground_plane_z` + `floor_z`: `/World/ground` (below) is a
+        # flat four-vertex quad, exactly the shape `settle.py`'s own module
+        # docstring names as tunnel-prone at speed. Without a real
+        # half-space and CCD a fast/thin piece can pass clean through it in
+        # one 60 Hz step and never generate a contact — measured on the
+        # identical settle call in `urban_fire_bench_launch_script.py`
+        # (uf_bench_ref, 2026-08-29): 1 body STILL MOVING at bake time,
+        # 454.69 m of horizontal "spread", more than this settle's own
+        # max_speed cap can produce in the time budget unless the body lost
+        # contact with the world. `floor_z=0.0` is the belt: anything still
+        # under grade is clamped back onto it before the bake.
         settle.run(stage, loose, static, steps=SETTLE_STEPS, kick=0.10,
                    rng=random.Random(SEED), bake_result=not KEEP_PHYSICS,
                    velocity_map=vel, density=1600.0, max_speed=6.0,
                    converge=True, max_steps=int(SETTLE_STEPS * 2.5),
-                   quiet_steps=60)
+                   quiet_steps=60, ccd=True, ground_plane_z=0.0,
+                   floor_z=0.0)
     for _ in range(10):
         omni.kit.app.get_app().update()
 

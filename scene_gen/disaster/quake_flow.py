@@ -579,8 +579,51 @@ def _box(stage, path, cx, cy, cz, sx, sy, sz, yaw_deg=0.0, mat=None,
 
 
 def _cyl(stage, path, p0, p1, r, mat=None, sides=7):
-    """A thin tube from p0 to p1 — a rebar. Authored in world space with no
-    xform; it is never simulated."""
+    """A thin tube from p0 to p1 — a rebar.
+
+    POINTS ARE LOCAL, CENTRED ON THE TUBE'S OWN MIDPOINT, with an
+    `xformOp:translate` carrying that midpoint's world position — the same
+    pattern `_box` uses, and for the same reason: `UsdPhysics.RigidBodyAPI`
+    treats the PRIM'S OWN transform as the body's origin/pose, and the
+    mesh's local points as the shape's offset from it. A prim with NO xform
+    ops has that origin at its parent's frame origin; if the points
+    themselves already carry the absolute world position — this function's
+    behaviour before this fix, and the reason the old docstring said
+    "authored in world space with no xform; it is never simulated" — the
+    shape sits wherever those points are, which can be a hundred-plus
+    metres from the body's actual origin on a scene where the caller's
+    building is nowhere near the stage origin.
+
+    THIS WAS THE VENT BUG. `urban_fire.dress_roof_urban` builds its vent
+    stacks with this function and — unlike every other `_cyl` caller in
+    this codebase (rebar, joist and rafter stubs, all decorative statics
+    kept out of `loose`) — hands them to `settle.prepare` via
+    `roof_plant` -> `loose`, so PhysX picked up a rigid body whose origin
+    (0, 0, 0) sat ~145 m from its own collision geometry (measured:
+    `/World/vent_test` authored at world (120, 80, 15), local-to-world
+    translation (0, 0, 0), local points centred on (120, 80, 15.5) — offline
+    repro, no Kit, `scene_gen/tools/usd_python.sh`). That is a moment arm:
+    any angular velocity omega moves the SHAPE (and therefore the translate
+    op `settle.bake` reads back) by roughly `omega * arm` per step, which is
+    how a `max_speed=6.0` linear-speed cap on the origin still produced a
+    205 m 'worst mover' (`vent_b5_14`, uf_fix1, 2026-08-29) — the cap bounds
+    the ORIGIN's speed, not the swept distance of a shape that is not where
+    the origin is. It is also the likely reason so much of the same
+    population tunnelled the floor despite `ground_plane_z` and `ccd=True`
+    (already applied both scene- and actor-side, see `prepare` below): CCD's
+    sweep and PhysX's depenetration both reason about the body's own pose,
+    which here was nowhere near the geometry actually being resolved
+    against the ground.
+
+    Centring here fixes it for every current AND future caller, whether or
+    not the path is ever added to `loose` — the rendered world position is
+    unchanged (translate + local points reproduce the exact same geometry),
+    only the split between 'where the object is' and 'what its shape looks
+    like' is corrected. As a side effect it also moves these tiny meshes
+    off single-precision coordinates of 100+ (where a `Vt.Vec3fArray`
+    float32 already loses a millimetre or two) and onto coordinates near
+    zero, where the same storage is exact to a fraction of a micron.
+    """
     from pxr import Gf, Sdf, UsdGeom, Vt
 
     p0 = np.asarray(p0, float)
@@ -594,6 +637,8 @@ def _cyl(stage, path, p0, p1, r, mat=None, sides=7):
     u = np.cross(ax, ref)
     u /= np.linalg.norm(u)
     v = np.cross(ax, u)
+    c = (p0 + p1) / 2.0
+    p0, p1 = p0 - c, p1 - c
     pts, faces, counts = [], [], []
     for k in range(sides):
         a = 2.0 * math.pi * k / sides
@@ -609,6 +654,10 @@ def _cyl(stage, path, p0, p1, r, mat=None, sides=7):
     m.CreateFaceVertexCountsAttr(Vt.IntArray(counts))
     m.CreateFaceVertexIndicesAttr(Vt.IntArray(faces))
     m.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    lo = [min(p[k] for p in pts) for k in range(3)]
+    hi = [max(p[k] for p in pts) for k in range(3)]
+    m.CreateExtentAttr([Gf.Vec3f(*lo), Gf.Vec3f(*hi)])
+    UsdGeom.Xformable(m).AddTranslateOp().Set(Gf.Vec3d(*c))
     if mat is not None:
         _bind(stage, path, mat)
     return path
@@ -7684,6 +7733,60 @@ def r_roof_hole(ctx, mass="main", frac=None):
                          _translate(rng.uniform(-0.6, 0.6), rng.uniform(-0.6, 0.6),
                                     -(c[2] - z_floor - 0.5)))
         n_in += 1
+    # ROOFTOP PLANT DOES NOT KNOW THE HOLE IS COMING. `dress_roof` /
+    # `dress_roof_urban` lay out tanks, AC units and (on the fire ladder) a
+    # bulkhead and its housekeeping pad BEFORE this recipe runs and before
+    # the hole's outline exists, so a piece can land squarely inside the
+    # polygon this call is about to cut purely by chance of the shared rng
+    # draw. `_b_settle_roof_plant` still hands every one of them to the
+    # solver at the end of the run, but being a rigid body does not
+    # guarantee FALLING: a housekeeping pad spans several hole cells and
+    # only needs to keep a fraction of ITS OWN footprint supported to stay
+    # resting near its authored height, and an AC unit riding on that pad
+    # never loses its own support because the pad under it does not move —
+    # so the row reads as "the roof survived here" from directly above even
+    # though most of the deck beneath it is gone. Same shape as the
+    # "floating elements (water tanks, etc) on top of buildings" bug
+    # `_b_settle_roof_plant` exists to fix (quake_city9), one level up: the
+    # urban-fire case is a housekeeping pad and its condenser row riding out
+    # a burn-through untouched (`ac_b2_3`, F4 commercial bench building,
+    # 2026-08-29). MAJORITY OF THE FOOTPRINT, not the centre point alone — a
+    # small AC unit is near enough to a point that it does not matter, but a
+    # 10+ m pad needs the fairer test or an item hanging off its far end
+    # never trips it. Anything mostly over the hole is dropped explicitly,
+    # the same way a share of the broken roof cells already are just above —
+    # authored at floor level, not left for a rigid neighbour to prop up.
+    from pxr import Usd as _Usd, UsdGeom as _UsdGeom
+
+    def _mostly_in_hole(pth):
+        pr = ctx["stage"].GetPrimAtPath(pth)
+        if not pr or not pr.IsValid():
+            return False
+        bc = _UsdGeom.BBoxCache(_Usd.TimeCode.Default(), [_UsdGeom.Tokens.default_])
+        r = bc.ComputeWorldBound(pr).ComputeAlignedRange()
+        if r.IsEmpty():
+            return False
+        lo, hi = r.GetMin(), r.GetMax()
+        pts = ((lo[0], lo[1]), (hi[0], lo[1]), (hi[0], hi[1]), (lo[0], hi[1]),
+              ((lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0))
+        return sum(1 for x, y in pts if judge((x, y, 0.0))) >= 3
+
+    n_plant_in = 0
+    for pth in list(ctx.get("roof_plant", [])) + list(ctx.get("roof_fixed", [])):
+        pr = ctx["stage"].GetPrimAtPath(pth)
+        if not pr or not pr.IsValid() or not pr.IsActive():
+            continue
+        if not _mostly_in_hole(pth):
+            continue
+        c = _pivot_of(ctx, pth)
+        _transform_prims(ctx["stage"], [pth],
+                         _translate(rng.uniform(-0.4, 0.4), rng.uniform(-0.4, 0.4),
+                                    -(c[2] - z_floor - 0.4)))
+        n_plant_in += 1
+    if n_plant_in:
+        ctx["notes"].append(
+            "roof_hole: {0} rooftop plant item(s) fell with it".format(
+                n_plant_in))
     _disturb_interior(ctx, mass, {top})
     ctx["notes"].append(
         "roof_hole: {0:.0f}% of the roof, {1} pieces down, {2} rim pieces "

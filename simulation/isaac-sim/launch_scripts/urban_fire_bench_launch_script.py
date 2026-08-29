@@ -289,11 +289,23 @@ def main():
         # `converge` + `quiet_steps`: a fire collapse drops a whole roof deck
         # and its plant from 17 m, which is a longer fall than the step cap
         # was sized for — the run kept baking two bodies mid-flight.
+        #
+        # `ccd` + `ground_plane_z` + `floor_z`: `/World/ground` (below) is
+        # exactly the "four-vertex ground quad" `settle.py`'s own module
+        # docstring names as tunnel-prone at speed — a real half-space plus
+        # continuous collision detection is the documented fix, and this
+        # bench never asked for either (measured: 669 rigid bodies, 1 STILL
+        # MOVING at bake time, 454.69 m of horizontal "spread" — a body
+        # cannot cover that distance under this settle's own max_speed cap
+        # unless it lost contact with the world entirely; uf_bench_ref,
+        # 2026-08-29). `floor_z=0.0` is the belt: anything that still ends
+        # up under grade gets clamped back onto it before the bake.
         settle.run(stage, loose, static, steps=SETTLE_STEPS, kick=0.10,
                    rng=random.Random(SEED), bake_result=not KEEP_PHYSICS,
                    velocity_map=vel, density=1600.0, max_speed=6.0,
                    converge=True, max_steps=int(SETTLE_STEPS * 2.5),
-                   quiet_steps=60)
+                   quiet_steps=60, ccd=True, ground_plane_z=0.0,
+                   floor_z=0.0)
     for _ in range(10):
         omni.kit.app.get_app().update()
 

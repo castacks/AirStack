@@ -1392,6 +1392,79 @@ package 'search_baselines' found at '...', but libexec directory
 correct when this broke. It would have failed all four OSMO missions at step
 one. Check with `ls install/search_baselines/lib/search_baselines/`.
 
+### 9.p A mission `env:` var that compose does not forward reaches NOTHING — and the fallback is a different scene
+
+**2026-08-29, first pod run of `frozen_suburban_8robot`.** Isaac Sim died with
+
+```
+RuntimeError: arch_dir does not exist: /isaac-sim/AirStack/scene_gen/assets/archetypes
+```
+
+which is three steps downstream of the cause and reads like a missing-asset
+problem. It is not. The chain:
+
+1. a mission's `env:` block becomes the PROCESS environment of `airstack up`
+   (`Stack.apply_env` -> `self.env` -> `sh(..., env=self.env)`);
+2. **Compose does not pass the process environment into a container.** A
+   variable is injected only if the service's `environment:` list names it.
+   `FROZEN_SCENE` and `FROZEN_DATASET_ROOT` were not listed, so the launch
+   script inside the container saw neither;
+3. the launcher's scene selection is `_FROZEN = bool(FROZEN_SCENE)` /
+   `_BUILT = bool(SCENE_CONFIG) and not _FROZEN`. With `FROZEN_SCENE` empty it
+   fell through to `SCENE_CONFIG`;
+4. `SCENE_CONFIG` was not empty. **`apply_env` MERGES and cannot unset**, and
+   the repo's `.env` pins `SCENE_CONFIG="suburb"` — so OMITTING the key from a
+   mission does not mean "no procedural build", it means "build a suburb";
+5. the procedural path calls `load_archetypes`, and the archetype bake is not
+   in git. A pod's clone has none. Crash.
+
+Every step of that is silent. The only visible symptom is the last one, and it
+names the wrong subsystem.
+
+**The two fixes, which are independent and both worth having.**
+
+* Forward the var. `simulation/isaac-sim/docker/docker-compose.yaml` now lists
+  `FROZEN_SCENE`, `FROZEN_DATASET_ROOT` and `SUBURB_COLLIDERS` in BOTH service
+  blocks — `isaac-sim` and `isaac-sim-livestream`, which is the one an OSMO pod
+  actually runs (`entrypoint.sh` defaults `COMPOSE_PROFILES` to
+  `desktop,isaac-sim-livestream`). A var forwarded to only one of them works on
+  a bench and not on a pod.
+* Set the fallback EMPTY rather than omitting it. The mission now carries
+  `SCENE_CONFIG: ""`. Measured, because the precedence is not obvious:
+
+  | shell env | `.env` | container gets |
+  |---|---|---|
+  | unset | `SCENE_CONFIG=suburb` | `suburb` |
+  | `SCENE_CONFIG=""` | `SCENE_CONFIG=suburb` | `""` |
+
+  An empty shell value IS a value and it beats `.env`. So `""` disables the
+  build; absence does not.
+
+**Which form to use in `environment:`.** `NAME=${NAME:-}` defines the variable
+EMPTY when unset, and empty is not the same as absent for any script whose
+default is non-empty: `SUBURB_COLLIDERS` defaults to `'ground'` and its
+else-branch collides `/World/stage` — all 6,000+ referenced objects of a frozen
+cell — instead of the ground sheet. Use the BARE `- NAME` passthrough for those
+(the idiom `robot-base-docker-compose.yaml` already uses for `DETECTOR_URL`);
+it renders as `NAME: null` and docker leaves it unset.
+
+**Check it offline, before the pod.**
+`scene_gen/tests/test_frozen_suburban_mission.py` now asserts that every
+uppercase key a mission sets is either injected by some compose file or
+consumed as `${NAME}` by compose / `airstack.sh` (`ISAAC_SIM_SCRIPT_NAME` goes
+into the tmux command line, `ISAAC_SIM_CUDA_DEVICES` becomes
+`CUDA_VISIBLE_DEVICES`, `AIRSTACK_STACK` selects the stack), plus that the
+three scene selectors reach both isaac services. Or render it directly:
+
+```bash
+COMPOSE_PROFILES=isaac-sim-livestream FROZEN_SCENE=Fire/Suburban/level_1/1 \
+  docker compose config | grep -A99 'isaac-sim-livestream:' | grep FROZEN
+```
+
+**This generalises.** Every knob a new scene reads is a new line in that
+compose file. The failure is never "the script ignored my variable"; it is
+"the variable never arrived".
+
 ---
 
 ## 10. What has NOT been flown yet

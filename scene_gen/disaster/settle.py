@@ -340,6 +340,7 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
 
     bodies = []
     no_collider = []
+    no_local_frame = []
     n_decomp = 0
     for path in loose_paths:
         prim = stage.GetPrimAtPath(path)
@@ -375,6 +376,36 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
             # rather than passed over in silence.
             no_collider.append(path)
             continue
+        # WORLD-BAKED GEOMETRY PICKED UP FOR PHYSICS. `RigidBodyAPI` treats
+        # the PRIM's OWN transform as the body's origin, and the mesh's
+        # local points — unmodified — as the shape's offset from it. A loose
+        # path that IS the mesh (not a wrapper Xform around a referenced
+        # prop, which always carries its own translate/rotate/scale) and
+        # has NO xform ops at all has that origin nailed to its parent's
+        # frame, while a helper that bakes absolute WORLD coordinates
+        # straight into `points` puts the shape wherever those points
+        # happen to be — a moment arm that can run to a hundred-plus metres
+        # on a scene where the content is nowhere near the stage origin.
+        # That is not survivable: a capped LINEAR speed on the origin does
+        # nothing to bound how far the SHAPE moves once the body picks up
+        # any angular velocity (`omega * arm` per step), and it is the
+        # proven mechanism behind a measured 205 m "worst mover" that a real
+        # ground plane and CCD both failed to hold to grade — both reason
+        # about the body's own POSE, and here the pose was nowhere near the
+        # geometry it was supposed to represent (`quake_flow._cyl`'s vent
+        # stacks, before 2026-08-29 — see its docstring for the full
+        # mechanism). Flagged loudly here rather than silently simulated, so
+        # the next instance of this mistake — in this pipeline or any other
+        # `settle.run` caller — shows up in the report instead of costing
+        # another multi-round investigation.
+        if prim.IsA(UsdGeom.Mesh) and not UsdGeom.Xformable(prim).GetOrderedXformOps():
+            _pv = UsdGeom.Mesh(prim).GetPointsAttr().Get()
+            if _pv:
+                _cx = sum(float(q[0]) for q in _pv) / len(_pv)
+                _cy = sum(float(q[1]) for q in _pv) / len(_pv)
+                _cz = sum(float(q[2]) for q in _pv) / len(_pv)
+                if (_cx * _cx + _cy * _cy + _cz * _cz) ** 0.5 > 3.0:
+                    no_local_frame.append(path)
         body = UsdPhysics.RigidBodyAPI.Apply(prim)
         body.CreateRigidBodyEnabledAttr(True)
         # DAMPED AND STICKY, so this reads as a collapse and not a detonation.
@@ -440,7 +471,8 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         n_body += 1
 
     return {"bodies": bodies, "static_meshes": n_static, "rigid": n_body,
-            "no_collider": no_collider, "decomposed": n_decomp,
+            "no_collider": no_collider, "no_local_frame": no_local_frame,
+            "decomposed": n_decomp,
             "ground_plane": plane_path, "ccd": bool(ccd)}
 
 
@@ -591,20 +623,29 @@ def _settle_phase(bodies, chunk, cap, tol=0.001, rest_tol=0.004,
                   stall_chunks=0):
     """Step in chunks until the pile stops moving or `cap` steps are gone.
 
-    Returns `(steps_used, moving, driver, at_rest)`, where `moving` is how
-    many bodies travelled more than `rest_tol` during the LAST chunk and
+    Returns `(steps_used, moving, driver, at_rest, reason)`, where `moving`
+    is how many bodies travelled more than `rest_tol` during the LAST chunk,
     `at_rest` says the loop stopped because the pile stopped rather than
-    because it ran out of budget. `stall_chunks=0`
-    keeps the historical behaviour exactly: chunked stepping with an early
-    exit as soon as the busiest body moves less than a millimetre. A non-zero
-    value adds the other half of a convergence test — give up when the number
-    of moving bodies stops falling, because at that point more steps are not
-    buying anything and something is wrong with the scene, not the budget.
-    """
+    because it ran out of budget, and `reason` is one of:
+
+      * `"rest"`    — the busiest body moved less than `tol` in a chunk.
+      * `"stalled"` — `stall_chunks` chunks passed with the moving-body count
+        not falling. This is NOT "ran out of steps": the count plateaued
+        before the cap, which means more steps would not have helped — some
+        body is not slowing down (a tunnelled floor, a persistent overlap
+        feeding it fresh velocity every step), and the fix is to find that
+        body, not to raise `steps`/`max_steps`.
+      * `"cap"`     — the loop exhausted `cap` with neither of the above.
+
+    `stall_chunks=0` keeps the historical behaviour exactly: chunked
+    stepping with an early exit as soon as the busiest body moves less than
+    a millimetre, `reason` only ever `"rest"` or `"cap"`. A non-zero value
+    adds the other half of a convergence test."""
     import numpy as np
 
     used, driver, moving = 0, None, 0
     at_rest = False
+    reason = "cap"
     best, stalled = None, 0
     prev = _positions(bodies)
     while used < cap:
@@ -623,6 +664,7 @@ def _settle_phase(bodies, chunk, cap, tol=0.001, rest_tol=0.004,
         prev = now
         if moved < tol:
             at_rest = True
+            reason = "rest"
             break
         if stall_chunks:
             if best is None or moving < best:
@@ -630,8 +672,9 @@ def _settle_phase(bodies, chunk, cap, tol=0.001, rest_tol=0.004,
             else:
                 stalled += 1
                 if stalled >= int(stall_chunks):
+                    reason = "stalled"
                     break
-    return used, moving, driver, at_rest
+    return used, moving, driver, at_rest, reason
 
 
 def _quiet_bodies(bodies, damping=(1.6, 5.0), max_speed=6.0):
@@ -844,13 +887,14 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     if converge:
         cap = max(cap, int(max_steps) if max_steps is not None
                   else 3 * int(steps))
-    used, moving, driver, at_rest = _settle_phase(
+    used, moving, driver, at_rest, reason = _settle_phase(
         info["bodies"], chunk, cap, tol=0.001, rest_tol=rest_tol,
         stall_chunks=stall_chunks if converge else 0)
     info["driver"] = driver
     info["steps_used"] = used
     info["steps_cap"] = cap
     info["converged"] = bool(at_rest)
+    info["stop_reason"] = reason
     after = _positions(info["bodies"])
 
     # THE QUIET PHASE. Everything up to here was the throw; this is the pile
@@ -866,42 +910,58 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     if int(quiet_steps or 0) > 0:
         _quiet_bodies(info["bodies"], quiet_damping, quiet_max_speed)
         q_chunk = max(20, int(quiet_steps) // 8)
-        info["quiet_used"], moving, qdriver, q_rest = _settle_phase(
+        info["quiet_used"], moving, qdriver, q_rest, q_reason = _settle_phase(
             info["bodies"], q_chunk, int(quiet_steps), tol=0.001,
             rest_tol=rest_tol, stall_chunks=stall_chunks)
         info["driver"] = qdriver or info["driver"]
         # The quiet phase is the one that has to reach rest — it is the
         # phase whose whole job is to stop things.
         info["converged"] = bool(q_rest)
+        info["stop_reason"] = q_reason
         after = _positions(info["bodies"])
 
     # And one last look: how many bodies were STILL MOVING when the budget ran
     # out. Zero means the pile is genuinely at rest and baking is safe; a
     # non-zero count is the scene telling you it was baked mid-flight.
+    # NAME THEM, not just count them — "1 body(s) STILL MOVING" with no path
+    # sends the next debugging pass back to a live rerun to find out which
+    # one; the paths are sitting right here in `settled`/`after`.
     _step(20)
     settled = _positions(info["bodies"])
-    info["still_moving"] = sum(
-        1 for k in after
+    still_moving_keys = [
+        k for k in after
         if k in settled
         and float(np.linalg.norm(np.array(settled[k]) - np.array(after[k])))
-        > rest_tol)
+        > rest_tol]
+    info["still_moving"] = len(still_moving_keys)
+    info["still_moving_examples"] = still_moving_keys[:5]
     after = settled
 
     # HORIZONTAL vs VERTICAL is the whole question. A collapse drops pieces:
     # large -Z, small XY. An explosion throws them: large XY. One number for
     # total displacement cannot tell the two apart, and that is exactly the
     # judgement being made here.
+    moved_keys = [k for k in before if k in after]
     dv = [float(np.array(after[k])[2] - np.array(before[k])[2])
-          for k in before if k in after]
+          for k in moved_keys]
     dh = [float(np.linalg.norm((np.array(after[k]) - np.array(before[k]))[:2]))
-          for k in before if k in after]
+          for k in moved_keys]
     d = [float(np.linalg.norm(np.array(after[k]) - np.array(before[k])))
-         for k in before if k in after]
+         for k in moved_keys]
     info["moved_mean"] = float(np.mean(d)) if d else 0.0
     info["moved_max"] = float(np.max(d)) if d else 0.0
     info["drop_mean"] = float(np.mean(dv)) if dv else 0.0
     info["spread_mean"] = float(np.mean(dh)) if dh else 0.0
     info["spread_max"] = float(np.max(dh)) if dh else 0.0
+    # WHICH ONE. A max without a path is a number to argue about; a path is
+    # one prim to go look at — "ask for one prim path" is what actually
+    # ended each round of the floating-debris investigation, not another
+    # sweep. `spread_max_path` is the body driving `spread_max` (the
+    # "large = exploding" reading); `moved_max_path` is the same for total
+    # displacement, which can differ when the worst mover fell straight down
+    # rather than sideways.
+    info["spread_max_path"] = moved_keys[int(np.argmax(dh))] if dh else ""
+    info["moved_max_path"] = moved_keys[int(np.argmax(d))] if d else ""
 
     # BELOW GRADE IS A SEPARATE FAILURE FROM STILL MOVING, and it is the one
     # a step budget cannot fix: material under the world was let through the
@@ -957,10 +1017,14 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         if info.get("culled_ledges"):
             print("[settle]   {0} body(s) culled off façade ledges "
                   "({1} zone(s))".format(info["culled_ledges"], len(LEDGE_ZONES)))
+        _stop_label = {"stalled": "  <-- STALLED (moving-body count stopped "
+                                  "falling; more steps will not fix this)",
+                      "cap": "  <-- CAP REACHED"}.get(
+            info.get("stop_reason"), "")
         print("[settle]   {0} of {1} steps used{2}; {3} quiet step(s); "
               "{4} body(s) STILL MOVING at bake time".format(
                   info.get("steps_used", steps), info.get("steps_cap", steps),
-                  "" if info.get("converged") else "  <-- CAP REACHED",
+                  "" if info.get("converged") else _stop_label,
                   info.get("quiet_used", 0), info.get("still_moving", 0)))
         if info.get("rescued") or info.get("clamped"):
             print("[settle]   {0} body(s) lifted back to grade before the "
@@ -977,6 +1041,9 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
             info["spread_mean"], info["spread_max"],
             "large = thrown downwind, which is the point" if bias is not None
             else "large = exploding"))
+        if info.get("spread_max_path") and info["spread_max"] > 0.5:
+            print("[settle]     worst mover: {0}  ({1:.2f} m horizontal)"
+                  .format(info["spread_max_path"], info["spread_max"]))
         if info["moved_max"] < 0.01:
             print("[settle] NOTHING MOVED — the solver did not run, or every "
                   "body was already resting and interlocked")
@@ -986,12 +1053,22 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     if info.get("still_moving"):
         faults.append(
             "{0} body(s) STILL MOVING at bake time — they are frozen "
-            "mid-flight in the export".format(info["still_moving"]))
+            "mid-flight in the export, e.g. {1}".format(
+                info["still_moving"],
+                (info.get("still_moving_examples") or ["?"])[0]))
     if info.get("no_collider"):
         faults.append(
             "{0} loose prim(s) NEVER SIMULATED (no cookable mesh under them); "
             "they are still wherever the damage stage authored them, e.g. {1}"
             .format(len(info["no_collider"]), info["no_collider"][0]))
+    if info.get("no_local_frame"):
+        faults.append(
+            "{0} loose prim(s) simulated with NO LOCAL XFORM — the "
+            "RigidBody's origin is nowhere near its own geometry (points "
+            "baked in world space, no xform ops), which is how a small "
+            "piece becomes a 200+ m 'worst mover' or slips a ground plane "
+            "CCD is supposed to hold it to; e.g. {1}".format(
+                len(info["no_local_frame"]), info["no_local_frame"][0]))
     if info.get("below_grade"):
         faults.append(
             "{0} body(s) finished BELOW GRADE (worst {1:.2f} m under the "
@@ -1004,10 +1081,20 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         faults.append(
             "{0} body(s) could NOT be lifted (no translate op to edit)".format(
                 info.get("rescue_failed", 0) + info.get("clamp_failed", 0)))
+    stalled = info.get("stop_reason") == "stalled"
     if not info.get("converged"):
-        faults.append(
-            "the step cap ({0}) was reached without the pile coming to rest"
-            .format(info.get("steps_cap", steps)))
+        if stalled:
+            faults.append(
+                "the moving-body count STALLED (stopped falling for "
+                "{0} chunks) before the step cap ({1}) — the pile is not "
+                "slow, something in it is not settling, e.g. {2}".format(
+                    stall_chunks, info.get("steps_cap", steps),
+                    info.get("spread_max_path")
+                    or (info.get("still_moving_examples") or ["?"])[0]))
+        else:
+            faults.append(
+                "the step cap ({0}) was reached without the pile coming to "
+                "rest".format(info.get("steps_cap", steps)))
     info["faults"] = faults
     if faults:
         head = ("SETTLE DID NOT CONVERGE" if not bake_result
@@ -1019,8 +1106,32 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
             print("[settle] !!   - " + f)
         for path, z0 in (info.get("below_grade_examples") or [])[:3]:
             print("[settle] !!     {0}  z_min {1:+.2f}".format(path, z0))
-        print("[settle] !! FIX: raise `steps`/`max_steps`, add `quiet_steps`, "
-              "and check `ground_plane_z`/`ccd` are set for a thrown settle.")
+        for path in (info.get("still_moving_examples") or [])[:3]:
+            print("[settle] !!     {0}  STILL MOVING".format(path))
+        for path in (info.get("no_local_frame") or [])[:3]:
+            print("[settle] !!     {0}  NO LOCAL XFORM (world-baked points, "
+                  "body origin far from its own geometry)".format(path))
+        # STALLED IS NOT A BUDGET PROBLEM. The old, single "!! FIX: raise
+        # steps/max_steps" line was printed for a stall exactly the same as
+        # for a genuine cap exhaustion, and it is the wrong advice for a
+        # stall: `converge=True` already ran the throw out to 2.5-3x `steps`
+        # (measured: 1995 of a 4000-step cap on `uf_bench_ref`,
+        # 2026-08-29 — the moving-body count plateaued long before the cap,
+        # which the old message reported as "CAP REACHED") and a stalled
+        # body was never going to stop on its own. A stall means something
+        # is feeding it fresh velocity every step (a tunnelled floor, a
+        # persistent deep overlap): check `ground_plane_z`/`ccd`/`floor_z`
+        # first, and go look at the named prim before touching the budget.
+        if stalled:
+            print("[settle] !! FIX: this STALLED, it did not run out of "
+                  "budget — raising `steps`/`max_steps` will not help. "
+                  "Check `ground_plane_z`, `ccd` and `floor_z` are set (a "
+                  "thin quad ground tunnels at speed) and go look at the "
+                  "prim(s) named above.")
+        else:
+            print("[settle] !! FIX: raise `steps`/`max_steps`, add "
+                  "`quiet_steps`, and check `ground_plane_z`/`ccd` are set "
+                  "for a thrown settle.")
         print("[settle] " + "!" * 68)
         carb.log_error("[settle] " + msg)
         if strict is None:

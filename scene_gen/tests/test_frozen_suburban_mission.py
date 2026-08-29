@@ -26,6 +26,7 @@ here means the same thing it will mean at run time.
 import json
 import math
 import os
+import re
 import sys
 
 import pytest
@@ -108,9 +109,16 @@ def test_the_fleet_is_eight_and_the_flags_are_all_pinned(mission):
         assert env[flag] == "false", flag
     assert env["ENABLE_LIDAR"] == "false"
     assert env["GT_ANNOTATIONS"] == "on"
-    # The scene is a FILE. SCENE_CONFIG alongside FROZEN_SCENE is ignored with
-    # a warning, but leaving it out is what states the intent.
-    assert "SCENE_CONFIG" not in env
+    # The scene is a FILE, and SCENE_CONFIG must be present and EMPTY rather
+    # than absent. This assertion used to read `"SCENE_CONFIG" not in env` and
+    # it was WRONG in the same way the mission's comment was: `apply_env`
+    # MERGES, so an omitted key keeps the repo .env's SCENE_CONFIG=suburb and
+    # the pod builds a suburb. (2026-08-29 that is exactly what happened, once
+    # the compose gap below let FROZEN_SCENE go missing too.)
+    assert "SCENE_CONFIG" in env, (
+        "omitting SCENE_CONFIG does not disable the procedural build — it "
+        "inherits the repo .env's value. Set it to \"\".")
+    assert env["SCENE_CONFIG"] == "", env["SCENE_CONFIG"]
     assert env["AIRSTACK_STACK"] == "full_mighty"
     assert env["LOCAL_PLANNER"] == "mighty"
 
@@ -352,3 +360,89 @@ def test_results_are_keyed_by_scene_and_method(mission):
         if "results/frozen_suburban_8robot" in cmd:
             assert "{{env.RESULTS_SCENE}}" in cmd
             assert "{{env.method}}" in cmd
+
+
+# ---------------------------------------------------------------------------
+# the container boundary
+# ---------------------------------------------------------------------------
+
+_COMPOSE = [
+    "simulation/isaac-sim/docker/docker-compose.yaml",
+    "robot/docker/docker-compose.yaml",
+    "robot/docker/robot-base-docker-compose.yaml",
+    "gcs/docker/docker-compose.yaml",
+    "docker-compose.yaml",
+    "stacks/full_mighty/docker-compose.yaml",
+]
+
+
+def _compose_text():
+    out = []
+    for rel in _COMPOSE:
+        path = os.path.join(_REPO, rel)
+        if os.path.isfile(path):
+            out.append(open(path, encoding="utf-8").read())
+    return "\n".join(out)
+
+
+def test_every_env_var_this_mission_sets_crosses_the_container_boundary():
+    """THE 2026-08-29 FAILURE, PINNED.
+
+    A mission's `env:` reaches `airstack up` as PROCESS env. Compose does not
+    forward the process environment into a container: a variable is only
+    injected if the service's `environment:` lists it. `FROZEN_SCENE` and
+    `FROZEN_DATASET_ROOT` were not listed, so on the pod the launch script saw
+    NEITHER, fell through to `SCENE_CONFIG` (`suburb`, inherited from the
+    repo's .env), rebuilt the plat procedurally and died in `load_archetypes`
+    — the archetype bake is not in git and a pod's clone has none.
+
+    The crash named the ARCHETYPES, which is three steps downstream of the
+    cause and reads like a missing-asset problem, so it is worth an hour of
+    GPU to check the whole boundary offline instead.
+
+    A key passes if a compose file either injects it (`- NAME=...` or the bare
+    `- NAME` passthrough) or CONSUMES it as `${NAME}` — ISAAC_SIM_SCRIPT_NAME
+    is interpolated into the tmux command line, ISAAC_SIM_CUDA_DEVICES becomes
+    CUDA_VISIBLE_DEVICES, and AIRSTACK_STACK selects the stack in airstack.sh.
+    """
+    with open(MISSION, encoding="utf-8") as fh:
+        mission = yaml.safe_load(fh)
+    keys = {k for k in mission["env"] if k.isupper()}
+    for e in mission["environments"]:
+        keys |= {k for k in e if k.isupper()}
+
+    text = _compose_text() + open(os.path.join(_REPO, "airstack.sh"),
+                                  encoding="utf-8").read()
+    injected = set(re.findall(r"^\s*-\s*([A-Z][A-Z_0-9]*)\s*(?:=|$)",
+                              text, re.M))
+    consumed = set(re.findall(r"\$\{([A-Z][A-Z_0-9]*)[:\-}]", text))
+
+    missing = sorted(keys - injected - consumed)
+    assert not missing, (
+        "these env vars never reach any container — the mission sets them and "
+        "nothing forwards them: " + ", ".join(missing))
+
+
+def test_the_scene_selectors_reach_the_isaac_container():
+    """The two that actually chose the wrong scene, named explicitly: a
+    generic subset check would still pass if they were forwarded to the ROBOT
+    container instead, which is where they are useless."""
+    isaac = open(os.path.join(_REPO, "simulation", "isaac-sim", "docker",
+                              "docker-compose.yaml"), encoding="utf-8").read()
+    for var in ("FROZEN_SCENE", "FROZEN_DATASET_ROOT", "SCENE_CONFIG"):
+        # Both service blocks: the desktop one and the headless/robot one. A
+        # var forwarded to only one of them works on a bench and not on a pod.
+        n = len(re.findall(r"^\s*-\s*%s(?:=|$)" % var, isaac, re.M))
+        assert n == 2, f"{var} forwarded by {n} of the 2 isaac-sim services"
+
+
+def test_suburb_colliders_is_passed_by_bare_name():
+    """`SUBURB_COLLIDERS=${SUBURB_COLLIDERS:-}` defines it EMPTY, and empty is
+    neither 'off' nor 'ground': the launcher's else-branch then collides
+    /World/stage — every one of a cell's 6,000+ referenced objects — instead of
+    the ground sheet. Unset has to mean unset, which is the bare-name form
+    robot-base-docker-compose.yaml uses for DETECTOR_URL."""
+    isaac = open(os.path.join(_REPO, "simulation", "isaac-sim", "docker",
+                              "docker-compose.yaml"), encoding="utf-8").read()
+    assert len(re.findall(r"^\s*-\s*SUBURB_COLLIDERS$", isaac, re.M)) == 2
+    assert "SUBURB_COLLIDERS=${" not in isaac

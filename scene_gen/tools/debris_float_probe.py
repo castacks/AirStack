@@ -80,8 +80,47 @@ POPULATIONS = (("blockdeb_", "blockage (live, people._blocker_debris)"),
                ("glit_", "urban-fire sill glass litter (urban_fire._sill_litter, live)"),
                ("sbar_", "urban-fire spalled rebar (urban_fire.r_spall, live)"),
                ("cwglass_", "urban-fire curtain-wall shard (urban_fire.r_curtain_burn, live)"),
-               ("ac_", "urban-fire roof AC unit (urban_fire.dress_roof_urban, live)"),
-               ("vent_", "urban-fire roof vent (urban_fire.dress_roof_urban, live)"))
+               ("ac_", "roof AC unit (quake_flow.dress_roof / "
+                      "urban_fire.dress_roof_urban, live)"),
+               # `vent_` was authored with `quake_flow._cyl`, which (before
+               # 2026-08-29) baked WORLD-SPACE coordinates straight into the
+               # mesh's points with no xform ops at all — every other `_cyl`
+               # caller keeps its output out of `loose` (decorative rebar),
+               # but `dress_roof_urban` hands vents to the solver via
+               # `roof_plant`. `UsdPhysics.RigidBodyAPI` treats the PRIM's
+               # own transform as the body's origin, so that body's origin
+               # sat at (0, 0, 0) while its collision shape sat wherever the
+               # building actually was — a moment arm of a hundred-plus
+               # metres on a city-scale scene. Any angular velocity then
+               # moved the shape (and the translate op `settle.bake` reads
+               # back) by `omega * arm` per step: a `max_speed=6.0` cap on
+               # the ORIGIN still produced a 205 m 'worst mover'
+               # (`vent_b5_14`, uf_fix1, 2026-08-29), and CCD/ground-plane
+               # depenetration — both pose-relative — could not hold the
+               # same population to grade either (164 of ~450-ish bodies
+               # below grade that run). `_cyl` now centres its points on the
+               # tube's own midpoint and carries that in an
+               # `xformOp:translate`, the same pattern `_box`/`_tank` always
+               # used; a floater with this prefix should not recur for this
+               # reason, but if one does, check the prim's own xform ops
+               # before anything else — an empty op order on a `loose` mesh
+               # is the tell.
+               ("vent_", "urban-fire roof vent (urban_fire.dress_roof_urban, live)"),
+               ("tank_", "roof water tank (quake_flow.dress_roof / "
+                        "urban_fire.dress_roof_urban / quake_flow._tank, live)"),
+               # bulkhead/bulkcap/acpad are `roof_fixed` (STATIC) until a
+               # breached roof moves them into `roof_plant` — see
+               # `urban_fire.dress_roof_urban` and `urban_fire.r_roof_scorch`
+               # ("THE BULKHEAD AND THE PAD ARE BUILDING, NOT PLANT" / "IF
+               # THE DECK WENT, SO DOES WHAT WAS BOLTED TO IT"). A floater
+               # with one of these prefixes on an INTACT roof is a real bug;
+               # on a breached one it should have settled like `ac_`/`tank_`.
+               ("bulkhead_", "urban-fire roof stair/lift bulkhead "
+                            "(urban_fire.dress_roof_urban, live)"),
+               ("bulkcap_", "urban-fire roof bulkhead cap "
+                           "(urban_fire.dress_roof_urban, live)"),
+               ("acpad_", "urban-fire condenser housekeeping pad "
+                         "(urban_fire.dress_roof_urban, live)"))
 
 
 def population(name):
