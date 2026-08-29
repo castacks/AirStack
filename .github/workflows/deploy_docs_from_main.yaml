@@ -72,7 +72,10 @@ jobs:
           SLUG=$(echo "${VERSION}" | cut -d. -f1-2)
           echo "Deploying main's docs: slug ${SLUG}, title ${VERSION}"
           mike deploy --push --update-aliases --title "${VERSION}" "${SLUG}" main
-          mike set-default main --push
+          # Root URL redirects to the PINNED slug (not the moving alias): URLs
+          # people land on and copy stay valid across future releases. /main/
+          # remains as a moving alias for deep links.
+          mike set-default "${SLUG}" --push
       # mike re-sorts versions.json on every deploy, so pin develop — the
       # higher, unreleased version — back to the top of the version selector
       # after each deploy.
