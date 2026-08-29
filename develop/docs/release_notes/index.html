@@ -5762,15 +5762,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#0200-unreleased" class="md-nav__link">
+  <a href="#0200-2026-08-29" class="md-nav__link">
     <span class="md-ellipsis">
       
-        0.20.0 (Unreleased)
+        0.20.0 — 2026-08-29
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="0.20.0 (Unreleased)">
+    <nav class="md-nav" aria-label="0.20.0 — 2026-08-29">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -5921,11 +5921,30 @@ registered in mkdocs.yml) trims the rendered page to the section matching
 the repo-root .env VERSION, so each mike-deployed docs version carries only
 its own notes. -->
 
-<h2 id="0200-unreleased">0.20.0 (Unreleased)<a class="headerlink" href="#0200-unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="0200-2026-08-29">0.20.0 — 2026-08-29<a class="headerlink" href="#0200-2026-08-29" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Module-catalog sync automation + drift alarm.</strong> Registering a module is
+<li>
+<p><strong>Pre-release versioning terminology: <code>-alpha.N</code> → <code>-dev.N</code>.</strong> The
+  development line on <code>develop</code> now uses <code>X.Y.Z-dev.N</code> pre-release versions
+  (first: <code>0.21.0-dev.0</code>) instead of <code>X.Y.Z-alpha.N</code>. The
+  <code>check-version-increment</code> PR gate accepts exactly <code>dev</code>, <code>beta</code>, <code>rc</code>
+  (ordering <code>dev &lt; beta &lt; rc &lt; release</code>); the main→develop sync workflow
+  rolls develop forward to the next minor's <code>-dev.0</code> after a release. Docs,
+  skills, and the PR template were updated to match. Existing <code>-alpha.N</code>
+  versions in git history and in declared module-compat ranges remain valid
+  historical references.</p>
+</li>
+<li>
+<p><strong>Single, revamped repo README.</strong> The repo now has one <code>README.md</code> (at the
+  root — <code>docs/README.md</code> was removed), rewritten around the redesigned docs
+  home page: quickstart, one-command bring-up, sim-to-real parity, CI flight
+  campaigns, and agent-driven workflows.</p>
+</li>
+<li>
+<p><strong>Module-catalog sync automation + drift alarm.</strong> Registering a module is
   two merges (registry PR to
-  <a href="https://github.com/castacks/airstack-modules-index">airstack-modules-index</a></li>
+  <a href="https://github.com/castacks/airstack-modules-index">airstack-modules-index</a></p>
+</li>
 <li>
 <p>trunk fixture/catalog sync), and the docs deploy regenerates the
   published catalog from the <strong>live</strong> registry — so a missed half used to

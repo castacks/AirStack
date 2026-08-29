@@ -6118,7 +6118,7 @@ docs/
 <h2 id="automatic-sync-main-develop">Automatic Sync: main → develop<a class="headerlink" href="#automatic-sync-main-develop" title="Permanent link">&para;</a></h2>
 <p>To keep the git histories of <code>main</code> and <code>develop</code> related, a GitHub Actions workflow (<code>.github/workflows/sync-develop-from-main.yaml</code>) merges <code>main</code> back into <code>develop</code> and pushes directly after every push to <code>main</code>. The workflow bypasses <code>develop</code>'s ruleset using a <code>SYNC_PAT</code> secret owned by a Repository admin. This ensures that release merge commits and hotfixes are always present in <code>develop</code>'s history, preventing divergence and conflicts in future releases.</p>
 <h3 id="version-handling-on-develop">VERSION handling on develop<a class="headerlink" href="#version-handling-on-develop" title="Permanent link">&para;</a></h3>
-<p><code>develop</code> always carries a pre-release VERSION (e.g. <code>0.19.0-alpha.3</code>) so that it stays strictly greater than <code>main</code> and satisfies the <code>Verify VERSION is valid and incremented</code> check (<code>.github/workflows/check-version-increment.yml</code>), which requires every PR to bump <code>.env</code>'s <code>VERSION</code> above its base branch. The sync workflow bumps <code>develop</code>'s VERSION as part of the merge using two rules:</p>
+<p><code>develop</code> always carries a pre-release VERSION (e.g. <code>0.21.0-dev.3</code>) so that it stays strictly greater than <code>main</code> and satisfies the <code>Verify VERSION is valid and incremented</code> check (<code>.github/workflows/check-version-increment.yml</code>), which requires every PR to bump <code>.env</code>'s <code>VERSION</code> above its base branch. The sync workflow bumps <code>develop</code>'s VERSION as part of the merge using two rules:</p>
 <table>
 <thead>
 <tr>
@@ -6130,13 +6130,13 @@ docs/
 <tbody>
 <tr>
 <td><code>main</code>'s <code>x.y.z</code> ≥ <code>develop</code>'s base <code>x.y.z</code> (a release just landed on main)</td>
-<td>Roll <code>develop</code> to the next minor's <code>alpha.0</code></td>
-<td>main <code>0.19.0</code>, develop <code>0.19.0-alpha.7</code> → develop <code>0.20.0-alpha.0</code></td>
+<td>Roll <code>develop</code> to the next minor's <code>dev.0</code></td>
+<td>main <code>0.20.0</code>, develop <code>0.20.0-dev.7</code> → develop <code>0.21.0-dev.0</code></td>
 </tr>
 <tr>
 <td><code>main</code>'s <code>x.y.z</code> &lt; <code>develop</code>'s base (a hotfix landed on main)</td>
 <td>Preserve <code>develop</code>'s pre-release channel and bump the counter</td>
-<td>main <code>0.19.1</code>, develop <code>0.20.0-alpha.0</code> → develop <code>0.20.0-alpha.1</code></td>
+<td>main <code>0.20.1</code>, develop <code>0.21.0-dev.0</code> → develop <code>0.21.0-dev.1</code></td>
 </tr>
 </tbody>
 </table>

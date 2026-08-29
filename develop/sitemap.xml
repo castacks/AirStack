@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/AGENTS/</loc>
          <lastmod>2026-08-29</lastmod>
     </url>
@@ -14,46 +10,6 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/CODE_OF_CONDUCT/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/common/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/common/module_schema/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/common/ros_packages/coordination/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/common/ros_packages/gui/rqt/rqt_py_template/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/common/ros_packages/gui/rviz/3d_waypoint_rviz2_plugin/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/common/ros_packages/gui/rviz/rviz_tasks_panel/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/common/ros_packages/logging/bag_recorder_pid/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/common/ros_packages/msgs/airstack_msgs/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/config/local/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/config/vehicles/</loc>
          <lastmod>2026-08-29</lastmod>
     </url>
     <url>
@@ -473,83 +429,7 @@
          <lastmod>2026-08-29</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/git-hooks/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/git-hooks/docker-versioning/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/osmo/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/global/planners/exploration/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/global/planners/random_walk/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/interface/interface_bringup/launch/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/controls/mav_comm/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/controls/trajectory_controller/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/planners/droan_gl/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/planners/droan_local_planner/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/planners/takeoff_landing_planner/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/planners/takeoff_landing_planner/test/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/planners/trajectory_library/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/world_models/disparity_expansion/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/world_models/disparity_graph/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/world_models/disparity_graph_cost_map/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/sensors/lidar_point_cloud_filter/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/stacks/full_default/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/stacks/full_default/wiring/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/stacks/full_droan_cpu/</loc>
          <lastmod>2026-08-29</lastmod>
     </url>
     <url>
@@ -557,19 +437,7 @@
          <lastmod>2026-08-29</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/stacks/full_macvo/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/stacks/full_macvo/wiring/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/stacks/full_mighty/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/stacks/lite_default/</loc>
          <lastmod>2026-08-29</lastmod>
     </url>
     <url>
@@ -577,31 +445,7 @@
          <lastmod>2026-08-29</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/stacks/lite_offload_global/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/tests/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/tests/ci-cd-orchestrator/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/tests/integration/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/tests/meta/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/tests/robot/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/tests/sim/</loc>
          <lastmod>2026-08-29</lastmod>
     </url>
 </urlset>

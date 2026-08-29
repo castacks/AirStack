@@ -7,8 +7,8 @@ version selector (and the GitHub releases page) is the archive for the rest.
 
 At build time this hook reads the ``VERSION=`` line from the repo-root
 ``.env`` and drops every ``## X.Y.Z ...`` section whose base semver does not
-match (pre-release suffixes like ``-alpha.N`` are ignored for matching, so
-``VERSION="0.20.0-alpha.13"`` keeps the ``## 0.20.0 (Unreleased)`` section).
+match (pre-release suffixes like ``-dev.N`` are ignored for matching, so
+``VERSION="0.21.0-dev.13"`` keeps the ``## 0.21.0 (Unreleased)`` section).
 
 If no section matches the current VERSION, the page is left unfiltered and a
 warning is logged rather than publishing an empty page.
