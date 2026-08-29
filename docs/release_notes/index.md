@@ -19,6 +19,17 @@ its own notes. -->
 
 ## 0.20.0 (Unreleased)
 
+- **Module-catalog sync automation + drift alarm.** Registering a module is
+  two merges (registry PR to
+  [airstack-modules-index](https://github.com/castacks/airstack-modules-index)
+  + trunk fixture/catalog sync), and the docs deploy regenerates the
+  published catalog from the **live** registry — so a missed half used to
+  drop the module from the site silently. Now the develop docs deploy
+  raises a `docs-catalog-drift` issue whenever the committed catalog and
+  the live registry disagree, and the new `sync-modules-index` workflow
+  (daily + manual dispatch) opens the trunk sync PR automatically
+  (`.github/workflows/scripts/registry_sync.py`).
+
 - **Trustworthy system-test outcomes.** A red system-tests run now always
   means the code under test got worse, never that CI infrastructure hiccuped:
   `run_meta.json` (schema v2) classifies every failure as

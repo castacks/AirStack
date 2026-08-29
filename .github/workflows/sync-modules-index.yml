@@ -1,0 +1,67 @@
+# Module registration is TWO merges: the registry PR (castacks/
+# airstack-modules-index) and a trunk PR mirroring the entries into the
+# contract-test fixture + regenerating the committed docs/modules pages
+# (see the extract-module skill). This workflow automates the trunk half:
+# it diffs trunk against the live registry and opens/refreshes one sync PR
+# when they disagree. The develop docs deploy's drift alarm is the loud
+# signal; this is the fix.
+#
+# Cadence: daily + manual dispatch (run it right after merging a registry
+# PR for an immediate sync). No cross-repo secrets: the registry is cloned
+# read-only and the PR is opened in this repo with the workflow token.
+# KNOWN LIMITATION of that token: PRs it opens do not trigger other
+# workflows (unit-tests, check-version-increment) — close and reopen the
+# PR to run them.
+name: Sync module catalog from registry
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "43 7 * * *" # daily, 07:43 UTC
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # schedule/workflow_dispatch run on the default branch; the sync
+          # PR always targets develop.
+          ref: develop
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.10.6
+      - name: Install Dependencies
+        run: pip install pyyaml
+      - name: Sync fixture + committed catalog from the live registry
+        id: sync
+        run: |
+          rm -rf .modules-index
+          git clone --depth 1 https://github.com/castacks/airstack-modules-index .modules-index
+          python3 .github/workflows/scripts/registry_sync.py --index .modules-index --bump
+          rm -rf .modules-index
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Open or refresh the sync PR
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "Registry Sync"
+          git config user.email "registry.sync@example.co.uk"
+          git checkout -B bot/sync-modules-index
+          git add -A
+          git commit -m "chore(catalog): sync committed module catalog from airstack-modules-index"
+          git push -f origin bot/sync-modules-index
+          if [ -z "$(gh pr list --head bot/sync-modules-index --state open --json number --jq '.[].number')" ]; then
+            gh pr create --base develop --head bot/sync-modules-index \
+              --title "chore(catalog): sync committed module catalog from the registry" \
+              --body "$(printf 'Automated trunk half of module registration (see the extract-module skill): mirrors the live [airstack-modules-index](https://github.com/castacks/airstack-modules-index) into tests/meta/fixtures/modules_index/ and regenerates the committed docs/modules pages with tools/gen_docs_catalog.py. VERSION is bumped only to satisfy the check-version-increment gate (docs-only change; publish will retag, not rebuild).\n\nEverything here is deterministic output of already-reviewed registry entries.\n\nNote: PRs opened by the workflow token do not trigger CI — close and reopen this PR to run the checks. The branch is force-refreshed from develop on each run, so a stale VERSION bump heals itself on the next run.\n\nWorkflow: sync-modules-index (%s/%s/actions/runs/%s)' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")"
+          else
+            echo "sync PR already open — branch refreshed in place"
+          fi

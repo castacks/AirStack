@@ -193,6 +193,16 @@ delete, written for the orchestrator of that PR. Include:
   with** the trunk PR; if it lands late, re-run the deploy:
   `gh workflow run deploy_docs_from_develop.yaml --repo castacks/AirStack --ref develop`.
 
+  **Automation (2026-08-29):** the trunk half no longer needs to be
+  hand-built — after the registry PR merges, dispatch the
+  `sync-modules-index` workflow (Actions tab; also runs daily) and it opens
+  the trunk sync PR (fixture mirror + regenerated pages + VERSION bump).
+  The develop docs deploy independently raises a `docs-catalog-drift` issue
+  whenever the committed catalog and the live registry disagree, so a missed
+  sync can no longer stay silent. Caveat: the bot PR is opened with the
+  workflow token, which does not trigger CI — close and reopen it to run
+  the checks.
+
 ## References
 
 - [create-module](../create-module/SKILL.md) — manifest, anatomy, canonical-defaults rule

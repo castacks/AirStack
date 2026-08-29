@@ -20,6 +20,7 @@ on:
     - cron: "17 6 * * 1" # weekly, Mondays 06:17 UTC
 permissions:
   contents: write
+  issues: write # drift alarm files an issue when the committed catalog lags the registry
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -37,6 +38,40 @@ jobs:
         run: |
           pip install mkdocs-material mkdocs-same-dir mkdocs-redirects pyyaml
           pip install pillow cairosvg mike
+      # DRIFT ALARM: the committed docs/modules pages + the fixture index
+      # (tests/meta/fixtures/modules_index/) must mirror the LIVE registry.
+      # A merged trunk PR with an unmerged registry PR — or vice versa —
+      # otherwise publishes a catalog that silently disagrees with git
+      # (this happened with `mighty`, 2026-08-29). Develop deploy only:
+      # main/release committed pages intentionally lag develop. NEVER fails
+      # the deploy (the regeneration below publishes the current catalog
+      # regardless); it just makes the mismatch loud — a warning annotation,
+      # a job summary, and at most one open issue. The sync-modules-index
+      # workflow opens the PR that clears it.
+      - name: Catalog drift alarm (committed pages vs live registry)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf .modules-index-drift
+          git clone --depth 1 https://github.com/castacks/airstack-modules-index .modules-index-drift \
+            || { echo "skipped: registry unreachable — no drift verdict"; exit 0; }
+          mkdir -p /tmp/no-fetched-modules
+          if python3 tools/gen_docs_catalog.py --index .modules-index-drift \
+               --modules-dir /tmp/no-fetched-modules --check 2> drift.txt; then
+            echo "committed catalog is in sync with the live registry"
+            exit 0
+          fi
+          echo "::warning title=Module catalog drift::committed docs/modules + fixture disagree with the live registry. The published catalog is regenerated and current; trunk needs a sync PR — run the sync-modules-index workflow."
+          { echo "## Module catalog drift"; echo; echo '```'; head -c 5000 drift.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$(gh issue list --label docs-catalog-drift --state open --json number --jq '.[].number')" ]; then
+            gh label create docs-catalog-drift --color D93F0B \
+              --description "Committed module catalog disagrees with the live registry" 2>/dev/null || true
+            gh issue create --title "Module catalog drift: committed docs/modules disagrees with the live registry" \
+              --label docs-catalog-drift \
+              --body "$(printf 'Detected by the develop docs deploy: %s/%s/actions/runs/%s\n\nThe committed docs/modules pages + tests/meta/fixtures/modules_index/ do not match regeneration from the live airstack-modules-index (usually a registry PR merged without its trunk sync, or the reverse). The published develop catalog is regenerated live and stays correct; git is what lags.\n\nFix: run the **sync-modules-index** workflow (Actions tab) and merge its PR — or sync manually per the extract-module skill registration step.\n\n```\n%s\n```' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(head -c 5000 drift.txt)")"
+          else
+            echo "drift issue already open — not filing a duplicate"
+          fi
       # RFC #379 §9: module docs ride the docs deploy. Shallow-clone the
       # registry index and each REGISTERED module repo at its registered_ref
       # into the gitignored modules/ dir, then regenerate docs/modules/ so
