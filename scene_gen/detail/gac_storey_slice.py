@@ -191,8 +191,23 @@ def _from_vtk(pd):
     ma = out.GetCellData().GetArray("mid")
     MID = (ns.vtk_to_numpy(ma).astype(np.int32) if ma is not None
            else np.zeros(len(tris), dtype=np.int32))
-    return {"P": np.asarray(P, dtype=float), "UV": np.asarray(UV, dtype=float),
-            "tris": np.asarray(tris, dtype=np.int64), "MID": MID}
+    P = np.asarray(P, dtype=float)
+    UV = np.asarray(UV, dtype=float)
+    tris = np.asarray(tris, dtype=np.int64)
+    # RE-MERGE, BUT ONLY WHERE IT IS LOSSLESS. `clip` runs with a
+    # non-merging locator because merging on POSITION ALONE destroys the uv of
+    # any decal lying on a wall (see the note in `clip`), and that leaves
+    # roughly 2.5x the points a merging clip produced. Merging on
+    # (position, uv) TOGETHER gives almost all of that back and cannot lose
+    # anything: two corners that agree on both are interchangeable by
+    # definition. Rounded to 1e-6 m / 1e-6 uv so float noise from the
+    # interpolation does not defeat the match.
+    key = np.round(np.c_[P, UV], 6)
+    _u, first, inv = np.unique(key, axis=0, return_index=True,
+                               return_inverse=True)
+    if len(first) < len(P):
+        P, UV, tris = P[first], UV[first], inv.reshape(-1)[tris]
+    return {"P": P, "UV": UV, "tris": tris, "MID": MID}
 
 
 def clip(m, normal, origin):
@@ -212,6 +227,26 @@ def clip(m, normal, origin):
     cl.SetInputData(_to_vtk(m) if "mats" in m or "tris" in m else m)
     cl.SetClipFunction(pl)
     cl.InsideOutOn()
+    # DO NOT LET THE CLIP MERGE COINCIDENT POINTS. `vtkClipPolyData` inserts
+    # its output points through a `vtkMergePoints` locator by default, so two
+    # corners at the same XYZ collapse into ONE point and keep whichever uv
+    # was written first. The input here is fully DE-INDEXED — `read_mesh`
+    # emits three points per triangle and shares nothing — so any merging is
+    # the clip's own, and it is destructive rather than tidy: GAC models its
+    # posters and signs (`M_Images`, an atlas with an opacity mask and an
+    # emissive) as separate quads lying ON the wall plane, so every decal
+    # corner is coincident with a wall corner. Merged, the decal inherited the
+    # WALL's uv and sampled an arbitrary crop of the signage atlas.
+    #
+    # MEASURED on `SM_Building_02`, piece `wall_S_19_04_0263` (the one this
+    # was reported on — "this wall looks like it has graffiti"):
+    # 84 face corners collapsed to 34 points, a 2.47x merge; the wall material
+    # `M_Building_01_WallBack` was correct at 0 of 60 corners wrong, while the
+    # decal `M_Images` had 21 of its 24 corners wrong by up to 0.058 in uv.
+    # The material ASSIGNMENT was never at fault — mix by area 41.2/58.8
+    # against 42.1/57.9 for the source in the same box.
+    # `tools/piece_mat_probe.py` is that measurement.
+    cl.SetLocator(vtk.vtkNonMergingPointLocator())
     cl.Update()
     return _from_vtk(cl.GetOutput())
 
@@ -325,25 +360,39 @@ def window_clearance(cut_z, win_centres, win_h=1.1):
     return worst, hit
 
 
+def _closed_lines(floors, bot, top):
+    """Floor lines with both mesh ends closed off.
+
+    THE LATTICE DOES NOT REACH THE ENDS OF THE MESH, and both ends have to
+    be closed or their geometry is silently dropped. `gac_slice.lattice`
+    returns the floor lines INSIDE [z0, z1], so the first line normally sits
+    above the mesh bottom (the shopfront band, which on SM_Building_01 is
+    most of a storey) and the last sits below the top (the cornice).
+    Measured before this: the bands summed to 4.03% less area than the
+    source, all of it the base and the crown.
+
+    Shared by `storeys()` (which has the real mesh to read `bot`/`top` from)
+    and `plan_slice_budget()` below, which only has the asset's BBOX and
+    needs to predict the same band count before any VTK clip has run. Both
+    have to close the ends the same way or the prediction and the actual cut
+    drift apart.
+    """
+    zs = list(floors)
+    if not zs or zs[0] > bot + EDGE_EPS_M:
+        zs = [bot] + zs
+    if not zs or zs[-1] < top - EDGE_EPS_M:
+        zs = zs + [top]
+    return zs
+
+
 def storeys(m, floors, verbose=True):
     """Cut `m` into one piece per storey band with two horizontal planes each.
 
     Returns [(z_lo, z_hi, piece)] for the bands that survived.
     """
-    # THE LATTICE DOES NOT REACH THE ENDS OF THE MESH, and both ends have to
-    # be closed or their geometry is silently dropped. `gac_slice.lattice`
-    # returns the floor lines INSIDE [z0, z1], so the first line normally sits
-    # above the mesh bottom (the shopfront band, which on SM_Building_01 is
-    # most of a storey) and the last sits below the top (the cornice).
-    # Measured before this: the bands summed to 4.03% less area than the
-    # source, all of it the base and the crown.
-    zs = list(floors)
     bot = float(m["P"][:, 2].min())
     top = float(m["P"][:, 2].max())
-    if not zs or zs[0] > bot + EDGE_EPS_M:
-        zs = [bot] + zs
-    if not zs or zs[-1] < top - EDGE_EPS_M:
-        zs = zs + [top]
+    zs = _closed_lines(floors, bot, top)
     out = []
     for i in range(len(zs) - 1):
         lo, hi = zs[i], zs[i + 1]
@@ -594,6 +643,219 @@ def roof_and_parapet(band, bbox, leg, bays, storey_h, splits=BAY_SPLITS,
     return out, True
 
 
+# ---------------------------------------------------------------------------
+# THE PIECE BUDGET
+# ---------------------------------------------------------------------------
+# MEASURED (bench, 2026-08-29) at the UNCONDITIONAL grid this file used to
+# produce -- BAY_SPLITS on every bay, one ring per measured/fallback bay
+# pitch, one band per measured/regular storey, no grouping at all:
+#
+#     SM_Building_02      696 pieces  (12 bands, native bay 3.62 m)
+#     SM_Building_24      563         (11 bands, native bay 9.00 m)
+#     SM_Building_04      878         (14 bands, native bay 4.10 m)
+#     SM_Building_01     1155         (15 bands, native bay 4.06 m)
+#     SM_Building_09     2055         (15 bands, native bay 4.20 m, 44x58 m)
+#     SM_Building_16     regular grid, 80 bands on an 312 m / 84x57 m tower
+#
+# The user: "It shouldn't split into thousands of pieces. More like
+# hundreds."
+#
+# WHERE THE COUNT COMES FROM. `ring()`'s own grammar makes the cost of ONE
+# band `4 + 1 + mult * total_bays`: 4 corners, 1 core, and `total_bays` bay
+# cells around the ring (both pairs of runs) each split into `mult`
+# sub-panels -- 3 if BAY_SPLITS applies, 1 if it does not. A building is that
+# summed over its bands, and the topmost band DOUBLES its own cost whenever
+# `roof_and_parapet` finds room to split it into a wall zone AND an upstand.
+# So the number that blows the budget is `total_bays` and `n_bands`
+# TOGETHER, not either one alone: SM_Building_16 has a large band count (80,
+# a real storey count on a 312 m supertall) but that alone would be fine --
+# multiplying every one of them by 3 sub-panels per bay around an 84x57 m
+# footprint is what is not. A FIXED divisor cannot fix both an 11-band block
+# and an 80-band tower with the same number, so this is a SEARCH: given THIS
+# building's own measured footprint and grid, find the coarsest bay grouping
+# (lever 1) and whether BAY_SPLITS is affordable (lever 2) that gets under
+# TARGET_PIECES -- and only for the handful of buildings tall enough that
+# even the coarsest bay grouping cannot get under MAX_PIECES, thin the
+# storey lines well above the ground too (lever 3, last resort).
+#
+# `ring()` and `roof_and_parapet()` themselves need NO change to be driven by
+# this: `bays` was always "the pitch to divide the run by" (pass a coarser
+# one and `n = round(span / bays)` comes out smaller on its own) and
+# `splits=None` already collapses `BAY_SPLITS`'s three sub-panels to one
+# (`fr = list(splits) if splits else [1.0]`). The budget only decides WHAT to
+# pass them.
+TARGET_PIECES = 300
+MAX_PIECES = 500
+
+
+def _total_bays(w, d, leg, pitch):
+    """Bay cells around one band's ring at bay pitch `pitch`.
+
+    Two runs of `w - 2*leg`, two of `d - 2*leg`, each rounded the same way
+    `ring()` rounds its own `n = round(span / bays)`.
+    """
+    nx = max(1, int(round(max(0.0, w - 2.0 * leg) / max(0.5, pitch))))
+    ny = max(1, int(round(max(0.0, d - 2.0 * leg) / max(0.5, pitch))))
+    return 2 * (nx + ny)
+
+
+def _band_cost(w, d, leg, pitch, thirds):
+    """`ring()`'s own piece count for ONE band at this bay pitch."""
+    bays = _total_bays(w, d, leg, pitch)
+    return 4 + 1 + bays * (3 if thirds else 1)
+
+
+def choose_bay_budget(w, d, leg, pitch, n_bands_eff, target=TARGET_PIECES):
+    """(k, thirds, per_band, total) -- lever 1 (bay grouping) and lever 2
+    (BAY_SPLITS on/off), chosen for one building.
+
+    Tries thirds ON first, at increasing grouping stride `k` (coarsest bay
+    pitch `pitch * k`), because BAY_SPLITS is a capability the user asked for
+    and grouping alone is "the cleanest lever" -- spend it wherever the
+    budget affords it. Only if NO grouping keeps thirds under `target` does
+    it drop to thirds OFF and re-search the grouping there.
+
+    `k`'s search ceiling is sized to THIS building: past the stride where
+    `pitch * k` alone already forces both `total_bays` axes to their floor of
+    1 bay each, no larger `k` changes the cost, so there is nothing to gain
+    searching further -- the ceiling just has to reach that point even on
+    the widest GAC footprint (`SM_Building_31`, 142 m).
+    """
+    k_cap = max(20, int(max(w, d) / max(0.5, pitch)) + 3)
+
+    def cost(k, thirds):
+        c = _band_cost(w, d, leg, pitch * k, thirds)
+        return c, c * n_bands_eff
+
+    for k in range(1, k_cap + 1):
+        c, total = cost(k, True)
+        if total <= target:
+            return {"k": k, "thirds": True, "per_band": c, "total": total,
+                    "note": "grouping alone (k={0}) kept BAY_SPLITS".format(k)}
+    best = None
+    for k in range(1, k_cap + 1):
+        c, total = cost(k, False)
+        if best is None or total < best["total"]:
+            best = {"k": k, "thirds": False, "per_band": c, "total": total}
+        if total <= target:
+            best["note"] = "BAY_SPLITS off everywhere, grouping k={0}".format(k)
+            return best
+    best["note"] = ("BAY_SPLITS off and the coarsest grouping tried (k={0}) "
+                    "still could not reach the {1}-piece goal; {2} piece(s) "
+                    "is the best bay grouping alone can do".format(
+                        best["k"], target, best["total"]))
+    return best
+
+
+# LEVER 3, LAST RESORT. How many bands from the ground are guaranteed one
+# real storey each, no matter how tall the tower is, before this function
+# will thin any further. `urban_fire.plan_fire`'s origin is drawn low-biased
+# (`u**1.7`; the median draw sits ~31% up the block) and F1-F3 reach at most
+# 6 storeys above wherever it starts (`BAND`), so this many bands is
+# comfortably past the median origin on every GAC building measured (the
+# tallest is an 80-band supertall) and is only crossed by an F4/F5 fire that
+# ALSO happened to be drawn low -- the rarest, most severe tier, on the tail
+# of an already low-probability draw. MEASURED (2026-08-29): only 3 of 31 GAC
+# buildings (`SM_Building_15`, `_16`, `_31` -- all >55 real bands on an
+# 84x57 m or bigger footprint) ever reach this function's `if` at all; on the
+# other 28 the bay-grouping floor alone clears MAX_PIECES and this whole
+# function is a no-op. The lines it thins are the SAME already-verified
+# spandrel lines `cut_lines` produced -- it only drops some of them, it never
+# moves one -- so a merged band is still a clean cut between two verified
+# floor lines, just fewer of them; no new risk of cutting a window.
+PROTECT_BANDS = 20
+
+
+def _thin_upper_lines(lines, protect_n, stride):
+    """Drop interior floor lines above the first `protect_n`, keeping every
+    `stride`-th one.
+
+    `storeys()` then merges `stride` real storeys into one band there instead
+    of dropping any geometry. The mesh's own top edge is always kept (whether
+    or not it lands on the stride) so the topmost band's height -- and so
+    `roof_and_parapet`'s split decision -- is unaffected by lever 3.
+    """
+    if stride <= 1 or len(lines) <= protect_n:
+        return list(lines)
+    head = list(lines[:protect_n])
+    tail = list(lines[protect_n:])
+    kept = tail[stride - 1::stride]
+    if tail and (not kept or kept[-1] != tail[-1]):
+        kept.append(tail[-1])
+    return head + kept
+
+
+def plan_slice_budget(g, bbox, leg, bay_native, offset=0.5,
+                      target=TARGET_PIECES, ceiling=MAX_PIECES, verbose=True):
+    """Decide the whole cut BEFORE any VTK clip runs.
+
+    Returns `(lines, bay_k, thirds, info)`: `lines` are the floor lines
+    `storeys()` should actually cut on (thinned by lever 3 only on the rare
+    building that needs it), `bay_k` and `thirds` are levers 1 and 2 for
+    `ring()`/`roof_and_parapet()`'s `bays=bay_native * bay_k` and
+    `splits=(BAY_SPLITS if thirds else None)`, and `info` is what to report.
+
+    Works entirely off the asset's bbox and its own measured/regular grid
+    `g` -- no mesh, no VTK -- which is what makes it cheap to search: the
+    predicted band count has to match what `storeys()` will actually produce
+    from the SAME lines, which is exactly what `_closed_lines` (shared with
+    `storeys()`) guarantees.
+    """
+    (_x0, _y0, z0), (_x1, _y1, z1) = bbox
+    w = float(bbox[1][0] - bbox[0][0])
+    d = float(bbox[1][1] - bbox[0][1])
+    lines = cut_lines(g, offset, verbose=False)
+    storey_h = float(g.get("storey_h") or 0.0)
+    par_h = max(PARAPET_MIN_M, PARAPET_FRAC * storey_h)
+    min_wall = max(EDGE_EPS_M, 0.3 * storey_h)
+
+    def _eff_bands(ls):
+        # THE SAME EFFECTIVE-BANDS COUNT `slice_to_kit`'s LOOP PRODUCES: every
+        # band below the top costs one `ring()`; the top band costs one if
+        # `roof_and_parapet` leaves it whole, two if it splits into a wall
+        # zone plus an upstand -- see that function's own docstring.
+        zs = _closed_lines(ls, z0, z1)
+        n = max(0, len(zs) - 1)
+        top_h = zs[-1] - zs[-2] if len(zs) >= 2 else 0.0
+        top_split = top_h > par_h + min_wall
+        return n, (max(0, n - 1) + (2 if top_split else 1))
+
+    n_bands, eff_bands = _eff_bands(lines)
+    best = choose_bay_budget(w, d, leg, bay_native, eff_bands, target)
+    stride = 1
+    if best["total"] > ceiling:
+        # LEVER 1+2 ALONE CANNOT CLEAR THE HARD CEILING. Increasingly thin
+        # the lines above PROTECT_BANDS until either the goal is met or the
+        # thinning stride has been pushed hard enough that further searching
+        # cannot help (bay grouping is re-solved at every stride, so this
+        # loop always keeps the least-thinned candidate that clears the
+        # ceiling even if it never reaches `target`).
+        chosen = (stride, lines, n_bands, best)
+        for stride in range(2, 33):
+            thinned = _thin_upper_lines(lines, PROTECT_BANDS, stride)
+            n1, eff1 = _eff_bands(thinned)
+            cand = choose_bay_budget(w, d, leg, bay_native, eff1, target)
+            if cand["total"] <= ceiling:
+                chosen = (stride, thinned, n1, cand)
+            if cand["total"] <= target:
+                break
+        stride, lines, n_bands, best = chosen
+        best["note"] = (best.get("note", "") +
+                        " | lever 3: bands above the bottom {0} merged in "
+                        "groups of {1} (band stride)".format(
+                            PROTECT_BANDS, stride))
+    info = {"n_bands": n_bands, "leg": leg, "bay_native": bay_native,
+            "bay_k": best["k"], "thirds": best["thirds"],
+            "per_band": best["per_band"], "predicted_total": best["total"],
+            "band_stride": stride, "note": best.get("note", "")}
+    if verbose:
+        print("[storey_slice] budget: {0} band(s) (stride {1}), bay k={2}, "
+              "thirds={3} -> predicted {4} piece(s) ({5})".format(
+                  n_bands, stride, best["k"], best["thirds"], best["total"],
+                  info["note"]))
+    return lines, best["k"], best["thirds"], info
+
+
 def as_placements(stage, cells, scope, style, mats, verbose=True):
     """Write ring cells as prims and return kit-shaped PLACEMENT dicts.
 
@@ -661,10 +923,17 @@ def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
     m = read_mesh(stage, src, verbose=False)
     if m is None:
         return [], g, measured
-    lines = cut_lines(g, offset, verbose=False)
-    bands = storeys(m, lines, verbose=False)
     leg = max(1.2, 0.6 * ((g["bays"].get("E") or {}).get("pitch") or 3.5))
-    bay = (g["bays"].get("E") or {}).get("pitch") or 3.5
+    bay_native = (g["bays"].get("E") or {}).get("pitch") or 3.5
+    # THE PIECE BUDGET decides both what to cut (lever 3 may thin the floor
+    # lines) and how to ring each band (levers 1/2: a coarser bay pitch,
+    # BAY_SPLITS on or off) — all before any VTK clip runs, so the search
+    # itself costs nothing. See the module section above `as_placements`.
+    lines, bay_k, thirds, budget = plan_slice_budget(
+        g, bbox, leg, bay_native, offset, verbose=verbose)
+    bands = storeys(m, lines, verbose=False)
+    bay = bay_native * bay_k
+    splits = BAY_SPLITS if thirds else None
     cells = []
     n_bands = len(bands)
     roofed = False
@@ -676,9 +945,10 @@ def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
         # that runs up to the mesh's own apex.
         if i == n_bands - 1:
             pieces, roofed = roof_and_parapet(band, bb, leg, bay,
-                                              g["storey_h"], verbose=verbose)
+                                              g["storey_h"], splits=splits,
+                                              verbose=verbose)
         else:
-            pieces = ring(band, bb, leg, bay)
+            pieces = ring(band, bb, leg, bay, splits=splits)
         for role, side, k, piece in pieces:
             cells.append((i, role, side, k, piece))
     pls = as_placements(stage, cells, cell + "/pieces", style, m["mats"],
@@ -686,6 +956,11 @@ def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
     spec = gsl.register_style(g, style, pieces_of=pls)
     _fix_advertised_bands(spec, pls, style, verbose=verbose)
     UsdGeom.Imageable(stage.GetPrimAtPath(src)).MakeInvisible()
+    if verbose:
+        print("[storey_slice] {0}: {1} piece(s) actual (budget predicted "
+              "{2}); bay k={3}, thirds={4}, band stride={5}".format(
+                  style, len(pls), budget["predicted_total"], bay_k, thirds,
+                  budget["band_stride"]))
     if verbose and not roofed:
         print("[storey_slice] {0}: top band could not be labelled roof/"
               "parapet at all (clip failure) — check {1}".format(style, src))

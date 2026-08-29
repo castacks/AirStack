@@ -24,12 +24,10 @@
 #
 #    WHERE THE CELLS LIVE. Locally: `FINAL_DATASET_DIR` (host) ->
 #    /isaac-sim/final_disaster_dataset, already in
-#    simulation/isaac-sim/docker/docker-compose.yaml. ON A POD: NOWHERE, until
-#    they are uploaded — the dataset is outside the repo and is not cloned. So
-#    `FROZEN_DATASET_ROOT` below points at Nucleus and
-#    `scene_gen/tools/upload_frozen_cells.py` is a PREREQUISITE of this
-#    mission. A cell that does not resolve fails at t=0 with
-#    "FROZEN_SCENE=...: no such file or cell", which is the right failure —
+#    simulation/isaac-sim/docker/docker-compose.yaml. On a POD there is no such
+#    mount and the dataset is not cloned, so the cells are read from Nucleus —
+#    `FROZEN_DATASET_ROOT` below. A cell that does not resolve fails at t=0
+#    with "FROZEN_SCENE=...: no such file or cell", which is the right failure:
 #    loud, immediate, and it names what it looked for.
 #
 # 2. THE SEARCH AREA IS THE DAMAGE, MEASURED OFF THE CELL. The Isaac launcher
@@ -165,25 +163,25 @@ env:
   # SCENE_CONFIG is deliberately ABSENT — setting it alongside FROZEN_SCENE is
   # ignored with a warning, but leaving it out is what states the intent.
   #
-  # ── WHERE THE CELLS COME FROM, AND THE PREREQUISITE THIS MISSION HAS ─────
+  # ── WHERE THE CELLS COME FROM ────────────────────────────────────────────
   # `final_disaster_dataset/` lives OUTSIDE the repo (4.8 GB across 18 cells,
   # bind-mounted from FINAL_DATASET_DIR) and is NOT in git. A pod clones the
-  # branch and therefore has NEITHER — no mount, no cells. So the cells have
-  # to be somewhere the pod can reach, and the pod already has exactly one
-  # such place with a credential the workflow injects: Nucleus.
+  # branch and therefore has NEITHER — no mount, no cells. So they live on
+  # Nucleus, the one place a pod can reach with a credential the workflow
+  # already injects.
   #
-  # UPLOAD THEM FIRST — this mission cannot run until you have:
+  # UPLOADED 2026-08-29: all 18 cells, 69 files, 4.52 GB, verified
+  # size-identical against the local originals, and two of them re-opened off
+  # the server to confirm the structure the launcher reads (/World children,
+  # 6,238 and 6,536 referenced objects under generated/inst). `snaps/` is not
+  # uploaded — 571 MB of review captures that nothing reads at run time.
+  # Textures and MDL are not uploaded either and do not need to be: they were
+  # never inlined into the frozen files, so a cell still references them on
+  # Nucleus and in the repo, both of which a pod resolves.
   #
-  #   docker exec isaac-sim /isaac-sim/python.sh \
-  #     /isaac-sim/AirStack/scene_gen/tools/upload_frozen_cells.py --dry-run
-  #   docker exec isaac-sim /isaac-sim/python.sh \
-  #     /isaac-sim/AirStack/scene_gen/tools/upload_frozen_cells.py
-  #
-  # ~1.9 GB for the six cells this mission flies (the .usd plus each cell's
-  # two GT files and build_stats; `snaps/` is not uploaded and is not read).
-  # The cells' TEXTURES and MDL are NOT copied and do not need to be: they
-  # were never inlined into the frozen files, so a cell still references them
-  # on Nucleus and in the repo, both of which a pod resolves already.
+  # Re-uploading a re-exported cell: the recipe is in
+  # .agents/skills/freeze-dataset-state, the standalone `omni.client`
+  # invocation it uses in .agents/skills/run-isaac-sim-launcher section 6.
   #
   # ON A LOCAL BENCH that already has the mount, comment this out and the
   # launcher falls back to /isaac-sim/final_disaster_dataset. FROZEN_SCENE is

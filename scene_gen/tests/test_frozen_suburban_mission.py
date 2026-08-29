@@ -124,7 +124,8 @@ def test_the_cells_are_addressed_somewhere_a_pod_can_reach(mission):
     assert root, "FROZEN_DATASET_ROOT unset — this mission cannot run on a pod"
     assert "://" in root, (
         f"{root} is a local path; a pod has no such mount. Upload the cells "
-        "(scene_gen/tools/upload_frozen_cells.py) and point this at Nucleus")
+        "to Nucleus and point this there — the recipe is in "
+        ".agents/skills/freeze-dataset-state")
     assert root.rstrip("/").endswith("final_disaster_dataset"), root
 
 
