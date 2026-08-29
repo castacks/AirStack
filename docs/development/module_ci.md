@@ -179,7 +179,9 @@ gh workflow run module-system-tests.yml --repo castacks/AirStack \
 ## GPU runners for module repos
 
 With the default `runs_on`, jobs queue for the label pair
-`[self-hosted, airstack-ephemeral]` — the ephemeral OSMO-backed runners. The
-orchestrator polls **one repo per instance**, so a module repo must be added
-to the poll list before its jobs are picked up: see
+`[self-hosted, airstack-ephemeral]` — the ephemeral OSMO-backed runners. One
+orchestrator instance polls a **`repos:` list** (trunk plus module repos), so
+a module repo must be added to that list — and be covered by the
+orchestrator's GitHub PAT — before its jobs are picked up: see
 [CI/CD Orchestrator → Module repos](../../tests/ci-cd-orchestrator.md#module-repos).
+`castacks/asm_optitrack` is polled today.

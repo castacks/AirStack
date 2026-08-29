@@ -60,7 +60,19 @@ SIM_CONFIG = {
 }
 
 
-def wait_for_first_message(container, topic, domain_id, setup_bash, timeout=60):
+class SimulatorHealthError(RuntimeError):
+    """A readiness wait stopped because its simulator process became unhealthy."""
+
+
+def wait_for_first_message(
+    container,
+    topic,
+    domain_id,
+    setup_bash,
+    timeout=60,
+    health_check=None,
+    health_grace=15,
+):
     """Wait up to `timeout` seconds for one message on `topic`. Returns seconds
     elapsed on success, None on timeout. Each attempt sources the workspace
     and runs `ros2 topic echo --once`; if the workspace isn't built yet or the
@@ -73,6 +85,17 @@ def wait_for_first_message(container, topic, domain_id, setup_bash, timeout=60):
     attempt = 0
     while time.time() < deadline:
         attempt += 1
+        if health_check is not None and time.time() - start >= health_grace:
+            health = health_check()
+            if isinstance(health, tuple):
+                healthy, detail = health
+            else:
+                healthy, detail = bool(health), "simulator health probe failed"
+            if not healthy:
+                raise SimulatorHealthError(
+                    f"infrastructure simulator process failure while waiting "
+                    f"for {topic}: {detail}"
+                )
         per_attempt = min(max(1, int(deadline - time.time())), 10)
         try:
             result = ros2_exec(

@@ -32,8 +32,8 @@ security model. It is aimed at maintainers of the pipeline itself.
 | Where do CI jobs run? | Python unit tests: `ubuntu-latest`. Build and simulation tests: a fresh OSMO GPU pod, destroyed afterward. |
 | What triggers a run? | PR open/update/reopen runs unit + package-build gates; maintainers select simulations with `/pytest`; `workflow_dispatch` is also available. |
 | What gets tested? | Automatically: Python units/contracts and ROS package builds/tests. Selectably: Docker builds, liveliness, sensors, and flight policies. (OptiTrack system tests live in the asm_optitrack module's CI.) |
-| How do I see results? | Checks plus a report comment and `test-results-*` artifact (`summary.txt`, `results.xml`, `run_meta.json`, `metrics.json`). |
-| What fails the build? | Any failed test, or a comparable simulation metric regressing more than 20%. Invalid/incomplete campaigns are labeled, not scored as policy failures. |
+| How do I see results? | Checks plus a report comment and `test-results-*` artifact (`summary.txt`, `results.xml`, `run_meta.json`, `metrics.json`, and bounded failure diagnostics when needed). |
+| What fails the build? | Test assertions, infrastructure/prerequisite failures, or report integrity failures. Comparable numeric metric deltas are advisory. |
 | Who holds the secrets? | Only the orchestrator host. Workers get a single-use JIT token valid for one registration. |
 
 ---
@@ -205,8 +205,8 @@ flowchart TD
   k --> m["pytest tests/ with resolved args"]
   l --> m
   m --> n["Upload tests/results/ artifact, 90-day retention"]
-  n --> o["Finalize Check Run with the job conclusion"]
-  o --> p["report job on ubuntu-latest"]
+  n --> p["report job on ubuntu-latest"]
+  p --> o["Post report, then finalize Check Run"]
 ```
 
 The image-prep step is what makes runs on a cold pod tolerable: it pulls the
@@ -384,7 +384,7 @@ Full runbook, including credential rotation and worker-side diagnostics:
 | [`.github/orchestrator/config.example.yaml`](../../../../.github/orchestrator/config.example.yaml) | Every tunable: pool, platform, resources, limits, poll intervals |
 | [`.github/orchestrator/setup.sh`](../../../../.github/orchestrator/setup.sh) | One-time orchestrator host install |
 | [`tests/conftest.py`](../../../../tests/conftest.py) | `airstack_env` fixture, collection order, `MetricsRecorder` |
-| [`tests/parse_metrics.py`](../../../../tests/parse_metrics.py) | Report generation and the regression gate |
+| [`tests/parse_metrics.py`](../../../../tests/parse_metrics.py) | Comparable advisory report generation and report-integrity gate |
 | [`tests/run_summary.py`](../../../../tests/run_summary.py) | `summary.txt` generation |
 
 ## See also

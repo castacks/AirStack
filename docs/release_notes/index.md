@@ -19,6 +19,24 @@ its own notes. -->
 
 ## 0.20.0 (Unreleased)
 
+- **Trustworthy system-test outcomes.** A red system-tests run now always
+  means the code under test got worse, never that CI infrastructure hiccuped:
+  `run_meta.json` (schema v2) classifies every failure as
+  `assertion` / `infrastructure` / `collection` / `ci_integrity`, and CI fails
+  only on those — comparable numeric metric deltas (Hz, CPU, error metrics)
+  are **advisory** in the report and no longer fail the PR. Metric
+  comparisons only happen between fingerprint-identical campaigns (same
+  tests **and** same behavior-changing CLI config: sim, robot count,
+  trajectories, velocities, tolerances), with the baseline selected from
+  recent base-branch artifacts by fingerprint instead of "newest artifact of
+  any shape". Bring-up/readiness failures fail fast when the simulator
+  process dies (instead of burning the full `/clock` timeout on an ephemeral
+  GPU pod) and capture a bounded, secret-free `diagnostics/` bundle before
+  the pod is destroyed. Maintainers can dispatch focused flight campaigns
+  (`trajectory_types`, `takeoff_velocities`) from `workflow_dispatch`. New
+  `airstack up --config-only`: dry-run restricted to logical launch-config
+  contracts (no Docker/credentials/image/submodule prerequisites).
+
 - **CI un-redded: Metrics Report and Unit Tests fixed.** Every PR had been
   failing since ~2026-08-20 for reasons unrelated to the code under test.
   The system-tests **Metrics Report** job installed only `tabulate`, so

@@ -232,7 +232,7 @@ The workflow:
 2. Opens an in-progress GitHub Check Run on the PR's head SHA so the run shows up in the **Checks** tab (issue_comment events otherwise associate runs with the default branch)
 3. Runs pytest on a freshly-spawned ephemeral OSMO GPU pod (`runs-on: [self-hosted, airstack-ephemeral]`)
 4. Uploads `tests/results/` as artifact `test-results-<sha>-<run_id>` (90-day retention)
-5. The downstream `report` job runs `parse_metrics.py`, compares only a matching complete simulation baseline, posts the result, and finalizes the PR-head Check Run
+5. The downstream `report` job selects the newest matching complete simulation baseline, runs `parse_metrics.py`, posts the advisory comparison, and finalizes the PR-head Check Run
 6. Closes the Check Run with the final conclusion
 
 ### Why fork PRs are blocked
@@ -284,7 +284,7 @@ Keys follow `test_node_id → metric_key → {value, unit, direction, ...}`. Tim
 # Single-run report — markdown table, exits 0 always
 python tests/parse_metrics.py --current tests/results/2025-04-21_14-30-00/
 
-# Diff mode — side-by-side, exits 1 on regression
+# Comparison mode — side-by-side; numeric deltas are advisory
 python tests/parse_metrics.py \
   --current  tests/results/2025-04-21_14-30-00/ \
   --baseline tests/results/2025-04-20_09-00-00/ \
@@ -298,7 +298,11 @@ The report has three sections per test module:
 - **Sim publishing rates** — pivoted Hz aggregates per topic (`mean`, `start_mean`, `end_mean`, `min`, `max`) from the `sensors` mark (sim + robot streams)
 - **Compute usage** — pivoted CPU/mem/GPU per container
 
-Regressions exceeding `--threshold` (default 20%) are flagged `:red_circle:`; improvements beyond threshold get `:green_circle:`. CI fails only when both artifacts are complete and have the same simulation campaign fingerprint.
+Changes exceeding `--threshold` (default 20%) are flagged `:red_circle:` or
+`:green_circle:` for review. Numeric deltas never fail CI. Pytest assertions,
+infrastructure/prerequisite failures, missing artifacts, and report-parser
+errors remain blocking. The fingerprint includes normalized tests and all
+behavior-changing campaign options.
 
 When local-debugging a CI regression, download both artifacts (`test-results-<sha>-<run_id>` from the PR run and from the base branch's most recent run), unzip them under `tests/results/`, and run `parse_metrics.py` locally to see the same table the bot posted.
 
@@ -453,7 +457,7 @@ python tests/parse_metrics.py \
 - `tests/harness/` — helpers split by concern: `session`, `discovery`, `commands`, `containers`, `metrics` (`MetricsRecorder`), `run_meta`, `test_ids`, `sim`, `collection` (ordering)
 - `tests/meta/` — fast contract tests (`unit` mark) pinning CLI/docs/stack contracts
 - `tests/pytest.ini` — mark registration, log format
-- `tests/parse_metrics.py` — markdown reporter, regression diff
+- `tests/parse_metrics.py` — markdown reporter and advisory comparison
 - `tests/README.md` — user-facing docs (CLI options, output layout, CI/CD orchestrator)
 - `.github/workflows/system-tests.yml` — CI workflow with `/pytest` comment trigger
 - `.github/orchestrator/README.md` — ephemeral OSMO runner setup and worker-debug procedure

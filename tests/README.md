@@ -144,23 +144,25 @@ Writes custom metrics to `tests/results/<timestamp>/metrics.json` after each `re
 
 Every test run produces a timestamped directory containing `summary.txt`,
 `results.xml`, `run_meta.json`, and `metrics.json` (plus a `wiring/` subdirectory
-when the `wiring` mark runs) — there is **no** `logs/` subdirectory and no
-per-test log files are written under the run directory.
+when the `wiring` mark runs, and a bounded `diagnostics/` JSON bundle on
+simulator/startup failures). There is **no** `logs/` subdirectory and no
+per-test log files are written under the run directory. Full unbounded logs
+are never copied into the artifact.
 
 ```
 tests/results/
 └── 2025-04-21_14-30-00/
     ├── summary.txt        # Human-readable key metrics — open this first
     ├── results.xml        # JUnit XML — test durations and pass/fail status
-    ├── run_meta.json      # Completion/outcome and campaign fingerprint
+    ├── run_meta.json      # Schema-v2 completion/failure class + exact campaign
     ├── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
+    ├── diagnostics/       # On failure: config, panes, log tails, ROS/GPU/commands
     └── wiring/            # (wiring mark only) observed_<stack>.md graph snapshots
 ```
 
-Live test output goes to the terminal (pytest `log_cli`). On failure, assertion
-messages include the tail of the last subprocess output (the in-memory
-`read_log_tail` of the relevant `docker` / `ros2` subprocess) — no per-test log
-files are written under the run directory.
+Live test output goes to the terminal (pytest `log_cli`). Diagnostics are
+bounded (container log tails and a 30-command ring) and exclude secret-bearing
+environment variables.
 
 ---
 
@@ -536,17 +538,19 @@ python tests/parse_metrics.py \
 
 Prints a markdown table of all recorded metrics. Always exits 0.
 
-### Diff / regression check
+### Advisory comparison
 
 ```bash
 python tests/parse_metrics.py \
   --current  tests/results/2025-04-21_14-30-00/ \
   --baseline tests/results/2025-04-20_09-00-00/ \
-  --threshold 20          # optional: regression if change% exceeds this (default 20)
+  --threshold 20          # optional: highlight if change% exceeds this (default 20)
   --output   report.md    # optional: also write to file
 ```
 
-Prints a side-by-side comparison. Exits **1** if any metric regresses beyond the threshold; exits 0 otherwise.
+Prints a side-by-side comparison. Numeric deltas are advisory and always exit
+0. Report parsing/integrity failures exit 2 and block CI; pytest assertions and
+infrastructure failures are enforced by the test job.
 
 For a completed test campaign, the report has three sections per test module:
 
@@ -558,7 +562,10 @@ Regressions are flagged with :red_circle:, improvements with :green_circle:.
 Collection errors, command/internal errors, zero-test runs, and jobs that stop before
 pytest finalizes are labeled **not comparable**. Their pass-rate and regression tables
 are suppressed so an infrastructure failure cannot appear as 0% policy performance.
-`run_meta.json` records the pytest exit status and simulation tests selected/completed.
+`run_meta.json` records normalized selected IDs, behavior-changing CLI options,
+completion state, and failure class. Its fingerprint includes both tests and
+configuration, preventing unlike robot counts, trajectories, tolerances, or
+stress settings from being compared. Per-robot metric keys remain visible.
 
 ---
 
@@ -591,6 +598,8 @@ opened, updated, or reopened against `main` or `develop`.
 | `num_robots` | `1` | Robot counts |
 | `stress_iterations` | `1` | Iterations per config |
 | `stable_duration` | `120` | Stability polling seconds |
+| `trajectory_types` | `Circle,Figure8,Racetrack,Line` | Fixed-trajectory sweep; set `Circle` for a minimal campaign |
+| `takeoff_velocities` | `0.5` | Takeoff velocity sweep |
 | `baseline_run_id` | _(blank)_ | Run ID for comparison; blank = latest `main` run |
 
 #### Jobs
@@ -600,14 +609,10 @@ opened, updated, or reopened against `main` or `develop`.
 **`report`** runs on `ubuntu-latest` after `run-tests` (even if it failed). It:
 
 1. Downloads the current artifact
-2. Downloads a baseline artifact (from the base branch for PRs, from `main` for manual runs, or from the specified `baseline_run_id`)
-3. Runs `parse_metrics.py` in diff mode only when both artifacts have the same complete simulation campaign fingerprint; otherwise reports the current run without comparison
+2. Downloads baseline candidates (from the base branch for PRs, from `main` for manual runs, or from the specified `baseline_run_id`)
+3. Selects the newest completed candidate with the exact same test/configuration fingerprint; otherwise reports the current run without comparison
 4. Posts the markdown report as a PR comment (PR runs) or to the job summary (all runs)
-5. Fails with `::error::` only for a comparable metric regression; invalid/incomplete campaigns are reported as infrastructure outcomes
-
-#### Required third-party action
-
-The workflow uses [`dawidd6/action-download-artifact@v6`](https://github.com/dawidd6/action-download-artifact) to download artifacts from other workflow runs by branch name. This is a community action and must be trusted in your repository's Actions settings if you use a restricted allowed-actions policy.
+5. Fails only if report generation/integrity fails. Comparable metric deltas are advisory; assertions and infrastructure failures remain blocking in `run-tests`
 
 ---
 

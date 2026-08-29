@@ -194,6 +194,8 @@ function print_command_help {
             echo "  --no-autolaunch     Start containers idle (AUTOLAUNCH=false; launch manually)."
             echo "  --wait              After starting, block until flight-ready (airstack ready)."
             echo "  --dry-run           Validate + print the derived launch config; start nothing."
+            echo "  --config-only       Like --dry-run, but only logical launch-config checks"
+            echo "                      (no Docker, credentials, images, or submodule prereqs)."
             echo ""
             echo "Anything else (e.g. --build, service names) is passed through to"
             echo "'docker compose up'."
@@ -386,6 +388,7 @@ function print_command_help {
             echo "  simple_sim      Simple-sim smoke test (containers, /clock, sentinel nodes;"
             echo "                  run with --sim simplesim --num-robots 1)"
             echo "  optitrack       OptiTrack NatNet end-to-end (tests live in the asm_optitrack module)"
+            echo "  infrastructure  Readiness/prerequisite checks (CI environment faults)"
             echo ""
             echo "AirStack-specific options (defaults from tests/conftest.py):"
             echo "  --sim=TARGETS              Comma-separated sim targets: isaacsim, msairsim,"
@@ -1135,6 +1138,7 @@ function parse_launch_intent {
     AIRSTACK_INTENT_SCENE=""
     AIRSTACK_FLEET_COMPOSE_FILE=""
     AIRSTACK_DRY_RUN=""
+    AIRSTACK_CONFIG_ONLY=""
     AIRSTACK_UP_WAIT=""
 
     local args=("$@") i=0 a
@@ -1159,6 +1163,7 @@ function parse_launch_intent {
             # NOTE: shadows compose's own `up --dry-run`; ours validates the
             # derived launch config and exits without starting services.
             --dry-run)      AIRSTACK_DRY_RUN="1";;
+            --config-only)  AIRSTACK_CONFIG_ONLY="1"; AIRSTACK_DRY_RUN="1";;
             *)              _rest_out+=("$a");;
         esac
         i=$((i+1))
@@ -1630,15 +1635,42 @@ function preflight_up {
         fi
 
         # 4. Files the isaac-sim service hard-requires
-        if [ ! -f "$PROJECT_ROOT/simulation/isaac-sim/docker/omni_pass.env" ]; then
-            _pf_error "simulation/isaac-sim/docker/omni_pass.env is missing (Nucleus credentials). Run 'airstack setup' to create it."
-        fi
-        if [ ! -e "$PROJECT_ROOT/simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator" ]; then
-            _pf_error "PegasusSimulator submodule is empty — the Isaac launch script will fail to import pegasus. Run: git submodule update --init --recursive"
+        if [[ "$AIRSTACK_CONFIG_ONLY" != "1" ]]; then
+            if [ ! -f "$PROJECT_ROOT/simulation/isaac-sim/docker/omni_pass.env" ]; then
+                _pf_error "simulation/isaac-sim/docker/omni_pass.env is missing (Nucleus credentials). Run 'airstack setup' to create it."
+            fi
+            if [ ! -e "$PROJECT_ROOT/simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator" ]; then
+                _pf_error "PegasusSimulator submodule is empty — the Isaac launch script will fail to import pegasus. Run: git submodule update --init --recursive"
+            fi
         fi
     fi
 
-    # 5. Missing images: compose 'up' silently starts a very long build
+    # 5. Deprecation shim (remove in 0.21.0): LAUNCH_NATNET no longer does
+    # anything — OptiTrack was extracted to the asm_optitrack module.
+    local _pf_natnet
+    _pf_natnet=$(resolve_launch_var LAUNCH_NATNET "${_pf_global[@]}")
+    if [[ -n "$_pf_natnet" ]]; then
+        log_warn "LAUNCH_NATNET is gone — OptiTrack moved to the asm_optitrack module (airstack module add https://github.com/castacks/asm_optitrack --version <tag>); see docs/development/modules.md"
+    fi
+
+    # 6. Deprecation shim (remove in 0.21.0): AUTONOMY_ROLE was REMOVED
+    # (stacks — RFC #379 — are the only launch dispatch). A set value counts
+    # only via env / --env-file / .env; nothing in the compose files defaults
+    # it anymore. This is a configuration contract, so it runs for --config-only.
+    local _pf_role
+    _pf_role=$(resolve_launch_var AUTONOMY_ROLE "${_pf_global[@]}")
+    if [[ -n "$_pf_role" ]]; then
+        _pf_error "AUTONOMY_ROLE was removed — select a stack: airstack up --stack <name> (see docs/development/stacks.md). Migration: full → full_default (the no-stack default), onboard → lite_default, onboard/offboard split → lite_offload_global:onboard / :offboard."
+    fi
+
+    # Configuration contracts intentionally stop before Docker, credentials,
+    # images, GPU, and checked-out submodule prerequisites.
+    if [[ "$AIRSTACK_CONFIG_ONLY" == "1" ]]; then
+        unset -f _pf_error
+        return $errors
+    fi
+
+    # 7. Missing images: compose 'up' silently starts a very long build
     local imgs img missing=()
     imgs=$(run_docker_compose "${_pf_global[@]}" config --images 2>/dev/null | sort -u)
     for img in $imgs; do
@@ -1650,29 +1682,11 @@ function preflight_up {
         log_warn "To use prebuilt images instead: airstack images pull   (set AIRSTACK_NO_IMAGE_BUILD=1 to forbid implicit builds)"
     fi
 
-    # 6. ROBOT_NAME resolution needs Docker >= 29 (see robot/docker/.bashrc)
+    # 8. ROBOT_NAME resolution needs Docker >= 29 (see robot/docker/.bashrc)
     local docker_major
     docker_major=$(docker version --format '{{.Server.Version}}' 2>/dev/null | cut -d. -f1)
     if [[ "$docker_major" =~ ^[0-9]+$ ]] && (( docker_major < 29 )); then
         log_warn "Docker $docker_major < 29: container-name DNS resolution fails, robots will resolve as 'unknown_robot' on domain 0 (MAVROS will not connect). Upgrade Docker or set ROBOT_NAME_SOURCE=hostname."
-    fi
-
-    # 7. Deprecation shim (remove in 0.21.0): LAUNCH_NATNET no longer does
-    # anything — OptiTrack was extracted to the asm_optitrack module.
-    local _pf_natnet
-    _pf_natnet=$(resolve_launch_var LAUNCH_NATNET "${_pf_global[@]}")
-    if [[ -n "$_pf_natnet" ]]; then
-        log_warn "LAUNCH_NATNET is gone — OptiTrack moved to the asm_optitrack module (airstack module add https://github.com/castacks/asm_optitrack --version <tag>); see docs/development/modules.md"
-    fi
-
-    # 8. Deprecation shim (remove in 0.21.0): AUTONOMY_ROLE was REMOVED
-    # (stacks — RFC #379 — are the only launch dispatch). A set value counts
-    # only via env / --env-file / .env; nothing in the compose files defaults
-    # it anymore.
-    local _pf_role
-    _pf_role=$(resolve_launch_var AUTONOMY_ROLE "${_pf_global[@]}")
-    if [[ -n "$_pf_role" ]]; then
-        _pf_error "AUTONOMY_ROLE was removed — select a stack: airstack up --stack <name> (see docs/development/stacks.md). Migration: full → full_default (the no-stack default), onboard → lite_default, onboard/offboard split → lite_offload_global:onboard / :offboard."
     fi
 
     unset -f _pf_error
@@ -1680,12 +1694,13 @@ function preflight_up {
 }
 
 function cmd_up {
-    check_docker
-
     # Airstack launch-intent flags (consumed before compose sees the args)
     local rest_args=()
     parse_launch_intent rest_args "$@" || exit 1
     apply_launch_intent "${rest_args[@]}" || exit 1
+    if [[ "$AIRSTACK_CONFIG_ONLY" != "1" ]]; then
+        check_docker
+    fi
 
     local global_args=()
     local subcmd_args=()
@@ -2317,7 +2332,7 @@ function register_builtin_commands {
     COMMAND_HELP["install"]="Install dependencies (Docker Engine, NVIDIA Container Toolkit)"
     COMMAND_HELP["setup"]="Configure AirStack settings and add to shell profile"
     COMMAND_HELP["images"]="Manage Docker Compose service images: list (default)|build|push|pull|delete|rm (see 'airstack help images')"
-    COMMAND_HELP["up"]="Start services [--sim isaac|airsim|simple] [--robots N] [--stack NAME] [--fleet NAME] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run]"
+    COMMAND_HELP["up"]="Start services [--sim isaac|airsim|simple] [--robots N] [--stack NAME] [--fleet NAME] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run] [--config-only]"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["clean"]="Remove all ROS 2 build artifacts (build/, install/, log/)"
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"

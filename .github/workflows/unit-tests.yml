@@ -55,6 +55,8 @@ jobs:
       - name: Run unit tests
         env:
           AIRSTACK_ROOT: ${{ github.workspace }}
+          AIRSTACK_TESTED_SHA: ${{ github.sha }}
+          AIRSTACK_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: pytest tests/ -m unit
 
       - name: Upload unit-test results

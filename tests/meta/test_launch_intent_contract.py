@@ -2,15 +2,14 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for `airstack up` launch-intent flags (--sim/--robots/...).
 
-`airstack up --dry-run` derives the launch configuration (compose profiles,
-URDF, Isaac script selection, robot count), runs the preflight checks, prints
+`airstack up --config-only` derives the launch configuration (compose profiles,
+URDF, Isaac script selection, robot count), runs logical preflight checks, prints
 the effective config between marker lines, and exits without starting
 services. These tests pin that contract: the derivations the flags promise,
 the preflight guards, and the exit codes.
 
-They shell the real ./airstack.sh (no mocking) but never start containers —
---dry-run stops before compose up. Docker itself is required (the preflight
-image check runs `docker compose config`), which CI's ubuntu-latest provides.
+They shell the real ./airstack.sh (no mocking) but never contact Docker or
+require simulator credentials, images, GPUs, or populated submodules.
 """
 import os
 import subprocess
@@ -36,7 +35,7 @@ def run_up_dry(*flags, env=None, check=True):
     # exactly that error.
     full_env = {**os.environ, "AUTONOMY_ROLE": "", **(env or {})}
     result = subprocess.run(
-        [AIRSTACK, "up", "--dry-run", *flags],
+        [AIRSTACK, "up", "--config-only", *flags],
         capture_output=True, text=True, cwd=str(REPO), env=full_env, timeout=120,
     )
     out = result.stdout + result.stderr
@@ -160,12 +159,18 @@ def test_effective_config_dump_written():
     if not os.access(REPO, os.W_OK):
         pytest.skip("checkout mounted read-only (tests container) — dump is best-effort")
     runs_dir = REPO / ".airstack" / "runs"
-    before = set(runs_dir.glob("*/effective_config.env")) if runs_dir.exists() else set()
+    before = {
+        path: path.stat().st_mtime_ns
+        for path in runs_dir.glob("*/effective_config.env")
+    } if runs_dir.exists() else {}
     run_up_dry("--sim", "isaac")
-    after = set(runs_dir.glob("*/effective_config.env"))
-    new = after - before
-    assert new, "dry-run did not write an effective_config.env under .airstack/runs/"
-    content = max(new, key=lambda p: p.stat().st_mtime).read_text()
+    after = list(runs_dir.glob("*/effective_config.env"))
+    changed = [
+        path for path in after
+        if path not in before or path.stat().st_mtime_ns != before[path]
+    ]
+    assert changed, "config-only did not write effective_config.env under .airstack/runs/"
+    content = max(changed, key=lambda p: p.stat().st_mtime_ns).read_text()
     assert "COMPOSE_PROFILES=" in content
 
 

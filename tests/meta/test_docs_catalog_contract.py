@@ -18,6 +18,7 @@ at build time. This contract pins the pieces that must stay true:
   fetch step with per-clone failure isolation (an unreachable module repo
   must never fail a docs deploy).
 """
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -203,11 +204,19 @@ def test_every_nav_entry_points_at_an_existing_file():
     Guards the 404 class: a nav entry naming a moved/renamed page ships a
     dead link on the published site without failing the build (we cannot
     run ``mkdocs --strict`` while pre-existing warnings stand).
+
+    Submodule paths are skipped: unit CI does not checkout submodules, and
+    those READMEs are owned by the submodule repo.
     """
+    gitmodules = REPO / ".gitmodules"
+    submodule_roots = tuple(
+        re.findall(r"^\s*path\s*=\s*(\S+)", gitmodules.read_text(), re.M)
+    ) if gitmodules.is_file() else ()
     missing = [
         path
         for path in _flatten_nav(_load_mkdocs()["nav"])
         if not path.startswith(("http://", "https://"))
+        and not any(path == root or path.startswith(root + "/") for root in submodule_roots)
         and not (REPO / path).is_file()
     ]
     assert not missing, f"mkdocs.yml nav entries with no file on disk: {missing}"
