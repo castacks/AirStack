@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Spawn PX4 drones into a scene. The scene comes from ONE of two sources.
+Spawn PX4 drones into a scene. The scene comes from ONE of THREE sources.
 
   ENV_URL (the default)  a finished USD pulled off Nucleus by
                          `pg.load_environment`. This is the historical path and
@@ -9,11 +9,24 @@ Spawn PX4 drones into a scene. The scene comes from ONE of two sources.
                          authors the whole plat into the stage in-process —
                          layout, fire field, damage archetypes, ground scar,
                          survivors. Nothing is loaded and NOTHING IS RESCALED.
+  FROZEN_SCENE=<path>    a FROZEN dataset cell: one of the `.usd` files under
+                         `final_disaster_dataset/`, referenced in as it stands.
+                         Same plat as the generated path — same frame, same
+                         metres, same `/World/stage/generated` prim paths —
+                         but ALREADY BUILT, so a run costs a file open instead
+                         of a twenty-minute assembly, and every arm flies
+                         bit-identical geometry.
 
-Setting SCENE_CONFIG is what selects the second path; every `_GENERATED` guard
-below is that switch. See
-`.agents/skills/launch-generated-scene-with-drones/SKILL.md` for the env knobs,
-the traps, and why the generated path skips STAGE_SCALE.
+`_GENERATED` still means "a scene_gen plat": authored in metres, never
+rescaled, drone-flown, overhead camera framed on the whole plate. Both new
+sources are that. `_BUILT` is the narrower switch — "assemble it in-process" —
+and guards only the things that assembly needs (the archetype bake, the spec
+overrides, the fire clock, the people plan). `_FROZEN` guards the reference.
+
+See `.agents/skills/launch-generated-scene-with-drones/SKILL.md` for the
+generated path's env knobs and traps, `.agents/skills/freeze-disaster-dataset`
+for what a frozen cell is, and `.agents/skills/benchmark-disaster-dataset` for
+how a mission drives either one.
 """
 
 import os
@@ -22,7 +35,18 @@ import carb
 from isaacsim import SimulationApp
 
 SCENE_CONFIG = os.environ.get("SCENE_CONFIG", "").strip()
-_GENERATED = bool(SCENE_CONFIG)
+# A frozen cell is a finished file, so it WINS over SCENE_CONFIG rather than
+# being combined with it: a mission that sets both is asking for one scene and
+# would otherwise get a procedural plat authored on top of a frozen one, which
+# renders as two suburbs in the same square kilometre.
+FROZEN_SCENE = os.environ.get("FROZEN_SCENE", "").strip()
+_FROZEN = bool(FROZEN_SCENE)
+_BUILT = bool(SCENE_CONFIG) and not _FROZEN
+_GENERATED = _BUILT or _FROZEN
+if _FROZEN and SCENE_CONFIG:
+    print("[scene] FROZEN_SCENE is set, so SCENE_CONFIG={0!r} is IGNORED — the "
+          "cell is loaded as frozen, not rebuilt".format(SCENE_CONFIG),
+          flush=True)
 
 # fractionalCutoutOpacity: this renderer forces cutout opacity to 1.0 unless
 # asked otherwise, which makes car glass opaque and hides every occupant the
@@ -166,16 +190,23 @@ if _GENERATED:
     from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
     from spawn_utils import generate_spawn_configs
 
-    # scene_gen goes on sys.path only for the generated path, and only after
+if _BUILT:
+    # scene_gen goes on sys.path only for the BUILT path, and only after
     # everything alongside this script has been imported: it drops a dozen bare
     # module names (`layout`, `detail`, `disaster`, `scene_generator`) at the
     # front of the search order, and there is no reason to hand the ENV_URL
-    # path that exposure.
+    # path — or a frozen cell, which needs none of it — that exposure.
     sys.path.insert(0, os.path.normpath(os.path.join(
         _LAUNCH_SCRIPTS_DIR, "..", "..", "..", "scene_gen")))
     from scene_api import build_scene, LOCAL_ARCH_DIR
     from disaster import people as ppl
     from disaster import region as region_poly
+
+if _FROZEN:
+    # Stdlib-only (see its docstring), so this costs nothing and needs no
+    # scene_gen on the path.
+    import frozen_annotations as frozen_gt
+    from pxr import Sdf
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -202,15 +233,23 @@ ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Muyang/LevelTest2.usd" #
 STAGE_SCALE = 0.01
 
 # --------------------- GENERATED SCENE (SCENE_CONFIG) ---------------------
-# Only read when SCENE_CONFIG is set. `AIRSTACK_ASSET_ROOT` repoints
+# Only read when SCENE_CONFIG is set (and FROZEN_SCENE is not). `AIRSTACK_ASSET_ROOT` repoints
 # `airstack://` onto Nucleus for pods whose clone carries no local AEC tree;
 # `scene_generator` reads it at IMPORT time, so it must already be in the
 # environment when this process starts — nothing here writes it.
 if _GENERATED:
     # Pegasus' flat default env, NOT a finished scene: it exists only to give
     # PegasusInterface a World with a PhysicsScene to hang the plat off.
+    #
+    # THE FROZEN PATH DOES NOT LOAD IT. A frozen cell was exported from a stage
+    # that had already loaded it, so `/World/stage` inside the file ALREADY
+    # carries the default environment's GroundPlane and SphereLight, composed
+    # in. Loading it again and then referencing the cell onto the same prim
+    # would put two ground planes and two lights at z = 0.
     BASE_ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
     SCENE_PARENT = "/World/stage/generated"
+
+if _BUILT:
     SEED = int(os.environ.get("MINI_SEED", "11"))
     # None -> scene_api.default_arch_dir(): the local bake if it exists, else
     # the copy under AIRSTACK_ASSET_ROOT on Nucleus. A URL is fine — the bake
@@ -310,15 +349,46 @@ if _GENERATED:
         print("[spawn] spec overrides: {0}".format(
             {k: v for k, v in SPEC_OVERRIDES.items() if v is not None}),
             flush=True)
+if _GENERATED:
     # off | ground | all. The plat is ~10^5 prims and `add_colliders` is a
     # Python recursion that prints per mesh, so a full pass is minutes of log
     # spam — and mostly futile: houses and trees are referenced INSTANCEABLE
     # (what keeps 9k trees inside VRAM) and `GetChildren()` does not descend
     # into an instance, so they get no collider either way. `ground` gives the
     # drone the one surface it needs to land on and take off from.
+    #
+    # A FROZEN cell defaults to the SAME `ground`, deliberately: its
+    # `/World/stage/generated/ground` is the same 1,800-mesh sheet the built
+    # path collides, at the same prim path, and matching the built path is
+    # what makes a frozen run and a rebuilt one comparable. `off` is a
+    # reasonable saving on a 24-iteration sweep — the Pegasus default
+    # environment's GroundPlane is composed into the cell's `/World/stage` and
+    # is itself a collision plane at z = 0, which is all a takeoff needs — but
+    # it is a mission's decision to make explicitly, not this script's to make
+    # silently.
     COLLIDERS = os.environ.get("SUBURB_COLLIDERS", "ground").strip().lower()
 
-DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+# --------------------- FROZEN DATASET CELL (FROZEN_SCENE) ---------------------
+# One `.usd` under `final_disaster_dataset/`, bind-mounted into this container
+# at /isaac-sim/final_disaster_dataset (FINAL_DATASET_DIR on the host). A bare
+# cell path (`Fire/Suburban/level_1/1`) is resolved against that mount and the
+# filename derived from the contract, so a mission can name the CELL rather
+# than repeat the file-naming rule.
+if _FROZEN:
+    FROZEN_ROOT = (os.environ.get("FROZEN_DATASET_ROOT", "").strip()
+                   or frozen_gt.CONTAINER_ROOT)
+    try:
+        FROZEN_USD = frozen_gt.resolve_cell(FROZEN_SCENE, FROZEN_ROOT)
+    except ValueError as exc:
+        # FATAL, and fatal HERE. A path that does not resolve reaches
+        # `AddReference` as a silent no-op: the prim composes empty, nothing
+        # errors, and the first sign is a black viewport and eight drones
+        # hovering over nothing 20 minutes into a pod.
+        raise SystemExit(str(exc))
+    FROZEN_CELL = frozen_gt.cell_dir(FROZEN_USD)
+    print("[scene] FROZEN cell {0}".format(FROZEN_USD), flush=True)
+
+DRONE_USD ="~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 # DOWNWARD tilt of every drone's ZED, in degrees about the body Y axis —
 # positive is down. Default 0 is the LEVEL mount every method in this stack
@@ -463,8 +533,10 @@ if _GENERATED:
               "containers without an airframe will never report ready"
               .format(NUM_ROBOTS, len(DRONE_CONFIGS)), flush=True)
 
-    print("[spawn] SCENE_CONFIG={0} (BUILT in-process, no ENV_URL)"
-          .format(SCENE_CONFIG), flush=True)
+    print("[spawn] scene: {0}".format(
+        "FROZEN " + FROZEN_USD if _FROZEN
+        else "SCENE_CONFIG={0} (BUILT in-process, no ENV_URL)".format(
+            SCENE_CONFIG)), flush=True)
     print("[spawn] AIRSTACK_ASSET_ROOT={0}"
           .format(os.environ.get("AIRSTACK_ASSET_ROOT") or "<repo>"), flush=True)
     print("[spawn] SPAWN_SEED={0}".format(_spawn_seed), flush=True)
@@ -560,16 +632,29 @@ class PegasusApp:
 
         self.timeline.stop()
 
-        self.pg.load_environment(BASE_ENV_URL if _GENERATED else ENV_URL)
+        # THE FROZEN PATH LOADS NOTHING HERE. `pg.load_environment` references
+        # the given USD's DEFAULT PRIM onto /World/stage, and a frozen cell has
+        # NO defaultPrim (measured: `Sdf.Layer.defaultPrim` is empty on every
+        # cell — the Kit exporter writes 84 `Flattened_Prototype_*` roots, a
+        # `/World`, a `/Render` and four cameras, and nominates none of them),
+        # so that call would compose an empty prim and hand back a black
+        # viewport with no error. `_reference_frozen_scene` names the prim
+        # explicitly instead. The World created above already carries a
+        # PhysicsScene, which is the only thing the base env was wanted for.
+        if not _FROZEN:
+            self.pg.load_environment(BASE_ENV_URL if _GENERATED else ENV_URL)
 
         stage = omni.usd.get_context().get_stage()
         if stage is None:
             raise RuntimeError("Stage failed to load")
 
+        if _FROZEN:
+            self._reference_frozen_scene(stage)
+
         if not wait_for_stage(stage):
             carb.log_warn("Stage load timed out — continuing anyway.")
 
-        if _GENERATED:
+        if _BUILT:
             # The Pegasus default env was loaded only to give the World a valid
             # base; its ground plane and lighting go straight back off, because
             # the generated plat brings its own ground and the config's sky.
@@ -584,7 +669,10 @@ class PegasusApp:
             # Units FIRST: the plat is authored in metres x ssf, and that is
             # also why nothing rescales it afterwards.
             mpu, s = get_stage_meters_per_unit(stage)
-            self._build_generated_scene(stage, s)
+            if _FROZEN:
+                self._finish_frozen_scene(stage)
+            else:
+                self._build_generated_scene(stage, s)
         else:
             self._prepare_env_url_scene(stage)
             # Units
@@ -698,6 +786,167 @@ class PegasusApp:
             while time.time() < wait_end:
                 app.update()
             stage_prim.SetActive(True)
+
+    # ----------------------- FROZEN DATASET CELL -----------------------
+
+    def _reference_frozen_scene(self, stage):
+        """Compose a frozen cell into this stage, prim by named prim.
+
+        A frozen cell's root layer has no defaultPrim, so there is no
+        "reference the file" — there is only "reference these prims". What it
+        DOES have under `/World` is exactly what `freeze.export_scene`
+        composed:
+
+            PhysicsScene   ours already; NOT referenced, or physics is doubled
+            stage          the Pegasus base env + `generated/` — the whole plat
+            burnGround     the wildfire scar overlay      (fire cells)
+            flow_blockage  the Flow flame/smoke emitters  (fire cells)
+            scourGround    the mud scour along the track  (tornado cells)
+
+        The sibling list is READ FROM THE FILE rather than hard-coded, via
+        `Sdf` — which walks specs without composing anything, so it costs
+        milliseconds and cannot be wrong about a disaster whose overlay is
+        named something this script has never seen. Hard-coding the three
+        names above would silently drop the surge water the first time a
+        hurricane cell is exported.
+
+        Instancing survives: the 84 `Flattened_Prototype_*` roots are what the
+        `generated/inst` prims point at INSIDE the file, and a reference brings
+        the whole composed subtree, so ~6,000 houses and trees still cost one
+        prototype each.
+        """
+        layer = Sdf.Layer.FindOrOpen(FROZEN_USD)
+        if layer is None:
+            raise RuntimeError(f"could not open frozen scene {FROZEN_USD}")
+        world = layer.GetPrimAtPath("/World")
+        if world is None:
+            raise RuntimeError(
+                f"{FROZEN_USD} has no /World prim — is this a frozen dataset "
+                f"cell? (roots: {[s.name for s in layer.rootPrims][:8]}...)")
+        names = [c.name for c in world.nameChildren
+                 if c.name not in ("PhysicsScene",)]
+        if "stage" not in names:
+            raise RuntimeError(
+                f"{FROZEN_USD} has no /World/stage — nothing to fly "
+                f"(children: {names})")
+        for name in names:
+            dest = f"/World/{name}"
+            prim = stage.DefinePrim(dest, "Xform")
+            prim.GetReferences().AddReference(FROZEN_USD, f"/World/{name}")
+            print(f"[frozen] referenced /World/{name} -> {dest}", flush=True)
+        # Kit's flatten leaves the export-time camera and the Pegasus default
+        # environment in the file as DEACTIVATED prims (freeze-dataset-state:
+        # `SetActive(False)` composes, `RemovePrim` does not). They come in
+        # inactive and stay inactive; nothing to do here — but say so, because
+        # a reviewer looking for the review camera should not have to guess.
+        for probe in ("/World/stage/ReviewCamera", "/World/ReviewCamera"):
+            p = stage.GetPrimAtPath(probe)
+            if p and p.IsValid() and p.IsActive():
+                p.SetActive(False)
+                print(f"[frozen] deactivated {probe}", flush=True)
+        self._wait_for_frozen_geometry(stage)
+
+    def _wait_for_frozen_geometry(self, stage, timeout_s=600.0):
+        """Pump the app until the referenced plat has actually COMPOSED.
+
+        `wait_for_stage` is not enough here and would pass instantly: it asks
+        whether `/World` has a non-PhysicsScene child, and `DefinePrim` gave it
+        one before a byte of the cell was read. What has to be true before
+        colliders are cooked and eight drones are spawned is that
+        `/World/stage/generated/inst` is populated — that is the ~6,000
+        referenced houses and trees, i.e. the scene.
+
+        A timeout is a WARNING, not a raise: a plat that is still streaming is
+        recoverable (the drones spawn over a scene that fills in), while
+        aborting the launch loses the whole iteration.
+        """
+        app = omni.kit.app.get_app()
+        deadline = time.time() + timeout_s
+        t0 = time.time()
+        while time.time() < deadline:
+            app.update()
+            inst = stage.GetPrimAtPath(SCENE_PARENT + "/inst")
+            if inst and inst.IsValid() and inst.GetChildren():
+                print("[frozen] composed in {0:.0f} s: {1} referenced object(s) "
+                      "under {2}/inst".format(
+                          time.time() - t0, len(inst.GetChildren()),
+                          SCENE_PARENT), flush=True)
+                return True
+        print("[frozen] WARNING: {0}/inst is still empty after {1:.0f} s — the "
+              "cell may be streaming, or the reference resolved to nothing. "
+              "Continuing; expect an empty view.".format(
+                  SCENE_PARENT, timeout_s), flush=True)
+        return False
+
+    def _finish_frozen_scene(self, stage):
+        """Everything the generated path does AFTER the geometry exists."""
+        for _key in ("/rtx/raytracing/fractionalCutoutOpacity",
+                     "/rtx/pathtracing/fractionalCutoutOpacity"):
+            carb.settings.get_settings().set_bool(_key, True)
+        app = omni.kit.app.get_app()
+        for _ in range(30):
+            app.update()
+        self._print_frozen_banner(stage)
+        self._add_scene_colliders(stage)
+        self._write_frozen_annotations()
+
+    def _print_frozen_banner(self, stage):
+        gen = stage.GetPrimAtPath(SCENE_PARENT)
+        scopes = [c.GetName() for c in gen.GetChildren()] if gen and gen.IsValid() \
+            else []
+        print("\n" + "=" * 72, flush=True)
+        print("FROZEN SCENE - {0}".format(os.path.basename(FROZEN_USD)))
+        print("  cell        {0}".format(FROZEN_CELL))
+        print("  scopes      {0}".format(
+            ", ".join(sorted(scopes)[:12]) or "<none — the reference failed>"))
+        print("  colliders   {0}".format(COLLIDERS))
+        print("  NEXT        map camera, then {0} PX4 drone(s)"
+              .format(len(DRONE_CONFIGS)))
+        print("=" * 72 + "\n", flush=True)
+
+    def _write_frozen_annotations(self):
+        """The cell's own GT, reshaped into the three names the stack reads.
+
+        Same gate as the generated path (`GT_ANNOTATIONS`) and the same two
+        destination directories, so a mission does not have to know which kind
+        of scene it is flying. The difference is the SOURCE: nothing is
+        measured off the stage, because the cell already shipped the
+        measurements — see `utils/frozen_annotations.py`.
+
+        A frozen cell's region file carries `search` and `damage`, NOT `burn`
+        and `affected`; the scene overlay must say
+        `search_area_scene_key: 'search'` (with `search_area_pad_m: 0.0`, the
+        pad being already in the polygon). A `search_area_source: scene` run
+        whose overlay still asks for `burn` will die at launch with the
+        planner's own "no usable 'burn' polygon (entries: [...])" message,
+        which is the right failure: loud, at t=0, and it names the keys the
+        file does have.
+        """
+        if os.environ.get("GT_ANNOTATIONS", "off").strip().lower() not in (
+                "1", "true", "yes", "on"):
+            return
+        scene = os.environ.get("RESULTS_SCENE", "").strip()
+        if not scene:
+            print("[frozen-gt] GT_ANNOTATIONS is on but RESULTS_SCENE is "
+                  "unset — nothing to name the files after, skipping")
+            return
+        try:
+            import scene_annotations as sa
+        except ImportError as exc:
+            print(f"[frozen-gt] unavailable: {exc}")
+            return
+        repo = os.path.normpath(
+            os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "..", ".."))
+        people_doc, hints_doc = frozen_gt.load_cell(FROZEN_USD)
+        if hints_doc is None:
+            print(f"[frozen-gt] {FROZEN_CELL}: no GT_hints.json — no obstacle "
+                  f"boxes and NO SEARCH AREA. A search_area_source: scene run "
+                  f"will refuse to start.")
+        if people_doc is None:
+            print(f"[frozen-gt] {FROZEN_CELL}: no GT_people.json — the scorer "
+                  f"has no answer key")
+        frozen_gt.write_all(scene, sa.annotation_dirs(repo), people_doc,
+                            hints_doc, scene_usd=FROZEN_USD)
 
     # ----------------------- GENERATED SCENE -----------------------
 
@@ -931,7 +1180,8 @@ class PegasusApp:
     def _print_drone_banner(self):
         print("\n" + "=" * 72, flush=True)
         print("DRONES UP - {0} PX4 multirotor(s) on {1}".format(
-            len(DRONE_CONFIGS), SCENE_CONFIG))
+            len(DRONE_CONFIGS),
+            os.path.basename(FROZEN_USD) if _FROZEN else SCENE_CONFIG))
         for cfg in DRONE_CONFIGS:
             print("  robot_{0}  domain {0}  ({1:.1f}, {2:.1f}, {3:.1f}) m  "
                   "orient {4}".format(cfg["domain_id"], cfg["x_m"], cfg["y_m"],

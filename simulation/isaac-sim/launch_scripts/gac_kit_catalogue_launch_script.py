@@ -27,7 +27,8 @@ Env:
     KC_GAC        comma list of GAC assets (default: a spread of eight)
     KC_AEC        comma list of brownstones (default: three)
     KC_BAY_M      spacing between assets, m (default 150)
-    KC_FALLBACK_H storey height for assets with no measurable grid (default 3.4)
+    KC_FALLBACK_H target storey height for the regular grid (default 3.95,
+                  the median of the GAC buildings that ARE measurable)
     KC_PITCH      grid pitch for the laid-out pieces, m (default 3.0)
     KC_MAX_PIECES cap on pieces laid out per asset (default 420) — a 1,100
                   piece building carpets the plate otherwise
@@ -72,15 +73,21 @@ NUC = "omniverse://airlab-nucleus.andrew.cmu.edu:443/"
 GAC_DIR = NUC + "Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/"
 AEC_DIR = ("airstack://scene_gen/assets/aec/brownstone/Assets/"
            "Create_Brownstone02/")
-GAC = [v.strip() for v in _env(
-    "KC_GAC", "SM_Building_01,SM_Building_02,SM_Building_03,SM_Building_04,"
-              "SM_Building_06_Small,SM_Building_09,SM_Building_24,"
-              "SM_Building_30").split(",") if v.strip()]
+# ALL 31 GAC BUILDINGS, not the eight the first cut sampled.
+# The Meshes/ folder holds 60 `SM_Building_*` files, but most are not
+# buildings: `_Part_01`/`_Part_02` are sub-assemblies, `_19_Lower_Entrance` /
+# `_Middle_Part` / `_Upper_Part` are pieces of _19, and Door/Ceiling/Stair/
+# Floor/Air are components. A real building is `SM_Building_<n>` with an
+# optional `_Small`.
+_GAC_ALL = ["SM_Building_{0:02d}".format(k) for k in range(1, 32)]
+_GAC_ALL[5] = "SM_Building_06_Small"          # the only one with a suffix
+GAC = [v.strip() for v in _env("KC_GAC", ",".join(_GAC_ALL)).split(",")
+       if v.strip()]
 AEC = [v.strip() for v in _env(
-    "KC_AEC", "Reference_Brownstone02,Reference_Brownstone2Row,"
+    "KC_AEC", "Reference_Brownstone2Row,"
               "Reference_Brownstone5Row").split(",") if v.strip()]
 BAY_M = float(_env("KC_BAY_M", "150"))
-FALLBACK_H = float(_env("KC_FALLBACK_H", "3.4"))
+FALLBACK_H = float(_env("KC_FALLBACK_H", "3.95"))
 PITCH = float(_env("KC_PITCH", "3.0"))
 MAX_PIECES = int(_env("KC_MAX_PIECES", "420"))
 SNAP_DIR = _env("SNAP_DIR")
@@ -136,17 +143,12 @@ def do_asset(stage, cell, name, usd, scale):
     if not src:
         return None
     wins, bbox = gsl.window_centres(stage, src)
-    measured = bool(wins)
-    if measured:
-        g = gsl.measure_grid(wins, bbox, verbose=False, name=name)
-        measured = g.get("confidence", 0.0) >= gsl.MIN_CONFIDENCE
-    else:
-        g = {"bbox": bbox, "storey_h": 0.0, "confidence": 0.0,
-             "bays": {}, "W": bbox[1][0] - bbox[0][0],
-             "D": bbox[1][1] - bbox[0][1], "H": bbox[1][2] - bbox[0][2]}
-    if not measured:
-        g["storey_h"] = FALLBACK_H
-        g["confidence"] = -1.0            # marks it as assumed for cut_lines
+    # Measured window lattice where the asset has one, a regular grid where it
+    # does not. Only 10 of 31 GAC buildings have a readable lattice; a glass
+    # tower has no window rows to avoid cutting, so a regular grid is the
+    # right answer for it rather than a concession.
+    g, measured = gss.grid_for(stage, src, bbox, wins, name=name,
+                               target=FALLBACK_H, verbose=False)
     m = gss.read_mesh(stage, src, verbose=False)
     if m is None:
         return None
@@ -226,7 +228,7 @@ def main():
                 print("      {0:<24} {1:>4} piece(s) from {2:>2} band(s), "
                       "storey {3:.2f} m {4}  ({5:.0f} s)".format(
                           name, r["cells"], r["bands"], r["g"]["storey_h"],
-                          "measured" if r["measured"] else "ASSUMED",
+                          "measured" if r["measured"] else "regular",
                           time.time() - tb))
             else:
                 print("      {0:<24} SKIPPED (nothing composed)".format(name))
@@ -246,7 +248,7 @@ def main():
               "{5:<8} {6:>4} piece(s), {7} laid out, {8} material(s){9}".format(
                   r["name"], r["g"]["W"], r["g"]["D"], r["g"]["H"],
                   r["g"]["storey_h"],
-                  "measured" if r["measured"] else "ASSUMED",
+                  "measured" if r["measured"] else "regular",
                   r["cells"], r["laid"], r["mats"],
                   "" if r["clear"] is None else
                   "  cut clearance {0:.2f} m, {1} window(s) crossed".format(

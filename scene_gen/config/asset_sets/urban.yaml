@@ -128,7 +128,13 @@ usds:
       - {usd: "Muyang/DownTown/Assets/BG_Building_F.usd", scale: 0.01}
 
     rowhouse:
-      - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone02.usd",   scale: 0.01}   # 21.1 x  6.8 x 14.2 m,  4.6k
+      # BLACKLISTED (user, 2026-08-29): "Blacklist that brownstone itself. We
+      # have the other brownstones that look good." The SINGLE house is out;
+      # the *Row variants below are the same art tiled into a terrace and are
+      # kept. It is also the shallowest member of this pool at 6.8 m, so
+      # dropping it does not move the terrace band `_lay_terrace` derives from
+      # the pool's DEEPEST member — every Row entry is 21.1 m deep in sx.
+      # - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone02.usd",   scale: 0.01}   # 21.1 x  6.8 x 14.2 m,  4.6k
       - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone2Row.usd", scale: 0.01}   # 21.1 x 13.4 x 14.6 m,  9.3k
       - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone5Row.usd", scale: 0.01}   # 21.1 x 33.4 x 14.8 m,   23k
       - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone6Row.usd", scale: 0.01}   # 21.1 x 40.0 x 14.9 m,   28k

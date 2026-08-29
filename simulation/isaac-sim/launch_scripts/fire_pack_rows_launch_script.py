@@ -75,6 +75,7 @@ import numpy as np                                             # noqa: E402
 import scene_generator as sg                                   # noqa: E402
 from scene_prep import get_stage_meters_per_unit               # noqa: E402
 from detail import gac_slice as gsl                            # noqa: E402
+from detail import gac_storey_slice as gss                     # noqa: E402
 from detail import urban_building as ub                        # noqa: E402
 from disaster import fracture, settle                          # noqa: E402
 from disaster import quake_flow as qf                          # noqa: E402
@@ -94,7 +95,7 @@ GAC = [v.strip() for v in _env(
     "FR_GAC", "SM_Building_02,SM_Building_01,SM_Building_04,SM_Building_24,"
               "SM_Building_09").split(",") if v.strip()]
 AEC = [v.strip() for v in _env(
-    "FR_AEC", "Reference_Brownstone02,Reference_Brownstone2Row,"
+    "FR_AEC", "Reference_Brownstone2Row,"
               "Reference_Brownstone5Row,Reference_Brownstone6Row,"
               "Reference_Brownstone8Row").split(",") if v.strip()]
 COL_M = float(_env("FR_COL_M", "95"))
@@ -298,41 +299,27 @@ def main():
                     if not src:
                         print("      skip {0}: nothing composed".format(nm))
                         continue
-                    wins, bbox = gsl.window_centres(stage, src)
-                    g = gsl.measure_grid(wins, bbox, name=nm)
-                    if g.get("confidence", 0.0) < gsl.MIN_CONFIDENCE:
-                        print("      skip {0}: grid not recovered "
-                              "(confidence {1:.2f})".format(
-                                  nm, g.get("confidence", 0.0)))
+                    style = "sl_" + nm
+                    pls, g, meas = gss.slice_to_kit(stage, src, cell, style,
+                                                    verbose=False)
+                    if not pls:
+                        print("      skip {0}: sliced to nothing".format(nm))
                         continue
-                    style = "gac_" + nm
-                    pls = gsl.slice_building(stage, src, cell + "/pieces", g,
-                                             style)
-                    gsl.register_style(g, style, pieces_of=pls)
-                    # HIDE THE MERGED ORIGINAL, DO NOT DEACTIVATE IT.
-                    # The asset's `Looks` scope lives INSIDE this subtree, and
-                    # the sliced pieces bind to those materials — deactivating
-                    # the source takes the materials with it and every sliced
-                    # building renders WHITE, with its geometry and its damage
-                    # both intact and no brick or glazing anywhere on it.
-                    # Visibility only affects imageable prims, so a Material is
-                    # untouched by it; this hides the original and keeps the
-                    # bindings alive.
-                    UsdGeom.Imageable(stage.GetPrimAtPath(src)).MakeInvisible()
+                    print("      {0}: {1} kit piece(s), {2} grid".format(
+                        nm, len(pls), "measured" if meas else "regular"))
                 elif pack == "brownstone":
                     src = place_asset(stage, cell, AEC_DIR + nm + ".usd", 0.01)
                     if not src:
                         print("      skip {0}: nothing composed".format(nm))
                         continue
-                    n_di = deinstance(stage, src)
-                    style = "aec_" + nm
-                    pls, g = parts_as_placements(stage, src, style, cell)
+                    style = "sl_" + nm
+                    pls, g, meas = gss.slice_to_kit(stage, src, cell, style,
+                                                    verbose=False)
                     if not pls:
-                        print("      skip {0}: no meshes".format(nm))
+                        print("      skip {0}: sliced to nothing".format(nm))
                         continue
-                    gsl.register_style(g, style, pieces_of=pls)
-                    print("      {0}: de-instanced {1} prim(s), {2} part(s)"
-                          .format(nm, n_di, len(pls)))
+                    print("      {0}: {1} kit piece(s), {2} grid".format(
+                        nm, len(pls), "measured" if meas else "regular"))
                 res = burn(stage, cell, style, pls, lvl, rng, nrng, mats, tag,
                            flow_root, mat_cache)
                 loose += res["loose"]

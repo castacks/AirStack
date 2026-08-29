@@ -87,8 +87,28 @@ def read_mesh(stage, src_path, verbose=True):
             uvv = np.asarray([(q[0], q[1]) for q in vals], dtype=float)
             uvi = np.asarray(pv.GetIndices() or [], dtype=np.int64)
             break
-        # face -> material index
+        # face -> material index.
+        #
+        # THE MESH-LEVEL BINDING IS NOT OPTIONAL. Packs differ in where they
+        # bind: GreatAmericanCity puts one material on each of 14 GeomSubsets
+        # of a single mesh, while the AEC brownstones have 307 MESHES, ZERO
+        # subsets, and a material on each mesh (measured). Harvesting only
+        # from subsets therefore found nothing on a brownstone, every face
+        # fell through to index 0, and the whole building came back wearing
+        # one arbitrary material — the lost-textures report. The mesh's own
+        # binding is the default for any face no subset claims.
         fm = {}
+        mb = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]
+        dflt = 0
+        if mb and mb.GetPrim().IsValid():
+            k = str(mb.GetPrim().GetPath())
+            if k not in mat_ix:
+                mat_ix[k] = len(mats)
+                mats.append(mb)
+            dflt = mat_ix[k]
+        elif not mats:
+            mat_ix[""] = 0
+            mats.append(None)
         for sub in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)):
             mp = UsdShade.MaterialBindingAPI(sub.GetPrim()).ComputeBoundMaterial()[0]
             key = str(mp.GetPrim().GetPath()) if mp and mp.GetPrim().IsValid() else ""
@@ -100,7 +120,7 @@ def read_mesh(stage, src_path, verbose=True):
         for f in range(len(counts)):
             n = int(counts[f])
             base = int(start[f])
-            mi = fm.get(f, 0)
+            mi = fm.get(f, dflt)
             # fan-triangulate the n-gon, de-indexing as we go
             for t in range(1, n - 1):
                 for k in (0, t, t + 1):
@@ -194,6 +214,68 @@ def clip(m, normal, origin):
     cl.InsideOutOn()
     cl.Update()
     return _from_vtk(cl.GetOutput())
+
+
+# A storey height to divide by when the asset's own windows cannot supply one.
+# The median across the seven GAC buildings whose grid IS measurable is 3.98 m
+# and the spread is 3.56-4.10, so this is that stock's own number rather than a
+# generic office figure.
+TARGET_STOREY_M = 3.95
+
+
+def regular_grid(bbox, target=TARGET_STOREY_M, name="", verbose=True):
+    """A grid from the BOUNDS alone, for a building with no readable windows.
+
+    A MEASURED WINDOW LATTICE IS AN OPTIMISATION, NOT A PRECONDITION (user,
+    2026-08-29: "it kinda doesn't matter if you can split it up into a grid
+    like structure that's fine. Even for the glass buildings"). Most of this
+    library cannot supply one — MEASURED (`tools/gac_grid_sweep.py`) only 10
+    of 31 GAC buildings have a punched-window lattice to lock onto; the rest
+    are curtain-walled or continuously banded, including the two tallest
+    towers. Refusing to slice those would put the whole tall end of the
+    library out of reach for no benefit, because a glass tower has no window
+    rows to avoid cutting in the first place.
+
+    Divides the height into a WHOLE number of storeys nearest `target`, so the
+    storeys come out even and there is no sliver band left at the top — which
+    a fixed 3.4 m divisor does leave, and which then shows up as one
+    anomalously thin piece per building.
+    """
+    (x0, y0, z0), (x1, y1, z1) = bbox
+    H = float(z1 - z0)
+    n = max(1, int(round(H / float(target))))
+    h = H / n
+    lines = [z0 + h * k for k in range(n + 1)]
+    g = {"bbox": bbox, "storey_h": h, "storeys": lines, "bays": {},
+         "confidence": 0.0, "measured": False,
+         "W": float(x1 - x0), "D": float(y1 - y0), "H": H, "z0": float(z0)}
+    if verbose:
+        print("[storey_slice] {0}: regular grid, {1:.1f} m / {2} = {3:.2f} m "
+              "storeys (no window lattice)".format(name or "?", H, n, h))
+    return g
+
+
+def grid_for(stage, src, bbox, wins, name="", target=TARGET_STOREY_M,
+             verbose=True):
+    """The best grid available: the asset's own windows, else a regular one.
+
+    Returns `(grid, measured)`. `measured` is what a caller should report —
+    a regular grid is a legitimate result here, not a failure, but the two
+    must not be confused when judging a slice.
+    """
+    from detail import gac_slice as gsl
+
+    if wins:
+        g = gsl.measure_grid(wins, bbox, verbose=False, name=name)
+        if g.get("confidence", 0.0) >= gsl.MIN_CONFIDENCE and g.get("storeys"):
+            g["measured"] = True
+            if verbose:
+                print("[storey_slice] {0}: measured grid, {1:.2f} m storeys "
+                      "x{2} (confidence {3:.2f})".format(
+                          name or "?", g["storey_h"], len(g["storeys"]),
+                          g["confidence"]))
+            return g, True
+    return regular_grid(bbox, target, name, verbose), False
 
 
 def cut_lines(g, offset=0.5, verbose=True):
@@ -376,6 +458,98 @@ def ring(band, bbox, leg, bays, splits=BAY_SPLITS, verbose=False):
         print("[storey_slice]   ring -> {0}".format(
             "  ".join("{0}={1}".format(k, v) for k, v in sorted(by.items()))))
     return out
+
+
+# role -> the `sub` token `quake_flow._sub_and_mass` parses out of a category.
+# `pier` and `core` both map to `storey`: a pier IS a wall element (the narrow
+# panel between openings) and the interior core is treated as one so that
+# nothing in the building is invisible to the element walk.
+_ROLE_SUB = {"wall": "storey", "pier": "storey", "core": "storey",
+             "corner": "storey_corner", "parapet": "parapet",
+             "parapet_corner": "parapet_corner", "roof": "roof"}
+
+
+def as_placements(stage, cells, scope, style, mats, verbose=True):
+    """Write ring cells as prims and return kit-shaped PLACEMENT dicts.
+
+    THIS IS THE BRIDGE between the slicer and the damage ladder, and it is a
+    short function because `quake_flow.classify` reads only a placement dict —
+    `category`, `x_m`/`y_m`/`z_m`, `yaw_deg`, and `prim_path` once the prim
+    exists. Express the cells that way and `describe`, `fit_interior` and every
+    `urban_fire` recipe work on a sliced whole-asset building with NO change to
+    any of them. That is the whole point of cutting on the kit's own grammar
+    rather than on some grid of our own.
+
+    The anchor is the piece's own (centroid x, centroid y, min z), which is
+    what `gac_slice.register_style` assumes when it writes the piece's
+    `PIECES` entry as `(sx, sy, sz, -sx/2, -sy/2, 0)`.
+    """
+    import numpy as np
+    from pxr import Sdf, UsdGeom
+
+    UsdGeom.Scope.Define(stage, Sdf.Path(scope))
+    out = []
+    for j, (storey, role, side, bay, piece) in enumerate(cells):
+        nm = "{0}_{1}_{2}_{3:02d}_{4:04d}".format(
+            role, side.replace("-", "x"), bay, storey, j)
+        path = "{0}/{1}".format(scope, nm)
+        if not write_piece(stage, path, piece, mats):
+            continue
+        P = piece["P"]
+        c = P.mean(axis=0)
+        mn, mx = P.min(axis=0), P.max(axis=0)
+        out.append({
+            "category": "bld_{0}_{1}".format(style, _ROLE_SUB.get(role, "storey")),
+            "usd": "slice://{0}".format(nm),
+            "x_m": float(c[0]), "y_m": float(c[1]), "z_m": float(mn[2]),
+            "yaw_deg": 0.0, "scale": 1.0, "prim_path": path,
+            "_size": (float(mx[0] - mn[0]), float(mx[1] - mn[1]),
+                      float(mx[2] - mn[2])),
+            "_role": role, "_side": side, "_storey": storey, "_bay": bay})
+    if verbose:
+        by = {}
+        for p in out:
+            by[p["_role"]] = by.get(p["_role"], 0) + 1
+        print("[storey_slice] {0} placement(s) for style {1}: {2}".format(
+            len(out), style,
+            "  ".join("{0}={1}".format(k, v) for k, v in sorted(by.items()))))
+    return out
+
+
+def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
+                 offset=0.5, verbose=True):
+    """Slice a placed asset into kit placements, ready for `burn_building`.
+
+    One call: measure the grid (or fall back to a regular one), cut the
+    storeys clear of the windows, ring each band, write the pieces, register
+    the synthetic style so `quake_flow._mass_specs` has real dimensions, and
+    hide the merged original.
+
+    Returns `(placements, grid, measured)`.
+    """
+    from detail import gac_slice as gsl
+    from pxr import UsdGeom
+
+    wins, bbox = gsl.window_centres(stage, src)
+    g, measured = grid_for(stage, src, bbox, wins, name=style,
+                           target=target, verbose=verbose)
+    m = read_mesh(stage, src, verbose=False)
+    if m is None:
+        return [], g, measured
+    lines = cut_lines(g, offset, verbose=False)
+    bands = storeys(m, lines, verbose=False)
+    leg = max(1.2, 0.6 * ((g["bays"].get("E") or {}).get("pitch") or 3.5))
+    bay = (g["bays"].get("E") or {}).get("pitch") or 3.5
+    cells = []
+    for i, (lo, hi, band) in enumerate(bands):
+        bb = ((bbox[0][0], bbox[0][1], lo), (bbox[1][0], bbox[1][1], hi))
+        for role, side, k, piece in ring(band, bb, leg, bay):
+            cells.append((i, role, side, k, piece))
+    pls = as_placements(stage, cells, cell + "/pieces", style, m["mats"],
+                        verbose=verbose)
+    gsl.register_style(g, style, pieces_of=pls)
+    UsdGeom.Imageable(stage.GetPrimAtPath(src)).MakeInvisible()
+    return pls, g, measured
 
 
 def write_piece(stage, path, piece, mats):

@@ -1,6 +1,6 @@
 ---
 name: benchmark-disaster-dataset
-description: Run a search-and-rescue BENCHMARK on the disaster dataset — bring the whole stack up from `.env`, fly a method, and read its results. Covers the method matrix (raven_nav, frontier-only, LVLM, conavgpt_baseline, and the `search_baselines` arms launched by name — vlfm / conavgpt2 / nearest — off one shared planner), its three config layers, the `.env`-driven `airstack down` / `airstack up isaac-sim robot-desktop gcs` procedure, the per-run `docker exec` sequence (ITM or VLM server, takeoff, planner), VLFM's BLIP-2 ITM value map and the whole-frame anti-correlation finding, 3D voxel frontiers, what has to SCALE when the scene size changes, the Foxglove layers, and the traps that cost a run — stale DDS profiles, orphaned PX4, identity world->map, a detector threshold that finds nobody, two different things called VLFM, topics that never reach the GCS, a goal class the detector cannot see, a goal lock that never releases on arrival, and a missing setup.cfg that kills every mission at launch. Also covers rayfronts-style PERSISTENT frontier accumulation (keep-outside / replace-inside the active window) and the search/markers and frontier_cloud viz topics. Read before running or tuning any benchmark, and before submitting one to OSMO.
+description: Run a search-and-rescue BENCHMARK on the disaster dataset — bring the whole stack up from `.env`, fly a method, and read its results. Covers the method matrix (raven_nav, frontier-only, LVLM, conavgpt_baseline, and the `search_baselines` arms launched by name — vlfm / conavgpt2 / nearest — off one shared planner), its three config layers, the `.env`-driven `airstack down` / `airstack up isaac-sim robot-desktop gcs` procedure, the per-run `docker exec` sequence (ITM or VLM server, takeoff, planner), VLFM's BLIP-2 ITM value map and the whole-frame anti-correlation finding, 3D voxel frontiers, what has to SCALE when the scene size changes, the Foxglove layers, and the traps that cost a run — stale DDS profiles, orphaned PX4, identity world->map, a detector threshold that finds nobody, two different things called VLFM, topics that never reach the GCS, a goal class the detector cannot see, a goal lock that never releases on arrival, and a missing setup.cfg that kills every mission at launch. Also covers flying a FROZEN dataset cell (`FROZEN_SCENE`, the `search` region key, the pad-before-partition rule and per-sector spawns) and rayfronts-style PERSISTENT frontier accumulation (keep-outside / replace-inside the active window) and the search/markers and frontier_cloud viz topics. Read before running or tuning any benchmark, and before submitting one to OSMO.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -277,6 +277,169 @@ VISUAL bug only: the planner, droan and the drone all live in the robot's
 Nothing publishes under `/conavgpt2/...` any more. If you still see those names
 on the wire, a config layer is pinning them over the node defaults — check the
 `*_topic` block in `planner.yaml` first.
+
+---
+
+## 2b. Flying a FROZEN dataset cell (`FROZEN_SCENE`)
+
+Everything above builds its scene. The frozen dataset does not: a cell under
+`final_disaster_dataset/` is a finished `.usd`, and from 2026-08-29 the SAME
+launcher (`example_multi_drone_scene_import.py`) will reference one in instead
+of assembling a plat. Set `FROZEN_SCENE` and leave `SCENE_CONFIG` out.
+
+**Why it matters for a benchmark and not only for the clock.** A procedural
+build costs ~20 minutes an iteration — at a 24-iteration sweep, most of a day
+of GPU spent rebuilding scenes that have already been built and reviewed. But
+the reason to prefer it is that every arm then flies **bit-identical
+geometry**: a rebuild is only reproducible as long as nobody touches a seed, a
+preset or the archetype bake between iterations, and "the scenes were the same"
+is a premise a comparison cannot afford to be wrong about.
+
+```
+FROZEN_SCENE=Fire/Suburban/level_1/1          # a cell, a cell/file, or an abs path
+FROZEN_DATASET_ROOT=/isaac-sim/final_disaster_dataset   # default; FINAL_DATASET_DIR on the host
+RESULTS_SCENE=FireSuburbanL1V1
+GT_ANNOTATIONS=on
+```
+
+| | built (`SCENE_CONFIG`) | frozen (`FROZEN_SCENE`) |
+|---|---|---|
+| the plat | `scene_api.build_scene` authors it | `/World/stage` referenced from the cell |
+| the sky, the base env | authored / Pegasus default loaded | already composed INTO the cell |
+| GT | measured off the live stage (`scene_annotations`) | RESHAPED from the cell's own `GT_people.json` / `GT_hints.json` (`utils/frozen_annotations.py`) |
+| the search area | `<scene>_region.json` keys `burn` / `affected`, from the FIRE MODEL | the same file, key **`search`** — see below |
+| colliders | `SUBURB_COLLIDERS=ground` | same default, same prim path |
+| scale | metres, never rescaled | metres, never rescaled |
+
+**`pg.load_environment` CANNOT open a frozen cell, and fails silently.** It
+references the file's DEFAULT PRIM, and a frozen cell has none — measured on
+every cell: Kit's exporter writes 84 `Flattened_Prototype_*` roots, a `/World`,
+a `/Render` and four cameras, and nominates none of them. The call composes an
+empty prim, reports success, and hands back a black viewport. The launcher
+names the prims instead — `/World/stage` plus every sibling under `/World`
+except `PhysicsScene` (`burnGround` and `flow_blockage` on a fire cell,
+`scourGround` on a tornado one), read out of the file with `Sdf` so a disaster
+whose overlay has a name nobody has seen yet is not dropped. `PhysicsScene` is
+skipped because `World(**pg._world_settings)` already made one.
+
+**Instancing survives the reference**, so ~6,000 houses and trees still cost
+one prototype each — the same property that keeps a cell at 265 MB.
+
+### The search area of a frozen cell is `search`, not `burn` or `affected`
+
+`scene_gen/disaster/region.py` derives a wildfire's area from the FIRE MODEL —
+the ellipse at `elapsed`, and that ellipse grown until it covers the survivor
+staged furthest ahead of the front. That is right for a scene being built,
+where the model is what authored the damage. It is unavailable for a frozen
+cell: the tornado cells carry no `build_stats.json` to re-derive a model from
+at all.
+
+So a frozen cell's region file is measured from the DAMAGE, by
+`frozen_annotations`: the convex hull of every damaged object's footprint
+(`Damaged building`, `Burnt Tree`, `Fallen Tree`, `Debris`, `Toppled`), grown
+50 m, clipped to the plate. It carries `search` (that polygon — what the
+overlay flies), `damage` (the raw hull), `region` (the plate) and `meta`.
+**Reusing the name `burn` or `affected` for it would make two different
+measurements indistinguishable in a results directory**, so the overlay must
+say `search_area_scene_key: 'search'`; one that still asks for `burn` dies at
+launch with the planner's own "no usable 'burn' polygon (entries: [...])",
+which is the right failure.
+
+Measured on the six built suburban cells — the intensity ladder, read straight
+off the geometry rather than off the config that produced it:
+
+| cell | damage hull | search area | survivors (inside) |
+|---|---|---|---|
+| Fire level_1 | 265k m2 (26%) | 362k m2 (36%) | 49 (49) |
+| Fire level_2 | 546k m2 (55%) | 648k m2 (65%) | 79 (79) |
+| Fire level_3 | 749k m2 (75%) | 802k m2 (80%) | 84 (84) |
+| Tornado level_1 | 161k m2 (16%) | 285k m2 (28%) | 30 (30) |
+| Tornado level_2 | 197k m2 (20%) | 309k m2 (31%) | 40 (40) |
+| Tornado level_3 | 313k m2 (31%) | 431k m2 (43%) | 70 (70) |
+
+### THE PAD GOES IN THE POLYGON, NOT IN `search_area_pad_m`
+
+The planner pads and THEN partitions. On a 1 km plate that hands the two END
+drones of a `rect`/`principal` split a bounding rectangle made mostly of the
+50 m ring hanging over the edge of the ground sheet — **measured: sector 8 was
+57,000-82,000 m2 of which only 7,600-12,300 m2 was on the plate**, so two of
+eight drones were assigned mostly empty air. Padding first and clipping to the
+plate gives every drone a sector made of ground. Frozen overlays therefore
+carry the padded polygon and set `search_area_pad_m: 0.0`.
+
+This applies to any scene whose damage reaches the plate edge, not only frozen
+ones.
+
+### Each drone spawns IN ITS OWN SECTOR
+
+Every earlier mission clustered the fleet on one kerb and let the sectored arms
+transit at `transit_speed_mps` (7 m/s). **That argument does not survive
+MIGHTY** (§4c): it flies its own `v_max` of 1.5 m/s and does not yet apply the
+NavigateTask speed cap, so 500 m from a central kerb to an outer sector is
+330 s of a 600 s budget — more than half the run, charged to the method.
+
+`scene_gen/tools/frozen_cell_plan.py` computes the spawns offline. It imports
+the planner's OWN `sector.py`, so the sectors it places drones in are the ones
+`search_planner` cuts at run time, and it picks the point in each sector that
+is furthest from any house, tree, car, debris field or survivor — relaxing, in
+order, `in-damage` -> `in-pad` -> `near-seam` -> `roomiest`, and reporting
+which. Clearance is never traded for staying inside the hull: both are the
+drone's own search area, and only one of them decides whether it clears the
+canopy on the way up. Achieved clearances on the six cells: 5.8-25 m.
+
+```bash
+python3 scene_gen/tools/frozen_cell_plan.py --robots 8 \
+  --emit-yaml robot/ros_ws/src/global/planners/search_baselines/config
+```
+
+writes one overlay per cell (`frozen_<disaster>_<locale>_lvl<n>.yaml`) and
+prints the mission's `environments:` block. **Re-run it, do not hand-edit the
+numbers**, and re-run it if a cell is re-exported.
+
+`map_extent_m` (1380-1500 m -> 2.9-3.1 m/cell) is sized to satisfy the LARGER
+of two demands, because one overlay serves all four arms: the sectored arms'
+`frame_mode: 'local'` grid must reach the far corner of that robot's sector
+from its spawn, and the CoNavGPT2 team arm's `global_enu` grid — centred on
+`map_origin_xy: [0, 0]`, set by `conavgpt2_team.yaml` which loads AFTER the
+scene overlay and so cannot be corrected there — must reach the far corner of
+the whole search area from the plate centre. Every arm then rasterises at the
+same cell size, which is the point.
+
+### The mission
+
+`osmo/missions/frozen_suburban_8robot.yaml` — 6 cells x 4 arms x 8 robots, 24
+iterations, `environment_order: round_robin` with `iterations: 24` so each runs
+once, cell-major. Both planner deployments live in one step list and branch on
+`{{env.method}}`: frontier / lawnmower / vlfm launch one planner per robot
+container, conavgpt2 launches one `team_mode` planner in `offboard-compute` on
+domain 0; the wrong-arm branch exits 0. Submit on
+`osmo/workflows/airstack-mission-8robot-1gpu.yaml` — the 1- and 5-robot
+workflows' `cpu: 24` / `64Gi` cannot hold eight robot stacks beside Isaac Sim.
+
+**Verified OFFLINE, and not yet flown.** Three pytest files, no ROS, no GPU:
+
+```bash
+python3 -m pytest scene_gen/tests/test_frozen_annotations.py \
+  scene_gen/tests/test_frozen_suburban_mission.py \
+  robot/ros_ws/src/global/planners/search_baselines/tests/test_frozen_scene_overlays.py
+```
+
+They check the things an hour of GPU would otherwise discover: every survivor
+is inside the search area on every cell; the search area is a fraction of the
+plate and not all of it; `pad_convex` agrees with the planner's own
+`sector.pad_polygon`; every spawn is inside its own robot's sector, on the
+plate, and not inside a house or on a survivor; `map_extent_m` reaches every
+sector from its spawn AND the whole area from the origin; each arm starts the
+model servers its method needs; and `search_area_xy` is a flat list of NUMBERS
+(a wrapped line without a trailing comma made YAML fold two coordinates into
+one string and the polygon quietly lost a vertex — that is why the test
+exists).
+
+What is NOT verified, because it needs the sim — watch these on the first run:
+the reference composing (`[frozen] composed in N s: 6238 referenced object(s)`),
+the annotation banner (`people inside the search k/n`), the sector line per
+robot, whether `SUBURB_COLLIDERS=ground` on 1,800 referenced ground meshes is
+minutes or seconds, and MIGHTY's mapper CPU at 8 robots on one box.
 
 ---
 
@@ -1158,6 +1321,8 @@ and do not let a clean startup log stand in for a result:
 | `frontier_source: voxel3d` | unit-tested standalone (§4) AND flown against sim depth on the 250 m suburb, 2026-08-26: frontiers at 6 distinct heights, the drone reaches them and releases | no completed 600 s run; the persistent-accumulation rewrite (§4) is newer than any long run |
 | the VLFM value map driving a run | the scorer, the tiling and the fusion are each measured in isolation (§3); in flight it scores ~380 keyframes with 0 failures at ~90 ms | no full 600 s run where the value map chose the frontiers end to end |
 | the frontier band (`frontier_z_min_m` / `frontier_z_max_m`) | set on both scene overlays | never exercised in flight; the failure it fixes was diagnosed, not re-tested afterwards |
+| the FROZEN scene source (§2b) | pure-python parts unit-tested (115 assertions over three pytest files, no ROS/GPU); the cell's `/World` structure, the absent defaultPrim and the sibling overlays MEASURED off the real files with a bare `Sdf` walk | **never launched.** The reference itself, the collider pass on 1,800 referenced ground meshes, the GT write and the whole 8-robot mission are unflown |
+| per-sector spawns (§2b) | every spawn checked offline to be inside its own robot's sector, on the plate, clear of geometry and survivors | no drone has taken off from one; ground `z` is assumed flat at the 0.5 m spawn height, as on the built path |
 
 The discipline is the one §6 applies to detector thresholds: run it against a
 real frame of the real scene and read the number before trusting it.
@@ -1166,8 +1331,24 @@ real frame of the real scene and read the number before trusting it.
 
 ## 11. Submitting to OSMO
 
-The fleet template is `osmo/missions/wildfire1km_5robot_a.yaml` (one planner
-per robot container, sectored, `/gcs/` layers recorded) and, for conavgpt2,
+**On the FROZEN dataset — the one that runs the four arms together:**
+`osmo/missions/frozen_suburban_8robot.yaml`, 6 cells x 4 arms x 8 robots in
+one file (§2b), on its own workflow because eight robot stacks do not fit the
+1-robot sizing:
+
+```bash
+airstack osmo:mission osmo/missions/frozen_suburban_8robot.yaml \
+  --pool <gpu-pool> --branch <branch> \
+  --workflow osmo/workflows/airstack-mission-8robot-1gpu.yaml
+```
+
+Cut `environments:` down and set `iterations:` to match to fly one cell or one
+arm first — strongly recommended before committing 24 iterations, none of
+which has been flown.
+
+**On a BUILT scene**, the fleet template is
+`osmo/missions/wildfire1km_5robot_a.yaml` (one planner per robot container,
+sectored, `/gcs/` layers recorded) and, for conavgpt2,
 `osmo/missions/wildfire1km_5robot_conavgpt2.yaml` (one team-mode planner);
 copy them to `_4robot_` / `_8robot_` files per §1.
 

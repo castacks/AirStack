@@ -1,6 +1,6 @@
 ---
 name: launch-generated-scene-with-drones
-description: Fly PX4 drones in a scene that is BUILT in-process by scene_gen instead of loaded from a finished USD. Covers `scene_gen/scene_api.build_scene` (the one entry point, its signature and its load-bearing internal order), the `SCENE_CONFIG`-vs-`ENV_URL` switch in `example_multi_drone_scene_import.py`, the archetype bake on Nucleus, and the six traps that make a generated scene different from a loaded one — STAGE_SCALE, the borrowed sky, fractionalCutoutOpacity, the Pegasus base env, the overhead framing and the spawn contract. Also covers PARAMETERISING a preset — `REGION_M`, `DISASTER_TYPE`, `SEVERITY` are merged into the spec before it compiles, so "a 250 m undamaged suburb" is env vars on the canonical launcher, NOT a new preset file and NOT a new launch script — why a `*_preview_launch_script.py` can never fly (no drone, no world.step, no overhead camera), which of TWO house sources a preset selects and why they are rotated 90 deg apart, and how `airstack://` resolves to LOCAL files or to Nucleus depending on AIRSTACK_ASSET_ROOT. Read before wiring a generated scene into a mission, changing a scene's size or disaster, or touching either launcher.
+description: Fly PX4 drones in a scene that is BUILT in-process by scene_gen, or REFERENCED from a frozen dataset cell (`FROZEN_SCENE`), instead of loaded from a Nucleus stage. Covers `scene_gen/scene_api.build_scene` (the one entry point, its signature and its load-bearing internal order), the `SCENE_CONFIG`-vs-`ENV_URL` switch in `example_multi_drone_scene_import.py`, the archetype bake on Nucleus, and the six traps that make a generated scene different from a loaded one — STAGE_SCALE, the borrowed sky, fractionalCutoutOpacity, the Pegasus base env, the overhead framing and the spawn contract. Also covers PARAMETERISING a preset — `REGION_M`, `DISASTER_TYPE`, `SEVERITY` are merged into the spec before it compiles, so "a 250 m undamaged suburb" is env vars on the canonical launcher, NOT a new preset file and NOT a new launch script — why a `*_preview_launch_script.py` can never fly (no drone, no world.step, no overhead camera), which of TWO house sources a preset selects and why they are rotated 90 deg apart, and how `airstack://` resolves to LOCAL files or to Nucleus depending on AIRSTACK_ASSET_ROOT. Read before wiring a generated scene into a mission, changing a scene's size or disaster, or touching either launcher.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -39,10 +39,40 @@ camera, colliders, the run loop. It gets its world from one of two places, and
 |---|---|---|
 | `SCENE_CONFIG` unset | `ENV_URL` | `pg.load_environment(ENV_URL)` — a finished USD off Nucleus, then `reference_root_prims_under_world`, `scale_stage_prim(STAGE_SCALE)`, colliders on `/World/stage`. Unchanged, and 42 missions depend on it. |
 | `SCENE_CONFIG=<preset>` | `scene_gen/scene_api.build_scene` | Pegasus' **Default Environment** is loaded only to give the World a PhysicsScene, `/World/GroundPlane` and `/World/Environment` are deactivated, and the plat is authored into the stage. No load, no scale, no sky borrow. |
+| `FROZEN_SCENE=<cell\|path>` | a **frozen dataset cell** | `/World/stage` (and every sibling under `/World` except `PhysicsScene`) referenced straight out of one of the `.usd` files under `final_disaster_dataset/`. Nothing is built, nothing is rescaled, no base env is loaded — the cell already carries it. |
 
-Everything path-specific in the launcher sits behind `if _GENERATED:`.
-`_GENERATED` is computed before `SimulationApp(...)` because the startup config
-itself differs (see trap 3).
+**THERE ARE NOW THREE GUARDS, and they are not interchangeable:**
+
+* `_GENERATED` — "a `scene_gen` plat": metres, never rescaled, drone-flown,
+  overhead camera framed on the whole plate, the pymavlink `poll()` fix, Flow
+  enabled. Both new sources are that, so almost every existing guard is
+  correct as it stands.
+* `_BUILT` — "assemble it in-process": the archetype bake, `SPEC_OVERRIDES`,
+  the fire clock, the people plan, the `scene_gen` `sys.path` insert. Only the
+  preset path.
+* `_FROZEN` — the reference, the cell-path resolution and the ground truth.
+
+`FROZEN_SCENE` WINS over `SCENE_CONFIG` (and says so): setting both would
+otherwise author a procedural plat on top of a frozen one and render two
+suburbs in the same square kilometre. All three are computed before
+`SimulationApp(...)` because the startup config itself differs (see trap 3).
+
+**`pg.load_environment` cannot open a frozen cell.** It references the file's
+DEFAULT PRIM, and a frozen cell has none — measured with a bare `Sdf` walk on
+every cell: the Kit exporter writes 84 `Flattened_Prototype_*` roots, a
+`/World`, a `/Render` and four cameras, and nominates none of them. The call
+composes an empty prim, reports success and gives you a black viewport with no
+error, which is why `_reference_frozen_scene` names the prims itself and reads
+the sibling list out of the file rather than hard-coding
+`burnGround` / `flow_blockage` / `scourGround`.
+
+Ground truth on the frozen path is RESHAPED, never measured:
+`simulation/isaac-sim/utils/frozen_annotations.py` turns the cell's own
+`GT_people.json` / `GT_hints.json` into `<scene>{,_obstacles,_region}.json`.
+Re-measuring off the stage would be slower and could DISAGREE with the labels
+the dataset ships, which are the answer key a run is scored against. The
+region file's key is `search`, not `burn` or `affected` — see
+[benchmark-disaster-dataset](../benchmark-disaster-dataset/SKILL.md) §2b.
 
 `suburb_assemble_launch_script.py` is the same scene with no drones — a thin
 GUI launcher over the same `build_scene` call. If the two ever disagree about

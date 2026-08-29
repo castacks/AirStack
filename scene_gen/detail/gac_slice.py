@@ -51,7 +51,22 @@ breaks", not "very square/rectangular cutoffs").
 import math
 import os
 
-GLASS_TEX = ("glass", "window", "curtain", "glazing")
+# `win` IS IN THE LIST BECAUSE THE PACK ABBREVIATES.
+# GreatAmericanCity names some window materials `M_Building_NN_Win_Inst` —
+# which contains "win" but NOT "window", so the original four-token filter
+# matched nothing on them and `measure_grid` reported "fewer than 6 windows
+# found". MEASURED (`tools/gac_grid_sweep.py`, 2026-08-29): only 7 of the 31
+# buildings were measurable under the old list; adding "win" recovers
+# thousands of glass faces on six more (05, 06_Small, 15, 19, 26, 30) and
+# three of those then measure cleanly at confidence 0.55-0.65 with ZERO
+# windows crossed by a cut.
+#
+# A frame matching "win" rather than the glass itself is fine here: this list
+# is used to LOCATE the window grid, and a frame sits at the same place the
+# glass does. It is deliberately NOT shared with
+# `urban_fire._MONO_GLASS_TEX`, which classifies a part as glazing for
+# shading and would be wrong to widen.
+GLASS_TEX = ("glass", "window", "curtain", "glazing", "win")
 # Candidate floor-to-floor heights, metres. Real buildings sit inside this;
 # outside it a "period" is a window mullion or a whole massing band.
 PERIOD_RANGE = (2.6, 5.4)

@@ -1,0 +1,127 @@
+# AirStack batch mission workflow on OSMO — EIGHT robots, SINGLE GPU.
+#
+# Identical to airstack-mission-1gpu.yaml except `resources:`, `timeout:` and
+# this header. It exists for `osmo/missions/frozen_suburban_8robot.yaml`: the
+# frozen-dataset sweep runs NUM_ROBOTS=8 for 24 iterations, and the 1-robot
+# file's cpu: 24 / memory: 64Gi cannot hold eight robot stacks beside Isaac Sim.
+#
+# WHY ONE GPU AND NOT EIGHT. None of the four arms in that mission loads a
+# model into the robot process: every one of them detects on the SHARED
+# offboard-compute service, and vlfm's BLIP-2 scorer and conavgpt2's generative
+# VLM live there too. So the per-robot GPU pinning that sizes
+# airstack-mission-5robot.yaml (`_pick_rayfronts_gpu`, a raven_nav concern)
+# does not apply here — there is no rayfronts. What shares the card is Isaac
+# Sim's renderer for 8 stereo pairs plus, at most, one detector + one model
+# server. If Isaac reports NV_ERR_NO_MEMORY or its render graph starts failing
+# every frame, the fix is a second card (ISAAC_SIM_CUDA_DEVICES / a 2-GPU
+# workflow), not tuning this file.
+#
+# Everything else — the DinD pod, the rebuild-free handoff to
+# mission_launcher.sh from the clone, credentials, NAS upload — is
+# airstack-mission-1gpu.yaml's, unchanged. Read that file's header for it.
+#
+# Submit:
+#   airstack osmo:mission osmo/missions/frozen_suburban_8robot.yaml \
+#     --pool <gpu-pool> --branch <your-branch> \
+#     --workflow osmo/workflows/airstack-mission-8robot-1gpu.yaml
+
+workflow:
+  name: airstack-mission-8robot-1gpu
+  groups:
+  - name: airstack
+    tasks:
+    - name: workspace
+      lead: true
+      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
+      # Required so the inner dockerd can run (same DinD setup as airstack-dev).
+      privileged: true
+      # Bootstrap: run the baked entrypoint for pod setup ONLY
+      # (OSMO_AIRSTACK_UP=false), backgrounded, then hand off to the launcher
+      # that ships in the freshly-cloned branch. This is what makes the
+      # mission engine rebuild-free — see the header comment.
+      command: ["bash", "-c"]
+      args:
+      - |
+        set -uo pipefail
+        log() { echo "[mission-bootstrap] $*"; }
+        log "starting pod setup via baked entrypoint (OSMO_AIRSTACK_UP=false)"
+        # Baked entrypoint for pod setup, backgrounded. `tee` streams its logs to
+        # `osmo workflow logs` and to a file the launcher greps for the terminal
+        # "sleeping forever" line. `tee` holds THIS task's stdout pipe open, so
+        # mission_launcher.sh kills BAKED_PID before it exits — otherwise
+        # osmo_exec never sees pipe EOF on our exit and the pod never frees the
+        # GPU (it hangs at RUNNING until exec_timeout).
+        OSMO_AIRSTACK_UP=false /usr/local/bin/entrypoint.sh 2>&1 \
+          | tee /tmp/baked-entrypoint.log &
+        export BAKED_PID=$!
+        LAUNCHER=/root/AirStack/osmo/workspace/mission_launcher.sh
+        log "waiting for branch clone to provide $LAUNCHER"
+        for i in $(seq 1 600); do [ -f "$LAUNCHER" ] && break; sleep 2; done
+        if [ ! -f "$LAUNCHER" ]; then
+          log "ERROR: $LAUNCHER not found after clone wait; sleeping for SSH debug"
+          exec sleep infinity
+        fi
+        log "handing off to mission_launcher.sh"
+        exec bash "$LAUNCHER"
+      environment:
+        # Mission selection — repo-relative path into the clone. Override at
+        # submit time to run a different mission.
+        OSMO_MISSION_FILE: "osmo/missions/frozen_suburban_8robot.yaml"
+        # true  → pod sleeps after the mission; fetch results over ssh, then
+        #         `airstack osmo:down` (results die with the pod!).
+        # false → task exits when the mission ends: GPU freed, /osmo/output
+        #         uploaded to `outputs:` destinations.
+        OSMO_MISSION_KEEP_ALIVE: "false"
+        AIRSTACK_BRANCH: "krrishj18/osmo-mission-runner"        # branch entrypoint.sh clones
+        AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
+        # SSH_PUB_KEY is supplied at submit time (needed for osmo:fetch):
+        #   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
+      # Uncomment and point at a bucket the OSMO deployment can write to, to
+      # have /osmo/output uploaded automatically when the task exits (only
+      # meaningful with OSMO_MISSION_KEEP_ALIVE=false — a canceled workflow
+      # does not upload outputs):
+      #
+      # outputs:
+      #   - url: s3://<bucket>/airstack-missions/{{workflow_id}}/
+      credentials:
+        # Same per-user credentials as airstack-dev.yaml — see
+        # docs/tutorials/airstack_on_osmo.md "Step 0" / `airstack osmo:setup`.
+        # These map OSMO credential fields → pod env vars; no secret values live
+        # in this file.
+        airlab-nucleus:
+          OMNI_USER: omni_user
+          OMNI_PASS: omni_pass
+          OMNI_SERVER: omni_server
+        airlab-docker-login:
+          AIRLAB_REGISTRY_USER: username
+          AIRLAB_REGISTRY_PASS: password
+        # Optional: NAS result upload. Absent credential → nothing injected →
+        # upload disabled. Enabled per-mission via `nas_dest:` in the spec.
+        airlab-storage:
+          AIRLAB_STORAGE_USER: username
+          AIRLAB_STORAGE_PASS: password
+          AIRLAB_STORAGE_HOST: host
+
+  resources:
+    default:
+      # EIGHT robot stacks + Isaac Sim + offboard-compute, on ONE card.
+      #
+      # CPU and memory are scaled off the 5-robot file (cpu 44 / memory 160Gi)
+      # at roughly one robot's worth per added robot; Isaac Sim's share is
+      # unchanged by the fleet. The MIGHTY mapper is the new CPU consumer this
+      # sizing has never seen at 8 robots — a 32 x 32 x 16 m window at 0.25 m
+      # is ~1M voxels PER ROBOT, on CPU — so cpu is the number to watch in the
+      # first iteration's `airstack status`, not memory.
+      cpu: 64
+      gpu: 1
+      memory: 192Gi
+      # 24 iterations x (one 240-260 MB frozen cell already on the NAS mount +
+      # one lean gcs mcap). The cells are bind-mounted, not copied, so this is
+      # images + bags + logs.
+      storage: 600Gi
+
+  timeout:
+    # 24 iterations, each a full down -> up -> 600 sim-s flight -> down. At the
+    # 1-robot missions' ~1-2 h for ONE iteration this is the setting that
+    # decides whether the sweep finishes, not a comfort margin.
+    exec_timeout: 160h

@@ -1,7 +1,7 @@
 ---
 name: freeze-dataset-state
 description: >-
-  What is ACTUALLY in `final_disaster_dataset/` right now, and what is deliberately not. The frozen scenes are baked-in POSITIONS with textures and MDL still referenced from Nucleus and the repo; the review camera is present but deactivated; the collect/localisation step is off and why it stalls. Read before consuming a frozen scene, before assuming a cell is redistributable, and before starting the public-release cleanup — this file is the punch list for it.
+  What is ACTUALLY in `final_disaster_dataset/` right now, and what is deliberately not. The frozen scenes are baked-in POSITIONS with textures and MDL still referenced from Nucleus and the repo; the review camera is present but deactivated; the collect/localisation step is off and why it stalls. Also: the `FROZEN_SCENE` launcher path that flies a cell, and the damage-derived search area a benchmark gets from one. Read before consuming a frozen scene, before assuming a cell is redistributable, and before starting the public-release cleanup — this file is the punch list for it.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -13,10 +13,23 @@ metadata:
 ## What these files are FOR, today
 
 **Running baselines on this machine and on machines that can reach the same
-Nucleus.** The scenes are frozen in the sense that matters for a benchmark: the
-layout, the damage, the debris and the people are fixed, baked in, and identical
-every time the file is opened. Nothing about the geometry depends on rebuilding
-anything.
+Nucleus — and as of 2026-08-29 there is a launcher path that does it.**
+`FROZEN_SCENE=<cell>` on `example_multi_drone_scene_import.py` references a
+cell in instead of building a plat, and
+`simulation/isaac-sim/utils/frozen_annotations.py` reshapes the cell's own
+`GT_people.json` / `GT_hints.json` into the three names the stack reads
+(`<scene>.json`, `<scene>_obstacles.json`, `<scene>_region.json`). The search
+area a benchmark flies is measured from the DAMAGE in the cell, not from the
+disaster model — the tornado cells have no `build_stats.json` to re-derive a
+model from. Full account:
+[benchmark-disaster-dataset](../benchmark-disaster-dataset/SKILL.md) §2b. It is
+unit-tested offline and **has not been launched**.
+
+The scenes are frozen in the sense that matters for a benchmark: the layout,
+the damage, the debris and the people are fixed, baked in, and identical every
+time the file is opened. Nothing about the geometry depends on rebuilding
+anything — which is what lets four search methods be compared on one scene and
+have the difference mean something.
 
 **They are NOT redistributable yet.** A frozen scene still references its
 textures and MDL modules from Nucleus and from this repo, so it will open with
