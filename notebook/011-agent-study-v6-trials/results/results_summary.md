@@ -58,7 +58,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | # | Trial | Score | Judge calls | Agent time | Cost | Notes |
 |---|-------|-------|------------|-----------|------|-------|
 | 1 | A1 / claude-sonnet-5 / #1 | **R8** (full ladder) | 9 / 20 | 2 h 22 m | $13.31 | Climbed R1→R8 in order; single retry on R8; official scoring passed R7 (fresh eval route) then R8 (landed at rest +0.03 m). First full-ladder completion in the study. 2 infra reruns (see (b)). |
-| 2 | A2 / claude-opus-5 / #1 | — running | — | — | — | Started 2026-08-29 00:04 UTC. |
+| 2 | A2 / claude-opus-5 / #1 | **R8** (full ladder) | 10 / 20 | 2 h 02 m | $21.21 | Ablated arm; one R5 fail→fix cycle, R6 re-verified once, R7/R8 first try; official scoring R7+R8 pass. Ablation cost iterations/cost, not score. |
+| 3 | A3 / claude-sonnet-5 / #1 | — running | — | — | — | Started 2026-08-29 02:15 UTC. Assemble-it-yourself; solvability unproven by design. |
 
 Round-robin order: A1:son → A2:opus → A3:son → A4:opus → A1:opus →
 A2:son → repeat with rising trial index.
