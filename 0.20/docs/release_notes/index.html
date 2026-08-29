@@ -5762,6 +5762,72 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#0206-2026-08-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.20.6 — 2026-08-29
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0205-2026-08-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.20.5 — 2026-08-29
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0204-2026-08-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.20.4 — 2026-08-29
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0203-2026-08-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.20.3 — 2026-08-29
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0202-2026-08-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.20.2 — 2026-08-29
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0201-2026-08-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.20.1 — 2026-08-29
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#0200-2026-08-29" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5921,6 +5987,53 @@ registered in mkdocs.yml) trims the rendered page to the section matching
 the repo-root .env VERSION, so each mike-deployed docs version carries only
 its own notes. -->
 
+<h2 id="0206-2026-08-29">0.20.6 — 2026-08-29<a class="headerlink" href="#0206-2026-08-29" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Release notes now carry a dated section per hotfix.</strong> Added the
+  missing sections for hotfixes 0.20.1–0.20.5 and codified the rule in
+  the <code>bump-version-and-release</code> skill and AGENTS.md: every hotfix on
+  <code>main</code> — docs-only and CI-only included — adds its own dated
+  <code>## X.Y.Z — YYYY-MM-DD</code> patch-notes section, since the MAJOR.MINOR
+  docs build renders all of a line's patch sections together.</li>
+</ul>
+<h2 id="0205-2026-08-29">0.20.5 — 2026-08-29<a class="headerlink" href="#0205-2026-08-29" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Docker images are publicly pullable.</strong> The AirLab Harbor registry
+  project (<code>airlab-docker.andrew.cmu.edu/airstack</code>) is now public: pulling
+  the AirStack images no longer requires an AirLab account or
+  <code>docker login</code>. Pull instructions across the docs (Getting Started, CLI
+  docker usage, Isaac Sim / MS-AirSim image management) were updated
+  accordingly. Pushing images still requires logging in with an AirLab
+  account.</li>
+</ul>
+<h2 id="0204-2026-08-29">0.20.4 — 2026-08-29<a class="headerlink" href="#0204-2026-08-29" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Docs site root pinned to the release slug.</strong> docs.theairlab.org now
+  redirects to the current MAJOR.MINOR slug (<code>/0.20/</code>) instead of the
+  moving <code>/main/</code> alias, so the URLs readers land on and copy stay valid
+  across future releases.</li>
+</ul>
+<h2 id="0203-2026-08-29">0.20.3 — 2026-08-29<a class="headerlink" href="#0203-2026-08-29" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Stable docs alias renamed <code>latest</code> → <code>main</code></strong>, restoring pre-0.20
+  bookmark URLs. The three docs deploy workflows now share a concurrency
+  group so concurrent gh-pages pushes no longer race.</li>
+</ul>
+<h2 id="0202-2026-08-29">0.20.2 — 2026-08-29<a class="headerlink" href="#0202-2026-08-29" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Docs versions use MAJOR.MINOR slugs.</strong> The version selector no longer
+  shows the same release twice: docs deploy under slugs like <code>/0.20/</code>
+  titled with the full patch version, hotfixes republish the slug in
+  place, and this Release Notes page renders every section sharing the
+  built version's MAJOR.MINOR.</li>
+</ul>
+<h2 id="0201-2026-08-29">0.20.1 — 2026-08-29<a class="headerlink" href="#0201-2026-08-29" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Fixed the post-release main→develop sync</strong> skipping when the merge
+  result was content-identical to develop — the ancestry-advancing merge
+  commit was never pushed, so develop's VERSION never rolled forward
+  after a release.</li>
+</ul>
 <h2 id="0200-2026-08-29">0.20.0 — 2026-08-29<a class="headerlink" href="#0200-2026-08-29" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
