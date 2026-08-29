@@ -22,11 +22,15 @@
 #    stands. That is not only faster: it is the only way all four arms fly
 #    BIT-IDENTICAL geometry, which is the premise of comparing them.
 #
-#    The mount: `FINAL_DATASET_DIR` (host) -> /isaac-sim/final_disaster_dataset
-#    (isaac-sim container), already in simulation/isaac-sim/docker/
-#    docker-compose.yaml. A pod whose NAS does not carry the cells will fail at
-#    t=0 with "FROZEN_SCENE=...: no such file or cell", which is the right
-#    failure — loud, immediate, and it names the path it looked in.
+#    WHERE THE CELLS LIVE. Locally: `FINAL_DATASET_DIR` (host) ->
+#    /isaac-sim/final_disaster_dataset, already in
+#    simulation/isaac-sim/docker/docker-compose.yaml. ON A POD: NOWHERE, until
+#    they are uploaded — the dataset is outside the repo and is not cloned. So
+#    `FROZEN_DATASET_ROOT` below points at Nucleus and
+#    `scene_gen/tools/upload_frozen_cells.py` is a PREREQUISITE of this
+#    mission. A cell that does not resolve fails at t=0 with
+#    "FROZEN_SCENE=...: no such file or cell", which is the right failure —
+#    loud, immediate, and it names what it looked for.
 #
 # 2. THE SEARCH AREA IS THE DAMAGE, MEASURED OFF THE CELL. The Isaac launcher
 #    writes `<RESULTS_SCENE>_region.json` from the cell's own GT_hints.json
@@ -78,6 +82,24 @@
 # bridged sensors, merges them into one global-ENU grid and assigns every robot
 # a frontier per VLM call. Both deployments live in this one file: the planner
 # steps below branch on `{{env.method}}` and the wrong-arm branch exits 0.
+#
+# THE BUDGET IS 600 SIM SECONDS FROM THE MOMENT THE BASELINE STARTS, not from
+# sim boot: `search_planner` latches its t0 on its FIRST tick with
+# rgb + depth + camera_info + odometry, which is after the scene loaded, after
+# the stack came up and after takeoff. None of that is charged to the method,
+# and the two deployments are given the same 600 s however differently the wall
+# clock ran. The planner announces it — `sim budget 600 s starts NOW, at sim
+# t=... — the first tick with data. Time source: ...` — and both collect steps
+# grep that line into their summary.
+#
+# The TEAM arm needed a fix to make that true. Isaac publishes /clock from a
+# PER-DRONE OmniGraph node bound to that drone's ROS domain, so /clock exists
+# on domains 1..8 and NOT on 0 — and dds_router.yaml bridges 47 topics, none of
+# them rt/clock. The team planner runs on domain 0, so its clock read 0.0
+# forever and the budget was never spent. `_sim_now` now falls back to the
+# sim-time header stamps on the bridged observations, which is the same clock
+# read a different way (and arguably the better reading for a budget: it is the
+# time of the data the method actually processed).
 #
 # SCORING IS NOT ON ONE AXIS WITH raven_nav. All four arms here are the shared
 # search_planner reporting its own round table; raven runs inside
@@ -142,6 +164,31 @@ env:
   # `environments:` below; these are the knobs that are the same for all 24.
   # SCENE_CONFIG is deliberately ABSENT — setting it alongside FROZEN_SCENE is
   # ignored with a warning, but leaving it out is what states the intent.
+  #
+  # ── WHERE THE CELLS COME FROM, AND THE PREREQUISITE THIS MISSION HAS ─────
+  # `final_disaster_dataset/` lives OUTSIDE the repo (4.8 GB across 18 cells,
+  # bind-mounted from FINAL_DATASET_DIR) and is NOT in git. A pod clones the
+  # branch and therefore has NEITHER — no mount, no cells. So the cells have
+  # to be somewhere the pod can reach, and the pod already has exactly one
+  # such place with a credential the workflow injects: Nucleus.
+  #
+  # UPLOAD THEM FIRST — this mission cannot run until you have:
+  #
+  #   docker exec isaac-sim /isaac-sim/python.sh \
+  #     /isaac-sim/AirStack/scene_gen/tools/upload_frozen_cells.py --dry-run
+  #   docker exec isaac-sim /isaac-sim/python.sh \
+  #     /isaac-sim/AirStack/scene_gen/tools/upload_frozen_cells.py
+  #
+  # ~1.9 GB for the six cells this mission flies (the .usd plus each cell's
+  # two GT files and build_stats; `snaps/` is not uploaded and is not read).
+  # The cells' TEXTURES and MDL are NOT copied and do not need to be: they
+  # were never inlined into the frozen files, so a cell still references them
+  # on Nucleus and in the repo, both of which a pod resolves already.
+  #
+  # ON A LOCAL BENCH that already has the mount, comment this out and the
+  # launcher falls back to /isaac-sim/final_disaster_dataset. FROZEN_SCENE is
+  # the same cell path either way, so this one line is the whole difference.
+  FROZEN_DATASET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu/Projects/SEI-COA/final_disaster_dataset"
   #
   # The plat's own ground sheet gets colliders, exactly as the built path does,
   # so a frozen run and a rebuilt one agree about what the drone stands on.
@@ -920,16 +967,28 @@ steps:
         fi
         source /root/.bashrc >/dev/null 2>&1 || true
         export ROS_DOMAIN_ID={n}
-        for i in $(seq 1 400); do
+        # 900 polls x 15 s = 3 h 45 m of WALL clock for 600 s of SIM. That is
+        # not slack, it is the real-time factor: eight stereo pairs rendering
+        # on one card is the RTF this sweep has never measured, and a budget
+        # that is generous in sim seconds can still be hours in wall seconds.
+        # Every 20th poll prints the planner's own progress so a stalled run
+        # is visible in the mission log within five minutes instead of at the
+        # timeout.
+        for i in $(seq 1 900); do
           if timeout 10 ros2 topic echo /{robot}/search/run_complete --once 2>/dev/null | grep -q "data: true"; then
             echo RUN_COMPLETE {robot}; exit 0
           fi
           kill -0 "$(cat /tmp/search/planner.pid)" 2>/dev/null || {
             echo PLANNER_EXITED {robot}; tail -n 80 /tmp/search/planner.log; exit 1; }
+          if [ $((i % 20)) -eq 0 ]; then
+            echo "--- {robot} poll $i"
+            grep -a "sim budget" /tmp/search/planner.log | tail -1
+            grep -a "ground speed\|round [0-9]* |" /tmp/search/planner.log | tail -1
+          fi
           sleep 15
         done
         echo RUN_DID_NOT_COMPLETE {robot}; tail -n 40 /tmp/search/planner.log; exit 1
-      timeout_s: 6300
+      timeout_s: 13800
 
   - run:
       container: offboard-compute
@@ -939,16 +998,28 @@ steps:
         fi
         source /root/.bashrc >/dev/null 2>&1 || true
         export ROS_DOMAIN_ID=0
-        for i in $(seq 1 400); do
+        # THE TEAM ARM HAS NO /clock. Isaac publishes it from a per-drone
+        # OmniGraph node bound to that drone's ROS domain, so it exists on
+        # domains 1..8 and NOT on 0, and dds_router.yaml does not bridge it.
+        # `_sim_now` therefore falls back to the sim-time header stamps on the
+        # bridged observations — the same clock read a different way. The
+        # `Time source:` line printed at t0 says which one is in use, and it
+        # is the first thing to read if this gate ever runs long.
+        for i in $(seq 1 900); do
           if timeout 10 ros2 topic echo /robot_1/search/run_complete --once 2>/dev/null | grep -q "data: true"; then
             echo TEAM_RUN_COMPLETE; exit 0
           fi
           kill -0 "$(cat /tmp/search/planner.pid)" 2>/dev/null || {
             echo TEAM_PLANNER_EXITED; tail -n 80 /tmp/search/planner.log; exit 1; }
+          if [ $((i % 20)) -eq 0 ]; then
+            echo "--- team poll $i"
+            grep -a "sim budget" /tmp/search/planner.log | tail -1
+            grep -a "round [0-9]* |" /tmp/search/planner.log | tail -1
+          fi
           sleep 15
         done
         echo RUN_DID_NOT_COMPLETE; tail -n 60 /tmp/search/planner.log; exit 1
-      timeout_s: 6300
+      timeout_s: 13800
 
   # 8. Per-ROBOT results and the planner-side signals worth grepping, collected
   #    in each container. DEST carries the SCENE and the METHOD as well as the
@@ -963,6 +1034,8 @@ steps:
         cp -v /tmp/search/*.log "$DEST"/ 2>/dev/null || true
         cp -v /tmp/conavgpt2/search_planner_rounds.jsonl "$DEST"/ 2>/dev/null || true
         {
+          echo "# sim budget: when it started and from which clock"
+          grep -a "sim budget" /tmp/search/planner.log | head -2
           echo "# scene / sector / search area"
           grep -a "search area from the SCENE" /tmp/search/planner.log | head -1
           grep -a "sector [0-9]*/" /tmp/search/planner.log | head -1
@@ -1012,6 +1085,8 @@ steps:
         cp -v /tmp/conavgpt2/search_planner_rounds.jsonl "$DEST"/ 2>/dev/null || true
         {
           grep -a "search area from the SCENE" /tmp/search/planner.log | head -1
+          echo "# sim budget: when it started and from which clock"
+          grep -a "sim budget" /tmp/search/planner.log | head -2
           echo "# rounds: last few total_s/server_s, overruns, parse failures"
           grep -aoE "total_s=[0-9.]+.*server_s=[0-9.]+" /tmp/search/planner.log | tail -5
           grep -ac "overran" /tmp/search/planner.log

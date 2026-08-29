@@ -1485,7 +1485,7 @@ def r_floor_burnthrough(ctx, p=1.0, keep_below=1, budget=1):
     # does not do — it breaks into blocky prisms with the reinforcement
     # trailing out of them.
     timber = False
-    n_down = n_kept = 0
+    n_down = n_kept = n_prop = 0
     _slab_concrete(ctx)
     # highest first: the heat and the falling roof are both up there
     cand = sorted((fit.get("slabs") or {}).items(), key=lambda kv: -kv[0][1])
@@ -1526,12 +1526,30 @@ def r_floor_burnthrough(ctx, p=1.0, keep_below=1, budget=1):
                      else _debris_mat(ctx))
         ctx["loose"] += made
         n_down += 1
+        # THE FURNITURE ON THIS FLOOR HAS NOTHING LEFT UNDER IT NOW.
+        # `quake_flow.fit_interior` seats `props[(mtag, storey)]` at
+        # `z + 0.01`, directly on `slabs[(mtag, storey)]` (top face at `z`).
+        # This loop just fractured that slab and handed the pieces to
+        # `loose`, but never looked at the props sitting on it: whichever of
+        # them `r_gut_interior` charred in place rather than deactivating is
+        # still a live prim at the old floor height with no slab under it —
+        # and outside `loose` it never gets a rigid body, so it hangs there
+        # for the rest of the run. This is what measured out on the GAC
+        # bench as a cluster of furniture-coloured boxes hanging 10-25 m
+        # over the roof of the one building whose top-storey slab failed
+        # (row1_gac.png; debris_float_probe.py confirms the population and
+        # that it never reaches `loose`).
+        for pp in (fit.get("props") or {}).get((mtag, storey), []):
+            pr2 = ctx["stage"].GetPrimAtPath(pp)
+            if pr2 and pr2.IsValid() and pr2.IsActive() and pp not in ctx["loose"]:
+                ctx["loose"].append(pp)
+                n_prop += 1
         # what did NOT fall: the bearing stubs still in the wall pocket,
         # which is what a USAR photograph of a gutted shell has
         _joist_stubs(ctx, mtag, storey)
     ctx["notes"].append(
-        "floors: {0} slab(s) failed, {1} kept so the shell is not hollow"
-        .format(n_down, n_kept))
+        "floors: {0} slab(s) failed, {1} kept so the shell is not hollow, "
+        "{2} prop(s) sent down with them".format(n_down, n_kept, n_prop))
 
 
 def m_area(ctx, mtag):
@@ -2382,6 +2400,24 @@ def r_fire_collapse(ctx, mass=None):
         pr = ctx["stage"].GetPrimAtPath(slab)
         if pr and pr.IsValid() and pr.IsActive():
             ctx["loose"].append(slab)
+    # SAME ARGUMENT, FOR THE FURNITURE ON THOSE FLOORS. The slab loop above
+    # sends the floor itself down; `quake_flow.fit_interior` seats
+    # `props[(mtag, storey)]` right on top of `slabs[(mtag, storey)]`, so a
+    # prop at or above `s0` that `r_gut_interior` charred rather than
+    # deactivating is left standing on a plate that has just been added to
+    # `loose` and will fall out from under it — unless the prop goes down
+    # too. `ctx["fit"]["all"]` has not been folded into `static_extra` yet at
+    # this point in `burn_building` (that happens once, after every recipe
+    # has run), so nothing else in this file is going to catch these.
+    n_fitprop = 0
+    for (mtag, storey), props in list((ctx.get("fit") or {}).get("props", {}).items()):
+        if mtag != mass or storey < s0:
+            continue
+        for pp in props:
+            pr = ctx["stage"].GetPrimAtPath(pp)
+            if pr and pr.IsValid() and pr.IsActive() and pp not in ctx["loose"]:
+                ctx["loose"].append(pp)
+                n_fitprop += 1
     # the heap the top landed in: sitting on the floor BELOW the failure, not
     # on the ground, because that is where a fire collapse stops
     base = m["levels"][max(0, s0 - 1)] if s0 > 0 else m["z0"]
@@ -2398,9 +2434,10 @@ def r_fire_collapse(ctx, mass=None):
                              else ctx["mats"]["calcined"]))
     ctx["notes"].append(
         "fire collapse: top {0} storey(s) down from storey {1}, {2} module(s) "
-        "broken, {3} roof piece(s), {4} stain(s) removed with them, heap on "
-        "the storey below at z={5:.1f}".format(
-            n_lv - s0, s0, n_broke, n_roof, n_art, base))
+        "broken, {3} roof piece(s), {4} stain(s) removed with them, {5} "
+        "fit-out prop(s) sent down too, heap on the storey below at "
+        "z={6:.1f}".format(
+            n_lv - s0, s0, n_broke, n_roof, n_art, n_fitprop, base))
 
 
 # ---------------------------------------------------------------------------

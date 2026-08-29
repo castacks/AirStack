@@ -30,14 +30,73 @@ Env:
     FR_KIT      kit styles for row 0 (default: one per column, mixed families)
     FR_GAC      GAC assets for row 1
     FR_AEC      brownstone assets for row 2
-    FR_COL_M    column pitch, m (default 95)
-    FR_ROW_M    row pitch, m (default 130)
+    FR_COL_M    MINIMUM column pitch, m (default 95) -- a FLOOR, not the
+                pitch itself; see LAYOUT below
+    FR_ROW_M    MINIMUM row pitch, m (default 130) -- same, a floor
+    FR_SPACING_MULT  multiplier on the widest MEASURED footprint that sets
+                the actual pitch once the floor above is cleared (default
+                2.2) -- see LAYOUT
     FR_SEED     (default 7)
     FR_FLOW     1 authors NVIDIA Flow and the flames (default 1)
     SETTLE_STEPS physics ceiling (default 1400)
     SNAP_DIR / KEEP_OPEN
+
+LAYOUT -- why two passes, and why the pitch is measured rather than fixed
+--------------------------------------------------------------------------
+This file used to place every cell on a FIXED lattice: `COL_M` x `ROW_M`,
+the same numbers regardless of what actually got built there. That is wrong
+in two ways at once. `SM_Building_24` alone measures 29.0 x 58.0 m and other
+GAC/brownstone assets are bigger or smaller still, so a constant pitch is
+either wasted empty space or an overlap depending on which asset landed in
+that cell -- and an F5 collapse throws debris well outside the footprint on
+top of that. Separately, `ncol = max(len(r[1]) for r in rows)` used the
+WIDEST row's column count (5, from KIT/GAC) to lay out every row, so the
+4-entry brownstone row (`FR_AEC`) was positioned on a 5-wide pitch with an
+empty hole instead of being centred on its own 4 buildings.
+
+The fix is a measure-then-place pass, because a GAC/brownstone footprint
+is only known AFTER `gac_storey_slice.slice_to_kit` has run -- there is no
+style table for a sliced merged mesh the way `urban_building.footprint`
+covers the kit styles (that table-lookup shortcut is what
+`urban_fire_bench_launch_script.py` uses for its `UF_SPACING`, since every
+building on ITS row is a known kit style). So:
+
+  PASS 1  every cell is built at a PROVISIONAL position (`FR_COL_M` /
+          `FR_ROW_M` on the old fixed lattice). This is fine BECAUSE `burn()`
+          always authors in the cell's own LOCAL 0,0,0 frame (see
+          `qf.describe`/`ub.build_building` calls below) and `place_asset`
+          centres a referenced asset's world bbox on the CELL'S OWN world
+          translate -- so nothing downstream cares what that translate
+          value actually is yet.
+  PASS 2  each cell's REAL world XY box is measured with `UsdGeom.BBoxCache`
+          using BOTH `default_` and `render` purposes -- a default-only
+          cache is the exact blind spot that once let airborne debris audit
+          as clean (see the `fix-floating-debris` skill). The SAME
+          translate op returned by `AddTranslateOp()` in pass 1 is then
+          `.Set()` again (never a second `AddTranslateOp` -- that appends a
+          second op to `xformOpOrder` and BOTH apply) so that:
+            - within a row, columns are spaced
+              `max(FR_COL_M, FR_SPACING_MULT * the widest measured column in
+              THAT row)` apart, and a row with fewer entries (the
+              brownstones) is centred on its OWN entries -- it no longer
+              inherits another row's column count;
+            - rows are spaced
+              `max(FR_ROW_M, FR_SPACING_MULT * the widest measured building
+              anywhere)` apart, so one huge sliced building in one row
+              cannot bleed into its neighbour row.
+This mirrors `urban_fire_bench_launch_script.py`'s blessed `UF_SPACING`
+convention (`max(60, 2.2 * widest)`) on purpose -- same idea, generous
+rather than tight, just measured post-build instead of looked up, and
+applied on both axes because this file has three rows, not one.
+
+An audit at the end of `main()` (always -- not gated on `SNAP_DIR`) then
+checks every pair of cells' FINAL (post-settle) world XY boxes for overlap
+and prints anything it finds; it is a report, not an exception, because
+settle's physics can still carry a piece of debris further than pass 2's
+pre-settle measurement expected.
 """
 
+import itertools
 import math
 import os
 import random
@@ -100,10 +159,22 @@ AEC = [v.strip() for v in _env(
               "Reference_Brownstone8Row").split(",") if v.strip()]
 COL_M = float(_env("FR_COL_M", "95"))
 ROW_M = float(_env("FR_ROW_M", "130"))
+SPACING_MULT = float(_env("FR_SPACING_MULT", "2.2"))
 SEED = int(_env("FR_SEED", "7"))
 FLOW = _env("FR_FLOW", "1") not in ("0", "false", "no")
 SETTLE_STEPS = int(_env("SETTLE_STEPS", "1400"))
 SNAP_DIR = _env("SNAP_DIR")
+
+# The image an `overview()` capture writes is 16:9. `snapshots.place_camera`
+# uses a plumb (straight-down) rotation, and its own docstring is explicit
+# that world +X reads right and +Y reads up in that view -- so the VERTICAL
+# field of the frame is the one that has to fit world Y, and it is narrower
+# than the horizontal field by the aspect ratio. ROWS run along Y here, which
+# is exactly why the brownstone row used to fall out of the overview frame:
+# the old `max(span_x, span_y) * 1.2` treated both axes as if they got equal
+# coverage. See the framing block near the end of `main()`.
+FRAME_V_ASPECT = 9.0 / 16.0
+FRAME_MARGIN_M = 20.0
 
 
 def ground_and_light(stage, w, d):
@@ -241,6 +312,37 @@ def burn(stage, cell, style, placements, level, rng, nrng, mats, tag,
                             origin=origin, sides=sides, mat_cache=cache)
 
 
+def measure_xy(stage, path, cache):
+    """World-space `((min_x, min_y), (max_x, max_y))` of everything under
+    `path`, or `None` if there is nothing there to measure.
+
+    `cache` MUST be a `UsdGeom.BBoxCache` built with BOTH `default_` and
+    `render` purposes. A default-purpose-only cache is the known blind spot
+    in this repo (see the `fix-floating-debris` skill): geometry that is
+    only tagged `render` audits as absent instead of as out of place.
+    """
+    prim = stage.GetPrimAtPath(path)
+    if not prim.IsValid():
+        return None
+    r = cache.ComputeWorldBound(prim).ComputeAlignedRange()
+    if r.IsEmpty():
+        return None
+    mn, mx = r.GetMin(), r.GetMax()
+    return (float(mn[0]), float(mn[1])), (float(mx[0]), float(mx[1]))
+
+
+def xy_overlap_area(box_a, box_b):
+    """XY overlap area in m^2 of two `(mn, mx)` boxes from `measure_xy`, or
+    0.0 if they do not intersect."""
+    (amn0, amn1), (amx0, amx1) = box_a
+    (bmn0, bmn1), (bmx0, bmx1) = box_b
+    ox = min(amx0, bmx0) - max(amn0, bmn0)
+    oy = min(amx1, bmx1) - max(amn1, bmn1)
+    if ox <= 0.0 or oy <= 0.0:
+        return 0.0
+    return ox * oy
+
+
 def main():
     timeline = omni.timeline.get_timeline_interface()
     timeline.stop()
@@ -261,8 +363,11 @@ def main():
         raise RuntimeError("; ".join(problems))
 
     rows = [("kit", KIT), ("gac", GAC), ("brownstone", AEC)]
-    ncol = max(len(r[1]) for r in rows)
-    ground_and_light(stage, ncol * COL_M + 140.0, len(rows) * ROW_M + 160.0)
+    # PROVISIONAL grid width ONLY, for pass 1's initial placement. This used
+    # to also be the FINAL layout, which is exactly what put the 4-entry
+    # brownstone row on a 5-wide lattice with a hole in it — see LAYOUT in
+    # the module docstring. Real positions are computed in pass 2, below.
+    prov_ncol = max(len(r[1]) for r in rows)
     flow_root = None
     if FLOW:
         from disaster import fire as fx
@@ -272,18 +377,28 @@ def main():
     mats = uf.materials(stage, PARENT)
     mat_cache = {}
     loose, static, vel = [], ["/World/ground"], {}
-    cells, tally = [], {"kit": 0, "gac": 0, "brownstone": 0}
+    cell_info, tally = [], {"kit": 0, "gac": 0, "brownstone": 0}
 
+    # ------------------------------------------------------------------
+    # PASS 1: build every cell at a provisional position. Each cell Xform
+    # (`{PARENT}/{pack}_{ci}_link`) is the LINK PRIM for its building — the
+    # one handle that moves the kit/sliced pieces, the fracture fragments,
+    # the settled debris and everything `burn_building` authors, all at
+    # once, because every one of those lives underneath it. The `_link`
+    # suffix and the escapee check right after `burn()` below both exist
+    # to make and keep that true.
+    # ------------------------------------------------------------------
     for ri, (pack, names) in enumerate(rows):
-        y = (ri - (len(rows) - 1) / 2.0) * ROW_M
+        y0 = (ri - (len(rows) - 1) / 2.0) * ROW_M  # provisional only
         print("\n[fire_rows] === row {0}: {1} ===".format(ri, pack))
         for ci, nm in enumerate(names):
-            x = (ci - (ncol - 1) / 2.0) * COL_M
+            x0 = (ci - (prov_ncol - 1) / 2.0) * COL_M  # provisional only
             lvl = LEVELS[ci % len(LEVELS)]
             tag = "{0}{1}".format(pack[:3], ci)
-            cell = "{0}/{1}_{2}".format(PARENT, pack, ci)
+            cell = "{0}/{1}_{2}_link".format(PARENT, pack, ci)
             cxf = UsdGeom.Xform.Define(stage, Sdf.Path(cell))
-            cxf.AddTranslateOp().Set(Gf.Vec3d(x, y, 0.0))
+            tr = cxf.AddTranslateOp()
+            tr.Set(Gf.Vec3d(x0, y0, 0.0))
             rng = random.Random(SEED + 37 * ri + ci)
             nrng = np.random.default_rng(SEED + 37 * ri + ci)
             tb = time.time()
@@ -322,11 +437,31 @@ def main():
                         nm, len(pls), "measured" if meas else "regular"))
                 res = burn(stage, cell, style, pls, lvl, rng, nrng, mats, tag,
                            flow_root, mat_cache)
+                # EVERY PATH `burn_building` HANDS BACK MUST LIVE UNDER THIS
+                # CELL, because the cell is the whole building's link prim —
+                # moving it must move everything. Report, do not reparent:
+                # reparenting can silently break a reference or a material
+                # binding authored with an absolute path, and this is meant
+                # to catch a bug in the damage code, not paper over it here.
+                escapees = []
+                for lname, lst in (("loose", res["loose"]),
+                                   ("static_extra", res["static_extra"]),
+                                   ("authored", res.get("authored", []))):
+                    for p in lst:
+                        if p != cell and not p.startswith(cell + "/"):
+                            escapees.append((lname, p))
+                if escapees:
+                    print("      [fire_rows] ESCAPEE(S) from {0}:".format(cell))
+                    for lname, p in escapees:
+                        print("      [fire_rows]   {0}: {1}".format(lname, p))
                 loose += res["loose"]
                 static += res["static_extra"]
                 vel.update(res["velocity"])
                 tally[pack] += 1
-                cells.append(("{0}_{1}_{2}_{3}".format(ri, pack, nm, lvl), x, y))
+                label = "{0}_{1}_{2}_{3}".format(ri, pack, nm, lvl)
+                cell_info.append({"path": cell, "row": ri, "col": ci,
+                                  "pack": pack, "name": nm, "label": label,
+                                  "tr": tr, "x0": x0, "y0": y0})
                 print("      {0:<26} {1}  {2:4d} loose {3:5d} authored  ({4:.0f} s)"
                       .format(nm, lvl, len(res["loose"]),
                               len(res.get("authored", [])), time.time() - tb))
@@ -336,6 +471,104 @@ def main():
                 print("      FAILED {0}: {1}".format(nm, exc))
             for _ in range(2):
                 omni.kit.app.get_app().update()
+
+    for _ in range(8):
+        omni.kit.app.get_app().update()
+
+    # ------------------------------------------------------------------
+    # PASS 2: measure what actually got built, then set the REAL pitch.
+    # See LAYOUT in the module docstring for why this has to be a second
+    # pass instead of a computed-up-front constant.
+    # ------------------------------------------------------------------
+    cells, row_y = [], {}
+    if cell_info:
+        mcache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+        for c in cell_info:
+            box = measure_xy(stage, c["path"], mcache)
+            if box is None:
+                # Nothing measurable under a cell that got far enough to be
+                # tallied is unexpected, but not this file's damage bug to
+                # diagnose — leave it at its provisional spot rather than
+                # dividing by a zero-size footprint below.
+                c["full_x"] = c["full_y"] = 0.0
+                c["off_x"] = c["off_y"] = 0.0
+                continue
+            (mn0, mn1), (mx0, mx1) = box
+            c["full_x"] = mx0 - mn0
+            c["full_y"] = mx1 - mn1
+            # How far the MEASURED box's centre sits from the cell's own
+            # (provisional) translate — a fixed LOCAL offset. `place_asset`
+            # and `apply_placements` both centre a building's core on the
+            # cell's own origin, so this is normally ~0, but debris from an
+            # F5 collapse is not guaranteed symmetric, and keeping the
+            # offset explicit means the reposition below is exactly right
+            # either way instead of assuming perfect centring.
+            c["off_x"] = 0.5 * (mn0 + mx0) - c["x0"]
+            c["off_y"] = 0.5 * (mn1 + mx1) - c["y0"]
+
+        by_row = {}
+        for c in cell_info:
+            by_row.setdefault(c["row"], []).append(c)
+        row_indices = sorted(by_row)
+        big_all = max(max(c["full_x"], c["full_y"]) for c in cell_info)
+        # Same convention `urban_fire_bench_launch_script.py` uses for
+        # UF_SPACING (`max(60, 2.2 * widest)`): generous rather than tight,
+        # applied here on the ROW axis using the single widest measured
+        # building ANYWHERE, so a huge sliced GAC/brownstone building in one
+        # row cannot bleed into the row next to it.
+        row_spacing = max(ROW_M, SPACING_MULT * big_all)
+        ry0 = -0.5 * row_spacing * (len(row_indices) - 1)
+        for rpos, ri in enumerate(row_indices):
+            row_cells = sorted(by_row[ri], key=lambda c: c["col"])
+            big_row = max(max(c["full_x"], c["full_y"]) for c in row_cells)
+            # Same convention again, this time per row and on the COLUMN
+            # axis: the pitch is set by THIS row's own widest measured
+            # column, so a row with fewer/smaller entries (the brownstones)
+            # is centred on exactly what it has — no reference to another
+            # row's column count, which is what produced the hole before.
+            col_spacing = max(COL_M, SPACING_MULT * big_row)
+            cx0 = -0.5 * col_spacing * (len(row_cells) - 1)
+            by_ = ry0 + rpos * row_spacing
+            row_y[ri] = by_
+            for cpos, c in enumerate(row_cells):
+                bx = cx0 + cpos * col_spacing
+                c["x"] = bx - c["off_x"]
+                c["y"] = by_ - c["off_y"]
+                # Reuse the SAME translate op from pass 1 — a second
+                # `AddTranslateOp()` here would append a second op to
+                # `xformOpOrder` and BOTH would apply.
+                c["tr"].Set(Gf.Vec3d(c["x"], c["y"], 0.0))
+                cells.append((c["label"], c["x"], c["y"]))
+            print("[fire_rows] row {0} {1:<12} {2} column(s), pitch {3:.1f} m "
+                  "(floor {4:.0f}, {5:.1f} x widest {6:.1f} m)".format(
+                      ri, row_cells[0]["pack"], len(row_cells), col_spacing,
+                      COL_M, SPACING_MULT, big_row))
+        print("[fire_rows] row pitch {0:.1f} m (floor {1:.0f}, {2:.1f} x "
+              "widest {3:.1f} m anywhere)".format(row_spacing, ROW_M,
+                                                  SPACING_MULT, big_all))
+        for _ in range(4):
+            omni.kit.app.get_app().update()
+
+    # Ground is sized from what was actually measured (plus debris scatter,
+    # since pass 2's boxes already include any fracture/rubble authored by
+    # `burn()`) instead of the old `ncol * COL_M` guess, which knew nothing
+    # about real asset size either. `ground_and_light` also authors the
+    # lights, so it is called exactly once, here, after pass 2 knows the
+    # true extent — nothing earlier in this function needs the ground prim
+    # to exist (`settle.run` below is the only consumer, via `static`).
+    pre_settle_box = None
+    if cell_info:
+        gcache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+        pre_settle_box = measure_xy(stage, PARENT, gcache)
+    if pre_settle_box:
+        (pmn0, pmn1), (pmx0, pmx1) = pre_settle_box
+        ground_and_light(stage, (pmx0 - pmn0) + 140.0, (pmx1 - pmn1) + 160.0)
+    else:
+        ground_and_light(stage, COL_M + 140.0, ROW_M + 160.0)
 
     for _ in range(8):
         omni.kit.app.get_app().update()
@@ -358,6 +591,44 @@ def main():
     print("  {0} loose bodies, {1:.0f} s".format(len(loose), time.time() - t0))
     print("=" * 78 + "\n")
 
+    # ------------------------------------------------------------------
+    # HARD AUDIT — every cell pair, FINAL (post-settle) world XY box.
+    # Always runs, never gated on SNAP_DIR: this is a report, not an
+    # exception, because settle's physics can still carry debris further
+    # than pass 2's pre-settle measurement expected, and the run should
+    # finish and snapshot regardless so a human can look at what happened.
+    # ------------------------------------------------------------------
+    boxes = []
+    if cell_info:
+        acache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+        for c in cell_info:
+            b = measure_xy(stage, c["path"], acache)
+            if b is not None:
+                boxes.append((c["label"], c["path"], b))
+    overlaps = []
+    for (la, pa, ba), (lb, pb, bb) in itertools.combinations(boxes, 2):
+        area = xy_overlap_area(ba, bb)
+        if area > 0.0:
+            overlaps.append((la, pa, lb, pb, area))
+    print("[fire_rows] OVERLAP AUDIT ({0} cell(s) checked, final/post-settle "
+          "boxes)".format(len(boxes)))
+    if overlaps:
+        print("[fire_rows] OVERLAP " + "=" * 60)
+        print("[fire_rows] OVERLAP  {0} pair(s) of cells intersect in XY:"
+              .format(len(overlaps)))
+        for la, pa, lb, pb, area in overlaps:
+            print("[fire_rows] OVERLAP    {0}  x  {1}   {2:.1f} m^2"
+                  .format(la, lb, area))
+            print("[fire_rows] OVERLAP      {0}".format(pa))
+            print("[fire_rows] OVERLAP      {0}".format(pb))
+        print("[fire_rows] OVERLAP  this is a report, not an exception — "
+              "the run continues and still snapshots.")
+        print("[fire_rows] OVERLAP " + "=" * 60)
+    else:
+        print("[fire_rows] OVERLAP  none found.")
+
     app = omni.kit.app.get_app()
     if SNAP_DIR:
         try:
@@ -371,15 +642,43 @@ def main():
                 timeline.play()
             for _ in range(300 if FLOW else 90):
                 app.update()
-            span_x, span_y = ncol * COL_M, len(rows) * ROW_M
-            sn.overview(stage, (0.0, 0.0), max(span_x, span_y) * 1.2,
+            # Frame the overview from the AUDITED world bounds of everything
+            # under PARENT (the `boxes` collected above) rather than the old
+            # `ncol * COL_M` guess, and correct for the 16:9 capture: world Y
+            # (the row axis) is the frame's VERTICAL dimension in a plumb
+            # top-down shot, and the vertical field only covers
+            # FRAME_V_ASPECT (~0.5625x) of what the horizontal field does at
+            # the same span — which is why the brownstone row used to be cut
+            # out of frame even though it was well within the horizontal
+            # span. The span passed to `overview()` has to satisfy the
+            # SHORTER (vertical) dimension, so it is sized off `depth /
+            # FRAME_V_ASPECT`, not `depth` directly.
+            if boxes:
+                mn0 = min(b[0][0] for _, _, b in boxes)
+                mn1 = min(b[0][1] for _, _, b in boxes)
+                mx0 = max(b[1][0] for _, _, b in boxes)
+                mx1 = max(b[1][1] for _, _, b in boxes)
+            else:
+                mn0 = mn1 = -0.5 * COL_M
+                mx0 = mx1 = 0.5 * COL_M
+            cx, cy = 0.5 * (mn0 + mx0), 0.5 * (mn1 + mx1)
+            width = (mx0 - mn0) + 2.0 * FRAME_MARGIN_M
+            depth = (mx1 - mn1) + 2.0 * FRAME_MARGIN_M
+            frame_span = max(width, depth / FRAME_V_ASPECT)
+            sn.overview(stage, (cx, cy), frame_span,
                         os.path.join(SNAP_DIR, "grid_top.png"), ssf)
-            # per row, looking steeply down so the rows behind stay out of frame
-            for ri, (pack, _n) in enumerate(rows):
-                y = (ri - (len(rows) - 1) / 2.0) * ROW_M
-                d, h = span_x * 0.30, span_x * 0.40
-                sn.place_camera(stage, (0.0, (y - d) * ssf, h * ssf),
-                                (0.0, y * ssf, 12.0 * ssf))
+            # per row, looking steeply down so the rows behind stay out of
+            # frame; `row_y[ri]` is the FINAL (pass 2) row centre, not the
+            # old fixed `(ri - ...) * ROW_M`.
+            for ri in sorted(row_y):
+                pack = rows[ri][0]
+                y = row_y[ri]
+                # `width`, not `frame_span` -- this is a per-row shot, so it
+                # wants the column (X) extent only, not the vertical-aspect-
+                # corrected span the multi-row overview above needs.
+                d, h = width * 0.30, width * 0.40
+                sn.place_camera(stage, (cx, (y - d) * ssf, h * ssf),
+                                (cx, y * ssf, 12.0 * ssf))
                 sn.snapshot(os.path.join(SNAP_DIR,
                                          "row{0}_{1}.png".format(ri, pack)))
             sn.views_around(stage, {c[0]: (c[1], c[2]) for c in cells},

@@ -469,6 +469,131 @@ _ROLE_SUB = {"wall": "storey", "pier": "storey", "core": "storey",
              "parapet_corner": "parapet_corner", "roof": "roof"}
 
 
+# THE UPSTAND'S HEIGHT. Mirrors the exact number `gac_slice.register_style`
+# already assumes for a parapet band's `h` (`max(0.8, 0.35 * storey_h)`) so
+# that once `_fix_advertised_bands` (below) corrects that band to the
+# MEASURED height of what this function actually cut, the correction is
+# small rather than a contradiction of the assumption the rest of the spec
+# was built on.
+PARAPET_FRAC = 0.35
+PARAPET_MIN_M = 0.8
+
+
+def roof_and_parapet(band, bbox, leg, bays, storey_h, splits=BAY_SPLITS,
+                     verbose=False):
+    """Split the TOPMOST storey band into a roof deck and a parapet upstand.
+
+    WHY THIS EXISTS. `ring()` alone never produces a `roof` or `parapet`
+    piece — it only ever returns `corner` / `wall` / `pier` / `core` — so
+    `gac_slice.register_style` was advertising a `parapet` band with NOTHING
+    behind it, and every `urban_fire` recipe that looks for `role="roof"` or
+    `role="parapet"` elements on a sliced building found none. That is the
+    traced cause of the mismatched-roof report (user, 2026-08-29, on
+    `row1_gac.png`): a downstream roof-authoring path meant for a building
+    with real roof/parapet elements falls through to a WORLD-BBOX behaviour
+    that was fixed for kit buildings on 2026-08-28 and never had a sliced
+    building's own geometry to draw on instead.
+
+    THE SPLIT IS JUST ANOTHER RING. The top band already contains the real
+    roof deck and whatever stands above it — a merged mesh does not label
+    the two — so a second horizontal cut at `hi - par_h` (an upstand height
+    below the mesh's own apex, not a plane borrowed from anywhere else)
+    divides it into a lower piece that is still an ordinary storey wall and
+    an upper piece. `ring()`ing that upper piece on the SAME plan partition
+    gives the answer directly: its four corners and runs ARE the parapet
+    upstand around the edge of the roof, and whatever lands in the
+    untouched middle cell IS the flat deck, because that is exactly what a
+    merged mesh puts there. No new geometry is invented — the same
+    triangles that used to come back labelled `wall`/`corner`/`core` for
+    this one band now come back labelled `parapet`/`parapet_corner`/`roof`
+    instead, off the SAME clip machinery `ring()` already proved.
+
+    MEASURED: most of this stock's top band does NOT have room for a second
+    cut. `cut_lines`'s topmost spandrel line already sits close to the
+    mesh's own apex on 4 of the first 5 buildings probed (`SM_Building_01`:
+    a 0.-something-metre remainder; `_04`, `_09` likewise), because the
+    coping above the last row of windows is architecturally thin to start
+    with — there is no separate ordinary storey wall hiding above the last
+    window row, the coping/parapet more or less IS the whole of what is left
+    once `storeys()` reaches the mesh's apex. Demanding room for BOTH a wall
+    zone AND an upstand before calling anything `roof`/`parapet` (the first
+    version of this function) left every one of those buildings advertising
+    nothing, for a reason that had nothing to do with them lacking a roof —
+    only with the split being too greedy. So: when the whole band is no
+    taller than an upstand-plus-a-minimal-wall would need, there is no wall
+    zone to carve out of it at all — `ring()` the WHOLE band once, at its own
+    height, and relabel by position. The lower-split path below still runs
+    on the buildings tall enough in the top band to actually have a last
+    storey wall standing under their coping (`SM_Building_24`, the taller
+    curtain-wall towers).
+
+    AN INTERIOR CUT, SO NO `OUTER_PAD_M`. `z_split` (when the split path
+    runs) is `hi` (the mesh's own apex, an OUTER limit `ring()`'s plan cuts
+    do pad against) minus an upstand height derived from the MEASURED
+    storey pitch — not from anything in the mesh itself — so it lands off
+    any vertex or edge by construction, the same reasoning that lets
+    `storeys()`'s spandrel cuts run exact. Only a plane deliberately placed
+    ON the mesh's own skin (the x0/x1/y0/y1 `ring()` pads for) risks the
+    zero-everywhere triangle.
+
+    `split_ok` in the return is `True` whenever the band came back labelled
+    `roof`/`parapet`/`parapet_corner` at all (whether or not the wall zone
+    was separated out) and `False` only on the genuine clip failure this
+    function cannot recover from — a caller doing partition-integrity math
+    on a plain `ring()` in that case needs to know it got one.
+
+    Returns `([(role, side, bay, piece)], split_ok)`.
+    """
+    (x0, y0, lo), (x1, y1, hi) = bbox
+    relabel = {"corner": "parapet_corner", "wall": "parapet",
+               "pier": "parapet", "core": "roof"}
+
+    def _whole_band_as_roof():
+        out = []
+        for role, side, k, piece in ring(band, bbox, leg, bays,
+                                         splits=splits, verbose=verbose):
+            out.append((relabel.get(role, role), side, k, piece))
+        return out
+
+    par_h = max(PARAPET_MIN_M, PARAPET_FRAC * float(storey_h or 0.0))
+    # A THIRD of a storey is the minimum that still reads as an actual wall
+    # zone, not a sliver; EDGE_EPS_M is `storeys()`'s own sliver guard.
+    min_wall = max(EDGE_EPS_M, 0.3 * float(storey_h or 0.0))
+    if hi - lo <= par_h + min_wall:
+        out = _whole_band_as_roof()
+        if verbose:
+            by = {}
+            for role, _s, _k, _p in out:
+                by[role] = by.get(role, 0) + 1
+            print("[storey_slice]   top band {0:.2f} m too thin for a "
+                  "separate wall zone; whole band -> {1}".format(
+                      hi - lo, "  ".join("{0}={1}".format(k, v)
+                                        for k, v in sorted(by.items()))))
+        return out, True
+    z_split = hi - par_h
+    lower = clip(band, (0.0, 0.0, 1.0), (0.0, 0.0, z_split))    # keep below
+    upper = clip(band, (0.0, 0.0, -1.0), (0.0, 0.0, z_split))   # keep above
+    if (lower is None or not len(lower["tris"])
+            or upper is None or not len(upper["tris"])):
+        # the exact-coincidence edge case (see the module docstring's
+        # OUTER_PAD_M note) — vanishingly unlikely at an arbitrary interior
+        # height, but if it happens the honest answer is the whole band, not
+        # a silently dropped one
+        return _whole_band_as_roof(), False
+    out = list(ring(lower, bbox, leg, bays, splits=splits, verbose=verbose))
+    for role, side, k, piece in ring(upper, bbox, leg, bays, splits=splits,
+                                     verbose=verbose):
+        out.append((relabel.get(role, role), side, k, piece))
+    if verbose:
+        by = {}
+        for role, _s, _k, _p in out:
+            by[role] = by.get(role, 0) + 1
+        print("[storey_slice]   roof/parapet split {0:.2f} m below the apex "
+              "-> {1}".format(par_h, "  ".join(
+                  "{0}={1}".format(k, v) for k, v in sorted(by.items()))))
+    return out, True
+
+
 def as_placements(stage, cells, scope, style, mats, verbose=True):
     """Write ring cells as prims and return kit-shaped PLACEMENT dicts.
 
@@ -541,15 +666,92 @@ def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
     leg = max(1.2, 0.6 * ((g["bays"].get("E") or {}).get("pitch") or 3.5))
     bay = (g["bays"].get("E") or {}).get("pitch") or 3.5
     cells = []
+    n_bands = len(bands)
+    roofed = False
     for i, (lo, hi, band) in enumerate(bands):
         bb = ((bbox[0][0], bbox[0][1], lo), (bbox[1][0], bbox[1][1], hi))
-        for role, side, k, piece in ring(band, bb, leg, bay):
+        # ONLY THE TOPMOST BAND CAN HOLD THE ROOF. Every band below it is a
+        # storey sandwiched between two floor lines and is, honestly, just a
+        # wall — `roof_and_parapet` only has anything to find in the one band
+        # that runs up to the mesh's own apex.
+        if i == n_bands - 1:
+            pieces, roofed = roof_and_parapet(band, bb, leg, bay,
+                                              g["storey_h"], verbose=verbose)
+        else:
+            pieces = ring(band, bb, leg, bay)
+        for role, side, k, piece in pieces:
             cells.append((i, role, side, k, piece))
     pls = as_placements(stage, cells, cell + "/pieces", style, m["mats"],
                         verbose=verbose)
-    gsl.register_style(g, style, pieces_of=pls)
+    spec = gsl.register_style(g, style, pieces_of=pls)
+    _fix_advertised_bands(spec, pls, style, verbose=verbose)
     UsdGeom.Imageable(stage.GetPrimAtPath(src)).MakeInvisible()
+    if verbose and not roofed:
+        print("[storey_slice] {0}: top band could not be labelled roof/"
+              "parapet at all (clip failure) — check {1}".format(style, src))
     return pls, g, measured
+
+
+def _fix_advertised_bands(spec, pls, style, verbose=True):
+    """Correct `ub.STYLES[style]["bands"]` to match what THIS asset actually
+    cut, instead of what `gac_slice.register_style` has to assume.
+
+    `register_style` (in `gac_slice.py`, which this module does not own)
+    unconditionally writes a `parapet` band into the spec it installs,
+    because at the time it was written the ring-only slicer could never
+    produce a `parapet`/`parapet_corner` piece and there was nothing to
+    check the claim against — that mismatch (a band advertised in
+    `ub.STYLES[name]["bands"]` with no placement backing it) is the traced
+    cause of the mismatched-roof report this fix addresses. `roof_and_parapet`
+    backs it on every asset measured so far (it only ever fails to on the
+    rare vtkClipPolyData exact-coincidence edge case its own docstring
+    covers), but this correction still runs unconditionally rather than
+    trusting that: the advertised band has to be corrected per building,
+    here, to what THIS asset's own pieces actually contain, or the one
+    building that DOES hit that edge case goes back to advertising a band
+    nothing backs:
+
+      * no `parapet`/`parapet_corner` piece survived the cut -> the band is
+        REMOVED rather than left advertising a height for nothing;
+      * one did -> the band's `h` is overwritten with the MEASURED extent of
+        the pieces that were actually produced, rather than
+        `register_style`'s `0.35 * storey_h` guess.
+
+    `_mass_specs` skips `parapet` bands entirely when it sums storey heights
+    (`if band.get("parapet"): continue`), and nothing downstream reads a
+    band's `h` outside that sum for a sliced building's `spec["bands"]`
+    (measured: `footprint`, `height`, `_mass_specs` are the only readers,
+    and only `height` and `_mass_specs` look at `h`, both skipping parapet
+    bands) — so today this correction is a consistency fix with no live
+    effect on the fire/quake recipes, which read `_els(role=...)` off the
+    PLACEMENTS instead. It is here anyway because a band the spec claims and
+    the placements do not have is exactly the bug this whole change closes,
+    and the next reader of `ub.STYLES[name]["bands"]` should not have to
+    rediscover that the two can disagree.
+
+    THE CLEANER FIX BELONGS IN `gac_slice.py`: `register_style` should take
+    the measured parapet extent (or `None`) as an argument from its caller
+    instead of deriving `0.35 * storey_h` unconditionally and always
+    writing a band for it — see the accompanying report for what that
+    signature change would look like.
+    """
+    bands = spec.get("bands") or []
+    if not bands:
+        return
+    par = [p for p in pls if p.get("_role") in ("parapet", "parapet_corner")]
+    if not par:
+        spec["bands"] = [b for b in bands if not b.get("parapet")]
+        if verbose:
+            print("[storey_slice] {0}: no parapet piece survived the cut; "
+                  "removed the advertised (unbacked) parapet band".format(
+                      style))
+        return
+    lo = min(p["z_m"] for p in par)
+    hi = max(p["z_m"] + p["_size"][2] for p in par)
+    real_h = max(0.05, hi - lo)
+    for b in bands:
+        if b.get("parapet"):
+            b["h"] = real_h
 
 
 def write_piece(stage, path, piece, mats):

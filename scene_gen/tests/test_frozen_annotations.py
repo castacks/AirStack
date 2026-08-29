@@ -243,6 +243,64 @@ def test_resolve_cell_raises_on_a_missing_cell(tmp_path):
     assert "no such file or cell" in str(exc.value)
 
 
+def test_resolve_cell_takes_a_nucleus_url_without_touching_the_filesystem():
+    """The pod case. `final_disaster_dataset/` is outside the repo and is not
+    cloned, so on OSMO the cells are addressed on Nucleus — where
+    `os.path.isfile` is always False and probing would reject a good scene."""
+    root = ("omniverse://airlab-nucleus.andrew.cmu.edu/Projects/SEI-COA/"
+            "final_disaster_dataset")
+    assert fa.resolve_cell("Fire/Suburban/level_1/1", root) == \
+        root + "/Fire/Suburban/level_1/1/fire_suburban_lvl1_1.usd"
+    # An explicit file under the root, and a fully-qualified URL, both pass
+    # through unchanged.
+    direct = root + "/Tornado/Suburban/level_2/1/tornado_suburban_lvl2_1.usd"
+    assert fa.resolve_cell(direct, "/does/not/exist") == direct
+    assert fa.resolve_cell(
+        "Tornado/Suburban/level_2/1/tornado_suburban_lvl2_1.usd", root) == direct
+
+
+def test_resolve_cell_rejects_a_url_that_is_not_a_cell():
+    with pytest.raises(ValueError) as exc:
+        fa.resolve_cell("not/a/cell", "omniverse://host/Projects/X")
+    assert "neither a .usd nor" in str(exc.value)
+
+
+def test_cell_dir_and_join_work_for_urls():
+    url = "omniverse://host/P/Fire/Suburban/level_1/1/fire_suburban_lvl1_1.usd"
+    assert fa.cell_dir(url) == "omniverse://host/P/Fire/Suburban/level_1/1"
+    assert fa.join(fa.cell_dir(url), "GT_people.json") == \
+        "omniverse://host/P/Fire/Suburban/level_1/1/GT_people.json"
+    assert fa.is_url(url) and not fa.is_url("/isaac-sim/x/y.usd")
+
+
+def test_load_cell_reads_through_an_injected_reader():
+    """`frozen_annotations` stays stdlib-only; the Isaac launcher supplies the
+    `omni.client` reader for a cell on Nucleus."""
+    seen = []
+
+    def read(path):
+        seen.append(path)
+        if path.endswith("GT_people.json"):
+            return '{"people": [{"x": 1, "y": 2, "z": 0}]}'
+        return '{"meta": {"region_m": [-1, -1, 1, 1]}, "hints": []}'
+
+    url = "omniverse://host/P/Fire/Suburban/level_1/1/fire_suburban_lvl1_1.usd"
+    people, hints = fa.load_cell(url, read_text=read)
+    assert len(fa.people_records(people)) == 1
+    assert fa.region_m(hints) == (-1.0, -1.0, 1.0, 1.0)
+    assert seen == ["omniverse://host/P/Fire/Suburban/level_1/1/GT_people.json",
+                    "omniverse://host/P/Fire/Suburban/level_1/1/GT_hints.json"]
+
+
+def test_load_cell_survives_a_reader_that_fails():
+    def read(path):
+        raise RuntimeError("Result.ERROR_NOT_FOUND")
+
+    people, hints = fa.load_cell("omniverse://host/P/a/b/level_1/1/x.usd",
+                                 read_text=read)
+    assert people is None and hints is None
+
+
 def test_resolve_cell_refuses_an_ambiguous_directory(tmp_path):
     d = tmp_path / "loose"
     d.mkdir()

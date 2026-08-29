@@ -115,6 +115,19 @@ def test_the_fleet_is_eight_and_the_flags_are_all_pinned(mission):
     assert env["LOCAL_PLANNER"] == "mighty"
 
 
+def test_the_cells_are_addressed_somewhere_a_pod_can_reach(mission):
+    """`final_disaster_dataset/` is outside the repo and is not cloned, so a
+    pod has no local copy. Without FROZEN_DATASET_ROOT the launcher falls back
+    to the bind mount, which does not exist there, and all 24 iterations fail
+    at t=0."""
+    root = mission["env"].get("FROZEN_DATASET_ROOT", "")
+    assert root, "FROZEN_DATASET_ROOT unset — this mission cannot run on a pod"
+    assert "://" in root, (
+        f"{root} is a local path; a pod has no such mount. Upload the cells "
+        "(scene_gen/tools/upload_frozen_cells.py) and point this at Nucleus")
+    assert root.rstrip("/").endswith("final_disaster_dataset"), root
+
+
 def test_the_answer_key_is_never_revealed(mission):
     """A 25 m magenta pole over every survivor group is authored deactivated in
     every cell. PEOPLE_POLES must not be set on a scored run."""

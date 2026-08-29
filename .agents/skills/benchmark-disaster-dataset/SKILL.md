@@ -302,6 +302,45 @@ RESULTS_SCENE=FireSuburbanL1V1
 GT_ANNOTATIONS=on
 ```
 
+### THE CELLS ARE NOT ON NUCLEUS, AND A POD HAS NO OTHER WAY TO GET THEM
+
+Checked 2026-08-29: `omniverse://airlab-nucleus.andrew.cmu.edu/Projects/SEI-COA`
+holds the asset packs, `People` and `scene_gen/assets` (the archetype bake) —
+and **no `final_disaster_dataset`**. The cells exist only on the host that
+built them, at `~/SEI-COA/final_disaster_dataset` (4.8 GB, 18 cells), reaching
+the container through a bind mount.
+
+An OSMO pod has neither: the dataset is outside the repo *on purpose* and is
+not in git, so a clone brings nothing and there is no mount to fall back on. A
+frozen-cell mission on a pod fails at t=0 with `FROZEN_SCENE=...: no such file
+or cell` until the cells are uploaded.
+
+**Done 2026-08-29** — all 18 cells are now at
+
+    omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset
+
+mirroring the `<Disaster>/<Locale>/level_<n>/<k>/` contract, so
+`FROZEN_DATASET_ROOT` is that prefix on a pod and `FROZEN_SCENE` is the same
+cell path either way — one variable is the whole difference. The `os.walk`
++ `omni.client.copy` recipe (and why `snaps/` is pruned, why the `stat`-by-size
+guard makes it resumable, and why `CopyBehavior.OVERWRITE` is required) is in
+[freeze-dataset-state](../freeze-dataset-state/SKILL.md); the standalone
+`omni.client` invocation it uses — no `SimulationApp`, no GPU, safe against a
+container someone else is driving — is §6 of
+[run-isaac-sim-launcher](../run-isaac-sim-launcher/SKILL.md). No script: it is
+a dozen lines and the mechanism is already documented in both places.
+
+`resolve_cell` does not probe a URL with `os.path` (it cannot), so a bad one
+fails at `Sdf.Layer.FindOrOpen` with the server's own message; `load_cell`
+takes an injected `omni.client` reader for the GT JSONs so that
+`frozen_annotations` can stay stdlib-only.
+
+Textures and MDL were NOT uploaded and do not need to be: they were never
+inlined into the frozen files (the collect step is off), so a cell still
+references them on Nucleus and in the repo, both of which a pod resolves. **An
+uploaded cell is REACHABLE, not redistributable** — the public-release job is
+unchanged.
+
 | | built (`SCENE_CONFIG`) | frozen (`FROZEN_SCENE`) |
 |---|---|---|
 | the plat | `scene_api.build_scene` authors it | `/World/stage` referenced from the cell |
@@ -404,6 +443,41 @@ from its spawn, and the CoNavGPT2 team arm's `global_enu` grid — centred on
 scene overlay and so cannot be corrected there — must reach the far corner of
 the whole search area from the plate centre. Every arm then rasterises at the
 same cell size, which is the point.
+
+### The 600 s budget starts when the METHOD does — and the team arm needed a fix
+
+`search_planner` latches `_sim_t0` on its FIRST tick that has
+rgb + depth + camera_info + odometry, and `_tick` only reaches that check after
+`_snapshot()` returns data. So the scene load, the stack bring-up and the
+takeoff are **not** charged to the method: two arms flown on one scene get the
+same 600 s of simulated search however differently the wall clock ran. The
+planner announces it once:
+
+```
+search_planner: sim budget 600 s starts NOW, at sim t=912.4 s — the first tick
+with data. Time source: clock
+```
+
+**THE COnavGPT2 TEAM ARM HAD NO CLOCK AT ALL.** Isaac publishes `/clock` from a
+PER-DRONE OmniGraph node bound to that drone's ROS domain
+(`spawn_px4_multirotor_node`: `<robot>_ROS2PublishClock`), so `/clock` is on
+domains 1..N and **not on domain 0** — and `dds_router.yaml` bridges 47 topics,
+none of them `rt/clock`. The team planner runs on domain 0 with
+`use_sim_time: true`, so `get_clock().now()` read 0.0 forever,
+`_sim_budget_spent` was never true, `run_complete` never latched, and the run
+would have ended only when the mission's gate timed out hours later. Every
+published message was also stamped 0.
+
+`_sim_now()` now falls back to the newest **sim-time header stamp** on the
+bridged observations. That is the same clock read a different way, and
+arguably the better reading for a budget — it is the time of the data the
+method actually processed. The `Time source:` line says which is in use, and
+`tests/test_sim_budget.py` pins both paths offline.
+
+Bridging `rt/clock` instead was rejected deliberately: the router is per-robot
+and bidirectional, so one allowlist entry puts N cross-amplified copies of the
+flight stack's own time source on **every** robot domain — not a change to make
+blind on a stack that has not flown.
 
 ### The mission
 
@@ -1102,7 +1176,17 @@ a GT generated at run time never reaches it without a rebuild.
    `conavgpt2_*.yaml` config path are all dead references — in a mission file
    they surface as a failed launch step 20 minutes into a pod. The package name
    is still correct for the vendored library and for the METHOD.
-9. **Sizing the voxel map to the FLIGHT band gives frontiers at exactly one
+9. **`/clock` IS NOT ON DOMAIN 0, so a planner on the GCS domain has no sim
+   time.** Isaac publishes it from a per-drone OmniGraph node bound to that
+   drone's ROS domain, and `dds_router.yaml` does not bridge it. Any node run
+   on the shared domain with `use_sim_time: true` — the CoNavGPT2 team planner
+   is the one in this stack — reads 0.0 forever: sim-time budgets never
+   expire, latched "complete" topics never latch, every message is stamped 0,
+   and the symptom is a mission step that times out hours later looking like a
+   slow method. `search_planner` handles it (§2b, the budget falls back to the
+   observations' own sim-time stamps); anything else you put on domain 0 does
+   not.
+10. **Sizing the voxel map to the FLIGHT band gives frontiers at exactly one
    height.** The map lands in empty air above the geometry, nothing is ever
    carved against a surface, and `voxel3d` degenerates into the 2D slab it was
    meant to replace. That is why the frontier band is a separate parameter (§4).

@@ -17,8 +17,19 @@ DEBRIS IN THIS SCENE and they are authored by completely different code:
     archetype USD, and re-used by reference. Their height relative to the tree
     was decided once, months of runs ago.
   * `h_<i>` (house instances) — `frag_*` fracture fragments, likewise baked.
+  * `prop_<mtag>_<storey>_<k>` (urban-fire fit-out furniture), and its
+    neighbours `slab_/part_/col_<mtag>_<storey>*` — authored LIVE by
+    `quake_flow.fit_interior`, called from `urban_fire.burn_building`, and
+    referenced straight onto the building's own parent. There is no `/inst`
+    boundary at all: `--root` (below) walks these directly. A prop is seated
+    at `z + 0.01` right on top of the slab at the SAME `(mtag, storey)` key;
+    if a later fire recipe fractures or drops that slab without also moving
+    the prop into `loose`, the prop is left exactly where `fit_interior`
+    authored it, over nothing — measured on the GAC bench as a cluster of
+    furniture-coloured boxes hanging over one building's roof (`row1_gac.png`,
+    traced to `urban_fire.r_floor_burnthrough` / `r_fire_collapse`).
 
-Fixing the first does nothing for the other two, and from the air they are
+Fixing one does nothing for the others, and from the air they are
 indistinguishable. So this reports the POPULATION alongside the height, which
 is the only way to know which code to go and look at.
 
@@ -47,13 +58,52 @@ DEBRIS_NAMES = ("log_", "debris", "frag_", "brk_", "stick", "splinter")
 POPULATIONS = (("blockdeb_", "blockage (live, people._blocker_debris)"),
                ("blocker_", "blockage tree (baked archetype)"),
                ("t_", "tree archetype (baked, vegetation.wood_debris)"),
-               ("h_", "house archetype (baked, fracture frags)"))
+               ("h_", "house archetype (baked, fracture frags)"),
+               # Everything below is `urban_fire`/`quake_flow` LIVE-authored
+               # geometry, straight under a building's own parent (no
+               # `/inst` boundary). Read out of `urban_fire.py`'s own
+               # `"{0}/<prefix>_{1}_{2}".format(ctx["parent"], ctx["tag"], ...)`
+               # calls, not guessed.
+               ("prop_", "urban-fire fit-out prop (quake_flow.fit_interior, live)"),
+               ("slab_", "urban-fire fit-out slab (quake_flow.fit_interior, live)"),
+               ("part_", "urban-fire fit-out partition (quake_flow.fit_interior, live)"),
+               ("col_", "urban-fire fit-out column (quake_flow.fit_interior, live)"),
+               ("joist_", "urban-fire joist stub (urban_fire._joist_stubs, live)"),
+               ("beam_", "urban-fire exposed beam (urban_fire.r_expose_interior, live)"),
+               ("pier_", "urban-fire exposed pier (urban_fire.r_expose_interior, live)"),
+               ("frub_", "urban-fire floor rubble (urban_fire.r_expose_interior, live)"),
+               ("catch_", "urban-fire catch floor (urban_fire.r_expose_interior, live)"),
+               ("rdeb_", "urban-fire roof-deck debris (urban_fire.r_roof_scorch, live)"),
+               ("rafter_", "urban-fire rafter tooth (urban_fire._rafter_teeth, live)"),
+               ("deck_", "urban-fire roof deck slab (urban_fire._deck_slab, live)"),
+               ("sdeb_", "urban-fire street debris (urban_fire.r_street_debris, live)"),
+               ("glit_", "urban-fire sill glass litter (urban_fire._sill_litter, live)"),
+               ("sbar_", "urban-fire spalled rebar (urban_fire.r_spall, live)"),
+               ("cwglass_", "urban-fire curtain-wall shard (urban_fire.r_curtain_burn, live)"),
+               ("ac_", "urban-fire roof AC unit (urban_fire.dress_roof_urban, live)"),
+               ("vent_", "urban-fire roof vent (urban_fire.dress_roof_urban, live)"))
 
 
 def population(name):
     for pre, label in POPULATIONS:
         if name.startswith(pre):
             return label
+    return "other"
+
+
+def population_of_path(path):
+    """Classify a full prim PATH by prefix, checking leaf-first.
+
+    Urban-fire's live-authored pieces are not behind a `/inst` reference
+    boundary, but a prop is still placed BY REFERENCE (`quake_flow._prop`),
+    so the airborne mesh itself can carry whatever name its source asset
+    gave it (e.g. `mesh_0`) one or more levels under the named prim
+    (`prop_main_9_3/mesh_0`) — the tag that matters is not always the leaf.
+    """
+    for part in reversed(str(path).split("/")):
+        pop = population(part)
+        if pop != "other":
+            return pop
     return "other"
 
 
@@ -210,6 +260,66 @@ def sweep_archetypes(args):
     return 0
 
 
+def scan_root(args):
+    """Every Mesh under `--root`, tested for support DIRECTLY — no `/inst`.
+
+    The default walk below (`inst.GetChildren()`) is built for the baked
+    populations, which are always one reference-hop under
+    `<parent>/inst/<name>`. `urban_fire.burn_building` has no such boundary:
+    every prop, slab, partition, joist and debris piece it (or the
+    `quake_flow` calls it makes) authors is written straight under the
+    building's OWN parent, e.g. `.../b12/fit_b12/prop_main_9_3`. Nor can this
+    filter by `DEBRIS_NAMES` first the way `sweep_archetypes` does — a
+    floating armchair does not have "debris" or "frag_" in its name. So this
+    tests EVERY mesh under the root with the same `_airborne` seat rule the
+    archetype sweep uses, then labels whatever comes up airborne by the
+    nearest ancestor path component that matches a known prefix
+    (`population_of_path`).
+    """
+    stage = Usd.Stage.Open(args.usd)
+    if stage is None:
+        raise SystemExit("cannot open " + args.usd)
+    root = stage.GetPrimAtPath(args.root)
+    if not (root and root.IsValid()):
+        raise SystemExit("no prim at " + args.root)
+
+    xc = _xform_cache()
+    meshes = [p for p in Usd.PrimRange(root, Usd.TraverseInstanceProxies())
+              if p.IsA(UsdGeom.Mesh)]
+    truncated = len(meshes) > args.max_objects
+    meshes = meshes[:args.max_objects]
+    # `_airborne`'s OWN `air_tol` (0.10, the seat-contact tolerance) stays at
+    # its default here, same as `sweep_archetypes` — it is not `args.air`,
+    # which is the REPORTING threshold applied next.
+    air = [(m, z) for (m, z) in _airborne(xc, meshes)
+           if (z - args.ground) > args.air]
+
+    print("=" * 78)
+    print("DEBRIS FLOAT PROBE (flat scan)  {0}   root={1}".format(
+        os.path.basename(args.usd), args.root))
+    print("  {0} mesh(es) under root{2}, air threshold {1:.3f} m".format(
+        len(meshes), args.air, " (truncated)" if truncated else ""))
+    print("=" * 78)
+
+    found = collections.defaultdict(list)
+    for m, z in air:
+        found[population_of_path(m.GetPath())].append((m, z))
+    if not found:
+        print("\nCLEAN: nothing airborne under this root.")
+        return 0
+    for pop, hits in sorted(found.items(), key=lambda kv: -len(kv[1])):
+        print("\n{0}".format(pop.upper()))
+        print("  {0} floating".format(len(hits)))
+        for m, z in sorted(hits, key=lambda h: -h[1])[:args.n]:
+            print("    {0:<70} z {1:>7.3f}".format(str(m.GetPath()), z))
+        zs = [z for _m, z in hits]
+        spread = max(zs) - min(zs)
+        print("    ---- z {0:.4f} .. {1:.4f}   SPREAD {2:.4f} m".format(
+            min(zs), max(zs), spread))
+    print()
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("usd", nargs="?",
@@ -219,6 +329,12 @@ def main():
                          "the complete answer; probing a scene stops at -n "
                          "floaters and tells you only what it happened to hit "
                          "first.")
+    ap.add_argument("--root", metavar="PATH",
+                    help="instead, scan every Mesh under this prim FLAT, no "
+                         "/inst required — for urban_fire buildings, which "
+                         "author fit-out props/slabs/debris straight under "
+                         "their own parent. Pass a building's `parent` (or "
+                         "the whole city root) with `usd`.")
     ap.add_argument("-n", type=int, default=10,
                     help="stop after this many floaters PER POPULATION")
     ap.add_argument("--ground", type=float, default=0.003,
@@ -234,6 +350,10 @@ def main():
 
     if args.archetypes:
         return sweep_archetypes(args)
+    if args.root:
+        if not args.usd:
+            raise SystemExit("--root needs a scene usd too")
+        return scan_root(args)
     if not args.usd:
         raise SystemExit("give a scene usd, or --archetypes DIR")
     stage = Usd.Stage.Open(args.usd)

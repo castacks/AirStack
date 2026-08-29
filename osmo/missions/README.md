@@ -276,6 +276,17 @@ Two consequences for a mission spec:
   model's `burn` / `affected`). A planner overlay must say
   `search_area_scene_key: 'search'`.
 
+**On a POD the cells must be on Nucleus.** `final_disaster_dataset/` is outside
+the repo and is not in git, so a clone brings nothing and there is no bind
+mount to fall back on — every iteration would fail at t=0 with
+`FROZEN_SCENE=...: no such file or cell`. The 18 cells are already uploaded to
+`omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset`;
+a mission just points `FROZEN_DATASET_ROOT` there and leaves `FROZEN_SCENE`
+alone. Re-uploading a re-exported cell:
+`.agents/skills/freeze-dataset-state` (the recipe) and
+`.agents/skills/run-isaac-sim-launcher` §6 (the standalone `omni.client`
+invocation it uses).
+
 `SCENE_CONFIG` alongside `FROZEN_SCENE` is ignored with a warning; leave it
 out. Worked example, and the only mission that runs all four implemented arms:
 [`frozen_suburban_8robot.yaml`](frozen_suburban_8robot.yaml) — 6 cells x 4 arms

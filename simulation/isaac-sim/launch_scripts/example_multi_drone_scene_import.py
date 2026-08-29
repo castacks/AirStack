@@ -369,11 +369,23 @@ if _GENERATED:
     COLLIDERS = os.environ.get("SUBURB_COLLIDERS", "ground").strip().lower()
 
 # --------------------- FROZEN DATASET CELL (FROZEN_SCENE) ---------------------
-# One `.usd` under `final_disaster_dataset/`, bind-mounted into this container
-# at /isaac-sim/final_disaster_dataset (FINAL_DATASET_DIR on the host). A bare
-# cell path (`Fire/Suburban/level_1/1`) is resolved against that mount and the
-# filename derived from the contract, so a mission can name the CELL rather
-# than repeat the file-naming rule.
+# One `.usd` of the dataset, from EITHER of two places, chosen by
+# `FROZEN_DATASET_ROOT`:
+#
+#   /isaac-sim/final_disaster_dataset      the bind mount (FINAL_DATASET_DIR on
+#                                          the host). The default, and the only
+#                                          one that works on a machine that
+#                                          already has the cells.
+#   omniverse://<host>/Projects/SEI-COA/final_disaster_dataset
+#                                          Nucleus. THE ONLY OPTION ON AN OSMO
+#                                          POD: `final_disaster_dataset/` lives
+#                                          outside the repo and is not cloned,
+#                                          so a pod has no local copy, and the
+#                                          cells are ~300 MB each.
+#
+# `FROZEN_SCENE` is the same string either way — a bare cell path
+# (`Fire/Suburban/level_1/1`), with the filename derived from the dataset
+# contract — so switching a mission between a bench and a pod is one variable.
 if _FROZEN:
     FROZEN_ROOT = (os.environ.get("FROZEN_DATASET_ROOT", "").strip()
                    or frozen_gt.CONTAINER_ROOT)
@@ -386,7 +398,26 @@ if _FROZEN:
         # hovering over nothing 20 minutes into a pod.
         raise SystemExit(str(exc))
     FROZEN_CELL = frozen_gt.cell_dir(FROZEN_USD)
-    print("[scene] FROZEN cell {0}".format(FROZEN_USD), flush=True)
+    _FROZEN_URL = frozen_gt.is_url(FROZEN_USD)
+
+    def _frozen_read_text(path):
+        """Read a cell's GT JSON, from disk or from Nucleus.
+
+        `frozen_annotations` is stdlib-only on purpose (it runs in the tests
+        and in the offline mission planner), so the `omni.client` half of this
+        lives here, where Kit already is, and is injected.
+        """
+        if not frozen_gt.is_url(path):
+            with open(path, encoding="utf-8") as fh:
+                return fh.read()
+        result, _ver, content = omni.client.read_file(path)
+        if result != omni.client.Result.OK:
+            print("[frozen-gt] {0}: {1}".format(path, result), flush=True)
+            return None
+        return bytes(memoryview(content)).decode("utf-8")
+
+    print("[scene] FROZEN cell {0}{1}".format(
+        FROZEN_USD, "  (Nucleus)" if _FROZEN_URL else ""), flush=True)
 
 DRONE_USD ="~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
@@ -937,7 +968,8 @@ class PegasusApp:
             return
         repo = os.path.normpath(
             os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "..", ".."))
-        people_doc, hints_doc = frozen_gt.load_cell(FROZEN_USD)
+        people_doc, hints_doc = frozen_gt.load_cell(
+            FROZEN_USD, read_text=_frozen_read_text)
         if hints_doc is None:
             print(f"[frozen-gt] {FROZEN_CELL}: no GT_hints.json — no obstacle "
                   f"boxes and NO SEARCH AREA. A search_area_source: scene run "

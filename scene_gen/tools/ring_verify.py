@@ -57,19 +57,34 @@ print("\nring: leg %.2f m, bay %.2f m" % (leg, bay))
 tot_pieces = 0
 worst = 0.0
 roles = {}
+n_bands = len(bands)
+roofed = False
 for i, (lo, hi, band) in enumerate(bands):
-    cells = gss.ring(band, ((bbox[0][0], bbox[0][1], lo),
-                            (bbox[1][0], bbox[1][1], hi)), leg, bay)
+    bb = ((bbox[0][0], bbox[0][1], lo), (bbox[1][0], bbox[1][1], hi))
+    # THE TOPMOST BAND GOES THROUGH `roof_and_parapet`, NOT A PLAIN `ring()`.
+    # That is what `slice_to_kit` actually calls (`gac_storey_slice.py`) —
+    # exercising bare `ring()` on every band here, including the last one,
+    # would verify a partition the pipeline no longer produces and miss
+    # exactly the roof/parapet split this tool exists to prove is still
+    # exact.
+    if i == n_bands - 1:
+        cells, roofed = gss.roof_and_parapet(band, bb, leg, bay,
+                                             g["storey_h"])
+    else:
+        cells = gss.ring(band, bb, leg, bay)
     a = sum(area(p) for _r, _s, _b, p in cells)
     d = 100.0 * abs(a - area(band)) / max(1e-9, area(band))
     worst = max(worst, d)
     tot_pieces += len(cells)
     for r, _s, _b, _p in cells:
         roles[r] = roles.get(r, 0) + 1
-    if i < 3:
-        print("  band %2d: %3d cell(s), area %.1f vs %.1f m2 (%.4f%%)"
-              % (i, len(cells), a, area(band), d))
+    if i < 3 or i == n_bands - 1:
+        print("  band %2d%s: %3d cell(s), area %.1f vs %.1f m2 (%.4f%%)"
+              % (i, " (top)" if i == n_bands - 1 else "", len(cells), a,
+                 area(band), d))
 print("\n%d piece(s) total: %s" % (tot_pieces,
       "  ".join("%s=%d" % (k, v) for k, v in sorted(roles.items()))))
+print("top band roof/parapet split: %s" % ("OK" if roofed else
+      "FELL BACK to an unlabelled ring (rare clip failure)"))
 print("WORST band area delta: %.4f%%  -> %s" % (
     worst, "EXACT partition" if worst < 0.05 else "LEAKY (gap or overlap)"))

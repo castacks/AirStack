@@ -46,6 +46,60 @@ only about the condition of what is on disk.
 
     host       ~/SEI-COA/final_disaster_dataset          (FINAL_DATASET_DIR in .env)
     container  /isaac-sim/final_disaster_dataset
+    Nucleus    NOTHING — checked 2026-08-29
+
+**AND THAT IS A BLOCKER FOR ANY POD.** `omniverse://.../Projects/SEI-COA` holds
+the asset packs, `People` and `scene_gen/assets` (the archetype bake) and has
+no `final_disaster_dataset` at all. The cells exist only on the machine that
+built them, 4.8 GB across 18 of them, reaching the container through the bind
+mount below. An OSMO pod clones the branch and gets neither the mount nor the
+files, so a frozen-cell mission there dies at t=0 until they are uploaded.
+
+**Uploaded 2026-08-29** to
+`omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset`,
+mirroring the `<Disaster>/<Locale>/level_<n>/<k>/` contract exactly, so a pod
+sets `FROZEN_DATASET_ROOT` to that prefix and `FROZEN_SCENE` stays the same
+cell path it is locally. That is the whole bench-vs-pod difference.
+
+`snaps/` is NOT uploaded — 571 MB of review captures for a human, which nothing
+reads at run time — so this is `os.walk` with one pruned directory rather than
+the single folder `copy` §6 of
+[run-isaac-sim-launcher](../run-isaac-sim-launcher/SKILL.md) describes. That
+section is where the invocation comes from: `omni.client` standalone under the
+Kit python, no `SimulationApp`, no GPU, no pane, and therefore safe to run
+against a container someone else is using. The two env vars are load-bearing
+and each fails differently; the `stat`-by-size guard makes a re-run resumable,
+and `CopyBehavior.OVERWRITE` is required or a re-upload returns
+`ERROR_ALREADY_EXISTS` and writes nothing.
+
+    docker exec isaac-sim bash -c '
+      EXT=/isaac-sim/kit/extscore/omni.client.lib
+      LIB=$(ls -d /isaac-sim/extscache/omni.client-*/bin | head -1)
+      LD_LIBRARY_PATH="/isaac-sim/kit:$LIB:$LD_LIBRARY_PATH" PYTHONPATH="$EXT" \
+      /isaac-sim/kit/python/bin/python3 -u - <<PY
+    import os
+    import omni.client as c
+    c.initialize()
+    LOCAL  = "/isaac-sim/final_disaster_dataset"
+    REMOTE = "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset"
+    for dirpath, dirnames, filenames in os.walk(LOCAL):
+        dirnames[:] = [d for d in dirnames if d != "snaps"]
+        rel = os.path.relpath(dirpath, LOCAL)
+        for name in sorted(filenames):
+            src = os.path.join(dirpath, name)
+            dst = REMOTE + "/" + (name if rel == "." else rel + "/" + name)
+            r, e = c.stat(dst)
+            if r == c.Result.OK and e.size == os.path.getsize(src):
+                continue                       # already there, same size
+            print(dst, c.copy(src, dst, behavior=c.CopyBehavior.OVERWRITE))
+    c.shutdown()
+    PY'
+
+Textures and MDL are NOT copied and do not need to be: they were never inlined
+into the frozen files (the collect step below is off), so a cell still
+references them on Nucleus and under `scene_gen/assets/` in the repo, both of
+which a pod resolves. **An uploaded cell is REACHABLE, not redistributable** —
+a different and weaker property, and the punch list below is unchanged.
 
 Bind-mounted in both the `isaac-sim` and headless compose blocks, and
 **outside the repo on purpose**: at the full matrix this is hundreds of MB a

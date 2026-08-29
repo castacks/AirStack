@@ -49,9 +49,17 @@ bands = gss.storeys(m, lines, verbose=False)
 leg = max(1.5, 0.6 * ((g["bays"].get("E") or {}).get("pitch") or 4.0))
 bay = (g["bays"].get("E") or {}).get("pitch") or 4.0
 tot, worst_d, roles = 0, 0.0, {}
+n_bands = len(bands)
+roofed = False
 for i, (lo, hi, band) in enumerate(bands):
     bb = ((bbox[0][0], bbox[0][1], lo), (bbox[1][0], bbox[1][1], hi))
-    cells = gss.ring(band, bb, leg, bay)
+    # Same substitution as `ring_verify.py`: the pipeline (`slice_to_kit`)
+    # runs the topmost band through `roof_and_parapet`, not a bare `ring()`.
+    if i == n_bands - 1:
+        cells, roofed = gss.roof_and_parapet(band, bb, leg, bay,
+                                             g["storey_h"])
+    else:
+        cells = gss.ring(band, bb, leg, bay)
     a = sum(area(p) for _r, _s, _b, p in cells)
     worst_d = max(worst_d, 100.0 * abs(a - area(band)) / max(1e-9, area(band)))
     tot += len(cells)
@@ -60,6 +68,8 @@ for i, (lo, hi, band) in enumerate(bands):
 ba = sum(area(b) for _l, _h, b in bands)
 print("\n%d band(s), %d piece(s): %s" % (
     len(bands), tot, "  ".join("%s=%d" % (k, v) for k, v in sorted(roles.items()))))
+print("top band roof/parapet split: %s" % ("OK" if roofed else
+      "FELL BACK to an unlabelled ring (rare clip failure)"))
 print("band area delta %.4f%% ; worst ring delta %.4f%% -> %s"
       % (100.0 * abs(ba - area(m)) / area(m), worst_d,
          "EXACT" if worst_d < 0.05 else "LEAKY"))

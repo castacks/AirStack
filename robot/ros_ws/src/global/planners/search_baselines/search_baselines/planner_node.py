@@ -1565,17 +1565,63 @@ class CoNavGPT2Node(Node):
                 })
             return out
 
+    def _sim_now(self):
+        """SIM seconds, or None if sim time is not knowable yet.
+
+        `/clock` first: `use_sim_time` is on, so `get_clock()` IS `/clock`,
+        which only advances while the timeline plays and stops when it pauses.
+
+        THEN THE OBSERVATION STAMPS, and that fallback is not belt-and-braces
+        — it is the only thing that makes the TEAM arm terminate. Isaac
+        publishes `/clock` from a per-drone OmniGraph node whose ROS2 context
+        is that drone's domain (`spawn_px4_multirotor_node`:
+        `<robot>_ROS2PublishClock`), so `/clock` exists on domains 1..N and
+        NOT on domain 0 — and `dds_router.yaml` does not bridge it (47
+        allowlist entries, none of them `rt/clock`; bridging it would put N
+        cross-amplified copies of the flight stack's time source on every
+        robot domain, which is not a change to make on a whim). The CoNavGPT2
+        team planner runs on domain 0. Its clock therefore reads 0.0 forever,
+        `_sim_budget_spent` was never true, `run_complete` never latched, and
+        the run only ended when the mission's gate timed out hours later.
+
+        Every bridged observation still carries a sim-time `header.stamp`
+        written by the sim, so the newest of them is the same clock read a
+        different way — and it is arguably the better reading for a budget,
+        because it is the time of the data the method actually processed.
+        """
+        now = self.get_clock().now().nanoseconds / 1e9
+        if now > 0.0:
+            return now
+        stamps = [s for s in getattr(self, '_stamp', ()) or () if s is not None]
+        if not stamps:
+            return None
+        return max(float(s.sec) + float(s.nanosec) * 1e-9 for s in stamps)
+
     def _sim_budget_spent(self):
-        """True once max_sim_seconds of SIM time have passed since the first tick
-        that had data. use_sim_time is on, so get_clock() is /clock — which only
-        advances while the sim timeline plays, and stops when it is paused."""
+        """True once max_sim_seconds of SIM time have passed since the first
+        tick that had data.
+
+        THE BUDGET STARTS WHEN THE METHOD DOES, not when the sim booted.
+        `_tick` calls this only after `_snapshot()` has returned data, so
+        `_sim_t0` is the sim time of the planner's FIRST tick with
+        rgb + depth + camera_info + odometry — i.e. after the scene loaded,
+        after takeoff, after the node came up. None of that is charged to the
+        method, and two arms flown on the same scene are given the same 600 s
+        of simulated search however differently the wall clock ran.
+        """
         if self._max_sim_seconds <= 0.0:
             return False
-        now = self.get_clock().now().nanoseconds / 1e9
-        if now <= 0.0:                      # /clock has not arrived yet
+        now = self._sim_now()
+        if now is None:                     # no /clock and no stamped data yet
             return False
         if self._sim_t0 is None:
             self._sim_t0 = now
+            src = ('clock' if self.get_clock().now().nanoseconds > 0
+                   else 'observation stamps (no /clock on this domain)')
+            self.get_logger().info(
+                f'search_planner: sim budget {self._max_sim_seconds:.0f} s starts '
+                f'NOW, at sim t={now:.1f} s — the first tick with data. '
+                f'Time source: {src}')
             return False
         return (now - self._sim_t0) >= self._max_sim_seconds
 

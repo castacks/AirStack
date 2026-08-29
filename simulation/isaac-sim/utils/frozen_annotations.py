@@ -77,16 +77,44 @@ PERSON_SIZE_M = (0.7, 0.7, 1.8)
 
 CONTAINER_ROOT = "/isaac-sim/final_disaster_dataset"
 
+# `omniverse://`, `file://`, `https://` — anything with a scheme is a URL and
+# must NOT be probed with `os.path`. On an OSMO pod the dataset is not on a
+# local mount at all (`final_disaster_dataset/` is outside the repo and is not
+# cloned), so the cells are addressed on Nucleus, where `os.path.isfile` is
+# always False and would reject a perfectly good scene.
+_URL_MARK = "://"
+
+
+def is_url(path):
+    return _URL_MARK in (path or "")
+
+
+def join(base, *parts):
+    """`os.path.join` for a local path, `/`-join for a URL."""
+    if is_url(base):
+        out = base.rstrip("/")
+        for p in parts:
+            out += "/" + str(p).strip("/")
+        return out
+    return os.path.join(base, *parts)
+
+
+def _split(path):
+    """Path components, for a local path or a URL, without the scheme."""
+    if is_url(path):
+        return [p for p in path.split(_URL_MARK, 1)[1].split("/") if p]
+    return [p for p in os.path.abspath(path).split(os.sep) if p]
+
 
 def usd_name_for_cell(cell_path):
     """`<disaster>_<locale>_lvl<n>_<k>.usd` from a `.../<Disaster>/<Locale>/
-    level_<n>/<k>` path, or None if the path is not shaped like a cell.
+    level_<n>/<k>` path or URL, or None if it is not shaped like a cell.
 
     The contract is capitalised in the PATH and lowercase in the FILENAME
     (freeze-disaster-dataset), so the name is derivable and a caller can name
     the CELL rather than repeat the rule.
     """
-    parts = [p for p in os.path.abspath(cell_path).split(os.sep) if p]
+    parts = _split(cell_path)
     if len(parts) < 4 or not parts[-2].startswith("level_"):
         return None
     return "{0}_{1}_lvl{2}_{3}.usd".format(
@@ -95,22 +123,42 @@ def usd_name_for_cell(cell_path):
 
 
 def resolve_cell(spec, root=CONTAINER_ROOT):
-    """`FROZEN_SCENE` -> an absolute `.usd` path. Raises `ValueError`.
+    """`FROZEN_SCENE` -> the `.usd` to reference. Raises `ValueError`.
 
-    Three accepted spellings, because a mission author should not have to
+    Four accepted spellings, because a mission author should not have to
     remember which one the launcher wants:
 
         /abs/path/to/fire_suburban_lvl1_1.usd
         Fire/Suburban/level_1/1/fire_suburban_lvl1_1.usd   (under `root`)
         Fire/Suburban/level_1/1                            (the cell)
+        omniverse://host/Projects/.../Fire/Suburban/level_1/1   (either, on Nucleus)
 
-    A path that does not exist RAISES rather than being handed to
+    **A LOCAL path that does not exist RAISES** rather than being handed to
     `AddReference`, which composes an empty prim, reports success and gives
     you a black viewport with no error 20 minutes into a pod.
+
+    **A URL is NOT probed.** `os.path` cannot answer for `omniverse://`, and
+    the alternative — pulling `omni.client` into a module that is deliberately
+    stdlib-only so it can run in the tests and in the offline mission planner —
+    would cost more than it buys: a bad URL fails at `Sdf.Layer.FindOrOpen`
+    with the server's own message, which is at least as good a diagnosis. When
+    the URL names a CELL rather than a file, the filename is derived from the
+    contract, so a mission's `FROZEN_SCENE` is the same string either way and
+    only `FROZEN_DATASET_ROOT` changes between a local run and a pod.
     """
     spec = (spec or "").strip()
     if not spec:
         raise ValueError("FROZEN_SCENE is empty")
+    if is_url(spec) or is_url(root):
+        url = spec if is_url(spec) else join(root, spec)
+        if url.lower().endswith(".usd") or url.lower().endswith(".usdc"):
+            return url
+        name = usd_name_for_cell(url)
+        if not name:
+            raise ValueError(
+                "FROZEN_SCENE={0!r} resolves to {1}, which is neither a .usd "
+                "nor a <Disaster>/<Locale>/level_<n>/<k> cell".format(spec, url))
+        return join(url, name)
     cands = ([spec] if os.path.isabs(spec) else []) + [os.path.join(root, spec)]
     for c in cands:
         if os.path.isfile(c):
@@ -127,16 +175,25 @@ def resolve_cell(spec, root=CONTAINER_ROOT):
                 .format(spec, c, len(usds)))
     raise ValueError(
         "FROZEN_SCENE={0!r}: no such file or cell (looked in {1}). Is the "
-        "dataset mounted at {2}?".format(spec, ", ".join(cands), root))
+        "dataset mounted at {2}, or should FROZEN_DATASET_ROOT point at "
+        "Nucleus?".format(spec, ", ".join(cands), root))
 
 
 def cell_dir(scene_usd):
     """The dataset cell directory a frozen `.usd` lives in."""
+    if is_url(scene_usd):
+        return scene_usd.rsplit("/", 1)[0]
     return os.path.dirname(os.path.abspath(scene_usd))
 
 
-def load_cell(scene_usd):
+def load_cell(scene_usd, read_text=None):
     """`(people_doc, hints_doc)` for the cell holding `scene_usd`.
+
+    `read_text(path) -> str | None` is the escape hatch for a cell that lives
+    on Nucleus: this module stays stdlib-only, so the CALLER (the Isaac
+    launcher, which has `omni.client`) supplies the reader when the cell is a
+    URL. Everything else — the tests, the offline mission planner — gets the
+    plain-`open` default.
 
     A missing file is returned as `None` rather than raised on: a cell whose
     export died before the hints were written still has usable people, and the
@@ -144,16 +201,31 @@ def load_cell(scene_usd):
     refusing to fly.
     """
     d = cell_dir(scene_usd)
-    return (_read_json(os.path.join(d, "GT_people.json")),
-            _read_json(os.path.join(d, "GT_hints.json")))
+    read = read_text or _read_local
+    return (_load_json(join(d, "GT_people.json"), read),
+            _load_json(join(d, "GT_hints.json"), read))
+
+
+def _read_local(path):
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def _load_json(path, read):
+    try:
+        text = read(path)
+    except Exception:
+        return None
+    if not text:
+        return None
+    try:
+        return json.loads(text)
+    except ValueError:
+        return None
 
 
 def _read_json(path):
-    try:
-        with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
-    except (OSError, ValueError):
-        return None
+    return _load_json(path, _read_local)
 
 
 def people_records(people_doc):
