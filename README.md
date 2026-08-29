@@ -30,7 +30,7 @@ git clone --recursive -j8 git@github.com:castacks/AirStack.git && cd AirStack
 airstack up --play --wait
 ```
 
-Then follow the [Getting Started guide](https://docs.theairlab.org/latest/docs/getting_started/)
+Then follow the [Getting Started guide](https://docs.theairlab.org/main/docs/getting_started/)
 and the [Modular AirStack Walkthrough](docs/getting_started/modular_airstack.md).
 No Linux box or GPU? [Run AirStack on OSMO](docs/tutorials/airstack_on_osmo.md)
 from any laptop.

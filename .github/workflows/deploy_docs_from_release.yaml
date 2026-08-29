@@ -4,6 +4,12 @@ on:
   release:
     types: [published]
 
+# Serialize gh-pages pushes: concurrent docs deploys race on the branch
+# push (observed: develop deploy rejected with 'fetch first' when the main
+# deploy pushed at the same time).
+concurrency:
+  group: docs-deploy-gh-pages
+  cancel-in-progress: false
 permissions:
   contents: write
 jobs:
@@ -58,8 +64,8 @@ jobs:
         run: |
           SLUG=$(echo "${TAG}" | cut -d. -f1-2)
           echo "Deploying release docs: slug ${SLUG}, title ${TAG}"
-          mike deploy --push --update-aliases --title "${TAG}" "${SLUG}" latest
-          mike set-default latest --push
+          mike deploy --push --update-aliases --title "${TAG}" "${SLUG}" main
+          mike set-default main --push
       # mike re-sorts versions.json on every deploy, so pin develop — the
       # higher, unreleased version — back to the top of the version selector
       # after each deploy. Guarded: the script may be absent on release tags

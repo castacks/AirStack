@@ -18,6 +18,12 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "17 6 * * 1" # weekly, Mondays 06:17 UTC
+# Serialize gh-pages pushes: concurrent docs deploys race on the branch
+# push (observed: develop deploy rejected with 'fetch first' when the main
+# deploy pushed at the same time).
+concurrency:
+  group: docs-deploy-gh-pages
+  cancel-in-progress: false
 permissions:
   contents: write
   issues: write # drift alarm files an issue when the committed catalog lags the registry
