@@ -21,6 +21,15 @@ its own notes. -->
 
 - Nothing yet.
 
+## 0.20.6 — 2026-08-29
+
+- **Release notes now carry a dated section per hotfix.** Added the
+  missing sections for hotfixes 0.20.1–0.20.5 and codified the rule in
+  the `bump-version-and-release` skill and AGENTS.md: every hotfix on
+  `main` — docs-only and CI-only included — adds its own dated
+  `## X.Y.Z — YYYY-MM-DD` patch-notes section, since the MAJOR.MINOR
+  docs build renders all of a line's patch sections together.
+
 ## 0.20.5 — 2026-08-29
 
 - **Docker images are publicly pullable.** The AirLab Harbor registry
