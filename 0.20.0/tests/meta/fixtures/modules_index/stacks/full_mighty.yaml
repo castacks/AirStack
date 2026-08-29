@@ -1,0 +1,17 @@
+# Registry entry for the full_mighty trunk reference stack (schema/stack-entry.schema.json).
+name: full_mighty
+repo: https://github.com/castacks/AirStack
+path: stacks/full_mighty
+description: >-
+  Full autonomy with the local planning layer swapped to the MIGHTY module
+  (mighty planner + acl-mapping voxel world model fed by the filtered Ouster
+  cloud + NavigateTask bridge) in place of droan_gl; everything else is
+  identical to full_default
+airstack_compat: ">=0.20.0-alpha.16 <0.21.0"   # from the stack's modules.repos airstack_compat key
+wiring: stacks/full_mighty/wiring.md           # docs site embeds the CI-generated wiring.md from trunk
+notes: >-
+  The module-swap demonstration for the modular architecture: the only
+  difference vs full_default is one include in launch/stack.launch.xml plus
+  the asm_mighty pin in modules.repos (registry: modules/mighty.yaml — repo
+  private until the agent study concludes). wiring.md is pending the stack's
+  first validated wiring-snapshot run.

@@ -1,0 +1,130 @@
+# Any line that does not start with a / will be automatically prefixed using the 
+# namespace of the bag_record_pid node.
+# mcap_qos is the filename of the MCAP QoS profile. The actual directory will be prefixed by the
+# bag_record_pid node via a user specified argument. All MCAP QoS files must be in the same directory.
+# The -o or --output argument should not be specified here.
+# The -s mcap option will be added automatically.
+sections:
+  gps_lidar_spot_depth_status:
+    mcap_qos: mcap_qos.yaml
+    args: 
+      - -b
+      - 4000000000 # ~4GB
+      - --max-cache-size 
+      - 1073741824 # 1GB
+    topics:
+      - /parameter_events
+      - /rosout
+      - /tf
+      - /tf_static
+      - bag_record_pid/bag_recording_status
+      - bag_record_pid/set_recording_status
+      - gq7/ekf/llh_position
+      - gq7/ekf/odometry_earth
+      - gq7/ekf/odometry_map
+      - gq7/ekf/status
+      - gq7/gnss_1/llh_position
+      - gq7/gnss_2/llh_position
+      - gq7/mip/ekf/status
+      - gq7/mip/gnss_1/fix_info
+      - gq7/mip/gnss_2/fix_info
+      - gq7/nmea
+      - gq7/rtcm
+      - gq7/gnss_1/time
+      - gq7/gnss_2/time
+      - gq7/imu/data
+      - gq7/imu/data_raw
+      - gq7/mip/gnss_corrections/rtk_corrections_status
+      - is_inside_geofence
+      - ouster/imu
+      - ouster/points
+      - ouster/metadata
+      - ouster/os_driver/transition_event
+      - ouster/telemetry
+      - ouster/nearir_image
+      - ouster/range_image
+      - ouster/reflec_image
+      - ouster/signal_image
+      - spot/arm_joint_commands
+      - spot/arm_pose_commands
+      - spot/body_pose
+      - spot/cmd_vel
+      - spot/joint_states
+      - spot/manipulation_state
+      - spot/odometry
+      - spot/odometry/twist
+      - spot/robot_description
+      - spot/status/battery_states
+      - spot/status/behavior_faults
+      - spot/status/end_effector_force
+      - spot/status/estop
+      - spot/status/feedback
+      - spot/status/feet
+      - spot/status/leases
+      - spot/status/metrics
+      - spot/status/mobility_params
+      - spot/status/power_states
+      - spot/status/system_faults
+      - spot/status/wifi
+      - spot/depth/back/camera_info
+      - spot/depth/back/image
+      - spot/depth/frontleft/camera_info
+      - spot/depth/frontleft/image
+      - spot/depth/frontright/camera_info
+      - spot/depth/frontright/image
+      - spot/depth/hand/camera_info
+      - spot/depth/hand/image
+      - spot/depth/left/camera_info
+      - spot/depth/left/image
+      - spot/depth/right/camera_info
+      - spot/depth/right/image
+  spot_rgb:
+    mcap_qos: mcap_qos.yaml
+    args: 
+      - -b
+      - 4000000000 # ~4GB
+      - --max-cache-size 
+      - 1073741824 # 1GB
+    topics:
+      - spot/camera/back/camera_info
+      - spot/camera/back/image
+      - spot/camera/frontleft/camera_info
+      - spot/camera/frontleft/image
+      - spot/camera/frontright/camera_info
+      - spot/camera/frontright/image
+      - spot/camera/hand/camera_info
+      - spot/camera/hand/image
+      - spot/camera/left/camera_info
+      - spot/camera/left/image
+      - spot/camera/right/camera_info
+      - spot/camera/right/image
+
+# Extra or skipped topics:
+# - spot/depth_registered/back/points
+# - spot/depth_registered/frontleft/points
+# - spot/depth_registered/frontright/points
+# - spot/depth_registered/left/points
+# - spot/depth_registered/right/point
+# - spot/depth_registered/back/camera_info
+# - spot/depth_registered/back/image
+# - spot/depth_registered/frontleft/camera_info
+# - spot/depth_registered/frontleft/image
+# - spot/depth_registered/frontright/camera_info
+# - spot/depth_registered/frontright/image
+# - spot/depth_registered/hand/points
+# - spot/depth_registered/hand/camera_info
+# - spot/depth_registered/hand/image
+# - spot/depth_registered/left/camera_info
+# - spot/depth_registered/left/image
+# - spot/depth_registered/right/camera_info
+# - spot/depth_registered/right/image
+# ouster/scan
+# spot/camera/back/compressed
+# spot/camera/frontleft/compressed
+# spot/camera/frontright/compressed
+# spot/camera/hand/compressed
+# spot/camera/left/compressed
+# spot/camera/right/compressed
+# spot/depth_registered/image_rect/compressed
+# spot/depth_registered/image_rect/compressedDepth
+# spot/depth_registered/image_rect/theora

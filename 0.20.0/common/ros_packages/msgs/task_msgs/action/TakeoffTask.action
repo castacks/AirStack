@@ -1,0 +1,15 @@
+# Takeoff to a target altitude.
+# Rejects if not armed, no offboard control, or state estimate timed out.
+
+# Goal
+float32 target_altitude_m
+float32 velocity_m_s
+---
+# Result
+bool success
+string message
+---
+# Feedback
+string status
+float32 current_altitude_m
+float32 target_altitude_m

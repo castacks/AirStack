@@ -1,0 +1,78 @@
+trajectories:
+  - type: curve
+    linear_velocity: 0.2
+    angular_velocity: -45
+    frame: look_ahead_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 0.2
+    angular_velocity: -30
+    frame: look_ahead_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 0.2
+    angular_velocity: -22
+    frame: look_ahead_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 0.2
+    angular_velocity: -15
+    frame: look_ahead_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 0.2
+    angular_velocity: -5
+    frame: look_ahead_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 0.2
+    angular_velocity: 0
+    frame: look_ahead_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 0.2
+    angular_velocity: 5
+    frame: look_ahead_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 0.2
+    angular_velocity: 15
+    frame: look_ahead_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 0.2
+    angular_velocity: 22
+    frame: look_ahead_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 0.2
+    angular_velocity: 30
+    frame: look_ahead_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 0.2
+    angular_velocity: 45
+    frame: look_ahead_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading

@@ -1,0 +1,5 @@
+<library path="mavros_interface">
+  <class type="mavros_interface::MAVROSInterface" base_class_type="robot_interface::RobotInterface">
+    <description>mavros plugin for the robot interface.</description>
+  </class>
+</library>

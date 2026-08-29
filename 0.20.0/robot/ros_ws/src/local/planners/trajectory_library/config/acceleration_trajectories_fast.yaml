@@ -1,0 +1,214 @@
+trajectories:
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 1.
+    y: 0
+    z: 0
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: -1.
+    y: 0
+    z: 0
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0
+    y: 1.
+    z: 0
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0
+    y: -1.
+    z: 0
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0
+    y: 0
+    z: 1.
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0
+    y: 0
+    z: -1.
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0.577
+    y: 0.577
+    z: 0.577
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: -0.577
+    y: 0.577
+    z: 0.577
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0.577
+    y: -0.577
+    z: 0.577
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: -0.577
+    y: -0.577
+    z: 0.577
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0.577
+    y: 0.577
+    z: -0.577
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: -0.577
+    y: 0.577
+    z: -0.577
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0.577
+    y: -0.577
+    z: -0.577
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: -0.577
+    y: -0.577
+    z: -0.577
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0.707
+    y: 0.707
+    z: 0
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: -0.707
+    y: 0.707
+    z: 0
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0.707
+    y: -0.707
+    z: 0
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0.707
+    y: -0.707
+    z: 0
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0.707
+    y: 0
+    z: 0.707
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: -0.707
+    y: 0
+    z: 0.707
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0.707
+    y: 0
+    z: -0.707
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: -0.707
+    y: 0
+    z: -0.707
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0
+    y: 0.707
+    z: 0.707
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0
+    y: -0.707
+    z: 0.707
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0
+    y: 0.707
+    z: -0.707
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
+  - type: acceleration
+    frame: look_ahead_point_stabilized
+    x: 0
+    y: -0.707
+    z: -0.707
+    dt: 0.2
+    ht: 1.2
+    max_velocity: 1.5
