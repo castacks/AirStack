@@ -15,7 +15,7 @@
     We'd really appreciate your feedback and contributions to improve this project for everyone! 
     Please join our #airstack channel on Slack to contribute or ask questions.
 
-    You will need to have an account with AirLab to access the AirLab Docker registry, Nucleus server, and other resources.
+    The AirLab Docker registry is public, so anyone can pull the Docker images without an account. You will need an account with AirLab to push images and to access the Nucleus server and other internal resources.
     The API and functionality are not stable and are subject to change. 
 
 
@@ -49,13 +49,10 @@ source ~/.bashrc  # OR ~/.zshrc. applies settings to enable `airstack` command
 Now you have two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry. Building the image from scratch can be useful if you would like to add new dependencies or add new custom functionality. For most users just pulling the existing image will be more conveninent and fast since it doesn't require access to the Nvidia registry.
 
 <details open> <summary>Option 1: Pull From the Airlab Docker Registry (Preferred)</summary>
-To use the AirLab Docker registry do the following
+The AirLab Docker registry (<code>airlab-docker.andrew.cmu.edu</code>) is public — no account or <code>docker login</code> is needed to pull.
 
 ```bash
 cd AirStack/
-docker login airlab-docker.andrew.cmu.edu
-## <Enter your andrew id (without @andrew.cmu.edu)>
-## <Enter your andrew password>
 
 ## Pull the images in the docker compose file
 airstack images pull
@@ -76,9 +73,10 @@ The images will be pulled from the server automatically. This might take a while
     airstack images build
     ```
 
-If you have permission you can push updated images to the docker server.
+If you have permission you can push updated images to the docker server. Pushing (unlike pulling) requires logging in with your AirLab account first.
 
 ```bash
+docker login airlab-docker.andrew.cmu.edu
 airstack images push
 ```
 

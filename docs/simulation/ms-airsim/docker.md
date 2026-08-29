@@ -239,10 +239,7 @@ airstack up --sim airsim --robots 3
 ### Pulling Pre-built Images
 
 ```bash
-# Login to AirLab registry
-docker login airlab-docker.andrew.cmu.edu
-
-# Pull image
+# Pull image (the AirLab registry is public — no login needed)
 docker compose -f simulation/ms-airsim/docker/docker-compose.yaml pull
 ```
 

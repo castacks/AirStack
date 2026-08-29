@@ -22,19 +22,18 @@ docker compose build     # Build from scratch
 
 ## Pull Images
 
-To use the AirLab docker registry:
+The AirLab docker registry (`airlab-docker.andrew.cmu.edu`) is public — no `docker login` is needed to pull:
 
 ```bash
 cd AirStack/
-docker login airlab-docker.andrew.cmu.edu
-## <Enter your andrew id (without @andrew.cmu.edu)>
-## <Enter your andrew password>
 
 ## Pull the images in the docker compose file
 docker compose pull
 ```
 
 The available image tags are listed [here](https://airlab-docker.andrew.cmu.edu/harbor/projects/2/repositories/airstack/artifacts-tab).
+
+Pushing images still requires an AirLab account (`docker login airlab-docker.andrew.cmu.edu` first).
 
 ## Build Images
 
