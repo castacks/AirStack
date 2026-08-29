@@ -132,8 +132,12 @@ so only deviations appear in stack files.)
    regenerated with `tools/gen_docs_catalog.py`, mkdocs nav updated). The
    docs deploy regenerates the catalog from the LIVE registry, so the trunk
    PR alone leaves the published catalog without your module — merge the
-   registry PR first. Full checklist + recovery command: the
-   [extract-module](../extract-module/SKILL.md) registration step.
+   registry PR first. The trunk PR is automated: after the registry PR
+   merges, dispatch the `sync-modules-index` workflow (also runs daily) and
+   merge the PR it opens; the develop docs deploy files a
+   `docs-catalog-drift` issue if the two ever disagree. Full checklist +
+   caveats: the [extract-module](../extract-module/SKILL.md) registration
+   step.
 
 ## References
 
