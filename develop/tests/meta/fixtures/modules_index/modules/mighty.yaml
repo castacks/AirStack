@@ -1,0 +1,26 @@
+# Registry entry for the mighty module (schema/module-entry.schema.json).
+# airstack_compat is the DECLARED range copied from the module's module.yaml;
+# the VERIFIED matrix lives in compat/mighty.yaml (CI-stamped only).
+name: mighty
+repo: https://github.com/castacks/asm_mighty
+description: >-
+  MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its
+  acl-mapping voxel world model and a bridge to AirStack's NavigateTask /
+  trajectory_controller seam — a map-based replacement for the DROAN local
+  planner
+maintainer: ajong@andrew.cmu.edu   # Andrew Jong
+license: BSD-3-Clause-Clear
+type: ros_package
+registered_ref: v0.1.1
+airstack_compat: ">=0.20.0-alpha.16 <0.21.0"   # DECLARED (from module.yaml)
+notes: >-
+  Repo is PRIVATE until the AirStack agent study (ICRA 2027 paper, Sec. VI-C)
+  concludes, then flips public — until then the repo/README links 404 for
+  non-members. v0.1.1 is code-identical to v0.1.0 (README-only delta); v0.1.0
+  was validated end-to-end on Isaac Sim: 44/44 vendored gtests, synthetic
+  smoke harness, empty-world NavigateTask flight, 7/7 practice pillar-field
+  traversals, and 5/5 judged obstacle-route flights (min clearances
+  1.59–1.65 m vs a 1.0 m gate). Wrapper packages are BSD-3-Clause-Clear;
+  vendored upstream packages (mighty, DecompROS2, acl-mapping) keep their own
+  permissive licenses — see the module's VENDORED.md. Consumed by trunk
+  reference stack full_mighty.

@@ -4131,6 +4131,8 @@
       
         
       
+        
+      
     
     
     
@@ -4248,6 +4250,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../stacks/full_mighty/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_mighty
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../stacks/lite_default/" class="md-nav__link">
         
   
@@ -4316,6 +4346,8 @@
       
         
           
+        
+      
         
       
         
@@ -4451,6 +4483,34 @@
     
   
     macvo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/mighty/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    mighty
   
 
     
@@ -6020,6 +6080,10 @@ their owners (a lab keeps a private stack repo wiring together public modules
 <td>MAC-VO as the planner's disparity source. Requires the <code>asm_macvo</code> module (<code>airstack module add asm_macvo</code>).</td>
 </tr>
 <tr>
+<td><a href="https://github.com/castacks/AirStack/tree/develop/stacks/full_mighty"><code>full_mighty</code></a></td>
+<td>The MIGHTY map-based local planner (+ acl-mapping voxel world model) in place of <code>droan_gl</code>. Requires the <code>asm_mighty</code> module (pinned in the stack's <code>modules.repos</code>).</td>
+</tr>
+<tr>
 <td><a href="https://github.com/castacks/AirStack/tree/develop/stacks/lite_default"><code>lite_default</code></a></td>
 <td>Onboard-lite topology, unsplit: interface, sensors, perception, flat Local layer, behavior; <strong>no global, no logging</strong>.</td>
 </tr>
@@ -6258,6 +6322,10 @@ ignored. Select the topology with <code>--stack</code>:</p>
 <tr>
 <td>MAC-VO disparity topology</td>
 <td><code>--stack full_macvo</code> (requires the <code>asm_macvo</code> module)</td>
+</tr>
+<tr>
+<td>MIGHTY map-based local planner</td>
+<td><code>--stack full_mighty</code> (requires the <code>asm_mighty</code> module)</td>
 </tr>
 <tr>
 <td>Onboard-lite, unsplit</td>

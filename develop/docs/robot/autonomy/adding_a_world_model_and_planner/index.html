@@ -4230,6 +4230,8 @@
       
         
       
+        
+      
     
     
     
@@ -4347,6 +4349,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../stacks/full_mighty/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_mighty
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../stacks/lite_default/" class="md-nav__link">
         
   
@@ -4415,6 +4445,8 @@
       
         
           
+        
+      
         
       
         
@@ -4550,6 +4582,34 @@
     
   
     macvo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/mighty/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    mighty
   
 
     
@@ -6090,7 +6150,7 @@
 <div class="language-xml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">&lt;include</span><span class="w"> </span><span class="na">file=</span><span class="s">"$(find-pkg-share droan_local_planner)/launch/droan_local_planner.launch.xml"</span><span class="w"> </span><span class="nt">/&gt;</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">&lt;include</span><span class="w"> </span><span class="na">file=</span><span class="s">"$(find-pkg-share disparity_expansion)/launch/disparity_expansion.launch.xml"</span><span class="w"> </span><span class="nt">/&gt;</span>
 </span></code></pre></div>
-<p>Do the same for yours: <code>airstack stack new full_default full_my_planner</code>, then in <code>stacks/full_my_planner/launch/stack.launch.xml</code> replace the DROAN include with your planner's include (plus any world-model include it needs). Only deviations from canonical names appear as include args — see how <code>full_macvo</code> passes exactly one (<code>droan_gl_disparity_topic</code>).</p>
+<p>Do the same for yours: <code>airstack stack new full_default full_my_planner</code>, then in <code>stacks/full_my_planner/launch/stack.launch.xml</code> replace the DROAN include with your planner's include (plus any world-model include it needs). Only deviations from canonical names appear as include args — see how <code>full_macvo</code> passes exactly one (<code>droan_gl_disparity_topic</code>). For a planner that ships as an <strong>external module</strong>, the worked example is <a href="../../../../stacks/full_mighty/">full_mighty</a>: its <code>modules.repos</code> pins the <a href="../../../modules/mighty/">mighty module</a> (planner + voxel world model + bridge), and the local-planner block is one <code>mighty_module.launch.xml</code> include.</p>
 <p><strong>Verify:</strong> <code>airstack up --stack full_my_planner --sim isaac --robots 1 &amp;&amp; airstack ready</code> succeeds and <code>ros2 node list</code> shows your planner in place of DROAN.</p>
 <h3 id="4-verify-with-wiring-and-a-flight">4. Verify with wiring and a flight<a class="headerlink" href="#4-verify-with-wiring-and-a-flight" title="Permanent link">&para;</a></h3>
 <ol>

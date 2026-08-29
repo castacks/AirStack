@@ -4108,6 +4108,8 @@
       
         
       
+        
+      
     
     
     
@@ -4225,6 +4227,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../stacks/full_mighty/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_mighty
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../stacks/lite_default/" class="md-nav__link">
         
   
@@ -4293,6 +4323,8 @@
       
         
           
+        
+      
         
       
         
@@ -4428,6 +4460,34 @@
     
   
     macvo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/mighty/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    mighty
   
 
     
@@ -5939,7 +5999,7 @@
 <li><strong>Trajectory controller</strong> — a pure-pursuit trajectory <em>manager</em>, not itself a feedback controller. It <strong>owns the <a href="../interface_conventions/#5-trajectory-group-the-trajectory-controllers-contract-onboard-only">trajectory group (spec §5)</a></strong>: it consumes <code>trajectory_controller/trajectory_segment_to_add</code> and <code>trajectory_override</code> (<code>airstack_msgs/msg/TrajectoryXYZVYaw</code>), serves the <code>set_trajectory_mode</code> service, and emits <code>tracking_point</code> and <code>look_ahead</code> (<code>airstack_msgs/msg/Odometry</code> — not <code>nav_msgs</code>). Reference: <a href="../../../../robot/ros_ws/src/local/controls/trajectory_controller/">Trajectory Controller</a>.</li>
 <li><strong>Feedback controller</strong> — closes the loop between the tracking point and the vehicle's actual state and emits the <a href="../interface_conventions/#6-control_setpoint-controller-interface-command-onboard-only"><code>control_setpoint</code> (spec §6)</a> command into the interface. Reference: <code>pid_controller</code> (<code>robot/ros_ws/src/local/controls/pid_controller</code> — no README; the cascaded position→velocity PID is described in the <a href="../../../../robot/ros_ws/src/local/controls/trajectory_controller/#control-architecture">Trajectory Controller README's Control Architecture section</a>).</li>
 </ul>
-<p>The verified chain in every reference stack (<code>full_default</code>, <code>full_droan_cpu</code>, <code>full_macvo</code>, <code>lite_default</code>, <code>lite_offload_global</code> onboard) is:</p>
+<p>The verified chain in every reference stack (<code>full_default</code>, <code>full_droan_cpu</code>, <code>full_macvo</code>, <code>full_mighty</code>, <code>lite_default</code>, <code>lite_offload_global</code> onboard) is:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>trajectory_controller/tracking_point (airstack_msgs/Odometry, §5)
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>        │                                    + odometry_conversion/odometry (§2)
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        ▼

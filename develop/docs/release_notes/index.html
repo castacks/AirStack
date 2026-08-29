@@ -3933,6 +3933,8 @@
       
         
       
+        
+      
     
     
     
@@ -4050,6 +4052,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../stacks/full_mighty/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_mighty
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../stacks/lite_default/" class="md-nav__link">
         
   
@@ -4118,6 +4148,8 @@
       
         
           
+        
+      
         
       
         
@@ -4253,6 +4285,34 @@
     
   
     macvo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modules/mighty/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    mighty
   
 
     
@@ -5863,9 +5923,26 @@ its own notes. -->
 
 <h2 id="0200-unreleased">0.20.0 (Unreleased)<a class="headerlink" href="#0200-unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Fixed: the docs search dropdown rendered behind the nav-tabs bar and the
+<li>
+<p><strong>New reference stack <code>full_mighty</code> + registered <code>mighty</code> module.</strong> The
+  MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its
+  acl-mapping voxel world model and a NavigateTask/trajectory_controller
+  bridge, packaged as the external
+  <a href="https://github.com/castacks/asm_mighty">asm_mighty</a> module (pinned at
+  v0.1.1 in the stack's <code>modules.repos</code>; repo private until the AirStack
+  agent study concludes). <a href="../../stacks/full_mighty/"><code>full_mighty</code></a>
+  is <code>full_default</code> with only the local-planner include swapped — the
+  module-swap demonstration for the modular architecture. Registered in the
+  <a href="../modules/">module catalog</a>; validated on Isaac Sim (44/44
+  vendored gtests, empty-world route flight, 7/7 pillar-field traversals,
+  5/5 judged obstacle-route flights at 1.59–1.65 m min clearance vs a 1.0 m
+  gate).</p>
+</li>
+<li>
+<p>Fixed: the docs search dropdown rendered behind the nav-tabs bar and the
   version-selector text (custom z-indexes inside the header's stacking
-  context); the search subtree is now lifted above both.</li>
+  context); the search subtree is now lifted above both.</p>
+</li>
 </ul>
 <p><strong>Documentation overhaul (Diátaxis restructuring).</strong> The docs site was
 audited against the <a href="https://diataxis.fr">Diátaxis</a> framework and
