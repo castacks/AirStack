@@ -1,57 +1,166 @@
 # ASSET SET: urban_gac — the GreatAmericanCity buildings, nothing else.
 #
-# `extends: urban_nucleus` for the streets, furniture, greenery and vehicles,
-# then REPLACES the building pool. A bare `intact:` key replaces the inherited
-# pool; `intact+:` would have appended to it and left the ModernCityEnvironment
-# and DownTown blocks in the mix.
+# `extends: urban_nucleus` for streets, furniture, greenery and vehicles, then
+# REPLACES the building pools. A bare key replaces the inherited pool; `intact+`
+# would have appended and left the other packs in the mix.
 #
-# THE FIFTEEN. Selected because each one is modelled on one or two elevations
-# only and is flat on the rest (`tools/gac_faces.py` measures triangle density
-# per elevation): they read correctly in a terrace and read as a missing wall
-# on an open corner. Their `front`/`blank` measurements live in
-# `_plans/gac_faces.json`.
+# THREE THINGS THIS FILE ENCODES, all of them measured rather than guessed
+# (`tools/gac_faces.py` -> `_plans/gac_faces.json`, triangle density per
+# elevation against each building's own best side):
 #
-# ABSOLUTE URLS ON PURPOSE. `shared.yaml` sets `asset_root` to
-# `.../Library/Stages/` and this pack lives under `.../Projects/SEI-COA/`;
-# `_join_asset_root` passes anything containing "://" through untouched, so an
-# absolute path is the honest way to reach outside the root rather than
-# relative-path games.
+# 1. `yaw-offset` PER ASSET. These buildings do not share a front: 01 fronts E,
+#    03 fronts S, 22 fronts W, 24 fronts N. A layout rule can only orient a pool
+#    that agrees on which way is forward, so each asset is turned here until its
+#    good elevation points -X, which is what `_terrace_rows` assumes at
+#    `facing_deg` 0. Without this one rule oriented some correctly and spun the
+#    rest to face the block interior.
 #
-# `scale: 0.01` on every one: the pack is centimetre-authored and USD converts
-# NOTHING on reference. Without it a single building fills the region.
+# 2. WHICH POOL. `districts.typologies.<name>.pools` names KEYS under
+#    `usds.buildings` — not tags. `urban.yaml` defines rowhouse/midrise/tower;
+#    `urban_nucleus` does not, so extending the nucleus alone leaves all three
+#    EMPTY and the zoning pass replaces every building with nothing
+#    ("POOL EMPTY (asset paths unresolved?)", 325 replaced by 0).
+#
+# 3. DEPTH DECIDES THE POOL. `_terrace_strips` lays two back-to-back rows only
+#    where the block's short side is in `[2*depth + alley, 2*depth + alley_max]`.
+#    Terrace is the morphology these assets want — two rows is the cap asked
+#    for, and a party wall covers the blank flanks that most of them have — so
+#    everything shallow enough to terrace goes to `rowhouse`, the 44 m-deep 09
+#    to `midrise`, and only the three too deep to terrace at this block size
+#    (20, 21, 22 at 58-62 m) fall back to `tower`/pack. Those three are also the
+#    ones with the fewest blank flanks, so pack costs least there.
+#
+# BLANK-FLANK CLASSES, for the record and for whoever wires the run-end rule:
+#   mid-terrace only (both flanks blank): 01 04 05 06_Small 07 25 26
+#   end or corner ok (one flank blank)  : 02 03 09 22 24 29
+#   anywhere         (no blank flank)   : 20 21
 
 extends: urban_nucleus
 
 usds:
   buildings:
+    # every one of the fifteen, so nothing can drop out of the city
     intact:
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_01.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_02.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_03.usd"
         scale: 0.01
+        yaw-offset: 270    # front S -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_04.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_05.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_06_Small.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_07.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_09.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_20.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_21.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_22.usd"
         scale: 0.01
+        yaw-offset: 0    # front W -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_24.usd"
         scale: 0.01
+        yaw-offset: 90    # front N -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_25.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_26.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_29.usd"
         scale: 0.01
+        yaw-offset: 180    # front E -> W
+    # shallow enough for a two-row terrace at this block size
+    rowhouse:
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_01.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_02.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_03.usd"
+        scale: 0.01
+        yaw-offset: 270    # front S -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_04.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_05.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_06_Small.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_07.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_24.usd"
+        scale: 0.01
+        yaw-offset: 90    # front N -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_25.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_26.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_29.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+    # 44 m deep — terraces only in the wider blocks
+    midrise:
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_09.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_21.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+    # 58-62 m deep: too deep to terrace here, and the least blank stock
+    tower:
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_20.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_21.usd"
+        scale: 0.01
+        yaw-offset: 180    # front E -> W
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_22.usd"
+        scale: 0.01
+        yaw-offset: 0    # front W -> W
+
+  # ---- CityPark greenery is BLACKLISTED --------------------------------------
+  # Bare keys, so these REPLACE the inherited pools rather than adding to them.
+  # The CityPark props were reviewed and rejected once already (only the boulder
+  # SM_Rock_03 and the lantern SM_Lantern survived that pass), and `shared.yaml`
+  # was still feeding five CityPark trees and three stumps into every urban
+  # scene. RetroNeighborhood trees and the ModernCityEnvironment shrubs stay.
+  trees:
+    - usd: "RetroNeighborhood/Props/SM_Tree_02.prop.usd"
+      scale: 0.01
+    - usd: "RetroNeighborhood/Props/SM_Tree_03.prop.usd"
+      scale: 0.01
+    - usd: "RetroNeighborhood/Props/SM_Tree_04.prop.usd"
+      scale: 0.01
+    - usd: "RetroNeighborhood/Props/SM_Tree_05.prop.usd"
+      scale: 0.01
+    - usd: "RetroNeighborhood/Props/SM_Tree_06.prop.usd"
+      scale: 0.01
+    - usd: "RetroNeighborhood/Props/SM_Tree_07.prop.usd"
+      scale: 0.01
+  plants:
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass.usd"

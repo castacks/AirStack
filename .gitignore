@@ -150,6 +150,7 @@ nucleus_upload/
 # Listed by extension as well as by path so a weight dropped anywhere (the
 # ultralytics default is the CWD, which is how yolov8l-world.pt landed in
 # robot/ros_ws/) does not get committed by accident.
+scene_gen/assets/.hf/
 *.pt
 *.pth
 *.safetensors

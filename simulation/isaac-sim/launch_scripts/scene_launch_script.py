@@ -255,8 +255,64 @@ class CityV2PreviewApp:
 
         self.timeline.play()
 
+    def snapshot_city(self, out_dir):
+        """Nadir, four obliques and two street-level views of the region.
+
+        A GENERATED CITY CANNOT BE REVIEWED FROM ITS LOG. The counts say 26
+        blocks and 188 buildings whether or not a single one faces the right
+        way, and this launcher wrote no captures at all — so every check of a
+        `downtown` scene meant a person at the GUI. Framed off the REGION and
+        the tallest thing standing, because a nadir framed off the region alone
+        turns into a close-up of one roof when a 150 m tower is on the plate.
+        """
+        import importlib.util as _ilu
+        sp = os.path.join(_ISAAC_SIM_DIR, "utils", "snapshots.py")
+        spec = _ilu.spec_from_file_location("snapshots", sp)
+        sn = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(sn)
+        os.makedirs(out_dir, exist_ok=True)
+        stage = omni.usd.get_context().get_stage()
+        bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                               [UsdGeom.Tokens.default_])
+        r = bc.ComputeWorldBound(
+            stage.GetPseudoRoot()).ComputeAlignedRange()
+        if r.IsEmpty():
+            print("[scene] nothing to capture")
+            return
+        mn, mx = r.GetMin(), r.GetMax()
+        cx, cy = 0.5 * (mn[0] + mx[0]), 0.5 * (mn[1] + mx[1])
+        span = max(mx[0] - mn[0], mx[1] - mn[1])
+        tall = mx[2]
+        sn.place_camera(stage, (cx, cy, tall + span / 1.10), (cx, cy, 0.0))
+        sn.snapshot(os.path.join(out_dir, "city_top.png"))
+        for nm, (ax, ay) in (("sw", (-1, -1)), ("se", (1, -1)),
+                             ("ne", (1, 1)), ("nw", (-1, 1))):
+            d = span * 0.78
+            sn.place_camera(stage, (cx + ax * d, cy + ay * d,
+                                    0.42 * d + tall * 0.55),
+                            (cx, cy, tall * 0.22))
+            sn.snapshot(os.path.join(out_dir, "city_" + nm + ".png"))
+        for nm, eye, tgt in (
+                ("street_ew", (cx - span * 0.45, cy, 3.0),
+                 (cx + span * 0.4, cy, 14.0)),
+                ("street_ns", (cx, cy - span * 0.45, 3.0),
+                 (cx, cy + span * 0.4, 14.0))):
+            sn.place_camera(stage, eye, tgt)
+            sn.snapshot(os.path.join(out_dir, nm + ".png"))
+        print("[scene] snapshots -> {0}".format(out_dir))
+
     def run(self):
         app = omni.kit.app.get_app()
+        snap = (os.environ.get("SNAP_DIR") or "").strip()
+        if snap:
+            for _ in range(120):        # let the renderer converge first
+                app.update()
+            try:
+                self.snapshot_city(snap)
+            except Exception as exc:
+                import traceback
+                traceback.print_exc()
+                print("[scene] snapshots FAILED: {0}".format(exc))
         while simulation_app.is_running():
             app.update()
         self.timeline.stop()

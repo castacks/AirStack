@@ -1,0 +1,1255 @@
+# GAC downtown — `downtown.yaml` with the building library cut to the fifteen
+# GreatAmericanCity assets (see `asset_sets/urban_gac.yaml`).
+#
+# Everything that makes this a city — block sizing, road hierarchy, districts,
+# sidewalk furniture, markings — is inherited from `downtown.yaml` unchanged.
+# The ONLY difference is which buildings the packer draws from, which is the
+# whole point of the asset-set split.
+#
+# `urban_gac` extends `urban_nucleus`, not `urban`, so this needs NO Objaverse
+# pre-flight and builds offline. Street furniture comes from `shared`.
+#
+# REGION 800 m, not 500. Measured in this file below: a 400 m region gives 14
+# blocks and 3 arterial corridors with no readable hierarchy, because a 274 m
+# block does not fit twice into it. 800 m gives 31 blocks and 34 corridors.
+# Override per-run with REGION_M if a smaller plate is wanted.
+#
+#     SCENE_CONFIG=downtown_gac \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
+#     airstack up isaac-sim
+#
+# HIGH-LEVEL scene spec — a pristine downtown with detailed street furniture.
+#
+# The v2 counterpart to `none.yaml`: same locale, same disaster (none), same
+# region, so the two are directly comparable side by side. What differs is that
+# street furniture is placed by `city_detail.py` against NACTO sidewalk zones
+# instead of by the generator's built-in single-line-at-the-kerb passes, plus
+# crosswalks and stop bars from `road_markings.py` and per-district building
+# variety from `districts.py`.
+#
+# PRE-FLIGHT REQUIRED. Unlike `none.yaml`, this scene draws 22 props from
+# Objaverse, so the cache has to be filled on the HOST before launching — the
+# sim container has no uv, objaverse or Blender:
+#
+#     UV_PYTHON=3.13 uv run --no-project --with objaverse --with pandas \
+#         --with pyyaml --with trimesh \
+#         python scene_gen/prepare_assets.py --asset-set urban
+#
+# UV_PYTHON=3.13 is load-bearing. convert_to_usd.py declares
+# `requires-python = ">=3.13"`, which uv satisfies with the newest interpreter
+# it has — but `bpy` only publishes a cp313 wheel, so on 3.14 every conversion
+# dies with "no wheels with a matching Python ABI tag" and all 22 assets report
+# as failed. The failure is per-asset and looks like an asset problem; it isn't.
+#
+# Skipping it is not fatal but is very visible: uncached assets render as
+# placeholder prisms and the generator lists the missing uids at startup.
+# Re-running once cached is a sub-second no-op, so it is safe before every
+# launch. `--list` shows state without downloading anything.
+#
+# Then run it with the v2 launch script, which is the only thing that calls the
+# new modules:
+#     SCENE_CONFIG=downtown \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
+#     airstack up isaac-sim
+#
+# Loading this through the ORIGINAL launch script is harmless but pointless:
+# nothing reads `city_detail`/`districts`/`roads.markings`, and the built-in
+# furniture passes are zeroed below, so you get a city with no street furniture.
+
+locale: downtown
+disaster-type: none
+severity: 0.0
+
+asset-set: urban_gac
+# 800 m, not none.yaml's 400. The OSM-calibrated block targets below are
+# 60-95 x 135-200 m; a 400 m region fits about two of those across, so it lands
+# at 14 blocks with only 3 arterial corridors and no readable road hierarchy.
+# At 800 m the same targets give 31 blocks, 34 corridors and a real core/mid/
+# edge gradient. Measured cost is 25.3M points (39.5M per km2) — under the 400 m
+# scene's own 26.7M, because the calibrated terrace runs and parkland share are
+# both smaller than the guesses they replaced.
+# The A/B against none.yaml is no longer like-for-like on area; compare per km2.
+region_m: [800, 800]
+seed: 42
+
+overrides:
+  # ROAD ASPHALT, matched to the suburb wildfire scene: the local megascans
+  # asphalt swatch instead of shared.yaml's Nucleus MI_Asphalt. `apply_ground_planes`
+  # reads `usds.materials.asphalt`; the urban marking vocabulary is drawn on
+  # top by `road_markings.py` and is unchanged.
+  usds:
+    materials:
+      asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+  # ---- block shape -----------------------------------------------------------
+  # The built-in BSP always splits whichever side is longer, which drives every
+  # block toward square: measured over this same region it gives a median
+  # long:short ratio of 1.2x with a 38 m short side. Real downtown grids are
+  # directional — Manhattan runs ~80 m between streets and ~280 m between
+  # avenues, about 1:3.5 — and the sparse axis carries the wide roads.
+  #
+  # city_layout.py gives each axis its own target extent and splits whichever
+  # one most exceeds *its own* target, so blocks converge on the configured
+  # aspect instead of on a square. See that module for why it is applied by
+  # patching rather than by a parameter.
+  # MEASURED TARGET (tools/osm_measurements.md, Midtown Manhattan 450 m):
+  #     block short side  79.7 m   (IQR 79.1-80.2, remarkably tight)
+  #     block long side  273.9 m   (IQR 154-310)
+  #     long:short         2.3x    (IQR 1.7-3.5)
+  #     blocks / km2        35
+  # The built-in BSP produces 38 x 50 m at 1.2x and 350 blocks/km2 — three
+  # times too dense, and square where the real thing is 2.3x elongated.
+  #
+  # Measured sweep of this generator (median short x long, ratio, count):
+  #
+  #    region   built-in            anisotropic          with the targets below
+  #     400 m   38x50  1.2x  n=56   88x186  2.1x  n=8    51x 98  2.0x  n=17
+  #     800 m   39x52  1.3x  n=207  109x189 1.9x  n=26
+  #    1200 m   36x50  1.2x  n=499   92x279 3.0x  n=48   <- matches Manhattan
+  #
+  # Real block sizes cost block count: a 274 m block does not fit twice into a
+  # 400 m region, so Manhattan targets here leave only 8 superblocks. The
+  # targets below keep 17 blocks at ~51 x 98 m and 2.0x — the ratio is right
+  # (measured 2.3x), the absolute size is scaled down to fit. Region held equal
+  # to none.yaml so the A/B stays like-for-like.
+  #
+  # FOR A FULL-SCALE CITY: region_m [1200, 1200] with [70, 95] / [170, 260],
+  # which lands at 92 x 279 m and 3.0x — within a few metres of the measured
+  # Manhattan block.
+  layout:
+    # Inherited max_block_m 70 is BELOW every measured block short side
+    # (60-116 m) and silently caps the per-typology targets below.
+    max_block_m: 200
+    anisotropic:
+      enabled: true
+      long_axis: x            # blocks run long east-west, as Manhattan's do
+      # FALLBACK ONLY while districts.enabled is true: city_layout's `targets`
+      # delegates to districts.zone_field(...).targets_at(x, y), so the
+      # per-typology block_short_m/block_long_m below are what actually size a
+      # block, blended across area boundaries. These apply where that returns
+      # nothing — zoning off, or a cell outside every ring.
+      #
+      # Kept in the same range as the typology targets so switching zoning off
+      # does not silently collapse the grain: at the previous [36,46] the short
+      # axis was under every tower footprint in the library (BG_Building_A
+      # 51.3 x 51.3, C 50.1 x 40.1, E 60.5 x 36.5, F 80.9 x 50.4, MBuilding02
+      # 91.1 x 96.1), so nothing tall could be placed at all.
+      # RESIZED FOR THIS STOCK. Inherited [70,105] sits mostly ABOVE the
+      # terrace band `[2*depth + alley, 2*depth + alley_max]` that
+      # `_terrace_strips` will accept, so 8 of 8 rowhouse blocks were refused
+      # and rebuilt as mid-rise — which is also where the three-rows-per-block
+      # came from, since `pack` has no row limit. The GreatAmericanCity terrace
+      # pool is up to ~29 m deep, putting the band near [61, 66].
+      block_short_m: [58, 72]    # street-to-street, the dense axis
+      block_long_m: [190, 260]   # avenue-to-avenue, the sparse axis
+      # Road width follows the axis. MEASURED (Manhattan, share of segments by
+      # class and median lane count):
+      #     secondary     53.9%   4 lanes
+      #     residential   34.2%   1 lane
+      #     primary       10.5%   5 lanes
+      # so ~64% of segments carry 4+ lanes. The built-in subdivision gives every
+      # road the same width regardless of axis, which is the second thing that
+      # makes its grid read as generated. Splitting the long axis is what
+      # creates an avenue, so the main-road promotion goes there.
+      #
+      # These are below the measured 64% on purpose: Manhattan is an outlier
+      # (one-way pairs inflate its multi-lane share) and at this region size
+      # every extra wide road eats block area. Raise main_road_chance_short
+      # toward 0.3 for a more Manhattan-like arterial density.
+      main_road_chance_long: 0.80
+      main_road_chance_short: 0.05
+      stop_chance: 0.85       # 1 - chance of an extra split once in range
+      # Kerb strip reserved either side of every interior carriageway. Reserved
+      # whatever the policy: the rect has to stay symmetric because
+      # apply_ground_planes draws the yellow centre line at the rect centre, so
+      # an asymmetric rect would paint it inside a parking lane. The strips a
+      # corridor's policy does not use are handed to the abutting blocks as kerb
+      # extensions, which is what steps the kerb line in and out instead of
+      # running it dead straight. 0.0 disables the whole feature.
+      parking_lane_m: 2.4
+      # Parking policy is drawn once per corridor and held for its whole length —
+      # a street does not switch from both-sides to none halfway along. one_side
+      # resolves to the lo or hi kerb. Used when zoning is off or a ring below
+      # omits its own.
+      parking_policy: {none: 0.15, one_side: 0.35, both: 0.50}
+
+      # ---- road hierarchy per district ring ----------------------------------
+      # Keys must match districts.rings names. Anything omitted falls back to the
+      # un-zoned value above. A corridor takes the median ring over five samples
+      # along its run: a single midpoint sample makes every full-length road a
+      # core road and the outer ring never appears.
+      zones:
+        core:
+          main_road_chance_long: 0.95
+          main_road_chance_short: 0.50
+          lanes_main: 4
+          lanes_secondary: 2
+          # Downtown gives its kerb to loading and bus stops, not to parking.
+          parking_policy: {none: 0.45, one_side: 0.35, both: 0.20}
+        mid:
+          main_road_chance_long: 0.85
+          main_road_chance_short: 0.30
+          lanes_main: 4
+          lanes_secondary: 2
+          parking_policy: {none: 0.15, one_side: 0.35, both: 0.50}
+        edge:
+          # Residential: narrow streets, avenues rare, parking on both kerbs.
+          main_road_chance_long: 0.40
+          main_road_chance_short: 0.05
+          lanes_main: 2
+          lanes_secondary: 2
+          parking_policy: {none: 0.05, one_side: 0.25, both: 0.70}
+          # Mews width for an even k-way cut. This is the ONE number that sizes
+          # a terrace block, because the strip is fixed and the arithmetic is
+          # 4*block + 3*mews = 212 m. It leaves 27.2 m to divide between three
+          # streets and four alleys: at 6.0 the blocks come out 48.5 m, which a
+          # terrace pair fills with a 2.3 m alley behind. Raising it takes width
+          # straight out of the alley, and past ~8 the pair no longer fits and
+          # every row-house block is refused.
+          even_split_road_m: 6.0
+        # The four streets bounding a park superblock. Not excluded from the
+        # hierarchy — a real park is usually bounded by at least one significant
+        # street (Central Park has 5th Ave and CPW) — but never promoted to an
+        # avenue, and parking is generous because people drive to parks.
+        park_edge:
+          main_road_chance_long: 0.0
+          main_road_chance_short: 0.0
+          lanes_main: 2
+          lanes_secondary: 2
+          parking_policy: {none: 0.05, one_side: 0.25, both: 0.70}
+
+      # PARK SUPERBLOCKS. Carved out of the region BEFORE subdivision and
+      # emitted as one leaf, so a park is one place with streets on its sides
+      # and no road through it. Leaving parks to `packing.park_block_chance`
+      # gives BSP leaves, and two that land side by side read as one design
+      # mirrored about the street between them — which is exactly what they
+      # looked like. Size is a multiple of the LOCAL block target, so a park
+      # stays proportionate to its neighbourhood's grain.
+      parks:
+        enabled: true
+        count: [2, 3]
+        block_scale: [1.2, 1.8]   # x the local block target, per axis.
+                                  # MEASURED green land is 3.5-11.3% of a
+                                  # real district; [2,3] x [1.4,2.2] implied 21%
+        margin_m: 50.0            # keep off the region edge
+        min_separation_m: 110.0
+
+  # ---- packing ---------------------------------------------------------------
+  # build_city makes NO parks of its own: they are reserved as superblocks in
+  # layout.anisotropic.parks above, before subdivision. Its own park pass picks
+  # BSP leaves, which is how two park blocks ended up adjacent and read as one
+  # mirrored design. Leaving min_parks non-zero would put them straight back.
+  packing:
+    # 6.0, not the inherited 2.5. Guillotine packing fills from one corner, so a
+    # tight gap crams the buildings into part of the block and leaves the rest
+    # as one wide unbuilt margin — which from the street reads as an enormous
+    # sidewalk. It is not sidewalk, it is the block's own leftover. A bigger gap
+    # spreads the same buildings across the whole block, putting the slack
+    # BETWEEN them instead of all of it at the edge.
+    building_gap_m: 6.0
+    park_block_chance: 0.0
+    min_parks: 0
+    max_parks: 0
+
+  # ---- hand the frontage over to city_detail.py ------------------------------
+  # A spacing of 0 is already how the generator switches a street-furniture
+  # category off (see _frontage_positions), so this needs no code change and
+  # leaves exactly one owner of sidewalk props. Traffic lights, pedestrians,
+  # cars and the park passes stay with build_city — they are not frontage props
+  # and do not compete for the same space.
+  streetlights:   {spacing_m: 0.0}
+  benches:        {spacing_m: 0.0}
+  trash_cans:     {spacing_m: 0.0}
+  fire_hydrants:  {spacing_m: 0.0}
+  bus_stops:      {spacing_m: 0.0}
+  planters:       {tree_spacing_m: 0.0, plant_spacing_m: 0.0}
+
+  # Junction control moves to city_detail with the rest of the frontage. The
+  # built-in pass places ONE head per junction on a random corner, yawed at the
+  # junction centre — so a corner-mounted mast arm points diagonally, one
+  # approach gets a signal and the other three get nothing, and a junction can
+  # end up with a signal and a stop sign at once. MUTCD 4D.13 wants two faces
+  # per APPROACH, which is one two-head assembly on each.
+  traffic_lights:
+    intersection_chance: 0.0
+
+  # ---- sidewalk zones + the categories that live in them ---------------------
+  city_detail:
+    # NACTO sidewalk section, metres, measured from the kerb inward. The through
+    # zone is deliberately left empty — 1.8 m is the 6 ft desired minimum, and
+    # keeping it clear is both the realism tell and what makes the sidewalk
+    # walkable for a ground robot.
+    #
+    # THESE MUST SUM TO THE PAVED RING WIDTH, which is not a config value: the
+    # ring is exactly ONE sidewalk tile wide and `build_city` takes that width as
+    # max(tile.sx, tile.sy). SM_GroundModule01 is authored 5.00 x 5.00 m, so
+    # every sidewalk in the city was 5 m wide whatever these said — a downtown
+    # avenue section applied to every residential street. The tile is scaled to
+    # 0.70 in the asset set to give a 3.5 m ring, and the zones below sum to
+    # match; changing one without the other puts props on grass or leaves a
+    # metre of unused paving.
+    zones:
+      curb_m:       0.15
+      furnishing_m: 1.35
+      through_m:    1.80
+      frontage_m:   0.20
+      interior_m:   5.00   # kerb to the service ring, behind the frontage
+
+    # Occupancy is now a FOOTPRINT reservation, not a point grid — a point grid
+    # gave a 6 m bench the same single cell as a bollard, which is why props
+    # overlapped. This is only the bucket size for that reservation.
+    occupancy_cell_m: 4.0
+    occupancy_pad_m:  0.1        # gap held between neighbouring footprints
+    curb_margin_m:    0.3        # gap between a footprint and the kerb line
+    canopy_footprint_frac: 0.25  # share of a tree's crown its trunk/pit occupies
+    jitter_frac: 0.12       # slide along the kerb so rows don't look stamped
+
+    # A refused prop gets two more searches before it is dropped: another row
+    # inside its OWN zone (never the through zone), then a slide along the kerb.
+    # Measured, the frontage ring is only 41% occupied and removing every
+    # clearance changes the placed total by 8 props — so rejections were a phase
+    # problem, several categories landing on the same metre while the metres
+    # either side stayed empty, not a capacity problem. Sliding recovers +19%.
+    slide_m: 3.0
+    lateral_tries: 3
+    pole_clearance_m: 1.0   # pole-to-pole working clearance
+
+    # Junction control. One two-head mast assembly per approach meets MUTCD
+    # 4D.13's two-faces-per-approach minimum; masts go on the arterial
+    # approaches and poles on the minor ones at the same junction. The arm
+    # direction is derived from the measured bbox centroid, not from a
+    # yaw-offset, so swapping the asset cannot silently rotate every signal.
+    signals:
+      mast_usds: traffic_lights_mast
+      pole_usds: traffic_lights_pole
+      signal_lanes: 4       # a leg this wide warrants a signal
+      # Pole set at the kerb, not back in the furnishing zone. A mast arm has to
+      # reach out over the lanes it governs, so every metre the pole sits back
+      # is a metre the heads do not reach.
+      corner_margin_m: 0.5
+      # Explicit override of the derived stop-line setback. Derived it is
+      # setback + crosswalk_depth + stop_bar_advance = 4.80 m back from the
+      # junction box; 0.30 pulls the pole 4.5 m closer to the crossing.
+      stopline_setback_m: 0.30
+      # Empirical trim on top of the derived arm direction, SIGNED by which side
+      # of the approach the pole stands on — so the two sides of a street get
+      # opposite quarter turns and the arm reaches across the road on both.
+      #
+      # 0 removes the trim, leaving the direction _mast_yaw derives from the
+      # asset's own bbox. The corner moved from far-side to near-side when the
+      # signals were repositioned to the stop line, and the trim that suited the
+      # far corner is a quarter turn out on the near one.
+      #
+      # THE FOUR VALUES ARE ALL A QUARTER TURN APART: 0, 90, -90, 180. If the
+      # heads now face along the street instead of across it, the arm needs a
+      # quarter turn — try 90 or -90. If they face across but point away from
+      # the traffic they govern, it is a half turn — 180.
+      yaw_offset_deg: 0.0
+      stop_zones: []        # rings downgraded to two-way stop, e.g. [edge]
+
+    # Stop-sign approach sight triangles. AASHTO Green Book SSD
+    # 0.278*V*t + 0.039*V^2/a with t=2.5 s, a=3.4 m/s^2: 40 km/h -> 46 m. The
+    # test is vertical as well as lateral — the sightline runs from the driver's
+    # eye UP to the panel, so a 1.2 m bin never occludes a sign and a tree
+    # always does, which is what keeps the keep-out to ~10-15 m of kerb.
+    sightlines:
+      design_speed_kph: 40.0
+      eye_height_m:     1.08   # AASHTO driver eye
+      sign_face_z_m:    2.1    # MUTCD 2A.18 urban mounting height
+      min_obstruction_m: 1.0
+
+    categories:
+      # UNITS. spacing_m is metres of BLOCK FRONTAGE RING per prop, and the
+      # ring runs along one kerb. A street has two kerbs, belonging to two
+      # different blocks, each walked at spacing_m — so the spacing a person
+      # standing in the street actually sees is HALF of the number here:
+      #
+      #     along-street spacing = spacing_m / 2
+      #     count = total frontage / spacing_m   (measured: 13,921 m effective,
+      #             i.e. a 15,818 m ring thinned by districts.furniture_scale)
+      #
+      # Every published figure below is an ALONG-STREET spacing, so each one is
+      # doubled to land here. Getting this backwards is what made the street
+      # furniture read as twice as dense as the standards it was copied from.
+      #
+      # Sources are tagged CODE (binding text), STANDARD (consensus document)
+      # or PRACTICE (documented agency practice, no legal force). Most street
+      # furniture is governed by NONE of the three — where that is so it is
+      # said plainly rather than dressed up as compliance.
+      #
+      # OSM was measured for all of these (tools/osm_measurements.md) and is
+      # cited below only where it is worth citing. It under-reports street
+      # furniture badly: Midtown Manhattan returns 34 fire hydrants per
+      # 1.96 km2 against NYCDEP's own 109,725-hydrant dataset, about an 8x
+      # under-count, and the two best-mapped cities disagree with each other by
+      # 3-4x on the same category. It is a lower bound, not a measurement.
+      #
+      # guard_chance was 0.45, which put 173 tree guards in the scene at
+      # ~380k points each — 65.8M points, 73.8% of the whole thing, and an
+      # OOM kill. A guard REPLACES a bare tree rather than adding to one, so
+      # that bought no extra content: the same tree, 5x the cost, plus a small
+      # metal ring. 0.10 keeps the detail visible at ~4M points.
+      # 8 m is the real planting pitch and it produced 317 trees — a canopy
+      # closed over the whole street and 37.8% of the scene's geometry.
+      # 18 m is a KNOWING DEVIATION from the standard, not compliance with it:
+      # the 20-30 ft planting pitch is 6.1-9.1 m, so this is roughly double the
+      # loosest spacing any guideline endorses, traded for the point budget.
+      # It also happens to be where the rejections stop: below ~18 m the leftover
+      # slots are all inside the 5 m tree-to-streetlight/utility-pole clearance,
+      # so they are slots a tree may not legally take anyway.
+      # curb_margin_m 0.9 against the 0.3 default: codes measure the setback to
+      # the TRUNK — Seattle 3'6" centreline-to-kerb, Sedro-Woolley 3 ft back of
+      # kerb for a medium tree — and pulls the trunk clear of the gutter so the
+      # canopy overhangs the carriageway instead of standing over it.
+      # HELD at 18.0. This is the one category here that IS codified as a
+      # density and the code wants it DENSER, not sparser: Portland PCC
+      # 11.50.060 and NYC ZR 26-41 both require one street tree per 25 ft
+      # (7.62 m) of frontage, so 18 m is already 2.4x short of code. Loosening
+      # the streetlight pitch below frees kerb that the 5 m tree-to-light
+      # clearance was denying, so the count rises on its own — toward the code
+      # figure, not away: 583 trees at a 24 m light pitch, 704 at 50 m.
+      # SPACING CARRIES THE BUDGET HERE, because the pool has no cheap option
+      # left. Every Nucleus tree (385-9,430 pts) has been rejected by name, so
+      # street trees are AEC vegetation at ~53,000 points each — 20-140x dearer.
+      # At the old 18 m that is 631 trees and 33.6M points, which took the scene
+      # to ~85M against the 89.1M that OOM-killed it. 30 m gives ~376 trees and
+      # ~20M, leaving roughly 17M of headroom.
+      #
+      # This is well above the 6-9 m planting standard and above the 18 m that
+      # was already a knowing deviation. It buys three species instead of one
+      # and geometry that renders correctly; the honest cost is a visibly
+      # sparser street. One cheap bound 8-12 m tree would undo the whole trade.
+      street_trees:   {zone: furnishing, spacing_m:  22.0, guard_chance: 0.10,
+                       curb_margin_m: 0.9}
+      # NO NATIONAL CODE for street lighting spacing. ANSI/IES RP-8 is a
+      # STANDARD and sets illuminance and uniformity, not a pitch; a minority of
+      # municipalities codify a maximum outright. CODE, Larimer County Urban
+      # Area Street Standards Table 15-3 (Fort Collins, reenacted 2021), maximum
+      # spacing PER SIDE: 4/6-lane arterial 150 ft (45.7 m), 2-lane arterial
+      # 180 ft (54.9 m), local-commercial 175 ft (53.3 m). Note 3 puts lights on
+      # each side of a 6-lane arterial rather than staggering them, which is the
+      # both-kerb arrangement this ring produces, so those figures map straight
+      # onto spacing_m. Cross-check, Iowa SUDAS 11B-1: practical spacing does
+      # not exceed 5-6 mounting heights, and a 9 m urban pole gives 45-55 m.
+      # 50 m sits inside every one of those bands.
+      # OSM is no use here — Manhattan 111 street lamps and Chicago 158 per
+      # 1.96 km2 is an order of magnitude short of reality; lamps are simply not
+      # mapped.
+      # 80 is a DELIBERATE OVERSHOOT of that band, not a reading of it. Care is
+      # needed here: Table 15-3 is written per side and spacing_m is per side,
+      # so 50 sat inside the 45.7-53.3 m band rather than under it — the 25 m
+      # figure it also produces is the combined both-kerb pitch, which is not
+      # what the table specifies and must not be compared against it.
+      # Two things justify going past the codified maximum anyway:
+      #   - this ring lights BOTH kerbs of every street unconditionally, while a
+      #     real local or collector street is commonly lit from one side only,
+      #     so matching a one-side-lit street's total fixture count wants about
+      #     twice the per-side pitch;
+      #   - headroom. At 8,628 points a fixture this is the second dearest
+      #     category on the ring, and the street_trees pool above now costs
+      #     ~53,000 points a tree, which spends the budget this used to have.
+      # So this is a knowing deviation traded for the point budget, in the same
+      # spirit as street_trees, and it should be called that rather than dressed
+      # up as compliance. 50.0 is the code-compliant value if budget allows.
+      streetlights:   {zone: furnishing, spacing_m:  80.0}
+      # NO CODE governs litter bin provision anywhere checked. The UK Code of
+      # Practice on Litter and Refuse (statutory, EPA 1990 s.89(7)) regulates
+      # cleanliness grades and never bin density. PRACTICE, NYC DSNY: ~23,000
+      # baskets, sited at COMMERCIAL STREET CORNERS on collection routes, not on
+      # an interval. 130 m over this ring is ~107 bins against 108 block
+      # corners, i.e. one per corner, which is the DSNY rule expressed as the
+      # only knob this generator has.
+      trash_cans:     {zone: furnishing, spacing_m: 130.0}
+      # NO CODE mandates a bench, a seating count or a rest interval. PROWAG is
+      # enforceable (US DOT adopted it as its ADA standards, Dec 2024) and is
+      # silent on seating: it constrains the 1.22 m continuous clear width
+      # (R302.2) and a 61 m passing-space interval (R302.3), which govern where
+      # furniture may sit, not how often a bench appears. 140 m of frontage is
+      # 70 m along the street, near both that 61 m passing-space interval — the
+      # only codified longitudinal figure in the pedestrian ROW — and the 75 m
+      # along-street figure measured in San Francisco, the best-provided of the
+      # five cities sampled.
+      # OSM frontage-equivalent spreads 7x across those five (SF 149 m,
+      # Chicago 324 m, Portland 399 m, Barcelona 409 m, Manhattan 1029 m),
+      # which is mapping effort rather than real variation, so the per-km2 axis
+      # is the sounder one: this lands at ~155/km2 against a measured 34-236.
+      benches:        {zone: furnishing, spacing_m: 140.0}
+      # CODE, but not the rule it is usually quoted as. IFC Appendix C Table
+      # C102.1 is keyed to FIRE FLOW, not land use, and sprinklers LOOSEN it by
+      # 50% rather than tightening it: average spacing between hydrants runs
+      # 500 ft (152.4 m) at <=1750 gpm down to 300 ft (91.4 m) at 4500-5000 gpm
+      # and 200 ft (61.0 m) at >=7500 gpm. The appendix also binds only where a
+      # jurisdiction adopts it; the always-binding rule is IFC 507.5.1, a 400 ft
+      # (122 m) hose lay. The familiar "300 ft commercial, 400 ft sprinklered"
+      # wording is a Southern California / Southern Nevada local amendment and
+      # is not in the base code.
+      # A commercial downtown sits in the high-fire-flow rows, so 300 ft
+      # (91.4 m) BETWEEN HYDRANTS ALONG THE STREET governs, and the code's axis
+      # is along the street, not per kerb — so 180 m of frontage, which puts a
+      # hydrant every 90 m of street.
+      # Two independent provision cross-checks agree: NYCDEP publishes 109,725
+      # hydrants over 790 km2 = 139/km2, and OSM Portland — the only city of the
+      # five whose hydrants are mapped anywhere near completely, at n=300 —
+      # gives 153/km2. 180 m here lands at 121/km2, just under both, and stays
+      # inside NYC Fire Code 507.5.1's 250 ft (76.2 m) trigger distance.
+      fire_hydrants:  {zone: furnishing, spacing_m: 180.0}
+      # NOT a street-spacing rule at all. Bicycle parking is CODE only as a
+      # ZONING minimum per building — NYC ZR 25-80/36-70 ask for one enclosed
+      # long-term space per 2 dwelling units and one short-term per 10 car
+      # spaces — which yields per-building indoor spaces and implies nothing
+      # about kerbside racks. No city checked codifies an on-street rack pitch.
+      # So this is the one category set from OSM, which is defensible because
+      # cyclists map bike parking comparatively well and the three cities agree
+      # to within 2x where other categories spread 7x: frontage-equivalent
+      # Chicago 267 m (312 racks), SF 432 m (160), Manhattan 500 m (138).
+      # 200 m stays denser than all three, which is the right side to err on
+      # given the under-report, and lands at 109 racks/km2 against a measured
+      # 70-159/km2.
+      bike_racks:     {zone: furnishing, spacing_m: 200.0}
+      # NO CODE. A meter per parking space is ~6 m and that is what a legacy
+      # metered kerb looks like, but the unit modern cities meter is the BLOCK
+      # FACE: NYC codifies exactly that (34 RCNY 4-08(h)(4) — parking time is
+      # valid only on the blockface it was bought on). PRACTICE, NYC DOT
+      # single-space-to-kiosk conversions: 351 meters -> 62 kiosks (5.7:1) and
+      # 230 -> 21 (11:1); the NYC Street Design Manual sites a kiosk within
+      # 6 car lengths of any covered space, so one serves ~240 ft (73 m) of
+      # blockface. 75 m is that figure.
+      # Still an over-count in one respect this ring cannot express: meters are
+      # walked along every frontage, including the 45% of core corridors whose
+      # parking_policy is `none` and which would carry no meter at all.
+      parking_meters: {zone: furnishing, spacing_m:  75.0}
+      utility_poles:  {zone: furnishing, spacing_m:  38.0}
+      signs_parking:  {zone: furnishing, spacing_m:  25.0}
+      mailboxes:      {zone: furnishing, spacing_m: 120.0}
+      bus_stops:      {zone: furnishing, spacing_m: 130.0}
+      # Regulatory signage. near_corner_m anchors these AT block corners rather
+      # than filtering a spaced walk — spacing_m is then unused for them. The
+      # two types get different offsets so they occupy different posts around
+      # the same junction instead of fighting for one cell; they all alias to
+      # the "sign" category and share the furnishing-zone occupancy grid.
+      signs_street_name: {zone: furnishing, spacing_m: 0.0, near_corner_m:  4.0}
+      # control: stop restricts these to junctions the control table signs, so a
+      # junction never gets a signal and a stop sign at once. sightline reserves
+      # the approach sight triangle against anything tall enough to occlude.
+      signs_stop:        {zone: furnishing, spacing_m: 0.0, near_corner_m:  8.0,
+                          control: stop, sightline: true}
+      phone_booths:   {zone: frontage,   spacing_m: 180.0}
+      # Roadworks: one cluster every ~250 m of frontage. Enough that the city
+      # looks lived-in, sparse enough that it does not read as a building site.
+      traffic_cones:  {zone: curb,       spacing_m: 250.0}
+      # Service access. The `interior` zone is the strip behind the frontage,
+      # off the pavement entirely — a real street keeps dumpsters there, and on
+      # the frontage ring they read as litter bins the size of a car.
+      dumpsters:      {zone: interior,   spacing_m: 150.0}
+      # 1.5 m is the real bollard pitch, but applied along every frontage metre
+      # it yields ~3,300 of them and reads as fencing. Corner-anchored instead,
+      # which is where a street actually puts them — at crossings and plaza
+      # mouths. spacing_m is unused once near_corner_m is set.
+      bollards:       {zone: frontage,   spacing_m:   0.0, near_corner_m: 6.0}
+      # Café seating is a frontage-zone treat, not a default: only a minority of
+      # ground floors are cafés, so this is deliberately far sparser than the
+      # kerb categories.
+      # 60,806 pts each; at 120 m it placed 110 of them = 6.7M points,
+      # 10.3% of the scene, for a prop only a minority of frontages have.
+      cafe_sets:      {zone: frontage,   spacing_m: 400.0}
+
+    # Props on the carriageway, walked along the road corridors instead of the
+    # block frontage. Manholes ride the crown of the road; drains hug the kerb,
+    # which is where drainage actually is. surface_z clears the lane markings
+    # at 0.02 so the covers do not z-fight with them.
+    road_surface:
+      # Above the lane dashes at z=0.02 and the crosswalk bars at 0.021. At the
+      # previous 0.005 a cap sat 5 mm over the asphalt, under every marking and
+      # inside z-fighting range of the road mesh — placed, counted, invisible.
+      # A real cover is flush; this is 5 mm of deliberate proudness so it reads.
+      surface_z: 0.026
+      # Cars parked AT THE KERB, in the strips the per-corridor policy parks
+      # on — build_city's own car pass only fills travel lanes, so nothing was
+      # ever parked. Walks the same strips road_markings paints bays on, so
+      # paint and metal agree. 6.5 m is a car plus the gap to the next one;
+      # density 0.35 leaves the kerb sparse rather than bumper to bumper.
+      # junction_clear_m matches roads.markings.no_parking_m — no jurisdiction
+      # lets you park across a crossing.
+      parked_cars:  {spacing_m: 6.5, density: 0.35, junction_clear_m: 7.5}
+      manholes:     {spacing_m: 55.0, lateral: centre}
+      # kerb_margin_m is measured from the corridor RECT, which is now the
+      # maximum extent including both reserved parking strips. At 0.6 m a drain
+      # lands on the grass bulb wherever a block took its strip; parking_lane_m
+      # + 0.6 keeps it on asphalt everywhere, at the cost of sitting just inside
+      # the carriage edge on parking stretches.
+      storm_drains: {spacing_m: 40.0, lateral: kerb, kerb_margin_m: 3.0}
+      # Bike-lane delineators take no spacing_m: the stations come from
+      # `road_markings.plan_bike_lanes`, the same call that paints the lane, so
+      # the two cannot disagree about which stretches are protected. Spacing is
+      # under roads.markings.bike_lanes. surface_z is 0 rather than the value
+      # above because a 1 m post stands ON the carriageway; the proud offset
+      # exists for flush covers that would otherwise z-fight the road.
+      bike_lane_delineators: {enabled: true, surface_z: 0.0}
+
+    # Minimum metres between categories, applied as keep-outs. Without these the
+    # result reads as random scatter rather than a designed street.
+    #
+    # Trees keep 10 ft from hydrants, which is the planting standard as written.
+    # The tree-to-light figure is a deliberate relaxation: the standard says
+    # 25 ft (7.6 m) to stop a canopy occluding the lamp, but applying it
+    # literally against any realistic light spacing leaves no room to plant at
+    # all. Real streets instead alternate — light, tree, tree, light — which is
+    # what 5 m plus the spacings above produces.
+    clearances:
+      street_trees:  {fire_hydrants: 3.0, streetlights: 5.0, utility_poles: 5.0}
+      fire_hydrants: {streetlights: 1.8, utility_poles: 1.8}
+      # The signal assembly carries its own luminaire on the same pole, so a
+      # streetlight beside it puts two lights on one corner. 18 m clears the
+      # whole junction approach rather than just the pole itself.
+      #
+      # streetlights AGAINST THEMSELVES is the corner case: the frontage walk
+      # runs each block face, and at a corner the two faces meeting there each
+      # reach a spacing point within a couple of metres of the same kerb return,
+      # so the corner gets two lamps — one nominally lighting each street. A
+      # real corner is lit once. Self-clearance is honoured because `_clear_of`
+      # tests `placed[other]`, which for other == name is what the category has
+      # already laid; the ordering pass sees the self-edge as a cycle and falls
+      # through, which affects order only, not the test. 20 m is under the 40 m
+      # of street the 80 m per-kerb spacing implies, so it only ever removes a
+      # genuine corner duplicate.
+      streetlights:  {traffic_lights: 18.0, streetlights: 20.0}
+
+  # ---- prune sub-prims out of placed assets ----------------------------------
+  # For assets that are wanted apart from one part of themselves. Deactivated
+  # rather than removed: the prim lives in a referenced layer, so a session-layer
+  # RemovePrim would not take.
+  # ---- force roughness on over-glossy library materials -----------------------
+  # Authored once per MATERIAL, not per prim: the material lives in a referenced
+  # layer and every instance shares it. The DowntownWest walk tile is lit for an
+  # archviz still and comes back looking like wet stone in a daylit park.
+  # 1.0 is fully matte; drop toward 0.7 if it reads too flat.
+  surface_overrides:
+    - categories: [trail]
+      roughness: 0.92
+      metallic: 0.0
+
+  prune_prims:
+    - usd_contains: "599a74c1c8fd4f19bf6754b8128da6b8"
+      # "Street Sign Final" — a street-name blade with a stop sign welded on,
+      # so every street-name post also planted a stop sign.
+      prims: ["pCube4", "pCube44"]
+
+  # ---- road surface markings -------------------------------------------------
+  roads:
+    # NACTO Urban Street Design Guide, Lane Width: 10 ft travel lanes "provide
+    # adequate safety in urban settings while discouraging speeding", and lanes
+    # over 11 ft are not to be used — they read as highway and induce speed.
+    # The inherited default is 3.5 m (11.5 ft), over that ceiling. 3.0 m also
+    # gives ~2 m of carriageway back per 4-lane arterial, which is block area.
+    #
+    # The other two geometry figures were checked against the same guide and are
+    # already right, so they are left alone:
+    #   parking_lane_m 2.4 m = 7.9 ft   vs NACTO 7-9 ft          OK
+    #   no_parking_m   7.5 m = 24.6 ft  vs NACTO 20-25 ft daylighting  OK
+    # 3.3 m (10.8 ft) — the top of what NACTO allows before "lanes greater than
+    # 11 ft should not be used" bites. 3.0 was the guide's preferred figure but
+    # left the car assets tight in their lane.
+    lane_width_m: 3.3
+
+    # MUTCD broken lane line is a 10 ft segment against a 30 ft gap — a 1:3
+    # ratio. The inherited default is 3.0/3.0, i.e. 1:1, which reads as a
+    # dotted extension line (the marking used THROUGH a junction) rather than
+    # an ordinary lane divider.
+    lane_lines:
+      dash_length_m: 3.0
+      dash_gap_m:    9.0
+
+    markings:
+      crosswalks:     true
+      stop_bars:      true
+      parking_bays:   true
+      # OFF by request — the diagonal closing a parking lane into a turn pocket
+      # reads wrong on approach. Worth recording that I never found a clause for
+      # this device: a lane-drop taper is real in MUTCD terms, but this specific
+      # composition was never verified against one. Re-enable only with a
+      # citation.
+      turn_lane_flares: false
+      # OFF by request. This is the daylighting hatch at junction approaches —
+      # the remaining source of diagonal lines now that turn_lane_flares is off.
+      # MUTCD 11th ed. §3B.25 p07/p09 does scope it (white, in a no-parking
+      # zone), so unlike the flare it IS a real device; it is off because it
+      # reads wrong here, not because it was invented. The bays still hold back
+      # from junctions and hydrants — the prohibition is enforced, just unpainted.
+      no_parking_hatch: false
+      # MARKING HEIGHTS. Two planes, because `apply_ground_planes` is tracked
+      # and hardcodes its centre lines and lane dashes at z=0.020.
+      #
+      # z_high is for the markings that genuinely cross one of those and have
+      # to win: the crosswalk band, the asphalt mask that hides the centre line
+      # inside it, the stop bar, and the single bike lane line that lands on a
+      # lane divider by design. It is clamped to at least 0.0205 in code — set
+      # it below 0.020 and those markings silently disappear under paint this
+      # module cannot edit.
+      #
+      # z_low is everything else: bay ticks, no-parking hatching, turn-lane
+      # flares and the inside of a bike lane, all of which sit on bare asphalt.
+      # At the old single 0.021 the paint visibly floated at close range; real
+      # thermoplastic is 2-3 mm proud. 5 mm reads flush and still clears the
+      # road mesh at z=0 by enough not to stipple.
+      z_low_m:        0.005
+      z_high_m:       0.021
+      bar_width_m:    0.45   # ladder bar, along the direction of travel
+      bar_gap_m:      0.45
+      crosswalk_depth_m: 2.4 # kerb-to-kerb depth of the striped band
+      stop_bar_width_m: 0.5
+      setback_m:      1.2    # gap between the kerb line and the striped band
+      # Clear gap from the crosswalk's near edge back to the stop bar. This was
+      # hardcoded at 0.15 m, which put the bar hard against the crossing so the
+      # two read as one thick smear. MUTCD 3B.16 minimum is 4 ft.
+      stop_bar_advance_m: 1.2
+      bay_tick_width_m: 0.12
+      # Daylighting: no parking within this of a junction box — no jurisdiction
+      # allows parking across a crossing, and that cleared length is exactly
+      # what the approach borrows for a turn lane. Bays are held back by
+      # max(no_parking_m, flare_m + flare_taper_m), but only no_parking_m is
+      # painted: hatching the flare reserve too carpets every approach in yellow,
+      # and that stretch is a running lane, not a prohibition.
+      no_parking_m:   7.5
+      # flare_m is measured from the junction BOX, but the pocket only starts
+      # clear of the stop bar at ~5.6 m, so at 8.0 the straight pocket was 2.4 m
+      # against a 5 m diagonal — a stub with a long slant hung off it, which is
+      # what read as unnatural. 16 m gives ~10 m of pocket to 5 m of taper, so
+      # the straight run dominates and it reads as a lane.
+      flare_m:       16.0    # turn pocket length back from the junction box
+      flare_taper_m:  5.0    # diagonal back out to the kerb
+      flare_chance:   0.55   # not every approach flares
+      lane_line_width_m: 0.15
+      # Yellow diagonal hatching over a parking strip where parking is signed
+      # out. Duller than the generator's pure-yellow centre line so the two do
+      # not read as one smear. Raise the pitch to thin it: 1.6 m across a 2.4 m
+      # strip gives ~1.1 m perpendicular spacing.
+      hatch_pitch_m:  1.6
+      hatch_width_m:  0.15
+      # 15 ft either side of a hydrant. reach is how far off the kerb a hydrant
+      # can stand and still be matched to it — the furnishing zone is ~1.05 m in.
+      hydrant_clear_m: 4.6
+      hydrant_reach_m: 4.0
+
+      # ---- bus zones -------------------------------------------------------
+      # Kerb reserved either side of a placed bus stop. Parking bays are kept
+      # out of it (you cannot park in a bus zone) but it is deliberately NOT
+      # hatched: a bus zone is a stopping place, signed and kerb-marked, and
+      # diagonal hatching is not the device for that.
+      #
+      # TCRP Report 19 "Guidelines for the Location and Design of Bus Stops",
+      # ch.3 p.24-25, Figure 3 "Typical Dimensions for On-Street Bus Stops":
+      # far-side 90 ft, near-side 100 ft, mid-block 150 ft, for a 40 ft bus.
+      # 27.4 m = 90 ft, the FAR-SIDE figure, because that is the stop type
+      # transit practice prefers by default (CA MUTCD 2014 Rev 9 3B.23 para 21,
+      # Standard: "Whenever practicable, bus stands shall be located on the far
+      # side of the intersection"). Stops here are placed by frontage spacing
+      # and are not classified near/far/mid-block, so one length has to serve;
+      # this is the conservative middle of the three.
+      # Figure 3 note 2 adds 50 ft per additional 40 ft bus berthing at once
+      # and note 1 adds 20 ft for an articulated bus — neither is modelled, so
+      # every stop here is single-berth.
+      #
+      # bus_reach_m is how far off the kerb a stop can stand and still be
+      # matched to it — a shelter sits in the furnishing zone and is deeper
+      # than a hydrant, hence 5.0 against the hydrant's 4.0.
+      bus_zone_m:     27.4
+      bus_reach_m:    5.0
+
+      # ---- bike lanes ------------------------------------------------------
+      # A road diet, not a widening: the rect is fixed and the blocks are built
+      # against it, so the lane comes out of the carriageway. One lane_width_m
+      # is taken off EACH kerb, which leaves the generator's yellow centre line
+      # on the centre of what remains and puts the new lane's inner edge
+      # exactly on the outermost white divider it already drew. See the BIKE
+      # LANES section of road_markings.py.
+      bike_lanes:
+        enabled: true
+        # Arterials only. Below 4 lanes there is nothing to give up — a 2-lane
+        # street would be left with no travel lane at all on one side. Taking a
+        # WHOLE lane also satisfies MUTCD 9E.02 para 07 (Standard), "a bicycle
+        # lane shall not be marked within a general-purpose lane": this is a
+        # road diet, not a stripe inside a live lane.
+        min_lanes: 4
+        # Rideable width, kerb side of the buffer. 2.0 m = 6.6 ft, inside
+        # NACTO's 6.5-7 ft minimum rideable for a one-way protected lane
+        # (Designing Protected Bike Lanes), over the 6 ft NACTO calls desirable
+        # for a conventional lane at a kerb (Conventional Bike Lanes), and over
+        # AASHTO 4th ed. 4.6.4 p.4-15, which sets 5 ft minimum against a kerb
+        # measured to the CENTRE of the lane line.
+        # The buffer is whatever lane_width_m leaves: 3.0 - 2.0 = 1.0 m
+        # = 3.3 ft, over NACTO's >=3 ft for motor vehicle speeds above 25 mph
+        # (>=2 ft otherwise), and over 3x the line width as MUTCD 9E.06 para 08
+        # advises. Raising this eats the buffer, it does not widen the lane.
+        # MUTCD itself specifies NO bike lane width — 1A.02 para 02 puts
+        # geometry outside its scope — so every number here is AASHTO/NACTO.
+        ride_width_m: 2.0
+        # Share of eligible arterials that carry a lane, and share of the
+        # protectable stretches on those that get posts rather than paint
+        # alone. Both are taken as an exact count of a shuffled list, not as a
+        # coin flip per candidate — a scene holds only a couple of dozen
+        # arterials and at that sample size a flip misses its own mean badly
+        # (0.60 measured 4 of 15). Protection is deliberately a minority: it is
+        # what real networks look like, and every post is an instance.
+        corridor_chance: 0.60
+        protected_chance: 0.45
+        protected_min_m: 30.0    # no 5 m stub of bollards
+        # The BSP leaves one junction-to-junction stretch per corridor, so
+        # protection is drawn per this length of it rather than per stretch —
+        # otherwise a corridor is protected end to end or not at all and the
+        # lane never changes character along its length.
+        protected_seg_m: 55.0
+        # MUTCD 9E.02 para 11 (Guidance) breaks the lane line on approaches
+        # where turning vehicles cross through bicyclists, and Figure 9E-2
+        # calls for "50 to 200 feet of dotted line" there (Figure 9E-3 sheet 3:
+        # 50 ft MIN). 22 m = 72 ft sits in that band. Everything outside it is
+        # the solid lane, and only the solid lane may carry posts.
+        mix_zone_m: 22.0
+        # MUTCD 3A.04 para 02.A: a NORMAL line is 4-6 in. Figures 9E-1 and
+        # 9E-2 both mark a bike lane with a normal line, NOT a wide one, so
+        # 0.15 m = 5.9 in is the top of the normal range — which is also the
+        # bottom of NACTO's 6-8 in recommendation.
+        line_width_m: 0.15
+        # MUTCD calls these DOTTED, not dashed; the 10 ft/30 ft broken line is
+        # a different device and is not used on bike lanes. Figure 9E-2 draws
+        # the weave zone as "2-foot line, 6-foot space" = 0.6/1.8.
+        # There is no through-junction pattern here: 9E.03 para 07 would allow
+        # a dotted extension across the box, but nothing is painted inside a
+        # junction at all — see the clear zone note above.
+        dash_len_m: 0.6
+        dash_gap_m: 1.8
+        # Diagonal hatching inside the buffer. MUTCD 9E.06 para 14 (Standard)
+        # makes it mandatory above a 3 ft buffer, and this one is 3.3 ft.
+        # Para 12 (Guidance) wants strokes 10 ft apart or more, hence 4.0 m
+        # = 13 ft — also cheap, since the buffer runs for kilometres and each
+        # stroke is a quad. 0.10 m = 4 in matches NACTO's cross-hatch width,
+        # and the stroke runs 1.0 m across in 1.0 m along, i.e. 45 degrees,
+        # inside NACTO's 30-45. Direction is set in code: 9E.06 para 11
+        # (Standard) slants the diagonals AWAY from the adjacent travel lane.
+        # 0 = off, by request: every diagonal marking in the scene is off
+        # together. This one IS mandated (9E.06 p14 Standard above a 3 ft
+        # buffer), so it is a knowing deviation. Restore 4.0 to comply.
+        buffer_hatch_pitch_m: 0.0
+        buffer_hatch_width_m: 0.10
+        # MUTCD 9E.01 para 03 (Guidance): first marking at the start of the
+        # lane, further ones after major intersections, then "periodic
+        # intervals along the bicycle lane based on engineering judgment".
+        # There is NO federal number for the interval, so 60 m is judgment;
+        # the after-every-junction part is not, and falls out of placing the
+        # first symbol at the head of each solid stretch.
+        #
+        # KNOWN DEVIATION: 9E.01 para 02 (Standard) requires a bicycle SYMBOL
+        # or BIKE LANE legend together with the lines. Only the arrow of para
+        # 04 is drawn — the pictogram cannot be built from flat quads. It needs
+        # a decal texture to be compliant.
+        symbol_spacing_m: 60.0
+        symbol_len_m: 1.8
+        # Green conflict-area pavement. Cite MUTCD 3H.06, NOT Interim Approval
+        # IA-14: IA-14 was terminated once the 11th edition absorbed it, and
+        # its nighttime chromaticity rule was rescinded with it. Only 3H.06
+        # para 02(C) is used — weave areas where motor vehicles cross
+        # bicyclists. Para 02(B), extensions through an intersection, is NOT:
+        # nothing is painted inside a junction box here at all. Para 04
+        # (Standard) then requires the green to MATCH the dotted pattern of
+        # the line it supplements, which is why it is drawn dotted in code
+        # rather than as a continuous slab.
+        green_conflict: true
+        # Share of weave zones that actually get colour. Green marks a CONFLICT
+        # POINT, not the general run of the lane, so most of the network is
+        # plain white dashes with or without posts. Low on purpose, and an
+        # exact count off a shuffled list of every weave zone in the scene, the
+        # same as the two shares above.
+        green_chance: 0.25
+        # NACTO (Separating Protected Bike Lanes) puts flexible delineators
+        # every 10-40 ft and "closer together ... on the approach and departure
+        # of intersections". 3.0 m = 10 ft at either end of a protected
+        # stretch, easing to 12.0 m = 39 ft in the middle over a 20 m taper —
+        # which also stays under the <=40 ft that MUTCD 3I.02 para 02 implies
+        # via 3B.14 para 07 (N = one segment plus one gap = 10+30 ft).
+        # NACTO gives no NUMBER for the tightening, only the direction, so the
+        # 3.0 m end is judgment inside its own band.
+        # post_setback_m keeps the first post off the junction; 9E.17 para 08
+        # additionally wants devices >=1 ft off the lane line, which the buffer
+        # centreline satisfies at 0.5 m each side.
+        post_spacing_near_m: 3.0
+        post_spacing_far_m: 12.0
+        post_taper_m: 20.0
+        post_setback_m: 2.0
+
+  # ---- districts -------------------------------------------------------------
+  # NOT OSM-calibrated yet, and the one place where that matters most.
+  # `building:levels` is exactly the tag that would set these height bands, but
+  # the buildings query hit a ConnectionError after Overpass rate-limited an
+  # earlier run (see tools/osm_measurements.md). Until it lands, bands are split
+  # by measured USD height rather than by a real floor-count distribution.
+  #
+  # What DID measure: the Manhattan sample is 96% commercial landuse, i.e. a
+  # dense core with no residential ring at all. A three-ring gradient is
+  # therefore a generic-city assumption, not something Manhattan supports —
+  # verify against a mixed-use sample before leaning on it.
+  districts:
+    enabled: true
+    min_region_m: 300      # below this the whole region stays one district
+    # Radial gradient from the region centre, as fractions of the half-diagonal.
+    # Core is the dense mid-rise centre; edge gets the cheap massing shells.
+    # Height is SAMPLED from each ring's log-normal profile, then the nearest
+    # fitting library asset wins — so the library quantises a smooth
+    # distribution instead of being it, and adding one asset improves the whole
+    # scene rather than adding one more discrete step. Cutting the library into
+    # per-ring bands (the previous approach) is what made neighbours jump
+    # between two extremes with nothing between: that is the "unnatural height
+    # difference". Calibrated against NVIDIA's CityEngine demo city, 600
+    # buildings: right-skewed, p90/p50 about 2x, a thin tail of towers.
+    neighbour_weight: 0.5     # 0..1 — pull toward nearby placed heights so a
+                              # street steps gradually rather than jumping
+    neighbour_radius_m: 45.0
+    pick_sigma: 0.30          # log-height tolerance when matching the library
+    # Damps an asset's odds by (1 + times already placed) ^ this. Height match
+    # alone concentrated the city: an asset is eligible whenever it FITS, so
+    # small footprints won far more slots and two models took 66% of every
+    # building. 0 restores pure height matching.
+    repeat_penalty: 1.0
+    # The last run reported repeat_radius_m=0, which disables the LOCAL repeat
+    # penalty entirely — one model took 56.3% of 119 buildings. With a library
+    # of fifteen that is the difference between seeing all of them and seeing
+    # three. The radius is in metres and wants to be about a block.
+    repeat_radius_m: 70.0
+    repeat_local_penalty: 0.35
+    infill:
+      enabled: true
+      gap_m: 2.0              # clearance between infilled buildings
+      # min_gap_m: 8.0        # raise to leave courtyards / cap the point budget
+    # Ring names are load-bearing: layout.anisotropic.zones is keyed by them.
+    # Rings no longer decide WHAT gets built — only the mixture of typologies
+    # likely at that distance, which is the prior on where a zoning nucleus
+    # lands. `mix` is that prior.
+    rings:
+      # to_frac widened from 0.40: we are modelling A DOWNTOWN, not a
+      # uniformly-sampled 800 m of Philadelphia. The measured core mix is
+      # only 17% tower, so a narrow core ring yields ~1 tower in the whole
+      # city. The mixes below are measured and unchanged; this is not.
+      # Row houses are 14-15 m against 22-33 m midrise and 44-131 m towers, so
+      # a lone terrace standing among them reads as a small building in the
+      # wrong place. Real brownstone stock is not distributed that way — the
+      # West Village and Brooklyn Heights are their OWN districts, block after
+      # block of one height. Concentrating rowhouse in `edge` and taking it out
+      # of `mid` almost entirely is what turns those buildings from scattered
+      # oddities into a neighbourhood.
+      - {name: core, to_frac: 0.56, furniture_scale: 1.0,
+         mix: {tower: 0.85, midrise: 0.15, rowhouse: 0.00}}   # downtown, not the measured mix
+      - {name: mid,  to_frac: 0.68, furniture_scale: 1.3,
+         mix: {tower: 0.50, midrise: 0.47, rowhouse: 0.03}}
+      # Pulled in from 0.72 and the share raised from 0.75: the terrace ring is
+      # the one district that loses blocks to its own geometry, since any block
+      # too deep for a pair refuses and rebuilds as mid-rise. Widening the ring
+      # is what buys brownstones; raising the share alone just re-rolls blocks
+      # that were going to refuse anyway.
+      - {name: edge, to_frac: 1.01, furniture_scale: 1.9,
+         mix: {tower: 0.03, midrise: 0.12, rowhouse: 0.85}}
+
+    # ZONING MAP. Concentric rings alone give a city where every block is the
+    # same KIND of place and only the storey count changes. Land use is grown
+    # instead from a few nuclei into irregular contiguous areas — Harris &
+    # Ullman's multiple-nuclei model rather than Burgess's concentric one, and
+    # closer to what OSM landuse polygons actually look like.
+    zoning:
+      cell_m: 40.0              # lattice the areas are grown on. MEASURED
+                                # green patches are 29-44 m; at 120 m a 400 m
+                                # region is a 3x3 grid and cannot make a
+                                # ragged boundary at all
+      area_m2_per_nucleus: 30000.0    # MEASURED: non-green landuse patches
+                                      # are 58-112 m median side (175 m sq)
+      # 40 m, not 150. Nuclei are ~173 m across at area_m2_per_nucleus 30000,
+      # so a 150 m blend radius reached past the whole district and EVERY cell
+      # averaged in its neighbours: rowhouse blocks configured at 46-52 m were
+      # delivered at 53-64 m, which left 18 m of dead ground between the backs
+      # of two terraces. One block-width still grades the seam without erasing
+      # the typology's own size.
+      blend_m: 40.0             # distance over which block size grades across
+                                # an area boundary instead of snapping
+      adjacency_ladder: true    # a tower area may not abut a row-house one; the
+                                # intermediate typology is inserted between them
+      bleed: 0.12               # per-block chance of re-rolling from the ring
+                                # mix — the corner apartment block in a terrace
+                                # street. Clean zoning is the giveaway.
+
+    # TYPOLOGIES. Each owns a building pool, a height profile, a block size and
+    # a morphology. `rank` orders them by intensity for the adjacency ladder and
+    # for the fallback when a pool cannot fit the block it landed on.
+    typologies:
+      rowhouse:
+        rank: 0
+        pools: [rowhouse]
+        morphology: terrace     # party-wall runs along the block's long faces
+        facing_offset_deg: 0.0  # EYEBALL THIS: if the stoops face the back
+                                # yards, set 180
+        # MEASURED: Philly row-house height p50 10.6 m (LiDAR, 96% coverage),
+        # Boston Back Bay 16.0 m; log-normal sigma 0.21.
+        # RETUNED FOR THIS LIBRARY. The inherited 12.5 m is a
+        # Philadelphia row house; the shallowest GreatAmericanCity
+        # building is 38.6 m, so a 12.5 m target leaves every draw
+        # far outside `pick_sigma` and the match degenerates to
+        # "nearest available" every time.
+        height_median_m: 48.0
+        height_sigma: 0.18
+        # Sized so the two terraces back to back very nearly ARE the block:
+        # 2 x 21.1 = 42.2 m of building, leaving 4-8 m down the middle. That is
+        # a service alley, which is what a downtown terrace block has — not a
+        # rear yard. Anything wider reads as back gardens and makes the row
+        # houses look like suburban detached stock that happens to be touching.
+        # This is deliberately BELOW the measured 61 m p50: the measurement is
+        # of real blocks whose buildings are ~15 m deep, and our asset is 21.1 m,
+        # so matching the block size would leave the gap the asset does not fill.
+        # 2 x 21.1 m of terrace + the alley. _terrace_strips only lays TWO
+        # rows when short >= 2*depth + alley_m, i.e. >= 45.7 at alley_m 3.5;
+        # at [46,50] with the old 6.0 alley the threshold was 48.2 and most
+        # blocks fell short, so they got one lonely row down the middle.
+        # A terrace SUPERBLOCK is the row-house district cut on its own,
+        # finer grid — four rows around an internal street:
+        #     row | alley | row  ||street||  row | alley | row
+        # which is 4*21.1 + 2*3.5 + 11.4 = 102.8 m buildable, 110 m outer.
+        # It exists because a terrace pair on a deep block leaves its back row
+        # fronting nothing; real row-house districts answer that with MORE
+        # STREETS, not with unrelated buildings behind. The street is appended
+        # to layout["road_corridors"] so apply_ground_planes builds it for real.
+        #
+        # Capped at 2 per city: these are the distinctive part of the district,
+        # not the default, and each consumes a 110 m+ block. Rowhouse blocks
+        # that are not superblocks keep the pair-against-one-face layout, so
+        # the overall brownstone share is unchanged.
+        # Run the terrace blocks ACROSS the city's grain. Every block in the
+        # scene is elongated the same way by one global long_axis, which is much
+        # of why a terrace district reads as more of the same; a quarter turn
+        # makes it legible as its own district. The rows follow the block's long
+        # face, so they turn with it.
+        # true turns EVERY terrace block the same quarter, which is the same
+        # uniformity one rotation further on. A number turns it by section of
+        # that many metres, so one district runs with the city grain and the
+        # next across it. 400 puts the two row-house sections of an 800 m region
+        # on opposite grains.
+        cross_grain: 400.0
+        # The two 102.6 m blocks have 95.6 m buildable, which is exactly what a
+        # QUAD needs (two pairs around a 6 m internal mews = 94.4 m). At 2 only
+        # one could form; the rest of the deep blocks have nothing they can be.
+        max_superblocks: 6
+        street_w_m: 6.0         # a quad's internal street is a mews, not a through road
+        # 11.4 needed a 110 m block and none exists, so no quad ever formed.
+        street_park_w_m: 2.4
+        alley_m: 2.0            # tight end of the alley band
+        # Loose end. A terrace block is TWO rows back to back with a service
+        # alley and nothing else, so the block short side has to land in
+        # [2*21.1 + 2.2, 2*21.1 + 6.0] = [44.4, 48.2] m. Outside that the block
+        # is refused and built as the next typology up: one row down the middle
+        # of a narrow block leaves both frontages bare, and two rows on the
+        # faces of a deep block leaves a courtyard where an alley belongs.
+        #
+        # The band ALSO has to stay wide enough to contain the block size the
+        # subdivider can actually produce, which is quantised — see
+        # even_split_road_m. A band that excludes it refuses every block and the
+        # district comes out empty, which is the failure this has hit before.
+        # 18.0. The block sizes this subdivider can actually produce are
+        # quantised: a 212 m row-house strip yields 66.7 m blocks at k=3 or
+        # 48.5 m at k=4, nothing between. After the 7.00 m the sidewalk takes
+        # off every block, k=4 leaves -0.6 m for the terrace pair — it does not
+        # fit at all, which is why ten blocks were refused as too narrow and the
+        # district came out nearly empty. k=3 leaves 17.5 m, so the band has to
+        # reach that far or the same blocks are refused as too deep instead.
+        #
+        # 17.5 m between the backs is a garden court, not the 35 m void the old
+        # one-face fallback left. Both rows still front their own street.
+        # 26.0. MEASURED, the blocks this scene actually makes: six row-house
+        # blocks land at 72.0-74.3 m (65.0-67.3 m buildable), leaving 22.9-25.2 m
+        # behind the two rows. Capping below that refused all six and rebuilt
+        # them as mid-rise. A court that deep is a garden court rather than an
+        # alley, but both rows still front their own street, which is the thing
+        # that actually matters — and it is far better than losing the blocks.
+        alley_max_m: 26.0
+        # THESE ARE OUTER BLOCK SIZES; the terrace band is tested against the
+        # BUILDABLE rect, which build_city insets by block_inset() on BOTH
+        # sides. MEASURED off the placed rows, that inset is 2.00 m per side,
+        # 4.00 m total — NOT the verge-plus-full-tile the earlier note here
+        # assumed. So the buildable band [44.4, 48.2] wants an outer block of
+        # [48.4, 52.2], and the 48.5 m the subdivider yields sits just inside it.
+        # Targets k=3 on the row-house strip (t_mid 66 -> 66.7 m blocks), which
+        # is the only reachable size that fits a terrace pair once the sidewalk
+        # inset is taken off. [46, 52] targeted k=4 and could not fit one.
+        # SHORT AXIS IS NOT TOUCHED: the terrace band above is tuned to it
+        # (k=3 on the row-house strip), and brownstones only need 25.1 m, so
+        # this is set by the terrace composition rather than by fit. Only the
+        # long axis moves, for the anisotropy reason given under midrise.
+        block_short_m: [60.0, 72.0]    # terrace-tuned; assets need >= 25.1
+        block_long_m: [165.0, 230.0]   # ratio ~3.0x, matching a brownstone strip
+        # MEASURED terrace runs: 6 houses / 43-48 m frontage median,
+        # 17-29 houses / 105-130 m at p90 — a run is NOT a whole block face.
+        run_median_m: 45.0
+        run_sigma: 0.70
+        run_gap_m: [3.0, 9.0]
+      midrise:
+        rank: 1
+        pools: [midrise]
+        morphology: pack
+        # Build the block's frontage BAND and leave the middle as courtyard.
+        # Packing the whole interior let buildings sit at the back of the block
+        # with a deep apron of bare paving at the street, which from the
+        # pavement reads as an enormous sidewalk. 45 m takes the deepest asset
+        # in the pool plus room to shuffle; the slack moves to the middle, where
+        # a dense block actually keeps it.
+        # 32, not 45. `_perimeter_rects` only carves a courtyard when the block
+        # exceeds 2*depth + min_side, and min_side across this pool is 18.5 m
+        # (MBuilding01), so 45 demanded a 108.5 m block short side while the
+        # targets below produced 80-115 m. The courtyard therefore almost never
+        # formed and packing fell back to the whole interior -- which is exactly
+        # the "built at the back with an apron of paving" artefact the band
+        # exists to prevent, and why measured built_frac sat at 0.60. At 32 the
+        # threshold is 82.5 m, under the floor below, so EVERY midrise block now
+        # forms a real perimeter block. 32 m is also about one building deep:
+        # the pool's depths run 18.5-45.1 m, median 32.0.
+        perimeter_depth_m: 32.0
+        height_median_m: 27.0          # MEASURED levels p50 4-9 fl (13-29 m)
+        height_sigma: 0.45
+        # ASSET CHECK, all 13 midrise assets: narrowest side per asset runs
+        # 18.5-45.1 m (widest narrow side is Building_TypeB_C at 45.1), so the
+        # pool needs a 49.1 m block short side and NOT the 80-115 m set here
+        # before -- the old comment called this asset-anchored, and it was not.
+        # The short axis is held near Manhattan's measured 79.7 m because that
+        # is what the perimeter band wants, and the LONG axis is what moves:
+        # at [135, 200] the achieved ratio was 1.64x against a measured 2.3x,
+        # which is why the city read as a fine uniform lattice at 62.5
+        # blocks/km2 against Manhattan's 35.
+        block_short_m: [85.0, 112.0]   # assets need >= 49.1; Manhattan 79.7
+        block_long_m: [205.0, 270.0]   # Manhattan 273.9 -> ratio ~2.4x
+      tower:
+        rank: 2
+        pools: [tower]
+        morphology: pack
+        # Towers are 50-96 m in plan, so the band has to clear the largest of
+        # them or _perimeter_rects falls back to the whole block anyway.
+        perimeter_depth_m: 60.0
+        # 85, not the measured 66: the core is meant to READ as a high-rise
+        # district. At 66 with sigma 0.45 the typical draw is 60-70 m, which the
+        # library answers with BG_Building_B/F and MBuilding02, so the 131 m
+        # BG_Building_E sits in a tail that ~16 draws almost never reach. Moving
+        # the median up makes tall the norm here rather than the exception.
+        height_median_m: 85.0
+        height_sigma: 0.45
+        height_max_m: 140.0
+        # 70-110, not 95-120. A tower block holds exactly ONE building, so the
+        # bigger the tower block the FEWER towers exist: at 95-120 m the core
+        # produced only 16 towers against 149 midrise, because a midrise block
+        # packs ten small buildings while a tower block packs one. Dropping the
+        # floor to 70 m both multiplies the tower count and gives the 50-60 m
+        # BG_Building_A / C / E blocks they fit, instead of only the 80-96 m
+        # BG_Building_F and MBuilding02. The top stays at 110 so MBuilding02
+        # (91.1 x 96.1) still has somewhere to stand.
+        # ASSET CHECK, all 7 tower assets: narrowest sides are 20.6 / 36.5 /
+        # 40.1 / 40.2 / 50.4 / 51.3 / 91.1 m. MBuilding02 (91.1 x 96.1) is the
+        # binding one and needs a 95.1 m short side; at the previous 70 m floor
+        # it could never be placed at all. The floor moves to 78 so most of the
+        # pool still fits in a modest block, and the ceiling to 118 so
+        # MBuilding02 has somewhere to stand. This does cost tower COUNT -- a
+        # tower block holds exactly one building -- which is the trade the note
+        # above describes, now made against measured footprints rather than a
+        # guess.
+        block_short_m: [78.0, 118.0]   # assets need >= 95.1 for the full pool
+        block_long_m: [190.0, 250.0]   # ratio ~2.2x, was 1.8x
+
+  # ---- parks (parks.py) ------------------------------------------------------
+  # build_city gives a park ONE trail entering and leaving at opposite edge
+  # midpoints, with benches/lamps/bins walked along that single ribbon and trees
+  # spread deliberately EVENLY. That reads as a path through a field, not a
+  # park. This re-lays each one: gates at corners and edge midpoints joined by
+  # curved desire lines to off-centre hubs, a perimeter promenade, furniture by
+  # AREA density, tree groves plus a perimeter row, and an open lawn left at the
+  # point farthest from any path.
+  #
+  # Densities rather than along-path spacings: the new network is 4-5x the
+  # length of the single trail, so a 14 m bench pitch applied to all of it gives
+  # a bench every few metres. Central Park runs about one bench per 380 m2.
+  parks:
+    layout:
+      # Corners first: a corner entrance pulls a desire line diagonally across
+      # the park, which is what stops the network reading as a cross.
+      entrances: [4, 6]
+      # Each interior junction is an ATTRACTION — fountain, playground, seating
+      # plaza. A walk has to lead somewhere or the layout reads as decoration.
+      attractions: [2, 3]
+      loop_min_side_m: 45.0   # perimeter promenade only above this park size
+      # Always, above that size. With the attractions composed as rings the
+      # through walks are radial, so without the promenade a park has no
+      # circumferential route at all — measured, the seeds that skipped it came
+      # out at 611 m of walk against 1,090-1,221 m for the seeds that drew it.
+      loop_chance: 1.0
+      loop_inset_m: 8.0
+      path_curve_m: 5.0       # lateral wander of a desire line
+      # Trunk keep-out beyond the paving edge. Small because the shared
+      # footprint reservation already holds planting off the tiles themselves,
+      # and a crown over a walk is a shade tree, not a collision.
+      path_clear_m: 1.0
+
+    # THE ATTRACTION AS A CENTREPIECE. Every walk drawn to an attraction is
+    # clipped to the outside of its ring, so a path leads to it and the ring
+    # carries you around it; nothing crosses the water. Radii are derived per
+    # attraction from the MEASURED footprint of whatever stands in the middle,
+    # so these are the clearances added to it, not absolute sizes.
+    attraction:
+      ring_gap_m: 1.0         # grass between the keep-out and the ring paving
+      clearing_m: 9.0         # tree clearing OUTSIDE the ring — what makes the
+                              # fountain visible instead of buried in canopy
+      # 16 m along the ring: at 9 m a 12 m-radius ring carried 8 benches, which
+      # rings the fountain in seating rather than punctuating it. ~3 now.
+      bench_spacing_m: 16.0   # along the ring, benches facing inward
+      plaza_radius_m: 4.0     # a seating circle has no centrepiece to clear
+
+    # 2.5 benches per 1000 m2 is CENTRAL PARK density — ~9,000 benches over
+    # 3.41 km2 is 2.6 — and Central Park is the densest-seated park in the US.
+    # An ordinary urban park is nothing like it: 0.8 gives ~17 benches in a
+    # 2 ha park, which is a bench every few tens of metres of walk.
+    bench_density_per_1000m2: 0.8
+    # Likewise the lamps: 1.6 lit the park like a car park. 0.5 keeps the walks
+    # lit without the fixture becoming the thing you notice.
+    lamp_density_per_1000m2: 0.5
+    trash_can_density_per_1000m2: 0.5
+    furniture_offset_m: 1.2   # kerb-to-prop gap off the walk edge
+
+    # Planting is a jittered grid, one candidate per cell, so density is uniform
+    # by construction — rejection sampling with a retry cap gave dense patches
+    # and bare ones. Densities set the cell pitch: sqrt(100/density) metres.
+    # Trees are laid FIRST and plants take only what is left, so raising the
+    # tree density and cutting the plant density keeps shrubs as underplanting
+    # rather than as a substitute canopy. At 1.2 / 0.8 the park was drifting the
+    # wrong way — plants 106 -> 198 while trees fell 351 -> 237, which reads as a
+    # park full of bushes.
+    tree_density_per_100m2: 1.8
+    plant_density_per_100m2: 0.45
+    tree_min_separation_m: 4.0
+    plant_min_separation_m: 2.0
+    # A crown is above head height and may overhang a walk, a bench or another
+    # crown — massed canopy is what a grove is. What reserves ground is the
+    # trunk and its pit, this share of the crown, floored at the separation
+    # above. Bigger trees therefore stand further apart without a second knob.
+    canopy_footprint_frac: 0.45
+    # A backstop against a mis-scaled asset, NOT a design rule. A park is the one
+    # place a large canopy belongs, so this is set above every tree in the pool
+    # (largest is Black_Oak at 25.4 m) and excludes nothing today.
+    #
+    # At 14.0 it excluded Black_Oak, which left Shumard_Oak as the ONLY canopy
+    # tree in the park — everything else in the pool is 0.6-4 m understorey — and
+    # accounted for most of the park's point saving. That was a budget cut
+    # dressed as a planting rule, and a monoculture is the visible result.
+    #
+    # Crowns overlapping is not the problem it looks like: occupancy reserves the
+    # trunk and pit (canopy_footprint_frac), so crowns interleave by design. That
+    # is what a grove is.
+    tree_max_canopy_m: 30.0
+    grove_area_m2: 1600.0     # one species per grove, so planting reads massed
+    lawn_area_frac: 0.10      # protected greensward, as a fraction of park area
+                              # — MEASURED, Central Park's Great Lawn is 6.5%
+    # A meadow is mown grass and wildflower, not bare ground: understorey up to
+    # this footprint goes ON the lawn, bushes and trees stay off it. The lawn is
+    # the largest single hole in a park's ground cover, and leaving it literally
+    # empty is most of what reads as "empty in places".
+    lawn_plant_max_m: 1.2
+    fence_module_gap_m: 0.0   # railing modules butt end to end
+
+    # Footprint reservation shared by every category, path tiles included.
+    # Cell size is the bucket for the overlap test, not a placement grid.
+    occupancy_cell_m: 6.0
+    occupancy_pad_m: 0.2      # gap held between neighbouring footprints

@@ -409,7 +409,7 @@ def _pool_entries(config: dict, resolver, key: str):
     raw = bld.get(key) or []
     default_scale = float(config.get("asset_scale", 1.0))
     asset_root = str(config.get("asset_root", "") or "")
-    paths, sc_ovr, au_ovr, _yaw, _tags = _normalize_usd_list(
+    paths, sc_ovr, au_ovr, yaw_ovr, _tags = _normalize_usd_list(
         raw, default_scale, asset_root)
 
     out, seen = [], set()
@@ -419,7 +419,17 @@ def _pool_entries(config: dict, resolver, key: str):
         seen.add(p)
         sc = sc_ovr.get(p, default_scale)
         au = au_ovr.get(p, "Z")
-        out.append((p, sc, au, resolver.get(p, "house", scale=sc, axis_up=au)))
+        # PER-ASSET YAW OFFSET, CARRIED. `_normalize_usd_list` has always
+        # returned it and this function threw it away, so every placement here
+        # assumed one canonical facing for the whole library. That holds for a
+        # kit authored together and fails the moment a pool mixes packs: the
+        # GreatAmericanCity buildings front E, N, S and W in the same pool
+        # (measured, `_plans/gac_faces.json`), so ONE rule oriented some
+        # correctly and spun the rest to face the block interior. The offset is
+        # what normalises them to a common front before any layout rule runs.
+        out.append((p, sc, au,
+                    resolver.get(p, "house", scale=sc, axis_up=au),
+                    float(yaw_ovr.get(p, 0.0))))
     return out
 
 
@@ -443,9 +453,11 @@ def _place_z(fp):
 
 
 def _new_placement(entry, x, y, yaw, category="house"):
-    usd, sc, au, fp = entry
+    usd, sc, au, fp = entry[0], entry[1], entry[2], entry[3]
+    yo = entry[4] if len(entry) > 4 else 0.0
     return {"usd": usd, "x_m": x, "y_m": y, "z_m": _place_z(fp),
-            "yaw_deg": yaw, "roll_deg": 90.0 if au == "Y" else 0.0,
+            "yaw_deg": (yaw + yo) % 360.0,
+            "roll_deg": 90.0 if au == "Y" else 0.0,
             "pitch_deg": 0.0, "scale": sc, "category": category,
             "axis_up": au}
 
