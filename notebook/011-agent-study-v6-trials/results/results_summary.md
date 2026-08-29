@@ -64,7 +64,30 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 5 | A1 / claude-opus-5 / #1 | **R8** (full ladder) | 9 / 20 | 2 h 11 m | $32.93 | Zero in-session judge failures; self-validated before first call (opened with R4), one extra R7 verification. Official R7+R8 pass. |
 | 6 | A2 / claude-sonnet-5 / #1 | **R8** (full ladder) | 10 / 20 | 2 h 29 m | $10.47 | Two R3 failures (~30 min debug cycle) then clean R4→R8; official R7+R8 pass. |
 | 7 | A3 / claude-opus-5 / #1 | **R3** | 13 / 20 | 4 h 00 m (killed) | n/a (kill lost usage event) | Bare parts: ~2 h 47 m assembling before first R1 pass; in-session reached R6, but the 4 h wall-clock kill hit before consolidation. Final-state scoring: R7 fail (no avoidance), R6 fail (beta up but route degenerate — "route too straight", spline never materialized), R5/R4 unsatisfiable post-swap (designed cascade), R3 pass. |
-| 8 | A4 / claude-sonnet-5 / #1 | — running | — | — | — | Started 2026-08-29 15:27 UTC. Open loop; last round-1 cell. |
+| 8 | A4 / claude-sonnet-5 / #1 | **NULL** (0 rungs) | 0 / 0 (open loop) | 1 h 19 m | $14.72 | Declared done at 78 min; final state does not boot — MAVROS never connects, interface/trajectory sentinel nodes missing; all 7 scored rungs failed on real bring-up attempts (consistent → agent-broken state, not flake). Same model+repo as trial 1 (closed loop, R8). |
+
+### Round-1 synthesis (8/8 cells, 2026-08-29)
+
+Rung-survival by arm (pooled over models): **A1 R8,R8 · A2 R8,R8 ·
+A3 R6,R3 · A4 R8,NULL.**
+
+- **Platform gap (A1–A3):** both A3 trials capped by the missing
+  platform — sonnet by capability (R7 pillar penetration −0.427 m, no
+  sense-and-avoid), opus by time (2 h 47 m of the 4 h budget consumed
+  before the first R1 pass; killed while consolidating R6). Cost also
+  separates: A3 ran 17 and 13 judge calls vs 9–10 for A1/A2, and ~2–3×
+  the tokens.
+- **Closed-loop gap (A1–A4):** not a ceiling effect but a variance
+  effect — open-loop opus matched A1 (R8, blind, cheapest AirStack-arm
+  trial), open-loop sonnet shipped a system that doesn't boot (NULL).
+  Closed loop removes the catastrophic tail rather than raising the
+  best case. Needs more trials to firm up, but this is the C2 story.
+- **Legibility gap (A1–A2):** invisible in score at n=2; visible in
+  friction (A2 spent extra cycles: R5 fail→fix for opus, 2×R3 fail for
+  sonnet; later first judge calls).
+- The extended ladder did its job: the original R1–R6 ladder would
+  have scored A1=A2=A3(son); R7/R8 + final-state scoring produced the
+  separation.
 
 Round-robin order: A1:son → A2:opus → A3:son → A4:opus → A1:opus →
 A2:son → repeat with rising trial index.

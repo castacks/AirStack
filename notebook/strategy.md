@@ -118,6 +118,24 @@ the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
 
+### 2026-08-29 — Round 1 complete (8/8 cells): the extended ladder separates the arms
+
+Scores (entry [011](011-agent-study-v6-trials/results/results_summary.md)):
+**A1 R8,R8 · A2 R8,R8 · A3 R6,R3 · A4 R8,NULL.** What round 1 says:
+(1) **Platform gap is real and two-mode** — A3/sonnet capped by
+capability (R7 pillar penetration, no sense-and-avoid buildable in
+budget), A3/opus capped by time (2 h 47 m of 4 h spent reaching R1;
+killed consolidating R6). (2) **Closed-loop value shows as variance,
+not ceiling** — A4/opus matched A1 blind (R8), A4/sonnet shipped a
+non-booting system (NULL, MAVROS never connects): the loop removes the
+catastrophic tail. Same model + repo closed-loop = R8. (3) **A1–A2
+legibility gap invisible in score at n=2**; shows only as extra debug
+cycles. (4) Amendment 1 vindicated: the original R1–R6 ladder would
+have read A1=A2=A3(son). Caveats: n=2/cell (target ≥5), A3/opus usage
+metrics lost to the wall-clock kill (CLI result event never emitted —
+known limitation, note for the artifact). Round 2 (trial-index 2)
+started with the same rotation.
+
 ### 2026-08-28 (20:00) — v6 trials STARTED; two headless-environment defects fixed pre-scoring; first scored trial = full-ladder R8
 
 Trials began (entry [011](011-agent-study-v6-trials/design_spec.md)).
