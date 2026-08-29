@@ -6,17 +6,21 @@
 # when they disagree. The develop docs deploy's drift alarm is the loud
 # signal; this is the fix.
 #
-# Cadence: daily + manual dispatch (run it right after merging a registry
-# PR for an immediate sync). No cross-repo secrets: the registry is cloned
-# read-only and the PR is opened in this repo with the workflow token.
-# KNOWN LIMITATION of that token: PRs it opens do not trigger other
-# workflows (unit-tests, check-version-increment) — close and reopen the
-# PR to run them.
+# Cadence: dispatched by the registry's trigger-trunk-sync workflow on
+# every registry merge, plus a daily sweep and manual dispatch. The
+# registry itself is cloned read-only.
+#
+# TOKEN: branch push + PR creation prefer the REGISTRY_SYNC_TOKEN secret
+# (a fine-grained PAT on castacks/AirStack with contents+pull-requests
+# read/write) so the bot PR triggers CI like any human PR. Without the
+# secret it falls back to the workflow token, whose PRs do NOT trigger
+# other workflows (unit-tests, check-version-increment) — close and
+# reopen such a PR to run them.
 name: Sync module catalog from registry
 on:
   workflow_dispatch:
   schedule:
-    - cron: "43 7 * * *" # daily, 07:43 UTC
+    - cron: "43 7 * * *" # daily sweep, 07:43 UTC
 permissions:
   contents: write
   pull-requests: write
@@ -30,6 +34,8 @@ jobs:
           # PR always targets develop.
           ref: develop
           fetch-depth: 0
+          # PAT when configured (bot PR triggers CI); workflow token otherwise.
+          token: ${{ secrets.REGISTRY_SYNC_TOKEN || github.token }}
       - uses: actions/setup-python@v4
         with:
           python-version: 3.10.6
@@ -50,7 +56,7 @@ jobs:
       - name: Open or refresh the sync PR
         if: steps.sync.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.REGISTRY_SYNC_TOKEN || github.token }}
         run: |
           git config user.name "Registry Sync"
           git config user.email "registry.sync@example.co.uk"
@@ -61,7 +67,7 @@ jobs:
           if [ -z "$(gh pr list --head bot/sync-modules-index --state open --json number --jq '.[].number')" ]; then
             gh pr create --base develop --head bot/sync-modules-index \
               --title "chore(catalog): sync committed module catalog from the registry" \
-              --body "$(printf 'Automated trunk half of module registration (see the extract-module skill): mirrors the live [airstack-modules-index](https://github.com/castacks/airstack-modules-index) into tests/meta/fixtures/modules_index/ and regenerates the committed docs/modules pages with tools/gen_docs_catalog.py. VERSION is bumped only to satisfy the check-version-increment gate (docs-only change; publish will retag, not rebuild).\n\nEverything here is deterministic output of already-reviewed registry entries.\n\nNote: PRs opened by the workflow token do not trigger CI — close and reopen this PR to run the checks. The branch is force-refreshed from develop on each run, so a stale VERSION bump heals itself on the next run.\n\nWorkflow: sync-modules-index (%s/%s/actions/runs/%s)' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")"
+              --body "$(printf 'Automated trunk half of module registration (see the extract-module skill): mirrors the live [airstack-modules-index](https://github.com/castacks/airstack-modules-index) into tests/meta/fixtures/modules_index/ and regenerates the committed docs/modules pages with tools/gen_docs_catalog.py. VERSION is bumped only to satisfy the check-version-increment gate (docs-only change; publish will retag, not rebuild).\n\nEverything here is deterministic output of already-reviewed registry entries.\n\nIf CI checks did not start on this PR, it was opened with the fallback workflow token (REGISTRY_SYNC_TOKEN secret not configured) — close and reopen it to trigger them. The branch is force-refreshed from develop on each run, so a stale VERSION bump heals itself on the next run.\n\nWorkflow: sync-modules-index (%s/%s/actions/runs/%s)' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")"
           else
             echo "sync PR already open — branch refreshed in place"
           fi
