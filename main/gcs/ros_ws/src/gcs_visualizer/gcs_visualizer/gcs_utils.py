@@ -11,6 +11,13 @@ from coordination_bringup.frame_utils import (  # noqa: F401
     transform_point_cloud2 as _transform_pc2,
 )
 
+# ── Global ENU world origin — Lisbon (the Pegasus configs.yaml default) ──────
+# KEEP IN SYNC: the same anchor lives in three other files (single-sourcing
+# across container/mount boundaries is deferred — documented in the audit):
+#   - common/ros_packages/coordination/coordination_bringup/coordination_bringup/frame_utils.py
+#   - gcs/ros_ws/src/action_relay/action_relay/relay_node.py
+#   - simulation/isaac-sim/launch_scripts/gps_utils.py (isaac container)
+# If you change the anchor here, change all four together.
 ORIGIN_LAT = 38.736832
 ORIGIN_LON = -9.137977
 ORIGIN_ALT = 90.0

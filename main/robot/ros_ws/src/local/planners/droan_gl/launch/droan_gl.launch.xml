@@ -1,0 +1,58 @@
+<!--
+  droan_gl : canonical module launch file (RFC #379 §2/§4).
+
+  Starts the GPU (OpenGL) DROAN local planner as the legacy local bringup
+  did: node `disparity_expander_node` (droan_gl_node's self-declared name) in
+  the `droan` namespace. Every topic endpoint is a declared <arg> defaulting
+  to the canonical name (today's graph). Wiring deviations — e.g. a MAC-VO
+  disparity source — are passed as include args by the stack entry file
+  (stacks/<name>/launch/) — the single-locus rule: endpoints are declared args,
+  applied locally via <set_remap>; cross-module REWIRING lives only in
+  stack entry files.
+-->
+<launch>
+  <arg name="droan_gl_config"
+       default="$(find-pkg-share droan_gl)/config/droan_gl.yaml"
+       description="Node parameter YAML (loaded with allow_substs)" />
+
+  <arg name="droan_gl_disparity_topic"
+       default="/$(env ROBOT_NAME)/perception/stereo_image_proc/disparity"
+       description="Input disparity image (stereo_msgs/DisparityImage)" />
+  <arg name="droan_gl_camera_info_topic"
+       default="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info"
+       description="Input camera info for the disparity camera (sensor_msgs/CameraInfo); right camera because the baseline is encoded in the right projection matrix" />
+  <arg name="droan_gl_global_plan_topic"
+       default="/$(env ROBOT_NAME)/global_plan"
+       description="Input global waypoint path (nav_msgs/Path)" />
+  <arg name="droan_gl_look_ahead_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/look_ahead"
+       description="Input trajectory-controller look-ahead point (airstack_msgs/Odometry)" />
+  <arg name="droan_gl_tracking_point_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/tracking_point"
+       description="Input trajectory-controller tracking point (airstack_msgs/Odometry)" />
+  <arg name="droan_gl_set_trajectory_mode_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
+       description="Output trajectory-controller mode command" />
+  <arg name="droan_gl_trajectory_segment_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add"
+       description="Output planned trajectory segment (airstack_msgs/TrajectoryXYZVYaw)" />
+  <arg name="droan_gl_navigate_task_action"
+       default="/$(env ROBOT_NAME)/tasks/navigate"
+       description="Navigate task action server name (task_msgs)" />
+
+  <group>
+    <push-ros-namespace namespace="droan" />
+    <set_remap from="disparity" to="$(var droan_gl_disparity_topic)" />
+    <set_remap from="camera_info" to="$(var droan_gl_camera_info_topic)" />
+    <set_remap from="global_plan" to="$(var droan_gl_global_plan_topic)" />
+    <set_remap from="look_ahead" to="$(var droan_gl_look_ahead_topic)" />
+    <set_remap from="tracking_point" to="$(var droan_gl_tracking_point_topic)" />
+    <set_remap from="set_trajectory_mode" to="$(var droan_gl_set_trajectory_mode_topic)" />
+    <set_remap from="trajectory_segment_to_add" to="$(var droan_gl_trajectory_segment_topic)" />
+    <set_remap from="~/navigate_task" to="$(var droan_gl_navigate_task_action)" />
+
+    <node pkg="droan_gl" exec="droan_gl_node" output="screen">
+      <param from="$(var droan_gl_config)" allow_substs="true" />
+    </node>
+  </group>
+</launch>

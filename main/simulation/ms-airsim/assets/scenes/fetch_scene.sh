@@ -4,27 +4,40 @@
 # the scene has already been extracted.
 #
 # Usage: fetch_scene.sh [scene]
+#        fetch_scene.sh --name <scene>   # print the scene's directory name
+#                                        # (e.g. blocks → Blocks) and exit
 #   scene (default: blocks) — one of:
-#     blocks, airsimnh, abandonedpark, forest,
-#     landscapemountains, soccerfield, building99, zhangjiajie
+#     blocks, airsimnh, abandonedpark, landscapemountains,
+#     zhangjiajie, africasavannah, msbuild2018
+#   (only assets that actually exist in the v1.8.1 release; Building_99.zip
+#   is published but 0 bytes, and Forest/SoccerField were never released)
 
 set -euo pipefail
 
+NAME_ONLY=""
+if [ "${1:-}" = "--name" ]; then
+    NAME_ONLY=1
+    shift
+fi
 SCENE="${1:-blocks}"
 SCENES_DIR="${SCENES_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 RELEASE_URL="https://github.com/microsoft/AirSim/releases/download/v1.8.1"
 
 case "$SCENE" in
     blocks)             NAME=Blocks;             ZIP=Blocks.zip ;;
-    airsimnh)           NAME=AirSimNH;           ZIP=Neighborhood.zip ;;
+    airsimnh)           NAME=AirSimNH;           ZIP=AirSimNH.zip ;;
     abandonedpark)      NAME=AbandonedPark;      ZIP=AbandonedPark.zip ;;
-    forest)             NAME=Forest;             ZIP=Forest.zip ;;
     landscapemountains) NAME=LandscapeMountains; ZIP=LandscapeMountains.zip ;;
-    soccerfield)        NAME=SoccerField;        ZIP=SoccerField.zip ;;
-    building99)         NAME=Building99;         ZIP=Building99.zip ;;
     zhangjiajie)        NAME=ZhangJiajie;        ZIP=ZhangJiajie.zip ;;
+    africasavannah)     NAME=Africa_Savannah;    ZIP=Africa_Savannah.zip ;;
+    msbuild2018)        NAME=MSBuild2018;        ZIP=MSBuild2018.zip ;;
     *) echo "unknown scene: $SCENE" >&2; exit 2 ;;
 esac
+
+if [ -n "$NAME_ONLY" ]; then
+    echo "$NAME"
+    exit 0
+fi
 
 DEST="$SCENES_DIR/$NAME"
 if compgen -G "$DEST/LinuxNoEditor/*.sh" > /dev/null; then

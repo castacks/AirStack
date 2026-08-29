@@ -128,7 +128,9 @@ int main(int argc, char** argv) {
         "robot_interface", "robot_interface::RobotInterface");
 
     try {
-        ri = loader.createSharedInstance("mavros_interface::MAVROSInterface");
+        // Instantiate the plugin selected by the "interface" parameter (read above);
+        // previously this hardcoded mavros_interface::MAVROSInterface, ignoring the param.
+        ri = loader.createSharedInstance(interface);
 
         // subscribers
         attitude_thrust_sub = ri->create_subscription<mav_msgs::msg::AttitudeThrust>(

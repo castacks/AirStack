@@ -3,9 +3,9 @@
 <package format="3">
   <name>behavior_tree_msgs</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="jkeller2@andrew.cmu.edu">john</maintainer>
-  <license>TODO: License declaration</license>
+  <description>ROS 2 message definitions for the AirStack behavior tree: node status, activation, commands, and GraphViz visualization.</description>
+  <maintainer email="jkeller2@andrew.cmu.edu">John Keller</maintainer>
+  <license>BSD-3-Clause-Clear</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

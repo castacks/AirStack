@@ -3,9 +3,9 @@
 <package format="3">
   <name>autonomy_bringup</name>
   <version>0.0.0</version>
-  <description>Desktop/simulation platform bringup for AirStack</description>
-  <maintainer email="airlab@andrew.cmu.edu">AirLab</maintainer>
-  <license>BSD-3-Clause</license>
+  <description>Top-level robot autonomy bringup whose robot.launch.xml dispatches the stack entry launch file selected by AIRSTACK_STACK_DIR/AIRSTACK_STACK_ENTRY.</description>
+  <maintainer email="ajong@andrew.cmu.edu">Andrew Jong</maintainer>
+  <license>BSD-3-Clause-Clear</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

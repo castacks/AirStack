@@ -11,10 +11,10 @@
         <link rel="canonical" href="https://docs.theairlab.org/docs/main/docs/robot/autonomy/system_architecture/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../../../development/beginner/key_concepts/">
       
       
-        <link rel="next" href="../tasks/">
+        <link rel="next" href="../../../development/modules/">
       
       
         
@@ -46,8 +46,8 @@
         
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
       
     
     
@@ -69,7 +69,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="pink">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -94,7 +94,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../../../.." title="AirStack" class="md-header__button md-logo" aria-label="AirStack" data-md-component="logo">
       
@@ -128,7 +130,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="pink"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
     
       <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -138,7 +140,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="pink"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
     
       <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -171,6 +173,11 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
           
@@ -210,14 +217,8 @@
     
   </nav>
   
-</header>
     
-    <div class="md-container" data-md-component="container">
       
-      
-        
-          
-            
 <nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
   <div class="md-grid">
     <ul class="md-tabs__list">
@@ -255,7 +256,31 @@
   
     
   
-  Getting Started
+  Beginner Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../../development/beginner/key_concepts/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Concepts
 
         </a>
       </li>
@@ -277,7 +302,7 @@
   
     
   
-  Development
+  How-to Guides
 
         </a>
       </li>
@@ -293,37 +318,13 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../simulation/" class="md-tabs__link">
+        <a href="../../../development/beginner/airstack-cli/" class="md-tabs__link">
           
   
   
     
   
-  Simulation
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-    
-  
-  
-    
-    
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Robot
+  Reference
 
         </a>
       </li>
@@ -336,42 +337,17 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../../gcs/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Ground Control Station
-
-        </a>
-      </li>
-    
-  
-
-      
+    <li class="md-tabs__item">
+      <a href="../../../release_notes/" class="md-tabs__link">
         
   
   
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../../real_world/" class="md-tabs__link">
-          
-  
-  
     
   
-  Real World
+  Release Notes
 
-        </a>
-      </li>
-    
+      </a>
+    </li>
   
 
       
@@ -397,7 +373,13 @@
     </ul>
   </div>
 </nav>
-          
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
         
       
       <main class="md-main" data-md-component="main">
@@ -484,6 +466,18 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -508,7 +502,7 @@
   <span class="md-ellipsis">
     
   
-    Getting Started
+    Beginner Tutorials
   
 
     
@@ -530,7 +524,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Getting Started
+    Beginner Tutorials
   
 
           </label>
@@ -545,14 +539,182 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../tutorials/airstack_on_osmo/" class="md-nav__link">
+      <a href="../../../getting_started/fly_a_mission/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    AirStack on OSMO — Recommended Remote Development Workflow
+    Fly a Mission from the GCS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting_started/change_a_parameter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change a Parameter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting_started/modular_airstack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modular AirStack Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting_started/first_module/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Write Your First Module
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting_started/first_fleet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Your First Fleet
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting_started/build_your_own_scene/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build and Fly Your Own Scene
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../real_world/deploying_to_hardware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy to Hardware
   
 
     
@@ -580,7 +742,7 @@
   <span class="md-ellipsis">
     
   
-    What's Next? Tutorials by Topic
+    What Next
   
 
     
@@ -605,10 +767,22 @@
       
   
   
+    
+  
   
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
       
         
           
@@ -624,27 +798,30 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../development/" class="md-nav__link ">
+            <a href="../../../gcs/" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
     
   
-    Development
+    Concepts
   
 
     
@@ -655,142 +832,18 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Development
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Beginner Tutorials
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Beginner Tutorials
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_1" >
-        
-          
-          <label class="md-nav__link" for="__nav_3_2_1" id="__nav_3_2_1_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Key Concepts
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2_1">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Key Concepts
+    Concepts
   
 
           </label>
@@ -810,7 +863,7 @@
   <span class="md-ellipsis">
     
   
-    Overview
+    Key Concepts
   
 
     
@@ -822,1822 +875,6 @@
     </li>
   
 
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/beginner/airstack-cli/info.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CLI Introduction
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/beginner/airstack-cli/docker_usage/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker Workflow
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/beginner/development_environment/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Development Environment Setup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/beginner/vscode/vscode_debug/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Visual Studio Code: Docker Integration and Debugger Setup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/beginner/fork_your_own_project/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Fork AirStack Into Your Own Repository
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Intermediate Tutorials
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Intermediate Tutorials
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_1" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../development/intermediate/testing/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Testing
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_3_3_1" id="__nav_3_3_1_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_3_1">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Testing
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/testing/unit_testing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Unit Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../tests/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    System Tests
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/testing/end_to_end_testing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    End-to-End Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/testing/ci_cd/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CI/CD Pipeline
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../tests/ci-cd-orchestrator/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CI/CD Orchestrator
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/frame_conventions/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Frame Conventions
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/docker-build-profiles/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker Build Profiles
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_3_3_4" id="__nav_3_3_4_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Contributing
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_3_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Contributing
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/contributing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Contributing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/documentation/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Documentation Guide
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/feature_notebook/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Feature Notebook
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Advanced Tutorials
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Advanced Tutorials
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/advanced/ai_agent_guide/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AI Agent Guide
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_3_4_2" id="__nav_3_4_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AirStack CLI Tool
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_4_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    AirStack CLI Tool
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/advanced/airstack-cli/extending/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Extending
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/advanced/airstack-cli/architecture/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Simulation
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Simulation
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/isaac_sim/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Isaac Sim
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Isaac Sim
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/docker/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/pegasus_scene_setup/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Aerial Robot Simulation via the Pegasus Extension
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/spawning_drones/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Spawning Drones
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/overhead_camera/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Overhead Camera
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/ascent_sitl_extension/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AirLab AirStack Extension
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/export_stages_from_unreal/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Export Unreal Engine Scene to Isaac Sim
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/natnet_emulator/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MoCap Emulator
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/ms-airsim/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Microsoft AirSim (legacy)
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Microsoft AirSim (legacy)
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../simulation/ms-airsim/docker/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/simple_sim/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Simple Sim
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Simple Sim
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../simulation/simple_sim/docker/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-        
-        
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Robot
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Robot
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-    
-    
-    
-      
-      
-        
-          
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../configuration/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configuration
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Configuration
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-          
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../docker/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_3" id="__nav_5_3_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Docker
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../docker/robot_identity/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Robot Identity
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-          
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Autonomy Modules
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_4" id="__nav_5_4_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Autonomy Modules
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
               
             
               
@@ -2965,122 +1202,16 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Coordinate Frames">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#frame-hierarchy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Frame Hierarchy
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
-  <a href="#performance-characteristics" class="md-nav__link">
+  <a href="#integrating-a-new-module" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Performance Characteristics
+        Integrating a New Module
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Performance Characteristics">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#typical-update-rates" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Typical Update Rates
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#resource-usage-typical" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Resource Usage (Typical)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#module-integration-guidelines" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Module Integration Guidelines
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Module Integration Guidelines">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-determine-layer-placement" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Determine Layer Placement
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-define-interfaces" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Define Interfaces
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-configure-launch-integration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Configure Launch Integration
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-test-integration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Test Integration
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -3160,15 +1291,170 @@
   
   
   
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modular AirStack
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modular AirStack
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
-      <a href="../tasks/" class="md-nav__link">
+      <a href="../../../development/modules/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Tasks and Task Executors
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/stacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/fleets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fleets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docker/robot_identity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Robot Identity
   
 
     
@@ -3195,6 +1481,315 @@
           
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../simulation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulation Platforms
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Simulation Platforms
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/isaac_sim/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Isaac Sim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/isaac_sim/pegasus_scene_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pegasus Extension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/ms-airsim/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Microsoft AirSim (legacy)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/simple_sim/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simple Sim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/intermediate/testing/ci_cd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/advanced/airstack-cli/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/intermediate/frame_conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frame Conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3208,18 +1803,18 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../interface/" class="md-nav__link ">
+            <a href="../../../development/" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
     
   
-    Interface
+    How-to Guides
   
 
     
@@ -3229,19 +1824,198 @@
 
             </a>
             
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Interface
+    How-to Guides
   
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Environment
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development Environment
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/beginner/development_environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/beginner/vscode/vscode_debug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VSCode & Debugging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/beginner/fork_your_own_project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork Your Own Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/airstack_on_osmo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remote Development on OSMO
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
           </ul>
@@ -3262,7 +2036,135 @@
     
       
         
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
           
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker & Builds
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Docker & Builds
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/beginner/airstack-cli/docker_usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/intermediate/docker-build-profiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build Profiles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
         
       
         
@@ -3280,18 +2182,17 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
         
           
-          <div class="md-nav__link md-nav__container">
-            <a href="../sensors/" class="md-nav__link ">
-              
+          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+            
   
   
   <span class="md-ellipsis">
     
   
-    Sensors
+    Simulation
   
 
     
@@ -3299,26 +2200,130 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_4_5" id="__nav_5_4_5_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
+            <span class="md-nav__icon md-icon"></span>
+          </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Sensors
+    Simulation
   
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/scenes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scenes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/isaac_sim/container_workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Isaac Sim Container Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/isaac_sim/spawning_drones/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spawning Drones
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/isaac_sim/overhead_camera/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overhead Camera
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -3349,6 +2354,458 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/isaac_sim/export_stages_from_unreal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Export Stages from Unreal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_5" id="__nav_4_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomy
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Autonomy
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../perception/adding_a_state_estimator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add a State Estimator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adding_a_world_model_and_planner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add a World Model and Planner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adding_a_controller/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add a Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../coordination/creating_coordination_algorithms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Create a Coordination Algorithm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../coordination/payloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordination Payloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integration_checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_6" id="__nav_4_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GCS Operation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GCS Operation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../gcs/waypoints_and_geofences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Waypoints & Geofences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../gcs/foxglove/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Foxglove Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../gcs/extending_foxglove/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extending the Visualizer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../gcs/usage/user_interface/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operating the GCS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3374,6 +2831,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3387,7 +2854,2184 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../real_world/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Robot & Field
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_7" id="__nav_4_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Robot & Field
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../real_world/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install on Hardware
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/adding_a_vehicle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add a Vehicle or Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../real_world/HITL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HITL Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../real_world/data_offloading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Offloading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../logging/data_offloading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Offloading (DIY patterns)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../logging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../logging/rosbags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ROS Bags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_8" id="__nav_4_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules & Stacks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules & Stacks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/creating_a_stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Create a Custom Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/module_ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Module CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../development/intermediate/testing/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_9" id="__nav_4_9_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Testing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/intermediate/testing/unit_testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Unit Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/intermediate/testing/end_to_end_testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    End-to-End Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/intermediate/testing/using_ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Using CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_10" id="__nav_4_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/intermediate/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/intermediate/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/intermediate/feature_notebook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Notebook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/working_with_coding_agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Working with Coding Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/advanced/airstack-cli/extending/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extending the CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../development/beginner/airstack-cli/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../configuration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Configuration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/environment_variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Environment Variables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../config/vehicles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vehicle Config Schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../config/local/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local Calibration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../static_transforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Static Transforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../../common/ros_packages/msgs/airstack_msgs/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interfaces
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Interfaces
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interface_conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interface Conventions Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tasks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tasks and Task Executors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dds_router/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DDS Router
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../docker/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Containers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Containers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/isaac_sim/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Isaac Sim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/ms-airsim/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Microsoft AirSim (legacy)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../simulation/simple_sim/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simple Sim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../gcs/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GCS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../autonomy_modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Topologies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../real_world/supported_platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../../stacks/full_default/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference Stacks
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference Stacks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../stacks/full_droan_cpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan_cpu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../stacks/full_macvo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_macvo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../stacks/full_mighty/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_mighty
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../stacks/lite_default/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lite_default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../stacks/lite_offload_global/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    lite_offload_global
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../modules/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules Catalog
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules Catalog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../common/module_schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    module.yaml Schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/dfm2_disturbances/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/macvo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    macvo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/mighty/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    mighty
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/optitrack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    optitrack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomy Packages
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_9" id="__nav_5_9_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Autonomy Packages
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomy Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interface/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interface
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_9_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../sensors/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sensors
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_9_4" id="__nav_5_9_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_9_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_9_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Sensors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../robot/ros_ws/src/sensors/lidar_point_cloud_filter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LiDAR Point Cloud Filter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_9_5" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3409,14 +5053,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_4_6" id="__nav_5_4_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_9_5" id="__nav_5_9_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_9_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_9_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3435,42 +5079,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/perception/natnet_ros2/" class="md-nav__link">
+      <a href="../../optitrack/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    NatNet (OptiTrack)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../px4_external_vision/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    PX4 External Vision (mocap)
+    OptiTrack (asm_optitrack module)
   
 
     
@@ -3511,6 +5127,24 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3524,7 +5158,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_9_6" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3546,14 +5180,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_4_7" id="__nav_5_4_7_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_9_6" id="__nav_5_9_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_7">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_9_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_9_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3571,34 +5205,9 @@
   
   
   
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="../local/world_model/" class="md-nav__link">
         
-          
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_7_2" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../local/world_model/" class="md-nav__link ">
-              
   
   
   <span class="md-ellipsis">
@@ -3612,26 +5221,10 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_4_7_2" id="__nav_5_4_7_2_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_5_4_7_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_7_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    World Model
+      </a>
+    </li>
   
 
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
               
             
               
@@ -3640,42 +5233,15 @@
   
   
   
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
         
-          
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_7_2_2" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link ">
-              
   
   
   <span class="md-ellipsis">
     
   
-    DROAN Obstacle Avoidance
+    Disparity Expansion
   
 
     
@@ -3683,26 +5249,10 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_4_7_2_2" id="__nav_5_4_7_2_2_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_5_4_7_2_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_7_2_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    DROAN Obstacle Avoidance
+      </a>
+    </li>
   
 
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
               
             
               
@@ -3761,62 +5311,15 @@
 
               
             
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
               
                 
   
   
   
   
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="../local/planning/" class="md-nav__link">
         
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_7_3" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../local/planning/" class="md-nav__link ">
-              
   
   
   <span class="md-ellipsis">
@@ -3830,26 +5333,10 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_4_7_3" id="__nav_5_4_7_3_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_5_4_7_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_7_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Planning
+      </a>
+    </li>
   
 
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
               
             
               
@@ -3886,34 +5373,9 @@
   
   
   
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="../../../../robot/ros_ws/src/local/planners/takeoff_landing_planner/" class="md-nav__link">
         
-          
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_7_3_3" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../../robot/ros_ws/src/local/planners/takeoff_landing_planner/" class="md-nav__link ">
-              
   
   
   <span class="md-ellipsis">
@@ -3927,26 +5389,10 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_4_7_3_3" id="__nav_5_4_7_3_3_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_5_4_7_3_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_7_3_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Takeoff Landing Planner
+      </a>
+    </li>
   
 
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
               
             
               
@@ -3963,7 +5409,7 @@
   <span class="md-ellipsis">
     
   
-    Testing
+    Takeoff Landing Testing
   
 
     
@@ -3972,14 +5418,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -4041,48 +5479,15 @@
 
               
             
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
               
                 
   
   
   
   
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="../local/controls/" class="md-nav__link">
         
-          
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_7_4" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../local/controls/" class="md-nav__link ">
-              
   
   
   <span class="md-ellipsis">
@@ -4096,26 +5501,10 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_4_7_4" id="__nav_5_4_7_4_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_5_4_7_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_7_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Controls
+      </a>
+    </li>
   
 
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
               
             
               
@@ -4154,14 +5543,6 @@
 
               
             
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
               
                 
   
@@ -4173,6 +5554,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -4192,7 +5579,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_9_7" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -4214,14 +5601,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_4_8" id="__nav_5_4_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_9_7" id="__nav_5_9_7_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_8">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_9_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_9_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4239,34 +5626,9 @@
   
   
   
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="../global/world_model/" class="md-nav__link">
         
-          
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_8_2" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../global/world_model/" class="md-nav__link ">
-              
   
   
   <span class="md-ellipsis">
@@ -4280,26 +5642,10 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_4_8_2" id="__nav_5_4_8_2_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_5_4_8_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_8_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    World Model
+      </a>
+    </li>
   
 
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
               
             
               
@@ -4330,50 +5676,15 @@
 
               
             
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
               
                 
   
   
   
   
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="../global/planning/" class="md-nav__link">
         
-          
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_8_3" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../global/planning/" class="md-nav__link ">
-              
   
   
   <span class="md-ellipsis">
@@ -4387,26 +5698,10 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_4_8_3" id="__nav_5_4_8_3_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_5_4_8_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_8_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Planning
+      </a>
+    </li>
   
 
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
               
             
               
@@ -4473,46 +5768,15 @@
 
               
             
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
               
                 
   
   
   
   
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="../behavior/" class="md-nav__link">
         
-          
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_9" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../behavior/" class="md-nav__link ">
-              
   
   
   <span class="md-ellipsis">
@@ -4526,53 +5790,6 @@
   
   
 
-            </a>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_9_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_9">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Behavior
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../integration_checklist/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Integration Guide
-  
-
-    
-  </span>
-  
-  
-
       </a>
     </li>
   
@@ -4585,34 +5802,9 @@
   
   
   
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="../coordination/" class="md-nav__link">
         
-          
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_11" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../coordination/" class="md-nav__link ">
-              
   
   
   <span class="md-ellipsis">
@@ -4626,72 +5818,12 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_4_11" id="__nav_5_4_11_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_11_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_11">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Coordination
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../coordination/payloads/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Payloads & Foxglove
-  
-
-    
-  </span>
-  
-  
-
       </a>
     </li>
   
 
               
             
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
               
                 
   
@@ -4699,14 +5831,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../autonomy_modes/" class="md-nav__link">
+      <a href="../../../../common/ros_packages/gui/rviz/rviz_tasks_panel/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Autonomy Modes
+    RViz Tasks Panel
   
 
     
@@ -4727,191 +5859,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../dds_router/" class="md-nav__link">
+      <a href="../../../../common/ros_packages/gui/rviz/3d_waypoint_rviz2_plugin/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    DDS Router
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-    
-    
-    
-      
-      
-        
-          
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../static_transforms/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Static Transforms
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Static Transforms
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-          
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../logging/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Logging
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5_8" id="__nav_5_8_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_8">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Logging
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../logging/rosbags/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ROS Bags
+    RViz 3D Waypoint Plugin
   
 
     
@@ -4932,35 +5887,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../logging/data_offloading/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data Offloading
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../common/ros_packages/bag_recorder_pid/README.md" class="md-nav__link">
+      <a href="../../../../common/ros_packages/logging/bag_recorder_pid/" class="md-nav__link">
         
   
   
@@ -4989,15 +5916,8 @@
 
               
             
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
+              
+                
   
   
   
@@ -5007,14 +5927,6 @@
       
         
           
-        
-      
-        
-      
-        
-      
-        
-      
         
       
         
@@ -5034,18 +5946,18 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_10" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../gcs/" class="md-nav__link ">
+            <a href="../../../../tests/" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
     
   
-    Ground Control Station
+    CI & Testing
   
 
     
@@ -5056,18 +5968,18 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_10" id="__nav_5_10_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_10">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Ground Control Station
+    CI & Testing
   
 
           </label>
@@ -5081,38 +5993,15 @@
   
   
   
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="../../../../tests/ci-cd-orchestrator/" class="md-nav__link">
         
-          
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../gcs/docker/" class="md-nav__link ">
-              
   
   
   <span class="md-ellipsis">
     
   
-    Docker
+    CI/CD Orchestrator Runbook
   
 
     
@@ -5120,26 +6009,7 @@
   
   
 
-            </a>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Docker
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-          </ul>
-        </nav>
-      
+      </a>
     </li>
   
 
@@ -5151,71 +6021,15 @@
   
   
   
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_6_3" id="__nav_6_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Usage
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Usage
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
-      <a href="../../../gcs/usage/user_interface/" class="md-nav__link">
+      <a href="../../../../osmo/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    User Interface
+    OSMO Lab Admin Guide
   
 
     
@@ -5243,101 +6057,15 @@
   
   
   
-    
-    
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_6_4" id="__nav_6_4_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Foxglove
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Foxglove
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
-      <a href="../../../gcs/foxglove/" class="md-nav__link">
+      <a href="../../../development/advanced/ai_agent_guide/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Visualization
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../gcs/waypoints_and_geofences/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Adding Waypoints & Geofences
+    AI Agent Guide
   
 
     
@@ -5357,79 +6085,22 @@
     </li>
   
 
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-    
-    
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_6_5" id="__nav_6_5_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Command Center
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Command Center
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
   
   
   
   
     <li class="md-nav__item">
-      <a href="../../../gcs/command_center/command_center/" class="md-nav__link">
+      <a href="../../../release_notes/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Aerolens.ai - Talk to your robots
+    Release Notes
   
 
     
@@ -5438,526 +6109,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6_6" id="__nav_6_6_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Casualty Assessment
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_6">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Casualty Assessment
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../gcs/casualty_assessment/casualty_assessment/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ROS2 CASEVAC Agent
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_6_7" id="__nav_6_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    WinTAK Installation
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    WinTAK Installation
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../gcs/wintak/installation/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    WinTAK Installation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Real World
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Real World
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../real_world/deploying_to_hardware/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deploying to Hardware
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/installation/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installation on Hardware
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Installation on Hardware
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/HITL/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    HITL Testing
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    HITL Testing
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/data_offloading/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data Offloading
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Data Offloading
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -6005,49 +6156,6 @@
 
 
 
-  <nav class="md-path" aria-label="Navigation" >
-    <ol class="md-path__list">
-      
-      
-        
-  
-  
-    
-    
-      <li class="md-path__item">
-        <a href="../../" class="md-path__link">
-          
-  <span class="md-ellipsis">
-    Robot
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-    
-    
-      <li class="md-path__item">
-        <a href="../" class="md-path__link">
-          
-  <span class="md-ellipsis">
-    Autonomy Modules
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ol>
-  </nav>
-
               
               <article class="md-content__inner md-typeset">
                 
@@ -6059,7 +6167,7 @@
 
 
 <h1 id="system-architecture">System Architecture<a class="headerlink" href="#system-architecture" title="Permanent link">&para;</a></h1>
-<p>This document provides a comprehensive overview of the AirStack autonomy system architecture, data flow, and module interactions.</p>
+<p>This document explains the AirStack autonomy architecture: how the layers relate, the two kinds of nodes the stack is built from, and how data and task goals flow through the system.</p>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>AirStack follows a <strong>layered autonomy architecture</strong> where data flows through hierarchical processing stages from low-level sensor data to high-level mission execution.</p>
 <pre class="mermaid"><code>graph TB
@@ -6092,7 +6200,7 @@ activation, and interface:</p>
 They receive data over topics and publish results immediately — there
 is no external activation step. Most of the autonomy stack consists
 of perpetual nodes.</p>
-<p>Examples: state estimator, VDB mapper, disparity expander, trajectory controller, behavior tree tick loop.</p>
+<p>Examples: state estimator, VDB mapper, disparity expander, trajectory controller, safety monitor.</p>
 <h3 id="task-executors">Task Executors<a class="headerlink" href="#task-executors" title="Permanent link">&para;</a></h3>
 <p>Task executors are <strong>ROS 2 action servers</strong> that only do work when an
 action client sends them a goal. They have a well-defined lifecycle:</p>
@@ -6144,17 +6252,18 @@ action client sends them a goal. They have a well-defined lifecycle:</p>
 </table>
 <p>All task action servers are remapped to <code>/{robot_name}/tasks/{task_name}</code> by convention.</p>
 <h3 id="task-cascade">Task Cascade<a class="headerlink" href="#task-cascade" title="Permanent link">&para;</a></h3>
-<p>High-level tasks (sent by the behavior layer) cascade down through the stack:</p>
+<p>High-level task goals (sent by the operator from the GCS — the Foxglove
+robot-commands panel or the RViz Tasks Panel) cascade down through the stack:</p>
 <pre class="mermaid"><code>graph TD
-    BE[behavior_executive] --&gt;|ExplorationTask| RW[random_walk_planner]
+    GCS[GCS operator] --&gt;|ExplorationTask| RW[random_walk_planner]
     RW --&gt;|NavigateTask| DG[droan_gl]
     DG --&gt;|trajectory_segment_to_add| TC[trajectory_controller]
 
-    style BE fill:#cce5ff
+    style GCS fill:#cce5ff
     style TC fill:#cce5ff
     style RW fill:#d4edda
     style DG fill:#d4edda</code></pre>
-<p><em>Blue = perpetual node, green = task executor.</em></p>
+<p><em>Blue = perpetual node / external client, green = task executor.</em></p>
 <p>The global-layer task executor (e.g. <code>random_walk_planner</code>) decides
 <em>where</em> to go and delegates the actual flying to the local-layer task
 executor (<code>droan_gl</code> or <code>droan_local_planner</code>) via a <code>NavigateTask</code>
@@ -6232,335 +6341,101 @@ and their interfaces.</p>
         IF --&gt;|Actuator Commands| HW
     end</code></pre>
 <h2 id="detailed-layer-architecture">Detailed Layer Architecture<a class="headerlink" href="#detailed-layer-architecture" title="Permanent link">&para;</a></h2>
+<p>The exact topic names, message types, and QoS settings that connect the layers
+are specified once, normatively, in the
+<a href="../interface_conventions/">Interface Conventions Specification</a> — the
+subsections below describe each layer's <em>role</em> and link to its documentation
+rather than restating that data.</p>
 <h3 id="interface-layer">Interface Layer<a class="headerlink" href="#interface-layer" title="Permanent link">&para;</a></h3>
-<p><strong>Purpose:</strong> Abstract hardware/simulation and provide safety monitoring.</p>
-<pre class="mermaid"><code>graph TB
-    MAVROS[MAVROS Interface]
-    Safety[Safety Monitor]
-    RobotIF[Robot Interface]
-
-    PX4[PX4 Flight Controller] --&gt; MAVROS
-    MAVROS --&gt; Safety
-    Safety --&gt; RobotIF
-
-    RobotIF --&gt;|State| Perception
-    RobotIF --&gt;|Safety Status| Behavior
-
-    Control[Trajectory Controller] --&gt;|Commands| MAVROS
-    MAVROS --&gt;|Actuator Commands| PX4</code></pre>
-<p><strong>Key Modules:</strong></p>
-<ul>
-<li><code>mavros_interface</code>: MAVLink communication with flight controller</li>
-<li><code>drone_safety_monitor</code>: Safety checks and emergency handling</li>
-<li><code>robot_interface</code>: High-level robot state abstraction</li>
-</ul>
-<p><strong>Topics:</strong></p>
-<ul>
-<li>
-<p><strong>Published:</strong></p>
-<ul>
-<li><code>/[robot]/interface/mavros/state</code></li>
-<li><code>/[robot]/interface/mavros/local_position/pose</code></li>
-<li><code>/[robot]/interface/battery_state</code></li>
-</ul>
-</li>
-<li>
-<p><strong>Subscribed:</strong></p>
-<ul>
-<li><code>/[robot]/trajectory_controller/cmd_vel</code></li>
-</ul>
-</li>
-</ul>
+<p>The interface layer abstracts the flight controller behind a stable
+command/status boundary: it converts controller setpoints into vehicle
+commands (MAVROS ↔ PX4 in the trunk) and publishes vehicle state — arming,
+flight mode, battery — back up to the rest of the stack. Nothing above this
+layer talks to hardware directly, which is what makes simulation and real
+vehicles interchangeable.</p>
+<p>See the <a href="../interface/">Interface layer documentation</a>; the
+command and status contracts are
+<a href="../interface_conventions/#6-control_setpoint-controller-interface-command-onboard-only"><code>control_setpoint</code> (§6)</a>
+and the
+<a href="../interface_conventions/#7-interface_status-group-vehicle-state-out-of-the-interface-layer"><code>interface_status</code> group (§7)</a>.</p>
 <h3 id="sensors-layer">Sensors Layer<a class="headerlink" href="#sensors-layer" title="Permanent link">&para;</a></h3>
-<p><strong>Purpose:</strong> Process and calibrate sensor data.</p>
-<pre class="mermaid"><code>graph LR
-    Camera[Camera Sensors] --&gt; ImgProc[Image Processing]
-    Stereo[Stereo Cameras] --&gt; Disparity[Disparity Computation]
-    Gimbal[Gimbal] --&gt; Stabilizer[Gimbal Stabilizer]
-
-    ImgProc --&gt; Perception
-    Disparity --&gt; Perception
-    Stabilizer --&gt; Camera</code></pre>
-<p><strong>Key Modules:</strong></p>
-<ul>
-<li><code>camera_param_server</code>: Camera calibration management</li>
-<li><code>gimbal_stabilizer</code>: Gimbal control and stabilization</li>
-<li>Sensor drivers and processors</li>
-</ul>
-<p><strong>Topics:</strong></p>
-<ul>
-<li><strong>Published:</strong><ul>
-<li><code>/[robot]/sensors/[sensor_name]/image</code></li>
-<li><code>/[robot]/sensors/[sensor_name]/camera_info</code></li>
-<li><code>/[robot]/sensors/front_stereo/disparity</code></li>
-</ul>
-</li>
-</ul>
+<p>The sensors layer wraps drivers and low-level processing (e.g. point-cloud
+filtering) so that downstream layers consume calibrated, consistently named
+streams instead of device-specific topics.</p>
+<p>See the <a href="../sensors/">Sensors layer documentation</a> and the
+<a href="../interface_conventions/#1-sensors-sensor-naming-convention"><code>sensors/*</code> naming convention (§1)</a>.</p>
 <h3 id="perception-layer">Perception Layer<a class="headerlink" href="#perception-layer" title="Permanent link">&para;</a></h3>
-<p><strong>Purpose:</strong> Estimate robot state and understand environment.</p>
-<pre class="mermaid"><code>graph TB
-    subgraph "State Estimation"
-        VIO[Visual-Inertial Odometry]
-        Fusion[Sensor Fusion]
-    end
-
-    subgraph "Environment Perception"
-        Depth[Depth Estimation]
-        Features[Feature Detection]
-        Tracking[Object Tracking]
-    end
-
-    Sensors --&gt;|Images + IMU| VIO
-    Sensors --&gt;|Multi-sensor| Fusion
-    VIO --&gt; Odometry[Odometry Output]
-    Fusion --&gt; Odometry
-
-    Sensors --&gt;|Stereo| Depth
-    Sensors --&gt;|Images| Features
-    Features --&gt; Tracking
-
-    Odometry --&gt; Local
-    Odometry --&gt; Global
-    Depth --&gt; Local</code></pre>
-<p><strong>Key Modules:</strong></p>
-<ul>
-<li><code>macvo_ros2</code>: Visual-inertial odometry system</li>
-</ul>
-<p><strong>Topics:</strong></p>
-<ul>
-<li>
-<p><strong>Published:</strong></p>
-<ul>
-<li><code>/[robot]/odometry</code> - Primary state estimate</li>
-<li><code>/[robot]/perception/macvo/depth</code></li>
-<li><code>/[robot]/perception/macvo/features</code></li>
-</ul>
-</li>
-<li>
-<p><strong>Subscribed:</strong></p>
-<ul>
-<li><code>/[robot]/sensors/*/image</code></li>
-<li><code>/[robot]/sensors/*/camera_info</code></li>
-<li><code>/[robot]/interface/mavros/imu</code></li>
-</ul>
-</li>
-</ul>
+<p>The perception layer turns sensor streams into the robot's estimate of itself
+and its surroundings: the primary state estimate (<code>odometry</code>) and depth /
+point-cloud products consumed by the world models. The trunk default stereo
+pipeline is <code>stereo_image_proc</code>; learned visual odometry (MAC-VO) is available
+as the external <a href="https://github.com/castacks/asm_macvo">asm_macvo</a> module
+rather than in the trunk.</p>
+<p>See the <a href="../perception/">Perception layer documentation</a> and the
+<a href="../interface_conventions/#2-odometry-primary-state-estimate"><code>odometry</code> contract (§2)</a>.</p>
 <h3 id="local-layer">Local Layer<a class="headerlink" href="#local-layer" title="Permanent link">&para;</a></h3>
-<p><strong>Purpose:</strong> Reactive obstacle avoidance and trajectory control.</p>
-<p>The local layer has three sub-layers:</p>
-<pre class="mermaid"><code>graph TB
-    subgraph "Local World Models"
-        Disparity[Disparity Expansion]
-        Graph[Disparity Graph]
-        CostMap[Cost Map]
-
-        Disparity --&gt; Graph
-        Graph --&gt; CostMap
-    end
-
-    subgraph "Local Planners"
-        DROAN[DROAN Planner]
-        TakeoffLanding[Takeoff/Landing]
-
-        CostMap --&gt; DROAN
-    end
-
-    subgraph "Controllers"
-        TrajControl[Trajectory Controller]
-        AttControl[Attitude Controller]
-
-        DROAN --&gt; TrajControl
-        TakeoffLanding --&gt; TrajControl
-        TrajControl --&gt; AttControl
-    end
-
-    Perception --&gt;|Odometry| DROAN
-    Perception --&gt;|Disparity| Disparity
-    Global --&gt;|Global Plan| DROAN
-
-    AttControl --&gt;|Commands| Interface</code></pre>
-<p><strong>Key Modules:</strong></p>
-<ul>
-<li>
-<p><strong>World Models:</strong></p>
-<ul>
-<li><code>disparity_expansion</code>: Obstacle detection from stereo</li>
-<li><code>disparity_graph</code>: Graph-based obstacle representation</li>
-<li><code>disparity_graph_cost_map</code>: Cost map generation</li>
-</ul>
-</li>
-<li>
-<p><strong>Planners:</strong></p>
-<ul>
-<li><code>droan_local_planner</code>: DROAN obstacle avoidance</li>
-<li><code>takeoff_landing_planner</code>: Specialized maneuvers</li>
-<li><code>trajectory_library</code>: Trajectory generation utilities</li>
-</ul>
-</li>
-<li>
-<p><strong>Controllers:</strong></p>
-<ul>
-<li><code>trajectory_controller</code>: Trajectory tracking</li>
-<li><code>attitude_controller</code>: Attitude control</li>
-</ul>
-</li>
-</ul>
-<p><strong>Topics:</strong></p>
-<ul>
-<li>
-<p><strong>Subscribed:</strong></p>
-<ul>
-<li><code>/[robot]/odometry</code></li>
-<li><code>/[robot]/global_plan</code></li>
-<li><code>/[robot]/sensors/front_stereo/disparity</code></li>
-</ul>
-</li>
-<li>
-<p><strong>Published:</strong></p>
-<ul>
-<li><code>/[robot]/trajectory_controller/trajectory_segment_to_add</code></li>
-<li><code>/[robot]/trajectory_controller/look_ahead</code></li>
-<li><code>/[robot]/trajectory_controller/tracking_point</code></li>
-<li><code>/[robot]/local/cost_map</code></li>
-</ul>
-</li>
-</ul>
+<p>The local layer is the reactive, short-horizon part of the stack, organized in
+three sub-layers: <strong>world models</strong> (e.g. disparity expansion) maintain an
+obstacle representation around the robot, <strong>planners</strong> (DROAN, takeoff/landing)
+generate collision-free trajectories through it, and <strong>controllers</strong>
+(trajectory controller, PID controller) track those trajectories at high rate
+and hand setpoints to the interface layer.</p>
+<p>See the <a href="../local/">Local layer documentation</a>; the handoff between
+planners and the trajectory controller is the
+<a href="../interface_conventions/#5-trajectory-group-the-trajectory-controllers-contract-onboard-only"><code>trajectory</code> group (§5)</a>.</p>
 <h3 id="global-layer">Global Layer<a class="headerlink" href="#global-layer" title="Permanent link">&para;</a></h3>
-<p><strong>Purpose:</strong> Strategic path planning and global mapping.</p>
-<pre class="mermaid"><code>graph TB
-    subgraph "Global World Models"
-        VDBMap[VDB Mapping]
-        Occupancy[Occupancy Grid]
-    end
-
-    subgraph "Global Planners"
-        RandomWalk[Random Walk Explorer]
-        Ensemble[Ensemble Planner]
-    end
-
-    Perception --&gt;|Pose| VDBMap
-    Sensors --&gt;|Point Clouds| VDBMap
-    VDBMap --&gt; Occupancy
-
-    Occupancy --&gt; RandomWalk
-    Occupancy --&gt; Ensemble
-    Behavior --&gt;|Goals| RandomWalk
-    Behavior --&gt;|Goals| Ensemble
-
-    RandomWalk --&gt; GlobalPlan[Global Plan]
-    Ensemble --&gt; GlobalPlan
-    GlobalPlan --&gt; Local</code></pre>
-<p><strong>Key Modules:</strong></p>
-<ul>
-<li>
-<p><strong>World Models:</strong></p>
-<ul>
-<li><code>vdb_mapping_ros2</code>: VDB-based 3D mapping</li>
-</ul>
-</li>
-<li>
-<p><strong>Planners:</strong></p>
-<ul>
-<li><code>random_walk</code>: Random exploration planner</li>
-<li><code>ensemble_planner</code>: Multi-planner coordination</li>
-</ul>
-</li>
-</ul>
-<p><strong>Topics:</strong></p>
-<ul>
-<li>
-<p><strong>Subscribed:</strong></p>
-<ul>
-<li><code>/[robot]/odometry</code></li>
-<li><code>/[robot]/sensors/*/pointcloud</code></li>
-<li><code>/[robot]/behavior/mission_goal</code></li>
-</ul>
-</li>
-<li>
-<p><strong>Published:</strong></p>
-<ul>
-<li><code>/[robot]/global_plan</code></li>
-<li><code>/[robot]/global/map</code></li>
-<li><code>/[robot]/global/occupancy</code></li>
-</ul>
-</li>
-</ul>
+<p>The global layer is the strategic counterpart: it maintains a persistent 3D
+map of everywhere the robot has been (VDB mapping) and decides where to go
+next — exploration and global path planning — handing global plans down to the
+local layer for execution.</p>
+<p>See the <a href="../global/">Global layer documentation</a> and the
+<a href="../interface_conventions/#4-global_plan-global-waypoint-path"><code>global_plan</code> contract (§4)</a>.</p>
 <h3 id="behavior-layer">Behavior Layer<a class="headerlink" href="#behavior-layer" title="Permanent link">&para;</a></h3>
-<p><strong>Purpose:</strong> High-level mission execution and decision making.</p>
-<pre class="mermaid"><code>graph TB
-    Mission[Mission Manager] --&gt;|Goals| BT[Behavior Tree]
-    BT --&gt;|Evaluate| Conditions{Conditions}
-    Conditions --&gt;|True| Actions[Actions]
-    Conditions --&gt;|False| Fallback[Fallback]
-
-    Actions --&gt;|Global Goals| Global
-    Actions --&gt;|Local Commands| Local
-    Actions --&gt;|Mode Changes| Interface
-
-    subgraph "Behavior Tree Components"
-        BT
-        Conditions
-        Actions
-        Fallback
-    end
-
-    GCS[Ground Control Station] --&gt;|Commands| Mission
-    Autonomy[Autonomy State] --&gt; BT</code></pre>
-<p><strong>Key Modules:</strong></p>
-<ul>
-<li><code>behavior_tree</code>: Behavior tree framework</li>
-<li><code>behavior_executive</code>: Mission execution engine</li>
-<li><code>rqt_behavior_tree_command</code>: GUI for behavior tree control</li>
-</ul>
-<p><strong>Topics:</strong></p>
-<ul>
-<li>
-<p><strong>Subscribed:</strong></p>
-<ul>
-<li><code>/[robot]/odometry</code></li>
-<li><code>/[robot]/interface/mavros/state</code></li>
-<li><code>/[robot]/trajectory_controller/trajectory_completion_percentage</code></li>
-</ul>
-</li>
-<li>
-<p><strong>Published:</strong></p>
-<ul>
-<li><code>/[robot]/global/goal</code></li>
-<li><code>/[robot]/trajectory_controller/trajectory_override</code></li>
-<li><code>/[robot]/behavior/mission_state</code></li>
-</ul>
-</li>
-</ul>
+<p>Onboard safety supervision. Mission-level sequencing is driven
+by the operator from the GCS through <a href="../tasks/">task executors</a>; the
+behavior layer's job is the part that must never depend on a ground link —
+watching the robot's health and forcing a safe reaction when something
+breaks (the <code>drone_safety_monitor</code> watches the state estimate and issues
+safety commands when it times out).</p>
+<p>See the <a href="../behavior/">Behavior layer documentation</a> and the
+<a href="../interface_conventions/#9-safety-safety-executive-onboard-only"><code>safety</code> contract (§9)</a>.</p>
 <h2 id="complete-data-flow">Complete Data Flow<a class="headerlink" href="#complete-data-flow" title="Permanent link">&para;</a></h2>
 <h3 id="autonomous-flight-scenario">Autonomous Flight Scenario<a class="headerlink" href="#autonomous-flight-scenario" title="Permanent link">&para;</a></h3>
-<p>Here's the complete data flow for an autonomous flight with obstacle avoidance:</p>
+<p>An autonomous flight is a <a href="../tasks/#task-cascade">task cascade</a>. The GCS
+operator is an <strong>action client</strong>: they send a task goal (e.g.
+<code>ExplorationTask</code>) to a global-layer task executor, which decides where to go
+and delegates the flying to the local-layer task executor via <code>NavigateTask</code>.
+The local planner feeds trajectory segments to the perpetual trajectory
+controller, which produces setpoints for the interface layer. Each action
+<strong>result returns to the client that sent the goal</strong> — <code>NavigateTask</code> results
+to the global executor, and the top-level task result (with ~1 Hz feedback
+along the way) to the GCS:</p>
 <pre class="mermaid"><code>sequenceDiagram
-    participant BEH as Behavior
-    participant GLO as Global Planner
-    participant LOC as Local Planner
-    participant CTL as Controller
+    participant GCS as GCS (action client)
+    participant GLO as Global Task Executor&lt;br/&gt;(random_walk_planner)
+    participant LOC as Local Task Executor&lt;br/&gt;(droan_gl)
+    participant CTL as Trajectory Controller
     participant IF as Interface
     participant HW as Hardware/Sim
 
-    Note over BEH: Mission: Navigate to waypoint
-    BEH-&gt;&gt;GLO: Goal Position
-    GLO-&gt;&gt;GLO: Plan global path
-    GLO-&gt;&gt;LOC: Global Plan
+    GCS-&gt;&gt;GLO: ExplorationTask goal
+    GLO-&gt;&gt;GLO: Choose next goal point
+    GLO-&gt;&gt;LOC: NavigateTask goal (global plan)
 
     loop Obstacle Avoidance
-        HW-&gt;&gt;IF: Sensor Data
-        IF-&gt;&gt;LOC: Disparity Image
+        HW-&gt;&gt;LOC: Sensor data (via sensors + perception)
         LOC-&gt;&gt;LOC: Detect obstacles
         LOC-&gt;&gt;LOC: Generate local trajectory
         LOC-&gt;&gt;CTL: Trajectory Segment
-        CTL-&gt;&gt;CTL: Compute control commands
-        CTL-&gt;&gt;IF: Velocity Commands
+        CTL-&gt;&gt;CTL: Compute control setpoint
+        CTL-&gt;&gt;IF: Control setpoint
         IF-&gt;&gt;HW: Actuator Commands
     end
 
-    Note over CTL: Waypoint reached
-    CTL-&gt;&gt;BEH: Completion notification
-    BEH-&gt;&gt;BEH: Next waypoint or mission complete</code></pre>
+    Note over LOC: Goal reached
+    LOC--&gt;&gt;GLO: NavigateTask result
+    GLO-&gt;&gt;GLO: Next goal point, or done
+    GLO--&gt;&gt;GCS: ExplorationTask result</code></pre>
 <h2 id="module-communication-patterns">Module Communication Patterns<a class="headerlink" href="#module-communication-patterns" title="Permanent link">&para;</a></h2>
 <h3 id="standard-communication-flow">Standard Communication Flow<a class="headerlink" href="#standard-communication-flow" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>graph LR
@@ -6592,164 +6467,17 @@ and their interfaces.</p>
 <li><strong>Testing:</strong> Mock different topic sources</li>
 </ul>
 <h2 id="coordinate-frames">Coordinate Frames<a class="headerlink" href="#coordinate-frames" title="Permanent link">&para;</a></h2>
-<h3 id="frame-hierarchy">Frame Hierarchy<a class="headerlink" href="#frame-hierarchy" title="Permanent link">&para;</a></h3>
-<pre class="mermaid"><code>graph TB
-    World[world] --&gt; Map[map]
-    Map --&gt; Odom[odom]
-    Odom --&gt; BaseLink[base_link]
-    BaseLink --&gt; BaseLinkStab[base_link_stabilized]
-    BaseLinkStab --&gt; Camera[camera_link]
-    BaseLinkStab --&gt; Lidar[lidar_link]
-    BaseLink --&gt; LookAhead[look_ahead_point]</code></pre>
-<p><strong>Standard Frames:</strong></p>
-<ul>
-<li><code>world</code>: Fixed world frame</li>
-<li><code>map</code>: Global map frame (may drift from world)</li>
-<li><code>odom</code>: Odometry frame (continuous, may drift)</li>
-<li><code>base_link</code>: Robot body frame</li>
-<li><code>base_link_stabilized</code>: Stabilized body frame (yaw-only)</li>
-<li><code>camera_link</code>: Camera sensor frame</li>
-<li><code>look_ahead_point</code>: Trajectory tracking reference</li>
-</ul>
-<h2 id="performance-characteristics">Performance Characteristics<a class="headerlink" href="#performance-characteristics" title="Permanent link">&para;</a></h2>
-<h3 id="typical-update-rates">Typical Update Rates<a class="headerlink" href="#typical-update-rates" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Layer</th>
-<th>Module</th>
-<th>Rate</th>
-<th>Latency</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Interface</td>
-<td>MAVROS</td>
-<td>50 Hz</td>
-<td>&lt;5 ms</td>
-</tr>
-<tr>
-<td>Sensors</td>
-<td>Camera</td>
-<td>30 Hz</td>
-<td>&lt;10 ms</td>
-</tr>
-<tr>
-<td>Sensors</td>
-<td>Disparity</td>
-<td>15 Hz</td>
-<td>&lt;30 ms</td>
-</tr>
-<tr>
-<td>Perception</td>
-<td>VIO</td>
-<td>30 Hz</td>
-<td>&lt;20 ms</td>
-</tr>
-<tr>
-<td>Local Planner</td>
-<td>DROAN</td>
-<td>10 Hz</td>
-<td>&lt;50 ms</td>
-</tr>
-<tr>
-<td>Local Controller</td>
-<td>Trajectory</td>
-<td>50 Hz</td>
-<td>&lt;10 ms</td>
-</tr>
-<tr>
-<td>Global Planner</td>
-<td>Path</td>
-<td>1 Hz</td>
-<td>&lt;500 ms</td>
-</tr>
-<tr>
-<td>Behavior</td>
-<td>BT Tick</td>
-<td>10 Hz</td>
-<td>&lt;5 ms</td>
-</tr>
-</tbody>
-</table>
-<h3 id="resource-usage-typical">Resource Usage (Typical)<a class="headerlink" href="#resource-usage-typical" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>CPU</th>
-<th>Memory</th>
-<th>GPU</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Full Stack</td>
-<td>60-80%</td>
-<td>4-6 GB</td>
-<td>20-40%</td>
-</tr>
-<tr>
-<td>Perception</td>
-<td>15-20%</td>
-<td>500 MB</td>
-<td>10-20%</td>
-</tr>
-<tr>
-<td>Local Planning</td>
-<td>10-15%</td>
-<td>300 MB</td>
-<td>5-10%</td>
-</tr>
-<tr>
-<td>Global Planning</td>
-<td>5-10%</td>
-<td>200 MB</td>
-<td>0%</td>
-</tr>
-<tr>
-<td>Simulation</td>
-<td>30-40%</td>
-<td>2-3 GB</td>
-<td>60-80%</td>
-</tr>
-</tbody>
-</table>
-<h2 id="module-integration-guidelines">Module Integration Guidelines<a class="headerlink" href="#module-integration-guidelines" title="Permanent link">&para;</a></h2>
-<p>When adding a new module, follow these integration patterns:</p>
-<h3 id="1-determine-layer-placement">1. Determine Layer Placement<a class="headerlink" href="#1-determine-layer-placement" title="Permanent link">&para;</a></h3>
-<p>Place module in appropriate layer based on its function:</p>
-<ul>
-<li>Real-time obstacle avoidance? → Local planning</li>
-<li>State estimation? → Perception</li>
-<li>Path planning? → Global planning</li>
-<li>Mission logic? → Behavior</li>
-</ul>
-<h3 id="2-define-interfaces">2. Define Interfaces<a class="headerlink" href="#2-define-interfaces" title="Permanent link">&para;</a></h3>
-<p>Specify input and output topics:</p>
-<ul>
-<li>Use standard topics when available</li>
-<li>Create custom topics with appropriate namespaces</li>
-<li>Document expected message rates and latencies</li>
-</ul>
-<h3 id="3-configure-launch-integration">3. Configure Launch Integration<a class="headerlink" href="#3-configure-launch-integration" title="Permanent link">&para;</a></h3>
-<p>Add module to layer bringup with:</p>
-<ul>
-<li>Topic remapping</li>
-<li>Namespace configuration</li>
-<li>Parameter loading</li>
-<li>Conditional launching (if needed)</li>
-</ul>
-<h3 id="4-test-integration">4. Test Integration<a class="headerlink" href="#4-test-integration" title="Permanent link">&para;</a></h3>
-<p>Verify:</p>
-<ul>
-<li>Topics connect correctly</li>
-<li>Data flows as expected</li>
-<li>Performance meets requirements</li>
-<li>Works with other modules</li>
-</ul>
-<p>See <a href="../integration_checklist/">Integration Checklist</a> for detailed steps.</p>
+<p>The frame tree, units, and the ENU convention are specified normatively in
+<a href="../interface_conventions/#tf-frames-and-units">Interface Conventions — TF frames and units</a>.
+For the reasoning behind the conventions — including the NED↔ENU conversion at
+the PX4/MAVROS boundary and Isaac Sim's FLU convention — see the
+<a href="../../../development/intermediate/frame_conventions/">Frame Conventions</a>
+concept page.</p>
+<h2 id="integrating-a-new-module">Integrating a New Module<a class="headerlink" href="#integrating-a-new-module" title="Permanent link">&para;</a></h2>
+<p>When adding a new module to the stack — choosing its layer, defining its topic
+interfaces, wiring it into a stack entry launch file, and verifying the
+connections — follow the <a href="../integration_checklist/">Integration Checklist</a>,
+which is the canonical step-by-step guide.</p>
 <h2 id="multi-robot-architecture">Multi-Robot Architecture<a class="headerlink" href="#multi-robot-architecture" title="Permanent link">&para;</a></h2>
 <h3 id="robot-namespacing">Robot Namespacing<a class="headerlink" href="#robot-namespacing" title="Permanent link">&para;</a></h3>
 <p>Each robot operates in its own namespace:</p>
@@ -6793,8 +6521,9 @@ and their interfaces.</p>
     R2 &lt;--&gt; Router</code></pre>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="../interface_conventions/">Interface Conventions Specification</a> - Normative topic, action, and frame contracts</li>
 <li><a href="../integration_checklist/">Integration Checklist</a> - Module integration guidelines</li>
-<li><a href="../../development/ai_agent_guide.md">AI Agent Guide</a> - Guide for AI agents</li>
+<li><a href="../../../development/advanced/ai_agent_guide/">AI Agent Guide</a> - Guide for AI agents</li>
 <li><a href="../">Layer Documentation</a> - Detailed layer descriptions</li>
 <li>
 <p>Skills:</p>
@@ -6839,7 +6568,7 @@ and their interfaces.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview">
+          <a href="../../../development/beginner/key_concepts/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Key Concepts">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -6849,20 +6578,20 @@ and their interfaces.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Overview
+                Key Concepts
               </div>
             </div>
           </a>
         
         
           
-          <a href="../tasks/" class="md-footer__link md-footer__link--next" aria-label="Next: Tasks and Task Executors">
+          <a href="../../../development/modules/" class="md-footer__link md-footer__link--next" aria-label="Next: Modules">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Tasks and Task Executors
+                Modules
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -6921,11 +6650,13 @@ and their interfaces.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
     
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": ["navigation.indexes", "navigation.path", "navigation.tabs", "navigation.footer", "navigation.top", "navigation.sections", "search.highlight", "search.suggest", "toc.integrate", "toc.follow", "content.code.copy"], "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": ["navigation.indexes", "navigation.path", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.top", "navigation.sections", "search.highlight", "search.suggest", "search.share", "toc.integrate", "toc.follow", "content.code.copy", "content.code.annotate", "content.tooltips"], "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
       <script src="../../../../assets/javascripts/bundle.d7400e89.min.js"></script>

@@ -1,0 +1,39 @@
+<!--
+  fixed_trajectory_task : canonical module launch file (RFC #379 §2/§4).
+
+  Starts the fixed-trajectory task action server as the legacy local bringup
+  did: node `fixed_trajectory_task` in the `trajectory_controller` namespace.
+  Every topic endpoint is a declared <arg> defaulting to the canonical name
+  (today's graph). Wiring deviations are passed as include args by the stack
+  entry file (stacks/<name>/launch/) — the single-locus rule: endpoints are declared args,
+  applied locally via <set_remap>; cross-module REWIRING lives only in
+  stack entry files.
+-->
+<launch>
+  <arg name="fixed_trajectory_odometry_topic"
+       default="/$(env ROBOT_NAME)/odometry_conversion/odometry"
+       description="Input robot odometry (nav_msgs/Odometry)" />
+  <arg name="fixed_trajectory_trajectory_override_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override"
+       description="Output fixed trajectory override (airstack_msgs/TrajectoryXYZVYaw)" />
+  <arg name="fixed_trajectory_set_trajectory_mode_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
+       description="Output trajectory-controller mode command" />
+  <arg name="fixed_trajectory_completion_percentage_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/trajectory_completion_percentage"
+       description="Input trajectory completion percentage (std_msgs/Float32)" />
+  <arg name="fixed_trajectory_task_action"
+       default="/$(env ROBOT_NAME)/tasks/fixed_trajectory"
+       description="Fixed-trajectory task action server name (task_msgs)" />
+
+  <group>
+    <push-ros-namespace namespace="trajectory_controller" />
+    <set_remap from="odometry" to="$(var fixed_trajectory_odometry_topic)" />
+    <set_remap from="trajectory_override" to="$(var fixed_trajectory_trajectory_override_topic)" />
+    <set_remap from="set_trajectory_mode" to="$(var fixed_trajectory_set_trajectory_mode_topic)" />
+    <set_remap from="trajectory_completion_percentage" to="$(var fixed_trajectory_completion_percentage_topic)" />
+    <set_remap from="~/fixed_trajectory_task" to="$(var fixed_trajectory_task_action)" />
+
+    <node pkg="trajectory_controller" exec="fixed_trajectory_task" output="screen" />
+  </group>
+</launch>

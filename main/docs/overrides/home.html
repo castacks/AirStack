@@ -3,28 +3,48 @@
 {% block tabs %}
   {{ super() }}
 
-  <!-- Hero section with background media -->
+  <!-- Hero: value prop + real quickstart + CTAs over live sim footage -->
   <section class="splash-container">
-    <!-- Background media -->
     <div class="splash-background">
       <div class="media-overlay"></div>
       <div class="media-container">
-        <img src="assets/media/splash-background.gif" alt="Background Animation" class="splash-media">
+        <!-- Multi-drone autonomy demo: Isaac Sim warehouse fleet, Foxglove GCS,
+             MS AirSim neighborhood — spliced + compressed (see notebook 005). -->
+        <video class="splash-media" autoplay muted loop playsinline
+               preload="metadata" poster="assets/media/splash-poster.jpg">
+          <source src="assets/media/splash-video.mp4" type="video/mp4">
+          <img src="assets/media/splash-poster.jpg" alt="AirStack multi-drone simulation demo">
+        </video>
       </div>
     </div>
 
-    <!-- Hero content -->
     <div class="md-grid md-typeset">
       <div class="mdx-hero">
         <div class="mdx-hero__content">
-          <h1>Welcome to AirStack</h1>
-          <p>A Boilerplate to Democratize Autonomous Intelligent Robotics</p>
-          <a href="{{ 'docs/getting_started/' | url }}" class="md-button md-button--primary">
-            Get Started
-          </a>
-          <a href="{{ config.repo_url }}" class="md-button">
-            View on GitHub
-          </a>
+          <span class="mdx-hero__badge">AirLab &middot; Carnegie Mellon University</span>
+          <h1>Build the autonomy,<br> not the scaffolding.</h1>
+          <p>AirStack is an open ROS&nbsp;2 stack for aerial robots &mdash; simulator,
+             ground control, and layered onboard autonomy that launch as one system.</p>
+
+          <div class="as-terminal as-terminal--hero">
+            <div class="as-terminal__bar">
+              <span class="as-terminal__dots"><i></i><i></i><i></i></span>
+              <span class="as-terminal__title">zero &rarr; drones flying in sim</span>
+              <button class="as-copy" data-copy="git clone --recursive -j8 git@github.com:castacks/AirStack.git && cd AirStack
+./airstack.sh install && ./airstack.sh setup
+airstack up --play --wait">Copy</button>
+            </div>
+            <pre><code><span class="as-prompt">$</span> git clone --recursive -j8 git@github.com:castacks/AirStack.git && cd AirStack
+<span class="as-prompt">$</span> ./airstack.sh install && ./airstack.sh setup
+<span class="as-prompt">$</span> airstack up --play --wait</code></pre>
+          </div>
+
+          <div class="mdx-hero__actions">
+            <a href="{{ 'docs/getting_started/' | url }}" class="md-button md-button--primary">Get started</a>
+            <a href="{{ config.repo_url }}" class="md-button">View on GitHub</a>
+          </div>
+          <p class="mdx-hero__footnote">Background: three drones flying the real stack in Isaac Sim,
+             the Foxglove GCS, and MS AirSim &mdash; recorded from this repo, unstaged.</p>
         </div>
       </div>
     </div>
@@ -33,68 +53,207 @@
 
 {% block content %}
 <div class="md-content md-grid" data-md-component="content">
-  <div class="md-content__inner">
-    <!-- What is AirStack section -->
-    <section class="mdx-container">
-      <div class="md-grid md-typeset">
-        <div class="what-is-section">
-          <h2>What is AirStack?</h2>
-          <p>
-            AirStack is a powerful robotics development boilerplate maintained by the 
-            <a href="https://theairlab.org" target="_blank">AirLab</a> at Carnegie Mellon University's 
-            Robotics Institute. It provides a structured foundation for building advanced robotics 
-            applications with:
-          </p>
-          <ul class="feature-list">
-            <li>🤖 <strong>Complete Autonomy Stack</strong> - From sensors to behavior planning</li>
-            <li>🔧 <strong>Modular Architecture</strong> - Easy to customize and extend</li>
-            <li>🚀 <strong>Development Tools</strong> - Docker support, VSCode integration, and testing frameworks</li>
-            <li>📊 <strong>Ground Control Station</strong> - Built-in monitoring and control interface</li>
-            <li>🎮 <strong>Simulation Ready</strong> - Integrated with Isaac Sim</li>
-            <li>🔄 <strong>CI/CD Pipeline</strong> - Automated testing and deployment</li>
-          </ul>
+  <div class="md-content__inner as-landing">
+
+    <!-- Pillar 1: simplicity -->
+    <section class="as-section" id="one-command">
+      <div class="as-section__grid">
+        <div class="as-section__copy">
+          <h2>One command brings up sim, robots, and ground control</h2>
+          <p><code>airstack up</code> starts the simulator, one container per robot, and a
+             Foxglove-based ground control station, wired together over ROS&nbsp;2. Flags select
+             the simulator, scene, and fleet size &mdash; no launch-file surgery.</p>
+          <div class="as-snippet">
+            <div class="as-snippet__bar"><span>variants</span>
+              <button class="as-copy" data-copy="airstack up --sim airsim --scene neighborhood
+airstack up --sim isaac --robots 3 --scene full-warehouse
+airstack up --fleet sim_three_mixed">Copy</button>
+            </div>
+            <pre><code>airstack up --sim airsim --scene neighborhood
+airstack up --sim isaac --robots 3 --scene full-warehouse
+airstack up --fleet sim_three_mixed</code></pre>
+          </div>
+        </div>
+        <div class="as-section__artifact">
+          <div class="as-terminal">
+            <div class="as-terminal__bar">
+              <span class="as-terminal__dots"><i></i><i></i><i></i></span>
+              <span class="as-terminal__title">airstack ready</span>
+            </div>
+            <pre><code><span class="as-dim">Waiting for the AirStack stack to become flight-ready...</span>
+<span class="as-ok">&#10003;</span> robot containers running
+<span class="as-ok">&#10003;</span> sim publishing /clock
+<span class="as-ok">&#10003;</span> robot_1: autonomy nodes up
+<span class="as-ok">&#10003;</span> robot_1: MAVROS connected to PX4
+<span class="as-ok">&#10003;</span> robot_1: PX4 EKF ready (armable)
+<span class="as-ok">&#10003;</span> robot_2 &hellip; robot_3 &hellip;
+<span class="as-dim">Stack is flight-ready (143s). Takeoff is available.</span></code></pre>
+          </div>
+          <p class="as-caption">Actual <code>airstack ready</code> output from the 3-robot Isaac Sim
+             bring-up shown in the hero video.</p>
         </div>
       </div>
     </section>
 
-    <!-- Feature Cards section -->
-    <section class="mdx-container">
-      <div class="md-grid md-typeset">
-        <h2>Key Features</h2>
-        <div class="feature-grid">
-          <div class="feature-card">
-            <div class="feature-icon">🎯</div>
-            <h3>Autonomy Modules</h3>
-            <p>Complete suite of autonomy components including perception, planning, and control systems.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">🌐</div>
-            <h3>Ground Control</h3>
-            <p>Built-in ground control station for robot monitoring and control, with multi-robot support.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">🎲</div>
-            <h3>Simulation</h3>
-            <p>Integrated simulation environment with Isaac Sim for testing and development.</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">🛠️</div>
-            <h3>Development Tools</h3>
-            <p>Comprehensive development environment with Docker, VSCode, and testing frameworks.</p>
+    <!-- Pillar 2: sim-to-real -->
+    <section class="as-section" id="sim-to-real">
+      <div class="as-section__grid">
+        <div class="as-section__artifact">
+          <video class="as-video" muted loop playsinline preload="none"
+                 poster="assets/media/isaac_sim_demo_poster.jpg"
+                 data-src="assets/media/isaac_sim_demo.mp4"></video>
+          <p class="as-caption">Isaac Sim: three robots, parallel <code>TakeoffTask</code> +
+             <code>FixedTrajectoryTask</code> action goals &mdash; the same actions the GCS and
+             system tests send.</p>
+        </div>
+        <div class="as-section__copy">
+          <h2>Same code in sim and on the vehicle</h2>
+          <p>The desktop dev container and the Jetson (L4T) onboard container extend one base
+             service and launch the same stack entry point. What you test in simulation is what
+             the vehicle runs.</p>
+          <div class="as-snippet">
+            <div class="as-snippet__bar"><span>robot/docker/docker-compose.yaml</span></div>
+            <pre><code>robot-desktop:        <span class="as-dim"># x86 dev machine + sim</span>
+  extends: {file: ./robot-base-docker-compose.yaml,
+            service: robot_base}
+robot-l4t:            <span class="as-dim"># Jetson Orin, JetPack/L4T</span>
+  extends: {file: ./robot-base-docker-compose.yaml,
+            service: robot_base}
+<span class="as-dim"># both dispatch the same entry launch:
+#   stacks/full_default/launch/stack.launch.xml</span></code></pre>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Architecture Overview section -->
-    <section class="mdx-container">
-      <div class="md-grid md-typeset">
-        <div class="architecture-section">
-          <img src="overview.png" alt="AirStack Architecture Overview" class="architecture-image">
-          <p class="image-caption">AirStack Architecture Overview</p>
+    <!-- Pillar 3: end-to-end testing -->
+    <section class="as-section" id="ci">
+      <h2>CI flies the whole stack, not just unit tests</h2>
+      <p class="as-lede">Pull requests run pytest campaigns against the live simulators on
+         ephemeral GPU runners: bring-up, sensor rates, takeoff&ndash;hover&ndash;land, fixed
+         trajectories with cross-track error, and waypoint navigation judged on the odometry
+         track.</p>
+      <div class="as-matrix">
+        <div class="as-matrix__item"><code>build_docker</code><span>image builds</span></div>
+        <div class="as-matrix__item"><code>build_packages</code><span>colcon in every container</span></div>
+        <div class="as-matrix__item"><code>liveliness</code><span>containers &middot; /clock &middot; nodes</span></div>
+        <div class="as-matrix__item"><code>sensors</code><span>topic Hz &middot; RTF</span></div>
+        <div class="as-matrix__item"><code>takeoff_hover_land</code><span>flight chain per robot</span></div>
+        <div class="as-matrix__item"><code>autonomy</code><span>trajectories + path RMSE</span></div>
+        <div class="as-matrix__item"><code>waypoint_flight</code><span>ordered corridor arrival</span></div>
+      </div>
+      <div class="as-snippet as-snippet--center">
+        <div class="as-snippet__bar"><span>run it yourself &mdash; or comment <code>/pytest</code> on a PR</span>
+          <button class="as-copy" data-copy="airstack test -m takeoff_hover_land --sim isaacsim --num-robots 1 -v">Copy</button>
+        </div>
+        <pre><code>airstack test -m takeoff_hover_land --sim isaacsim --num-robots 1 -v</code></pre>
+      </div>
+      <p class="as-caption as-caption--center">Marks defined in
+         <a href="https://github.com/castacks/AirStack/tree/main/tests">tests/</a>; simulation marks
+         run on one-job ephemeral GPU workers, and metrics regressions fail the report.</p>
+    </section>
+
+    <!-- Pillar 4: agent-native -->
+    <section class="as-section" id="agents">
+      <div class="as-section__grid">
+        <div class="as-section__copy">
+          <h2>AI agents can drive this repo</h2>
+          <p>Module boundaries, an <code>AGENTS.md</code> contract, and 23 step-by-step skills give
+             coding agents the same on-ramp as humans: scaffold a package, wire it into a stack,
+             fly it in sim, document it.</p>
+          <p class="as-proof">Proof over promise: <strong>every video on this page was captured by
+             an AI agent</strong> &mdash; it brought the stack up, scripted the flights through the
+             task actions, implemented the Isaac viewport follow-camera it filmed with
+             (<code>pegasus_app.py</code>), and edited the clips.</p>
+        </div>
+        <div class="as-section__artifact">
+          <div class="as-skills">
+            <div class="as-skills__bar">.agents/skills/</div>
+            <div class="as-skills__grid">
+              <span>create-module</span><span>create-stack</span>
+              <span>integrate-module-into-layer</span><span>add-ros2-package</span>
+              <span>write-launch-file</span><span>test-in-simulation</span>
+              <span>debug-module</span><span>add-unit-tests</span>
+              <span>configure-multi-robot</span><span>write-isaac-sim-scene</span>
+              <span>visualize-in-foxglove</span><span>add-behavior-tree-node</span>
+              <span class="as-skills__more">+11 more</span>
+            </div>
+          </div>
+          <p class="as-caption">Real skill guides in the repo &mdash; each one a tested,
+             end-to-end workflow an agent (or a new teammate) can follow.</p>
         </div>
       </div>
     </section>
+
+    <!-- The whole system on one screen -->
+    <section class="as-section" id="architecture">
+      <h2>The whole system on one screen</h2>
+      <p class="as-lede">One workstation, one <code>airstack up</code>: Isaac Sim with the drone
+         follow-camera, Foxglove tracing all three robots' trajectories live, and the CLI's
+         flight-ready checklist. Layered autonomy &mdash; sensors, perception, planning, controls,
+         interface &mdash; runs underneath, each module swappable behind standard ROS&nbsp;2 topics
+         (<a href="{{ 'docs/robot/autonomy/system_architecture/' | url }}">architecture docs</a>).</p>
+      <div class="as-arch">
+        <img src="assets/media/workstation.webp"
+             alt="Desktop screenshot: Isaac Sim warehouse with drones flying, Foxglove showing three live trajectory traces, and a terminal with the airstack ready checklist"
+             loading="lazy">
+      </div>
+      <p class="as-caption">Unedited desktop capture during the 3-robot mission recorded for this
+         page &mdash; sim, ground control, and CLI, all live.</p>
+    </section>
+
+    <!-- Provenance -->
+    <section class="as-section as-provenance" id="provenance">
+      <h2>Built and flown by the AirLab</h2>
+      <p class="as-lede">AirStack is developed at Carnegie Mellon University's
+         <a href="https://theairlab.org">Robotics Institute AirLab</a> (PI:
+         <a href="https://theairlab.org/team/sebastian/">Sebastian Scherer</a>), building on the
+         lab's research in obstacle avoidance, multi-robot exploration, vision-based state
+         estimation, and search-and-rescue field robotics.
+         <a href="https://github.com/castacks/AirStack/graphs/contributors">Contributors</a> span
+         students, researchers, and field teams.</p>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="as-cta" id="get-started">
+      <h2>Fly it tonight</h2>
+      <div class="mdx-hero__actions">
+        <a href="{{ 'docs/getting_started/' | url }}" class="md-button md-button--primary">Get started</a>
+        <a href="{{ config.repo_url }}" class="md-button">View on GitHub</a>
+      </div>
+      <p class="as-caption as-caption--center">No Linux box or GPU?
+         <a href="{{ 'docs/tutorials/airstack_on_osmo/' | url }}">Run AirStack on OSMO</a> from any laptop.</p>
+    </section>
+
   </div>
 </div>
+
+<script>
+  // Copy buttons for quickstart snippets
+  document.querySelectorAll(".as-copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(btn.dataset.copy).then(function () {
+        var old = btn.textContent;
+        btn.textContent = "Copied";
+        setTimeout(function () { btn.textContent = old; }, 1600);
+      });
+    });
+  });
+
+  // Lazy-load + autoplay below-the-fold demo videos when they near the viewport
+  var lazyVideos = document.querySelectorAll("video[data-src]");
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        var v = entry.target;
+        if (!v.src) { v.src = v.dataset.src; v.play().catch(function () {}); }
+        io.unobserve(v);
+      });
+    }, { rootMargin: "200px" });
+    lazyVideos.forEach(function (v) { io.observe(v); });
+  } else {
+    lazyVideos.forEach(function (v) { v.src = v.dataset.src; });
+  }
+</script>
 {% endblock %}

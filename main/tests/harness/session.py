@@ -7,6 +7,7 @@ pytest hooks (in conftest.py) *write* this state — ``init_run_dir`` in
 back into conftest globals.
 """
 import logging
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 
@@ -19,6 +20,7 @@ _DEFAULT_LOG_KEY = "_last"
 _run_dir = None
 _current_item = None
 _last_cmd_output: dict[str, str] = {}
+_command_ring = deque(maxlen=30)
 
 
 def init_run_dir(airstack_root) -> Path:
@@ -46,14 +48,24 @@ def current_item():
     return _current_item
 
 
-def record_cmd_output(text, log_name=None):
+def record_cmd_output(text, log_name=None, command=""):
     """Store the latest subprocess output, keyed by ``log_name`` and as the default."""
     key = log_name or _DEFAULT_LOG_KEY
     _last_cmd_output[key] = text
     _last_cmd_output[_DEFAULT_LOG_KEY] = text
+    _command_ring.append({
+        "command": str(command)[:1000],
+        "log_name": key,
+        "output": str(text)[-12000:],
+    })
 
 
 def last_cmd_output(log_name=None) -> str:
     """The most recent subprocess output for ``log_name`` (or the default)."""
     key = log_name or _DEFAULT_LOG_KEY
     return _last_cmd_output.get(key) or _last_cmd_output.get(_DEFAULT_LOG_KEY, "")
+
+
+def recent_cmd_outputs() -> list[dict[str, str]]:
+    """Bounded command/output history for failure diagnostics."""
+    return list(_command_ring)

@@ -11,7 +11,9 @@ Demonstrates:
    (pass ``save_scene_to=`` below)
 
 Env (see pegasus_app.py): ISAAC_SIM_LIVESTREAM, ISAAC_SIM_HEADLESS,
-PLAY_SIM_ON_START.
+PLAY_SIM_ON_START, and ISAAC_SIM_SCENE / ISAAC_SIM_STAGE_SCALE (set by
+`airstack up --scene <shortname>` — a Pegasus catalog key or USD URL;
+default: Default Environment).
 """
 
 import os
@@ -24,15 +26,17 @@ from pegasus_app import create_simulation_app
 simulation_app = create_simulation_app()
 
 from pegasus.simulator.params import SIMULATION_ENVIRONMENTS  # noqa: E402
-from pegasus_app import PegasusApp  # noqa: E402
+from pegasus_app import PegasusApp, resolve_scene_from_env  # noqa: E402
 
 
 def main():
+    # Scene from `airstack up --scene` (or set ISAAC_SIM_SCENE to any
+    # catalog key / USD URL); stage_scale converts cm-authored stages to m.
+    env_url, stage_scale = resolve_scene_from_env(SIMULATION_ENVIRONMENTS)
+    print(f"[example_one] Scene: {env_url} (stage_scale={stage_scale})")
     PegasusApp(
-        # Environment to load. Swap this URL/key for any other scene.
-        env_url=SIMULATION_ENVIRONMENTS["Default Environment"],
-        # 0.01 converts cm→m for Nucleus assets; 1.0 if already in meters.
-        stage_scale=1.0,
+        env_url=env_url,
+        stage_scale=stage_scale,
         drone_configs=[
             {
                 "domain_id": 1,  # MAVLink port = 14540 + vehicle_id (= domain_id)

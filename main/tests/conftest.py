@@ -23,10 +23,27 @@ from harness.run_meta import write_run_meta
 
 def pytest_addoption(parser):
     parser.addoption("--sim", default="isaacsim",
-                     help="Comma-separated sim targets: isaacsim, msairsim. "
-                          "Default isaacsim; pass --sim msairsim to opt in.")
+                     help="Comma-separated sim targets: isaacsim, msairsim, "
+                          "simplesim. Default isaacsim; pass --sim msairsim "
+                          "to opt in. simplesim only drives the simple_sim "
+                          "smoke test (-m simple_sim).")
     parser.addoption("--num-robots", default="1,3",
                      help="Comma-separated robot counts, e.g. 1,3")
+    parser.addoption("--stack", default=None,
+                     help="Stack to launch as <name>[:<entry>], same syntax "
+                          "as `airstack up --stack` (sets AIRSTACK_STACK_DIR/"
+                          "AIRSTACK_STACK_ENTRY). Split stacks need the entry "
+                          "(e.g. lite_offload_global:onboard). Default: None "
+                          "= the default dispatch, stacks/full_default. The "
+                          "wiring test drift-checks against "
+                          "stacks/<name>/wiring.md.")
+    parser.addoption("--fleet", default=None,
+                     help="Fleet preset under config/fleets/ (RFC #380 §2), "
+                          "e.g. sim_three_mixed. Sets FLEET_CONFIG_FILE for "
+                          "airstack up and derives NUM_ROBOTS from the "
+                          "fleet's robot count (overriding --num-robots). "
+                          "Default: None (legacy --num-robots behavior, "
+                          "unchanged).")
     parser.addoption("--stress-iterations", type=int, default=1,
                      help="Number of up/down iterations per (sim, num_robots) config")
     parser.addoption("--stable-duration", type=int, default=120,
@@ -38,7 +55,7 @@ def pytest_addoption(parser):
                           "Default: headless (no X, good for CI).")
     parser.addoption("--takeoff-velocities", default="0.5",
                      help="Comma-separated takeoff/land velocities (m/s) to "
-                          "sweep in test_takeoff_hover_land. Default: 0.5,1,2")
+                          "sweep in test_takeoff_hover_land. Default: 0.5")
     parser.addoption("--trajectory-types", default="Circle,Figure8,Racetrack,Line",
                      help="Comma-separated fixed trajectory types to sweep in "
                           "test_fixed_trajectory. Default: Circle,Figure8,Racetrack,Line")
@@ -78,7 +95,7 @@ def pytest_configure(config):
     run_dir = harness_session.init_run_dir(AIRSTACK_ROOT)
     config.option.xmlpath = str(run_dir / "results.xml")
 
-    # Co-located unit tests import their own package (e.g. `optitrack.natnet.emulator`,
+    # Co-located unit tests import their own package (e.g.
     # `lidar_point_cloud_filter.validation_core`). Put each package/extension import
     # root (the parent of its test/ dir) on sys.path so they resolve without a
     # per-package conftest.py — a second conftest.py collides with this root one as
@@ -137,12 +154,26 @@ def pytest_sessionfinish(session, exitstatus):
             for entries in getattr(terminal, "stats", {}).values()
             for report in entries
         ]
+        campaign_config = {}
+        for key in (
+            "sim", "num_robots", "stress_iterations", "stable_duration",
+            "stable_interval", "gui", "takeoff_velocities",
+            "trajectory_types", "waypoints", "waypoint_tolerance",
+            "goal_tolerance", "waypoint_timeout",
+        ):
+            try:
+                campaign_config[key] = session.config.getoption(
+                    f"--{key.replace('_', '-')}"
+                )
+            except (ValueError, AttributeError):
+                continue
         meta_path = write_run_meta(
             run_dir,
             session.items,
             exitstatus,
             session.config.option.markexpr,
             reports,
+            campaign_config,
         )
         logger.info("Wrote run metadata to %s", meta_path)
     except Exception as exc:
@@ -157,9 +188,20 @@ def pytest_sessionfinish(session, exitstatus):
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    """Attach phase reports to the item so fixtures can inspect pass/fail."""
+    """Attach phase reports and preserve the assertion/infrastructure boundary."""
     outcome = yield
     rep = outcome.get_result()
+    if rep.failed:
+        text = str(rep.longrepr).lower()
+        is_infrastructure = bool(
+            item.get_closest_marker("infrastructure")
+            or rep.when in ("setup", "teardown")
+            or "infrastructure prerequisite" in text
+            or "infrastructure simulator process failure" in text
+        )
+        rep.airstack_failure_class = (
+            "infrastructure" if is_infrastructure else "assertion"
+        )
     setattr(item, f"_rep_{rep.when}", rep)
 
 
@@ -179,6 +221,17 @@ def pytest_generate_tests(metafunc):
         return
     sims = [s.strip() for s in metafunc.config.getoption("--sim").split(",") if s.strip()]
     nums = [int(x) for x in metafunc.config.getoption("--num-robots").split(",") if x.strip()]
+    fleet = metafunc.config.getoption("--fleet")
+    if fleet:
+        # A fleet defines its own robot roster: campaigns run at exactly the
+        # fleet's robot count — the --num-robots matrix would otherwise spawn
+        # campaigns expecting robots the fleet never declares.
+        import os as _os
+        import yaml as _yaml
+        fleet_path = _os.path.join(AIRSTACK_ROOT, "config", "fleets", f"{fleet}.yaml")
+        with open(fleet_path, encoding="utf-8") as fh:
+            fleet_doc = _yaml.safe_load(fh) or {}
+        nums = [len(fleet_doc.get("robots") or {})]
     iterations = metafunc.config.getoption("--stress-iterations")
     params = [(s, n, i) for s in sims for n in nums for i in range(iterations)]
     ids = [f"{s}-{n}-iter{i}" for s, n, i in params]
@@ -211,7 +264,9 @@ def airstack_env(request):
     env_overrides = {
         "AUTOLAUNCH": "true",
         "NUM_ROBOTS": str(num_robots),
-        "COMPOSE_PROFILES": f"desktop,{cfg['profile']}",
+        # simplesim overrides this: its simple-robot service replaces
+        # robot-desktop, so the desktop profile must stay off (see SIM_CONFIG).
+        "COMPOSE_PROFILES": cfg.get("compose_profiles", f"desktop,{cfg['profile']}"),
         "MS_AIRSIM_HEADLESS": "true" if headless else "false",
         "ISAAC_SIM_HEADLESS": "true" if headless else "false",
     }
@@ -220,6 +275,40 @@ def airstack_env(request):
         env_overrides["QT_QPA_PLATFORM"] = "offscreen"
     env_overrides.update(cfg.get("extra_env", {}))
 
+    # Stack dispatch (RFC #379 §3): route robot.launch.xml to the stack's
+    # entry launch file (unset = the full_default default). Container path —
+    # stacks/ is bind-mounted at /root/AirStack/stacks.
+    # Accepts the same <name>[:<entry>] syntax as `airstack up --stack` —
+    # split stacks (e.g. lite_offload_global:onboard) have no stack.launch.xml,
+    # only per-half entries, so the bare name would dispatch to a nonexistent
+    # entry and strand the launch after the dispatcher preamble.
+    stack = request.config.getoption("--stack")
+    if stack:
+        stack_name, _, stack_entry = stack.partition(":")
+        env_overrides["AIRSTACK_STACK_DIR"] = f"/root/AirStack/stacks/{stack_name}"
+        env_overrides["AIRSTACK_STACK_ENTRY"] = stack_entry or "stack"
+
+    # Fleet dispatch (RFC #380 §2): FLEET_CONFIG_FILE (container path) opts
+    # the run into fleet resolution; NUM_ROBOTS is derived from the fleet's
+    # robot count (overriding this parametrization's num_robots). `airstack
+    # up` sees the env var, validates the fleet, and auto-includes the
+    # generated per-robot compose when the fleet is heterogeneous. Isaac runs
+    # pin the generic fleet spawner explicitly (parametrized sim scripts in
+    # extra_env would otherwise shadow it). --fleet absent = byte-identical
+    # legacy behavior.
+    fleet = request.config.getoption("--fleet")
+    if fleet:
+        import yaml as _yaml
+        fleet_path = Path(AIRSTACK_ROOT) / "config" / "fleets" / f"{fleet}.yaml"
+        assert fleet_path.is_file(), f"--fleet {fleet}: no such file {fleet_path}"
+        with fleet_path.open(encoding="utf-8") as f:
+            fleet_robots = len((_yaml.safe_load(f) or {}).get("robots") or {})
+        env_overrides["FLEET_CONFIG_FILE"] = f"/root/AirStack/config/fleets/{fleet}.yaml"
+        env_overrides["NUM_ROBOTS"] = str(fleet_robots)
+        num_robots = fleet_robots
+        if sim == "isaacsim":
+            env_overrides["ISAAC_SIM_SCRIPT_NAME"] = "fleet_spawn.py"
+
     with logger_to(log):
         missing = missing_images(env=env_overrides)
         if missing:
@@ -227,7 +316,7 @@ def airstack_env(request):
                 "Required docker images not built locally:\n  - "
                 + "\n  - ".join(missing)
                 + "\nBuild them first, e.g. `airstack test -m build_docker` "
-                  "or `airstack image-build <service>`."
+                  "or `airstack images build <service>`."
             )
         logger.info("Shutting down any previously running stack")
         airstack_cmd("down", timeout=120, log_name=log)
@@ -239,17 +328,34 @@ def airstack_env(request):
         up_cmd_duration_s = round(time.time() - t0, 2)
         logger.info("airstack up returned %d in %.2fs",
                     up_result.returncode, up_cmd_duration_s)
-        assert up_result.returncode == 0, \
-            f"airstack up failed:\n{read_log_tail(log)}"
+        if up_result.returncode != 0:
+            diagnostics = collect_failure_diagnostics(
+                env_overrides,
+                f"airstack up failed with status {up_result.returncode}",
+                harness_session.current_item().nodeid,
+            )
+            pytest.fail(
+                f"airstack up failed:\n{read_log_tail(log)}\n"
+                f"diagnostics: {diagnostics}"
+            )
 
     env = {
         "sim": sim,
         "num_robots": num_robots,
         "iteration": iteration,
         "sim_container": cfg["sim_container"],
-        "robot_pattern": "robot.*desktop",
+        "robot_pattern": cfg.get("robot_pattern", "robot.*desktop"),
         "up_started_at": t0,
         "cfg": cfg,
+        # None = the default dispatch (stacks/full_default); else the
+        # stacks/<name> explicitly launched (entry suffix stripped — goldens
+        # and doctor lookups key on the stack folder, not the entry).
+        "stack": stack.partition(":")[0] if stack else None,
+        # None = the folder's default entry (stack.launch.xml); else the
+        # split-stack half explicitly launched (e.g. "onboard").
+        "stack_entry": (stack.partition(":")[2] or None) if stack else None,
+        # None = legacy NUM_ROBOTS behavior; else the config/fleets/<name> flown.
+        "fleet": fleet,
     }
 
     tid = current_test_id()

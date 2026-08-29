@@ -1,10 +1,43 @@
-<!-- -->
+<!--
+  disparity_expansion : canonical module launch file (RFC #379 §2/§4).
+
+  Starts the DROAN local world model (C-space expansion of a disparity
+  image) as the legacy CPU-variant local bringup did: node
+  `disparity_expansion` in the `droan` namespace, where the CPU DROAN
+  planner consumes its expansion clouds by relative name. Every topic
+  endpoint is a declared <arg> defaulting to the canonical name (today's
+  graph). Wiring deviations are passed as include args by the stack entry
+  file (stacks/<name>/launch/) — the single-locus rule: endpoints are declared args,
+  applied locally via <set_remap>; cross-module REWIRING lives only in
+  stack entry files.
+-->
 <launch>
-    <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion">
-        <param from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
-        <param name="lut_max_disparity" value="180" />
-        <param name="expansion_radius" value="1.0" />
-        <param name="bg_multiplier" value="2.0" />
-        <param name="sensor_pixel_error" value="0.5" />
+  <arg name="disparity_expansion_namespace"
+       default="droan"
+       description="Namespace to run in; 'droan' so the CPU DROAN planner finds the expansion clouds by relative name" />
+  <arg name="disparity_expansion_config"
+       default="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml"
+       description="Node parameter YAML (loaded with allow_substs)" />
+
+  <arg name="disparity_expansion_disparity_topic"
+       default="/$(env ROBOT_NAME)/perception/stereo_image_proc/disparity"
+       description="Input disparity image (stereo_msgs/DisparityImage)" />
+  <arg name="disparity_expansion_depth_topic"
+       default="none"
+       description="Optional input depth image to synthesize disparity from ground truth; 'none' disables it" />
+  <arg name="disparity_expansion_camera_info_topic"
+       default="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info"
+       description="Input camera info for the disparity camera (sensor_msgs/CameraInfo); right camera because the baseline is encoded in the right projection matrix" />
+
+  <group>
+    <push-ros-namespace namespace="$(var disparity_expansion_namespace)" />
+    <set_remap from="disparity" to="$(var disparity_expansion_disparity_topic)" />
+    <set_remap from="depth" to="$(var disparity_expansion_depth_topic)" />
+    <set_remap from="camera_info" to="$(var disparity_expansion_camera_info_topic)" />
+
+    <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion"
+          output="screen">
+      <param from="$(var disparity_expansion_config)" allow_substs="true" />
     </node>
+  </group>
 </launch>

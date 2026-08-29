@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for co-located unit-test collection.
 
 Unit-test source lives outside ``tests/``, so ``conftest.pytest_configure`` appends it to
@@ -52,8 +52,8 @@ def test_broad_invocations_collect_unit_tests(cwd, args):
         (TESTS_DIR, ["system/test_liveliness.py"]),
         (TESTS_DIR, ["system/test_liveliness.py::TestLiveliness::test_x"]),
         (_REPO, ["tests/system/test_sensors.py"]),
-        (_REPO, ["tests/integration/natnet"]),
-        (_REPO, ["simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py"]),
+        (_REPO, ["tests/integration"]),
+        (_REPO, ["robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py"]),
         (_REPO, ["."]),                         # never recurse over the repo on host
         (_REPO, [""]),
         (_REPO, ["tests/", ""]),
@@ -118,7 +118,7 @@ def test_report_uses_the_revision_that_was_actually_tested():
 def test_pr_head_check_is_finalized_after_metrics():
     workflow = repo_path(".github", "workflows", "system-tests.yml").read_text()
     assert workflow.index("- name: Finalize check on PR head") > workflow.index(
-        "- name: Fail on regression"
+        "- name: Fail on report integrity error"
     )
     assert "ref: ${{ needs.run-tests.outputs.tested_sha }}" in workflow
     assert "conclusion: '${{ job.status }}'" not in workflow

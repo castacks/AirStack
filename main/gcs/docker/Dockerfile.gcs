@@ -11,12 +11,7 @@ RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngrad
     ros-dev-tools ros-jazzy-mavros ros-jazzy-tf2* ros-jazzy-stereo-image-proc \
     ros-jazzy-image-view ros-jazzy-topic-tools ros-jazzy-grid-map \
     ros-jazzy-domain-bridge ros-jazzy-ros2cli python3-colcon-common-extensions \
-    libglib2.0-dev libcgal-dev mosquitto mosquitto-clients \
-    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-    libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base \
-    gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools \
-    gstreamer1.0-x gstreamer1.0-alsa openssh-server \
+    libglib2.0-dev libcgal-dev openssh-server \
     xterm gnome-terminal libcanberra-gtk-module libcanberra-gtk3-module dbus-x11 \
     ros-jazzy-rosbag2-storage-mcap ros-jazzy-plotjuggler \
     && rm -rf /var/lib/apt/lists/*
@@ -40,8 +35,6 @@ RUN pip3 install --break-system-packages \
     six \
     toml \
     scipy \
-    pytak \
-    paho-mqtt \
     sphinx \
     utm
 
@@ -58,7 +51,11 @@ RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/
     (sleep 5 && git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm)
 
 # install FoxGloveStudio and ros-jazzy-foxglove-bridge
-RUN wget -q https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb -O /tmp/foxglove-studio.deb \
+# Pinned (not "latest"): gcs/foxglove_extensions/render_layout.py seeds layouts
+# into the app's local layout store, whose on-disk format we verified against
+# this exact version. Re-verify the store format before bumping.
+ARG FOXGLOVE_VERSION=3.0.0
+RUN wget -q https://get.foxglove.dev/desktop/v${FOXGLOVE_VERSION}/foxglove-studio-${FOXGLOVE_VERSION}-linux-amd64.deb -O /tmp/foxglove-studio.deb \
     && apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update \
     && apt -o APT::Get::AllowUnauthenticated=true install -y --no-install-recommends /tmp/foxglove-studio.deb ros-jazzy-foxglove-bridge \
     && rm /tmp/foxglove-studio.deb \

@@ -1,0 +1,65 @@
+﻿mdl 1.3;
+
+import ::math::*;
+import ::state::*;
+import ::tex::*;
+import ::anno::*;
+using OmniUe4Function import *;
+using OmniUe4Base import *;
+
+export annotation sampler_color();
+export annotation sampler_normal();
+export annotation sampler_grayscale();
+export annotation sampler_alpha();
+export annotation sampler_masks();
+export annotation sampler_distancefield();
+export annotation dither_masked_off();
+export annotation world_space_normal();
+
+export material MI_CeilingA_06b(
+	float4 MainTiling = float4(1.0,1.0,0.0,1.0),
+	uniform texture_2d MainNormalInput = texture_2d("../textures/T_BeamsA_N.png",::tex::gamma_linear)
+	[[sampler_normal()]],
+	float4 ColorAlbedo = float4(0.145,0.145,0.145,0.0),
+	uniform texture_2d AlbedoTexture = texture_2d("../textures/T_Floor_01_D.png",::tex::gamma_srgb)
+	[[sampler_color()]],
+	uniform texture_2d MaskSelection = texture_2d("../textures/T_BeamsA_M.png",::tex::gamma_linear)
+	[[sampler_masks()]],
+	uniform texture_2d MergeMapInput = texture_2d("../textures/T_BeamsA_ORM.png",::tex::gamma_linear)
+	[[sampler_color()]],
+	float RoughnessMin = 0.1,
+	float RoughnessMax = 0.9)
+ = 
+	let {
+	float3 WorldPositionOffset_mdl = float3(0.0,0.0,0.0);
+	float2 CustomizedUV0_mdl = float2(state::texture_coordinate(0).x,1.0-state::texture_coordinate(0).y);
+
+	float2 Local0 = (float2(float3(MainTiling.x,MainTiling.y,MainTiling.z).x,float3(MainTiling.x,MainTiling.y,MainTiling.z).y) * CustomizedUV0_mdl);
+	float4 Local1 = ::unpack_normal_map(tex::lookup_float4(MainNormalInput,float2(Local0.x,1.0-Local0.y),tex::wrap_repeat,tex::wrap_repeat));
+
+	float3 Normal_mdl = float3(Local1.x,Local1.y,Local1.z);
+
+	float4 Local2 = tex::lookup_float4(AlbedoTexture,float2(Local0.x,1.0-Local0.y),tex::wrap_repeat,tex::wrap_repeat);
+	float4 Local3 = tex::lookup_float4(MaskSelection,float2(CustomizedUV0_mdl.x,1.0-CustomizedUV0_mdl.y),tex::wrap_repeat,tex::wrap_repeat);
+	float3 Local4 = math::lerp(float3(ColorAlbedo.x,ColorAlbedo.y,ColorAlbedo.z),float3(Local2.x,Local2.y,Local2.z),float3(Local3.x,Local3.y,Local3.z));
+	float4 Local5 = tex::lookup_float4(MergeMapInput,float2(Local0.x,1.0-Local0.y),tex::wrap_repeat,tex::wrap_repeat);
+	float Local6 = math::lerp(RoughnessMin,RoughnessMax,float3(Local5.x,Local5.y,Local5.z).y);
+
+	float3 EmissiveColor_mdl = float3(0.0,0.0,0.0);
+	float OpacityMask_mdl = 1.0;
+	float3 BaseColor_mdl = Local4;
+	float Metallic_mdl = float3(Local5.x,Local5.y,Local5.z).z;
+	float Specular_mdl = 0.5;
+	float Roughness_mdl = Local6;
+
+	} in
+		::OmniUe4Base(
+			base_color: BaseColor_mdl,
+			metallic: Metallic_mdl,
+			roughness: Roughness_mdl,
+			specular: Specular_mdl,
+			normal: Normal_mdl,
+			opacity: OpacityMask_mdl,
+			emissive_color: EmissiveColor_mdl,
+			displacement: WorldPositionOffset_mdl,
+			two_sided: false);
