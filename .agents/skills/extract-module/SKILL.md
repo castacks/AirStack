@@ -172,7 +172,26 @@ delete, written for the orchestrator of that PR. Include:
   `Dockerfile.module` is not built in CI — verify tier-2 builds manually until
   that lands.
 - [ ] Register the module in the index repo
-  (`castacks/airstack-modules-index`) once CI is green.
+  (`castacks/airstack-modules-index`) once CI is green. **Registration is
+  TWO merges, and the registry one is the one that gets missed:**
+  1. **Registry repo:** PR adding `modules/<name>.yaml` (+ `stacks/<name>.yaml`
+     for a consuming reference stack) to `castacks/airstack-modules-index`;
+     `tools/validate_entry.py` / its CI must pass. **This PR must be MERGED,
+     not just opened.**
+  2. **Trunk repo:** copy the same entries into
+     `tests/meta/fixtures/modules_index/`, regenerate the committed catalog
+     (`python3 tools/gen_docs_catalog.py --index tests/meta/fixtures/modules_index
+     --modules-dir <empty-dir>`), and add the module page + stack README to
+     the `mkdocs.yml` nav.
+
+  Why both: the docs deploy workflows regenerate `docs/modules/` against the
+  **live registry** at build time — the committed pages are only the fallback
+  for an *unreachable* registry. If the trunk PR merges while the registry PR
+  sits unmerged, the deploy silently drops the module from the published
+  catalog even though `docs/modules/index.md` in git looks right (this
+  happened with `mighty`, 2026-08-29). Merge the registry PR **before or
+  with** the trunk PR; if it lands late, re-run the deploy:
+  `gh workflow run deploy_docs_from_develop.yaml --repo castacks/AirStack --ref develop`.
 
 ## References
 

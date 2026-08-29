@@ -124,6 +124,16 @@ so only deviations appear in stack files.)
    (RFC #379 §5: global planner → `waypoint_flight`,`autonomy`; state estimator →
    `liveliness`,`sensors`,`takeoff_hover_land`; world model/perception →
    `liveliness`,`sensors`; sim extension → `liveliness`).
+7. **Register the module in the marketplace — this is the step that gets
+   missed.** It is TWO merges: a PR to `castacks/airstack-modules-index`
+   (`modules/<name>.yaml`, plus `stacks/<name>.yaml` for a consuming
+   reference stack) **and** the trunk PR (same entries copied into
+   `tests/meta/fixtures/modules_index/`, committed `docs/modules/` pages
+   regenerated with `tools/gen_docs_catalog.py`, mkdocs nav updated). The
+   docs deploy regenerates the catalog from the LIVE registry, so the trunk
+   PR alone leaves the published catalog without your module — merge the
+   registry PR first. Full checklist + recovery command: the
+   [extract-module](../extract-module/SKILL.md) registration step.
 
 ## References
 
