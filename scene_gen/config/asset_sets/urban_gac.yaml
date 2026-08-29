@@ -238,7 +238,63 @@ usds:
     # removed from `urban.yaml`'s `midrise` (that pool is what `downtown.yaml`
     # and the earthquake preset build from and is not this scene's business);
     # the GAC preset's typologies simply draw from THIS key instead.
+    rowhouse+:
+      # ---- standalone drop, 2026-08-26: rendered terrace houses -----------
+      # Door on -X, which is the front `_lay_terrace` assumes at facing 0, so
+      # they need no `yaw-offset`. They are 3.9-8.4 m DEEP against the
+      # brownstones' 21.1 m, and that is safe here: `_lay_terrace` sizes its
+      # strips by the pool's DEEPEST member, so adding shallower stock cannot
+      # move the band — a shallow house simply leaves a wider alley behind it.
+      # Adding anything DEEPER than 21.1 m would move it for everyone.
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_01/house_01.usdc", material: concrete}
+        # 7.9 x 8.6 x 10.8 m — three-storey rendered house, door -X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_02/house_02.usdc", material: concrete}
+        # 6.6 x 5.9 x 11.0 m — three-storey rendered house, door -X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_03/house_03.usdc", material: concrete}
+        # 3.9 x 6.5 x 10.1 m — three-storey rendered house, door -X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_04/house_04.usdc", material: concrete}
+        # 7.5 x 9.3 x 10.6 m — three-storey rendered house, door -X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_05/house_05.usdc", material: concrete}
+        # 5.0 x 10.2 x 11.0 m — three-storey rendered house, door -X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/old_brick_shop/old_brick_shop.usdc", material: brick}
+        # 5.9 x 7.1 x 9.5 m — brick corner shop, boarded shopfront, door -X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/graffiti_brick_house/graffiti_brick_house.usdc", material: brick}
+        # 8.4 x 7.2 x 12.3 m — brick end-of-terrace, graffiti and boarded shopfront, door -X
+
+    # ---- standalone drop, 2026-08-26: ruined high-rises -------------------
+    # Finished collapse art — the fate swap drops `_mesh_damage` for these, so
+    # no cutter touches them. 48-70 m, painted concrete or bare steel frame.
+    destroyed+:
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_01/ruin_tower_01.usdc", material: steel}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_02/ruin_tower_02.usdc", material: steel}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_03/ruin_tower_03.usdc", material: steel}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_04/ruin_tower_04.usdc", material: steel}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_05/ruin_tower_05.usdc", material: steel}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_06/ruin_tower_06.usdc", material: steel}
+
     lowrise:
+      # ---- standalone drop, 2026-08-26: the shorter half ------------------
+      # See the note under `midrise_v2` — these are the same `block_*` family
+      # split off at ~20 m. They are STREET-WALL blocks with a shopfront on
+      # +X, which is a different thing from the Dmytro factory sheds above
+      # even at the same height, and they are what a low-rise urban block
+      # should mostly be made of.
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_03/block_03.usdc", material: brick}
+        # 17.1 x 23.2 x 18.8 m — street-wall shopfront block, shopfront +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_04/block_04.usdc", material: brick}
+        # 18.2 x 25.5 x 18.6 m — street-wall shopfront block, shopfront +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_05/block_05.usdc", material: brick}
+        # 19.1 x 29.8 x 18.8 m — street-wall shopfront block, shopfront +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_06/block_06.usdc", material: concrete}
+        # 18.7 x 33.5 x 14.5 m — street-wall shopfront block, shopfront +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_07/block_07.usdc", material: brick}
+        # 16.2 x 24.9 x 14.8 m — street-wall shopfront block, shopfront +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_08/block_08.usdc", material: concrete}
+        # 14.0 x 15.5 x 13.0 m — street-wall shopfront block, shopfront +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_09/block_09.usdc", material: brick}
+        # 13.9 x 16.9 x 11.9 m — street-wall shopfront block, shopfront +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/mini_auto_service/mini_auto_service.usdc", material: concrete}
+        # 15.0 x 26.3 x 8.5 m — single-storey auto-service showroom, sign +X
       - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_civic_offices_DG0.usd", scale: 1.0}   # 30.0 x 20.0 x 12.5 m — rc, kit
       - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_DG0.usd", scale: 1.0}   # 22.0 x 14.0 x 14.0 m — urm, kit
       - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_row_DG0.usd", scale: 1.0}   # 38.0 x 14.0 x 17.0 m — urm, kit
@@ -275,6 +331,23 @@ usds:
     # two are the short end of the brick terrace stock as well as the tall end
     # of the free-standing mid-rise.
     midrise_v2:
+      # ---- standalone drop, 2026-08-26: the taller half -------------------
+      # SPLIT BY MEASURED HEIGHT, not by the folder they came from — the
+      # source set files all nine `block_*` under `intact/midrise/`, but they
+      # measure 11.9-26.3 m, which straddles this typology and `lowrise`.
+      # Filing a 11.9 m shopfront block as a mid-rise is the same mistake
+      # that put the 11-17 m Dmytro sheds in `urban.yaml`'s `midrise` and
+      # made 55% of the city low-rise.
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_01/block_01.usdc", material: concrete}
+        # 19.5 x 34.1 x 23.6 m — street-wall shopfront block, shopfront +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_02/block_02.usdc", material: brick}
+        # 22.9 x 40.8 x 26.3 m — street-wall shopfront block, shopfront +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/japanese_building/japanese_building.usdc", material: concrete}
+        # 13.8 x 30.9 x 28.3 m — 8-storey concrete block, external stairs, shopfront +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/federal_bureau/federal_bureau.usdc", material: stone}
+        # 28.0 x 58.2 x 21.1 m — 7-storey stone U-plan office, flat facade +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/midrise/abandoned_brick_building/abandoned_brick_building.usdc", material: brick}
+        # 15.4 x 18.6 x 21.3 m — 7-storey brick factory block; weathered but STANDING, so intact art (user, 2026-08-26)
       - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 20.0 m — urm, kit
       - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_long_DG0.usd", scale: 1.0}   # 42.0 x 12.0 x 21.0 m — urm, kit
       - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_wide_DG0.usd", scale: 1.0}   # 40.0 x 24.0 x 22.0 m — rc, kit
@@ -413,6 +486,19 @@ usds:
     # ---- tower: 58-104 m --------------------------------------------------
     # Appended to `urban.yaml`'s Muyang towers rather than replacing them.
     tower+:
+      # ---- standalone drop, 2026-08-26 -----------------------------------
+      # Metre-authored, Z-up, base at z = 0, orientation baked in — so no
+      # `scale:` and no `yaw-offset`, unlike the centimetre-authored Nucleus
+      # packs above. `material:` is the construction; this set carries it and
+      # the GreatAmericanCity entries do not, which is why it is only here.
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/office_tower/office_tower.usdc", material: concrete}
+        # 74.9 x 36.8 x 93.3 m — 65k, untextured colours
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/stepped_tower/stepped_tower.usdc", material: concrete}
+        # 65.0 x 78.0 x 81.0 m — stepped low-poly office cluster, 24 storeys
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/slab_tower/slab_tower.usdc", material: concrete}
+        # 48.7 x 64.6 x 83.3 m — 20-storey white slab over a canopied podium, 310 TRIS — the cheapest tall building in the pack
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/podium_highrise/podium_highrise.usdc", material: concrete}
+        # 26.7 x 44.0 x 82.5 m — 122k, slender white tower on a wide dark podium, entrance on +X
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_08.usd"
         scale: 0.01
         yaw-offset: 0
