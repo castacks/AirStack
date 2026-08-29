@@ -1,7 +1,7 @@
 ---
 name: run-system-tests
-description: Run, interpret, and extend AirStack's pytest system test suite (build_packages, build_docker, liveliness, sensors, takeoff_hover_land, autonomy), trigger runs via /pytest PR comments, and read run_meta.json/metrics.json reports. Use for invoking tests, distinguishing infrastructure failures from policy regressions, or adding a new system test.
-license: Apache-2.0
+description: Run, interpret, and extend AirStack's pytest system test suite (build_packages, build_docker, liveliness, wiring, sensors, takeoff_hover_land, autonomy, waypoint_flight), trigger runs via /pytest PR comments, and read run_meta.json/metrics.json reports. Use for invoking tests, distinguishing infrastructure failures from policy regressions, or adding a new system test.
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack
@@ -196,7 +196,7 @@ Total parametrize cardinality for sim tests = `len(sims) × len(num_robots) × s
 - For `liveliness` / `sensors` / `takeoff_hover_land`: NVIDIA driver + `nvidia-container-toolkit`
 - For `isaacsim`: `simulation/isaac-sim/docker/omni_pass.env` populated with Omniverse credentials (CI generates a `guest`/`guest` version automatically)
 - `airstack setup` already run so `airstack` is on `PATH`
-- All required compose images present locally — `airstack_env` calls `missing_images()` and fails fast otherwise. Build them first via `airstack test -m build_docker` or `airstack image-build <service>`.
+- All required compose images present locally — `airstack_env` calls `missing_images()` and fails fast otherwise. Build them first via `airstack test -m build_docker` or `airstack images build <service>`.
 
 ## Running Tests via PR Comment
 

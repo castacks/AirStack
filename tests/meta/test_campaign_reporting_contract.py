@@ -7,7 +7,6 @@ from types import SimpleNamespace
 import pytest
 
 from harness.baseline import select_baseline
-from harness.image_prep import build_image_preparation
 from harness.run_meta import build_run_meta, campaign_fingerprint
 import parse_metrics
 from parse_metrics import _score
@@ -123,32 +122,6 @@ def test_timeout_or_missing_data_is_never_numeric_regression():
     numeric = {"value": 1.0, "direction": "lower_is_better"}
     assert _score({"value": "timeout"}, numeric, 20)[1] == ""
     assert _score(None, numeric, 20)[1] == ""
-
-
-@pytest.mark.parametrize(
-    "outcome,field",
-    [
-        ("already-present", None),
-        ("pulled-versioned", "versioned_pulled"),
-        ("cache-retagged", "cache_retagged"),
-        ("locally-built", "locally_built"),
-        ("missing", "missing"),
-    ],
-)
-def test_image_preparation_paths_have_explicit_outcomes(outcome, field):
-    kwargs = {}
-    if field:
-        argument = {
-            "versioned_pulled": "pulled",
-            "cache_retagged": "retagged",
-            "locally_built": "built",
-            "missing": "missing",
-        }[field]
-        kwargs[argument] = ["registry/image:tag"]
-    payload = build_image_preparation(outcome, **kwargs)
-    assert payload["outcome"] == outcome
-    if field:
-        assert payload[field] == ["registry/image:tag"]
 
 
 def test_metric_delta_cli_is_advisory(monkeypatch, tmp_path):

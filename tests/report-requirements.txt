@@ -1,3 +1,0 @@
-# Dependencies imported by the standalone metrics/report job.
-PyYAML
-tabulate

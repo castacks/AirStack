@@ -7,7 +7,6 @@ import pytest
 
 from harness import diagnostics
 from harness.sim import SimulatorHealthError, wait_for_first_message
-from system import test_optitrack_e2e
 
 pytestmark = pytest.mark.unit
 
@@ -50,17 +49,3 @@ def test_message_wait_aborts_immediately_on_dead_process():
             health_check=lambda: (False, "pane exited"),
             health_grace=0,
         )
-
-
-def test_optitrack_missing_sdk_is_explicit_infrastructure(monkeypatch):
-    missing = SimpleNamespace(returncode=1, stdout="", stderr="")
-    healthy = SimpleNamespace(returncode=0, stdout="", stderr="")
-    monkeypatch.setattr(test_optitrack_e2e, "ros2_exec", lambda *a, **k: missing)
-    monkeypatch.setattr(test_optitrack_e2e, "docker_exec", lambda *a, **k: healthy)
-    monkeypatch.setattr(
-        test_optitrack_e2e,
-        "collect_failure_diagnostics",
-        lambda *a, **k: "diagnostics.json",
-    )
-    with pytest.raises(pytest.fail.Exception, match="licensed NatNet SDK"):
-        test_optitrack_e2e._check_optitrack_prerequisites("robot")

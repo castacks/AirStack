@@ -32,9 +32,10 @@ name: Module System Tests
 #     -f airstack_ref=develop -f marks="build_packages or liveliness"
 #
 # GPU runner note: with the default runs_on, the job queues for the ephemeral
-# OSMO-backed runners (.github/orchestrator/). The orchestrator polls one repo
-# per instance, so a module repo must be added to the poll list before its
-# calls can be picked up — see .github/orchestrator/README.md "Module repos".
+# OSMO-backed runners (.github/orchestrator/). The orchestrator polls a
+# `repos:` list, so a module repo must be added to that list (and covered by
+# the orchestrator PAT) before its calls can be picked up — see
+# .github/orchestrator/README.md "Module repos".
 #
 # Docs: docs/development/module_ci.md
 

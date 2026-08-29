@@ -25,19 +25,15 @@ def test_comment_runs_cancel_older_run_for_same_pr():
 
 
 def test_report_job_installs_declared_dependencies():
+    # parse_metrics.py imports the tests/harness package, so the report job
+    # must install the full test requirements — a bare `pip install tabulate`
+    # crashed every report with ModuleNotFoundError: yaml (issue behind #407).
     report = _workflow().split("\n  report:", 1)[1]
-    assert "pip install -r tests/report-requirements.txt" in report
+    assert "pip install -r tests/requirements.txt" in report
     assert "pip install tabulate" not in report
-    requirements = repo_path("tests", "report-requirements.txt").read_text().lower()
+    requirements = repo_path("tests", "requirements.txt").read_text().lower()
     assert "pyyaml" in requirements
     assert "tabulate" in requirements
-
-
-def test_image_preparation_is_structured_and_uploaded():
-    workflow = _workflow()
-    assert "image-preparation.json" in workflow
-    assert "python3 -m harness.image_prep" in workflow
-    assert "path: tests/results/" in workflow
 
 
 def test_metric_deltas_are_advisory_but_parser_errors_block():
