@@ -343,6 +343,9 @@ Feature docs deliberately cite none of these — the design sources live here:
 - Unit-test documentation matches the co-located layout: C++ gtests run via
   `colcon test` under the `build_packages` mark; Python via the root harness
   (`conftest.py` applies the `unit` mark by file location)
+- The CI orchestrator polls a `repos:` list (one instance covers trunk and
+  every asm_* module repo; the singular `repo:` key still works) — module CI
+  jobs on `airstack-ephemeral` no longer need per-repo orchestrator instances
 - Ephemeral CI GPU runners spawn via NVIDIA OSMO as a drop-in replacement
   for the earlier OpenStack-Nova backend: the GitHub side (labels, JIT
   tokens, fork guard) is unchanged; only the spawn target moved. The OSMO
