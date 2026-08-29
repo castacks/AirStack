@@ -5923,6 +5923,18 @@ its own notes. -->
 
 <h2 id="0200-unreleased">0.20.0 (Unreleased)<a class="headerlink" href="#0200-unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>Module-catalog sync automation + drift alarm.</strong> Registering a module is
+  two merges (registry PR to
+  <a href="https://github.com/castacks/airstack-modules-index">airstack-modules-index</a></li>
+<li>
+<p>trunk fixture/catalog sync), and the docs deploy regenerates the
+  published catalog from the <strong>live</strong> registry — so a missed half used to
+  drop the module from the site silently. Now the develop docs deploy
+  raises a <code>docs-catalog-drift</code> issue whenever the committed catalog and
+  the live registry disagree, and the new <code>sync-modules-index</code> workflow
+  (daily + manual dispatch) opens the trunk sync PR automatically
+  (<code>.github/workflows/scripts/registry_sync.py</code>).</p>
+</li>
 <li>
 <p><strong>Trustworthy system-test outcomes.</strong> A red system-tests run now always
   means the code under test got worse, never that CI infrastructure hiccuped:
