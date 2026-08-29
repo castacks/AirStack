@@ -55,15 +55,22 @@ jobs:
         run: |
           git config --global user.name "Docs Deploy"
           git config --global user.email "docs.deploy@example.co.uk"
+      # Stable docs live under a MAJOR.MINOR slug (e.g. /0.20/) — there is
+      # no separate "main" docs version (it duplicated the release entry in
+      # the version selector). A hotfix merged to main republishes the same
+      # slug in place and retitles the selector entry to the new patch
+      # version, so URLs never break within a minor line.
       - name: Build Docs Website
         run: |
           VERSION=$(grep -m1 '^VERSION=' .env | cut -d= -f2- | tr -d '"')
-          mike deploy --push --title "${VERSION} (stable)" main
-          mike set-default main --push
-      # mike re-sorts versions.json on every deploy ("main" sorts above
-      # "develop"), so pin develop — the higher, unreleased version — back
-      # to the top of the version selector after each deploy.
-      - name: Reorder version selector (develop above main)
+          SLUG=$(echo "${VERSION}" | cut -d. -f1-2)
+          echo "Deploying main's docs: slug ${SLUG}, title ${VERSION}"
+          mike deploy --push --update-aliases --title "${VERSION}" "${SLUG}" latest
+          mike set-default latest --push
+      # mike re-sorts versions.json on every deploy, so pin develop — the
+      # higher, unreleased version — back to the top of the version selector
+      # after each deploy.
+      - name: Reorder version selector (develop first)
         run: |
           git worktree add ../ghp-reorder gh-pages
           python3 .github/workflows/scripts/docs_reorder_versions.py ../ghp-reorder/versions.json

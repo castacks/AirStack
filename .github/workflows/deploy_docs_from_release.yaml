@@ -49,13 +49,22 @@ jobs:
         run: |
           git config --global user.name "Docs Deploy"
           git config --global user.email "docs.deploy@example.co.uk"
+      # Docs versions use MAJOR.MINOR slugs (e.g. tag 0.21.0 → /0.21/) so a
+      # later hotfix can republish the same slug in place without breaking
+      # URLs; the selector entry's title carries the full patch version.
       - name: Build Docs Website
-        run: mike deploy --push --update-aliases ${{ github.event.release.tag_name }} latest
-      # mike re-sorts versions.json on every deploy ("main" sorts above
-      # "develop"), so pin develop — the higher, unreleased version — back
-      # to the top of the version selector after each deploy. Guarded:
-      # the script may be absent on release tags cut before it existed.
-      - name: Reorder version selector (develop above main)
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          SLUG=$(echo "${TAG}" | cut -d. -f1-2)
+          echo "Deploying release docs: slug ${SLUG}, title ${TAG}"
+          mike deploy --push --update-aliases --title "${TAG}" "${SLUG}" latest
+          mike set-default latest --push
+      # mike re-sorts versions.json on every deploy, so pin develop — the
+      # higher, unreleased version — back to the top of the version selector
+      # after each deploy. Guarded: the script may be absent on release tags
+      # cut before it existed.
+      - name: Reorder version selector (develop first)
         run: |
           if [ ! -f .github/workflows/scripts/docs_reorder_versions.py ]; then
             echo "skipped: docs_reorder_versions.py not on this tag"

@@ -105,10 +105,10 @@ jobs:
         run: |
           VERSION=$(grep -m1 '^VERSION=' .env | cut -d= -f2- | tr -d '"')
           mike deploy --push --title "${VERSION} (unstable)" develop
-      # mike re-sorts versions.json on every deploy ("main" sorts above
-      # "develop"), so pin develop — the higher, unreleased version — back
-      # to the top of the version selector after each deploy.
-      - name: Reorder version selector (develop above main)
+      # mike re-sorts versions.json on every deploy, so pin develop — the
+      # higher, unreleased version — back to the top of the version selector
+      # after each deploy.
+      - name: Reorder version selector (develop first)
         run: |
           git worktree add ../ghp-reorder gh-pages
           python3 .github/workflows/scripts/docs_reorder_versions.py ../ghp-reorder/versions.json

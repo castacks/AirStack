@@ -5,13 +5,15 @@ version (newest first) so the full history lives in git, but each
 mike-deployed docs version should only render its own notes — the site's
 version selector (and the GitHub releases page) is the archive for the rest.
 
-At build time this hook reads the ``VERSION=`` line from the repo-root
-``.env`` and drops every ``## X.Y.Z ...`` section whose base semver does not
-match (pre-release suffixes like ``-dev.N`` are ignored for matching, so
-``VERSION="0.21.0-dev.13"`` keeps the ``## 0.21.0 (Unreleased)`` section).
+Docs versions are published under MAJOR.MINOR slugs (e.g. ``/0.20/``), with
+hotfix patches republished in place. At build time this hook reads the
+``VERSION=`` line from the repo-root ``.env`` and keeps every ``## X.Y.Z ...``
+section sharing its MAJOR.MINOR — so a ``0.20`` build shows the ``## 0.20.0``
+section plus any ``## 0.20.1`` hotfix sections, and pre-release suffixes are
+ignored (``VERSION="0.21.0-dev.13"`` keeps ``## 0.21.0 (Unreleased)``).
 
-If no section matches the current VERSION, the page is left unfiltered and a
-warning is logged rather than publishing an empty page.
+If no section matches the current VERSION's MAJOR.MINOR, the page is left
+unfiltered and a warning is logged rather than publishing an empty page.
 """
 
 import logging
@@ -47,19 +49,24 @@ def on_page_markdown(markdown, page, config, files):
         )
         return markdown
 
+    minor = ".".join(current.split(".")[:2])  # "0.20.2" -> "0.20"
+
+    def matches(version: str) -> bool:
+        return ".".join(version.split(".")[:2]) == minor
+
     sections = list(SECTION_RE.finditer(markdown))
-    if not any(m.group(1) == current for m in sections):
+    if not any(matches(m.group(1)) for m in sections):
         log.warning(
-            "release_notes hook: no '## %s' section in %s; "
+            "release_notes hook: no '## %s.x' section in %s; "
             "publishing the page unfiltered",
-            current,
+            minor,
             PAGE_SRC,
         )
         return markdown
 
     pieces = [markdown[: sections[0].start()]]
     for i, match in enumerate(sections):
-        if match.group(1) != current:
+        if not matches(match.group(1)):
             continue
         end = sections[i + 1].start() if i + 1 < len(sections) else len(markdown)
         pieces.append(markdown[match.start() : end])

@@ -75,8 +75,8 @@ Three workflows in `.github/workflows/` interact with `VERSION`:
 ### 3. `deploy_docs_from_release.yaml` — versioned docs
 
 - **Trigger:** GitHub `release` event with `types: [published]`.
-- **Behavior:** runs `mike deploy --push --update-aliases <release.tag_name> latest`, publishing the docs site under the release tag and pointing the `latest` alias at it.
-- Companion workflows publish unversioned docs from `main` (default alias `main`) and `develop` (alias `develop`).
+- **Behavior:** publishes the docs under the release's **MAJOR.MINOR slug** (tag `0.21.0` → `/0.21/`) titled with the full tag, points the `latest` alias at it, and makes `latest` the site default. A later hotfix republishes the same slug in place (retitled to the new patch version), so URLs never break within a minor line.
+- Companion workflows publish `develop` (slug `develop`, titled `<VERSION> (unstable)`, pinned to the top of the version selector) and `main` (same MAJOR.MINOR slug mechanism as releases, so docs hotfixes go live without a release). There is no separate `main` docs version.
 
 So the full release path is: bump `VERSION` → PR → merge to `main`/`develop` (retag unchanged images and/or rebuild changed ones + push + sign) → cut a GitHub Release matching that VERSION (versioned docs go live).
 
@@ -253,7 +253,7 @@ For a true release (dropping the pre-release suffix):
 3. [ ] In the same PR, retitle the Release Notes section to `## X.Y.Z — YYYY-MM-DD` and open a fresh `## <next-version> (Unreleased)` above it.
 4. [ ] Merge to `main`.
 5. [ ] Wait for `docker-build.yml` to push and sign all images.
-6. [ ] Create a GitHub Release with tag `X.Y.Z` (matching `VERSION` exactly). Publishing the release fires `deploy_docs_from_release.yaml`, which runs `mike deploy --push --update-aliases X.Y.Z latest` and updates the versioned docs site.
+6. [ ] Create a GitHub Release with tag `X.Y.Z` (matching `VERSION` exactly). Publishing the release fires `deploy_docs_from_release.yaml`, which publishes the docs under the `X.Y` slug (titled `X.Y.Z`) and points the `latest` alias and site default at it.
 7. [ ] Verify the docs site shows the new version under the version selector and that `latest` resolves to it.
 
 ## References
@@ -263,7 +263,7 @@ For a true release (dropping the pre-release suffix):
 - [`/.github/workflows/check-version-increment.yml`](../../../.github/workflows/check-version-increment.yml) — the PR gate (semver regex lives here)
 - [`/.github/workflows/docker-build.yml`](../../../.github/workflows/docker-build.yml) — build/push/sign on tag change
 - [`/.github/workflows/deploy_docs_from_release.yaml`](../../../.github/workflows/deploy_docs_from_release.yaml) — versioned docs on release
-- [`/.github/workflows/deploy_docs_from_main.yaml`](../../../.github/workflows/deploy_docs_from_main.yaml) and [`deploy_docs_from_develop.yaml`](../../../.github/workflows/deploy_docs_from_develop.yaml) — branch-tracking docs aliases
+- [`/.github/workflows/deploy_docs_from_main.yaml`](../../../.github/workflows/deploy_docs_from_main.yaml) and [`deploy_docs_from_develop.yaml`](../../../.github/workflows/deploy_docs_from_develop.yaml) — branch-tracking docs deploys (main republishes the current MAJOR.MINOR slug; develop publishes the `develop` preview)
 - [`/airstack.sh`](../../../airstack.sh) — defines `airstack version` and `get_VERSION` (used everywhere image tags are built)
 - [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)
 
