@@ -62,7 +62,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 3 | A3 / claude-sonnet-5 / #1 | **R6** | 17 / 20 | 2 h 05 m | $30.31 | Bare-parts arm: 6 fails to clear R1, 2 more at R3, 2 at R4; R5/R6 then first-try. R7 FAIL — min clearance **−0.427 m** (pillar penetration; no sense-and-avoid chain built). First arm divergence, exactly at the Amendment-1 completeness rung. 313 k tokens out (~2–3× A1/A2). |
 | 4 | A4 / claude-opus-5 / #1 | **R8** (full ladder) | 0 / 0 (open loop) | 1 h 46 m | $17.99 | Blind integration passed R7+R8 official scoring first try; agent never even attempted a judge call (0 refusals). On this sample the closed-loop gap (A1–A4) is zero while the platform gap (A1–A3) bites at R7. n=1 caveat. |
 | 5 | A1 / claude-opus-5 / #1 | **R8** (full ladder) | 9 / 20 | 2 h 11 m | $32.93 | Zero in-session judge failures; self-validated before first call (opened with R4), one extra R7 verification. Official R7+R8 pass. |
-| 6 | A2 / claude-sonnet-5 / #1 | — running | — | — | — | Started 2026-08-29 08:41 UTC. |
+| 6 | A2 / claude-sonnet-5 / #1 | **R8** (full ladder) | 10 / 20 | 2 h 29 m | $10.47 | Two R3 failures (~30 min debug cycle) then clean R4→R8; official R7+R8 pass. |
+| 7 | A3 / claude-opus-5 / #1 | — running | — | — | — | Started 2026-08-29 11:16 UTC. |
 
 Round-robin order: A1:son → A2:opus → A3:son → A4:opus → A1:opus →
 A2:son → repeat with rising trial index.
