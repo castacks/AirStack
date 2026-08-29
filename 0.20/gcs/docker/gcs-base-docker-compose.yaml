@@ -1,0 +1,80 @@
+---
+# docker compose file
+services:
+  gcs-base:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.gcs
+      tags:
+        - &gcs_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs
+        - &gcs_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_gcs
+      cache_from:
+        - *gcs_image
+        - *gcs_cache
+    command: >
+      bash -c "
+      service ssh restart;
+      python3 /root/AirStack/gcs/foxglove_extensions/install.py;
+      python3 /root/AirStack/gcs/foxglove_extensions/render_layout.py;
+      tmux new -d -s bringup;
+      if [ $$AUTOLAUNCH = 'true' ]; then
+        tmux send-keys -t bringup:0.0 'autolaunch desktop_bringup gcs.launch.xml' ENTER;
+      fi;
+      sleep infinity"
+    # Interactive shell
+    deploy:
+      # let it use the GPU
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              count: 1
+              driver: nvidia
+    entrypoint: ''
+    environment:
+      - AUTOLAUNCH=${AUTOLAUNCH:-false}
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      # Robot roster for per-robot relays/layouts. Fleet-first: when
+      # FLEET_CONFIG_FILE is set (airstack up --fleet <name>), action_relay
+      # derives (robot_name, domain) pairs from the fleet file; otherwise the
+      # legacy NUM_ROBOTS count spawns robot_1..robot_N on domains 1..N.
+      # ROBOT_RELAY_MAP ("name:domain,...") overrides both.
+      - NUM_ROBOTS=${NUM_ROBOTS:-1}
+      - FLEET_CONFIG_FILE=${FLEET_CONFIG_FILE:-}
+      - ROBOT_RELAY_MAP=${ROBOT_RELAY_MAP:-}
+      # Record bags
+      - RECORD_BAGS=${RECORD_BAGS}
+    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs
+    # Needed to display graphical applications
+    # ipc: host
+    privileged: true
+    stdin_open: true
+    tty: true
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # developer stuff
+      - ../../common/.bash_profile:/root/.bash_profile:rw
+      - .bashrc:/root/.bashrc:rw
+      - ../../common/.tmux.conf:/root/.tmux.conf:rw
+      - ../../common/inputrc:/etc/inputrc:rw
+      - ../../.devcontainer/gcs/launch.json:/root/AirStack/.vscode/launch.json:rw
+      - ../../.devcontainer/gcs/tasks.json:/root/AirStack/.vscode/tasks.json:rw
+      - ./Foxglove:/root/.config/Foxglove:rw
+      # waypoint/polygon editor saves (so they survive container restarts)
+      - ../saves:/root/.airstack:rw
+      # foxglove extensions
+      - ../foxglove_extensions:/root/AirStack/gcs/foxglove_extensions:rw
+      # autonomy stack stuff
+      - ../../common/ros_packages:/root/AirStack/gcs/ros_ws/src/common:rw
+      - ../../common/fastdds.xml:/root/AirStack/gcs/ros_ws/src/fastdds.xml
+      - ../ros_ws:/root/AirStack/gcs/ros_ws:rw
+      # fleet + vehicle configs and the fleet resolver (read by action_relay
+      # when FLEET_CONFIG_FILE points at /root/AirStack/config/fleets/<f>.yaml)
+      - ../../config:/root/AirStack/config:ro
+      - ../../tools/fleet:/root/AirStack/tools/fleet:ro
+      # bags
+      - ../bags:/bags:rw

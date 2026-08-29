@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot name="iris_with_sensors.airsim.robot">
+  <joint name="joint_front_stereo_left" type="fixed">
+    <origin xyz="0.4 0.06 0.0" rpy="-1.5707963 0. -1.5707963"/>
+    <parent link="base_link"/>
+    <child link="camera_left"/>
+  </joint>
+  <joint name="joint_front_stereo_right" type="fixed">
+    <origin xyz="0.4 -0.06 0.0" rpy="-1.5707963 0. -1.5707963"/>
+    <parent link="base_link"/>
+    <child link="camera_right"/>
+  </joint>
+  <link name="base_link"/>
+  <link name="camera_left"/>
+  <link name="camera_right"/>
+</robot>

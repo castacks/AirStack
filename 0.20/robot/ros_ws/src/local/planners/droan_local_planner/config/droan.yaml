@@ -1,0 +1,63 @@
+/**:
+  ros__parameters:
+
+    # execution rate in hz
+    execute_rate: 5.0
+
+
+    # Trajectory parameters 
+    trajectory_library_config: "$(find-pkg-share trajectory_library)/config/long.yaml"
+    dt: 0.2
+    ht: 2.4
+    ht_long: 3.0
+    max_velocity: 1.0
+    magnitude: 0.5
+
+    # DROAN parameters
+    robot_radius: 1.0
+    safety_cost_weight: 1.0
+    deviation_from_global_plan_weight: 1.0
+    forward_progress_forgiveness_weight: 1.0
+    evaluate_only_last_waypoint: true  # only use the last waypoint for forward progress and global plan deviation checking
+
+    # map parameters. see disparity_graph_cost_map.cpp
+    cost_map: disparity_graph_cost_map::DisparityGraphCostMap
+    obstacle_check_radius: 1.0 # this value MUST be strictly greater than the robot radius
+    obstacle_check_num_points: 2
+    # disparity graph parameters. see disparity_graph.hpp
+    fixed_frame: "map"
+    stabilized_frame: "base_link_stabilized"  # the frame of the stabilized robot (roll and pitch removed)
+    baseline_fallback: 0.12  # if the baseline is 0 from the camera_info, use this value instead. in meters
+    assume_seen_within_radius: 1.5  # anything within this radius, assume it is seen and don't check for obstacles
+    
+    everything_seen_and_free: false
+    use_virtual_cylinder: false
+    virtual_cylinder_x: 10.0
+    virtual_cylinder_y: 0.0
+    virtual_cylinder_radius: 8.0
+
+    # GLOBAL_PLAN mode parameters
+    # 0: use the yaw of the subscribed traj, 1: smoothly vary the yaw in the direction of the subscribed trajectory
+    # either SMOOTH_YAW or TRAJECTORY_YAW
+    yaw_mode: SMOOTH_YAW
+
+    # AUTO_WAYPOINT mode parameters
+    auto_waypoint_buffer_duration: 30.0
+    auto_waypoint_spacing_threshold: 0.5
+    auto_waypoint_angle_threshold: 30.0
+
+    # CUSTOM_WAYPOINT mode parameters
+    custom_waypoint_timeout_factor: 0.3
+    custom_waypoint_distance_threshold: 0.5
+
+    # Disparity Graph parameters
+    graph_size: 5
+
+    # Rewind parameters
+    stuck_duration_threshold: 6.0
+    all_in_collision_duration_threshold: 2.0
+    map_clearing_max_rewind_time: 20.0
+    map_clearing_rewind_distance: 5.0
+    stationary_distance_threshold: 0.5
+    stationary_history_duration: 10.0
+    map_clearing_wait_time: 30.0

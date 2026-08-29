@@ -1,0 +1,19 @@
+<!-- LOGGING bringup: conditionally starts the bag_record_pid recorder node
+     (only when record_bag is true).
+     Included by: stacks/*/launch entry files.
+     STATUS: canonical module launch (included by stacks). -->
+<launch>
+  <arg name="record_bag" default="$(env RECORD_BAGS false)"
+       description="Record a bag of the configured topic set (true/false)" />
+  <arg name="log_config" default="$(env LOG_CONFIG log.yaml)"
+       description="Which topic set to record: a filename in logging_bringup/config" />
+
+  <group if="$(var record_bag)">
+    <node name="bag_record" pkg="bag_record_pid" exec="bag_record_node">
+      <param name="cfg_path" value="$(find-pkg-share logging_bringup)/config/$(var log_config)" />
+      <param name="output_dir" value="/bags" />
+      <param name="mcap_qos_dir" value="$(find-pkg-share bag_record_pid)/config" />
+    </node>
+  </group>
+
+</launch>

@@ -1,0 +1,883 @@
+/* ==========================================================================
+   AirStack documentation theme
+   Modern, professional skin on top of mkdocs-material.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Design tokens
+   -------------------------------------------------------------------------- */
+
+:root {
+    /* CMU official palette (brand.cmu.edu/visual-identity/colors)
+       Core: Carnegie Red is the primary brand color and must dominate.
+       Supporting reds: Skibo Red (Campus palette) as the dark step,
+       Scots Rose (Tartan palette) as the bright step for dark mode. */
+    --as-red:            #c41230;  /* Carnegie Red, PMS 187 C */
+    --as-red-dark:       #941120;  /* Skibo Red, PMS 7623 C */
+    --as-red-darker:     #6a0c17;  /* derived deep step (no official darker red) */
+    --as-red-light:      #ef3a47;  /* Scots Rose, PMS Red 032 C */
+    --as-red-tint:       rgba(196, 18, 48, 0.08);
+
+    /* Core neutrals */
+    --as-iron-gray:      #6d6e71;  /* Cool Gray 10 C — supporting text */
+    --as-steel-gray:     #e0e0e0;  /* Cool Gray 4 C — borders, rules */
+    --as-border:         var(--as-steel-gray);
+    --as-text-secondary: var(--as-iron-gray);
+
+    --md-primary-fg-color:        var(--as-red);
+    --md-primary-fg-color--light: var(--as-red-light);
+    --md-primary-fg-color--dark:  var(--as-red-dark);
+    --md-accent-fg-color:         var(--as-red-dark);
+    --md-accent-fg-color--transparent: var(--as-red-tint);
+
+    /* Shape + motion */
+    --as-radius:        0.6rem;
+    --as-radius-sm:     0.35rem;
+    --as-shadow-sm:     0 1px 2px rgba(15, 18, 25, 0.06), 0 1px 3px rgba(15, 18, 25, 0.08);
+    --as-shadow-md:     0 4px 14px rgba(15, 18, 25, 0.10);
+    --as-shadow-lg:     0 12px 32px rgba(15, 18, 25, 0.16);
+    --as-transition:    180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Links in dark mode need a brighter red for contrast */
+[data-md-color-scheme="slate"] {
+    --md-hue: 215;
+
+    --md-primary-fg-color:        var(--as-red);
+    --md-accent-fg-color:         var(--as-red-light);
+    --md-accent-fg-color--transparent: rgba(239, 58, 71, 0.12);
+    --md-typeset-a-color:         var(--as-red-light);
+
+    /* Deeper, less washed-out dark background */
+    --md-default-bg-color:        hsla(var(--md-hue), 22%, 10%, 1);
+    --md-code-bg-color:           hsla(var(--md-hue), 20%, 14%, 1);
+    --md-footer-bg-color:         hsla(var(--md-hue), 22%, 8%, 1);
+    --md-footer-bg-color--dark:   hsla(var(--md-hue), 22%, 6%, 1);
+
+    --as-shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.35);
+    --as-shadow-md:  0 4px 14px rgba(0, 0, 0, 0.4);
+    --as-shadow-lg:  0 12px 32px rgba(0, 0, 0, 0.5);
+
+    /* Gray brand neutrals don't work on slate; fall back to theme grays */
+    --as-border:         var(--md-default-fg-color--lightest);
+    --as-text-secondary: var(--md-default-fg-color--light);
+}
+
+[data-md-color-scheme="default"] {
+    --md-typeset-a-color: var(--as-red);
+}
+
+/* --------------------------------------------------------------------------
+   2. Typography
+   -------------------------------------------------------------------------- */
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4 {
+    font-weight: 700;
+    letter-spacing: -0.015em;
+}
+
+.md-typeset h1 {
+    color: var(--md-default-fg-color);
+    margin-bottom: 1.2em;
+}
+
+.md-typeset h2 {
+    margin-top: 2em;
+}
+
+/* Slightly larger, more readable body text */
+.md-typeset {
+    font-size: 0.78rem;
+    line-height: 1.65;
+}
+
+/* --------------------------------------------------------------------------
+   3. Header and navigation tabs
+   -------------------------------------------------------------------------- */
+
+.md-header {
+    background: linear-gradient(120deg, var(--as-red) 0%, var(--as-red-dark) 100%);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, var(--as-shadow-sm);
+}
+
+.md-tabs {
+    position: relative;
+    z-index: 3; /* keep tabs above splash content */
+    background: linear-gradient(120deg, var(--as-red-dark) 0%, var(--as-red-darker) 100%);
+}
+
+.md-tabs__link {
+    font-weight: 500;
+    opacity: 0.75;
+    transition: opacity var(--as-transition);
+}
+
+.md-tabs__link--active,
+.md-tabs__link:hover {
+    opacity: 1;
+}
+
+.md-tabs__item--active .md-tabs__link {
+    position: relative;
+}
+
+.md-tabs__item--active .md-tabs__link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.4rem;
+    height: 2px;
+    border-radius: 2px;
+    background: #fff;
+}
+
+.md-version * {
+    position: relative;
+    z-index: 5;
+}
+
+/* Search: keep the results dropdown above the tabs bar (z 3) and the
+   version selector text (z 5), which share the header's stacking context.
+   Material's .md-search__output is only z 1, so without this the dropdown
+   renders behind them. .md-search is already position:relative upstream. */
+.md-search {
+    z-index: 6;
+}
+
+/* Search field: soft pill */
+.md-search__form {
+    border-radius: 0.45rem;
+    background-color: rgba(255, 255, 255, 0.14);
+    transition: background-color var(--as-transition);
+}
+
+.md-search__form:hover {
+    background-color: rgba(255, 255, 255, 0.22);
+}
+
+/* --------------------------------------------------------------------------
+   4. Sidebar navigation
+   -------------------------------------------------------------------------- */
+
+.md-nav__item .md-nav__link--active,
+.md-nav__item .md-nav__link--active code {
+    font-weight: 600;
+}
+
+.md-nav__link {
+    transition: color var(--as-transition);
+}
+
+/* --------------------------------------------------------------------------
+   5. Content elements: code, tables, admonitions, buttons, images
+   -------------------------------------------------------------------------- */
+
+/* Code blocks */
+.md-typeset pre > code {
+    border-radius: var(--as-radius-sm);
+}
+
+.md-typeset .highlight {
+    border-radius: var(--as-radius-sm);
+}
+
+.md-typeset code {
+    border-radius: 0.25rem;
+    font-size: 0.85em;
+}
+
+/* Tables */
+.md-typeset table:not([class]) {
+    border-radius: var(--as-radius-sm);
+    border: 1px solid var(--as-border);
+    box-shadow: none;
+    overflow: hidden;
+    font-size: 0.72rem;
+}
+
+.md-typeset table:not([class]) th {
+    background-color: var(--md-default-fg-color--lightest);
+    color: var(--md-default-fg-color);
+    font-weight: 600;
+}
+
+.md-typeset table:not([class]) tr:hover {
+    background-color: var(--md-accent-fg-color--transparent);
+    transition: background-color var(--as-transition);
+}
+
+/* Admonitions: flat modern style */
+.md-typeset .admonition,
+.md-typeset details {
+    border-radius: var(--as-radius-sm);
+    border-width: 0 0 0 3px;
+    box-shadow: var(--as-shadow-sm);
+    font-size: 0.72rem;
+}
+
+.md-typeset .admonition-title,
+.md-typeset summary {
+    border-radius: 0;
+}
+
+/* Buttons */
+.md-typeset .md-button {
+    border-radius: 2rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    transition: transform var(--as-transition),
+                box-shadow var(--as-transition),
+                background-color var(--as-transition),
+                border-color var(--as-transition),
+                color var(--as-transition);
+}
+
+.md-typeset .md-button:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--as-shadow-md);
+}
+
+.md-typeset .md-button--primary {
+    background-color: var(--as-red);
+    border-color: var(--as-red);
+    color: #fff;
+}
+
+.md-typeset .md-button--primary:hover {
+    background-color: var(--as-red-dark);
+    border-color: var(--as-red-dark);
+}
+
+/* Images and mermaid diagrams */
+.md-typeset img {
+    border-radius: var(--as-radius-sm);
+}
+
+/* Footer */
+.md-footer-meta {
+    font-size: 0.65rem;
+}
+
+/* Scrollbar (WebKit) */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--md-default-fg-color--lighter);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--md-default-fg-color--light);
+}
+
+/* Text selection */
+::selection {
+    background: var(--as-red-tint);
+}
+
+/* --------------------------------------------------------------------------
+   6. Landing page: splash / hero
+   -------------------------------------------------------------------------- */
+
+.splash-container {
+    position: relative;
+    width: 100%;
+    /* Grow with the hero content: a fixed height + overflow:hidden clipped
+       the CTAs/footnote on short laptop viewports. */
+    height: auto;
+    min-height: calc(100vh - 98px);
+    overflow: hidden;
+    margin-top: 0;
+    padding-top: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.splash-container > .md-grid {
+    flex: 1;
+    display: flex;
+    width: 100%;
+    min-width: 0; /* flex items default to min-width:auto → pre overflows on phones */
+}
+
+.splash-background {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.media-overlay {
+    position: absolute;
+    inset: 0;
+    /* Layered gradient: red brand tint + darkening + bottom fade into the page.
+       Kept light so the demo video stays visible; the fade into the page bg
+       only starts near the bottom edge. */
+    background:
+        linear-gradient(180deg, rgba(10, 12, 18, 0.30) 0%, rgba(10, 12, 18, 0.10) 45%, rgba(10, 12, 18, 0) 85%, var(--md-default-bg-color) 100%),
+        linear-gradient(120deg, rgba(148, 17, 32, 0.18) 0%, rgba(15, 18, 25, 0.06) 60%);
+    z-index: 2;
+}
+
+.media-container {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.splash-media {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: saturate(0.9);
+}
+
+/* Hero content */
+.mdx-container {
+    padding: 1rem;
+    margin: 0 auto;
+}
+
+.mdx-hero {
+    position: relative;
+    z-index: 3;
+    margin: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: white;
+    padding: 4rem 0 2.5rem;
+    min-width: 0;
+    width: 100%;
+}
+
+.mdx-hero__content {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.mdx-hero__badge {
+    display: inline-block;
+    padding: 0.3rem 0.9rem;
+    margin-bottom: 1.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 2rem;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.mdx-hero h1 {
+    font-size: clamp(2.2rem, 5.5vw, 3.6rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 1rem;
+    line-height: 1.1;
+    color: #ffffff;
+    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.mdx-hero p {
+    font-size: clamp(1rem, 2vw, 1.3rem);
+    font-weight: 400;
+    margin: 0 auto 2.2rem;
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
+    max-width: 36rem;
+    line-height: 1.5;
+}
+
+.mdx-hero .md-button {
+    margin: 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.7em 2.2em;
+    border-radius: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #fff;
+    transition: transform var(--as-transition),
+                box-shadow var(--as-transition),
+                background var(--as-transition),
+                border-color var(--as-transition);
+}
+
+.mdx-hero .md-button:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.7);
+    box-shadow: var(--as-shadow-lg);
+    color: #fff;
+}
+
+.mdx-hero .md-button--primary {
+    background: var(--as-red);
+    border-color: var(--as-red);
+    color: #fff;
+    box-shadow: 0 6px 24px rgba(196, 18, 48, 0.45);
+}
+
+.mdx-hero .md-button--primary:hover {
+    background: var(--as-red-dark);
+    border-color: var(--as-red-dark);
+    box-shadow: 0 10px 32px rgba(196, 18, 48, 0.55);
+}
+
+/* --------------------------------------------------------------------------
+   7. Landing page: sections (.as-*)
+   -------------------------------------------------------------------------- */
+
+.as-landing {
+    max-width: 61rem;
+    margin: 0 auto;
+    padding: 0 0.8rem;
+    /* Belt and braces: wide artifacts scroll inside their own cards; the
+       landing column itself never scrolls horizontally. */
+    overflow-x: clip;
+}
+
+.as-section {
+    margin: 5rem 0;
+}
+
+.as-landing h2 {
+    font-size: 1.6rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0 0 1rem;
+    color: var(--md-default-fg-color);
+}
+
+.as-landing p {
+    font-size: 0.82rem;
+    line-height: 1.65;
+    color: var(--as-text-secondary);
+}
+
+.as-lede {
+    max-width: 42rem;
+    margin: 0 0 1.8rem;
+}
+
+.as-proof {
+    border-left: 3px solid var(--as-red);
+    padding: 0.5rem 0 0.5rem 0.9rem;
+    background: var(--as-red-tint);
+    border-radius: 0 var(--as-radius-sm) var(--as-radius-sm) 0;
+}
+
+.as-proof strong {
+    color: var(--md-default-fg-color);
+}
+
+/* Two-column pillar layout */
+.as-section__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.6rem;
+    align-items: center;
+}
+
+.as-section__copy h2 {
+    margin-top: 0;
+}
+
+/* Grid/flex items default to min-width:auto, letting wide <pre> content
+   blow the column past the viewport on phones. */
+.as-section__grid > * {
+    min-width: 0;
+}
+
+.as-section__artifact {
+    min-width: 0;
+}
+
+/* Terminal + snippet cards */
+.as-terminal,
+.as-snippet {
+    border-radius: var(--as-radius);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #14181f;
+    box-shadow: var(--as-shadow-md);
+    text-align: left;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.as-terminal__bar,
+.as-snippet__bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.8rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.as-snippet__bar code {
+    background: none;
+    color: inherit;
+    padding: 0;
+    font-size: inherit;
+}
+
+.as-terminal__dots {
+    display: inline-flex;
+    gap: 0.3rem;
+}
+
+.as-terminal__dots i {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.as-terminal__title {
+    flex: 1;
+}
+
+.as-snippet__bar span {
+    flex: 1;
+}
+
+.as-terminal pre,
+.as-snippet pre {
+    margin: 0;
+    padding: 0.85rem 1rem;
+    overflow-x: auto;
+}
+
+.as-terminal code,
+.as-snippet code {
+    display: block;
+    background: none;
+    padding: 0;
+    font-size: 0.68rem;
+    line-height: 1.75;
+    color: #e8edf4;
+    white-space: pre;
+}
+
+/* mkdocs-material injects its own copy icon into pre>code; our cards have one */
+.as-terminal .md-clipboard,
+.as-snippet .md-clipboard {
+    display: none;
+}
+
+.as-prompt {
+    color: var(--as-red-light);
+    font-weight: 700;
+}
+
+.as-ok {
+    color: #4ade80;
+    font-weight: 700;
+}
+
+.as-dim {
+    color: rgba(232, 237, 244, 0.45);
+}
+
+.as-copy {
+    font: inherit;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 0.9rem;
+    padding: 0.12rem 0.7rem;
+    cursor: pointer;
+    transition: background var(--as-transition), color var(--as-transition);
+}
+
+.as-copy:hover {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+}
+
+.as-snippet--center {
+    max-width: 36rem;
+    margin: 0 auto;
+}
+
+/* Media artifacts */
+.as-video {
+    width: 100%;
+    display: block;
+    border-radius: var(--as-radius);
+    border: 1px solid var(--as-border);
+    box-shadow: var(--as-shadow-md);
+    background: #000;
+}
+
+.as-caption {
+    font-size: 0.7rem;
+    line-height: 1.55;
+    color: var(--as-text-secondary);
+    margin: 0.7rem 0 0;
+}
+
+.as-caption--center {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+/* CI test matrix */
+.as-matrix {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.7rem;
+    margin: 0 0 1.8rem;
+}
+
+.as-matrix__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--as-border);
+    border-radius: var(--as-radius-sm);
+    background: var(--md-code-bg-color);
+}
+
+.as-matrix__item code {
+    background: none;
+    padding: 0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--md-default-fg-color);
+}
+
+.as-matrix__item span {
+    font-size: 0.65rem;
+    color: var(--as-text-secondary);
+}
+
+/* Agent skills card */
+.as-skills {
+    border: 1px solid var(--as-border);
+    border-radius: var(--as-radius);
+    background: var(--md-code-bg-color);
+    box-shadow: var(--as-shadow-sm);
+    overflow: hidden;
+}
+
+.as-skills__bar {
+    padding: 0.5rem 0.9rem;
+    font-family: var(--md-code-font-family, monospace);
+    font-size: 0.65rem;
+    color: var(--as-text-secondary);
+    border-bottom: 1px solid var(--as-border);
+}
+
+.as-skills__grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    padding: 0.9rem;
+}
+
+.as-skills__grid span {
+    font-family: var(--md-code-font-family, monospace);
+    font-size: 0.62rem;
+    padding: 0.18rem 0.6rem;
+    border-radius: 1rem;
+    border: 1px solid var(--as-border);
+    background: var(--md-default-bg-color);
+    color: var(--md-default-fg-color);
+}
+
+.as-skills__grid .as-skills__more {
+    border-style: dashed;
+    color: var(--as-text-secondary);
+}
+
+/* Full-system screenshot */
+.as-arch {
+    border: 1px solid var(--as-border);
+    border-radius: var(--as-radius);
+    box-shadow: var(--as-shadow-lg);
+    overflow: hidden;
+}
+
+.as-arch img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Provenance + final CTA */
+.as-provenance .as-lede {
+    max-width: 48rem;
+}
+
+.as-cta {
+    margin: 5rem 0 3rem;
+    text-align: center;
+}
+
+.as-cta h2 {
+    font-size: 1.8rem;
+    margin-bottom: 1.4rem;
+}
+
+.as-cta .md-button--primary {
+    background: var(--as-red);
+    border-color: var(--as-red);
+    color: #fff;
+}
+
+.as-cta .md-button {
+    margin: 0.3rem;
+}
+
+/* Hero additions */
+.mdx-hero__actions {
+    margin-top: 1.6rem;
+}
+
+.mdx-hero__footnote {
+    font-size: 0.62rem !important;
+    color: rgba(255, 255, 255, 0.55) !important;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+    margin: 1.4rem auto 0 !important;
+    max-width: 34rem;
+}
+
+.as-terminal--hero {
+    max-width: min(40rem, 100%);
+    margin: 0 auto;
+    text-align: left;
+    background: rgba(13, 16, 22, 0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.as-terminal--hero code {
+    font-size: 0.64rem;
+}
+
+/* Short laptop viewports (13" MacBooks etc.): tighten the hero so the
+   quickstart, CTAs, and footnote all fit without clipping or scrolling. */
+@media screen and (max-height: 900px) {
+    .mdx-hero {
+        padding: 2.5rem 0 2rem;
+    }
+
+    .mdx-hero h1 {
+        font-size: clamp(1.9rem, 4.5vw, 2.7rem);
+        margin-bottom: 0.7rem;
+    }
+
+    .mdx-hero p {
+        font-size: clamp(0.9rem, 1.6vw, 1.05rem);
+        margin-bottom: 1.4rem;
+    }
+
+    .mdx-hero__badge {
+        margin-bottom: 1rem;
+    }
+
+    .as-terminal--hero code {
+        font-size: 0.6rem;
+        line-height: 1.6;
+    }
+
+    .mdx-hero__actions {
+        margin-top: 1.1rem;
+    }
+
+    .mdx-hero__footnote {
+        margin-top: 0.9rem !important;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   8. Responsive adjustments
+   -------------------------------------------------------------------------- */
+
+@media screen and (max-width: 76.1875em) {
+    .as-landing h2 {
+        font-size: 1.4rem;
+    }
+}
+
+@media screen and (max-width: 900px) {
+    .as-section {
+        margin: 3.5rem 0;
+    }
+
+    .as-section__grid {
+        grid-template-columns: 1fr;
+        gap: 1.4rem;
+    }
+
+    /* keep prose above its artifact when stacked */
+    .as-section__grid .as-section__copy {
+        order: 0;
+    }
+
+    .as-section__grid .as-section__artifact {
+        order: 1;
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .splash-container {
+        height: auto;
+        min-height: calc(100svh - 98px);
+    }
+
+    .mdx-hero h1 br {
+        display: none;
+    }
+
+    .as-terminal--hero code {
+        font-size: 0.56rem;
+    }
+
+    .as-matrix {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .as-matrix__item code {
+        font-size: 0.62rem;
+    }
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .md-typeset .md-button,
+    .mdx-hero .md-button {
+        transition: none;
+    }
+
+    .md-typeset .md-button:hover,
+    .mdx-hero .md-button:hover {
+        transform: none;
+    }
+}

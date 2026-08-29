@@ -1,0 +1,56 @@
+<!--
+  random_walk_planner : canonical module launch file (RFC #379 §2/§4).
+
+  Starts the random-walk global planner exactly as the legacy global bringup
+  did. The C++ constructor names the node "random_walk_node" — do NOT set
+  launch name= or it will rename the node and break the node-name-prefixed
+  remap sources below. No namespace push either: the node lives at the robot
+  root (/$ROBOT_NAME/random_walk_node), as the stack entry is included under
+  the $ROBOT_NAME push in robot.launch.xml.
+
+  Every topic endpoint is a declared <arg> defaulting to the canonical name
+  (today's graph). The set_remap SOURCES stay relative (matching the frozen
+  global bringup) so they resolve against the parent $ROBOT_NAME namespace at
+  runtime; the arg targets are absolute. Wiring deviations are passed as
+  include args by the stack entry file (stacks/<name>/launch/) — the
+  single-locus rule: endpoints are declared args,
+  applied locally via <set_remap>; cross-module REWIRING lives only in
+  stack entry files.
+-->
+<launch>
+  <arg name="random_walk_config"
+       default="$(find-pkg-share random_walk_planner)/config/random_walk_config.yaml"
+       description="Node parameter YAML (loaded with allow_substs)" />
+
+  <arg name="random_walk_vdb_map_topic"
+       default="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization"
+       description="Input global world-model visualization used for collision checking (visualization_msgs/Marker, from vdb_mapping)" />
+  <arg name="random_walk_odometry_topic"
+       default="/$(env ROBOT_NAME)/odometry_conversion/odometry"
+       description="Input robot odometry (nav_msgs/Odometry)" />
+  <arg name="random_walk_global_plan_topic"
+       default="/$(env ROBOT_NAME)/global_plan"
+       description="Output global waypoint path (nav_msgs/Path)" />
+  <arg name="random_walk_global_plan_toggle_topic"
+       default="/$(env ROBOT_NAME)/behavior/global_plan_toggle"
+       description="Input toggle enabling/disabling plan publication (from the behavior layer)" />
+  <arg name="random_walk_exploration_task_topic"
+       default="/$(env ROBOT_NAME)/tasks/exploration"
+       description="Exploration task action name (canonical tasks/* group)" />
+  <arg name="random_walk_navigate_task_topic"
+       default="/$(env ROBOT_NAME)/tasks/navigate"
+       description="Navigate task action name (canonical tasks/* group)" />
+
+  <group>
+    <set_remap from="vdb_map_visualization" to="$(var random_walk_vdb_map_topic)" />
+    <set_remap from="odometry" to="$(var random_walk_odometry_topic)" />
+    <set_remap from="random_walk_node/global_plan" to="$(var random_walk_global_plan_topic)" />
+    <set_remap from="random_walk_node/global_plan_toggle" to="$(var random_walk_global_plan_toggle_topic)" />
+    <set_remap from="random_walk_node/exploration_task" to="$(var random_walk_exploration_task_topic)" />
+    <set_remap from="navigate_task" to="$(var random_walk_navigate_task_topic)" />
+
+    <node pkg="random_walk_planner" exec="random_walk_planner" output="screen">
+      <param from="$(var random_walk_config)" allow_substs="true" />
+    </node>
+  </group>
+</launch>

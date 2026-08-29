@@ -1,0 +1,34 @@
+<!--
+  drone_safety_monitor : canonical module launch file (RFC #379 §2/§4).
+
+  Starts the safety monitor (state-estimate watchdog + pause/resume/rewind
+  command handling) exactly as the legacy behavior bringup did: node
+  `drone_safety_monitor` in the behavior/drone_safety_monitor namespace.
+  Every topic endpoint is a declared <arg> defaulting to the canonical name
+  (today's graph). Wiring deviations are passed as include args by the stack
+  entry file (stacks/<name>/launch/) — the single-locus rule: endpoints are declared args,
+  applied locally via <set_remap>; cross-module REWIRING lives only in
+  stack entry files.
+-->
+<launch>
+  <arg name="drone_safety_monitor_namespace"
+       default="behavior"
+       description="Namespace to run in; 'behavior' gives the canonical node path /$ROBOT_NAME/behavior/drone_safety_monitor/drone_safety_monitor" />
+  <arg name="drone_safety_monitor_state_estimate_topic"
+       default="/$(env ROBOT_NAME)/odometry_conversion/odometry"
+       description="Input state estimate watched for staleness (nav_msgs/Odometry)" />
+  <arg name="drone_safety_monitor_set_trajectory_mode_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
+       description="Output trajectory-mode command to the trajectory controller (pause/resume/rewind on safety events)" />
+
+  <group>
+    <push-ros-namespace namespace="$(var drone_safety_monitor_namespace)" />
+    <set_remap from="state_estimate" to="$(var drone_safety_monitor_state_estimate_topic)" />
+    <set_remap from="set_trajectory_mode" to="$(var drone_safety_monitor_set_trajectory_mode_topic)" />
+
+    <node pkg="drone_safety_monitor" exec="drone_safety_monitor"
+          namespace="drone_safety_monitor" output="screen">
+      <param name="state_estimate_timeout" value="1.0" />
+    </node>
+  </group>
+</launch>

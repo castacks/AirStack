@@ -1,0 +1,42 @@
+<!-- GCS bringup: Foxglove Studio + foxglove_bridge, the gossip bridge, the
+     GCS visualizer, and the action relay.
+     Launched by: the gcs container (ros2 launch desktop_bringup gcs.launch.xml).
+     STATUS: standalone utility (gcs container entry point). -->
+<launch>
+  <!-- ====== ARGS ====== -->
+  <arg name="sim" default="true"
+       description="Use simulation time for the foxglove bridge" />
+
+  <!-- ======== GUI ======== -->
+  <!-- Launch foxglove-studio with the no-sandbox flag (Electron in a root
+       container). The layoutId in the deep link matches the layout that
+       gcs/foxglove_extensions/render_layout.py seeds into the app's local
+       layout store on container startup (layout_id()), so the
+       NUM_ROBOTS-matched layout is active immediately with no manual import
+       (see docs/gcs/foxglove.md). -->
+
+
+  <executable
+    cmd="bash -c 'DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY foxglove-studio --no-sandbox &quot;foxglove://open?ds=foxglove-websocket&amp;ds.url=ws://localhost:8765&amp;layoutId=airstack_default_${NUM_ROBOTS:-1}_robots&quot;'"
+    output="screen"/>
+
+  <node pkg="foxglove_bridge" exec="foxglove_bridge" output="screen" respawn="true" respawn_delay="1">
+    <param name="port" value="8765" />
+    <param name="address" value="0.0.0.0" />
+    <param name="use_sim_time" value="$(var sim)" />
+    <param name="send_buffer_limit" value="10000000" />
+    <param name="include_hidden" value="true" />
+  </node>
+
+  <!-- Gossip bridge: connects GCS domain (0) to gossip bus (domain 99) -->
+  <include file="$(find-pkg-share coordination_bringup)/launch/gcs_gossip_bridge.launch.py" />
+
+  <!-- GCS Visualizer: drone mesh markers in global ENU frame -->
+  <include file="$(find-pkg-share gcs_visualizer)/launch/gcs_visualizer.launch.xml" />
+
+  <!-- Action relay: bridges task actions from GCS (domain 0) to each robot (domain N) -->
+  <include file="$(find-pkg-share action_relay)/launch/action_relay.launch.py" />
+
+  <!-- ===================== -->
+
+</launch>

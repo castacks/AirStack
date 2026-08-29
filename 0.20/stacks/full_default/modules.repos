@@ -1,0 +1,15 @@
+# modules.repos : module pins for the full_default reference stack.
+#
+# vcstool format, PINNED to tags/commits (never branches). `airstack module sync`
+# reads this file into the gitignored modules/ dir; a stack with a pinned .repos
+# IS a localized release set.
+#
+# airstack_compat is a top-level sibling of repositories: (vcstool ignores it,
+# AirStack tooling reads it) declaring the trunk semver range this stack was
+# tested against. sync warns on mismatch; it never gates.
+#
+# This reference stack pulls no external modules yet: every package it launches
+# is trunk-resident (robot/ros_ws/src + common/ros_packages).
+airstack_compat: ">=0.19.0-alpha.18 <0.21.0"
+repositories: {}
+x-local-modules: []
