@@ -5793,7 +5793,7 @@ no <code>airstack install</code>.</p>
 <p>AirStack is currently in ALPHA and only meant for internal usage. </p>
 <p>We'd really appreciate your feedback and contributions to improve this project for everyone! 
 Please join our #airstack channel on Slack to contribute or ask questions.</p>
-<p>You will need to have an account with AirLab to access the AirLab Docker registry, Nucleus server, and other resources.
+<p>The AirLab Docker registry is public, so anyone can pull the Docker images without an account. You will need an account with AirLab to push images and to access the Nucleus server and other internal resources.
 The API and functionality are not stable and are subject to change. </p>
 </div>
 <p>By the end of this tutorial, you will have the autonomy stack running on your machine.</p>
@@ -5814,15 +5814,12 @@ An NVIDIA RTX 3070 is the minimum GPU; a GeForce RTX 4080 or better is recommend
 <h2 id="docker-images">Docker Images<a class="headerlink" href="#docker-images" title="Permanent link">&para;</a></h2>
 <p>Now you have two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry. Building the image from scratch can be useful if you would like to add new dependencies or add new custom functionality. For most users just pulling the existing image will be more conveninent and fast since it doesn't require access to the Nvidia registry.</p>
 <details open> <summary>Option 1: Pull From the Airlab Docker Registry (Preferred)</summary>
-To use the AirLab Docker registry do the following
+The AirLab Docker registry (<code>airlab-docker.andrew.cmu.edu</code>) is public — no account or <code>docker login</code> is needed to pull.
 
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>AirStack/
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>docker<span class="w"> </span>login<span class="w"> </span>airlab-docker.andrew.cmu.edu
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1">## &lt;Enter your andrew id (without @andrew.cmu.edu)&gt;</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1">## &lt;Enter your andrew password&gt;</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1">## Pull the images in the docker compose file</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>airstack<span class="w"> </span>images<span class="w"> </span>pull
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1">## Pull the images in the docker compose file</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>airstack<span class="w"> </span>images<span class="w"> </span>pull
 </span></code></pre></div>
 
 The images will be pulled from the server automatically. This might take a while since the images are large.
@@ -5839,9 +5836,10 @@ The images will be pulled from the server automatically. This might take a while
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>airstack<span class="w"> </span>images<span class="w"> </span>build
 </span></code></pre></div>
 
-If you have permission you can push updated images to the docker server.
+If you have permission you can push updated images to the docker server. Pushing (unlike pulling) requires logging in with your AirLab account first.
 
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>airstack<span class="w"> </span>images<span class="w"> </span>push
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>login<span class="w"> </span>airlab-docker.andrew.cmu.edu
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>airstack<span class="w"> </span>images<span class="w"> </span>push
 </span></code></pre></div>
 
 </details>

@@ -6033,16 +6033,14 @@
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>docker<span class="w"> </span>compose<span class="w"> </span>build<span class="w">     </span><span class="c1"># Build from scratch</span>
 </span></code></pre></div>
 <h2 id="pull-images">Pull Images<a class="headerlink" href="#pull-images" title="Permanent link">&para;</a></h2>
-<p>To use the AirLab docker registry:</p>
+<p>The AirLab docker registry (<code>airlab-docker.andrew.cmu.edu</code>) is public — no <code>docker login</code> is needed to pull:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>AirStack/
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docker<span class="w"> </span>login<span class="w"> </span>airlab-docker.andrew.cmu.edu
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1">## &lt;Enter your andrew id (without @andrew.cmu.edu)&gt;</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1">## &lt;Enter your andrew password&gt;</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1">## Pull the images in the docker compose file</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>docker<span class="w"> </span>compose<span class="w"> </span>pull
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1">## Pull the images in the docker compose file</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>docker<span class="w"> </span>compose<span class="w"> </span>pull
 </span></code></pre></div>
 <p>The available image tags are listed <a href="https://airlab-docker.andrew.cmu.edu/harbor/projects/2/repositories/airstack/artifacts-tab">here</a>.</p>
+<p>Pushing images still requires an AirLab account (<code>docker login airlab-docker.andrew.cmu.edu</code> first).</p>
 <h2 id="build-images">Build Images<a class="headerlink" href="#build-images" title="Permanent link">&para;</a></h2>
 <p>For an overview of build-time options (<code>BASE_IMAGE</code>, <code>ROS_DISTRO</code>, platform profiles), see <a href="../../../intermediate/docker-build-profiles/">Docker Build Profiles</a>. For runtime container operations, continue below.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Build all images from scratch</span>
@@ -6141,7 +6139,7 @@ When no <code>--env-file</code> argument is passed to <code>docker compose</code
 </span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="c1"># If you've run ./airstack.sh setup, then this will auto-generate from the git commit hash every time a change is made </span>
 </span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="c1"># to a Dockerfile or docker-compose.yaml file. Otherwise this can also be set explicitly to make a release version.</span>
 </span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="c1"># auto-generated from git commit hash</span>
-</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="nv">VERSION</span><span class="o">=</span><span class="s2">"0.21.0-dev.3"</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="nv">VERSION</span><span class="o">=</span><span class="s2">"0.21.0-dev.5"</span>
 </span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="c1"># Image-tag discriminator ONLY (appears in the image tag suffix, e.g. ..._robot-x86-64_dev).</span>
 </span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="c1"># No Dockerfile consumes it: "prebuilt" does NOT bake the built ros_ws into the image today —</span>
 </span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="c1"># a real prebuilt (workspace-baked) stage is future work. Keep "dev" (mounted code, built live).</span>
