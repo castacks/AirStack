@@ -194,6 +194,8 @@ function print_command_help {
             echo "  --no-autolaunch     Start containers idle (AUTOLAUNCH=false; launch manually)."
             echo "  --wait              After starting, block until flight-ready (airstack ready)."
             echo "  --dry-run           Validate + print the derived launch config; start nothing."
+            echo "  --config-only       Like --dry-run, but only logical launch-config checks"
+            echo "                      (no Docker, credentials, images, or submodule prereqs)."
             echo ""
             echo "Anything else (e.g. --build, service names) is passed through to"
             echo "'docker compose up'."
@@ -386,6 +388,7 @@ function print_command_help {
             echo "  simple_sim      Simple-sim smoke test (containers, /clock, sentinel nodes;"
             echo "                  run with --sim simplesim --num-robots 1)"
             echo "  optitrack       OptiTrack NatNet end-to-end (tests live in the asm_optitrack module)"
+            echo "  infrastructure  Readiness/prerequisite checks (CI environment faults)"
             echo ""
             echo "AirStack-specific options (defaults from tests/conftest.py):"
             echo "  --sim=TARGETS              Comma-separated sim targets: isaacsim, msairsim,"
@@ -1642,6 +1645,24 @@ function preflight_up {
         fi
     fi
 
+    # 5. Deprecation shim (remove in 0.21.0): LAUNCH_NATNET no longer does
+    # anything — OptiTrack was extracted to the asm_optitrack module.
+    local _pf_natnet
+    _pf_natnet=$(resolve_launch_var LAUNCH_NATNET "${_pf_global[@]}")
+    if [[ -n "$_pf_natnet" ]]; then
+        log_warn "LAUNCH_NATNET is gone — OptiTrack moved to the asm_optitrack module (airstack module add https://github.com/castacks/asm_optitrack --version <tag>); see docs/development/modules.md"
+    fi
+
+    # 6. Deprecation shim (remove in 0.21.0): AUTONOMY_ROLE was REMOVED
+    # (stacks — RFC #379 — are the only launch dispatch). A set value counts
+    # only via env / --env-file / .env; nothing in the compose files defaults
+    # it anymore. This is a configuration contract, so it runs for --config-only.
+    local _pf_role
+    _pf_role=$(resolve_launch_var AUTONOMY_ROLE "${_pf_global[@]}")
+    if [[ -n "$_pf_role" ]]; then
+        _pf_error "AUTONOMY_ROLE was removed — select a stack: airstack up --stack <name> (see docs/development/stacks.md). Migration: full → full_default (the no-stack default), onboard → lite_default, onboard/offboard split → lite_offload_global:onboard / :offboard."
+    fi
+
     # Configuration contracts intentionally stop before Docker, credentials,
     # images, GPU, and checked-out submodule prerequisites.
     if [[ "$AIRSTACK_CONFIG_ONLY" == "1" ]]; then
@@ -1649,7 +1670,7 @@ function preflight_up {
         return $errors
     fi
 
-    # 5. Missing images: compose 'up' silently starts a very long build
+    # 7. Missing images: compose 'up' silently starts a very long build
     local imgs img missing=()
     imgs=$(run_docker_compose "${_pf_global[@]}" config --images 2>/dev/null | sort -u)
     for img in $imgs; do
@@ -1661,29 +1682,11 @@ function preflight_up {
         log_warn "To use prebuilt images instead: airstack images pull   (set AIRSTACK_NO_IMAGE_BUILD=1 to forbid implicit builds)"
     fi
 
-    # 6. ROBOT_NAME resolution needs Docker >= 29 (see robot/docker/.bashrc)
+    # 8. ROBOT_NAME resolution needs Docker >= 29 (see robot/docker/.bashrc)
     local docker_major
     docker_major=$(docker version --format '{{.Server.Version}}' 2>/dev/null | cut -d. -f1)
     if [[ "$docker_major" =~ ^[0-9]+$ ]] && (( docker_major < 29 )); then
         log_warn "Docker $docker_major < 29: container-name DNS resolution fails, robots will resolve as 'unknown_robot' on domain 0 (MAVROS will not connect). Upgrade Docker or set ROBOT_NAME_SOURCE=hostname."
-    fi
-
-    # 7. Deprecation shim (remove in 0.21.0): LAUNCH_NATNET no longer does
-    # anything — OptiTrack was extracted to the asm_optitrack module.
-    local _pf_natnet
-    _pf_natnet=$(resolve_launch_var LAUNCH_NATNET "${_pf_global[@]}")
-    if [[ -n "$_pf_natnet" ]]; then
-        log_warn "LAUNCH_NATNET is gone — OptiTrack moved to the asm_optitrack module (airstack module add https://github.com/castacks/asm_optitrack --version <tag>); see docs/development/modules.md"
-    fi
-
-    # 8. Deprecation shim (remove in 0.21.0): AUTONOMY_ROLE was REMOVED
-    # (stacks — RFC #379 — are the only launch dispatch). A set value counts
-    # only via env / --env-file / .env; nothing in the compose files defaults
-    # it anymore.
-    local _pf_role
-    _pf_role=$(resolve_launch_var AUTONOMY_ROLE "${_pf_global[@]}")
-    if [[ -n "$_pf_role" ]]; then
-        _pf_error "AUTONOMY_ROLE was removed — select a stack: airstack up --stack <name> (see docs/development/stacks.md). Migration: full → full_default (the no-stack default), onboard → lite_default, onboard/offboard split → lite_offload_global:onboard / :offboard."
     fi
 
     unset -f _pf_error
