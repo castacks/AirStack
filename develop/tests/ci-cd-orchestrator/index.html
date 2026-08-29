@@ -6234,9 +6234,9 @@
 <td>—</td>
 </tr>
 <tr>
-<td><code>repo</code></td>
-<td><code>owner/name</code> of the repo to poll</td>
-<td>from GitHub URL</td>
+<td><code>repos</code></td>
+<td>list of <code>owner/name</code> repos to poll (legacy <code>repo:</code> accepted)</td>
+<td>from GitHub URLs</td>
 </tr>
 <tr>
 <td><code>runner_version</code></td>
@@ -6259,7 +6259,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>--now<span class="w"> </span>airstack-orchestrator.service
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>journalctl<span class="w"> </span>-u<span class="w"> </span>airstack-orchestrator.service<span class="w"> </span>-f
 </span></code></pre></div>
-<p>You should see <code>orchestrator started (OSMO backend): repo=... pool=... max_concurrent=N</code>, an <code>osmo login succeeded</code> line, and then periodic poll activity.</p>
+<p>You should see <code>orchestrator started (OSMO backend): repos=[...] pool=... max_concurrent=N</code>, an <code>osmo login succeeded</code> line, and then periodic poll activity.</p>
 <h2 id="end-to-end-verification">End-to-end verification<a class="headerlink" href="#end-to-end-verification" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Trigger a fast build-only run.</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>gh<span class="w"> </span>workflow<span class="w"> </span>run<span class="w"> </span>system-tests.yml<span class="w"> </span>-f<span class="w"> </span><span class="nv">marks</span><span class="o">=</span>build_docker
@@ -6278,21 +6278,26 @@
 <p>Module repos (<code>asm_*</code>) that call trunk's reusable
 <a href="https://github.com/castacks/AirStack/blob/main/.github/workflows/module-system-tests.yml"><code>module-system-tests.yml</code></a> with the
 default <code>runs-on: [self-hosted, airstack-ephemeral]</code> queue jobs <strong>in their own
-repo</strong>, and the orchestrator polls exactly one <code>repo:</code> per instance. To add an
-<code>asm_</code> repo to the poll list, run a second orchestrator instance against it:</p>
+repo</strong>. One orchestrator instance polls them all — list every repo under
+<code>repos:</code> in <code>/etc/airstack-orchestrator/config.yaml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">repos</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"castacks/AirStack"</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"castacks/asm_dfm2_disturbances"</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"castacks/asm_optitrack"</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"castacks/asm_macvo"</span>
+</span></code></pre></div>
+<p>(The legacy singular <code>repo:</code> key is still accepted.) Two requirements when
+adding a repo:</p>
 <ol>
-<li><strong>Extend the PAT.</strong> The fine-grained GitHub PAT must also cover the module
+<li><strong>Extend the PAT.</strong> The fine-grained GitHub PAT must cover each listed
    repo with <code>Actions: read/write</code> + <code>Administration: read/write</code> (JIT runner
-   registration is per-repo). Reuse the existing PAT file if it covers the
-   repo, else stage a second one.</li>
-<li><strong>Copy the config.</strong> <code>/etc/airstack-orchestrator/config.yaml</code> →
-   <code>config-asm-&lt;name&gt;.yaml</code> with <code>repo: "castacks/asm_&lt;name&gt;"</code> and a
-   <strong>distinct <code>workflow_name_prefix</code></strong> (e.g. <code>gha-runner-asm&lt;name&gt;-</code>) so the
-   two instances' orphan sweeps don't cancel each other's OSMO workflows.</li>
-<li><strong>Run a second service instance</strong> pointing at the new config and its own
-   state file (copy <code>airstack-orchestrator.service</code>, adjust <code>ExecStart</code>'s
-   <code>--config</code> and <code>--state</code>, e.g. <code>--state /var/lib/airstack-orchestrator/state-asm-&lt;name&gt;.json</code>).</li>
+   registration is per-repo).</li>
+<li><strong>Restart the service</strong> (<code>systemctl restart airstack-orchestrator</code>) and
+   confirm the startup line lists every repo:
+   <code>orchestrator started (OSMO backend): repos=[...]</code>.</li>
 </ol>
+<p>The shared <code>max_concurrent</code> cap and the orphan sweep span all polled repos —
+no per-repo instances, prefixes, or state files needed.</p>
 <p>First-party only: the reusable workflow refuses callers outside the castacks
 org, mirroring the fork-PR block. Org-level polling across registered repos
 (one instance, many repos) is planned as a future replacement for this
@@ -6302,10 +6307,10 @@ per-repo setup.</p>
 <li><strong>State file</strong>: <code>/var/lib/airstack-orchestrator/state.json</code> is the in-flight job tracker (<code>job_id → workflow_id</code>). Wiping it triggers an orphan sweep on the next reap iteration — active <code>gha-runner-*</code> workflows will be cancelled. Don't wipe it while jobs are mid-flight unless that's what you want.</li>
 <li><strong>Straggler</strong>: any workflow whose job has run longer than <code>max_job_minutes</code> (default 48h) is force-cancelled regardless of GitHub job status.</li>
 <li><strong>OSMO token rotation</strong> (tokens expire — default 31 days): mint a new one and restart.
-  <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># (admin) osmo token set svc-airstack-ci-token-2 --user svc-airstack-ci \</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1">#           --roles &lt;ci-pool-role&gt; osmo-user --expires-at 2027-12-31</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>sudo<span class="w"> </span>install<span class="w"> </span>-o<span class="w"> </span>root<span class="w"> </span>-g<span class="w"> </span>orchestrator<span class="w"> </span>-m<span class="w"> </span><span class="m">0640</span><span class="w"> </span>/tmp/osmo-token<span class="w"> </span>/etc/airstack-orchestrator/osmo-token
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>restart<span class="w"> </span>airstack-orchestrator.service<span class="w">   </span><span class="c1"># re-runs `osmo login`</span>
+  <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># (admin) osmo token set svc-airstack-ci-token-2 --user svc-airstack-ci \</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1">#           --roles &lt;ci-pool-role&gt; osmo-user --expires-at 2027-12-31</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>sudo<span class="w"> </span>install<span class="w"> </span>-o<span class="w"> </span>root<span class="w"> </span>-g<span class="w"> </span>orchestrator<span class="w"> </span>-m<span class="w"> </span><span class="m">0640</span><span class="w"> </span>/tmp/osmo-token<span class="w"> </span>/etc/airstack-orchestrator/osmo-token
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>restart<span class="w"> </span>airstack-orchestrator.service<span class="w">   </span><span class="c1"># re-runs `osmo login`</span>
 </span></code></pre></div></li>
 <li><strong>PAT rotation</strong>: <code>sudo install -o root -g orchestrator -m 0640 /tmp/new-pat /etc/airstack-orchestrator/github-pat &amp;&amp; sudo systemctl restart airstack-orchestrator.service</code>.</li>
 <li><strong>Pause spawning</strong> (e.g. for maintenance): <code>sudo systemctl stop airstack-orchestrator.service</code>. Already-submitted workers still complete their jobs; on restart, the reap loop cleans up.</li>
@@ -6315,19 +6320,19 @@ per-repo setup.</p>
 <p>When a GitHub workflow run fails or stalls, the failure can be in one of four places: the orchestrator (didn't submit), the OSMO task (didn't schedule/pull), the GH Actions runner (didn't register or crashed), or the workflow steps themselves. Each has a different inspection path.</p>
 <h3 id="1-find-which-workflow-ran-the-job">1. Find which workflow ran the job<a class="headerlink" href="#1-find-which-workflow-ran-the-job" title="Permanent link">&para;</a></h3>
 <p><code>state.json</code> is the authoritative job ↔ workflow map:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.jobs | to_entries[] | "\(.key)\t\(.value.workflow_id)\t\(.value.workflow_name)"'</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>/var/lib/airstack-orchestrator/state.json
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.jobs | to_entries[] | "\(.key)\t\(.value.workflow_id)\t\(.value.workflow_name)"'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span>/var/lib/airstack-orchestrator/state.json
 </span></code></pre></div>
 <p>Pick the row for your failing <code>job_id</code> (visible in the GitHub Actions URL):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">JOB_ID</span><span class="o">=</span><span class="m">73286176852</span><span class="w">          </span><span class="c1"># from the GitHub UI</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">WF</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s2">".jobs[\"</span><span class="nv">$JOB_ID</span><span class="s2">\"].workflow_id"</span><span class="w"> </span>/var/lib/airstack-orchestrator/state.json<span class="k">)</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nv">JOB_ID</span><span class="o">=</span><span class="m">73286176852</span><span class="w">          </span><span class="c1"># from the GitHub UI</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nv">WF</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s2">".jobs[\"</span><span class="nv">$JOB_ID</span><span class="s2">\"].workflow_id"</span><span class="w"> </span>/var/lib/airstack-orchestrator/state.json<span class="k">)</span>
 </span></code></pre></div>
 <p>If the job isn't in <code>state.json</code>, the orchestrator never submitted for it — see step 2.</p>
 <h3 id="2-did-the-orchestrator-submit-at-all">2. Did the orchestrator submit at all?<a class="headerlink" href="#2-did-the-orchestrator-submit-at-all" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>sudo<span class="w"> </span>journalctl<span class="w"> </span>-u<span class="w"> </span>airstack-orchestrator.service<span class="w"> </span>--since<span class="w"> </span><span class="s2">"30 min ago"</span><span class="w"> </span>--no-pager
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>sudo<span class="w"> </span>journalctl<span class="w"> </span>-u<span class="w"> </span>airstack-orchestrator.service<span class="w"> </span>--since<span class="w"> </span><span class="s2">"30 min ago"</span><span class="w"> </span>--no-pager
 </span></code></pre></div>
 <p>Healthy submit looks like:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>submitted workflow &lt;id&gt; for job &lt;job_id&gt; (&lt;job name&gt;)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>submitted workflow &lt;id&gt; for job &lt;job_id&gt; (&lt;job name&gt;)
 </span></code></pre></div>
 <p>Common things that block a submit (and how to spot them):</p>
 <table>
@@ -6367,31 +6372,31 @@ per-repo setup.</p>
 </tbody>
 </table>
 <h3 id="3-inspect-the-workflow-worker">3. Inspect the workflow / worker<a class="headerlink" href="#3-inspect-the-workflow-worker" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Status and scheduling detail.</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>query<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--verbose
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Scheduling / lifecycle events (image pull, start, evict, ...).</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>events<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Combined stdout of the runner task — shows dockerd start, run.sh, and the job.</span>
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner
-</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w"> </span>--error<span class="w">   </span><span class="c1"># error stream</span>
-</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w"> </span>-n<span class="w"> </span><span class="m">300</span><span class="w">    </span><span class="c1"># last 300 lines</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Status and scheduling detail.</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>query<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--verbose
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Scheduling / lifecycle events (image pull, start, evict, ...).</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>events<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># Combined stdout of the runner task — shows dockerd start, run.sh, and the job.</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w"> </span>--error<span class="w">   </span><span class="c1"># error stream</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w"> </span>-n<span class="w"> </span><span class="m">300</span><span class="w">    </span><span class="c1"># last 300 lines</span>
 </span></code></pre></div>
 <h3 id="4-break-glass-shell-into-a-running-worker">4. Break-glass shell into a running worker<a class="headerlink" href="#4-break-glass-shell-into-a-running-worker" title="Permanent link">&para;</a></h3>
 <p>If the workflow is still <code>RUNNING</code>, exec into the pod:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>osmo<span class="w"> </span>workflow<span class="w"> </span><span class="nb">exec</span><span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>runner<span class="w">            </span><span class="c1"># /bin/bash in the runner task</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>osmo<span class="w"> </span>workflow<span class="w"> </span><span class="nb">exec</span><span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>runner<span class="w">            </span><span class="c1"># /bin/bash in the runner task</span>
 </span></code></pre></div>
 <p>Once inside:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># GitHub Actions runner diagnostics.</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>ls<span class="w"> </span>-lt<span class="w"> </span>/home/runner/actions-runner/_diag/
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>tail<span class="w"> </span>-300<span class="w"> </span>/home/runner/actions-runner/_diag/Runner_*.log
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>tail<span class="w"> </span>-300<span class="w"> </span>/home/runner/actions-runner/_diag/Worker_*.log
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1"># Inner Docker daemon (a frequent failure point for `airstack up`).</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>cat<span class="w"> </span>/var/log/dockerd.log
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>docker<span class="w"> </span>info<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>nvidia-smi
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># GitHub Actions runner diagnostics.</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>ls<span class="w"> </span>-lt<span class="w"> </span>/home/runner/actions-runner/_diag/
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>tail<span class="w"> </span>-300<span class="w"> </span>/home/runner/actions-runner/_diag/Runner_*.log
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>tail<span class="w"> </span>-300<span class="w"> </span>/home/runner/actions-runner/_diag/Worker_*.log
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="c1"># Inner Docker daemon (a frequent failure point for `airstack up`).</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>cat<span class="w"> </span>/var/log/dockerd.log
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>docker<span class="w"> </span>info<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>nvidia-smi
 </span></code></pre></div>
 <h3 id="5-common-failure-patterns-at-the-worker">5. Common failure patterns at the worker<a class="headerlink" href="#5-common-failure-patterns-at-the-worker" title="Permanent link">&para;</a></h3>
 <table>
@@ -6452,10 +6457,10 @@ an overlay <code>upperdir</code></strong> (it returns <code>EINVAL</code>). A do
 the pod rootfs looks healthy — <code>docker info</code> works, image pulls succeed, because
 containerd unpacks layers with plain writes — and then every build step that
 needs a real mount fails:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>failed to solve: process "/bin/bash -c apt-get ... " did not complete successfully:
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>mount source: "overlay",
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>target: "/var/lib/docker/buildkit/containerd-overlayfs/cachemounts/buildkit1459786452",
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>fstype: overlay, ... err: invalid argument
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>failed to solve: process "/bin/bash -c apt-get ... " did not complete successfully:
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>mount source: "overlay",
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>target: "/var/lib/docker/buildkit/containerd-overlayfs/cachemounts/buildkit1459786452",
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>fstype: overlay, ... err: invalid argument
 </span></code></pre></div>
 <p>That signature took out all four <code>build_docker</code> tests and all four
 <code>build_packages</code> tests in one run, with each failure looking like an unrelated
@@ -6497,7 +6502,7 @@ this order:</p>
 </table>
 <p>The chosen backend is logged at startup, so confirm it in the job log before
 debugging anything else:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">'runner-entrypoint|storage driver'</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">'runner-entrypoint|storage driver'</span>
 </span></code></pre></div>
 <p>Backends 3 and 4 also set <code>features.containerd-snapshotter: false</code>, because
 <code>storage-driver</code> is only honoured by the classic image store.</p>
