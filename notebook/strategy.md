@@ -36,16 +36,17 @@ instrument are PRIMARY; Sec. VI (sim fidelity, defect mining, agent
 study, threats) is SUPPORTING
 ([positioning.md §Evidence hierarchy](../ICRA_2027_AirStack_Paper/paper_positioning.md)).
 
-Current phase (as of 2026-08-28 07:00): **campaign v6 is READY FOR
-TRIALS.** The MIGHTY local-planner swap (entry
-[010](010-mighty-local-planner-module/design_spec.md), DONE) replaced
-droan_gl with the `asm_mighty` external module; R7 reference
-solvability under the frozen v6 config is **demonstrated 5/5** (goal
-errors 0.01–0.15 m, clearances 1.59–1.65 m vs the 1.0 m gate). v6
-bundles the swap pin (`study/mighty-swap` @ `961fb9e1`, asm_mighty
-v0.1.0) with the queued judge changes (R7 budget 240 s, HARD_CAP_S
-1800, practice/eval layout split) and the restructure re-pin. Next:
-run the A1–A4 trial campaign. In parallel: prose-ifying `main.tex`
+Current phase (as of 2026-08-28 20:00): **campaign v6 TRIALS ARE
+RUNNING** (entry [011](011-agent-study-v6-trials/design_spec.md)).
+The preliminary trial arc caught two headless-environment defects
+(R8-implication scoring bug; `claude -p` session truncation), both
+fixed runner-side before any trial was scored; the first scored trial
+is a **full-ladder R8 pass** (A1/claude-sonnet-5, 9/20 judge calls,
+2 h 22 m, $13.31) — arm separation must now come from A2/A3/A4.
+Round-robin continues serially on the RTX 5090 box. v6 foundation:
+MIGHTY swap (entry [010](010-mighty-local-planner-module/design_spec.md),
+DONE, R7 solvability 5/5), pin `study/mighty-swap` @ `961fb9e1`,
+asm_mighty v0.1.0. In parallel: prose-ifying `main.tex`
 section by section, and the release gate (7 paper-blocking items; ~63
 tasks still `\task{}` in `release_gate_and_tasks.tex` as of
 2026-08-27).
@@ -101,7 +102,7 @@ come from the entries' own labels.
 
 | Campaign | Goal | Entries | Status |
 |---|---|---|---|
-| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DONE` — MIGHTY swapped in as `asm_mighty` v0.1.0; R7 reference solvability 5/5 under frozen v6; campaign READY (see log) |
+| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md), [011-agent-study-v6-trials](011-agent-study-v6-trials/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DONE` — MIGHTY swapped in as `asm_mighty` v0.1.0; R7 reference solvability 5/5 under frozen v6; 011 `WIP` — TRIALS RUNNING, 1 scored (A1/sonnet = R8 full ladder), runner defects fixed pre-scoring (see log) |
 | Paper writing & positioning | Sec. I–V prose, case-study interviews, figures | — (lives in the `ICRA_2027_AirStack_Paper/` submodule; no notebook entries) | Related Work + Design Principles prose done 2026-08-03; interviews not recorded anywhere yet |
 | Release gate / v1.0 readiness | The seven paper-blocking items (clone-and-run, verified hardware path, …) | — (no notebook entries yet) | ~63 open `\task{}` vs 1 `\done{}` in `release_gate_and_tasks.tex` |
 | Modular AirStack (RFC #379/#380) | Monolith → modules, stacks, fleets — built to support the paper's modularity positioning: module swapping (C1) and easy upstreaming of features from forked projects (lead, recorded 2026-08-27) | [002-rfc-modular-airstack](002-rfc-modular-airstack/design_spec.md) | `WIP` per its header (impl merged to develop 2026-08-24 as PRs #388–#396; release mechanics, module CI tags, P3 dispatch smoke open) |
@@ -116,6 +117,27 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+### 2026-08-28 (20:00) — v6 trials STARTED; two headless-environment defects fixed pre-scoring; first scored trial = full-ladder R8
+
+Trials began (entry [011](011-agent-study-v6-trials/design_spec.md)).
+The preliminary sanity trial caught, before anything was scored:
+(1) an R8-implication scoring bug — R8 (bare takeoff+land) passed on a
+stock bring-up and top-down scoring implied R1–R7; the implication
+chain now tops out at R7, R8 scored only after an R7 pass; (2) two
+`claude -p` session-truncation vectors (ScheduleWakeup/Monitor promise
+re-invocation print mode never delivers; background Bash killed ~5 s
+after the final result) — session-persistence tools denied and
+background Bash disabled with 20/60-min foreground timeouts. Runner
+commits `a56441b`+`41ca11e`; agent-facing judges/prompts/config
+untouched (config_sha256 stable), so the campaign pin stands. First
+scored trial: **A1/claude-sonnet-5 = R8, the study's first full-ladder
+pass** (9/20 judge calls, 2 h 22 m, $13.31, single R8 retry). Strategic
+read: with a modern local planner, the extended ladder no longer
+separates arms at A1's ceiling — the dose–response hypothesis now
+rides on A2/A3/A4 (and on cost/iteration metrics, which remain
+informative regardless). Also decided (lead): `agent_study/HANDOFF.md`
+retired; notebook + this file are the running record.
 
 ### 2026-08-28 (07:00) — MIGHTY swap COMPLETE; R7 reference-solvable 5/5; campaign v6 ready for trials
 
