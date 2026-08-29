@@ -5924,6 +5924,23 @@ its own notes. -->
 <h2 id="0200-unreleased">0.20.0 (Unreleased)<a class="headerlink" href="#0200-unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>CI un-redded: Metrics Report and Unit Tests fixed.</strong> Every PR had been
+  failing since ~2026-08-20 for reasons unrelated to the code under test.
+  The system-tests <strong>Metrics Report</strong> job installed only <code>tabulate</code>, so
+  <code>tests/parse_metrics.py</code> (which imports the <code>tests/harness</code> package)
+  crashed with <code>ModuleNotFoundError: No module named 'yaml'</code> — and the crash
+  was misreported as "Metric regression detected"; the job now installs
+  <code>tests/requirements.txt</code>, and the regression verdict additionally requires
+  a written <code>report.md</code> so a parser crash can never masquerade as a metric
+  regression. The <strong>Unit Tests</strong> workflow ran the <code>tests/meta/</code> contract
+  suite on a checkout with no submodules and no <code>omni_pass.env</code>, so every
+  <code>airstack up --dry-run --sim isaac</code> contract hard-failed preflight and the
+  docs-catalog contract missed the submodule-resident vdb_mapping_ros2
+  README; the workflow now checks out submodules recursively and provisions
+  the same guest <code>omni_pass.env</code> stub that <code>module-system-tests.yml</code> uses
+  (preflight itself stays strict).</p>
+</li>
+<li>
 <p><strong>New reference stack <code>full_mighty</code> + registered <code>mighty</code> module.</strong> The
   MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its
   acl-mapping voxel world model and a NavigateTask/trajectory_controller
