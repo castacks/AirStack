@@ -63,7 +63,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 4 | A4 / claude-opus-5 / #1 | **R8** (full ladder) | 0 / 0 (open loop) | 1 h 46 m | $17.99 | Blind integration passed R7+R8 official scoring first try; agent never even attempted a judge call (0 refusals). On this sample the closed-loop gap (A1–A4) is zero while the platform gap (A1–A3) bites at R7. n=1 caveat. |
 | 5 | A1 / claude-opus-5 / #1 | **R8** (full ladder) | 9 / 20 | 2 h 11 m | $32.93 | Zero in-session judge failures; self-validated before first call (opened with R4), one extra R7 verification. Official R7+R8 pass. |
 | 6 | A2 / claude-sonnet-5 / #1 | **R8** (full ladder) | 10 / 20 | 2 h 29 m | $10.47 | Two R3 failures (~30 min debug cycle) then clean R4→R8; official R7+R8 pass. |
-| 7 | A3 / claude-opus-5 / #1 | — running | — | — | — | Started 2026-08-29 11:16 UTC. |
+| 7 | A3 / claude-opus-5 / #1 | **R3** | 13 / 20 | 4 h 00 m (killed) | n/a (kill lost usage event) | Bare parts: ~2 h 47 m assembling before first R1 pass; in-session reached R6, but the 4 h wall-clock kill hit before consolidation. Final-state scoring: R7 fail (no avoidance), R6 fail (beta up but route degenerate — "route too straight", spline never materialized), R5/R4 unsatisfiable post-swap (designed cascade), R3 pass. |
+| 8 | A4 / claude-sonnet-5 / #1 | — running | — | — | — | Started 2026-08-29 15:27 UTC. Open loop; last round-1 cell. |
 
 Round-robin order: A1:son → A2:opus → A3:son → A4:opus → A1:opus →
 A2:son → repeat with rising trial index.
