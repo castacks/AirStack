@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Pin the docs version-selector order: develop above main.
+"""Pin the docs version-selector order: develop first.
 
-mike re-sorts versions.json on every deploy, and among non-numeric
-("dev") versions it sorts reverse-lexically, so "main" always lands
-above "develop". We want develop (which carries the higher, unreleased
-version number) listed first while main stays the set-default landing
-version. Every workflow that runs `mike deploy` must re-run this script
-afterwards, since any mike write restores mike's own ordering.
+mike re-sorts versions.json on every deploy, and the non-numeric
+"develop" version does not reliably sort above the MAJOR.MINOR release
+slugs. We want develop (which carries the higher, unreleased version
+number) listed first, while the `latest` alias stays the set-default
+landing version. Every workflow that runs `mike deploy` must re-run
+this script afterwards, since any mike write restores mike's own
+ordering.
 
 Usage: docs_reorder_versions.py <path/to/versions.json>
 
@@ -20,7 +21,7 @@ import sys
 
 
 def reorder(entries):
-    pinned_names = ('develop', 'main')
+    pinned_names = ('develop',)
     pinned = [e for name in pinned_names for e in entries
               if e['version'] == name]
     rest = [e for e in entries if e['version'] not in pinned_names]

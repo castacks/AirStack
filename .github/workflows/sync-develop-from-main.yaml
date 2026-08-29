@@ -116,6 +116,9 @@ jobs:
               f.write(f"NEW_VERSION={new_ver}\n")
           PYEOF
 
+          # Read the version from .env: GITHUB_ENV exports only apply to
+          # later steps, so ${NEW_VERSION} would be empty here.
+          NEW_VERSION=$(grep -m1 '^VERSION=' .env | cut -d= -f2- | tr -d '"')
           git add .env
           git commit -m "Bump VERSION to ${NEW_VERSION} after sync from main"
 

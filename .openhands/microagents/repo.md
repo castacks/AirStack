@@ -82,7 +82,7 @@ AirStack/
 - Uses AirLab Docker registry credentials
 
 **Documentation Deployment**:
-- **Main Branch** (`deploy_docs_from_main.yaml`): Deploys docs to main version on pushes to `main`
+- **Main Branch** (`deploy_docs_from_main.yaml`): Republishes the current MAJOR.MINOR docs slug (e.g. `/0.20/`) from pushes to `main` and points `latest` at it
 - **Develop Branch** (`deploy_docs_from_develop.yaml`): Deploys docs to develop version on pushes to `develop`  
 - **Release** (`deploy_docs_from_release.yaml`): Deploys docs to versioned release on GitHub releases
 - Uses MkDocs Material with mike for versioning
