@@ -21,6 +21,53 @@ its own notes. -->
 
 - Nothing yet.
 
+## 0.20.6 — 2026-08-29
+
+- **Release notes now carry a dated section per hotfix.** Added the
+  missing sections for hotfixes 0.20.1–0.20.5 and codified the rule in
+  the `bump-version-and-release` skill and AGENTS.md: every hotfix on
+  `main` — docs-only and CI-only included — adds its own dated
+  `## X.Y.Z — YYYY-MM-DD` patch-notes section, since the MAJOR.MINOR
+  docs build renders all of a line's patch sections together.
+
+## 0.20.5 — 2026-08-29
+
+- **Docker images are publicly pullable.** The AirLab Harbor registry
+  project (`airlab-docker.andrew.cmu.edu/airstack`) is now public: pulling
+  the AirStack images no longer requires an AirLab account or
+  `docker login`. Pull instructions across the docs (Getting Started, CLI
+  docker usage, Isaac Sim / MS-AirSim image management) were updated
+  accordingly. Pushing images still requires logging in with an AirLab
+  account.
+
+## 0.20.4 — 2026-08-29
+
+- **Docs site root pinned to the release slug.** docs.theairlab.org now
+  redirects to the current MAJOR.MINOR slug (`/0.20/`) instead of the
+  moving `/main/` alias, so the URLs readers land on and copy stay valid
+  across future releases.
+
+## 0.20.3 — 2026-08-29
+
+- **Stable docs alias renamed `latest` → `main`**, restoring pre-0.20
+  bookmark URLs. The three docs deploy workflows now share a concurrency
+  group so concurrent gh-pages pushes no longer race.
+
+## 0.20.2 — 2026-08-29
+
+- **Docs versions use MAJOR.MINOR slugs.** The version selector no longer
+  shows the same release twice: docs deploy under slugs like `/0.20/`
+  titled with the full patch version, hotfixes republish the slug in
+  place, and this Release Notes page renders every section sharing the
+  built version's MAJOR.MINOR.
+
+## 0.20.1 — 2026-08-29
+
+- **Fixed the post-release main→develop sync** skipping when the merge
+  result was content-identical to develop — the ancestry-advancing merge
+  commit was never pushed, so develop's VERSION never rolled forward
+  after a release.
+
 ## 0.20.0 — 2026-08-29
 
 - **Pre-release versioning terminology: `-alpha.N` → `-dev.N`.** The
