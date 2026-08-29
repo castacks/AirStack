@@ -19,7 +19,12 @@ its own notes. -->
 
 ## 0.21.0 (Unreleased)
 
-- Nothing yet.
+- **Fixed: post-release main→develop sync no longer skips.** The
+  `sync-develop-from-main` workflow skipped whenever the merge result was
+  content-identical to `develop` — exactly the situation right after a
+  release — so it never pushed the ancestry-advancing merge commit or
+  rolled `develop`'s VERSION forward. It now skips only when `main` is
+  already an ancestor of `develop`.
 
 ## 0.20.0 — 2026-08-29
 

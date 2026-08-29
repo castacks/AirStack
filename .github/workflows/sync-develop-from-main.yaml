@@ -42,9 +42,14 @@ jobs:
             git -c core.editor=true commit --no-edit
           fi
 
-          # If develop already contained everything main has, nothing to do.
-          if git diff --quiet origin/develop..HEAD; then
-            echo "develop already up to date with main; nothing to sync."
+          # Skip only when main is already in develop's ancestry. A tree
+          # diff is the wrong check here: right after a release, the merge
+          # result is content-identical to develop, but the merge commit
+          # must still be pushed (it advances the develop↔main merge base,
+          # preventing spurious conflicts on the next release PR) and the
+          # VERSION roll-forward below must still happen.
+          if git merge-base --is-ancestor origin/main origin/develop; then
+            echo "main is already an ancestor of develop; nothing to sync."
             echo "SKIP=true" >> $GITHUB_ENV
           fi
 
