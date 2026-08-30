@@ -73,7 +73,7 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 13 | A1 / claude-opus-5 / #2 | **R8** (full ladder) | 12 / 20 | 1 h 38 m | $20.31 | Opened at R7 (~38 min in, all lower rungs self-validated), zero judge failures; spent remaining calls on a full R1–R8 verification sweep. Official R7+R8 pass. |
 | 14 | A2 / claude-sonnet-5 / #2 | **R5** | 12 / 20 | 3 h 16 m | $22.76 | First AirStack-arm sub-ceiling score. In-session cleared R1–R8, but final state boots with planner ALPHA (R5 pass, 0.08 m goal error) and no beta node — the swap wasn't left persistent, so R6/R7 fail at scoring. Final-state discipline caught what session memory hid. |
 | 15 | A3 / claude-opus-5 / #2 | **R6** | 11 / 20 | 2 h 40 m | $32.81 | Big improvement over #1 (R3, time-capped): R1 by 1 h 19 m, R6 by 1 h 36 m, then ~30 min attempting avoidance for R7 (one in-session R7 fail), stopped with a consolidated R6 state. Official R7 fail / R6 pass. |
-| 16 | A4 / claude-sonnet-5 / #2 | — running | — | — | — | Started 2026-08-30 10:40 UTC. Open loop; closes round 2. |
+| 16 | A4 / claude-sonnet-5 / #2 | — rerunning | — | — | — | First attempt INFRA-CONTAMINATED (`.contaminated/`): an orphaned duplicate agent from a chained-launch operator error raced the official agent in the same workspace (they detected each other via cross-session messaging; the official agent stood down; scoring graded the orphan's work). Runner gained a preflight isolation guard (`05540d7`). Clean rerun started 2026-08-30 11:50 UTC. |
 
 ### Round-1 synthesis (8/8 cells, 2026-08-29)
 
