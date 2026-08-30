@@ -2,12 +2,19 @@
 copyright: Copyright &copy; 2024 - 2030 AirLab CMU
 docs_dir: .
 site_name: AirStack
+site_description: >-
+  AirStack is an open-source ROS 2 autonomy stack for aerial robots from the
+  AirLab at Carnegie Mellon University — simulation, ground control, and
+  layered onboard autonomy that launch as one system.
 site_dir: ../site
 site_url: "https://docs.theairlab.org/docs/" # Trailing slash is recommended
 exclude_docs: |
   # The repo README is GitHub-facing; the site's home page is docs/index.md,
-  # and same-dir would otherwise collide on the root URL.
-  README.md
+  # and same-dir would otherwise collide on the root URL. Patterns are
+  # gitignore-style: the leading slash anchors this to the repo root only —
+  # a bare README.md would exclude every package/tests/osmo README the nav
+  # serves as pages.
+  /README.md
   **/ros_ws/build
   **/docker/Foxglove
   **/ros_ws/install
@@ -40,6 +47,9 @@ extra_css:
 # build time, so each mike-deployed docs version shows only its own notes.
 hooks:
   - docs/hooks/release_notes_current_version.py
+  # Give the version-root redirect stub (/X.Y/ -> docs/) a real title and
+  # Open Graph tags so shared links preview properly (Slack, WhatsApp, ...).
+  - docs/hooks/social_meta_redirect_stub.py
 markdown_extensions:
   - admonition
   - attr_list
@@ -243,6 +253,11 @@ plugins:
         'docs/tutorials/index.md': 'docs/getting_started/tutorials_reference.md'
 repo_name: castacks/AirStack
 repo_url: https://github.com/castacks/AirStack
+# Per-page "Edit this page" pencil (theme feature content.action.edit).
+# docs_dir is the repo root, so page paths are already repo-relative.
+# GitHub shows contributors without write access its fork-and-edit flow.
+# The develop docs deploy overrides the branch via DOCS_EDIT_URI.
+edit_uri: !ENV [DOCS_EDIT_URI, "edit/main/"]
 theme:
   favicon: docs/assets/StackedWhite.png
   custom_dir: docs/overrides
@@ -266,6 +281,7 @@ theme:
     - content.code.copy
     - content.code.annotate
     - content.tooltips
+    - content.action.edit
   font:
     text: Inter
     code: JetBrains Mono

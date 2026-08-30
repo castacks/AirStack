@@ -21,6 +21,32 @@ its own notes. -->
 
 - Nothing yet.
 
+## 0.20.7 — 2026-08-30
+
+- **Fixed 404s on every README-sourced docs page.** The `exclude_docs`
+  pattern intended to hide the repo-root `README.md` used gitignore
+  semantics, so it silently excluded *every* `README.md` in the tree —
+  404ing the System Test Suite (`/tests/`), OSMO Lab Admin Guide
+  (`/osmo/`), and all autonomy package reference pages. The pattern is
+  now anchored to the repo root (`/README.md`).
+- **Shared docs links now show real previews.** Sharing
+  `docs.theairlab.org` in Slack/WhatsApp/iMessage previewed as
+  "Redirecting" — preview scrapers don't run JavaScript, and the site
+  root, the version root (`/0.20/`), and every content page lacked
+  Open Graph metadata. The root redirect now deploys from a template
+  with proper title/description/image tags (`mike set-default -T`), a
+  build hook enriches the version-root redirect stub, and a theme
+  override (`docs/overrides/main.html`) plus `site_description` add
+  per-page Open Graph / Twitter Card tags across the site. Note:
+  previously shared links may keep the stale preview until the apps'
+  link caches expire.
+- **"Edit this page" button on every docs page.** Each page now shows a
+  pencil icon (Material `content.action.edit` + `edit_uri`) linking to
+  GitHub's editor for that page's source file; contributors without
+  write access get GitHub's fork-and-propose flow. Pages built from
+  `main` link to `edit/main/`, the develop docs to `edit/develop/`
+  (via `DOCS_EDIT_URI` in the develop deploy workflow).
+
 ## 0.20.6 — 2026-08-29
 
 - **Release notes now carry a dated section per hotfix.** Added the
