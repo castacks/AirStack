@@ -1146,9 +1146,24 @@ CONTROL_STACK_GLOBS = ("droan_gl*", "droan_local_planner*", "mighty*", "global_m
 # sim tick was ~90% of a 300 GB bag). They ride this same generic copy so no
 # extra collector is needed — the PNGs and their coverage/centre sidecar land
 # in <iteration>/airstack-gcs-1/ beside the tee logs.
+#
+# `/tmp/search/*` is THE SEARCH PLANNER'S OWN LOG, and it is the only place a
+# per-detection confidence score has ever existed. `planner_node` prints the
+# raw best score on every qualifying tick ("detector PASS ... 0.812 > gate
+# 0.65", "detector SEEN ... below gate") plus a per-run histogram ("detector
+# summary ... conf bins ..."); no topic, marker or jsonl carries a number.
+# Until 2026-08-30 none of it came off the pod: the mission's own
+# `cp /tmp/search/planner.log "$DEST"/` writes to /root/AirStack/results,
+# which is NOT a mounted path, so the copy just moved the file to another
+# spot inside the same disposable container. That is why the run of
+# 2026-08-30 09:09:51 could be shown to have detected nobody but could not be
+# asked BY HOW MUCH each detection missed. `/tmp/conavgpt2/*.jsonl` is the
+# team arm's per-round record and rides along for the same reason.
 TEE_LOG_GLOBS = ("/tmp/rayfronts_*.log", "/tmp/raven_*.log", "/tmp/lvlm_*.log",
                  "/tmp/gossip_*.log", "/tmp/ddsrouter_*.log", "/tmp/relay_*.log",
-                 "/tmp/overhead_*.png", "/tmp/overhead_*.json")
+                 "/tmp/overhead_*.png", "/tmp/overhead_*.json",
+                 "/tmp/search/*.log", "/tmp/search/*.jsonl",
+                 "/tmp/conavgpt2/*.jsonl")
 
 
 def _copy_tmp_tee_logs(dest_dir):
