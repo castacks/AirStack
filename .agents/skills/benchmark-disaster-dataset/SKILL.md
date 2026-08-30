@@ -1465,6 +1465,100 @@ COMPOSE_PROFILES=isaac-sim-livestream FROZEN_SCENE=Fire/Suburban/level_1/1 \
 compose file. The failure is never "the script ignored my variable"; it is
 "the variable never arrived".
 
+### 9.o Eight drones took off and hovered — `mighty_bridge` was not running
+
+**2026-08-29, `frozen_suburban_8robot`, 5 iterations x 8 robots.** Every drone
+reached 20 m and then sat there for the whole 600 s budget:
+`ground speed 0.00 m/s | cap 1.5 (search) | inside sector`, 10-11 goals
+blacklisted each, 0 people visited. The planners were fine — correct search
+area, correct sectors, 45,549 detector calls with 0 errors, **5,683
+`/robot_1/global_plan` messages published**. Nothing executed any of them.
+
+**`mighty_bridge` is the whole execution layer.** It serves `tasks/navigate`,
+follows `/global_plan`, converts odometry to the `dynus State` the mapper needs,
+and publishes `trajectory_override` to the trajectory controller. It was absent
+from `ros2 node list` on all 8 robots in all 5 iterations. Downstream:
+
+* no `mighty/state` -> `global_mapper_ros` never integrated a cloud -> 6,636 x
+  `updateMap: pclptr_map_ was null or empty`, `has2DMap()=false`;
+* no goal ever reached MIGHTY;
+* `trajectory_controller` logged ONE line at start-up and nothing for 95 min.
+
+**Why it died** (from the one iteration whose tmux scrollback still reached
+bring-up):
+
+```
+ImportError: install/dynus_interfaces/lib/python3.12/site-packages/
+  dynus_interfaces/dynus_interfaces_s__rosidl_typesupport_c.so:
+  undefined symbol: dynus_interfaces__msg__PNAdaptation__destroy
+UnsupportedTypeSupport: Could not import 'rosidl_typesupport_c' for
+  package 'dynus_interfaces'
+```
+
+`mighty_bridge` is the ONLY Python node in the stack that imports
+`dynus_interfaces`. `mighty_node` and `global_mapper_ros` are C++ and link the
+C++ typesupport, so they came up clean and **the stack looked healthy**.
+
+**The cause is the shared workspace, not the code.** Every replica bind-mounts
+the same `robot/ros_ws` (`robot-base-docker-compose.yaml`), so N containers
+build into ONE `build/` + `install/` tree. `bws` serialises the builds with
+`flock .build.lock` — but the container command was `bws && sws && ros2 launch`,
+so each container **released the lock and launched while the other N-1 were
+still running `cmake --install` over that same tree**. Robot 1's stack came up
+at 23:26:23; builds finished at 23:26:30, :38, :46, :54.
+`--symlink-install` makes the Python shim a SYMLINK into `build/` (always
+current) while `install/lib/lib<pkg>__rosidl_generator_c.so` is a COPY made at
+install time — read one before an install pass and the other after and the pair
+does not link. Fixed by a barrier between the build and the launch:
+
+```
+bws && (flock -w 900 $HOME/AirStack/robot/ros_ws/.build.lock true || true) && sws && ros2 launch ...
+```
+
+**Two second-order lessons, both worth more than the fix.**
+
+1. **The check that should have caught it was grepping the wrong file.** The
+   mission summary ran
+   `grep "follower: engaging\|mighty_bridge up" /tmp/search/planner.log` —
+   all three of those strings are printed by `mighty_bridge`, a different
+   process with a different log. It printed `0` on a healthy run and `0` on a
+   run with no bridge at all. A check whose failing value equals its passing
+   value is not a check. It now reads `~/.ros/log/mighty_bridge_*.log`, which
+   outlives the tmux scrollback and the runner already collects.
+2. **Gate on the execution layer before takeoff.** The mission now has a
+   per-robot step that waits for `/robot_N/mighty/mighty_bridge`, prints the
+   bring-up pane's traceback if it never appears, and exits 1. 30 seconds
+   instead of 95 minutes x 40.
+
+**How to find this class of failure fast in a bag.** Three reads, in order:
+`trajectory_controller_*.log` (silent after start-up = nothing ever reached the
+controller), `ros2 node list` in `logs/rosgraph/` (diff it against a run that
+worked — that is what named `mighty_bridge`), then the bring-up tmux log of the
+SHORTEST iteration, which is the only one whose scrollback still reaches
+start-up.
+
+---
+
+### 9.n The first overhead frame of a frozen cell is blank
+
+`/gcs/sim_ground` came out empty in every bag of that sweep. The GCS visualizer
+built its ground marker from the FIRST `/sim/overhead/image` it received and
+then unsubscribed. A frozen cell is ~250 MB referenced in with textures still
+streaming off Nucleus, so Isaac's first rendered overhead frames are black.
+
+`foxglove_visualizer_node` now waits out `sim_ground_warmup_s`, **rejects any
+frame whose per-channel std is below `sim_ground_min_std`** (measured, because
+no timer can know how long a particular cell takes off a particular Nucleus
+server), republishes the marker every `sim_ground_repeat_period_s` so a
+recorder that subscribed late has more than the single latched message to
+catch, and rebuilds once from the final frame at `sim_ground_settle_s`.
+
+The raster itself still must not be recorded — 2048x2048 every sim tick was
+~90% of a 300 GB bag — so the mission writes three stills to
+`/tmp/overhead_<scene>_*.png` in the GCS container with a coverage/centre JSON
+sidecar, collected into the iteration directory by the runner's
+`TEE_LOG_GLOBS`.
+
 ---
 
 ## 10. What has NOT been flown yet

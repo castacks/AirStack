@@ -171,3 +171,12 @@ final_disaster_dataset/
 
 # Paper source is maintained as a separate Overleaf Git repository.
 /overleaf/
+
+# ---- mirrored Nucleus asset trees (round 4 earthquake rubble) ---------------
+# Local mirrors of Projects/SEI-COA/scene_gen/assets/{standalone,concrete_rubble_debris}
+# fetched by scene_gen/tools/nucleus_fetch.py for offline Blender previews;
+# binary and reproducible. The READMEs are the only source files there.
+scene_gen/assets/standalone/*
+!scene_gen/assets/standalone/README.md
+scene_gen/assets/concrete_rubble_debris/*
+!scene_gen/assets/concrete_rubble_debris/README.md

@@ -1755,7 +1755,7 @@ def _p_monolith(ctx, e, tag="mb"):
     return out
 
 
-def _p_macroblocks(ctx, mass, side, from_storey=1):
+def _p_macroblocks(ctx, mass, side, from_storey=1, panels_out=None):
     """Out-of-plane failure as the mechanism it is: cut the MACROBLOCKS first,
     dice only the edges and the part that hits the ground.
 
@@ -1767,6 +1767,17 @@ def _p_macroblocks(ctx, mass, side, from_storey=1):
     cantilevers that did not). Only the modules the cracks RUN THROUGH are
     fractured, and those are fractured on the bond, so the edge that survives
     is a staircase of whole bricks.
+
+    `panels_out` (round 4, v2 only — `None` in v1, exactly today's
+    behaviour): a list to receive `(prim_path, size)` for every WHOLE
+    monolith module in an OVERTURNED block, instead of that module riding
+    the old ad hoc rotate-and-drop-into-`ctx["loose"]` treatment. The caller
+    (`r_out_of_plane`) hands these to `_rubble`'s `panels=` — the fan's own
+    large-element system poses and half-buries them, which is the round-4
+    design table's "1-2 macroblock panels" row. The block's SHED fractured
+    debris (the modules that broke on the way down) still gets the rigid
+    overturn-and-drop treatment and lands in `ctx["loose"]` either way; only
+    the whole pieces change hands.
 
     Returns a note string for `ctx["notes"]`."""
     from . import damage
@@ -1890,7 +1901,7 @@ def _p_macroblocks(ctx, mass, side, from_storey=1):
         # wall came out 0 overturned / 1 leaning / 2 standing (P_urm4) and
         # nothing reached the street.
         shed = rng.uniform(0.3, 0.6) if r < 0.62 else 0.0
-        paths, brk = [], []
+        whole, whole_sizes, brk = [], {}, []
         for e in els:
             if shed and rng.random() < shed:
                 st_e, lo_e = _break(
@@ -1903,16 +1914,41 @@ def _p_macroblocks(ctx, mass, side, from_storey=1):
             else:
                 q = _p_monolith(ctx, e, tag="{0}{1}".format(*key))
                 if q:
-                    paths.append(q)
-        paths += brk
+                    whole.append(q)
+                    whole_sizes[q] = _module_size(m, e)
+        paths = whole + brk
         if not paths:
             continue
         if r < 0.62:
-            # OVERTURNED. Rotating +theta about the LEFT perpendicular of the
-            # outward run swings the wall's up-vector toward outward, i.e. the
-            # top leads and the block ends flat in the street — which is what
-            # the Christchurch photographs show, whole wall sections lying on
-            # the footpath with their courses still legible.
+            if panels_out is not None and whole:
+                # v2: the WHOLE monolith modules become RUBBLE PANELS —
+                # `_rubble`'s large-element system poses and half-buries
+                # them on the fan, instead of the ad hoc overturn rotation
+                # below. Only the SHED fractured debris still gets that
+                # rigid drop-and-settle treatment.
+                for q in whole:
+                    panels_out.append((q, whole_sizes[q]))
+                if brk:
+                    _transform_prims(ctx["stage"], brk,
+                                     _rot_about((px, py, zb), (-oy, ox, 0.0),
+                                                rng.uniform(76.0, 98.0)))
+                    drop = max(0.0, zb - m["z0"] - rng.uniform(0.4, 1.1))
+                    if drop > 0.05:
+                        _transform_prims(ctx["stage"], brk,
+                                        _translate(0.0, 0.0, -drop))
+                    for q in brk:
+                        ctx["velocity"][q] = (ox * rng.uniform(0.15, 0.5),
+                                              oy * rng.uniform(0.15, 0.5), -0.2)
+                    _a_dustify(ctx, brk, p=0.7)
+                    ctx["loose"] += brk
+                n_over += 1
+                continue
+            # OVERTURNED (v1, or nothing whole to hand off this key).
+            # Rotating +theta about the LEFT perpendicular of the outward
+            # run swings the wall's up-vector toward outward, i.e. the top
+            # leads and the block ends flat in the street — which is what
+            # the Christchurch photographs show, whole wall sections lying
+            # on the footpath with their courses still legible.
             _transform_prims(ctx["stage"], paths,
                              _rot_about((px, py, zb), (-oy, ox, 0.0),
                                         rng.uniform(76.0, 98.0)))
@@ -2738,8 +2774,16 @@ def r_parapet_fall(ctx, sides=1, frac=0.5, mass="main"):
         # deep (Christchurch parapet reconnaissance), under the pieces that
         # went (a piece is pivoted at its near end, so extend by one module).
         t0, t1 = min(ts) - 0.02, max(ts) + max(4.0, float(m["module"])) / L
-        _heap(ctx, m, m["z0"], 0.0, 0.14, fill=False, sides=(side,),
-              depth_m=rng.uniform(0.5, 1.1), along=(t0, t1), tag="windrow")
+        # v2: a fixed 0.45 m windrow depth (round-4 spec) with `elem_h_m` set
+        # to the fallen parapet/course's own height so the planner's reach
+        # heuristic uses the research's "reach ~= the fallen element's own
+        # height" rule instead of a fraction of the whole building; v1 keeps
+        # drawing `rng.uniform(0.5, 1.1)` exactly as it always did.
+        depth = 0.45 if _RUBBLE_MODE == "v2" else rng.uniform(0.5, 1.1)
+        elem_h_m = max((e["h"] for e in chosen), default=None)
+        _rubble(ctx, m, "windrow", sides=(side,), depth_m=depth,
+                along=(t0, t1), elem_h_m=elem_h_m,
+                tag="parapet_{0}".format(side))
 
 
 def r_glass_loss(ctx, frac=0.3):
@@ -4760,6 +4804,56 @@ def r_infill_fail(ctx, storeys=1, frac=0.4, mass="main"):
               depth_m=rng.uniform(0.3, 0.6), tag="windrow")
 
 
+def _corner_break(ctx, m, cx, cy, c_sides, reach, path, mat_fn):
+    """Strip along each of the corner's two sides, fractured against a
+    wandering radius about the corner; the rest of the slab stays one clean
+    piece. Hoisted out of `r_corner_fail` (round 4) — a module-level name so
+    the routing test can find it with `inspect.getsource` — with every
+    former closure variable (`m`, `cx`, `cy`, `c_sides`, `reach`) now an
+    explicit parameter; the body is otherwise unchanged."""
+    rng = ctx["rng"]
+    mats = ctx["mats"]
+    btype = ctx["info"]["type"]
+    rem = path
+    statics, loose = [], []
+    other = {c_sides[0]: c_sides[1], c_sides[1]: c_sides[0]}
+    for sd in c_sides:
+        # narrow: `reach` is already a bay and a half; the strip only
+        # has to hold the notch's ragged edge, not half the roof
+        rem, strip = _split_strip(ctx, rem, m, sd, min(reach * 0.75 + 0.5,
+                                                        0.35 * (m["W"] if sd in ("S", "N") else m["D"])),
+                                  mats["concrete"])
+        # ...AND ONLY THE CORNER'S LENGTH OF IT. A strip the full length
+        # of the side leaves a crack line right across the roof; cut it
+        # again along the OTHER corner side so the far part stays whole.
+        far_rem, strip = _split_strip(ctx, strip, m, other[sd], reach + 3.4,
+                                      mats["concrete"])
+        statics.append(far_rem)
+        rr = reach + rng.uniform(0.0, 1.5)
+        # THE WOBBLE RUNS IN ARC LENGTH, NOT IN RADIANS. `_wander` keyed on
+        # atan2 put one cycle over the whole quarter-turn, so the notch's
+        # edge was a smooth arc — a compass line rather than a break.
+        wob = _p_wobble(rng, 1.1, max(4.0, 1.6 * rr), btype,
+                        pitch=_p_pitch(ctx))      # _p_
+
+        def judge(c, _r=rr, _w=wob):
+            lx, ly = _to_local(m, c[0], c[1])
+            th = math.atan2(ly - cy, lx - cx)
+            return math.hypot(lx - cx, ly - cy) < _r + _w(th * _r)
+        from pxr import UsdShade
+        bm = UsdShade.MaterialBindingAPI(ctx["stage"].GetPrimAtPath(strip)).ComputeBoundMaterial()[0]
+        # _p_: the strip is a SLAB, not masonry — prisms through its
+        # full thickness, whatever the building is built of.
+        st, lo = _break_split(ctx, strip, 12 + rng.randrange(5), judge, mat_fn,
+                              min_volume_frac=0.0008,
+                              static_mat=bm if bm else None,
+                              **_p_slab_kw(ctx, rough=ROUGH_STRIP_M))
+        statics += st
+        loose += lo
+        _a_edge_bars(ctx, st, btype, m, sd)
+    return rem, statics, loose
+
+
 def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
     """The top `storeys` storeys of one corner drop: corner pieces plus the
     adjoining bay on each side. A V-notch in the roofline."""
@@ -4830,59 +4924,16 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
             ctx["static_extra"] += st
             e["dead"] = True
     fit = ctx["fit"]
-    mats = ctx["mats"]
     btype = ctx["info"]["type"]
     c_sides = (("S" if "S" in corner else "N"), ("E" if "E" in corner else "W"))
-
-    def _corner_break(path, mat_fn):
-        """Strip along each of the corner's two sides, fractured against a
-        wandering radius about the corner; the rest of the slab stays one
-        clean piece."""
-        rem = path
-        statics, loose = [], []
-        other = {c_sides[0]: c_sides[1], c_sides[1]: c_sides[0]}
-        for sd in c_sides:
-            # narrow: `reach` is already a bay and a half; the strip only
-            # has to hold the notch's ragged edge, not half the roof
-            rem, strip = _split_strip(ctx, rem, m, sd, min(reach * 0.75 + 0.5,
-                                                            0.35 * (m["W"] if sd in ("S", "N") else m["D"])),
-                                      mats["concrete"])
-            # ...AND ONLY THE CORNER'S LENGTH OF IT. A strip the full length
-            # of the side leaves a crack line right across the roof; cut it
-            # again along the OTHER corner side so the far part stays whole.
-            far_rem, strip = _split_strip(ctx, strip, m, other[sd], reach + 3.4,
-                                          mats["concrete"])
-            statics.append(far_rem)
-            rr = reach + rng.uniform(0.0, 1.5)
-            # THE WOBBLE RUNS IN ARC LENGTH, NOT IN RADIANS. `_wander` keyed on
-            # atan2 put one cycle over the whole quarter-turn, so the notch's
-            # edge was a smooth arc — a compass line rather than a break.
-            wob = _p_wobble(rng, 1.1, max(4.0, 1.6 * rr), btype,
-                            pitch=_p_pitch(ctx))      # _p_
-
-            def judge(c, _r=rr, _w=wob):
-                lx, ly = _to_local(m, c[0], c[1])
-                th = math.atan2(ly - cy, lx - cx)
-                return math.hypot(lx - cx, ly - cy) < _r + _w(th * _r)
-            from pxr import UsdShade
-            bm = UsdShade.MaterialBindingAPI(ctx["stage"].GetPrimAtPath(strip)).ComputeBoundMaterial()[0]
-            # _p_: the strip is a SLAB, not masonry — prisms through its
-            # full thickness, whatever the building is built of.
-            st, lo = _break_split(ctx, strip, 12 + rng.randrange(5), judge, mat_fn,
-                                  min_volume_frac=0.0008,
-                                  static_mat=bm if bm else None,
-                                  **_p_slab_kw(ctx, rough=ROUGH_STRIP_M))
-            statics += st
-            loose += lo
-            _a_edge_bars(ctx, st, btype, m, sd)
-        return rem, statics, loose
 
     for (mt, i), pth in list(fit["slabs"].items()):
         if mt != mass or i not in top_storeys or not pth:
             continue
         rem, st, lo = _corner_break(
-            pth, lambda: (_a_mat(ctx, "timber_dusty") if btype == "urm"
-                          else _a_mat(ctx, "concrete_dusty")))
+            ctx, m, cx, cy, c_sides, reach, pth,
+            lambda: (_a_mat(ctx, "timber_dusty") if btype == "urm"
+                    else _a_mat(ctx, "concrete_dusty")))
         fit["slabs"][(mt, i)] = rem
         fit["all"] = [q for q in fit["all"] if q != pth] + [rem] + st
         ctx["loose"] += lo
@@ -4897,9 +4948,10 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
                 max(m["W"], m["D"]) > 12.0 and len(roofs) > 1:
             continue
         rem, st, lo = _corner_break(
-            box, lambda: (_a_mat(ctx, "timber_dusty")
-                          if (btype == "urm" and rng.random() < 0.5)
-                          else _a_mat(ctx, "concrete_dusty")))
+            ctx, m, cx, cy, c_sides, reach, box,
+            lambda: (_a_mat(ctx, "timber_dusty")
+                    if (btype == "urm" and rng.random() < 0.5)
+                    else _a_mat(ctx, "concrete_dusty")))
         ctx["loose"] += lo
         ctx["static_extra"] += [rem] + st
         ctx["authored"].append(rem)
@@ -4915,8 +4967,12 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
             near=lambda e: math.hypot(e["lx"] - cx, e["ly"] - cy) < reach + 5.0)
     _disturb_interior(ctx, mass, top_storeys)
     _spall(ctx, mass, rate=0.06)
-    # the notch's own rubble fan on the pavement below the corner — the
-    # last `reach` metres of each of the two sides that meet there
+    # the notch's own rubble FAN on the pavement below the corner — wider at
+    # the toe than at the wall, which a straight windrow (v1's only shape)
+    # cannot show — over the last `reach` metres of each of the two sides
+    # that meet there. `elem_h_m` is the height of the storeys the corner
+    # dropped (`k0`, computed above).
+    corner_elem_h_m = max(1.0, m["top"] - m["levels"][k0])
     for sd in (("S" if "S" in corner else "N"), ("E" if "E" in corner else "W")):
         L = m["W"] if sd in ("S", "N") else m["D"]
         # side coordinate runs -0.5..0.5 from SW/SE toward the far end
@@ -4924,8 +4980,9 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
         at_hi = (("E" in corner) if sd in ("S", "N") else ("N" in corner))
         w = min(0.5, (reach + 2.0) / L)
         along = (0.5 - w, 0.5) if at_hi else (-0.5, -0.5 + w)
-        _heap(ctx, m, m["z0"], 0.0, 0.18, fill=False, sides=(sd,),
-              depth_m=rng.uniform(0.6, 1.2), along=along, tag="windrow")
+        depth = 0.8 if _RUBBLE_MODE == "v2" else rng.uniform(0.6, 1.2)
+        _rubble(ctx, m, "fan", sides=(sd,), depth_m=depth, along=along,
+                elem_h_m=corner_elem_h_m, tag="corner_{0}{1}".format(corner, sd))
 
 
 ROOF_T = 0.25
@@ -5092,9 +5149,11 @@ def r_out_of_plane(ctx, sides=1, from_storey=1, mass="main", which=None):
         # wall is 1-4 big intact blocks — it becomes a field of bricks only
         # after a block falls. Round 2 diced the whole wall into cells, which
         # is the one thing the mechanism says not to do.
+        panels_for_side = [] if _RUBBLE_MODE == "v2" else None
         if btype == "urm":
             ctx["notes"].append(_p_macroblocks(ctx, mass, side,
-                                               from_storey=from_storey))
+                                               from_storey=from_storey,
+                                               panels_out=panels_for_side))
         for e in list(_els(ctx, mass=mass, side=side)):
             if e["role"] not in ("wall", "corner", "parapet", "parapet_corner", "balcony"):
                 continue
@@ -5153,8 +5212,20 @@ def r_out_of_plane(ctx, sides=1, from_storey=1, mass="main", which=None):
             ctx["loose"] += lo
             ctx["static_extra"] += st
             e["dead"] = True
-        _heap(ctx, m, m["z0"], 0.0, rng.uniform(0.22, 0.4), fill=False,
-              sides=(side,), depth_m=rng.uniform(1.0, 1.9), tag="windrow")
+        # FAN, not a straight windrow: an out-of-plane wall is wider at the
+        # toe than at the wall (v1 has no such shape and maps this onto the
+        # same straight windrow it always authored). `elem_h_m` is the
+        # fallen run's own height (research: windrow/fan reach ~= the fallen
+        # element's own height, not a fraction of the whole building), and
+        # the macroblocks the URM branch above kept whole ride along as
+        # `panels` instead of scattering as generic chunks.
+        spread = rng.uniform(0.22, 0.4)
+        depth = rng.uniform(1.0, 1.9)
+        z_fail = m["levels"][from_storey] if from_storey < len(m["levels"]) else m["z0"]
+        elem_h_m = max(1.0, m["top"] - z_fail)
+        _rubble(ctx, m, "fan", sides=(side,), depth_m=depth,
+                spread_frac=spread, elem_h_m=elem_h_m,
+                panels=(panels_for_side or ()), tag="oop_{0}".format(side))
         opened = set(range(from_storey, len(m["levels"])))
         # THE EDGES OF THE HOLE ARE RAGGED, NOT MODULE SEAMS: the bays either
         # side lose their near ends along a wandering line, the floor slabs
@@ -5173,11 +5244,139 @@ def r_out_of_plane(ctx, sides=1, from_storey=1, mass="main", which=None):
     _spall(ctx, mass, rate=0.07)
 
 
+# ---------------------------------------------------------------------------
+# SOFT-STOREY MECHANICS (round 4) — G's finding (`quake_sliced.s_soft_storey`,
+# reused as maths here, NOT imported: this module must stay importable
+# without `quake_sliced`'s own dependencies and the two ladders are polished
+# concurrently). A soft storey is not one mechanism:
+#
+# DIFFERENTIAL CRUSH (60 %): the columns crush MORE on one side, so the
+# block above sits on a WEDGE — the angle is not free, it is
+# (r_far - r_lean) / span, which is why a 30 m frame can lean several degrees
+# without its low corner going underground (the far side is a taller
+# standing stub, not the same crush as the low side).
+# SIDESWAY (40 %): the columns hinge top and bottom and the storey RACKS —
+# the block above stays PLUMB and slides sideways (Northridge Meadows /
+# Antakya), invisible to a model that only knows how to tilt.
+#
+# The ORIGINAL code here pivoted on the LEAN side's own base edge with
+# `sign = -1.0`, which — the bug — leans the block AWAY from the side it
+# names and pushes the far base edge `span * sin(lean)` into the storey
+# below (2.9 m on a 30 m frame at 5.5 deg). Pivoting the FAR base edge and
+# letting the lean side drop to its own (lower) residual is what actually
+# produces "the block above tilts toward the named side."
+SS_P_SWAY = 0.40                    # share of soft storeys that rack rather than tilt
+SS_R_LEAN_FRAC = (0.15, 0.40)       # residual height on the LEAN side, x storey h
+SS_R_FAR_CEIL_FRAC = 0.95           # the far side cannot be taller than it started
+SS_LEAN_DEG = (2.5, 6.5)            # the tilt a differential crush is drawn for
+SS_SWAY_DEG = (8.0, 25.0)           # the column rack angle of a sidesway
+SS_SWAY_CRUSH_FRAC = (0.15, 0.35)   # squash ON TOP of the rack's own shortening
+
+
+def _soft_storey_geometry(m, lean_side, h_st, z_lo, rng, mode=None,
+                          lean_deg=None, crush_frac=None):
+    """One rigid displacement for everything above a failed storey, as pure
+    numbers — no pxr, so this and its maths can be checked with plain numpy
+    and no stage (`tests/test_quake_flow_rubble_routing.py`).
+
+    CRUSH: `r_lean = U(0.15, 0.40) h_st` on `lean_side`, `r_far = min(0.95
+    h_st, r_lean + span sin(lean_drawn))` on the opposite side, `lean =
+    asin((r_far - r_lean) / span)`. Applying `_soft_storey_matrix`'s result
+    to a point translates it down by `h_st - r_far` first (every point of
+    the block's own base plane, which started level at `z_lo + h_st`, is now
+    level at `z_lo + r_far` — the same height as the pivot), then rotates
+    `+lean` about the FAR base edge (pivot `(fx, fy, z_lo + r_far)`, axis
+    along that edge) — a point on the axis does not move, and the lean
+    side's base (`span` away, in the outward direction) comes out at exactly
+    `z_lo + r_lean` because `span * sin(lean) = r_far - r_lean` by
+    construction.
+
+    SWAY: plumb (`deg` 0, no `pivot`), offset `h_st sin(phi)` toward
+    `lean_side`, `phi = U(8, 25) deg`, dropped `h_st (1 - cos phi) +
+    U(0.15, 0.35) h_st`. `r_lean == r_far` (no wedge — the whole storey
+    crushes uniformly under a pure rack).
+
+    Explicit `lean_deg`/`crush_frac` forces CRUSH — matches
+    `quake_sliced.s_soft_storey`'s "the tower ladder's podium asks for a
+    named angle." `mode` overrides both the draw and the forcing when given
+    directly (the routing test exercises both modes without depending on
+    the 60/40 draw)."""
+    span = max(1.0, m["D"] if lean_side in ("S", "N") else m["W"])
+    ox, oy = _outward(m, lean_side)
+    ax, ay = -oy, ox
+    lnx, lny = _SIDE_NORMAL[lean_side]
+    fx, fy = _to_world(m, -lnx * m["W"] / 2.0, -lny * m["D"] / 2.0)
+    forced = lean_deg is not None or crush_frac is not None
+    if mode is None:
+        mode = "crush" if (forced or rng.random() >= SS_P_SWAY) else "sway"
+
+    if mode == "crush":
+        lean_drawn = float(lean_deg) if lean_deg is not None else rng.uniform(*SS_LEAN_DEG)
+        r_lean = (float(crush_frac) if crush_frac is not None
+                 else rng.uniform(*SS_R_LEAN_FRAC)) * h_st
+        r_far = min(SS_R_FAR_CEIL_FRAC * h_st,
+                    r_lean + span * math.sin(math.radians(lean_drawn)))
+        lean = math.degrees(math.asin(
+            min(1.0, max(0.0, (r_far - r_lean) / span))))
+        return {"mode": "crush", "r_lean": r_lean, "r_far": r_far,
+                "lean_deg": lean, "pivot": (fx, fy, z_lo + r_far),
+                "axis": (ax, ay, 0.0), "deg": lean,
+                "translate": (0.0, 0.0, -(h_st - r_far)),
+                "offset_m": 0.0, "drop_m": h_st - r_far, "phi_deg": 0.0}
+
+    phi = rng.uniform(*SS_SWAY_DEG)
+    squash = rng.uniform(*SS_SWAY_CRUSH_FRAC) * h_st
+    d = h_st * math.sin(math.radians(phi))
+    drop = h_st * (1.0 - math.cos(math.radians(phi))) + squash
+    r = max(0.05 * h_st, h_st - drop)
+    return {"mode": "sway", "r_lean": r, "r_far": r, "lean_deg": 0.0,
+            "pivot": None, "axis": (ax, ay, 0.0), "deg": 0.0,
+            "translate": (ox * d, oy * d, -drop), "offset_m": d,
+            "drop_m": drop, "phi_deg": phi}
+
+
+def _soft_storey_matrix(geo):
+    """`Gf.Matrix4d` for a `_soft_storey_geometry()` dict — translate first
+    (matches every other pivoted transform in this file: `M = _translate(...)
+    * _rot_about(...)`, row-vector convention, translate applied before the
+    pivot rotation), then rotate about `pivot`/`axis` by `deg` when the
+    mechanism has one (sway has none)."""
+    M = _translate(*geo["translate"])
+    if geo.get("pivot") is not None and abs(geo.get("deg") or 0.0) > 1e-9:
+        M = M * _rot_about(geo["pivot"], geo["axis"], geo["deg"])
+    return M
+
+
+def _soft_storey_residual(geo, m, lean_side, side, lx, ly):
+    """The residual standing height (m) of `side`'s wall band after a soft-
+    storey failure: `geo["r_lean"]` on the lean side, `geo["r_far"]` on the
+    far side, and a straight interpolation along the span for the two flank
+    sides — a flank wall runs the whole span, so its own local position
+    tells us where between the two residuals it sits."""
+    r_lean, r_far = geo["r_lean"], geo["r_far"]
+    far_side = _opposite(lean_side)
+    if side == lean_side:
+        return r_lean
+    if side == far_side:
+        return r_far
+    if abs(r_far - r_lean) < 1e-9:
+        return r_lean
+    if lean_side in ("S", "N"):
+        half = m["D"] / 2.0
+        t = (ly + half) / (2.0 * half) if lean_side == "S" else (half - ly) / (2.0 * half)
+    else:
+        half = m["W"] / 2.0
+        t = (lx + half) / (2.0 * half) if lean_side == "W" else (half - lx) / (2.0 * half)
+    t = min(1.0, max(0.0, t))
+    return r_lean + t * (r_far - r_lean)
+
+
 def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
                   twist_deg=0.0, offset_m=0.0):
-    """The columns of `storey` fail; everything above drops by (storey
-    height - crush) and leans a few degrees; that storey's walls are
-    crushed into a rubble skirt."""
+    """The columns of `storey` fail; everything above drops onto the crushed
+    band and leans (differential crush) or racks (sidesway) a few degrees;
+    that storey's walls are crushed into a rubble collar. Two mechanisms,
+    `_soft_storey_geometry` above."""
     rng, nrng = ctx["rng"], ctx["nrng"]
     info = ctx["info"]
     m = info["masses"][mass]
@@ -5187,10 +5386,11 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
     z_lo = lv[storey]
     z_hi = lv[storey + 1] if storey + 1 < len(lv) else m["top"]
     h_st = z_hi - z_lo
-    crush = crush_m if crush_m is not None else rng.uniform(0.28, 0.42) * h_st
-    drop = h_st - crush
-    lean = lean_deg if lean_deg is not None else rng.uniform(2.5, 6.5)
     lean_side = rng.choice(["S", "E", "N", "W"])
+    crush_frac = (float(crush_m) / h_st) if crush_m is not None else None
+    geo = _soft_storey_geometry(m, lean_side, h_st, z_lo, rng,
+                                lean_deg=lean_deg, crush_frac=crush_frac)
+    crush = 0.5 * (geo["r_lean"] + geo["r_far"])
     ox, oy = _outward(m, lean_side)
 
     # 0) NO EDGE ON A KIT SEAM. The storey above the crushed one otherwise
@@ -5224,7 +5424,12 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
         sx, sy = _outward(m, e["side"])
         push = rng.uniform(0.8, 2.2)
         M = _translate(sx * push, sy * push, 0.0)
-        _squash(ctx["stage"], lo, z_lo, crush / h_st)
+        # the squash follows the WEDGE, not a single uniform factor: full
+        # residual on the lean side, the (taller) far-side residual on the
+        # opposite wall, interpolated on the two flanks.
+        residual = _soft_storey_residual(geo, m, lean_side, e["side"],
+                                         e["lx"], e["ly"])
+        _squash(ctx["stage"], lo, z_lo, residual / h_st)
         _transform_prims(ctx["stage"], lo, M)
         for pth in lo:
             ctx["velocity"][pth] = (sx * rng.uniform(0.3, 1.2),
@@ -5234,9 +5439,14 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
         e["dead"] = True
     # THE COLLAR: the crushed storey's material squeezed out round the
     # perimeter, 1-3 m wide (Northridge Meadows, Antakya) — solid chunks,
-    # since the shells above are foil.
-    collar = _heap(ctx, m, z_lo, 0.0, 0.12, fill=False, sides=("S", "E", "N", "W"),
-                   depth_m=rng.uniform(0.5, 0.9) + crush * 0.25, tag="collar")
+    # since the shells above are foil. `_pile_mass` moves the pile's base to
+    # `z_lo` (the failed storey's own base, not the building's `m["z0"]`)
+    # while keeping every derived height/reach calculation unchanged.
+    collar_depth = rng.uniform(0.5, 0.9) + crush * 0.25
+    ret = _rubble(ctx, _pile_mass(m, z_lo), "windrow",
+                  sides=("S", "E", "N", "W"), depth_m=collar_depth,
+                  elem_h_m=h_st, tag="collar_{0}".format(storey))
+    collar = ret["all"]
     if storey > 0:
         # at a MID storey the collar is authored in the air beside the
         # crushed band; let it fall to the base rather than hover
@@ -5247,12 +5457,22 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
             ctx["loose"] += _break_box(ctx["stage"], pth, 4, rng, nrng,
                                        _a_mat(ctx, "plaster_dusty"), consume=0.5)
             fit["all"] = [q for q in fit["all"] if q != pth]
-    # its columns -> stubs + chunks
+    # its columns: in a CRUSH they shatter, as today; in a SWAY the columns
+    # hinge rather than break — inclined by phi toward the lean side about
+    # their own base — and stay static (rack, don't rubble).
     for cpath in fit["columns"].get((mass, storey), []):
         cx_, cy_, cz_, sx_, sy_, sz_, yaw_ = _box_dims(ctx["stage"], cpath)
+        if geo["mode"] == "sway":
+            M = _rot_about((cx_, cy_, z_lo), geo["axis"], geo["phi_deg"])
+            _transform_prims(ctx["stage"], [cpath], M)
+            ctx["static_extra"].append(cpath)
+            continue
         made = _break_box(ctx["stage"], cpath, 4, rng, nrng,
                           _a_mat(ctx, "concrete_dusty"), _a_mat(ctx, "dust"))
-        _squash(ctx["stage"], made, z_lo, crush / h_st)
+        lx_, ly_ = _to_local(m, cx_, cy_)
+        residual = _soft_storey_residual(geo, m, lean_side, _side_of(m, lx_, ly_),
+                                         lx_, ly_)
+        _squash(ctx["stage"], made, z_lo, residual / h_st)
         ctx["loose"] += made
         if rng.random() < 0.6:
             _lantern(ctx, cx_, cy_, z_lo + crush * 0.5, crush * 0.6)
@@ -5291,15 +5511,11 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
     # for storey+1, so it would be collected by both loops and drop 2 x `drop`.
     _seen, above = set(), [a for a in above if a]
     above = [a for a in above if not (a in _seen or _seen.add(a))]
-    # pivot: bottom edge of the mass on the lean side, at the crushed height
-    edge = (m["D"] if lean_side in ("S", "N") else m["W"]) / 2.0
-    px, py = _to_world(m, ox * edge if lean_side in ("E", "W") else 0.0,
-                       oy * edge if lean_side in ("S", "N") else 0.0)
-    # axis is along the edge (perpendicular to outward, horizontal)
-    ax, ay = -oy, ox
-    sign = -1.0
-    M = _translate(0.0, 0.0, -drop) * _rot_about((px, py, z_lo + crush),
-                                                  (ax, ay, 0.0), sign * lean)
+    # the drawn mechanism's ONE rigid transform (`_soft_storey_geometry` /
+    # `_soft_storey_matrix`): differential crush pivots the FAR base edge and
+    # lets the lean side drop to its own lower residual; sidesway racks the
+    # block sideways, plumb, no rotation.
+    M = _soft_storey_matrix(geo)
     if twist_deg or offset_m:
         # MID-STOREY SIGNATURE (Kobe, Mexico City): the upper block sits on
         # the crushed band ROTATED IN PLAN a few degrees and shifted, so the
@@ -5310,9 +5526,19 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
                                                           oy * float(offset_m), 0.0)
     _transform_prims(ctx["stage"], above, M)
     ctx["static_extra"] += above
-    ctx["notes"].append("soft_storey: storey {0} crushed {1:.1f} -> {2:.1f} m, "
-                        "lean {3:.1f} deg toward {4}".format(
-                            storey, h_st, crush, lean, lean_side))
+    if geo["mode"] == "crush":
+        ctx["notes"].append(
+            "soft_storey: storey {0} crushed to {1:.2f} m on {2} / {3:.2f} m "
+            "on {4} — the block above tilts {5:.1f} deg over a {6:.1f} m "
+            "span".format(storey, geo["r_lean"], lean_side, geo["r_far"],
+                         _opposite(lean_side), geo["lean_deg"],
+                         (m["D"] if lean_side in ("S", "N") else m["W"])))
+    else:
+        ctx["notes"].append(
+            "soft_storey: storey {0} racked {1:.0f} deg toward {2} — the "
+            "block above stays plumb, offset {3:.2f} m, down {4:.2f} m"
+            .format(storey, geo["phi_deg"], lean_side, geo["offset_m"],
+                    geo["drop_m"]))
 
 
 def _squash(stage, paths, z_floor, k):
@@ -5513,8 +5739,26 @@ def r_pancake(ctx, mass="main", pitch_m=None):
         # a mound of crushed concrete around the stack, authored
         # RC spreads further than masonry (0.5-1.0 H) but the slabs carry
         # most of the height; the heap is the crushed-column/infill fill
-        # between and around them.
-        _heap(ctx, m, base, pitch * n_lv * 0.85, rng.uniform(0.3, 0.45), fill=True)
+        # between and around them. The re-authored slab STACK above is the
+        # layer cake and stays exactly as it was; only ITS heap becomes the
+        # v2 dome, with `stub_h_m` 0 (nothing survives standing here) and a
+        # `budget` capping the pile's own large elements to a handful — the
+        # stack already carries most of what a pancake pile shows.
+        # `_pile_mass` moves the dome's BASE to `base` (which, for a wing,
+        # is where the main body's own stack top is, not the wing's nominal
+        # `m["z0"]`) while keeping `top - z0` unchanged for every derived
+        # height/reach calculation downstream.
+        crown_h = pitch * n_lv * 0.85
+        spread = rng.uniform(0.3, 0.45)
+        # B's `budget` has no per-KIND ("raft") cap, only a total `n_large`
+        # cap (kept in priority order panel/raft/rebar/sheet/column/
+        # lintel/joist) and a total `n_instances` cap — so "2-4 rafts" is
+        # approximated as "<=4 large elements total", which keeps rafts
+        # first since nothing here supplies panels.
+        budget = {"n_large": 4} if _RUBBLE_MODE == "v2" else None
+        _rubble(ctx, _pile_mass(m, base), "dome", stub_h_m=0.0,
+                crown_m=crown_h, spread_frac=spread, budget=budget,
+                tag="pancake_{0}".format(mt))
         ctx["notes"].append("pancake {0}: {1} slabs at {2:.2f} m pitch, mound to "
                             "{3:.1f} m".format(mt, n_plates, pitch,
                                                base + pitch * n_lv))
@@ -5877,6 +6121,153 @@ def _mound(ctx, m, base, h, spread_frac):
     return _heap(ctx, m, base, h, spread_frac, fill=True)
 
 
+# ---------------------------------------------------------------------------
+# RUBBLE v2 (round 4) — route a collapse recipe's pile through
+# `quake_rubble.plan_pile` + `quake_rubble_usd.author` (a heightfield mound,
+# a handful of large recognisable elements, a few PointInstancer scatters)
+# instead of `_heap`'s thousand-box crate. `EQ_RUBBLE` (default "v2"; "v1" =
+# the round-3 `_heap` path) is read ONCE at import so a whole run is one
+# version. `_heap` ITSELF is not touched by any of this — `fire_collapse.py`
+# (another live session) calls it directly, and every call site below goes
+# through `_rubble` so the version switch lives in exactly one place.
+# ---------------------------------------------------------------------------
+_RUBBLE_MODE = _os.environ.get("EQ_RUBBLE", "v2").strip().lower()
+if _RUBBLE_MODE not in ("v1", "v2"):
+    _RUBBLE_MODE = "v2"
+
+
+def _pile_mass(m, base_z):
+    """A shallow copy of mass dict `m` whose pile sits at `base_z` instead of
+    `m["z0"]` — a pancake wing settling onto the stack the main body already
+    left, a soft-storey collar authored at the failed storey's own base
+    rather than the building's. `top` is shifted by the same delta so
+    `top - z0` (every derived height/reach calculation in both `_heap` and
+    `quake_rubble.plan_pile` alike) is exactly what it was before the shift;
+    `m` itself is returned unchanged when `base_z` already equals `m["z0"]`."""
+    base_z = float(base_z)
+    delta = base_z - float(m["z0"])
+    if abs(delta) < 1e-9:
+        return m
+    m2 = dict(m)
+    m2["z0"] = base_z
+    m2["top"] = float(m["top"]) + delta
+    return m2
+
+
+def _rubble(ctx, m, kind, sides=None, along=None, depth_m=None, offset_m=0.0,
+           stub_h_m=0.0, panels=(), elem_h_m=None, crown_m=None,
+           spread_frac=None, tag="rubble", budget=None, seed_tag=""):
+    """One collapsed mass's pile, `EQ_RUBBLE`-gated.
+
+    v2: `quake_rubble.plan_pile(m, btype, rng, kind=kind, ...)` (pure
+    numpy/python — agent B's planner, polished concurrently, never edited
+    here) plans the mound/large-elements/instance-scatters, then
+    `quake_rubble_usd.author(...)` (agent C's emitter) writes them to the
+    stage. `ret["all"]` joins `ctx["authored"]`, `ret["static"]` joins
+    `ctx["static_extra"]`, and `plan["stats"]` (plus `kind`/`sides`/`tag`)
+    is recorded under `ctx["rubble"]` for the bake launcher (round-4 plan,
+    package I: `fall_sides` / `reach_m` / `crown_m` into the manifest).
+
+    v1: maps onto the old `_heap` box-crate pile — `kind="dome"` ->
+    `fill=True` with `crown_m`/`spread_frac` as the peak height/spread;
+    `kind in ("windrow", "fan")` -> `fill=False` with
+    `sides`/`along`/`depth_m`/`offset_m` (v1's `_heap` has no separate "fan"
+    shape, so both kinds map onto the same straight windrow it always had —
+    the widening is a v2-only refinement). `stub_h_m`/`panels`/`elem_h_m`/
+    `budget` have no v1 analogue and are ignored. `_heap` is NOT modified
+    (`fire_collapse.py`, another live session, calls it directly), so
+    `EQ_RUBBLE=v1` reproduces today's pile exactly.
+
+    Returns a dict shaped like `quake_rubble_usd.author`'s: "mound", "apron",
+    "static", "instancers", "large", "all". v1 fills only "static"/"all"
+    (the flat list `_heap` made — `_heap` already appended it to
+    `ctx["authored"]`/`ctx["static_extra"]` itself, so this does not do so
+    again for v1)."""
+    if _RUBBLE_MODE == "v1":
+        base = float(m["z0"])
+        h = float(crown_m or 0.0)
+        sf = float(spread_frac if spread_frac is not None else 0.28)
+        if kind == "dome":
+            made = _heap(ctx, m, base, h, sf, fill=True, tag=tag)
+        elif kind in ("windrow", "fan"):
+            made = _heap(ctx, m, base, 0.0, sf, fill=False, sides=sides,
+                        depth_m=depth_m, along=along, tag=tag,
+                        offset_m=offset_m)
+        else:
+            raise ValueError("_rubble: unknown kind {0!r}".format(kind))
+        return {"mound": None, "apron": None, "static": list(made),
+                "instancers": [], "large": [], "all": list(made)}
+
+    from . import quake_rubble, quake_rubble_usd
+
+    rng = ctx["rng"]
+    btype = ctx["info"]["type"]
+    plan = quake_rubble.plan_pile(
+        m, btype, rng, kind=kind, crown_m=crown_m, spread_frac=spread_frac,
+        sides=sides, along=along, depth_m=depth_m, offset_m=offset_m,
+        plate_ok=lambda x, y: _c_ok(ctx, x, y), stub_h_m=stub_h_m,
+        panels=panels, budget=budget, seed_tag=seed_tag, elem_h_m=elem_h_m)
+    ret = quake_rubble_usd.author(ctx["stage"], ctx["parent"], plan,
+                                  mats=ctx["mats"],
+                                  tag="{0}_{1}".format(ctx["tag"], tag),
+                                  uid=lambda: _uid(ctx))
+    ctx["authored"] += ret["all"]
+    ctx["static_extra"] += ret["static"]
+    stats = dict(plan["stats"])
+    stats.update({"kind": kind, "sides": list(sides) if sides else None,
+                  "tag": tag})
+    ctx.setdefault("rubble", []).append(stats)
+    return ret
+
+
+def _module_size(m, e):
+    """Approximate (sx, sy, sz) for one classified kit element — the round-4
+    rubble planner's bury-depth math (`quake_rubble.rotated_extent`) only
+    needs a placement-scale size, not a post-`fracture.solidify` measurement.
+    `ub.PIECES[e["name"]]` gives it directly; `sy` is 0 on a handful of
+    zero-thickness kit entries (the plain `_Wall` variants), so those fall
+    back to a plausible wall thickness rather than a degenerate box."""
+    from detail import urban_building as ub
+    meas = ub.PIECES.get(e.get("name"))
+    if meas:
+        sx, sy, sz = float(meas[0]), float(meas[1]), float(meas[2])
+        return (sx, sy if sy > 0.05 else 0.3, sz)
+    return (float(m.get("module", 4.0)), 0.3, float(e.get("h", 3.0)))
+
+
+def _pick_opening_panels(ctx, mass, m, storey=1, n=(1, 2)):
+    """1-2 whole wall modules at `storey` with window/door openings, picked
+    BEFORE the fracture loop runs and left standing so `_rubble`'s "large"
+    panels can lay them, still whole, on the pile (round-4 design table row
+    2: "1-3 wall PANELS ... kept whole"). Marks each chosen element dead (so
+    the fracture loop below skips it) and returns [(prim_path, (sx,sy,sz))].
+
+    Prefers modules whose kit name reads as a window/facade band (the
+    fracture ladder has no per-piece "has an opening" flag on this kit —
+    that is a `quake_sliced`/GAC-slice concept, not a `urban_building` one —
+    so this is a name-pattern heuristic, not a measurement) and falls back
+    to any wall module at that storey when none match."""
+    rng = ctx["rng"]
+
+    def _cand():
+        return [e for e in _els(ctx, mass=mass, role="wall", storey=storey)
+                if e["p"].get("prim_path")]
+
+    pool = [e for e in _cand() if any(
+        k in (e.get("name") or "") for k in ("Facade", "acade", "window", "Window"))]
+    if not pool:
+        pool = _cand()
+    if not pool:
+        return []
+    k = min(len(pool), 1 if len(pool) < 2 else rng.randint(n[0], n[1]))
+    rng.shuffle(pool)
+    out = []
+    for e in pool[:k]:
+        out.append((e["p"]["prim_path"], _module_size(m, e)))
+        e["dead"] = True
+    return out
+
+
 def r_masonry_collapse(ctx, mass="main", keep_stub=True):
     """URM total collapse: every wall above the ground storey fractures and
     falls (outward, top leading), the roof and every floor slab become loose
@@ -5888,6 +6279,14 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
     fit = ctx["fit"]
     for mt, m in info["masses"].items():
         H = max(1.0, m["top"] - m["z0"])
+        # v2 ONLY: pick 1-2 storey-1 wall modules with openings BEFORE the
+        # fracture loop, so they can ride the pile whole as `_rubble` panels
+        # instead of being cut up like every other wall (round-4 design
+        # table: "1-3 wall PANELS ... kept whole"). Never called in v1 —
+        # `_pick_opening_panels` draws from `ctx["rng"]`, and v1 must stay
+        # byte-for-byte the round-3 behaviour.
+        panel_entries = _pick_opening_panels(ctx, mt, m) if _RUBBLE_MODE == "v2" else []
+        stub_hs = []
         for e in list(_els(ctx, mass=mt)):
             if e["role"] == "roof":
                 # A MASONRY building's roof is a timber deck, and it comes
@@ -5908,7 +6307,9 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
             # so it is the most-looked-at edge in the whole recipe.
             path = e["p"].get("prim_path")
             if e["storey"] == 0 and keep_stub and e["role"] == "wall" and path:
-                z0 = e["z"] + e["h"] * rng.uniform(0.25, 0.62)
+                stub_frac = rng.uniform(0.25, 0.62)
+                stub_hs.append(e["h"] * stub_frac)
+                z0 = e["z"] + e["h"] * stub_frac
                 tex = damage.bound_texture(stage, path)
                 st, lo = _break_split(
                     ctx, path, 10 + rng.randrange(4),
@@ -5935,6 +6336,12 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
                 # joint faces rather than plates of wall. The cap and the
                 # consume stay: they are what keeps the crown of the heap
                 # rubble rather than façade.
+                # v2: raised further (0.66 -> 0.8 consume, 1.2 -> 0.9 m cap)
+                # now that the pile's own SURFACE carries the mass — the
+                # crown only needs enough shell plate to read as
+                # recognisable façade, not to cover a heap of toy blocks.
+                consume_ = 0.8 if _RUBBLE_MODE == "v2" else 0.66
+                max_piece_ = 0.9 if _RUBBLE_MODE == "v2" else 1.2
                 st, lo = _break(stage, ctx["parent"], e, ctx["tag"],
                                 18 + rng.randrange(7), rng, nrng, ctx["mats"],
                                 ctx["cache"], info["type"], inner_p=0.45,
@@ -5942,8 +6349,8 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
                                 # against 1.2-2 m foil PLATES landing on the
                                 # crown. The cells are brick clusters now, so
                                 # the cap can rise and fewer need thinning.
-                                partial=None, consume=0.66, max_piece_m=1.2,
-                                **_p_frac_kw(ctx))
+                                partial=None, consume=consume_,
+                                max_piece_m=max_piece_, **_p_frac_kw(ctx))
             ox, oy = _outward(m, e["side"])
             for pth in lo:
                 zf = min(1.0, max(0.0, (e["z"] - m["z0"]) / H))
@@ -5991,13 +6398,25 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
                 _a_bury_props(ctx, props, m["z0"], H * 0.28)
         # THE PILE IS H/3 (FEMA's 0.33 air-space factor; Amatrice LiDAR gives
         # ~5 m heaps for 2-4 storey stone). Masonry spreads 0.4-0.7 H.
-        _heap(ctx, m, m["z0"], H * 0.28, rng.uniform(0.2, 0.34), fill=True)
-        # _p_: the LINTELS, QUOINS and sill stones — the only large pieces in
-        # a masonry pile, and the acceptance test's own criterion ("largest
-        # piece = a lintel/quoin monolith, not a wall shard"). They bypass the
-        # fracture because that is what they are: single dressed stones that
-        # were never bonded into the field.
-        _p_lintels(ctx, m, base=m["z0"] + H * 0.10)
+        # `stub_h_m` is the AVERAGE kept-stub height just fractured above, so
+        # the mound doesn't dip below the standing stub it leans against;
+        # `panel_entries` are the whole storey-1 modules picked before the
+        # loop ran. v2's planner emits its own lintels/quoins/sills, so
+        # `_p_lintels`'s own boxes only run in v1.
+        crown_h = H * 0.28
+        spread = rng.uniform(0.2, 0.34)
+        stub_h_m = (sum(stub_hs) / len(stub_hs)) if stub_hs else 0.0
+        _rubble(ctx, m, "dome", stub_h_m=stub_h_m, panels=panel_entries,
+                crown_m=crown_h, spread_frac=spread,
+                tag="collapse_{0}".format(mt))
+        if _RUBBLE_MODE == "v1":
+            # _p_: the LINTELS, QUOINS and sill stones — the only large
+            # pieces in a masonry pile, and the acceptance test's own
+            # criterion ("largest piece = a lintel/quoin monolith, not a
+            # wall shard"). They bypass the fracture because that is what
+            # they are: single dressed stones that were never bonded into
+            # the field.
+            _p_lintels(ctx, m, base=m["z0"] + H * 0.10)
 
 
 def r_tilt_sink(ctx, tilt_deg=8.0, sink_m=1.0, azimuth=None, max_drop_m=2.6):

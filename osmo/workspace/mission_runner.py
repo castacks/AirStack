@@ -1141,8 +1141,14 @@ CONTROL_STACK_GLOBS = ("droan_gl*", "droan_local_planner*", "mighty*", "global_m
 # /tmp tee logs written by semantic_search_task's _spawn (rayfronts/raven/lvlm)
 # and the GCS relay/gossip/ddsrouter. lvlm_* is the FPV+LVLM baseline node's
 # stdout (model load, planned actions, NavigateTask sends, errors).
+# `/tmp/overhead_*` are the sim-overhead stills a mission step writes in the
+# GCS container (the raster itself is far too big to record: 2048x2048 every
+# sim tick was ~90% of a 300 GB bag). They ride this same generic copy so no
+# extra collector is needed — the PNGs and their coverage/centre sidecar land
+# in <iteration>/airstack-gcs-1/ beside the tee logs.
 TEE_LOG_GLOBS = ("/tmp/rayfronts_*.log", "/tmp/raven_*.log", "/tmp/lvlm_*.log",
-                 "/tmp/gossip_*.log", "/tmp/ddsrouter_*.log", "/tmp/relay_*.log")
+                 "/tmp/gossip_*.log", "/tmp/ddsrouter_*.log", "/tmp/relay_*.log",
+                 "/tmp/overhead_*.png", "/tmp/overhead_*.json")
 
 
 def _copy_tmp_tee_logs(dest_dir):

@@ -48,7 +48,18 @@ repair pass. It still runs every time.
 Env:
     MF_ASSETS   which merged MCE buildings, comma separated
                 (default MBuilding01,MBuilding05,MBuilding02)
-    MF_LEVELS   severities across the columns (default F1,F2,F3,F4,F5)
+    MF_LEVELS   severities across the columns (default F1,F2,F3,F4,F5).
+                `F5c` is available too and is the PARTIAL collapse
+                (`disaster/fire_collapse.py`): part of the shell down, the
+                rest standing, as opposed to F5's `fire_collapse`, which
+                drops the top storeys into a building that still has four
+                walls. `MF_LEVELS=F3,F4,F5,F5c` puts the two side by side in
+                one row, which is the comparison worth looking at.
+    MF_SIDES    force the venting elevations for every damaged building,
+                e.g. `S` or `S,E` (default: S at F1/F2, S,E above). At F5c
+                the FIRST of them is the elevation that comes down, and this
+                bench's row cameras look from -Y — i.e. at the S face — so
+                leaving S first is what puts the collapse in frame.
     MF_GAP_M    clear gap between neighbouring cell boxes, m (default 30)
     MF_SEED     (default 7)
     MF_FLOW     1 authors NVIDIA Flow and the flames (default 1)
@@ -71,7 +82,21 @@ def _env(n, d=""):
 
 
 _HEADLESS = _env("ISAAC_SIM_HEADLESS", "false").lower() in ("1", "true", "yes")
-simulation_app = SimulationApp(launch_config={"headless": _HEADLESS})
+# FRACTIONAL CUTOUT OPACITY — `extra_args`, AND re-asserted after the stage
+# is composed. Both forms are required and neither alone works:
+# `launch-generated-scene-with-drones` records it as "The startup form alone
+# does not survive composition; the carb form alone is too late for startup."
+# Without it every fractional-cutout material — `wall_overlay`'s soot mask,
+# `urban_fire._glass_pane`'s smoke deposits — renders as a hard binary stamp
+# instead of graded staining, which looks like an art bug rather than a
+# missing flag. `disaster.ground.KIT_ARGS` is the source of truth; kept as a
+# literal here because `scene_gen` is not on `sys.path` until after
+# `SimulationApp` is constructed.
+KIT_ARGS = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
+            "--/rtx/pathtracing/fractionalCutoutOpacity=true"]
+
+simulation_app = SimulationApp(launch_config={"headless": _HEADLESS,
+                                              "extra_args": KIT_ARGS})
 
 from isaacsim.core.utils.extensions import enable_extension    # noqa: E402
 
@@ -118,10 +143,29 @@ WANT = [v.strip() for v in _env(
     "MF_ASSETS", "MBuilding01,MBuilding05,MBuilding02").split(",") if v.strip()]
 LEVELS = [v.strip() for v in _env(
     "MF_LEVELS", "F1,F2,F3,F4,F5").split(",") if v.strip()]
+SIDES = tuple(q.strip().upper()[:1] for q in _env("MF_SIDES", "").split(",")
+              if q.strip()) or None
 GAP_M = float(_env("MF_GAP_M", "30"))
 SEED = int(_env("MF_SEED", "7"))
 FLOW = _env("MF_FLOW", "1") not in ("0", "false", "no")
 SETTLE_STEPS = int(_env("SETTLE_STEPS", "1600"))
+
+# CONVEX DECOMPOSITION THRESHOLD for the settle. A convex hull cannot
+# represent a re-entrant profile, so a fractured cornice or parapet rests on
+# a hull that is not where its visible surface is and depenetration pushes it
+# through the floor — 147 bodies finished BELOW GRADE on this bench and the
+# clamp put them back, which hid the bug rather than fixing it.
+#
+# MEASURED on `SM_build_b_mod_top_trim`, the `dw_terrace` cornice module these
+# fragments come from (bare-USD probe, 2026-08-29): convex hull 5.567 m3
+# against a true mesh volume of 1.986 m3 — the hull is 2.8x the solid, with a
+# genuine air gap through the middle of the section.
+#
+# 0.8 m, NOT the 2.5 m the wildfire archetypes use. The floating `dw_terrace`
+# fragments measure 0.39-1.26 m on their bbox diagonal, clustering 0.75-1.0 m,
+# so the house-archetype value would not have caught a single one of them.
+# Set to 0 to disable.
+SETTLE_DECOMP_M = float(_env("SETTLE_DECOMP_M", "0.8"))
 SNAP_DIR = _env("SNAP_DIR")
 
 
@@ -220,7 +264,11 @@ def burn(stage, cell, style, placements, level, rng, nrng, mats, tag,
          flow_root, cache):
     n_st = max(1, len(qf._mass_specs(style, 0.0, 0.0, 0.0)[0]["levels"]))
     origin = max(0, min(n_st - 1, int(round(0.25 * (n_st - 1)))))
-    sides = ("S",) if level in ("F1", "F2") else ("S", "E")
+    # S FIRST, ALWAYS. `fire_collapse.r_partial_collapse` loses
+    # `fire["sides"][0]`, and this bench photographs each row from -Y, so a
+    # plan that vented north would put the collapse on the far side of the
+    # building from every camera in the file.
+    sides = SIDES or (("S",) if level in ("F1", "F2") else ("S", "E"))
     return uf.burn_building(stage, cell, style, placements, 0.0, 0.0, 0.0,
                             level, rng, nrng, mats, tag, flow_root=flow_root,
                             origin=origin, sides=sides, mat_cache=cache)
@@ -242,6 +290,9 @@ def main():
     fracture.ensure_deps()
     fracture.ensure_vtk(verbose=False)
     problems = uf.check(verbose=False) + ksub.check(verbose=False)
+    if any(lv == "F5c" for lv in LEVELS):
+        from disaster import fire_collapse as fcol
+        problems += fcol.check(verbose=False)
     if problems:
         raise RuntimeError("; ".join(problems))
 
@@ -415,7 +466,8 @@ def main():
                    velocity_map=vel, density=1600.0, max_speed=6.0,
                    converge=True, max_steps=int(SETTLE_STEPS * 3.0),
                    quiet_steps=90, ccd=True, ground_plane_z=0.0,
-                   floor_z=0.0)
+                   floor_z=0.0,
+                   decompose_larger_than=(SETTLE_DECOMP_M or None))
     for _ in range(8):
         omni.kit.app.get_app().update()
 
@@ -424,6 +476,21 @@ def main():
     # it — every cell was placed from a known size, so an overlap means the
     # size was wrong, not that the placement drifted.
     # ------------------------------------------------------------------
+    # The SECOND form — see KIT_ARGS above; the startup flag does not
+    # survive stage composition on its own.
+    try:
+        import carb
+        _s = carb.settings.get_settings()
+        for _k in ("/rtx/raytracing/fractionalCutoutOpacity",
+                   "/rtx/pathtracing/fractionalCutoutOpacity"):
+            _s.set_bool(_k, True)
+        print("[mce] fractionalCutoutOpacity re-asserted post-composition")
+    except Exception as _exc:
+        print("[mce] WARNING: could not re-assert fractionalCutoutOpacity "
+              "({0}); soot and glass will render as hard cutouts".format(_exc))
+    for _ in range(4):
+        omni.kit.app.get_app().update()
+
     acache = UsdGeom.BBoxCache(
         Usd.TimeCode.Default(),
         [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])

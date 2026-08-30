@@ -40,6 +40,39 @@ services:
       # environment by the mission runner (osmo `environments:` RESULTS_SCENE).
       - RESULTS_SCENE=${RESULTS_SCENE:-RetroNeighborhood}
       # FCU_URL and TGT_SYSTEM not set, dynamically calculated in interface.launch.py
+    # THE `flock ... true` BETWEEN THE BUILD AND THE LAUNCH IS LOAD-BEARING at
+    # NUM_ROBOTS > 1. Every replica bind-mounts the SAME ros_ws
+    # (robot-base-docker-compose.yaml: ../ros_ws:/root/AirStack/robot/ros_ws),
+    # so all N containers build into ONE build/ + install/ tree. `bws` already
+    # serialises the builds on .build.lock — but it releases the lock the moment
+    # ITS build ends, and this container then launches while the other N-1 are
+    # still running `cmake --install` over that same tree. A node starting
+    # inside that window dlopens a HALF-INSTALLED prefix.
+    #
+    # 2026-08-29 that cost a 24-iteration sweep. `--symlink-install` makes
+    # install/<pkg>/lib/python3.12/.../<pkg>_s__rosidl_typesupport_c.so a
+    # SYMLINK into build/ (always current) while
+    # install/<pkg>/lib/lib<pkg>__rosidl_generator_c.so is a COPY made at
+    # install time. Read one before an install pass and the other after and the
+    # Python typesupport will not load:
+    #     undefined symbol: dynus_interfaces__msg__PNAdaptation__destroy
+    #     UnsupportedTypeSupport: Could not import 'rosidl_typesupport_c'
+    # `mighty_bridge` — the ONLY Python node that imports dynus_interfaces —
+    # died on all 8 robots; mighty_node and global_mapper_ros are C++ and came
+    # up clean, so the stack LOOKED healthy while nothing served tasks/navigate,
+    # nothing followed /global_plan and nothing published trajectory_override.
+    # Eight drones took off and hovered for the whole 600 s budget.
+    #
+    # The barrier blocks until every other replica has released the lock, i.e.
+    # until no `cmake --install` is running anywhere. It costs the LAST
+    # container nothing and the first one one build's wait. `-w 900 || true`
+    # so that a builder that hangs delays the launch by 15 minutes instead of
+    # cancelling it — a late stack is recoverable, a stack that never comes up
+    # fails the readiness gate with nothing to show.
+    #
+    # It must live HERE and not inside the block below: `command: >` is a
+    # FOLDED scalar, so a `#` line in it is shell data, not a YAML comment, and
+    # the fold would comment out the rest of the command.
     # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
     command: >
       bash -c "
@@ -51,7 +84,7 @@ services:
       service ssh restart;
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;
+        tmux send-keys -t bringup:0.0 'bws && (flock -w 900 $$HOME/AirStack/robot/ros_ws/.build.lock true || true) && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet

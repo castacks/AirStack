@@ -446,3 +446,86 @@ def test_suburb_colliders_is_passed_by_bare_name():
                               "docker-compose.yaml"), encoding="utf-8").read()
     assert len(re.findall(r"^\s*-\s*SUBURB_COLLIDERS$", isaac, re.M)) == 2
     assert "SUBURB_COLLIDERS=${" not in isaac
+
+
+# ---------------------------------------------------------------------------
+# the execution layer
+# ---------------------------------------------------------------------------
+
+def test_the_bridge_is_checked_before_anything_takes_off(mission):
+    """THE 2026-08-29 SWEEP, PINNED. `mighty_bridge` is the only thing that
+    turns a plan into motion — it serves tasks/navigate, follows /global_plan,
+    publishes mighty/state for the mapper and trajectory_override for the
+    controller. It is also the only PYTHON node in the stack that imports
+    dynus_interfaces, so a half-written shared install tree kills it and
+    nothing else: mighty_node and global_mapper_ros are C++ and come up clean.
+    Eight drones took off and hovered for the whole budget while the planners
+    published 5,683 plans into nothing, and no step noticed for 95 minutes."""
+    steps = mission["steps"]
+    idx = [i for i, st in enumerate(steps)
+           if "run" in st and "mighty_bridge" in st["run"]["cmd"]
+           and "BRIDGE_MISSING" in st["run"]["cmd"]]
+    assert idx, "no step verifies mighty_bridge is running"
+    check = idx[0]
+    takeoff = next(i for i, st in enumerate(steps)
+                   if st.get("action", {}).get("task") == "takeoff")
+    assert check < takeoff, "the bridge check must run BEFORE takeoff"
+    step = steps[check]
+    # Per robot, in that robot's own container — a bridge can be dead on one
+    # robot and alive on the other seven.
+    assert step["run"]["container"] == "airstack-robot-desktop-{n}"
+    # It must FAIL the iteration; a warning would have been ignored exactly as
+    # the silent zero in the summary was.
+    assert "exit 1" in step["run"]["cmd"]
+    assert not step.get("optional"), "the bridge check must not be optional"
+
+
+def test_the_mighty_summary_reads_the_bridges_own_log(mission):
+    """`mighty_bridge up`, `follower: engaging` and `dropping trajectory` are
+    printed by mighty_bridge, NOT by search_planner. Grepping planner.log for
+    them (as this mission did until 2026-08-30) reports 0 on a healthy run and
+    0 on a dead one."""
+    cmds = [st["run"]["cmd"] for st in mission["steps"] if "run" in st]
+    summary = [c for c in cmds if "MIGHTY bridge" in c]
+    assert summary, "the per-robot summary no longer reports on the bridge"
+    for c in summary:
+        for line in c.splitlines():
+            if line.strip().startswith("#"):        # the comment explaining it
+                continue
+            if "mighty_bridge up" in line or "follower: engaging" in line \
+                    or "dropping trajectory" in line:
+                assert "planner.log" not in line, \
+                    f"bridge string grepped out of the planner's log: {line.strip()}"
+                assert "mighty_bridge_" in line or "trajectory_controller_" in line \
+                    or "ros2 node list" in line, line.strip()
+
+
+def test_a_few_overhead_stills_are_persisted(mission):
+    """/sim/overhead/image is not recorded (2048x2048 every tick was ~90% of a
+    300 GB bag) but the plate is what every trajectory plot is drawn on, so a
+    few stills are written to /tmp in the GCS container and collected with the
+    tee logs."""
+    steps = mission["steps"]
+    snaps = [st for st in steps
+             if "run" in st and "/sim/overhead/image" in st["run"]["cmd"]]
+    assert len(snaps) == 1, "expected exactly one overhead-snapshot step"
+    step = snaps[0]
+    cmd = step["run"]["cmd"]
+    assert step["run"]["container"] == "gcs", "the overhead is on domain 0"
+    # A missing overhead camera must not cost the iteration.
+    assert step.get("optional") is True
+    # The file name must reach the runner's collector glob.
+    assert "/tmp/overhead_" in cmd
+    # And it must not take the FIRST frame: a frozen cell renders blank until
+    # its Nucleus textures arrive. Same lesson as the sim_ground gate.
+    assert "MIN_STD" in cmd and "WARMUP" in cmd
+
+
+def test_the_overhead_stills_are_collected_off_the_pod():
+    """A file written in a container that nothing copies out does not exist."""
+    runner = os.path.join(_REPO, "osmo", "workspace", "mission_runner.py")
+    src = open(runner, encoding="utf-8").read()
+    i = src.index("TEE_LOG_GLOBS = (")
+    block = src[i:src.index(")", i)]
+    assert "/tmp/overhead_*.png" in block, \
+        "overhead stills are written but never copied into the iteration dir"

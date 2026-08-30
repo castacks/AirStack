@@ -35,7 +35,9 @@ vertices makes the mapping exact; it triples the vertex count, which at
 270k triangles is fine and is what the renderer does anyway.
 """
 
+import contextlib
 import os
+import tempfile
 
 # a cut plane this close to the top or bottom of the mesh yields a sliver
 EDGE_EPS_M = 0.05
@@ -360,6 +362,69 @@ def window_clearance(cut_z, win_centres, win_h=1.1):
     return worst, hit
 
 
+# THE OFFSET SEARCH GRID. `cut_lines`'s single global `offset=0.5` assumes
+# the spandrel sits at the MIDPOINT between one window row's head and the
+# next one's cill, which holds for a PUNCHED-window façade (measured:
+# SM_Building_01/_02/_04/_09/_06_Small cross 0-1.8% of window faces at 0.5)
+# but not for a CONTINUOUSLY GLAZED band (SM_Building_24: 11.7% crossed at
+# 0.5, worst clearance 0.340 m) — a ribbon window's blind spandrel can sit
+# ANYWHERE in the period, not necessarily at its centre, and not necessarily
+# a "middle third" either.
+#
+# MEASURED: a first attempt restricted this grid to 0.30-0.70 (a third to
+# two-thirds of the period either side of the window centres) on the
+# assumption that the true spandrel could not be much closer to one window
+# row than the other. On `SM_Building_24` that range's best offset only
+# reaches 7.0% crossed (0.700 -> 108/1536) — it never finds the actual
+# minimum. Sweeping the FULL period in 0.025 steps found it: 0.775 crosses
+# just 12/1536 (0.8%), with 0.750 at 3.9% and 0.800 back up at 15.6% — a
+# narrow, off-centre optimum a 0.30-0.70 grid cannot see. So this grid covers
+# the full period instead (0.025-0.975; 0.0/1.0 excluded because that is the
+# window lattice itself, `cut_lines`'s known worst case, never useful to
+# test). The cost is trivial either way — `cut_lines`/`window_clearance` are
+# plain numpy over a few thousand window centres, no VTK, no clip.
+OFFSET_GRID = tuple(round(0.025 * i, 4) for i in range(1, 40))
+
+
+def choose_cut_offset(g, win_centres, default=0.5, win_h=1.1,
+                      grid=OFFSET_GRID):
+    """(offset, worst, hit) — the per-asset offset `plan_slice_budget` needs.
+
+    Scores every offset in `grid` with the same `window_clearance`
+    acceptance test `cut_clearance_verify.py` uses, and keeps the one with
+    the fewest windows crossed, ties broken by the largest worst-clearance —
+    the same ordering the acceptance test itself ranks by.
+
+    `default` (`cut_lines`'s own 0.5) is always one of the candidates
+    scored, and a STRICT inequality is required to move away from it, so a
+    tie (an offset that does no better than 0.5) leaves 0.5 in place rather
+    than switching to an offset the search cannot show is any better.
+
+    Returns `(default, None, 0)` untouched when there are no windows to
+    measure against (a regular-grid building) — nothing to search.
+    """
+    if not win_centres or not any(win_centres.values()):
+        return default, None, 0
+    d_lines = cut_lines(g, default, verbose=False)
+    d_worst, d_hit = window_clearance(d_lines, win_centres, win_h)
+    if d_worst is None:
+        return default, None, 0
+    best_key = (d_hit, -d_worst)
+    chosen = (default, d_worst, d_hit)
+    for off in grid:
+        if off == default:
+            continue
+        lines = cut_lines(g, off, verbose=False)
+        worst, hit = window_clearance(lines, win_centres, win_h)
+        if worst is None:
+            continue
+        key = (hit, -worst)
+        if key < best_key:
+            best_key = key
+            chosen = (off, worst, hit)
+    return chosen
+
+
 def _closed_lines(floors, bot, top):
     """Floor lines with both mesh ends closed off.
 
@@ -389,17 +454,34 @@ def storeys(m, floors, verbose=True):
     """Cut `m` into one piece per storey band with two horizontal planes each.
 
     Returns [(z_lo, z_hi, piece)] for the bands that survived.
+
+    THE TWO OUTER CAPS ARE PADDED FOR THE CLIP, NOT FOR THE REPORT. `zs[0]`
+    and `zs[-1]` sit at (or within `EDGE_EPS_M` of) the mesh's own bottom and
+    top — `_closed_lines` puts them there deliberately (bug catalogue #5) —
+    which means a flat face lying EXACTLY in one of those two planes has the
+    clip's implicit function zero at all three vertices and
+    `vtkClipPolyData` drops it, the same mechanism `OUTER_PAD_M` already
+    guards in `ring()`'s outer plan limits. Measured: 0.0014-0.19% of area on
+    five assets, all of it the base or the roof deck. Only the CLIP ORIGIN
+    for the very first `lo` and very last `hi` is nudged outward by
+    `OUTER_PAD_M`; the `lo`/`hi` this function reports back are left exactly
+    as `_closed_lines` computed them, so no caller's z range — in particular
+    `roof_and_parapet`'s `hi - lo` band-height threshold — moves because of
+    this padding.
     """
     bot = float(m["P"][:, 2].min())
     top = float(m["P"][:, 2].max())
     zs = _closed_lines(floors, bot, top)
     out = []
-    for i in range(len(zs) - 1):
+    n = len(zs) - 1
+    for i in range(n):
         lo, hi = zs[i], zs[i + 1]
-        band = clip(m, (0.0, 0.0, 1.0), (0.0, 0.0, hi))     # keep below hi
+        clip_hi = hi + OUTER_PAD_M if i == n - 1 else hi
+        clip_lo = lo - OUTER_PAD_M if i == 0 else lo
+        band = clip(m, (0.0, 0.0, 1.0), (0.0, 0.0, clip_hi))    # keep below hi
         if band is None:
             continue
-        band = clip(band, (0.0, 0.0, -1.0), (0.0, 0.0, lo))  # keep above lo
+        band = clip(band, (0.0, 0.0, -1.0), (0.0, 0.0, clip_lo))  # keep above lo
         if band is None or not len(band["tris"]):
             continue
         out.append((lo, hi, band))
@@ -418,7 +500,34 @@ def storeys(m, floors, verbose=True):
 BAY_SPLITS = (0.26, 0.48, 0.26)
 
 
-def ring(band, bbox, leg, bays, splits=BAY_SPLITS, verbose=False):
+# THE FOUR ELEVATIONS AS A CYCLE, for region-only slicing's cold/hot split
+# below — the same ring `quake_flow._side_reach` walks to decide which
+# unlit elevation still "picks up scorch round the corner." Kept local
+# rather than imported from `disaster.urban_fire`/`quake_flow`: this module
+# is `detail/`, one layer below `disaster/`, and a region dict is nothing
+# more than `{origin, sides}` by the time it gets here.
+_SIDE_RING = ("S", "E", "N", "W")
+
+
+def _side_neighbors(side):
+    """The two elevations that share a CORNER with `side`."""
+    i = _SIDE_RING.index(side)
+    return (_SIDE_RING[i - 1], _SIDE_RING[(i + 1) % len(_SIDE_RING)])
+
+
+def _region_hot_sides(sides):
+    """The elevations a region cut gives FULL bay/thirds detail: the fire's
+    own sides, plus whichever elevation shares a corner with one of them
+    (the fire can still scorch round that corner). Everything else is a
+    cold run and collapses to one piece — see `ring`'s `hot_sides`."""
+    hot = set(s for s in (sides or ()) if s in _SIDE_RING)
+    for s in list(hot):
+        hot.update(_side_neighbors(s))
+    return hot
+
+
+def ring(band, bbox, leg, bays, splits=BAY_SPLITS, verbose=False,
+        hot_sides=None):
     """Split one storey band into corner + middle pieces around its ring.
 
     THE PARTITION IS A 3x3 GRID IN PLAN, WHICH MAKES IT EXACT. The plan is cut
@@ -431,6 +540,15 @@ def ring(band, bbox, leg, bays, splits=BAY_SPLITS, verbose=False):
     That is `detail/urban_building.py`'s own grammar: "each side is a RUN of
     façade modules between two CORNER pieces". `leg` is the corner leg, the
     same quantity the kit's `_c(piece, "SE", 1.0)` declares.
+
+    `hot_sides`, WHEN GIVEN (region-only slicing — see `slice_to_kit`), turns
+    a run whose side is NOT in it into ONE piece for the whole run instead of
+    bays/thirds: the fire ladder never damages a cold elevation beyond the
+    one-corner "round the corner" bleed `urban_fire._side_reach` already
+    scores at reduced strength, so there is nothing there for the finer
+    partition to buy. `None` (the default) is today's unconditional ring —
+    every existing caller is unaffected. Corners and the core are unaffected
+    either way; only the four runs read this.
 
     Returns [(role, side, bay, piece)].
     """
@@ -474,6 +592,15 @@ def ring(band, bbox, leg, bays, splits=BAY_SPLITS, verbose=False):
     runs = (("S", xa, xb, y0, ya, "x"), ("N", xa, xb, yb, y1, "x"),
             ("W", x0, xa, ya, yb, "y"), ("E", xb, x1, ya, yb, "y"))
     for side, lo_x, hi_x, lo_y, hi_y, axis in runs:
+        if hot_sides is not None and side not in hot_sides:
+            # A COLD RUN: one piece for the whole elevation, no bay/thirds
+            # split at all — `_region_hot_sides` already decided this side
+            # is far enough from the fire that the finer partition is
+            # wasted on it.
+            p = box(band, lo_x, hi_x, lo_y, hi_y)
+            if p is not None:
+                out.append(("wall", side, 0, p))
+            continue
         span = (hi_x - lo_x) if axis == "x" else (hi_y - lo_y)
         n = max(1, int(round(span / max(0.5, bays))))
         fr = list(splits) if splits else [1.0]
@@ -526,6 +653,41 @@ _ROLE_SUB = {"wall": "storey", "pier": "storey", "core": "storey",
 # was built on.
 PARAPET_FRAC = 0.35
 PARAPET_MIN_M = 0.8
+
+
+def _box_mesh(x0, y0, z0, x1, y1, z1, mid):
+    """A thin closed box, de-indexed like a fresh `read_mesh`/`clip` output
+    (three points per triangle, one material index per triangle) — the
+    SYNTHESISED roof slab `roof_and_parapet`'s `_ensure_roof` falls back to.
+    UVs are a plain 0..1 planar quad per face; nothing downstream samples a
+    flat utility slab like this one at any real fidelity.
+    """
+    import numpy as np
+
+    c = {(0, 0, 0): (x0, y0, z0), (1, 0, 0): (x1, y0, z0),
+         (1, 1, 0): (x1, y1, z0), (0, 1, 0): (x0, y1, z0),
+         (0, 0, 1): (x0, y0, z1), (1, 0, 1): (x1, y0, z1),
+         (1, 1, 1): (x1, y1, z1), (0, 1, 1): (x0, y1, z1)}
+    faces = (((0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)),   # bottom
+             ((0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)),   # top
+             ((0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)),   # y0
+             ((1, 1, 0), (0, 1, 0), (0, 1, 1), (1, 1, 1)),   # y1
+             ((0, 1, 0), (0, 0, 0), (0, 0, 1), (0, 1, 1)),   # x0
+             ((1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)))   # x1
+    uv_quad = ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0))
+    P, UV, MID = [], [], []
+    for quad in faces:
+        pts = [c[k] for k in quad]
+        for tri in ((0, 1, 2), (0, 2, 3)):
+            for t in tri:
+                P.append(pts[t])
+                UV.append(uv_quad[t])
+            MID.append(mid)
+    P = np.asarray(P, dtype=float)
+    UV = np.asarray(UV, dtype=float)
+    tris = np.arange(len(P), dtype=np.int64).reshape(-1, 3)
+    MID = np.asarray(MID, dtype=np.int32)
+    return {"P": P, "tris": tris, "UV": UV, "MID": MID}
 
 
 def roof_and_parapet(band, bbox, leg, bays, storey_h, splits=BAY_SPLITS,
@@ -591,26 +753,85 @@ def roof_and_parapet(band, bbox, leg, bays, storey_h, splits=BAY_SPLITS,
     function cannot recover from — a caller doing partition-integrity math
     on a plain `ring()` in that case needs to know it got one.
 
+    A `role="roof"` PIECE IS GUARANTEED, EVEN WHEN THE SPLIT ITSELF WORKS.
+    MEASURED (`SM_Building_06_Small`): the split path clipped `lower`/
+    `upper` fine (`split_ok` came back `True`) and both bands rang without
+    error, but `ring(upper, ...)`'s own middle cell — the piece this
+    function relabels `core` -> `roof` — came back with zero triangles, so
+    NOTHING in the returned list was ever labelled `roof`. Every recipe that
+    does `_els(role="roof")` (roof_burnthrough, roof_scorch, the
+    fire_collapse roof loop) then finds nothing and silently no-ops on that
+    building, with no error anywhere to catch it. `_ensure_roof` below is
+    the guarantee: if the split's own core is empty, re-`ring()` the WHOLE
+    top band (not `lower` or `upper` — the full band, at its own height) and
+    take ITS core instead; if that is empty too (a footprint too small or
+    too irregular for `ring()`'s middle cell to survive at all), SYNTHESISE
+    a thin roof slab rather than relabel an existing piece — an earlier
+    version relabelled whichever piece the band already collected was
+    largest (usually a `parapet`/`parapet_corner`), which on
+    `SM_Building_06_Small`/`_09` stole a real chunk of parapet out of the
+    band; `urban_fire._deck_slab` then deactivates every `role="roof"`
+    element and draws its own box across the whole footprint, so that
+    relabelled parapet piece VANISHED and a slab appeared where it used to
+    be — a visible reassembly defect (2026-08-30 GAC bench). The synthetic
+    slab adds new geometry instead, so every piece already in `out` — every
+    parapet count included — is untouched. Either fallback is logged so it
+    is visible rather than silently covering for a genuine geometry problem.
+
     Returns `([(role, side, bay, piece)], split_ok)`.
     """
     (x0, y0, lo), (x1, y1, hi) = bbox
     relabel = {"corner": "parapet_corner", "wall": "parapet",
                "pier": "parapet", "core": "roof"}
+    par_h = max(PARAPET_MIN_M, PARAPET_FRAC * float(storey_h or 0.0))
+
+    def _ensure_roof(out):
+        """Guarantee `out` contains at least one `role="roof"` piece.
+
+        Returns `(out, fallback)` — `fallback` is `None` when `out` already
+        had a roof piece (the common case), else a short string naming which
+        recovery fired, for the caller to log.
+        """
+        import numpy as np
+
+        if any(role == "roof" for role, _s, _k, _p in out):
+            return out, None
+        whole = ring(band, bbox, leg, bays, splits=splits, verbose=False)
+        whole_core = [("roof", side, k, piece)
+                      for role, side, k, piece in whole if role == "core"]
+        if whole_core:
+            return list(out) + whole_core, "whole-band core"
+        if not out:
+            return out, None
+        # A SYNTHETIC SLAB, NOT A RELABEL. Same footprint `ring()`'s own
+        # core would have covered (the plan inset by `leg`), a thin box
+        # (~0.15 m) sitting just under the parapet coping — `hi - par_h` is
+        # the exact height `roof_and_parapet`'s own split uses for that —
+        # carrying the material of whichever piece this band already
+        # collected is largest (a real, existing material, not a new one).
+        idx = max(range(len(out)), key=lambda i: len(out[i][3]["tris"]))
+        ref_role, _ref_side, _ref_k, ref_piece = out[idx]
+        mid = int(np.bincount(
+            np.asarray(ref_piece["MID"], dtype=np.int64)).argmax())
+        xa, xb = x0 + leg, x1 - leg
+        ya, yb = y0 + leg, y1 - leg
+        if xb <= xa or yb <= ya:      # footprint too small for the inset
+            xa, xb, ya, yb = x0, x1, y0, y1
+        z_top = max(lo + 0.05, min(hi - 0.02, hi - par_h))
+        z_bot = max(lo + 0.02, z_top - 0.15)
+        slab = _box_mesh(xa, ya, z_bot, xb, yb, z_top, mid)
+        out = list(out) + [("roof", "x", 0, slab)]
+        return out, "roof synthesised ({0} m2 slab, material of the " \
+                    "largest {1} piece)".format(
+                        round((xb - xa) * (yb - ya), 1), ref_role)
 
     def _whole_band_as_roof():
         out = []
         for role, side, k, piece in ring(band, bbox, leg, bays,
                                          splits=splits, verbose=verbose):
             out.append((relabel.get(role, role), side, k, piece))
-        return out
-
-    par_h = max(PARAPET_MIN_M, PARAPET_FRAC * float(storey_h or 0.0))
-    # A THIRD of a storey is the minimum that still reads as an actual wall
-    # zone, not a sliver; EDGE_EPS_M is `storeys()`'s own sliver guard.
-    min_wall = max(EDGE_EPS_M, 0.3 * float(storey_h or 0.0))
-    if hi - lo <= par_h + min_wall:
-        out = _whole_band_as_roof()
-        if verbose:
+        out, fb = _ensure_roof(out)
+        if verbose or fb:
             by = {}
             for role, _s, _k, _p in out:
                 by[role] = by.get(role, 0) + 1
@@ -618,7 +839,17 @@ def roof_and_parapet(band, bbox, leg, bays, storey_h, splits=BAY_SPLITS,
                   "separate wall zone; whole band -> {1}".format(
                       hi - lo, "  ".join("{0}={1}".format(k, v)
                                         for k, v in sorted(by.items()))))
-        return out, True
+            if fb:
+                print("[storey_slice]   roof fallback fired (whole-band "
+                      "path): {0}".format(fb))
+        return out
+
+    # par_h is computed above, before `_ensure_roof`'s closure needs it.
+    # A THIRD of a storey is the minimum that still reads as an actual wall
+    # zone, not a sliver; EDGE_EPS_M is `storeys()`'s own sliver guard.
+    min_wall = max(EDGE_EPS_M, 0.3 * float(storey_h or 0.0))
+    if hi - lo <= par_h + min_wall:
+        return _whole_band_as_roof(), True
     z_split = hi - par_h
     lower = clip(band, (0.0, 0.0, 1.0), (0.0, 0.0, z_split))    # keep below
     upper = clip(band, (0.0, 0.0, -1.0), (0.0, 0.0, z_split))   # keep above
@@ -633,13 +864,17 @@ def roof_and_parapet(band, bbox, leg, bays, storey_h, splits=BAY_SPLITS,
     for role, side, k, piece in ring(upper, bbox, leg, bays, splits=splits,
                                      verbose=verbose):
         out.append((relabel.get(role, role), side, k, piece))
-    if verbose:
+    out, fb = _ensure_roof(out)
+    if verbose or fb:
         by = {}
         for role, _s, _k, _p in out:
             by[role] = by.get(role, 0) + 1
         print("[storey_slice]   roof/parapet split {0:.2f} m below the apex "
               "-> {1}".format(par_h, "  ".join(
                   "{0}={1}".format(k, v) for k, v in sorted(by.items()))))
+        if fb:
+            print("[storey_slice]   roof fallback fired (split path): {0}"
+                  .format(fb))
     return out, True
 
 
@@ -703,6 +938,20 @@ def _band_cost(w, d, leg, pitch, thirds):
     """`ring()`'s own piece count for ONE band at this bay pitch."""
     bays = _total_bays(w, d, leg, pitch)
     return 4 + 1 + bays * (3 if thirds else 1)
+
+
+def _band_cost_region(w, d, leg, pitch, thirds, hot_sides):
+    """`ring()`'s piece count for ONE band under a region cut: a run on a
+    side not in `hot_sides` is a single piece regardless of its span (see
+    `ring`'s own `hot_sides` argument); a hot run costs what `_band_cost`
+    always costed. Corners (4) and the core (1) are unaffected."""
+    nx = max(1, int(round(max(0.0, w - 2.0 * leg) / max(0.5, pitch))))
+    ny = max(1, int(round(max(0.0, d - 2.0 * leg) / max(0.5, pitch))))
+    mult = 3 if thirds else 1
+    cost = 4 + 1
+    for side, n in (("S", nx), ("N", nx), ("E", ny), ("W", ny)):
+        cost += (n * mult) if side in hot_sides else 1
+    return cost
 
 
 def choose_bay_budget(w, d, leg, pitch, n_bands_eff, target=TARGET_PIECES):
@@ -786,7 +1035,8 @@ def _thin_upper_lines(lines, protect_n, stride):
 
 
 def plan_slice_budget(g, bbox, leg, bay_native, offset=0.5,
-                      target=TARGET_PIECES, ceiling=MAX_PIECES, verbose=True):
+                      target=TARGET_PIECES, ceiling=MAX_PIECES,
+                      wins=None, win_h=1.1, verbose=True, region=None):
     """Decide the whole cut BEFORE any VTK clip runs.
 
     Returns `(lines, bay_k, thirds, info)`: `lines` are the floor lines
@@ -800,11 +1050,38 @@ def plan_slice_budget(g, bbox, leg, bay_native, offset=0.5,
     predicted band count has to match what `storeys()` will actually produce
     from the SAME lines, which is exactly what `_closed_lines` (shared with
     `storeys()`) guarantees.
+
+    `wins`, WHEN GIVEN (the asset's own window centres, as `slice_to_kit`
+    already has from `gac_slice.window_centres`), lets this function pick
+    the CUT OFFSET too, via `choose_cut_offset` — a per-asset search rather
+    than the fixed `offset` a caller passes. Without `wins` the fixed
+    `offset` is used exactly as before, so this stays a plain keyword
+    addition: existing callers that only used bay/band budgeting are
+    unaffected.
+
+    `region`, WHEN GIVEN (`{"origin": storey index, "sides": (...)}` — see
+    `slice_to_kit`), decides the bay grouping/thirds lever EXACTLY as if no
+    region had been given ("cut as today" — a region changes WHICH bands and
+    sides get ring()ed, not the grammar `ring()` uses when it does), then
+    predicts the region's own smaller piece count on top of that: one piece
+    for everything below the origin, the SAME per-band cost above it except a
+    cold run (`_region_hot_sides`) is one piece instead of its bays/thirds.
+
+    `region["top"]`, WHEN ALSO GIVEN, caps the ringing from above the same
+    way `origin` caps it from below: storeys `origin..top` inclusive are
+    ringed exactly as above, and everything ABOVE `top` — through the
+    parapet/roof band — collapses to ONE merged piece instead, the mirror
+    image of the below-origin merge. `top` missing, or `>= n_storeys - 1`,
+    means "ring all the way to the roof" (today's behaviour, unchanged,
+    synthetic roof slab included); `top < origin` clamps to `origin`, so the
+    region cut never turns inside out.
     """
     (_x0, _y0, z0), (_x1, _y1, z1) = bbox
     w = float(bbox[1][0] - bbox[0][0])
     d = float(bbox[1][1] - bbox[0][1])
-    lines = cut_lines(g, offset, verbose=False)
+    used_offset, off_worst, off_hit = choose_cut_offset(
+        g, wins, default=offset, win_h=win_h)
+    lines = cut_lines(g, used_offset, verbose=False)
     storey_h = float(g.get("storey_h") or 0.0)
     par_h = max(PARAPET_MIN_M, PARAPET_FRAC * storey_h)
     min_wall = max(EDGE_EPS_M, 0.3 * storey_h)
@@ -847,16 +1124,97 @@ def plan_slice_budget(g, bbox, leg, bay_native, offset=0.5,
     info = {"n_bands": n_bands, "leg": leg, "bay_native": bay_native,
             "bay_k": best["k"], "thirds": best["thirds"],
             "per_band": best["per_band"], "predicted_total": best["total"],
-            "band_stride": stride, "note": best.get("note", "")}
+            "band_stride": stride, "note": best.get("note", ""),
+            "offset": used_offset, "offset_worst": off_worst,
+            "offset_hit": off_hit}
     if verbose:
+        off_desc = ("offset={0:.3f} (crossed {1}, worst {2:.3f} m)".format(
+                        used_offset, off_hit, off_worst)
+                    if off_worst is not None else
+                    "offset={0:.3f} (no window lattice)".format(used_offset))
         print("[storey_slice] budget: {0} band(s) (stride {1}), bay k={2}, "
-              "thirds={3} -> predicted {4} piece(s) ({5})".format(
-                  n_bands, stride, best["k"], best["thirds"], best["total"],
-                  info["note"]))
-    return lines, best["k"], best["thirds"], info
+              "thirds={3}, {4} -> predicted {5} piece(s) ({6})".format(
+                  n_bands, stride, best["k"], best["thirds"], off_desc,
+                  best["total"], info["note"]))
+    if region is None:
+        return lines, best["k"], best["thirds"], info
+
+    # REGION-ONLY: everything below `region["origin"]` is one piece, no ring
+    # at all; from there up, this building's OWN bay_k/thirds ("as today",
+    # `best` above) still decides the grammar, just applied to fewer bands
+    # and, on a cold run, collapsed to one piece per run (`ring`'s own
+    # `hot_sides`). `region["top"]`, when given, does the SAME thing on the
+    # way up: everything above it — the parapet/roof band included — becomes
+    # one merged piece too. Both merges are done the same way: drop every
+    # floor line outside `[origin, top]` from the list handed to `storeys()`,
+    # and `_closed_lines` (below, and again inside `storeys()` itself) closes
+    # whichever end that leaves open onto the mesh's own bottom/top — no
+    # separate re-merge step, on either end.
+    zs_full = _closed_lines(lines, z0, z1)
+    n_full = max(0, len(zs_full) - 1)
+    origin = max(0, min(int(region.get("origin", 0)), max(0, n_full - 1)))
+    top_in = region.get("top")
+    if top_in is None or int(top_in) >= n_full - 1:
+        top = max(0, n_full - 1)          # "ring to the roof" -- today's cut
+    else:
+        top = max(origin, int(top_in))    # `top < origin` clamps to `origin`
+    topped = top < n_full - 1             # is there a merged-above piece?
+    hot_sides = _region_hot_sides(region.get("sides"))
+    region_lines = (list(zs_full[origin:top + 2]) if topped
+                    else list(zs_full[origin:]))
+    merged = 1 if origin > 0 else 0
+    zs_region = _closed_lines(region_lines, z0, z1)
+    n_bands_r = max(0, len(zs_region) - 1)
+    # bands `ring()` actually touches -- everything but the two merges
+    n_ring_bands = max(0, n_bands_r - merged - (1 if topped else 0))
+    pitch = bay_native * best["k"]
+    mid_cost = (_band_cost_region(w, d, leg, pitch, best["thirds"], hot_sides)
+               if n_ring_bands else 0)
+    if topped:
+        # `top` is NOT the mesh's own top band any more -- that band is on
+        # the far side of the upper merge now, so every ring band left is an
+        # ordinary mid band, `roof_and_parapet` never runs, and the merge
+        # itself is the one extra piece.
+        n_mid_bands = n_ring_bands
+        top_cost = 0
+    else:
+        # the last ring band IS the mesh's own top band, ringed in full
+        # exactly as `roof_and_parapet` will actually cut it.
+        n_mid_bands = max(0, n_ring_bands - 1)
+        top_h = zs_full[-1] - zs_full[-2] if len(zs_full) >= 2 else 0.0
+        top_cost = best["per_band"] * (2 if top_h > par_h + min_wall else 1)
+    region_total = (merged + n_mid_bands * mid_cost + top_cost
+                    + (1 if topped else 0))
+    r_info = dict(info)
+    r_info.update({
+        "region_origin": origin, "region_top": top,
+        "region_hot_sides": tuple(sorted(hot_sides)),
+        "region_bands": n_bands_r, "region_merged": merged,
+        "region_merged_top": topped,
+        "region_ring_bands": n_ring_bands, "region_mid_bands": n_mid_bands,
+        "region_mid_cost": mid_cost, "predicted_total": region_total,
+        "note": (info.get("note", "") +
+                 " | region: origin storey {0}, top storey {1}, {2} band(s) "
+                 "below merged to one piece, {3} mid band(s) at {4} piece(s) "
+                 "each ({5} cold side(s) collapsed to one run apiece), {6}"
+                 .format(origin, top, merged, n_mid_bands, mid_cost,
+                         len(_SIDE_RING) - len(hot_sides & set(_SIDE_RING)),
+                         "everything above storey {0} merged to one piece"
+                         .format(top) if topped else "top band always full"))})
+    if verbose:
+        print("[storey_slice] region budget: origin st{0}, top st{1}, hot "
+              "sides {2} -> {3} band(s) total ({4} merged-below + {5} "
+              "ring(ed) + {6} merged-above, bay k={7}, thirds={8}) -> "
+              "predicted {9} piece(s)".format(
+                  origin, top,
+                  "/".join(sorted(region.get("sides") or ())) or "-",
+                  n_bands_r, merged, n_ring_bands, 1 if topped else 0,
+                  best["k"], best["thirds"], region_total))
+    return region_lines, best["k"], best["thirds"], r_info
 
 
-def as_placements(stage, cells, scope, style, mats, verbose=True):
+def as_placements(stage, cells, scope, style, mats, start_index=0,
+                  verbose=True):
     """Write ring cells as prims and return kit-shaped PLACEMENT dicts.
 
     THIS IS THE BRIDGE between the slicer and the damage ladder, and it is a
@@ -876,7 +1234,11 @@ def as_placements(stage, cells, scope, style, mats, verbose=True):
 
     UsdGeom.Scope.Define(stage, Sdf.Path(scope))
     out = []
-    for j, (storey, role, side, bay, piece) in enumerate(cells):
+    for jj, (storey, role, side, bay, piece) in enumerate(cells):
+        # `start_index` lets `slice_to_kit` write band by band and free as it
+        # goes while still producing the exact prim names that accumulating
+        # every cell first would have produced.
+        j = start_index + jj
         nm = "{0}_{1}_{2}_{3:02d}_{4:04d}".format(
             role, side.replace("-", "x"), bay, storey, j)
         path = "{0}/{1}".format(scope, nm)
@@ -903,8 +1265,55 @@ def as_placements(stage, cells, scope, style, mats, verbose=True):
     return out
 
 
+SLICE_LOCK_PATH = os.environ.get(
+    "GSS_LOCK_PATH", os.path.join(tempfile.gettempdir(), "gac_slice.lock"))
+
+
+@contextlib.contextmanager
+def slice_lock(verbose=False):
+    """Serialise slicing across PROCESSES. Opt out with `GSS_NO_LOCK=1`.
+
+    ONE SLICE AT A TIME, MACHINE-WIDE. A slice holds the source mesh, a VTK
+    polydata per cut and every piece it has produced so far; on the tallest
+    GAC tower that is a large multi-gigabyte working set. Several at once is
+    not slow, it is fatal — five or six concurrent verification runs during
+    an agent session exhausted RAM and took the whole machine down with the
+    OOM killer (user, 2026-08-29: "it was taking too much memory and OOM was
+    causing the computer to crash ... i saw like 5-6 of them running at
+    once").
+    ​
+    An advisory `flock` costs nothing when nothing else is running and turns
+    that failure into a queue. It is deliberately at the SLICE level rather
+    than in each tool, because the tools that do this are written ad hoc for
+    a verification run and the next one will not remember to take a lock.
+    """
+    if os.environ.get("GSS_NO_LOCK") == "1":
+        yield
+        return
+    try:
+        import fcntl
+    except ImportError:                      # not POSIX; nothing to serialise
+        yield
+        return
+    fh = open(SLICE_LOCK_PATH, "a+")
+    try:
+        try:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (IOError, OSError):
+            if verbose:
+                print("[storey_slice] another slice holds {0}; waiting"
+                      .format(SLICE_LOCK_PATH))
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+        finally:
+            fh.close()
+
+
 def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
-                 offset=0.5, verbose=True):
+                 offset=0.5, verbose=True, region=None):
     """Slice a placed asset into kit placements, ready for `burn_building`.
 
     One call: measure the grid (or fall back to a regular one), cut the
@@ -912,8 +1321,45 @@ def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
     the synthetic style so `quake_flow._mass_specs` has real dimensions, and
     hide the merged original.
 
+    BAND BY BAND, AND EACH ONE FREED AS IT GOES. The first version built
+    every band up front and accumulated every piece before writing any of
+    them, so the peak working set was the WHOLE building — 81 band meshes
+    plus several hundred piece point-arrays alive at once on
+    `SM_Building_16`. Streaming costs nothing (the pieces were always
+    written in band order) and turns the peak into one band's worth.
+
+    `region`, WHEN GIVEN (`{"origin": storey index, "sides": (...)}`, `None`
+    default = today's unconditional full slice), cuts only what the fire
+    ladder can ever touch: `_severity` never damages a storey below the
+    fire's own origin, so everything from the mesh's own bottom up to the
+    origin's floor line becomes ONE piece (role `wall`, storey 0 — the
+    physical storey it actually starts at) instead of being ringed at all.
+    From the origin up, every band is still cut one per storey, but a run on
+    an elevation the fire cannot reach (`_region_hot_sides`: not one of
+    `region["sides"]`, not corner-adjacent to one either) collapses to one
+    piece instead of bays/thirds. `region["top"]`, WHEN GIVEN, does the same
+    thing in reverse: everything above it — through the parapet/roof band —
+    becomes ONE merged piece (role `wall`, storey `top + 1`) instead of being
+    ringed at all, and `roof_and_parapet` never runs on it, so this building
+    is left with NO `role="roof"` piece. That is only ever asked for when the
+    fire itself never needs the roof either (`gac_fire.burn_gac` forces
+    `top` up to the real roof whenever a recipe does), and every consumer of
+    a `role="roof"`/`"parapet"` element (`_deck_slab`, `r_roof_burnthrough`,
+    `r_roof_scorch`, `r_fire_collapse`) already tolerates finding none — the
+    kit roof tile can be `dead` from an earlier pass for the same reason.
+    Without `region["top"]` (or with one `>= n_storeys - 1`) the TOP band is
+    always ringed in full, region or not — the roof/parapet split needs
+    every side to exist, cold or not. `plan_slice_budget` does the actual
+    line/lever arithmetic; this loop only needs the physical storey index a
+    piece was really cut at (`budget["region_origin"]`,
+    `budget["region_merged_top"]`), because that has to match
+    `fire["storeys"]` the way a full slice's own band index already does
+    (`gac_fire.darken_glass`'s `p["_storey"]` test).
+
     Returns `(placements, grid, measured)`.
     """
+    import gc
+
     from detail import gac_slice as gsl
     from pxr import UsdGeom
 
@@ -930,29 +1376,77 @@ def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
     # BAY_SPLITS on or off) — all before any VTK clip runs, so the search
     # itself costs nothing. See the module section above `as_placements`.
     lines, bay_k, thirds, budget = plan_slice_budget(
-        g, bbox, leg, bay_native, offset, verbose=verbose)
+        g, bbox, leg, bay_native, offset, wins=wins, verbose=verbose,
+        region=region)
     bands = storeys(m, lines, verbose=False)
     bay = bay_native * bay_k
     splits = BAY_SPLITS if thirds else None
-    cells = []
     n_bands = len(bands)
     roofed = False
-    for i, (lo, hi, band) in enumerate(bands):
+    pls = []
+    mats = m["mats"]
+    # The source mesh is not needed once every band has been cut out of it,
+    # and it is the single largest array here.
+    del m
+    origin = int(budget.get("region_origin", 0)) if region is not None else 0
+    hot_sides = (_region_hot_sides(region.get("sides"))
+                if region is not None else None)
+    merged_lower = region is not None and origin > 0
+    merged_upper = region is not None and bool(budget.get("region_merged_top"))
+    for i in range(n_bands):
+        lo, hi, band = bands[i]
         bb = ((bbox[0][0], bbox[0][1], lo), (bbox[1][0], bbox[1][1], hi))
-        # ONLY THE TOPMOST BAND CAN HOLD THE ROOF. Every band below it is a
-        # storey sandwiched between two floor lines and is, honestly, just a
-        # wall — `roof_and_parapet` only has anything to find in the one band
-        # that runs up to the mesh's own apex.
-        if i == n_bands - 1:
+        is_top = (i == n_bands - 1)
+        if merged_lower and i == 0:
+            # EVERYTHING BELOW THE FIRE'S ORIGIN, ONE PIECE. `_severity`
+            # returns exactly 0 for every storey below `f["origin"] - 1`, so
+            # ringing this shell buys the ladder nothing.
+            pieces = [("wall", "x", 0, band)]
+            phys_storey = 0
+        elif merged_upper and is_top:
+            # THE MIRROR IMAGE, ABOVE `region["top"]`. No `roof_and_parapet`
+            # split runs here and no `role="roof"` piece comes out of this
+            # band — `gac_fire.burn_gac` only ever asks for this merge when
+            # the fire ITSELF never needs the roof either (`_ensure_roof`'s
+            # synthetic slab is likewise skipped: there is nothing here for
+            # it to guarantee).
+            pieces = [("wall", "x", 0, band)]
+            phys_storey = (origin + i - 1) if merged_lower else i
+            roofed = True   # nothing here was ever supposed to be roof/parapet
+        elif is_top:
+            # ONLY THE TOPMOST BAND CAN HOLD THE ROOF, and it is ALWAYS
+            # ringed in full — a cold elevation still needs its own roof
+            # deck / parapet piece to exist, or `_deck_slab`/`r_roof_scorch`
+            # have nothing on that side either.
             pieces, roofed = roof_and_parapet(band, bb, leg, bay,
                                               g["storey_h"], splits=splits,
                                               verbose=verbose)
+            phys_storey = (origin + i - 1) if merged_lower else i
         else:
-            pieces = ring(band, bb, leg, bay, splits=splits)
-        for role, side, k, piece in pieces:
-            cells.append((i, role, side, k, piece))
-    pls = as_placements(stage, cells, cell + "/pieces", style, m["mats"],
-                        verbose=verbose)
+            pieces = ring(band, bb, leg, bay, splits=splits,
+                         hot_sides=hot_sides)
+            phys_storey = (origin + i - 1) if merged_lower else i
+        # WRITE THIS BAND'S PIECES NOW, then drop them. `start_index` keeps
+        # the running piece index globally unique so the prim names are
+        # exactly what accumulating everything first would have produced.
+        pls += as_placements(stage,
+                             [(phys_storey, role, side, k, piece)
+                              for role, side, k, piece in pieces],
+                             cell + "/pieces", style, mats,
+                             start_index=len(pls), verbose=False)
+        del pieces
+        bands[i] = None           # the band mesh is now fully consumed
+        if (i % 8) == 7:
+            gc.collect()
+    del bands
+    gc.collect()
+    if verbose:
+        by = {}
+        for p in pls:
+            by[p["_role"]] = by.get(p["_role"], 0) + 1
+        print("[storey_slice] {0} placement(s) for style {1}: {2}".format(
+            len(pls), style,
+            "  ".join("{0}={1}".format(k, v) for k, v in sorted(by.items()))))
     spec = gsl.register_style(g, style, pieces_of=pls)
     _fix_advertised_bands(spec, pls, style, verbose=verbose)
     UsdGeom.Imageable(stage.GetPrimAtPath(src)).MakeInvisible()

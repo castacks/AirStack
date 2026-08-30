@@ -856,6 +856,50 @@ steps:
         echo POLLER_STARTED pid=$(cat /tmp/search/poller.pid)
       timeout_s: 60
 
+  # 3b. THE EXECUTION LAYER IS ALIVE — the check that would have saved the
+  #     2026-08-29 sweep. `mighty_bridge` is the ONLY thing that turns a plan
+  #     into motion: it serves tasks/navigate, follows /global_plan, converts
+  #     odometry -> dynus State for the mapper, and publishes
+  #     trajectory_override to the trajectory controller. It is also the only
+  #     PYTHON node in the stack that imports dynus_interfaces, so when the
+  #     shared install tree is half-written it is the only one that dies —
+  #     mighty_node and global_mapper_ros are C++, come up clean, and the
+  #     stack looks healthy. That run flew 24 x 8 drones that took off and
+  #     hovered for the whole budget while the planners published 5,683 plans
+  #     into nothing, and NOTHING in the mission noticed for 95 minutes.
+  #
+  #     Nothing downstream of here is worth doing without it, so this exits 1
+  #     and takes the iteration with it — after printing the bring-up pane's
+  #     traceback, which is the ONE place the reason is legible and which
+  #     scrolls out of the pane's history within ten minutes.
+  - run:
+      container: airstack-robot-desktop-{n}
+      cmd: |
+        source /root/.bashrc >/dev/null 2>&1 || true
+        export ROBOT_NAME=robot_{n}
+        export ROS_DOMAIN_ID={n}
+        for i in $(seq 1 36); do
+          if ros2 node list 2>/dev/null | grep -qx "/robot_{n}/mighty/mighty_bridge"; then
+            echo "BRIDGE_UP robot_{n}"
+            grep -ah "mighty_bridge up" /root/.ros/log/mighty_bridge_*.log 2>/dev/null | tail -1
+            ros2 action list 2>/dev/null | grep -qx "/robot_{n}/tasks/navigate" \
+              && echo "NAVIGATE_ACTION_PRESENT robot_{n}" \
+              || echo "WARN: /robot_{n}/tasks/navigate not advertised"
+            exit 0
+          fi
+          sleep 5
+        done
+        echo "BRIDGE_MISSING robot_{n}: no /robot_{n}/mighty/mighty_bridge after 180 s."
+        echo "Without it nothing serves tasks/navigate, nothing follows /global_plan,"
+        echo "nothing publishes trajectory_override — the drone will take off and hover."
+        echo "--- mighty namespace as seen on this domain ---"
+        ros2 node list 2>/dev/null | grep "/mighty/" || echo "(no mighty nodes at all)"
+        echo "--- bring-up pane, mighty_bridge lines ---"
+        tmux capture-pane -p -S -30000 -t bringup:0.0 2>/dev/null \
+          | grep -a "mighty_bridge" | tail -60 || echo "(pane history already rolled over)"
+        exit 1
+      timeout_s: 300
+
   # 4. Takeoff — all eight robots in parallel via the GCS relay. 20 m AGL is
   #    the bottom of the flight band in every frozen scene overlay.
   - action:
@@ -865,6 +909,120 @@ steps:
       robots: all
 
   - wait: 5
+
+  # 5b. A FEW FRAMES OF THE SIM OVERHEAD, PERSISTED AS PNG.
+  #     /sim/overhead/image is NOT in `record:` — a 2048x2048 frame every sim
+  #     tick was ~90% of a 300 GB bag — but the plate itself is worth having:
+  #     it is what every trajectory / detection plot is drawn on top of. Three
+  #     stills cost ~15 MB against a 12 GB bag.
+  #
+  #     WHY IT IS NOT THE FIRST FRAME. A frozen cell is ~250 MB referenced in
+  #     with textures still streaming off Nucleus, so Isaac's first rendered
+  #     overhead frames are blank or half-loaded — which is exactly why
+  #     /gcs/sim_ground came out empty on 2026-08-29: the GCS visualizer took
+  #     the FIRST image it saw and unsubscribed. Here the grab waits out a
+  #     warm-up AND rejects any frame that is still near-uniform (per-channel
+  #     std below a floor), so "blank" is measured, not assumed.
+  #
+  #     Written to /tmp/overhead_*.png in the GCS container; the runner's
+  #     TEE_LOG_GLOBS copies them into <iteration>/airstack-gcs-1/ alongside
+  #     the tee logs. The .json sidecar carries coverage_m and the camera
+  #     centre so a pixel can be turned back into world metres.
+  - run:
+      container: gcs
+      cmd: |
+        python3 - <<'EOF'
+        import json, os, struct, time, zlib
+        import numpy as np
+        import rclpy
+        from rclpy.qos import qos_profile_sensor_data
+        from sensor_msgs.msg import Image
+        from std_msgs.msg import Float32
+
+        SCENE   = "{{env.RESULTS_SCENE}}"
+        WARMUP  = float(os.environ.get("OVERHEAD_SNAP_WARMUP_S") or 20.0)
+        PERIOD  = float(os.environ.get("OVERHEAD_SNAP_PERIOD_S") or 8.0)
+        WANT    = int(os.environ.get("OVERHEAD_SNAP_FRAMES") or 3)
+        MIN_STD = float(os.environ.get("OVERHEAD_SNAP_MIN_STD") or 4.0)
+        DEADLINE = float(os.environ.get("OVERHEAD_SNAP_DEADLINE_S") or 180.0)
+
+        def png(path, rgb):
+            hh, ww, _ = rgb.shape
+            raw = b"".join(b"\x00" + rgb[y].tobytes() for y in range(hh))
+            def ch(tag, data):
+                return (struct.pack(">I", len(data)) + tag + data
+                        + struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff))
+            with open(path, "wb") as fh:
+                fh.write(b"\x89PNG\r\n\x1a\n"
+                         + ch(b"IHDR", struct.pack(">IIBBBBB", ww, hh, 8, 2, 0, 0, 0))
+                         + ch(b"IDAT", zlib.compress(raw, 6))
+                         + ch(b"IEND", b""))
+
+        def to_rgb(msg):
+            arr = np.frombuffer(bytes(msg.data), dtype=np.uint8)
+            arr = arr.reshape((msg.height, msg.width, -1))
+            enc = (msg.encoding or "").lower()
+            if enc.startswith("rgba"):  return arr[..., :3]
+            if enc.startswith("bgra"):  return arr[..., [2, 1, 0]]
+            if enc.startswith("bgr"):   return arr[..., ::-1]
+            return arr[..., :3]
+
+        rclpy.init()
+        node = rclpy.create_node("overhead_snapshot")
+        state = {"first": None, "last_grab": 0.0, "saved": 0,
+                 "spec": {}, "rejected": 0}
+
+        def on_spec(key):
+            def cb(msg): state["spec"][key] = float(msg.data)
+            return cb
+        for topic, key in (("/sim/overhead/spec", "coverage_m"),
+                           ("/sim/overhead/center_x", "center_x_m"),
+                           ("/sim/overhead/center_y", "center_y_m")):
+            node.create_subscription(Float32, topic, on_spec(key),
+                                     qos_profile_sensor_data)
+
+        def on_image(msg):
+            now = time.monotonic()
+            if state["first"] is None:
+                state["first"] = now
+                print(f"first overhead frame: {msg.width}x{msg.height} "
+                      f"{msg.encoding}; warming up {WARMUP:.0f} s", flush=True)
+            if now - state["first"] < WARMUP:                 return
+            if now - state["last_grab"] < PERIOD:             return
+            if state["saved"] >= WANT:                        return
+            rgb = to_rgb(msg)
+            std = float(rgb.std())
+            if std < MIN_STD:
+                state["rejected"] += 1
+                print(f"skip blank/near-uniform frame (std {std:.2f} "
+                      f"< {MIN_STD})", flush=True)
+                state["last_grab"] = now
+                return
+            idx = state["saved"] + 1
+            out = f"/tmp/overhead_{SCENE}_{idx}.png"
+            png(out, np.ascontiguousarray(rgb))
+            state["saved"] = idx
+            state["last_grab"] = now
+            print(f"wrote {out} ({os.path.getsize(out)/1e6:.1f} MB, std {std:.1f})",
+                  flush=True)
+
+        node.create_subscription(Image, "/sim/overhead/image", on_image,
+                                 qos_profile_sensor_data)
+
+        end = time.monotonic() + DEADLINE
+        while rclpy.ok() and time.monotonic() < end and state["saved"] < WANT:
+            rclpy.spin_once(node, timeout_sec=0.5)
+
+        meta = dict(state["spec"], scene=SCENE, frames=state["saved"],
+                    rejected_blank=state["rejected"])
+        with open(f"/tmp/overhead_{SCENE}.json", "w") as fh:
+            json.dump(meta, fh, indent=2)
+        print("overhead snapshot:", json.dumps(meta), flush=True)
+        node.destroy_node(); rclpy.shutdown()
+        # Not fatal: a missing overhead camera must not cost the iteration.
+        EOF
+      timeout_s: 240
+    optional: true
 
   # 5. THE SECTORED ARMS: one planner per robot, IN ITS OWN CONTAINER on its
   #    OWN DDS domain. Exits 0 on the conavgpt2 iterations, where step 6 runs
@@ -1072,9 +1230,21 @@ steps:
           echo "# vlfm: last 'N scored, M failed' + view-score failures"
           grep -aoE "[0-9]+ scored, [0-9]+ failed" /tmp/search/planner.log | tail -1
           grep -ac "view score failed" /tmp/search/planner.log
-          echo "# MIGHTY: bridge engaged, trajectories dropped"
-          grep -a "follower: engaging\|mighty_bridge up" /tmp/search/planner.log | head -2
-          grep -ac "dropping trajectory" /tmp/search/planner.log
+          # THE BRIDGE'S OWN LOG, NOT planner.log. Until 2026-08-30 these greps ran
+          # against /tmp/search/planner.log, where "mighty_bridge up",
+          # "follower: engaging" and "dropping trajectory" CANNOT appear — every one
+          # of them is printed by mighty_bridge, a different process with a different
+          # log. The block reported 0 on a healthy run and 0 on a run where the bridge
+          # had never started, which is how eight hovering drones went unnoticed for
+          # 95 minutes. ~/.ros/log outlives the tmux scrollback and the runner already
+          # collects it (CONTROL_STACK_GLOBS "mighty*").
+          echo "# MIGHTY bridge: alive now / came up / follower engaged / traj dropped"
+          ros2 node list 2>/dev/null | grep -cx "/{robot}/mighty/mighty_bridge"
+          grep -ah "mighty_bridge up" /root/.ros/log/mighty_bridge_*.log 2>/dev/null | tail -1
+          grep -ah "follower: takeoff settled\|follower: engaging" /root/.ros/log/mighty_bridge_*.log 2>/dev/null | tail -2
+          cat /root/.ros/log/mighty_bridge_*.log 2>/dev/null | grep -ac "dropping trajectory"
+          echo "# the trajectory controller: did anything ever reach it"
+          cat /root/.ros/log/trajectory_controller_*.log 2>/dev/null | grep -ac "Virtual waypoint does not correspond"
           echo "# detector-call failures seen by the planner"
           grep -acE "detector.*(fail|error|timeout)" /tmp/search/planner.log
         } > "$DEST"/summary.txt 2>&1

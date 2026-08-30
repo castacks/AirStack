@@ -186,6 +186,95 @@ _N_CAPFAIL = 0
 _CAP = os.environ.get("FRACTURE_CAP", "fan").strip().lower()
 _VTK = None
 
+# ---------------------------------------------------------------------------
+# THE VTK BOUNDARY IS NOT BOUNDS-CHECKED, AND THAT IS WHAT SEGFAULTED
+# ---------------------------------------------------------------------------
+#
+# The one hard crash this module has produced took the whole GAC fire bench
+# down three times on 2026-08-30 (SM_Building_09 F6). Kit's crash dump
+# 70cfa653-7231-48aa-81e159b6-f5f287c9 has both halves of it:
+#
+#   py-spy      _vtk_slice (fracture.py:329)   <- `strip.Update()`
+#               slice_plane <- fracture_mesh <- fracture_prim
+#               <- urban_fire.r_fire_collapse   (a `_break` of a wall module,
+#                                                NOT the roof-lid shatter)
+#   native      001 vtkPolyData::GetPointCells(long long, vtkIdList*)
+#               002 vtkStripper::RequestData(...)
+#
+# `vtkStripper` builds a link table sized by the polydata's POINT COUNT and
+# then walks it with ids taken FROM THE CELLS. `vtkPolyData::GetPointCells`
+# validates neither the id nor the table, so ONE cell naming a point the
+# array does not have reads off the end of the heap. Reproduced exactly, and
+# only, by that condition: `tools/_vtk_shell_probe.py`'s `oob` case — a
+# stripper fed one line cell whose second id is `npoints + 5` — dies with that
+# stack, while duplicate segments, degenerate segments, one-point cells,
+# high-degree junctions, 2,560-segment contours and contours past
+# `MaximumLength` all survive. Non-finite points do not crash it either, but
+# they PROPAGATE: a NaN vertex comes back out of `vtkClipPolyData` as a NaN
+# fragment (measured), and NaN in a mesh is what makes a later locator index
+# wild in the first place.
+#
+# Nothing in this file is supposed to build such a mesh and none of the 254
+# pieces of SM_Building_09 does when it is cut offline — but the failure mode
+# is a SIGSEGV that takes an eight-minute bake with it, while the cost of the
+# check is one numpy pass per cut and the cost of failing it is one fragment's
+# cap. So both ends of the boundary are checked from here on: what goes into
+# VTK (`_to_vtk`), what comes back (`_from_vtk`), and what the stripper is
+# asked to walk (`_strip_input`). `FRACTURE_VTK_GUARD=0` restores the round-3
+# behaviour for a comparison.
+_VTK_GUARD = os.environ.get("FRACTURE_VTK_GUARD", "1").strip() not in (
+    "0", "false", "no")
+_N_GUARD = 0                 # how many times the guard has actually fired
+
+
+def _guard_note(what, n):
+    """Report the first few guard hits. Silence would hide a real defect
+    upstream — the guard is a seatbelt, not a fix for whoever built the mesh."""
+    global _N_GUARD
+    _N_GUARD += 1
+    if _N_GUARD <= 5:
+        print("[fracture] VTK guard: dropped {0} {1} (a segfault avoided; "
+              "see the note above `_VTK_GUARD`)".format(n, what))
+
+
+def _vtk_arrays(mesh):
+    """(vertices, faces) that `vtkStripper` cannot walk off the end of.
+
+    Drops, in this order: faces with a negative or out-of-range index, faces
+    that name the same vertex twice (a zero-area cell the cutter turns into a
+    degenerate contour segment), and faces touching a non-finite point.
+    Returns `(v, f)` with `f` possibly empty. On clean input — every kit
+    module and every sliced GAC piece measured — NOTHING is dropped and the
+    arrays are the caller's own, so the polydata built from them is identical
+    to what the unguarded code built.
+    """
+    v = np.ascontiguousarray(np.asarray(mesh.vertices, dtype=np.float64))
+    f = np.asarray(mesh.faces, dtype=np.int64)
+    if not _VTK_GUARD or not len(f) or not len(v):
+        return v, f
+    n = len(v)
+    # FAST PATH FIRST — this runs on EVERY cut, and a Voronoi fracture is
+    # hundreds to thousands of them. Five scalar reductions (no temporary
+    # boolean arrays, no per-face mask) answer "is anything wrong at all";
+    # only a mesh that fails one of them pays for the full diagnosis. Measured
+    # over 254 pieces x 8 seeds: no measurable change in wall time.
+    if (int(f.min()) >= 0 and int(f.max()) < n
+            and not (f[:, 0] == f[:, 1]).any()
+            and not (f[:, 1] == f[:, 2]).any()
+            and not (f[:, 2] == f[:, 0]).any()
+            and np.isfinite(v.sum())):
+        return v, f
+    ok = ((f >= 0).all(axis=1) & (f < n).all(axis=1)
+          & (f[:, 0] != f[:, 1]) & (f[:, 1] != f[:, 2]) & (f[:, 2] != f[:, 0]))
+    if not np.isfinite(v).all():
+        bad = ~np.isfinite(v).all(axis=1)
+        # `f` may already be out of range here, so index the mask safely
+        ok &= ~bad[np.clip(f, 0, max(n - 1, 0))].any(axis=1)
+    if ok.all():
+        return v, f
+    _guard_note("face(s) VTK cannot index", int((~ok).sum()))
+    return v, f[ok]
+
 
 def _vtk():
     """The vtk module, or None. Cached, including the failure."""
@@ -229,8 +318,7 @@ def _to_vtk(mesh):
     import vtk
     from vtk.util import numpy_support as ns
 
-    v = np.ascontiguousarray(np.asarray(mesh.vertices, dtype=np.float64))
-    f = np.asarray(mesh.faces, dtype=np.int64)
+    v, f = _vtk_arrays(mesh)          # see the `_VTK_GUARD` note above
     pts = vtk.vtkPoints()
     pts.SetData(ns.numpy_to_vtk(v, deep=True))
     cells = np.hstack([np.full((len(f), 1), 3, dtype=np.int64), f]).ravel()
@@ -265,8 +353,111 @@ def _from_vtk(pd):
         f = raw[:, 1:]
     if not len(f):
         return None
+    f = np.asarray(f, dtype=np.int64)
+    if _VTK_GUARD and len(f):
+        # THE OTHER END OF THE BOUNDARY. A polydata that came back naming a
+        # point it does not have would be handed straight back to `_to_vtk` by
+        # the next cut in `_cell`, and that is the mesh `vtkStripper` dies on.
+        # Catch it where it is produced, not two cuts later.
+        if int(f.min()) < 0 or int(f.max()) >= len(v):
+            ok = (f >= 0).all(axis=1) & (f < len(v)).all(axis=1)
+            _guard_note("face(s) VTK returned naming a point it did not make",
+                        int((~ok).sum()))
+            f = f[ok]
+            if not len(f):
+                return None
     return trimesh.Trimesh(vertices=np.asarray(v, dtype=float),
-                           faces=np.asarray(f, dtype=np.int64), process=False)
+                           faces=f, process=False)
+
+
+def _strip_input(pd):
+    """The contour `vtkStripper` may walk, or None to skip the cap.
+
+    TWO JOBS, AND THE FIRST ONE IS THE CRASH (see the `_VTK_GUARD` note):
+
+      1. REFUSE what makes `vtkPolyData::GetPointCells` read off the end of the
+         link table — a line naming a point the output does not have, or a
+         non-finite point (which is how a locator index goes wild in the first
+         place). The cost is one numpy reduction over the contour, which is two
+         orders of magnitude smaller than the mesh that produced it; the cost
+         of failing is ONE fragment's cut face, against a SIGSEGV that takes
+         the whole bake.
+
+      2. DROP degenerate and DUPLICATE segments, and only if there are any.
+         `vtkCutter` emits one segment per crossed triangle, so two triangles
+         lying in the same place — GAC models its posters and signs as
+         separate quads ON the wall plane, and `gac_storey_slice.clip` had to
+         defeat a merging locator for exactly that reason — give the same
+         segment twice. MEASURED on a 64-segment ring
+         (`tools/_vtk_shell_probe.py`, case `dup_segs`): duplicated, the
+         stripper returns ONE polyline of nonsense and the fan cap comes back
+         with ZERO triangles instead of 62. So this is a cap that works rather
+         than a cap that silently vanishes — and it removes the last contour
+         topology the stripper is visibly wrong on.
+
+    Returns `pd` ITSELF when the contour is already clean, which every kit
+    module and every sliced GAC piece measured is, so the stripper sees byte
+    for byte what it saw before this function existed.
+    """
+    import vtk
+    from vtk.util import numpy_support as ns
+
+    if pd is None or pd.GetNumberOfPoints() <= 0:
+        return None
+    lines = pd.GetLines()
+    if lines is None or lines.GetNumberOfCells() == 0:
+        return None
+    if not _VTK_GUARD:
+        return pd
+    try:
+        conn = ns.vtk_to_numpy(lines.GetConnectivityArray())
+        off = ns.vtk_to_numpy(lines.GetOffsetsArray())
+    except Exception:
+        return pd                    # a VTK without the split cell arrays
+    npts = int(pd.GetNumberOfPoints())
+    if len(conn) and (int(conn.max()) >= npts or int(conn.min()) < 0):
+        _guard_note("contour segment(s) naming a point the cut did not make",
+                    int(len(conn)))
+        return None
+    try:
+        xyz = ns.vtk_to_numpy(pd.GetPoints().GetData())
+    except Exception:
+        xyz = None
+    if xyz is not None and len(xyz) and not np.isfinite(xyz).all():
+        _guard_note("non-finite contour point(s)",
+                    int((~np.isfinite(xyz).all(axis=1)).sum()))
+        return None
+    # -- 2. duplicates, ONLY on the all-2-point contour a cutter produces
+    if len(off) < 2 or not np.all(np.diff(off) == 2):
+        return pd
+    seg = conn.reshape(-1, 2)
+    key = np.sort(seg, axis=1)
+    good = key[:, 0] != key[:, 1]
+    if good.all():
+        _u, first = np.unique(key, axis=0, return_index=True)
+        if len(first) == len(seg):
+            return pd                              # already clean: unchanged
+        keep = np.zeros(len(seg), dtype=bool)
+        keep[first] = True
+    else:
+        _u, first = np.unique(key[good], axis=0, return_index=True)
+        idx = np.where(good)[0][first]
+        keep = np.zeros(len(seg), dtype=bool)
+        keep[idx] = True
+    seg = seg[keep]
+    _guard_note("duplicate/degenerate contour segment(s)",
+                int((~keep).sum()))
+    if not len(seg):
+        return None
+    cells = np.hstack([np.full((len(seg), 1), 2, dtype=np.int64),
+                       seg.astype(np.int64)]).ravel()
+    ca = vtk.vtkCellArray()
+    ca.SetCells(len(seg), ns.numpy_to_vtkIdTypeArray(
+        np.ascontiguousarray(cells), deep=True))
+    out = vtk.vtkPolyData()
+    out.SetPoints(pd.GetPoints())
+    out.SetLines(ca)
+    return out
 
 
 def _vtk_slice(mesh, normal, origin, cap=True):
@@ -324,11 +515,19 @@ def _vtk_slice(mesh, normal, origin, cap=True):
             except Exception:
                 filled = None
         if filled is None:
-            strip = vtk.vtkStripper()
-            strip.SetInputConnection(cut.GetOutputPort())
-            strip.Update()
-            loops = strip.GetOutput()
-            if loops.GetNumberOfLines():
+            # `SetInputData`, NOT `SetInputConnection`: the stripper must walk
+            # EXACTLY the polydata `_strip_input` just validated, not whatever
+            # a re-pull of the cutter's pipeline would hand it. The cutter is
+            # already up to date (`cut.Update()` above), so the result is the
+            # same and the check is no longer advisory.
+            src = _strip_input(cut.GetOutput())
+            loops = None
+            if src is not None:
+                strip = vtk.vtkStripper()
+                strip.SetInputData(src)
+                strip.Update()
+                loops = strip.GetOutput()
+            if loops is not None and loops.GetNumberOfLines():
                 face = vtk.vtkPolyData()
                 face.SetPoints(loops.GetPoints())
                 face.SetPolys(loops.GetLines())
@@ -432,6 +631,17 @@ def prim_to_mesh(stage, prim_path):
         mat = np.array(xf.GetLocalToWorldTransform(p), dtype=float)
         v = np.asarray([[q[0], q[1], q[2]] for q in pts], dtype=float)
         v = v @ mat[:3, :3] + mat[3, :3]        # USD matrices are row-vector
+        # A NON-FINITE PRIM IS DROPPED, NOT MERGED. A zero or NaN component in
+        # a composed transform (a referenced Xform asset whose op the caller
+        # authored from a solver result, say) turns the whole merged mesh into
+        # NaN, every extent and centroid with it, and the first VTK locator
+        # that hashes those coordinates indexes wherever the cast lands — the
+        # class of defect that ends in the SIGSEGV described above `_to_vtk`.
+        # One prim lost beats a fracture that cannot be reasoned about.
+        if not np.isfinite(v.sum()):
+            print("[fracture] {0}: non-finite points after transform; that "
+                  "prim is dropped".format(str(p.GetPath())))
+            continue
         verts.append(v)
         faces.append(f + base)
         base += len(v)
@@ -1715,6 +1925,15 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
     caps the open edges as it goes, and never needs the mesh to be manifold.
     """
     if mesh is None or not len(mesh.faces):
+        return []
+    # THE ENTRY POINT EVERY CUT GOES THROUGH. `_vtk_arrays` drops individual
+    # bad faces silently at the VTK boundary; a mesh that is non-finite as a
+    # WHOLE is a defect upstream and worth one line, because every derived
+    # number below (`extents`, `bounds`, the seed cloud, `centroid`) is then
+    # NaN and the fracture returns nothing for no visible reason.
+    if not np.isfinite(np.asarray(mesh.vertices, dtype=float).sum()):
+        print("[fracture] REFUSED: {0} vertices, {1} faces, non-finite "
+              "coordinates".format(len(mesh.vertices), len(mesh.faces)))
         return []
 
     # Bounding-box volume, because a non-watertight shell has no real one.

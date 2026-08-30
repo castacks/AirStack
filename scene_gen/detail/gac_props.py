@@ -854,8 +854,11 @@ def dress(config, placements, rng, by_kind=None, faces=None, dims=None,
 # anything on `building_props.flat_roof`) are a different story: earthquake
 # damages them directly (`disaster/quake.py`'s `_mono_pass`, matched by
 # `category == "house"` and a non-archetype `usd` — the exact same test
-# `dress()` uses) and fire's `disaster/urban_fire.burn_monolith` is written
-# to the same contract (`usd, x, y, yaw` — a placed monolith, not a style).
+# `dress()` uses). Fire USED to have a matching whole-asset entry point,
+# `disaster/urban_fire.burn_monolith`, written to the same contract
+# (`usd, x, y, yaw` — a placed monolith, not a style); it was removed on
+# 2026-08-29 and whole-asset buildings now go through
+# `disaster/kit_substitute.route()`. The quake side is unchanged.
 # Both operate on the IDENTICAL building this module dressed, addressable by
 # the SAME `usd`/`x`/`y` the placement already carries — so for THIS class
 # of building, "author a second set of tanks and AC units" is not just

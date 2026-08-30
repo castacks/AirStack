@@ -26,11 +26,262 @@ import math
 import os
 import random
 
-from pxr import Gf, Sdf, Usd, UsdGeom
-
 from . import quake_flow as qf
 
+# `pxr` is imported PER FUNCTION below, not at module scope (agent F, round
+# 4): this file used to `from pxr import Gf, Sdf, Usd, UsdGeom` here, which
+# made it unimportable on the host where `_clear_under_heaps`'s pure helpers
+# (`heap_reach_m`, `in_reach`, `_heap_action`, `_dedupe_actions`) need to run
+# for `tests/test_quake_heap_clearance.py`. Same convention `quake_flow.py`
+# already holds, for the same reason.
+
 ARCH_PREFIX = "bld_"
+
+
+# ---------------------------------------------------------------------------
+# HEAP CLEARANCE, pure half (agent F): street trees, lamps/signs/hydrants/
+# bins and parked cars caught under a collapse pile. PURE — no pxr, no
+# `scene_generator` — so `tests/test_quake_heap_clearance.py` can import this
+# module and exercise the reach/decision math on the host. The pxr-touching
+# half (`_clear_under_heaps`, `_lean_matrix`) lives further down, next to
+# `_mono_pass`, which it runs after.
+# ---------------------------------------------------------------------------
+HEAP_REACH_FLOOR_M = 1.5      # a heap always reaches at least this far
+HEAP_REACH_CAP_M = 10.0      # fall side: matches quake_rubble.RUNOUT_CAP_M
+HEAP_REACH_CAP_BLIND_M = 3.0  # blind / party-wall sides: matches the planner's blind cap
+
+# run-out fraction of H on the STREET / FALL side, DG5 rc baseline: 0.65 at
+# H <= 4 m, 0.40 at H == 12 m, 0.35 at H >= 20 m, linear between the knots
+# (agent A's memo, `_plans/eq_round4_rubble_research.md` SS1b/SS6 — a tall
+# building's debris pile is proportionally SHORTER-reaching than a short
+# one's, not longer). URM debris does not travel as far (x0.85); an rc_glass
+# tower at DG5 sheds only its cladding, not the frame (x0.5). A BLIND /
+# party-wall side gets a flat 0.10 H regardless of type — the far side of a
+# heap does not know what construction it is.
+_FALL_KNOTS = ((4.0, 0.65), (12.0, 0.40), (20.0, 0.35))
+_BLIND_FRAC = 0.10
+
+
+def _fall_frac(H):
+    """The run-out curve's value at height `H`, flat past the end knots."""
+    (h0, f0), (h1, f1), (h2, f2) = _FALL_KNOTS
+    if H <= h0:
+        return f0
+    if H <= h1:
+        return f0 + (f1 - f0) * (H - h0) / (h1 - h0)
+    if H <= h2:
+        return f1 + (f2 - f1) * (H - h1) / (h2 - h1)
+    return f2
+
+
+# Downtown street furniture comes from two generators with two vocabularies
+# (`scene_generator.build_city`'s legacy packer vs. `detail/city_detail.py`'s
+# per-category placer — see `_CATEGORY` there), both feeding the same flat
+# `placements` list `assemble` already receives. Every entry is its own
+# referenced prim (`scene_generator.apply_placements`: "NOT INSTANCED BY
+# DEFAULT... every placement composes as its own reference"), never a
+# PointInstancer — `_clear_under_heaps` still handles that case defensively
+# because a future/other pipeline could scatter whole props that way.
+_TREE_CATS = frozenset({"tree", "street_tree"})
+_CAR_CATS = frozenset({"car"})
+_POLE_CATS = frozenset({
+    "streetlight", "traffic_light", "sign", "fire_hydrant", "bollard",
+    "utility_pole", "billboard", "mailbox", "parking_meter", "bike_rack",
+    "newspaper_box", "phone_booth", "trash_can", "dumpster",
+    "planter_fence", "bike_lane_delineator", "traffic_cone",
+})
+
+_ACTION_PRIORITY = {"remove": 4, "tip": 3, "lean": 2, "bury": 1}
+
+
+def heap_reach_m(btype, grade, H, fall_side=True):
+    """Metres a heap's debris reaches beyond the wall line, on the STREET /
+    FALL side (`fall_side=True`) or a BLIND / party-wall side (False).
+
+    `btype` only matters on the fall side (see `_fall_frac`'s note); the
+    blind side is a flat fraction of H whatever the construction is. DG4
+    (partial) always halves whichever of those two values applies — half the
+    building came down, roughly half as much debris travels. Floored so a
+    short building still buries its own kerb, capped so a 60 m tower does
+    not reach across the street."""
+    H = float(H)
+    if fall_side:
+        frac = _fall_frac(H)
+        if btype == "urm":
+            frac *= 0.85
+        elif btype == "rc_glass":
+            frac *= 0.5
+    else:
+        frac = _BLIND_FRAC
+    if str(grade) == "DG4":
+        frac *= 0.5
+    cap = HEAP_REACH_CAP_M if fall_side else HEAP_REACH_CAP_BLIND_M
+    return min(cap, max(HEAP_REACH_FLOOR_M, frac * H))
+
+
+def heap_reach_sides(btype, grade, H, prim_path=""):
+    """{"S", "E", "N", "W"} -> reach_m for one building's heap. "S" is the
+    FRONT — -Y in the building's own frame, the side facing `yaw_deg`'s
+    street, the same S/E/N/W convention `quake_flow._outward` already uses —
+    and always gets the fall-side reach. A baked archetype does not record
+    which way it actually fell, so a SECOND side, drawn deterministically
+    from `prim_path`, also gets the fall-side reach (a corner building or an
+    L-plan throwing debris across two streets is not rare). The remaining
+    two sides get the blind/party-wall reach.
+
+    A STABLE hash (`zlib.crc32`) picks the second side, not Python's
+    built-in `hash()` — `hash()` on a string is salted per PROCESS
+    (`PYTHONHASHSEED`) since Python 3.3, and this whole pipeline is seeded
+    for reproducibility end to end (`build_city`: "Deterministic for a given
+    config['seed']"); the same scene run twice has to throw debris the same
+    way both times.
+    """
+    import zlib
+
+    fall = heap_reach_m(btype, grade, H, fall_side=True)
+    blind = heap_reach_m(btype, grade, H, fall_side=False)
+    others = ("E", "N", "W")
+    extra = others[zlib.crc32(str(prim_path).encode("utf-8")) % len(others)]
+    return {"S": fall, "E": fall if extra == "E" else blind,
+            "N": fall if extra == "N" else blind,
+            "W": fall if extra == "W" else blind}
+
+
+def _heap_reach_for(r, btype, grade, H, prim_path=""):
+    """The per-side reach dict `_clear_under_heaps` uses for one heap
+    record `r` (one entry of `assemble`'s `records` list).
+
+    MEASURED, WHEN THE BAKE RECORDED IT: `r["reach_m"]`, a {side: float}
+    dict copied onto the record from the archetype's own manifest row at
+    swap time (a future bake pass — `quake_flow`'s wave-2 rubble routing —
+    can put real per-side run-out there once it plans an actual pile
+    instead of a discrete-block heap). `r["fall_sides"]` names which of
+    the FOUR sides count as a fall/street side for a fill-in when the
+    dict does not cover all of them (defaulting to `{"S"}`, the packer's
+    own front-door convention, if the record has no opinion either).
+
+    DRAWN, OTHERWISE (`heap_reach_sides`) — today's behaviour, unchanged,
+    and still what every kit archetype gets until something populates
+    `reach_m` on its manifest row.
+
+    Pure — no pxr, no stage — so `_clear_under_heaps`'s use of measured
+    stats is testable on the host without a USD stage at all.
+    """
+    r_reach = r.get("reach_m")
+    if isinstance(r_reach, dict) and r_reach:
+        fall_sides = set(r.get("fall_sides") or ("S",))
+        return {s: float(r_reach[s]) if s in r_reach else
+                heap_reach_m(btype, grade, H, fall_side=(s in fall_sides))
+                for s in ("S", "E", "N", "W")}
+    return heap_reach_sides(btype, grade, H, prim_path)
+
+
+def in_reach(cx, cy, W, D, yaw_deg, x, y, reach):
+    """(inside, dist_m, side) for a point (x, y) against a building footprint
+    centred at (cx, cy), W x D, yawed `yaw_deg` degrees. `reach` is either a
+    single number (isotropic — kept as a convenience wrapper for a caller
+    that does not care which side) or a {"S", "E", "N", "W"} dict, one reach
+    per side (`heap_reach_sides`) — the run-out is not the same on the
+    street side as it is against the neighbour's party wall.
+
+    Computed in the building's own yaw frame (local x along W, y along D,
+    found by rotating the offset by -yaw). `dist_m` is the ACTUAL metre
+    distance from the wall line on whichever side the point falls nearest —
+    0 exactly on the wall, positive outside, negative INSIDE the footprint
+    (the distance to the NEAREST wall, negated, so a prop dead centre reads
+    more "inside" than one a metre past the wall line). `side` names that
+    nearest wall, so the caller can look up ITS OWN reach and its own
+    H-scaled buried band (see `_heap_action`). `inside` is
+    `dist_m <= reach[side]`.
+
+    Symmetric under mirroring through the centre whenever `reach` is a
+    single number (or every side shares one value): only `abs(local x/y)` is
+    used, so `dist_m` for `(2*cx - x, 2*cy - y)` is identical. With a
+    genuinely per-side `reach` dict the mirrored point can name the OPPOSITE
+    side, which by construction may carry a different reach — that asymmetry
+    is the entire reason this signature exists.
+    """
+    if not isinstance(reach, dict):
+        reach = {"S": reach, "E": reach, "N": reach, "W": reach}
+    a = math.radians(-float(yaw_deg))
+    dx, dy = x - cx, y - cy
+    lx = dx * math.cos(a) - dy * math.sin(a)
+    ly = dx * math.sin(a) + dy * math.cos(a)
+    hw, hd = W / 2.0, D / 2.0
+    ox = abs(lx) - hw          # <= 0 while inside the footprint on this axis
+    oy = abs(ly) - hd
+    side_x = "E" if lx >= 0.0 else "W"
+    side_y = "N" if ly >= 0.0 else "S"
+    if ox <= 0.0 and oy <= 0.0:
+        side, d = (side_y, oy) if oy >= ox else (side_x, ox)
+    elif oy <= 0.0:
+        side, d = side_x, ox
+    elif ox <= 0.0:
+        side, d = side_y, oy
+    else:
+        side = side_x if ox >= oy else side_y
+        d = math.hypot(ox, oy)
+    r = float(reach.get(side, 0.0))
+    return (d <= r), d, side
+
+
+def _prop_kind(category):
+    """"tree" | "pole" | "car" | None for a placement's `category` string —
+    the vocabulary `_heap_action` keys on."""
+    if category in _TREE_CATS:
+        return "tree"
+    if category in _CAR_CATS:
+        return "car"
+    if category in _POLE_CATS:
+        return "pole"
+    return None
+
+
+def _heap_action(kind, dist_m, reach_m, H):
+    """"remove" | "lean" | "tip" | "bury" | None for one prop `kind` at
+    `dist_m` metres from the wall line (see `in_reach`) on a side whose heap
+    reaches `reach_m`, for a building `H` tall.
+
+    Bands are in METRES OF H, not fractions of the reach (agent A's memo):
+    0 to 0.3 H is buried/crushed — a tree does not lean there, it is gone; a
+    lamppost is not merely knocked over, it is under the pile; a car is sunk
+    to its roofline. 0.3 H out to the reach is lighter: a tree still leans, a
+    car is untouched (a heap's outer rim does not reach a car's roofline the
+    way it reaches a standing post), a lamppost still goes over — a slender
+    post has no partial-buried state worth drawing, so POLE tips across the
+    WHOLE reach regardless of band.
+
+    Where the side's own reach is SHORTER than 0.3 H — a blind/party-wall
+    side, most of the time — there is no room for the outer band at all: the
+    whole reach counts as buried, which `min(0.3 * H, reach_m)` gives for
+    free.
+    """
+    if dist_m > reach_m:
+        return None
+    buried = min(0.3 * float(H), float(reach_m))
+    if kind == "tree":
+        return "remove" if dist_m < buried else "lean"
+    if kind == "pole":
+        return "tip"
+    if kind == "car":
+        return "bury" if dist_m < buried else None
+    return None
+
+
+def _dedupe_actions(entries):
+    """`entries` is an iterable of (prim_path, action, payload). Returns
+    {prim_path: (action, payload)} — one entry per prim_path, keeping
+    whichever action ranks highest on `_ACTION_PRIORITY` (remove > tip > lean
+    > bury; first-seen wins a tie) — so a prop two overlapping heaps both
+    reach is only ever touched by the stronger one, once."""
+    best = {}
+    for path, action, payload in entries:
+        if not path or action not in _ACTION_PRIORITY:
+            continue
+        cur = best.get(path)
+        if cur is None or _ACTION_PRIORITY[action] > _ACTION_PRIORITY[cur[0]]:
+            best[path] = (action, payload)
+    return best
 
 
 def load_manifest(arch_dir):
@@ -44,20 +295,53 @@ def load_manifest(arch_dir):
     return out
 
 
+# Foundation-family levels have no numeral (`SETTLE`/`TILT`/`OV`), so they
+# cannot ride the `rpartition("_DG")` split below — that only ever fires for
+# `DG<n>`. Tried in this order once the DG split comes back empty.
+_FOUNDATION_LEVELS = ("SETTLE", "TILT", "OV")
+
+
 def style_of(usd):
-    """`.../bld_office_wide_DG0.usd` -> ("office_wide", "DG0")."""
+    """`.../bld_office_wide_DG0.usd` -> ("office_wide", "DG0").
+
+    Also parses the foundation family baked by the same launcher for the
+    same styles — `bld_office_wide_TILT.usd` -> ("office_wide", "TILT") —
+    and a `_vN` variant suffix on either family (`..._DG3_v2.usd` -> level
+    "DG3", `..._TILT_v2.usd` -> level "TILT").
+
+    BEFORE THIS FIX: only `_DG<n>` parsed at all. `_mono_pass` skips
+    anything `style_of` resolves (`if style or category != "house": continue`
+    — a resolved style means "a kit archetype `assemble` already handled",
+    not a monolith); `assemble`'s FOUNDATION pass swaps a standing
+    building's reference to `bld_<style>_TILT.usd` / `_SETTLE.usd` /
+    `_OV.usd` and updates `p["usd"]` to match, but `_mono_pass` runs
+    AFTER that pass, over the SAME `placements` list, and re-reads
+    `p["usd"]`. With the old parser, `style_of("bld_office_wide_TILT.usd")`
+    == `(None, None)` — a TILT-swapped kit building read as an
+    unrecognised monolith and `_mono_pass` could tilt/lean it A SECOND
+    TIME (`_tilt_prim` composes its matrix onto whatever local transform
+    is already there, so this is a real compounding double-transform, not
+    a relabelling). Recognising the foundation family here is what makes
+    `_mono_pass`'s guard actually skip it.
+    """
     base = os.path.basename(str(usd))
     if not base.startswith(ARCH_PREFIX) or not base.endswith(".usd"):
         return None, None
     stem = base[len(ARCH_PREFIX):-4]
     style, _, level = stem.rpartition("_DG")
-    if not style:
-        return None, None
-    level = "DG" + level
-    # strip a `_vN` variant suffix from the level
-    if "_v" in level:
-        level = level.split("_v")[0]
-    return style, level
+    if style:
+        level = "DG" + level
+        if "_v" in level:
+            level = level.split("_v")[0]
+        return style, level
+    for tok in _FOUNDATION_LEVELS:
+        style, sep, rest = stem.rpartition("_" + tok)
+        if style and sep:
+            level = tok + rest              # rest is "" or "_vN"
+            if "_v" in level:
+                level = level.split("_v")[0]
+            return style, level
+    return None, None
 
 
 def _variants(manifest, style, grade):
@@ -292,6 +576,21 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
     stats = {"buildings": n, "tally": tally, "tilted": tilted, "missing": missing,
              "records": records, "foundation": n_found,
              "soft_soil": (soft.centre + soft.radii) if soft else None}
+    # HEAP CLEARANCE: trees, lamps/signs/hydrants/bins and cars caught under a
+    # DG4/DG5 pile (or a monolith ruin swap) — see `_clear_under_heaps`. Runs
+    # BEFORE `_d_interactions` so a lamppost this pass already tipped is not
+    # read as a live neighbour by a lean-on/collapse-onto pair. Guarded like
+    # the monolith and interaction passes: a failure here must not cost the
+    # scene its grades.
+    try:
+        stats["cleared"] = _clear_under_heaps(
+            stage, placements, records, manifest, ssf, rng,
+            bounds=_c_plate_bounds(config, ssf), verbose=verbose)
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        print("[quake] heap clearance FAILED: {0}".format(exc))
+        stats["cleared"] = {"error": str(exc)}
     # BATCH D: make a few pairs of buildings touch (see `_d_interactions`).
     # Guarded, because it is the one pass here that runs PhysX at assembly:
     # a failure must not cost the scene its grades.
@@ -372,6 +671,8 @@ def _c_tilt_ground(stage, base, m, M, rng, geom=None, mats=None, tag=None,
     as SIBLINGS of the placed archetype (under `<base>/quake_tilt`) so it does
     not ride the archetype's transform. `base` is the placement scope, which
     is at the identity — the same assumption `_tilt_prim` already makes."""
+    from pxr import Sdf, UsdGeom
+
     scope = scope or (str(base) + "/quake_tilt")
     UsdGeom.Scope.Define(stage, Sdf.Path(scope))
     kw = {}
@@ -393,6 +694,8 @@ def _tilt_prim(stage, prim, p, rec, deg, sink, rng, ssf, bounds=None,
     and never lifts anything out of the ground. `_c_tilt_matrix` owns the
     matrix now, shared with `quake_flow.r_tilt_sink`, and pivots INSIDE the
     footprint so the far edge comes clear. Returns its geometry dict."""
+    from pxr import Gf, UsdGeom
+
     m = _c_mass(p, rec, ssf)
     side = side or rng.choice(["S", "E", "N", "W"])
     M, g = qf._c_tilt_matrix(m, side, deg, abs(sink) * ssf,
@@ -436,6 +739,8 @@ def _bld_masses(records, manifest, placements):
 def _mono_dims(stage, prim, p):
     """(W, D, H) of a placed monolith in ITS OWN yaw frame, from the world
     bound: the layout places at 0/90/180/270, where the world box is exact."""
+    from pxr import Usd, UsdGeom
+
     cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
                               [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
     rng_ = cache.ComputeWorldBound(prim).ComputeAlignedRange()
@@ -525,6 +830,195 @@ MONO_HEAVY_SINK = (0.8, 1.6)
 MONO_MILD_P = 0.5
 MONO_MILD_DEG = (2.0, 4.0)
 MONO_MILD_SINK = (0.3, 0.5)
+
+
+# ---------------------------------------------------------------------------
+# HEAP CLEARANCE, pxr half (agent F)
+# ---------------------------------------------------------------------------
+# Round-3 review (`b0_apartment_tall_DG5_obl.png`, `b3_highrise_04_DG5_obl.
+# png`): street trees stood untouched THROUGH the rubble pile of a totally
+# collapsed building, a bus sat clean at the toe, lampposts stood inside the
+# pile. A real pile buries, tips and crushes what is under it. This runs
+# AFTER the grade loop and the monolith pass (it needs both — a mono ruin
+# swap throws a heap exactly like a kit DG5 does) and BEFORE
+# `_d_interactions`, so a lamppost this pass has already tipped is not read
+# as a live neighbour by a lean-on/collapse-onto pair.
+def _lean_matrix(pivot, out_x, out_y, deg, sink_m, ssf):
+    """Rotate `deg` about a horizontal axis through `pivot` (world/stage
+    units) so the object's TOP tips toward the unit direction (out_x, out_y),
+    then sink `sink_m` metres. Same construction as `_d_lean_matrix` — a
+    small positive rotation about axis (-out_y, out_x, 0) moves a point above
+    the pivot toward (out_x, out_y), by the right-hand rule."""
+    from pxr import Gf
+
+    P = Gf.Vec3d(float(pivot[0]), float(pivot[1]), float(pivot[2]))
+    axis = Gf.Vec3d(-out_y, out_x, 0.0)
+    R = Gf.Matrix4d().SetRotate(Gf.Rotation(axis, float(deg)))
+    return (Gf.Matrix4d().SetTranslate(-P) * R * Gf.Matrix4d().SetTranslate(P)
+            * Gf.Matrix4d().SetTranslate(Gf.Vec3d(0.0, 0.0, -float(sink_m) * ssf)))
+
+
+def _clear_under_heaps(stage, placements, records, manifest, ssf, rng,
+                       bounds=None, verbose=True):
+    """Trees, lamps/signs/hydrants/bins and cars caught under a DG4/DG5 heap
+    (or a monolith swapped for a ruin) get removed, leaned, tipped or buried
+    — see `heap_reach_m` / `_heap_action` for the ladder. Everything else on
+    the sidewalk (benches, cafe sets, manholes, ...) is left alone; it is not
+    in the brief and a flush-with-ground prop like a manhole is not something
+    a heap tips over anyway.
+
+    Returns {"trees_removed", "trees_leaned", "lamps_tipped", "cars_buried"}.
+    """
+    from pxr import Gf, Usd, UsdGeom
+
+    zero = {"trees_removed": 0, "trees_leaned": 0, "lamps_tipped": 0,
+            "cars_buried": 0}
+    by_prim = {p.get("prim_path"): p for p in placements if p.get("prim_path")}
+
+    # One heap per record with a pile: (cx, cy, W, D, yaw, reach_dict, H).
+    # `reach_dict` is per-side (`_heap_reach_for`: measured off the record
+    # when it has `reach_m`, drawn via `heap_reach_sides` otherwise) — the
+    # fall side reaches much further than a blind/party-wall side does.
+    heaps = []
+    for r in records:
+        grade = str(r.get("grade", ""))
+        if r.get("mono"):
+            if grade != "DG5":
+                continue                   # a mono heavy-lean has no pile
+            btype = "rc"                    # `_mono_pass` always scores as rc
+            W = float(r.get("W", 20.0))
+            D = float(r.get("D", 20.0))
+            H = float(r.get("H", 12.0))
+        else:
+            if grade not in ("DG4", "DG5"):
+                continue
+            rec0 = manifest.get((r.get("style"), "DG0")) or {}
+            btype = rec0.get("type") or qf.FAMILY_TYPE.get(rec0.get("family", ""), "urm")
+            W = float(rec0.get("W", 20.0))
+            D = float(rec0.get("D", 20.0))
+            H = float(rec0.get("H", 12.0))
+        prim_path = r.get("prim") or ""
+        p = by_prim.get(prim_path) or {}
+        yaw = float(p.get("yaw_deg", 0.0))
+        # THE MEASURED REACH LIVES ON THE SWAPPED LEVEL'S MANIFEST ROW, not on
+        # the `records` entry `assemble` wrote (style / x / y / grade / prim
+        # only). Find the row for the level this building actually got — the
+        # placement's `usd` names the variant — and hand `_heap_reach_for` a
+        # copy of the record carrying that row's `reach_m` / `fall_sides`
+        # (written by the bake's `_rubble_fields`); an old manifest without
+        # them falls through to the draw exactly as before.
+        rr = r
+        if not r.get("mono") and manifest:
+            rows = _variants(manifest, r.get("style"), grade)
+            row = next((v for v in rows if v.get("usd") == p.get("usd")),
+                       rows[0] if rows else None)
+            if row and (row.get("reach_m") or row.get("fall_sides")):
+                rr = dict(r)
+                for k in ("reach_m", "fall_sides", "crown_m"):
+                    if row.get(k) is not None and rr.get(k) is None:
+                        rr[k] = row[k]
+        heaps.append((float(r["x"]), float(r["y"]), W, D, yaw,
+                      _heap_reach_for(rr, btype, grade, H, prim_path), H))
+
+    if not heaps:
+        if verbose:
+            print("[quake] cleared under heaps: 0 trees removed, 0 leaned, "
+                  "0 lamps tipped, 0 cars buried")
+        return zero
+
+    # Every (prop, heap) pair the prop is in reach of, so `_dedupe_actions`
+    # can pick the strongest outcome when two piles overlap the same prop.
+    entries = []
+    for p in placements:
+        kind = _prop_kind(p.get("category"))
+        path = p.get("prim_path")
+        if kind is None or not path:
+            continue
+        x, y = float(p.get("x_m", 0.0)), float(p.get("y_m", 0.0))
+        for (cx, cy, W, D, yaw, reach_sides, H) in heaps:
+            inside, dist_m, side = in_reach(cx, cy, W, D, yaw, x, y, reach_sides)
+            if not inside:
+                continue
+            action = _heap_action(kind, dist_m, reach_sides[side], H)
+            if action is None:
+                continue
+            entries.append((path, action, (kind, cx, cy)))
+
+    winners = _dedupe_actions(entries)
+    counts = dict(zero)
+    cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                              [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+    for path, (action, (kind, cx, cy)) in winners.items():
+        try:
+            prim = stage.GetPrimAtPath(path) if path else None
+            if not prim or not prim.IsValid():
+                continue
+            is_instancer = prim.GetTypeName() == "PointInstancer"
+            if action == "remove":
+                if is_instancer:
+                    pi = UsdGeom.PointInstancer(prim)
+                    proto = pi.GetProtoIndicesAttr().Get()
+                    n = len(proto) if proto else 0
+                    ids_attr = pi.GetIdsAttr()
+                    ids = list(ids_attr.Get()) if ids_attr and ids_attr.Get() \
+                        else list(range(n))
+                    pi.CreateInvisibleIdsAttr().Set(ids)
+                else:
+                    prim.SetActive(False)
+                counts["trees_removed"] += 1
+                continue
+            if is_instancer:
+                if verbose:
+                    print("[quake] heap clearance: {0} is a PointInstancer — "
+                          "cannot {1} an instance, only remove ({2}) is "
+                          "supported".format(path, action, kind))
+                continue
+            rng_ = cache.ComputeWorldBound(prim).ComputeAlignedRange()
+            if rng_.IsEmpty():
+                continue
+            lo, hi = rng_.GetMin(), rng_.GetMax()
+            px, py, pz = 0.5 * (lo[0] + hi[0]), 0.5 * (lo[1] + hi[1]), lo[2]
+            if bounds is not None:
+                bx0, by0, bx1, by1 = bounds
+                if not (bx0 <= px <= bx1 and by0 <= py <= by1):
+                    continue                # pivot off the plate: skip
+            dx, dy = px - cx * ssf, py - cy * ssf
+            norm = math.hypot(dx, dy) or 1.0
+            ox, oy = dx / norm, dy / norm
+            if action == "lean":            # tree: away from the building
+                deg, sink = rng.uniform(25.0, 45.0), 0.2
+                out_x, out_y = ox, oy
+            elif action == "tip":           # pole/sign/hydrant/bin: away
+                deg, sink = rng.uniform(70.0, 85.0), 0.0
+                out_x, out_y = ox, oy
+            else:                           # bury: car, toward the building
+                deg, sink = rng.uniform(8.0, 15.0), 0.35
+                out_x, out_y = -ox, -oy
+            M = _lean_matrix((px, py, pz), out_x, out_y, deg, sink, ssf)
+            xf = UsdGeom.Xformable(prim)
+            local = UsdGeom.XformCache().GetLocalTransformation(prim)[0]
+            tr = Gf.Transform(local * M)
+            xf.ClearXformOpOrder()
+            xf.AddTranslateOp().Set(Gf.Vec3d(tr.GetTranslation()))
+            q = tr.GetRotation().GetQuat()
+            xf.AddOrientOp().Set(Gf.Quatf(q.GetReal(), Gf.Vec3f(q.GetImaginary())))
+            xf.AddScaleOp().Set(Gf.Vec3f(tr.GetScale()))
+            if action == "lean":
+                counts["trees_leaned"] += 1
+            elif action == "tip":
+                counts["lamps_tipped"] += 1
+            else:
+                counts["cars_buried"] += 1
+        except Exception as exc:
+            if verbose:
+                print("[quake] heap clearance: {0} on {1} failed ({2}), "
+                      "skipped".format(action, path, exc))
+            continue
+    if verbose:
+        print("[quake] cleared under heaps: {trees_removed} trees removed, "
+              "{trees_leaned} leaned, {lamps_tipped} lamps tipped, "
+              "{cars_buried} cars buried".format(**counts))
+    return counts
 
 
 def ground_effects(stage, config, stats, placements, arch_dir, parent, ssf,
@@ -745,6 +1239,8 @@ def _d_lean_matrix(m, side, deg, lift, z0, ssf):
     and the bake (both build at yaw 0) and wrong in the city, where the packer
     lays half a block at yaw 90. (`r_tilt_sink`, `r_tilt_severe` and
     `r_overturn` all still have that form; they only ever run at yaw 0.)"""
+    from pxr import Gf
+
     far = qf._opposite(side)
     B = m["D"] if side in ("S", "N") else m["W"]
     lnx, lny = qf._SIDE_NORMAL[far]
@@ -760,6 +1256,8 @@ def _d_lean_matrix(m, side, deg, lift, z0, ssf):
 def _d_apply_matrix(stage, prim, M):
     """Post-multiply one placed prim's LOCAL transform by M and re-author it
     as translate / orient / scale, exactly as `_tilt_prim` does."""
+    from pxr import Gf, UsdGeom
+
     xf = UsdGeom.Xformable(prim)
     local = UsdGeom.XformCache().GetLocalTransformation(prim)[0]
     tr = Gf.Transform(local * M)
@@ -844,6 +1342,9 @@ def _d_interactions(stage, config, stats, placements, arch_dir, parent=None,
     Returns {"pairs", "live", "geometric", "seconds", "notes"}.
     """
     import time
+
+    from pxr import Sdf, UsdGeom
+
     t0 = time.time()
     manifest = load_manifest(arch_dir)
     recs = stats.get("records", [])
@@ -966,6 +1467,7 @@ def _d_live_lean(stage, scope, tag, rec, p, nb, mats, cache, ssf, seed,
     the style is not a kit style (a harvested block shell has no modules)."""
     import scene_generator as sg
     from detail import urban_building as ub
+    from pxr import Sdf, UsdGeom
 
     style = rec["style"]
     if style not in ub.STYLES:

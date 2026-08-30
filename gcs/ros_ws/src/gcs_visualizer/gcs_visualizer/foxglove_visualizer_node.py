@@ -8,6 +8,7 @@ All markers are published to /gcs/robot_markers in the global ENU 'map' frame.
 
 import os
 import re
+import time
 
 import numpy as np
 import rclpy
@@ -273,6 +274,45 @@ class FoxgloveVisualizerNode(Node):
         self._overhead_max_grid_n = int(self.get_parameter(
             'overhead_max_grid_resolution').value)
         self._ground_published = False
+        # ── WHY THIS IS NOT "THE FIRST FRAME" ANY MORE ───────────────────────
+        # It used to be: the first overhead Image built the marker and the
+        # subscriptions were torn down. On a FROZEN cell that is a blank
+        # marker. ~250 MB of geometry is referenced in with textures still
+        # streaming off Nucleus, so Isaac's first rendered overhead frames are
+        # black or half-loaded — 2026-08-29 every bag in a 24-iteration sweep
+        # carried exactly one sim_ground message and it was empty.
+        #
+        # Three gates now, and the important one is MEASURED rather than
+        # timed: a frame whose per-channel std is below `sim_ground_min_std`
+        # is still-loading, whatever the clock says. `sim_ground_warmup_s`
+        # only stops us burning the first build on an obviously early frame,
+        # and `sim_ground_settle_s` buys one FINAL rebuild from the
+        # latest frame once the scene has stopped arriving.
+        #
+        # The marker is also republished every `sim_ground_repeat_period_s`
+        # until then, so a recorder that subscribed late has more than one
+        # message to find. It is LATCHED as well, but a latched message that
+        # arrives before the recorder does is a message a bag does not get,
+        # and one that arrives blank is worse than none.
+        self._ground_warmup_s = float(self.declare_parameter(
+            'sim_ground_warmup_s',
+            float(os.environ.get('SIM_GROUND_WARMUP_S') or 20.0)).value)
+        self._ground_min_std = float(self.declare_parameter(
+            'sim_ground_min_std',
+            float(os.environ.get('SIM_GROUND_MIN_STD') or 4.0)).value)
+        self._ground_settle_s = float(self.declare_parameter(
+            'sim_ground_settle_s',
+            float(os.environ.get('SIM_GROUND_SETTLE_S') or 45.0)).value)
+        self._ground_repeat_period_s = float(self.declare_parameter(
+            'sim_ground_repeat_period_s',
+            float(os.environ.get('SIM_GROUND_REPEAT_PERIOD_S') or 15.0)).value)
+        self._overhead_first_seen = None   # monotonic, first image of any kind
+        self._ground_accepted_at = None    # monotonic, first NON-BLANK build
+        self._latest_overhead = None       # newest accepted frame, for the rebuild
+        self._ground_marker = None         # last built marker, for the republish
+        self._ground_builds = 0
+        self._ground_blank_skips = 0
+        self._ground_repeat_timer = None
         # OPAQUE by default. This is the BOTTOM layer — the scene itself — and
         # anything drawn over it (an occupancy grid, frontier markers, GT boxes)
         # is what should be translucent. At the old 0.7 the ground washed out
@@ -781,14 +821,18 @@ class FoxgloveVisualizerNode(Node):
                 and self._overhead_center_y_m is not None)
 
     def _try_build_pending(self):
-        """If we have a pending image and all specs, finish the build."""
+        """If we have a pending image and all specs, run it through the normal
+        path. NOT _build_sim_ground_marker directly: that would skip the
+        warm-up and the blank-frame gate, and the cached image is the OLDEST
+        one we have — the single most likely frame in the whole stream to be
+        the black one."""
         if self._ground_published or self._pending_image is None:
             return
         if not self._specs_ready():
             return
         img = self._pending_image
         self._pending_image = None
-        self._build_sim_ground_marker(img)
+        self._on_overhead_image(img)
 
     def _on_overhead_spec(self, msg: Float32):
         """Cache the sim-published coverage_m."""
@@ -820,15 +864,93 @@ class FoxgloveVisualizerNode(Node):
                 f'Sim overhead spec: center_y_m = {self._overhead_center_y_m:.1f}')
         self._try_build_pending()
 
+    def _overhead_is_loaded(self, msg: Image) -> bool:
+        """False while the frame is still (near-)uniform — Isaac renders black
+        or flat grey until the referenced geometry and its Nucleus textures
+        have streamed in. Cheap: decode, stride down to at most 256x256, take
+        the std. This is the gate that a timer alone cannot be trusted to
+        replace, because how long a 1 km cell takes to arrive depends on the
+        server and the cell."""
+        try:
+            arr = np.frombuffer(bytes(msg.data), dtype=np.uint8)
+            arr = arr.reshape((msg.height, msg.width, -1))[..., :3]
+        except Exception:
+            return False
+        step = max(1, max(arr.shape[0], arr.shape[1]) // 256)
+        return float(arr[::step, ::step].std()) >= self._ground_min_std
+
     def _on_overhead_image(self, msg: Image):
-        """Cache or process the first valid sim-overhead Image."""
+        """Build the sim_ground marker from the first LOADED frame, then keep
+        the subscription open long enough to republish it and to rebuild once
+        from the final frame. See the block in __init__ for why not the first
+        frame."""
         if self._ground_published:
             return
+        if self._overhead_first_seen is None:
+            self._overhead_first_seen = time.monotonic()
+            self.get_logger().info(
+                f'Sim overhead: first frame {msg.width}x{msg.height} '
+                f'{msg.encoding}; warm-up {self._ground_warmup_s:.0f} s, then '
+                f'the first frame with std >= {self._ground_min_std:.1f}')
         if not self._specs_ready():
             # Hold onto the image until all specs arrive.
             self._pending_image = msg
             return
-        self._build_sim_ground_marker(msg)
+        if time.monotonic() - self._overhead_first_seen < self._ground_warmup_s:
+            return
+        if not self._overhead_is_loaded(msg):
+            self._ground_blank_skips += 1
+            if self._ground_blank_skips % 20 == 1:
+                self.get_logger().info(
+                    f'Sim overhead: frame still blank/near-uniform '
+                    f'(skipped {self._ground_blank_skips}); waiting for the '
+                    f'scene to finish streaming in')
+            return
+        self._latest_overhead = msg
+        if self._ground_builds == 0:
+            self._build_sim_ground_marker(msg)
+            self._ground_accepted_at = time.monotonic()
+            self._ground_repeat_timer = self.create_timer(
+                self._ground_repeat_period_s, self._republish_sim_ground)
+
+    def _republish_sim_ground(self):
+        """Republish the built marker until the settle window closes, then
+        rebuild ONCE from the newest frame and tear the overhead plumbing
+        down. The repeats exist so a bag has more than the single latched
+        message to find; the final rebuild exists because the scene keeps
+        arriving for a while after it stops looking blank."""
+        if self._ground_published or self._ground_marker is None:
+            return
+        elapsed = time.monotonic() - (self._ground_accepted_at or 0.0)
+        if elapsed < self._ground_settle_s:
+            self._ground_marker.header.stamp = self.get_clock().now().to_msg()
+            self._ground_pub.publish(self._ground_marker)
+            return
+        if self._latest_overhead is not None and self._ground_builds < 2:
+            self._build_sim_ground_marker(self._latest_overhead)
+        self._finish_sim_ground()
+
+    def _finish_sim_ground(self):
+        """Stop pulling raw image bytes (and the now-redundant specs) off the
+        wire, and stop the republish timer."""
+        self._ground_published = True
+        self._latest_overhead = None
+        if self._ground_repeat_timer is not None:
+            try:
+                self._ground_repeat_timer.cancel()
+                self.destroy_timer(self._ground_repeat_timer)
+            except Exception:
+                pass
+            self._ground_repeat_timer = None
+        for sub_attr in ('_overhead_sub', '_overhead_spec_sub',
+                         '_overhead_cx_sub', '_overhead_cy_sub'):
+            try:
+                self.destroy_subscription(getattr(self, sub_attr))
+            except Exception:
+                pass
+        self.get_logger().info(
+            f'Sim overhead: done — {self._ground_builds} marker build(s), '
+            f'{self._ground_blank_skips} blank frame(s) skipped')
 
     def _build_sim_ground_marker(self, msg: Image):
         """Build and publish the TRIANGLE_LIST sim_ground marker, then tear
@@ -910,17 +1032,15 @@ class FoxgloveVisualizerNode(Node):
                 marker.colors.extend([color] * 6)
 
         self._ground_pub.publish(marker)
-        self._ground_published = True
-        # Stop pulling raw image bytes (and the now-redundant specs) off the wire.
-        for sub_attr in ('_overhead_sub', '_overhead_spec_sub',
-                         '_overhead_cx_sub', '_overhead_cy_sub'):
-            try:
-                self.destroy_subscription(getattr(self, sub_attr))
-            except Exception:
-                pass
+        # Keep it: _republish_sim_ground sends this same object again on a
+        # timer, which costs nothing (the expensive part is building it) and
+        # gives a recorder that subscribed late something to catch. Teardown
+        # is _finish_sim_ground's job, not this method's.
+        self._ground_marker = marker
+        self._ground_builds += 1
         self.get_logger().info(
-            f'Published sim_ground marker: {N}x{N} cells, '
-            f'{len(marker.points)} verts, coverage {coverage:.1f} m, '
+            f'Published sim_ground marker #{self._ground_builds}: {N}x{N} '
+            f'cells, {len(marker.points)} verts, coverage {coverage:.1f} m, '
             f'center ({cx:.1f}, {cy:.1f}) m')
 
     def _publish_markers(self):

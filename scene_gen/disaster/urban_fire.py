@@ -52,6 +52,21 @@ Flow). The one wildfire habit deliberately NOT carried over is
 building to a structural level on the assumption that the structure itself is
 burning.
 
+WHERE THE FIRE IS, AND WHERE IT WAS, IS ONE LIST. `disaster.soot_plume.
+plan_events` draws the building's discrete fire EVENTS — each a run of
+openings on one storey of one elevation, in a state of "flame", "smoulder",
+"out" (burnt out: nothing volumetric, only its stain) or "stain" (smoke
+damage only) — right after `plan_fire`, and BOTH `r_flames` (the Flow
+emitters) and `r_smoke_stain` (the soot skin merged into every module's own
+texture) read that one list. So a window with flame coming out of it has a
+plume of soot over it by construction, a burnt-out compartment three floors
+under the flame front shows its stain and nothing else, and a burnt-out
+block is black because every one of its compartments vented for an hour,
+not because a level said "paint it black". The model behind the stain — EN
+1991-1-2 Annex B's external flame, Heskestad's plume, Riahi & Beyler's
+thermophoretic deposition, Beer-Lambert darkness — is documented in that
+module, with its citations.
+
 THE SEVERITY LADDER
 -------------------
 Not EMS-98 grades — those are shaking. A fire officer's ladder, and the
@@ -77,6 +92,13 @@ has BURNT OUT, because those photograph completely differently:
                           wall or dropped its floors into itself, or a
                           long-span deck that came down. Charred rubble, no
                           dust — this is what separates it from a quake heap.
+    F6  gutted, near gone A building that has burnt for hours and is barely
+                          standing: every floor down, the roof gone, more
+                          than one elevation lost, and what is left black
+                          top to bottom rather than stained in a stripe.
+                          Added 2026-08-29 on review — F5 stops short of the
+                          state a long-burning block actually ends in, and a
+                          near-collapsed building needs a texture to match.
 
 `LADDER[btype][level]` is the recipe list, keyed by the same construction
 types `quake_flow.FAMILY_TYPE` assigns, because how a building burns depends
@@ -97,15 +119,25 @@ import random
 # ---------------------------------------------------------------------------
 # The ladder
 # ---------------------------------------------------------------------------
-LEVELS = ("F0", "F1", "F2", "F3", "F4", "F5")
+# F5c ("c" for collapse) sits BESIDE F5, not above it: same fire, a
+# different structural outcome. F5 is `fire_collapse` — the burnt-out TOP
+# storeys drop into the floors below and all four walls are still there from
+# the street. F5c is `partial_collapse` (`disaster/fire_collapse.py`) — PART
+# of the shell has come down: one burnt elevation lying in the road with the
+# floors behind it sagged, or a corner gone from the fire floor up, and the
+# rest of the building standing. Both are real and they photograph
+# differently, so a set that wants one asks for it by name (user,
+# 2026-08-30: "I want some partial collapse buildings for fire in all sets").
+LEVELS = ("F0", "F1", "F2", "F3", "F4", "F5", "F5c", "F6")
 
 # Is there still fire in it? Drives the Flow state and the material finish:
 # an active fire is FRESH char (wet-black, still glossy) with flame; a
 # burnt-out one is cooled char going to grey ash, and smoke only.
 ACTIVE = {"F0": None, "F1": None, "F2": "flame", "F3": "flame",
-          "F4": "smoulder", "F5": "residual"}
+          "F4": "smoulder", "F5": "residual", "F5c": "residual",
+          "F6": "residual"}
 FINISH = {"F0": None, "F1": "scorch", "F2": "char", "F3": "char",
-          "F4": "ash", "F5": "ash"}
+          "F4": "ash", "F5": "ash", "F5c": "ash", "F6": "ash"}
 
 # How many storeys the fire is in, as a fraction of the block's height, and
 # where it started. A fire that starts on the top floor and a fire that
@@ -114,11 +146,20 @@ FINISH = {"F0": None, "F1": "scorch", "F2": "char", "F3": "char",
 # fire is far more likely to start in an occupied lower storey and because a
 # fire that started high leaves nothing below it to show the contrast.
 BAND = {
+    "F0": (1, 1, 0.0),      # untouched: a plan with no events (soot_plume)
     "F1": (1, 2, 0.0),      # (min storeys, max storeys, share above origin)
     "F2": (1, 2, 0.35),
     "F3": (3, 6, 0.75),
     "F4": (4, 99, 1.0),     # everything from the origin up
     "F5": (4, 99, 1.0),
+    # F5c is F5's fire with a different structural outcome, so it takes F5's
+    # band exactly: everything from the origin up, roof included. The
+    # collapse's own failure line is drawn from this band in
+    # `fire_collapse.plan_partial_collapse` and can never sit below `origin`.
+    "F5c": (4, 99, 1.0),
+    # F6 was added to LEVELS/LADDER without a BAND entry, so `plan_fire`
+    # raised KeyError on it (soot_png.py, 2026-08-30). Same band as F5.
+    "F6": (4, 99, 1.0),
 }
 
 LADDER = {
@@ -174,6 +215,45 @@ LADDER = {
                ("roof_scorch", {}),
                ("street_debris", {}),
                ("flames", {})],
+        # F5c — PART OF THE SHELL IS GONE, THE REST STANDS. Same fire as
+        # F4 (this list is F4's, in F4's order) with `partial_collapse`
+        # inserted at the front: one burnt elevation lying in the street with
+        # the floors behind it sagged and dropped, the interior on show
+        # through the hole, and three untouched elevations still holding the
+        # building up. Masonry gets `mode="elevation"` because that IS the
+        # masonry mechanism — a URM wall fails OUT OF PLANE, rocking about
+        # its foot as one plane, which is why the rubble ends up in the road
+        # rather than in a pile against the plinth.
+        #
+        # COLLAPSE FIRST, for the same reason F5 says so: `_els` skips
+        # elements a recipe has marked `dead`, so anything that takes a wall
+        # away must run BEFORE the passes that author art ON walls, or the
+        # art is left standing in the air after its wall is gone.
+        # `roof_burnthrough` still runs ahead of it so the deck exists (and
+        # so `partial_collapse` does not have to author one).
+        "F5c": [("floor_burnthrough", {}),
+                ("roof_burnthrough", {"frac": 0.30}),
+                ("partial_collapse", {"mode": "elevation"}),
+                ("window_burnout", {"frac": 1.0}),
+                ("smoke_stain", {"heavy": 1.4}),
+                ("char_facade", {}),
+                ("render_peel", {"rate": 0.42}),
+                ("gut_interior", {"frac": 1.0}),
+                ("expose_interior", {}),
+                ("roof_scorch", {}),
+                ("street_debris", {"density": 1.3}),
+                ("flames", {})],
+        "F6": [("floor_burnthrough", {"p": 1.0, "keep_below": 0, "budget": 9}),
+               ("roof_burnthrough", {"frac": 0.85}),
+               ("fire_collapse", {}),
+               ("window_burnout", {"frac": 1.0}),
+               ("smoke_stain", {"heavy": 2.0}),
+               ("char_facade", {"coverage": 0.92}),
+               ("gut_interior", {"frac": 1.0}),
+               ("expose_interior", {}),
+               ("roof_scorch", {}),
+               ("street_debris", {"density": 1.6}),
+               ("flames", {})],
     },
     "rc": {
         "F0": [],
@@ -224,6 +304,38 @@ LADDER = {
                ("roof_scorch", {}),
                ("street_debris", {}),
                ("flames", {})],
+        # F5c on a FRAME loses a CORNER, not a street wall. A concrete
+        # frame is continuous: its infill panels can burn out and fall bay by
+        # bay, but the whole elevation does not peel off as one plane the way
+        # unreinforced masonry does — that is a URM mechanism and putting it
+        # on an office block reads as a bomb. What a frame does after a long
+        # fire is drop the corner bay and the slab corners with it (the
+        # Windsor tower's own perimeter loss), which is `mode="corner"`.
+        # Collapse first — see the urm F5/F5c note.
+        "F5c": [("floor_burnthrough", {"p": 0.5}),
+                ("roof_burnthrough", {"frac": 0.24}),
+                ("partial_collapse", {"mode": "corner"}),
+                ("window_burnout", {"frac": 1.0}),
+                ("smoke_stain", {"heavy": 1.4}),
+                ("char_facade", {}),
+                ("spall", {"rate": 0.5}),
+                ("gut_interior", {"frac": 1.0}),
+                ("expose_interior", {}),
+                ("roof_scorch", {}),
+                ("street_debris", {"density": 1.3}),
+                ("flames", {})],
+        "F6": [("floor_burnthrough", {"p": 1.0, "keep_below": 0, "budget": 9}),
+               ("roof_burnthrough", {"frac": 0.8}),
+               ("fire_collapse", {}),
+               ("window_burnout", {"frac": 1.0}),
+               ("smoke_stain", {"heavy": 2.0}),
+               ("char_facade", {"coverage": 0.9}),
+               ("spall", {"rate": 0.8}),
+               ("gut_interior", {"frac": 1.0}),
+               ("expose_interior", {}),
+               ("roof_scorch", {}),
+               ("street_debris", {"density": 1.6}),
+               ("flames", {})],
     },
     "rc_glass": {
         "F0": [],
@@ -268,6 +380,35 @@ LADDER = {
                ("expose_interior", {}),
                ("roof_scorch", {}),
                ("street_debris", {}),
+               ("flames", {})],
+        # NO PARTIAL COLLAPSE ON A TOWER EITHER, for the same reason F5
+        # has no `fire_collapse`: a curtain-wall tower on an RC or steel core
+        # has never lost part of its shell in a fire in the reviewed record —
+        # the cladding burns off (Grenfell, the Address, the Torch) and the
+        # structure does nothing at all. F5c on a tower is F5, so that
+        # `UF_SET`s and `MF_LEVELS` can name one level across a mixed row
+        # without a tower silently falling over. `urban_fire.check` requires
+        # every type to carry every level, which is what this entry is for.
+        "F5c": [("curtain_burn", {"grade": 5}),
+                ("smoke_stain", {"heavy": 1.5}),
+                ("char_facade", {}),
+                ("spall", {"rate": 0.35}),
+                ("gut_interior", {"frac": 1.0}),
+                ("floor_burnthrough", {"p": 0.45}),
+                ("expose_interior", {}),
+                ("roof_scorch", {}),
+                ("street_debris", {}),
+                ("flames", {})],
+        "F6": [("curtain_burn", {"grade": 5}),
+               ("smoke_stain", {"heavy": 2.0}),
+               ("char_facade", {"coverage": 0.9}),
+               ("spall", {"rate": 0.6}),
+               ("gut_interior", {"frac": 1.0}),
+               ("floor_burnthrough", {"p": 0.9, "keep_below": 0, "budget": 9}),
+               ("fire_collapse", {}),
+               ("expose_interior", {}),
+               ("roof_scorch", {}),
+               ("street_debris", {"density": 1.5}),
                ("flames", {})],
     },
 }
@@ -326,6 +467,14 @@ _FLAT = {
     "spall_face":  ((0.052, 0.049, 0.045), 1.0),       # -> ~0.29
     # Steel that has been in a fire: blued/oxidised, matte, no shine left.
     "burnt_metal": ((0.030, 0.026, 0.022), 0.85),      # -> ~0.23
+    # FIRE-EXPOSED STRUCTURAL STEEL — a joist/rafter stub still upright in a
+    # wall pocket, or an internal column/beam, not decorative hardware.
+    # `burnt_metal` is WARM at this luminance (R > G > B) and warm-dark with
+    # roughness 0.85 is what charred TIMBER looks like, not steel — "rods,
+    # probably structural. They looked wooden though" (user review,
+    # 2026-08-30). Cool structural steel is the opposite: B > G > R, a shade
+    # darker still, with some sheen left — heated steel is not matte black.
+    "steel":       ((0.040, 0.043, 0.048), 0.55),      # -> ~0.26, cool grey
     # GLASS IN A FIRE IS A LADDER, NOT ONE GREY. Round 1 bound a single flat
     # dark tone to every pane and that read as a wall of identical matte grey
     # rectangles. Round 2 (still here, below) replaced the single tone with
@@ -937,43 +1086,30 @@ def _drop_face_art(ctx, el):
 
 
 # ---------------------------------------------------------------------------
-# THE WASH'S EDGE: a mask-driven overlay, not a per-element rebind
+# THE WALL WASH IS THE SOOT SKIN — one image per building, from its fire
+# events, merged into every module's own texture
 # ---------------------------------------------------------------------------
-# "the scorching still looks too rectangular... I thought we are doing what
-# we did in the suburb. Creating a larger scorch pattern and projecting it
-# onto the smaller tiles" (user review, 2026-08-29). MEASURED CAUSE:
-# `_bind_subsets` rebinds a WHOLE placed module's GeomSubsets, so the burnt
-# region's outline is the union of whichever modules cleared `_severity`'s
-# threshold — a boundary that is a rectangle (a module) BY CONSTRUCTION,
-# however good the texture bound to it is. `triplanar=True` (the previous
-# round) fixed the REPEAT inside that rectangle and could not touch its edge
-# — no amount of texture work fixes an edge that is a rectangle for a
-# geometric reason.
-#
-# `disaster.wall_overlay` is the façade equivalent of `disaster.ground`'s
-# burn-scar overlay: ONE low-frequency mask, sized to the whole burnt RUN on
-# one side of one mass (not one module), authored as a single translucent
-# quad spanning every module in the run and revealing a soot material
-# through its OPACITY. The edge is therefore the mask's own ragged,
-# level-set-perturbed contour, which runs THROUGH module boundaries rather
-# than stopping at them — because the mask was never bound to a module in
-# the first place.
-#
-# THE PER-ELEMENT COMPOSITE IS DROPPED FOR "wall"/"corner", NOT KEPT AS A
-# BASE TINT. It would have to be: the composite's own edge is a module
-# rectangle, drawn UNDER the overlay but at the SAME proud offset as the
-# wall itself, so anywhere the overlay's opacity is partial (which is most
-# of its ragged margin) that rectangle would show straight through. The only
-# way to keep it as a harmless base tint would be to match its edge to the
-# mask's, and at that point it is not doing anything the overlay is not
-# already doing. `r_char_facade`'s own severity-graded stamping (unchanged,
-# a different recipe with its own `_bind_subsets` call) still runs on the
-# bare modules underneath and remains visible through the overlay wherever
-# its opacity is not fully saturated.
-_OVERLAY_PROUD = 0.005      # just off the bare wall; frames/panes/scars
-                            # (0.010 m and up) still stand proud of THIS
-_OVERLAY_PX_PER_M = 12.0
-_OVERLAY_MIN_PX, _OVERLAY_MAX_PX = 64, 384
+# Three earlier designs are gone from here, and the history matters because
+# each one fixed the previous one's symptom and kept its cause:
+#   1. a per-element `scorched_material` rebind — the burnt region's edge was
+#      a module rectangle BY CONSTRUCTION ("the scorching still looks too
+#      rectangular", 2026-08-29);
+#   2. `wall_overlay`, one level-set mask per side revealed as opacity on a
+#      proud quad — ragged edges, but the mask was a per-ROW severity curve
+#      broadcast across the wall, so it was still a band; and it needed an
+#      RTX flag to blend at all;
+#   3. `facade_bake.building_skin`, the perimeter-unwrapped skin with X-shaped
+#      plumes cropped per prim — right delivery, wrong SOURCE: it scattered
+#      its own random plume seats across the storey band while `r_flames`
+#      picked its own openings, so soot and flame never agreed ("the pattern
+#      looks completely wrong", 2026-08-30).
+# `disaster.soot_plume` keeps design 3's delivery (one unwrapped skin, one
+# crop per prim, merged into the prim's own base map) and replaces its
+# source: the skin is rasterised FROM `ctx["fire"]["events"]`, the same list
+# `r_flames` places its emitters from, with a cited physical model for what
+# each event does to the wall. See that module. What is left here is the
+# geometry every pass shares (`_wall_run_frame`, still used by the placement
+# test) and the binding (`_bind_soot`).
 
 
 def _wall_run_frame(run, side):
@@ -982,282 +1118,561 @@ def _wall_run_frame(run, side):
     `fr` borrows its depth/dw from the LEFTMOST element's own measured
     piece — the kit's wall pieces on one side of one style share a
     thickness, so this is exact for the ordinary case and at worst a few cm
-    off for a mixed one, which `_OVERLAY_PROUD` already has headroom for.
+    off for a mixed one.
     `L` runs from the leftmost piece's own origin to the RIGHTMOST piece's
     far edge (not `len(run) * module`, which assumes uniform module widths
     a corner piece beside ordinary bays does not have).
     """
     from . import quake_flow as qf
 
-    along = (lambda e: e["lx"]) if side in ("S", "N") else (lambda e: e["ly"])
-    run = sorted(run, key=along)
-    left, right = run[0], run[-1]
-    fr = qf._piece_frame(left)
-    fr_r = qf._piece_frame(right)
-    if fr is None or fr_r is None:
+    # SORT ALONG THE FRAME'S OWN AXIS, NOT ALONG RAW `lx`/`ly`.
+    #
+    # A piece runs along its own local +X, and `_piece_frame` pivots it at
+    # that end — but which WORLD direction that is depends on the elevation:
+    # S faces +X, N faces -X, E faces +Y, W faces -Y. Sorting by ascending
+    # `lx` therefore picks the correct end of an S or E run and THE WRONG END
+    # of an N or W one, so the frame was anchored at the far end of half the
+    # walls in the building and the quad ran off the far side of them.
+    #
+    # MEASURED (`tests/test_wall_overlay_placement.py`, 2026-08-29, before
+    # this fix): 224 of 360 wall runs misplaced, always on N and W, always by
+    # exactly the run's own length, and identically at every world position —
+    # `apartment` N had the overlay at 0.00..20.07 while its wall was at
+    # -15.00..5.07. `L` was right all along; only the anchor was wrong. This
+    # is the "the actual transparent part isn't at the correct locations for
+    # these buildings" report (user, 2026-08-29), and it is why the overlay
+    # looked right on some elevations of the same building and wrong on
+    # others.
+    #
+    # Projecting onto the axis makes the ordering frame-agnostic, so it stays
+    # correct if a style ever yaws its masses.
+    probe = None
+    for e in run:
+        probe = qf._piece_frame(e)
+        if probe is not None:
+            break
+    if probe is None:
         return None, 0.0
-    L = (along(right) - along(left)) + fr_r[3]
-    return fr, max(0.5, L)
+    ax, ay = math.cos(probe[2]), math.sin(probe[2])
 
+    def _t(e):
+        f = qf._piece_frame(e)
+        return 0.0 if f is None else (f[0] * ax + f[1] * ay)
 
-def _facade_field(ctx, mtag, side, heavy, top, above):
-    """Per-row (0..1) severity over the FULL height of one mass — the real,
-    storey-resolved `_severity` curve (peaked at the origin, hard-cut below
-    it, decaying above), not a generic monotonic wash. Row 0 is the TOP of
-    the wall; `wall_overlay.bake_mask` / `author_quad` are built to agree
-    with that convention throughout — see their own docstrings.
-    """
-    from . import quake_flow as qf
+    run = sorted(run, key=_t)
+    left = run[0]
+    fr = qf._piece_frame(left)
+    if fr is None:
+        return None, 0.0
 
-    m = ctx["info"]["masses"][mtag]
-    z0, z1 = m["z0"], m["top"]
-    n = max(24, min(256, int(round((z1 - z0) * _OVERLAY_PX_PER_M * 0.6))))
-    rows = []
-    for i in range(n):
-        z = z1 - (z1 - z0) * (i / float(max(1, n - 1)))
-        storey = qf._storey_of(m, z)
-        if storey > top + above:
-            sev = 0.0
-        else:
-            sev = _severity(ctx, storey, mtag, e=None) * float(heavy)
-        rows.append(max(0.0, min(1.0, sev)))
-    return rows, n
-
-
-def _opening_holes(ctx, mtag, side, fr_run):
-    """(u0, u1, v0, v1), in `fr_run`'s own coordinates, for every measured
-    opening on this (mass, side) — so the overlay's mask can be suppressed
-    there and the window burnout / frame / pane / crack detail this file
-    spends most of its effort on (all authored more proud than
-    `_OVERLAY_PROUD`, so they already draw on TOP of the overlay) is not
-    sitting under a flat sooty membrane with no hole in it where it matters
-    most: an emptied opening, whose whole point is the black room seen
-    through it.
-
-    Converts each opening's own local `u` (its OWNING element's `_piece_
-    frame`, which can differ in origin from `fr_run` even when the yaw and
-    depth agree) to world (x, y) via `quake_flow._face_xy`, then projects
-    that world point back onto `fr_run`'s own axis — the closed-form inverse
-    of `_face_xy`'s forward map, since `fr_run` and an opening's own frame
-    share a yaw (same side) even when their origins differ.
-    """
-    from . import quake_flow as qf
-
-    ox, oy, yaw = fr_run[0], fr_run[1], fr_run[2]
-    ca, sa = math.cos(yaw), math.sin(yaw)
-    holes = []
-    ops = (list(qf._g2_openings(ctx, mass=mtag, sides=(side,)))
-          + list(qf._g_shop_openings(ctx, mass=mtag, sides=(side,))))
-    for op in ops:
-        fr = op.get("fr")
-        if fr is None:
+    # LENGTH FROM THE RUN'S MEASURED EXTENT, not from the last piece's own
+    # width. `(_t(right) - _t(left)) + fr_r[3]` assumes the rightmost piece
+    # BY ORIGIN also reaches furthest along the run axis and that its width
+    # is measured along that axis — neither holds when a piece is yawed
+    # differently from the run (a returned end, a wing junction), and the
+    # quad then ran PAST the corner. MEASURED
+    # (`tests/test_wall_overlay_placement.py`): 92 runs overshot by 0.96 to
+    # 4.00 m, `block_residential`'s wings by exactly one 4 m module on a 24 m
+    # wall. Projecting both ends of every piece and taking the span is what
+    # the test does independently, so the two now agree by construction.
+    lo = hi = None
+    for e in run:
+        f = qf._piece_frame(e)
+        if f is None:
             continue
-        u0l = op.get("hua", op.get("ua"))
-        u1l = op.get("hub", op.get("ub"))
-        v0 = op.get("hva", op.get("va"))
-        v1 = op.get("hvb", op.get("vb"))
-        if None in (u0l, u1l, v0, v1):
-            continue
-        x0, y0 = qf._face_xy(fr, u0l)
-        x1, y1 = qf._face_xy(fr, u1l)
-        u0r = ca * (x0 - ox) + sa * (y0 - oy)
-        u1r = ca * (x1 - ox) + sa * (y1 - oy)
-        holes.append((min(u0r, u1r), max(u0r, u1r), min(v0, v1), max(v0, v1)))
-    return holes
+        ex, ey = math.cos(f[2]), math.sin(f[2])
+        for px, py in ((f[0], f[1]), (f[0] + ex * f[3], f[1] + ey * f[3])):
+            t = px * ax + py * ay
+            lo = t if lo is None else min(lo, t)
+            hi = t if hi is None else max(hi, t)
+    if lo is None:
+        return None, 0.0
+    return fr, max(0.5, hi - lo)
 
 
-def _r_soot_overlay(ctx, heavy, above, role):
-    """One mask-revealed soot quad per (mass, side) run of `role` elements
-    on the burning mass. Returns the count of quads authored.
+def _soot_skin(ctx, heavy):
+    """The building's soot skin, rasterised ONCE from its fire events
+    (`soot_plume.skin`) and kept on the ctx so every role's pass — walls,
+    corners, parapets, balconies — crops the same image. `heavy` is the
+    ladder's own `smoke_stain` knob and multiplies the events' venting
+    durations (`soot_plume.DURATION_S`).
 
-    `heavy` and `_side_reach`'s `reach` both feed straight into
-    `_facade_field`, i.e. into `_severity` — the same connectivity and
-    distance-from-origin gradient every other pass in this file already
-    respects (`_side_reach`, `_grad_bucket`), not a second severity model.
+    `SOOT_SKIN_DIR` in the environment writes each building's skin as a PNG
+    there (over a flat grey), the cheapest possible look at what the bake
+    is about to merge into the modules.
     """
-    from . import quake_flow as qf, wall_overlay as wo
     import numpy as np
+    from . import soot_plume as spl
 
-    f, rng, stage = ctx["fire"], ctx["rng"], ctx["stage"]
-    mtag = f["mass"]
-    m = ctx["info"]["masses"][mtag]
+    sk = ctx.get("soot_skin")
+    if sk is not None:
+        return sk
+    f = ctx["fire"]
+    events = f.get("events") or []
+    if not events:
+        return None
+    # the skin's noise from the events' own seed — NOT a draw on the shared
+    # rng, which would shift every recipe after `smoke_stain`
+    nrng = np.random.default_rng(spl.event_seed(ctx) ^ 0x5EED)
+    sk = spl.skin(ctx, events, nrng, finish=f.get("finish") or "char",
+                  glass=(ctx["info"]["type"] == "rc_glass"),
+                  duration_scale=float(heavy))
+    ctx["soot_skin"] = sk
+    snap = os.environ.get("SOOT_SKIN_DIR")
+    if snap:
+        try:
+            os.makedirs(snap, exist_ok=True)
+            spl.save_skin_png(sk, os.path.join(
+                snap, "skin_{0}.png".format(ctx["tag"])))
+        except Exception:
+            pass
+    return sk
+
+
+SOOT_BAKE_PX = int((os.environ.get("SOOT_BAKE_PX") or "768").strip() or 768)
+# 256 for a SLICED piece (2026-08-30): the per-piece bakes were the single
+# largest VRAM item of the first assembled row — 864 MB of content-hashed
+# maps nothing can share across buildings (`tools/bake_vram_census.py`) —
+# and a 3-4 m pier at 256 px is still ~70 px/m for a soft gradient. The kit
+# path's 768 (`SOOT_BAKE_PX`) is FROZEN with the rest of the MCE look.
+SOOT_BAKE_PX_SLICE = int((os.environ.get("SOOT_BAKE_PX_SLICE") or "256").strip() or 256)
+# a subset whose faces do not face OUT of the building (a ceiling, a floor,
+# a painted office interior behind the glass) cannot show its soot from
+# outside and is not baked at all
+SOOT_FACING_MIN = 0.15
+
+
+def _mesh_arrays(prim):
+    """points / counts / indices / uv (+ interpolation, indices) of one
+    `UsdGeom.Mesh` as numpy, or None when it has no texture coordinates."""
+    import numpy as np
+    from pxr import UsdGeom
+
+    mesh = UsdGeom.Mesh(prim)
+    pts = mesh.GetPointsAttr().Get()
+    cnt = mesh.GetFaceVertexCountsAttr().Get()
+    idx = mesh.GetFaceVertexIndicesAttr().Get()
+    if not pts or not cnt or not idx:
+        return None
+    pv = None
+    for q in UsdGeom.PrimvarsAPI(prim).GetPrimvars():
+        if (q.GetTypeName().role == "TextureCoordinate"
+                or q.GetBaseName() in ("st", "uv", "UVMap", "st0")):
+            pv = q
+            break
+    if pv is None:
+        return None
+    vals = pv.Get()
+    if not vals:
+        return None
+    ind = pv.GetIndices() if pv.IsIndexed() else None
+
+    def arr(v, dt):
+        try:
+            return np.asarray(v, dtype=dt)
+        except Exception:
+            return np.array([tuple(x) if hasattr(x, "__len__") else x
+                             for x in v], dtype=dt)
+
+    return {"points": arr(pts, np.float32), "counts": arr(cnt, np.int64),
+            "indices": arr(idx, np.int64), "uv": arr(vals, np.float32),
+            "interp": str(pv.GetInterpolation()),
+            "uv_indices": (arr(ind, np.int64) if ind is not None and len(ind)
+                           else None)}
+
+
+def _flat_diffuse(mat_prim):
+    """The constant diffuse colour (r, g, b) of a material with no base map,
+    or None. Looks at every shader's `diffuseColor` / `diffuse_color_constant`
+    / `base_color` / `baseColor` input and takes the first colour value."""
+    from pxr import Gf, Usd, UsdShade
+
+    if mat_prim is None or not mat_prim.IsValid():
+        return None
+    for p in Usd.PrimRange(mat_prim):
+        sh = UsdShade.Shader(p)
+        if not sh:
+            continue
+        for name in ("diffuseColor", "diffuse_color_constant", "base_color",
+                     "baseColor", "diffuse_tint"):
+            inp = sh.GetInput(name)
+            if not inp:
+                continue
+            try:
+                v = inp.Get()
+            except Exception:
+                continue
+            if isinstance(v, (Gf.Vec3f, Gf.Vec3d)) or (
+                    hasattr(v, "__len__") and len(v) == 3):
+                return (float(v[0]), float(v[1]), float(v[2]))
+    return (0.6, 0.6, 0.6)
+
+
+def _skin_sample(sk, side, m, world):
+    """`soot_bake.sample_skin` for a piece that faces EVERY elevation (side
+    "x", a merged region-cut block): each point is sampled on the elevation
+    it is nearest, in the mass's own frame (yaw honoured)."""
+    import numpy as np
+    from . import soot_bake as sb
+
+    wp = np.asarray(world, dtype=np.float64).reshape(-1, 3)
+    ang = math.radians(-float(m["yaw"]))
+    ca, sa = math.cos(ang), math.sin(ang)
+    dx, dy = wp[:, 0] - float(m["cx"]), wp[:, 1] - float(m["cy"])
+    lx = dx * ca - dy * sa
+    ly = dx * sa + dy * ca
+    W, D = float(m["W"]), float(m["D"])
+    dist = np.stack([np.abs(ly + D / 2.0), np.abs(lx - W / 2.0),
+                     np.abs(ly - D / 2.0), np.abs(lx + W / 2.0)], axis=1)
+    ix = np.argmin(dist, axis=1)
+    out = np.zeros((len(wp), 4), dtype=np.float32)
+    for k, s in enumerate(("S", "E", "N", "W")):
+        sel = ix == k
+        if sel.any():
+            out[sel] = sb.sample_skin(sk, s, m, wp[sel])
+    return out
+
+
+def _bind_soot(ctx, e, sk):
+    """Bake the soot skin into the base-colour map of EVERY material this
+    module's meshes and GeomSubsets bind, THROUGH THE MODULE'S OWN UVs, and
+    rebind each with a copy of its own material carrying the baked map.
+
+    WHY THROUGH THE UVs AND NOT A CROP. The first sim render stretched a
+    crop of the skin over each module's whole base map. A bare-USD probe of
+    the kit (`tools/soot_uv_probe.py`, 2026-08-30) showed why that came
+    back as "not translating to the actual materials": the base maps are UV
+    ATLASES — `SM_MBuilding01_Facade_A`'s wall face uses v 0.03..0.73 of its
+    map with the module's bottom vertices at v~0.44 and its top at v~0.55;
+    `SM_MBuilding04_Facade_B`'s outer face is the 0.56 x 0.42 corner of its
+    map — so a corner-to-corner crop lands soot on arbitrary faces. The
+    only mapping that is right for an arbitrary atlas is the mesh's own:
+    `soot_bake.uv_position_map` rasterises the subset's triangles into
+    texel space and recovers each texel's local position; that map depends
+    only on the KIT PIECE (cached per piece name / mesh / subset across
+    every placement and every building in `ctx["cache"]`), and
+    `soot_bake.bake_module` then transforms those positions to world,
+    samples the skin there and composites over the map.
+
+    PER SUBSET, NOT PER MODULE: a module's wall, reveal and frame subsets
+    bind different maps. A subset with no base map at all — glass, painted
+    trim — binds the flat soot tone graded by coverage instead (the "no
+    silent skip on a missing texture" fix, F5 `dw_terrace` 2026-08-29). A
+    subset whose covered texels the skin never reaches is left completely
+    alone, materials and all. Returns the number of bindings made.
+    """
+    import hashlib as _hl
+
+    import numpy as np
+    from pxr import Usd, UsdGeom, UsdShade
+    from . import quake_flow as qf, soot_bake as sb, soot_plume as spl
+
+    stage = ctx["stage"]
+    path = e["p"].get("prim_path")
+    root = stage.GetPrimAtPath(path) if path else None
+    if not root or not root.IsValid() or not root.IsActive():
+        return 0
+    mats = ctx.setdefault("soot_mats", {})
+    stats = ctx.setdefault("soot_stats", {"unreadable": 0, "flat_material": 0,
+                                          "skipped_notex": 0, "flat_tone": 0,
+                                          "no_uv": 0, "clean": 0})
+    cache = ctx.setdefault("cache", {})
+    posmaps = cache.setdefault("soot_posmap", {})
+    bases = cache.setdefault("soot_base", {})
+    m = ctx["info"]["masses"][ctx["fire"]["mass"]]
+    side = e["side"]
+    xfc = UsdGeom.XformCache()
+    # A SLICED PIECE IS ONE OF A KIND. The position-map cache below pays for
+    # itself on a kit (a dozen module types, hundreds of placements) and is
+    # pathological on a sliced whole-asset building, where every piece name
+    # is unique: 3,158 pieces x 7 MB of cached map = most of a 25 GB
+    # process on the first GAC bench (2026-08-30). One-off pieces get no
+    # cache entry and a smaller bake — a 4-9 m piece does not need 768 px.
+    one_off = str(e["p"].get("usd", "")).startswith("slice://")
+    px = SOOT_BAKE_PX_SLICE if one_off else SOOT_BAKE_PX
+    # side "x" (a merged region-cut piece) faces every elevation: no single
+    # outward direction for the facing test, and the skin is sampled by the
+    # nearest elevation per texel (`_skin_sample`)
+    # (`describe` gives every element a ring side from its centroid, so the
+    # merged piece's own label lives on its PLACEMENT, `_side == "x"`)
+    any_side = (side not in _SIDE_RING
+                or str((e.get("p") or {}).get("_side", "")) == "x")
+    ox_, oy_ = (None, None) if any_side else qf._outward(m, side)
+    sampler = _skin_sample if any_side else None
     n = 0
-    for side in _SIDE_RING:
-        reach = _side_reach(ctx, side, roof_like=False)
-        if reach <= 0.0:
+    for prim in Usd.PrimRange(root):
+        if not prim.IsA(UsdGeom.Mesh):
             continue
-        run = list(qf._els(ctx, mass=mtag, role=role, side=side))
-        if not run:
-            continue
-        fr, L = _wall_run_frame(run, side)
-        if fr is None:
-            continue
-        field, h = _facade_field(ctx, mtag, side, heavy * reach, f["top"],
-                                 above)
-        if max(field) < 0.12:
-            continue
-        w = max(_OVERLAY_MIN_PX,
-                min(_OVERLAY_MAX_PX, int(round(L * _OVERLAY_PX_PER_M))))
-        h = max(_OVERLAY_MIN_PX, min(_OVERLAY_MAX_PX, h))
-        if h != len(field):
-            src = len(field)
-            field = [field[min(src - 1, int(round(
-                        i * (src - 1) / float(max(1, h - 1)))))]
-                    for i in range(h)]
-        holes = _opening_holes(ctx, mtag, side, fr)
-        seed = rng.randrange(2 ** 31)
-        nrng = np.random.default_rng(seed)
-        mask_path = wo.bake_mask(
-            h, w, nrng, field, streak_stretch=8.0,
-            u_span=(0.0, L), v_span=(m["z0"], m["top"]), holes=holes,
-            key="{0}|{1}|{2}|{3}".format(ctx["tag"], mtag, side, role))
-        mat_path = "{0}/FireLooks/soot_overlay_{1}_{2}_{3}".format(
-            ctx["parent"], mtag, side, role)
-        mat = wo.overlay_material(stage, mat_path, mask_path,
-                                  _FLAT["soot"][0], _FLAT["soot"][1])
-        path = wo.author_quad(ctx, fr, 0.0, L, m["z0"], m["top"],
-                              _OVERLAY_PROUD, mat, kind="sootovl_" + role)
-        for e in run:
-            ctx.setdefault("face_art", {}).setdefault(id(e), []).append(path)
-        n += 1
+        arrays = None
+        subsets = list(UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)))
+        targets = ([(sub.GetPrim(), sub) for sub in subsets]
+                   or [(prim, None)])
+        rel = str(prim.GetPath()).replace(str(root.GetPath()), "", 1)
+        M = None
+        for t, sub in targets:
+            bound = UsdShade.MaterialBindingAPI(t).ComputeBoundMaterial()[0]
+            bprim = bound.GetPrim() if bound else None
+            pre = ctx.get("soot_prebaked")
+            if isinstance(pre, (set, frozenset)) and bprim is not None \
+                    and str(bprim.GetPath()) in pre:
+                continue          # already carries the skin (pre-slice bake)
+            sh_path, inp, tex = spl.find_basecolor(bprim)
+            flat_rgb = None
+            if not tex and one_off:
+                # A SLICED PIECE'S UNTEXTURED SUBSET IS BAKED LIKE ANY OTHER,
+                # over its material's constant colour, through its UVs. The
+                # flat-tone bind below (kept for the kit path, whose look is
+                # frozen) painted the whole subset one tone or left it clean
+                # — a uniform rectangle either way, next to textured
+                # neighbours that carried the plume (user review, 2026-08-30).
+                flat_rgb = _flat_diffuse(bprim)
+            if not tex and flat_rgb is None:
+                # a plain-coloured subset (a module's own window glass, painted
+                # trim): the crop already said soot reaches this module; bind
+                # the flat tone only when the module is WELL covered — a
+                # lightly-fringed module's panes going flat dark read as pane-
+                # shaped rectangles, not as a film
+                a_mean = float(e.get("_soot_cover", 0.0))
+                if a_mean < 0.35:
+                    stats["skipped_notex"] += 1
+                    continue
+                mat = ctx["mats"]["soot" if a_mean > 0.70 else
+                                  "soot_mid" if a_mean > 0.35 else "soot_light"]
+                UsdShade.MaterialBindingAPI(t).Bind(mat)
+                stats["flat_tone"] += 1
+                n += 1
+                continue
+            if arrays is None:
+                arrays = _mesh_arrays(prim)
+                if arrays is None:
+                    stats["no_uv"] += 1
+                    break
+                Mg = xfc.GetLocalToWorldTransform(prim)
+                M = np.array([[float(Mg[r][c]) for c in range(4)]
+                              for r in range(4)], dtype=np.float64)
+                # per-face outward-facing test, once per mesh
+                pts_w = arrays["points"].astype(np.float64) @ M[:3, :3]
+                cnt = arrays["counts"]
+                idx = arrays["indices"]
+                starts = np.concatenate([[0], np.cumsum(cnt)[:-1]])
+                i0 = idx[starts]
+                i1 = idx[np.minimum(starts + 1, len(idx) - 1)]
+                i2 = idx[np.minimum(starts + 2, len(idx) - 1)]
+                nrm = np.cross(pts_w[i1] - pts_w[i0], pts_w[i2] - pts_w[i0])
+                if any_side:
+                    # outward = a mostly-vertical face whose normal points
+                    # away from the mass centre (floors and ceilings are not
+                    # façade, and the merged piece carries them too)
+                    cen = (pts_w[i0] + pts_w[i1] + pts_w[i2]) / 3.0 + M[3, :3]
+                    rx = cen[:, 0] - float(m["cx"])
+                    ry = cen[:, 1] - float(m["cy"])
+                    n_xy = np.hypot(nrm[:, 0], nrm[:, 1])
+                    n_all = np.linalg.norm(nrm, axis=1) + 1e-12
+                    face_out = ((nrm[:, 0] * rx + nrm[:, 1] * ry) > 1e-9) & (
+                        n_xy > 0.5 * n_all)
+                else:
+                    face_out = (nrm[:, 0] * ox_ + nrm[:, 1] * oy_) > 1e-9
+            sub_name = str(sub.GetPrim().GetName()) if sub is not None else ""
+            face_ids = None
+            if sub is not None:
+                face_ids = sub.GetIndicesAttr().Get()
+                face_ids = [int(k) for k in face_ids] if face_ids else []
+            fsel = face_out[face_ids] if face_ids is not None else face_out
+            if one_off:
+                # A SLICED PIECE CARRIES THE BUILDING'S INTERIOR — floors,
+                # ceilings and inner walls share a subset with the façade
+                # faces of the same material, so the whole-subset facing
+                # test below threw 173 of SM_Building_04's subsets away
+                # ("inward") and their façade faces stayed clean: the
+                # rectangles (user review, 2026-08-30). Bake the OUTWARD
+                # faces only; the rest keep the base map.
+                if not fsel.size or not bool(fsel.any()):
+                    stats["inward"] = stats.get("inward", 0) + 1
+                    continue
+                all_ids = (face_ids if face_ids is not None
+                           else list(range(len(face_out))))
+                face_ids = [fid for fid, ok in zip(all_ids, fsel) if ok]
+            elif fsel.size and float(fsel.mean()) < SOOT_FACING_MIN:
+                stats["inward"] = stats.get("inward", 0) + 1
+                continue
+            key = (e["name"], rel, sub_name, px)
+            pm = posmaps.get(key) if not one_off else None
+            if pm is None:
+                pm = sb.uv_position_map(
+                    arrays["points"], arrays["counts"], arrays["indices"],
+                    arrays["uv"], arrays["interp"], arrays["uv_indices"],
+                    face_ids=face_ids, px=px)
+                if not one_off:
+                    posmaps[key] = pm
+            pos, mask = pm
+            if not bool(mask.any()):
+                continue
+            # does the skin actually reach this subset's face? sample first
+            world = pos[mask] @ M[:3, :3] + M[3, :3]
+            a = (sampler or sb.sample_skin)(sk, side, m, world)[..., 3]
+            if float(a.max()) < 0.05:
+                stats["clean"] += 1
+                continue
+            if flat_rgb is not None:
+                base = np.full((8, 8, 3), flat_rgb, dtype=np.float32)
+            else:
+                base = bases.get(tex)
+                if base is None:
+                    b8 = spl._read_rgb(tex, max_px=1024)
+                    # held as BYTES, not float32: fifty 2048 px atlases at
+                    # 50 MB each were another 2.5 GB of the same run
+                    bases[tex] = ((np.clip(b8, 0, 1) * 255.0 + 0.5).astype(np.uint8)
+                                  if b8 is not None else False)
+                    base = bases[tex]
+                if base is not None and base is not False:
+                    base = base.astype(np.float32) / 255.0
+            if base is None or base is False:
+                stats["unreadable"] += 1
+                a_mean = float(a.mean())
+                if a_mean < 0.12:
+                    continue
+                mat = ctx["mats"]["soot" if a_mean > 0.70 else
+                                  "soot_mid" if a_mean > 0.35 else "soot_light"]
+                UsdShade.MaterialBindingAPI(t).Bind(mat)
+                stats["flat_tone"] += 1
+                n += 1
+                continue
+            out = sb.bake_module(sk, side, m, M, pos, mask, base, px=px,
+                                 sampler=sampler)
+            digest = _hl.md5(np.round(out * 255.0).astype(np.uint8).tobytes()
+                             ).hexdigest()[:16]
+            png = os.path.join(spl.OUT_DIR, "sootbake_{0}.png".format(digest))
+            if not os.path.exists(png):
+                from PIL import Image
+                os.makedirs(spl.OUT_DIR, exist_ok=True)
+                Image.fromarray((np.clip(out, 0, 1) * 255.0 + 0.5)
+                                .astype(np.uint8)).save(png)
+            mkey = (str(bprim.GetPath()) if bprim is not None else "", png)
+            mat = mats.get(mkey)
+            if mat is None:
+                mp = "{0}/FireLooks/soot_{1}".format(ctx["parent"], len(mats))
+                mat = None
+                if flat_rgb is None:
+                    mat = spl.piece_material_like(stage, mp, bprim, sh_path,
+                                                  inp, png)
+                if mat is None:
+                    # a constant-colour material has no map input to swap:
+                    # a fresh surface carrying the baked map
+                    mat = spl.piece_material(stage, mp, png)
+                    stats["flat_material"] += 1
+                mats[mkey] = mat
+            UsdShade.MaterialBindingAPI(t).Bind(mat)
+            n += 1
     return n
 
 
-def r_smoke_stain(ctx, heavy=1.0, above=2):
-    """The wall wash: a mask-driven soot overlay, plus what still needs a
-    per-element bind (curtain-wall panes; parapet/balcony trim).
+def _r_soot_overlay(ctx, heavy, role):
+    """Every module of `role` on the burning mass takes its own crop of the
+    soot skin and has it merged into its own textures. Returns the number of
+    SIDES on which at least one module was sooted.
 
-    ONE PLUME PASS NOW, NOT TWO. This used to also draw a painted tongue
-    over each opening (flat face-polygon geometry pretending to be a smoke
-    plume); it read as a decal rather than smoke and is gone — see
-    `r_flames`, which now puts real Flow smoke at the same openings instead
-    (`_flame_sources` called with `state="smoke"`), plus interior sources on
-    the gutted floors themselves (`_interior_smoke`).
-
-    THE WALL/CORNER WASH ITSELF IS `_r_soot_overlay`, NOT A PER-ELEMENT
-    BIND. See the block above it for why: `_bind_subsets` rebinding a whole
-    module's own material makes the burnt region's edge a rectangle by
-    construction, and no amount of texture work on top of that fixes an
-    edge that is a rectangle for a geometric reason. What is left here for
-    "wall"/"corner" is nothing — `_r_soot_overlay` is called directly,
-    below. `parapet`/`parapet_corner`/`balcony` (thin trim, not the broad
-    elevation the rectangular-boundary complaint was about) and every role
-    on a CURTAIN WALL keep the original per-element bind:
-
-    Direction matters for the wash: the module CONTAINING the fire
-    compartment is heaviest at its TOP (the plume leaves under the head /
-    the eaves), and every module ABOVE it takes an up-wash from its base.
-    Getting that pair the wrong way round gives a wall that is black at the
-    sill and clean at the head, which is the wildfire signature and looks
-    upside down here. (`_r_soot_overlay` gets this from `_severity`'s own
-    peaked-and-decaying curve directly, not from a per-module `from_above`
-    flag — see `_facade_field`.)
-
-    REACHABILITY, not a raw side test. `_side_reach` is what stops a fire on
-    the south face washing the north elevation too — see its own docstring
-    and the block above `_side_reach` for the measured bug this replaced.
+    A module's crop is addressed by its measured span along its side
+    (`soot_plume.piece_span`, both ends projected so the piece's own local
+    +X direction does not matter) and its z range; a module whose crop has
+    no soot in it is left completely alone — its own materials, its own
+    normal/roughness maps, untouched — which is also what keeps a curtain
+    wall's un-sooted panes looking like the kit shipped them.
     """
-    from . import damage, quake_flow as qf
+    from . import quake_flow as qf, soot_plume as spl
 
-    f, rng, stage = ctx["fire"], ctx["rng"], ctx["stage"]
-    glassy = ctx["info"]["type"] == "rc_glass"
-    n_wash = n_notex = 0
-    top = f["top"]
-    trim_roles = ("wall", "corner", "parapet", "parapet_corner", "balcony") \
-        if glassy else ("parapet", "parapet_corner", "balcony")
-    for e in qf._els(ctx, role=trim_roles):
-        roof_like = e["role"] in ("parapet", "parapet_corner")
-        reach = _side_reach(ctx, e["side"], roof_like=roof_like)
-        if reach <= 0.0:
-            continue
-        sev = _severity(ctx, e["storey"], e["mass"], e) * float(heavy) * reach
-        if sev < 0.10 or e["storey"] > top + above:
-            continue
-        path = e["p"].get("prim_path")
-        if glassy:
-            # A CURTAIN WALL IS NOT COMPOSITED. `scorched_material` paints a
-            # soot wash INTO the surface's own base-colour map, which is
-            # exactly right on brick or stone — the courses survive under the
-            # staining — and wrong on the tower families, whose base colour
-            # is a pale glazing atlas: the result is white panes with black
-            # ink-runs down them (uf5 skyscraper_a, 2026-08-28). Soot on
-            # glass is an opaque film, so bind the flat tone.
-            # A SHARE, NOT ALL OF IT. At full coverage every pane in the
-            # band went opaque black and the burning storeys came out as one
-            # flat dark slab with no glazing left in them (uf6
-            # skyscraper_a, 2026-08-28). A curtain wall on fire keeps some
-            # bays clear, some filmed and some gone — `r_curtain_burn` owns
-            # the "gone", this owns the "filmed".
-            mat = ctx["mats"]["soot" if sev > 0.72 else "soot_mid"]
-            if _bind_subsets(stage, e["p"], lambda: mat,
-                             min(0.9, 0.35 + 0.55 * sev), rng):
-                n_wash += 1
-            continue
-        tex = damage.bound_texture(stage, path) if path else None
-        # NO SILENT SKIP ON A MISSING TEXTURE. `scorched_material` already
-        # has a graceful no-texture fallback — a flat mid-grey darkened by
-        # coverage (its own `else` branch) — the bug was never that it could
-        # not cope with `tex is None`, it was that this loop never gave it
-        # the chance to: `if not tex: continue` walked past the WHOLE
-        # module. Anything bound to a constant-colour material with no
-        # diffuse texture — glass, painted metal trim, a flat-tinted roof
-        # covering or shopfront panel are exactly the categories that tend
-        # to be untextured — kept its bright factory finish while the
-        # textured brick and render round it went black: "the building
-        # that's completely burnt down has some materials that aren't
-        # scorched" (user review, 2026-08-29, F5 `dw_terrace`). Not a hole
-        # in the recipe list — a texture lookup with no fallback wired to
-        # it, on a fallback that already existed.
-        if tex is None:
-            n_notex += 1
-        # In the band: vented at the top of the storey. Above it: washed up
-        # from the base. `from_above` is what selects between the two.
-        vent = e["storey"] in f["storeys"]
-        lvl = damage.bucket(min(1.0, 0.30 + 0.70 * sev))
-        # PROJECT THE SOOT FROM WORLD SPACE, NOT FROM UVs.
-        # `scorched_material` defaults to `triplanar=False`, and this call
-        # never passed it — which is why the scorch read as rectangles:
-        # "the scorching looks very rectangular ... Even the parts going all
-        # the way around the building just look rectangular and too
-        # even/straight" (user review, 2026-08-29).
-        #
-        # `damage.py` records the mechanism exactly: "a UV-space material
-        # falls back to a per-face default and the map repeats inside every
-        # triangle — the 'duplicated into small rectangles' look ...
-        # Projecting from world coordinates instead makes the scale METRIC:
-        # every piece in the scene shows char at the same physical size, and
-        # A 0.4 M CHIP SHOWS A 0.4 M CROP OF IT RATHER THAN THE WHOLE TILE."
-        # That last clause is the ask — one large continuous soot pattern
-        # that each element crops out of, so the staining runs across the
-        # module boundaries instead of stopping at them.
-        #
-        # The streaks come for free: `scorched_material` -> `scorched_texture`
-        # takes `streak_stretch=8.0` by default, which is the suburb's own
-        # value ("noise stretched ~8x vertically, so it smears into licks",
-        # `scorch.soot_mask`). The mask is spectral, so it tiles exactly and
-        # a world-space crop of it has no seam to give the tiling away.
-        #
-        # `scale_uv` is REPEATS PER METRE here, so smaller means bigger
-        # features; the 0.28 default puts one tile across ~3.6 m, which is
-        # about a storey and keeps the licks reading at building scale
-        # rather than as fine grain.
-        mat = damage.scorched_material(
-            stage, ctx["parent"], None, lvl, from_above=vent,
-            texture=tex, cache=ctx["cache"], wash_weight=0.62,
-            triplanar=True,
-            brightness=(0.55 if sev > 0.8 else 0.8))
-        if _bind_subsets(stage, e["p"], lambda: mat, 1.0, rng):
-            n_wash += 1
-    n_overlay = 0
-    if not glassy:
-        n_overlay += _r_soot_overlay(ctx, heavy, above, "wall")
-        n_overlay += _r_soot_overlay(ctx, heavy, above, "corner")
+    if ctx.get("soot_prebaked") is True:
+        return 0          # the asset's atlases already carry the skin
+    sk = _soot_skin(ctx, heavy)
+    if sk is None:
+        return 0
+    mtag = ctx["fire"]["mass"]
+    m = ctx["info"]["masses"][mtag]
+    n_side = 0
+    for side in _SIDE_RING:
+        n_piece = 0
+        for e in qf._els(ctx, mass=mtag, role=role, side=side):
+            if str((e.get("p") or {}).get("_side", "")) == "x":
+                # A MERGED REGION-CUT PIECE (below the fire origin, or the
+                # block above the band) faces every elevation at once;
+                # `describe` filed it under one ring side from its centroid.
+                # No single-side crop can judge it — `_bind_soot` samples
+                # the skin per texel by the nearest elevation and its own
+                # per-subset test decides. The block above the band is
+                # exactly where the plume climbs to.
+                if not e["p"].get("prim_path"):
+                    continue
+                e["_soot_cover"] = 0.5
+                if _bind_soot(ctx, e, sk):
+                    n_piece += 1
+                continue
+            fe = qf._piece_frame(e)
+            if fe is None or not e["p"].get("prim_path"):
+                continue
+            u0, u1 = spl.piece_span(e, fe, m, side)
+            za = float(e.get("z", m["z0"]))
+            zb = za + max(0.3, float(fe[4]))
+            # the crop is a PREFILTER only (does any soot reach this
+            # module's rectangle?) — the bake itself goes through the UVs
+            crop = spl.piece_crop(sk, side, u0, u1, za, zb)
+            a = crop[..., 3]
+            if float(a.mean()) < 0.01 and float(a.max()) < 0.15:
+                continue
+            e["_soot_cover"] = float(a.mean())
+            if _bind_soot(ctx, e, sk):
+                n_piece += 1
+        if n_piece:
+            n_side += 1
+    return n_side
+
+
+def r_smoke_stain(ctx, heavy=1.0, above=2):
+    """The wall wash: the building's fire events, rasterised as one soot skin
+    and merged into every module's own texture — walls, corners, parapets
+    and balconies alike, curtain walls included (their skin is hardened
+    into a film, `soot_plume.skin(glass=True)`, instead of the flat tone
+    that used to be bound to a share of their panes).
+
+    `heavy` multiplies the events' venting durations. `above` is kept for
+    the ladder's signature and is not needed any more: how far the stain
+    climbs above the band is the plume's own answer, not a storey count.
+    """
+    from . import quake_flow as qf, soot_plume as spl
+
+    f = ctx["fire"]
+    events = f.get("events") or []
+    counts = {}
+    # EVERY ROLE THE KIT HAS, not a fixed list. A sliced GreatAmericanCity
+    # building is mostly `pier` pieces (82 of SM_Building_02's 173) plus
+    # `core`; the fixed list below never visited them, so every pier subset
+    # on a per-piece (tiled) atlas kept its clean map between sooted
+    # neighbours — "perfect rectangular parts of the building that randomly
+    # didn't get scorched" (user review, 2026-08-30). Roofs are
+    # `r_roof_scorch`'s.
+    roles = ["wall", "corner", "parapet", "parapet_corner", "balcony"]
+    present = []
+    if isinstance(ctx.get("soot_prebaked"), (set, frozenset)):
+        # the sliced (GAC) path only — the kit path's look is FROZEN
+        present = sorted(set(str(e.get("role"))
+                             for e in qf._els(ctx, mass=f["mass"]))
+                         - set(roles) - {"roof", "None", ""})
+    for role in roles + present:
+        k = _r_soot_overlay(ctx, heavy, role)
+        if k:
+            counts[role] = k
+    st = ctx.get("soot_stats") or {}
     ctx["notes"].append(
-        "smoke: {0} trim module(s) washed ({1} had no own texture, "
-        "flat-darkened instead), {2} mask-driven overlay run(s), storeys "
-        "{3}-{4} on {5}".format(
-            n_wash, n_notex, n_overlay, f["origin"], top,
-            "/".join(f["sides"])))
+        "smoke: soot skin from {0}; sooted sides per role: {1}; storeys "
+        "{2}-{3} on {4}; {5} merged material(s), {6} unreadable base map(s), "
+        "{7} flat-material fallback(s), {8} flat-tone bind(s), {9} untextured "
+        "subset(s) too light to bind, {10} without UVs, {11} subset(s) the "
+        "skin never reached, {12} inward-facing subset(s) skipped".format(
+            spl.summarise(events),
+            ", ".join("{0} {1}".format(r, k) for r, k in counts.items())
+            or "none", f["origin"], f["top"], "/".join(f["sides"]),
+            len(ctx.get("soot_mats") or {}), st.get("unreadable", 0),
+            st.get("flat_material", 0), st.get("flat_tone", 0),
+            st.get("skipped_notex", 0), st.get("no_uv", 0),
+            st.get("clean", 0), st.get("inward", 0)))
 
 
 # ---------------------------------------------------------------------------
@@ -1530,8 +1945,17 @@ def r_char_facade(ctx, coverage=0.34):
         # burnt curtain wall gets, and `r_curtain_burn` supplies the rest.
         ctx["notes"].append("char: skipped, curtain wall takes soot film only")
         return
-    for e in qf._els(ctx, role=("wall", "corner", "parapet", "parapet_corner",
-                               "balcony", "roof")):
+    roles = ("wall", "corner", "parapet", "parapet_corner", "balcony", "roof")
+    if ctx.get("soot_skin") is not None or ctx.get("soot_prebaked"):
+        # THE SKIN OWNS THE FAÇADE. With the soot merged into every module's
+        # own map, a flat char map bound over a third of the subsets on top
+        # of it is a field of hard-edged black and gravel rectangles cut
+        # into a continuous stain — the "hard cutoff in rectangular shapes"
+        # of the first uf_soot render (2026-08-30). The skin already
+        # saturates to char where the fire was; only the roof deck, which
+        # the skin does not cover, still takes the maps.
+        roles = ("roof",)
+    for e in qf._els(ctx, role=roles):
         roof_like = e["role"] in ("roof", "parapet", "parapet_corner")
         if roof_like:
             # the roof and its parapet see the fire only if it got that high
@@ -1742,11 +2166,36 @@ def r_gut_interior(ctx, frac=1.0):
     # Slabs and columns keep their geometry (concrete does not burn) but the
     # top face of a slab in a burnt room is black.
     n_slab = 0
+    # THE CATCH FLOOR IS BLACK, WHATEVER `_severity` SAYS — GAC ONLY. A slab
+    # the roof fell onto, or one in the top three storeys of a building whose
+    # roof burned through, is what the camera sees looking straight down
+    # through the opening — `_severity`'s falloff from the fire's origin has
+    # nothing to do with whether this floor is on show, and a pale slab
+    # under a black shell was the single most visible wrong thing in the
+    # frame ("the inside floor of the collapsed roof looks unburnt", user
+    # review, 2026-08-30). `collapse_storeys` is the exact set
+    # `r_fire_collapse` drops its wreckage onto, when this level's ladder
+    # also carries that recipe; the top-three fallback covers a roof
+    # burn-through with no collapse in the ladder. GATED to the sliced GAC
+    # path (`ctx["soot_prebaked"]` is a set/frozenset only when
+    # `gac_fire.burn_gac` set it): the kit-building fire look is frozen
+    # (2026-08-30) and must draw nothing new here.
+    is_gac = isinstance(ctx.get("soot_prebaked"), (set, frozenset))
+    roof_hit = is_gac and bool(f.get("roof"))
+    collapse_storeys = ctx.get("collapse_storeys") if is_gac else None
     for (mtag, storey), slab in (fit.get("slabs") or {}).items():
         # `slab` can be None: `r_roof_hole` clears the entry for a floor it
         # broke, and every `pxr` call takes an ArgumentError on None rather
         # than missing quietly.
-        if not slab or _severity(ctx, storey, mtag) < 0.3:
+        if not slab:
+            continue
+        is_catch = False
+        if is_gac:
+            m_ = ctx["info"]["masses"].get(mtag) or ctx["info"]["masses"]["main"]
+            n_st = len(m_["levels"])
+            is_catch = (collapse_storeys is not None and storey in collapse_storeys) \
+                or (roof_hit and storey >= n_st - 3)
+        if not is_catch and _severity(ctx, storey, mtag) < 0.3:
             continue
         # THE FLOOR OF A BURNT ROOM IS THE DARKEST SURFACE IN IT — everything
         # that was in the room is on it. Bound to the shared `concrete`
@@ -1757,9 +2206,25 @@ def r_gut_interior(ctx, frac=1.0):
                         ctx["mats"]["char_concrete"] if rng.random() < 0.5
                         else _burn_mat(ctx, f["finish"]))
         n_slab += 1
+    # COLUMNS ARE THE PILLARS A BURNT ROOM IS SEEN THROUGH. `fit_interior`
+    # binds a frame's columns to the shared `concrete` (megascans
+    # Worn_Pavement, a PALE map) and no fire pass touched them, so an `rc`
+    # partial collapse showed clean pale posts inside a black shell — the
+    # one structure in the room that did not look burnt (user review,
+    # 2026-08-30). Same tone as the beams `r_expose_interior` gives an `rc`
+    # frame: `steel`, cool and dark, not the warm `burnt_metal` that reads
+    # as timber.
+    n_col = 0
+    for (mtag, storey), cols in (fit.get("columns") or {}).items():
+        if _severity(ctx, storey, mtag) < 0.25:
+            continue
+        for c in cols:
+            qf._b_bind_over(ctx["stage"], c, ctx["mats"]["steel"])
+            n_col += 1
     ctx["notes"].append(
         "gutted: {0} prop(s) consumed, {1} charred, {2} partition(s) down, "
-        "{3} slab(s) charred".format(n_gone, n_char, n_part, n_slab))
+        "{3} slab(s) charred, {4} column(s) steel".format(
+            n_gone, n_char, n_part, n_slab, n_col))
 
 
 def _storey_of_path(ctx, path):
@@ -1901,32 +2366,53 @@ def m_area(ctx, mtag):
 
 
 def _joist_stubs(ctx, mtag, storey, n=None):
-    """Bearing stubs of a failed slab, still in the wall pocket."""
+    """Bearing stubs of a failed slab, still in the wall pocket.
+
+    SQUARE-SECTION POSTS, NOT RODS. The old thin `_cyl` (0.06-0.08 m radius,
+    `burnt_metal`) read as a wire, and `burnt_metal`'s warm brown-black at
+    this luminance read as scorched timber ("rods, probably structural. They
+    looked wooden though", user review, 2026-08-30). An upright box at the
+    same wall-pocket base — a small random yaw in place of the old 3-D tilt —
+    reads as a burnt structural column, a pillar, which is what was asked
+    for; bound to the cooler `steel` tone.
+    """
     from . import quake_flow as qf
     m = ctx["info"]["masses"].get(mtag) or ctx["info"]["masses"]["main"]
     rng = ctx["rng"]
-    if storey >= len(m["levels"]):
+    # A POST STANDS ON A FLOOR. The failed slab is `levels[storey]`; the stub
+    # is the column that carried it, so it rises from the floor BELOW it and
+    # stops short of where the slab was — hung from the slab line instead it
+    # floated between two floors.
+    if storey < 1 or storey >= len(m["levels"]):
         return
-    z = m["levels"][storey] - 0.18
+    # ...and only when that floor EXISTS as geometry: the kit shell has no
+    # floors of its own, `fit_interior` puts slabs in fitted storeys only,
+    # and a post over an unfitted storey stood 5 m up in clear air
+    # (fire_row1 office_wide F5c, 2026-08-30). `fit["slabs"][(mass, i)]` is
+    # the floor OF storey i.
+    fit = ctx.get("fit") or {}
+    if not (fit.get("slabs") or {}).get((mtag, storey - 1)):
+        return
+    z_slab = m["levels"][storey] - 0.18
+    z_floor = m["levels"][storey - 1]
+    if z_slab - z_floor < 0.6:
+        return
     W, D = m["W"] - 2 * qf.WALL_INSET, m["D"] - 2 * qf.WALL_INSET
     n = n if n is not None else rng.randint(3, 7)
     for _ in range(n):
         side = rng.random() < 0.5
-        L = rng.uniform(0.5, 1.8)
+        L = rng.uniform(0.5, min(1.8, z_slab - z_floor))
         if side:
             lx = rng.uniform(-W / 2, W / 2)
             ly = (D / 2) * rng.choice((1.0, -1.0))
-            p0 = qf._to_world(m, lx, ly)
-            p1 = qf._to_world(m, lx, ly - math.copysign(L, ly))
         else:
             ly = rng.uniform(-D / 2, D / 2)
             lx = (W / 2) * rng.choice((1.0, -1.0))
-            p0 = qf._to_world(m, lx, ly)
-            p1 = qf._to_world(m, lx - math.copysign(L, lx), ly)
+        wx, wy = qf._to_world(m, lx, ly)
+        s = rng.uniform(0.18, 0.24)
         path = "{0}/joist_{1}_{2}".format(ctx["parent"], ctx["tag"], qf._uid(ctx))
-        qf._cyl(ctx["stage"], path, (p0[0], p0[1], z),
-                (p1[0], p1[1], z - rng.uniform(0.0, 0.35)),
-                rng.uniform(0.060, 0.080), ctx["mats"]["burnt_metal"])
+        qf._box(ctx["stage"], path, wx, wy, z_floor + L / 2.0, s, s, L,
+                rng.uniform(-15.0, 15.0), ctx["mats"]["steel"])
         ctx["authored"].append(path)
 
 
@@ -2129,7 +2615,17 @@ def r_roof_scorch(ctx, mass=None):
         return
     _deck_slab(ctx, mass)
     n_par = n_deck = 0
-    for e in qf._els(ctx, mass=mass, role=("parapet", "parapet_corner")):
+    # THE PARAPET BELONGS TO THE SKIN. Binding the flat burn maps to a share
+    # of the parapet subsets on every reachable side put hard black
+    # rectangles along the coping of elevations that never burned ("random
+    # parts of the other side are changing their material to a burnt
+    # texture", user 2026-08-30); `r_smoke_stain` already bakes the soot
+    # skin into the parapet modules' own maps, so the maps stay for the
+    # deck, the plant and the debris only.
+    parapets = [] if (ctx.get("soot_skin") is not None
+                      or ctx.get("soot_prebaked")) else list(
+        qf._els(ctx, mass=mass, role=("parapet", "parapet_corner")))
+    for e in parapets:
         # REACHABILITY, not a flat 55% chance regardless of which elevation.
         # `_side_reach(..., roof_like=True)` is 1.0 on every side once the
         # fire has reached the top storey (`f["roof"]`) — the roof deck is
@@ -2263,6 +2759,17 @@ def r_expose_interior(ctx, mass=None, beams=True, rubble=True):
             and stage.GetPrimAtPath(v).IsActive()]
     urm = ctx["info"]["type"] == "urm"
     pitch = max(4.0, float(m["module"]))
+    # BEAMS AND PIERS READ AS STRUCTURE, NOT AS CHARRED MASONRY. An `rc`
+    # building's frame is what a burnt façade leaves standing behind it —
+    # steel-black, not the same charred concrete as a masonry wall's own
+    # mass — and a nineteenth-century masonry block's internal columns are
+    # cast iron, steel-black too (user review, 2026-08-30: "rods, probably
+    # structural. They looked wooden though — we would want them to look
+    # like metal, or even better pillars instead of rods"). Piers are always
+    # `steel`; beams are `steel` only on an `rc` frame, `char_concrete`
+    # (unchanged) on masonry.
+    beam_mat = (ctx["mats"]["steel"] if ctx["info"]["type"] == "rc"
+                else ctx["mats"]["char_concrete"])
     for (mtag, storey), slab in live:
         if _severity(ctx, storey, mtag) < 0.25:
             continue
@@ -2278,7 +2785,7 @@ def r_expose_interior(ctx, mass=None, beams=True, rubble=True):
                 path = "{0}/beam_{1}_{2}".format(ctx["parent"], ctx["tag"],
                                                  qf._uid(ctx))
                 qf._box(stage, path, wx, wy, z - qf.SLAB_T["rc"] - bh / 2.0,
-                        bw, D, bh, m["yaw"], ctx["mats"]["char_concrete"])
+                        bw, D, bh, m["yaw"], beam_mat)
                 ctx["authored"].append(path)
                 ctx["static_extra"].append(path)
                 n_beam += 1
@@ -2286,7 +2793,7 @@ def r_expose_interior(ctx, mass=None, beams=True, rubble=True):
                                              qf._uid(ctx))
             qf._box(stage, path, m["cx"], m["cy"],
                     z - qf.SLAB_T["rc"] - bh / 2.0, W, bw, bh, m["yaw"],
-                    ctx["mats"]["char_concrete"])
+                    beam_mat)
             ctx["authored"].append(path)
             ctx["static_extra"].append(path)
             n_beam += 1
@@ -2304,7 +2811,7 @@ def r_expose_interior(ctx, mass=None, beams=True, rubble=True):
                     path = "{0}/pier_{1}_{2}".format(ctx["parent"], ctx["tag"],
                                                      qf._uid(ctx))
                     qf._box(stage, path, wx, wy, z + h_st / 2.0, 0.38, 0.38,
-                            h_st, m["yaw"], ctx["mats"]["char_concrete"])
+                            h_st, m["yaw"], ctx["mats"]["steel"])
                     ctx["authored"].append(path)
                     ctx["static_extra"].append(path)
                     n_pier += 1
@@ -2468,6 +2975,9 @@ def r_roof_burnthrough(ctx, frac=0.4, mass=None):
     for pth in made:
         name = pth.rsplit("/", 1)[-1]
         if name.startswith(("rebar", "sbar")):
+            # fire-blackened steel, not the quake palette's rust (which
+            # read as timber — user review, 2026-08-30)
+            qf._b_bind_over(ctx["stage"], pth, ctx["mats"]["steel"])
             continue
         qf._b_bind_over(ctx["stage"], pth,
                         ctx["mats"]["char_concrete"] if rng.random() < 0.45
@@ -2483,7 +2993,16 @@ def r_roof_burnthrough(ctx, frac=0.4, mass=None):
 
 
 def _rafter_teeth(ctx, m, n=8):
-    """Bar and purlin ends standing up out of a burnt-through roof deck."""
+    """Bar and purlin ends standing up out of a burnt-through roof deck.
+
+    SQUARE-SECTION POSTS, NOT RODS. The old thin, gently-tilted `_cyl`
+    (0.06-0.085 m radius, `burnt_metal`) read as a wire, and `burnt_metal`'s
+    warm brown-black at this luminance read as scorched timber ("rods,
+    probably structural. They looked wooden though", user review,
+    2026-08-30). An upright box at the same base — a small random yaw in
+    place of the old 3-D tilt — reads as a burnt structural stub, a pillar,
+    which is what was asked for; bound to the cooler `steel` tone.
+    """
     from . import quake_flow as qf
     rng = ctx["rng"]
     z = m["top"]
@@ -2493,19 +3012,18 @@ def _rafter_teeth(ctx, m, n=8):
         ly = rng.uniform(-D / 2, D / 2)
         wx, wy = qf._to_world(m, lx, ly)
         L = rng.uniform(0.5, 1.6)
-        a = rng.uniform(0, 6.283)
-        tilt = rng.uniform(0.15, 0.55)
+        s = rng.uniform(0.14, 0.18)
         path = "{0}/rafter_{1}_{2}".format(ctx["parent"], ctx["tag"], qf._uid(ctx))
-        qf._cyl(ctx["stage"], path, (wx, wy, z - 0.4),
-                (wx + math.cos(a) * L * tilt, wy + math.sin(a) * L * tilt,
-                 z - 0.4 + L * math.sqrt(max(0.0, 1 - tilt * tilt))),
-                # 0.06 m FLOOR ON THE RADIUS. PhysX cooks nothing for a
-                # sub-centimetre tube and `settle` reports it as "loose
-                # prim(s) NEVER SIMULATED (no cookable mesh under them)" —
-                # the piece then stays exactly where it was authored, which
-                # on a roof that has since fallen is a stick hanging in the
-                # sky (uf_r2j, 2026-08-28).
-                rng.uniform(0.060, 0.085), ctx["mats"]["burnt_metal"])
+        # 0.14-0.18 m SQUARE — well clear of the cookable-size floor a thin
+        # tube used to sit on. `_cyl`'s 0.06 m radius floor existed because
+        # PhysX cooks nothing for a sub-centimetre tube and `settle` reports
+        # it as "loose prim(s) NEVER SIMULATED (no cookable mesh under
+        # them)" — the piece then stays exactly where authored, which on a
+        # roof that has since fallen is a stick hanging in the sky (uf_r2j,
+        # 2026-08-28). A square post this size is nowhere near that edge, but
+        # it is still STATIC_EXTRA, not LOOSE, for the same reason as before.
+        qf._box(ctx["stage"], path, wx, wy, z - 0.4 + L / 2.0, s, s, L,
+                rng.uniform(-15.0, 15.0), ctx["mats"]["steel"])
         ctx["authored"].append(path)
         # STATIC_EXTRA, NOT LOOSE. A rafter tooth handed straight to physics
         # cannot stay standing up, and standing up is the whole point of the
@@ -2666,6 +3184,52 @@ def r_fire_collapse(ctx, mass=None):
     s0 = max(f["origin"] + 1, n_lv - n_fall)
     if s0 >= n_lv:
         s0 = max(f["origin"], n_lv - 1)
+    # GAC ONLY, PER THE KIT-FIRE FREEZE (2026-08-30: "nothing may alter
+    # kit-building output"). `ctx["soot_prebaked"]` is a set/frozenset only
+    # when `gac_fire.burn_gac` set it (a plain kit `burn_building` call never
+    # passes `soot_prebaked=`, so it is `False` there) — everything below
+    # that records where the wreckage lands or rebinds a fallen roof piece to
+    # the fire palette is gated on this, so the frozen kit look draws nothing
+    # new and takes no new code path.
+    is_gac = isinstance(ctx.get("soot_prebaked"), (set, frozenset))
+    _roof_fall_mat = None
+    if is_gac:
+        # THE STOREY THE WRECKAGE ACTUALLY LANDS ON. `r_gut_interior` chars a
+        # fit-out slab by `_severity`, which falls off with distance from the
+        # fire's origin — wrong for the one floor everything above `s0` is
+        # about to be dropped onto, which is black with soot and debris
+        # however far that floor is from the seat of the fire. Recorded here
+        # so `r_gut_interior` (which runs later in every ladder that also
+        # carries this recipe) can force it, rather than guess from
+        # `fire["roof"]` alone.
+        ctx.setdefault("collapse_storeys", set()).add(max(0, s0 - 1))
+        # A LOCAL GENERATOR FOR EVERYTHING THIS RECIPE DROPS FROM THE ROOF.
+        # `_debris_mat` draws on the SHARED `ctx["rng"]`, and how many times
+        # it would be called here depends on how much roof geometry this
+        # particular building happens to carry (a GAC slice's roof-role kit
+        # pieces, a `_roof_box` slab, a `_split_strip` remainder, the deck, a
+        # shattered lid) — drawing material picks from the shared stream
+        # would move every later recipe's outcome by however many fragments
+        # a piece of geometry happened to produce. Seeded off the building
+        # itself instead, exactly like the lid-shatter draws further down
+        # this function already are.
+        from . import soot_plume as _spl
+        _lid_seed = _spl.event_seed(ctx) ^ 0xB0F
+        lrng = random.Random(_lid_seed)
+
+        def _roof_fall_mat():
+            """char_concrete ~30% of the time, char/scorch debris the rest —
+            `_debris_mat`'s own split, off `lrng` rather than the shared
+            `rng` so nothing this recipe's own geometry does can perturb a
+            later recipe's draws."""
+            if lrng.random() < 0.30:
+                return ctx["mats"]["char_concrete"]
+            burn = ctx["mats"].get("_burn")
+            if not burn:
+                return ctx["mats"]["soot"]
+            key = "char" if lrng.random() < 0.72 else "scorch"
+            return burn[key][lrng.randrange(len(burn[key]))]
+
     n_broke = n_art = 0
     for e in list(qf._els(ctx, mass=mass, role=("wall", "corner", "parapet",
                                                 "parapet_corner"))):
@@ -2706,8 +3270,20 @@ def r_fire_collapse(ctx, mass=None):
     for e in list(qf._els(ctx, mass=mass, role="roof")):
         made = qf._break_box_like(ctx, e, rng.randint(8, 13), timber=False,
                                   consume=0.3, consume_pool=1.05)
-        for pth in made:
-            qf._bind(ctx["stage"], pth, _debris_mat(ctx))
+        if is_gac:
+            # `_b_bind_over`, NOT `_bind` — same reason as the wall break
+            # above: a role="roof" piece can be a sliced GAC kit piece with
+            # its own per-material GeomSubsets, and `_roof_box`/
+            # `fracture_prim` fragments inherit whatever binding the piece
+            # already carried where this loop does not repaint them itself.
+            # Fire palette, not the roof's own (pale) texture ("the fallen
+            # roof pieces... look unburnt", user review, 2026-08-30).
+            for pth in made:
+                qf._b_bind_over(ctx["stage"], pth, _roof_fall_mat())
+        else:
+            # KIT PATH — UNCHANGED (frozen 2026-08-30).
+            for pth in made:
+                qf._bind(ctx["stage"], pth, _debris_mat(ctx))
         ctx["loose"] += made
         e["dead"] = True
         n_roof += len(made)
@@ -2745,6 +3321,123 @@ def r_fire_collapse(ctx, mass=None):
         if pth not in ctx["loose"]:
             ctx["loose"].append(pth)
             n_roof += 1
+        if is_gac:
+            # BOUND HERE, NOT LEFT FOR THE LID CHECK BELOW — GAC ONLY. Most
+            # of what this sweep catches never qualifies as a "lid" there —
+            # a GAC `roof_*` piece keeps its own GeomSubsets and is
+            # deliberately never handed to `fracture_prim` (see the comment
+            # on the positive list below), and a small `_roof_box`/
+            # `_split_strip` remainder is under `LID_AREA_M2` — and was
+            # falling to the storey below still wearing whatever it was
+            # bound to before the collapse (the roof's own pale texture, on
+            # a GAC piece): "the inside floor of the collapsed roof looks
+            # unburnt" (user review, 2026-08-30). Whatever DOES get
+            # shattered as a lid just below is rebound again over its own
+            # fragments; rebinding the whole piece here first costs nothing.
+            # KIT PATH — no bind here at all (frozen 2026-08-30).
+            qf._b_bind_over(ctx["stage"], pth, _roof_fall_mat())
+    # A LID, NOT A FALL. What the sweep above just moved includes near-flat
+    # slabs close to the MASS'S OWN FOOTPRINT — `_deck_slab` authors the deck
+    # at exactly (W, D), and `r_roof_hole`'s `_break_split` can leave most
+    # of it as ONE static rim remainder that nothing renames into
+    # `roof_slabs` (only this sweep ever sees it). Handed to the solver as
+    # one rigid body, a slab that size falls the ~3 m to storey s0-1 and
+    # finds a stable rest on THAT storey's own walls — never touched by the
+    # loop above (it is below `s0`) and already reduced by `window_burnout`
+    # to piers between empty openings: "the roof is floating ... some beams
+    # holding it up" (dw_terrace F5, user 2026-08-30; `fit_interior` authors
+    # no columns for urm, so those "beams" ARE the piers). Anything that
+    # wide is shattered into pieces small enough to drop between the piers
+    # instead of bridging them — the treatment `_break_box_like` already
+    # gives an un-holed kit roof tile. NO draw on the shared `rng`: every
+    # piece count, jitter and material pick comes from a generator seeded
+    # off the building itself, so no later recipe's outcome moves.
+    from . import damage as _damage, fracture as _fracture, soot_plume as _spl
+    LID_AREA_M2 = 20.0
+    LID_MAX_FACES = 600
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    fixed_now = set(ctx.get("roof_fixed") or ())
+    lids = []
+    for pth in moved:
+        if pth in fixed_now:
+            continue
+        pr = ctx["stage"].GetPrimAtPath(pth)
+        if not pr or not pr.IsValid():
+            continue
+        # AUTHORED BOXES ONLY. The lid this exists for is `_deck_slab`'s deck
+        # or `r_roof_hole`'s rim remainder — closed, low-poly boxes this file
+        # authored. A SLICED whole-asset piece that the sweep also moves (a
+        # GAC `roof_*` piece: a clipped open shell with per-material
+        # GeomSubsets and thousands of triangles) is not a lid and is not
+        # safe to hand to `fracture_prim`: it segfaulted inside
+        # vtkClipPolyData on SM_Building_09 F6 (gac_fire bench, 2026-08-30,
+        # `_vtk_slice` <- `slice_plane` <- `fracture_mesh`). Such a piece
+        # drops whole, as every piece did before the lid fix.
+        # POSITIVE LIST: the deck (`_deck_slab`), a `_roof_box` slab, or a
+        # `_break_split` remainder — and nothing else, however big its
+        # footprint. A referenced roof-plant asset (an Xform, not a Mesh, so
+        # the mesh tests below never ran on it) with a 20 m2 condenser pad
+        # went to `fracture_prim` on SM_Building_09 F6 and segfaulted VTK
+        # again after the mesh guard alone was in (2026-08-30).
+        if not pr.GetName().startswith(("deck_", "roofslab_")):
+            continue          # `frag_*` remainders are clipped shells: VTK
+                              # segfaulted on one (SM_Building_09 F6)
+        if not pr.IsA(UsdGeom.Mesh):
+            continue
+        if UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(pr)):
+            continue
+        cnt = UsdGeom.Mesh(pr).GetFaceVertexCountsAttr().Get()
+        if cnt is None or len(cnt) == 0 or len(cnt) > LID_MAX_FACES:
+            continue
+        box = bc.ComputeWorldBound(pr).ComputeAlignedRange()
+        if box.IsEmpty():
+            continue
+        lo_pt, hi_pt = box.GetMin(), box.GetMax()
+        area = (hi_pt[0] - lo_pt[0]) * (hi_pt[1] - lo_pt[1])
+        if area > LID_AREA_M2:
+            lids.append((pth, float(area)))
+    n_lid = 0
+    if lids:
+        import numpy as _np
+        if is_gac:
+            # `fracture_prim` wants a numpy Generator (`rng.permutation`);
+            # the SAME seed as `lrng` above (seeded off the building itself,
+            # not the shared `rng` — see the comment where `lrng` is made)
+            # so the two stay a matched pair.
+            lnrng = _np.random.default_rng(_lid_seed)
+        else:
+            # KIT PATH — UNCHANGED (frozen 2026-08-30). `fracture_prim`
+            # wants a numpy Generator (`rng.permutation`), the material
+            # picks a `random.Random`; both seeded off the building.
+            seed = _spl.event_seed(ctx) ^ 0xB0F
+            lrng = random.Random(seed)
+            lnrng = _np.random.default_rng(seed)
+            burn = ctx["mats"].get("_burn")
+        for pth, area in lids:
+            n_pc = max(8, min(40, int(area / 6.0)))
+            print("[urban_fire] fire collapse: shattering lid {0} ({1:.0f} m2) "
+                  "into {2}".format(pth.rsplit("/", 1)[-1], area, n_pc))
+            made = _fracture.fracture_prim(
+                ctx["stage"], pth,
+                "{0}/lidbrk_{1}_{2}".format(ctx["parent"], ctx["tag"],
+                                            qf._uid(ctx)),
+                n_pieces=n_pc, rng=lnrng, mode="plank", aspect=(1.4, 2.8),
+                rough=0.01, consume=0.3, consume_pool=1.05,
+                min_volume_frac=0.0008, verbose=False)
+            if not made:
+                continue
+            if is_gac:
+                for p2 in made:
+                    qf._b_bind_over(ctx["stage"], p2, _roof_fall_mat())
+            else:
+                for p2 in made:
+                    mat = (_damage._pick(lrng, "char" if lrng.random() < 0.72
+                                         else "scorch", burn)
+                           if burn else ctx["mats"]["soot"])
+                    qf._bind(ctx["stage"], p2, mat)
+            ctx["loose"] = [q for q in ctx["loose"] if q != pth] + list(made)
+            n_roof += len(made) - 1
+            n_lid += 1
     if ctx.get("roof_fixed"):
         drop = set(ctx["roof_fixed"])
         ctx["static_extra"] = [q for q in ctx["static_extra"] if q not in drop]
@@ -2796,9 +3489,9 @@ def r_fire_collapse(ctx, mass=None):
     ctx["notes"].append(
         "fire collapse: top {0} storey(s) down from storey {1}, {2} module(s) "
         "broken, {3} roof piece(s), {4} stain(s) removed with them, {5} "
-        "fit-out prop(s) sent down too, heap on the storey below at "
-        "z={6:.1f}".format(
-            n_lv - s0, s0, n_broke, n_roof, n_art, n_fitprop, base))
+        "fit-out prop(s) sent down too, {7} footprint-sized lid(s) shattered "
+        "before the drop, heap on the storey below at z={6:.1f}".format(
+            n_lv - s0, s0, n_broke, n_roof, n_art, n_fitprop, base, n_lid))
 
 
 # ---------------------------------------------------------------------------
@@ -2916,13 +3609,12 @@ FLAME_PUSH = 0.9       # m/s outward, so the plume clears the reveal
 FLAME_PER_OPENING = 3  # sources across one window, when it is genuinely alight
 FLAME_SCALE = 0.44     # per-source emission, since there are now several
 
-# ITEM 7 — CONTIGUOUS RUNS, NOT A COMB. A compartment fire spreads to the
-# compartment NEXT DOOR: flame comes out of a run of 2-4 neighbouring windows
-# and stops, not one window every third one and not an unbroken bar the width
-# of the wall. `FLAME_RUN_LEN` is openings per run; `_flame_runs` grows a run
-# outward from the hottest opening in each (mass, side, storey) group, groups
-# visited hottest-peak-first, until the shared budget is spent.
-FLAME_RUN_LEN = (2, 4)
+# WHICH OPENINGS BURN IS NOT DECIDED HERE ANY MORE. `soot_plume.plan_events`
+# grows contiguous compartment runs (`soot_plume.RUN_LEN`) along each
+# burning storey — the same "a fire spreads to the compartment NEXT DOOR,
+# not to every third window" rule the old `_flame_runs` enforced — and
+# `r_flames` lights the runs whose state is "flame". The soot skin is
+# rasterised from the same runs, which is the point.
 
 # ITEMS 5/6 — SMOKE-ONLY, SHARING THE SAME BUDGET. Small and fixed rather
 # than proportional to building size: removing the painted `_plume` geometry
@@ -2937,51 +3629,6 @@ SMOKE_MIN_SEV = 0.15    # matches the old `_plume` threshold: "barely marked"
 INTERIOR_SMOKE_MAX = 3  # sources seated on the gutted floor slabs, burnt-out
                         # states only (F4/F5) — "fires inside the burned-down
                         # buildings" (user review, 2026-08-29)
-
-
-def _flame_runs(ctx, ops, budget):
-    """A handful of CONTIGUOUS runs of neighbouring openings, not a comb.
-
-    THE BUG THIS REPLACES: the previous selection sorted every candidate
-    opening by severity, THEN took every third one (`ops[::3]`) to keep
-    licks from merging into one bar across the wall (`office_wide`, 14
-    emitters at 0.14 m cells, uf_bench 2026-08-28 — a real failure, and the
-    reason a stride existed at all). But the stride was applied to a list
-    already reordered by severity, so "every third" had no spatial meaning
-    left in it — which windows lit was effectively arbitrary: "the fire
-    looks like it's in alternating windows... random blobs of fire" (user
-    review, 2026-08-29).
-
-    THE FIX orders spatially FIRST. Openings are grouped by (mass, side,
-    storey) — one wall run — sorted ALONG that wall the same way
-    `r_curtain_burn` measures position (`lx`/`ly` against the mass half-
-    width), and a run is grown from a random start within the hottest
-    opening's own group, `FLAME_RUN_LEN` long or the group's own edge,
-    whichever is shorter. Groups are visited hottest-storey-first so the
-    budget goes to storeys that are actually alight, same as before.
-    """
-    rng = ctx["rng"]
-    groups = {}
-    for o in ops:
-        m = ctx["info"]["masses"].get(o["e"]["mass"]) or ctx["info"]["masses"]["main"]
-        side = o["side"]
-        along = (o["e"]["lx"] + m["W"] / 2.0) if side in ("S", "N") \
-            else (o["e"]["ly"] + m["D"] / 2.0)
-        groups.setdefault((o["e"]["mass"], side, o["storey"]), []).append((along, o))
-    for k in groups:
-        groups[k].sort(key=lambda t: t[0])
-    order = sorted(groups.keys(), key=lambda k: -_severity(ctx, k[2], k[0]))
-    chosen = []
-    for key in order:
-        if len(chosen) >= budget:
-            break
-        seq = [o for _, o in groups[key]]
-        n = len(seq)
-        ln = min(n, rng.randint(*FLAME_RUN_LEN))
-        start = rng.randint(0, max(0, n - ln))
-        room = budget - len(chosen)
-        chosen += seq[start:start + ln][:max(1, room)]
-    return chosen
 
 
 def _flame_sources(ctx, root, op, state, scale, tag, per_opening):
@@ -3134,9 +3781,10 @@ def _roof_plume(ctx, root, state, scale):
 
 
 def r_flames(ctx, max_emitters=9, scale=1.0):
-    """Flow emitters: flame sheets at the burning openings while the fire is
-    ACTIVE, smoke-only sources everywhere a painted `_plume` tongue or a
-    hidden interior fire used to stand in for volumetrics.
+    """Flow emitters, placed by the building's FIRE EVENTS
+    (`ctx["fire"]["events"]`, `soot_plume.plan_events`) — the same list the
+    soot skin is rasterised from, so a window with flame coming out of it is
+    a window with a plume of soot over it, by construction.
 
     Does nothing unless the launcher has authored the Flow stack
     (`fire.setup_flow_stack`) — the emitters need its layer, and its
@@ -3145,33 +3793,32 @@ def r_flames(ctx, max_emitters=9, scale=1.0):
 
     FOUR PARTS, ONE SHARED BUDGET:
 
-      1. the vented openings — `_flame_runs` picks a few CONTIGUOUS runs of
-         them (see its own docstring for the bug this replaced) and
-         `_flame_sources` authors `FLAME_PER_OPENING` sources across each,
-         with `state` from the building's own ACTIVE ladder entry: "flame"
-         while it is burning, "smoulder"/"residual" (already smoke-only —
-         `fire.STATE_EMISSION` zeroes fuel and temperature for both) once
-         it has passed;
-      2. SMOKE-ONLY EXTRA, active fire only — up to `SMOKE_EXTRA_MAX`
-         further openings that are staining (`SMOKE_MIN_SEV`) but never hot
-         enough for a flame source, one source each, `state="smoke"`. This
-         is what a painted plume tongue used to stand in for;
-      3. INTERIOR SMOKE, burnt-out states only — `_interior_smoke`, up to
-         `INTERIOR_SMOKE_MAX` sources on the gutted floor slabs themselves;
-      4. the roof plume, unchanged, gated on `f["roof"]`.
+      1. FLAME events — `FLAME_PER_OPENING` sheet sources across each of
+         their openings, at most `max_emitters` openings in all. Planning
+         already caps flame events at `soot_plume.FLAME_BUDGET_OPENINGS`
+         (the same 9) and re-labels the overflow as burnt OUT, so the cap
+         here is belt and braces. If nothing could be planned at all (a
+         band with no openings of any kind) the old module-vent fallback
+         (`_wall_vents`) runs.
+      2. SMOKE from the compartments that have already burnt OUT while the
+         building is still alight — F3's lower storeys, the fire having
+         moved up — up to `SMOKE_EXTRA_MAX`, nearest the front first, one
+         source each, `state="smoke"`.
+      3. On a burnt-out building, its SMOULDER events (the topmost few, see
+         `plan_events`) get one source each with the building's own state,
+         plus `_interior_smoke` on the gutted slabs.
+      4. The roof plume, unchanged, gated on `f["roof"]`.
 
-    THE BUDGET. Before this change the worst case was
-    `max_emitters * FLAME_PER_OPENING` (27 at the defaults) plus up to 2 roof
-    spheres, ~29 Flow prims for one building. Removing the painted plumes
-    freed nothing on the GPU — they were mesh, not Flow — so items 2 and 3
-    are NEW load on the same pool: worst case is now ~27 + `SMOKE_EXTRA_MAX`
-    (3) + `INTERIOR_SMOKE_MAX` (3) + 2 roof = ~35 Flow prims per building,
-    all deliberately small, fixed caps rather than anything that scales with
-    building size. If that turns out to still be too many at city scale, the
-    number to raise is `fire.DEFAULTS["max_blocks"]` (owned by `fire.py`,
-    not this file) — reported rather than changed here.
+    An event whose openings belong to a module a collapse has since taken
+    (`dead`) is skipped: a flame on a wall that is no longer there floats.
+
+    THE BUDGET is unchanged: worst case ~27 flame + 3 smoke + 3 interior +
+    2 roof = ~35 Flow prims per building, fixed caps that do not scale with
+    building size. If that is too many at city scale, the number to raise is
+    `fire.DEFAULTS["max_blocks"]` (owned by `fire.py`).
     """
     from pxr import Sdf, UsdGeom
+    from . import soot_plume as spl
 
     f, rng = ctx["fire"], ctx["rng"]
     state = f.get("state")
@@ -3181,51 +3828,46 @@ def r_flames(ctx, max_emitters=9, scale=1.0):
     if not root:
         ctx["notes"].append("flames: no flow stack on this stage, skipped")
         return
-    from . import quake_flow as qf
-
     is_flame = state == "flame"
-    ops_all = list(qf._g2_openings(ctx, sides=f["sides"])) + \
-        list(qf._g_shop_openings(ctx, sides=f["sides"]))
 
+    def live(ev):
+        return all(not o["e"].get("dead") for o in ev["ops"])
+
+    events = [ev for ev in (f.get("events") or []) if live(ev)]
     UsdGeom.Xform.Define(ctx["stage"], Sdf.Path(root + "/emitters"))
-    n = 0
+    n = n_open = 0
 
-    # -- 1) the vented openings ---------------------------------------------
-    hot = [o for o in ops_all
-           if _severity(ctx, o["storey"], o["e"]["mass"]) > 0.45]
+    # -- 1) the flame events ----------------------------------------------
+    for ev in [ev for ev in events if ev["state"] == "flame"]:
+        for op in ev["ops"]:
+            if n_open >= max_emitters:
+                break
+            n += _flame_sources(ctx, root, op, "flame", scale,
+                                "e{0}_{1}".format(ev["id"], n_open),
+                                FLAME_PER_OPENING)
+            n_open += 1
+    if is_flame and n_open == 0:
+        for i, op in enumerate(_wall_vents(ctx, max_emitters)):
+            n += _flame_sources(ctx, root, op, state, scale, i,
+                                FLAME_PER_OPENING)
+            n_open += 1
+
+    # -- 2) / 3) smoke ------------------------------------------------------
+    n_smoke = 0
     if is_flame:
-        chosen = _flame_runs(ctx, hot, max_emitters)
+        out = sorted([ev for ev in events if ev["state"] == "out"],
+                     key=lambda ev: (-ev["storey"], ev["id"]))
+        for ev in out[:SMOKE_EXTRA_MAX]:
+            op = ev["ops"][len(ev["ops"]) // 2]
+            n_smoke += _flame_sources(ctx, root, op, "smoke", scale,
+                                      "sm{0}".format(ev["id"]), 1)
     else:
-        # burnt-out: no merge risk (there is no flame front to merge), and
-        # no spatial pattern to preserve — hottest storeys first is enough.
-        hot.sort(key=lambda o: -_severity(ctx, o["storey"], o["e"]["mass"]))
-        chosen = hot[:max_emitters]
-    if not chosen:
-        # NO MEASURED OPENINGS ON THIS FAMILY. The glass tower (family 05)
-        # paints its mullion grid into the façade map, so `_G2_WIN_FACES` and
-        # `_G_SHOP_FACES` are both empty for it and the burning storeys got no
-        # flame at all while every masonry building in the row had it. Fall
-        # back to the wall ELEMENTS of the band: the emitter goes at the top
-        # of the module, proud of its face, which is where a curtain-wall
-        # spandrel vents anyway.
-        chosen = _wall_vents(ctx, max_emitters)
-    for i, op in enumerate(chosen):
-        n += _flame_sources(ctx, root, op, state, scale, i, FLAME_PER_OPENING)
-
-    # -- 2) smoke-only extra, active fire only -------------------------------
-    n_smoke_extra = 0
-    if is_flame:
-        chosen_ids = set(id(o) for o in chosen)
-        warm = [o for o in ops_all if id(o) not in chosen_ids
-               and SMOKE_MIN_SEV < _severity(ctx, o["storey"], o["e"]["mass"])
-               <= 0.45]
-        rng.shuffle(warm)
-        for op in warm[:SMOKE_EXTRA_MAX]:
-            n_smoke_extra += _flame_sources(ctx, root, op, "smoke", scale,
-                                            "sm{0}".format(n_smoke_extra), 1)
-        n += n_smoke_extra
-
-    # -- 3) interior smoke, burnt-out states only ----------------------------
+        sm = [ev for ev in events if ev["state"] == "smoulder"]
+        for ev in sm[:spl.SMOULDER_EVENTS_MAX]:
+            op = ev["ops"][len(ev["ops"]) // 2]
+            n_smoke += _flame_sources(ctx, root, op, state, scale,
+                                      "sm{0}".format(ev["id"]), 1)
+    n += n_smoke
     n_interior = 0
     if not is_flame:
         n_interior = _interior_smoke(ctx, root, state, scale,
@@ -3239,13 +3881,23 @@ def r_flames(ctx, max_emitters=9, scale=1.0):
         n += n_roof
 
     ctx["notes"].append(
-        "flames: {0} vent source(s) over {1} opening(s){2}, {3} smoke-only "
-        "extra, {4} interior source(s), {5} roof plume source(s), state={6}, "
-        "{7} Flow prim(s) total".format(
-            n - n_smoke_extra - n_interior - n_roof, len(chosen),
-            "" if is_flame else " (smoke-only)", n_smoke_extra, n_interior,
-            n_roof, state, n))
+        "flames: {0} flame source(s) over {1} opening(s), {2} smoke source(s) "
+        "at events, {3} interior, {4} roof, state={5}, {6} Flow prim(s) "
+        "total".format(n - n_smoke - n_interior - n_roof, n_open, n_smoke,
+                       n_interior, n_roof, state, n))
 
+
+# `fire_collapse` owns the PARTIAL collapse (part of the shell down, the rest
+# standing) the way this file owns `r_fire_collapse` (the top storeys down,
+# all four walls still up). Imported at module scope on purpose and safely:
+# `fire_collapse` reads this file's fire palette (`_debris_mat`, `_burn_mat`,
+# `_joist_stubs`, `_deck_slab`, `_drop_face_art`) only from INSIDE its
+# functions, so there is no import cycle — and the import has to happen when
+# the ladder loads, because `fire_collapse` registers the `F5c` level with
+# `soot_plume.DURATION_S` at import time and `soot_plume.plan_events` runs
+# before the first recipe does (an unregistered level returns NO fire events
+# at all: no soot, no flames, silently).
+from . import fire_collapse as _fire_collapse                  # noqa: E402
 
 RECIPES = {
     "smoke_stain": r_smoke_stain,
@@ -3260,6 +3912,7 @@ RECIPES = {
     "roof_burnthrough": r_roof_burnthrough,
     "curtain_burn": r_curtain_burn,
     "fire_collapse": r_fire_collapse,
+    "partial_collapse": _fire_collapse.r_partial_collapse,
     "street_debris": r_street_debris,
     "flames": r_flames,
 }
@@ -3270,7 +3923,9 @@ RECIPES = {
 # ---------------------------------------------------------------------------
 def burn_building(stage, parent, style, placements, x, y, yaw, level,
                   rng, nrng, mats, tag, flow_root=None, origin=None,
-                  sides=None, mat_cache=None, fit_storeys=None):
+                  sides=None, mat_cache=None, fit_storeys=None,
+                  events=None, openings_fn=None, soot_prebaked=False,
+                  fire=None, skin=None):
     """Set one placed kit building on fire to `level` (F0..F5, or a recipe
     list). Returns the same ctx shape `quake_flow.wreck_building` does, so a
     caller can hand `loose` / `static_extra` / `velocity` straight to
@@ -3278,6 +3933,16 @@ def burn_building(stage, parent, style, placements, x, y, yaw, level,
 
     The building must already be on the stage (`apply_placements` has set each
     placement's `prim_path`).
+
+    `events` / `openings_fn` / `soot_prebaked` are the hooks a WHOLE-ASSET
+    building sliced into a kit uses (`disaster.gac_fire`): its fire events
+    are planned from the merged asset's own measured windows BEFORE it is
+    sliced, its soot is baked into the asset's atlases once through the
+    merged mesh's UVs (hundreds of pieces then share a dozen sooted maps
+    instead of each baking its own), and `r_smoke_stain` therefore has
+    nothing left to do on the pieces. `openings_fn(ctx, mass, side, storey)`
+    replaces `soot_plume.openings` for `plan_events`/`r_flames` where the
+    kit has no measured window table.
     """
     from . import quake_flow as qf
 
@@ -3295,7 +3960,33 @@ def burn_building(stage, parent, style, placements, x, y, yaw, level,
            "authored": [], "notes": [], "flow_root": flow_root,
            "fit": {"slabs": {}, "columns": {}, "partitions": [], "props": {},
                    "all": []}}
-    ctx["fire"] = plan_fire(info, lvl, rng, origin=origin, sides=sides)
+    # `fire` lets a caller that already planned the fire (to bake soot into
+    # a merged asset before slicing it) hand the SAME plan in, rather than
+    # re-drawing the band from `origin`/`sides` and getting a different one.
+    ctx["fire"] = (dict(fire) if fire is not None
+                   else plan_fire(info, lvl, rng, origin=origin, sides=sides))
+    # THE EVENTS ARE DRAWN HERE, BEFORE ANY RECIPE RUNS, so that every pass
+    # that needs to know where the fire is (the skin, the flames) reads one
+    # list — and before `fire_collapse` can take a wall away, so an event on
+    # a module that later falls still leaves its stain on the neighbours
+    # (physically right) while `r_flames` skips it (a flame on a wall that
+    # is no longer there floats).
+    # ...and from their OWN rng (`soot_plume.event_rng`), so the recipes'
+    # shared `rng` sees exactly the sequence it did before events existed.
+    from . import soot_plume as spl
+    if openings_fn is not None:
+        ctx["soot_openings"] = openings_fn
+    # `soot_prebaked` is True (nothing left to bake) or a SET of material
+    # prim paths that already carry the skin (`_bind_soot` skips those and
+    # bakes the rest per piece); `skin` is that same skin, so the per-piece
+    # bake and the pre-bake agree pixel for pixel
+    ctx["soot_prebaked"] = soot_prebaked if isinstance(soot_prebaked, (set, frozenset)) \
+        else bool(soot_prebaked)
+    if skin is not None:
+        ctx["soot_skin"] = skin
+    ctx["fire"]["events"] = (list(events) if events is not None
+                             else spl.plan_events(ctx, _severity))
+    ctx["notes"].append("fire events: " + spl.summarise(ctx["fire"]["events"]))
     if not recipes:
         dress_roof_urban(ctx)
         ctx["static_extra"] += list(ctx.get("roof_plant", []))
@@ -3316,7 +4007,11 @@ def burn_building(stage, parent, style, placements, x, y, yaw, level,
         # that is always visible from a drone, so it is always fitted out.
         f_ = ctx["fire"]
         n_ = len(info["masses"][f_["mass"]]["levels"])
-        fit_storeys = set(range(max(0, f_["origin"] - 1), f_["top"] + 2)) \
+        # FROM THE ORIGIN, not the storey under it: that storey only ever
+        # gets cracked panes (`_severity` 0.16, under `r_window_burnout`'s
+        # threshold), so nothing behind its façade is ever seen (user,
+        # 2026-08-30: "I don't want props that nobody can see").
+        fit_storeys = set(range(f_["origin"], f_["top"] + 2)) \
             | set(range(max(0, n_ - 3), n_))
     ctx["fit"] = qf.fit_interior(stage, parent, info, mats, rng,
                                  storeys=fit_storeys, tag=tag)
@@ -3513,101 +4208,150 @@ def check_scorch(verbose=True):
 
 
 # ---------------------------------------------------------------------------
-# Offline verification that the wash's edge is NOT element-aligned
+# Offline verification that the soot is WHERE THE FIRE IS
 # ---------------------------------------------------------------------------
-def check_overlay_edge(verbose=True):
-    """Host-side, no stage: the regression this guards against is
-    `_bind_subsets` (or anything shaped like it) rebinding one placed
-    module's own material for the wash, which makes the burnt region's edge
-    a rectangle by construction — the exact bug `_r_soot_overlay` /
-    `wall_overlay` replaced (see the block above `r_smoke_stain`). Builds a
-    REAL kit building with `detail.urban_building` + `quake_flow.describe`
-    (no pxr, no stage — pure placement math, the same trick `check_scorch`
-    uses) and drives the actual `_wall_run_frame` / `_facade_field` /
-    `wall_overlay._level_set_mask` code path a real scene would.
+def check_soot_events(verbose=True, styles=("commercial_mid", "apartment",
+                                             "office_slab", "highrise_step"),
+                      levels=("F1", "F2", "F3", "F5")):
+    """Host-side, no stage: the coupling `soot_plume` exists for, machine-
+    checked on REAL kit buildings (`detail.urban_building` +
+    `quake_flow.describe`, pure placement math — the same trick
+    `check_scorch` uses) through the actual `plan_fire` -> `plan_events` ->
+    `skin` path a scene takes:
 
-    Checks BOTH things the brief asked for:
-      A. the overlay's own authored extent (`_wall_run_frame`'s `L`) spans
-         MORE THAN ONE element — not just `len(run) > 1`, which the old
-         per-element bind also satisfied (it just iterated one element at a
-         time), but a world-space width that exceeds any single module's
-         own width, which per-element binding can never produce because it
-         has no concept of a "run" at all.
-      B. the baked mask genuinely varies WITHIN the pixel span of one
-         element's own width — i.e. even a single module's own footprint is
-         not a flat fill at finer grain, which is what "the edge crosses
-         element boundaries" requires at the pixel level, not just at the
-         geometry level.
+      A. every event sits on the fire's own mass, band and sides;
+      B. FLAME events only while the ladder says the building is alight —
+         never on F1, never on F4+ — and never more than
+         `soot_plume.FLAME_BUDGET_OPENINGS` openings' worth;
+      C. the skin is CLEAN two storeys under the origin (alpha < 0.03
+         everywhere there) and only STAINED, never burnt, in the storey
+         directly under it (mean alpha < 0.12) — the "clean band under the
+         black stripe" signature;
+      D. every event's own head is DARK (mean alpha > 0.45 across its first
+         opening, just above the head): the stain is rooted where the fire
+         is, not merely somewhere on the same storey;
+      E. an F5 skin's burning sides are near-saturated across the band (mean
+         alpha > 0.75) and still NOT one flat colour (rgb std > 0.002).
     """
     import random as _random
 
+    import numpy as _np
+
     from detail import urban_building as ub
-    from . import quake_flow as qf, wall_overlay as wo
+    from . import quake_flow as qf, soot_plume as spl
 
     bad = []
-    rng = _random.Random(20260829)
     tried = 0
-    for style in list(ub.STYLES.keys()):
-        placements = ub.build_building(style, 0.0, 0.0, 0.0, rng)
-        info = qf.describe(style, placements, 0.0, 0.0, 0.0)
-        if info["type"] == "rc_glass":
-            continue   # the overlay is not authored on curtain-wall towers
-        mtag = max(info["masses"].items(),
-                  key=lambda kv: len(kv[1]["levels"]))[0]
-        by_side = {}
-        for e in info["elements"]:
-            if e["mass"] == mtag and e["role"] == "wall":
-                by_side.setdefault(e["side"], []).append(e)
-        side, run = max(by_side.items(), key=lambda kv: len(kv[1]),
-                        default=(None, []))
-        if side is None or len(run) < 2:
-            continue
-        tried += 1
+    for style in styles:
+        for li, level in enumerate(levels):
+            rng = _random.Random(20260830 + li)
+            nrng = _np.random.default_rng(20260830 + li)
+            placements = ub.build_building(style, 0.0, 0.0, 0.0, rng)
+            info = qf.describe(style, placements, 0.0, 0.0, 0.0)
+            ctx = {"info": info, "rng": rng, "nrng": nrng, "notes": []}
+            mtag = max(info["masses"].items(),
+                       key=lambda kv: (len(kv[1]["levels"]),
+                                       kv[0] == "main"))[0]
+            n_st = len(info["masses"][mtag]["levels"])
+            origin = max(1, min(n_st - 2, int(round(0.3 * (n_st - 1)))))
+            if n_st < 3:
+                continue
+            sides = ("S",) if level in ("F1", "F2") else ("S", "E")
+            ctx["fire"] = plan_fire(info, level, rng, origin=origin,
+                                    sides=sides)
+            f = ctx["fire"]
+            events = spl.plan_events(ctx, _severity, rng)
+            f["events"] = events
+            tag = "{0}/{1}".format(style, level)
+            if not events:
+                bad.append(tag + ": no fire events planned")
+                continue
+            tried += 1
+            # -- A ------------------------------------------------------
+            for ev in events:
+                if ev["mass"] != mtag or ev["storey"] not in f["storeys"] \
+                        or ev["side"] not in f["sides"]:
+                    bad.append("{0}: event {1} off the plan (mass {2}, storey "
+                               "{3}, side {4}; band {5} sides {6})".format(
+                                   tag, ev["id"], ev["mass"], ev["storey"],
+                                   ev["side"], f["storeys"], f["sides"]))
+            # -- B ------------------------------------------------------
+            n_flame_open = sum(len(ev["ops"]) for ev in events
+                               if ev["state"] == "flame")
+            if level in ("F1", "F4", "F5", "F6") and n_flame_open:
+                bad.append("{0}: {1} flame opening(s) on a level with no "
+                           "flame".format(tag, n_flame_open))
+            if level in ("F2", "F3") and not n_flame_open:
+                bad.append("{0}: an ACTIVE fire with no flame event".format(tag))
+            if n_flame_open > spl.FLAME_BUDGET_OPENINGS:
+                bad.append("{0}: {1} flame openings over the budget of {2}"
+                           .format(tag, n_flame_open,
+                                   spl.FLAME_BUDGET_OPENINGS))
+            # -- the skin ---------------------------------------------------
+            sk = spl.skin(ctx, events, nrng, finish=f.get("finish") or "char",
+                          glass=(info["type"] == "rc_glass"))
+            al = sk["rgba"][..., 3]
+            h, w = al.shape
+            m = info["masses"][mtag]
+            ppm, H, z0 = sk["ppm"], sk["H"], sk["z0"]
 
-        # -- A: the run's own world-space width exceeds one module's -------
-        fr, L = _wall_run_frame(run, side)
-        if fr is None:
-            bad.append("{0}: _wall_run_frame returned no frame".format(style))
-            continue
-        one_module_w = qf._piece_frame(run[0])[3]
-        if not (len(run) > 1 and L > one_module_w * 1.5):
-            bad.append(
-                "{0}/{1}: overlay run did not span multiple elements "
-                "(n={2}, L={3:.2f} m, one module={4:.2f} m) -- this is "
-                "exactly the per-element-rebind regression the overlay "
-                "exists to avoid".format(style, side, len(run), L,
-                                         one_module_w))
-            continue
+            def row_of(z):
+                return int(round((H - (z - z0)) * ppm))
 
-        # -- B: the baked mask varies within one element's own width -------
-        ctx = {"info": info,
-              "fire": {"mass": mtag, "sides": (side,), "origin": 0,
-                        "storeys": [0, 1], "top": 1, "roof": False,
-                        "n_storeys": len(info["masses"][mtag]["levels"])}}
-        field, h = _facade_field(ctx, mtag, side, 1.0, 1, 2)
-        if len(set(round(v, 3) for v in field)) < max(4, h // 8):
-            bad.append(
-                "{0}/{1}: overlay field is not finely graded over height "
-                "(only {2} distinct value(s) across {3} rows)".format(
-                    style, side,
-                    len(set(round(v, 3) for v in field)), h))
-        import numpy as _np
-        nrng = _np.random.default_rng(rng.randrange(2 ** 31))
-        m = wo._level_set_mask(h, max(32, int(L * 4)), nrng, field)
-        col_w = max(1, int(round(m.shape[1] * (one_module_w / L))))
-        one_el_std = float(m[:, :col_w].std())
-        if one_el_std < 1e-4:
-            bad.append(
-                "{0}/{1}: mask is uniform within one element's own width "
-                "(std={2:.6f}) -- the edge would still align to the "
-                "module grid".format(style, side, one_el_std))
-
+            # -- C ------------------------------------------------------
+            if origin >= 2:
+                r = row_of(m["levels"][origin - 1])
+                if r < h and float(al[r:].max()) > 0.03:
+                    bad.append("{0}: soot two storeys under the origin (max "
+                               "alpha {1:.3f} below z={2:.1f})".format(
+                                   tag, float(al[r:].max()),
+                                   m["levels"][origin - 1]))
+            r_top = row_of(m["levels"][origin])
+            r_bot = row_of(m["levels"][origin - 1])
+            if r_top < r_bot <= h:
+                under = float(al[r_top:r_bot].mean())
+                if under > 0.12:
+                    bad.append("{0}: the storey under the origin is burnt, "
+                               "not stained (mean alpha {1:.3f})".format(
+                                   tag, under))
+            # -- D ------------------------------------------------------
+            off = sk["offsets"]
+            for ev in events:
+                u0, u1, _zs, zh = ev["ops"][0]["span"]
+                c0 = int(round((off[ev["side"]] + u0) * ppm))
+                c1 = max(c0 + 1, int(round((off[ev["side"]] + u1) * ppm)))
+                cols = _np.arange(c0, c1) % w
+                r0 = max(0, row_of(zh + 0.6))
+                r1 = max(r0 + 1, row_of(zh + 0.15))
+                head = float(al[r0:r1][:, cols].mean())
+                if head < 0.45:
+                    bad.append("{0}: event {1} ({2}) is not dark at its own "
+                               "head (alpha {3:.2f})".format(
+                                   tag, ev["id"], ev["state"], head))
+            # -- E ------------------------------------------------------
+            if level == "F5":
+                r0 = row_of(m["top"])
+                r1 = row_of(m["levels"][f["storeys"][0]])
+                band_cols = []
+                for side in f["sides"]:
+                    L = spl.side_length(m, side)
+                    band_cols.append(_np.arange(
+                        int(round(off[side] * ppm)),
+                        int(round((off[side] + L) * ppm))) % w)
+                cols = _np.concatenate(band_cols)
+                band = al[max(0, r0):r1][:, cols]
+                rgb = sk["rgba"][max(0, r0):r1][:, cols][..., :3]
+                if float(band.mean()) < 0.75:
+                    bad.append("{0}: burnt-out band not near-saturated (mean "
+                               "alpha {1:.3f})".format(tag, float(band.mean())))
+                if float(rgb.std()) < 0.002:
+                    bad.append("{0}: burnt-out band is one flat colour (rgb "
+                               "std {1:.4f})".format(tag, float(rgb.std())))
     if tried == 0:
-        bad.append("check_overlay_edge: no style produced a multi-element "
-                  "wall run to test -- the check itself did not run")
+        bad.append("check_soot_events: nothing was checked")
     if verbose:
-        print("[urban_fire] check_overlay_edge {0}".format(
-            "ok" if not bad else "FAILED"))
+        print("[urban_fire] check_soot_events {0} ({1} building(s))".format(
+            "ok" if not bad else "FAILED", tried))
         for b in bad:
             print("  " + b)
     return bad

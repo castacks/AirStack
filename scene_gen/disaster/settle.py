@@ -935,6 +935,7 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         > rest_tol]
     info["still_moving"] = len(still_moving_keys)
     info["still_moving_examples"] = still_moving_keys[:5]
+    info["still_moving_paths"] = list(still_moving_keys)
     after = settled
 
     # HORIZONTAL vs VERTICAL is the whole question. A collapse drops pieces:

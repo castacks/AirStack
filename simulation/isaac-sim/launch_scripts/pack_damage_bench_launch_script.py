@@ -38,9 +38,13 @@ recess, storey slabs, buckled columns and a rubble field behind the cut:
 windows, no storey plates and no modules to work with, so it will never reach
 the kit row.
 
-`urban_fire.burn_monolith` is deliberately NOT used here. Its entire
-repertoire is one flat multiplier over every material on the asset, which is
-what made a burnt 500 m downtown render as a field of uniformly grey boxes.
+There is no whole-asset damage path any more. `urban_fire.burn_monolith`
+used to be one, and it was REMOVED (2026-08-29) because its entire repertoire
+was one flat multiplier over every material on the asset, which is what made a
+burnt 500 m downtown render as a field of uniformly grey boxes. A whole-asset
+building now routes through `disaster/kit_substitute.route()` instead: to its
+kit twin where one exists, to the slicer where it does not, and refused where
+neither is possible.
 
 Env:
     PB_PACKS      comma list of rows (default: all) — kit, gac, downtowncity,
@@ -81,7 +85,18 @@ def _env(name, default=""):
 
 
 _HEADLESS = _env("ISAAC_SIM_HEADLESS", "false").lower() in ("1", "true", "yes")
-simulation_app = SimulationApp(launch_config={"headless": _HEADLESS})
+# FRACTIONAL CUTOUT OPACITY. This bench calls `urban_fire.burn_building`,
+# which authors `wall_overlay`'s soot mask and `_glass_pane`'s smoke deposits
+# — both FRACTIONAL CUTOUT opacity, which RTX discards unless this is set, so
+# they render as hard binary stamps instead of graded staining. The startup
+# flag alone does not survive stage composition and the carb form alone is too
+# late for startup, so the launchers that get this right do BOTH; see
+# `urban_fire_bench_launch_script.py` and `disaster/ground.py:KIT_ARGS`.
+KIT_ARGS = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
+            "--/rtx/pathtracing/fractionalCutoutOpacity=true"]
+
+simulation_app = SimulationApp(launch_config={"headless": _HEADLESS,
+                                              "extra_args": KIT_ARGS})
 
 from isaacsim.core.utils.extensions import enable_extension    # noqa: E402
 

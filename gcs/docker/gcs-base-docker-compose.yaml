@@ -55,6 +55,28 @@ services:
       # mission runner (osmo `environments:` RESULTS_SCENE) so the GCS shows the
       # right scene's ground truth instead of a hardcoded RetroNeighborhood.
       - RESULTS_SCENE=${RESULTS_SCENE:-RetroNeighborhood}
+      # sim_ground / overhead-still knobs, read by foxglove_visualizer_node and
+      # by the mission's overhead-snapshot step. All empty-tolerant: the code
+      # reads them as `os.environ.get(X) or <default>`, and an empty string is
+      # falsy, so `${VAR:-}` cannot smuggle in a zero.
+      #
+      # These exist because the FIRST overhead frame of a frozen cell is blank
+      # — 250 MB of geometry with textures still streaming off Nucleus — and
+      # the visualizer used to build sim_ground from exactly that frame.
+      # WARMUP_S: ignore everything this long after the first frame.
+      # MIN_STD:  reject a frame whose per-channel std is below this (the real
+      #           gate; a timer cannot know how long a cell takes to arrive).
+      # SETTLE_S / REPEAT_PERIOD_S: how long to keep republishing the marker
+      #           and when to rebuild it once from the final frame.
+      - SIM_GROUND_WARMUP_S=${SIM_GROUND_WARMUP_S:-}
+      - SIM_GROUND_MIN_STD=${SIM_GROUND_MIN_STD:-}
+      - SIM_GROUND_SETTLE_S=${SIM_GROUND_SETTLE_S:-}
+      - SIM_GROUND_REPEAT_PERIOD_S=${SIM_GROUND_REPEAT_PERIOD_S:-}
+      - OVERHEAD_SNAP_WARMUP_S=${OVERHEAD_SNAP_WARMUP_S:-}
+      - OVERHEAD_SNAP_PERIOD_S=${OVERHEAD_SNAP_PERIOD_S:-}
+      - OVERHEAD_SNAP_FRAMES=${OVERHEAD_SNAP_FRAMES:-}
+      - OVERHEAD_SNAP_MIN_STD=${OVERHEAD_SNAP_MIN_STD:-}
+      - OVERHEAD_SNAP_DEADLINE_S=${OVERHEAD_SNAP_DEADLINE_S:-}
       # Record bags
       - RECORD_BAGS=${RECORD_BAGS}
     image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs

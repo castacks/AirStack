@@ -167,6 +167,114 @@ def _rebuild_material(out, dst_path, src_mat_prim):
 
 
 # ---------------------------------------------------------------------------
+# POINT INSTANCERS (round-4 rubble, agent E) — carried into the archetype
+# instead of being flattened into thousands of authored prims. See
+# `_author_instancer` (in `export_object`) for the transform split and
+# `_copy_prototype_tree` for how a prototype survives.
+# ---------------------------------------------------------------------------
+def _direct_references(src_prim):
+    """[(resolved target layer identifier, target prim path), ...] for every
+    REFERENCE arc authored DIRECTLY on `src_prim`'s own path (never one it
+    merely inherited from an ancestor prim).
+
+    `Usd.PrimCompositionQuery`'s arc already carries the RESOLVED target
+    layer — `arc.GetTargetLayer().identifier` — the same way `attr.Get()`
+    hands back a resolved `Sdf.AssetPath` for `_reanchor_assets`. So a
+    prototype authored as `references = @../rubble/chunk_04.usd@` (relative
+    to ITS OWN source file, wherever that is) resolves to that file's real
+    path here, however far the exported archetype ends up from it — the
+    identical problem `_reanchor_assets` solves for material attribute
+    values, solved the same way for a composition arc instead of an
+    attribute.
+    """
+    from pxr import Pcp, Usd
+    out = []
+    try:
+        q = Usd.PrimCompositionQuery(src_prim)
+    except Exception:
+        return out
+    for arc in q.GetCompositionArcs():
+        if arc.GetArcType() != Pcp.ArcTypeReference or arc.IsAncestral():
+            continue
+        layer = arc.GetTargetLayer()
+        if layer is None:
+            continue
+        out.append((layer.identifier, arc.GetTargetPrimPath()))
+    return out
+
+
+def _copy_local_xform(src_prim, dst_prim):
+    """Reproduce src's OWN xformOps on dst_prim exactly — same op types,
+    precision, suffix and values, in the same order.
+
+    `_copy_attrs_by_value` always drops `xformOpOrder` (see `_GEOM_SKIP`)
+    because every OTHER caller in this file rebakes a prim's transform to one
+    fresh world-matrix op instead of preserving its original ops. A
+    PointInstancer PROTOTYPE is not baked to world — it stays in its own
+    local frame (see `_author_instancer`) — so if it carries a corrective
+    local transform of its own, that transform has to be reproduced
+    structurally or the copy is silently inert: the `xformOp:*` attribute
+    values would exist on the new prim, authored by `_copy_attrs_by_value`,
+    but with no `xformOpOrder` naming them nothing would ever apply them.
+    """
+    from pxr import UsdGeom
+    sx = UsdGeom.Xformable(src_prim)
+    ops = sx.GetOrderedXformOps() if sx else []
+    if not ops:
+        return
+    dx = UsdGeom.Xformable(dst_prim)
+    for op in ops:
+        parts = op.GetOpName().split(":")
+        suffix = ":".join(parts[2:]) if len(parts) > 2 else ""
+        new_op = dx.AddXformOp(op.GetOpType(), op.GetPrecision(), suffix,
+                               op.IsInverseOp())
+        if op.IsInverseOp():
+            continue
+        try:
+            v = op.Get()
+        except Exception:
+            v = None
+        if v is not None:
+            new_op.Set(v)
+
+
+def _copy_prototype_tree(out, dst_path, src_prim, strip_dead=False):
+    """Deep-copy ONE PointInstancer prototype subtree into the exported
+    stage, in its OWN LOCAL FRAME — never world-baked, see `_author_instancer`.
+
+    A prim carrying its own REFERENCE arc is copied AS A REFERENCE: the
+    resolved target file + prim path (`_direct_references`) is re-referenced
+    onto the new prim, so the referenced geometry is never flattened by
+    value. This is the same pattern `gac_slice.rehome_materials` already uses
+    to re-home a material onto its own file (`GetPrimStack()` +
+    `AddReference`), applied here to a prototype instead of a material.
+
+    A prim with NO reference of its own — an INLINE prototype, e.g. a bare
+    Mesh authored directly on the layout stage rather than pulled in from
+    Nucleus — is copied attribute-by-value like everything else in this
+    file, and its children are walked recursively so a multi-prim inline
+    prototype (a mesh plus GeomSubsets, say) survives whole.
+    """
+    from pxr import Sdf
+
+    newp = out.DefinePrim(Sdf.Path(dst_path), src_prim.GetTypeName())
+    _copy_attrs_by_value(src_prim, newp, skip_xform=True, strip_dead=strip_dead)
+    _copy_local_xform(src_prim, newp)
+    refs = _direct_references(src_prim)
+    if refs:
+        for ident, tpath in refs:
+            if tpath and str(tpath) not in ("", "/"):
+                newp.GetReferences().AddReference(ident, Sdf.Path(str(tpath)))
+            else:
+                newp.GetReferences().AddReference(ident)
+        return newp
+    for child in src_prim.GetChildren():
+        _copy_prototype_tree(out, dst_path + "/" + child.GetName(), child,
+                             strip_dead=strip_dead)
+    return newp
+
+
+# ---------------------------------------------------------------------------
 # MERGE — one mesh per material per archetype (agent O, round 3)
 # ---------------------------------------------------------------------------
 # WHY. A round-3 DG5 archetype is ~2300 settled fragments + ~6300 authored
@@ -1050,7 +1158,18 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
     world translation. `drop_to_ground=True` seats the object on z=0 — needed
     for trees, whose fallen boles sink through the harness ground during settle
     (measured to -2.4 m) and end up buried once referenced.
-    Returns True if any mesh was written.
+    Returns True if any mesh OR PointInstancer was written.
+
+    POINT INSTANCERS (round-4 rubble) ARE CARRIED, NOT FLATTENED. A
+    `UsdGeom.PointInstancer` under an exported path is copied whole —
+    `_author_instancer` — rather than being expanded into one authored prim
+    per instance: it is already the cheap representation the mesh MERGE above
+    exists to approximate for everything else, so it is authored directly and
+    never enters the merge, whatever `merge` is set to. See
+    `_author_instancer`'s docstring for exactly which frame its
+    `positions`/`orientations`/`scales` end up in after export, and
+    `_copy_prototype_tree` for how its prototypes — referenced Nucleus assets
+    or inline meshes alike — survive the move.
 
     DROP THE OBJECT, NOT THE WHOLE PILE. `drop_to_ground` used to take the
     MINIMUM world min-Z over EVERY root it was handed — the tree AND all of
@@ -1317,6 +1436,86 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
                 len(failed), prim.GetPath(), "; ".join(failed)))
         return ok
 
+    def _author_instancer(prim, m, dst_name):
+        """Copy one PointInstancer whole: NEVER through the mesh merge (see
+        the PASS 0 / main-loop pruning below — an instancer is already the
+        cheap representation the merge exists to approximate for everything
+        else), its schema attributes by value, its `prototypes` targets
+        copied and remapped, and its own transform baked exactly like every
+        Mesh above.
+
+        THE FRAME, AFTER EXPORT: `positions`/`orientations`/`scales`/
+        `velocities`/`accelerations`/`angularVelocities` are copied
+        UNCHANGED — they stay in the INSTANCER PRIM'S OWN LOCAL FRAME, i.e.
+        relative to THIS prim, exactly as authored on the source. Only the
+        instancer prim's OWN xformOp (below) is replaced with its baked,
+        recentred WORLD matrix. Composing unchanged local instance data
+        through that one fresh xform reproduces the original world-space
+        instance placements without double-transforming — the identical
+        split every Mesh in this file already uses (local points, one
+        rebaked world xform), just one level up the schema.
+        """
+        from pxr import Sdf
+        dst = unique(root, dst_name)
+        di = UsdGeom.PointInstancer.Define(out, dst)
+        # strip_dead=False, UNCONDITIONALLY (not `do_merge`, unlike a Mesh):
+        # an instancer's schema attributes (protoIndices, positions, ...)
+        # must never be run through the merge's dead-physics-attribute /
+        # schema-fallback stripping, whatever BAKE_MERGE is set to.
+        _copy_attrs_by_value(prim, di.GetPrim(), skip_xform=True,
+                             strip_dead=False)
+        di.AddTransformOp().Set(m)
+
+        src_rel = UsdGeom.PointInstancer(prim).GetPrototypesRel()
+        dst_rel = di.CreatePrototypesRel()   # THE OUTPUT relationship — the
+        # one `SetTargets` below must land on. Reading and writing the same
+        # relationship object here would silently re-point the SOURCE
+        # stage's `prototypes` at the archetype's own (not-yet-existing)
+        # paths instead of authoring anything on the export.
+        proto_root = prim.GetPath()
+        new_targets = []
+        for t in src_rel.GetTargets():
+            tprim = src_stage.GetPrimAtPath(t)
+            if not (tprim and tprim.IsValid()):
+                continue
+            if t.HasPrefix(proto_root):
+                # THE COMMON CASE: the prototype is a child of the instancer
+                # (round-4 rubble nests them at `<instancer>/Prototypes/
+                # <name>`) — mirror that same relative path under the new
+                # instancer so it lands at the same, discoverable place.
+                dst_p = dst + "/" + t.MakeRelativePath(proto_root).pathString
+            else:
+                # NOT a child of this instancer — either elsewhere under the
+                # same exported object, or outside every exported path
+                # entirely. Both are folded into ONE destination convention:
+                # copied under THIS instancer's own Prototypes scope, since
+                # nothing downstream needs the original absolute location —
+                # only the `prototypes` relationship has to resolve.
+                dst_p = unique(dst + "/Prototypes", _safe_name(tprim.GetName()))
+            _copy_prototype_tree(out, dst_p, tprim, strip_dead=False)
+            new_targets.append(Sdf.Path(dst_p))
+        if new_targets:
+            dst_rel.SetTargets(new_targets)
+        return di.GetPrim()
+
+    # POINT INSTANCERS ARE GATHERED BY RELATIONSHIP, NOT BY POSITION, and
+    # BEFORE either pass below. `prototypes` targets do not have to be
+    # children of their instancer — the schema allows anything — so a target
+    # sorting earlier in the tree than its own instancer would otherwise be
+    # authored TWICE: once folded into the instancer by `_author_instancer`,
+    # and once again when the ordinary per-mesh walk reaches it on its own.
+    proto_skip = set()
+    for r in roots:
+        for prim in Usd.PrimRange(r):
+            if not prim.IsA(UsdGeom.PointInstancer):
+                continue
+            for t in UsdGeom.PointInstancer(prim).GetPrototypesRel().GetTargets():
+                proto_skip.add(t.pathString)
+
+    def _under_skip(path_str):
+        return any(path_str == s or path_str.startswith(s + "/")
+                  for s in proto_skip)
+
     # PASS 0: how many times does each piece of LOCAL geometry occur? Anything
     # that occurs more than once is a placed asset whose points crate already
     # stores once, so it keeps its own prim (see MERGE_REPEAT_MIN).
@@ -1324,7 +1523,17 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
     n_repeat_kept = 0
     if do_merge and MERGE_REPEAT_MIN > 0:
         for r in roots:
-            for prim in Usd.PrimRange(r):
+            it0 = iter(Usd.PrimRange(r))
+            for prim in it0:
+                # PointInstancers (and any prototype living outside its own
+                # instancer's subtree) are never candidates for the repeat
+                # count OR the merge itself — see the main loop below.
+                if prim.IsA(UsdGeom.PointInstancer):
+                    it0.PruneChildren()
+                    continue
+                if _under_skip(prim.GetPath().pathString):
+                    it0.PruneChildren()
+                    continue
                 if not prim.IsA(UsdGeom.Mesh):
                     continue
                 try:
@@ -1335,12 +1544,34 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
                 if k is not None:
                     repeats[k] = repeats.get(k, 0) + 1
 
+    n_instancers = n_instances = 0
     for r in roots:
         rname = r.GetName()
         # Per-root rescue for a piece the solver pushed under the floor; zero
         # for everything else, which therefore keeps its settled pose exactly.
         rdz = Gf.Vec3d(0.0, 0.0, _lift.get(r.GetPath().pathString, 0.0))
-        for prim in Usd.PrimRange(r):
+        it = iter(Usd.PrimRange(r))
+        for prim in it:
+            if prim.IsA(UsdGeom.PointInstancer):
+                # NEVER through the merge (requirement: an instancer and its
+                # prototypes are skipped entirely, not gathered into a
+                # bucket) — authored directly, and its whole subtree pruned
+                # from this walk so no prototype is ALSO authored as a loose
+                # top-level mesh.
+                m = Gf.Matrix4d(xf_cache.GetLocalToWorldTransform(prim))
+                if _off is not None:
+                    m = m.SetTranslateOnly(m.ExtractTranslation() - _off + rdz)
+                _author_instancer(prim, m, rname if prim == r else prim.GetName())
+                idx = UsdGeom.PointInstancer(prim).GetProtoIndicesAttr().Get()
+                n_instancers += 1
+                n_instances += len(idx) if idx else 0
+                it.PruneChildren()
+                continue
+            if _under_skip(prim.GetPath().pathString):
+                # a prototype target that lives OUTSIDE its instancer's own
+                # subtree: already folded into that instancer's copy above.
+                it.PruneChildren()
+                continue
             if not prim.IsA(UsdGeom.Mesh):
                 continue
             m = Gf.Matrix4d(xf_cache.GetLocalToWorldTransform(prim))
@@ -1407,18 +1638,34 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
                          kept_src=n_src_kept, merged_prims=n_merged_prims,
                          repeat_kept=n_repeat_kept,
                          materials=len(matmap), mode=mode,
+                         instancers=n_instancers, instances=n_instances,
                          out_prims=sum(1 for _ in out.Traverse()))
-    return n_mesh > 0
+    return n_mesh > 0 or n_instancers > 0
 
 
 def validate(out_path, root="/Baked"):
+    """(meshes, ok, miss) — material-binding health, unchanged shape for the
+    one existing caller (`tools/_o_remerge.py`). PointInstancers are counted
+    and printed separately (not folded into `meshes`/`ok`/`miss`, and their
+    prototype subtrees are pruned from this walk) — this function has never
+    audited material binding on instanced/referenced content, and folding a
+    handful of typically-unbound prototypes into the same ratio would read as
+    a regression in an archetype that has none."""
     from pxr import Usd, UsdGeom, UsdShade
 
     st = Usd.Stage.Open(out_path)
     if st is None:
         return (0, 0, 0)
     meshes = ok = miss = 0
-    for prim in Usd.PrimRange(st.GetPrimAtPath(root)):
+    n_instancers = n_instances = 0
+    it = iter(Usd.PrimRange(st.GetPrimAtPath(root)))
+    for prim in it:
+        if prim.IsA(UsdGeom.PointInstancer):
+            n_instancers += 1
+            idx = UsdGeom.PointInstancer(prim).GetProtoIndicesAttr().Get()
+            n_instances += len(idx) if idx else 0
+            it.PruneChildren()
+            continue
         if not prim.IsA(UsdGeom.Mesh):
             continue
         meshes += 1
@@ -1431,6 +1678,10 @@ def validate(out_path, root="/Baked"):
             .GetPrim().IsValid() for t in targets)
         ok += 1 if bound else 0
         miss += 0 if bound else 1
+    if n_instancers:
+        print("[bake] validate {0}: {1} PointInstancer(s), {2} instance(s) "
+              "total".format(os.path.basename(out_path), n_instancers,
+                             n_instances))
     return (meshes, ok, miss)
 
 

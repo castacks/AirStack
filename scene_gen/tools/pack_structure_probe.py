@@ -2,8 +2,10 @@
 """Is a whole-asset building actually a BAG OF PIECES underneath?
 
 `burn_building` needs a building decomposed into addressable parts, because
-its recipes work by taking parts away. `burn_monolith` exists only because the
-whole-asset packs were assumed to be single un-openable meshes. That
+its recipes work by taking parts away. `burn_monolith` existed only because
+the whole-asset packs were assumed to be single un-openable meshes (it has
+since been removed; whole-asset buildings route through
+`disaster/kit_substitute.route()`). That
 assumption has never been measured per pack — and the user's claim is that
 `ModernCityEnvironment` (whole) and `ModernCityEnvironment01` (kit) are two
 exports of the SAME scene, in which case the merged one may still carry its

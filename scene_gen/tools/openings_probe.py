@@ -4,7 +4,9 @@
 `r_window_burnout` — the crazed-then-black-void progression that carries the
 kit's look — needs to know where the windows ARE. The kit gets that from a
 measured table per family. A merged whole-asset mesh has no table, which is
-why `burn_monolith` never emptied a single window.
+why the old `burn_monolith` path never emptied a single window. (That path
+has since been removed; this measurement is what made the alternative —
+slicing a merged mesh on its own measured grid — possible.)
 
 But several packs DO model their glazing as its own material subset. If those
 faces cluster into separated islands, each island IS a window, and the table

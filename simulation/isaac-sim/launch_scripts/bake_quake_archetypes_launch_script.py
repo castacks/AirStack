@@ -140,6 +140,35 @@ def build_ground_and_light(stage):
     key.AddRotateXYZOp().Set(Gf.Vec3f(-45.0, 0.0, 30.0))
 
 
+def _rubble_fields(res):
+    """Round 4: the rubble-v2 piles a recipe authored (`quake_flow._rubble`
+    appends each `plan_pile` stats dict to `ctx["rubble"]`). The manifest
+    record carries the UNION of the fall sides, the per-side MAX reach and
+    the max crown so `quake._clear_under_heaps` reads where the pile really
+    went instead of drawing a side (`quake._heap_reach_for`). Empty when the
+    recipe authored no pile (DG1-DG3, foundation levels) or under
+    `EQ_RUBBLE=v1`."""
+    piles = res.get("rubble") or []
+    sides, reach, crown = [], {}, 0.0
+    for st_ in piles:
+        for sd in (st_.get("fall_sides") or []):
+            if sd not in sides:
+                sides.append(sd)
+        for sd, r in (st_.get("reach_m") or {}).items():
+            try:
+                reach[sd] = max(float(reach.get(sd, 0.0)), float(r))
+            except (TypeError, ValueError):
+                continue
+        try:
+            crown = max(crown, float(st_.get("crown_m") or 0.0))
+        except (TypeError, ValueError):
+            pass
+    if not piles:
+        return {}
+    return dict(fall_sides=sides, reach_m=reach, crown_m=round(crown, 2),
+                n_piles=len(piles))
+
+
 def merge_manifest(path, records):
     old = []
     if os.path.exists(path):
@@ -223,7 +252,8 @@ def main():
             everything = (paths + res["loose"] + res["static_extra"]
                           + res["authored"] + list(res["fit"]["all"]))
             timing[(st, level)] = dict(fracture_s=round(time.time() - tf0, 1),
-                                       loose=len(res["loose"]))
+                                       loose=len(res["loose"]),
+                                       **_rubble_fields(res))
             row.append((st, level, X, y, everything))
             print("[qarch] {0:<16} {1:<7} {2:5d} loose {3:5d} static {4:5d} authored  {5:.0f} s"
                   .format(st, level, len(res["loose"]), len(res["static_extra"]),

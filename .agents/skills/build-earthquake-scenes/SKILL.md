@@ -1,6 +1,6 @@
 ---
 name: build-earthquake-scenes
-description: Build or modify EARTHQUAKE-damaged URBAN scenes in scene_gen — the state of the pipeline after three review rounds (2026-08-28), what it costs, and what gates it (building diversity). The kit-building fit-out, the per-construction-type damage ladder (URM wall peel / corner / parapet / masonry collapse on a brick lattice; RC infill / soft storey / pancake as prisms and rafts; curtain-wall bands with the mullion cage kept; lean-and-sink with a ground response; building-to-building pairs), solid walls before fracture, the merged archetype bake, the multi-city assembly by magnitude, the headless runner, every knob, and the bug catalogue. Read before touching disaster/quake_flow.py, disaster/quake.py, disaster/fracture.py, disaster/bake.py, the eq_building_bench / bake_quake_archetypes / downtown_quake launchers, the urban_quake asset sets or the downtown_earthquake preset. The wildfire and tornado skills are prerequisites.
+description: Build or modify EARTHQUAKE-damaged URBAN scenes in scene_gen — the state of the pipeline after four rounds (2026-08-30), what it costs, and what gates it (building diversity, and now an Isaac verification pass). The kit-building fit-out, the per-construction-type damage ladder (URM wall peel / corner / parapet / masonry collapse on a brick lattice; RC infill / soft storey / pancake as prisms and rafts; curtain-wall bands with the mullion cage kept; lean-and-sink with a ground response; building-to-building pairs), solid walls before fracture, the merged archetype bake, the multi-city assembly by magnitude, the headless runner, every knob, and the bug catalogue. Round 4 (OFFLINE ONLY — host tests and Blender previews, no Isaac run yet) rebuilt the collapse pile as RUBBLE V2 — a heightfield mound with large elements and PointInstancer scatter, routed from `quake_flow` behind `EQ_RUBBLE` — fixed the soft-storey lean sign, cleared street furniture under a heap, taught `bake.py` to carry PointInstancers, and found + guarded a VTK segfault (`FRACTURE_VTK_GUARD`) that also unblocks fracturing sliced GAC/downtowncity pieces; `disaster/quake_sliced.py` (earthquake on sliced whole-asset buildings) is written but ON HOLD — that destruction/assembly scope moved to the fire session. Read before touching disaster/quake_flow.py, disaster/quake.py, disaster/quake_rubble.py, disaster/quake_rubble_usd.py, disaster/fracture.py, disaster/bake.py, the eq_building_bench / bake_quake_archetypes / downtown_quake launchers, the urban_quake asset sets or the downtown_earthquake preset. The wildfire and tornado skills are prerequisites.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -9,11 +9,12 @@ metadata:
 
 # Skill: Build Earthquake Scenes (urban building damage)
 
-## Status on 2026-08-28 — read this first
+## Status on 2026-08-30 — read this first
 
-**What exists and works.** A complete, measured pipeline: 16 kit building
-styles (5 façade families + storefront / civic / church) × 9 damage levels
-(EMS-98 DG0-DG5 + SETTLE / TILT / OV) baked as 144 merged archetypes
+**What rounds 1-3 built and verified IN ISAAC** (unchanged by round 4, still
+the deliverable if the user asks for a scene today): 16 kit building styles
+(5 façade families + storefront / civic / church) × 9 damage levels (EMS-98
+DG0-DG5 + SETTLE / TILT / OV) baked as 144 merged archetypes
 (`omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/`, 631 MB, 81 min two-at-a-time), and a
 city launcher that lays out any number of plates, draws every building's
 grade from a magnitude-derived shaking field, swaps in the archetypes,
@@ -28,48 +29,93 @@ Captures: `/home/krrishjain/docker/isaac-sim/logs/final_r3/` (`plat_top.png`,
 capture directory named in this file lives under
 `/home/krrishjain/docker/isaac-sim/logs/`.
 
-**Three review rounds, each driven by the user's verdicts** (the tables are
-in "History" below): round 1 built the vocabulary; round 2 fixed floating
-roof plant, missing soil at tilts, machined edges, white debris, rectangular
-roof pieces, and added building interaction; round 3 answered "very
-triangular" (failed caps of open meshes + Voronoi seeds in a thin skin →
-`fracture.solidify` + brick-lattice / prism seeding), "random glass panes"
-(curtain-wall bands with the cage kept, 65 measured punched windows), and
-"scenes can't take hours to load" (bake-time merge: 142 → 74 s, 297k → 95k
-prims).
+That scene's DG4/DG5 heaps are what round 4 replaced: `final_r3/b0_
+apartment_tall_DG5_obl.png` and `b3_highrise_04_DG5_obl.png` show street
+trees standing untouched THROUGH the rubble and a pile of same-sized toy
+blocks with a hard dome edge at the sidewalk. See "Rubble v2 (round 4)"
+below for the fix and "BUILDING DIVERSITY" further down for the gate that
+fix does not touch.
 
-**What gates it now: BUILDING DIVERSITY.** The user's verdict on the last
-scene: "the buildings look good but the diversity in number of buildings just
-isn't there — if we don't have diversity in terms of more buildings it's
-pointless." 16 styles from 5 façade textures repeat 2-3× per block. The two
-levers, in order of payoff:
+**What round 4 built — OFFLINE ONLY, no Isaac run yet.** Say this plainly so
+nobody mistakes a numpy unit test for a verified look: every number in the
+"Rubble v2" section below comes from host-side tests (`pytest` /
+`python3 -m py_compile` against pure-python/`usd-core` modules, no Kit) and
+headless Blender/Cycles renders (`tools/rubble_preview.py`), never from
+Isaac Sim. Seven work packages landed this way: the rubble planner
+(`quake_rubble.py`), the USD emitter (`quake_rubble_usd.py`), the routing of
+six `quake_flow` collapse recipes onto it behind `EQ_RUBBLE=v2`, a soft-
+storey mechanics fix (the old pivot leaned buildings the wrong way), a heap-
+clearance pass that removes/tips/leans/buries street furniture and cars
+under a DG4/DG5 pile, `PointInstancer` support in `bake.export_object` (so
+the scatter survives the archetype bake), and a VTK segfault fix
+(`FRACTURE_VTK_GUARD`) found while chasing a crash on sliced GAC geometry.
+**The next step, when the user gives the go, is opening Isaac**: does the
+mound read against a real kit stub, do panels sit right on a fan, does the
+soft-storey collar look like a collapse and not a smear, what is the actual
+prim/body budget per archetype — then re-bake the 16 kit styles' 144
+archetypes with `EQ_RUBBLE=v2`. Nothing above has been seen through Kit's
+own renderer.
 
-1. **Damage the monoliths.** Last night's drop (`asset_sets/urban_v2.yaml`,
-   118 buildings, 173 assets) is the diversity — 85 `selected_citydemo`
-   towers/midrises with their own façade textures — but the earthquake path
-   only ever used 5 of them (the untextured `standalone/intact` set, as rigid
-   lean/sink). Round 3 built what a monolith needs: `solidify` gives a shell
-   wall real thickness, `brick`/`prism` seeding cuts it on a material grid; a
-   fitted interior from the bbox (slabs / columns behind the skin) would let
-   the same recipes (corner, out-of-plane, soft storey, collapse heap) run on
-   a monolith. Cost estimate from round-3 timings: ~5-8 min per model × 9
-   levels two-at-a-time ≈ 5-6 h of bake, 2-3 GB of merged archetypes; verify
-   textures per model with a pxr probe first (the census cannot tell textured
-   from untextured).
-2. **More kit styles.** `detail/urban_building.py`'s grammar can emit 40-60
-   silhouettes (storey counts × band mixes × wings × façade seeds) — more
-   counts, still 5 façade textures.
+**Scope rule (user, 2026-08-30): earthquake damage to GAC / downtowncity
+whole-asset buildings is NOT this session's work.** "Don't work on
+destroying/assembling GAC or downtownwest. I have that already being done
+for the urban fire scene. You will be able to take code from there and also
+read the documented skill." Concretely: `disaster/quake_sliced.py` (the
+earthquake ladder for `gac_storey_slice`-cut buildings — removal-on-the-grid
++ rigid displacement, since a sliced piece cannot be fractured, see below)
+and its 25 tests are written and pass, but **ON HOLD — no further work**.
+When the fire session's GAC/downtowncity slicing, placement and bake code
+and its skill (`build-urban-fire-scenes`) land, reuse that code rather than
+finishing `quake_sliced.py`'s own ladder from here. The `ARCH_SOURCE=gac`
+bake-launcher path and its asset set were written and then reverted the same
+day for this reason — do not resurrect them without re-reading the scope
+note in `_plans/earthquake_round4_plan.md`.
 
-**Minor details still wrong in the current cities** (the user: "a later
-issue"): a mullion frame hovering off the tower glass at the epicentre camera
-(`final_r3/c0_ne_obl.png`), punched-window interiors reading cartoonish from
-40 m, timber deck plates on DG5 crowns, the family-02 curved corner bay never
-loses glass, `apartment_tall_DG5` is 34 MB. Full list in "Known gaps".
+**What gates the NEXT round — two independent things:**
 
-**Do not** start Isaac or containers for this work without the user's go
-(their instruction on 2026-08-28); design and code can proceed offline
-(`ast.parse`, the host-side tests, `scene_gen/tools/_t_pxr.sh` for pxr-only
-probes needs the container).
+1. **The Isaac verification above** (rubble v2 has never been rendered by
+   Kit) — do this before touching anything else in the earthquake path.
+2. **BUILDING DIVERSITY**, unchanged since round 3 and NOT addressed this
+   round. The user's verdict on the last Isaac scene: "the buildings look
+   good but the diversity in number of buildings just isn't there — if we
+   don't have diversity in terms of more buildings it's pointless." 16
+   styles from 5 façade textures repeat 2-3× per block. The two levers, in
+   order of payoff:
+   1. **Damage the monoliths.** `asset_sets/urban_v2.yaml` (118 buildings,
+      173 assets) is the diversity — 85 `selected_citydemo` towers/midrises
+      with their own façade textures — but the earthquake path only ever
+      used 5 of them (the untextured `standalone/intact` set, as rigid
+      lean/sink). Round 3 built what a monolith needs: `solidify` gives a
+      shell wall real thickness, `brick`/`prism` seeding cuts it on a
+      material grid; a fitted interior from the bbox would let the same
+      recipes run on a monolith. Cost estimate from round-3 timings: ~5-8
+      min per model × 9 levels two-at-a-time ≈ 5-6 h of bake, 2-3 GB of
+      merged archetypes.
+   2. **More kit styles.** `detail/urban_building.py`'s grammar can emit
+      40-60 silhouettes — more counts, still 5 façade textures.
+
+**Round 4's last loose end, closed**: the v4 Blender previews found a black
+z-fighting band where the mound/apron rim touched the ground plate, and the
+textured FAB debris clusters (`brick_debris_pile` etc.) read pale from directly
+overhead. Both halves of the rim fix landed (`MOUND_LIP_M` 0.008 / `APRON_LIP_M`
+0.012 in `quake_rubble.py` — nothing is authored exactly at z0 — and the
+preview ground plane at -0.02 in `rubble_preview.py`); the v5 renders
+(`~/scorch_previews/rubble_r4/v5/`) show the band gone in every view. The FAB
+clusters now carry a per-asset copy material with `diffuse_tint` 0.85 and still
+read pale from the air: their scans hold near-white flecks that a
+multiplicative tint cannot compress — judge them under RTX in Isaac before
+chasing (a 0.6-0.7 tint or a highlight roll-off is the lever).
+
+**Minor details still wrong in the current (round-3) Isaac cities** (the
+user: "a later issue"): a mullion frame hovering off the tower glass at the
+epicentre camera (`final_r3/c0_ne_obl.png`), punched-window interiors reading
+cartoonish from 40 m, timber deck plates on DG5 crowns, the family-02 curved
+corner bay never loses glass, `apartment_tall_DG5` is 34 MB. Full list in
+"Known gaps".
+
+**Do not** start Isaac or containers for this work without the user's go;
+design and code can proceed offline (`ast.parse`, the host-side tests,
+`scene_gen/tools/_t_pxr.sh` for pxr-only probes needs the container).
 
 ## Read `build-wildfire-scenes` and `build-tornado-scenes` first
 
@@ -95,18 +141,23 @@ there).
 | scene assembly: field → grade → archetype swap, soft-soil foundation pass, mild lean + ground, monolith pass, live pairs, ground effects | `scene_gen/disaster/quake.py` |
 | fracture: `solidify`, seeding modes (`uniform`, `char`, `plank`, `brick`, `prism`), `fracture_split` two-scale, `slice_plane` cap/retry, `ensure_deps` + `_reload_trimesh` | `scene_gen/disaster/fracture.py` |
 | physics settle (per-body velocity, density, ledge cull) | `scene_gen/disaster/settle.py` |
-| by-value archetype export with export-time merge (`BAKE_MERGE`) | `scene_gen/disaster/bake.py` |
+| by-value archetype export with export-time merge (`BAKE_MERGE`), round-4 `PointInstancer` carry (`_author_instancer`, `_copy_prototype_tree`) | `scene_gen/disaster/bake.py` |
+| round-4 rubble PLANNER: mound heightfield, large elements, instance sets — pure numpy/stdlib, no `pxr` | `scene_gen/disaster/quake_rubble.py` |
+| round-4 rubble EMITTER: the only rubble module that imports `pxr`, materials, `PointInstancer` wiring | `scene_gen/disaster/quake_rubble_usd.py` |
+| earthquake on SLICED whole-asset (GAC/downtowncity) buildings — written, 25 tests pass, **ON HOLD** (scope moved to the fire session, 2026-08-30) | `scene_gen/disaster/quake_sliced.py` |
 | magnitude → severity / field / soft soil / dust / grade_scale / duration_boost | `scene_gen/compile_disaster.py` (`compile_earthquake`, `magnitude_to_severity`) |
 | single-building bench (one style per row, one recipe or grade per column, 7 review cameras) | `simulation/isaac-sim/launch_scripts/eq_building_bench_launch_script.py` |
 | archetype bake, one style per process | `bake_quake_archetypes_launch_script.py` |
 | the city / multi-city looking launcher (no drone) | `downtown_quake_launch_script.py` |
 | headless serialised runner (2 GPU slots), bake driver | `scene_gen/tools/eq_bench.sh`, `scene_gen/tools/bake_quake_headless.sh` |
 | offline tests (no Isaac) | `scene_gen/tools/test_break_lines.py`, `test_break_shape.py`, `_o_merge_check.py`, `_g2_check_table.py`, `_c_offline/` |
+| round-4 rubble tests (no Isaac; `usd-core` for the emitter/bake ones) | `scene_gen/tests/test_quake_rubble.py`, `test_quake_rubble_usd.py`, `test_bake_instancer.py`, `test_quake_heap_clearance.py`, `test_quake_flow_rubble_routing.py`, `test_quake_sliced.py` (on hold) |
+| round-4 rubble preview / asset tools | `scene_gen/tools/rubble_preview.py` (Blender/Cycles look check), `nucleus_fetch.py` (Nucleus → local mirror, run inside the container), `make_tileable.py` (debris atlas → seamless ground tile), `_vtk_shell_probe.py` (VTK segfault repro, per-stage subprocess) |
 | census and probes (standalone pxr, no Kit) | `scene_gen/tools/wall_thickness_census.sh`, `_t_pxr.sh`, `_t_shell_probe.py`, `_g_*`/`_g2_*` glazing probes, `_o_usd_stat.py`, `_o_geom_diff.py` |
 | building pools = pristine bakes (+ opt-in monoliths) | `scene_gen/config/asset_sets/urban_quake.yaml`, `urban_quake_v2.yaml` |
 | the preset (downtown.yaml shrunk to 250 m, earthquake on, no metres — everything compiled) | `scene_gen/config/presets/downtown_earthquake.yaml` |
-| research | `scene_gen/_plans/earthquake_research.md` (§1-§10 round 1; §11 break geometry by material, §12 glass and curtain walls, §13 magnitude classes / duration), `eq_round3_glass_recon_dump.md` (ten-event field evidence, provenance-tagged) |
-| plan, timings, agent notes | `scene_gen/_plans/earthquake_plan.md`, `earthquake_timings.md`, `eq_round2_{A,B,C,D}.md`, `eq_round3_{M,R,T,P,G,G2,O}.md` |
+| research | `scene_gen/_plans/earthquake_research.md` (§1-§10 round 1; §11 break geometry by material, §12 glass and curtain walls, §13 magnitude classes / duration), `eq_round3_glass_recon_dump.md` (ten-event field evidence, provenance-tagged), `eq_round4_rubble_research.md` (WP A — mound morphology: crown/height, run-out, repose, the standing stub, the windrow/fan taper, 20 sources tagged M/E/S) |
+| plan, timings, agent notes | `scene_gen/_plans/earthquake_plan.md`, `earthquake_timings.md`, `eq_round2_{A,B,C,D}.md`, `eq_round3_{M,R,T,P,G,G2,O}.md`, `earthquake_round4_plan.md` (the round-4 brief, API contract, scope change, per-package progress log) |
 
 ## How to run (headless, from the host)
 
@@ -291,6 +342,277 @@ brick families (`_G2_WIN_FACES`; probe outputs under `_plans/glazing_probe/`);
 mirror curtain wall is softened in `urban_building.apply_glass_tint`
 (`GLASS_ROUGHNESS` 0.22) — its perfect reflections read as damage.
 
+---
+
+# Rubble v2 (round 4)
+
+**OFFLINE ONLY as of 2026-08-30** — every number below is a host test or a
+Blender render, never an Isaac frame. Design and code: `_plans/
+earthquake_round4_plan.md` (the brief, the API contract, the scope change,
+the per-package progress log — read it before changing anything in this
+section). Research: `_plans/eq_round4_rubble_research.md` (WP A, 20 sources,
+tagged **M**/**E**/**S** for measured / estimated / synthesised — cited
+below by tag). Modules: `disaster/quake_rubble.py` (planner, pure numpy/
+stdlib, no `pxr`), `disaster/quake_rubble_usd.py` (emitter, the only rubble
+module that imports `pxr`), routed from `disaster/quake_flow.py::_rubble`.
+
+## Why the round-3 heap had to go
+
+`quake_flow._heap` authors a pile's mass as 1,500-5,600 `_a_lump` boxes
+(0.28-1.7 m, jittered corners, flat tints from `HEAP_MIX`) plus a "skin" of
+0.15-0.5 m dust-tinted lumps. Measured on `final_r3/b0_apartment_tall_DG5_
+obl.png` and `b3_highrise_04_DG5_obl.png`: every object in the pile has the
+same character — a discrete convex block — so from 40 m it reads as a heap
+of toy blocks, not rubble:
+
+* no continuous FINES surface (research §7.1.7/§7.2.6: mortar sand and dust
+  "render as the dust film, not as pieces");
+* no large recognisable elements (§7.2.6: "the pile's silhouette is set by
+  3-8 large rafts, not by thousands of cells"; `max_piece_m` capped every
+  fragment at 1.2-2.6 m);
+* the same brick-cube skin under an RC highrise as under a brownstone;
+* a smooth dome with a hard edge at the sidewalk;
+* street trees standing untouched through the pile.
+
+## The six-layer design
+
+Bottom-up, per collapsed mass or shed wall:
+
+| layer | what | prims | physics |
+|---|---|---|---|
+| 1 mound | ONE heightfield mesh: dome / windrow / fan footprint, ~35° repose on the flanks, flattened crown, fbm relief, toe apron; world-projected rubble texture per type with the dust tint | 1 | static triangle collider |
+| 2 large elements | RC: slab rafts, column stubs, rebar tangles, 1 corrugated sheet, 1-3 wall PANELS (the building's own kit modules kept whole, half-buried). URM: lintel/quoin monoliths, timber joists, macroblock panels, no concrete rafts | ≤ 20 | none — posed on the mound surface, sunk by `bury` |
+| 3 clusters | textured FAB spreads (`concrete_debris_elements`, `huge_concrete_rubble_pile`, `brick_debris_pile`, sidewalk/paving pieces at the toe) sunk into the flanks | PointInstancer, 3-10 instances | none |
+| 4 scatter | `chunk_01..09` / `lump_01..06` (flakes), density falling crown → toe, a run-out beyond the toe | 2 PointInstancers | none |
+| 5 shell fragments | the existing `_break` output, thinned harder | as today × ~0.6 | bodies (as today) |
+| 6 dust film | existing `quake.ground_effects` dust | — | unchanged this round |
+
+Budget target: ≤ 1 mound + 20 large + 4 instancers (≤ 900 instances) + shell
+fragments per DG5 archetype — prims down from ~7,000 authored per pile to
+under 2,000 before the bake merge, bodies unchanged or fewer.
+
+## The debris catalogue
+
+`quake_rubble.CATALOGUE` — every entry gives `url` (relative to
+`RUBBLE_ASSET_ROOT`), native `size` (metres, Z-up, footprint centred on the
+origin, base at z=0), `tris`, `kind`, `textured`, `material`.
+
+| kind | assets | size range | tris | textured | material | Nucleus path |
+|---|---|---|---|---|---|---|
+| raft | `slab_01..12` | 1.3-4.5 m footprint, 0.19-1.2 m thick | 568-9,586 | no | concrete | `standalone/debris/pieces/slab_NN/` |
+| chunk | `chunk_01..09` | ~0.7-1.0 m boxes | 74-76 | no | concrete | `standalone/debris/pieces/chunk_NN/` |
+| flake | `lump_01..06` | 0.15-0.37 m | 522-4,088 | no | concrete | `standalone/debris/pieces/lump_NN/` |
+| rebar | `rebar_01..04` | ~4 m × 1.2-2.75 m × 0.16-0.23 m tangles | 2,494-3,754 | no | steel | `standalone/debris/pieces/rebar_NN/` |
+| sheet | `sheet_01..03` | ~4 m × 1.8-2.9 m corrugated | 3,181-9,209 | no | steel | `standalone/debris/pieces/sheet_NN/` |
+| cluster/spread | `brick_debris_pile` (6.1×4.9×1.2 m, 58k tris; `_hp` twin 189k — flagged, never instanced), `concrete_debris_elements` (3.5×2.6×0.4 m, 96.8k), `concrete_slabs`, `huge_concrete_rubble_pile` (8.0×7.7×1.5 m, 71.3k), `concrete_rubble_pile` (725 tris, cheap Quixel), `rocky_ground` (earth, 7.5k) | building-scale | 0.7k-190k | yes | brick/concrete/earth | `concrete_rubble_debris/split/<dir>/`, `standalone/debris/piles/<dir>/` |
+| street/toe | `concrete_sidewalk_elements`, `cracked_paving_slabs`, `lamppost_block[_v2]` | 0.16-1.8 m | 20.5k-29.4k | yes | concrete | `concrete_rubble_debris/split/<dir>/` |
+
+`raft`/`rebar`/`sheet` are drawn ONCE per large-element slot and authored as
+individual references (a 2-6 m raft has to be sized and counted, not left to
+an instance draw); `chunk`/`flake`/`cluster`/`toe` feed `PointInstancer`s.
+`*_hp` twins are the same prop at 2-3× the triangle count — never instanced
+by mistake, but available if a hero shot needs one raft close-up.
+
+**Local mirror**: `tools/nucleus_fetch.py` runs INSIDE the isaac-sim
+container on bare `pxr` + `omni.client` (`scene_gen/tools/_t_pxr.sh
+scene_gen/tools/nucleus_fetch.py`, no Kit) and copies every catalogue dir's
+`.usdc` + `textures/*` (skipping `*_hp` siblings) into `scene_gen/assets/`
+under the container's repo mount — 160 MB, gitignored. `RUBBLE_ASSET_ROOT`
+(env, read by `quake_rubble_usd.ASSET_ROOT`) points the emitter at that local
+tree instead of `omniverse://...` for previews and host-side tests.
+
+## The API contract
+
+```
+quake_rubble.plan_pile(m, btype, rng, kind="dome"|"windrow"|"fan", ...)
+    -> {"mound", "apron", "large": [...], "instances": {set: {...}}, "stats"}
+quake_rubble_usd.author(stage, parent, plan, mats, tag, uid) -> USD prims
+```
+
+`m` is the same mass dict `quake_flow` builds (`cx, cy, W, D, yaw, z0, top,
+levels`). **`pos` in every `"large"` entry and every instance is FINAL**: the
+world position of the element's own bottom-centre origin, already sunk by
+`bury` × its ROTATED thickness below the mound surface
+(`rotated_extent(size, scale, rot)` measures the tilted bounding box, not the
+native one — a column stub lying at 60-90° has most of its "height" in x/y
+once rotated). The emitter translates to `pos` exactly and never re-applies
+`bury` — see "Iteration history" below for the bug this fixes. `look` is a
+per-entry / per-instance-set material tag (`"brick"`, `"concrete"`, `"rust"`,
+`"stone"`, `"timber"`, `"dust"`, or `None` to keep the asset's own referenced
+material) resolved by `quake_rubble_usd._material_for_look` and bound with
+`bindingStrength=strongerThanDescendants` so an override actually wins over a
+referenced asset's own material. Prototypes are authored as CHILDREN of
+their instancer (`<instancer>/Prototypes/<name>`) — the same "a
+`PointInstancer`'s children are not drawn directly" convention `bake.py`
+already depends on (see below).
+
+## The research constants, and where they came from
+
+| constant | value | tag | memo section |
+|---|---|---|---|
+| `REPOSE_DEG` / `REPOSE_DESIGN_DEG` | 35° flanks (design target 32°, headroom for noise) | **E** | sec1c |
+| `APRON_REPOSE_DEG` | 31° (pure-fines toe sits lower than the flank) | **E**/**S** | sec1c |
+| `CROWN_FRAC` | urm 0.28, rc 0.30, rc_glass 0.12 | **S**/already-established | sec1a |
+| `CROWN_CAP_M` | 12 m — no measurement exists above ~11 m building height | **S**, low confidence | sec1a |
+| run-out, fall/street side | Moya et al. 2020, 851 LiDAR-measured collapsed buildings: 0.65×H at H≤4m → 0.40×H at H=12m → 0.35×H at H≥20m, linear between; `RUNOUT_CAP_FALL_M`=10 | **M**→**E** | sec1b |
+| run-out, blind/party-wall side | flat 0.10×H, `RUNOUT_CAP_BLIND_M`=3, floor 1.5 m | **S**, anchored on **M** | sec1b |
+| URM run-out correction | ×0.85 (Moya's fit is wood-frame — a more-complete-toppling upper bound) | **E** | sec1b |
+| windrow/fan reach | ≈1.0× the FALLEN ELEMENT's own height (fire-service 90°-collapse-zone rule), not a fraction of the whole building | **E**/**M** | sec5b |
+| `CHUNK_DENSITY` | crown 2.5, mid 1.2, toe 0.35 per m², cap 4,000 | round-4 review (was 1.2/0.3/600 — "read as a dune") | — |
+| `BURY_FRAC` | raft 0.10-0.30, chunk/cluster 0.30-0.60, rebar 0.50-0.80 | **S** | sec3b |
+| stub retained after total collapse | ~0.4-0.6 of buildings (`STUB_KEEP_P` in the research memo) | **S**, anchored on Galvis et al. 2020's 57%/43% Mexico City soft-storey split | sec5a |
+| stub height when present | 0-2.7 m absolute (Noto Peninsula D5 detection threshold) | **S**, anchored on **M** | sec5a |
+
+**`STUB_KEEP_P` is a research recommendation, not a wired knob**: no code in
+`quake_rubble.py` or `quake_flow.py` gates stub survival by a probability.
+`r_masonry_collapse(keep_stub=True)` always keeps a ground-storey stub (the
+default never flips), drawing a per-wall `stub_frac = U(0.25, 0.62)` of the
+storey height. If a future round wants "40-60% of buildings keep no stub at
+all," that gate has to be added — it is not there today.
+
+## Budgets, measured
+
+| archetype (dome) | crown | large | instances | mound tris | apron tris |
+|---|---|---|---|---|---|
+| rc 30×30×55 | 10.5 m | 16 (rafts/columns/rebar/1 sheet) | ~2,890 (2,490 chunks + 396 flakes + cluster/toe) | 20.7k | 8.8k |
+| urm 22×18×15 | 4.3 m | — | 982 chunks + 410 flakes | 9.5k | — |
+
+Compare to round-3 `_heap` on the same piles: 1,500-5,600 authored boxes.
+The mound+large+instancer representation is O(20) individually-authored
+prims plus 2-4 `PointInstancer`s, not thousands of `_a_lump` boxes — the
+prim-count win the round-4 budget was written around.
+
+## How `quake_flow._rubble` routes each recipe
+
+`EQ_RUBBLE` (env, default `v2`; `v1` reproduces the old `_heap` byte-for-
+byte — `fire_collapse.py`, another live session, still calls `_heap`
+directly and is untouched). `_rubble(ctx, m, kind, ...)` is the one call
+site every routed recipe goes through:
+
+| recipe | kind | stub_h_m | panels | elem_h_m / depth_m | shell consume / cap |
+|---|---|---|---|---|---|
+| `r_masonry_collapse` | dome | mean kept-stub height | 1-2 storey-1 window/façade modules (`_pick_opening_panels`, v2 only) | crown = 0.28×H, spread 0.2-0.34 | 0.8 / 0.9 m (v1: 0.66 / 1.2 m) |
+| `r_pancake` | dome, `budget={"n_large":4}` | 0 (nothing survives standing) | none — the re-authored slab STACK carries the rest | crown = pitch × n_lv × 0.85, spread 0.3-0.45 | unchanged (stack authored separately) |
+| `r_out_of_plane` | fan | — | the kept macroblocks | elem_h_m = top − z_fail (the fallen run's own height) | consume 0.22, unchanged |
+| `r_parapet_fall` | windrow | — | — | depth_m fixed 0.45 (v1 drew U(0.5,1.1)); elem_h_m = tallest chosen course | unchanged |
+| `_corner_break` / `r_corner_fail` | fan | — | — | depth_m fixed 0.8 (v1 drew U(0.6,1.2)); elem_h_m = `top - levels[k0]`, the storeys the corner dropped | unchanged |
+| `r_soft_storey` collar | windrow, all 4 sides, authored at `z_lo` via `_pile_mass` | — | — | depth_m = U(0.5,0.9) + crush×0.25; elem_h_m = h_st | consume 0.45, unchanged |
+
+Everywhere `_a_lump` skins are dropped; `_p_lintels`'s own boxes only run
+under `v1` (v2's planner emits its own lintels/quoins/sills).
+
+## Soft-storey mechanics fix
+
+The ORIGINAL `r_soft_storey` pivoted on the LEAN side's own base edge with
+`sign = -1.0` — the bug: this leans the block AWAY from the side it names
+and pushes the far base edge `span·sin(lean)` into the storey below (2.9 m
+on a 30 m frame at 5.5°). `_soft_storey_geometry` replaces it with two
+mechanisms, drawn 60/40:
+
+* **Differential crush (60%)**: `r_lean = U(0.15, 0.40)·h_st` on the lean
+  side, `r_far = min(0.95·h_st, r_lean + span·sin(lean_drawn))` on the far
+  side, `lean = asin((r_far − r_lean) / span)` — the far base edge pivots at
+  `z_lo + r_far`, the lean side drops to its own (lower) residual. Measured:
+  a 30 m span gives `r_lean=0.64 m, r_far=3.04 m, lean=4.6°`; a 12 m span
+  gives `lean=5.5°`.
+* **Sideways sway (40%)**: the block stays PLUMB and slides sideways
+  `h_st·sin(phi)` toward the lean side, `phi = U(8, 25)°`, drops
+  `h_st·(1−cos phi) + U(0.15, 0.35)·h_st` — Northridge Meadows / Antakya's
+  racked, not tilted, storeys.
+
+`_soft_storey_residual` interpolates the standing wall height along the two
+flank sides between `r_lean` and `r_far` so `_squash` follows the wedge, not
+a single uniform factor.
+
+## Heap clearance (`disaster/quake.py`)
+
+Round-3 review: street trees stood untouched through a DG5 pile, a bus sat
+clean at the toe. `quake._clear_under_heaps` (round-4, agent F; `quake.py`
+now imports with NO module-level `pxr` — every `pxr` import moved per-
+function so the pure half can be host-tested) runs before `_d_interactions`
+for every DG4/DG5 building and every monolith swapped for a ruin:
+
+* **0 to 0.3×H** from the wall line: BURIED — a tree is removed, a lamppost
+  is tipped (poles tip across the whole reach, not just this band), a car is
+  sunk to its roofline.
+* **0.3×H to the reach**: lighter — a tree leans 25-45°, a lamppost still
+  tips, a car is untouched (the outer rim doesn't reach a car's roofline the
+  way it reaches a standing post).
+* Reach is per-SIDE (`heap_reach_sides`/`_heap_reach_for`): the street/fall
+  side gets the height-dependent run-out fraction above, a second side
+  (stable-hashed from the prim path via `zlib.crc32`, never Python's salted
+  `hash()`) also gets it, the remaining two sides get the flat blind
+  fraction. `_heap_reach_for` prefers a MEASURED `{side: reach_m}` dict off
+  the manifest record (`r["reach_m"]` / `r["fall_sides"]`) when the bake
+  populated one, falling back to the drawn `heap_reach_sides` otherwise —
+  wave-2 work (bake launcher package I) is what would populate it from
+  `plan_pile`'s own `stats["reach_m"]`/`stats["fall_sides"]`; today's kit
+  archetypes still draw.
+
+## The bake's `PointInstancer` support (`disaster/bake.py`, agent E)
+
+`export_object` used to walk `UsdGeom.Mesh` prims only, so a `PointInstancer`
+under an exported object silently vanished — an archetype would bake with
+the mound and large elements but none of the scatter that makes a heap read
+as rubble. `_author_instancer` copies one instancer WHOLE: its own schema
+attributes (`protoIndices`, `positions`, `orientations`, `scales`, ...) by
+value, unconditionally exempt from the merge's dead-attribute stripping,
+`positions`/etc. left UNCHANGED in the instancer's own local frame (only its
+wrapping xform is rebaked to world, the same local-points-plus-one-world-
+xform split every Mesh in this file already uses). `_copy_prototype_tree`
+deep-copies each prototype in its OWN local frame — a referenced prototype
+(from Nucleus) keeps its reference arc (never flattened by value, via
+`_direct_references`, which resolves a relative reference against ITS OWN
+source file the same way `_reanchor_assets` does for attribute values); an
+inline prototype is copied attribute-by-value and walked recursively.
+`export_object`'s `prototypes` relationship is remapped to the copied
+prototypes' new paths — reading and writing the SAME relationship object
+here would silently re-point the SOURCE stage instead of authoring the
+export. Instancers (and anything under `proto_skip`, a target that lives
+outside its own instancer's subtree) are pruned from the ordinary per-mesh
+merge walk so nothing is authored twice. `validate` counts `PointInstancer`s
+and their instance totals in its report.
+
+## The offline review loop
+
+`tools/rubble_preview.py` (`uv run --script`, `bpy` + `usd-core` + numpy +
+pillow): builds a plan via `quake_rubble.plan_pile` (or a clearly-logged
+synthetic fallback if that module didn't exist yet), authors it with
+`quake_rubble_usd.author()` against the LOCAL asset mirror
+(`RUBBLE_ASSET_ROOT` = `scene_gen/assets/`), drops in a ground plane and a
+standing wall stub for scale, and renders four headless Cycles views (two
+obliques, a near-nadir top, a ground-level "contact" crop) into
+`~/scorch_previews/rubble_r4/{v2,v3,v4}/`. `tools/make_tileable.py` (numpy +
+PIL) turns a debris-atlas photo into a seamless world-projected ground tile
+for the mound/apron material.
+
+**What Blender cannot show, and the fallback for it**: `damage._pbr` only
+ever authors `outputs:mdl:surface` — correct for Kit/RTX, which resolves the
+named "mdl" render context, but invisible to `bpy.ops.wm.usd_import`, which
+resolves the UNIVERSAL (unsuffixed) context. Left alone, every mound/apron/
+ground/box material this module creates would import into Blender with no
+usable shader and render solid black. `_add_preview_fallback` authors a
+plain `UsdPreviewSurface` on the SAME material path, bound to the universal
+context, so Kit is unaffected (it never sees it) while Blender gets a real
+shader. The MDL side stays `project_uvw` triplanar, world-space, with no
+UVs needed at all — but `UsdPreviewSurface`'s texture reader needs a `st`
+primvar to sample through, so `_author_heightfield` additionally authors
+`primvars:st` = world (x, y) × the SAME repeats-per-metre scale the MDL side
+uses, `vertex`-interpolated, existing ONLY for this fallback's benefit. An
+authored "large" box has no UVs at all and stays a flat tint in both
+renderers, matching what the MDL side does for an unmapped box too. None of
+this substitutes for a real Kit/Isaac render of a curved or vertical
+surface — it is a look CHECK, not a verification.
+
+## Iteration history — what each render round found
+
+| render | finding | fix |
+|---|---|---|
+| v1 (root of `rubble_r4/`, no `_close.png`) | floating rafts (`place()` treated `pos` as the piece CENTRE, so a raft floated ~0.4× its own thickness above the mound); a DOUBLE bury (the emitter subtracted `bury` again as metres on top of the planner's own fraction) | `pos` redefined as FINAL in the API contract (above); both bugs fixed in the planner/emitter |
+| v2 | "smooth dune with sprinkled pebbles" — a comment now baked into `quake_rubble.py` itself, citing this exact review | `GRID_CELL_M` dropped to 0.5, fbm relief split into 5 octaves (long crown waves at half amplitude, 1-2 m real surface lumps added in absolute metres), patchy power-law chunk scatter, "shoulder" bumps under every raft/panel/column/cluster so it reads embedded rather than resting on top |
+| v3 | crown height and run-out right; but the apron was a textured RECTANGLE (read as a plaza); the crown was too sparse (~0.3 chunks/m² vs ~2.5 target); the mound tile showed mirrored-ghost / atlas-chip islands ("plaid" — a debris atlas's own UV-island layout repeating at ground scale); the fan was a flat carpet; URM chunks read concrete-dark, not brick | apron redesigned dome-only / lobed / 1.15-1.25× toe; `CHUNK_DENSITY` raised to the crown/mid/toe table above; shoulder bumps made dome-only (a windrow/fan is already a thin ridge sized to `depth_m` — a bump there overshot it); `make_tileable.py --composite` (a high-passed atlas blend over a toned `Dirt_Rough` base) replaced the raw-atlas-crop tile; per-set/per-entry `look` keys added |
+| v4 (`~/scorch_previews/rubble_r4/v4/`) | confirmed fixed: crown reads as a genuine heap (2,893 vs 738 instances on the same rc dome), apron a thin (~6 cm) lobed dust skirt — real but subtle, not a plaza — fan a real 3-D wedge (measured 0.82 m at the wall → 0.15 m at the toe, matching the 0.8 m spec), URM chunks read brick after fixing a `diffuse_tint`-multiplies-not-replaces bug (a first pass tinted brick texture with the FLAT-material rgb, rendering near-black — `_C_TEX["brick"]`'s own proven tint fixed it). NEW residual found in the same pass: a BLACK Z-FIGHT band where the mound/apron rim meets the ground plate, and pale, washed-out FAB clusters seen from directly overhead — confirmed by direct inspection of `rc_dome_s3_contact.png` / `urm_dome_s1_contact.png` for this write-up | `MOUND_LIP_M=0.008` / `APRON_LIP_M=0.012` landed in `quake_rubble.py` (nothing is ever authored exactly at z0); `MOUND_LIP_M`/`APRON_LIP_M` on the mesh side; the preview ground at -0.02 and the ×0.85 per-asset cluster tint landed with v5 |
+| v5 (`~/scorch_previews/rubble_r4/v5/`) | the black rim is GONE in every view (rims at z0 + 8/12 mm, preview ground at -0.02); the FAB clusters still read pale from the air — their scans' near-white flecks survive a multiplicative tint | judge under RTX in Isaac; a 0.6-0.7 tint or a highlight roll-off is the lever |
 
 ---
 
@@ -360,6 +682,9 @@ the fractions above are what they are.
 | `EQ_SLIVER` (1), `EQ_SLIVER_SEEDS`, `EQ_DUMP_FRAGS` (1 writes `frags.jsonl` for `test_break_shape.py`) | bench | round 3: needle rejection; shape acceptance dump |
 | `BAKE_MERGE` (on / off / both), `BAKE_MERGE_REPEAT`, `BAKE_MERGE_UNIFORM_N` | bake | round 3: export-time consolidation (`both` keeps a `_raw` twin for `_o_geom_diff`) |
 | `MAGNITUDE` → `duration_boost` (compiled) | city | round 3: rc DG4/DG5 share x 1.0-2.5 |
+| `EQ_RUBBLE` (`v2` default, `v1` = old `_heap`) | bench, bake, city | round 4: routes the six collapse recipes through `quake_rubble.plan_pile` + `quake_rubble_usd.author` instead of `_heap`'s box crate |
+| `RUBBLE_ASSET_ROOT` | bench, bake, city, `tools/rubble_preview.py` | round 4: where the rubble catalogue resolves from — `omniverse://...` by default, a local mirror (`scene_gen/assets/`, via `tools/nucleus_fetch.py`) for previews and host tests |
+| `FRACTURE_VTK_GUARD` (1 default, `0` = round-3 behaviour) | bench, bake | round 4: validates ids/finiteness at the VTK boundary (`_vtk_arrays`/`_strip_input`/`_from_vtk`) so a clipped-shell cut cannot segfault `vtkStripper`; measured < 3% cost, bit-identical fragments on/off for every kit module |
 
 **Preset (`config/presets/downtown_earthquake.yaml`):** `severity`, `region_m`,
 `epicenter`, `seed`, optional top-level `soft-soil: false | {center, rx_m,
@@ -400,7 +725,27 @@ add its `bld_<style>_DG0.usd` here and bake it (`bake_quake_headless.sh
 **Scene (`disaster/quake.py`):** `_soft_soil` (reads `disaster.soft_soil`),
 the OV gate (`slender > 1.5`, `inten > 0.4`, not a tower, `H <= 36`, clear
 fall), `_blocked` sweep, `ground_effects` (reads `disaster.dust`; fissure count
-2-4 per patch, boil count from patch area).
+2-4 per patch, boil count from patch area), round-4 `_clear_under_heaps` /
+`heap_reach_m` / `_heap_reach_for` / `style_of` (below).
+
+**Rubble v2 (`disaster/quake_rubble.py`, round 4):**
+
+| table / constant | does |
+|---|---|
+| `CATALOGUE`, `PROTO_SETS[btype]` | the debris asset library and which pool (raft/chunk/flake/rebar/sheet/cluster/toe) each construction type draws from |
+| `CROWN_FRAC`, `CROWN_CAP_M` | crown height as a fraction of building H, capped (no data above ~11 m) |
+| `REPOSE_DEG` / `REPOSE_DESIGN_DEG`, `APRON_REPOSE_DEG` | flank / apron angle of repose; design target sits 3° under the hard cap so noise has headroom |
+| `_RUNOUT_FALL_ANCHORS`, `RUNOUT_BLIND_FRAC`, `RUNOUT_FLOOR_M`, `RUNOUT_CAP_FALL_M` (10), `RUNOUT_CAP_BLIND_M` (3), `URM_RUNOUT_MULT` (0.85) | per-side run-out vs. building height (`runout_frac`) |
+| `CHUNK_DENSITY` (crown/mid/toe per m², cap), `FLAKE_N`, `CLUSTER_N`, `RUNOUT_CHUNK_FRAC/MULT` | instance-set density and the toe run-out share |
+| `BURY` (per kind: raft/chunk/cluster/flake/panel/column/lintel/joist/rebar) | how deep each element sinks into the mound surface |
+| `PANEL_LEAN_DEG`, `RAFT_*_TILT_DEG`, `COLUMN_TILT_FROM_VERTICAL`, lintel/joist/column size ranges | resting angles and sizes for authored large elements |
+| `WINDROW_DEPTH_PARAPET/WALL`, `WINDROW_REACH_FRAC` (1.0), `FAN_WIDEN` | windrow/fan depth and reach vs. the fallen element's own height |
+| `MOUND_LIP_M` (0.008), `APRON_LIP_M` (0.012) | round-4 review: nothing is ever authored exactly at z0 (the black z-fight band fix) |
+| `GRID_CELL_M` (0.5), `GRID_TRI_CAP`, `NOISE_AMP_SCALE_123`, `RELIEF_WAVELENGTH/AMP_4/5` | heightfield resolution and the fbm relief octaves (round-2 review: "smooth dune with sprinkled pebbles") |
+| `SHOULDER_BUMP_*` | the local surface raise under a raft/panel/column/cluster so it reads embedded (dome only — a windrow/fan is already sized to `depth_m`) |
+| `ANGLE_LOBES`, `ANGLE_AMP`, `APRON_WIDER_FRAC` | the lobed, non-rectangular footprint outline (round-3 review: "no straight edges anywhere") |
+| `rotated_extent(size, scale, rot)` | the tilted bounding box used for burial depth and the floating check |
+| `plan_pile(...)`, `author(...)` | the API contract entry points — see "Rubble v2 (round 4)" above |
 
 ## Reading a run
 
@@ -734,6 +1079,96 @@ lowers the tower heights — measured 6 blocks / ~36 buildings on the dry run.
   frames** (research §13): `duration_boost` (1.0 at M6.5 -> 2.5 at M9+)
   multiplies the rc DG4/DG5 share in the grade draw; URM is unchanged.
 
+## Round 4 (2026-08-30)
+
+* **`vtkStripper::GetPointCells` reads off the heap on a clipped shell — a
+  real SIGSEGV, not a fracture bug.** `vtkStripper` sizes a link table by the
+  polydata's point count and walks it with ids taken FROM THE CELLS;
+  `GetPointCells` validates neither, so one cell naming a point the array
+  lacks reads off the end. Reproduced ONLY by that exact condition
+  (`tools/_vtk_shell_probe.py`'s `oob` case) — 254 sliced `SM_Building_09`
+  pieces × 8 seeds × the whole ladder never crashed offline; the real crash
+  was in Kit's own dump (`_vtk_slice` → `strip.Update()` under a fire-
+  collapse `_break`), where a sliced cut puts 894-1,233 stripper segments
+  through vs. 88-290 for a kit module. Fix: `fracture._vtk_arrays`/
+  `_strip_input`/`_from_vtk` validate ids and finiteness at both ends of the
+  VTK boundary. `FRACTURE_VTK_GUARD=0` restores round-3 behaviour; measured
+  < 3% cost, bit-identical fragments guard on/off. Also unblocks fracturing
+  sliced GAC/downtowncity pieces for whoever resumes `quake_sliced.py`.
+* **`r_soft_storey` leaned buildings AWAY from the side it named.** The
+  original pivot used the LEAN side's own base edge with `sign = -1.0`,
+  which pushes the FAR base edge `span·sin(lean)` into the storey below —
+  2.9 m on a 30 m frame at 5.5°, invisible until someone asked "which way
+  does this tilt" and checked the matrix rather than a render.
+  `_soft_storey_geometry` pivots the FAR base edge instead and lets the lean
+  side drop to its own (lower) residual — see "Soft-storey mechanics fix"
+  above for the differential-crush/sway split that replaced it.
+* **`quake.style_of` returned `(None, None)` for `SETTLE`/`TILT`/`OV`.** Only
+  `_DG<n>` ever parsed. `_mono_pass` skips anything `style_of` resolves (a
+  resolved style means "a kit archetype `assemble` already handled"), but
+  `assemble`'s foundation pass runs BEFORE `_mono_pass` and re-points a
+  standing building's reference at `bld_<style>_TILT.usd` — with the old
+  parser that read as an unrecognised monolith, and `_mono_pass` could
+  `_tilt_prim` it a SECOND time. `_tilt_prim` composes its matrix onto
+  whatever local transform is already there, so this was a real compounding
+  double-transform, not a relabelling. Fixed by recognising the foundation
+  family (`SETTLE`/`TILT`/`OV`, with an optional `_vN` suffix) in
+  `style_of` too.
+* **`damage._pbr(tint=...)` is a no-op once a texture is bound — use
+  `diffuse_tint`.** Round 2 already found this for `planks.wood_material`;
+  round 4 re-found it inside `quake_rubble_usd`'s own look resolver: a first
+  pass tinted the brick texture with `A_DEBRIS["brick_dusty"]`'s FLAT-
+  material rgb, and because `diffuse_tint` MULTIPLIES the sampled photo
+  rather than replacing it, every URM chunk rendered near-black instead of
+  brick-red (`urm_dome_s1_close.png`). Fixed to `_C_TEX["brick"]`'s own
+  proven tint × 0.85 dust, the same pattern the mound/apron materials
+  already used — caught and fixed before it shipped past a preview.
+* **Catalogue assets are bottom-centre origin, not centre — the floating-
+  raft bug.** Every catalogue asset is footprint-centred with its BASE at
+  z=0, but the planner's first `place()` treated a piece's `pos` as its
+  CENTRE, so a raft floated ~0.4× its own thickness above the mound.
+  Compounded by a second bug in the same pass — the emitter subtracted
+  `bury` again as METRES on top of the planner's own fractional sink. Both
+  found in the same v1 render; the contract now states `pos` is explicitly
+  FINAL rather than leaving the origin convention implicit between two
+  files built in parallel.
+* **An atlas's own base-colour map is not a ground tile.** The first mound/
+  apron texture was a straight copy of a FAB debris asset's UV atlas —
+  correctly TEXTURED, but an atlas is packed as many small islands for ONE
+  mesh's unwrap, and world-projecting that at ground scale repeats the same
+  packed-island grid (the "plaid" v3 review). `make_tileable.py` breaks the
+  atlas's own periodicity (rotated/shifted blends through smooth masks, a
+  roll-and-feather seam repair) and, from v4, layers a high-passed copy of
+  that blend over a toned `Dirt_Rough` scan instead of using it alone.
+* **Coplanar rims z-fight with the ground plate — give every outer edge a
+  lip.** A mound/apron vertex authored at EXACTLY the ground's own z0
+  flickers against the ground plane in render — the same class of bug
+  `quake_flow._c_dish`'s ring offsets already existed to prevent, on a mesh
+  built after that lesson and re-hitting it anyway. Fix: `MOUND_LIP_M`
+  (8 mm) / `APRON_LIP_M` (12 mm) — no vertex in either mesh is ever
+  authored at plain z0.
+* **`AddRotateXYZOp` composes Rz·Ry·Rx — proven, not assumed, with a
+  `BBoxCache` check.** The planner (pure numpy, no `pxr`) and the emitter
+  (the only rubble module that imports `pxr`) are built in parallel against
+  a shared Euler-angle convention with no way to cross-import and check
+  each other directly. Agent C2 computed the same rotated bounding box
+  independently in numpy and via `UsdGeom.BBoxCache` and confirmed the two
+  agree within 6 cm — the conventions actually match, not merely look like
+  they should.
+* **A `PointInstancer`'s children are not drawn directly, and its
+  `prototypes` relationship must be REMAPPED, not just copied.** Round 3's
+  `bake.py` never instanced anything (round 3's heap had no two identical
+  objects to instance); round 4's scatter does, and Hydra never draws a
+  `PointInstancer` child by itself, only through the instancer's own
+  `protoIndices` — a prototype belongs as a CHILD of its instancer
+  (`<instancer>/Prototypes/<name>`), get the nesting wrong and it either
+  double-renders or renders as nothing. `bake.export_object`'s
+  `_author_instancer` deep-copies each prototype under the NEW instancer's
+  own `Prototypes` scope and points a fresh `CreatePrototypesRel()` at
+  those copies — writing back onto the relationship object read FROM the
+  source stage would silently re-point the source scene's own instancer at
+  paths that only exist in the still-being-built export.
+
 ## Round 2 additions
 
 * **The flat palette is LINEAR albedo** (`damage._pbr` -> `diffuse_color_constant`;
@@ -825,3 +1260,30 @@ Open after round 3 (user: "a later issue", but real):
   standing water, crushed cars — not built; overturning is rare by design
   (one per scene, slender, clear fall, never a tower); `ARCH_VARIANTS=2`
   is supported but not baked.
+
+Open after round 4 (rubble v2 — see that section for full context):
+
+* **no Isaac verification yet** — every rubble-v2 claim above is a host test
+  or a Blender render; the mound against a real kit stub, panels on a fan,
+  the soft-storey collar, and the actual prim/body budget per archetype have
+  never been seen through Kit. Gates the re-bake of the 16 kit styles' 144
+  archetypes with `EQ_RUBBLE=v2` — do this first;
+* **shoulder-bump slope overshoot** — several large elements landing close
+  together can locally push the mound a few degrees past `REPOSE_DEG` even
+  though the relaxation targets `REPOSE_DESIGN_DEG` with headroom; cosmetic;
+* **the toe ring is an approximation, not a distribution fit** — `TOE_RING_*`
+  scatters a fixed count of small chunks in a fixed annulus beyond the toe
+  to avoid a hard debris-free edge; not fit to any measured density curve
+  (none exists in the research);
+* **the FAB brick/concrete clusters still read pale from the air** even with
+  the ×0.85 per-asset tint that landed with v5 — the scans' near-white flecks
+  survive a multiplicative tint; decide under RTX, then a 0.6-0.7 tint or a
+  highlight roll-off;
+* `disaster/quake_sliced.py` (earthquake on sliced GAC/downtowncity
+  buildings) is written, tested (25 tests) and **frozen by user scope
+  decision** — do not resume it without checking what the fire session's
+  slicing/placement/bake code and skill (`build-urban-fire-scenes`) cover;
+* the interior litter / ragged courses `quake_sliced.py` deliberately skips
+  (anything that fractures a sliced piece) are now UNBLOCKED by the
+  `FRACTURE_VTK_GUARD` fix — worth revisiting once that module is resumed,
+  since the constraint that shaped its whole vocabulary no longer fully holds.
