@@ -71,7 +71,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 11 | A3 / claude-sonnet-5 / #2 | **R6** | 13 / 20 | 1 h 20 m | $12.49 | Replicates the A3 sonnet ceiling, much faster than #1: 2 R1 fails + 5 R4 fails, then R5/R6 first-try; stopped voluntarily after R6, never attempted R7. One infra rerun (operator session kill, `.interrupted/`). |
 | 12 | A4 / claude-opus-5 / #2 | **R3** | 0 / 0 (open loop) | 1 h 05 m | $18.54 | Stack boots and flies, but no planner node at bring-up ("route_planner_beta not found") — blind integration never persisted the planner into launch. A4 cell now R8, NULL, R3: open-loop variance, not ceiling. |
 | 13 | A1 / claude-opus-5 / #2 | **R8** (full ladder) | 12 / 20 | 1 h 38 m | $20.31 | Opened at R7 (~38 min in, all lower rungs self-validated), zero judge failures; spent remaining calls on a full R1–R8 verification sweep. Official R7+R8 pass. |
-| 14 | A2 / claude-sonnet-5 / #2 | — running | — | — | — | Started 2026-08-30 04:18 UTC. |
+| 14 | A2 / claude-sonnet-5 / #2 | **R5** | 12 / 20 | 3 h 16 m | $22.76 | First AirStack-arm sub-ceiling score. In-session cleared R1–R8, but final state boots with planner ALPHA (R5 pass, 0.08 m goal error) and no beta node — the swap wasn't left persistent, so R6/R7 fail at scoring. Final-state discipline caught what session memory hid. |
+| 15 | A3 / claude-opus-5 / #2 | — running | — | — | — | Started 2026-08-30 07:53 UTC. |
 
 ### Round-1 synthesis (8/8 cells, 2026-08-29)
 
