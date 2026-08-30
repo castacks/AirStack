@@ -473,6 +473,81 @@ DOME_LIGHT_PATH = "/World/DomeLight"
 DOME_LIGHT_INTENSITY = 3500.0
 DOME_LIGHT_EXPOSURE = -5.0
 
+# ---------------------------------------------------------------------------
+# FROZEN-CELL LIGHTING. A frozen cell carries NO SKY, and this is why.
+#
+# `freeze.DEACTIVATE_DEFAULT` turns off `/World/Environment` and
+# `/World/stage/Environment` before the flatten — deliberately, so the
+# collector does not drag the default environment's assets along and so the
+# cell does not ship Pegasus' flat default ground. But the sky and the sun
+# live in exactly that prim, so the deactivation takes the LIGHTING with them.
+# Nothing puts it back: `ADD_DOME_LIGHT` above is False, the one
+# `add_dome_light` call in this file sits in the ENV_URL branch that `_FROZEN`
+# never enters, and `pg.load_environment` is skipped outright for a frozen
+# cell.
+#
+# MEASURED (2026-08-30, `Sdf` on the cells themselves, no Kit):
+#   * every Fire cell   — 83,215 prims, exactly ONE light: a SphereLight of
+#     radius 0.25 m at (0, 0, 2.5) with intensity 1e5. A 25 cm bulb 2.5 m off
+#     the ground, lighting a 1 km plate.
+#   * every Tornado cell — ZERO lights.
+# and downstream, in the 8-robot benchmark run of 2026-08-30 09:09:51:
+#   * the 2048x2048 overhead frame is 99.93 % pure RGB (0,0,0); the brightest
+#     cells reach R=187 and are the Flow flames, the only emissive thing left.
+#   * 23,641+ consecutive frames were rejected as blank by the GCS visualiser's
+#     std gate, so `/gcs/sim_ground` carried ZERO messages.
+#   * the drones' ZED cameras render that same black world, so YOLO-World was
+#     asked for "person" over 81 minutes x 8 drones and had nothing to score.
+#
+# So this is authored HERE rather than in the freeze: it re-lights all 18
+# existing cells with no re-freeze, and it lights every cell IDENTICALLY,
+# which is what makes one cell's score comparable with another's.
+FROZEN_LIGHT = (os.environ.get("FROZEN_LIGHT", "").strip().lower()
+                or "on") in ("1", "true", "yes", "on")
+# THE SKY. This is the SAME asset every generated (non-frozen) scene already
+# flies under: `scene_gen/config/asset_sets/shared.yaml` sets
+#     asset_root: omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/
+#     sky:        RetroNeighborhood/RetroNeighborhood.stage.usd
+# and `scene_api._apply_sky` -> `scene_generator.resolve_sky` joins the two.
+# RetroNeighborhood's `/Environment` holds a dynamic-sky rig plus its dome
+# light, and `scene_prep.add_sky` borrows exactly those root prims (the ones
+# outside the file's defaultPrim) rather than its geometry, so this is cheap.
+#
+# It is spelled out here rather than resolved through `scene_generator`
+# because a FROZEN run cannot import it: `_BUILT` is
+# `bool(SCENE_CONFIG) and not _FROZEN`, and the `sys.path.insert` that puts
+# `scene_gen` on the path is gated on `_BUILT`. `test_frozen_lighting` reads
+# `shared.yaml` and asserts the two agree, so the copy cannot drift.
+#
+# Reachability measured 2026-08-30: `omni.client.stat` -> Result.OK. If it
+# ever is not reachable, `reference_root_prims_under_world` returns [] and
+# `add_sky` falls back to a plain dome — the scene is still lit, just flat,
+# and the fallback says so in the log.
+FROZEN_SKY = (os.environ.get("FROZEN_SKY", "").strip()
+              or "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/"
+                 "Stages/RetroNeighborhood/RetroNeighborhood.stage.usd")
+# Only used when the sky above cannot be borrowed and `add_sky` falls back to
+# an untextured dome.
+FROZEN_DOME_INTENSITY = float(os.environ.get("FROZEN_DOME_INTENSITY") or 1200.0)
+FROZEN_DOME_EXPOSURE = float(os.environ.get("FROZEN_DOME_EXPOSURE") or 0.0)
+# The sun, added ONLY when the sky did not bring a DistantLight of its own —
+# two suns is worse than none. A dome alone lights the scene but casts no
+# shadow, and the build-time `snaps/overview.png` of every cell has hard sun
+# shadows in it. Elevation is measured up from the horizon, azimuth clockwise
+# from +Y (north).
+FROZEN_SUN = (os.environ.get("FROZEN_SUN", "").strip().lower()
+              or "on") in ("1", "true", "yes", "on")
+FROZEN_SUN_INTENSITY = float(os.environ.get("FROZEN_SUN_INTENSITY") or 2400.0)
+FROZEN_SUN_ELEV_DEG = float(os.environ.get("FROZEN_SUN_ELEV_DEG") or 48.0)
+FROZEN_SUN_AZ_DEG = float(os.environ.get("FROZEN_SUN_AZ_DEG") or 135.0)
+# The stray bulb described above. Left active it is a blown-out hotspot at the
+# origin once real lighting exists, and the origin is inside the search area.
+FROZEN_KILL_STRAY_LIGHTS = (
+    os.environ.get("FROZEN_KILL_STRAY_LIGHTS", "").strip().lower()
+    or "on") in ("1", "true", "yes", "on")
+# Anything at or below this radius is a stray point source, not scene lighting.
+FROZEN_STRAY_LIGHT_MAX_R_M = 2.0
+
 # GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates.
 # Matches the Lisbon default in px4_config.yaml — change here to relocate the sim world.
 WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
@@ -909,6 +984,118 @@ class PegasusApp:
                   SCENE_PARENT, timeout_s), flush=True)
         return False
 
+    def _light_frozen_scene(self, stage):
+        """Give the frozen cell a sky and a sun — it ships with neither.
+
+        See the FROZEN-CELL LIGHTING block near the top of this file for the
+        measurement that made this necessary. Order matters: the strays go off
+        BEFORE the dome goes on, so the banner's census reports the lighting
+        this scene will actually render with.
+        """
+        import math
+
+        from pxr import Gf, Sdf, UsdGeom, UsdLux
+
+        if not FROZEN_LIGHT:
+            print("[frozen-light] FROZEN_LIGHT=off — the cell will render "
+                  "with whatever it shipped with (measured: near-black)",
+                  flush=True)
+            return
+
+        # 1) The strays. A frozen cell's only light is a 0.25 m SphereLight at
+        #    the origin; once a dome exists it is a hotspot on the plate.
+        killed = []
+        if FROZEN_KILL_STRAY_LIGHTS:
+            for prim in stage.Traverse():
+                if not prim.IsA(UsdLux.SphereLight):
+                    continue
+                r = UsdLux.SphereLight(prim).GetRadiusAttr().Get()
+                if r is None or float(r) <= FROZEN_STRAY_LIGHT_MAX_R_M:
+                    prim.SetActive(False)
+                    killed.append(prim.GetPath().pathString)
+        if killed:
+            print("[frozen-light] deactivated {0} stray point light(s): {1}"
+                  .format(len(killed), ", ".join(killed[:4])), flush=True)
+
+        # 2) The sky. `add_sky` is the SAME function, with the SAME asset,
+        #    that every generated scene is lit by — so a frozen cell and a
+        #    rebuilt one now come up under one sky and one code path. For a
+        #    `.usd` it borrows the file's root prims outside its defaultPrim
+        #    (RetroNeighborhood's `/Environment`: the dynamic-sky rig and its
+        #    dome light); if that cannot be opened it falls back to a plain
+        #    dome and says so.
+        before_world = {c.GetName() for c in
+                        stage.GetPrimAtPath("/World").GetChildren()} \
+            if stage.GetPrimAtPath("/World") else set()
+        try:
+            from scene_prep import add_sky
+            add_sky(stage, FROZEN_SKY, prim_path=DOME_LIGHT_PATH,
+                    intensity=FROZEN_DOME_INTENSITY,
+                    exposure=FROZEN_DOME_EXPOSURE)
+        except Exception as exc:                      # noqa: BLE001
+            carb.log_warn(f"[frozen-light] add_sky failed ({exc}); falling "
+                          f"back to a bare dome light")
+            add_dome_light(stage, DOME_LIGHT_PATH, FROZEN_DOME_INTENSITY,
+                           FROZEN_DOME_EXPOSURE)
+
+        # The borrowed subtree is a reference to a Nucleus asset, so give it
+        # updates to resolve before asking what it brought — the sun decision
+        # below depends on the answer, and an unresolved reference looks
+        # exactly like a sky with no lights in it.
+        app = omni.kit.app.get_app()
+        for _ in range(30):
+            app.update()
+        after_world = {c.GetName() for c in
+                       stage.GetPrimAtPath("/World").GetChildren()} \
+            if stage.GetPrimAtPath("/World") else set()
+        borrowed = sorted(after_world - before_world - {"DomeLight"})
+        if borrowed:
+            print("[frozen-light] sky borrowed from {0}: /World/{1}".format(
+                FROZEN_SKY, ", /World/".join(borrowed)), flush=True)
+
+        # 3) The sun — ONLY if the sky did not bring one. A DistantLight's
+        #    direction is its -Z axis, so aim it by rotating -Z onto the
+        #    vector pointing FROM the sun TOWARD the ground. Elevation up from
+        #    the horizon, azimuth clockwise from +Y.
+        has_distant = any(p.IsA(UsdLux.DistantLight) for p in stage.Traverse())
+        if FROZEN_SUN and has_distant:
+            print("[frozen-light] the sky brought its own DistantLight — "
+                  "not adding a second sun", flush=True)
+        if FROZEN_SUN and not has_distant:
+            el = math.radians(FROZEN_SUN_ELEV_DEG)
+            az = math.radians(FROZEN_SUN_AZ_DEG)
+            to_ground = Gf.Vec3d(-math.cos(el) * math.sin(az),
+                                 -math.cos(el) * math.cos(az),
+                                 -math.sin(el)).GetNormalized()
+            sun_path = "/World/FrozenSun"
+            sun = UsdLux.DistantLight.Define(stage, Sdf.Path(sun_path))
+            sun.CreateIntensityAttr(FROZEN_SUN_INTENSITY)
+            sun.CreateAngleAttr(0.53)      # the sun's real angular diameter
+            xf = UsdGeom.Xformable(sun.GetPrim())
+            xf.ClearXformOpOrder()
+            xf.AddOrientOp().Set(Gf.Quatf(Gf.Rotation(
+                Gf.Vec3d(0, 0, -1), to_ground).GetQuat()))
+            print("[frozen-light] sun at '{0}' (elev {1:.0f} deg, az {2:.0f} "
+                  "deg, intensity {3:.0f})".format(
+                      sun_path, FROZEN_SUN_ELEV_DEG, FROZEN_SUN_AZ_DEG,
+                      FROZEN_SUN_INTENSITY), flush=True)
+
+        # 4) Say what the scene is lit by, so the next run's log answers the
+        #    question "was it lit?" without anyone opening the USD.
+        # `HasAPI(LightAPI)` rather than `IsA(<some light base>)`: the base
+        # class was renamed across USD versions (Light -> Boundable/
+        # NonboundableLightBase) and every light schema applies LightAPI in
+        # all of them, so this is the one spelling that cannot go stale.
+        # `Stage.Traverse()` visits ACTIVE prims only, which is exactly the
+        # census wanted here — the strays turned off above are meant to be
+        # absent from it. Do not read this number as "lights in the file".
+        active = [p.GetPath().pathString for p in stage.Traverse()
+                  if p.HasAPI(UsdLux.LightAPI)]
+        print("[frozen-light] the scene will render lit by {0} active light "
+              "prim(s): {1}".format(len(active), ", ".join(active[:6]) or
+                                    "<NONE — the scene will render BLACK>"),
+              flush=True)
+
     def _finish_frozen_scene(self, stage):
         """Everything the generated path does AFTER the geometry exists."""
         for _key in ("/rtx/raytracing/fractionalCutoutOpacity",
@@ -917,6 +1104,9 @@ class PegasusApp:
         app = omni.kit.app.get_app()
         for _ in range(30):
             app.update()
+        # BEFORE the banner: the banner prints a census of what the cell is
+        # lit by, and the honest answer has to include what we just added.
+        self._light_frozen_scene(stage)
         self._print_frozen_banner(stage)
         self._add_scene_colliders(stage)
         self._write_frozen_annotations()
