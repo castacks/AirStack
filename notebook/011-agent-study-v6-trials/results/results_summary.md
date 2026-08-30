@@ -75,7 +75,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 15 | A3 / claude-opus-5 / #2 | **R6** | 11 / 20 | 2 h 40 m | $32.81 | Big improvement over #1 (R3, time-capped): R1 by 1 h 19 m, R6 by 1 h 36 m, then ~30 min attempting avoidance for R7 (one in-session R7 fail), stopped with a consolidated R6 state. Official R7 fail / R6 pass. |
 | 16 | A4 / claude-sonnet-5 / #2 | **R6** | 0 / 0 (open loop) | 1 h 30 m | $10.38 | Clean rerun (first attempt INFRA-CONTAMINATED, `.contaminated/`: an orphaned duplicate agent from a chained-launch operator error raced the official agent — they detected each other via cross-session messaging and the official agent stood down; preflight isolation guard added, runner `05540d7`). Rerun: blind integration flew the beta route (goal error 1.11 m), failed R7 obstacles. |
 | 17 | A1 / claude-sonnet-5 / #3 | **R8** (full ladder) | 12 / 20 | 1 h 59 m | $9.83 | Cheapest full ladder yet. One R3 and one R4 retry, R5–R8 first try, plus verification sweep. A1 5/5 at ceiling. |
-| 18 | A2 / claude-opus-5 / #3 | — running | — | — | — | Started 2026-08-30 15:18 UTC. |
+| 18 | A2 / claude-opus-5 / #3 | **R8** (full ladder) | 12 / 20 | 2 h 33 m | $23.59 | Never attempted R7/R8 in-session (spent calls on R1–R6 + re-verification); final state passed both at scoring. |
+| 19 | A3 / claude-sonnet-5 / #3 | — running | — | — | — | Started 2026-08-30 17:58 UTC. |
 
 ### Round-2 synthesis (16/16 cells, 2 per cell, 2026-08-30)
 
