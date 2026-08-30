@@ -118,6 +118,23 @@ the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
 
+### 2026-08-30 — Round 2 complete (2/cell): arm separation holds and sharpens
+
+Cumulative (entry [011](011-agent-study-v6-trials/results/results_summary.md)):
+**A1 R8×4 · A2 R8,R8,R8,R5 · A3 R6,R3,R6,R6 · A4 R8,NULL,R3,R6.**
+A1 is deterministic at the full ladder; A2 dropped one trial to R5 (the
+swap wasn't left persistent — final-state scoring caught what session
+memory hid), so the legibility gap now appears in score; A3 is
+hard-capped at R6 with 0/4 R7 clearances (the platform gap is
+structural); A4 spans NULL→R8 — open-loop is a coin flip where
+closed-loop is deterministic, making variance (not mean) the C2
+argument. Ops: one operator-error contamination (an orphaned duplicate
+agent racing the official agent in one workspace — the two detected
+each other via cross-session messaging and the official agent stood
+down) was caught, excluded, and structurally prevented (runner
+preflight isolation guard, agent_study `05540d7`). Round 3 started;
+target remains ≥5/cell.
+
 ### 2026-08-29 — Round 1 complete (8/8 cells): the extended ladder separates the arms
 
 Scores (entry [011](011-agent-study-v6-trials/results/results_summary.md)):

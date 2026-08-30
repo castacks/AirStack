@@ -73,7 +73,30 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 13 | A1 / claude-opus-5 / #2 | **R8** (full ladder) | 12 / 20 | 1 h 38 m | $20.31 | Opened at R7 (~38 min in, all lower rungs self-validated), zero judge failures; spent remaining calls on a full R1–R8 verification sweep. Official R7+R8 pass. |
 | 14 | A2 / claude-sonnet-5 / #2 | **R5** | 12 / 20 | 3 h 16 m | $22.76 | First AirStack-arm sub-ceiling score. In-session cleared R1–R8, but final state boots with planner ALPHA (R5 pass, 0.08 m goal error) and no beta node — the swap wasn't left persistent, so R6/R7 fail at scoring. Final-state discipline caught what session memory hid. |
 | 15 | A3 / claude-opus-5 / #2 | **R6** | 11 / 20 | 2 h 40 m | $32.81 | Big improvement over #1 (R3, time-capped): R1 by 1 h 19 m, R6 by 1 h 36 m, then ~30 min attempting avoidance for R7 (one in-session R7 fail), stopped with a consolidated R6 state. Official R7 fail / R6 pass. |
-| 16 | A4 / claude-sonnet-5 / #2 | — rerunning | — | — | — | First attempt INFRA-CONTAMINATED (`.contaminated/`): an orphaned duplicate agent from a chained-launch operator error raced the official agent in the same workspace (they detected each other via cross-session messaging; the official agent stood down; scoring graded the orphan's work). Runner gained a preflight isolation guard (`05540d7`). Clean rerun started 2026-08-30 11:50 UTC. |
+| 16 | A4 / claude-sonnet-5 / #2 | **R6** | 0 / 0 (open loop) | 1 h 30 m | $10.38 | Clean rerun (first attempt INFRA-CONTAMINATED, `.contaminated/`: an orphaned duplicate agent from a chained-launch operator error raced the official agent — they detected each other via cross-session messaging and the official agent stood down; preflight isolation guard added, runner `05540d7`). Rerun: blind integration flew the beta route (goal error 1.11 m), failed R7 obstacles. |
+| 17 | A1 / claude-sonnet-5 / #3 | — running | — | — | — | Started 2026-08-30 13:12 UTC. Round 3 begins. |
+
+### Round-2 synthesis (16/16 cells, 2 per cell, 2026-08-30)
+
+Cumulative rung-survival by arm: **A1 R8×4 · A2 R8,R8,R8,R5 ·
+A3 R6,R3,R6,R6 · A4 R8,NULL,R3,R6.**
+
+- **A1 is 4/4 at the full ladder** (9–15 judge calls, $13–33). The
+  scaffolded closed-loop arm is the stable reference point.
+- **A2 dropped a trial to R5** — the agent completed the swap
+  in-session but left the workspace booting planner alpha; final-state
+  scoring caught it. Legibility gap now visible in score, not just
+  debug cycles.
+- **A3 is hard-capped at R6**: 0/4 R7 attempts cleared (one pillar
+  penetration, one time-out before consolidation, two voluntary stops
+  without attempting avoidance). The platform gap is structural, and
+  costs run high (13–17 calls, ~2–3× tokens).
+- **A4 spans NULL→R8** (NULL, R3, R6, R8): open-loop score is a coin
+  flip while closed-loop A1 is deterministic — variance, not mean, is
+  the closed-loop story (C2).
+- Ops: one operator-error contamination (trial 16 attempt 1) caught
+  and excluded; preflight isolation guard now enforces host
+  cleanliness per trial.
 
 ### Round-1 synthesis (8/8 cells, 2026-08-29)
 
