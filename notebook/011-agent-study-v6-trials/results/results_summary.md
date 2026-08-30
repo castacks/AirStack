@@ -68,7 +68,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 
 | 9 | A1 / claude-sonnet-5 / #2 | **R8** (full ladder) | 15 / 20 | 2 h 38 m | $22.06 | Same score as #1, more friction: four-fail R5 provenance arc + one R8 retry. Official R7+R8 pass. |
 | 10 | A2 / claude-opus-5 / #2 | **R8** (full ladder) | 5 / 20 | 2 h 12 m | $14.15 | Most economical trial yet: self-validated R1–R5, spent calls only on R6/R7/R8 (+2 R7 re-verifications). Official R7+R8 pass. |
-| 11 | A3 / claude-sonnet-5 / #2 | — running | — | — | — | Started 2026-08-29 22:43 UTC. |
+| 11 | A3 / claude-sonnet-5 / #2 | **R6** | 13 / 20 | 1 h 20 m | $12.49 | Replicates the A3 sonnet ceiling, much faster than #1: 2 R1 fails + 5 R4 fails, then R5/R6 first-try; stopped voluntarily after R6, never attempted R7. One infra rerun (operator session kill, `.interrupted/`). |
+| 12 | A4 / claude-opus-5 / #2 | — running | — | — | — | Started 2026-08-30 00:58 UTC. Open loop. |
 
 ### Round-1 synthesis (8/8 cells, 2026-08-29)
 
