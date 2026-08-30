@@ -29,6 +29,17 @@ its own notes. -->
   404ing the System Test Suite (`/tests/`), OSMO Lab Admin Guide
   (`/osmo/`), and all autonomy package reference pages. The pattern is
   now anchored to the repo root (`/README.md`).
+- **Shared docs links now show real previews.** Sharing
+  `docs.theairlab.org` in Slack/WhatsApp/iMessage previewed as
+  "Redirecting" — preview scrapers don't run JavaScript, and the site
+  root, the version root (`/0.20/`), and every content page lacked
+  Open Graph metadata. The root redirect now deploys from a template
+  with proper title/description/image tags (`mike set-default -T`), a
+  build hook enriches the version-root redirect stub, and a theme
+  override (`docs/overrides/main.html`) plus `site_description` add
+  per-page Open Graph / Twitter Card tags across the site. Note:
+  previously shared links may keep the stale preview until the apps'
+  link caches expire.
 
 ## 0.20.6 — 2026-08-29
 

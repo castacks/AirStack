@@ -2,6 +2,10 @@
 copyright: Copyright &copy; 2024 - 2030 AirLab CMU
 docs_dir: .
 site_name: AirStack
+site_description: >-
+  AirStack is an open-source ROS 2 autonomy stack for aerial robots from the
+  AirLab at Carnegie Mellon University — simulation, ground control, and
+  layered onboard autonomy that launch as one system.
 site_dir: ../site
 site_url: "https://docs.theairlab.org/docs/" # Trailing slash is recommended
 exclude_docs: |
@@ -43,6 +47,9 @@ extra_css:
 # build time, so each mike-deployed docs version shows only its own notes.
 hooks:
   - docs/hooks/release_notes_current_version.py
+  # Give the version-root redirect stub (/X.Y/ -> docs/) a real title and
+  # Open Graph tags so shared links preview properly (Slack, WhatsApp, ...).
+  - docs/hooks/social_meta_redirect_stub.py
 markdown_extensions:
   - admonition
   - attr_list
