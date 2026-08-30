@@ -6,8 +6,11 @@ site_dir: ../site
 site_url: "https://docs.theairlab.org/docs/" # Trailing slash is recommended
 exclude_docs: |
   # The repo README is GitHub-facing; the site's home page is docs/index.md,
-  # and same-dir would otherwise collide on the root URL.
-  README.md
+  # and same-dir would otherwise collide on the root URL. Patterns are
+  # gitignore-style: the leading slash anchors this to the repo root only —
+  # a bare README.md would exclude every package/tests/osmo README the nav
+  # serves as pages.
+  /README.md
   **/ros_ws/build
   **/docker/Foxglove
   **/ros_ws/install

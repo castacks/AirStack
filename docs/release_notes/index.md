@@ -21,6 +21,15 @@ its own notes. -->
 
 - Nothing yet.
 
+## 0.20.7 — 2026-08-30
+
+- **Fixed 404s on every README-sourced docs page.** The `exclude_docs`
+  pattern intended to hide the repo-root `README.md` used gitignore
+  semantics, so it silently excluded *every* `README.md` in the tree —
+  404ing the System Test Suite (`/tests/`), OSMO Lab Admin Guide
+  (`/osmo/`), and all autonomy package reference pages. The pattern is
+  now anchored to the repo root (`/README.md`).
+
 ## 0.20.6 — 2026-08-29
 
 - **Release notes now carry a dated section per hotfix.** Added the
