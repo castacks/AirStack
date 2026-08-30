@@ -57,16 +57,34 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt              # noqa: E402
 
 SNAPSHOT_PATH = ("/tmp/claude-1000/-home-krrishjain-SEI-COA-disaster-dataset/"
                  "c4902492-72e9-4d0b-aec1-362a8a34d2ff/scratchpad/snap/bake.py")
+# The last commit BEFORE round 4 touched bake.py ("fixed baselines not getting
+# env on osmo", 2026-08-30). The scratchpad copy above is a session-local
+# convenience that a reboot wipes; the commit is the durable baseline.
+BASELINE_COMMIT = "b9ac378f"
+_REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                      "..", ".."))
+
+
+def _baseline_source():
+    if os.path.exists(SNAPSHOT_PATH):
+        with open(SNAPSHOT_PATH) as fh:
+            return fh.read()
+    import subprocess
+    return subprocess.check_output(
+        ["git", "-C", _REPO, "show",
+         BASELINE_COMMIT + ":scene_gen/disaster/bake.py"], text=True)
 
 
 def _load_snapshot():
     """The pre-change `bake.py`, imported under its own module name so it
     runs side by side with the working copy (`disaster.bake`) with neither
-    clobbering the other in `sys.modules`."""
-    spec = importlib.util.spec_from_file_location("bake_snapshot",
-                                                   SNAPSHOT_PATH)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    clobbering the other in `sys.modules`. Read from the scratchpad snapshot
+    when it exists, else from `BASELINE_COMMIT` via `git show`."""
+    import types
+    src = _baseline_source()
+    mod = types.ModuleType("bake_snapshot")
+    mod.__file__ = SNAPSHOT_PATH
+    exec(compile(src, SNAPSHOT_PATH, "exec"), mod.__dict__)
     return mod
 
 

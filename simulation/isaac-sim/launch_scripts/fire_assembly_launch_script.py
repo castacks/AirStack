@@ -148,7 +148,9 @@ FLOW = _env("FA_FLOW", "1") not in ("0", "false", "no")
 CELL_M = float(_env("FA_CELL_M", "0.3"))
 MAX_BLOCKS = int(_env("FA_MAX_BLOCKS", "6144"))
 MAX_EMITTERS = int(_env("FA_EMITTERS", str(6)))
-SMOKE = _env("FA_SMOKE", "0") not in ("0", "false", "no")
+# smoke back ON by default (user, second row: "add more fire and smoke to
+# different buildings") — still the low-fidelity grid; VRAM is measured
+SMOKE = _env("FA_SMOKE", "1") not in ("0", "false", "no")
 SCALE = float(_env("FA_SCALE", "1.0"))
 SEED = int(_env("FA_SEED", "7"))
 SNAP_DIR = _env("SNAP_DIR", "")
@@ -157,6 +159,30 @@ SNAP_DIR = _env("SNAP_DIR", "")
 # ---------------------------------------------------------------------------
 # Finding the bakes
 # ---------------------------------------------------------------------------
+def vram_mb(tag):
+    """Print and return the card's used VRAM (MiB) at a named stage.
+
+    MEASURE AS YOU GO. The first assembled row filled a 16 GB card (14.3 GB)
+    and the 1 km x 1 km scene this feeds has to fit a 5090 (32 GB) / RTX PRO
+    5000 (48 GB) with every other component running — "at the current rate
+    those would also have been exceeded" (user, 2026-08-30). Four readings
+    per run — empty stage, geometry composed, Flow up, after the captures —
+    give the per-building content cost and the Flow cost separately, which is
+    what a projection needs.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.total",
+                              "--format=csv,noheader,nounits"],
+                             capture_output=True, text=True, timeout=10).stdout
+        used, total = [float(x) for x in out.strip().split("\n")[0].split(",")[:2]]
+    except Exception as exc:                        # no nvidia-smi in the image?
+        print("[fa] VRAM {0}: unavailable ({1})".format(tag, exc))
+        return None
+    print("[fa] VRAM {0}: {1:.0f} / {2:.0f} MiB".format(tag, used, total))
+    return used
+
+
 def resolve_bakes(spec, pattern=GLOB):
     """`FA_BAKES` -> an ordered list of `(usd, json)` pairs.
 
@@ -333,14 +359,35 @@ def place_fire(stage, root, doc, masses, events, tag, rng, top_z,
     evs = [ev for ev in events if live(ev) and ev.get("ops")]
     is_flame = state == "flame"
     n_flame = n_open = 0
+    # A TALL BUILDING BURNS IN MORE WINDOWS. Six openings read as a fire on
+    # a 12-storey block and as a candle on a 37-storey tower ("the taller
+    # buildings need more fire/flames, looks weird otherwise", user
+    # 2026-08-30): from 12 storeys up the opening budget grows with the
+    # height, capped at 16.
+    n_st = int(f.get("n_storeys") or 0)
+    max_open = (max(max_emitters, min(16, n_st // 2)) if n_st >= 12
+                else max_emitters)
     for ev in [e for e in evs if e["state"] == "flame"]:
         for op in ev["ops"]:
-            if n_open >= max_emitters:
+            if n_open >= max_open:
                 break
             n_flame += uf._flame_sources(
                 ctx, root, op, "flame", scale,
                 "e{0}_{1}".format(ev["id"], n_open), uf.FLAME_PER_OPENING)
             n_open += 1
+    if state == "smoulder":
+        # F4: the fire is DYING, not dead — a few openings are still alight
+        # at reduced intensity, the rest smoulder. Without this an F4
+        # building showed soot and a roof hole and no fire at all.
+        for ev in [e for e in evs if e["state"] == "smoulder"]:
+            for op in ev["ops"]:
+                if n_open >= max(2, max_open // 2):
+                    break
+                n_flame += uf._flame_sources(
+                    ctx, root, op, "flame", scale * 0.6,
+                    "s{0}_{1}".format(ev["id"], n_open),
+                    max(1, uf.FLAME_PER_OPENING - 1))
+                n_open += 1
     note = ""
     if is_flame and n_open == 0:
         note = ("no live flame event with openings — `_wall_vents` is not "
@@ -400,6 +447,7 @@ def main():
     UsdGeom.Xform.Define(stage, Sdf.Path(ASSEMBLY))
     _, ssf = get_stage_meters_per_unit(stage)
 
+    vram = {"empty": vram_mb("empty stage")}
     pairs = resolve_bakes(BAKES)
     if not pairs:
         raise RuntimeError("FA_BAKES={0!r} matched no .usd".format(BAKES))
@@ -470,6 +518,7 @@ def main():
             omni.kit.app.get_app().update()
     for _ in range(10):
         omni.kit.app.get_app().update()
+    vram["geometry"] = vram_mb("{0} bake(s) composed, no Flow".format(len(rows)))
 
     # -- 2) put the fire back ----------------------------------------------
     fires = []
@@ -517,6 +566,12 @@ def main():
     # startup flag does not survive composition; the carb form alone is too
     # late for startup. Both launchers in this pipeline do both.
     try:
+        for _ in range(30):                 # let Flow allocate its pool
+            omni.kit.app.get_app().update()
+        vram["flow"] = vram_mb("Flow up ({0} emitter(s))".format(
+            sum(int(f.get("flame", 0)) + int(f.get("smoke", 0))
+                + int(f.get("interior", 0)) + int(f.get("roof", 0))
+                for f in fires)))
         import carb
         _s = carb.settings.get_settings()
         for _k in ("/rtx/raytracing/fractionalCutoutOpacity",
@@ -596,6 +651,30 @@ def main():
             import traceback
             traceback.print_exc()
             print("[fa] snapshots FAILED: {0}".format(exc))
+
+    # -- the budget --------------------------------------------------------
+    vram["end"] = vram_mb("after captures")
+    try:
+        n_b = max(1, len(rows))
+        base, geo = vram.get("empty"), vram.get("geometry")
+        flow_v, end = vram.get("flow"), vram.get("end")
+        if base is not None and geo is not None:
+            per_b = (geo - base) / n_b
+            flow_cost = (flow_v - geo) if flow_v is not None else None
+            print("[fa] VRAM BUDGET: baseline {0:.0f} MiB | content {1:.0f} MiB "
+                  "for {2} building(s) = {3:.0f} MiB/building | Flow {4} | "
+                  "end {5:.0f} MiB".format(
+                      base, geo - base, n_b, per_b,
+                      "{0:.0f} MiB".format(flow_cost) if flow_cost is not None
+                      else "off", end if end is not None else -1))
+            for n_city, gpu, cap in ((40, "5090", 32768), (40, "RTX PRO 5000", 49152),
+                                     (80, "5090", 32768), (80, "RTX PRO 5000", 49152)):
+                proj = base + per_b * n_city + (flow_cost or 0)
+                print("[fa]   projection: {0} damaged building(s) + this Flow "
+                      "-> {1:.0f} MiB on a {2} ({3:.0%} of {4} MiB)".format(
+                          n_city, proj, gpu, proj / cap, cap))
+    except Exception as _exc:
+        print("[fa] VRAM budget summary failed: {0}".format(_exc))
 
     print("FIRE ASSEMBLY DONE")
 

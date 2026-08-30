@@ -598,3 +598,24 @@ Each bake's log is `~/docker/isaac-sim/logs/<stem>.log` on the host
 - Verify offline first: an area-conservation + mass-box-identity check like
   `_gac_region_probe.py` for the slice, then a bare-stage probe like
   `gac_burn_probe.py` for your ladder, before ever touching Kit.
+
+### Painted windows are windows (2026-08-30)
+
+10 of the 12 GreatAmericanCity towers (`SM_Building_10/12/13/18/21/22/23/25/
+27/28`) carry NO glass mesh: their glazing bands are opaque faces bound to
+`M_Fake_Interior_0N`, `M_Fake_Light`, `M_Images_*_Off_Light` — background-LOD
+decals. `gac_slice.GLASS_TEX` matched only "glass/window/curtain/glazing/win",
+so `window_centres` measured no storey grid from them and `gac_fire.window_rects`
+found no openings: no fire was ever planned on a tower (probe sweep: 0 events
+on all ten). `GLASS_TEX` now includes `fake_interior`, `fake_light`,
+`off_light`, and `gac_slice.is_glazing(name)` is the one matcher every
+consumer uses — it also rejects `GLASS_TEX_NOT = ("awning",)`, because "win"
+is in "awning" and ground-floor canopies were being counted as windows and
+blacked out on the band. Measured after: SM_Building_12 544 islands / 23
+events, SM_Building_18 480 / 13, SM_Building_13 230 / 11, SM_Building_23
+489 / 23; SM_Building_10 still 4 islands (a different window material —
+not yet classified). Also in `window_rects`: a pane is filed on the
+elevation its CENTROID is nearest (nearest bbox face), never by its normal —
+glass is double-sided and the back face put a phantom mirror of every window
+on the opposite elevation (SM_Building_02: 72 islands → 18 real), which is
+what planned fires and flames on blank walls.

@@ -360,32 +360,6 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_DG5.usd",
-  "meshes": 47,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "apartment",
-  "level": "DG5",
-  "W": 22.0,
-  "D": 17.0,
-  "H": 18.0,
-  "family": "01",
-  "type": "urm",
-  "mb": 20.28,
-  "prims": 121,
-  "src_meshes": 5282,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 105.9,
-  "loose": 1649,
-  "settle_s": 325.2,
-  "settle_solve_s": 308.6,
-  "settle_bodies": 3870,
-  "settle_steps": 2500,
-  "still_moving": 0
- },
- {
   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_SETTLE.usd",
   "meshes": 170,
   "bound_missing": 0,
@@ -3710,5 +3684,43 @@
   "settle_bodies": 3958,
   "settle_steps": 3000,
   "still_moving": 2
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetype/bld_apartment_DG5.usd",
+  "meshes": 35,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "apartment",
+  "level": "DG5",
+  "W": 22.0,
+  "D": 17.0,
+  "H": 18.0,
+  "family": "01",
+  "type": "urm",
+  "mb": 14.9,
+  "prims": 250,
+  "src_meshes": 1400,
+  "merge": "on",
+  "raw_mb": null,
+  "raw_prims": null,
+  "fracture_s": 263.4,
+  "loose": 1075,
+  "fall_sides": [
+   "S",
+   "W"
+  ],
+  "reach_m": {
+   "S": 4.9905492510553415,
+   "N": 1.5,
+   "E": 1.5,
+   "W": 6.189650238775553
+  },
+  "crown_m": 5.16,
+  "n_piles": 1,
+  "settle_s": 54.7,
+  "settle_solve_s": 51.0,
+  "settle_bodies": 1075,
+  "settle_steps": 1281,
+  "still_moving": 0
  }
 ]

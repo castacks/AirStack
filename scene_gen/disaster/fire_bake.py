@@ -876,9 +876,47 @@ def deactivate_airborne(stage, root, gap_m=1.0, verbose=True, **_ignored):
     from pxr import Sdf
 
     info = _judge_candidates(stage, root, gap_m=gap_m, verbose=verbose)
+    # A FAMILY THAT IS MOSTLY "AIRBORNE" IS NOT AIRBORNE — its floor is
+    # missing. 6,186 `fireheap` chips of SM_Building_09 F6 sat over nothing
+    # because the storey they landed on had no slab (fire_row1, 2026-08-30);
+    # the answer was to author the floor (`r_fire_collapse`), never to
+    # delete the pile ("we want the debris to be there", user). So if more
+    # than FAMILY_CAP of a family's judged members would go, none of them
+    # does and the bake says so loudly — that is a pipeline bug to fix
+    # upstream, not stray debris.
+    #
+    # THE CAP PROTECTS PILES, NOT PROPS. A pile family legitimately needs a
+    # floor under it -- `fireheap`/`heap` (the collapse mass), `frub` (floor
+    # rubble), `sdeb` (street debris), `glit` (sill/ground glass litter) --
+    # and "most of them are airborne" there really is evidence of a missing
+    # slab upstream. A `frag`/`rafter`/`joist`/`bulkhead`/`bulkcap`/`acpad`/
+    # `vent`/`tank`/`spall`/`spallhalo` family is never that: each member is
+    # either its own rigid fragment (a shattered roof lid, a spall) or one
+    # individually-placed roof item, so a large share of one floating IS
+    # stray debris and capping there hid it -- 35/121 unsupported `frag`
+    # roof-lid pieces at deck height over SM_Building_23's F4 burn-through
+    # hole, silently "left alone" by this same cap (row-2 review,
+    # 2026-08-30). Restricting the cap to the pile allowlist means every
+    # other family always deactivates when judged, cap or no cap.
+    PILE_FAMILIES = {"fireheap", "heap", "frub", "sdeb", "glit"}
+    FAMILY_CAP = 0.25
+    judged_by = {}
+    for j in info["judged"]:
+        if j["prefix"] not in PILE_FAMILIES:
+            continue
+        judged_by.setdefault(j["prefix"], [0, 0])
+        judged_by[j["prefix"]][0] += 1
+        judged_by[j["prefix"]][1] += 1 if j["deactivate"] else 0
+    skip = {k for k, (n, g) in judged_by.items()
+            if n >= 20 and g > FAMILY_CAP * n}
+    for k in sorted(skip):
+        n, g = judged_by[k]
+        print("[fire_bake] WARNING: {0}/{1} `{2}` prim(s) have no support — "
+              "that is a missing floor, not stray debris; leaving the family "
+              "alone".format(g, n, k))
     gone, by_kind = [], {}
     for j in info["judged"]:
-        if not j["deactivate"]:
+        if not j["deactivate"] or j["prefix"] in skip:
             continue
         gone.append(j["path"])
         by_kind[j["prefix"]] = by_kind.get(j["prefix"], 0) + 1

@@ -25,6 +25,12 @@ SETTLE_STEPS=${SETTLE_STEPS:-2200}
 # $ARCH_DIR/_raw/ from the same settled stage, which is the only honest A/B.
 BAKE_MERGE=${BAKE_MERGE:-on}
 LOG=${LOG:-/tmp/quake_bake_headless.log}
+# EXTRA_ENV: further VAR=value pairs handed to the launcher (docker exec does
+# not inherit the host environment, so `EQ_SOLID_N=0.85` or `EQ_RUBBLE=v1`
+# exported on the host never reached the bake before this — round 3 was
+# baked at the code defaults). Example:
+#     EXTRA_ENV="EQ_SOLID_N=0.85 EQ_RUBBLE=v2" scene_gen/tools/bake_quake_headless.sh
+EXTRA_ENV=${EXTRA_ENV:-}
 echo "$(date +%H:%M:%S) bake start: ${STYLES[*]} -> $ARCH_DIR grades $ARCH_GRADES" | tee -a "$LOG"
 t0=$(date +%s)
 pids=()
@@ -32,7 +38,7 @@ for st in "${STYLES[@]}"; do
   ( LAUNCHER=bake_quake_archetypes_launch_script.py TIMEOUT_S=3000 \
     "$HERE/eq_bench.sh" "bake_$st" ARCH_DIR="$ARCH_DIR" ARCH_STYLES="$st" ARCH_GRADES="$ARCH_GRADES" \
       ARCH_SEED="$ARCH_SEED" SETTLE_STEPS="$SETTLE_STEPS" SETTLE_CULL_LEDGES=1 \
-      BAKE_MERGE="$BAKE_MERGE" \
+      BAKE_MERGE="$BAKE_MERGE" $EXTRA_ENV \
       > "/tmp/bake_$st.out" 2>&1
     echo "$(date +%H:%M:%S) $st: $(grep -o 'DONE in [0-9]* s\|FAILED in [0-9]* s\|TIMEOUT' /tmp/bake_$st.out | tail -1)" | tee -a "$LOG"
     grep "\[qarch\]\|EMPTY\|Traceback" "/tmp/bake_$st.out" | tail -12 >> "$LOG" ) &

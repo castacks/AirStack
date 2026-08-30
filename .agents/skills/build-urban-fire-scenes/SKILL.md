@@ -1132,6 +1132,29 @@ Offline check: `scene_gen/tools/kit_burn_probe.py` (bare USD, both an urm and
 an rc style at F5c) prints a material census and four FLAG lines —
 rebar-tone, pale-columns, cyl-rods, floating-joists — all must read 0.
 
+**The hole's perimeter is torn by ADJACENCY, and everything round it is
+scorched (second review, 2026-08-30: "sharp straight or rectangular cuts ...
+parts of the surface look pristine").** `fire_collapse.plan_edges` walks every
+SURVIVING module of the burning mass and records which of its edges a dead
+module touches — `left`/`right`, `below` (the tread under the failure line),
+`above` (capped at 0.25-0.40 penetration so nothing reads as floating),
+`return` (the adjoining elevation within a bay of a lost corner) — and
+`_tear_perimeter` runs one `quake_flow._break_split` per module with the union
+of its judges, 0.25-0.60 of the module, from the PRIVATE rng. Three straight
+cuts came from real bugs: `reaches_end` was the top storey's answer applied to
+every storey, `_p_ragged_courses` only ran inside that branch (a mid-wall span
+tore nothing under the hole), and `_piece_frame` is a LINE so a yawed corner
+block projected to a point and never counted as a neighbour
+(`el_footprint` now measures the bbox from `urban_building.PIECES`). The
+scorch is the soot model's: `burn_zone_rects` writes one rect per storey per
+lost elevation (+ the return face) into `ctx["fire"]["burn_zone"]`, and
+`soot_plume.skin(burn_zone=)` lifts alpha to 0.85-0.95 inside with a
+1.5-2.5 m ramp wandered by the existing mottle/streak fields — no extra rng
+draw, so `burn_zone=None` is bit-identical. Probe:
+`tools/collapse_edge_probe.py STYLE` (edge table must read 100 %, zone alpha
+inside ≥ 0.8; skin PNGs to `~/scorch_previews/collapse/`). Freeze: the four
+non-F5c levels diff identical through `kit_burn_probe.py`.
+
 ## GAC (whole-asset) buildings: soot before the slice
 
 Every ladder recipe above damages a KIT — a building assembled from named
@@ -1510,6 +1533,20 @@ running `tools/kit_burn_probe.py` on a pristine copy and on the live file and
 diffing the census (identical, 247 lines). `SOOT_BAKE_PX_SLICE` dropped to
 256 (the per-piece maps were 864 MB of the row's 1.4 GB texture budget —
 `tools/bake_vram_census.py`).
+
+**"Lots of floating debris" on GAC (second review) was ONE missing floor,
+not stray chips.** SM_Building_09 F6 baked 6,186 `fireheap` chips at z 44-49 m
+over nothing: a sliced GAC building is fitted out on its top storeys only,
+the slabs of the failed storeys go down with the collapse, the storey the
+heap lands on had no slab, and `r_expose_interior`'s catch plate sat 3 m
+ABOVE the failure. The debris stays ("we want the debris to be there",
+user); `r_fire_collapse` now (GAC path only) authors a `catch_` plate at the
+heap's base storey when no active floor exists there and sends any floor at
+or above the failure down instead of keeping it static.
+`fire_bake.deactivate_airborne` (now a `vtkStaticCellLocator` ray test,
+name-based candidates, `tools/airborne_probe.py`) refuses to touch a family
+of which more than 25 % is "unsupported" — that is a missing floor, and it
+prints a WARNING naming the family instead.
 
 ### Knobs worth knowing
 

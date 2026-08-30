@@ -79,20 +79,35 @@ workflow:
 
   resources:
     default:
-      cpu: 16
-      # 3 robots + Isaac Sim on GPU 0 — see airstack-mission.yaml.
-      gpu: 4
-      memory: 64Gi
+      # 12 cpu / 80Gi is the interactive scene-authoring shape, not the
+      # mission shape. A scene build is one Isaac Sim process plus the
+      # scene_gen python driver: no robot containers, no rayfronts, no
+      # ROS graph. What it DOES need is headroom for USD composition —
+      # the 1 km assemblies peak well past 40Gi resident while the
+      # archetype stage holds every baked building open at once, and the
+      # settle passes are single-threaded PhysX, so cores past ~12 sit
+      # idle. (airstack-mission-2gpu.yaml runs 20/80Gi because it also
+      # carries a robot + a quantised VLM server.)
+      cpu: 12
+      # TWO. Isaac Sim renders on GPU 0. The second card is what makes
+      # this different from airstack-dev's old shape: it holds the
+      # baked-archetype stage and RTX denoiser working set so a 500 m
+      # scene assembly does not spill to host memory mid-bake, and it
+      # gives the preview-camera render pass somewhere to go that is not
+      # contending with the live viewport.
+      gpu: 2
+      memory: 80Gi
       # AirStack image set is large: airstack-dev-9 (2026-05-14) hit the
       # 100Gi container ephemeral cap during inner Compose's first image
       # extract, before the second image even started downloading. So the
-      # full set of inner images alone exceeds 100Gi extracted. Going to
-      # 500Gi to comfortably hold isaac-sim + robot-desktop + gcs images,
-      # plus the AirStack source clone, colcon build output, and bag
-      # recordings. The airstack pool's workers have 4.2Ti of ephemeral
-      # capacity each (root disks resized 2026-05-14), so this leaves
-      # plenty of room for other tenants on the shared workers.
-      storage: 100Gi
+      # full set of inner images alone exceeds 100Gi extracted. 500Gi
+      # comfortably holds isaac-sim + robot-desktop + gcs images, plus the
+      # AirStack source clone, colcon build output, the baked archetype
+      # USDs (a merged-asset bake set runs to tens of Gi), and rendered
+      # preview frames. The airstack pool's workers have 4.2Ti of
+      # ephemeral capacity each (root disks resized 2026-05-14), so this
+      # leaves plenty of room for other tenants on the shared workers.
+      storage: 500Gi
 
   timeout:
     # 8h covers a normal dev session. Bump for longer runs; cancel manually

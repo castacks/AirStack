@@ -100,6 +100,7 @@ and asserts on that plan. `r_partial_collapse` is only the USD authoring of a
 plan that has already been checked.
 """
 
+import math
 import os
 import random
 
@@ -218,6 +219,84 @@ BREAK_CONSUME = 0.26
 THROW_BASE = 0.40
 THROW_TOP = 2.40
 
+# ---------------------------------------------------------------------------
+# THE PERIMETER OF THE HOLE (review round 4, 2026-08-30)
+# ---------------------------------------------------------------------------
+# The user, looking at `commercial_mid` F5c on the MCE bench: "some parts of
+# it seem like they were directly cut off from the actual prims and therefore
+# look like sharp straight or rectangular cuts". Every one of those lines is a
+# KIT MODULE SEAM that no pass tore:
+#
+#   * the horizontal seam under each STAIRCASE STEP. The span widens by a
+#     module or two per storey, so the module that survives at storey `s`
+#     under a module that died at `s + 1` keeps a dead level top edge — and
+#     there is one of those at every step of the profile, which is the whole
+#     height of the notch.
+#   * the horizontal seam UNDER the failure line. `_p_ragged_courses` was
+#     called only inside the `reaches_end` branch, so on the common mid-wall
+#     span nothing at all touched the storey below the hole.
+#   * the vertical seams at the lower storeys of an edge that reaches the
+#     corner at the TOP. `reaches_end` is evaluated at `top_storey` only, and
+#     `_tear_edge` skipped that whole edge for every storey when it was true,
+#     so the narrow lower part of the staircase kept factory ends.
+#   * the return wall's near end when the loss stops one bay short of the
+#     corner at some storeys and reaches it at others.
+#
+# The replacement (`plan_edges` -> `_tear_perimeter`) does not ask where the
+# span was drawn at all. It asks, per SURVIVING module, "does a dead module
+# touch me, and on which of my four edges" — so every edge of the hole is torn
+# by construction, whatever shape the hole is, and the answer is checkable
+# host-side with no stage (`test_fire_collapse.py`).
+#
+# How far into a surviving module the tear reaches, as a share of the module's
+# own width (a vertical edge) or its own height (a horizontal one). The FAR
+# portion always stays: `_break_split` returns statics as well as loose, and a
+# module torn end to end is a module that was killed, not one that was torn.
+EDGE_PEN = (0.25, 0.60)
+# ...but a module whose BOTTOM edge is the hole is standing on what is left of
+# its own foot. Take 0.6 of that and the storeys over it read as floating —
+# the failure this whole recipe exists to avoid at the other end of the scale.
+EDGE_PEN_ABOVE = (0.25, 0.40)
+# Amplitude of the wandering break line, in metres, clamped to a third of the
+# penetration so the line stays inside the module it is cutting.
+EDGE_AMP_MAX = 0.55
+EDGE_AMP_FRAC = 0.34
+# Pieces per torn module, and the refinement budget. `_p_ragged_courses` uses
+# `refine_max=4` on a wall band for the same reason: there are a lot of them.
+EDGE_PIECES = (8, 11)
+EDGE_REFINE_MAX = 5
+# A return-wall module is "at the hole" when its NEAR end is within one module
+# plus this much of the lost wall line — `quake_flow._ragged_neighbours` uses
+# `depth_bays * max(4, module) + 1.0` for the same test.
+RETURN_REACH_PAD_M = 1.0
+# A LAST-RESORT BUDGET, the same shape as `MAX_MODULES`. Each edge tear is a
+# `_break_split` (8-11 cells + refinement), so this is what the round-4 edge
+# work costs on top of the kill loop. Over budget the jobs nearest the hole
+# are kept and the count of what was dropped is reported — an under-torn edge
+# is a bug, so it must be visible and not silent.
+MAX_EDGE_MODULES = 200
+
+# ---------------------------------------------------------------------------
+# THE BURN ZONE (same review): "there are parts of the surface that look
+# pristine. Any parts directly near where the building collapsed (up, left,
+# down, right, anything) would have been flamed and scorched".
+# ---------------------------------------------------------------------------
+# A collapse opens the compartment: the fire that was venting through windows
+# is now venting through a hole the size of the wall, and everything round its
+# lip has had flame directly on it. That is a SKIN job, not a per-module bind
+# — bug 5 of `build-urban-fire-scenes` is exactly the failure mode of a flat
+# dark bind per module ("a rectangle BY CONSTRUCTION, however good the texture
+# on it is"). `r_partial_collapse` writes the zone into `ctx["fire"]
+# ["burn_zone"]` in `soot_plume.side_u` coordinates and `soot_plume.skin`
+# raises the deposit's alpha inside it with a soft, noise-wandered edge.
+#
+# How far past the hole the flame reached, in metres. Sideways is about one
+# module; up is the plume, which climbs; down is the little that rolls under
+# the lip.
+BURN_ZONE_PAD_U = 4.0
+BURN_ZONE_PAD_UP = 3.0
+BURN_ZONE_PAD_DOWN = 1.5
+
 
 def _f(name, default):
     """An override from the environment, for a bench run that wants to push
@@ -305,6 +384,157 @@ def corner_at_high_end(side, corner):
     `quake_flow.r_corner_fail` states for its own windrow spans.
     """
     return (("E" in corner) if side in ("S", "N") else ("N" in corner))
+
+
+def corner_of_end(side, low_end):
+    """The building corner at one END of `side`'s along-coordinate.
+
+    `along_of` runs with +x on S/N and +y on E/W (`quake_flow._p_el_t`'s own
+    convention), so the LOW end of S is its west end and the low end of E is
+    its south end. This is `corner_at_high_end` read the other way round, and
+    the two are checked against each other in the tests.
+    """
+    if side in ("S", "N"):
+        return side + ("W" if low_end else "E")
+    return ("S" if low_end else "N") + side
+
+
+def other_side(corner, side):
+    """The OTHER elevation that meets `side` at `corner`."""
+    a, b = corner_sides(corner)
+    return b if a == side else a
+
+
+def el_footprint(m, e):
+    """The four corners of a placed module's PLAN footprint, in the mass's
+    local frame.
+
+    MEASURED FROM `urban_building.PIECES`, not from `quake_flow._piece_frame`.
+    The frame is a LINE — an origin, a yaw and a width — which describes a
+    flat wall panel exactly and a CORNER BLOCK not at all: a 6 x 6 m
+    `SkyscraperCorner_B` placed at yaw 90 on the south wall projects onto that
+    wall as a single POINT through the frame, so it looked like a zero-width
+    module that touched nothing, and every adjacency test against it silently
+    returned "no neighbour" (measured, `highrise_step` storey 8: the corner
+    block at t = 25.0 .. 25.0 on a 25 m wall). Same for a `dw` pillar, whose
+    frame axis runs INTO the building. The measured bbox has no such blind
+    spot — it is what the piece actually occupies.
+    """
+    from detail import urban_building as ub
+    from . import quake_flow as qf
+
+    meas = ub.PIECES.get(e["name"])
+    a = math.radians(float(e.get("yaw", 0.0)))
+    ca, sa = math.cos(a), math.sin(a)
+    if meas:
+        sx, sy, _sz, xmin, ymin, _zmin = meas
+        box = ((xmin, ymin), (xmin + sx, ymin),
+               (xmin + sx, ymin + sy), (xmin, ymin + sy))
+    else:                                                     # pragma: no cover
+        w = max(4.0, float(m.get("module") or 4.0))
+        box = ((0.0, 0.0), (w, 0.0), (w, 0.4), (0.0, 0.4))
+    out = []
+    for px, py in box:
+        wx = float(e["x"]) + ca * px - sa * py
+        wy = float(e["y"]) + sa * px + ca * py
+        out.append(qf._to_local(m, wx, wy))
+    return out
+
+
+def el_span(m, e, side=None):
+    """(t0, t1) of a placed module in metres along `side` (its own by
+    default), from that wall's low end — the module's whole footprint, both
+    ends projected. See `el_footprint` for why this is not `_p_el_t` plus a
+    width."""
+    sd = side or e["side"]
+    ts = [along_of(m, sd, lx, ly) for lx, ly in el_footprint(m, e)]
+    return min(ts), max(ts)
+
+
+def el_z_span(m, e):
+    """(z_bottom, z_top) of a placed module in world metres."""
+    from detail import urban_building as ub
+
+    za = float(e.get("z", m["z0"]))
+    meas = ub.PIECES.get(e["name"])
+    if meas and float(meas[2]) > 0.05:
+        return za, za + float(meas[2])
+    lv = list(m["levels"])
+    st = int(e.get("storey", 0))
+    zb = float(lv[st + 1]) if st + 1 < len(lv) else float(m["top"])
+    return za, max(za + 0.3, zb)
+
+
+def el_near_far(m, e, side):
+    """(near, far) distance in metres of a module's footprint from the `side`
+    wall line, measured INTO the building. Used to find the return-wall bays
+    at a corner the loss reaches: on a wall perpendicular to `side` the
+    distance grows away from the corner, so "near" IS "at the corner"."""
+    ds = [-outward_of(m, side, lx, ly) for lx, ly in el_footprint(m, e)]
+    return min(ds), max(ds)
+
+
+def _u_of_t(m, side, t):
+    """`along_of` metres -> `soot_plume.side_u` metres.
+
+    The two agree on S and E and are MIRRORED on N and W: `side_u` unwraps the
+    perimeter counter-clockwise (S -> E -> N -> W) while `along_of` always runs
+    with +x / +y. Getting this wrong puts the burn zone on the far end of the
+    wall, which is the one failure a picture would not obviously show.
+    """
+    L = side_length(m, side)
+    return float(t) if side in ("S", "E") else float(L - t)
+
+
+def burn_zone_rects(plan, m, pad_u=None, pad_up=None, pad_down=None):
+    """The `(side, u0, u1, z0, z1)` rectangles, in `soot_plume.side_u`
+    coordinates, of everything the collapse put flame on.
+
+    One rectangle PER STOREY per lost elevation, so the zone follows the
+    staircase instead of boxing it — a single rectangle over the whole notch
+    would put heavy soot on the corner of wall the profile deliberately left
+    standing. Plus the return face of any corner the loss actually reaches.
+    """
+    pad_u = BURN_ZONE_PAD_U if pad_u is None else float(pad_u)
+    pad_up = BURN_ZONE_PAD_UP if pad_up is None else float(pad_up)
+    pad_down = BURN_ZONE_PAD_DOWN if pad_down is None else float(pad_down)
+    lv = list(m["levels"])
+    top = float(m["top"])
+
+    def z_of(s):
+        za = float(lv[s]) if s < len(lv) else top
+        zb = float(lv[s + 1]) if s + 1 < len(lv) else top
+        return za, max(za + 0.5, zb)
+
+    rects = []
+    z_lo_all, z_hi_all = z_of(plan["storeys"][0])[0], z_of(plan["top_storey"])[1]
+    for sd in plan["sides"]:
+        L = side_length(m, sd)
+        for s in plan["storeys"]:
+            t0, t1 = plan["span"][(sd, min(s, plan["top_storey"]))]
+            za, zb = z_of(s)
+            a = max(0.0, t0 - pad_u)
+            b = min(L, t1 + pad_u)
+            u0, u1 = sorted((_u_of_t(m, sd, a), _u_of_t(m, sd, b)))
+            rects.append((sd, float(u0), float(u1),
+                          float(za - pad_down), float(zb + pad_up)))
+        # THE RETURN FACE. A wall that peeled off at a corner took the flame
+        # round it; the first bay of the adjoining elevation is inside the
+        # opening as far as the fire is concerned.
+        for low_end, reached in zip((True, False), plan["reaches_end"][sd]):
+            if not reached:
+                continue
+            c = corner_of_end(sd, low_end)
+            sd2 = other_side(c, sd)
+            L2 = side_length(m, sd2)
+            if corner_at_high_end(sd2, c):
+                a2, b2 = max(0.0, L2 - pad_u), L2
+            else:
+                a2, b2 = 0.0, min(L2, pad_u)
+            u0, u1 = sorted((_u_of_t(m, sd2, a2), _u_of_t(m, sd2, b2)))
+            rects.append((sd2, float(u0), float(u1),
+                          float(z_lo_all - pad_down), float(z_hi_all + pad_up)))
+    return rects
 
 
 def _private_rng(ctx):
@@ -557,7 +787,7 @@ def plan_partial_collapse(ctx, mode="elevation", side=None, corner=None,
             if (n_drop and len(storeys) >= 2) else [])
 
     cut_z = float(m["levels"][s0]) - 0.4
-    return {"mode": mode, "mass": mtag, "sides": tuple(sides),
+    plan = {"mode": mode, "mass": mtag, "sides": tuple(sides),
             "keep_sides": keep_sides, "corner": corner, "s0": int(s0),
             "storeys": storeys, "span": span, "span_frac": base,
             "kill": kill, "region": region, "heaps": heaps, "drop": drop,
@@ -565,6 +795,26 @@ def plan_partial_collapse(ctx, mode="elevation", side=None, corner=None,
             "top_storey": top_i, "trimmed_storeys": trimmed,
             "corner_reach_m": reach_m, "reaches_end": reaches_end,
             "pad_m": pad}
+    # WHAT THE FIRE PUT FLAME ON WHEN THE WALL WENT. Pure geometry, so it is
+    # part of the plan and not of the authoring; `r_partial_collapse` hands it
+    # to `ctx["fire"]["burn_zone"]` and `soot_plume.skin` reads it there.
+    plan["burn_zone"] = burn_zone_rects(plan, m)
+    return plan
+
+
+def region_side(plan, m, lx, ly, pad=1.0):
+    """WHICH lost elevation's plan footprint the local point is in, or None.
+
+    Same test `in_region` answers yes/no to; the caller that has to throw a
+    piece needs to know which wall it was behind, so the outward direction
+    it is thrown in is the one the wall actually fell in.
+    """
+    for sd, (lo, hi, dep) in plan["region"].items():
+        t = along_of(m, sd, lx, ly)
+        d_in = -outward_of(m, sd, lx, ly)          # metres INSIDE the wall
+        if lo - pad <= t <= hi + pad and -1.5 <= d_in <= dep + pad:
+            return sd
+    return None
 
 
 def in_region(plan, m, lx, ly, pad=1.0):
@@ -574,12 +824,190 @@ def in_region(plan, m, lx, ly, pad=1.0):
     is already proud of the wall (a cornice, a sooted overlay quad) count as
     part of the lost strip rather than as street furniture.
     """
-    for sd, (lo, hi, dep) in plan["region"].items():
-        t = along_of(m, sd, lx, ly)
-        d_in = -outward_of(m, sd, lx, ly)          # metres INSIDE the wall
-        if lo - pad <= t <= hi + pad and -1.5 <= d_in <= dep + pad:
-            return True
-    return False
+    return region_side(plan, m, lx, ly, pad=pad) is not None
+
+
+EDGE_CLASSES = ("above", "below", "left", "right", "return")
+
+
+def plan_edges(ctx, plan, m, prng, tol=0.6, budget=None):
+    """Every SURVIVING module that touches the hole, and which of its own
+    edges the hole is on. Pure geometry: no `pxr`, no stage, no fracture.
+
+    THIS IS THE ANSWER TO "SHARP STRAIGHT OR RECTANGULAR CUTS". The old code
+    asked where the SPAN was drawn and tore one bay at each of its two
+    vertical edges (`_tear_edge`) plus, on a corner loss only, the return
+    walls and the courses under the failure line. Everything else round the
+    hole kept a factory edge: the horizontal seam under every staircase step,
+    the seam under the failure line on a mid-wall span, and the vertical seams
+    at the lower storeys of an edge that only reaches the corner at the top.
+
+    This asks the opposite question — one per surviving module, "is a dead
+    module against me, and on which side" — so the hole's whole perimeter is
+    covered whatever shape it has:
+
+      left    a dead module begins where this one ENDS (the hole is at higher
+              t): the tear takes this module's high end
+      right   a dead module ends where this one BEGINS: its low end goes
+      below   a dead module sits directly OVER it: its top edge goes. This is
+              the staircase tread and the course under the failure line, and
+              it is the single biggest source of straight lines in the notch.
+      above   a dead module sits directly UNDER it: its foot goes — but only
+              0.25-0.40 of it (`EDGE_PEN_ABOVE`), because that foot is what is
+              holding whatever is over it and a building must not read as
+              floating.
+      return  the module is on the ADJOINING elevation, within one bay of the
+              lost wall line, at a storey where the loss actually reaches that
+              corner. Its near end goes.
+
+    A module can be in several classes at once (the corner of a staircase step
+    is `left` and `below` together); the caller unions their judges and breaks
+    it ONCE, because `_break_split` deactivates the source prim.
+
+    Returns a list of job dicts, sorted stably, each with numeric break lines
+    already drawn from `prng` — so the geometry is assertable host-side and
+    `_tear_perimeter` is only the USD authoring of it.
+    """
+    killed = set(id(e) for e in plan["kill"])
+    mtag = plan["mass"]
+    lost = set(plan["sides"])
+    dead = {}
+    for e in plan["kill"]:
+        dead.setdefault((e["side"], int(e["storey"])), []).append(el_span(m, e))
+
+    def live(side=None, storey=None):
+        for e in ctx["info"]["elements"]:
+            if e["mass"] != mtag or e["role"] not in SHELL_ROLES:
+                continue
+            if e.get("dead") or id(e) in killed:
+                continue
+            if side is not None and e["side"] != side:
+                continue
+            if storey is not None and int(e["storey"]) != storey:
+                continue
+            yield e
+
+    jobs = {}
+
+    def _job(e):
+        j = jobs.get(id(e))
+        if j is None:
+            t0, t1 = el_span(m, e)
+            za, zb = el_z_span(m, e)
+            j = {"el": e, "name": e.get("name"), "side": e["side"],
+                 "storey": int(e["storey"]), "t0": t0, "t1": t1,
+                 "za": za, "zb": zb, "w": max(0.3, t1 - t0),
+                 "h": max(0.3, zb - za), "classes": [], "cuts": []}
+            jobs[id(e)] = j
+        return j
+
+    # ---- the lost elevation itself: left / right / below / above ---------
+    for sd in lost:
+        for e in live(side=sd):
+            s = int(e["storey"])
+            j = None
+            t0, t1 = el_span(m, e)
+            w = max(0.3, t1 - t0)
+            for a, b in dead.get((sd, s), ()):
+                if -0.25 * w <= (a - t1) <= tol:          # hole at higher t
+                    j = j or _job(e)
+                    if "left" not in j["classes"]:
+                        j["classes"].append("left")
+                if -0.25 * w <= (t0 - b) <= tol:          # hole at lower t
+                    j = j or _job(e)
+                    if "right" not in j["classes"]:
+                        j["classes"].append("right")
+            over = min(1.2, 0.3 * w)
+            for key, cls in ((s + 1, "below"), (s - 1, "above")):
+                for a, b in dead.get((sd, key), ()):
+                    if min(b, t1) - max(a, t0) > over:
+                        j = j or _job(e)
+                        if cls not in j["classes"]:
+                            j["classes"].append(cls)
+
+    # ---- the return walls, at a corner the loss actually reaches ---------
+    # PER STOREY, not from `reaches_end` (which is the top storey's answer):
+    # the staircase means a span can reach the corner at the top and stop two
+    # bays short at the failure line, and the bays in between are exactly the
+    # ones that kept a straight end.
+    for sd in lost:
+        L = side_length(m, sd)
+        reach = float(m["D"] if sd in ("S", "N") else m["W"])
+        for s in plan["storeys"]:
+            iv = dead.get((sd, s)) or []
+            if not iv:
+                continue
+            ends = ((True, min(a for a, _b in iv) <= plan["pad_m"]),
+                    (False, max(b for _a, b in iv) >= L - plan["pad_m"]))
+            for low_end, hit in ends:
+                if not hit:
+                    continue
+                sd2 = other_side(corner_of_end(sd, low_end), sd)
+                if sd2 in lost:
+                    continue        # it is a lost elevation; it has its own edges
+                for e in live(side=sd2, storey=s):
+                    near, _far = el_near_far(m, e, sd)
+                    ew = max(0.3, el_span(m, e)[1] - el_span(m, e)[0])
+                    if near > ew + RETURN_REACH_PAD_M:
+                        continue
+                    j = _job(e)
+                    if "return" not in j["classes"]:
+                        j["classes"].append("return")
+                    j.setdefault("toward", []).append(
+                        {"side": sd, "near": float(max(0.0, near)),
+                         "reach": reach})
+
+    # ---- draw the break lines -------------------------------------------
+    out = []
+    for j in sorted(jobs.values(), key=lambda q: (q["side"], q["storey"],
+                                                  q["t0"], q["name"] or "")):
+        j["classes"] = [c for c in EDGE_CLASSES if c in j["classes"]]
+        for cls in j["classes"]:
+            if cls in ("left", "right"):
+                pen = prng.uniform(*EDGE_PEN) * j["w"]
+                line = (j["t1"] - pen) if cls == "left" else (j["t0"] + pen)
+                j["cuts"].append({"cls": cls, "kind": "v", "pen": pen,
+                                  "line": line, "loose_hi": cls == "left",
+                                  "amp": min(EDGE_AMP_MAX,
+                                             EDGE_AMP_FRAC * pen)})
+            elif cls in ("below", "above"):
+                lo, hi = (EDGE_PEN if cls == "below" else EDGE_PEN_ABOVE)
+                pen = prng.uniform(lo, hi) * j["h"]
+                line = (j["zb"] - pen) if cls == "below" else (j["za"] + pen)
+                j["cuts"].append({"cls": cls, "kind": "z", "pen": pen,
+                                  "line": line, "loose_above": cls == "below",
+                                  "amp": min(EDGE_AMP_MAX,
+                                             EDGE_AMP_FRAC * pen)})
+            else:
+                for tw in j.get("toward", ()):
+                    pen = prng.uniform(*EDGE_PEN) * j["w"]
+                    frac = min(0.9, (tw["near"] + pen) / max(1e-6, tw["reach"]))
+                    j["cuts"].append({"cls": cls, "kind": "t", "pen": pen,
+                                      "side": tw["side"], "frac": frac,
+                                      "near": tw["near"]})
+        out.append(j)
+
+    lim = int(MAX_EDGE_MODULES if budget is None else budget)
+    if len(out) > lim:
+        rank = {c: i for i, c in enumerate(("left", "right", "below", "above",
+                                            "return"))}
+        out.sort(key=lambda q: (min(rank[c] for c in q["classes"]),
+                                q["storey"], q["side"], q["t0"]))
+        for j in out[lim:]:
+            j["dropped"] = True
+    return out
+
+
+def edge_census(jobs):
+    """{class: [n_neighbours, n_torn]} — what the probe prints and what the
+    tests assert 100 % on. A module in two classes counts in both."""
+    out = dict((c, [0, 0]) for c in EDGE_CLASSES)
+    for j in jobs:
+        for c in j["classes"]:
+            out[c][0] += 1
+            if j.get("torn"):
+                out[c][1] += 1
+    return out
 
 
 def describe(plan):
@@ -650,6 +1078,63 @@ def _new_since(ctx, snap):
     return new_lo, new_st
 
 
+def cut_subset(stage, path):
+    """The `materialBind` GeomSubset holding a fragment's CUT faces, or None.
+
+    `quake_flow._break` / `_break_split` bind the piece's OWN CLADDING (the
+    module's texture, or on the GAC path the sooted atlas `gac_fire.
+    rebind_sooted` already put on it) at PRIM level, and then
+    `quake_flow._t_core_bind` puts every face this pipeline invented — the
+    cut faces, the back, the reveals — into a `materialBind` GeomSubset named
+    `core` and binds the brick/concrete core to that. So the two halves of a
+    broken piece are already separated at authoring time and nobody had to
+    keep a list: the subset is the break, the rest is the façade.
+
+    `fracture.face_subset` returns None when the split is degenerate — a
+    fragment entirely off the back of the wall, which has no façade to keep
+    — and `_t_core_bind` does not run at all on a piece with no measurable
+    thickness. Both cases give None here and the caller falls back to
+    binding the whole prim, which is what every one of these binds did
+    before.
+    """
+    from pxr import UsdGeom
+
+    pr = stage.GetPrimAtPath(path) if path else None
+    if not pr or not pr.IsValid():
+        return None
+    for s in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(pr)):
+        if s.GetPrim().GetName() == "core":
+            return str(s.GetPrim().GetPath())
+    return None
+
+
+def bind_break(ctx, path, mat, cut_only):
+    """Bind `mat` over a broken piece. Returns "cut" | "whole" | "skip".
+
+    THE FAÇADE OF A PIECE THAT STAYS WHERE IT WAS IS STILL THE FAÇADE.
+    Binding `_debris_mat` / `_burn_mat` over the whole prim
+    (`strongerThanDescendants`) takes the cladding off the outward faces too,
+    so a torn bay's standing half goes near-black while the module beside it
+    keeps its sooted atlas and the seam between them reads as a hard dark
+    rectangle — "the buildings still look like they make clean rectangular
+    breaks ... the material of the broken/debris part is a much darker colour
+    than the intact façade next to it" (user, review of the second row,
+    2026-08-30). With `cut_only` the char goes on the `core` subset alone.
+
+    Loose fragments are NOT cut-only: they tumbled into the heap and every
+    face of them is in the pile, which is the one place the dark end belongs.
+    """
+    from . import quake_flow as qf
+
+    if cut_only:
+        sub = cut_subset(ctx["stage"], path)
+        if sub:
+            qf._b_bind_over(ctx["stage"], sub, mat)
+            return "cut"
+    qf._b_bind_over(ctx["stage"], path, mat)
+    return "whole"
+
+
 def _refire(ctx, loose_paths, static_paths):
     """Rebind quake-palette output to the fire palette.
 
@@ -666,13 +1151,20 @@ def _refire(ctx, loose_paths, static_paths):
     material `r_char_facade` stamps, not a flat tone: a flat dark bind over a
     hundred small cells reads as one black rectangle, which is bug 5 in
     `build-urban-fire-scenes` in miniature.
+
+    ...AND ON A STATIC THAT BIND IS CUT-FACES-ONLY (`bind_break`). A torn
+    bay's standing half has not moved: its outward faces are the same wall
+    the module next door still shows, so they keep the cladding/sooted atlas
+    `_break_split`'s `static_mat` put on them and only the `core` subset —
+    the faces the fracture invented — takes the burn material. Returns
+    `(n_rebound, n_cut_only)`.
     """
     from . import quake_flow as qf
     from . import urban_fire as uf
 
     f = ctx["fire"]
     finish = f.get("finish") or "char"
-    n = 0
+    n = n_cut = 0
     # REINFORCEMENT IS STEEL, AND IT IS FIRE-BLACKENED STEEL: the quake
     # palette's `rebar` is a warm rust (0.30, 0.19, 0.13) that read as
     # scorched timber next to a black shell ("rods, probably structural.
@@ -695,9 +1187,11 @@ def _refire(ctx, loose_paths, static_paths):
             continue
         if name.startswith(("joist", "rafter")):
             continue
-        qf._b_bind_over(ctx["stage"], pth, uf._burn_mat(ctx, finish, 0.85))
+        if bind_break(ctx, pth, uf._burn_mat(ctx, finish, 0.85),
+                      cut_only=True) == "cut":
+            n_cut += 1
         n += 1
-    return n
+    return n, n_cut
 
 
 # ---------------------------------------------------------------------------
@@ -741,6 +1235,15 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
     # `partial=None` returns no statics at all.
     pre_static = set(q for q in ctx.get("static_extra") or () if q)
 
+    # WHAT THE COLLAPSE PUT FLAME ON. Set BEFORE any later pass reads it:
+    # `r_smoke_stain` (and every other soot pass, through `_soot_skin`) builds
+    # the skin once and caches it on the ctx, and this recipe runs ahead of all
+    # of them in the F5c ladder. A stale skin from an earlier pass would have
+    # no zone in it, so drop it if one is somehow there.
+    f["burn_zone"] = plan["burn_zone"]
+    ctx.pop("soot_skin", None)
+    ctx["partial_collapse"] = plan
+
     with _own_rng(ctx, prng, pnrng):
         # A BURNT-OUT SHELL HAS NO FLAME IN IT, whatever the event list says.
         # `soot_plume.plan_events` decides `burnt_out` from a literal tuple
@@ -779,8 +1282,17 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
             # subsets, and an ordinary prim-level bind is
             # weakerThanDescendants — a third of a burnt terrace's rubble
             # stayed clean tan stonework that way (uf4, 2026-08-28).
-            for pth in st + lo:
-                qf._b_bind_over(stage, pth, uf._debris_mat(ctx))
+            # ...but a STATIC out of `_break` has not moved, so it is a piece
+            # of standing wall and its outward faces are still the façade:
+            # `bind_break(cut_only=True)` puts the char on the `core` subset
+            # alone. `partial=None` means `_break` returns no statics today,
+            # so this is the rule stated where it belongs rather than a live
+            # branch; the loose fragments below are all in the heap and take
+            # the dark end whole, which is where it belongs.
+            for pth in lo:
+                bind_break(ctx, pth, uf._debris_mat(ctx), cut_only=False)
+            for pth in st:
+                bind_break(ctx, pth, uf._debris_mat(ctx), cut_only=True)
             if throw:
                 ox, oy = qf._outward(m, e["side"])
                 for pth in lo:
@@ -795,33 +1307,19 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
             n_broke += 1
             n_frag += len(st) + len(lo)
 
-        # ---- 2. the edges of the hole ------------------------------------
-        # A KIT SEAM IS A STRAIGHT LINE AND A FIRE DOES NOT CUT ONE. The bays
-        # either side of the loss lose their near ends along a wandering
-        # (masonry: course-stepped) line, so the vertical edges of the hole
-        # are Voronoi boundaries rather than module joints.
+        # ---- 2. THE WHOLE PERIMETER OF THE HOLE ---------------------------
+        # A KIT SEAM IS A STRAIGHT LINE AND A FIRE DOES NOT CUT ONE. Every
+        # surviving module that touches the loss — beside it, under it, over
+        # it, and round the corner on the return — loses its near portion
+        # along a wandering (masonry: course-stepped) line, so the hole's
+        # outline is made of Voronoi cell boundaries and not of module joints.
+        # See `plan_edges` for what the three passes this replaces missed.
         snap = _snapshot(ctx)
         n_edge = 0
+        edge_jobs = []
         if ragged:
-            opened = set(plan["storeys"])
-            n_edge = _tear_edge(ctx, plan, m, prng)
-            for sd in plan["sides"]:
-                # ...and the RETURN walls, but ONLY where the loss actually
-                # runs into the corner. Called unconditionally,
-                # `_ragged_neighbours` tears the near end of the east wall on
-                # a building whose south wall is still standing at that
-                # corner — damage with nothing next to it to explain it.
-                if not any(plan["reaches_end"][sd]):
-                    continue
-                qf._ragged_neighbours(ctx, mtag, sd, opened,
-                                      depth_bays=1.0, frac=0.45)
-                # ...and the storey UNDER the failure keeps a level top edge
-                # on the slab line unless it is torn too — the horizontal
-                # half of the same artefact.
-                if plan["s0"] >= 1:
-                    qf._p_ragged_courses(ctx, mtag, plan["s0"], sides=(sd,),
-                                         above=False, below=True,
-                                         band=(0.3, 0.9), p=0.9)
+            edge_jobs = plan_edges(ctx, plan, m, prng)
+            n_edge = _tear_perimeter(ctx, plan, m, prng, edge_jobs)
 
         # ---- 3. the floors behind it -------------------------------------
         # THE ROOF DECK HAS TO EXIST FIRST. `_ragged_slabs` calls
@@ -852,7 +1350,7 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
                     qf.r_droop(ctx, mass=mtag, side=sd,
                                storeys=set(plan["storeys"]), p=0.35)
         new_lo, new_st = _new_since(ctx, snap)
-        n_refire = _refire(ctx, new_lo, new_st)
+        n_refire, n_refire_cut = _refire(ctx, new_lo, new_st)
 
         # ---- 4. the slab that lost its bearing wall ----------------------
         n_slab = n_prop = 0
@@ -876,6 +1374,97 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
                         and pp not in ctx["loose"]:
                     ctx["loose"].append(pp)
                     n_prop += 1
+
+        # ---- 4b. THE FIT-OUT INSIDE THE HOLE ------------------------------
+        # THE POSITION SWEEP IN STEP 5 CANNOT SEE ANY OF THIS. `burn_building`
+        # folds `ctx["fit"]["all"]` into `static_extra` ONCE, after every
+        # recipe has run, so while this recipe is running the partitions, the
+        # frame columns and the furniture are in no list the sweep walks —
+        # and step 4 above only sends down the fit-out of the one or two
+        # storeys whose whole slab drops. A partition standing on the strip
+        # of floor `_ragged_slabs` has just broken away, behind the wall that
+        # has just gone, is left upright in mid-air: "`part_main_6_1` and
+        # `part_main_6_0` look like they're floating / staying upright when
+        # they shouldn't" (user, review of the second row, 2026-08-30 —
+        # commercial_mid F5c, storey 6, in the region the collapse took).
+        #
+        # So: anything of the fit-out on a KILLED storey whose own footprint
+        # is inside `plan["region"]` goes to the solver with the fragments'
+        # own outward throw and a downward kick (it let go, it was not
+        # projected — the same sign `_tear_perimeter` gives the shards at the
+        # lip). Everything on a surviving storey, and everything behind the
+        # part of the elevation that still stands, is untouched: this is a
+        # PARTIAL collapse and the rooms next door still have their walls.
+        n_fit = {"part": 0, "col": 0, "prop": 0}
+        fit_now = ctx.get("fit") or {}
+        killed = set(int(s) for s in plan["storeys"])
+        cands = []
+        for p in (fit_now.get("partitions") or ()):
+            # `part_<mass>_<storey>_<k>`; the mass tag may itself contain
+            # underscores, so index from the RIGHT.
+            bits = str(p).rsplit("/", 1)[-1].split("_")
+            if len(bits) < 4:
+                continue
+            try:
+                s_, mt_ = int(bits[-2]), "_".join(bits[1:-2])
+            except ValueError:
+                continue
+            cands.append((p, mt_, s_, "part"))
+        for (mt_, s_), cols in (fit_now.get("columns") or {}).items():
+            for p in (cols or ()):
+                cands.append((p, mt_, int(s_), "col"))
+        for (mt_, s_), props in (fit_now.get("props") or {}).items():
+            for p in (props or ()):
+                cands.append((p, mt_, int(s_), "prop"))
+        # THE FOOTPRINT, NOT THE CENTRE — a partition is a 0.12 m sheet
+        # running the SHORT way across the plan (`fit_interior`: `depth =
+        # D * 0.35..0.7`), so one that frames into the lost wall has its END
+        # in the region and its CENTRE several metres inside it. The centre
+        # test step 5 uses is right for a compact static and would miss
+        # exactly the prims the review named. Corners + centre of the world
+        # bbox; a non-structural sheet whose floor and bearing wall have both
+        # gone at one end does not stay upright.
+        from pxr import Usd as _Usd, UsdGeom as _UsdGeom
+        xf0 = _UsdGeom.XformCache()
+        bc0 = _UsdGeom.BBoxCache(_Usd.TimeCode.Default(),
+                                 [_UsdGeom.Tokens.default_])
+        for p, mt_, s_, kind in cands:
+            if mt_ != mtag or s_ not in killed or not p or p in ctx["loose"]:
+                continue
+            pr = stage.GetPrimAtPath(p)
+            if not pr or not pr.IsValid() or not pr.IsActive():
+                continue
+            try:
+                t = xf0.GetLocalToWorldTransform(pr).ExtractTranslation()
+            except Exception:
+                continue
+            pts = [(float(t[0]), float(t[1]))]
+            try:
+                bx = bc0.ComputeWorldBound(pr).ComputeAlignedRange()
+                if not bx.IsEmpty():
+                    lo_b, hi_b = bx.GetMin(), bx.GetMax()
+                    pts += [(float(lo_b[0]), float(lo_b[1])),
+                            (float(hi_b[0]), float(lo_b[1])),
+                            (float(hi_b[0]), float(hi_b[1])),
+                            (float(lo_b[0]), float(hi_b[1]))]
+            except Exception:
+                pass
+            sd = None
+            for wx_, wy_ in pts:
+                lx, ly = qf._to_local(m, wx_, wy_)
+                sd = region_side(plan, m, lx, ly)
+                if sd is not None:
+                    break
+            if sd is None:
+                continue
+            ctx["loose"].append(p)
+            ctx["static_extra"] = [q for q in ctx["static_extra"] if q != p]
+            if throw:
+                ox, oy = qf._outward(m, sd)
+                zf = min(1.0, max(0.0, (float(t[2]) - float(m["z0"])) / Hm))
+                v = THROW_BASE + THROW_TOP * zf + prng.uniform(-0.2, 0.3)
+                ctx["velocity"][p] = (ox * v, oy * v, -0.15 * v)
+            n_fit[kind] += 1
 
         # ---- 5. the position sweep, RESTRICTED IN PLAN --------------------
         # `r_fire_collapse`'s sweep is "everything static whose centre is
@@ -948,15 +1537,31 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
         if plan["top_storey"] >= plan["n_levels"] - 1:
             uf._rafter_teeth(ctx, m, n=prng.randint(3, 7))
 
+    cen = edge_census(edge_jobs)
+    plan["edges"] = edge_jobs
+    plan["edge_census"] = cen
     ctx["notes"].append(describe(plan))
     ctx["notes"].append(
         "partial collapse: {0} module(s) broken into {1} fragment(s), {2} "
-        "stain(s) removed with them, {3} bay(s) torn on a wandering vertical "
-        "crack at the edge of the hole, {4} piece(s) rebound off the quake "
-        "palette, {5} slab(s) + {6} prop(s) dropped, {7} static prim(s) swept "
-        "into the loss, {8} rubble chunk(s)".format(
+        "stain(s) removed with them, {3} surviving module(s) at the edge of "
+        "the hole torn on a wandering line, {4} piece(s) rebound off the "
+        "quake palette ({9} of them on the CUT faces only, façade kept), "
+        "{5} slab(s) + {6} prop(s) dropped, {7} static prim(s) "
+        "swept into the loss, {8} rubble chunk(s)".format(
             n_broke, n_frag, n_art, n_edge, n_refire, n_slab, n_prop,
-            n_swept, n_heap))
+            n_swept, n_heap, n_refire_cut))
+    ctx["notes"].append(
+        "partial collapse fit-out in the hole: {0} partition(s), {1} "
+        "column(s), {2} prop(s) sent down (killed storeys {3}-{4} inside the "
+        "lost region)".format(n_fit["part"], n_fit["col"], n_fit["prop"],
+                              plan["s0"], plan["top_storey"]))
+    ctx["notes"].append(
+        "partial collapse edges: " + ", ".join(
+            "{0} {1}/{2}".format(c, cen[c][1], cen[c][0])
+            for c in EDGE_CLASSES) +
+        "; burn zone {0} rect(s) on {1}".format(
+            len(plan["burn_zone"]),
+            "/".join(sorted(set(r[0] for r in plan["burn_zone"])))))
     return plan
 
 
@@ -1002,63 +1607,100 @@ def edge_neighbour(ctx, plan, m, side, storey, low_edge):
     return e, (t0, t0 + w)
 
 
-def _tear_edge(ctx, plan, m, prng):
-    """Tear the surviving bay at each MID-WALL edge of the hole.
+def _tear_perimeter(ctx, plan, m, prng, jobs):
+    """Tear every surviving module that touches the hole. Returns the count.
 
-    The vertical edge of a partial loss is a kit module seam — a dead
-    straight line up the wall, which is the vertical half of the "unnatural
-    rectangular / square parts broken off" the whole round-3 break pattern
-    exists to destroy. `quake_flow._ragged_neighbours` cannot reach it: it
-    skips the lost elevation itself and tears only the two RETURN walls,
-    which is the right answer when the loss runs all the way to a corner
-    (`r_out_of_plane`'s case) and no answer at all when it stops mid-wall.
-    `quake_flow._p_vcrack_judge` is the piece that can — a wandering
-    (bond-quantised, on masonry) VERTICAL crack at a given distance along the
-    wall, which is exactly what FEMA 306 describes at a wall return.
+    One `quake_flow._break_split` per module, with the UNION of that module's
+    own cut judges — a module at the corner of a staircase step is `left` and
+    `below` at once and `_break_split` deactivates its source prim, so it gets
+    exactly one chance:
 
-    One bay each side of the span, per storey, and only at an edge that does
-    NOT reach a corner; where it does, the corner IS the edge and
-    `_ragged_neighbours` owns it.
+      v  `_p_vcrack_judge`   a wandering VERTICAL crack (masonry: quantised to
+                             the bond, half a stretcher per riser), FEMA 306's
+                             crack at a wall return
+      z  `_p_zline_judge`    a HORIZONTAL break that staircases along the
+                             courses (urm) or tears (rc) — the seam under a
+                             staircase tread and under the failure line
+      t  `_p_toward_judge`   the return wall's near end, cut on a line running
+                             UP the wall at a fraction of the plan depth
+
+    WHAT SURVIVES SURVIVES. `_break_split` returns (statics, loose): the far
+    portion of a torn module stays exactly where it is, bound to the piece's
+    own cladding (`static_mat`), and only the near portion comes away. A tear
+    that leaves NO static is a module that was effectively killed and is
+    reported as such (`no_static`), because the whole point of tearing rather
+    than killing is that the wall is still there with a ragged end.
+
+    Everything here draws from the PRIVATE `prng` and, through the ctx swap in
+    `_own_rng`, from the private `nrng` — zero shared draws.
     """
     from . import damage, quake_flow as qf
 
+    stage = ctx["stage"]
+    btype = ctx["info"]["type"]
+    pitch = qf._p_pitch(ctx)
+    Hm = max(3.0, float(m["top"]) - float(m["z0"]))
     n = 0
-    for sd in plan["sides"]:
-        at_lo, at_hi = plan["reaches_end"][sd]
-        ox, oy = qf._outward(m, sd)
-        for st in plan["storeys"]:
-            for low_edge, skip in ((True, at_lo), (False, at_hi)):
-                if skip:
-                    continue
-                e, bay = edge_neighbour(ctx, plan, m, sd, st, low_edge)
-                if e is None or e.get("dead"):
-                    continue
-                path = e["p"].get("prim_path")
-                if not path:
-                    continue
-                b0, b1 = bay
-                # toward the hole: the crack sits 35-70 % across the bay
-                fr = prng.uniform(0.30, 0.70)
-                line = (b0 + fr * (b1 - b0)) if low_edge else \
-                       (b1 - fr * (b1 - b0))
-                tex = damage.bound_texture(ctx["stage"], path)
-                judge = qf._p_vcrack_judge(
-                    m, sd, line, prng, btype=ctx["info"]["type"],
-                    amp=0.55, pitch=qf._p_pitch(ctx), loose_hi=low_edge)
-                st_p, lo_p = qf._break_split(
-                    ctx, path, 9 + prng.randrange(4), judge,
-                    qf._mat_fn(ctx, tex, 0.35),
-                    static_mat=(qf._clad_material(ctx["stage"], ctx["parent"],
-                                                  ctx["cache"], tex)
-                                if tex else None),
-                    refine_max=6)
-                for q in lo_p:
-                    v = prng.uniform(0.4, 1.4)
-                    ctx["velocity"][q] = (ox * v, oy * v, 0.05 * v)
-                ctx["loose"] += lo_p
-                ctx["static_extra"] += st_p
-                e["dead"] = True
-                n += 1
+    for j in jobs:
+        if j.get("dropped"):
+            continue
+        e = j["el"]
+        if e.get("dead"):
+            continue
+        path = (e.get("p") or {}).get("prim_path")
+        if not path:
+            continue
+        judges, vside = [], j["side"]
+        for cut in j["cuts"]:
+            if cut["kind"] == "v":
+                judges.append(qf._p_vcrack_judge(
+                    m, j["side"], cut["line"], prng, btype=btype,
+                    amp=cut["amp"], pitch=pitch, loose_hi=cut["loose_hi"]))
+            elif cut["kind"] == "z":
+                judges.append(qf._p_zline_judge(
+                    m, j["side"], cut["line"], prng, btype=btype,
+                    amp=cut["amp"], loose_above=cut["loose_above"],
+                    pitch=pitch))
+            else:
+                vside = cut["side"]
+                judges.append(qf._p_toward_judge(
+                    m, cut["side"], cut["frac"], prng, btype=btype,
+                    z0=float(m["z0"]), span_z=Hm, pitch=pitch))
+        if not judges:
+            continue
+        if len(judges) == 1:
+            judge = judges[0]
+        else:
+            def judge(c, _js=tuple(judges)):
+                for q in _js:
+                    if q(c):
+                        return True
+                return False
+        tex = damage.bound_texture(stage, path)
+        st_p, lo_p = qf._break_split(
+            ctx, path, prng.randint(*EDGE_PIECES), judge,
+            qf._mat_fn(ctx, tex, 0.35),
+            static_mat=(qf._clad_material(stage, ctx["parent"], ctx["cache"],
+                                          tex) if tex else None),
+            refine_max=EDGE_REFINE_MAX)
+        if not st_p and not lo_p:
+            j["failed"] = True
+            continue
+        # The shards drop at the lip of the hole and join the heap under it:
+        # they were never thrown, they let go, so this is a fraction of the
+        # peeled wall's own `THROW_TOP` and it is biased downward.
+        ox, oy = qf._outward(m, vside)
+        for q in lo_p:
+            v = prng.uniform(0.35, 1.30)
+            ctx["velocity"][q] = (ox * v, oy * v, -0.15 * v)
+        ctx["loose"] += lo_p
+        ctx["static_extra"] += st_p
+        e["dead"] = True
+        j["torn"] = True
+        j["n_static"] = len(st_p)
+        j["n_loose"] = len(lo_p)
+        j["no_static"] = not st_p
+        n += 1
     return n
 
 

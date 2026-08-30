@@ -119,6 +119,17 @@ def test_the_ladder_can_select_it():
                 assert i < names.index(art), (btype, art)
     assert "partial_collapse" not in [
         n for n, _kw in uf.LADDER["rc_glass"][fc.FIRE_LEVEL]]
+    # THE FREEZE, stated as a test: F5c is the ONLY level that runs the
+    # recipe, so nothing `fire_collapse` does can reach F0-F6. Everything
+    # round the hole — the edge tears and the burn zone — is downstream of
+    # `r_partial_collapse`, and `soot_plume.skin`'s `burn_zone` is `None`
+    # for every other level by construction.
+    for btype, levels in uf.LADDER.items():
+        for lv, recipes in levels.items():
+            if lv == fc.FIRE_LEVEL:
+                continue
+            assert "partial_collapse" not in [n for n, _kw in recipes], \
+                (btype, lv)
 
 
 def test_soot_plume_knows_the_level():
@@ -489,6 +500,468 @@ def test_outward_of_is_signed_the_way_the_heap_reads_it():
     assert fc.corner_sides("NW") == ("N", "W")
     assert fc.corner_at_high_end("S", "SE") and not fc.corner_at_high_end("S", "SW")
     assert fc.corner_at_high_end("E", "NE") and not fc.corner_at_high_end("E", "SE")
+
+
+# ---------------------------------------------------------------------------
+# ROUND 4 (2026-08-30): THE PERIMETER OF THE HOLE AND THE BURN ZONE
+#
+# The user, on the ModernCityEnvironment F5c: "some parts of it seem like they
+# were directly cut off from the actual prims and therefore look like sharp
+# straight or rectangular cuts ... Also there are parts of the surface that
+# look pristine. Any parts directly near where the building collapsed (up,
+# left, down, right, anything) would have been flamed and scorched."
+#
+# Both halves of that are decisions, not authoring, so both are checked here.
+# ---------------------------------------------------------------------------
+def _edges(ctx, plan, tag_seed=None):
+    """`plan_edges` on a fresh private rng — what `r_partial_collapse` runs."""
+    m = _mass(ctx, plan)
+    prng = random.Random(plan["seed"] if tag_seed is None else tag_seed)
+    return fc.plan_edges(ctx, plan, m, prng), m
+
+
+def _by_id(jobs):
+    return dict((id(j["el"]), j) for j in jobs)
+
+
+def _alive(ctx, plan, side, storey):
+    killed = set(id(e) for e in plan["kill"])
+    return [e for e in ctx["info"]["elements"]
+            if e["mass"] == plan["mass"] and e["role"] in fc.SHELL_ROLES
+            and e["side"] == side and int(e["storey"]) == storey
+            and id(e) not in killed]
+
+
+def test_every_module_touching_the_hole_is_torn_and_knows_which_edge():
+    """The cross-check of `plan_edges`, walked from the DEAD modules outward
+    instead of from the survivors inward: for every module that came away,
+    each of its four grid neighbours that is still standing must be in the job
+    list with the COMPLEMENTARY class. A neighbour that is not is a kit module
+    seam left as a dead straight line on the edge of the hole."""
+    for style in STYLES:
+        for mode in ("elevation", "corner"):
+            ctx = _ctx(style)
+            plan = fc.plan_partial_collapse(ctx, mode=mode)
+            jobs, m = _edges(ctx, plan)
+            byid = _by_id(jobs)
+            for d in plan["kill"]:
+                sd, s = d["side"], int(d["storey"])
+                d0, d1 = fc.el_span(m, d)
+                for e in _alive(ctx, plan, sd, s):
+                    t0, t1 = fc.el_span(m, e)
+                    w = max(0.3, t1 - t0)
+                    if -0.25 * w <= (t0 - d1) <= 0.6:
+                        assert id(e) in byid, (style, mode, e["name"],
+                                               "right neighbour not torn")
+                        assert "right" in byid[id(e)]["classes"], \
+                            (style, mode, e["name"], byid[id(e)]["classes"])
+                    if -0.25 * w <= (d0 - t1) <= 0.6:
+                        assert id(e) in byid, (style, mode, e["name"],
+                                               "left neighbour not torn")
+                        assert "left" in byid[id(e)]["classes"], \
+                            (style, mode, e["name"], byid[id(e)]["classes"])
+                for s2, cls in ((s - 1, "below"), (s + 1, "above")):
+                    for e in _alive(ctx, plan, sd, s2):
+                        t0, t1 = fc.el_span(m, e)
+                        over = min(1.2, 0.3 * max(0.3, t1 - t0))
+                        if min(d1, t1) - max(d0, t0) > over:
+                            assert id(e) in byid, (style, mode, e["name"],
+                                                   cls + " neighbour not torn")
+                            assert cls in byid[id(e)]["classes"], \
+                                (style, mode, e["name"], cls,
+                                 byid[id(e)]["classes"])
+
+
+def test_the_storey_under_the_failure_line_is_always_torn():
+    """The single largest source of straight lines in the old notch, and the
+    one the round-3 code only touched when the loss ran into a corner: the
+    modules directly under the hole kept a level top edge exactly on the slab
+    line, all the way across."""
+    for style in STYLES:
+        for mode in ("elevation", "corner"):
+            ctx = _ctx(style)
+            plan = fc.plan_partial_collapse(ctx, mode=mode)
+            if plan["s0"] < 1:
+                continue
+            jobs, m = _edges(ctx, plan)
+            byid = _by_id(jobs)
+            for sd in plan["sides"]:
+                under = [j for j in jobs
+                         if j["side"] == sd and j["storey"] == plan["s0"] - 1
+                         and "below" in j["classes"]]
+                dead_here = [e for e in plan["kill"]
+                             if e["side"] == sd
+                             and int(e["storey"]) == plan["s0"]]
+                alive_below = _alive(ctx, plan, sd, plan["s0"] - 1)
+                if dead_here and alive_below:
+                    assert under, (style, mode, sd, "nothing torn under the "
+                                                    "failure line")
+                # ...and every one of them cuts HORIZONTALLY, near its top
+                for j in under:
+                    z = [c for c in j["cuts"] if c["cls"] == "below"]
+                    assert z and z[0]["kind"] == "z"
+                    assert z[0]["loose_above"] is True
+                    assert j["za"] < z[0]["line"] < j["zb"], (style, j["name"])
+            assert byid
+
+
+def test_every_staircase_step_has_a_torn_tread():
+    """The profile widens by a module or two per storey, so at every step
+    there is a module that survived at storey `s` under one that died at
+    `s + 1`. Its top edge is the tread, and it was never touched before."""
+    seen = 0
+    for style in STYLES:
+        for mode in ("elevation", "corner"):
+            ctx = _ctx(style)
+            plan = fc.plan_partial_collapse(ctx, mode=mode)
+            jobs, m = _edges(ctx, plan)
+            for j in jobs:
+                if j["storey"] < plan["s0"] or "below" not in j["classes"]:
+                    continue
+                seen += 1
+                assert j["side"] in plan["sides"], (style, j["name"])
+    assert seen, "no staircase tread anywhere in seven styles / two modes"
+
+
+def test_a_tear_never_takes_the_whole_module():
+    """`_break_split` returns statics as well as loose: the FAR portion of a
+    torn module stays standing. A cut line outside the module's own extent —
+    or a wander big enough to leave it — is a module that was killed by
+    accident, and the wall it was holding up then reads as floating."""
+    for style in STYLES:
+        for mode in ("elevation", "corner"):
+            ctx = _ctx(style)
+            plan = fc.plan_partial_collapse(ctx, mode=mode)
+            jobs, m = _edges(ctx, plan)
+            for j in jobs:
+                assert j["cuts"], (style, j["name"], "classed but not cut")
+                for c in j["cuts"]:
+                    if c["kind"] == "v":
+                        lo, hi = fc.EDGE_PEN
+                        assert lo * j["w"] - 1e-9 <= c["pen"] <= hi * j["w"] + 1e-9
+                        assert j["t0"] < c["line"] < j["t1"], (style, j["name"])
+                        assert c["amp"] <= fc.EDGE_AMP_FRAC * c["pen"] + 1e-9
+                    elif c["kind"] == "z":
+                        lo, hi = (fc.EDGE_PEN if c["cls"] == "below"
+                                  else fc.EDGE_PEN_ABOVE)
+                        assert lo * j["h"] - 1e-9 <= c["pen"] <= hi * j["h"] + 1e-9
+                        assert j["za"] < c["line"] < j["zb"], (style, j["name"])
+                    else:
+                        assert 0.0 < c["frac"] <= 0.9, (style, j["name"])
+
+
+def test_a_module_above_the_hole_keeps_its_footing():
+    """The exception in the brief: tearing the foot off a module that is
+    holding the storeys over it makes the building float. `EDGE_PEN_ABOVE`
+    is 0.25-0.40 where every other edge gets 0.25-0.60."""
+    assert fc.EDGE_PEN_ABOVE[1] < fc.EDGE_PEN[1]
+    for style in STYLES:
+        for mode in ("elevation", "corner"):
+            ctx = _ctx(style)
+            plan = fc.plan_partial_collapse(ctx, mode=mode)
+            jobs, _m = _edges(ctx, plan)
+            for j in jobs:
+                for c in j["cuts"]:
+                    if c["cls"] != "above":
+                        continue
+                    assert c["pen"] <= fc.EDGE_PEN_ABOVE[1] * j["h"] + 1e-9
+                    assert c["loose_above"] is False
+
+
+def test_the_return_wall_is_torn_only_at_a_corner_the_loss_reaches():
+    """`quake_flow._ragged_neighbours` tears BOTH walls perpendicular to the
+    failed one, at every storey in the band, whichever end of it the loss
+    actually reached — so a corner failure at the SE corner also chewed the
+    south end of the WEST wall, damage with nothing next to it to explain
+    it. The replacement is per storey and per corner."""
+    for style in STYLES:
+        for mode in ("elevation", "corner"):
+            ctx = _ctx(style)
+            plan = fc.plan_partial_collapse(ctx, mode=mode)
+            jobs, m = _edges(ctx, plan)
+            for j in jobs:
+                if "return" not in j["classes"]:
+                    continue
+                assert j["side"] not in plan["sides"], (style, j["name"])
+                assert j["storey"] in plan["storeys"], (style, j["name"])
+                for c in j["cuts"]:
+                    if c["cls"] != "return":
+                        continue
+                    lost = c["side"]
+                    assert lost in plan["sides"]
+                    # it really is AT the corner: its near end is within one
+                    # bay of the lost wall line
+                    near, _far = fc.el_near_far(m, j["el"], lost)
+                    assert near <= j["w"] + fc.RETURN_REACH_PAD_M + 1e-6, \
+                        (style, j["name"], near, j["w"])
+                    # ...and a module died against that corner at this storey
+                    L = fc.side_length(m, lost)
+                    ends = [fc.el_span(m, e) for e in plan["kill"]
+                            if e["side"] == lost
+                            and int(e["storey"]) == j["storey"]]
+                    assert ends, (style, j["name"])
+                    corner_lo = min(a for a, _b in ends) <= plan["pad_m"]
+                    corner_hi = max(b for _a, b in ends) >= L - plan["pad_m"]
+                    assert corner_lo or corner_hi, (style, j["name"])
+
+
+def test_the_edge_plan_is_stable_and_takes_no_shared_draw():
+    """Same building, same private seed, same tears — and advancing the
+    LADDER's rng between the two changes nothing, which is the whole reason
+    this recipe may be inserted anywhere in a ladder."""
+    a = _ctx("commercial_mid", tag="b3")
+    b = _ctx("commercial_mid", tag="b3")
+    pa = fc.plan_partial_collapse(a, mode="elevation")
+    ja, _m = _edges(a, pa)
+    for _ in range(50):
+        b["rng"].random()
+    pb = fc.plan_partial_collapse(b, mode="elevation")
+    jb, _m = _edges(b, pb)
+    assert [q["name"] for q in ja] == [q["name"] for q in jb]
+    assert [q["classes"] for q in ja] == [q["classes"] for q in jb]
+    assert ([[round(c["pen"], 9) for c in q["cuts"]] for q in ja]
+            == [[round(c["pen"], 9) for c in q["cuts"]] for q in jb])
+
+
+def test_the_edge_work_stays_inside_its_budget():
+    """Each tear is a `_break_split`; the budget is what stops the recipe's
+    cost running away on an 88 m elevation. Nothing in the bench set may hit
+    it, or the probe's "100 % of the neighbours torn" is not true."""
+    for style in STYLES:
+        for mode in ("elevation", "corner"):
+            ctx = _ctx(style)
+            plan = fc.plan_partial_collapse(ctx, mode=mode)
+            jobs, _m = _edges(ctx, plan)
+            assert len(jobs) <= fc.MAX_EDGE_MODULES, (style, mode, len(jobs))
+            assert not [j for j in jobs if j.get("dropped")], (style, mode)
+
+
+# ---------------------------------------------------------------------------
+# The burn zone
+# ---------------------------------------------------------------------------
+def test_the_burn_zone_is_in_soot_plume_side_u_coordinates():
+    """`along_of` and `soot_plume.side_u` AGREE on S and E and are MIRRORED on
+    N and W (`side_u` unwraps the perimeter counter-clockwise). Get that wrong
+    and the heavy soot lands on the far end of the wall from the hole — which
+    a render would show and nothing else would."""
+    from disaster import soot_plume as spl
+    for want in ("S", "E", "N", "W"):
+        ctx = _ctx("commercial", sides=(want,))
+        plan = fc.plan_partial_collapse(ctx, mode="elevation")
+        m = _mass(ctx, plan)
+        rects = [r for r in plan["burn_zone"] if r[0] == want]
+        assert rects, want
+        t0, t1 = plan["span"][(want, plan["top_storey"])]
+        for t in (t0 + 0.05, 0.5 * (t0 + t1), t1 - 0.05):
+            lx, ly = fc.wall_point(m, want, t)
+            wx, wy = qf._to_world(m, lx, ly)
+            u = spl.side_u(m, want, wx, wy)
+            assert any(r[1] - 1e-6 <= u <= r[2] + 1e-6 for r in rects), \
+                (want, t, u, rects)
+            # and `_u_of_t` is that same number
+            assert abs(fc._u_of_t(m, want, t) - u) < 1e-6, (want, t)
+
+
+def test_the_burn_zone_covers_the_hole_with_a_real_margin():
+    """"Any parts directly near where the building collapsed (up, left, down,
+    right, anything)": one module sideways, the plume's reach up, and the
+    little that rolls under the lip below."""
+    for style in STYLES:
+        for mode in ("elevation", "corner"):
+            ctx = _ctx(style)
+            plan = fc.plan_partial_collapse(ctx, mode=mode)
+            m = _mass(ctx, plan)
+            lv = list(m["levels"])
+            for sd in plan["sides"]:
+                L = fc.side_length(m, sd)
+                rs = [r for r in plan["burn_zone"] if r[0] == sd]
+                assert rs, (style, mode, sd)
+                for s in plan["storeys"]:
+                    t0, t1 = plan["span"][(sd, min(s, plan["top_storey"]))]
+                    za = float(lv[s])
+                    zb = float(lv[s + 1]) if s + 1 < len(lv) else float(m["top"])
+                    u0, u1 = sorted((fc._u_of_t(m, sd, max(0.0, t0 - fc.BURN_ZONE_PAD_U)),
+                                     fc._u_of_t(m, sd, min(L, t1 + fc.BURN_ZONE_PAD_U))))
+                    hit = [r for r in rs
+                           if r[1] <= u0 + 1e-6 and r[2] >= u1 - 1e-6
+                           and r[3] <= za - fc.BURN_ZONE_PAD_DOWN + 1e-6
+                           and r[4] >= zb + fc.BURN_ZONE_PAD_UP - 1e-6]
+                    assert hit, (style, mode, sd, s, u0, u1, rs)
+                # ...and it never leaves the wall
+                for r in rs:
+                    assert -1e-6 <= r[1] <= r[2] <= L + 1e-6, (style, sd, r)
+
+
+def test_the_burn_zone_only_touches_the_lost_walls_and_their_returns():
+    """A zone on a cold elevation is the flat-black-rectangle bug wearing a
+    physical model's clothes. The only elevation that may carry one without
+    being lost is the RETURN of a corner the loss actually reaches."""
+    for style in STYLES:
+        for mode in ("elevation", "corner"):
+            ctx = _ctx(style)
+            plan = fc.plan_partial_collapse(ctx, mode=mode)
+            m = _mass(ctx, plan)
+            for r in plan["burn_zone"]:
+                if r[0] in plan["sides"]:
+                    continue
+                ok = False
+                for sd in plan["sides"]:
+                    for low_end, reached in zip((True, False),
+                                                plan["reaches_end"][sd]):
+                        if not reached:
+                            continue
+                        c = fc.corner_of_end(sd, low_end)
+                        if fc.other_side(c, sd) != r[0]:
+                            continue
+                        L2 = fc.side_length(m, r[0])
+                        at_hi = fc.corner_at_high_end(r[0], c)
+                        u_c = fc._u_of_t(m, r[0], L2 if at_hi else 0.0)
+                        # the rect is AT that corner, not out in the wall
+                        if min(abs(r[1] - u_c), abs(r[2] - u_c)) < 1e-6:
+                            ok = True
+                assert ok, (style, mode, "burn zone on an unexplained wall", r)
+
+
+def test_corner_of_end_agrees_with_corner_at_high_end():
+    for side in ("S", "E", "N", "W"):
+        for low in (True, False):
+            c = fc.corner_of_end(side, low)
+            assert side in c
+            assert fc.corner_at_high_end(side, c) == (not low), (side, low, c)
+            assert fc.other_side(c, side) != side
+            assert set(fc.corner_sides(c)) == set((side, fc.other_side(c, side)))
+
+
+def test_el_span_is_a_footprint_and_never_degenerates():
+    """`quake_flow._piece_frame` is a LINE — origin, yaw, width — so a CORNER
+    BLOCK placed at 90 degrees on the south wall projects onto it as a single
+    POINT, and every adjacency test against that module answers "no
+    neighbour" (measured: `highrise_step` storey 8, a 6 x 6 m corner at
+    t = 25.0 .. 25.0 on a 25 m wall; and `dw_terrace`'s pillar, whose frame
+    axis runs INTO the building). `el_span` measures the real footprint."""
+    for style in STYLES:
+        for yaw in (0.0, 37.0):
+            rng = random.Random(7)
+            pls = ub.build_building(style, 3.0, -2.0, yaw, rng)
+            info = qf.describe(style, pls, 3.0, -2.0, yaw)
+            for e in info["elements"]:
+                if e["role"] not in fc.SHELL_ROLES:
+                    continue
+                m = info["masses"].get(e["mass"]) or info["masses"]["main"]
+                t0, t1 = fc.el_span(m, e)
+                assert t1 - t0 > 0.05, (style, yaw, e["name"], t0, t1)
+                L = fc.side_length(m, e["side"])
+                assert -2.0 <= t0 and t1 <= L + 2.0, (style, e["name"], t0, t1)
+                za, zb = fc.el_z_span(m, e)
+                assert zb > za, (style, e["name"])
+                near, far = fc.el_near_far(m, e, e["side"])
+                assert far >= near
+                assert near < 2.5, (style, e["name"], near)
+
+
+def test_the_soot_skin_is_identical_without_a_zone():
+    """THE FREEZE, in one assertion: `burn_zone=None` must not move a single
+    texel, and must not take a single extra draw off the skin's generator
+    (which would move the tone noise and every level's soot with it)."""
+    from disaster import soot_plume as spl
+    ctx = _ctx("commercial_mid", level="F4")
+    ev = spl.plan_events(ctx, uf._severity)
+    seed = spl.event_seed(ctx) ^ 0x5EED
+
+    def mk(**kw):
+        return spl.skin(ctx, ev, np.random.default_rng(seed), finish="ash",
+                        duration_scale=1.4, **kw)
+
+    a, b = mk(), mk(burn_zone=None)
+    assert np.array_equal(a["rgba"], b["rgba"])
+    assert np.array_equal(a["dep"], b["dep"])
+    assert a["zone"] is None and b["zone"] is None
+
+
+def test_a_burn_zone_soots_the_wall_round_the_hole():
+    """The other half of the review: nothing near the loss may stay pristine.
+    Mean alpha inside the zone >= 0.8; outside it, materially lower."""
+    from disaster import soot_plume as spl
+    for style, mode in (("commercial_mid", "elevation"),
+                        ("office_wide", "corner"),
+                        ("apartment", "elevation")):
+        ctx = _ctx(style)
+        plan = fc.plan_partial_collapse(ctx, mode=mode)
+        ev = spl.plan_events(ctx, uf._severity)
+        seed = spl.event_seed(ctx) ^ 0x5EED
+        base = spl.skin(ctx, ev, np.random.default_rng(seed), finish="ash",
+                        duration_scale=1.4)
+        zoned = spl.skin(ctx, ev, np.random.default_rng(seed), finish="ash",
+                         duration_scale=1.4, burn_zone=plan["burn_zone"])
+        z = zoned["zone"]
+        assert z is not None and z.shape == base["rgba"].shape[:2]
+        inside = z > 0.999
+        outside = z <= 0.0
+        assert inside.any() and outside.any(), (style, mode)
+        a_in = float(zoned["rgba"][..., 3][inside].mean())
+        a_out = float(zoned["rgba"][..., 3][outside].mean())
+        assert a_in >= 0.80, (style, mode, a_in)
+        assert a_out < a_in, (style, mode, a_in, a_out)
+        # OUTSIDE the zone nothing moved at all
+        assert np.array_equal(base["rgba"][..., 3][outside],
+                              zoned["rgba"][..., 3][outside]), (style, mode)
+        # ...and what WAS pristine inside it is not any more. THE FLOOR IS
+        # `ZONE_ALPHA`'s low end (times the streak's own 0.94-1.00 thickness
+        # factor), not a magic 0.7: the constant was recalibrated against the
+        # char maps on 2026-08-30 (see `soot_plume.ZONE_ALPHA`'s note) and a
+        # hard number here would have to be edited every time it moves, which
+        # is how a test stops being a check and becomes a transcript.
+        was_clean = inside & (base["rgba"][..., 3] < 0.4)
+        if was_clean.any():
+            assert float(zoned["rgba"][..., 3][was_clean].min()) >= \
+                spl.ZONE_ALPHA[0] * 0.93, (style, mode)
+        # THE TONE INSIDE MEETS THE CHAR ON THE BROKEN PIECES. It used to be
+        # driven almost to pure `SOOT_DARK` (`ZONE_TONE` 0.85), which made the
+        # lip of the hole the darkest thing on the elevation while the char
+        # maps on the fragments beside it were much lighter — "the material of
+        # the broken/debris part is a much darker colour than the intact
+        # façade next to it" (third review, 2026-08-30). Two claims now:
+        #   (a) the zone is never LIGHTER than the un-zoned ash tone of a
+        #       burnt-out shell (it may match it; it may not wash out);
+        #   (b) composited over a mid brick it lands within 0.06 sRGB
+        #       luminance of the char texture set as bound — 0.141, measured
+        #       (`_debris_mat` 0.148 / `_burn_mat("ash", 0.85)` 0.135), the
+        #       tolerance the review asked for.
+        rgb_in = zoned["rgba"][..., :3][inside].mean(axis=0)
+        ashy = (spl.SOOT_DARK[0]
+                + (spl.SOOT_ASH[0] - spl.SOOT_DARK[0]) * spl.ASH_LEVEL["ash"])
+        assert float(rgb_in.max()) <= ashy + 1e-3, (style, mode, rgb_in, ashy)
+        CHAR_SRGB, MID_BRICK = 0.141, 0.257
+        comp = MID_BRICK * (1.0 - a_in) + float(rgb_in.mean()) * a_in
+        assert abs(CHAR_SRGB - comp) <= 0.06, (style, mode, comp, a_in)
+
+
+def test_the_zone_edge_is_a_ramp_and_not_a_cut():
+    """A hard edge is the artefact. The coverage field has to spend real area
+    strictly between 0 and 1, and the boundary has to wander — a straight
+    ramp on a rectangle would give the same histogram but a dead straight
+    contour, so the wander is measured as the spread of the transition band's
+    own position along a column."""
+    from disaster import soot_plume as spl
+    ctx = _ctx("commercial_mid")
+    plan = fc.plan_partial_collapse(ctx, mode="elevation")
+    ev = spl.plan_events(ctx, uf._severity)
+    sk = spl.skin(ctx, ev, np.random.default_rng(spl.event_seed(ctx) ^ 0x5EED),
+                  finish="ash", duration_scale=1.4,
+                  burn_zone=plan["burn_zone"])
+    z = sk["zone"]
+    frac = float(((z > 0.02) & (z < 0.98)).mean())
+    assert frac > 0.02, frac
+    # the lowest fully-covered row differs from column to column: the ramp
+    # is not a straight line across the elevation
+    rows = []
+    h, w = z.shape
+    for c in range(0, w, max(1, w // 240)):
+        col = np.nonzero(z[:, c] > 0.98)[0]
+        if col.size:
+            rows.append(int(col[-1]))
+    assert len(rows) > 20
+    assert float(np.std(rows)) > 1.0, np.std(rows)
 
 
 if __name__ == "__main__":

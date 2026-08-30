@@ -554,6 +554,19 @@ def _debris_look(stage, parent, key, mats):
 # authored here with a neutral x0.85 `diffuse_tint` — never a flat colour
 # substitute, so the asset's own photo still reads as itself, just dustier.
 _TEXTURED_DUST_TINT = (0.85, 0.85, 0.85)
+# Per-material multiplier for the scanned FAB spreads (round-4 Isaac pass,
+# 2026-08-30, r4_commercial bench): under RTX the x0.85 neutral tint left
+# `brick_debris_pile` / `concrete_debris_*` rendering near-WHITE — they read
+# as snow piles beside a brick pile (the scans' albedo is a pale, dusty
+# mortar-grey and a multiplicative 0.85 cannot move it). A brick building's
+# fines are brick-and-mortar coloured, a concrete one's a mid grey, so the
+# tint now depends on the catalogue entry's `material` and lands the cluster
+# between the mound tile and the kit's brick chunks. Keyed by material; the
+# neutral constant above is the fallback for anything unlisted.
+_TEXTURED_DUST_TINT_BY_MATERIAL = {
+    "brick": (0.55, 0.42, 0.36),
+    "concrete": (0.52, 0.50, 0.47),
+}
 _TEXTURED_UV_SCALE = 0.5
 _TEXTURED_ROUGH = 0.92
 
@@ -669,7 +682,9 @@ def _textured_debris_look(stage, parent, name, catalogue, asset_root, mats):
         return None
 
     from . import damage
-    tint = _TEXTURED_DUST_TINT
+    entry = catalogue.get(name) or {}
+    tint = _TEXTURED_DUST_TINT_BY_MATERIAL.get(
+        str(entry.get("material") or "").lower(), _TEXTURED_DUST_TINT)
     got = damage._pbr(stage, path, tint, _TEXTURED_ROUGH, texture=tex,
                        scale_uv=(_TEXTURED_UV_SCALE, _TEXTURED_UV_SCALE), tint=tint)
     _apply_diffuse_tint(stage, path, tint, 0.0)

@@ -598,20 +598,26 @@ def test_textured_cluster_gets_dust_tint_override():
     strength = UsdShade.MaterialBindingAPI.GetMaterialBindingStrength(direct.GetBindingRel())
     assert strength == UsdShade.Tokens.strongerThanDescendants, strength
 
-    # the MDL (Kit/RTX) side: a real diffuse_texture bound, tinted x0.85.
+    # the MDL (Kit/RTX) side: a real diffuse_texture bound, tinted by the
+    # entry's material (round-4 Isaac pass: brick / concrete each get their
+    # own multiplier; anything unlisted keeps the neutral x0.85).
+    entry = _CATALOGUE["cluster_test"]
+    expect = qru._TEXTURED_DUST_TINT_BY_MATERIAL.get(
+        str(entry.get("material") or "").lower(), qru._TEXTURED_DUST_TINT)
+    assert expect != (1.0, 1.0, 1.0)
     sh = UsdShade.Shader(st.GetPrimAtPath(str(mat.GetPath()) + "/Shader"))
     assert sh
     assert sh.GetInput("diffuse_texture").Get() is not None
     tint = sh.GetInput("diffuse_tint").Get()
     assert tint is not None
-    assert all(abs(tint[i] - 0.85) < 1e-6 for i in range(3)), tint
+    assert all(abs(tint[i] - expect[i]) < 1e-6 for i in range(3)), (tint, expect)
 
-    # the Blender/Hydra-visible fallback: the SAME texture, scaled x0.85.
+    # the Blender/Hydra-visible fallback: the SAME texture, scaled the same.
     tex_shader = UsdShade.Shader(st.GetPrimAtPath(str(mat.GetPath()) + "/DiffuseTex"))
     assert tex_shader
     scale = tex_shader.GetInput("scale").Get()
     assert scale is not None
-    assert all(abs(scale[i] - 0.85) < 1e-6 for i in range(3)), scale
+    assert all(abs(scale[i] - expect[i]) < 1e-6 for i in range(3)), (scale, expect)
 
 
 def test_instancer_prototype_and_flat_instance_get_override():

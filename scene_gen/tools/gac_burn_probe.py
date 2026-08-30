@@ -61,3 +61,37 @@ for p in Usd.PrimRange(st.GetPrimAtPath(cell)):
         elif "/src/" in path:
             n_src += 1
 print("[burn_probe] piece subsets: {0} on sooted atlases, {1} still on the source's own materials".format(n_soot, n_src))
+
+# -- window census: every subset `damage_windows` split off, plus any
+# whole-subset `void` bind still standing on a burning elevation (that would
+# mean `_darken_glass_legacy`'s old path ran instead of the per-window one)
+print("[fit] fit_storeys reported by burn_gac's own note above; window census follows:")
+void_path = str(mats["void"].GetPrim().GetPath())
+n_burnt_sub = n_crazed_sub = n_void_whole = 0
+for p in Usd.PrimRange(st.GetPrimAtPath(cell)):
+    if not p.IsA(UsdGeom.Mesh):
+        continue
+    for s in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(p)):
+        if not s.GetPrim().IsActive():
+            continue
+        m = UsdShade.MaterialBindingAPI(s.GetPrim()).ComputeBoundMaterial()[0]
+        if not m or not m.GetPrim().IsValid():
+            continue
+        mpath = str(m.GetPrim().GetPath())
+        sname = s.GetPrim().GetName()
+        if sname.endswith("_burnt"):
+            n_burnt_sub += 1
+            print("   {0}  subset={1}  mat={2}".format(p.GetPath(), sname, mpath))
+        elif sname.endswith("_crazed"):
+            n_crazed_sub += 1
+            print("   {0}  subset={1}  mat={2}".format(p.GetPath(), sname, mpath))
+        elif mpath == void_path:
+            n_void_whole += 1
+            print("   {0}  subset={1}  mat=void (WHOLE-SUBSET legacy bind)"
+                  .format(p.GetPath(), sname))
+print("[burn_probe] window census: {0} burnt-out subset(s), {1} crazed "
+      "subset(s), {2} whole-subset void bind(s) remaining (0 expected -- "
+      "damage_windows is per-window now)".format(
+          n_burnt_sub, n_crazed_sub, n_void_whole))
+print("[burn_probe] ctx['gac']['n_glass'] (burnt+crazed face windows, from "
+      "damage_windows' own count) = {0}".format(g["n_glass"]))

@@ -1214,9 +1214,14 @@ def _soot_skin(ctx, heavy):
     # the skin's noise from the events' own seed — NOT a draw on the shared
     # rng, which would shift every recipe after `smoke_stain`
     nrng = np.random.default_rng(spl.event_seed(ctx) ^ 0x5EED)
+    # `burn_zone` is set by `fire_collapse.r_partial_collapse` (F5c only) and
+    # is `None` everywhere else, which is a strict no-op in `spl.skin` — the
+    # rest of the ladder's soot is byte-identical. It says where a wall has
+    # gone and flame was therefore directly on what is left round the hole.
     sk = spl.skin(ctx, events, nrng, finish=f.get("finish") or "char",
                   glass=(ctx["info"]["type"] == "rc_glass"),
-                  duration_scale=float(heavy))
+                  duration_scale=float(heavy),
+                  burn_zone=f.get("burn_zone"))
     ctx["soot_skin"] = sk
     snap = os.environ.get("SOOT_SKIN_DIR")
     if snap:
@@ -1694,6 +1699,19 @@ def r_window_burnout(ctx, frac=1.0, empty=True):
     painted-on glass still showing behind a black plume reads as a decal on an
     intact building; a genuinely dark reveal reads as a room that has burned.
     """
+    if isinstance(ctx.get("soot_prebaked"), (set, frozenset)):
+        # GAC PATH: THE SLICER CANNOT ADDRESS A WINDOW. A GAC piece carries
+        # no measured `_G2_WIN_FACES` entry (that table is populated by the
+        # KIT's own module registration, `urban_building.PIECES`), so
+        # `qf._g2_openings`/`_g_shop_openings` below find nothing on it —
+        # this recipe was always a silent no-op here, but it still appended
+        # its own "0 burnt out, 0 crazed" note, which read as though nothing
+        # had been treated at all (user review, 2026-08-30: "windows: 0
+        # burnt out, 0 crazed"). It HAD been — by `gac_fire.damage_windows`,
+        # on the merged asset's own measured window ISLANDS, called
+        # separately from `gac_fire.burn_gac` right after this ladder
+        # returns; see that function's own note instead of this one.
+        return
     from . import quake_flow as qf
 
     f, rng = ctx["fire"], ctx["rng"]
@@ -2459,7 +2477,19 @@ def dress_roof_urban(ctx, mass=None):
     if len(m["levels"]) < 2:
         ctx["roof_plant"] = []
         return []
-    z = m["top"] + 0.02
+    # THE PLANT SITS ON THE REAL DECK, NOT ON THE PARAPET COPING. `m["top"]`
+    # is the bbox top -- the parapet, on a GAC building measured well over a
+    # metre proud of the actual roof surface (`gac_fire.mass_from_grid`'s
+    # `deck_z`) -- so a bulkhead/pad/tank/vent authored at `top` hung in the
+    # air above the true roof (row-2 review, 2026-08-30: "floating roof
+    # props"). READ OFF `ctx["fire"]`, NOT `m`: `burn_building` rebuilds its
+    # own mass box from the sliced pieces (`quake_flow.describe`) and that
+    # rebuilt `m` never carries `deck_z` -- `fire` is the one dict
+    # `gac_fire.prepare` hands `burn_gac`/`burn_building` UNCHANGED (`fire=`
+    # all the way through), so that is where `prepare` stashes it. The kit
+    # path's `plan_fire` never sets this key, so `.get` falls straight back
+    # to `top` there -- byte-identical.
+    z = ctx["fire"].get("deck_z", m["top"]) + 0.02
     W, D = m["W"], m["D"]
     made, kind = [], ctx.setdefault("roof_plant_kind", {})
     mat_metal = ctx["mats"]["plant_metal"]
@@ -2696,6 +2726,13 @@ def r_roof_scorch(ctx, mass=None):
     has_deck = n_deck > 0
     W, D = m["W"] - 1.6, m["D"] - 1.6
     n_deb = int(40 * sev_top * rng.uniform(0.7, 1.4)) if has_deck else 0
+    # ON THE DECK, NOT ON THE PARAPET. `m["top"]` is the parapet coping on a
+    # GAC building (`gac_fire.mass_from_grid`'s `deck_z` is the measured
+    # roof surface). Read off `ctx["fire"]`, not `m` -- see `dress_roof_
+    # urban`'s note: `burn_building`'s own `m` is rebuilt from the sliced
+    # pieces and never carries `deck_z`. The kit path's `fire` has no
+    # `deck_z` either, so `.get` falls back to `top` unchanged.
+    deck_z = ctx["fire"].get("deck_z", m["top"])
     for _ in range(n_deb):
         lx, ly = rng.uniform(-W / 2, W / 2), rng.uniform(-D / 2, D / 2)
         wx, wy = qf._to_world(m, lx, ly)
@@ -2705,7 +2742,7 @@ def r_roof_scorch(ctx, mass=None):
                ctx["mats"]["soot"] if r < 0.75 else ctx["mats"]["ash"])
         path = "{0}/rdeb_{1}_{2}".format(ctx["parent"], ctx["tag"],
                                          qf._uid(ctx))
-        qf._a_lump(ctx["stage"], path, wx, wy, m["top"] + sz * 0.3, sz, rng,
+        qf._a_lump(ctx["stage"], path, wx, wy, deck_z + sz * 0.3, sz, rng,
                    mat, jitter=0.5)
         ctx["authored"].append(path)
     ctx["notes"].append(
@@ -2840,6 +2877,13 @@ def r_expose_interior(ctx, mass=None, beams=True, rubble=True):
     # storey under the top of the burnt band, one is authored.
     n_catch = 0
     top_s = min(f["top"] + 1, len(m["levels"]) - 1)
+    if isinstance(ctx.get("soot_prebaked"), (set, frozenset)) \
+            and ctx.get("collapse_s0") is not None:
+        # GAC ONLY (kit path frozen): after a fire collapse nothing is a
+        # floor at or above the storey that failed — this plate was being
+        # authored at the failed storey's level, 3 m over the heap
+        # (SM_Building_09 F6, fire_row1, 2026-08-30).
+        top_s = min(top_s, int(ctx["collapse_s0"]) - 1)
     have = {k[1] for k, v in (fit.get("slabs") or {}).items()
             if k[0] == mass and v and stage.GetPrimAtPath(v).IsValid()
             and stage.GetPrimAtPath(v).IsActive()}
@@ -2917,8 +2961,21 @@ def _deck_slab(ctx, mass):
             lx, ly = qf._to_local(m, e["x"], e["y"])
             over = max(over, abs(lx) + meas[0] / 2.0 - m["W"] / 2.0,
                        abs(ly) + meas[1] / 2.0 - m["D"] / 2.0)
+    # THE SLAB'S TOP SURFACE IS THE REAL DECK, NOT THE PARAPET COPING.
+    # `m["top"]` (the bbox top) is the parapet on a GAC building -- often
+    # over a metre above the actual roof plateau `gac_fire.mass_from_grid`
+    # measures as `deck_z` -- so authoring this box at `top` floated it clear
+    # of the walls it should rest on, and every fragment `quake_flow.
+    # r_roof_hole` later breaks IT into inherited the same float (35/121
+    # unsupported `frag` on SM_Building_23 F4, row-2 review, 2026-08-30).
+    # Read off `ctx["fire"]`, not `m` -- `burn_building` rebuilds `m` fresh
+    # from the sliced pieces (`quake_flow.describe`) and it never carries
+    # `deck_z`; `fire` is the dict `gac_fire.prepare` actually stashes it on
+    # (see `dress_roof_urban`'s note). The kit path's `fire` has no
+    # `deck_z`, so `.get` is unchanged there.
     path = "{0}/deck_{1}_{2}".format(ctx["parent"], ctx["tag"], qf._uid(ctx))
-    qf._box(ctx["stage"], path, m["cx"], m["cy"], m["top"] - T / 2.0,
+    qf._box(ctx["stage"], path, m["cx"], m["cy"],
+            ctx["fire"].get("deck_z", m["top"]) - T / 2.0,
             m["W"], m["D"], T, m["yaw"], qf._a_roof_mat(ctx))
     for e in tiles:
         qf._deactivate(ctx["stage"], e["p"].get("prim_path"))
@@ -3005,7 +3062,11 @@ def _rafter_teeth(ctx, m, n=8):
     """
     from . import quake_flow as qf
     rng = ctx["rng"]
-    z = m["top"]
+    # THE TEETH STAND OUT OF THE REAL DECK, NOT THE PARAPET COPING (see
+    # `_deck_slab`'s note: read off `ctx["fire"]`, not `m` -- `burn_building`
+    # rebuilds `m` fresh and it never carries `deck_z`). `.get` is unchanged
+    # on the kit path, whose `fire` has no `deck_z`.
+    z = ctx["fire"].get("deck_z", m["top"])
     W, D = m["W"] - 1.2, m["D"] - 1.2
     for _ in range(n):
         lx = rng.uniform(-W / 2, W / 2)
@@ -3252,8 +3313,26 @@ def r_fire_collapse(ctx, mass=None):
         # terrace's rubble stayed clean tan stonework however dark the
         # material handed in was (uf4, 2026-08-28). A fire chars the broken
         # face too — there is nothing here that should still show masonry.
-        for pth in st + lo:
+        # ...WITH ONE EXCEPTION, GAC ONLY (the kit path is frozen): a piece
+        # that stays STATIC has not moved, so its outward faces are still the
+        # façade the module next door shows, and charring them whole is the
+        # hard dark rectangle of the second-row review ("the material of the
+        # broken/debris part is a much darker colour than the intact façade
+        # next to it", 2026-08-30). `fire_collapse.bind_break(cut_only=True)`
+        # puts the char on the `core` subset — the faces the fracture
+        # invented — and leaves the cladding/sooted atlas on the rest.
+        # `_break` is called with `partial=None` here, so it returns no
+        # statics today and this is the rule written where it belongs rather
+        # than a live branch; the loose fragments are in the heap and take
+        # the dark end whole, which is where it belongs.
+        for pth in lo:
             qf._b_bind_over(ctx["stage"], pth, _debris_mat(ctx))
+        for pth in st:
+            if is_gac:
+                _fire_collapse.bind_break(ctx, pth, _debris_mat(ctx),
+                                          cut_only=True)
+            else:
+                qf._b_bind_over(ctx["stage"], pth, _debris_mat(ctx))
         ctx["loose"] += lo
         ctx["static_extra"] += st
         n_art += _drop_face_art(ctx, e)
@@ -3475,6 +3554,41 @@ def r_fire_collapse(ctx, mass=None):
     # the heap the top landed in: sitting on the floor BELOW the failure, not
     # on the ground, because that is where a fire collapse stops
     base = m["levels"][max(0, s0 - 1)] if s0 > 0 else m["z0"]
+    if isinstance(ctx.get("soot_prebaked"), (set, frozenset)):
+        # A FLOOR UNDER THE HEAP, ALWAYS — GAC ONLY (the kit path is frozen).
+        # A sliced GAC building is fitted out on its top storeys only, and
+        # the slabs of the storeys that fail go down with them, so the storey
+        # the heap "lands on" can have no floor at all: SM_Building_09 F6
+        # baked 6,186 heap chips at z 44-49 m over nothing, with the
+        # `r_expose_interior` catch plate 3 m ABOVE the failure (fire_row1,
+        # 2026-08-30 — "lots of floating debris"). The debris stays; it gets
+        # its floor. And anything registered as a floor at or above the
+        # failure is no floor any more: it is sent down, not kept static.
+        fit = ctx.setdefault("fit", {})
+        slabs = fit.setdefault("slabs", {})
+        bs = max(0, s0 - 1)
+        ctx["collapse_s0"] = int(s0)      # `r_expose_interior` reads it
+        for (mt_, st_), pth in list(slabs.items()):
+            if mt_ != mass or st_ < s0 or not pth:
+                continue
+            if pth in ctx["static_extra"]:
+                ctx["static_extra"] = [q for q in ctx["static_extra"] if q != pth]
+                if pth not in ctx["loose"]:
+                    ctx["loose"].append(pth)
+        have = slabs.get((mass, bs))
+        pr_ = ctx["stage"].GetPrimAtPath(have) if have else None
+        if bs > 0 and not (pr_ and pr_.IsValid() and pr_.IsActive()
+                           and have not in ctx["loose"]):
+            W_, D_ = m["W"] - 2 * qf.WALL_INSET, m["D"] - 2 * qf.WALL_INSET
+            path = "{0}/catch_{1}_{2}".format(ctx["parent"], ctx["tag"],
+                                              qf._uid(ctx))
+            qf._box(ctx["stage"], path, m["cx"], m["cy"], base - 0.13, W_, D_,
+                    0.26, m["yaw"], ctx["mats"]["char_concrete"])
+            ctx["authored"].append(path)
+            ctx["static_extra"].append(path)
+            slabs[(mass, bs)] = path
+            ctx["notes"].append("fire collapse: floor authored under the heap "
+                                "at storey {0} (z={1:.1f})".format(bs, base))
     H = max(3.0, m["top"] - m["z0"])
     # NO DUST IN THE MIX. `_heap`'s own `HEAP_MIX` is mortar dust over pale
     # brick, which is exactly right for a quake — the dust plume is the

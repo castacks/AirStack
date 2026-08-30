@@ -1318,10 +1318,3 @@ steps:
         sleep 1; echo stopped team planner
       timeout_s: 60
     optional: true
-
-  - action:
-      task: land
-      goal: {}
-      timeout_s: 300
-      robots: all
-    optional: true

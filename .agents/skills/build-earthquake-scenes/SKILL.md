@@ -1081,6 +1081,26 @@ lowers the tower heights — measured 6 blocks / ~36 buildings on the dry run.
 
 ## Round 4 (2026-08-30)
 
+* **The manifest's `usd` paths were stale after the library move — every
+  damaged swap in a city referenced a missing file.** `bake_quake_archetypes`
+  records `usd=os.path.abspath(out)` (a CONTAINER path under whatever
+  `ARCH_DIR` was at bake time, `.../assets/archetypes_quake/`); on 2026-08-29
+  the library was renamed to `assets/archetype/` and mirrored to Nucleus
+  (`tools/upload_archetypes.py`) but the 144 records were not rewritten, and
+  `quake.assemble` does `refs.AddReference(chosen["usd"])` with the record's
+  string verbatim. Found on the first Isaac run after round 4 (2026-08-30).
+  Fix: `quake.load_manifest` REBASES every record's `usd` onto the
+  `arch_dir` the caller passed, by basename (`_arch_join`), and reads the
+  manifest through `omni.client` when `arch_dir` is an `omniverse://`
+  folder (`_read_text`). The manifest is the catalogue; `ARCH_DIR` is where
+  the files are. `tests/test_quake_manifest_rebase.py`.
+* **`bake_quake_headless.sh` never forwarded `EQ_SOLID_N` / `EQ_RUBBLE`.**
+  `docker exec` does not inherit the host environment and the driver only
+  passed its own `ARCH_*` / `SETTLE_*` / `BAKE_MERGE` pairs, so the
+  `SETTLE_STEPS=3000 EQ_SOLID_N=0.85 bake_quake_headless.sh` line above
+  baked round 3 at the code default (`T_SOLID_N_SCALE` 1.0). `EXTRA_ENV="..."`
+  now appends arbitrary pairs; the bench and the bake must agree on them.
+
 * **`vtkStripper::GetPointCells` reads off the heap on a clipped shell — a
   real SIGSEGV, not a fracture bug.** `vtkStripper` sizes a link table by the
   polydata's point count and walks it with ids taken FROM THE CELLS;

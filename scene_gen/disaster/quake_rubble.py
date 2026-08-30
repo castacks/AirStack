@@ -951,6 +951,38 @@ def _build_dome_apron(m, reach, apron_thick, rng, nrng, lobe, mult=1.35):
 # end-taper fraction, not a sheared mesh) widens toward the toe.
 # ---------------------------------------------------------------------------
 
+
+def _trim_flat(pts, faces, eps=1e-6):
+    """Drop every triangle whose three vertices all sit on the mesh's flat
+    floor (its lip level), and compact the point array.
+
+    Each heightfield cell is built on a RECTANGULAR grid whose domain is
+    inflated to fit the worst-case lobe bulge, and everything outside the
+    lobed toe is floored at the lip (`MOUND_LIP_M` / `APRON_LIP_M`). Left in
+    the mesh, that floor is a flat, textured rectangle 1 cm above the ground
+    round every pile — the first Isaac render of round 4 (2026-08-30,
+    r4_commercial DG5 top view) showed exactly that: a pale dust RECTANGLE
+    with sharp straight edges under a lobed mound, the "plaza" the v3 review
+    had rejected, back again because the Blender preview ground sat 2 cm
+    below it and hid it. Trimming to the raised faces leaves the lobed
+    outline as the mesh outline; the surviving rim vertices still sit at the
+    lip, so nothing is coplanar with the ground.
+    """
+    pts = np.asarray(pts, dtype=np.float64).reshape(-1, 3)
+    faces = np.asarray(faces, dtype=np.int64).reshape(-1, 3)
+    if pts.shape[0] == 0 or faces.shape[0] == 0:
+        return pts, faces
+    zflat = float(pts[:, 2].min()) + eps
+    flat_v = pts[:, 2] <= zflat
+    keep = ~(flat_v[faces[:, 0]] & flat_v[faces[:, 1]] & flat_v[faces[:, 2]])
+    faces = faces[keep]
+    if faces.shape[0] == 0:
+        return np.zeros((0, 3)), np.zeros((0, 3), dtype=np.int64)
+    used = np.unique(faces)
+    remap = -np.ones(pts.shape[0], dtype=np.int64)
+    remap[used] = np.arange(used.shape[0])
+    return pts[used], remap[faces]
+
 def _side_axes(side, m, offset_m, reach, t_lo, t_hi):
     W, D = float(m["W"]), float(m["D"])
     halfW, halfD = W / 2.0, D / 2.0
@@ -1753,6 +1785,7 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
         pts_l, faces_l, off = [], [], 0
         for c in cell_list:
             pts, faces = _mesh_to_world(m, c, z0)
+            pts, faces = _trim_flat(pts, faces)
             pts_l.append(pts); faces_l.append(faces + off); off += pts.shape[0]
         if not pts_l:
             return np.zeros((0, 3)), np.zeros((0, 3), dtype=np.int64)

@@ -87,6 +87,28 @@ from disaster import quake                                       # noqa: E402
 _ENV_CLUTTER = {"GroundPlane", "Environment"}
 
 
+def vram_mb(tag):
+    """Print and return the card's used VRAM (MiB) at a named stage.
+
+    MEASURE AS YOU GO (user, 2026-08-30): the deliverable is a 1 km x 1 km
+    scene that has to fit a 5090 (32 GB) / RTX PRO 5000 (48 GB) beside the
+    rest of the stack. Readings at env-loaded / assembled / hydra-synced /
+    after-captures give the per-building content cost, and the READY banner
+    projects it to a square kilometre of the same density.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.total",
+                              "--format=csv,noheader,nounits"],
+                             capture_output=True, text=True, timeout=10).stdout
+        used, total = [float(x) for x in out.strip().split("\n")[0].split(",")[:2]]
+    except Exception as exc:                        # no nvidia-smi in the image?
+        print("[quake_city] VRAM {0}: unavailable ({1})".format(tag, exc), flush=True)
+        return None
+    print("[quake_city] VRAM {0}: {1:.0f} / {2:.0f} MiB".format(tag, used, total), flush=True)
+    return used
+
+
 def _remove_env_clutter(stage):
     n = 0
     for root_path in ("/", "/World", "/World/stage"):
@@ -296,6 +318,7 @@ class QuakeCityApp:
             for _ in range(10):
                 omni.kit.app.get_app().update()
 
+        self._vram = {"env": vram_mb("env loaded")}
         ov = _spec_overrides()
         if ov:
             print("[quake_city] spec overrides: {0}".format(ov))
@@ -371,6 +394,9 @@ class QuakeCityApp:
             print("[quake_city] {0} ({1}) at ({2:+.0f}, {3:+.0f}): {4} buildings: {5}".format(
                 city["name"], city["label"], dx, dy, stats["buildings"],
                 ", ".join("{0}={1}".format(k, v) for k, v in sorted(stats["tally"].items()))))
+        self._vram["assembled"] = vram_mb("assembled (USD authored, {0} buildings)".format(n_bld))
+        self._area_m2 = sum(float(c["config"]["layout"]["region_m"][0])
+                            * float(c["config"]["layout"]["region_m"][-1]) for c in self.cities)
         if len(cities) > 1:
             _void_ground(stage, cities, ssf)
         config = self.cities[0]["config"]
@@ -452,6 +478,7 @@ class QuakeCityApp:
                       1000.0 * _dt / _n, _res), flush=True)
         except Exception as exc:
             print("[quake_city] hydra timing failed: {0}".format(exc))
+        self._vram["hydra"] = vram_mb("hydra synced (BLAS built)")
         if SNAP_DIR:
             try:
                 import importlib.util as _ilu
@@ -500,6 +527,25 @@ class QuakeCityApp:
                 import traceback
                 traceback.print_exc()
                 print("[quake_city] snapshots FAILED: {0}".format(exc))
+        self._vram["end"] = vram_mb("after captures")
+        try:
+            env, hyd = self._vram.get("env"), self._vram.get("hydra")
+            n = max(1, int(self.stats.get("buildings", 0)))
+            if env is not None and hyd is not None:
+                content = max(0.0, hyd - env)
+                per = content / n
+                scale = 1.0e6 / max(1.0, getattr(self, "_area_m2", 1.0e6))
+                n_km2 = n * scale
+                proj = env + per * n_km2
+                print("[quake_city] VRAM BUDGET: baseline {0:.0f} MiB | content {1:.0f} MiB for {2} "
+                      "building(s) on {3:.2f} km2 = {4:.0f} MiB/building".format(
+                          env, content, n, 1.0 / scale, per), flush=True)
+                for card, tot in (("5090", 32768.0), ("RTX PRO 5000", 49152.0)):
+                    print("[quake_city]   projection: 1 km2 at this density ({0:.0f} buildings) -> "
+                          "{1:.0f} MiB on a {2} ({3:.0f}% of {4:.0f} MiB)".format(
+                              n_km2, proj, card, 100.0 * proj / tot, tot), flush=True)
+        except Exception as _exc:
+            print("[quake_city] VRAM budget summary failed: {0}".format(_exc))
         # headless: exit once the captures are on disk (KEEP_OPEN=1 to stay)
         if (os.environ.get("KEEP_OPEN", "").strip() == "1"
              or os.environ.get("ISAAC_SIM_HEADLESS", "false").strip().lower() not in ("1", "true", "yes")):

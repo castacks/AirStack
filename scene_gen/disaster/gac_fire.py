@@ -40,9 +40,16 @@ openings the events vent through, in the record shape `soot_plume` and
 `quake_flow._b_face_pt` places the Flow emitters on the real façade plane).
 
 GLASS. The slicer cannot address a window, so `r_window_burnout` does
-nothing on a GAC piece. `darken_glass` binds the glass-material subsets of
-the pieces on the burning storeys to the void tone afterwards — black
-openings, which is what a burnt-out floor reads as from a drone.
+nothing on a GAC piece (it says so and returns, `soot_prebaked` being a
+set/frozenset). `damage_windows` (`darken_glass` is now an alias) treats the
+merged asset's own measured window ISLANDS instead, per window rather than
+per whole material subset: a hot-side window in the fire's own band is
+burnt out to a real see-through hole; one storey above the band, and any
+band-or-above storey on a side that neighbours a hot one, is crazed —
+sooted, dark, semi-transparent, still glazed; everything else keeps its
+glass. `burn_gac` tops up its own `fit_storeys` so there is a gutted floor
+and its fallen debris behind a hole that is now something you can see
+through, not just an opaque void tone.
 """
 
 import hashlib
@@ -171,7 +178,7 @@ def window_rects(stage, src, glass_tex=None, planes=None):
             continue
         start = np.concatenate([[0], np.cumsum(counts)[:-1]])
         for sub in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)):
-            if not any(g in _tex(sub.GetPrim()).lower() for g in glass_tex):
+            if not gsl.is_glazing(_tex(sub.GetPrim()), glass_tex):
                 continue
             for f in (sub.GetIndicesAttr().Get() or []):
                 f = int(f)
@@ -270,17 +277,112 @@ def _islands(boxes, cell=ISLAND_CELL_M):
 # ---------------------------------------------------------------------------
 # The mass box and the openings provider
 # ---------------------------------------------------------------------------
-def mass_from_grid(g, bbox):
+def mass_from_grid(g, bbox, mesh=None):
     """A `quake_flow`-shaped mass dict for the merged asset, in the CELL
-    frame (the asset is centred on the cell by `place_source`)."""
+    frame (the asset is centred on the cell by `place_source`).
+
+    `top` is the bbox z1 -- the highest point ANYTHING on the roof reaches,
+    which is the parapet coping, not the deck. `deck_z` is the real roof
+    surface everything should sit ON (row-2 review, 2026-08-30: "floating
+    roof props and also floating debris"); every roof consumer downstream
+    reads `m.get("deck_z", m["top"])` so the kit path (whose masses carry no
+    `deck_z`) is untouched.
+
+    MEASUREMENT, when `mesh` (`gac_storey_slice.read_mesh`'s de-indexed dict:
+    `P` per face-corner, `tris` = `arange(len(P)).reshape(-1, 3)`) is given:
+    among its upward-facing triangles (normal z > 0.8) whose centroid falls
+    in the top 15% of the building height, bin z by triangle AREA in 0.2 m
+    steps.
+
+    THE GLOBAL BIGGEST BIN IS THE WRONG BIN. A GAC mesh's "fake interior"
+    carries a visible floor plate at EVERY storey, so the top-15% window on a
+    tall building holds several near-identical big-area bins spaced one
+    storey apart, not just one (measured, `tools/gac_deck_probe.py`
+    diagnostics, 2026-08-30: SM_Building_12 repeats a ~1724 m2 slab bin every
+    ~4.6 m for four storeys inside the window). Taking the single largest bin
+    in the whole window is a coin flip across those repeats -- it landed on
+    one two storeys down and reported a 14.9 m parapet, obvious nonsense for
+    a coping. What is reliable: walking DOWN from the bbox top, the first bin
+    that is actually roof-sized -- area >= 20% of the plan footprint (`W *
+    D`) -- IS the deck, because a thin coping/parapet ring (perimeter x wall
+    thickness) never gets close to that fraction of the full plan. Bins
+    thinner than that, from the top down to the deck bin, are the parapet.
+    Falls back to the single largest bin in the window if nothing clears the
+    threshold (an irregular roof with no flat majority), and to `top` itself
+    when `mesh` is None or nothing in it qualifies at all; `deck_note`
+    records which case fired, for `tools/gac_deck_probe.py`.
+    """
     (x0, y0, z0), (x1, y1, z1) = bbox
     floors = list(g.get("storeys") or [])
     levels = sorted(z for z in floors if z0 - 1e-6 <= z < z1 - 0.5)
     if not levels or levels[0] > z0 + 0.5:
         levels = [z0] + levels
+    deck_z, deck_note = float(z1), "no mesh given, falling back to top"
+    P = mesh.get("P") if mesh is not None else None
+    tris = mesh.get("tris") if mesh is not None else None
+    if P is not None and tris is not None and len(tris):
+        V0, V1, V2 = P[tris[:, 0]], P[tris[:, 1]], P[tris[:, 2]]
+        cross = np.cross(V1 - V0, V2 - V0)
+        ln = np.linalg.norm(cross, axis=1)
+        ok = ln > 1e-9
+        nz = np.zeros(len(tris))
+        nz[ok] = cross[ok, 2] / ln[ok]
+        area = 0.5 * ln
+        zc = (V0[:, 2] + V1[:, 2] + V2[:, 2]) / 3.0
+        H = float(z1 - z0)
+        band = float(z1) - 0.15 * H
+        up = ok & (nz > 0.8) & (zc >= band)
+        if up.any():
+            zc_u, area_u = zc[up], area[up]
+            bw = 0.2
+            b0 = float(zc_u.min())
+            idx = np.floor((zc_u - b0) / bw).astype(int)
+            nbin = int(idx.max()) + 1
+            bin_area = np.zeros(nbin)
+            bin_zw = np.zeros(nbin)
+            np.add.at(bin_area, idx, area_u)
+            np.add.at(bin_zw, idx, area_u * zc_u)
+            nz_bins = np.nonzero(bin_area > 1e-6)[0]
+            if len(nz_bins):
+                thresh = 0.2 * float(x1 - x0) * float(y1 - y0)
+                order = nz_bins[::-1]          # highest z first
+                deck_bin = None
+                for b in order:
+                    if bin_area[b] >= thresh:
+                        deck_bin = int(b)
+                        break
+                top_bin = int(order[0])
+                if deck_bin is None:
+                    # NOTHING IN THE WINDOW READS AS A FULL PLATEAU -- an
+                    # irregular roof (a lantern, a sawtooth). Fall back to
+                    # the old rule (biggest bin in the window) rather than
+                    # leave `deck_z` at the bbox top.
+                    deck_bin = int(nz_bins[np.argmax(bin_area[nz_bins])])
+                    deck_z = float(bin_zw[deck_bin] / bin_area[deck_bin])
+                    deck_note = ("no bin reached the {0:.0f} m2 plateau "
+                                "threshold (20% of the {1:.0f} x {2:.0f} m "
+                                "footprint); used the largest available bin "
+                                "instead".format(thresh, x1 - x0, y1 - y0))
+                elif deck_bin == top_bin:
+                    deck_z = float(bin_zw[deck_bin] / bin_area[deck_bin])
+                    deck_note = "no separate parapet -- top bin is already a full plateau"
+                else:
+                    deck_z = float(bin_zw[deck_bin] / bin_area[deck_bin])
+                    par_z = float(bin_zw[top_bin] / bin_area[top_bin])
+                    deck_note = ("parapet coping excluded (its bin at "
+                                "z={0:.2f}, {1:.1f} m2 < {2:.0f} m2 "
+                                "threshold)".format(par_z, bin_area[top_bin],
+                                                    thresh))
+            else:
+                deck_note = "no area in top-15% band after binning (shouldn't happen)"
+        else:
+            deck_note = "no upward face (normal z > 0.8) in top 15% of height"
+    elif mesh is not None:
+        deck_note = "mesh had no usable P/tris"
     return {"tag": "main", "cx": 0.5 * (x0 + x1), "cy": 0.5 * (y0 + y1),
             "yaw": 0.0, "W": float(x1 - x0), "D": float(y1 - y0),
-            "z0": float(z0), "top": float(z1), "levels": levels,
+            "z0": float(z0), "top": float(z1), "deck_z": deck_z,
+            "deck_note": deck_note, "levels": levels,
             "module": float(((g.get("bays") or {}).get("E") or {}).get("pitch")
                             or 4.0),
             "spec": {"bands": []}}
@@ -544,21 +646,119 @@ def uf_side_neighbours(side):
     return (ring[i - 1], ring[(i + 1) % 4])
 
 
-def darken_glass(stage, ctx, pls, sooted=None, glass_tex=None):
-    """Glass subsets of the pieces on the burning storeys -> the void tone:
-    the slicer cannot burn a window out, so the panes go black instead.
-    A subset already rebound to a sooted copy samples a `gacsoot_*.png`, so
-    the ORIGINAL texture is looked up through `sooted["_png"]` before the
-    glass-name test."""
+_SIDES4 = ("S", "E", "N", "W")
+
+
+def _piece_sides(side_tag):
+    """Every cardinal side of `_SIDES4` a piece's `_side` tag touches.
+
+    MEASURED (`tools/gac_burn_probe.py`'s window census, 2026-08-30), not
+    assumed: `gac_storey_slice.as_placements` writes THREE different shapes
+    into `p["_side"]`, and the first pass here only handled one of them —
+    every corner and every merged-band piece on SM_Building_03 F1 kept its
+    plain glazing untouched, all the way through the fire's own origin
+    storey, because none of them ever passed the old `side.split("x")` test:
+
+      * a plain run: one of `_SIDES4` already ("S", "E", "N", "W");
+      * a RING corner (`_cut`'s own `("SW", ...), ("SE", ...), ("NW", ...),
+        ("NE", ...)`): two compass letters, no separator at all — the
+        `_darken_glass_legacy` comment's "'SxE'" describes a DIFFERENT
+        corner convention (`urban_building`'s kit pieces) that never
+        applied to a GAC region cut;
+      * a MERGED band (`slice_to_kit`'s `merged_lower`/`merged_upper`,
+        everything below the fire's origin or above its `region["top"]`
+        collapsed to one piece): the literal string `"x"` — the WHOLE
+        perimeter in one mesh, touching every side at once.
+
+    A tag this function does not recognise is treated the same as the
+    merged-band case (every side) rather than excluded — the OUTER filter
+    this feeds is only ever a cheap skip ahead of the real, per-FACE side
+    test (nearest wall line, inside `damage_windows`'s own loop), so the
+    failure mode of guessing too WIDE here is a few extra faces checked and
+    discarded; guessing too NARROW is a window silently left untreated,
+    which is the bug this function exists to stop happening again."""
+    t = str(side_tag or "")
+    if t in _SIDES4:
+        return {t}
+    parts = [c for c in t.replace("-", "x").split("x") if c]
+    hit = set(c for c in parts if c in _SIDES4) if len(parts) > 1 else set()
+    if not hit:
+        hit = set(c for c in t if c in _SIDES4)   # compass corner, e.g. "SW"
+    return hit or set(_SIDES4)                     # unrecognised -> every side
+
+
+def _storey_of(z, levels):
+    """Storey index of world height `z` on a `levels` list (storey i's floor
+    at `levels[i]`) — the convention `openings_provider` counts by."""
+    st = 0
+    for i, lv in enumerate(levels):
+        if z >= lv - 0.05:
+            st = i
+    return st
+
+
+def _match_island(side, u, z, rects, pad=0.15):
+    """The window ISLAND (u0, u1, z0, z1) on `side` that (u, z) falls in —
+    `pad` metres of slack for a face centroid that sits a little inside the
+    frame rather than dead centre on the glass — or None."""
+    for box in (rects or {}).get(side, ()):
+        u0, u1, z0, z1 = box
+        if u0 - pad <= u <= u1 + pad and z0 - pad <= z <= z1 + pad:
+            return box
+    return None
+
+
+def _window_materials(stage, cell):
+    """The two GAC-only window looks `damage_windows` binds.
+
+    Both use the `enable_opacity` / `opacity_threshold=0` / `opacity_mode=0`
+    OmniPBR recipe `urban_fire.materials`'s glass-deposit bands already use:
+    a genuine per-pixel cutout on a bench that passes `--/rtx/raytracing/
+    fractionalCutoutOpacity` (`gac_fire_bench_launch_script.KIT_ARGS` does),
+    a binary cutout — opaque at 1, a real hole at exactly 0, no fractional
+    blend — everywhere else (`wall_overlay`'s own note on the same flag).
+    `burnt` is authored at exactly 0 for that reason: a fully burnt-out pane
+    is meant to read as a hole on EITHER renderer state, not only the one
+    with the flag on."""
+    from pxr import Sdf, UsdShade
+    from . import damage as dmg
+
+    scope = cell + "/GacWinLooks"
+
+    def _mk(name, rgb, rough, opacity):
+        path = scope + "/" + name
+        m = UsdShade.Material.Get(stage, path)
+        if m and m.GetPrim().IsValid():
+            return m
+        m = dmg._pbr(stage, path, rgb, rough)
+        sh = UsdShade.Shader.Get(stage, m.GetPath().AppendChild("Shader"))
+        if sh:
+            sh.CreateInput("enable_opacity", Sdf.ValueTypeNames.Bool).Set(True)
+            sh.CreateInput("opacity_constant",
+                          Sdf.ValueTypeNames.Float).Set(float(opacity))
+            sh.CreateInput("opacity_threshold",
+                          Sdf.ValueTypeNames.Float).Set(0.0)
+            sh.CreateInput("opacity_mode", Sdf.ValueTypeNames.Int).Set(0)
+        return m
+
+    return {
+        # fully cut: a burnt-out pane is a hole, not a dark pane
+        "burnt": _mk("burnt", (0.008, 0.007, 0.006), 0.90, 0.0),
+        # sooted, cracked, still glazed: dark and half gone, not a hole
+        "crazed": _mk("crazed", (0.026, 0.029, 0.029), 0.78, 0.6),
+    }
+
+
+def _darken_glass_legacy(stage, ctx, pls, sooted=None, glass_tex=None):
+    """`darken_glass`'s ORIGINAL behaviour, kept verbatim for any call site
+    that has not been updated to pass `damage_windows` the measured window
+    islands (`rects`/`mass`): the whole glass subset of every piece on the
+    burning storeys/sides -> the void tone, with no per-window split."""
     from detail import gac_slice as gsl
     from pxr import Usd, UsdGeom, UsdShade
 
     glass_tex = glass_tex or gsl.GLASS_TEX
     band = set(int(s) for s in ctx["fire"]["storeys"])
-    # ON THE BURNING ELEVATIONS ONLY. Filtering by storey alone blacked out
-    # the panes of every piece in the band all the way round the building —
-    # black windows on a cold elevation, the "random black rectangles on the
-    # other side" the user already refused once (2026-08-30).
     hot = set(ctx["fire"]["sides"])
     for sd in list(hot):
         hot.update(uf_side_neighbours(sd))
@@ -600,10 +800,188 @@ def darken_glass(stage, ctx, pls, sooted=None, glass_tex=None):
                 else:
                     _sp, _inp, tex = _diffuse_of(cur.GetPrim())
                 tex = back.get(tex, tex)
-                if tex and any(g in tex.rsplit("/", 1)[-1].lower() for g in glass_tex):
+                if tex and gsl.is_glazing(tex, glass_tex):
                     UsdShade.MaterialBindingAPI(s.GetPrim()).Bind(mat)
                     n += 1
     return n
+
+
+def damage_windows(stage, ctx, pls, rects=None, mass=None, sooted=None,
+                   glass_tex=None):
+    """Per-WINDOW glazing treatment on the burning elevations of a sliced
+    GAC building — a burnt-out pane is now a real hole, not a blacked-out
+    subset (`darken_glass`'s old, whole-subset behaviour: see
+    `_darken_glass_legacy`, still reachable with the old call signature).
+
+    Three states, decided per WINDOW ISLAND (`rects`, `window_rects`'
+    measured (u0, u1, z0, z1) boxes, matched to each face by its own
+    centroid) rather than per material subset — a subset is typically ONE
+    material for a whole elevation, and a corner piece's single "glass"
+    subset covers windows on BOTH of its faces, so binding the whole subset
+    one way put a hot-side window's treatment on its cold-side neighbour too
+    (the exact "rectangles" / "random black windows on a cold elevation"
+    failure `darken_glass` already had to stop once, 2026-08-30):
+
+      * BURNT OUT (`mats["burnt"]`, opacity 0, a real hole) — a hot-side
+        window whose storey is in the fire's own band.
+      * CRAZED / SMOKED (`mats["crazed"]`, opacity ~0.6, dark, still glazed)
+        — a hot-side window one storey above the band, or any window in the
+        band or one above it on a side that NEIGHBOURS a hot one (the same
+        corner bleed `uf_side_neighbours` already modelled for the old
+        whole-subset bind).
+      * left alone everywhere else: whatever the sooted-atlas bake already
+        bound it to, or the asset's own glass.
+
+    A subset that ends up split has its face list SHRUNK to the faces that
+    keep their existing binding, and one new partition-family GeomSubset
+    per treatment is added alongside it with the reassigned faces — faces
+    are exclusive to one subset, so the shrink is what keeps the partition
+    honest.
+
+    `rects`/`mass` are `prepare()`'s own `pre["rects"]`/`pre["mass"]` — the
+    caller passes them explicitly because `ctx` does not carry them yet
+    (`ctx["gac"]` is only assembled by `burn_gac` AFTER this returns).
+    Either omitted (any call site still on `darken_glass`'s original
+    signature) falls back to `_darken_glass_legacy`, unchanged."""
+    if rects is None or mass is None:
+        return _darken_glass_legacy(stage, ctx, pls, sooted=sooted,
+                                    glass_tex=glass_tex)
+
+    from detail import gac_slice as gsl
+    from pxr import Usd, UsdGeom, UsdShade, Vt
+
+    glass_tex = glass_tex or gsl.GLASS_TEX
+    fire = ctx["fire"]
+    W, D = float(mass["W"]), float(mass["D"])
+    cx, cy = float(mass["cx"]), float(mass["cy"])
+    levels = list(mass["levels"])
+    n_st = len(levels)
+    band = set(int(s) for s in fire["storeys"])
+    top_band = int(fire["top"])
+    above_st = top_band + 1 if top_band + 1 < n_st else None
+    hot_sides = set(fire["sides"])
+    bleed_sides = set()
+    for sd in hot_sides:
+        bleed_sides.update(uf_side_neighbours(sd))
+    bleed_sides -= hot_sides
+    relevant_sides = hot_sides | bleed_sides
+
+    mats = _window_materials(stage, ctx["parent"])
+    back = {}
+    for k, v in ((sooted or {}).get("_png") or {}).items():
+        if "/" in k and not k.startswith("/World") and "://" in k:
+            back[v] = k
+    orig_of = {}
+    for key, cm in (ctx.get("soot_mats") or {}).items():
+        try:
+            orig_of[str(cm.GetPrim().GetPath())] = key[0]
+        except Exception:
+            continue
+
+    n_burnt = n_crazed = 0
+    for p in pls:
+        if p.get("dead"):
+            continue
+        sides_here = _piece_sides(p.get("_side", ""))
+        if not (sides_here & relevant_sides):
+            continue
+        prim = stage.GetPrimAtPath(p["prim_path"]) if p.get("prim_path") else None
+        if not prim or not prim.IsValid() or not prim.IsActive():
+            continue
+        for meshp in Usd.PrimRange(prim):
+            if not meshp.IsA(UsdGeom.Mesh):
+                continue
+            me = UsdGeom.Mesh(meshp)
+            pts = me.GetPointsAttr().Get()
+            if not pts:
+                continue
+            P = np.asarray(pts, dtype=np.float64)
+            counts = np.asarray(me.GetFaceVertexCountsAttr().Get() or [],
+                                dtype=np.int64)
+            fvi = np.asarray(me.GetFaceVertexIndicesAttr().Get() or [],
+                             dtype=np.int64)
+            if not len(counts) or len(fvi) != int(counts.sum()):
+                continue
+            start = np.concatenate([[0], np.cumsum(counts)[:-1]])
+            for sub in list(UsdGeom.Subset.GetAllGeomSubsets(
+                    UsdGeom.Imageable(meshp))):
+                cur = UsdShade.MaterialBindingAPI(
+                    sub.GetPrim()).ComputeBoundMaterial()[0]
+                if not cur or not cur.GetPrim().IsValid():
+                    continue
+                cpath = str(cur.GetPrim().GetPath())
+                if cpath in orig_of:
+                    op = stage.GetPrimAtPath(orig_of[cpath])
+                    _sp, _inp, tex = (_diffuse_of(op)
+                                     if op and op.IsValid() else
+                                     (None, None, None))
+                else:
+                    _sp, _inp, tex = _diffuse_of(cur.GetPrim())
+                tex = back.get(tex, tex)
+                if not tex or not gsl.is_glazing(tex, glass_tex):
+                    continue
+                idx = [int(f) for f in (sub.GetIndicesAttr().Get() or [])]
+                if not idx:
+                    continue
+                burnt_f, crazed_f, keep_f = [], [], []
+                for f in idx:
+                    if f >= len(counts):
+                        keep_f.append(f)
+                        continue
+                    vids = fvi[start[f]:start[f] + counts[f]]
+                    cen = P[vids].mean(axis=0)
+                    dist = (abs(cen[1] - cy + D / 2.0),
+                           abs(cen[0] - cx - W / 2.0),
+                           abs(cen[1] - cy - D / 2.0),
+                           abs(cen[0] - cx + W / 2.0))
+                    side = _SIDES4[int(np.argmin(dist))]
+                    if side not in relevant_sides:
+                        keep_f.append(f)
+                        continue
+                    u = cen[0] if side in ("S", "N") else cen[1]
+                    z = float(cen[2])
+                    island = _match_island(side, u, z, rects)
+                    st = _storey_of(0.5 * (island[2] + island[3])
+                                    if island else z, levels)
+                    hot = side in hot_sides
+                    bleed = side in bleed_sides
+                    if hot and st in band:
+                        burnt_f.append(f)
+                    elif ((hot and above_st is not None and st == above_st)
+                         or (bleed and (st in band or st == above_st))):
+                        crazed_f.append(f)
+                    else:
+                        keep_f.append(f)
+                if not burnt_f and not crazed_f:
+                    continue
+                if keep_f:
+                    sub.GetIndicesAttr().Set(Vt.IntArray(keep_f))
+                else:
+                    sub.GetPrim().SetActive(False)
+                base_name = sub.GetPrim().GetName()
+                if burnt_f:
+                    bs = UsdGeom.Subset.CreateGeomSubset(
+                        me, base_name + "_burnt", UsdGeom.Tokens.face,
+                        Vt.IntArray(burnt_f), UsdShade.Tokens.materialBind,
+                        UsdGeom.Tokens.partition)
+                    UsdShade.MaterialBindingAPI.Apply(
+                        bs.GetPrim()).Bind(mats["burnt"])
+                    n_burnt += len(burnt_f)
+                if crazed_f:
+                    cs = UsdGeom.Subset.CreateGeomSubset(
+                        me, base_name + "_crazed", UsdGeom.Tokens.face,
+                        Vt.IntArray(crazed_f), UsdShade.Tokens.materialBind,
+                        UsdGeom.Tokens.partition)
+                    UsdShade.MaterialBindingAPI.Apply(
+                        cs.GetPrim()).Bind(mats["crazed"])
+                    n_crazed += len(crazed_f)
+    ctx["notes"].append(
+        "windows: {0} burnt out (see-through), {1} crazed/smoked -- "
+        "per-window, not per-subset".format(n_burnt, n_crazed))
+    return n_burnt + n_crazed
+
+
+darken_glass = damage_windows
 
 
 # ---------------------------------------------------------------------------
@@ -630,7 +1008,17 @@ def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
     g, measured = gss.grid_for(stage, src, bbox, wins, name=name, verbose=verbose)
     planes = {}
     rects = window_rects(stage, src, planes=planes)
-    m = mass_from_grid(g, bbox)
+    # THE MESH IS READ HERE, BEFORE THE MASS BOX, NOT AFTER. `mass_from_grid`
+    # measures the real roof-deck height (`deck_z`) off this same array's
+    # upward faces -- everything that sits "on the roof" downstream
+    # (`dress_roof_urban`, `_deck_slab`, `_rafter_teeth`, `r_roof_scorch`)
+    # reads `m.get("deck_z", m["top"])` in place of the bbox top, which is
+    # the parapet coping and can be well over a metre proud of the real deck
+    # (row-2 review, 2026-08-30: "floating roof props and also floating
+    # debris"). The bake below still runs on this same `mesh`; nothing else
+    # about it changes.
+    mesh = gss.read_mesh(stage, src, verbose=False)
+    m = mass_from_grid(g, bbox, mesh=mesh)
     n_st = len(m["levels"])
     btype = "urm" if m["top"] - m["z0"] <= 25.0 else "rc"
     info = {"style": style, "family": "01", "type": btype, "x": 0.0, "y": 0.0,
@@ -651,6 +1039,21 @@ def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
                                                   min(len(ranked), rng.randint(2, 4)))
         sides = tuple(ranked[:max(1, n_side)])
     fire = uf.plan_fire(info, level, rng, origin=origin, sides=sides)
+    # `deck_z` HAS TO RIDE ON `fire`, NOT ON `m`. `burn_building` never sees
+    # this `info`/`mass` dict again -- it rebuilds its own `ctx["info"]` from
+    # `quake_flow.describe(style, placements, ...)`, which measures a fresh
+    # mass box off the SLICED PIECES through `_mass_specs`/`register_style`
+    # and knows nothing about `deck_z` (measured, `_roof_seat_probe.py`:
+    # SM_Building_03 F1's `dress_roof_urban` read `m.get("deck_z", ...)` off
+    # that rebuilt mass and silently fell back to `top` every time). `fire`,
+    # by contrast, IS the same dict object `burn_building` copies verbatim
+    # into `ctx["fire"]` (`fire=fire` all the way through `burn_gac`), so
+    # stashing it here is the one channel that actually reaches the roof
+    # recipes. The kit path never sets this key (`plan_fire`'s own return
+    # never does), so `ctx["fire"].get("deck_z", m["top"])` there is
+    # unchanged.
+    fire["deck_z"] = m.get("deck_z")
+    fire["deck_note"] = m.get("deck_note")
     provider = openings_provider(rects, m, planes=planes)
     ctx0 = {"info": info, "fire": fire, "rng": rng, "tag": tag,
             "soot_openings": provider}
@@ -669,7 +1072,6 @@ def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
                       provider.count, fire["origin"], fire["storeys"][0],
                       fire["top"], "/".join(fire["sides"]),
                       spl.summarise(events)))
-    mesh = gss.read_mesh(stage, src, verbose=False)
     sooted = {}
     if mesh is not None and events:
         sooted = bake_atlases(stage, cell, mesh, sk, m,
@@ -756,7 +1158,54 @@ def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
     if "fire_collapse" in names:
         fit_storeys |= set(range(max(0, n_st - 2), n_st))
     if "partial_collapse" in names:
-        fit_storeys |= set(int(st) for st in fire["storeys"])
+        # NOT `fire["storeys"]` — THE STOREYS THE COLLAPSE ACTUALLY OPENS.
+        # The burning band runs from the fire's origin to the top of the
+        # block (SM_Building_05 F5c: 15 storeys, band 4-18, 2,500+ static
+        # fit-out prims), but `partial_collapse` only takes the shell away
+        # from its OWN failure line up, and everything under that line is
+        # behind an intact elevation exactly like the rest of the building —
+        # the "props nobody can see" this whole block exists to avoid.
+        # `plan_partial_collapse` is pure arithmetic on the same `fire` plan
+        # and the same measured mass box, so the failure line can be worked
+        # out HERE, before the slice, without authoring anything: `_kill`
+        # walks `info["elements"]`, which `prepare` leaves EMPTY, so the
+        # module-budget trim (the only step that can RAISE `s0`) cannot fire
+        # and the line comes back at or below the one the recipe will use.
+        # That makes this a superset of the storeys the recipe opens, never a
+        # subset. Two storeys below the lowest lost one are kept as well: the
+        # floor the wreckage lands on and the one under it are both in view
+        # through the hole.
+        from . import fire_collapse as fcol
+        kw_pc = {}
+        for _rn, _kw in uf.LADDER.get(pre["btype"], {}).get(level, []):
+            if _rn == "partial_collapse":
+                kw_pc = dict(_kw or {})
+        try:
+            _pc = fcol.plan_partial_collapse(
+                {"info": pre["info"], "fire": fire, "tag": tag}, **kw_pc)
+            _lo = max(0, int(_pc["s0"]) - 2)
+        except Exception as exc:                          # pragma: no cover
+            print("[gac_fire] partial-collapse fit-out plan failed ({0}); "
+                  "falling back to the whole burning band".format(exc))
+            _lo = min(int(st) for st in fire["storeys"])
+        fit_storeys |= set(range(_lo, n_st))
+    # THE BAND ITSELF, ON EVERY NON-COLLAPSE LEVEL, CAPPED AT FOUR STOREYS.
+    # `damage_windows` now burns a hot-side band window out to a real HOLE
+    # instead of an opaque void tone, so an F1-F4 building that never
+    # reaches the roof and never collapses used to show that hole onto
+    # NOTHING — `fit_storeys` stayed empty for every one of those levels,
+    # which stripped `gut_interior`/`expose_interior` out of the recipe list
+    # below even where `LADDER` calls for both (user review, 2026-08-30: the
+    # floor rubble the MCE kit path has never reached a GAC building).
+    # Capped, because `quake_flow.fit_interior`'s own per-storey cost (a
+    # furniture pool AND, on an `rc` frame, a full column grid, both sized
+    # off the WHOLE building footprint rather than one kit module) is not
+    # cheap on a merged asset. The LOWEST four of the band, nearest
+    # `origin`: a band tall enough to reach the roof is already covered up
+    # there by the roof/collapse rules above, so this rule's job is the part
+    # of the chimney those rules miss.
+    if level in ("F1", "F2", "F3", "F4"):
+        fit_storeys |= set(sorted(int(st) for st in fire["storeys"])[:4])
     # ...and with nothing open, `expose_interior`'s beams, catch floor and
     # floor rubble "behind the openings" are behind opaque glass too: run
     # the ladder without it (a recipe LIST is what `burn_building` takes in
@@ -765,20 +1214,31 @@ def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
     if not fit_storeys:
         recipes = [(n, kw) for n, kw in recipes
                    if n not in ("expose_interior", "gut_interior")]
+    elif level in ("F1", "F2", "F3", "F4"):
+        # F1's OWN LADDER HAS NEITHER RECIPE (a kit F1 is smoke damage over
+        # an intact façade — nothing to see behind it). The GAC F1 band now
+        # sees behind its glazing too, so top them up here rather than in
+        # the shared `LADDER`, which the kit path stays frozen against.
+        have = set(n for n, _kw in recipes)
+        if "gut_interior" not in have:
+            recipes = recipes + [("gut_interior", {"frac": 0.4})]
+        if "expose_interior" not in have:
+            recipes = recipes + [("expose_interior", {})]
     ctx = uf.burn_building(stage, cell, style, pls, 0.0, 0.0, 0.0, recipes, rng,
                            nrng, mats, tag, flow_root=flow_root,
                            origin=fire["origin"], sides=fire["sides"],
                            mat_cache=mat_cache, events=events,
                            openings_fn=provider, soot_prebaked=prebaked,
                            fire=fire, skin=pre["skin"], fit_storeys=fit_storeys)
-    n_glass = darken_glass(stage, ctx, pls, sooted=sooted)
+    n_glass = damage_windows(stage, ctx, pls, rects=pre["rects"],
+                             mass=pre["mass"], sooted=sooted)
     n_atlas = len(set(id(v) for k, v in sooted.items() if k != "_png"))
     ctx["gac"] = {"grid": pre["grid"], "events": events, "n_pieces": len(pls),
                   "n_atlases": n_atlas, "n_rebound": n_rebound,
                   "n_glass": n_glass, "mass": pre["mass"], "rects": pre["rects"],
                   "skin": pre["skin"]}
     ctx["notes"].append("gac: {0} piece(s), {1} sooted atlas(es), {2} subset(s) "
-                        "rebound, {3} glass subset(s) blacked out on the band, "
+                        "rebound, {3} window(s) burnt out / crazed on the band, "
                         "fit-out on {4} storey(s) ({5})"
                         .format(len(pls), n_atlas, n_rebound, n_glass,
                                 len(fit_storeys),

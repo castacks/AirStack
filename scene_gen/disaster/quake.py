@@ -284,13 +284,49 @@ def _dedupe_actions(entries):
     return best
 
 
-def load_manifest(arch_dir):
-    """{(style, level): record} from the bake's archetypes.json."""
-    path = os.path.join(arch_dir, "archetypes.json")
+def _arch_join(arch_dir, name):
+    """`<arch_dir>/<name>` for a local directory OR an `omniverse://` folder
+    (os.path.join would keep the URL intact too, but be explicit)."""
+    a = str(arch_dir)
+    if a.startswith("omniverse://"):
+        return a.rstrip("/") + "/" + name
+    return os.path.join(a, name)
+
+
+def _read_text(path):
+    """The text of a local file or of an `omniverse://` file (omni.client,
+    imported lazily so the host-side tests never need it)."""
+    if str(path).startswith("omniverse://"):
+        import omni.client as oc
+        r, _ver, content = oc.read_file(path)
+        if r != oc.Result.OK:
+            raise IOError("cannot read {0}: {1}".format(path, r))
+        return bytes(memoryview(content)).decode("utf-8")
     with open(path) as fh:
-        recs = json.load(fh)
+        return fh.read()
+
+
+def load_manifest(arch_dir):
+    """{(style, level): record} from the bake's archetypes.json.
+
+    Every record's `usd` is REBASED onto `arch_dir` by basename. The bake
+    writes `os.path.abspath(out)` — wherever it exported at the time, as a
+    CONTAINER path — and `assemble` references that string verbatim. The
+    library has since been renamed (`assets/archetypes_quake/` ->
+    `assets/archetype/`) and mirrored to Nucleus, so the recorded paths
+    named a directory that no longer existed and every damaged swap would
+    have referenced a missing file (found 2026-08-30, first Isaac run after
+    round 4). The manifest is the catalogue; `arch_dir` is where the files
+    are — the caller chose it, so it wins. Works for a local directory and
+    for an `omniverse://` folder (the manifest is read through omni.client).
+    """
+    recs = json.loads(_read_text(_arch_join(arch_dir, "archetypes.json")))
     out = {}
     for r in recs:
+        r = dict(r)
+        u = r.get("usd")
+        if u:
+            r["usd"] = _arch_join(arch_dir, os.path.basename(str(u)))
         out[(r["style"], r["level"])] = r
     return out
 

@@ -66,7 +66,29 @@ import os
 # glass does. It is deliberately NOT shared with
 # `urban_fire._MONO_GLASS_TEX`, which classifies a part as glazing for
 # shading and would be wrong to widen.
-GLASS_TEX = ("glass", "window", "curtain", "glazing", "win")
+GLASS_TEX = ("glass", "window", "curtain", "glazing", "win",
+             # PAINTED WINDOWS ARE WINDOWS TOO. 10 of the 12 GreatAmericanCity
+             # towers (SM_Building_10/12/13/18/21/22/23/25/27/28) carry no glass
+             # mesh at all: their glazing bands are opaque faces bound to
+             # `M_Fake_Interior_0N`, `M_Fake_Light`, `M_Images_*_Off_Light` — a
+             # background-LOD decal — so nothing found a window, no storey
+             # grid was measured from them and no fire was ever planned on a
+             # tower (probe sweep, 2026-08-30). Those faces are the openings.
+             "fake_interior", "fake_light", "off_light")
+# ...and an AWNING is not a window: "win" is in "awning", and the ground-floor
+# canopies of SM_Building_02/04 were being counted as glazing (and blacked
+# out on the band) because of it.
+GLASS_TEX_NOT = ("awning",)
+
+
+def is_glazing(tex_name, glass_tex=None):
+    """Does this base-map file name belong to a window / curtain-wall /
+    painted-window material? Keyword match on the basename, minus the
+    `GLASS_TEX_NOT` false friends."""
+    low = str(tex_name or "").rsplit("/", 1)[-1].lower()
+    if not low or any(n in low for n in GLASS_TEX_NOT):
+        return False
+    return any(g in low for g in (glass_tex or GLASS_TEX))
 # Candidate floor-to-floor heights, metres. Real buildings sit inside this;
 # outside it a "period" is a window mullion or a whole massing band.
 PERIOD_RANGE = (2.6, 5.4)
@@ -223,7 +245,7 @@ def window_centres(stage, prim_path, glass_tex=GLASS_TEX):
             continue
         start = np.concatenate([[0], np.cumsum(counts)[:-1]])
         for sub in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)):
-            if not any(g in _tex(sub.GetPrim()).lower() for g in glass_tex):
+            if not is_glazing(_tex(sub.GetPrim()), glass_tex):
                 continue
             for f in (sub.GetIndicesAttr().Get() or []):
                 f = int(f)

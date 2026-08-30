@@ -184,6 +184,79 @@ STREAK_STRETCH = 14.0
 STREAK_M = 0.6          # lick width
 TONE_NOISE_M = 0.8      # the colour of a saturated deposit varies at this scale
 
+# ---------------------------------------------------------------------------
+# BURN ZONES — where a caller KNOWS flame was on the wall
+# ---------------------------------------------------------------------------
+# The plume model above is driven by OPENINGS: a compartment vents through a
+# window, the flame licks up over its head, the ceiling jet deposits soot. It
+# has no way of knowing that the wall itself has gone. When part of a burnt
+# shell comes down (`disaster/fire_collapse.py`, level F5c) the compartment is
+# open over the whole area of the lost wall, and everything round the lip of
+# that hole has had flame directly on it — "any parts directly near where the
+# building collapsed (up, left, down, right, anything) would have been flamed
+# and scorched", the user's own review of the ModernCityEnvironment F5c,
+# 2026-08-30.
+#
+# `skin(burn_zone=[(side, u0, u1, z0, z1), ...])` is how a caller says so. It
+# is applied to the DEPOSIT MAP, not bound per module, for the reason bug 5 of
+# `build-urban-fire-scenes` gives: a flat dark bind on a module is a black
+# rectangle by construction however good the texture on it is. Here the zone's
+# own boundary is wandered by the skin's mottle and streak noise — the same
+# two fields the deposit is modulated by — so it crosses module seams on an
+# irregular line and there is no rectangle anywhere in it.
+#
+# CALIBRATED AGAINST THE CHAR TEXTURES, 2026-08-30 (third review round: "the
+# material of the broken/debris part is a much darker colour than the intact
+# façade next to it — match it"). The zone and the char maps on the broken
+# pieces meet along the lip of the hole, so they have to be the same TONE or
+# the seam between them is the rectangle the tearing was supposed to remove.
+# MEASURED, mean rendered luminance as an sRGB grey:
+#
+#   the char set as bound (`urban_fire._URBAN_MAPS` x `_BURN_BRIGHTNESS`)
+#     `_debris_mat`  0.72 Burn_Char_Ref + 0.28 Burn_Ash_Over_Char    0.148
+#     `_burn_mat(finish="ash", sev>=0.75)`  Ash_Over_Char x 0.55     0.135
+#     -> the set                                                    0.141
+#   a real sooted GAC atlas (40 of `assets/materials/soot/gacsoot_*.png`)
+#     clean end (p90) 0.257 | mean 0.223 | sooted end (p10) 0.129
+#   the skin over a mid brick (base 0.257), in the zone's own pixels
+#     plume only, no zone                                           0.108
+#     ZONE_ALPHA (0.85, 0.95) / ZONE_TONE 0.85   <- what shipped     0.050
+#     ZONE_ALPHA (0.58, 0.74) / ZONE_TONE 0.10   <- now              0.082
+#
+# So the old zone was 0.091 DARKER than the char it butts against; it is now
+# 0.059, inside the 0.06 the review allowed. THE FLOOR IS NOT THIS CONSTANT:
+# `skin` takes `max(plume_alpha, zone x za)`, and the plume's own deposit is
+# already saturated over most of the zone (mean alpha 0.834 there with the
+# zone off), so dropping `ZONE_ALPHA` further only stops lifting the patches
+# the plume missed — which is the one thing the zone is for. The residual
+# 0.059 is the plume, and closing it would mean `SOOT_DARK` / `SOOT_ASH`,
+# which every level shares (the kit look is frozen) — and which are LINEAR
+# albedo composited by `merge_rgb` straight into an sRGB-encoded base map, so
+# a saturated deposit renders about 2.4x darker than the constant reads.
+# Measured with `zone_lum`/`zone_sweep` (scratch) through the real
+# `plan_partial_collapse` -> `burn_zone_rects` -> `skin` path on
+# `commercial_mid` F5c.
+#
+# Alpha inside a zone, before the streak's own thickness variation.
+ZONE_ALPHA = (0.58, 0.74)
+# The soft edge, in metres, per pixel: the low end plus the mottle. A hard
+# edge is the artefact; a ramp longer than a module blurs the zone into the
+# plume and stops reading as "flame came out of here".
+ZONE_RAMP_M = (1.5, 2.5)
+# How far the streak noise wanders the boundary, as a share of the local ramp.
+ZONE_EDGE_WANDER = 0.5
+# How far the tone is driven to the CHAR end inside the zone (1.0 = pure
+# `SOOT_DARK`). Flame contact chars; it does not leave the pale ash a
+# smouldering compartment does — but 0.85 drove the lip of the hole to almost
+# pure `SOOT_DARK` while the burnt-out shell round it (`FINISH["F5c"]` is
+# "ash", `ASH_LEVEL` 0.55) stayed a cooled grey and the char maps on the
+# broken pieces sat lighter still, which is the discontinuity the third
+# review picked out. A small push now: the zone is a statement about
+# COVERAGE — flame reached this wall, none of it is pristine — not an excuse
+# to make one band of the elevation the darkest thing in the frame. See the
+# measurement by `ZONE_ALPHA`.
+ZONE_TONE = 0.10
+
 # The canvas
 PX_PER_M = 40.0
 MAX_W_PX, MAX_H_PX = 4096, 2048
@@ -579,9 +652,35 @@ def plan_events(ctx, severity, rng=None, max_active=FLAME_BUDGET_OPENINGS,
     if level == "F1":
         side = sides[0]
         ops = groups.get((side, origin)) or next(iter(groups.values()))
-        for r in _runs(ops, rng, 0.25 if len(ops) > 4 else 0.5,
-                       run_len=(1, 2))[:2]:
+        stain_runs = _runs(ops, rng, 0.25 if len(ops) > 4 else 0.5,
+                           run_len=(1, 2))[:2]
+        used = set()
+        for r in stain_runs:
             add(r, side, origin, "stain", tau0, 0.5)
+            used.update(id(o) for o in r)
+        # ONE SMOULDER EVENT — GAC ONLY. `ctx["soot_openings"]` is set only
+        # by `gac_fire.prepare` (the merged-asset path); a kit building's F1
+        # plan is exactly the stain-only list `urban_fire.check_soot_events`
+        # checks (invariant B: no `flame` state at F1 — a `smoulder` state
+        # never trips it), so the frozen kit look is untouched here. F1 has
+        # no `flames` recipe at all, so nothing ever gave it a live Flow
+        # source, and its own `DURATION_S` (~4 minutes at `heavy=0.45`,
+        # `urban_fire.LADDER`) barely deposits enough to read from a drone
+        # on its own ("no smoke, no visible damage at 30 m", user review,
+        # 2026-08-30). A `smoulder` event is data a caller that walks
+        # individual event states (rather than the building-level `fire
+        # ["state"]`, which stays `None` for F1 by design — see `urban_fire.
+        # ACTIVE`, and both `r_flames` and `fire_assembly_launch_script.
+        # place_fire` gate on exactly that before they ever look at one) can
+        # use to seat a lazy smoke wisp; either way it deposits its own soot
+        # on the skin, which is the part this module can actually verify.
+        # Picks an opening the stain runs above did not already use, so the
+        # wisp marks a SECOND window rather than doubling up on soot already
+        # deposited on the first.
+        if ctx.get("soot_openings") is not None:
+            remaining = [o for o in ops if id(o) not in used]
+            pick = remaining[:1] or (stain_runs[0] if stain_runs else ops[:1])
+            add(pick, side, origin, "smoulder", tau0 * 0.85, 0.55)
     elif level == "F2":
         for side in sides:
             ops = groups.get((side, origin))
@@ -870,7 +969,50 @@ def canvas_dims(m):
     return h, w, ppm, per, H
 
 
-def skin(ctx, events, nrng, finish="char", glass=False, duration_scale=1.0):
+def zone_field(rects, h, w, ppm, per, H, z0, offsets):
+    """Signed distance (metres, POSITIVE inside) from the nearest burn-zone
+    boundary, over the whole unwrapped skin canvas.
+
+    `rects` are `(side, u0, u1, z_world_lo, z_world_hi)` in `side_u` metres,
+    the same coordinates `piece_crop` addresses columns in; columns wrap round
+    the perimeter, so a zone that straddles a corner is one zone and not two.
+    Row 0 is the TOP of the canvas, as everywhere else here.
+    """
+    U = (np.arange(w, dtype=np.float32) + 0.5) / float(ppm)
+    Z = float(H) - (np.arange(h, dtype=np.float32) + 0.5) / float(ppm)
+    d = np.full((h, w), -1.0e9, dtype=np.float32)
+    for r in rects:
+        side, u0, u1, za, zb = r[0], float(r[1]), float(r[2]), float(r[3]), float(r[4])
+        off = float(offsets[side])
+        a, b = off + min(u0, u1), off + max(u0, u1)
+        du = None
+        for shift in (-float(per), 0.0, float(per)):
+            q = np.minimum(U - (a + shift), (b + shift) - U)
+            du = q if du is None else np.maximum(du, q)
+        dz = np.minimum(Z - (za - float(z0)), (zb - float(z0)) - Z)
+        d = np.maximum(d, np.minimum(du[None, :], dz[:, None]))
+    return d
+
+
+def zone_cover(rects, h, w, ppm, per, H, z0, offsets, mottle, streak):
+    """0..1 coverage of the burn zones, with a per-pixel ramp
+    (`ZONE_RAMP_M`) whose boundary is wandered by the skin's own streak
+    noise — so the edge of the zone is as irregular as the soot on it.
+
+    Takes NO draws of its own: `mottle` and `streak` are the fields the
+    deposit is already modulated by, which is also why the zone's mottling
+    lines up with the wash it is sitting in instead of fighting it.
+    """
+    ramp = (ZONE_RAMP_M[0]
+            + (ZONE_RAMP_M[1] - ZONE_RAMP_M[0]) * mottle).astype(np.float32)
+    d = zone_field(rects, h, w, ppm, per, H, z0, offsets)
+    d = d + ZONE_EDGE_WANDER * ramp * (2.0 * streak - 1.0)
+    t = np.clip((d + ramp) / np.maximum(1e-6, ramp), 0.0, 1.0)
+    return (t * t * (3.0 - 2.0 * t)).astype(np.float32)
+
+
+def skin(ctx, events, nrng, finish="char", glass=False, duration_scale=1.0,
+         burn_zone=None):
     """The building's soot as RGBA, unwrapped S|E|N|W around the burning
     mass. Returns a dict: `rgba` (h x w x 4, float32, row 0 = top), `dep`
     (g/m2, after the multiplicative noise), `dep_raw` (before it — the pure
@@ -880,6 +1022,15 @@ def skin(ctx, events, nrng, finish="char", glass=False, duration_scale=1.0):
     `glass=True` hardens the alpha into a FILM (a curtain wall's soot is an
     opaque coat on glass or nothing, not a translucent wash) — the
     replacement for `r_smoke_stain`'s old flat-tone bind on towers.
+
+    `burn_zone` is a list of `(side, u0, u1, z_lo, z_hi)` rectangles in
+    `side_u` metres and world z where the caller KNOWS flame was on the wall —
+    at present only `fire_collapse.r_partial_collapse`, round the lip of the
+    hole a partial collapse opens (see the BURN ZONES note by `ZONE_ALPHA`).
+    Inside one, alpha is raised toward 0.85-0.95 and the tone is driven to the
+    char end, over a noise-wandered ramp. `None` (the default) is a strict
+    no-op: nothing above is touched, no extra draw is taken from `nrng`, and
+    the returned maps are bit-for-bit what they were.
     """
     mtag = ctx["fire"]["mass"]
     m = ctx["info"]["masses"][mtag]
@@ -924,10 +1075,24 @@ def skin(ctx, events, nrng, finish="char", glass=False, duration_scale=1.0):
         t = np.clip((lg + 2.0) / 2.3, 0.0, 1.0)             # 1e-2 .. 2 x sat
         alpha = (t * t * (3.0 - 2.0 * t)) * (0.92 + 0.08 * mottle)
 
+    # THE BURN ZONE. After the deposit map and its noise, before the tone: the
+    # zone is a statement about how much soot is there, so it belongs on
+    # alpha, and it reuses `mottle` / `streak` rather than drawing new fields
+    # (which would move every later draw off `nrng` and break the no-op).
+    zone = None
+    if burn_zone:
+        zone = zone_cover(burn_zone, h, w, ppm, per, H, z0,
+                          perimeter_offsets(m)[0], mottle, streak)
+        za = ((ZONE_ALPHA[0] + (ZONE_ALPHA[1] - ZONE_ALPHA[0]) * mottle)
+              * (0.94 + 0.06 * streak))
+        alpha = np.maximum(alpha, zone * za)
+
     lo, hi = _band(TONE_NOISE_M, ppm)
     tone = _noise(nrng, h, w, beta=2.2, lo=lo, hi=hi)
     ash = ASH_LEVEL.get(finish, 0.25)
     t = np.clip(ash * (0.35 + 0.9 * tone), 0.0, 1.0)[..., None]
+    if zone is not None:
+        t = t * (1.0 - ZONE_TONE * zone[..., None])
     dark = np.asarray(SOOT_DARK, dtype=np.float32)[None, None, :]
     ashc = np.asarray(SOOT_ASH, dtype=np.float32)[None, None, :]
     rgba = np.zeros((h, w, 4), dtype=np.float32)
@@ -937,7 +1102,8 @@ def skin(ctx, events, nrng, finish="char", glass=False, duration_scale=1.0):
     return {"rgba": rgba, "dep": dep_n.astype(np.float32),
             "dep_raw": dep, "ppm": ppm,
             "per": per, "H": H, "z0": z0, "offsets": offsets,
-            "events": events, "mass": mtag}
+            "events": events, "mass": mtag,
+            "burn_zone": burn_zone, "zone": zone}
 
 
 # ---------------------------------------------------------------------------
