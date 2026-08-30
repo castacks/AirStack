@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{#-
+  Open Graph / Twitter Card tags for link previews (Slack, WhatsApp,
+  iMessage, ...). Material only emits these via its `social` plugin, which
+  we don't run — this block provides them statically on every page.
+  home.html extends this template, so the whole site inherits the tags.
+  og:image uses the moving /main/ alias (mike copies real asset files into
+  alias dirs) so the absolute URL stays valid across releases.
+  og:url is deliberately omitted: site_url doesn't include the mike version
+  slug, so a computed canonical would point at a non-existent path.
+-#}
+{% block extrahead %}
+  {% if page and page.meta and page.meta.title %}
+    {% set og_title = page.meta.title ~ " - " ~ config.site_name %}
+  {% elif page and page.title and not page.is_homepage %}
+    {% set og_title = page.title ~ " - " ~ config.site_name %}
+  {% else %}
+    {% set og_title = config.site_name %}
+  {% endif %}
+  {% if page and page.meta and page.meta.description %}
+    {% set og_description = page.meta.description %}
+  {% else %}
+    {% set og_description = config.site_description %}
+  {% endif %}
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ og_title }}">
+  <meta property="og:description" content="{{ og_description }}">
+  <meta property="og:image" content="https://docs.theairlab.org/main/docs/assets/media/splash-poster.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1600">
+  <meta property="og:image:height" content="900">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ og_title }}">
+  <meta name="twitter:description" content="{{ og_description }}">
+  <meta name="twitter:image" content="https://docs.theairlab.org/main/docs/assets/media/splash-poster.jpg">
+{% endblock %}
