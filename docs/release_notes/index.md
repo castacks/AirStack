@@ -40,6 +40,12 @@ its own notes. -->
   per-page Open Graph / Twitter Card tags across the site. Note:
   previously shared links may keep the stale preview until the apps'
   link caches expire.
+- **"Edit this page" button on every docs page.** Each page now shows a
+  pencil icon (Material `content.action.edit` + `edit_uri`) linking to
+  GitHub's editor for that page's source file; contributors without
+  write access get GitHub's fork-and-propose flow. Pages built from
+  `main` link to `edit/main/`, the develop docs to `edit/develop/`
+  (via `DOCS_EDIT_URI` in the develop deploy workflow).
 
 ## 0.20.6 — 2026-08-29
 

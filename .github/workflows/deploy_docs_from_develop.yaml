@@ -108,6 +108,10 @@ jobs:
           git config --global user.name "Docs Deploy"
           git config --global user.email "docs.deploy@example.co.uk"
       - name: Build Docs Website
+        env:
+          # "Edit this page" links on the develop docs edit the develop
+          # branch (mkdocs.yml defaults edit_uri to edit/main/).
+          DOCS_EDIT_URI: edit/develop/
         run: |
           VERSION=$(grep -m1 '^VERSION=' .env | cut -d= -f2- | tr -d '"')
           mike deploy --push --title "${VERSION} (unstable)" develop

@@ -253,6 +253,11 @@ plugins:
         'docs/tutorials/index.md': 'docs/getting_started/tutorials_reference.md'
 repo_name: castacks/AirStack
 repo_url: https://github.com/castacks/AirStack
+# Per-page "Edit this page" pencil (theme feature content.action.edit).
+# docs_dir is the repo root, so page paths are already repo-relative.
+# GitHub shows contributors without write access its fork-and-edit flow.
+# The develop docs deploy overrides the branch via DOCS_EDIT_URI.
+edit_uri: !ENV [DOCS_EDIT_URI, "edit/main/"]
 theme:
   favicon: docs/assets/StackedWhite.png
   custom_dir: docs/overrides
@@ -276,6 +281,7 @@ theme:
     - content.code.copy
     - content.code.annotate
     - content.tooltips
+    - content.action.edit
   font:
     text: Inter
     code: JetBrains Mono
