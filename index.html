@@ -1,8 +1,30 @@
 <!DOCTYPE html>
-<html>
+<!-- Custom template for `mike set-default -T` (deploy_docs_from_main.yaml).
+     Same instant redirect as mike's default, plus real <title>/description
+     and Open Graph / Twitter Card tags: link-preview scrapers (Slack,
+     WhatsApp, iMessage, ...) fetch this page's raw HTML and neither run
+     JavaScript nor follow meta-refresh, so without these tags a shared
+     https://docs.theairlab.org/ link previews as just "Redirecting".
+     mike substitutes 0.20/ with the default version's slug (e.g. "0.20/").
+     The og:image points at the moving /main/ alias so the URL stays valid
+     across releases without editing this file. -->
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Redirecting</title>
+  <title>AirStack Documentation</title>
+  <meta name="description" content="AirStack is an open-source ROS 2 autonomy stack for aerial robots from the AirLab at Carnegie Mellon University — simulation, ground control, and layered onboard autonomy that launch as one system.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="AirStack Documentation">
+  <meta property="og:description" content="An open-source ROS 2 autonomy stack for aerial robots — simulation, ground control, and layered onboard autonomy that launch as one system. By the AirLab at Carnegie Mellon University.">
+  <meta property="og:url" content="https://docs.theairlab.org/">
+  <meta property="og:image" content="https://docs.theairlab.org/main/docs/assets/media/splash-poster.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1600">
+  <meta property="og:image:height" content="900">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="AirStack Documentation">
+  <meta name="twitter:description" content="An open-source ROS 2 autonomy stack for aerial robots — simulation, ground control, and layered onboard autonomy that launch as one system.">
+  <meta name="twitter:image" content="https://docs.theairlab.org/main/docs/assets/media/splash-poster.jpg">
   <noscript>
     <meta http-equiv="refresh" content="1; url=0.20/" />
   </noscript>
