@@ -80,7 +80,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 20 | A4 / claude-opus-5 / #3 | **R5** | 0 / 0 (open loop) | 1 h 21 m | $19.66 | Blind alpha-route flight clean at scoring (0.14 m goal error); R6/R7 fail — beta swap not working in final state. |
 | 21 | A1 / claude-opus-5 / #3 | **R8** (full ladder) | 8 / 20 | 2 h 31 m | $24.82 | Stopped after R6 in-session; R7+R8 passed at scoring. A1 6/6. |
 | 22 | A2 / claude-sonnet-5 / #3 | **R6** | 9 / 20 | 2 h 04 m | $11.76 | Clean climb to R6, one R7 attempt failed, stopped with budget left (11 calls, ~1.5 h unused). Official R7 fail / R6 pass. |
-| 23 | A3 / claude-opus-5 / #3 | — running | — | — | — | Started 2026-08-31 03:51 UTC. |
+| 23 | A3 / claude-opus-5 / #3 | **R6** | 13 / 20 | 2 h 38 m | $35.36 | 3 R1 fails, then steady climb; ~30 min avoidance work but never attempted R7 in-session; consolidated R6 held at scoring. Ops: orphaned host processes from A3 workspaces (mavros launch, respawning planners, a file-watch loop) found and swept post-trial — A3 agents leave host-level processes the runner's teardown misses. |
+| 24 | A4 / claude-sonnet-5 / #3 | — running | — | — | — | Started 2026-08-31 07:35 UTC. Closes round 3. |
 
 ### Round-2 synthesis (16/16 cells, 2 per cell, 2026-08-30)
 
