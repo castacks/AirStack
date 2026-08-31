@@ -114,7 +114,21 @@ workflow:
       # first iteration's `airstack status`, not memory.
       cpu: 64
       gpu: 1
-      memory: 192Gi
+      # 192Gi -> 256Gi, sized on MEASURED peaks rather than headroom by feel.
+      # From the 2026-08-30 sweep's `resources.log`, per-container peak RSS in
+      # one iteration: seven robot containers 8.4-10.3 GB each, gcs 6.7 GB —
+      # ~71 GB for the fleet, plus Isaac and offboard-compute (which that log
+      # does not sample) for roughly 110 GB in healthy steady state.
+      #
+      # What 192Gi could not absorb was ONE pathological container: robot_2's
+      # dds_router buffered an unconsumed point-cloud bridge to 66 GB, taking
+      # that container to 75.2 GB and the sampled total to 144 GB. A second
+      # concurrent runaway would have hit the cap and taken the pod with it.
+      # The cause is fixed (the preflight no longer subscribes to a bridged
+      # topic — see the mission's step 3c), so this is deliberately margin for
+      # a regression, not for expected load: 256Gi still survives one 75 GB
+      # container on top of a full healthy fleet.
+      memory: 256Gi
       # 24 iterations x (one 240-260 MB frozen cell already on the NAS mount +
       # one lean gcs mcap). The cells are bind-mounted, not copied, so this is
       # images + bags + logs.

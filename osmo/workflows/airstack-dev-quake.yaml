@@ -1,0 +1,125 @@
+# AirStack remote developer workflow on OSMO.
+#
+# Submits a single GPU task ("workspace") that runs Docker-in-Docker
+# (DinD) and brings up the regular AirStack three-container stack (Isaac Sim
+# with WebRTC livestream, robot-desktop, GCS) on the inner Docker daemon. The
+# task also runs sshd so a student can attach VS Code or Cursor over Remote-SSH
+# from their laptop (Mac, Windows, or Linux — no local Docker / NVIDIA driver
+# required).
+#
+# To submit (replace <gpu-pool> and substitute your actual pubkey):
+#
+#   osmo workflow submit osmo/workflows/airstack-dev.yaml \
+#     --pool <gpu-pool> \
+#     --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
+#
+# To stream the IDE, Isaac Sim, and Foxglove back to the laptop:
+#
+#   # SSH so VS Code / Cursor Remote-SSH can attach (1 terminal):
+#   osmo workflow port-forward <wf-id> workspace --port 2200:22 --connect-timeout 86400
+#
+#   # Isaac Sim WebRTC (2 terminals — TCP + UDP):
+#   osmo workflow port-forward <wf-id> workspace \
+#     --port 47995-48012,49000-49007,49100 --connect-timeout 86400
+#   osmo workflow port-forward <wf-id> workspace \
+#     --port 49099 --udp --connect-timeout 86400
+#
+#   # GCS Foxglove websocket (1 terminal):
+#   osmo workflow port-forward <wf-id> workspace --port 8766:8766 --connect-timeout 86400
+#
+# See docs/tutorials/airstack_on_osmo.md for the full walkthrough and
+# osmo/README.md for the lab-admin setup (pool prerequisites, OSMO credential
+# registration, workspace image build).
+
+workflow:
+  name: airstack-dev
+  groups:                              # `groups:` keeps room to add a separate
+                                       # dind sidecar or split out isaac-sim /
+                                       # robot-desktop / gcs as their own
+                                       # tasks later. For now, one lead task.
+  - name: airstack
+    tasks:
+    - name: workspace
+      lead: true
+      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
+      # Required so the inner dockerd can run. hostNetwork is intentionally
+      # NOT set — osmo workflow port-forward reaches the pod NS, where the
+      # inner dockerd publishes ports via standard NAT.
+      privileged: true
+      command: ["bash"]
+      args: ["/usr/local/bin/entrypoint.sh"]
+      environment:
+        # Behaviour switches consumed by entrypoint.sh and airstack.sh:
+        AUTOLAUNCH: "true"             # boot AirStack on startup
+        ISAAC_SIM_LIVESTREAM: "true"   # use the isaac-sim-livestream profile
+        NUM_ROBOTS: "1"
+        AIRSTACK_BRANCH: "multi-raven"        # branch entrypoint.sh clones
+        AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
+        # SSH_PUB_KEY is supplied at submit time:
+        #   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
+      credentials:
+        # Each student registers these in their own OSMO profile once.
+        # See docs/tutorials/airstack_on_osmo.md "Step 0".
+        #
+        # airlab-nucleus (GENERIC) — materialized into omni_pass.env by
+        # entrypoint.sh so Compose env_files it into the Isaac Sim ctnr.
+        airlab-nucleus:
+          OMNI_USER: omni_user
+          OMNI_PASS: omni_pass
+          OMNI_SERVER: omni_server
+        # airlab-docker-login (GENERIC) — exposed as env vars so the
+        # inner dockerd can authenticate to airlab-docker.andrew.cmu.edu
+        # when `airstack up` triggers an AirStack image-pull. (The
+        # *outer* pod's image-pull of airstack-osmo-workspace is handled
+        # automatically by a sibling REGISTRY-type credential which does
+        # not need a reference here — OSMO auto-attaches it on submit.)
+        airlab-docker-login:
+          AIRLAB_REGISTRY_USER: username
+          AIRLAB_REGISTRY_PASS: password
+
+  resources:
+    default:
+      # 12 cpu / 80Gi is the interactive scene-authoring shape, not the
+      # mission shape. A scene build is one Isaac Sim process plus the
+      # scene_gen python driver: no robot containers, no rayfronts, no
+      # ROS graph. What it DOES need is headroom for USD composition —
+      # the 1 km assemblies peak well past 40Gi resident while the
+      # archetype stage holds every baked building open at once, and the
+      # settle passes are single-threaded PhysX, so cores past ~12 sit
+      # idle. (airstack-mission-2gpu.yaml runs 20/80Gi because it also
+      # carries a robot + a quantised VLM server.)
+      cpu: 23
+      # TWO. Isaac Sim renders on GPU 0. The second card is what makes
+      # this different from airstack-dev's old shape: it holds the
+      # baked-archetype stage and RTX denoiser working set so a 500 m
+      # scene assembly does not spill to host memory mid-bake, and it
+      # gives the preview-camera render pass somewhere to go that is not
+      # contending with the live viewport.
+      gpu: 1
+      memory: 85Gi
+      # AirStack image set is large: airstack-dev-9 (2026-05-14) hit the
+      # 100Gi container ephemeral cap during inner Compose's first image
+      # extract, before the second image even started downloading. So the
+      # full set of inner images alone exceeds 100Gi extracted. 500Gi
+      # comfortably holds isaac-sim + robot-desktop + gcs images, plus the
+      # AirStack source clone, colcon build output, the baked archetype
+      # USDs (a merged-asset bake set runs to tens of Gi), and rendered
+      # preview frames. The airstack pool's workers have 4.2Ti of
+      # ephemeral capacity each (root disks resized 2026-05-14), so this
+      # leaves plenty of room for other tenants on the shared workers.
+      storage: 500Gi
+
+  timeout:
+    # 20h. It was 8h, and 8h is wrong for scene authoring: a single 500 m
+    # assembly plus its captures runs 6-10 minutes, an archetype bake with a
+    # settle runs 20-25 (PhysX GPU dynamics does not engage on this pod — see
+    # the build-hurricane-scenes bug catalogue), and an iteration loop is
+    # dozens of those. airstack-dev-175 timed out mid-session on 2026-08-30
+    # with the pod still in use.
+    #
+    # THE POD IS NOT FREED BY A SHORTER TIMEOUT, it is freed by
+    # `airstack osmo:down`, which is one command and is the honest way to
+    # give the GPU back. A timeout is a backstop against a forgotten pod, not
+    # a scheduling policy — so set it past any session you would actually sit
+    # through and cancel deliberately instead.
+    exec_timeout: 20h

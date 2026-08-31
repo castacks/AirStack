@@ -16,11 +16,14 @@ then prints three tables:
   A. THE ELEMENT SPAN TABLE. Per shell element on a lost elevation inside the
      collapse band: its MEASURED footprint (`p["_size"]` for a sliced piece,
      `urban_building.PIECES` for a kit module) against what
-     `fire_collapse.el_span` believes. A sliced piece has no `PIECES` row, so
-     before the fire_dtc3 fix `el_footprint` fabricated a 4.0 x 0.4 m box at
-     the piece's CENTROID and every adjacency test in `plan_edges` was run on
-     that fiction. `dt0`/`dt1` are the error in metres; anything over ~0.3 m
-     is enough to lose a neighbour against `plan_edges`' 0.6 m tolerance.
+     `fire_collapse.el_span` believes. These AGREE — `gac_slice.
+     register_style` writes each sliced cell a `PIECES` row of
+     `(sx, sy, sz, -sx/2, -sy/2, 0)` — and the table is here to keep it that
+     way: a non-zero `dt` would mean `plan_edges` is reasoning about a
+     footprint the piece does not have. What is NOT true of a sliced piece is
+     that consecutive footprints BUTT (see table B): the footprint is the
+     bbox of a REGION CUT and swallows sills, cornices and balcony returns,
+     so the gap between two columns is 0.0-1.2 m and varies per storey.
 
   B. THE BOUNDARY CENSUS. Per (side, storey) of the lost region: the dead
      intervals, then every SURVIVING shell piece on that side/storey with its
@@ -187,7 +190,12 @@ def _boundary_census(ctx, plan, m):
                 gap = min([abs(t1 - a) for a, _b in iv] +
                           [abs(t0 - b) for _a, b in iv] or [99.0]) if iv else 99.0
                 flag = ""
-                if state == "untouched" and gap <= 0.75:
+                # 1.25 m, not `plan_edges`' own 0.6: the point of the flag is
+                # to show a piece the tolerance MISSED, and the fire_dtc3 miss
+                # (`pier_S_3_09_0102`, gap 0.98 m) is exactly one of those.
+                # Fixed, not read off `fire_collapse`, so this probe reports
+                # the same way against a pristine tree and a fixed one.
+                if state == "untouched" and gap <= 1.25:
                     flag = "   <-- STRAIGHT SEAM ON THE HOLE"
                     n_missed += 1
                 print("      {0:<26} [{1:6.2f},{2:6.2f}] gap {3:5.2f}  "
@@ -208,6 +216,8 @@ def _mat_kind(prim):
         return "(unbound)", "unbound"
     p = m.GetPrim()
     path, name = str(p.GetPath()), p.GetName()
+    if "/FireLooks/tearmat_" in path or name.startswith("tearmat_"):
+        return name, "parent_uv"        # the parent's own network, rehomed
     if "/FireLooks/tear_" in path or name.startswith("tear_"):
         return name, "facade_tone"
     if "/BurnLooks" in path or name in _CHAR_NAMES or name.startswith(
@@ -220,10 +230,42 @@ def _mat_kind(prim):
     return name, "other"
 
 
+def _diffuse(stage, mpath):
+    """(material name, diffuse source) BY PATH — a handle handed out inside a
+    traversal expires, so never hold one."""
+    mp = stage.GetPrimAtPath(mpath)
+    if not mp or not mp.IsValid():
+        return "(expired)", "(none)"
+    for c in mp.GetChildren():
+        sh = UsdShade.Shader(c)
+        if not sh:
+            continue
+        for name in ("diffuseColor", "diffuse_color_constant", "base_color",
+                     "diffuse_texture"):
+            i = sh.GetInput(name)
+            if i is None:
+                continue
+            try:
+                if i.HasConnectedSource():
+                    src = i.GetConnectedSource()[0].GetPrim()
+                    f = UsdShade.Shader(src).GetInput("file")
+                    v = f.Get() if f else None
+                    return mp.GetName(), "tex:" + str(v).rsplit("/", 1)[-1].rstrip("@")
+                v = i.Get()
+            except Exception:
+                continue
+            if v is not None:
+                return mp.GetName(), ("tex:" + str(v).rsplit("/", 1)[-1].rstrip("@")
+                                      if name == "diffuse_texture"
+                                      else "rgb:" + str(v))
+    return mp.GetName(), "(no diffuse input)"
+
+
 def _frag_census(stage, cell, ctx):
     loose = set(ctx.get("loose") or ())
     static = set(ctx.get("static_extra") or ())
-    rows, ex = Counter(), {}
+    rows, ex, uvbox, mats_seen = Counter(), {}, {}, set()
+    st_stage = stage
     for p in Usd.PrimRange(stage.GetPrimAtPath(cell)):
         if not p.IsA(UsdGeom.Mesh):
             continue
@@ -237,20 +279,56 @@ def _frag_census(stage, cell, ctx):
             if s.GetPrim().GetName() == "core":
                 core = s.GetPrim()
         pname, pkind = _mat_kind(p)
+        if where == "static":
+            mb = UsdShade.MaterialBindingAPI(p).ComputeBoundMaterial()[0]
+            if mb and mb.GetPrim().IsValid():
+                mats_seen.add(mb.GetPrim().GetPath().pathString)
         cname, ckind = (_mat_kind(core) if core is not None else ("-", "-"))
-        key = (where, pkind, ckind)
+        # DOES IT HAVE UVs AT ALL? A raw `fracture._write_mesh` fragment has
+        # none, so a UV-mapped atlas bound to it samples one texel; the
+        # fire_dtc3 fix is exactly "the parent's UVs, carried".
+        uv, box = "NO-UV", None
+        for q in UsdGeom.PrimvarsAPI(p).GetPrimvars():
+            if q.GetPrimvarName().startswith(("st", "uv", "UV")):
+                v = q.Get()
+                uv = "st[%d]" % (len(v) if v is not None else 0)
+                if v:
+                    us = [float(a[0]) for a in v]
+                    vs = [float(a[1]) for a in v]
+                    box = (min(us), max(us), min(vs), max(vs))
+                break
+        key = (where, pkind, ckind, uv.split("[")[0])
+        if box is not None:
+            b = uvbox.get(key)
+            uvbox[key] = box if b is None else (
+                min(b[0], box[0]), max(b[1], box[1]),
+                min(b[2], box[2]), max(b[3], box[3]))
         rows[key] += 1
         ex.setdefault(key, (path, pname, cname))
     print("[tear_probe] C. FRAGMENT MATERIAL CENSUS")
-    print("    {0:<9} {1:<16} {2:<12} {3:>6}   example  [prim-mat | core-mat]"
-          .format("where", "prim", "core", "n"))
+    print("    {0:<9} {1:<16} {2:<12} {3:<6} {4:>6}   example  [prim-mat | "
+          "core-mat]".format("where", "prim", "core", "uv", "n"))
     for key in sorted(rows, key=lambda k: (-rows[k], k)):
         path, pname, cname = ex[key]
-        print("    {0:<9} {1:<16} {2:<12} {3:>6}   {4}  [{5} | {6}]".format(
-            key[0], key[1], key[2], rows[key],
-            path.rsplit("/", 2)[-1], pname, cname))
+        b = uvbox.get(key)
+        print("    {0:<9} {1:<16} {2:<12} {3:<6} {4:>6}   {5}  [{6} | {7}]{8}"
+              .format(key[0], key[1], key[2], key[3], rows[key],
+                      path.rsplit("/", 2)[-1], pname, cname,
+                      "" if b is None else
+                      "  uv u[%.2f,%.2f] v[%.2f,%.2f]" % b))
+    # DOES THE MATERIAL A FRAGMENT BINDS STILL RESOLVE A MAP? On the kit path
+    # the piece's own material lives INSIDE the module `_break_split`
+    # deactivates, so `fire_collapse.rehome_material` copies it out through an
+    # internal reference first. If activation composed through that arc the
+    # copy would be pruned and this would print "(none)" — it is the one claim
+    # in that function's docstring a probe can actually check.
+    print("[tear_probe] materials the STATIC fragments bind:")
+    for mpath in sorted(mats_seen):
+        nm, df = _diffuse(st_stage, mpath)
+        print("    %-52s %-26s %s" % (mpath[-52:], nm, df))
     good = sum(n for k, n in rows.items()
-               if k[0] == "static" and k[1] in ("facade", "facade_tone"))
+               if k[0] == "static"
+               and k[1] in ("facade", "facade_tone", "parent_uv"))
     tri = sum(n for k, n in rows.items()
               if k[0] == "static" and k[1] == "clad_triplanar")
     charred = sum(n for k, n in rows.items() if k[0] == "static" and k[1] == "char")

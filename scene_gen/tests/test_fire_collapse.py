@@ -982,6 +982,246 @@ def test_the_zone_edge_is_a_ramp_and_not_a_cut():
     assert float(np.std(rows)) > 1.0, np.std(rows)
 
 
+# ---------------------------------------------------------------------------
+# fire_dtc3 (2026-08-30): THE SLICED BUILDING'S OWN TEAR
+#
+# Two complaints on the same building (`gac_SM_Building_02_F5c_s193`, b6 of
+# the fire_dtc3 bench):
+#
+#   "(1) the partial collapse still shows very straight cuts — see standing
+#    pieces .../pieces/pier_S_2_10_0119 and pier_S_3_09_0102 ...
+#    (2) the ragged break pieces that DO exist are a completely diff
+#    texture/color from the wall they extend."
+#
+# (1) is `plan_edges`' adjacency test run against footprints that do not butt:
+# a sliced piece's footprint is the BOUNDING BOX OF A REGION CUT and swallows
+# whatever sills and cornices fall in the cell, so consecutive columns gap by
+# 0.0-1.2 m and the gap CHANGES PER STOREY. A fixed 0.6 m tolerance therefore
+# tears one storey's boundary piece and silently misses the storey above's.
+# (2) is `_clad_material`'s world triplanar of a UNIQUE atlas, and the fix is
+# to carry the parent's own UVs onto the fragment (`project_uv`) and bind the
+# parent's own material, which `bind_break` then has to recognise as a façade.
+#
+# All three are arithmetic, so all three are checked here.
+# ---------------------------------------------------------------------------
+# The S elevation of SM_Building_02 at storey 8, MEASURED off that bake
+# (`tools/tear_edge_probe.py gac:SM_Building_02:F5c 193`, table B): metres
+# along the wall from its low end. Note pier_S_3 -> wall_S_4: the same two
+# columns gap by 0.38 m at storey 7 and by 0.98 m here, which is what made the
+# miss a one-storey-in-three affair rather than an obvious failure.
+_SLICE_ROW = (("pier_S_0_09", 0.82, 3.89),
+              ("wall_S_1_09", 4.08, 9.75),
+              ("pier_S_2_09", 9.23, 12.30),
+              ("pier_S_3_09", 12.34, 15.42),
+              ("wall_S_4_09", 16.40, 22.07),
+              ("pier_S_5_09", 22.70, 25.62))
+_SLICE_W, _SLICE_D = 28.0, 14.4
+_SLICE_STOREY = 8
+
+
+def _slice_mass():
+    lv = [3.56 * i for i in range(12)]
+    return {"tag": "main", "W": _SLICE_W, "D": _SLICE_D, "cx": 0.0, "cy": 0.0,
+            "yaw": 0.0, "z0": 0.0, "levels": lv, "top": lv[-1] + 3.56,
+            "module": 3.62, "spec": {"bands": []}}
+
+
+def _slice_elements(sliced):
+    """The measured row as element records, with the `urban_building.PIECES`
+    row `gac_slice.register_style` writes for a sliced cell —
+    `(sx, sy, sz, -sx/2, -sy/2, 0)`, i.e. the piece is anchored on its own
+    CENTRE. `sliced` False builds the same geometry as a kit module (no
+    `_role`, no `slice://` url), which is what pins the MCE freeze: identical
+    numbers must NOT be classified there.
+    """
+    m = _slice_mass()
+    za = m["levels"][_SLICE_STOREY]
+    sz = m["levels"][_SLICE_STOREY + 1] - za
+    els, names = [], []
+    for base, t0, t1 in _SLICE_ROW:
+        name = base + ("_sliced" if sliced else "_kit")
+        sx = t1 - t0
+        ub.PIECES[name] = (sx, 0.25, sz, -sx / 2.0, -0.125, 0.0)
+        names.append(name)
+        p = {"prim_path": "/bench/" + name}
+        if sliced:
+            p["_role"] = "pier" if base.startswith("pier") else "wall"
+            p["usd"] = "slice://" + base
+        else:
+            p["usd"] = "SM_MBuilding01_Facade_B.usd"
+        els.append({"p": p, "sub": "storey", "mass": "main", "role": "wall",
+                    "name": name, "h": sz, "z": za,
+                    "x": 0.5 * (t0 + t1) - _SLICE_W / 2.0,
+                    "y": -_SLICE_D / 2.0 + 0.125, "yaw": 0.0,
+                    "storey": _SLICE_STOREY,
+                    "lx": 0.5 * (t0 + t1) - _SLICE_W / 2.0,
+                    "ly": -_SLICE_D / 2.0 + 0.125, "side": "S",
+                    "ref": (0.0, 0.0, 0.5 * m["top"]), "out": (0.0, -1.0, 0.0)})
+    return m, els, names
+
+
+def _slice_case(sliced):
+    """(jobs by name, mass) for the measured row with the last two columns
+    dead — the hole that `pier_S_3_09_0102` was left standing beside."""
+    m, els, names = _slice_elements(sliced)
+    try:
+        kill = [e for e in els if e["name"].startswith(("wall_S_4", "pier_S_5"))]
+        plan = {"mass": "main", "sides": ("S",), "storeys": [_SLICE_STOREY],
+                "top_storey": _SLICE_STOREY, "kill": kill,
+                "span": {("S", _SLICE_STOREY): (16.40, 25.62)},
+                "pad_m": 0.5 * m["module"]}
+        ctx = {"info": {"elements": els, "masses": {"main": m},
+                        "type": "urm", "style": "x"}}
+        jobs = fc.plan_edges(ctx, plan, m, random.Random(11))
+        return dict((j["name"], j) for j in jobs), m
+    finally:
+        for n in names:
+            ub.PIECES.pop(n, None)
+
+
+def test_a_sliced_piece_gets_a_scaled_gap_and_a_kit_module_does_not():
+    """`edge_gap_tol` is the one knob that separates the two footprint
+    regimes, and it must be inert on anything modelled."""
+    m, els, names = _slice_elements(sliced=True)
+    try:
+        pier = [e for e in els if e["name"].startswith("pier_S_3")][0]
+        assert fc.is_sliced(pier)
+        # a 3.08 m pier: 0.45 x 3.08 = 1.39 m, which clears the measured
+        # 0.98 m gap to `wall_S_4` at this storey
+        assert fc.edge_gap_tol(pier, 3.08, 0.6) > 0.98
+        assert fc.edge_gap_tol(pier, 3.08, 0.6) <= fc.EDGE_GAP_MAX_M
+        # ...and the cap holds on a piece wide enough to reach past it
+        assert fc.edge_gap_tol(pier, 40.0, 0.6) == fc.EDGE_GAP_MAX_M
+    finally:
+        for n in names:
+            ub.PIECES.pop(n, None)
+    m, els, names = _slice_elements(sliced=False)
+    try:
+        kit = [e for e in els if e["name"].startswith("pier_S_3")][0]
+        assert not fc.is_sliced(kit)
+        assert fc.edge_gap_tol(kit, 3.08, 0.6) == 0.6
+        assert fc.edge_gap_tol(kit, 40.0, 0.6) == 0.6
+    finally:
+        for n in names:
+            ub.PIECES.pop(n, None)
+
+
+def test_plan_edges_reaches_the_sliced_boundary_piece_across_the_slice_gap():
+    """`pier_S_3_09_0102`, the prim the user named: 0.98 m from the hole in
+    footprint terms, hard against it in fact. It must be a `left` job now, and
+    the piece a whole bay further in must still be left alone — a tolerance
+    that swallows the next column along would tear standing wall for nothing.
+    """
+    jobs, _m = _slice_case(sliced=True)
+    j = jobs.get("pier_S_3_09_sliced")
+    assert j is not None, sorted(jobs)
+    assert "left" in j["classes"], j["classes"]
+    assert "pier_S_2_09_sliced" not in jobs, sorted(jobs)
+    # and the tear it draws stays inside the piece it is cutting
+    cut = [c for c in j["cuts"] if c["cls"] == "left"][0]
+    assert j["t0"] < cut["line"] < j["t1"], cut
+
+
+def test_the_kit_keeps_its_own_tolerance_on_the_very_same_geometry():
+    """THE MCE FREEZE. The user authorised changing the kit's TEAR-EDGE LOOK
+    and nothing else, so the same measured row expressed as kit modules must
+    classify exactly as it did before `EDGE_GAP_FRAC` existed: a 0.98 m gap is
+    not a neighbour at 0.6 m tolerance, and a kit module's footprint is its
+    modelled panel, which really does butt its neighbour (measured on
+    `apartment` F5c: every neighbour of the hole is 0.07-0.09 m from it)."""
+    jobs, _m = _slice_case(sliced=False)
+    assert "pier_S_3_09_kit" not in jobs, sorted(jobs)
+    assert not jobs, sorted(jobs)
+
+
+# ---------------------------------------------------------------------------
+# The tear skin
+# ---------------------------------------------------------------------------
+def _quad(uv_second=None):
+    """A 4 x 3 m wall panel in the y = 0 plane as two triangles, mapped u =
+    x / 4, v = z / 3 — and optionally with the SECOND triangle's UVs moved to
+    an unrelated island, which is what an atlas actually looks like."""
+    A, B, C, D = ((0., 0., 0.), (4., 0., 0.), (4., 0., 3.), (0., 0., 3.))
+    tris = np.array([[A, B, C], [A, C, D]], dtype=float)
+    uv = np.array([[(0., 0.), (1., 0.), (1., 1.)],
+                   [(0., 0.), (1., 1.), (0., 1.)]], dtype=float)
+    if uv_second is not None:
+        uv[1] = np.asarray(uv_second, dtype=float)
+    return tris, uv
+
+
+def test_project_uv_reads_the_parents_map_at_the_break():
+    """A fragment has no UVs of its own (`fracture._write_mesh` writes none),
+    so the only mapping that can put the wall back on it is the parent's, read
+    where the fragment actually is. On a panel mapped u = x/4, v = z/3 that is
+    checkable to the millimetre — and it has to survive the fragment sitting a
+    few centimetres OFF the surface, which every fragment does (the chew, the
+    roughening and `solidify`'s own offset)."""
+    tris, uv = _quad()
+    corners = np.array([[(1.0, 0.02, 0.5), (1.5, -0.03, 0.6),
+                         (1.2, 0.05, 0.9)]], dtype=float)
+    out = fc.project_uv(tris, uv, corners)
+    assert out is not None and out.shape == (1, 3, 2)
+    want = np.array([[1.0 / 4.0, 0.5 / 3.0], [1.5 / 4.0, 0.6 / 3.0],
+                     [1.2 / 4.0, 0.9 / 3.0]])
+    assert np.allclose(out[0], want, atol=2e-3), (out[0], want)
+
+
+def test_project_uv_keeps_one_fragment_face_inside_one_uv_island():
+    """PER FACE, NOT PER VERTEX — the reason `project_uv` picks its parent
+    triangle from the fragment face's CENTROID. The parent's UVs are an
+    ATLAS, so the triangle next door can be on the far side of the sheet;
+    choosing per vertex would let one fragment triangle straddle two islands
+    and stretch the whole atlas across it, which is the smear this whole
+    change exists to remove, arriving by another door."""
+    far = [(0.60, 0.60), (0.64, 0.64), (0.60, 0.64)]
+    tris, uv = _quad(uv_second=far)
+    # a face wholly inside the FIRST triangle (below the diagonal x/4 > z/3)
+    corners = np.array([[(3.0, 0., 0.2), (3.6, 0., 0.4), (3.2, 0., 0.1)]],
+                       dtype=float)
+    out = fc.project_uv(tris, uv, corners)[0]
+    assert np.allclose(out[:, 0], [3.0 / 4.0, 3.6 / 4.0, 3.2 / 4.0], atol=2e-3), out
+    # every corner came from the same island: none of them landed in the
+    # 0.60..0.64 box the second triangle was moved to
+    assert out.max() > 0.7, out
+
+
+def test_no_fragment_face_can_sample_off_its_parents_uv_island():
+    """THE HARD BOUND. A fragment's BACK and CUT corners are metres behind the
+    façade, so their barycentrics in the parent triangle run away and the raw
+    projection reached u[-0.40, 1.21] v[-1.35, 1.00] on the first GAC run —
+    i.e. right off the sheet. Those faces are in the `core` subset and wear
+    the char, so it never showed, but "the fragment samples somewhere else on
+    the atlas" is precisely the failure this change removes and it must not be
+    reachable at all. `project_uv` clips into the parent's own UV box plus one
+    tenth."""
+    tris, uv = _quad()
+    far = np.array([[(1.0, -6.0, 0.5), (1.5, -6.0, 0.6), (1.2, -6.0, 0.9)]],
+                   dtype=float)
+    out = fc.project_uv(tris, uv, far)
+    assert out is not None
+    assert out.min() >= -0.1 - 1e-9, out.min()
+    assert out.max() <= 1.1 + 1e-9, out.max()
+
+
+def test_a_reskinned_fragment_is_never_charred_whole():
+    """`bind_break`'s guard. A fragment `skin_fragment` has given the parent's
+    own UVs and material is a FAÇADE, but its material is not under
+    `CLAD_PREFIX`, so `facade_material` says no about the one binding that is
+    most emphatically yes. `ctx["tear_faced"]` is the register that answers
+    first; without it `_refire` would char the wall straight back off the tear
+    one call later — the fire_dtc3 fix undoing itself in the same recipe.
+
+    No stage: the decision is reached before any `pxr` call (`cut_subset`
+    returns None on a stageless ctx), which is what lets it be checked here.
+    """
+    ctx = {"stage": None, "tear_faced": set(["/bench/brk/frag_000"])}
+    assert fc.bind_break(ctx, "/bench/brk/frag_000", None,
+                         cut_only=True) == "kept"
+    # and a fragment nobody skinned is not silently kept
+    assert fc.skin_fragment(ctx, None, "/bench/brk/frag_001") is None
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

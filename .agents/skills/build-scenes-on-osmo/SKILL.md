@@ -161,6 +161,48 @@ To stop a run: `pkill -9 -f <launcher>`. Ctrl-C into the pane does not
 reliably reach a detached process, and a finished launcher sitting in
 `while simulation_app.is_running()` ignores it.
 
+## The archetype bake can OOM-KILL THE WHOLE POD, and here is the chain
+
+Measured 2026-08-31 on `airstack-dev-176`. A tornado house bake ran for ten
+minutes, then every container on the pod vanished at once — `docker ps` empty,
+not just the sim. `dockerd` was still healthy and the disk was 16% full, so
+neither was the cause. The kernel log said it plainly:
+
+    Memory cgroup out of memory: Killed process 766923 (python.sh)
+    Memory cgroup out of memory: OOM victim 767880 (python3) is already exiting
+
+**The causal chain is worth stating in full, because no single link is
+obviously wrong:**
+
+1. Kit logs `Skipping NVIDIA GPU due CUDA being in bad state` at startup.
+2. So PhysX silently falls back to CPU — which is the "GPU dynamics does not
+   engage" mystery from the section below, now explained. It was never a
+   PhysX configuration problem.
+3. A CPU settle holds all ~6,845 rigid bodies AND their cooked collision
+   meshes in HOST RAM, where a GPU settle would have them on the card.
+4. That exceeds the pod's **80Gi memory cgroup** — and the host having 216 GB
+   free is irrelevant, the cgroup is the ceiling.
+5. The kernel kills the cgroup, which is every container, not just the bake.
+
+**Two fixes, and take both.** Peak memory scales with the bodies alive at
+once — `styles x levels` — so bake in batches:
+
+    ARCH_STYLES=cottage,two_storey,wide_house   # then the next three, etc.
+
+`bake_tornado_archetypes_launch_script.py` now takes `ARCH_STYLES`, matching
+the quake baker. Eight styles in three batches cuts peak roughly threefold for
+the same output, because each batch exports and exits before the next starts.
+And raise `memory:` in `airstack-dev.yaml` above 80Gi if a bake must run whole.
+
+**Do not read a vanished container as "my command was wrong".** Check
+`docker ps` for an EMPTY list (not just a missing sim), then `dmesg | grep -i
+"killed process"`. A wrong container name and an OOM look identical from the
+outside — both are "No such container" — and they need opposite responses.
+
+Also worth knowing: the CUDA warnings name GPUs the container can SEE but the
+pod does not OWN (it sees 3-4; OSMO allocated 2). GPU 0 works and renders
+fine. The warnings are noise; the CPU fallback they cause is not.
+
 ## PhysX GPU dynamics DOES NOT ENGAGE on this pod
 
 Measured 2026-08-30. `settle.py:1011` prints `"GPU" if gpu else "CPU"` — the

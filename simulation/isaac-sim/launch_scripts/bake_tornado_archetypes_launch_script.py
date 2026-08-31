@@ -388,7 +388,31 @@ def main():
     # ---- HOUSES ----------------------------------------------------------
     # The grid geometry is computed whether or not houses are built this run,
     # so the TREE rows do not move between a full bake and `ARCH_KINDS=tree`.
+    # ARCH_STYLES — bake a SUBSET, so the library can be built in batches.
+    #
+    # Added 2026-08-31 after this bake OOM-killed an OSMO pod and took every
+    # container on it down with it. The chain: CUDA is in a bad state on that
+    # worker, so PhysX silently falls back to CPU; a CPU settle holds all
+    # 6,845 rigid bodies and their cooked collision meshes in HOST RAM rather
+    # than on the card; and that exceeds the pod's 80Gi memory cgroup. The
+    # kernel log is unambiguous -- "Memory cgroup out of memory: Killed
+    # process (python.sh)".
+    #
+    # Peak memory scales with the bodies alive at once, i.e. styles x levels.
+    # Three styles at a time cuts it roughly threefold for the same total
+    # output, since each batch exports and exits before the next starts. Same
+    # knob name and semantics as bake_quake_archetypes_launch_script.py.
     styles = list(mh.STYLES.keys())
+    _want = _env("ARCH_STYLES", "")
+    if _want:
+        _sel = [q.strip() for q in _want.split(",") if q.strip()]
+        _bad = [q for q in _sel if q not in styles]
+        if _bad:
+            print("[tarch] unknown ARCH_STYLES: {0}; known: {1}"
+                  .format(", ".join(_bad), ", ".join(styles)))
+        styles = [q for q in _sel if q in styles] or styles
+        print("[tarch] ARCH_STYLES -> {0} style(s): {1}"
+              .format(len(styles), ", ".join(styles)))
     hcombos = [(st, lv) for st in styles for lv in HOUSE_LEVELS]
     ncol = max(1, int(math.ceil(math.sqrt(len(hcombos)))))
     house_specs = []          # [style, level, X, Y, parent, placements, frags]

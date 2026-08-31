@@ -1656,6 +1656,16 @@ def _bind_soot(ctx, e, sk):
                     # a fresh surface carrying the baked map
                     mat = spl.piece_material(stage, mp, png)
                     stats["flat_material"] += 1
+                if isinstance(ctx.get("soot_prebaked"), (set, frozenset)):
+                    # SLICED PATH ONLY — the kit look is frozen. A sooted
+                    # copy that keeps its source's Metalness/Roughness MAPS
+                    # mirrors the sky straight through the soot (dtc
+                    # Amar_Tower F5c, "still very reflective", fire_dtc3
+                    # review 2026-08-31): matte the copy in proportion to
+                    # the baked coverage (`soot_bake.harden_sooted_shader`
+                    # is a no-op below its own SOOT_HARDEN_MIN). Done once
+                    # per copy, here at creation — `mats[mkey]` reuses it.
+                    sb.harden_sooted_shader(mat, float(a.mean()))
                 mats[mkey] = mat
             UsdShade.MaterialBindingAPI(t).Bind(mat)
             n += 1

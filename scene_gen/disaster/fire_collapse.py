@@ -1170,9 +1170,14 @@ def cut_subset(stage, path):
     binding the whole prim, which is what every one of these binds did
     before.
     """
+    # NO STAGE, NO SUBSET — and the guard is BEFORE the `pxr` import so the
+    # decision `bind_break` makes around this call can be exercised on a host
+    # with no USD at all (`test_fire_collapse.py` runs host-side; fire_dtc3).
+    if stage is None or not path:
+        return None
     from pxr import UsdGeom
 
-    pr = stage.GetPrimAtPath(path) if path else None
+    pr = stage.GetPrimAtPath(path)
     if not pr or not pr.IsValid():
         return None
     for s in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(pr)):
@@ -1383,9 +1388,79 @@ def facade_skin(ctx, path, out_xy):
             mat = UsdShade.MaterialBindingAPI(target).ComputeBoundMaterial()[0]
             mp = (str(mat.GetPrim().GetPath())
                   if mat and mat.GetPrim().IsValid() else None)
+            uvspan = (float(uvc[..., 0].max() - uvc[..., 0].min()),
+                      float(uvc[..., 1].max() - uvc[..., 1].min()))
             best = {"area": area, "tris": C, "uv": uvc, "uvname": uvname,
-                    "mat": mp, "tex": _basecolor_url(mat)}
+                    "uvspan": uvspan, "mat": mp, "tex": _basecolor_url(mat)}
+    if best is not None:
+        # BY PATH FROM HERE ON, never by handle: a `UsdShade.Material` handed
+        # out by `ComputeBoundMaterial` inside a `PrimRange` expires when the
+        # traversal moves on, and reading an input off it throws
+        # UsdExpiredPrimAccessError (measured writing `frag_facade_probe.py`).
+        best["mat"] = rehome_material(ctx, path, best)
     return best
+
+
+def rehome_material(ctx, path, sk):
+    """A material path the FRAGMENTS can still bind after `_break_split` has
+    deactivated the piece. Returns a path string, or None.
+
+    THE KIT'S MATERIALS LIVE INSIDE THE MODULE. Measured on `apartment` F5c
+    (2026-08-30, fire_dtc3): every torn module's façade binds
+    `/W/bench/k0/parts/bld_apartment_ground_0_11/LOD0/UnrealMaterial` — a
+    prim UNDER the module `_break_split` is about to set inactive, so by the
+    time a fragment exists `UsdShade.Material.Get` on that path returns an
+    invalid prim and all 340 fragments fell back to the flat tone. A GAC
+    piece does not have the problem: `gac_fire.bake_atlases` /
+    `urban_fire._bind_soot` put the sooted copies at `<cell>/SootLooks/mN` and
+    `<parent>/FireLooks/soot_N`, outside the piece, which is why the same code
+    carried 408 of 408 fragments there and none here.
+
+    So a material inside the doomed subtree is COPIED OUT first, while the
+    source is still alive: `soot_plume.piece_material_like` composes the whole
+    kit network (base map, normal, roughness, everything) through an INTERNAL
+    REFERENCE to the material prim — an arc onto the material itself, so
+    deactivating one of its ancestors at the ORIGINAL location does not prune
+    the copy. That is exactly the mechanism `urban_fire._bind_soot` already
+    relies on for every sooted module. `piece_material` (base map only) is the
+    fallback for a source that cannot be referenced at all (an instance
+    proxy), and None sends the caller to the sampled tone.
+
+    Cached per SOURCE MATERIAL PATH on the ctx. That is one copy per placed
+    module, not one per texture — each placement of a kit module composes its
+    own `.../LOD0/UnrealMaterial` prim — so `apartment` F5c authors
+    `tearmat_0..17` for its 18 torn modules and fourteen of them resolve the
+    same `M_MBuilding01_Facades_BaseColor.png` (measured). Keying by texture
+    instead would merge modules whose normal/roughness maps differ, which is
+    the thing `piece_material_like` exists to preserve; eighteen materials
+    beside the soot pass's seventy-two is not a cost worth that.
+    """
+    from . import soot_plume as spl
+
+    mp = sk.get("mat")
+    if not mp:
+        return None
+    root = str(path or "")
+    if not (mp == root or mp.startswith(root + "/")):
+        return mp                       # outside the piece: it will survive
+    cache = ctx.setdefault("tear_mats", {})
+    hit = cache.get(mp)
+    if hit is not None:
+        return hit or None
+    src = ctx["stage"].GetPrimAtPath(mp)
+    if not src or not src.IsValid():
+        cache[mp] = ""
+        return None
+    sh_path, inp, tex = spl.find_basecolor(src)
+    dst = "{0}/FireLooks/tearmat_{1}".format(ctx["parent"], len(cache))
+    new = None
+    if sh_path and tex:
+        new = spl.piece_material_like(ctx["stage"], dst, src, sh_path, inp, tex)
+    if new is None and tex:
+        new = spl.piece_material(ctx["stage"], dst, tex)
+    out = str(new.GetPrim().GetPath()) if new is not None else ""
+    cache[mp] = out
+    return out or None
 
 
 def _basecolor_url(mat):
@@ -1452,6 +1527,20 @@ def project_uv(tris, uvs, corners, chunk=TEAR_CHUNK):
     corners = np.asarray(corners, dtype=float)
     cen = corners.mean(axis=1)
     out = np.zeros((len(corners), 3, 2), dtype=float)
+    # THE HARD BOUND ON THE SMEAR. Whatever the extrapolation does, a fragment
+    # may only ever sample inside the UV box its PARENT PIECE occupies —
+    # measured on the first run of this code, the raw output reached
+    # u[-0.40, 1.21] v[-1.35, 1.00], which is the fragment's BACK and CUT
+    # corners (metres behind the façade, so their barycentrics run away)
+    # reading right off the sheet. Those faces are in the `core` subset and
+    # wear the char, so it never showed — but "the fragment samples somewhere
+    # else on the atlas" is the exact failure this whole change removes, and
+    # it should not be reachable by construction. A margin of one box in ten
+    # keeps the façade's own gentle overshoot at the torn edge.
+    lo = U.reshape(-1, 2).min(axis=0)
+    hi = U.reshape(-1, 2).max(axis=0)
+    pad = 0.10 * np.maximum(hi - lo, 1e-6)
+    lo, hi = lo - pad, hi + pad
     for s in range(0, len(corners), int(max(1, chunk))):
         e = min(len(corners), s + int(max(1, chunk)))
         q = cen[s:e][:, None, :]                               # (k,1,3)
@@ -1466,8 +1555,9 @@ def project_uv(tris, uvs, corners, chunk=TEAR_CHUNK):
         for j in range(3):
             wj = _bary(Ap, Bp, Cp, npk, nnp, corners[s:e, j])
             wj = np.clip(wj, -TEAR_BARY_CLAMP, TEAR_BARY_CLAMP)
-            out[s:e, j] = (wj[:, 0:1] * Up[:, 0] + wj[:, 1:2] * Up[:, 1]
-                           + wj[:, 2:3] * Up[:, 2])
+            out[s:e, j] = np.clip(
+                wj[:, 0:1] * Up[:, 0] + wj[:, 1:2] * Up[:, 1]
+                + wj[:, 2:3] * Up[:, 2], lo, hi)
     return out
 
 
@@ -1492,8 +1582,20 @@ def tone_material(ctx, sk):
     uvbox = None
     if sk.get("uv") is not None and len(sk["uv"]):
         uv = np.asarray(sk["uv"], dtype=float).reshape(-1, 2)
-        uvbox = (float(uv[:, 0].min()), float(uv[:, 0].max()),
-                 float(uv[:, 1].min()), float(uv[:, 1].max()))
+        box = (float(uv[:, 0].min()), float(uv[:, 0].max()),
+               float(uv[:, 1].min()), float(uv[:, 1].max()))
+        # A BOX WITH NO AREA MEANS THE WHOLE MAP. Measured on the shipped
+        # `dtc_Building_12_F3_o4_s69.usd`: 13 of its 15 slice cells carry an
+        # `st` primvar that is ALL ZEROS (`corner_SW_0_04_0001` n=51
+        # u[0,0] v[0,0]; only `wall_x_0_00_0000` and `wall_S_1_04_0006` have
+        # real coordinates), so the piece itself samples one texel. Cropping
+        # to that texel would hand the fragments one pixel of a 2k jpg; the
+        # map is tileable (`floor_tiles_02_diff_2k.jpg`), so its MEAN is the
+        # wall's colour and that is what the tear should be. The zero-UV
+        # slice cells are a `detail/gac_slice` / `gac_storey_slice` defect,
+        # not this module's to fix.
+        if (box[1] - box[0]) > 1e-6 or (box[3] - box[2]) > 1e-6:
+            uvbox = box
     key = (tex, None if uvbox is None
            else tuple(round(q, 2) for q in uvbox))
     mat = cache.get(key)
@@ -1541,12 +1643,14 @@ def skin_fragment(ctx, sk, frag_path):
     façade strongly here would take the char off the cut faces, which is the
     other half of the same review turned inside out.
     """
+    # BEFORE THE `pxr` IMPORT: a piece with no readable façade asks nothing of
+    # USD, and the guard is what lets the contract be checked host-side.
+    if not sk or not frag_path:
+        return None
     from pxr import Sdf, UsdGeom, UsdShade, Vt
     import numpy as np
     from . import quake_flow as qf
 
-    if not sk:
-        return None
     stage = ctx["stage"]
     prim = stage.GetPrimAtPath(frag_path) if frag_path else None
     if not prim or not prim.IsValid():
@@ -1560,10 +1664,28 @@ def skin_fragment(ctx, sk, frag_path):
     cnt = np.asarray(cnt, dtype=np.int64)
     if not cnt.size or int(cnt.min()) != 3 or int(cnt.max()) != 3:
         return None      # `_write_mesh` writes triangles; this is not one
+    why = ctx.setdefault("_tear_why", {})
     mat = (UsdShade.Material.Get(stage, sk["mat"]) if sk.get("mat") else None)
     how = "uv"
-    if mat is None or not mat.GetPrim().IsValid():
-        mat, how = tone_material(ctx, sk), "tone"
+    # A UV BOX WITH NO AREA IS NOT A MAPPING (dtc, fire_dtc3). `dtc:
+    # Building_12`'s wall cells carry a `primvars:st` that is all zeros on the
+    # façade, so the PARENT itself samples one texel of
+    # `floor_tiles_02_diff_2k.jpg` and reads as a flat colour. Carrying that
+    # onto the fragments is not wrong — they would match the wall exactly —
+    # but it is a mapping only by accident, and one pixel of a 2k jpg is a
+    # worse answer than the tone sampled from that same pixel. Say so, and
+    # take the tone.
+    span = sk.get("uvspan") or (0.0, 0.0)
+    if max(float(span[0]), float(span[1])) < 1e-6:
+        why["parent_uv_box_has_no_area"] = why.get(
+            "parent_uv_box_has_no_area", 0) + 1
+        how = "tone"
+    elif mat is None or not mat.GetPrim().IsValid():
+        k = "no_material " + str(sk.get("mat"))[-70:]
+        why[k] = why.get(k, 0) + 1
+        how = "tone"
+    if how == "tone":
+        mat = tone_material(ctx, sk)
     if mat is None:
         return None
     if how == "uv":
@@ -1574,6 +1696,7 @@ def skin_fragment(ctx, sk, frag_path):
         uv = project_uv(sk["tris"], sk["uv"],
                         W[np.asarray(idx, dtype=np.int64).reshape(-1, 3)])
         if uv is None:
+            why["no_projection"] = why.get("no_projection", 0) + 1
             mat, how = tone_material(ctx, sk), "tone"
             if mat is None:
                 return None
@@ -1592,9 +1715,11 @@ def bind_break(ctx, path, mat, cut_only):
     """Bind `mat` over a broken piece.
 
     Returns "cut" (the char went on the cut faces and the façade was kept),
-    "whole_nocore" (there was a façade to keep but the piece carries no
-    `core` subset to put the char in — `_t_core_bind` only runs on a piece
-    thick enough to solidify, so a clipped shell has none) or "whole".
+    "kept" (a façade worth keeping and no `core` subset to put the char in, so
+    nothing was written — a re-skinned tear fragment, or a clipped GAC shell),
+    "whole_nocore" (a façade but no `core` subset and no reason to keep it, so
+    the char went on whole — `_t_core_bind` only runs on a piece thick enough
+    to solidify) or "whole".
 
     THE FAÇADE OF A PIECE THAT STAYS WHERE IT WAS IS STILL THE FAÇADE.
     Binding `_debris_mat` / `_burn_mat` over the whole prim
@@ -1763,6 +1888,7 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
     # per-run, not cumulative: one ctx is one building, but a bench that
     # re-runs the recipe on the same ctx must not report yesterday's count.
     ctx.pop("_tear_skin", None)
+    ctx.pop("_tear_why", None)
 
     with _own_rng(ctx, prng, pnrng):
         # A BURNT-OUT SHELL HAS NO FLAME IN IT, whatever the event list says.
@@ -2107,12 +2233,20 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
     # which on a piece with a readable atlas is `_clad_material`'s world
     # triplanar — the smear the review named. `none` should be 0.
     sk = ctx.get("_tear_skin") or {}
+    why = ctx.get("_tear_why") or {}
     ctx["notes"].append(
         "partial collapse tear skin: {0} fragment(s) carry the parent wall's "
         "own UVs + material, {1} a tone sampled from its map, {2} left on the "
         "break palette; {3} torn piece(s) had a readable facade, {4} did "
-        "not".format(sk.get("uv", 0), sk.get("tone", 0), sk.get("none", 0),
-                     sk.get("pieces", 0), sk.get("no_facade", 0)))
+        "not{5}".format(
+            sk.get("uv", 0), sk.get("tone", 0), sk.get("none", 0),
+            sk.get("pieces", 0), sk.get("no_facade", 0),
+            ""))
+    if why:
+        ctx["notes"].append(
+            "partial collapse tear skin fell back to a tone because: "
+            + ", ".join("{0} x {1}".format(v, k)
+                        for k, v in sorted(why.items())))
     return plan
 
 
