@@ -77,6 +77,39 @@ if _MULTIGPU and _MULTIGPU not in ("0", "1", "false", "off", "no"):
     print(f"[isaac] multi-GPU rendering ON (ISAAC_SIM_MULTIGPU={_MULTIGPU}, "
           f"CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES', '<unset>')}): "
           f"{_MULTIGPU_ARGS}", flush=True)
+else:
+    # OFF MUST BE SAID OUT LOUD. Leaving it unset does NOT mean single-GPU:
+    # SimulationApp's own default command line carries
+    # `--/renderer/multiGpu/enabled=True`, so Kit tries to bind a render
+    # context on EVERY device NVML reports.
+    #
+    # That is fatal when NVML and CUDA disagree, which is the normal state of
+    # an OSMO pod. Measured on airstack-mission-1gpu-52 (2026-08-31): the
+    # container reserves one GPU, but is handed four device nodes
+    # (/dev/nvidia0..3, NVML count 4) while CUDA_VISIBLE_DEVICES permits one.
+    # Kit then logs, six times, three seconds into startup:
+    #
+    #     [gpu.foundation.plugin] Skipping NVIDIA GPU due CUDA being in bad
+    #     state: NVIDIA RTX PRO 5000 Blackwell
+    #     [gpu.foundation.plugin] Please restart your system if CUDA is known
+    #     to work in your system.
+    #
+    # and drops EVERY card, including the one that works — `cuInit(0)` returns
+    # CUDA_SUCCESS in that same container. It then renders in software: both
+    # GPUs at 0 % / 4 MiB / P8 for a whole run while Isaac burns 273 % CPU,
+    # and the real-time factor collapses to ~0.083 — 600 sim-seconds took
+    # ~2 hours, making a 24-iteration sweep ~48 h instead of a few.
+    #
+    # NVIDIA's own guidance for this symptom is to disable multi-GPU
+    # rendering or pin to one device; setting NVIDIA_VISIBLE_DEVICES does NOT
+    # help here, because the runtime injects all four device nodes regardless
+    # (verified: NVML still reported 4 with NVIDIA_VISIBLE_DEVICES=0).
+    _MULTIGPU_ARGS = ["--/renderer/multiGpu/enabled=false"]
+    print("[isaac] multi-GPU rendering OFF (explicit; Kit's default is True, "
+          "which makes it probe every NVML device and disable the GPU "
+          "entirely when CUDA cannot open them). "
+          f"CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES', '<unset>')}",
+          flush=True)
 _LIVESTREAM = _GENERATED and os.environ.get(
     "ISAAC_SIM_LIVESTREAM", "").lower() == "true"
 
