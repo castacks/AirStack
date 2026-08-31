@@ -1,0 +1,45 @@
+#usda 1.0
+(
+    defaultPrim = "Swamp_Water"
+)
+
+# Megascans "swamp water" (tgmjffbqx), 2K. Downloaded 2026-08-30 specifically
+# for the hurricane flood surface.
+#
+# WHY A WATER TEXTURE AT ALL, when `disaster.surge` argues floodwater is
+# OPAQUE past 30-50 cm and therefore depth-independent in colour: that
+# argument is about the BODY of the water and it stands. What a flat opaque
+# body cannot give you is SURFACE VARIATION — the streaks of suspended
+# sediment, the slicks, the patches of scum and floating fines that make a
+# real flood photograph as a liquid rather than as a sheet of painted card.
+# That variation is what this map supplies, and it is the reason the first
+# renders read as "sand" from altitude.
+#
+# Bind it as the DIFFUSE of the water body and keep the sediment constant as a
+# tint underneath; do not use it as a normal map — the ripple normal
+# `surge._write_ripple_normal_png` generates is band-limited to a real
+# wavelength and this one is not.
+
+def Material "Swamp_Water"
+{
+    token outputs:mdl:displacement.connect = </Swamp_Water/Shader.outputs:out>
+    token outputs:mdl:surface.connect = </Swamp_Water/Shader.outputs:out>
+    token outputs:mdl:volume.connect = </Swamp_Water/Shader.outputs:out>
+
+    def Shader "Shader"
+    {
+        uniform token info:implementationSource = "sourceAsset"
+        uniform asset info:mdl:sourceAsset = @OmniPBR.mdl@
+        uniform token info:mdl:sourceAsset:subIdentifier = "OmniPBR"
+        asset inputs:diffuse_texture = @./Swamp_Water/T_tgmjffbqx_2K_B.png@
+        asset inputs:normalmap_texture = @./Swamp_Water/T_tgmjffbqx_2K_N.png@
+        bool inputs:enable_ORM_texture = 1
+        asset inputs:ORM_texture = @./Swamp_Water/T_tgmjffbqx_2K_ORM.png@
+        # 0.05 repeats/m = one 20 m tile. Flood surface features (streaks,
+        # scum lines) are metres-to-tens-of-metres, not centimetres.
+        float2 inputs:texture_scale = (0.05, 0.05)
+        bool inputs:project_uvw = 1
+        bool inputs:world_or_object = 1
+        token outputs:out (renderType = "material")
+    }
+}
