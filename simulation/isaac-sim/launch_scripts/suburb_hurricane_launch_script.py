@@ -125,6 +125,7 @@ from suburb_scene import generate_suburb_on_stage              # noqa: E402
 from compile_disaster import load_scene_config                 # noqa: E402
 from disaster import ground, planks                            # noqa: E402
 from disaster import hurricane as hu                           # noqa: E402
+from disaster import tornado as tn                            # noqa: E402
 from disaster import surge as sgw                              # noqa: E402
 from disaster import washaway as wash                        # noqa: E402
 from detail import modular_house as mh                         # noqa: E402
@@ -311,7 +312,16 @@ def _make_overcast(stage):
     # three thousand times too much light, and the frame came back white.
     n_dome = 0
     n_tex = 0
-    dome_k = float(_env("HUR_DOME_SCALE", "0.55"))
+    # 2.4, NOT 0.55. That 0.55 was tuned against the environment's ORIGINAL
+    # dome — a bright SunsetSky — where the job was to take the scene down.
+    # Once `sky_hdri` swaps in `approaching_storm_4k`, the job reverses: a
+    # storm HDRI is intrinsically far dimmer, so scaling it DOWN as well
+    # double-dims and the plate comes back nearly black with the floodwater
+    # reading as a black hole (it is a mirror with nothing bright to mirror).
+    #
+    # A scale that made sense for one sky is meaningless for another. This is
+    # paired with the HDRI above and the two must be retuned together.
+    dome_k = float(_env("HUR_DOME_SCALE", "2.4"))
 
     # SWAP THE SKY IMAGE, NOT JUST ITS BRIGHTNESS. This is the fix for "it
     # still looks bright and sunny" after two rounds of dimming lights.
@@ -353,7 +363,24 @@ def _make_overcast(stage):
             continue
         _a = dome.GetIntensityAttr()
         _cur = _a.Get() if _a and _a.Get() is not None else 1000.0
-        dome.CreateIntensityAttr(float(_cur) * dome_k)
+        if sky_hdri:
+            # ABSOLUTE, NOT SCALED, once we swap the texture.
+            #
+            # Scaling the existing intensity assumes that number was lighting
+            # the scene. It was not: the environment's dome was lit by its
+            # BOUND MDL (`SunsetSkyMat`), and `UnbindAllBindings()` below
+            # removes exactly that. So after the swap the dome's own intensity
+            # is all there is — and whatever it happened to hold before is
+            # meaningless. Scaling it by 2.4 changed a number nothing read,
+            # which is why a 4.4x "brightness increase" produced a
+            # near-identical black frame.
+            #
+            # 3000 is a daylight-overcast dome in Kit's units, in the same
+            # range `add_sky` uses for its own plain dome (3500 at exposure
+            # -3). Tune with HUR_DOME_INT, not HUR_DOME_SCALE.
+            dome.CreateIntensityAttr(float(_env("HUR_DOME_INT", "3000")))
+        else:
+            dome.CreateIntensityAttr(float(_cur) * dome_k)
         if sky_hdri:
             # UNBIND FIRST. With a material still bound the texture set below
             # is silently ignored and the render comes back looking completely
@@ -724,7 +751,21 @@ def main():
     if DO_WASHAWAY:
         crng = random.Random(SEED + 77)
         _flow = float(scfg["shore_bearing_deg"])
-        _blockers = [(r["x"], r["y"], 6.0) for r in _h_recs]
+        # `car_shift_spec(blocked=...)` wants the CALLABLE `tornado.car_blockers`
+        # returns — `blocked(x, y) -> tag` — not a list of positions. Passing a
+        # list raised "'list' object is not callable" inside the drift march,
+        # the whole car pass was caught by its own except, and every car stayed
+        # put: "cars in water: piled 1 (0 moved)".
+        try:
+            _blockers = tn.car_blockers(
+                standing=[(r["x"], r["y"], fp_by_style.get(r["style"], 12.0))
+                          for r in _h_recs],
+                trees=[(t["x"], t["y"]) for t in _t_recs],
+                cars=[])
+        except Exception as _bexc:
+            print("[hurricane] car blockers unavailable ({0}); floated cars "
+                  "will drift without arresting".format(_bexc))
+            _blockers = None
         try:
             _root = stage.GetPrimAtPath(Sdf.Path(PARENT))
             for prim in (Usd.PrimRange(_root) if _root and _root.IsValid()

@@ -319,10 +319,27 @@ WASHOVER_ORM_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
 # band-limited ripple tuned to a real wavelength range (see that function's
 # docstring), and Swamp_Water's normal is not band-limited to anything this
 # module's `ripple_m` knob controls.
+# MEASURED, NOT CHOSEN BY NAME. Swamp_Water's diffuse has a mean albedo of
+# sRGB 25.7 -- it is a photograph of shaded swamp water and is very nearly
+# BLACK. Bound as the water body's diffuse it produced a flooded half that
+# rendered as a black void, which is the "pitch black" the review reported.
+#
+# Soil_Mud measures sRGB 63.9 and is actually brown, and it is also the
+# physically right surface: floodwater IS suspended mud, so the body's colour
+# should be the sediment's, seen through water. Its `_N` sibling is
+# deliberately NOT bound (see the `normal_tex=None` note in `_make`) -- the
+# band-limited ripple normal owns the surface.
 WATER_DIFFUSE_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
-                         "Swamp_Water/T_tgmjffbqx_2K_B.png")
+                         "Soil_Mud/T_pjuph20_2K_B.png")
+# Mean LINEAR luminance of the texture above, measured off the file. Used to
+# normalise the tint below so the product lands on the sourced sediment colour
+# instead of far below it.
+_WATER_TEX_MEAN_LINEAR = 0.051
+# Same measurement for the mud maps `_dry_material` binds (Soil_Mud 2K, and
+# Dirt_Rough for washover, which is close enough to share one constant).
+_MUD_TEX_MEAN_LINEAR = 0.051
 WATER_ORM_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
-                     "Swamp_Water/T_tgmjffbqx_2K_ORM.png")
+                     "Soil_Mud/T_pjuph20_2K_ORM.png")
 # 0.05 repeats/m = one 20 m tile, copied from `Swamp_Water.usda`'s own
 # comment: flood-surface features (streaks, scum lines) are metres-to-tens-
 # of-metres, not centimetres. Safe to use verbatim as the BASE's
@@ -385,7 +402,23 @@ DEFAULTS = {
     "pavement_at": None,
 
     # -- L1 inundation surface / alpha map -------------------------------
-    "d_opaque_m": 0.35,     # S2.2: opaque past 30-50 cm at 300+ FNU
+    # THE DEPTH AT WHICH THE WATER READS OPAQUE, and the knob that decides
+    # whether "thicker water is more opaque" is VISIBLE or merely true.
+    #
+    # 0.35 m is the turbid end of the sourced range (S2.2: opaque past 30-50 cm
+    # at 300+ FNU, against a measured 100-1300 FNU across Harvey/Florence). It
+    # is defensible and it renders badly: the whole transparent-to-opaque ramp
+    # is over within 35 cm of the shoreline, so all but a thin fringe of the
+    # flood is uniformly opaque and the depth grading cannot be seen at all
+    # from altitude.
+    #
+    # 0.90 m is the CLEAR end of the same sourced range (~100-150 FNU) and
+    # spreads that ramp across most of the plate's real depths, which top out
+    # near 2.9 m. Still floodwater, still opaque where it is deep, but the
+    # gradient is legible — which is the whole point of giving the water
+    # thickness instead of painting it on. Push it back toward 0.35 with
+    # SURGE_OPAQUE_M for a muddier storm.
+    "d_opaque_m": 0.90,
     "alpha_gamma": 0.7,     # S3.0 L1 alpha formula
     "alpha_px": 2048,       # raised from the original 512 after a review
                             # called the shoreline a "visibly stepped edge" —
@@ -1539,8 +1572,25 @@ def _write_ripple_normal_png(ripple_m, chop, out_dir=None):
 # Body colour, LINEAR RGB. `_plans/hurricane_water.md` S3.7 exactly.
 _PALETTE = {
     # mineral load 300-1300 FNU: Harvey, Ian, Katrina (S2.2 USGS turbidity)
-    "sediment": (0.155, 0.115, 0.070),
-    "sediment_light": (0.115, 0.090, 0.062),
+    # RAISED 2026-08-31 after the deep water rendered near-black on a plate
+    # that was otherwise correctly exposed.
+    #
+    # (0.155, 0.115, 0.070) is an ABSORPTION-derived body colour and it is
+    # right for what it describes: how much light a turbid column removes.
+    # But an OmniPBR diffuse is an apparent ALBEDO, and floodwater is not an
+    # absorber — it is a dense SCATTERING medium. A suspension at 300-1300 FNU
+    # bounces most of what enters the first few centimetres back out, which is
+    # why real flood imagery photographs as a light milky brown rather than a
+    # dark one. Feeding an absorption coefficient into an albedo slot, then
+    # putting a Fresnel coat over it and lighting it with an overcast dome,
+    # compounds three darkenings and lands on black.
+    #
+    # These are the same hue, roughly doubled in value: sRGB ~152/133/109,
+    # which is where Harvey/Ian aerials actually sit. Depth still drives
+    # OPACITY (see `d_opaque_m` and the band table) — that is the physics
+    # worth keeping. This is the colour the water converges TO, not how fast.
+    "sediment": (0.310, 0.230, 0.145),
+    "sediment_light": (0.230, 0.180, 0.124),
     # CDOM/tannin -- Carolina coastal plain, Gulf swamp
     "blackwater": (0.035, 0.032, 0.024),
     # clean-sand/carbonate coast; still OPAQUE, grey-green -- "there is
@@ -1645,8 +1695,28 @@ def water_materials(stage, parent_path, suffix=""):
             # (`damage.py`'s documented OmniPBR behaviour) -- `diffuse_tint`
             # is the multiply that still lets `rgb` (palette/turbidity)
             # steer the look.
+            # NORMALISE THE TINT BY THE TEXTURE'S OWN MEAN.
+            #
+            # `diffuse_texture` REPLACES `diffuse_color_constant`, so `rgb`
+            # can only re-enter as a multiply -- but multiplying a DARK
+            # texture by a DARK tint compounds. Measured: the water body was
+            # texture 0.010 x tint 0.155 = 0.0016 linear, i.e. black. The tint
+            # was written for a neutral texture and silently became a second
+            # darkening when a real photograph was bound.
+            #
+            # Dividing by the texture's measured mean makes the product land
+            # ON `rgb` -- the sourced sediment colour -- which is what the
+            # tint was always meant to express.
+            _k = max(1e-4, float(_WATER_TEX_MEAN_LINEAR))
+            # Cap at 8, not 4. The cap exists only to stop a pathologically
+            # dark texture demanding an absurd multiply; 4 was low enough to
+            # CLIP the red and green channels of the raised sediment palette
+            # (they need 6.1 and 4.5), which would have skewed the water blue
+            # by silently starving the two channels that carry the brown.
+            _tint = tuple(min(8.0, c / _k) for c in rgb) if diffuse_tex == \
+                WATER_DIFFUSE_TEXTURE else rgb
             sh.CreateInput("diffuse_tint",
-                          Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*rgb))
+                          Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*_tint))
             if normal_tex:
                 # Ponds want their own bump (small, close-up, no independent
                 # ripple system of their own). The water volume's bands pass
@@ -1705,8 +1775,28 @@ def water_materials(stage, parent_path, suffix=""):
         sh.CreateInput("enable_opacity", Sdf.ValueTypeNames.Bool).Set(True)
         sh.CreateInput("opacity_threshold", Sdf.ValueTypeNames.Float).Set(0.0)
         if opacity_const is not None:
+            # `enable_opacity` IS REQUIRED. OmniPBR ignores `opacity_constant`
+            # unless this is true, and the failure is not "the surface comes
+            # out opaque" — it renders BLACK.
+            #
+            # That is what the deep water was: 16 bands each carrying a
+            # correct opacity that nothing read, over a diffuse that never got
+            # a chance to show. The tell was that raising the sediment palette
+            # brightened the SHALLOW water (where you see the lit mud bed
+            # through it) and left the deep water pixel-for-pixel unchanged —
+            # a colour change that cannot reach the thing you are looking at
+            # means you are not looking at that material.
+            #
+            # Exactly the shape of `/rtx/raytracing/fractionalCutoutOpacity`,
+            # which this pipeline already documents twice: an opacity feature
+            # with a separate enable, silently inert without it.
+            sh.CreateInput("enable_opacity", Sdf.ValueTypeNames.Bool).Set(True)
             sh.CreateInput("opacity_constant",
                           Sdf.ValueTypeNames.Float).Set(float(opacity_const))
+            # `opacity_mode` 0 = use the constant/monochrome value directly
+            # rather than deriving alpha from a texture channel that these
+            # materials do not bind.
+            sh.CreateInput("opacity_mode", Sdf.ValueTypeNames.Int).Set(0)
         mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
         mat.CreateDisplacementOutput("mdl").ConnectToSource(
             sh.ConnectableAPI(), "out")
@@ -1866,7 +1956,11 @@ def _build_inundation_volume(stage, parent_path, cfg, region, rng, *,
         pts3[i] = Gf.Vec3f(x * ssf, y * ssf, top_z)
         pts3[n_verts + i] = Gf.Vec3f(x * ssf, y * ssf, bottom_z)
         normals[i] = Gf.Vec3f(0.0, 0.0, 1.0)
-        normals[n_verts + i] = Gf.Vec3f(0.0, 0.0, -1.0)
+        # UP, like the top surface. This is the BED seen through the water
+        # from above, not the underside of a solid — see the winding note in
+        # the face loop below. Pointing it down left it unlit and black, which
+        # is what the shallow water was rendering as.
+        normals[n_verts + i] = Gf.Vec3f(0.0, 0.0, 1.0)
 
     counts, indices = [], []
     band_faces = [[] for _ in range(n_bands)]
@@ -1879,11 +1973,23 @@ def _build_inundation_volume(stage, parent_path, cfg, region, rng, *,
     n_top_faces = len(tris)
     mud_faces = []
     for face_i, (ia, ib, ic) in enumerate(tris):
-        # Same footprint triangle, BOTTOM-layer indices, winding REVERSED
-        # (b/c swapped) so its normal faces down into the mud rather than
-        # up into the water it bounds.
+        # Same footprint triangle, BOTTOM-layer indices, winding KEPT so the
+        # bed's normal faces UP.
+        #
+        # It was reversed, on the reasoning that a volume's lower boundary
+        # should point down into the mud. That is right for a closed solid and
+        # WRONG for what this surface actually is: the BED you look at THROUGH
+        # the water from directly above. Facing it away from both the camera
+        # and the sky made it unlit, and it rendered black.
+        #
+        # Measured, and this is what finally located it: binned the overview's
+        # luma by depth and found the DARKEST water was the SHALLOWEST —
+        # 0-0.3 m at luma 61 against 1-2 m at 156. Opaque deep water was
+        # rendering its sediment correctly all along; the black was the bed
+        # showing through where the water is thin, which is exactly why three
+        # rounds of changing the WATER material moved nothing.
         counts.append(3)
-        indices += [n_verts + ia, n_verts + ic, n_verts + ib]
+        indices += [n_verts + ia, n_verts + ib, n_verts + ic]
         mud_faces.append(n_top_faces + face_i)
 
     path = "{0}/water_body".format(parent_path)
@@ -2295,8 +2401,27 @@ def _dry_material(stage, path, rgb, rough, scale, desat, texture,
                           texture=sg._join_asset_root(texture, ""))
         sh = UsdShade.Shader.Get(stage, path + "/Shader")
         if sh:
+            # NORMALISE THE TINT BY THE TEXTURE'S MEAN — the same fix the
+            # water body needed, in the function that paints everything ELSE
+            # made of mud: the bed under the water, the silt, the wrack, the
+            # washover fans.
+            #
+            # `diffuse_texture` REPLACES `diffuse_color_constant`, so `rgb`
+            # re-enters only as a multiply. Both are dark, and they compound:
+            # Soil_Mud's mean is 0.051 linear, `rgb` for the bed is 0.16, and
+            # the product is 0.008 — black.
+            #
+            # This is what the "black shallow water" actually was. Binning the
+            # overview's luma by depth showed the DARKEST water at 0-0.3 m and
+            # the brightest at 1-2 m: deep water was rendering its own
+            # sediment correctly, and where the water is thin you were seeing
+            # THROUGH it to a bed that was black. Three rounds of changing the
+            # WATER material could not move it, because the water was never
+            # the thing on screen there.
+            _k = max(1e-4, float(_MUD_TEX_MEAN_LINEAR))
+            _t = tuple(min(8.0, c / _k) for c in rgb) if texture else rgb
             sh.CreateInput("diffuse_tint",
-                          Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*rgb))
+                          Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*_t))
             sh.CreateInput("albedo_desaturation",
                           Sdf.ValueTypeNames.Float).Set(float(desat))
             if normal:
