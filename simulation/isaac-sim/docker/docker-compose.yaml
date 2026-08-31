@@ -108,6 +108,30 @@ services:
       # lists the card, which reads like a driver fault rather than a
       # config one. Override per host with ISAAC_SIM_CUDA_DEVICES.
       - CUDA_VISIBLE_DEVICES=${ISAAC_SIM_CUDA_DEVICES:-0}
+      # NVML AND CUDA MUST SEE THE SAME SET, or Isaac disables the GPU entirely.
+      #
+      # MEASURED on the OSMO pod for airstack-mission-1gpu-52 (2026-08-31):
+      # this service reserves `count: 1` below, but the container was handed
+      # NVIDIA_VISIBLE_DEVICES=all — four device nodes (/dev/nvidia0..3), while
+      # CUDA_VISIBLE_DEVICES=0 permits exactly one:
+      #
+      #     NVML devices visible in container : 4
+      #     CUDA devices permitted            : 1
+      #     Isaac skipped as "CUDA bad state" : 6
+      #
+      # Isaac enumerates through NVML, CUDA-probes each device, and logs
+      # "Skipping NVIDIA GPU due CUDA being in bad state" for the ones it can
+      # see but not open — then renders in SOFTWARE. Both cards then sit at
+      # 0 % utilisation / 4 MiB / P8 for the whole run while Isaac burns 273 %
+      # CPU, and the real-time factor collapses to ~0.083 (600 sim-seconds in
+      # ~2 hours). CUDA itself is fine: `cuInit(0)` returns CUDA_SUCCESS in
+      # that same container.
+      #
+      # NOTE the skip count (6) does not equal the visible count (4), so the
+      # masking mismatch is a strong SUSPECT rather than a proven cause — this
+      # pins the two lists together so the hypothesis is testable, and costs
+      # nothing if it turns out to be a host-level driver fault instead.
+      - NVIDIA_VISIBLE_DEVICES=${ISAAC_SIM_NVIDIA_DEVICES:-${ISAAC_SIM_CUDA_DEVICES:-0}}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
@@ -342,6 +366,30 @@ services:
       # lists the card, which reads like a driver fault rather than a
       # config one. Override per host with ISAAC_SIM_CUDA_DEVICES.
       - CUDA_VISIBLE_DEVICES=${ISAAC_SIM_CUDA_DEVICES:-0}
+      # NVML AND CUDA MUST SEE THE SAME SET, or Isaac disables the GPU entirely.
+      #
+      # MEASURED on the OSMO pod for airstack-mission-1gpu-52 (2026-08-31):
+      # this service reserves `count: 1` below, but the container was handed
+      # NVIDIA_VISIBLE_DEVICES=all — four device nodes (/dev/nvidia0..3), while
+      # CUDA_VISIBLE_DEVICES=0 permits exactly one:
+      #
+      #     NVML devices visible in container : 4
+      #     CUDA devices permitted            : 1
+      #     Isaac skipped as "CUDA bad state" : 6
+      #
+      # Isaac enumerates through NVML, CUDA-probes each device, and logs
+      # "Skipping NVIDIA GPU due CUDA being in bad state" for the ones it can
+      # see but not open — then renders in SOFTWARE. Both cards then sit at
+      # 0 % utilisation / 4 MiB / P8 for the whole run while Isaac burns 273 %
+      # CPU, and the real-time factor collapses to ~0.083 (600 sim-seconds in
+      # ~2 hours). CUDA itself is fine: `cuInit(0)` returns CUDA_SUCCESS in
+      # that same container.
+      #
+      # NOTE the skip count (6) does not equal the visible count (4), so the
+      # masking mismatch is a strong SUSPECT rather than a proven cause — this
+      # pins the two lists together so the hypothesis is testable, and costs
+      # nothing if it turns out to be a host-level driver fault instead.
+      - NVIDIA_VISIBLE_DEVICES=${ISAAC_SIM_NVIDIA_DEVICES:-${ISAAC_SIM_CUDA_DEVICES:-0}}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
