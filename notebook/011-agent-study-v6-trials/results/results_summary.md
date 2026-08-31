@@ -79,7 +79,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 19 | A3 / claude-sonnet-5 / #3 | **NULL** (0 rungs) | 10 / 20 | 2 h 54 m | $20.23 | Fastest A3 climb yet (R1–R6 in 7 calls by 1 h 27 m), then three genuine in-session R7 avoidance attempts broke the system — final state fails even R1 (/clock not publishing). Chasing R7 without regression safety-rails cost the whole ladder. |
 | 20 | A4 / claude-opus-5 / #3 | **R5** | 0 / 0 (open loop) | 1 h 21 m | $19.66 | Blind alpha-route flight clean at scoring (0.14 m goal error); R6/R7 fail — beta swap not working in final state. |
 | 21 | A1 / claude-opus-5 / #3 | **R8** (full ladder) | 8 / 20 | 2 h 31 m | $24.82 | Stopped after R6 in-session; R7+R8 passed at scoring. A1 6/6. |
-| 22 | A2 / claude-sonnet-5 / #3 | — running | — | — | — | Started 2026-08-31 01:36 UTC. |
+| 22 | A2 / claude-sonnet-5 / #3 | **R6** | 9 / 20 | 2 h 04 m | $11.76 | Clean climb to R6, one R7 attempt failed, stopped with budget left (11 calls, ~1.5 h unused). Official R7 fail / R6 pass. |
+| 23 | A3 / claude-opus-5 / #3 | — running | — | — | — | Started 2026-08-31 03:51 UTC. |
 
 ### Round-2 synthesis (16/16 cells, 2 per cell, 2026-08-30)
 
