@@ -305,6 +305,56 @@ WASHOVER_NORMAL_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
 WASHOVER_ORM_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
                        "Dirt_Rough/T_yd0lfcqcc_1k_ORM.png")
 
+# `build_deposits`' OWN texture set — WRACK IS NOT MUD, and sharing
+# `SILT_TEXTURE` with it (the pre-fix state: wrack windrows bound the same
+# Soil_Mud map as the pond bed and the water body) is the reviewed "silt,
+# wrack, washover and the water bed all draw from the same map ... no
+# material differentiation between things that are physically very
+# different" finding. A wrack line is the stranded windrow of torn marsh
+# grass, leaf litter and mud-caked organic debris a receding surge leaves at
+# its highest reach — dark, matted, high-frequency, nothing like a smooth
+# photographed SOIL surface. There is no dedicated leaf-litter/debris-mat
+# pack in the repo (same asset gap `WASHOVER_TEXTURE`'s own comment records
+# for sand), so this reuses `Burnt_Forest_Floor` — a SECOND, independent
+# import of `ground.BURNT_TEXTURE`'s own asset, not a shared reference to
+# it, so this module still never imports `ground` — on the grounds that it
+# is the one map in this library that already IS a photograph of broken
+# organic litter (leaf and twig debris, high per-pixel variance, confirmed
+# by the std-dev measurement below) rather than mineral soil or asphalt
+# aggregate, which is what a wrack line reads as even though the pack was
+# captured for a burnt forest floor, not a flood.
+WRACK_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
+                 "Burnt_Forest_Floor/T_uhwpehcdy_4K_B.png")
+WRACK_NORMAL_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
+                        "Burnt_Forest_Floor/T_uhwpehcdy_4K_N.png")
+WRACK_ORM_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
+                     "Burnt_Forest_Floor/T_uhwpehcdy_4K_ORM.png")
+
+# MEASURED OFF THE FILE, same method `_MUD_TEX_MEAN_LINEAR` was (mean of the
+# three channels' sRGB->linear values, full resolution): the wrack map above
+# is 0.035 linear (std-dev ~16-17 sRGB levels per channel — genuinely
+# mottled, unlike Soil_Mud's ~4-8, which is closer to a flat photograph at
+# this frequency). Its own constant, not a reuse of `_MUD_TEX_MEAN_LINEAR`,
+# because "close enough to share" was checked by measurement for this pack
+# and was NOT checked for `WASHOVER_TEXTURE` below when that comment was
+# written — see `_WASHOVER_TEX_MEAN_LINEAR`.
+_WRACK_TEX_MEAN_LINEAR = 0.035
+
+# MEASURED, NOT ASSUMED "close enough" — `_dry_material` had exactly one
+# mean-linear constant (`_MUD_TEX_MEAN_LINEAR = 0.051`, measured off
+# `SILT_TEXTURE`/Soil_Mud) and used it unconditionally for every texture
+# passed through it, `WASHOVER_TEXTURE`/Dirt_Rough included. Measured the
+# same way, Dirt_Rough is 0.154 linear — THREE TIMES Soil_Mud's mean, not
+# "close enough" at all. Dividing washover's (0.78, 0.72, 0.58) tint by
+# 0.051 instead of 0.154 landed every channel past `_dry_material`'s
+# `min(8.0, ...)` ceiling (15.3, 13.3-ish, 11.4 uncapped) and then multiplied
+# an already fairly bright map by it — an over-bright, texture-flattened
+# fan, on the single PALEST class in the scene. `_dry_material`'s
+# `tex_mean_linear` parameter is what lets this be fixed without touching
+# `_MUD_TEX_MEAN_LINEAR` itself, which `build_ponding`'s own `SILT_TEXTURE`
+# call (out of this round's edit scope) still depends on unconditionally.
+_WASHOVER_TEX_MEAN_LINEAR = 0.154
+
 # The Megascans "swamp water" surface (`tgmjffbqx`), 2K, installed
 # specifically for the water BODY's diffuse — see the module docstring's
 # "THE WATER VOLUME" section for why a texture is needed at all when S2.2
@@ -313,12 +363,12 @@ WASHOVER_ORM_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
 # map supplies the SURFACE VARIATION (sediment streaks, slicks, scum) a flat
 # constant cannot, which is why the first renders read as "sand" from
 # altitude. Bind as `diffuse_texture` with the sediment RGB as `diffuse_tint`
-# underneath (`water_materials`'s per-band `_make` calls) — never as a
-# normal map. The source asset's own `_N` sibling exists on disk but is
-# deliberately UNUSED: `_write_ripple_normal_png` already generates a
-# band-limited ripple tuned to a real wavelength range (see that function's
-# docstring), and Swamp_Water's normal is not band-limited to anything this
-# module's `ripple_m` knob controls.
+# underneath (`water_materials`'s per-band `_make` calls) — never as the
+# CLEARCOAT's ripple map. `_write_ripple_normal_png` already generates that,
+# band-limited to a real wind-chop wavelength range (see that function's own
+# docstring), and this asset's own normal is not band-limited to anything
+# this module's `ripple_m` knob controls -- binding it there would repeat
+# the exact mistake this comment used to warn against.
 # MEASURED, NOT CHOSEN BY NAME. Swamp_Water's diffuse has a mean albedo of
 # sRGB 25.7 -- it is a photograph of shaded swamp water and is very nearly
 # BLACK. Bound as the water body's diffuse it produced a flooded half that
@@ -326,9 +376,14 @@ WASHOVER_ORM_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
 #
 # Soil_Mud measures sRGB 63.9 and is actually brown, and it is also the
 # physically right surface: floodwater IS suspended mud, so the body's colour
-# should be the sediment's, seen through water. Its `_N` sibling is
-# deliberately NOT bound (see the `normal_tex=None` note in `_make`) -- the
-# band-limited ripple normal owns the surface.
+# should be the sediment's, seen through water. Its `_N` sibling
+# (`SILT_NORMAL_TEXTURE`, below -- the SAME `T_pjuph20_2K` photograph) is now
+# bound too, but at the BASE level (`_make`'s `normal_tex`), tiled at THIS
+# texture's own `texture_scale`, not the coat's -- see the review-round-2
+# comment at `water_materials`'s band construction for why: a 22-475 m
+# camera height sees the coat's sub-0.5 m ripple as noise or nothing, and
+# nothing else on this material varied at the "metres to tens of metres"
+# scale S3's own surface-variation ask actually calls for.
 WATER_DIFFUSE_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
                          "Soil_Mud/T_pjuph20_2K_B.png")
 # Mean LINEAR luminance of the texture above, measured off the file. Used to
@@ -2084,7 +2139,22 @@ def _build_inundation_volume(stage, parent_path, cfg, region, rng, *,
     n_bands = len(bands)
     mud_mat = (materials or {}).get("water_mud") or _dry_material(
         stage, "{0}/DepositLooks/water_mud".format(parent_path),
-        rgb=(0.16, 0.13, 0.09), rough=0.95, scale=(0.5, 0.5), desat=0.30,
+        # THE BED MUST BE LIGHTER THAN THE WATER, not darker.
+        #
+        # At (0.16, 0.13, 0.09) the bed was slightly DARKER than the water
+        # body's own sediment (0.155, 0.115, 0.070) and, being under water and
+        # under a coat, rendered darker still. That inverted the whole read:
+        # deep water (opaque, showing its own sediment) came out PALE, while
+        # shallow water (thin, showing the bed through it) came out DARK. A
+        # reviewer looking at the plate could not tell it was one material and
+        # asked whether part of it was water and part mud.
+        #
+        # Real wet mud under shallow floodwater is a LIGHT tan — lighter than
+        # the water column above it, which is what makes a flood shelve
+        # visibly from pale at the edge to darker as it deepens. 0.30/0.25/0.18
+        # is roughly twice the water's value, so shallow reads as bright mud
+        # and the gradient runs the right way round.
+        rgb=(0.30, 0.25, 0.18), rough=0.95, scale=(0.5, 0.5), desat=0.30,
         texture=SILT_TEXTURE, normal=SILT_NORMAL_TEXTURE,
         orm=SILT_ORM_TEXTURE)
 
@@ -2514,7 +2584,7 @@ def build_ponding(stage, parent_path, cfg, region, rng, *, ssf=1.0,
 
 
 def _dry_material(stage, path, rgb, rough, scale, desat, texture,
-                  normal=None, orm=None):
+                  normal=None, orm=None, tex_mean_linear=None):
     """A tinted, world-projected `damage._pbr` look — the exact pattern
     `scour_relief.materials()` uses for its soil/silt/sod classes, reused
     here for wrack, washover and pond mud: `diffuse_tint`/
@@ -2535,6 +2605,33 @@ def _dry_material(stage, path, rgb, rough, scale, desat, texture,
     silently override a material's own tuned `rough`/`roughness` constant
     once a texture is present — this keeps `rough` above authoritative
     either way.
+
+    `tex_mean_linear`, new: `texture`'s OWN measured mean linear luminance
+    (same method as `_MUD_TEX_MEAN_LINEAR` — the unweighted average of its
+    three sRGB->linear channel means), used below in place of that shared
+    constant. `None` (the default) falls back to `_MUD_TEX_MEAN_LINEAR`
+    exactly, so `build_ponding`'s `SILT_TEXTURE` call — unchanged this
+    round — renders bit-for-bit as before. Every OTHER texture bound through
+    this function needs its OWN value passed explicitly: `_MUD_TEX_MEAN_
+    LINEAR` was measured off `SILT_TEXTURE`/Soil_Mud and silently wrong for
+    anything else — see `build_deposits`' `_WASHOVER_TEX_MEAN_LINEAR` for
+    the arithmetic on what using it unconditionally did to the sand look
+    (three-fold under-normalisation, clipped straight into the safety
+    ceiling below).
+
+    STAYS ONE SCALAR, NOT THREE. Dividing each of `rgb`'s r/g/b by that same
+    CHANNEL's own mean in the texture (rather than one shared number) would
+    force the rendered average onto `rgb` exactly, but only by fighting the
+    map's own colour cast — an orange-leaning photograph would get its red
+    channel divided by a bigger number than its blue, stretching hue rather
+    than preserving it. One number (the map's overall luminance) rescales
+    brightness only; `rgb`'s own r:g:b ratio — its hue — passes through
+    unchanged, and the map's per-pixel channel variation still reads as the
+    map's own colour rather than a flattened copy of `rgb`. True of the
+    original fix too (`_k` below was already one number); said explicitly
+    here because a reader wiring in a fourth texture might reach for
+    `c / measured_mean[i]` per channel by analogy, and that is the wrong
+    generalisation.
     """
     from pxr import Gf, Sdf, UsdShade
 
@@ -2563,7 +2660,8 @@ def _dry_material(stage, path, rgb, rough, scale, desat, texture,
             # THROUGH it to a bed that was black. Three rounds of changing the
             # WATER material could not move it, because the water was never
             # the thing on screen there.
-            _k = max(1e-4, float(_MUD_TEX_MEAN_LINEAR))
+            _k = max(1e-4, float(tex_mean_linear if tex_mean_linear is not None
+                                 else _MUD_TEX_MEAN_LINEAR))
             _t = tuple(min(8.0, c / _k) for c in rgb) if texture else rgb
             sh.CreateInput("diffuse_tint",
                           Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*_t))
@@ -2613,7 +2711,49 @@ def build_deposits(stage, parent_path, cfg, region, rng, *, ssf=1.0,
     `ssf` — see `build_inundation`. `materials`, if given, is a dict that MAY
     carry `"wrack"`/`"sand"` looks to reuse instead of building fresh ones
     (the launcher's example does not pass this; it is accepted for the same
-    reason `build_inundation`/`build_ponding` accept a shared dict).
+    reason `build_inundation`/`build_ponding` accept a shared dict) — it
+    overrides ALL THREE tonal variants of that class at once (below), which
+    is the right behaviour for a caller asking for one specific fixed look
+    rather than the patchy field this function authors by default.
+
+    TEXTURE SCALE, WORKED FROM THE FEATURE, NOT THE CAMERA. `wrack_specs`
+    draws windrows 3.5-11 m long and (`w * (1 +/- asym)`, `w` in 0.55-1.50 m)
+    roughly 0.6-2.6 m wide; `_washover_specs` draws fan/mound radii of 3-9 m
+    (`washover_radius_m`). The old scales — 0.9 (wrack, a 1.11 m tile) and
+    0.6 (sand, a 1.67 m tile) — put a tile at or above the width of the
+    NARROWEST windrow and left even a small 6 m fan under four tiles across:
+    with `scour_relief.build` merging every ridge into one mesh whose
+    cross-sections are a handful of ~1.2 m stations (`_ridge_spec`'s
+    `_polyline` step), a facet that size sampling a tile that size samples
+    close to ONE texture value per facet — the reviewed "you can see
+    individual polygon facets as flat tonal patches". The fix is to make the
+    tile small relative to the SMALLEST feature this class ever produces,
+    which is a camera-independent question: at `wrack`'s new 2.0 repeats/m
+    (0.5 m tile), even the narrowest 0.6 m windrow crosses more than one
+    tile, and its length crosses 7-22; at `sand`'s new 1.2 repeats/m (0.83 m
+    tile), the smallest 6 m fan crosses ~7. What the 20-475 m ALTITUDE range
+    changes is only how many screen pixels a tile occupies (roughly
+    `tile_m / (2 * altitude_m * tan(half_fov))` of the frame width at a
+    ~90-degree FOV — a few percent at 20 m, a small fraction of a percent at
+    475 m), never whether the tiling is fine enough to read as texture
+    rather than a flat facet; a renderer's own mip-mapping handles the
+    far-altitude end for free once the near end is right.
+
+    LOW-FREQUENCY TONAL VARIATION, THE OTHER HALF OF "NOT LOWPOLY AT
+    ALTITUDE". A single flat tint per class reads as one more uniform patch
+    from 400 m regardless of how fine the diffuse tile is — texture breaks up
+    a FACET, it does not put the "wet and dry patches, sediment streaks,
+    colour mottling" the review specifically asked for at the 5-50 m scale a
+    camera actually resolves from altitude. `ground.edge_fields`'s own
+    technique (a `scorch._noise` field, band-limited by a wavelength ->
+    cycles-per-pixel `band()`) is reused verbatim below rather than
+    reinvented — neither `ground.py` nor `scorch.py` is edited to get it —
+    to bucket every wrack/washover spec into one of THREE tonal variants by
+    its own (x, y), spatially coherent at that same 8-45 m wavelength so
+    neighbouring deposits share a variant and distant ones do not. This
+    triples the material count for these two classes (six total, still a
+    handful of merged meshes, not a per-piece cost) in exchange for a field
+    that is visibly patchy rather than one flat colour from the air.
     """
     from pxr import UsdGeom, Sdf
 
@@ -2641,25 +2781,76 @@ def build_deposits(stage, parent_path, cfg, region, rng, *, ssf=1.0,
                  "50 m extent -- that is not a windrow or a sand fan, check "
                  "`wrack_specs`/`_washover_specs` before trusting this "
                  "render".format(big))
+
+        # TONAL VARIANT PER SPEC -- see the docstring's "LOW-FREQUENCY TONAL
+        # VARIATION" section. Seeded from `kn["seed"]`, NOT the `rng` this
+        # function was handed: the module docstring's "WHY THE TERRAIN NEVER
+        # CONSUMES THE PASSED-IN `rng`" gives the same reason
+        # (`_relief_harmonics` does this too) -- a caller-supplied
+        # `random.Random` has no `.normal()`, which `scorch._noise` needs,
+        # and two calls against the same `cfg` must agree regardless of what
+        # state that object happens to be in. `_bounds`/`region` are already
+        # in scope from every other scatter in this file.
+        from . import scorch
+        x0, y0, x1, y1 = _bounds(region)
+        w_span, h_span = float(x1 - x0), float(y1 - y0)
+        _grid = 128
+        _px_m = max(w_span, h_span) / float(_grid)
+        _lo_m, _hi_m = 8.0, 45.0   # metres -- the "5-50 m" mottling scale
+        _tonal = scorch._noise(
+            np.random.default_rng((int(kn.get("seed", 0)) * 1000003 + 401)
+                                  & 0xFFFFFFFF),
+            _grid, _grid, beta=2.0, lo=_px_m / _hi_m, hi=_px_m / _lo_m)
+        _N_VARIANTS = 3
+
+        def _variant(x, y):
+            i = min(_grid - 1, max(0, int((y - y0) / h_span * _grid)))
+            j = min(_grid - 1, max(0, int((x - x0) / w_span * _grid)))
+            return min(_N_VARIANTS - 1, int(_tonal[i, j] * _N_VARIANTS))
+
+        for s in combined:
+            s["cls"] = "{0}_{1}".format(
+                s.get("cls", "soil"),
+                _variant(float(s.get("x", 0.0)), float(s.get("y", 0.0))))
+
         materials = materials or {}
-        wrack_mat = materials.get("wrack") or _dry_material(
-            stage, "{0}/DepositLooks/wrack".format(parent_path),
-            rgb=(0.30, 0.27, 0.20), rough=0.92, scale=(0.9, 0.9), desat=0.30,
-            texture=SILT_TEXTURE, normal=SILT_NORMAL_TEXTURE,
-            orm=SILT_ORM_TEXTURE)
-        sand_mat = materials.get("sand") or _dry_material(
-            stage, "{0}/DepositLooks/sand".format(parent_path),
-            rgb=(0.78, 0.72, 0.58), rough=0.85, scale=(0.6, 0.6), desat=0.15,
-            texture=WASHOVER_TEXTURE, normal=WASHOVER_NORMAL_TEXTURE,
-            orm=WASHOVER_ORM_TEXTURE)
+        wrack_override = materials.get("wrack")
+        sand_override = materials.get("sand")
+        # Wet (darkest) -> dried (palest), same organic hue throughout --
+        # `WRACK_TEXTURE`'s own comment has the texture reasoning.
+        _WRACK_TINTS = ((0.034, 0.030, 0.023),
+                       (0.052, 0.045, 0.033),
+                       (0.074, 0.063, 0.045))
+        # Damp (darker, duller sand) -> sun-dried (palest) -- same hue.
+        _SAND_TINTS = ((0.52, 0.47, 0.37),
+                      (0.68, 0.62, 0.49),
+                      (0.83, 0.77, 0.61))
+        mats = {}
+        for i, tint in enumerate(_WRACK_TINTS):
+            key = "wrack_{0}".format(i)
+            mats[key] = wrack_override or _dry_material(
+                stage, "{0}/DepositLooks/{1}".format(parent_path, key),
+                rgb=tint, rough=0.94, scale=(2.0, 2.0), desat=0.20,
+                texture=WRACK_TEXTURE, normal=WRACK_NORMAL_TEXTURE,
+                orm=WRACK_ORM_TEXTURE, tex_mean_linear=_WRACK_TEX_MEAN_LINEAR)
+        for i, tint in enumerate(_SAND_TINTS):
+            key = "sand_{0}".format(i)
+            mats[key] = sand_override or _dry_material(
+                stage, "{0}/DepositLooks/{1}".format(parent_path, key),
+                rgb=tint, rough=0.80, scale=(1.2, 1.2), desat=0.10,
+                texture=WASHOVER_TEXTURE, normal=WASHOVER_NORMAL_TEXTURE,
+                orm=WASHOVER_ORM_TEXTURE,
+                tex_mean_linear=_WASHOVER_TEX_MEAN_LINEAR)
+
         made += scour_relief.build(
-            stage, "{0}/relief".format(root), combined,
-            {"wrack": wrack_mat, "sand": sand_mat}, ssf, verbose=False)
-        print("[surge] deposits: {0} spec(s) ({1} wrack, {2} washover) -> "
-             "{3} merged mesh(es) {4} (ssf={5:.4f})".format(
+            stage, "{0}/relief".format(root), combined, mats, ssf,
+            verbose=False)
+        print("[surge] deposits: {0} spec(s) ({1} wrack, {2} washover, "
+             "{3} tonal variants each) -> {4} merged mesh(es) {5} "
+             "(ssf={6:.4f})".format(
                  len(combined),
-                 sum(1 for s in combined if s.get("cls") == "wrack"),
-                 sum(1 for s in combined if s.get("cls") == "sand"),
-                 len(made), made, ssf))
+                 sum(1 for s in combined if s.get("cls", "").startswith("wrack")),
+                 sum(1 for s in combined if s.get("cls", "").startswith("sand")),
+                 _N_VARIANTS, len(made), made, ssf))
 
     return made

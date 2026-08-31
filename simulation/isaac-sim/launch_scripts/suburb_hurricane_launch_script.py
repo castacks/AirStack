@@ -94,7 +94,29 @@ _HEADLESS = os.environ.get("HUR_HEADLESS", "1").strip() not in ("0", "false",
 simulation_app = SimulationApp(launch_config={
     "headless": _HEADLESS,
     "extra_args": ["--/rtx/raytracing/fractionalCutoutOpacity=true",
-                   "--/rtx/pathtracing/fractionalCutoutOpacity=true"],
+                   "--/rtx/pathtracing/fractionalCutoutOpacity=true",
+                   # REFLECTIONS, AND THE ROUGHNESS CLAMP THAT WAS EATING THEM.
+                   #
+                   # The floodwater returned NO sky reflection at all — the one
+                   # cue that makes a viewer read "water" rather than "paint" —
+                   # despite `enable_clearcoat`, `clearcoat_ior 1.333` and a
+                   # coat normal map all being set, and despite the dome
+                   # verifiably carrying the storm HDRI ("1 re-textured ->
+                   # approaching_storm_4k.hdr" in the run log).
+                   #
+                   # RTX Real-Time 2.0 defaults `/rtx/rtpt/maxRoughness` to
+                   # 0.3 and skips reflections on any material rougher than
+                   # that. The water body's `reflection_roughness_constant` is
+                   # 0.90 — correct for a sediment body, and three times the
+                   # threshold, so every reflection on it was being discarded
+                   # before the material ever had a say.
+                   #
+                   # Same class as `fractionalCutoutOpacity` above and as
+                   # `enable_opacity` in `surge._make`: a feature that is
+                   # configured, plausible, and silently inert. Forced here
+                   # rather than trusted, for the same reason those two are.
+                   "--/rtx/reflections/enabled=true",
+                   "--/rtx/rtpt/maxRoughness=1.0"],
 })
 
 from isaacsim.core.utils.extensions import enable_extension

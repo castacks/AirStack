@@ -840,6 +840,22 @@ _RAFT_KIND_WEIGHTS = {"vegetation": 0.72, "timber": 0.28 * 0.5,
 # argument `planks.py` makes — there is no dedicated foliage-mat asset in
 # the repo) but tinted per class so a raft field is not one uniform colour —
 # the same trick `planks._TINT` plays.
+#
+# THESE NUMBERS WERE NEVER TAKING EFFECT. `planks.wood_material` puts `tint`
+# on `diffuse_color_constant`, and that input's own comment in `planks.py`
+# claims it "MULTIPLIES the map in OmniPBR". It does not: `OmniPBR.mdl`
+# (`kit/mdl/core/Base`) is explicit that `diffuse_color_constant` is the
+# albedo `diffuse_texture` REPLACES, and `diffuse_tint` is what is
+# "multiplied over the final albedo colour" — the same finding this
+# codebase already made independently at least twice more (`surge.
+# _dry_material`'s docstring; `quake_flow.py`'s "THE TINT HAS TO GO ON
+# `diffuse_tint`", which names this exact function's comment as the wrong
+# one to trust). The practical effect: every raft, whatever `kind`, was
+# rendering as plain untinted `Ash_Planks` — timber, sheet, wall and
+# vegetation all the same pale board colour — which is the "one uniform
+# colour" failure this dict's own docstring says it exists to prevent.
+# Fixed in `build_rafts`, which patches the shader `wood_material` returns
+# rather than editing that function (outside this module).
 _RAFT_TINT = {
     "timber": (1.00, 0.97, 0.90),
     "sheet":  (0.80, 0.76, 0.68),
@@ -854,6 +870,14 @@ _RAFT_TINT = {
     # `planks.wood_material`'s texture instead of an untextured OmniPBR.
     "vegetation": (0.30, 0.34, 0.20),
 }
+# MEASURED off `planks.WOOD_BASE` (mean of its 3 channels' sRGB->linear
+# values, full 2048x2048 resolution — the same method `surge.py`'s
+# `_MUD_TEX_MEAN_LINEAR`/`_WASHOVER_TEX_MEAN_LINEAR` are measured by, so a
+# reader comparing the two files sees the same convention): 0.351 linear.
+# Ash_Planks is a genuinely pale map, nearly 7x Soil_Mud's — using a mud
+# constant here by analogy would have been exactly the "close enough to
+# share" mistake `_WASHOVER_TEX_MEAN_LINEAR` documents.
+_RAFT_TEX_MEAN_LINEAR = 0.351
 _RAFT_TILT_DEG = 4.0   # a floating mat is not dead flat -- it bobs
 _RAFT_BOB_M = 0.03
 
@@ -1477,8 +1501,17 @@ def build_rafts(stage, parent_path, specs, ssf=1.0):
     PER KIND — the same trade `planks.build` makes for the same reason: a
     raft field is a few hundred flat mats sharing a handful of materials,
     and a prim each would be the wrong cost for geometry that never moves.
-    Returns the merged prim paths."""
-    from pxr import Sdf, UsdGeom
+    Returns the merged prim paths.
+
+    PATCHES `wood_material`'s SHADER RATHER THAN EDITING IT. `planks.py` is
+    outside this module's scope, and its `diffuse_color_constant` tint is a
+    no-op once a texture is bound (see `_RAFT_TINT`'s docstring for the
+    verification). Calling it with `tint=(1, 1, 1)` leaves that ineffective
+    input neutral and harmless; the real per-kind colour goes on
+    `diffuse_tint` here, exactly the fix `surge._dry_material` applies to
+    the same MDL trap for the mud/silt/washover looks.
+    """
+    from pxr import Gf, Sdf, UsdGeom, UsdShade
 
     if not specs:
         return []
@@ -1490,9 +1523,25 @@ def build_rafts(stage, parent_path, specs, ssf=1.0):
     made = []
     for kind in sorted(by_kind):
         tint = _RAFT_TINT.get(kind, (1.0, 1.0, 1.0))
+        mat_path = "{0}/RaftLooks/{1}".format(parent_path, kind)
         mat = planks.wood_material(
-            stage, "{0}/RaftLooks/{1}".format(parent_path, kind),
-            tile_m=0.6, tint=tint, roughness=0.6)
+            stage, mat_path, tile_m=0.6, tint=(1.0, 1.0, 1.0), roughness=0.6)
+        sh = UsdShade.Shader.Get(stage, mat_path + "/Shader")
+        if sh:
+            k = max(1e-4, float(_RAFT_TEX_MEAN_LINEAR))
+            t = tuple(min(8.0, c / k) for c in tint)
+            sh.CreateInput("diffuse_tint",
+                          Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*t))
+            # VEGETATION KEEPS NO GRAIN. There is still no foliage map to
+            # bind (this dict's own comment), and a multiply-tint alone
+            # cannot turn visible board grain into matted canopy texture —
+            # only its BRIGHTNESS was ever going to be honest. Desaturating
+            # it hard mutes the wood-grain contrast so the shape (a dark,
+            # low mat) carries the read rather than the pattern fighting it;
+            # the other three kinds are genuinely sawn/sheet goods, so they
+            # keep the grain at full saturation.
+            sh.CreateInput("albedo_desaturation", Sdf.ValueTypeNames.Float
+                          ).Set(0.55 if kind == "vegetation" else 0.0)
         p = _merge_boxes(stage, "{0}/{1}".format(parent_path, kind),
                          by_kind[kind], mat, ssf, verbose=True)
         if p:
