@@ -631,6 +631,16 @@ class Stack:
         self._airstack("status", 60)
         existing = stack_containers()
         if not existing:
+            # ALREADY DOWN IS STILL A CLEANUP OPPORTUNITY. The cleanup used to
+            # hang off `down()` only, so a runner started against an
+            # already-stopped stack skipped it entirely and inherited the
+            # previous run's segment backlog — measured 9,352 orphans still
+            # present at the start of a fresh run, and two robots failed to
+            # come up in that iteration.
+            try:
+                self.clean_dds_shm()
+            except Exception as exc:                    # noqa: BLE001
+                log(f"WARN: DDS shm cleanup failed ({exc}) — continuing")
             return
         log(f"existing stack containers found {existing} — bringing them down first")
         self.down()
