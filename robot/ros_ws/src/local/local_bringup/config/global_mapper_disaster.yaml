@@ -19,7 +19,18 @@
         # from the launch file so the stack can rewire the sensor.
         lock_origin: false
         origin: [0.0, 0.0, 0.0]            # initial center; UpdateOrigin recenters on the drone
-        world_dimensions: [32.0, 32.0, 16.0]  # window follows drone in all axes; +/-6 m vertical
+        # 32x32x16 -> 28x28x14 to cut mapper CPU. At 0.25 m that is
+        # 128x128x64 = 1,048,576 voxels per robot down to 112x112x56 = 702,464,
+        # a 33 % reduction, times 8 robots. Measured 2026-08-31: 8 mighty
+        # mappers held 81-96 % CPU each on a 48-core host already at load ~96,
+        # and the header note below is why the window was widened in the first
+        # place — so this is deliberately a PARTIAL walk-back, not a return to
+        # [24,24,12]. Observed ground speeds in this benchmark are 2.0-3.1 m/s
+        # against a 1.5 m/s search cap, not the 7 m/s the note assumes, which
+        # is the headroom being spent here. If frontiers start landing outside
+        # the window the symptom is unreachable goals and blacklist starvation
+        # (see search_baselines frontier_blacklist_ttl_s) — put it back first.
+        world_dimensions: [28.0, 28.0, 14.0]  # window follows drone in all axes
         resolution: 0.25
         clear_unknown_radius: 0.8
         clear_unknown_height: 2.0

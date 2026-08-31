@@ -549,17 +549,44 @@ class Stack:
         """
         import glob as _glob
 
+        # IN-USE DETECTION WITHOUT `fuser`. The first version of this shelled
+        # out to `fuser` and treated any exception as "held" — and `fuser` is
+        # NOT INSTALLED ON THE POD, so every call raised FileNotFoundError and
+        # the cleanup became a guaranteed no-op. It reported exactly that and
+        # I missed it:
+        #
+        #     [mission 07:15:54] cleaned 0 orphaned Fast DDS shm segment(s);
+        #                        8290 still held
+        #
+        # /proc is always there, needs no package, and is what fuser reads
+        # anyway: a segment is in use iff some live process maps it or holds
+        # an fd on it.
+        in_use = set()
+        for pid in _glob.glob("/proc/[0-9]*"):
+            for src in (pid + "/maps",):
+                try:
+                    with open(src) as fh:
+                        for line in fh:
+                            i = line.find("/dev/shm/")
+                            if i != -1:
+                                in_use.add(line[i:].strip())
+                except OSError:
+                    pass                      # process exited, or not ours
+            try:
+                for fd in _glob.glob(pid + "/fd/*"):
+                    try:
+                        tgt = os.readlink(fd)
+                    except OSError:
+                        continue
+                    if tgt.startswith("/dev/shm/"):
+                        in_use.add(tgt)
+            except OSError:
+                pass
+
         removed = held = failed = 0
         for pattern in self.DDS_SHM_GLOBS:
             for path in _glob.glob("/dev/shm/" + pattern):
-                try:
-                    # `fuser` exits 0 when some process holds the file.
-                    busy = subprocess.run(["fuser", path],
-                                          stdout=subprocess.DEVNULL,
-                                          stderr=subprocess.DEVNULL).returncode == 0
-                except Exception:                       # noqa: BLE001
-                    busy = True          # cannot tell -> do not touch it
-                if busy:
+                if path in in_use:
                     held += 1
                     continue
                 try:
@@ -577,11 +604,20 @@ class Stack:
         result = self._airstack("down", self.mission["down_timeout_s"])
         if result.returncode != 0:
             log(f"WARN: airstack down exited {result.returncode}")
-        # AFTER the containers are gone, never before: see clean_dds_shm.
-        try:
-            self.clean_dds_shm()
-        except Exception as exc:                        # noqa: BLE001
-            log(f"WARN: DDS shm cleanup failed ({exc}) — continuing")
+        # WAIT for the containers to actually disappear before cleaning.
+        # `airstack down` returning is not the same as the containers being
+        # gone, and a container still shutting down still holds its segments —
+        # which is how the first run of this cleaned 0 of 8,290.
+        deadline = time.time() + 120
+        while time.time() < deadline and stack_containers():
+            time.sleep(2)
+        if stack_containers():
+            log("WARN: containers still present after down; skipping shm cleanup")
+        else:
+            try:
+                self.clean_dds_shm()
+            except Exception as exc:                    # noqa: BLE001
+                log(f"WARN: DDS shm cleanup failed ({exc}) — continuing")
 
     def ensure_down(self):
         """`airstack status`; if any stack containers exist, `airstack down`
