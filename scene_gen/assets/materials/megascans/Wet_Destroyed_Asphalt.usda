@@ -1,0 +1,42 @@
+#usda 1.0
+(
+    defaultPrim = "Wet_Destroyed_Asphalt"
+)
+
+# Megascans "wet destroyed asphalt" (si1odala), 4K. Downloaded 2026-08-30 for
+# the hurricane roads.
+#
+# THIS IS THE ROAD SURFACE FOR A SCENE HOURS AFTER LANDFALL, and it is not a
+# cheat to use it everywhere: it has just rained for hours over the whole
+# plate, so every road is wet, not only the ones still under water. Dry
+# asphalt on a post-hurricane plate is the thing that reads wrong.
+#
+# It also carries the BREAK-UP a storm leaves — the pothole and spall detail
+# that `Road_Asphalt` (a clean surface) has none of. Ships a height map as
+# well as ORM, which the others do not; bound here because OmniPBR accepts it
+# and it costs nothing when the renderer ignores it.
+# ORM is packed R=occlusion G=roughness B=metallic; OmniPBR unpacks it when
+# `enable_ORM_texture` is on.
+
+def Material "Wet_Destroyed_Asphalt"
+{
+    token outputs:mdl:displacement.connect = </Wet_Destroyed_Asphalt/Shader.outputs:out>
+    token outputs:mdl:surface.connect = </Wet_Destroyed_Asphalt/Shader.outputs:out>
+    token outputs:mdl:volume.connect = </Wet_Destroyed_Asphalt/Shader.outputs:out>
+
+    def Shader "Shader"
+    {
+        uniform token info:implementationSource = "sourceAsset"
+        uniform asset info:mdl:sourceAsset = @OmniPBR.mdl@
+        uniform token info:mdl:sourceAsset:subIdentifier = "OmniPBR"
+        asset inputs:diffuse_texture = @./Wet_Destroyed_Asphalt/T_si1odala_4K_B.png@
+        asset inputs:normalmap_texture = @./Wet_Destroyed_Asphalt/T_si1odala_4K_N.png@
+        bool inputs:enable_ORM_texture = 1
+        asset inputs:ORM_texture = @./Wet_Destroyed_Asphalt/T_si1odala_4K_ORM.png@
+        asset inputs:height_texture = @./Wet_Destroyed_Asphalt/T_si1odala_4K_H.png@
+        float2 inputs:texture_scale = (0.09, 0.09)
+        bool inputs:project_uvw = 1
+        bool inputs:world_or_object = 1
+        token outputs:out (renderType = "material")
+    }
+}

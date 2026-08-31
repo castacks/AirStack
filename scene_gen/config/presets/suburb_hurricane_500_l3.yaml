@@ -172,9 +172,21 @@ overrides:
   # at this plate size.
   usds:
     materials:
-      asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+      # WET ASPHALT ACROSS THE WHOLE PLATE, not only the flooded half.
+      #
+      # This scene is hours after landfall. It has just rained over the entire
+      # region for hours, so every road is wet — the dry half is dry of STANDING
+      # WATER, not of rain. Dry, clean asphalt is the single most obviously
+      # wrong surface on a post-hurricane plate, and it was what the first
+      # renders shipped.
+      #
+      # `Wet_Destroyed_Asphalt` (si1odala, 4K) also brings the pothole and spall
+      # break-up that `Road_Asphalt` — a clean, intact surface — has none of, so
+      # this is a damage upgrade as well as a wetness one. It is the one material
+      # here that ships a height map.
+      asphalt: "airstack://scene_gen/assets/materials/megascans/Wet_Destroyed_Asphalt.usda"
       driveway: "airstack://scene_gen/assets/materials/megascans/Brick_Wall_Worn.usda"
-      driveway_asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+      driveway_asphalt: "airstack://scene_gen/assets/materials/megascans/Wet_Destroyed_Asphalt.usda"
   roads:
     driveway_asphalt_share: 0.5
     # ROAD-PAINT HEIGHT. The z ladder scales with plate span (1600 m -> 1.0),

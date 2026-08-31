@@ -1,0 +1,36 @@
+#usda 1.0
+(
+    defaultPrim = "Damaged_Asphalt_B"
+)
+
+# Megascans "damaged asphalt" (vizhdcz), 2K — a SECOND damaged-asphalt
+# surface, distinct from `Damaged_Asphalt` (vizcebf) which this repo already
+# ships.
+#
+# Kept as its own material rather than replacing the first: two variants let a
+# road network mix surfaces so a long carriageway does not read as one
+# repeated tile, which is the single most visible tiling artefact at altitude.
+# ORM is packed R=occlusion G=roughness B=metallic; OmniPBR unpacks it when
+# `enable_ORM_texture` is on.
+
+def Material "Damaged_Asphalt_B"
+{
+    token outputs:mdl:displacement.connect = </Damaged_Asphalt_B/Shader.outputs:out>
+    token outputs:mdl:surface.connect = </Damaged_Asphalt_B/Shader.outputs:out>
+    token outputs:mdl:volume.connect = </Damaged_Asphalt_B/Shader.outputs:out>
+
+    def Shader "Shader"
+    {
+        uniform token info:implementationSource = "sourceAsset"
+        uniform asset info:mdl:sourceAsset = @OmniPBR.mdl@
+        uniform token info:mdl:sourceAsset:subIdentifier = "OmniPBR"
+        asset inputs:diffuse_texture = @./Damaged_Asphalt_B/T_vizhdcz_2K_B.png@
+        asset inputs:normalmap_texture = @./Damaged_Asphalt_B/T_vizhdcz_2K_N.png@
+        bool inputs:enable_ORM_texture = 1
+        asset inputs:ORM_texture = @./Damaged_Asphalt_B/T_vizhdcz_2K_ORM.png@
+        float2 inputs:texture_scale = (0.11, 0.11)
+        bool inputs:project_uvw = 1
+        bool inputs:world_or_object = 1
+        token outputs:out (renderType = "material")
+    }
+}

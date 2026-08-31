@@ -62,6 +62,30 @@ matters — the inner image set alone exceeds 100Gi extracted.
 timeout does not free the GPU politely — `airstack osmo:down` does, in one
 command. A timeout is a backstop against a forgotten pod, not a scheduler.
 
+## READ `osmo resource list` CORRECTLY — the columns are USED/TOTAL
+
+    Node          Storage [Gi]   CPU [#]   Memory [Gi]   GPU [#]
+    …-j62sp       1163/4227      37/47     166/215       3/4
+
+That node has **49 Gi of memory FREE and one GPU free**, not 166 and 3. Read
+it the other way and a full cluster looks empty: a 160Gi request was submitted
+against nodes with 18-49 Gi free and sat in SCHEDULING indefinitely, while the
+conclusion drawn from the table was "it fits on every node with room to
+spare". Subtract before believing anything.
+
+**This cluster is small and usually busy** — three shared workers, 215 Gi and
+4 GPUs each, routinely down to 1-2 free GPUs and tens of gigabytes of free
+memory in total. Consequences worth designing around:
+
+* **Ask for ONE GPU unless you can name what the second does.** Isaac renders
+  on GPU 0; the settle that might have used a second card runs on CPU here
+  anyway. Two GPUs roughly halves the set of moments your pod can be placed.
+* **A big memory ask is a long queue.** 160Gi is ~75% of a worker. It is the
+  right number for a CPU settle (see the OOM section) but expect to wait, and
+  batch the bake so you are not *relying* on it.
+* Check `osmo resource list` BEFORE submitting, not after it fails to
+  schedule, and subtract the used column from the total yourself.
+
 ## Getting UNCOMMITTED work onto the pod
 
 This is the whole reason `scene_gen/tools/osmo_sync.sh` exists.
@@ -248,6 +272,26 @@ One diagnostic is worth more than the rest combined:
 That single fact would have gone straight to the real bug (every tree
 referenced 100x oversized, camera inside the bark) instead of a round chasing
 the sky and then the water. Compare file sizes before theorising.
+
+## The pod's /dev/shm is 64M, and `ipc: host` hands it to Kit
+
+Measured on `airstack-dev-177` (2026-08-31): the workspace pod's own
+`/dev/shm` is the Docker default 64M, the isaac compose uses `ipc: host`
+(docker-compose.yaml:29), so the sim container inherits that 64M — locally
+the same line inherits the host's 24G, which is why this never bites on a
+laptop. Kit fills it (carb RString blocks + a 9 MB fastdds segment) and dies
+during extension startup with **`Bus error (core dumped)`** — no OOM line,
+no crash dump you can use, ~290 s in, right after `omni.kit.window.filepicker`.
+Fix from the pod (privileged, live, no container recreate needed because the
+namespace is shared):
+
+    mount -o remount,size=16G /dev/shm
+
+Do it before the first Kit launch on any fresh pod. A cgroup OOM (dmesg
+"Memory cgroup out of memory") is a DIFFERENT failure with the same outward
+look — check `df -h /dev/shm` first, dmesg second. And per the user's
+standing rule: if a bake OOMs the cgroup, bake FEWER buildings per process,
+do not raise the batch size back.
 
 ## Pod lifetime
 
