@@ -118,6 +118,19 @@ the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
 
+### 2026-08-31 — Round 3 complete (3/cell): A1's zero-variance ceiling vs everyone else's spread
+
+Cumulative (entry [011](011-agent-study-v6-trials/results/results_summary.md)):
+**A1 R8×6 · A2 4/6 R8 (+R5,R6) · A3 0/6 past R6 (incl. one NULL from a
+system-breaking R7 attempt) · A4 spans NULL→R8 both models (3/6 ≥R6).**
+The picture at n=3/cell: the scaffolded closed-loop arm is
+deterministic at the full ladder; ablation costs consistency
+(final-state persistence failures); no platform means the obstacle
+rung is unreachable and attempts to reach it can destroy a working
+system; no closed loop makes outcomes a lottery. Rung-survival curves
+will carry this cleanly. Round 4 running; 5/cell (40 trials) remains
+the target — round 5 completes it.
+
 ### 2026-08-30 — Round 2 complete (2/cell): arm separation holds and sharpens
 
 Cumulative (entry [011](011-agent-study-v6-trials/results/results_summary.md)):

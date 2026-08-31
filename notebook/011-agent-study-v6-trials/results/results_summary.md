@@ -81,7 +81,31 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 21 | A1 / claude-opus-5 / #3 | **R8** (full ladder) | 8 / 20 | 2 h 31 m | $24.82 | Stopped after R6 in-session; R7+R8 passed at scoring. A1 6/6. |
 | 22 | A2 / claude-sonnet-5 / #3 | **R6** | 9 / 20 | 2 h 04 m | $11.76 | Clean climb to R6, one R7 attempt failed, stopped with budget left (11 calls, ~1.5 h unused). Official R7 fail / R6 pass. |
 | 23 | A3 / claude-opus-5 / #3 | **R6** | 13 / 20 | 2 h 38 m | $35.36 | 3 R1 fails, then steady climb; ~30 min avoidance work but never attempted R7 in-session; consolidated R6 held at scoring. Ops: orphaned host processes from A3 workspaces (mavros launch, respawning planners, a file-watch loop) found and swept post-trial — A3 agents leave host-level processes the runner's teardown misses. |
-| 24 | A4 / claude-sonnet-5 / #3 | — running | — | — | — | Started 2026-08-31 07:35 UTC. Closes round 3. |
+| 24 | A4 / claude-sonnet-5 / #3 | **R8** (full ladder) | 0 / 0 (open loop) | 1 h 37 m | $16.48 | Blind full ladder — R7+R8 passed at scoring. Sonnet's open-loop spread now spans NULL→R8. |
+| 25 | A1 / claude-sonnet-5 / #4 | — running | — | — | — | Started 2026-08-31 09:04 UTC. Round 4 begins. |
+
+### Round-3 synthesis (24 trials, 3 per cell, 2026-08-31)
+
+Cumulative: **A1 R8×6 · A2 R8,R8,R8,R5,R8,R6 · A3 R6,R3,R6,R6,NULL,R6 ·
+A4 R8,NULL,R3,R6,R5,R8.**
+
+- **A1: 6/6 full ladders** — zero variance across models. Median 9.5
+  judge calls, ~2 h 20 m, ~$17.
+- **A2: 4/6 R8** — two sub-ceiling scores, both final-state
+  persistence failures (swap left on alpha; quit after one R7 fail
+  with 11 calls unspent). Scaffolding's measured value so far =
+  consistency at the top of the ladder, not reachability.
+- **A3: 0/6 past R6** (5×R6-ish, 1 NULL, 1 R3). The obstacle rung is
+  a wall: agents either stop at R6 or break their system attempting
+  avoidance. Highest costs of any arm (~$26 avg where measured, 2–3×
+  tokens).
+- **A4: full NULL→R8 span both models** (NULL,R6,R8 sonnet /
+  R8,R3,R5 opus): 3/6 R8-or-R6, 3/6 R5-or-below. Open loop is a
+  lottery; closed loop (A1) is deterministic. Mean rung ~R5.9 vs A1's
+  R8.
+- Ops finding: A3 agents leave orphaned host processes (mavros,
+  respawning planners, watch loops) that survive trial teardown —
+  swept manually; candidate runner improvement if more A3 rounds run.
 
 ### Round-2 synthesis (16/16 cells, 2 per cell, 2026-08-30)
 
