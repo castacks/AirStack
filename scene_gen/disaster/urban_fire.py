@@ -548,8 +548,23 @@ _BRICK_TEX = ("airstack://scene_gen/assets/materials/megascans/"
 # bound BY REFERENCE sample UV space on an authored mesh — go through
 # `_pbr(texture=...)`", which turns on `project_uvw` and makes the scale
 # metric.
+# NOT Worn_Pavement — "don't use Worn Pavement material anywhere" (user,
+# 2026-08-31), which overrides the MCE freeze for this look: the kit
+# buildings' fit-out slabs change with the sliced ones, deliberately.
+# `quake_flow._C_TEX` already records the precedent and the reason ("its map
+# carries green moss in the joints ... Damaged_Asphalt is a plain grey
+# cracked surface; brightened it is concrete, darkened it is the road").
+# NO TINT NUDGE IS NEEDED HERE, measured rather than assumed: over the two
+# 2K albedo maps, Damaged_Asphalt is BRIGHTER and more NEUTRAL than the map
+# it replaces — linear mean 0.1535 vs 0.1167 (x1.32), sRGB per channel
+# 0.447/0.421/0.402 against Worn_Pavement's warm 0.386/0.369/0.310. The
+# slab therefore moves toward pale neutral concrete, not toward dark
+# roadway, at the `_triplanar` call's existing untinted default (with a
+# texture bound `damage._pbr` puts `tint` in `diffuse_color_constant` and
+# the `rgb` argument is only the fallback if the map will not resolve, so
+# there is no tint on this material to soften).
 _CONCRETE_TEX = ("airstack://scene_gen/assets/materials/megascans/"
-                 "Worn_Pavement/T_uddhdb1fw_2K_B.png")
+                 "Damaged_Asphalt/T_vizcebf_2K_B.png")
 
 
 def _triplanar(stage, path, url, rgb, rough, scale):
@@ -1318,6 +1333,63 @@ SOOT_FACING_MIN = 0.15
 # piece (9.96 m), which is the geometry a camera genuinely cannot see
 # through an intact shell.
 SOOT_SHELL_D = 2.5
+# ...AND WHAT THE SHELL RULE ADMITS CANNOT BE BAKED THROUGH ITS UVs.
+# Binding those subsets was only half the job (user review of the LIVE row-5
+# bench, 2026-08-31: still "unburnt with a repeating rectangular pattern").
+# The soot skin is a PER-ELEVATION PROJECTION addressed by (distance along
+# the wall, z) — `soot_bake.sample_skin` ignores depth entirely — so a
+# fake-interior CEILING or FLOOR plane, being horizontal, has all of its
+# texels on ONE z and therefore samples ONE ROW of the skin. Whether that
+# row lands inside a plume tongue or in the gap between two is a lottery on
+# the plane's height, and the bake either soaks the subset or deposits
+# nothing at all. Measured on the two pieces the review named
+# (`tools/soot_skip_probe.py`'s bake instrumentation — the alpha the
+# composite was actually given):
+#
+#   SM_19 pier_N_2_05_0027    mat_8 Ceiling_03   alpha mean 0.024 max 0.091
+#                             mat_2 Floor        alpha mean 0.092 max 0.380
+#                             mat_7 the WALL     alpha mean 0.263 max 0.929
+#   SM_19 pier_N_2_06_0044    mat_8 Ceiling_03   alpha mean 0.029 max 0.120
+#   SM_26 corner_NE_0_10_0070 mat_2 Ceiling_03   alpha mean 0.932 (it won)
+#
+# — the wall on the SAME piece integrates a whole storey of rows and comes
+# out at 0.338 mean luminance while its ceiling stays at 0.733, i.e. the
+# clean tile. Across a whole building 4-6% of all bakes deposit a mean alpha
+# under 0.05: a correctly-bound `sootbake_*.png` copy that renders CLEAN.
+#
+# So a subset the shell rule admits but that carries NO genuinely outward
+# face — fake interior by GEOMETRY, not by material name — takes the flat
+# soot tone graded by its module's own crop coverage instead. That number is
+# integrated over the module's whole z span (`_r_soot_overlay` sets
+# `_soot_cover`), so it cannot fall down the gap between two tongues, and it
+# is the same machinery the untextured path below already uses. The
+# threshold is that path's own 0.35: under it a module is merely fringed,
+# and the file's existing warning applies — a lightly-fringed module going
+# flat dark reads as rectangles, not as a film — so those fall through to
+# the positional bake exactly as before.
+SOOT_TONE_MIN = 0.35
+# ...AND THE TONE IS A FLOOR, NOT ONLY A FAKE-INTERIOR RULE.
+# "The main thing to fix was the weird pattern of unscorched prims" (user,
+# on `~/fire_previews/fire_dtc3/3_SM_Building_19_F3_obl.png`): a periodic
+# checkerboard of BRIGHT PALE pier caps and spandrel end-bands surviving
+# across a soot-black facade, beside and above the flaming windows. Those
+# are GENUINELY OUTWARD narrow bands, so neither the shell rule nor the
+# fake-interior rule reaches them; they are baked positionally and the bake
+# comes back near-clean, for the same one-row reason (a 0.3 m band spans a
+# handful of skin rows, and if none of them is inside a tongue the composite
+# is the base map).
+#
+# The honest test is therefore not the sampled alpha but THE RESULT: after
+# `soot_bake.bake_module` has composited, is the map this subset actually
+# samples still bright? Measured over the covered texels on the two review
+# buildings, the two populations separate cleanly --
+#
+#   sooted and reading burnt   0.166 0.202 0.216 0.239 0.271 0.338 0.351
+#   still reading pale         0.502 0.564 0.622 0.625 0.657 0.722
+#
+# -- so 0.45 sits in the gap with room either side. A subset over it falls
+# back to the graded tone instead of shipping the near-clean copy.
+SOOT_PALE_MAX = 0.45
 
 
 def _mesh_arrays(prim):
@@ -1384,6 +1456,33 @@ def _flat_diffuse(mat_prim):
                     hasattr(v, "__len__") and len(v) == 3):
                 return (float(v[0]), float(v[1]), float(v[2]))
     return (0.6, 0.6, 0.6)
+
+
+_RING_ORDER = ("S", "E", "N", "W")
+
+
+def _face_side_ix(m, pts):
+    """Index into `_RING_ORDER` of the elevation each point is NEAREST, in the
+    mass's own yaw-honoured frame.
+
+    The IDENTICAL rule `_skin_sample` (just below) uses to decide which
+    elevation's skin a texel of a merged region-cut block is sampled from —
+    shared deliberately, so that on those pieces face SELECTION and skin
+    SAMPLING agree face by face instead of one being radial and the other
+    per-elevation.
+    """
+    import numpy as np
+
+    ang = math.radians(-float(m["yaw"]))
+    ca, sa = math.cos(ang), math.sin(ang)
+    dx = np.asarray(pts)[:, 0] - float(m["cx"])
+    dy = np.asarray(pts)[:, 1] - float(m["cy"])
+    lx = dx * ca - dy * sa
+    ly = dx * sa + dy * ca
+    W, D = float(m["W"]), float(m["D"])
+    return np.argmin(np.stack([np.abs(ly + D / 2.0), np.abs(lx - W / 2.0),
+                               np.abs(ly - D / 2.0), np.abs(lx + W / 2.0)],
+                              axis=1), axis=1)
 
 
 def _skin_sample(sk, side, m, world):
@@ -1475,6 +1574,22 @@ def _bind_soot(ctx, e, sk):
     # merged piece's own label lives on its PLACEMENT, `_side == "x"`)
     any_side = (side not in _SIDE_RING
                 or str((e.get("p") or {}).get("_side", "")) == "x")
+    # WHERE THE TONE FLOOR IS ALLOWED TO FIRE. Either the plume has soaked
+    # this module (`_soot_cover`, the crop integrated over the module's whole
+    # z span — so its neighbours are black and a pale band beside them is the
+    # artefact), or the module is IN the fire: on a venting elevation and on
+    # a storey the fire's own falloff calls touched, which is the same
+    # `_severity >= 0.25` test `r_gut_interior` uses for "the fire reached
+    # this floor". Outside both, nothing is toned — a fire has to keep
+    # reading directional, and a module the plume never came near stays
+    # exactly as pale as its asset shipped it.
+    cov = float(e.get("_soot_cover", 0.0))
+    try:
+        in_fire = (side in (ctx["fire"].get("sides") or ())
+                   and _severity(ctx, e.get("storey"), e.get("mass")) >= 0.25)
+    except Exception:
+        in_fire = False
+    tone_ok = one_off and (cov >= SOOT_TONE_MIN or in_fire)
     ox_, oy_ = (None, None) if any_side else qf._outward(m, side)
     sampler = _skin_sample if any_side else None
     n = 0
@@ -1487,6 +1602,7 @@ def _bind_soot(ctx, e, sk):
                    or [(prim, None)])
         rel = str(prim.GetPath()).replace(str(root.GetPath()), "", 1)
         M = None
+        face_true = None       # the strict outward mask, sliced ring only
         for t, sub in targets:
             bound = UsdShade.MaterialBindingAPI(t).ComputeBoundMaterial()[0]
             bprim = bound.GetPrim() if bound else None
@@ -1548,6 +1664,70 @@ def _bind_soot(ctx, e, sk):
                     n_all = np.linalg.norm(nrm, axis=1) + 1e-12
                     face_out = ((nrm[:, 0] * rx + nrm[:, 1] * ry) > 1e-9) & (
                         n_xy > 0.5 * n_all)
+                    if one_off:
+                        # THE MERGED BLOCK GETS THE SAME PER-FACE TREATMENT
+                        # THE RING PIECES DO — on its VENTING elevations only.
+                        # The radial test above is the whole reason the block
+                        # above the band kept a checkerboard of white caps
+                        # while the ring below it went black: measured on the
+                        # shipped `gac_SM_Building_19_F3_s100` bake
+                        # (head-on facade captures + `tools/pale_census.py`,
+                        # user gating on this building, 2026-08-31), it
+                        # admits only 45.0% of `wall_x_0_08_0069/mat_7`'s
+                        # 8,048 m2 — and 0.0% of `mat_5` and `mat_8` — so the
+                        # rest was never composited and kept its base map.
+                        # Classified per face by its own nearest elevation
+                        # (`_face_side_ix`), the strict outward test and the
+                        # `SOOT_SHELL_D` shell rule reach 100% of that
+                        # subset, and 59.9% once restricted to E/W.
+                        #
+                        # RESTRICTED TO THE VENTING ELEVATIONS, AND ONLY EVER
+                        # ADDITIVE. "Burnt on the other side of the building
+                        # that isn't even on fire" is wrong (user, 2026-08-29)
+                        # and the fire has to keep reading directional, so the
+                        # new faces are `hot_f`-gated; the radial test's own
+                        # selection is kept underneath by the union, so no
+                        # cold-side face that is sooted today loses its soot.
+                        # How high the stain climbs above the band is still
+                        # the plume's answer, not this rule's — these faces
+                        # are composited through `_skin_sample` exactly as
+                        # before and its above-band decay does the rest.
+                        # Interior geometry stays protected by the same
+                        # `SOOT_SHELL_D` depth cut the ring pieces use, now
+                        # measured per elevation: on the merged block it
+                        # keeps all of a thin facade subset and only 36.2%
+                        # of the deep `mat_2`, and it is what leaves SM_26's
+                        # 245 m2 core ceiling alone.
+                        six = _face_side_ix(m, cen)
+                        hot_s = set(ctx["fire"].get("sides") or ())
+                        strict = np.zeros(len(nrm), dtype=bool)
+                        shell = np.zeros(len(nrm), dtype=bool)
+                        hot_f = np.zeros(len(nrm), dtype=bool)
+                        for _k, _s in enumerate(_RING_ORDER):
+                            sel = six == _k
+                            if not sel.any():
+                                continue
+                            ox2, oy2 = qf._outward(m, _s)
+                            d2 = cen[:, 0] * ox2 + cen[:, 1] * oy2
+                            strict[sel] = (nrm[sel, 0] * ox2
+                                           + nrm[sel, 1] * oy2) > 1e-9
+                            shell[sel] = d2[sel] >= d2[sel].max() - SOOT_SHELL_D
+                            hot_f[sel] = _s in hot_s
+                        # FAKE INTERIOR, WITH THE COLD SIDES AS A GUARD.
+                        # On a ring piece "no strict outward face" means the
+                        # subset is the room behind the opening, and the tone
+                        # is bound to the WHOLE subset. A merged block's
+                        # subset can wrap all four elevations at once
+                        # (`mat_5` here is 33% E / 33% W / 17% N / 17% S), and
+                        # a per-subset tone cannot be side-limited — it would
+                        # flatten the fake interiors of the COLD elevations
+                        # too, behind glass that never broke. So a cold face
+                        # counts as "outward" for this test only: a subset
+                        # that reaches a cold side is never toned wholesale,
+                        # it just takes the positional bake with its hot
+                        # shell faces now included.
+                        face_true = strict | ~hot_f
+                        face_out = face_out | (hot_f & (strict | shell))
                 else:
                     face_out = (nrm[:, 0] * ox_ + nrm[:, 1] * oy_) > 1e-9
                     if one_off:
@@ -1566,6 +1746,10 @@ def _bind_soot(ctx, e, sk):
                         # still bounded by `SOOT_SHELL_D`.
                         cen = (pts_w[i0] + pts_w[i1] + pts_w[i2]) / 3.0
                         d_o = cen[:, 0] * ox_ + cen[:, 1] * oy_
+                        # the STRICT mask is KEPT: a subset with no face in
+                        # it is fake interior and takes the tone rather than
+                        # a bake (`SOOT_TONE_MIN`)
+                        face_true = face_out
                         face_out = face_out | (
                             d_o >= float(d_o.max()) - SOOT_SHELL_D)
             sub_name = str(sub.GetPrim().GetName()) if sub is not None else ""
@@ -1584,6 +1768,26 @@ def _bind_soot(ctx, e, sk):
                 # faces only; the rest keep the base map.
                 if not fsel.size or not bool(fsel.any()):
                     stats["inward"] = stats.get("inward", 0) + 1
+                    continue
+                # A FAKE INTERIOR TAKES THE TONE, NOT A BAKE — see
+                # `SOOT_TONE_MIN`. No strict outward face in the subset means
+                # the shell rule is the only reason it is here at all, i.e.
+                # it is the room behind the opening; its horizontal planes
+                # sample a single skin row and the copy comes back clean.
+                # Counted as a flat-tone bind, which is exactly what it is,
+                # so the note's own fields (and with them the kit path's
+                # frozen wording) do not move.
+                tsel = ((face_true if face_ids is None
+                         else face_true[face_ids])
+                        if face_true is not None else None)
+                if tsel is not None and not bool(tsel.any()) \
+                        and cov >= SOOT_TONE_MIN:
+                    UsdShade.MaterialBindingAPI(t).Bind(
+                        ctx["mats"]["soot" if cov > 0.70 else
+                                    "soot_mid" if cov > SOOT_TONE_MIN else
+                                    "soot_light"])
+                    stats["flat_tone"] += 1
+                    n += 1
                     continue
                 all_ids = (face_ids if face_ids is not None
                            else list(range(len(face_out))))
@@ -1606,7 +1810,15 @@ def _bind_soot(ctx, e, sk):
             # does the skin actually reach this subset's face? sample first
             world = pos[mask] @ M[:3, :3] + M[3, :3]
             a = (sampler or sb.sample_skin)(sk, side, m, world)[..., 3]
-            if float(a.max()) < 0.05:
+            a_max = float(a.max())
+            # THE EARLY EXIT STAYS, EXCEPT WHERE THE FLOOR MIGHT OWE THIS
+            # SUBSET A TONE. "The skin never reached it" is the right answer
+            # for a module out in the cold, and the wrong one for a pale cap
+            # beside a flaming window — that one has to be composited first
+            # so the result can be judged. The kit path has `one_off` False,
+            # so `tone_ok` is False and this is the identical early exit it
+            # has always taken.
+            if a_max < 0.05 and not tone_ok:
                 stats["clean"] += 1
                 continue
             if flat_rgb is not None:
@@ -1635,6 +1847,26 @@ def _bind_soot(ctx, e, sk):
                 continue
             out = sb.bake_module(sk, side, m, M, pos, mask, base, px=px,
                                  sampler=sampler)
+            # THE TONE FLOOR — see `SOOT_PALE_MAX`. Judged on what the subset
+            # will actually sample (the COVERED texels, never the whole
+            # atlas: a correctly sooted subset can occupy 7% of a pale tile
+            # and the atlas mean says nothing about what renders). A healthy
+            # positional bake is far under the threshold and is kept — this
+            # is a floor, not a replacement for the wall's own bake.
+            if tone_ok and float(out[mask].mean()) > SOOT_PALE_MAX:
+                UsdShade.MaterialBindingAPI(t).Bind(
+                    ctx["mats"]["soot" if cov > 0.70 else
+                                "soot_mid" if cov > SOOT_TONE_MIN else
+                                "soot_light"])
+                stats["flat_tone"] += 1
+                n += 1
+                continue
+            if a_max < 0.05:
+                # let past the early exit only for the floor, which did not
+                # fire: the composite is already dark, so leave it alone
+                # exactly as before rather than shipping a pointless copy
+                stats["clean"] += 1
+                continue
             digest = _hl.md5(np.round(out * 255.0).astype(np.uint8).tobytes()
                              ).hexdigest()[:16]
             png = os.path.join(spl.OUT_DIR, "sootbake_{0}.png".format(digest))
@@ -1656,16 +1888,6 @@ def _bind_soot(ctx, e, sk):
                     # a fresh surface carrying the baked map
                     mat = spl.piece_material(stage, mp, png)
                     stats["flat_material"] += 1
-                if isinstance(ctx.get("soot_prebaked"), (set, frozenset)):
-                    # SLICED PATH ONLY — the kit look is frozen. A sooted
-                    # copy that keeps its source's Metalness/Roughness MAPS
-                    # mirrors the sky straight through the soot (dtc
-                    # Amar_Tower F5c, "still very reflective", fire_dtc3
-                    # review 2026-08-31): matte the copy in proportion to
-                    # the baked coverage (`soot_bake.harden_sooted_shader`
-                    # is a no-op below its own SOOT_HARDEN_MIN). Done once
-                    # per copy, here at creation — `mats[mkey]` reuses it.
-                    sb.harden_sooted_shader(mat, float(a.mean()))
                 mats[mkey] = mat
             UsdShade.MaterialBindingAPI(t).Bind(mat)
             n += 1
@@ -1765,6 +1987,25 @@ def r_smoke_stain(ctx, heavy=1.0, above=2):
         k = _r_soot_overlay(ctx, heavy, role)
         if k:
             counts[role] = k
+    if isinstance(ctx.get("soot_prebaked"), (set, frozenset)):
+        # SLICED PATH ONLY — the kit look is frozen. A sooted copy that
+        # keeps its source's Metalness/Roughness MAPS mirrors the sky
+        # straight through the soot (dtc Amar_Tower F5c, "still very
+        # reflective", fire_dtc3 review 2026-08-31). ONE SWEEP, HERE,
+        # AFTER every binding loop has finished — hardening inside
+        # `_bind_soot`'s own loop recomposes the reference-built copies
+        # and expires the loop's held subset/material handles
+        # (UsdExpiredPrimAccessError swallowed mid-role: a building that
+        # "bakes fine" with half its skin missing). The sweep finds the
+        # copies by their own sootbake_<digest>.png names and mattes the
+        # ones `soot_bake.bake_module` logged as significantly sooted.
+        from . import soot_bake as _sbh
+        n_hard = _sbh.harden_baked_materials(
+            ctx["stage"], root=ctx["stage"].GetPrimAtPath(ctx["parent"]))
+        if n_hard:
+            ctx["notes"].append(
+                "soot gloss: {0} shader input(s) matted on the sooted "
+                "copies".format(n_hard))
     st = ctx.get("soot_stats") or {}
     ctx["notes"].append(
         "smoke: soot skin from {0}; sooted sides per role: {1}; storeys "
@@ -3378,23 +3619,17 @@ def r_curtain_burn(ctx, grade=3, width_frac=None):
         along = (e["lx"] + m["W"] / 2.0) if side in ("S", "N") else \
                 (e["ly"] + m["D"] / 2.0)
         cand.append((e, qf._piece_frame(e), None, None, along, 2.5))
-    if ctx.get("soot_openings") is not None and \
-            all(c[1] is None for c in cand):
-        # THE SLICED PATH HAS NO KIT MODULES TO TAKE BAYS FROM. A sliced
-        # style's elements exist (`describe` rebuilds them from the pieces)
-        # but they are not kit wall modules — `qf._piece_frame` has no
-        # module dims for them and returns None for every one, so the body
-        # below rolled and skipped its way to "curtain burn: 0 bay(s) out,
-        # 0 crazed" on every sliced tower (dtc Amar_Tower F5c, fire_dtc3
-        # review 2026-08-30, twice: the first gate here tested `not cand`
-        # and never fired). When NOTHING in `cand` is frameable and the
-        # measured openings table exists, the bays come from the table
-        # instead: a per-bay frame anchored on the measured façade plane
-        # lets the shared body author the same voids, melted mullions and
-        # crazed panes. Kit buildings never set `soot_openings`, so this
-        # branch is unreachable on the kit path whatever `cand` holds.
-        cand = []
+    cb_src = "kit els"
+
+    def _table_cand():
+        # PER-BAY CANDIDATES FROM THE MEASURED OPENINGS TABLE — the sliced
+        # path's substitute for kit wall modules: a per-bay frame anchored
+        # on the measured façade plane lets the shared body author the
+        # same voids, melted mullions and crazed panes. Only reachable
+        # when `ctx["soot_openings"]` exists, which the kit path never
+        # sets.
         from . import soot_plume as spl
+        out = []
         for s in range(int(f["origin"]), int(f["top"]) + lick + 1):
             for op in spl.openings(ctx, f["mass"], side, s) or []:
                 ua, ub, va, vb = op["span"]
@@ -3407,16 +3642,31 @@ def r_curtain_burn(ctx, grade=3, width_frac=None):
                        f0[2], bw, bh, f0[5], f0[6])
                 e = dict(op["e"])
                 e["z"] = float(va)
-                cand.append((e, bay, bw, bh, 0.5 * (ua + ub), 0.5 * bw))
-    for e, fr, width, hh, along, half in cand:
+                out.append((e, bay, bw, bh, 0.5 * (ua + ub), 0.5 * bw))
+        return out
+
+    # RESULT-BASED FALLBACK, NOT A SHAPE-BASED GATE. Two prior gates here
+    # each missed a sliced variant: `not cand` (sliced styles DO have
+    # elements) and `all frames None` (a CACHED kit — FB_BAKED_KITS=1 —
+    # resolves SOME frames, and those few die in the stripe filters:
+    # "curtain burn: 0 bay(s) out" three bakes running, fire_dtc3 review
+    # 2026-08-31, while the same building fresh-sliced tore 20 bays). The
+    # only invariant that holds everywhere: if the kit-els pass tears and
+    # crazes NOTHING and a measured openings table exists, run the same
+    # body again on the table's bays. Kit buildings never set
+    # `soot_openings`, so their rng consumption is untouched.
+    if not cand and ctx.get("soot_openings") is not None:
+        cand, cb_src = _table_cand(), "table"
+    def _bay(e, fr, width, hh, along, half):
+        nonlocal n_out, n_stain
         # a soft edge to the stripe: a bay half in it is in it half the time
         over = min(along + half, u0 + w) - max(along - half, u0)
         if over <= 0.0:
-            continue
+            return
         if over < 4.0 and rng.random() > over / 4.0:
-            continue
+            return
         if fr is None:
-            continue
+            return
         if width is None:
             width, hh = fr[3], fr[4]
         above = e["storey"] - f["top"]
@@ -3449,6 +3699,15 @@ def r_curtain_burn(ctx, grade=3, width_frac=None):
                         _severity(ctx, e["storey"], e["mass"], e),
                         out=0.014)
             n_stain += 1
+
+    for c in cand:
+        _bay(*c)
+    if (n_out + n_stain) == 0 and cb_src == "kit els" \
+            and ctx.get("soot_openings") is not None:
+        # the result-based fallback — see the note above `_table_cand`
+        cand, cb_src = _table_cand(), "table fallback"
+        for c in cand:
+            _bay(*c)
     # THE GLASS IS ON THE STREET. A tower that has lost eighty bays has put
     # every one of them on the pavement below, and that fall zone is the only
     # thing at ground level that says the fire is forty metres up.
@@ -3474,8 +3733,9 @@ def r_curtain_burn(ctx, grade=3, width_frac=None):
         ctx["authored"].append(path)
     ctx["notes"].append(
         "curtain burn: {0} bay(s) out, {1} crazed, in a {2:.0f} m stripe on "
-        "{3} from storey {4} up; {5} piece(s) in the fall zone".format(
-            n_out, n_stain, w, side, f["origin"], n_dice))
+        "{3} from storey {4} up; {5} piece(s) in the fall zone; {6} "
+        "candidate bay(s) from {7}".format(
+            n_out, n_stain, w, side, f["origin"], n_dice, len(cand), cb_src))
 
 
 # ---------------------------------------------------------------------------

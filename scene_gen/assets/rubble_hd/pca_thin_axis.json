@@ -1,0 +1,4232 @@
+{
+ "brick_debris_pile_p01": [
+  -0.029426,
+  -0.338338,
+  0.940564
+ ],
+ "brick_debris_pile_p02": [
+  0.114527,
+  0.642118,
+  0.758003
+ ],
+ "brick_debris_pile_p03": [
+  -0.65558,
+  0.179119,
+  0.733574
+ ],
+ "brick_debris_pile_p04": [
+  0.171513,
+  0.550798,
+  0.816826
+ ],
+ "brick_debris_pile_p05": [
+  0.365468,
+  -0.019994,
+  0.930609
+ ],
+ "brick_debris_pile_p06": [
+  0.709199,
+  -0.229918,
+  -0.666464
+ ],
+ "brick_debris_pile_p07": [
+  -0.299659,
+  0.731752,
+  0.612162
+ ],
+ "brick_debris_pile_p08": [
+  -0.076614,
+  0.21156,
+  0.974358
+ ],
+ "brick_debris_pile_p09": [
+  -0.606675,
+  -0.153199,
+  0.780049
+ ],
+ "brick_debris_pile_p10": [
+  0.750232,
+  -0.051623,
+  -0.659156
+ ],
+ "brick_debris_pile_p11": [
+  0.672999,
+  0.343983,
+  -0.654788
+ ],
+ "brick_debris_pile_p12": [
+  0.624415,
+  -0.167915,
+  0.762831
+ ],
+ "brick_debris_pile_p13": [
+  0.795821,
+  0.005175,
+  0.605509
+ ],
+ "brick_debris_pile_p14": [
+  0.314431,
+  0.002263,
+  0.949278
+ ],
+ "brick_debris_pile_p15": [
+  0.28466,
+  0.544062,
+  0.789281
+ ],
+ "brick_debris_pile_p16": [
+  0.315627,
+  -0.221187,
+  0.922744
+ ],
+ "brick_debris_pile_p17": [
+  -0.572415,
+  -0.013378,
+  0.819855
+ ],
+ "brick_debris_pile_p18": [
+  0.333591,
+  0.25363,
+  0.907958
+ ],
+ "brick_debris_pile_p19": [
+  -0.449728,
+  0.319829,
+  0.833939
+ ],
+ "brick_debris_pile_p20": [
+  0.965295,
+  -0.078092,
+  0.249212
+ ],
+ "brick_debris_pile_p21": [
+  0.842501,
+  -0.091435,
+  0.530879
+ ],
+ "brick_debris_pile_p22": [
+  0.61126,
+  -0.045368,
+  0.790129
+ ],
+ "brick_debris_pile_p23": [
+  0.546656,
+  0.174097,
+  0.819059
+ ],
+ "brick_debris_pile_p24": [
+  0.653511,
+  -0.20231,
+  0.729379
+ ],
+ "brick_debris_pile_p25": [
+  0.905239,
+  -0.199311,
+  0.375258
+ ],
+ "brick_debris_pile_p26": [
+  0.652746,
+  -0.487446,
+  -0.579931
+ ],
+ "brick_debris_pile_p27": [
+  0.154594,
+  0.175967,
+  0.972181
+ ],
+ "brick_debris_pile_p28": [
+  -0.606034,
+  -0.231145,
+  0.761114
+ ],
+ "brick_debris_pile_p29": [
+  0.144178,
+  -0.369034,
+  0.918165
+ ],
+ "brick_debris_pile_p30": [
+  0.738822,
+  0.195945,
+  -0.644785
+ ],
+ "brick_debris_pile_p31": [
+  0.097076,
+  -0.090899,
+  0.991117
+ ],
+ "brick_debris_pile_p32": [
+  0.312973,
+  -0.196521,
+  0.929208
+ ],
+ "brick_debris_pile_p33": [
+  0.77343,
+  -0.17883,
+  -0.608133
+ ],
+ "brick_debris_pile_p34": [
+  -0.279876,
+  -0.001899,
+  0.960034
+ ],
+ "brick_debris_pile_p35": [
+  0.824706,
+  -0.013678,
+  0.565396
+ ],
+ "brick_debris_pile_p36": [
+  0.230384,
+  0.628884,
+  0.742582
+ ],
+ "brick_debris_pile_p37": [
+  0.763741,
+  -0.153482,
+  0.627012
+ ],
+ "brick_debris_pile_p38": [
+  0.140184,
+  -0.389176,
+  0.910434
+ ],
+ "brick_debris_pile_p39": [
+  0.94241,
+  0.270347,
+  0.196918
+ ],
+ "brick_debris_pile_p40": [
+  -0.400173,
+  0.216546,
+  0.890488
+ ],
+ "brick_debris_pile_p41": [
+  -0.032203,
+  -0.039019,
+  0.998719
+ ],
+ "brick_debris_pile_p42": [
+  0.6209,
+  -0.078296,
+  0.77997
+ ],
+ "brick_debris_pile_p43": [
+  0.083704,
+  0.562051,
+  0.822856
+ ],
+ "brick_debris_pile_p44": [
+  0.60053,
+  -0.154071,
+  0.784618
+ ],
+ "brick_debris_pile_p45": [
+  -0.46548,
+  -0.279247,
+  0.839851
+ ],
+ "brick_debris_pile_p46": [
+  -0.152621,
+  0.117033,
+  0.981331
+ ],
+ "brick_debris_pile_p47": [
+  0.065971,
+  0.208562,
+  0.975782
+ ],
+ "brick_debris_pile_p48": [
+  -0.179796,
+  0.02772,
+  0.983313
+ ],
+ "brick_debris_pile_p49": [
+  -0.111804,
+  0.143185,
+  0.983361
+ ],
+ "brick_debris_pile_p50": [
+  0.903203,
+  -0.280713,
+  0.324691
+ ],
+ "brick_debris_pile_p51": [
+  -0.668626,
+  -0.157914,
+  0.726638
+ ],
+ "brick_debris_pile_p52": [
+  -0.364154,
+  -0.29328,
+  0.883956
+ ],
+ "brick_debris_pile_p53": [
+  -0.578133,
+  -0.301864,
+  0.75805
+ ],
+ "brick_debris_pile_p54": [
+  -0.086205,
+  0.057807,
+  0.994599
+ ],
+ "brick_debris_pile_p55": [
+  0.91554,
+  -0.21429,
+  -0.340393
+ ],
+ "brick_debris_pile_p56": [
+  -0.194416,
+  0.601197,
+  0.77509
+ ],
+ "brick_debris_pile_p57": [
+  0.146113,
+  0.498412,
+  0.854539
+ ],
+ "brick_debris_pile_p58": [
+  0.971589,
+  -0.236317,
+  0.01301
+ ],
+ "brick_debris_pile_p59": [
+  -0.20065,
+  0.583435,
+  0.786984
+ ],
+ "brick_debris_pile_p60": [
+  -0.19396,
+  0.68066,
+  0.706456
+ ],
+ "brick_debris_pile_p61": [
+  0.675977,
+  -0.080274,
+  0.732538
+ ],
+ "brick_debris_pile_p62": [
+  0.172325,
+  -0.031378,
+  0.98454
+ ],
+ "brick_debris_pile_p63": [
+  0.330299,
+  0.442495,
+  0.833727
+ ],
+ "brick_debris_pile_p64": [
+  0.735091,
+  -0.072028,
+  0.674132
+ ],
+ "brick_debris_pile_p65": [
+  -0.586963,
+  0.031286,
+  0.809009
+ ],
+ "brick_debris_pile_p66": [
+  -0.086366,
+  0.85775,
+  0.50676
+ ],
+ "brick_debris_pile_p67": [
+  0.72522,
+  0.22287,
+  -0.651448
+ ],
+ "brick_debris_pile_p68": [
+  0.986485,
+  -0.099235,
+  0.130381
+ ],
+ "brick_debris_pile_p69": [
+  0.263277,
+  0.76148,
+  0.592312
+ ],
+ "brick_debris_pile_p70": [
+  0.96338,
+  -0.084259,
+  0.254559
+ ],
+ "brick_debris_pile_p71": [
+  0.195121,
+  0.203244,
+  0.959489
+ ],
+ "brick_debris_pile_p72": [
+  0.124678,
+  0.265052,
+  0.95614
+ ],
+ "brick_debris_pile_p73": [
+  -0.656607,
+  0.181635,
+  0.732036
+ ],
+ "brick_debris_pile_p74": [
+  0.798243,
+  -0.077893,
+  0.597277
+ ],
+ "brick_debris_pile_p75": [
+  0.088741,
+  0.178858,
+  0.979865
+ ],
+ "brick_debris_pile_p76": [
+  -0.030693,
+  0.956882,
+  -0.28885
+ ],
+ "brick_debris_pile_p77": [
+  0.315077,
+  -0.124634,
+  0.940847
+ ],
+ "brick_debris_pile_p78": [
+  0.302913,
+  0.951023,
+  -0.061642
+ ],
+ "brick_debris_pile_p79": [
+  -0.190924,
+  0.013512,
+  0.981512
+ ],
+ "brick_debris_pile_p80": [
+  0.059551,
+  0.6607,
+  0.748285
+ ],
+ "brick_debris_pile_p81": [
+  0.026287,
+  0.193027,
+  0.980841
+ ],
+ "brick_debris_pile_p82": [
+  0.677312,
+  0.029331,
+  0.735111
+ ],
+ "brick_debris_pile_p83": [
+  -0.058143,
+  0.52425,
+  0.849577
+ ],
+ "brick_debris_pile_p84": [
+  0.732187,
+  -0.010815,
+  0.681017
+ ],
+ "brick_debris_pile_p85": [
+  -0.597175,
+  0.147283,
+  0.788473
+ ],
+ "brick_debris_pile_p86": [
+  0.038608,
+  0.862154,
+  0.505173
+ ],
+ "brick_debris_pile_p87": [
+  -0.570782,
+  0.497602,
+  0.653146
+ ],
+ "brick_debris_pile_p88": [
+  -0.21701,
+  0.547555,
+  0.80814
+ ],
+ "brick_debris_pile_p89": [
+  0.373665,
+  0.10961,
+  0.921065
+ ],
+ "concrete_debris_elements_p001": [
+  -0.130014,
+  0.049997,
+  0.990251
+ ],
+ "concrete_debris_elements_p002": [
+  0.0826,
+  0.306328,
+  0.948336
+ ],
+ "concrete_debris_elements_p003": [
+  -0.014788,
+  0.017609,
+  0.999736
+ ],
+ "concrete_debris_elements_p004": [
+  0.061599,
+  0.019453,
+  0.997911
+ ],
+ "concrete_debris_elements_p005": [
+  -0.4534,
+  0.869529,
+  0.195826
+ ],
+ "concrete_debris_elements_p006": [
+  0.025702,
+  -0.198825,
+  0.979698
+ ],
+ "concrete_debris_elements_p007": [
+  -0.192685,
+  -0.026878,
+  0.980893
+ ],
+ "concrete_debris_elements_p008": [
+  0.023247,
+  -0.285645,
+  0.958054
+ ],
+ "concrete_debris_elements_p009": [
+  0.202691,
+  0.251164,
+  0.946484
+ ],
+ "concrete_debris_elements_p010": [
+  0.789886,
+  0.068617,
+  0.609402
+ ],
+ "concrete_debris_elements_p011": [
+  0.182514,
+  0.008456,
+  0.983167
+ ],
+ "concrete_debris_elements_p012": [
+  -0.026279,
+  0.137563,
+  0.990144
+ ],
+ "concrete_debris_elements_p013": [
+  -0.063775,
+  0.245758,
+  0.967231
+ ],
+ "concrete_debris_elements_p014": [
+  0.096082,
+  -0.402549,
+  0.910342
+ ],
+ "concrete_debris_elements_p015": [
+  -0.413639,
+  0.845444,
+  0.337826
+ ],
+ "concrete_debris_elements_p016": [
+  -0.515508,
+  0.734406,
+  0.441475
+ ],
+ "concrete_debris_elements_p017": [
+  0.13719,
+  -0.211072,
+  0.967795
+ ],
+ "concrete_debris_elements_p018": [
+  0.624683,
+  0.31985,
+  0.712368
+ ],
+ "concrete_debris_elements_p019": [
+  -0.286189,
+  -0.177083,
+  0.941667
+ ],
+ "concrete_debris_elements_p020": [
+  0.841083,
+  0.518723,
+  -0.153314
+ ],
+ "concrete_debris_elements_p021": [
+  0.112736,
+  0.121454,
+  0.986174
+ ],
+ "concrete_debris_elements_p022": [
+  0.957168,
+  0.283647,
+  -0.058081
+ ],
+ "concrete_debris_elements_p023": [
+  -0.107698,
+  0.988362,
+  0.107429
+ ],
+ "concrete_debris_elements_p024": [
+  0.860814,
+  0.48035,
+  0.168117
+ ],
+ "concrete_debris_elements_p025": [
+  0.806135,
+  0.402283,
+  -0.433954
+ ],
+ "concrete_debris_elements_p026": [
+  0.87591,
+  0.236334,
+  0.420628
+ ],
+ "concrete_debris_elements_p027": [
+  0.91037,
+  0.180765,
+  0.372224
+ ],
+ "concrete_debris_elements_p028": [
+  -0.031519,
+  0.164288,
+  0.985909
+ ],
+ "concrete_debris_elements_p029": [
+  0.894593,
+  0.422078,
+  -0.146809
+ ],
+ "concrete_debris_elements_p030": [
+  -0.608518,
+  0.775954,
+  0.166135
+ ],
+ "concrete_debris_elements_p031": [
+  0.081075,
+  -0.143096,
+  0.986382
+ ],
+ "concrete_debris_elements_p032": [
+  -0.490602,
+  0.257366,
+  0.83251
+ ],
+ "concrete_debris_elements_p033": [
+  0.863403,
+  0.486461,
+  0.133756
+ ],
+ "concrete_debris_elements_p034": [
+  -0.639744,
+  0.756541,
+  0.135551
+ ],
+ "concrete_debris_elements_p035": [
+  0.536938,
+  0.815704,
+  0.215233
+ ],
+ "concrete_debris_elements_p036": [
+  -0.390915,
+  0.833988,
+  -0.389423
+ ],
+ "concrete_debris_elements_p037": [
+  0.808231,
+  0.443639,
+  0.38723
+ ],
+ "concrete_debris_elements_p038": [
+  0.861918,
+  -0.472166,
+  -0.184812
+ ],
+ "concrete_debris_elements_p039": [
+  -0.060624,
+  -0.03907,
+  0.997396
+ ],
+ "concrete_debris_elements_p040": [
+  -0.224666,
+  0.713344,
+  0.663826
+ ],
+ "concrete_debris_elements_p041": [
+  -0.590207,
+  0.750417,
+  0.29754
+ ],
+ "concrete_debris_elements_p042": [
+  0.828278,
+  0.556728,
+  0.06332
+ ],
+ "concrete_debris_elements_p043": [
+  0.569614,
+  0.725471,
+  -0.386305
+ ],
+ "concrete_debris_elements_p044": [
+  0.838708,
+  0.521886,
+  0.155577
+ ],
+ "concrete_debris_elements_p045": [
+  0.199834,
+  -0.039849,
+  0.979019
+ ],
+ "concrete_debris_elements_p046": [
+  0.546138,
+  0.837605,
+  -0.01231
+ ],
+ "concrete_debris_elements_p047": [
+  0.93328,
+  0.002672,
+  0.359139
+ ],
+ "concrete_debris_elements_p048": [
+  0.439421,
+  0.884182,
+  -0.158531
+ ],
+ "concrete_debris_elements_p049": [
+  -0.368866,
+  0.720808,
+  -0.586833
+ ],
+ "concrete_debris_elements_p050": [
+  0.5846,
+  0.708017,
+  0.396175
+ ],
+ "concrete_debris_elements_p051": [
+  -0.53056,
+  0.293125,
+  0.795352
+ ],
+ "concrete_debris_elements_p052": [
+  0.716446,
+  -0.680586,
+  -0.153321
+ ],
+ "concrete_debris_elements_p053": [
+  0.141441,
+  -0.034346,
+  0.989351
+ ],
+ "concrete_debris_elements_p054": [
+  0.473043,
+  0.706382,
+  0.52655
+ ],
+ "concrete_debris_elements_p055": [
+  -0.508739,
+  0.860919,
+  0.001602
+ ],
+ "concrete_debris_elements_p056": [
+  0.807674,
+  0.58493,
+  0.074301
+ ],
+ "concrete_debris_elements_p057": [
+  0.522179,
+  0.831261,
+  0.190612
+ ],
+ "concrete_debris_elements_p058": [
+  0.900291,
+  -0.41474,
+  -0.132164
+ ],
+ "concrete_debris_elements_p059": [
+  0.4771,
+  0.874196,
+  0.090311
+ ],
+ "concrete_debris_elements_p060": [
+  0.868054,
+  0.472901,
+  -0.151151
+ ],
+ "concrete_debris_elements_p061": [
+  -0.127709,
+  -0.201714,
+  0.971083
+ ],
+ "concrete_debris_elements_p062": [
+  -0.402671,
+  0.041576,
+  0.9144
+ ],
+ "concrete_debris_elements_p063": [
+  -0.495335,
+  0.863771,
+  -0.092429
+ ],
+ "concrete_debris_elements_p064": [
+  0.922251,
+  0.15474,
+  -0.354273
+ ],
+ "concrete_debris_elements_p065": [
+  0.81575,
+  0.437857,
+  0.377934
+ ],
+ "concrete_debris_elements_p066": [
+  0.889019,
+  -0.414065,
+  0.195437
+ ],
+ "concrete_debris_elements_p067": [
+  0.787443,
+  0.611151,
+  0.080176
+ ],
+ "concrete_debris_elements_p068": [
+  0.661736,
+  -0.436604,
+  0.609494
+ ],
+ "concrete_debris_elements_p069": [
+  0.817806,
+  0.573602,
+  -0.046624
+ ],
+ "concrete_debris_elements_p070": [
+  0.106767,
+  -0.156144,
+  0.981947
+ ],
+ "concrete_debris_elements_p071": [
+  0.776897,
+  -0.626508,
+  0.062601
+ ],
+ "concrete_debris_elements_p072": [
+  -0.144697,
+  0.937347,
+  -0.316927
+ ],
+ "concrete_debris_elements_p073": [
+  -0.641686,
+  0.685042,
+  -0.344901
+ ],
+ "concrete_debris_elements_p074": [
+  -0.123528,
+  -0.111435,
+  0.986065
+ ],
+ "concrete_debris_elements_p075": [
+  0.634526,
+  0.754145,
+  -0.169241
+ ],
+ "concrete_debris_elements_p076": [
+  -0.482089,
+  0.698412,
+  -0.528972
+ ],
+ "concrete_debris_elements_p077": [
+  0.398315,
+  -0.623863,
+  0.672413
+ ],
+ "concrete_debris_elements_p078": [
+  -0.154914,
+  -0.302231,
+  0.940563
+ ],
+ "concrete_debris_elements_p079": [
+  -0.334855,
+  -0.010839,
+  0.942207
+ ],
+ "concrete_debris_elements_p080": [
+  0.846712,
+  -0.529544,
+  0.051584
+ ],
+ "concrete_debris_elements_p081": [
+  0.386122,
+  0.872611,
+  0.299098
+ ],
+ "concrete_debris_elements_p082": [
+  -0.143014,
+  0.259021,
+  0.955225
+ ],
+ "concrete_debris_elements_p083": [
+  -0.436712,
+  0.824003,
+  -0.360973
+ ],
+ "concrete_debris_elements_p084": [
+  0.175628,
+  0.304119,
+  0.936305
+ ],
+ "concrete_debris_elements_p085": [
+  -0.10928,
+  -0.415181,
+  0.903151
+ ],
+ "concrete_debris_elements_p086": [
+  0.193457,
+  0.154731,
+  0.968831
+ ],
+ "concrete_debris_elements_p087": [
+  0.685877,
+  -0.439688,
+  0.579868
+ ],
+ "concrete_debris_elements_p088": [
+  0.320265,
+  -0.025294,
+  0.94699
+ ],
+ "concrete_debris_elements_p089": [
+  -0.582074,
+  0.812768,
+  -0.024444
+ ],
+ "concrete_debris_elements_p090": [
+  0.668818,
+  0.724133,
+  -0.168267
+ ],
+ "concrete_debris_elements_p091": [
+  -0.326164,
+  -0.005831,
+  0.945295
+ ],
+ "concrete_debris_elements_p092": [
+  0.721579,
+  -0.351165,
+  0.596663
+ ],
+ "concrete_debris_elements_p093": [
+  0.941084,
+  -0.33806,
+  0.008755
+ ],
+ "concrete_debris_elements_p094": [
+  -0.23461,
+  -0.024033,
+  0.971792
+ ],
+ "concrete_debris_elements_p095": [
+  0.796801,
+  -0.543675,
+  0.263679
+ ],
+ "concrete_debris_elements_p096": [
+  -0.532359,
+  0.756107,
+  0.380651
+ ],
+ "concrete_debris_elements_p097": [
+  0.216983,
+  -0.101466,
+  0.970888
+ ],
+ "concrete_debris_elements_p098": [
+  0.125631,
+  -0.182534,
+  0.97514
+ ],
+ "concrete_debris_elements_p099": [
+  0.55093,
+  0.817164,
+  -0.169467
+ ],
+ "concrete_debris_elements_p100": [
+  -0.529626,
+  0.739523,
+  -0.415453
+ ],
+ "concrete_debris_elements_p101": [
+  0.907979,
+  0.174276,
+  0.381055
+ ],
+ "concrete_debris_elements_p102": [
+  -0.364285,
+  0.649993,
+  0.666938
+ ],
+ "concrete_debris_elements_p103": [
+  0.128491,
+  -0.016989,
+  0.991565
+ ],
+ "concrete_debris_elements_p104": [
+  -0.1968,
+  0.406352,
+  0.892271
+ ],
+ "concrete_debris_elements_p105": [
+  0.83295,
+  0.237649,
+  -0.499716
+ ],
+ "concrete_debris_elements_p106": [
+  -0.253077,
+  0.71819,
+  -0.648193
+ ],
+ "concrete_debris_elements_p107": [
+  -0.463439,
+  0.066092,
+  0.88366
+ ],
+ "concrete_debris_elements_p108": [
+  -0.260306,
+  0.962299,
+  0.078871
+ ],
+ "concrete_debris_elements_p109": [
+  0.203293,
+  0.018362,
+  0.978946
+ ],
+ "concrete_debris_elements_p110": [
+  0.784134,
+  -0.569557,
+  0.246454
+ ],
+ "concrete_debris_elements_p111": [
+  0.267799,
+  0.943634,
+  0.194523
+ ],
+ "concrete_debris_elements_p112": [
+  0.859655,
+  0.13451,
+  -0.492849
+ ],
+ "concrete_debris_elements_p113": [
+  -0.484719,
+  0.509659,
+  0.710841
+ ],
+ "concrete_debris_elements_p114": [
+  0.536057,
+  -0.418361,
+  0.733224
+ ],
+ "concrete_debris_elements_p115": [
+  0.669135,
+  -0.471028,
+  0.574796
+ ],
+ "concrete_debris_elements_p116": [
+  0.771239,
+  -0.518108,
+  -0.369802
+ ],
+ "concrete_debris_elements_p117": [
+  -0.269225,
+  0.943191,
+  0.1947
+ ],
+ "concrete_debris_elements_p118": [
+  -0.181349,
+  0.197897,
+  0.963301
+ ],
+ "concrete_debris_elements_p119": [
+  -0.593368,
+  0.780378,
+  0.197295
+ ],
+ "concrete_debris_elements_p120": [
+  0.750908,
+  0.631928,
+  -0.191842
+ ],
+ "concrete_debris_elements_p121": [
+  -0.406046,
+  0.75952,
+  -0.508188
+ ],
+ "concrete_debris_elements_p122": [
+  0.235103,
+  0.721563,
+  0.65121
+ ],
+ "concrete_debris_elements_p123": [
+  0.447951,
+  0.76275,
+  -0.466426
+ ],
+ "concrete_debris_elements_p124": [
+  -0.097838,
+  0.964027,
+  0.247145
+ ],
+ "concrete_debris_elements_p125": [
+  0.88539,
+  -0.278347,
+  0.3723
+ ],
+ "concrete_debris_elements_p126": [
+  0.533476,
+  -0.560274,
+  0.633637
+ ],
+ "concrete_debris_elements_p127": [
+  0.021509,
+  0.061505,
+  0.997875
+ ],
+ "concrete_debris_elements_p128": [
+  0.607528,
+  -0.607469,
+  0.511752
+ ],
+ "concrete_debris_elements_p129": [
+  -0.210319,
+  0.731568,
+  0.648517
+ ],
+ "concrete_debris_elements_p130": [
+  -0.002114,
+  -0.11796,
+  0.993016
+ ],
+ "concrete_debris_elements_p131": [
+  0.139161,
+  -0.077992,
+  0.987194
+ ],
+ "concrete_debris_elements_p132": [
+  -0.112467,
+  0.21865,
+  0.9693
+ ],
+ "concrete_debris_elements_p133": [
+  -0.233039,
+  0.769192,
+  -0.595009
+ ],
+ "concrete_debris_elements_p134": [
+  0.848024,
+  -0.529957,
+  -0.00079
+ ],
+ "concrete_debris_elements_p135": [
+  -0.463889,
+  0.871621,
+  0.158379
+ ],
+ "concrete_debris_elements_p136": [
+  -0.181012,
+  -0.524603,
+  0.831881
+ ],
+ "concrete_debris_elements_p137": [
+  0.931514,
+  0.29649,
+  0.210656
+ ],
+ "concrete_debris_elements_p138": [
+  0.177777,
+  0.141725,
+  0.973812
+ ],
+ "concrete_debris_elements_p139": [
+  0.907113,
+  0.328209,
+  0.263485
+ ],
+ "concrete_debris_elements_p140": [
+  0.693864,
+  0.228952,
+  -0.68274
+ ],
+ "concrete_debris_elements_p141": [
+  -0.017188,
+  0.436328,
+  0.899624
+ ],
+ "concrete_debris_elements_p142": [
+  0.855866,
+  -0.508577,
+  0.094036
+ ],
+ "concrete_debris_elements_p143": [
+  0.621394,
+  -0.57308,
+  -0.534273
+ ],
+ "concrete_debris_elements_p144": [
+  -0.051488,
+  0.132439,
+  0.989853
+ ],
+ "concrete_debris_elements_p145": [
+  -0.305572,
+  0.882389,
+  -0.357793
+ ],
+ "concrete_debris_elements_p146": [
+  -0.047194,
+  0.051365,
+  0.997564
+ ],
+ "concrete_debris_elements_p147": [
+  0.504071,
+  0.61685,
+  -0.60449
+ ],
+ "concrete_debris_elements_p148": [
+  -0.069199,
+  0.330425,
+  0.941292
+ ],
+ "concrete_debris_elements_p149": [
+  -0.261664,
+  0.90129,
+  -0.345265
+ ],
+ "concrete_debris_elements_p150": [
+  0.565885,
+  0.821758,
+  0.066994
+ ],
+ "concrete_debris_elements_p151": [
+  0.984364,
+  0.032837,
+  -0.173056
+ ],
+ "concrete_debris_elements_p152": [
+  -0.553529,
+  0.795707,
+  -0.245879
+ ],
+ "concrete_debris_elements_p153": [
+  0.436936,
+  0.131318,
+  0.889855
+ ],
+ "concrete_debris_elements_p154": [
+  -0.021924,
+  0.016369,
+  0.999626
+ ],
+ "concrete_debris_elements_p155": [
+  0.995457,
+  -0.092181,
+  -0.023824
+ ],
+ "concrete_debris_elements_p156": [
+  0.055409,
+  -0.17619,
+  0.982795
+ ],
+ "concrete_debris_elements_p157": [
+  0.174638,
+  0.416059,
+  0.89241
+ ],
+ "concrete_debris_elements_p158": [
+  0.702093,
+  0.63283,
+  -0.326483
+ ],
+ "concrete_debris_elements_p159": [
+  0.814491,
+  0.454614,
+  -0.360459
+ ],
+ "concrete_debris_elements_p160": [
+  -0.318369,
+  0.157262,
+  0.934831
+ ],
+ "concrete_debris_elements_p161": [
+  0.676553,
+  0.420168,
+  -0.604761
+ ],
+ "concrete_debris_elements_p162": [
+  0.809814,
+  -0.492957,
+  -0.31811
+ ],
+ "concrete_debris_elements_p163": [
+  -0.457424,
+  0.882438,
+  -0.109851
+ ],
+ "concrete_debris_elements_p164": [
+  0.081292,
+  -0.241709,
+  0.966938
+ ],
+ "concrete_debris_elements_p165": [
+  0.908679,
+  0.067999,
+  0.411921
+ ],
+ "concrete_debris_elements_p166": [
+  -0.132202,
+  -0.331057,
+  0.934304
+ ],
+ "concrete_debris_elements_p167": [
+  -0.109314,
+  0.976693,
+  -0.18472
+ ],
+ "concrete_debris_elements_p168": [
+  0.098056,
+  -0.356346,
+  0.929195
+ ],
+ "concrete_debris_elements_p169": [
+  0.601527,
+  -0.600852,
+  -0.526444
+ ],
+ "concrete_debris_elements_p170": [
+  0.290479,
+  0.851257,
+  -0.437017
+ ],
+ "concrete_debris_elements_p171": [
+  0.158011,
+  -0.082417,
+  0.983992
+ ],
+ "concrete_debris_elements_p172": [
+  0.577401,
+  -0.30733,
+  0.75641
+ ],
+ "concrete_debris_elements_p173": [
+  0.746207,
+  -0.660698,
+  0.08157
+ ],
+ "concrete_debris_elements_p174": [
+  0.958001,
+  0.232987,
+  -0.167187
+ ],
+ "concrete_debris_elements_p175": [
+  -0.175219,
+  0.975098,
+  0.135947
+ ],
+ "concrete_debris_elements_p176": [
+  0.678031,
+  -0.537446,
+  -0.501424
+ ],
+ "concrete_debris_elements_p177": [
+  -0.350113,
+  0.908253,
+  0.229124
+ ],
+ "concrete_debris_elements_p178": [
+  -0.272073,
+  0.937417,
+  0.217312
+ ],
+ "concrete_debris_elements_p179": [
+  0.540992,
+  -0.575982,
+  0.61284
+ ],
+ "concrete_debris_elements_p180": [
+  0.253925,
+  -0.678565,
+  0.689254
+ ],
+ "concrete_debris_elements_p181": [
+  -0.546936,
+  -0.496796,
+  0.673836
+ ],
+ "concrete_debris_elements_p182": [
+  0.681843,
+  0.484037,
+  0.54845
+ ],
+ "concrete_debris_elements_p183": [
+  0.826403,
+  0.462808,
+  0.320728
+ ],
+ "concrete_debris_elements_p184": [
+  0.301201,
+  0.24575,
+  0.921349
+ ],
+ "concrete_debris_elements_p185": [
+  0.789248,
+  -0.223059,
+  0.57213
+ ],
+ "concrete_debris_elements_p186": [
+  0.817127,
+  -0.112513,
+  -0.565371
+ ],
+ "concrete_debris_elements_p187": [
+  0.766681,
+  -0.474901,
+  -0.432053
+ ],
+ "concrete_debris_elements_p188": [
+  0.558199,
+  0.650504,
+  -0.515033
+ ],
+ "concrete_debris_elements_p189": [
+  0.79581,
+  0.499551,
+  0.342251
+ ],
+ "concrete_debris_elements_p190": [
+  0.00756,
+  0.987701,
+  -0.156169
+ ],
+ "concrete_debris_elements_p191": [
+  -0.22353,
+  0.972717,
+  -0.062099
+ ],
+ "concrete_debris_elements_p192": [
+  0.475193,
+  0.834173,
+  -0.279907
+ ],
+ "concrete_debris_elements_p193": [
+  0.489354,
+  0.816063,
+  0.307528
+ ],
+ "concrete_debris_elements_p194": [
+  -0.562035,
+  0.64802,
+  -0.513991
+ ],
+ "concrete_debris_elements_p195": [
+  -0.527311,
+  0.661106,
+  -0.533743
+ ],
+ "concrete_debris_elements_p196": [
+  0.568104,
+  0.63535,
+  -0.523057
+ ],
+ "concrete_debris_elements_p197": [
+  0.121475,
+  -0.014583,
+  0.992487
+ ],
+ "concrete_debris_elements_p198": [
+  0.397391,
+  -0.564572,
+  0.723422
+ ],
+ "concrete_debris_elements_p199": [
+  0.730725,
+  0.639525,
+  0.238849
+ ],
+ "concrete_debris_elements_p200": [
+  0.660793,
+  0.651054,
+  -0.373472
+ ],
+ "concrete_debris_elements_p201": [
+  -0.077501,
+  -0.338227,
+  0.937868
+ ],
+ "concrete_debris_elements_p202": [
+  0.391606,
+  0.360642,
+  0.846512
+ ],
+ "concrete_debris_elements_p203": [
+  0.850659,
+  0.248336,
+  -0.463367
+ ],
+ "concrete_debris_elements_p204": [
+  0.702582,
+  -0.642847,
+  0.305166
+ ],
+ "concrete_debris_elements_p205": [
+  0.636191,
+  0.085783,
+  0.766748
+ ],
+ "concrete_debris_elements_p206": [
+  0.431186,
+  0.470838,
+  0.769669
+ ],
+ "concrete_debris_elements_p207": [
+  0.631535,
+  0.566528,
+  0.529348
+ ],
+ "concrete_debris_elements_p208": [
+  0.117765,
+  0.072119,
+  0.990419
+ ],
+ "concrete_debris_elements_p209": [
+  0.254444,
+  -0.316086,
+  0.913974
+ ],
+ "concrete_debris_elements_p210": [
+  -0.446006,
+  0.320361,
+  0.835732
+ ],
+ "concrete_debris_elements_p211": [
+  -0.403298,
+  -0.013417,
+  0.91497
+ ],
+ "concrete_sidewalk_elements_p01": [
+  -0.006428,
+  0.004727,
+  0.999968
+ ],
+ "concrete_sidewalk_elements_p02": [
+  0.002295,
+  -0.054857,
+  0.998492
+ ],
+ "concrete_sidewalk_elements_p03": [
+  -0.02885,
+  -0.022862,
+  0.999322
+ ],
+ "concrete_sidewalk_elements_p04": [
+  -0.066069,
+  0.997303,
+  -0.031965
+ ],
+ "concrete_sidewalk_elements_p05": [
+  0.007033,
+  0.037666,
+  0.999266
+ ],
+ "concrete_sidewalk_elements_p06": [
+  0.027184,
+  -0.11474,
+  0.993024
+ ],
+ "concrete_sidewalk_elements_p07": [
+  -0.093983,
+  -0.008024,
+  0.995541
+ ],
+ "concrete_sidewalk_elements_p08": [
+  0.610444,
+  0.788904,
+  -0.070631
+ ],
+ "concrete_sidewalk_elements_p09": [
+  0.998276,
+  0.043086,
+  0.039859
+ ],
+ "concrete_sidewalk_elements_p10": [
+  0.77119,
+  -0.493708,
+  -0.401894
+ ],
+ "concrete_sidewalk_elements_p11": [
+  0.996185,
+  0.058715,
+  -0.064565
+ ],
+ "concrete_sidewalk_elements_p12": [
+  -0.044196,
+  0.997587,
+  0.053548
+ ],
+ "concrete_sidewalk_elements_p13": [
+  0.164689,
+  0.986229,
+  -0.015146
+ ],
+ "concrete_sidewalk_elements_p14": [
+  0.784795,
+  -0.607494,
+  0.122667
+ ],
+ "concrete_sidewalk_elements_p15": [
+  0.971913,
+  0.218892,
+  -0.086442
+ ],
+ "concrete_sidewalk_elements_p16": [
+  0.961799,
+  -0.125419,
+  -0.243335
+ ],
+ "concrete_sidewalk_elements_p17": [
+  0.140208,
+  0.031627,
+  0.989617
+ ],
+ "concrete_sidewalk_elements_p18": [
+  0.947522,
+  -0.232833,
+  0.219067
+ ],
+ "concrete_sidewalk_elements_p19": [
+  0.92847,
+  0.313498,
+  0.199154
+ ],
+ "concrete_sidewalk_elements_p20": [
+  0.153103,
+  0.953919,
+  -0.258065
+ ],
+ "concrete_sidewalk_elements_p21": [
+  -0.306426,
+  0.945527,
+  -0.109917
+ ],
+ "concrete_sidewalk_elements_p22": [
+  -0.265496,
+  0.937138,
+  0.226459
+ ],
+ "concrete_sidewalk_elements_p23": [
+  0.618799,
+  0.785507,
+  -0.00817
+ ],
+ "concrete_sidewalk_elements_p24": [
+  0.165871,
+  0.982511,
+  0.084605
+ ],
+ "concrete_sidewalk_elements_p25": [
+  0.982682,
+  -0.170339,
+  -0.072941
+ ],
+ "concrete_sidewalk_elements_p26": [
+  -0.133231,
+  -0.112453,
+  0.984685
+ ],
+ "concrete_sidewalk_elements_p27": [
+  0.261681,
+  -0.211812,
+  0.941626
+ ],
+ "concrete_sidewalk_elements_p28": [
+  0.990816,
+  -0.123092,
+  -0.055961
+ ],
+ "concrete_sidewalk_elements_p29": [
+  -0.276076,
+  0.911988,
+  0.303415
+ ],
+ "concrete_sidewalk_elements_p30": [
+  0.772622,
+  0.529051,
+  0.350942
+ ],
+ "concrete_sidewalk_elements_p31": [
+  -0.28366,
+  0.251212,
+  0.925435
+ ],
+ "concrete_sidewalk_elements_p32": [
+  0.057454,
+  -0.335381,
+  0.940329
+ ],
+ "concrete_sidewalk_elements_p33": [
+  0.928194,
+  0.355995,
+  -0.10828
+ ],
+ "concrete_sidewalk_elements_p34": [
+  0.049512,
+  -0.038788,
+  0.99802
+ ],
+ "concrete_sidewalk_elements_p35": [
+  -0.12656,
+  0.762451,
+  0.634548
+ ],
+ "concrete_sidewalk_elements_p36": [
+  0.029883,
+  0.874989,
+  0.483221
+ ],
+ "concrete_slabs_p001": [
+  0.959265,
+  0.280211,
+  0.035959
+ ],
+ "concrete_slabs_p002": [
+  0.997176,
+  0.017591,
+  0.073013
+ ],
+ "concrete_slabs_p003": [
+  -0.181395,
+  0.676417,
+  0.713832
+ ],
+ "concrete_slabs_p004": [
+  -0.022939,
+  -0.215401,
+  0.976256
+ ],
+ "concrete_slabs_p005": [
+  -0.157176,
+  0.880716,
+  0.446806
+ ],
+ "concrete_slabs_p006": [
+  -0.027319,
+  -0.144848,
+  0.989077
+ ],
+ "concrete_slabs_p007": [
+  -0.088253,
+  0.911747,
+  -0.40116
+ ],
+ "concrete_slabs_p008": [
+  0.01887,
+  -0.055336,
+  0.998289
+ ],
+ "concrete_slabs_p009": [
+  -0.030581,
+  -0.182506,
+  0.982729
+ ],
+ "concrete_slabs_p010": [
+  -0.095523,
+  0.632666,
+  0.768511
+ ],
+ "concrete_slabs_p011": [
+  -0.152975,
+  0.884004,
+  0.441742
+ ],
+ "concrete_slabs_p012": [
+  -0.119537,
+  0.689286,
+  0.71456
+ ],
+ "concrete_slabs_p013": [
+  -0.068994,
+  0.777698,
+  0.62484
+ ],
+ "concrete_slabs_p014": [
+  -0.566513,
+  0.086454,
+  0.819505
+ ],
+ "concrete_slabs_p015": [
+  -0.069955,
+  0.00101,
+  0.99755
+ ],
+ "concrete_slabs_p016": [
+  -0.1766,
+  0.686703,
+  0.705161
+ ],
+ "concrete_slabs_p017": [
+  0.021839,
+  -0.056416,
+  0.998168
+ ],
+ "concrete_slabs_p018": [
+  -0.09875,
+  0.351679,
+  0.930898
+ ],
+ "concrete_slabs_p019": [
+  -0.15959,
+  -0.247541,
+  0.955644
+ ],
+ "concrete_slabs_p020": [
+  0.916874,
+  0.397079,
+  0.040865
+ ],
+ "concrete_slabs_p021": [
+  0.985995,
+  0.039906,
+  0.161929
+ ],
+ "concrete_slabs_p022": [
+  -0.050135,
+  -0.057011,
+  0.997114
+ ],
+ "concrete_slabs_p023": [
+  0.036971,
+  -0.126042,
+  0.991336
+ ],
+ "concrete_slabs_p024": [
+  -0.52043,
+  0.079592,
+  0.850187
+ ],
+ "concrete_slabs_p025": [
+  -0.126421,
+  0.707438,
+  0.695377
+ ],
+ "concrete_slabs_p026": [
+  0.006166,
+  -0.127493,
+  0.99182
+ ],
+ "concrete_slabs_p027": [
+  -0.567202,
+  0.068065,
+  0.820761
+ ],
+ "concrete_slabs_p028": [
+  -0.092413,
+  0.767556,
+  0.634285
+ ],
+ "concrete_slabs_p029": [
+  -0.350865,
+  0.13039,
+  0.927304
+ ],
+ "concrete_slabs_p030": [
+  0.854452,
+  0.211916,
+  0.474346
+ ],
+ "concrete_slabs_p031": [
+  0.978188,
+  0.201124,
+  0.051943
+ ],
+ "concrete_slabs_p032": [
+  -0.138175,
+  0.62913,
+  0.76492
+ ],
+ "concrete_slabs_p033": [
+  0.998031,
+  0.061759,
+  -0.010925
+ ],
+ "concrete_slabs_p034": [
+  -0.013752,
+  -0.183052,
+  0.983007
+ ],
+ "concrete_slabs_p035": [
+  0.994612,
+  0.102933,
+  0.012343
+ ],
+ "concrete_slabs_p036": [
+  0.975165,
+  0.095803,
+  0.199687
+ ],
+ "concrete_slabs_p037": [
+  -0.013093,
+  0.010627,
+  0.999858
+ ],
+ "concrete_slabs_p038": [
+  -0.555556,
+  0.04631,
+  0.830189
+ ],
+ "concrete_slabs_p039": [
+  0.975099,
+  0.221176,
+  0.016223
+ ],
+ "concrete_slabs_p040": [
+  -0.018558,
+  -0.208971,
+  0.977746
+ ],
+ "concrete_slabs_p041": [
+  -0.017096,
+  -0.192726,
+  0.981104
+ ],
+ "concrete_slabs_p042": [
+  -0.558415,
+  0.05578,
+  0.827684
+ ],
+ "concrete_slabs_p043": [
+  -0.499902,
+  0.085608,
+  0.861841
+ ],
+ "concrete_slabs_p044": [
+  0.182323,
+  -0.31714,
+  0.930688
+ ],
+ "concrete_slabs_p045": [
+  -0.315336,
+  0.130026,
+  0.94003
+ ],
+ "concrete_slabs_p046": [
+  -0.070125,
+  0.090174,
+  0.993454
+ ],
+ "concrete_slabs_p047": [
+  -0.090781,
+  0.368385,
+  0.92523
+ ],
+ "concrete_slabs_p048": [
+  0.996743,
+  0.023497,
+  -0.077146
+ ],
+ "concrete_slabs_p049": [
+  -0.014066,
+  -0.175458,
+  0.984386
+ ],
+ "concrete_slabs_p050": [
+  -0.301992,
+  0.944135,
+  0.131946
+ ],
+ "concrete_slabs_p051": [
+  0.06299,
+  -0.067675,
+  0.995717
+ ],
+ "concrete_slabs_p052": [
+  0.986008,
+  0.160953,
+  -0.04339
+ ],
+ "concrete_slabs_p053": [
+  -0.132959,
+  0.668281,
+  0.731931
+ ],
+ "concrete_slabs_p054": [
+  -0.078421,
+  0.75799,
+  0.647535
+ ],
+ "concrete_slabs_p055": [
+  -0.170017,
+  0.876028,
+  0.451296
+ ],
+ "concrete_slabs_p056": [
+  -0.246687,
+  0.930145,
+  0.271985
+ ],
+ "concrete_slabs_p057": [
+  0.070814,
+  0.010321,
+  0.997436
+ ],
+ "concrete_slabs_p058": [
+  0.042311,
+  0.998889,
+  0.020745
+ ],
+ "concrete_slabs_p059": [
+  -0.061298,
+  0.222863,
+  0.972921
+ ],
+ "concrete_slabs_p060": [
+  -0.007983,
+  -0.024397,
+  0.99967
+ ],
+ "concrete_slabs_p061": [
+  -0.258546,
+  0.965339,
+  0.035698
+ ],
+ "concrete_slabs_p062": [
+  -0.26269,
+  0.962208,
+  0.071765
+ ],
+ "concrete_slabs_p063": [
+  0.002848,
+  -0.617955,
+  0.786208
+ ],
+ "concrete_slabs_p064": [
+  0.644353,
+  0.591433,
+  -0.484785
+ ],
+ "concrete_slabs_p065": [
+  0.943867,
+  0.241153,
+  0.225743
+ ],
+ "concrete_slabs_p066": [
+  0.100467,
+  -0.352642,
+  0.930349
+ ],
+ "concrete_slabs_p067": [
+  0.844314,
+  0.483065,
+  -0.231909
+ ],
+ "concrete_slabs_p068": [
+  -0.139916,
+  0.658652,
+  0.739324
+ ],
+ "concrete_slabs_p069": [
+  -0.598826,
+  0.000592,
+  0.800879
+ ],
+ "concrete_slabs_p070": [
+  0.230704,
+  -0.669156,
+  0.706403
+ ],
+ "concrete_slabs_p071": [
+  -0.546226,
+  -0.059984,
+  0.835487
+ ],
+ "concrete_slabs_p072": [
+  0.870863,
+  0.042811,
+  0.489657
+ ],
+ "concrete_slabs_p073": [
+  -0.21529,
+  0.88379,
+  0.41541
+ ],
+ "concrete_slabs_p074": [
+  0.939291,
+  0.24256,
+  0.242686
+ ],
+ "concrete_slabs_p075": [
+  0.96643,
+  0.255087,
+  0.030711
+ ],
+ "concrete_slabs_p076": [
+  -0.07988,
+  -0.577101,
+  0.812757
+ ],
+ "concrete_slabs_p077": [
+  -0.05653,
+  -0.611922,
+  0.788896
+ ],
+ "concrete_slabs_p078": [
+  -0.151022,
+  0.93948,
+  0.307522
+ ],
+ "concrete_slabs_p079": [
+  -0.188561,
+  0.969899,
+  -0.154077
+ ],
+ "concrete_slabs_p080": [
+  0.051063,
+  -0.370037,
+  0.927613
+ ],
+ "concrete_slabs_p081": [
+  -0.155295,
+  0.883682,
+  0.441576
+ ],
+ "concrete_slabs_p082": [
+  -0.072331,
+  0.764852,
+  0.640133
+ ],
+ "concrete_slabs_p083": [
+  0.982339,
+  0.186194,
+  -0.018499
+ ],
+ "concrete_slabs_p084": [
+  0.976343,
+  0.117634,
+  0.18143
+ ],
+ "concrete_slabs_p085": [
+  -0.156475,
+  -0.530325,
+  0.833229
+ ],
+ "concrete_slabs_p086": [
+  0.526623,
+  -0.501469,
+  0.686438
+ ],
+ "concrete_slabs_p087": [
+  0.968837,
+  0.246545,
+  0.0239
+ ],
+ "concrete_slabs_p088": [
+  0.988112,
+  0.148107,
+  -0.041214
+ ],
+ "concrete_slabs_p089": [
+  -0.016797,
+  0.996999,
+  -0.075572
+ ],
+ "concrete_slabs_p090": [
+  0.197062,
+  0.976019,
+  0.092482
+ ],
+ "concrete_slabs_p091": [
+  -0.140502,
+  0.955756,
+  0.258436
+ ],
+ "concrete_slabs_p092": [
+  -0.138143,
+  0.665793,
+  0.733237
+ ],
+ "concrete_slabs_p093": [
+  0.37624,
+  0.885975,
+  0.271092
+ ],
+ "concrete_slabs_p094": [
+  0.981774,
+  0.190009,
+  0.004054
+ ],
+ "concrete_slabs_p095": [
+  0.055984,
+  -0.694967,
+  0.716859
+ ],
+ "concrete_slabs_p096": [
+  0.907635,
+  0.297142,
+  0.296488
+ ],
+ "concrete_slabs_p097": [
+  0.211002,
+  0.976429,
+  0.045426
+ ],
+ "concrete_slabs_p098": [
+  0.930951,
+  0.05221,
+  0.361393
+ ],
+ "concrete_slabs_p099": [
+  -0.026193,
+  0.999556,
+  -0.014179
+ ],
+ "concrete_slabs_p100": [
+  0.111966,
+  -0.635314,
+  0.764094
+ ],
+ "concrete_slabs_p101": [
+  0.831806,
+  0.525987,
+  0.177302
+ ],
+ "concrete_slabs_p102": [
+  0.972813,
+  0.231451,
+  0.008077
+ ],
+ "concrete_slabs_p103": [
+  -0.189166,
+  0.972009,
+  -0.139339
+ ],
+ "concrete_slabs_p104": [
+  0.819377,
+  -0.204513,
+  0.535533
+ ],
+ "concrete_slabs_p105": [
+  0.99757,
+  -0.021526,
+  0.066266
+ ],
+ "concrete_slabs_p106": [
+  -0.147277,
+  0.984707,
+  0.093067
+ ],
+ "concrete_slabs_p107": [
+  0.807108,
+  0.226654,
+  -0.545164
+ ],
+ "concrete_slabs_p108": [
+  -0.326465,
+  0.84249,
+  0.428521
+ ],
+ "concrete_slabs_p109": [
+  -0.033214,
+  -0.047791,
+  0.998305
+ ],
+ "concrete_slabs_p110": [
+  -0.168205,
+  0.783297,
+  0.598458
+ ],
+ "concrete_slabs_p111": [
+  0.862654,
+  -0.078005,
+  0.499744
+ ],
+ "concrete_slabs_p112": [
+  -0.297503,
+  0.359489,
+  0.884454
+ ],
+ "concrete_slabs_p113": [
+  0.151575,
+  -0.435966,
+  0.887107
+ ],
+ "concrete_slabs_p114": [
+  -0.123944,
+  0.433933,
+  0.892379
+ ],
+ "concrete_slabs_p115": [
+  -0.042895,
+  0.73413,
+  0.677653
+ ],
+ "concrete_slabs_p116": [
+  0.985439,
+  0.073235,
+  0.15345
+ ],
+ "concrete_slabs_p117": [
+  -0.143893,
+  0.636047,
+  0.758115
+ ],
+ "concrete_slabs_p118": [
+  0.938926,
+  0.246662,
+  -0.239948
+ ],
+ "concrete_slabs_p119": [
+  0.298236,
+  0.885229,
+  0.356967
+ ],
+ "concrete_slabs_p120": [
+  -0.211628,
+  -0.110598,
+  0.971072
+ ],
+ "concrete_slabs_p121": [
+  0.964079,
+  -0.043774,
+  -0.261983
+ ],
+ "concrete_slabs_p122": [
+  0.862656,
+  0.504457,
+  0.036699
+ ],
+ "concrete_slabs_p123": [
+  0.96996,
+  0.197821,
+  0.14158
+ ],
+ "concrete_slabs_p124": [
+  -0.067503,
+  0.994324,
+  0.082237
+ ],
+ "concrete_slabs_p125": [
+  -0.16201,
+  0.771451,
+  0.615319
+ ],
+ "concrete_slabs_p126": [
+  0.978425,
+  0.165552,
+  0.123598
+ ],
+ "concrete_slabs_p127": [
+  -0.528574,
+  -0.566733,
+  0.632
+ ],
+ "concrete_slabs_p128": [
+  0.912032,
+  -0.356278,
+  -0.203135
+ ],
+ "concrete_slabs_p129": [
+  0.959495,
+  0.13055,
+  0.249653
+ ],
+ "concrete_slabs_p130": [
+  -0.279156,
+  0.958401,
+  -0.059488
+ ],
+ "concrete_slabs_p131": [
+  0.992864,
+  0.028559,
+  -0.115781
+ ],
+ "concrete_slabs_p132": [
+  0.925411,
+  -0.378093,
+  0.025715
+ ],
+ "concrete_slabs_p133": [
+  0.288548,
+  0.826622,
+  0.483153
+ ],
+ "concrete_slabs_p134": [
+  -0.135733,
+  0.635332,
+  0.760217
+ ],
+ "concrete_slabs_p135": [
+  -0.285806,
+  0.924734,
+  0.251359
+ ],
+ "concrete_slabs_p136": [
+  -0.094383,
+  0.33725,
+  0.936672
+ ],
+ "concrete_slabs_p137": [
+  -0.138976,
+  0.854504,
+  0.500508
+ ],
+ "concrete_slabs_p138": [
+  0.76894,
+  0.633953,
+  0.082669
+ ],
+ "concrete_slabs_p139": [
+  0.753237,
+  0.519978,
+  -0.40281
+ ],
+ "concrete_slabs_p140": [
+  0.582541,
+  -0.442052,
+  0.682083
+ ],
+ "concrete_slabs_p141": [
+  -0.093102,
+  0.809144,
+  0.580188
+ ],
+ "concrete_slabs_p142": [
+  0.96199,
+  0.243641,
+  0.123344
+ ],
+ "concrete_slabs_p143": [
+  0.944167,
+  -0.282366,
+  -0.169757
+ ],
+ "concrete_slabs_p144": [
+  0.926301,
+  0.29606,
+  -0.233055
+ ],
+ "concrete_slabs_p145": [
+  0.639237,
+  -0.595631,
+  0.486416
+ ],
+ "concrete_slabs_p146": [
+  -0.227577,
+  0.925824,
+  0.30176
+ ],
+ "concrete_slabs_p147": [
+  -0.291296,
+  0.952479,
+  -0.089057
+ ],
+ "concrete_slabs_p148": [
+  0.019175,
+  0.855637,
+  0.517222
+ ],
+ "concrete_slabs_p149": [
+  -0.126694,
+  -0.607816,
+  0.783906
+ ],
+ "concrete_slabs_p150": [
+  -0.000854,
+  0.696354,
+  0.717698
+ ],
+ "concrete_slabs_p151": [
+  -0.451749,
+  0.788188,
+  0.417949
+ ],
+ "concrete_slabs_p152": [
+  -0.032733,
+  -0.039093,
+  0.998699
+ ],
+ "concrete_slabs_p153": [
+  0.791001,
+  0.570557,
+  0.220868
+ ],
+ "concrete_slabs_p154": [
+  -0.186152,
+  0.660956,
+  0.726969
+ ],
+ "concrete_slabs_p155": [
+  0.880986,
+  -0.45972,
+  0.111903
+ ],
+ "concrete_slabs_p156": [
+  -0.357704,
+  0.931966,
+  0.059047
+ ],
+ "concrete_slabs_p157": [
+  0.085885,
+  0.844746,
+  -0.52823
+ ],
+ "concrete_slabs_p158": [
+  -0.665104,
+  0.089633,
+  0.741352
+ ],
+ "concrete_slabs_p159": [
+  0.465628,
+  0.883044,
+  -0.058507
+ ],
+ "concrete_slabs_p160": [
+  -0.165171,
+  0.711485,
+  0.683013
+ ],
+ "concrete_slabs_p161": [
+  -0.603117,
+  -0.099669,
+  0.791401
+ ],
+ "concrete_slabs_p162": [
+  -0.079876,
+  0.941008,
+  -0.328821
+ ],
+ "concrete_slabs_p163": [
+  -0.535693,
+  -0.069603,
+  0.841539
+ ],
+ "concrete_slabs_p164": [
+  0.475124,
+  0.803054,
+  0.359669
+ ],
+ "concrete_slabs_p165": [
+  -0.109667,
+  0.689938,
+  0.715513
+ ],
+ "concrete_slabs_p166": [
+  -0.134374,
+  0.760859,
+  0.634853
+ ],
+ "concrete_slabs_p167": [
+  -0.017585,
+  -0.15799,
+  0.987284
+ ],
+ "concrete_slabs_p168": [
+  0.455897,
+  -0.128692,
+  0.88068
+ ],
+ "concrete_slabs_p169": [
+  -0.287081,
+  -0.05873,
+  0.956104
+ ],
+ "concrete_slabs_p170": [
+  0.956203,
+  0.040746,
+  -0.289856
+ ],
+ "cracked_paving_slabs_p01": [
+  0.172565,
+  -0.214698,
+  0.961315
+ ],
+ "cracked_paving_slabs_p02": [
+  0.025639,
+  -0.02457,
+  0.999369
+ ],
+ "cracked_paving_slabs_p03": [
+  0.087308,
+  0.038508,
+  0.995437
+ ],
+ "cracked_paving_slabs_p04": [
+  0.803573,
+  -0.004461,
+  0.59519
+ ],
+ "cracked_paving_slabs_p05": [
+  -0.50134,
+  -0.128503,
+  0.855655
+ ],
+ "cracked_paving_slabs_p06": [
+  0.056739,
+  -0.024859,
+  0.99808
+ ],
+ "cracked_paving_slabs_p07": [
+  0.33979,
+  0.7116,
+  0.614953
+ ],
+ "cracked_paving_slabs_p08": [
+  -0.578146,
+  0.184779,
+  0.794735
+ ],
+ "cracked_paving_slabs_p09": [
+  0.259286,
+  -0.249297,
+  0.933071
+ ],
+ "cracked_paving_slabs_p10": [
+  0.139872,
+  -0.062775,
+  0.988178
+ ],
+ "cracked_paving_slabs_p11": [
+  0.997954,
+  -0.020369,
+  -0.060603
+ ],
+ "cracked_paving_slabs_p12": [
+  0.99841,
+  0.049065,
+  -0.027762
+ ],
+ "cracked_paving_slabs_p13": [
+  0.101621,
+  -0.043376,
+  0.993877
+ ],
+ "cracked_paving_slabs_p14": [
+  0.205525,
+  -0.120316,
+  0.971228
+ ],
+ "cracked_paving_slabs_p15": [
+  0.160877,
+  -0.079525,
+  0.983765
+ ],
+ "cracked_paving_slabs_p16": [
+  0.993424,
+  0.055462,
+  0.10016
+ ],
+ "cracked_paving_slabs_p17": [
+  -0.005284,
+  0.999082,
+  -0.042523
+ ],
+ "cracked_paving_slabs_p18": [
+  0.036223,
+  0.723513,
+  0.68936
+ ],
+ "cracked_paving_slabs_p19": [
+  0.061325,
+  -0.021891,
+  0.997878
+ ],
+ "cracked_paving_slabs_p20": [
+  -0.133377,
+  0.104931,
+  0.985495
+ ],
+ "cracked_paving_slabs_p21": [
+  0.999874,
+  -0.000285,
+  -0.01584
+ ],
+ "cracked_paving_slabs_p22": [
+  0.096842,
+  -0.344409,
+  0.933812
+ ],
+ "cracked_paving_slabs_p23": [
+  -0.057051,
+  0.974404,
+  -0.217444
+ ],
+ "cracked_paving_slabs_p24": [
+  0.05901,
+  -0.046334,
+  0.997182
+ ],
+ "cracked_paving_slabs_p25": [
+  -0.520555,
+  -0.030464,
+  0.853285
+ ],
+ "cracked_paving_slabs_p26": [
+  0.784333,
+  0.04033,
+  0.619028
+ ],
+ "cracked_paving_slabs_p27": [
+  0.816528,
+  0.057431,
+  0.574442
+ ],
+ "cracked_paving_slabs_p28": [
+  0.996315,
+  -0.056465,
+  -0.064566
+ ],
+ "cracked_paving_slabs_p29": [
+  0.021937,
+  0.996726,
+  0.077819
+ ],
+ "cracked_paving_slabs_p30": [
+  -0.297378,
+  0.950397,
+  0.091174
+ ],
+ "cracked_paving_slabs_p31": [
+  0.020716,
+  -0.071098,
+  0.997254
+ ],
+ "cracked_paving_slabs_p32": [
+  0.378147,
+  -0.158489,
+  0.912078
+ ],
+ "cracked_paving_slabs_p33": [
+  -0.41794,
+  0.895537,
+  0.152776
+ ],
+ "cracked_paving_slabs_p34": [
+  0.020936,
+  -0.080434,
+  0.99654
+ ],
+ "cracked_paving_slabs_p35": [
+  -0.028006,
+  0.985319,
+  0.168408
+ ],
+ "cracked_paving_slabs_p36": [
+  0.140584,
+  0.989068,
+  -0.044509
+ ],
+ "cracked_paving_slabs_p37": [
+  0.954247,
+  0.295289,
+  0.047095
+ ],
+ "cracked_paving_slabs_p38": [
+  -0.047899,
+  0.978676,
+  0.199748
+ ],
+ "cracked_paving_slabs_p39": [
+  -0.047664,
+  0.996534,
+  -0.068184
+ ],
+ "cracked_paving_slabs_p40": [
+  0.917362,
+  0.178186,
+  -0.355945
+ ],
+ "cracked_paving_slabs_p41": [
+  -0.025758,
+  0.232795,
+  0.972185
+ ],
+ "cracked_paving_slabs_p42": [
+  -0.196666,
+  -0.034291,
+  0.979871
+ ],
+ "cracked_paving_slabs_p43": [
+  0.931155,
+  0.36269,
+  0.037494
+ ],
+ "cracked_paving_slabs_p44": [
+  -0.611978,
+  0.370025,
+  0.698974
+ ],
+ "cracked_paving_slabs_p45": [
+  -0.130006,
+  0.964664,
+  -0.229177
+ ],
+ "cracked_paving_slabs_p46": [
+  -0.623999,
+  0.127768,
+  0.770908
+ ],
+ "cracked_paving_slabs_p47": [
+  0.854882,
+  0.508888,
+  -0.101044
+ ],
+ "cracked_paving_slabs_p48": [
+  0.490213,
+  0.871553,
+  -0.009304
+ ],
+ "cracked_paving_slabs_p49": [
+  -0.083435,
+  0.996512,
+  0.001757
+ ],
+ "cracked_paving_slabs_p50": [
+  -0.040843,
+  0.958675,
+  0.281558
+ ],
+ "cracked_paving_slabs_p51": [
+  0.896601,
+  -0.060053,
+  -0.438748
+ ],
+ "cracked_paving_slabs_p52": [
+  0.97185,
+  0.00131,
+  -0.235596
+ ],
+ "cracked_paving_slabs_p53": [
+  0.017713,
+  -0.217257,
+  0.975954
+ ],
+ "cracked_paving_slabs_p54": [
+  0.917626,
+  -0.245286,
+  0.312724
+ ],
+ "cracked_paving_slabs_p55": [
+  -0.230293,
+  0.964983,
+  0.125588
+ ],
+ "cracked_paving_slabs_p56": [
+  0.46614,
+  0.868746,
+  -0.16731
+ ],
+ "cracked_paving_slabs_p57": [
+  0.93481,
+  -0.353783,
+  0.031128
+ ],
+ "cracked_paving_slabs_p58": [
+  0.01537,
+  0.052619,
+  0.998496
+ ],
+ "cracked_paving_slabs_p59": [
+  0.266688,
+  -0.189173,
+  0.945035
+ ],
+ "cracked_paving_slabs_p60": [
+  0.952454,
+  0.04905,
+  0.300709
+ ],
+ "cracked_paving_slabs_p61": [
+  -0.129389,
+  -0.116612,
+  0.984713
+ ],
+ "cracked_paving_slabs_p62": [
+  0.052571,
+  -0.147865,
+  0.987609
+ ],
+ "cracked_paving_slabs_p63": [
+  0.350863,
+  -0.360453,
+  0.864274
+ ],
+ "cracked_paving_slabs_p64": [
+  0.978104,
+  0.062765,
+  -0.198427
+ ],
+ "cracked_paving_slabs_p65": [
+  0.117257,
+  0.990419,
+  0.072947
+ ],
+ "cracked_paving_slabs_p66": [
+  0.493393,
+  0.823086,
+  -0.281235
+ ],
+ "cracked_paving_slabs_p67": [
+  0.076839,
+  -0.184623,
+  0.979801
+ ],
+ "cracked_paving_slabs_p68": [
+  -0.155171,
+  0.971964,
+  0.176659
+ ],
+ "cracked_paving_slabs_p69": [
+  0.050406,
+  -0.443865,
+  0.894675
+ ],
+ "cracked_paving_slabs_p70": [
+  -0.01955,
+  -0.175933,
+  0.984208
+ ],
+ "cracked_paving_slabs_p71": [
+  0.764455,
+  -0.1519,
+  -0.626527
+ ],
+ "cracked_paving_slabs_p72": [
+  -0.247008,
+  0.872229,
+  0.422142
+ ],
+ "cracked_paving_slabs_p73": [
+  0.958459,
+  -0.041907,
+  0.282136
+ ],
+ "cracked_paving_slabs_p74": [
+  0.992084,
+  -0.053577,
+  -0.113573
+ ],
+ "cracked_paving_slabs_p75": [
+  -0.260865,
+  0.933712,
+  -0.245216
+ ],
+ "cracked_paving_slabs_p76": [
+  0.90711,
+  0.40561,
+  -0.112392
+ ],
+ "cracked_paving_slabs_p77": [
+  -0.575176,
+  -0.092407,
+  0.812794
+ ],
+ "cracked_paving_slabs_p78": [
+  0.051812,
+  0.933833,
+  0.353936
+ ],
+ "cracked_paving_slabs_p79": [
+  -0.593895,
+  -0.115944,
+  0.796145
+ ],
+ "cracked_paving_slabs_p80": [
+  0.947856,
+  0.066198,
+  -0.311749
+ ],
+ "cracked_paving_slabs_p81": [
+  0.927859,
+  0.370297,
+  0.044238
+ ],
+ "cracked_paving_slabs_p82": [
+  0.227831,
+  0.958429,
+  -0.171778
+ ],
+ "cracked_paving_slabs_p83": [
+  0.121307,
+  -0.034629,
+  0.992011
+ ],
+ "cracked_paving_slabs_p84": [
+  -0.290661,
+  0.954965,
+  0.059652
+ ],
+ "cracked_paving_slabs_p85": [
+  -0.668494,
+  -0.036956,
+  0.742799
+ ],
+ "huge_concrete_rubble_pile_p001": [
+  0.119382,
+  0.21653,
+  0.968949
+ ],
+ "huge_concrete_rubble_pile_p002": [
+  -0.138331,
+  -0.008503,
+  0.99035
+ ],
+ "huge_concrete_rubble_pile_p003": [
+  0.568897,
+  0.680954,
+  -0.461149
+ ],
+ "huge_concrete_rubble_pile_p004": [
+  -0.190718,
+  0.214977,
+  0.957816
+ ],
+ "huge_concrete_rubble_pile_p005": [
+  -0.033821,
+  6.5e-05,
+  0.999428
+ ],
+ "huge_concrete_rubble_pile_p006": [
+  0.741736,
+  0.34551,
+  -0.574849
+ ],
+ "huge_concrete_rubble_pile_p007": [
+  -0.09668,
+  0.087876,
+  0.991429
+ ],
+ "huge_concrete_rubble_pile_p008": [
+  0.718691,
+  -0.513641,
+  0.468675
+ ],
+ "huge_concrete_rubble_pile_p009": [
+  0.892479,
+  -0.110691,
+  -0.437298
+ ],
+ "huge_concrete_rubble_pile_p010": [
+  0.741122,
+  -0.583425,
+  0.332195
+ ],
+ "huge_concrete_rubble_pile_p011": [
+  -0.323318,
+  0.243503,
+  0.914424
+ ],
+ "huge_concrete_rubble_pile_p012": [
+  0.662313,
+  0.62663,
+  -0.410703
+ ],
+ "huge_concrete_rubble_pile_p013": [
+  0.460818,
+  -0.168091,
+  0.871431
+ ],
+ "huge_concrete_rubble_pile_p014": [
+  -0.609252,
+  0.713242,
+  -0.346551
+ ],
+ "huge_concrete_rubble_pile_p015": [
+  -0.396867,
+  0.500423,
+  0.769463
+ ],
+ "huge_concrete_rubble_pile_p016": [
+  -0.112206,
+  0.634435,
+  0.764789
+ ],
+ "huge_concrete_rubble_pile_p017": [
+  -0.063834,
+  0.006295,
+  0.997941
+ ],
+ "huge_concrete_rubble_pile_p018": [
+  0.688637,
+  0.72121,
+  0.075064
+ ],
+ "huge_concrete_rubble_pile_p019": [
+  0.311795,
+  0.201983,
+  0.928432
+ ],
+ "huge_concrete_rubble_pile_p020": [
+  0.420954,
+  0.90675,
+  0.02456
+ ],
+ "huge_concrete_rubble_pile_p021": [
+  -0.597589,
+  0.781214,
+  -0.18053
+ ],
+ "huge_concrete_rubble_pile_p022": [
+  -0.508002,
+  -0.46582,
+  0.724532
+ ],
+ "huge_concrete_rubble_pile_p023": [
+  -0.365825,
+  0.282947,
+  0.88663
+ ],
+ "huge_concrete_rubble_pile_p024": [
+  -0.50166,
+  0.635214,
+  -0.587231
+ ],
+ "huge_concrete_rubble_pile_p025": [
+  -0.550599,
+  0.598289,
+  -0.582144
+ ],
+ "huge_concrete_rubble_pile_p026": [
+  -0.449499,
+  0.304482,
+  0.839786
+ ],
+ "huge_concrete_rubble_pile_p027": [
+  0.709512,
+  -0.645259,
+  0.283256
+ ],
+ "huge_concrete_rubble_pile_p028": [
+  -0.518891,
+  0.614813,
+  -0.593934
+ ],
+ "huge_concrete_rubble_pile_p029": [
+  -0.369412,
+  -0.600798,
+  0.708926
+ ],
+ "huge_concrete_rubble_pile_p030": [
+  0.428747,
+  -0.615284,
+  0.661514
+ ],
+ "huge_concrete_rubble_pile_p031": [
+  0.730022,
+  0.582068,
+  -0.358139
+ ],
+ "huge_concrete_rubble_pile_p032": [
+  0.453952,
+  0.720437,
+  -0.524308
+ ],
+ "huge_concrete_rubble_pile_p033": [
+  -0.02983,
+  0.332685,
+  0.942566
+ ],
+ "huge_concrete_rubble_pile_p034": [
+  -0.147508,
+  -0.549428,
+  0.822417
+ ],
+ "huge_concrete_rubble_pile_p035": [
+  -0.381865,
+  0.362706,
+  0.850073
+ ],
+ "huge_concrete_rubble_pile_p036": [
+  -0.139655,
+  0.032903,
+  0.989653
+ ],
+ "huge_concrete_rubble_pile_p037": [
+  0.718425,
+  0.295467,
+  -0.629734
+ ],
+ "huge_concrete_rubble_pile_p038": [
+  -0.150369,
+  0.161435,
+  0.97536
+ ],
+ "huge_concrete_rubble_pile_p039": [
+  -0.373092,
+  -0.39675,
+  0.838685
+ ],
+ "huge_concrete_rubble_pile_p040": [
+  0.22256,
+  0.540457,
+  0.811402
+ ],
+ "huge_concrete_rubble_pile_p041": [
+  0.518317,
+  -0.302006,
+  0.800087
+ ],
+ "huge_concrete_rubble_pile_p042": [
+  0.022828,
+  -0.179846,
+  0.98343
+ ],
+ "huge_concrete_rubble_pile_p043": [
+  -0.394548,
+  0.881159,
+  0.260559
+ ],
+ "huge_concrete_rubble_pile_p044": [
+  -0.668117,
+  0.695074,
+  -0.265502
+ ],
+ "huge_concrete_rubble_pile_p045": [
+  0.372904,
+  0.665623,
+  -0.646443
+ ],
+ "huge_concrete_rubble_pile_p046": [
+  0.744631,
+  0.049907,
+  0.665608
+ ],
+ "huge_concrete_rubble_pile_p047": [
+  0.666882,
+  0.638736,
+  -0.383777
+ ],
+ "huge_concrete_rubble_pile_p048": [
+  0.903633,
+  -0.344129,
+  0.254997
+ ],
+ "huge_concrete_rubble_pile_p049": [
+  0.821322,
+  0.296611,
+  -0.487291
+ ],
+ "huge_concrete_rubble_pile_p050": [
+  0.809022,
+  0.549422,
+  -0.208854
+ ],
+ "huge_concrete_rubble_pile_p051": [
+  0.424449,
+  0.833522,
+  -0.353673
+ ],
+ "huge_concrete_rubble_pile_p052": [
+  0.83613,
+  -0.547841,
+  0.027486
+ ],
+ "huge_concrete_rubble_pile_p053": [
+  -0.07052,
+  0.45451,
+  0.887945
+ ],
+ "huge_concrete_rubble_pile_p054": [
+  0.08745,
+  0.72052,
+  0.687898
+ ],
+ "huge_concrete_rubble_pile_p055": [
+  0.376383,
+  -0.415953,
+  0.82784
+ ],
+ "huge_concrete_rubble_pile_p056": [
+  0.157161,
+  0.371666,
+  0.914967
+ ],
+ "huge_concrete_rubble_pile_p057": [
+  0.748337,
+  0.40958,
+  -0.521763
+ ],
+ "huge_concrete_rubble_pile_p058": [
+  0.690889,
+  0.621676,
+  -0.36904
+ ],
+ "huge_concrete_rubble_pile_p059": [
+  -0.277444,
+  0.619941,
+  0.73396
+ ],
+ "huge_concrete_rubble_pile_p060": [
+  -0.172806,
+  -0.234083,
+  0.956736
+ ],
+ "huge_concrete_rubble_pile_p061": [
+  0.75607,
+  -0.570918,
+  0.320017
+ ],
+ "huge_concrete_rubble_pile_p062": [
+  0.781096,
+  0.432429,
+  -0.450438
+ ],
+ "huge_concrete_rubble_pile_p063": [
+  0.344291,
+  0.685485,
+  0.64154
+ ],
+ "huge_concrete_rubble_pile_p064": [
+  -0.493965,
+  0.819775,
+  -0.289771
+ ],
+ "huge_concrete_rubble_pile_p065": [
+  -0.545582,
+  0.837361,
+  0.034164
+ ],
+ "huge_concrete_rubble_pile_p066": [
+  0.746507,
+  0.543692,
+  -0.383571
+ ],
+ "huge_concrete_rubble_pile_p067": [
+  -0.39614,
+  0.144496,
+  0.906749
+ ],
+ "huge_concrete_rubble_pile_p068": [
+  0.722889,
+  0.676748,
+  -0.139439
+ ],
+ "huge_concrete_rubble_pile_p069": [
+  0.655087,
+  0.755552,
+  -0.00157
+ ],
+ "huge_concrete_rubble_pile_p070": [
+  -0.35823,
+  0.713194,
+  -0.602516
+ ],
+ "huge_concrete_rubble_pile_p071": [
+  0.609709,
+  -0.407979,
+  0.679564
+ ],
+ "huge_concrete_rubble_pile_p072": [
+  -0.555846,
+  0.682582,
+  0.474465
+ ],
+ "huge_concrete_rubble_pile_p073": [
+  0.844717,
+  0.360205,
+  -0.395859
+ ],
+ "huge_concrete_rubble_pile_p074": [
+  0.714181,
+  0.5729,
+  -0.402157
+ ],
+ "huge_concrete_rubble_pile_p075": [
+  -0.597508,
+  -0.328784,
+  0.731359
+ ],
+ "huge_concrete_rubble_pile_p076": [
+  0.957415,
+  -0.213396,
+  0.19447
+ ],
+ "huge_concrete_rubble_pile_p077": [
+  -0.301744,
+  -0.399924,
+  0.865454
+ ],
+ "huge_concrete_rubble_pile_p078": [
+  0.479581,
+  0.852578,
+  -0.207639
+ ],
+ "huge_concrete_rubble_pile_p079": [
+  0.715585,
+  0.682083,
+  0.15067
+ ],
+ "huge_concrete_rubble_pile_p080": [
+  0.81965,
+  0.563008,
+  0.105808
+ ],
+ "huge_concrete_rubble_pile_p081": [
+  0.934866,
+  0.314133,
+  -0.165364
+ ],
+ "huge_concrete_rubble_pile_p082": [
+  -0.189299,
+  0.881562,
+  -0.432451
+ ],
+ "huge_concrete_rubble_pile_p083": [
+  0.566829,
+  -0.460796,
+  0.682915
+ ],
+ "huge_concrete_rubble_pile_p084": [
+  -0.460954,
+  0.855521,
+  0.235808
+ ],
+ "huge_concrete_rubble_pile_p085": [
+  0.41665,
+  -0.504812,
+  0.756021
+ ],
+ "huge_concrete_rubble_pile_p086": [
+  0.87012,
+  -0.48898,
+  -0.06156
+ ],
+ "huge_concrete_rubble_pile_p087": [
+  0.91249,
+  -0.397365,
+  -0.09728
+ ],
+ "huge_concrete_rubble_pile_p088": [
+  -0.350044,
+  0.507015,
+  0.787658
+ ],
+ "huge_concrete_rubble_pile_p089": [
+  -0.018903,
+  0.518105,
+  0.855108
+ ],
+ "huge_concrete_rubble_pile_p090": [
+  -0.097602,
+  0.888774,
+  -0.447833
+ ],
+ "huge_concrete_rubble_pile_p091": [
+  0.256009,
+  0.939882,
+  -0.226011
+ ],
+ "huge_concrete_rubble_pile_p092": [
+  0.003889,
+  0.53934,
+  0.842079
+ ],
+ "huge_concrete_rubble_pile_p093": [
+  -0.219895,
+  0.210974,
+  0.952437
+ ],
+ "huge_concrete_rubble_pile_p094": [
+  0.909829,
+  -0.402259,
+  -0.101972
+ ],
+ "huge_concrete_rubble_pile_p095": [
+  0.62992,
+  0.712552,
+  -0.308983
+ ],
+ "huge_concrete_rubble_pile_p096": [
+  0.134383,
+  -0.320668,
+  0.93761
+ ],
+ "huge_concrete_rubble_pile_p097": [
+  0.812822,
+  0.239568,
+  -0.530968
+ ],
+ "huge_concrete_rubble_pile_p098": [
+  0.709872,
+  -0.426029,
+  -0.560876
+ ],
+ "huge_concrete_rubble_pile_p099": [
+  -0.38906,
+  0.601864,
+  0.697418
+ ],
+ "huge_concrete_rubble_pile_p100": [
+  0.032148,
+  -0.06374,
+  0.997449
+ ],
+ "huge_concrete_rubble_pile_p101": [
+  -0.088697,
+  0.852006,
+  0.515964
+ ],
+ "huge_concrete_rubble_pile_p102": [
+  0.096082,
+  -0.271807,
+  0.957543
+ ],
+ "huge_concrete_rubble_pile_p103": [
+  0.051562,
+  0.748149,
+  0.661525
+ ],
+ "huge_concrete_rubble_pile_p104": [
+  0.187506,
+  0.067483,
+  0.979943
+ ],
+ "huge_concrete_rubble_pile_p105": [
+  0.365367,
+  -0.218412,
+  0.904878
+ ],
+ "huge_concrete_rubble_pile_p106": [
+  -0.131589,
+  0.274364,
+  0.95258
+ ],
+ "huge_concrete_rubble_pile_p107": [
+  -0.258639,
+  0.905251,
+  -0.337084
+ ],
+ "huge_concrete_rubble_pile_p108": [
+  0.511166,
+  0.848596,
+  0.136359
+ ],
+ "huge_concrete_rubble_pile_p109": [
+  0.550461,
+  -0.178203,
+  0.81562
+ ],
+ "huge_concrete_rubble_pile_p110": [
+  0.718079,
+  -0.695803,
+  -0.014819
+ ],
+ "huge_concrete_rubble_pile_p111": [
+  0.830388,
+  -0.512602,
+  -0.218393
+ ],
+ "huge_concrete_rubble_pile_p112": [
+  0.485772,
+  -0.521254,
+  0.701654
+ ],
+ "huge_concrete_rubble_pile_p113": [
+  -0.64966,
+  0.678298,
+  -0.343298
+ ],
+ "huge_concrete_rubble_pile_p114": [
+  0.781007,
+  -0.543041,
+  0.308441
+ ],
+ "huge_concrete_rubble_pile_p115": [
+  -0.45665,
+  0.757144,
+  -0.467123
+ ],
+ "huge_concrete_rubble_pile_p116": [
+  0.328831,
+  0.903632,
+  0.274443
+ ],
+ "huge_concrete_rubble_pile_p117": [
+  -0.188845,
+  0.861306,
+  -0.471688
+ ],
+ "huge_concrete_rubble_pile_p118": [
+  -0.6857,
+  0.71192,
+  -0.151612
+ ],
+ "huge_concrete_rubble_pile_p119": [
+  0.812265,
+  0.378477,
+  -0.443826
+ ],
+ "huge_concrete_rubble_pile_p120": [
+  -0.380495,
+  0.654911,
+  -0.652928
+ ],
+ "huge_concrete_rubble_pile_p121": [
+  -0.293072,
+  -0.026916,
+  0.955712
+ ],
+ "huge_concrete_rubble_pile_p122": [
+  -0.069596,
+  0.215126,
+  0.974103
+ ],
+ "huge_concrete_rubble_pile_p123": [
+  0.830995,
+  0.507297,
+  -0.228247
+ ],
+ "huge_concrete_rubble_pile_p124": [
+  -0.255958,
+  0.876242,
+  -0.408271
+ ],
+ "huge_concrete_rubble_pile_p125": [
+  0.596097,
+  0.783525,
+  -0.175377
+ ],
+ "huge_concrete_rubble_pile_p126": [
+  0.923991,
+  -0.378053,
+  0.057595
+ ],
+ "huge_concrete_rubble_pile_p127": [
+  -0.142956,
+  0.096245,
+  0.985038
+ ],
+ "huge_concrete_rubble_pile_p128": [
+  -0.620703,
+  -0.353179,
+  0.699994
+ ],
+ "huge_concrete_rubble_pile_p129": [
+  -0.488555,
+  0.603941,
+  0.629738
+ ],
+ "huge_concrete_rubble_pile_p130": [
+  0.819292,
+  0.196283,
+  -0.538733
+ ],
+ "huge_concrete_rubble_pile_p131": [
+  0.789205,
+  -0.299972,
+  0.535885
+ ],
+ "huge_concrete_rubble_pile_p132": [
+  0.621649,
+  -0.502231,
+  0.601096
+ ],
+ "huge_concrete_rubble_pile_p133": [
+  0.756223,
+  -0.639654,
+  0.137728
+ ],
+ "huge_concrete_rubble_pile_p134": [
+  -0.363988,
+  0.866913,
+  -0.34055
+ ],
+ "huge_concrete_rubble_pile_p135": [
+  -0.077826,
+  -0.100764,
+  0.991862
+ ],
+ "huge_concrete_rubble_pile_p136": [
+  -0.560061,
+  0.61534,
+  -0.554696
+ ],
+ "huge_concrete_rubble_pile_p137": [
+  0.767763,
+  0.506459,
+  -0.392477
+ ],
+ "huge_concrete_rubble_pile_p138": [
+  -0.662081,
+  0.728935,
+  -0.174074
+ ],
+ "huge_concrete_rubble_pile_p139": [
+  -0.393264,
+  0.654754,
+  -0.645477
+ ],
+ "huge_concrete_rubble_pile_p140": [
+  -0.614162,
+  0.786899,
+  -0.05996
+ ],
+ "huge_concrete_rubble_pile_p141": [
+  -0.253203,
+  0.733505,
+  -0.630761
+ ],
+ "huge_concrete_rubble_pile_p142": [
+  0.307868,
+  0.932018,
+  -0.191205
+ ],
+ "huge_concrete_rubble_pile_p143": [
+  0.017953,
+  0.014431,
+  0.999735
+ ],
+ "huge_concrete_rubble_pile_p144": [
+  -0.055483,
+  0.747344,
+  0.662117
+ ],
+ "huge_concrete_rubble_pile_p145": [
+  -0.00387,
+  -0.117352,
+  0.993083
+ ],
+ "huge_concrete_rubble_pile_p146": [
+  0.139047,
+  0.322093,
+  0.936441
+ ],
+ "huge_concrete_rubble_pile_p147": [
+  0.323371,
+  0.718196,
+  -0.616137
+ ],
+ "huge_concrete_rubble_pile_p148": [
+  0.586353,
+  -0.41703,
+  0.694461
+ ],
+ "huge_concrete_rubble_pile_p149": [
+  0.927734,
+  -0.345417,
+  -0.141408
+ ],
+ "huge_concrete_rubble_pile_p150": [
+  -0.272539,
+  0.331708,
+  0.903157
+ ],
+ "huge_concrete_rubble_pile_p151": [
+  0.612178,
+  0.78414,
+  -0.1018
+ ],
+ "huge_concrete_rubble_pile_p152": [
+  0.808841,
+  -0.460217,
+  0.366027
+ ],
+ "huge_concrete_rubble_pile_p153": [
+  0.430194,
+  -0.520468,
+  0.737595
+ ],
+ "huge_concrete_rubble_pile_p154": [
+  -0.394225,
+  -0.371486,
+  0.840586
+ ],
+ "huge_concrete_rubble_pile_p155": [
+  0.616044,
+  0.741469,
+  -0.265919
+ ],
+ "huge_concrete_rubble_pile_p156": [
+  0.154442,
+  0.310695,
+  0.937879
+ ],
+ "huge_concrete_rubble_pile_p157": [
+  -0.638189,
+  0.754395,
+  -0.153633
+ ],
+ "huge_concrete_rubble_pile_p158": [
+  0.897004,
+  0.249997,
+  -0.364535
+ ],
+ "huge_concrete_rubble_pile_p159": [
+  0.735996,
+  -0.262933,
+  0.62384
+ ],
+ "huge_concrete_rubble_pile_p160": [
+  -0.563777,
+  0.760255,
+  -0.322751
+ ],
+ "huge_concrete_rubble_pile_p161": [
+  0.760458,
+  0.375135,
+  -0.530072
+ ],
+ "huge_concrete_rubble_pile_p162": [
+  0.02031,
+  0.006395,
+  0.999773
+ ],
+ "huge_concrete_rubble_pile_p163": [
+  0.418875,
+  0.299787,
+  0.857129
+ ],
+ "huge_concrete_rubble_pile_p164": [
+  0.061779,
+  0.744273,
+  -0.665012
+ ],
+ "huge_concrete_rubble_pile_p165": [
+  0.585066,
+  0.763647,
+  -0.273024
+ ],
+ "huge_concrete_rubble_pile_p166": [
+  0.605693,
+  0.794313,
+  0.046931
+ ],
+ "huge_concrete_rubble_pile_p167": [
+  -0.262385,
+  0.516772,
+  0.814924
+ ],
+ "huge_concrete_rubble_pile_p168": [
+  0.702796,
+  0.387943,
+  -0.596304
+ ],
+ "huge_concrete_rubble_pile_p169": [
+  0.905175,
+  -0.282381,
+  -0.317678
+ ],
+ "huge_concrete_rubble_pile_p170": [
+  0.003755,
+  -0.336302,
+  0.941747
+ ],
+ "huge_concrete_rubble_pile_p171": [
+  0.561935,
+  0.682611,
+  -0.467195
+ ],
+ "huge_concrete_rubble_pile_p172": [
+  0.8179,
+  -0.568663,
+  0.087535
+ ],
+ "huge_concrete_rubble_pile_p173": [
+  -0.214569,
+  0.975294,
+  0.05256
+ ],
+ "huge_concrete_rubble_pile_p174": [
+  0.36706,
+  -0.61533,
+  0.697593
+ ],
+ "huge_concrete_rubble_pile_p175": [
+  0.287854,
+  0.288545,
+  0.913171
+ ],
+ "huge_concrete_rubble_pile_p176": [
+  -0.624165,
+  0.76186,
+  -0.17317
+ ],
+ "huge_concrete_rubble_pile_p177": [
+  0.703704,
+  0.608197,
+  -0.367283
+ ],
+ "huge_concrete_rubble_pile_p178": [
+  -0.629491,
+  0.710578,
+  -0.314356
+ ],
+ "huge_concrete_rubble_pile_p179": [
+  -0.060002,
+  0.51999,
+  0.852062
+ ],
+ "huge_concrete_rubble_pile_p180": [
+  0.807998,
+  0.362964,
+  -0.464108
+ ],
+ "huge_concrete_rubble_pile_p181": [
+  0.803742,
+  -0.403372,
+  0.437366
+ ],
+ "huge_concrete_rubble_pile_p182": [
+  -0.286231,
+  0.559958,
+  0.777508
+ ],
+ "huge_concrete_rubble_pile_p183": [
+  -0.208865,
+  0.753453,
+  0.623445
+ ],
+ "huge_concrete_rubble_pile_p184": [
+  -0.601286,
+  0.716062,
+  -0.354557
+ ],
+ "huge_concrete_rubble_pile_p185": [
+  -0.408721,
+  -0.009005,
+  0.912615
+ ],
+ "huge_concrete_rubble_pile_p186": [
+  0.451997,
+  -0.546646,
+  0.704895
+ ],
+ "huge_concrete_rubble_pile_p187": [
+  0.095388,
+  0.085778,
+  0.991738
+ ],
+ "huge_concrete_rubble_pile_p188": [
+  0.250704,
+  0.958638,
+  -0.134758
+ ],
+ "huge_concrete_rubble_pile_p189": [
+  0.547532,
+  0.787652,
+  -0.28251
+ ],
+ "huge_concrete_rubble_pile_p190": [
+  0.400385,
+  -0.575086,
+  0.713419
+ ],
+ "huge_concrete_rubble_pile_p191": [
+  0.65249,
+  0.716708,
+  -0.246143
+ ],
+ "huge_concrete_rubble_pile_p192": [
+  -0.555288,
+  0.645068,
+  -0.524921
+ ],
+ "huge_concrete_rubble_pile_p193": [
+  0.014053,
+  0.047973,
+  0.99875
+ ],
+ "huge_concrete_rubble_pile_p194": [
+  0.678301,
+  -0.425518,
+  0.599035
+ ],
+ "huge_concrete_rubble_pile_p195": [
+  -0.591172,
+  -0.136062,
+  0.794986
+ ],
+ "huge_concrete_rubble_pile_p196": [
+  -0.276672,
+  -0.555876,
+  0.783872
+ ],
+ "huge_concrete_rubble_pile_p197": [
+  -0.580287,
+  0.81434,
+  0.010808
+ ],
+ "huge_concrete_rubble_pile_p198": [
+  0.737801,
+  0.564467,
+  -0.370172
+ ],
+ "huge_concrete_rubble_pile_p199": [
+  0.820613,
+  0.557232,
+  0.126834
+ ],
+ "huge_concrete_rubble_pile_p200": [
+  0.385605,
+  -0.54978,
+  0.74098
+ ],
+ "huge_concrete_rubble_pile_p201": [
+  -0.688627,
+  0.724368,
+  0.032907
+ ],
+ "huge_concrete_rubble_pile_p202": [
+  0.197006,
+  -0.638678,
+  0.743827
+ ],
+ "huge_concrete_rubble_pile_p203": [
+  0.506099,
+  0.754441,
+  -0.417951
+ ],
+ "huge_concrete_rubble_pile_p204": [
+  -0.309839,
+  0.845672,
+  -0.434557
+ ],
+ "huge_concrete_rubble_pile_p205": [
+  0.026369,
+  0.594848,
+  0.803406
+ ],
+ "huge_concrete_rubble_pile_p206": [
+  0.777328,
+  -0.557701,
+  0.291086
+ ],
+ "huge_concrete_rubble_pile_p207": [
+  0.97835,
+  0.088263,
+  -0.187192
+ ],
+ "huge_concrete_rubble_pile_p208": [
+  0.671475,
+  0.717613,
+  0.184808
+ ],
+ "huge_concrete_rubble_pile_p209": [
+  0.2133,
+  0.976674,
+  -0.024725
+ ],
+ "huge_concrete_rubble_pile_p210": [
+  0.550035,
+  0.834881,
+  -0.020848
+ ],
+ "huge_concrete_rubble_pile_p211": [
+  -0.659427,
+  0.724997,
+  -0.198836
+ ],
+ "huge_concrete_rubble_pile_p212": [
+  0.560282,
+  0.809644,
+  0.174816
+ ],
+ "huge_concrete_rubble_pile_p213": [
+  -0.080319,
+  0.197163,
+  0.977075
+ ],
+ "lamppost_block_p01": [
+  0.999684,
+  -0.0169,
+  0.018584
+ ],
+ "lamppost_block_p02": [
+  0.999997,
+  -0.002346,
+  -0.000165
+ ],
+ "lamppost_block_p03": [
+  -0.0822,
+  0.996441,
+  -0.018667
+ ],
+ "lamppost_block_p04": [
+  0.066918,
+  0.997532,
+  -0.021236
+ ],
+ "lamppost_block_p05": [
+  0.029457,
+  0.024631,
+  0.999263
+ ],
+ "lamppost_block_p06": [
+  -0.048626,
+  0.028498,
+  0.99841
+ ],
+ "lamppost_block_p07": [
+  0.999864,
+  -0.012678,
+  0.010533
+ ],
+ "lamppost_block_p08": [
+  0.345926,
+  0.938044,
+  0.020209
+ ],
+ "lamppost_block_p09": [
+  -0.185564,
+  0.982093,
+  -0.03255
+ ],
+ "lamppost_block_p10": [
+  0.160516,
+  0.987027,
+  0.003623
+ ],
+ "lamppost_block_p11": [
+  0.146272,
+  0.055502,
+  0.987686
+ ],
+ "lamppost_block_p12": [
+  -0.069911,
+  0.997451,
+  -0.014285
+ ],
+ "lamppost_block_p13": [
+  0.069745,
+  0.99692,
+  -0.035866
+ ],
+ "lamppost_block_p14": [
+  -0.1699,
+  0.985396,
+  0.011319
+ ],
+ "lamppost_block_p15": [
+  -0.229659,
+  0.001861,
+  0.973269
+ ],
+ "lamppost_block_p16": [
+  0.937332,
+  0.348273,
+  -0.010686
+ ],
+ "lamppost_block_p17": [
+  0.287123,
+  0.128601,
+  0.949222
+ ],
+ "lamppost_block_p18": [
+  -0.346194,
+  -0.163201,
+  0.923859
+ ],
+ "lamppost_block_p19": [
+  0.34235,
+  -0.196312,
+  0.918835
+ ],
+ "lamppost_block_p20": [
+  -0.346373,
+  -0.152922,
+  0.925549
+ ],
+ "lamppost_block_p21": [
+  -0.301894,
+  0.136138,
+  0.943571
+ ],
+ "lamppost_block_p22": [
+  -0.332737,
+  0.165239,
+  0.92843
+ ],
+ "lamppost_block_p23": [
+  0.026581,
+  -0.062345,
+  0.997701
+ ],
+ "lamppost_block_p24": [
+  -0.026832,
+  0.025012,
+  0.999327
+ ],
+ "lamppost_block_p25": [
+  0.113748,
+  -0.11742,
+  0.986547
+ ],
+ "lamppost_block_p26": [
+  -0.151034,
+  -0.008559,
+  0.988491
+ ],
+ "lamppost_block_p27": [
+  0.100217,
+  -0.054452,
+  0.993474
+ ],
+ "lamppost_block_p28": [
+  -0.113646,
+  -0.11437,
+  0.986916
+ ],
+ "lamppost_block_p29": [
+  0.110135,
+  -0.171654,
+  0.978982
+ ],
+ "lamppost_block_p30": [
+  -0.078209,
+  0.989524,
+  0.121346
+ ],
+ "lamppost_block_p31": [
+  -0.096003,
+  -0.038243,
+  0.994646
+ ],
+ "lamppost_block_p32": [
+  0.106206,
+  0.985708,
+  0.130769
+ ],
+ "lamppost_block_p33": [
+  -0.046278,
+  0.998864,
+  0.011391
+ ],
+ "lamppost_block_p34": [
+  0.062097,
+  0.997377,
+  -0.037182
+ ],
+ "lamppost_block_p35": [
+  0.719528,
+  -0.694352,
+  -0.012417
+ ],
+ "lamppost_block_p36": [
+  0.443312,
+  0.261455,
+  0.857389
+ ],
+ "lump_01": [
+  0.0074,
+  -0.0088,
+  0.9999
+ ],
+ "lump_02": [
+  -0.0306,
+  0.0327,
+  0.999
+ ],
+ "lump_03": [
+  0.0156,
+  0.0026,
+  0.9999
+ ],
+ "lump_04": [
+  0.0501,
+  0.0237,
+  0.9985
+ ],
+ "lump_05": [
+  0.0039,
+  -0.0162,
+  0.9999
+ ],
+ "lump_06": [
+  0.13,
+  0.058,
+  0.9898
+ ]
+}

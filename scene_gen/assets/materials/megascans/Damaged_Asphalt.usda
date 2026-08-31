@@ -22,10 +22,6 @@ def Material "Damaged_Asphalt"
         asset inputs:normalmap_texture = @./Damaged_Asphalt/T_vizcebf_2K_N.png@
         bool inputs:enable_ORM_texture = 1
         asset inputs:ORM_texture = @./Damaged_Asphalt/T_vizcebf_2K_ORM.png@
-        # Darkened: the raw Megascans swatch reads too light for burnt asphalt.
-        # albedo_brightness is OmniPBR's darkening float (NOT albedo_add, which
-        # is also a float but tints blue).
-        float inputs:albedo_brightness = 0.28
         float2 inputs:texture_scale = (0.11, 0.11)
         bool inputs:project_uvw = 1
         bool inputs:world_or_object = 1

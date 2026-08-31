@@ -383,12 +383,41 @@ def _balcony_columns(n, mode):
 
 
 def _plan_band(band, W, D, rng):
-    """One wall plan per side, drawn once and reused for every storey."""
+    """One wall plan per side, drawn once and reused for every storey.
+
+    `side` is an OPTIONAL pool used on E, N and W in place of "walls" — added
+    for family04 (`commercial`/`commercial_mid`), whose "storey" band has no
+    "front"/"back" override at all, so absent this every side (S included)
+    draws the same plain spandrel panel (see round-5 diagnosis notes: a
+    literal 8-vertex box with zero relief, confirmed geometrically, not a
+    lighting artifact — `_plans/earthquake_round5_plan.md`). A band that does
+    not set "side" is completely unaffected: `side_pool` is None, so the loop
+    falls straight to the original `else` branch for every side, which is
+    what keeps every OTHER existing style's four sides byte-for-byte
+    identical to before this was added. S (the front, by this file's
+    "front facing -Y" convention) reads "side" too (round-5 follow-up): the
+    measured reality was 100% Facade_B on EVERY side of every bake, front
+    included — the blank wall the user photographed — so a band that sets
+    "side" forces its windowed piece on all four elevations. The pool is
+    still consumed with zero rng draws, so every other band's placements
+    are untouched.
+    """
     m = band["module"]
     corner = band.get("corner")
     L = corner[2] if corner else 0.0
     mode = band.get("rhythm") or _pick(rng, ["uniform", "alternate", "pairs", "uniform"])
     motif_long = _motif(band["walls"], mode, rng)
+    side_pool = band.get("side")
+    # NOT drawn via `rng` (unlike motif_long above): `rng` is a single shared
+    # stream threaded through every band of the building, so ANY extra draw
+    # here — even one that never changes what S itself renders — shifts the
+    # random state consumed by every band that runs after this one (fam04's
+    # "top" band, in particular), which silently changed S's own top-floor
+    # motif and broke the front-byte-identical guarantee (round-5 diagnosis:
+    # caught by a before/after placement diff, not by eye). Cycling the pool
+    # in the order given is deterministic, needs no rng, and still varies
+    # E/N/W module-to-module when `side` lists more than one piece.
+    motif_side = list(side_pool) if side_pool else None
     plan = {}
     for side in ("S", "E", "N", "W"):
         length = (W if side in ("S", "N") else D) - 2 * L
@@ -396,6 +425,11 @@ def _plan_band(band, W, D, rng):
         if side == "N" and band.get("back"):
             pool = band["back"]
             slots = _fill(length, _motif(pool, "uniform", rng), m, pool)
+        elif side_pool:
+            # S included (round-5 follow-up): the front's own storey band was
+            # just as blank as the flanks in every measured bake.
+            pool = side_pool
+            slots = _fill(length, motif_side, m, pool)
         else:
             # the short sides take the same motif so the corner reads as one
             slots = _fill(length, motif_long, m, pool)
@@ -610,13 +644,47 @@ def fam03(bays, storeys, note=""):
 
 def fam04(bays, storeys, top=True, note=""):
     """Brick commercial: 7 m stone-arcade ground, brick storeys, an
-    overhanging 4 m top floor. 4 m module, 1 m corners -> W = 2 + 4*bays."""
+    overhanging 4 m top floor. 4 m module, 1 m corners -> W = 2 + 4*bays.
+
+    ROUND-5 DIAGNOSIS (`_plans/earthquake_round5_plan.md`): `4_Facade_B`
+    measures as a plain 8-vertex box — geometrically confirmed zero window
+    relief (2 depth levels, `relief_probe`) — and EVERY baked archetype that
+    uses this band (`bld_commercial_DG0`, `_commercial_mid_`, `_highrise_04_`,
+    `_department_store_`) shows 100 % `Facade_B` on the storey band, 0 %
+    `Facade_A`, on every side including the front. Root cause: `_plan_band`'s
+    mode/piece picks are pure `rng` draws and `_motif`/`_fill` never consume
+    `rng` for anything that varies with a band's `walls` length — so the
+    ground band (always 3 draws: mode, `a`, `b`) and this band (always 3
+    draws, same shape) advance the SAME fixed baking seed to the SAME point
+    every time regardless of style, landing on `Facade_B` in all four bakes
+    checked, not by per-side bad luck. `4_Facade_A` is NOT invented or
+    borrowed: it is the OTHER half of this band's own already-declared
+    `walls` pool, already measured (`PIECES`, module 4.0 / height 3.0 — an
+    exact match), and already curated by the fire session's own glazing
+    survey (`quake_flow._G2_WIN_FACES["SM_MBuilding04_Facade_A"]`, 2 rows of
+    2 real punched-window rectangles) — `soot_plume._virtual_openings`'s own
+    docstring independently confirms `Facade_B` "has windows in its art"
+    (i.e. texture only, no geometry) and synthesizes virtual openings for it
+    for exactly this reason. Using a FOREIGN family03 piece here instead once
+    broke `test_soot_plume.py` (`_G2_WIN_FACES` has no entry for it) — an
+    in-family, already-measured piece has no such gap.
+
+    `commercial`/`commercial_mid`/etc. are always free-standing
+    (`usds.buildings.midrise`/`intact` pool entries carry no
+    `place_mid`/`place_end` tag anywhere in the urban_quake* asset sets), so
+    E/N/W need real windows just as much as S — but S must stay
+    byte-identical to every prior bake (the fire session's benches read it),
+    so the fix is a `side` pool that ONLY E, N and W read, forcing
+    `Facade_A`; S keeps drawing from `walls` via the same rng-picked
+    mode exactly as before, landing on `Facade_B` again as it always has.
+    """
     bands = [{"sub": "ground", "h": 7.0, "module": 4.0,
               "walls": [_F("4_FirstFloor_A"), _F("4_FirstFloor_B"), _F("4_FirstFloor_C")],
               "corner": _c(_F("4_FirstFloor_Corner"), "SE", 1.0)}]
     if storeys:
         bands.append({"sub": "storey", "h": 3.0, "module": 4.0, "repeat": storeys,
                       "walls": [_F("4_Facade_A"), _F("4_Facade_B")],
+                      "side": [_F("4_Facade_A")],
                       "corner": _c(_F("4_Facade_Corner"), "SE", 1.0)})
     if top:
         bands.append({"sub": "top", "h": 4.0, "module": 4.0,
@@ -983,7 +1051,8 @@ def _check_spec(name, spec, problems):
         m = band["module"]
         corner = band.get("corner")
         L = corner[2] if corner else 0.0
-        names = list(band["walls"]) + list(band.get("front", [])) + list(band.get("back", []))
+        names = (list(band["walls"]) + list(band.get("front", [])) +
+                 list(band.get("back", [])) + list(band.get("side", [])))
         if corner:
             names.append(corner[0])
         if band.get("front_extra"):
@@ -998,6 +1067,12 @@ def _check_spec(name, spec, problems):
             if not _fits(side_len - 2 * L, spans):
                 problems.append(f"{name} band {bi} ({band['sub']}): {axis}="
                                 f"{side_len} is not 2*{L} + a tiling of {spans}")
+        if band.get("side"):
+            side_spans = sorted({_span(n, m) for n in band["side"]})
+            for side_len, axis in ((W, "W"), (D, "D")):
+                if not _fits(side_len - 2 * L, side_spans):
+                    problems.append(f"{name} band {bi} ({band['sub']}) side pool: "
+                                    f"{axis}={side_len} is not 2*{L} + a tiling of {side_spans}")
         for n in names:
             sx, sy, sz, *_ = PIECES[n]
             is_corner = corner and n == corner[0]

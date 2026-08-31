@@ -1258,21 +1258,48 @@ def beer_lambert_alpha(depth_m, sigma_a):
 # Opacity bands the continuous Beer-Lambert curve above is quantised into —
 # see the module docstring's "1. True volumetric transmission... 2. Fake it
 # analytically" for why this is a set of pre-authored MATERIALS
-# (`water_materials`'s `"inundation_bands"`) rather than a texture. 16, not
-# `ground.build_overlay`'s own 14 (the same idea, applied there to the burn
-# scar): banding is UNIFORM IN ALPHA, not in depth, and alpha(d) is
-# compressive (`d_opaque_m`'s worth of depth already covers 95% of the 0..1
-# range — see the sanity read above), so almost every band boundary falls
-# within roughly the first metre of depth, which is also where the mesh
-# itself has the most triangle rows (the shoreline slope is gentlest there
-# by definition — see `_ground_z_point`). Past that point the deep interior,
-# however much deeper it gets, saturates into the last one or two bands,
-# which is correct: there is no visible difference between 99% and 99.99%
-# opaque. `SURGE_OPACITY_BANDS` overrides it, for the same reason every
-# other density/resolution knob in this file is overridable — `water_
-# materials` takes no `cfg` (see its own docstring), so this is read from
-# the environment directly rather than threaded through `resolve_cfg`.
-_WATER_OPACITY_BANDS = 16
+# (`water_materials`'s `"inundation_bands"`) rather than a texture. Banding
+# is UNIFORM IN ALPHA, not in depth, and alpha(d) is compressive
+# (`d_opaque_m`'s worth of depth already covers 95% of the 0..1 range — see
+# the sanity read above), so almost every band boundary falls within roughly
+# the first metre of depth, which is also where the mesh itself has the most
+# triangle rows (the shoreline slope is gentlest there by definition — see
+# `_ground_z_point`). Past that point the deep interior, however much deeper
+# it gets, saturates into the last one or two bands, which is correct: there
+# is no visible difference between 99% and 99.99% opaque.
+#
+# RAISED FROM 16 TO 48, 2026-08-31, after a review of `MUD_L3/shoreline_obl.
+# png` called out "a crisp line where light shallow water meets dark deep
+# water" — a HARD STEP, visible, at a band boundary. At 16 bands each step is
+# a 1/16 = 6.25 percentage-point jump in opacity, which is exactly the kind
+# of change `pond_specs`' own suppression gate and `ground.build_overlay`'s
+# 14-band scar both treat as a solved problem, but the scar has FEATHERED
+# EDGES on top of its bands (`feathered_coverage`) and the burn palette
+# barely changes across a step; here the visible quantity crossing the step
+# is "how much of the lit mud bed still shows through", which changes fast
+# and is exactly what a human eye is tuned to notice as a line. At 48 bands
+# each step is 1/48 = 2.08 points — under a typical 8-bit-per-channel just-
+# noticeable-difference for a smoothly graded surface. The cost is one more
+# `UsdShade.Material` + one more `UsdGeom.Subset` per unused band on a mesh
+# that is already only ~4,400 triangles at the verification plate size (see
+# `water_volume_cell_m`'s own docstring) — negligible next to the render-time
+# cost this file already pays elsewhere (Flow, per-building bakes).
+#
+# THE MORE CORRECT FIX, NOT TAKEN HERE: a genuinely continuous alpha, driven
+# per-vertex or by a texture, rather than N discrete materials at all — the
+# module docstring's "THE WATER VOLUME" section already discusses this
+# trade-off (pre-authored materials vs. a texture that would need its own
+# `texture_scale`, a slot already spoken for). Per-vertex opacity would need
+# a shading-graph rewire (a `UsdPrimvarReader` feeding `opacity_constant`,
+# replacing the flat float this file sets today) touching
+# `_build_inundation_volume`'s per-face material binding, which is verified
+# output this task is pinned not to touch (`wetted_frac` vs `coverage()` to
+# 0.07%) -- more bands is the cheap option that stays inside the current,
+# verified architecture. `SURGE_OPACITY_BANDS` overrides it, for the same
+# reason every other density/resolution knob in this file is overridable —
+# `water_materials` takes no `cfg` (see its own docstring), so this is read
+# from the environment directly rather than threaded through `resolve_cfg`.
+_WATER_OPACITY_BANDS = 48
 
 
 def _n_opacity_bands():
@@ -1565,6 +1592,30 @@ def _write_ripple_normal_png(ripple_m, chop, out_dir=None):
     return path
 
 
+def _luminance(rgb):
+    """Rec.709 relative luminance of a linear `(r, g, b)` triple.
+
+    `water_materials`'s `diffuse_tint` normalisation used to divide EACH
+    CHANNEL of the target sediment colour by the diffuse texture's single
+    scalar mean (`_WATER_TEX_MEAN_LINEAR`) -- `tint[c] = rgb[c] / mean`. That
+    is a PER-CHANNEL correction driven by a SINGLE, colourless scalar, so it
+    reproduces `rgb`'s own channel ratios exactly: at the sourced `sediment`
+    palette (0.155, 0.115, 0.070) against `mean=0.051` that is a 3.04x red
+    multiply against a 1.37x blue one (review-verified, see `water_materials`
+    for the printed table). Applied to a texture that already carries its own
+    reddish-brown cast, the two skews COMPOUND multiplicatively at every
+    texel, which is measured as the "saturated ochre" review finding -- the
+    per-channel tint stretches the hue on top of the photo's own hue instead
+    of just correcting brightness.
+    A single LUMINANCE-based scalar (this function) corrects overall
+    brightness the same way while leaving hue entirely to the photograph --
+    `final_pixel = texture_rgb * k` with one `k` for all three channels can
+    only scale the texture's existing colour up or down, never re-tint it.
+    """
+    r, g, b = rgb
+    return 0.2126 * float(r) + 0.7152 * float(g) + 0.0722 * float(b)
+
+
 # ---------------------------------------------------------------------------
 # `pxr` ONLY BELOW THIS LINE
 # ---------------------------------------------------------------------------
@@ -1589,8 +1640,18 @@ _PALETTE = {
     # which is where Harvey/Ian aerials actually sit. Depth still drives
     # OPACITY (see `d_opaque_m` and the band table) — that is the physics
     # worth keeping. This is the colour the water converges TO, not how fast.
-    "sediment": (0.310, 0.230, 0.145),
-    "sediment_light": (0.230, 0.180, 0.124),
+    # BACK TO THE SOURCED VALUE, 2026-08-31. This was doubled to
+    # (0.310, 0.230, 0.145) to fight water that rendered black — but the black
+    # was the BED (a dark texture times a dark tint in `_dry_material`), not
+    # the water. Once the bed was fixed the doubling was left standing on top
+    # of an already-correct colour, and the flood came out a saturated ochre
+    # sheet that reads as paint rather than water. Reviewed against the
+    # earlier flat-water render, which looked markedly better.
+    #
+    # A compensation outliving the thing it compensated for is its own bug
+    # class, and this one shipped for exactly one render.
+    "sediment": (0.155, 0.115, 0.070),
+    "sediment_light": (0.115, 0.090, 0.062),
     # CDOM/tannin -- Carolina coastal plain, Gulf swamp
     "blackwater": (0.035, 0.032, 0.024),
     # clean-sand/carbonate coast; still OPAQUE, grey-green -- "there is
@@ -1666,7 +1727,8 @@ def water_materials(stage, parent_path, suffix=""):
         print("[surge] ripple normal map unavailable ({0})".format(exc))
 
     def _make(name, ccr, bump, opacity_const=None, diffuse_tex=None,
-             normal_tex=None, orm_tex=None, tex_scale=(1.0, 1.0)):
+             normal_tex=None, orm_tex=None, tex_scale=(1.0, 1.0),
+             desaturation=0.0, flatten=1.0):
         path = "{0}/WaterLooks/{1}{2}".format(parent_path, name, suffix)
         mat = UsdShade.Material.Define(stage, Sdf.Path(path))
         sh = UsdShade.Shader.Define(stage, Sdf.Path(path).AppendChild("Shader"))
@@ -1695,7 +1757,8 @@ def water_materials(stage, parent_path, suffix=""):
             # (`damage.py`'s documented OmniPBR behaviour) -- `diffuse_tint`
             # is the multiply that still lets `rgb` (palette/turbidity)
             # steer the look.
-            # NORMALISE THE TINT BY THE TEXTURE'S OWN MEAN.
+            # NORMALISE THE TINT BY THE TEXTURE'S OWN MEAN -- BY LUMINANCE,
+            # NOT PER CHANNEL.
             #
             # `diffuse_texture` REPLACES `diffuse_color_constant`, so `rgb`
             # can only re-enter as a multiply -- but multiplying a DARK
@@ -1704,26 +1767,77 @@ def water_materials(stage, parent_path, suffix=""):
             # was written for a neutral texture and silently became a second
             # darkening when a real photograph was bound.
             #
-            # Dividing by the texture's measured mean makes the product land
-            # ON `rgb` -- the sourced sediment colour -- which is what the
-            # tint was always meant to express.
+            # THE FIRST FIX (dividing each channel of `rgb` by the texture's
+            # measured mean) landed the PRODUCT'S mean on `rgb`, but it did
+            # that with a PER-CHANNEL multiply -- at the sourced `sediment`
+            # palette that is red x3.04 against blue x1.37 (`rgb` divided by
+            # `_WATER_TEX_MEAN_LINEAR`). `WATER_DIFFUSE_TEXTURE` is itself a
+            # photograph with its own reddish-brown cast, so that per-channel
+            # stretch COMPOUNDS with the photo's own hue at every texel
+            # instead of just correcting brightness -- reviewed as "a
+            # saturated ochre sheet that reads as paint rather than water",
+            # not the "desaturated grey-brown" muddy floodwater actually is.
+            # A single LUMINANCE-derived scalar (`_luminance`, same Rec.709
+            # weights `_WATER_TEX_MEAN_LINEAR` was measured with) corrects
+            # overall brightness the way the mean-division was always meant
+            # to, while leaving the texture's own hue alone: `final_pixel =
+            # texture_rgb * k` with one `k` can only scale, never re-tint.
             _k = max(1e-4, float(_WATER_TEX_MEAN_LINEAR))
             # Cap at 8, not 4. The cap exists only to stop a pathologically
             # dark texture demanding an absurd multiply; 4 was low enough to
             # CLIP the red and green channels of the raised sediment palette
             # (they need 6.1 and 4.5), which would have skewed the water blue
             # by silently starving the two channels that carry the brown.
-            _tint = tuple(min(8.0, c / _k) for c in rgb) if diffuse_tex == \
-                WATER_DIFFUSE_TEXTURE else rgb
+            # (That clipping risk is specific to the OLD per-channel form --
+            # kept here anyway as the same cheap backstop against a future
+            # pathologically dark texture.)
+            if diffuse_tex == WATER_DIFFUSE_TEXTURE:
+                _lum_k = min(8.0, _luminance(rgb) / _k)
+                _tint = (_lum_k, _lum_k, _lum_k)
+            else:
+                _tint = rgb
             sh.CreateInput("diffuse_tint",
                           Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*_tint))
+            if desaturation:
+                # `albedo_desaturation` -- VERIFIED against the shipped
+                # `OmniPBR_ClearCoat.mdl` (`docker exec isaac-sim cat
+                # /isaac-sim/kit/mdl/core/Base/OmniPBR_ClearCoat.mdl`):
+                # `desaturated_base = lerp(base_lookup.tint,
+                # color(base_lookup.mono), albedo_desaturation)`, applied to
+                # the TEXTURE lookup BEFORE `diffuse_tint` multiplies it.
+                # Pulls the (still photographic, still slightly saturated)
+                # Soil_Mud texture toward its own greyscale before the
+                # luminance tint above ever sees it -- "muddy floodwater is a
+                # desaturated grey-brown, not orange" (review). TUNED, NOT
+                # SOURCED: `_plans/hurricane_water.md` does not give a number
+                # for this input; 0.35 was chosen as a partial pull, not a
+                # full grey-out, and has not been render-verified.
+                sh.CreateInput("albedo_desaturation",
+                              Sdf.ValueTypeNames.Float).Set(
+                    float(desaturation))
             if normal_tex:
                 # Ponds want their own bump (small, close-up, no independent
-                # ripple system of their own). The water volume's bands pass
-                # `normal_tex=None` on purpose: `WATER_DIFFUSE_TEXTURE`'s own
-                # `_N` sibling is NOT band-limited to `ripple_m`, and the
-                # `clearcoat_normalmap_texture` ripple below already is —
-                # see `WATER_DIFFUSE_TEXTURE`'s own docstring.
+                # ripple system of their own). The water volume's bands now
+                # want it too, for a DIFFERENT reason than a pond's close-up
+                # detail: `WATER_DIFFUSE_TEXTURE`'s own `_N` sibling is still
+                # NOT bound here (that finding stands -- it is not band-
+                # limited to `ripple_m` and would conflate with the coat's
+                # own wind-chop ripple below). `SILT_NORMAL_TEXTURE` instead
+                # -- the SAME Soil_Mud photograph's normal channel already
+                # trusted for ponds and the submerged bed -- is bound at the
+                # BASE level, tiled at the SAME `tex_scale` as the diffuse
+                # tile (`_WATER_DIFFUSE_REPEATS_PER_M`, one repeat per 20 m).
+                # This is the "metres to tens of metres" surface structure
+                # (S3's own ask: sediment plumes, scum, slicks) the diffuse
+                # texture was already supplying in COLOUR alone -- reviewed
+                # as invisible at a 22-475 m camera height because the ONLY
+                # bump on this material lived in the coat's ripple, band-
+                # limited to 0.04-0.5 m (`_write_ripple_normal_png`'s own
+                # docstring) -- a genuine spectral gap between the flat mesh
+                # (`water_volume_cell_m` = 8 m facets) and that ripple, with
+                # nothing in between. See `flatten` below for how this also
+                # reaches the coat's own reflection, not just the diffuse
+                # shading.
                 sh.CreateInput("normalmap_texture",
                               Sdf.ValueTypeNames.Asset).Set(
                     Sdf.AssetPath(sg._join_asset_root(normal_tex, "")))
@@ -1760,7 +1874,28 @@ def water_materials(stage, parent_path, suffix=""):
                       Sdf.ValueTypeNames.Float).Set(1.0)
         sh.CreateInput("clearcoat_reflection_roughness",
                       Sdf.ValueTypeNames.Float).Set(float(ccr))
-        sh.CreateInput("clearcoat_flatten", Sdf.ValueTypeNames.Float).Set(1.0)
+        # `clearcoat_flatten` -- VERIFIED against the shipped MDL:
+        # `flattened_clearcoat_normal = lerp(diffuse_gloss_normal,
+        # state::normal(), clearcoat_flatten)`, and the coat's OWN ripple
+        # (`clearcoat_normalmap_texture` below) is then ADDED on top of
+        # THAT via `add_detail_normal` regardless of this value -- so at the
+        # sourced 1.0 (the module default, still used everywhere `flatten`
+        # is left at its default) the coat's shading normal is the flat
+        # face normal PLUS the fine ripple alone, and any `normal_tex` bound
+        # above (base-level bump) never reaches the coat at all. That is
+        # exactly why binding `SILT_NORMAL_TEXTURE` above did nothing for
+        # the "no sky reflection" finding on its own -- the coat was never
+        # looking at it. Lowering `flatten` lets the base's bump (see
+        # `normal_tex` above) blend into `diffuse_gloss_normal`, which this
+        # lerp then mixes toward instead of the pure flat normal, before the
+        # fine ripple is added on top -- i.e. the coat's reflection now sees
+        # BOTH scales, not just the sub-0.5 m one. TUNED, NOT SOURCED (the
+        # plan gives `clearcoat_flatten = 1.0` with no guidance for anything
+        # else) and not render-verified; kept at the sourced 1.0 wherever a
+        # caller does not explicitly ask for less (ponds, the legacy flat
+        # quad), so this is scoped to the water-body bands alone.
+        sh.CreateInput("clearcoat_flatten",
+                      Sdf.ValueTypeNames.Float).Set(float(flatten))
         sh.CreateInput("clearcoat_bump_factor",
                       Sdf.ValueTypeNames.Float).Set(float(bump))
         if ripple_png:
@@ -1808,9 +1943,19 @@ def water_materials(stage, parent_path, suffix=""):
     bands = [
         _make("Body_band{0:02d}".format(i), chop, bump,
              opacity_const=(i + 0.5) / n_bands,
-             diffuse_tex=WATER_DIFFUSE_TEXTURE, normal_tex=None,
+             diffuse_tex=WATER_DIFFUSE_TEXTURE,
+             # `SILT_NORMAL_TEXTURE`/`desaturation`/`flatten`: see `_make`'s
+             # own comments at the `normal_tex`/`clearcoat_flatten` inputs --
+             # the metre-to-tens-of-metres bump the coat was missing, a
+             # partial desaturation of the diffuse texture's own colour cast,
+             # and letting that bump reach the coat's reflection rather than
+             # only the diffuse shading. Scoped to the water body alone: no
+             # other `_make` caller (ponds, the legacy flat quad) passes
+             # `desaturation` or `flatten`, so they keep today's look.
+             normal_tex=SILT_NORMAL_TEXTURE,
              orm_tex=WATER_ORM_TEXTURE,
-             tex_scale=(_WATER_DIFFUSE_REPEATS_PER_M,) * 2)
+             tex_scale=(_WATER_DIFFUSE_REPEATS_PER_M,) * 2,
+             desaturation=0.35, flatten=0.2)
         for i in range(n_bands)
     ]
 

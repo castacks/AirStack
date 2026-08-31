@@ -51,7 +51,24 @@ NAMES = {
     "road_line": "Road_Line",
     "brick_wall_worn": "Brick_Wall_Worn",
     "damaged_asphalt": "Damaged_Asphalt",
+    # THE SECOND DAMAGED-ASPHALT VARIANT KEEPS ITS OWN NAME. Matching is
+    # longest-fragment-first, so `damaged_asphalt_vizhdcz` routes that pack
+    # to `Damaged_Asphalt_02` while every other damaged_asphalt zip
+    # (vizcebf today) still lands on `Damaged_Asphalt` — the user wants a
+    # MIXTURE of both plus Crushed_Asphalt_Ground on burnt paving, and
+    # Worn_Pavement retired ("don't use Worn Pavement anywhere",
+    # 2026-08-31).
+    "damaged_asphalt_vizhdcz": "Damaged_Asphalt_02",
+    "crushed_asphalt_ground": "Crushed_Asphalt_Ground",
     "worn_pavement": "Worn_Pavement",
+    # Broken concrete beam/floor stock for the fracture side (round 5 quake
+    # review addendum) — bound elsewhere to broken RC beams, so the wrapper
+    # NAME is a contract with that caller: it has to stay exactly this.
+    "damaged_concrete_floor": "Damaged_Concrete_Floor",
+    # A fourth wet-asphalt variant, optional in the quake ground mixture (the
+    # required set is Crushed_Asphalt_Ground + Damaged_Asphalt + _02) but
+    # imported the same table-driven way so nothing hand-rolls its own path.
+    "wet_destroyed_asphalt": "Wet_Destroyed_Asphalt",
     # TORNADO GROUND. The scour along a track is bare wet soil where the turf
     # was peeled off, so the pack that matters is a plain mud rather than
     # anything with structure in it — see `disaster/tornado.py`.
@@ -94,6 +111,41 @@ def _texture(files, suffix):
     return None
 
 
+_MAX_DIM = 2048   # 2K ceiling for every imported texture, whatever the pack's
+                   # native resolution — a ground material this file tiles
+                   # every ~9 m has no use for the 8K RAW crushed-asphalt
+                   # pack's 75-112 MB-per-map textures (round 5 review:
+                   # "downscale to 2K max during import").
+
+
+def _downscale(files):
+    """Resize any texture over `_MAX_DIM` on its long edge down to it, in
+    place. Skips (with a warning, not an error) if Pillow is not on the
+    interpreter — run this tool with `--with pillow` to get it."""
+    try:
+        from PIL import Image
+    except ImportError:
+        print("  ! pillow not installed - textures left at native "
+              "resolution (run with `--with pillow` to cap at {0}px)"
+              .format(_MAX_DIM))
+        return
+    for f in files:
+        try:
+            im = Image.open(f)
+            w, h = im.size
+            if max(w, h) <= _MAX_DIM:
+                continue
+            scale = _MAX_DIM / float(max(w, h))
+            nw, nh = max(1, round(w * scale)), max(1, round(h * scale))
+            im.load()          # force the read before the file is reopened
+            im = im.resize((nw, nh), Image.LANCZOS)
+            im.save(f)
+            print("  downscaled {0}: {1}x{2} -> {3}x{4}".format(
+                os.path.basename(f), w, h, nw, nh))
+        except Exception as exc:
+            print("  ! could not downscale {0}: {1}".format(f, exc))
+
+
 def convert(zip_path, verbose=True):
     frag = os.path.basename(zip_path).lower()
     name = None
@@ -124,6 +176,7 @@ def convert(zip_path, verbose=True):
     files = sorted(glob.glob(os.path.join(out, "*")))
     if not files:
         return None
+    _downscale(files)
 
     base = _texture(files, "B")
     orm = _texture(files, "ORM")

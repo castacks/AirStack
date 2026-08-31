@@ -1204,6 +1204,193 @@ def test_no_fragment_face_can_sample_off_its_parents_uv_island():
     assert out.max() <= 1.1 + 1e-9, out.max()
 
 
+# ---------------------------------------------------------------------------
+# ROUND 5 (live row-5 bench, 2026-08-30): WHICH SUBSET IS THE FAÇADE
+#
+#   /World/bake/g7/brk_g7_wall_E_4_06_0090/frag_001
+#       -> M_Building_24_Office_Fake_Inst   ..._Office_Fake_Inst_BaseColor.png
+#   user: "it's like the interior office material not the outside glass
+#          window one"
+#
+# A GAC office block hangs a FAKE INTERIOR CARD behind its glazing, facing
+# OUT, to be seen through the pane — so it passes the outward-normal test and,
+# being one unbroken rectangle per bay, beat the real cladding on AREA. Both
+# halves of the replacement (`facade_class`, `pick_facade`) are pure, so both
+# are checked here with the strings and the depths actually measured on
+# `gac_SM_Building_24_F5c_s224`.
+# ---------------------------------------------------------------------------
+# MEASURED on the offline rebuild of that building: the two materials the old
+# rule picked. Note the material PRIM is called `UnrealMaterial` in both
+# cases — every GAC section calls it that — so the base map's file name is
+# the only part of the pair that says anything, which is why `facade_class`
+# reads both.
+_B24_FAKE = ("/W/bench/g0/src/asset/LOD0/Section7/UnrealMaterial",
+             "Game_GreatAmericanCity_Materials_M_Building_24_Office_Fake"
+             "_Inst_BaseColor.png")
+_B24_GLASS = ("/W/bench/g0/src/asset/LOD0/Section11/UnrealMaterial",
+              "Game_GreatAmericanCity_Materials_M_Building_24_Glass_Green"
+              "_Inst_BaseColor.png")
+
+
+def test_a_fake_interior_card_is_never_the_facade():
+    assert fc.facade_class(*_B24_FAKE) == "fake"
+    assert fc.facade_class(*_B24_GLASS) == "glass"
+    # the inner pane is interior, and the never-list beats the glass hint
+    assert fc.facade_class("/x/M_Glass_In_Standard_Inst", None) == "fake"
+    for nm in ("M_Fake_Interior", "M_FakeInterior_01", "M_Office_Fake_A",
+               "Fake_Light_01", "M_Off_Light_Inst"):
+        assert fc.facade_class("/x/" + nm, None) == "fake", nm
+    # real cladding, and a sooted copy whose names say NOTHING (that case is
+    # what the outermost-wins rule exists for)
+    assert fc.facade_class(
+        "/x/M_Building_01_Bricks_Inst",
+        "Game_GreatAmericanCity_Materials_M_Building_01_Bricks_Inst"
+        "_BaseColor.png") == "opaque"
+    assert fc.facade_class("/W/bench/g0/SootLooks/m2",
+                           "gacsoot_6fdc8f94b4c7e201.png") == "opaque"
+
+
+# The interior-only material families, as they are actually named in the GAC
+# and downtowncity packs (measured off `gac_SM_Building_02/_24` and
+# `dtc_Building_12` while writing this). "Let's make sure that NEVER happens
+# to any building" (user, row 5) — so the predicate is pinned by name here,
+# and the pick is pinned below on the two shapes that produce it.
+_INTERIOR_NAMES = (
+    "M_Building_24_Office_Fake_Inst", "M_Fake_Interior_01", "M_FakeInterior",
+    "M_Fake_Light_A", "M_Off_Light_Inst", "M_Glass_In_Standard_Inst",
+    "M_Buildings_Ceiling_Inst", "M_Building_Floor_Inst",
+    "M_Building_Wood_Floor_Inst", "M_Slab_Inst",
+    "M_Interior_Trim")
+_EXTERIOR_NAMES = (
+    "M_Building_01_Bricks_Inst", "M_Building_24_Metal_Inst",
+    "M_Building_01_Windows_Inst", "M_MBuilding01_Facades",
+    "M_Awning_Metal_Inst", "M_Building_01_Concrete_02_Inst",
+    # NOT interior on GreatAmericanCity, however it reads: measured on
+    # `gac_SM_Building_02` (`pier_S_3_09_0102`'s outward subset binds it
+    # carrying a `sootbake_*.png`), and the fleet census flagged 342
+    # fragments of the building the user had just approved when it WAS on
+    # the list. See `FAKE_INTERIOR_HINTS`.
+    "M_Building_01_WallBack_Inst")
+
+
+def test_the_fake_interior_predicate_names_every_interior_family():
+    for nm in _INTERIOR_NAMES:
+        assert fc.is_fake_interior("/x/" + nm), nm
+        # ...and through the TEXTURE alone, which is the only channel that
+        # says anything when the material prim is called `UnrealMaterial`
+        assert fc.is_fake_interior(
+            "/W/bench/g0/src/asset/LOD0/Section7/UnrealMaterial",
+            "Game_GreatAmericanCity_Materials_%s_BaseColor.png" % nm), nm
+    for nm in _EXTERIOR_NAMES:
+        assert not fc.is_fake_interior("/x/" + nm), nm
+        assert not fc.is_fake_interior("/x/UnrealMaterial",
+                                       "Game_GAC_Materials_%s_BaseColor.png"
+                                       % nm), nm
+    # a sooted copy says nothing either way, and must not be refused
+    assert not fc.is_fake_interior("/W/bench/g0/SootLooks/m2",
+                                   "gacsoot_6fdc8f94b4c7e201.png")
+    assert not fc.is_fake_interior(None, None)
+
+
+def _pick_from(rows):
+    """`facade_class` + `pick_facade` together, the way `facade_skin` runs
+    them: classify, DROP the fake-interior groups, then pick. Rows are
+    `(material path, texture, d_out, area)`."""
+    cands = []
+    for mat, tex, d, area in rows:
+        kind = fc.facade_class(mat, tex)
+        if kind == "fake":
+            continue
+        cands.append({"d": d, "area": area, "glass": kind == "glass",
+                      "mat": mat, "tex": tex})
+    return fc.pick_facade(cands)
+
+
+def test_a_urm_piece_whose_biggest_subset_is_interior_still_picks_cladding():
+    """A masonry cell: the ceiling plane and the floor plate are the big
+    areas, the brick skin is a strip at the front. Area alone picks the
+    floor plate."""
+    got = _pick_from([
+        ("/g/S1/UnrealMaterial", "M_Buildings_Ceiling_Inst_BaseColor.png",
+         14.30, 90.0),
+        ("/g/S2/UnrealMaterial", "M_Building_Floor_Inst_BaseColor.png",
+         14.20, 120.0),
+        ("/g/S3/UnrealMaterial", "M_Building_01_Bricks_Inst_BaseColor.png",
+         14.50, 12.0)])
+    assert got is not None and "Bricks" in got["tex"], got
+    assert got["glass"] is False
+
+
+def test_a_glass_piece_whose_biggest_subset_is_the_office_card_picks_spandrel():
+    """`gac_SM_Building_24` `wall_E_4_06_0090`, with the depths and areas
+    MEASURED off the offline rebuild (`UF_TEAR_DEBUG=1`): the office card is
+    excluded by name, the green glass is ranked behind every opaque
+    candidate, the metal trim is frontmost but small, and the spandrel at
+    14.468 with 30.94 m2 is the façade."""
+    got = _pick_from([
+        ("/g/S7/UnrealMaterial",
+         "M_Building_24_Office_Fake_Inst_BaseColor.png", 14.47, 200.0),
+        ("/g/S10/UnrealMaterial", "M_Building_24_Metal_Inst_BaseColor.png",
+         14.498, 5.46),
+        ("/g/S8/UnrealMaterial", None, 14.468, 30.94),
+        ("/g/S11/UnrealMaterial", "M_Building_24_Glass_Green_Inst_BaseColor.png",
+         14.468, 10.30),
+        ("/g/S3/UnrealMaterial", None, 13.993, 6.56)])
+    assert got is not None and got["mat"] == "/g/S8/UnrealMaterial", got
+    assert got["glass"] is False
+
+
+def test_a_glass_piece_with_nothing_but_card_and_pane_takes_the_pane_as_tone():
+    """Strip the spandrel and the trim out of the same piece and the only
+    candidate left is the pane — taken, but flagged `glass` so
+    `skin_fragment` binds a TONE sampled from it instead of a transparent
+    material on a solid chunk of wall."""
+    got = _pick_from([
+        ("/g/S7/UnrealMaterial",
+         "M_Building_24_Office_Fake_Inst_BaseColor.png", 14.47, 200.0),
+        ("/g/S11/UnrealMaterial", "M_Building_24_Glass_Green_Inst_BaseColor.png",
+         14.468, 10.30)])
+    assert got is not None and got["glass"] is True, got
+    # ...and with the pane gone too there is NO façade: the fragments keep
+    # the break palette and `_refire` chars them, which is the safe end of
+    # the asymmetry.
+    assert _pick_from([("/g/S7/UnrealMaterial",
+                        "M_Building_24_Office_Fake_Inst_BaseColor.png",
+                        14.47, 200.0)]) is None
+
+
+def _cand(d, area, glass=False, tag=""):
+    return {"d": d, "area": area, "glass": glass, "mat": tag, "tex": tag}
+
+
+def test_pick_facade_takes_the_outermost_opaque_not_the_biggest():
+    """The row-5 shape, in numbers: a mullion strip and a spandrel band at the
+    wall face, a big sheet of glass in the same plane, and a fake interior
+    card a floor depth behind. Area alone picks the card; the façade is the
+    spandrel."""
+    cands = [_cand(14.500, 8.0, tag="mullion"),
+             _cand(14.480, 30.0, tag="spandrel"),
+             _cand(14.500, 100.0, glass=True, tag="glass"),
+             _cand(11.000, 400.0, tag="interior_card")]
+    assert fc.pick_facade(cands)["mat"] == "spandrel"
+
+
+def test_pick_facade_ignores_a_deep_interior_however_big():
+    cands = [_cand(14.5, 2.0, tag="strip"), _cand(11.0, 400.0, tag="card")]
+    assert fc.pick_facade(cands)["mat"] == "strip"
+
+
+def test_pick_facade_falls_back_to_glass_and_says_so():
+    """Rule 4: glass is ranked behind every opaque candidate, and when it is
+    all there is the caller is TOLD (`glass` True) so `skin_fragment` takes
+    the sampled tone rather than binding a transparent pane material to a
+    solid chunk of spandrel."""
+    got = fc.pick_facade([_cand(14.5, 100.0, glass=True, tag="glass"),
+                          _cand(14.4, 5.0, glass=True, tag="glass2")])
+    assert got["mat"] == "glass" and got["glass"] is True
+    assert fc.pick_facade([]) is None
+
+
 def test_a_reskinned_fragment_is_never_charred_whole():
     """`bind_break`'s guard. A fragment `skin_fragment` has given the parent's
     own UVs and material is a FAÇADE, but its material is not under

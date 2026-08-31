@@ -10,9 +10,19 @@ column stubs, rebar tangles, lintels/quoins, joists, wall panels), a few
 textured FAB debris-pile clusters sunk into the flanks, and a scatter of
 small chunks/flakes with density falling from crown to toe.
 
-This module is PURE numpy + stdlib — no `pxr` import anywhere, so it can be
-unit-tested and iterated on without Kit/Isaac. `disaster/quake_rubble_usd.py`
-(another agent's file) is the only module that turns a plan into USD prims.
+This module is PURE numpy + stdlib at module scope — no top-level `pxr`
+import — so it can be unit-tested and iterated on without Kit/Isaac.
+`disaster/quake_rubble_usd.py` (another agent's file) is the only module
+that turns a plan into USD prims. ONE narrow, deliberate exception:
+`plan_street_scatter`'s seating optionally opens a catalogue asset's own
+`.usdc` file with a LAZY, try/except-guarded `pxr` import to read its real
+mesh points (`_load_local_mesh_points`/`_points_min_z`) — the fix for a
+`UsdGeom.BBoxCache`-style blind spot (see the `fix-floating-debris` skill)
+where a curled/warped scan piece's AABB-corner extrapolation sits well
+below the real mesh, seating it with daylight underneath. Never required —
+`pxr` unavailable, no local asset mirror, or any read failure all fall back
+silently to the AABB-corner approximation (`rotated_extent`) every other
+placement in this module already uses.
 
 CONVENTIONS (mirrored from `quake_flow`, kept in sync by hand since this
 module must stay pxr-free and therefore cannot import quake_flow — see
@@ -185,6 +195,15 @@ PROTO_SETS = {
 }
 PROTO_SETS["rc_glass"] = {k: list(v) for k, v in PROTO_SETS["rc"].items()}
 
+# round-5 addendum ("use the scanned concrete debris more"): a urm pile's
+# minority concrete share (see `_select_proto_sets`'s cluster block) repeats
+# these three names — the big FAB spread and the two cheap Quixel piles —
+# more than `concrete_debris_elements`/`concrete_slabs`, which already carry
+# rc's cluster pool on their own. Repetition count in the weighted pool, not
+# a probability.
+_URM_CONC_MINORITY_BOOST = {"huge_concrete_rubble_pile": 2, "concrete_rubble_pile": 2,
+                            "rocky_ground": 2}
+
 
 # ---------------------------------------------------------------------------
 # round-5: per-pile prototype selection from the HD debris piece library
@@ -237,6 +256,75 @@ def _hd_names_by(kind, materials):
             continue
         out.append(n)
     return sorted(out)
+
+
+# round-5 "more debris" addendum (user: "there's also more debris here...
+# use this too along with the other debris assets i already gave you" —
+# `assets/standalone/debris/`). `slab`/`chunk`/`lump`/`rebar`/`sheet` were
+# already in `CATALOGUE` (round-4's ORIGINAL flat-colour set — see
+# `_debris_material_for` in `quake_rubble_usd.py`, "the 34 flat-grey pieces
+# this round's catalogue lists"), but only `raft` (the slabs) was ever
+# UNIONED into the HD-era pools (line ~448 below); `chunk`/`flake` fell back
+# to the flat set ONLY when `HD_CATALOGUE` is empty, which it never is on a
+# built checkout — so chunk_01-09/lump_01-06 were effectively invisible.
+#
+# `_standalone_names_by` is `_hd_names_by`'s twin over the FLAT `CATALOGUE`
+# instead of `HD_CATALOGUE`, gated by the SAME `_chunky`/open-fraction
+# thresholds, reading `_hd_open_frac` off the SAME `open_frac.json` (now
+# extended with a one-off measured entry per standalone piece — see
+# `tools/`-style census note in this module's own docstring pattern).
+# Measured (welded-vertex boundary-edge count, not a units artefact):
+#   chunk_01-09: open_frac 0.21-0.22 -- ABOVE `HD_CHUNK_MAX_OPEN` (0.15).
+#     These are genuinely part-open (a real topological gap spanning
+#     top-to-bottom, not just a hidden buried underside), so they correctly
+#     FAIL this gate and never enter `plan_pile`'s own "chunk" pool -- they
+#     DO pass the street pool's looser 0.35 cap (`_street_chunk_pool` below)
+#     with a healthy PCA volume_ratio (0.44-0.53), which is exactly the
+#     "genuinely 3-D fragment, more boundary edges than a flat slab" profile
+#     that gate was loosened for.
+#   lump_01-06: open_frac 0.0-0.05 -- comfortably under `HD_FLAKE_MAX_OPEN`
+#     (0.30). These qualify for the pile's own "flake" pool.
+def _standalone_names_by(kind, materials):
+    """Like `_hd_names_by` but over the flat `CATALOGUE` (`standalone/
+    debris/pieces/*` only, via the `url` prefix check — so a future non-HD
+    `CATALOGUE` addition of the same `kind` doesn't silently join this pool
+    unmeasured)."""
+    mats = set(materials)
+    out = []
+    for n, e in CATALOGUE.items():
+        if e.get("kind") != kind or e.get("material") not in mats:
+            continue
+        if not str(e.get("url", "")).startswith("standalone/debris/pieces/"):
+            continue
+        sz = tuple(float(v) for v in e.get("size", (0, 0, 0)))
+        if kind == "chunk" and (not _chunky(sz) or _hd_open_frac(n) > HD_CHUNK_MAX_OPEN):
+            continue
+        if kind == "flake" and _hd_open_frac(n) > HD_FLAKE_MAX_OPEN:
+            continue
+        out.append(n)
+    return sorted(out)
+
+
+# Target minority share (of the RETURNED, already-capped pool) for the
+# standalone flake pieces folded into the pile's own flake instancing —
+# ~15-30% asked for; 0.20 sits at the middle of that band.
+STANDALONE_FLAKE_MINORITY_FRAC = 0.20
+
+
+def _sample_pool_with_minority(rng, major_pool, minor_pool, minor_frac, cap):
+    """`cap` names, `minor_frac` (rounded, capped by availability) drawn
+    from `minor_pool` and the rest from `major_pool` -- `_sample_mixed_
+    names`'s body, generalised for a caller that already has two NAME POOLS
+    in hand (rather than a (kind, material) pair `_hd_names_by` would
+    resolve for it). Tops up from whichever pool has names left if either
+    alone can't fill its share."""
+    n_minor = min(cap, len(minor_pool), int(round(cap * minor_frac)))
+    n_major = min(cap - n_minor, len(major_pool))
+    picked = _sample_names(rng, minor_pool, n_minor) + _sample_names(rng, major_pool, n_major)
+    if len(picked) < cap:
+        rest = [n for n in (major_pool + minor_pool) if n not in picked]
+        picked = picked + _sample_names(rng, rest, cap - len(picked))
+    return picked
 
 
 # A connected component cut from a photogrammetry spread is often an OPEN
@@ -306,7 +394,83 @@ def _warn_no_hd_catalogue():
         _HD_FALLBACK_WARNED = True
 
 
-def _select_proto_sets(btype, rng):
+# ---------------------------------------------------------------------------
+# round-5 addendum: `_hp` opt-in. User review: "I don't see a lot of the
+# concrete debris being used ... use that more (the ones on nucleus)" named
+# the `_hp` high-poly twins specifically (`brick_debris_pile_hp`,
+# `concrete_debris_elements_hp` — see CATALOGUE above, "flagged, never
+# instanced"). `RUBBLE_HP=1` (env, default OFF) makes `_select_proto_sets`
+# PREFER a name's `_hp` twin, in every instanced category, whenever one
+# exists AND actually resolves. Off by default: the round-4 catalogue note
+# still holds unless a caller opts in.
+#
+# THE MISSING-ASSET TRAP THIS GUARDS AGAINST: `quake_rubble_usd.
+# _resolve_asset_url` does not check whether a name's file exists — it just
+# joins `asset_root` + the catalogue `url` and hands the result to
+# `AddReference`. A reference to a file that is not there resolves to
+# NOTHING (an empty, invisible prototype) with no error and no fallback —
+# `tools/nucleus_fetch.py`'s local mirror explicitly SKIPS every `_hp`
+# sibling (see the module docstring's catalogue table: "skipping `*_hp`
+# siblings"), so turning this on against a local `RUBBLE_ASSET_ROOT` mirror
+# would otherwise draw invisible prototypes. The SELECTION side is what has
+# to be robust instead: `_hp_resolvable` probes the filesystem directly for
+# a LOCAL asset_root (not a URL scheme) and only offers the `_hp` name when
+# the file is actually there; for an `omniverse://` root (the real default —
+# see `quake_rubble_usd.ASSET_ROOT`) or no root at all, this module cannot
+# reach Nucleus to check, so it trusts the catalogue.
+# ---------------------------------------------------------------------------
+RUBBLE_HP = os.environ.get("RUBBLE_HP", "0").strip().lower() not in (
+    "0", "", "false", "no")
+
+
+def _hp_resolvable(rel_url, asset_root):
+    """Will `rel_url` (a catalogue entry's `url`, relative to `asset_root`)
+    actually resolve? For a LOCAL `asset_root` (no `omniverse://` scheme,
+    and not empty/`None`), probe the filesystem directly. For an
+    `omniverse://` root, or no root given at all (the un-set-env default,
+    which `quake_rubble_usd.ASSET_ROOT` itself resolves to the Nucleus
+    `omniverse://` URL), trust the catalogue — there is no cheap way for
+    this pxr-free module to check a Nucleus path."""
+    if not asset_root or str(asset_root).startswith("omniverse://"):
+        return True
+    local = os.path.join(str(asset_root), str(rel_url or "").replace("/", os.sep))
+    return os.path.exists(local)
+
+
+def _prefer_hp(names, asset_root):
+    """`names`, each swapped for its `_hp` twin when `CATALOGUE` has one
+    (`name + "_hp"`, flagged `hp: True`) that `_hp_resolvable` confirms —
+    never a bare guess. Returns `(new_names, any_hp_used)`; `new_names` is
+    always a NEW list (the caller's own list is never mutated in place)."""
+    out = []
+    any_hp = False
+    for n in names:
+        hp_name = str(n) + "_hp"
+        entry = CATALOGUE.get(hp_name)
+        if entry and entry.get("hp") and _hp_resolvable(entry.get("url"), asset_root):
+            out.append(hp_name)
+            any_hp = True
+        else:
+            out.append(n)
+    return out, any_hp
+
+
+def _apply_hp_preference(proto_sets, asset_root):
+    """A NEW `proto_sets`-shaped dict with `_prefer_hp` applied to every
+    instanced category (chunk/flake/raft/toe/cluster) — called ONLY when
+    `RUBBLE_HP` is truthy, so the default-off path never copies or touches
+    `proto_sets` at all (preserving, e.g., the empty-`HD_CATALOGUE`
+    fallback's `is PROTO_SETS[btype]` identity when the knob is off)."""
+    ar = asset_root if asset_root is not None else os.environ.get("RUBBLE_ASSET_ROOT")
+    out = dict(proto_sets)
+    for k in ("chunk", "flake", "raft", "toe", "cluster"):
+        names = out.get(k)
+        if names:
+            out[k], _used = _prefer_hp(names, ar)
+    return out
+
+
+def _select_proto_sets(btype, rng, asset_root=None):
     """Per-pile chunk/flake/raft/toe prototype pools. `cluster` (whole FAB
     spreads) is untouched either way — it always comes straight from
     `PROTO_SETS[btype]["cluster"]`.
@@ -329,45 +493,71 @@ def _select_proto_sets(btype, rng):
     behaviour), after printing one warning line (see `_warn_no_hd_
     catalogue`).
 
-    Returns `(proto_sets, used_hd)`.
+    Returns `(proto_sets, used_hd)`. `asset_root`: passed to `_hp_
+    resolvable` when `RUBBLE_HP` is on (see the module note above); `None`
+    reads `RUBBLE_ASSET_ROOT` from the environment (the same knob
+    `quake_rubble_usd.ASSET_ROOT` reads).
     """
     base = PROTO_SETS[btype]
     if not HD_CATALOGUE:
         _warn_no_hd_catalogue()
-        return base, False
-
-    out = dict(base)
-    if btype == "urm":
-        out["chunk"] = _sample_mixed_names(rng, "chunk", "brick", HD_URM_MINORITY_MATERIAL,
-                                           HD_URM_MINORITY_FRAC, HD_PROTO_CAP["chunk"])
-        out["flake"] = _sample_mixed_names(rng, "flake", "brick", HD_URM_MINORITY_MATERIAL,
-                                           HD_URM_MINORITY_FRAC, HD_PROTO_CAP["flake"])
-        # raft stays [] -- "URM has timber floors: no concrete rafts" (unchanged design note)
+        out, used_hd = base, False
     else:
-        out["chunk"] = _sample_names(rng, _hd_names_by("chunk", ("concrete",)), HD_PROTO_CAP["chunk"])
-        out["flake"] = _sample_names(rng, _hd_names_by("flake", ("concrete",)), HD_PROTO_CAP["flake"])
-        if base["raft"]:
-            raft_pool = list(base["raft"]) + _hd_names_by("raft", ("brick", "concrete"))
-            out["raft"] = _sample_names(rng, raft_pool, HD_PROTO_CAP["raft"])
-    if base["toe"]:
-        out["toe"] = _sample_names(rng, _hd_names_by("street", ("concrete",)), HD_PROTO_CAP["toe"])
-    # cluster = the whole scanned spreads (round-5 v8c: the coverage class).
-    # A brick pile draws its own brick spread most of the time with the
-    # concrete spreads as a minority (floors, lintels, the odd slab); a
-    # concrete pile draws every concrete spread. Weighted by repetition so
-    # `rng.choice` keeps its uniform draw.
-    spreads = [n for n, e in CATALOGUE.items() if e.get("kind") == "spread" and not e.get("hp")]
-    brick_sp = [n for n in spreads if CATALOGUE[n].get("material") == "brick"]
-    conc_sp = [n for n in spreads if CATALOGUE[n].get("material") != "brick"]
-    if btype == "urm" and brick_sp:
-        out["cluster"] = brick_sp * max(1, int(round(len(conc_sp) * 1.2))) + conc_sp
-    elif conc_sp:
-        out["cluster"] = list(conc_sp)
+        out = dict(base)
+        if btype == "urm":
+            out["chunk"] = _sample_mixed_names(rng, "chunk", "brick", HD_URM_MINORITY_MATERIAL,
+                                               HD_URM_MINORITY_FRAC, HD_PROTO_CAP["chunk"])
+            out["flake"] = _sample_mixed_names(rng, "flake", "brick", HD_URM_MINORITY_MATERIAL,
+                                               HD_URM_MINORITY_FRAC, HD_PROTO_CAP["flake"])
+            # raft stays [] -- "URM has timber floors: no concrete rafts" (unchanged design note)
+        else:
+            out["chunk"] = _sample_names(rng, _hd_names_by("chunk", ("concrete",)), HD_PROTO_CAP["chunk"])
+            # round-5 "more debris" addendum: lump_01-06 (measured open_frac
+            # 0.0-0.05, comfortably under HD_FLAKE_MAX_OPEN) join the HD
+            # flake pool as a bounded ~20% minority -- see
+            # `_standalone_names_by`'s comment above (chunk_01-09 do NOT get
+            # the same treatment here: they fail this pool's own stricter
+            # 0.15 open-fraction gate, and only qualify for the LOOSER
+            # street gate below).
+            out["flake"] = _sample_pool_with_minority(
+                rng, _hd_names_by("flake", ("concrete",)),
+                _standalone_names_by("flake", ("concrete",)),
+                STANDALONE_FLAKE_MINORITY_FRAC, HD_PROTO_CAP["flake"])
+            if base["raft"]:
+                raft_pool = list(base["raft"]) + _hd_names_by("raft", ("brick", "concrete"))
+                out["raft"] = _sample_names(rng, raft_pool, HD_PROTO_CAP["raft"])
+        if base["toe"]:
+            out["toe"] = _sample_names(rng, _hd_names_by("street", ("concrete",)), HD_PROTO_CAP["toe"])
+        # cluster = the whole scanned spreads (round-5 v8c: the coverage class).
+        # A brick pile draws its own brick spread most of the time with the
+        # concrete spreads as a minority (floors, lintels, the odd slab); a
+        # concrete pile draws every concrete spread. Weighted by repetition so
+        # `rng.choice` keeps its uniform draw.
+        spreads = [n for n, e in CATALOGUE.items() if e.get("kind") == "spread" and not e.get("hp")]
+        brick_sp = [n for n in spreads if CATALOGUE[n].get("material") == "brick"]
+        conc_sp = [n for n in spreads if CATALOGUE[n].get("material") != "brick"]
+        if btype == "urm" and brick_sp:
+            # round-5 addendum ("use the scanned concrete debris more"): within
+            # a urm pile's minority concrete share, the big FAB spread
+            # (`huge_concrete_rubble_pile`) and the two cheap Quixel piles
+            # (`concrete_rubble_pile`, `rocky_ground`) repeat more than the
+            # other two concrete spreads — repetition is the same weighting
+            # `rng.choice` already uses for brick vs. concrete here.
+            conc_sp_urm = []
+            for n in conc_sp:
+                conc_sp_urm += [n] * _URM_CONC_MINORITY_BOOST.get(n, 1)
+            out["cluster"] = brick_sp * max(1, int(round(len(conc_sp_urm) * 1.2))) + conc_sp_urm
+        elif conc_sp:
+            out["cluster"] = list(conc_sp)
 
-    for k in ("chunk", "flake", "raft", "toe"):
-        if base.get(k) and not out.get(k):
-            out[k] = base[k]
-    return out, True
+        for k in ("chunk", "flake", "raft", "toe"):
+            if base.get(k) and not out.get(k):
+                out[k] = base[k]
+        used_hd = True
+
+    if RUBBLE_HP:
+        out = _apply_hp_preference(out, asset_root)
+    return out, used_hd
 
 
 # ---------------------------------------------------------------------------
@@ -489,7 +679,14 @@ RUBBLE_MAX_INSTANCES = int(os.environ.get("RUBBLE_MAX_INSTANCES", "6000"))
 RUBBLE_INSTANCES_PER_M2 = float(os.environ.get("RUBBLE_INSTANCES_PER_M2", "14"))
 RUBBLE_MAX_INSTANCES_CEIL = int(os.environ.get("RUBBLE_MAX_INSTANCES_CEIL", "24000"))
 FLAKE_COVERAGE_FRAC = float(os.environ.get("RUBBLE_FLAKE_COVERAGE_FRAC", "0.30"))
-CLUSTER_N = (3, 10)                # round4 plan design table (layer 3)
+CLUSTER_N = (3, 10)                # round4 plan design table (layer 3) — rc_glass default
+# round-5 addendum ("I don't see a lot of the concrete debris being used"):
+# a windrow/fan (out-of-plane fan, soft-storey collar) draws exactly
+# `n_cluster_min` clusters, no coverage boost — CLUSTER_N was everyone's
+# floor. rc reads bare there next to a real rc dome's much denser crown, so
+# rc gets its own, higher floor; rc_glass (cladding-only sheds, a much
+# smaller pile per CROWN_FRAC) keeps the original CLUSTER_N.
+CLUSTER_N_RC = (6, 14)
 RUNOUT_CHUNK_FRAC = (0.08, 0.15)   # round4 brief — share of chunks landing beyond the toe
 RUNOUT_CHUNK_REACH_MULT = 1.4      # round4 brief — up to 1.4x reach
 
@@ -523,7 +720,16 @@ RAFT_CROWN_TILT_DEG = (5.0, 25.0)  # round4 brief — crown-group subset
 CHUNK_SCALE_RANGE = (1.0, 2.0)     # round-5 v8: HD chunks are 0.26 m median at natural size — x1-2 puts the class at 0.3-0.9 m, the wall/floor-fragment scale a pile is made of (was 0.75-1.35)
 CLUSTER_SCALE = (0.6, 1.4)         # round-5: was 0.8-1.3
 CLUSTER_COVERAGE = float(os.environ.get("RUBBLE_CLUSTER_COVERAGE", "1.6"))   # dome: fraction of pile area under whole-spread clusters
+# round-5 addendum: rc/rc_glass piles get a further boost over the shared
+# 1.6 base — the user's read on the first OSMO city scene was specifically
+# that not enough of the scanned concrete debris was visible, and an rc pile
+# is where every cluster prototype (`concrete_debris_elements`,
+# `huge_concrete_rubble_pile`, the two Quixel piles) is already concrete, so
+# raising the target here (rather than urm's mostly-brick pool) puts the
+# extra coverage on the piles that read the most like poured concrete.
+CLUSTER_COVERAGE_RC = float(os.environ.get("RUBBLE_CLUSTER_COVERAGE_RC", "2.1"))
 CLUSTER_MAX = int(os.environ.get("RUBBLE_CLUSTER_MAX", "90"))
+CLUSTER_MAX_RC = int(os.environ.get("RUBBLE_CLUSTER_MAX_RC", "115"))
 RAFT_SCALE_RANGE = (0.9, 1.1)      # round4 brief
 FLAKE_SCALE = (0.8, 1.5)           # round-5 v8: was (0.6, 1.2)
 FLAKE_STICKOUT_FACTOR = float(os.environ.get("RUBBLE_FLAKE_STICKOUT", "0.3"))   # flakes lie flat; a standing flake is foil
@@ -1691,7 +1897,7 @@ def _trim_instances_to_cap(instances, cap):
 def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
               sides=None, along=None, depth_m=None, offset_m=0.0,
               plate_ok=None, stub_h_m=0.0, panels=(), budget=None, seed_tag="",
-              elem_h_m=None):
+              elem_h_m=None, asset_root=None):
     """Plan a rubble pile for one collapsed mass (or shed wall) `m`.
 
     `elem_h_m` (added, not in the original contract text): the height of the
@@ -1700,6 +1906,10 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
     height, not `spread_frac x H` of the whole building. When given it
     overrides `spread_frac` for windrow/fan; `spread_frac` still works as a
     fallback (or for callers that don't know the failed element's height).
+
+    `asset_root` (round-5 addendum): forwarded to `_select_proto_sets` for
+    the `RUBBLE_HP` opt-in's local-file probe; `None` (every existing
+    caller) reads `RUBBLE_ASSET_ROOT` from the environment instead.
     """
     nrng = np.random.default_rng(rng.getrandbits(32))
     z0 = float(m["z0"])
@@ -1707,7 +1917,7 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
     storeys = max(1, len(m.get("levels", [z0])))
     btype = btype if btype in PROTO_SETS else "rc"
     look = "urm" if btype == "urm" else "rc"
-    proto_sets, using_hd = _select_proto_sets(btype, rng)
+    proto_sets, using_hd = _select_proto_sets(btype, rng, asset_root=asset_root)
     stub_h_m = float(stub_h_m or 0.0)
 
     cells = []
@@ -2208,19 +2418,35 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
         _append_instance(instances["flake"], name, pos, quat, scale)
 
     # round-2 review: URM was reading with only 2 brick piles — "5-10 on the
-    # flanks AND at the toe", half-and-half.
-    n_cluster_min = rng.randint(*CLUSTER_N_URM) if btype == "urm" else rng.randint(*CLUSTER_N)
+    # flanks AND at the toe", half-and-half. round-5 addendum: rc gets its
+    # own, higher strip floor (`CLUSTER_N_RC`) — a windrow/fan draws exactly
+    # this many clusters with no coverage boost below, and an rc pile read
+    # bare there ("use the scanned concrete debris more"); rc_glass keeps
+    # the original `CLUSTER_N` (a much smaller pile per CROWN_FRAC).
+    if btype == "urm":
+        n_cluster_min = rng.randint(*CLUSTER_N_URM)
+    elif btype == "rc":
+        n_cluster_min = rng.randint(*CLUSTER_N_RC)
+    else:
+        n_cluster_min = rng.randint(*CLUSTER_N)
     # round-5 v8c: the whole scanned spreads are the one debris class that
     # reads as rubble at every distance, so on a DOME they carry the
     # coverage — count from `CLUSTER_COVERAGE` of the pile area over the
     # chosen spreads' mean footprint; the first `n_cluster_min` get the
     # shoulder bump (sunk into the flank), the rest sit on the surface
-    # (bump after bump overshoots repose — round-4 known gap).
+    # (bump after bump overshoots repose — round-4 known gap). rc/rc_glass
+    # use the higher `CLUSTER_COVERAGE_RC` target and `CLUSTER_MAX_RC`
+    # ceiling (round-5 addendum) — every cluster prototype on an rc pile is
+    # already concrete, so raising coverage there puts the extra scanned
+    # debris on the piles that read the most like poured concrete.
     n_cluster = n_cluster_min
     if kind == "dome" and proto_sets["cluster"]:
+        is_rc = btype in ("rc", "rc_glass")
+        coverage = CLUSTER_COVERAGE_RC if is_rc else CLUSTER_COVERAGE
+        cluster_max = CLUSTER_MAX_RC if is_rc else CLUSTER_MAX
         mean_area_cluster = _mean_footprint_area(proto_sets["cluster"], CLUSTER_SCALE)
-        n_cluster = int(_clip(round(CLUSTER_COVERAGE * pile_area_m2 / max(mean_area_cluster, 1e-6)),
-                              n_cluster_min, CLUSTER_MAX))
+        n_cluster = int(_clip(round(coverage * pile_area_m2 / max(mean_area_cluster, 1e-6)),
+                              n_cluster_min, cluster_max))
     n_cluster_toe = n_cluster_min // 2
 
     def cluster_weight(x, y):
@@ -2399,9 +2625,15 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
                               "achieved": float(COVERAGE[zone] * (ratio_chunk + ratio_flake))}
                        for zone in ("crown", "mid", "toe")}
 
+    # round-5 addendum: honest per-plan `hp` bit — did an `_hp` twin actually
+    # get AUTHORED (a `large` element's `asset`, or an instance set's
+    # `protos`), not just "was one available in the pool" (a rare name can
+    # sit in `proto_sets` and never once get drawn by `rng.choice`).
+    using_hp = any(str(e.get("asset")).endswith("_hp") for e in large if e.get("asset")) or \
+        any(str(p).endswith("_hp") for v in instances.values() for p in v["protos"])
     stats = {"n_large": len(large), "n_instances": n_inst_per_set,
              "n_instances_total": sum(n_inst_per_set.values()),
-             "n_protos": n_protos_per_set, "hd": using_hd,
+             "n_protos": n_protos_per_set, "hd": using_hd, "hp": using_hp,
              "coverage": coverage_stats,
              "instances_before_cap": n_instances_before_cap,
              "instances_after_cap": n_instances_after_cap,
@@ -2433,6 +2665,535 @@ def surface_z(mound, x, y):
         if v is not None:
             return float(v)
     return float(g["z0"])
+
+
+# ---------------------------------------------------------------------------
+# STREET DEBRIS (round-5 addendum — user, on the first OSMO city scene:
+# "I don't see a lot of the concrete debris being used ... use that more").
+# `plan_pile`'s own "toe" draw (`proto_sets["toe"]`) already puts 2-5 street
+# pieces at the very foot of an ACTUAL pile — but that only exists at all on
+# a DG4/DG5 dome, and 2-5 pieces at ONE toe ring reads thin from the street.
+# `plan_street_scatter` is a SECOND, INDEPENDENT, much smaller planner: no
+# heightfield, no burial fraction, no crown/mid/toe coverage math — just a
+# handful of `street`-kind pieces (sidewalk slabs, cracked paving, a
+# lamppost stub) laid FLAT on the EXISTING ground, on a damaged building's
+# fall side(s), starting just beyond wherever its own pile (real or nominal)
+# already reaches. Called once per DG3+ building by `quake._street_debris_
+# pass` (from `quake.ground_effects`, city time, after every grade is
+# drawn) — so a DG3 building (standing, no pile at all) gets a few pieces
+# too, not just DG4/DG5.
+# ---------------------------------------------------------------------------
+STREET_DEBRIS_N_BY_GRADE = {"DG3": (3, 8), "DG4": (10, 22), "DG5": (20, 40)}
+STREET_DEBRIS_BAND_M = (0.3, 2.6)      # beyond the (pile) reach, on the fall side
+STREET_DEBRIS_MAX_PER_BUILDING = 40
+STREET_DEBRIS_END_MARGIN = 0.42        # keep clear of the wall's own corners; density, not precision
+
+
+def _side_local_point(m, side, t, d):
+    """Local (lx, ly) for a point `t` metres along `side`'s own wall, from
+    the wall's centre, and `d` metres beyond the wall line — the same
+    S/N/E/W convention (`_SIDE_NORMAL`, `_side_length`, `_side_axes`) every
+    other placement in this module uses, without needing a heightfield cell
+    at all (street debris lies on the EXISTING ground, not a mound)."""
+    halfW, halfD = m["W"] / 2.0, m["D"] / 2.0
+    if side == "S":
+        return (t, -halfD - d)
+    if side == "N":
+        return (t, halfD + d)
+    if side == "E":
+        return (halfW + d, t)
+    if side == "W":
+        return (-halfW - d, t)
+    raise ValueError(side)
+
+
+# A modest absolute floor above the pile's own HD_CHUNK_MIN_THICK_M (0.07):
+# `HD_VOLUME_RATIO` (below) is now the PRIMARY shape gate, so this is a
+# defensive minimum-size guard, not the main lever — a dust-sized fleck
+# could pass a pure ratio test and still look wrong scattered alone.
+STREET_CHUNK_MIN_THICK_M = float(os.environ.get("RUBBLE_STREET_CHUNK_MIN_THICK_M", "0.12"))
+STREET_CHUNK_MAX_OPEN = float(os.environ.get("RUBBLE_STREET_CHUNK_MAX_OPEN", "0.35"))
+STREET_MIN_VOLUME_RATIO = float(os.environ.get("RUBBLE_STREET_MIN_VOLUME_RATIO", "0.15"))
+
+# ---------------------------------------------------------------------------
+# ROUND 4 — the user's review of `street_debris_dg3_s5_close.png` (round 3's
+# render): seating was flush, but ORIENTATION failed — several scan pieces
+# stood up-ended on a point or leaned near-vertical (a flat star-shaped patch
+# standing upright, a propped shard, a curled bowl on edge). Root cause:
+# `_chunk_orientation`'s thin axis is the AABB's own thinnest COORDINATE
+# axis, which is only the piece's real thin direction for an axis-aligned
+# scan — for a curled/warped fragment the two can point in unrelated
+# directions (see `HD_THIN_AXIS`'s docstring, `concrete_slabs_p028`'s
+# measured (-0.09, 0.77, 0.63)). `_thin_axis_for` + `_orient_flat_on_axis`
+# fix this by aligning the piece's own measured PCA-thinnest axis instead.
+# ---------------------------------------------------------------------------
+STREET_FLAT_TILT_DEG = (0.0, 12.0)     # "plus up to ~12 deg random tilt"
+STREET_MAX_HEIGHT_M = 0.45             # realized (post-seating) height cap
+STREET_HEIGHT_RESCALE_FLOOR = 0.35     # below this, redraw rather than shrink
+STREET_HEIGHT_MAX_REDRAWS = 6
+
+# ROUND 4 — "mix in authored chipped chunks": roughly half of a building's
+# street debris is not a scanned piece at all but a small, irregular,
+# CHIPPED concrete box authored through the exact same `large` channel
+# `plan_pile`'s rafts/lintels/columns already use (`quake_rubble_usd.
+# _author_large`), reusing an EXISTING `_BEAM_KINDS`/`_CHIP_KIND` kind
+# ("quoin": a cut-stone-like block that mostly SPALLED rather than snapped
+# at two ends, the closer analogy for a broken slab hunk than a bar-shaped
+# lintel/column/sill) so it gets the Damaged_Concrete_Floor beam look and a
+# real irregular/chipped silhouette for free, with NO change to
+# `quake_rubble_usd.py`. Sized as a FLAT prism (thickness is always a
+# fraction of the shorter footprint edge, so it can never stand taller than
+# it is wide) — never a standing cube.
+STREET_CHIP_SHARE = 0.5                # ~half chip boxes, ~half scan pieces
+STREET_CHIP_XY_M = (0.3, 1.2)          # footprint edge length (m)
+STREET_CHIP_Z_FRAC = (0.15, 0.45)      # thickness as a fraction of min(sx, sy)
+STREET_CHIP_TILT_DEG = (0.0, 10.0)
+STREET_CHIP_KIND = "quoin"             # an existing quake_rubble_usd kind
+
+
+_STREET_FAMILY_BLACKLIST = ("huge_concrete_rubble_pile",)
+
+
+def _street_chunk_pool(btype):
+    """The near-closed, genuinely VOLUMETRIC chunk-kind HD prototype names
+    safe to scatter ALONE on clean pavement.
+
+    ROUND-3 FINDING (`street_debris_dg3_s5_close.png`, third pass): round
+    2's pool — `_hd_names_by("chunk", materials)`, i.e. `_chunky` (an AABB
+    aspect-ratio test) + `HD_OPEN_FRAC <= HD_CHUNK_MAX_OPEN` (a topological
+    boundary-edge test) — still drew pieces that read as thin curled
+    patches with upturned wing tips, one appearing to hover above its own
+    detached shadow. Measured directly on the actual catalogue:
+    `concrete_slabs_p028` has bbox_aspect 0.412 (comfortably "chunky") and
+    `HD_OPEN_FRAC` 0.107 (comfortably under 0.15) — it passes BOTH bbox-
+    based tests — yet its REAL mesh points' smallest/largest PCA-axis
+    std-dev ratio is 0.013: essentially a flat 2-D scan whose CURVATURE
+    (not thickness) spans all three AABB axes. Neither existing filter can
+    see that, because neither one looks at the actual points.
+
+    `HD_VOLUME_RATIO` (`assets/rubble_hd/volume_ratio.json`, the SAME
+    "computed once from real geometry, shipped as static data" pattern
+    `HD_OPEN_FRAC`/`open_frac.json` already established, generated by a
+    one-off PCA census over every piece's real mesh points against the
+    local asset mirror) is the actual discriminator here — it is what
+    `_load_local_mesh_points`/`_points_min_z` (this module's SEATING fix)
+    could compute live if this ran against a local `asset_root`, but a
+    real production run's `asset_root` is `omniverse://...` (see
+    `quake_rubble_usd.ASSET_ROOT`), which this pure module cannot open
+    live — so, exactly like `HD_OPEN_FRAC`, the geometry is measured ONCE
+    offline and shipped as data instead of re-derived per call.
+
+    MEASURED, AND WHY `STREET_CHUNK_MAX_OPEN` (0.35) IS LOOSER THAN THE
+    PILE'S `HD_CHUNK_MAX_OPEN` (0.15): in this dataset, volume ratio and
+    open fraction are ANTI-correlated — a genuinely 3-D, multi-facet
+    rubble fragment (cut from `huge_concrete_rubble_pile`, a messy real
+    pile scan) naturally shows MORE boundary edges than a single flat slab
+    cutout, so the pile's own tight open cap systematically FAVOURS flat
+    pieces. Requiring `HD_OPEN_FRAC <= 0.15` AND `HD_VOLUME_RATIO >= 0.15`
+    together leaves only 4-5 candidates per material; loosening the open
+    cap to 0.35 (still a real ceiling against genuinely hole-punched
+    fragments) while keeping the 0.15 volume floor leaves ~90-100 per
+    material family — real diversity, not 2 repeated prototypes.
+
+    Never the "toe"/"street" kind, and never the flat, pre-HD-split
+    `CATALOGUE` street spreads (`concrete_sidewalk_elements`, `cracked_
+    paving_slabs`) either — unmeasured, scanned surfaces, never proven
+    safe, never a fallback.
+
+    Returns `[]` (never a fallback to an unsafe pool) when nothing
+    qualifies for this `btype` — including when `HD_VOLUME_RATIO` itself
+    is empty (the census file is missing on this checkout): no debris
+    beats fake-looking debris.
+
+    ROUND-5 "MORE DEBRIS" ADDENDUM: when the HD-sourced pool above is
+    non-empty, `chunk_01..09` (`standalone/debris/pieces/chunk_*` — the
+    SAME 34-piece flat-colour catalogue `_debris_material_for` in
+    `quake_rubble_usd.py` already knows how to tint) join it as a bounded
+    minority sized to land at `STANDALONE_STREET_CHUNK_FRAC` (~20%) of the
+    RETURNED pool. They fail the PILE's own stricter 0.15 open cap (a real,
+    welded-vertex topological hole spanning top-to-bottom — see
+    `_standalone_names_by`'s comment) so they never enter `plan_pile`'s own
+    chunk instancing, but measure a healthy PCA volume_ratio (0.44-0.53,
+    comfortably over `STREET_MIN_VOLUME_RATIO`) with open_frac 0.21-0.22 —
+    under this LOOSER street cap — which is exactly the "genuinely 3-D
+    fragment, more boundary edges than a flat slab" profile the loosened
+    cap exists for (see above). Skipped entirely when the HD-sourced pool
+    is empty: a minority needs something to be a minority OF, and "nothing
+    qualifies" must still mean `[]`, never a silent substitute census.
+
+    DELIBERATELY NO `pca_thin_axis.json` ENTRY for `chunk_01..09` (unlike
+    the HD population, and unlike `lump_01..06`'s own entries added
+    alongside): a near-cubic chunk's PCA-thinnest axis is a DIAGONAL
+    direction through a box whose three dimensions are all similar (that's
+    WHY it has a healthy `volume_ratio` in the first place — it is not a
+    flat scan patch). Aligning a diagonal axis to vertical makes
+    `rotated_extent`'s AABB-corner height LARGER than any single box
+    dimension (measured: 1.2-1.5 m for pieces 0.66-0.99 m on a side),
+    blowing the street `STREET_MAX_HEIGHT_M` cap past even the rescale
+    floor and silently dropping nearly every draw after `STREET_HEIGHT_
+    MAX_REDRAWS` (measured actual scan-channel share: <1%, not the ~20%
+    the pool composition promises). Leaving no census entry here makes
+    `_thin_axis_for` fall back to its pre-round-4 AABB-thinnest-COORDINATE-
+    axis rule instead, which for a near-cubic box IS its smallest
+    dimension (measured: 100% height-cap acceptance across all 9 pieces).
+    """
+    materials = ("brick", "concrete") if btype == "urm" else ("concrete",)
+    candidates = set()
+    for n, e in HD_CATALOGUE.items():
+        if e.get("kind") != "chunk" or e.get("material") not in materials:
+            continue
+        # ROUND-4 RENDER FINDING (reviewer): `huge_concrete_rubble_pile_*`
+        # crops pass every geometric gate yet render as dark rebar/wire
+        # tangles when ALONE on clean pavement (fine INSIDE a pile's
+        # carpet, where the same family reads as photographic concrete —
+        # see rc_dome_s3). A messy multi-object pile scan's crops carry
+        # rebar and shadowed cavities no per-piece geometry test can see,
+        # so the family is excluded from the STREET pool by name; the
+        # chip-box channel fills the share.
+        if any(n.startswith(f) for f in _STREET_FAMILY_BLACKLIST):
+            continue
+        sz = tuple(float(v) for v in e.get("size", (0, 0, 0)))
+        if not _chunky(sz) or _hd_open_frac(n) > STREET_CHUNK_MAX_OPEN:
+            continue
+        if min(sz) < STREET_CHUNK_MIN_THICK_M:
+            continue
+        candidates.add(n)
+    hd_out = []
+    for n in candidates:
+        ratio = HD_VOLUME_RATIO.get(n)
+        if ratio is None or ratio < STREET_MIN_VOLUME_RATIO:
+            continue
+        hd_out.append(n)
+    if not hd_out:
+        return []
+    standalone = _standalone_street_chunk_candidates(materials)
+    n_standalone = min(len(standalone), max(0, int(round(
+        STANDALONE_STREET_CHUNK_FRAC * len(hd_out) / (1.0 - STANDALONE_STREET_CHUNK_FRAC)))))
+    return sorted(hd_out + standalone[:n_standalone])
+
+
+# Target minority share (of the RETURNED pool) for the standalone chunk
+# pieces folded into the street pool — same ~15-30% band, mid-point 0.20,
+# as `STANDALONE_FLAKE_MINORITY_FRAC` above.
+STANDALONE_STREET_CHUNK_FRAC = 0.20
+
+
+def _standalone_street_chunk_candidates(materials):
+    """`chunk_01..09` names passing the SAME street gates `_street_chunk_
+    pool` applies to an HD name (`_chunky`, `HD_OPEN_FRAC <=
+    STREET_CHUNK_MAX_OPEN`, `STREET_CHUNK_MIN_THICK_M`, `HD_VOLUME_RATIO >=
+    STREET_MIN_VOLUME_RATIO`) — reading the SAME `HD_OPEN_FRAC`/`HD_VOLUME_
+    RATIO` census dicts `_street_chunk_pool` reads, now extended with a
+    one-off measured entry per standalone piece (round-5 "more debris"
+    addendum; see `assets/rubble_hd/open_frac.json`/`volume_ratio.json`).
+    Sorted (deterministic) so the SAME leading slice is chosen every call —
+    there is no `rng` here (this is a per-btype pool, not a per-instance
+    draw; variety across instances still comes from `rng.choice(pool)` in
+    `plan_street_scatter`)."""
+    out = []
+    for n in _CHUNKS:
+        e = CATALOGUE.get(n)
+        if not e or e.get("kind") != "chunk" or e.get("material") not in materials:
+            continue
+        sz = tuple(float(v) for v in e.get("size", (0, 0, 0)))
+        if not _chunky(sz) or _hd_open_frac(n) > STREET_CHUNK_MAX_OPEN:
+            continue
+        if min(sz) < STREET_CHUNK_MIN_THICK_M:
+            continue
+        ratio = HD_VOLUME_RATIO.get(n)
+        if ratio is None or ratio < STREET_MIN_VOLUME_RATIO:
+            continue
+        out.append(n)
+    return sorted(out)
+
+
+_STREET_MESH_POINTS_CACHE = {}
+
+
+def _load_local_mesh_points(name, asset_root):
+    """Local-space (x, y, z) vertex points of every `Mesh` in the catalogue
+    asset `name` references, read directly from its OWN `.usdc` file under
+    a LOCAL `asset_root` — the ACTUAL scanned geometry, not the AABB `size`
+    a corner extrapolation (`rotated_extent`) is built from. See
+    `_points_min_z`'s docstring for why the distinction matters.
+
+    Lazily imports `pxr` (usd-core) — see the module docstring's note on
+    this one narrow exception. Returns `None` (never raises) when `pxr` is
+    not importable, `asset_root` is not a local path (empty, `None`, or an
+    `omniverse://` URL — no cheap way for this pure module to fetch a
+    remote file), the resolved file is not on disk, or it opens with no
+    mesh at all; the caller falls back to `rotated_extent` in every one of
+    those cases, exactly this module's pre-existing behaviour.
+
+    Cached per `(name, asset_root)` — a city's worth of street-scatter
+    instances redraws the same handful of prototype names over and over,
+    and re-parsing the same file per instance would be real, avoidable I/O.
+    """
+    key = (name, str(asset_root))
+    if key in _STREET_MESH_POINTS_CACHE:
+        return _STREET_MESH_POINTS_CACHE[key]
+    pts = _load_local_mesh_points_uncached(name, asset_root)
+    _STREET_MESH_POINTS_CACHE[key] = pts
+    return pts
+
+
+def _load_local_mesh_points_uncached(name, asset_root):
+    if not asset_root or str(asset_root).startswith("omniverse://"):
+        return None
+    entry = _asset_entry(name)
+    rel = entry.get("url") if entry else None
+    if not rel:
+        return None
+    path = os.path.join(str(asset_root), str(rel).replace("/", os.sep))
+    if not os.path.exists(path):
+        return None
+    try:
+        from pxr import Usd, UsdGeom
+    except Exception:
+        return None
+    try:
+        stage = Usd.Stage.Open(path)
+        if not stage:
+            return None
+        xf_cache = UsdGeom.XformCache()
+        pts = []
+        for prim in stage.Traverse():
+            if not prim.IsA(UsdGeom.Mesh):
+                continue
+            arr = UsdGeom.Mesh(prim).GetPointsAttr().Get()
+            if not arr:
+                continue
+            local_to_root = xf_cache.GetLocalToWorldTransform(prim)
+            for p in arr:
+                wp = local_to_root.Transform(p)
+                pts.append((float(wp[0]), float(wp[1]), float(wp[2])))
+        if not pts:
+            return None
+        return np.asarray(pts, dtype=np.float64)
+    except Exception:
+        return None
+
+
+def _points_z_extent(points_local, scale, rot):
+    """(zmin, zmax): world-Z range of `points_local` (Nx3 REAL mesh
+    vertices, in the asset's own local frame) after uniform `scale` and
+    rotation `rot` (quaternion or XYZ-Euler-degrees — `rotated_extent`'s
+    own two accepted forms, identical convention) — the analogue, for a
+    standalone catalogue file rather than a live authored prim, of `bake.
+    world_point_bounds` (the `fix-floating-debris` skill's fix for the
+    `UsdGeom.BBoxCache` blind spot).
+
+    WHY THIS DIFFERS FROM `rotated_extent`: a `size`-box's rotated CORNER
+    extrapolation is a mathematically exact bound for a uniform BOX (a
+    linear functional over a box attains its extremum at a vertex), but
+    the real mesh is a SUBSET of that box, not the box itself — for a
+    curled/warped/off-axis scan, the true mesh's rotated lowest point can
+    sit well ABOVE the box's rotated lowest corner. Seating on the corner
+    then leaves the real geometry floating with daylight underneath: the
+    "hovering above its own detached shadow" defect round-5's street-
+    scatter review reported.
+
+    `zmax` (round 4, added alongside the pre-existing `zmin`-only
+    `_points_min_z`) is what `plan_street_scatter`'s realized-height cap
+    needs: `zmax - zmin` is the piece's true on-screen height above grade
+    once seated, which for a curled/warped scan is not simply `size[2] *
+    scale` (the AABB height) either.
+
+    Returns `None` if `points_local` is `None`/empty (caller falls back to
+    `rotated_extent`)."""
+    if points_local is None or points_local.size == 0:
+        return None
+    if len(rot) == 4:
+        R = _quat_to_matrix(rot)
+    else:
+        R = _euler_xyz_to_matrix(rot[0], rot[1], rot[2])
+    world_z = (points_local * float(scale)) @ np.asarray(R[2, :], dtype=np.float64)
+    return float(np.min(world_z)), float(np.max(world_z))
+
+
+def _points_min_z(points_local, scale, rot):
+    """Min world-Z of `points_local` — see `_points_z_extent` (this is a
+    thin `[0]`-projection of it, kept as its own name since every existing
+    caller/test only ever needed the minimum)."""
+    ext = _points_z_extent(points_local, scale, rot)
+    return None if ext is None else ext[0]
+
+
+def plan_street_scatter(m, grade, rng, btype="rc", fall_sides=None,
+                        reach_sides=None, max_instances=STREET_DEBRIS_MAX_PER_BUILDING,
+                        asset_root=None):
+    """A small, FLAT scatter of near-closed, chunky HD debris (mixed with
+    authored chipped-concrete chunks, round 4) on the sidewalk/road band
+    just beyond one damaged building's own pile reach, on its fall side(s)
+    — see the module note above for why this is separate from `plan_pile`'s
+    own toe draw.
+
+    `fall_sides` / `reach_sides`: the SAME per-side vocabulary `quake.
+    heap_reach_sides` / `_heap_reach_for` already compute for heap
+    clearance — the caller (`quake._street_debris_pass`) passes them
+    straight through so the two passes agree on which side is "the street"
+    and where the pile (if any, real or nominal) already reaches. Every
+    instance lands at `d = reach_sides[side] + U(*STREET_DEBRIS_BAND_M)`,
+    STRICTLY beyond that reach — so this can never double-place inside a
+    pile `quake._clear_under_heaps` already cleared street furniture under.
+    Defaults to a single "S" fall side at the research floor
+    (`RUNOUT_FLOOR_M`) when the caller has no manifest row to measure from.
+
+    Counts scale with `grade` (`STREET_DEBRIS_N_BY_GRADE`, base grade only —
+    a "DG3+tilt" label is treated as "DG3"): a DG3 building (standing, no
+    pile) gets a handful; DG5 gets up to `max_instances` (<=
+    `STREET_DEBRIS_MAX_PER_BUILDING`, the per-building budget the city-level
+    cap in `quake._street_debris_pass` also enforces). `t` (the position
+    along the wall) is drawn over the inner `2 x STREET_DEBRIS_END_MARGIN`
+    share of the wall's length, not its corners — the fire-service rule of
+    thumb that debris fans out from mid-wall, and cheap insurance against
+    piling pieces at a corner two adjacent sides both claim; this keeps
+    density LOW near a crosswalk without knowing where one is.
+
+    TWO CHANNELS PER PIECE (round 4, `STREET_CHIP_SHARE` of the total each
+    building draws land in each, ALWAYS the chip channel when the scan pool
+    is empty — see below):
+
+      * SCAN pieces (`instances["street"]`) — drawn from `_street_chunk_
+        pool(btype)` (see its docstring; NOT the "toe"/"street" kind, and
+        NOT the flat pre-HD-split `CATALOGUE` street spreads). Orientation:
+        `_orient_flat_on_axis` aligns the piece's own MEASURED PCA-thinnest
+        axis (`_thin_axis_for`/`HD_THIN_AXIS`) to world-up, not the AABB's
+        thinnest COORDINATE axis (`_chunk_orientation`'s convention, wrong
+        for a curled/warped scan whose true thin direction is diagonal —
+        the round-4 review's up-ended/near-vertical pieces) — plus up to
+        `STREET_FLAT_TILT_DEG` off vertical and a free yaw about up.
+        Seating: `_points_min_z`/`_points_z_extent` (the piece's own real
+        mesh points, read via `asset_root` when possible) rather than
+        `rotated_extent`'s AABB-corner approximation — falls back to
+        `rotated_extent` when the points cannot be read (see `_load_local_
+        mesh_points`'s docstring for every case that triggers the
+        fallback). HEIGHT CAP (round 4): the realized height above grade
+        (`zmax - zmin` at the piece's actual scale, computed the same way
+        as seating) is capped at `STREET_MAX_HEIGHT_M` — a piece that would
+        exceed it is RESCALED down (height is linear in scale, so this is
+        exact) unless that would shrink it below `STREET_HEIGHT_RESCALE_
+        FLOOR` (reads as a shrunken pebble, not a to-scale chunk), in which
+        case a different piece/orientation is redrawn (up to `STREET_
+        HEIGHT_MAX_REDRAWS` times); a piece that still can't fit after every
+        redraw is DROPPED, never authored over-height.
+
+      * CHIP pieces (`large`) — small, irregular AUTHORED concrete boxes
+        (`STREET_CHIP_KIND`, an existing `quake_rubble_usd._BEAM_KINDS`/
+        `_CHIP_KIND` kind, so they get the Damaged_Concrete_Floor beam look
+        and a real chipped/irregular silhouette with NO emitter changes),
+        footprint edges `STREET_CHIP_XY_M`, thickness always a FRACTION of
+        the shorter footprint edge (`STREET_CHIP_Z_FRAC`) so a piece can
+        never stand taller than it is wide, laid flat (a free yaw plus up to
+        `STREET_CHIP_TILT_DEG` off vertical) with its bottom exactly at
+        grade (`rotated_extent`, exact for an authored box). Also subject
+        to the `STREET_MAX_HEIGHT_M` height cap (the same one the scan
+        pieces respect) as a safety net for the rare large-footprint +
+        near-max-tilt combination — enforced by uniformly shrinking the
+        box's own (sx, sy, sz), exact because `rotated_extent` is linear
+        under a uniform size multiplier, so no redraw is needed here (an
+        authored box's dimensions are ours to pick, unlike a fixed scanned
+        prototype). Needs no scan pool at all — the fallback population
+        when `_street_chunk_pool` is empty (no HD census on this
+        checkout), so a building still gets SOME concrete debris rather
+        than none.
+
+    No burial fraction either way: street debris rests ON the existing
+    ground.
+
+    Returns a `plan_pile`-shaped dict (`mound=None`, `apron=None`, `large`
+    the authored chip-chunk list, one `instances["street"]` set for the
+    scan pieces) — the exact contract `quake_rubble_usd.author` already
+    knows how to write, so no new emitter code is needed for this pass.
+    `stats`: `n_instances` (BOTH channels combined), `n_scan`, `n_chip`,
+    `n_by_side` (both channels), `grade`, `capped`, `fall_sides`, `hd`
+    (whether the scan pool was non-empty).
+    """
+    grade = str(grade).split("+")[0]
+    fall_sides = sorted(set(fall_sides)) if fall_sides else ["S"]
+    reach_sides = dict(reach_sides) if reach_sides else {}
+    btype = btype if btype in PROTO_SETS else "rc"
+    resolved_asset_root = asset_root if asset_root is not None else os.environ.get("RUBBLE_ASSET_ROOT")
+    pool = _street_chunk_pool(btype)
+    instances = {"street": _empty_instance_set(None)}
+    large = []
+    z0 = float(m.get("z0", 0.0))
+    lo_hi = STREET_DEBRIS_N_BY_GRADE.get(grade)
+    # NOT gated on `pool` any more (round 4): the chip channel below needs
+    # no scan pool at all, so an empty pool now means "100% chip" rather
+    # than "nothing at all" (see the docstring above).
+    n_target = min(int(max_instances), rng.randint(*lo_hi)) if lo_hi else 0
+
+    n_by_side = {}
+    n_scan = 0
+    n_chip = 0
+    for i in range(n_target):
+        side = fall_sides[i % len(fall_sides)]
+        L = _side_length(m, side)
+        t = rng.uniform(-STREET_DEBRIS_END_MARGIN, STREET_DEBRIS_END_MARGIN) * L
+        reach = float(reach_sides.get(side, RUNOUT_FLOOR_M))
+        d = reach + rng.uniform(*STREET_DEBRIS_BAND_M)
+        lx, ly = _side_local_point(m, side, t, d)
+        wx, wy = _to_world(m, lx, ly)
+        n_by_side[side] = n_by_side.get(side, 0) + 1
+
+        if (not pool) or (rng.random() < STREET_CHIP_SHARE):
+            sx = rng.uniform(*STREET_CHIP_XY_M)
+            sy = rng.uniform(*STREET_CHIP_XY_M)
+            sz = min(sx, sy) * rng.uniform(*STREET_CHIP_Z_FRAC)   # always flatter than wide
+            quat = _orient_on_surface(rng, (0.0, 0.0, 1.0), STREET_CHIP_TILT_DEG)
+            zmin_rel, zmax_rel = rotated_extent((sx, sy, sz), 1.0, quat)
+            height = zmax_rel - zmin_rel
+            if height > STREET_MAX_HEIGHT_M:
+                # `rotated_extent` is EXACTLY linear under a uniform size
+                # multiplier (scaling every corner by the same factor scales
+                # the whole corner-extremum search by it too), so shrinking
+                # (sx, sy, sz) together by this ratio lands the realized
+                # height EXACTLY at the cap -- no redraw needed, unlike the
+                # scan-piece pool (an authored box's own dimensions are ours
+                # to pick, not a fixed scanned prototype's).
+                k = STREET_MAX_HEIGHT_M / max(height, 1e-9)
+                sx, sy, sz = sx * k, sy * k, sz * k
+                zmin_rel, zmax_rel = rotated_extent((sx, sy, sz), 1.0, quat)
+            large.append({
+                "asset": None, "prim_path": None, "kind": STREET_CHIP_KIND,
+                "pos": (wx, wy, z0 - zmin_rel), "rot_deg": _quat_to_euler_xyz_deg(quat),
+                "scale": 1.0, "size": (sx, sy, sz), "bury": 0.0, "look": "concrete",
+            })
+            n_chip += 1
+            continue
+
+        for _attempt in range(STREET_HEIGHT_MAX_REDRAWS):
+            name = rng.choice(pool)
+            size = _asset_entry(name)["size"]
+            axis_local = _thin_axis_for(name, size)
+            quat = _orient_flat_on_axis(rng, axis_local, STREET_FLAT_TILT_DEG)
+            scale = rng.uniform(*CLUSTER_SCALE)
+            pts_local = _load_local_mesh_points(name, resolved_asset_root)
+            if pts_local is not None:
+                zmin_u, zmax_u = _points_z_extent(pts_local, 1.0, quat)
+            else:
+                zmin_u, zmax_u = rotated_extent(size, 1.0, quat)
+            height_u = max(zmax_u - zmin_u, 1e-9)   # height is linear in scale
+            height = height_u * scale
+            if height > STREET_MAX_HEIGHT_M:
+                needed_scale = STREET_MAX_HEIGHT_M / height_u
+                if needed_scale < STREET_HEIGHT_RESCALE_FLOOR:
+                    continue                          # would read as a shrunken pebble -- redraw
+                scale = needed_scale
+            zmin_rel = zmin_u * scale
+            _append_instance(instances["street"], name, (wx, wy, z0 - zmin_rel), quat, scale)
+            n_scan += 1
+            break
+        # else: every redraw exceeded the cap even at the rescale floor --
+        # this instance is DROPPED (never author an over-height piece).
+
+    _n_before, n_after_street, capped = _trim_instances_to_cap(instances, max_instances)
+    n_after = n_after_street + len(large)
+    stats = {"n_instances": n_after, "n_scan": n_scan, "n_chip": n_chip,
+             "n_by_side": n_by_side, "grade": grade, "capped": capped,
+             "fall_sides": fall_sides, "hd": bool(pool)}
+    return {"mound": None, "apron": None, "large": large, "instances": instances, "stats": stats}
 
 
 # ---------------------------------------------------------------------------
@@ -2503,3 +3264,113 @@ def _load_open_frac():
 
 
 HD_OPEN_FRAC = _load_open_frac()
+
+
+def _load_volume_ratio():
+    """{name: float} from `assets/rubble_hd/volume_ratio.json` — a PCA
+    census (smallest / largest principal-axis std-dev of a piece's REAL
+    mesh points, computed once offline against the local asset mirror) —
+    the SAME "computed once, shipped as data" pattern `_load_open_frac`
+    already established, added for `_street_chunk_pool`'s volumetric gate
+    (see its docstring for why the existing bbox-based `_chunky`/
+    `HD_OPEN_FRAC` filters cannot see this on their own). Never raises;
+    `{}` when the file is missing (this checkout never ran the census, or
+    predates it) — `_street_chunk_pool` degrades to "nothing qualifies",
+    not to an unmeasured/unsafe pool."""
+    try:
+        here = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(here, "..", "assets", "rubble_hd", "volume_ratio.json")) as f:
+            return {str(k): float(v) for k, v in json.load(f).items()}
+    except Exception:
+        return {}
+
+
+def _load_pca_thin_axis():
+    """{name: (x, y, z)} from `assets/rubble_hd/pca_thin_axis.json` — the
+    LOCAL-frame unit vector of a piece's own thinnest principal axis
+    (smallest-eigenvalue eigenvector of the covariance of its REAL mesh
+    points), generated by the SAME PCA census that produced `HD_VOLUME_
+    RATIO` (that census's own eigenvector, not a second measurement) —
+    the same "computed once from real geometry against the local mirror,
+    shipped as static data" pattern `HD_OPEN_FRAC`/`HD_VOLUME_RATIO`
+    already use.
+
+    ROUND-4 FIX this exists for: `_chunk_orientation`'s pre-round-4
+    convention picked the AABB's own thinnest COORDINATE axis (x, y, or z)
+    as "the thin axis" and rotated THAT to vertical. For an axis-aligned
+    scan that is exactly right, but for a curled/warped/diagonal fragment
+    the true thin direction can point nowhere near any single coordinate
+    axis — `concrete_slabs_p028` (the round-3 flat-shell finding) measures
+    at (-0.09, 0.77, 0.63) here, a genuinely diagonal direction, not (0, 0,
+    1) or any permutation of it. Aligning the AABB-thin axis for a piece
+    like that leaves the REAL thin direction (and therefore the piece's
+    broadest real face) tilted away from horizontal — exactly the
+    up-ended/near-vertical silhouettes the round-4 render review reported
+    (a flat star-shaped patch standing upright, a propped shard, a curled
+    bowl on edge). `_orient_flat_on_axis` aligns THIS axis instead.
+
+    Never raises; `{}` when the file is missing — `_thin_axis_for` then
+    falls back to the pre-round-4 AABB-thinnest-coordinate-axis rule
+    (never an outright failure, just the old, less-precise behaviour)."""
+    try:
+        here = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(here, "..", "assets", "rubble_hd", "pca_thin_axis.json")) as f:
+            data = json.load(f)
+        return {str(k): tuple(float(x) for x in v) for k, v in data.items()}
+    except Exception:
+        return {}
+
+
+HD_THIN_AXIS = _load_pca_thin_axis()
+
+
+def _thin_axis_for(name, size):
+    """The LOCAL unit vector to treat as `name`'s "thin axis" for flat
+    orientation: `HD_THIN_AXIS`'s measured PCA eigenvector when the census
+    has an entry for `name`, else the pre-round-4 AABB-thinnest-coordinate-
+    axis fallback (`_chunk_orientation`'s own convention) — the same
+    graceful degradation `_load_local_mesh_points` already has for a
+    non-local `asset_root` (a real production run's `asset_root` is
+    `omniverse://...`, but the census is static data, so it works there
+    too; this fallback only matters for a name the census never measured,
+    e.g. a non-HD `CATALOGUE` prototype, or a checkout predating the
+    census file)."""
+    axis = HD_THIN_AXIS.get(name)
+    if axis is not None:
+        v = np.asarray(axis, dtype=np.float64)
+        n = float(np.linalg.norm(v))
+        if n > 1e-9:
+            return tuple((v / n).tolist())
+    thin_i = min(range(3), key=lambda i: size[i])
+    return [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)][thin_i]
+
+
+def _orient_flat_on_axis(rng, axis_local, tilt_range):
+    """Round 4: orient a piece so its own `axis_local` (a LOCAL-frame unit
+    vector — the piece's real PCA-thinnest axis, see `_thin_axis_for`)
+    points world-up, plus a further `tilt_range` degrees off vertical and a
+    free random yaw about world-up — the `_orient_on_surface` recipe
+    (align, spin, tilt), generalised from a FIXED local axis (that
+    function always aligns local +Z) to an arbitrary one, since a scan's
+    real thin axis is not necessarily local Z.
+
+    Composition order matches `_orient_on_surface` exactly: spin about
+    `axis_local` FIRST (in the piece's own local frame, before it moves),
+    then align `axis_local` to world +Z, then tilt off vertical about a
+    random world-horizontal axis. Spinning about the very axis that is
+    about to become vertical is equivalent (by the standard axis-
+    conjugation identity) to spinning about world-up AFTER alignment — so
+    this is genuinely "align, then free yaw about up, then a small tilt",
+    just computed in the order that only needs one alignment quaternion.
+    """
+    q_align = _quat_align_vec_to(axis_local, (0.0, 0.0, 1.0))
+    spin = rng.uniform(0.0, 360.0)
+    q_spin = _quat_from_axis_angle(axis_local, spin)
+    tilt = rng.uniform(*tilt_range)
+    tang = rng.uniform(0.0, 360.0)
+    tx, ty = math.cos(math.radians(tang)), math.sin(math.radians(tang))
+    q_tilt = _quat_from_axis_angle((tx, ty, 0.0), tilt)
+    return _quat_normalize(_quat_mul(_quat_mul(q_tilt, q_align), q_spin))
+
+
+HD_VOLUME_RATIO = _load_volume_ratio()

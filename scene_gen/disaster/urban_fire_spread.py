@@ -269,6 +269,198 @@ def level_for_age(age_s, btype="urm", rng=None, burnt_out_p=BURNT_OUT_P,
     return "F4"
 
 
+# ---------------------------------------------------------------------------
+# HEIGHT CLASS: WHO IS ALLOWED TO COLLAPSE, AND WHOSE ROOF IS ALLOWED TO OPEN
+# ---------------------------------------------------------------------------
+# TWO SEPARATE POLICIES, LAYERED. `level_for_age` (and the age clock above
+# it) decide WHEN a building would naturally reach a given level; neither
+# knows or cares how tall the building is or what district it stands in.
+# Two independent, real-world constraints sit on top of that, and both are
+# expressed as a LEVEL DEGRADATION -- never as "drop the building" and never
+# as "reset to F0" -- because a building that is structurally too tall (or
+# too rarely timber-framed) to have collapsed the way the raw age/rng draw
+# says is still ON FIRE; it just stopped short of the collapse.
+#
+#   1. THE RANK CAP (`cap_level_for_class`), by HEIGHT CLASS (user policy,
+#      2026-08-31, superseding the earlier blanket "no fire in skyscraper
+#      districts"):
+#        low         rowhouse / lowrise            -- full collapse stands
+#                    (F6 allowed, F5c allowed)
+#        mid_high    midrise / brick_midrise /      -- PARTIAL collapse only
+#                    tower / highrise                  (cap F5c, never F6)
+#        skyscraper  -- see below: NOTHING is        -- fire only (cap F5,
+#                    "skyscraper" by typology name;      never F5c/F6)
+#                    see ROOF ELIGIBILITY below for
+#                    what actually reaches this cap
+#      `tower`/`highrise` were `NO_FIRE_TYPOLOGIES` in `urban_fire_city.py`
+#      before this policy -- fire was banned outright in both. That ban is
+#      LIFTED (both may now ignite), replaced by this cap: `midrise` and
+#      `brick_midrise` (never banned, and previously UNCAPPED -- an `urm`
+#      kit archetype dropped into one of those districts could reach F6
+#      today) get the new "partial only" ceiling; `tower`/`highrise` (the
+#      old ban list, still grouped together here because their MEASURED
+#      height pools overlap 44.7-131 m tower vs. 103.7-312 m highrise --
+#      splitting them by typology name is unambiguous, splitting them by
+#      height is not) get "fire only, never any collapse".
+#   2. ROOF ELIGIBILITY (`enforce_roof_eligibility`), by CONSTRUCTION, not
+#      by rank (fact-checked policy, 2026-08-31): structural roof loss in a
+#      real fire is a LIGHTWEIGHT-TIMBER phenomenon -- joist-and-truss
+#      roofs, the rowhouse/lowrise stock. An RC deck essentially never
+#      collapses in a compartment fire and a steel-deck failure is rare and
+#      local, which is the ladder's own doctrine already (`LADDER["rc_glass"]`
+#      carries no collapse recipe at any level -- "the shell stands"). F5C
+#      AND F6 ARE THE TWO LEVELS WHOSE LADDER RECIPE ACTUALLY BREACHES THE
+#      SHELL (`partial_collapse` / `fire_collapse` in `urban_fire.LADDER`);
+#      F5 keeps `level_for_age`'s own doctrine for that state ("gutted, top
+#      storeys fallen in, FOUR WALLS UP" -- the shell stands). So `F5c`/`F6`
+#      (`ROOF_LEVELS`) are eligible ONLY for the `low` class, REGARDLESS of
+#      what the rank cap above would otherwise allow -- this is what makes
+#      `mid_high`'s own "cap at F5c" a ceiling that is rarely if ever
+#      actually reached in the final manifest: `cap_level_for_class` still
+#      lets a `mid_high` building's F6 degrade to F5c (that degradation is
+#      independently correct and independently tested), and
+#      `enforce_roof_eligibility` then degrades THAT F5c to F5, because a
+#      partial collapse is still a roof-affecting outcome and `mid_high`
+#      construction (predominantly `rc`) is not the timber class it is
+#      reserved for. `skyscraper`'s own rank cap already forbids F5c/F6
+#      outright, so this is a no-op there -- roof eligibility only ever
+#      bites on `mid_high`.
+#
+# `urban_fire_city.damaged_manifest` additionally caps the SHARE of the
+# whole manifest that may show a `ROOF_LEVELS` outcome at all (a knob,
+# `roof_collapse_max`, default 2 per a ~26-building city manifest) --
+# "eligible" is necessary but not sufficient; roof collapse must also stay
+# RARE. That budget needs the whole city's record list, so it lives there,
+# not here; everything on this page is a pure per-building function.
+HEIGHT_CLASS_LOW = "low"
+HEIGHT_CLASS_MIDHIGH = "mid_high"
+HEIGHT_CLASS_SKYSCRAPER = "skyscraper"
+HEIGHT_CLASSES = (HEIGHT_CLASS_LOW, HEIGHT_CLASS_MIDHIGH, HEIGHT_CLASS_SKYSCRAPER)
+
+#: district typology name (`districts.py`'s six `downtown_gac.yaml`
+#: typologies, `config/presets/downtown_gac.yaml:1264` `districts.
+#: typologies`) -> height class. The SOURCE OF TRUTH: `height_class()` always
+#: prefers this over either fallback below.
+TYPOLOGY_HEIGHT_CLASS = {
+    "rowhouse": HEIGHT_CLASS_LOW,          # brownstones, height_median_m 14.5
+    "lowrise": HEIGHT_CLASS_LOW,           # height_median_m 13.5, pool to 16.7
+    "midrise": HEIGHT_CLASS_MIDHIGH,       # height_median_m 36.0, pool 29-48
+    "brick_midrise": HEIGHT_CLASS_MIDHIGH, # height_median_m 58.0, pool 38.6-71.8
+    "tower": HEIGHT_CLASS_SKYSCRAPER,      # height_median_m 78.0, pool 44.7-131/140
+    "highrise": HEIGHT_CLASS_SKYSCRAPER,   # height_median_m 165.0, pool 103.7-312/320
+}
+
+# Storey-count fallback -- for a caller that has an estimated storey count
+# (`fire_city_dry_run._estimate_storeys`) but no typology (a synthetic bench,
+# or a record whose district block was not recovered). Boundaries are ROUND
+# numbers bracketing the MEASURED pools above at a generic ~3.0-3.5 m/storey
+# (`fire_city_dry_run._estimate_storeys`'s own GAC/kit constants): rowhouse/
+# lowrise's ~13.5-16.7 m tops out at 4-5 storeys; brick_midrise's ~71.8 m
+# ceiling is 20-24 storeys; tower's own measured FLOOR (44.7 m, ~13 storeys)
+# sits inside that same band -- typology name resolves that overlap when it
+# is known, this is only the fallback for when it is not.
+STOREY_LOW_MAX = 4          # <=4 storeys: low
+STOREY_MIDHIGH_MAX = 25     # 5..25 storeys: mid_high; >25: skyscraper
+
+# Height-in-metres fallback -- for a caller with only `H` (e.g. `solve()`'s
+# own per-building default when it is not handed a `height_class_of`
+# callback). Same measured pools, same acknowledged tower/highrise overlap.
+LOW_H_MAX_M = 20.0          # above lowrise's measured 16.7 m ceiling
+MIDHIGH_H_MAX_M = 80.0      # above brick_midrise's measured 71.8 m ceiling
+
+
+def height_class(typology=None, n_storeys=None, H_m=None):
+    """The collapse-eligibility class for a building: `"low"`, `"mid_high"`
+    or `"skyscraper"`.
+
+    Tries, in order: the district TYPOLOGY name (`TYPOLOGY_HEIGHT_CLASS`,
+    the source of truth); a storey count (`STOREY_LOW_MAX`/
+    `STOREY_MIDHIGH_MAX`); a height in metres (`LOW_H_MAX_M`/
+    `MIDHIGH_H_MAX_M`). Falls back to `"mid_high"` -- the CONSERVATIVE
+    middle -- when none of the three is given: a building nobody could
+    identify the district or height of is assumed NOT to be the low-rise/
+    timber stock (so it never gets an unrestricted full collapse) and NOT
+    to be a skyscraper either (so a caller that only wants "never F6" is not
+    surprised by "also never F5c").
+    """
+    if typology in TYPOLOGY_HEIGHT_CLASS:
+        return TYPOLOGY_HEIGHT_CLASS[typology]
+    if n_storeys is not None:
+        n = int(n_storeys)
+        if n <= STOREY_LOW_MAX:
+            return HEIGHT_CLASS_LOW
+        if n <= STOREY_MIDHIGH_MAX:
+            return HEIGHT_CLASS_MIDHIGH
+        return HEIGHT_CLASS_SKYSCRAPER
+    if H_m is not None:
+        h = float(H_m)
+        if h <= LOW_H_MAX_M:
+            return HEIGHT_CLASS_LOW
+        if h <= MIDHIGH_H_MAX_M:
+            return HEIGHT_CLASS_MIDHIGH
+        return HEIGHT_CLASS_SKYSCRAPER
+    return HEIGHT_CLASS_MIDHIGH
+
+
+#: level -> the level it degrades to when its class refuses it. F6 always
+#: steps down to F5c first (still gutted and gone, just not to the ground),
+#: F5c steps down to F5 (burnt-out, standing, no collapse at all) -- never
+#: straight to F0 and never outside `LEVELS`.
+_LEVEL_DEGRADE = {"F6": "F5c", "F5c": "F5"}
+
+#: class -> the levels that class's RANK CAP forbids outright.
+_CLASS_BANNED_LEVELS = {
+    HEIGHT_CLASS_LOW: frozenset(),
+    HEIGHT_CLASS_MIDHIGH: frozenset({"F6"}),
+    HEIGHT_CLASS_SKYSCRAPER: frozenset({"F5c", "F6"}),
+}
+
+
+def cap_level_for_class(level, cls):
+    """`level`, degraded along `_LEVEL_DEGRADE` until `cls`'s rank cap no
+    longer forbids it. A no-op for a `level`/`cls` combination the cap
+    already allows (including every level below F5c for every class)."""
+    banned = _CLASS_BANNED_LEVELS.get(cls, frozenset())
+    lvl = level
+    while lvl in banned and lvl in _LEVEL_DEGRADE:
+        lvl = _LEVEL_DEGRADE[lvl]
+    return lvl
+
+
+#: the two levels whose `urban_fire.LADDER` recipe actually breaches the
+#: shell (`partial_collapse`/`fire_collapse`) rather than just gutting it --
+#: see the module-docstring section above for why F5 is deliberately not a
+#: member.
+ROOF_LEVELS = frozenset({"F5c", "F6"})
+
+#: the one height class light-timber, joist-and-truss roof construction is
+#: common in -- the only class a `ROOF_LEVELS` outcome may ever be assigned
+#: to, regardless of what the rank cap alone would allow.
+ROOF_ELIGIBLE_CLASS = HEIGHT_CLASS_LOW
+
+
+def roof_eligible(cls):
+    """Whether `cls` may ever carry a `ROOF_LEVELS` outcome at all."""
+    return cls == ROOF_ELIGIBLE_CLASS
+
+
+def enforce_roof_eligibility(level, cls):
+    """`level`, forced to `"F5"` if it is a `ROOF_LEVELS` outcome `cls` is
+    not eligible for; a no-op for every other level/class combination.
+
+    Applying this AFTER `cap_level_for_class` is what makes `mid_high`'s own
+    "cap at F5c" ceiling rarely visible in a real manifest: the rank cap
+    still lets F6 degrade to F5c there (a real, independently-tested step),
+    and this then degrades that F5c the rest of the way to F5, because a
+    partial collapse is still roof-affecting and `mid_high` is not the
+    timber class. `skyscraper` never reaches this with a `ROOF_LEVELS` level
+    in hand at all -- its own rank cap already forbids both.
+    """
+    if level in ROOF_LEVELS and not roof_eligible(cls):
+        return "F5"
+    return level
+
+
 def check_levels_sync():
     """`LEVELS` here == `urban_fire.LEVELS` there, or a list of complaints.
 
@@ -439,7 +631,8 @@ def edges(buildings, wind_dir=0.0, wind_mps=5.0, rng=None,
 
 def solve(buildings, origin_idx, elapsed_s, wind_dir=0.0, wind_mps=5.0,
           rng=None, btype_of=None, collapse_p=COLLAPSE_P,
-          blocked=frozenset(), max_burnt=None, burnt_out_p=BURNT_OUT_P):
+          blocked=frozenset(), max_burnt=None, burnt_out_p=BURNT_OUT_P,
+          height_class_of=None):
     """Ignition time, level and entry point for every building.
 
     A Dijkstra relaxation from `origin_idx` over the edge set, with the
@@ -454,10 +647,24 @@ def solve(buildings, origin_idx, elapsed_s, wind_dir=0.0, wind_mps=5.0,
     `cap_to_prefix` — see there for why a prefix of the Dijkstra order is
     still one connected fire.
 
+    `height_class_of(building) -> one of HEIGHT_CLASSES`, if given, is
+    consulted per building and the RAW `level_for_age` result is degraded
+    with `cap_level_for_class` before it is returned — see the module
+    docstring's "HEIGHT CLASS" section. Without it, every building falls
+    back to `height_class(H_m=b.get("H"))` — the height-in-metres signal is
+    always available here (every building carries `"H"`), so a cap is
+    ALWAYS applied, just a less precise one than a caller with real typology
+    data can supply. This is the RANK CAP ONLY; roof-outcome ELIGIBILITY
+    (`enforce_roof_eligibility`) and the city-wide roof-outcome SHARE budget
+    are manifest-generation concerns (`urban_fire_city.damaged_manifest`)
+    and are not applied here — see the module docstring for why the two are
+    kept in separate places.
+
     Returns a list of dicts, one per building, in the same order:
         t_ignite   seconds from t=0 (`None` = never caught)
         age        `elapsed_s - t_ignite`
-        level      one of `LEVELS`
+        level      one of `LEVELS`, already capped by height class
+        height_class the class `level` was capped against
         via        which building lit it, or None for the origin
         how        attached / radiation / spot / origin
         entry_side S/E/N/W in the building's own frame
@@ -508,6 +715,9 @@ def solve(buildings, origin_idx, elapsed_s, wind_dir=0.0, wind_mps=5.0,
         bt = (btype_of(b) if btype_of else "urm")
         lvl = ("F0" if age is None
                else level_for_age(age, bt, rng, burnt_out_p, collapse_p))
+        cls = (height_class_of(b) if height_class_of is not None
+               else height_class(H_m=b.get("H")))
+        lvl = cap_level_for_class(lvl, cls)
         # --- where the fire got in ---------------------------------------
         side, frac = None, 0.25
         if via[k] is not None:
@@ -531,6 +741,7 @@ def solve(buildings, origin_idx, elapsed_s, wind_dir=0.0, wind_mps=5.0,
             side = None                    # drawn by the caller
             frac = 0.15                    # fires start low
         out.append({"i": k, "t_ignite": ti, "age": age, "level": lvl,
+                    "height_class": cls,
                     "via": via[k], "how": how[k], "entry_side": side,
                     "origin_frac": frac})
     if max_burnt is not None:
@@ -762,6 +973,112 @@ def check(verbose=True):
             st, sides))
     if len(entry_for_plan_fire(pl[2], 6)[1]) != 2:
         bad.append("F3+ should vent through two elevations")
+    # --- height class: typology is the source of truth --------------------
+    for typ, want in TYPOLOGY_HEIGHT_CLASS.items():
+        if height_class(typology=typ) != want:
+            bad.append("height_class({0!r}) should be {1!r}, got {2!r}".format(
+                typ, want, height_class(typology=typ)))
+    if height_class(typology="not_a_real_typology") != HEIGHT_CLASS_MIDHIGH:
+        bad.append("an unrecognised typology should fall through to storeys/H")
+    # --- height class: the storey fallback, at its own boundaries ---------
+    if height_class(n_storeys=STOREY_LOW_MAX) != HEIGHT_CLASS_LOW:
+        bad.append("STOREY_LOW_MAX itself should still be low")
+    if height_class(n_storeys=STOREY_LOW_MAX + 1) != HEIGHT_CLASS_MIDHIGH:
+        bad.append("just past STOREY_LOW_MAX should be mid_high")
+    if height_class(n_storeys=STOREY_MIDHIGH_MAX) != HEIGHT_CLASS_MIDHIGH:
+        bad.append("STOREY_MIDHIGH_MAX itself should still be mid_high")
+    if height_class(n_storeys=STOREY_MIDHIGH_MAX + 1) != HEIGHT_CLASS_SKYSCRAPER:
+        bad.append("just past STOREY_MIDHIGH_MAX should be skyscraper")
+    # --- height class: the metres fallback, at its own boundaries ---------
+    if height_class(H_m=LOW_H_MAX_M) != HEIGHT_CLASS_LOW:
+        bad.append("LOW_H_MAX_M itself should still be low")
+    if height_class(H_m=LOW_H_MAX_M + 0.1) != HEIGHT_CLASS_MIDHIGH:
+        bad.append("just past LOW_H_MAX_M should be mid_high")
+    if height_class(H_m=MIDHIGH_H_MAX_M) != HEIGHT_CLASS_MIDHIGH:
+        bad.append("MIDHIGH_H_MAX_M itself should still be mid_high")
+    if height_class(H_m=MIDHIGH_H_MAX_M + 0.1) != HEIGHT_CLASS_SKYSCRAPER:
+        bad.append("just past MIDHIGH_H_MAX_M should be skyscraper")
+    # --- height class: typology beats storeys beats H ----------------------
+    if height_class(typology="rowhouse", n_storeys=90, H_m=300.0) != HEIGHT_CLASS_LOW:
+        bad.append("typology should win over storeys/H when both are given")
+    if height_class(n_storeys=2, H_m=300.0) != HEIGHT_CLASS_LOW:
+        bad.append("storeys should win over H when both are given")
+    if height_class() != HEIGHT_CLASS_MIDHIGH:
+        bad.append("no signal at all should default to mid_high")
+    # --- the rank cap degrades, never drops to F0 --------------------------
+    if cap_level_for_class("F6", HEIGHT_CLASS_LOW) != "F6":
+        bad.append("low should never cap F6 (brownstones/rowhouses fully collapse)")
+    if cap_level_for_class("F5c", HEIGHT_CLASS_LOW) != "F5c":
+        bad.append("low should never cap F5c")
+    if cap_level_for_class("F6", HEIGHT_CLASS_MIDHIGH) != "F5c":
+        bad.append("mid_high should cap an old-age F6 down to F5c (partial "
+                   "collapse only), got {0}".format(
+                       cap_level_for_class("F6", HEIGHT_CLASS_MIDHIGH)))
+    if cap_level_for_class("F5c", HEIGHT_CLASS_MIDHIGH) != "F5c":
+        bad.append("mid_high's own rank cap should still allow F5c")
+    if cap_level_for_class("F6", HEIGHT_CLASS_SKYSCRAPER) != "F5":
+        bad.append("skyscraper should cap an old-age F6 all the way to F5 "
+                   "(fire only, never any collapse), got {0}".format(
+                       cap_level_for_class("F6", HEIGHT_CLASS_SKYSCRAPER)))
+    if cap_level_for_class("F5c", HEIGHT_CLASS_SKYSCRAPER) != "F5":
+        bad.append("skyscraper should cap F5c down to F5 too")
+    for lvl in ("F0", "F1", "F2", "F3", "F4", "F5"):
+        for cls in HEIGHT_CLASSES:
+            if cap_level_for_class(lvl, cls) != lvl:
+                bad.append("cap_level_for_class should never touch {0} for "
+                           "{1}".format(lvl, cls))
+    # --- roof eligibility: low only, and it degrades straight to F5 --------
+    if not roof_eligible(HEIGHT_CLASS_LOW):
+        bad.append("low should be roof-eligible")
+    if roof_eligible(HEIGHT_CLASS_MIDHIGH) or roof_eligible(HEIGHT_CLASS_SKYSCRAPER):
+        bad.append("only low should be roof-eligible")
+    if enforce_roof_eligibility("F6", HEIGHT_CLASS_LOW) != "F6":
+        bad.append("low keeps F6 under the roof-eligibility gate")
+    if enforce_roof_eligibility("F5c", HEIGHT_CLASS_LOW) != "F5c":
+        bad.append("low keeps F5c under the roof-eligibility gate")
+    if enforce_roof_eligibility("F5c", HEIGHT_CLASS_MIDHIGH) != "F5":
+        bad.append("mid_high's own F5c should be forced to F5 by roof "
+                   "eligibility -- never a roof-opening outcome outside low")
+    if enforce_roof_eligibility("F6", HEIGHT_CLASS_SKYSCRAPER) != "F5":
+        bad.append("skyscraper's F6 should be forced to F5 too")
+    for lvl in ("F0", "F1", "F2", "F3", "F4", "F5"):
+        for cls in HEIGHT_CLASSES:
+            if enforce_roof_eligibility(lvl, cls) != lvl:
+                bad.append("enforce_roof_eligibility should never touch a "
+                           "non-ROOF_LEVELS level ({0}, {1})".format(lvl, cls))
+    # --- the cap wired end to end through solve() ---------------------------
+    # three buildings 500 m apart -- far beyond every spread mechanism's
+    # reach (attached 1.2 m, radiation 13 m, spot 55 m) -- so `edges()` finds
+    # nothing between them and consumes NO rng draws; each is soloed as its
+    # own origin so only ITS OWN age decides its level. `collapse_p=0.0,
+    # burnt_out_p=1.0` makes the T_COLD urm branch of `level_for_age`
+    # deterministically F6 for ANY rng (the F5c coin can never hit 0.0, the
+    # F6 coin can never miss 1.0) -- this is what "an old-age skyscraper
+    # gets F5, an old-age midrise F5c, an old-age brownstone F6" actually
+    # means end to end: the RAW level is F6 for all three, and only the
+    # height-class cap tells them apart.
+    cap_bs = [{"x": 0.0, "y": 0.0, "W": 20.0, "D": 15.0, "yaw": 0.0, "H": 14.0,
+              "style": "brownstone"},
+             {"x": 500.0, "y": 0.0, "W": 20.0, "D": 15.0, "yaw": 0.0, "H": 14.0,
+              "style": "midrise"},
+             {"x": 1000.0, "y": 0.0, "W": 20.0, "D": 15.0, "yaw": 0.0, "H": 14.0,
+              "style": "skyscraper"}]
+    cap_cls = {"brownstone": HEIGHT_CLASS_LOW, "midrise": HEIGHT_CLASS_MIDHIGH,
+              "skyscraper": HEIGHT_CLASS_SKYSCRAPER}
+    for i, want_level, want_cls in ((0, "F6", HEIGHT_CLASS_LOW),
+                                    (1, "F5c", HEIGHT_CLASS_MIDHIGH),
+                                    (2, "F5", HEIGHT_CLASS_SKYSCRAPER)):
+        solo = solve(cap_bs, i, 220 * 60, wind_dir=0.0, wind_mps=0.0,
+                    rng=random.Random(1), collapse_p=0.0, burnt_out_p=1.0,
+                    height_class_of=lambda b: cap_cls[b["style"]])
+        if solo[i]["level"] != want_level:
+            bad.append("solve() height-class cap: building {0} ({1}) at "
+                       "T+220 min should be {2}, got {3}".format(
+                           i, want_cls, want_level, solo[i]["level"]))
+        if solo[i]["height_class"] != want_cls:
+            bad.append("solve() did not record height_class {0} for "
+                       "building {1}, got {2}".format(
+                           want_cls, i, solo[i]["height_class"]))
     if verbose:
         print("[urban_fire_spread] check {0}".format("ok" if not bad else "FAILED"))
         for b in bad:

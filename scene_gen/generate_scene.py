@@ -305,6 +305,13 @@ def generate_scene_on_stage(stage,
     # the process sees a patched generator.
     with city_layout.patched(config):
         placements, layout = sg.build_city(config, resolver)
+        # SAME STASH `scene_generator.generate_scene_on_stage` makes — the
+        # launchers import THIS wrapper (urban_fire_city_launch_script line
+        # ~245), and its dump writer reads `config["_city_layout"]` for the
+        # typology blocks. Without it the fire-city dump shipped
+        # `typology.blocks: []` and every candidate was refused as "outside
+        # every zoned block" (fire_city_500b blocker, 2026-08-31).
+        config["_city_layout"] = layout
     base_counts = _tally(placements)
 
     district_at, rings = districts.assign(config, layout)
@@ -348,8 +355,42 @@ def generate_scene_on_stage(stage,
                                               resolver=resolver)
 
     ground_snap = sg._make_physx_ground_snap() if snap_to_ground else None
+    # OPT-IN INSTANCING, per preset (`instance_placements: true`). The 500 m
+    # fire city composes 66,590 placements of 87 unique USDs; un-instanced,
+    # Kit paid ~39 GB RSS for the composition and the kernel OOM-killed it
+    # twice (2026-08-31). Opt-in and not default because two pipelines edit
+    # INSIDE placed assets, which USD forbids on instances: `prune_prims`
+    # below (its rules are matched here and their categories excluded), and
+    # the wildfire path's burnable-fence/prop passes (those presets simply
+    # do not set the key). The fire city's vegetation-scorch pass
+    # de-instances its own targets before editing.
+    inst_cats = None
+    _inst = config.get("instance_placements")
+    if _inst is None:
+        # env override — the launchers reach this site through more than one
+        # config-loading path and not all of them preserve unknown preset
+        # keys (OOM #3, 2026-08-31: the key set in downtown_fire_500.yaml
+        # never arrived here). SG_INSTANCE_PLACEMENTS=1 works regardless.
+        _inst = os.environ.get("SG_INSTANCE_PLACEMENTS", "") in ("1", "true")
+    if _inst:
+        _rules = list(config.get("prune_prims") or [])
+        # presets also nest the rules under `overrides:` (downtown_fire_500
+        # line ~886) — read both homes so the excluded category cannot
+        # depend on whether a loader hoisted the section
+        _rules += list((config.get("overrides") or {}).get("prune_prims")
+                       or [])
+        needles = [str(r.get("usd_contains", "")) for r in _rules
+                   if r.get("usd_contains")]
+        cats_all = {p.get("category") for p in placements if p.get("category")}
+        cats_block = {p.get("category") for p in placements
+                      if any(n in str(p.get("usd", "")) for n in needles)}
+        inst_cats = cats_all - cats_block
+        print("[scene] instance_placements: {0} categor(ies) instanced, "
+              "{1} excluded by prune rules".format(
+                  len(inst_cats), len(cats_block & cats_all)))
     sg.apply_placements(stage, placements, parent_path, scene_scale_factor,
-                        ground_snap, resolver=resolver)
+                        ground_snap, resolver=resolver,
+                        instance_categories=inst_cats)
     # After apply_placements, which is what assigns each placement its prim_path.
     prune_prims(stage, config, placements)
     stamp_asset_provenance(

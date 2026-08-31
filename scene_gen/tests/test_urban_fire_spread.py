@@ -491,6 +491,130 @@ def test_same_seed_same_plan_and_unrelated_draws_do_not_leak():
     _assert_connected(p1, o1)
 
 
+# ---------------------------------------------------------------------------
+# 8. height class: who is allowed to collapse, and whose roof may open
+#
+# 2026-08-31 policy, superseding the earlier blanket "no fire in skyscraper
+# districts": collapse eligibility is by HEIGHT CLASS, not a per-district
+# fire ban --
+#   low         rowhouse/lowrise      -- full collapse stands (F6, F5c ok)
+#   mid_high    midrise/brick_midrise/tower/highrise -- PARTIAL collapse
+#               only (cap F5c, never F6)
+#   skyscraper  -- fire only, never any collapse (cap F5, never F5c/F6)
+# `tower`/`highrise` are grouped as `skyscraper` here: they were BOTH
+# `urban_fire_city.NO_FIRE_TYPOLOGIES` before this policy (fire banned
+# outright), and their measured height pools genuinely overlap (tower
+# 44.7-131 m, highrise 103.7-312 m) so splitting them by height instead of
+# by typology name would be ambiguous exactly where it matters.
+# ---------------------------------------------------------------------------
+def test_height_class_typology_is_the_source_of_truth():
+    assert ufs.height_class(typology="rowhouse") == ufs.HEIGHT_CLASS_LOW
+    assert ufs.height_class(typology="lowrise") == ufs.HEIGHT_CLASS_LOW
+    assert ufs.height_class(typology="midrise") == ufs.HEIGHT_CLASS_MIDHIGH
+    assert ufs.height_class(typology="brick_midrise") == ufs.HEIGHT_CLASS_MIDHIGH
+    assert ufs.height_class(typology="tower") == ufs.HEIGHT_CLASS_SKYSCRAPER
+    assert ufs.height_class(typology="highrise") == ufs.HEIGHT_CLASS_SKYSCRAPER
+    # typology wins even when storeys/H would disagree
+    assert ufs.height_class(typology="rowhouse", n_storeys=90,
+                            H_m=300.0) == ufs.HEIGHT_CLASS_LOW
+
+
+def test_height_class_storey_and_metre_fallbacks_at_their_boundaries():
+    assert ufs.height_class(n_storeys=ufs.STOREY_LOW_MAX) == ufs.HEIGHT_CLASS_LOW
+    assert ufs.height_class(
+        n_storeys=ufs.STOREY_LOW_MAX + 1) == ufs.HEIGHT_CLASS_MIDHIGH
+    assert ufs.height_class(
+        n_storeys=ufs.STOREY_MIDHIGH_MAX) == ufs.HEIGHT_CLASS_MIDHIGH
+    assert ufs.height_class(
+        n_storeys=ufs.STOREY_MIDHIGH_MAX + 1) == ufs.HEIGHT_CLASS_SKYSCRAPER
+    assert ufs.height_class(H_m=ufs.LOW_H_MAX_M) == ufs.HEIGHT_CLASS_LOW
+    assert ufs.height_class(H_m=ufs.LOW_H_MAX_M + 0.1) == ufs.HEIGHT_CLASS_MIDHIGH
+    assert ufs.height_class(H_m=ufs.MIDHIGH_H_MAX_M) == ufs.HEIGHT_CLASS_MIDHIGH
+    assert ufs.height_class(
+        H_m=ufs.MIDHIGH_H_MAX_M + 0.1) == ufs.HEIGHT_CLASS_SKYSCRAPER
+    # storeys wins over H when both are given, with no typology
+    assert ufs.height_class(n_storeys=2, H_m=300.0) == ufs.HEIGHT_CLASS_LOW
+    # nothing given at all -> the conservative middle, not "low"
+    assert ufs.height_class() == ufs.HEIGHT_CLASS_MIDHIGH
+    assert ufs.height_class(typology="not_a_real_typology") == ufs.HEIGHT_CLASS_MIDHIGH
+
+
+def test_cap_level_for_class_degrades_never_drops_to_f0():
+    # low: full collapse stands
+    assert ufs.cap_level_for_class("F6", ufs.HEIGHT_CLASS_LOW) == "F6"
+    assert ufs.cap_level_for_class("F5c", ufs.HEIGHT_CLASS_LOW) == "F5c"
+    # mid_high: partial collapse only -- F6 degrades one step, to F5c
+    assert ufs.cap_level_for_class("F6", ufs.HEIGHT_CLASS_MIDHIGH) == "F5c"
+    assert ufs.cap_level_for_class("F5c", ufs.HEIGHT_CLASS_MIDHIGH) == "F5c"
+    # skyscraper: fire only -- F6 degrades two steps, all the way to F5
+    assert ufs.cap_level_for_class("F6", ufs.HEIGHT_CLASS_SKYSCRAPER) == "F5"
+    assert ufs.cap_level_for_class("F5c", ufs.HEIGHT_CLASS_SKYSCRAPER) == "F5"
+    # never touches anything below F5c, for any class
+    for lvl in ("F0", "F1", "F2", "F3", "F4", "F5"):
+        for cls in ufs.HEIGHT_CLASSES:
+            assert ufs.cap_level_for_class(lvl, cls) == lvl
+
+
+def test_roof_eligibility_is_low_only_and_degrades_to_f5():
+    assert ufs.roof_eligible(ufs.HEIGHT_CLASS_LOW)
+    assert not ufs.roof_eligible(ufs.HEIGHT_CLASS_MIDHIGH)
+    assert not ufs.roof_eligible(ufs.HEIGHT_CLASS_SKYSCRAPER)
+    # low keeps both roof-affecting outcomes
+    assert ufs.enforce_roof_eligibility("F6", ufs.HEIGHT_CLASS_LOW) == "F6"
+    assert ufs.enforce_roof_eligibility("F5c", ufs.HEIGHT_CLASS_LOW) == "F5c"
+    # mid_high/skyscraper: NEVER a roof-opening outcome, regardless of what
+    # the rank cap alone would have allowed (mid_high's own cap permits
+    # F5c -- this is the policy that says it should not actually show it)
+    for cls in (ufs.HEIGHT_CLASS_MIDHIGH, ufs.HEIGHT_CLASS_SKYSCRAPER):
+        assert ufs.enforce_roof_eligibility("F5c", cls) == "F5"
+        assert ufs.enforce_roof_eligibility("F6", cls) == "F5"
+    # never touches a non-ROOF_LEVELS level
+    for lvl in ("F0", "F1", "F2", "F3", "F4", "F5"):
+        for cls in ufs.HEIGHT_CLASSES:
+            assert ufs.enforce_roof_eligibility(lvl, cls) == lvl
+
+
+def test_solve_applies_the_rank_cap_end_to_end():
+    """An old-age skyscraper gets F5, an old-age midrise F5c, an old-age
+    brownstone F6 -- `solve()` applies ONLY the rank cap (not roof
+    eligibility, which is a manifest-generation concern -- see
+    `urban_fire_city.damaged_manifest`), so this exercises `cap_level_for_
+    class` wired through `height_class_of` rather than `enforce_roof_
+    eligibility`. `collapse_p=0.0, burnt_out_p=1.0` forces the raw,
+    uncapped level to F6 deterministically for any rng: the F5c coin can
+    never hit 0.0 and the F6 coin can never miss 1.0."""
+    bs = [{"x": 0.0, "y": 0.0, "W": 20.0, "D": 15.0, "yaw": 0.0, "H": 14.0,
+          "style": "brownstone"},
+         {"x": 500.0, "y": 0.0, "W": 20.0, "D": 15.0, "yaw": 0.0, "H": 14.0,
+          "style": "midrise"},
+         {"x": 1000.0, "y": 0.0, "W": 20.0, "D": 15.0, "yaw": 0.0, "H": 14.0,
+          "style": "skyscraper"}]
+    cls_of = {"brownstone": ufs.HEIGHT_CLASS_LOW,
+             "midrise": ufs.HEIGHT_CLASS_MIDHIGH,
+             "skyscraper": ufs.HEIGHT_CLASS_SKYSCRAPER}
+    for i, want_level, want_cls in (
+            (0, "F6", ufs.HEIGHT_CLASS_LOW),
+            (1, "F5c", ufs.HEIGHT_CLASS_MIDHIGH),
+            (2, "F5", ufs.HEIGHT_CLASS_SKYSCRAPER)):
+        plan = ufs.solve(bs, i, 220 * MIN, wind_dir=0.0, wind_mps=0.0,
+                         rng=random.Random(1), collapse_p=0.0, burnt_out_p=1.0,
+                         height_class_of=lambda b: cls_of[b["style"]])
+        assert plan[i]["level"] == want_level, (i, plan[i])
+        assert plan[i]["height_class"] == want_cls
+
+
+def test_solve_height_class_default_fallback_uses_h_metres():
+    """No `height_class_of` given -> `solve()` falls back to `height_class(
+    H_m=b["H"])` per building, so a tall building still caps itself even
+    when the caller has no typology to hand it."""
+    bs = [{"x": 0.0, "y": 0.0, "W": 20.0, "D": 15.0, "yaw": 0.0, "H": 14.0},
+         {"x": 500.0, "y": 0.0, "W": 20.0, "D": 15.0, "yaw": 0.0, "H": 200.0}]
+    plan = ufs.solve(bs, 1, 220 * MIN, wind_dir=0.0, wind_mps=0.0,
+                     rng=random.Random(1), collapse_p=0.0, burnt_out_p=1.0)
+    assert plan[1]["height_class"] == ufs.HEIGHT_CLASS_SKYSCRAPER
+    assert plan[1]["level"] == "F5"
+
+
 def test_module_check_is_clean():
     assert ufs.check(verbose=False) == []
 

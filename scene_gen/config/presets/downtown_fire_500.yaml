@@ -74,6 +74,13 @@ region_m: [500, 500]
 # per-building spread table this preset reproduces.
 seed: 4
 
+# INSTANCE THE PLACEMENTS. 66,590 placements of 87 unique USDs composed
+# un-instanced cost Kit ~39 GB RSS and the kernel killed the build twice
+# (2026-08-31). Opt-in per preset: categories whose assets match a
+# prune_prims rule are excluded automatically at the apply site, and the
+# vegetation-scorch pass de-instances its own targets before editing.
+instance_placements: true
+
 # ---- FIRE (urban_fire_spread / urban_fire_city, NOT compile_wildfire) ------
 # Same five key NAMES `compile_wildfire` uses (compile_disaster.py:842-905)
 # for the same physical quantities — origin, wind heading, wind speed, how
@@ -107,7 +114,7 @@ wind_mps: 4.0
 # the DETERMINISTIC branch (`urm`, `age >= T_COLD`) and >= 8400 s before ANY
 # building can be F5c (the STOCHASTIC `collapse_p` branch, `age >= T_OUT`,
 # available to `urm` and `rc` alike).
-duration_s: 14400
+duration_s: 28800
 # 0.70 x 14400 s = 10080 s (168 min) elapsed when the scene opens — past
 # `T_OUT` (140 min, so the origin's `collapse_p` draw is live) but BELOW
 # `T_COLD` (200 min). MEASURED, not guessed, at the seed-4 topology above:

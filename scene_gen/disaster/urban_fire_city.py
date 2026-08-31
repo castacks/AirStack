@@ -3,7 +3,7 @@ mapper for the 500 m urban fire (`scene_gen/_plans/urban_fire_city_plan.md`,
 work item #3 of its `## 6. Work breakdown`).
 
 Pure python, no `pxr` at import time (checked: this module's own top-level
-imports are `os`, `sys` only) — every sibling `disaster.*` module it needs
+imports are `os`, `random`, `sys` only) — every sibling `disaster.*` module it needs
 (`gac_fire`, `kit_substitute`, `fire_bake`) is imported LAZILY, inside the
 function that needs it, for the same reason `kit_substitute.py` does its own
 lazy imports: `gac_fire` pulls in `numpy` at module scope, and importing this
@@ -24,18 +24,14 @@ spread solve (elsewhere) has decided WHICH candidates actually ignite and
 WHEN, turn that into the plan's JSON manifest schema (plan section 2) and
 into `fire_bake.sh` entry strings.
 
-THE FOUR GATES, IN ORDER (plan section 1). `burnable()` applies exactly these,
-and stops at the first one that fails — a placement refused at gate 2 never
-reaches `kit_substitute.route()` at gate 3, so a district-excluded tower is
-never even asked whether it CAN be baked:
+THE FIVE GATES, IN ORDER (plan section 1; gate 2 is NARROWER than it used to
+be, gate 5 is NEW — see below). `burnable()` applies exactly these, and
+stops at the first one that fails:
 
   1. `placement["category"] == "house"` — only building placements are
      candidates at all (street furniture, trees, vehicles, debris are not).
-  2. `typology_at(layout, x, y)` is not `None` and not in `NO_FIRE_TYPOLOGIES`
-     — off the block map entirely (a street, a park, an unzoned cell) or
-     inside a skyscraper district refuses here. THE NO-FIRE RULE LIVES ON THE
-     BLOCK, NOT ON THE ASSET — a lowrise-district GAC tower burns; the same
-     asset inside a `tower`/`highrise` block does not.
+  2. `typology_at(layout, x, y)` is not `None` — off the block map entirely
+     (a street, a park, an unzoned cell) refuses here.
   3. `kit_substitute.route(usd, W, D, H, btype)[0] in ("kit", "slice")` — a
      `('skip', reason)` from `route()` refuses here with route's own reason:
      Muyang DownTown (`unburnable()`) and a `same_art` MCE merged asset with
@@ -47,19 +43,50 @@ never even asked whether it CAN be baked:
      `fire_bake.KINDS` entry (`gac_fire.gac_fire`'s per-building bake). The
      rest are refused here, WITH A REASON — never silently dropped, the same
      discipline `kit_substitute.route`'s own docstring insists on.
+  5. `_pack_blacklist_reason(kind, name)` is `None` (2026-08-31) — the
+     resolved `gac`/`dtc` asset NAME is not one of `gac_fire.PACKS[kind]
+     ["blacklist"]`'s prefixes (`dtc`: `"Carved_"`, `"Building_11"` — a
+     user dislike, not a routing/bake defect, so it belongs after gates 3/4
+     have already proven the asset CAN be baked). BLACKLISTED BUILDINGS ARE
+     FIREBREAKS, NOT MISSING CANDIDATES: refusing them here means they never
+     enter `urban_fire_spread.solve()`'s graph at all, so a fire routes
+     AROUND one instead of being asked to light it — the same "not on the
+     graph" discipline `solve()`'s own `blocked` set already uses for a
+     no-fire district, reused here for a no-fire ASSET. Was previously
+     enforced ONLY by a bench row picker (never by the city path), which is
+     how three `dtc:Building_11` records reached a live bake manifest
+     despite the pack table already naming it.
 
-`NO_FIRE_ASSETS` (via `no_fire_assets(config)`) is a BACKSTOP, not a fifth
-gate of `burnable()`: it names the `tower`/`highrise` pool assets by their own
-basename, for a caller (the dry run, the city launcher) that wants to keep an
-asset out of IGNITION CONSIDERATION entirely — e.g. before feeding a
-`buildings` list to `urban_fire_spread.solve` — even against a `bleed: 0.12`
-re-roll that could otherwise plant a `tower`/`highrise` pool asset on a
-lowrise block. `burnable()` itself does not need it: gate 2 already refuses
-every placement actually standing in a `tower`/`highrise` block regardless of
-which asset it is.
+WHERE THE OLD GATE 2 WENT — HEIGHT CLASS, NOT A DISTRICT BAN (user policy,
+2026-08-31, superseding the earlier blanket "no fire in skyscraper
+districts"). Gate 2 used to ALSO refuse `typology_at(...) in
+NO_FIRE_TYPOLOGIES` ("tower"/"highrise") — a tower or highrise district
+could never catch fire at all. That blanket ban is LIFTED: every typology may
+now ignite. What replaces it is a COLLAPSE CAP by height class, applied
+downstream in `damaged_manifest` (not here — `burnable()` only decides
+whether a placement is a candidate, never what LEVEL it ends up at):
+`rowhouse`/`lowrise` may fully collapse (F6, F5c); `midrise`/`brick_midrise`
+may only partially collapse (F5c, never F6); `tower`/`highrise` — grouped as
+one `"skyscraper"` height class, both being the old ban list and their
+measured height pools genuinely overlapping — may catch fire but never
+collapse at all, not even partially (cap F5, never F5c/F6). See
+`disaster.urban_fire_spread`'s "HEIGHT CLASS" docstring section
+(`height_class`, `cap_level_for_class`, `enforce_roof_eligibility`) for the
+full policy, including the SEPARATE, stricter "roof-affecting outcomes are
+rare and low-rise/timber-only" rule `damaged_manifest` also applies there.
+
+`NO_FIRE_TYPOLOGIES` is kept, now EMPTY, purely so `urban_fire_city_
+launch_script.py`'s own re-assertion (`t in ufc.NO_FIRE_TYPOLOGIES`) — a
+caller this work does not edit — keeps evaluating "no violation" instead of
+breaking or raising. (`fire_city_dry_run.check_district_rule` is NOT that
+caller: it is rewritten to check the new height-class invariant directly
+and no longer reads this constant at all.) `SKYSCRAPER_TYPOLOGIES` is the
+real, non-empty set the height-class policy above actually uses;
+`no_fire_assets()` now reads from it.
 """
 
 import os
+import random
 import sys
 
 # ---------------------------------------------------------------------------
@@ -79,10 +106,29 @@ def _ensure_scene_gen_on_path():
 
 
 # ---------------------------------------------------------------------------
-# The district rule
+# The district rule — see the module docstring's "WHERE THE OLD GATE 2 WENT"
 # ---------------------------------------------------------------------------
-#: the skyscraper districts — see the module docstring's gate 2.
-NO_FIRE_TYPOLOGIES = ("tower", "highrise")
+#: LEGACY name. EMPTY as of 2026-08-31: the blanket "no fire at all in a
+#: tower/highrise block" this used to name is gone (replaced by the height-
+#: class collapse cap in `disaster.urban_fire_spread` / `damaged_manifest`
+#: below). Left as a real, empty tuple — not deleted, not renamed — purely
+#: so `urban_fire_city_launch_script.py`'s own re-assertion (`t in ufc.
+#: NO_FIRE_TYPOLOGIES`), a caller this work does not edit, keeps evaluating
+#: "no violation" rather than breaking. `burnable()` never reads this, and
+#: neither does `fire_city_dry_run.check_district_rule` any more (it now
+#: checks the height-class invariant directly); `SKYSCRAPER_TYPOLOGIES`
+#: below is the real, non-empty set the current policy uses.
+NO_FIRE_TYPOLOGIES = ()
+
+#: the SKYSCRAPER height class's district typologies (`disaster.
+#: urban_fire_spread.TYPOLOGY_HEIGHT_CLASS`) — exactly the set
+#: `NO_FIRE_TYPOLOGIES` held before the blanket fire ban was lifted. Grouped
+#: together (rather than split "tower" into `mid_high`) because their
+#: MEASURED height pools overlap — tower 44.7-131 m, highrise 103.7-312 m —
+#: so splitting them by height instead of by typology name would be
+#: ambiguous exactly where it matters; both are also "fire only, never any
+#: collapse" under the new policy, so they share one class either way.
+SKYSCRAPER_TYPOLOGIES = ("tower", "highrise")
 
 #: Fallback basenames (no extension) of the `tower`/`highrise` `usds.buildings`
 #: pools, current as of `config/asset_sets/urban_gac.yaml` (2026-08-30) — used
@@ -115,11 +161,20 @@ def _asset_basename(url):
 
 def no_fire_assets(config):
     """Basenames of every asset in `config`'s `tower`/`highrise`
-    `usds.buildings` pools — READ AT CALL TIME from the compiled preset
-    (`config["usds"]["buildings"][typ]`, a list of plain URL strings or
-    `{"usd": url, ...}` dicts — the same shapes `_normalize_usd_list` /
-    `_pool_entries` accept), never a hardcoded snapshot: a preset that adds or
-    retires a tower model is picked up on the next call with no code change.
+    (`SKYSCRAPER_TYPOLOGIES`) `usds.buildings` pools — READ AT CALL TIME from
+    the compiled preset (`config["usds"]["buildings"][typ]`, a list of plain
+    URL strings or `{"usd": url, ...}` dicts — the same shapes
+    `_normalize_usd_list` / `_pool_entries` accept), never a hardcoded
+    snapshot: a preset that adds or retires a tower model is picked up on
+    the next call with no code change.
+
+    NAME KEPT FOR BACKWARD COMPATIBILITY; the MEANING has moved with the
+    2026-08-31 policy — these two typologies are no longer fire-excluded
+    (see the module docstring), just capped to the `skyscraper` height class
+    (fire only, never any collapse). A caller that still wants "every
+    basename in the skyscraper pools" (e.g. to identify them for the
+    collapse cap, or for some other skyscraper-specific handling) gets
+    exactly that; nothing calls this to gate ignition any more.
 
     Falls back to `FALLBACK_NO_FIRE_ASSETS` when neither pool is present or
     both are empty (a synthetic config, or an asset set with no such pools) —
@@ -128,7 +183,7 @@ def no_fire_assets(config):
     """
     buildings = ((config or {}).get("usds") or {}).get("buildings") or {}
     out = set()
-    for typ in NO_FIRE_TYPOLOGIES:
+    for typ in SKYSCRAPER_TYPOLOGIES:
         for entry in (buildings.get(typ) or ()):
             url = entry.get("usd") if isinstance(entry, dict) else entry
             if url:
@@ -232,11 +287,57 @@ def _lookup_wdh(size_of, usd):
     return W, D, H
 
 
+def _pack_blacklist_reason(kind, name):
+    """`reason` (a non-empty string) if `name` is blacklisted in its OWN
+    pack (`gac_fire.PACKS[kind]["blacklist"]`, a tuple of PREFIXES -- see
+    that table's own comment: "the Carved_* blocks read as the same
+    building ... never pick them for a fire row OR A CITY POOL"), else
+    `None`.
+
+    2026-08-31: the user blacklisted `Building_11` the same way ("I don't
+    like that building"); `PACKS["dtc"]["blacklist"]` already carried both
+    prefixes, but only a BENCH row picker ever consulted it -- the CITY
+    path (`burnable()`/`kit_substitute.route()`) had no gate for it at all,
+    so a `dtc:Building_11` placement sailed straight into the manifest.
+    Reads `PACKS` LIVE from `gac_fire` (lazy import, same convention
+    `bake_kind()` already uses) rather than duplicating the tuples here --
+    a pack that adds or retires a blacklist entry is picked up with no code
+    change on this side. `kind`s with no `"blacklist"` entry at all (`gac`,
+    `kit`) always return `None`: prefix-matching a style name against a
+    pack table that was never meant to cover it is not this function's
+    job.
+    """
+    _ensure_scene_gen_on_path()
+    from disaster import gac_fire as gf
+
+    prefixes = (gf.PACKS.get(kind) or {}).get("blacklist") or ()
+    name = str(name or "")
+    for pfx in prefixes:
+        if name.startswith(pfx):
+            return ("asset blacklisted in its pack ({0!r} matches the "
+                    "{1!r} prefix in PACKS[{2!r}]['blacklist'], gac_fire.py) "
+                    "-- refused as a firebreak, never picked for ignition"
+                    .format(name, pfx, kind))
+    return None
+
+
 def burnable(layout, placement, size_of):
-    """`(True, record)` | `(False, reason)` — the four gates of plan section 1,
-    applied in order; see the module docstring. `size_of(usd) -> (W, D, H)`
-    (or a `{usd: (W, D, H)}` dict) is injected rather than measured here, so
+    """`(True, record)` | `(False, reason)` — the five gates of plan
+    section 1 (gate 5 added 2026-08-31, the pack blacklist), applied in
+    order; see the module docstring. `size_of(usd) -> (W, D, H)` (or a
+    `{usd: (W, D, H)}` dict) is injected rather than measured here, so
     this function stays pure python.
+
+    EVERY TYPOLOGY IS A CANDIDATE, INCLUDING `tower`/`highrise` — the
+    blanket district-wide fire ban is LIFTED (2026-08-31 policy; see the
+    module docstring's "WHERE THE OLD GATE 2 WENT"). What used to be gate
+    2's second half (`typ in NO_FIRE_TYPOLOGIES`) is gone; a `tower`/
+    `highrise` placement now only has to clear the SAME three gates every
+    other typology does. The collapse cap that replaces the ban is a LEVEL
+    policy (`disaster.urban_fire_spread.cap_level_for_class` /
+    `enforce_roof_eligibility`), applied downstream in `damaged_manifest` —
+    this function only ever decides candidacy, never level, so it has
+    nothing to enforce here.
 
     On success, `record` carries the STATIC facts about the building — the
     geometry and the bake routing — that `damaged_manifest` later merges with
@@ -259,9 +360,6 @@ def burnable(layout, placement, size_of):
     if typ is None:
         return False, ("outside every zoned block (street/park/unzoned) at "
                         "({0:.1f}, {1:.1f})".format(x, y))
-    if typ in NO_FIRE_TYPOLOGIES:
-        return False, ("in a no-fire district ({0!r}) -- the skyscraper "
-                        "districts stay untouched".format(typ))
 
     _ensure_scene_gen_on_path()
     from disaster import kit_substitute as ks
@@ -276,6 +374,11 @@ def burnable(layout, placement, size_of):
     kind, name_or_reason = bake_kind(usd, W, D, H, btype)
     if kind is None:
         return False, name_or_reason
+
+    blacklist_reason = _pack_blacklist_reason(
+        kind, name_or_reason if kind in ("gac", "dtc") else None)
+    if blacklist_reason is not None:
+        return False, blacklist_reason
 
     record = {
         "usd": usd, "x": x, "y": y,
@@ -293,7 +396,15 @@ def burnable(layout, placement, size_of):
 # ---------------------------------------------------------------------------
 # The manifest -- static burnable() facts + the spread solve's own results
 # ---------------------------------------------------------------------------
-def damaged_manifest(layout, placements, plan_records, seed_base):
+#: default for `damaged_manifest`'s `roof_collapse_max` -- see that
+#: function's docstring and `disaster.urban_fire_spread`'s "HEIGHT CLASS"
+#: section. Sized to a ~26-building city manifest (`downtown_fire_500`'s own
+#: `--n`); a caller solving a very different scale should pass its own.
+ROOF_COLLAPSE_MAX_DEFAULT = 2
+
+
+def damaged_manifest(layout, placements, plan_records, seed_base,
+                     roof_collapse_max=ROOF_COLLAPSE_MAX_DEFAULT):
     """`(manifest, refused)` -- plan section 2's JSON schema, assembled from
     `placements` (the city's own placement list; supplies geometry and
     `cell`) and `plan_records` (the spread solve's per-building results; one
@@ -315,6 +426,41 @@ def damaged_manifest(layout, placements, plan_records, seed_base):
     THE OUTPUT MANIFEST (0-based) -- `fire_bake.parse_entry`'s own convention
     for its `index` argument, so bake `i` of this manifest reproduces the same
     draw a per-building re-bake of manifest entry `i` would.
+
+    THIS IS THE AUTHORITATIVE GATE FOR THE HEIGHT-CLASS POLICY (`disaster.
+    urban_fire_spread`'s "HEIGHT CLASS" docstring section) -- re-applied here
+    rather than trusted from whatever `plan_records["level"]` says, for the
+    same reason `burnable()` is re-run rather than trusted: a manifest built
+    from a stale or hand-edited plan must still come out honest. Two layers,
+    in order, using EACH RECORD'S OWN `typology` (the field `burnable()` just
+    put on it, always present for a real gate-2 pass):
+
+      1. THE RANK CAP (`urban_fire_spread.cap_level_for_class`) -- a `low`
+         building may fully collapse, `mid_high` only partially (never F6),
+         `skyscraper` never at all (cap F5).
+      2. ROOF ELIGIBILITY (`urban_fire_spread.enforce_roof_eligibility`) --
+         `F5c`/`F6` (`ROOF_LEVELS`) are further restricted to the `low`
+         class ONLY, regardless of what the rank cap alone would still
+         allow (this is what makes `mid_high`'s own F5c ceiling rarely
+         reached in practice: a real fire there degrades one step under
+         the rank cap, F6 -> F5c, and then a second step here, F5c -> F5).
+      3. THE ROOF-OUTCOME SHARE BUDGET (`roof_collapse_max`, default
+         `ROOF_COLLAPSE_MAX_DEFAULT`) -- roof collapse must stay RARE across
+         the whole city, not just restricted to the timber class: at most
+         `roof_collapse_max` records in the OUTPUT manifest may show a
+         `ROOF_LEVELS` outcome at all. Selection is a DETERMINISTIC choice
+         seeded off `seed_base` (so a given plan always produces the same
+         manifest) that prefers the fire's own ORIGIN first (`via is None`,
+         matching `fire_city_dry_run._enforce_target_f5c`'s "prefer the
+         origin" convention) and then fills the rest of the budget with a
+         seeded shuffle of the remaining eligible records; anyone left over
+         degrades to `"F5"` -- never to F0, and never silently dropped from
+         the manifest.
+
+    Every degradation from either layer is recorded verbatim on the entry
+    (`entry["level"]` is the FINAL, capped value); `entry["height_class"]`
+    names which class did the capping, for a reader (the markdown report,
+    a test) that wants to show the "before" without re-deriving it.
     """
     manifest, refused = [], []
     for rec in (plan_records or []):
@@ -345,7 +491,37 @@ def damaged_manifest(layout, placements, plan_records, seed_base):
         entry["how"] = rec.get("how")
         entry["seed"] = int(seed_base) + 31 * len(manifest)
         manifest.append(entry)
+
+    _apply_height_class_policy(manifest, seed_base, roof_collapse_max)
     return manifest, refused
+
+
+def _apply_height_class_policy(manifest, seed_base, roof_collapse_max):
+    """Mutates `manifest` IN PLACE: the rank cap, then roof eligibility,
+    then the roof-outcome share budget -- see `damaged_manifest`'s own
+    docstring for what each layer does and why they run in this order."""
+    _ensure_scene_gen_on_path()
+    from disaster import urban_fire_spread as ufs
+
+    for entry in manifest:
+        cls = ufs.height_class(typology=entry.get("typology"))
+        entry["height_class"] = cls
+        entry["level"] = ufs.cap_level_for_class(entry["level"], cls)
+        entry["level"] = ufs.enforce_roof_eligibility(entry["level"], cls)
+
+    if roof_collapse_max is None:
+        return
+    eligible = [e for e in manifest if e["level"] in ufs.ROOF_LEVELS]
+    if len(eligible) <= roof_collapse_max:
+        return
+    origin_first = [e for e in eligible if e.get("via") is None]
+    rest = [e for e in eligible if e.get("via") is not None]
+    rng = random.Random(int(seed_base))
+    rng.shuffle(rest)
+    keep_ids = {id(e) for e in (origin_first + rest)[:roof_collapse_max]}
+    for e in eligible:
+        if id(e) not in keep_ids:
+            e["level"] = "F5"
 
 
 def entry_string(record):
@@ -365,6 +541,100 @@ def entry_string(record):
         "" if origin is None else int(origin),
         ",".join(str(s) for s in sides),
         int(record["seed"]))
+
+
+def _check_height_class_manifest_policy():
+    """Host-side check of `damaged_manifest`'s height-class layer: the rank
+    cap, roof eligibility, and the roof-outcome share budget, together --
+    called by `check()`. Returns a list of complaints (empty = ok)."""
+    _ensure_scene_gen_on_path()
+    from disaster import gac_fire as gf
+
+    usd = gf.GAC_DIR + "SM_Building_04.usd"
+    layout = {"_typology_of": {
+        (0.0, 0.0, 100.0, 100.0): "rowhouse",
+        (100.0, 0.0, 250.0, 100.0): "midrise",
+        (250.0, 0.0, 400.0, 100.0): "highrise",
+    }}
+
+    def _p(i, x, y):
+        return {"category": "house", "usd": usd, "x_m": x, "y_m": y,
+               "yaw_deg": 0.0, "z_m": 0.0,
+               "prim_path": "/World/stage/generated/house_{0}".format(i)}
+
+    # i0-3: rowhouse (low, roof-eligible); i4: midrise (mid_high); i5:
+    # highrise (skyscraper). Every one of them names F6 -- the raw, uncapped
+    # "full collapse" -- so what survives to the final manifest is entirely
+    # the height-class policy's doing.
+    placements = [_p(0, 50.0, 50.0), _p(1, 20.0, 20.0), _p(2, 70.0, 20.0),
+                 _p(3, 20.0, 70.0), _p(4, 150.0, 50.0), _p(5, 300.0, 50.0)]
+
+    def _plan(i, via):
+        return {"i": i, "level": "F6", "origin": 0, "sides": ["S"],
+               "t_ignite_s": float(i), "age_s": 12000.0, "via": via,
+               "how": ("origin" if via is None else "attached")}
+
+    plan_records = [_plan(0, None), _plan(1, 0), _plan(2, 0), _plan(3, 0),
+                    _plan(4, 0), _plan(5, 0)]
+
+    bad = []
+    manifest, refused = damaged_manifest(layout, placements, plan_records,
+                                         4242, roof_collapse_max=2)
+    if refused:
+        return ["_check_height_class_manifest_policy: unexpected refusals: "
+                "{0}".format(refused)]
+    by_i = {m["i"]: m for m in manifest}
+
+    # mid_high / skyscraper: F6 is capped, then roof-degraded to F5 -- NEVER
+    # a ROOF_LEVELS outcome, regardless of what the rank cap alone allows
+    # (mid_high's own cap permits F5c; this is the policy that says it
+    # should not actually show it).
+    if by_i[4]["height_class"] != "mid_high" or by_i[4]["level"] != "F5":
+        bad.append("midrise record should end at F5, got {0}".format(by_i[4]))
+    if by_i[5]["height_class"] != "skyscraper" or by_i[5]["level"] != "F5":
+        bad.append("highrise record should end at F5, got {0}".format(by_i[5]))
+
+    # low: F6 is ELIGIBLE, but the SHARE BUDGET (2) still caps the COUNT
+    # across the four rowhouse records -- exactly 2 keep F6, the other 2
+    # degrade to F5, and the fire's own origin (i=0) is always kept.
+    rowhouse = [by_i[i] for i in (0, 1, 2, 3)]
+    for r in rowhouse:
+        if r["height_class"] != "low":
+            bad.append("rowhouse record {0} should be low, got {1}".format(
+                r["i"], r["height_class"]))
+    kept = [r["i"] for r in rowhouse if r["level"] == "F6"]
+    demoted = [r["i"] for r in rowhouse if r["level"] == "F5"]
+    if len(kept) != 2 or len(demoted) != 2:
+        bad.append("roof_collapse_max=2 should keep exactly 2 of 4 eligible "
+                  "rowhouse records at F6, got kept={0} demoted={1}".format(
+                      kept, demoted))
+    if by_i[0]["level"] != "F6":
+        bad.append("the fire's own origin should always be kept as a roof "
+                  "outcome ahead of the seeded shuffle")
+
+    # deterministic given the same seed_base
+    manifest2, _ = damaged_manifest(layout, placements, plan_records, 4242,
+                                    roof_collapse_max=2)
+    if [(m["i"], m["level"]) for m in manifest2] != \
+            [(m["i"], m["level"]) for m in manifest]:
+        bad.append("damaged_manifest's roof-share choice is not deterministic "
+                  "for a given seed_base")
+
+    # a bigger budget keeps all four eligible; a budget of exactly zero keeps
+    # NONE, including the origin -- "at most N" means N, not "N plus the
+    # origin for free".
+    manifest_big, _ = damaged_manifest(layout, placements, plan_records, 4242,
+                                       roof_collapse_max=4)
+    if sum(1 for m in manifest_big if m["i"] in (0, 1, 2, 3)
+          and m["level"] == "F6") != 4:
+        bad.append("roof_collapse_max=4 should keep all four eligible "
+                  "rowhouse records at F6")
+    manifest_zero, _ = damaged_manifest(layout, placements, plan_records, 4242,
+                                        roof_collapse_max=0)
+    if any(m["level"] == "F6" for m in manifest_zero if m["i"] in (0, 1, 2, 3)):
+        bad.append("roof_collapse_max=0 should demote every rowhouse record, "
+                  "including the origin")
+    return bad
 
 
 # ---------------------------------------------------------------------------
@@ -455,10 +725,14 @@ def check(verbose=True):
     if ok or "outside every zoned block" not in reason:
         bad.append("burnable() did not refuse a street placement: {0}".format((ok, reason)))
 
+    # tower/highrise districts are burnable now (2026-08-31 policy: fire
+    # only, capped downstream in `damaged_manifest` -- see below) --
+    # `burnable()` itself no longer discriminates by district at all.
     p_tower = dict(p_gac, x_m=300.0, y_m=50.0)
-    ok, reason = burnable(layout, p_tower, {})
-    if ok or "no-fire district" not in reason:
-        bad.append("burnable() did not refuse a tower-block placement: {0}".format((ok, reason)))
+    ok, rec = burnable(layout, p_tower, {})
+    if not ok or rec["typology"] != "tower" or rec["kind"] != "gac":
+        bad.append("burnable() should now accept a tower-block placement: "
+                  "got {0}".format((ok, rec)))
 
     p_muyang = dict(p_gac, usd=muyang_usd, x_m=60.0, y_m=60.0)
     ok, reason = burnable(layout, p_muyang, {})
@@ -470,15 +744,49 @@ def check(verbose=True):
     if ok or "fire_bake.KINDS" not in reason:
         bad.append("burnable() did not refuse an AEC brownstone: {0}".format((ok, reason)))
 
-    # --- district rule, mutation-checked ------------------------------------
+    # --- gate 5: the pack blacklist (2026-08-31) ----------------------------
+    p_b11 = dict(p_gac, usd=gf.DTC_DIR + "Building_11.usdc", x_m=150.0, y_m=60.0)
+    ok, reason = burnable(layout, p_b11, {})
+    if ok or "blacklisted" not in reason or "Building_11" not in reason:
+        bad.append("burnable() did not refuse a blacklisted Building_11: "
+                  "{0}".format((ok, reason)))
+
+    p_carved = dict(p_gac, usd=gf.DTC_DIR + "Carved_04.usdc", x_m=150.0, y_m=60.0)
+    ok, reason = burnable(layout, p_carved, {})
+    if ok or "blacklisted" not in reason or "Carved_" not in reason:
+        bad.append("burnable() did not refuse a blacklisted Carved_04: "
+                  "{0}".format((ok, reason)))
+
+    p_amar = dict(p_gac, usd=gf.DTC_DIR + "Amar_Tower.usdc", x_m=150.0, y_m=60.0)
+    ok, rec = burnable(layout, p_amar, {})
+    if not ok or rec["kind"] != "dtc" or rec["asset"] != "Amar_Tower":
+        bad.append("burnable() should still accept a non-blacklisted dtc "
+                  "asset: {0}".format((ok, rec)))
+
+    if _pack_blacklist_reason("dtc", "Building_11") is None:
+        bad.append("_pack_blacklist_reason missed Building_11")
+    if _pack_blacklist_reason("dtc", "Carved_17") is None:
+        bad.append("_pack_blacklist_reason missed a Carved_ prefix match")
+    if _pack_blacklist_reason("dtc", "Building_12") is not None:
+        bad.append("_pack_blacklist_reason false-positived on Building_12")
+    if _pack_blacklist_reason("gac", "Building_11") is not None:
+        bad.append("_pack_blacklist_reason should not touch gac (no "
+                  "blacklist entry in PACKS['gac'])")
+
+    # --- the district no longer gates candidacy, mutation-checked ----------
+    # only the record's own `typology` field should change; a tower-block
+    # placement is still just as burnable as a lowrise one.
     p_moved = dict(p_gac)
-    ok_before, _ = burnable(layout, p_moved, {})
+    ok_before, rec_before = burnable(layout, p_moved, {})
     p_moved["x_m"], p_moved["y_m"] = 300.0, 50.0   # into the tower block
-    ok_after, reason_after = burnable(layout, p_moved, {})
-    if not ok_before or ok_after or "no-fire district" not in reason_after:
-        bad.append("moving a burnable placement into the tower block was not "
-                  "refused by the district rule: before={0} after={1}"
-                  .format(ok_before, (ok_after, reason_after)))
+    ok_after, rec_after = burnable(layout, p_moved, {})
+    if not ok_before or not ok_after or rec_before["typology"] != "lowrise" \
+            or rec_after["typology"] != "tower" \
+            or rec_before["kind"] != rec_after["kind"]:
+        bad.append("moving a burnable placement into the tower block should "
+                  "only change its typology, not its candidacy: before={0} "
+                  "after={1}".format((ok_before, rec_before),
+                                     (ok_after, rec_after)))
 
     # --- entry_string round-trips through fire_bake.parse_entry ------------
     rec_full = {"kind": "gac", "asset": "SM_Building_04", "style": None,
@@ -510,24 +818,33 @@ def check(verbose=True):
          "age_s": 900.0, "via": None, "how": "origin"},
         {"i": 1, "level": "F2", "origin": 0, "sides": ["W"], "t_ignite_s": 300.0,
          "age_s": 600.0, "via": 0, "how": "radiation"},
-        {"i": 2, "level": "F1", "origin": 0, "sides": ["N"], "t_ignite_s": 400.0,
+        # a tower-block record naming F6 (full collapse) -- the height-class
+        # policy must cap this to F5 (skyscraper: fire only, never any
+        # collapse) rather than refuse the record outright.
+        {"i": 2, "level": "F6", "origin": 0, "sides": ["N"], "t_ignite_s": 400.0,
          "age_s": 500.0, "via": 0, "how": "attached"},
         {"i": 99, "level": "F1", "origin": 0, "sides": (), "t_ignite_s": 10.0,
          "age_s": 10.0, "via": 0, "how": "spot"},
     ]
     manifest, refused = damaged_manifest(layout, placements, plan_records, 1000)
-    if [m["i"] for m in manifest] != [0, 1]:
+    if [m["i"] for m in manifest] != [0, 1, 2]:
         bad.append("damaged_manifest kept the wrong indices: {0}".format(
             [m["i"] for m in manifest]))
-    if [m["seed"] for m in manifest] != [1000, 1031]:
+    if [m["seed"] for m in manifest] != [1000, 1031, 1062]:
         bad.append("damaged_manifest seeds are not seed_base + 31*i: "
                   "{0}".format([m["seed"] for m in manifest]))
-    if len(refused) != 2:
-        bad.append("damaged_manifest refused list should hold the tower-block "
-                  "and out-of-range records, got {0}".format(refused))
-    elif not any("no-fire district" in r["reason"] for r in refused):
-        bad.append("damaged_manifest did not report the tower-block refusal "
-                  "with a reason: {0}".format(refused))
+    if len(refused) != 1 or refused[0]["i"] != 99:
+        bad.append("damaged_manifest refused list should hold only the "
+                  "out-of-range record now that tower is burnable, got "
+                  "{0}".format(refused))
+    tower_entry = manifest[2]
+    if tower_entry["height_class"] != "skyscraper" or tower_entry["level"] != "F5":
+        bad.append("damaged_manifest should cap the tower record's F6 down "
+                  "to F5 (skyscraper: fire only, never any collapse), got "
+                  "{0}".format(tower_entry))
+
+    # --- height-class cap + roof eligibility + the roof-outcome share cap --
+    bad.extend(_check_height_class_manifest_policy())
 
     # --- no_fire_assets: live read + fallback -------------------------------
     live_cfg = {"usds": {"buildings": {

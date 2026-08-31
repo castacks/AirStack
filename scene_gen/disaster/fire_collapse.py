@@ -1217,7 +1217,20 @@ def facade_material(stage, path):
         return None
     if not m or not m.GetPrim().IsValid():
         return None
-    return m if CLAD_PREFIX in str(m.GetPrim().GetPath()) else None
+    if CLAD_PREFIX not in str(m.GetPrim().GetPath()):
+        return None
+    # ...AND NOT IF THAT CLADDING IS AN INTERIOR MAP (row 5).
+    # `quake_flow._clad_material` is built from `damage.bound_texture`, which
+    # returns the FIRST material found walking the piece — on a curtain-wall
+    # cell that can perfectly well be the fake-interior office card. Keeping
+    # THAT on the outward faces of a fragment is the very defect this round
+    # is about, arriving through the one door `facade_skin` does not guard:
+    # a piece the skin could not carry keeps `_break_split`'s clad, and this
+    # function is what tells `bind_break` to preserve it. Refuse, and the
+    # fragment is charred whole instead.
+    if is_fake_interior(_basecolor_url(m)):
+        return None
+    return m
 
 
 # ---------------------------------------------------------------------------
@@ -1287,6 +1300,147 @@ TEAR_BARY_CLAMP = 1.5
 # window mullions.
 TEAR_MAX_PARENT_TRIS = 2000
 TEAR_CHUNK = 128
+# ROUND 5 (live row-5 bench, 2026-08-30): WHICH SUBSET IS THE FAÇADE.
+#
+# `M_Building_24_Office_Fake_Inst` came out on the fragments of
+# `wall_E_4_06_0090` — "it's like the interior office material not the
+# outside glass window one" (user). A GAC office block does not model its
+# interior: it hangs a FAKE INTERIOR CARD behind the glazing, facing OUT, to
+# be seen through the pane. So it passes the outward-normal test, and as one
+# unbroken rectangle per bay it beats real cladding (mullions, transoms,
+# spandrel strips) on area. See `facade_skin` for the replacement rule.
+#
+# Names that are NEVER the façade, matched case-insensitively against both
+# the material's prim path and its base map's file name.
+#
+# "For the accidental interior material that was applied to the building.
+#  Let's make sure that NEVER happens to any building." (user, row 5)
+#
+# So this is ONE list and ONE predicate (`is_fake_interior`), consulted by
+# EVERY chooser in this module that puts an exterior look on geometry that
+# did not originally carry one — `facade_skin`/`pick_facade`,
+# `rehome_material`, `tone_material` and `facade_material` (which is what
+# `bind_break` asks whether a fragment has a façade worth keeping). A future
+# chooser must consult it too; the audit that proves they all do is
+# `fake_interior_audit`, whose count rides in `ctx["notes"]` of every bake.
+#
+# WHAT IS IN IT AND WHY. Every entry is a surface that exists to be seen from
+# INSIDE the building, or through its glazing, and never as its skin:
+#
+#   office_fake / fake_interior / m_fake / fake_light / off_light
+#       GAC does not model interiors: it hangs a printed card of desks,
+#       ceiling tiles and a strip light BEHIND the glazing, facing OUT, so
+#       you see it through the pane. `M_Building_24_Office_Fake_Inst` is the
+#       one that reached the bench (row 5).
+#   glass_in
+#       the INNER pane of a double-glazed assembly (`M_Glass_In_Standard`).
+#   buildings_ceiling / ceiling
+#       a ceiling plane. Faces DOWN and inward; on a torn fragment it is a
+#       tiled office ceiling stuck to a wall.
+#   building_floor / wood_floor / m_slab
+#       the floor plates (`M_Building_Floor_Inst`,
+#       `M_Building_Wood_Floor_Inst`, `M_Slab_Inst`). Same argument.
+#   interior
+#       anything that says so.
+#
+# AND ONE NAME THAT IS DELIBERATELY *NOT* HERE: `WallBack`. It reads like an
+# interior surface and it was on the list until the fleet census
+# (`tools/fake_interior_census.py` over all eight bakes in
+# `/isaac-sim/.cache/fire_bakes_dtc`) flagged 342 fragments of
+# `gac_SM_Building_02_F5c_s193` on `M_Building_01_WallBack_Inst_4ab16135` —
+# the building the user had just called "very goood". Checked against the
+# piece itself: `pier_S_3_09_0102`'s outward subset binds that same material
+# carrying a `sootbake_*.png`, i.e. on GreatAmericanCity `WallBack` IS the
+# wall's base texture and the fire skin bakes into it. Excluding it would
+# have taken the approved façade off a building to fix a different one. The
+# name in a shipped bake is the SOURCE material's, even for a sooted copy
+# (`fire_bake.rehome_for_export` names by source file stem), which is why the
+# census sees `WallBack` where the authoring stage sees `SootLooks/m2`.
+#
+# THE COST OF BEING WRONG IS ASYMMETRIC, which is why the list is generous.
+# A piece whose only outward material is on this list yields NO façade at
+# all, its fragments keep the break palette and `_refire` chars them whole —
+# a black fragment on a burnt building, which is a defensible thing to see.
+# The other way round is cubicles and ceiling tiles on the outside of a
+# tower, which is not.
+FAKE_INTERIOR_HINTS = (
+    "office_fake", "fake_interior", "fakeinterior", "m_fake", "_fake",
+    "fake_light", "off_light", "glass_in", "buildings_ceiling", "ceiling",
+    "building_floor", "wood_floor", "m_slab", "interior")
+TEAR_NEVER_FACADE = FAKE_INTERIOR_HINTS
+# ...and names that are GLASS: allowed as a last resort, but ranked behind
+# every opaque candidate and never carried as a MATERIAL (see rule 4 in
+# `facade_skin` — a transparent pane material on a solid 0.4 m chunk of
+# spandrel renders as a floating sheet of glass). `Glass_In` is caught by the
+# never-list above first, which is right: the INNER pane is interior.
+TEAR_GLASS_HINTS = ("glass", "glazing")
+
+
+def is_fake_interior(*names):
+    """Does ANY of these names/paths/urls name an INTERIOR-ONLY material?
+
+    THE ONE PREDICATE. Every chooser in this module that puts an exterior
+    look on geometry that did not originally carry one asks this first, and
+    `fake_interior_audit` counts what got through into every bake's notes.
+    Case-insensitive substring match over the whole lot joined together, so
+    a caller can hand it a material path AND its base map's url and get one
+    answer — which matters, because a GAC material prim is called
+    `UnrealMaterial` and only its texture's file name says what it is.
+    """
+    blob = "|".join(str(n or "") for n in names).lower()
+    return any(k in blob for k in FAKE_INTERIOR_HINTS)
+
+
+def fake_interior_audit(ctx):
+    """THE TRIPWIRE. `(n, examples)` — how many prims this recipe's tear left
+    bound to a fake-interior material, and up to three of them.
+
+    Runs after the authoring, over the fragments the tear actually produced
+    (`ctx["_tear_statics"]`, plus everything `skin_fragment` re-skinned), and
+    reads the material that is bound NOW — after `_refire`, after every
+    rebind — so it cannot be fooled by a chooser that made the right decision
+    and a later pass that undid it. The count goes in `ctx["notes"]`, which
+    means it is in the sidecar of every bake: a regression here is loud on
+    the next build instead of waiting for someone to notice cubicles on a
+    tower ("let's make sure that NEVER happens to any building", row 5).
+
+    Expected 0, always.
+    """
+    from pxr import UsdShade
+
+    stage = ctx.get("stage")
+    if stage is None:
+        return 0, []
+    seen, n, ex = set(), 0, []
+    for pth in list(ctx.get("_tear_statics") or ()) + \
+            sorted(ctx.get("tear_faced") or ()):
+        if not pth or pth in seen:
+            continue
+        seen.add(pth)
+        pr = stage.GetPrimAtPath(pth)
+        if not pr or not pr.IsValid():
+            continue
+        try:
+            m = UsdShade.MaterialBindingAPI(pr).ComputeBoundMaterial()[0]
+        except Exception:
+            continue
+        if not m or not m.GetPrim().IsValid():
+            continue
+        mp = str(m.GetPrim().GetPath())
+        if is_fake_interior(mp, _basecolor_url(m)):
+            n += 1
+            if len(ex) < 3:
+                ex.append("{0} -> {1}".format(pth.rsplit("/", 2)[-1],
+                                              mp.rsplit("/", 1)[-1]))
+    return n, ex
+# How much closer in than the frontmost candidate a group may still sit and
+# count as "on the outside face", in metres. A curtain wall's spandrel, its
+# mullion and its transom are within a few centimetres of one another; the
+# fake interior card is a floor depth behind the glass. 0.25 m separates
+# those two populations with room to spare and is under the thinnest wall
+# `quake_flow._t_thickness` will solidify.
+TEAR_OUTER_TOL_M = 0.25
+
 # The flat-tone fallback's roughness, and the sRGB -> linear exponent
 # `damage._pbr` wants (`quake_flow.materials`: "LINEAR albedo (damage._pbr):
 # screen grey ~ linear^0.42").
@@ -1318,15 +1472,61 @@ def facade_skin(ctx, path, out_xy):
     """The parent piece's FAÇADE surface, ready to re-skin its fragments.
 
     Returns `{"tris": (T,3,3) world corners, "uv": (T,3,2), "uvname",
-    "mat": material path or None, "tex": base-colour url or None}` or None.
+    "uvspan", "mat": material path or None, "tex": base-colour url or None,
+    "glass": bool}` or None.
 
-    ONE SUBSET, THE ONE WITH THE MOST OUTWARD AREA. A sliced GAC piece binds
-    a material per source material (`gac_slice`: "ONE SUBSET PER ORIGINAL
-    MATERIAL"), so its façade can be two or three of them — brick, a band of
-    stone, the window frames. A fragment is ONE prim and takes ONE material,
-    so the honest answer is the material that owns most of the wall; the
-    alternative is authoring per-material subsets on every fragment, which
-    would put a mullion material on a 0.3 m chip of brick as often as not.
+    ONE SUBSET PER FRAGMENT, AND IT IS THE OUTERMOST ONE THAT IS NOT A FAKE
+    INTERIOR. A sliced GAC piece binds a material per source material
+    (`gac_slice`: "ONE SUBSET PER ORIGINAL MATERIAL"), so its façade can be
+    two or three of them — brick, a band of stone, the window frames — and a
+    fragment is ONE prim taking ONE material, so one of them has to be
+    chosen.
+
+    ROUND 5 (live bench, 2026-08-30): the first version chose the one with the
+    most OUTWARD-FACING AREA, and on a curtain wall that is the wrong one:
+
+        /World/bake/g7/brk_g7_wall_E_4_06_0090/frag_001
+            -> M_Building_24_Office_Fake_Inst_821f2932
+               tex: ..._M_Building_24_Office_Fake_Inst_BaseColor.png
+
+        user: "it's like the interior office material not the outside glass
+               window one"
+
+    A GAC office block does not model its interior; it hangs a FAKE INTERIOR
+    CARD behind the glazing — desks, ceiling tiles, a strip light — precisely
+    so that it faces OUT and you see it THROUGH the pane. So it passes the
+    `nrm . out > TEAR_OUT_COS` test as convincingly as the façade does, and
+    being one unbroken rectangle per bay it beats the real cladding (split
+    into mullions, transoms and spandrel strips) on area every time. Area was
+    never the property that makes something a façade.
+
+    THE RULE NOW, in order:
+
+      1. A material whose name or base map matches `TEAR_NEVER_FACADE` is not
+         a candidate at all. `Office_Fake`, `Fake_Interior`, `M_Fake_*`,
+         `Fake_Light`, `Off_Light`, `Glass_In` — every one of them is
+         something you are meant to see THROUGH the building envelope, never
+         the envelope. This is the belt: it holds even where the card is
+         coplanar with the glass and no geometric test can separate them.
+      2. Of what is left, the OUTERMOST wins: groups are ranked by the 90th
+         percentile of their face centroids projected on the piece's own
+         outward axis (`e["out"]`, which `quake_flow.describe` sets from the
+         mass frame — `wall_E_*` is +x), and only those within
+         `TEAR_OUTER_TOL_M` of the front are considered. That is the braces,
+         and it is the geometric statement of what a façade IS: the thing
+         nothing else is in front of.
+      3. Among those, the largest area wins — the original rule, now applied
+         only to groups that are actually on the outside face.
+      4. GLASS IS RANKED LAST AND IS NEVER CARRIED AS A MATERIAL. An opaque
+         candidate beats a glass one outright; if glass is all there is, the
+         piece is skinned with the TONE sampled from that map instead
+         (`skin_fragment`). A fragment is a solid lump of spandrel and
+         mullion, and binding a transparent, high-IOR pane material to it
+         renders a 0.4 m chunk of wall as a floating sheet of glass — and by
+         the time this runs `gac_fire.damage_windows` has already burnt the
+         panes out (see-through), so the glass is GONE from the opening and
+         what is left at the tear is the frame and the spandrel behind it.
+         The tone keeps that panel's colour without its transparency.
 
     Must be called BEFORE `_break_split` deactivates `path`.
     """
@@ -1344,7 +1544,9 @@ def facade_skin(ctx, path, out_xy):
         return None
     out = out / ln_out
     xf = UsdGeom.XformCache()
-    best = None
+    stats = ctx.setdefault("_tear_skin", {"uv": 0, "tone": 0, "none": 0,
+                                          "pieces": 0, "no_facade": 0})
+    cands = []
     for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
         if not prim.IsA(UsdGeom.Mesh):
             continue
@@ -1376,29 +1578,95 @@ def facade_skin(ctx, path, out_xy):
             keep = (ln > 1e-12) & ((nrm @ out) > TEAR_OUT_COS * ln)
             if not keep.any():
                 continue
-            area = 0.5 * float(ln[keep].sum())
-            if best is not None and area <= best["area"]:
-                continue
-            uvc = sb._corner_uv(tri, tslot, arr["uv"], arr["interp"],
-                                arr["uv_indices"])
-            C, uvc, ln = C[keep], uvc[keep], ln[keep]
-            if len(C) > TEAR_MAX_PARENT_TRIS:
-                sel = np.argsort(-ln)[:TEAR_MAX_PARENT_TRIS]
-                C, uvc = C[sel], uvc[sel]
             mat = UsdShade.MaterialBindingAPI(target).ComputeBoundMaterial()[0]
             mp = (str(mat.GetPrim().GetPath())
                   if mat and mat.GetPrim().IsValid() else None)
-            uvspan = (float(uvc[..., 0].max() - uvc[..., 0].min()),
-                      float(uvc[..., 1].max() - uvc[..., 1].min()))
-            best = {"area": area, "tris": C, "uv": uvc, "uvname": uvname,
-                    "uvspan": uvspan, "mat": mp, "tex": _basecolor_url(mat)}
-    if best is not None:
-        # BY PATH FROM HERE ON, never by handle: a `UsdShade.Material` handed
-        # out by `ComputeBoundMaterial` inside a `PrimRange` expires when the
-        # traversal moves on, and reading an input off it throws
-        # UsdExpiredPrimAccessError (measured writing `frag_facade_probe.py`).
-        best["mat"] = rehome_material(ctx, path, best)
-    return best
+            tex = _basecolor_url(mat)
+            kind = facade_class(mp, tex)
+            if kind == "fake":
+                stats["fake"] = stats.get("fake", 0) + 1
+                continue
+            C, ln = C[keep], ln[keep]
+            cands.append({
+                "d": float(np.percentile(C.mean(axis=1) @ out, 90.0)),
+                "area": 0.5 * float(ln.sum()), "glass": kind == "glass",
+                "tri": tri[keep], "tslot": tslot[keep], "ln": ln, "tris": C,
+                "arr": arr, "uvname": uvname, "mat": mp, "tex": tex})
+    best = pick_facade(cands)
+    if os.environ.get("UF_TEAR_DEBUG"):
+        # The candidate table, per torn piece. This is the only view that
+        # shows WHY a subset won, and it is what the row-5 fake-interior pick
+        # was found with; off by default because a city has thousands of
+        # these.
+        print("[tear] {0} out={1}".format(str(path).rsplit("/", 1)[-1],
+                                          tuple(round(float(q), 2) for q in out)))
+        for c in sorted(cands, key=lambda q: -q["d"]):
+            print("[tear]    {0:<7} d_out {1:8.3f}  area {2:8.2f} m2  {3}  {4}"
+                  .format("GLASS" if c["glass"] else "opaque", c["d"],
+                          c["area"], str(c["mat"] or "-")[-46:],
+                          str(c["tex"] or "-").rsplit("/", 1)[-1][:52]))
+        print("[tear]    -> {0}".format(
+            "(nothing)" if best is None else
+            "{0} {1}".format("GLASS->tone" if best["glass"] else "opaque",
+                             str(best["tex"] or best["mat"] or "-")
+                             .rsplit("/", 1)[-1][:52])))
+    if best is None:
+        return None
+    # THE UVs ARE READ ONLY FOR THE WINNER. `_corner_uv` on every candidate
+    # would cost the whole piece's UV lookup per subset for an answer that is
+    # thrown away; the pick above needs geometry and names alone.
+    uvc = sb._corner_uv(best["tri"], best["tslot"], best["arr"]["uv"],
+                        best["arr"]["interp"], best["arr"]["uv_indices"])
+    C, ln = best["tris"], best["ln"]
+    if len(C) > TEAR_MAX_PARENT_TRIS:
+        sel = np.argsort(-ln)[:TEAR_MAX_PARENT_TRIS]
+        C, uvc = C[sel], uvc[sel]
+    sk = {"area": best["area"], "tris": C, "uv": uvc, "uvname": best["uvname"],
+          "uvspan": (float(uvc[..., 0].max() - uvc[..., 0].min()),
+                     float(uvc[..., 1].max() - uvc[..., 1].min())),
+          "mat": best["mat"], "tex": best["tex"], "glass": best["glass"]}
+    # BY PATH FROM HERE ON, never by handle: a `UsdShade.Material` handed
+    # out by `ComputeBoundMaterial` inside a `PrimRange` expires when the
+    # traversal moves on, and reading an input off it throws
+    # UsdExpiredPrimAccessError (measured writing `frag_facade_probe.py`).
+    sk["mat"] = rehome_material(ctx, path, sk)
+    return sk
+
+
+def facade_class(mat_path, tex_url):
+    """Is this candidate material a fake interior, glass, or real cladding?
+
+    Returns "fake", "glass" or "opaque".
+
+    BY NAME, ON BOTH THE MATERIAL AND ITS BASE MAP. A GAC subset that the
+    fire skin never reached keeps its own rehomed material and its own map
+    (`M_Building_24_Office_Fake_Inst` / `..._Office_Fake_Inst_BaseColor.png`),
+    which is exactly the case here — an interior card is by definition not
+    sooted. A subset the skin DID reach is rebound to `SootLooks/mN` +
+    `gacsoot_<hash>.png`, whose names say nothing; that is what rule 2 (the
+    outermost wins) is for, and why neither test is trusted alone.
+    """
+    tex = str(tex_url or "").rsplit("/", 1)[-1]
+    if is_fake_interior(mat_path, tex):
+        return "fake"
+    blob = "{0}|{1}".format(str(mat_path or ""), tex).lower()
+    if any(k in blob for k in TEAR_GLASS_HINTS):
+        return "glass"
+    return "opaque"
+
+
+def pick_facade(cands):
+    """The façade among the candidate groups, or None. Pure — no `pxr`.
+
+    Opaque before glass; then outermost (within `TEAR_OUTER_TOL_M` of the
+    front); then largest area. See `facade_skin` for why each step is there.
+    """
+    if not cands:
+        return None
+    pool = [c for c in cands if not c["glass"]] or list(cands)
+    front = max(c["d"] for c in pool)
+    pool = [c for c in pool if c["d"] >= front - TEAR_OUTER_TOL_M]
+    return max(pool, key=lambda c: c["area"])
 
 
 def rehome_material(ctx, path, sk):
@@ -1438,8 +1706,8 @@ def rehome_material(ctx, path, sk):
     from . import soot_plume as spl
 
     mp = sk.get("mat")
-    if not mp:
-        return None
+    if not mp or is_fake_interior(mp, sk.get("tex")):
+        return None                     # row 5: never rehome an interior map
     root = str(path or "")
     if not (mp == root or mp.startswith(root + "/")):
         return mp                       # outside the piece: it will survive
@@ -1576,7 +1844,10 @@ def tone_material(ctx, sk):
     from . import damage, soot_plume as spl
 
     tex = (sk or {}).get("tex")
-    if not tex:
+    if not tex or is_fake_interior(tex, (sk or {}).get("mat")):
+        # The tone is the LAST chooser in the chain and it is guarded too: a
+        # flat sample of an office-interior map is still office beige on the
+        # outside of a tower (row 5).
         return None
     cache = ctx.setdefault("tear_tone", {})
     uvbox = None
@@ -1676,7 +1947,15 @@ def skin_fragment(ctx, sk, frag_path):
     # worse answer than the tone sampled from that same pixel. Say so, and
     # take the tone.
     span = sk.get("uvspan") or (0.0, 0.0)
-    if max(float(span[0]), float(span[1])) < 1e-6:
+    if sk.get("glass"):
+        # RULE 4 (`facade_skin`): the only outward material on this piece is
+        # GLASS. Carry its colour, never the material itself — a fragment is
+        # a solid lump of spandrel and mullion, and a transparent pane
+        # material on it renders as a floating sheet.
+        why["only_outward_material_is_glass"] = why.get(
+            "only_outward_material_is_glass", 0) + 1
+        how = "tone"
+    elif max(float(span[0]), float(span[1])) < 1e-6:
         why["parent_uv_box_has_no_area"] = why.get(
             "parent_uv_box_has_no_area", 0) + 1
         how = "tone"
@@ -1889,6 +2168,7 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
     # re-runs the recipe on the same ctx must not report yesterday's count.
     ctx.pop("_tear_skin", None)
     ctx.pop("_tear_why", None)
+    ctx.pop("_tear_statics", None)
 
     with _own_rng(ctx, prng, pnrng):
         # A BURNT-OUT SHELL HAS NO FLAME IN IT, whatever the event list says.
@@ -2242,6 +2522,28 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
             sk.get("uv", 0), sk.get("tone", 0), sk.get("none", 0),
             sk.get("pieces", 0), sk.get("no_facade", 0),
             ""))
+    # THE REFUSALS GET THEIR OWN LINE, AND ONLY WHEN THERE ARE ANY. The line
+    # above is the one a frozen kit building's notes are diffed on, so
+    # nothing may be appended to it for a case that kit never hits: an MCE
+    # module has no fake-interior card and no glass subset to refuse, so this
+    # line is absent there and its notes are byte-identical to yesterday's.
+    if sk.get("fake"):
+        ctx["notes"].append(
+            "partial collapse tear skin refused {0} fake-interior/light "
+            "subset(s) as the facade (Office_Fake / Fake_Interior / "
+            "Glass_In and friends face OUTWARD by design — you are meant to "
+            "see them through the glazing)".format(sk["fake"]))
+    # THE TRIPWIRE, ON ITS OWN LINE AND ALWAYS PRESENT (row 5). Not folded
+    # into the line above, which is diffed byte-for-byte against the frozen
+    # MCE kit output; on its own it is one added tear line there and nothing
+    # else moves. `n` must be 0 in every sidecar this pipeline ever writes —
+    # if it is not, a chooser somewhere put an interior map on the outside of
+    # a building and the bake says so instead of waiting to be noticed.
+    n_fi, ex_fi = fake_interior_audit(ctx)
+    ctx["notes"].append(
+        "partial collapse tear audit: {0} tear fragment(s) bound to a "
+        "fake-interior material (0 expected){1}".format(
+            n_fi, "" if not ex_fi else " -- " + "; ".join(ex_fi)))
     if why:
         ctx["notes"].append(
             "partial collapse tear skin fell back to a tone because: "
@@ -2398,6 +2700,7 @@ def _tear_perimeter(ctx, plan, m, prng, jobs):
             continue
         # THE STANDING HALF IS STILL THAT WALL. Only the statics: a loose
         # fragment is in the heap.
+        ctx.setdefault("_tear_statics", []).extend(st_p)
         for q in st_p:
             how = skin_fragment(ctx, skin, q)
             skin_stats[how or "none"] += 1

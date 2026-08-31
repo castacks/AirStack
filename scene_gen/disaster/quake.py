@@ -189,6 +189,45 @@ def _heap_reach_for(r, btype, grade, H, prim_path=""):
     return heap_reach_sides(btype, grade, H, prim_path)
 
 
+def _fall_sides_for(r, prim_path=""):
+    """Which of the FOUR sides count as one building's OWN fall/street
+    side(s) — the measured `r["fall_sides"]` list when the bake (or a
+    same_art/GAC decision) recorded one, else the SAME stable-hashed second
+    side `heap_reach_sides` itself draws ("S" plus one of E/N/W, hashed off
+    `prim_path` so the same scene run always throws debris the same way).
+    Used by `_street_debris_pass` so it scatters street debris on exactly
+    the sides `_heap_reach_for` already gave the fall-side reach to — the
+    two passes must agree on "the street side" or a DG3 building (no
+    manifest row to measure) could put debris on its blind/party-wall side
+    instead. Pure — no pxr — same reason `_heap_reach_for` is."""
+    fs = r.get("fall_sides")
+    if fs:
+        return set(fs)
+    import zlib
+    others = ("E", "N", "W")
+    extra = others[zlib.crc32(str(prim_path).encode("utf-8")) % len(others)]
+    return {"S", extra}
+
+
+# ---------------------------------------------------------------------------
+# STREET DEBRIS (round-5 addendum — user, on the first OSMO city scene:
+# "I don't see a lot of the concrete debris being used ... use that more").
+# See `quake_rubble.plan_street_scatter` for the planner half; `_street_
+# debris_pass`, next to `_clear_under_heaps` below, is the pxr-authoring
+# half this module owns. Gated `QUAKE_STREET_DEBRIS` (default ON — unlike
+# most opt-in disaster knobs, this is a review-requested FIX, not an
+# experiment); `STREET_DEBRIS_MAX` is the CITY-level total instance cap
+# across every building's own PointInstancer (`quake_rubble.
+# STREET_DEBRIS_MAX_PER_BUILDING`, 40, is the PER-building cap).
+# ---------------------------------------------------------------------------
+STREET_DEBRIS_MAX = int(os.environ.get("STREET_DEBRIS_MAX", "3000"))
+
+
+def _street_debris_enabled():
+    return os.environ.get("QUAKE_STREET_DEBRIS", "1").strip().lower() not in (
+        "0", "false", "no")
+
+
 def in_reach(cx, cy, W, D, yaw_deg, x, y, reach):
     """(inside, dist_m, side) for a point (x, y) against a building footprint
     centred at (cx, cy), W x D, yawed `yaw_deg` degrees. `reach` is either a
@@ -1528,9 +1567,135 @@ def _clear_under_heaps(stage, placements, records, manifest, ssf, rng,
     return counts
 
 
+def _street_debris_pass(stage, placements, records, manifest, rng, scope,
+                        mats=None, bounds=None, verbose=True):
+    """A modest scatter of `quake_rubble` STREET-kind debris (sidewalk
+    slabs, cracked paving, a lamppost stub) on the sidewalk/road band just
+    beyond each DG3+ building's own pile reach, on its fall side(s) — see
+    `quake_rubble.plan_street_scatter`. User review, round 5: "I don't see
+    a lot of the concrete debris being used ... use that more" — `plan_
+    pile`'s own toe draw only puts 2-5 pieces at the very foot of an actual
+    DG4/DG5 pile; this is a SECOND, independent pass that also reaches a
+    DG3 building (standing, no pile at all) and reads from the street.
+
+    One `PointInstancer` per damaged building (<=
+    `quake_rubble.STREET_DEBRIS_MAX_PER_BUILDING` instances each), a
+    city-level `STREET_DEBRIS_MAX` (env, default 3000) total instance cap
+    enforced across the whole pass — `records` is processed in order and a
+    building is SKIPPED (not sliced to a sliver) once the remaining budget
+    can no longer cover even its own per-building minimum, so the buildings
+    that do get one read fully instead of every building getting a
+    barely-visible trickle.
+
+    Every instance lands strictly beyond the reach `_heap_reach_for`
+    already computed for `_clear_under_heaps`, so this pass can never
+    double-place debris inside a pile that pass already cleared street
+    furniture under (see `quake_rubble.plan_street_scatter`'s docstring).
+
+    Gated `QUAKE_STREET_DEBRIS` (default on). Called from `ground_effects`,
+    after pounding, in the SAME unscaled city-metre frame every other pass
+    in that function uses (`_c_plate_bounds(config)` with no `ssf` — see
+    the note above that function's dust halo).
+    """
+    zero = {"instances": 0, "buildings": 0, "buildings_skipped": 0}
+    if not _street_debris_enabled():
+        if verbose:
+            print("[quake] street debris: disabled (QUAKE_STREET_DEBRIS=0)")
+        return zero
+
+    from pxr import Sdf, UsdGeom
+    from . import quake_rubble, quake_rubble_usd
+
+    by_prim = {p.get("prim_path"): p for p in placements if p.get("prim_path")}
+    UsdGeom.Scope.Define(stage, Sdf.Path(scope))
+    cap = max(0, STREET_DEBRIS_MAX)
+    per_building_cap = quake_rubble.STREET_DEBRIS_MAX_PER_BUILDING
+    total = 0
+    n_bld = 0
+    n_skipped = 0
+    for r in records:
+        grade = str(r.get("grade", "")).split("+")[0]
+        if grade not in ("DG3", "DG4", "DG5"):
+            continue
+        remaining = cap - total
+        if remaining <= 0:
+            n_skipped += 1
+            continue
+
+        if r.get("mono"):
+            btype = "rc"                    # `_mono_pass` always scores as rc
+            W = float(r.get("W", 20.0))
+            D = float(r.get("D", 20.0))
+            H = float(r.get("H", 12.0))
+        else:
+            rec0 = manifest.get((r.get("style"), "DG0")) or {}
+            btype = rec0.get("type") or qf.FAMILY_TYPE.get(rec0.get("family", ""), "urm")
+            W = float(rec0.get("W", r.get("W", 20.0)))
+            D = float(rec0.get("D", r.get("D", 20.0)))
+            H = float(rec0.get("H", r.get("H", 12.0)))
+        prim_path = r.get("prim") or ""
+        p = by_prim.get(prim_path) or {}
+        yaw = float(p.get("yaw_deg", 0.0))
+        x, y = float(r["x"]), float(r["y"])
+
+        # SAME measured-reach lookup `_clear_under_heaps` uses: prefer the
+        # swapped level's own manifest row (`reach_m`/`fall_sides`/
+        # `extent_m`, written by the bake's `_rubble_fields`) over the drawn
+        # fallback, so the two passes agree on where the pile really is.
+        rr = r
+        if not r.get("mono") and manifest:
+            rows = _variants(manifest, r.get("style"), grade)
+            row = next((v for v in rows if v.get("usd") == p.get("usd")),
+                       rows[0] if rows else None)
+            if row and (row.get("reach_m") or row.get("fall_sides") or row.get("extent_m")):
+                rr = dict(r)
+                for k in ("reach_m", "fall_sides", "crown_m", "extent_m"):
+                    if row.get(k) is not None and rr.get(k) is None:
+                        rr[k] = row[k]
+
+        reach_sides = _heap_reach_for(rr, btype, grade, H, prim_path)
+        fall_sides = _fall_sides_for(rr, prim_path)
+        m = {"cx": x, "cy": y, "W": W, "D": D, "yaw": yaw, "z0": 0.0,
+             "top": H, "levels": [0.0]}
+        plan = quake_rubble.plan_street_scatter(
+            m, grade, rng, btype=btype, fall_sides=fall_sides,
+            reach_sides=reach_sides, max_instances=min(per_building_cap, remaining))
+        inst = plan["instances"].get("street") or {}
+        n_inst = len(inst.get("positions") or [])
+        if n_inst <= 0:
+            continue
+
+        if bounds is not None:
+            bx0, by0, bx1, by1 = bounds
+            keep = [i for i, pos in enumerate(inst["positions"])
+                    if bx0 <= pos[0] <= bx1 and by0 <= pos[1] <= by1]
+            if len(keep) != n_inst:
+                for k in ("proto_index", "positions", "orientations", "scales"):
+                    inst[k] = [inst[k][i] for i in keep]
+                n_inst = len(inst["positions"])
+            if n_inst <= 0:
+                continue
+
+        try:
+            tag = "street_{0}".format(n_bld)
+            quake_rubble_usd.author(stage, scope, plan, mats=mats, tag=tag)
+        except Exception as exc:
+            if verbose:
+                print("[quake] street debris: authoring failed for {0} ({1}), "
+                      "skipped".format(prim_path, exc))
+            continue
+        total += n_inst
+        n_bld += 1
+    if verbose:
+        print("[quake] street debris: {0} instance(s) across {1} building(s)"
+              "{2}".format(total, n_bld,
+                            " ({0} skipped, cap reached)".format(n_skipped) if n_skipped else ""))
+    return {"instances": total, "buildings": n_bld, "buildings_skipped": n_skipped}
+
+
 def ground_effects(stage, config, stats, placements, arch_dir, parent, ssf,
                    seed=11, dust=True, fissures=True, boils=True, pounding=True,
-                   verbose=True):
+                   street_debris=True, verbose=True):
     """Author what the quake did to the GROUND and the GAPS, after `assemble`.
 
     * DUST HALO: every DG4/DG5 building throws a grey concrete-dust film over
@@ -1545,6 +1710,9 @@ def ground_effects(stage, config, stats, placements, arch_dir, parent, ssf,
     * POUNDING: where two buildings stand within 1.5 m, a vertical scar on the
       taller one at the shorter one's roof line and a wedge of rubble in the
       gap (Mexico City 1985: 40 % of buildings collided).
+    * STREET DEBRIS (round-5 addendum): a modest scatter of scanned concrete
+      `street`-kind pieces on the sidewalk/road just beyond every DG3+
+      building's own pile reach — see `_street_debris_pass`.
     """
     from pxr import Sdf, UsdGeom
     import scene_generator as sg
@@ -1711,10 +1879,27 @@ def ground_effects(stage, config, stats, placements, arch_dir, parent, ssf,
                   "earthquake preset holds 6.0 m) or raise QUAKE_POUND_GAP."
                   .format(max_gap,
                           "{0:.2f} m".format(closest) if closest_pair else "none"))
+
+    street = {"instances": 0, "buildings": 0, "buildings_skipped": 0}
+    if street_debris:
+        try:
+            street = _street_debris_pass(
+                stage, placements, stats.get("records", []), manifest, rng,
+                parent + "/quake_street_debris", mats=mats,
+                bounds=_c_plate_bounds(config), verbose=verbose)
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            print("[quake] street debris FAILED: {0}".format(exc))
+            street = {"instances": 0, "buildings": 0, "buildings_skipped": 0, "error": str(exc)}
+
     if verbose:
         print("[quake] ground: {0} dust band(s), {1} fissure segment(s), {2} boil(s), "
-              "{3} pounding scar(s)".format(n_dust, n_fis, n_boil, n_pound))
-    return {"dust_bands": n_dust, "fissures": n_fis, "boils": n_boil, "pounding": n_pound}
+              "{3} pounding scar(s), {4} street-debris instance(s) across {5} "
+              "building(s)".format(n_dust, n_fis, n_boil, n_pound,
+                                    street["instances"], street["buildings"]))
+    return {"dust_bands": n_dust, "fissures": n_fis, "boils": n_boil, "pounding": n_pound,
+            "street_debris": street["instances"], "street_debris_buildings": street["buildings"]}
 
 
 # ---------------------------------------------------------------------------

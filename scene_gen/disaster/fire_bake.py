@@ -876,21 +876,26 @@ def _wall_backing_contact(locator, ipts, icells, gid, own_of_cell,
     excluded by `_ray_hit_points`'s owner check regardless of where on the
     ray they'd fall.
 
-    Returns `(backed, distance)`; `distance` is the nearest qualifying
-    hit's range from the centroid (`None` if nothing qualified within
-    `reach_m`, including when `pts` was too degenerate to fit a normal to
-    at all -- always treated as UNbacked, same as "nothing found").
+    Returns `(backed, distance, path)` -- `path` (mirrors `_judge_
+    candidates`' own `support_path`) is `owner_path` resolved for whatever
+    the WINNING ray actually hit, so a caller can tell a real kit wall
+    (`.../wall_x_0_00_0000`) from a hit that should never have been able to
+    back anything, like a merged source mesh still composed (invisible)
+    under `<cell>/src` at judge time. `distance`/`path` are both `None`
+    when nothing qualified within `reach_m`, including when `pts` was too
+    degenerate to fit a normal to at all -- always treated as UNbacked,
+    same as "nothing found".
     """
     import numpy as np
 
     if pts is None:
-        return False, None
+        return False, None, None
     P = np.vstack(pts) if isinstance(pts, list) else np.asarray(pts)
     n = _flat_normal(P)
     if n is None:
-        return False, None
+        return False, None, None
     c = P.mean(axis=0)
-    best = None
+    best, best_owner = None, None
     for sign in (1.0, -1.0):
         d = n * sign
         p0 = (float(c[0]), float(c[1]), float(c[2]))
@@ -903,8 +908,10 @@ def _wall_backing_contact(locator, ipts, icells, gid, own_of_cell,
                 continue                    # a decal cannot back a decal
             dist = float(np.linalg.norm(np.array(pt) - c))
             if best is None or dist < best:
-                best = dist
-    return (best is not None and best <= reach_m + 1e-9), best
+                best, best_owner = dist, o
+    backed = best is not None and best <= reach_m + 1e-9
+    path = owner_path.get(best_owner) if backed and best_owner is not None else None
+    return backed, best, path
 
 
 def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
@@ -956,14 +963,15 @@ def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
     Returns `{"n_meshes", "n_triangles", "load_s", "build_s", "ray_s",
     "locator", "judged"}` -- `judged` is `[{"path", "prefix", "bottom_z",
     "support_z", "support_path", "gap", "contact", "backing_m",
-    "deactivate"}, ...]`, one entry per candidate GROUP (see
+    "backing_path", "deactivate"}, ...]`, one entry per candidate GROUP (see
     `_candidate_key`). `support_path` is the path of whatever prim the
     WINNING downward ray actually hit (None if no ray hit anything -- the
     candidate is falling all the way to the assumed ground at z=0).
-    `backing_m` is the distance `_wall_backing_contact` found real backing
-    at (None for anything that never ran that test, including a
-    `_WALL_DECAL_FAMILIES` candidate already `contact` from its downward
-    ray alone). `{"n_meshes": 0, "judged": []}` (no `locator`) when `root`
+    `backing_m`/`backing_path` are the distance and prim path
+    `_wall_backing_contact` found real backing at (both None for anything
+    that never ran that test, including a `_WALL_DECAL_FAMILIES` candidate
+    already `contact` from its downward ray alone, and for a genuinely
+    unbacked one). `{"n_meshes": 0, "judged": []}` (no `locator`) when `root`
     is missing, vtk will not import, or nothing in the subtree matches a
     candidate name.
     """
@@ -1145,7 +1153,7 @@ def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
         diag = float(((hi[0] - lo[0]) ** 2 + (hi[1] - lo[1]) ** 2
                       + (hi[2] - lo[2]) ** 2) ** 0.5)
         pfx = _match_prefix(Sdf.Path(key).name) or "?"
-        backing_m = None
+        backing_m = backing_path = None
         if not contact and pfx in _WALL_DECAL_FAMILIES:
             # A FLAT WALL STAMP IS ATTACHED, NOT LEANING -- but only when
             # the wall it was stamped on is still actually there. Replaces
@@ -1154,7 +1162,7 @@ def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
             # cast along the stamp's OWN fitted normal instead of the
             # world's 4 cardinal directions, which is what makes this right
             # on a diagonal or corner wall too.
-            contact, backing_m = _wall_backing_contact(
+            contact, backing_m, backing_path = _wall_backing_contact(
                 locator, ipts, icells, gid, own_of_cell, owner_path,
                 g.get("pts"))
         elif not contact and (diag >= _LEAN_MIN_DIAG_M
@@ -1190,6 +1198,7 @@ def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
             "bottom_z": bottom_z, "support_z": float(support_z),
             "support_path": support_path, "gap": float(gap),
             "contact": bool(contact), "backing_m": backing_m,
+            "backing_path": backing_path,
             "deactivate": bool(gap > gap_m and not contact),
         })
     t3 = time.time()
@@ -1197,6 +1206,13 @@ def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
     return {"n_meshes": n_meshes, "n_triangles": n_tris,
             "load_s": t1 - t0, "build_s": t2 - t1, "ray_s": t3 - t2,
             "locator": locator, "judged": judged}
+
+
+#: `deactivate_airborne` re-judges until a pass removes nothing new, or
+#: gives up and ships whatever is left rather than loop forever on some
+#: pathological mutual-support cycle that should not exist but should never
+#: be allowed to hang a bake either.
+_AIRBORNE_MAX_PASSES = 12
 
 
 def deactivate_airborne(stage, root, gap_m=1.0, verbose=True, **_ignored):
@@ -1208,10 +1224,37 @@ def deactivate_airborne(stage, root, gap_m=1.0, verbose=True, **_ignored):
     the count -- the only part of the contract the caller
     (`fire_bake_launch_script.py`, `settle_info["airborne_off"] =
     fb.deactivate_airborne(stage, fb.BAKE_ROOT)`, no extra args) depends on.
+
+    ITERATES TO A FIXED POINT (2026-08-31; fire_dtc3 bench, `gac_
+    SM_Building_26_F4_s162`, 14 `spall`/`spallhalo` still ACTIVE in the
+    export that `tools/airborne_probe.py` immediately re-flagged on the
+    same file, cold). `_judge_candidates` judges every candidate from ONE
+    snapshot of "what's currently active", then this function used to flip
+    `SetActive(False)` on the losers in a single batch -- so a candidate
+    whose only "seat" (the plain downward ray has NO family exclusion, only
+    self-exclusion) or "backing" was ANOTHER candidate that this SAME batch
+    was about to turn off got to keep a contact that would not survive the
+    save. MEASURED: `sbar_g5_20` (exposed rebar, authored INSIDE the very
+    spall region it belongs to -- `urban_fire.r_spall`, so a spall and its
+    exposed bar are meant to be centimetres apart) sat 4.2 cm under
+    `spallhalo_g5_16` and 4.5 cm under `spall_g5_17` -- close enough that
+    the downward ray called them "seated", `contact=True`, before either
+    branch below ever got a look. `sbar_g5_20` had no support of its own
+    (same wall gone), so the SAME pass judged it airborne too and switched
+    it off -- correctly, but a batch too late for the two stamps that had
+    just leaned on it. The fix does not touch a single per-candidate rule:
+    it rebuilds the WHOLE locator from the now-smaller active set and
+    re-judges everyone still standing, exactly what a cold re-open already
+    does, so a live bake converges to the same answer instead of needing a
+    second pass from `tools/airborne_probe.py --fix` after the fact.
+    Removals only ever shrink the active set, so each pass can only find
+    the same or MORE floaters than the last -- monotone, so this cannot
+    oscillate, only stop improving (`_AIRBORNE_MAX_PASSES` is a hang guard,
+    not a real limit: measured convergence on every bake so far is 2 passes,
+    the second one finding zero).
     """
     from pxr import Sdf
 
-    info = _judge_candidates(stage, root, gap_m=gap_m, verbose=verbose)
     # A FAMILY THAT IS MOSTLY "AIRBORNE" IS NOT AIRBORNE — its floor is
     # missing. 6,186 `fireheap` chips of SM_Building_09 F6 sat over nothing
     # because the storey they landed on had no slab (fire_row1, 2026-08-30);
@@ -1233,41 +1276,67 @@ def deactivate_airborne(stage, root, gap_m=1.0, verbose=True, **_ignored):
     # roof-lid pieces at deck height over SM_Building_23's F4 burn-through
     # hole, silently "left alone" by this same cap (row-2 review,
     # 2026-08-30). Restricting the cap to the pile allowlist means every
-    # other family always deactivates when judged, cap or no cap.
+    # other family always deactivates when judged, cap or no cap. The cap
+    # is re-evaluated FRESH every pass, from that pass's own judged counts
+    # -- correct, since a pass that just removed a pile's neighbours can
+    # change whether the pile itself still looks mostly-unsupported.
     PILE_FAMILIES = {"fireheap", "heap", "frub", "sdeb", "glit"}
     FAMILY_CAP = 0.25
-    judged_by = {}
-    for j in info["judged"]:
-        if j["prefix"] not in PILE_FAMILIES:
-            continue
-        judged_by.setdefault(j["prefix"], [0, 0])
-        judged_by[j["prefix"]][0] += 1
-        judged_by[j["prefix"]][1] += 1 if j["deactivate"] else 0
-    skip = {k for k, (n, g) in judged_by.items()
-            if n >= 20 and g > FAMILY_CAP * n}
-    for k in sorted(skip):
-        n, g = judged_by[k]
-        print("[fire_bake] WARNING: {0}/{1} `{2}` prim(s) have no support — "
-              "that is a missing floor, not stray debris; leaving the family "
-              "alone".format(g, n, k))
-    gone, by_kind = [], {}
-    for j in info["judged"]:
-        if not j["deactivate"] or j["prefix"] in skip:
-            continue
-        gone.append(j["path"])
-        by_kind[j["prefix"]] = by_kind.get(j["prefix"], 0) + 1
 
-    for key in gone:
-        stage.GetPrimAtPath(Sdf.Path(key)).SetActive(False)
+    total_gone, total_by_kind = 0, {}
+    for pass_n in range(1, _AIRBORNE_MAX_PASSES + 1):
+        info = _judge_candidates(stage, root, gap_m=gap_m,
+                                 verbose=verbose and pass_n == 1)
+        judged_by = {}
+        for j in info["judged"]:
+            if j["prefix"] not in PILE_FAMILIES:
+                continue
+            judged_by.setdefault(j["prefix"], [0, 0])
+            judged_by[j["prefix"]][0] += 1
+            judged_by[j["prefix"]][1] += 1 if j["deactivate"] else 0
+        skip = {k for k, (n, g) in judged_by.items()
+                if n >= 20 and g > FAMILY_CAP * n}
+        for k in sorted(skip):
+            n, g = judged_by[k]
+            print("[fire_bake] WARNING: {0}/{1} `{2}` prim(s) have no "
+                  "support — that is a missing floor, not stray debris; "
+                  "leaving the family alone".format(g, n, k))
+        gone, by_kind = [], {}
+        for j in info["judged"]:
+            if not j["deactivate"] or j["prefix"] in skip:
+                continue
+            gone.append(j["path"])
+            by_kind[j["prefix"]] = by_kind.get(j["prefix"], 0) + 1
+
+        for key in gone:
+            stage.GetPrimAtPath(Sdf.Path(key)).SetActive(False)
+        total_gone += len(gone)
+        for k, v in by_kind.items():
+            total_by_kind[k] = total_by_kind.get(k, 0) + v
+        if verbose:
+            print("[fire_bake] airborne check pass {0}: {1} candidate(s) "
+                  "judged, {2} deactivated{3}".format(
+                      pass_n, len(info["judged"]), len(gone),
+                      ": " + ", ".join(
+                          "{0} {1}".format(v, k) for k, v in
+                          sorted(by_kind.items(), key=lambda kv: -kv[1]))
+                      if gone else ""))
+        if not gone:
+            break
+    else:
+        print("[fire_bake] WARNING: airborne check still finding new "
+              "floaters after {0} passes — stopping anyway; the export is "
+              "not guaranteed floater-free".format(_AIRBORNE_MAX_PASSES))
+
     if verbose:
-        print("[fire_bake] airborne check: {0} candidate(s) judged, {1} "
+        print("[fire_bake] airborne check: {0} pass(es), {1} total "
               "deactivated{2}".format(
-                  len(info["judged"]), len(gone),
+                  pass_n, total_gone,
                   ": " + ", ".join(
                       "{0} {1}".format(v, k) for k, v in
-                      sorted(by_kind.items(), key=lambda kv: -kv[1]))
-                  if gone else ""))
-    return len(gone)
+                      sorted(total_by_kind.items(), key=lambda kv: -kv[1]))
+                  if total_gone else ""))
+    return total_gone
 
 
 def _under(path, prefixes):

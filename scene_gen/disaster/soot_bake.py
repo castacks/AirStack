@@ -457,46 +457,94 @@ def harden_sooted_shader(mat, coverage, min_cov=SOOT_HARDEN_MIN,
     if not prim.IsValid():
         return 0
 
-    n = 0
+    # READ WITH Usd, WRITE WITH Sdf — NEVER MIX. The copy is built on an
+    # INTERNAL REFERENCE (`soot_plume.piece_material_like`); authoring a
+    # disconnect through UsdShade recomposes that arc and EXPIRES handles
+    # on it — first the ones held across the edit, then (measured,
+    # gac_burn_probe SM_Building_02 F3, 2026-08-31) even a freshly
+    # re-fetched input's attribute access threw UsdExpiredPrimAccessError.
+    # So phase 1 only READS (collect what to change), and phase 2 authors
+    # the overrides as raw Sdf specs on the edit-target layer: a local
+    # attribute spec with an EXPLICIT EMPTY connection list blocks the
+    # referenced texture connection, and its `default` carries the scalar
+    # — no Usd prim or attribute handle is touched at all, so there is
+    # nothing left to expire.
+    stage = prim.GetStage()
+
+    # EVEN A PURE READ CAN THROW HERE. On a real burn stage some copies'
+    # composed `ior` input raises UsdExpiredPrimAccessError from
+    # `HasConnectedSource()` with no edit anywhere in flight (measured,
+    # gac_burn_probe SM_Building_02 F3, 2026-08-31 — the connection
+    # resolves across the internal-reference arc into geometry the burn
+    # has since deactivated/moved). A read that throws is treated as
+    # CONNECTED-to-something-broken: phase 2's explicit-empty connection
+    # list blocks it and the scalar default takes over, which is exactly
+    # the treatment a healthy connection gets.
+    def _conn(inp):
+        try:
+            return inp.HasConnectedSource()
+        except Exception:
+            return True
+    def _val(inp):
+        try:
+            return inp.Get()
+        except Exception:
+            return None
+
+    ops = []                       # (shader_path, input_name, value, block)
     for c in Usd.PrimRange(prim):
         sh = UsdShade.Shader(c)
         if not sh or sh.GetIdAttr().Get() != "UsdPreviewSurface":
             continue
+        sp = c.GetPath()
         for name, value in (("metallic", metallic_v), ("roughness", roughness_v)):
             inp = sh.GetInput(name)
             if inp is None:
                 continue
-            if inp.HasConnectedSource():
-                inp.DisconnectSource()
-            inp.Set(float(value))
-            n += 1
+            ops.append((sp, name, float(value), _conn(inp)))
         ior_in = sh.GetInput("ior")
         if ior_in is not None:
-            connected = ior_in.HasConnectedSource()
-            cur = None if connected else ior_in.Get()
-            if connected or (cur is not None and abs(float(cur) - IOR_NEUTRAL) > 1e-3):
-                if connected:
-                    ior_in.DisconnectSource()
-                ior_in.Set(IOR_NEUTRAL)
-                n += 1
+            connected = _conn(ior_in)
+            cur = None if connected else _val(ior_in)
+            if connected or (cur is not None
+                             and abs(float(cur) - IOR_NEUTRAL) > 1e-3):
+                ops.append((sp, "ior", float(IOR_NEUTRAL), connected))
         cc_in = sh.GetInput("clearcoat")
         if cc_in is not None:
-            connected = cc_in.HasConnectedSource()
-            cur = None if connected else cc_in.Get()
+            connected = _conn(cc_in)
+            cur = None if connected else _val(cc_in)
             if connected or (cur is not None and float(cur) > 0.0):
-                if connected:
-                    cc_in.DisconnectSource()
-                cc_in.Set(0.0)
-                n += 1
+                ops.append((sp, "clearcoat", 0.0, connected))
                 ccr_in = sh.GetInput("clearcoatRoughness")
-                if ccr_in is not None and ccr_in.HasConnectedSource():
-                    ccr_in.DisconnectSource()
-                    ccr_in.Set(1.0)
-                    n += 1
-        if verbose and n:
-            print("[soot_bake] hardened {0}: metallic->{1:.3f} "
-                  "roughness->{2:.3f} (coverage {3:.0%})".format(
-                      c.GetPath(), metallic_v, roughness_v, coverage))
+                if ccr_in is not None and _conn(ccr_in):
+                    ops.append((sp, "clearcoatRoughness", 1.0, True))
+    if not ops:
+        return 0
+    from pxr import Sdf
+    layer = stage.GetEditTarget().GetLayer()
+    n = 0
+    for sp, name, value, block in ops:
+        apath = sp.AppendProperty("inputs:" + name)
+        spec = layer.GetAttributeAtPath(apath)
+        if spec is None:
+            pspec = Sdf.CreatePrimInLayer(layer, sp)
+            spec = Sdf.AttributeSpec(pspec, "inputs:" + name,
+                                     Sdf.ValueTypeNames.Float)
+        if block:
+            # unambiguous EXPLICIT-EMPTY: `explicitItems = []` after
+            # `ClearEdits()` left the list-op with NO opinion (the empty
+            # assignment does not flip it to explicit mode) and the
+            # referenced texture connection survived; `SetInfo` refuses the
+            # field outright ("read-only field 'connectionPaths'"). The
+            # canonical author is the proxy's ClearEditsAndMakeExplicit()
+            # — explicit mode, zero items — which blocks the reference's
+            # connection so the scalar `default` below wins composition.
+            spec.connectionPathList.ClearEditsAndMakeExplicit()
+        spec.default = float(value)
+        n += 1
+        if verbose:
+            print("[soot_bake] hardened {0}.inputs:{1} -> {2:.3f} "
+                  "(coverage {3:.0%})".format(sp, name, value, coverage))
     return n
 
 
@@ -567,8 +615,16 @@ def harden_baked_materials(stage, root=None, min_cov=SOOT_HARDEN_MIN,
     """
     from pxr import Usd, UsdShade
 
+    # TWO PHASES, BECAUSE THE CURSOR DOES NOT SURVIVE THE EDITS. Hardening
+    # a reference-built copy recomposes its arc, and a live `Usd.PrimRange`
+    # standing on (or under) that material comes back EXPIRED on the next
+    # step — the very first hardened material killed the sweep
+    # (UsdExpiredPrimAccessError, gac_burn_probe SM_Building_02 F3,
+    # 2026-08-31; same lesson `harden_sooted_shader` itself just learned).
+    # Phase 1 only READS: walk everything, keep (path, coverage). Phase 2
+    # re-fetches each material fresh by path and hardens it.
     start = root if root is not None else stage.GetPseudoRoot()
-    n = 0
+    todo = []
     for prim in Usd.PrimRange(start):
         if not prim.IsA(UsdShade.Material):
             continue
@@ -590,7 +646,12 @@ def harden_baked_materials(stage, root=None, min_cov=SOOT_HARDEN_MIN,
             break
         if digest is None or digest not in _COVERAGE_BY_DIGEST:
             continue
-        cov = _COVERAGE_BY_DIGEST[digest]
+        todo.append((prim.GetPath(), _COVERAGE_BY_DIGEST[digest]))
+    n = 0
+    for mpath, cov in todo:
+        prim = stage.GetPrimAtPath(mpath)
+        if not prim or not prim.IsValid():
+            continue
         if harden_sooted_shader(UsdShade.Material(prim), cov, min_cov,
                                 full_cov, verbose=verbose):
             n += 1

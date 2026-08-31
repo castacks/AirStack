@@ -362,3 +362,60 @@ def test_measured_extent_beats_nominal_reach():
     r2 = {"extent_m": {"S": 3.0, "N": 2.0, "E": 2.5, "W": 2.0}, "fall_sides": ["S"]}
     got2 = q._heap_reach_for(r2, "urm", "DG5", 20.0)
     assert got2 == {"S": 3.0, "N": 2.0, "E": 2.5, "W": 2.0}
+
+
+# ---------------------------------------------------------------------------
+# round-5 addendum: `_fall_sides_for` — the STREET DEBRIS pass (`_street_
+# debris_pass` / `quake_rubble.plan_street_scatter`) has to agree with heap
+# clearance on which side is "the street", or it could scatter debris on a
+# building's blind/party-wall side instead. `_street_debris_pass` itself
+# needs pxr (it authors a PointInstancer); `_fall_sides_for` is its pure
+# core, so it gets a `test_quake_heap_clearance`-style pure test here rather
+# than a stage-authoring one.
+# ---------------------------------------------------------------------------
+def test_fall_sides_for_uses_measured_fall_sides_when_present():
+    r = {"fall_sides": ["S", "E"]}
+    assert q._fall_sides_for(r, "/World/city/bld_1") == {"S", "E"}
+    # a single measured side is respected too, not padded to a second one
+    assert q._fall_sides_for({"fall_sides": ["N"]}, "/World/city/bld_1") == {"N"}
+
+
+def test_fall_sides_for_matches_heap_reach_sides_stable_hash_when_absent():
+    """No measured `fall_sides` on the record: falls back to EXACTLY the
+    same stable-hashed second side `heap_reach_sides` itself draws for the
+    same `prim_path` — the two passes must pick the same "street" side for
+    a DG3 building neither pass has a manifest row to measure from."""
+    for path in ("/World/city/bld_0", "/World/city/bld_7", "/World/city/bld_42"):
+        sides = q.heap_reach_sides("rc", "DG5", 20.0, path)
+        fall = q.heap_reach_m("rc", "DG5", 20.0, fall_side=True)
+        expect_extra = next(s for s in ("E", "N", "W") if sides[s] == fall)
+        got = q._fall_sides_for({}, path)
+        assert got == {"S", expect_extra}, (path, got, expect_extra)
+
+
+def test_fall_sides_for_is_deterministic_per_prim_path():
+    a = q._fall_sides_for({}, "/World/city/bld_9")
+    b = q._fall_sides_for({}, "/World/city/bld_9")
+    assert a == b
+
+
+# ---------------------------------------------------------------------------
+# round-5 addendum: the street-debris pass's env gate. `_street_debris_
+# enabled` reads `QUAKE_STREET_DEBRIS` live (not cached at import time, so
+# it can be exercised here without reimporting the module) — default ON,
+# per the brief ("gated QUAKE_STREET_DEBRIS=1 default on").
+# ---------------------------------------------------------------------------
+def test_street_debris_enabled_default_on_and_env_gated():
+    saved = os.environ.pop("QUAKE_STREET_DEBRIS", None)
+    try:
+        assert q._street_debris_enabled() is True
+        for off in ("0", "false", "False", "no"):
+            os.environ["QUAKE_STREET_DEBRIS"] = off
+            assert q._street_debris_enabled() is False, off
+        os.environ["QUAKE_STREET_DEBRIS"] = "1"
+        assert q._street_debris_enabled() is True
+    finally:
+        if saved is None:
+            os.environ.pop("QUAKE_STREET_DEBRIS", None)
+        else:
+            os.environ["QUAKE_STREET_DEBRIS"] = saved

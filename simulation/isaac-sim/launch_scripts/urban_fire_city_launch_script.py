@@ -163,6 +163,16 @@ Env:
     FA_EMITTER_BUDGET  the GLOBAL emitter cap (default 200)
     FA_SCALE       emission scale multiplier (default 1.0)
     FA_SEED        rng seed for the per-emitter jitter (default 7)
+    FC_SCORCH_VEG  1 (default) darkens street trees / greenery within reach
+                   of a damaged building (F2 up — see `fire_assembly_lib.
+                   veg_scorch_radius_m`) to a flat charred material. 0 skips
+                   the whole pass; nothing about a tree changes, it stays
+                   whatever the city generator authored (green).
+    FC_FIRE_APRON  1 (default) scatters a small ground-debris apron along
+                   the VENTING sides of every F1-F5 (non-collapse) burning
+                   building — see `fire_assembly_lib.fire_apron_pass`. F5c/
+                   F6 already drop a collapse heap and are not touched by
+                   this pass. 0 skips it.
     SNAP_DIR       viewport captures, MUST be under
                    /isaac-sim/.nvidia-omniverse/logs/
     KEEP_OPEN      1 keeps the app up after the captures
@@ -292,6 +302,14 @@ MAX_EMITTERS = int(_env("FA_EMITTERS", "6"))
 EMITTER_BUDGET = int(_env("FA_EMITTER_BUDGET", "200"))
 SCALE = float(_env("FA_SCALE", "1.0"))
 SEED = int(_env("FA_SEED", "7"))
+SCORCH_VEG = _flag("FC_SCORCH_VEG", "1")
+FIRE_APRON = _flag("FC_FIRE_APRON", "1")
+# THE PEOPLE PASS RUNS LAST ("after everything is baked in", user
+# 2026-08-31): FC_PEOPLE_JSON is the REVIEWED records file the fire_people
+# dry run wrote (its PNG is the 2-D gate) — the launcher never re-solves
+# placement, it authors what was approved.
+PEOPLE = _flag("FC_PEOPLE", "1")
+PEOPLE_JSON = _env("FC_PEOPLE_JSON", "")
 SNAP_DIR = _env("SNAP_DIR", "")
 KEEP_OPEN = _flag("KEEP_OPEN", "0")
 
@@ -1035,7 +1053,97 @@ class FireCityApp:
         self.vram["bakes"] = vram_mb(
             "{0} bake(s) composed, no Flow".format(len(placed)))
 
+    # -- 3b) scorched vegetation near a burning building (2026-08-31) ------
+    def scorch_vegetation(self):
+        """Darken every street tree / greenery placement within reach of a
+        damaged building — see `fire_assembly_lib.scorch_vegetation_pass`
+        for the radius rule and the material reuse. Runs on `self.placed`
+        (composed bakes only), independent of the Flow emitter budget: a
+        building whose fire did not get live flames because the budget ran
+        out still did real damage and still scorches what is next to it.
+        """
+        if not SCORCH_VEG or not self.placed:
+            self.veg_scorch = {"trees": 0, "leaf_binds": 0,
+                               "trunk_binds": 0, "fuels_total": 0,
+                               "scorched": 0, "targets": {}}
+            return
+        stats = fal.scorch_vegetation_pass(self.stage, self.placements,
+                                           self.placed, FIRE_ROOT)
+        self.veg_scorch = stats
+        print("[fc] scorched vegetation: {0}/{1} fuel placement(s) within "
+              "reach of a burning building ({2} tree(s) touched, {3} leaf "
+              "bind(s), {4} trunk bind(s))".format(
+                  stats["scorched"], stats["fuels_total"], stats["trees"],
+                  stats["leaf_binds"], stats["trunk_binds"]))
+        for path, t in sorted(stats["targets"].items(),
+                              key=lambda kv: kv[1]["dist_m"])[:8]:
+            print("[fc]   d{0:<3} {1:<5} {2:5.1f} m of {3:5.1f} m radius  "
+                  "{4}".format(t["i"], t["level"], t["dist_m"],
+                              t["radius_m"], path))
+        self.vram["scorch_veg"] = vram_mb(
+            "vegetation scorched ({0} tree(s))".format(stats["trees"]))
+
+    # -- 3c) fire-side debris apron, non-collapse burning buildings --------
+    def fire_debris_apron(self):
+        """Small ground-debris apron along the venting sides of every F1-F5
+        (non-collapse) burning building — see `fire_assembly_lib.
+        fire_apron_pass`. One merged Mesh per qualifying building, so the
+        prim cost is bounded regardless of how many lumps it carries.
+        """
+        if not FIRE_APRON or not self.placed:
+            self.aprons = []
+            return
+        rows = fal.fire_apron_pass(self.stage, FIRE_ROOT, self.placed,
+                                   seed=SEED)
+        self.aprons = rows
+        n_lumps = sum(r["n"] for r in rows)
+        n_buildings = sum(1 for r in rows if r.get("prim"))
+        print("[fc] fire-side debris apron: {0} lump(s) on {1} building(s), "
+              "{2} mesh prim(s) ({3} building(s) not gated in: collapse or "
+              "unburnt level)".format(n_lumps, n_buildings, n_buildings,
+                                      len(rows) - n_buildings))
+        for r in rows:
+            if not r.get("prim"):
+                continue
+            print("[fc]   d{0:<3} {1:<30} {2:<4} {3:>3} lump(s) on side(s) "
+                  "{4}".format(r["i"], r["stem"], r["level"], r["n"],
+                              "/".join(r["sides"])))
+        self.vram["apron"] = vram_mb(
+            "fire debris apron ({0} lump(s), {1} mesh(es))".format(
+                n_lumps, n_buildings))
+
     # -- 4) the fire, under a GLOBAL emitter budget -------------------------
+    def place_people(self):
+        """Author the approved people records onto the assembled city.
+
+        `fire_people.to_placements` converts the dry run's records into
+        `apply_placements` dicts (pose binding, prone rolls, pose-z drops);
+        NOT instanced — `_bind_human_pose` edits inside each rig. Runs after
+        `put_the_fire_back` so figures land on the final scene.
+        """
+        if not PEOPLE:
+            print("[fc] people: FC_PEOPLE=0 — skipped")
+            return
+        if not PEOPLE_JSON or not os.path.isfile(PEOPLE_JSON):
+            print("[fc] people: FC_PEOPLE_JSON missing ({0!r}) — skipped; "
+                  "run tools/fire_people_dry_run.py and pass its records "
+                  "JSON".format(PEOPLE_JSON))
+            return
+        import json as _json
+        import scene_generator as _sg
+        from disaster import fire_people as fpl
+        doc = _json.load(open(PEOPLE_JSON))
+        placements, skipped = fpl.to_placements(doc)
+        _sg.apply_placements(self.stage, placements, PARENT + "/people",
+                             self.ssf)
+        by = {}
+        for r in (doc.get("records") if isinstance(doc, dict) else doc) or []:
+            by[r.get("cls", "?")] = by.get(r.get("cls", "?"), 0) + 1
+        print("[fc] people: {0} authored, {1} skipped ({2})".format(
+            len(placements), len(skipped),
+            ", ".join("{0} {1}".format(k, v) for k, v in sorted(by.items()))))
+        vram_mb("people placed")
+
     def put_the_fire_back(self):
         if not (FLOW and self.placed):
             self.fires = []
@@ -1119,8 +1227,28 @@ class FireCityApp:
                   "counts still look right. Lower FA_EMITTER_BUDGET or raise "
                   "FA_MAX_BLOCKS (currently {2})".format(
                       total, EMITTER_BUDGET, MAX_BLOCKS))
-        for _ in range(30):                     # let Flow allocate its pool
-            omni.kit.app.get_app().update()
+        if _flag("FC_FIRE_PHASED", "0"):
+            # TWO-PHASE VRAM MEASUREMENT (user, 2026-08-31: "have them
+            # deactivated first to measure vram then enable them and
+            # activate and test VRAM"). Flow allocates its block pool on
+            # UPDATE while emitters are ACTIVE — so deactivate the flow
+            # root BEFORE the first post-authoring update, measure the
+            # city-without-fire cost, then activate and measure the fire
+            # cost as a clean delta.
+            fr = self.stage.GetPrimAtPath(flow_root)
+            if fr and fr.IsValid():
+                fr.SetActive(False)
+            for _ in range(30):
+                omni.kit.app.get_app().update()
+            vram_mb("fires staged but DEACTIVATED")
+            if fr and fr.IsValid():
+                fr.SetActive(True)
+            for _ in range(30):                 # Flow allocates its pool now
+                omni.kit.app.get_app().update()
+            vram_mb("fires ACTIVATED")
+        else:
+            for _ in range(30):                 # let Flow allocate its pool
+                omni.kit.app.get_app().update()
         self.vram["flow"] = vram_mb("Flow up ({0} emitter(s))".format(total))
 
         # RE-ASSERT FRACTIONAL CUTOUT OPACITY, NOW THAT THE STAGE IS COMPOSED
@@ -1320,7 +1448,10 @@ class FireCityApp:
             return
         self.load_fire()
         self.compose_bakes()
+        self.scorch_vegetation()
+        self.fire_debris_apron()
         self.put_the_fire_back()
+        self.place_people()
         self.capture()
         self.banner()
 
@@ -1353,6 +1484,18 @@ class FireCityApp:
                     len(self.refused),
                     ", ".join("{0} ({1})".format(r["stem"], r.get("skip"))
                               for r in self.refused)))
+            veg = getattr(self, "veg_scorch", None)
+            if veg is not None:
+                print("  scorched vegetation: {0} tree(s) darkened of {1} "
+                      "fuel placement(s) checked (FC_SCORCH_VEG={2})".format(
+                          veg.get("trees", 0), veg.get("fuels_total", 0),
+                          int(SCORCH_VEG)))
+            aprons = getattr(self, "aprons", None)
+            if aprons is not None:
+                n_b = sum(1 for r in aprons if r.get("prim"))
+                n_l = sum(r.get("n", 0) for r in aprons)
+                print("  fire debris apron: {0} lump(s) on {1} building(s) "
+                      "(FC_FIRE_APRON={2})".format(n_l, n_b, int(FIRE_APRON)))
         print("  built in {0:.0f} s".format(time.time() - self.t0))
         print("=" * 78 + "\n")
         print("URBAN FIRE CITY DONE")

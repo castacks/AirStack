@@ -188,9 +188,97 @@ def test_bar_family_keeps_the_old_lean_exemption():
           "by the lean check)")
 
 
+def test_invisible_wall_does_not_back():
+    """An INVISIBLE wall 5 cm behind a stamp must NOT count as backing.
+
+    `_judge_candidates`' own mesh-load loop already drops invisible meshes
+    from the whole triangle soup before the locator is even built ("INVISIBLE
+    GEOMETRY IS NOT SUPPORT" -- the merged `<cell>/src` subtree a live GAC
+    bake keeps composed-but-hidden until export). This pins that the NEW
+    backing test inherits that exclusion for free, the same way the old
+    downward/lean rays already did -- a real regression here would mean a
+    live bake could find "backing" from source geometry that is about to be
+    dropped, exactly the kind of live-vs-exported mismatch this fix is
+    guarding against (2026-08-31, `fire_dtc3` bench)."""
+    if not HAVE_USD:
+        print("  invisible_wall       SKIP (no pxr — run under usd_python.sh)")
+        return
+    from pxr import UsdGeom
+    stage, cell = _stage()
+    spall = _stamp(stage, cell, "inv", 80.0)
+    wall_path = _wall(stage, cell, "inv", 80.0, dx=0.05)
+    UsdGeom.Imageable(stage.GetPrimAtPath(wall_path)).MakeInvisible()
+
+    info = fb._judge_candidates(stage, fb.BAKE_ROOT, gap_m=1.0, verbose=False)
+    j = _judged_by_path(info)[spall]
+    assert j["contact"] is False, j
+    assert j["deactivate"] is True, j
+    assert j["backing_m"] is None, j
+    assert j["backing_path"] is None, j
+    print("  invisible_wall       OK  (invisible wall never counted as "
+          "backing, deactivated)")
+
+
+def test_batch_does_not_prop_up_its_own_condemned():
+    """THE ACTUAL BAKE-TIME BUG (2026-08-31): `deactivate_airborne` used to
+    judge every candidate from ONE snapshot and flip the losers off in a
+    single batch, so a stamp whose only "seat" was ANOTHER member of that
+    same batch survived if that other member had not been flipped off YET
+    at the moment it was checked.
+
+    Reproduces the measured shape exactly: an `sbar` (round bar, no backing
+    test of its own -- see `_WALL_BAR_FAMILIES`) floats with nothing under
+    or beside it 5 cm under a `spall` stamp that ALSO has nothing behind it.
+    In one `_judge_candidates` snapshot the `spall`'s plain downward ray
+    calls the `sbar` a seat (`contact=True` from the flush-seat check alone
+    -- before the backing branch ever runs) while the `sbar` is
+    independently judged unsupported. A single-pass deactivate would turn
+    the `sbar` off and leave the `spall` active with a "seat" that no
+    longer exists. `deactivate_airborne` must re-judge after each pass and
+    catch it on the next one -- this is what
+    `tools/airborne_replay_probe.py` proved end-to-end on the real bake
+    (`gac_SM_Building_26_F4_s162.usd`: pass 1 caught `sbar_g5_20` among 76,
+    pass 2 caught the 14 stamps that had been resting on members of that
+    same batch, pass 3 found nothing new)."""
+    if not HAVE_USD:
+        print("  batch_fixed_point    SKIP (no pxr — run under usd_python.sh)")
+        return
+    from pxr import Sdf
+    stage, cell = _stage()
+    # the bar: nothing under or beside it -- an isolated floater
+    bar_path = "{0}/sbar_batch_1".format(cell)
+    _quad(stage, bar_path, 5.0, -0.05, 0.05, 9.60, 9.80)
+    # the stamp: bottom_z 9.85, so the bar's top at 9.80 is 5 cm below it --
+    # well inside `_SEAT_TOL_M` (0.15 m), found by the PLAIN DOWNWARD ray,
+    # before the stamp's own backing test would ever get a look
+    spall = _stamp(stage, cell, "batch", 0.0)
+
+    # sanity: confirm the single-snapshot judge really does show the shape
+    # this test is about, before checking `deactivate_airborne` fixes it
+    info = fb._judge_candidates(stage, fb.BAKE_ROOT, gap_m=1.0, verbose=False)
+    j = _judged_by_path(info)
+    assert j[bar_path]["deactivate"] is True, j[bar_path]
+    assert j[spall]["deactivate"] is False, j[spall]     # the bug, pre-fix
+    assert j[spall]["contact"] is True and j[spall]["backing_m"] is None, \
+        j[spall]                          # kept via flush-seat, not backing
+
+    n = fb.deactivate_airborne(stage, fb.BAKE_ROOT, gap_m=1.0, verbose=False)
+    assert n == 2, "expected both the bar and the stamp gone, got {0}".format(n)
+    bar_active = stage.GetPrimAtPath(Sdf.Path(bar_path)).IsActive()
+    spall_active = stage.GetPrimAtPath(Sdf.Path(spall)).IsActive()
+    assert bar_active is False, "sbar should be off after pass 1"
+    assert spall_active is False, (
+        "spall should be off after pass 2 -- its only 'seat' was the sbar, "
+        "which pass 1 already condemned")
+    print("  batch_fixed_point    OK  (bar off pass 1, stamp off pass 2, "
+          "{0} total deactivated)".format(n))
+
+
 TESTS = [test_wall_backed_at_5cm_is_kept, test_no_wall_is_deactivated,
          test_wall_1m_back_is_too_far_and_deactivated,
-         test_bar_family_keeps_the_old_lean_exemption]
+         test_bar_family_keeps_the_old_lean_exemption,
+         test_invisible_wall_does_not_back,
+         test_batch_does_not_prop_up_its_own_condemned]
 
 
 def main():

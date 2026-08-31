@@ -797,13 +797,24 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
 
     # FIRE-DAMAGED PAVING -> Damaged_Asphalt, built here because BOTH the park
     # pass immediately below and the road/drive re-bind further down need it.
-    dmg_url = sg._join_asset_root(
-        "airstack://scene_gen/assets/materials/megascans/Damaged_Asphalt.usda", "")
-    dmg_path = parent + "/ground/materials/damaged_asphalt"
-    dprim = stage.DefinePrim(Sdf.Path(dmg_path))
-    dprim.GetReferences().AddReference(dmg_url)
-    dprim.Load()
-    dmat = UsdShade.Material(stage.GetPrimAtPath(dmg_path))
+    # A MIXTURE, NOT ONE MAP ("Use a mixture of Crushed Asphalt Ground,
+    # Damaged Asphalt (there's 2 types)", user 2026-08-31): three sibling
+    # materials, rotated per surface below so adjacent slabs and ribbons
+    # differ while any one surface stays a single coherent sheet.
+    dmats = []
+    for _dn in ("Damaged_Asphalt", "Damaged_Asphalt_02",
+                "Crushed_Asphalt_Ground"):
+        dmg_url = sg._join_asset_root(
+            "airstack://scene_gen/assets/materials/megascans/{0}.usda"
+            .format(_dn), "")
+        dmg_path = parent + "/ground/materials/" + _dn.lower()
+        dprim = stage.DefinePrim(Sdf.Path(dmg_path))
+        dprim.GetReferences().AddReference(dmg_url)
+        dprim.Load()
+        _dm = UsdShade.Material(stage.GetPrimAtPath(dmg_path))
+        if _dm:
+            dmats.append(_dm)
+    dmat = dmats[0] if dmats else None
 
     # PARK GROUND SURFACES. The court slabs, pitch, line markings and paths are
     # drawn geometry (not placements), so they miss the soot pass above.
@@ -879,7 +890,8 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
             c = r.GetMidpoint()
             if age(c[0] / ssf, c[1] / ssf) < 0.0:
                 continue
-            _mat = dmat if hard else _burnt_ground_mat(n_park, r)
+            _mat = (dmats[n_park_hard % len(dmats)] if hard
+                    else _burnt_ground_mat(n_park, r))
             for m in Usd.PrimRange(prim):
                 if m.IsA(UsdGeom.Mesh):
                     UsdShade.MaterialBindingAPI(m).Bind(_mat)
@@ -902,10 +914,11 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
                 continue
             for m in Usd.PrimRange(_tprim, Usd.TraverseInstanceProxies()):
                 if m.IsA(UsdGeom.Mesh):
-                    UsdShade.MaterialBindingAPI(m).Bind(dmat)
+                    UsdShade.MaterialBindingAPI(m).Bind(
+                        dmats[n_tennis % len(dmats)])
             n_tennis += 1
     print("[scene] park ground: {0} burnt-ground surface(s), {1} hard "
-          "surface(s) + {2} tennis court(s) -> Damaged_Asphalt"
+          "surface(s) + {2} tennis court(s) -> damaged-asphalt mix"
           .format(n_park, n_park_hard, n_tennis))
     n_park += n_park_hard + n_tennis
 
@@ -953,10 +966,11 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
                 continue
             c = r.GetMidpoint()
             if age(c[0] / ssf, c[1] / ssf) >= 0.0:   # front reached it
-                UsdShade.MaterialBindingAPI(prim).Bind(dmat)
+                UsdShade.MaterialBindingAPI(prim).Bind(
+                    dmats[n_dmg % len(dmats)])
                 n_dmg += 1
-    print("[scene] {0} road/drive ribbon(s) re-bound to Damaged_Asphalt "
-          "in the burn".format(n_dmg))
+    print("[scene] {0} road/drive ribbon(s) re-bound to the damaged-asphalt "
+          "mix in the burn".format(n_dmg))
 
     # 4b-2) CLEAR A GLADE ROUND EACH OPEN-GROUND GROUP. `_open_ground` already
     # requires 15 m from any structure or tree TRUNK, but a trunk keep-out is

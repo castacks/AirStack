@@ -1752,37 +1752,68 @@ def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
     # ran with masonry piers, timber slabs and residential furniture, and
     # never the steel frame (Downtown pipeline review, 2026-08-30).
     _family = {"urm": "01", "rc": "02", "rc_glass": "05"}.get(pre["btype"], "01")
-    if use_baked_kit and kb.have_kit(name):
-        pls, g2, meas2 = kb.load_kit(stage, cell, name, ssf)
+    # RING ONLY AS FAR UP AS SOMETHING CAN REACH. `fire["top"]` is the
+    # highest storey the fire itself involves; a recipe that needs the
+    # real roof regardless (a burn-through hole, either collapse) still
+    # gets it, so `_deck_slab`/`r_roof_burnthrough`/`r_fire_collapse`
+    # never find a merged wall piece where they expect a `role="roof"`
+    # one. Nothing else in the ladder looks past `fire["top"]`, so
+    # everything above it — the parapet/roof band included — collapses
+    # to one piece instead of being ringed for no reader.
+    roof_needed = (bool(fire.get("roof"))
+                  or bool(names & {"roof_burnthrough", "fire_collapse"}))
+    top = (n_st - 1) if roof_needed else int(fire["top"])
+    # FORCE_REGULAR_GRID: an explicit, named override (`PACKS[kind]`),
+    # not a side effect of `MIN_CONFIDENCE`. Building_12's measured grid
+    # already fails confidence and falls back to `regular_grid` today,
+    # but that is luck, not intent -- the user asked for a fixed grid on
+    # this asset ("You can just split it by fixed grid"), and this keeps
+    # that true even if the confidence scoring changes later.
+    force_regular = pre["asset"] in (
+        PACKS[pre["kind"]].get("force_regular_grid") or ())
+    # THIS FIRE PLAN'S OWN CUT, computed BEFORE the cache check (not just
+    # before the live slice) — `region`/`force_regular`/`_family`/`style`
+    # are exactly the fields `kit_bake.slice_signature` hashes, because
+    # `region=` cuts a DIFFERENT physical shape for a different fire plan on
+    # the SAME building (a different `origin`/`top` merges a different band
+    # into one piece; different `sides` ring different elevations) — a kit
+    # cached per building NAME ALONE would silently serve the wrong ring to
+    # whichever fire plan asked second. See `kit_bake`'s module docstring,
+    # KEYING.
+    region = {"origin": fire["origin"], "top": top, "sides": fire["sides"]}
+    kit_sig = kb.slice_signature(region=region, family=_family,
+                                 force_regular=force_regular, style=style)
+    if use_baked_kit and kb.have_kit(name, kit_sig):
+        pls, g2, meas2 = kb.load_kit(stage, cell, name, ssf, kit_sig)
         if style not in ub.STYLES:
             gsl.register_style(g2, style, pieces_of=pls, family=_family)
         from pxr import UsdGeom
         UsdGeom.Imageable(stage.GetPrimAtPath(src)).MakeInvisible()
+        if verbose:
+            # THE LINE A CACHE-HIT PROOF GREPS FOR (`tests/test_kit_bake.py`
+            # `_live_two_run_proof_full`) — the only externally visible sign
+            # that this bake skipped `slice_to_kit` entirely.
+            print("[gac_fire] {0}: loaded from kit cache (signature={1})"
+                  .format(name, kit_sig))
     else:
-        # RING ONLY AS FAR UP AS SOMETHING CAN REACH. `fire["top"]` is the
-        # highest storey the fire itself involves; a recipe that needs the
-        # real roof regardless (a burn-through hole, either collapse) still
-        # gets it, so `_deck_slab`/`r_roof_burnthrough`/`r_fire_collapse`
-        # never find a merged wall piece where they expect a `role="roof"`
-        # one. Nothing else in the ladder looks past `fire["top"]`, so
-        # everything above it — the parapet/roof band included — collapses
-        # to one piece instead of being ringed for no reader.
-        roof_needed = (bool(fire.get("roof"))
-                      or bool(names & {"roof_burnthrough", "fire_collapse"}))
-        top = (n_st - 1) if roof_needed else int(fire["top"])
-        # FORCE_REGULAR_GRID: an explicit, named override (`PACKS[kind]`),
-        # not a side effect of `MIN_CONFIDENCE`. Building_12's measured grid
-        # already fails confidence and falls back to `regular_grid` today,
-        # but that is luck, not intent -- the user asked for a fixed grid on
-        # this asset ("You can just split it by fixed grid"), and this keeps
-        # that true even if the confidence scoring changes later.
-        force_regular = pre["asset"] in (
-            PACKS[pre["kind"]].get("force_regular_grid") or ())
         pls, g2, meas2 = gss.slice_to_kit(
-            stage, src, cell, style, verbose=verbose,
-            region={"origin": fire["origin"], "top": top,
-                    "sides": fire["sides"]}, family=_family,
-            force_regular=force_regular)
+            stage, src, cell, style, verbose=verbose, region=region,
+            family=_family, force_regular=force_regular)
+        if use_baked_kit:
+            # SAVE-ON-SLICE: freeze this EXACT (name, kit_sig) so the next
+            # bake of the same building under the same fire plan and the
+            # same slicer vintage hits `load_kit` instead of re-cutting —
+            # "every time we slice a new building it is stored so that we
+            # don't have to do it again" (user, 2026-08-31). Best-effort:
+            # `save_kit` never raises, so a save failure (a bad Nucleus path,
+            # a disk error) cannot take this bake down with it — the live
+            # `pls` above are already good regardless of whether this
+            # succeeds. Skipped entirely when `use_baked_kit` is False: a
+            # caller that opted OUT of reading the cache should not silently
+            # populate it either.
+            kb.save_kit(name, kit_sig, pre["url"], pre["scale"], style,
+                       region=region, family=_family,
+                       force_regular=force_regular, verbose=verbose)
     n_rebound = rebind_sooted(stage, pls, sooted) if sooted else 0
     if verbose:
         print("[gac_fire] {0}: {1} piece(s), {2} subset(s) rebound to sooted "

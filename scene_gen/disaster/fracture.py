@@ -2642,3 +2642,701 @@ def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
         if src and src.IsValid():
             src.SetActive(False)
     return made
+
+
+# ---------------------------------------------------------------------------
+# chip_box — irregular versions of the AUTHORED rectangular solids
+# ---------------------------------------------------------------------------
+# WHY THIS EXISTS. Everything above cuts REAL building geometry. But three
+# populations in the earthquake path are authored as literal cuboids and never
+# see a fracture at all: `quake_rubble_usd._box` (lintels, quoins, joists,
+# column stubs), the floor plates `quake_flow._box` builds for the fit-out and
+# `quake_collapse` then drops whole, and the prism/plank cells a `_break_box`
+# leaves behind. On the first 500 m OSMO scene the user's verdict was blunt:
+# "a lot of perfect rectangular debris. While they should look rectangular,
+# they shouldn't look perfect ... use VTK to cause chips ... random from small
+# to very large chips ... warped? bent?"
+#
+# So: take a rectangular solid, bite corners out of it with oblique VTK plane
+# clips, roughen the cast faces, and (timber/metal only) bend it.
+#
+# THE SHAPE OF A CHIP IS THE WHOLE TRICK. An infinite plane cut is only LOCAL
+# when its normal has a substantial component on ALL THREE axes: the removed
+# region is then bounded on every axis by depth/|n_i|, i.e. a corner wedge. Let
+# one component go to ~0 and the same cut bevels the entire edge run instead —
+# which is the "gift box with a bite taken out" look this is trying to avoid.
+# `_chip_normal` therefore draws |n_i| >= 0.40 for a corner chip and only
+# occasionally (`bevel_p`) lets one component collapse, for the one big
+# diagonal shear a broken slab really does have.
+#
+# `ends` is the second user note ("the actual breaking should not be clean"):
+# on a BAR-shaped piece the two faces normal to the long axis are the BREAK,
+# not a cast surface, so that share of the chips is aimed at them with the long
+# axis dominant and both cross-axes still substantial — several overlapping
+# corner bites on one end read as a snapped, stepped fracture instead of a saw
+# cut.
+#
+# SAFETY. Only ever call this on a solid THIS codebase authored (a box, or a
+# Voronoi cell of one). It must NEVER be pointed at a clipped shell: that is
+# the `vtkStripper::GetPointCells` SIGSEGV in the round-4 catalogue, and
+# `quake_sliced`'s standing rule. The guard (`FRACTURE_VTK_GUARD`) is honoured
+# on both ends of the VTK boundary here exactly as `_vtk_slice` honours it, and
+# every candidate cut is REJECTED unless it comes back capped, closed and
+# inside the volume budget — so a chip that goes wrong costs one chip, never
+# the piece.
+#
+# `QC_CHIP=0` turns the whole thing off; call sites are written so that with it
+# off they take their pre-chip code path byte for byte.
+
+
+def chips_enabled():
+    """Is chipping on? `QC_CHIP=0` (or false/no/off) turns it off.
+
+    Read from the environment on every call rather than cached at import so a
+    test — and a bake driver's `EXTRA_ENV` — can flip it without reloading the
+    module. One dict lookup per piece.
+    """
+    return os.environ.get("QC_CHIP", "1").strip().lower() not in (
+        "0", "false", "no", "off")
+
+
+def stable_seed(*parts):
+    """A 32-bit seed from an object's own identity — never a shared rng draw.
+
+    The chip call sites are EMITTERS with no rng of their own, and threading
+    one through would make every piece's shape depend on how many pieces were
+    authored before it (and would shift a recipe's whole random stream the
+    moment chipping is switched on). Hashing the piece's own identity —
+    prim path, or (tag, index, kind, size, position) — gives the same shape for
+    the same plan every time and costs the surrounding code nothing.
+    """
+    import zlib
+    key = "|".join(("{0:.4f}".format(q) if isinstance(q, float) else str(q))
+                   for q in parts)
+    return int(zlib.crc32(key.encode("utf-8")) & 0xFFFFFFFF)
+
+
+class _Arrays(object):
+    """The two attributes `_to_vtk`/`_vtk_arrays` actually read.
+
+    Lets the chip path reuse the guard machinery verbatim without dragging in
+    trimesh — which the offline preview/test environment does not install.
+    """
+
+    __slots__ = ("vertices", "faces")
+
+    def __init__(self, v, f):
+        self.vertices = v
+        self.faces = f
+
+
+def _pd_arrays(pd):
+    """(vertices, faces) out of a vtkPolyData. `_from_vtk` without trimesh."""
+    import vtk
+    from vtk.util import numpy_support as ns
+
+    tf = vtk.vtkTriangleFilter()
+    tf.SetInputData(pd)
+    tf.Update()
+    out = tf.GetOutput()
+    if out.GetNumberOfPoints() == 0 or out.GetNumberOfPolys() == 0:
+        return None
+    v = np.asarray(ns.vtk_to_numpy(out.GetPoints().GetData()), dtype=float)
+    polys = out.GetPolys()
+    try:
+        f = ns.vtk_to_numpy(polys.GetConnectivityArray()).reshape(-1, 3)
+    except AttributeError:
+        f = ns.vtk_to_numpy(polys.GetData()).reshape(-1, 4)[:, 1:]
+    f = np.asarray(f, dtype=np.int64)
+    if not len(f):
+        return None
+    if _VTK_GUARD:
+        ok = (f >= 0).all(axis=1) & (f < len(v)).all(axis=1)
+        if not ok.all():
+            _guard_note("chip face(s) VTK returned naming a point it did "
+                        "not make", int((~ok).sum()))
+            f = f[ok]
+            if not len(f):
+                return None
+    if not np.isfinite(v).all():
+        _guard_note("non-finite chip vertex/vertices",
+                    int((~np.isfinite(v).all(axis=1)).sum()))
+        return None
+    return v, f
+
+
+def _chip_clip(v, f, normal, origin):
+    """ONE capped plane cut of a closed solid, arrays in / arrays out.
+
+    Keeps the side `normal` points to, exactly like `slice_plane`. Returns
+    None — never a half-open solid — when the cap cannot be built, because an
+    uncapped chip is a hole in a piece that physics and the renderer both see.
+    """
+    if _vtk() is None:
+        return None
+    import vtk
+
+    pd = _to_vtk(_Arrays(v, f))
+    plane = vtk.vtkPlane()
+    plane.SetOrigin(float(origin[0]), float(origin[1]), float(origin[2]))
+    plane.SetNormal(float(normal[0]), float(normal[1]), float(normal[2]))
+
+    clip = vtk.vtkClipPolyData()
+    clip.SetInputData(pd)
+    clip.SetClipFunction(plane)
+    clip.Update()
+    kept = clip.GetOutput()
+    if kept.GetNumberOfPolys() == 0:
+        return None
+
+    cut = vtk.vtkCutter()
+    cut.SetInputData(pd)
+    cut.SetCutFunction(plane)
+    cut.Update()
+    # `SetInputData` on the validated polydata, never `SetInputConnection` —
+    # same reason as `_vtk_slice`: the stripper must walk EXACTLY what
+    # `_strip_input` just checked.
+    src = _strip_input(cut.GetOutput())
+    if src is None:
+        return None
+    strip = vtk.vtkStripper()
+    strip.SetInputData(src)
+    strip.Update()
+    loops = strip.GetOutput()
+    if loops is None or not loops.GetNumberOfLines():
+        return None
+    face = vtk.vtkPolyData()
+    face.SetPoints(loops.GetPoints())
+    face.SetPolys(loops.GetLines())
+    fill = vtk.vtkTriangleFilter()
+    fill.SetInputData(face)
+    fill.Update()
+    filled = fill.GetOutput()
+    if not filled.GetNumberOfPolys():
+        return None
+
+    app = vtk.vtkAppendPolyData()
+    app.AddInputData(kept)
+    app.AddInputData(filled)
+    app.Update()
+    # NO `vtkCleanPolyData` HERE, unlike `_vtk_slice`. The clipper and the
+    # cutter interpolate the SAME edge with the same formula, so the cap's
+    # rim points come back bit-identical to the body's and `weld_arrays`
+    # (which the caller runs anyway, to drop the degenerate faces the append
+    # can leave) merges them for free. Measured over 24 seeds x 5 kinds:
+    # zero open edges either way, and one fewer VTK `Update()` per chip is
+    # ~15 % of the whole helper's wall time.
+    return _pd_arrays(app.GetOutput())
+
+
+def mesh_volume(v, f):
+    """Signed-tetrahedron volume of a closed triangle mesh, absolute."""
+    v = np.asarray(v, dtype=float)
+    f = np.asarray(f, dtype=np.int64)
+    if len(f) < 4 or len(v) < 4:
+        return 0.0
+    a, b, c = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
+    return abs(float(np.einsum("ij,ij->i", a, np.cross(b, c)).sum()) / 6.0)
+
+
+def weld_arrays(v, f, tol=1e-6):
+    """Merge vertices closer than `tol` and drop the degenerate faces."""
+    v = np.asarray(v, dtype=float)
+    f = np.asarray(f, dtype=np.int64)
+    if not len(v) or not len(f):
+        return v, f
+    key = np.round(v / float(tol)).astype(np.int64)
+    _u, idx, inv = np.unique(key, axis=0, return_index=True,
+                             return_inverse=True)
+    inv = np.asarray(inv).ravel()
+    vv = v[idx]
+    ff = inv[f]
+    ok = ((ff[:, 0] != ff[:, 1]) & (ff[:, 1] != ff[:, 2])
+          & (ff[:, 2] != ff[:, 0]))
+    return vv, ff[ok]
+
+
+def open_edge_count(f):
+    """How many undirected edges are used by exactly ONE face.
+
+    Zero on a closed solid. This is the acceptance test every candidate chip
+    has to pass — a cut whose cap came back short opens the piece, and an open
+    piece is a hole in the render and a bad convex hull for physics.
+    """
+    f = np.asarray(f, dtype=np.int64)
+    if len(f) < 4:
+        return 3 * len(f)
+    e = np.sort(np.vstack([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]]), axis=1)
+    _u, cnt = np.unique(e, axis=0, return_counts=True)
+    return int((cnt == 1).sum())
+
+
+def box_arrays(sx, sy, sz, bottom=False, seg=(1, 1, 1)):
+    """A closed, SHARED-VERTEX triangulated box, optionally tessellated.
+
+    `bottom=True` puts the local origin at the bottom-centre
+    (`quake_rubble_usd._box`'s convention); otherwise the box is centred
+    (`quake_flow._box`'s). `seg` is the segment count per axis — a warp or a
+    roughening pass has nothing to displace on an 8-corner box, and a
+    STRUCTURED grid is the cheap way to get segments where the piece is long
+    without paying for them through its thickness (uniform subdivision of a
+    3.5 x 0.1 x 0.2 m joist spends three quarters of its triangles on the
+    section).
+    """
+    nx, ny, nz = [max(1, int(s)) for s in seg]
+    hx, hy = float(sx) / 2.0, float(sy) / 2.0
+    z0 = 0.0 if bottom else -float(sz) / 2.0
+    xs = np.linspace(-hx, hx, nx + 1)
+    ys = np.linspace(-hy, hy, ny + 1)
+    zs = np.linspace(z0, z0 + float(sz), nz + 1)
+    idx, pts, tris = {}, [], []
+
+    def gid(i, j, k):
+        r = idx.get((i, j, k))
+        if r is None:
+            r = len(pts)
+            idx[(i, j, k)] = r
+            pts.append((xs[i], ys[j], zs[k]))
+        return r
+
+    def quad(a, b, c, d):
+        tris.append((a, b, c))
+        tris.append((a, c, d))
+
+    for i in range(nx):
+        for j in range(ny):
+            quad(gid(i, j, 0), gid(i, j + 1, 0),
+                 gid(i + 1, j + 1, 0), gid(i + 1, j, 0))            # -z
+            quad(gid(i, j, nz), gid(i + 1, j, nz),
+                 gid(i + 1, j + 1, nz), gid(i, j + 1, nz))          # +z
+    for i in range(nx):
+        for k in range(nz):
+            quad(gid(i, 0, k), gid(i + 1, 0, k),
+                 gid(i + 1, 0, k + 1), gid(i, 0, k + 1))            # -y
+            quad(gid(i, ny, k), gid(i, ny, k + 1),
+                 gid(i + 1, ny, k + 1), gid(i + 1, ny, k))          # +y
+    for j in range(ny):
+        for k in range(nz):
+            quad(gid(0, j, k), gid(0, j, k + 1),
+                 gid(0, j + 1, k + 1), gid(0, j + 1, k))            # -x
+            quad(gid(nx, j, k), gid(nx, j + 1, k),
+                 gid(nx, j + 1, k + 1), gid(nx, j, k + 1))          # +x
+    return np.asarray(pts, dtype=float), np.asarray(tris, dtype=np.int64)
+
+
+def auto_seg(sx, sy, sz, cell_m=None, cap=4, budget=96):
+    """Segment counts that make the cells roughly square and never explode.
+
+    `cap=4` and a quarter-of-the-long-axis cell keep a chipped piece in the
+    40-140 triangle band. Going finer buys nothing visible (the chips, not the
+    tessellation, are what breaks the silhouette) and costs both authoring
+    time and stage size on a population of thousands.
+    """
+    ext = np.abs(np.asarray([sx, sy, sz], dtype=float))
+    if cell_m is None:
+        cell_m = max(float(ext.max()) / 4.0, 1e-3)
+    seg = tuple(int(np.clip(round(float(e) / float(cell_m)), 1, cap))
+                for e in ext)
+    # AND A HARD TRIANGLE BUDGET. A near-cube (a quoin, a column stub) has no
+    # short axis to collapse, so the same cell size that gives a 3.5 m joist
+    # 36 triangles gives it 132 — for no visible gain, on a population of
+    # thousands. Coarsen until the base box fits `budget`.
+    while (4 * (seg[0] * seg[1] + seg[0] * seg[2] + seg[1] * seg[2])
+           > int(budget)) and max(seg) > 1:
+        cell_m *= 1.25
+        seg = tuple(int(np.clip(round(float(e) / float(cell_m)), 1, cap))
+                    for e in ext)
+    return seg
+
+
+def subdivide_to_budget(v, f, budget=260):
+    """Uniform 4-to-1 midpoint subdivision while the triangle count fits.
+
+    RUN AFTER THE CHIPS, not before. A chip's cut face is one flat polygon
+    with vertices only on its rim, so a roughening pass applied to the box
+    beforehand cannot touch it — and a break face that is perfectly flat is
+    the "clean break" the user rejected. Subdividing the CHIPPED solid puts
+    vertices in the middle of every face, cast and cut alike, which is what
+    `roughen_arrays` then has to work with.
+
+    Shared edge midpoints (the dict), so the solid stays watertight.
+    """
+    v = [tuple(float(q) for q in p) for p in np.asarray(v, dtype=float)]
+    f = [tuple(int(q) for q in t) for t in np.asarray(f, dtype=np.int64)]
+    while len(f) and 4 * len(f) <= int(budget):
+        mid = {}
+
+        def m(i, j):
+            k = (i, j) if i < j else (j, i)
+            r = mid.get(k)
+            if r is None:
+                a, b = v[i], v[j]
+                r = len(v)
+                v.append(((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5,
+                          (a[2] + b[2]) * 0.5))
+                mid[k] = r
+            return r
+
+        nf = []
+        for a, b, c in f:
+            ab, bc, ca = m(a, b), m(b, c), m(c, a)
+            nf += [(a, ab, ca), (ab, b, bc), (ca, bc, c), (ab, bc, ca)]
+        f = nf
+    return np.asarray(v, dtype=float), np.asarray(f, dtype=np.int64)
+
+
+def roughen_arrays(v, rng, amp_m, lam_scale=5.5):
+    """`roughen`'s band-limited positional noise, on a raw point array.
+
+    Keyed off POSITION (not per-vertex random) so vertices that coincide on a
+    shared edge move together and the solid does not tear open — the same
+    reason `roughen` above is written that way.
+    """
+    v = np.asarray(v, dtype=float)
+    if not len(v) or amp_m <= 0.0:
+        return v
+    ext = v.max(0) - v.min(0)
+    L = float(max(ext.max(), 1e-6))
+    ph = np.asarray([rng.random() * 100.0 for _ in range(3)], dtype=float)
+    fq = float(lam_scale) / L
+    d = np.stack([np.sin(v[:, 1] * fq + ph[0]) * np.cos(v[:, 2] * fq + ph[1]),
+                  np.sin(v[:, 2] * fq + ph[1]) * np.cos(v[:, 0] * fq + ph[2]),
+                  np.sin(v[:, 0] * fq + ph[2]) * np.cos(v[:, 1] * fq + ph[0])],
+                 -1)
+    d += 0.45 * np.stack([np.sin(v[:, 1] * fq * 2.7 + ph[2]),
+                          np.sin(v[:, 2] * fq * 2.7 + ph[0]),
+                          np.sin(v[:, 0] * fq * 2.7 + ph[1])], -1)
+    return v + d * float(amp_m)
+
+
+def warp_mesh(points, rng, warp_m=0.0, twist_deg=0.0, axis=None):
+    """Bend and twist a piece by a SMOOTH low-frequency field. Points only.
+
+    A sawn plank that has been through a collapse is bowed and slightly
+    wound; a lump of concrete is not, which is why this is opt-in per kind
+    rather than part of `chip_box`'s default. The field is a parabolic sag
+    (zero at both ends, so the piece keeps its length) plus a half-amplitude
+    sine so the bow is not symmetric, with the twist linear in the same
+    parameter. Amplitude is clamped to a quarter of the long span: past that
+    a "bend" is a fold.
+
+    Deterministic in `rng`; call it AFTER any anisotropic scaling, because
+    `warp_m` is metres of real displacement.
+    """
+    v = np.array(points, dtype=float, copy=True)
+    if len(v) < 4 or (warp_m <= 0.0 and abs(twist_deg) < 1e-6):
+        return v
+    lo, hi = v.min(0), v.max(0)
+    ext = hi - lo
+    la = int(np.argmax(ext)) if axis is None else int(axis) % 3
+    ta = int(np.argmin(ext))
+    if ta == la:
+        ta = (la + 1) % 3
+    ma = 3 - la - ta
+    L = float(max(ext[la], 1e-6))
+    u = (v[:, la] - lo[la]) / L
+    s = 2.0 * u - 1.0
+    ph = rng.uniform(0.0, 6.2831853)
+    sgn = 1.0 if rng.random() < 0.5 else -1.0
+    amp = float(min(float(warp_m), 0.25 * L))
+    bow = 1.0 - s * s
+    sc = np.sin(6.2831853 * u + ph)
+    if amp > 0.0:
+        v[:, ta] += sgn * amp * (0.75 * bow + 0.35 * sc)
+        v[:, ma] += sgn * amp * 0.30 * (bow * math.cos(ph) + 0.25 * sc)
+    if abs(twist_deg) > 1e-6:
+        th = math.radians(float(twist_deg)) * s * sgn
+        c0 = 0.5 * (lo + hi)
+        a = v[:, ta] - c0[ta]
+        b = v[:, ma] - c0[ma]
+        ct, st = np.cos(th), np.sin(th)
+        v[:, ta] = c0[ta] + a * ct - b * st
+        v[:, ma] = c0[ma] + a * st + b * ct
+    return v
+
+
+def _chip_normal(rng, kind, la=None, la_sign=None):
+    """A unit normal for one chip. See the section note for why |n_i| matters.
+
+      corner  every component >= 0.40 -> a bounded corner wedge
+      bevel   ONE component collapses  -> the long diagonal shear a big slab
+              really does break along (drawn only at `bevel_p`)
+      end     the long axis dominates, both cross axes still substantial ->
+              a bite out of the BREAK face of a bar, stepped rather than sawn
+    """
+    sgn = np.asarray([1.0 if rng.random() < 0.5 else -1.0 for _ in range(3)])
+    w = np.asarray([rng.uniform(0.40, 1.0) for _ in range(3)])
+    if kind == "end" and la is not None:
+        # LONG-DOMINANT, so the new face FACES ALONG THE BAR — it is part of
+        # the break, not a shave off the flank. What stops it being one clean
+        # saw cut is the DEPTH rule in `_one_chip`, which sizes the bite so it
+        # only reaches part way across the section (see `end_relief` there):
+        # long-dominant plus a shallow bite is a STEP on the break face, and
+        # three or four of those on the same end, at different cross signs and
+        # reliefs, are what a snapped bar end actually looks like.
+        w = np.asarray([rng.uniform(0.25, 0.60) for _ in range(3)])
+        w[la] = rng.uniform(0.60, 0.90)
+        if la_sign is not None:
+            # THE SAME END, deliberately. Several bites at ONE end face, with
+            # only the cross-axis signs varying, overlap into a stepped,
+            # irregular break; the same bites spread over both ends and four
+            # corners each just bevel the bar.
+            sgn[la] = float(la_sign)
+    elif kind == "bevel":
+        w[rng.randrange(3)] = rng.uniform(0.04, 0.18)
+    n = sgn * w
+    return n / max(float(np.linalg.norm(n)), 1e-9)
+
+
+def _chip_depth(rng, depth_frac, big_p):
+    """Chip depth as a fraction of the piece's own span along the cut normal.
+
+    LOG-uniform, not uniform: the user asked for "random from small to very
+    large chips", and a uniform draw over (0.04, 0.22) gives almost no small
+    ones — every piece then loses a similar-sized corner and the population
+    reads processed. Log-uniform puts the mass at the small end and
+    `big_p` reserves a real chunk-loss tail on top of it.
+    """
+    lo = max(float(depth_frac[0]), 1e-4)
+    hi = max(float(depth_frac[1]), lo * 1.001)
+    d = lo * (hi / lo) ** rng.random()
+    if rng.random() < float(big_p):
+        d = hi * rng.uniform(1.0, 2.0)
+    return float(min(d, 0.42))
+
+
+def chip_box(points=None, faces=None, rng=None, chips=(2, 6),
+             depth_frac=(0.04, 0.22), warp_m=0.0, sizes=None, bottom=False,
+             rough_frac=0.0, seg=None, twist_deg=0.0, ends=0.0,
+             big_p=0.16, bevel_p=0.22, min_loss=0.05, max_loss=0.27,
+             bar_aspect=2.2, max_grow=0.35, rough_budget=260):
+    """Turn a rectangular solid into a broken-looking one. Arrays in/out.
+
+    TWO INPUT FORMS, one output form:
+
+      chip_box(sizes=(sx, sy, sz), rng=r, ...)      builds the box itself
+      chip_box(points, faces, r, ...)               chips a solid you have
+
+    Returns `(points, faces)` — float64 `(n, 3)` and int64 `(m, 3)` triangles.
+    Always returns arrays; never raises for bad input.
+
+    PASSES THROUGH UNCHANGED, printing nothing, when:
+      * `QC_CHIP=0` (`chips_enabled()` is False) — the caller is expected to
+        take its own pre-chip path in that case, this is only a backstop;
+      * `rng` is None;
+      * the input is not a closed triangle solid (fewer than 4 faces, any
+        open edge). THIS IS THE SAFETY RULE: a clipped shell is open, and a
+        clipped shell is what segfaults `vtkStripper` (round-4 catalogue).
+      * VTK is not importable. There is no trimesh fallback here on purpose —
+        a chip is cosmetic, and a half-chipped solid is worse than a box.
+
+    ARGUMENTS
+      chips        (lo, hi) inclusive count of chips ATTEMPTED. A chip that
+                   comes back open, empty, or outside the volume budget is
+                   dropped, so the achieved count can be lower.
+      depth_frac   (lo, hi) chip depth as a fraction of the piece's span along
+                   that chip's own normal. Log-uniform between them, with a
+                   `big_p` tail above `hi`.
+      ends         0..1 — EXTRA cuts, `clip(round(chips * ends), 2, 4)` of
+                   them, aimed at the BREAK faces of a bar-shaped piece (longest
+                   extent >= `bar_aspect` x the next); most land on one end,
+                   at different cross signs, so they overlap into a stepped
+                   fracture. Ignored on a piece that is not bar-shaped.
+      rough_frac   band-limited surface noise, as a fraction of the piece's
+                   SMALLEST extent (so a plate wobbles by a bit of its
+                   thickness, not by metres). Applied AFTER the chips, on a
+                   solid subdivided to `rough_budget` triangles, so the BREAK
+                   faces get relief too — a fresh concrete fracture is not a
+                   plane.
+      warp_m       peak bend, metres (see `warp_mesh`). Timber and metal only.
+      twist_deg    peak twist about the long axis, degrees.
+      seg          segment counts for the built box; defaults from `auto_seg`
+                   when the piece is going to be roughened or warped (both
+                   need vertices to displace) and (1, 1, 1) when it is not.
+      max_grow     how far the finished piece may exceed `sizes` on any axis
+                   before it is scaled back (sizes-mode only). Roughening and
+                   warping both push the bbox out without costing volume;
+                   forcing an exact fit is what pays for that twice.
+      min_loss/max_loss
+                   volume budget, as a fraction of the INPUT volume. Chips
+                   that would push past `max_loss` are rejected; if the whole
+                   pass came in under `min_loss` extra chips are attempted at
+                   escalating depth, so a chipped piece is always visibly
+                   chipped and never sliced in half.
+
+    COST: 4.4-8.7 ms per piece on an idle machine — 2-6 corner chips, 2-4 end
+    steps, one subdivision to `rough_budget` and the roughening pass, ending at
+    66-256 triangles (measured over 40 seeds x 5 kinds; the numbers per kind
+    are in the v9 README). Deterministic in `rng` for a given input.
+    """
+    if sizes is not None:
+        sx, sy, sz = [float(q) for q in sizes]
+        if seg is None:
+            # ONLY THE WARP needs segments up front: it is applied last, to
+            # whatever vertices exist, and a bow through eight box corners is
+            # a wedge, not a bow. Roughening does NOT need them any more — it
+            # runs after `subdivide_to_budget` — and pre-tessellating for it
+            # would just make every chip cut a 96-triangle box instead of a
+            # 12-triangle one.
+            seg = (auto_seg(sx, sy, sz)
+                   if (warp_m > 0.0 or abs(twist_deg) > 1e-6) else (1, 1, 1))
+        v, f = box_arrays(sx, sy, sz, bottom=bottom, seg=seg)
+    else:
+        v = np.asarray(points, dtype=float)
+        f = np.asarray(faces, dtype=np.int64)
+        if v.ndim != 2 or v.shape[1] != 3 or f.ndim != 2 or f.shape[1] != 3:
+            return np.asarray(points, dtype=float), np.asarray(faces,
+                                                               dtype=np.int64)
+        v = v.copy()
+
+    if rng is None or not chips_enabled():
+        return v, f
+    if len(f) < 4 or len(v) < 4 or not np.isfinite(v).all():
+        return v, f
+    if open_edge_count(f) > 0:
+        return v, f                     # not a solid: never cut it
+    if _vtk() is None:
+        return v, f
+
+    v0 = mesh_volume(v, f)
+    if v0 <= 0.0:
+        return v, f
+
+    ext = v.max(0) - v.min(0)
+    order = np.argsort(ext)[::-1]
+    la = int(order[0])
+    is_bar = float(ext[order[0]]) >= float(bar_aspect) * float(
+        max(ext[order[1]], 1e-9))
+    n_chips = rng.randint(int(chips[0]), int(chips[1]))
+    # END STEPS ARE EXTRA, not a share of `chips`. They barely cost any volume
+    # (a 3 cm step across half a section), so spending the corner-chip budget
+    # on them would leave the piece looking un-chipped everywhere else and
+    # then trip the `min_loss` rescue into adding the corner chips back.
+    n_end = (int(np.clip(round(n_chips * float(ends)), 2, 4))
+             if (is_bar and ends > 0.0) else 0)
+    main_end = 1.0 if rng.random() < 0.5 else -1.0
+    # BOTH ENDS, always: a bar that broke out of a floor broke at both ends,
+    # and leaving one of them a single flat plane is the clean saw cut the
+    # user objected to. The far end gets one step, the near end the rest — a
+    # break is rarely symmetrical.
+    n_far = 1 if n_end >= 2 else 0
+    kinds = ([("end", main_end)] * (n_end - n_far)
+             + [("end", -main_end)] * n_far
+             + [(("bevel" if rng.random() < float(bevel_p) else "corner"), None)
+                for _ in range(n_chips)])
+    rng.shuffle(kinds)
+
+    floor_v = (1.0 - float(max_loss)) * v0
+    for kind, la_sign in kinds:
+        v, f = _one_chip(v, f, rng, kind, la, depth_frac, big_p, floor_v,
+                         la_sign=la_sign)
+
+    # Under-chipped? A piece the draws happened to leave nearly intact is the
+    # gift box the whole exercise is about, so force more bites at escalating
+    # depth rather than shipping it.
+    tries = 0
+    while mesh_volume(v, f) > (1.0 - float(min_loss)) * v0 and tries < 6:
+        boost = 1.0 + 0.55 * tries
+        v, f = _one_chip(v, f, rng, "corner" if tries % 2 else "end", la,
+                         (depth_frac[0] * boost, depth_frac[1] * boost),
+                         big_p, floor_v,
+                         la_sign=(None if tries % 2 else main_end))
+        tries += 1
+
+    # ROUGHEN LAST, ON A SUBDIVIDED SOLID. Chipping a smooth box and leaving
+    # it there gives big flat facets meeting at clean edges — better than a
+    # cuboid, still not a broken casting. Subdividing the chipped piece and
+    # then displacing every vertex by a band-limited positional field puts
+    # relief on the cast faces AND on the break faces, which is the half of
+    # "the actual breaking should not be clean" the chip planes cannot do on
+    # their own. It also costs no volume worth speaking of (the field is
+    # zero-mean), unlike a fit-to-size, so the chip budget still means what it
+    # says.
+    if rough_frac > 0.0:
+        v, f = subdivide_to_budget(v, f, budget=rough_budget)
+        thin = float(max(ext.min(), 1e-6))
+        v = roughen_arrays(v, rng, min(float(rough_frac) * thin, 0.30 * thin),
+                           lam_scale=7.5)
+
+    if sizes is not None and max_grow is not None:
+        # A SAFETY NET WITH SLACK, not a hard fit. `roughen_arrays`' field is
+        # smooth and zero-mean, so it costs almost no VOLUME — but it does
+        # push the bbox out by about its own amplitude on each side, and
+        # `warp_mesh` bows across the thin axis on top of that. Scaling the
+        # piece back to exactly `sizes` would pay for that in volume twice
+        # over (measured: a 14 %-roughened lintel lost 48 % of its volume to
+        # the fit, against 19 % to the chips it was supposed to lose it to).
+        # So the piece is allowed to breathe `max_grow`, and only a genuinely
+        # runaway axis is pulled back — the planner's `bury` is a fraction of
+        # the piece's own rotated thickness, which tolerates a few per cent
+        # and does not tolerate a piece twice the size it asked for.
+        want = np.abs(np.asarray(sizes, dtype=float)) * (1.0 + float(max_grow))
+        ext = np.maximum(v.max(0) - v.min(0), 1e-9)
+        sc = np.minimum(1.0, want / ext)
+        if (sc < 1.0 - 1e-9).any():
+            c = 0.5 * (v.max(0) + v.min(0))
+            v = c + (v - c) * sc
+
+    # AND THE BUDGET IS MADE EXACT, last. `roughen_arrays`' field is zero-mean
+    # in DISPLACEMENT, which is not the same as zero-mean in volume: the
+    # surface integral of `d . n` over a piece this small comes out several
+    # points either way, and measured over 40 seeds it pushed a column to 34 %
+    # loss and a slab to 0.4 %. Both are outside the band the caller asked for,
+    # and both are fixed by a uniform scale of a few per cent about the bbox
+    # centre — invisible, shape-preserving, and it turns `min_loss`/`max_loss`
+    # from a tendency into a guarantee. (It can put the bbox a few per cent
+    # past `max_grow`; that is the cheaper of the two errors.)
+    vol = mesh_volume(v, f)
+    lo_t, hi_t = (1.0 - float(max_loss)) * v0, (1.0 - float(min_loss)) * v0
+    if vol > 0.0 and (vol < lo_t or vol > hi_t):
+        k = (min(max(vol, lo_t), hi_t) / vol) ** (1.0 / 3.0)
+        c = 0.5 * (v.max(0) + v.min(0))
+        v = c + (v - c) * k
+
+    # THE WARP IS APPLIED AFTER THE CLAMP, deliberately. A bowed 3.2 m board
+    # displaced 4 cm HAS a bbox 4 cm wider across the bow — that is what a bow
+    # is — so taxing it against `sizes` would either undo the bend or charge
+    # the piece a quarter of its volume for having one (measured: the joist
+    # row lost 60 % when the clamp ran last).
+    if warp_m > 0.0 or abs(twist_deg) > 1e-6:
+        v = warp_mesh(v, rng, warp_m=warp_m, twist_deg=twist_deg, axis=la)
+    return v, f
+
+
+def _one_chip(v, f, rng, kind, la, depth_frac, big_p, floor_v, la_sign=None,
+              end_relief=(0.25, 0.90)):
+    """Attempt one chip; return the chipped arrays or the originals."""
+    n = _chip_normal(rng, kind, la=la, la_sign=la_sign)
+    proj = v @ n
+    hi = float(proj.max())
+    span = hi - float(proj.min())
+    if span <= 1e-6:
+        return v, f
+    if kind == "end" and la is not None:
+        # RELIEF, not depth-along-the-normal. The cut reaches `d/|n_i|` along
+        # axis i, so sizing `d` by the SECTION (`relief` x the tightest
+        # `ext_i * |n_i|` over the two cross axes) is what keeps the bite to a
+        # fraction of the section instead of taking the whole end off in one
+        # plane — a 3.2 x 0.10 x 0.20 m joist gets 2-6 cm steps on its break
+        # face. Sized by `span` (the `else` branch) the same plane would
+        # remove 0.3 m of bar: a clean angled cut, which is what the user
+        # rejected.
+        ext = v.max(0) - v.min(0)
+        cut = min(float(ext[i]) * max(abs(float(n[i])), 1e-3)
+                  for i in range(3) if i != la)
+        d = float(max(cut, 1e-6)) * rng.uniform(*end_relief)
+    else:
+        d = _chip_depth(rng, depth_frac, big_p) * span
+    d = float(np.clip(d, 0.004 * span, 0.42 * span))
+    got = _chip_clip(v, f, -n, n * (hi - d))
+    if got is None:
+        return v, f
+    nv, nf = weld_arrays(got[0], got[1])
+    if len(nf) < 4 or len(nv) < 4 or not np.isfinite(nv).all():
+        return v, f
+    if open_edge_count(nf) > 0:
+        return v, f                     # the cap came back short — drop it
+    vol = mesh_volume(nv, nf)
+    if vol < floor_v or vol <= 0.0:
+        return v, f                     # would breach the volume budget
+    return nv, nf

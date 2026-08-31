@@ -1101,6 +1101,122 @@ def test_mutation_a_module_outside_its_own_span_is_caught():
     assert bad and any("span" in b for b in bad), bad
 
 
+# ---------------------------------------------------------------------------
+# ROOF PROPS THAT LOSE THEIR ROOF — `quake_collapse.roof_prop_footprint_lost`
+#
+# The AUTHORING half (`_sweep_roof_props`: real `ctx["roof_plant"]` paths,
+# `UsdGeom.BBoxCache`, `ctx["loose"]` + a velocity kick, `quake_flow.
+# _a_bury_props`) needs a stage and is out of reach here, exactly like the
+# fan/heap/tear machinery it sits beside. What IS pure — no `pxr`, no ctx even
+# — is the DECISION: does a prop's own footprint sit over roof area this plan
+# just killed. That decision is what a real footprint (measured off the
+# stage) and a synthetic one in this file are handed to identically.
+# ---------------------------------------------------------------------------
+def _region_pts(plan, m):
+    """One WORLD point safely INSIDE the plan's lost region (half its depth
+    in from the wall, the middle of its span) and one safely OUTSIDE it (well
+    past the region's own depth) — `elevation` / `corner` only."""
+    sd = plan["sides"][0]
+    lo, hi, dep = plan["region"][sd]
+    t_mid = 0.5 * (lo + hi)
+    inside = qf._to_world(m, *fc.wall_point(m, sd, t_mid, out_m=-(dep * 0.5)))
+    outside = qf._to_world(m, *fc.wall_point(m, sd, t_mid, out_m=-(dep + 20.0)))
+    return inside, outside
+
+
+@pytest.mark.parametrize("mode", PARTIAL)
+def test_roof_prop_over_the_lost_region_falls_the_rest_does_not(mode):
+    for style in STYLES:
+        ctx, plan = _plan(style, mode)
+        m = ctx["info"]["masses"][plan["mass"]]
+        inside, outside = _region_pts(plan, m)
+        assert qc.roof_prop_footprint_lost(plan, m, [inside] * 5) is True, \
+            (style, mode)
+        assert qc.roof_prop_footprint_lost(plan, m, [outside] * 5) is False, \
+            (style, mode)
+
+
+@pytest.mark.parametrize("mode", PARTIAL)
+def test_roof_prop_majority_footprint_not_centre_decides(mode):
+    """A footprint of 5 points where 3 sit one way and 2 the other has to
+    follow the 3, whichever position in the list plays "the centre" — the
+    fire's own `_mostly_in_hole` lesson (bug 9): the centre ALONE is never
+    enough to decide for a prop whose footprint spans the boundary."""
+    ctx, plan = _plan("commercial_mid", mode)
+    m = ctx["info"]["masses"][plan["mass"]]
+    inside, outside = _region_pts(plan, m)
+    # 3 inside + a "centre" outside: majority wins, the prop still falls
+    assert qc.roof_prop_footprint_lost(
+        plan, m, [inside, inside, inside, outside, outside]) is True
+    # 3 outside + a "centre" inside: majority wins, the prop stays put
+    assert qc.roof_prop_footprint_lost(
+        plan, m, [outside, outside, outside, inside, inside]) is False
+    # a literal tie (2 of 4, ignoring the 5th) must not read as a majority
+    assert qc.roof_prop_footprint_lost(
+        plan, m, [inside, inside, outside, outside]) is False
+
+
+@pytest.mark.parametrize("mode", TOTALS)
+def test_roof_prop_always_falls_on_total_or_pancake(mode):
+    """The whole roof of this mass is gone either way, so ANY point on it —
+    there is no surviving part of THIS mass's roof left to spare one."""
+    for style in STYLES:
+        ctx, plan = _plan(style, mode)
+        m = ctx["info"]["masses"][plan["mass"]]
+        far_corner = qf._to_world(m, 0.49 * m["W"], 0.49 * m["D"])
+        centre = qf._to_world(m, 0.0, 0.0)
+        assert qc.roof_prop_footprint_lost(plan, m, [far_corner]) is True, \
+            (style, mode)
+        assert qc.roof_prop_footprint_lost(plan, m, [centre] * 5) is True, \
+            (style, mode)
+
+
+@pytest.mark.parametrize("mode", BAND)
+def test_roof_prop_never_resolved_on_a_band_mode(mode):
+    """`soft_storey` / `mid_storey` are NOT in `ROOF_PROP_MODES`:
+    `_author_band` already carries the roof (and whatever `_els` finds on
+    it) down with the block above when the band reaches that high, so this
+    family's own roof-prop sweep has nothing to add and must stay out of the
+    way — every point, anywhere on the roof, stays put."""
+    assert mode not in qc.ROOF_PROP_MODES
+    for style in STYLES:
+        ctx, plan = _plan(style, mode)
+        m = ctx["info"]["masses"][plan["mass"]]
+        centre = qf._to_world(m, 0.0, 0.0)
+        assert qc.roof_prop_footprint_lost(plan, m, [centre] * 5) is False, \
+            (style, mode)
+
+
+def test_roof_prop_fall_key_present_and_empty_on_a_bare_plan():
+    """`plan_collapse` never touches a stage, so it cannot know a single real
+    prop path — the key is present and empty in EVERY mode, never absent,
+    exactly like every other key `plan_collapse`'s own docstring promises."""
+    for mode in qc.MODES:
+        ctx, plan = _plan("commercial_mid", mode)
+        assert plan["roof_prop_fall"] == [], mode
+
+
+def test_roof_prop_modes_are_exactly_the_ones_that_kill_the_roof():
+    assert set(qc.ROOF_PROP_MODES) == {"elevation", "corner", "total",
+                                        "pancake"}
+    assert not set(qc.ROOF_PROP_MODES) & set(BAND)
+
+
+def test_roof_prop_classification_takes_no_shared_draws():
+    """`roof_prop_footprint_lost` takes a `plan` and an `m`, never a `ctx` —
+    so calling it, however many times, cannot move a shared rng that it was
+    never handed in the first place."""
+    ctx = _ctx("commercial_mid")
+    for mode in qc.MODES:
+        plan = qc.plan_collapse(ctx, mode=mode)
+        m = ctx["info"]["masses"][plan["mass"]]
+        pt = qf._to_world(m, 0.0, 0.0)
+        for _ in range(5):
+            qc.roof_prop_footprint_lost(plan, m, [pt, pt, pt, pt, pt])
+    assert ctx["rng"].getstate() == random.Random(7).getstate(), \
+        "the roof-prop classifier drew from the SHARED rng"
+
+
 if __name__ == "__main__":
     import inspect as _inspect
     for name, fn in sorted(globals().items()):

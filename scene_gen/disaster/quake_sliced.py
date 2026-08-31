@@ -1746,6 +1746,53 @@ def _fit_storey_of(path):
         return 0
 
 
+def _chip_dropped_fitout(ctx, slab_paths, col_paths, part_paths):
+    """Chip `fit_interior`'s own `_box`-authored slabs/columns/partitions
+    once a recipe has dropped them as part of a crushed block — round-5
+    follow-up, the "rectangular and cuboid debris/broken parts still exist"
+    finding (probe: `slab_main_1..10` under `.../fit_g0/`, each a clean
+    6-face box after `displace_above` moved the whole storey rigidly and
+    nothing else touched it).
+
+    These are NEVER a sliced/clipped shell — `fit_interior` authors them
+    itself, plain boxes, no UVs — so handing them to
+    `quake_collapse._chip_prim` (the SAME `fracture.chip_box` round trip the
+    KIT ladder's own dropped floor slabs get in `_fall_fitout`) is safe in a
+    way it is NOT for a sliced piece; `_chip_prim` also refuses anything with
+    a real `st` primvar as a second guard. Slabs get the slab treatment
+    (`_CHIP_SLAB`, tessellated — an 8-corner plate has nothing for the
+    roughening pass to displace otherwise — and rebound to the
+    Damaged_Concrete_Floor beam look); columns are RC-only
+    (`fit_interior`: `if columns and btype != "urm"`) so they get the same
+    beam look; partitions keep their plaster binding (`beam=False`).
+    `quake_collapse._chip_pieces` is itself gated on `fracture.chips_enabled()`
+    (`QC_CHIP=0`) and `quake_flow._RUBBLE_MODE` ("v2", the default), so this
+    is a no-op under either escape hatch — the boxes come out byte-identical
+    to what `fit_interior` authored.
+
+    ONE proof line per call (a handful per building, never per piece) — the
+    exact gap the round-5 diagnosis called out: "no positive log evidence
+    that chips fire during a real bake."
+    """
+    from . import fracture
+    from . import quake_collapse as qc
+    n = 0
+    if slab_paths:
+        n += qc._chip_pieces(ctx, slab_paths, qc._CHIP_SLAB,
+                             tessellate=True, beam=True)
+    if col_paths:
+        n += qc._chip_pieces(ctx, col_paths, qc._CHIP_PRISM,
+                             tessellate=True, beam=True)
+    if part_paths:
+        n += qc._chip_pieces(ctx, part_paths, qc._CHIP_PRISM, tessellate=True)
+    total = len(slab_paths) + len(col_paths) + len(part_paths)
+    if total:
+        print("[chip] quake_sliced fit-out ({0}): {1} chipped, {2} "
+              "passed-through (vtk={3})".format(
+                  ctx.get("tag"), n, total - n, fracture.chips_enabled()))
+    return n
+
+
 def _apply_fit_ops(stage, ctx, plan):
     fit = ctx.get("fit") or {}
     dead = set()
@@ -1755,22 +1802,26 @@ def _apply_fit_ops(stage, ctx, plan):
         if kind == "displace_above":
             k = int(op.get("storey", 0))
             M = _gf(op["transform"])
-            paths = []
-            for (m_, i), pth in (fit.get("slabs") or {}).items():
-                if m_ == mt and i > k and pth:
-                    paths.append(pth)
-            for (m_, i), cols in (fit.get("columns") or {}).items():
-                if m_ == mt and i > k:
-                    paths += list(cols)
-            for (m_, i), props in (fit.get("props") or {}).items():
-                if m_ == mt and i > k:
-                    paths += list(props)
-            paths += [q for q in (fit.get("partitions") or [])
-                      if _fit_storey_of(q) > k]
-            paths = [q for q in dict.fromkeys(paths) if q and q not in dead]
+            slab_paths = [pth for (m_, i), pth in (fit.get("slabs") or {}).items()
+                          if m_ == mt and i > k and pth and pth not in dead]
+            col_paths = [p for (m_, i), cols in (fit.get("columns") or {}).items()
+                        if m_ == mt and i > k for p in cols if p not in dead]
+            part_paths = [q for q in (fit.get("partitions") or [])
+                          if _fit_storey_of(q) > k and q not in dead]
+            prop_paths = [p for (m_, i), props in (fit.get("props") or {}).items()
+                         if m_ == mt and i > k for p in props if p not in dead]
+            paths = [q for q in dict.fromkeys(
+                slab_paths + col_paths + part_paths + prop_paths) if q]
             if paths:
                 qf._transform_prims(stage, paths, M)
                 ctx["static_extra"] += paths
+                # ROUND-5 FOLLOW-UP: `paths` here is a whole crushed block
+                # riding down as ONE rigid body — right for the transform,
+                # wrong for the READ (see `_chip_dropped_fitout`'s
+                # docstring). Props are skipped: `_prop` REFERENCES a
+                # Nucleus furniture asset, never authors a box, and must
+                # never be handed to VTK.
+                _chip_dropped_fitout(ctx, slab_paths, col_paths, part_paths)
         elif kind == "columns_to_pile":
             cols = list((fit.get("columns") or {}).get((mt, int(op.get("storey", 0))), []))
             i = int(op.get("pile", -1))
@@ -1989,6 +2040,105 @@ def _ov_apply(ctx, angle_deg=90.0, side="S", mass="main"):
 
 
 # ---------------------------------------------------------------------------
+# ROUND-5 FOLLOW-UP: the floating roof-plant fix
+# ---------------------------------------------------------------------------
+# User: floating water tanks/silos on GAC buildings. Audit: every
+# `gac_SM_Building_02_*` bake seats its roof tank at bottom-z ~ 38.13-38.18 m
+# with 2.1-2.6 m of AIR under it (measured support under the footprint
+# ~ 35.6 m); `gac_SM_Building_20_DG2` shows the same at 1.25 m.
+#
+# `quake_flow.dress_roof` seats every tank/AC unit at
+# `z = info["masses"][mass]["top"] + 0.02` — and `m["top"]` (`describe` ->
+# `_mass_specs`) is the ADVERTISED height: the sum of `ub.STYLES[style]`'s
+# own band heights, right for a kit building whose bands ARE its measured
+# storey grid. A GAC style's TOP band is measured across a coping/parapet
+# strip (`gac_storey_slice`'s own grid), and the real, walkable roof DECK the
+# slicer actually placed a "roof"-role piece at sits below that grid line —
+# by exactly the gap the user found. `dress_roof` cannot know this: it only
+# ever sees `info["masses"]`, never the roof piece's own authored geometry.
+#
+# The fix stays in THIS module (not `quake_flow.dress_roof`, shared with the
+# kit ladder, where `m["top"]` is already correct) and runs AFTER
+# `dress_roof`, as a cheap RIGID correction: measure the roof piece(s)
+# `describe` already classified `role == "roof"` for, with a bbox cache on
+# the geometry the slicer actually authored, and slide every prop
+# `dress_roof` just placed down by the one delta between the advertised and
+# measured tops (every prop in `ctx["roof_plant"]` was seated at the SAME z,
+# so one delta corrects all of them with one `_transform_prims` call).
+def _roof_plant_target_z(advertised_top, measured_tops, epsilon=0.02):
+    """The z `quake_flow.dress_roof` SHOULD have used for the roof plant.
+
+    `measured_tops` is any iterable of world-space top-z values read off the
+    roof piece(s) actually placed under the footprint (`_measure_roof_tops`);
+    the MAX of those, when there are any, wins over `advertised_top`
+    (`info["masses"][mass]["top"]`, the style's own band-height sum) — never
+    the other way round, so a style whose grid is already right (a kit
+    building routed here by mistake, or a GAC style whose top band IS the
+    deck) measures ~0 correction and this is a no-op.
+
+    PURE: no pxr, no stage, so a test hands it two floats with nothing else.
+    """
+    tops = list(measured_tops)
+    top = float(max(tops)) if tops else float(advertised_top)
+    return top + float(epsilon)
+
+
+def _measure_roof_tops(stage, elements, mass):
+    """World-space top-z of every `role == "roof"` piece of `mass`, keyed by
+    prim_path — a `UsdGeom.BBoxCache` read of the ACTUAL authored geometry,
+    never the style's declared H. A missing/invalid/empty-bound prim is
+    skipped, not raised on: a bad measurement should fall back to the
+    advertised top (`_roof_plant_target_z`'s own rule), not crash a recipe.
+    """
+    from pxr import Usd, UsdGeom
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    out = {}
+    for e in elements or ():
+        if e.get("mass") != mass or e.get("role") != "roof":
+            continue
+        p = (e.get("p") or {}).get("prim_path")
+        if not p or p in out:
+            continue
+        prim = stage.GetPrimAtPath(p)
+        if not prim or not prim.IsValid():
+            continue
+        try:
+            rng_ = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+        except Exception:
+            continue
+        if rng_.IsEmpty():
+            continue
+        out[p] = float(rng_.GetMax()[2])
+    return out
+
+
+def _reseat_roof_plant(stage, ctx, mass="main"):
+    """Correct `dress_roof`'s tank/AC seat for a SLICED (GAC) building —
+    round-5 follow-up, the floating-roof-plant finding. See the section note
+    above. Call AFTER `qf.dress_roof(ctx)`, before anything else moves
+    `ctx["roof_plant"]`. Returns how many props were moved (0 = no
+    correction needed, or nothing to correct)."""
+    info = ctx["info"]
+    m = (info.get("masses") or {}).get(mass)
+    plant = list(ctx.get("roof_plant") or ())
+    if not plant or m is None:
+        return 0
+    tops = _measure_roof_tops(stage, info.get("elements"), mass)
+    advertised = float(m["top"]) + 0.02
+    target = _roof_plant_target_z(m["top"], tops.values())
+    delta = target - advertised
+    if abs(delta) < 0.01:
+        return 0
+    n = qf._transform_prims(stage, plant, qf._translate(0.0, 0.0, delta))
+    if n:
+        ctx["notes"].append(
+            "[qgac] roof_plant reseated: advertised {0:.2f} m, measured "
+            "{1:.2f} m, {2} piece(s) moved {3:+.2f} m".format(
+                advertised, target, n, delta))
+    return n
+
+
+# ---------------------------------------------------------------------------
 # ENTRY POINT
 # ---------------------------------------------------------------------------
 def wreck_sliced(stage, cell, placements, style, recipes, rng, nrng, mats, tag,
@@ -2031,6 +2181,7 @@ def wreck_sliced(stage, cell, placements, style, recipes, rng, nrng, mats, tag,
     recs, guard_notes = _resolve(recipes, btype, info)
     if not recs:
         qf.dress_roof(ctx)
+        _reseat_roof_plant(stage, ctx)
         ctx["static_extra"] += list(ctx.get("roof_plant", []))
         ctx["notes"] += guard_notes
         ctx["plan"] = None
@@ -2039,6 +2190,7 @@ def wreck_sliced(stage, cell, placements, style, recipes, rng, nrng, mats, tag,
     ctx["fit"] = qf.fit_interior(stage, cell, info, mats, rng,
                                  storeys=fit_storeys, tag=tag)
     qf.dress_roof(ctx)
+    _reseat_roof_plant(stage, ctx)
     ctx["fit"]["all"] += list(ctx.get("roof_plant", []))
 
     # The ORIGINAL `recipes` goes in, so the plan records the grade it was

@@ -57,6 +57,9 @@ LAYOUT = {"_typology_of": {
 
 GAC_USD = gf.GAC_DIR + "SM_Building_04.usd"        # 31.5 x 28.0 x 42.3 m
 DTC_USD = gf.DTC_DIR + "Building_12.usdc"
+DTC_BUILDING_11_USD = gf.DTC_DIR + "Building_11.usdc"       # user-blacklisted
+DTC_CARVED_04_USD = gf.DTC_DIR + "Carved_04.usdc"            # blacklisted prefix
+DTC_AMAR_TOWER_USD = gf.DTC_DIR + "Amar_Tower.usdc"          # NOT blacklisted
 KIT_USD = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
            "scene_gen/assets/archetype/bld_apartment_DG0.usd")
 AEC_BROWNSTONE_USD = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/NVIDIA/"
@@ -190,12 +193,18 @@ def test_burnable_gate2_rejects_a_street_placement():
     assert "outside every zoned block" in reason
 
 
-def test_burnable_gate2_rejects_the_tower_district():
+def test_burnable_gate2_accepts_the_tower_district_now_burnable():
+    """2026-08-31 policy: the blanket "no fire in a tower/highrise block"
+    ban is LIFTED -- gate 2 only checks that a typology exists at all now.
+    The collapse cap that replaces the ban is a LEVEL policy applied in
+    `damaged_manifest`, not a candidacy gate -- see `test_urban_fire_
+    spread.py`'s height-class tests and `test_damaged_manifest_caps_a_
+    skyscraper_record_instead_of_refusing_it` below."""
     p = _house(GAC_USD, 300.0, 75.0, "x")
-    ok, reason = ufc.burnable(LAYOUT, p, {})
-    assert not ok
-    assert "no-fire district" in reason
-    assert "tower" in reason
+    ok, rec = ufc.burnable(LAYOUT, p, {})
+    assert ok
+    assert rec["typology"] == "tower"
+    assert rec["kind"] == "gac"
 
 
 def test_burnable_gate3_rejects_muyang_via_routes_own_reason():
@@ -221,17 +230,63 @@ def test_burnable_gate4_rejects_aec_brownstone():
 
 
 # ---------------------------------------------------------------------------
-# the district rule, MUTATION-CHECKED
+# gate 5: the pack blacklist (2026-08-31) -- `gac_fire.PACKS["dtc"]
+# ["blacklist"] = ("Carved_", "Building_11")` already existed for a BENCH
+# row picker; the city path (`burnable()`) never consulted it, so three
+# `dtc:Building_11` records reached a live bake manifest despite the user
+# explicitly disliking that building. Blacklisted buildings are refused as
+# CANDIDATES (firebreaks), never assigned a level at all.
 # ---------------------------------------------------------------------------
-def test_moving_a_burnable_building_into_the_tower_block_refuses_it():
+def test_burnable_gate5_rejects_building_11():
+    p = _house(DTC_BUILDING_11_USD, 150.0, 60.0, "/World/stage/generated/house_9_19")
+    ok, reason = ufc.burnable(LAYOUT, p, {})
+    assert not ok
+    assert "blacklisted" in reason
+    assert "Building_11" in reason
+
+
+def test_burnable_gate5_rejects_carved_prefix():
+    p = _house(DTC_CARVED_04_USD, 150.0, 60.0, "/World/stage/generated/house_9_20")
+    ok, reason = ufc.burnable(LAYOUT, p, {})
+    assert not ok
+    assert "blacklisted" in reason
+    assert "Carved_" in reason
+
+
+def test_burnable_gate5_accepts_non_blacklisted_dtc():
+    for usd, name in ((DTC_USD, "Building_12"), (DTC_AMAR_TOWER_USD, "Amar_Tower")):
+        p = _house(usd, 150.0, 60.0, "/World/stage/generated/house_9_21")
+        ok, rec = ufc.burnable(LAYOUT, p, {})
+        assert ok, (name, rec)
+        assert rec["kind"] == "dtc"
+        assert rec["asset"] == name
+
+
+def test_pack_blacklist_reason_reads_gac_fire_packs_live():
+    assert ufc._pack_blacklist_reason("dtc", "Building_11") is not None
+    assert ufc._pack_blacklist_reason("dtc", "Carved_17") is not None
+    assert ufc._pack_blacklist_reason("dtc", "Building_12") is None
+    assert ufc._pack_blacklist_reason("dtc", "Amar_Tower") is None
+    # kinds with no "blacklist" entry at all never match anything
+    assert ufc._pack_blacklist_reason("gac", "Building_11") is None
+    assert ufc._pack_blacklist_reason("kit", "tower") is None
+    assert ufc._pack_blacklist_reason("dtc", None) is None
+
+
+# ---------------------------------------------------------------------------
+# the district no longer gates candidacy, MUTATION-CHECKED
+# ---------------------------------------------------------------------------
+def test_moving_a_burnable_building_into_the_tower_block_only_changes_its_typology():
     p = _house(GAC_USD, 50.0, 50.0, "/World/stage/generated/house_0_10")
     ok_before, rec_before = ufc.burnable(LAYOUT, p, {})
     assert ok_before and rec_before["kind"] == "gac"
+    assert rec_before["typology"] == "lowrise"
 
     p["x_m"], p["y_m"] = 300.0, 75.0     # into the tower block, nothing else changes
-    ok_after, reason_after = ufc.burnable(LAYOUT, p, {})
-    assert not ok_after
-    assert "no-fire district" in reason_after
+    ok_after, rec_after = ufc.burnable(LAYOUT, p, {})
+    assert ok_after
+    assert rec_after["typology"] == "tower"
+    assert rec_after["kind"] == rec_before["kind"]
 
 
 # ---------------------------------------------------------------------------
@@ -298,32 +353,162 @@ def _manifest_fixture():
 
 
 def test_damaged_manifest_keeps_only_burnable_records_in_order():
+    """Tower is burnable now (record 2), so only the out-of-range record
+    (99) is refused."""
     placements, plan_records = _manifest_fixture()
     manifest, refused = ufc.damaged_manifest(LAYOUT, placements, plan_records, 1000)
-    assert [m["i"] for m in manifest] == [0, 1]
+    assert [m["i"] for m in manifest] == [0, 1, 2]
     assert manifest[0]["kind"] == "gac" and manifest[0]["asset"] == "SM_Building_04"
     assert manifest[1]["kind"] == "dtc" and manifest[1]["asset"] == "Building_12"
+    assert manifest[2]["kind"] == "gac" and manifest[2]["typology"] == "tower"
     assert manifest[0]["level"] == "F5"
     assert manifest[0]["how"] == "origin"
     assert manifest[1]["how"] == "radiation"
+    assert len(refused) == 1 and refused[0]["i"] == 99
 
 
 def test_damaged_manifest_seeds_follow_seed_base_plus_31_times_i():
     placements, plan_records = _manifest_fixture()
     manifest, _refused = ufc.damaged_manifest(LAYOUT, placements, plan_records, 1000)
-    assert [m["seed"] for m in manifest] == [1000, 1031]
+    assert [m["seed"] for m in manifest] == [1000, 1031, 1062]
 
     manifest2, _ = ufc.damaged_manifest(LAYOUT, placements, plan_records, 7)
-    assert [m["seed"] for m in manifest2] == [7, 38]
+    assert [m["seed"] for m in manifest2] == [7, 38, 69]
 
 
-def test_damaged_manifest_refuses_tower_and_out_of_range_with_reasons():
+def test_damaged_manifest_refuses_only_the_out_of_range_record():
     placements, plan_records = _manifest_fixture()
     _manifest, refused = ufc.damaged_manifest(LAYOUT, placements, plan_records, 1000)
-    assert len(refused) == 2
+    assert len(refused) == 1
     by_i = {r["i"]: r["reason"] for r in refused}
-    assert "no-fire district" in by_i[2]
     assert "out-of-range" in by_i[99]
+
+
+def test_damaged_manifest_caps_a_skyscraper_record_instead_of_refusing_it():
+    """2026-08-31 policy: the tower-block record (F6, in the old no-fire
+    district) is now BURNABLE but CAPPED -- skyscraper: fire only, never
+    any collapse -- rather than refused. `cap_level_for_class` degrades
+    F6 -> F5c -> F5 (skyscraper bans both F5c and F6); F5 is not a
+    `ROOF_LEVELS` outcome, so `enforce_roof_eligibility` is a no-op here."""
+    placements, plan_records = _manifest_fixture()
+    plan_records[2]["level"] = "F6"
+    manifest, refused = ufc.damaged_manifest(LAYOUT, placements, plan_records, 1000)
+    tower = next(m for m in manifest if m["i"] == 2)
+    assert tower["height_class"] == "skyscraper"
+    assert tower["level"] == "F5"
+    assert not any(r["i"] == 2 for r in refused)
+
+
+# ---------------------------------------------------------------------------
+# the height-class layer of damaged_manifest: rank cap, roof eligibility,
+# and the roof-outcome share budget (2026-08-31 policy). `LAYOUT` above has
+# no `midrise`/`highrise` blocks, so this uses its own fixture.
+# ---------------------------------------------------------------------------
+ROWHOUSE = (0.0, 0.0, 100.0, 100.0)
+MIDRISE = (100.0, 0.0, 250.0, 100.0)
+HIGHRISE = (250.0, 0.0, 400.0, 100.0)
+HC_LAYOUT = {"_typology_of": {ROWHOUSE: "rowhouse", MIDRISE: "midrise",
+                              HIGHRISE: "highrise"}}
+
+
+def _hc_fixture():
+    """Six placements naming F6 (raw "full collapse"): four `rowhouse`
+    (low, roof-eligible), one `midrise` (mid_high), one `highrise`
+    (skyscraper). Whatever survives to the manifest is entirely the
+    height-class policy's doing."""
+    placements = [
+        _house(GAC_USD, 50.0, 50.0, "/h0"), _house(GAC_USD, 20.0, 20.0, "/h1"),
+        _house(GAC_USD, 70.0, 20.0, "/h2"), _house(GAC_USD, 20.0, 70.0, "/h3"),
+        _house(GAC_USD, 150.0, 50.0, "/h4"), _house(GAC_USD, 300.0, 50.0, "/h5"),
+    ]
+
+    def _rec(i, via):
+        return {"i": i, "level": "F6", "origin": 0, "sides": ["S"],
+               "t_ignite_s": float(i), "age_s": 12000.0, "via": via,
+               "how": "origin" if via is None else "attached"}
+
+    plan_records = [_rec(0, None), _rec(1, 0), _rec(2, 0), _rec(3, 0),
+                    _rec(4, 0), _rec(5, 0)]
+    return placements, plan_records
+
+
+def test_mid_high_and_skyscraper_never_show_a_roof_opening_outcome():
+    """(3) mid/high/skyscraper classes: never a roof-opening outcome --
+    both the midrise and the highrise record name F6, and both must end at
+    F5, never F5c or F6, regardless of the roof-outcome share budget."""
+    placements, plan_records = _hc_fixture()
+    manifest, refused = ufc.damaged_manifest(HC_LAYOUT, placements,
+                                             plan_records, 4242)
+    assert not refused
+    by_i = {m["i"]: m for m in manifest}
+    assert by_i[4]["height_class"] == "mid_high"
+    assert by_i[4]["level"] == "F5"
+    assert by_i[5]["height_class"] == "skyscraper"
+    assert by_i[5]["level"] == "F5"
+    for m in manifest:
+        if m["height_class"] != "low":
+            assert m["level"] not in ("F5c", "F6"), m
+
+
+def test_roof_outcomes_are_eligible_only_for_the_low_timber_class():
+    """(1) roof-affecting outcomes are eligible ONLY for the low-rise/
+    brownstone/timber class -- every non-low record above degrades away
+    from F6/F5c regardless of the share budget being wide open."""
+    placements, plan_records = _hc_fixture()
+    manifest, _refused = ufc.damaged_manifest(HC_LAYOUT, placements,
+                                              plan_records, 4242,
+                                              roof_collapse_max=99)
+    for m in manifest:
+        if m["level"] in ("F5c", "F6"):
+            assert m["height_class"] == "low", m
+
+
+def test_roof_collapse_share_cap_limits_the_count_across_the_manifest():
+    """(2) the SHARE cap: of the four eligible (low-class) records, at most
+    `roof_collapse_max` may show a roof outcome at all -- the rest degrade
+    to F5, deterministically for a given seed, and the fire's own origin is
+    always one of the kept ones."""
+    placements, plan_records = _hc_fixture()
+    manifest, _refused = ufc.damaged_manifest(HC_LAYOUT, placements,
+                                              plan_records, 4242,
+                                              roof_collapse_max=2)
+    rowhouse = [m for m in manifest if m["i"] in (0, 1, 2, 3)]
+    kept = [m["i"] for m in rowhouse if m["level"] == "F6"]
+    demoted = [m["i"] for m in rowhouse if m["level"] == "F5"]
+    assert len(kept) == 2 and len(demoted) == 2
+    assert 0 in kept, "the origin should always be kept over the shuffle"
+
+    # deterministic given the same seed_base
+    manifest2, _ = ufc.damaged_manifest(HC_LAYOUT, placements, plan_records,
+                                        4242, roof_collapse_max=2)
+    assert [(m["i"], m["level"]) for m in manifest2] == \
+        [(m["i"], m["level"]) for m in manifest]
+
+    # a wide-open budget keeps every eligible record
+    manifest_big, _ = ufc.damaged_manifest(HC_LAYOUT, placements, plan_records,
+                                           4242, roof_collapse_max=4)
+    assert sum(1 for m in manifest_big if m["i"] in (0, 1, 2, 3)
+              and m["level"] == "F6") == 4
+
+    # a budget of exactly zero keeps NONE, including the origin
+    manifest_zero, _ = ufc.damaged_manifest(HC_LAYOUT, placements, plan_records,
+                                            4242, roof_collapse_max=0)
+    assert not any(m["level"] == "F6" for m in manifest_zero
+                  if m["i"] in (0, 1, 2, 3))
+
+    # roof_collapse_max=None means "no budget at all" -- every eligible
+    # record is left alone
+    manifest_none, _ = ufc.damaged_manifest(HC_LAYOUT, placements, plan_records,
+                                            4242, roof_collapse_max=None)
+    assert sum(1 for m in manifest_none if m["i"] in (0, 1, 2, 3)
+              and m["level"] == "F6") == 4
+
+
+def test_roof_collapse_max_defaults_to_two():
+    assert ufc.ROOF_COLLAPSE_MAX_DEFAULT == 2
+    import inspect
+    assert inspect.signature(ufc.damaged_manifest).parameters[
+        "roof_collapse_max"].default == ufc.ROOF_COLLAPSE_MAX_DEFAULT
 
 
 # ---------------------------------------------------------------------------

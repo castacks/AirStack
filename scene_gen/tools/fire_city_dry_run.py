@@ -99,6 +99,17 @@ the origin (a native `apartment` kit archetype, `urm`) reaches F6 on the
 DETERMINISTIC branch. It is exercised by the synthetic tests and left in
 place as a safety net for a different seed/epicenter.
 
+HEIGHT-CLASS AWARE SINCE 2026-08-31 -- `_enforce_target_f5c` never forces a
+`"skyscraper"`-class origin (`urban_fire_spread.HEIGHT_CLASS_SKYSCRAPER`,
+`tower`/`highrise`) to F5c: that class's own rank cap forbids it (fire only,
+never any collapse), so it forces `"F5"` there instead, which still clears
+§5 check 3's `rank >= RANK["F5"]` bar. See `disaster.urban_fire_spread`'s
+"HEIGHT CLASS" docstring section and `urban_fire_city.damaged_manifest`
+(the AUTHORITATIVE gate this file's own `plan`-level forcing only tries to
+pre-empt, not replace) for the full policy, including the separate
+roof-outcome eligibility/share-budget rule `check_district_rule` also now
+checks.
+
 STOREY COUNT IS AN ESTIMATE, NOT A MEASUREMENT
 ------------------------------------------------
 `entry_for_plan_fire` needs a storey count to turn `origin_frac` (a fraction
@@ -565,14 +576,22 @@ def gather_burnable(config, layout, placements, resolver):
 
 
 def build_solve_inputs(burnable_list, manifest_dg0, cache):
-    """`(buildings, local_to_global, final_btype_by_local, n_storeys_by_local)`
-    — `buildings` is the list `urban_fire_spread.solve` wants, `i` in each
-    entry its OWN position in that list (a SEPARATE index space from
-    `placements`'); `local_to_global[k]` maps back."""
+    """`(buildings, local_to_global, final_btype_by_local, n_storeys_by_local,
+    height_class_by_local)` — `buildings` is the list `urban_fire_spread.
+    solve` wants, `i` in each entry its OWN position in that list (a
+    SEPARATE index space from `placements`'); `local_to_global[k]` maps
+    back. `height_class_by_local` is `urban_fire_spread.height_class`
+    applied to each building's own `typology` (from `burnable()`'s record,
+    the SAME field `urban_fire_city.damaged_manifest` re-derives it from
+    downstream) — see `disaster.urban_fire_spread`'s "HEIGHT CLASS" section
+    and this module's own docstring's 2026-08-31 policy note."""
+    from disaster import urban_fire_spread as ufs
+
     buildings = []
     local_to_global = []
     final_btype = {}
     n_storeys = {}
+    height_class = {}
     for i, rec in burnable_list:
         kind = rec["kind"]
         name_or_style = rec["asset"] if kind in ("gac", "dtc") else rec["style"]
@@ -583,21 +602,49 @@ def build_solve_inputs(burnable_list, manifest_dg0, cache):
                           "style": name_or_style, "i": k})
         local_to_global.append(i)
         final_btype[k] = bt
-        n_storeys[k] = _estimate_storeys(kind, name_or_style, rec["H"], cache)
-    return buildings, local_to_global, final_btype, n_storeys
+        n_st = _estimate_storeys(kind, name_or_style, rec["H"], cache)
+        n_storeys[k] = n_st
+        height_class[k] = ufs.height_class(typology=rec.get("typology"),
+                                           n_storeys=n_st)
+    return buildings, local_to_global, final_btype, n_storeys, height_class
 
 
 # ---------------------------------------------------------------------------
 # Stage 3: the spread solve + the exactly-N-F5c enforcement
 # ---------------------------------------------------------------------------
-def run_spread(buildings, local_to_global, final_btype, fire_spec, seed, n):
+def run_spread(buildings, local_to_global, final_btype, height_class,
+              fire_spec, seed, n):
     """Runs `pick_origin` + `solve`, capped to `n`. Returns `(plan,
     origin_local, notes)` — `plan` is `urban_fire_spread.solve`'s own return
     (local index space), `notes` a list of human-readable strings describing
-    anything this function had to force (empty when nothing did)."""
+    anything this function had to force (empty when nothing did).
+
+    `height_class` (local index -> `urban_fire_spread.HEIGHT_CLASSES` member)
+    is threaded straight through to `solve()`'s own `height_class_of` so the
+    RANK CAP is already applied to `plan`'s own levels — the same policy
+    `urban_fire_city.damaged_manifest` re-applies (from `typology`, not this
+    dict) as the authoritative gate on the final manifest. Applying it here
+    too means `_enforce_target_f5c` below (which reads and writes `plan`
+    directly) sees an already-honest starting point."""
     from disaster import urban_fire_spread as ufs
 
     rng = random.Random(int(seed))
+    if not buildings:
+        # ZERO burnable candidates reached the solve at all -- almost always
+        # a district-map problem upstream (e.g. a placements dump whose
+        # `typology.blocks` came back empty, so `typology_at()` refuses
+        # every placement at gate 2 with "outside every zoned block"; see
+        # `gather_burnable`'s own `refused_gate`), never a spread-solve
+        # concern. Raise with THAT diagnosis, not the misleading rc_glass
+        # message below -- an empty `rc_glass_local` trivially satisfies
+        # `len(rc_glass_local) >= len(buildings)` (0 >= 0) and would
+        # otherwise blame the wrong thing entirely.
+        raise ValueError(
+            "run_spread: zero burnable candidates were handed to the solve "
+            "-- check gather_burnable's refused_gate (a common cause: the "
+            "placements dump's typology.blocks is empty, so every "
+            "placement is refused at burnable()'s gate 2 before construction "
+            "type is even considered)")
     rc_glass_local = frozenset(k for k, bt in final_btype.items() if bt == "rc_glass")
     if len(rc_glass_local) >= len(buildings):
         # every candidate is rc_glass -- pick_origin would raise; let it,
@@ -610,50 +657,100 @@ def run_spread(buildings, local_to_global, final_btype, fire_spec, seed, n):
     wind_dir = math.radians(fire_spec["heading_deg"])
     plan = ufs.solve(buildings, origin_local, elapsed_s, wind_dir=wind_dir,
                      wind_mps=fire_spec["wind_mps"], rng=rng,
-                     btype_of=lambda b: final_btype[b["i"]], max_burnt=n)
+                     btype_of=lambda b: final_btype[b["i"]], max_burnt=n,
+                     height_class_of=lambda b: height_class[b["i"]])
     return plan, origin_local, elapsed_s
 
 
-def _enforce_target_f5c(plan, origin_local, final_btype, target=1):
-    """Exactly `target` F5c in `plan` (mutates it in place), preferring the
-    ORIGIN as the one kept/forced — see module docstring. Returns a list of
-    note strings (empty when the natural solve already satisfied the
-    target)."""
+def _enforce_target_f5c(plan, origin_local, final_btype, height_class, target=1):
+    """Exactly `target` SURVIVING F5c in `plan` (mutates it in place),
+    preferring the ORIGIN as the one kept/forced — see module docstring.
+    Returns a list of note strings (empty when the natural solve already
+    satisfied the target).
+
+    HEIGHT-CLASS AWARE (2026-08-31 policy), TWO BUGS DEEP:
+
+      1. Only ever FORCES `"F5c"` onto a `"low"` (roof-eligible) building.
+         `"mid_high"`/`"skyscraper"` candidates force to `"F5"` instead —
+         not just `"skyscraper"`, whose own rank cap forbids F5c outright,
+         but `"mid_high"` too, because `urban_fire_city.damaged_manifest`'s
+         SEPARATE roof-eligibility gate would immediately degrade a
+         `mid_high` F5c back to F5 anyway (F5c/F6 are eligible only for the
+         `low` class, regardless of what the rank cap alone allows).
+      2. (found 2026-08-31, chasing "the union has zero F5c even though a
+         target=1 run reported nothing wrong") `solve()`'s own rank cap
+         ALSO lets a `mid_high` building's OWN age/rng draw land on `"F5c"`
+         NATURALLY (mid_high's cap only forbids F6, not F5c) -- and the OLD
+         version of this function counted THAT toward the target and could
+         end up "keeping" a non-low F5c as the one survivor, only for
+         `damaged_manifest` to demote it right back to F5 downstream. The
+         reported target looked satisfied here and was actually zero in the
+         final manifest. Fixed by demoting every NON-LOW natural F5c to F5
+         UP FRONT, before any counting happens, so every step after this
+         only ever sees F5c entries that will actually still be F5c once
+         `damaged_manifest` has had its say.
+    """
     from disaster import urban_fire_spread as ufs
 
     notes = []
+
+    def _lit(p):
+        return p.get("t_ignite") is not None
+
+    # --- 0) a NATURAL, non-low F5c can never survive the roof-eligibility
+    # gate downstream -- demote it here so it is never mistaken for a
+    # target-satisfying survivor.
+    for p in plan:
+        if _lit(p) and p["level"] == "F5c" \
+                and height_class.get(p["i"]) != ufs.HEIGHT_CLASS_LOW:
+            cls = height_class.get(p["i"])
+            p["level"] = "F5"
+            notes.append(f"local {p['i']} ({cls}) naturally drew F5c but is "
+                         f"not low-class -- demoted to F5 up front (roof "
+                         f"eligibility would undo it downstream anyway)")
+
+    # --- 1) the origin must reach at least rank F5 ---
     origin_p = plan[origin_local]
+    origin_cls = height_class.get(origin_local, ufs.HEIGHT_CLASS_MIDHIGH)
     if ufs.RANK.get(origin_p["level"], -1) < ufs.RANK["F5"]:
         was = origin_p["level"]
-        origin_p["level"] = "F5c"
-        notes.append(f"origin (local {origin_local}) forced from {was} to F5c "
-                     f"(natural level never reached F5+)")
+        forced = "F5c" if origin_cls == ufs.HEIGHT_CLASS_LOW else "F5"
+        origin_p["level"] = forced
+        notes.append(f"origin (local {origin_local}, {origin_cls}) forced "
+                     f"from {was} to {forced} (natural level never reached "
+                     f"F5+)")
 
-    def _f5c_entries():
-        return [p for p in plan if p.get("t_ignite") is not None
-                and p["level"] == "F5c"]
+    def _f5c_low():
+        # every remaining "F5c" is already low-class, thanks to step 0 --
+        # this filter is belt-and-braces, not load-bearing any more.
+        return [p for p in plan if _lit(p) and p["level"] == "F5c"
+                and height_class.get(p["i"]) == ufs.HEIGHT_CLASS_LOW]
 
-    f5c = _f5c_entries()
+    f5c = _f5c_low()
     if len(f5c) < target:
-        lit = sorted((p for p in plan if p.get("t_ignite") is not None
-                     and p["i"] != origin_local and p["level"] != "F5c"),
+        # LOW class only -- forcing anything else would just be undone by
+        # `damaged_manifest`'s roof-eligibility gate (see step 0's note).
+        lit = sorted((p for p in plan if _lit(p)
+                     and p["i"] != origin_local and p["level"] != "F5c"
+                     and height_class.get(p["i"]) == ufs.HEIGHT_CLASS_LOW),
                     key=lambda p: p["t_ignite"])
         for p in lit:
-            if len(_f5c_entries()) >= target:
+            if len(_f5c_low()) >= target:
                 break
             bt = final_btype.get(p["i"])
             if bt in ("urm", "rc") and ufs.RANK.get(p["level"], 0) >= ufs.RANK["F4"]:
                 p["level"] = "F5c"
                 notes.append(f"local {p['i']} ({bt}) forced to F5c to reach "
                              f"the target of {target}")
-        if len(_f5c_entries()) < target:
+        if len(_f5c_low()) < target:
             notes.append(f"could not reach the F5c target of {target}: no "
-                         f"further urm/rc candidate reached F4+")
+                         f"further low-class urm/rc candidate reached F4+")
     elif len(f5c) > target:
-        keep = [p for p in f5c if p["i"] == origin_local][:1] or f5c[:1]
+        keep = [p for p in f5c if p["i"] == origin_local][:1] or \
+               sorted(f5c, key=lambda p: p["t_ignite"])[:1]
         keep_i = keep[0]["i"]
         kept = 0
-        for p in sorted(f5c, key=lambda p: p["i"] != origin_local):
+        for p in sorted(f5c, key=lambda p: p["i"] != keep_i):
             if kept < target:
                 kept += 1
                 continue
@@ -669,12 +766,24 @@ def _enforce_target_f5c(plan, origin_local, final_btype, target=1):
 # ---------------------------------------------------------------------------
 def build_manifest(preset, seed, n, layout, placements, buildings,
                    local_to_global, final_btype, n_storeys, plan, origin_local,
-                   elapsed_s, refused_gate, dump_provenance=None):
+                   elapsed_s, refused_gate, dump_provenance=None,
+                   roof_collapse_max=None):
     """`dump_provenance`, when given (the `--placements-json` path), is
     `{"path", "sha256"}` for the placements dump this manifest was solved
     on — written into the manifest under `"placements_dump"` so a later
     reader (a human, or a future launcher-side check) can tell which dump
-    produced it, and confirm the dump has not changed since."""
+    produced it, and confirm the dump has not changed since.
+
+    `roof_collapse_max`, if given, overrides `urban_fire_city.
+    damaged_manifest`'s own `ROOF_COLLAPSE_MAX_DEFAULT` for the roof-outcome
+    share budget (see `disaster.urban_fire_spread`'s "HEIGHT CLASS" section
+    and `damaged_manifest`'s own docstring) — `None` here means "use that
+    default", not "no budget at all" (that is `roof_collapse_max=None`
+    passed EXPLICITLY to `damaged_manifest` itself, a different thing this
+    function has no CLI knob for). The manifest's own `"roof_outcome_count"`
+    reports how many records actually ended up showing a `ROOF_LEVELS`
+    outcome (`F5c`/`F6`), for the report and for a caller that wants to
+    confirm the budget held without re-deriving it."""
     from disaster import urban_fire_city as ufc
     from disaster import urban_fire_spread as ufs
 
@@ -715,18 +824,23 @@ def build_manifest(preset, seed, n, layout, placements, buildings,
             "n_storeys": n_st,
         }
 
+    dm_kwargs = {}
+    if roof_collapse_max is not None:
+        dm_kwargs["roof_collapse_max"] = roof_collapse_max
     manifest, refused_burn = ufc.damaged_manifest(
-        layout, placements, plan_records, seed_base=int(seed))
+        layout, placements, plan_records, seed_base=int(seed), **dm_kwargs)
     for rec in manifest:
         meta = entry_meta.get(rec["i"], {})
         rec.update(meta)
 
     refused = list(refused_gate) + list(refused_burn)
     origin_gi = local_to_global[origin_local]
+    roof_outcome_count = sum(1 for rec in manifest if rec["level"] in ufs.ROOF_LEVELS)
     out = {
         "seed": int(seed), "preset": preset, "n": int(n),
         "n_achieved": len(manifest), "origin": origin_gi,
         "epoch_s": elapsed_s, "records": manifest, "refused": refused,
+        "roof_outcome_count": roof_outcome_count,
     }
     if dump_provenance:
         out["placements_dump"] = dict(dump_provenance)
@@ -745,10 +859,27 @@ def _urban_fire_module():
 
 
 def check_district_rule(manifest):
-    from disaster import urban_fire_city as ufc
+    """THE HEIGHT-CLASS RULE (2026-08-31), not the old district-wide fire
+    ban `ufc.NO_FIRE_TYPOLOGIES` used to police (that ban is lifted; the
+    constant is kept, now empty, purely for `urban_fire_city_launch_
+    script.py`'s own separate re-assertion — see `urban_fire_city`'s module
+    docstring). A record is a "violation" here if its OWN `level` is not
+    exactly what `disaster.urban_fire_spread.cap_level_for_class` +
+    `enforce_roof_eligibility` would produce for its `typology` — i.e. the
+    manifest is checked for having ALREADY applied the same policy
+    `damaged_manifest` is authoritative for, not for avoiding certain
+    typologies altogether."""
+    from disaster import urban_fire_spread as ufs
 
-    bad = [r["i"] for r in manifest["records"]
-          if r.get("typology") in ufc.NO_FIRE_TYPOLOGIES]
+    bad = []
+    for r in manifest["records"]:
+        typ = r.get("typology")
+        level = r.get("level")
+        cls = ufs.height_class(typology=typ, n_storeys=r.get("n_storeys"))
+        allowed = ufs.enforce_roof_eligibility(
+            ufs.cap_level_for_class(level, cls), cls)
+        if allowed != level:
+            bad.append(r["i"])
     ok = not bad
     return ok, {"violations": bad,
                "typologies_seen": sorted({r.get("typology")
@@ -974,13 +1105,18 @@ def run_all_checks(manifest, manifest_dg0=None):
 # The orchestrator
 # ---------------------------------------------------------------------------
 def _solve_from_layout(preset, resolved_seed, n, collapse, config, layout,
-                       placements, resolver, fire_spec, dump_provenance=None):
+                       placements, resolver, fire_spec, dump_provenance=None,
+                       roof_collapse_max=None):
     """The burnable-set / spread / manifest tail shared by `run_dry`
     (layout freshly built in-process, `resolver` a real `SizeResolver`) and
     `run_dry_from_dump` (layout loaded from a `FC_DUMP` placements dump,
     `resolver=None` — every W/D/H is already on the placement dict). Neither
     caller does anything with `config`/`layout`/`placements` after this
-    point that the other doesn't."""
+    point that the other doesn't.
+
+    `roof_collapse_max` — see `build_manifest`'s own docstring — flows
+    straight through to it; `None` means "use `urban_fire_city.
+    damaged_manifest`'s own default"."""
     from disaster import quake as q
 
     burnable_list, refused_gate, building_typology = gather_burnable(
@@ -993,17 +1129,20 @@ def _solve_from_layout(preset, resolved_seed, n, collapse, config, layout,
                     if level == "DG0"}
     cache = _gac_dtc_cache()
 
-    buildings, local_to_global, final_btype, n_storeys = build_solve_inputs(
-        burnable_list, manifest_dg0, cache)
+    buildings, local_to_global, final_btype, n_storeys, height_class = \
+        build_solve_inputs(burnable_list, manifest_dg0, cache)
 
     plan, origin_local, elapsed_s = run_spread(
-        buildings, local_to_global, final_btype, fire_spec, resolved_seed, n)
-    notes = _enforce_target_f5c(plan, origin_local, final_btype, target=collapse)
+        buildings, local_to_global, final_btype, height_class, fire_spec,
+        resolved_seed, n)
+    notes = _enforce_target_f5c(plan, origin_local, final_btype, height_class,
+                                target=collapse)
 
     manifest = build_manifest(preset, resolved_seed, n, layout, placements,
                               buildings, local_to_global, final_btype,
                               n_storeys, plan, origin_local, elapsed_s,
-                              refused_gate, dump_provenance=dump_provenance)
+                              refused_gate, dump_provenance=dump_provenance,
+                              roof_collapse_max=roof_collapse_max)
 
     checks = run_all_checks(manifest, manifest_dg0=manifest_dg0)
 
@@ -1031,7 +1170,8 @@ def _solve_from_layout(preset, resolved_seed, n, collapse, config, layout,
     return manifest, checks, report_extras
 
 
-def run_dry(preset: str, seed=None, n: int = 16, collapse: int = 1):
+def run_dry(preset: str, seed=None, n: int = 16, collapse: int = 1,
+           roof_collapse_max=None):
     """Runs the whole pipeline once, building the layout FRESH, in this
     process (needs `pxr` — see `build_layout`). Returns `(manifest, checks,
     report_extras)` — `report_extras` carries the numbers the markdown
@@ -1041,10 +1181,12 @@ def run_dry(preset: str, seed=None, n: int = 16, collapse: int = 1):
     resolved_seed = int(config.get("seed", seed if seed is not None else 0))
     fire_spec = _raw_fire_spec(preset)
     return _solve_from_layout(preset, resolved_seed, n, collapse, config,
-                              layout, placements, resolver, fire_spec)
+                              layout, placements, resolver, fire_spec,
+                              roof_collapse_max=roof_collapse_max)
 
 
-def run_dry_from_dump(dump_path: str, seed=None, n: int = 16, collapse: int = 1):
+def run_dry_from_dump(dump_path: str, seed=None, n: int = 16, collapse: int = 1,
+                      roof_collapse_max=None):
     """`run_dry`, but the layout is LOADED from a placements dump the city
     launcher wrote (`FC_DUMP`, `FC_INTACT_ONLY=1`) instead of rebuilt
     host-side — see `load_placements_dump` and the module docstring's
@@ -1067,24 +1209,28 @@ def run_dry_from_dump(dump_path: str, seed=None, n: int = 16, collapse: int = 1)
     dump_provenance = {"path": os.path.abspath(dump_path), "sha256": dump_sha256}
     return _solve_from_layout(preset, resolved_seed, n, collapse, config,
                               layout, placements, None, fire_spec,
-                              dump_provenance=dump_provenance)
+                              dump_provenance=dump_provenance,
+                              roof_collapse_max=roof_collapse_max)
 
 
-def _manifest_only(preset, seed, n=16, collapse=1):
+def _manifest_only(preset, seed, n=16, collapse=1, roof_collapse_max=None):
     """`run_dry`, returning JUST the JSON-serialisable manifest — what
     `check_determinism`'s `run_fn` wants (re-running the whole pipeline is
     the point: it proves the LAYOUT is deterministic too, not just the
     spread solve)."""
-    manifest, _checks, _extras = run_dry(preset, seed=seed, n=n, collapse=collapse)
+    manifest, _checks, _extras = run_dry(preset, seed=seed, n=n, collapse=collapse,
+                                         roof_collapse_max=roof_collapse_max)
     return manifest
 
 
-def _manifest_only_from_dump(dump_path, seed, n=16, collapse=1):
+def _manifest_only_from_dump(dump_path, seed, n=16, collapse=1,
+                             roof_collapse_max=None):
     """`run_dry_from_dump`, returning JUST the manifest — the layout is
     frozen (the dump), so this only proves the spread solve/manifest
     assembly is deterministic for a given seed, not the layout too."""
     manifest, _checks, _extras = run_dry_from_dump(
-        dump_path, seed=seed, n=n, collapse=collapse)
+        dump_path, seed=seed, n=n, collapse=collapse,
+        roof_collapse_max=roof_collapse_max)
     return manifest
 
 
@@ -1144,12 +1290,26 @@ def _format_markdown(preset, manifest, checks, det_ok, det_detail, extras):
 
     lines.append("## Level histogram\n")
     from collections import Counter
+    from disaster import urban_fire_spread as ufs
     hist = Counter(r["level"] for r in manifest["records"])
+    hist_by_class = Counter((r.get("height_class"), r["level"])
+                            for r in manifest["records"])
     lines.append("| level | count |")
     lines.append("|---|---|")
     for lv in ("F0", "F1", "F2", "F3", "F4", "F5", "F5c", "F6"):
         if hist.get(lv):
             lines.append(f"| {lv} | {hist[lv]} |")
+    lines.append("")
+    lines.append(f"Roof-affecting outcomes (F5c/F6, `urban_fire_spread."
+                f"ROOF_LEVELS`): **{manifest.get('roof_outcome_count', 0)}** "
+                f"of {len(manifest['records'])} records -- eligible only "
+                f"for the `low` height class, capped by `damaged_manifest`'s "
+                f"`roof_collapse_max`.\n")
+    lines.append("| height class | level | count |")
+    lines.append("|---|---|---|")
+    for (cls, lv), cnt in sorted(hist_by_class.items(),
+                                 key=lambda kv: (str(kv[0][0]), ufs.RANK.get(kv[0][1], 0))):
+        lines.append(f"| {cls} | {lv} | {cnt} |")
     lines.append("")
 
     lines.append("## Spread tree (who lit whom, how, at what minute)\n")
@@ -1209,6 +1369,13 @@ def main():
     ap.add_argument("--n", type=int, default=16)
     ap.add_argument("--collapse", type=int, default=1,
                     help="target number of F5c (partial-collapse) buildings")
+    ap.add_argument("--roof-collapse-max", type=int, default=None,
+                    help="max buildings in the manifest that may show a "
+                         "roof-affecting outcome (F5c/F6) at all -- overrides "
+                         "urban_fire_city.damaged_manifest's own "
+                         "ROOF_COLLAPSE_MAX_DEFAULT (2). Roof collapse is "
+                         "eligible only for the low/brownstone/timber height "
+                         "class regardless of this budget.")
     ap.add_argument("--out", default=None, help="override the JSON out path")
     ap.add_argument("--md", default=None, help="override the markdown out path")
     args = ap.parse_args()
@@ -1216,14 +1383,17 @@ def main():
     if args.placements_json:
         manifest, checks, extras = run_dry_from_dump(
             args.placements_json, seed=args.seed, n=args.n,
-            collapse=args.collapse)
+            collapse=args.collapse, roof_collapse_max=args.roof_collapse_max)
         run_fn = lambda s: _manifest_only_from_dump(
-            args.placements_json, s, n=args.n, collapse=args.collapse)
+            args.placements_json, s, n=args.n, collapse=args.collapse,
+            roof_collapse_max=args.roof_collapse_max)
     else:
         manifest, checks, extras = run_dry(args.preset, seed=args.seed, n=args.n,
-                                           collapse=args.collapse)
+                                           collapse=args.collapse,
+                                           roof_collapse_max=args.roof_collapse_max)
         run_fn = lambda s: _manifest_only(args.preset, s, n=args.n,
-                                          collapse=args.collapse)
+                                          collapse=args.collapse,
+                                          roof_collapse_max=args.roof_collapse_max)
     preset = manifest["preset"]
     seed = manifest["seed"]
 
@@ -1244,7 +1414,8 @@ def main():
     print(f"[fire_dry_run] wrote {out_md}")
 
     print(f"\n[fire_dry_run] seed={seed} n={manifest['n']} "
-         f"achieved={manifest['n_achieved']} origin={manifest['origin']}")
+         f"achieved={manifest['n_achieved']} origin={manifest['origin']} "
+         f"roof_outcome_count={manifest.get('roof_outcome_count', 0)}")
     for name, (ok, detail) in checks.items():
         print(f"  {name:<20} {'PASS' if ok else 'FAIL'}  {detail}")
     print(f"  {'determinism':<20} {'PASS' if det_ok else 'FAIL'}  {det_detail}")

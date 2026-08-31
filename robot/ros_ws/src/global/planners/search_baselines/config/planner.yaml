@@ -345,6 +345,47 @@ search_planner:
     frontier_lock_s: 6.0
     frontier_swap_margin_frac: 0.35
     frontier_unlock_radius_m: 8.0
+
+    # ── UNREACHABLE-FRONTIER BLACKLIST: it must EXPIRE ────────────────────
+    # `_stall_watchdog` blacklists a frontier the drone cannot close on, and
+    # `_blacklisted_mask` removes a disc of `frontier_blacklist_radius_m`
+    # around it from the candidate pool BEFORE the top-N is chosen (so the
+    # next batch never re-offers it — the filter is at generation, not at
+    # selection). That part works. What did not work is that the entry was
+    # PERMANENT: the code default for the TTL is 0.0, meaning never expire,
+    # and neither knob was set in any config, so every robot ran with a
+    # monotonically growing set of forbidden discs.
+    #
+    # MEASURED, 2026-08-31 iteration 1 of frozen_suburban_8robot. Each entry
+    # kills pi*8^2 ~= 201 m2 of a sector that is ~45,000 m2 (361,919 m2 search
+    # area / 8 robots). Speed tracked blacklist count inversely, with the
+    # cliff at roughly 20 % of the sector condemned:
+    #
+    #     r2   4 entries  ~2 %   2.60 m/s      r5  36  ~16 %   0.00 m/s
+    #     r1  11          ~5 %   2.88 m/s      r4  50  ~22 %   0.00 m/s
+    #     r8  17          ~8 %   2.63 m/s      r6  85  ~38 %   0.00 m/s
+    #                                          r3  93  ~41 %   1.03 m/s
+    #                                          r7 108  ~48 %   0.64 m/s
+    #
+    # Three robots at a dead stop, and robot_5's log says it in words:
+    # "no frontier candidates - steering to the sector centroid". Once enough
+    # of a sector is condemned forever there is nowhere left to go.
+    #
+    # WHY IT SURFACED NOW. The blacklist exists because a frontier can sit
+    # inside a house or under a canopy where every approach is in collision.
+    # A DENSER map produces more of those, and the map got much denser when
+    # the frozen cells stopped rendering black (unlit scenes gave stereo no
+    # texture to match on). The blacklist rate went up; the permanence did not
+    # change. These defaults were tuned against a map that no longer exists.
+    #
+    # 180 s is 9x `frontier_stall_s`, so a frontier cannot thrash straight
+    # back into the lock, and it is short enough that ground condemned early
+    # is retryable long before the budget ends. Both clocks here are
+    # `time.time()` (checked: the two append sites and the prune all use wall
+    # time), so this is 180 WALL seconds, not sim seconds.
+    frontier_blacklist_ttl_s: 180.0
+    frontier_blacklist_radius_m: 8.0   # code default, made explicit
+    frontier_stall_s: 20.0             # code default, made explicit
     vlfm_image_max_side: 512       # BLIP-2 resizes to 224 internally anyway
     # The BLIP-2 ITM service (conavgpt2.blip2_itm_server). SEPARATE from the
     # generative endpoint: different model, different job, and only this one is

@@ -132,6 +132,90 @@ _LOOK_MATERIALS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# round-5: the BEAM look for authored bar-shaped concrete/masonry debris
+# ---------------------------------------------------------------------------
+# User, on the first 500 m OSMO scene: the authored lintels/quoins/column
+# stubs/sills read as flat pale bars. `_BOX_MATS`/`_LOOK_MATERIALS["stone"]`
+# give them a single LINEAR albedo with no map at all, which is the same
+# "smooth pale marshmallow" problem `_debris_look` was written to fix for the
+# catalogue pieces. These get the freshly-pulled "Damaged Concrete Floor"
+# megascans surface instead, bound the same way everything else textured in
+# this module is: `damage._pbr(texture=...)` (MDL `project_uvw`, world
+# triplanar — an authored box's own `st` is only ever read by the Blender
+# preview shader) plus a dust `diffuse_tint`.
+#
+# RESILIENT BY DESIGN. The pack is being imported by another agent while this
+# lands, so `_beam_tex_path` GLOBS for it and returns None when the folder is
+# not there yet; `_beam_look` then returns None and `_author_large` falls
+# straight back to the pre-round-5 rule. Never a crash, never a skipped chip.
+_BEAM_DIR = "megascans/Damaged_Concrete_Floor"
+_BEAM_SPEC = {
+    "rgb": (0.520, 0.512, 0.495),   # `_DEBRIS_CONCRETE`'s neighbourhood
+    "dust": 0.86,
+    "rough": 0.92,
+    "scale": 0.9,                   # repeats/m — a 0.3 m bar wants a tighter
+    "desat": 0.25,                  #   tile than a 4 m raft
+}
+# The kinds this applies to: the AUTHORED (asset=None, prim_path=None) bar
+# pieces of a masonry/concrete pile. `joist` is timber and `rebar` is steel —
+# both keep the look the planner already gives them.
+_BEAM_KINDS = ("lintel", "quoin", "column", "sill")
+_BEAM_MISSING_WARNED = [False]
+
+
+def _beam_tex_path():
+    """The Damaged_Concrete_Floor basecolour, or None if it is not on disk.
+
+    Globbed (`T_*_B.*`) rather than named: the megascans export's stem is a
+    per-asset hash (`T_vizcebf_2K_B.png` for Damaged_Asphalt) that this agent
+    cannot know before the pack is unzipped.
+    """
+    import glob
+    root = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "assets",
+        "materials", _BEAM_DIR))
+    hits = sorted(glob.glob(os.path.join(root, "T_*_B.*")))
+    if not hits:
+        if not _BEAM_MISSING_WARNED[0]:
+            _BEAM_MISSING_WARNED[0] = True
+            print("[quake_rubble_usd] {0} not on disk yet — authored beam "
+                  "pieces keep their flat look (chips are unaffected)"
+                  .format(root))
+        return None
+    return _megascans_tex_path(_BEAM_DIR + "/" + os.path.basename(hits[0]))
+
+
+def _beam_look(stage, parent, mats):
+    """The shared Damaged_Concrete_Floor material for authored bar pieces,
+    cached at `<parent>/QuakeLooks/rubble_beam` like every other look here.
+    Returns None when the texture is not available, so the caller can fall
+    back to its own rule."""
+    from pxr import Sdf, UsdShade
+
+    path = "{0}/QuakeLooks/rubble_beam".format(parent)
+    existing = UsdShade.Material.Get(stage, Sdf.Path(path))
+    if existing and existing.GetPrim().IsValid():
+        if mats is not None:
+            mats.setdefault("rubble_beam", existing)
+        return existing
+
+    tex = _beam_tex_path()
+    if tex is None:
+        return None
+
+    from . import damage
+    spec = _BEAM_SPEC
+    tint = tuple(float(c) * spec["dust"] for c in spec["rgb"])
+    got = damage._pbr(stage, path, tint, spec["rough"], texture=tex,
+                      scale_uv=(spec["scale"], spec["scale"]), tint=tint)
+    _apply_diffuse_tint(stage, path, tint, spec["desat"])
+    _add_preview_fallback(stage, path, tint, spec["rough"], texture=tex)
+    if mats is not None:
+        mats["rubble_beam"] = got
+    return got
+
+
 def _material_for_look(stage, parent, look, mats):
     """Resolve one of the round-4 per-set/per-large `"look"` values
     (`_MATERIAL_LOOKS`) to a material cached at `<parent>/QuakeLooks/
@@ -809,7 +893,157 @@ def _author_heightfield(stage, path, hf, uv_scale=None):
     return path
 
 
-def _box(stage, path, sx, sy, sz, mat=None):
+# ---------------------------------------------------------------------------
+# round-5: chipped authored boxes  ("they shouldn't look perfect")
+# ---------------------------------------------------------------------------
+# Every AUTHORED (asset=None, prim_path=None) "large" element is a literal
+# cuboid: `LINTEL_LONG_SIZE`/`LINTEL_QUOIN_SIZE`/`JOIST_SIZE`/`COLUMN_SIZE_*`
+# straight into `_box`. On screen they are the gift boxes the user called out
+# on the first 500 m OSMO scene. `fracture.chip_box` bites corners out of them
+# with oblique VTK plane clips, roughens the cast faces and (timber only)
+# bends them.
+#
+# PER KIND, and the differences are the point:
+#   * `ends` is the share of chips aimed at the BREAK faces of a bar — the
+#     user's second note, "the actual breaking should not be clean". A snapped
+#     lintel / joist / column stub is broken ACROSS, so its two small end
+#     faces are fracture surfaces and get the heaviest, most overlapping
+#     treatment; a quoin is a cut stone that mostly SPALLED, so it gets fewer.
+#   * concrete and masonry get chips + roughening and NO bend — concrete does
+#     not bow. Timber joists do, so they alone carry `warp_frac`/`twist_deg`.
+#   * `depth_frac` is deliberately wide and drawn log-uniformly inside
+#     `chip_box` (see `_chip_depth`): most pieces are nicked, a few lose a
+#     real corner chunk. Measured over 24 seeds x 5 kinds: 2-30 % volume
+#     loss, median ~19 %.
+# `warp_frac` is a fraction of the piece's own LONGEST dimension, converted to
+# metres here (a 3.2 m joist bows 6 cm), because `warp_mesh` works in metres.
+_CHIP_KIND = {
+    "lintel": {"chips": (2, 6), "depth_frac": (0.025, 0.15), "ends": 0.55,
+               "rough_frac": 0.10},
+    "quoin":  {"chips": (2, 6), "depth_frac": (0.03, 0.18), "ends": 0.30,
+               "rough_frac": 0.11},
+    "column": {"chips": (2, 6), "depth_frac": (0.025, 0.15), "ends": 0.55,
+               "rough_frac": 0.10},
+    "sill":   {"chips": (2, 6), "depth_frac": (0.025, 0.15), "ends": 0.50,
+               "rough_frac": 0.10},
+    "joist":  {"chips": (2, 6), "depth_frac": (0.025, 0.16), "ends": 0.60,
+               "rough_frac": 0.14, "warp_frac": 0.012, "twist_deg": 5.0},
+}
+_CHIP_DEFAULT = {"chips": (2, 5), "depth_frac": (0.03, 0.15), "ends": 0.35,
+                 "rough_frac": 0.10}
+
+
+def _chip_seed(*parts):
+    """A stable 32-bit seed from the piece's own identity.
+
+    NOT a draw off a shared rng: `_author_large` is an emitter with no rng of
+    its own, and threading one in would make every piece's shape depend on how
+    many pieces were authored before it — which is exactly the shared-draw
+    coupling `fire_collapse`'s private-rng rule exists to avoid. Hashing the
+    piece's own (tag, index, kind, size, position) gives the same shape for the
+    same plan every time, and nothing else moves when one piece changes.
+    """
+    from . import fracture
+    return fracture.stable_seed(*parts)
+
+
+def _chip_spec(kind, seed):
+    """The `chip_box` kwargs for one authored box, or None when chipping is
+    off (`QC_CHIP=0`). `kind` is the plan's own `entry["kind"]`."""
+    from . import fracture
+    if not fracture.chips_enabled():
+        return None
+    kw = dict(_CHIP_KIND.get(str(kind or "").lower(), _CHIP_DEFAULT))
+    kw["seed"] = int(seed)
+    return kw
+
+
+def _planar_st(points, faces, scale):
+    """faceVarying `st` by dominant-axis planar projection, in metres x
+    `scale` (repeats/m) — the same convention `_author_heightfield` uses for
+    the mound.
+
+    ONLY the Blender/Hydra preview reads this. The MDL material stays
+    `project_uvw` world-triplanar exactly as it is for every other textured
+    look here, so Kit's render is identical with or without the primvar; the
+    primvar is what stops the offline proof render from showing a flat tint on
+    the one population this round is about (see `_add_preview_fallback`'s note,
+    which recorded the authored box's lack of UVs as a known preview gap —
+    this closes it).
+    """
+    p = np.asarray(points, dtype=np.float64)
+    f = np.asarray(faces, dtype=np.int64)
+    n = np.cross(p[f[:, 1]] - p[f[:, 0]], p[f[:, 2]] - p[f[:, 0]])
+    ax = np.argmax(np.abs(n), axis=1)                 # dominant normal axis
+    u_ax = np.where(ax == 0, 1, 0)                    # x->y, else ->x
+    v_ax = np.where(ax == 2, 1, 2)                    # z->y, else ->z
+    tri = p[f]                                        # (m, 3, 3)
+    idx = np.arange(len(f))
+    out = np.empty((len(f), 3, 2), dtype=np.float64)
+    for c in range(3):
+        out[:, c, 0] = tri[idx, c, u_ax] * float(scale)
+        out[:, c, 1] = tri[idx, c, v_ax] * float(scale)
+    return out.reshape(-1, 2)
+
+
+def _chipped_box(stage, path, sx, sy, sz, mat, spec, uv_scale=0.9):
+    """`_box`, but irregular. Same bottom-centre origin, same crisp
+    faceVarying normals, plus a preview `st`. Returns the mesh, or None if
+    the chip pass produced nothing (the caller then authors the plain box)."""
+    import random as _random
+
+    from pxr import Gf, Sdf, UsdGeom, Vt
+
+    from . import fracture
+
+    kw = dict(spec)
+    seed = kw.pop("seed", 0)
+    warp_frac = float(kw.pop("warp_frac", 0.0))
+    long_m = float(max(abs(sx), abs(sy), abs(sz)))
+    pts, faces = fracture.chip_box(
+        sizes=(float(sx), float(sy), float(sz)),
+        rng=_random.Random(int(seed)), bottom=True,
+        warp_m=warp_frac * long_m, **kw)
+    if pts is None or faces is None or not len(faces):
+        return None
+    # THE BOTTOM-CENTRE ORIGIN IS A CONTRACT, not a detail of how `_box`
+    # happens to build its points: the planner has already sunk the piece's
+    # LOWEST POINT `bury` below the mound surface and hands the emitter the
+    # final world position of that origin (see `_author_large`'s docstring).
+    # A chip that bites the bottom corner, or a roughening pass that pushes a
+    # bottom vertex down, moves that lowest point — so put it back on z = 0.
+    # x/y are deliberately NOT re-centred: an asymmetric footprint is the
+    # whole point, and the planner places by origin, not by centroid.
+    pts[:, 2] -= float(pts[:, 2].min())
+
+    m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    m.CreatePointsAttr(Vt.Vec3fArray(
+        [Gf.Vec3f(float(x), float(y), float(z)) for x, y, z in pts]))
+    m.CreateFaceVertexCountsAttr(Vt.IntArray([3] * len(faces)))
+    m.CreateFaceVertexIndicesAttr(Vt.IntArray(
+        [int(i) for tri in faces for i in tri]))
+    nrm = np.cross(pts[faces[:, 1]] - pts[faces[:, 0]],
+                   pts[faces[:, 2]] - pts[faces[:, 0]])
+    ln = np.linalg.norm(nrm, axis=1, keepdims=True)
+    nrm = np.repeat(nrm / np.maximum(ln, 1e-12), 3, axis=0)
+    m.CreateNormalsAttr(Vt.Vec3fArray(
+        [Gf.Vec3f(float(x), float(y), float(z)) for x, y, z in nrm]))
+    m.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
+    st = UsdGeom.PrimvarsAPI(m).CreatePrimvar(
+        "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying)
+    st.Set(Vt.Vec2fArray([Gf.Vec2f(float(a), float(b))
+                          for a, b in _planar_st(pts, faces, uv_scale)]))
+    m.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    m.CreateDoubleSidedAttr(True)
+    lo, hi = pts.min(axis=0), pts.max(axis=0)
+    m.CreateExtentAttr([Gf.Vec3f(*[float(v) for v in lo]),
+                        Gf.Vec3f(*[float(v) for v in hi])])
+    if mat is not None:
+        _bind(stage, path, mat)
+    return m
+
+
+def _box(stage, path, sx, sy, sz, mat=None, chip=None):
     """A closed box mesh with its LOCAL origin at the bottom-centre — points
     span [-sx/2, sx/2] x [-sy/2, sy/2] x [0, sz] — NOT centred like
     `quake_flow._box`, whose points sit about the body centre because its
@@ -825,8 +1059,20 @@ def _box(stage, path, sx, sy, sz, mat=None):
     not metres) below the mound surface, so the emitter translates straight
     to `pos` and never re-applies `bury` itself. Faces get faceVarying
     constant normals — a rubble slab is a hard edge, not a pillow
-    (`planks.py`'s reason for the same choice)."""
+    (`planks.py`'s reason for the same choice).
+
+    `chip` (round 5), when given, replaces the 8-point cuboid with the
+    irregular chipped/warped solid `_chipped_box` builds from the same three
+    dimensions and the same bottom-centre origin. `chip=None` — and
+    `QC_CHIP=0`, which makes `_chip_spec` return None at every call site —
+    takes the original body below unchanged, byte for byte."""
     from pxr import Gf, Sdf, UsdGeom, Vt
+
+    if chip is not None:
+        got = _chipped_box(stage, path, sx, sy, sz, mat, chip)
+        if got is not None:
+            return got
+        # a chip pass that produced nothing falls through to the plain box
 
     hx, hy = sx / 2.0, sy / 2.0
     P = Gf.Vec3f
@@ -883,20 +1129,47 @@ def _author_large_asset(stage, path, url, pos, rot_deg, scale):
     return path
 
 
-def _author_large_box(stage, parent, path, size, pos, rot_deg, mat):
+def _author_large_box(stage, parent, path, size, pos, rot_deg, mat, chip=None):
     """Same `pos`-is-final convention as `_author_large_asset` — `_box`
     already puts the box's own local origin at its bottom-centre, so no
-    `bury` offset is applied here either."""
-    from pxr import Gf, UsdGeom
+    `bury` offset is applied here either.
+
+    `chip` is `_chip_spec`'s dict (round 5) or None."""
+    from pxr import Gf, Usd, UsdGeom
     sx, sy, sz = (size or (1.0, 1.0, 1.0))
-    m = _box(stage, path, float(sx), float(sy), float(sz), mat=mat)
+    m = _box(stage, path, float(sx), float(sy), float(sz), mat=mat, chip=chip)
     xf = UsdGeom.Xformable(m)
-    xf.AddTranslateOp().Set(Gf.Vec3d(float(pos[0]), float(pos[1]), float(pos[2])))
+    tr_op = xf.AddTranslateOp()
+    tr_op.Set(Gf.Vec3d(float(pos[0]), float(pos[1]), float(pos[2])))
     xf.AddRotateXYZOp().Set(Gf.Vec3f(float(rot_deg[0]), float(rot_deg[1]), float(rot_deg[2])))
+    # ROUND-6 SEAT FIX: `_chipped_box` re-seats the chipped mesh's lowest
+    # point to local z=0, but the PLANNER seats by the analytic BOX's
+    # rotated minimum — and a chip can remove exactly the corner that would
+    # have been lowest after rotation, leaving the real mesh up to ~15 cm
+    # above the planned bottom (caught by the rot_deg/orientation convention
+    # test: a raft floated 12.5 cm). Compensate with USD's own math: after
+    # authoring the ops, transform the actual points AND the analytic box
+    # corners by the prim's local-to-world and translate down by the
+    # deficit, so the chipped mesh's true rotated minimum lands exactly
+    # where the planner put the box's.
+    pts_attr = m.GetPointsAttr().Get() if hasattr(m, "GetPointsAttr") else None
+    if chip and pts_attr:
+        w = UsdGeom.Xformable(m).ComputeLocalToWorldTransform(
+            Usd.TimeCode.Default())
+        actual_min = min(w.Transform(Gf.Vec3d(q))[2] for q in pts_attr)
+        hx, hy = float(sx) / 2.0, float(sy) / 2.0
+        corners = [Gf.Vec3d(ix, iy, iz) for ix in (-hx, hx)
+                   for iy in (-hy, hy) for iz in (0.0, float(sz))]
+        box_min = min(w.Transform(q)[2] for q in corners)
+        dz = float(actual_min - box_min)
+        if dz > 1e-4:
+            tr_op.Set(Gf.Vec3d(float(pos[0]), float(pos[1]),
+                               float(pos[2]) - dz))
     return path
 
 
-def _lay_existing(stage, prim_path, pos, rot_deg):
+def _lay_existing(stage, prim_path, pos, rot_deg, parent=None, mats=None,
+                  extra_static=None):
     """Re-lay an EXISTING kit/sliced prim on the pile: translate its own
     pivot (the centre of its CURRENT world bound) to `pos`, rotating
     `rot_deg` about that pivot, without re-referencing it.
@@ -905,6 +1178,16 @@ def _lay_existing(stage, prim_path, pos, rot_deg):
     frame, so this is correct wherever the prim happens to sit in the
     stage's existing hierarchy (a building's own Xform nest, typically) —
     not just for a prim that is already a direct child of `parent`.
+
+    Round-5 follow-up: once the baseline lay above is set, `_dress_laid_panel`
+    (gated on `LAY_PANEL_DRESS`) sinks/tilts it further and scatters edge
+    chunks — see that function's docstring for why. `parent`/`mats` are only
+    used for that: the dressing pass is a no-op without a `parent` to author
+    edge chunks under. `extra_static`, when given, is a list this call
+    APPENDS every edge-chunk path onto — `_author_large`'s own return is one
+    path (the re-laid prim itself, unchanged contract), so this is the only
+    way `author()` learns about the extra prims and can fold them into
+    `result["all"]`/`result["static"]`.
     """
     from pxr import Gf, Usd, UsdGeom
 
@@ -941,10 +1224,163 @@ def _lay_existing(stage, prim_path, pos, rot_deg):
 
     xf.ClearXformOpOrder()
     xf.AddTransformOp().Set(m_new_local)
+
+    if _panel_dress_enabled():
+        dress_parent = parent or str(prim_path).rsplit("/", 1)[0]
+        chunks = _dress_laid_panel(stage, prim_path, dress_parent, mats)
+        if extra_static is not None and chunks:
+            extra_static.extend(chunks)
     return str(prim_path)
 
 
-def _author_large(stage, parent, tag, entry, mats, catalogue, asset_root, n):
+# ---------------------------------------------------------------------------
+# round-5 follow-up: dressing a LAID panel ("still looks like a huge clean
+# rectangle on the mound")
+# ---------------------------------------------------------------------------
+# `_lay_existing` re-lays an EXISTING kit/sliced prim — a wide opening panel
+# `quake_sliced._total_collapse` chose, or a fit-out column racked into the
+# pile by `_apply_fit_ops`'s "columns_to_pile" — and it is NEVER cut (the
+# `vtkStripper` SIGSEGV rule: the referenced/sliced piece may be a shell), so
+# nothing below touches its geometry. What breaks the clean-rectangle read
+# instead: sink it 25-45% deeper into the mound than the planner's own
+# `bury` already put it, add a little extra tilt and a yaw jitter so two
+# panels from the same plan spot do not share a silhouette, and scatter a
+# handful of small CHIPPED boxes (`_box`'s own `chip=` path, the same round
+# trip `_chipped_box`/`_author_large` use) along its exposed edges so the
+# OUTLINE itself is broken, not just the surface.
+_LAY_PANEL_DRESS_ENV = "LAY_PANEL_DRESS"
+PANEL_SINK_FRAC = (0.25, 0.45)      # extra fraction of the panel's OWN
+                                     # current world Z-extent sunk below its
+                                     # planned rest — "half-swallowed"
+PANEL_EXTRA_TILT_DEG = (5.0, 15.0)
+PANEL_YAW_JITTER_DEG = (5.0, 20.0)
+PANEL_EDGE_CHIPS_N = (3, 8)
+PANEL_EDGE_CHIP_SIZE_M = (0.15, 0.55)
+
+
+def _panel_dress_enabled():
+    """`LAY_PANEL_DRESS=0` turns the whole dressing pass off. Read live, like
+    `fracture.chips_enabled()`, so a test can flip it with no reload."""
+    return os.environ.get(_LAY_PANEL_DRESS_ENV, "1").strip().lower() not in (
+        "0", "false", "no", "off")
+
+
+def _dress_laid_panel(stage, prim_path, parent, mats):
+    """Sink + tilt + yaw-jitter a just-laid panel in place, then scatter
+    edge chunks along its (pre-dress) footprint perimeter.
+
+    Reads the panel's own POST-LAY world bound — `_lay_existing` has already
+    set the baseline transform above — rather than trusting the planner's
+    `size`, so this is correct for a `prim_path` "large" entry from EITHER
+    source `_lay_existing` is handed (a wall panel, or a fit-out column
+    racked by `columns_to_pile`): whatever it re-lays gets the same
+    treatment. Returns the list of edge-chunk paths authored (empty on any
+    prim that could not be measured — never raises; a dress pass is
+    cosmetic).
+    """
+    import math
+    import random as _random
+
+    from pxr import Gf, Usd, UsdGeom
+
+    from . import fracture
+
+    prim = stage.GetPrimAtPath(prim_path)
+    if not prim or not prim.IsValid():
+        return []
+    xf = UsdGeom.Xformable(prim)
+    if not xf:
+        return []
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    wb = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+    if wb.IsEmpty():
+        return []
+    lo, hi = wb.GetMin(), wb.GetMax()
+    pivot = wb.GetMidpoint()
+    thickness = max(0.05, float(min(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2])))
+
+    seed = fracture.stable_seed(str(prim_path), "panel_dress")
+    rr = _random.Random(seed)
+    sink = rr.uniform(*PANEL_SINK_FRAC) * thickness
+    tilt_deg = rr.uniform(*PANEL_EXTRA_TILT_DEG)
+    az = rr.uniform(0.0, 360.0)
+    yaw_jit = rr.uniform(*PANEL_YAW_JITTER_DEG) * (1.0 if rr.random() < 0.5 else -1.0)
+
+    ax, ay = math.cos(math.radians(az)), math.sin(math.radians(az))
+    m_world = xf.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    to_origin = Gf.Matrix4d(1.0).SetTranslate(Gf.Vec3d(-pivot[0], -pivot[1], -pivot[2]))
+    tilt_r = Gf.Matrix4d(1.0).SetRotate(Gf.Rotation(Gf.Vec3d(ax, ay, 0.0), tilt_deg))
+    yaw_r = Gf.Matrix4d(1.0).SetRotate(Gf.Rotation(Gf.Vec3d(0.0, 0.0, 1.0), yaw_jit))
+    to_sunk = Gf.Matrix4d(1.0).SetTranslate(
+        Gf.Vec3d(pivot[0], pivot[1], pivot[2] - sink))
+    m_new_world = m_world * to_origin * tilt_r * yaw_r * to_sunk
+
+    parent_prim = prim.GetParent()
+    parent_xf = UsdGeom.Xformable(parent_prim) if parent_prim and parent_prim.IsValid() else None
+    m_p2w = (parent_xf.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+             if parent_xf else Gf.Matrix4d(1.0))
+    xf.ClearXformOpOrder()
+    xf.AddTransformOp().Set(m_new_world * m_p2w.GetInverse())
+
+    if not fracture.chips_enabled():
+        return []
+    n = rr.randint(*PANEL_EDGE_CHIPS_N)
+    return _author_panel_edge_chunks(stage, parent, prim_path, lo, hi, sink,
+                                     mats, rr, n)
+
+
+def _author_panel_edge_chunks(stage, parent, panel_path, lo, hi, sink, mats,
+                              rr, n):
+    """`n` small chipped boxes scattered along `panel_path`'s exposed
+    perimeter — its PRE-sink world bbox (`lo`/`hi`), close enough to where
+    the panel now sits since the extra sink/tilt are a fraction of its own
+    thickness. The panel itself is never touched; this is what breaks its
+    clean-rectangle silhouette from the air. `sink` seats the chunks near
+    the panel's new, lower bottom edge rather than floating at the old one.
+    Returns the list of authored paths.
+    """
+    from pxr import Gf, UsdGeom
+
+    key = _box_key({"kind": "panel"})
+    mat = _box_material_for(stage, parent, key, mats)
+    tag = _safe_name(str(panel_path).rsplit("/", 1)[-1])
+    w, d = float(hi[0] - lo[0]), float(hi[1] - lo[1])
+    edges = (("S", w, (0.0, -1.0)), ("N", w, (0.0, 1.0)),
+             ("W", d, (-1.0, 0.0)), ("E", d, (1.0, 0.0)))
+    ground_z = float(lo[2]) - sink
+    made = []
+    for i in range(n):
+        side, length, (nx, ny) = edges[rr.randrange(4)]
+        if length <= 1e-6:
+            continue
+        t = rr.uniform(0.08, 0.92)
+        if side == "S":
+            x, y = lo[0] + t * w, lo[1]
+        elif side == "N":
+            x, y = lo[0] + t * w, hi[1]
+        elif side == "W":
+            x, y = lo[0], lo[1] + t * d
+        else:
+            x, y = hi[0], lo[1] + t * d
+        off = rr.uniform(0.05, 0.45)
+        x += nx * off + rr.uniform(-0.15, 0.15)
+        y += ny * off + rr.uniform(-0.15, 0.15)
+        z = ground_z + rr.uniform(-0.05, 0.12)
+        s = rr.uniform(*PANEL_EDGE_CHIP_SIZE_M)
+        sx, sy, sz = s, s * rr.uniform(0.6, 1.3), s * rr.uniform(0.4, 0.9)
+        path = "{0}/rubble_panel_edge_{1}_{2:02d}".format(parent, tag, i)
+        seed = _chip_seed("panel_edge", str(panel_path), i, sx, sy, sz)
+        spec = _chip_spec("panel_edge", seed)
+        _box(stage, path, sx, sy, sz, mat=mat, chip=spec)
+        pxf = UsdGeom.Xformable(stage.GetPrimAtPath(path))
+        pxf.AddTranslateOp().Set(Gf.Vec3d(x, y, z))
+        pxf.AddRotateZOp().Set(rr.uniform(0.0, 360.0))
+        made.append(path)
+    return made
+
+
+def _author_large(stage, parent, tag, entry, mats, catalogue, asset_root, n,
+                  extra_static=None):
     """`entry["pos"]` is the FINAL world position of the piece's own
     bottom-centre origin for every kind alike (asset ref, authored box, or
     an existing prim's pivot) — `entry["bury"]` is a FRACTION of the piece's
@@ -970,12 +1406,20 @@ def _author_large(stage, parent, tag, entry, mats, catalogue, asset_root, n):
 
     prim_path = entry.get("prim_path")
     if prim_path:
-        return _lay_existing(stage, prim_path, pos, rot)
+        return _lay_existing(stage, prim_path, pos, rot, parent=parent,
+                             mats=mats, extra_static=extra_static)
 
-    look_override = _material_for_look(stage, parent, entry.get("look"), mats)
+    kind = str(entry.get("kind") or "").lower()
+    size = entry.get("size")
+    # LAZY (round 5): `_material_for_look` DEFINES the material prim as a side
+    # effect, so calling it for a piece that is about to take the beam look
+    # instead would leave an orphan `QuakeLooks/rubble_stone` on every URM
+    # pile. Resolve it only where it is actually consulted.
+    beam_kind = (kind in _BEAM_KINDS and not entry.get("asset"))
 
     asset = entry.get("asset")
     if asset:
+        look_override = _material_for_look(stage, parent, entry.get("look"), mats)
         url = _resolve_asset_url(asset, catalogue, asset_root)
         if url is None:
             return None
@@ -987,23 +1431,37 @@ def _author_large(stage, parent, tag, entry, mats, catalogue, asset_root, n):
                 _bind_override(stage, out, override)
         return out
 
-    if look_override is not None:
-        mat = look_override
-    else:
-        key = _box_key(entry)
-        # "column" stubs are the one authored (asset=None) kind the round-4
-        # v2 review called out by name alongside the catalogue's raft/chunk/
-        # flake pieces — a snapped RC column reads the same "flat marshmallow"
-        # way `_BOX_MATS["concrete_dusty"]` renders, so it gets the SAME
-        # textured override (world-projected, so the box's lack of UVs does
-        # not matter for the real MDL render — only the offline Blender
-        # preview loses the map on this one shape; see `_debris_look`'s
-        # comment).
-        if key == "concrete_dusty" and str(entry.get("kind") or "").lower() == "column":
-            mat = _debris_look(stage, parent, "concrete", mats)
+    # ROUND 5, the beam surface. Every AUTHORED bar-shaped concrete/masonry
+    # piece takes the Damaged_Concrete_Floor scan ahead of `look_override` and
+    # ahead of the `_box_key` rule — the flat "stone"/"concrete_dusty" albedo
+    # those give is exactly the pale-bar look the user objected to. `joist`
+    # (timber) and `rebar` (steel) are NOT in `_BEAM_KINDS` and keep theirs.
+    # Falls through to the old rule when the pack is not on disk.
+    mat = _beam_look(stage, parent, mats) if beam_kind else None
+    if mat is None:
+        look_override = _material_for_look(stage, parent, entry.get("look"), mats)
+        if look_override is not None:
+            mat = look_override
         else:
-            mat = _box_material_for(stage, parent, key, mats)
-    return _author_large_box(stage, parent, path, entry.get("size"), pos, rot, mat)
+            key = _box_key(entry)
+            # "column" stubs are the one authored (asset=None) kind the
+            # round-4 v2 review called out by name alongside the catalogue's
+            # raft/chunk/flake pieces — a snapped RC column reads the same
+            # "flat marshmallow" way `_BOX_MATS["concrete_dusty"]` renders, so
+            # it gets the SAME textured override (world-projected, so the
+            # box's lack of UVs does not matter for the real MDL render — the
+            # offline Blender preview now gets a planar `st` from
+            # `_chipped_box`; see `_debris_look`'s comment).
+            if key == "concrete_dusty" and kind == "column":
+                mat = _debris_look(stage, parent, "concrete", mats)
+            else:
+                mat = _box_material_for(stage, parent, key, mats)
+
+    chip = _chip_spec(kind, _chip_seed(tag, n, kind,
+                                       *[float(q) for q in (size or (0, 0, 0))],
+                                       *[float(q) for q in pos]))
+    return _author_large_box(stage, parent, path, size, pos, rot, mat,
+                             chip=chip)
 
 
 # ---------------------------------------------------------------------------
@@ -1213,12 +1671,43 @@ def author(stage, parent, plan, mats=None, tag="rubble", uid=None, asset_root=No
             result["instancers"].append(ipath)
             result["all"].append(ipath)
 
+    n_box, n_panel = 0, 0
+    extra_static = []          # edge chunks `_dress_laid_panel` authors as a
+                                # SIDE EFFECT of a "panel" entry — `_author_large`
+                                # itself still returns one path per entry (its
+                                # own re-laid prim), so this is the only route
+                                # they reach `result["all"]`/`["static"]`
     for entry in (plan.get("large") or []):
+        if entry.get("prim_path"):
+            n_panel += 1
+        elif not entry.get("asset"):
+            n_box += 1
         lpath = _author_large(stage, parent, tag, entry, mats, catalogue,
-                              asset_root, next_id())
+                              asset_root, next_id(), extra_static=extra_static)
         if lpath:
             result["large"].append(lpath)
             result["all"].append(lpath)
+    if extra_static:
+        result["all"].extend(extra_static)
 
-    result["static"] = [p for p in (result["mound"], result["apron"]) if p] + list(result["large"])
+    # ROUND-5 FOLLOW-UP PROOF LINES. There was "no positive log evidence
+    # that chips fire during a real bake" — one line per population per
+    # building, not per piece, so a bake log can be grepped for `[chip]` and
+    # show the chip/dress passes actually ran (or, just as usefully, that
+    # they were off).
+    if n_box:
+        from . import fracture
+        vtk_on = fracture.chips_enabled()
+        print("[chip] rubble large boxes ({0}): {1} chipped, {2} "
+              "passed-through (vtk={3})".format(
+                  tag, n_box if vtk_on else 0, 0 if vtk_on else n_box, vtk_on))
+    if n_panel:
+        dress_on = _panel_dress_enabled()
+        print("[chip] laid panels ({0}): {1} dressed (sink+tilt+edge-chunks), "
+              "{2} passed-through (LAY_PANEL_DRESS={3}), {4} edge chunk(s)"
+              .format(tag, n_panel if dress_on else 0,
+                      0 if dress_on else n_panel, dress_on, len(extra_static)))
+
+    result["static"] = ([p for p in (result["mound"], result["apron"]) if p]
+                        + list(result["large"]) + extra_static)
     return result

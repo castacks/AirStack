@@ -1443,3 +1443,76 @@ Open after round 4 (rubble v2 — see that section for full context):
   (anything that fractures a sliced piece) are now UNBLOCKED by the
   `FRACTURE_VTK_GUARD` fix — worth revisiting once that module is resumed,
   since the constraint that shaped its whole vocabulary no longer fully holds.
+
+## Round 5 review fixes (2026-08-31)
+
+Five packages, each delegated and re-verified by measurement, after the first
+OSMO 500 m GAC+MCE scene's review. All landed; 266+ tests green combined.
+
+**Blank "plain brick" buildings — the fam04 Facade_B trap.** Every fam04
+style (`commercial`, `commercial_mid`, `highrise_04`, `department_store`,
+`block_commercial`) baked with `SM_MBuilding04_Facade_B` — a literal
+8-vertex box, texture-only windows — on 100% of storey slots on ALL FOUR
+sides: `_plan_band`'s shared rng reaches the storey pick at the same point
+every bake. Fix in `detail/urban_building.py`: an optional per-band `side`
+pool, deterministic (consumes ZERO rng draws — an early rng-drawing version
+silently changed the top band's motif; any extra draw shifts every band
+after it), forced to `Facade_A` on E/N/W and, per the round-5 follow-up, on
+S too (the photographed blank walls WERE fronts). Kit textures do not
+resolve locally, so judge elevations with a true ORTHOGRAPHIC per-side
+camera and per-camera light — a perspective+raking-light rig produced a
+false positive on brownstone's E flank (all four brownstone sides are in
+fact identical). Guard: `tests/test_kit_elevations.py`.
+
+**Perfect-cuboid debris → `fracture.chip_box`.** Capped VTK plane clips
+(corner bites, bevel shears, end steps sized against the CROSS-SECTION so a
+bar's break face reads snapped, not sawn), subdivide-then-roughen AFTER
+chips, parabolic+sine+twist warp for timber only. Wired into
+`quake_rubble_usd._box`/`_author_large` and `quake_collapse`'s plank/prism
+cells and dropped plates. `QC_CHIP=0` reproduces old boxes byte-for-byte;
+never chips a non-solid input (clipped-shell SIGSEGV rule). 4.4-8.7 ms and
+66-256 tris per piece — no cache needed. Broken concrete (beams + fragment
+interiors via `quake_flow.MATERIAL_URLS["concrete"]`) binds megascans
+`Damaged_Concrete_Floor`; roofs keep their own asphalt URL.
+
+**Floating roof props.** `quake_flow.dress_roof` seats tanks/AC before
+recipes run and nothing asked whether that prop's own roof survived
+(`_b_settle_roof_plant`'s burial share never matched qc recipe names).
+`quake_collapse._sweep_roof_props`: majority-of-5-footprint-points against
+`plan["region"]` (centre alone is NOT enough — fire bug 9), bury under
+total/pancake via `_a_bury_props`, outward kick + physics for
+elevation/corner; resolved paths pruned so the generic pass can't
+double-handle. The archetype bake launcher now runs
+`fire_bake.deactivate_airborne` per building post-settle (`airborne_off` in
+the manifest) — the sky-parked tank was ultimately a SETTLE_STEPS freeze.
+
+**Ground.** Worn_Pavement retired everywhere in the quake path; road/pave
+pieces draw a per-building crc32 mixture of Damaged_Asphalt /
+Damaged_Asphalt_02 / Crushed_Asphalt_Ground (8K source downscaled in place
+to 2K — `tools/import_megascans.py` now has a PIL downscale step). Fissures
+1.75x (`EQ_FISSURE_SCALE`) and textured with the tornado soil/silt — whose
+tables `quake_flow._C_TEX` now IMPORTS from `scour_relief._TEX` so drift is
+structurally impossible.
+
+**Scanned concrete presence.** rc piles: `CLUSTER_COVERAGE_RC=2.1`,
+`CLUSTER_MAX_RC=115`, `CLUSTER_N_RC=(6,14)`; urm minority-concrete pool
+weighted toward the three big pile spreads. `RUBBLE_HP=1` opt-in prefers
+`_hp` twins (guarded: probes the filesystem for a LOCAL asset_root, trusts
+the catalogue for `omniverse://`). Street scatter (`plan_street_scatter`,
+`QUAKE_STREET_DEBRIS`, city cap `STREET_DEBRIS_MAX`) places pieces strictly
+beyond the measured heap reach on the fall sides — and took FOUR review
+rounds because scan shells fail on clean pavement in ways piles hide:
+bbox `_chunky`+open_frac gates are provably insufficient (a flat scan's
+curvature spans its bbox: `concrete_slabs_p028` passes both at PCA
+thin/long ratio 0.013), so a static PCA census
+(`assets/rubble_hd/volume_ratio.json`, works against omniverse:// roots)
+gates the pool, seating must use POINTS-min-z (bbox corners leave daylight
+under curled pieces — the BBoxCache blind spot again), and orientation must
+lay the PCA-thin axis up or pieces stand on end like foil.
+
+**Two process lessons.** (1) Never assert on `sys.modules` in a shared
+pytest session — test_quake_sliced's import-isolation check passed alone
+and failed in combined runs once another file legitimately imported
+quake_rubble; check transitive-import contracts in a fresh subprocess.
+(2) `pytest ... | tail -3` in a background command destroys the traceback
+you will need — keep full output in the task file and tail at read time.

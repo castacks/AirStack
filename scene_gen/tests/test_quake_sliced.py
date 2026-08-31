@@ -915,7 +915,21 @@ def test_the_rubble_modules_are_only_touched_through_the_two_hooks():
             assert not any("quake_rubble" in str(n) for n in names), names
         if isinstance(node, _ast.Import):
             assert not any("quake_rubble" in a.name for a in node.names)
-    assert "disaster.quake_rubble" not in sys.modules
+    # Importing `disaster.quake_sliced` must not pull `quake_rubble` in — but
+    # checked in a FRESH interpreter, not this one: asserting on this
+    # process's `sys.modules` was order-fragile (any earlier test file in the
+    # same session may import quake_rubble legitimately — test_quake_collapse
+    # does, through a quake_flow call — and made this fail only in combined
+    # runs; round-5 reviewer fix).
+    import subprocess as _sp
+    r = _sp.run(
+        [sys.executable, "-c",
+         "import sys; sys.path.insert(0, sys.argv[1]); "
+         "import disaster.quake_sliced; "
+         "assert 'disaster.quake_rubble' not in sys.modules, 'transitive'",
+         os.path.join(_HERE, "..")],
+        capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[-800:]
 
 
 def test_the_rubble_numbers_agree_with_the_planner_when_it_is_present():
@@ -976,6 +990,180 @@ def test_wreck_sliced_produces_wreck_buildings_ctx_shape():
                      "nrng", "mats", "tag"], a
     for kw in ("btype", "usd", "mat_cache", "fit_storeys"):
         assert kw in a, kw
+
+
+# ---------------------------------------------------------------------------
+# ROUND-5 FOLLOW-UP (2026-08-31): the floating roof-plant fix and the
+# dropped-fitout chip fix. Both need a real (in-memory) USD stage, unlike
+# everything above — `pxr` is imported lazily, INSIDE these tests only, so
+# every test above keeps running with no `pxr` on the path at all (this
+# file's own design note: "quake_rubble / quake_rubble_usd ... STUBBED").
+# Zero-argument tests throughout (no `monkeypatch`/`capsys`), matching this
+# file's own `__main__` runner, which calls every `test_*` with no args.
+# ---------------------------------------------------------------------------
+def test_roof_plant_target_z_tracks_the_measured_roof_not_the_advertised_top():
+    """The pure half of the floating-tank fix. `_roof_plant_target_z` must
+    prefer a MEASURED roof top over the style's advertised H whenever one is
+    given — SM_Building_02's own numbers (38.6 m advertised, ~35.6 m of
+    actual support under the footprint) are close to this synthetic ~3 m
+    gap."""
+    advertised = 38.6
+    measured = [35.6, 35.55, 35.62]        # several roof pieces, near-flat
+    z = qs._roof_plant_target_z(advertised, measured)
+    assert abs(z - (max(measured) + 0.02)) < 1e-9
+    assert z < advertised - 2.9            # tracks the measured top, not H
+
+    # no measured pieces at all (a kit building routed here by mistake, or a
+    # roof bbox that failed to resolve) -> unchanged fallback, byte for byte
+    # with `dress_roof`'s own `top + 0.02` formula
+    z0 = qs._roof_plant_target_z(advertised, [])
+    assert abs(z0 - (advertised + 0.02)) < 1e-9
+
+
+def _box_mesh(stage, path, sx, sy, sz, z_bottom):
+    """A plain axis-aligned box MESH (its own prim, no separate Xform
+    parent) spanning `[-sx/2, sx/2] x [-sy/2, sy/2] x [z_bottom, z_bottom+sz]`
+    in local space with no xform ops — a stand-in for a `role == "roof"`
+    piece's own authored geometry, measurable with a bbox cache exactly like
+    a real one."""
+    from pxr import Gf, Sdf, UsdGeom, Vt
+    hx, hy = sx / 2.0, sy / 2.0
+    m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    pts = [Gf.Vec3f(-hx, -hy, z_bottom), Gf.Vec3f(hx, -hy, z_bottom),
+           Gf.Vec3f(hx, hy, z_bottom), Gf.Vec3f(-hx, hy, z_bottom),
+           Gf.Vec3f(-hx, -hy, z_bottom + sz), Gf.Vec3f(hx, -hy, z_bottom + sz),
+           Gf.Vec3f(hx, hy, z_bottom + sz), Gf.Vec3f(-hx, hy, z_bottom + sz)]
+    faces = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4),
+             (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    m.CreatePointsAttr(Vt.Vec3fArray(pts))
+    m.CreateFaceVertexCountsAttr(Vt.IntArray([4] * 6))
+    m.CreateFaceVertexIndicesAttr(Vt.IntArray([i for f in faces for i in f]))
+    return m
+
+
+def test_reseat_roof_plant_slides_props_down_to_the_measured_roof_top():
+    """End to end on a real stage: a `role == "roof"` piece measured ~3 m
+    below the advertised `m["top"]`, and a `roof_plant` prop seated the way
+    `dress_roof` seats one (bottom at `advertised_top + 0.02`, built by hand
+    here so this does not depend on that function's own internals) —
+    `_reseat_roof_plant` must slide it down to sit on the MEASURED top."""
+    from pxr import Gf, Sdf, Usd, UsdGeom
+
+    st = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageUpAxis(st, UsdGeom.Tokens.z)
+    parent = "/World/Bldg"
+    st.DefinePrim(Sdf.Path(parent), "Xform")
+
+    advertised_top = 38.6
+    roof_top_measured = advertised_top - 3.0        # the coping-band overshoot
+    roof_path = parent + "/roof_piece"
+    _box_mesh(st, roof_path, 10.0, 10.0, 0.3, roof_top_measured - 0.3)
+
+    tank_path = parent + "/tank_0"
+    tank = _box_mesh(st, tank_path, 1.0, 1.0, 2.0, 0.0)
+    UsdGeom.Xformable(tank).AddTranslateOp().Set(
+        Gf.Vec3d(0.0, 0.0, advertised_top + 0.02))
+
+    info = {"masses": {"main": {"top": advertised_top}},
+           "elements": [{"mass": "main", "role": "roof",
+                         "p": {"prim_path": roof_path}}]}
+    ctx = {"info": info, "roof_plant": [tank_path], "notes": []}
+
+    n = qs._reseat_roof_plant(st, ctx)
+    assert n == 1, n
+
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    rng = bc.ComputeWorldBound(st.GetPrimAtPath(tank_path)).ComputeAlignedRange()
+    new_bottom = float(rng.GetMin()[2])
+    # 1e-4, not tighter: mesh points are `Gf.Vec3f` (float32).
+    assert abs(new_bottom - (roof_top_measured + 0.02)) < 1e-4, new_bottom
+    assert new_bottom < advertised_top - 2.5, "still floating at advertised H"
+    assert any("roof_plant reseated" in n_ for n_ in ctx["notes"]), ctx["notes"]
+
+    # a building whose grid was already right (no measured piece, or one
+    # that measures within a hair of the advertised top) is a no-op
+    ctx2 = {"info": {"masses": {"main": {"top": advertised_top}},
+                     "elements": []},
+           "roof_plant": [tank_path], "notes": []}
+    assert qs._reseat_roof_plant(st, ctx2) == 0
+    assert ctx2["notes"] == []
+
+
+def test_displace_above_chips_the_dropped_fitout_slabs_and_columns():
+    """`_apply_fit_ops`'s "displace_above" moves a whole crushed block's
+    fit-out (slabs/columns/partitions) as one rigid body — this is the
+    round-5 follow-up on top of that: the moved SLAB and COLUMN meshes (both
+    plain `qf._box` prisms `fit_interior` authors — never a sliced piece)
+    come out visibly chipped (far more than the box's own 6 quad faces), and
+    `QC_CHIP=0` reproduces the exact 6-face box byte for byte. Also checks
+    the `[chip]` proof line fires exactly when chipping does.
+    """
+    import contextlib
+    import io
+
+    from pxr import Sdf, Usd, UsdGeom
+
+    def _build():
+        st = Usd.Stage.CreateInMemory()
+        UsdGeom.SetStageUpAxis(st, UsdGeom.Tokens.z)
+        parent = "/World/Bldg"
+        st.DefinePrim(Sdf.Path(parent), "Xform")
+        slab_path = parent + "/fit_t/slab_main_1"
+        col_path = parent + "/fit_t/col_main_1_0_0"
+        qf._box(st, slab_path, 0.0, 0.0, 3.0, 20.0, 16.0, 0.22, 0.0, mat=None)
+        qf._box(st, col_path, 4.0, 4.0, 3.0, 0.45, 0.45, 2.8, 0.0, mat=None)
+        ctx = {"stage": st, "parent": parent, "tag": "t", "mats": {},
+              "static_extra": []}
+        fit = {"slabs": {("main", 1): slab_path},
+              "columns": {("main", 1): [col_path]},
+              "partitions": [], "props": {}, "all": [slab_path, col_path]}
+        ctx["fit"] = fit
+        plan = {"fit_ops": [{"op": "displace_above", "mass": "main",
+                            "storey": 0,
+                            "transform": qs._disp(translate=(0.0, 0.0, -1.0),
+                                                  why="test drop")}]}
+        return st, ctx, plan, slab_path, col_path
+
+    def _n_faces(st, path):
+        m = UsdGeom.Mesh(st.GetPrimAtPath(path))
+        return len(m.GetFaceVertexCountsAttr().Get())
+
+    old = os.environ.get("QC_CHIP")
+    try:
+        os.environ["QC_CHIP"] = "1"
+        st, ctx, plan, slab_path, col_path = _build()
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            qs._apply_fit_ops(st, ctx, plan)
+        assert _n_faces(st, slab_path) > 30, _n_faces(st, slab_path)
+        assert _n_faces(st, col_path) > 30, _n_faces(st, col_path)
+        assert slab_path in ctx["static_extra"] and col_path in ctx["static_extra"]
+        printed = buf.getvalue()
+        assert "[chip] quake_sliced fit-out" in printed, printed
+        assert "2 chipped, 0 passed-through (vtk=True)" in printed, printed
+
+        os.environ["QC_CHIP"] = "0"
+        st2, ctx2, plan2, slab_path2, col_path2 = _build()
+        buf2 = io.StringIO()
+        with contextlib.redirect_stdout(buf2):
+            qs._apply_fit_ops(st2, ctx2, plan2)
+        assert _n_faces(st2, slab_path2) == 6, _n_faces(st2, slab_path2)
+        assert _n_faces(st2, col_path2) == 6, _n_faces(st2, col_path2)
+        printed2 = buf2.getvalue()
+        assert "0 chipped, 2 passed-through (vtk=False)" in printed2, printed2
+    finally:
+        if old is None:
+            os.environ.pop("QC_CHIP", None)
+        else:
+            os.environ["QC_CHIP"] = old
+
+
+def test_chip_dropped_fitout_is_callable_with_empty_lists():
+    """The proof-line helper never raises when there is nothing to chip
+    (every earlier recipe already removed the fit-out, say) — no stage
+    access happens at all in that case."""
+    n = qs._chip_dropped_fitout({"tag": "t"}, [], [], [])
+    assert n == 0
 
 
 if __name__ == "__main__":

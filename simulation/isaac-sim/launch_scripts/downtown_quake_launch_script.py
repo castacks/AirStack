@@ -482,10 +482,17 @@ class QuakeCityApp:
         if SNAP_DIR:
             try:
                 import importlib.util as _ilu
-                _sp = os.path.join(_ISAAC_SIM_DIR, "utils", "snapshots.py")
+                # On an OSMO livestream pod the viewport capture SEGFAULTS
+                # (no X server behind the viewport — build-scenes-on-osmo
+                # skill); snapshots_rp has the same API over a Replicator
+                # render product. Prefer it, fall back to the viewport path.
+                _sp = os.path.join(_ISAAC_SIM_DIR, "utils", "snapshots_rp.py")
+                if not os.path.exists(_sp) or os.environ.get("SNAP_VIEWPORT") == "1":
+                    _sp = os.path.join(_ISAAC_SIM_DIR, "utils", "snapshots.py")
                 _spec = _ilu.spec_from_file_location("snapshots", _sp)
                 _snaps = _ilu.module_from_spec(_spec)
                 _spec.loader.exec_module(_snaps)
+                print("[quake_city] snapshots via " + os.path.basename(_sp), flush=True)
                 os.makedirs(SNAP_DIR, exist_ok=True)
                 for _ in range(60):
                     app.update()

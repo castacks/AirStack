@@ -569,13 +569,31 @@ class SizeResolver:
         if cache_key in self._cache:
             return self._cache[cache_key]
 
-        fp = (_measure_footprint(usd_path, effective_scale, effective_axis_up)
-              if self.measure else None)
-        if fp is not None:
-            print(f"[scene_gen] measured {category}: {os.path.basename(usd_path)} "
-                  f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m "
-                  f"(scale={effective_scale}, up={effective_axis_up})")
-        else:
+        # MEASURE ONCE PER (path, axis), AT SCALE 1.0, AND MULTIPLY. The
+        # footprint is linear in scale (a bbox times a uniform scale; the
+        # Y-up remap is a permutation and sign, independent of scale), but
+        # per-instance scale JITTER made every placement a fresh cache key —
+        # the same plant asset was opened and measured thousands of times
+        # (32,587 log lines, one Usd.Stage.Open each) and the 500 m city
+        # build ballooned to 38.8 GB RSS and was OOM-killed (2026-08-31).
+        raw_key = (usd_path, effective_axis_up)
+        if not hasattr(self, "_raw"):
+            self._raw = {}
+        if raw_key not in self._raw:
+            self._raw[raw_key] = (
+                _measure_footprint(usd_path, 1.0, effective_axis_up)
+                if self.measure else None)
+            if self._raw[raw_key] is not None:
+                r = self._raw[raw_key]
+                print(f"[scene_gen] measured {category}: "
+                      f"{os.path.basename(usd_path)} -> "
+                      f"{r['sx']:.2f} x {r['sy']:.2f} (at scale 1, "
+                      f"up={effective_axis_up}; per-instance scales derived)")
+        raw = self._raw[raw_key]
+        fp = (None if raw is None else
+              {k: raw[k] * effective_scale
+               for k in ("sx", "sy", "sz", "base", "cx", "cy", "cz")})
+        if fp is None:
             fb = self.fallback.get(category, [4.0, 4.0])
             fp = {"sx": float(fb[0]), "sy": float(fb[1]),
                   "sz": float(fb[2]) if len(fb) > 2 else 3.0, "base": 0.0,

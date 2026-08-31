@@ -357,7 +357,17 @@ def _outward(m, side):
 # ---------------------------------------------------------------------------
 _MEGA = "airstack://scene_gen/assets/materials/megascans/"
 MATERIAL_URLS = {
-    "concrete": _MEGA + "Worn_Pavement.usda",
+    # NOT Worn_Pavement any more — retired outright ("don't use Worn
+    # Pavement material anywhere", user 2026-08-31). And NOT Damaged_Asphalt
+    # either (the ground agent's first stand-in): every remaining user of
+    # this key is fragment-INTERIOR concrete — slab cores, column stubs,
+    # spalled wall interiors, `_d_rubble_mat` chunks — and the user's beam
+    # addendum bound broken beams to the freshly imported megascans
+    # Damaged_Concrete_Floor; the interiors follow the same map so a broken
+    # beam and the slab core beside it read as one material. Ground pieces
+    # left this key entirely (`_c_ground_look` mixture), and roofs have
+    # their own `_A_ROOF_URL` (asphalt, correct for roofing).
+    "concrete": _MEGA + "Damaged_Concrete_Floor.usda",
     "brick": _MEGA + "Brick_Wall_Worn.usda",
     # WORLD-PROJECTED, because the berm mesh and every authored chunk carry
     # no UVs: the AEC `Dirt.usda` is UV-space and rendered the berm as one
@@ -6878,7 +6888,16 @@ def _ejecta(ctx, m, n, reach_frac=1.2, bias_side=None):
 
 def _buckled_pavement(ctx, m, n, sides=None, lift=(0.1, 0.35), tilt=(4.0, 14.0)):
     """Pavement slabs round the footing pushed up and tipped — the kerb
-    line no longer flat. Authored boxes with the concrete look."""
+    line no longer flat.
+
+    GROUND, not `mats["concrete"]` (round 5 review: "don't use Worn Pavement
+    material anywhere ... for broken sidewalk/asphalt use the material of
+    what's near where the broken ground is placed" — and `mats["concrete"]`
+    is the fragment-interior identity other recipes bind to a broken RC
+    beam/slab look, not a ground photo). `_c_ground_look` reads the local
+    road/sidewalk/paved/grass class when the city wired one in and falls back
+    to the same pave/asph coin every other kerb-adjacent piece in this file
+    draws (`_c_kerb`, `_c_lip_slabs`)."""
     rng = ctx["rng"]
     made = []
     for k in range(n):
@@ -6895,7 +6914,9 @@ def _buckled_pavement(ctx, m, n, sides=None, lift=(0.1, 0.35), tilt=(4.0, 14.0))
         sx, sy = rng.uniform(1.4, 2.6), rng.uniform(1.2, 2.2)
         path = "{0}/kerb_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
         _box(ctx["stage"], path, wx, wy, m["z0"] + rng.uniform(*lift), sx, sy, 0.14,
-             m["yaw"] + rng.uniform(-15, 15), ctx["mats"]["concrete"])
+             m["yaw"] + rng.uniform(-15, 15),
+             _c_ground_look(ctx, wx, wy, None,
+                            lambda: "pave" if rng.random() < 0.5 else "asph"))
         # tip it about a horizontal axis
         a = rng.uniform(0, 6.28)
         M = _rot_about((wx, wy, m["z0"]), (math.cos(a), math.sin(a), 0.0),
@@ -6948,7 +6969,14 @@ C_REACH_M = (1.8, 4.8)     # how far the wedge spreads from the wall line
 C_GAP_W = (0.18, 0.80)     # opened gap on the high side: width
 C_GAP_D = (0.30, 1.00)     #                             : depth
 C_BOIL_DROP = 0.30         # below this drop it is not a liquefaction case
-C_FISSURE_M = (2.0, 6.0)   # corner fissure length
+# ROUND 5 REVIEW: "make the cracks in ground larger" (user, 2026-08-31) — the
+# corner fissures on the first OSMO scene read too thin/short at 60 m to be
+# legible next to a real 15-30 m building footprint. `EQ_FISSURE_SCALE`
+# multiplies every length/width knob below; 1.75 sits in the "roughly 1.5-2x"
+# band the review asked for and is env-overridable for a bench sweep without
+# a code edit.
+FISSURE_SCALE = float(_os.environ.get("EQ_FISSURE_SCALE", "1.75") or "1.75")
+C_FISSURE_M = (2.0 * FISSURE_SCALE, 6.0 * FISSURE_SCALE)   # corner fissure length
 C_SEG_M = 0.8              # crest / trench sampling step: fine enough to be jagged
 C_MAX_DROP_M = 2.4         # city mild tilt: keep the low corner out of the basement
 C_MIN_RISE_M = 0.12        # a lean always lifts its far edge at least this far
@@ -7033,16 +7061,44 @@ def _c_noise(rng, freqs=(0.45, 1.3, 3.1), amps=(0.55, 0.30, 0.15)):
 # they are BRACKETED rather than guessed: at 1.0 (the benches before the fix)
 # the soil read as orange paint, at 0.09 (the bench that stacked both
 # multipliers) as black mud. These sit near the geometric mean of the two.
+#
+# "soil"/"silt" are IMPORTED from `scour_relief._TEX`, not retyped, so the
+# earthquake's mud and the tornado suburb's dirt mounds cannot drift apart
+# again — round 5 review: "use the same texture we're using for dirt mounds
+# in tornado suburb ... this seems like a regression. It previously looked
+# good." (Diagnosed: by the time this ran the two tables already agreed
+# field-for-field — same file, tint, roughness, repeats, desaturation — so
+# whatever the reviewed OSMO scene showed was not a numeric drift between the
+# two tables; this import makes that class of regression structurally
+# impossible from here on, whatever else changes.) `scour_relief` imports
+# only `math`/`os` at module scope and never imports this module, so this
+# carries no import-cycle risk.
+from . import scour_relief as _scour_relief          # noqa: E402
 _C_TEX = {
-    "soil":  ("megascans/Soil_Mud/T_pjuph20_1K_B.jpg", (0.34, 0.33, 0.32), 0.98, (0.70, 0.70), 0.55),
-    "silt":  ("megascans/Dirt_Rough/T_yd0lfcqcc_1k_B.png", (0.42, 0.42, 0.43), 0.96, (0.55, 0.55), 0.65),
+    "soil": _scour_relief._TEX["soil"],
+    "silt": _scour_relief._TEX["silt"],
     # NOT Worn_Pavement: its map carries green moss in the joints, and a 1.2 m
     # kerb block at 0.38 repeats/m showed one big square of it — a row of them
     # along a wall read as green mosaic tiles. Damaged_Asphalt is a plain grey
     # cracked surface; brightened it is concrete, darkened it is the road.
-    "pave":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.50, 0.50, 0.49), 0.90, (0.55, 0.55), 0.25),
-    "asph":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.32, 0.32, 0.32), 0.92, (0.30, 0.30), 0.35),
-    "raft":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.30, 0.30, 0.30), 0.95, (0.28, 0.28), 0.35),
+    # THE CRACKED GROUND IS A MIXTURE, NOT ONE MAP. "Use a mixture of
+    # Crushed Asphalt Ground, Damaged Asphalt (there's 2 types)" (user,
+    # 2026-08-31): a tuple of rels means `_c_look` picks one variant per
+    # BUILDING (crc32 of the ctx tag — stable across runs, unlike salted
+    # `hash()`), so neighbouring buildings' broken paving differs while one
+    # building stays consistent. Single-rel keys behave exactly as before.
+    "pave":  (("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png",
+               "megascans/Damaged_Asphalt_02/T_vizhdcz_2K_B.png",
+               "megascans/Crushed_Asphalt_Ground/T_sjyjcbja_8K_B.png"),
+              (0.50, 0.50, 0.49), 0.90, (0.55, 0.55), 0.25),
+    "asph":  (("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png",
+               "megascans/Damaged_Asphalt_02/T_vizhdcz_2K_B.png",
+               "megascans/Crushed_Asphalt_Ground/T_sjyjcbja_8K_B.png"),
+              (0.32, 0.32, 0.32), 0.92, (0.30, 0.30), 0.35),
+    "raft":  (("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png",
+               "megascans/Damaged_Asphalt_02/T_vizhdcz_2K_B.png",
+               "megascans/Crushed_Asphalt_Ground/T_sjyjcbja_8K_B.png"),
+              (0.30, 0.30, 0.30), 0.95, (0.28, 0.28), 0.35),
     "brick": ("megascans/Brick_Wall_Worn/T_sexkaitb_1K_B.jpg", (0.48, 0.40, 0.36), 0.92, (0.70, 0.70), 0.15),
 }
 _C_FALLBACK = {"soil": "soil", "silt": "soil", "pave": "concrete",
@@ -7054,16 +7110,23 @@ def _c_look(ctx, key):
     bench row or a city pays for it once), falling back to the kit material of
     the same kind if the texture will not resolve."""
     mats = ctx["mats"]
-    k = "c_" + key
+    rel, rgb, rough, scale, desat = _C_TEX[key]
+    suffix = key
+    if isinstance(rel, (tuple, list)):
+        # the cracked-ground mixture — variant per building, stable per run
+        import zlib
+        i = zlib.crc32(str(ctx.get("tag", "")).encode()) % len(rel)
+        rel = rel[i]
+        suffix = "{0}_{1}".format(key, i)
+    k = "c_" + suffix
     got = mats.get(k)
     if got is not None:
         return got
-    rel, rgb, rough, scale, desat = _C_TEX[key]
     try:
         import scene_generator as sg
         from pxr import Gf, Sdf, UsdShade
         from . import damage
-        path = "{0}/QuakeLooks/c_{1}".format(ctx["parent"], key)
+        path = "{0}/QuakeLooks/c_{1}".format(ctx["parent"], suffix)
         got = damage._pbr(
             ctx["stage"], path, rgb, rough, tint=rgb, scale_uv=scale,
             texture=sg._join_asset_root(
@@ -7664,10 +7727,24 @@ def _c_lip_slabs(ctx, m, prof, n, tag="lip"):
 
 
 def _c_fissures(ctx, m, corners=None, n_each=(1, 3), length=C_FISSURE_M,
-                width=(0.06, 0.22), tag="fissure"):
+                width=(0.06 * FISSURE_SCALE, 0.22 * FISSURE_SCALE),
+                tag="fissure"):
     """Tension cracks out of the corners: the stress concentration of a
-    footing that rotated. Chains of thin dark boxes on a wandering heading,
-    2-6 m (research s3.13: "tension cracks ... offset kerbs")."""
+    footing that rotated. Chains of thin boxes on a wandering heading,
+    2-6 m before `FISSURE_SCALE` (research s3.13: "tension cracks ... offset
+    kerbs").
+
+    THE SOIL LOOK, NOT A FLAT DARK BOX (round 5 review: "are you using the
+    mud texture? it looks a little odd for the cracks in the ground ... use
+    the same texture we're using for dirt mounds in tornado suburb" — the
+    `crack` key in `materials()` is a flat near-black procedural colour with
+    no texture at all, which is what read as "odd": a photograph of a
+    tension crack shows disturbed native soil/dust along its whole trace, not
+    a jet-black slit — the flat `crack` colour is right for the deep VOID of
+    an opened gap (`_c_gap`), wrong here.). One `_c_ground_look` draw per
+    crack (not per box) — `_c_look`'s own per-building cache means every box
+    of the same crack still shares the exact material, no per-segment
+    flicker."""
     rng = ctx["rng"]
     made = []
     W, D = m["W"], m["D"]
@@ -7680,6 +7757,9 @@ def _c_fissures(ctx, m, corners=None, n_each=(1, 3), length=C_FISSURE_M,
             heading = math.atan2(ly, lx) + rng.uniform(-0.7, 0.7) + math.radians(m["yaw"])
             wx, wy = _to_world(m, lx * 1.02, ly * 1.02)
             w = rng.uniform(*width)
+            mat = _c_ground_look(
+                ctx, wx, wy, None,
+                lambda: "soil" if rng.random() < 0.7 else "silt")
             step = 1.2
             for _i in range(max(2, int(L / step))):
                 heading += math.radians(rng.uniform(-16, 16))
@@ -7690,7 +7770,7 @@ def _c_fissures(ctx, m, corners=None, n_each=(1, 3), length=C_FISSURE_M,
                 path = "{0}/{1}_{2}_{3}".format(ctx["parent"], tag, ctx["tag"], _uid(ctx))
                 _box(ctx["stage"], path, mx, my, m["z0"] + 0.02, step * 1.12,
                      w * rng.uniform(0.7, 1.3), 0.06, math.degrees(heading),
-                     ctx["mats"]["crack"])
+                     mat)
                 made.append(path)
                 wx, wy = nx2, ny2
                 w *= rng.uniform(0.72, 0.98)
@@ -7916,7 +7996,8 @@ def _c_ground_response(ctx_or_stage, m, low_side=None, drop_m=0.0, rise_m=0.0,
         if mudline:
             _c_mudline(ctx, m, abs(sink_m), tag=tag + "_mud")
         if fissures:
-            _c_fissures(ctx, m, n_each=(1, 2), length=(1.6, 4.5),
+            _c_fissures(ctx, m, n_each=(1, 2),
+                        length=(1.6 * FISSURE_SCALE, 4.5 * FISSURE_SCALE),
                         tag=tag + "_fis")
         if boils or (boils is None and abs(sink_m) > C_BOIL_DROP):
             _ejecta(ctx, m, 2 + rngl.randrange(3))

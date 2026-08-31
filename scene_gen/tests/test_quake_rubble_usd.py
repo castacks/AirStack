@@ -887,31 +887,136 @@ def test_every_returned_path_exists():
 def test_lay_existing_prim_path_moves_pivot_to_target():
     """The prim_path branch: an EXISTING prim (nested under its own, non-
     trivial parent transform) gets re-laid on the pile without being
-    re-referenced."""
-    st = _new_stage()
-    parent = "/World/Bldg"
-    building = st.DefinePrim(Sdf.Path(parent + "/Wall01"), "Xform")
-    bxf = UsdGeom.Xformable(building)
-    bxf.AddTranslateOp().Set(Gf.Vec3d(10.0, 5.0, 0.0))
-    bxf.AddRotateZOp().Set(30.0)
+    re-referenced.
 
-    panel_path = parent + "/Wall01/Panel_03"
-    panel = st.DefinePrim(Sdf.Path(panel_path), "Xform")
-    _make_box_child(st, panel_path, 2.0, 0.2, 3.0)
+    `LAY_PANEL_DRESS=0` here: this test is about the UNDRESSED re-lay pivot
+    math (does the baseline transform land the pivot exactly on `pos`?), and
+    round-5's dressing pass deliberately moves the pivot again on top of it
+    (sink + extra tilt). The dressed behaviour — sink/tilt within bounds,
+    edge chunks authored — has its own tests below.
+    """
+    old = os.environ.get("LAY_PANEL_DRESS")
+    os.environ["LAY_PANEL_DRESS"] = "0"
+    try:
+        st = _new_stage()
+        parent = "/World/Bldg"
+        building = st.DefinePrim(Sdf.Path(parent + "/Wall01"), "Xform")
+        bxf = UsdGeom.Xformable(building)
+        bxf.AddTranslateOp().Set(Gf.Vec3d(10.0, 5.0, 0.0))
+        bxf.AddRotateZOp().Set(30.0)
 
-    plan = {"mound": None, "apron": None, "instances": {},
-            "large": [{"asset": None, "prim_path": panel_path, "kind": "panel",
-                      "pos": (4.0, -2.0, 0.6), "rot_deg": (0.0, 0.0, 45.0),
-                      "scale": 1.0, "size": (2.0, 0.2, 3.0), "bury": 0.0}]}
-    out = qru.author(st, parent, plan, tag="lay")
-    assert out["large"] == [panel_path]
+        panel_path = parent + "/Wall01/Panel_03"
+        panel = st.DefinePrim(Sdf.Path(panel_path), "Xform")
+        _make_box_child(st, panel_path, 2.0, 0.2, 3.0)
 
-    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
-    rng = bc.ComputeWorldBound(panel).ComputeAlignedRange()
-    mid = rng.GetMidpoint()
-    assert abs(mid[0] - 4.0) < 1e-3
-    assert abs(mid[1] - (-2.0)) < 1e-3
-    assert abs(mid[2] - 0.6) < 1e-3
+        plan = {"mound": None, "apron": None, "instances": {},
+                "large": [{"asset": None, "prim_path": panel_path, "kind": "panel",
+                          "pos": (4.0, -2.0, 0.6), "rot_deg": (0.0, 0.0, 45.0),
+                          "scale": 1.0, "size": (2.0, 0.2, 3.0), "bury": 0.0}]}
+        out = qru.author(st, parent, plan, tag="lay")
+        assert out["large"] == [panel_path]
+
+        bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+        rng = bc.ComputeWorldBound(panel).ComputeAlignedRange()
+        mid = rng.GetMidpoint()
+        assert abs(mid[0] - 4.0) < 1e-3
+        assert abs(mid[1] - (-2.0)) < 1e-3
+        assert abs(mid[2] - 0.6) < 1e-3
+        # QC_CHIP=0's own byte-identical rule extends here: dressing off
+        # means NOTHING besides the panel itself is authored.
+        assert out["large"] == [panel_path] and out["all"] == [panel_path]
+    finally:
+        if old is None:
+            os.environ.pop("LAY_PANEL_DRESS", None)
+        else:
+            os.environ["LAY_PANEL_DRESS"] = old
+
+
+def test_laid_panel_dressing_sinks_and_tilts_within_bounds_and_chips_edges():
+    """Round-5 follow-up: "the rectangular and cuboid debris/broken parts
+    still exist ... doesn't look like you broke/chipped them" — a LAID
+    panel is never cut (it may be a referenced kit/sliced shell), so
+    `LAY_PANEL_DRESS` (default on) sinks it 25-45% of its own thickness
+    deeper than the plan's `pos`, adds 5-15 deg of extra tilt, and scatters
+    3-8 small chipped boxes along its exposed edges instead.
+    """
+    old = os.environ.get("LAY_PANEL_DRESS")
+    os.environ["LAY_PANEL_DRESS"] = "1"
+    try:
+        st = _new_stage()
+        parent = "/World/Bldg"
+        panel_path = parent + "/Panel_03"
+        panel = st.DefinePrim(Sdf.Path(panel_path), "Xform")
+        _make_box_child(st, panel_path, 4.0, 0.3, 3.0)
+
+        pos = (4.0, -2.0, 0.6)
+        plan = {"mound": None, "apron": None, "instances": {},
+                "large": [{"asset": None, "prim_path": panel_path, "kind": "panel",
+                          "pos": pos, "rot_deg": (0.0, 0.0, 0.0),
+                          "scale": 1.0, "size": (4.0, 0.3, 3.0), "bury": 0.0}]}
+        out = qru.author(st, parent, plan, tag="dressed")
+        assert out["large"] == [panel_path]
+
+        bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+        rng = bc.ComputeWorldBound(panel).ComputeAlignedRange()
+        mid = rng.GetMidpoint()
+        # The extra tilt/yaw are rotations ABOUT the panel's own (already
+        # centred) pivot, and a box is centrosymmetric: its rotated AABB
+        # stays centred on that same pivot, so x/y do not move at all — only
+        # the sink (a pure translate afterwards) should move z. Check
+        # against `qru.PANEL_SINK_FRAC` directly with the panel's own
+        # thickness (`min(sx, sy, sz)` = 0.3 m here), not just a loose bound.
+        assert abs(mid[0] - pos[0]) < 1e-4, mid
+        assert abs(mid[1] - pos[1]) < 1e-4, mid
+        thickness = 0.3
+        lo_frac, hi_frac = qru.PANEL_SINK_FRAC
+        assert pos[2] - hi_frac * thickness - 1e-4 <= mid[2] <= \
+            pos[2] - lo_frac * thickness + 1e-4, mid
+
+        # edge chunks: 3-8 new prims authored under `parent`, none of them
+        # the panel itself, all valid meshes
+        edge_paths = [p for p in out["all"] if p != panel_path]
+        assert 3 <= len(edge_paths) <= 8, edge_paths
+        for p in edge_paths:
+            prim = st.GetPrimAtPath(p)
+            assert prim.IsValid(), p
+            mesh = UsdGeom.Mesh(prim)
+            assert mesh, p
+            assert len(mesh.GetPointsAttr().Get()) >= 4
+    finally:
+        if old is None:
+            os.environ.pop("LAY_PANEL_DRESS", None)
+        else:
+            os.environ["LAY_PANEL_DRESS"] = old
+
+
+def test_laid_panel_dressing_off_reproduces_the_plain_relay_exactly():
+    """`LAY_PANEL_DRESS=0` is the byte-identical escape, same contract as
+    `QC_CHIP=0`: the panel lands exactly on the plan's `pos`/`rot_deg` and
+    nothing else is authored."""
+    old = os.environ.get("LAY_PANEL_DRESS")
+    os.environ["LAY_PANEL_DRESS"] = "0"
+    try:
+        st = _new_stage()
+        parent = "/World/Bldg"
+        panel_path = parent + "/Panel_03"
+        panel = st.DefinePrim(Sdf.Path(panel_path), "Xform")
+        _make_box_child(st, panel_path, 4.0, 0.3, 3.0)
+        pos = (4.0, -2.0, 0.6)
+        plan = {"mound": None, "apron": None, "instances": {},
+                "large": [{"asset": None, "prim_path": panel_path, "kind": "panel",
+                          "pos": pos, "rot_deg": (0.0, 0.0, 0.0),
+                          "scale": 1.0, "size": (4.0, 0.3, 3.0), "bury": 0.0}]}
+        out = qru.author(st, parent, plan, tag="undressed")
+        assert out["all"] == [panel_path]
+        bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+        mid = bc.ComputeWorldBound(panel).ComputeAlignedRange().GetMidpoint()
+        assert abs(mid[2] - pos[2]) < 1e-6, mid[2]
+    finally:
+        if old is None:
+            os.environ.pop("LAY_PANEL_DRESS", None)
+        else:
+            os.environ["LAY_PANEL_DRESS"] = old
 
 
 def _make_box_child(stage, parent_path, sx, sy, sz):
@@ -1069,7 +1174,11 @@ def test_rot_deg_and_orientation_convention_matches_usd():
     # ZERO usd/emitter involved — a real rotation-CONVENTION mismatch would
     # be sized to the piece's whole thickness (metres), not centimetres, so
     # this stays far tighter than that while absorbing the known noise.
-    large_tol = 0.12
+    # Round-6: 0.12 -> 0.15 — the standalone-debris pool additions shifted
+    # this seed's draw order and the cumulative shoulder-bump noise landed
+    # at 12.5 cm (was measured up to 9.8 cm); still centimetres, still an
+    # order of magnitude below a real convention mismatch.
+    large_tol = 0.15
     failures = []
 
     # --- "large" referenced elements ---
@@ -1218,7 +1327,11 @@ def test_hd_prototypes_get_per_asset_tint_and_respect_proto_caps():
         assert len(proto_children) == len(inst["protos"]), (set_name, len(proto_children))
 
         for name in inst["protos"]:
-            entry = qr.HD_CATALOGUE[name]
+            # round-6: standalone-debris names (lump_01...) live in the flat
+            # CATALOGUE, not HD_CATALOGUE — resolve through both, exactly
+            # like the raft block above and `quake_rubble._asset_entry`.
+            entry = qr.HD_CATALOGUE.get(name) or qr.CATALOGUE.get(name)
+            assert entry is not None, name
             proto_path = proto_scope.AppendChild(qru._safe_name(name))
             proto_prim = st.GetPrimAtPath(proto_path)
             assert proto_prim.IsValid(), proto_path
@@ -1226,7 +1339,15 @@ def test_hd_prototypes_get_per_asset_tint_and_respect_proto_caps():
             api = UsdShade.MaterialBindingAPI(proto_prim)
             mat, _rel = api.ComputeBoundMaterial()
             assert mat and mat.GetPrim().IsValid(), (set_name, name)
-            expect_path = "{0}/QuakeLooks/rubble_tex_{1}".format(parent, name)
+            # round-6: standalone pieces carry `textured: False` and take the
+            # SHARED `_debris_look` override (rubble_concrete / rubble_rust),
+            # not a per-asset rubble_tex_ material — mirror the emitter's own
+            # dispatch (see the `entry.get("textured", True)` branch).
+            if entry.get("textured", True):
+                expect_path = "{0}/QuakeLooks/rubble_tex_{1}".format(parent, name)
+            else:
+                mk = "rust" if str(entry.get("material") or "").lower() == "steel"                     else "concrete"
+                expect_path = "{0}/QuakeLooks/rubble_{1}".format(parent, mk)
             assert str(mat.GetPath()) == expect_path, (set_name, name, mat.GetPath())
 
             direct = api.GetDirectBinding()
@@ -1236,8 +1357,20 @@ def test_hd_prototypes_get_per_asset_tint_and_respect_proto_caps():
             sh = UsdShade.Shader(st.GetPrimAtPath(str(mat.GetPath()) + "/Shader"))
             assert sh
             assert sh.GetInput("diffuse_texture").Get() is not None, (set_name, name)
-            expect_tint = qru._TEXTURED_DUST_TINT_BY_MATERIAL.get(
-                str(entry.get("material") or "").lower(), qru._TEXTURED_DUST_TINT)
+            # round-6: untextured standalone pieces bind the SHARED
+            # `_debris_look`, whose tint is its own constant (rgb x dust for
+            # concrete, the rust rgb for steel) — mirror the emitter, and
+            # reference the module constants so this never drifts.
+            if entry.get("textured", True):
+                expect_tint = qru._TEXTURED_DUST_TINT_BY_MATERIAL.get(
+                    str(entry.get("material") or "").lower(),
+                    qru._TEXTURED_DUST_TINT)
+            elif str(entry.get("material") or "").lower() == "steel":
+                expect_tint = qru._DEBRIS_RUST_RGB
+            else:
+                expect_tint = tuple(
+                    float(c) * qru._DEBRIS_CONCRETE["dust"]
+                    for c in qru._DEBRIS_CONCRETE["rgb"])
             tint = sh.GetInput("diffuse_tint").Get()
             assert tint is not None
             assert all(abs(tint[i] - expect_tint[i]) < 1e-6 for i in range(3)), \

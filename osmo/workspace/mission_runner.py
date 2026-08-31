@@ -503,10 +503,85 @@ class Stack:
         raise RuntimeError(f"expected {self.num_robots} robot containers, "
                            f"found {robot_containers()} after airstack up")
 
+    #: Fast DDS shared-memory files. Only these prefixes are ever removed —
+    #: /dev/shm also carries CUDA and Isaac allocations that must not be
+    #: touched.
+    DDS_SHM_GLOBS = ("fastrtps_*", "fastdds_*", "sem.fastrtps_*")
+
+    def clean_dds_shm(self):
+        """Remove ORPHANED Fast DDS shared-memory segments after the stack is
+        down. This is the one thing `airstack down` cannot clean.
+
+        WHY. Every container bind-mounts the POD's /dev/shm
+        (`robot-base-docker-compose.yaml`: "shared /dev/shm: required for Fast
+        DDS shared-memory transport") and runs `ipc: host`. So DDS segments
+        live on the pod, not in the container, and SURVIVE every teardown.
+        Nothing ever reclaims them.
+
+        MEASURED on the 2026-08-31 sweep. /dev/shm is a fixed 8 GB tmpfs:
+
+            after ~1 iteration    1,458 entries   2.6 GB
+            after ~3 iterations   7,306 entries   4.3 GB (53 %)
+
+        and the oldest segment was timestamped 8 HOURS before the container
+        that was sharing it. Of the first 400 sampled, ZERO were held open by
+        a live process — they were all orphans.
+
+        WHAT IT BREAKS, and why it looks like something else. `wait_ready`
+        gates on `ros2 topic echo ... /robot_N/interface/mavros/state`, which
+        is DDS. When a robot's new participant collides with a stale segment
+        or a stale `sem.fastrtps_portNNNN_mutex`, its DDS never comes up, the
+        echo returns nothing, and the robot is reported as "not ready" —
+        indistinguishable in the log from PX4 never connecting. Observed twice,
+        on a DIFFERENT arbitrary robot each time, always on iteration 2 and
+        never iteration 1:
+
+            2026-08-30_21-53-36  iter 2 aborted: robots [2] not ready in 2400s
+            2026-08-31_01-13-39  iter 2 aborted: robots [6] not ready in 2400s
+
+        A retry cleared it both times, because at 53 % full this is still a
+        collision rather than exhaustion — which is exactly why it has to be
+        fixed before it becomes deterministic later in a 24-iteration sweep.
+
+        SAFETY. This runs only from `down()`, i.e. with the stack stopped, and
+        it skips any file still held open by a live process, so a stray
+        surviving participant cannot have its memory pulled out from under it.
+        """
+        import glob as _glob
+
+        removed = held = failed = 0
+        for pattern in self.DDS_SHM_GLOBS:
+            for path in _glob.glob("/dev/shm/" + pattern):
+                try:
+                    # `fuser` exits 0 when some process holds the file.
+                    busy = subprocess.run(["fuser", path],
+                                          stdout=subprocess.DEVNULL,
+                                          stderr=subprocess.DEVNULL).returncode == 0
+                except Exception:                       # noqa: BLE001
+                    busy = True          # cannot tell -> do not touch it
+                if busy:
+                    held += 1
+                    continue
+                try:
+                    os.remove(path)
+                    removed += 1
+                except OSError:
+                    failed += 1
+        if removed or held or failed:
+            log(f"cleaned {removed} orphaned Fast DDS shm segment(s)"
+                f"{f'; {held} still held' if held else ''}"
+                f"{f'; {failed} could not be removed' if failed else ''}")
+        return removed
+
     def down(self):
         result = self._airstack("down", self.mission["down_timeout_s"])
         if result.returncode != 0:
             log(f"WARN: airstack down exited {result.returncode}")
+        # AFTER the containers are gone, never before: see clean_dds_shm.
+        try:
+            self.clean_dds_shm()
+        except Exception as exc:                        # noqa: BLE001
+            log(f"WARN: DDS shm cleanup failed ({exc}) — continuing")
 
     def ensure_down(self):
         """`airstack status`; if any stack containers exist, `airstack down`

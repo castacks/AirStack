@@ -121,7 +121,103 @@ def test_base_manifest_passes_all_six_manifest_checks():
 
 
 # ---------------------------------------------------------------------------
+# run_spread's zero-burnable-candidates diagnosis (2026-08-31 fix): a
+# placements dump whose `typology.blocks` came back empty refuses every
+# placement at burnable()'s gate 2, so `buildings` is empty going into
+# `run_spread` -- an EMPTY `rc_glass_local` trivially satisfies the old
+# `len(rc_glass_local) >= len(buildings)` guard (0 >= 0) and used to raise
+# the misleading "every burnable candidate is rc_glass" message. It must
+# now name the real cause instead.
+# ---------------------------------------------------------------------------
+def test_run_spread_zero_candidates_names_the_real_cause_not_rc_glass():
+    try:
+        fdr.run_spread([], [], {}, {}, {"epicenter": [0.0, 0.0],
+                                        "heading_deg": 0.0, "wind_mps": 4.0,
+                                        "duration_s": 14400.0,
+                                        "start_offset_frac": 0.7}, 1, 16)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        msg = str(exc)
+        assert "zero burnable candidates" in msg
+        assert "rc_glass" not in msg
+
+
+def test_run_spread_all_rc_glass_still_names_rc_glass():
+    buildings = [{"x": 0.0, "y": 0.0, "W": 20.0, "D": 15.0, "yaw": 0.0, "H": 90.0}]
+    try:
+        fdr.run_spread(buildings, [0], {0: "rc_glass"}, {0: "skyscraper"},
+                       {"epicenter": [0.0, 0.0], "heading_deg": 0.0,
+                        "wind_mps": 4.0, "duration_s": 14400.0,
+                        "start_offset_frac": 0.7}, 1, 16)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "every burnable candidate is rc_glass" in str(exc)
+
+
+# ---------------------------------------------------------------------------
+# _enforce_target_f5c: a NATURAL, non-low F5c must never be mistaken for a
+# target-satisfying survivor (2026-08-31 fix). `solve()`'s own rank cap lets
+# a `mid_high` building's age/rng draw land on "F5c" -- mid_high's cap only
+# forbids F6, not F5c -- but `urban_fire_city.damaged_manifest`'s SEPARATE
+# roof-eligibility gate demotes that right back to F5 downstream (F5c/F6 are
+# eligible only for `low`). The old version of this function counted that
+# natural mid_high F5c toward `target` and could report success while the
+# final manifest ended up with ZERO F5c -- exactly what shipped in the
+# 2026-08-31 union manifest before this fix (a real low-class candidate,
+# `dtc`/`kit` brownstone_row buildings at F4+, went unforced because the
+# target already looked satisfied).
+# ---------------------------------------------------------------------------
+def test_enforce_target_f5c_demotes_a_natural_nonlow_f5c_before_counting():
+    plan = [
+        {"i": 0, "t_ignite": 0.0, "level": "F5", "via": None},    # origin, already >= F5
+        {"i": 1, "t_ignite": 100.0, "level": "F5c", "via": 0},    # mid_high, natural F5c
+        {"i": 2, "t_ignite": 200.0, "level": "F4", "via": 0},     # low, F4, eligible
+    ]
+    final_btype = {0: "rc_glass", 1: "rc", 2: "urm"}
+    height_class = {0: "skyscraper", 1: "mid_high", 2: "low"}
+
+    notes = fdr._enforce_target_f5c(plan, 0, final_btype, height_class, target=1)
+
+    by_i = {p["i"]: p for p in plan}
+    assert by_i[1]["level"] == "F5", plan     # non-low natural F5c demoted
+    assert by_i[2]["level"] == "F5c", plan    # a real low-class candidate promoted instead
+    assert by_i[0]["level"] == "F5"           # origin untouched (already >= F5)
+    assert any("not low-class" in n for n in notes)
+    assert any("forced to F5c" in n for n in notes)
+
+
+def test_enforce_target_f5c_never_keeps_a_nonlow_survivor_over_a_low_one():
+    """Two NATURAL F5c -- one mid_high (earlier ignition, would have won
+    the old "prefer origin, else the first" tiebreak), one low (later) --
+    target=1: the mid_high one is demoted unconditionally and the low one
+    is what actually survives, regardless of ignition order."""
+    plan = [
+        {"i": 0, "t_ignite": 0.0, "level": "F5", "via": None},
+        {"i": 1, "t_ignite": 50.0, "level": "F5c", "via": 0},     # mid_high, earlier
+        {"i": 2, "t_ignite": 300.0, "level": "F5c", "via": 0},    # low, later
+    ]
+    final_btype = {0: "urm", 1: "rc", 2: "urm"}
+    height_class = {0: "low", 1: "mid_high", 2: "low"}
+
+    fdr._enforce_target_f5c(plan, 0, final_btype, height_class, target=1)
+
+    by_i = {p["i"]: p for p in plan}
+    assert by_i[1]["level"] == "F5"     # mid_high demoted, unconditionally
+    assert by_i[2]["level"] == "F5c"    # the only real survivor
+
+
+# ---------------------------------------------------------------------------
 # district rule — mutation-checked
+#
+# 2026-08-31 policy: the blanket "no fire in a tower/highrise district" ban
+# is LIFTED, replaced by a height-class collapse cap (`disaster.
+# urban_fire_spread.cap_level_for_class` / `enforce_roof_eligibility`).
+# `check_district_rule` now asserts each record's OWN level is already what
+# that policy allows for its typology, not that certain typologies are
+# absent altogether -- record 2 ("lowrise", F3) is untouched by the cap at
+# any class, so the mutation has to change BOTH its typology (to the
+# skyscraper class) AND its level (to something that class forbids, F5c) to
+# actually violate the new rule.
 # ---------------------------------------------------------------------------
 def test_district_rule_mutation():
     m = _base_manifest()
@@ -130,6 +226,7 @@ def test_district_rule_mutation():
 
     bad = _base_manifest()
     bad["records"][2]["typology"] = "highrise"
+    bad["records"][2]["level"] = "F5c"    # skyscraper: fire only, never F5c/F6
     ok, detail = fdr.check_district_rule(bad)
     assert not ok
     assert detail["violations"] == [2]

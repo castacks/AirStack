@@ -120,6 +120,26 @@ SHELL_ROLES = ("wall", "corner", "parapet", "parapet_corner", "balcony")
 ROOF_ROLES = ("roof",)
 ALL_ROLES = SHELL_ROLES + ROOF_ROLES
 
+# ROOF PROPS THAT LOSE THEIR ROOF. `quake_flow.dress_roof` seats tanks and AC
+# units on the "main" mass's roof before any recipe runs, and hands every one
+# of them to physics UNCONDITIONALLY at the very end of `wreck_building`
+# (`_b_settle_roof_plant`) — right for a roof that survived, wrong for one
+# this family just took away: a tank with nothing under it has to fall a
+# whole storey height on gravity alone inside one settle's step budget, and a
+# body that does not make it down in time bakes frozen mid-air — "a row of
+# water tanks hovering in the sky" (round-5 review, `ne_obl.png`: a `qc_*`
+# recipe removed the roof/top storeys under them and nothing resolved it at
+# plan time). Only the modes that actually remove the roof or the top storey
+# of the mass `dress_roof` used: `elevation`/`corner` reach the parapet by
+# construction (`_spans_elevation` always runs to `top_i`), and `total` /
+# `pancake` take the whole shell including the roof. `soft_storey` /
+# `mid_storey` are NOT here: `_author_band` already carries the roof (and
+# whatever sits on it, via `_els`) down WITH the block above when the band
+# reaches that high, and a prop this family does not itself track is not this
+# family's plan to re-derive twice.
+ROOF_PROP_MODES = ("elevation", "corner", "total", "pancake")
+ROOF_PROP_FALL_V = (0.3, 0.9)      # small downward/outward kick, m/s
+
 # THE STAIRCASE, `fire_collapse`'s own: the share of the region's full width
 # lost at the FAILURE LINE, ramping to 1.0 at the top of the mass. 0.55 gives
 # roughly two module steps over a five-storey band. 1.0 is a rectangular hole,
@@ -651,6 +671,19 @@ def plan_collapse(ctx, mode="elevation", mass=None, side=None, corner=None,
                     outside the span can still have most of its body inside).
       reaches_end   {side: (at_low_end, at_high_end)} at the top storey.
       infill        True when this is the RC infill variant of `elevation`.
+      roof_prop_fall
+                    [] on a bare plan (no stage, so no roof prop is known
+                    yet) — `r_collapse` fills it with the `ctx["roof_plant"]`
+                    / `ctx["roof_fixed"]` paths whose footprint MAJORITY sits
+                    over roof area this plan just killed (`roof_prop_
+                    footprint_lost`), never absent so a caller can always
+                    read it. Only `elevation` / `corner` / `total` /
+                    `pancake` ever populate it (`ROOF_PROP_MODES`); those
+                    paths are sent to `ctx["loose"]` with a downward/outward
+                    kick (partial modes) or buried with the fit-out's own
+                    props sweep (`total` / `pancake`), and removed from
+                    `ctx["roof_plant"]` so `quake_flow._b_settle_roof_plant`
+                    never re-tips or re-drops the same prim a second time.
     """
     fc = _fc()
 
@@ -690,7 +723,7 @@ def plan_collapse(ctx, mode="elevation", mass=None, side=None, corner=None,
             "break_slabs": [], "fit_fall": [], "fit_region_storeys": [],
             "bury_props": False, "crush": None, "stack": None, "heaps": [],
             "region": {}, "sweep": False, "roof": "ragged", "teeth": False,
-            "blind_sides": (), "extra": [],
+            "blind_sides": (), "extra": [], "roof_prop_fall": [],
             "throw": (THROW_BASE, THROW_TOP)}
     plan["masses"] = [mtag]
 
@@ -1652,14 +1685,37 @@ def _fall_fitout(ctx, plan, m, prng):
     n = {"slab": 0, "part": 0, "col": 0, "prop": 0}
     Hm = max(3.0, float(m["top"]) - float(m["z0"]))
 
+    n_chip_slab = 0
     for key in plan["drop"]:
         slab = (fit.get("slabs") or {}).get(key)
         if not slab:
             continue
         pr = stage.GetPrimAtPath(slab)
         if pr and pr.IsValid() and pr.IsActive() and slab not in ctx["loose"]:
+            # ROUND 5: a fallen floor plate is not a rectangle. `_a_slab_rim`
+            # already made this point for the plate a soft storey leaves
+            # exposed ("a rectangular plate with four ruler edges") and tore
+            # two of its sides; a plate that comes down WHOLE never got that
+            # treatment, and it is the big pale slab in the user's DG5 shots.
+            # `tessellate=True` because an 8-corner box has nothing for the
+            # roughening pass to displace — see `_chip_prim`.
+            # `beam=True`: a fallen floor PLATE is a concrete floor, which is
+            # what the round-5 addendum's Damaged_Concrete_Floor scan is a
+            # photo of — and the pale untextured plate is the thing the user
+            # pointed at in the DG5 shots.
+            n_chip_slab += _chip_pieces(ctx, [slab], _CHIP_SLAB,
+                                        tessellate=True, beam=True)
             ctx["loose"].append(slab)
             n["slab"] += 1
+    if n["slab"]:
+        # ROUND-5 FOLLOW-UP proof line: this call site was silent before
+        # ("no positive log evidence that chips fire during a real bake") —
+        # `_author_floors`'s cell-chipping (below) already had one.
+        from . import fracture
+        ctx.setdefault("notes", []).append(
+            "[chip] fitout slabs: {0} chipped, {1} passed-through "
+            "(vtk={2})".format(n_chip_slab, n["slab"] - n_chip_slab,
+                               fracture.chips_enabled()))
 
     fall_storeys = set(int(s) for (mt, s) in plan["fit_fall"] if mt == mtag)
     region_storeys = set(int(s) for s in plan["fit_region_storeys"])
@@ -1729,6 +1785,196 @@ def _fall_fitout(ctx, plan, m, prng):
     return n
 
 
+# ---------------------------------------------------------------------------
+# round 5: chipping the AUTHORED cuboids on the way out
+# ---------------------------------------------------------------------------
+# User, on the first 500 m OSMO scene: "There's a lot of perfect rectangular
+# debris. While they should look rectangular, they shouldn't look perfect ...
+# use VTK to cause chips ... random from small to very large chips. Is it
+# possible to make it look warped? bent?" — and then "the actual breaking
+# should not be clean."
+#
+# Two populations here own that look, and both are boxes THIS code authored:
+#   * the plank/prism cells `_author_floors` gets back from `_break_box`, and
+#   * the whole floor plates `_fall_fitout` drops out of `plan["drop"]`, which
+#     are `quake_flow._box`es with four ruler edges (`_a_slab_rim`'s own words).
+#
+# `fracture.chip_box` does the work; everything here is the USD round trip and
+# — more importantly — the REFUSALS. A chip is only ever applied to a small,
+# closed, UV-less mesh: that is what `_break_box`'s cells and `_box`'s plates
+# are, and it is emphatically not what a SLICED building piece is. A clipped
+# shell handed to this path is the `vtkStripper::GetPointCells` SIGSEGV in the
+# round-4 catalogue and `quake_sliced`'s standing rule, so the guards below are
+# load-bearing, not defensive padding.
+#
+# `EQ_RUBBLE=v2` gates it with the rest of the round-4/5 rubble work;
+# `QC_CHIP=0` turns it off on its own, and with it off NOTHING here draws from
+# `prng`, so a recipe's whole random stream is identical either way (the seeds
+# are hashed from the prim path — `fracture.stable_seed`).
+CHIP_MAX_FACES = 320       # bigger than this is not one of our boxes
+_CHIP_PLANK = {"chips": (2, 5), "depth_frac": (0.03, 0.18), "ends": 0.50,
+               "rough_frac": 0.13, "warp_frac": 0.012, "twist_deg": 5.0}
+_CHIP_PRISM = {"chips": (2, 5), "depth_frac": (0.03, 0.16), "ends": 0.35,
+               "rough_frac": 0.10}
+_CHIP_SLAB = {"chips": (3, 7), "depth_frac": (0.025, 0.13), "ends": 0.0,
+              "rough_frac": 0.14}
+CHIP_WARP_ASPECT = 3.0     # only a genuinely long piece is bowed
+
+
+def _chip_ok(counts, indices, npts):
+    """Triangles of a mesh this module is allowed to chip, or None.
+
+    Returns None — chip nothing — for anything that is not a small closed
+    triangle/quad solid. See the section note for why the refusal matters.
+    """
+    import numpy as _np
+    counts = [int(c) for c in (counts or ())]
+    if not counts or len(counts) > CHIP_MAX_FACES:
+        return None
+    if any(c not in (3, 4) for c in counts):
+        return None
+    idx = [int(i) for i in (indices or ())]
+    if sum(counts) != len(idx) or (idx and (min(idx) < 0 or max(idx) >= npts)):
+        return None
+    tris, k = [], 0
+    for c in counts:
+        tris.append((idx[k], idx[k + 1], idx[k + 2]))
+        if c == 4:
+            tris.append((idx[k], idx[k + 2], idx[k + 3]))
+        k += c
+    return _np.asarray(tris, dtype=_np.int64)
+
+
+def _chip_prim(stage, path, spec, tessellate=False):
+    """Chip one authored box / box fragment IN PLACE. True when it changed.
+
+    `tessellate=True` rebuilds the mesh from its own bbox with segments before
+    chipping — an 8-corner plate has nothing for a roughening pass to displace,
+    so a dropped 22 x 18 m floor slab would otherwise come back with cut
+    corners and four still-perfectly-straight edges.
+    """
+    import numpy as _np
+
+    from pxr import Gf, Sdf, UsdGeom, Vt
+
+    from . import fracture
+
+    prim = stage.GetPrimAtPath(path) if path else None
+    if not prim or not prim.IsValid() or not prim.IsActive():
+        return False
+    mesh = UsdGeom.Mesh(prim)
+    if not mesh:
+        return False
+    # A mesh with real UVs is kit/sliced art, not one of our boxes: chipping
+    # would silently drop the primvar and the cladding with it.
+    if UsdGeom.PrimvarsAPI(prim).HasPrimvar("st"):
+        return False
+    pts = mesh.GetPointsAttr().Get()
+    if not pts or len(pts) < 4:
+        return False
+    v = _np.asarray([[float(p[0]), float(p[1]), float(p[2])] for p in pts],
+                    dtype=float)
+    f = _chip_ok(mesh.GetFaceVertexCountsAttr().Get(),
+                 mesh.GetFaceVertexIndicesAttr().Get(), len(v))
+    if f is None:
+        return False
+
+    kw = dict(spec)
+    warp_frac = float(kw.pop("warp_frac", 0.0))
+    twist = float(kw.pop("twist_deg", 0.0))
+    seed = fracture.stable_seed(str(path))
+    rng = random.Random(seed)
+    ext = v.max(0) - v.min(0)
+    if warp_frac > 0.0 and float(ext.max()) < CHIP_WARP_ASPECT * float(
+            max(_np.sort(ext)[1], 1e-6)):
+        warp_frac, twist = 0.0, 0.0        # too stubby to read as bowed
+    warp_m = warp_frac * float(ext.max())
+
+    if tessellate:
+        c0 = 0.5 * (v.max(0) + v.min(0))
+        nv, nf = fracture.chip_box(sizes=tuple(float(q) for q in ext), rng=rng,
+                                   bottom=False, warp_m=warp_m,
+                                   twist_deg=twist, **kw)
+        nv = nv + (c0 - 0.5 * (nv.max(0) + nv.min(0)))   # keep the local origin
+    else:
+        if fracture.open_edge_count(f) > 0:
+            return False
+        nv, nf = fracture.chip_box(v, f, rng, warp_m=warp_m, twist_deg=twist,
+                                   **kw)
+        if nf is f or len(nf) == len(f) and _np.array_equal(nv, v):
+            return False
+    if nv is None or nf is None or len(nf) < 4:
+        return False
+
+    mesh.CreatePointsAttr(Vt.Vec3fArray(
+        [Gf.Vec3f(float(x), float(y), float(z)) for x, y, z in nv]))
+    mesh.CreateFaceVertexCountsAttr(Vt.IntArray([3] * len(nf)))
+    mesh.CreateFaceVertexIndicesAttr(Vt.IntArray(
+        [int(i) for tri in nf for i in tri]))
+    nrm = _np.cross(nv[nf[:, 1]] - nv[nf[:, 0]], nv[nf[:, 2]] - nv[nf[:, 0]])
+    ln = _np.linalg.norm(nrm, axis=1, keepdims=True)
+    nrm = _np.repeat(nrm / _np.maximum(ln, 1e-12), 3, axis=0)
+    mesh.CreateNormalsAttr(Vt.Vec3fArray(
+        [Gf.Vec3f(float(x), float(y), float(z)) for x, y, z in nrm]))
+    mesh.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
+    mesh.CreateExtentAttr([Gf.Vec3f(*[float(q) for q in nv.min(0)]),
+                           Gf.Vec3f(*[float(q) for q in nv.max(0)])])
+    # A planar `st`, for the same reason `quake_rubble_usd._chipped_box`
+    # authors one: the MDL material is world-triplanar and does not need it,
+    # but an offline Blender/Hydra preview has no UVs to sample the real map
+    # through and renders the piece as a flat tint.
+    from . import quake_rubble_usd as qru
+    pv = UsdGeom.PrimvarsAPI(prim).CreatePrimvar(
+        "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying)
+    pv.Set(Vt.Vec2fArray([Gf.Vec2f(float(a), float(b))
+                          for a, b in qru._planar_st(nv, nf, 0.9)]))
+    return True
+
+
+def _chip_pieces(ctx, paths, spec, tessellate=False, beam=False, beam_keep=()):
+    """Chip a list of authored prims. Returns how many actually changed.
+
+    `beam` also re-binds each chipped piece to the Damaged_Concrete_Floor scan
+    (`quake_rubble_usd._beam_look`) — the round-5 addendum's material for
+    broken concrete. It is skipped for a piece whose current binding is named
+    in `beam_keep`: `_break_box` deliberately puts 45 % of a broken deck's
+    cells on the mortar-dust tint for variety, and flattening that to one
+    surface would undo it. `_beam_look` returns None when the megascans pack
+    is not on disk, in which case every piece keeps what it had and the chips
+    still happen.
+    """
+    from . import fracture
+    qf = _qf()
+    if qf._RUBBLE_MODE != "v2" or not fracture.chips_enabled():
+        return 0
+    from pxr import UsdShade
+
+    from . import quake_rubble_usd as qru
+    stage = ctx["stage"]
+    bmat = None
+    if beam:
+        try:
+            bmat = qru._beam_look(stage, ctx["parent"], ctx.get("mats"))
+        except Exception as exc:
+            print("[quake_collapse] beam look unavailable: {0}".format(exc))
+    n = 0
+    for p in (paths or ()):
+        try:
+            if not _chip_prim(stage, p, spec, tessellate=tessellate):
+                continue
+            n += 1
+            if bmat is None:
+                continue
+            pr = stage.GetPrimAtPath(p)
+            cur = UsdShade.MaterialBindingAPI(pr).ComputeBoundMaterial()[0]
+            name = cur.GetPath().name if (cur and cur.GetPrim().IsValid()) else ""
+            if name not in beam_keep:
+                UsdShade.MaterialBindingAPI.Apply(pr).Bind(bmat)
+        except Exception as exc:                 # a chip is cosmetic, always
+            print("[quake_collapse] chip skipped on {0}: {1}".format(p, exc))
+    return n
+
+
 def _author_floors(ctx, plan, m, prng):
     """Break the floor slabs a TOTAL collapse brings down, and bury what was
     standing on them.
@@ -1755,6 +2001,7 @@ def _author_floors(ctx, plan, m, prng):
     mtag = plan["mass"]
     timber = (plan["btype"] == "urm")
     n = 0
+    n_chip = 0
     for key in plan["break_slabs"]:
         pth = (fit.get("slabs") or {}).get(key)
         if not pth:
@@ -1769,6 +2016,19 @@ def _author_floors(ctx, plan, m, prng):
             mode=("plank" if timber else "prism"),
             aspect=((1.8, 3.6) if timber else None), consume=0.88,
             consume_pool=1.05, max_piece_m=1.0)
+        # ROUND 5. `mode="prism"` is a brick lattice and `mode="plank"` a board
+        # lattice — both give near-cuboid Voronoi cells, which is exactly the
+        # "perfect rectangular debris" the user called out. Chip the corners
+        # and the break ends off each; a PLANK also bows (`warp_frac`), a
+        # concrete prism does not. BEFORE `_a_lay_flat`, so a piece is laid on
+        # its real chipped extent rather than on the cuboid's.
+        # `beam` only for the CONCRETE deck: a broken RC floor is exactly the
+        # Damaged_Concrete_Floor scan, a broken joisted timber one is not.
+        # `beam_keep` preserves `_break_box`'s own 45 % mortar-dust variety.
+        n_chip += _chip_pieces(ctx, made,
+                               _CHIP_PLANK if timber else _CHIP_PRISM,
+                               beam=not timber,
+                               beam_keep=("a_brick_dusty",))
         qf._a_lay_flat(ctx, made, p=0.9)
         ctx["loose"] += made
         fit["all"] = [q for q in fit["all"] if q != pth]
@@ -1787,6 +2047,11 @@ def _author_floors(ctx, plan, m, prng):
         for (pm, _i), props in (fit.get("props") or {}).items():
             if pm == mtag:
                 qf._a_bury_props(ctx, props, base, depth, keep=keep)
+    if n_chip:
+        from . import fracture
+        ctx.setdefault("notes", []).append(
+            "[chip] floor cells: {0} chipped, {1} passed-through "
+            "(vtk={2})".format(n_chip, n - n_chip, fracture.chips_enabled()))
     return n
 
 
@@ -1995,6 +2260,149 @@ def _sweep_statics(ctx, plan, m, pre_static):
     return n
 
 
+def roof_prop_footprint_lost(plan, m, footprint):
+    """Does the MAJORITY of `footprint` sit over roof area this plan killed?
+
+    `footprint` is an iterable of world `(x, y)` points describing a roof
+    prop's own extent — typically its four footprint corners plus its
+    centre, the same shape `quake_flow._mostly_in_hole` already tests a
+    rooftop item's hole membership with (`r_roof_hole`), and for the same
+    reason the fire skill records as bug 9: THE CENTRE ALONE IS NOT ENOUGH.
+    A housekeeping pad several metres across can have its centre resting on
+    a live cell while most of its own footprint hangs over the part that
+    came down, or the other way round.
+
+    `total` / `pancake`: the whole roof of THIS mass is gone, so every point
+    on it answers yes — there is no surviving part of this mass's roof to
+    tell a prop's footprint from.
+    `elevation` / `corner`: majority of points inside `plan["region"]`, the
+    same near-wall strip `_sweep_statics` and `_fall_fitout` already test a
+    static prim or a fit-out item's position against.
+    Any other mode: this family never kills the roof there, so nothing on it
+    is ever "lost" by this test.
+
+    Pure geometry — no `pxr`, no stage — so a test can hand it a synthetic
+    footprint built from `quake_flow._to_world(m, lx, ly)` and check the
+    call it makes without ever touching a stage.
+    """
+    fc = _fc()
+    qf = _qf()
+    pts = list(footprint or ())
+    if not pts:
+        return False
+    mode = plan.get("mode")
+    if mode in ("total", "pancake"):
+        return True
+    if mode not in ("elevation", "corner"):
+        return False
+    if not plan.get("region"):
+        return False
+    n_in = 0
+    for wx, wy in pts:
+        lx, ly = qf._to_local(m, wx, wy)
+        if fc.in_region(plan, m, lx, ly):
+            n_in += 1
+    return n_in * 2 > len(pts)
+
+
+def _sweep_roof_props(ctx, plan, m, prng):
+    """Resolve every rooftop prop whose support this plan just took away —
+    the fix for "a row of water tanks hovering in the sky" (round-5 review,
+    `ne_obl.png`): a `qc_*` recipe removed the roof/top storeys under them
+    and nothing upstream of the generic end-of-build pass
+    (`quake_flow._b_settle_roof_plant`) ever asked whether their OWN roof
+    survived.
+
+    `ctx["roof_plant_mass"]` is the one mass `dress_roof` ever seats plant
+    on (always "main" in practice), so a wing's own total collapse — a
+    SEPARATE `_author_one` call in the same `r_collapse` — never re-tests
+    the main roof's tanks a second time; only the call for that mass runs
+    this at all.
+
+    Resolved paths are REMOVED from `ctx["roof_plant"]` / `ctx["roof_
+    fixed"]`, which `_b_settle_roof_plant` reads FRESH after every recipe
+    has run (`wreck_building`'s own order): a path already sent to
+    `ctx["loose"]` with a deliberate kick, or already buried/deactivated,
+    must never go through that generic idle-tip-then-loose pass a second
+    time — a rigid body registered on the same prim path twice, or a
+    transform applied to a prim this call has already deactivated.
+
+    Returns `(n_fall, n_buried)`.
+    """
+    if plan["mode"] not in ROOF_PROP_MODES:
+        plan["roof_prop_fall"] = []
+        return 0, 0
+    if plan["mass"] != ctx.get("roof_plant_mass", "main"):
+        plan["roof_prop_fall"] = []
+        return 0, 0
+    plant = list(dict.fromkeys(
+        list(ctx.get("roof_plant") or ()) + list(ctx.get("roof_fixed") or ())))
+    if not plant:
+        plan["roof_prop_fall"] = []
+        return 0, 0
+
+    from pxr import Usd, UsdGeom
+    fc, qf = _fc(), _qf()
+    stage = ctx["stage"]
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    xf = UsdGeom.XformCache()
+    loose_now = set(ctx["loose"])
+    fall = []
+    for pth in plant:
+        pr = stage.GetPrimAtPath(pth)
+        if not pr or not pr.IsValid() or not pr.IsActive() or pth in loose_now:
+            continue
+        r = bc.ComputeWorldBound(pr).ComputeAlignedRange()
+        if r.IsEmpty():
+            continue
+        lo, hi = r.GetMin(), r.GetMax()
+        footprint = ((lo[0], lo[1]), (hi[0], lo[1]), (hi[0], hi[1]),
+                    (lo[0], hi[1]),
+                    ((lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0))
+        if roof_prop_footprint_lost(plan, m, footprint):
+            fall.append(pth)
+    plan["roof_prop_fall"] = list(fall)
+    if not fall:
+        return 0, 0
+
+    gone = set(fall)
+    if ctx.get("roof_plant"):
+        ctx["roof_plant"] = [p for p in ctx["roof_plant"] if p not in gone]
+    if ctx.get("roof_fixed"):
+        ctx["roof_fixed"] = [p for p in ctx["roof_fixed"] if p not in gone]
+
+    if plan["mode"] in ("total", "pancake"):
+        # THE SAME PROPS SWEEP `_author_floors` ALREADY OWNS for `bury_
+        # props` — under the pile, not on it, exactly like the building's
+        # own interior contents.
+        H = max(3.0, float(m["top"]) - float(m["z0"]))
+        base, depth, keep = float(m["z0"]), H * DOME_CROWN_FRAC, 0.3
+        st = plan.get("stack")
+        if st:
+            base = float(st["base_z"])
+            depth = st["pitch_m"] * plan["n_levels"] * 0.6
+            keep = 0.25
+        qf._a_bury_props(ctx, fall, base, depth, keep=keep)
+        return 0, len(fall)
+
+    for pth in fall:
+        pr = stage.GetPrimAtPath(pth)
+        sd = None
+        try:
+            t = xf.GetLocalToWorldTransform(pr).ExtractTranslation()
+            lx, ly = qf._to_local(m, float(t[0]), float(t[1]))
+            sd = fc.region_side(plan, m, lx, ly)
+        except Exception:
+            pass
+        if sd is None:
+            sd = plan["sides"][0] if plan.get("sides") else "S"
+        ox, oy = qf._outward(m, sd)
+        v = prng.uniform(*ROOF_PROP_FALL_V)
+        ctx["velocity"][pth] = (ox * v, oy * v, -v)
+        ctx["loose"].append(pth)
+    return len(fall), 0
+
+
 def r_collapse(ctx, mode="elevation", **kw):
     """THE RECIPE. Author `plan_collapse(ctx, mode, **kw)`.
 
@@ -2119,6 +2527,9 @@ def _author_one(ctx, mode, kw):
         n_swept = _sweep_statics(ctx, plan, m, pre_static) if plan["sweep"] \
             else 0
 
+        # ---- 7b. roof props whose roof/top storey just died --------------
+        n_roof_fall, n_roof_buried = _sweep_roof_props(ctx, plan, m, prng)
+
         # ---- 8. the piles ------------------------------------------------
         n_heap = _author_heaps(ctx, plan, m, prng)
 
@@ -2163,6 +2574,13 @@ def _author_one(ctx, mode, kw):
         "quake collapse fit-out: {0} slab(s), {1} partition(s), {2} "
         "column(s), {3} prop(s) sent down".format(
             n_fit["slab"], n_fit["part"], n_fit["col"], n_fit["prop"]))
+    if n_roof_fall or n_roof_buried:
+        # `quake_flow`'s own "[quake] roof_plant: N dropped to physics, M
+        # buried" banner line, one level up: this is what THIS plan already
+        # resolved before the generic end-of-build pass ever saw the rest.
+        ctx["notes"].append(
+            "quake collapse roof props: {0} fallen (roof/top storey lost), "
+            "{1} buried".format(n_roof_fall, n_roof_buried))
     ctx["notes"].append(
         "quake collapse edges: " + ", ".join(
             "{0} {1}/{2}".format(c, cen[c][1], cen[c][0])

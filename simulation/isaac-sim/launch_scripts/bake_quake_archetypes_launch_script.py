@@ -72,6 +72,19 @@ import scene_generator as sg                                  # noqa: E402
 from scene_prep import get_stage_meters_per_unit              # noqa: E402
 from detail import urban_building as ub                       # noqa: E402
 from disaster import bake, fracture, settle, quake_flow as qf  # noqa: E402
+try:
+    # BELT AND BRACES FOR ANY FLOATER IN A KIT ARCHETYPE BAKE, not just roof
+    # props: `fire_bake_launch_script.py`'s own call site, after the settle
+    # and before the bbox/export — a body the settle could not bring down in
+    # its step budget bakes wherever it froze, and that includes a body a
+    # `qc_*` recipe never itself resolved (see `quake_collapse._sweep_roof_
+    # props`, plan time) as much as any ordinary fracture chip. A missing
+    # import degrades to a warning, never a hard failure of the bake.
+    from disaster import fire_bake as fb                       # noqa: E402
+except Exception as _exc:                                      # pragma: no cover
+    fb = None
+    print("[qarch] WARNING: disaster.fire_bake unavailable ({0}) — the "
+          "airborne sweep is disabled for this run".format(_exc))
 
 PARENT = "/World/stage/generated"
 # 4, not 7: seed 7 rolls "no balconies" on every balcony-capable style
@@ -286,6 +299,37 @@ def main():
             print("[qarch]   row {0} settle: {1}".format(si, settle_info))
         for _ in range(5):
             omni.kit.app.get_app().update()
+
+        # -- nothing hangs in the air -----------------------------------
+        # `fire_bake_launch_script.py`'s own call site: after the settle
+        # and before the export, per BUILDING (`fb.BAKE_ROOT` is one
+        # building there; here one row is several, so this loop is the
+        # same check scoped to each building's own parent scope) — a
+        # body the settle above could not bring down in SETTLE_STEPS
+        # bakes wherever it froze, roof prop or ordinary fracture chip
+        # alike.
+        airborne_by = {}
+        if fb is not None:
+            row_airborne = 0
+            for st_, level, X, Y, paths in row:
+                parent_path = "{0}/a_{1}_{2}".format(PARENT, st_, level)
+                try:
+                    n_off = fb.deactivate_airborne(stage, parent_path,
+                                                   verbose=False)
+                except Exception as exc:
+                    print("[qarch] WARNING: deactivate_airborne failed for "
+                          "{0}: {1}".format(parent_path, exc))
+                    n_off = 0
+                if n_off:
+                    airborne_by[(st_, level)] = n_off
+                    row_airborne += n_off
+            if row_airborne:
+                print("[qarch]   row {0} ({1}) airborne sweep: {2} "
+                      "deactivated across {3} building(s)".format(
+                          si, st, row_airborne, len(airborne_by)))
+            for _ in range(2):
+                omni.kit.app.get_app().update()
+
         # export the row now, so a crash later still leaves it on disk
         for st_, level, X, Y, paths in row:
             name = "bld_{0}_{1}.usd".format(st_, level)
@@ -325,6 +369,8 @@ def main():
                                         src_meshes=es.get("src_meshes"),
                                         merge=es.get("mode"),
                                         raw_mb=raw_mb, raw_prims=raw_prims,
+                                        airborne_off=airborne_by.get(
+                                            (st_, level), 0),
                                         **timing.get((st_, level), {}), **settle_info))
                     miss += ms
             except Exception as exc:

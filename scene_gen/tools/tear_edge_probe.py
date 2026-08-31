@@ -44,6 +44,7 @@ then prints three tables:
 Entries are `kind:name:level[:sides]`, the shape `fire_bake.sh` uses.
 """
 import random
+import re
 import sys
 import time
 import traceback
@@ -261,6 +262,27 @@ def _diffuse(stage, mpath):
     return mp.GetName(), "(no diffuse input)"
 
 
+def _frag_dump(stage, cell, rx):
+    """Every `brk_*` fragment matching `rx`, with what its prim binds. The
+    row-5 review named one prim (`brk_g7_wall_E_4_06_0090/frag_001`), so the
+    probe has to be able to answer about one prim."""
+    print("[tear_probe] D. FRAGMENTS MATCHING %r" % rx.pattern)
+    rows = []
+    for p in Usd.PrimRange(stage.GetPrimAtPath(cell)):
+        if not p.IsA(UsdGeom.Mesh):
+            continue
+        path = p.GetPath().pathString
+        if "/brk_" not in path or not rx.search(path):
+            continue
+        mb = UsdShade.MaterialBindingAPI(p).ComputeBoundMaterial()[0]
+        rows.append((path, mb.GetPrim().GetPath().pathString
+                     if (mb and mb.GetPrim().IsValid()) else None))
+    for path, mp in rows:
+        nm, df = _diffuse(stage, mp)
+        print("    %-58s -> %-22s %s" % (path[-58:], nm, df))
+    print("[tear_probe] %d fragment(s) matched" % len(rows))
+
+
 def _frag_census(stage, cell, ctx):
     loose = set(ctx.get("loose") or ())
     static = set(ctx.get("static_extra") or ())
@@ -346,6 +368,7 @@ def main():
     name = bits[1] if len(bits) > 1 else "SM_Building_02"
     level = bits[2] if len(bits) > 2 else "F5c"
     sides = _sides(bits[3]) if len(bits) > 3 else None
+    frag_rx = re.compile(sys.argv[3]) if len(sys.argv) > 3 else None
     fracture.ensure_deps(verbose=False)
     fracture.ensure_vtk(verbose=False)
     t0 = time.time()
@@ -371,6 +394,8 @@ def main():
     _span_table(ctx, plan, m)
     _boundary_census(ctx, plan, m)
     _frag_census(stage, cell, ctx)
+    if frag_rx is not None:
+        _frag_dump(stage, cell, frag_rx)
     return 0
 
 

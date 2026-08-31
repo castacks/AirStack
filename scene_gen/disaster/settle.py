@@ -499,9 +499,33 @@ def bake(stage, bodies):
 
         x = UsdGeom.Xformable(prim)
         x.ClearXformOpOrder()
-        x.AddTranslateOp().Set(Gf.Vec3d(t))
-        x.AddOrientOp().Set(Gf.Quatf(q.GetReal(), Gf.Vec3f(q.GetImaginary())))
-        x.AddScaleOp().Set(Gf.Vec3f(sc))
+        # ClearXformOpOrder clears the op ORDER, not the authored attributes:
+        # a prim authored with float ops (every v2 rubble mound/collar mesh,
+        # e.g. rubble_*_mound) keeps its float3 `xformOp:translate`
+        # attribute, and AddTranslateOp's default double precision then
+        # raises Tf.ErrorException instead of adding the op (K1b row 1,
+        # 2026-08-31 — killed the whole bake process mid-chain). Reuse the
+        # authored precision when an attribute already exists; author the
+        # historical defaults otherwise.
+        from pxr import Sdf as _Sdf
+        _pr = prim
+        _tp = _pr.GetAttribute("xformOp:translate")
+        if _tp and _tp.GetTypeName() == _Sdf.ValueTypeNames.Float3:
+            x.AddTranslateOp(UsdGeom.XformOp.PrecisionFloat).Set(Gf.Vec3f(t))
+        else:
+            x.AddTranslateOp().Set(Gf.Vec3d(t))
+        _op = _pr.GetAttribute("xformOp:orient")
+        if _op and _op.GetTypeName() == _Sdf.ValueTypeNames.Quatd:
+            x.AddOrientOp(UsdGeom.XformOp.PrecisionDouble).Set(
+                Gf.Quatd(q.GetReal(), q.GetImaginary()))
+        else:
+            x.AddOrientOp().Set(
+                Gf.Quatf(q.GetReal(), Gf.Vec3f(q.GetImaginary())))
+        _sp = _pr.GetAttribute("xformOp:scale")
+        if _sp and _sp.GetTypeName() == _Sdf.ValueTypeNames.Double3:
+            x.AddScaleOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(sc))
+        else:
+            x.AddScaleOp().Set(Gf.Vec3f(sc))
 
         # Off, not removed: dropping the API would also drop the collider, and
         # a disabled body is what makes this static geometry again.

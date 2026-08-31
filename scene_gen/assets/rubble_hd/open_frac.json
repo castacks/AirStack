@@ -838,5 +838,20 @@
 "lamppost_block_p33": 0.235,
 "lamppost_block_p34": 0.25,
 "lamppost_block_p35": 0.286,
-"lamppost_block_p36": 0.315
+"lamppost_block_p36": 0.315,
+"chunk_01": 0.2169,
+"chunk_02": 0.2118,
+"chunk_03": 0.2169,
+"chunk_04": 0.2118,
+"chunk_05": 0.2169,
+"chunk_06": 0.2118,
+"chunk_07": 0.2118,
+"chunk_08": 0.2169,
+"chunk_09": 0.2118,
+"lump_01": 0.0,
+"lump_02": 0.0,
+"lump_03": 0.0,
+"lump_04": 0.0,
+"lump_05": 0.0,
+"lump_06": 0.0485
 }
