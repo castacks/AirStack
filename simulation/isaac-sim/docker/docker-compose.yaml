@@ -35,12 +35,24 @@ services:
       - ./omni_pass.env
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}
-      # Pin the sim to GPU 0. The `count: 1` reservation below is advisory here
-      # — the container is privileged, so it sees every GPU regardless — and
-      # semantic_search_task hands robot N GPU N on the assumption that 0 is
-      # the sim's. Override for a single-GPU host with CUDA_VISIBLE_DEVICES=0
-      # everywhere, or "" to let the sim use all of them.
-      - CUDA_VISIBLE_DEVICES=${ISAAC_SIM_CUDA_DEVICES:-0}
+      # Do NOT pin this. Bare name (no `=`) means Compose passes it through
+      # only if set on the host, so it stays undefined here by default.
+      #
+      # Kit warns about it explicitly, ~2s before it drops every GPU: "CUDA
+      # device enumeration and Omniverse device enumeration are different.
+      # Setting CUDA_VISIBLE_DEVICES can lead to undesired behavior or
+      # crashes." Pinning CUDA's view desynchronises the two index spaces,
+      # every device probe fails, and Kit silently falls back to software
+      # rendering. A/B on the same container, minutes apart:
+      #   CUDA_VISIBLE_DEVICES=0  ->  6 bad-state lines,   4 MiB, no GPU process
+      #   unset                   ->  0 bad-state lines, 182 MiB, Kit holds the
+      #                               card and selects cuda:0
+      #
+      # The `count: 1` reservation below is advisory — the container is
+      # privileged, so it sees every GPU regardless. semantic_search_task
+      # still hands robot N GPU N assuming 0 is the sim's; that invariant
+      # holds unpinned, since Kit's own enumeration lands on cuda:0 anyway.
+      - CUDA_VISIBLE_DEVICES
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
       # Must match the robot/gcs containers — mixed transport modes across

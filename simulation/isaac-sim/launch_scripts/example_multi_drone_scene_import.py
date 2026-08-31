@@ -31,6 +31,15 @@ else:
 
 simulation_app = SimulationApp(launch_config=_SIM_APP_CONFIG)
 
+# Single-GPU rendering, stated explicitly rather than left to the default.
+# NOTE: this is *not* what fixes the "no GPU / software fallback" failure —
+# that was CUDA_VISIBLE_DEVICES being pinned in the Compose env (see the
+# comment on it in simulation/isaac-sim/docker/docker-compose.yaml). Setting
+# this here cannot fix it: the device skip happens inside
+# gpu.foundation.plugin, before any renderer setting is applied. Kept only
+# because being explicit about the intended single-GPU layout is correct.
+simulation_app.set_setting("/renderer/multiGpu/enabled", False)
+
 if _LIVESTREAM:
     # Enable WebRTC livestream and pin the UDP media port to the single port
     # published by the isaac-sim-livestream Compose profile and forwarded by
