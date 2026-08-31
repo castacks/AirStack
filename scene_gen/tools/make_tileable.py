@@ -80,6 +80,35 @@ Usage
         --blur-radius 75 --strength 0.6 \\
         --sheet ~/scorch_previews/rubble_r4/tiles/v4_rc_sheet.png
 """
+# ---------------------------------------------------------------------------
+# round-4 v6 (2026-08-30): the v4/v5 `_B` composite (toned Dirt_Rough base +
+# atlas-blend high-pass) reads as smooth brown DIRT under RTX, not broken
+# masonry fines — `r4_commercial` bench review of `0_commercial_DG5_ne.png`/
+# `_street.png`. Six NEW candidate tiles, `rubble_{urm,rc}_C{1,2,3}.jpg`,
+# never touching the live `_B` tiles. Full recipes, renders and ranking:
+# `~/scorch_previews/rubble_r4/v6/README.md`. One-line summary: every
+# candidate drops Dirt_Rough as the base layer (a soil scan reads as soil no
+# matter the tint) in favour of a real broken-masonry/concrete photo,
+# scrambled seamless the same way this file already scrambles debris atlases.
+#
+#   id      base source                          detail (this script's       tone (mult, sat, tint)            composite
+#                                                  --composite DETAIL arg)                                      (blur-radius, strength)
+#   rc_C1   concrete_debris_elements atlas blend  same atlas blend            0.95, 0.55, (0.98,0.97,0.95)      30,  0.80
+#   rc_C2   Concrete_Block (aec/brownstone),      concrete_debris_elements    0.78, 0.45, (0.97,0.97,1.00)      70,  0.65
+#           full blend pipeline seed=11 (kills    atlas blend
+#           its block/joint grid)
+#   rc_C3   Huge_Pile_of_Concrete_Rubble,         concrete_debris_elements    0.62, 0.55, (1.00,0.97,0.94)      55,  0.55
+#           full blend pipeline seed=22           atlas blend
+#   urm_C1  brick_debris_pile atlas blend         same atlas blend            0.95, 0.75, (1.12,0.88,0.78)      30,  0.85
+#   urm_C2  Brick_Wall_Worn (megascans),          brick_debris_pile           0.80, 0.55, (1.05,0.85,0.78)      65,  0.60
+#           full blend pipeline seed=33           atlas blend
+#   urm_C3  brick_debris_pile atlas blend         same atlas blend            1.00, 0.70, (1.10,0.86,0.74)      95,  0.95
+#
+# Runtime `_LOOK`/`_UV_SCALE` proposals (tint/desat/uv_scale — NOT baked into
+# the jpg, applied by `quake_rubble_usd._rubble_look` same as `_B` today) are
+# in the README table above, not repeated here since they are not this
+# script's concern. Ranking: rc C1, urm C2 (README has the caveats).
+# ---------------------------------------------------------------------------
 from __future__ import annotations
 
 import argparse

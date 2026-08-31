@@ -103,13 +103,45 @@ approaching the full canvas, as in the full-square-quad test) is still just
 one more iteration of the same loop and stays cheap.
 """
 
+import hashlib
 import math
+import re
 
 import numpy as np
 
 from .soot_plume import DESAT, side_u
 
 BAKE_PX = 512
+
+# ---------------------------------------------------------------------------
+# Sooted-copy shader hardening
+# ---------------------------------------------------------------------------
+# A soot-covered surface is matte, not mirror-glossy. The material COPY a
+# sooted module ends up on (`urban_fire._bind_soot` -> `soot_plume.
+# piece_material_like`: an internal reference to the source material with
+# only the diffuse map swapped) inherits metallic/roughness UNCHANGED --
+# often themselves textures (a shared ORM/metalness map) -- which is right
+# for an untouched neighbour but leaves a heavily-sooted curtain-wall band
+# mirror-reflective (user review, fire_dtc3 bench, 2026-08-30: dtc
+# Amar_Tower's burnt band still mirrors the sky; measured with
+# `tools/piece_soot_probe.py` -- `mat_3`/`mat_4` keep
+# `roughness=tex:...StoA_Metalness.jpg  metallic=tex:...StoA_Metalness.jpg`
+# straight through the copy).
+#
+# THRESHOLD. `_bind_soot` already grades its OWN flat-tone fallback (the
+# subsets with no base map to bake into at all) on the mean skin alpha over
+# a subset's covered texels: < 0.35 is skipped as too light to bother with,
+# 0.35-0.70 binds "soot_mid", > 0.70 binds "soot" (heaviest). Reusing that
+# exact ladder for "significant enough to matte" means this module does not
+# invent a second opinion about the same coverage number every other soot
+# decision in the pipeline already uses.
+SOOT_HARDEN_MIN = 0.35     # coverage below this: the copy is left alone
+SOOT_HARDEN_FULL = 0.70    # coverage at/above this: fully matte
+METALLIC_AT_MIN = 0.08     # metallic authored at SOOT_HARDEN_MIN coverage
+METALLIC_AT_FULL = 0.02    # metallic authored at SOOT_HARDEN_FULL+ coverage
+ROUGHNESS_AT_MIN = 0.65    # roughness authored at SOOT_HARDEN_MIN coverage
+ROUGHNESS_AT_FULL = 0.90   # roughness authored at SOOT_HARDEN_FULL+ coverage
+IOR_NEUTRAL = 1.5          # a plain dielectric's IOR -- no longer "glassy"
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +358,13 @@ def bake_module(sk, side, m, xform, pos, mask, base_rgb, px=BAKE_PX,
     exactly as `soot_plume.merge_rgb` does per pixel: desaturate the base by
     `DESAT * alpha` (or `desat` when given), then lerp to the soot colour by
     `alpha`. Uncovered texels keep the (upsampled) base unchanged. Returns
-    (px, px, 3) float32 in 0..1."""
+    (px, px, 3) float32 in 0..1.
+
+    As a side effect, records this bake's mean coverage (mean alpha over
+    covered texels) keyed by the same content digest `_bind_soot` computes
+    from the returned array to name its PNG (`sootbake_<digest>.png`) --
+    see `_record_coverage` and `harden_baked_materials`, the "Sooted-copy
+    shader hardening" section above."""
     xform = np.asarray(xform, dtype=np.float64)
     pos = np.asarray(pos, dtype=np.float64)
     d = DESAT if desat is None else float(desat)
@@ -355,4 +393,205 @@ def bake_module(sk, side, m, xform, pos, mask, base_rgb, px=BAKE_PX,
     desat_b = b * (1.0 - d * a) + grey * (d * a)
     comp = desat_b * (1.0 - a) + rgba[:, :3] * a
     out[mask] = np.clip(comp, 0.0, 1.0).astype(np.float32)
+    _record_coverage(out, float(a.mean()))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Sooted-copy shader hardening
+# ---------------------------------------------------------------------------
+def matte_values(coverage, min_cov=SOOT_HARDEN_MIN, full_cov=SOOT_HARDEN_FULL,
+                 metallic_range=(METALLIC_AT_MIN, METALLIC_AT_FULL),
+                 roughness_range=(ROUGHNESS_AT_MIN, ROUGHNESS_AT_FULL)):
+    """(metallic, roughness) to author on a sooted copy at this `coverage`,
+    or `None` below `min_cov` (leave the copy alone). Linear between
+    `min_cov` (light dulling) and `full_cov` (full matte), clamped beyond
+    `full_cov`. Pure numeric -- no USD -- so it is host-testable without
+    `pxr`."""
+    c = float(coverage)
+    if c < min_cov:
+        return None
+    t = 1.0 if full_cov <= min_cov else min(1.0, (c - min_cov) / (full_cov - min_cov))
+    m0, m1 = metallic_range
+    r0, r1 = roughness_range
+    return (m0 + (m1 - m0) * t, r0 + (r1 - r0) * t)
+
+
+def harden_sooted_shader(mat, coverage, min_cov=SOOT_HARDEN_MIN,
+                         full_cov=SOOT_HARDEN_FULL, verbose=False):
+    """Matte a sooted material COPY's UsdPreviewSurface shader(s) when
+    `coverage` (the same mean-skin-alpha number `_bind_soot` already grades
+    its own flat-tone fallback on) is significant (`matte_values`):
+    `metallic` and `roughness` are DISCONNECTED -- these copies otherwise
+    inherit the source's own metalness/roughness texture through the
+    internal reference `soot_plume.piece_material_like` makes, unchanged --
+    and set to a flat value that scales with `coverage`. `ior` and
+    `clearcoat`, when authored (an inherited opinion counts), are
+    neutralised the same way: a sooted surface is not glassy or
+    clear-coated either.
+
+    Only ever touches the prim(s) passed in as `mat`. `UsdShade.Input.
+    DisconnectSource` + `Set` authors its override ON THE COPY'S OWN PRIM
+    SPEC, layered on top of the internal reference -- it never writes back
+    into the referenced source (verified round-tripped through an
+    export/reopen; see `tools/soot_harden_probe.py`), so an unrelated
+    placement still sharing the source material is untouched.
+
+    `mat` is a `UsdShade.Material` or an `Usd.Prim` at (or above) the
+    material -- whichever the caller already has in hand. Returns the
+    number of shader inputs changed (0 below `min_cov`, or if `mat` has no
+    UsdPreviewSurface)."""
+    from pxr import Usd, UsdShade
+
+    vals = matte_values(coverage, min_cov, full_cov)
+    if vals is None or mat is None:
+        return 0
+    metallic_v, roughness_v = vals
+
+    if isinstance(mat, UsdShade.Material):
+        prim = mat.GetPrim()
+    elif isinstance(mat, Usd.Prim):
+        prim = mat
+    else:
+        return 0
+    if not prim.IsValid():
+        return 0
+
+    n = 0
+    for c in Usd.PrimRange(prim):
+        sh = UsdShade.Shader(c)
+        if not sh or sh.GetIdAttr().Get() != "UsdPreviewSurface":
+            continue
+        for name, value in (("metallic", metallic_v), ("roughness", roughness_v)):
+            inp = sh.GetInput(name)
+            if inp is None:
+                continue
+            if inp.HasConnectedSource():
+                inp.DisconnectSource()
+            inp.Set(float(value))
+            n += 1
+        ior_in = sh.GetInput("ior")
+        if ior_in is not None:
+            connected = ior_in.HasConnectedSource()
+            cur = None if connected else ior_in.Get()
+            if connected or (cur is not None and abs(float(cur) - IOR_NEUTRAL) > 1e-3):
+                if connected:
+                    ior_in.DisconnectSource()
+                ior_in.Set(IOR_NEUTRAL)
+                n += 1
+        cc_in = sh.GetInput("clearcoat")
+        if cc_in is not None:
+            connected = cc_in.HasConnectedSource()
+            cur = None if connected else cc_in.Get()
+            if connected or (cur is not None and float(cur) > 0.0):
+                if connected:
+                    cc_in.DisconnectSource()
+                cc_in.Set(0.0)
+                n += 1
+                ccr_in = sh.GetInput("clearcoatRoughness")
+                if ccr_in is not None and ccr_in.HasConnectedSource():
+                    ccr_in.DisconnectSource()
+                    ccr_in.Set(1.0)
+                    n += 1
+        if verbose and n:
+            print("[soot_bake] hardened {0}: metallic->{1:.3f} "
+                  "roughness->{2:.3f} (coverage {3:.0%})".format(
+                      c.GetPath(), metallic_v, roughness_v, coverage))
+    return n
+
+
+_COVERAGE_BY_DIGEST = {}
+_SOOTBAKE_RE = re.compile(r"sootbake_([0-9a-f]{16})\.png")
+
+
+def _content_digest(out):
+    """The SAME digest `_bind_soot` (urban_fire.py) computes from a bake's
+    finished array to name its PNG (`sootbake_<digest>.png`) -- byte for
+    byte the same rounding -- so a coverage recorded here under this key is
+    found again later purely from the filename the caller independently
+    writes to disk, with no change to the caller's own code."""
+    return hashlib.md5(np.round(out * 255.0).astype(np.uint8).tobytes()
+                       ).hexdigest()[:16]
+
+
+def _record_coverage(out, coverage):
+    """Remember `coverage` for this bake, keyed by the digest its caller
+    will name the PNG with (`_content_digest`). This is `bake_module`'s own
+    side channel for `harden_baked_materials`: it lets a post-pass find,
+    from a stage alone, which sooted copy a given `sootbake_<digest>.png`
+    came from and how heavily covered it was -- without `_bind_soot`
+    needing to hand coverage to anyone."""
+    _COVERAGE_BY_DIGEST[_content_digest(out)] = float(coverage)
+
+
+def make_hardened_material(stage, path, src_mat_prim, shader_path, input_name,
+                           tex_path, coverage, min_cov=SOOT_HARDEN_MIN,
+                           full_cov=SOOT_HARDEN_FULL):
+    """Drop-in replacement for a `soot_plume.piece_material_like(...)` call
+    site (falling back to `soot_plume.piece_material` exactly as the raw
+    call already does): makes the same sooted copy, then hardens it in
+    place via `harden_sooted_shader` when `coverage` is significant. This
+    is the RECOMMENDED one-line integration at `_bind_soot` (urban_fire.py,
+    where `mat = spl.piece_material_like(stage, mp, bprim, sh_path, inp,
+    png)` -- `coverage` is `float(a.mean())`, already computed one line
+    above as `a`) and at `gac_fire.bake_atlases` (where `new = spl.
+    piece_material_like(stage, mpath, mp, sh_path, inp, png)` -- `coverage`
+    is the `float((rgba[:, 3] > 0.1).mean())` already computed and printed
+    a few lines below it). Neither call site is wired to this yet -- both
+    live outside this file (see `harden_baked_materials` for a zero-call-
+    site-change alternative that sweeps an already-bound stage instead)."""
+    from . import soot_plume as spl
+
+    mat = spl.piece_material_like(stage, path, src_mat_prim, shader_path,
+                                  input_name, tex_path)
+    if mat is None:
+        mat = spl.piece_material(stage, path, tex_path)
+    harden_sooted_shader(mat, coverage, min_cov, full_cov)
+    return mat
+
+
+def harden_baked_materials(stage, root=None, min_cov=SOOT_HARDEN_MIN,
+                           full_cov=SOOT_HARDEN_FULL, verbose=False):
+    """Sweep `stage` (or the subtree under `root`) for material copies this
+    module's own `bake_module` produced -- identified purely by a
+    diffuseColor texture named `sootbake_<digest>.png`, `_bind_soot`'s own
+    naming -- and matte the ones `_record_coverage` logged as significantly
+    sooted (`harden_sooted_shader`). This is the ZERO-CALL-SITE-CHANGE
+    integration point: run it once, after the burn, over the same stage
+    `_bind_soot` bound its copies onto (in the SAME process, since the
+    coverage registry lives only in memory) -- see
+    `tools/soot_harden_probe.py`. A copy with no matching digest (bound in
+    a different process, or never baked through `bake_module` at all --
+    `gac_fire.bake_atlases`'s own merged-atlas composite does not) is left
+    alone rather than guessed at. Returns the number of materials changed.
+    """
+    from pxr import Usd, UsdShade
+
+    start = root if root is not None else stage.GetPseudoRoot()
+    n = 0
+    for prim in Usd.PrimRange(start):
+        if not prim.IsA(UsdShade.Material):
+            continue
+        digest = None
+        for c in Usd.PrimRange(prim):
+            sh = UsdShade.Shader(c)
+            if not sh or sh.GetIdAttr().Get() != "UsdPreviewSurface":
+                continue
+            d = sh.GetInput("diffuseColor")
+            if d is None or not d.HasConnectedSource():
+                continue
+            ts = UsdShade.Shader(d.GetConnectedSource()[0].GetPrim())
+            f = ts.GetInput("file") if ts else None
+            v = f.Get() if f else None
+            if v is not None:
+                m = _SOOTBAKE_RE.search(str(v).rsplit("/", 1)[-1])
+                if m:
+                    digest = m.group(1)
+            break
+        if digest is None or digest not in _COVERAGE_BY_DIGEST:
+            continue
+        cov = _COVERAGE_BY_DIGEST[digest]
+        if harden_sooted_shader(UsdShade.Material(prim), cov, min_cov,
+                                full_cov, verbose=verbose):
+            n += 1
+    return n

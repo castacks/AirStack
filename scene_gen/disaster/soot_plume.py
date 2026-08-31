@@ -222,9 +222,13 @@ TONE_NOISE_M = 0.8      # the colour of a saturated deposit varies at this scale
 #     plume only, no zone                                           0.108
 #     ZONE_ALPHA (0.85, 0.95) / ZONE_TONE 0.85   <- what shipped     0.050
 #     ZONE_ALPHA (0.58, 0.74) / ZONE_TONE 0.10   <- now              0.082
+#                                       (0.078 over the zone's core, `z>0.999`
+#                                        at `duration_scale=1.4` — the test's
+#                                        own, harsher, selection)
 #
 # So the old zone was 0.091 DARKER than the char it butts against; it is now
-# 0.059, inside the 0.06 the review allowed. THE FLOOR IS NOT THIS CONSTANT:
+# 0.059 (0.063 on the test's selection), at the 0.06 the review allowed.
+# THE FLOOR IS NOT THIS CONSTANT:
 # `skin` takes `max(plume_alpha, zone x za)`, and the plume's own deposit is
 # already saturated over most of the zone (mean alpha 0.834 there with the
 # zone off), so dropping `ZONE_ALPHA` further only stops lifting the patches

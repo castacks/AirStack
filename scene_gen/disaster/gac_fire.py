@@ -62,6 +62,41 @@ GAC_DIR = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
            "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/")
 GAC_SCALE = 0.01                 # the pack is authored in centimetres
 ISLAND_CELL_M = 0.30             # grid hash cell for window-island grouping
+# WINDOW-SHAPED, OR NOT (fire_dtc2 review, 2026-08-30: "B2 [dtc Building_12
+# F3] seems to be cut up into triangles"). `_islands` merges glazing faces by
+# proximity; a material that matches `gac_slice.is_glazing` on NAME ALONE
+# (not a real texture) can still bridge into that merge. MEASURED
+# (`tools/dtc_island_probe.py`): downtowncity's `ICity_Window_AC_00N` air-
+# conditioner units match on "window" in the name and merged their own
+# triangulated grille/fin geometry into an 18 m tall island alongside the
+# real punched windows beside them (a 146/79/50-face blob on Building_12, a
+# 218-face one on Building_11); `damage_windows` then burnt/crazed those
+# small triangular facets individually -- the "triangles". Real punched
+# windows on this stock measure aspect (width/height) 0.6-2.6, height
+# 1.0-2.8 m, width 0.6-4.1 m, essentially fully glazed (fill >= 0.85); the
+# ranges below are looser on purpose -- wide enough for a taller storefront
+# pane and for every GAC window (MEASURED zero islands rejected on
+# `SM_Building_02`, whose glass is aspect 0.61, height 1.8 m, width 1.1 m),
+# tight enough to reject an equipment-contaminated blob or a whole
+# continuous curtain-wall skin (dtc Amar_Tower: one glazing island the full
+# 192 m of the tower's height).
+WINDOW_ASPECT_RANGE = (0.2, 5.0)        # island width / height
+WINDOW_HEIGHT_RANGE_M = (0.8, 4.0)
+WINDOW_WIDTH_RANGE_M = (0.5, 8.0)
+WINDOW_FILL_MIN = 0.4                   # glazing face area / bbox area
+# CONTIGUOUS GLAZING IS A GRID OF BAYS, NOT "NO WINDOWS AT ALL". An island
+# the shape filter rejects for SIZE (a storey-strip window running the
+# height of the façade — dtc Building_12, z 9-27 m; a curtain wall whose
+# panes all touch — dtc Amar_Tower, one 38 x 192 m island) is real glazing:
+# dropping it left those façades with ZERO openings in the burning band, so
+# `plan_events` drew no events, and an F3/F5c baked with no flames, no smoke
+# and no soot (fire_dtc3 review, 2026-08-30). Such an island is split into a
+# synthetic bay grid at the pitches below and each cell re-tested; only
+# islands that are mostly glass are split (`STRIP_FILL_MIN` — a sparse blob
+# chained across a wall must not paint windows onto masonry).
+STRIP_ROW_M = 3.2                       # bay-grid row pitch (storey-ish)
+STRIP_COL_M = 4.0                       # bay-grid column pitch
+STRIP_FILL_MIN = 0.4                    # min glazing fill to split at all
 BAKE_PX_MIN, BAKE_PX_MAX = 1024, 2048
 # A texel is SHARED when faces more than this far apart in height both
 # sample it — the atlas tiles up the building, and a pre-slice bake would put
@@ -69,6 +104,249 @@ BAKE_PX_MIN, BAKE_PX_MAX = 1024, 2048
 # baked per PIECE after the slice instead (the kit path).
 SHARED_TEXEL_M = 2.0
 SHARED_FRAC_MAX = 0.08
+
+DTC_DIR = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
+           "scene_gen/assets/downtowncity/")
+DTC_SCALE = 1.0                  # `mpu = 1`: downtowncity is authored in metres
+
+# Materials that are NOT the building. Amar_Tower carries a ROOF GARDEN baked
+# into the same merged mesh — MEASURED (`tools/_dtc_reg_probe.py`,
+# 2026-08-30): ten tree/grass subsets between z 217 m and z 231 m that inflate
+# the asset bbox from the building's own 42.3 x 42.3 x 221.1 m to
+# 42.3 x 48.8 x 231.4 m — 6.5 m of depth and 10.3 m of height. Left in,
+# `measure_grid` lattices three phantom storeys of canopy above the real roof,
+# `mass_from_grid`'s deck search starts in the leaves, and every opening frame
+# is 1.0 m off in y because the plan centre moved. They are excluded from the
+# BBOX AND THE GRID MEASUREMENT ONLY; the slicer still cuts them with the rest
+# of the mesh, so the trees stay in the scene (they are just no longer part of
+# the building's measured box).
+GREENERY_TOKENS = ("grass", "tree", "leaves", "leaf", "trunk", "bark",
+                   "branch", "platanus", "robinia", "tilia", "shrub",
+                   "hedge", "foliage", "ivy")
+#: below this the trim is noise and the original bbox is kept verbatim
+BBOX_TRIM_MIN_M = 1.0
+
+#: WHICH PACK AN ASSET COMES FROM, AND WHAT THAT IMPLIES.
+#: `kind` is the same token `fire_bake`'s manifest uses (`gac:NAME:LEVEL` /
+#: `dtc:NAME:LEVEL`), so a bake entry, a probe argument and this table all
+#: name the pack the same way. Everything pack-specific in `prepare` reads
+#: from here and nothing else, which is what keeps the `gac` path
+#: byte-identical: its row is the constants `prepare` used to inline.
+PACKS = {
+    "gac": {                     # GreatAmericanCity — one merged .usd per
+                                 # asset, materials in Materials/*_Inst.usd
+        "dir": GAC_DIR, "ext": ".usd", "scale": GAC_SCALE,
+        "style_prefix": "gac_",
+        "bbox_exclude": (),      # nothing baked in that is not the building
+        "construction_table": False,   # height rule (see `prepare`)
+        "force_regular_grid": set(),   # no asset in this pack needs it
+        "glazing_material_deny": set(),  # every GAC material prim is named
+                                         # "UnrealMaterial" -- nothing to deny
+    },
+    "dtc": {                     # downtowncity — one merged .usdc per asset,
+                                 # materials INLINE in the same file
+        "dir": DTC_DIR, "ext": ".usdc", "scale": DTC_SCALE,
+        "style_prefix": "dtc_",
+        "bbox_exclude": GREENERY_TOKENS,
+        "construction_table": True,    # quake_sliced.CONSTRUCTION + height,
+        # USER BLACKLIST (2026-08-30): the Carved_* blocks read as the same
+        # building ("B1, B3-B5 kinda all look the same ... blacklist it from
+        # the pack") — never pick them for a fire row or a city pool.
+        "blacklist": ("Carved_", "Building_11"),
+        # "cut up into triangles" (fire_dtc2 review, 2026-08-30): Building_12
+        # rejects the measured grid anyway (confidence 0.46 < MIN_CONFIDENCE
+        # 0.55) and falls back to `regular_grid` -- listed here too so that
+        # stays true no matter how the confidence scoring changes later, per
+        # the user's own ask ("You can just split it by fixed grid").
+        "force_regular_grid": {"Building_12"},
+        # `ICity_Window_AC_00N` -- an air-conditioner unit, matched by
+        # `is_glazing` only because "window" is inside its name (see
+        # `WINDOW_ASPECT_RANGE` above). MEASURED on every downtowncity block
+        # probed, not just Building_12 (`tools/dtc_island_probe.py`:
+        # Building_11 carries the same contamination). Denied by name, on
+        # top of the shape filter, because its own facets can locally look
+        # window-shaped even though the material is never a window.
+        "glazing_material_deny": {"window_ac"},
+    },
+}
+DEFAULT_KIND = "gac"
+
+#: measured `metersPerUnit` per asset URL — see `asset_scale`
+_MPU_CACHE = {}
+
+
+def split_kind(name, kind=None):
+    """`("dtc", "Amar_Tower")` from `"dtc:Amar_Tower"`, `("gac", "SM_Building_02")`
+    from a bare name. An explicit `kind=` wins over a bare name and must agree
+    with a prefixed one."""
+    text = str(name or "")
+    k, sep, bare = text.partition(":")
+    if sep and k.strip().lower() in PACKS:
+        k = k.strip().lower()
+        if kind and str(kind).lower() != k:
+            raise ValueError("{0!r} says kind {1!r} but kind={2!r} was passed"
+                             .format(text, k, kind))
+        return k, bare.strip()
+    k = str(kind or DEFAULT_KIND).lower()
+    if k not in PACKS:
+        raise ValueError("unknown asset kind {0!r} (expected one of {1})"
+                         .format(kind, "/".join(sorted(PACKS))))
+    return k, text.strip()
+
+
+def asset_url(name, kind=None):
+    """The Nucleus URL of merged asset `name` in pack `kind`."""
+    k, bare = split_kind(name, kind)
+    p = PACKS[k]
+    return p["dir"] + bare + p["ext"]
+
+
+def asset_scale(url, default, verbose=True):
+    """The scale factor that puts `url` on a metres stage — its own
+    `metersPerUnit`, MEASURED, not the asset set's `scale:` key.
+
+    "UNITS ARE PER PACK AND MUST BE MEASURED, NOT ASSUMED"
+    (`config/asset_sets/urban_gac.yaml`): assuming GAC's 0.01 for
+    downtowncity shrank every block to ~0.4 m and the packer fitted 5,628 of
+    them into 26 blocks. A wrong scale does not error, it changes the layout.
+
+    `Usd.Stage.Open(url, LoadNone)` is the cheap read — payloads stay
+    unloaded, so this costs 0.00-0.05 s even on the 500k-triangle tower
+    (measured) — and `Sdf.Layer.GetField` is NOT available in this pxr
+    build. Falls back to `default` (the pack's declared scale) if the open
+    fails, so an unreachable Nucleus degrades to today's behaviour rather
+    than to a scale of 1.
+    """
+    from pxr import Usd, UsdGeom
+
+    if url in _MPU_CACHE:
+        return _MPU_CACHE[url]
+    val = float(default)
+    try:
+        st = Usd.Stage.Open(url, Usd.Stage.LoadNone)
+        mpu = UsdGeom.GetStageMetersPerUnit(st) if st is not None else None
+        if mpu and float(mpu) > 0.0:
+            val = float(mpu)
+    except Exception as exc:                                # pragma: no cover
+        if verbose:
+            print("[gac_fire] could not read metersPerUnit of {0} ({1}); "
+                  "using the pack default {2}".format(url, exc, default))
+    if verbose and abs(val - float(default)) > 1e-9:
+        print("[gac_fire] {0}: measured metersPerUnit {1:g}, pack default "
+              "{2:g} — using the MEASURED value".format(
+                  url.rsplit("/", 1)[-1], val, default))
+    _MPU_CACHE[url] = val
+    return val
+
+
+def _material_name_of(prim):
+    from pxr import UsdShade
+
+    m = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]
+    return m.GetPrim().GetName() if (m and m.GetPrim().IsValid()) else ""
+
+
+def _is_prop_material(name, tokens):
+    low = str(name or "").lower()
+    return any(t in low for t in (tokens or ()))
+
+
+def trim_bbox(stage, src, bbox, tokens, min_delta=BBOX_TRIM_MIN_M, verbose=True):
+    """`(bbox, note)` with the faces of `tokens`-named materials excluded.
+
+    Returns the ORIGINAL `bbox` object and `None` unless the trim moves some
+    dimension by more than `min_delta` — so a pack with no such materials
+    (`gac`, whose `bbox_exclude` is empty) short-circuits before it reads a
+    single point and every existing caller is bit-identical.
+    """
+    from pxr import Usd, UsdGeom
+
+    if not tokens or bbox is None:
+        return bbox, None
+    root = stage.GetPrimAtPath(src)
+    if not root or not root.IsValid():
+        return bbox, None
+    xc = UsdGeom.XformCache()
+    root_inv = xc.GetLocalToWorldTransform(root).GetInverse()
+    lo = np.full(3, np.inf)
+    hi = np.full(3, -np.inf)
+    hits = []
+    for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdGeom.Mesh):
+            continue
+        me = UsdGeom.Mesh(prim)
+        pts = me.GetPointsAttr().Get()
+        if pts is None or not len(pts):
+            continue
+        M = np.asarray(xc.GetLocalToWorldTransform(prim) * root_inv, dtype=float)
+        P = np.asarray(pts, dtype=float)
+        P = (np.c_[P, np.ones(len(P))] @ M)[:, :3]
+        counts = np.asarray(me.GetFaceVertexCountsAttr().Get() or [],
+                            dtype=np.int64)
+        fvi = np.asarray(me.GetFaceVertexIndicesAttr().Get() or [],
+                         dtype=np.int64)
+        subs = UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim))
+        if not len(counts) or len(fvi) != int(counts.sum()) or not subs:
+            if not _is_prop_material(_material_name_of(prim), tokens):
+                lo = np.minimum(lo, P.min(0))
+                hi = np.maximum(hi, P.max(0))
+            continue
+        start = np.concatenate([[0], np.cumsum(counts)[:-1]])
+        for sub in subs:
+            nm = _material_name_of(sub.GetPrim())
+            idx = np.asarray(sub.GetIndicesAttr().Get() or [], dtype=np.int64)
+            idx = idx[(idx >= 0) & (idx < len(counts))]
+            if not len(idx):
+                continue
+            if _is_prop_material(nm, tokens):
+                hits.append((nm, int(len(idx))))
+                continue
+            vids = np.concatenate([fvi[start[f]:start[f] + counts[f]]
+                                   for f in idx])
+            V = P[vids]
+            lo = np.minimum(lo, V.min(0))
+            hi = np.maximum(hi, V.max(0))
+    if not hits or not np.all(np.isfinite(lo)):
+        return bbox, None
+    (x0, y0, z0), (x1, y1, z1) = bbox
+    d = (abs((x1 - x0) - (hi[0] - lo[0])), abs((y1 - y0) - (hi[1] - lo[1])),
+         abs((z1 - z0) - (hi[2] - lo[2])))
+    if max(d) <= float(min_delta):
+        return bbox, None
+    new = ((float(lo[0]), float(lo[1]), float(lo[2])),
+           (float(hi[0]), float(hi[1]), float(hi[2])))
+    note = ("bbox trimmed of {0} baked-in prop subset(s) ({1}): "
+            "{2:.1f} x {3:.1f} x {4:.1f} m -> {5:.1f} x {6:.1f} x {7:.1f} m"
+            .format(len(hits), ", ".join(sorted(set(n for n, _c in hits)))[:90],
+                    x1 - x0, y1 - y0, z1 - z0,
+                    hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]))
+    if verbose:
+        print("[gac_fire] " + note)
+    return new, note
+
+
+def mesh_without_props(mesh, tokens):
+    """`mesh` with the triangles of `tokens`-named materials dropped.
+
+    Only `mass_from_grid`'s deck search is fed this — it walks upward faces
+    in the top 15 % of the height, and on Amar_Tower that band is FULL of
+    tree canopy. The bake still runs on the untrimmed mesh (the trees keep
+    their own atlases), and the slicer cuts the untrimmed asset.
+    """
+    if mesh is None or not tokens:
+        return mesh
+    mats = mesh.get("mats") or []
+    bad = set(i for i, m in enumerate(mats)
+              if m is not None and m.GetPrim().IsValid()
+              and _is_prop_material(m.GetPrim().GetName(), tokens))
+    if not bad:
+        return mesh
+    keep = ~np.isin(mesh["MID"], np.fromiter(bad, dtype=np.int64, count=len(bad)))
+    if not keep.any():
+        return mesh
+    out = dict(mesh)
+    out["tris"] = mesh["tris"][keep]
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -106,11 +384,13 @@ def place_source(stage, cell, usd, scale=GAC_SCALE):
 # ---------------------------------------------------------------------------
 # Windows as islands
 # ---------------------------------------------------------------------------
-def window_rects(stage, src, glass_tex=None, planes=None):
+def window_rects(stage, src, glass_tex=None, planes=None, deny_mat=None):
     """`{side: [(u0, u1, z0, z1), ...]}` of the glass ISLANDS on each
     elevation, in the asset holder's frame (`u` = x on S/N, y on E/W — the
     same `u` `gac_slice.window_centres` reports). Islands are glass faces
-    whose bboxes share a 0.3 m grid cell, joined by union-find.
+    whose bboxes share a 0.3 m grid cell, joined by union-find, KEPT ONLY IF
+    THE MERGED RESULT LOOKS LIKE A WINDOW (`_is_window_shaped`, `_islands`)
+    — see the `WINDOW_*` constants above.
 
     `planes`, if given a dict, is filled in place with `{side: plane_coord}`
     — the real façade plane per elevation (x for E/W, y for S/N), measured as
@@ -119,11 +399,20 @@ def window_rects(stage, src, glass_tex=None, planes=None):
     much). The asset's overall bbox face is the wrong plane to hang a flame
     or a frame origin off: it is the outer extent of whatever sticks out
     furthest (cornices, canopies, signage), which can be 1-3 m proud of the
-    real wall the windows sit in."""
+    real wall the windows sit in.
+
+    `deny_mat`, if given (`PACKS[kind]["glazing_material_deny"]`), is a set
+    of lower-cased substrings; a candidate face whose bound MATERIAL name
+    contains one is never treated as glazing at all, however it scores on
+    `gac_slice.is_glazing` — belt-and-suspenders on top of the shape filter
+    for a known offender (downtowncity's `ICity_Window_AC_00N` air
+    conditioners, matched by `is_glazing` only because "window" is in the
+    name)."""
     from detail import gac_slice as gsl
     from pxr import Usd, UsdGeom, UsdShade
 
     glass_tex = glass_tex or gsl.GLASS_TEX
+    deny_mat = tuple(str(d).lower() for d in (deny_mat or ()))
     root = stage.GetPrimAtPath(src)
     if not root or not root.IsValid():
         return {}
@@ -137,11 +426,15 @@ def window_rects(stage, src, glass_tex=None, planes=None):
     glass_recess_m = 0.15
 
     def _tex(p):
+        """(diffuse basename, MATERIAL PRIM NAME) — both, because a
+        downtowncity window material carries no diffuse map and its name is
+        the only evidence there is (`gac_slice.is_glazing`). A no-op on
+        GreatAmericanCity, where every material prim is `UnrealMaterial`."""
         mat = UsdShade.MaterialBindingAPI(p).ComputeBoundMaterial()[0]
         if not mat or not mat.GetPrim().IsValid():
-            return ""
+            return "", ""
         sp, inp, url = _diffuse_of(mat.GetPrim())
-        return (url or "").rsplit("/", 1)[-1]
+        return (url or "").rsplit("/", 1)[-1], mat.GetPrim().GetName()
 
     # A PANE IS ON THE ELEVATION IT STANDS IN, NOT THE ONE ITS NORMAL POINTS
     # TO. Glass is double-sided in these assets: every pane has a back face
@@ -157,7 +450,9 @@ def window_rects(stage, src, glass_tex=None, planes=None):
     # and keep only the faces within `plane_tol_m` of that plane (interior
     # partitions and atrium glass are not façade).
     plane_tol_m = 1.5
+    PLANE_MAX_INSET_M = 3.0
     faces = []        # (V, side_by_normal_ok)
+    areas = []        # parallel to `faces` -- polygon area, for the fill test
     lo = np.full(3, np.inf)
     hi = np.full(3, -np.inf)
     for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
@@ -178,7 +473,10 @@ def window_rects(stage, src, glass_tex=None, planes=None):
             continue
         start = np.concatenate([[0], np.cumsum(counts)[:-1]])
         for sub in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)):
-            if not gsl.is_glazing(_tex(sub.GetPrim()), glass_tex):
+            _t, _mn = _tex(sub.GetPrim())
+            if not gsl.is_glazing(_t, glass_tex, mat_name=_mn):
+                continue
+            if deny_mat and any(d in (_mn or "").lower() for d in deny_mat):
                 continue
             for f in (sub.GetIndicesAttr().Get() or []):
                 f = int(f)
@@ -193,6 +491,7 @@ def window_rects(stage, src, glass_tex=None, planes=None):
                 if abs(n[2]) >= max(abs(n[0]), abs(n[1])):
                     continue          # roof light / floor glass
                 faces.append(V)
+                areas.append(_poly_area(V))
     if not faces or not np.all(np.isfinite(lo)):
         return {}
     cen = np.array([V.mean(0) for V in faces])
@@ -201,7 +500,7 @@ def window_rects(stage, src, glass_tex=None, planes=None):
                      hi[1] - cen[:, 1], cen[:, 0] - lo[0]], axis=1)
     side_ix = np.argmin(dist, axis=1)
     ring = ("S", "E", "N", "W")
-    boxes = {}   # side -> list of (u0, u1, z0, z1)
+    boxes = {}   # side -> list of (u0, u1, z0, z1, area)
     plane_vals = {}
     for k, side in enumerate(ring):
         sel = np.nonzero(side_ix == k)[0]
@@ -219,18 +518,60 @@ def window_rects(stage, src, glass_tex=None, planes=None):
             uu = V[:, 1] if side in ("E", "W") else V[:, 0]
             boxes.setdefault(side, []).append(
                 (float(uu.min()), float(uu.max()),
-                 float(V[:, 2].min()), float(V[:, 2].max())))
+                 float(V[:, 2].min()), float(V[:, 2].max()), areas[i]))
     out = {}
     for side, bl in boxes.items():
         out[side] = _islands(bl)
     if planes is not None:
+        face = {"S": lo[1], "E": hi[0], "N": hi[1], "W": lo[0]}
         for side, vals in plane_vals.items():
-            planes[side] = float(np.median(vals)) + out_sign[side] * glass_recess_m
+            plane = float(np.median(vals))
+            # A FAÇADE IS NEAR ITS BBOX FACE. Interior or atrium glass can win
+            # the median for a side with few real windows: dtc Carved_13's
+            # "N" plane measured 12 m inside its N face and every stamp on
+            # that side snapped into the building (2026-08-30). More than
+            # `PLANE_MAX_INSET_M` from the bbox face is not a façade — that
+            # side keeps the bbox face (no entry) and its islands are dropped.
+            if abs(plane - face[side]) > PLANE_MAX_INSET_M:
+                out.pop(side, None)
+                continue
+            planes[side] = plane + out_sign[side] * glass_recess_m
     return out
 
 
+def _poly_area(V):
+    """Area of a planar polygon (fan triangulation from `V[0]`) -- exact for
+    a triangle, a fair approximation for the quads/ngons a glazing subset
+    may carry. Used only by the window-shape fill test below."""
+    if len(V) < 3:
+        return 0.0
+    c = np.zeros(3)
+    for i in range(1, len(V) - 1):
+        c += np.cross(V[i] - V[0], V[i + 1] - V[0])
+    return 0.5 * float(np.linalg.norm(c))
+
+
+def _is_window_shaped(w, h, area):
+    """Does a merged island of width `w`, height `h` and glazing face `area`
+    (m2) look like an actual window opening? See `WINDOW_*` above."""
+    if w <= 0 or h <= 0:
+        return False
+    aspect = w / h
+    fill = area / (w * h) if w * h > 0 else 0.0
+    return (WINDOW_ASPECT_RANGE[0] <= aspect <= WINDOW_ASPECT_RANGE[1]
+            and WINDOW_HEIGHT_RANGE_M[0] <= h <= WINDOW_HEIGHT_RANGE_M[1]
+            and WINDOW_WIDTH_RANGE_M[0] <= w <= WINDOW_WIDTH_RANGE_M[1]
+            and fill >= WINDOW_FILL_MIN)
+
+
 def _islands(boxes, cell=ISLAND_CELL_M):
-    """Union-find over boxes that share a grid cell -> merged bboxes."""
+    """Union-find over boxes that share a grid cell -> merged bboxes kept
+    only if they pass `_is_window_shaped`.
+
+    `boxes` items are `(u0, u1, z0, z1, area)` — `area` is each face's own
+    polygon area, summed per merged island purely for the fill test; the
+    returned rects are the old plain `(u0, u1, z0, z1)` 4-tuples, unchanged
+    shape for every caller."""
     n = len(boxes)
     if n == 0:
         return []
@@ -248,7 +589,7 @@ def _islands(boxes, cell=ISLAND_CELL_M):
             parent[rb] = ra
 
     owner = {}
-    for i, (u0, u1, z0, z1) in enumerate(boxes):
+    for i, (u0, u1, z0, z1, _a) in enumerate(boxes):
         c0, c1 = int(math.floor(u0 / cell)), int(math.floor(u1 / cell))
         r0, r1 = int(math.floor(z0 / cell)), int(math.floor(z1 / cell))
         for c in range(c0, c1 + 1):
@@ -260,16 +601,45 @@ def _islands(boxes, cell=ISLAND_CELL_M):
                 else:
                     union(i, j)
     agg = {}
-    for i, (u0, u1, z0, z1) in enumerate(boxes):
+    for i, (u0, u1, z0, z1, area) in enumerate(boxes):
         r = find(i)
         a = agg.get(r)
         if a is None:
-            agg[r] = [u0, u1, z0, z1]
+            agg[r] = [u0, u1, z0, z1, area]
         else:
             a[0], a[1] = min(a[0], u0), max(a[1], u1)
             a[2], a[3] = min(a[2], z0), max(a[3], z1)
-    rects = [tuple(v) for v in agg.values()
-             if (v[1] - v[0]) >= 0.25 and (v[3] - v[2]) >= 0.25]
+            a[4] += area
+    rects = []
+    for u0, u1, z0, z1, area in agg.values():
+        w, h = u1 - u0, z1 - z0
+        if w < 0.25 or h < 0.25:
+            continue
+        if _is_window_shaped(w, h, area):
+            rects.append((u0, u1, z0, z1))
+            continue
+        # the oversize-island split — see the STRIP_* constants' comment.
+        # `fill` can exceed 1.0 because double-sided glass contributes both
+        # faces to `area`; clamp before handing a per-cell area estimate to
+        # the shape test.
+        fill = area / max(w * h, 1e-6)
+        tall = h > WINDOW_HEIGHT_RANGE_M[1] + 0.5
+        wide = w > WINDOW_WIDTH_RANGE_M[1] + 0.5
+        if not (tall or wide) or fill < STRIP_FILL_MIN:
+            continue
+        rows = max(1, int(round(h / STRIP_ROW_M))) if tall else 1
+        cols = max(1, int(round(w / STRIP_COL_M))) if wide else 1
+        ch, cw = h / rows, w / cols
+        mh = min(0.30, 0.12 * ch)
+        mw = min(0.30, 0.10 * cw)
+        cf = min(1.0, fill)
+        for r in range(rows):
+            for c in range(cols):
+                a0, a1 = u0 + c * cw + mw, u0 + (c + 1) * cw - mw
+                b0, b1 = z0 + r * ch + mh, z0 + (r + 1) * ch - mh
+                if _is_window_shaped(a1 - a0, b1 - b0,
+                                     (a1 - a0) * (b1 - b0) * cf):
+                    rects.append((a0, a1, b0, b1))
     rects.sort(key=lambda r: (r[2], r[0]))
     return rects
 
@@ -535,14 +905,15 @@ def bake_atlases(stage, cell, mesh, sk, m, out_dir, verbose=True):
             stats["notex"] += 1
             continue
         px = int(max(BAKE_PX_MIN, min(BAKE_PX_MAX, max(base.shape[0], base.shape[1]))))
-        pos, mask = sb.uv_position_map(P, counts, indices, UV, "vertex", None,
-                                       face_ids=face_ids.tolist(), px=px)
-        if not mask.any():
-            continue
         # IS THIS ATLAS TILED UP THE BUILDING? Rasterise the same faces in
-        # the opposite order: a texel that two faces at different heights
-        # both cover comes back with two different positions. Cheap (a
-        # second pass at a quarter of the resolution) and decisive.
+        # the opposite order, at a quarter of the working resolution: a
+        # texel that two faces at different heights both cover comes back
+        # with two different positions. Cheap and decisive -- run BEFORE
+        # the full-resolution pass below (same test, same numbers, just
+        # moved ahead of the work it used to gate only after the fact) so a
+        # TILED atlas -- thrown away to be baked per piece after the slice
+        # -- never pays for the expensive rasterisation (including the
+        # seam-straddler path) at full resolution at all.
         pq = max(256, px // 4)
         pa, ma = sb.uv_position_map(P, counts, indices, UV, "vertex", None,
                                     face_ids=face_ids.tolist(), px=pq)
@@ -562,6 +933,10 @@ def bake_atlases(stage, cell, mesh, sk, m, out_dir, verbose=True):
                       "faces >{2:.0f} m apart) -> baked per piece after the "
                       "slice".format(tex.rsplit("/", 1)[-1], shared,
                                      SHARED_TEXEL_M))
+            continue
+        pos, mask = sb.uv_position_map(P, counts, indices, UV, "vertex", None,
+                                       face_ids=face_ids.tolist(), px=px)
+        if not mask.any():
             continue
         pts = pos[mask].astype(np.float64)
         rgba = _sample_skin_any_side(sk, m, pts)
@@ -807,7 +1182,7 @@ def _darken_glass_legacy(stage, ctx, pls, sooted=None, glass_tex=None):
 
 
 def damage_windows(stage, ctx, pls, rects=None, mass=None, sooted=None,
-                   glass_tex=None):
+                   glass_tex=None, deny_mat=None):
     """Per-WINDOW glazing treatment on the burning elevations of a sliced
     GAC building — a burnt-out pane is now a real hole, not a blacked-out
     subset (`darken_glass`'s old, whole-subset behaviour: see
@@ -842,7 +1217,12 @@ def damage_windows(stage, ctx, pls, rects=None, mass=None, sooted=None,
     caller passes them explicitly because `ctx` does not carry them yet
     (`ctx["gac"]` is only assembled by `burn_gac` AFTER this returns).
     Either omitted (any call site still on `darken_glass`'s original
-    signature) falls back to `_darken_glass_legacy`, unchanged."""
+    signature) falls back to `_darken_glass_legacy`, unchanged.
+
+    `deny_mat` (`PACKS[kind]["glazing_material_deny"]`) is the same
+    lower-cased-substring deny list `window_rects` takes — a face bound to
+    one of these materials is left alone here too, on top of never having
+    formed an island in the first place."""
     if rects is None or mass is None:
         return _darken_glass_legacy(stage, ctx, pls, sooted=sooted,
                                     glass_tex=glass_tex)
@@ -851,6 +1231,7 @@ def damage_windows(stage, ctx, pls, rects=None, mass=None, sooted=None,
     from pxr import Usd, UsdGeom, UsdShade, Vt
 
     glass_tex = glass_tex or gsl.GLASS_TEX
+    deny_mat = tuple(str(d).lower() for d in (deny_mat or ()))
     fire = ctx["fire"]
     W, D = float(mass["W"]), float(mass["D"])
     cx, cy = float(mass["cx"]), float(mass["cy"])
@@ -877,6 +1258,18 @@ def damage_windows(stage, ctx, pls, rects=None, mass=None, sooted=None,
             orig_of[str(cm.GetPrim().GetPath())] = key[0]
         except Exception:
             continue
+    # ...and the PRE-SLICE atlases (`bake_atlases`): `sooted` maps the
+    # ORIGINAL material's prim path to its sooted copy, so inverting it
+    # recovers the original material's NAME behind a `<cell>/SootLooks/mN`
+    # binding. That name is the only evidence a downtowncity window has —
+    # `Glass_window` / `glass` / `Window_003` carry no diffuse map at all,
+    # so the texture test below cannot see them (`gac_slice.is_glazing`).
+    name_of = {}
+    for k, v in (sooted or {}).items():
+        if k in ("_png", "_tiled") or not hasattr(v, "GetPrim"):
+            continue
+        if isinstance(k, str) and k.startswith("/"):
+            name_of[str(v.GetPrim().GetPath())] = k.rsplit("/", 1)[-1]
 
     n_burnt = n_crazed = 0
     for p in pls:
@@ -912,13 +1305,20 @@ def damage_windows(stage, ctx, pls, rects=None, mass=None, sooted=None,
                 cpath = str(cur.GetPrim().GetPath())
                 if cpath in orig_of:
                     op = stage.GetPrimAtPath(orig_of[cpath])
-                    _sp, _inp, tex = (_diffuse_of(op)
-                                     if op and op.IsValid() else
-                                     (None, None, None))
+                    _live = bool(op and op.IsValid())
+                    _sp, _inp, tex = (_diffuse_of(op) if _live
+                                     else (None, None, None))
+                    mname = op.GetName() if _live else ""
                 else:
                     _sp, _inp, tex = _diffuse_of(cur.GetPrim())
+                    mname = name_of.get(cpath) or cur.GetPrim().GetName()
                 tex = back.get(tex, tex)
-                if not tex or not gsl.is_glazing(tex, glass_tex):
+                # `is_glazing` with an empty `tex` and a non-glazing material
+                # name is False, which is exactly what the old `not tex or
+                # not is_glazing(tex)` said — GAC is unaffected.
+                if not gsl.is_glazing(tex, glass_tex, mat_name=mname):
+                    continue
+                if deny_mat and any(d in (mname or "").lower() for d in deny_mat):
                     continue
                 idx = [int(f) for f in (sub.GetIndicesAttr().Get() or [])]
                 if not idx:
@@ -941,8 +1341,20 @@ def damage_windows(stage, ctx, pls, rects=None, mass=None, sooted=None,
                     u = cen[0] if side in ("S", "N") else cen[1]
                     z = float(cen[2])
                     island = _match_island(side, u, z, rects)
-                    st = _storey_of(0.5 * (island[2] + island[3])
-                                    if island else z, levels)
+                    if island is None:
+                        # NOT A REAL WINDOW -- either off the measured
+                        # lattice or (fire_dtc2 review, 2026-08-30: dtc
+                        # Building_12 "cut up into triangles") a face whose
+                        # SUBSET matched `is_glazing` by name/texture but
+                        # whose merged island failed the shape test in
+                        # `window_rects` (an air-conditioner unit's own
+                        # triangulated grille/fin geometry). Leave it alone
+                        # rather than guessing a storey from its raw z --
+                        # burning/crazing it individually is exactly what
+                        # produced the triangles.
+                        keep_f.append(f)
+                        continue
+                    st = _storey_of(0.5 * (island[2] + island[3]), levels)
                     hot = side in hot_sides
                     bleed = side in bleed_sides
                     if hot and st in band:
@@ -988,7 +1400,7 @@ darken_glass = damage_windows
 # The whole thing
 # ---------------------------------------------------------------------------
 def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
-            out_dir=None, verbose=True):
+            out_dir=None, verbose=True, kind=None):
     """Everything up to (not including) the slice: place the asset, measure
     it, plan the fire and its events from the window islands, rasterise the
     skin, bake it into the atlases. Returns a dict the slice/burn tail and
@@ -996,18 +1408,171 @@ def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
     --gac`) both consume: src, grid, measured, rects, mass, info, btype,
     fire, provider, events, skin, mesh (None after the bake), sooted, planes
     (the measured per-side façade plane `window_rects` filled — see
-    `side_frame`)."""
+    `side_frame`), kind and asset (the bare name).
+
+    `name` may be `"dtc:Amar_Tower"` (or `kind="dtc"` with a bare name) to
+    reach a downtowncity block instead of a GreatAmericanCity one — see
+    `PACKS`. Everything that differs between the two packs (directory, file
+    extension, unit scale, whether a material's own NAME may declare it
+    glazing, whether the asset has baked-in landscaping to keep out of the
+    measured box, and where the construction type comes from) is a row in
+    that table; the `gac` row is the constants this function used to inline,
+    so the GAC path is unchanged.
+    """
     from detail import gac_slice as gsl, gac_storey_slice as gss
     from . import soot_plume as spl, urban_fire as uf
 
-    style = "gac_" + name
-    src = place_source(stage, cell, GAC_DIR + name + ".usd", GAC_SCALE)
+    def _hull2d(pts):
+        """CCW convex hull of 2-D points (Andrew's monotone chain; a
+        cross-product sign is the only geometry primitive it needs, so no
+        scipy). Rounds first to kill duplicate mesh-seam vertices."""
+        uniq = sorted(set((round(float(x), 4), round(float(y), 4))
+                          for x, y in pts))
+        if len(uniq) < 3:
+            return uniq
+
+        def cross(o, a, b):
+            return ((a[0] - o[0]) * (b[1] - o[1])
+                    - (a[1] - o[1]) * (b[0] - o[0]))
+
+        def half(seq):
+            out = []
+            for p in seq:
+                while len(out) >= 2 and cross(out[-2], out[-1], p) <= 0.0:
+                    out.pop()
+                out.append(p)
+            return out
+
+        lower, upper = half(uniq), half(list(reversed(uniq)))
+        hull = lower[:-1] + upper[:-1]
+        # FORCE CCW so `_inset_edges`'s inward-normal convention holds — the
+        # monotone chain above already comes out CCW, but the shoelace check
+        # is cheap and removes the assumption.
+        area2 = sum(hull[i][0] * hull[(i + 1) % len(hull)][1]
+                   - hull[(i + 1) % len(hull)][0] * hull[i][1]
+                   for i in range(len(hull)))
+        return hull if area2 >= 0 else hull[::-1]
+
+    def _inset_edges(poly, t):
+        """Inward per-edge offset of a CCW convex polygon by `t` metres,
+        re-intersecting consecutive offset edge lines (a Minkowski erosion) —
+        NOT a centroid scale, which over-cuts a long wing and under-cuts a
+        squat one on an elongated plan (`min_area_rect`-style shapes are
+        common on a setback tower). A near-parallel pair of offset edges (a
+        rounding artefact rather than a real corner) falls back to moving
+        that vertex along its own edge's inward normal.
+
+        RE-HULLED BEFORE RETURNING. A SHORT RAW EDGE SANDWICHED BETWEEN TWO
+        LONG ONES IS AN EFFECTIVELY ACUTE CORNER, and the per-edge-offset-
+        then-intersect construction overshoots there (the correct inward
+        shift at a convex vertex is `t / sin(half-angle)`, which grows
+        without bound as the corner sharpens) -- measured on SM_Building_09
+        storey 12 (`tools/catch_clip_probe.py`): a real ~0.15 m corner
+        chamfer produced ONE locally reflex vertex in the raw inset output
+        (a cross-product sign check on the returned polygon flipped at
+        exactly that vertex and its neighbour), which is not a convex
+        polygon any more even though the polygon's NET winding still read
+        CCW. A reflex point from overshoot always lies inside the convex
+        hull of its neighbours, so hulling the raw inset points drops
+        exactly that vertex and nothing else -- the result can only be
+        slightly SMALLER at that one corner, never larger, which is the
+        safe direction for a plate that must never reach past the wall."""
+        n = len(poly)
+        if n < 3:
+            return poly
+        P = np.asarray(poly, dtype=float)
+        d = np.roll(P, -1, axis=0) - P
+        L = np.hypot(d[:, 0], d[:, 1])
+        L[L < 1e-9] = 1.0
+        d = d / L[:, None]
+        nrm = np.stack([-d[:, 1], d[:, 0]], axis=1)      # inward, CCW
+        A = P + nrm * t
+        out = []
+        for i in range(n):
+            a0, d0 = A[i - 1], d[i - 1]
+            a1, d1 = A[i], d[i]
+            den = d0[0] * d1[1] - d0[1] * d1[0]
+            if abs(den) < 1e-9:
+                out.append(tuple(P[i] + nrm[i] * t))
+                continue
+            diff = a1 - a0
+            s = (diff[0] * d1[1] - diff[1] * d1[0]) / den
+            out.append(tuple(a0 + s * d0))
+        return _hull2d(out)
+
+    def _poly_area(poly):
+        n = len(poly)
+        if n < 3:
+            return 0.0
+        return 0.5 * abs(sum(poly[i][0] * poly[(i + 1) % n][1]
+                            - poly[(i + 1) % n][0] * poly[i][1]
+                            for i in range(n)))
+
+    def _storey_footprints(mesh, levels, inset_m=0.35, lo_m=0.3, hi_m=2.5):
+        """{storey index: [(x, y), ...]} in the CELL frame (`mass_from_grid`'s
+        own frame — NOT centred on the mass), one convex-hull-inset polygon
+        per storey, off the merged mesh's own vertices in a slab clear of the
+        floor slab and any window head/sill (z in [level + lo_m, level +
+        hi_m]) — this is where the WALLS of that storey band are, including
+        a setback that has stepped the plan in from the storeys below.
+
+        A FULL-PLAN W x D BOX IS WRONG ON A SETBACK PLAN. `r_expose_interior`
+        and `r_fire_collapse` used to author their catch/heap-floor plates as
+        one box spanning the mass's own bounding box at every storey, which
+        pokes a slab out past the façade wherever the real plan is narrower
+        than that box (user review, fire_dtc2, 2026-08-30, dtc Building_11
+        F1: "the catch ... looks like it's coming outside the side walls ...
+        you can't treat it like a cuboid"). `urban_fire._plate` builds an
+        extruded polygon from what this measures instead, in place of the
+        box, wherever a storey's polygon was measured here.
+
+        A CONVEX HULL IS AN APPROXIMATION OF A CONCAVE PLAN — a real notch
+        can be straight-lined across by the hull, which is why the inset
+        exists (it can leave a small gap at a notch, it cannot grow the
+        plate past the walls) and why `tools/catch_clip_probe.py` measures
+        the worst-case excursion instead of assuming this is exact.
+        """
+        out = {}
+        if mesh is None:
+            return out
+        P, tris = mesh.get("P"), mesh.get("tris")
+        if P is None or tris is None or not len(tris):
+            return out
+        idx = np.unique(tris)
+        Pb = P[idx]
+        for st, z in enumerate(levels):
+            band = Pb[(Pb[:, 2] >= z + lo_m) & (Pb[:, 2] <= z + hi_m)]
+            if len(band) < 3:
+                continue
+            hull = _hull2d([(float(x), float(y)) for x, y in band[:, :2]])
+            if len(hull) < 3:
+                continue
+            poly = _inset_edges(hull, inset_m)
+            if len(poly) < 3 or _poly_area(poly) < 1.0:
+                continue
+            out[st] = poly
+        return out
+
+    kind, asset = split_kind(name, kind)
+    pack = PACKS[kind]
+    style = pack["style_prefix"] + asset
+    url = asset_url(asset, kind)
+    scale = asset_scale(url, pack["scale"], verbose=verbose)
+    src = place_source(stage, cell, url, scale)
     if not src:
         raise RuntimeError("{0}: nothing composed".format(name))
     wins, bbox = gsl.window_centres(stage, src)
-    g, measured = gss.grid_for(stage, src, bbox, wins, name=name, verbose=verbose)
+    # BAKED-IN LANDSCAPING IS NOT THE BUILDING. A no-op for a pack whose
+    # `bbox_exclude` is empty (`gac`), and the ONE thing that has to happen
+    # before `grid_for`: `measure_grid` lattices its storey lines between
+    # `bbox` z0 and z1, so a roof garden that raises z1 by 10 m invents
+    # storeys of canopy the slicer would then ring.
+    bbox, trim_note = trim_bbox(stage, src, bbox, pack["bbox_exclude"],
+                                verbose=verbose)
+    g, measured = gss.grid_for(stage, src, bbox, wins, name=asset, verbose=verbose)
     planes = {}
-    rects = window_rects(stage, src, planes=planes)
+    rects = window_rects(stage, src, planes=planes,
+                         deny_mat=pack.get("glazing_material_deny"))
     # THE MESH IS READ HERE, BEFORE THE MASS BOX, NOT AFTER. `mass_from_grid`
     # measures the real roof-deck height (`deck_z`) off this same array's
     # upward faces -- everything that sits "on the roof" downstream
@@ -1018,9 +1583,39 @@ def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
     # debris"). The bake below still runs on this same `mesh`; nothing else
     # about it changes.
     mesh = gss.read_mesh(stage, src, verbose=False)
-    m = mass_from_grid(g, bbox, mesh=mesh)
+    # ...and the deck search must not land in the roof garden either: the
+    # top-15% band it walks is exactly where Amar_Tower's canopy is. Only
+    # the DECK MEASUREMENT sees the trimmed mesh; the atlas bake below still
+    # gets the whole thing. The FOOTPRINT scan below reads the same trimmed
+    # mesh, for the same reason (a roof-garden storey should not hull in the
+    # canopy either).
+    mesh_bldg = mesh_without_props(mesh, pack["bbox_exclude"])
+    m = mass_from_grid(g, bbox, mesh=mesh_bldg)
     n_st = len(m["levels"])
-    btype = "urm" if m["top"] - m["z0"] <= 25.0 else "rc"
+    # THE PLATE THE FIRE LADDER STANDS A CATCH FLOOR / HEAP ON IS NOT A BOX.
+    # See `_storey_footprints`'s own docstring above. Measured once here,
+    # off the same greenery-trimmed mesh the deck search just read, and
+    # handed through `fire["footprints"]` / this function's own return dict
+    # so `urban_fire._plate` can build a plan-accurate plate wherever one was
+    # measured.
+    footprints = _storey_footprints(mesh_bldg, m["levels"])
+    # CONSTRUCTION TYPE: THE MEASURED TABLE FIRST, HEIGHT ONLY AS A FALLBACK.
+    # `quake_sliced.CONSTRUCTION` is the one place in this repo where a
+    # per-asset construction judgement is allowed to live, and it already
+    # carries the three named downtowncity blocks (`Amar_Tower` -> rc_glass —
+    # a 231 m all-glass tower the height rule alone would call plain `rc`,
+    # `Building_11`/`Building_12` -> rc). Everything it does not name falls
+    # through to `construction_type`'s own height cut, which is the SAME
+    # 25 m rule this line used to be. GreatAmericanCity deliberately does NOT
+    # consult the table (`construction_table: False`): the GAC path is frozen
+    # against the kit look and the table would move most of the stock
+    # (`SM_Building_02` is `urm` there and `rc` by height).
+    H = m["top"] - m["z0"]
+    if pack["construction_table"]:
+        from . import quake_sliced as qs
+        btype = qs.construction_type(url, H=H)
+    else:
+        btype = "urm" if H <= 25.0 else "rc"
     info = {"style": style, "family": "01", "type": btype, "x": 0.0, "y": 0.0,
             "yaw": 0.0, "masses": {"main": m}, "elements": [],
             "H": m["top"] - m["z0"]}
@@ -1054,6 +1649,15 @@ def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
     # unchanged.
     fire["deck_z"] = m.get("deck_z")
     fire["deck_note"] = m.get("deck_note")
+    # the measured façade planes travel with the fire plan too: wall stamps
+    # (spall, halos, bars) are placed on THEM on the sliced path, not on the
+    # piece frame's bbox face (`urban_fire._stamp_pt`)
+    fire["planes"] = dict(planes or {})
+    # AND THE FOOTPRINTS RIDE ON `fire` TOO — same channel, same reason
+    # (`burn_gac` hands this exact dict object to `burn_building(fire=...)`,
+    # and a plain kit `plan_fire` return never carries this key, which is
+    # what keeps `urban_fire._plate`'s fallback box the kit path's only path).
+    fire["footprints"] = footprints
     provider = openings_provider(rects, m, planes=planes)
     ctx0 = {"info": info, "fire": fire, "rng": rng, "tag": tag,
             "soot_openings": provider}
@@ -1062,9 +1666,37 @@ def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
     for rname, kw in uf.LADDER.get(btype, {}).get(level, []):
         if rname == "smoke_stain":
             heavy = float((kw or {}).get("heavy", 1.0))
+    # `glass=True` HARDENS THE ALPHA INTO A FILM, which is what a curtain
+    # wall's soot is. `urban_fire._skin_of` already keys it off
+    # `ctx["info"]["type"] == "rc_glass"` for a kit building; this is the
+    # pre-slice skin's own copy of that decision, on the type this function
+    # just derived. A no-op on the `gac` path, whose height rule never
+    # returns `rc_glass`.
+    # THE BURN ZONE REACHES THE PRE-SLICE ATLASES TOO. `r_partial_collapse`
+    # writes `fire["burn_zone"]` at run time, which is after this skin has
+    # been baked into the unique atlases — so on a GAC building the scorch
+    # round the hole landed only on the per-piece (tiled) bakes and the
+    # brick beside the hole stayed pristine (third review, 2026-08-30).
+    # `plan_partial_collapse` is pure arithmetic on `info`/`fire`, so the
+    # plan is made HERE, its zone handed to the skin, and the plan itself
+    # handed on (`collapse_plan`) so `burn_gac` fits out the same storeys.
+    burn_zone, collapse_plan, kw_pc = None, None, None
+    for _rn, _kw in uf.LADDER.get(btype, {}).get(level, []):
+        if _rn == "partial_collapse":
+            kw_pc = dict(_kw or {})
+    if kw_pc is not None:
+        from . import fire_collapse as fcol
+        try:
+            collapse_plan = fcol.plan_partial_collapse(
+                {"info": info, "fire": fire, "tag": tag}, **kw_pc)
+            burn_zone = fcol.burn_zone_rects(collapse_plan, m)
+        except Exception as exc:                          # pragma: no cover
+            print("[gac_fire] burn-zone plan failed ({0}); the atlases get "
+                  "the plume only".format(exc))
     sk = spl.skin(ctx0, events, np.random.default_rng(spl.event_seed(ctx0) ^ 0x5EED),
-                  finish=fire.get("finish") or "char", glass=False,
-                  duration_scale=heavy)
+                  finish=fire.get("finish") or "char",
+                  glass=(btype == "rc_glass"), duration_scale=heavy,
+                  burn_zone=burn_zone)
     if verbose:
         print("[gac_fire] {0} {1}: {2:.0f} x {3:.0f} x {4:.0f} m, {5} storey(s), "
               "{6} window island(s), origin st{7} band {8}-{9} on {10}, {11}"
@@ -1079,8 +1711,11 @@ def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
     return {"name": name, "style": style, "src": src, "grid": g,
             "measured": measured, "rects": rects, "mass": m, "info": info,
             "btype": btype, "fire": fire, "provider": provider,
+            "collapse_plan": collapse_plan,
             "events": events, "skin": sk, "mesh": mesh, "sooted": sooted,
-            "heavy": heavy, "planes": planes}
+            "heavy": heavy, "planes": planes, "footprints": footprints,
+            "kind": kind, "asset": asset, "url": url, "scale": scale,
+            "trim_note": trim_note}
 
 
 def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
@@ -1111,10 +1746,16 @@ def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
     names = set(n for n, _kw in uf.LADDER.get(pre["btype"], {}).get(level, []))
     n_st = len(pre["mass"]["levels"])
     # the kit
+    # THE SYNTHETIC STYLE'S FAMILY FOLLOWS THE CONSTRUCTION TYPE.
+    # `register_style` hardcoded family "01" (urm), so `quake_flow.describe`
+    # typed every sliced building `urm` whatever `btype` said: rc ladders
+    # ran with masonry piers, timber slabs and residential furniture, and
+    # never the steel frame (Downtown pipeline review, 2026-08-30).
+    _family = {"urm": "01", "rc": "02", "rc_glass": "05"}.get(pre["btype"], "01")
     if use_baked_kit and kb.have_kit(name):
         pls, g2, meas2 = kb.load_kit(stage, cell, name, ssf)
         if style not in ub.STYLES:
-            gsl.register_style(g2, style, pieces_of=pls)
+            gsl.register_style(g2, style, pieces_of=pls, family=_family)
         from pxr import UsdGeom
         UsdGeom.Imageable(stage.GetPrimAtPath(src)).MakeInvisible()
     else:
@@ -1129,10 +1770,19 @@ def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
         roof_needed = (bool(fire.get("roof"))
                       or bool(names & {"roof_burnthrough", "fire_collapse"}))
         top = (n_st - 1) if roof_needed else int(fire["top"])
+        # FORCE_REGULAR_GRID: an explicit, named override (`PACKS[kind]`),
+        # not a side effect of `MIN_CONFIDENCE`. Building_12's measured grid
+        # already fails confidence and falls back to `regular_grid` today,
+        # but that is luck, not intent -- the user asked for a fixed grid on
+        # this asset ("You can just split it by fixed grid"), and this keeps
+        # that true even if the confidence scoring changes later.
+        force_regular = pre["asset"] in (
+            PACKS[pre["kind"]].get("force_regular_grid") or ())
         pls, g2, meas2 = gss.slice_to_kit(
             stage, src, cell, style, verbose=verbose,
             region={"origin": fire["origin"], "top": top,
-                    "sides": fire["sides"]})
+                    "sides": fire["sides"]}, family=_family,
+            force_regular=force_regular)
     n_rebound = rebind_sooted(stage, pls, sooted) if sooted else 0
     if verbose:
         print("[gac_fire] {0}: {1} piece(s), {2} subset(s) rebound to sooted "
@@ -1181,7 +1831,7 @@ def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
             if _rn == "partial_collapse":
                 kw_pc = dict(_kw or {})
         try:
-            _pc = fcol.plan_partial_collapse(
+            _pc = pre.get("collapse_plan") or fcol.plan_partial_collapse(
                 {"info": pre["info"], "fire": fire, "tag": tag}, **kw_pc)
             _lo = max(0, int(_pc["s0"]) - 2)
         except Exception as exc:                          # pragma: no cover
@@ -1231,7 +1881,8 @@ def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
                            openings_fn=provider, soot_prebaked=prebaked,
                            fire=fire, skin=pre["skin"], fit_storeys=fit_storeys)
     n_glass = damage_windows(stage, ctx, pls, rects=pre["rects"],
-                             mass=pre["mass"], sooted=sooted)
+                             mass=pre["mass"], sooted=sooted,
+                             deny_mat=PACKS[pre["kind"]].get("glazing_material_deny"))
     n_atlas = len(set(id(v) for k, v in sooted.items() if k != "_png"))
     ctx["gac"] = {"grid": pre["grid"], "events": events, "n_pieces": len(pls),
                   "n_atlases": n_atlas, "n_rebound": n_rebound,

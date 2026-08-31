@@ -131,19 +131,24 @@ def snapshot(path, frames=40):
 
 
 def views_around(stage, points, out_dir, ssf=1.0, top_h=60.0, obl_dist=45.0,
-                 obl_h=22.0, frames=40):
+                 obl_h=22.0, frames=40, azimuth_deg=225.0, aim_h=1.0):
     """Top-down + oblique capture for each named world point (metres).
 
     *ssf* is the stage's scene-scale factor (units per metre) so callers pass
-    metres. The oblique looks from the south-west, which keeps the sun on the
-    subject under the default sky.
+    metres. The oblique looks from the south-west by default (`azimuth_deg`
+    225 — the compass bearing of the CAMERA from the subject: 0 = east of it,
+    90 = north, 180 = west, 270 = south), which keeps the sun on the subject
+    under the default sky. A fire review wants the camera on the BURNING
+    elevation, aimed at the band (`aim_h`, metres above ground), not at the
+    doorstep (fire_row3, 2026-08-30: every capture showed the blank wall).
     """
     for name, (x, y) in points.items():
         X, Y = float(x) * ssf, float(y) * ssf
         place_camera(stage, (X, Y, top_h * ssf), (X, Y, 0.0))
         snapshot(os.path.join(out_dir, f"{name}_top.png"), frames)
-        d = obl_dist * ssf / math.sqrt(2.0)
-        place_camera(stage, (X - d, Y - d, obl_h * ssf), (X, Y, 1.0 * ssf))
+        a = math.radians(float(azimuth_deg))
+        cx_, cy_ = X + obl_dist * ssf * math.cos(a), Y + obl_dist * ssf * math.sin(a)
+        place_camera(stage, (cx_, cy_, obl_h * ssf), (X, Y, float(aim_h) * ssf))
         snapshot(os.path.join(out_dir, f"{name}_obl.png"), frames)
 
 

@@ -365,12 +365,195 @@ def test_rubble_v1_calls_heap_and_never_the_planner():
 
 
 # ---------------------------------------------------------------------------
+# (b2) round-4 wave 2b — the four newly-routed call sites (`r_infill_fail`,
+# `r_overturn`'s landing windrow, `r_collapse_onto`'s far-side "spill"
+# windrow, `_d_party_collapse`'s "banked" windrow). Running the real recipe
+# functions end to end needs a live USD stage (`_break`, `_roof_box`,
+# `fit_interior`, ...), which is out of reach here, so — matching (b) above
+# — each test calls `qf._rubble(ctx, m, **kwargs)` directly with the EXACT
+# kwargs the routed call site passes (copied from the source, and checked
+# against it below), and asserts `_heap`/`plan_pile` see the right
+# kind/sides/depth_m/spread_frac/offset_m/tag under `v1`/`v2`.
+# ---------------------------------------------------------------------------
+def _dispatch_check(**rubble_kwargs):
+    """Call `qf._rubble(ctx, _fake_mass(), **rubble_kwargs)` once under
+    `EQ_RUBBLE=v1` (with `_heap` swapped for a recorder) and once under
+    `v2` (with `plan_pile`/`author` swapped for recorders); returns
+    `(heap_kwargs_seen, plan_kwargs_seen)`."""
+    orig_heap = qf._heap
+    orig_plan = quake_rubble.plan_pile
+    orig_author = quake_rubble_usd.author
+    prev_mode = qf._RUBBLE_MODE
+    heap_seen, plan_seen = {}, {}
+
+    def fake_heap(ctx, m, base, h, spread_frac, fill=True, sides=None,
+                 depth_m=None, along=None, tag="heap", mat_fn=None,
+                 offset_m=0.0):
+        heap_seen.update(base=base, h=h, spread_frac=spread_frac, fill=fill,
+                         sides=sides, depth_m=depth_m, along=along, tag=tag,
+                         offset_m=offset_m)
+        return ["c0", "c1"]
+
+    def fake_plan_pile(m, btype, rng, **kw):
+        plan_seen.update(kw)
+        plan_seen["btype"] = btype
+        return {"mound": None, "apron": None, "large": [], "instances": {},
+                "stats": {}}
+
+    def fake_author(stage, parent, plan, mats=None, tag="rubble", uid=None,
+                    asset_root=None, flatten_instances=False):
+        return {"mound": None, "apron": None, "static": [], "instancers": [],
+                "large": [], "all": []}
+
+    try:
+        qf._heap = fake_heap
+        qf._RUBBLE_MODE = "v1"
+        qf._rubble(_fake_ctx(), _fake_mass(), **rubble_kwargs)
+    finally:
+        qf._heap = orig_heap
+
+    try:
+        quake_rubble.plan_pile = fake_plan_pile
+        quake_rubble_usd.author = fake_author
+        qf._RUBBLE_MODE = "v2"
+        qf._rubble(_fake_ctx(), _fake_mass(), **rubble_kwargs)
+    finally:
+        quake_rubble.plan_pile = orig_plan
+        quake_rubble_usd.author = orig_author
+        qf._RUBBLE_MODE = prev_mode
+
+    return heap_seen, plan_seen
+
+
+def test_r_infill_fail_routes_windrow_on_all_four_sides():
+    """The hollow-block apron under the dropped infill panels: `windrow` on
+    all four sides, `spread_frac=0.1` (so `EQ_RUBBLE=v1` draws the identical
+    low apron it always did — `_heap`'s `fill=False` reach comes from
+    `spread_frac`, not `depth_m`)."""
+    src = inspect.getsource(qf.r_infill_fail)
+    assert not re.search(r"\b_heap\(", src)
+    assert re.search(r'_rubble\(ctx, m, "windrow"', src)
+    assert re.search(r'sides=\("S", "E", "N", "W"\)', src)
+    assert "spread_frac=0.1" in src
+    assert 'tag="windrow"' in src
+
+    heap_seen, plan_seen = _dispatch_check(
+        kind="windrow", sides=("S", "E", "N", "W"), depth_m=0.45,
+        spread_frac=0.1, tag="windrow")
+    assert heap_seen["fill"] is False
+    assert heap_seen["sides"] == ("S", "E", "N", "W")
+    assert heap_seen["spread_frac"] == 0.1
+    assert heap_seen["depth_m"] == 0.45
+    assert heap_seen["tag"] == "windrow"
+    assert plan_seen["kind"] == "windrow"
+    assert plan_seen["sides"] == ("S", "E", "N", "W")
+    assert plan_seen["depth_m"] == 0.45
+
+
+def test_r_overturn_routes_landing_windrow_on_fall_side():
+    """The landing windrow marks where the toppled shell hits, on the
+    measured fall side (`og["fall"]`), offset out by `land - 2.5`;
+    `spread_frac=0.10` preserved for `v1`."""
+    src = inspect.getsource(qf.r_overturn)
+    assert not re.search(r"\b_heap\(", src)
+    assert re.search(r'_rubble\(ctx, m, "windrow", sides=\(og\["fall"\],\)', src)
+    assert "spread_frac=0.10" in src
+    assert 'tag="landing"' in src
+
+    heap_seen, plan_seen = _dispatch_check(
+        kind="windrow", sides=("N",), depth_m=0.9, spread_frac=0.10,
+        offset_m=3.5, tag="landing")
+    assert heap_seen["sides"] == ("N",)
+    assert heap_seen["spread_frac"] == 0.10
+    assert heap_seen["offset_m"] == 3.5
+    assert heap_seen["tag"] == "landing"
+    assert plan_seen["kind"] == "windrow"
+    assert plan_seen["sides"] == ("N",)
+    assert plan_seen["offset_m"] == 3.5
+
+
+def test_r_collapse_onto_routes_spill_windrow_on_neighbour_mass():
+    """`r_collapse_onto`'s far-side "spill" windrow is authored on the
+    NEIGHBOUR mass (`nm`), on the side away from the impact
+    (`_opposite(nside)`); `spread_frac=0.16` preserved for `v1`."""
+    src = inspect.getsource(qf.r_collapse_onto)
+    assert not re.search(r"\b_heap\(", src)
+    assert re.search(
+        r'_rubble\(ctx, nm, "windrow", sides=\(_opposite\(nside\),\)', src)
+    assert "spread_frac=0.16" in src
+    assert 'tag="spill"' in src
+
+    # the neighbour mass `nm` is a distinct mass dict from `m` — pass it
+    # through `_dispatch_check` explicitly by calling `_rubble` on it, same
+    # as the real call site does (`_rubble(ctx, nm, ...)`, not `ctx, m`).
+    heap_seen, plan_seen = _dispatch_check(
+        kind="windrow", sides=("W",), depth_m=0.6, spread_frac=0.16,
+        tag="spill")
+    assert heap_seen["sides"] == ("W",)
+    assert heap_seen["spread_frac"] == 0.16
+    assert heap_seen["tag"] == "spill"
+    assert plan_seen["kind"] == "windrow"
+    assert plan_seen["sides"] == ("W",)
+
+
+def test_party_collapse_routes_banked_windrow_on_neighbour_mass():
+    """`_d_party_collapse`'s "banked" windrow (the lost terrace unit's
+    rubble against the surviving party wall) is authored on the neighbour
+    mass (`nm`), on `nside` — the face the rubble banks against;
+    `spread_frac=0.18` preserved for `v1`."""
+    src = inspect.getsource(qf._d_party_collapse)
+    assert not re.search(r"\b_heap\(", src)
+    assert re.search(r'_rubble\(ctx, nm, "windrow", sides=\(nside,\)', src)
+    assert "spread_frac=0.18" in src
+    assert 'tag="banked"' in src
+
+    heap_seen, plan_seen = _dispatch_check(
+        kind="windrow", sides=("E",), depth_m=1.2, spread_frac=0.18,
+        tag="banked")
+    assert heap_seen["sides"] == ("E",)
+    assert heap_seen["spread_frac"] == 0.18
+    assert heap_seen["tag"] == "banked"
+    assert plan_seen["kind"] == "windrow"
+    assert plan_seen["sides"] == ("E",)
+
+
+def test_r_tilt_severe_and_ground_response_silt_stay_v1_only():
+    """`r_tilt_severe`'s and `_d_ground_response`'s "silt" windrows use
+    `mat_fn=lambda: ctx["mats"]["soil"]` — `_rubble` (both branches) never
+    forwards a `mat_fn`/material override, so routing either through it
+    would silently swap the soil tint for the default building-mix
+    material even under `EQ_RUBBLE=v1`, which is not "verbatim". Both stay
+    direct `_heap(...)` calls; this pins that down so a future edit that
+    routes them without also solving the material gap gets caught."""
+    for fn in (qf.r_tilt_severe, qf._d_ground_response):
+        src = inspect.getsource(fn)
+        assert re.search(r'_heap\(ctx, m, m\["z0"\], 0\.0, 0\.1[02],', src), (
+            "expected r_tilt_severe/_d_ground_response's silt _heap(...) "
+            "call to still be there, direct, with its mat_fn=soil override")
+        assert 'mat_fn=lambda: ctx["mats"]["soil"]' in src
+
+
+# ---------------------------------------------------------------------------
 # (c) no bare `_heap(` call left in any routed recipe (outside `_rubble`).
 # ---------------------------------------------------------------------------
 ROUTED_FUNCS = {
     "r_masonry_collapse": True, "r_pancake": True, "r_out_of_plane": True,
     "r_parapet_fall": True, "r_corner_fail": True, "_corner_break": False,
     "r_soft_storey": True,
+    # round-4 wave 2b: the remaining direct `_heap(...)` call sites, routed
+    # the same way. `r_infill_fail`'s apron, `r_overturn`'s landing windrow
+    # and `r_collapse_onto`'s far-side "spill" windrow and `_d_party_collapse`'s
+    # "banked" windrow (a helper `r_collapse_onto` calls for the terrace
+    # case, not a `r_*` recipe itself, but a real routed call site). NOT
+    # routed: `r_tilt_severe`'s and `_d_ground_response`'s "silt" windrows
+    # (`mat_fn=lambda: ctx["mats"]["soil"]` — `_rubble` forwards no material
+    # override in either branch, so routing them would silently change the
+    # v1-mode render, which is not "verbatim"), and `_d_roof_heap` (a small
+    # localised bump on a NEIGHBOUR's roof slab at an arbitrary offset, not
+    # a whole-footprint pile — outside `plan_pile`'s dome/windrow/fan
+    # vocabulary). See the routing table in the task report / skill.
+    "r_infill_fail": True, "r_overturn": True, "r_collapse_onto": True,
+    "_d_party_collapse": True,
 }
 
 

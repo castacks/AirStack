@@ -431,19 +431,33 @@ def test_apron_dome_only_and_lobed():
 
 
 # ---------------------------------------------------------------------------
-# round-4 review: chunk density up, flakes 300-600
+# round-5: coverage-derived density replaces the old fixed CHUNK_DENSITY/
+# FLAKE_N tables; a 30x30x55 rc dome's real HD-piece footprints are small
+# enough that the target coverage integral runs into the tens of thousands,
+# so the hard `RUBBLE_MAX_INSTANCES` cap is expected to engage on a pile
+# this size — see `test_coverage_hard_cap_engages_and_scales_proportionally`
+# below for the cap math itself.
 # ---------------------------------------------------------------------------
 
 def test_chunk_density_and_flake_count():
     m = _mass(30, 30, 55)
     plan = qr.plan_pile(m, "rc", random.Random(93), kind="dome")
-    n_flake = plan["stats"]["n_instances"]["flake"]
-    assert 300 <= n_flake <= 600
-    assert plan["stats"]["n_instances"]["chunk"] <= CHUNK_CAP_EXPECTED
-    assert plan["stats"]["n_instances"]["chunk"] > 500      # visibly denser than the old 0.3/m2 toe-anchored curve
-
-
-CHUNK_CAP_EXPECTED = 4000
+    st = plan["stats"]
+    n_flake = st["n_instances"]["flake"]
+    n_chunk = st["n_instances"]["chunk"]
+    # visibly denser than the old fixed-count design (both classes number in
+    # the hundreds to thousands on a building-scale dome), and never past
+    # the hard total cap.
+    assert n_flake > 300, n_flake
+    assert n_chunk > 300, n_chunk
+    # round-5 v8: the cap scales with the pile area (never below the flat
+    # default), and on a 22 x 18 m dome it no longer engages — chunks are
+    # accents over the cluster layer now (COVERAGE 0.45/0.30/0.15).
+    assert st["n_instances_total"] <= st["instance_cap"]
+    assert st["instance_cap"] >= qr.RUBBLE_MAX_INSTANCES
+    # this pile's coverage-derived estimate comfortably exceeds the 6000
+    assert st["instances_after_cap"] == st["n_instances_total"]
+    assert st["instances_before_cap"] >= st["instances_after_cap"]
 
 
 # ---------------------------------------------------------------------------
@@ -483,10 +497,20 @@ def test_windrow_and_fan_ridge_reaches_depth():
 # ---------------------------------------------------------------------------
 
 def test_look_tags():
+    """round-5: with `HD_CATALOGUE` populated (the normal case — this
+    checkout ships `assets/rubble_hd/catalogue.json`), chunk/flake carry NO
+    per-set look override any more (`look is None`) — each HD piece already
+    has its own real per-piece material (mixed brick/concrete for urm), and
+    a uniform per-set override would erase that variety. See
+    `test_look_tags_falls_back_to_flat_overrides_when_hd_catalogue_empty`
+    below for the pre-round-5 behaviour, still exercised when the HD library
+    is unavailable."""
+    assert qr.HD_CATALOGUE, "this checkout is expected to ship assets/rubble_hd/catalogue.json"
     m = _mass(22, 18, 15)
     plan = qr.plan_pile(m, "urm", random.Random(95), kind="dome", panels=[("/p", (2.0, 3.0, 0.3))])
-    assert plan["instances"]["chunk"]["look"] == "brick"
-    assert plan["instances"]["flake"]["look"] == "brick"
+    assert plan["stats"]["hd"] is True
+    assert plan["instances"]["chunk"]["look"] is None
+    assert plan["instances"]["flake"]["look"] is None
     assert plan["instances"]["cluster"]["look"] is None      # keeps its own referenced asset
     assert plan["instances"]["toe"]["look"] is None
     by_kind = {e["kind"]: e["look"] for e in plan["large"]}
@@ -500,7 +524,7 @@ def test_look_tags():
 
     m2 = _mass(30, 30, 55)
     plan2 = qr.plan_pile(m2, "rc", random.Random(96), kind="dome")
-    assert plan2["instances"]["chunk"]["look"] == "concrete"
+    assert plan2["instances"]["chunk"]["look"] is None
     by_kind2 = {e["kind"]: e["look"] for e in plan2["large"]}
     assert by_kind2["raft"] is None                          # keeps its own asset
     if "rebar" in by_kind2:
@@ -514,3 +538,280 @@ if __name__ == "__main__":
         if name.startswith("test_") and callable(fn):
             fn()
             print("ok  " + name)
+
+
+def test_mound_mesh_outline_is_the_lobe_not_the_grid():
+    """Round-4 Isaac pass: the heightfield mesh must not carry its flat
+    rectangular floor (a pale plaza / a straight cliff round every pile).
+    After `_trim_flat` no more than a handful of kept vertices may lie on
+    the grid's bounding rectangle, and the foot must be inside the domain
+    (the adaptive domain in `_build_dome_grid`)."""
+    import numpy as np
+    m = {"W": 22.0, "D": 18.0, "H": 20.0, "top": 20.0, "cx": 0.0, "cy": 0.0,
+         "yaw": 0.0, "z0": 0.0}
+    for seed, bt, sides in ((4, "urm", ("N", "W")), (4, "rc", ("S",)), (11, "urm", ("E",))):
+        plan = qr.plan_pile(m, bt, random.Random(seed), kind="dome", crown_m=5.6,
+                         spread_frac=0.27, sides=sides)
+        g = plan["mound"]["grid"]
+        x0, y0 = g["x0"], g["y0"]
+        xmax, ymax = x0 + (g["nx"] - 1) * g["dx"], y0 + (g["ny"] - 1) * g["dy"]
+        for key in ("mound", "apron"):
+            pts = np.asarray(plan[key]["points"])
+            faces = np.asarray(plan[key]["faces"])
+            assert len(faces) > 0
+            assert faces.max() < len(pts)
+            if key == "mound":
+                on_b = (np.isclose(pts[:, 0], x0) | np.isclose(pts[:, 0], xmax)
+                        | np.isclose(pts[:, 1], y0) | np.isclose(pts[:, 1], ymax)).sum()
+                assert on_b <= 0.02 * len(pts), (bt, key, on_b, len(pts))
+            # nothing at or below the ground plate
+            assert pts[:, 2].min() >= qr.MOUND_LIP_M - 1e-9
+
+
+def test_stats_carry_measured_extent_per_side():
+    m = {"W": 22.0, "D": 18.0, "H": 20.0, "top": 20.0, "cx": 10.0, "cy": -5.0,
+         "yaw": 30.0, "z0": 0.0}
+    plan = qr.plan_pile(m, "urm", random.Random(4), kind="dome", crown_m=5.6,
+                        spread_frac=0.27, sides=("N", "W"))
+    ext = plan["stats"]["extent_m"]
+    assert set(ext) == {"S", "E", "N", "W"}
+    assert all(v >= 0.0 for v in ext.values())
+    # the fall sides run further than the nominal reach says on the blind ones
+    assert ext["N"] >= plan["stats"]["reach_m"]["N"] - 0.5
+    assert max(ext.values()) > 3.0
+    # a rotated frame gives the same answer as the un-rotated one (yaw-invariant)
+    m0 = dict(m, yaw=0.0)
+    plan0 = qr.plan_pile(m0, "urm", random.Random(4), kind="dome", crown_m=5.6,
+                         spread_frac=0.27, sides=("N", "W"))
+    for k in ext:
+        assert abs(ext[k] - plan0["stats"]["extent_m"][k]) < 0.6, (k, ext, plan0["stats"]["extent_m"])
+
+
+# ---------------------------------------------------------------------------
+# round-5: HD prototype selection — per-set caps, material mix, reproducible
+# per pile, and the flat-catalogue fallback when HD_CATALOGUE is empty.
+# ---------------------------------------------------------------------------
+
+def test_hd_proto_selection_respects_caps_and_material_mix():
+    assert qr.HD_CATALOGUE, "this checkout is expected to ship assets/rubble_hd/catalogue.json"
+
+    proto_sets, used_hd = qr._select_proto_sets("urm", random.Random(5))
+    assert used_hd is True
+    assert 0 < len(proto_sets["chunk"]) <= qr.HD_PROTO_CAP["chunk"]
+    assert 0 < len(proto_sets["flake"]) <= qr.HD_PROTO_CAP["flake"]
+    assert proto_sets["raft"] == []                  # "URM has timber floors" — unchanged by HD
+    assert 0 < len(proto_sets["toe"]) <= qr.HD_PROTO_CAP["toe"]
+
+    for set_name in ("chunk", "flake"):
+        mats = [qr.HD_CATALOGUE[n]["material"] for n in proto_sets[set_name]]
+        n_minor = sum(1 for x in mats if x == "concrete")
+        n_major = len(mats) - n_minor
+        cap = qr.HD_PROTO_CAP[set_name]
+        brick_pool = qr._hd_names_by(set_name, ("brick",))
+        if len(brick_pool) >= cap - int(round(cap * qr.HD_URM_MINORITY_FRAC)):
+            # enough closed brick pieces: brick majority with a real concrete minority
+            assert n_major > n_minor > 0, (set_name, mats)
+            expect_minor = min(len(proto_sets[set_name]),
+                               int(round(len(proto_sets[set_name]) * qr.HD_URM_MINORITY_FRAC)))
+            assert n_minor == expect_minor, (set_name, n_minor, expect_minor)
+        else:
+            # round-5 v8c: the brick spread's pieces are open scan shells and
+            # almost none pass the closed/chunky filters — every brick piece
+            # that does is in the set, the rest tops up from concrete
+            assert n_major == len(brick_pool), (set_name, n_major, len(brick_pool))
+        # every chosen chunk is a closed, chunky piece (no standing foil)
+        if set_name == "chunk":
+            for n in proto_sets[set_name]:
+                assert qr._chunky(qr.HD_CATALOGUE[n]["size"]), n
+                assert qr._hd_open_frac(n) <= qr.HD_CHUNK_MAX_OPEN, (n, qr._hd_open_frac(n))
+        for n in proto_sets[set_name]:
+            assert qr._asset_entry(n) is not None, n
+
+    proto_sets_rc, used_hd_rc = qr._select_proto_sets("rc", random.Random(5))
+    assert used_hd_rc is True
+    assert len(proto_sets_rc["chunk"]) == qr.HD_PROTO_CAP["chunk"]
+    assert len(proto_sets_rc["flake"]) == qr.HD_PROTO_CAP["flake"]
+    assert len(proto_sets_rc["raft"]) == qr.HD_PROTO_CAP["raft"]
+    assert len(proto_sets_rc["toe"]) == qr.HD_PROTO_CAP["toe"]
+    # rc chunk/flake are concrete-only (no brick minority for a concrete building)
+    for set_name in ("chunk", "flake"):
+        mats = {qr.HD_CATALOGUE[n]["material"] for n in proto_sets_rc[set_name]}
+        assert mats == {"concrete"}, (set_name, mats)
+    # raft draws from BOTH the HD raft pool and the original authored slabs
+    assert set(proto_sets_rc["raft"]) & set(qr._RAFTS) or \
+        set(proto_sets_rc["raft"]) & set(qr._hd_names_by("raft", ("brick", "concrete")))
+
+    # reproducible per pile (same seed -> same draw)...
+    proto_sets_again, _ = qr._select_proto_sets("urm", random.Random(5))
+    assert proto_sets_again["chunk"] == proto_sets["chunk"]
+    assert proto_sets_again["flake"] == proto_sets["flake"]
+    # ...but two different piles (seeds) differ.
+    proto_sets_other, _ = qr._select_proto_sets("urm", random.Random(6))
+    assert proto_sets_other["chunk"] != proto_sets["chunk"]
+
+
+def test_hd_fallback_to_flat_sets_when_catalogue_forced_empty():
+    """Force `HD_CATALOGUE` empty (simulating a checkout with no
+    `assets/rubble_hd/` built yet) and confirm `plan_pile` still runs end to
+    end on the original flat-colour `PROTO_SETS`, with the pre-round-5
+    per-set "brick"/"concrete" look override back in effect."""
+    saved = qr.HD_CATALOGUE
+    try:
+        qr.HD_CATALOGUE = {}
+        proto_sets, used_hd = qr._select_proto_sets("urm", random.Random(5))
+        assert used_hd is False
+        assert proto_sets is qr.PROTO_SETS["urm"]
+
+        m = _mass(22, 18, 15)
+        plan = qr.plan_pile(m, "urm", random.Random(97), kind="dome")
+        assert plan["stats"]["hd"] is False
+        assert plan["instances"]["chunk"]["look"] == "brick"
+        assert plan["instances"]["flake"]["look"] == "brick"
+        assert plan["stats"]["floating"] == 0
+        assert plan["stats"]["n_instances_total"] > 0
+        # every drawn name is a real (old, flat) CATALOGUE entry
+        for name in plan["instances"]["chunk"]["protos"]:
+            assert name in qr.CATALOGUE
+
+        m2 = _mass(30, 30, 55)
+        plan2 = qr.plan_pile(m2, "rc", random.Random(98), kind="dome")
+        assert plan2["instances"]["chunk"]["look"] == "concrete"
+    finally:
+        qr.HD_CATALOGUE = saved
+
+
+# ---------------------------------------------------------------------------
+# round-5: coverage math (density = coverage / mean footprint area) and the
+# total-instance hard cap.
+# ---------------------------------------------------------------------------
+
+def test_mean_footprint_area_uses_coverage_and_scale_second_moment():
+    # a single 2x3 m (native) prototype, scale drawn uniformly in [1, 2]:
+    # E[scale^2] for U(1,2) = (1 + 2 + 4)/3 = 7/3; footprint area = 2*3 = 6.
+    qr.CATALOGUE["_test_mean_area_probe"] = {
+        "url": "does/not/matter.usdc", "size": (2.0, 3.0, 1.0),
+        "tris": 1, "kind": "chunk", "textured": False, "material": "concrete"}
+    try:
+        got = qr._mean_footprint_area(["_test_mean_area_probe"], (1.0, 2.0))
+        expect = 2.0 * 3.0 * (7.0 / 3.0)
+        assert abs(got - expect) / expect < 1e-9, (got, expect)
+    finally:
+        del qr.CATALOGUE["_test_mean_area_probe"]
+
+    # empty/unresolvable input never divides by zero downstream
+    assert qr._mean_footprint_area([], (1.0, 2.0)) > 0.0
+    assert qr._mean_footprint_area(["_not_a_real_asset_"], (1.0, 2.0)) > 0.0
+
+
+def test_zone_count_estimate_scales_inversely_with_mean_area():
+    """density = coverage / mean_area — halving the mean footprint area
+    should roughly double the estimated count for the SAME mound (the
+    integral of `_coverage_frac(rel) / mean_area` over the same cells)."""
+    rng = random.Random(12)
+    nrng = np.random.default_rng(rng.getrandbits(32))
+    m = _mass(30, 30, 55)
+    cell = qr._build_dome_grid(m, "rc", rng, nrng, None, {"S", "W"}, 0.0, None)
+    crown_actual, _vol, _slope = qr._summarize_mound([cell])
+
+    n_small = qr._zone_count_estimate([cell], crown_actual, 0.05)
+    n_big = qr._zone_count_estimate([cell], crown_actual, 0.10)
+    assert n_small > 0 and n_big > 0
+    ratio = n_small / n_big
+    assert 1.8 < ratio < 2.2, ratio
+
+    # non-positive crown/mean_area is defined as "nothing to place"
+    assert qr._zone_count_estimate([cell], 0.0, 0.05) == 0.0
+    assert qr._zone_count_estimate([cell], crown_actual, 0.0) == 0.0
+
+
+def test_trim_instances_to_cap_scales_every_set_proportionally():
+    instances = {
+        "chunk": qr._empty_instance_set(),
+        "flake": qr._empty_instance_set(),
+    }
+    for i in range(1000):
+        qr._append_instance(instances["chunk"], "a", (float(i), 0.0, 0.0), (1.0, 0, 0, 0), 1.0)
+    for i in range(400):
+        qr._append_instance(instances["flake"], "b", (float(i), 0.0, 0.0), (1.0, 0, 0, 0), 1.0)
+
+    before, after, capped = qr._trim_instances_to_cap(instances, 700)
+    assert before == 1400
+    assert after == 700
+    assert capped is True
+    n_chunk = len(instances["chunk"]["positions"])
+    n_flake = len(instances["flake"]["positions"])
+    assert n_chunk + n_flake == 700
+    # both sets scaled by roughly the SAME ratio (700/1400 = 0.5), not one
+    # zeroed out to satisfy the other
+    assert abs(n_chunk / 1000.0 - 0.5) < 0.02
+    assert abs(n_flake / 400.0 - 0.5) < 0.02
+
+    # a no-op when already within the cap
+    instances2 = {"chunk": qr._empty_instance_set()}
+    qr._append_instance(instances2["chunk"], "a", (0.0, 0.0, 0.0), (1.0, 0, 0, 0), 1.0)
+    before2, after2, capped2 = qr._trim_instances_to_cap(instances2, 6000)
+    assert (before2, after2, capped2) == (1, 1, False)
+
+
+def test_coverage_hard_cap_engages_and_scales_proportionally():
+    """A small `RUBBLE_MAX_INSTANCES` should visibly squeeze BOTH chunk and
+    flake counts down together (not zero one out), and the achieved
+    coverage stats should shrink along with it."""
+    saved_cap = qr.RUBBLE_MAX_INSTANCES
+    try:
+        m = _mass(30, 30, 55)
+        qr.RUBBLE_MAX_INSTANCES = 6000
+        saved_per_m2 = qr.RUBBLE_INSTANCES_PER_M2
+        qr.RUBBLE_INSTANCES_PER_M2 = 0.0        # pin the flat cap for this test
+        plan_uncapped = qr.plan_pile(m, "rc", random.Random(93), kind="dome")
+
+        qr.RUBBLE_MAX_INSTANCES = 300
+        plan_capped = qr.plan_pile(m, "rc", random.Random(93), kind="dome")
+
+        assert plan_capped["stats"]["instance_cap"] == 300
+        assert plan_capped["stats"]["instances_capped"] is True
+        assert plan_capped["stats"]["n_instances_total"] <= 300
+        assert plan_capped["stats"]["n_instances"]["chunk"] < plan_uncapped["stats"]["n_instances"]["chunk"]
+        assert plan_capped["stats"]["n_instances"]["flake"] < plan_uncapped["stats"]["n_instances"]["flake"]
+        assert plan_capped["stats"]["n_instances"]["chunk"] > 0
+        assert plan_capped["stats"]["n_instances"]["flake"] > 0
+        for zone in ("crown", "mid", "toe"):
+            assert (plan_capped["stats"]["coverage"][zone]["achieved"] <
+                    plan_uncapped["stats"]["coverage"][zone]["achieved"])
+            assert plan_capped["stats"]["coverage"][zone]["target"] == qr.COVERAGE[zone]
+        assert plan_capped["stats"]["floating"] == 0
+    finally:
+        qr.RUBBLE_MAX_INSTANCES = saved_cap
+        qr.RUBBLE_INSTANCES_PER_M2 = saved_per_m2
+
+
+def test_n_protos_and_hd_flag_in_stats():
+    m = _mass(22, 18, 15)
+    plan = qr.plan_pile(m, "urm", random.Random(41), kind="dome")
+    assert plan["stats"]["hd"] is True
+    n_protos = plan["stats"]["n_protos"]
+    assert set(n_protos) == {"chunk", "flake", "cluster", "toe"}
+    assert n_protos["chunk"] <= qr.HD_PROTO_CAP["chunk"]
+    assert n_protos["flake"] <= qr.HD_PROTO_CAP["flake"]
+    assert n_protos["chunk"] == len(plan["instances"]["chunk"]["protos"])
+
+
+# ---------------------------------------------------------------------------
+# round-5: floating stays 0 for the three plans used in the proof renders
+# (`tools/rubble_preview.py` runs; see `~/scorch_previews/rubble_r4/v7/`).
+# ---------------------------------------------------------------------------
+
+def test_nothing_floats_on_the_proof_render_plans():
+    urm_dome = _mass(22, 18, 20)
+    plan_urm_dome = qr.plan_pile(urm_dome, "urm", random.Random(4), kind="dome",
+                                 crown_m=5.6, sides=("N", "W"))
+    assert plan_urm_dome["stats"]["floating"] == 0
+
+    rc_dome = _mass(30, 30, 55)
+    plan_rc_dome = qr.plan_pile(rc_dome, "rc", random.Random(3), kind="dome")
+    assert plan_rc_dome["stats"]["floating"] == 0
+
+    urm_fan = _mass(22, 18, 20)
+    plan_urm_fan = qr.plan_pile(urm_fan, "urm", random.Random(31), kind="fan",
+                                sides=("S",), depth_m=0.8, elem_h_m=6.0)
+    assert plan_urm_fan["stats"]["floating"] == 0

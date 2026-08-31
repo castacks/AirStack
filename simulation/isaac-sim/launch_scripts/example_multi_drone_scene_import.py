@@ -548,6 +548,46 @@ FROZEN_KILL_STRAY_LIGHTS = (
 # Anything at or below this radius is a stray point source, not scene lighting.
 FROZEN_STRAY_LIGHT_MAX_R_M = 2.0
 
+# ---------------------------------------------------------------------------
+# FROZEN-CELL ASSET REBASE. The cell's textures are baked as ABSOLUTE PATHS
+# INSIDE THE BUILD CONTAINER, and most of what they point at is git-ignored.
+#
+# `freeze.export_scene` flattens with `collect=False` by design (positions are
+# baked; textures stay by reference), so every look in a cell still points
+# wherever it pointed on the build machine. MEASURED on
+# `fire_suburban_lvl1_1.usd` (2026-08-30): of 534 asset paths, 248 are
+# absolute `/isaac-sim/AirStack/scene_gen/assets/...` — 124 `materials`
+# (megascans road/asphalt/pavement, burn, 108 scorch decals), 92 `objaverse`
+# prop textures, 32 `aec` (the GRASS, DIRT and tree-bark MDLs).
+#
+# On a dev box those resolve, because the files are sitting there. On an OSMO
+# pod they cannot: `.gitignore` excludes `scene_gen/assets/aec/*` (line 112),
+# `objaverse/*` (107) and `materials/scorched/` (143), so a fresh clone has 1
+# tracked file under `aec`, 1 under `objaverse` and 380 of 13,164 under
+# `materials`. The ground is the most visible casualty — `ground/materials/
+# grass`, `grass_rough`, `grass_park` and `dirt` are the four AEC MDLs, and
+# they carry the 14 `ground_base` tiles that span the whole 1 km plate.
+#
+# The same tree IS mirrored on Nucleus at `Projects/SEI-COA/scene_gen/assets/`.
+# Measured by rebasing all 248 onto it: 228 resolve, and the only 20 that do
+# not are `materials/scorched/scorch_*.png` — per-build soot decals that were
+# never uploaded.
+#
+# So: rewrite the prefix at load time, and ONLY for a path that is genuinely
+# absent locally. That makes this a no-op on a machine that has the assets
+# (the dev box keeps using its own files) and a fix on a pod, which is the
+# same shape as `quake.load_manifest` rebasing stale archetype paths onto
+# ARCH_DIR.
+FROZEN_REBASE_ASSETS = (
+    os.environ.get("FROZEN_REBASE_ASSETS", "").strip().lower()
+    or "on") in ("1", "true", "yes", "on")
+FROZEN_ASSET_LOCAL_PREFIX = (os.environ.get("FROZEN_ASSET_LOCAL_PREFIX", "").strip()
+                             or "/isaac-sim/AirStack/scene_gen/assets/")
+FROZEN_ASSET_MIRROR = (os.environ.get("FROZEN_ASSET_MIRROR", "").strip()
+                       or os.environ.get("AIRSTACK_ASSET_ROOT", "").strip()
+                       or "omniverse://airlab-nucleus.andrew.cmu.edu:443/"
+                          "Projects/SEI-COA/scene_gen/assets/")
+
 # GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates.
 # Matches the Lisbon default in px4_config.yaml — change here to relocate the sim world.
 WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
@@ -984,6 +1024,156 @@ class PegasusApp:
                   SCENE_PARENT, timeout_s), flush=True)
         return False
 
+    def _rebind_frozen_overlays(self, stage):
+        """Re-author the material bindings the reference arcs threw away.
+
+        `_reference_frozen_scene` brings each `/World/<name>` in as its OWN
+        reference. That is what keeps the cell's PhysicsScene out and lets an
+        unknown disaster overlay come along unnamed — but it splits prims that
+        were siblings on one stage into separate composition arcs, and USD
+        DROPS a relationship whose target lies outside its own arc:
+
+            The relationship target </World/stage/generated/BurnLooks/band_0>
+            from </World/burnGround/band_0.material:binding> ... refers to a
+            path outside the scope of the reference from </World/burnGround>.
+            Ignoring.
+
+        Measured on `fire_suburban_lvl1_1.usd`: all 12 `/World/burnGround/
+        band_*` meshes bind to `/World/stage/generated/BurnLooks/band_*`, and
+        `/World/burnGround/BurnLooks` does not exist — so every band composes
+        with NO material and the burn scar renders DEFAULT GREY. The tornado
+        cells' `scourGround` is built the same way, so it is covered here too
+        rather than special-cased.
+
+        The repair is a local opinion on the live stage: after composition
+        both `/World/burnGround/band_0` and `/World/stage/generated/BurnLooks/
+        band_0` are real prims, and a binding authored here is not subject to
+        the reference-scope rule that dropped the original.
+
+        The cell itself is still wrong — a future freeze should author the
+        looks INSIDE the overlay scope (or compose the whole `/World` as one
+        arc) — but that needs a re-freeze, and this does not.
+        """
+        from pxr import Sdf, UsdShade
+
+        layer = Sdf.Layer.FindOrOpen(FROZEN_USD)
+        if layer is None:
+            print("[frozen-rebind] could not reopen the cell; skipping",
+                  flush=True)
+            return
+        world = layer.GetPrimAtPath("/World")
+        if world is None:
+            return
+
+        fixed = already = absent = 0
+        for scope in world.nameChildren:
+            if scope.name in ("PhysicsScene", "stage"):
+                continue
+            root = "/World/" + scope.name
+            for child in scope.nameChildren:
+                rel = child.relationships.get("material:binding")
+                if rel is None:
+                    continue
+                targets = list(rel.targetPathList.explicitItems)
+                if not targets:
+                    continue
+                target = targets[0]
+                # Inside its own arc: composed correctly, leave it.
+                if target.pathString.startswith(root + "/"):
+                    already += 1
+                    continue
+                prim = stage.GetPrimAtPath(child.path)
+                mat = stage.GetPrimAtPath(target)
+                if not (prim and prim.IsValid()):
+                    continue
+                if not (mat and mat.IsValid()):
+                    absent += 1
+                    continue
+                UsdShade.MaterialBindingAPI(prim).Bind(UsdShade.Material(mat))
+                fixed += 1
+
+        if fixed or absent:
+            print("[frozen-rebind] re-bound {0} cross-scope material binding(s)"
+                  "{1}".format(fixed,
+                               "; {0} target(s) missing on the stage".format(absent)
+                               if absent else ""), flush=True)
+        else:
+            print("[frozen-rebind] no cross-scope bindings to repair "
+                  "({0} already in scope)".format(already), flush=True)
+
+    def _rebase_local_assets(self, stage):
+        """Repoint build-machine texture paths at the Nucleus mirror.
+
+        See the FROZEN-CELL ASSET REBASE block near the top of this file for
+        the measurement. Only paths that are ACTUALLY ABSENT are rewritten, so
+        this does nothing on a machine that has the assets on disk.
+        """
+        from pxr import Sdf, UsdShade
+
+        if not FROZEN_REBASE_ASSETS or not FROZEN_ASSET_MIRROR:
+            print("[frozen-assets] rebase off — looks will resolve only where "
+                  "the build machine's paths exist", flush=True)
+            return
+
+        local = FROZEN_ASSET_LOCAL_PREFIX
+        mirror = FROZEN_ASSET_MIRROR.rstrip("/") + "/"
+        seen = kept = moved = 0
+        unresolved = []
+        for prim in stage.Traverse():
+            if not prim.IsA(UsdShade.Shader):
+                continue
+            for attr in prim.GetAttributes():
+                if attr.GetTypeName() != Sdf.ValueTypeNames.Asset:
+                    continue
+                val = attr.Get()
+                path = getattr(val, "path", "") or ""
+                if not path.startswith(local):
+                    continue
+                seen += 1
+                # WHEN THE CELL CAME FROM NUCLEUS, ALWAYS REWRITE — even if the
+                # file happens to exist on this machine.
+                #
+                # An absolute asset path inside a layer anchored on an
+                # `omniverse://` URL is resolved AGAINST THAT SERVER, not
+                # against the local filesystem. So on a pod, Kit turns
+                # `/isaac-sim/AirStack/scene_gen/assets/x.png` into
+                # `omniverse://<host>/isaac-sim/AirStack/scene_gen/assets/x.png`
+                # — which does not exist — and logs "References an asset that
+                # can not be found". Measured 2026-08-30: 659 files were staged
+                # onto a pod's local disk at 21:23, a run started at 21:31, and
+                # it still logged 505 not-found lines between 21:33 and 21:35
+                # for files that were present, non-zero and root-readable the
+                # whole time. Putting the bytes on local disk cannot fix a
+                # lookup that is being sent to a server.
+                #
+                # Only a LOCAL cell can trust a local path, and then it is left
+                # alone so a dev box keeps using its own files.
+                if not _FROZEN_URL and os.path.exists(path):
+                    kept += 1
+                    continue
+                rel = path[len(local):]
+                attr.Set(Sdf.AssetPath(mirror + rel))
+                moved += 1
+                unresolved.append(rel)
+
+        if not seen:
+            print("[frozen-assets] no build-machine paths in this cell",
+                  flush=True)
+            return
+        print("[frozen-assets] {0} baked '{1}' path(s): {2} present locally, "
+              "{3} repointed at {4}".format(seen, local, kept, moved, mirror),
+              flush=True)
+        # The 20 known stragglers are per-build scorch decals that were never
+        # uploaded. Name the families so a missing look is identifiable from
+        # the log rather than from a render.
+        if moved:
+            fams = {}
+            for rel in unresolved:
+                fams[rel.split("/")[0]] = fams.get(rel.split("/")[0], 0) + 1
+            print("[frozen-assets]   by tree: " + ", ".join(
+                "{0}={1}".format(k, v) for k, v in sorted(fams.items())),
+                flush=True)
+
     def _light_frozen_scene(self, stage):
         """Give the frozen cell a sky and a sun — it ships with neither.
 
@@ -1104,6 +1294,13 @@ class PegasusApp:
         app = omni.kit.app.get_app()
         for _ in range(30):
             app.update()
+        # Looks first: a texture that cannot resolve renders as a flat colour
+        # whatever the lighting is, and the rebase has to happen before
+        # anything asks the renderer for a frame.
+        self._rebase_local_assets(stage)
+        # Then the bindings the per-prim reference arcs dropped — without this
+        # the burn scar / mud scour render as untextured grey.
+        self._rebind_frozen_overlays(stage)
         # BEFORE the banner: the banner prints a census of what the cell is
         # lit by, and the honest answer has to include what we just added.
         self._light_frozen_scene(stage)

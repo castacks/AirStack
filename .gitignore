@@ -180,3 +180,8 @@ scene_gen/assets/standalone/*
 !scene_gen/assets/standalone/README.md
 scene_gen/assets/concrete_rubble_debris/*
 !scene_gen/assets/concrete_rubble_debris/README.md
+
+# round-5 HD debris piece library (split from the mirrored FAB spreads by
+# tools/split_debris_spreads.py; 840 usdc, 25 MB) — regenerate, do not track;
+# the catalogue is tracked
+scene_gen/assets/rubble_hd/*/

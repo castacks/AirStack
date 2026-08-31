@@ -1,0 +1,515 @@
+{
+ "bbox": [
+  -20.196556091308594,
+  -22.89501190185547,
+  -5.105714797973633,
+  28.749589920043945,
+  24.49586296081543,
+  73.04199490599137
+ ],
+ "cell": "/World/bake/g13",
+ "counts": {
+  "authored": 106,
+  "loose": 6,
+  "pieces": 220,
+  "prims": 5049,
+  "static": 509,
+  "usd_mb": 3.72
+ },
+ "default_prim": "/World",
+ "index": 13,
+ "kind": "gac",
+ "level": "DG4",
+ "name": "SM_Building_25",
+ "notes": [
+  "out_of_plane: 1 bay(s) x 2 storey(s) off S, 2 piece(s) down, 2 macroblock(s) at 76/84, 0 boundary pier(s) left, fan reach ~6.1 m",
+  "parapet_fall: 2 piece(s) off S over bays 0-1 of 2, windrow 0.45 m deep, reach ~2.0 m",
+  "parapet_fall: 2 piece(s) off N over bays 0-1 of 2, windrow 0.45 m deep, reach ~2.0 m",
+  "parapet_fall: 2 piece(s) off E over bays 0-1 of 2, windrow 0.45 m deep, reach ~2.0 m",
+  "corner_fail: SW corner, storeys 16-17 (1 bay at the bottom, 2 above), 8 piece(s) down, 0 boundary pier(s) left standing, fan pile on S+W",
+  "glass_loss: 11 pane(s) voided, 40 % of storeys 3-11 on S/N",
+  "roof_plant: 6 dropped to physics, 0 buried"
+ ],
+ "quake": {
+  "btype": "urm",
+  "crown_m": 0.8,
+  "extent_m": {
+   "E": 15.32,
+   "N": 12.18,
+   "S": 6.1,
+   "W": 6.25
+  },
+  "fall_sides": [
+   "S",
+   "N",
+   "E",
+   "W"
+  ],
+  "grade": "DG4",
+  "plan": {
+   "H": 73.06172059056169,
+   "btype": "urm",
+   "collapse": null,
+   "displaced": {
+    "/World/bake/g13/pieces/parapet_S_1_17_0212": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 83.81893353060266,
+     "pivot": [
+      6.518944134792958,
+      -14.27631768222641,
+      66.97324305115743
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": null,
+     "why": "macroblock off S at storey 16"
+    },
+    "/World/bake/g13/pieces/wall_S_1_16_0200": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 75.91453267628441,
+     "pivot": [
+      6.232157778248473,
+      -14.095114912180147,
+      62.91425862089203
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": null,
+     "why": "macroblock off S at storey 15"
+    }
+   },
+   "fit_ops": [],
+   "glass": [
+    "/World/bake/g13/pieces/wall_N_0_04_0057",
+    "/World/bake/g13/pieces/wall_N_0_05_0069",
+    "/World/bake/g13/pieces/wall_N_0_10_0129",
+    "/World/bake/g13/pieces/wall_N_1_04_0058",
+    "/World/bake/g13/pieces/wall_N_1_05_0070",
+    "/World/bake/g13/pieces/wall_N_1_08_0106",
+    "/World/bake/g13/pieces/wall_N_1_09_0118",
+    "/World/bake/g13/pieces/wall_S_0_10_0127",
+    "/World/bake/g13/pieces/wall_S_1_03_0044",
+    "/World/bake/g13/pieces/wall_S_1_06_0080",
+    "/World/bake/g13/pieces/wall_S_1_10_0128"
+   ],
+   "glass_bands": [
+    {
+     "frac": 0.4038611589650453,
+     "n": 11,
+     "sides": [
+      "S",
+      "N"
+     ],
+     "storeys": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    }
+   ],
+   "grade": "DG4",
+   "ground": null,
+   "interior": {
+    "sides": [
+     "S",
+     "W"
+    ],
+    "storeys": [
+     16,
+     17
+    ]
+   },
+   "macroblocks": [
+    {
+     "deg": 75.91453267628441,
+     "path": "/World/bake/g13/pieces/wall_S_1_16_0200",
+     "pivot": [
+      6.232157778248473,
+      -14.095114912180147,
+      62.91425862089203
+     ],
+     "side": "S",
+     "size": [
+      12.122312452264303,
+      1.000002965013719,
+      4.058984431570124
+     ],
+     "storey": 15
+    },
+    {
+     "deg": 83.81893353060266,
+     "path": "/World/bake/g13/pieces/parapet_S_1_17_0212",
+     "pivot": [
+      6.518944134792958,
+      -14.27631768222641,
+      66.97324305115743
+     ],
+     "side": "S",
+     "size": [
+      12.122312487873614,
+      2.0973991487612356,
+      2.026752965166196
+     ],
+     "storey": 16
+    }
+   ],
+   "notes": [
+    "out_of_plane: 1 bay(s) x 2 storey(s) off S, 2 piece(s) down, 2 macroblock(s) at 76/84, 0 boundary pier(s) left, fan reach ~6.1 m",
+    "parapet_fall: 2 piece(s) off S over bays 0-1 of 2, windrow 0.45 m deep, reach ~2.0 m",
+    "parapet_fall: 2 piece(s) off N over bays 0-1 of 2, windrow 0.45 m deep, reach ~2.0 m",
+    "parapet_fall: 2 piece(s) off E over bays 0-1 of 2, windrow 0.45 m deep, reach ~2.0 m",
+    "corner_fail: SW corner, storeys 16-17 (1 bay at the bottom, 2 above), 8 piece(s) down, 0 boundary pier(s) left standing, fan pile on S+W",
+    "glass_loss: 11 pane(s) voided, 40 % of storeys 3-11 on S/N"
+   ],
+   "panels": [],
+   "piles": [
+    {
+     "along": [
+      0.5,
+      1.0
+     ],
+     "authored": {
+      "n_all": 21,
+      "n_static": 17
+     },
+     "base_z": null,
+     "crown_est_m": 12.0,
+     "crown_m": null,
+     "depth_m": 0.8,
+     "elem_h_m": 6.08573739673632,
+     "fit": [],
+     "kind": "fan",
+     "mass": "main",
+     "offset_m": 0.0,
+     "panels": [],
+     "sides": [
+      "S"
+     ],
+     "spread_est": 0.27,
+     "spread_frac": null,
+     "stub_h_m": 0.0,
+     "tag": "oop_S"
+    },
+    {
+     "along": [
+      0.0,
+      1.0
+     ],
+     "authored": {
+      "n_all": 17,
+      "n_static": 13
+     },
+     "base_z": null,
+     "crown_est_m": 12.0,
+     "crown_m": null,
+     "depth_m": 0.45,
+     "elem_h_m": 2.0267676854111016,
+     "fit": [],
+     "kind": "windrow",
+     "mass": "main",
+     "offset_m": 0.0,
+     "panels": [],
+     "sides": [
+      "S"
+     ],
+     "spread_est": 0.27,
+     "spread_frac": null,
+     "stub_h_m": 0.0,
+     "tag": "parapet_S"
+    },
+    {
+     "along": [
+      0.0,
+      1.0
+     ],
+     "authored": {
+      "n_all": 21,
+      "n_static": 17
+     },
+     "base_z": null,
+     "crown_est_m": 12.0,
+     "crown_m": null,
+     "depth_m": 0.45,
+     "elem_h_m": 2.0293799614299814,
+     "fit": [],
+     "kind": "windrow",
+     "mass": "main",
+     "offset_m": 0.0,
+     "panels": [],
+     "sides": [
+      "N"
+     ],
+     "spread_est": 0.27,
+     "spread_frac": null,
+     "stub_h_m": 0.0,
+     "tag": "parapet_N"
+    },
+    {
+     "along": [
+      0.0,
+      1.0
+     ],
+     "authored": {
+      "n_all": 24,
+      "n_static": 20
+     },
+     "base_z": null,
+     "crown_est_m": 12.0,
+     "crown_m": null,
+     "depth_m": 0.45,
+     "elem_h_m": 2.0293945999747365,
+     "fit": [],
+     "kind": "windrow",
+     "mass": "main",
+     "offset_m": 0.0,
+     "panels": [],
+     "sides": [
+      "E"
+     ],
+     "spread_est": 0.27,
+     "spread_frac": null,
+     "stub_h_m": 0.0,
+     "tag": "parapet_E"
+    },
+    {
+     "along": null,
+     "authored": {
+      "n_all": 17,
+      "n_static": 13
+     },
+     "base_z": null,
+     "crown_est_m": 12.0,
+     "crown_m": null,
+     "depth_m": 0.8,
+     "elem_h_m": 6.085752185849337,
+     "fit": [],
+     "kind": "fan",
+     "mass": "main",
+     "offset_m": 0.0,
+     "panels": [],
+     "sides": [
+      "S",
+      "W"
+     ],
+     "spread_est": 0.27,
+     "spread_frac": null,
+     "stub_h_m": 0.0,
+     "tag": "corner_SW"
+    }
+   ],
+   "recipes": [
+    [
+     "out_of_plane",
+     {
+      "from_storey": 1,
+      "sides": 1
+     }
+    ],
+    [
+     "parapet_fall",
+     {
+      "frac": 0.9,
+      "sides": 3
+     }
+    ],
+    [
+     "corner_fail",
+     {
+      "storeys": 2
+     }
+    ],
+    [
+     "glass_loss",
+     {
+      "frac": [
+       0.4,
+       0.7
+      ],
+      "sides": 2
+     }
+    ]
+   ],
+   "regions": [
+    {
+     "bays": [
+      1
+     ],
+     "cells": [
+      [
+       "S",
+       16,
+       1
+      ],
+      [
+       "S",
+       17,
+       1
+      ]
+     ],
+     "recipe": "out_of_plane",
+     "side": "S",
+     "storeys": [
+      16,
+      17
+     ]
+    },
+    {
+     "cells": [
+      [
+       "S",
+       16,
+       0
+      ],
+      [
+       "S",
+       17,
+       0
+      ],
+      [
+       "S",
+       17,
+       1
+      ],
+      [
+       "W",
+       16,
+       0
+      ],
+      [
+       "W",
+       17,
+       0
+      ],
+      [
+       "W",
+       17,
+       1
+      ]
+     ],
+     "corner": "SW",
+     "recipe": "corner_fail",
+     "shape": [
+      {
+       "bays": 1,
+       "cells": 2,
+       "storey": 16
+      },
+      {
+       "bays": 2,
+       "cells": 4,
+       "storey": 17
+      }
+     ],
+     "sides": [
+      "S",
+      "W"
+     ],
+     "storeys": [
+      16,
+      17
+     ]
+    }
+   ],
+   "removed": [
+    "/World/bake/g13/pieces/corner_SW_0_16_0195",
+    "/World/bake/g13/pieces/parapet_E_0_17_0217",
+    "/World/bake/g13/pieces/parapet_E_1_17_0218",
+    "/World/bake/g13/pieces/parapet_N_0_17_0213",
+    "/World/bake/g13/pieces/parapet_N_1_17_0214",
+    "/World/bake/g13/pieces/parapet_S_0_17_0211",
+    "/World/bake/g13/pieces/parapet_W_0_17_0215",
+    "/World/bake/g13/pieces/parapet_W_1_17_0216",
+    "/World/bake/g13/pieces/parapet_corner_SW_0_17_0207",
+    "/World/bake/g13/pieces/wall_S_0_16_0199",
+    "/World/bake/g13/pieces/wall_W_0_16_0203",
+    "/World/bake/g13/pieces/wall_W_1_16_0204"
+   ],
+   "stats": {
+    "n_displaced": 2,
+    "n_glass": 11,
+    "n_macroblocks": 2,
+    "n_panels": 0,
+    "n_pieces": 220,
+    "n_piles": 5,
+    "n_removed": 12,
+    "n_storeys": 18,
+    "n_sub": 1,
+    "removed_frac": 0.05454545454545454
+   },
+   "storey_collapse": null,
+   "stub": null,
+   "style": "gac_SM_Building_25"
+  }
+ },
+ "rehome": {
+  "failed": 0,
+  "needed": 11,
+  "pruned": 0,
+  "rebound": 483,
+  "rehomed": 11
+ },
+ "root": "/World/bake",
+ "schema": 1,
+ "seed": 410,
+ "settle": {
+  "airborne_off": 0,
+  "baked": 6,
+  "below_grade": 0,
+  "bodies": 6,
+  "clamped": 0,
+  "converged": true,
+  "moved_max": 4.1188559421458075,
+  "moved_mean": 3.9877084208085534,
+  "quiet_used": 50,
+  "rescued": 0,
+  "solve_s": 3.708749294281006,
+  "spread_max": 0.08530188690582731,
+  "steps_cap": 7200,
+  "steps_used": 400,
+  "still_moving": 0,
+  "still_moving_paths": [],
+  "stop_reason": "rest"
+ },
+ "src_kept": false,
+ "tag": "g13",
+ "timings": {
+  "build_s": 25.5,
+  "export_s": 1.8,
+  "settle_s": 4.8,
+  "total_s": 42.9
+ },
+ "top_z": 73.04199490599137,
+ "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_25_DG4_s410.usd"
+}

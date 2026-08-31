@@ -69,7 +69,14 @@ EXTRA_CLASSES = {
     "urban_fire": ("Pool", "Parking Lot"),
     "tornado": ("Parking Lot",),
     "earthquake": ("Parking Lot",),
-    "hurricane": ("Pool", "Parking Lot"),
+    # `Defoliated Tree` and `Destroyed building` are hurricane-only for now.
+    # Both are real distinctions this disaster makes and the others do not
+    # express — see `_TREE_CLASS["hurricane"]` and `_HOUSE_DESTROYED`. Adding
+    # them here rather than to `CLASSES` keeps the fixed vocabulary fixed, so
+    # the already-frozen wildfire/tornado/earthquake cells do not change
+    # meaning.
+    "hurricane": ("Pool", "Parking Lot", "Defoliated Tree",
+                  "Destroyed building"),
 }
 
 # ---------------------------------------------------------------------------
@@ -101,10 +108,49 @@ _TREE_CLASS = {
 }
 _TREE_CLASS["urban_fire"] = _TREE_CLASS["wildfire"]
 _TREE_CLASS["earthquake"] = dict(_TREE_CLASS["tornado"])
+
+# HURRICANE STARTS FROM THE TORNADO LADDER AND ADDS THE ONE STATE THAT LADDER
+# HAS NO WORD FOR — and getting this wrong was exactly the failure the comment
+# above warns about, committed in this file.
+#
+# `hurricane.TREE_LEVELS` carries `defoliated`, and by design it is the
+# PLURALITY outcome at Cat 3: measured 1,100 of 1,684 trees on the level-3
+# plate. The tornado dict has no key for it, so `tree_class` fell through to
+# its `"Tree"` default and every one of those 1,100 trees was labelled as an
+# INTACT tree. A stripped-bare canopy and a full green one are the two most
+# different things a tree can look like from 400 m; training a detector that
+# they are the same class is worse than not labelling them at all.
+#
+# It is NOT `Fallen Tree` either — a defoliated tree is standing, rooted and
+# structurally whole. It needs its own word, so it gets one in
+# `EXTRA_CLASSES["hurricane"]` rather than being forced into the fixed
+# vocabulary, which is the split that dict already exists to express.
 _TREE_CLASS["hurricane"] = dict(_TREE_CLASS["tornado"])
+_TREE_CLASS["hurricane"]["defoliated"] = "Defoliated Tree"
 
 #: Every house level that is NOT this one is "Damaged building".
 _HOUSE_INTACT = "pristine"
+
+# ...EXCEPT WHERE A DISASTER ASKS FOR THE DESTROYED TIER.
+#
+# One `Damaged building` class for everything non-pristine throws away the
+# whole point of an eight-rung ladder: a house that lost some shingles and a
+# slab swept clean down to its plumbing get the same label, and a detector
+# trained on that cannot learn the difference the ladder exists to draw. It is
+# also out of step with how damage from nadir imagery is actually labelled —
+# FEMA's post-storm product and the xBD-style building-damage sets both
+# separate destroyed from damaged, because that boundary is the one that
+# drives response.
+#
+# Applied to HURRICANE ONLY, on purpose. The wildfire, tornado and earthquake
+# cells are already frozen against the two-class split; re-tiering them would
+# silently change the meaning of labels in a shipped dataset. `house_class`
+# therefore defaults to the old behaviour byte-for-byte and only a disaster
+# named here gets the finer split. Extending it to the others is a deliberate
+# re-label, not a bug fix.
+_HOUSE_DESTROYED = {
+    "hurricane": ("partial_collapse", "leveled", "swept"),
+}
 
 # ---------------------------------------------------------------------------
 # vehicles
@@ -150,8 +196,18 @@ def vehicle_class(usd):
     return "Car"
 
 
-def house_class(level):
-    return "Building" if level == _HOUSE_INTACT else "Damaged building"
+def house_class(level, disaster=None):
+    """Class for a house at damage `level`.
+
+    `disaster=None` reproduces the original two-class behaviour exactly, which
+    is what every frozen cell was labelled with. Pass a disaster to opt into
+    its finer tiers — see `_HOUSE_DESTROYED`.
+    """
+    if level == _HOUSE_INTACT:
+        return "Building"
+    if level in (_HOUSE_DESTROYED.get(disaster) or ()):
+        return "Destroyed building"
+    return "Damaged building"
 
 
 def tree_class(level, disaster="wildfire"):
@@ -239,7 +295,7 @@ def build(stage, info, ssf, disaster="wildfire", verbose=True):
 
     # ---- buildings --------------------------------------------------------
     for h in info.get("house_objects") or ():
-        add(house_class(h["level"]), h["prim_path"],
+        add(house_class(h["level"], disaster), h["prim_path"],
             damage_level=h["level"], style=h["style"],
             yaw_deg=round(h["yaw_deg"], 2),
             row_home=bool(h.get("row")),

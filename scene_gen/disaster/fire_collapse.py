@@ -276,6 +276,40 @@ RETURN_REACH_PAD_M = 1.0
 # is a bug, so it must be visible and not silent.
 MAX_EDGE_MODULES = 200
 
+# HOW BIG A GAP STILL COUNTS AS "TOUCHING", ON A SLICED BUILDING ONLY
+# (review fire_dtc3, 2026-08-30).
+#
+# `plan_edges`' adjacency test is `-0.25 w <= (dead_lo - live_hi) <= tol` with
+# `tol` at 0.6 m, which is exactly right for a KIT wall: `urban_building.
+# PIECES` gives a module its modelled panel extent and consecutive modules
+# butt — measured on `apartment` F5c, every neighbour of the hole sits
+# 0.07-0.09 m from it (`tools/tear_edge_probe.py`, table B).
+#
+# A SLICED piece is not a panel. It is the BOUNDING BOX OF A REGION CUT
+# (`gac_storey_slice._ring` -> `slice_to_kit`, whose placement carries
+# `_size` = the cut cell's world extent and whose `PIECES` row
+# `gac_slice.register_style` writes as `(sx, sy, sz, -sx/2, -sy/2, 0)`), so
+# it swallows whatever sills, cornices, reveals and balcony returns fall in
+# that cell — and consecutive cells' boxes therefore do NOT butt. Measured on
+# `gac_SM_Building_02_F5c_s193`, side S:
+#
+#     pier_S_0   [ 0.82,  3.89]      wall_S_1 starts  4.08   gap  0.19
+#     wall_S_1   [ 4.08,  9.75]      pier_S_2 starts  9.23   OVERLAP 0.52
+#     pier_S_2   [ 9.23, 12.30]      pier_S_3 starts 12.34   gap  0.04
+#     pier_S_3   [12.34, 15.42]      wall_S_4 starts 15.80   gap  0.38
+#                                    ...at storey 8: 16.40   gap  0.98
+#
+# The same two columns gap by 0.38 m at one storey and 0.98 m at the next, so
+# a fixed 0.6 m tolerance tears the boundary piece at storey 7 and silently
+# misses its twin at storey 8. That is `pier_S_3_09_0102` — one of the two
+# prims the user named — left with a factory slice seam on the lip of the
+# hole. So on a sliced piece the tolerance is scaled by the piece's OWN
+# width (a 3.07 m pier gets 1.38 m) and capped, and on a kit module nothing
+# changes at all: `is_sliced` is False, `tol` stays 0.6 m, and the frozen MCE
+# ladder draws exactly what it drew yesterday.
+EDGE_GAP_FRAC = 0.45
+EDGE_GAP_MAX_M = 1.6
+
 # ---------------------------------------------------------------------------
 # THE BURN ZONE (same review): "there are parts of the surface that look
 # pristine. Any parts directly near where the building collapsed (up, left,
@@ -403,6 +437,38 @@ def other_side(corner, side):
     """The OTHER elevation that meets `side` at `corner`."""
     a, b = corner_sides(corner)
     return b if a == side else a
+
+
+def is_sliced(e):
+    """Is this element a piece a WHOLE-ASSET building was sliced into?
+
+    A GreatAmericanCity / downtowncity block reaches the fire ladder as kit
+    placements cut out of one merged mesh (`detail/gac_storey_slice.
+    slice_to_kit`, `detail/gac_slice.slice_building`), and those two are the
+    only producers in the tree that stamp `_role` on a placement and address
+    it with a `slice://` / `gacslice://` url. Everything else — the
+    ModernCityEnvironment kit, the AEC brownstones — is a modelled module
+    with a real `urban_building.PIECES` row.
+
+    The distinction matters exactly once, in `plan_edges`: a modelled module's
+    footprint is its panel and butts its neighbour, a sliced piece's footprint
+    is the bbox of a region cut and does not. See `EDGE_GAP_FRAC`.
+    """
+    p = e.get("p") or {}
+    if p.get("_role"):
+        return True
+    return str(p.get("usd", "")).startswith(("slice://", "gacslice://"))
+
+
+def edge_gap_tol(e, w, tol):
+    """How far a dead module may sit from this one and still be "against" it.
+
+    `tol` on a modelled kit module (they butt); scaled by the piece's own
+    width, capped, on a sliced one (their bboxes do not). fire_dtc3.
+    """
+    if not is_sliced(e):
+        return float(tol)
+    return float(max(tol, min(EDGE_GAP_MAX_M, EDGE_GAP_FRAC * float(w))))
 
 
 def el_footprint(m, e):
@@ -864,6 +930,12 @@ def plan_edges(ctx, plan, m, prng, tol=0.6, budget=None):
     is `left` and `below` together); the caller unions their judges and breaks
     it ONCE, because `_break_split` deactivates the source prim.
 
+    `tol` is how big a gap between two footprints still counts as touching.
+    It is a CONSTANT on a modelled kit module and SCALED BY THE PIECE on a
+    sliced one (`edge_gap_tol`), because a sliced piece's footprint is the
+    bbox of a region cut and consecutive cells do not butt — the fire_dtc3
+    miss, see `EDGE_GAP_FRAC`.
+
     Returns a list of job dicts, sorted stably, each with numeric break lines
     already drawn from `prng` — so the geometry is assertable host-side and
     `_tear_perimeter` is only the USD authoring of it.
@@ -908,12 +980,13 @@ def plan_edges(ctx, plan, m, prng, tol=0.6, budget=None):
             j = None
             t0, t1 = el_span(m, e)
             w = max(0.3, t1 - t0)
+            etol = edge_gap_tol(e, w, tol)
             for a, b in dead.get((sd, s), ()):
-                if -0.25 * w <= (a - t1) <= tol:          # hole at higher t
+                if -0.25 * w <= (a - t1) <= etol:         # hole at higher t
                     j = j or _job(e)
                     if "left" not in j["classes"]:
                         j["classes"].append("left")
-                if -0.25 * w <= (t0 - b) <= tol:          # hole at lower t
+                if -0.25 * w <= (t0 - b) <= etol:         # hole at lower t
                     j = j or _job(e)
                     if "right" not in j["classes"]:
                         j["classes"].append("right")
@@ -1108,8 +1181,420 @@ def cut_subset(stage, path):
     return None
 
 
+# `quake_flow._clad_material` authors the piece's own cladding at
+# `<parent>/QuakeLooks/clad_<n>` — a triplanar around the texture the module
+# was bound to when it was broken, which on the GAC path is the SOOTED atlas
+# `gac_fire.rebind_sooted` had already put on it. It is the one material a
+# fragment can carry that is worth keeping; everything else `_break` /
+# `_break_split` can put on a prim is an invented core (mortar, dark
+# concrete, plaster) drawn because the piece had no readable texture at all.
+CLAD_PREFIX = "/QuakeLooks/clad_"
+
+
+def facade_material(stage, path):
+    """The piece's OWN cladding material if its prim binds one, else None.
+
+    THE GUARD ON `cut_only`. A fragment with no readable source texture is
+    bound an invented core material instead (`quake_flow._chunk_material` /
+    `_mat_fn`), and keeping THAT on the outward faces of a burnt shell puts a
+    pale mortar-grey patch on it — the "parts of the surface look pristine"
+    half of the same review. There is only a façade to save when there is a
+    façade material on the prim.
+    """
+    from pxr import UsdShade
+
+    pr = stage.GetPrimAtPath(path) if path else None
+    if not pr or not pr.IsValid():
+        return None
+    try:
+        m = UsdShade.MaterialBindingAPI(pr).GetDirectBinding().GetMaterial()
+    except Exception:
+        return None
+    if not m or not m.GetPrim().IsValid():
+        return None
+    return m if CLAD_PREFIX in str(m.GetPrim().GetPath()) else None
+
+
+# ---------------------------------------------------------------------------
+# THE TEAR'S OWN SKIN (review fire_dtc3, 2026-08-30)
+# ---------------------------------------------------------------------------
+# "the ragged break pieces that DO exist ... are a completely diff
+# texture/color from the wall they extend ... make them look like extensions
+# of the wall it's attached to" (user, fire_dtc3 bench, building b6 =
+# `gac_SM_Building_02_F5c_s193`).
+#
+# MEASURED ON THAT BAKE, `tools/frag_facade_probe.py`:
+#
+#   /World/bake/g6/pieces/pier_S_3_09_0102              st[84]
+#       sub mat_7 -> M_Building_01_WallBack_Inst_2cb1197b
+#                    diffuseColor = tex:sootbake_71a526c32141f479.png
+#   /World/bake/g6/brk_g6_pier_S_3_08_0086/frag_000     NO-UV
+#       prim      -> clad_0        (a WORLD TRIPLANAR of that same atlas)
+#       sub core  -> Char_2
+#
+# Two facts, and together they are the whole complaint:
+#
+#   * A FRAGMENT HAS NO UVs AT ALL. `fracture.prim_to_mesh` reads points,
+#     counts and indices and nothing else; `fracture._write_mesh` writes
+#     points, counts, indices, normals and extent and no `primvars:st`. So the
+#     piece's own material — which is a UV-mapped ATLAS — could not be bound
+#     to a fragment as things stood: every texel lookup would land on one
+#     pixel.
+#   * WHICH IS WHY `quake_flow._clad_material` EXISTS, and why it is a
+#     WORLD-SPACE TRIPLANAR (`damage._pbr(project_uvw=True)`). A triplanar is
+#     right for a TILEABLE map and wrong for a UNIQUE UNWRAP: a
+#     `sootbake_*.png` / `gacsoot_*.png` is the piece's own atlas, so
+#     projecting it through world coordinates at 0.45 repeats per metre
+#     smears whatever happens to sit at those atlas coordinates — a window
+#     reveal, roof felt, the sky patch in the corner of the sheet — across the
+#     break. That is the "completely diff texture/color", and before this
+#     change it was on 376 of 957 static fragments on the GAC building and
+#     335 of 636 on the MCE kit one (`tools/tear_edge_probe.py`, table C).
+#
+# So: give the fragment REAL UVs and bind the parent's OWN material, the
+# sooted copy `gac_fire.rebind_sooted` / `urban_fire._bind_soot` already put
+# on the piece. That is exact, not an approximation — the fragment's outward
+# faces ARE the parent's front surface, because `fracture.solidify`'s EXTRUDE
+# branch "keeps the FRONT surface" and puts every invented face behind it. So
+# for each fragment triangle there is a parent triangle it came off, and that
+# triangle's own UV plane, extended to the fragment's three corners, is the
+# mapping. The CUT faces are untouched: they are in the `core` GeomSubset and
+# `_refire` still writes the char there — which is the whole point, and is
+# what the previous round got right.
+#
+# THE PARENT MUST BE READ BEFORE IT IS FRACTURED. `_break_split` deactivates
+# the source prim, and a deactivated prim has no points; `_tear_perimeter`
+# therefore measures the façade first and hands the result forward.
+#
+# A façade test, the same one `fracture.face_subset` uses to decide which
+# faces are NOT the façade, so the two agree on what "outward" means.
+TEAR_OUT_COS = 0.30
+# How far off its own parent triangle one fragment corner may extrapolate,
+# in barycentric units. A corner is at most a cell's chew away from the
+# surface it came off; anything past this is a fragment that is not really
+# on the wall (a stray sliver), and clamping keeps its UVs inside the
+# neighbourhood of the island instead of shooting across the atlas.
+TEAR_BARY_CLAMP = 1.5
+# Cost bound. The search is (fragment triangles) x (parent façade triangles);
+# a GAC pier's façade is tens of triangles, but a curtain-wall cell can be
+# thousands, so the biggest-area ones are kept and the rest dropped. Area,
+# not a stride: the big triangles are the wall and the small ones are the
+# window mullions.
+TEAR_MAX_PARENT_TRIS = 2000
+TEAR_CHUNK = 128
+# The flat-tone fallback's roughness, and the sRGB -> linear exponent
+# `damage._pbr` wants (`quake_flow.materials`: "LINEAR albedo (damage._pbr):
+# screen grey ~ linear^0.42").
+TEAR_TONE_ROUGH = 0.92
+TEAR_TONE_GAMMA = 2.2
+TEAR_TONE_PREFIX = "/FireLooks/tear_"
+
+
+def _uv_primvar(prim):
+    """(name, primvar) of a mesh's texture-coordinate primvar, or (None, None).
+
+    Same test `urban_fire._mesh_arrays` makes — role first, then the four
+    names this stock actually uses — but it also returns the NAME, because a
+    fragment has to be given a primvar the parent's own material's
+    `UsdPrimvarReader_float2` will read. Authoring `st` under a material whose
+    reader asks for `st0` renders untextured, which is the same black
+    rectangle by another route.
+    """
+    from pxr import UsdGeom
+
+    for q in UsdGeom.PrimvarsAPI(prim).GetPrimvars():
+        if (q.GetTypeName().role == "TextureCoordinate"
+                or q.GetBaseName() in ("st", "uv", "UVMap", "st0")):
+            return str(q.GetBaseName()), q
+    return None, None
+
+
+def facade_skin(ctx, path, out_xy):
+    """The parent piece's FAÇADE surface, ready to re-skin its fragments.
+
+    Returns `{"tris": (T,3,3) world corners, "uv": (T,3,2), "uvname",
+    "mat": material path or None, "tex": base-colour url or None}` or None.
+
+    ONE SUBSET, THE ONE WITH THE MOST OUTWARD AREA. A sliced GAC piece binds
+    a material per source material (`gac_slice`: "ONE SUBSET PER ORIGINAL
+    MATERIAL"), so its façade can be two or three of them — brick, a band of
+    stone, the window frames. A fragment is ONE prim and takes ONE material,
+    so the honest answer is the material that owns most of the wall; the
+    alternative is authoring per-material subsets on every fragment, which
+    would put a mullion material on a 0.3 m chip of brick as often as not.
+
+    Must be called BEFORE `_break_split` deactivates `path`.
+    """
+    import numpy as np
+    from pxr import Usd, UsdGeom, UsdShade
+    from . import soot_bake as sb, urban_fire as uf
+
+    stage = ctx["stage"]
+    root = stage.GetPrimAtPath(path) if path else None
+    if not root or not root.IsValid() or not root.IsActive():
+        return None
+    out = np.asarray((float(out_xy[0]), float(out_xy[1]), 0.0), dtype=float)
+    ln_out = float(np.linalg.norm(out))
+    if ln_out < 1e-9:
+        return None
+    out = out / ln_out
+    xf = UsdGeom.XformCache()
+    best = None
+    for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdGeom.Mesh):
+            continue
+        arr = uf._mesh_arrays(prim)
+        if arr is None:                    # no texture coordinates: no carry
+            continue
+        uvname, _pv = _uv_primvar(prim)
+        if not uvname:
+            continue
+        M = np.array(xf.GetLocalToWorldTransform(prim), dtype=float)
+        Pw = arr["points"].astype(float) @ M[:3, :3] + M[3, :3]
+        subs = list(UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)))
+        groups = []
+        for s in subs:
+            ids = s.GetIndicesAttr().Get()
+            groups.append(([int(k) for k in ids] if ids else [], s.GetPrim()))
+        if not groups:
+            groups = [(None, prim)]
+        for face_ids, target in groups:
+            if face_ids is not None and not face_ids:
+                continue
+            tri, _tf, tslot = sb.triangles(arr["counts"], arr["indices"],
+                                           face_ids)
+            if not len(tri):
+                continue
+            C = Pw[tri]                                        # (T, 3, 3)
+            nrm = np.cross(C[:, 1] - C[:, 0], C[:, 2] - C[:, 0])
+            ln = np.linalg.norm(nrm, axis=1)
+            keep = (ln > 1e-12) & ((nrm @ out) > TEAR_OUT_COS * ln)
+            if not keep.any():
+                continue
+            area = 0.5 * float(ln[keep].sum())
+            if best is not None and area <= best["area"]:
+                continue
+            uvc = sb._corner_uv(tri, tslot, arr["uv"], arr["interp"],
+                                arr["uv_indices"])
+            C, uvc, ln = C[keep], uvc[keep], ln[keep]
+            if len(C) > TEAR_MAX_PARENT_TRIS:
+                sel = np.argsort(-ln)[:TEAR_MAX_PARENT_TRIS]
+                C, uvc = C[sel], uvc[sel]
+            mat = UsdShade.MaterialBindingAPI(target).ComputeBoundMaterial()[0]
+            mp = (str(mat.GetPrim().GetPath())
+                  if mat and mat.GetPrim().IsValid() else None)
+            best = {"area": area, "tris": C, "uv": uvc, "uvname": uvname,
+                    "mat": mp, "tex": _basecolor_url(mat)}
+    return best
+
+
+def _basecolor_url(mat):
+    """The base-colour texture a material feeds, as a url string, or None.
+
+    `damage._basecolor_texture` reads a MATERIAL PRIM; this takes the handle
+    `ComputeBoundMaterial` already returned, so the piece is only walked once.
+    """
+    from . import damage
+
+    if not mat or not mat.GetPrim().IsValid():
+        return None
+    try:
+        return damage._basecolor_texture(mat.GetPrim())
+    except Exception:                                         # pragma: no cover
+        return None
+
+
+def _bary(A, B, C, n, nn, P):
+    """Barycentric weights of `P` in triangle (A, B, C), EXTENDED off the
+    plane: the three weights still sum to exactly 1 for any `P`, because
+    cross(PB,PC) + cross(PC,PA) + cross(PA,PB) == n identically. Broadcasts —
+    `(T,3)` triangles against `(k,1,3)` points gives `(k,T,3)` weights, and
+    `(k,3)` against `(k,3)` gives `(k,3)`.
+    """
+    import numpy as np
+
+    PA, PB, PC = A - P, B - P, C - P
+    w0 = np.einsum("...i,...i->...", np.cross(PB, PC), n) / nn
+    w1 = np.einsum("...i,...i->...", np.cross(PC, PA), n) / nn
+    w2 = np.einsum("...i,...i->...", np.cross(PA, PB), n) / nn
+    return np.stack([w0, w1, w2], axis=-1)
+
+
+def project_uv(tris, uvs, corners, chunk=TEAR_CHUNK):
+    """faceVarying UVs for `corners` (F,3,3), read off the parent's surface.
+
+    PER FACE, NOT PER VERTEX. The parent's UVs are an ATLAS: two triangles
+    that touch in 3-D can be on opposite sides of the sheet. Choosing a
+    parent triangle per fragment VERTEX would therefore let one fragment
+    triangle straddle a UV island and stretch the whole atlas across it — the
+    smear this function exists to remove, back by another door. So the
+    triangle is chosen ONCE per fragment face, from its centroid, and all
+    three of that face's corners are read in THAT triangle's UV plane. The
+    corners may sit slightly off it (the chew, the roughening, the solidify
+    offset), so the weights are extrapolated rather than clamped to the
+    triangle, and only bounded by `TEAR_BARY_CLAMP`.
+
+    Returns (F,3,2) or None.
+    """
+    import numpy as np
+
+    T = np.asarray(tris, dtype=float)
+    U = np.asarray(uvs, dtype=float)
+    if not len(T) or not len(corners):
+        return None
+    A, B, C = T[:, 0], T[:, 1], T[:, 2]
+    n = np.cross(B - A, C - A)
+    nn = np.einsum("ij,ij->i", n, n)
+    ok = nn > 1e-18
+    if not ok.any():
+        return None
+    A, B, C, n, nn, U = A[ok], B[ok], C[ok], n[ok], nn[ok], U[ok]
+    corners = np.asarray(corners, dtype=float)
+    cen = corners.mean(axis=1)
+    out = np.zeros((len(corners), 3, 2), dtype=float)
+    for s in range(0, len(corners), int(max(1, chunk))):
+        e = min(len(corners), s + int(max(1, chunk)))
+        q = cen[s:e][:, None, :]                               # (k,1,3)
+        w = _bary(A[None], B[None], C[None], n[None], nn[None], q)
+        wc = np.clip(w, 0.0, 1.0)
+        wc = wc / np.maximum(wc.sum(axis=2, keepdims=True), 1e-12)
+        near = (wc[..., 0:1] * A[None] + wc[..., 1:2] * B[None]
+                + wc[..., 2:3] * C[None])                      # (k,T,3)
+        pick = np.argmin(np.linalg.norm(near - q, axis=2), axis=1)
+        Ap, Bp, Cp = A[pick], B[pick], C[pick]
+        npk, nnp, Up = n[pick], nn[pick], U[pick]
+        for j in range(3):
+            wj = _bary(Ap, Bp, Cp, npk, nnp, corners[s:e, j])
+            wj = np.clip(wj, -TEAR_BARY_CLAMP, TEAR_BARY_CLAMP)
+            out[s:e, j] = (wj[:, 0:1] * Up[:, 0] + wj[:, 1:2] * Up[:, 1]
+                           + wj[:, 2:3] * Up[:, 2])
+    return out
+
+
+def tone_material(ctx, sk):
+    """A FLAT tone sampled from the parent's own façade map — the fallback
+    for a piece whose UVs cannot be carried (no `primvars:st`, a degenerate
+    façade, an unreadable atlas).
+
+    SAMPLED OVER THE PIECE'S OWN UV BOX, not over the whole sheet: the map is
+    an atlas of the whole building, so its global mean is roof felt and sky
+    as much as it is wall. `soot_plume._read_rgb` is the reader the rest of
+    the fire pipeline uses (it can reach Nucleus), and the mean is converted
+    from screen to LINEAR because `damage._pbr` takes linear albedo.
+    """
+    import numpy as np
+    from . import damage, soot_plume as spl
+
+    tex = (sk or {}).get("tex")
+    if not tex:
+        return None
+    cache = ctx.setdefault("tear_tone", {})
+    uvbox = None
+    if sk.get("uv") is not None and len(sk["uv"]):
+        uv = np.asarray(sk["uv"], dtype=float).reshape(-1, 2)
+        uvbox = (float(uv[:, 0].min()), float(uv[:, 0].max()),
+                 float(uv[:, 1].min()), float(uv[:, 1].max()))
+    key = (tex, None if uvbox is None
+           else tuple(round(q, 2) for q in uvbox))
+    mat = cache.get(key)
+    if mat is not None:
+        return mat or None
+    img = spl._read_rgb(tex, max_px=512)
+    if img is None:
+        cache[key] = False
+        return None
+    img = np.asarray(img, dtype=np.float32)
+    if img.ndim == 2:
+        img = np.repeat(img[..., None], 3, axis=2)
+    img = img[..., :3]
+    if uvbox is not None:
+        h, w = img.shape[0], img.shape[1]
+        u0, u1, v0, v1 = uvbox
+        # `soot_bake.uv_position_map`'s convention, which every bake in this
+        # pipeline is written to: column = u * px, ROW 0 IS v = 1.
+        c0 = int(max(0, min(w - 1, math.floor((u0 % 1.0) * w))))
+        c1 = int(max(c0 + 1, min(w, math.ceil((u1 % 1.0 or 1.0) * w))))
+        r0 = int(max(0, min(h - 1, math.floor((1.0 - (v1 % 1.0 or 1.0)) * h))))
+        r1 = int(max(r0 + 1, min(h, math.ceil((1.0 - (v0 % 1.0)) * h))))
+        crop = img[r0:r1, c0:c1]
+        if crop.size:
+            img = crop
+    rgb = np.clip(img.reshape(-1, 3).mean(axis=0), 0.0, 1.0)
+    lin = tuple(float(q) ** TEAR_TONE_GAMMA for q in rgb)
+    mp = "{0}{1}{2}".format(ctx["parent"], TEAR_TONE_PREFIX,
+                            len([k for k in cache if cache.get(k)]))
+    mat = damage._pbr(ctx["stage"], mp, lin, TEAR_TONE_ROUGH)
+    cache[key] = mat
+    return mat
+
+
+def skin_fragment(ctx, sk, frag_path):
+    """Give ONE fragment the parent's UVs and the parent's own material.
+
+    Returns "uv" (the parent's map, carried), "tone" (the flat sampled
+    fallback) or None (nothing could be said about the parent, so the
+    fragment keeps whatever `_break_split` bound).
+
+    THE BIND IS WEAK ON PURPOSE (`quake_flow._bind`, not `_b_bind_over`).
+    A `strongerThanDescendants` bind on the prim beats the bindings on its
+    DESCENDANTS, and the `core` GeomSubset is a child prim — so binding the
+    façade strongly here would take the char off the cut faces, which is the
+    other half of the same review turned inside out.
+    """
+    from pxr import Sdf, UsdGeom, UsdShade, Vt
+    import numpy as np
+    from . import quake_flow as qf
+
+    if not sk:
+        return None
+    stage = ctx["stage"]
+    prim = stage.GetPrimAtPath(frag_path) if frag_path else None
+    if not prim or not prim.IsValid():
+        return None
+    mesh = UsdGeom.Mesh(prim)
+    pts = mesh.GetPointsAttr().Get()
+    cnt = mesh.GetFaceVertexCountsAttr().Get()
+    idx = mesh.GetFaceVertexIndicesAttr().Get()
+    if not pts or not cnt or not idx:
+        return None
+    cnt = np.asarray(cnt, dtype=np.int64)
+    if not cnt.size or int(cnt.min()) != 3 or int(cnt.max()) != 3:
+        return None      # `_write_mesh` writes triangles; this is not one
+    mat = (UsdShade.Material.Get(stage, sk["mat"]) if sk.get("mat") else None)
+    how = "uv"
+    if mat is None or not mat.GetPrim().IsValid():
+        mat, how = tone_material(ctx, sk), "tone"
+    if mat is None:
+        return None
+    if how == "uv":
+        M = np.array(UsdGeom.XformCache().GetLocalToWorldTransform(prim),
+                     dtype=float)
+        P = np.asarray([[q[0], q[1], q[2]] for q in pts], dtype=float)
+        W = P @ M[:3, :3] + M[3, :3]
+        uv = project_uv(sk["tris"], sk["uv"],
+                        W[np.asarray(idx, dtype=np.int64).reshape(-1, 3)])
+        if uv is None:
+            mat, how = tone_material(ctx, sk), "tone"
+            if mat is None:
+                return None
+        else:
+            pv = UsdGeom.PrimvarsAPI(prim).CreatePrimvar(
+                sk["uvname"], Sdf.ValueTypeNames.TexCoord2fArray,
+                UsdGeom.Tokens.faceVarying)
+            pv.Set(Vt.Vec2fArray([(float(a), float(b))
+                                  for a, b in uv.reshape(-1, 2)]))
+    qf._bind(stage, frag_path, mat)
+    ctx.setdefault("tear_faced", set()).add(frag_path)
+    return how
+
+
 def bind_break(ctx, path, mat, cut_only):
-    """Bind `mat` over a broken piece. Returns "cut" | "whole" | "skip".
+    """Bind `mat` over a broken piece.
+
+    Returns "cut" (the char went on the cut faces and the façade was kept),
+    "whole_nocore" (there was a façade to keep but the piece carries no
+    `core` subset to put the char in — `_t_core_bind` only runs on a piece
+    thick enough to solidify, so a clipped shell has none) or "whole".
 
     THE FAÇADE OF A PIECE THAT STAYS WHERE IT WAS IS STILL THE FAÇADE.
     Binding `_debris_mat` / `_burn_mat` over the whole prim
@@ -1123,14 +1608,40 @@ def bind_break(ctx, path, mat, cut_only):
 
     Loose fragments are NOT cut-only: they tumbled into the heap and every
     face of them is in the pile, which is the one place the dark end belongs.
+
+    ...AND A FRAGMENT `skin_fragment` HAS RE-SKINNED IS A FAÇADE TOO
+    (fire_dtc3, 2026-08-30). It carries the parent piece's own UVs and the
+    parent's own sooted material, which is not under `CLAD_PREFIX`, so
+    `facade_material` says no about the one binding that is most emphatically
+    yes. `ctx["tear_faced"]` is the register of those prims and it is
+    consulted first; without it the very fix that put the wall back on the
+    tear would be charred off again one call later, by `_refire`.
     """
     from . import quake_flow as qf
 
-    if cut_only:
+    faced = ctx.get("tear_faced") or ()
+    if cut_only and (path in faced
+                     or facade_material(ctx["stage"], path) is not None):
         sub = cut_subset(ctx["stage"], path)
         if sub:
             qf._b_bind_over(ctx["stage"], sub, mat)
             return "cut"
+        if path in faced:
+            # NO `core` SUBSET AND A CARRIED FAÇADE: `face_subset` found the
+            # split degenerate (every face outward), so there are no cut
+            # faces to char and charring the prim would take the wall off the
+            # only faces there are. Keep it.
+            return "kept"
+        if isinstance(ctx.get("soot_prebaked"), (set, frozenset)):
+            # A CLIPPED GAC SHELL HAS NO THICKNESS AND SO NO `core` SUBSET:
+            # its only "cut faces" are the hairline edges of the tear. Charring
+            # the whole fragment for their sake took the sooted atlas off the
+            # standing half of 724 pieces on SM_Building_05 F5c — the dark
+            # rectangles again. Keep the façade; the burn zone in the skin is
+            # what darkens the wall round the hole.
+            return "kept"
+        qf._b_bind_over(ctx["stage"], path, mat)
+        return "whole_nocore"
     qf._b_bind_over(ctx["stage"], path, mat)
     return "whole"
 
@@ -1156,15 +1667,18 @@ def _refire(ctx, loose_paths, static_paths):
     bay's standing half has not moved: its outward faces are the same wall
     the module next door still shows, so they keep the cladding/sooted atlas
     `_break_split`'s `static_mat` put on them and only the `core` subset —
-    the faces the fracture invented — takes the burn material. Returns
-    `(n_rebound, n_cut_only)`.
+    the faces the fracture invented — takes the burn material. A fragment
+    with no cladding to keep (no readable source texture, so `_break_split`
+    drew an invented core material for it) is charred whole as before —
+    `bind_break`'s own guard. Returns
+    `(n_rebound, n_cut_only, n_facade_but_no_core_subset)`.
     """
     from . import quake_flow as qf
     from . import urban_fire as uf
 
     f = ctx["fire"]
     finish = f.get("finish") or "char"
-    n = n_cut = 0
+    n = n_cut = n_nocore = 0
     # REINFORCEMENT IS STEEL, AND IT IS FIRE-BLACKENED STEEL: the quake
     # palette's `rebar` is a warm rust (0.30, 0.19, 0.13) that read as
     # scorched timber next to a black shell ("rods, probably structural.
@@ -1187,11 +1701,14 @@ def _refire(ctx, loose_paths, static_paths):
             continue
         if name.startswith(("joist", "rafter")):
             continue
-        if bind_break(ctx, pth, uf._burn_mat(ctx, finish, 0.85),
-                      cut_only=True) == "cut":
+        how = bind_break(ctx, pth, uf._burn_mat(ctx, finish, 0.85),
+                         cut_only=True)
+        if how == "cut":
             n_cut += 1
+        elif how == "whole_nocore":
+            n_nocore += 1
         n += 1
-    return n, n_cut
+    return n, n_cut, n_nocore
 
 
 # ---------------------------------------------------------------------------
@@ -1243,6 +1760,9 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
     f["burn_zone"] = plan["burn_zone"]
     ctx.pop("soot_skin", None)
     ctx["partial_collapse"] = plan
+    # per-run, not cumulative: one ctx is one building, but a bench that
+    # re-runs the recipe on the same ctx must not report yesterday's count.
+    ctx.pop("_tear_skin", None)
 
     with _own_rng(ctx, prng, pnrng):
         # A BURNT-OUT SHELL HAS NO FLAME IN IT, whatever the event list says.
@@ -1350,7 +1870,8 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
                     qf.r_droop(ctx, mass=mtag, side=sd,
                                storeys=set(plan["storeys"]), p=0.35)
         new_lo, new_st = _new_since(ctx, snap)
-        n_refire, n_refire_cut = _refire(ctx, new_lo, new_st)
+        n_refire, n_refire_cut, n_refire_nocore = _refire(
+            ctx, new_lo, new_st)
 
         # ---- 4. the slab that lost its bearing wall ----------------------
         n_slab = n_prop = 0
@@ -1395,6 +1916,16 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
         # lip). Everything on a surviving storey, and everything behind the
         # part of the elevation that still stands, is untouched: this is a
         # PARTIAL collapse and the rooms next door still have their walls.
+        #
+        # ...AND EVERYTHING ON A STOREY WHOSE WHOLE SLAB WENT DOWN IN STEP 4,
+        # region or no region. That is the case the review actually caught:
+        # `plan["drop"]` sends the topmost slab of the band to the solver as
+        # ONE plate, so a partition anywhere on that floor — including the
+        # far half of it, metres outside `plan["region"]` — is standing on
+        # nothing the moment the plate moves. Step 4 already takes the props
+        # off a dropped slab for exactly this reason and simply never learned
+        # about the partitions and the columns.
+        dropped = set(int(s) for (mt_d, s) in plan["drop"] if mt_d == mtag)
         n_fit = {"part": 0, "col": 0, "prop": 0}
         fit_now = ctx.get("fit") or {}
         killed = set(int(s) for s in plan["storeys"])
@@ -1429,7 +1960,9 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
         bc0 = _UsdGeom.BBoxCache(_Usd.TimeCode.Default(),
                                  [_UsdGeom.Tokens.default_])
         for p, mt_, s_, kind in cands:
-            if mt_ != mtag or s_ not in killed or not p or p in ctx["loose"]:
+            if mt_ != mtag or not p or p in ctx["loose"]:
+                continue
+            if s_ not in killed and s_ not in dropped:
                 continue
             pr = stage.GetPrimAtPath(p)
             if not pr or not pr.IsValid() or not pr.IsActive():
@@ -1455,12 +1988,15 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
                 sd = region_side(plan, m, lx, ly)
                 if sd is not None:
                     break
-            if sd is None:
+            if sd is None and s_ not in dropped:
                 continue
+            # A piece on a dropped slab that is nowhere near the loss simply
+            # falls; there is no wall for it to be thrown out through.
+            side_out = sd if sd is not None else None
             ctx["loose"].append(p)
             ctx["static_extra"] = [q for q in ctx["static_extra"] if q != p]
-            if throw:
-                ox, oy = qf._outward(m, sd)
+            if throw and side_out is not None:
+                ox, oy = qf._outward(m, side_out)
                 zf = min(1.0, max(0.0, (float(t[2]) - float(m["z0"])) / Hm))
                 v = THROW_BASE + THROW_TOP * zf + prng.uniform(-0.2, 0.3)
                 ctx["velocity"][p] = (ox * v, oy * v, -0.15 * v)
@@ -1545,11 +2081,12 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
         "partial collapse: {0} module(s) broken into {1} fragment(s), {2} "
         "stain(s) removed with them, {3} surviving module(s) at the edge of "
         "the hole torn on a wandering line, {4} piece(s) rebound off the "
-        "quake palette ({9} of them on the CUT faces only, façade kept), "
+        "quake palette ({9} on the CUT faces only with the façade kept, "
+        "{10} with a façade but no core subset to put the char in), "
         "{5} slab(s) + {6} prop(s) dropped, {7} static prim(s) "
         "swept into the loss, {8} rubble chunk(s)".format(
             n_broke, n_frag, n_art, n_edge, n_refire, n_slab, n_prop,
-            n_swept, n_heap, n_refire_cut))
+            n_swept, n_heap, n_refire_cut, n_refire_nocore))
     ctx["notes"].append(
         "partial collapse fit-out in the hole: {0} partition(s), {1} "
         "column(s), {2} prop(s) sent down (killed storeys {3}-{4} inside the "
@@ -1562,6 +2099,20 @@ def r_partial_collapse(ctx, mode="elevation", side=None, corner=None,
         "; burn zone {0} rect(s) on {1}".format(
             len(plan["burn_zone"]),
             "/".join(sorted(set(r[0] for r in plan["burn_zone"])))))
+    # THE TEAR SKIN (fire_dtc3, 2026-08-30). A static fragment counted under
+    # `uv` carries the parent piece's own texture coordinates and the parent's
+    # own (sooted) material, so it reads as the wall it broke off; `tone` is
+    # the flat colour sampled from that wall's own map where the UVs could not
+    # be carried; `none` is a fragment left on whatever `_break_split` bound,
+    # which on a piece with a readable atlas is `_clad_material`'s world
+    # triplanar — the smear the review named. `none` should be 0.
+    sk = ctx.get("_tear_skin") or {}
+    ctx["notes"].append(
+        "partial collapse tear skin: {0} fragment(s) carry the parent wall's "
+        "own UVs + material, {1} a tone sampled from its map, {2} left on the "
+        "break palette; {3} torn piece(s) had a readable facade, {4} did "
+        "not".format(sk.get("uv", 0), sk.get("tone", 0), sk.get("none", 0),
+                     sk.get("pieces", 0), sk.get("no_facade", 0)))
     return plan
 
 
@@ -1631,8 +2182,21 @@ def _tear_perimeter(ctx, plan, m, prng, jobs):
     reported as such (`no_static`), because the whole point of tearing rather
     than killing is that the wall is still there with a ragged end.
 
+    ...AND WHAT STAYS KEEPS THE WALL ON IT (fire_dtc3, 2026-08-30). The
+    façade of the piece is MEASURED before the split (`facade_skin` — the
+    source prim is deactivated by `_break_split` and cannot be read after)
+    and every STATIC fragment is then given the parent's own UVs and the
+    parent's own sooted material (`skin_fragment`). Without that a static
+    fragment carries `_clad_material`'s world triplanar of a UNIQUE atlas,
+    which is a smear of unrelated parts of the sheet and is what the user saw:
+    "the ragged break pieces that DO exist ... are a completely diff
+    texture/color from the wall they extend". The LOOSE fragments are not
+    skinned — they let go and fell, and the dark end is where they belong.
+
     Everything here draws from the PRIVATE `prng` and, through the ctx swap in
-    `_own_rng`, from the private `nrng` — zero shared draws.
+    `_own_rng`, from the private `nrng` — zero shared draws. `facade_skin` /
+    `skin_fragment` draw NOTHING at all, which is what lets the tear skin be
+    added to the frozen MCE kit path without moving one later outcome.
     """
     from . import damage, quake_flow as qf
 
@@ -1641,6 +2205,9 @@ def _tear_perimeter(ctx, plan, m, prng, jobs):
     pitch = qf._p_pitch(ctx)
     Hm = max(3.0, float(m["top"]) - float(m["z0"]))
     n = 0
+    skin_stats = ctx.setdefault("_tear_skin",
+                                {"uv": 0, "tone": 0, "none": 0, "pieces": 0,
+                                 "no_facade": 0})
     for j in jobs:
         if j.get("dropped"):
             continue
@@ -1677,6 +2244,15 @@ def _tear_perimeter(ctx, plan, m, prng, jobs):
                         return True
                 return False
         tex = damage.bound_texture(stage, path)
+        # MEASURED BEFORE THE SPLIT. `_break_split` deactivates the source and
+        # a deactivated prim has no points, so this is the last moment the
+        # wall's own surface can be read.
+        skin = facade_skin(ctx, path, e.get("out")
+                           or (qf._outward(m, j["side"]) + (0.0,)))
+        if skin is None:
+            skin_stats["no_facade"] += 1
+        else:
+            skin_stats["pieces"] += 1
         st_p, lo_p = qf._break_split(
             ctx, path, prng.randint(*EDGE_PIECES), judge,
             qf._mat_fn(ctx, tex, 0.35),
@@ -1686,6 +2262,11 @@ def _tear_perimeter(ctx, plan, m, prng, jobs):
         if not st_p and not lo_p:
             j["failed"] = True
             continue
+        # THE STANDING HALF IS STILL THAT WALL. Only the statics: a loose
+        # fragment is in the heap.
+        for q in st_p:
+            how = skin_fragment(ctx, skin, q)
+            skin_stats[how or "none"] += 1
         # The shards drop at the lip of the hole and join the heap under it:
         # they were never thrown, they let go, so this is a fraction of the
         # peeled wall's own `THROW_TOP` and it is biased downward.

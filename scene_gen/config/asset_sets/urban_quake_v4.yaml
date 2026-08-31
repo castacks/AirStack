@@ -1,0 +1,286 @@
+# ASSET SET: urban_quake_v4 — `urban_quake_v3` PLUS the 31 GreatAmericanCity
+# (GAC) merged buildings, each swapped at assembly for its OWN per-building
+# earthquake bake instead of a size-matched kit twin.
+#
+# WHY A NEW SWAP MECHANISM, NOT ANOTHER `same_art` ENTRY: `urban_quake_v3`
+# added the three ModernCityEnvironment originals, which get a size-matched
+# KIT TWIN (`kit_substitute.route()`'s `same_art` outcome — MBuilding01 ->
+# `commercial_mid`, etc.) because MCE *is* the kit's own art, re-assembled
+# (`kit_substitute.py`'s module docstring). GAC is a DIFFERENT pack with its
+# own real (if unnamed) parts — `route()` sends it to `'slice'`, never
+# `'kit'` (see `kit_substitute.check()`'s own GAC assertion) — so there is no
+# honest kit stand-in for a GAC building at all. The fix, landed this round
+# in parallel, is a per-building bake: `disaster.quake.decide_gac_building`
+# swaps a damaged GAC placement for ITS OWN quake bake at
+# `scene_gen/assets/gac_quake/gac_<name>_<grade>_s<seed>.usd` — see
+# `_plans/earthquake_round5_plan.md` and `decide_gac_building`'s own
+# docstring in `disaster/quake.py`. A GAC building with no bake at any grade
+# (the bakes do not exist on this host yet) is left pristine and falls
+# through to `_mono_pass`'s rigid lean/ruin fallback, exactly like a
+# same_art building `route()` refused — "as today", nothing regresses.
+#
+# `extends: urban_quake_v3`: every pool v3 already owns (the three MCE
+# originals + five fire-proven kit DG0 styles) rides through unchanged.
+# ONLY `midrise` and `tower` gain entries here, and they gain them with `+`
+# (APPEND), not a bare key — v3's own header explains why a bare key would
+# be wrong: it REPLACES the inherited pool rather than adding to it, which
+# is exactly the mistake that once collapsed the greenery pools to nothing
+# (`urban_gac.yaml`'s own warning, same trap). `rowhouse` and `intact` gain
+# nothing: no GAC building is anywhere near the ~21 m party-wall depth
+# `rowhouse` needs, and `intact` is pre-rezone filler that v3 itself never
+# put its own towers into either.
+#
+# WHICH POOL EACH BUILDING GOES IN: BY MEASURED HEIGHT, split at 45 m — the
+# gap `urban_quake_v3` itself left open (its own `midrise` tops out at 29 m,
+# MBuilding01; its own `tower` starts at 62.4 m, MBuilding05). Only two of
+# the 31 GAC buildings fall in the old midrise range (`_02` at 38.6 m,
+# `_24` at 43.2 m); every other one — 40.3 m up past 300 m — goes in `tower`.
+# `tower`'s own typology caps `height_max_m` at 65 in `downtown_earthquake`
+# (mirroring `midrise`'s draw), so the tallest GAC entries (`_16` at 312 m,
+# `_31` at 302 m) are listed here exactly as MBuilding02 already is at
+# 68.7 m against the same 65 m cap — they simply get selected far less often
+# than the shorter members of the pool, and `_31`'s 60.3 x 142.2 m footprint
+# (see `urban_gac.yaml`'s own note: "no ordinary downtown block holds it")
+# means it will rarely if ever actually fit a `tower` block here. That is
+# not a bug to work around in THIS file: `urban_gac.yaml`'s own `highrise`
+# typology exists precisely to give those extreme towers a district sized
+# for them, and `downtown_earthquake` (unlike `downtown_gac`) defines no
+# such typology — adding one is a PRESET change, out of scope for an asset
+# set. `tools/layout_dry_run.py --asset-set urban_quake_v4` reports what
+# actually gets placed; that report, not a guess here, is the bake shopping
+# list.
+#
+# CONSTRUCTION TYPE (the `material:` tag `disaster.quake._same_art_material`
+# reads — `quake_flow.FAMILY_TYPE`'s urm / rc / rc_glass vocabulary, NOT a
+# texture name): `gac_buildings.json` carries no construction-type field (it
+# is a pure geometry probe — W/D/H/points/tris/subsets), so the tag here is
+# read off `urban_gac.yaml`'s OWN classification, which is the closest thing
+# to ground truth this repo has for these assets:
+#   * urm  (masonry/brick) — the nine `brick_midrise` members PLUS `_01`
+#     and `_30` (both also members of that pool, see `urban_gac.yaml`
+#     lines 429-484: "GAC's mid rise brick buildings").
+#   * rc_glass — the ten `highrise` pool members, called out by name and by
+#     measurement in `urban_gac.yaml` (lines 553-627: "GLASS CURTAIN-WALL
+#     TOWERS ... metallic 0.82-0.97 with opacity 0.50-0.98").
+#   * rc — everything left over (`_08`, `_09`, `_11`, `_12`, `_19`, `_21`,
+#     `_22`, `_24`, `_27`, `_28`): plain concrete office/block towers in
+#     `urban_gac.yaml`'s `intact+`/`tower+` with neither the brick nor the
+#     glass call-out.
+#
+# `yaw-offset` and `tags` are copied VERBATIM from `urban_gac.yaml` — do not
+# re-derive them. They matter here even though `midrise`/`tower` use
+# `morphology: pack`, not `terrace`: `districts._pack_free` still hard-rejects
+# a `place_mid` (one modelled elevation) asset at a 2+-street-side slot and
+# scores every candidate's yaw against its `blank:`/`front:` metadata (see
+# `.agents/skills/urban-layout/SKILL.md` and `detail/districts.py::
+# _pack_free`'s own docstring) — dropping the tags would not error, it would
+# just let a blank wall face the sidewalk.
+extends: urban_quake_v3
+
+usds:
+  buildings:
+    midrise+:
+      # 38.6 m — 1-sided mid, front E, blank N,W,S. `brick_midrise` member
+      # (urban_gac.yaml line 445): urm.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_02.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["place_mid", "front:E", "blank:N,W,S"]
+        material: urm
+      # 29.0 x 58.0 x 43.2 m — 2-sided end, front N, blank W,S. Plain
+      # concrete block (no brick/glass call-out in urban_gac.yaml): rc.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_24.usd"
+        scale: 0.01
+        yaw-offset: 90
+        tags: ["place_end", "front:N", "blank:W,S"]
+        material: rc
+
+    tower+:
+      # ---- urm (brick_midrise members, minus _02/_24/_06_Small already
+      #      counted above or below by height) ---------------------------
+      # 29.1 x 28.4 x 55.4 m — 1-sided mid, front E, blank N,W,S.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_01.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["place_mid", "front:E", "blank:N,W,S"]
+        material: urm
+      # 28.9 x 29.0 x 63.3 m — 2-sided end, front S, blank N,W.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_03.usd"
+        scale: 0.01
+        yaw-offset: 270
+        tags: ["place_end", "front:S", "blank:N,W"]
+        material: urm
+      # 31.5 x 28.8 x 52.8 m — 1-sided mid, front E, blank N,W,S.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_04.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["place_mid", "front:E", "blank:N,W,S"]
+        material: urm
+      # 29.9 x 28.4 x 71.8 m — 1-sided mid, front E, blank N,W,S.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_05.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["place_mid", "front:E", "blank:N,W,S"]
+        material: urm
+      # 28.9 x 14.7 x 59.3 m — 1-sided mid, front E, blank N,W,S.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_06_Small.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["place_mid", "front:E", "blank:N,W,S"]
+        material: urm
+      # 28.8 x 14.7 x 71.3 m — 1-sided mid, front E, blank N,W,S.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_07.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["place_mid", "front:E", "blank:N,W,S"]
+        material: urm
+      # 28.4 x 28.4 x 69.0 m — 1-sided mid, front E, blank N,W,S.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_25.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["place_mid", "front:E", "blank:N,W,S"]
+        material: urm
+      # 14.3 x 28.4 x 69.2 m — 4-sided any, front E, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_26.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["front:E"]
+        material: urm
+      # 14.3 x 28.0 x 47.6 m — 1-sided mid, front E, blank N,W,S.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_29.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["place_mid", "front:E", "blank:N,W,S"]
+        material: urm
+      # 28.4 x 42.4 x 48.0 m — 4-sided any, front E, blank -. Windowed
+      # concrete (`M_Building_30_Win_Concrete`, urban_gac.yaml line 424) but
+      # kept in the `brick_midrise` terrace pool there for run-closing —
+      # tagged urm here too, consistent with that pool membership.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_30.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["front:E"]
+        material: urm
+
+      # ---- rc (plain concrete, no brick/glass call-out) -----------------
+      # 86.2 x 58.4 x 58.8 m — 4-sided any, front W, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_08.usd"
+        scale: 0.01
+        yaw-offset: 0
+        tags: ["front:W"]
+        material: rc
+      # 44.1 x 58.4 x 58.8 m — 2-sided end, front E, blank N,W.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_09.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["place_end", "front:E", "blank:N,W"]
+        material: rc
+      # 44.6 x 109.2 x 64.3 m — 4-sided any, front W, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_11.usd"
+        scale: 0.01
+        yaw-offset: 0
+        tags: ["front:W"]
+        material: rc
+      # 46.2 x 43.7 x 103.7 m — 4-sided any, front W, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_12.usd"
+        scale: 0.01
+        yaw-offset: 0
+        tags: ["front:W"]
+        material: rc
+      # 29.4 x 42.0 x 70.2 m — 4-sided any, front N, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_19.usd"
+        scale: 0.01
+        yaw-offset: 90
+        tags: ["front:N"]
+        material: rc
+      # 58.0 x 72.7 x 77.5 m — 3-sided corner, front E, blank W.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_21.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["place_corner", "front:E", "blank:W"]
+        material: rc
+      # 58.1 x 71.1 x 60.6 m — 4-sided any, front W, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_22.usd"
+        scale: 0.01
+        yaw-offset: 0
+        tags: ["front:W"]
+        material: rc
+      # 42.5 x 28.6 x 87.9 m — 4-sided any, front E, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_27.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["front:E"]
+        material: rc
+      # 44.5 x 71.1 x 77.3 m — 4-sided any, front S, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_28.usd"
+        scale: 0.01
+        yaw-offset: 270
+        tags: ["front:S"]
+        material: rc
+
+      # ---- rc_glass (glass curtain-wall towers, urban_gac.yaml's
+      #      `highrise` pool) -----------------------------------------------
+      # 86.0 x 60.1 x 135.2 m — 4-sided any, front E, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_10.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["front:E"]
+        material: rc_glass
+      # 29.9 x 44.5 x 139.9 m — 4-sided any, front N, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_13.usd"
+        scale: 0.01
+        yaw-offset: 90
+        tags: ["front:N"]
+        material: rc_glass
+      # 85.4 x 58.0 x 193.5 m — 4-sided any, front W, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_14.usd"
+        scale: 0.01
+        yaw-offset: 0
+        tags: ["front:W"]
+        material: rc_glass
+      # 84.5 x 56.9 x 230.5 m — 4-sided any, front E, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_15.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["front:E"]
+        material: rc_glass
+      # 84.5 x 56.9 x 312.0 m — 4-sided any, front N, blank -. Tallest GAC
+      # asset; height-matched against `tower`'s `height_max_m: 65` this will
+      # be selected rarely — see this file's header note.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_16.usd"
+        scale: 0.01
+        yaw-offset: 90
+        tags: ["front:N"]
+        material: rc_glass
+      # 85.4 x 57.4 x 135.3 m — 4-sided any, front E, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_17.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["front:E"]
+        material: rc_glass
+      # 42.0 x 42.0 x 150.1 m — 4-sided any, front W, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_18.usd"
+        scale: 0.01
+        yaw-offset: 0
+        tags: ["front:W"]
+        material: rc_glass
+      # 61.5 x 85.4 x 151.0 m — 3-sided corner, front N, blank W.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_20.usd"
+        scale: 0.01
+        yaw-offset: 90
+        tags: ["place_corner", "front:N", "blank:W"]
+        material: rc_glass
+      # 44.6 x 56.6 x 134.4 m — 4-sided any, front W, blank -.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_23.usd"
+        scale: 0.01
+        yaw-offset: 0
+        tags: ["front:W"]
+        material: rc_glass
+      # 60.3 x 142.2 x 302.2 m — 4-sided any, front E, blank -. Biggest
+      # footprint in the pool (142.2 m deep after its yaw-offset); see this
+      # file's header note on why it will rarely fit a `tower` block here.
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_31.usd"
+        scale: 0.01
+        yaw-offset: 180
+        tags: ["front:E"]
+        material: rc_glass

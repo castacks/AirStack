@@ -164,6 +164,11 @@ def _fit_report(stage, cell, ctx):
     loose = set(ctx.get("loose") or ())
     static = set(ctx.get("static_extra") or ())
     killed = set(int(s) for s in plan["storeys"])
+    # `plan["drop"]` sends a whole slab to the solver, so every piece of
+    # fit-out on that storey is unsupported wherever it is in plan — the
+    # same predicate step 4b uses.
+    dropped = set(int(s) for (mt, s) in plan["drop"]
+                  if mt == plan["mass"])
     xf = UsdGeom.XformCache()
     print("[break_probe] FIT-OUT vs the hole: mass {0}, killed storeys {1}, "
           "sides {2}, region {3}".format(
@@ -220,7 +225,8 @@ def _fit_report(stage, cell, ctx):
         state = ("loose" if path in loose else
                  "static" if path in static else "unlisted")
         active = p.IsActive()
-        should = (sd is not None and storey in killed)
+        should = ((sd is not None and storey in killed)
+                  or storey in dropped)
         seen[(kind, should, state, active)] += 1
         if should or kind == "part":
             print("    {0:<40} storey {1!s:<4} z {2:7.2f}  region {3!s:<5} "

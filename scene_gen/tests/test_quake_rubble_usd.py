@@ -1093,7 +1093,12 @@ def test_rot_deg_and_orientation_convention_matches_usd():
         bury = entry.get("bury", 0.0)
         zmin_rel, zmax_rel = qr.rotated_extent(size, scale, rot)
         thickness = max(1e-3, zmax_rel - zmin_rel)
-        expected = qr.surface_z(plan["mound"], x, y) - bury * thickness
+        # mirrors `place()`'s round-5 burial cap: a piece is sunk by a
+        # fraction of its own UNROTATED height, never of the tilt-inflated
+        # rotated extent (the GAC pilot's 5 m-buried clusters)
+        size_z = float(entry["size"][2]) * float(entry.get("scale", 1.0))
+        bury_m = bury * min(thickness, size_z * 1.5 + 0.30)
+        expected = qr.surface_z(plan["mound"], x, y) - bury_m
 
         n_large_checked += 1
         if abs(got_min_z - expected) >= large_tol:
@@ -1133,7 +1138,11 @@ def test_rot_deg_and_orientation_convention_matches_usd():
             continue
         got_min_z = float(rng_bnd.GetMin()[2])
 
-        size = qr.CATALOGUE[name]["size"]
+        # round-5: `name` may be an HD_CATALOGUE piece (the planner now mixes
+        # those into chunk/flake/raft/toe), so resolve through BOTH
+        # catalogues the same way `quake_rubble._asset_entry` does — a bare
+        # `qr.CATALOGUE[name]` KeyErrors on an HD name.
+        size = (qr.CATALOGUE.get(name) or qr.HD_CATALOGUE.get(name))["size"]
         zmin_rel, _zmax_rel = qr.rotated_extent(size, scl, ori)
         expected = float(pos[2]) + zmin_rel
 
@@ -1153,6 +1162,90 @@ def test_rot_deg_and_orientation_convention_matches_usd():
     assert n_inst_checked > 0, "no instancer positions resolved to check"
     assert not failures, "{0} piece(s) failed the rot_deg/orientation " \
         "convention cross-check (see printed MISMATCH lines)".format(len(failures))
+
+
+def test_hd_prototypes_get_per_asset_tint_and_respect_proto_caps():
+    """round-5: `quake_rubble.plan_pile`'s HD-backed chunk/flake/toe instance
+    sets (`disaster.quake_rubble.HD_CATALOGUE`, 840 textured pieces split
+    from the FAB spreads) carry NO per-set look override (`look is None`) —
+    each prototype instead binds its OWN per-asset dust-tinted material
+    (`_textured_debris_look`, the SAME round-4 v5 pattern
+    `test_textured_cluster_gets_dust_tint_override` above already proves for
+    a single FAB spread) so the real per-piece photographic texture and its
+    material-correct tint (brick vs concrete) survive per prototype, rather
+    than every instance in the set being forced to the same uniform look.
+    Also checks the round-5 contract's other half: the number of prototype
+    prims authored under one instancer never exceeds `quake_rubble.
+    HD_PROTO_CAP` for that set (chunk 24 / flake 16 / toe 8)."""
+    from disaster import quake_rubble as qr
+
+    assert qr.HD_CATALOGUE, "this checkout is expected to ship assets/rubble_hd/catalogue.json"
+
+    import random
+    rng = random.Random(7)
+    n_storeys = 10
+    z0, top = 0.0, 30.0
+    levels = [z0 + i * (top - z0) / n_storeys for i in range(n_storeys)]
+    m = {"cx": 0.0, "cy": 0.0, "W": 20.0, "D": 14.0, "yaw": 0.0,
+         "z0": z0, "top": top, "levels": levels}
+    plan = qr.plan_pile(m, "rc", rng, kind="dome")
+    assert plan["stats"]["hd"] is True
+    assert plan["instances"]["chunk"]["look"] is None
+    assert plan["instances"]["flake"]["look"] is None
+
+    # the REAL local debris mirror (not `qru.ASSET_ROOT`, a Nucleus
+    # omniverse:// URL) — `_reference_diffuse_texture` needs actual files to
+    # open and read a texture path out of.
+    local_asset_root = os.path.normpath(os.path.join(_HERE, "..", "assets"))
+    st = _new_stage()
+    parent = "/World/Bldg"
+    out = qru.author(st, parent, plan, tag="hd", asset_root=local_asset_root)
+
+    n_checked_protos = 0
+    for set_name in ("chunk", "flake", "toe"):
+        inst = plan["instances"][set_name]
+        if not inst["positions"]:
+            continue
+        matches = [p for p in out["instancers"] if p.endswith("_" + set_name)]
+        assert len(matches) == 1, (set_name, out["instancers"])
+        ipath = matches[0]
+
+        cap = qr.HD_PROTO_CAP[set_name]
+        assert 0 < len(inst["protos"]) <= cap, (set_name, len(inst["protos"]), cap)
+
+        proto_scope = Sdf.Path(ipath).AppendChild("Prototypes")
+        proto_children = list(st.GetPrimAtPath(proto_scope).GetChildren())
+        assert len(proto_children) == len(inst["protos"]), (set_name, len(proto_children))
+
+        for name in inst["protos"]:
+            entry = qr.HD_CATALOGUE[name]
+            proto_path = proto_scope.AppendChild(qru._safe_name(name))
+            proto_prim = st.GetPrimAtPath(proto_path)
+            assert proto_prim.IsValid(), proto_path
+
+            api = UsdShade.MaterialBindingAPI(proto_prim)
+            mat, _rel = api.ComputeBoundMaterial()
+            assert mat and mat.GetPrim().IsValid(), (set_name, name)
+            expect_path = "{0}/QuakeLooks/rubble_tex_{1}".format(parent, name)
+            assert str(mat.GetPath()) == expect_path, (set_name, name, mat.GetPath())
+
+            direct = api.GetDirectBinding()
+            strength = UsdShade.MaterialBindingAPI.GetMaterialBindingStrength(direct.GetBindingRel())
+            assert strength == UsdShade.Tokens.strongerThanDescendants, (set_name, name, strength)
+
+            sh = UsdShade.Shader(st.GetPrimAtPath(str(mat.GetPath()) + "/Shader"))
+            assert sh
+            assert sh.GetInput("diffuse_texture").Get() is not None, (set_name, name)
+            expect_tint = qru._TEXTURED_DUST_TINT_BY_MATERIAL.get(
+                str(entry.get("material") or "").lower(), qru._TEXTURED_DUST_TINT)
+            tint = sh.GetInput("diffuse_tint").Get()
+            assert tint is not None
+            assert all(abs(tint[i] - expect_tint[i]) < 1e-6 for i in range(3)), \
+                (set_name, name, tint, expect_tint)
+            n_checked_protos += 1
+
+    assert n_checked_protos > 0, "no HD prototype resolved to check"
+    print("  {0} HD prototypes checked across chunk/flake/toe".format(n_checked_protos))
 
 
 if __name__ == "__main__":

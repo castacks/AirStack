@@ -148,6 +148,43 @@ def test_manifest():
         len(ents), [e["seed"] for e in ents]))
 
 
+def test_out_stem_city_fields():
+    """`out_stem` folds a city-cell entry's `origin`/`sides` into the cache
+    key `tools/fire_city_bake.sh` will check before baking anything twice
+    (`urban_fire_city_plan.md` sec 3) — and MUST leave a plain row entry
+    (both absent, every `fire_bake.sh`/`gac_fire_bench_launch_script` row
+    today) with the exact stem it has always had, or every bake already on
+    disk goes stale."""
+    base = {"kind": "gac", "name": "SM_Building_04", "level": "F4",
+            "seed": 1013, "origin": None, "sides": None, "index": 0}
+    # unchanged when both are absent
+    assert fb.out_stem(base) == "gac_SM_Building_04_F4_s1013"
+    assert fb.out_stem(dict(base, origin=2)) == \
+        "gac_SM_Building_04_F4_o2_s1013"
+    assert fb.out_stem(dict(base, sides=("E", "S"))) == \
+        "gac_SM_Building_04_F4_SE_s1013"
+    both = dict(base, origin=2, sides=("E", "S"))
+    assert fb.out_stem(both) == "gac_SM_Building_04_F4_o2_SE_s1013"
+    # RING order (S,E,N,W), not manifest order: (S,E) and (E,S) collide
+    assert fb.out_stem(dict(base, sides=("S", "E"))) == fb.out_stem(
+        dict(base, sides=("E", "S")))
+    assert fb.out_stem(dict(base, sides=("W", "N"))) == \
+        "gac_SM_Building_04_F4_NW_s1013"
+    # two entries differing ONLY in origin, or ONLY in sides, get DIFFERENT
+    # stems -- the whole point of folding them in
+    assert (fb.out_stem(dict(base, origin=1))
+            != fb.out_stem(dict(base, origin=2)))
+    assert (fb.out_stem(dict(base, sides=("S",)))
+            != fb.out_stem(dict(base, sides=("E",))))
+    assert fb.out_stem(base) != fb.out_stem(both)
+    # the driver's own `kind:name:level:origin:sides:seed` form round-trips
+    # to the plan's own worked example
+    e = fb.parse_entry("gac:SM_Building_04:F4:2:S,E:1013")
+    assert fb.out_stem(e) == "gac_SM_Building_04_F4_o2_SE_s1013"
+    print("  out_stem city       OK  (origin/sides folded in ring order, "
+          "plain rows unchanged)")
+
+
 def test_event_round_trip():
     m = _fake_mass()
     events = [_fake_event(0, m, "S", 2, "flame"),
@@ -208,6 +245,43 @@ def test_event_round_trip():
         len(back), sum(len(e["ops"]) for e in back)))
 
 
+def test_sidecar_extra_city_passthrough():
+    """`extra={"city": {...}}` — the record of the generated-city cell a bake
+    replaces (`urban_fire_city_plan.md` sec 3) — must survive a REAL file
+    round trip untouched, so the city launcher can read `doc["city"]` back
+    after `load_for_assembly` rather than re-deriving the cell transform from
+    the manifest."""
+    m = _fake_mass()
+    events = [_fake_event(0, m)]
+    fire = _fake_fire(m)
+    city = {"cell": "/World/stage/generated/house_4_112", "x": -83.2,
+            "y": 41.7, "yaw_deg": 90.0, "z": 0.0,
+            "typology": "brick_midrise",
+            "orig_usd": "omniverse://x/SM_Building_04.usd"}
+    doc = fb.sidecar({"kind": "gac", "name": "SM_Building_04", "level": "F4",
+                      "seed": 1013, "index": 0},
+                     fire, {"main": m}, events,
+                     [-12.0, -8.0, 0.0, 12.0, 8.0, 17.9], 17.9,
+                     {"interior": [], "roof": []}, [], {}, {},
+                     extra={"city": city})
+    assert doc["city"] == city, doc.get("city")
+    # `extra` must not have clobbered any of the function's own top-level
+    # fields it sits beside
+    assert doc["kind"] == "gac" and doc["name"] == "SM_Building_04"
+    import shutil
+    import tempfile
+
+    tmp = tempfile.mkdtemp(prefix="fire_bake_city_")
+    try:
+        path = os.path.join(tmp, "gac_SM_Building_04_F4_s1013.json")
+        fb.write_sidecar(path, doc)
+        back_doc, _masses, _events = fb.load_for_assembly(path)
+        assert back_doc["city"] == city, back_doc.get("city")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    print("  sidecar extra city  OK  (load_for_assembly returns doc['city'])")
+
+
 def test_translate():
     """The column offset moves the wall frames, NOT `e["x"]/["y"]`."""
     m = _fake_mass()
@@ -245,6 +319,91 @@ def test_translate():
     assert abs(p1[2] - p0[2]) < 1e-12, "a column offset must not move z"
     print("  translate           OK  (frames moved {0:+.0f},{1:+.0f} m, "
           "element coords held)".format(250.0, -3.0))
+
+
+def test_place_rotation():
+    """`place` is `translate`'s general form: rotate about the origin, then
+    move. Two claims: (1) `yaw_deg=0.0` must be byte-identical to `translate`
+    — `translate` is now LITERALLY `place(..., yaw_deg=0.0)` minus the seats,
+    so this is really checking the seatless path did not change; (2) a
+    rotated frame must land exactly where rotating `_b_face_pt`'s WORLD POINT
+    by the same angle (about the origin) and then translating would — the
+    claim a city assembly's `rotateXYZ(0, 0, yaw_deg)` holder rests on."""
+    from disaster import quake_flow as qf
+
+    # -- (1) theta = 0 byte-identical to translate ------------------------
+    m = _fake_mass()
+    events_a = [_fake_event(0, m)]
+    events_b = [_fake_event(0, m)]
+    masses_a = {"main": fb.mass_from_json(fb.mass_to_json(m))}
+    masses_b = {"main": fb.mass_from_json(fb.mass_to_json(m))}
+    seats = {"interior": [{"x": 1.0, "y": 2.0, "z": 12.0, "radius": 1.1,
+                           "scale": 1.2}],
+             "roof": [{"x": 0.5, "y": -0.5, "z": 17.3, "radius": 1.8,
+                      "scale": 1.25}]}
+
+    fb.translate(masses_a, events_a, 250.0, -3.0)
+    out_masses, out_events, out_seats = fb.place(
+        masses_b, events_b, seats, 250.0, -3.0, 0.0)
+    assert out_masses["main"]["cx"] == masses_a["main"]["cx"]
+    assert out_masses["main"]["cy"] == masses_a["main"]["cy"]
+    assert out_masses["main"]["yaw"] == masses_a["main"]["yaw"] == 0.0
+    fr_a = events_a[0]["ops"][0]["fr"]
+    fr_b = out_events[0]["ops"][0]["fr"]
+    assert fr_a == fr_b, (fr_a, fr_b)
+    # the seats moved by the translation with no rotation applied
+    assert abs(out_seats["interior"][0]["x"] - (1.0 + 250.0)) < 1e-9
+    assert abs(out_seats["interior"][0]["y"] - (2.0 - 3.0)) < 1e-9
+    assert out_seats["interior"][0]["z"] == 12.0
+
+    # `place(..., None, ...)` must be usable with no seats at all
+    fb.place({}, [], None, 1.0, 1.0, 0.0)
+
+    # -- (2) a rotated frame == a rotated-then-translated POINT -----------
+    m2 = _fake_mass()
+    events_c = [_fake_event(0, m2, "S", 3, "flame")]
+    masses_c = {"main": fb.mass_from_json(fb.mass_to_json(m2))}
+    op0 = events_c[0]["ops"][0]
+    fr0 = op0["fr"]
+    ex0, ey0 = op0["e"]["x"], op0["e"]["y"]
+    theta_deg = 37.0
+    dx, dy = 12.0, -8.0
+
+    fb.place(masses_c, events_c, None, dx, dy, theta_deg)
+    fr1 = events_c[0]["ops"][0]["fr"]
+
+    theta = math.radians(theta_deg)
+    ca, sa = math.cos(theta), math.sin(theta)
+    for u, v, out in ((3.0, 8.0, -0.05), (0.0, 7.4, 0.0), (18.0, 9.1, -0.05)):
+        p0 = qf._b_face_pt(fr0, u, v, out)
+        p1 = qf._b_face_pt(fr1, u, v, out)
+        rx = p0[0] * ca - p0[1] * sa + dx
+        ry = p0[0] * sa + p0[1] * ca + dy
+        assert abs(p1[0] - rx) < 1e-9, (p1, rx, ry)
+        assert abs(p1[1] - ry) < 1e-9, (p1, rx, ry)
+        assert abs(p1[2] - p0[2]) < 1e-9, "a yaw about Z must not move z"
+
+    # the mass yaw (degrees) and the outward normal it drives rotate with it
+    assert abs(masses_c["main"]["yaw"] - theta_deg) < 1e-9
+    n0 = qf._outward(m2, "S")
+    n1 = qf._outward(masses_c["main"], "S")
+    assert abs(n1[0] - (n0[0] * ca - n0[1] * sa)) < 1e-9
+    assert abs(n1[1] - (n0[0] * sa + n0[1] * ca)) < 1e-9
+
+    # `e["x"]/["y"]` are untouched by place, same rule as `translate`
+    assert events_c[0]["ops"][0]["e"]["x"] == ex0
+    assert events_c[0]["ops"][0]["e"]["y"] == ey0
+
+    # seats rotate about the origin too, z held
+    seat = {"x": 5.0, "y": 0.0, "z": 9.0}
+    seats_r = {"interior": [dict(seat)], "roof": []}
+    fb.place({}, [], seats_r, dx, dy, theta_deg)
+    sx, sy = seats_r["interior"][0]["x"], seats_r["interior"][0]["y"]
+    assert abs(sx - (seat["x"] * ca - seat["y"] * sa + dx)) < 1e-9
+    assert abs(sy - (seat["x"] * sa + seat["y"] * ca + dy)) < 1e-9
+    assert seats_r["interior"][0]["z"] == seat["z"]
+    print("  place (rotate+move) OK  (theta=0 == translate; rotated frame "
+          "== rotated point, theta={0:.0f} deg)".format(theta_deg))
 
 
 def test_emitter_geometry_survives():
@@ -546,9 +705,11 @@ def verify_paths(spec):
     return 0 if bad == 0 else 1
 
 
-TESTS = [test_manifest, test_event_round_trip, test_translate,
-         test_emitter_geometry_survives, test_module_check,
-         test_material_trap, test_export_detects_a_broken_bake]
+TESTS = [test_manifest, test_out_stem_city_fields, test_event_round_trip,
+         test_sidecar_extra_city_passthrough, test_translate,
+         test_place_rotation, test_emitter_geometry_survives,
+         test_module_check, test_material_trap,
+         test_export_detects_a_broken_bake]
 
 
 def main(argv):

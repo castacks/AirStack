@@ -149,7 +149,7 @@ def _rubble_fields(res):
     recipe authored no pile (DG1-DG3, foundation levels) or under
     `EQ_RUBBLE=v1`."""
     piles = res.get("rubble") or []
-    sides, reach, crown = [], {}, 0.0
+    sides, reach, extent, crown = [], {}, {}, 0.0
     for st_ in piles:
         for sd in (st_.get("fall_sides") or []):
             if sd not in sides:
@@ -159,14 +159,24 @@ def _rubble_fields(res):
                 reach[sd] = max(float(reach.get(sd, 0.0)), float(r))
             except (TypeError, ValueError):
                 continue
+        # the MEASURED per-side run-out of the trimmed mound mesh (round-4
+        # Isaac pass): what `quake._clear_under_heaps` prefers over `reach_m`
+        for sd, r in (st_.get("extent_m") or {}).items():
+            try:
+                extent[sd] = max(float(extent.get(sd, 0.0)), float(r))
+            except (TypeError, ValueError):
+                continue
         try:
             crown = max(crown, float(st_.get("crown_m") or 0.0))
         except (TypeError, ValueError):
             pass
     if not piles:
         return {}
-    return dict(fall_sides=sides, reach_m=reach, crown_m=round(crown, 2),
-                n_piles=len(piles))
+    out = dict(fall_sides=sides, reach_m=reach, crown_m=round(crown, 2),
+               n_piles=len(piles))
+    if extent:
+        out["extent_m"] = extent
+    return out
 
 
 def merge_manifest(path, records):

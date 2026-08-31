@@ -84,10 +84,13 @@ The materials reference them by ABSOLUTE container path, which is what
 `fire_bake.verify_export` re-checks by reopening the file cold.
 
 Env:
-    FB_KIND         `gac` (a GreatAmericanCity merged asset, sliced) or
+    FB_KIND         `gac` (a GreatAmericanCity merged asset, sliced),
+                    `dtc` (a downtowncity merged asset, sliced the same way —
+                    `gac_fire.PACKS` carries the per-pack directory, file
+                    extension, unit scale and construction-type source) or
                     `kit` (a ModernCityEnvironment kit style)
-    FB_NAME         GAC asset name (`SM_Building_02`) or kit style
-                    (`commercial_mid`)
+    FB_NAME         merged asset name (`SM_Building_02`, `Amar_Tower`) or kit
+                    style (`commercial_mid`)
     FB_LEVEL        fire level, `urban_fire.LEVELS` (F0..F6, F5c)
     FB_SEED         this building's rng seed (the driver gives building i
                     `base + 31*i`, matching `gac_fire_bench`'s own column
@@ -102,6 +105,14 @@ Env:
     FB_OUT          output directory (default /isaac-sim/.cache/fire_bakes) —
                     CONTAINER-SIDE, not the repo
     FB_TEX_DIR      soot PNG directory (default <FB_OUT>/textures)
+    FB_CITY_JSON    path to a small JSON file holding one CITY-CELL record
+                    (`cell`/`x`/`y`/`yaw_deg`/`z`/`typology`/`orig_usd`,
+                    `urban_fire_city_plan.md` sec 3) — written by
+                    `tools/fire_city_manifest.py --write-city-json` and read
+                    by `tools/fire_city_bake.sh`. Merged into the sidecar as
+                    `extra={"city": ...}`. Empty (default) is a no-op: no
+                    file is read, no `"city"` key is added — every plain row
+                    bake (`fire_bake.sh`) is unaffected.
     FB_BAKED_KITS   1 (default) uses a pre-baked GAC kit where one exists
     FB_KEEP_SRC     1 keeps `<cell>/src` composed (debugging the trap above)
     FB_VERIFY       1 (default) reopens the export cold and checks it
@@ -120,6 +131,7 @@ Env:
 Banner: `FIRE BAKE DONE` (or `FIRE BAKE FAILED`).
 """
 
+import json
 import os
 import random
 import sys
@@ -184,6 +196,16 @@ BUILD_SEED = int(_env("FB_BUILD_SEED", str(SEED)))
 INDEX = int(_env("FB_INDEX", "0"))
 ORIGIN = _env("FB_ORIGIN", "")
 SIDES = fb.parse_sides(_env("FB_SIDES", ""))
+# Path to a small JSON file holding one `urban_fire_city.damaged_manifest`
+# record's static placement facts (`cell`/`x`/`y`/`yaw_deg`/`z`/`typology`/
+# `orig_usd`) -- `scene_gen/tools/fire_city_bake.sh` writes one of these per
+# record (via `fire_city_manifest.py --write-city-json`) and points this at
+# it so the sidecar can carry `extra={"city": ...}` (`urban_fire_city_plan.md`
+# sec 3), which is what the city launcher will use to find the cell's own
+# transform and hide the intact prim without re-deriving either from the
+# manifest. Empty (the default -- every existing `fire_bake.sh` row entry)
+# is a strict no-op: no file is read and no `"city"` key is added.
+CITY_JSON = _env("FB_CITY_JSON", "")
 OUT_DIR = _env("FB_OUT", fb.DEFAULT_OUT_DIR)
 TEX_DIR = _env("FB_TEX_DIR", os.path.join(OUT_DIR, "textures"))
 BAKED_KITS = _env("FB_BAKED_KITS", "1") not in ("0", "false", "no")
@@ -199,6 +221,27 @@ ENTRY = {"kind": KIND, "name": NAME, "level": LEVEL, "seed": SEED,
          "index": INDEX}
 TAG = fb.bake_tag(ENTRY)
 CELL = "{0}/{1}".format(fb.BAKE_ROOT, TAG)
+
+
+def _load_city_json(path):
+    """`FB_CITY_JSON`'s content as a plain dict, or `None`. A strict no-op
+    when `path` is empty (the default): no file access at all, and the
+    sidecar's `extra` never gets a `"city"` key. A path that IS set but
+    cannot be read/parsed is a WARNING, not a crash -- a bake with no
+    `"city"` in its sidecar just cannot be placed at its cell by the (not
+    yet written) city launcher; it should not fail the bake itself."""
+    if not path:
+        return None
+    try:
+        with open(path) as fh:
+            return json.load(fh)
+    except Exception as exc:
+        print("[fb] WARNING: FB_CITY_JSON={0!r} could not be read ({1}) -- "
+              "sidecar will carry no \"city\" record".format(path, exc))
+        return None
+
+
+CITY_RECORD = _load_city_json(CITY_JSON)
 
 
 def _bbox(stage, path):
@@ -288,11 +331,19 @@ def _roof_seats(ctx, rng, top_z):
 
 def build_gac(stage, ssf, mats):
     """The sliced whole-asset path — `gac_fire.burn_gac`, exactly as
-    `gac_fire_bench_launch_script.py` calls it, minus the Flow root."""
+    `gac_fire_bench_launch_script.py` calls it, minus the Flow root.
+
+    Serves BOTH sliced kinds. `gac_fire.prepare` resolves the pack from a
+    `kind:name` prefix (`gac_fire.split_kind`), so a downtowncity asset is
+    the same call with `dtc:` in front of the name — nothing else in this
+    script, in `burn_gac` or in the ladder has to know which pack it is.
+    `FB_KIND=gac` passes the bare name, which is what it always passed.
+    """
+    qname = NAME if KIND == "gac" else "{0}:{1}".format(KIND, NAME)
     rng = random.Random(SEED)
     nrng = np.random.default_rng(SEED)
     bctx = gcf.burn_gac(
-        stage, CELL, NAME, LEVEL, rng, nrng, mats, TAG,
+        stage, CELL, qname, LEVEL, rng, nrng, mats, TAG,
         flow_root=None, mat_cache={}, ssf=ssf,
         origin=(int(ORIGIN) if ORIGIN else None), sides=SIDES,
         use_baked_kit=BAKED_KITS, out_dir=TEX_DIR, verbose=True)
@@ -357,7 +408,7 @@ def main():
     fracture.ensure_vtk(verbose=True)
 
     problems = uf.check(verbose=False)
-    if KIND == "gac":
+    if KIND in fb.SLICED_KINDS:
         problems += gsl.check(verbose=False)
     if LEVEL == fcol.FIRE_LEVEL:
         problems += fcol.check(verbose=False)
@@ -376,8 +427,8 @@ def main():
 
     mats = uf.materials(stage, fb.BAKE_ROOT)
     t_build = time.time()
-    bctx, doomed = (build_gac(stage, ssf, mats) if KIND == "gac"
-                    else build_kit(stage, ssf, mats))
+    bctx, doomed = (build_gac(stage, ssf, mats)
+                    if KIND in fb.SLICED_KINDS else build_kit(stage, ssf, mats))
     build_s = time.time() - t_build
     for _ in range(6):
         omni.kit.app.get_app().update()
@@ -523,14 +574,19 @@ def main():
     timings = {"build_s": round(build_s, 1), "settle_s": round(settle_s, 1),
                "export_s": round(export_s, 1),
                "total_s": round(time.time() - t0, 1)}
+    extra = {"rehome": {k: v for k, v in rh.items() if k != "failed_paths"},
+             "build_seed": BUILD_SEED,
+             "baked_kit": (BAKED_KITS if KIND in fb.SLICED_KINDS else None)}
+    if CITY_RECORD is not None:
+        # Namespaced, per `fire_bake.sidecar`'s own `extra` contract -- a
+        # loose splice of the city record's keys onto `doc` could silently
+        # overwrite one of `sidecar()`'s own (e.g. a record that somehow
+        # carried its own "kind"/"level").
+        extra["city"] = CITY_RECORD
     doc = fb.sidecar(ENTRY, bctx["fire"], masses, events, bbox, top_z, seats,
                      bctx["notes"], timings, counts,
                      settle_info=settle_info, usd=out_usd,
-                     textures_dir=TEX_DIR, src_kept=src_kept,
-                     extra={"rehome": {k: v for k, v in rh.items()
-                                       if k != "failed_paths"},
-                            "build_seed": BUILD_SEED,
-                            "baked_kit": BAKED_KITS if KIND == "gac" else None})
+                     textures_dir=TEX_DIR, src_kept=src_kept, extra=extra)
     fb.write_sidecar(out_json, doc)
     print("[fb] sidecar -> {0}  ({1} event(s), {2} interior + {3} roof "
           "seat(s))".format(out_json, len(events), len(seats["interior"]),

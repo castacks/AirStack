@@ -26,6 +26,8 @@ import math
 import os
 import random
 
+from . import ground_class
+from . import kit_substitute as ks
 from . import quake_flow as qf
 
 # `pxr` is imported PER FUNCTION below, not at module scope (agent F, round
@@ -167,7 +169,18 @@ def _heap_reach_for(r, btype, grade, H, prim_path=""):
     Pure — no pxr, no stage — so `_clear_under_heaps`'s use of measured
     stats is testable on the host without a USD stage at all.
     """
+    # MEASURED extent of the trimmed mound mesh beats the nominal reach: the
+    # repose relaxation runs a blind side's foot 4-6 m out where the nominal
+    # reach said 1.5-3 (round-4 Isaac pass — trees stood inside the foot)
+    r_ext = r.get("extent_m")
     r_reach = r.get("reach_m")
+    if isinstance(r_ext, dict) and r_ext:
+        r_reach = dict(r_reach) if isinstance(r_reach, dict) else {}
+        for s_, v in r_ext.items():
+            try:
+                r_reach[s_] = max(float(v), float(r_reach.get(s_, 0.0)))
+            except (TypeError, ValueError):
+                continue
     if isinstance(r_reach, dict) and r_reach:
         fall_sides = set(r.get("fall_sides") or ("S",))
         return {s: float(r_reach[s]) if s in r_reach else
@@ -389,6 +402,288 @@ def _variants(manifest, style, grade):
     return out
 
 
+# ---------------------------------------------------------------------------
+# SAME_ART ORIGINALS (round 5, WP A): a whole-asset building that is the same
+# ART as the kit (`kit_substitute.SAME_ART` — today just ModernCityEnvironment)
+# gets a size-matched kit TWIN instead of `urban_building.py`'s own generic
+# styles filling every lot — see `urban_quake_v3.yaml`'s header and the fire
+# bench the user pointed at (`mce_fire4`, `fire_row2b`). `decide_building` is
+# the PURE half of that: no pxr, no stage, so `tests/test_quake_twins.py` and
+# `tools/layout_dry_run.py` can both call it directly. `assemble` is the only
+# caller that actually touches a stage (it authors the reference swap this
+# function only ever describes).
+# ---------------------------------------------------------------------------
+_SAME_ART_DEFAULT_TYPE = "rc"
+
+
+def _pool_entries(config):
+    """Every raw `usds.buildings.<pool>` list entry across the whole asset
+    set — dicts (`{usd: ..., material: ...}`) and bare strings alike."""
+    for pool in ((config.get("usds") or {}).get("buildings") or {}).values():
+        if isinstance(pool, list):
+            for e in pool:
+                yield e
+
+
+def _same_art_material(usd, config, default=_SAME_ART_DEFAULT_TYPE):
+    """The construction-type tag (`urm` / `rc` / `rc_glass` —
+    `quake_flow.FAMILY_TYPE`'s own vocabulary, NOT the texture-name `material:`
+    urban_gac.yaml's monoliths carry) an asset-set pool entry declares for a
+    SAME_ART original, e.g. `urban_quake_v3.yaml`::
+
+        - {usd: "Muyang/ModernCityEnvironment/.../SM_MERGED_BP_MBuilding01.usd",
+           scale: 1.0, material: urm}
+
+    Matched by SUFFIX, not equality: a pool entry's `usd` is the bare
+    relative path `scene_generator._join_asset_root` prefixes onto the
+    config's `asset_root` to build the placement's own (absolute) `usd`, so
+    the placement's usd always ENDS WITH the pool entry's own string.
+    Returns `default` when no pool entry tags this asset — a bare-string
+    entry, or an asset set someone forgot to tag."""
+    u = str(usd)
+    for e in _pool_entries(config):
+        if not isinstance(e, dict):
+            continue
+        eu = str(e.get("usd", "")).strip()
+        if eu and u.endswith(eu):
+            return str(e.get("material") or default)
+    return default
+
+
+def decide_building(usd, grade, W, D, H, btype, manifest, rng,
+                    x=None, y=None, yaw_deg=None, table=None):
+    """The per-building SAME_ART decision, for a building already assigned
+    `grade` (an EMS-98 `DGn` string — draw it first with
+    `qf.level_for_intensity`, exactly as a kit archetype's grade is drawn;
+    this function does not touch the field or the rng for that). PURE: no
+    pxr, no stage — everything it needs is `usd` / footprint / construction
+    type / the manifest dict `load_manifest` already produced, so it runs
+    identically inside `assemble` (with a stage) and in
+    `tools/layout_dry_run.py` (without one).
+
+    `kit_substitute.route()` is the single per-building decision point for
+    whether a building this size, at this usd, can become a kit twin at all
+    — see its own docstring for the SAME_ART / already-kit / refuse-vs-slice
+    cases. This function only ever asks it for `same_art` and already-kit
+    assets; a `slice`-routed pack (GAC, AEC, downtowncity) is not something
+    `assemble`'s SAME_ART branch calls this for.
+
+    Returns one of:
+
+      `{"action": "keep", "grade": "DG0", ...}`
+          — pristine; `route()` is never even asked (a pristine building is
+          never swapped, kit or same_art alike).
+      `{"action": "keep", "grade": <grade>, "reason": <why>, ...}`
+          — `route()` refused (same_art with no kit style inside
+          `MAX_H_RATIO`/`MAX_AREA_RATIO`) or the style it named has no baked
+          archetype at ANY grade. The ORIGINAL asset is left exactly as it
+          was — untouched, unmodified, uncounted as a kit building.
+      `{"action": "twin", "grade": <final grade, after fallback>,
+        "style": <kit style>, "usd": <manifest usd to reference>, ...}`
+          — swap the reference to `usd`. `stepped` is True when the drawn
+          grade had no bake and the grade was walked down until one did
+          (same fallback `assemble`'s kit-archetype branch already uses).
+
+    Every dict also echoes back `x`, `y`, `yaw_deg` UNCHANGED from the
+    inputs — a caller (or a test) can assert a twin's placement pose is
+    IDENTICAL to the original's, because the swap only ever replaces the
+    prim's reference, never its transform (see this module's docstring:
+    "Same origin, same pose — the bake re-centred every archetype on the
+    building's own centre — so nothing moves"; the twin's own W x D need not
+    match the original's — `best_style`'s gates already bounded that, and
+    the footprint difference is accepted, not corrected here).
+    """
+    out = {"x": x, "y": y, "yaw_deg": yaw_deg}
+    if grade == "DG0":
+        out.update(action="keep", grade="DG0")
+        return out
+    action, val = ks.route(usd, W, D, H, btype=btype, table=table)
+    if action != "kit" or not val:
+        reason = val if isinstance(val, str) and val else \
+            "route() did not return a kit style for {0}".format(usd)
+        out.update(action="keep", grade=grade, reason=reason)
+        return out
+    style = val
+    stepped = False
+    g = grade
+    vs = _variants(manifest, style, g)
+    if not vs:
+        stepped = True
+        gi = int(grade[2])
+        while gi > 0 and not vs:
+            gi -= 1
+            g = "DG{0}".format(gi)
+            vs = _variants(manifest, style, g)
+    if not vs:
+        out.update(action="keep", grade=grade,
+                   reason="no baked '{0}' archetype at any grade".format(style))
+        return out
+    chosen = rng.choice(vs)
+    final_grade = chosen["level"].split("_v")[0]
+    out.update(action="twin", grade=final_grade, style=style,
+              usd=chosen["usd"], stepped=stepped)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# GAC PER-BUILDING BAKES (round 5, `urban_quake_v4`): a placed
+# GreatAmericanCity merged building gets swapped for ITS OWN per-building
+# earthquake bake, not a size-matched kit twin. There is no `route()` call
+# anywhere in this section: `kit_substitute.route()` sends every GAC asset to
+# `'slice'`, never `'kit'` (`kit_substitute.check()`'s own GAC assertion), and
+# a same_art-style best-fit substitute would replace a named building with an
+# unrelated one, which is exactly what a PER-BUILDING bake exists to avoid. A
+# separate bake pipeline (parallel work, this round) exports one bake per
+# (name, grade) at `scene_gen/assets/gac_quake/gac_<name>_<grade>_s<seed>.usd`,
+# re-centred on the building's own origin exactly like a kit archetype, with
+# its own manifest `gac_quake.json` — see `_plans/earthquake_round5_plan.md`
+# and `urban_quake_v4.yaml`'s header for the asset-set side of this.
+# ---------------------------------------------------------------------------
+GAC_BAKE_DIRNAME = "gac_quake"
+
+
+def _is_gac(usd):
+    """True when `usd` names a merged GreatAmericanCity building.
+
+    `kit_substitute.route()` sends GAC to the same `'slice'` outcome as
+    downtowncity and the AEC brownstones (`pack_of(usd) == 'other'`) — this
+    narrows to GAC specifically with the same substring discipline
+    `kit_substitute.SAME_ART` uses for ModernCityEnvironment, because only
+    GAC has a per-building quake bake to swap to today."""
+    return ks.pack_of(usd) == "other" and "GreatAmericanCity/" in str(usd)
+
+
+def _is_gac_bake(usd):
+    """True once a placement has already been swapped to a per-building GAC
+    quake bake (`gac_<name>_<grade>_sN.usd` under `assets/gac_quake/`).
+
+    `style_of` cannot recognise that filename (it is not `bld_`-prefixed)
+    and the swapped path no longer contains "GreatAmericanCity/" either
+    (`_is_gac` would say False), so `_mono_pass`'s "leave it, the fallback
+    lean below still applies" guard needs this dedicated check — otherwise
+    an already-swapped GAC building would fall through to `_mono_pass` and
+    get rigid-leaned a SECOND time on top of its own bake's damage. Same
+    double-transform trap `style_of`'s own docstring describes for the kit
+    foundation family (`_TILT`/`_SETTLE`/`_OV`), same fix shape."""
+    return "/{0}/".format(GAC_BAKE_DIRNAME) in str(usd).replace("\\", "/")
+
+
+def gac_name_of(usd):
+    """`.../GreatAmericanCity/.../SM_Building_02.usd` -> "SM_Building_02" —
+    the GAC manifest's own `name` field, read straight off a placed
+    building's usd basename. GAC assets carry no damage-grade suffix of
+    their own (unlike a kit archetype's `bld_<style>_DG<n>.usd`), so this is
+    a plain basename-minus-extension, not a level split like `style_of`."""
+    return os.path.splitext(os.path.basename(str(usd)))[0]
+
+
+def _sibling_dir(arch_dir, name):
+    """`<parent of arch_dir>/<name>` — `assets/archetype/` and
+    `assets/gac_quake/` are siblings under `assets/`, for a local directory
+    or an `omniverse://` folder alike (both use `/`, so plain string
+    manipulation is enough — the same discipline `_arch_join` already holds
+    for JOINING rather than splitting)."""
+    a = str(arch_dir).rstrip("/")
+    parent = a.rsplit("/", 1)[0] if "/" in a else a
+    return parent + "/" + name
+
+
+def load_gac_manifest(gac_dir):
+    """{(name, grade): record} from the GAC quake bake's own manifest
+    (`<gac_dir>/gac_quake.json` — a LIST of `{usd, name, grade, btype, W, D,
+    H, fall_sides, extent_m, crown_m, mb, prims}` records, one per
+    (name, grade), possibly several seeds per pair later).
+
+    SAME REBASE-BY-BASENAME DISCIPLINE AS `load_manifest`: every record's
+    `usd` is rewritten onto `gac_dir` by basename, because the bake records
+    an absolute CONTAINER path (`/isaac-sim/AirStack/scene_gen/assets/
+    gac_quake/...`) that will not resolve on every host that later reads
+    this manifest — `gac_dir` is where the files actually ARE, and it wins,
+    exactly as `load_manifest`'s own docstring explains for the kit
+    archetype library.
+
+    Each record also gets `style`/`level` ALIASES of its own `name`/`grade`
+    fields. `_variants`, `_clear_under_heaps`'s row lookup and everything
+    else in this module that walks a manifest dict is written against the
+    kit archetype vocabulary (`style`, `level`) — aliasing lets a GAC row
+    merged into the SAME dict (`assemble` does `manifest.update(gac_
+    manifest)`) work through those exact call sites unchanged, because the
+    dict keys never collide (a GAC `name` is `SM_Building_NN`, never a kit
+    style name).
+    """
+    recs = json.loads(_read_text(_arch_join(gac_dir, "gac_quake.json")))
+    out = {}
+    for r in recs:
+        r = dict(r)
+        u = r.get("usd")
+        if u:
+            r["usd"] = _arch_join(gac_dir, os.path.basename(str(u)))
+        r.setdefault("style", r.get("name"))
+        r.setdefault("level", r.get("grade"))
+        out[(r.get("name"), r.get("grade"))] = r
+    return out
+
+
+def decide_gac_building(usd, grade, gac_manifest, rng, x=None, y=None,
+                        yaw_deg=None):
+    """The per-building GAC decision — `decide_building`'s counterpart for a
+    merged GreatAmericanCity original instead of a same_art (MCE) one.
+
+    NO ROUTING STEP: `kit_substitute.route()` is never called here. A
+    same_art original is swapped for a size-matched but otherwise UNRELATED
+    kit style; a GAC bake is a per-building bake of THIS EXACT BUILDING at
+    this exact grade (`gac_bake.name == gac_name_of(usd)`), so the only
+    question is whether that (name, grade) pair has been baked — there is
+    nothing to best-fit against a table.
+
+    Returns the same three-shape contract `decide_building` uses:
+
+      `{"action": "keep", "grade": "DG0", ...}`
+          — pristine; the manifest is never even consulted.
+      `{"action": "keep", "grade": <grade>, "reason": <why>, ...}`
+          — no baked archetype for THIS building's name at any grade. The
+          reason NAMES the building (`gac_name_of(usd)`), so a caller that
+          dedupes by reason text (as `assemble` does) prints one line per
+          distinct GAC building with no bake, not one line total.
+      `{"action": "twin", "grade": <final grade, after fallback>,
+        "style": <the GAC building's own name>, "usd": <bake usd>,
+        "stepped": <bool>, ...}`
+          — swap the reference to the bake. `stepped` is True when the
+          drawn grade had no bake and the grade was walked DOWN until one
+          did — the identical fallback `decide_building` already uses.
+
+    `x`/`y`/`yaw_deg` ride through UNCHANGED — the bake pipeline re-centres
+    every bake on the building's own origin (its contract, mirroring the kit
+    archetype bake), so the swap only ever replaces the reference, never the
+    placement's transform.
+    """
+    out = {"x": x, "y": y, "yaw_deg": yaw_deg}
+    if grade == "DG0":
+        out.update(action="keep", grade="DG0")
+        return out
+    name = gac_name_of(usd)
+    g = grade
+    vs = _variants(gac_manifest, name, g)
+    stepped = False
+    if not vs:
+        stepped = True
+        gi = int(grade[2])
+        while gi > 0 and not vs:
+            gi -= 1
+            g = "DG{0}".format(gi)
+            vs = _variants(gac_manifest, name, g)
+    if not vs:
+        out.update(action="keep", grade=grade,
+                   reason="no baked GAC archetype for '{0}' at any "
+                          "grade".format(name))
+        return out
+    chosen = rng.choice(vs)
+    final_grade = str(chosen.get("grade") or chosen.get("level")).split("_v")[0]
+    out.update(action="twin", grade=final_grade, style=name, usd=chosen["usd"],
+              stepped=stepped)
+    return out
+
+
 def _region(config):
     w, h = config["layout"]["region_m"]
     return (-float(w) / 2.0, -float(h) / 2.0, float(w) / 2.0, float(h) / 2.0)
@@ -453,7 +748,8 @@ def _blocked(p, rec, fall_yaw_deg, H, placements):
 
 
 def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
-             tilt_chance=None, verbose=True, foundation_rate=None):
+             tilt_chance=None, verbose=True, foundation_rate=None,
+             gac_dir=None):
     """Swap placed pristine archetypes for damaged ones by the field.
 
     Then the FOUNDATION pass: on the soft-soil patch a share of the
@@ -476,8 +772,41 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
     tilt_deg = debris.get("tilt_deg", [3.0, 9.0])
     sink_m = debris.get("sink_m", [0.4, 1.4])
     manifest = load_manifest(arch_dir)
+    # ROUND 5, `urban_quake_v4`: the GAC per-building bake manifest, a
+    # sibling of the kit archetype library (`assets/archetype/` ->
+    # `assets/gac_quake/`, see `_sibling_dir`). Loaded best-effort — the bake
+    # pipeline is parallel work and may not have exported anything on this
+    # host yet, in which case every GAC building simply stays pristine or
+    # falls to `_mono_pass`'s fallback lean, exactly as it does today.
+    # Merged into `manifest` itself (not kept separate) so `_clear_under_
+    # heaps`'s row lookup — written against the kit archetype vocabulary,
+    # `style`/`level` — finds a swapped GAC record's `fall_sides`/
+    # `extent_m`/`crown_m` through the SAME call site, no special-casing:
+    # the keys never collide (a GAC `name` like "SM_Building_02" is never a
+    # kit style name).
+    gac_dir = gac_dir if gac_dir is not None else _sibling_dir(arch_dir, GAC_BAKE_DIRNAME)
+    gac_manifest = {}
+    try:
+        gac_manifest = load_gac_manifest(gac_dir)
+    except Exception as exc:
+        if verbose:
+            print("[quake] no GAC quake manifest at {0} ({1}); GAC buildings "
+                  "stay pristine or fall to the monolith fallback"
+                  .format(gac_dir, exc))
+    if gac_manifest:
+        manifest.update(gac_manifest)
     rng = random.Random(seed + 4242)
     soft = _soft_soil(config, random.Random(seed + 77))
+    # ROUND 5, WP E: the local ground class (road/sidewalk/paved/grass), from
+    # the SAME `city_layout` the packer built the plate on
+    # (`config["_city_layout"]`, stashed by `generate_scene_on_stage`) — so a
+    # buckled pavement slab or kerb piece the mild lean authors below can look
+    # like what is actually under it instead of a fixed coin. `None` when no
+    # layout was stashed (no city, or a caller that never ran `build_city`),
+    # which is the same as never having wired this in at all.
+    _gc = ground_class.GroundClass.from_config(config)
+    ground_at = ((lambda x, y: _gc.at(x / ssf, y / ssf)) if _gc is not None
+                 else None)
     grade_scale = float(dis.get("grade_scale", 1.0))
     dur_boost = float(dis.get("duration_boost", 1.0))     # research §13; rc types only
     if foundation_rate is None:
@@ -491,40 +820,145 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
     # in the way: `_d_interactions` wants exactly those — the block goes over
     # and comes to rest against the next one along.
     lean_hints = []
+    # SAME_ART ORIGINALS (round 5, WP A — see `decide_building`'s docstring
+    # and `urban_quake_v3.yaml`'s header): a same_art building that gets a
+    # kit twin here falls straight through to the SAME "FOUNDATION FAILURE" /
+    # mild-tilt code below as any other kit archetype (`style`/`rec`/`grade`
+    # are set exactly the way the already-kit branch sets them). One that
+    # stays kept is left alone — `_mono_pass`, further down, gives it the
+    # same fallback lean a standalone monolith gets, "as today".
+    same_art_kept = same_art_twins = 0
+    same_art_reasons_seen = set()
+    same_art_table = None
+    # GAC PER-BUILDING BAKES (round 5, `urban_quake_v4`): same bookkeeping
+    # shape as same_art, above — see `decide_gac_building`'s docstring.
+    gac_kept = gac_twins = 0
+    gac_reasons_seen = set()
     for p in placements:
-        style, level = style_of(p.get("usd"))
-        if not style or p.get("category") != "house":
+        if p.get("category") != "house":
             continue
+        style, level = style_of(p.get("usd"))
+        same_art = gac = False
+        if not style:
+            pk = ks.pack_of(p.get("usd"))
+            if pk == "same_art":
+                same_art = True
+            elif _is_gac(p.get("usd")):
+                gac = True
+            else:
+                continue                    # not a kit archetype either: leave it to `_mono_pass`
         path = p.get("prim_path")
         prim = stage.GetPrimAtPath(path) if path else None
         if not prim or not prim.IsValid():
             continue
-        rec = manifest.get((style, "DG0")) or {}
-        btype = rec.get("type") or qf.FAMILY_TYPE.get(rec.get("family", ""), "urm")
-        x, y = float(p["x_m"]), float(p["y_m"])
-        inten = float(field(x, y))
-        grade = qf.level_for_intensity(inten * grade_scale, btype, rng,
-                                       duration_boost=dur_boost)
-        n += 1
-        chosen = None
-        if grade != "DG0":
-            vs = _variants(manifest, style, grade)
-            if not vs:
-                # step down until something is baked, so a missing DG4
-                # becomes a DG3 rather than a pristine building in the core
-                g = int(grade[2])
-                while g > 0 and not vs:
-                    g -= 1
-                    vs = _variants(manifest, style, "DG{0}".format(g))
+
+        if same_art:
+            # No manifest row of its own — the ONLY way to get this
+            # building's footprint is to measure it, the same world-bound
+            # `_mono_dims` a standalone monolith is measured with.
+            dims = _mono_dims(stage, prim, p)
+            if not dims:
+                continue
+            W0, D0, H0 = (v / ssf for v in dims)
+            btype = _same_art_material(p["usd"], config)
+            x, y = float(p["x_m"]), float(p["y_m"])
+            inten = float(field(x, y))
+            grade0 = qf.level_for_intensity(inten * grade_scale, btype, rng,
+                                            duration_boost=dur_boost)
+            if same_art_table is None:
+                same_art_table = ks.styles()
+            decision = decide_building(p["usd"], grade0, W0, D0, H0, btype,
+                                       manifest, rng, x=x, y=y,
+                                       yaw_deg=p.get("yaw_deg", 0.0),
+                                       table=same_art_table)
+            if decision["action"] != "twin":
+                same_art_kept += 1
+                reason = decision.get("reason")
+                if reason and reason not in same_art_reasons_seen:
+                    same_art_reasons_seen.add(reason)
+                    if verbose:
+                        print("[quake] same_art kept, no twin: {0}".format(reason))
+                continue                    # untouched; see the block comment above
+            if decision.get("stepped"):
                 missing += 1
-            if vs:
-                chosen = rng.choice(vs)
-                grade = chosen["level"].split("_v")[0]
-                refs = prim.GetReferences()
-                refs.ClearReferences()
-                refs.AddReference(chosen["usd"])
-                prim.Load()
-                p["usd"] = chosen["usd"]
+            refs = prim.GetReferences()
+            refs.ClearReferences()
+            refs.AddReference(decision["usd"])
+            prim.Load()
+            p["usd"] = decision["usd"]
+            p["style"] = decision["style"]
+            style = decision["style"]
+            grade = decision["grade"]
+            rec = manifest.get((style, "DG0")) or {}
+            same_art_twins += 1
+            n += 1
+        elif gac:
+            # GAC has no DG0 manifest row either (a GAC bake exists only
+            # DG1-DG5 — grade DG0 means "keep the original", never a bake),
+            # so — same as same_art — measure the placed original directly.
+            dims = _mono_dims(stage, prim, p)
+            if not dims:
+                continue
+            W0, D0, H0 = (v / ssf for v in dims)
+            btype = _same_art_material(p["usd"], config)
+            x, y = float(p["x_m"]), float(p["y_m"])
+            inten = float(field(x, y))
+            grade0 = qf.level_for_intensity(inten * grade_scale, btype, rng,
+                                            duration_boost=dur_boost)
+            decision = decide_gac_building(p["usd"], grade0, gac_manifest, rng,
+                                           x=x, y=y, yaw_deg=p.get("yaw_deg", 0.0))
+            if decision["action"] != "twin":
+                gac_kept += 1
+                reason = decision.get("reason")
+                if reason and reason not in gac_reasons_seen:
+                    gac_reasons_seen.add(reason)
+                    if verbose:
+                        print("[quake] gac kept, no bake: {0}".format(reason))
+                continue                    # untouched; `_mono_pass` gives it the fallback lean
+            if decision.get("stepped"):
+                missing += 1
+            refs = prim.GetReferences()
+            refs.ClearReferences()
+            refs.AddReference(decision["usd"])
+            prim.Load()
+            p["usd"] = decision["usd"]
+            p["style"] = decision["style"]
+            style = decision["style"]
+            grade = decision["grade"]
+            # NOT `manifest.get((style, "DG0"))` — a GAC building has no DG0
+            # bake row to look up (see the comment above); the measured
+            # original dims stand in, same as `_mono_pass` does for a
+            # standalone monolith.
+            rec = {"W": W0, "D": D0, "H": H0}
+            gac_twins += 1
+            n += 1
+        else:
+            rec = manifest.get((style, "DG0")) or {}
+            btype = rec.get("type") or qf.FAMILY_TYPE.get(rec.get("family", ""), "urm")
+            x, y = float(p["x_m"]), float(p["y_m"])
+            inten = float(field(x, y))
+            grade = qf.level_for_intensity(inten * grade_scale, btype, rng,
+                                           duration_boost=dur_boost)
+            n += 1
+            chosen = None
+            if grade != "DG0":
+                vs = _variants(manifest, style, grade)
+                if not vs:
+                    # step down until something is baked, so a missing DG4
+                    # becomes a DG3 rather than a pristine building in the core
+                    g = int(grade[2])
+                    while g > 0 and not vs:
+                        g -= 1
+                        vs = _variants(manifest, style, "DG{0}".format(g))
+                    missing += 1
+                if vs:
+                    chosen = rng.choice(vs)
+                    grade = chosen["level"].split("_v")[0]
+                    refs = prim.GetReferences()
+                    refs.ClearReferences()
+                    refs.AddReference(chosen["usd"])
+                    prim.Load()
+                    p["usd"] = chosen["usd"]
         # FOUNDATION FAILURE: intact (or lightly damaged) buildings on the
         # strong-shaking side lean and sink. Gated on slenderness the way
         # Adapazarı was, and on the grade — a pancaked building cannot also
@@ -575,24 +1009,43 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
                 n_found[lvl] += 1
                 tally[lvl] = tally.get(lvl, 0) + 1
                 records.append(dict(style=style, x=x, y=y, intensity=round(inten, 3),
-                                    grade=lvl, prim=path))
+                                    grade=lvl, prim=path,
+                                    W=round(float(rec.get("W", 20.0)), 1),
+                                    D=round(float(rec.get("D", 20.0)), 1),
+                                    H=round(H, 1)))
                 continue
         p_tilt = tilt_chance * inten * (1.3 if slender > 1.6 else 0.6)
         if grade in ("DG0", "DG1", "DG2", "DG3") and rng.random() < p_tilt:
             deg = rng.uniform(float(tilt_deg[0]), float(tilt_deg[1]))
             snk = rng.uniform(float(sink_m[0]), float(sink_m[1]))
             _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf,
-                       bounds=_c_plate_bounds(config, ssf))
+                       bounds=_c_plate_bounds(config, ssf), ground_at=ground_at)
             tilted += 1
             grade = grade + "+tilt"
         tally[grade] = tally.get(grade, 0) + 1
+        # `W`/`D`/`H` echoed here so `_bld_masses` (ground effects, pounding)
+        # measures a GAC building by its REAL dims instead of falling back
+        # to the 20x20x12 default — the kit/same_art branches' own
+        # `manifest[(style, "DG0")]` row would already agree with these
+        # values, so this changes nothing for them and fixes GAC.
         records.append(dict(style=style, x=x, y=y, intensity=round(inten, 3),
-                            grade=grade, prim=path))
+                            grade=grade, prim=path,
+                            W=round(float(rec.get("W", 20.0)), 1),
+                            D=round(float(rec.get("D", 20.0)), 1),
+                            H=round(H, 1)))
     if verbose:
         print("[quake] {0} buildings: {1}; {2} mild-tilted, {3} grade(s) stepped down "
               "for a missing archetype".format(
                   n, ", ".join("{0}={1}".format(k, v) for k, v in sorted(tally.items())),
                   tilted, missing))
+        if same_art_twins or same_art_kept:
+            print("[quake] same_art originals: {0} swapped to a kit twin, {1} kept "
+                  "(no twin; the fallback monolith lean below still applies)"
+                  .format(same_art_twins, same_art_kept))
+        if gac_twins or gac_kept:
+            print("[quake] gac originals: {0} swapped to a per-building bake, {1} "
+                  "kept (no bake at any grade; the fallback monolith lean below "
+                  "still applies)".format(gac_twins, gac_kept))
         if soft:
             print("[quake] soft-soil patch at ({0:.0f}, {1:.0f}) radii {2:.0f} x {3:.0f} m: "
                   "SETTLE {4}, TILT {5}, OV {6}".format(
@@ -603,7 +1056,7 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
     try:
         n_mono = _mono_pass(stage, config, placements, field, grade_scale, rng, ssf,
                             records, tally, bounds=_c_plate_bounds(config, ssf),
-                            verbose=verbose)
+                            ground_at=ground_at, verbose=verbose)
         n += n_mono
     except Exception as exc:
         import traceback
@@ -611,7 +1064,9 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
         print("[quake] monolith pass FAILED: {0}".format(exc))
     stats = {"buildings": n, "tally": tally, "tilted": tilted, "missing": missing,
              "records": records, "foundation": n_found,
-             "soft_soil": (soft.centre + soft.radii) if soft else None}
+             "soft_soil": (soft.centre + soft.radii) if soft else None,
+             "same_art": {"twins": same_art_twins, "kept": same_art_kept},
+             "gac": {"twins": gac_twins, "kept": gac_kept}}
     # HEAP CLEARANCE: trees, lamps/signs/hydrants/bins and cars caught under a
     # DG4/DG5 pile (or a monolith ruin swap) — see `_clear_under_heaps`. Runs
     # BEFORE `_d_interactions` so a lamppost this pass already tipped is not
@@ -702,11 +1157,16 @@ def _c_mass(p, rec, ssf=1.0):
 
 
 def _c_tilt_ground(stage, base, m, M, rng, geom=None, mats=None, tag=None,
-                   bounds=None, raft=True, scope=None):
+                   bounds=None, raft=True, scope=None, ground_at=None):
     """The ground response round a city building that leaned or sank, authored
     as SIBLINGS of the placed archetype (under `<base>/quake_tilt`) so it does
     not ride the archetype's transform. `base` is the placement scope, which
-    is at the identity — the same assumption `_tilt_prim` already makes."""
+    is at the identity — the same assumption `_tilt_prim` already makes.
+
+    `ground_at` (round 5, WP E) is `assemble`'s `GroundClass.at`, already
+    de-scaled to the layout's own metre frame — forwarded straight through to
+    `quake_flow._c_ground_response` so its buckled pavement/kerb/spill pieces
+    pick their look from what is actually there."""
     from pxr import Sdf, UsdGeom
 
     scope = scope or (str(base) + "/quake_tilt")
@@ -717,11 +1177,11 @@ def _c_tilt_ground(stage, base, m, M, rng, geom=None, mats=None, tag=None,
     return qf._c_ground_response(
         stage, m, M=M, raft=raft, parent=scope,
         mats=mats if mats is not None else _c_mats(stage, base),
-        rng=rng, tag=tag or _c_tag(), bounds=bounds, **kw)
+        rng=rng, tag=tag or _c_tag(), bounds=bounds, ground_at=ground_at, **kw)
 
 
 def _tilt_prim(stage, prim, p, rec, deg, sink, rng, ssf, bounds=None,
-               ground=True, side=None):
+               ground=True, side=None, ground_at=None):
     """The city's MILD LEAN: a placed archetype leans TOWARD one of its sides,
     sinks, and gets the ground response round it.
 
@@ -746,7 +1206,7 @@ def _tilt_prim(stage, prim, p, rec, deg, sink, rng, ssf, bounds=None,
     xf.AddScaleOp().Set(Gf.Vec3f(tr.GetScale()))
     if ground:
         _c_tilt_ground(stage, str(prim.GetPath().GetParentPath()), m, M, rng,
-                       geom=g, bounds=bounds)
+                       geom=g, bounds=bounds, ground_at=ground_at)
     return g
 
 
@@ -791,7 +1251,7 @@ def _mono_dims(stage, prim, p):
 
 
 def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
-               tally, bounds=None, verbose=True):
+               tally, bounds=None, ground_at=None, verbose=True):
     """Damage for buildings that are NOT kit archetypes (standalone monoliths
     from `urban_quake_v2`). They cannot be fractured, so the vocabulary is
     what a rigid body can show — drawn as RC on the same ladder cuts:
@@ -812,7 +1272,16 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
     n_ruin = n_heavy = n_mild = 0
     for p in placements:
         style, _ = style_of(p.get("usd"))
-        if style or p.get("category") != "house":
+        # `_is_gac_bake` catches what `style_of` cannot: a GAC building
+        # already swapped for its own per-building quake bake by the main
+        # loop's `gac` branch, above. `gac_<name>_<grade>_sN.usd` is not
+        # `bld_`-prefixed (so `style` comes back None) and no longer
+        # contains "GreatAmericanCity/" (so it would not even survive a
+        # second `_is_gac` check) — without this, an already-damaged GAC
+        # building would be rigid-leaned a SECOND time on top of its own
+        # bake, the same double-transform trap `style_of`'s own docstring
+        # describes for the kit foundation family.
+        if style or p.get("category") != "house" or _is_gac_bake(p.get("usd")):
             continue
         path = p.get("prim_path")
         prim = stage.GetPrimAtPath(path) if path else None
@@ -840,13 +1309,15 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
         elif grade in ("DG4", "DG5"):
             deg = rng.uniform(*MONO_HEAVY_DEG)
             snk = rng.uniform(*MONO_HEAVY_SINK)
-            _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf, bounds=bounds)
+            _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf, bounds=bounds,
+                      ground_at=ground_at)
             label = "TILT" if grade == "DG5" else "DG4+tilt"
             n_heavy += 1
         elif grade == "DG3" and rng.random() < MONO_MILD_P:
             deg = rng.uniform(*MONO_MILD_DEG)
             snk = rng.uniform(*MONO_MILD_SINK)
-            _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf, bounds=bounds)
+            _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf, bounds=bounds,
+                      ground_at=ground_at)
             label = "DG3+tilt"
             n_mild += 1
         tally[label] = tally.get(label, 0) + 1
@@ -948,9 +1419,9 @@ def _clear_under_heaps(stage, placements, records, manifest, ssf, rng,
             rows = _variants(manifest, r.get("style"), grade)
             row = next((v for v in rows if v.get("usd") == p.get("usd")),
                        rows[0] if rows else None)
-            if row and (row.get("reach_m") or row.get("fall_sides")):
+            if row and (row.get("reach_m") or row.get("fall_sides") or row.get("extent_m")):
                 rr = dict(r)
-                for k in ("reach_m", "fall_sides", "crown_m"):
+                for k in ("reach_m", "fall_sides", "crown_m", "extent_m"):
                     if row.get(k) is not None and rr.get(k) is None:
                         rr[k] = row[k]
         heaps.append((float(r["x"]), float(r["y"]), W, D, yaw,
@@ -1088,11 +1559,18 @@ def ground_effects(stage, config, stats, placements, arch_dir, parent, ssf,
     UsdGeom.Scope.Define(stage, Sdf.Path(scope))
     n_dust = n_fis = n_boil = n_pound = 0
 
+    # ROUND 5, WP E: same `city_layout` sampler `assemble` builds — but this
+    # function's own soft-soil ejecta/fissures already author in the
+    # UNSCALED (pre-`ssf`) metre frame (`_region(config)`, `stats["soft_
+    # soil"]`), unlike `assemble`'s `_c_mass`, so no `/ ssf` here.
+    _gc = ground_class.GroundClass.from_config(config)
+    ground_at = _gc.at if _gc is not None else None
+
     # a minimal ctx so the per-building helpers can author here
     def _ctx(tag):
         return {"stage": stage, "parent": scope, "rng": rng, "mats": mats, "tag": tag,
                 "authored": [], "static_extra": [], "loose": [], "velocity": {},
-                "notes": [], "n_uid": 0, "info": {"type": "rc"}}
+                "notes": [], "n_uid": 0, "info": {"type": "rc"}, "ground_at": ground_at}
 
     dcfg = (config.get("disaster") or {}).get("dust") or {}
     reach5 = float(dcfg.get("reach_h5", 1.0))

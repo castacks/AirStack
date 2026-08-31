@@ -346,3 +346,19 @@ if __name__ == "__main__":
         if name.startswith("test_") and callable(fn):
             fn()
             print("ok  " + name)
+
+
+def test_measured_extent_beats_nominal_reach():
+    """Round-4 Isaac pass: a manifest row carrying the trimmed mound's
+    measured per-side `extent_m` wins over the nominal `reach_m` wherever it
+    is larger (the relaxed blind-side foot), and never shrinks a side."""
+    r = {"reach_m": {"S": 6.0, "N": 1.6, "E": 1.7, "W": 5.2}, "fall_sides": ["S", "W"],
+         "extent_m": {"S": 6.4, "N": 5.1, "E": 4.8, "W": 5.0}}
+    got = q._heap_reach_for(r, "urm", "DG5", 20.0)
+    assert got["N"] == 5.1 and got["E"] == 4.8      # blind sides: measured foot
+    assert got["S"] == 6.4                           # larger measured value wins
+    assert got["W"] == 5.2                           # never shrinks below nominal
+    # extent alone (no reach_m) is enough
+    r2 = {"extent_m": {"S": 3.0, "N": 2.0, "E": 2.5, "W": 2.0}, "fall_sides": ["S"]}
+    got2 = q._heap_reach_for(r2, "urm", "DG5", 20.0)
+    assert got2 == {"S": 3.0, "N": 2.0, "E": 2.5, "W": 2.0}

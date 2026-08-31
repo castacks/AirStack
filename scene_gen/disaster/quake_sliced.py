@@ -155,6 +155,32 @@ CONSTRUCTION = {
     "Amar_Tower": "rc_glass",
     "Building_11": "rc",            # 30.9 x 35.4 x 32.6 m, no material key -> by height
     "Building_12": "rc",            # 44.3 x 18.7 x 38.9 m, no material key -> by height
+    # ---- downtowncity Carved_* (12 blocks, `_plans/dtc_buildings.json`) ------
+    # THE VALUES BELOW ARE EXACTLY WHAT THE HEIGHT RULE ALREADY RETURNED for
+    # these assets (`H_URM_MAX` = 25 m against the measured H in the comment);
+    # writing them down changes no behaviour and is not meant to. They are
+    # here because `gac_fire.prepare` now asks this table for a downtowncity
+    # block's construction type (2026-08-30, the `dtc:` fire path), and a
+    # per-asset judgement that lives only in a fallback is not reviewable.
+    # The evidence is thin on purpose: these are merged blocks with no
+    # `material:` key and mixed brick/plaster/concrete façades
+    # (`Brick_3`, `WallMaterial_03`, `Concrete_wall_with_cracks`,
+    # `Plaster_011`), which is why height is still the deciding signal —
+    # masonry infill at four to seven storeys, a frame above that. Revise a
+    # row here, with its reason, if a façade-area measurement like
+    # `gac_building_material.json` is ever made for this pack.
+    "Carved_04": "urm",             # 34.1 x 39.1 x 16.0 m
+    "Carved_17": "urm",             # 44.0 x 24.1 x 17.0 m
+    "Carved_05": "urm",             # 44.4 x 44.3 x 18.6 m
+    "Carved_06": "urm",             # 39.9 x 44.4 x 19.0 m
+    "Carved_15": "urm",             # 83.9 x 44.4 x 19.0 m
+    "Carved_21": "urm",             # 37.4 x 43.5 x 21.0 m
+    "Carved_02": "urm",             # 43.2 x 44.3 x 22.0 m
+    "Carved_14": "rc",              # 84.0 x 39.5 x 25.4 m — just over the cut
+    "Carved_03": "rc",              # 42.6 x 44.4 x 27.6 m
+    "Carved_01": "rc",              # 42.8 x 44.0 x 28.4 m
+    "Carved_18": "rc",              # 44.4 x 44.4 x 29.2 m
+    "Carved_13": "rc",              # 83.9 x 44.2 x 30.6 m
 }
 
 
@@ -1585,6 +1611,43 @@ def _finalise(pctx, plan):
 
 
 # ---------------------------------------------------------------------------
+# THE PLAN, JSON-SAFE — for a bake sidecar to carry
+# ---------------------------------------------------------------------------
+# `plan_damage`'s own docstring already commits to "JSON-serialisable
+# throughout — matrices are specs, not matrices, and every number is a plain
+# float", so there is no real TYPE conversion to do here (unlike, say,
+# `fire_bake.mass_to_json`, which deliberately drops fields). What these two
+# functions are for: a bake launcher writing a `"quake": {"plan": ...}`
+# sidecar field (the `slice-buildings-into-kits` skill's "What the sidecar
+# must carry for a non-fire disaster" — "write a `plan_to_json`/`plan_from_
+# json` pair the way `fire_bake.py` writes `mass_to_json`/`events_to_json`,
+# not a reuse of the fire ones, since the field names differ") needs ONE
+# named, tested function to call rather than reaching for a bare
+# `json.dumps`/`json.loads` at the call site, and a plan round-tripped
+# through JSON turns every tuple (`frac`, `pivot`, `axis`, `sides`, ...) into
+# a list anyway — canonicalising that HERE, at bake time, means a caller who
+# forgot and wrote a tuple somewhere new gets a loud `TypeError` from
+# `plan_to_json` instead of a silent list-vs-tuple mismatch three call sites
+# downstream.
+def plan_to_json(plan):
+    """`plan_damage`'s return, canonicalised to plain JSON-native data (every
+    tuple becomes a list, `sort_keys=True` so two plans from the same seed
+    serialise identically). Raises `TypeError` if `plan` carries anything
+    that is not already JSON-safe — a bug in a recipe, not a legitimate use
+    of this function, so it is not caught here."""
+    return _json.loads(_json.dumps(plan, sort_keys=True))
+
+
+def plan_from_json(data):
+    """The inverse of `plan_to_json`. A plain `dict` copy is the whole of it:
+    `apply_plan` never reads `plan["_removed_set"]` (the one key `_finalise`
+    pops before `plan_damage` ever returns a plan), so there is nothing here
+    to reconstruct — the loaded dict is already exactly what `apply_plan`
+    would be handed fresh off `plan_damage`."""
+    return dict(data)
+
+
+# ---------------------------------------------------------------------------
 # THE USD HALF
 # ---------------------------------------------------------------------------
 # `disaster.quake_rubble` / `quake_rubble_usd` are written in parallel (work
@@ -1858,11 +1921,30 @@ def _author_pile(stage, ctx, plan, spec, i, plan_pile, author):
         return 0
     out = author(stage, ctx["parent"], p, mats=ctx.get("mats"),
                  tag="{0}_{1}".format(ctx["tag"], spec.get("tag") or i),
-                 uid=qf._uid(ctx))
+                 # a CALLABLE, like quake_flow._rubble's `uid=lambda: _uid(ctx)`
+                 # — `author` builds `next_id` from it and CALLS it per large
+                 # element; an int here was the pilot bake's
+                 # "'int' object is not callable" (2026-08-30)
+                 uid=lambda: qf._uid(ctx))
     ctx["static_extra"] += [q for q in (out.get("static") or []) if q]
     ctx["authored"] += [q for q in (out.get("all") or []) if q]
     spec["authored"] = {"n_static": len(out.get("static") or []),
                         "n_all": len(out.get("all") or [])}
+    # RECORD THE PLANNER'S OWN NUMBERS. `quake_flow._rubble` (the kit path)
+    # appends `dict(plan["stats"])` to `ctx.setdefault("rubble", []).append`
+    # for exactly this reason — a bake launcher summarising `fall_sides` /
+    # `reach_m` / `extent_m` / `crown_m` into a manifest
+    # (`bake_quake_archetypes_launch_script._rubble_fields`) reads that key.
+    # The sliced path never populated it, so a sliced-building bake sidecar
+    # had nowhere to read the same numbers from. Mirrors `quake_flow._rubble`
+    # byte for byte, off `p["stats"]` (`plan_pile`'s own return, the local
+    # `p` above — the SAME dict `quake_flow._rubble` calls `plan` and reads
+    # `plan["stats"]` off, just named differently here to avoid shadowing
+    # this function's own `plan` argument).
+    stats = dict(p.get("stats") or {})
+    stats.update({"kind": spec.get("kind"), "sides": spec.get("sides"),
+                  "tag": spec.get("tag") or i})
+    ctx.setdefault("rubble", []).append(stats)
     return 1
 
 

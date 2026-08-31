@@ -900,6 +900,105 @@ steps:
         exit 1
       timeout_s: 300
 
+  # 3c. THE PERCEPTION CHAIN, before takeoff. The bridge check above proves a
+  #     plan can become motion; this proves there is anything to plan AGAINST.
+  #
+  #     WHY IT EXISTS. In the 2026-08-30 09:09:51 run seven robots flew and
+  #     robot_3 hovered at 19.8 m in a 24 cm x 19 cm box for the entire
+  #     108-minute iteration — 10 m of path against 1,315-1,874 m for the
+  #     others. Every coarse check passed: its node list and topic list were
+  #     identical to robot_1's, mighty_bridge was up, tasks/navigate was
+  #     advertised, the search planner published 4,904 global plans and
+  #     blacklisted 10 goals. What was actually wrong was one layer lower —
+  #     its `global_mapper_ros` PointCloudCallback NEVER FIRED ONCE (robot_1
+  #     logged four startup lookupTransform warnings from inside that
+  #     callback; robot_3 logged none), so `mighty` logged
+  #     "pclptr_map_ was null or empty; skipping KDtree update" 6,775 times
+  #     and emitted ZERO "Command to execution time" lines against robot_1's
+  #     731. Measured corroboration, from `resources.log`: mighty's RSS grows
+  #     with the map it accumulates, and robot_3's stayed at 1,522 MB while
+  #     every other robot's reached 3,484-5,329 MB. `/gcs/robot_3/voxel_map`
+  #     carried 0 messages; everyone else's carried ~4,900.
+  #
+  #     A SECOND FAILURE THIS CATCHES. Stereo matching needs texture, and a
+  #     frozen cell used to render BLACK (no sky in the cell; see
+  #     example_multi_drone_scene_import.py's FROZEN-CELL LIGHTING block). A
+  #     black scene yields no disparity, hence an empty cloud, on EVERY robot
+  #     — so if the lighting ever regresses this gate fails all eight at t=0
+  #     rather than after another 81-minute iteration.
+  #
+  #     The cloud must be flowing AND non-degenerate: `ros2 topic hz` proves
+  #     arrival, and width*height proves it is not an empty PointCloud2, which
+  #     is what a textureless scene produces and what a rate check alone would
+  #     happily pass.
+  - run:
+      container: airstack-robot-desktop-{n}
+      cmd: |
+        source /root/.bashrc >/dev/null 2>&1 || true
+        export ROBOT_NAME=robot_{n}
+        export ROS_DOMAIN_ID={n}
+        # PROBE THE DISPARITY, NOT THE CLOUD OR THE IMAGE. Both of those are on
+        # the dds_router ALLOWLIST (`onboard_all/config/dds_router.yaml`:
+        # `.../front_stereo/left/image_rect` and
+        # `.../perception/stereo_image_proc/point_cloud`), and `ros2 topic hz`
+        # creates a READER — which activates the robot->GCS bridge for a
+        # ~21 MB/s point cloud that nothing on the GCS side consumes, so the
+        # router buffers it without bound.
+        #
+        # That is not hypothetical: on 2026-08-30 this step ran at 22:01:00 and
+        # robot_2's ddsrouter went 114 MB -> 66,225 MB in dead-linear fashion
+        # over the next 80 minutes (growth ~21 MB/s, i.e. exactly the cloud's
+        # bitrate), the container reached 74.8 GB, and robot_2 vanished from
+        # the bag — 230 odometry messages against ~19,730 for every other
+        # robot, and ZERO global_plan / markers / occupancy / voxel_map. The
+        # robot itself flew fine (its own planner.log: 4,741 ticks, 25 gate
+        # passes, 2 people visited); only its telemetry was lost. The router
+        # config's own rayfronts note records the same failure mode: RSS
+        # 130 MB -> 870 MB on point-cloud streams until "it died and took every
+        # later iteration with it".
+        #
+        # `/perception/stereo_image_proc/disparity` is NOT allowlisted, so
+        # subscribing to it creates no cross-domain route — and it is a
+        # STRICTLY STRONGER signal: disparity exists only if BOTH rectified
+        # images arrived and the block matcher ran, and `point_cloud` is
+        # produced from it by the very next node in the same launch file.
+        DISP=/robot_{n}/perception/stereo_image_proc/disparity
+        PC=/robot_{n}/perception/stereo_image_proc/point_cloud
+        ok_disp=0; npub=0
+        for i in $(seq 1 20); do
+          if [ "$ok_disp" = "0" ]; then
+            timeout 20 ros2 topic hz "$DISP" 2>/dev/null \
+              | grep -m1 -q "average rate" && ok_disp=1
+          fi
+          if [ "$ok_disp" = "1" ]; then
+            # `topic info` does NOT subscribe, so this cannot open a route.
+            npub=$(ros2 topic info "$PC" 2>/dev/null \
+                   | grep -oE "Publisher count: [0-9]+" | grep -oE "[0-9]+")
+            npub=${npub:-0}
+            if [ "$npub" -gt 0 ]; then
+              echo "PERCEPTION_OK robot_{n}: $DISP streaming, $PC has $npub publisher(s)"
+              exit 0
+            fi
+          fi
+          sleep 5
+        done
+        echo "PERCEPTION_DEAD robot_{n}: disparity=$ok_disp cloud_publishers=$npub"
+        echo "This robot will take off and hover: with no point cloud the"
+        echo "global mapper never builds a map, mighty's KD-tree stays null,"
+        echo "no trajectory_override is ever published, and every goal the"
+        echo "search planner picks is eventually blacklisted. Seen on robot_3"
+        echo "in the 2026-08-30 09:09:51 run (10 m flown in 108 minutes)."
+        echo "--- is the sim publishing to this domain at all ---"
+        ros2 topic list 2>/dev/null | grep -c "/robot_{n}/sensors/" || true
+        echo "--- perception nodes on this domain ---"
+        ros2 node list 2>/dev/null | grep -E "stereo|point_cloud|disparity|global_mapper" \
+          || echo "(no perception nodes)"
+        echo "--- global_mapper log, PointCloudCallback lines ---"
+        grep -ah "PointCloudCallback" /root/.ros/log/global_mapper_node_*.log 2>/dev/null \
+          | tail -20 || echo "(the callback never fired — not one line)"
+        exit 1
+      timeout_s: 420
+
   # 4. Takeoff — all eight robots in parallel via the GCS relay. 20 m AGL is
   #    the bottom of the flight band in every frozen scene overlay.
   - action:

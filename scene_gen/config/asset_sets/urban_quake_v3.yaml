@@ -1,0 +1,117 @@
+# ASSET SET: urban_quake_v3 — real MCE originals (the ones a size-matched kit
+# TWIN can stand in for, exactly as the fire scene does) alongside a SMALL
+# set of the SAME kit DG0 archetypes already proven at F5c in the urban-fire
+# ladder, instead of `urban_quake`'s full 16-style kit-only roster.
+#
+# THE PROBLEM THIS FIXES (user, 2026-08-30, looking at the first M7.8 500 m
+# scene): "Looks like you're assembling the building yourself and as a
+# result a lot of the buildings look wrong. Once again look at urban fire,
+# the buildings look correct there." `urban_quake` / `urban_quake_v2` pack
+# 16 generic `detail/urban_building.py` kit styles into EVERY lot, so
+# nothing recognisable reads as a downtown. The fire bench the user likes
+# (`mce_fire_launch_script.py`, captures under
+# `~/docker/isaac-sim/logs/mce_fire4/`) shows the REAL MCE merged originals
+# (`SM_MERGED_BP_MBuilding01/02/05`) beside size-matched kit TWINS
+# (`disaster/kit_substitute.route`: MBuilding01 -> commercial_mid,
+# MBuilding05 -> highrise_step, MBuilding02 -> block_residential), and the
+# fire row (`~/docker/isaac-sim/logs/fire_row2b/`) shows kit styles
+# `commercial_mid` and `office_wide` at F5c that the user accepted. This set
+# puts exactly those buildings in the pool and nothing else — the actual
+# swap from original to twin happens at ASSEMBLY time
+# (`disaster/quake.assemble`'s SAME_ART branch / `decide_building`), not here.
+#
+# `extends: urban_quake`: street furniture, tiles, vehicles, park content,
+# the debris pools and the `damaged: []` / `destroyed: []` override (no
+# pre-made ruins — quake damage is the assembly pass swapping references, see
+# urban_quake.yaml) all come across unchanged. ONLY the building pools below
+# are replaced — every key here is bare (no `+`), matching urban_quake.yaml's
+# own convention of OWNING the pool rather than appending to it.
+#
+# WHAT IS DELIBERATELY NOT HERE: GAC, downtowncity, the AEC brownstones, the
+# Muyang DownTown `BG_Building_*` shells, and the `urban_quake_v2` standalone
+# monoliths / ruin towers. None of them can be damaged the way MCE is damaged
+# here (user, 2026-08-30: "use no asset we cannot damage the way MCE is
+# damaged"). `kit_substitute.UNBURNABLE` / `unburnable()` already gates Muyang
+# DownTown out of the FIRE ladder for the identical reason — one merged mesh,
+# no separable parts, no glass subset, so it can carry only a flat tint — and
+# the standalone monoliths are opt-in-only in `urban_quake_v2` because their
+# materials do not resolve in Isaac at all (untextured cream boxes). None of
+# that is fixed by this asset set, so none of it is in this pool.
+extends: urban_quake
+
+usds:
+  buildings:
+    # A CLOSED set: three MCE originals (`disaster.kit_substitute.SAME_ART`)
+    # plus five kit DG0 styles already proven at F5c in the fire ladder, for
+    # variety on lots the packer does not size for an MCE original.
+    #
+    # `material:` on the three MCE entries is NOT the urban_gac.yaml texture
+    # tag (concrete / brick / steel / stone) — it is `quake`'s own
+    # construction-type vocabulary (urm / rc / rc_glass,
+    # `quake_flow.FAMILY_TYPE`'s three values), read by
+    # `disaster.quake._same_art_material` to draw the EMS-98 grade for a
+    # building `kit_substitute` cannot look up a baked `type` for (a same_art
+    # asset is not itself a bake — it has no manifest row of its own). Each
+    # value is matched to the KIT STYLE `route()` actually names for that
+    # footprint (`kit_substitute.check()`'s three exact-name assertions), not
+    # guessed: `commercial_mid` is kit family 04 (urm), `block_residential`
+    # is family 02 (rc), `highrise_step` is family 05 (rc_glass) — see
+    # `assets/archetype/archetypes.json` / `quake_flow.FAMILY_TYPE`.
+    intact:
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_DG0.usd", scale: 1.0}   # 22.0 x 17.0 x 18.0 m, urm — fire-proven kit style
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_DG0.usd", scale: 1.0}  # 22.0 x 14.0 x 14.0 m, urm — fire-proven kit style
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_DG0.usd", scale: 1.0}  # 22.0 x 18.0 x 20.0 m, urm — fire-proven kit style
+
+    midrise:
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_DG0.usd", scale: 1.0}       # 22.0 x 17.0 x 18.0 m, urm
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_DG0.usd", scale: 1.0}      # 22.0 x 14.0 x 14.0 m, urm
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_DG0.usd", scale: 1.0}      # 22.0 x 18.0 x 20.0 m, urm
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_wide_DG0.usd", scale: 1.0}     # 40.0 x 24.0 x 22.0 m, rc — fire-proven kit style (fire_row2b, F5c)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_mid_DG0.usd", scale: 1.0}  # 30.0 x 18.0 x 26.0 m, urm — fire-proven kit style (fire_row2b, F5c); also MBuilding01's kit twin
+      # MCE ORIGINAL. 28.5 x 18.5 x 29.0 m, authored in METRES (no 0.01,
+      # unlike its ModernCityEnvironment siblings below — see urban.yaml's
+      # own note on this same asset). `route()` matches it to
+      # `commercial_mid` (`kit_substitute.check()`); the ORIGINAL — untouched
+      # at DG0, twinned by `quake.assemble` above DG0 — is what stands beside
+      # a `commercial_mid` twin in the fire bench (`mce_fire4`) the user
+      # pointed at.
+      - {usd: "Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd", scale: 1.0, material: urm}
+
+    tower:
+      # MCE ORIGINALS ONLY — no kit style in the approved set reaches tower
+      # height; the two that would (`highrise_step`, `block_residential`)
+      # have no DG0 bake yet, see the commented-out lines below. Both
+      # centimetre-authored (`scale: 0.01`), matching urban.yaml.
+      - {usd: "Muyang/ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd", scale: 0.01, material: rc_glass}   # 27.7 x 20.6 x 62.4 m — concrete podium + glass tower; route() -> highrise_step
+      - {usd: "Muyang/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd", scale: 0.01, material: rc}         # 91.1 x 96.1 x 68.7 m — full city block; route() -> block_residential
+
+      # NOT YET BAKED (measured 2026-08-30: no `bld_highrise_step_*` /
+      # `bld_block_residential_*` file exists under `scene_gen/assets/
+      # archetype/`, though both are real entries in `urban_building.STYLES`
+      # — live-measured 35.0 x 25.0 x 61.0 m and 88.0 x 56.0 x 67.0 m
+      # respectively, `kit_substitute.styles()`). `route()` already names them
+      # as the correct twins for MBuilding05 / MBuilding02 by size; it is the
+      # MANIFEST LOOKUP `disaster.quake.decide_building` runs that has
+      # nothing to swap to yet, so today those two MCE buildings are only
+      # ever KEPT
+      # (pristine at DG0, or the `_mono_pass` fallback lean above it) — never
+      # actually swapped for their own twin. Bake with:
+      #     ARCH_GRADES=DG0,DG1,DG2,DG3,DG4,DG5,SETTLE,TILT,OV \
+      #         scene_gen/tools/bake_quake_headless.sh highrise_step block_residential
+      # then uncomment:
+      # - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_highrise_step_DG0.usd", scale: 1.0}      # 35.0 x 25.0 x 61.0 m, rc_glass
+      # - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_block_residential_DG0.usd", scale: 1.0} # 88.0 x 56.0 x 67.0 m, rc
+
+    # No approved style is a ~21 m-deep party-wall unit (urban_quake.yaml's
+    # own note: "the terrace morphology assumes ~21 m-deep party-wall units;
+    # the kit has none, so the earthquake preset zeroes the rowhouse mix and
+    # this pool only exists so a stray rowhouse draw cannot come up empty" —
+    # `downtown_earthquake`'s ring `mix.rowhouse` is 0.00 at every ring, so
+    # `zoning.typologies.rowhouse` is structurally present but never actually
+    # picked from the ring prior). `brownstone_DG0` — the narrowest (14 m)
+    # member of THIS set's approved list — is reused here rather than pulling
+    # in `brownstone_row` / `dw_terrace` (not in the approved list); a stray
+    # draw simply refuses and rebuilds as midrise on a block too deep for it,
+    # same as it does today.
+    rowhouse:
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_DG0.usd", scale: 1.0}

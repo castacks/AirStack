@@ -293,15 +293,29 @@ def regular_grid(bbox, target=TARGET_STOREY_M, name="", verbose=True):
 
 
 def grid_for(stage, src, bbox, wins, name="", target=TARGET_STOREY_M,
-             verbose=True):
+             verbose=True, force_regular=False):
     """The best grid available: the asset's own windows, else a regular one.
 
     Returns `(grid, measured)`. `measured` is what a caller should report —
     a regular grid is a legitimate result here, not a failure, but the two
     must not be confused when judging a slice.
+
+    `force_regular=True` skips the measured-grid path ENTIRELY and always
+    returns `regular_grid` — for an asset whose measured islands are known
+    to be unreliable (`gac_fire.PACKS[...]["force_regular_grid"]`: a decal
+    or equipment material sweeping into the window count, dtc Building_12,
+    fire_dtc2 review 2026-08-30) rather than one whose grid genuinely
+    could not be measured. Deliberately DIFFERENT from a low-confidence
+    asset falling through below: this is an explicit, named override, not a
+    side effect of `gac_slice.MIN_CONFIDENCE`.
     """
     from detail import gac_slice as gsl
 
+    if force_regular:
+        if verbose:
+            print("[storey_slice] {0}: force_regular requested -- skipping "
+                  "the measured grid".format(name or "?"))
+        return regular_grid(bbox, target, name, verbose), False
     if wins:
         g = gsl.measure_grid(wins, bbox, verbose=False, name=name)
         if g.get("confidence", 0.0) >= gsl.MIN_CONFIDENCE and g.get("storeys"):
@@ -1313,7 +1327,8 @@ def slice_lock(verbose=False):
 
 
 def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
-                 offset=0.5, verbose=True, region=None):
+                 offset=0.5, verbose=True, region=None, family=None,
+                 force_regular=False):
     """Slice a placed asset into kit placements, ready for `burn_building`.
 
     One call: measure the grid (or fall back to a regular one), cut the
@@ -1357,6 +1372,12 @@ def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
     (`gac_fire.darken_glass`'s `p["_storey"]` test).
 
     Returns `(placements, grid, measured)`.
+
+    `force_regular=True` (`gac_fire.PACKS[...]["force_regular_grid"]`) skips
+    the measured-grid path in this call's OWN `grid_for` — see that
+    function's docstring. Only the physical CUT is affected; a caller's
+    earlier, separate `grid_for` call for its mass box / fire plan
+    (`gac_fire.prepare`) is untouched by this flag.
     """
     import gc
 
@@ -1365,7 +1386,8 @@ def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
 
     wins, bbox = gsl.window_centres(stage, src)
     g, measured = grid_for(stage, src, bbox, wins, name=style,
-                           target=target, verbose=verbose)
+                           target=target, verbose=verbose,
+                           force_regular=force_regular)
     m = read_mesh(stage, src, verbose=False)
     if m is None:
         return [], g, measured
@@ -1447,7 +1469,7 @@ def slice_to_kit(stage, src, cell, style, target=TARGET_STOREY_M,
         print("[storey_slice] {0} placement(s) for style {1}: {2}".format(
             len(pls), style,
             "  ".join("{0}={1}".format(k, v) for k, v in sorted(by.items()))))
-    spec = gsl.register_style(g, style, pieces_of=pls)
+    spec = gsl.register_style(g, style, pieces_of=pls, family=family or "01")
     _fix_advertised_bands(spec, pls, style, verbose=verbose)
     UsdGeom.Imageable(stage.GetPrimAtPath(src)).MakeInvisible()
     if verbose:

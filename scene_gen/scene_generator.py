@@ -4347,6 +4347,9 @@ def generate_scene_usd(config, output_path: str, scene_scale_factor: float = 1.0
 
     resolver = _make_resolver(config)
     placements, layout = build_city(config, resolver)
+    # In-memory only — see `generate_scene_on_stage`'s note on why this is
+    # never written back to a YAML file.
+    config["_city_layout"] = layout
     apply_placements(stage, placements, "/World/stage/generated", scene_scale_factor,
                      resolver=resolver)
     apply_ground_planes(stage, config, layout, "/World/stage/generated", scene_scale_factor)
@@ -4400,6 +4403,15 @@ def generate_scene_on_stage(stage,
 
     resolver = _make_resolver(config)
     placements, layout = build_city(config, resolver)
+    # Stashed on the in-memory `config` dict ONLY (never written to a YAML
+    # file — `disaster.ground_class.GroundClass.from_config` is the only
+    # reader, at earthquake assembly time, and a preset's own YAML round-trip
+    # never touches a config object that has already been through
+    # `build_city`). `city_layout` carries plain tuples/dicts/lists, so even
+    # if something did try to serialise it, `yaml.safe_dump` degrades it to
+    # nested lists rather than raising — checked, not assumed — but the key
+    # itself never reaches a serialiser in this codebase today.
+    config["_city_layout"] = layout
     ground_snap = _make_physx_ground_snap() if snap_to_ground else None
     apply_placements(stage, placements, parent_path, scene_scale_factor, ground_snap,
                      resolver=resolver)

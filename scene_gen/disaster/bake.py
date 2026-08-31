@@ -238,7 +238,55 @@ def _copy_local_xform(src_prim, dst_prim):
             new_op.Set(v)
 
 
-def _copy_prototype_tree(out, dst_path, src_prim, strip_dead=False):
+def _carry_direct_binding(out, src_prim, dst_prim, resolve_material):
+    """If `src_prim` binds a material DIRECTLY on its own path, reproduce
+    that binding on `dst_prim`, with the SAME binding strength token.
+
+    `material:binding` is a RELATIONSHIP, so `_copy_attrs_by_value` (which
+    only copies attributes) silently drops it — this is the bug: the
+    rubble emitter's per-look override
+    (`quake_rubble_usd._bind_override`, authored `strongerThanDescendants`
+    on a PointInstancer prototype's wrapper Xform so it beats the
+    referenced asset's own material deeper in the subtree) vanished on
+    export, leaving every instanced debris piece render with its raw
+    catalogue material instead.
+
+    `GetDirectBinding()`, NOT `ComputeBoundMaterial()` (what
+    `_bound_material_prim`/`material_for` use for the ordinary per-mesh
+    path): a prototype subtree is exported in isolation from the rest of
+    the source stage, so a binding it only INHERITS from some ancestor
+    that is not part of the exported object must never be picked up here
+    — only a binding relationship authored on `src_prim` itself counts.
+    (For `src_prim` itself, `ComputeBoundMaterial()` would in fact resolve
+    to the same material as `GetDirectBinding()` — a prim's own direct
+    binding always wins for ITSELF regardless of any ancestor's strength —
+    but going through the direct binding here keeps that guarantee
+    explicit rather than incidental.)
+
+    `resolve_material` takes an ALREADY-RESOLVED material prim (unlike
+    `material_for`, which resolves one from an arbitrary prim first) — it
+    is `export_object`'s `_cached_material` closure, so a material
+    shared by many prototypes (a whole rubble `look`) is rebuilt into the
+    exported stage's `Looks` scope exactly once.
+    """
+    from pxr import UsdShade
+    db = UsdShade.MaterialBindingAPI(src_prim).GetDirectBinding()
+    mat = db.GetMaterial()
+    mp = mat.GetPrim() if mat else None
+    if not (mp and mp.IsValid()):
+        return
+    dst_mat_path = resolve_material(mp)
+    if not dst_mat_path:
+        return
+    strength = UsdShade.MaterialBindingAPI.GetMaterialBindingStrength(
+        db.GetBindingRel())
+    UsdShade.MaterialBindingAPI(dst_prim).Bind(
+        UsdShade.Material(out.GetPrimAtPath(dst_mat_path)),
+        bindingStrength=strength)
+
+
+def _copy_prototype_tree(out, dst_path, src_prim, strip_dead=False,
+                         resolve_material=None):
     """Deep-copy ONE PointInstancer prototype subtree into the exported
     stage, in its OWN LOCAL FRAME — never world-baked, see `_author_instancer`.
 
@@ -254,12 +302,25 @@ def _copy_prototype_tree(out, dst_path, src_prim, strip_dead=False):
     Nucleus — is copied attribute-by-value like everything else in this
     file, and its children are walked recursively so a multi-prim inline
     prototype (a mesh plus GeomSubsets, say) survives whole.
+
+    `resolve_material`, when given, is `export_object`'s cache-and-rebuild
+    closure (see `_carry_direct_binding`). It is threaded through every
+    level of the recursion — the prototype ROOT (the common case: the
+    wrapper Xform the rubble emitter binds its override onto, which ALSO
+    carries the reference and would otherwise return before any child is
+    ever visited) as well as any INLINE child that carries its own direct
+    binding — so a prototype's own material binding survives the copy
+    instead of being dropped the way every relationship silently is under
+    `_copy_attrs_by_value`. Left `None`, this function's behaviour (and
+    every non-instancer caller's) is exactly what it was before.
     """
     from pxr import Sdf
 
     newp = out.DefinePrim(Sdf.Path(dst_path), src_prim.GetTypeName())
     _copy_attrs_by_value(src_prim, newp, skip_xform=True, strip_dead=strip_dead)
     _copy_local_xform(src_prim, newp)
+    if resolve_material is not None:
+        _carry_direct_binding(out, src_prim, newp, resolve_material)
     refs = _direct_references(src_prim)
     if refs:
         for ident, tpath in refs:
@@ -270,7 +331,8 @@ def _copy_prototype_tree(out, dst_path, src_prim, strip_dead=False):
         return newp
     for child in src_prim.GetChildren():
         _copy_prototype_tree(out, dst_path + "/" + child.GetName(), child,
-                             strip_dead=strip_dead)
+                             strip_dead=strip_dead,
+                             resolve_material=resolve_material)
     return newp
 
 
@@ -1298,8 +1360,17 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
     # different paths would otherwise be two buckets).
     fpmap = {}                # source path -> fingerprint (avoid rehashing)
 
-    def material_for(prim):
-        mp = _bound_material_prim(prim)
+    def _cached_material(mp):
+        """Rebuild-and-cache ONE ALREADY-RESOLVED material prim `mp` into
+        this object's `Looks` scope, keyed by content fingerprint — the
+        half of `material_for` below that does not care HOW `mp` was
+        found. Shared with the PointInstancer prototype path
+        (`_carry_direct_binding`, called from `_copy_prototype_tree`),
+        which resolves `mp` from a prototype's DIRECT binding rather than
+        `material_for`'s `ComputeBoundMaterial`, so both paths rebuild
+        through the SAME cache — a look bound on 9 prototypes, or on a
+        prototype and an ordinary mesh, is rebuilt exactly once either way.
+        """
         if mp is None:
             return None
         key = mp.GetPath().pathString
@@ -1314,6 +1385,9 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
             matmap[fp] = _rebuild_material(
                 out, unique(root + "/Looks", mp.GetName()), mp)
         return matmap[fp]
+
+    def material_for(prim):
+        return _cached_material(_bound_material_prim(prim))
 
     n_mesh = 0
     object_mats = []          # every out-material path used in this object
@@ -1492,7 +1566,8 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
                 # nothing downstream needs the original absolute location —
                 # only the `prototypes` relationship has to resolve.
                 dst_p = unique(dst + "/Prototypes", _safe_name(tprim.GetName()))
-            _copy_prototype_tree(out, dst_p, tprim, strip_dead=False)
+            _copy_prototype_tree(out, dst_p, tprim, strip_dead=False,
+                                 resolve_material=_cached_material)
             new_targets.append(Sdf.Path(dst_p))
         if new_targets:
             dst_rel.SetTargets(new_targets)

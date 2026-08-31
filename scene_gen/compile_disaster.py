@@ -543,41 +543,299 @@ def compile_flood(sev, spec, region):
 
 
 def compile_hurricane(sev, spec, region):
-    """City-wide wind and rain: broad, even damage without a sharp edge.
+    """City-wide wind, ROOF-FIRST, on a coastal roughness gradient, plus a
+    static surge footprint — no track, no untouched zone.
 
-    Signature — tornado-like damage mechanisms (things blown over and moved)
-    but spread across the whole region at lower intensity, with no untouched
-    zone and no narrow track.
+    Signature — the opposite emphasis of the tornado at almost every turn.
+    Roof cover and openings carry the damage story; wall/structural loss
+    stays a minority even at high severity, because "dismantling develops
+    first at roof level" (Marshall 2004) and the survey record backs it —
+    90% of Katrina's 8,119 surveyed residences lost under 20% of their roof
+    cover, and only 1 in 2,700 lost a large section of roof STRUCTURE.
+    Debris is mostly leaves and limbs, not sawn timber: Lee County's Ian
+    collection ran 72% vegetative by volume. Trees stand, bare and brown,
+    rather than down. Bare slabs appear only inside the surge footprint,
+    never scattered inland — "all homes that suffered complete destruction
+    in hurricanes were associated with storm surge, not high winds only"
+    (Roueche et al.). Cars are moved by water, essentially never by wind
+    alone (0 wind-relocated cars below ~130 mph gusts across 30 surveys).
+
+    THIS IS THE FIRST VERSION THAT READS `spec` AND `region` AT ALL — the
+    version this replaces computed everything from `sev` alone, which meant
+    `heading_deg` and every hurricane-specific spec key were silent no-ops
+    (verified 2026-08-29). `region` sizes exactly one knob below
+    (`wrack_lines`); everything else `disaster.hurricane` carries is a
+    PHYSICAL quantity — a gust speed, a surge depth, a land slope, a roll-
+    vortex wavelength — and must NOT grow with the plate, the same argument
+    `compile_tornado`'s `width_m` comment makes about track width. The
+    legacy `debris.path_pieces_per_100m2`-style knobs below need no such
+    line either: they are already expressed per unit area, so the region's
+    actual footprint scales their total at the point of use, in
+    `scene_generator.py`, not here.
     """
+    w, h = region
+
+    # ---- THE WIND, as `disaster.hurricane` — the sub-block that fixes the
+    # `_disaster_kind` mislabel (freeze_dataset_launch_script falls through
+    # to "wildfire" without one) and gives `hurricane.py` / `hurricane_flow.py`
+    # every steering knob the parameter set in the skill asks for.
+    #
+    # THE DRIVER. Marshall's Katrina aerial survey of 11,105 structures found
+    # the damage-derived gusts across the whole impact zone averaged 41 m/s —
+    # Cat 1-2 LOCAL intensity inside a storm rated Cat 3 at landfall, because
+    # most buildings sat in Exposure B, not open-terrain C. The category is a
+    # label for the record; this is the number the ladder is actually driven
+    # from. 0 is a fresh-breeze fringe brush; 1 is a low-end Cat 5 local gust
+    # (matching the 175 mph ceiling in the vehicle-movement record below).
+    site_gust_mps = round(float(spec.get("site_gust_mps", lerp(25.0, 78.0, sev))), 1)
+    # Dominant azimuth of the strongest gust episode — the shared top-level
+    # `heading_deg` vocabulary (tornado/hurricane/wildfire all read it as
+    # "direction of travel"), not a hurricane-only key. Named `heading_deg`
+    # in the output block too, matching `hurricane.resolve_cfg` exactly —
+    # calling it `bearing_deg` there was a silent no-op the field module
+    # never read (measured against `hurricane.py` after it landed).
+    heading_deg = float(spec.get("heading_deg", 35.0))
+    # Spread about `heading_deg`, +-30..60 as the wind backs through a
+    # landfall (Marshall dated individual Keesler AFB failures rotating
+    # 060 -> 110 deg over seven hours). Widens with severity because a more
+    # violent boundary layer backs through more of that arc before the
+    # structure fails; 180 (an eye passage, a second population roughly
+    # opposite the first) is a narrative choice left to the preset, not
+    # something severity alone should produce.
+    rotation_deg = float(spec.get("rotation_deg", round(lerp(30.0, 55.0, sev), 1)))
+    # The AXIS the rotation spread is centred on, when it differs from
+    # `heading_deg` itself (e.g. a wind veer whose midpoint has drifted from
+    # the storm's translational heading). `hurricane.resolve_cfg` defaults
+    # this to `None` and derives it internally when unset; passed through
+    # rather than guessed at here, since nothing in the research gives a
+    # reason to diverge from the field module's own default.
+    rotation_axis_deg = spec.get("rotation_axis_deg")
+    # The spatial companion to `rotation_deg`: how far across the plate the
+    # gust bearing visibly swings through that spread. A PHYSICAL span (like
+    # `streak_period_m` below), not scaled by region. Ramped gently with
+    # severity — a more violent boundary layer completes its veer over a
+    # shorter run — and centred on `hurricane.resolve_cfg`'s own 900 m
+    # default at mid-severity.
+    rotation_span_m = round(float(spec.get("rotation_span_m",
+                                            lerp(700.0, 1100.0, sev))), 1)
+    # B (suburban) | C (open) | D (coastal). Every suburb preset on this
+    # branch is Exposure B by construction — Marshall's finding above is
+    # specifically that Exposure B cuts the open-terrain gust 13-15%, so this
+    # is not a cosmetic label, it is load-bearing for `site_gust_mps`'s
+    # downstream use.
+    exposure = str(spec.get("exposure", "B"))
+    # Where the coast lies, as a bearing from plate centre. Default ties it
+    # to the storm's own heading: a landfalling hurricane's translational
+    # motion and its onshore push are in the same quarter, so absent a
+    # scene-specific shoreline this is the least-wrong guess. Override it
+    # whenever the plate's coastline and the wind direction genuinely
+    # diverge — the two are independent inputs on purpose.
+    shore_bearing_deg = float(spec.get("shore_bearing_deg", heading_deg))
+    # Fractional reduction of the mean wind per km inland of the coastline,
+    # and the cap on how much of it can ever apply. Vickery, Wadhera & Powell
+    # (2009): ~60% of the transition is complete by 1 km, with a MAXIMUM
+    # mean-wind reduction of ~17% (`coastal_max_reduction`); NHC separately
+    # states peak winds "diminish by one category within a short distance,
+    # perhaps a kilometre." Both are properties of coastal terrain
+    # roughness, not of storm intensity, so both are constants rather than a
+    # function of `sev`. Named `coastal_falloff_per_km` to match
+    # `hurricane.resolve_cfg` — this was `roughness_gradient` before the
+    # field module landed and its real key names were measured.
+    coastal_falloff_per_km = 0.10
+    coastal_max_reduction = 0.17
+    # OPTIONAL banded overlay from boundary-layer roll vortices — Morrison et
+    # al. (2005) found them in 35-69% of radar volumes, Foster (2005)
+    # quantifies ~14 m/s peak-to-peak over ~725 m, oriented `streak_skew_deg`
+    # = -10 deg off the mean wind (toward the storm centre, per the skill).
+    # `streak_amp_mps` is HALF the peak-to-peak figure (an amplitude, not a
+    # swing), ramped from nothing at `sev`=0 up to the full +-7 m/s the
+    # record supports; `streak_period_m` is the wavelength itself, a
+    # PHYSICAL span (like the tornado's `throw_m`) that does not grow with
+    # the plate. `streak` names the KIND of overlay — "roll" is the only one
+    # these numbers describe; "mesovortex" / "tornado" bands are a different,
+    # unresearched model and must not be selected by this compiler. No
+    # published fragility study maps roll bands onto damage fractions, which
+    # is why this stays a low-amplitude visual overlay rather than a primary
+    # driver. `noise_amp_mps` is the separate, unstructured residual: the
+    # skill's own field-uniformity measurement ("uniform to better than 1 m/s
+    # against a category step of 7-12 m/s") is the ceiling this ramps toward.
+    streak = "roll"
+    streak_amp_mps = round(lerp(0.0, 7.0, sev), 1)
+    streak_period_m = round(lerp(700.0, 1300.0, sev), 1)
+    streak_skew_deg = -10.0
+    noise_amp_mps = round(lerp(0.5, 1.5, sev), 2)
+
+    # ---- THE SURGE — independent of category, per the skill's water plan.
+    #
+    # A PHYSICAL DEPTH, never scaled by the plate. 0.9 / 2.0 / 2.8 m are the
+    # plan's own three dataset levels; 2.8 rather than a "true" Cat 4 3.6 m is
+    # deliberate — at 3.6 the whole plate is underwater and featureless,
+    # correct to the reference imagery but also the level with the LEAST for
+    # a search benchmark to find, so the ladder is capped short of it on
+    # purpose.
+    surge_m = round(float(spec.get("surge_m", lerp(0.9, 2.8, sev))), 2)
+    # Land grade, as a percentage, also independent of plate size. The water
+    # plan runs `land_slope` 1/600 (0.167%) at the mild end down to 1/900
+    # (0.111%) at the violent end — a GENTLER grade carries the same surge
+    # depth farther inland, which is how the level-3 scene reaches "whole
+    # plate" at 2.8 m without needing the featureless 3.6 m depth above.
+    slope_pct = round(float(spec.get("slope_pct", lerp(0.167, 0.111, sev))), 3)
+    # How many separate debris windrow segments to author along the
+    # shoreline crossing THIS plate. This is the one knob here that
+    # genuinely should grow with `region`: a real wrack line does not run
+    # unbroken for kilometres, it breaks into a fresh segment roughly every
+    # 150-250 m of coast, so a longer shoreline crossing needs proportionally
+    # more segments to read as a broken tideline rather than one line
+    # stretched thin. Severity adds a mild multiplier on top — a more
+    # violent surge leaves more distinguishable strand lines from its rise
+    # and its recession, not just a longer one.
+    wrack_lines = max(1, int(round(max(w, h) / 220.0 * lerp(0.7, 1.3, sev))))
+    # The proud-ribbon height the L3 waterline-band pass reads. Numerically
+    # the same physical high-water mark as `surge_m`, kept as its own key
+    # because the two are consumed by different code: `surge_m` sizes the
+    # depth FIELD across the whole plate, `mudline_m` is the single scalar a
+    # per-building band pass needs for where to paint the ring. Decoupling
+    # them now is what lets a later pass model recession (a current mud line
+    # below the historic peak `wrack_lines` mark) without touching the field.
+    mudline_m = float(spec.get("mudline_m", surge_m))
+
+    # ---- THE VARIANCE TERM. Marshall, in three separate storms: "flaws in
+    # construction or poor attachment/anchoring can better explain sharp
+    # gradations in damage rather than a rapid change in wind speed" — and
+    # the code-era record proves it from the other side: post-1994
+    # manufactured homes showed 0% damage above rating 1 in the same wind
+    # that put 64.7% of pre-1976 units at rating >=2. A per-building
+    # CONSTRUCTION-QUALITY draw, not the smooth field, is what should
+    # dominate here — a destroyed house next to an untouched one is the
+    # norm, the exact inverse of the tornado's cross-track gradient. This
+    # mix is a property of the TOWN'S building stock, not of the storm, so
+    # it does not scale with `sev`; a preset overrides it wholesale for a
+    # scene meant to read as an older or newer development.
+    #
+    # FIVE NAMES, MATCHING `hurricane.CODE_ERAS` — a hurricane-only vocabulary
+    # this compiler used to invent its own coarser three-bucket version of
+    # (`pre_1980`/`1980_2004`/`post_2004`) before the field module landed and
+    # its real era table could be measured. `CODE_ERAS`'s own population
+    # shares (0.22 / 0.20 / 0.28 / 0.22 / 0.08) are a national baseline; this
+    # default is shifted OLDER, which is the same Marshall/HUD argument as
+    # before, just over the finer split: `post_2004_ringshank` and
+    # `fortified` retrofits are still rare outside targeted incentive
+    # programs, so 4 points move from `post_2004_ringshank` into the two
+    # pre-1994 buckets `CODE_ERAS` itself cites the HUD post-Charley survey
+    # for (post-1994 HUD-code 0% damage >=rating 2; pre-1994 HUD 28.6%;
+    # pre-1976 non-HUD 64.7%). `fortified` is left at the module default —
+    # nothing here argues a suburban plat should carry more or fewer
+    # FORTIFIED retrofits than the national baseline.
+    code_era_mix = spec.get("code_era_mix", {
+        "pre_1976": 0.25,             # no meaningful wind provisions
+        "hud_1976_94": 0.22,          # pre-1994 HUD code, still weak
+        "post_1994": 0.27,            # post-1994 HUD-code reforms
+        "post_2004_ringshank": 0.18,  # modern IBC/IRC ring-shank nailing
+        "fortified": 0.08,            # IBHS FORTIFIED retrofit, unchanged
+    })
+
     return {
-        "damaged_fraction": lerp(0.08, 0.4, sev),
-        "destroyed_fraction": lerp(0.03, 0.3, sev),
+        # 90% roof-cover-only losses even at strong local gusts push the
+        # damaged ceiling well above the tornado's, since almost every
+        # building shows SOME damage; the destroyed ceiling stays low
+        # because full structural loss is the rare tail (1 in 2,700 lost a
+        # large roof section in the record above) and `swept` belongs to
+        # the surge footprint, never to wind alone (see `compile_flood` and
+        # the module docstring).
+        "damaged_fraction": lerp(0.15, 0.55, sev),
+        "destroyed_fraction": lerp(0.02, 0.15, sev),
         "debris": {
-            "piles_per_building": lerp_pair([1, 2], [3, 5], sev),
-            "pile_max_offset_m": lerp(2.0, 3.5, sev),
-            "pieces_per_building": lerp_pair([4, 9], [14, 26], sev),
-            "pieces_scatter_m": lerp(5.0, 12.0, sev),
-            "tilt_chance": lerp(0.1, 0.3, sev),
-            "tilt_deg": [2, 7],
-            "sink_m": [0.3, 0.9],
-            "lean_piles": [1, 3],
-            # Uniform field: thin scour everywhere rather than a band.
-            "path_pieces_per_100m2": lerp(0.2, 0.9, sev),
-            "path_piles_per_100m2": lerp(0.05, 0.25, sev),
+            # FEWER big piles than a tornado or explosion: a hurricane's
+            # coarse debris is panels and sheets peeled off IN PLACE, not a
+            # whole structure heaped into a mound.
+            "piles_per_building": lerp_pair([1, 2], [2, 3], sev),
+            # Locally sourced and short-travelled — "within 1-3 building
+            # widths... against the first obstruction downwind" — never the
+            # tornado's flung fragments.
+            "pile_max_offset_m": lerp(1.5, 3.0, sev),
+            # RAISED over the previous ceiling on purpose: this is where the
+            # leaf/limb litter lives. Lee County's Ian collection was 72%
+            # vegetative by volume, and the field is UNIFORM, so every lot
+            # gets some litter rather than a corridor concentrating it.
+            "pieces_per_building": lerp_pair([8, 16], [26, 46], sev),
+            "pieces_scatter_m": lerp(3.0, 8.0, sev),
+            # Wind alone rarely undermines a footing — that is a surge/flood
+            # mechanism (`compile_flood`'s job) — so tilt/sink stay low.
+            "tilt_chance": lerp(0.03, 0.12, sev),
+            "tilt_deg": [1, 4],
+            "sink_m": [0.1, 0.3],
+            "lean_piles": [1, 2],
+            # Uniform field: thin scour everywhere, mostly vegetative,
+            # raised over the previous range for the same reason as
+            # `pieces_per_building` above.
+            "path_pieces_per_100m2": lerp(0.3, 1.3, sev),
+            # Coarse piles are the MINORITY fraction (28% of Ian's volume by
+            # the same census), so this stays below the tornado's range.
+            "path_piles_per_100m2": lerp(0.03, 0.15, sev),
         },
+        # NEW: the legacy compiler never toppled a tree at all (the key was
+        # simply absent), which is backwards for the strongest class
+        # separator the research found. Kept well under the tornado's
+        # 0.4-0.95 ladder on purpose — broadleaf canopy is stripped bare at
+        # Cat 3+ (86-94% leaf loss) but the TRUNK STAYS STANDING; Andrew's
+        # 38% urban-forest mortality is the ceiling across the whole record
+        # (Erin 11%, Georges 13%, Jeanne 16%, Charley 18%, Rita 21%, Katrina
+        # 23%), and mortality itself is not the same as toppled. Standing-
+        # but-bare is the norm; this fraction is the minority that actually
+        # goes down.
+        "trees_toppled_fraction": lerp(0.05, 0.28, sev),
         "streetlights_toppled_fraction": lerp(0.1, 0.6, sev),
         "traffic_lights_toppled_fraction": lerp(0.08, 0.5, sev),
         "traffic_lights_leaning_fraction": lerp(0.25, 0.6, sev),
         "traffic_lights_lean_deg": [10, lerp(25.0, 40.0, sev)],
         "trash_cans_toppled_fraction": lerp(0.45, 0.9, sev),
         "trash_cans_scatter_m": lerp(3.0, 10.0, sev),
-        "cars_toppled_fraction": lerp(0.05, 0.35, sev),
-        "cars_strewn": lerp_pair([1, 3], [6, 12], sev),
-        "strewn_topple_fraction": 0.7,
-        "humans_prone_fraction": lerp(0.08, 0.45, sev),
-        "humans_strewn": lerp_pair([0, 2], [4, 10], sev),
-        # Uniform: the whole region is in the storm.
+        # NEAR ZERO, DOWN FROM THE LEGACY 0.05-0.35. The complete record
+        # across 30 hurricane surveys: nothing below ~130 mph gusts; Charley
+        # (130-145) "a few automobiles were flipped"; Andrew (175) "several
+        # ... shifted, rolled, or flipped." Cars are moved by WATER (30 cm
+        # floats one, 45-60 cm carries most away) — `surge.py`'s job, not
+        # this legacy knob's — so this is kept barely above zero rather than
+        # exactly 0.0, for the handful a genuinely violent local gust can
+        # still account for.
+        "cars_toppled_fraction": lerp(0.0, 0.03, sev),
+        # Same reasoning applied to the count: the tornado's scattered-lot
+        # signature does not belong here at all.
+        "cars_strewn": lerp_pair([0, 1], [1, 3], sev),
+        # Of the handful that do move, most are found sitting upright where
+        # the water put them down, not flipped — the opposite emphasis of
+        # the tornado's 0.85.
+        "strewn_topple_fraction": 0.15,
+        "humans_prone_fraction": lerp(0.05, 0.3, sev),
+        "humans_strewn": lerp_pair([0, 1], [3, 7], sev),
+        # Uniform: the whole region is in the storm. Unchanged from the
+        # legacy compiler — this part was correct, and the skill's own
+        # measurement (the parametric field is uniform to better than 1 m/s
+        # against a category step of 7-12 m/s) is what confirms it.
         "field": {"kind": "uniform", "inside": 1.0},
+
+        "hurricane": {
+            "enabled": True,
+            "site_gust_mps": site_gust_mps,
+            "heading_deg": heading_deg,
+            "rotation_deg": rotation_deg,
+            "rotation_axis_deg": rotation_axis_deg,
+            "rotation_span_m": rotation_span_m,
+            "exposure": exposure,
+            "shore_bearing_deg": shore_bearing_deg,
+            "coastal_falloff_per_km": coastal_falloff_per_km,
+            "coastal_max_reduction": coastal_max_reduction,
+            "streak": streak,
+            "streak_amp_mps": streak_amp_mps,
+            "streak_period_m": streak_period_m,
+            "streak_skew_deg": streak_skew_deg,
+            "noise_amp_mps": noise_amp_mps,
+            "surge_m": surge_m,
+            "slope_pct": slope_pct,
+            "wrack_lines": wrack_lines,
+            "mudline_m": mudline_m,
+            "code_era_mix": code_era_mix,
+        },
     }
 
 

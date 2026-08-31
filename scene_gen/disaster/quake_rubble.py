@@ -35,7 +35,9 @@ it came from; where the two disagree the round-4 memo (dated later, agent A's
 dedicated measurement pass) wins.
 """
 
+import json
 import math
+import os
 
 import numpy as np
 
@@ -185,6 +187,190 @@ PROTO_SETS["rc_glass"] = {k: list(v) for k, v in PROTO_SETS["rc"].items()}
 
 
 # ---------------------------------------------------------------------------
+# round-5: per-pile prototype selection from the HD debris piece library
+# (`assets/rubble_hd/`, `HD_CATALOGUE` at the bottom of this file — 840
+# textured pieces: chunk 340, flake 357, raft 22, street 121, material brick
+# or concrete). `_select_proto_sets` resolves a fresh, per-pile-CAPPED
+# `PROTO_SETS`-shaped dict from it, drawn with the PILE'S OWN `rng` so two
+# piles differ but one pile is reproducible for a given seed. Falls back to
+# the original flat-colour `PROTO_SETS[btype]` lists entirely when
+# `HD_CATALOGUE` is empty (the library was never built on this checkout) —
+# printed once, not once per pile, so a city-scale bake with no HD library
+# still runs without spamming the log.
+#
+# `_asset_entry(name)` is the resolver every per-instance/per-large SIZE
+# lookup in `plan_pile` goes through (never a bare `CATALOGUE[name]`, which
+# KeyErrors on an HD name) — checks the original flat-colour `CATALOGUE`
+# first, then `HD_CATALOGUE`. `HD_CATALOGUE` is defined at the bottom of this
+# module (after `load_hd_catalogue()` runs at import time); referencing it
+# here is fine because this function is only ever CALLED after the whole
+# module has finished loading, never at import/definition time.
+# ---------------------------------------------------------------------------
+HD_PROTO_CAP = {"chunk": 24, "flake": 16, "raft": 8, "toe": 8}
+HD_URM_MINORITY_MATERIAL = "concrete"     # lintels / floor fragments mixed into a brick pile
+HD_URM_MINORITY_FRAC = 0.20
+
+_HD_FALLBACK_WARNED = False
+
+
+def _asset_entry(name):
+    """`CATALOGUE[name]`, falling back to `HD_CATALOGUE[name]` — every
+    prototype name a per-pile `PROTO_SETS` draw can produce (HD pieces mixed
+    in alongside the original flat-colour catalogue, round-5) resolves
+    through this. Returns `None` if `name` is in neither (defensive; should
+    not happen for a name this module itself drew)."""
+    return CATALOGUE.get(name) or HD_CATALOGUE.get(name)
+
+
+def _hd_names_by(kind, materials):
+    """Sorted (deterministic) list of `HD_CATALOGUE` names of the given
+    `kind` whose `material` is in `materials`."""
+    mats = set(materials)
+    out = []
+    for n, e in HD_CATALOGUE.items():
+        if e.get("kind") != kind or e.get("material") not in mats:
+            continue
+        sz = tuple(float(v) for v in e.get("size", (0, 0, 0)))
+        if kind == "chunk" and (not _chunky(sz) or _hd_open_frac(n) > HD_CHUNK_MAX_OPEN):
+            continue        # a thin/open scan shell is not a chunk (v8b/v8c renders: standing foil)
+        if kind == "flake" and _hd_open_frac(n) > HD_FLAKE_MAX_OPEN:
+            continue
+        out.append(n)
+    return sorted(out)
+
+
+# A connected component cut from a photogrammetry spread is often an OPEN
+# SHELL a few centimetres thick — the scanned top of a piece, not the piece.
+# Scattered with a stick-out tilt those render as sheets of foil standing on
+# edge (round-5 v8b proof render). A "chunk" prototype must be chunky.
+HD_CHUNK_MIN_ASPECT = float(os.environ.get("RUBBLE_HD_CHUNK_MIN_ASPECT", "0.22"))
+HD_CHUNK_MIN_THICK_M = float(os.environ.get("RUBBLE_HD_CHUNK_MIN_THICK_M", "0.07"))
+
+
+def _chunky(size):
+    lo, hi = min(size), max(size)
+    return hi > 0 and lo >= HD_CHUNK_MIN_THICK_M and (lo / hi) >= HD_CHUNK_MIN_ASPECT
+
+
+# Open-edge fraction per HD piece (`assets/rubble_hd/open_frac.json`, written
+# by a census over the 840 files: boundary edges / all edges). A connected
+# component of a PILE SCAN is a surface patch: median 0.23 open, only 38 of
+# 840 under 0.10. Rendered as loose pieces they are foil with holes (v8c
+# proof render), so the chunk/flake classes are restricted to the
+# near-closed pieces and the WHOLE spreads (which do read as rubble) carry
+# the coverage as `cluster` instances (`CLUSTER_COVERAGE`).
+HD_CHUNK_MAX_OPEN = float(os.environ.get("RUBBLE_HD_CHUNK_MAX_OPEN", "0.15"))
+HD_FLAKE_MAX_OPEN = float(os.environ.get("RUBBLE_HD_FLAKE_MAX_OPEN", "0.30"))
+
+
+def _hd_open_frac(name):
+    return float(HD_OPEN_FRAC.get(name, 1.0))
+
+
+def _sample_names(rng, pool, cap):
+    """Up to `cap` names from `pool`, drawn without replacement via the
+    caller's own `rng` (a `random.Random`) so the draw is reproducible for a
+    given seed; the whole pool if it's already <= `cap`."""
+    pool = list(pool)
+    if not pool:
+        return []
+    if len(pool) <= cap:
+        return pool
+    return rng.sample(pool, cap)
+
+
+def _sample_mixed_names(rng, kind, major_material, minor_material, minor_frac, cap):
+    """`cap` names of `kind`, drawing `minor_frac` (rounded, capped by
+    availability) from `minor_material`'s pool and the rest from
+    `major_material`'s pool — e.g. a URM chunk/flake set: mostly brick with
+    a ~20% minority of concrete (lintels, floor fragments). Tops up from
+    whichever pool has names left if either pool alone can't fill its share
+    (a tiny minority pool should not silently shrink the total draw)."""
+    major_pool = _hd_names_by(kind, (major_material,))
+    minor_pool = _hd_names_by(kind, (minor_material,))
+    n_minor = min(cap, len(minor_pool), int(round(cap * minor_frac)))
+    n_major = min(cap - n_minor, len(major_pool))
+    picked = _sample_names(rng, minor_pool, n_minor) + _sample_names(rng, major_pool, n_major)
+    if len(picked) < cap:
+        rest = [n for n in (major_pool + minor_pool) if n not in picked]
+        picked = picked + _sample_names(rng, rest, cap - len(picked))
+    return picked
+
+
+def _warn_no_hd_catalogue():
+    global _HD_FALLBACK_WARNED
+    if not _HD_FALLBACK_WARNED:
+        print("[quake_rubble] HD_CATALOGUE is empty (assets/rubble_hd/catalogue.json "
+              "missing or unreadable) -> falling back to the flat-colour PROTO_SETS "
+              "catalogue for every pile this process plans.")
+        _HD_FALLBACK_WARNED = True
+
+
+def _select_proto_sets(btype, rng):
+    """Per-pile chunk/flake/raft/toe prototype pools. `cluster` (whole FAB
+    spreads) is untouched either way — it always comes straight from
+    `PROTO_SETS[btype]["cluster"]`.
+
+    HD_CATALOGUE non-empty (the normal case once the library is built):
+      * urm chunk/flake: brick majority + `HD_URM_MINORITY_FRAC` concrete
+        minority (lintels/floor fragments), capped per `HD_PROTO_CAP`;
+      * rc/rc_glass chunk/flake: concrete only, capped;
+      * raft (rc/rc_glass only — urm keeps raft=[], "no concrete rafts"):
+        the HD `raft` pieces (22, both materials) UNION the original
+        authored `_RAFTS` (`slab_01..12`) pool, capped;
+      * toe: HD `street` pieces (121, concrete), capped.
+    Any one of those draws coming back empty (a material filter with
+    nothing to draw from) falls back to that ONE category's original
+    flat-colour list rather than leaving `plan_pile` with an empty
+    `rng.choice()` pool.
+
+    HD_CATALOGUE empty: returns `PROTO_SETS[btype]` unchanged (every
+    category — chunk/flake/raft/toe/cluster — the pre-round-5 flat-colour
+    behaviour), after printing one warning line (see `_warn_no_hd_
+    catalogue`).
+
+    Returns `(proto_sets, used_hd)`.
+    """
+    base = PROTO_SETS[btype]
+    if not HD_CATALOGUE:
+        _warn_no_hd_catalogue()
+        return base, False
+
+    out = dict(base)
+    if btype == "urm":
+        out["chunk"] = _sample_mixed_names(rng, "chunk", "brick", HD_URM_MINORITY_MATERIAL,
+                                           HD_URM_MINORITY_FRAC, HD_PROTO_CAP["chunk"])
+        out["flake"] = _sample_mixed_names(rng, "flake", "brick", HD_URM_MINORITY_MATERIAL,
+                                           HD_URM_MINORITY_FRAC, HD_PROTO_CAP["flake"])
+        # raft stays [] -- "URM has timber floors: no concrete rafts" (unchanged design note)
+    else:
+        out["chunk"] = _sample_names(rng, _hd_names_by("chunk", ("concrete",)), HD_PROTO_CAP["chunk"])
+        out["flake"] = _sample_names(rng, _hd_names_by("flake", ("concrete",)), HD_PROTO_CAP["flake"])
+        if base["raft"]:
+            raft_pool = list(base["raft"]) + _hd_names_by("raft", ("brick", "concrete"))
+            out["raft"] = _sample_names(rng, raft_pool, HD_PROTO_CAP["raft"])
+    if base["toe"]:
+        out["toe"] = _sample_names(rng, _hd_names_by("street", ("concrete",)), HD_PROTO_CAP["toe"])
+    # cluster = the whole scanned spreads (round-5 v8c: the coverage class).
+    # A brick pile draws its own brick spread most of the time with the
+    # concrete spreads as a minority (floors, lintels, the odd slab); a
+    # concrete pile draws every concrete spread. Weighted by repetition so
+    # `rng.choice` keeps its uniform draw.
+    spreads = [n for n, e in CATALOGUE.items() if e.get("kind") == "spread" and not e.get("hp")]
+    brick_sp = [n for n in spreads if CATALOGUE[n].get("material") == "brick"]
+    conc_sp = [n for n in spreads if CATALOGUE[n].get("material") != "brick"]
+    if btype == "urm" and brick_sp:
+        out["cluster"] = brick_sp * max(1, int(round(len(conc_sp) * 1.2))) + conc_sp
+    elif conc_sp:
+        out["cluster"] = list(conc_sp)
+
+    for k in ("chunk", "flake", "raft", "toe"):
+        if base.get(k) and not out.get(k):
+            out[k] = base[k]
+    return out, True
+
+
+# ---------------------------------------------------------------------------
 # Constants. Every one cites the memo section it comes from; `eq_round4_
 # rubble_research.md` (WP A) numbers override the original round-4-plan
 # brief where the two disagree (dated later, dedicated measurement pass).
@@ -269,17 +455,53 @@ LINTEL_N = (3, 6)                  # round4 plan design table sec3a — urm only
 JOIST_N = (6, 14)                  # round4 plan design table sec3a — urm only
 SHEET_PROB = {"urm": 0.0, "rc": 0.15, "rc_glass": 0.35}   # added: "sheets rare" / "more likely"
 
-CHUNK_DENSITY = {"crown": 2.5, "mid": 1.2, "toe": 0.35, "cap": 4000}  # round-4 review: was 1.2/0.3/600 -- read as a dune
-FLAKE_N = (300, 600)               # round-4 review: was 100-300
+# round-5 review: HD debris pieces are already natural-sized (median ~0.33 m
+# longest side), so a fixed per-m^2 COUNT (the old `CHUNK_DENSITY`) doesn't
+# adapt when the mean footprint area of whatever prototypes got drawn this
+# pile changes — a pile of small HD chunks needs many more instances per m^2
+# than a pile of the old ~0.9 m flat boxes to cover the same fraction of
+# surface. `COVERAGE` is a TARGET FRACTION of local surface area the class's
+# own footprints should cover (same crown/mid/toe piecewise shape the old
+# density table used — see `_coverage_frac`); density-per-m^2 is derived at
+# plan time from `COVERAGE[zone] / mean_footprint_area` (`_mean_footprint_
+# area`, `_zone_count_estimate`). >1 is intentional: the crown is meant to
+# be fully hidden under OVERLAPPING pieces, not just sparsely dotted (the
+# tornado skill's "loose material on a crest, at more than one size,
+# overlapping, is what makes earth read as earth" lesson).
+COVERAGE = {"crown": 0.45, "mid": 0.30, "toe": 0.15}   # round-5 v8c: chunks are accents over the cluster layer (was 1.1/0.7/0.35)
+# Hard ceiling on TOTAL instances (chunk+flake+cluster+toe) per pile, env-
+# overridable — a real building-scale dome's coverage-derived chunk/flake
+# estimate can run into the tens of thousands once mean footprint area drops
+# to HD-piece scale; this is the safety valve, applied by scaling every
+# zone's count down by the SAME ratio (so crown stays denser than toe, just
+# smaller overall) rather than truncating one class or one zone outright.
+RUBBLE_MAX_INSTANCES = int(os.environ.get("RUBBLE_MAX_INSTANCES", "6000"))
+# The cap SCALES WITH THE PILE (round-5 v7 proof renders): a flat 6000 on a
+# 22 x 18 m building's dome (~900 m^2 of pile) delivered 0.16-0.45 x the
+# coverage target and the fines tile showed through everywhere, while the
+# same table on a 30 m windrow was fine. The effective cap is
+# max(RUBBLE_MAX_INSTANCES, RUBBLE_INSTANCES_PER_M2 x pile area) capped at
+# RUBBLE_MAX_INSTANCES_CEIL. Flakes are a FILL class: they target
+# FLAKE_COVERAGE_FRAC of the chunk coverage table (they are ~4 x smaller in
+# footprint, so at equal coverage they would eat 4 x the instance budget
+# for a quarter of the visual mass) and are trimmed FIRST when the cap
+# bites (never below half the chunk count).
+RUBBLE_INSTANCES_PER_M2 = float(os.environ.get("RUBBLE_INSTANCES_PER_M2", "14"))
+RUBBLE_MAX_INSTANCES_CEIL = int(os.environ.get("RUBBLE_MAX_INSTANCES_CEIL", "24000"))
+FLAKE_COVERAGE_FRAC = float(os.environ.get("RUBBLE_FLAKE_COVERAGE_FRAC", "0.30"))
 CLUSTER_N = (3, 10)                # round4 plan design table (layer 3)
 RUNOUT_CHUNK_FRAC = (0.08, 0.15)   # round4 brief — share of chunks landing beyond the toe
 RUNOUT_CHUNK_REACH_MULT = 1.4      # round4 brief — up to 1.4x reach
 
 BURY = {
     "raft": (0.10, 0.30),          # rubble_research.md sec3b / "Constants" table (was 0.15-0.45)
-    "chunk": (0.30, 0.60),         # rubble_research.md sec3b
+    # round-5 v8 proof render: at 0.30-0.60 a median HD chunk (0.26 m) sat
+    # with its top 9 cm proud and 37 % of all instances were fully under the
+    # fines — the mound read BARE at 11k instances. Shallower now; the fines
+    # layer is a proxy, the visible pieces are the pile.
+    "chunk": (0.12, 0.35),         # was 0.30-0.60 (rubble_research.md sec3b)
     "cluster": (0.25, 0.50),       # round4 brief (not separately measured — kept)
-    "flake": (0.0, 0.30),          # round4 brief
+    "flake": (0.0, 0.12),          # was 0.0-0.30 (round4 brief)
     "panel": (0.20, 0.50),         # round4 brief
     # extra categories needed for authored/asset "large" elements the brief's
     # BURY dict didn't cover (added, not part of the original 5-key table):
@@ -293,10 +515,18 @@ PANEL_LEAN_DEG = (30.0, 70.0)      # rubble_research.md sec3b (was 55-80)
 PANEL_TILT_DEG = (10.0, 35.0)      # round4 brief — general (non-leaning) panel tilt
 RAFT_TILT_DEG = (0.0, 25.0)        # round4 brief
 RAFT_CROWN_TILT_DEG = (5.0, 25.0)  # round4 brief — crown-group subset
-CHUNK_SCALE = (0.35, 1.0)          # round4 brief
-CLUSTER_SCALE = (0.8, 1.3)         # round4 brief
+# round-5: HD chunks/flakes are already natural-sized real pieces (unlike
+# the old flat catalogue's oversized boxes, which needed the old power-law
+# chunk_scale() to shrink them down) — a modest scale draw around 1.0 is
+# enough size variety; also used (see `_mean_footprint_area`) to fold the
+# scale draw's own E[scale^2] into the coverage->density conversion.
+CHUNK_SCALE_RANGE = (1.0, 2.0)     # round-5 v8: HD chunks are 0.26 m median at natural size — x1-2 puts the class at 0.3-0.9 m, the wall/floor-fragment scale a pile is made of (was 0.75-1.35)
+CLUSTER_SCALE = (0.6, 1.4)         # round-5: was 0.8-1.3
+CLUSTER_COVERAGE = float(os.environ.get("RUBBLE_CLUSTER_COVERAGE", "1.6"))   # dome: fraction of pile area under whole-spread clusters
+CLUSTER_MAX = int(os.environ.get("RUBBLE_CLUSTER_MAX", "90"))
 RAFT_SCALE_RANGE = (0.9, 1.1)      # round4 brief
-FLAKE_SCALE = (0.7, 1.3)           # added — not given explicitly
+FLAKE_SCALE = (0.8, 1.5)           # round-5 v8: was (0.6, 1.2)
+FLAKE_STICKOUT_FACTOR = float(os.environ.get("RUBBLE_FLAKE_STICKOUT", "0.3"))   # flakes lie flat; a standing flake is foil
 
 # Authored-box size ranges (mirror `quake_flow._p_lintels`'s two big
 # categories; the third ("arch head / coping stone") is dropped rather than
@@ -818,9 +1048,53 @@ def _build_dome_grid(m, btype, rng, nrng, crown_m_arg, fall_sides, stub_h_m, pla
     crown_target = max(0.3, min(crown_target, crown_cap_phys))
 
     lobe = _draw_lobe(rng)
-    infl = 1.0 + 1.4 * lobe["amp"]          # worst-case combined lobe bulge; grow the domain to fit it
-    xmin, xmax = -halfW - reach["W"] * infl, halfW + reach["E"] * infl
-    ymin, ymax = -halfD - reach["S"] * infl, halfD + reach["N"] * infl
+    # every rng draw happens ONCE, up here, so the adaptive rebuild below
+    # reproduces the same pile on a bigger grid instead of re-rolling it
+    wl4, amp4 = rng.uniform(*RELIEF_WAVELENGTH_4), rng.uniform(*RELIEF_AMP_4)
+    wl5, amp5 = rng.uniform(*RELIEF_WAVELENGTH_5), rng.uniform(*RELIEF_AMP_5)
+
+    # THE DOMAIN. In g-space the lobed toe is at r = 2 (1 + mod), mod up to
+    # 1.4 amp, and `_dome_gxy` maps r = 1 to the wall and r = 2 to wall +
+    # reach, so the widest lobe sits reach x (2 (1 + 1.4 amp) - 1) beyond
+    # the wall. But the repose relaxation below (`_limit_slope`, a Jacobi
+    # diffusion) then SPREADS the foot past that nominal toe — on a blind
+    # side with a 1.5-3 m reach the design ramp is far steeper than repose,
+    # and the relaxed foot runs 4-6 m out — so the grid is grown until the
+    # row next to its boundary is back at the lip. Before this the boundary
+    # clamp cut the foot off at a straight line: a 0.2-0.6 m CLIFF on a
+    # rectangle round every pile (the straight-edged piles of the first
+    # Isaac captures, r4_commercial 2026-08-30). With the foot fully inside
+    # the domain, `_trim_flat` leaves the real outline as the mesh outline.
+    r_toe_max = 2.0 * (1.0 + 1.4 * lobe["amp"])
+    margin = 2.0 * GRID_CELL_M
+    ext = {s: reach[s] * (r_toe_max - 1.0) + margin for s in _SIDES}
+    for _attempt in range(6):
+        cell = _dome_grid_once(m, reach, crown_target, lobe, ext, nrng,
+                               (wl4, amp4, wl5, amp5), stub_h_m, plate_ok, fall_sides)
+        h = cell["height"]
+        tol = MOUND_LIP_M + 0.02
+        grow = {"W": bool((h[:, 1] > tol).any()), "E": bool((h[:, -2] > tol).any()),
+                "S": bool((h[1, :] > tol).any()), "N": bool((h[-2, :] > tol).any())}
+        if not any(grow.values()):
+            break
+        for s_, g_ in grow.items():
+            if g_:
+                ext[s_] = ext[s_] * 1.5 + margin
+    cell["reach"] = reach
+    cell["crown_target"] = crown_target
+    cell["lobe"] = lobe
+    cell["ext"] = ext
+    return cell
+
+
+def _dome_grid_once(m, reach, crown_target, lobe, ext, nrng, relief, stub_h_m, plate_ok, fall_sides):
+    """One build of the dome heightfield on the domain `ext` (metres beyond
+    each wall) — see `_build_dome_grid` for the adaptive loop round it."""
+    W, D = float(m["W"]), float(m["D"])
+    halfW, halfD = W / 2.0, D / 2.0
+    wl4, amp4, wl5, amp5 = relief
+    xmin, xmax = -halfW - ext["W"], halfW + ext["E"]
+    ymin, ymax = -halfD - ext["S"], halfD + ext["N"]
     nx, ny = _grid_dims(xmax - xmin, ymax - ymin)
     xs = np.linspace(xmin, xmax, nx)
     ys = np.linspace(ymin, ymax, ny)
@@ -841,8 +1115,9 @@ def _build_dome_grid(m, btype, rng, nrng, crown_m_arg, fall_sides, stub_h_m, pla
     # Octaves 4-5: real 1-2 m surface lumps (round-2 review — the mound read
     # as a smooth dune). Absolute-metre wavelength/amplitude, masked to 0 at
     # the toe / anywhere the pile (pre-fine-relief) is under ~0.6 m tall.
-    wl4, amp4 = rng.uniform(*RELIEF_WAVELENGTH_4), rng.uniform(*RELIEF_AMP_4)
-    wl5, amp5 = rng.uniform(*RELIEF_WAVELENGTH_5), rng.uniform(*RELIEF_AMP_5)
+    # Octaves 4-5: real 1-2 m surface lumps (round-2 review — the mound read
+    # as a smooth dune). Absolute-metre wavelength/amplitude, masked to 0 at
+    # the toe / anywhere the pile (pre-fine-relief) is under ~0.6 m tall.
     # Must ALSO fade by r toward the true toe, same as `envelope` above — a
     # column off the fall-side axis can still show a moderate base height
     # (>0) right up against the domain's hard r>=2 edge (a blind-side corner
@@ -920,8 +1195,14 @@ def _build_dome_apron(m, reach, apron_thick, rng, nrng, lobe, mult=1.35):
     plate and z-fights)."""
     W, D = float(m["W"]), float(m["D"])
     halfW, halfD = W / 2.0, D / 2.0
-    infl = mult * (1.0 + 1.4 * lobe["amp"])
-    ereach = {s: reach[s] * infl for s in _SIDES}
+    # Same mapping as the mound (see `_build_dome_grid`): the apron's outer
+    # toe is at r = mult x 2 (1 + mod), i.e. reach x (2 mult (1 + 1.4 amp) - 1)
+    # beyond the wall at the widest lobe; the old `mult (1 + 1.4 amp)` domain
+    # ended inside it and the skirt was clipped to a rectangle (the pale
+    # "plaza" under every DG5 in the first Isaac captures).
+    ext = 2.0 * mult * (1.0 + 1.4 * lobe["amp"]) - 1.0
+    margin = 2.0 * 0.75
+    ereach = {s: reach[s] * ext + margin for s in _SIDES}
     xmin, xmax = -halfW - ereach["W"], halfW + ereach["E"]
     ymin, ymax = -halfD - ereach["S"], halfD + ereach["N"]
     nx, ny = _grid_dims(xmax - xmin, ymax - ymin, cell_m=0.75)
@@ -952,7 +1233,35 @@ def _build_dome_apron(m, reach, apron_thick, rng, nrng, lobe, mult=1.35):
 # ---------------------------------------------------------------------------
 
 
-def _trim_flat(pts, faces, eps=1e-6):
+
+def extent_by_side(m, points):
+    """How far the (trimmed) mound mesh ACTUALLY runs past each wall line,
+    {S, E, N, W} in metres, measured from world-space `points` in the mass's
+    own yaw frame. `reach_m` is the NOMINAL run-out the planner asked for;
+    after the repose relaxation a blind side's foot runs 4-6 m out (see
+    `_build_dome_grid`), and `quake._clear_under_heaps` — which removes
+    trees / tips lamps / buries cars under the pile — must know where the
+    pile really ended (2026-08-30 eq500_gui: street trees standing inside
+    the blind-side foot of a brownstone DG5 because clearance used the 3 m
+    nominal blind reach). 0 on a side the mesh does not pass."""
+    pts = np.asarray(points, dtype=np.float64).reshape(-1, 3)
+    out = {"S": 0.0, "E": 0.0, "N": 0.0, "W": 0.0}
+    if pts.shape[0] == 0:
+        return out
+    a = math.radians(float(m.get("yaw", 0.0)))
+    ca, sa = math.cos(a), math.sin(a)
+    dx = pts[:, 0] - float(m["cx"])
+    dy = pts[:, 1] - float(m["cy"])
+    lx = dx * ca + dy * sa
+    ly = -dx * sa + dy * ca
+    halfW, halfD = float(m["W"]) / 2.0, float(m["D"]) / 2.0
+    out["E"] = round(max(0.0, float(lx.max()) - halfW), 2)
+    out["W"] = round(max(0.0, -float(lx.min()) - halfW), 2)
+    out["N"] = round(max(0.0, float(ly.max()) - halfD), 2)
+    out["S"] = round(max(0.0, -float(ly.min()) - halfD), 2)
+    return out
+
+def _trim_flat(pts, faces, eps=0.02):
     """Drop every triangle whose three vertices all sit on the mesh's flat
     floor (its lip level), and compact the point array.
 
@@ -1039,15 +1348,25 @@ def _build_strip(m, side, t_lo, t_hi, reach, depth_m, offset_m, rng, nrng,
     height = cross * end_taper * noise_mult
     height = np.clip(height, 0.0, depth_m)
 
+    # floor at the lip, never 0 (a windrow floor exactly at z0 z-fights the
+    # ground plate the same way a mound rim did — round-4 review)
+    height = np.maximum(height, MOUND_LIP_M)
+    cell = {"X": X, "Y": Y, "height": height, "xs": xs, "ys": ys,
+            "x0": xr[0], "y0": yr[0], "dx": xs[1] - xs[0] if nx > 1 else 1.0,
+            "dy": ys[1] - ys[0] if ny > 1 else 1.0, "nx": nx, "ny": ny,
+            "d": D_, "t": T, "near": near}
+    # the far edge fades to the lip over the last metre (the
+    # design taper reaches 0 only AT the boundary row, so the row inside it
+    # could still carry 0.2 m x `noise_mult` — a straight 20 cm step along
+    # the fan's far edge in the r4_commercial out_of_plane capture)
+    far = {"row0": "row-1", "row-1": "row0", "col0": "col-1", "col-1": "col0"}[near]
+    _taper_to_boundary(cell, MOUND_LIP_M, width_m=1.0, edges=(far,))   # ends keep their own end_taper
+    height = cell["height"]
     if near != "row0": height[0, :] = MOUND_LIP_M
     if near != "row-1": height[-1, :] = MOUND_LIP_M
     if near != "col0": height[:, 0] = MOUND_LIP_M
     if near != "col-1": height[:, -1] = MOUND_LIP_M
-
-    return {"X": X, "Y": Y, "height": height, "xs": xs, "ys": ys,
-            "x0": xr[0], "y0": yr[0], "dx": xs[1] - xs[0] if nx > 1 else 1.0,
-            "dy": ys[1] - ys[0] if ny > 1 else 1.0, "nx": nx, "ny": ny,
-            "d": D_, "t": T, "near": near}
+    return cell
 
 
 # ---------------------------------------------------------------------------
@@ -1107,6 +1426,39 @@ def _apply_bump(cells, lx, ly, amp, radius):
         c["height"] = c["height"] + amp * np.exp(-d2 / (2.0 * radius * radius))
         return
 
+
+
+def _taper_to_boundary(cell, lip, width_m=1.5, edges=None):
+    """Fade a cell's height to `lip` over the outer `width_m` of its grid on
+    every edge that is not the wall-facing `near` edge of a strip. Whatever
+    the repose relaxation, a lobe bulge or a shoulder bump left against the
+    domain boundary becomes a ramp instead of a cliff (a 0.2 m residual over
+    1.5 m is 7.6 deg — invisible; a 0.2 m vertical step on a straight line
+    is the "rectangle" of the first Isaac captures). Runs after everything
+    that can raise the surface, so `_trim_flat` finds a flat ring to cut."""
+    h = cell["height"]
+    ny, nx = h.shape
+    dx, dy = float(cell["dx"]), float(cell["dy"])
+    near = cell.get("near")
+    big = 1e9
+    i = np.arange(nx, dtype=np.float64)[None, :]
+    j = np.arange(ny, dtype=np.float64)[:, None]
+    # distance measured from ONE CELL inside the boundary, so the outer two
+    # rows both sit at the lip and the faces between them are exactly flat
+    # (what `_trim_flat` cuts); the ramp starts on the third row
+    d = np.full(h.shape, big)
+    use = (lambda e: e != near) if edges is None else (lambda e: e in edges)
+    if use("col0"):
+        d = np.minimum(d, (i - 1.0) * dx)
+    if use("col-1"):
+        d = np.minimum(d, (nx - 2 - i) * dx)
+    if use("row0"):
+        d = np.minimum(d, (j - 1.0) * dy)
+    if use("row-1"):
+        d = np.minimum(d, (ny - 2 - j) * dy)
+    w = np.clip(d / max(width_m, 1e-6), 0.0, 1.0)
+    cell["height"] = lip + (h - lip) * w
+    return cell
 
 def _finalize_cell_boundary(cell):
     """Re-clamp a cell's outer ring to z0 + MOUND_LIP_M after any post-build
@@ -1245,6 +1597,94 @@ def _empty_instance_set(look=None):
 
 
 # ---------------------------------------------------------------------------
+# round-5: coverage -> density math, and the total-instance hard cap.
+# ---------------------------------------------------------------------------
+
+def _coverage_frac(rel):
+    """Piecewise crown/mid/toe TARGET COVERAGE (fraction of local surface
+    area a size class's own footprints should cover), continuous in `rel` =
+    height/crown_actual in [0, 1] — the same crown-plateau / flank-taper
+    shape the pre-round-5 density table used, now interpreted as an area
+    fraction instead of a raw per-m^2 count (see `COVERAGE`'s docstring
+    comment)."""
+    crown, mid, toe = COVERAGE["crown"], COVERAGE["mid"], COVERAGE["toe"]
+    return np.where(rel >= 0.5, mid + (crown - mid) * (rel - 0.5) / 0.5,
+                     toe + (mid - toe) * (rel / 0.5))
+
+
+def _mean_footprint_area(names, scale_range):
+    """Mean footprint area (m^2) of `names` (catalogue/HD entries), each
+    scaled by an INDEPENDENT draw from `scale_range` — folds in
+    `E[scale^2]` (the closed-form second moment of `Uniform(a, b)`) rather
+    than just using the range's midpoint, since footprint area scales with
+    scale SQUARED. Returns a small positive floor (never 0) so a caller can
+    always safely divide a coverage target by this."""
+    areas = []
+    for name in names:
+        e = _asset_entry(name)
+        if not e:
+            continue
+        sx, sy = e["size"][0], e["size"][1]
+        areas.append(max(sx * sy, 1e-6))
+    if not areas:
+        return 1.0
+    a, b = scale_range
+    e_scale2 = (a * a + a * b + b * b) / 3.0
+    return max((sum(areas) / len(areas)) * e_scale2, 1e-6)
+
+
+def _zone_count_estimate(cells, crown_actual, mean_area):
+    """Numeric double-integral (same grid the mound mesh itself uses, not a
+    separate resolution) of `_coverage_frac(rel) / mean_area` over every
+    cell's footprint area — the TARGET instance count for one size class,
+    before any hard-cap scaling. 0 if `crown_actual` or `mean_area` is
+    non-positive (nothing to place, or no resolvable prototype)."""
+    if crown_actual <= 0 or mean_area <= 0:
+        return 0.0
+    n_est = 0.0
+    for c in cells:
+        rel = np.clip(c["height"] / crown_actual, 0.0, 1.0)
+        dens = _coverage_frac(rel) / mean_area
+        n_est += float(np.sum(dens[:-1, :-1]) * c["dx"] * c["dy"])
+    return n_est
+
+
+def _trim_instances_to_cap(instances, cap):
+    """Scale every instance set's arrays down by the SAME ratio so the
+    combined total across all sets is <= `cap` (round-4's per-budget
+    trimmer, promoted to a reusable top-level function so the round-5 hard
+    default cap and an explicit caller `budget["n_instances"]` share one
+    implementation). Independent per-set rounding can overshoot `cap` by a
+    few; the overshoot is trimmed from whichever sets are currently largest.
+
+    Returns `(total_before, total_after, capped)`; a no-op (returns the
+    original total twice, `capped=False`) when `cap` is falsy or the total
+    is already within it.
+    """
+    total = sum(len(v["positions"]) for v in instances.values())
+    cap = int(cap) if cap else 0
+    if cap <= 0 or total <= cap:
+        return total, total, False
+    ratio = cap / float(total)
+    keeps = {k: int(round(len(v["positions"]) * ratio)) for k, v in instances.items()}
+    over = sum(keeps.values()) - cap
+    for k in sorted(keeps, key=lambda kk: -keeps[kk]):
+        if over <= 0:
+            break
+        take = min(over, keeps[k])
+        keeps[k] -= take
+        over -= take
+    for k, v in instances.items():
+        keep = keeps[k]
+        v["proto_index"] = v["proto_index"][:keep]
+        v["positions"] = v["positions"][:keep]
+        v["orientations"] = v["orientations"][:keep]
+        v["scales"] = v["scales"][:keep]
+    total_after = sum(len(v["positions"]) for v in instances.values())
+    return total, total_after, True
+
+
+# ---------------------------------------------------------------------------
 # plan_pile — the API contract entry point.
 # ---------------------------------------------------------------------------
 
@@ -1267,7 +1707,7 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
     storeys = max(1, len(m.get("levels", [z0])))
     btype = btype if btype in PROTO_SETS else "rc"
     look = "urm" if btype == "urm" else "rc"
-    proto_sets = PROTO_SETS[btype]
+    proto_sets, using_hd = _select_proto_sets(btype, rng)
     stub_h_m = float(stub_h_m or 0.0)
 
     cells = []
@@ -1374,7 +1814,15 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
         bury = rng.uniform(*bury_range)
         zmin_rel, zmax_rel = rotated_extent(size, scale, quat)
         thickness = max(1e-3, zmax_rel - zmin_rel)
-        origin_z = z0 + h - zmin_rel - bury * thickness
+        # BURY IN PIECE-HEIGHT METRES, NOT ROTATED-EXTENT METRES. A big
+        # planar FAB spread tilted with a steep windrow flank shows metres
+        # of ROTATED thickness (6 m x sin 60 deg ~ 5 m), and `bury x
+        # thickness` sank clusters 5 m below grade in the first GAC pilot
+        # bake (gac_SM_Building_02_DG4_s7: instancer zmin -5.18). The piece
+        # sits ON the pile sunk by a fraction of its own unrotated height —
+        # the tilt changes its silhouette, not how deep it lies.
+        bury_m = bury * min(thickness, size[2] * scale * 1.5 + 0.30)
+        origin_z = z0 + h - zmin_rel - bury_m
         wx, wy = _to_world(m, lx, ly)
         return (wx, wy, origin_z), bury
 
@@ -1438,7 +1886,7 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
     raft_local_pts = []
     for i in range(n_raft):
         name = rng.choice(proto_sets["raft"])
-        size = CATALOGUE[name]["size"]
+        size = _asset_entry(name)["size"]
         on_crown = i < n_crown_raft
         lx, ly = _sample_flank_point(rng, density_cell, m, plate_ok, crown=on_crown)
         tilt = RAFT_CROWN_TILT_DEG if on_crown else RAFT_FLANK_TILT_DEG
@@ -1463,7 +1911,7 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
     n_rebar = rng.randint(*REBAR_N) if (btype in ("rc", "rc_glass") and proto_sets["rebar"]) else 0
     for _ in range(n_rebar):
         name = rng.choice(proto_sets["rebar"])
-        size = CATALOGUE[name]["size"]
+        size = _asset_entry(name)["size"]
         # "rebar tangles beside rafts" — sit next to a raft rather than
         # scattered independently, most of the time.
         if raft_local_pts and rng.random() < REBAR_BESIDE_RAFT_P:
@@ -1483,7 +1931,7 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
     # (1), always flat, never on a windrow/fan (round-3 review).
     if proto_sets["sheet"] and kind == "dome" and rng.random() < SHEET_PROB.get(btype, 0.0):
         name = rng.choice(proto_sets["sheet"])
-        size = CATALOGUE[name]["size"]
+        size = _asset_entry(name)["size"]
         lx, ly = _sample_flank_point(rng, cells[0], m, plate_ok, crown=False)
         thin_i = min(range(3), key=lambda i: size[i])
         thin_axis = [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)][thin_i]
@@ -1547,12 +1995,46 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
     # emitter (round-4 review): chunk/flake are untextured flat-shaded
     # meshes and need a tint; cluster/toe are already-textured FAB spreads
     # that keep their own referenced material (look=None -> no override).
-    chunk_flake_look = "brick" if btype == "urm" else "concrete"
+    # round-5: an HD prototype already carries its OWN real per-piece
+    # material/texture (mixed brick/concrete for urm) — a uniform per-set
+    # override would erase that variety and undo the whole point of drawing
+    # from the HD library, so only the OLD flat-colour catalogue (no real
+    # per-piece texture, every flat chunk/lump is `material: "concrete"`
+    # regardless of building type) still needs the generic construction-
+    # type override.
+    chunk_flake_look = None if using_hd else ("brick" if btype == "urm" else "concrete")
     instances = {"chunk": _empty_instance_set(chunk_flake_look),
                  "flake": _empty_instance_set(chunk_flake_look),
                  "cluster": _empty_instance_set(None), "toe": _empty_instance_set(None)}
 
     xmin_all, xmax_all, ymin_all, ymax_all = _cells_bounds(cells)
+
+    # round-5: the final assembly pass below (`_taper_to_boundary`, called
+    # AFTER every instance here is placed) fades a DOME cell's height to the
+    # ground lip over the outer `width_m=1.5` m of the grid — a few cm of
+    # legitimate pre-taper height there (the adaptive domain's own tolerance
+    # is only `MOUND_LIP_M + 0.02`, plus whatever relief noise survives) is
+    # real height at PLACEMENT time but gets shaved to ~0 afterward, which
+    # floats anything already seated in that band. Under the old sparse
+    # density this band's tiny area × low instance count meant it almost
+    # never got hit; the round-5 flake count (thousands, and `flake_weight`
+    # itself favours LOW rel — i.e. exactly this near-zero-height band) hits
+    # it often enough that a few pinned test seeds now float a handful of
+    # flakes (measured: 6/~6000 on one seed, all in the outer band, all
+    # <10 cm). Insetting the SCATTER sampling bbox (not `patch_factor`'s
+    # lattice, which only needs to cover the same area either way) by the
+    # taper width plus a cell-size safety margin keeps every reject-sampled
+    # point out of the band `_taper_to_boundary` can still move. Windrow/fan
+    # strips skip `_taper_to_boundary` entirely (only their exact outer
+    # ring is re-clamped, not a ramp) so they keep the full bbox.
+    if kind == "dome":
+        _tm = 1.5 + 2.0 * GRID_CELL_M
+        pxmin, pxmax = xmin_all + _tm, xmax_all - _tm
+        pymin, pymax = ymin_all + _tm, ymax_all - _tm
+        if pxmin >= pxmax or pymin >= pymax:
+            pxmin, pxmax, pymin, pymax = xmin_all, xmax_all, ymin_all, ymax_all
+    else:
+        pxmin, pxmax, pymin, pymax = xmin_all, xmax_all, ymin_all, ymax_all
 
     # Patchy density: chunks cluster in drifts, not an even sprinkle
     # (round-2 review). One low-frequency noise lattice per plan.
@@ -1568,15 +2050,6 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
         lo, hi = CHUNK_PATCH_CONTRAST
         return lo + (hi - lo) * v
 
-    def _chunk_density(rel):
-        """Piecewise crown/mid-flank/toe density (round-4 review: a plain
-        crown-to-toe LINEAR interpolation put too few chunks on the crown
-        plateau itself — a real crown is dense with small chunks, and only
-        the flank thins out toward the toe)."""
-        crown, mid, toe = CHUNK_DENSITY["crown"], CHUNK_DENSITY["mid"], CHUNK_DENSITY["toe"]
-        return np.where(rel >= 0.5, mid + (crown - mid) * (rel - 0.5) / 0.5,
-                         toe + (mid - toe) * (rel / 0.5))
-
     def chunk_weight(x, y):
         h = None
         for c in cells:
@@ -1586,34 +2059,60 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
         if h is None:
             return None
         rel = _clip(h / max(crown_actual, 1e-6), 0.0, 1.0)
-        base = float(_chunk_density(rel))
+        base = float(_coverage_frac(rel))
         return base * patch_factor(x, y)
 
     stickout_prob = rng.uniform(*CHUNK_STICKOUT_PROB)
 
     def chunk_scale(_rng=rng):
-        return 0.28 + 0.72 * (_rng.random() ** 2.2)     # power law: median ~0.4, tail to ~1.0
+        return _rng.uniform(*CHUNK_SCALE_RANGE)
 
-    dens_hi = CHUNK_DENSITY["crown"]
-    n_est = 0.0
-    if crown_actual > 0:
-        for c in cells:
-            rel = np.clip(c["height"] / crown_actual, 0.0, 1.0)
-            dens = _chunk_density(rel)
-            n_est += float(np.sum(dens[:-1, :-1]) * c["dx"] * c["dy"])
-    n_chunks = int(_clip(round(n_est) if n_est > 0 else 40, 20, CHUNK_DENSITY["cap"]))
+    # round-5: TARGET COVERAGE -> density (`_zone_count_estimate`) replaces
+    # the old fixed per-m^2 `CHUNK_DENSITY` table for BOTH chunk and flake —
+    # each size class's mean footprint area (its OWN chosen prototypes at
+    # their OWN scale draw, `_mean_footprint_area`) sets how many pieces it
+    # takes to reach `COVERAGE`'s target fraction of surface area. The two
+    # classes' raw (pre-cap) estimates are then scaled by the SAME ratio if
+    # their combined total would exceed `RUBBLE_MAX_INSTANCES` (env-
+    # overridable) or a caller-supplied `budget["n_instances"]`, whichever is
+    # smaller — "scales all zones down proportionally", not a per-class or
+    # per-zone truncation, since both classes' densities share the identical
+    # crown/mid/toe SHAPE (`_coverage_frac`) and only their absolute scale
+    # differs.
+    mean_area_chunk = _mean_footprint_area(proto_sets["chunk"], CHUNK_SCALE_RANGE)
+    mean_area_flake = _mean_footprint_area(proto_sets["flake"], FLAKE_SCALE)
+    n_est_chunk = _zone_count_estimate(cells, crown_actual, mean_area_chunk)
+    n_est_flake = _zone_count_estimate(cells, crown_actual, mean_area_flake) * FLAKE_COVERAGE_FRAC
+
+    # pile area above the lip, on the mound's own grid -> area-scaled cap
+    pile_area_m2 = 0.0
+    for c in cells:
+        raised = (c["height"] > MOUND_LIP_M + 0.02)
+        pile_area_m2 += float(np.sum(raised[:-1, :-1]) * c["dx"] * c["dy"])
+    area_cap = int(min(RUBBLE_MAX_INSTANCES_CEIL,
+                       max(RUBBLE_MAX_INSTANCES, RUBBLE_INSTANCES_PER_M2 * pile_area_m2)))
+    user_cap = int(budget["n_instances"]) if (budget and budget.get("n_instances")) else None
+    effective_cap = min(area_cap, user_cap) if user_cap is not None else area_cap
+    total_est = n_est_chunk + n_est_flake
+    if total_est > effective_cap > 0:
+        # flakes give first, down to half the chunk count; then both scale
+        n_est_flake = max(min(n_est_flake, effective_cap - n_est_chunk), 0.5 * n_est_chunk)
+        total_est = n_est_chunk + n_est_flake
+    pre_ratio = (effective_cap / total_est) if (total_est > effective_cap > 0) else 1.0
+
+    n_chunks = int(_clip(round(n_est_chunk * pre_ratio) if n_est_chunk > 0 else 20, 20, effective_cap))
 
     n_runout = int(round(rng.uniform(*RUNOUT_CHUNK_FRAC) * n_chunks)) if kind == "dome" else 0
     n_primary = max(0, n_chunks - n_runout)
-    wmax_chunk = dens_hi * CHUNK_PATCH_CONTRAST[1]
+    wmax_chunk = COVERAGE["crown"] * CHUNK_PATCH_CONTRAST[1]
     for _ in range(n_primary):
-        xy = _reject_xy(rng, xmin_all, xmax_all, ymin_all, ymax_all, chunk_weight,
+        xy = _reject_xy(rng, pxmin, pxmax, pymin, pymax, chunk_weight,
                          wmax_chunk, m, plate_ok, 400)
         if xy is None:
             continue
         lx, ly = xy
         name = rng.choice(proto_sets["chunk"])
-        size = CATALOGUE[name]["size"]
+        size = _asset_entry(name)["size"]
         quat = _chunk_orientation(rng, size, stickout_prob)
         scale = chunk_scale()
         pos, _b = place(lx, ly, quat, size, scale, BURY["chunk"])
@@ -1643,7 +2142,7 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
             continue
         lx, ly = xy
         name = rng.choice(proto_sets["chunk"])
-        size = CATALOGUE[name]["size"]
+        size = _asset_entry(name)["size"]
         quat = _chunk_orientation(rng, size, stickout_prob)
         scale = chunk_scale()
         pos, _b = place(lx, ly, quat, size, scale, BURY["chunk"])
@@ -1655,8 +2154,8 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
         for _ in range(rng.randint(*TOE_RING_N)):
             xy = None
             for _try in range(60):
-                x = rng.uniform(xmin_all, xmax_all)
-                y = rng.uniform(ymin_all, ymax_all)
+                x = rng.uniform(pxmin, pxmax)
+                y = rng.uniform(pymin, pymax)
                 rr = _bilinear_lookup(density_cell["x0"], density_cell["y0"], density_cell["dx"],
                                        density_cell["dy"], density_cell["nx"], density_cell["ny"],
                                        density_cell["r"], x, y)
@@ -1672,7 +2171,7 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
                 continue
             lx, ly = xy
             name = rng.choice(proto_sets["chunk"])
-            size = CATALOGUE[name]["size"]
+            size = _asset_entry(name)["size"]
             quat = _chunk_orientation(rng, size, stickout_prob)
             scale = rng.uniform(*TOE_RING_SCALE)
             pos, _b = place(lx, ly, quat, size, scale, BURY["chunk"])
@@ -1689,36 +2188,74 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
         rel = _clip(h / max(crown_actual, 1e-6), 0.0, 1.0)
         return 1.2 - 0.9 * rel                    # fines concentrate at the toe (sec4)
 
-    n_flake = rng.randint(*FLAKE_N)
+    # round-5: coverage-derived count (see the chunk block above) instead of
+    # the old fixed FLAKE_N=(300,600) range — `flake_weight`'s own toe-biased
+    # spatial law (WHERE a flake lands) is unchanged.
+    n_flake = int(_clip(round(n_est_flake * pre_ratio) if n_est_flake > 0 else 20, 20, effective_cap))
     for _ in range(n_flake):
-        xy = _reject_xy(rng, xmin_all, xmax_all, ymin_all, ymax_all, flake_weight, 1.2,
+        xy = _reject_xy(rng, pxmin, pxmax, pymin, pymax, flake_weight, 1.2,
                          m, plate_ok, 300)
         if xy is None:
             continue
         lx, ly = xy
         name = rng.choice(proto_sets["flake"])
-        quat = _random_unit_quat(rng)
+        size = _asset_entry(name)["size"]
+        # thin axis up (mostly): a flake LIES on the pile. `_random_unit_quat`
+        # stood a third of them on edge — sheets of foil in the v8b render.
+        quat = _chunk_orientation(rng, size, stickout_prob * FLAKE_STICKOUT_FACTOR)
         scale = rng.uniform(*FLAKE_SCALE)
-        size = CATALOGUE[name]["size"]
         pos, _b = place(lx, ly, quat, size, scale, BURY["flake"])
         _append_instance(instances["flake"], name, pos, quat, scale)
 
     # round-2 review: URM was reading with only 2 brick piles — "5-10 on the
     # flanks AND at the toe", half-and-half.
-    n_cluster = rng.randint(*CLUSTER_N_URM) if btype == "urm" else rng.randint(*CLUSTER_N)
-    n_cluster_toe = n_cluster // 2
+    n_cluster_min = rng.randint(*CLUSTER_N_URM) if btype == "urm" else rng.randint(*CLUSTER_N)
+    # round-5 v8c: the whole scanned spreads are the one debris class that
+    # reads as rubble at every distance, so on a DOME they carry the
+    # coverage — count from `CLUSTER_COVERAGE` of the pile area over the
+    # chosen spreads' mean footprint; the first `n_cluster_min` get the
+    # shoulder bump (sunk into the flank), the rest sit on the surface
+    # (bump after bump overshoots repose — round-4 known gap).
+    n_cluster = n_cluster_min
+    if kind == "dome" and proto_sets["cluster"]:
+        mean_area_cluster = _mean_footprint_area(proto_sets["cluster"], CLUSTER_SCALE)
+        n_cluster = int(_clip(round(CLUSTER_COVERAGE * pile_area_m2 / max(mean_area_cluster, 1e-6)),
+                              n_cluster_min, CLUSTER_MAX))
+    n_cluster_toe = n_cluster_min // 2
+
+    def cluster_weight(x, y):
+        # uniform over the RAISED pile (v8e render: crown-weighted draws left
+        # the lower slopes and the toe as bare tile) — the coverage class has
+        # to tile the whole mound, toe included
+        h = None
+        for c in cells:
+            h = _cell_height_at(c, x, y)
+            if h is not None:
+                break
+        if h is None or h <= MOUND_LIP_M + 0.05:
+            return None
+        return 1.0
+
     for i in range(n_cluster):
         if not proto_sets["cluster"]:
             break
         if i < n_cluster_toe:
             lx, ly = _sample_toe_point(rng, density_cell, m, plate_ok, side=None)
-        else:
+        elif i < n_cluster_min:
             lx, ly = _sample_flank_point(rng, density_cell, m, plate_ok, crown=False)
+        else:
+            xy = _reject_xy(rng, pxmin, pxmax, pymin, pymax, cluster_weight, 1.0, m, plate_ok, 200)
+            if xy is None:
+                continue
+            lx, ly = xy
         name = rng.choice(proto_sets["cluster"])
         quat = _orient_on_surface(rng, surf_normal(lx, ly), (5.0, 20.0))
         scale = rng.uniform(*CLUSTER_SCALE)
-        size = CATALOGUE[name]["size"]
-        pos, _b = place_bumped(lx, ly, quat, size, scale, BURY["cluster"])
+        size = _asset_entry(name)["size"]
+        if i < n_cluster_min:
+            pos, _b = place_bumped(lx, ly, quat, size, scale, BURY["cluster"])
+        else:
+            pos, _b = place(lx, ly, quat, size, scale, BURY["cluster"])
         _append_instance(instances["cluster"], name, pos, quat, scale)
 
     if proto_sets["toe"]:
@@ -1728,37 +2265,29 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
             name = rng.choice(proto_sets["toe"])
             quat = _quat_from_axis_angle((0.0, 0.0, 1.0), rng.uniform(0.0, 360.0))
             scale = rng.uniform(*CLUSTER_SCALE)
-            size = CATALOGUE[name]["size"]
+            size = _asset_entry(name)["size"]
             pos, _b = place(lx, ly, quat, size, scale, BURY["cluster"])
             _append_instance(instances["toe"], name, pos, quat, scale)
 
     # --- budget ---
-    if budget:
-        if "n_large" in budget and len(large) > budget["n_large"]:
-            order = {"panel": 0, "raft": 1, "rebar": 2, "sheet": 3, "column": 4,
-                     "lintel": 5, "quoin": 5, "joist": 6}
-            large = sorted(large, key=lambda e: order.get(e["kind"], 9))[:budget["n_large"]]
-        if "n_instances" in budget:
-            total = sum(len(v["positions"]) for v in instances.values())
-            cap = int(budget["n_instances"])
-            if total > cap > 0:
-                ratio = cap / float(total)
-                keeps = {k: int(round(len(v["positions"]) * ratio)) for k, v in instances.items()}
-                over = sum(keeps.values()) - cap
-                # independent per-set rounding can overshoot the cap by a
-                # few — trim the excess from whichever sets are largest.
-                for k in sorted(keeps, key=lambda kk: -keeps[kk]):
-                    if over <= 0:
-                        break
-                    take = min(over, keeps[k])
-                    keeps[k] -= take
-                    over -= take
-                for k, v in instances.items():
-                    keep = keeps[k]
-                    v["proto_index"] = v["proto_index"][:keep]
-                    v["positions"] = v["positions"][:keep]
-                    v["orientations"] = v["orientations"][:keep]
-                    v["scales"] = v["scales"][:keep]
+    if budget and "n_large" in budget and len(large) > budget["n_large"]:
+        order = {"panel": 0, "raft": 1, "rebar": 2, "sheet": 3, "column": 4,
+                 "lintel": 5, "quoin": 5, "joist": 6}
+        large = sorted(large, key=lambda e: order.get(e["kind"], 9))[:budget["n_large"]]
+
+    # round-5: the FINAL exact trim to `effective_cap` (min of the round-5
+    # default `RUBBLE_MAX_INSTANCES` and any caller `budget["n_instances"]`,
+    # already computed above for the chunk/flake pre-scale). `n_chunks`/
+    # `n_flake` were already sized close to this cap before generation (so
+    # the placement loops above never do tens of thousands of wasted
+    # rejection-sample draws for a target that would just get sliced away),
+    # but cluster/toe (small, fixed counts) are added AFTER that pre-scale
+    # and can push the combined total slightly over — this pass guarantees
+    # the total across every set never exceeds `effective_cap`, exactly, via
+    # the shared `_trim_instances_to_cap` helper (same proportional-across-
+    # sets trim the old caller-only `budget["n_instances"]` path used).
+    n_instances_before_cap, n_instances_after_cap, instances_capped = \
+        _trim_instances_to_cap(instances, effective_cap)
 
     # --- assemble the mound + apron meshes NOW, after every shoulder bump
     # from the placement passes above has been baked into `cells` ---
@@ -1778,7 +2307,16 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
             WY = m["cy"] + c["X"] * math.sin(a) + c["Y"] * math.cos(a)
             mask = np.vectorize(lambda wx, wy: bool(plate_ok(wx, wy)))(WX, WY)
             c["height"] = np.where(mask, c["height"], MOUND_LIP_M)
+        if not c.get("near"):
+            # dome cells only: their taper zone lies beyond the relaxed foot,
+            # where nothing was placed. A strip is tapered at BUILD time in
+            # `_build_strip` — tapering it here, after placement, dropped the
+            # surface under chunks already seated on it (251 floaters on a
+            # fan when this ran for every cell).
+            _taper_to_boundary(c, MOUND_LIP_M)
         _finalize_cell_boundary(c)
+    for c in apron_cells:
+        _taper_to_boundary(c, APRON_LIP_M)
     crown_actual, volume_m3, max_slope = _summarize_mound(cells)
 
     def _concat_cells(cell_list):
@@ -1837,7 +2375,7 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
             quat = v["orientations"][i]
             scale = v["scales"][i]
             name = v["protos"][v["proto_index"][i]]
-            size = CATALOGUE[name]["size"]
+            size = _asset_entry(name)["size"]
             lx, ly = _to_local(m, px, py)
             zmin_rel, _zmax = rotated_extent(size, scale, quat)
             min_z_world = pz + zmin_rel
@@ -1846,10 +2384,31 @@ def plan_pile(m, btype, rng, kind="dome", crown_m=None, spread_frac=None,
                 floating += 1
 
     n_inst_per_set = {k: len(v["positions"]) for k, v in instances.items()}
+    n_protos_per_set = {k: len(v["protos"]) for k, v in instances.items()}
+
+    # round-5: "achieved" coverage per zone — the density this pile actually
+    # ended up drawing (after the pre-scale AND the final exact trim, both
+    # folded into the final/estimate ratio) as a fraction of `COVERAGE`'s
+    # own target, combined across chunk + flake (both classes' densities
+    # share the SAME crown/mid/toe shape, `_coverage_frac`, so their ratio
+    # to the target is uniform across zones within one class — see
+    # `_zone_count_estimate`'s docstring).
+    ratio_chunk = n_inst_per_set.get("chunk", 0) / max(n_est_chunk, 1e-9)
+    ratio_flake = n_inst_per_set.get("flake", 0) / max(n_est_flake, 1e-9)
+    coverage_stats = {zone: {"target": COVERAGE[zone],
+                              "achieved": float(COVERAGE[zone] * (ratio_chunk + ratio_flake))}
+                       for zone in ("crown", "mid", "toe")}
+
     stats = {"n_large": len(large), "n_instances": n_inst_per_set,
              "n_instances_total": sum(n_inst_per_set.values()),
+             "n_protos": n_protos_per_set, "hd": using_hd,
+             "coverage": coverage_stats,
+             "instances_before_cap": n_instances_before_cap,
+             "instances_after_cap": n_instances_after_cap,
+             "instances_capped": instances_capped, "instance_cap": effective_cap,
              "crown_m": crown_actual, "volume_m3": float(volume_m3),
              "reach_m": reach_report, "fall_sides": sorted(fall_sides),
+             "extent_m": extent_by_side(m, mound_points),
              "tri_count": tri_count, "max_slope_deg": float(max_slope),
              "kind": kind, "btype": btype, "look": look, "storeys": storeys,
              "floating": floating, "seed_tag": seed_tag}
@@ -1874,3 +2433,73 @@ def surface_z(mound, x, y):
         if v is not None:
             return float(v)
     return float(g["z0"])
+
+
+# ---------------------------------------------------------------------------
+# HD debris piece library loader — `tools/split_debris_spreads.py` splits
+# the textured FAB "spreads" (`assets/concrete_rubble_debris/split/*`, each
+# one merged whole-pile Mesh) into per-piece HD chunks
+# (`assets/rubble_hd/<spread>/<spread>_pNNN.usdc` + `assets/rubble_hd/
+# catalogue.json`) — the fix for "the debris is very low poly / cartoonesque"
+# (the only chunk-scale entries in `CATALOGUE` above are the 34 flat-colour
+# `standalone/debris/pieces/*`). This loader just reads that JSON back into
+# exactly `CATALOGUE`'s per-entry shape so a planner can treat an HD piece
+# like any other catalogue asset; it does NOT modify `CATALOGUE`,
+# `PROTO_SETS`, or `plan_pile` — wiring HD pieces into the actual scatter is
+# a separate change. Must NEVER raise: this module is imported by every
+# running Isaac process, and the HD library may not have been built yet.
+_HD_CATALOGUE_DEFAULT_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "assets", "rubble_hd", "catalogue.json")
+
+
+def load_hd_catalogue(path=None):
+    """Read `assets/rubble_hd/catalogue.json` (written by
+    `tools/split_debris_spreads.py`) and return a dict keyed by piece name,
+    each value shaped exactly like a `CATALOGUE` entry: `{"url", "size"
+    (x, y, z tuple), "tris", "kind", "textured": True, "material"}`.
+
+    Returns `{}` (never raises) if `path` doesn't exist, isn't readable, or
+    is malformed — the HD library is optional build output, not something
+    every checkout is guaranteed to have."""
+    if path is None:
+        path = _HD_CATALOGUE_DEFAULT_PATH
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+    except Exception:
+        return {}
+
+    pieces = data.get("pieces") if isinstance(data, dict) else data
+    out = {}
+    try:
+        for entry in pieces or []:
+            name = entry.get("name")
+            size = entry.get("size")
+            if not name or size is None or len(size) != 3:
+                continue
+            out[name] = {
+                "url": entry.get("url"),
+                "size": (float(size[0]), float(size[1]), float(size[2])),
+                "tris": int(entry.get("tris", 0)),
+                "kind": entry.get("kind"),
+                "textured": True,
+                "material": entry.get("material"),
+            }
+    except Exception:
+        return {}
+    return out
+
+
+HD_CATALOGUE = load_hd_catalogue()
+
+
+def _load_open_frac():
+    try:
+        here = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(here, "..", "assets", "rubble_hd", "open_frac.json")) as f:
+            return {str(k): float(v) for k, v in json.load(f).items()}
+    except Exception:
+        return {}
+
+
+HD_OPEN_FRAC = _load_open_frac()

@@ -20,13 +20,33 @@ set -euo pipefail
 
 PORT="${OSMO_SSH_LOCAL_PORT:-2200}"
 REMOTE="${OSMO_SSH_REMOTE:-root@localhost}"
-CTNR="${OSMO_SIM_CTNR:-isaac-sim-livestream}"
+# THE SIM CONTAINER'S NAME IS NOT FIXED, so ask the pod rather than assume.
+#
+# It is `isaac-sim-livestream` under COMPOSE_PROFILES=...,isaac-sim-livestream
+# and plain `isaac-sim` under ...,isaac-sim — and which one you get is decided
+# by the COMMITTED `.env`, which any session can change. Hardcoding the
+# livestream name cost a bake here: `.env` moved to the plain profile between
+# one pod and the next and every `docker exec` came back "No such container".
+#
+# Resolve once per invocation, prefer an exact match, fall back to whatever
+# running container has "isaac-sim" in its name. `OSMO_SIM_CTNR` still wins.
+_resolve_ctnr() {
+    [ -n "${OSMO_SIM_CTNR:-}" ] && { echo "$OSMO_SIM_CTNR"; return; }
+    local names
+    names=$(ssh "${SSH_OPTS[@]}" "$REMOTE" \
+            'docker ps --format "{{.Names}}"' 2>/dev/null)
+    for want in isaac-sim-livestream isaac-sim; do
+        echo "$names" | grep -qx "$want" && { echo "$want"; return; }
+    done
+    echo "$names" | grep -m1 isaac-sim || echo isaac-sim
+}
 LAUNCH_DIR=/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts
 EXTS='~/.local/share/ov/data/documents/Kit/shared/exts'
 
 SSH_OPTS=(-p "$PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
           -o LogLevel=ERROR -o ConnectTimeout=15)
 pod() { ssh "${SSH_OPTS[@]}" "$REMOTE" "$@"; }
+CTNR="$(_resolve_ctnr)"
 ctnr() { pod "docker exec ${CTNR} bash -c $(printf '%q' "$1")"; }
 
 cmd="${1:-pane}"; shift || true

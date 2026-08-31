@@ -110,6 +110,16 @@ workflow:
       storage: 500Gi
 
   timeout:
-    # 8h covers a normal dev session. Bump for longer runs; cancel manually
-    # before the timeout if you want to free the GPU early.
-    exec_timeout: 8h
+    # 20h. It was 8h, and 8h is wrong for scene authoring: a single 500 m
+    # assembly plus its captures runs 6-10 minutes, an archetype bake with a
+    # settle runs 20-25 (PhysX GPU dynamics does not engage on this pod — see
+    # the build-hurricane-scenes bug catalogue), and an iteration loop is
+    # dozens of those. airstack-dev-175 timed out mid-session on 2026-08-30
+    # with the pod still in use.
+    #
+    # THE POD IS NOT FREED BY A SHORTER TIMEOUT, it is freed by
+    # `airstack osmo:down`, which is one command and is the honest way to
+    # give the GPU back. A timeout is a backstop against a forgotten pod, not
+    # a scheduling policy — so set it past any session you would actually sit
+    # through and cancel deliberately instead.
+    exec_timeout: 20h

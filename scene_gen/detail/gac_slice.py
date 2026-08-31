@@ -81,14 +81,38 @@ GLASS_TEX = ("glass", "window", "curtain", "glazing", "win",
 GLASS_TEX_NOT = ("awning",)
 
 
-def is_glazing(tex_name, glass_tex=None):
+def is_glazing(tex_name, glass_tex=None, mat_name=None):
     """Does this base-map file name belong to a window / curtain-wall /
     painted-window material? Keyword match on the basename, minus the
-    `GLASS_TEX_NOT` false friends."""
-    low = str(tex_name or "").rsplit("/", 1)[-1].lower()
-    if not low or any(n in low for n in GLASS_TEX_NOT):
-        return False
-    return any(g in low for g in (glass_tex or GLASS_TEX))
+    `GLASS_TEX_NOT` false friends.
+
+    `mat_name`, when given, is the bound MATERIAL PRIM's own name, tested
+    with the same token list as a SECOND chance. A downtowncity block binds
+    its real glazing to materials called `Glass_window`, `glass`,
+    `Window_003/4/5` and `rollershutter_window_01_001` that carry NO diffuse
+    texture at all (MEASURED, `_plans/dtc_buildings.json`: 2-3 of every
+    asset's glazing materials are untextured, and `Window_00N`'s map is a
+    `ChatGPT Image ....png` whose name says nothing) — so a texture-only
+    test finds one curtain-wall material per building and misses the
+    punched windows entirely. It is the same test `tools/dtc_catalogue.py`
+    already scored the catalogue's `glazing_by_side` with.
+
+    A NO-OP ON GreatAmericanCity, BY MEASUREMENT, which is what keeps the
+    GAC path frozen: every GAC material prim is named `UnrealMaterial`
+    (`tools/_dtc_reg_probe.py`, 2026-08-30 — the same fact
+    `rehome_materials` special-cases below), and `is_glazing` of that is
+    False. Callers that pass nothing here get byte-identical behaviour:
+    with `mat_name=None` the loop below sees exactly one candidate, and an
+    `awning` texture still returns False rather than falling through.
+    """
+    toks = glass_tex or GLASS_TEX
+    for cand in (tex_name, mat_name):
+        low = str(cand or "").rsplit("/", 1)[-1].lower()
+        if not low or any(n in low for n in GLASS_TEX_NOT):
+            continue
+        if any(g in low for g in toks):
+            return True
+    return False
 # Candidate floor-to-floor heights, metres. Real buildings sit inside this;
 # outside it a "period" is a window mullion or a whole massing band.
 PERIOD_RANGE = (2.6, 5.4)
@@ -208,9 +232,17 @@ def window_centres(stage, prim_path, glass_tex=GLASS_TEX):
     root_inv = xc.GetLocalToWorldTransform(root).GetInverse()
 
     def _tex(p):
+        """(diffuse basename, MATERIAL PRIM NAME) of `p`'s bound material.
+
+        The second half is what a downtowncity block needs: its window
+        materials carry no diffuse map, so the name is the only evidence
+        there is (see `is_glazing`). Empty on GAC in the sense that
+        matters — every GAC material prim is called `UnrealMaterial`.
+        """
         mat = UsdShade.MaterialBindingAPI(p).ComputeBoundMaterial()[0]
         if not mat or not mat.GetPrim().IsValid():
-            return ""
+            return "", ""
+        mname = mat.GetPrim().GetName()
         for c in Usd.PrimRange(mat.GetPrim()):
             sh = UsdShade.Shader(c)
             if not sh or sh.GetIdAttr().Get() != "UsdPreviewSurface":
@@ -221,9 +253,9 @@ def window_centres(stage, prim_path, glass_tex=GLASS_TEX):
                 f = ts.GetInput("file")
                 v = f.Get() if f else None
                 if isinstance(v, Sdf.AssetPath) and v.path:
-                    return v.path.rsplit("/", 1)[-1]
+                    return v.path.rsplit("/", 1)[-1], mname
             break
-        return ""
+        return "", mname
 
     wins, lo, hi = {}, None, None
     for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
@@ -245,7 +277,8 @@ def window_centres(stage, prim_path, glass_tex=GLASS_TEX):
             continue
         start = np.concatenate([[0], np.cumsum(counts)[:-1]])
         for sub in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)):
-            if not is_glazing(_tex(sub.GetPrim()), glass_tex):
+            _t, _mn = _tex(sub.GetPrim())
+            if not is_glazing(_t, glass_tex, mat_name=_mn):
                 continue
             for f in (sub.GetIndicesAttr().Get() or []):
                 f = int(f)
@@ -469,12 +502,36 @@ def _material_source(mat_prim):
     both `Meshes/SM_Building_01.usd` and `Materials/M_Images_Inst.usd`. So a
     sliced piece can own its material by REFERENCING that file, rather than
     depending on the merged original staying on the stage.
+
+    THE SIDECAR IS A GAC HABIT, NOT A RULE. A downtowncity block
+    (`assets/downtowncity/Amar_Tower.usdc`) has NO `Materials/*_Inst.usd`:
+    its 33-88 materials are authored INLINE in the one `.usdc` beside the
+    mesh. Returning `(None, None)` for those made `fire_bake.
+    rehome_for_export` count every one of them as FAILED, which keeps
+    `<cell>/src` in the export (`src_kept: true`) — the whole merged tower,
+    invisible, in every bake. The asset's own layer is a perfectly good home
+    for the material: a fresh prim referencing `(that layer, that material's
+    path in it)` composes the material and nothing else, exactly as the
+    `_Inst.usd` reference does, and the sliced pieces stop depending on the
+    SUBTREE while still depending on the FILE (which they always did).
+
+    So: the `Materials/` sidecar still wins wherever there is one — the GAC
+    path returns the identical pair it always did, because that branch
+    `return`s before the fallback is ever consulted — and everything else
+    falls back to the strongest NON-ANONYMOUS layer carrying a spec for the
+    prim, which for a merged asset is the asset file itself. Anonymous
+    layers (the stage's own root/session layer, where `piece_material_like`
+    writes its soot override) are skipped: referencing those would be
+    circular and would not survive the export.
     """
+    fallback = (None, None)
     for spec in mat_prim.GetPrimStack():
         ident = str(spec.layer.identifier)
         if "/Materials/" in ident or ident.endswith("_Inst.usd"):
             return ident, spec.path
-    return None, None
+        if fallback[0] is None and not spec.layer.anonymous:
+            fallback = (ident, spec.path)
+    return fallback
 
 
 def rehome_materials(stage, mat_prims, dst_looks, verbose=True):
@@ -575,7 +632,7 @@ def _sub_for(role):
 # ---------------------------------------------------------------------------
 # Making the sliced building look like a STYLE to the rest of the pipeline
 # ---------------------------------------------------------------------------
-def register_style(g, name, pieces_of=None):
+def register_style(g, name, pieces_of=None, family="01"):
     """Register a synthetic `urban_building` style for a sliced building.
 
     `quake_flow.describe` does `ub.STYLES[style]` and `_mass_specs` derives the
@@ -599,7 +656,7 @@ def register_style(g, name, pieces_of=None):
     nx = max(1, int(round((g["W"] - 2 * leg) / module)))
     ny = max(1, int(round((g["D"] - 2 * leg) / module)))
     spec = {"bays": (nx, ny), "note": "sliced from a merged mesh",
-            "family": "01",
+            "family": family,      # `quake_flow.FAMILY_TYPE` -> construction type
             "bands": [{"sub": "storey", "h": per, "module": module,
                        "repeat": n, "walls": [], "corner": None},
                       {"sub": "parapet", "h": max(0.8, 0.35 * per),

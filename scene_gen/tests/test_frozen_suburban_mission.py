@@ -529,3 +529,79 @@ def test_the_overhead_stills_are_collected_off_the_pod():
     block = src[i:src.index(")", i)]
     assert "/tmp/overhead_*.png" in block, \
         "overhead stills are written but never copied into the iteration dir"
+
+
+def test_the_perception_chain_is_checked_before_anything_takes_off(mission):
+    """ROBOT_3, 2026-08-30 09:09:51, PINNED. Seven robots flew 679-1,874 m and
+    robot_3 hovered at 19.8 m inside a 24 cm x 19 cm box for the whole
+    108-minute iteration — 10 m of path, horizontal speed under 0.2 m/s 100 %
+    of the time.
+
+    Every check that existed passed it. Its node list and topic list were
+    byte-identical to robot_1's, `mighty_bridge` was up, `tasks/navigate` was
+    advertised, the search planner published 4,904 global plans. The failure
+    was one layer below all of that: `global_mapper_ros`'s PointCloudCallback
+    NEVER FIRED ONCE (robot_1 logged four startup lookupTransform warnings
+    from inside it; robot_3 logged none), so `mighty` logged "pclptr_map_ was
+    null or empty" 6,775 times and emitted ZERO "Command to execution time"
+    lines against robot_1's 731. Corroborated by RSS in `resources.log`:
+    mighty grows with the map it holds, and robot_3's stayed at 1,522 MB while
+    the others reached 3,484-5,329 MB.
+
+    So the gate has to reach past "is the node alive" to "is the cloud
+    arriving, and does it have points in it" — an EMPTY PointCloud2 arrives at
+    a perfectly good rate, which is also what a textureless (unlit) scene
+    produces, so a rate check alone would pass both failures."""
+    steps = mission["steps"]
+    idx = [i for i, st in enumerate(steps)
+           if "run" in st and "PERCEPTION_DEAD" in st["run"]["cmd"]]
+    assert idx, "no step verifies the point cloud is flowing"
+    check = idx[0]
+    takeoff = next(i for i, st in enumerate(steps)
+                   if st.get("action", {}).get("task") == "takeoff")
+    assert check < takeoff, "the perception check must run BEFORE takeoff"
+    step = steps[check]
+    cmd = step["run"]["cmd"]
+    # Per robot, in that robot's own container: exactly one of eight failed.
+    assert step["run"]["container"] == "airstack-robot-desktop-{n}"
+    assert not step.get("optional"), "the perception check must not be optional"
+    assert "exit 1" in cmd, "it must fail the iteration, not warn"
+    # IT MUST NOT SUBSCRIBE TO A BRIDGED TOPIC. `ros2 topic hz` creates a
+    # reader, and a reader on an allowlisted topic activates the robot->GCS
+    # dds_router bridge. On 2026-08-30 probing the point cloud that way sent
+    # robot_2's ddsrouter from 114 MB to 66,225 MB (linear, ~21 MB/s — the
+    # cloud's own bitrate) and erased robot_2 from the bag: 230 odometry
+    # messages against ~19,730, and zero global_plan/markers/occupancy.
+    # `disparity` is not on the allowlist and is a strictly stronger signal —
+    # it exists only if both rectified images arrived and the matcher ran.
+    assert "/perception/stereo_image_proc/disparity" in cmd
+    bridged = ("/sensors/front_stereo/left/image_rect",)
+    for topic in bridged:
+        assert "hz \"$IMG\"" not in cmd and topic + "\"" not in cmd, \
+            "must not subscribe to {0}: it is on the dds_router allowlist".format(topic)
+    # The cloud may only be inspected with `topic info`, which does not subscribe.
+    assert "ros2 topic info" in cmd
+    assert "topic hz \"$PC\"" not in cmd and "topic echo" not in cmd, \
+        "hz/echo on the bridged point cloud is what opened the unbounded route"
+
+
+def test_the_planner_log_is_collected_off_the_pod(mission):
+    """The per-detection confidence score exists in exactly ONE artifact —
+    `/tmp/search/planner.log`, where `detector PASS` / `detector SEEN` carry
+    the raw score and `detector summary` carries the histogram. No topic,
+    marker or jsonl carries a number. The mission's own
+    `cp /tmp/search/planner.log "$DEST"/` writes to /root/AirStack/results,
+    which is NOT a mounted path, so it only moved the file to another spot
+    inside the same disposable container. That is why the 2026-08-30 run could
+    be shown to have found 3 of 49 people but could not be asked by how much
+    each miss missed."""
+    import re as _re
+    runner = _re.sub(r"\s+", " ", open(
+        os.path.join(_REPO, "osmo", "workspace", "mission_runner.py"),
+        encoding="utf-8").read())
+    m = _re.search(r"TEE_LOG_GLOBS = \((.*?)\)", runner)
+    assert m, "TEE_LOG_GLOBS not found in mission_runner.py"
+    globs = m.group(1)
+    assert "/tmp/search/*.log" in globs, \
+        "planner.log is not collected; the scores die with the pod"
+    assert "/tmp/search/*.jsonl" in globs

@@ -76,6 +76,7 @@ in-container (`tools/usd_python.sh`) for the USD half.
 
 import hashlib
 import json
+import math
 import os
 
 #: sidecar schema version — bump when a field changes meaning, not when one
@@ -97,7 +98,13 @@ BAKE_ROOT = "/World/bake"
 STRIP_PRIMS = ("/World/physicsScene", "/World/settleGroundPlane",
                "/World/ReviewCamera", "/World/flow")
 
-KINDS = ("gac", "kit")
+#: `gac` a GreatAmericanCity merged asset, `dtc` a downtowncity merged asset —
+#: both sliced and burnt by `gac_fire.burn_gac` (which resolves the pack from
+#: the kind, see `gac_fire.PACKS`); `kit` a ModernCityEnvironment kit style
+#: built by `urban_building.build_building` + `urban_fire.burn_building`.
+KINDS = ("gac", "dtc", "kit")
+#: the kinds that route to the sliced merged-asset path
+SLICED_KINDS = ("gac", "dtc")
 
 #: applied API schemas and attribute prefixes that must not ship
 _PHYS_SCHEMA_PREFIX = ("Physics", "Physx")
@@ -117,6 +124,8 @@ def parse_entry(text, index=0, base_seed=7):
 
         gac:SM_Building_02:F1
         gac:SM_Building_09:F6:3
+        dtc:Amar_Tower:F3
+        dtc:Building_12:F2:4
         kit:commercial_mid:F5c::S,E
         kit:office_wide:F5c:1:S/E:12
 
@@ -187,10 +196,38 @@ def _safe(s):
     return "".join(c if (c.isalnum() or c in "._-") else "_" for c in str(s))
 
 
+#: canonical ring order for a stem's SIDES segment — S,E,N,W, not manifest
+#: order, so `S,E` and `E,S` (the same building, on fire from the same two
+#: sides) collide on one stem instead of caching twice.
+_SIDE_RING = ("S", "E", "N", "W")
+
+
 def out_stem(entry):
-    """`<kind>_<name>_<level>_s<seed>` — the .usd and .json share it."""
-    return "{0}_{1}_{2}_s{3}".format(_safe(entry["kind"]), _safe(entry["name"]),
-                                     _safe(entry["level"]), int(entry["seed"]))
+    """`<kind>_<name>_<level>[_o<origin>][_<sides>]_s<seed>` — the .usd and
+    .json share it.
+
+    `origin` (the storey the fire started on) and `sides` (which elevations
+    are alight) come from a CITY-CELL entry — the per-building record
+    `urban_fire_spread.solve` writes to `fire_city_<seed>.json`
+    (`urban_fire_city_plan.md` sec 2-3) — and are folded into the stem so two
+    ignitions of the same asset/level/seed cache as two different bakes
+    rather than colliding. Both are OMITTED, not zero-filled, when absent:
+    a plain row entry (`origin`/`sides` both `None` — every
+    `fire_bake.sh`/`gac_fire_bench_launch_script` row today) keeps the exact
+    stem it has always had, `<kind>_<name>_<level>_s<seed>`, so no bake
+    already on disk goes stale. `sides` are joined in RING order
+    (`_SIDE_RING`), not the order they appear in the entry.
+    """
+    bits = [_safe(entry["kind"]), _safe(entry["name"]), _safe(entry["level"])]
+    origin = entry.get("origin")
+    if origin is not None:
+        bits.append("o{0}".format(int(origin)))
+    sides = entry.get("sides")
+    if sides:
+        ring = "".join(c for c in _SIDE_RING if c in sides)
+        if ring:
+            bits.append(ring)
+    return "_".join(bits) + "_s{0}".format(int(entry["seed"]))
 
 
 def out_paths(entry, out_dir=DEFAULT_OUT_DIR):
@@ -339,6 +376,82 @@ def events_from_json(data, masses):
     return out
 
 
+def _rotate_xy(x, y, cos_t, sin_t):
+    """`(x, y)` rotated CCW by the angle whose cos/sin are given, about the
+    ORIGIN — the same convention `quake_flow._b_face_pt`'s own basis
+    (`ca, sa = cos(yaw), sin(yaw)`) and `quake_flow._outward`
+    (`math.radians(m["yaw"])`) already use, which is exactly why rotating a
+    frame's origin this way and adding the same angle to its yaw reproduces
+    rotating every point the frame ever generates."""
+    return x * cos_t - y * sin_t, x * sin_t + y * cos_t
+
+
+def place(masses, events, seats, dx, dy, yaw_deg=0.0):
+    """Rotate a bake's fire geometry (and its seats) about the origin by
+    `yaw_deg`, THEN move it to its cell in the assembly — the general form of
+    `translate`, needed once a city assembly references a bake under a
+    `rotateXYZ(0, 0, yaw_deg)` holder instead of a row's plain `x=column`
+    (`urban_fire_city_plan.md` sec 4b).
+
+    A bake is built at the ORIGIN facing its own local +Y-front convention;
+    the assembly then rotates it in place to face however the city cell it
+    replaces actually sits, and translates it there. A Flow emitter is
+    authored at `<flow_root>/emitters/...`, which is at world origin and
+    inherits NEITHER the column's rotation nor its translation, so both have
+    to be baked into the FRAME ORIGINS (`op["fr"]`), the MASS CENTRES
+    (`m["cx"]/["cy"]`, which the interior/roof plume seats derive from), and
+    the recorded SEATS themselves — exactly what `_flame_sources`,
+    `_interior_seats`/`_roof_seats` and `quake_flow._outward` each read.
+
+    Concretely, for `θ = radians(yaw_deg)`:
+      * each opening's `fr = (ox, oy, yaw, ...)`: `(ox, oy)` rotates about the
+        origin and `yaw` (already RADIANS — `quake_flow._piece_frame`/
+        `gac_fire.side_frame`) gets `+= θ`, so `_b_face_pt(fr, u, v, out)`
+        moves exactly as if the whole façade plane had been rotated then
+        translated (proved algebraically: `_b_face_pt`'s local basis vectors
+        `(cos yaw, sin yaw)` / `(sin yaw, -cos yaw)` rotate to
+        `(cos(yaw+θ), sin(yaw+θ))` / `(sin(yaw+θ), -cos(yaw+θ))` under the
+        same rotation, so the whole point transforms consistently).
+      * each mass's `(cx, cy)` rotates the same way and `m["yaw"]` (DEGREES —
+        `quake_flow._outward` reads `math.radians(m["yaw"])`) gets
+        `+= yaw_deg`, so the outward normal for every side rotates with it.
+      * each seat's `(x, y)` rotates the same way; `z` is untouched — a yaw
+        about the vertical axis never moves height.
+      * `e["x"]/["y"]` are deliberately LEFT ALONE, same reason as always:
+        `urban_fire._el_jitter` hashes them for each module's stable
+        severity wobble, and shifting them would give the assembled building
+        a different soot-to-flame relationship than the one baked into its
+        own textures.
+
+    `seats` is the sidecar's own `{"interior": [...], "roof": [...]}` (each
+    entry a dict with at least `x`/`y`/`z`) or `None` — a caller with no
+    seats to move (or none yet loaded) passes `None` and gets `None` back.
+    Returns `(masses, events, seats)`, mutated in place.
+    """
+    theta = math.radians(yaw_deg)
+    ca, sa = math.cos(theta), math.sin(theta)
+    for m in masses.values():
+        cx, cy = _rotate_xy(float(m["cx"]), float(m["cy"]), ca, sa)
+        m["cx"] = cx + dx
+        m["cy"] = cy + dy
+        m["yaw"] = float(m.get("yaw", 0.0)) + yaw_deg
+    for ev in events:
+        for op in ev.get("ops") or []:
+            fr = list(op["fr"])
+            ox, oy = _rotate_xy(float(fr[0]), float(fr[1]), ca, sa)
+            fr[0] = ox + dx
+            fr[1] = oy + dy
+            fr[2] = float(fr[2]) + theta
+            op["fr"] = tuple(fr)
+    if seats:
+        for group in ("interior", "roof"):
+            for seat in seats.get(group) or []:
+                x, y = _rotate_xy(float(seat["x"]), float(seat["y"]), ca, sa)
+                seat["x"] = x + dx
+                seat["y"] = y + dy
+    return masses, events, seats
+
+
 def translate(masses, events, dx, dy):
     """Move a bake's fire geometry to its column in the assembly.
 
@@ -353,16 +466,13 @@ def translate(masses, events, dx, dy):
     hashes them to give each module its stable severity wobble, so shifting
     them would give the assembled building a different soot-to-flame
     relationship than the one baked into its textures.
+
+    Translation-only special case of `place(..., yaw_deg=0.0)` — a straight
+    row (`gac_fire_bench_launch_script`, `fire_assembly_launch_script`'s
+    plain `x=column` layout) never rotates a bake, only moves it, and this
+    keeps that call site untouched.
     """
-    for m in masses.values():
-        m["cx"] = float(m["cx"]) + dx
-        m["cy"] = float(m["cy"]) + dy
-    for ev in events:
-        for op in ev.get("ops") or []:
-            fr = list(op["fr"])
-            fr[0] += dx
-            fr[1] += dy
-            op["fr"] = tuple(fr)
+    masses, events, _seats = place(masses, events, None, dx, dy, 0.0)
     return masses, events
 
 
@@ -381,6 +491,20 @@ def sidecar(entry, fire, masses, events, bbox, top_z, seats, notes,
     than on the pre-collapse `m["top"]` — "smoke floating over a collapsed
     building"), the interior/roof plume seats, and enough provenance to tell
     two bakes of the same asset apart.
+
+    `extra`, if given, is a dict merged directly onto the document's TOP
+    LEVEL (`doc.update(extra)`) — already how `fire_bake_launch_script.py`
+    records its own `rehome`/`build_seed`/`baked_kit` info, and the same
+    mechanism the city driver uses for `extra={"city": {"cell", "x", "y",
+    "yaw_deg", "z", "typology", "orig_usd"}}` (`urban_fire_city_plan.md` sec
+    3) — the record of which generated-city cell this bake replaces, so the
+    city launcher can find its cell transform and hide the intact prim
+    without re-deriving either from the manifest. Because it is a plain
+    `update`, `extra` must be NAMESPACED (`{"city": {...}}`, not the city
+    fields spliced in loose) or it will silently overwrite one of this
+    function's own keys (`kind`, `name`, `fire`, `masses`, ...). Whatever
+    lands there round-trips unchanged through `write_sidecar`/`read_sidecar`/
+    `load_for_assembly` — plain JSON, no schema of its own.
     """
     doc = {
         "schema": SCHEMA,
@@ -592,6 +716,45 @@ _SEAT_TOL_M = 0.15
 #: how far past its own half-extent a horizontal ray reaches to find a
 #: neighbour it is leaning on.
 _LEAN_MARGIN_M = 0.15
+_LEAN_MIN_DIAG_M = 1.2      # smaller than this cannot lean, only hang
+# WALL-ATTACHED STAMPS split into the two shapes they actually are, because
+# only one of those shapes can be tested for "is the wall still there":
+#
+#   * `_WALL_DECAL_FAMILIES` -- FLAT: `spall`/`spallhalo` (`urban_fire.
+#     _scar`/`_face_polygon`) and `crack` (`quake_flow._b_crack`) are all a
+#     fan or strip of triangles whose points are EVERY ONE pushed the same
+#     `out`/`proud` distance along the same face normal
+#     (`urban_fire._stamp_pt`, `quake_flow._b_face_pt`) -- exactly coplanar
+#     by construction, so the mesh's own points determine a real face
+#     normal and a real "behind the face" direction to test.
+#   * `_WALL_BAR_FAMILIES` -- ROUND: `sbar` (`r_spall`'s exposed
+#     reinforcement) and `rebar` (`quake_flow._rebar_tuft`) are `_cyl`
+#     cylinders. A cylinder has no single flat face to be "behind" --
+#     PCA/SVD on a ring of surface points returns two comparably-sized
+#     radial axes and treats its LENGTH as the thin one, which is exactly
+#     the wrong axis to ray-cast along for backing. The backing test below
+#     does not apply to them cleanly, so they keep the old blanket
+#     exemption into the general lean check instead (BUG, 2026-08-30,
+#     `sbar`/`rebar` NOT gap-tested the way `spall`/`spallhalo`/`crack` now
+#     are -- accepted, they are few, small, and embedded flush in a spall
+#     or roof edge their own family already backing-tests or heap-cap
+#     seats).
+#
+# BACKING TEST (2026-08-30, fire_dtc3 bench, building b5): the blanket
+# exemption this replaces let ANY spall/halo/crack through the general lean
+# check no matter what -- if anything -- was actually behind it, which is
+# how patches from a wall a collapse tore away rode into the export still
+# ACTIVE and hanging 10-38 m in the air with nothing under or beside them
+# (`spall_g5_70` measured 37.7 m up with `hit=ground`, `contact=False` --
+# the judge already said "not contact", the exemption just never asked).
+# See `_flat_normal`/`_wall_backing_contact` and their use in
+# `_judge_candidates` below.
+_WALL_DECAL_FAMILIES = {"spall", "spallhalo", "crack"}
+_WALL_BAR_FAMILIES = {"sbar", "rebar"}
+_WALL_ATTACHED = _WALL_DECAL_FAMILIES | _WALL_BAR_FAMILIES
+#: how close real (non-stamp) geometry must sit behind a flat wall stamp,
+#: along the stamp's OWN normal, to count as "the wall is still there".
+_BACKING_MAX_M = 0.35
 _RAY_TOL = 1e-6
 
 
@@ -657,6 +820,93 @@ def _ray_hit_points(locator, ipts, icells, p0, p1, owner, own_of_cell):
     return out
 
 
+def _owner_prefix(owner_path, o):
+    """The `_CANDIDATE_PREFIXES` entry the prim behind ownership id `o`
+    matches, or `"?"` if it is not a candidate at all (a structure mesh) or
+    `o` is `None`. Shared by the lean check and the backing test below so
+    "what family is on the other end of this hit" is answered one way."""
+    from pxr import Sdf
+
+    opath = owner_path.get(o) if o is not None else None
+    if not opath:
+        return "?"
+    return _match_prefix(Sdf.Path(opath).name) or "?"
+
+
+def _flat_normal(pts):
+    """Unit normal of a (near-)planar point cloud, or `None` if `pts` is
+    too small or too degenerate (e.g. every point coincident) to fit one.
+
+    Every point a wall stamp authors (`urban_fire._stamp_pt`, `quake_flow.
+    _b_face_pt`) is pushed the SAME distance along the SAME face normal, so
+    the points are exactly coplanar and the LEAST-varying axis of the
+    centred cloud -- the smallest-singular-vector of its SVD -- IS that
+    normal. This depends on nothing but the points themselves: not
+    triangle winding, not world axes, not the wall's yaw, so it is exactly
+    as good on a diagonal or corner wall as on an axis-aligned one.
+    """
+    import numpy as np
+
+    if pts is None or len(pts) < 3:
+        return None
+    centered = pts - pts.mean(axis=0)
+    try:
+        _u, _s, vt = np.linalg.svd(centered, full_matrices=False)
+    except Exception:
+        return None
+    n = vt[-1]
+    norm = float(np.linalg.norm(n))
+    if norm < 1e-9:
+        return None
+    return n / norm
+
+
+def _wall_backing_contact(locator, ipts, icells, gid, own_of_cell,
+                          owner_path, pts, reach_m=_BACKING_MAX_M):
+    """Is there real (non-stamp) geometry within `reach_m` of the point
+    cloud `pts`, along `pts`'s OWN flat normal, on either side of it?
+
+    `pts` is the candidate's own world-space points (a list of per-mesh
+    arrays, or `None` if none were kept for it -- see `_judge_candidates`'
+    mesh-load loop). One ray each way along the fitted normal, starting at
+    the cloud's centroid (a point ON the plane): a hit is only backing if
+    it is NOT another wall stamp (`_owner_prefix(...) in _WALL_ATTACHED` --
+    a decal cannot back a decal, same rule the lean check applies to
+    "leaning" support) -- the candidate's OWN triangles are already
+    excluded by `_ray_hit_points`'s owner check regardless of where on the
+    ray they'd fall.
+
+    Returns `(backed, distance)`; `distance` is the nearest qualifying
+    hit's range from the centroid (`None` if nothing qualified within
+    `reach_m`, including when `pts` was too degenerate to fit a normal to
+    at all -- always treated as UNbacked, same as "nothing found").
+    """
+    import numpy as np
+
+    if pts is None:
+        return False, None
+    P = np.vstack(pts) if isinstance(pts, list) else np.asarray(pts)
+    n = _flat_normal(P)
+    if n is None:
+        return False, None
+    c = P.mean(axis=0)
+    best = None
+    for sign in (1.0, -1.0):
+        d = n * sign
+        p0 = (float(c[0]), float(c[1]), float(c[2]))
+        p1 = (float(c[0] + d[0] * reach_m), float(c[1] + d[1] * reach_m),
+              float(c[2] + d[2] * reach_m))
+        hits = _ray_hit_points(locator, ipts, icells, p0, p1, gid,
+                               own_of_cell)
+        for pt, o in hits:
+            if _owner_prefix(owner_path, o) in _WALL_ATTACHED:
+                continue                    # a decal cannot back a decal
+            dist = float(np.linalg.norm(np.array(pt) - c))
+            if best is None or dist < best:
+                best = dist
+    return (best is not None and best <= reach_m + 1e-9), best
+
+
 def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
     """The real-geometry analysis behind `deactivate_airborne` -- everything
     short of actually flipping `active`, so a caller (the function itself,
@@ -692,19 +942,30 @@ def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
     ground at z=0 if none); `gap = bottom_z - support`. Four horizontal
     rays from the centroid, reaching `half_extent + _LEAN_MARGIN_M` past
     each side, catch a piece LEANING on a neighbour rather than resting
-    under one. A candidate is judged for deactivation when `gap > gap_m`
-    and neither a horizontal ray nor the downward gap itself
-    (`<= _SEAT_TOL_M`, i.e. already flush) found contact.
+    under one -- except a flat wall stamp (`_WALL_DECAL_FAMILIES`:
+    `spall`/`spallhalo`/`crack`), which instead gets `_wall_backing_contact`
+    (two rays along its OWN fitted face normal, not the world's cardinal
+    directions) since "leaning" was never the right question for something
+    stamped flush on a wall in the first place -- and a wall bar
+    (`_WALL_BAR_FAMILIES`: `sbar`/`rebar`, round, no single face to fit a
+    normal to) which keeps the plain size exemption into the horizontal-ray
+    check instead. A candidate is judged for deactivation when `gap > gap_m`
+    and none of the downward gap itself (`<= _SEAT_TOL_M`, i.e. already
+    flush), the horizontal lean rays, or the backing test found contact.
 
     Returns `{"n_meshes", "n_triangles", "load_s", "build_s", "ray_s",
     "locator", "judged"}` -- `judged` is `[{"path", "prefix", "bottom_z",
-    "support_z", "support_path", "gap", "contact", "deactivate"}, ...]`, one
-    entry per candidate GROUP (see `_candidate_key`). `support_path` is the
-    path of whatever prim the WINNING downward ray actually hit (None if no
-    ray hit anything -- the candidate is falling all the way to the assumed
-    ground at z=0). `{"n_meshes": 0, "judged": []}` (no `locator`) when
-    `root` is missing, vtk will not import, or nothing in the subtree
-    matches a candidate name.
+    "support_z", "support_path", "gap", "contact", "backing_m",
+    "deactivate"}, ...]`, one entry per candidate GROUP (see
+    `_candidate_key`). `support_path` is the path of whatever prim the
+    WINNING downward ray actually hit (None if no ray hit anything -- the
+    candidate is falling all the way to the assumed ground at z=0).
+    `backing_m` is the distance `_wall_backing_contact` found real backing
+    at (None for anything that never ran that test, including a
+    `_WALL_DECAL_FAMILIES` candidate already `contact` from its downward
+    ray alone). `{"n_meshes": 0, "judged": []}` (no `locator`) when `root`
+    is missing, vtk will not import, or nothing in the subtree matches a
+    candidate name.
     """
     from pxr import Sdf, Usd, UsdGeom
 
@@ -745,6 +1006,17 @@ def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
     for p in Usd.PrimRange(rp):
         if not p.IsA(UsdGeom.Mesh) or not p.IsActive():
             continue
+        # INVISIBLE GEOMETRY IS NOT SUPPORT. At bake time the merged source
+        # subtree (`<cell>/src`, hidden by `slice_to_kit`) is still on the
+        # stage, so every ray inside the building envelope hit the intact
+        # original and the sweep under-flagged by 33-114 prims per building
+        # (fire_row3, 2026-08-30) — the export drops the source and the same
+        # prims then hung in the air.
+        try:
+            if UsdGeom.Imageable(p).ComputeVisibility() == UsdGeom.Tokens.invisible:
+                continue
+        except Exception:
+            pass
         mesh = UsdGeom.Mesh(p)
         pts = mesh.GetPointsAttr().Get()
         if not pts:
@@ -763,11 +1035,21 @@ def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
             if gid is None:
                 gid = len(group_id_of_key)
                 group_id_of_key[key] = gid
-                groups[key] = {"gid": gid, "lo": None, "hi": None}
+                # Only the flat-decal families need their own point cloud
+                # kept around for `_wall_backing_contact`'s normal fit --
+                # every other candidate (a sliced building piece among
+                # them, thousands of triangles) would make this a real
+                # memory cost for a group that will never look at it.
+                pfx0 = _match_prefix(Sdf.Path(key).name)
+                groups[key] = {"gid": gid, "lo": None, "hi": None,
+                              "pts": [] if pfx0 in _WALL_DECAL_FAMILIES
+                                     else None}
             g = groups[key]
             lo, hi = W.min(0), W.max(0)
             g["lo"] = lo if g["lo"] is None else np.minimum(g["lo"], lo)
             g["hi"] = hi if g["hi"] is None else np.maximum(g["hi"], hi)
+            if g["pts"] is not None:
+                g["pts"].append(W)
             owner = gid
             owner_path[owner] = key
         else:
@@ -820,11 +1102,30 @@ def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
         bottom_z = float(lo[2])
 
         support, support_owner = None, None
-        for fx, fy in ((0.5, 0.5), (0.25, 0.25), (0.25, 0.75),
-                      (0.75, 0.25), (0.75, 0.75)):
+        # A PLATE IS HELD AT ITS EDGES. Five interior points are right for a
+        # chip or a prop; a roof-deck rim fragment spanning the plan is held
+        # by the walls along its PERIMETER, and its interior rays see the
+        # open floor twenty metres down — the sweep deleted the whole roof
+        # deck of every collapse-level GAC building as "unsupported"
+        # (fire_row3, 2026-08-30: parapet ring left, floor plate exposed).
+        # Edge midpoints and corners, inset a little, join the sample set.
+        ex = min(0.15, 0.1 * dx) / max(dx, 1e-6)
+        ey = min(0.15, 0.1 * dy) / max(dy, 1e-6)
+        samples = [(0.5, 0.5), (0.25, 0.25), (0.25, 0.75), (0.75, 0.25),
+                   (0.75, 0.75), (0.5, ey), (0.5, 1.0 - ey), (ex, 0.5),
+                   (1.0 - ex, 0.5), (ex, ey), (ex, 1.0 - ey), (1.0 - ex, ey),
+                   (1.0 - ex, 1.0 - ey)]
+        for fx, fy in samples:
             x, y = lo[0] + fx * dx, lo[1] + fy * dy
-            p0 = (float(x), float(y), bottom_z - 0.02)
-            p1 = (float(x), float(y), bottom_z - 0.02 - _DOWN_REACH_M)
+            # START ABOVE THE CANDIDATE'S OWN BOTTOM, not below it: a prop
+            # sitting exactly flush on its neighbour (bulkcap on bulkhead,
+            # a condenser on its pad) has the neighbour's top face AT
+            # `bottom_z`, and a ray that starts 2 cm under it never hits
+            # it — "floating" by 0.00 m (roof-seat probe, 2026-08-30). Own
+            # triangles are excluded by owner id, so starting 5 cm up costs
+            # nothing.
+            p0 = (float(x), float(y), bottom_z + 0.05)
+            p1 = (float(x), float(y), bottom_z - _DOWN_REACH_M)
             hits = _ray_hit_points(locator, ipts, icells, p0, p1, gid,
                                    own_of_cell)
             for pt, o in hits:
@@ -837,23 +1138,58 @@ def _judge_candidates(stage, root, gap_m=1.0, verbose=False):
         gap = bottom_z - support_z
         contact = gap <= _SEAT_TOL_M
 
-        if not contact:
+        # ONLY SOMETHING BIG ENOUGH TO LEAN GETS TO LEAN. A torn slab or a
+        # wall panel can rest against a wall; a 0.3 m chip touching a façade
+        # is hanging on it — the trail of black chips down the side of
+        # SM_Building_23 F5c beside the lost corner (fire_row3d, 2026-08-30).
+        diag = float(((hi[0] - lo[0]) ** 2 + (hi[1] - lo[1]) ** 2
+                      + (hi[2] - lo[2]) ** 2) ** 0.5)
+        pfx = _match_prefix(Sdf.Path(key).name) or "?"
+        backing_m = None
+        if not contact and pfx in _WALL_DECAL_FAMILIES:
+            # A FLAT WALL STAMP IS ATTACHED, NOT LEANING -- but only when
+            # the wall it was stamped on is still actually there. Replaces
+            # the old blanket exemption (see `_WALL_DECAL_FAMILIES`'s own
+            # comment for the bug it let through) with a real backing test:
+            # cast along the stamp's OWN fitted normal instead of the
+            # world's 4 cardinal directions, which is what makes this right
+            # on a diagonal or corner wall too.
+            contact, backing_m = _wall_backing_contact(
+                locator, ipts, icells, gid, own_of_cell, owner_path,
+                g.get("pts"))
+        elif not contact and (diag >= _LEAN_MIN_DIAG_M
+                              or pfx in _WALL_BAR_FAMILIES):
+            # `sbar`/`rebar` are exempted from the size floor above because
+            # they are round bars stamped/tufted flush and tiny — the size
+            # rule threw 100+ of them off every damaged wall (row 3e,
+            # 2026-08-30) — but (unlike the flat decals above) they get no
+            # dedicated backing test of their own; see `_WALL_BAR_FAMILIES`'s
+            # comment for why.
             hx, hy = dx / 2.0 + _LEAN_MARGIN_M, dy / 2.0 + _LEAN_MARGIN_M
             for ddx, ddy, reach in ((1.0, 0.0, hx), (-1.0, 0.0, hx),
                                     (0.0, 1.0, hy), (0.0, -1.0, hy)):
                 p0 = (float(cx), float(cy), float(cz))
                 p1 = (float(cx + ddx * reach), float(cy + ddy * reach),
                       float(cz))
-                if _ray_hit_points(locator, ipts, icells, p0, p1, gid,
-                                   own_of_cell):
-                    contact = True
+                # A DECAL DOES NOT HOLD UP A DECAL. A spall patch and its halo
+                # are co-located, so each "leaned" on the other and both hung
+                # 0.6-15 m outside the wall their module lost (SM_Building_23
+                # F5c, fire_row3f). Lean support must come from something
+                # that is not itself a wall stamp.
+                hits = _ray_hit_points(locator, ipts, icells, p0, p1, gid,
+                                       own_of_cell)
+                for _pt, o in hits:
+                    if _owner_prefix(owner_path, o) not in _WALL_ATTACHED:
+                        contact = True
+                        break
+                if contact:
                     break
 
         judged.append({
-            "path": key, "prefix": _match_prefix(Sdf.Path(key).name) or "?",
+            "path": key, "prefix": pfx,
             "bottom_z": bottom_z, "support_z": float(support_z),
             "support_path": support_path, "gap": float(gap),
-            "contact": bool(contact),
+            "contact": bool(contact), "backing_m": backing_m,
             "deactivate": bool(gap > gap_m and not contact),
         })
     t3 = time.time()

@@ -245,6 +245,245 @@ def _build_no_instancer_source(src_path):
     return src_path
 
 
+# ---------------------------------------------------------------------------
+# prototype MATERIAL BINDING (the round-4-follow-on bug: `_copy_prototype_tree`
+# copied a prototype's ATTRIBUTES by value but silently dropped its
+# `material:binding` RELATIONSHIP, so a PointInstancer prototype rendered
+# with its raw referenced-asset material instead of the rubble emitter's
+# per-look override).
+# ---------------------------------------------------------------------------
+_OVERRIDE_TEX = "textures/rubble_x.jpg"
+_OVERRIDE_TINT = (0.42, 0.37, 0.33)
+
+
+def _make_rubble_look_material(stage, mat_path, tex_path, tint):
+    """The real shape `quake_rubble_usd`'s textured looks produce
+    (`damage._pbr` + `_apply_diffuse_tint` + `_add_preview_fallback`): an
+    OmniPBR-like MDL `Shader` carrying `diffuse_texture` (asset) and
+    `diffuse_tint` (Color3f) inputs, PLUS a `UsdPreviewSurface` fallback
+    network — a `DiffuseTex` (`UsdUVTexture`) shader fed by an `StReader`
+    (`UsdPrimvarReader_float2`) — bound to the universal render context so
+    the material is never invisible to a universal-context consumer."""
+    mat = UsdShade.Material.Define(stage, mat_path)
+    sh = UsdShade.Shader.Define(stage, mat_path + "/Shader")
+    sh.CreateIdAttr("OmniPBR")
+    sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
+    sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+    sh.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset
+                  ).Set(Sdf.AssetPath(tex_path))
+    sh.CreateInput("diffuse_tint", Sdf.ValueTypeNames.Color3f
+                  ).Set(Gf.Vec3f(*tint))
+    mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+
+    reader = UsdShade.Shader.Define(stage, mat_path + "/StReader")
+    reader.CreateIdAttr("UsdPrimvarReader_float2")
+    reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+    reader.CreateOutput("result", Sdf.ValueTypeNames.Float2)
+
+    tex = UsdShade.Shader.Define(stage, mat_path + "/DiffuseTex")
+    tex.CreateIdAttr("UsdUVTexture")
+    tex.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(tex_path))
+    tex.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(
+        reader.ConnectableAPI(), "result")
+    tex.CreateOutput("rgb", Sdf.ValueTypeNames.Float3)
+
+    prev = UsdShade.Shader.Define(stage, mat_path + "/PreviewSurface")
+    prev.CreateIdAttr("UsdPreviewSurface")
+    prev.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f
+                     ).ConnectToSource(tex.ConnectableAPI(), "rgb")
+    mat.CreateSurfaceOutput().ConnectToSource(prev.ConnectableAPI(), "surface")
+    return mat
+
+
+def _build_prototype_material_source(src_path, proto_a_path, proto_b_path):
+    """A `/World/bld` with THREE PointInstancers, one per material-binding
+    requirement:
+
+      `rubble_over`    — two REFERENCED prototypes (wrapper Xforms, exactly
+                         `quake_rubble_usd._author_instancer`'s shape), BOTH
+                         bound `strongerThanDescendants` to the SAME shared
+                         override material — requirement (1): binding +
+                         strength carried, tint/texture survive, ONE
+                         exported material for both.
+      `rubble_inline`  — one INLINE prototype (a wrapper Xform with no
+                         reference of its own) whose CHILD Mesh carries its
+                         OWN direct binding (default strength) to a second,
+                         distinct material, and the wrapper itself carries
+                         NONE — requirement (2).
+      `rubble_plain`   — one INLINE prototype with NO binding anywhere —
+                         requirement (3): must export with no binding.
+    """
+    st = Usd.Stage.CreateNew(src_path)
+    UsdGeom.SetStageUpAxis(st, UsdGeom.Tokens.z)
+    UsdGeom.Xform.Define(st, "/World")
+    UsdGeom.Scope.Define(st, "/World/QuakeLooks")
+    override_mat = _make_rubble_look_material(
+        st, "/World/QuakeLooks/rubble_tex_x", _OVERRIDE_TEX, _OVERRIDE_TINT)
+    child_mat = _omni_pbr_like(st, "/World/QuakeLooks", "M_Child",
+                               (0.1, 0.6, 0.2))
+
+    UsdGeom.Xform.Define(st, "/World/bld")
+
+    # --- rubble_over: two referenced prototypes, ONE shared override -----
+    inst = UsdGeom.PointInstancer.Define(st, "/World/bld/rubble_over")
+    UsdGeom.Scope.Define(st, "/World/bld/rubble_over/Prototypes")
+    p0 = st.DefinePrim("/World/bld/rubble_over/Prototypes/p0", "Xform")
+    p0.GetReferences().AddReference(proto_a_path)
+    UsdShade.MaterialBindingAPI.Apply(p0).Bind(
+        override_mat, bindingStrength=UsdShade.Tokens.strongerThanDescendants)
+    p1 = st.DefinePrim("/World/bld/rubble_over/Prototypes/p1", "Xform")
+    p1.GetReferences().AddReference(proto_b_path)
+    UsdShade.MaterialBindingAPI.Apply(p1).Bind(
+        override_mat, bindingStrength=UsdShade.Tokens.strongerThanDescendants)
+    inst.CreatePrototypesRel().SetTargets([
+        Sdf.Path("/World/bld/rubble_over/Prototypes/p0"),
+        Sdf.Path("/World/bld/rubble_over/Prototypes/p1")])
+    n = 4
+    inst.CreatePositionsAttr(
+        Vt.Vec3fArray([Gf.Vec3f(float(i), 0.0, 0.0) for i in range(n)]))
+    inst.CreateOrientationsAttr(
+        Vt.QuathArray([Gf.Quath(1, 0, 0, 0) for _ in range(n)]))
+    inst.CreateScalesAttr(Vt.Vec3fArray([Gf.Vec3f(1, 1, 1) for _ in range(n)]))
+    inst.CreateProtoIndicesAttr(Vt.IntArray([0, 1, 0, 1]))
+
+    # --- rubble_inline: inline wrapper, binding on the CHILD mesh --------
+    inst2 = UsdGeom.PointInstancer.Define(st, "/World/bld/rubble_inline")
+    UsdGeom.Scope.Define(st, "/World/bld/rubble_inline/Prototypes")
+    st.DefinePrim("/World/bld/rubble_inline/Prototypes/w", "Xform")
+    child_mesh = _author_cube_mesh(
+        st, "/World/bld/rubble_inline/Prototypes/w/geo")
+    UsdShade.MaterialBindingAPI.Apply(child_mesh.GetPrim()).Bind(child_mat)
+    inst2.CreatePrototypesRel().SetTargets(
+        [Sdf.Path("/World/bld/rubble_inline/Prototypes/w")])
+    inst2.CreatePositionsAttr(Vt.Vec3fArray([Gf.Vec3f(0.0, 5.0, 0.0)]))
+    inst2.CreateOrientationsAttr(Vt.QuathArray([Gf.Quath(1, 0, 0, 0)]))
+    inst2.CreateScalesAttr(Vt.Vec3fArray([Gf.Vec3f(1, 1, 1)]))
+    inst2.CreateProtoIndicesAttr(Vt.IntArray([0]))
+
+    # --- rubble_plain: inline prototype, NO binding at all ----------------
+    inst3 = UsdGeom.PointInstancer.Define(st, "/World/bld/rubble_plain")
+    UsdGeom.Scope.Define(st, "/World/bld/rubble_plain/Prototypes")
+    _author_cube_mesh(st, "/World/bld/rubble_plain/Prototypes/cube")
+    inst3.CreatePrototypesRel().SetTargets(
+        [Sdf.Path("/World/bld/rubble_plain/Prototypes/cube")])
+    inst3.CreatePositionsAttr(Vt.Vec3fArray([Gf.Vec3f(0.0, 10.0, 0.0)]))
+    inst3.CreateOrientationsAttr(Vt.QuathArray([Gf.Quath(1, 0, 0, 0)]))
+    inst3.CreateScalesAttr(Vt.Vec3fArray([Gf.Vec3f(1, 1, 1)]))
+    inst3.CreateProtoIndicesAttr(Vt.IntArray([0]))
+
+    st.SetDefaultPrim(st.GetPrimAtPath("/World"))
+    st.GetRootLayer().Save()
+    return src_path
+
+
+def _no_binding(prim):
+    """True when `prim` carries no material binding of its own (direct)."""
+    db = UsdShade.MaterialBindingAPI(prim).GetDirectBinding()
+    mat = db.GetMaterial()
+    return not (mat and mat.GetPrim().IsValid())
+
+
+class TestBakeInstancerPrototypeMaterial(unittest.TestCase):
+    """Prototype `material:binding` survives the export — see the module
+    docstring's section above. A relationship is not an attribute, so
+    `_copy_attrs_by_value` never touches it; without `_carry_direct_binding`
+    (called from `_copy_prototype_tree`) every one of these silently
+    exported with no binding at all, i.e. the raw referenced-asset look."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = self.tmp.name
+        self.proto_a = _make_proto_file(
+            os.path.join(self.dir, "proto_a.usda"), "a")
+        self.proto_b = _make_proto_file(
+            os.path.join(self.dir, "proto_b.usda"), "b")
+        self.src_path = _build_prototype_material_source(
+            os.path.join(self.dir, "src_mat.usda"), self.proto_a, self.proto_b)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _export(self):
+        src_stage = Usd.Stage.Open(self.src_path)
+        out_path = os.path.join(self.dir, "out_mat.usd")
+        ok = bake.export_object(src_stage, None, ["/World/bld"], out_path,
+                                merge="off")
+        self.assertTrue(ok)
+        return Usd.Stage.Open(out_path)
+
+    def test_referenced_prototype_override_carried_and_deduped(self):
+        out = self._export()
+        pi = UsdGeom.PointInstancer(out.GetPrimAtPath("/Baked/rubble_over"))
+        targets = pi.GetPrototypesRel().GetTargets()
+        self.assertEqual(len(targets), 2)
+
+        mat_paths = []
+        for t in targets:
+            tp = out.GetPrimAtPath(t)
+            self.assertTrue(tp.IsValid())
+            api = UsdShade.MaterialBindingAPI(tp)
+            db = api.GetDirectBinding()
+            mat = db.GetMaterial()
+            self.assertTrue(mat and mat.GetPrim().IsValid(),
+                            "prototype {0} lost its material binding".format(t))
+            mp = mat.GetPrim()
+            # bound INSIDE the exported root, never back at the source path
+            self.assertTrue(str(mp.GetPath()).startswith("/Baked/"))
+            strength = UsdShade.MaterialBindingAPI.GetMaterialBindingStrength(
+                db.GetBindingRel())
+            self.assertEqual(strength, UsdShade.Tokens.strongerThanDescendants)
+            mat_paths.append(mp.GetPath())
+
+        # --- ONE exported material for both prototypes (dedup) -----------
+        self.assertEqual(mat_paths[0], mat_paths[1])
+
+        # --- shader inputs survived: tint, texture path ------------------
+        mat_prim = out.GetPrimAtPath(mat_paths[0])
+        shader = UsdShade.Shader(mat_prim.GetChild("Shader"))
+        self.assertTrue(shader)
+        tint_val = shader.GetInput("diffuse_tint").Get()
+        for got, want in zip(tint_val, _OVERRIDE_TINT):
+            self.assertAlmostEqual(got, want, places=5)
+        tex_val = shader.GetInput("diffuse_texture").Get()
+        self.assertTrue(str(tex_val.path).endswith("rubble_x.jpg"),
+                        "texture path lost: {0}".format(tex_val))
+
+        # --- the UsdPreviewSurface fallback network came along too -------
+        self.assertTrue(mat_prim.GetChild("PreviewSurface").IsValid())
+        self.assertTrue(mat_prim.GetChild("DiffuseTex").IsValid())
+        self.assertTrue(mat_prim.GetChild("StReader").IsValid())
+
+    def test_inline_prototype_child_binding_kept(self):
+        out = self._export()
+        pi = UsdGeom.PointInstancer(out.GetPrimAtPath("/Baked/rubble_inline"))
+        targets = pi.GetPrototypesRel().GetTargets()
+        self.assertEqual(len(targets), 1)
+        wrapper = out.GetPrimAtPath(targets[0])
+        self.assertTrue(wrapper.IsValid())
+        self.assertTrue(_no_binding(wrapper), "wrapper should carry no "
+                        "binding of its own — only its child does")
+
+        child = wrapper.GetChild("geo")
+        self.assertTrue(child.IsValid())
+        db = UsdShade.MaterialBindingAPI(child).GetDirectBinding()
+        mat = db.GetMaterial()
+        self.assertTrue(mat and mat.GetPrim().IsValid(),
+                        "inline prototype child lost its own direct binding")
+        self.assertTrue(str(mat.GetPrim().GetPath()).startswith("/Baked/"))
+        strength = UsdShade.MaterialBindingAPI.GetMaterialBindingStrength(
+            db.GetBindingRel())
+        self.assertEqual(strength, UsdShade.Tokens.weakerThanDescendants)
+
+    def test_unbound_prototype_stays_unbound(self):
+        out = self._export()
+        pi = UsdGeom.PointInstancer(out.GetPrimAtPath("/Baked/rubble_plain"))
+        targets = pi.GetPrototypesRel().GetTargets()
+        self.assertEqual(len(targets), 1)
+        tp = out.GetPrimAtPath(targets[0])
+        self.assertTrue(tp.IsValid() and tp.IsA(UsdGeom.Mesh))
+        self.assertTrue(_no_binding(tp))
+
+
 class TestBakeInstancer(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

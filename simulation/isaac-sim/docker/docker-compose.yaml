@@ -64,6 +64,32 @@ services:
       # colliding the WHOLE plat (6k+ referenced objects) instead of the ground
       # sheet. Unset must mean unset.
       - SUBURB_COLLIDERS
+      # FROZEN-CELL LIGHTING. A frozen cell ships no sky (measured: every
+      # Fire cell has one 0.25 m SphereLight, every Tornado cell has none), so
+      # the launcher authors a dome + sun for it. Every one of these is
+      # OPTIONAL and safe empty — the launcher reads them as
+      # `os.environ.get(X) or <default>`, so `${X:-}` rendering an empty
+      # string still yields the shipped default. They are listed only so a
+      # mission CAN move the sun or the exposure; without these lines setting
+      # them in a mission would be silently dropped at the container boundary,
+      # which is exactly how FROZEN_SCENE was lost before.
+      - FROZEN_LIGHT=${FROZEN_LIGHT:-}
+      - FROZEN_SKY=${FROZEN_SKY:-}
+      - FROZEN_DOME_INTENSITY=${FROZEN_DOME_INTENSITY:-}
+      - FROZEN_DOME_EXPOSURE=${FROZEN_DOME_EXPOSURE:-}
+      - FROZEN_SUN=${FROZEN_SUN:-}
+      - FROZEN_SUN_INTENSITY=${FROZEN_SUN_INTENSITY:-}
+      - FROZEN_SUN_ELEV_DEG=${FROZEN_SUN_ELEV_DEG:-}
+      - FROZEN_SUN_AZ_DEG=${FROZEN_SUN_AZ_DEG:-}
+      - FROZEN_KILL_STRAY_LIGHTS=${FROZEN_KILL_STRAY_LIGHTS:-}
+      # FROZEN-CELL ASSET REBASE. A cell's textures are baked as absolute
+      # build-container paths under scene_gen/assets, and aec/ objaverse/ and
+      # materials/scorched/ are git-ignored — so a pod's clone has none of
+      # them and the ground renders untextured. The launcher repoints any
+      # ABSENT one at the Nucleus mirror. Safe empty, same as above.
+      - FROZEN_REBASE_ASSETS=${FROZEN_REBASE_ASSETS:-}
+      - FROZEN_ASSET_LOCAL_PREFIX=${FROZEN_ASSET_LOCAL_PREFIX:-}
+      - FROZEN_ASSET_MIRROR=${FROZEN_ASSET_MIRROR:-}
       # Spec overrides: a preset names a KIND of scene, these pick the
       # instance (size, disaster, severity). Unset leaves the preset alone.
       - REGION_M=${REGION_M:-}
@@ -272,6 +298,32 @@ services:
       # colliding the WHOLE plat (6k+ referenced objects) instead of the ground
       # sheet. Unset must mean unset.
       - SUBURB_COLLIDERS
+      # FROZEN-CELL LIGHTING. A frozen cell ships no sky (measured: every
+      # Fire cell has one 0.25 m SphereLight, every Tornado cell has none), so
+      # the launcher authors a dome + sun for it. Every one of these is
+      # OPTIONAL and safe empty — the launcher reads them as
+      # `os.environ.get(X) or <default>`, so `${X:-}` rendering an empty
+      # string still yields the shipped default. They are listed only so a
+      # mission CAN move the sun or the exposure; without these lines setting
+      # them in a mission would be silently dropped at the container boundary,
+      # which is exactly how FROZEN_SCENE was lost before.
+      - FROZEN_LIGHT=${FROZEN_LIGHT:-}
+      - FROZEN_SKY=${FROZEN_SKY:-}
+      - FROZEN_DOME_INTENSITY=${FROZEN_DOME_INTENSITY:-}
+      - FROZEN_DOME_EXPOSURE=${FROZEN_DOME_EXPOSURE:-}
+      - FROZEN_SUN=${FROZEN_SUN:-}
+      - FROZEN_SUN_INTENSITY=${FROZEN_SUN_INTENSITY:-}
+      - FROZEN_SUN_ELEV_DEG=${FROZEN_SUN_ELEV_DEG:-}
+      - FROZEN_SUN_AZ_DEG=${FROZEN_SUN_AZ_DEG:-}
+      - FROZEN_KILL_STRAY_LIGHTS=${FROZEN_KILL_STRAY_LIGHTS:-}
+      # FROZEN-CELL ASSET REBASE. A cell's textures are baked as absolute
+      # build-container paths under scene_gen/assets, and aec/ objaverse/ and
+      # materials/scorched/ are git-ignored — so a pod's clone has none of
+      # them and the ground renders untextured. The launcher repoints any
+      # ABSENT one at the Nucleus mirror. Safe empty, same as above.
+      - FROZEN_REBASE_ASSETS=${FROZEN_REBASE_ASSETS:-}
+      - FROZEN_ASSET_LOCAL_PREFIX=${FROZEN_ASSET_LOCAL_PREFIX:-}
+      - FROZEN_ASSET_MIRROR=${FROZEN_ASSET_MIRROR:-}
       # Spec overrides: a preset names a KIND of scene, these pick the
       # instance (size, disaster, severity). Unset leaves the preset alone.
       - REGION_M=${REGION_M:-}

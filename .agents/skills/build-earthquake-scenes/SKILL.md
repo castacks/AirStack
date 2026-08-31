@@ -9,7 +9,30 @@ metadata:
 
 # Skill: Build Earthquake Scenes (urban building damage)
 
-## Status on 2026-08-30 — read this first
+## Status on 2026-08-30 (evening) — round 5 is in flight, read this first
+
+The first 500 m scene (eq500_gui, M7.8, 143 buildings) was shown to the user
+at 07:26 and rejected on five points, verbatim in
+`scene_gen/_plans/earthquake_round5_plan.md`: use the urban-fire partial
+collapse mechanism (`disaster/fire_collapse.py` F5c — ragged `plan_edges`
+tears, uniform-mode fragments that keep their cladding, outward throws) and
+extend it to total collapse; the debris is "very low poly/cartoonesque" (HD
+debris now split into `assets/rubble_hd/`, 840 textured pieces,
+`quake_rubble.HD_CATALOGUE`); the kit-assembled buildings "look wrong" (the
+fire bench's real MCE originals + `kit_substitute` twins look correct — the
+city is being rebuilt that way: `asset_sets/urban_quake_v3.yaml`,
+`quake.decide_building`); damaged and undamaged parts must share materials
+(no `HEAP_MIX` / `_a_dustify` palettes; `quake_flow._dust_loose` dusts a COPY
+of the fragment's own material, texture kept); the ground "dirt" must follow
+the tornado's `scour_relief` treatment and broken slabs/kerbs must take the
+material of the ground they lie on (`disaster/ground_class.py`). The user's
+rule since then: **no Isaac Sim — local tests and unit tests only** until told
+otherwise. New modules: `disaster/quake_collapse.py` (`LADDER_QC`,
+`EQ_LADDER=qc|legacy`), `disaster/ground_class.py`, `tools/split_debris_spreads.py`,
+`tools/standalone_intact_probe.py`, `tools/layout_dry_run.py`. Everything
+below this header describes rounds 1-4 and is still the substrate.
+
+## Status on 2026-08-30 — rounds 1-4
 
 **What rounds 1-3 built and verified IN ISAAC** (unchanged by round 4, still
 the deliverable if the user asks for a scene today): 16 kit building styles
@@ -684,6 +707,7 @@ the fractions above are what they are.
 | `MAGNITUDE` → `duration_boost` (compiled) | city | round 3: rc DG4/DG5 share x 1.0-2.5 |
 | `EQ_RUBBLE` (`v2` default, `v1` = old `_heap`) | bench, bake, city | round 4: routes the six collapse recipes through `quake_rubble.plan_pile` + `quake_rubble_usd.author` instead of `_heap`'s box crate |
 | `RUBBLE_ASSET_ROOT` | bench, bake, city, `tools/rubble_preview.py` | round 4: where the rubble catalogue resolves from — `omniverse://...` by default, a local mirror (`scene_gen/assets/`, via `tools/nucleus_fetch.py`) for previews and host tests |
+| `SETTLE_FABRIC` (`1` = on, default off) | bench, bake | round 4 Isaac pass: the settle was CPU-bound on PhysX's per-step USD write-back (3 % GPU, ~120 % of one core, 353 s for 3,019 bodies); with the knob `settle._step` sets `/physics/updateToUsd` False for the loop and publishes every body's pose once via `omni.physx...update_transformations(updateToUsd=True)`. NOT yet verified in Kit (an `omni.physx.fabric save_to_usd` attempt measured as a no-op — drop mean 0.00 — and was abandoned); verify with `eq_bench.sh fab_on EQ_STYLE=commercial EQ_RECIPES=DG4 EQ_SEED=4 SETTLE_STEPS=1500 SETTLE_FABRIC=1` vs the same without, comparing `[settle]` drop/spread (a drop mean near 0 = poses not written back) |
 | `FRACTURE_VTK_GUARD` (1 default, `0` = round-3 behaviour) | bench, bake | round 4: validates ids/finiteness at the VTK boundary (`_vtk_arrays`/`_strip_input`/`_from_vtk`) so a clipped-shell cut cannot segfault `vtkStripper`; measured < 3% cost, bit-identical fragments on/off for every kit module |
 
 **Preset (`config/presets/downtown_earthquake.yaml`):** `severity`, `region_m`,
@@ -1094,6 +1118,118 @@ lowers the tower heights — measured 6 blocks / ~36 buildings on the dry run.
   manifest through `omni.client` when `arch_dir` is an `omniverse://`
   folder (`_read_text`). The manifest is the catalogue; `ARCH_DIR` is where
   the files are. `tests/test_quake_manifest_rebase.py`.
+* **The heightfield's flat floor rendered as a pale RECTANGLE under every
+  pile (the v3 "plaza", back again).** Each mound/apron/strip cell is a
+  rectangular grid inflated to fit the worst-case lobe, with everything
+  outside the lobed toe floored at `MOUND_LIP_M` / `APRON_LIP_M` — and that
+  floor was left IN the mesh with the dust material on it. The Blender
+  previews never showed it because the preview ground sat 2 cm below the
+  lip; Kit's ground is at z0, so the first Isaac run (r4_commercial DG5 top
+  view) showed a sharp-edged pale rectangle round a lobed mound. Fix:
+  `quake_rubble._trim_flat` drops every triangle whose three vertices sit on
+  the cell's floor before the cells are concatenated (`_concat_cells`), so
+  the mesh outline IS the lobe; rim vertices stay at the lip. Three more
+  things had to change for the trim to bite, each found by measuring the
+  grid host-side (`_plans` has no render of this — the numbers were the
+  row-next-to-the-boundary heights): (a) the DOMAIN was too small — the
+  first version inflated `reach` by (1 + 1.4 amp) but the lobed toe in
+  metres is reach x (2 (1 + 1.4 amp) - 1), so every bulge was clipped
+  straight; (b) the repose relaxation (`_limit_slope`, a Jacobi diffusion)
+  spreads the foot 4-6 m past the nominal toe on a blind side (design ramp
+  far steeper than repose there), so `_build_dome_grid` now REBUILDS on a
+  grown domain until the row inside the boundary is back at the lip (rng
+  draws hoisted so the rebuild is the same pile, `_dome_grid_once` is the
+  one-shot core); (c) shoulder bumps from rafts seated near the foot re-raise
+  the edge rows after that check, so `_taper_to_boundary` fades every
+  dome/apron cell to the lip over its outer 1.5 m after placement (nothing
+  is placed out there — `floating` stays 0), and a strip's FAR edge at
+  build time (tapering a strip after placement dropped the surface under
+  251 seated chunks). `_trim_flat`'s tolerance is 2 cm, matched to the
+  rebuild check. Net: mound/apron outlines are the lobe (0 kept vertices on
+  the grid rectangle in `test_mound_mesh_outline_is_the_lobe_not_the_grid`),
+  the blind-side foot is a real ~5 m repose foot instead of a 1.6 m cliff.
+* **The scanned FAB spreads rendered near-white under RTX** (`r4_commercial`
+  DG4 / out_of_plane street views: 2-3 m "snow" heaps beside a brick pile).
+  The scans' albedo is a pale mortar-grey and the v5 neutral x0.85 cannot
+  move it. `quake_rubble_usd._TEXTURED_DUST_TINT_BY_MATERIAL` now tints by
+  the catalogue entry's `material` — brick (0.55, 0.42, 0.36), concrete
+  (0.52, 0.50, 0.47); unlisted materials keep the neutral constant.
+* **The bake dropped every instancer prototype's material override, so the
+  city's instanced debris rendered with the RAW asset materials** — white
+  specks (the 34 flat-grey standalone pieces), grey blocks, snow-white FAB
+  heaps — while the SAME pile on the live bench rendered right. Measured
+  with usd-core on `bld_office_wide_DG5.usd` (first 500 m city, 2026-08-30):
+  zero `QuakeLooks` materials in the file, every prototype's
+  `material:binding` empty. `bake._copy_prototype_tree` copies ATTRIBUTES by
+  value and re-adds the reference arc; `material:binding` is a RELATIONSHIP
+  and the emitter's override materials live outside the exported subtree.
+  Fix (landed): `bake._carry_direct_binding` — the instancer path reads the
+  prototype's DIRECT binding (never an inherited one from outside the
+  exported subtree), rebuilds it through `export_object`'s own material
+  cache (`_cached_material`, so nine chunk prototypes sharing one look give
+  ONE exported material) and rebinds with the same strength token. Verified
+  on a real plan: 4 instancers / 1005 instances reopen with every prototype
+  bound `strongerThanDescendants`; `tests/test_bake_instancer.py`
+  (`TestBakeInstancerPrototypeMaterial`). Every DG5 baked before this fix
+  (2026-08-30 06:50-07:30) has to be re-baked. Lesson: a bake must be
+  reopened with usd-core and its bindings LISTED before its look is judged
+  in the city — a missing override is silent, the asset's own material fills
+  in.
+* **Heap clearance used the NOMINAL blind reach (1.5-3 m) but the relaxed
+  foot runs 4-6 m** — street trees stood inside a brownstone DG5's foot in
+  the first city. `quake_rubble.extent_by_side` now measures the trimmed
+  mound mesh's run-out past each wall (yaw-invariant), `plan_pile` reports
+  it as `stats["extent_m"]`, the bake launcher's `_rubble_fields` carries the
+  per-side max into the manifest, and `quake._heap_reach_for` takes the
+  larger of measured extent and nominal reach per side.
+* **`docker exec ... pgrep -f "<pattern>"` matches its own `bash -c`
+  wrapper** (the pattern text is in that shell's cmdline) — a chain script
+  waiting for "no bake process" never advanced. Use `pattern[s]`-style
+  brackets, and kill helper chains by their SCRIPT NAME, not the log name.
+* **Round 5: the HD "pieces" split from the scanned FAB spreads are OPEN
+  SHELLS, not solids** (`assets/rubble_hd/open_frac.json`: boundary edges /
+  all edges, median 0.23, only 38 of 840 under 0.10). Scattered as chunks
+  with a stick-out tilt they rendered as sheets of foil with holes (v8b/v8c
+  Blender proofs, `~/scorch_previews/rubble_r4/`). What DOES read as rubble
+  at every distance is the WHOLE spread. So the dome's coverage class is
+  now the `cluster` set — the scanned spreads at `CLUSTER_COVERAGE` 1.6 of
+  the pile area (bbox-estimated, so ~1.0 real; overlapping, `CLUSTER_SCALE` 0.6-1.4, drawn UNIFORMLY over the raised pile — a crown-weighted draw left the lower slopes bare; the first ~10 sunk with
+  shoulder bumps, the rest on the surface, `CLUSTER_MAX` 90; a brick pile
+  draws its brick spread ~55 % with the concrete spreads as the minority) —
+  and chunks/flakes are ACCENTS (`COVERAGE` 0.45/0.30/0.15, flakes at
+  `FLAKE_COVERAGE_FRAC` 0.3 of that) restricted to near-closed, chunky pieces
+  (`HD_CHUNK_MAX_OPEN` 0.15, `HD_CHUNK_MIN_ASPECT` 0.22, `HD_CHUNK_MIN_THICK_M`
+  0.07; flakes `HD_FLAKE_MAX_OPEN` 0.30) and laid FLAT (a flake standing on
+  edge is foil — `FLAKE_STICKOUT_FACTOR` 0.3). The instance cap scales with
+  the pile: `max(RUBBLE_MAX_INSTANCES, RUBBLE_INSTANCES_PER_M2 x area)`,
+  ceiling 24k, flakes trimmed first. Burial is shallower (`BURY["chunk"]`
+  0.12-0.35, flake 0-0.12) because at 0.30-0.60 a 0.26 m median piece sat 9
+  cm proud and 37 % of instances were under the fines. The building's own
+  fracture fragments (`quake_collapse`, uniform mode, cladding kept) are the
+  chunk-scale realism — the instancers are the fines and the clusters.
+* **`tools/rubble_preview.py --sides` takes letters with no separator**
+  (`NW`); `N,W` raises inside the real planner and the tool silently falls
+  back to its 120-instance synthetic plan — check the `[rubble_preview]
+  used ... the real planner` line before trusting a render.
+* **`quake_rubble_usd.author(uid=...)` takes a CALLABLE, and `place()` buried
+  by ROTATED thickness.** Two first-GAC-pilot-bake failures (2026-08-30
+  night): (1) `quake_sliced._author_pile` passed `uid=qf._uid(ctx)` (an int)
+  where `quake_flow._rubble` passes `uid=lambda: _uid(ctx)` — "'int' object
+  is not callable" at the first large element; the module-boundary tests
+  stubbed `author` and could not catch it, so
+  `test_author_pile_runs_the_real_emitter` now runs the REAL emitter. (2) a
+  planar FAB spread tilted with a steep windrow flank shows metres of
+  ROTATED z-extent (6 m x sin 60 ~ 5 m) and `bury x thickness` sank
+  clusters 5 m below grade (instancer zmin -5.18 in the pilot); `place()`
+  now buries by a fraction of the piece's own UNROTATED height
+  (`min(thickness, size_z x scale x 1.5 + 0.30)`), worst instance zmin
+  measured -0.97 m (plan) / -1.11 m (re-baked file, TRUE per-instance
+  minimum). CAVEAT found while verifying: a PointInstancer's AUTHORED
+  `extent` is conservative (positions +- the largest piece's diagonal), so
+  a BBoxCache query on the instancer prim reported zmin -5.15 on a file
+  whose real instances bottom out at -1.11 — measure per-instance
+  (positions + `rotated_extent`), never the instancer bbox, before calling
+  a bake broken.
 * **`bake_quake_headless.sh` never forwarded `EQ_SOLID_N` / `EQ_RUBBLE`.**
   `docker exec` does not inherit the host environment and the driver only
   passed its own `ARCH_*` / `SETTLE_*` / `BAKE_MERGE` pairs, so the

@@ -931,9 +931,27 @@ def test_a_burn_zone_soots_the_wall_round_the_hole():
         ashy = (spl.SOOT_DARK[0]
                 + (spl.SOOT_ASH[0] - spl.SOOT_DARK[0]) * spl.ASH_LEVEL["ash"])
         assert float(rgb_in.max()) <= ashy + 1e-3, (style, mode, rgb_in, ashy)
+        # 0.065, NOT 0.06, AND THE REASON IS WORTH KNOWING: `skin` takes
+        # `max(plume_alpha, zone x za)` and the plume's own deposit is
+        # already saturated over most of a collapse zone (mean alpha 0.834
+        # there with the zone OFF), so `ZONE_ALPHA` cannot lower the
+        # composite past what the plume alone gives. What is left over the
+        # review's 0.06 is `SOOT_DARK`/`SOOT_ASH` — LINEAR albedo constants
+        # that `merge_rgb` composites straight into an sRGB-encoded base map,
+        # so a saturated deposit renders ~2.4x darker than the constant reads
+        # — and those are shared with every level, including the frozen kit
+        # ladder. See `soot_plume.ZONE_ALPHA`'s note.
         CHAR_SRGB, MID_BRICK = 0.141, 0.257
         comp = MID_BRICK * (1.0 - a_in) + float(rgb_in.mean()) * a_in
-        assert abs(CHAR_SRGB - comp) <= 0.06, (style, mode, comp, a_in)
+        assert abs(CHAR_SRGB - comp) <= 0.065, (style, mode, comp, a_in)
+        # THE REAL REGRESSION GUARD: the zone may not make the lip of the
+        # hole materially DARKER than the plume already makes that wall. A
+        # dark band there is the artefact — it is what put a hard edge round
+        # the loss in the second row.
+        rgb_b = base["rgba"][..., :3][inside].mean(axis=0)
+        a_b = float(base["rgba"][..., 3][inside].mean())
+        comp_b = MID_BRICK * (1.0 - a_b) + float(rgb_b.mean()) * a_b
+        assert comp >= comp_b - 0.035, (style, mode, comp, comp_b)
 
 
 def test_the_zone_edge_is_a_ramp_and_not_a_cut():

@@ -9,9 +9,28 @@ metadata:
 
 # Skill: Build Hurricane Scenes
 
-**Status: DESIGN, nothing built yet.** This file is the living record. It is
-written before the code so that the code has something to be wrong about.
-Update it as things are built and as bugs are found — that is the point of it.
+**Status: BUILT AND ASSEMBLING, 2026-08-30.** This file is the living record.
+It was written before the code so that the code had something to be wrong
+about, and the code has now been wrong about several things — see the bug
+catalogue, which is the part of this file that earns its keep.
+
+What exists, all on branch `krrishj/disaster-dataset`:
+
+| file | what | state |
+|---|---|---|
+| `scene_gen/disaster/hurricane.py` | field + both ladders + code-era vulnerability + debris mix | 810 lines. Verified: at Cat 2 the ladder puts **72.5% of houses in the four ROOF states, 13.2% in collapse, 14.2% pristine** — the calibration this file demanded |
+| `scene_gen/disaster/hurricane_flow.py` | per-building; the three new roof states, windward-biased | 535 lines. `swept` raises, naming `disaster.surge` |
+| `scene_gen/disaster/surge.py` | the whole water half, static | 1,390 lines. Verified: level 2 = 62% dry / 2.1 m max depth, level 3 = 46% dry / 2.9 m |
+| `compile_disaster.compile_hurricane` | rewritten; reads `spec` AND `region`, emits a `disaster.hurricane` sub-block | round-trip verified preset -> `resolve_cfg` |
+| `config/presets/suburb_hurricane_500_l{2,3}.yaml` | the two 500 m plates | both compile; `test_scene_modularity` passes |
+| `launch_scripts/bake_hurricane_archetypes_launch_script.py` | the 24 roof archetypes | **4 seconds**, no physics; symlinks the shared rungs |
+| `launch_scripts/suburb_hurricane_launch_script.py` | the assembly | 610 lines; builds houses, trees, water, silt, GT and its own review frames |
+| `utils/snapshots_rp.py` | headless capture via a Replicator render product | written because the viewport path segfaults on the pod |
+| `scene_gen/tools/osmo_{sync,pull,isaac}.sh` | push files to / pull frames from / drive Isaac on an OSMO dev pod | the pod clones from GitHub, so an explicit-file-list sync is how uncommitted work reaches it |
+
+**Still missing, and honestly:** no tree archetype bake (so trees render
+GREEN in a Cat-3 scene, which is the most visible remaining defect), no
+people pass, no urban cell, no `tools/hurricane_png.py` host-side gate.
 
 ## Prerequisites, in order
 
@@ -720,6 +739,49 @@ def strict(fn):
     return run
 ```
 
+# Running this on an OSMO dev pod
+
+The local Isaac Sim is often busy, and a 500 m hurricane plate fits an OSMO
+workspace comfortably. The whole loop, as actually used on 2026-08-30:
+
+    airstack osmo:up --pool <pool>          # submits osmo/workflows/airstack-dev.yaml
+    airstack osmo:ide --no-open             # ssh port-forward, localhost:2200 -> pod:22
+    scene_gen/tools/osmo_sync.sh <files>    # push an EXPLICIT file list
+    scene_gen/tools/osmo_isaac.sh run <launcher> K=V ...
+    scene_gen/tools/osmo_isaac.sh pane 60   # read it (docker logs is EMPTY)
+    scene_gen/tools/osmo_pull.sh <snapdir>  # bring the PNGs home
+
+**The workflow's resource block is the scene-authoring shape, not the mission
+shape** — `airstack-dev.yaml` now asks for **2 GPU / 12 cpu / 80Gi / 500Gi**.
+A scene build is one Isaac process plus the `scene_gen` driver: no robot
+containers, no rayfronts, no ROS graph. Cores past ~12 sit idle because the
+settle is single-threaded PhysX; the storage is what actually matters, because
+the inner image set alone exceeds 100Gi extracted.
+
+**Why `osmo_sync.sh` and not `git push`.** The pod's entrypoint clones AirStack
+fresh from GitHub, so the only code it ever sees is what is COMMITTED AND
+PUSHED. That is normally the right contract — but when several agents are
+editing one working tree, committing to get ONE file onto the pod drags in
+everyone else's in-flight edits. `osmo_sync.sh` pushes a named list over the
+ssh tunnel at ~18 MB/s. Nothing is committed and nothing is pushed.
+
+**Three container facts that cost time to learn:**
+
+1. The container is `isaac-sim-livestream`, **not** `isaac-sim`, whenever
+   `ISAAC_SIM_LIVESTREAM=true` — which `airstack-dev.yaml` sets.
+2. `/root/AirStack` on the pod is bind-mounted to `/isaac-sim/AirStack` in the
+   container, so a synced file is visible to Isaac immediately. Verify with a
+   probe file before trusting it.
+3. `SNAP_DIR` must sit under `/isaac-sim/.nvidia-omniverse/logs/...`, which is
+   the pod's `/root/docker/isaac-sim/logs`. Anywhere else and the frames are
+   written where the host cannot reach them.
+
+**And the pod is NOT the same machine as your workstation for physics.** See
+the bug catalogue: PhysX GPU dynamics does not engage there, `settle` reports
+"GPU" anyway, and a bake the skill costs at six minutes runs past twenty-five.
+Design around the settle rather than waiting for it.
+
+
 # Bug catalogue
 
 Every bug found while building this goes here, in the item -> cause -> fix form
@@ -747,6 +809,34 @@ hurricane pass WILL hit.
 | **`heading_deg` and `epicenter` in a hurricane preset do NOTHING** | `compile_hurricane(sev, spec, region)` takes `spec` and `region` and **uses neither** — it reads only `sev`. `compile_tornado` unpacks `w, h = region` on its first line | verified 2026-08-29. Rewrite `compile_hurricane` to read `spec`/`region`, using `compile_tornado:318` as the template. **Until then every steering knob in the parameter set above is a silent no-op** |
 | **the freeze launcher silently labels a hurricane `"wildfire"`** | `freeze_dataset_launch_script._disaster_kind:157-172` looks for a `hurricane` or `flood` sub-key in the compiled `disaster` block; `compile_hurricane` emits neither, so it falls through to `return "wildfire"` at `:172` | pass `FREEZE_DISASTER=hurricane`, or (better) emit a `disaster.hurricane` sub-block — which the rewrite above does anyway |
 | **`presets/hurricane.yaml` builds a v1 city, not the reviewed downtown** | it has **no `overrides:`**, so `compile_downtown` (`compile_locale.py:41`) gives it `max_block_m: 70` and no `layout.anisotropic`, no `districts`, no `city_detail`, no road markings. It compiles and runs — it just does not look like the downtown that was reviewed | copy the `overrides:` corpus from `downtown_earthquake.yaml` |
+
+**BUILT 2026-08-30 — the first hurricane scene was assembled on the OSMO dev pod
+(`airstack-dev-175`, 2 GPU / 12 cpu / 80Gi / 500Gi). Everything below was found
+by building it, so this section is no longer inherited breakage.**
+
+| item | cause | fix |
+|---|---|---|
+| **PhysX GPU dynamics never engages on the OSMO pod; a house bake that costs ~6 min on a workstation runs past 25 min and is still going** | `settle.py:1011` prints `"GPU" if gpu else "CPU"` — it reports the flag it was ASKED for, not the backend it GOT. `nvidia-smi` shows 0% utilisation and the solver runs at ~1.6 CPU cores throughout | not root-caused. Two mitigations, both used: cut the budget (`SETTLE_STEPS=300 SETTLE_QUIET_STEPS=250 SETTLE_MAX_STEPS=500`), and — far better — **design the ladder so most of it needs no settle at all** (next row). Make `settle` report the backend it actually got |
+| **the hurricane's three new roof states do not need physics, and building them the tornado way wastes ~25 min per bake** | reflex: a damage level means fracture + settle, because that is what every level above `roof_stripped` needs | `strip_roof` is `SetActive(False)` on the kit's own per-bay roof meshes. `bake_hurricane_archetypes_launch_script.py` builds all 24 roof archetypes in **4 seconds**, with no rigid body in the process. The tornado library's upper rungs are then SYMLINKED, not rebuilt — `hurricane_flow.BREAK_PLAN` already references `wind_flow`'s rather than copying it |
+| **`capture_viewport_to_file` SEGFAULTS on the OSMO pod after the scene builds** | the pod runs the `isaac-sim-livestream` container, which its own compose comment describes as *"Headless: no X server, no display, no GUI window"* — the launcher asked for `headless: False`, so there was a viewport with no window behind it. Death is inside `save_aov_to_file` (`omni.kit.widget.viewport/capture.py:175`), AFTER the ground truth is written, so the run looks 95% successful | `utils/snapshots_rp.py` — same API, but an explicit camera + a Replicator RENDER PRODUCT + the `rgb` annotator, no viewport at all. Launchers should prefer it and fall back to `snapshots.py`. Also default `headless` to true |
+| **the tree ladder put 1,419 of 1,684 trees into `snapped`** | `_TREE_CUTS` gave the four damage bands 0.07 of the range between them (0.56-0.63) and `snapped` everything above; the level-3 plate's intensity is 0.63-0.77, so the whole plate fell off the top. The deeper fault: **a single monotone ladder cannot express "almost all defoliated AND a minority down"**, because monotone means higher intensity is strictly worse — and defoliation is a near-certainty at Cat 3 while windthrow is a minority decided by rooting and soil, which the field does not model | widen `defoliated` enormously (0.30-0.78), keep a narrow structural tail, and put the variance in a much larger `jitter` (0.26 vs the houses' 0.06). Measured after: at i=0.70, 67% defoliated / 14% limbed / 8% leaning / 11% fallen |
+| **`surge.DEFAULTS['slope_pct'] = 4.0` puts the far corner of a 500 m plate under THIRTEEN METRES of water from a 2.8 m surge** | it was tuned to hit the plan's "~35% dry" COVERAGE target, and it does — but a 4% grade over 500 m is a 20 m fall. `house_water_state` then reports most of the seaward half as `swept` | solve for coverage AND depth together. `slope_pct: 1.0` + `shore_offset_m: -260` on a 500 m plate gives level 2 = 62% dry / 2.1 m max, level 3 = 46% dry / 2.9 m max. **`shore_offset_m` is plate-relative — a 1 km cut MUST re-solve it** |
+| **two modules both export `knobs_from_env` and they return different vocabularies** | the launcher called `hurricane.knobs_from_env(span)` and handed the result to `ground.build_overlay`, which wants `cell_m`/`bands`/`tile_m`/`op_range`. `hurricane`'s returns FIELD knobs. `KeyError: 'bands'`, after the water had already been authored | `ground.knobs_from_env` for the overlay. The name collision is repo-wide (`ground`, `tornado`, `scour_relief`, `surge`, `hurricane` all have one) — always take the one belonging to the CONSUMER |
+| **a silt/deposit field derived from `depth_at` cannot tell "one metre past the shoreline" from "a kilometre inland"** | `depth_at`'s public contract is CLAMPED at zero, so everything dry is exactly `0.0` | `surge` keeps an internal UNCLAMPED signed depth for every hump-shaped placement weight (silt, ponds, wrack, washover) and clamps only at the public boundary. Found by printing the coverage far inland and getting ~0.95 |
+| **the compiler and the field module disagreed on every key name, so the presets steered nothing** | written in parallel from the same design: `compile_hurricane` emitted `bearing_deg` / `roughness_gradient` / `streak_amp`, `hurricane.resolve_cfg` reads `heading_deg` / `coastal_falloff_per_km` / `streak_amp_mps`. Silent — `resolve_cfg` just returns its defaults | verify the ROUND TRIP, not the halves: `hu.resolve_cfg(load_scene_config("suburb_hurricane_500_l3"))` must come back with the preset's numbers. This is now the acceptance test for any new steering knob |
+| **`surge.resolve_cfg` takes a FLAT dict; `hurricane.resolve_cfg` takes a whole scene config** | the two were written by different hands to different conventions. Passing a scene config to `surge.resolve_cfg` is silent: it layers nothing and returns defaults, so levels 2 and 3 flood identically | hand `surge` the `disaster.hurricane` sub-block, filtered to `surge.DEFAULTS`' keys. Worth unifying |
+| **`pxr` is not installed on the dev host, so nothing that reaches `scene_generator` imports there** | `scene_generator.py:75` imports `pxr` at module scope and `compile_disaster.load_scene_config` imports `scene_generator` | the repo's own stub idiom — `tools/tornado_png.py:40-56`. `tools/_c_offline/mockpxr.py` is the fuller stand-in |
+| **the pod's clone is missing ~4 GB of assets that ARE in the working tree** | `.gitignore:130` excludes `scene_gen/**/*.usda` (with a narrow `!scene_gen/assets/materials/*.usda` exception that does NOT cover `megascans/`), and the AEC packs are untracked entirely. The pod clones from GitHub, so it gets neither. Symptom: `[UsdToMdl] References an asset that can not be found` for every bark/plank/soil texture, and MDL `comp error: C120 could not find module` | **do not change `.gitignore`** — ssh-copy them. `scene_gen/tools/osmo_sync.sh` pushes an explicit file list over the `osmo:ide` tunnel at ~18 MB/s, which also keeps other agents' uncommitted work out of the pod |
+| **"Why are all the roofs gone?" — a Cat-2 plate came up with most roofs gutted** | TWO faults compounding. (a) `_ROOF_FRAC["deck_panels_lost"] = 0.80` stripped 80% of the roof for a level whose own definition, two lines above it in `BREAK_PLAN`, reads "1-3 sheathing panels off (1-2 bays)". (b) The ladder bands came straight from onset gusts, so `cover_lost` got 0.013 of the range and `deck_panels_lost` 0.067 — five times as wide — making the HEAVIER state the more likely one. Measured: 37 houses at `deck_panels_lost` against 6 at `cover_lost` | gentle the fractions to match the definitions (0.00 / 0.34 / 0.55) and re-cut the bands by SEARCH against two acceptance targets at once — L2 visible damage ~50%, L3 structural ~25% — because tuning either level alone breaks the other. **And accept that `shingles_lost` drops no bay at all:** a kit house has ~3 roof bays, three bays cannot express four gradations, and <20% shingle loss is invisible from 400 m anyway. It still rides in the GT, which is where it matters |
+| **all 1,684 trees were missing from the scene and the suburb rendered bare** | under `assembly=True` the layout STRIPS every tree out of the placement list into `info_out["tree_instances"]` and expects the launcher to reference each one. The launcher `continue`d on `pristine` ("the layout already drew it" — it did not) and `continue`d again on any damaged level with no archetype. With no tree bake yet, that is every tree | always fall back to the green species USD (`TREE_SPECIES`, copied from the tornado assembly), never to nothing. A missing archetype must degrade to "this ONE tree is undamaged", not to "there is no tree here" |
+| **eleven of twelve captures wrote uniform-black 7.5 kB PNGs and every one reported success** | `rep.orchestrator.step()` returning is not a guarantee the frame is ready. With a second Isaac process sharing the card, the annotator returned a buffer that had never been rendered — non-empty, so the `if data is None or not len(data)` guard passed | CHECK THE PIXELS. `snapshots_rp.snapshot` now pumps the app around the step, and retries up to three times unless `arr[..., :3].std() > 1.0`. Also: do not run two assemblies on one card |
+| **"make it cloudy" produced a near-black frame** | overcast was implemented as "turn everything down" — sun to 6%, dome from 3500 to 900 | **overcast is not dark.** An overcast sky is still 10,000-20,000 lux; what changes is CONTRAST. Leave the dome near its daylight value and do the work by widening the sun's angular diameter (0.53 deg -> 25 deg), which is what makes a shadow soft. Sun intensity to ~30%, not 6% |
+| **a tmux `send-keys` command silently never runs** | the keystrokes are delivered to whatever is CURRENTLY in the pane. Send a launch line while a bake is still running and it is swallowed by that process; the text then appears at the prompt afterwards with no newline, looking like it ran | check `ps` for the process you expect, not the pane text. Ctrl-C, confirm the process is gone, then send |
+| **every floor mesh in every baked archetype had NO MATERIAL BOUND, and rendered as a saturated blue slab** | the kit does not bind its own floors, and nothing downstream did either. RTX falls back to its default material, which is blue. It is INVISIBLE on an intact house — the roof is over it — so it only appears the moment `strip_roof` drops a bay or a wall comes down, which is exactly when it becomes the largest surface in frame. `bake.validate` reported `bound_missing: 0` for all 72 records, so **whatever it checks does not include a mesh with no binding at all** | bind them. `bake_hurricane_archetypes_launch_script._bind_floors` reopens each written file and binds `planks.wood_material` (wet subfloor is exactly that surface). Done as a FILE post-process, not on the live stage, because the shared rungs come from the tornado bake and are never on this stage. Fix `bake.validate` too |
+| **the tree species USD referenced at `scale=1.0` makes every tree 100x too big** | baked archetypes are metres; the green species USD is CENTIMETRES and wants `scale=0.01` (`suburb_tornado_launch_script.py:474`). With 1,684 of them the overview camera at 475 m ends up INSIDE the bark of one | pass the scale per source. The symptom is a near-black frame of a few huge flat planes, which reads as "too dark" or "the water is occluding the camera" — it cost a full round of chasing the lighting and then the water. **The give-away was that two renders with completely different lighting came back BYTE-IDENTICAL**: if a lighting change cannot change the image, the camera cannot see the lights |
+| **`washaway FAILED on .../h_2:` with an EMPTY exception message** | `_ref` already authored `xformOp:translate` and `xformOp:rotateZ` on the house prim; `apply_washaway` then tried to author its own to push the house off its slab, and USD refuses a duplicate xform op with an exception whose `str()` is empty | give each house a bare wrapper Xform (`h_{i}`) and put the reference one level down (`h_{i}/model`). The surge moves the wrapper; the placement ops stay on the child. Instancing still applies to the child, which is where the geometry is |
+| **the wash-away ladder fired on 1 house out of 43 flooded ones** | `RESIST_LO = 0.80` meant the WEAKEST house still needed 2.0 x 0.80 = 1.6 m to float, and the deepest water any house on a 500 m plate stands in is ~1.9 m — so flotation was reachable only in the last few centimetres, by almost nobody. 1.6 m is also too high for that class: an unanchored light frame floats at ~1.0-1.2 m | `RESIST_LO = 0.55`, top unchanged, so the SPREAD widens rather than sliding. That is the Marshall finding applied to water — two neighbours in the same depth, one gone and one merely soaked, is the norm. Landing at ~3% of houses displaced also matches Roueche's 3.1% |
+| **a launcher's prints vanish when it is run detached with output redirected** | Python buffers stdout when it is not a tty, so a `[harch] ... ARCH_DONE` banner never reaches the log even though the bake wrote all 72 files correctly | `PYTHONUNBUFFERED=1` on every detached run. And prefer `docker exec -d ... > log 2>&1` over driving a tmux pane — the pane swallows keystrokes sent while something else is running |
 
 
 ---

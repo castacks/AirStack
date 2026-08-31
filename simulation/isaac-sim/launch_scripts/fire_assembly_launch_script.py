@@ -127,6 +127,7 @@ sys.path.insert(0, _SCENE_GEN_DIR)
 import scene_generator as sg                                   # noqa: E402
 from scene_prep import get_stage_meters_per_unit               # noqa: E402
 from disaster import fire as fx                                # noqa: E402
+from disaster import fire_assembly_lib as fal                  # noqa: E402
 from disaster import fire_bake as fb                           # noqa: E402
 from disaster import soot_plume as spl                         # noqa: E402
 from disaster import urban_fire as uf                          # noqa: E402
@@ -157,278 +158,40 @@ SNAP_DIR = _env("SNAP_DIR", "")
 
 
 # ---------------------------------------------------------------------------
-# Finding the bakes
+# The assembly helpers — MOVED to `scene_gen/disaster/fire_assembly_lib.py`
 # ---------------------------------------------------------------------------
-def vram_mb(tag):
-    """Print and return the card's used VRAM (MiB) at a named stage.
-
-    MEASURE AS YOU GO. The first assembled row filled a 16 GB card (14.3 GB)
-    and the 1 km x 1 km scene this feeds has to fit a 5090 (32 GB) / RTX PRO
-    5000 (48 GB) with every other component running — "at the current rate
-    those would also have been exceeded" (user, 2026-08-30). Four readings
-    per run — empty stage, geometry composed, Flow up, after the captures —
-    give the per-building content cost and the Flow cost separately, which is
-    what a projection needs.
-    """
-    import subprocess
-    try:
-        out = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.total",
-                              "--format=csv,noheader,nounits"],
-                             capture_output=True, text=True, timeout=10).stdout
-        used, total = [float(x) for x in out.strip().split("\n")[0].split(",")[:2]]
-    except Exception as exc:                        # no nvidia-smi in the image?
-        print("[fa] VRAM {0}: unavailable ({1})".format(tag, exc))
-        return None
-    print("[fa] VRAM {0}: {1:.0f} / {2:.0f} MiB".format(tag, used, total))
-    return used
+# `vram_mb`, `resolve_bakes`, `order_bakes`, `build_ground_and_light`,
+# `_bbox`, `_sphere_source` and `place_fire` used to be defined here. The
+# CITY launcher (`urban_fire_city_launch_script.py`) needs `place_fire`
+# especially — it is the only place `urban_fire._flame_sources` is called
+# against a BAKE rather than a live building, and a second copy of it would
+# drift — but it cannot `import fire_assembly_launch_script`, because this
+# file builds a `SimulationApp` at import and a second Kit app in one
+# process is a segfault (`downtown_quake_launch_script.py`'s own note).
+#
+# So the bodies moved, unchanged, into an importable module, and the three
+# module-level knobs they closed over (`GLOB`, `ORDER`, `SMOKE`) became
+# ordinary arguments, bound to this launcher's own env values right here.
+# Everything below `main()` is untouched and prints exactly what it did.
+vram_mb = fal.vram_mb
+build_ground_and_light = fal.build_ground_and_light
+_bbox = fal.bbox
+_sphere_source = fal._sphere_source
 
 
 def resolve_bakes(spec, pattern=GLOB):
-    """`FA_BAKES` -> an ordered list of `(usd, json)` pairs.
-
-    A directory is globbed; a comma list is taken as given. A `.usd` with no
-    sidecar is still ASSEMBLED (its geometry is complete) but gets no
-    emitters and says so — that is a bake whose export succeeded and whose
-    sidecar write did not, and dropping the building would hide it.
-    """
-    out = []
-    for item in [q.strip() for q in str(spec).split(",") if q.strip()]:
-        if os.path.isdir(item):
-            found = sorted(_glob.glob(os.path.join(item, pattern)))
-        else:
-            found = [item]
-        for u in found:
-            j = os.path.splitext(u)[0] + ".json"
-            out.append((u, j if os.path.exists(j) else ""))
-    seen, uniq = set(), []
-    for u, j in out:
-        if u in seen:
-            continue
-        seen.add(u)
-        uniq.append((u, j))
-    return uniq
+    return fal.resolve_bakes(spec, pattern)
 
 
 def order_bakes(rows):
-    """Column order: `FA_ORDER` first if given, then each sidecar's own
-    `index` (the manifest position it was baked from), then the file name."""
-    if ORDER:
-        rank = {s: i for i, s in enumerate(ORDER)}
-        return sorted(rows, key=lambda r: (
-            rank.get(os.path.splitext(os.path.basename(r["usd"]))[0], 10 ** 6),
-            r["doc"].get("index", 0) if r["doc"] else 0,
-            os.path.basename(r["usd"])))
-    return sorted(rows, key=lambda r: (
-        r["doc"].get("index", 0) if r["doc"] else 0,
-        os.path.basename(r["usd"])))
-
-
-# ---------------------------------------------------------------------------
-# Ground and light — the benches' own seat
-# ---------------------------------------------------------------------------
-def build_ground_and_light(stage, span):
-    """Pavement-grey ground and a LOW warm key (25 deg).
-
-    Copied from `urban_fire_bench` / `gac_fire_bench` on purpose: char is
-    0.15 on screen and a spall scar 0.44, so under a flat overhead key the
-    whole elevation crushes to black and none of the plume structure
-    survives. A raking sun separates the tongues and the scars — and it is
-    also what a drone flies in.
-    """
-    e = max(400.0, span * 1.4)
-    ground = UsdGeom.Mesh.Define(stage, Sdf.Path("/World/ground"))
-    ground.CreatePointsAttr([Gf.Vec3f(-e, -e, 0.0), Gf.Vec3f(e, -e, 0.0),
-                             Gf.Vec3f(e, e, 0.0), Gf.Vec3f(-e, e, 0.0)])
-    ground.CreateFaceVertexCountsAttr([4])
-    ground.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
-    ground.CreateNormalsAttr([Gf.Vec3f(0, 0, 1)] * 4)
-    ground.CreateDisplayColorAttr([Gf.Vec3f(0.30, 0.30, 0.29)])
-    ground.CreateExtentAttr([Gf.Vec3f(-e, -e, 0.0), Gf.Vec3f(e, e, 0.0)])
-    try:
-        mp = stage.DefinePrim(Sdf.Path("/World/Looks/pavement"))
-        mp.GetReferences().AddReference(sg._join_asset_root(
-            "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda", ""))
-        mp.Load()
-        m = UsdShade.Material.Get(stage, "/World/Looks/pavement")
-        if m:
-            UsdShade.MaterialBindingAPI(ground.GetPrim()).Bind(m)
-    except Exception as exc:
-        print("[fa] ground material unavailable: {0}".format(exc))
-    dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/domeLight"))
-    dome.CreateIntensityAttr(700.0)
-    dome.CreateColorAttr(Gf.Vec3f(0.72, 0.76, 0.86))
-    key = UsdLux.DistantLight.Define(stage, Sdf.Path("/World/keyLight"))
-    key.CreateIntensityAttr(3200.0)
-    key.CreateAngleAttr(0.9)
-    key.CreateColorAttr(Gf.Vec3f(1.0, 0.94, 0.86))
-    key.AddRotateXYZOp().Set(Gf.Vec3f(-25.0, 0.0, 28.0))
-
-
-def _bbox(stage, path):
-    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
-                           [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
-                           useExtentsHint=False)
-    prim = stage.GetPrimAtPath(Sdf.Path(path))
-    if not prim or not prim.IsValid():
-        return None
-    r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
-    if r.IsEmpty():
-        return None
-    lo, hi = r.GetMin(), r.GetMax()
-    return [float(lo[0]), float(lo[1]), float(lo[2]),
-            float(hi[0]), float(hi[1]), float(hi[2])]
-
-
-# ---------------------------------------------------------------------------
-# The fire, put back
-# ---------------------------------------------------------------------------
-def _sphere_source(stage, path, seat, state, scale, vel, dx, dy, top_z):
-    """One smoke-only `FlowEmitterSphere` at a recorded seat.
-
-    The seat came out of the bake already clamped to the settled geometry;
-    `top_z` here is what THIS stage measures on the referenced building, so a
-    reference that composed differently (or not at all) cannot leave a plume
-    in mid-air.
-    """
-    prim = fx._flow_create(stage, path, "FlowEmitterSphere")
-    if not prim or not prim.IsValid():
-        return 0
-    z = float(seat["z"])
-    if top_z is not None:
-        z = min(z, float(top_z) - 0.4)
-    fx._set(prim, "layer", Sdf.ValueTypeNames.Int, int(fx.FLOW_LAYER))
-    fx._set(prim, "position", Sdf.ValueTypeNames.Float3,
-            Gf.Vec3f(float(seat["x"]) + dx, float(seat["y"]) + dy, z))
-    fx._set(prim, "radius", Sdf.ValueTypeNames.Float,
-            float(seat.get("radius", 1.2)))
-    fx._set(prim, "radiusIsWorldSpace", Sdf.ValueTypeNames.Bool, True)
-    fx._set(prim, "coupleRateSmoke", Sdf.ValueTypeNames.Float, 2.0)
-    fx._set(prim, "velocity", Sdf.ValueTypeNames.Float3, Gf.Vec3f(*vel))
-    fx._set(prim, "velocityIsWorldSpace", Sdf.ValueTypeNames.Bool, True)
-    fx.set_emission(prim, state, scale=float(seat.get("scale", 1.0)) * scale)
-    return 1
+    return fal.order_bakes(rows, ORDER)
 
 
 def place_fire(stage, root, doc, masses, events, tag, rng, top_z,
                dx, dy, scale=1.0, max_emitters=9):
-    """`urban_fire.r_flames`, re-run against a BAKED building.
-
-    Same four parts, same budgets, same order — the difference is only where
-    the inputs come from:
-
-      1. FLAME events -> `FLAME_PER_OPENING` sheet sources across each
-         opening's head, at most `max_emitters` openings. The opening records
-         are the bake's own (`fire_bake.op_from_json`), so this is
-         `urban_fire._flame_sources` verbatim, not a re-implementation.
-      2. On an ACTIVE fire, smoke from the compartments that have already
-         burnt OUT, highest storey first, `SMOKE_EXTRA_MAX` of them.
-      3. On a burnt-out one, its SMOULDER events plus the interior smoke —
-         which comes from the sidecar's recorded SEATS rather than from
-         `ctx["fit"]`, because the fit-out is geometry inside a referenced
-         file by now.
-      4. The roof plume, gated on `fire["roof"]`, likewise from the seats.
-
-    An event whose openings belong to a module a collapse killed is skipped:
-    `e["dead"]` was serialised AFTER the ladder ran, so a flame never floats
-    where a wall used to be.
-
-    `_wall_vents` — `r_flames`' fallback for a band with no openings at all —
-    is NOT reproduced: it walks `ctx["info"]["elements"]`, which a bake does
-    not carry. A building that would have needed it says so and gets its
-    roof/interior smoke only.
-    """
-    f = doc["fire"]
-    state = f.get("state")
-    if not state:
-        return {"flame": 0, "smoke": 0, "interior": 0, "roof": 0,
-                "note": "level {0} has no active state — no emitters"
-                        .format(f.get("level"))}
-    ctx = {"stage": stage, "rng": rng, "tag": tag, "notes": [],
-           "flow_root": root, "info": {"masses": masses},
-           "fire": {"origin": int(f["origin"]),
-                    "storeys": [int(s) for s in f["storeys"]],
-                    "top": int(f["top"]), "sides": tuple(f["sides"]),
-                    "n_storeys": int(f["n_storeys"]), "mass": f["mass"],
-                    "roof": bool(f["roof"]), "level": f["level"],
-                    "state": state}}
-    UsdGeom.Xform.Define(stage, Sdf.Path(root + "/emitters"))
-
-    def live(ev):
-        return all(not (o.get("e") or {}).get("dead") for o in ev["ops"])
-
-    evs = [ev for ev in events if live(ev) and ev.get("ops")]
-    is_flame = state == "flame"
-    n_flame = n_open = 0
-    # A TALL BUILDING BURNS IN MORE WINDOWS. Six openings read as a fire on
-    # a 12-storey block and as a candle on a 37-storey tower ("the taller
-    # buildings need more fire/flames, looks weird otherwise", user
-    # 2026-08-30): from 12 storeys up the opening budget grows with the
-    # height, capped at 16.
-    n_st = int(f.get("n_storeys") or 0)
-    max_open = (max(max_emitters, min(16, n_st // 2)) if n_st >= 12
-                else max_emitters)
-    for ev in [e for e in evs if e["state"] == "flame"]:
-        for op in ev["ops"]:
-            if n_open >= max_open:
-                break
-            n_flame += uf._flame_sources(
-                ctx, root, op, "flame", scale,
-                "e{0}_{1}".format(ev["id"], n_open), uf.FLAME_PER_OPENING)
-            n_open += 1
-    if state == "smoulder":
-        # F4: the fire is DYING, not dead — a few openings are still alight
-        # at reduced intensity, the rest smoulder. Without this an F4
-        # building showed soot and a roof hole and no fire at all.
-        for ev in [e for e in evs if e["state"] == "smoulder"]:
-            for op in ev["ops"]:
-                if n_open >= max(2, max_open // 2):
-                    break
-                n_flame += uf._flame_sources(
-                    ctx, root, op, "flame", scale * 0.6,
-                    "s{0}_{1}".format(ev["id"], n_open),
-                    max(1, uf.FLAME_PER_OPENING - 1))
-                n_open += 1
-    note = ""
-    if is_flame and n_open == 0:
-        note = ("no live flame event with openings — `_wall_vents` is not "
-                "available from a bake, so this building shows smoke only")
-
-    n_smoke = 0
-    if not SMOKE:
-        # flames only (FA_SMOKE=0): no vent smoke, no interior or roof plumes
-        return {"flame": n_flame, "smoke": 0, "interior": 0, "roof": 0,
-                "openings": n_open, "state": state,
-                "note": note or "smoke off (FA_SMOKE=0)"}
-    if is_flame:
-        out = sorted([e for e in evs if e["state"] == "out"],
-                     key=lambda e: (-e["storey"], e["id"]))
-        for ev in out[:uf.SMOKE_EXTRA_MAX]:
-            op = ev["ops"][len(ev["ops"]) // 2]
-            n_smoke += uf._flame_sources(ctx, root, op, "smoke", scale,
-                                         "sm{0}".format(ev["id"]), 1)
-    else:
-        sm = [e for e in evs if e["state"] == "smoulder"]
-        for ev in sm[:spl.SMOULDER_EVENTS_MAX]:
-            op = ev["ops"][len(ev["ops"]) // 2]
-            n_smoke += uf._flame_sources(ctx, root, op, state, scale,
-                                         "sm{0}".format(ev["id"]), 1)
-
-    seats = doc.get("seats") or {}
-    n_int = 0
-    if not is_flame:
-        for k, seat in enumerate(seats.get("interior") or []):
-            n_int += _sphere_source(
-                stage, "{0}/emitters/{1}_int_{2}".format(root, tag, k),
-                seat, state, scale, (0.0, 0.0, 1.6), dx, dy, top_z)
-    n_roof = 0
-    if f.get("roof"):
-        for k, seat in enumerate(seats.get("roof") or []):
-            n_roof += _sphere_source(
-                stage, "{0}/emitters/{1}_roof{2}".format(root, tag, k),
-                seat, "smoulder" if state == "flame" else state, scale,
-                (0.6, 0.2, 3.2), dx, dy, top_z)
-    return {"flame": n_flame, "smoke": n_smoke, "interior": n_int,
-            "roof": n_roof, "openings": n_open, "state": state, "note": note}
+    return fal.place_fire(stage, root, doc, masses, events, tag, rng, top_z,
+                          dx, dy, scale=scale, max_emitters=max_emitters,
+                          smoke=SMOKE)
 
 
 # ---------------------------------------------------------------------------
@@ -631,21 +394,25 @@ def main():
                 b = r.get("bbox")
                 if not b:
                     continue
-                W, D, H = b[3] - b[0], b[4] - b[1], b[5] - b[2]
+                # (W/D/H moved with the framing arithmetic into
+                # `fal.fire_view_params`, which measures `b` itself)
                 name = "{0}_{1}_{2}".format(
                     i, (r["doc"].get("name")
                         or os.path.basename(r["usd"]).rsplit(".", 1)[0]),
                     r["doc"].get("level", ""))
-                # TOP-VIEW HEIGHT FROM THE BUILDING'S OWN MEASURED SIZE: at
-                # 18 mm on the 20.955 mm aperture, 0.5 x the horizontal FOV
-                # is 1.164, so this is the standoff that fits the footprint
-                # and clears the roof — `gac_fire_bench`'s own arithmetic.
-                top_h = max(W, D) / 1.164 * 1.45 + H
-                obl_dist = max(50.0, 1.3 * max(W, D, H))
-                obl_h = max(18.0, 0.4 * H)
+                # THE REVIEW CAMERA FACES THE FIRE — the framing arithmetic
+                # (top-down standoff, oblique distance/height, the bearing
+                # summed from the BURNING sides, the aim height at the
+                # middle of the burning band) moved verbatim into
+                # `fal.fire_view_params` so the city launcher frames a
+                # burning building exactly the same way.
+                vp = fal.fire_view_params(r["doc"], r["masses"], b)
                 _snaps.views_around(stage, {name: (r["x"], r["y"])}, SNAP_DIR,
-                                    ssf, top_h=top_h, obl_dist=obl_dist,
-                                    obl_h=obl_h)
+                                    ssf, top_h=vp["top_h"],
+                                    obl_dist=vp["obl_dist"],
+                                    obl_h=vp["obl_h"],
+                                    azimuth_deg=vp["azimuth_deg"],
+                                    aim_h=vp["aim_h"])
             print("[fa] snapshots -> {0}".format(SNAP_DIR))
         except Exception as exc:
             import traceback

@@ -50,19 +50,35 @@ _MATDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 # Tints are LINEAR albedo multipliers on the texture (see `damage._pbr`); the
 # apron gets a paler, dustier tint than the mound crown — the design table's
 # "toe apron" is thin fines blown out from the pile, not the pile itself.
+#
+# round-5 v6 candidates (`~/scorch_previews/rubble_r4/v6/README.md`):
+# the old `_B` tiles (`make_tileable.py --composite` of a toned `Dirt_Rough`
+# megascans scan + a high-passed debris-atlas detail layer) read as a smooth
+# brown DIRT/MUD blanket under RTX (`0_commercial_DG5_ne.png`/`_street.png`)
+# — `Dirt_Rough` is a literal photographed soil scan, and no tint/desat on
+# top of it changes what the eye reads as the MATERIAL. The `_C{1,2,3}`
+# candidates all drop the soil-scan base entirely and build from a real
+# broken-masonry/concrete photo instead. Recommendation: RC -> C1 (the
+# mound's OWN `concrete_debris_elements` atlas, self-sharpened — best value-
+# match to the old look while fully fixing the frequency/"mud" problem);
+# URM -> C2 (`Brick_Wall_Worn`, scrambled seamless — the richest, most
+# saturated crushed-brick red of the three candidates). The `_B` files
+# themselves are left on disk untouched (the v6 README's own constraint) —
+# only which stem/tint/desat/uv_scale this dict points at changes.
 _LOOK = {
-    "urm": {"stem": "rubble_urm_B", "mound": (0.60, 0.53, 0.46), "apron": (0.74, 0.70, 0.63), "desat": 0.20},
-    "rc":  {"stem": "rubble_rc_B",  "mound": (0.55, 0.54, 0.52), "apron": (0.70, 0.69, 0.66), "desat": 0.20},
+    "urm": {"stem": "rubble_urm_C2", "mound": (0.64, 0.50, 0.43), "apron": (0.76, 0.66, 0.58), "desat": 0.10},
+    "rc":  {"stem": "rubble_rc_C1",  "mound": (0.58, 0.57, 0.55), "apron": (0.72, 0.71, 0.68), "desat": 0.15},
 }
 _DEFAULT_LOOK = "rc"
 
-# ~0.28-0.32 repeats/metre (damage._pbr's `scale_uv` IS repeats-per-metre,
-# smaller = bigger features) — the brief's "0.25-0.35 per metre" band. Also
-# used to author `primvars:st` on the mound/apron mesh itself (world x, y
-# times this same scale) so a Blender/Hydra preview that cannot see the MDL
-# `project_uvw` triplanar projection still gets a matching, correctly-scaled
-# UV to read the real texture through (see `_add_preview_fallback`).
-_UV_SCALE = {"urm": 0.28, "rc": 0.32}
+# ~0.28-0.34 repeats/metre (damage._pbr's `scale_uv` IS repeats-per-metre,
+# smaller = bigger features) — the brief's "0.25-0.35 per metre" band, per-
+# candidate values from the v6 README's recommended C1 (rc) / C2 (urm) rows.
+# Also used to author `primvars:st` on the mound/apron mesh itself (world x,
+# y times this same scale) so a Blender/Hydra preview that cannot see the
+# MDL `project_uvw` triplanar projection still gets a matching, correctly-
+# scaled UV to read the real texture through (see `_add_preview_fallback`).
+_UV_SCALE = {"urm": 0.34, "rc": 0.32}
 
 
 def _uv_scale_for(look):
@@ -192,12 +208,21 @@ def _join(root, rel):
 
 
 def _resolve_catalogue():
-    """`disaster.quake_rubble.CATALOGUE`, imported lazily so this module
-    never hard-fails if the planner is not there yet (round-4 parallel
-    build) or a caller supplies its own `plan["catalogue"]`."""
+    """`disaster.quake_rubble.CATALOGUE` MERGED with `disaster.quake_rubble.
+    HD_CATALOGUE` (round-5: the 840-piece textured HD debris library —
+    `_select_proto_sets` can put an HD name into a plan's instance/large
+    entries, and this is the ONLY place that resolves a name to a URL/size
+    for the emitter, so it has to see both catalogues), imported lazily so
+    this module never hard-fails if the planner is not there yet (round-4
+    parallel build) or a caller supplies its own `plan["catalogue"]`. No
+    name collisions exist between the two (verified: CATALOGUE's ~46 flat-
+    colour entries and HD_CATALOGUE's 840 piece names are disjoint), so a
+    plain dict merge is safe either way."""
     try:
         from . import quake_rubble
-        return quake_rubble.CATALOGUE
+        merged = dict(quake_rubble.CATALOGUE)
+        merged.update(quake_rubble.HD_CATALOGUE)
+        return merged
     except Exception as exc:
         print("[quake_rubble_usd] disaster.quake_rubble.CATALOGUE unavailable "
               "({0}); asset references will not resolve unless plan['catalogue'] "

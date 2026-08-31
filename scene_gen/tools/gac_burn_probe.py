@@ -6,6 +6,15 @@ counts, so a launch is not the first time the chain runs.
 
     docker exec isaac-sim bash -c "/isaac-sim/AirStack/scene_gen/tools/usd_python.sh \\
         /isaac-sim/AirStack/scene_gen/tools/gac_burn_probe.py SM_Building_02 F3"
+
+A DOWNTOWNCITY block is the same call with the pack in front of the name —
+`burn_gac` hands the whole string to `gac_fire.prepare`, which resolves the
+pack, the file extension, the unit scale and the construction type from
+`gac_fire.PACKS` (`gac_fire.split_kind`):
+
+    ... /isaac-sim/AirStack/scene_gen/tools/gac_burn_probe.py dtc:Amar_Tower F3
+
+A bare name still means GreatAmericanCity, unchanged.
 """
 import random
 import sys
@@ -20,6 +29,12 @@ from disaster import fracture, gac_fire as gf, urban_fire as uf  # noqa: E402
 
 name = sys.argv[1] if len(sys.argv) > 1 else "SM_Building_02"
 level = sys.argv[2] if len(sys.argv) > 2 else "F3"
+# Optional third argument: PIN THE FIRE'S ORIGIN STOREY, the same knob
+# `fire_bake.sh`'s `kind:name:level:ORIGIN` field and `FB_ORIGIN` set.
+# Absent (the only form anything before 2026-08-30 used) is `None`, which is
+# exactly what `burn_gac`'s own default already was — so a two-argument run
+# prints byte-for-byte what it always did.
+origin = int(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3] else None
 t0 = time.time()
 fracture.ensure_vtk(verbose=False)
 st = Usd.Stage.CreateInMemory()
@@ -35,7 +50,8 @@ rng = random.Random(7)
 nrng = np.random.default_rng(7)
 try:
     ctx = gf.burn_gac(st, cell, name, level, rng, nrng, mats, "g0",
-                      flow_root=None, mat_cache={}, ssf=1.0, verbose=True)
+                      flow_root=None, mat_cache={}, ssf=1.0, origin=origin,
+                      verbose=True)
 except Exception:
     traceback.print_exc()
     sys.exit(1)

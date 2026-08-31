@@ -263,7 +263,8 @@ def _fallback_plan(W, D, H, btype, kind, seed, sides="S", depth_m=1.2, offset_m=
             "catalogue": _FALLBACK_CATALOGUE, "stats": stats}
 
 
-def build_plan(W, D, H, btype, kind, seed, sides, depth_m, offset_m):
+def build_plan(W, D, H, btype, kind, seed, sides, depth_m, offset_m, crown_m=None,
+              elem_h_m=None):
     # Broad except: agent B's `quake_rubble.py` is being written in parallel
     # this round and may exist as a file but not yet expose `plan_pile` (or
     # may raise for any other reason while it is mid-write) — any failure
@@ -280,10 +281,17 @@ def build_plan(W, D, H, btype, kind, seed, sides, depth_m, offset_m):
         levels = [0.0 + i * H / n_storeys for i in range(n_storeys)]
         m = {"cx": 0.0, "cy": 0.0, "W": W, "D": D, "yaw": 0.0, "z0": 0.0, "top": H, "levels": levels}
         kwargs = {}
-        if kind == "windrow":
-            kwargs.update(sides=sides, along=(0.1, 0.9), depth_m=depth_m, offset_m=offset_m)
+        # `sides` is a plain string (e.g. "S" or "NW") — `tuple(sides)` splits
+        # it into per-character compass letters, exactly the tuple form every
+        # `plan_pile` kind expects (dome: any number of fall sides via
+        # `set(sides)`; windrow/fan: one row per side in `sides`).
+        side_tuple = tuple(sides) if sides else None
+        if kind == "dome":
+            kwargs.update(sides=side_tuple, crown_m=crown_m)
+        elif kind == "windrow":
+            kwargs.update(sides=side_tuple, along=(0.1, 0.9), depth_m=depth_m, offset_m=offset_m)
         elif kind == "fan":
-            kwargs.update(sides=sides)
+            kwargs.update(sides=side_tuple, depth_m=depth_m, elem_h_m=elem_h_m)
         plan = qr.plan_pile(m, btype, rng, kind=kind, **kwargs)
         print("[rubble_preview] used disaster.quake_rubble.plan_pile (the real planner)")
         return plan
@@ -472,13 +480,23 @@ def _contact_sheet(tiles, out, title):
 
 
 def render_views(usd_path, out_dir, tag, pile_center, pile_dist, crown_pt, fall_dir,
-                 res=(1280, 720), samples=64, cpu=False):
+                 res=(1280, 720), samples=64, cpu=False, close_dist=12.0):
     """Three views on a sphere around `pile_center` at `pile_dist`, plus a
-    4th close-up standing 12 m from `crown_pt` looking down `fall_dir` —
-    "what a drone at 40 m sees" (research memo §7) for the overall
-    silhouette (obl1/obl2/top), and a conversational-range check of whether
-    the CROWN reads as rubble and the large elements read as large, which a
-    40 m frame cannot resolve."""
+    4th close-up standing `close_dist` m from `crown_pt` looking down
+    `fall_dir` — "what a drone at 40 m sees" (research memo §7) for the
+    overall silhouette (obl1/obl2/top), and a conversational-range check of
+    whether the CROWN reads as rubble and the large elements read as large,
+    which a 40 m frame cannot resolve.
+
+    `pile_dist`/`close_dist` (round-5): the tool's own auto-framing
+    (`pile_dist = 1.6 x pile bbox diagonal` in `main()`, `close_dist` here
+    defaulting to 12 m) does not land at a requested fixed distance for
+    every pile size — `--dist`/`--close-dist` let a caller override both
+    explicitly (e.g. "~35 m oblique, ~6 m close-up") instead of only ever
+    getting whatever the bbox-relative formula produces (v6 README's
+    "Distance note": the auto-framed obliques landed at 76-142 m for the
+    documented rc/urm domes, not the ~35 m that write-up asked for, because
+    at the time changing this file was out of scope for that agent)."""
     import bpy
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.wm.usd_import(filepath=str(usd_path))
@@ -502,8 +520,9 @@ def render_views(usd_path, out_dir, tag, pile_center, pile_dist, crown_pt, fall_
         print("  {0} -> {1}  ({2:.1f}s elapsed)".format(name, fp, time.time() - t0))
 
     fdx, fdy = fall_dir
-    cam_pos = (crown_pt[0] - fdx * 12.0, crown_pt[1] - fdy * 12.0, crown_pt[2] + 2.0)
-    look_at = (crown_pt[0] + fdx * 8.0, crown_pt[1] + fdy * 8.0, max(crown_pt[2] * 0.10, 0.3))
+    look_ahead = close_dist * (8.0 / 12.0)     # keep the v4-v6 framing ratio at any close_dist
+    cam_pos = (crown_pt[0] - fdx * close_dist, crown_pt[1] - fdy * close_dist, crown_pt[2] + 2.0)
+    look_at = (crown_pt[0] + fdx * look_ahead, crown_pt[1] + fdy * look_ahead, max(crown_pt[2] * 0.10, 0.3))
     _place_camera_lookat(cam_pos, look_at, fov=math.radians(55))
     fp = Path(out_dir) / "{0}_close.png".format(tag)
     _render_to(fp, *res)
@@ -567,13 +586,26 @@ def main():
     ap.add_argument("--D", type=float, required=True)
     ap.add_argument("--H", type=float, required=True)
     ap.add_argument("--kind", choices=("dome", "windrow", "fan"), default="dome")
-    ap.add_argument("--sides", default="S", help="windrow/fan wall: N/E/S/W")
-    ap.add_argument("--depth", type=float, default=1.2, help="windrow depth at the wall (m)")
+    ap.add_argument("--sides", default="S",
+                    help="wall(s), one letter each, no separator: N/E/S/W, e.g. NW "
+                         "for two dome fall sides")
+    ap.add_argument("--crown", type=float, default=None, help="dome: crown height override (m)")
+    ap.add_argument("--depth", type=float, default=1.2, help="windrow/fan depth at the wall (m)")
+    ap.add_argument("--elem-h", type=float, default=None,
+                    help="fan/windrow: the fallen element's own height (m) — overrides "
+                         "--depth's role in picking a default depth if --depth is not given")
     ap.add_argument("--offset", type=float, default=1.5, help="windrow offset out from the wall (m)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", required=True)
     ap.add_argument("--cpu", action="store_true", help="force CPU rendering")
     ap.add_argument("--samples", type=int, default=64)
+    ap.add_argument("--dist", type=float, default=None,
+                    help="override the oblique-view camera distance (m); "
+                         "default: 1.6x the pile's own bbox diagonal")
+    ap.add_argument("--close-dist", type=float, default=12.0,
+                    help="close-up camera distance from the crown (m)")
+    ap.add_argument("--rw", type=int, default=1280, help="render width (px)")
+    ap.add_argument("--rh", type=int, default=720, help="render height (px)")
     args = ap.parse_args()
 
     out_dir = Path(args.out).expanduser()
@@ -581,7 +613,8 @@ def main():
     tag = "{0}_{1}_s{2}".format(args.type, args.kind, args.seed)
 
     plan = build_plan(args.W, args.D, args.H, args.type, args.kind, args.seed,
-                      args.sides, args.depth, args.offset)
+                      args.sides, args.depth, args.offset, crown_m=args.crown,
+                      elem_h_m=args.elem_h)
     stats = plan.get("stats") or {}
     print("[rubble_preview] plan stats: {0}".format(stats))
 
@@ -604,7 +637,7 @@ def main():
     # and pick the crown / fall direction for the close-up view, straight
     # off the plan (exact) rather than re-deriving them from the mesh.
     pile_center, pile_diag = _pile_bbox(stage, [result["mound"]] + list(result["large"]))
-    pile_dist = 1.6 * max(pile_diag, 4.0)
+    pile_dist = args.dist if args.dist else 1.6 * max(pile_diag, 4.0)
     if plan.get("mound"):
         crown_pt = _crown_point(plan["mound"])
     else:
@@ -620,7 +653,9 @@ def main():
     print("wrote {0}".format(usd_path))
 
     tiles, sheet = render_views(usd_path, out_dir, tag, pile_center, pile_dist,
-                                crown_pt, fall_dir, samples=args.samples, cpu=args.cpu)
+                                crown_pt, fall_dir, res=(args.rw, args.rh),
+                                samples=args.samples, cpu=args.cpu,
+                                close_dist=args.close_dist)
     print("[rubble_preview] done: {0}".format([str(t) for t in tiles] + [str(sheet)]))
     return 0
 

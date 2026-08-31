@@ -1155,6 +1155,39 @@ draw, so `burn_zone=None` is bit-identical. Probe:
 inside ≥ 0.8; skin PNGs to `~/scorch_previews/collapse/`). Freeze: the four
 non-F5c levels diff identical through `kit_burn_probe.py`.
 
+**Broken pieces keep their façade (third review, 2026-08-30: "clean
+rectangular breaks ... the broken/debris material is much darker than the
+intact façade — match it").** `_break`/`_break_split` bind the piece's own
+cladding at prim level and put the pipeline-invented faces in a `core`
+GeomSubset (`_t_core_bind`); binding `_debris_mat`/`_burn_mat` OVER the prim
+(`strongerThanDescendants`) took the cladding off the outward faces too.
+`fire_collapse.bind_break(ctx, path, mat, cut_only)` now chars only the
+`core` subset of a STATIC remainder (kit F5c and GAC); loose fragments in
+the heap char whole; a GAC shell fragment with no `core` (a clipped shell
+has no thickness) keeps its façade untouched ("kept") — the burn zone in the
+skin darkens the wall round the hole. Measured: `_debris_mat` luminance
+0.148, `_burn_mat(ash)` 0.135; the zone-sooted skin was 0.050 with
+`ZONE_ALPHA (0.85, 0.95)`/`ZONE_TONE 0.85` and is 0.082 with `(0.58, 0.74)`
+/ `0.10` — the residual gap is `SOOT_DARK`/`SOOT_ASH` being LINEAR albedo
+composited into sRGB maps (`merge_rgb`), shared with the frozen kit ladder,
+so left alone. Fit-out in the hole falls too: partitions/columns whose
+FOOTPRINT touches the lost region, and everything on a dropped storey,
+go loose (`part_main_6_*` stood upright in mid-air in the second row).
+GAC F5c fits out `range(s0-2, n_st)` from a plan computed on a shim ctx in
+`burn_gac` (15 → 8 storeys on SM_Building_05). Probe:
+`tools/_break_material_probe.py gac:NAME:F5c` (static pieces: prim material
+must be the façade, `core` char). Known gap: on GAC the burn zone reaches
+only the per-piece bakes — `prepare` bakes the pre-slice atlases before the
+plan exists.
+
+**The burn zone reaches the pre-slice atlases (GAC).** `prepare` now
+computes `fire_collapse.plan_partial_collapse` on a shim ctx BEFORE the skin
+is baked into the unique atlases and hands `burn_zone_rects(plan, m)` to
+`soot_plume.skin(burn_zone=)`; the plan is stashed as `pre["collapse_plan"]`
+so `burn_gac`'s fit-out uses the same failure line. Measured: SM_Building_05
+F5c brick atlas 92 % sooted, 14 zone rects at run time. Also: a GAC shell
+fragment with no `core` subset keeps its façade (`bind_break` → "kept").
+
 ## GAC (whole-asset) buildings: soot before the slice
 
 Every ladder recipe above damages a KIT — a building assembled from named
@@ -1548,6 +1581,49 @@ name-based candidates, `tools/airborne_probe.py`) refuses to touch a family
 of which more than 25 % is "unsupported" — that is a missing floor, and it
 prints a WARNING naming the family instead.
 
+**Row 3 (2026-08-30): two more floater sources.** (1) The bake-time airborne
+sweep ran while the INVISIBLE merged source (`<cell>/src`, hidden by
+`slice_to_kit`) was still on the stage, so every ray inside the envelope hit
+the intact original and reported support; the export drops the source, and
+`tools/airborne_probe.py` on the exported file found 33-114 more per
+building (parapet/slab/wall fragments whose support another recipe had
+removed). `fire_bake._judge_candidates` now skips geometry whose computed
+visibility is `invisible`. (2) `_heap` spreads chips a little past the plan;
+on an upper-floor fire heap the overhang had nothing under it — 58 black
+flecks at 49.6 m beside SM_Building_09 F6. `r_fire_collapse` (GAC) drops any
+`fireheap` chip whose centre lies outside the authored floor plate. Verify a
+bake with `airborne_probe.py <bake>.usd` (dry run): the flagged count should
+be near zero, and anything left should be explainable by name.
+
+**The airborne judge, as it stands (row 3, 2026-08-30):** rays start 5 cm
+ABOVE the candidate's bottom (a flush neighbour counts); 13 sample points —
+centroid, quarter points, edge midpoints and corners inset ≤ 0.15 m — so a
+roof-deck rim fragment held along its edges is seated (the five-point
+version deleted every collapse-level GAC roof deck as "unsupported");
+invisible geometry (the hidden merged source) is never support; lean-contact
+counts only for pieces with a bounding diagonal ≥ 1.2 m (`_LEAN_MIN_DIAG_M`
+— a chip touching a façade hangs, it does not lean) EXCEPT the wall-attached
+stamp families (`_WALL_ATTACHED`: spall, spallhalo, sbar, rebar, crack — the
+size rule stripped 100+ spall marks per damaged wall in row 3e); the 25 % family cap
+protects pile families only. Review captures: `snapshots.views_around(...,
+azimuth_deg, aim_h)` — the assembly points the oblique at the burning
+elevations and the band's mid-height (`fire["sides"]`, `fire["storeys"]`).
+
+**Row 3f / Downtown row 1 (2026-08-30 evening): the last three floater
+sources.** (1) Wall stamps on a SLICED piece were placed from the piece
+frame's bbox depth — a cornice, awning or interior floor face pushes that
+0.6-1.8 m (SM_Building_23) to 15 m (SM_Building_09) off the façade, so spall
+patches and halos hovered in front of every burnt GAC wall; `_stamp_pt`
+snaps them onto `fire["planes"][side]` (measured in `gac_fire.prepare`),
+kit path untouched (no planes). (2) In the judge a decal "leaned" on its own
+co-located halo — lean support now has to come from a prim that is not a
+wall stamp. (3) On an rc collapse the fit-out COLUMN grid of the failed
+storeys stayed static after walls and slabs went — a 4 m-pitch forest three
+storeys tall with the catch floor and heap on it, a floating platform
+(dtc Carved_13 F5); `r_fire_collapse` (GAC) sends columns of storeys ≥ s0
+to physics. Downtown row 1 measured 9.0 GB / 492 MB per building (the 85 m
+Carved blocks), 89 emitters incl. the F1 wisp.
+
 ### Knobs worth knowing
 
 | env | default | why |
@@ -1602,3 +1678,36 @@ there is no band for `region=` to save) and would still need to plug into
 this same bake (its own sidecar shape, no Flow-equivalent effect yet), and a
 checklist for wiring in a new disaster. Read it before assuming any part of
 this pipeline needs to be re-derived for tornado, earthquake or hurricane.
+
+### The starved-events trap — a shape filter can silently unplug the whole fire (fire_dtc3, 2026-08-30)
+
+`gac_fire.window_rects`' island shape filter (WINDOW_* constants) exists to stop
+ornament/AC-unit blobs being burned as windows. But an island rejected for SIZE can
+be real glazing: dtc Building_12's mid-façade is storey-STRIP windows (4.5 x 18 m,
+one island per bay column, spanning storeys 2-8), and dtc Amar_Tower's curtain wall
+union-finds into ONE 38 x 192 m island per elevation. Dropping those left ZERO
+openings inside the burning band, `soot_plume.plan_events` returned an empty list,
+and the bake completed "successfully" as a building with a fire plan and no fire:
+no flames, no smoke, and no soot (the skin binds per event). The assembly's only
+tell is `[fa] bN fire: 0 flame source(s) over 0 opening(s), 0 smoke (state=flame)`
+— grep for that contradiction after every row.
+
+Fix in `_islands`: an island that fails the shape test but is tall/wide and mostly
+glass (`STRIP_FILL_MIN`) is SPLIT into a synthetic bay grid (`STRIP_ROW_M` 3.2 m,
+`STRIP_COL_M` 4.0 m) and each cell re-tested — B12@4 F3 went 0 → 30 events, Amar
+F5c 2 → 316. Verify any such change offline with
+`tools/_dtc_open_probe.py kind:Name@origin` (the origin rides after `@`; a second
+positional arg is parsed as another asset and crashes on a None prim path).
+
+Related, found the same night: `urban_fire.r_curtain_burn` took its bays from
+`qf._els(role=("wall","corner"))`, which is EMPTY for every sliced building — so a
+sliced rc_glass tower's F-ladder note read "curtain burn: 0 bay(s) out, 0 crazed"
+at every level and the tower kept a pristine skin. The recipe now falls back to
+per-bay frames built from the measured openings table (`ctx["soot_openings"]`)
+when there are no kit elements. The kit path is untouched by construction: kit
+contexts never set `soot_openings`, `_piece_frame` consumes no rng, and the
+candidate/roll order is preserved element for element (kit_burn_probe FLAGs all 0
+after, urm + rc + a family-05 skyscraper at F5c). Remember `rc_glass` F5c is
+DESIGNED to stand — F5c on a curtain-wall tower is F5 (Grenfell: the cladding
+burns, the frame does nothing) — so "no collapse on the glass tower" is correct,
+not a bug.

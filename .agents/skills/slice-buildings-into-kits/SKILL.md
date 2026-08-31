@@ -619,3 +619,32 @@ elevation its CENTROID is nearest (nearest bbox face), never by its normal —
 glass is double-sided and the back face put a phantom mirror of every window
 on the opposite elevation (SM_Building_02: 72 islands → 18 real), which is
 what planned fires and flames on blank walls.
+
+### Two more pipeline facts (2026-08-30, late)
+
+**A sliced building is typed by its construction, not by the kit family.**
+`gac_slice.register_style` hardcoded `family "01"`, so `quake_flow.describe`
+typed every sliced building `urm` whatever `gac_fire.prepare`'s `btype` said:
+the rc LADDER ran with masonry piers, timber slabs and residential furniture
+and never the steel frame. `register_style(..., family=)` /
+`slice_to_kit(..., family=)` now take the family; `burn_gac` maps
+`btype → family` (`urm 01`, `rc 02`, `rc_glass 05`). Measured after:
+SM_Building_05 F5c types `rc`, 36 steel beams, 343 columns steel, 0 piers.
+
+**Downtown City goes through the same chain** (`gac_fire.PACKS` registry,
+`dtc:NAME` names, `fire_bake.sh dtc:NAME:LEVEL`): assets are single merged
+meshes with real glass on all four sides, INLINE materials (no
+`Materials/*_Inst.usd` — `gac_slice._material_source` falls back to the
+strongest non-anonymous layer, `fire_bake.rehome_for_export` verified with a
+negative control), `metersPerUnit` measured (1.0 vs GAC's 0.01), construction
+from `quake_sliced.CONSTRUCTION` (Amar_Tower `rc_glass`), glazing also by
+MATERIAL NAME (`Glass_window` carries no map). Catalogue:
+`scene_gen/_plans/dtc_buildings.json` (`tools/dtc_catalogue.py`); grids:
+`tools/dtc_grid_probe.py` (10 of 15 fall back to the regular grid — sane
+pieces); export: `tools/dtc_export_probe.py`. Row picks: `dtc:Building_11:F1
+dtc:Carved_02:F2 dtc:Building_12:F3 dtc:Carved_14:F4 dtc:Carved_13:F5
+dtc:Carved_18:F3` (+ two GAC F5c). Amar_Tower: roof-garden trees inflate the
+bbox (trimmed via `PACKS["dtc"]["bbox_exclude"]`), 17 pieces at F3, ~50 min —
+use F5c (53 pieces, curtain-wall stripe) if the silhouette is wanted. Build
+time is `bake_atlases` (29-78 textures, seam-straddling UVs) — the tiled test
+now runs before the full-res rasterisation.

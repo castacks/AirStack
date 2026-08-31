@@ -714,6 +714,47 @@ def _translate(dx, dy, dz):
 SLAB_T = {"urm": 0.30, "rc": 0.22, "rc_glass": 0.22}
 WALL_INSET = 0.55      # slab edge sits this far inside the wall line
 COLUMN_W = 0.45
+# A COLUMN CENTRE MUST BE THIS FAR INSIDE THE STOREY'S MEASURED PLAN before
+# it is authored, when a caller passes `fit_interior(footprint=...)`. The
+# column grid below is laid on the mass's `W x D` BOUNDING BOX, which is the
+# plan only for a cuboid: on a sliced whole-asset building with a setback or
+# an L plan, the corners of that grid land OUTSIDE the façade and poke
+# through it (fire_dtc3 review, 2026-08-30, `gac_SM_Building_02_F5c_s193`
+# `fit_g6/col_main_10_2_1`). 0.35 m clears the column's own half-diagonal
+# (`COLUMN_W * sqrt(2) / 2` = 0.32 m) whatever the mass yaw, so the whole
+# box lands inside the hull rather than just its centre.
+FIT_FOOTPRINT_M = 0.35
+
+
+def _inside_inset(poly, x, y, inset):
+    """Is (x, y) at least `inset` metres inside the CONVEX polygon `poly`?
+
+    `poly` is world-XY, either winding. Convexity is the caller's to keep:
+    the only producer today is `gac_fire._storey_footprints`, which returns a
+    convex hull per storey (itself already inset 0.35 m off the measured
+    vertices) and hands it through `fire["footprints"]`. A degenerate polygon
+    answers True — no footprint measured means no clamping, which is the
+    behaviour every caller had before the kwarg existed.
+    """
+    n = len(poly)
+    if n < 3:
+        return True
+    a2 = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        a2 += poly[i][0] * poly[j][1] - poly[j][0] * poly[i][1]
+    s = 1.0 if a2 >= 0.0 else -1.0            # +1 when the winding is CCW
+    for i in range(n):
+        j = (i + 1) % n
+        dx = poly[j][0] - poly[i][0]
+        dy = poly[j][1] - poly[i][1]
+        el = math.hypot(dx, dy)
+        if el < 1e-9:
+            continue
+        # signed distance from the edge INTO the polygon
+        if s * (dx * (y - poly[i][1]) - dy * (x - poly[i][0])) / el < inset:
+            return False
+    return True
 
 # WHAT IS IN THE ROOMS. Cheap props only (a few hundred points each — the
 # ArchVis sofas are 260k and are not here), referenced from Nucleus, placed
@@ -773,7 +814,7 @@ def _prop(stage, path, usd, x, y, z_floor, yaw, scale, rng):
 
 
 def fit_interior(stage, parent, info, mats, rng, storeys=None,
-                 columns=True, partitions=True, tag="b"):
+                 columns=True, partitions=True, tag="b", footprint=None):
     """Author slabs (+ columns, partitions) for every mass of one building.
 
     Returns {"slabs": {(mass, storey): path}, "columns": {(mass, storey):
@@ -784,6 +825,14 @@ def fit_interior(stage, parent, info, mats, rng, storeys=None,
     `storeys` limits which storeys get a fit-out (None = all): a recipe that
     only opens the top two floors of a twelve-storey block has no reason to
     pay for the other ten, and nothing can see them.
+
+    `footprint` is an optional {storey: convex world-XY polygon} — the plan
+    the COLUMN grid is clamped to (`FIT_FOOTPRINT_M`), for a caller that has
+    measured one (`urban_fire.burn_building` passes
+    `ctx["fire"]["footprints"]` on the sliced path). Default None clamps
+    nothing and authors exactly the grid this has always authored; a storey
+    missing from the mapping is likewise unclamped. No rng is drawn in the
+    column loop, so a clamped run leaves every later draw untouched.
     """
     from pxr import Sdf, UsdGeom
 
@@ -809,6 +858,10 @@ def fit_interior(stage, parent, info, mats, rng, storeys=None,
                 out["all"].append(path)
             if columns and btype != "urm":
                 cols = []
+                # the storey's measured plan, when the caller has one: the
+                # grid is a bounding-box grid and its corners fall outside an
+                # irregular footprint (see `FIT_FOOTPRINT_M`)
+                fp = (footprint or {}).get(i)
                 pitch = max(4.0, float(m["module"]))
                 h_st = (m["levels"][i + 1] if i + 1 < n_lv else m["top"]) - z
                 nx = max(2, int(round(W / pitch)) + 1)
@@ -821,6 +874,9 @@ def fit_interior(stage, parent, info, mats, rng, storeys=None,
                         lx = -W / 2.0 + COLUMN_W / 2.0 + a * (W - COLUMN_W) / (nx - 1)
                         ly = -D / 2.0 + COLUMN_W / 2.0 + b * (D - COLUMN_W) / (ny - 1)
                         wx, wy = _to_world(m, lx, ly)
+                        if fp and not _inside_inset(fp, wx, wy,
+                                                    FIT_FOOTPRINT_M):
+                            continue        # outside the storey's own plan
                         cpath = "{0}/fit_{1}/col_{2}_{3}_{4}_{5}".format(
                             parent, tag, mtag, i, a, b)
                         _box(stage, cpath, wx, wy, z + (h_st - t_slab) / 2.0,
@@ -2767,6 +2823,7 @@ def r_parapet_fall(ctx, sides=1, frac=0.5, mass="main"):
             for pth in lo:
                 v = rng.uniform(0.8, 2.0)
                 ctx["velocity"][pth] = (ox * v, oy * v, 0.0)
+            _dust_loose(ctx, lo)
             ctx["loose"] += lo
             ctx["static_extra"] += st
             e["dead"] = True
@@ -4799,9 +4856,17 @@ def r_infill_fail(ctx, storeys=1, frac=0.4, mass="main"):
             e["dead"] = True
     if opened:
         _disturb_interior(ctx, mass, opened)
-        # the hollow-block rubble under the dropped panels
-        _heap(ctx, m, m["z0"], 0.0, 0.1, fill=False, sides=("S", "E", "N", "W"),
-              depth_m=rng.uniform(0.3, 0.6), tag="windrow")
+        # the hollow-block rubble under the dropped panels: a thin apron
+        # on all four sides (the infill drops straight down at its own
+        # wall line, not outward past one favoured side), so `windrow` on
+        # every side. `spread_frac=0.1` is passed through so `EQ_RUBBLE=v1`
+        # draws the identical low apron it always did; the 0.3-0.6 m depth
+        # is already a low-windrow number (round-4 table: "spread 0.10-0.18
+        # x the building dimension at h=0 ... corresponds to a low windrow,
+        # ~0.3-0.6 m deep"), so v2 keeps the same draw rather than a fixed
+        # constant.
+        _rubble(ctx, m, "windrow", sides=("S", "E", "N", "W"),
+                depth_m=rng.uniform(0.3, 0.6), spread_frac=0.1, tag="windrow")
 
 
 def _corner_break(ctx, m, cx, cy, c_sides, reach, path, mat_fn):
@@ -4884,6 +4949,7 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
             v = rng.uniform(0.2, 0.8)
             ctx["velocity"][pth] = (ox * v, oy * v, 0.0)
         _a_dustify(ctx, lo)
+        _dust_loose(ctx, lo)
         ctx["loose"] += lo
         ctx["static_extra"] += st
         e["dead"] = True
@@ -4920,6 +4986,7 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
             for q in lo:
                 v = rng.uniform(0.3, 1.0)
                 ctx["velocity"][q] = (ox * v, oy * v, 0.0)
+            _dust_loose(ctx, lo)
             ctx["loose"] += lo
             ctx["static_extra"] += st
             e["dead"] = True
@@ -5181,6 +5248,7 @@ def r_out_of_plane(ctx, sides=1, from_storey=1, mass="main", which=None):
                 for pth in lo:
                     v = 0.4 + rng.uniform(0.0, 0.8)
                     ctx["velocity"][pth] = (ox * v, oy * v, 0.05 * v)
+                _dust_loose(ctx, lo)
                 ctx["loose"] += lo
                 ctx["static_extra"] += st
                 e["dead"] = True
@@ -5209,6 +5277,7 @@ def r_out_of_plane(ctx, sides=1, from_storey=1, mass="main", which=None):
             # 0.66-luma interior plaster and the pavement map's joint grid are
             # the "white paper" / "striped" debris of the round-1 review
             _a_dustify(ctx, lo)
+            _dust_loose(ctx, lo)
             ctx["loose"] += lo
             ctx["static_extra"] += st
             e["dead"] = True
@@ -5435,6 +5504,7 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
             ctx["velocity"][pth] = (sx * rng.uniform(0.3, 1.2),
                                     sy * rng.uniform(0.3, 1.2), 0.0)
         _a_dustify(ctx, lo + st)
+        _dust_loose(ctx, lo + st)
         ctx["loose"] += lo + st
         e["dead"] = True
     # THE COLLAR: the crushed storey's material squeezed out round the
@@ -5620,6 +5690,7 @@ def r_pancake(ctx, mass="main", pitch_m=None):
                                         oy * v * rng.uniform(0.5, 1.2), 0.0)
             _a_dustify(ctx, lo + st)
             _a_lay_flat(ctx, lo + st)
+            _dust_loose(ctx, lo + st)
             ctx["loose"] += lo + st
             e["dead"] = True
         # columns -> short chunks (they are what the slabs crush)
@@ -6220,6 +6291,186 @@ def _rubble(ctx, m, kind, sides=None, along=None, depth_m=None, offset_m=0.0,
     return ret
 
 
+# ---------------------------------------------------------------------------
+# LOOSE-FRAGMENT DUST (round 5, `EQ_RUBBLE=v2` only). The rubble-v2 PILE
+# (mound/apron/instancer scatter, `_rubble` above) already carries its own
+# dust tint — `quake_rubble_usd._rubble_look`/`_textured_debris_look` tint
+# every material THAT MODULE authors. What was still pristine is the SHELL
+# side: a wall/slab/column fragment a collapse recipe fractures off the
+# STANDING building keeps the standing building's own bound material.
+# `_chunk_material`/`_mat_fn` (used by every `_break`/`_break_split` call
+# below) draw straight from `materials()`'s shared palette, and some of that
+# palette is a bare Nucleus/megascans REFERENCE with NO tint ever applied —
+# `mats["brick"]` -> `Brick_Wall_Worn.usda`, `mats["concrete"]` ->
+# `Worn_Pavement.usda` (see `materials()` above) — or a `_clad_material`
+# cladding photo, also untinted. `_a_dustify` already re-tints a SHARE of a
+# collapse's fragments, but only by SWAPPING a known palette identity for a
+# `_dusty` twin, and its swap table has no entry for `brick` or for a
+# cladding photo at all (see that function's own docstring for the table).
+# Measured on `~/docker/isaac-sim/logs/eq500_gui/b2_office_DG5_obl.png` and
+# `~/docker/isaac-sim/logs/r4_commercial/0_commercial_DG5_close.png`: the
+# pile reads as a heap of clean toy bricks / pale grey boxes, not broken
+# debris (the user, round 5: "too animated and not real").
+#
+# ONLY the call sites below whose fragments can actually draw a PRISTINE
+# palette entry or a cladding photo are wired to this (`_chunk_material`/
+# `_mat_fn`) — a fragment authored entirely from an already-`_dusty` `_a_mat`
+# flat colour (a timber roof deck, floor joists, a plaster partition, a
+# crushed column) is left alone: `diffuse_tint` MULTIPLIES, so tinting an
+# already-dark calibrated flat colour a second time is the exact near-black
+# bug round 4 already hit once (`_material_for_look`'s docstring) and round 2
+# hit before that (`planks.wood_material`) — not a reason to do it a third
+# time here.
+# ---------------------------------------------------------------------------
+_DUST_TINT = {
+    # brick/stone under settled mortar dust: greyer, darker, NOT pink — a
+    # neutral multiplier over a warm brick photo keeps its hue, so this also
+    # desaturates.
+    "urm": ((0.62, 0.55, 0.50), 0.35),
+    # concrete is already fairly neutral; darkening alone reads as dusty.
+    "rc": ((0.55, 0.54, 0.52), 0.0),
+}
+_DUST_SKIP_P = 0.15    # left on the fragment's OWN material — a pile that is
+                       # ALL dusted reads as one flat texture, same as one
+                       # that is not dusted at all; the mix is what reads as
+                       # broken debris on a heap of loose pieces.
+
+
+def _dust_tint_for(ctx):
+    """(tint, desaturation) for `_dust_loose`, by `ctx["info"]["type"]` —
+    `rc_glass` (a concrete-framed tower) falls onto the `rc` (concrete)
+    tint, the closer of the two."""
+    return _DUST_TINT.get(ctx["info"]["type"], _DUST_TINT["rc"])
+
+
+def _dust_copy(ctx, mats, src_mat, tint, desat):
+    """One dusted COPY of `src_mat`, cached in `mats["dust_" + <src's own
+    prim name>]` — `<ctx parent>/QuakeLooks/dust_<name>` on the stage, the
+    same cache-in-`ctx["mats"]` discipline `_a_mat`/`_clad_material` already
+    keep so a pile of hundreds of fragments authors only a handful of extra
+    materials.
+
+    `Sdf.CopySpec` duplicates whatever is actually authored at the source
+    prim's own path: a bare `references` arc for a megascans reference
+    (`materials()`'s `brick`/`concrete`/`soil` — the copy composes the SAME
+    referenced `Shader` child at its own new path, so tinting it below never
+    touches the original), or a full `Shader` subtree for anything this
+    module authors itself (`_a_mat`, `_clad_material`, `_t_core_mat`,
+    `planks.wood_material`). This is never a KIT-MODULE prim — `bake.py`'s
+    "`assetInfo` poisons `CopySpec`" trap is specifically about referenced
+    KIT HOUSE MODULE meshes/materials/subsets, and nothing bound to a
+    fragment here is one — but the copy is still guarded end to end and
+    returns `None` on any failure, exactly like an unresolvable material:
+    the caller leaves that fragment on its original binding rather than
+    breaking the bake.
+
+    `quake_rubble_usd._apply_diffuse_tint` (imported, not re-implemented)
+    then multiplies the copy's `diffuse_tint` / sets `albedo_desaturation` —
+    writing `diffuse_color_constant` instead would be the silent no-op that
+    function's own docstring documents (a bound `diffuse_texture` replaces
+    it outright, so a plain tint on the constant never reaches the screen
+    once a photo is bound)."""
+    from pxr import Sdf, UsdShade
+    from . import quake_rubble_usd
+
+    stage = ctx["stage"]
+    src_path = src_mat.GetPath()
+    name = src_path.name or "mat"
+    key = "dust_" + name
+    cached = mats.get(key)
+    if cached is not None:
+        return cached
+
+    scope = Sdf.Path("{0}/QuakeLooks".format(ctx["parent"]))
+    dst_path = scope.AppendChild("dust_" + name)
+    n = 0
+    while stage.GetPrimAtPath(dst_path).IsValid():
+        n += 1
+        dst_path = scope.AppendChild("dust_{0}_{1}".format(name, n))
+
+    try:
+        stage.DefinePrim(scope, "Scope")
+        Sdf.CreatePrimInLayer(stage.GetRootLayer(), dst_path)
+        ok = Sdf.CopySpec(stage.GetRootLayer(), src_path,
+                          stage.GetRootLayer(), dst_path)
+    except Exception:
+        ok = False
+    if not ok:
+        return None
+
+    dst_mat = UsdShade.Material.Get(stage, dst_path)
+    if not dst_mat or not dst_mat.GetPrim().IsValid():
+        return None
+    sh = UsdShade.Shader.Get(stage, str(dst_path) + "/Shader")
+    if not sh or not sh.GetPrim().IsValid():
+        return None
+    try:
+        quake_rubble_usd._apply_diffuse_tint(stage, str(dst_path), tint, desat)
+    except Exception:
+        return None
+
+    mats[key] = dst_mat
+    return dst_mat
+
+
+def _dust_loose(ctx, paths, tint=None, desat=None, skip_p=_DUST_SKIP_P):
+    """Bind a DUSTED COPY of each fragment's own bound material onto it,
+    `strongerThanDescendants`, `EQ_RUBBLE=v2` ONLY — v1 must stay byte-
+    identical to round-3's `_heap`/`_a_dustify` pile, so every call site
+    below is itself wrapped in `if _RUBBLE_MODE == "v2":`.
+
+    For every prim in `paths`: resolves whatever material is ACTUALLY bound
+    to it (`UsdShade.MaterialBindingAPI.ComputeBoundMaterial` — a referenced
+    megascans material, a `_clad_material` cladding photo, an `_a_mat` flat
+    colour, irrelevant which) and rebinds a copy of THAT material, darkened/
+    desaturated by `tint`/`desat` (by construction type, `_dust_tint_for`,
+    when not given explicitly). `strongerThanDescendants` beats not just the
+    asset's own binding but any `_t_core_bind`/`_break_split` CORE SUBSET the
+    fragment carries, so the whole fragment — the original cladding face
+    AND the invented cut/core faces — comes out ONE uniform dust tone. That
+    is also the physically right call: a fragment lying in a pile is dusty
+    on every exposed face, not only the one that used to be the façade.
+
+    A random `skip_p` share of fragments is left on their OWN original
+    material — an untouched pile is one texture, a fully-dusted one is
+    another; neither alone reads as broken debris, only the mix does.
+
+    The standing (unfractured) shell is never touched — this only ever
+    rebinds a prim already in the caller's own loose-fragment list. Any
+    fragment whose material cannot be resolved, or copied (an unusual
+    graph `Sdf.CopySpec` chokes on), is skipped silently."""
+    if _RUBBLE_MODE != "v2" or not paths:
+        return
+    if tint is None or desat is None:
+        auto_tint, auto_desat = _dust_tint_for(ctx)
+        tint = auto_tint if tint is None else tint
+        desat = auto_desat if desat is None else desat
+    from pxr import UsdShade
+    stage = ctx["stage"]
+    rng = ctx["rng"]
+    mats = ctx["mats"]
+    for pth in paths:
+        if not pth or rng.random() < skip_p:
+            continue
+        pr = stage.GetPrimAtPath(pth)
+        if not pr or not pr.IsValid():
+            continue
+        try:
+            src = UsdShade.MaterialBindingAPI(pr).ComputeBoundMaterial()[0]
+        except Exception:
+            continue
+        if not src or not src.GetPrim().IsValid():
+            continue
+        dusted = _dust_copy(ctx, mats, src, tint, desat)
+        if dusted is None:
+            continue
+        try:
+            UsdShade.MaterialBindingAPI(pr).Bind(
+                dusted, bindingStrength=UsdShade.Tokens.strongerThanDescendants)
+        except Exception:
+            continue
+
+
 def _module_size(m, e):
     """Approximate (sx, sy, sz) for one classified kit element — the round-4
     rubble planner's bury-depth math (`quake_rubble.rotated_extent`) only
@@ -6364,6 +6615,7 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
                                         -0.4 * rng.random())
             _a_dustify(ctx, lo, p=0.9)
             _a_lay_flat(ctx, lo)
+            _dust_loose(ctx, lo)
             ctx["loose"] += lo
             ctx["static_extra"] += st
             e["dead"] = True
@@ -6618,7 +6870,7 @@ def _ejecta(ctx, m, n, reach_frac=1.2, bias_side=None):
         mesh.CreateFaceVertexCountsAttr(Vt.IntArray(counts))
         mesh.CreateFaceVertexIndicesAttr(Vt.IntArray(faces))
         mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
-        _bind(ctx["stage"], path, _c_look(ctx, "silt"))
+        _bind(ctx["stage"], path, _c_ground_look(ctx, cx, cy, "silt"))
         made.append(path)
     ctx["authored"] += made
     return made
@@ -6827,6 +7079,44 @@ def _c_look(ctx, key):
         got = mats.get(_C_FALLBACK[key])
     mats[k] = got
     return got
+
+
+# ---------------------------------------------------------------------------
+# THE LOCAL GROUND CLASS (round 5, WP E). User: "For like bent/broken
+# sidewalk/asphalt use the material of what's near where the broken ground is
+# placed, not the grassy sidewalk one." Every pavement/kerb/spill piece below
+# used to pick its look from a plain coin (`"pave" if rng.random() < 0.5 else
+# "asph"`) or a fixed default, with no idea whether the ground under it is
+# actually a carriageway, a sidewalk, a paved block interior or a lawn.
+#
+# `ctx["ground_at"]` is an OPTIONAL `(x_world, y_world) -> "road"|"sidewalk"|
+# "paved"|"grass"` sampler — `disaster.ground_class.GroundClass.at`, built
+# once per city from `city_layout` and wired in by `quake.py` at
+# assembly time (`_c_tilt_ground`, `ground_effects`). Neither the per-building
+# bench nor the archetype bake ever sets it, and `_c_ground_look` is written
+# so that absence is a NO-OP: the exact same rng draw in the exact same place
+# as before this existed, byte-identical materials.
+# ---------------------------------------------------------------------------
+def _c_ground_look(ctx, x, y, default_key, rng_coin=None):
+    """The look for one authored ground piece centred at world `(x, y)`.
+
+    With `ctx["ground_at"]` wired in: `look_for(ground_at(x, y))` — the
+    piece's own material follows what is actually there (asphalt on a road,
+    pavement on a sidewalk or a paved block, soil under a lawn).
+
+    Without it (the ordinary bench/bake path, and any city that never built a
+    `GroundClass`): `default_key`, or — if the call site still draws its own
+    coin between two looks (`_c_pave_break`'s historic "pave" vs "asph") —
+    `rng_coin()`, a zero-argument callable returning the key. `rng_coin` is
+    called ONLY on this branch, so a caller with no `ground_at` still spends
+    its `rng` draw in exactly the place it always did; the mixed-in ground
+    class is a NEW execution path, not a reinterpretation of the old one, so
+    it owes that draw nothing."""
+    ga = ctx.get("ground_at")
+    if ga is not None:
+        from . import ground_class
+        return _c_look(ctx, ground_class.look_for(ga(x, y)))
+    return _c_look(ctx, rng_coin() if rng_coin is not None else default_key)
 
 
 def _c_perim(m, d):
@@ -7068,18 +7358,49 @@ def _c_soil_patch(ctx, cx, cy, z, r, elong=1.0, yaw_deg=0.0, mat=None,
     mesh.CreateFaceVertexIndicesAttr(Vt.IntArray(faces))
     mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
     mesh.CreateDoubleSidedAttr(True)
-    _bind(ctx["stage"], path, mat if mat is not None else _c_look(ctx, "soil"))
+    # A caller with no opinion (no `mat`) gets the ground-class-aware look —
+    # `_c_ground_response`'s high-side "pit" spill and `_c_overturn_ground`'s
+    # spill both call this way — falling back to plain "soil" exactly as
+    # before when `ctx["ground_at"]` is absent.
+    _bind(ctx["stage"], path,
+         mat if mat is not None else _c_ground_look(ctx, cx, cy, "soil"))
     ctx["authored"].append(path)
     return path
 
 
 def _c_clods(ctx, m, samples, n, at=None, spread=0.55, size=(0.16, 0.55),
-             z_frac=(0.45, 1.0), stone_p=0.18, tag="clod"):
+             z_frac=(0.45, 1.0), stone_p=0.18, tag="clod", big_p=0.22,
+             big_mult=(1.4, 2.2), tilt_p=0.55, tilt_deg=(6.0, 24.0)):
     """Lumps of turned-up earth straddling a line. The round-1 berm was a
     smooth extrusion and read as a moulding; a crest needs loose material ON
-    it, overlapping, at more than one size, to read as earth."""
+    it, overlapping, at more than one size, to read as earth.
+
+    ROUND 5, WP E: two things ported from `scour_relief._clod` (whose own
+    docstring records taking these same lessons FROM this file's round-2
+    bench notes, in the other direction — porting them back closes the
+    loop):
+
+      * `big_p`/`big_mult` draw a SECOND, larger size band on top of the
+        base `size` range, so one call already scatters small grit next to
+        the occasional bigger stone. This file's call sites already layer
+        separate `_c_clods` passes at different `size` ranges on one crest
+        (`_c_ground_response`'s "crest" + "toe" clods) — this is the
+        within-one-call half of the same idea, and it means even a single
+        pass reads as more than one size class.
+      * `tilt_p`/`tilt_deg` tip a share of the lumps about a random
+        HORIZONTAL axis after placing them (this file's own established tip
+        idiom — `_buckled_pavement`, `_c_overturn_ground`'s footing stubs —
+        rather than `scour_relief._clod`'s from-scratch pitch+roll seating
+        math, which assumes a merged-mesh author path this file does not
+        use). An untipped box sitting bolt upright on its own flat base is
+        the "toy brick" look the round-5 review already flagged on the
+        fracture fragments; a clod that fell out of a heave and came to
+        rest on its own corner is not level. No z-reseat after the tip —
+        the existing `sz * 0.2` lift already gives a small clod room to
+        settle a little further into the ground on its low corner, which is
+        the safe direction (a lump slightly bedded in reads as settled; one
+        floating reads as a bug)."""
     rng = ctx["rng"]
-    mats = ctx["mats"]
     made = []
     if not samples:
         return made
@@ -7087,6 +7408,8 @@ def _c_clods(ctx, m, samples, n, at=None, spread=0.55, size=(0.16, 0.55),
         lx, ly, nx, ny, dc, h, reach = samples[rng.randrange(len(samples))]
         d = (dc if at is None else at) + rng.gauss(0.0, spread)
         sz = rng.uniform(*size)
+        if rng.random() < big_p:
+            sz *= rng.uniform(*big_mult)
         px, py = lx + nx * d, ly + ny * d
         wx, wy = _to_world(m, px, py)
         if not _c_ok(ctx, wx, wy):
@@ -7095,10 +7418,16 @@ def _c_clods(ctx, m, samples, n, at=None, spread=0.55, size=(0.16, 0.55),
                if rng.random() > stone_p else
                _c_look(ctx, "pave" if rng.random() < 0.6 else "brick"))
         path = "{0}/{1}_{2}_{3}".format(ctx["parent"], tag, ctx["tag"], _uid(ctx))
-        _box(ctx["stage"], path, wx, wy,
-             m["z0"] + h * rng.uniform(*z_frac) + sz * 0.2,
+        z = m["z0"] + h * rng.uniform(*z_frac) + sz * 0.2
+        _box(ctx["stage"], path, wx, wy, z,
              sz, sz * rng.uniform(0.6, 1.1), sz * rng.uniform(0.45, 0.9),
              rng.uniform(0, 180), mat)
+        if rng.random() < tilt_p:
+            aa = rng.uniform(0.0, 6.2832)
+            _transform_prims(
+                ctx["stage"], [path],
+                _rot_about((wx, wy, z), (math.cos(aa), math.sin(aa), 0.0),
+                          rng.uniform(*tilt_deg)))
         made.append(path)
     ctx["authored"] += made
     ctx["static_extra"] += made
@@ -7185,7 +7514,8 @@ def _c_pave_break(ctx, m, prof, n, tilt=(8.0, 34.0), tag="slab"):
         made.append(_c_plate(
             ctx, wx, wy, m["z0"] + z + thick * 0.5, r,
             thick, base + rng.uniform(-28, 28), base + rng.uniform(-15, 15),
-            tdeg, _c_look(ctx, "pave" if rng.random() < 0.5 else "asph"),
+            tdeg, _c_ground_look(ctx, wx, wy, None,
+                                 lambda: "pave" if rng.random() < 0.5 else "asph"),
             elong=rng.uniform(1.0, 1.9), tag=tag))
     made = [q for q in made if q]
     ctx["static_extra"] += made
@@ -7213,7 +7543,7 @@ def _c_kerb(ctx, m, prof, tag="kerb"):
         z = m["z0"] + 0.09 + h * rng.uniform(0.0, 0.35)
         path = "{0}/{1}_{2}_{3}".format(ctx["parent"], tag, ctx["tag"], _uid(ctx))
         _box(ctx["stage"], path, wx, wy, z, rng.uniform(0.9, 1.5), 0.32, 0.18,
-             base + rng.uniform(-9, 9), _c_look(ctx, "pave"))
+             base + rng.uniform(-9, 9), _c_ground_look(ctx, wx, wy, "pave"))
         if rng.random() < 0.30:
             aa = math.radians(base + rng.uniform(-20, 20))
             _transform_prims(ctx["stage"], [path],
@@ -7325,7 +7655,8 @@ def _c_lip_slabs(ctx, m, prof, n, tag="lip"):
         made.append(_c_plate(
             ctx, wx, wy, z, rng.uniform(0.5, 1.2), thick,
             base + rng.uniform(-30, 30), base + rng.uniform(-15, 15), tdeg,
-            _c_look(ctx, "pave" if rng.random() < 0.5 else "asph"),
+            _c_ground_look(ctx, wx, wy, None,
+                          lambda: "pave" if rng.random() < 0.5 else "asph"),
             elong=rng.uniform(1.0, 1.8), tag=tag))
     made = [q for q in made if q]
     ctx["static_extra"] += made
@@ -7418,7 +7749,8 @@ def _c_subsidence(ctx, m, sink_m, plates_per_m=0.55, tag="dish"):
             _c_plate(ctx, wx, wy, z, rr, thick,
                      base + rng.uniform(-30, 30), base + rng.uniform(-15, 15),
                      -rng.uniform(3.0, 13.0),
-                     _c_look(ctx, "pave" if rng.random() < 0.5 else "asph"),
+                     _c_ground_look(ctx, wx, wy, None,
+                                   lambda: "pave" if rng.random() < 0.5 else "asph"),
                      elong=rng.uniform(1.0, 1.8), tag=tag)
             made += 1
         _c_clods(ctx, m, [(a1, b1, c1, d1, w1 + 0.35, 0.10 + 0.25 * s, w1)
@@ -7435,7 +7767,9 @@ def _c_subsidence(ctx, m, sink_m, plates_per_m=0.55, tag="dish"):
             _c_soil_patch(ctx, wx, wy, m["z0"] + 0.02, rng.uniform(1.1, 2.6),
                           elong=rng.uniform(1.4, 2.6),
                           yaw_deg=base + rng.uniform(-25, 25),
-                          mat=_c_look(ctx, "silt" if rng.random() < 0.5 else "soil"),
+                          mat=_c_ground_look(
+                              ctx, wx, wy, None,
+                              lambda: "silt" if rng.random() < 0.5 else "soil"),
                           tag=tag + "_silt")
     return made
 
@@ -7541,7 +7875,7 @@ def _c_ground_response(ctx_or_stage, m, low_side=None, drop_m=0.0, rise_m=0.0,
                        sink_m=0.0, M=None, raft=False, parent=None, mats=None,
                        rng=None, tag="ground", crest_scale=1.0, reach_scale=1.0,
                        boils=None, fissures=True, mudline=True, kerb=True,
-                       spill=True, bounds=None):
+                       spill=True, bounds=None, ground_at=None):
     """THE ground response of a building that leaned or sank — the one entry
     point, used by the recipes (`tilt_sink`, `tilt_severe`, `settlement`) and
     by the city assembly's mild lean (`quake._tilt_prim`).
@@ -7554,9 +7888,18 @@ def _c_ground_response(ctx_or_stage, m, low_side=None, drop_m=0.0, rise_m=0.0,
     Knobs: `crest_scale` / `reach_scale` on the low-side wedge, `boils`
     (None = automatic above C_BOIL_DROP), `fissures`, `mudline`, `kerb`,
     `spill`, plus the C_* module constants.
+
+    `ground_at` (round 5, WP E): an optional `(x, y) -> "road"|"sidewalk"|
+    "paved"|"grass"` sampler (`disaster.ground_class.GroundClass.at`) —
+    stashed onto `ctx["ground_at"]` for every pavement/kerb/spill piece
+    authored below to read via `_c_ground_look`. `None` (the default, and
+    the only thing the bench or the bake ever pass) leaves `ctx` exactly as
+    it always was.
     """
     ctx = ctx_or_stage if isinstance(ctx_or_stage, dict) else _c_ctx(
         ctx_or_stage, parent, mats, rng, tag)
+    if ground_at is not None:
+        ctx["ground_at"] = ground_at
     if bounds is not None:
         ctx["bounds"] = tuple(float(q) for q in bounds)
     rngl = ctx["rng"]
@@ -7606,7 +7949,9 @@ def _c_ground_response(ctx_or_stage, m, low_side=None, drop_m=0.0, rise_m=0.0,
             _c_soil_patch(ctx, wx, wy, m["z0"] + 0.02, rngl.uniform(0.8, 1.8),
                           elong=rngl.uniform(1.3, 2.2), yaw_deg=base,
                           dome=rngl.uniform(0.12, 0.30),
-                          mat=_c_look(ctx, "silt" if rngl.random() < 0.6 else "soil"),
+                          mat=_c_ground_look(
+                              ctx, wx, wy, None,
+                              lambda: "silt" if rngl.random() < 0.6 else "soil"),
                           tag=tag + "_spill")
 
     # ---- the high side: the gap the raft came out of
@@ -7800,8 +8145,13 @@ def r_overturn(ctx, angle_deg=None, side="S"):
     # the hinge side, under the standing edge). Ejecta and torn pavement are
     # inside `_c_overturn_ground` now.
     land = H * math.sin(math.radians(angle)) if angle < 89.0 else H
-    _heap(ctx, m, m["z0"], 0.0, 0.10, fill=False, sides=(og["fall"],),
-          depth_m=rng.uniform(0.6, 1.2), tag="landing", offset_m=max(0.0, land - 2.5))
+    # the landing windrow, `spread_frac=0.10` kept so `EQ_RUBBLE=v1` draws
+    # exactly what it always did; the shell itself is the rigid-body fall
+    # (transformed above), so this is only the mark of debris at the
+    # landing line, not the collapse mass, hence a plain windrow rather
+    # than a fan.
+    _rubble(ctx, m, "windrow", sides=(og["fall"],), depth_m=rng.uniform(0.6, 1.2),
+            spread_frac=0.10, offset_m=max(0.0, land - 2.5), tag="landing")
     ctx["notes"].append("overturn: {0:.0f} deg about the {1} edge, onto {2} "
                         "(H {3:.0f} m)".format(angle, side, og["fall"], H))
 
@@ -9879,8 +10229,12 @@ def r_collapse_onto(ctx, side=None, mass="main", storeys=2, punch=True,
                      rng.uniform(0.8, 1.6) + 0.02 * H, tag="onroof")
         _d_gap_debris(ctx, m, side, span, gap + 0.5,
                       depth_m=rng.uniform(0.6, 1.1), spill_m=rng.uniform(2.0, 3.5))
-        _heap(ctx, nm, nm["z0"], 0.0, 0.16, fill=False, sides=(_opposite(nside),),
-              depth_m=rng.uniform(0.4, 0.9), tag="spill")
+        # what goes over the far parapet — a windrow on the NEIGHBOUR mass
+        # `nm`, on the side away from the impact (`_opposite(nside)`), same
+        # `spread_frac=0.16` so `EQ_RUBBLE=v1` reproduces the old apron
+        # exactly.
+        _rubble(ctx, nm, "windrow", sides=(_opposite(nside),),
+                depth_m=rng.uniform(0.4, 0.9), spread_frac=0.16, tag="spill")
     ctx["notes"].append(
         "collapse_onto: {0} module(s) of the top {1} storey(s) thrown onto {2} "
         "({3:.0f} m vs {4:.0f} m, gap {5:.2f} m); roof punched at ({6:.1f}, "
@@ -9918,9 +10272,11 @@ def _d_party_collapse(ctx, nb, mass="main"):
         _d_crush_band(nctx, nm, nside, min(nm["top"], m["top"]) - 1.0,
                       nm["top"] + 6.0, span=nspan, loose_frac=0.45,
                       p_module=0.6, out_dir=(-ox, -oy), tag="party")
-    # and the unit's rubble banked against it
-    _heap(ctx, nm, nm["z0"], 0.0, 0.18, fill=False, sides=(nside,),
-          depth_m=rng.uniform(0.9, 1.7), tag="banked")
+    # and the unit's rubble banked against it — on the NEIGHBOUR mass `nm`,
+    # its own `nside` (the face the lost unit's rubble piles against).
+    # `spread_frac=0.18` kept so `EQ_RUBBLE=v1` reproduces the old apron.
+    _rubble(ctx, nm, "windrow", sides=(nside,), depth_m=rng.uniform(0.9, 1.7),
+            spread_frac=0.18, tag="banked")
     ctx["notes"].append(
         "party_collapse: this unit came down and left the {0} party wall of "
         "its neighbour standing ({1:.0f} m of it), floor lines and ties "
@@ -10136,6 +10492,53 @@ RECIPES["g2_follow"] = _g2_follow_probe
 
 
 # ---------------------------------------------------------------------------
+# ROUND 5 — THE `qc` COLLAPSE FAMILY (`disaster/quake_collapse.py`)
+# ---------------------------------------------------------------------------
+# The user, on the first 500 m M7.8 city (2026-08-30): "How does urban fire do
+# partial collapse damage to modern city environment. I want you to use that,
+# it looks more realistic ... lots of material mismatches. damaged part and
+# undamaged part look like completely diff materials ... only use the partial
+# collapse mechanism and expand to total collapse".
+#
+# `quake_collapse` is that: the urban-fire partial-collapse mechanism
+# (`fire_collapse.plan_edges` / `_tear_perimeter`, `_break(mode="uniform")` so
+# a fragment keeps its own cladding, per-fragment outward throw) carrying the
+# earthquake's own failure modes and none of the fire's palette. It imports
+# `pxr` nowhere at module scope and imports THIS module only from inside its
+# functions, so this import is not circular.
+#
+# NOTHING BELOW CHANGES `LADDER` OR ANY EXISTING RECIPE. `LADDER_QC` is
+# COMPOSED from `LADDER` plus `quake_collapse.LADDER_OVERRIDES`, so every row
+# the override table does not name — DG0-DG2, the glass slots, the rooftop
+# plant, the whole foundation family — is the legacy row and cannot drift from
+# it; and `EQ_LADDER=legacy` selects `LADDER` itself, which reproduces today
+# byte-for-byte.
+from . import quake_collapse as _qc                           # noqa: E402
+RECIPES.update(_qc.RECIPES)
+
+LADDER_QC = dict((t, dict((g, list(r)) for g, r in lv.items()))
+                 for t, lv in LADDER.items())
+for _t, _over in _qc.LADDER_OVERRIDES.items():
+    for _g, _recs in _over.items():
+        LADDER_QC[_t][_g] = [(n, dict(kw or {})) for n, kw in _recs]
+
+# `qc` (the default) runs the round-5 family; `legacy` runs the round-4 one.
+_LADDER_MODE = _os.environ.get("EQ_LADDER", "qc").strip().lower()
+if _LADDER_MODE not in ("qc", "legacy"):
+    _LADDER_MODE = "qc"
+
+
+def active_ladder():
+    """The grade table `wreck_building` resolves a grade string against.
+
+    `EQ_LADDER=qc` (default) -> `LADDER_QC`; `EQ_LADDER=legacy` -> `LADDER`.
+    A caller that hands `wreck_building` an explicit `[(name, kwargs)]` list
+    bypasses this entirely, which is what the bench's `EQ_RECIPES` does.
+    """
+    return LADDER_QC if _LADDER_MODE == "qc" else LADDER
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 def wreck_building(stage, parent, style, placements, x, y, yaw, recipes,
@@ -10150,7 +10553,7 @@ def wreck_building(stage, parent, style, placements, x, y, yaw, recipes,
     """
     info = describe(style, placements, x, y, yaw)
     if isinstance(recipes, str):
-        recipes = LADDER[info["type"]][recipes]
+        recipes = active_ladder()[info["type"]][recipes]
     ctx = {"stage": stage, "parent": parent, "info": info, "rng": rng,
            "nrng": nrng, "mats": mats, "cache": mat_cache if mat_cache is not None else {},
            "tag": tag, "loose": [], "static_extra": [], "velocity": {},
@@ -10226,11 +10629,17 @@ def check(verbose=True):
     """Host-side: every ladder recipe exists, every family has a type."""
     from detail import urban_building as ub
     bad = []
-    for t, ladder in LADDER.items():
-        for g, recs in ladder.items():
-            for name, _kw in recs:
-                if name not in RECIPES:
-                    bad.append("{0}/{1}: unknown recipe {2}".format(t, g, name))
+    # BOTH TABLES, not just the legacy one. `EQ_LADDER=qc` is the DEFAULT, so
+    # a typo in `quake_collapse.LADDER_OVERRIDES` is what a bake would hit
+    # first, and a launch script that gates on this would have waved it
+    # through.
+    for tables, label in ((LADDER, "LADDER"), (LADDER_QC, "LADDER_QC")):
+        for t, ladder in tables.items():
+            for g, recs in ladder.items():
+                for name, _kw in recs:
+                    if name not in RECIPES:
+                        bad.append("{0} {1}/{2}: unknown recipe {3}".format(
+                            label, t, g, name))
     for s, spec in ub.STYLES.items():
         if spec.get("family") not in FAMILY_TYPE:
             bad.append("style {0}: family {1} has no type".format(s, spec.get("family")))

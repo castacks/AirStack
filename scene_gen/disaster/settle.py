@@ -517,7 +517,48 @@ def _positions(bodies):
             for b in bodies if b and b.IsValid()}
 
 
-def _step(steps, dt=1.0 / 60.0):
+def _flush_physics_to_usd():
+    """Publish PhysX's CURRENT rigid-body poses to USD, once.
+
+    `omni.physx`'s `update_transformations` is the same primitive PhysX's
+    own automatic per-step sync calls when `/physics/updateToUsd` is True —
+    it walks every actor PhysX holds a USD-prim mapping for and authors its
+    CURRENT global pose, not a delta of only the actors that moved since the
+    last call. That is exactly the property this needs: a body asleep since
+    step 40 must land in USD with the same certainty as one still falling
+    when this runs at step 1500, or `bake()` freezes it wherever it was
+    before write-back was switched off (a drop mean near zero is that
+    failure mode, not "nothing moved").
+
+    THIS IS NOT `omni.physx.fabric`. The first attempt here enabled that
+    extension and called its `save_to_usd()` — the same call the Kit
+    preferences window's "Save current fabric state to USD" button makes,
+    which looks purpose-built for exactly this. Measured on the real bench
+    (`fab_on`, 2026-08-30): drop mean +0.00 m, spread 0.00 m, "NOTHING
+    MOVED" — a complete no-op, not a partial one. Whatever `save_to_usd()`
+    publishes, it is not the physics rigid-body transform stream (most
+    likely: PhysX never writes transforms INTO Fabric's cache in the first
+    place without also toggling `omni.physx.fabric`'s OWN "update
+    transformations" preference, a setting this never touched). This
+    function instead skips Fabric entirely: `/physics/updateToUsd` alone
+    already gates the same automatic per-step call this makes manually, so
+    turning it off during stepping and calling this once afterward is a
+    strict subset of the working default path, not a different mechanism.
+
+    Best-effort: a missing interface degrades to a warning, not a crash —
+    the live physics state is still correct, it just never reaches USD.
+    """
+    try:
+        import omni.physx
+        omni.physx.get_physx_interface().update_transformations(
+            updateToFastCache=False, updateToUsd=True,
+            updateVelocitiesToUsd=False)
+    except Exception as exc:                            # pragma: no cover
+        carb.log_warn("[settle] physx->USD flush failed ({0}); poses may "
+                      "be stale".format(exc))
+
+
+def _step(steps, dt=1.0 / 60.0, fabric=False):
     """Step physics, explicitly.
 
     `timeline.play()` plus `app.update()` is NOT reliably enough in a
@@ -525,17 +566,62 @@ def _step(steps, dt=1.0 / 60.0):
     renders happily while the solver never runs and every body stays exactly
     where it was authored. `SimulationContext` does the attach and steps the
     solver on demand, which is what makes the collapse actually happen.
+
+    `fabric=True` (the `SETTLE_FABRIC` env var, resolved by `run`) is the
+    knob for the OTHER cost: with it off, PhysX authors every dynamic
+    body's transform back to USD on the MAIN THREAD after every single
+    step — measured at 3% GPU and ~120% of one CPU core on a multi-thousand
+    body settle, because the solver itself is barely the bottleneck. With it
+    on, `/physics/updateToUsd` is set False before the `steps` substeps
+    below, so PhysX does NO per-step USD authoring at all — poses live only
+    in the solver while they move — and `_flush_physics_to_usd()` publishes
+    the current pose of every body to USD exactly ONCE, after the loop, then
+    the setting is put back so nothing outside this call notices it was ever
+    touched. Every caller of `_step` — the throw phase, the quiet phase, the
+    final STILL-MOVING recheck — therefore hands back a stage that is fully
+    up to date, exactly as if every intervening step had written through.
+    That is what makes this safe to drop into `_settle_phase`'s chunked
+    polling without touching it: `_positions`, `_below_grade`,
+    `_cull_ledges` and `bake` all read USD, and USD is correct every time
+    control returns here.
+
+    OFF by default (`fabric=False`) so every existing caller — the fire and
+    tornado bakes included — steps exactly as before, byte for byte.
     """
+    fabric_on = False
+    settings = None
     try:
         from isaacsim.core.api import SimulationContext
+        if fabric:
+            # `as _carb_settings_mod`, NOT `import carb.settings` bare:
+            # binding the name `carb` anywhere in this function's body makes
+            # Python treat it as local for the WHOLE function (static
+            # scoping, independent of execution order), which shadows the
+            # module-level `carb` this function's `except` branch calls
+            # `carb.log_warn` on below -- an `UnboundLocalError` waiting for
+            # the very first `fabric=False` run that hits that branch.
+            # Measured: this exact mistake crashed `run()`'s `carb.log_error`
+            # the same way on the first fabric-on bench (2026-08-30).
+            import carb.settings as _carb_settings_mod
+            settings = _carb_settings_mod.get_settings()
+            settings.set_bool("/physics/updateToUsd", False)
+            fabric_on = True
         sc = SimulationContext(stage_units_in_meters=1.0)
         sc.initialize_physics()
         sc.play()
         for _ in range(int(steps)):
             sc.step(render=False)
+        if fabric_on:
+            _flush_physics_to_usd()
+            settings.set_bool("/physics/updateToUsd", True)
         sc.pause()
-        return "SimulationContext"
+        return "SimulationContext" + ("+Fabric" if fabric_on else "")
     except Exception as exc:
+        if fabric_on and settings is not None:
+            try:
+                settings.set_bool("/physics/updateToUsd", True)
+            except Exception:                           # pragma: no cover
+                pass
         carb.log_warn("[settle] SimulationContext unavailable ({0}); "
                       "falling back to the timeline".format(exc))
         import omni.kit.app
@@ -620,7 +706,7 @@ def _cull_ledges(stage, bodies, zones=None, z_min=None, band_m=None):
 
 
 def _settle_phase(bodies, chunk, cap, tol=0.001, rest_tol=0.004,
-                  stall_chunks=0):
+                  stall_chunks=0, fabric=False):
     """Step in chunks until the pile stops moving or `cap` steps are gone.
 
     Returns `(steps_used, moving, driver, at_rest, reason)`, where `moving`
@@ -650,7 +736,7 @@ def _settle_phase(bodies, chunk, cap, tol=0.001, rest_tol=0.004,
     prev = _positions(bodies)
     while used < cap:
         n = min(chunk, cap - used)
-        driver = _step(n)
+        driver = _step(n, fabric=fabric)
         used += n
         now = _positions(bodies)
         keys = [k for k in prev if k in now]
@@ -812,7 +898,7 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         decompose_larger_than=None, decomp_limits=None, converge=False,
         max_steps=None, quiet_steps=0, quiet_damping=(1.6, 5.0),
         quiet_max_speed=6.0, rest_tol=0.004, stall_chunks=3, floor_z=None,
-        floor_tol=0.02, strict=None):
+        floor_tol=0.02, strict=None, fabric=None):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -851,8 +937,20 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         `SettleNotConverged` instead of a warning, for callers that would
         rather lose the run than export debris frozen in mid-air. The report
         is printed either way, and loudly.
+      * `fabric=True` (or `SETTLE_FABRIC=1`) is a CPU knob, not a physics
+        one: it skips PhysX's per-step USD write-back during stepping — the
+        measured bottleneck on a multi-thousand-body settle (3% GPU, ~120%
+        of one CPU core) — and flushes every body's pose to USD once per
+        `_step` call instead of once per physics substep (see `_step`).
+        OFF by default so every existing caller, including the fire and
+        tornado bakes, steps exactly as before, byte for byte.
     """
     import numpy as np
+
+    if fabric is None:
+        import os as _os
+        fabric = _os.environ.get("SETTLE_FABRIC", "").strip() \
+            not in ("", "0", "false", "False")
 
     info = prepare(stage, loose_paths, static_paths, gravity=gravity,
                    kick=kick, rng=rng,
@@ -866,6 +964,7 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     if not info["bodies"]:
         carb.log_warn("[settle] nothing to settle")
         return info
+    info["fabric"] = bool(fabric)
 
     import time as _time
     _t0 = _time.time()
@@ -889,7 +988,7 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
                   else 3 * int(steps))
     used, moving, driver, at_rest, reason = _settle_phase(
         info["bodies"], chunk, cap, tol=0.001, rest_tol=rest_tol,
-        stall_chunks=stall_chunks if converge else 0)
+        stall_chunks=stall_chunks if converge else 0, fabric=fabric)
     info["driver"] = driver
     info["steps_used"] = used
     info["steps_cap"] = cap
@@ -912,7 +1011,7 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         q_chunk = max(20, int(quiet_steps) // 8)
         info["quiet_used"], moving, qdriver, q_rest, q_reason = _settle_phase(
             info["bodies"], q_chunk, int(quiet_steps), tol=0.001,
-            rest_tol=rest_tol, stall_chunks=stall_chunks)
+            rest_tol=rest_tol, stall_chunks=stall_chunks, fabric=fabric)
         info["driver"] = qdriver or info["driver"]
         # The quiet phase is the one that has to reach rest — it is the
         # phase whose whole job is to stop things.
@@ -926,7 +1025,7 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     # NAME THEM, not just count them — "1 body(s) STILL MOVING" with no path
     # sends the next debugging pass back to a live rerun to find out which
     # one; the paths are sitting right here in `settled`/`after`.
-    _step(20)
+    _step(20, fabric=fabric)
     settled = _positions(info["bodies"])
     still_moving_keys = [
         k for k in after
@@ -1007,6 +1106,9 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         print("[settle] {0} rigid, {1} static, driver={2}, baked {3}".format(
             info["rigid"], info["static_meshes"], info["driver"],
             info["baked"]))
+        if fabric:
+            print("[settle]   USD write-back: FABRIC (SETTLE_FABRIC=1 -- "
+                  "flushed once per step-chunk, not every step)")
         print("[settle]   {0:.1f}s solving ({1}){2}{3}".format(
             info.get("solve_s", 0.0), "GPU" if gpu else "CPU",
             ", CCD" if info.get("ccd") else "",
@@ -1143,4 +1245,27 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
             raise SettleNotConverged(msg)
     elif settle_note:
         print("[settle]   AT REST: nothing moving, nothing below grade.")
+    if fabric:
+        # `/physics/updateToUsd` is a GLOBAL carb setting, not scoped to this
+        # call — `_step` already restores it to True after every use, but
+        # this is the belt to that braces: leave the process the way
+        # `run()` found it so the next caller in the same process (a
+        # different archetype, settled without SETTLE_FABRIC) cannot
+        # silently inherit write-back left off.
+        #
+        # `as _carb_settings_mod`, NOT a bare `import carb.settings`: binding
+        # the name `carb` ANYWHERE in this function's body makes Python
+        # treat it as local for the WHOLE function regardless of where the
+        # statement sits, which shadows the module-level `carb` this
+        # function's `carb.log_warn`/`carb.log_error` calls (above, e.g. the
+        # `no_collider`/faults reporting) rely on -- an `UnboundLocalError`
+        # on the very first call that reaches one of those. Measured: this
+        # exact mistake crashed the `carb.log_error(msg)` faults line on the
+        # first fabric-on bench (`fab_on2`, 2026-08-30) before this fix.
+        try:
+            import carb.settings as _carb_settings_mod
+            _carb_settings_mod.get_settings().set_bool(
+                "/physics/updateToUsd", True)
+        except Exception:                               # pragma: no cover
+            pass
     return info

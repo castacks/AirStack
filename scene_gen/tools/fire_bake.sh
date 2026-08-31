@@ -18,10 +18,22 @@
 # ENTRY FORMAT  `kind:name:level[:origin[:sides[:seed]]]`, empty fields absent
 #   gac:SM_Building_02:F1                a merged GreatAmericanCity asset,
 #                                        sliced (disaster/gac_fire.burn_gac)
+#   dtc:Amar_Tower:F3                    a merged downtowncity asset, sliced
+#                                        and burnt by the SAME burn_gac —
+#                                        `gac_fire.PACKS` holds the pack's
+#                                        directory, `.usdc` extension, unit
+#                                        scale (mpu=1, not GAC's 0.01) and
+#                                        construction-type source
 #   kit:commercial_mid:F5c::S,E          a ModernCityEnvironment kit style
 #                                        (urban_fire.burn_building), fire
 #                                        pinned to the S and E elevations
 #   gac:SM_Building_09:F6:3              origin storey pinned to 3
+#
+#     # the downtowncity row (6 blocks) beside two partially-collapsed GAC
+#     scene_gen/tools/fire_bake.sh \
+#       dtc:Building_11:F1 dtc:Building_12:F2 dtc:Carved_18:F3 \
+#       dtc:Carved_14:F4 dtc:Carved_13:F5 dtc:Amar_Tower:F3 \
+#       gac:SM_Building_02:F5c gac:SM_Building_24:F5c
 #
 # WHY ONE PROCESS PER BUILDING
 # ----------------------------
@@ -62,6 +74,9 @@
 #   SETTLE_STEPS     step target per building  (default 2400)
 #   SETTLE_QUIET     quiet-phase steps         (default 400)
 #   SETTLE_DECOMP_M  convex-decomposition threshold, m (default 0.8)
+#   SETTLE_FABRIC    1 keeps PhysX transforms in Fabric during the settle
+#                    (no per-step USD write-back; read back once at the end)
+#                                              (default 0)
 #   FB_BAKED_KITS    use pre-baked GAC kits    (default 1)
 #   TIMEOUT_S        per-building ceiling      (default 5400)
 #   CONTAINER        container name            (default isaac-sim)
@@ -76,6 +91,7 @@ FB_SEED=${FB_SEED:-7}
 SETTLE_STEPS=${SETTLE_STEPS:-2400}
 SETTLE_QUIET=${SETTLE_QUIET:-400}
 SETTLE_DECOMP_M=${SETTLE_DECOMP_M:-0.8}
+SETTLE_FABRIC=${SETTLE_FABRIC:-0}      # 1 = PhysX->Fabric, no per-step USD write-back (settle.py)
 FB_BAKED_KITS=${FB_BAKED_KITS:-1}
 TIMEOUT_S=${TIMEOUT_S:-5400}
 LAUNCHER="$REPO/simulation/isaac-sim/launch_scripts/fire_bake_launch_script.py"
@@ -160,7 +176,7 @@ EOF
   ENVS="$ENVS FB_ORIGIN=$ORIGIN FB_SIDES=$SIDES"
   ENVS="$ENVS FB_OUT=$FB_OUT FB_BAKED_KITS=$FB_BAKED_KITS FB_VERIFY=1"
   ENVS="$ENVS SETTLE_STEPS=$SETTLE_STEPS SETTLE_QUIET=$SETTLE_QUIET"
-  ENVS="$ENVS SETTLE_DECOMP_M=$SETTLE_DECOMP_M"
+  ENVS="$ENVS SETTLE_DECOMP_M=$SETTLE_DECOMP_M SETTLE_FABRIC=$SETTLE_FABRIC"
   RUN="mkdir -p '$CLOGDIR' '$FB_OUT'; : > '$CLOG'; cd /isaac-sim && env $ENVS PYTHONPATH=\"\$ISAAC_SIM_PYTHONPATH\" timeout ${TIMEOUT_S}s /isaac-sim/python.sh $LAUNCHER --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --no-window > '$CLOG' 2>&1; echo \"EXIT \$?\" >> '$CLOG'"
 
   echo "=== [$i] $ent -> $STEM"

@@ -846,6 +846,15 @@ def plan_fire(info, level, rng, origin=None, sides=None):
     if origin is None:
         origin = int(min(max(0, n - 2), (n * (rng.random() ** 1.7))))
     origin = max(0, min(n - 1, int(origin)))
+    # ...and low enough that the band's MINIMUM fits above it. A city manifest
+    # estimates storeys host-side (H / period); the sliced grid can come back
+    # shorter, and an origin pinned 2 storeys under a 16-storey roof with an
+    # F3 band (min 3) drew `randint(3, 1)` — "empty range for randrange()
+    # (3, 2, -1)" (city_4 bakes 10/11, 2026-08-30). Only activates where the
+    # call previously raised, so no existing plan changes.
+    lo_min = int(BAND[level][0])
+    if BAND[level][1] < 99:
+        origin = min(origin, max(0, n - lo_min))
     if hi >= 99:
         # F4/F5 mean "the fire went through everything above where it
         # started", so the band runs to the TOP OF THE MASS and `roof` is
@@ -1045,6 +1054,37 @@ SCAR_HALO_PROUD = 0.030
 SCAR_PROUD = 0.036
 
 
+def _stamp_pt(ctx, fr, u, v, out):
+    """`quake_flow._b_face_pt`, then — on the SLICED path only — the point is
+    moved onto the MEASURED façade plane of that elevation.
+
+    A kit module's frame depth is its wall face, so a stamp at `out` sits on
+    the wall. A sliced GAC piece's frame depth is its bbox extent, which a
+    cornice, an awning or an interior floor face can push a metre or two
+    either way: spall patches and halos hung 0.6-1.8 m in front of
+    SM_Building_23 and up to 15 m out on SM_Building_09 (fire_row3f,
+    2026-08-30) — the "floating debris" beside every burnt GAC wall.
+    `gac_fire.prepare` measures the plane per elevation from the window
+    faces (`fire["planes"]`); the kit path has no planes and is untouched.
+    """
+    from . import quake_flow as qf
+    x, y, z = qf._b_face_pt(fr, u, v, out)
+    planes = (ctx.get("fire") or {}).get("planes") or {}
+    if not planes:
+        return (x, y, z)
+    yaw = fr[2]
+    nx, ny = math.sin(yaw), -math.cos(yaw)          # outward normal
+    side = "E" if abs(nx) >= abs(ny) and nx > 0 else "W" if abs(nx) >= abs(ny) \
+        else "N" if ny > 0 else "S"
+    plane = planes.get(side)
+    if plane is None:
+        return (x, y, z)
+    sign = 1.0 if side in ("E", "N") else -1.0
+    if side in ("E", "W"):
+        return (float(plane) + sign * float(out), y, z)
+    return (x, float(plane) + sign * float(out), z)
+
+
 def _face_polygon(ctx, fr, u0, v0, outline, mat, out=PLUME_PROUD, kind="plume",
                   owner=None):
     """Author a closed (du, dv) outline as one flat mesh on a wall face.
@@ -1053,7 +1093,7 @@ def _face_polygon(ctx, fr, u0, v0, outline, mat, out=PLUME_PROUD, kind="plume",
     it in `ctx["face_art"]` so a recipe that later takes that module away can
     take its stains with it (`_drop_face_art`)."""
     from . import quake_flow as qf
-    pts = [qf._b_face_pt(fr, u0 + du, v0 + dv, out) for du, dv in outline]
+    pts = [_stamp_pt(ctx, fr, u0 + du, v0 + dv, out) for du, dv in outline]
     n = len(pts)
     if n < 3:
         return None
@@ -1245,6 +1285,39 @@ SOOT_BAKE_PX_SLICE = int((os.environ.get("SOOT_BAKE_PX_SLICE") or "256").strip()
 # a painted office interior behind the glass) cannot show its soot from
 # outside and is not baked at all
 SOOT_FACING_MIN = 0.15
+# ...EXCEPT THAT ON A SLICED PIECE THE FAKE INTERIOR *IS* THE OUTSIDE.
+# A GAC/downtowncity façade models the room behind each window as a shallow
+# box — a floor plane, a ceiling plane and an inward-facing pane, on the
+# TILED `M_Building_Floor` / `M_Buildings_Ceiling_03` / `M_Glass_In_*`
+# atlases — and the camera reads it straight through the opening. The
+# normal test above can never pass any of it: a ceiling/floor plane is
+# HORIZONTAL (`n . out == 0` whichever way it faces) and the inner pane
+# points back INTO the building. Measured on the two pieces the fire_dtc3
+# review named (`tools/piece_face_probe.py`, 2026-08-30):
+#
+#   SM_19 pier_N_2_05_0027 (1.31 m deep)  mat_1 Glass_In   18 faces, 0 out,
+#                                         all n.out<0, 0.63-0.74 m back
+#                                         mat_2 Floor       9 faces, 6 horiz,
+#                                         0.95-1.28 m back
+#                                         mat_8 Ceiling_03  6 faces, 6 horiz,
+#                                         0.95-1.20 m back
+#   SM_26 corner_NE_0_10_0070 (1.79 m)    mat_2 Ceiling_03  4 faces, 4 horiz,
+#                                         1.09-1.78 m back
+#
+# — every one of them thrown away as "inward" while the brick and concrete
+# subsets of the SAME piece carried the plume ("everything around it is
+# burnt except this ... repeating rectangular pattern", user review of the
+# fire_dtc3 bench, 2026-08-30). So a face also counts as visible when it
+# lies in the piece's own OUTER SHELL: within `SOOT_SHELL_D` of that piece's
+# outward extreme, measured along the elevation's outward direction.
+#
+# 2.5 m clears the deepest fake interior measured (1.78 m) and the deepest
+# ring corner piece (2.08 m over SM_26's 56 corners) with margin, while
+# staying well under one GAC storey (3.84 m) — so it still excludes the
+# inner two thirds of a wall piece (mean depth 4.73 m) and 7.5 m of a core
+# piece (9.96 m), which is the geometry a camera genuinely cannot see
+# through an intact shell.
+SOOT_SHELL_D = 2.5
 
 
 def _mesh_arrays(prim):
@@ -1477,6 +1550,24 @@ def _bind_soot(ctx, e, sk):
                         n_xy > 0.5 * n_all)
                 else:
                     face_out = (nrm[:, 0] * ox_ + nrm[:, 1] * oy_) > 1e-9
+                    if one_off:
+                        # ...PLUS THE PIECE'S OUTER SHELL (`SOOT_SHELL_D`):
+                        # the fake interior behind the openings faces every
+                        # way but out, and the camera reads all of it
+                        # (fire_dtc3 review, 2026-08-30). Depths are face
+                        # centroids projected on the elevation's outward
+                        # direction, relative to this mesh's own outward
+                        # extreme; `M[3, :3]` is left off both sides because
+                        # a constant translation cancels in the difference.
+                        # PER MESH IS PER PIECE HERE — every sliced piece is
+                        # exactly one Mesh (156/156, 70/70 and 113/113 of the
+                        # SM_26 / SM_19 / SM_02 bakes), and a piece that ever
+                        # had two would simply be judged shell-by-shell,
+                        # still bounded by `SOOT_SHELL_D`.
+                        cen = (pts_w[i0] + pts_w[i1] + pts_w[i2]) / 3.0
+                        d_o = cen[:, 0] * ox_ + cen[:, 1] * oy_
+                        face_out = face_out | (
+                            d_o >= float(d_o.max()) - SOOT_SHELL_D)
             sub_name = str(sub.GetPrim().GetName()) if sub is not None else ""
             face_ids = None
             if sub is not None:
@@ -2066,7 +2157,7 @@ def r_spall(ctx, rate=0.3, bars=True):
             if bars and rng.random() < 0.16 * sev:
                 # exposed reinforcement in the deepest spalls: short bars
                 # lying IN the plane of the wall, not sticking out of it
-                x, y, _ = qf._b_face_pt(fr, u, v, 0.012)
+                x, y, _ = _stamp_pt(ctx, fr, u, v, 0.012)
                 for _b in range(rng.randint(2, 3)):
                     dz = rng.uniform(-rv * 0.8, rv * 0.8)
                     path = "{0}/sbar_{1}_{2}".format(ctx["parent"], ctx["tag"],
@@ -2232,17 +2323,47 @@ def r_gut_interior(ctx, frac=1.0):
     # 2026-08-30). Same tone as the beams `r_expose_interior` gives an `rc`
     # frame: `steel`, cool and dark, not the warm `burnt_metal` that reads
     # as timber.
+    #
+    # ON A SLICED BUILDING THE COLUMNS ARE CHARRED, NOT MERELY STEEL.
+    # `steel` is a flat cool grey at ~0.26 screen with 0.55 roughness and no
+    # map on it: measured on the fire_dtc3 bench, all 147 of
+    # `gac_SM_Building_02_F5c_s193`'s fit columns were ALREADY on it — there
+    # was no coverage gap — and they still read as clean posts in a burnt
+    # room ("since this is a fire they have to look scorched", user review,
+    # 2026-08-30). An RC column that has been through a compartment fire is
+    # blackened, spalled concrete, so the sliced path takes exactly the
+    # treatment the slabs above take: the flat `char_concrete` or one of the
+    # textured burn maps, which is what stops char reading as paint. The kit
+    # path keeps `steel` untouched, and with it `kit_burn_probe`'s
+    # pale-columns FLAG (nothing there is on the quake `concrete` either
+    # way).
     n_col = 0
     for (mtag, storey), cols in (fit.get("columns") or {}).items():
-        if _severity(ctx, storey, mtag) < 0.25:
+        # ...and it reaches the storeys a collapse or a roof hole put ON SHOW
+        # as well as the ones the fire's own falloff calls hot — the same
+        # `is_catch` the slab loop above needed, for the same reason.
+        is_catch = False
+        if is_gac:
+            m_ = ctx["info"]["masses"].get(mtag) or ctx["info"]["masses"]["main"]
+            is_catch = (collapse_storeys is not None
+                        and storey in collapse_storeys) \
+                or (roof_hit and storey >= len(m_["levels"]) - 3)
+        if not is_catch and _severity(ctx, storey, mtag) < 0.25:
             continue
         for c in cols:
-            qf._b_bind_over(ctx["stage"], c, ctx["mats"]["steel"])
+            qf._b_bind_over(ctx["stage"], c, ctx["mats"]["steel"] if not is_gac
+                            else (ctx["mats"]["char_concrete"]
+                                  if rng.random() < 0.5
+                                  else _burn_mat(ctx, f["finish"])))
             n_col += 1
     ctx["notes"].append(
+        # the last word is the only thing the sliced path changes here, and
+        # the kit path still says "steel" — `kit_burn_probe`'s note is
+        # byte-identical, which is what the MCE freeze asks for
         "gutted: {0} prop(s) consumed, {1} charred, {2} partition(s) down, "
-        "{3} slab(s) charred, {4} column(s) steel".format(
-            n_gone, n_char, n_part, n_slab, n_col))
+        "{3} slab(s) charred, {4} column(s) {5}".format(
+            n_gone, n_char, n_part, n_slab, n_col,
+            "charred" if is_gac else "steel"))
 
 
 def _storey_of_path(ctx, path):
@@ -2753,6 +2874,102 @@ def r_roof_scorch(ctx, mass=None):
             if ctx.get("roof_breached") else "", n_deb))
 
 
+def _plate(ctx, path, z, thickness, mat, storey):
+    """A floor plate clipped to the building's own PLAN at `storey`, in
+    place of a `W x D` box spanning the mass's full bounding box.
+
+    THE PLAN IS NOT A CUBOID. `r_expose_interior`'s catch plate and
+    `r_fire_collapse`'s heap floor both used to author `qf._box(..., W, D,
+    ...)` at a storey level — fine on a rectangular kit module, wrong on a
+    merged GAC/downtowncity asset with a setback plan: a full-width plate at
+    a storey the building has stepped in from pokes out past the façade
+    there (user review, fire_dtc2, 2026-08-30, dtc Building_11 F1: "the
+    catch ... looks like it's coming outside the side walls ... it's
+    irregular-shape façades + roof; you can't treat it like a cuboid").
+    `gac_fire.prepare` measures a convex-hull, inset footprint polygon per
+    storey off the merged mesh's own vertices (`_storey_footprints`) and
+    hands it through `ctx["fire"]["footprints"]`; this authors an extruded
+    polygon from it — fan-triangulated top/bottom caps, a quad side band —
+    with the plate's TOP face at `z` and total height `thickness`, exactly
+    matching `qf._box`'s own `(cz=z-thickness/2, sz=thickness)` convention.
+
+    THE KIT PATH NEVER SEES A FOOTPRINT. `ctx["fire"]["footprints"]` is a
+    key only `gac_fire.prepare` ever sets; a plain kit `burn_building`
+    call's `fire` dict (`plan_fire`'s own return) never carries it, so
+    `.get("footprints")` always misses there and this falls back to exactly
+    the `W x D` box the two call sites authored before — byte-identical
+    geometry (same `m["cx"]`/`m["cy"]`/`m["yaw"]`, same `W`/`D` off
+    `qf.WALL_INSET`, same `cz`), same call.
+
+    `mass` is read off `ctx["fire"]["mass"]`, not passed in: every LADDER
+    entry that reaches either caller passes `{}` (mass is never overridden
+    in practice), so this always resolves to the same mass the caller's own
+    `mass = mass or f["mass"]` line already did.
+    """
+    from . import quake_flow as qf
+
+    stage = ctx["stage"]
+    f = ctx["fire"]
+    mass = f["mass"]
+    m = ctx["info"]["masses"].get(mass) or ctx["info"]["masses"]["main"]
+    cz = z - thickness / 2.0
+    poly = (f.get("footprints") or {}).get(storey)
+    if not poly or len(poly) < 3:
+        W = m["W"] - 2 * qf.WALL_INSET
+        D = m["D"] - 2 * qf.WALL_INSET
+        return qf._box(stage, path, m["cx"], m["cy"], cz, W, D, thickness,
+                      m["yaw"], mat)
+    from pxr import Gf, Sdf, UsdGeom, Vt
+
+    n = len(poly)
+    hz = thickness / 2.0
+    cx, cy = m["cx"], m["cy"]
+    # POINTS ABOUT THE PLATE'S OWN CENTRE, exactly like `qf._box` — a rigid
+    # body (were this ever handed to physics) rotates about its own origin,
+    # not about the mass centre.
+    loc = [(px - cx, py - cy) for px, py in poly]
+    P = Gf.Vec3f
+    top = [P(lx, ly, hz) for lx, ly in loc]
+    bot = [P(lx, ly, -hz) for lx, ly in loc]
+    pts = top + bot                      # top: 0..n-1, bottom: n..2n-1
+    counts, idx, nrm = [], [], []
+    # TOP CAP: fan from vertex 0, CCW as authored (viewed from +z) -> +z normal
+    for i in range(1, n - 1):
+        counts.append(3)
+        idx += [0, i, i + 1]
+        nrm += [(0.0, 0.0, 1.0)] * 3
+    # BOTTOM CAP: same fan with the last two indices swapped -> -z normal
+    for i in range(1, n - 1):
+        counts.append(3)
+        idx += [n, n + i + 1, n + i]
+        nrm += [(0.0, 0.0, -1.0)] * 3
+    # SIDE BAND: one outward-facing quad per polygon edge
+    for i in range(n):
+        j = (i + 1) % n
+        dx, dy = loc[j][0] - loc[i][0], loc[j][1] - loc[i][1]
+        el = math.hypot(dx, dy) or 1.0
+        ox, oy = dy / el, -dx / el          # outward normal, CCW polygon
+        counts.append(4)
+        idx += [n + i, n + j, j, i]
+        nrm += [(ox, oy, 0.0)] * 4
+    me = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    me.CreatePointsAttr(Vt.Vec3fArray(pts))
+    me.CreateFaceVertexCountsAttr(Vt.IntArray(counts))
+    me.CreateFaceVertexIndicesAttr(Vt.IntArray(idx))
+    me.CreateNormalsAttr(Vt.Vec3fArray([P(*v) for v in nrm]))
+    me.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
+    me.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    xs = [p[0] for p in loc]
+    ys = [p[1] for p in loc]
+    me.CreateExtentAttr([P(min(xs), min(ys), -hz), P(max(xs), max(ys), hz)])
+    xf = UsdGeom.Xformable(me)
+    xf.AddTranslateOp().Set(Gf.Vec3d(cx, cy, cz))
+    xf.AddRotateZOp().Set(float(m["yaw"]))
+    if mat is not None:
+        qf._bind(stage, path, mat)
+    return path
+
+
 def r_expose_interior(ctx, mass=None, beams=True, rubble=True):
     """Put STRUCTURE behind every hole, so an opened building is not a box.
 
@@ -2893,8 +3110,7 @@ def r_expose_interior(ctx, mass=None, beams=True, rubble=True):
         z = m["levels"][st_]
         path = "{0}/catch_{1}_{2}".format(ctx["parent"], ctx["tag"],
                                           qf._uid(ctx))
-        qf._box(stage, path, m["cx"], m["cy"], z - 0.13, W, D, 0.26,
-                m["yaw"], ctx["mats"]["char_concrete"])
+        _plate(ctx, path, z, 0.26, ctx["mats"]["char_concrete"], st_)
         ctx["authored"].append(path)
         ctx["static_extra"].append(path)
         fit.setdefault("slabs", {})[(mass, st_)] = path
@@ -3137,24 +3353,63 @@ def r_curtain_burn(ctx, grade=3, width_frac=None):
     w = wf * span
     lick = 2 + int(round(grade * 0.8))       # storeys the stripe licks above
     n_out = n_stain = 0
+    # Candidate bays as (e, fr, width, hh, along, half): kit modules, or —
+    # when there are none — measured bays from the openings table, both
+    # through ONE authoring body below. Kit rng order is preserved exactly:
+    # the same elements reach the same rolls in the same order (frames are
+    # pure geometry, and an element whose frame is None still consumes its
+    # soft-edge roll first, as it always did).
+    cand = []
     for e in qf._els(ctx, mass=f["mass"], role=("wall", "corner")):
         if e["side"] != side or e["storey"] < f["origin"]:
             continue
-        above = e["storey"] - f["top"]
-        if above > lick:
+        if e["storey"] - f["top"] > lick:
             continue
         along = (e["lx"] + m["W"] / 2.0) if side in ("S", "N") else \
                 (e["ly"] + m["D"] / 2.0)
+        cand.append((e, qf._piece_frame(e), None, None, along, 2.5))
+    if ctx.get("soot_openings") is not None and \
+            all(c[1] is None for c in cand):
+        # THE SLICED PATH HAS NO KIT MODULES TO TAKE BAYS FROM. A sliced
+        # style's elements exist (`describe` rebuilds them from the pieces)
+        # but they are not kit wall modules — `qf._piece_frame` has no
+        # module dims for them and returns None for every one, so the body
+        # below rolled and skipped its way to "curtain burn: 0 bay(s) out,
+        # 0 crazed" on every sliced tower (dtc Amar_Tower F5c, fire_dtc3
+        # review 2026-08-30, twice: the first gate here tested `not cand`
+        # and never fired). When NOTHING in `cand` is frameable and the
+        # measured openings table exists, the bays come from the table
+        # instead: a per-bay frame anchored on the measured façade plane
+        # lets the shared body author the same voids, melted mullions and
+        # crazed panes. Kit buildings never set `soot_openings`, so this
+        # branch is unreachable on the kit path whatever `cand` holds.
+        cand = []
+        from . import soot_plume as spl
+        for s in range(int(f["origin"]), int(f["top"]) + lick + 1):
+            for op in spl.openings(ctx, f["mass"], side, s) or []:
+                ua, ub, va, vb = op["span"]
+                bw, bh = ub - ua, vb - va
+                if bw < 0.6 or bh < 0.8:
+                    continue
+                f0 = op["fr"]
+                bay = (f0[0] + math.cos(f0[2]) * ua,
+                       f0[1] + math.sin(f0[2]) * ua,
+                       f0[2], bw, bh, f0[5], f0[6])
+                e = dict(op["e"])
+                e["z"] = float(va)
+                cand.append((e, bay, bw, bh, 0.5 * (ua + ub), 0.5 * bw))
+    for e, fr, width, hh, along, half in cand:
         # a soft edge to the stripe: a bay half in it is in it half the time
-        over = min(along + 2.5, u0 + w) - max(along - 2.5, u0)
+        over = min(along + half, u0 + w) - max(along - half, u0)
         if over <= 0.0:
             continue
         if over < 4.0 and rng.random() > over / 4.0:
             continue
-        fr = qf._piece_frame(e)
         if fr is None:
             continue
-        width, hh = fr[3], fr[4]
+        if width is None:
+            width, hh = fr[3], fr[4]
+        above = e["storey"] - f["top"]
         gone = above <= 0 or rng.random() < max(0.15, 1.0 - above / float(lick))
         if gone:
             # the bay is OUT: a dark opening inset from the painted mullion
@@ -3568,6 +3823,47 @@ def r_fire_collapse(ctx, mass=None):
         slabs = fit.setdefault("slabs", {})
         bs = max(0, s0 - 1)
         ctx["collapse_s0"] = int(s0)      # `r_expose_interior` reads it
+        # THE FRAME FALLS WITH THE FLOORS. `fit_interior`'s rc column grid on
+        # the failed storeys stayed static after the walls and slabs went,
+        # so a 4 m-pitch forest of three-storey columns stood over the shell
+        # with the catch floor and the heap on it — a floating platform
+        # (dtc Carved_13 F5, fire_dtc1, 2026-08-30). Columns and beams of
+        # storeys at or above the failure are handed to physics.
+        # ...AND MOST OF IT IS CONSUMED. Handing every column to physics
+        # kept the forest: a 3 m box dropped one metre lands base-down and
+        # stays standing, and the lid plates then rest ON the posts — the
+        # same floating platform, one metre lower (dtc Carved_13 F5,
+        # fire_dtc2, 2026-08-30). A collapse that takes the walls and slabs
+        # grinds most of the frame into the heap with them: ~70 % of the
+        # failed storeys' columns are simply gone, the rest go down with an
+        # outward shove so they topple instead of landing on their feet.
+        from . import soot_plume as _splc
+        _crng = random.Random(_splc.event_seed({"info": ctx["info"],
+                                                "fire": ctx["fire"],
+                                                "tag": ctx["tag"]}) ^ 0xC01F)
+        n_colfall = n_colgone = 0
+        vel = ctx.setdefault("velocity", {})
+        for (mt_, st_), cols in list((fit.get("columns") or {}).items()):
+            if mt_ != mass or st_ < s0:
+                continue
+            for cpath in cols:
+                pr_ = ctx["stage"].GetPrimAtPath(cpath)
+                if not (pr_ and pr_.IsValid() and pr_.IsActive()) \
+                        or cpath in ctx["loose"]:
+                    continue
+                ctx["static_extra"] = [q for q in ctx["static_extra"] if q != cpath]
+                if _crng.random() < 0.70:
+                    pr_.SetActive(False)
+                    n_colgone += 1
+                    continue
+                a_ = _crng.uniform(0.0, 2.0 * math.pi)
+                vel[cpath] = (2.2 * math.cos(a_), 2.2 * math.sin(a_), 0.0)
+                ctx["loose"].append(cpath)
+                n_colfall += 1
+        if n_colfall or n_colgone:
+            ctx["notes"].append("fire collapse: frame columns on the failed "
+                                "storeys: {0} consumed, {1} toppled"
+                                .format(n_colgone, n_colfall))
         for (mt_, st_), pth in list(slabs.items()):
             if mt_ != mass or st_ < s0 or not pth:
                 continue
@@ -3579,11 +3875,9 @@ def r_fire_collapse(ctx, mass=None):
         pr_ = ctx["stage"].GetPrimAtPath(have) if have else None
         if bs > 0 and not (pr_ and pr_.IsValid() and pr_.IsActive()
                            and have not in ctx["loose"]):
-            W_, D_ = m["W"] - 2 * qf.WALL_INSET, m["D"] - 2 * qf.WALL_INSET
             path = "{0}/catch_{1}_{2}".format(ctx["parent"], ctx["tag"],
                                               qf._uid(ctx))
-            qf._box(ctx["stage"], path, m["cx"], m["cy"], base - 0.13, W_, D_,
-                    0.26, m["yaw"], ctx["mats"]["char_concrete"])
+            _plate(ctx, path, base, 0.26, ctx["mats"]["char_concrete"], bs)
             ctx["authored"].append(path)
             ctx["static_extra"].append(path)
             slabs[(mass, bs)] = path
@@ -3595,11 +3889,37 @@ def r_fire_collapse(ctx, mass=None):
     # signature — and exactly wrong here: fire rubble is black, wet from the
     # hose, and has no fines standing on it. `brick_dusty` (0.38 on screen)
     # was the pale tan litter in the terrace shot.
+    _before_heap = set(str(p.GetPath()) for p in
+                       ctx["stage"].GetPrimAtPath(ctx["parent"]).GetChildren())
     qf._heap(ctx, m, base, (m["top"] - base) * 0.30, 0.10, fill=True,
              tag="fireheap",
              mat_fn=lambda: (ctx["mats"]["char_concrete"] if rng.random() < 0.45
                              else ctx["mats"]["soot"] if rng.random() < 0.80
                              else ctx["mats"]["calcined"]))
+    if isinstance(ctx.get("soot_prebaked"), (set, frozenset)):
+        # A HEAP CHIP OUTSIDE THE WALL LINE AT STOREY HEIGHT HANGS IN THE
+        # SKY — GAC ONLY. `_heap` spreads its chips a little past the plan
+        # and the fire heap sits on an upper floor, so the overhang had
+        # nothing under it: the black flecks beside SM_Building_09 F6 at
+        # 49.6 m (fire_row3, 2026-08-30 — 58 of them in the export). Chips
+        # whose centre falls outside the floor plate are dropped here;
+        # inside the plate they rest on the floor `r_fire_collapse` authors.
+        from pxr import UsdGeom as _UG
+        W_, D_ = m["W"] - 2 * qf.WALL_INSET, m["D"] - 2 * qf.WALL_INSET
+        _xf = _UG.XformCache()
+        n_clip = 0
+        for p in ctx["stage"].GetPrimAtPath(ctx["parent"]).GetChildren():
+            nm = p.GetName()
+            if str(p.GetPath()) in _before_heap or not nm.startswith("fireheap"):
+                continue
+            t = _xf.GetLocalToWorldTransform(p).ExtractTranslation()
+            lx, ly = qf._to_local(m, float(t[0]), float(t[1]))
+            if abs(lx) > W_ / 2.0 - 0.15 or abs(ly) > D_ / 2.0 - 0.15:
+                p.SetActive(False)
+                n_clip += 1
+        if n_clip:
+            ctx["notes"].append("fire collapse: {0} heap chip(s) outside the "
+                                "floor plate dropped".format(n_clip))
     ctx["notes"].append(
         "fire collapse: top {0} storey(s) down from storey {1}, {2} module(s) "
         "broken, {3} roof piece(s), {4} stain(s) removed with them, {5} "
@@ -3626,15 +3946,29 @@ def r_street_debris(ctx, density=1.0):
     # in the street — so the apron is drawn round the mass whose foot is at
     # ground level, at that mass's own base height.
     m = ctx["info"]["masses"]["main"]
+    # MORE OF IT, AND SPREAD WIDER, UNDER A SLICED BUILDING (fire_dtc3
+    # review, 2026-08-30: the user wants noticeably more fallen debris round
+    # the burning ones). A GAC/downtowncity elevation is 15-30 m wide and
+    # 70 m tall against a kit module's ~4 m, so 24 lumps in a 4.5 m apron
+    # read as a sprinkle at review distance rather than as a fall zone.
+    # The kit path is BYTE-IDENTICAL — it keeps the original (24, 4.5, 0.5),
+    # so every draw below happens in the same order with the same arguments
+    # and `_a_lump` consumes the same stream after them; the
+    # `rng.uniform(0.7, 1.3)` is drawn either way — because the MCE look is
+    # frozen.
+    n_deb, apron, run = (
+        (50, 6.5, 0.58)
+        if isinstance(ctx.get("soot_prebaked"), (set, frozenset))
+        else (24, 4.5, 0.5))
     n = 0
     for side in f["sides"]:
         nx, ny = qf._outward(m, side)
         span = m["W"] if side in ("S", "N") else m["D"]
         half = (m["D"] if side in ("S", "N") else m["W"]) / 2.0
-        count = int(24 * density * rng.uniform(0.7, 1.3))
+        count = int(n_deb * density * rng.uniform(0.7, 1.3))
         for _ in range(count):
-            t = rng.uniform(-0.5, 0.5) * span
-            d = half + rng.uniform(0.4, 4.5)
+            t = rng.uniform(-run, run) * span
+            d = half + rng.uniform(0.4, apron)
             if side in ("S", "N"):
                 lx, ly = t, math.copysign(d, ny or 1.0)
             else:
@@ -4127,8 +4461,16 @@ def burn_building(stage, parent, style, placements, x, y, yaw, level,
         # 2026-08-30: "I don't want props that nobody can see").
         fit_storeys = set(range(f_["origin"], f_["top"] + 2)) \
             | set(range(max(0, n_ - 3), n_))
+    # THE COLUMN GRID FOLLOWS THE MEASURED PLAN, NOT THE BOUNDING BOX.
+    # `fit_interior` lays its grid on the mass's `W x D`, which is the plan
+    # only for a cuboid; on a sliced whole-asset building with a setback the
+    # outer columns stand proud of the façade and poke through it (fire_dtc3
+    # review, 2026-08-30, `fit_g6/col_main_10_2_1` on SM_Building_02 F5c).
+    # `ctx["fire"]["footprints"]` is a key only `gac_fire.prepare` ever sets,
+    # so this is None on the kit path and nothing there moves.
     ctx["fit"] = qf.fit_interior(stage, parent, info, mats, rng,
-                                 storeys=fit_storeys, tag=tag)
+                                 storeys=fit_storeys, tag=tag,
+                                 footprint=ctx["fire"].get("footprints"))
     dress_roof_urban(ctx)
     ctx["fit"]["all"] += list(ctx.get("roof_plant", []))
     for name, kw in recipes:
