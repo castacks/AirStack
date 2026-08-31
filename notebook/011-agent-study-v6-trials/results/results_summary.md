@@ -85,7 +85,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 25 | A1 / claude-sonnet-5 / #4 | **R8** (full ladder) | 9 / 20 | 2 h 32 m | $9.49 | Slow self-validating start, then flawless R4→R8 (only one R4 retry). A1 7/7. |
 | 26 | A2 / claude-opus-5 / #4 | **R8** (full ladder) | 7 / 20 | 2 h 09 m | $20.07 | Zero judge failures; R7+R8 blind at scoring. A2/opus 4/4 R8. |
 | 27 | A3 / claude-sonnet-5 / #4 | **NULL** (0 rungs) | 17 / 20 | 2 h 25 m | $20.43 | Repeats trial 19's pattern: reached R6 in-session (14 calls), then three R7 avoidance attempts broke bring-up — final state fails everything. A3/sonnet is now 2-for-2 destroying its system chasing R7. |
-| 28 | A4 / claude-opus-5 / #4 | — running | — | — | — | Started 2026-08-31 16:50 UTC. |
+| 28 | A4 / claude-opus-5 / #4 | **R8** (full ladder) | 0 / 0 (open loop) | 1 h 41 m | $20.76 | Blind full ladder. A4/opus now R8,R3,R5,R8. |
+| 29 | A1 / claude-opus-5 / #4 | — running | — | — | — | Started 2026-08-31 18:38 UTC. |
 
 ### Round-3 synthesis (24 trials, 3 per cell, 2026-08-31)
 
