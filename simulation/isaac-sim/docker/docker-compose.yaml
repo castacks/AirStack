@@ -107,31 +107,42 @@ services:
       # allocation with `cudaErrorNoDevice` while `nvidia-smi -L` still
       # lists the card, which reads like a driver fault rather than a
       # config one. Override per host with ISAAC_SIM_CUDA_DEVICES.
-      - CUDA_VISIBLE_DEVICES=${ISAAC_SIM_CUDA_DEVICES:-0}
-      # NVML AND CUDA MUST SEE THE SAME SET, or Isaac disables the GPU entirely.
+      # DO NOT SET CUDA_VISIBLE_DEVICES FOR KIT. Bare name = passthrough:
+      # docker compose renders an unset variable as null and does NOT define
+      # it in the container, which is what we want. `${X:-0}` would hardcode a
+      # device and `${X:-}` would define it EMPTY; both are wrong here.
       #
-      # MEASURED on the OSMO pod for airstack-mission-1gpu-52 (2026-08-31):
-      # this service reserves `count: 1` below, but the container was handed
-      # NVIDIA_VISIBLE_DEVICES=all — four device nodes (/dev/nvidia0..3), while
-      # CUDA_VISIBLE_DEVICES=0 permits exactly one:
+      # MEASURED 2026-08-31 on airstack-mission-1gpu-52. Kit prints, 2 s into
+      # startup, immediately before it drops every GPU:
       #
-      #     NVML devices visible in container : 4
-      #     CUDA devices permitted            : 1
-      #     Isaac skipped as "CUDA bad state" : 6
+      #     CUDA_VISIBLE_DEVICES environment variable is set.
+      #     Note CUDA device enumeration and Omniverse device enumeration are
+      #     different. Setting CUDA_VISIBLE_DEVICES can lead to undesired
+      #     behavior or crashes.
+      #     [gpu.foundation.plugin] Skipping NVIDIA GPU due CUDA being in bad
+      #     state: NVIDIA RTX PRO 5000 Blackwell            (x6)
       #
-      # Isaac enumerates through NVML, CUDA-probes each device, and logs
-      # "Skipping NVIDIA GPU due CUDA being in bad state" for the ones it can
-      # see but not open — then renders in SOFTWARE. Both cards then sit at
-      # 0 % utilisation / 4 MiB / P8 for the whole run while Isaac burns 273 %
-      # CPU, and the real-time factor collapses to ~0.083 (600 sim-seconds in
-      # ~2 hours). CUDA itself is fine: `cuInit(0)` returns CUDA_SUCCESS in
-      # that same container.
+      # Omniverse enumerates devices through its own path, so pinning CUDA's
+      # view desynchronises the two indices, every CUDA probe fails, and Kit
+      # silently falls back to SOFTWARE rendering — both cards at 0 % / 4 MiB
+      # / P8 for an entire run while Isaac burns 273 % CPU, and the real-time
+      # factor collapses to ~0.083 (600 sim-seconds in ~2 hours, a
+      # 24-iteration sweep in ~48 h instead of a few).
       #
-      # NOTE the skip count (6) does not equal the visible count (4), so the
-      # masking mismatch is a strong SUSPECT rather than a proven cause — this
-      # pins the two lists together so the hypothesis is testable, and costs
-      # nothing if it turns out to be a host-level driver fault instead.
-      - NVIDIA_VISIBLE_DEVICES=${ISAAC_SIM_NVIDIA_DEVICES:-${ISAAC_SIM_CUDA_DEVICES:-0}}
+      # A/B on the same container, same pod, minutes apart:
+      #     CUDA_VISIBLE_DEVICES=0   -> 6 bad-state lines, 4 MiB,  no GPU proc
+      #     unset                    -> 0 bad-state lines, 182 MiB, Kit holds
+      #                                 the card, "cuda:0" selected
+      #
+      # This was NOT a broken node — CUDA was healthy throughout (cuInit(0)
+      # returned CUDA_SUCCESS in the same container). We disabled our own GPU.
+      # `--/renderer/multiGpu/enabled=false` does NOT help: the skip happens
+      # inside gpu.foundation.plugin before renderer settings apply (verified
+      # with the flag present on Kit's command line).
+      #
+      # To pin a device deliberately, export CUDA_VISIBLE_DEVICES in the
+      # calling environment and accept the warning above.
+      - CUDA_VISIBLE_DEVICES
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
@@ -365,31 +376,42 @@ services:
       # allocation with `cudaErrorNoDevice` while `nvidia-smi -L` still
       # lists the card, which reads like a driver fault rather than a
       # config one. Override per host with ISAAC_SIM_CUDA_DEVICES.
-      - CUDA_VISIBLE_DEVICES=${ISAAC_SIM_CUDA_DEVICES:-0}
-      # NVML AND CUDA MUST SEE THE SAME SET, or Isaac disables the GPU entirely.
+      # DO NOT SET CUDA_VISIBLE_DEVICES FOR KIT. Bare name = passthrough:
+      # docker compose renders an unset variable as null and does NOT define
+      # it in the container, which is what we want. `${X:-0}` would hardcode a
+      # device and `${X:-}` would define it EMPTY; both are wrong here.
       #
-      # MEASURED on the OSMO pod for airstack-mission-1gpu-52 (2026-08-31):
-      # this service reserves `count: 1` below, but the container was handed
-      # NVIDIA_VISIBLE_DEVICES=all — four device nodes (/dev/nvidia0..3), while
-      # CUDA_VISIBLE_DEVICES=0 permits exactly one:
+      # MEASURED 2026-08-31 on airstack-mission-1gpu-52. Kit prints, 2 s into
+      # startup, immediately before it drops every GPU:
       #
-      #     NVML devices visible in container : 4
-      #     CUDA devices permitted            : 1
-      #     Isaac skipped as "CUDA bad state" : 6
+      #     CUDA_VISIBLE_DEVICES environment variable is set.
+      #     Note CUDA device enumeration and Omniverse device enumeration are
+      #     different. Setting CUDA_VISIBLE_DEVICES can lead to undesired
+      #     behavior or crashes.
+      #     [gpu.foundation.plugin] Skipping NVIDIA GPU due CUDA being in bad
+      #     state: NVIDIA RTX PRO 5000 Blackwell            (x6)
       #
-      # Isaac enumerates through NVML, CUDA-probes each device, and logs
-      # "Skipping NVIDIA GPU due CUDA being in bad state" for the ones it can
-      # see but not open — then renders in SOFTWARE. Both cards then sit at
-      # 0 % utilisation / 4 MiB / P8 for the whole run while Isaac burns 273 %
-      # CPU, and the real-time factor collapses to ~0.083 (600 sim-seconds in
-      # ~2 hours). CUDA itself is fine: `cuInit(0)` returns CUDA_SUCCESS in
-      # that same container.
+      # Omniverse enumerates devices through its own path, so pinning CUDA's
+      # view desynchronises the two indices, every CUDA probe fails, and Kit
+      # silently falls back to SOFTWARE rendering — both cards at 0 % / 4 MiB
+      # / P8 for an entire run while Isaac burns 273 % CPU, and the real-time
+      # factor collapses to ~0.083 (600 sim-seconds in ~2 hours, a
+      # 24-iteration sweep in ~48 h instead of a few).
       #
-      # NOTE the skip count (6) does not equal the visible count (4), so the
-      # masking mismatch is a strong SUSPECT rather than a proven cause — this
-      # pins the two lists together so the hypothesis is testable, and costs
-      # nothing if it turns out to be a host-level driver fault instead.
-      - NVIDIA_VISIBLE_DEVICES=${ISAAC_SIM_NVIDIA_DEVICES:-${ISAAC_SIM_CUDA_DEVICES:-0}}
+      # A/B on the same container, same pod, minutes apart:
+      #     CUDA_VISIBLE_DEVICES=0   -> 6 bad-state lines, 4 MiB,  no GPU proc
+      #     unset                    -> 0 bad-state lines, 182 MiB, Kit holds
+      #                                 the card, "cuda:0" selected
+      #
+      # This was NOT a broken node — CUDA was healthy throughout (cuInit(0)
+      # returned CUDA_SUCCESS in the same container). We disabled our own GPU.
+      # `--/renderer/multiGpu/enabled=false` does NOT help: the skip happens
+      # inside gpu.foundation.plugin before renderer settings apply (verified
+      # with the flag present on Kit's command line).
+      #
+      # To pin a device deliberately, export CUDA_VISIBLE_DEVICES in the
+      # calling environment and accept the warning above.
+      - CUDA_VISIBLE_DEVICES
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
