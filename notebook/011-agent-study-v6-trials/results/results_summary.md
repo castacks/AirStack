@@ -83,7 +83,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 23 | A3 / claude-opus-5 / #3 | **R6** | 13 / 20 | 2 h 38 m | $35.36 | 3 R1 fails, then steady climb; ~30 min avoidance work but never attempted R7 in-session; consolidated R6 held at scoring. Ops: orphaned host processes from A3 workspaces (mavros launch, respawning planners, a file-watch loop) found and swept post-trial — A3 agents leave host-level processes the runner's teardown misses. |
 | 24 | A4 / claude-sonnet-5 / #3 | **R8** (full ladder) | 0 / 0 (open loop) | 1 h 37 m | $16.48 | Blind full ladder — R7+R8 passed at scoring. Sonnet's open-loop spread now spans NULL→R8. |
 | 25 | A1 / claude-sonnet-5 / #4 | **R8** (full ladder) | 9 / 20 | 2 h 32 m | $9.49 | Slow self-validating start, then flawless R4→R8 (only one R4 retry). A1 7/7. |
-| 26 | A2 / claude-opus-5 / #4 | — running | — | — | — | Started 2026-08-31 11:42 UTC. |
+| 26 | A2 / claude-opus-5 / #4 | **R8** (full ladder) | 7 / 20 | 2 h 09 m | $20.07 | Zero judge failures; R7+R8 blind at scoring. A2/opus 4/4 R8. |
+| 27 | A3 / claude-sonnet-5 / #4 | — running | — | — | — | Started 2026-08-31 13:59 UTC. |
 
 ### Round-3 synthesis (24 trials, 3 per cell, 2026-08-31)
 
