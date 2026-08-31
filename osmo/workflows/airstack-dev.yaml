@@ -96,7 +96,24 @@ workflow:
       # gives the preview-camera render pass somewhere to go that is not
       # contending with the live viewport.
       gpu: 2
-      memory: 80Gi
+      # 160Gi, RAISED FROM 80Gi 2026-08-31 after an archetype bake OOM-killed
+      # the whole pod — not just the bake, every container in the cgroup.
+      #
+      # 80Gi is the right number for a bake whose settle runs on the GPU. It is
+      # NOT the right number here, because on these workers Kit logs "Skipping
+      # NVIDIA GPU due CUDA being in bad state" and PhysX silently falls back
+      # to CPU — so ~6,845 rigid bodies and their cooked collision meshes live
+      # in HOST RAM instead of on the card. The kernel log was unambiguous:
+      # "Memory cgroup out of memory: Killed process (python.sh)".
+      #
+      # The host has 216 GB, so the cgroup was the only ceiling that mattered.
+      # 160Gi leaves roughly 2x headroom over the observed peak and still
+      # leaves most of the worker for other tenants.
+      #
+      # Batching the bake (`ARCH_STYLES=` on the tornado/quake bakers) cuts
+      # peak memory ~3x and is worth doing ANYWAY — but it should be a choice,
+      # not the only thing standing between a routine bake and a dead pod.
+      memory: 160Gi
       # AirStack image set is large: airstack-dev-9 (2026-05-14) hit the
       # 100Gi container ephemeral cap during inner Compose's first image
       # extract, before the second image even started downloading. So the
