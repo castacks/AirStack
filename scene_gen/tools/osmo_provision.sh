@@ -64,10 +64,25 @@ say "local HEAD $LOCAL"
 say "pod   HEAD $POD"
 [ "$LOCAL" = "$POD" ] && say "clone MATCHES" || say "WARNING: clone differs from local HEAD"
 
-# ---- 5. the assets the clone does not carry ------------------------------
-# `.gitignore:130` excludes scene_gen/**/*.usda (the megascans wrappers among
-# them), and the AEC / objaverse packs are untracked entirely. Ordered so an
-# interrupted run still leaves a usable scene.
+# ---- 5. assets: NOTHING TO DO, they come from Nucleus --------------------
+#
+# This step used to rsync ~4.4 GB onto every pod — AEC packs, objaverse props,
+# material textures — because the clone does not carry them (`.gitignore`
+# excludes `scene_gen/**/*.usda`, and the packs are untracked entirely).
+#
+# It was five minutes a pod and it was never necessary. `airstack-dev.yaml`
+# now sets AIRSTACK_ASSET_ROOT to the Nucleus mirror, exactly as every OSMO
+# MISSION yaml already did, so `airstack://` resolves there instead of against
+# the clone. Nucleus is on the same LAN as the worker; the same library
+# uploads in four seconds from the pod.
+#
+# Keep `SYNC_ASSETS=1` for the case where a material has been added locally
+# and not yet pushed to Nucleus — but the right fix then is
+# `scene_gen/tools/upload_materials.py`, not a per-pod copy.
+if [ "${SYNC_ASSETS:-0}" != "1" ]; then
+    say "assets come from Nucleus (AIRSTACK_ASSET_ROOT); skipping the 4.4 GB copy"
+    say "  set SYNC_ASSETS=1 to force it, or run tools/upload_materials.py instead"
+else
 say "syncing material .usda wrappers"
 ./scene_gen/tools/osmo_sync.sh $(find scene_gen -name "*.usda") >/dev/null 2>&1 \
     && say "  usda wrappers OK" || say "  usda wrappers FAILED"
@@ -85,6 +100,8 @@ for d in scene_gen/assets/materials/megascans \
     ./scene_gen/tools/osmo_sync.sh --dir "$d" >/dev/null 2>&1 \
         && say "  done" || say "  FAILED: $d"
 done
+
+fi
 
 # ---- 6. the uncommitted code the scene needs -----------------------------
 say "syncing hurricane code (all uncommitted, so absent from the clone)"

@@ -99,7 +99,38 @@ over the ssh tunnel at ~18 MB/s. Nothing is committed, nothing is pushed.
     scene_gen/tools/osmo_sync.sh scene_gen/disaster/surge.py <more files>
     scene_gen/tools/osmo_sync.sh --dir scene_gen/assets/aec/tower/Assets/Vegetation
 
-## THE POD'S CLONE IS MISSING GIGABYTES OF ASSETS THAT ARE IN YOUR TREE
+## ASSETS COME FROM NUCLEUS. DO NOT COPY THEM TO THE POD.
+
+**Set `AIRSTACK_ASSET_ROOT` and the whole problem below disappears.**
+
+    AIRSTACK_ASSET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
+
+`scene_generator._join_asset_root` resolves `airstack://` against that instead
+of the repo root, and the ENTIRE `scene_gen/assets` tree is mirrored there —
+aec, objaverse, archetype, materials. Verified 2026-08-31 by walking both
+sides and comparing byte sizes: 548 material files identical, 0 missing.
+
+**Every OSMO MISSION yaml has set this all along.** The dev workflow did not,
+and the cost was invisible: ~4.4 GB rsynced onto every fresh pod over the ssh
+tunnel, five minutes each, repeated after every OOM, timeout and resubmit —
+for assets already sitting on Nucleus, on the same LAN as the worker. The same
+library UPLOADS in four seconds from the pod. If you find yourself copying
+gigabytes to a pod, stop and check whether the thing is already on Nucleus.
+
+**Adding a new material?** Put it on Nucleus, not in git:
+
+    bash scene_gen/tools/usd_python.sh scene_gen/tools/upload_materials.py
+
+Idempotent and size-checked, so adding one material costs one upload. This is
+also the answer for anything git will not take — `Crushed_Asphalt_Ground`'s 8K
+maps are past GitHub's 100 MB hard limit and simply cannot be committed.
+Check in the tiny `.usda` wrapper; put the binaries on Nucleus.
+
+`osmo_provision.sh` therefore SKIPS the asset copy by default. `SYNC_ASSETS=1`
+forces it, for a material that exists locally and has not been uploaded yet —
+but the right fix in that case is the uploader, not a per-pod copy.
+
+## What the clone is missing, and why it stopped mattering
 
 The single most expensive surprise. Two separate causes:
 

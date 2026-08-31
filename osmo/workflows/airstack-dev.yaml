@@ -55,6 +55,26 @@ workflow:
         NUM_ROBOTS: "1"
         AIRSTACK_BRANCH: "multi-raven"        # branch entrypoint.sh clones
         AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
+        # RESOLVE `airstack://` FROM NUCLEUS, NOT FROM THE CLONE.
+        #
+        # Every OSMO MISSION yaml already sets this; the dev workflow did not,
+        # and the cost was invisible: ~4.4 GB of AEC packs, objaverse props and
+        # material textures were being rsynced onto every fresh pod over the
+        # ssh tunnel — five minutes a pod, repeated after every OOM, timeout or
+        # resubmit — for assets that were already sitting on Nucleus, on the
+        # same LAN as the worker. Measured: the same library uploads in FOUR
+        # SECONDS from the pod, because it never leaves the building.
+        #
+        # It also fixes what git cannot. `Crushed_Asphalt_Ground`'s 8K maps and
+        # the other large textures do not belong in the repo at all; on Nucleus
+        # they resolve through the same `airstack://` path as everything else.
+        #
+        # The whole `scene_gen/assets` tree is mirrored under this root — aec,
+        # objaverse, archetype, materials — verified 2026-08-31 by walking both
+        # sides and comparing sizes: 548 material files identical, 0 missing.
+        # `scene_gen/tools/upload_materials.py` keeps it that way and is
+        # idempotent, so re-running after adding one material costs one upload.
+        AIRSTACK_ASSET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
         # SSH_PUB_KEY is supplied at submit time:
         #   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
       credentials:
@@ -79,23 +99,33 @@ workflow:
 
   resources:
     default:
-      # 12 cpu / 80Gi is the interactive scene-authoring shape, not the
-      # mission shape. A scene build is one Isaac Sim process plus the
+      # 20 cpu / 120Gi is the interactive scene-authoring shape, not the
+      # mission shape.
+      #
+      # SIZED TO A NODE, NOT TO A WISH. A pod must fit on ONE worker, and this
+      # cluster is three shared 215Gi / 47-cpu / 4-GPU boxes that are usually
+      # most of the way full. Read `osmo resource list` before submitting, and
+      # remember its columns are USED/TOTAL -- subtract. When this was set the
+      # best node had 128Gi and 22 cpu free, so this takes nearly all of it and
+      # still places. Asking for more does not get a bigger pod, it gets an
+      # unschedulable one that sits in SCHEDULING forever. A scene build is one Isaac Sim process plus the
       # scene_gen python driver: no robot containers, no rayfronts, no
       # ROS graph. What it DOES need is headroom for USD composition —
       # the 1 km assemblies peak well past 40Gi resident while the
       # archetype stage holds every baked building open at once, and the
       # settle passes are single-threaded PhysX, so cores past ~12 sit
-      # idle. (airstack-mission-2gpu.yaml runs 20/80Gi because it also
-      # carries a robot + a quantised VLM server.)
-      cpu: 12
-      # TWO. Isaac Sim renders on GPU 0. The second card is what makes
-      # this different from airstack-dev's old shape: it holds the
-      # baked-archetype stage and RTX denoiser working set so a 500 m
-      # scene assembly does not spill to host memory mid-bake, and it
-      # gives the preview-camera render pass somewhere to go that is not
-      # contending with the live viewport.
-      gpu: 2
+      # idle -- EXCEPT that on these workers the settle runs on CPU (see the
+      # memory note below), which is where the extra cores go.
+      # (airstack-mission-2gpu.yaml runs 20/80Gi because it also carries a
+      # robot + a quantised VLM server.)
+      cpu: 20
+      # ONE, down from two. Isaac Sim renders on GPU 0 and nothing measured
+      # here ever used the second card: the settle that was supposed to need
+      # it runs on CPU on these workers anyway (see the memory note), and a
+      # 500 m assembly fits one 48 GB card comfortably. Asking for two made
+      # the pod harder to place for no benefit -- the cluster is routinely
+      # down to 1-2 free GPUs across all three workers.
+      gpu: 1
       # 160Gi, RAISED FROM 80Gi 2026-08-31 after an archetype bake OOM-killed
       # the whole pod — not just the bake, every container in the cgroup.
       #
@@ -113,7 +143,7 @@ workflow:
       # Batching the bake (`ARCH_STYLES=` on the tornado/quake bakers) cuts
       # peak memory ~3x and is worth doing ANYWAY — but it should be a choice,
       # not the only thing standing between a routine bake and a dead pod.
-      memory: 160Gi
+      memory: 120Gi
       # AirStack image set is large: airstack-dev-9 (2026-05-14) hit the
       # 100Gi container ephemeral cap during inner Compose's first image
       # extract, before the second image even started downloading. So the
