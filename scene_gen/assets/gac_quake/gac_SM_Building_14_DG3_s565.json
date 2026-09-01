@@ -1,0 +1,345 @@
+{
+ "bbox": [
+  -42.70176696777344,
+  -31.4287857400287,
+  -2.2491979598999023,
+  84.69195556640625,
+  32.27853481475487,
+  197.23409393891168
+ ],
+ "cell": "/World/bake/g18",
+ "counts": {
+  "authored": 73,
+  "loose": 217,
+  "pieces": 445,
+  "prims": 38994,
+  "static": 20240,
+  "usd_mb": 17.35
+ },
+ "default_prim": "/World",
+ "index": 18,
+ "kind": "gac",
+ "level": "DG3",
+ "name": "SM_Building_14",
+ "notes": [
+  "[qgac] roof_plant reseated (per-footprint): 6 piece(s) moved -4.92..-4.92 m",
+  "glass_loss: 11 pane(s) voided, 31 % of storeys 28-49 on S/E",
+  "parapet_fall: 1 piece(s) off S over bays 0-0 of 1, windrow 0.45 m deep, reach ~1.9 m",
+  "parapet_fall: 1 piece(s) off N over bays 0-0 of 1, windrow 0.45 m deep, reach ~1.9 m",
+  "infill_fail: 0 infill panel(s) out on storey(s) 13",
+  "roof_plant: 6 dropped to physics, 0 buried"
+ ],
+ "quake": {
+  "btype": "rc_glass",
+  "crown_m": 0.45,
+  "extent_m": {
+   "E": 41.47,
+   "N": 1.5,
+   "S": 1.33,
+   "W": 0.0
+  },
+  "fall_sides": [
+   "S",
+   "N"
+  ],
+  "grade": "DG3",
+  "plan": {
+   "H": 197.4540939437869,
+   "btype": "rc_glass",
+   "collapse": null,
+   "displaced": {},
+   "fit_ops": [],
+   "glass": [
+    "/World/bake/g18/pieces/wall_E_0_34_0310",
+    "/World/bake/g18/pieces/wall_E_0_45_0407",
+    "/World/bake/g18/pieces/wall_S_0_31_0280",
+    "/World/bake/g18/pieces/wall_S_0_32_0289",
+    "/World/bake/g18/pieces/wall_S_0_33_0298",
+    "/World/bake/g18/pieces/wall_S_0_35_0315",
+    "/World/bake/g18/pieces/wall_S_0_38_0342",
+    "/World/bake/g18/pieces/wall_S_0_40_0360",
+    "/World/bake/g18/pieces/wall_S_0_42_0378",
+    "/World/bake/g18/pieces/wall_S_0_44_0395",
+    "/World/bake/g18/pieces/wall_S_0_47_0422"
+   ],
+   "glass_bands": [
+    {
+     "frac": 0.31154160521455765,
+     "n": 11,
+     "sides": [
+      "S",
+      "E"
+     ],
+     "storeys": [
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49
+     ]
+    }
+   ],
+   "grade": "DG3",
+   "ground": null,
+   "interior": {
+    "sides": [],
+    "storeys": [
+     13
+    ]
+   },
+   "macroblocks": [],
+   "notes": [
+    "glass_loss: 11 pane(s) voided, 31 % of storeys 28-49 on S/E",
+    "parapet_fall: 1 piece(s) off S over bays 0-0 of 1, windrow 0.45 m deep, reach ~1.9 m",
+    "parapet_fall: 1 piece(s) off N over bays 0-0 of 1, windrow 0.45 m deep, reach ~1.9 m",
+    "infill_fail: 0 infill panel(s) out on storey(s) 13"
+   ],
+   "panels": [],
+   "piles": [
+    {
+     "along": [
+      0.0,
+      1.0
+     ],
+     "authored": {
+      "n_all": 18,
+      "n_static": 14
+     },
+     "base_z": null,
+     "crown_est_m": 12.0,
+     "crown_m": null,
+     "depth_m": 0.45,
+     "elem_h_m": 1.875813885597978,
+     "fit": [],
+     "kind": "windrow",
+     "mass": "main",
+     "offset_m": 0.0,
+     "panels": [],
+     "sides": [
+      "S"
+     ],
+     "spread_est": 0.3,
+     "spread_frac": null,
+     "stub_h_m": 0.0,
+     "tag": "parapet_S"
+    },
+    {
+     "along": [
+      0.0,
+      1.0
+     ],
+     "authored": {
+      "n_all": 21,
+      "n_static": 17
+     },
+     "base_z": null,
+     "crown_est_m": 12.0,
+     "crown_m": null,
+     "depth_m": 0.45,
+     "elem_h_m": 1.875813885597978,
+     "fit": [],
+     "kind": "windrow",
+     "mass": "main",
+     "offset_m": 0.0,
+     "panels": [],
+     "sides": [
+      "N"
+     ],
+     "spread_est": 0.3,
+     "spread_frac": null,
+     "stub_h_m": 0.0,
+     "tag": "parapet_N"
+    }
+   ],
+   "recipes": [
+    [
+     "glass_loss",
+     {
+      "frac": [
+       0.25,
+       0.4
+      ],
+      "sides": 2
+     }
+    ],
+    [
+     "parapet_fall",
+     {
+      "frac": 0.6,
+      "sides": 2
+     }
+    ],
+    [
+     "infill_fail",
+     {
+      "frac": 0.4,
+      "storeys": 1
+     }
+    ]
+   ],
+   "regions": [],
+   "removed": [
+    "/World/bake/g18/pieces/parapet_N_0_49_0441",
+    "/World/bake/g18/pieces/parapet_S_0_49_0440"
+   ],
+   "stats": {
+    "n_displaced": 0,
+    "n_glass": 11,
+    "n_macroblocks": 0,
+    "n_panels": 0,
+    "n_pieces": 445,
+    "n_piles": 2,
+    "n_removed": 2,
+    "n_storeys": 50,
+    "n_sub": 1,
+    "n_tears": 2,
+    "n_tears_dropped": 1,
+    "removed_frac": 0.0044943820224719105
+   },
+   "storey_collapse": null,
+   "stub": null,
+   "style": "gac_SM_Building_14",
+   "tear_scope": {
+    "main": {
+     "sides": [
+      "N",
+      "S"
+     ],
+     "storeys": [
+      48
+     ]
+    }
+   },
+   "tears": [
+    {
+     "classes": [
+      "below"
+     ],
+     "cuts": [
+      {
+       "amp": 0.55,
+       "cls": "below",
+       "kind": "z",
+       "line": 189.40968917614003,
+       "loose_above": true,
+       "pen": 2.2195121443377475
+      }
+     ],
+     "dropped": false,
+     "mass": "main",
+     "path": "/World/bake/g18/pieces/wall_N_0_48_0432",
+     "side": "N",
+     "storey": 47
+    },
+    {
+     "classes": [
+      "below"
+     ],
+     "cuts": [
+      {
+       "amp": 0.55,
+       "cls": "below",
+       "kind": "z",
+       "line": 189.30496800779432,
+       "loose_above": true,
+       "pen": 2.324233312683462
+      }
+     ],
+     "dropped": false,
+     "mass": "main",
+     "path": "/World/bake/g18/pieces/wall_S_0_48_0431",
+     "side": "S",
+     "storey": 47
+    },
+    {
+     "classes": [
+      "below"
+     ],
+     "cuts": [
+      {
+       "amp": 0.45353576671293955,
+       "cls": "below",
+       "kind": "z",
+       "line": 188.2220014604091,
+       "loose_above": true,
+       "pen": 1.3339287256262926
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g18/pieces/core_x_0_47_0426",
+     "side": "S",
+     "storey": 47
+    }
+   ]
+  }
+ },
+ "rehome": {
+  "failed": 0,
+  "needed": 10,
+  "pruned": 0,
+  "rebound": 2070,
+  "rehomed": 10
+ },
+ "root": "/World/bake",
+ "schema": 1,
+ "seed": 565,
+ "settle": {
+  "airborne_off": 73,
+  "baked": 217,
+  "below_grade": 0,
+  "bodies": 217,
+  "clamped": 0,
+  "converged": false,
+  "deactivated": 10,
+  "moved_max": 177.35792414200037,
+  "moved_mean": 8.815110394258257,
+  "quiet_used": 200,
+  "rescued": 0,
+  "solve_s": 59.04897665977478,
+  "spread_max": 3.31895007219123,
+  "steps_cap": 7200,
+  "steps_used": 1600,
+  "still_moving": 10,
+  "still_moving_paths": [
+   "/World/bake/g18/brk_g18_wall_N_0_48_0432/frag_037",
+   "/World/bake/g18/brk_g18_wall_N_0_48_0432/frag_038",
+   "/World/bake/g18/brk_g18_wall_S_0_48_0431/frag_027",
+   "/World/bake/g18/brk_g18_wall_S_0_48_0431/frag_028",
+   "/World/bake/g18/brk_g18_wall_S_0_48_0431/frag_029",
+   "/World/bake/g18/brk_g18_wall_S_0_48_0431/frag_035",
+   "/World/bake/g18/brk_g18_wall_S_0_48_0431/frag_038",
+   "/World/bake/g18/brk_g18_wall_S_0_48_0431/frag_039",
+   "/World/bake/g18/brk_g18_wall_S_0_48_0431/frag_040",
+   "/World/bake/g18/brk_g18_wall_S_0_48_0431/frag_042"
+  ],
+  "stop_reason": "stalled"
+ },
+ "src_kept": false,
+ "tag": "g18",
+ "timings": {
+  "build_s": 244.8,
+  "export_s": 10.8,
+  "settle_s": 68.6,
+  "total_s": 375.3
+ },
+ "top_z": 197.23409393891168,
+ "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_14_DG3_s565.usd"
+}

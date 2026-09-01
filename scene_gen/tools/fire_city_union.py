@@ -408,13 +408,36 @@ def rebalance_severity(records, dump_path, target, min_side_score=0.0):
          faces a STREET so the collapse photographs from the drone."
          A record already promoted to F6 in this same call is never also
          eligible for the F5c pass (`level not in ("F5c", "F6")`).
-      2. F5 CEILING: any excess over `target["F5"]` (after pass 1's F5
+      2. F6 THEN F5c CEILING (2026-09-01 addition -- see below): any excess
+         over `target["F6"]` / `target["F5c"]` LEFT OVER after pass 1's own
+         gain gets a chance to consume it (gain only ever ADDS when `want`
+         exceeds what is already present; it never trims the other
+         direction, so a target BELOW the union's own natural count -- e.g.
+         "no F6 at this level, ever" -- would otherwise silently do
+         nothing) demotes straight to `"F3"`, same rule and same reasoning
+         as pass 3 below, oldest-kept / youngest-demoted. F6 first, then
+         F5c, so a caller that wants "F6 reserved for the next level up,
+         F5c capped at a small absolute count" (baseline Level 2's own
+         profile) gets both halves of that enforced, not just whichever the
+         gain pass happened to touch.
+      3. F5 CEILING: any excess over `target["F5"]` (after passes 1-2's own
          outflow) demotes to `"F3"`, oldest-kept / youngest-demoted (`age_s`
          ASCENDING within the excess pool) -- the youngest F5 in the excess
          is the one closest to the F3/F4 boundary already, so relabelling it
          F3 is the smallest physical stretch.
-      3. F4 CEILING: same rule, on whatever is still `"F4"` after pass 1 may
-         have pulled some of it into F5c/F6.
+      4. F4 CEILING: same rule, on whatever is still `"F4"` after passes 1-2
+         may have pulled some of it into F5c/F6.
+
+    THE 2026-09-01 F6/F5c CEILING (pass 2) exists because a target BELOW the
+    union's natural count is not a hypothetical: baseline Level 2's own
+    profile (`PROFILES["baseline_l2"]`, `tools/fire_city_union.py`) asks for
+    `F6: 0` on a union whose solve-time `roof_collapse_max` budget (shared
+    across F5c+F6 together) had already let one F6 through naturally --
+    without this pass the F6 count silently stayed at 1, `--severity-target`
+    reporting a target of 0 that plainly was not met. Caught by `apply_
+    profile`'s own baseline_l2 sweep against `fc_dump_500.json`, not by a
+    unit test written first -- see `test_fire_city_union.py`'s own
+    regression test for the fixed shape.
 
     A demotion ALWAYS lands on `"F3"`, never `"F2"` -- `fire_city_dry_run.
     check_entry_points` requires F3+ to vent 2-3 sides and F1/F2 to vent
@@ -480,7 +503,23 @@ def rebalance_severity(records, dump_path, target, min_side_score=0.0):
                 move(r, goal)
                 need -= 1
 
-    # --- pass 2/3: F5 then F4 ceiling, excess -> F3 -------------------------
+    # --- pass 2: F6 then F5c ceiling, excess -> F3 (2026-09-01) ------------
+    # what pass 1's gain never covers: a target BELOW what is already
+    # present. Same rule as pass 3/4 below (oldest-kept/youngest-demoted,
+    # straight to F3) -- see the docstring's own "2026-09-01" note.
+    for level in ("F6", "F5c"):
+        want = target.get(level)
+        if want is None:
+            continue
+        have = [r for r in records if r["level"] == level]
+        excess = len(have) - want
+        if excess <= 0:
+            continue
+        pool = sorted(have, key=lambda r: (r.get("age_s") or 0.0))
+        for r in pool[:excess]:
+            move(r, "F3")
+
+    # --- pass 3/4: F5 then F4 ceiling, excess -> F3 -------------------------
     for level in ("F5", "F4"):
         want = target.get(level)
         if want is None:
@@ -1224,6 +1263,255 @@ def build_union(dump_path, seeds, n=40, collapse=1, roof_collapse_max=2,
 
 
 # ---------------------------------------------------------------------------
+# Stage 6: BASELINE LEVEL PROFILES -- `--profile baseline_l1|l2|l3`
+#
+# `scene_gen/_plans/baseline_fire_ladder.md` is the design doc this table
+# implements; read it first for the one-line justification behind every
+# number here. Every profile is DUMP-PARAMETERIZED: `burn_frac` is a SHARE of
+# THIS dump's own `census()` burnable-candidate count (not a fixed absolute
+# `--n`), and `severity_frac` is a SHARE of the union's own TRUE `n_achieved`
+# AFTER solving (not the requested `--n`, which a footprint-overlap firebreak
+# or an under-reaching seed combination can leave short of) -- so the same
+# profile name produces a correctly-scaled manifest whether it runs against
+# the 500 m stand-in (`fc_dump_500.json`, ~79 burnable candidates today) or a
+# real 1 km dump (~4x the building stock, per the freeze-disaster-dataset
+# skill's own scaling note). See `resolve_severity_target` / `apply_profile`.
+# ---------------------------------------------------------------------------
+PROFILES = {
+    "baseline_l1": {
+        "label": "Level 1 -- early / contained",
+        "burn_frac": 0.12,
+        "collapse": 0,               # per-seed F5c enforcement target fed to
+                                     # `fire_city_dry_run._enforce_target_f5c`
+        "roof_collapse_max": 0,      # NO F5c/F6 anywhere in the union
+        "severity_frac": {
+            "F4": 0.15,               # a small burnt-out tail only
+            "F5": "origin_only",      # exactly 1 -- `check_level_
+                                      # distribution` REQUIRES the origin at
+                                      # F5+ for every level, "contained" or
+                                      # not; this is that one mandatory record
+            "F5c": 0.0, "F6": 0.0,    # no roof loss at all
+        },
+    },
+    "baseline_l2": {
+        "label": "Level 2 -- established multi-block fire (today's mix)",
+        "burn_frac": 0.26,
+        "collapse": 1,
+        "roof_collapse_max": 2,       # today's ROOF_COLLAPSE_MAX_DEFAULT
+        # "2-3 clusters" (module docstring's own "CONCENTRATION, NOT JUST
+        # COUNT" metric) needs the PER-SEED reach capped well below
+        # n_target, or the first (largest) auto candidate alone already
+        # satisfies target_pref and auto_select_seeds never looks for a
+        # second seed at all -- measured on fc_dump_500.json: at
+        # per_seed_n == n_target, seed 0 alone reached all 21 in ONE
+        # component; at 0.6x, no single seed's own solve can reach
+        # target_pref, so >=2 seeds -- genuinely separate ignition points --
+        # are required to hit it. See `apply_profile`'s own `per_seed_n`.
+        "per_seed_n_frac": 0.6,
+        "severity_frac": {
+            "F4": 0.28,                # matches the measured 39-record mix
+            "collapse_visible": 0.18,  # F5+F5c+F6 combined share
+            "F5c": 2, "F6": 0,         # "1-2 partial collapses" is a narrow,
+                                       # SCALE-INDEPENDENT ask -- an absolute
+                                       # count, not a fraction of n_achieved;
+                                       # F5 absorbs the rest of the 18%
+        },
+    },
+    "baseline_l3": {
+        "label": "Level 3 -- severe conflagration",
+        "burn_frac": 0.38,
+        "collapse": 2,
+        "roof_collapse_max": None,     # computed -- see profile_roof_collapse_max
+        "severity_frac": {
+            "F4": 0.35,                 # a bigger burnt-out core than L2
+            "collapse_visible": 0.28,   # still a MINORITY of the union
+            "F5c": 0.14, "F6": 0.05,    # both proper shares now, not a
+                                        # fixed absolute count -- F5 takes
+                                        # the remaining 0.09 of the 0.28
+        },
+    },
+}
+
+
+def resolve_severity_target(spec, n_achieved):
+    """One `PROFILES[...]["severity_frac"]` dict -> the absolute `{level:
+    count}` dict `rebalance_severity`'s own `target` parameter wants,
+    resolved against `n_achieved` (the union's TRUE achieved record count).
+    Every value in `spec` is one of:
+
+      `"origin_only"`   -> 1 -- the one record `check_level_distribution`
+                           always requires at F5+ (see `PROFILES["baseline_
+                           l1"]`'s own comment).
+      an `int`          -> an ABSOLUTE count, independent of `n_achieved` --
+                           the "1-2 partial collapses" ask is narrow and
+                           scale-independent, not a fraction that would grow
+                           with plate size.
+      a `float`         -> `round(v * n_achieved)`, a SHARE of the union.
+
+    `spec["collapse_visible"]`, if present, is the F5+F5c+F6 TOTAL share;
+    F5's own count is back-derived as `collapse_visible - F5c - F6`, floored
+    at 1 so the mandatory origin record always survives even when F5c+F6
+    alone would already meet or exceed the total (a small, deliberately
+    generous edge case -- `rebalance_severity`'s own F5-ceiling pass, given a
+    target below what is actually present, only ever moves the YOUNGEST
+    excess to F3, and the origin is always the union's OLDEST record by
+    construction, so it is never at risk from that pass either way)."""
+    def _one(v, default=0):
+        if v is None:
+            v = default
+        if v == "origin_only":
+            return 1
+        if isinstance(v, bool):
+            raise TypeError(f"severity_frac value {v!r} is a bool, not an "
+                            f"int or float")
+        if isinstance(v, int):
+            return v
+        return int(round(float(v) * n_achieved))
+
+    f4 = _one(spec.get("F4", 0.0))
+    f5c = _one(spec.get("F5c", 0))
+    f6 = _one(spec.get("F6", 0))
+    if "collapse_visible" in spec:
+        cv = _one(spec["collapse_visible"])
+        f5 = max(1, cv - f5c - f6)
+    else:
+        f5 = _one(spec.get("F5", 1))
+    return {"F4": f4, "F5": f5, "F5c": f5c, "F6": f6}
+
+
+def profile_roof_collapse_max(profile, n_target):
+    """The `roof_collapse_max` handed to `build_union`'s OWN solve-time
+    share budget for a `--profile` run. This only needs to land in the
+    right BALLPARK, never the exact final count: `rebalance_severity`, run
+    AFTER the union (see `apply_profile`), is what actually lands the
+    precise F5c/F6 count `severity_frac` asks for, and it has no F5c/F6
+    CEILING pass (only a GAIN one -- see its own docstring's three-pass
+    list) -- so this cap's real job is to stop the union stage ITSELF from
+    overshooting the target before rebalancing ever runs, not to compute
+    the target exactly. Resolved against `n_target` (the requested `--n`,
+    not yet the true `n_achieved` -- this function runs BEFORE the solve)."""
+    explicit = profile.get("roof_collapse_max")
+    if explicit is not None:
+        return int(explicit)
+    target = resolve_severity_target(profile["severity_frac"], n_target)
+    return target["F5c"] + target["F6"]
+
+
+def apply_profile(dump_path, profile_name, seeds=None, sweep_max=500,
+                  seed_start=0, adjacency_m=25.0, max_iters=8,
+                  min_side_score=0.0, note_extra=""):
+    """The whole `--profile` pipeline for one baseline level: dump-
+    parameterize `PROFILES[profile_name]` against THIS dump's own
+    `census()`, solve (an explicit `seeds` list, or an `--auto`-style search
+    via `auto_select_seeds` when `seeds` is `None`), then reshape the result
+    toward the profile's own `severity_frac` table with `rebalance_severity`.
+    See `scene_gen/_plans/baseline_fire_ladder.md` for the design this
+    implements.
+
+    Returns `(union, metrics, per_seed, checks, det_ok, det_detail, profile,
+    severity_target, diff)` -- the same 6-tuple `build_union` returns (all
+    six recomputed AFTER the rebalance, so a caller never sees the pre-
+    rebalance numbers), plus the resolved profile dict, the resolved
+    absolute severity target, and `rebalance_severity`'s own diff list."""
+    profile = PROFILES[profile_name]
+    overall_census, _per_block = census(dump_path)
+    n_burnable = overall_census["n_burnable"]
+    n_target = max(3, int(round(profile["burn_frac"] * n_burnable)))
+    per_seed_n = max(3, int(round(n_target * profile.get("per_seed_n_frac", 1.0))))
+    roof_max = profile_roof_collapse_max(profile, n_target)
+    collapse = int(profile.get("collapse", 1))
+
+    auto_notes = []
+    if seeds is None:
+        target_min = max(3, int(round(n_target * 0.8)))
+        target_pref = n_target
+        seeds, auto_notes = auto_select_seeds(
+            dump_path, sweep_max=sweep_max, n=per_seed_n, collapse=collapse,
+            roof_collapse_max=roof_max, target_min=target_min,
+            target_pref=target_pref, adjacency_m=adjacency_m,
+            seed_start=seed_start)
+        for note in auto_notes:
+            print(f"[fire_city_union] profile {profile_name} auto: {note}")
+
+    profile_note = (
+        f"profile={profile_name} ({profile['label']}) burn_frac="
+        f"{profile['burn_frac']:.2f} of {n_burnable} burnable candidates "
+        f"-> n_target={n_target}, per_seed_n={per_seed_n}, solve-time "
+        f"roof_collapse_max={roof_max}, "
+        f"collapse={collapse}.{(' ' + note_extra) if note_extra else ''}")
+
+    union, _metrics0, per_seed, _checks0, _det_ok0, _det_detail0 = build_union(
+        dump_path, seeds, n=per_seed_n, collapse=collapse,
+        roof_collapse_max=roof_max, adjacency_m=adjacency_m,
+        max_iters=max_iters, note_extra=profile_note)
+
+    n_achieved = union["n_achieved"]
+    severity_target = resolve_severity_target(profile["severity_frac"], n_achieved)
+    diff = rebalance_severity(union["records"], dump_path, severity_target,
+                              min_side_score=min_side_score)
+    union["records"].sort(key=lambda r: r["i"])
+
+    from disaster import urban_fire_spread as ufs
+    union["roof_outcome_count"] = sum(1 for r in union["records"]
+                                      if r["level"] in ufs.ROOF_LEVELS)
+    union["profile"] = profile_name
+    union["severity_target"] = severity_target
+    union["note"] = (union["note"] + " rebalance_severity target={0}, "
+                     "{1} record(s) relevelled.".format(severity_target, len(diff)))
+
+    checks = fdr.run_all_checks(union)
+    metrics = {
+        "concentration": concentration_metrics(union["records"], adjacency_m=adjacency_m),
+        "street_facing": street_facing_metrics(dump_path, union["records"]),
+        "street_facing_audit": street_facing_audit(dump_path, union["records"]),
+        "histograms": histograms(union["records"]),
+    }
+
+    def _run_fn(_s):
+        u2, _m2, _ps2, _c2, _d2, _dd2 = build_union(
+            dump_path, seeds, n=per_seed_n, collapse=collapse,
+            roof_collapse_max=roof_max, adjacency_m=adjacency_m,
+            max_iters=max_iters, note_extra=profile_note)
+        rebalance_severity(u2["records"], dump_path, severity_target,
+                           min_side_score=min_side_score)
+        u2["records"].sort(key=lambda r: r["i"])
+        return {"records": u2["records"], "refused": u2["refused"]}
+
+    det_ok, det_detail = fdr.check_determinism(int(seeds[0]), _run_fn)
+
+    return (union, metrics, per_seed, checks, det_ok, det_detail, profile,
+           severity_target, diff)
+
+
+def _parse_severity_spec(s):
+    """`"F4:11,F5c:4,F6:1,collapse_visible:0.18"` -> a `severity_frac`-shaped
+    dict `resolve_severity_target` accepts -- the CLI form of one
+    `PROFILES[...]["severity_frac"]` entry, for `--severity-target` used
+    standalone (no `--profile`) or as an explicit override on top of one.
+    A value that parses as `int` is kept absolute; otherwise it is parsed as
+    `float` (a fraction of `n_achieved`); the literal string `origin_only`
+    is kept verbatim (only meaningful for the `F5` key)."""
+    spec = {}
+    for part in s.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if ":" not in part:
+            raise ValueError(f"--severity-target entry {part!r} is not "
+                             f"'key:value'")
+        k, v = part.split(":", 1)
+        k, v = k.strip(), v.strip()
+        if v == "origin_only":
+            spec[k] = v
+            continue
+        try:
+            spec[k] = int(v)
+        except ValueError:
+            spec[k] = float(v)
+    return spec
+
+
+# ---------------------------------------------------------------------------
 # Markdown report
 # ---------------------------------------------------------------------------
 def _format_markdown(dump_path, union, metrics, per_seed, checks, det_ok,
@@ -1432,6 +1720,30 @@ def main():
                     default=TOWER_BONUS_H_COEF_DEFAULT,
                     help="build_subset: centroid-distance discount (metres) "
                          "per metre of height for a tower/highrise record")
+    ap.add_argument("--profile", choices=sorted(PROFILES.keys()), default=None,
+                    help="baseline intensity-ladder profile (see "
+                         "scene_gen/_plans/baseline_fire_ladder.md and this "
+                         "module's own PROFILES table) -- computes --n / "
+                         "solve-time --roof-collapse-max / --collapse and a "
+                         "rebalance_severity target from THIS dump's own "
+                         "census(), dump-parameterized so the same profile "
+                         "name scales correctly from the 500 m stand-in to a "
+                         "real 1 km dump. --seeds still selects an explicit "
+                         "seed combination if given; otherwise seeds are "
+                         "found the same way --auto does (--sweep-max/"
+                         "--seed-start still apply). --n/--collapse/--roof-"
+                         "collapse-max are IGNORED when --profile is given "
+                         "(the profile computes its own) -- use --severity-"
+                         "target on top for a one-off shaping override.")
+    ap.add_argument("--severity-target", default=None,
+                    help="rebalance_severity target as 'KEY:VALUE,...', e.g. "
+                         "'F4:11,F5c:4,F6:1,collapse_visible:0.18' -- an int "
+                         "value is an ABSOLUTE count, a float is a SHARE of "
+                         "the union's n_achieved, and 'origin_only' (F5 "
+                         "only) means exactly 1. Applied AFTER the union/"
+                         "budget steps (and after --profile's own shaping, "
+                         "if given, as an additional pass on top) -- see "
+                         "resolve_severity_target / _parse_severity_spec.")
     args = ap.parse_args()
 
     overall_census, per_block_census = census(args.dump)
@@ -1461,24 +1773,92 @@ def main():
                 args.dump, before_union.get("records") or []),
         }
 
-    if args.auto:
-        seeds, notes = auto_select_seeds(
-            args.dump, sweep_max=args.sweep_max, n=args.n,
-            collapse=args.collapse, roof_collapse_max=args.roof_collapse_max,
-            target_min=args.target_min, target_pref=args.target_pref,
-            adjacency_m=args.adjacency_m, seed_start=args.seed_start)
-        for note in notes:
-            print(f"[fire_city_union] auto: {note}")
+    if args.profile:
+        seeds_explicit = None
+        if args.seeds:
+            seeds_explicit = [int(s) for s in args.seeds.split(",")
+                              if s.strip() != ""]
+        (union, metrics, per_seed, checks, det_ok, det_detail, _profile,
+         severity_target, sev_diff) = apply_profile(
+            args.dump, args.profile, seeds=seeds_explicit,
+            sweep_max=args.sweep_max, seed_start=args.seed_start,
+            adjacency_m=args.adjacency_m, max_iters=args.max_iters,
+            note_extra=args.note_extra)
+        seeds = union["seeds"]
+        print(f"[fire_city_union] profile {args.profile}: severity_target="
+             f"{severity_target}, {len(sev_diff)} record(s) relevelled by "
+             f"rebalance_severity")
     else:
-        if not args.seeds:
-            ap.error("--seeds is required unless --auto is given")
-        seeds = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
+        if args.auto:
+            seeds, notes = auto_select_seeds(
+                args.dump, sweep_max=args.sweep_max, n=args.n,
+                collapse=args.collapse, roof_collapse_max=args.roof_collapse_max,
+                target_min=args.target_min, target_pref=args.target_pref,
+                adjacency_m=args.adjacency_m, seed_start=args.seed_start)
+            for note in notes:
+                print(f"[fire_city_union] auto: {note}")
+        else:
+            if not args.seeds:
+                ap.error("--seeds is required unless --auto or --profile is given")
+            seeds = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
 
-    union, metrics, per_seed, checks, det_ok, det_detail = build_union(
-        args.dump, seeds, n=args.n, collapse=args.collapse,
-        roof_collapse_max=args.roof_collapse_max,
-        adjacency_m=args.adjacency_m, max_iters=args.max_iters,
-        note_extra=args.note_extra)
+        union, metrics, per_seed, checks, det_ok, det_detail = build_union(
+            args.dump, seeds, n=args.n, collapse=args.collapse,
+            roof_collapse_max=args.roof_collapse_max,
+            adjacency_m=args.adjacency_m, max_iters=args.max_iters,
+            note_extra=args.note_extra)
+
+    if args.severity_target:
+        # standalone (no --profile), or an additional shaping pass ON TOP OF
+        # the profile's own target -- see the flag's own help text. Both
+        # `rebalance_severity` passes are individually deterministic (no
+        # unseeded random() call -- its own docstring), so the composition
+        # is deterministic by construction; re-verified below cheaply, on a
+        # SNAPSHOT of the records from just before this override (never by
+        # re-running the whole solve again) -- the solve side already got
+        # its own full `check_determinism` pass, inside `build_union`/
+        # `apply_profile` above, before this override was ever applied.
+        # Redoing THAT pass here too (an early version of this code did,
+        # via a closure that called `apply_profile` again) multiplies an
+        # already-expensive `--auto` search by another 3x for no extra
+        # coverage -- `check_determinism` itself already calls `run_fn`
+        # three times, so a `run_fn` that redoes the full pipeline burns a
+        # ~90 s `--profile` search NINE times for one `--severity-target`
+        # invocation.
+        import copy as _copy
+        pre_override_records = _copy.deepcopy(union["records"])
+        pre_override_refused = union["refused"]
+
+        spec = _parse_severity_spec(args.severity_target)
+        n_achieved = union["n_achieved"]
+        extra_target = resolve_severity_target(spec, n_achieved)
+        extra_diff = rebalance_severity(union["records"], args.dump,
+                                        extra_target, min_side_score=0.0)
+        union["records"].sort(key=lambda r: r["i"])
+        from disaster import urban_fire_spread as ufs
+        union["roof_outcome_count"] = sum(
+            1 for r in union["records"] if r["level"] in ufs.ROOF_LEVELS)
+        union["note"] = (union["note"] + " --severity-target override "
+                         "{0}, {1} record(s) relevelled.".format(
+                             extra_target, len(extra_diff)))
+        print(f"[fire_city_union] --severity-target override: "
+             f"{extra_target}, {len(extra_diff)} record(s) relevelled")
+
+        checks = fdr.run_all_checks(union)
+        metrics = {
+            "concentration": concentration_metrics(union["records"], adjacency_m=args.adjacency_m),
+            "street_facing": street_facing_metrics(args.dump, union["records"]),
+            "street_facing_audit": street_facing_audit(args.dump, union["records"]),
+            "histograms": histograms(union["records"]),
+        }
+
+        def _run_fn_sev(_s):
+            recs2 = _copy.deepcopy(pre_override_records)
+            rebalance_severity(recs2, args.dump, extra_target, min_side_score=0.0)
+            recs2.sort(key=lambda r: r["i"])
+            return {"records": recs2, "refused": pre_override_refused}
+
+        det_ok, det_detail = fdr.check_determinism(int(seeds[0]), _run_fn_sev)
 
     out_json = args.out or os.path.join(
         _SCENE_GEN_DIR, "_plans",

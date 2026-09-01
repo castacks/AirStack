@@ -1404,6 +1404,20 @@ def main():
                 _frz.report(_fi)
                 with open(os.path.join(_out, "freeze_report.json"), "w") as _f:
                     _json.dump(_fi, _f, indent=1)
+            except _frz.PortabilityError as _exc:
+                # The portability gate fired -- nothing ships, but `_exc.info`
+                # is the REAL, complete `verify()` result `_enforce_portable`
+                # already computed; write it so freeze_report.json shows WHY
+                # rather than landing empty or with portable_ok as None.
+                print("[tornado] EXPORT FAILED (portability gate): {0}"
+                      .format(_exc))
+                try:
+                    with open(os.path.join(_out, "freeze_report.json"),
+                             "w") as _f:
+                        _json.dump(_exc.info, _f, indent=1)
+                except Exception as _exc2:                        # noqa: BLE001
+                    print("[tornado] *** could not even write the failure "
+                          "report: {0}".format(_exc2))
             except Exception as _exc:
                 import traceback
                 print("[tornado] EXPORT FAILED: {0}".format(_exc))

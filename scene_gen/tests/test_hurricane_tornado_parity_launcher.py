@@ -115,10 +115,27 @@ def test_swept_override_reads_house_water_state_first():
     # (within the next few lines, allowing for explanatory comments).
     tail = src[m.end():m.end() + 400]
     assert re.search(r'\blevel = "swept"', tail), tail
-    # And the non-swept branch must call the NEW six-level function, not the
-    # old 8-level `house_level_for_intensity`.
-    assert "hu.tornado_level_for_intensity(it, drng, vuln=vuln)" in src
-    assert "hu.house_level_for_intensity(it, drng, vuln=vuln)" not in src
+    # THE LADDER ASSERTION IS INVERTED, 2026-09-01, on the user's
+    # instruction ("make this ladder for hurricane too").
+    #
+    # This file was written for STREAM S (2026-08-31), which switched the
+    # hurricane onto the tornado's SIX-level vocabulary on the doctrine that
+    # "tornado and hurricane are both largely wind damage". That holds at
+    # the top of the range and fails at the bottom: the six-level ladder has
+    # no CLADDING rung, so at the dataset's level-1 gust (38 m/s) its only
+    # way to show damage is to jump a house straight to `roof_stripped` —
+    # the whole covering gone. Replayed on level 1's own intensity field it
+    # gave 86.8% pristine / 13.2% roof_stripped, against the eight-level
+    # ladder's 79.2% pristine / 20.8% shingles_lost. The dataset specifies
+    # level 1 as "cladding only", so the six-level vocabulary cannot express
+    # the cell at all.
+    #
+    # The REST of this file is untouched and still load-bearing: the swept
+    # override, `house_water_state` as the sole source of `swept`, the
+    # archetype key format and the row-recolour truth table are all still
+    # the tornado's and are all still asserted. Only the ladder moved.
+    assert "hu.house_level_for_intensity(it, drng, vuln=vuln)" in src
+    assert "hu.tornado_level_for_intensity(it, drng, vuln=vuln)" not in src
 
 
 def test_house_water_state_is_the_sole_source_of_swept():

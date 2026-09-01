@@ -107,6 +107,19 @@ DEFAULTS = {
     "wobble_m": 22.0,
     "wobble_period_m": 340.0,
 
+    # A GENTLE ARC ON TOP OF THE WOBBLE. Real tracks curve as well as
+    # meander — the parent low pressure system steers the vortex along a
+    # slowly turning heading over a km-scale window, which the two-harmonic
+    # wobble above (a drift about a fixed heading) does not reach on its own.
+    # Degrees of heading change per kilometre of `along`, + = the track turns
+    # LEFT of travel as `along` increases. 0.0 is the default because every
+    # existing scene was built and reviewed on a straight-plus-wobble track;
+    # this is additive so nothing already shipped moves. Implemented inside
+    # `_wobble` as another `along`-only lateral offset, so `frame`'s
+    # `to_track` and `from_track` stay EXACT inverses of each other — see
+    # `_wobble`'s docstring for why that matters.
+    "curvature_deg_per_km": 0.0,
+
     # AND IT BREATHES. Width and intensity both vary along the track, out of
     # phase, so the corridor pinches and widens and there are weak stretches
     # where a house survives inside it. Real tracks are documented this way —
@@ -114,6 +127,24 @@ DEFAULTS = {
     "along_min": 0.55,
     "along_period_m": 460.0,
     "width_min": 0.70,
+
+    # A FINITE TRACK. `None` (both) is the default and means what it always
+    # meant: the track spans the whole plate, `along` never gates anything.
+    # Set BOTH to put a touchdown and a liftoff on the plate — `along_m`
+    # coordinates relative to `origin_m`, in the direction `heading_deg`
+    # points. Between them the field ramps up from 0 over `ramp_m` after
+    # `touchdown_m` and ropes out — width AND intensity taper together —
+    # over the `ramp_m` before `liftoff_m`. Outside `[touchdown_m,
+    # liftoff_m]` the field is EXACTLY 0, not asymptotically small: a track
+    # that touched down mid-scene should leave houses behind it genuinely
+    # untouched, not lightly grazed by a long tail.
+    "touchdown_m": None,
+    "liftoff_m": None,
+    # How long the ramp-up / rope-out takes, in metres of `along`. 120 m is
+    # about a third of a weak tornado's own width — long enough to read as a
+    # spin-up rather than a light switch, short enough that most of a short
+    # track is still at full strength.
+    "ramp_m": 120.0,
 
     # Peak intensity on the centreline at the strongest point, 0..1, as an EF
     # proxy: ~0.35 = EF1, ~0.55 = EF2, ~0.75 = EF3, ~0.90 = EF4, 1.0 = EF5.
@@ -130,6 +161,39 @@ DEFAULTS = {
     "curl_deg": 20.0,
     "spread_deg": 34.0,
     "throw_m": 26.0,
+
+    # `wind_at`'s NEAR-SURFACE WIND MODEL (plan `urban_tornado_plan.md`
+    # 2.4) — the tangential/translation/inflow mix, Karstens et al. 2013 /
+    # Beck & Dotzek 2010. New knobs, no existing caller reads `wind_at` yet,
+    # so these are free to retune; a later research pass may move them.
+    #
+    # Share of the vortex's own translational motion in the total wind,
+    # relative to `peak`. 1/Gmax, where Gmax is the ratio of peak tangential
+    # speed to translation speed: NIST's own Rankine-vortex fit to the Joplin
+    # tree-fall field (NCSTAR 3, 2014) gives Gmax 4.5-5.0 -> 0.20-0.22; a
+    # five-tornado cross-check spans 0.15-0.67 (weak, fast movers at the top).
+    # 0.22 is the violent-tornado end, which is the regime an urban EF3-5
+    # core scene represents. See `.agents/skills/model-tornado-paths`.
+    "translation_frac": 0.22,
+    # Share of the tangential magnitude that becomes convergent inflow
+    # toward the centreline. THE NEAR-SURFACE FLOW IS MOSTLY RADIAL: NIST's
+    # Joplin fit has alpha = 15-25 deg (0 = radial, 90 = tangential) below
+    # 20 m AGL, i.e. inflow 2-3.7x the tangential component, and Karstens et
+    # al. 2013's independent tree-fall fit is "on the order of 2:1". But it
+    # is height-dependent — Kosiba & Wurman's DOW boundary-layer work finds
+    # the inflow confined to the lowest 10-14 m and gone by ~30 m AGL — and
+    # `wind_at` is one 2-D value for a whole building, so 0.5 is a deliberate
+    # compromise between the ground floor (~2.0) and a tower's upper storeys
+    # (~0.3), not the empirical value at either. A z-aware `wind_at` is the
+    # follow-up; the anchor numbers are here for it.
+    "inflow_frac": 0.50,
+    # |cross_frac| below which a point is UNDER the vortex core rather than
+    # on one flank: every face was loaded in turn as the core passed over,
+    # so no single bearing is "the" windward one. `None` (the default) ties
+    # it to `core_frac` — the model's own definition of "inside the flat
+    # core" — rather than carrying a second, unvalidated threshold beside a
+    # validated one (no source gives this number directly).
+    "over_frac": None,
 }
 
 
@@ -156,6 +220,39 @@ def _axes(cfg):
             (-math.sin(th), math.cos(th)))       # left of travel
 
 
+# Above this radius (metres) `R - sqrt(R^2 - a^2)` starts subtracting two
+# nearly-equal large numbers and losing precision, so `_curve_offset` switches
+# to the mathematically-equivalent small-angle limit `a^2 / (2R)` instead —
+# see that function. 1e6 m (1000 km) is reached only by a curvature under
+# ~0.006 deg/km, an order below anything a real gentle arc would use.
+_CURVE_HUGE_R_M = 1.0e6
+
+
+def _curve_offset(a, curvature_deg_per_km):
+    """Lateral offset (m, + = left) of a gentle circular arc at `a` metres
+    downtrack, tangent to the heading axis at the origin.
+
+    `curvature_deg_per_km` is degrees of heading turned per kilometre of
+    `along`, so a circle of radius `R` metres turns `1000/R` radians (`=
+    (1000/R) * 180/pi` degrees) over 1 km of arc length — invert that for
+    `R`. The offset of a circular arc from its own tangent line at distance
+    `a` along the tangent is the sagitta `R - sqrt(R^2 - a^2)`, exact for
+    `|a| <= R`; `|a|` is clamped to `R` beyond that (a curvature tight enough
+    for the plate to run past a quarter turn is not a "gentle arc" this
+    module models, and clamping avoids a domain error rather than silently
+    returning something wrong).
+    """
+    c = float(curvature_deg_per_km)
+    R = 1000.0 / (abs(c) * math.pi / 180.0)
+    sign = 1.0 if c > 0.0 else -1.0
+    aa = min(abs(float(a)), R)
+    if R >= _CURVE_HUGE_R_M:
+        mag = aa * aa / (2.0 * R)
+    else:
+        mag = R - math.sqrt(max(0.0, R * R - aa * aa))
+    return sign * mag
+
+
 def _wobble(cfg):
     """`a -> lateral offset of the centreline` at `a` metres downtrack.
 
@@ -165,16 +262,32 @@ def _wobble(cfg):
     decimals would put the authored ground relief a metre off the corridor the
     intensity field actually cut, and nothing in a render says which of the two
     moved.
+
+    `a` IS ALWAYS MEASURED ALONG THE ORIGINAL HEADING AXIS — `frame`'s
+    `to_track` computes it as the dot product against the fixed unit vector
+    `(ux, uy)` before this function ever runs, and `curvature_deg_per_km`
+    below only ever nudges the CROSS coordinate as a function of that `a`.
+    So the combined map (wobble + curvature) is a SHEAR of the plane, not a
+    rotation: a straight line of constant `along` stays a straight line
+    perpendicular to the original heading, it is only ever displaced
+    sideways. That is what keeps `frame`/`from_track` exact inverses of each
+    other with no iteration — see `from_track`'s own docstring for what
+    "shear, not rigid motion" already means for the sinusoidal wobble; a
+    circular arc folded into the same offset function inherits it for free.
     """
     amp = float(cfg.get("wobble_m", 0.0))
     per = max(1e-6, float(cfg.get("wobble_period_m", 340.0)))
+    curvature = float(cfg.get("curvature_deg_per_km", 0.0))
 
     def wobble(a):
-        if amp <= 0.0:
-            return 0.0
-        return amp * (0.62 * math.sin(2.0 * math.pi * a / per)
-                      + 0.38 * math.sin(2.0 * math.pi * a / (per * 0.37)
-                                        + 1.71))
+        out = 0.0
+        if amp > 0.0:
+            out += amp * (0.62 * math.sin(2.0 * math.pi * a / per)
+                          + 0.38 * math.sin(2.0 * math.pi * a / (per * 0.37)
+                                            + 1.71))
+        if curvature != 0.0:
+            out += _curve_offset(a, curvature)
+        return out
 
     return wobble
 
@@ -255,17 +368,87 @@ def _edge_noise(region, rng, n=256, band_m=(30.0, 110.0)):
     return sample
 
 
+def _breathe(a, period, lo, phase):
+    """`lo`..1 along the track, two harmonics, never periodic-looking.
+
+    Module-level (moved out of `intensity_field`'s closure so `wind_at` can
+    read the same local half-width without a second copy of the formula —
+    see `_wobble`'s docstring for why that copy would be worse than useless).
+    It captures nothing from a caller's scope, so hoisting it changes
+    nothing about what it computes.
+    """
+    s = (0.66 * math.sin(2.0 * math.pi * a / period + phase)
+         + 0.34 * math.sin(2.0 * math.pi * a / (period * 0.43)
+                           + phase * 1.9))
+    return lo + (1.0 - lo) * (0.5 + 0.5 * max(-1.0, min(1.0, s)))
+
+
+def _cross_profile(q, core):
+    """The CROSS-TRACK profile: flat across `core` of the half-width, then a
+    smoothstep to zero at the edge (`q` is `|cross| / half_width`, already
+    past any edge noise). Shared by `intensity_field` and `wind_at` — the
+    "vortex core in the middle, shoulders falling off" shape is one formula
+    and both readers of the field have to agree on where its edge is.
+    """
+    if q >= 1.0:
+        return 0.0
+    if q <= core:
+        return 1.0
+    return 1.0 - _smoothstep((q - core) / (1.0 - core))
+
+
+def _in_window(a, touchdown, liftoff):
+    """True unless `a` (metres downtrack) is outside `[touchdown, liftoff]`.
+    Either bound `None` (the default) does not gate at all."""
+    if touchdown is not None and a < touchdown:
+        return False
+    if liftoff is not None and a > liftoff:
+        return False
+    return True
+
+
+def _rope_out_factor(a, liftoff, ramp):
+    """1.0 down to 0.35 over the `ramp` metres before `liftoff` — the WIDTH
+    half of the rope-out. `liftoff` must not be `None`; callers gate that."""
+    into_end = float(liftoff) - float(a)
+    if into_end >= ramp:
+        return 1.0
+    t = max(0.0, into_end) / ramp
+    return 0.35 + 0.65 * _smoothstep(t)
+
+
+def _edge_ramp(a, touchdown, liftoff, ramp):
+    """0..1 multiplier on INTENSITY from the touchdown ramp-up and the
+    liftoff rope-out. 1.0 wherever neither knob's ramp reaches `a`."""
+    m = 1.0
+    if touchdown is not None:
+        since = float(a) - float(touchdown)
+        if since < ramp:
+            m *= _smoothstep(max(0.0, since) / ramp)
+    if liftoff is not None:
+        into_end = float(liftoff) - float(a)
+        if into_end < ramp:
+            m *= _smoothstep(max(0.0, into_end) / ramp)
+    return m
+
+
 def intensity_field(cfg, region, rng):
     """`(x, y) -> 0..1`, the EF proxy every other pass in this scene reads.
 
     1 on the centreline at the track's strongest point, 0 outside the path.
-    Three things shape it:
+    Four things shape it:
 
       * the CROSS-TRACK profile — flat across `core_frac` of the half-width,
         then a smoothstep to zero at the edge;
       * the ALONG-TRACK modulation — width and strength both breathe, out of
         phase, so the corridor pinches and there are weak stretches inside it;
-      * band-limited noise on the EDGE.
+      * band-limited noise on the EDGE;
+      * OPTIONALLY, a finite track: `touchdown_m`/`liftoff_m` (`None` by
+        default, meaning the track spans the whole plate exactly as before)
+        gate `along` to a window and ramp the field up/down across `ramp_m`
+        at each end, ROPING OUT the width as well as the intensity before
+        `liftoff_m` — a weakening vortex's damage path narrows before it
+        lifts, it does not stay full width until it vanishes.
 
     THE NOISE MOVES THE BOUNDARY, IT DOES NOT ADD TO THE VALUE. Writing
     `i * k + (noise - 0.5) * m` is the obvious way to perturb a field and it
@@ -274,6 +457,11 @@ def intensity_field(cfg, region, rng):
     speckled with damage. Here the noise is added to the CROSS-TRACK DISTANCE
     before the profile is evaluated, so it can only move the edge in and out —
     outside the widened path the profile is identically zero.
+
+    `touchdown_m`/`liftoff_m` BOTH `None` (the default) is guarded with
+    plain `if`s rather than folded into the arithmetic unconditionally, so a
+    cfg that never mentions them runs the exact same floating-point
+    operations, in the exact same order, that this function always has.
     """
     to_track, _u, _v = frame(cfg)
     half = max(1e-6, 0.5 * float(cfg["width_m"]))
@@ -285,27 +473,149 @@ def intensity_field(cfg, region, rng):
     noise_m = float(cfg.get("edge_noise_m", 0.0))
     noise = (_edge_noise(region, rng) if noise_m > 0.0
              else (lambda x, y: 0.0))
-
-    def _breathe(a, period, lo, phase):
-        """`lo`..1 along the track, two harmonics, never periodic-looking."""
-        s = (0.66 * math.sin(2.0 * math.pi * a / period + phase)
-             + 0.34 * math.sin(2.0 * math.pi * a / (period * 0.43)
-                               + phase * 1.9))
-        return lo + (1.0 - lo) * (0.5 + 0.5 * max(-1.0, min(1.0, s)))
+    touchdown = cfg.get("touchdown_m")
+    touchdown = None if touchdown is None else float(touchdown)
+    liftoff = cfg.get("liftoff_m")
+    liftoff = None if liftoff is None else float(liftoff)
+    ramp = max(1e-6, float(cfg.get("ramp_m", 120.0)))
 
     def intensity(x, y):
         a, c = to_track(x, y)
-        hw = half * _breathe(a, a_per * 1.31, w_min, 0.0)
-        q = (abs(c) + noise_m * noise(x, y)) / hw
-        if q >= 1.0:
+        if not _in_window(a, touchdown, liftoff):
             return 0.0
-        if q <= core:
-            prof = 1.0
-        else:
-            prof = 1.0 - _smoothstep((q - core) / (1.0 - core))
-        return peak * prof * _breathe(a, a_per, a_min, 2.4)
+        hw = half * _breathe(a, a_per * 1.31, w_min, 0.0)
+        if liftoff is not None:
+            hw *= _rope_out_factor(a, liftoff, ramp)
+        q = (abs(c) + noise_m * noise(x, y)) / hw
+        prof = _cross_profile(q, core)
+        if prof == 0.0:
+            return 0.0
+        val = peak * prof * _breathe(a, a_per, a_min, 2.4)
+        if touchdown is not None or liftoff is not None:
+            val *= _edge_ramp(a, touchdown, liftoff, ramp)
+        return val
 
     return intensity
+
+
+def _local_half_width(cfg, a):
+    """The raw (noiseless) cross-track half-width at `a` metres downtrack —
+    breathing and, if `liftoff_m` is set, the rope-out taper, but NOT the
+    spectral edge noise `intensity_field` adds (that needs a `region` and an
+    `rng`; see `wind_at`'s docstring for why it does not need it either).
+    """
+    half = max(1e-6, 0.5 * float(cfg["width_m"]))
+    w_min = float(cfg.get("width_min", 0.70))
+    a_per = max(1e-6, float(cfg.get("along_period_m", 460.0)))
+    hw = half * _breathe(a, a_per * 1.31, w_min, 0.0)
+    liftoff = cfg.get("liftoff_m")
+    if liftoff is not None:
+        ramp = max(1e-6, float(cfg.get("ramp_m", 120.0)))
+        hw *= _rope_out_factor(a, float(liftoff), ramp)
+    return hw
+
+
+def wind_at(cfg, x, y, region=None, rng=None):
+    """The near-surface wind at one point: `{"bearing_deg", "speed_frac",
+    "cross_frac", "over"}` — plan `urban_tornado_plan.md` 2.4.
+
+    A tornado's near-surface wind is tangential (cyclonic) + translational +
+    a convergent inflow (Karstens et al. 2013's 104k-tree-fall analysis;
+    Beck & Dotzek 2010), not a single bearing pointing at the centreline. In
+    the track frame, with `c` metres LEFT of the centreline and `hw` the
+    local half-width:
+
+        r      = c / hw                        -1..1 across the corridor
+        vt     = the SAME cross-track profile `intensity_field` uses (1 in
+                 the core, smoothstep to 0 at the edge) — `_cross_profile`,
+                 shared rather than re-derived; see that function.
+        t_dir  = -heading_dir if c > 0 (left flank): tangential wind blows
+                 BACKWARD, down-track
+                 +heading_dir if c < 0 (right flank): tangential wind blows
+                 FORWARD, up-track — rotation and translation ADD here,
+                 which is also why `throw_field`'s debris curls left: the
+                 strong flank is the right one.
+        V      = translation_frac * peak       the storm's own motion,
+                                                along +heading_dir, constant
+        inflow = inflow_frac * vt, directed TOWARD the centreline
+                 (`-sign(c) * left_dir`)
+        wind   = vt * t_dir + V * heading_dir + inflow * inward_dir
+
+    Returns `bearing_deg` as the direction the wind BLOWS TOWARD, world
+    frame, MATH CONVENTION (0 = +x, counter-clockwise positive) — the same
+    convention `heading_deg` already uses, so `bearing_deg == heading_deg`
+    is "blowing the way the storm is travelling". `speed_frac` is `|wind| /
+    (1 + V)` clipped to 0..1 (the `1 + V` ceiling is the fastest the model
+    can produce: `vt` and `inflow` maxed at the core, plus the full
+    translation). `cross_frac` is `r`. `over` is `|r| < over_frac` (which
+    defaults to `core_frac` — see DEFAULTS): the
+    vortex core passed OVER this point, so every face of a building there
+    was loaded in turn and no single bearing is "the" windward one.
+
+    OUTSIDE THE CORRIDOR (`vt == 0`) this returns the pure translation
+    direction (`bearing_deg == heading_deg`) with `speed_frac 0.0` and
+    `over False` — there is a storm moving through the region, just not
+    one hitting this point.
+
+    NO EDGE NOISE, ON PURPOSE. `intensity_field`'s spectral edge noise needs
+    a `region` and an `rng` because it perturbs where the corridor boundary
+    falls at map-authoring scale; the urban damage ladder that calls this
+    samples ONE point per building (the footprint centre) and already draws
+    its own per-building intensity jitter before the level lookup (`_ladder`
+    -- house/tree levels do the same). A second, independent wobble here
+    would not change which buildings are near the edge, only add noise this
+    function has no region to evaluate anyway. `region`/`rng` stay as
+    parameters for signature symmetry with `intensity_field`/`scour_coverage`
+    and are otherwise unused.
+
+    Gated by `touchdown_m`/`liftoff_m` exactly like `intensity_field`: a
+    point outside that along-track window is "outside the corridor" here
+    too, so a building past a track's liftoff never gets handed a wind
+    bearing for a storm that has already lifted off.
+    """
+    to_track, (ux, uy), (vx, vy) = frame(cfg)
+    a, c = to_track(float(x), float(y))
+
+    heading_deg = float(cfg["heading_deg"])
+    trans_frac = float(cfg.get("translation_frac", 0.22))
+    peak = float(cfg.get("peak", 0.92))
+    V = trans_frac * peak
+
+    touchdown = cfg.get("touchdown_m")
+    touchdown = None if touchdown is None else float(touchdown)
+    liftoff = cfg.get("liftoff_m")
+    liftoff = None if liftoff is None else float(liftoff)
+
+    hw = _local_half_width(cfg, a)
+    r = c / hw
+    core = min(0.98, max(0.0, float(cfg.get("core_frac", 0.3))))
+    vt = (_cross_profile(abs(r), core)
+          if _in_window(a, touchdown, liftoff) else 0.0)
+
+    if vt <= 0.0:
+        return {"bearing_deg": heading_deg % 360.0, "speed_frac": 0.0,
+                "cross_frac": r, "over": False}
+
+    inflow_frac = float(cfg.get("inflow_frac", 0.50))
+    # `over_frac` None -> `core_frac`: see DEFAULTS. Falls back to the same
+    # `core` this function already clipped for the profile above.
+    over_frac = cfg.get("over_frac")
+    over_frac = core if over_frac is None else float(over_frac)
+
+    sign_c = 1.0 if c > 0.0 else (-1.0 if c < 0.0 else 0.0)
+    tx, ty = -sign_c * ux, -sign_c * uy
+    inflow = inflow_frac * vt
+    ix, iy = -sign_c * vx, -sign_c * vy
+
+    wx = vt * tx + V * ux + inflow * ix
+    wy = vt * ty + V * uy + inflow * iy
+
+    speed = max(0.0, min(1.0, math.hypot(wx, wy) / (1.0 + V)))
+    bearing = math.degrees(math.atan2(wy, wx)) % 360.0
+    over = abs(r) < over_frac
+
+    return {"bearing_deg": bearing, "speed_frac": speed, "cross_frac": r,
+            "over": over}
 
 
 def throw_field(cfg):

@@ -160,10 +160,21 @@ class StubResolver:
                 "cx": 0.0, "cy": 0.0}
 
 
-def build(config_name, seed=None):
+def build(config_name, seed=None, spec_overrides=None):
     """*seed*, when given, overrides the preset's own — so a caller can
     run the same scene many times and get a DISTRIBUTION rather than one
-    roll of the dice. See `tools/asset_fit_audit.py --seeds`."""
+    roll of the dice. See `tools/asset_fit_audit.py --seeds`.
+
+    *spec_overrides* is applied to the RAW loaded spec dict before
+    `compile_spec`, exactly the mechanism `tools/layout_dry_run.py` /
+    `tools/fire_city_dry_run.py` already use for `region_m`/`asset-set`/
+    `disaster-type` (see `compile_disaster.load_scene_config`'s own
+    `spec_overrides` parameter). NEEDED for any `disaster-type: fire` preset
+    (`downtown_fire_500`/`downtown_fire_1500`): `"fire"` is not a compiled
+    disaster type (see those presets' own header comment), so `compile_spec`
+    raises on one unless the caller overrides it to `"none"` for layout
+    purposes the same way `fire_city_dry_run.build_layout` does — this
+    function has no other way to plan such a preset."""
     import random
     from compile_disaster import resolve_config_path, compile_spec, DEFAULT_BASE
     import scene_generator as sg
@@ -171,8 +182,11 @@ def build(config_name, seed=None):
     from detail import districts
 
     path = resolve_config_path(config_name)
-    cfg = compile_spec(yaml.safe_load(open(path)),
-                       yaml.safe_load(open(DEFAULT_BASE)))
+    spec = yaml.safe_load(open(path))
+    if spec_overrides:
+        spec = dict(spec)
+        spec.update(spec_overrides)
+    cfg = compile_spec(spec, yaml.safe_load(open(DEFAULT_BASE)))
     cfg = sg.resolve_asset_set(cfg, path)
     cfg["measure_usds"] = False
     if seed is not None:
@@ -238,7 +252,8 @@ def _model_colour(usd):
     return "#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255))
 
 
-def draw(cfg, layout, placements, res, out_path, title="", by_model=False):
+def draw(cfg, layout, placements, res, out_path, title="", by_model=False,
+        crop_window=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -303,6 +318,18 @@ def draw(cfg, layout, placements, res, out_path, title="", by_model=False):
         ax.add_patch(Rectangle((p["x_m"] - w / 2, p["y_m"] - h / 2), w, h,
                                facecolor=face,
                                edgecolor="#111", lw=0.3, zorder=3))
+
+    if crop_window is not None:
+        # `tools/baseline_layouts.py`'s own draw: the 1 km crop window this
+        # LEVEL will actually solve/export on, over the full 1.5 km plate --
+        # crimson, on top of everything, so it reads at a glance which
+        # districts the window keeps vs cuts. Drawn on the UNCROPPED map;
+        # crop_window.crop_layout's own output is what a caller draws
+        # separately for "after".
+        cwx0, cwy0, cwx1, cwy1 = crop_window
+        ax.add_patch(Rectangle((cwx0, cwy0), cwx1 - cwx0, cwy1 - cwy0,
+                               facecolor="none", edgecolor="#ff2d55",
+                               lw=2.4, ls="--", zorder=10))
 
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
@@ -516,7 +543,7 @@ def _blank_wall_violations(cfg, layout, placements, res, meta_by_usd=None):
     return violations
 
 
-def audit_selftest(config_name):
+def audit_selftest(config_name, seed=None, spec_overrides=None):
     """Prove the blank-wall audit is not vacuous.
 
     `_pack_free`'s facing filter and the audit's own violation count share
@@ -543,7 +570,8 @@ def audit_selftest(config_name):
     real_street_sides = districts._street_sides
     districts._street_sides = lambda *a, **kw: frozenset()
     try:
-        cfg, layout, placements, res = build(config_name)
+        cfg, layout, placements, res = build(config_name, seed=seed,
+                                             spec_overrides=spec_overrides)
     finally:
         districts._street_sides = real_street_sides   # restore before auditing
     violations = _blank_wall_violations(cfg, layout, placements, res)
@@ -564,6 +592,14 @@ def main():
     ap.add_argument("--json", action="store_true",
                     help="also write <out>.json — geometry, not pixels")
     ap.add_argument("--config", default="downtown")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="override the preset's own committed seed")
+    ap.add_argument("--fire-layout", action="store_true",
+                    help="this preset is `disaster-type: fire` (not a "
+                         "compiled disaster type, e.g. downtown_fire_500/"
+                         "downtown_fire_1500) -- override it to 'none' for "
+                         "layout purposes, the same way "
+                         "fire_city_dry_run.build_layout does")
     # Defaults into the repo, not /tmp: a plan is meant to be looked at, and a
     # scratch path nobody can find is the same as not writing one. Gitignored.
     ap.add_argument("--out", default="")
@@ -584,11 +620,13 @@ def main():
         d = os.path.join(_SCENE_GEN, "_plans")
         os.makedirs(d, exist_ok=True)
         a.out = os.path.join(d, f"{a.config}.png")
-    cfg, layout, placements, res = build(a.config)
+    overrides = {"disaster-type": "none"} if a.fire_layout else None
+    cfg, layout, placements, res = build(a.config, seed=a.seed,
+                                         spec_overrides=overrides)
     if a.audit or a.audit_selftest:
         audit(cfg, layout, placements, res)
         if a.audit_selftest:
-            audit_selftest(a.config)
+            audit_selftest(a.config, seed=a.seed, spec_overrides=overrides)
         return
     draw(cfg, layout, placements, res, a.out, title=a.config,
          by_model=a.by_model)

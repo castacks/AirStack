@@ -182,6 +182,30 @@ overrides:
       driveway_asphalt: "airstack://scene_gen/assets/materials/megascans/Wet_Destroyed_Asphalt.usda"
   roads:
     driveway_asphalt_share: 0.5
+    # KILL THE NUCLEUS ROAD-TILE MIX. `suburb_scene.apply_ground` blends the
+    # local wet-asphalt swatch above with `usds.materials.asphalt_road_tile`
+    # (inherited, unset here, from `shared.yaml`: the Muyang ModularNeighbor-
+    # hood `Road_01_Inst.usd`, a Nucleus asset) at `road_tile_share` of the
+    # road network — 0.5 by default. That material is neither wet nor
+    # damaged, so half the roads on this "hours after landfall" plate were
+    # shipping dry, undamaged pavement. Pin the share to 0 so every road
+    # segment falls through to `asphalt` (Wet_Destroyed_Asphalt) instead —
+    # the ONLY change from the shared default; `asphalt_road_tile` itself is
+    # left alone since it is still what tornado/fire/quake ask for.
+    road_tile_share: 0.0
+    # ONE STRETCHED IMAGE PER ROAD SEGMENT, not a repeating tile. The wet-
+    # asphalt material's own `texture_scale=(0.28, 0.28)` plus world-space
+    # `project_uvw` (see the .usda) repeats the image every ~3.6 m regardless
+    # of a road's own UVs, which reads as an obvious grid from altitude on a
+    # street that can run hundreds of metres. `single_stretch` swaps each
+    # road ribbon onto a dedicated stretch-mode material (`project_uvw` off,
+    # `texture_scale` (1,1)) with `st` normalised 0..1 across that ribbon's
+    # own length, so the image is placed once, scaled to the segment, the
+    # same way a single ground/overlay sheet is placed rather than tiled.
+    # Opt-in and hurricane-only: default False leaves every other preset's
+    # road UVs byte-identical (see `test_hurricane_asphalt.py`'s tornado
+    # non-regression check).
+    single_stretch: true
     # ROAD-PAINT HEIGHT. The z ladder scales with plate span (1600 m -> 1.0),
     # which puts markings the full ~14 cm above the road — sub-pixel from
     # capture altitude but visibly FLOATING at a closer look. Pin it to the

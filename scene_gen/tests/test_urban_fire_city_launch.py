@@ -867,6 +867,287 @@ def test_the_probe_composes_the_reference_onto_a_child():
     assert 'holder + "/bake"' in src
 
 
+# ---------------------------------------------------------------------------
+# FC_CROP_WINDOW -- "generate 1.5 km, crop to 1 km, not always centred"
+# (`downtown_fire_1500.yaml`, `tools/crop_window.py`, `tools/fc_dump_crop.py`,
+# `tools/baseline_layouts.py`). Same AST-extraction discipline as the rest of
+# this file: the launcher itself is never imported.
+# ---------------------------------------------------------------------------
+def test_fc_crop_window_env_knob_is_read():
+    for call in _calls(CITY_TREE, "_env"):
+        if call.args and getattr(call.args[0], "value", None) == "FC_CROP_WINDOW":
+            assert call.args[1].value == "", (
+                "FC_CROP_WINDOW should default empty -- unset must mean "
+                "'no crop, uncropped paths untouched'")
+            return
+    raise AssertionError("FC_CROP_WINDOW is not read with a default")
+
+
+def test_apply_crop_window_exists_and_is_called_in_init():
+    fns = _funcdefs(CITY_TREE)
+    assert "_apply_crop_window" in fns
+    init = fns.get("__init__")
+    assert init is not None
+    assert _calls(init, "_apply_crop_window"), (
+        "_apply_crop_window must be called from FireCityApp.__init__")
+
+
+def test_crop_window_deactivates_never_shrinks_the_placements_list():
+    """`self.placements` must stay the SAME list object/length throughout
+    `_apply_crop_window` -- `resolve_cell`'s route 1 depends on `placements
+    [i]` still being the ORIGINAL full-city entry at index `i` (a manifest
+    record's `i` is assigned before any crop exists). This greps the method
+    body for the tell-tale of the WRONG fix (reassigning `self.placements`
+    to a filtered list) rather than the right one (mutating entries with
+    `_fc_cropped` + `SetActive`)."""
+    fn = _funcdefs(CITY_TREE).get("_apply_crop_window")
+    assert fn is not None
+    src = ast.get_source_segment(CITY_SRC, fn) or ""
+    assert "_fc_cropped" in src
+    assert "SetActive" in src
+    assert "self.placements =" not in src, (
+        "_apply_crop_window must never reassign self.placements -- that "
+        "would break resolve_cell's index-based route 1 for every "
+        "placement after the first drop")
+
+
+def test_settle_and_dump_skip_cropped_placements():
+    init = _funcdefs(CITY_TREE).get("__init__")
+    assert init is not None
+    init_src = ast.get_source_segment(CITY_SRC, init) or ""
+    assert "_fc_cropped" in init_src
+    dump_fn = _funcdefs(CITY_TREE).get("dump_city_placements")
+    assert dump_fn is not None
+    assert "_fc_cropped" in (ast.get_source_segment(CITY_SRC, dump_fn) or "")
+
+
+def test_capture_frames_the_crop_window_when_active():
+    fn = _funcdefs(CITY_TREE).get("capture")
+    assert fn is not None
+    src = ast.get_source_segment(CITY_SRC, fn) or ""
+    assert "self.crop_window" in src
+
+
+def _load_crop_window_helpers():
+    """`(_parse_crop_window, _unshift_records_to_full_city)` executed out of
+    the launcher source -- both are pure functions with no `pxr`/Kit
+    dependency, so this is a plain exec, no stubbing needed."""
+    fns = _funcdefs(CITY_TREE)
+    ns = {}
+    for name in ("_parse_crop_window", "_unshift_records_to_full_city"):
+        exec(compile(ast.get_source_segment(CITY_SRC, fns[name]), CITY, "exec"),
+             ns)
+    return ns
+
+
+def test_parse_crop_window_math():
+    ns = _load_crop_window_helpers()
+    parse = ns["_parse_crop_window"]
+    assert parse("") is None
+    assert parse(None) is None
+    x0, y0, x1, y1 = parse("100,-50,1000,1000")
+    assert (x0, y0, x1, y1) == (-400.0, -550.0, 600.0, 450.0)
+    # a window centred at (0, 0) must be exactly symmetric
+    assert parse("0,0,1000,1000") == (-500.0, -500.0, 500.0, 500.0)
+
+
+def test_parse_crop_window_rejects_garbage_loudly():
+    import pytest
+    ns = _load_crop_window_helpers()
+    parse = ns["_parse_crop_window"]
+    for bad in ("1,2,3", "1,2,3,4,5", "a,b,1000,1000", "0,0,-1000,1000",
+                "0,0,0,1000"):
+        with pytest.raises(ValueError):
+            parse(bad)
+
+
+def test_unshift_prefers_x_orig_when_present():
+    ns = _load_crop_window_helpers()
+    unshift = ns["_unshift_records_to_full_city"]
+    recs = [{"i": 3, "x": 34.0, "y": -66.0, "x_orig": 214.0, "y_orig": 34.0}]
+    n = unshift(recs, 999.0, -999.0)   # deliberately wrong cx,cy -- must be ignored
+    assert n == 1
+    assert recs[0]["x"] == 214.0 and recs[0]["y"] == 34.0
+
+
+def test_unshift_falls_back_to_arithmetic_without_x_orig():
+    ns = _load_crop_window_helpers()
+    unshift = ns["_unshift_records_to_full_city"]
+    recs = [{"i": 3, "x": 34.0, "y": -66.0}]
+    n = unshift(recs, 180.0, -200.0)
+    assert n == 1
+    assert recs[0]["x"] == 214.0 and recs[0]["y"] == -266.0
+
+
+def test_unshift_skips_non_dict_and_fieldless_records():
+    ns = _load_crop_window_helpers()
+    unshift = ns["_unshift_records_to_full_city"]
+    recs = ["not a dict", {"cls": "onlooker"}, {"x": 1.0, "y": 2.0}]
+    n = unshift(recs, 10.0, 10.0)
+    assert n == 1
+    assert recs[2] == {"x": 11.0, "y": 12.0}
+
+
+def test_load_fire_and_place_people_both_call_the_unshift_under_crop_centre():
+    for name in ("load_fire", "place_people"):
+        fn = _funcdefs(CITY_TREE).get(name)
+        assert fn is not None, name
+        src = ast.get_source_segment(CITY_SRC, fn) or ""
+        assert "_unshift_records_to_full_city" in src, (
+            name + " must call _unshift_records_to_full_city")
+        assert "CROP_CENTRE is not None" in src, (
+            name + "'s unshift must be gated on CROP_CENTRE (byte-identical "
+            "when FC_CROP_WINDOW is unset)")
+
+
+# ---------------------------------------------------------------------------
+# resolve_cell -- extracted with Sdf/math stubbed (route 1, the one this
+# feature touches, never calls `stage.GetPrimAtPath` at all).
+# ---------------------------------------------------------------------------
+def _load_resolve_cell():
+    fns = _funcdefs(CITY_TREE)
+    ns = {"math": math, "Sdf": _Stub(Path=lambda s: s)}
+    exec(compile(ast.get_source_segment(CITY_SRC, fns["resolve_cell"]),
+                CITY, "exec"), ns)
+    return ns["resolve_cell"]
+
+
+def test_resolve_cell_prefers_x_orig_over_the_recentred_x():
+    """The exact scenario `FC_CROP_WINDOW` exists for: `placements[i]` is
+    Kit's own, ALWAYS-full-city position; `rec["x"]/["y"]` are a manifest
+    solved on a re-centred cropped dump (so, deliberately, FAR from
+    `placements[i]` here); `rec["x_orig"]/["y_orig"]` are the true full-city
+    position and must be what actually gets compared."""
+    resolve_cell = _load_resolve_cell()
+    placements = [{"usd": "bld_office_DG0.usd", "x_m": 214.3, "y_m": 34.1,
+                  "prim_path": "/World/stage/generated/house_0_3",
+                  "category": "house"}]
+    rec = {"i": 0, "usd": "bld_office_DG0.usd",
+          "x": 34.0, "y": -66.0,           # recentred -- 180 m away, must NOT match
+          "x_orig": 214.2, "y_orig": 34.0}  # true full-city position -- must match
+    cell, how = resolve_cell(None, placements, rec)
+    assert cell == "/World/stage/generated/house_0_3"
+    assert how.startswith("index")
+
+
+def test_resolve_cell_falls_back_to_plain_x_when_no_x_orig():
+    resolve_cell = _load_resolve_cell()
+    placements = [{"usd": "bld_office_DG0.usd", "x_m": 10.0, "y_m": 20.0,
+                  "prim_path": "/World/stage/generated/house_0_5",
+                  "category": "house"}]
+    rec = {"i": 0, "usd": "bld_office_DG0.usd", "x": 10.1, "y": 19.9}
+    cell, how = resolve_cell(None, placements, rec)
+    assert cell == "/World/stage/generated/house_0_5"
+    assert how.startswith("index")
+
+
+def test_dump_city_placements_skips_fc_cropped_placements():
+    ns = _load_dump_writer()
+    placements = [
+        {"category": "house", "usd": "assets/house_a.usd", "x_m": 10.0,
+         "y_m": 20.0, "z_m": 0.0, "yaw_deg": 90.0, "scale": 0.01,
+         "prim_path": "/World/stage/generated/house_0_0"},
+        {"category": "house", "usd": "assets/house_b.usd", "x_m": 800.0,
+         "y_m": 800.0, "z_m": 0.0, "yaw_deg": 0.0, "scale": 1.0,
+         "prim_path": "/World/stage/generated/house_0_1",
+         "_fc_cropped": True},
+    ]
+    layout = {"_typology_of": {}}
+    config = {"layout": {"region_m": [1500.0, 1500.0]}}
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "dump.json")
+        ns["dump_city_placements"](path, "downtown_fire_1500", 4, config,
+                                   placements, layout)
+        with open(path) as fh:
+            doc = json.load(fh)
+    assert [p["i"] for p in doc["placements"]] == [0]
+    assert doc["placements"][0]["usd"] == "assets/house_a.usd"
+
+
+# ---------------------------------------------------------------------------
+# THE REAL LEVEL-1 CROPPED DUMP -- end-to-end proof of the match/shift math
+# on `downtown_fire_1500` seed 4, the real `baseline_layouts.LEVELS[0]`
+# window, host-built via `plan_png` (no Kit) exactly the way `tools/
+# fc_dump_crop.py`'s own real-layout test builds one. Slower (builds a real
+# 1500 m city) but still no Kit -- a couple of seconds.
+# ---------------------------------------------------------------------------
+def _build_real_uncropped_dump(seed):
+    import plan_png
+    cfg, layout, placements, res = plan_png.build(
+        "downtown_fire_1500", seed=seed,
+        spec_overrides={"disaster-type": "none"})
+    houses = []
+    for i, p in enumerate(placements):
+        if p.get("category") != "house":
+            continue
+        fp = res.get(p.get("usd", ""), "house", scale=p.get("scale", 1.0),
+                     axis_up=p.get("axis_up", "Z"))
+        houses.append({
+            "i": i, "cell": p.get("prim_path") or "/synthetic/{0}".format(i),
+            "usd": p["usd"], "x_m": float(p["x_m"]), "y_m": float(p["y_m"]),
+            "z_m": float(p.get("z_m", 0.0)),
+            "yaw_deg": float(p.get("yaw_deg", 0.0)),
+            "scale": float(p.get("scale", 1.0)), "category": "house",
+            "axis_up": p.get("axis_up", "Z"),
+            "W": float(fp["sx"]), "D": float(fp["sy"]), "H": float(fp["sz"]),
+        })
+    blocks = [{"rect": [float(v) for v in rect], "name": name}
+             for rect, name in (layout.get("_typology_of") or {}).items()]
+    doc = {
+        "schema": "fire_city_placements_dump.v1",
+        "preset": "downtown_fire_1500", "seed": int(cfg["seed"]),
+        "region_m": [float(v) for v in cfg["layout"]["region_m"]],
+        "n_placements_total": len(placements),
+        "placements": houses, "typology": {"blocks": blocks},
+    }
+    return doc
+
+
+def test_real_level1_cropped_dump_match_shift_math(tmp_path):
+    import baseline_layouts as bl
+    import fc_dump_crop as fdc
+    import fire_city_dry_run as fdr
+
+    level1 = bl.LEVELS[0]
+    assert level1["level"] == 1
+    window = bl._window_of(level1)
+    cx, cy = level1["window_centre"]
+
+    full_doc = _build_real_uncropped_dump(level1["seed"])
+    cropped_doc, rpt = fdc.crop_fc_dump(full_doc, window)
+    assert rpt["buildings_kept"] > 0
+
+    full_path = str(tmp_path / "full.json")
+    with open(full_path, "w") as fh:
+        json.dump(full_doc, fh)
+    # Kit's own live `self.placements` at assembly time IS a fresh, from-
+    # scratch rebuild of the FULL (uncropped) city -- `load_placements_dump`
+    # on the UNCROPPED dump reconstructs the identical index-aligned shape
+    # `resolve_cell` indexes into, so it stands in for it here with no Kit.
+    _config, _layout, full_placements, _seed, _preset, _sha = \
+        fdr.load_placements_dump(full_path)
+
+    resolve_cell = _load_resolve_cell()
+    n_checked = 0
+    for p in cropped_doc["placements"]:
+        rec = {"i": p["i"], "usd": p["usd"], "x": p["x_m"], "y": p["y_m"],
+              "x_orig": p["x_m_orig"], "y_orig": p["y_m_orig"]}
+        cell, how = resolve_cell(None, full_placements, rec)
+        assert cell is not None, (
+            "level-1 real cropped dump: record i={0} did not resolve "
+            "against the full-city rebuild -- {1}".format(p["i"], how))
+        assert how.startswith("index"), (
+            "record i={0} resolved via {1!r}, not route 1 (index) -- the "
+            "x_orig/y_orig match should always win route 1 on this "
+            "synthetic-but-real data".format(p["i"], how))
+        n_checked += 1
+    assert n_checked == rpt["buildings_kept"]
+    print("[test] level-1 real cropped dump: {0}/{1} kept house(s) "
+         "resolved via route 1 (x_orig/y_orig match)".format(
+             n_checked, rpt["buildings_kept"]))
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-q"]))

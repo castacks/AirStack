@@ -1,0 +1,394 @@
+{
+  "schema": "tornado_urban_plan.v1",
+  "level": "T3",
+  "btype": "rc_glass",
+  "style": "fixture_style_A",
+  "H": 24.0,
+  "height_class": "midrise",
+  "wind": {
+    "bearing_deg": 180.0,
+    "speed_frac": 0.72,
+    "cross_frac": -0.35,
+    "over": false
+  },
+  "side_weights": {
+    "S": 0.9,
+    "E": 0.25,
+    "N": 0.05,
+    "W": 0.3
+  },
+  "recipes": [
+    [
+      "s_glass_loss",
+      {
+        "side": "S",
+        "frac": 0.6
+      }
+    ],
+    [
+      "s_region_loss",
+      {
+        "side": "S",
+        "storeys": [
+          4,
+          5
+        ],
+        "bays": [
+          1,
+          3
+        ]
+      }
+    ]
+  ],
+  "removed": [
+    "/World/cell/pieces/wall_S_4_1",
+    "/World/cell/pieces/wall_S_4_2",
+    "/World/cell/pieces/wall_S_4_3",
+    "/World/cell/pieces/wall_S_5_1",
+    "/World/cell/pieces/wall_S_5_2",
+    "/World/cell/pieces/wall_N_9_9",
+    "/World/cell/pieces/ghost_piece_zz"
+  ],
+  "displaced": {
+    "/World/cell/pieces/disp_panel_0": {
+      "pivot": [
+        3.0,
+        1.5,
+        4.0
+      ],
+      "axis": [
+        0.6,
+        0.2,
+        0.0
+      ],
+      "deg": 40.0,
+      "translate": [
+        1.2,
+        0.6,
+        0.3
+      ],
+      "after": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "twist_deg": 0.0,
+      "twist_pivot": null,
+      "why": "T3 hanging boundary panel \u2014 rigid pitch outward about its bottom outer edge"
+    }
+  },
+  "glass": [
+    "/World/cell/pieces/wall_S_3_0",
+    "/World/cell/pieces/wall_S_3_4",
+    "/World/cell/pieces/wall_S_4_0",
+    "/World/cell/pieces/wall_S_4_4",
+    "/World/cell/pieces/wall_S_5_0",
+    "/World/cell/pieces/wall_S_5_4"
+  ],
+  "regions": [
+    {
+      "recipe": "s_region_loss",
+      "side": "S",
+      "storeys": [
+        4,
+        5
+      ],
+      "bays": [
+        1,
+        3
+      ],
+      "cells": [
+        "/World/cell/pieces/wall_S_4_1",
+        "/World/cell/pieces/wall_S_4_2",
+        "/World/cell/pieces/wall_S_4_3",
+        "/World/cell/pieces/wall_S_5_1",
+        "/World/cell/pieces/wall_S_5_2"
+      ]
+    }
+  ],
+  "roof_props": "sweep",
+  "debris": [
+    {
+      "kind": "panel",
+      "size": [
+        1.6,
+        1.0,
+        0.15
+      ],
+      "x": -6.0,
+      "y": 9.0,
+      "z": 0.0,
+      "yaw_deg": 12.0,
+      "tilt_deg": 0.0,
+      "material": "concrete_panel",
+      "from": "/World/cell/pieces/wall_S_4_1"
+    },
+    {
+      "kind": "panel",
+      "size": [
+        1.4,
+        0.9,
+        0.15
+      ],
+      "x": -5.2,
+      "y": 10.4,
+      "z": 0.0,
+      "yaw_deg": 200.0,
+      "tilt_deg": 0.0,
+      "material": "concrete_panel",
+      "from": "/World/cell/pieces/wall_S_4_1"
+    },
+    {
+      "kind": "panel",
+      "size": [
+        1.5,
+        0.95,
+        0.14
+      ],
+      "x": -6.8,
+      "y": 8.1,
+      "z": 0.0,
+      "yaw_deg": 95.0,
+      "tilt_deg": 0.0,
+      "material": "concrete_panel",
+      "from": "/World/cell/pieces/wall_S_4_1"
+    },
+    {
+      "kind": "block",
+      "size": [
+        0.6,
+        0.4,
+        0.35
+      ],
+      "x": -1.0,
+      "y": 9.4,
+      "z": 0.0,
+      "yaw_deg": 30.0,
+      "tilt_deg": 0.0,
+      "material": "brick",
+      "from": "/World/cell/pieces/wall_S_4_2"
+    },
+    {
+      "kind": "block",
+      "size": [
+        0.55,
+        0.38,
+        0.32
+      ],
+      "x": -0.4,
+      "y": 10.1,
+      "z": 0.0,
+      "yaw_deg": 140.0,
+      "tilt_deg": 0.0,
+      "material": "brick",
+      "from": "/World/cell/pieces/wall_S_4_2"
+    },
+    {
+      "kind": "coping",
+      "size": [
+        0.6,
+        0.3,
+        0.25
+      ],
+      "x": -5.6,
+      "y": 11.8,
+      "z": 0.0,
+      "yaw_deg": 5.0,
+      "tilt_deg": 0.0,
+      "material": "coping",
+      "from": "/World/cell/pieces/wall_S_5_1"
+    },
+    {
+      "kind": "coping",
+      "size": [
+        0.5,
+        0.28,
+        0.22
+      ],
+      "x": -4.9,
+      "y": 12.6,
+      "z": 0.0,
+      "yaw_deg": 175.0,
+      "tilt_deg": 0.0,
+      "material": "coping",
+      "from": "/World/cell/pieces/wall_S_5_1"
+    },
+    {
+      "kind": "coping",
+      "size": [
+        0.45,
+        0.25,
+        0.2
+      ],
+      "x": -6.2,
+      "y": 11.1,
+      "z": 0.0,
+      "yaw_deg": 260.0,
+      "tilt_deg": 0.0,
+      "material": "coping",
+      "from": "/World/cell/pieces/wall_S_5_1"
+    },
+    {
+      "kind": "glass",
+      "size": [
+        0.4,
+        0.3,
+        0.02
+      ],
+      "x": -8.0,
+      "y": 8.6,
+      "z": 0.0,
+      "yaw_deg": 0.0,
+      "tilt_deg": 0.0,
+      "material": "glass",
+      "from": "/World/cell/pieces/wall_S_4_0"
+    },
+    {
+      "kind": "glass",
+      "size": [
+        0.4,
+        0.3,
+        0.02
+      ],
+      "x": -8.0,
+      "y": 9.6,
+      "z": 0.0,
+      "yaw_deg": 0.0,
+      "tilt_deg": 25.0,
+      "material": "glass",
+      "from": "/World/cell/pieces/wall_S_4_0"
+    },
+    {
+      "kind": "glass",
+      "size": [
+        0.35,
+        0.28,
+        0.02
+      ],
+      "x": -7.6,
+      "y": 8.9,
+      "z": 0.0,
+      "yaw_deg": 45.0,
+      "tilt_deg": 0.0,
+      "material": "glass",
+      "from": "/World/cell/pieces/wall_S_4_0"
+    },
+    {
+      "kind": "glass",
+      "size": [
+        0.3,
+        0.22,
+        0.015
+      ],
+      "x": -7.2,
+      "y": 9.3,
+      "z": 0.0,
+      "yaw_deg": 300.0,
+      "tilt_deg": 0.0,
+      "material": "glass",
+      "from": "/World/cell/pieces/wall_S_4_0"
+    },
+    {
+      "kind": "glass",
+      "size": [
+        0.45,
+        0.32,
+        0.02
+      ],
+      "x": -8.4,
+      "y": 8.2,
+      "z": 0.0,
+      "yaw_deg": 60.0,
+      "tilt_deg": 0.0,
+      "material": "glass",
+      "from": "/World/cell/pieces/wall_S_4_0"
+    },
+    {
+      "kind": "glass",
+      "size": [
+        0.28,
+        0.2,
+        0.015
+      ],
+      "x": -7.9,
+      "y": 9.9,
+      "z": 0.0,
+      "yaw_deg": 210.0,
+      "tilt_deg": 0.0,
+      "material": "glass",
+      "from": "/World/cell/pieces/wall_S_4_0"
+    },
+    {
+      "kind": "metal",
+      "size": [
+        1.8,
+        1.2,
+        0.08
+      ],
+      "x": -1.6,
+      "y": 13.0,
+      "z": 0.0,
+      "yaw_deg": 15.0,
+      "tilt_deg": 0.0,
+      "material": "metal",
+      "from": "/World/cell/pieces/wall_S_5_2"
+    },
+    {
+      "kind": "metal",
+      "size": [
+        1.6,
+        1.0,
+        0.09
+      ],
+      "x": -0.8,
+      "y": 13.8,
+      "z": 0.0,
+      "yaw_deg": 100.0,
+      "tilt_deg": 0.0,
+      "material": "metal",
+      "from": "/World/cell/pieces/wall_S_5_2"
+    },
+    {
+      "kind": "membrane",
+      "size": [
+        1.7,
+        1.1,
+        0.09
+      ],
+      "x": 0.4,
+      "y": 14.2,
+      "z": 0.0,
+      "yaw_deg": 200.0,
+      "tilt_deg": 0.0,
+      "material": "membrane",
+      "from": "/World/cell/pieces/wall_S_5_1"
+    },
+    {
+      "kind": "membrane",
+      "size": [
+        1.5,
+        1.0,
+        0.08
+      ],
+      "x": 1.2,
+      "y": 13.5,
+      "z": 0.0,
+      "yaw_deg": 330.0,
+      "tilt_deg": 0.0,
+      "material": "membrane",
+      "from": "/World/cell/pieces/wall_S_5_1"
+    }
+  ],
+  "notes": [
+    "fixture: hand-written for stream D (tornado_urban_usd), not planner output"
+  ],
+  "stats": {
+    "n_pieces": 31,
+    "n_removed": 5,
+    "removed_frac": 0.1667,
+    "n_glass": 6,
+    "n_debris": 18,
+    "debris_volume_m3": 9.5,
+    "max_removed_storey": 5
+  }
+}

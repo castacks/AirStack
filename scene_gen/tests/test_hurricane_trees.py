@@ -87,6 +87,10 @@ sys.path.insert(0, SCENE_GEN_DIR)
 import numpy as np  # noqa: E402
 
 import bake_hurricane_trees as bht  # noqa: E402
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.join(_os.path.dirname(
+    _os.path.dirname(_os.path.abspath(__file__))), 'tools'))
+import bake_hurricane_trees as _bake
 from disaster import hurricane as hu  # noqa: E402
 from disaster import surge as sgw  # noqa: E402
 
@@ -175,11 +179,31 @@ def _world_visible_meshes(stage):
 # 270-triangle crown landed at 32.6% against a 35% target). `leaning`/
 # `fallen` still use the ranked selection and land within a point of their
 # target on every species measured.
+# RE-CUT TO STREAM T8, 2026-09-01. The bands below were STREAM T5/T7's,
+# which kept a silhouette-forming MAJORITY of every damaged crown (
+# `defoliated` 0.80) and carried the damage read in a brown/tan crown tint
+# instead. The user removed that tint outright — "Keep them as green.
+# Damaged trees don't turn brown just cause of the hurricane", which is
+# right for this scene's epoch: hours after landfall the damage is
+# MECHANICAL, and leaves still attached are the green they were that
+# morning. With colour gone, RETENTION is the only cue a damaged tree has,
+# and the user's follow-up was explicit: "too many of the trees still have
+# leaves ... look at how we removed trees in the fire baking".
+#
+# So the table now tracks the real 86-94% Cat-3 broadleaf leaf loss the
+# baker's own docstring cites, borrowing `vegetation._PLAN`'s reasoning
+# (never a literal zero — "a crown that goes to exactly zero looks deleted")
+# and its `keep_top` idea via a new `"top"` selection mode that biases the
+# survivors into the upper/outer crown an aerial camera can actually
+# resolve. That last part is what makes this safe where the pre-T5 attempt
+# was not: the old bare crowns were invisible from 400 m because the
+# survivors sat in the shaded low/inner crown. Verified on the live 500 m
+# plate after the change — trees read as green crowns at full-plate zoom.
 _RETENTION_BANDS = {
-    "defoliated": (0.68, 0.87),
-    "limbed": (0.25, 0.45),
-    "leaning": (0.40, 0.50),
-    "fallen": (0.30, 0.40),
+    "defoliated": (0.10, 0.18),
+    "limbed": (0.06, 0.13),
+    "leaning": (0.04, 0.11),
+    "fallen": (0.02, 0.09),
 }
 
 
@@ -554,8 +578,8 @@ def test_defoliated_keeps_70_to_85_percent_of_cards():
         total = sum(v["n"] for v in inv.values())
         n_kept = sum(len(k) for k in kept.values())
         frac = n_kept / total if total else 0.0
-        check(0.68 <= frac <= 0.87,
-              "{0}: defoliated kept {1}/{2} = {3:.1%} (want 70-85%, "
+        check(0.10 <= frac <= 0.18,
+              "{0}: defoliated kept {1}/{2} = {3:.1%} (want 10-18%, "
               "+-2pt for rounding)".format(species, n_kept, total, frac))
 
 
@@ -629,6 +653,22 @@ def test_kept_instancer_foliage_is_tinted_not_green():
     a genuine OmniPBR-with-tint replacement, and TEXEL * TINT must read
     brown (R > G > B), never green.
     """
+    # LEAVES ARE GREEN BY DEFAULT SINCE 2026-09-01, on a direct and repeated
+    # user instruction: "Keep them as green. Damaged trees don't turn brown
+    # just cause of the hurricane." That is botanically right for this
+    # scene's epoch — hours after landfall, the damage is MECHANICAL (leaves
+    # torn off), and the leaves still attached are the same green they were
+    # that morning; browning is a days-to-weeks response.
+    #
+    # `bake_hurricane_trees.TREE_LEAF_TINT` now defaults OFF, so everything
+    # below is the assertion for the OPT-IN colouring path. The test is kept
+    # rather than deleted because that path is still live (HUR_TREE_TINT=1,
+    # for a scene deliberately depicting a later epoch) and this is the only
+    # thing that pins it; skipping is honest, silently passing would not be.
+    if not _bake.TREE_LEAF_TINT:
+        import pytest
+        pytest.skip("HUR_TREE_TINT is off: leaves are green by design, so "
+                    "the brown-tint invariant does not apply")
     import hurricane_tree_audit as hta
 
     d = _bake_dir()
@@ -720,6 +760,22 @@ def test_hue_flip_tint_ratio_exceeds_texel_ratio_for_every_species():
     cap needs its own targeted correction (see that function's docstring)
     to still land on a brown result.
     """
+    # LEAVES ARE GREEN BY DEFAULT SINCE 2026-09-01, on a direct and repeated
+    # user instruction: "Keep them as green. Damaged trees don't turn brown
+    # just cause of the hurricane." That is botanically right for this
+    # scene's epoch — hours after landfall, the damage is MECHANICAL (leaves
+    # torn off), and the leaves still attached are the same green they were
+    # that morning; browning is a days-to-weeks response.
+    #
+    # `bake_hurricane_trees.TREE_LEAF_TINT` now defaults OFF, so everything
+    # below is the assertion for the OPT-IN colouring path. The test is kept
+    # rather than deleted because that path is still live (HUR_TREE_TINT=1,
+    # for a scene deliberately depicting a later epoch) and this is the only
+    # thing that pins it; skipping is honest, silently passing would not be.
+    if not _bake.TREE_LEAF_TINT:
+        import pytest
+        pytest.skip("HUR_TREE_TINT is off: leaves are green by design, so "
+                    "the brown-tint invariant does not apply")
     _bake_dir()  # ensure `bht._species_material_report` is populated
     check(len(bht._species_material_report) > 0,
           "sanity: at least one OmniPBR foliage material was reported")
@@ -1005,11 +1061,13 @@ def test_retention_table_matches_stream_t5_directive():
     one level with an actual geometric break, not just a pose/colour/debris
     change).
     """
+    # STREAM T8 bands -- see `_RETENTION_BANDS`' own note above for why
+    # these moved and who asked for it.
     bands = {
-        "defoliated": (0.70, 0.85),
-        "limbed": (0.30, 0.40),
-        "leaning": (0.40, 0.50),
-        "fallen": (0.30, 0.40),
+        "defoliated": (0.10, 0.18),
+        "limbed": (0.06, 0.13),
+        "leaning": (0.04, 0.11),
+        "fallen": (0.02, 0.09),
     }
     check(bht._FOL_KEEP["pristine"] == 1.0, "pristine keeps 100% of cards")
     for level, (lo, hi) in sorted(bands.items()):
@@ -1025,8 +1083,10 @@ def test_retention_table_matches_stream_t5_directive():
           "monotonic (leaning {1} > limbed {2} / fallen {3})".format(
               bht._FOL_KEEP["defoliated"], bht._FOL_KEEP["leaning"],
               bht._FOL_KEEP["limbed"], bht._FOL_KEEP["fallen"]))
-    check(0.20 <= bht.SNAP_TOP_FOL_KEEP <= 0.30,
-          "SNAP_TOP_FOL_KEEP ({0}) outside its directive band 20-30%"
+    # STREAM T8: 0.20-0.30 -> 0.02-0.06, mirroring `vegetation._PLAN`'s
+    # `torched.keep_top` (0.00-0.06) almost exactly. See `_RETENTION_BANDS`.
+    check(0.02 <= bht.SNAP_TOP_FOL_KEEP <= 0.06,
+          "SNAP_TOP_FOL_KEEP ({0}) outside its directive band 2-6%"
           .format(bht.SNAP_TOP_FOL_KEEP))
     check(bht.SNAP_TOP_FOL_KEEP == min([bht.SNAP_TOP_FOL_KEEP]
                                         + [bht._FOL_KEEP[l] for l in damaged]),
@@ -1105,7 +1165,17 @@ def test_limbed_gets_an_asymmetric_sector_strip():
             continue
         frac = vis[populated] / tot[populated]
         lo_frac, hi_frac = float(frac.min()), float(frac.max())
-        check(lo_frac < hi_frac - 0.15,
+        # A RATIO, NOT AN ABSOLUTE GAP (changed with STREAM T8). The old
+        # test demanded `lo < hi - 0.15`, i.e. fifteen PERCENTAGE POINTS of
+        # separation. That was satisfiable while `limbed` kept 35% of its
+        # cards, and is arithmetically IMPOSSIBLE now it keeps 9%: the whole
+        # range is only ~12 points wide, so no distribution however
+        # one-sided could pass. The property under test — that `limbed`
+        # strips one azimuth sector much harder than the rest — is about
+        # SHAPE, not magnitude, so express it scale-free. Measured on
+        # Black_Oak after the re-cut: emptiest bin 2% against fullest 12%, a
+        # ratio of 0.17, comfortably one-sided.
+        check(lo_frac < hi_frac * 0.5,
               "{0} limbed: emptiest populated azimuth bin ({1:.0%} visible) "
               "is not meaningfully stripped relative to the fullest "
               "({2:.0%}) -- expected an asymmetric, one-sided strip"
@@ -1521,13 +1591,40 @@ def test_l2_l3_replay_against_real_gt():
             check(down_after >= down_before,
                   "L3: the boost should not reduce the down-tree count "
                   "(before {0}, after {1})".format(down_before, down_after))
-            check(0.28 <= struct_frac <= 0.32,
-                  "L3 structural fraction {0:.1%} -- expected ~28-32% "
+            # BAND WIDENED 28-32% -> 28-40%, 2026-09-01, deliberately and
+            # with the user's explicit sign-off, when
+            # `_DRY_WINDTHROW_SLOPE` went 0.28 -> 1.60 to answer "I don't
+            # see enough bent trees in the direction of wind".
+            #
+            # The original band came from a grid search run when a brown/tan
+            # crown tint carried the damaged-vs-healthy read. That tint is
+            # gone (leaves are green now, by instruction), so bent and bare
+            # geometry is the only remaining cue and has to be more common
+            # to do the same job. The LOWER bound is left at 0.28 on
+            # purpose: this widening licenses MORE structural damage, never
+            # less, so a regression that quietly stops bending trees still
+            # fails here.
+            check(0.28 <= struct_frac <= 0.40,
+                  "L3 structural fraction {0:.1%} -- expected ~28-40% "
                   "(near 30%, Correction 2's explicit total target, "
                   "UNCHANGED by STREAM T5's pristine/defoliated re-cut)"
                   .format(struct_frac))
-            # Correction 2's own literal target: 5-8% of L3's DRY trees.
-            check(0.05 <= dry_frac <= 0.08,
+            # WIDENED 5-8% -> 5-25%, 2026-09-01, same change and same
+            # sign-off as the structural band just above. This is the band
+            # that most directly encodes the thing the user asked to
+            # increase — "I don't see enough bent trees in the direction of
+            # wind" is, numerically, exactly this fraction: how many trees
+            # on DRY ground go structural from wind alone, with no flooding
+            # to help. `_DRY_WINDTHROW_SLOPE` 0.28 -> 1.60 takes it from
+            # 5.2% to 21.7%.
+            #
+            # The 5-8% target came from Correction 2, set when a brown crown
+            # tint carried the damaged read; with the tint removed, bent
+            # geometry is the only cue left and has to be commoner to do the
+            # same work. LOWER BOUND HELD AT 0.05 deliberately — the
+            # widening licenses more windthrow, never less, so a regression
+            # that quietly stops bending dry trees still fails here.
+            check(0.05 <= dry_frac <= 0.25,
                   "L3 dry-subpopulation structural fraction {0:.1%} "
                   "({1}/{2}) -- expected 5-8% (the dry-windthrow target)"
                   .format(dry_frac, dry_struct, dry_total))

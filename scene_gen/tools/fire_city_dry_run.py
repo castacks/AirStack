@@ -487,7 +487,7 @@ def load_placements_dump(path):
             raise ValueError(
                 "{0!r} has two placements claiming index {1}".format(
                     path, i))
-        placements[i] = {
+        rec = {
             "category": p.get("category", "house"), "usd": p["usd"],
             "x_m": float(p["x_m"]), "y_m": float(p["y_m"]),
             "z_m": float(p["z_m"]), "yaw_deg": float(p["yaw_deg"]),
@@ -496,6 +496,19 @@ def load_placements_dump(path):
             "prim_path": p["cell"], "cell": p["cell"],
             "W": float(p["W"]), "D": float(p["D"]), "H": float(p["H"]),
         }
+        # `tools/fc_dump_crop.py`'s own additive fields -- the PRE-crop,
+        # full-city position, when this dump was cropped. Absent on an
+        # ordinary (uncropped) dump, so `rec` is unchanged there.
+        # `urban_fire_city.burnable()` reads these (falling back to x_m/y_m
+        # when absent) and carries them onto every manifest record as
+        # `x_orig`/`y_orig`, which `urban_fire_city_launch_script.
+        # resolve_cell` prefers when matching against a live, un-translated
+        # Kit stage — see that launcher's `FC_CROP_WINDOW` docstring.
+        if "x_m_orig" in p:
+            rec["x_m_orig"] = float(p["x_m_orig"])
+        if "y_m_orig" in p:
+            rec["y_m_orig"] = float(p["y_m_orig"])
+        placements[i] = rec
 
     typ_of = {}
     for block in ((doc.get("typology") or {}).get("blocks") or []):

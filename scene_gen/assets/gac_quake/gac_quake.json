@@ -1,29 +1,5 @@
 [
  {
-  "D": 10.86,
-  "H": 39.160000000000004,
-  "W": 25.34,
-  "btype": "urm",
-  "crown_m": 0.8,
-  "extent_m": {
-   "E": 12.67,
-   "N": 5.43,
-   "S": 3.02,
-   "W": 4.01
-  },
-  "fall_sides": [
-   "S",
-   "N",
-   "E",
-   "W"
-  ],
-  "grade": "DG4",
-  "mb": 4.37,
-  "name": "SM_Building_02",
-  "prims": 3682,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_02_DG4_s7.usd"
- },
- {
   "D": 54.88,
   "H": 42.68,
   "W": 20.580000000000002,
@@ -34,29 +10,8 @@
   "grade": "DG1",
   "mb": 5.9,
   "name": "SM_Building_24",
-  "prims": 3087,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_24_DG1_s38.usd"
- },
- {
-  "D": 54.88,
-  "H": 42.68,
-  "W": 20.580000000000002,
-  "btype": "rc_glass",
-  "crown_m": 0.45,
-  "extent_m": {
-   "E": 10.29,
-   "N": 0.0,
-   "S": 1.16,
-   "W": 0.0
-  },
-  "fall_sides": [
-   "S"
-  ],
-  "grade": "DG2",
-  "mb": 5.93,
-  "name": "SM_Building_24",
-  "prims": 3694,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_24_DG2_s69.usd"
+  "prims": 3035,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_24_DG1_s7.usd"
  },
  {
   "D": 54.88,
@@ -68,75 +23,38 @@
    "E": 10.29,
    "N": 0.0,
    "S": 1.12,
-   "W": 1.17
-  },
-  "fall_sides": [
-   "S",
-   "W"
-  ],
-  "grade": "DG3",
-  "mb": 5.95,
-  "name": "SM_Building_24",
-  "prims": 4176,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_24_DG3_s100.usd"
- },
- {
-  "D": 10.86,
-  "H": 39.160000000000004,
-  "W": 25.34,
-  "btype": "urm",
-  "crown_m": 0.0,
-  "extent_m": {},
-  "fall_sides": [],
-  "grade": "DG1",
-  "mb": 4.26,
-  "name": "SM_Building_02",
-  "prims": 1304,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_02_DG1_s131.usd"
- },
- {
-  "D": 10.86,
-  "H": 39.160000000000004,
-  "W": 25.34,
-  "btype": "urm",
-  "crown_m": 0.45,
-  "extent_m": {
-   "E": 12.67,
-   "N": 0.0,
-   "S": 1.12,
    "W": 0.0
   },
   "fall_sides": [
    "S"
   ],
   "grade": "DG2",
-  "mb": 4.28,
-  "name": "SM_Building_02",
-  "prims": 1823,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_02_DG2_s162.usd"
+  "mb": 6.69,
+  "name": "SM_Building_24",
+  "prims": 3969,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_24_DG2_s38.usd"
  },
  {
-  "D": 10.86,
-  "H": 39.160000000000004,
-  "W": 25.34,
-  "btype": "urm",
-  "crown_m": 0.8,
+  "D": 54.88,
+  "H": 42.68,
+  "W": 20.580000000000002,
+  "btype": "rc_glass",
+  "crown_m": 0.45,
   "extent_m": {
-   "E": 12.67,
-   "N": 5.43,
-   "S": 3.19,
-   "W": 7.43
+   "E": 10.29,
+   "N": 27.44,
+   "S": 6.74,
+   "W": 0.0
   },
   "fall_sides": [
    "S",
-   "E",
-   "W"
+   "E"
   ],
   "grade": "DG3",
-  "mb": 4.35,
-  "name": "SM_Building_02",
-  "prims": 2708,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_02_DG3_s193.usd"
+  "mb": 9.24,
+  "name": "SM_Building_24",
+  "prims": 5578,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_24_DG3_s69.usd"
  },
  {
   "D": 25.92,
@@ -145,21 +63,21 @@
   "btype": "urm",
   "crown_m": 0.8,
   "extent_m": {
-   "E": 19.87,
+   "E": 17.77,
    "N": 12.96,
-   "S": 7.16,
-   "W": 7.16
+   "S": 8.47,
+   "W": 7.54
   },
   "fall_sides": [
    "S",
-   "E",
-   "W"
+   "W",
+   "E"
   ],
   "grade": "DG4",
-  "mb": 11.07,
+  "mb": 20.54,
   "name": "SM_Building_03",
-  "prims": 5796,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_03_DG4_s224.usd"
+  "prims": 7278,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_03_DG4_s100.usd"
  },
  {
   "D": 54.6,
@@ -169,19 +87,20 @@
   "crown_m": 0.8,
   "extent_m": {
    "E": 21.0,
-   "N": 27.3,
-   "S": 12.48,
-   "W": 9.6
+   "N": 16.15,
+   "S": 16.15,
+   "W": 12.43
   },
   "fall_sides": [
    "S",
-   "W"
+   "N",
+   "E"
   ],
   "grade": "DG3",
-  "mb": 10.15,
+  "mb": 22.68,
   "name": "SM_Building_09",
-  "prims": 8094,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_09_DG3_s255.usd"
+  "prims": 9486,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_09_DG3_s131.usd"
  },
  {
   "D": 39.961903296027884,
@@ -199,10 +118,10 @@
    "S"
   ],
   "grade": "DG2",
-  "mb": 19.91,
+  "mb": 22.13,
   "name": "SM_Building_13",
-  "prims": 7975,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_13_DG2_s286.usd"
+  "prims": 8409,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_13_DG2_s162.usd"
  },
  {
   "D": 55.287146304260304,
@@ -213,38 +132,17 @@
   "extent_m": {
    "E": 41.47,
    "N": 0.0,
-   "S": 1.46,
+   "S": 1.21,
    "W": 0.0
   },
   "fall_sides": [
    "S"
   ],
   "grade": "DG2",
-  "mb": 14.34,
+  "mb": 15.99,
   "name": "SM_Building_14",
-  "prims": 37946,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_14_DG2_s317.usd"
- },
- {
-  "D": 79.47369858945783,
-  "H": 154.97371224944274,
-  "W": 55.63158901262047,
-  "btype": "rc",
-  "crown_m": 0.45,
-  "extent_m": {
-   "E": 27.82,
-   "N": 0.0,
-   "S": 3.98,
-   "W": 0.0
-  },
-  "fall_sides": [
-   "S"
-  ],
-  "grade": "DG2",
-  "mb": 21.56,
-  "name": "SM_Building_20",
-  "prims": 29485,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_20_DG2_s348.usd"
+  "prims": 38271,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_14_DG2_s193.usd"
  },
  {
   "D": 69.71538285641259,
@@ -255,10 +153,10 @@
   "extent_m": {},
   "fall_sides": [],
   "grade": "DG2",
-  "mb": 20.83,
+  "mb": 20.84,
   "name": "SM_Building_21",
-  "prims": 14746,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_21_DG2_s379.usd"
+  "prims": 14626,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_21_DG2_s224.usd"
  },
  {
   "D": 24.353906863520564,
@@ -267,22 +165,22 @@
   "btype": "urm",
   "crown_m": 0.8,
   "extent_m": {
-   "E": 15.32,
+   "E": 12.18,
    "N": 12.18,
-   "S": 6.1,
-   "W": 6.25
+   "S": 9.03,
+   "W": 6.15
   },
   "fall_sides": [
    "S",
    "N",
-   "E",
-   "W"
+   "W",
+   "E"
   ],
   "grade": "DG4",
-  "mb": 3.72,
+  "mb": 13.68,
   "name": "SM_Building_25",
-  "prims": 5049,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_25_DG4_s410.usd"
+  "prims": 7288,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_25_DG4_s255.usd"
  },
  {
   "D": 23.79433166367563,
@@ -293,17 +191,17 @@
   "extent_m": {
    "E": 5.95,
    "N": 0.0,
-   "S": 1.51,
+   "S": 1.58,
    "W": 0.0
   },
   "fall_sides": [
    "S"
   ],
   "grade": "DG2",
-  "mb": 7.19,
+  "mb": 8.49,
   "name": "SM_Building_29",
-  "prims": 2527,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_29_DG2_s441.usd"
+  "prims": 2767,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_29_DG2_s286.usd"
  },
  {
   "D": 40.00640160774782,
@@ -314,19 +212,446 @@
   "extent_m": {
    "E": 12.0,
    "N": 20.0,
-   "S": 9.21,
-   "W": 5.52
+   "S": 6.66,
+   "W": 4.0
+  },
+  "fall_sides": [
+   "S",
+   "N",
+   "W",
+   "E"
+  ],
+  "grade": "DG3",
+  "mb": 34.46,
+  "name": "SM_Building_30",
+  "prims": 9686,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_30_DG3_s317.usd"
+ },
+ {
+  "D": 23.06698759038525,
+  "H": 73.04546070288663,
+  "W": 11.533493795192625,
+  "btype": "rc_glass",
+  "crown_m": 0.45,
+  "extent_m": {
+   "E": 5.77,
+   "N": 11.53,
+   "S": 2.79,
+   "W": 1.12
+  },
+  "fall_sides": [
+   "S",
+   "W"
+  ],
+  "grade": "DG3",
+  "mb": 14.8,
+  "name": "SM_Building_26",
+  "prims": 5158,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_26_DG3_s348.usd"
+ },
+ {
+  "D": 54.6,
+  "H": 57.40000000000001,
+  "W": 42.0,
+  "btype": "urm",
+  "crown_m": 0.0,
+  "extent_m": {},
+  "fall_sides": [],
+  "grade": "DG1",
+  "mb": 10.01,
+  "name": "SM_Building_09",
+  "prims": 6733,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_09_DG1_s410.usd"
+ },
+ {
+  "D": 104.49590650876816,
+  "H": 68.32424656342535,
+  "W": 40.19073327260314,
+  "btype": "rc",
+  "crown_m": 0.45,
+  "extent_m": {
+   "E": 20.1,
+   "N": 0.0,
+   "S": 1.71,
+   "W": 0.0
+  },
+  "fall_sides": [
+   "S"
+  ],
+  "grade": "DG2",
+  "mb": 35.08,
+  "name": "SM_Building_11",
+  "prims": 13955,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_11_DG2_s472.usd"
+ },
+ {
+  "D": 41.14,
+  "H": 100.75999999999998,
+  "W": 41.14,
+  "btype": "rc",
+  "crown_m": 0.0,
+  "extent_m": {},
+  "fall_sides": [],
+  "grade": "DG1",
+  "mb": 7.68,
+  "name": "SM_Building_12",
+  "prims": 7898,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_12_DG1_s503.usd"
+ },
+ {
+  "D": 41.14,
+  "H": 100.75999999999998,
+  "W": 41.14,
+  "btype": "rc",
+  "crown_m": 0.8,
+  "extent_m": {
+   "E": 20.57,
+   "N": 20.57,
+   "S": 8.34,
+   "W": 8.34
+  },
+  "fall_sides": [
+   "S",
+   "E",
+   "N",
+   "W"
+  ],
+  "grade": "DG3",
+  "mb": 23.97,
+  "name": "SM_Building_12",
+  "prims": 13508,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_12_DG3_s534.usd"
+ },
+ {
+  "D": 55.287146304260304,
+  "H": 197.4540939437869,
+  "W": 82.93071945639045,
+  "btype": "rc_glass",
+  "crown_m": 0.45,
+  "extent_m": {
+   "E": 41.47,
+   "N": 1.5,
+   "S": 1.33,
+   "W": 0.0
+  },
+  "fall_sides": [
+   "S",
+   "N"
+  ],
+  "grade": "DG3",
+  "mb": 17.35,
+  "name": "SM_Building_14",
+  "prims": 38994,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_14_DG3_s565.usd"
+ },
+ {
+  "D": 55.04,
+  "H": 135.0,
+  "W": 82.56,
+  "btype": "rc",
+  "crown_m": 0.8,
+  "extent_m": {
+   "E": 41.28,
+   "N": 27.52,
+   "S": 8.95,
+   "W": 13.42
   },
   "fall_sides": [
    "S",
    "W",
-   "E",
-   "N"
+   "E"
   ],
   "grade": "DG3",
-  "mb": 16.3,
-  "name": "SM_Building_30",
-  "prims": 7340,
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_30_DG3_s472.usd"
+  "mb": 40.31,
+  "name": "SM_Building_17",
+  "prims": 25100,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_17_DG3_s596.usd"
+ },
+ {
+  "D": 40.8,
+  "H": 71.39999999999999,
+  "W": 26.4,
+  "btype": "rc_glass",
+  "crown_m": 0.0,
+  "extent_m": {},
+  "fall_sides": [],
+  "grade": "DG1",
+  "mb": 12.98,
+  "name": "SM_Building_19",
+  "prims": 4168,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_19_DG1_s627.usd"
+ },
+ {
+  "D": 79.47369858945783,
+  "H": 154.97371224944274,
+  "W": 55.63158901262047,
+  "btype": "rc",
+  "crown_m": 0.0,
+  "extent_m": {},
+  "fall_sides": [],
+  "grade": "DG1",
+  "mb": 21.48,
+  "name": "SM_Building_20",
+  "prims": 28171,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_20_DG1_s658.usd"
+ },
+ {
+  "D": 79.47369858945783,
+  "H": 154.97371224944274,
+  "W": 55.63158901262047,
+  "btype": "rc",
+  "crown_m": 0.45,
+  "extent_m": {
+   "E": 27.82,
+   "N": 0.0,
+   "S": 3.45,
+   "W": 0.0
+  },
+  "fall_sides": [
+   "S"
+  ],
+  "grade": "DG2",
+  "mb": 25.37,
+  "name": "SM_Building_20",
+  "prims": 30150,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_20_DG2_s689.usd"
+ },
+ {
+  "D": 54.88,
+  "H": 42.68,
+  "W": 20.580000000000002,
+  "btype": "rc_glass",
+  "crown_m": 1.98,
+  "extent_m": {
+   "E": 14.43,
+   "N": 13.58,
+   "S": 13.58,
+   "W": 14.43
+  },
+  "fall_sides": [
+   "E",
+   "N",
+   "S",
+   "W"
+  ],
+  "grade": "DG4",
+  "mb": 29.47,
+  "name": "SM_Building_24",
+  "prims": 4052,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_24_DG4_s720.usd"
+ },
+ {
+  "D": 23.06698759038525,
+  "H": 73.04546070288663,
+  "W": 11.533493795192625,
+  "btype": "rc_glass",
+  "crown_m": 0.0,
+  "extent_m": {},
+  "fall_sides": [],
+  "grade": "DG1",
+  "mb": 7.97,
+  "name": "SM_Building_26",
+  "prims": 2395,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_26_DG1_s751.usd"
+ },
+ {
+  "D": 23.98587628157712,
+  "H": 91.94585907937893,
+  "W": 39.976460469295205,
+  "btype": "rc_glass",
+  "crown_m": 0.45,
+  "extent_m": {
+   "E": 19.99,
+   "N": 0.0,
+   "S": 1.31,
+   "W": 0.0
+  },
+  "fall_sides": [
+   "S"
+  ],
+  "grade": "DG2",
+  "mb": 9.33,
+  "name": "SM_Building_27",
+  "prims": 6505,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_27_DG2_s782.usd"
+ },
+ {
+  "D": 23.79433166367563,
+  "H": 51.554385271297186,
+  "W": 11.897165831837816,
+  "btype": "urm",
+  "crown_m": 0.8,
+  "extent_m": {
+   "E": 8.96,
+   "N": 11.9,
+   "S": 6.39,
+   "W": 3.19
+  },
+  "fall_sides": [
+   "S",
+   "W",
+   "N",
+   "E"
+  ],
+  "grade": "DG4",
+  "mb": 17.62,
+  "name": "SM_Building_29",
+  "prims": 6386,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_29_DG4_s813.usd"
+ },
+ {
+  "D": 10.86,
+  "H": 39.160000000000004,
+  "W": 25.34,
+  "btype": "urm",
+  "crown_m": 0.0,
+  "extent_m": {},
+  "fall_sides": [],
+  "grade": "DG1",
+  "mb": 4.26,
+  "name": "SM_Building_02",
+  "prims": 1351,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_02_DG1_s844.usd"
+ },
+ {
+  "D": 10.86,
+  "H": 39.160000000000004,
+  "W": 25.34,
+  "btype": "urm",
+  "crown_m": 0.45,
+  "extent_m": {
+   "E": 0.0,
+   "N": 0.0,
+   "S": 1.12,
+   "W": 0.0
+  },
+  "fall_sides": [
+   "S"
+  ],
+  "grade": "DG2",
+  "mb": 6.01,
+  "name": "SM_Building_02",
+  "prims": 2247,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_02_DG2_s875.usd"
+ },
+ {
+  "D": 10.86,
+  "H": 39.160000000000004,
+  "W": 25.34,
+  "btype": "urm",
+  "crown_m": 0.8,
+  "extent_m": {
+   "E": 12.67,
+   "N": 5.43,
+   "S": 3.61,
+   "W": 7.0
+  },
+  "fall_sides": [
+   "S",
+   "E",
+   "W"
+  ],
+  "grade": "DG3",
+  "mb": 10.71,
+  "name": "SM_Building_02",
+  "prims": 4493,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_02_DG3_s906.usd"
+ },
+ {
+  "D": 10.86,
+  "H": 39.160000000000004,
+  "W": 25.34,
+  "btype": "urm",
+  "crown_m": 0.8,
+  "extent_m": {
+   "E": 15.12,
+   "N": 5.43,
+   "S": 3.48,
+   "W": 4.3
+  },
+  "fall_sides": [
+   "S",
+   "E",
+   "W",
+   "N"
+  ],
+  "grade": "DG4",
+  "mb": 12.58,
+  "name": "SM_Building_02",
+  "prims": 5293,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_02_DG4_s937.usd"
+ },
+ {
+  "D": 10.86,
+  "H": 39.160000000000004,
+  "W": 25.34,
+  "btype": "urm",
+  "crown_m": 5.72,
+  "extent_m": {
+   "E": 9.35,
+   "N": 9.35,
+   "S": 11.71,
+   "W": 16.93
+  },
+  "fall_sides": [
+   "S",
+   "W"
+  ],
+  "grade": "DG5",
+  "mb": 6.04,
+  "name": "SM_Building_02",
+  "prims": 1366,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_02_DG5_s7.usd"
+ },
+ {
+  "D": 54.88,
+  "H": 42.68,
+  "W": 20.580000000000002,
+  "btype": "rc_glass",
+  "crown_m": 0.0,
+  "extent_m": {},
+  "fall_sides": [],
+  "grade": "DG5",
+  "mb": 7.36,
+  "name": "SM_Building_24",
+  "prims": 3620,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_24_DG5_s38.usd"
+ },
+ {
+  "D": 53.82000000000001,
+  "H": 57.40000000000001,
+  "W": 82.80000000000001,
+  "btype": "urm",
+  "crown_m": 0.0,
+  "extent_m": {},
+  "fall_sides": [],
+  "grade": "DG1",
+  "mb": 23.75,
+  "name": "SM_Building_08",
+  "prims": 12243,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_08_DG1_s7.usd"
+ },
+ {
+  "D": 54.6,
+  "H": 57.40000000000001,
+  "W": 42.0,
+  "btype": "urm",
+  "crown_m": 0.8,
+  "extent_m": {
+   "E": 31.9,
+   "N": 27.3,
+   "S": 9.89,
+   "W": 7.61
+  },
+  "fall_sides": [
+   "S",
+   "N",
+   "E"
+  ],
+  "grade": "DG4",
+  "mb": 21.98,
+  "name": "SM_Building_09",
+  "prims": 10462,
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_09_DG4_s38.usd"
  }
 ]

@@ -32,7 +32,7 @@ the mistake this file exists to avoid:
   3. THE PROGRESSION LANDS MOSTLY IN THE LIGHT RUNGS AND STOPS SHORT OF A
      TORNADO'S. As of STREAM S (2026-08-31, "adjust the pattern of house
      damage") the houses reference the TORNADO's own archetype library and
-     six-level ladder (`hurricane.tornado_level_for_intensity` maps this
+     six-level ladder (`hurricane.house_level_for_intensity` maps this
      file's near-uniform field onto it) — most of the plate lands in
      `pristine`/`roof_stripped`, structural levels stay a minority even at
      L3, and `leveled` is rare. A hurricane scene where a large share of the
@@ -58,7 +58,7 @@ the mistake this file exists to avoid:
      ribbons rather than as per-building texture rebinds.
 
   6. `swept` IS NOT A WIND LEVEL. A slab swept clean is a SURGE signature and
-     `hurricane.tornado_level_for_intensity` structurally cannot return one —
+     `hurricane.house_level_for_intensity` structurally cannot return one —
      it has no depth/surge input at all. Where this scene shows bare slabs,
      `surge.house_water_state(...)["swept"]` (or `washaway.house_surge_
      state`) put them there.
@@ -175,6 +175,8 @@ from disaster import hurricane as hu                           # noqa: E402
 from disaster import tornado as tn                            # noqa: E402
 from disaster import surge as sgw                              # noqa: E402
 from disaster import washaway as wash                        # noqa: E402
+from disaster import hurricane_people as hpp                   # noqa: E402
+from disaster import street_furniture as sfu                   # noqa: E402
 from detail import modular_house as mh                         # noqa: E402
 
 
@@ -226,6 +228,12 @@ DO_WASHAWAY = _flag("HUR_WASHAWAY")
 SNAP_DIR = _env("SNAP_DIR", "")
 if SNAP_DIR:
     os.makedirs(SNAP_DIR, exist_ok=True)
+# THE PEOPLE PASS — see "7c) THE PEOPLE" below and `disaster/hurricane_
+# people.py`. ON by default, same convention as every other `DO_*` flag on
+# this file.
+DO_PEOPLE = _flag("HUR_PEOPLE")
+PEOPLE_JSON = _env("HUR_PEOPLE_JSON",
+                   os.path.join(SNAP_DIR or HOUSE_ARCH_DIR, "GT_people.json"))
 
 # EVERY HOUSE KEEPS ITS STREET YAW, always — unlike the tornado's own
 # `_TRACK_YAWED` trick, which turns `leveled`/`swept` piles to face the
@@ -602,7 +610,7 @@ def main():
     #    back to a live-built house on a missing archetype -- identical to
     #    that script's own fallback, not a hurricane-specific rewrite of it.
     #    THE ONLY HURRICANE-SPECIFIC PIECE IN THIS LOOP is which LEVEL a
-    #    house lands on (`hu.tornado_level_for_intensity`, the hurricane
+    #    house lands on (`hu.house_level_for_intensity`, the hurricane
     #    field mapped onto the tornado's six-level vocabulary) and that
     #    `swept` can ONLY come from the surge, never from wind -- everything
     #    else below is the tornado's own mechanism.
@@ -644,13 +652,40 @@ def main():
                 wtally["_serr"] = wtally.get("_serr", 0) + 1
         if wst.get("swept") or _sl == "swept":
             # SURGE, NOT WIND -- "slab swept clean is surge, never wind."
-            # `tornado_level_for_intensity` never returns `swept`; the water
-            # is the only thing on this plate allowed to clear a slab.
+            # Neither wind ladder returns `swept`; the water is the only
+            # thing on this plate allowed to clear a slab.
             level = "swept"
             _sl = "swept"
             n_swept += 1
         else:
-            level = hu.tornado_level_for_intensity(it, drng, vuln=vuln)
+            # THE HURRICANE'S OWN EIGHT-LEVEL LADDER, restored 2026-09-01 on
+            # the user's instruction ("make this ladder for hurricane too").
+            #
+            # This file shipped `tornado_level_for_intensity` from the
+            # 2026-08-31 STREAM S parity decision ("tornado and hurricane are
+            # both largely wind damage"), which is defensible at the top of
+            # the range and indefensible at the bottom. MEASURED, replaying
+            # each dataset level's own intensity field:
+            #
+            #   level 1 (38 m/s, i 0.30-0.45)
+            #       tornado ladder : 86.8% pristine, 13.2% roof_stripped
+            #       eight-level    : 79.2% pristine, 20.8% shingles_lost
+            #
+            # The dataset ladder specifies level 1 as "cladding only; green
+            # scene with litter" — and the six-level vocabulary has NO
+            # cladding rung, so its only way to show damage at all is to
+            # jump a house straight to `roof_stripped`, the entire covering
+            # gone. Level 1 was therefore either untouched or over-damaged,
+            # with nothing in between. `hurricane.house_level_for_intensity`
+            # exists precisely for this and its own docstring is calibrated
+            # against these three gusts.
+            #
+            # REQUIRES the three low rungs to be baked —
+            # `house_<style>_{shingles_lost,cover_lost,deck_panels_lost}.usd`
+            # — or the `harch.get(key) or ...pristine` fallback below turns
+            # every cladding-damaged house back into an undamaged one, in
+            # silence. See HURRICANE_RUNBOOK.md step 1.
+            level = hu.house_level_for_intensity(it, drng, vuln=vuln)
         htally[level] = htally.get(level, 0) + 1
         # STREET YAW, ALWAYS -- see the comment where `_WIND_YAWED` used to
         # live. `hurricane.wind_bearing_at` is used ONLY for debris (job 4,
@@ -755,9 +790,35 @@ def main():
                     # carries every OTHER house footprint; the spec marches the
                     # drift and stops 0.5-1 m clear (same idiom as the car
                     # blockers). Pitch/roll capped in `collapse_spec` itself.
-                    _blocked = [(o["x"], o["y"],
-                                 fp_by_style.get(o["style"], 12.0))
-                                for o in houses if o is not h]
+                    # A CALLABLE, NOT A LIST. `shift_spec`/`collapse_spec`
+                    # march the drift against `blocked(x, y) -> tag`; handing
+                    # them a list of `(x, y, fp)` tuples raises "'list' object
+                    # is not callable" INSIDE the march, which this block's
+                    # own `except` then swallows into a one-line warning —
+                    # so every shifted/collapsed house silently kept its
+                    # original pose and the D6 "house flying onto another
+                    # house" fix did nothing at all.
+                    #
+                    # THIS IS THE SECOND TIME THIS EXACT BUG HAS SHIPPED IN
+                    # THIS FILE. The car pass below carries a comment
+                    # describing it happening there first ("every car stayed
+                    # put: cars in water: piled 1 (0 moved)"), and the fix
+                    # was the same one: build `tornado.car_blockers`, which
+                    # RETURNS the predicate. The house path was written later
+                    # and reintroduced it. `scene_gen/tests/
+                    # test_hurricane_washaway_blockers.py` now fails if
+                    # either call site is handed a non-callable.
+                    #
+                    # Per house, excluding itself: `car_blockers` documents a
+                    # thin self-blocking margin that holds for a car probing
+                    # ahead of its own nose, and a house is far larger than a
+                    # car — so rather than lean on that margin, the house's
+                    # own disc is simply left out. The grid is 94 entries and
+                    # rebuilding it per house is free.
+                    _blocked = tn.car_blockers(
+                        standing=[(o["x"], o["y"],
+                                   fp_by_style.get(o["style"], 12.0))
+                                  for o in houses if o is not h])
                     _spec = (wash.shift_spec(float(wst["depth"]),
                                              float(scfg["shore_bearing_deg"]),
                                              drng,
@@ -873,8 +934,16 @@ def main():
         # within five degrees reads as a logging operation rather than as
         # windthrow.
         if level in ("leaning", "fallen", "snapped"):
+            # +-26, NARROWED from +-38 (2026-09-01, "bent trees in the
+            # direction of wind"): a 76 deg spread is wide enough that a
+            # stand reads as randomly oriented rather than as one storm's
+            # doing. 52 deg still avoids the "logging operation" look the
+            # original comment is guarding against — trees do go over where
+            # their own rooting and their neighbours allow — while leaving
+            # the downwind bearing legible from the air, which is the whole
+            # point of the cue.
             yaw = (float(hu.wind_bearing_at(hcfg, t["x"], t["y"]))
-                   + trng.uniform(-38.0, 38.0))
+                   + trng.uniform(-26.0, 26.0))
         else:
             yaw = t.get("yaw", 0.0)
         _tp = "{0}/inst/t_{1}".format(PARENT, j)
@@ -1306,6 +1375,109 @@ def main():
                         water_level_m=_wcfg["water_level_m"])
                     _ld += _l
                     _ld_rafts += _r
+                # NEAR-FIELD APRON — ISOTROPIC, ADDED 2026-09-01.
+                #
+                # WHY THE COMETS ARE NOT ENOUGH. `land_debris_specs` narrows
+                # `scatter_from_wreck`'s cone deliberately (`tail_pow` down,
+                # `tail_lateral_base` 0.30 -> 0.08) because the DEBRIS review
+                # found a symmetric halo reading as wrong against a storm
+                # with a wind direction: what a hurricane throws, it throws
+                # DOWNWIND. That is still right for the far field and is not
+                # touched here.
+                #
+                # It is wrong for the FIRST FOOTPRINT. Measured on this
+                # plate's own people pass: `tornado_people._candidate` draws
+                # a casualty at a UNIFORM RANDOM ANGLE off the wreck, so a
+                # body drawn crosswind or upwind of a house landed on clean
+                # lawn — 42% of dry casualties sat on a deck under 5 cm, i.e.
+                # on bare grass next to a wrecked house, which is the "I see
+                # dry casualties only in the open" complaint's second half
+                # (the first half, the radius, is `hurricane_people`'s
+                # `where_bands`). No radius change can fix it: the debris
+                # simply is not there to lie on at most bearings.
+                #
+                # AND THE PHYSICS SAYS IT SHOULD BE. The far-field trail is
+                # material the WIND carried, and it is properly directional.
+                # The near field is different in kind: it is the structure
+                # that fell down, and a collapsing house sheds its own walls,
+                # sill plate, roof deck and contents ISOTROPICALLY onto its
+                # own lot before the wind has any say. Two mechanisms, two
+                # shapes — a directional tail over an omnidirectional apron —
+                # which is also what the Andrew/Ian case material describes
+                # (victims "found in destroyed mobile home", "collapsing
+                # roof": the material is on the lot, all round).
+                #
+                # SIX SHORT COMETS AT 60 deg SPACING rather than new geometry
+                # code: `reach` is 1.05 footprints, which is exactly where
+                # `hurricane_people`'s retuned `yard` band now stops, so the
+                # apron covers every radius a casualty can be drawn at.
+                # `base_frac=0.0` keeps all of it OUT of the slab cloud the
+                # comets already lay; `tail_pow=1.0` spreads it evenly along
+                # that short reach instead of piling it on the wall line; the
+                # wide lateral coefficients are `scatter_from_wreck`'s own
+                # defaults, so the six cones overlap into a ring rather than
+                # reading as six spokes.
+                #
+                # 300 IS A MEASURED NUMBER, NOT A GUESS, and the first
+                # attempt at 48 was worth almost nothing. Pooled over 5 seeds
+                # on a 16-wreck archetype fixture, sharing the deck with the
+                # real directional comet, share of dry casualties left lying
+                # on BARE GROUND (measured deck under 5 cm):
+                #
+                #     comet only ................ 45%
+                #     + apron  48/wreck ......... 42%   (+576 planks)
+                #     + apron 300/wreck ......... 13%   (+3744 planks)
+                #
+                # The reason 48 fails is areal coverage, and it is simple
+                # arithmetic: 48 pieces of ~0.2 m2 spread over the ~680 m2
+                # annulus inside 1.05 footprints is 1.4% of the ground, so a
+                # body's three deck stations almost never land on one. 300
+                # takes it to roughly a tenth of the ground, which is where
+                # the three-station test starts passing.
+                #
+                # REWEIGHTING IS NOT AN ALTERNATIVE, also measured: pushing
+                # `where` to Andrew's raw 0.67/0.17/0.16 with no apron only
+                # reaches 38%, and adding it ON TOP of the 300 apron gives
+                # 12% against 13% — inside the noise. So the weights stay
+                # where the epidemiology put them and the debris field is
+                # what changes, which is the right place for it: this was
+                # never a question about where casualties are, it was a
+                # question about what is lying on the ground when they get
+                # there.
+                #
+                # THE COST IS GEOMETRY-CHEAP. `planks.build` merges to ONE
+                # MESH PER (class, skin), so ~6.8k extra boxes on this
+                # plate's 29 wrecks is ~54k extra points across a handful of
+                # meshes, not 6.8k prims. `HUR_DEBRIS_APRON=0` disables it.
+                _apron_n = int(_env("HUR_DEBRIS_APRON", "300"))
+                if _apron_n > 0:
+                    _apron = []
+                    _apron_wet = 0
+                    for _w in (_wrecks_light + _wrecks_heavy):
+                        _wfp = float(_w[2])
+                        _wskins = mh.palette_skins(_w[5]) if _w[5] else None
+                        for _k in range(6):
+                            _apron += planks.scatter_from_wreck(
+                                float(_w[0]), float(_w[1]), _wfp,
+                                float(_w[3]), 60.0 * _k + _lrng.uniform(-12.0, 12.0),
+                                1.05 * _wfp, _lrng,
+                                n_pieces=max(1, _apron_n // 6),
+                                ground_z=wash.LAND_DEBRIS_GROUND_Z_M,
+                                skins=_wskins, base_frac=0.0, tail_pow=1.0)
+                    # SAME SUBMERGED MASK the region field uses below: a
+                    # piece that lands in real water is the raft field's job.
+                    for _sp in _apron:
+                        if _depth_fn(_sp["x"], _sp["y"]) > \
+                                wash.LAND_DEBRIS_SUBMERGED_DEPTH_M:
+                            _apron_wet += 1
+                            continue
+                        _ld.append(_sp)
+                    print("[hurricane] land debris near-field apron: {0} "
+                         "piece(s) round {1} wreck(s), {2} dropped (submerged)"
+                         .format(len(_apron) - _apron_wet,
+                                 len(_wrecks_light) + len(_wrecks_heavy),
+                                 _apron_wet))
+
                 # # REGION FIELD — loose litter across the plate at large,
                 # not just on a damaged lot, the same argument the tornado's
                 # `scatter_over_region` makes for its corridor ("what is
@@ -1442,6 +1614,62 @@ def main():
             except Exception as _fexc:
                 print("[hurricane] fences FAILED: {0}".format(_fexc))
 
+            # STREET FURNITURE — signs, streetlights, bins, hydrants.
+            # ADDED 2026-09-01, user: "I don't see fallen over [signs], stop
+            # signs, etc. Those should also be thrown away/uprooted."
+            #
+            # Nothing in this repo read those prims before: 45 signs, 37
+            # streetlights, 23 bins and 19 hydrants stood pristine through a
+            # Cat-3 wind field. `disaster.street_furniture` is the same
+            # pure-decision / stage-apply split `fence_specs` +
+            # `apply_fence_pose` use, and reuses the SAME `_depth_fn` and
+            # `inten` closures the fence and debris passes already read, so
+            # every pass agrees about where the water and the wind are
+            # rather than each realising its own field.
+            #
+            # DISCRIMINATING, NOT FLATTENING, which is the whole point of
+            # modelling it per class: a bin is the most wind-vulnerable
+            # object on the plate and essentially always leaves, a sign
+            # shears or uproots, a steel streetlight column mostly SURVIVES,
+            # and a cast-iron hydrant bolted to a buried main NEVER moves —
+            # measured 0 of 8000 at maximum intensity, and it is the
+            # deliberate control that proves the pass is choosing rather
+            # than knocking everything down.
+            try:
+                _sf_cats = ("sign", "streetlight", "trash_can",
+                            "fire_hydrant")
+                _sf_paths, _sf_items = [], []
+                for _cp in Usd.PrimRange(stage.GetPrimAtPath(Sdf.Path(PARENT))):
+                    _cat = None
+                    for _c in _sf_cats:      # prefix match, NOT split("_"):
+                        if _cp.GetName().startswith(_c + "_"):
+                            _cat = _c        # `trash_can` contains the
+                            break            # delimiter itself
+                    if _cat is None:
+                        continue
+                    _sf_paths.append(str(_cp.GetPath()))
+                    _sf_items.append(sfu.measure_street_item(
+                        stage, _cp, _cat, ssf=ssf))
+                if _sf_items:
+                    _sf_dec = sfu.street_furniture_specs(
+                        _sf_items, _depth_fn,
+                        lambda x, y: hu.wind_bearing_at(hcfg, x, y), inten,
+                        random.Random(SEED + 151))
+                    _sf_tally = {}
+                    for _pth, _dec in zip(_sf_paths, _sf_dec):
+                        sfu.apply_street_furniture_pose(stage, _pth, _dec,
+                                                        ssf=ssf)
+                        _k = "{0}:{1}".format(_dec["category"],
+                                              _dec["action"])
+                        _sf_tally[_k] = _sf_tally.get(_k, 0) + 1
+                    made_w["street_furniture"] = "{0} item(s) {1}".format(
+                        len(_sf_items), dict(sorted(_sf_tally.items())))
+            except Exception as _sfexc:
+                import traceback
+                print("[hurricane] street furniture FAILED: {0}"
+                      .format(_sfexc))
+                traceback.print_exc()
+
             print("[hurricane] water in {0:.0f}s: {1}".format(
                 time.time() - tw,
                 ", ".join("{0} {1}".format(k, v) for k, v in made_w.items())))
@@ -1546,6 +1774,243 @@ def main():
                      len(made_g), len(made_wet), len(made_dry), wet_band_m))
         except Exception as exc:
             print("[hurricane] silt overlay FAILED: {0}".format(exc))
+
+    # 7c) THE PEOPLE ----------------------------------------------------------
+    #
+    # See `disaster/hurricane_people.py`'s own module docstring for the full
+    # design. In one line: DRY LAND reuses `tornado_people`'s wrecked-house
+    # casualty model VERBATIM, restricted to the houses this scene's own
+    # surge field calls dry; IN THE WATER stands a figure CHEST-DEEP
+    # (`people.CHEST_FRAC`) near a wrecked house's own debris or the up-flow
+    # face of a standing one; ON ROOFS — REWRITTEN 2026-09-01, user on the
+    # live scene ("sitting on the sides... too close to the edge... intact
+    # houses's roofs only") — seats 1-3 `sit_slump` figures per roof (PPL3: sit_ground rolled to full pitch read as a torso emerging from the roof) on the
+    # measured PITCHED SLOPE (never the ridge apex, never the eave), tilted
+    # to the slope's own measured pitch, on `pristine` houses ONLY, preferring
+    # the flooded band.
+    #
+    # `depth`/`scfg`/`inten` are step 3's ("THE WATER") and step 2's ("THE
+    # STORM") own objects, REUSED here rather than re-derived — same rule
+    # `disaster.hurricane_people`'s own docstring states for `depth_at`.
+    # `wrecks`/`_h_recs`/`fp_by_style` are step 4's ("HOUSES") own lists.
+    #
+    # LAST, DELIBERATELY, same reasoning `tornado_people`'s own launcher
+    # gives: every pass above moves, deletes or re-materialises something,
+    # and a survivor is not debris.
+    n_people = n_water = n_roof = n_trap = 0
+    p_recs = []
+    # THE WRECK'S OWN DEBRIS SURFACE, SAMPLED OFF THE ARCHETYPE. Ported from
+    # `suburb_tornado_launch_script.py` verbatim, 2026-09-01, on the user's
+    # own report against the live 500 m plate: "I see dry casualties only in
+    # the open."
+    #
+    # This is the SAME defect the tornado already hit and already fixed, and
+    # `tornado_people._Deck`'s own docstring records it in the reviewer's
+    # words: "I no longer see people inside the house debris, they seem to
+    # only be surrounding it". The cause is that `_Deck` measures the PLANK
+    # FIELD, and on a wrecked lot the boards are the THIN part of the debris
+    # — the deep part is the baked wreck USD, which the planner cannot see
+    # because it is a referenced INSTANCE and that module never touches a
+    # stage. With no archetype samples the measured deck is ~0 over the whole
+    # lot, `_DECK_BAND["pile"]`'s 0.03 m floor stops being cleared, and every
+    # casualty is pushed off the wreckage onto the skirt and the yard.
+    #
+    # Measured on this plate BEFORE the fix: 0 of 30 dry casualties within a
+    # footprint of any house, `pile` sitting at a median of 14.0 m from the
+    # nearest house centre, 24 of 30 more than 12 m out. `_Deck` takes these
+    # samples through `ctx["deck_points"]` and has since it was written; this
+    # launcher was passing `[]`.
+    #
+    # `Usd.TraverseInstanceProxies` is what makes it possible: it walks INTO
+    # an instance without authoring anything there, so each wreck's own
+    # meshes are measured in world space and their tops stamped into the same
+    # 0.8 m grid the boards use.
+    # `tornado_people._Deck`'s own default cell. Sampling on the SAME grid the
+    # deck is built on is what makes a stamped cell mean exactly one cell.
+    _DECK_CELL_M = 0.8
+    deck_points = []
+    if DO_PEOPLE and _h_recs:
+        try:
+            _bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                                    [UsdGeom.Tokens.default_,
+                                     UsdGeom.Tokens.render],
+                                    useExtentsHint=True)
+            for _hr in _h_recs:
+                _pr = stage.GetPrimAtPath(Sdf.Path(_hr["prim_path"]))
+                if not _pr or not _pr.IsValid():
+                    continue
+                for _q in Usd.PrimRange(_pr, Usd.TraverseInstanceProxies()):
+                    if _q.GetTypeName() != "Mesh":
+                        continue
+                    _r = _bc.ComputeWorldBound(_q).ComputeAlignedRange()
+                    if _r.IsEmpty():
+                        continue
+                    _mn, _mx = _r.GetMin(), _r.GetMax()
+                    # DENSE, NOT ONE SAMPLE PER MESH. The tornado stamps each
+                    # mesh's top at its PLAN CENTRE only, on the argument
+                    # that "a wall is not something a body lies on" — true
+                    # there, because `wreck_clear_m` keeps every body outside
+                    # the wall line anyway. This file drops that keepout (see
+                    # `hurricane_people.resolve_cfg`) so that casualties can
+                    # lie INSIDE an open wrecked footprint, and the moment a
+                    # body may be inside, the deck has to know where the
+                    # walls are along their whole LENGTH: a centre-only
+                    # sample leaves a 6 m wall reading as bare ground over
+                    # every cell but one, and `_DECK_BAND` would happily
+                    # accept a body lying through it.
+                    #
+                    # So stamp the mesh's top across its whole bbox plan
+                    # extent, on the same 0.8 m grid `_Deck` uses. The
+                    # 400-cell cap is `_Deck`'s own guard against a single
+                    # house-sized bbox costing thousands of cells; past it,
+                    # fall back to the centre sample.
+                    _z = float(_mx[2]) / ssf
+                    _x0, _x1 = _mn[0] / ssf, _mx[0] / ssf
+                    _y0, _y1 = _mn[1] / ssf, _mx[1] / ssf
+                    _i0, _i1 = int(_x0 // _DECK_CELL_M), int(_x1 // _DECK_CELL_M)
+                    _j0, _j1 = int(_y0 // _DECK_CELL_M), int(_y1 // _DECK_CELL_M)
+                    if (_i1 - _i0 + 1) * (_j1 - _j0 + 1) > 400:
+                        deck_points.append((0.5 * (_x0 + _x1),
+                                            0.5 * (_y0 + _y1), _z))
+                        continue
+                    for _ii in range(_i0, _i1 + 1):
+                        for _jj in range(_j0, _j1 + 1):
+                            deck_points.append((
+                                (_ii + 0.5) * _DECK_CELL_M,
+                                (_jj + 0.5) * _DECK_CELL_M, _z))
+            print("[hurricane] debris surface: {0} sample(s) off {1} house "
+                  "archetype(s)".format(len(deck_points), len(_h_recs)))
+        except Exception as _exc:
+            print("[hurricane] archetype deck sampling FAILED ({0}); the "
+                  "people pass will see the board field only".format(_exc))
+    if DO_PEOPLE:
+        try:
+            _hpp_cfg = hpp.resolve_cfg(config)
+            _hpp_resolver = sg._make_resolver(config)
+            _hpp_pools = ss.AssetPools(config)
+            # THE RIGGED RENDERPEOPLE ONLY — a `posed_standing` static has no
+            # skeleton and cannot take a pose. Same selection
+            # `suburb_tornado_launch_script._rigged_humans` makes.
+            from suburb_scene import _raw_pool as _hpp_raw_pool
+            _hpp_raw = _hpp_raw_pool(config, "humans")
+            _hpp_rigged = _hpp_pools.load_tagged(_hpp_raw, "rigged")
+            if not _hpp_rigged:
+                _hpp_posed = _hpp_pools.load_tagged(_hpp_raw, "posed_standing")
+                _hpp_rigged = [u for u in _hpp_pools.load(_hpp_raw)
+                              if u not in _hpp_posed]
+            _hpp_ctx = {
+                "region": region, "wrecks": wrecks, "houses": _h_recs,
+                "fp_by_style": fp_by_style, "depth_at": depth,
+                "water_level": sgw.water_level(scfg),
+                "shore_bearing_deg": float(scfg["shore_bearing_deg"]),
+                "intensity_at": inten, "humans": _hpp_rigged,
+                "resolver": _hpp_resolver, "asset_pools": _hpp_pools,
+                # THE LAND-DEBRIS FIELD, IF THE WATER PASS BUILT ONE — `_ld`
+                # is a local of the "# LAND DEBRIS" block inside step 6) THE
+                # WATER, assigned only when `DO_WATER`/`DO_WASHAWAY` both ran
+                # clean. `locals().get` rather than a bare name so a skipped
+                # or failed water pass degrades to `tornado_people`'s own
+                # `_FlatDeck` fallback (`DEBRIS_Z_M`, flat) instead of an
+                # `UnboundLocalError` here.
+                "plank_specs": locals().get("_ld") or [],
+                # SAMPLED ABOVE, not empty any more — see the block before
+                # `if DO_PEOPLE`. This is what puts a casualty ON the wreck
+                # instead of in the lawn beside it.
+                "deck_points": deck_points,
+            }
+            p_humans, p_debris, p_recs = hpp.plan_people(
+                _hpp_cfg, _hpp_ctx, random.Random(SEED + 191))
+            if p_humans:
+                sg.apply_placements(stage, p_humans, PARENT + "/people", ssf,
+                                    resolver=_hpp_resolver,
+                                    instance_categories=set())
+            if p_debris:
+                # THE BOARDS THAT MAKE A DRY-LAND CASUALTY *PARTIAL*, ADDED
+                # 2026-09-01. `plan_people`'s second return value was being
+                # bound and then never authored, so every dry figure this
+                # scene ever shipped lay FULLY EXPOSED on the debris mat — the
+                # `occlusion`/`covered_frac`/`visible_parts` written into
+                # `PEOPLE_JSON` described a covering that did not exist on the
+                # stage, and the ground truth was wrong for 24 of 28 dry
+                # casualties on the reference plate. `_plan_dry` already runs
+                # `tornado_people` verbatim and already solves each covering
+                # piece against the body under it (`tornado_people._cover`);
+                # the only thing missing here was this build, which is the
+                # tornado launcher's own `trap_debris` block unchanged.
+                #
+                # Note the hurricane's own `occlusion` reweighting in
+                # `hurricane_people.resolve_cfg` ("more under debris, fewer
+                # lying in the open") has been feeding this list all along —
+                # it only ever showed up in the JSON.
+                #
+                # THE POSE, THE THICKNESS AND THE TILT COME FROM THE PLANNER.
+                # A propped piece runs from the debris surface up over the
+                # casualty and carries a SOLVED pitch; randomising it here is
+                # the difference between a board resting on somebody and a
+                # board that has fallen off them. The `.get` defaults exist
+                # only for a spec that predates that solve.
+                _trng = random.Random(SEED + 193)
+                _tspec = [{"x": d["x"], "y": d["y"], "z": d["z"],
+                           "l": d["len"], "w": d["wide"], "yaw": d["yaw"],
+                           "t": d.get("t", _trng.uniform(0.02, 0.05)),
+                           "pitch": d.get("pitch", _trng.uniform(-8.0, 8.0)),
+                           "roll": d.get("roll", _trng.uniform(-10.0, 10.0)),
+                           "class": d.get("class",
+                                          "sheathing" if d["wide"] > 0.4
+                                          else "board")}
+                          for d in p_debris]
+                _tspec, _n_trap_off = planks.clip_to_region(_tspec, region)
+                try:
+                    planks.build(stage, PARENT + "/trap_debris", _tspec,
+                                 planks.materials(stage,
+                                                  PARENT + "/trap_debris"),
+                                 ssf, verbose=False)
+                    n_trap = len(_tspec)
+                    print("[hurricane] people: {0} board(s) over trapped "
+                          "figures ({1} clipped off-plate)".format(
+                              n_trap, _n_trap_off))
+                except Exception as _texc:
+                    print("[hurricane] trap debris build FAILED: {0}"
+                          .format(_texc))
+            # `prim_path` LANDS ON THE PLACEMENT DICT, not the record —
+            # `apply_placements` mutates each `p_humans[i]` in place (see
+            # that function's own comment). `hurricane_people`'s own `_Field`-
+            # style helpers append to `humans` and `records` TOGETHER, every
+            # time, so the two lists are always the same length and the same
+            # order — zipping them is exact, not a nearest-match guess.
+            # `house_prim_path` (water/roof records only) IS a nearest-match
+            # join, the same pattern `disaster.people.house_table` already
+            # uses to attach a fire level to a plat house by position.
+            for _prec, _pph in zip(p_recs, p_humans):
+                _prec["prim_path"] = _pph.get("prim_path")
+                if _prec.get("house_style") is not None:
+                    _cands = [_hh for _hh in _h_recs
+                             if _hh["style"] == _prec["house_style"]
+                             and str(_hh["level"]) == str(
+                                 _prec.get("house_level"))]
+                    if _cands:
+                        _best = min(_cands, key=lambda _hh: (
+                            (_hh["x"] - _prec["x"]) ** 2
+                            + (_hh["y"] - _prec["y"]) ** 2))
+                        _prec["house_prim_path"] = _best["prim_path"]
+            hpp.write_records(PEOPLE_JSON, p_recs, meta={
+                "seed": SEED, "scene_config": SCENE_CONFIG,
+                "water_level_m": sgw.water_level(scfg),
+                "shore_bearing_deg": float(scfg["shore_bearing_deg"])})
+            _ps = hpp.summarise(p_recs)
+            n_people = _ps["by_domain"].get("dry_wreck", 0)
+            n_water = _ps["by_domain"].get("water", 0)
+            n_roof = _ps["by_domain"].get("roof", 0)
+            print("[hurricane] people: {0} dry-land casualt(ies) under {4} "
+                 "covering board(s), {1} in the water, {2} on a roof; "
+                 "ground truth -> {3}".format(
+                     n_people, n_water, n_roof, PEOPLE_JSON, n_trap))
+            print("[hurricane] people water depths: {0}".format(
+                _ps["water_depths"]))
+        except Exception as exc:
+            import traceback
+            print("[hurricane] PEOPLE PASS FAILED: {0}".format(exc))
+            traceback.print_exc()
 
     # 8) GROUND TRUTH -------------------------------------------------------
     gt_path = os.path.join(SNAP_DIR or ARCH_DIR, "GT_hurricane.json")
@@ -1718,6 +2183,61 @@ def main():
                           .format(_name, _e))
             print("[hurricane] snapshots -> {0} ({1} subject(s): {2})"
                   .format(SNAP_DIR, len(_pts), ", ".join(sorted(_pts))))
+
+            # ONE CLOSE FRAME PER DRY CASUALTY (2026-09-01, user: "can you
+            # show me photos of the people in house debris? I can't see
+            # them"). The ten review subjects above are chosen for the
+            # WATER and the HOUSES — none of them is aimed at a body, and a
+            # casualty is a couple of metres of a 500 m plate, so at review
+            # framing it is a few pixels. This shoots the casualties the
+            # people pass actually placed, using their own recorded
+            # positions, so what gets photographed is guaranteed to be a
+            # figure rather than a hopeful bearing.
+            #
+            # `overview` (top-down), not `views_around` (oblique): the
+            # people bench measured the oblique path returning a uniform
+            # frame for close subjects at every distance tried while
+            # `overview` rendered on every run, and a top-down is the right
+            # view for an aerial dataset anyway. 9 m span puts the camera at
+            # ~8.6 m (`overview` uses 0.95 * span), clear of this kit's
+            # 5.6 m ridge, with a 1.8 m body across a fifth of the frame —
+            # the bench proved a 5.5 m span sits BELOW the roofline and
+            # renders the inside of a house.
+            #
+            # Named for the occlusion pattern each one demonstrates, so a
+            # frame can be checked against the label this scene wrote into
+            # `PEOPLE_JSON` for that same figure. Capped by
+            # HUR_PEOPLE_SHOTS (0 disables) because each costs a render.
+            _n_shots = int(_env("HUR_PEOPLE_SHOTS", "8"))
+            _shot = [r for r in (p_recs or ())
+                     if r.get("domain") == "dry_wreck"]
+            if _n_shots > 0 and _shot:
+                # Most-covered first: those are the ones worth judging, and
+                # a fully exposed body is already visible in the wide views.
+                _shot.sort(key=lambda r: -float(r.get("covered_frac") or 0.0))
+                _seen, _made = set(), 0
+                for _r in _shot:
+                    if _made >= _n_shots:
+                        break
+                    _k = _r.get("occlusion") or "none"
+                    if _k in _seen:          # one per pattern, for variety
+                        continue
+                    _seen.add(_k)
+                    _nm = "casualty_{0}".format(_k)
+                    try:
+                        _snaps.overview(stage, (_r["x"], _r["y"]), 9.0,
+                                        os.path.join(SNAP_DIR, _nm + ".png"),
+                                        ssf=ssf)
+                        _made += 1
+                        print("[hurricane] {0}.png -> covered {1:.2f}, "
+                              "visible {2}".format(
+                                  _nm, float(_r.get("covered_frac") or 0.0),
+                                  ",".join(_r.get("visible_parts") or ["-"])))
+                    except Exception as _e:
+                        print("[hurricane] casualty shot {0} FAILED: {1}"
+                              .format(_nm, _e))
+                print("[hurricane] casualty close-ups: {0} frame(s)"
+                      .format(_made))
         except Exception as _exc:
             import traceback
             print("[hurricane] snapshots FAILED: {0}".format(_exc))

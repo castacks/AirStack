@@ -332,8 +332,23 @@ _HEADLESS = _env("ISAAC_SIM_HEADLESS", "false").lower() in ("1", "true", "yes")
 KIT_ARGS = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
             "--/rtx/pathtracing/fractionalCutoutOpacity=true"]
 
-simulation_app = SimulationApp(launch_config={"headless": _HEADLESS,
-                                              "extra_args": KIT_ARGS})
+# GUARDED, so this module can also be LOADED AS A LIBRARY by a caller that
+# already has its own `SimulationApp` running — a second one in the same
+# process is a segfault inside the first second (the same constraint this
+# file's own docstring already states for `fire_assembly_launch_script.py`).
+# `_load_by_path` (see that helper elsewhere in this repo) sets `__name__` to
+# whatever name string it is given, never `"__main__"`, so a caller loading
+# this file that way (e.g. `freeze_urban_fire_city_launch_script.py`, which
+# needs `FireCityApp` inside its OWN already-running Kit process to assemble
+# and freeze the same city) skips this line entirely and reuses the caller's
+# app. Direct invocation (`python urban_fire_city_launch_script.py`, the pod
+# workflow every knob above is documented against) is BYTE-IDENTICAL to
+# before this guard: `__name__ == "__main__"` there, always.
+if __name__ == "__main__":
+    simulation_app = SimulationApp(launch_config={"headless": _HEADLESS,
+                                                  "extra_args": KIT_ARGS})
+else:
+    simulation_app = None
 
 from isaacsim.core.utils.extensions import enable_extension    # noqa: E402
 
@@ -363,6 +378,7 @@ from scene_generator import resolve_sky, _make_resolver         # noqa: E402
 from sky_presets import apply_sky_preset                        # noqa: E402
 from generate_scene import generate_scene_on_stage              # noqa: E402
 from compile_disaster import load_scene_config, resolve_config_path  # noqa: E402
+from disaster import baseline_captures as bc                    # noqa: E402
 from disaster import fire as fx                                 # noqa: E402
 from disaster import fire_assembly_lib as fal                   # noqa: E402
 from disaster import fire_bake as fb                            # noqa: E402
@@ -392,6 +408,14 @@ def _load_by_path(name, path):
 fcm = _load_by_path("fire_city_manifest",
                     os.path.join(_SCENE_GEN_DIR, "tools",
                                  "fire_city_manifest.py"))
+# `tools/crop_window.py` — `FC_CROP_WINDOW`'s own filter/orphan-prop logic,
+# the SAME code the host-side preview and `fc_dump_crop.py` already run on
+# the dump, reused here rather than reimplemented against live Kit
+# placements. Computes its own `sys.path` entries from `__file__` (see its
+# own top of file), so loading it this way — rather than a `sys.path`
+# insert of `scene_gen/tools` — is safe for the same reason `fcm` above is.
+cw = _load_by_path("crop_window",
+                   os.path.join(_SCENE_GEN_DIR, "tools", "crop_window.py"))
 
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
 PARENT = "/World/stage/generated"
@@ -411,6 +435,94 @@ MANIFEST = _env("FC_MANIFEST", "")
 BAKES = _env("FC_BAKES", "")
 INTACT_ONLY = _flag("FC_INTACT_ONLY", "0")
 DUMP_PATH = _env("FC_DUMP", "")
+
+# ---------------------------------------------------------------------------
+# FC_CROP_WINDOW — "generate 1.5 km, crop to 1 km, not always centred"
+# (`downtown_fire_1500.yaml`'s own header; `scene_gen/tools/crop_window.py`,
+# `scene_gen/tools/fc_dump_crop.py`, `scene_gen/tools/baseline_layouts.py`).
+#
+# `FC_CROP_WINDOW=cx,cy,W,H` — the SAME centre/size `tools/fc_dump_crop.py
+# --centre cx cy --size W H` used to crop the dump `FC_MANIFEST` was solved
+# on. UNSET (the default) -> `None`, and every path this feature touches is
+# BYTE-IDENTICAL to before it existed — this knob is the ONLY thing that can
+# turn any of it on.
+#
+# WHAT IT DOES, in one place rather than scattered across every call site:
+#
+#   (a) DEACTIVATE, NEVER RESIZE. `FireCityApp.__init__` builds the FULL
+#       city the preset describes (1.5 km, every building/tree/car/prop) —
+#       this knob does not change THAT. Right after `generate_scene_on_
+#       stage`, `_apply_crop_window()` reuses `tools/crop_window.crop_
+#       layout` (drop-a-building-whole-not-cut, of-tag-orphan-prop, same
+#       code the host-side preview and `fc_dump_crop.py` already run on the
+#       dump) to decide kept-vs-dropped, then `SetActive(False)`s every
+#       DROPPED placement's prim — the same hide mechanism `resolve_cell`'s
+#       own `hide_intact` already uses elsewhere in this file. Ground/road
+#       MESH geometry (not individual placements) stays full-extent — "a
+#       hard edge is acceptable" there, this pass only ever touches discrete
+#       placements. `self.placements` stays the FULL list, same length, same
+#       order: a manifest record's `i` is an index into that FULL list
+#       (assigned before any crop existed), and shrinking the list would
+#       silently repoint every `i` after the first drop at the wrong prim.
+#
+#   (b) TRANSLATE NOTHING. The two options were "one root-level translate on
+#       PARENT" vs "translate nothing, un-shift the manifest/people
+#       coordinates at load instead" — this is the SECOND, chosen because a
+#       root translate would need every LATER pass that authors new content
+#       from cropped-dump-derived coordinates (people, fire debris, the
+#       flow-cell transform) to also know whether to skip that translate,
+#       multiplying the places this can quietly drift out of sync. Kit's own
+#       `self.placements[i]["x_m"]`/`["y_m"]` are ALWAYS the ORIGINAL,
+#       full-city values (authored by `apply_placements`, never touched by
+#       this feature) — so instead, `load_fire()` and `place_people()` each
+#       un-shift the coordinates THEY load (which come from a manifest/
+#       people-plan solved on a RE-CENTRED cropped dump) back to that same
+#       original frame, once, right after loading, before anything reads
+#       them. `resolve_cell` additionally prefers each record's own
+#       `x_orig`/`y_orig` (stamped by `urban_fire_city.burnable()` from a
+#       cropped dump's `x_m_orig`/`y_m_orig` — see `fire_city_dry_run.
+#       load_placements_dump`) as a second, data-driven route to the same
+#       number, independent of this env var being parsed correctly.
+#
+#   (c) See `resolve_cell`'s own docstring for the matching side of (b).
+#
+# `tools/baseline_layouts.py --sweep`/`pod_commands()` print the exact
+# `--centre cx cy` this run's window used — pass those same four numbers
+# here unchanged.
+# ---------------------------------------------------------------------------
+def _parse_crop_window(spec):
+    """`"cx,cy,W,H"` -> `(x0, y0, x1, y1)` in the FULL city's own (pre-crop)
+    coordinate frame. `""`/unset -> `None`. Raises `ValueError` (loud, not a
+    silent fallback to "no crop") on a malformed non-empty value — a typo
+    here would otherwise ship a scene with the wrong 1 km chunk active and
+    no indication anything was wrong."""
+    if not spec:
+        return None
+    parts = [q.strip() for q in spec.split(",")]
+    if len(parts) != 4:
+        raise ValueError(
+            "FC_CROP_WINDOW={0!r} -- expected 'cx,cy,W,H' (four "
+            "comma-separated numbers), the same --centre/--size "
+            "tools/fc_dump_crop.py used to crop the dump this run's "
+            "FC_MANIFEST was solved on".format(spec))
+    try:
+        cx, cy, w, h = (float(q) for q in parts)
+    except ValueError:
+        raise ValueError(
+            "FC_CROP_WINDOW={0!r} -- all four fields must parse as "
+            "numbers".format(spec))
+    if w <= 0.0 or h <= 0.0:
+        raise ValueError(
+            "FC_CROP_WINDOW={0!r} -- W and H must be positive".format(spec))
+    return (cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0)
+
+
+_CROP_WINDOW_SPEC = _env("FC_CROP_WINDOW", "")
+CROP_WINDOW = _parse_crop_window(_CROP_WINDOW_SPEC)
+CROP_CENTRE = (None if CROP_WINDOW is None else
+              ((CROP_WINDOW[0] + CROP_WINDOW[2]) / 2.0,
+               (CROP_WINDOW[1] + CROP_WINDOW[3]) / 2.0))
+
 FC_ENV = _env("FC_ENV", "default")
 HIDE_MODE = _env("FC_HIDE", "invisible").lower()
 # "sunset" is the CURRENT look, kept as the default so the city only changes
@@ -569,6 +681,13 @@ PEOPLE_JSON = _env("FC_PEOPLE_JSON", "")
 # record already names the burning building it was solved against
 # (`building_i`), so this is a GUARD, not the mechanism — see `place_people`.
 PEOPLE_MAX_DIST_M = float(_env("FC_PEOPLE_MAX_DIST_M", "120"))
+# 1 (default) runs the full baseline review pass at the end of `capture()`
+# (`disaster/baseline_captures.py`): overviews, per-district orbits, a
+# second per-building oblique, every figure from >=2 angles, and one shot
+# per figure group. 0 keeps the capture pass exactly as it was before
+# 2026-09-01 (top-down, wave, per-building pair only) — useful on a slow
+# pod run where hundreds of extra shots are not wanted this time.
+BASELINE_CAPTURES = _flag("FC_BASELINE_CAPTURES", "1")
 # 1 (default) hides a damaged building's COMPANION ROOF/WALL PROPS along with
 # its intact shell — see `compose_bakes`.
 HIDE_PROPS = _flag("FC_HIDE_PROPS", "1")
@@ -718,6 +837,12 @@ def dump_city_placements(path, preset, seed, config, placements, layout):
     for i, p in enumerate(placements):
         if p.get("category") != "house":
             continue
+        if p.get("_fc_cropped"):
+            # FC_CROP_WINDOW was also set on THIS run (not the documented
+            # workflow -- that crops the DUMP host-side from an UNCROPPED
+            # intact dump -- but kept consistent rather than refused): a
+            # dump of a cropped stage should describe only what is ACTIVE.
+            continue
         usd = p.get("usd")
         fp = resolver.get(usd, "house", scale=float(p.get("scale", 1.0)),
                           axis_up=p.get("axis_up", "Z"))
@@ -802,6 +927,44 @@ def bake_paths(records, seed, spec):
     return out
 
 
+def _unshift_records_to_full_city(records, cx, cy, fields=(("x", "y"),)):
+    """ADD `(cx, cy)` back onto every `(x, y)`-like coordinate pair in
+    `records` — FC_CROP_WINDOW's point (b): a manifest/people-plan solved on
+    a RE-CENTRED cropped dump carries coordinates in that recentred frame,
+    and this launcher's stage is never translated, so every consumer needs
+    them shifted back to the ORIGINAL full-city frame before anything reads
+    them. Mutates `records` in place; returns the number of records changed.
+
+    PREFERS `x_orig`/`y_orig` WHEN A RECORD ALREADY CARRIES THEM (`urban_
+    fire_city.burnable()`'s stamp, threaded from a cropped dump's own
+    `x_m_orig`/`y_m_orig`) — that is already the exact full-city value, so
+    copying it is both correct AND idempotent (calling this twice, or on a
+    record that was never cropped at all — `x_orig == x` there — changes
+    nothing further). Only a record with NEITHER field falls back to the
+    arithmetic add, e.g. a people-plan record, which carries no `x_orig` at
+    all (`fire_people_dry_run.py` predates this feature).
+
+    `fields` — which key PAIRS on each record are coordinates. The fire
+    manifest and the people-plan records both use plain `"x"`/`"y"`, the
+    default; a future record shape with a different name can pass its own.
+    """
+    n = 0
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+        if "x_orig" in rec and "y_orig" in rec:
+            rec["x"] = rec["x_orig"]
+            rec["y"] = rec["y_orig"]
+            n += 1
+            continue
+        for xk, yk in fields:
+            if xk in rec and yk in rec:
+                rec[xk] = float(rec[xk]) + cx
+                rec[yk] = float(rec[yk]) + cy
+                n += 1
+    return n
+
+
 def resolve_cell(stage, placements, rec):
     """`(prim_path, how)` for the INTACT city prim this bake replaces.
 
@@ -821,9 +984,25 @@ def resolve_cell(stage, placements, rec):
     `(None, reason)` when all three fail — the caller then refuses to place
     the bake, because a burnt shell composed inside an intact one is worse
     than a missing fire: it z-fights, and it reads as a different bug.
+
+    `rec.get("x_orig")`/`("y_orig")` WIN OVER `rec["x"]`/`["y"]` WHEN
+    PRESENT. `urban_fire_city.burnable()` stamps them on every record from
+    a cropped dump's `x_m_orig`/`y_m_orig` (see `FC_CROP_WINDOW` above) —
+    this launcher never translates its stage (`__init__`'s `_apply_crop_
+    window` only deactivates, it does not move anything), so `placements[i]
+    ["x_m"]`/`["y_m"]` is ALWAYS the ORIGINAL, full-city coordinate Kit
+    just authored. A manifest solved on a RE-CENTRED cropped dump carries
+    `rec["x"]`/`["y"]` in that recentred frame — comparing that straight
+    against `placements[i]["x_m"]` would be off by the crop shift on every
+    single record. `load_fire()` also un-shifts `rec["x"]`/`["y"]` in place
+    as its OWN primary fix (belt-and-braces with this one — see its own
+    docstring), so ordinarily both already agree; this preference is what
+    keeps `resolve_cell` correct on its own, for any caller (a test, a
+    future launcher) that hands it a record `load_fire()` never touched.
     """
     i = rec.get("i")
-    rx, ry = float(rec.get("x", 0.0)), float(rec.get("y", 0.0))
+    rx = float(rec.get("x_orig", rec.get("x", 0.0)))
+    ry = float(rec.get("y_orig", rec.get("y", 0.0)))
     if isinstance(i, int) and 0 <= i < len(placements):
         p = placements[i]
         if p.get("usd") == rec.get("usd"):
@@ -1425,6 +1604,12 @@ class FireCityApp:
         t_layout = time.time()
         self.placements = generate_scene_on_stage(
             stage, config, parent_path=PARENT, scene_scale_factor=self.ssf)
+        # FC_CROP_WINDOW — deactivate everything outside the level's 1 km
+        # window BEFORE anything downstream (uninstance repair, settle,
+        # bakes, captures) spends work on a placement that will never be
+        # exported. See the env var's own docstring above for the full
+        # design; a no-op whenever it is unset.
+        self._apply_crop_window()
         # BEFORE the first update: an instanced gprim root renders nothing
         # (see `_uninstance_gprim_roots`), and the repair has to be in place
         # before anything downstream measures or photographs the city.
@@ -1434,7 +1619,8 @@ class FireCityApp:
         settle_rigid_props(
             stage,
             [p["prim_path"] for p in self.placements
-             if p.get("settle") and p.get("prim_path")],
+             if p.get("settle") and p.get("prim_path")
+             and not p.get("_fc_cropped")],
             ground_path=PARENT + "/ground")
         if SKY in ("", "sunset"):
             # UNCHANGED -- byte-identical to every fire-city render before
@@ -1457,8 +1643,14 @@ class FireCityApp:
             omni.kit.app.get_app().update()
         self.t_layout = time.time() - t_layout
         self.region = [float(v) for v in config["layout"]["region_m"]]
+        # ACTIVE building count -- excludes anything FC_CROP_WINDOW just
+        # deactivated, so this number (and everything it feeds: the banner,
+        # the intact-VRAM tag) describes the EXPORTED scene, not the full
+        # generator plate behind it. Identical to before when the crop is
+        # off (`_fc_cropped` is never set then).
         self.n_houses = sum(1 for p in self.placements
-                            if p.get("category") == "house")
+                            if p.get("category") == "house"
+                            and not p.get("_fc_cropped"))
         print("[fc] city: {0:.0f} x {1:.0f} m, {2} placement(s), {3} "
               "building(s), layout in {4:.0f} s".format(
                   self.region[0], self.region[-1], len(self.placements),
@@ -1470,6 +1662,14 @@ class FireCityApp:
             # solves the fire on THIS city, not a host-side reconstruction
             # that can pack differently and describe a city that never
             # existed. See FC_DUMP in this module's own docstring.
+            #
+            # A crop-window intact dump (FC_CROP_WINDOW + FC_INTACT_ONLY
+            # together) is not the documented pod workflow (that crops the
+            # DUMP host-side, via `fc_dump_crop.py`, from an UNCROPPED
+            # intact dump) but is left consistent rather than refused:
+            # `dump_city_placements` itself skips `_fc_cropped` placements
+            # (see its own docstring), so this always describes exactly
+            # what is ACTIVE on this stage right now.
             dump_path = DUMP_PATH or default_dump_path(
                 SCENE_CONFIG, config.get("seed", 0))
             dump_city_placements(dump_path, SCENE_CONFIG, config.get("seed", 0),
@@ -1477,6 +1677,64 @@ class FireCityApp:
                                  config.get("_city_layout") or {})
         self.vram["intact"] = vram_mb(
             "city built INTACT ({0} buildings)".format(self.n_houses))
+
+    # -- FC_CROP_WINDOW: deactivate everything outside the level's window --
+    def _apply_crop_window(self):
+        """See `FC_CROP_WINDOW`'s own module-level docstring for the full
+        design. No-op when the env var is unset — `self.crop_window` is then
+        `None` and `self.placements` is untouched, byte-identical to before
+        this feature existed.
+
+        Marks every DROPPED placement `p["_fc_cropped"] = True` IN PLACE and
+        deactivates its prim; `self.placements` keeps its original length
+        and index order throughout (a manifest record's `i` is an index
+        into this SAME list, assigned before any crop existed — shrinking
+        the list would repoint every `i` after the first drop).
+        """
+        self.crop_window = None
+        self.crop_report = None
+        if CROP_WINDOW is None:
+            return
+        resolver = _make_resolver(self.config)
+
+        def footprint_of(p):
+            fp = resolver.get(p.get("usd", ""), "house",
+                              scale=float(p.get("scale", 1.0)),
+                              axis_up=p.get("axis_up", "Z"))
+            return fp["sx"], fp["sy"]
+
+        layout = self.config.get("_city_layout") or {}
+        # `recenter=False` — the STAGE is never translated (see the env
+        # var's own docstring, point (b)); this call answers PURELY
+        # "kept or dropped", nothing about where anything renders.
+        _new_layout, kept, rpt = cw.crop_layout(
+            layout, self.placements, CROP_WINDOW, footprint_of=footprint_of,
+            recenter=False)
+        kept_paths = {p.get("prim_path") for p in kept if p.get("prim_path")}
+        n_deactivated = 0
+        for p in self.placements:
+            path = p.get("prim_path")
+            if not path or path in kept_paths:
+                continue
+            p["_fc_cropped"] = True
+            prim = self.stage.GetPrimAtPath(Sdf.Path(path))
+            if prim and prim.IsValid() and prim.SetActive(False):
+                n_deactivated += 1
+        self.crop_window = CROP_WINDOW
+        self.crop_report = rpt
+        print("[fc] FC_CROP_WINDOW={0!r} -> window ({1:.1f}, {2:.1f}, "
+             "{3:.1f}, {4:.1f}): {5} prim(s) deactivated ({6} of {7} "
+             "building(s) kept, {8} of {9} other placement(s) kept, {10} "
+             "orphaned by a dropped building, {11} of {12} typology block"
+             "(s) survive the clip)".format(
+                 _CROP_WINDOW_SPEC, CROP_WINDOW[0], CROP_WINDOW[1],
+                 CROP_WINDOW[2], CROP_WINDOW[3], n_deactivated,
+                 rpt["buildings_kept"],
+                 rpt["buildings_kept"] + rpt["buildings_dropped"],
+                 rpt["props_kept"],
+                 rpt["props_kept"] + rpt["props_dropped"],
+                 rpt["props_orphan_dropped"], rpt["blocks_kept"],
+                 rpt["blocks_kept"] + rpt["blocks_dropped"]))
 
     # -- 2/3) the manifest, the bakes, the swap ----------------------------
     def load_fire(self):
@@ -1491,6 +1749,22 @@ class FireCityApp:
         print("[fc] manifest {0}: {1} record(s), city seed {2}".format(
             path, len(records), seed))
         self.manifest_path, self.city_seed = path, seed
+
+        # FC_CROP_WINDOW, point (b): the STAGE is never translated (see that
+        # env var's own docstring), so a manifest solved on a RE-CENTRED
+        # cropped dump has to be shifted back to the FULL city's own frame
+        # BEFORE anything below reads `rec["x"]`/`["y"]` — `compose_bakes`
+        # places every bake holder at exactly that coordinate, and
+        # `resolve_cell`'s own `x_orig`/`y_orig` preference is belt-and-
+        # braces for this, not a substitute for it (a record with neither
+        # field still needs THIS shift). No-op, byte-identical to before,
+        # when the env var is unset.
+        if CROP_CENTRE is not None:
+            n_shifted = _unshift_records_to_full_city(records, *CROP_CENTRE)
+            print("[fc] FC_CROP_WINDOW active — shifted {0} manifest "
+                 "record('s) coordinate(s) by ({1:+.1f}, {2:+.1f}) back to "
+                 "the full city's own frame (this launcher's stage is never "
+                 "translated)".format(n_shifted, *CROP_CENTRE))
 
         # THE DISTRICT RULE, re-asserted at assembly time. The dry run proved
         # it; a hand-edited manifest can still break it, and a burning tower
@@ -1935,7 +2209,20 @@ class FireCityApp:
         prints and returns. Progress is printed BEFORE the conversion and
         again before authoring, so a pass that stops making progress is
         distinguishable in the pane from one that never started.
+
+        `self.people_records_final` is left as `[]` on every early return
+        (below) and set to the fire-filtered `recs` list once this pass
+        actually reaches conversion — the records `capture()` hands to
+        `baseline_captures.capture_baseline` for the people/groups photo
+        families. Not cross-checked against which placements ended up
+        LIVE prims (`to_placements`'s own `skipped` dict, printed just
+        below): that would need `tag_ids=True` on a call this launcher has
+        run unchanged since the pass was written, and a record `to_placements`
+        skips is rare enough (a bad asset name, mostly) that a stray extra
+        photo of a figure that silently failed to author is the acceptable
+        side of that trade.
         """
+        self.people_records_final = []
         if not PEOPLE:
             print("[fc] people: FC_PEOPLE=0 — skipped")
             return
@@ -1953,7 +2240,21 @@ class FireCityApp:
             recs, key = self.people_records(doc)
             print("[fc] people: {0} record(s) read from {1} (key {2!r})"
                   .format(len(recs), PEOPLE_JSON, key))
+            # FC_CROP_WINDOW, point (b) — same reasoning as `load_fire`'s own
+            # shift: a people plan solved against a re-centred cropped dump
+            # needs its coordinates back in the full-city frame before
+            # `people_in_the_fire`'s burning-footprint distance check or
+            # `fpl.to_placements`'s own authoring reads them. No `x_orig` on
+            # these records (`fire_people_dry_run.py` predates this feature),
+            # so this always takes the arithmetic-add path.
+            if CROP_CENTRE is not None:
+                n_shifted = _unshift_records_to_full_city(recs, *CROP_CENTRE)
+                print("[fc] FC_CROP_WINDOW active — shifted {0} people "
+                     "record('s) coordinate(s) by ({1:+.1f}, {2:+.1f}) back "
+                     "to the full city's own frame".format(
+                         n_shifted, *CROP_CENTRE))
             recs, _out = self.people_in_the_fire(recs)
+            self.people_records_final = list(recs)
             by = {}
             for r in recs:
                 by[r.get("cls", "?")] = by.get(r.get("cls", "?"), 0) + 1
@@ -2277,8 +2578,20 @@ class FireCityApp:
                 self.timeline.play()
                 for _ in range(300):
                     app.update()
-            span = max(self.region)
-            snaps.overview(self.stage, (0.0, 0.0), span * 1.05,
+            # FC_CROP_WINDOW: frame the ACTIVE window, not the full generator
+            # plate behind it — an overview centred on (0, 0) at the full
+            # 1.5 km span would put most of the frame on deactivated,
+            # invisible ground around a small off-centre cluster of
+            # buildings. `self.crop_window` is `None` (and this is
+            # byte-identical to before) whenever the env var is unset.
+            if self.crop_window is not None:
+                cwx0, cwy0, cwx1, cwy1 = self.crop_window
+                overview_centre = ((cwx0 + cwx1) / 2.0, (cwy0 + cwy1) / 2.0)
+                span = max(cwx1 - cwx0, cwy1 - cwy0)
+            else:
+                overview_centre = (0.0, 0.0)
+                span = max(self.region)
+            snaps.overview(self.stage, overview_centre, span * 1.05,
                            os.path.join(SNAP_DIR, "city_top.png"), self.ssf)
             if INTACT_ONLY:
                 print("[fc] snapshots (intact only) -> {0}".format(SNAP_DIR))
@@ -2354,6 +2667,20 @@ class FireCityApp:
                                    azimuth_deg=vp["azimuth_deg"],
                                    aim_h=vp["aim_h"])
             print("[fc] snapshots -> {0}".format(SNAP_DIR))
+            # THE FULL BASELINE REVIEW PASS (2026-09-01): overviews x3,
+            # per-district orbit shots, a SECOND per-building oblique
+            # (azimuth+120, on top of the pair just above), every placed
+            # figure from >=2 angles, and one framed shot per figure GROUP
+            # (a roof deck, a facade's window run, an apron windrow) — see
+            # `disaster/baseline_captures.py`'s own module docstring for the
+            # user directive this answers. Additive: nothing above this line
+            # is touched or replaced.
+            if BASELINE_CAPTURES:
+                obs = getattr(self, "street_positions", None) or {}
+                bc.capture_baseline(
+                    self.stage, snaps, self.placed,
+                    getattr(self, "people_records_final", []) or [],
+                    SNAP_DIR, span, obstacles=obs, ssf=self.ssf)
         except Exception as exc:
             import traceback
             traceback.print_exc()

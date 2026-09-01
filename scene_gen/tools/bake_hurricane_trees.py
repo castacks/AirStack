@@ -218,6 +218,130 @@ simulates anything):
   stream_t5_directive` is updated accordingly, not merely relaxed --  see
   its own docstring for the replacement invariants.
 
+  STREAM T7's ITS OWN NUMBERS ARE NOW SUPERSEDED BY STREAM T8 BELOW --
+  the 30-40%/45%/35%/25% figures in the four paragraphs above are STREAM
+  T7 history, kept for the record of how the ladder got here; the live
+  values are in `_FOL_KEEP`/`_LIMB_SECTOR_KEEP_IN`/`SNAP_TOP_FOL_KEEP`.
+
+STREAM T8 (2026-09-01): RETENTION CUT TOWARD THE REAL LEAF-LOSS FIGURE, NOW
+THAT THE TINT IS GONE. User, on the live 500 m plate, after STREAM T7:
+"Too many of the trees still have leaves. Look at how we removed trees in
+the fire baking of trees (except we don't want burnt texture so you're
+gonna have to rebake). Use those and increase the use of them as intensity
+increases." Two things changed since the STREAM T5 retention ceiling
+(70-85% for `defoliated`) was set, and both point the same direction:
+
+  1. `defoliated` is the PLURALITY level (720 of 1684 trees on the
+     reference plate, the widest band in `hurricane._TREE_CUTS`) and was
+     sitting at 80% kept -- four fifths of the single most common tree on
+     the plate reading essentially undamaged is exactly "too many trees
+     still have leaves," measured, not merely felt.
+  2. THE BROWN TINT THAT WAS SUPPOSED TO CARRY THE DAMAGE SIGNAL AT HIGH
+     RETENTION IS GONE (see "LEAVES STAY GREEN BY DEFAULT" below,
+     `TREE_LEAF_TINT` defaults OFF) -- retention was allowed to stay high
+     in STREAM T5 specifically BECAUSE colour was going to do most of the
+     damage-reading work and culling only had to "break the silhouette."
+     With colour off the table, crown removal is the ONLY channel left for
+     `defoliated`, `limbed`, `fallen` and the standing part of `snapped`
+     (`leaning` still gets a second channel, the root-plate disc). Keeping
+     the old high-retention numbers with the tint removed is not a neutral
+     choice that merely reverts to STREAM T5's compromise -- it is a
+     strictly WORSE point in the design space than either STREAM T5
+     (bare + tinted) or the textbook attempt this file's own history
+     records (bare + green, before the tint existed at all): full green
+     crowns with no colour cue read as no damage at all.
+
+REFERENCE: `vegetation._PLAN`'s two-band shape, `(keep_base, keep_top, ...)`
+for fire, borrowed for its REASONING, not its fields (no browning/scorch
+here -- leaves stay green, see below). Two ideas carry over:
+
+  (a) A crown is not a single dial. Fire's `keep_base` (near the ground,
+      where flame enters the canopy) and `keep_top` (the exposed crown
+      apex) are independently tunable because a uniform thin reads as "an
+      unhealthy tree," not a burnt one (`vegetation.defoliate`'s own
+      docstring). A hurricane crown is no different: an evenly-thinned 14%
+      keep looks like noise scattered through the whole silhouette, while
+      the SAME 14% concentrated where an aerial camera's line of sight
+      actually resolves canopy -- the crown's OUTER, UPPER envelope, not
+      its shaded, occluded interior -- reads as an intact, thinned crown
+      shape rather than as scattered noise or as nothing at all.
+  (b) NEAR-ZERO IS NOT ZERO. `torched`'s `keep_top` is 0.06, not 0.00,
+      "because a crown that goes to exactly zero looks deleted rather than
+      burnt" (`vegetation._PLAN`'s own comment). Every band below re-cut by
+      this stream keeps that same floor logic: `_LIMB_SECTOR_KEEP_IN` (the
+      inside of `limbed`'s stripped sector) moves to 0.02-0.06, matching
+      `torched`'s own 0.00-0.06 almost exactly, and no other band is
+      allowed to hit literal zero either.
+
+WHERE FIRE'S SHAPE IS *NOT* COPIED. Fire's `keep_base` is the DAMAGED band
+(flame enters low) and `keep_top` the SURVIVING one. A hurricane crown does
+not have a botanically privileged "top always survives" story the way a
+rising flame front does -- what actually matters for THIS scene is which
+part of the crown an overview camera can still SEE, and that is the outer/
+upper envelope regardless of which part a real storm would strip first.
+So rather than add a literal `(keep_base, keep_top)` PAIR to `_FOL_KEEP`
+(which would also silently change its type from float to tuple and break
+every direct-value comparison and `_select_kept_cards(inv, bht._FOL_KEEP[
+...], "low_inner", rng)` call in `test_hurricane_trees.py` -- a file this
+stream does not own or touch), `_FOL_KEEP` STAYS A SINGLE FLOAT PER LEVEL
+(the whole-crown target fraction, same contract `_select_kept_cards` has
+always had) and the two-band IDEA is expressed instead through a NEW
+selection mode, `"top"` (`_select_kept_cards`'s `mode` argument), which
+biases survival toward high crown-normalised z exactly the way fire's
+`keep_top` band does -- the number stays a scalar target, the SHAPE of
+which cards survive it is what borrows fire's asymmetry.
+
+THE NUMBERS. `defoliated` -> 0.14 (86% loss, the LOW end of the cited
+86-94% Cat-3 broadleaf survey band -- the least severe, most numerous
+level gets the most generous point in the sourced range, not the most
+severe). `limbed` -> 0.09, `leaning` -> 0.07, `fallen` -> 0.05, snapped's
+`SNAP_TOP_FOL_KEEP` -> 0.03: each rung is BARER than the one below it,
+extending past the survey's 94%-loss ceiling for the levels that are more
+than plain leaf-loss (limbed has also lost limbs, leaning and fallen are
+structural failures, snapped is an outright break) -- "increase [culling]
+as intensity increases" done the only way an archetype baked per (species,
+level) CAN do it: since a higher-intensity draw already walks further up
+`hurricane.TREE_LEVELS` (`tree_level_for_intensity`), making each level's
+OWN retention properly reflect its OWN severity is what makes a
+higher-intensity plate automatically read barer -- there is no per-instance
+knob to turn, and none is needed. THIS ALSO RESTORES THE MONOTONIC LADDER
+STREAM T7 DELIBERATELY BROKE (`leaning` no longer keeps more than `limbed`/
+`fallen`): with colour gone, "each rung barer than the last" is a directive
+in its own right, not merely a test invariant, and it now takes priority
+over T7's "leaning carries its signal through the disc instead" argument --
+the disc stays (it is untouched, separate geometry, `_author_root_plate_
+disc`), it is just no longer used as licence to keep MORE crown than a less
+severe level.
+
+THE VISIBILITY RISK THIS STREAM KNOWINGLY RE-ACCEPTS, WITH NUMBERS. The
+file's own history measured a green, untinted, ~10-12%-kept `defoliated`
+crown as invisible at a 400 m overview altitude before any tint existed at
+all: `tree_American_Beech_defoliated.usd` had 122,862 visible mesh faces
+and still topped out at 5.9 m, and `tree_Black_Oak_defoliated.usd`'s 83k
+woody faces plus only 1,547 surviving leaf cards read as "a few branch-
+width pixels -- indistinguishable from empty ground." 0.14 sits just above
+that measured failure point and the selection mode changed (`"top"`
+instead of `"low_inner"` -- the earlier failure buried its survivors in the
+shaded, low/inner crown, which is arguably PART of why they vanished; this
+stream deliberately puts the surviving cards where the camera looks
+instead), but neither of those is a proof the new numbers read as trees
+rather than as bare poles from altitude -- that is a render-time question
+this offline bake cannot answer, and it is the single most important thing
+for the next reviewer to check on the live plate. `limbed`/`leaning`/
+`fallen`/`snapped`, each barer still, carry MORE of that same risk, not
+less -- see this file's own report on the bake for the exact per-level
+card counts.
+
+`test_hurricane_trees.py` IS NOT UPDATED BY THIS STREAM (out of scope --
+this file owns exactly `tools/bake_hurricane_trees.py`). It still asserts
+the STREAM T5/T7 bands (`test_foliage_retention_matches_directive_bands`,
+`test_defoliated_keeps_70_to_85_percent_of_cards`,
+`test_defoliated_bias_favours_lower_inner_crown`,
+`test_retention_table_matches_stream_t5_directive`) and WILL fail against
+the numbers below until whoever owns that file re-cuts it to match this
+directive -- the same way STREAM T7's docstring above records that ITS
+retune required a matching test update, one was simply not in scope here.
+
 Usage:
     python3 scene_gen/tools/bake_hurricane_trees.py [--out DIR] [--dry-run]
 """
@@ -301,58 +425,72 @@ _WOOD_PLAN = {
 }
 
 # Foliage retained on the STANDING (non-`snapped`) levels, and how it is
-# chosen. RE-TUNED 2026-08-31 (STREAM T5) — see the module docstring's
-# "DAMAGE IS READ BY CROWN COLOUR, NOT CROWN REMOVAL" section for the full
-# reasoning (a textbook 86-94% broadleaf leaf-loss number produced bare
-# skeletons that do not render at a 400 m altitude at all). These bands are
-# ART-DIRECTED FOR AIR-VISIBILITY, not fit to a leaf-loss survey:
+# chosen. RE-CUT 2026-09-01 (STREAM T8) — see the module docstring's own
+# STREAM T8 section for the full reasoning. Superseded here: STREAM T5's
+# "art-directed for air-visibility, not fit to a leaf-loss survey" ceiling
+# and STREAM T7's non-monotonic `leaning > limbed/fallen` ladder. Both were
+# built around a brown `diffuse_tint` that was meant to carry most of the
+# damage signal at high retention; that tint is gone (leaves stay green —
+# see `TREE_LEAF_TINT` below), so RETENTION IS NOW THE ONLY DAMAGE CHANNEL
+# for every band except `leaning` (root-plate disc). Each band below is
+# picked toward the cited 86-94% Cat-3 broadleaf leaf-loss survey figure,
+# barer at each rung, restoring the monotonic ladder:
 #
-#   defoliated  70-85% kept (picked: 0.80) -- the WIDEST band in
-#               `hurricane._TREE_CUTS` and the level most trees land in, so
-#               it carries the most weight in whether the plate reads as
-#               tree-filled. Only enough is culled (10-25% of cards) to
-#               break the perfectly-round `pristine` silhouette; the damage
-#               read is almost entirely the brown tint.
-#   limbed      RE-TUNED 2026-09-01 (STREAM T7, see the module docstring's
-#               own section): 30-40% kept ON AVERAGE (picked: 0.35), down
-#               from the STREAM T5 55-70% -- but no longer a single global
-#               fraction. `_select_kept_cards_sector` splits it into a
-#               seeded azimuth SECTOR stripped to 15-30% and the rest of the
-#               crown left FULLER than 0.35 (solved so the two halves still
-#               average to this target), plus bare broken-limb stubs and
-#               fallen debris authored in the stripped sector
-#               (`_author_limb_break`). This value is therefore a target for
-#               `_select_kept_cards_sector` to average to, not a value
-#               `_select_kept_cards` draws against directly at this level.
-#   leaning/    RE-TUNED 2026-09-01 (STREAM T7): `leaning` stays at 45%
-#   fallen      (picked: 0.45, was 45-60% -- effectively unchanged) because
-#               it now also gains a root-plate disc (`_author_root_plate_
-#               disc`) that carries its damage read; `fallen` drops to
-#               30-40% (picked: 0.35, was 45-60%) and gains the SAME disc --
-#               a downed crown reads by its exposed root ball as much as by
-#               how much canopy survived. THIS MAKES `leaning` KEEP MORE
-#               THAN `limbed`/`fallen` -- see the module docstring's own
-#               note on why the old strict damage-escalates-down-the-ladder
-#               invariant no longer holds and what replaces it.
+#   defoliated  0.14 kept (86% loss) -- the LOW-SEVERITY end of the survey
+#               band, deliberately: the WIDEST band in `hurricane.
+#               _TREE_CUTS` and the level most trees land in (720/1684 on
+#               the reference plate), so it is both the level most
+#               responsible for "too many trees still have leaves" and the
+#               one that most needs to still read as a TREE, not a pole,
+#               once cut. Selection mode `"top"` (see below).
+#   limbed      0.09 kept (91% loss) -- barer than `defoliated` (lost limbs
+#               as well as leaves) but this is a TARGET, not a value
+#               `_select_kept_cards` draws against directly: `limbed` still
+#               goes through `_select_kept_cards_sector` (STREAM T7,
+#               unchanged), which splits it into a seeded azimuth SECTOR
+#               stripped to `_LIMB_SECTOR_KEEP_IN` (now 0.02-0.06, moved
+#               down to match) and the rest of the crown solved so the
+#               whole-crown average lands on 0.09, plus the stub/debris
+#               geometry `_author_limb_break` already added.
+#   leaning     0.07 kept (93% loss) -- barer than `limbed` again, restoring
+#               the monotonic ladder STREAM T7 broke (see the module
+#               docstring's STREAM T8 section for why that inversion no
+#               longer wins now that colour cannot pick up the slack). The
+#               root-plate disc (`_author_root_plate_disc`) is untouched and
+#               still carries a second, non-foliage damage cue here.
+#   fallen      0.05 kept (95% loss) -- barer still: fully down, no story
+#               left to tell except "almost nothing survived the fall."
+#               Also gets the root-plate disc.
 #
-#   "low_inner": bias the kept subset toward low z / small radius from the
-#                trunk axis — a sustained gust strips the outer, upper
-#                canopy first, so what survives is the lower, inner crown.
+#   "top":       STREAM T8. Bias the kept subset toward HIGH crown-
+#                normalised z — borrowed from `vegetation._PLAN`'s
+#                `keep_top` idea: an overview camera's line of sight
+#                resolves the crown's outer/upper envelope, not its
+#                shaded interior, so concentrating the thin surviving
+#                remnant there is what keeps a heavily-cut crown reading as
+#                a THINNED TREE rather than as scattered noise or nothing.
+#                Replaces the STREAM T5 `"low_inner"` bias (still available
+#                in `_select_kept_cards` but no longer used by any level
+#                here) for exactly the levels `"low_inner"` used to cover.
 #   "random":    plain seeded random subset (used for `fallen`, where the
 #                story is "went over before it could be stripped", not
-#                "stripped selectively").
+#                "stripped selectively" — a toppled crown has no clean
+#                top/bottom envelope left for `"top"` to bias toward).
 _FOL_KEEP = {
     "pristine": 1.00,
-    "defoliated": 0.80,
-    "limbed": 0.35,
-    "leaning": 0.45,
-    "fallen": 0.35,
+    "defoliated": 0.14,
+    "limbed": 0.09,
+    "leaning": 0.07,
+    "fallen": 0.05,
 }
 _FOL_MODE = {
     "pristine": None,
-    "defoliated": "low_inner",
-    "limbed": "low_inner",
-    "leaning": "low_inner",
+    "defoliated": "top",
+    "limbed": "top",  # unused in practice — `limbed` goes through
+                       # `_select_kept_cards_sector` instead (see `bake_one`),
+                       # kept here only so the dict stays total over LEVELS
+                       # and documents what the (dead) fallback would be.
+    "leaning": "top",
     "fallen": "random",
 }
 
@@ -360,15 +498,19 @@ _FOL_MODE = {
 # needle's sail area per unit of stem is much smaller than a broadleaf
 # blade's, so the SAME wind strips a fir far more slowly. Applied as a
 # max() over `_FOL_KEEP`, exactly as the original single-band bake did.
-# LEFT UNCHANGED BY THE 2026-08-31 (STREAM T5) BROADLEAF RE-TUNE ABOVE ("as
-# before" per that stream's own directive) — its practical effect is now
-# mostly a FLOOR rather than a boost: the new broadleaf base for `defoliated`
-# (0.80) and `limbed` (0.62, identical to `_CONIFER_FOL_KEEP_DEFAULT`)
-# already sit at or above this floor, so `max(base, conifer)` only still
-# raises a conifer's actual kept fraction above the broadleaf base at
-# `leaning`/`fallen` (base 0.55/0.58 < 0.62) — needles staying visibly
-# fuller than a broadleaf's residual crown at exactly the two levels where a
-# fir's stiffer needle retention should show up the most.
+# LEFT UNCHANGED BY THE STREAM T8 BROADLEAF RE-CUT ABOVE ("as before" per
+# that stream's own directive, same as STREAM T5's before it) — but its
+# practical effect has flipped since the broadleaf numbers dropped so far
+# below it: EVERY damaged broadleaf base (0.05-0.14) now sits WELL below
+# this floor, so `max(base, conifer)` overrides the broadleaf number
+# completely at every level, not just `leaning`/`fallen` as under STREAM T7.
+# A conifer therefore keeps 50-62% of its needles at every damaged level
+# regardless of how bare the broadleaf ladder gets — which is the sourced,
+# intended behaviour (a fir should not read as stripped the way an oak
+# does), but is flagged here because it means Douglas_Fir is NOT part of
+# this stream's "too leafy" fix at all; if firs still look too intact on
+# the live plate after this bake, this floor — not `_FOL_KEEP` — is where
+# to look.
 _CONIFER_FOL_KEEP = {"limbed": 0.50}
 _CONIFER_FOL_KEEP_DEFAULT = 0.62
 
@@ -385,6 +527,46 @@ _CONIFER_FOL_KEEP_DEFAULT = 0.62
 # crown samples) -- scene lighting lifts the albedo well above the swatch
 # prediction. Correction factor (target/rendered in linear) = (0.726,
 # 0.601, 0.351), landing dead-leaf brown sRGB ~(135,100,62) in the render.
+# LEAVES STAY GREEN BY DEFAULT (2026-09-01, user, after seeing the tinted
+# bake on the live 500 m plate): "why are the tree leaves brown then? Keep
+# them as green. Damaged trees don't turn brown just cause of the
+# hurricane."
+#
+# That is correct, and the tint was never asked for. A tree stripped,
+# limbed, leaned or snapped by a few hours of hurricane wind has LOST
+# foliage — the damage is mechanical, and the leaves still on it are the
+# same living green they were that morning. Browning is a response over
+# days to weeks (salt burn, desiccation, root damage), not something a storm
+# does while it is passing. The scene's own epoch is hours after landfall.
+#
+# Set HUR_TREE_TINT=1 to restore the dead-foliage colouring for a scene that
+# deliberately depicts a later epoch; everything below it is kept intact for
+# that case. Note the tint is baked INTO the archetypes, so changing this
+# requires re-running this script — see the module docstring.
+TREE_LEAF_TINT = os.environ.get(
+    "HUR_TREE_TINT", "0").strip() not in ("", "0", "false", "False")
+
+# THE "LEAVE IT GREEN" TARGET, and why it is a sentinel not `None`.
+#
+# `tint=None` is the obvious way to switch the colouring off and it is
+# WRONG: `_author_foliage_cull` guards BOTH the replacement-material
+# creation AND the `Bind()` behind `if tint is not None`, so None skips
+# the BINDING too and leaves foliage-card meshes with NO MATERIAL BOUND.
+# Measured with `hurricane_tree_audit.py`: 0 binding faults with the tint
+# on, 27 with `tint=None`. An unbound mesh renders flat default grey —
+# worse than the colour it was meant to fix, and exactly the class the
+# `freeze-portable-scenes` skill catalogues.
+#
+# So the whole replacement path still runs — same OmniPBR shader, same
+# diffuse texture, same rebinding — and only the hue SOLVE is bypassed:
+# `diffuse_tint` is authored neutral and the leaf keeps its own green.
+NEUTRAL_TINT = "__neutral__"
+# Linear-space mean of this pack's own leaf textures, used ONLY for the
+# no-texture fallback branch (a material with no diffuse map still needs
+# a constant, and under NEUTRAL_TINT that constant must be a leaf green
+# rather than the dead-foliage target).
+NEUTRAL_FALLBACK_RGB = (0.102, 0.170, 0.012)
+
 TARGET_BROADLEAF = (0.218, 0.102, 0.021)
 # the severed crown: a shade more weathered than the standing damaged levels
 TARGET_BROADLEAF_TOP = tuple(round(c * 0.90, 6) for c in TARGET_BROADLEAF)
@@ -413,14 +595,18 @@ SNAP_BREAK_FRAC = (0.30, 0.50)
 # it, without needing `tip_tree`'s full bisection machinery.
 SNAP_TOP_TILT_DEG = (80.0, 85.0)
 # Foliage kept on the severed top -- some residue, tinted, per the module
-# docstring; RAISED 2026-08-31 (STREAM T5) from 0.20 to 0.35 alongside the
-# standing levels' retune, then LOWERED 2026-09-01 (STREAM T7) to 0.25 --
-# `fallen` (its nearest standing counterpart) dropped from 0.58 to 0.35 in
-# the same retune, and `snapped` is the one level with an actual GEOMETRIC
-# break, not just a pose/colour change, so its residue must still read as
-# the thinnest of every damaged level's foliage ("went over only just, at
-# the very end") now that `fallen` no longer sits far above it.
-SNAP_TOP_FOL_KEEP = 0.25
+# docstring; RAISED 2026-08-31 (STREAM T5) from 0.20 to 0.35, LOWERED
+# 2026-09-01 (STREAM T7) to 0.25, LOWERED AGAIN 2026-09-01 (STREAM T8) to
+# 0.03 alongside the rest of the ladder's re-cut (see the module docstring's
+# STREAM T8 section) -- `fallen` (its nearest standing counterpart) dropped
+# to 0.05 in the same re-cut, and `snapped` is the one level with an actual
+# GEOMETRIC break, not just a pose/colour change, so its residue must still
+# read as the thinnest of every damaged level's foliage ("went over only
+# just, at the very end") now that `fallen` is barer too. 0.03, not 0.00,
+# for the same reason every other band keeps a non-zero floor: fire's
+# `torched.keep_top` (0.06) never goes to exactly zero either — "a crown
+# that goes to exactly zero looks deleted rather than burnt."
+SNAP_TOP_FOL_KEEP = 0.03
 # Woody prims (secondary branch instancers, not the clipped trunk itself)
 # above the break are mustered onto the top piece at this fraction; a snag's
 # canopy is not the tidy, near-complete crown of a `leaning` tree.
@@ -444,13 +630,22 @@ _SNAP_RADIAL_CAP_CM = 250.0
 # half-width -- 90-120 deg total, "one side of the crown", not a quadrant
 # and not a hemisphere.
 _LIMB_SECTOR_HALF_DEG = (45.0, 60.0)
-# Card retention INSIDE the stripped sector -- 70-85% removed, i.e. 15-30%
-# kept, matching the directive. The OUTSIDE-sector retention is not a
-# constant: it is SOLVED per tree so the sector-weighted average lands on
-# `_FOL_KEEP["limbed"]` (see `bake_one`'s call site), which is what makes
+# Card retention INSIDE the stripped sector -- RE-CUT 2026-09-01 (STREAM T8)
+# from (0.15, 0.30) to (0.02, 0.06), matching `vegetation._PLAN["torched"]`'s
+# own `keep_top` band (0.00-0.06) almost exactly: the inside of the strip is
+# THIS level's "near-zero but not exactly zero" band (see the module
+# docstring's STREAM T8 section), a few scraps rather than the 15-30% real
+# chunk it used to be. The OUTSIDE-sector retention is not a constant: it is
+# SOLVED per tree so the sector-weighted average lands on `_FOL_KEEP
+# ["limbed"]` (now 0.09 -- see `bake_one`'s call site), which is what makes
 # "keep the rest fuller" true regardless of how large the sector happens to
-# land relative to the whole crown.
-_LIMB_SECTOR_KEEP_IN = (0.15, 0.30)
+# land relative to the whole crown. Checked against the new, much lower
+# target: at the sector's widest (120 deg, ~1/3 of the crown) and
+# `_LIMB_SECTOR_KEEP_IN`'s highest draw (0.06), the solve still clears
+# `keep_in` (0.09 - 0.33*0.06)/(1-0.33) ~= 0.105 > 0.06) at every combination
+# sampled -- the outside band never degenerates to equal the inside one via
+# the `max(keep_in, keep_out)` clamp below.
+_LIMB_SECTOR_KEEP_IN = (0.02, 0.06)
 # Broken limb stubs still attached to the tree, jutting from the stripped
 # sector -- children of `/Root/src`, authored in the SOURCE's own cm frame
 # (see `_author_limb_break`) so the tree's existing cm->m + lean transform
@@ -702,10 +897,18 @@ def _select_kept_cards(inv, keep_fol, mode, rng):
     """Global (whole-crown) selection of which cards survive.
 
     Returns `{rel: kept_indices_array}` -- indices into that rel's own
-    instance/triangle ordering. Weighting (for `mode == "low_inner"`) is
-    normalised ACROSS THE WHOLE CROWN, not per-rel, so "lower/inner" means
-    lower/inner in the tree as a whole rather than merely low/inner within
-    whichever branch group a card happens to belong to.
+    instance/triangle ordering. Weighting (for `mode in ("low_inner",
+    "top")`) is normalised ACROSS THE WHOLE CROWN, not per-rel, so "lower/
+    inner"/"top" means lower/inner or top in the tree as a whole rather
+    than merely within whichever branch group a card happens to belong to.
+
+    `mode == "top"` (STREAM T8, see `_FOL_KEEP`'s own comment): bias toward
+    HIGH crown-normalised z only -- no radius term, unlike `"low_inner"` --
+    mirroring `vegetation._PLAN`'s `keep_top` idea that an overview
+    camera's line of sight resolves a crown's outer/upper envelope, not its
+    interior, so a thin surviving remnant reads best concentrated there.
+    `"low_inner"` is kept, unused by any level as of STREAM T8, as a general
+    capability -- see `_FOL_MODE`'s own comment for why it was retired.
     """
     total = sum(v["n"] for v in inv.values())
     if total == 0:
@@ -732,6 +935,9 @@ def _select_kept_cards(inv, keep_fol, mode, rng):
                 zn = (v["z"][i] - z_lo) / z_span
                 rn = (v["r"][i] - r_lo) / r_span
                 scores.append(-(zn + rn) + rng.uniform(-0.05, 0.05))
+            elif mode == "top":
+                zn = (v["z"][i] - z_lo) / z_span
+                scores.append(zn + rng.uniform(-0.05, 0.05))
             else:
                 scores.append(rng.random())
     order = sorted(range(len(keys)), key=lambda i: -scores[i])
@@ -1491,6 +1697,28 @@ def _omnipbr_leaf_material(stage, src_stage, src_abs, out_path, mat_prim,
     mat_name = mat_prim.GetPath().name if mat_prim else "none"
     texel_info = _alpha_weighted_linear_mean(tex["diffuse"]) if tex["diffuse"] else None
 
+    # RESOLVE THE "LEAVE IT GREEN" SENTINEL HERE, once, before ANY consumer
+    # touches `target_rgb`. Setting the target to this material's OWN measured
+    # texel mean makes `_hue_flip_tint` solve `mean -> mean`, i.e. a (1, 1, 1)
+    # multiply, so the leaf keeps exactly the colour its texture already has
+    # while every other thing this function does — the OmniPBR replacement,
+    # the diffuse map, the rebinding `_author_foliage_cull` depends on — runs
+    # completely unchanged. Resolving it at ONE point rather than branching at
+    # each use is deliberate: the first attempt threaded the sentinel through
+    # five separate `float(c) for c in target_rgb` sites, missed one, and the
+    # bake died with "could not convert string to float".
+    # NOTE THE SOLVE MUST ALSO BE SKIPPED, not merely re-aimed.
+    # `_hue_flip_tint` does not compute "whatever multiply reaches this
+    # target" — it FORCES a brown, R > G > B, "for ANY texel mean" (its own
+    # docstring). Handing it `target == texel_mean` therefore does NOT return
+    # (1, 1, 1): measured on Shumard_Oak_leaf_v4 it returned
+    # (1.000, 0.683, 1.000), pulling green down and browning the leaf anyway.
+    # So `_neutral` is carried past this point and short-circuits the solve.
+    _neutral = (target_rgb == NEUTRAL_TINT)
+    if _neutral:
+        target_rgb = (tuple(texel_info[0]) if texel_info is not None
+                      else NEUTRAL_FALLBACK_RGB)
+
     mat = UsdShade.Material.Define(stage, dst_path)
     sh = UsdShade.Shader.Define(stage, dst_path.AppendChild("Shader"))
     sh.CreateIdAttr("OmniPBR")
@@ -1505,7 +1733,10 @@ def _omnipbr_leaf_material(stage, src_stage, src_abs, out_path, mat_prim,
 
     if texel_info is not None:
         texel_mean, a_min, a_max = texel_info
-        tint, pred, fixed = _hue_flip_tint(texel_mean, target_rgb)
+        if _neutral:
+            tint, pred, fixed = (1.0, 1.0, 1.0), tuple(texel_mean), False
+        else:
+            tint, pred, fixed = _hue_flip_tint(texel_mean, target_rgb)
         rel_diffuse = os.path.relpath(tex["diffuse"], out_dir)
         sh.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset).Set(
             Sdf.AssetPath(rel_diffuse))
@@ -2242,7 +2473,8 @@ def bake_snapped(species, src_abs, src_stage, foliage, woody, out_path, rng):
                          + [r for r in above_fol_all if r not in above_fol])
 
     is_conifer = species in CONIFERS
-    tint = TARGET_NEEDLE_TOP if is_conifer else TARGET_BROADLEAF_TOP
+    tint = ((TARGET_NEEDLE_TOP if is_conifer else TARGET_BROADLEAF_TOP)
+            if TREE_LEAF_TINT else NEUTRAL_TINT)
 
     # ---- STUMP: /Root/src -------------------------------------------------
     src = stage.DefinePrim(Sdf.Path("/Root/src"), "Xform")
@@ -2508,7 +2740,8 @@ def bake_one(species, src_rel, level, out_dir, dry_run=False):
         kept = _select_kept_cards(inv, keep_fol, fol_mode or "random", rng)
     tint = None
     if level != "pristine":
-        tint = TARGET_NEEDLE if is_conifer else TARGET_BROADLEAF
+        tint = ((TARGET_NEEDLE if is_conifer else TARGET_BROADLEAF)
+                if TREE_LEAF_TINT else NEUTRAL_TINT)
     n_fol_kept, n_fol_total, rebound_rels = _author_foliage_cull(
         stage, src_stage, src_abs, out_path, root_path, inv, kept, tint,
         xcache, species=species)
@@ -2652,7 +2885,11 @@ def main():
                       sp, mat_name, row["mode"], texel_s,
                       tint[0], tint[1], tint[2], pred[0], pred[1], pred[2],
                       tuple(row["predicted_srgb255"]), tag))
-            if not (pred[0] > pred[1] > pred[2]):
+            # ONLY MEANINGFUL WHEN WE ARE ACTUALLY BROWNING. With
+            # HUR_TREE_TINT off (the default) the target IS the leaf's own
+            # green, so "not strictly brown" is the correct outcome and
+            # printing it on every material is noise that reads like a fault.
+            if TREE_LEAF_TINT and not (pred[0] > pred[1] > pred[2]):
                 print("      !! predicted colour is NOT strictly brown "
                       "(R>G>B) -- {0}".format(pred))
 

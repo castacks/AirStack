@@ -273,15 +273,24 @@ def test_fence_specs_wind_percentile_branch():
     out = wash.fence_specs(fences, depth_fn, wind_bearing_fn,
                            wind_intensity_fn, [], 1.0, random.Random(4))
     # No houses at all, so only the wind-percentile branch can fire.
-    n_flat = sum(1 for d in out if d["action"] == "flat")
-    check("some fences flatten purely from the wind-percentile branch",
-         0 < n_flat < len(out), n_flat)
-    # And they must be the HIGH-intensity ones, not a random subset.
-    flat_xs = [d["x"] for d in out if d["action"] == "flat"]
+    # DAMAGED, NOT SPECIFICALLY `flat` (widened 2026-09-01). The
+    # wind-percentile branch now has TWO outcomes: `FENCE_WIND_GONE_SHARE`
+    # of the panels it selects are carried off entirely rather than laid
+    # down — added on the user's report that a downed run was "too perfectly
+    # fallen ... some of them should blow away, disappear, overlap". At 0.42
+    # a small sample can legitimately produce no `flat` at all, so asserting
+    # `flat` specifically pins a vocabulary the model no longer has. The
+    # property under test is unchanged: the branch fires, it damages SOME
+    # but not ALL, and the ones it picks are the high-wind ones.
+    damaged = ("flat", "gone")
+    n_dmg = sum(1 for d in out if d["action"] in damaged)
+    check("some fences are damaged purely by the wind-percentile branch",
+         0 < n_dmg < len(out), n_dmg)
+    dmg_xs = [d["x"] for d in out if d["action"] in damaged]
     stand_xs = [d["x"] for d in out if d["action"] == "stands"]
-    check("the flattened fences are the high-wind ones",
-         not flat_xs or not stand_xs or min(flat_xs) > max(stand_xs) - 1e-9,
-         (sorted(flat_xs), sorted(stand_xs)))
+    check("the damaged fences are the high-wind ones",
+         not dmg_xs or not stand_xs or min(dmg_xs) > max(stand_xs) - 1e-9,
+         (sorted(dmg_xs), sorted(stand_xs)))
 
 
 if __name__ == "__main__":

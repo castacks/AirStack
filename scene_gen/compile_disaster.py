@@ -330,7 +330,7 @@ def compile_tornado(sev, spec, region):
     # plate never sees it, which is the same mistake the wildfire preset
     # records about corner ignitions.
     ox, oy = spec.get("epicenter", [0.0, 0.0])
-    return {
+    out = {
         "damaged_fraction": lerp(0.1, 0.3, sev),
         # -> 1.0 at sev=1: "total destruction in a corridor" per the docstring
         # above means everything on the track's centerline is destroyed, not
@@ -443,6 +443,20 @@ def compile_tornado(sev, spec, region):
             "throw_speed_mps": lerp(4.0, 11.0, sev),
         },
     }
+
+    # PASS-THROUGH, ONLY WHEN THE SPEC SETS THEM. `disaster.tornado.DEFAULTS`
+    # carries these at neutral defaults (0.0 / None / None / 120.0) already,
+    # so a preset that never mentions them has to compile to the exact same
+    # dict it always has — every existing tornado preset was reviewed on
+    # today's values and must not drift. See `disaster.tornado.DEFAULTS` for
+    # what each one is: `curvature_deg_per_km` (a gentle arc), `touchdown_m`
+    # / `liftoff_m` / `ramp_m` (a finite track that ramps up and ropes out
+    # rather than spanning the whole plate).
+    for _k in ("curvature_deg_per_km", "touchdown_m", "liftoff_m", "ramp_m"):
+        if _k in spec:
+            out["tornado"][_k] = spec[_k]
+
+    return out
 
 
 def compile_explosion(sev, spec, region):

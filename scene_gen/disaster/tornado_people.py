@@ -423,6 +423,8 @@ def resolve_cfg(config):
             cfg[k] = dict(cfg.get(k, {}), **v)
         elif k == "trail" and isinstance(v, dict):
             cfg[k] = dict(cfg["trail"], **v)
+        elif k == "where_bands" and isinstance(v, dict):
+            cfg[k] = dict(cfg.get("where_bands") or {}, **v)
         else:
             cfg[k] = v
     return cfg
@@ -1442,6 +1444,13 @@ def _cover(f, rec, pose, x, y, ux, uy, reach, base_z, deck_z, pattern,
 # Placing one casualty
 # ---------------------------------------------------------------------------
 
+# THE RADIAL DRAW PER LOCATION CLASS, in FOOTPRINTS from the house centre.
+# 0.5 is the wall line. Overridable per disaster via `cfg["where_bands"]` —
+# see `_candidate`.
+_WHERE_BANDS = {"pile": (0.62, 1.05), "skirt": (0.95, 1.60),
+                "yard": (1.15, 2.00)}
+
+
 def _candidate(f, w, where, near=None):
     """A point for one body: `(x, y)` or None.
 
@@ -1495,8 +1504,16 @@ def _candidate(f, w, where, near=None):
     # AROUND the mound, which is where a body on a levelled house reads from
     # the air — one in the middle of the deepest material is invisible from
     # every angle, which is the fault this fixes rather than a target.
-    lo, hi = {"pile": (0.62, 1.05), "skirt": (0.95, 1.60),
-              "yard": (1.15, 2.00)}.get(where, (0.6, 1.4))
+    #
+    # CONFIGURABLE SINCE 2026-09-01, default UNCHANGED. The bands above are
+    # the TORNADO's, argued from a levelled tornado lot where the archetype is
+    # a deep mound; a hazard whose wrecked houses stand open to the sky wants
+    # to reach inside the wall line, and `hurricane_people` does exactly that
+    # (see its `resolve_cfg`). Every value here is the same number this
+    # function has always used, so a caller that does not set `where_bands`
+    # gets byte-identical output.
+    _bands = dict(_WHERE_BANDS, **(f.cfg.get("where_bands") or {}))
+    lo, hi = _bands.get(where, (0.6, 1.4))
     a = rng.uniform(0.0, 2.0 * math.pi)
     # sqrt so the draw is uniform over the ANNULUS rather than over the radius,
     # which otherwise crowds every body onto the inner edge.

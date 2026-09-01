@@ -361,6 +361,19 @@ def main():
             freeze.report(finfo)
             with open(os.path.join(OUT, "freeze_report.json"), "w") as fh:
                 json.dump(finfo, fh, indent=1)
+        except freeze.PortabilityError as _exc:
+            # The portability gate fired -- nothing ships, but `_exc.info`
+            # is the REAL, complete `verify()` result `_enforce_portable`
+            # already computed; write it so freeze_report.json shows WHY
+            # rather than landing empty or with portable_ok as None. See
+            # freeze.PortabilityError's own docstring.
+            print("[freeze] EXPORT FAILED (portability gate): {0}".format(_exc))
+            try:
+                with open(os.path.join(OUT, "freeze_report.json"), "w") as fh:
+                    json.dump(_exc.info, fh, indent=1)
+            except Exception as _exc2:                            # noqa: BLE001
+                print("[freeze] *** could not even write the failure "
+                      "report: {0}".format(_exc2))
         except Exception as _exc:
             import traceback
             print("[freeze] EXPORT FAILED: {0}".format(_exc))

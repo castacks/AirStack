@@ -411,6 +411,18 @@ def burnable(layout, placement, size_of):
 
     x = float(placement.get("x_m", placement.get("x", 0.0)))
     y = float(placement.get("y_m", placement.get("y", 0.0)))
+    # ORIGINAL (pre-crop, full-city) position, when the placement carries
+    # one -- `tools/fc_dump_crop.py` stamps `x_m_orig`/`y_m_orig` on every
+    # placement it keeps, alongside the RE-CENTRED `x_m`/`y_m` this
+    # function keys everything else off. Falls back to `x`/`y` when absent
+    # (every non-cropped dump/live build), so `x_orig == x` there and this
+    # is a pure no-op. See `urban_fire_city_launch_script.py`'s
+    # `FC_CROP_WINDOW`/`resolve_cell` for the one consumer that needs the
+    # distinction: the ASSEMBLY launcher never translates its stage, so
+    # matching a manifest record back to a live Kit prim has to compare
+    # against the ORIGINAL coordinate, not the solve's re-centred one.
+    x_orig = float(placement.get("x_m_orig", x))
+    y_orig = float(placement.get("y_m_orig", y))
     typ = typology_at(layout, x, y)
     if typ is None:
         return False, ("outside every zoned block (street/park/unzoned) at "
@@ -440,7 +452,7 @@ def burnable(layout, placement, size_of):
         return False, height_reason
 
     record = {
-        "usd": usd, "x": x, "y": y,
+        "usd": usd, "x": x, "y": y, "x_orig": x_orig, "y_orig": y_orig,
         "yaw_deg": float(placement.get("yaw_deg", 0.0)),
         "z": float(placement.get("z_m", placement.get("z", 0.0))),
         "kind": kind,

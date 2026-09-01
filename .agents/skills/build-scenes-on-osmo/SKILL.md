@@ -332,3 +332,20 @@ and treat any baked archetype library as reproducible rather than precious.
 Code lives in your working tree; only outputs are at risk.
 
     airstack osmo:down            # deliberate, polite, one command
+
+## Startup segfaults after ANY hard-killed Kit process (2026-09-01)
+
+A Kit process that dies by `kill -9` / the kernel OOM reaper (the container
+runs `ipc: host`) leaves `carb-RStringInternals-<pid>` segments in
+`/dev/shm`, and the NEXT Kit launch segfaults ~1-2 s into startup (breakpad
+stack through carb plugin init, before any user code). This looked like
+four different bugs across one session until the segments were found.
+
+    # after any hard kill / OOM of a Kit process, BEFORE the next launch:
+    rm -f /dev/shm/carb-RStringInternals-* /dev/shm/sem.*
+
+Related, same session: the pod `.env`'s AUTOLAUNCH example
+(`example_multi_drone_scene_import.py`) idles at ~27 GB RSS / 4.5 cores
+forever — kill it before RAM-heavy freezes (it contributed to an OOM kill
+of a 156-building freeze at compose time), and then clean /dev/shm per the
+above because the kill itself plants the next trap.

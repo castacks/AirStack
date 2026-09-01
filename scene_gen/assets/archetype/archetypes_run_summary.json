@@ -1,0 +1,13 @@
+{
+ "styles": [
+  "block_residential"
+ ],
+ "grades": [
+  "DG3",
+  "DG4",
+  "DG5"
+ ],
+ "ok": 1,
+ "failed": [],
+ "seconds": 2439.9
+}

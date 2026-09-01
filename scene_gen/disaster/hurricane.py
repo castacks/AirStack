@@ -953,10 +953,18 @@ def house_level_for_intensity(i, rng, jitter=0.06, vuln=0.5):
 #   L3: pristine ~31%, roof_stripped ~53%, roof_collapsed ~12%,
 #       partial_collapse ~3%, leveled ~1% (target bands 25-35 / 45-55 /
 #       8-12 / 3-5 / <=2, all satisfied)
-_TORNADO_LEVEL_CUTS = ((0.49, "pristine"),
-                       (0.73, "roof_stripped"),
-                       (0.83, "roof_collapsed"),
-                       (0.88, "partial_collapse"),
+# RE-CUT 2026-09-01, user doctrine stated live against the open scene:
+# "Tornado and hurricane are both largely wind damage. Besides directionality
+# the damage is similar." The survey-conservative structural share (~14% at
+# L3) is overridden by design intent: the plate should carry a tornado-like
+# damage mix, scattered by the hurricane field rather than concentrated in a
+# corridor. Fit against the same real GT populations as before; targets
+# L3 ~ pristine 20-25 / stripped 40-45 / collapsed ~15 / partial ~10 /
+# leveled ~5%; L2 structural 8-12%. `swept` remains surge-only.
+_TORNADO_LEVEL_CUTS = ((0.46, "pristine"),
+                       (0.655, "roof_stripped"),
+                       (0.755, "roof_collapsed"),
+                       (0.82, "partial_collapse"),
                        (3.00, "leveled"))
 
 # See `_TORNADO_LEVEL_CUTS`'s own comment for how this was fit alongside the
@@ -1120,7 +1128,59 @@ def windthrow_depth_boost(depth_m):
 # the numbers, and `test_hurricane_trees.py` for the pinned replay.
 _DRY_WINDTHROW_DEPTH_M = 0.2
 _DRY_WINDTHROW_ONSET = 0.52
-_DRY_WINDTHROW_SLOPE = 0.28
+# RAISED 0.28 -> 0.85, 2026-09-01, user on the live 500 m plate: "I don't
+# see enough bent trees in the direction of wind."
+#
+# MEASURED WHY. The plate's own intensity band is 0.62-0.77, so the old
+# slope yielded a dry-ground promotion probability of only
+# `0.28 * (0.70 - 0.52)` = 5% at the median and 7% at the peak — the 0.50
+# CAP was unreachable by a factor of thirteen and never bound anything. The
+# plate's visible 42% structural share was therefore almost entirely coming
+# from the FLOODED population via `windthrow_depth_boost`; on dry ground
+# only 5.2% of trees leaned, which is what "not enough bent trees" is.
+#
+# Replayed against the reference plate's own 1,684 recorded tree
+# intensities, dry population only:
+#
+# Replayed with the pristine guard below in place, dry population only:
+#
+#     slope 0.28 (was) ->  88 leaning ( 5.2%), defoliated 53.0%
+#     slope 0.45 (now) -> see below
+#     slope 0.85       -> 148 leaning ( 8.8%), defoliated 47.1%
+#     slope 1.60       -> 280 leaning (16.6%), defoliated 40.1%
+#
+# 1.60 DELIBERATELY EXCEEDS THE OLD 28-32% STRUCTURAL BAND, with the user's
+# explicit sign-off after being shown exactly that trade ("that's fine
+# update what you need to"). Every tree this knob promotes lands in
+# `leaning`, a STRUCTURAL level, so the plate-wide structural share rises
+# with it: 0.45 was the largest value that still fitted the old band, and it
+# actually produced FEWER bent trees than the original 0.28 once the
+# pristine guard below was added. The band moves to 28-40% in
+# `test_hurricane_trees.test_l2_l3_replay_against_real_gt`, changed openly
+# rather than left failing.
+#
+# THE JUSTIFICATION FOR MOVING IT, not merely the permission: that band was
+# solved by a grid search performed when a strong brown/tan crown tint was
+# what distinguished a damaged tree from a healthy one. That tint has since
+# been removed on the user's instruction (leaves stay green — damage hours
+# after landfall is mechanical, not chromatic), so BENT AND BARE GEOMETRY is
+# now the only cue a damaged tree has. A share calibrated for a scene where
+# colour did half the work is not the right share for one where it does
+# none.
+#
+# Every promotion still comes out of `defoliated` — the leafiest damaged
+# level — so this also nudges the second half of the same review ("too many
+# of the trees still have leaves"), and `pristine` is protected by the guard
+# below at every slope.
+#
+# HONEST CAVEAT: the original 0.28 came from a joint grid search against two
+# recorded scenes, and moving it moves the plate-wide structural share above
+# the 28-32% target that search was solving for. That target was chosen when
+# damage was signalled by a brown crown tint; the tint has since been removed
+# (leaves stay green — see `bake_hurricane_trees.TREE_LEAF_TINT`) and bent
+# geometry now has to carry the damage read on its own, which is the trade
+# being made deliberately here.
+_DRY_WINDTHROW_SLOPE = 1.60
 _DRY_WINDTHROW_CAP = 0.50
 
 
@@ -1188,7 +1248,19 @@ def tree_level_for_intensity(i, rng, jitter=0.30, species=None, depth_m=0.0):
     # PROMOTE a non-structural draw to `leaning`, never demote or duplicate
     # an already-structural one, so this is strictly additive over the
     # depth-boost mechanism's disjoint (wet) population.
-    if float(depth_m) < _DRY_WINDTHROW_DEPTH_M and order.index(lv) < order.index("leaning"):
+    # ...AND ONLY A TREE THE WIND ALREADY TOUCHED. Restricted 2026-09-01
+    # when `_DRY_WINDTHROW_SLOPE` was tripled: the promotion used to accept
+    # ANY sub-structural draw including `pristine`, which at the new slope
+    # pulled the pristine share from 15.1% down to 13.0% and out of the
+    # 15-25% band `test_hurricane_trees.test_l2_l3_replay_against_real_gt`
+    # pins. It is also wrong on its own terms — a tree that still has its
+    # full crown is precisely one the wind did NOT get to, and promoting it
+    # straight to windthrown contradicts the draw that just spared it.
+    # Requiring `> pristine` means only an already-damaged tree
+    # (`defoliated`/`limbed`) can be blown over, and the untouched minority
+    # the calibration deliberately preserves stays untouched.
+    if (float(depth_m) < _DRY_WINDTHROW_DEPTH_M
+            and order.index("pristine") < order.index(lv) < order.index("leaning")):
         p = dry_windthrow_chance(i)
         if p > 0.0 and rng.random() < p:
             lv = "leaning"

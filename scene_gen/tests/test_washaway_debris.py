@@ -1007,7 +1007,7 @@ def test_h1_vegetation_and_log_stay_dark_not_minty():
     darkened target rather than an arbitrary luma band, so a future edit
     that quietly re-lightens `vegetation` trips this test."""
     check("vegetation is darkened to the D6 retune's target",
-         wash._RAFT_TINT["vegetation"] == (0.090, 0.095, 0.050),
+         wash._RAFT_TINT["vegetation"] == (0.082, 0.066, 0.040),  # 2026-09-01: sodden BROWN, the olive exemption is dead
          wash._RAFT_TINT["vegetation"])
     check("vegetation reads dark (sRGB luma well under 40%)",
          wash._srgb_luma(wash._RAFT_TINT["vegetation"]) < 0.40,

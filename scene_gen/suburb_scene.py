@@ -19,7 +19,7 @@ import math
 import os
 import random
 
-from pxr import Gf, Sdf, UsdGeom, Vt
+from pxr import Gf, Sdf, UsdGeom, UsdShade, Vt
 
 import scene_generator as sg
 from layout import suburb_net as sn
@@ -860,15 +860,15 @@ def _mitre_offsets(pts, half_w):
 
 
 def _make_ribbon(stage, path, pts, half_w, z, ssf, uv_scale, color, mat="",
-                 uv_along_m=0.0, v_span=0.0):
+                 uv_along_m=0.0, v_span=0.0, stretch=False, cover_m=14.0):
     """A quad strip swept along *pts*. One mesh, not one quad per segment.
 
-    TWO UV CONVENTIONS, because the two road materials disagree about which
-    axis is which:
+    THREE UV CONVENTIONS, because the two road materials disagree about which
+    axis is which, and hurricane roads want a third that neither offers:
 
-    * default (`uv_along_m == 0`) — the original: `u` ACROSS the ribbon and `v`
-      ALONG it, both off the single `uv_scale`. Right for a tileable swatch
-      like `MI_Asphalt`.
+    * default (`uv_along_m == 0`, `stretch == False`) — the original: `u`
+      ACROSS the ribbon and `v` ALONG it, both off the single `uv_scale`.
+      Right for a tileable swatch like `MI_Asphalt`.
     * trim-sheet (`uv_along_m > 0`) — `u` ALONG the ribbon at one repeat per
       `uv_along_m`, `v` ACROSS it as a FRACTION of the half width, scaled to
       `v_span`. `Road_01_Inst` is a cross-section sheet (asphalt 0-0.53, kerb
@@ -877,6 +877,41 @@ def _make_ribbon(stage, path, pts, half_w, z, ssf, uv_scale, color, mat="",
       the kerb and sidewalk bands DOWN the street, striping grass across the
       carriageway every few metres. `v_span` under 0.53 keeps every vertex
       inside the asphalt band whatever the road's width.
+    * cover (`stretch == True`, checked first, ignores `uv_scale`/
+      `uv_along_m`/`v_span`) — the image is SCALED AND CROPPED to the ribbon
+      at its own aspect ratio, never distorted. Paired with a material that
+      has `project_uvw` turned OFF and `texture_scale` reset to `(1, 1)`
+      (see `_stretch_variant` in `apply_ground`); a world-space-projected
+      material ignores mesh UVs entirely, so authoring `st` alone with
+      `project_uvw` still on would have no visible effect. Opt-in per
+      `roads.single_stretch`; every caller that passes `stretch=False` (the
+      default) is unaffected.
+
+      WHY THIS IS NO LONGER A STRETCH (2026-09-01, user on the live 500 m
+      plate: "the road texture — I know you stretched it to fit but that
+      looks weird. I meant more like scale and crop if that makes sense?").
+      It used to put `u` 0..1 across the width and `v` 0..1 along the WHOLE
+      segment, i.e. the mesh's extent WAS the unit square and one image was
+      squashed over the entire street. On this plate a road ribbon is ~7 m
+      wide and runs for tens to hundreds of metres, so the image was being
+      distorted by more than an order of magnitude along its length — an
+      asphalt grain smeared into streaks, which is exactly what read as
+      wrong.
+
+      COVER semantics instead, the same thing `background-size: cover` means:
+      ONE parameter, `cover_m`, is the world size that one full copy of the
+      image spans on BOTH axes, so the aspect ratio is preserved by
+      construction.
+
+        v (along)  = distance / cover_m        -> repeats every `cover_m`
+        u (across) = 0.5 +/- half_w / cover_m  -> a CENTRED BAND of the image
+
+      When `cover_m` exceeds the road width — which is the intended setting —
+      `u` spans less than the full 0..1, so only the middle strip of the
+      image lands on the carriageway and the rest is CROPPED. That is the
+      "scale and crop" half. The repeat along the length is what replaces the
+      stretch, and because both axes divide by the same `cover_m` the grain
+      is round rather than smeared whatever the segment length.
     """
     if len(pts) < 2 or half_w <= 0.0:
         return None
@@ -898,7 +933,17 @@ def _make_ribbon(stage, path, pts, half_w, z, ssf, uv_scale, color, mat="",
         idx.extend([a, a + 1, a + 3, a + 2])
     cum = sn._cumulative(pts)
     uvs = []
-    if uv_along_m > 0.0:                       # trim sheet: u along, v across
+    if stretch:                                # COVER: scaled and cropped
+        # One `cover_m` on BOTH axes, so the image keeps its aspect ratio.
+        # `half_w / cover_m` is half the fraction of the image the road is
+        # wide; centring it on u=0.5 crops symmetrically off both edges.
+        c = max(float(cover_m), 1e-6)
+        du = half_w / c
+        for i in range(len(pts)):
+            v = cum[i] / c
+            uvs.append(Gf.Vec2f(0.5 - du, v))  # left edge
+            uvs.append(Gf.Vec2f(0.5 + du, v))  # right edge
+    elif uv_along_m > 0.0:                     # trim sheet: u along, v across
         for i in range(len(pts)):
             u = cum[i] / uv_along_m
             uvs.append(Gf.Vec2f(u, v_span))    # left edge
@@ -1216,16 +1261,81 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
         prim.Load()
         return p
 
+    def _stretch_variant(key):
+        """A SECOND reference to the same asset `key` already names, with
+        `project_uvw` forced off and `texture_scale` reset to `(1, 1)`.
+
+        `_load_mat(key)` (e.g. `asphalt`) is ONE material prim bound to many
+        things beyond roads — crosswalks, cul-de-sac bulbs, park courts, row-
+        home drives — all of which are small, roughly axis-aligned shapes
+        where the world-space triplanar tiling those keep is the wanted
+        look. Roads are not: a long, arbitrarily-oriented ribbon needs the
+        image mapped along ITS OWN axis, which only the mesh's own `st` can
+        express (world-space UV has no notion of "along this particular
+        street"). Flipping `project_uvw` on the shared `asphalt` prim would
+        therefore also flip the crosswalks/bulbs/courts/drives it feeds — so
+        this defines a SEPARATE prim referencing the identical asset, and
+        authors two local opinions on its own nested `Shader` child. A
+        reference's local opinions win over the referenced layer's, so this
+        prim renders with the wet-asphalt diffuse/normal/ORM/height maps
+        unchanged and only the projection mode and repeat count overridden;
+        the original `asphalt` prim (and everything bound to it) is
+        untouched. Returns "" if `key` has no material configured, same as
+        `_load_mat`.
+        """
+        base = _load_mat(key)
+        if not base:
+            return ""
+        p = mat_scope + "/" + key + "_stretch"
+        prim = stage.DefinePrim(Sdf.Path(p))
+        prim.GetReferences().AddReference(sg._join_asset_root(mat_cfg.get(key, ""), asset_root))
+        prim.Load()
+        sh_prim = stage.GetPrimAtPath(p + "/Shader")
+        if sh_prim.IsValid():
+            sh = UsdShade.Shader(sh_prim)
+            sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(False)
+            sh.CreateInput("texture_scale",
+                          Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(1.0, 1.0))
+        return p
+
     asphalt_mat, grass_mat = _load_mat("asphalt"), _load_mat("grass")
     # A SECOND road surface, mixed with the first. `asphalt_road_tile` is the
     # ModularNeighborhood road material — a cross-section trim sheet, so it
     # needs the trim-sheet UVs above; the original is a plain tileable swatch.
     # Mixing them per street is what stops a whole suburb reading as one
     # resurfacing job. Falls back to the original if the set doesn't name it.
+    # ALWAYS load it, even when the hurricane presets pin its SHARE to 0
+    # below: `tools/hurricane_layout_png.py`'s `road_pack_color` probe looks
+    # this prim up by its hard-coded path and only downgrades an unresolved
+    # Nucleus reference to a WARN when the prim itself exists (`is_warn_only`
+    # matches the `UNHANDLED_SHADER` flag `predict_material` raises on it) —
+    # skipping the load when the share is 0 leaves nothing at that path, the
+    # probe's own "material prim not found" branch fires instead, and THAT
+    # flag is not on the warn-only list, which turned the gate into a hard
+    # FAIL. Never binding it to anything (via `alt_share` below) is what
+    # actually keeps every road off it; the prim existing but orphaned is
+    # harmless and matches every non-hurricane preset's stage shape.
     asphalt_alt = _load_mat("asphalt_road_tile")
     ROAD_TRIM_REPEAT_M = 8.0    # the tile is 16 m long over u = 0..2
     ROAD_TRIM_V = 0.50          # asphalt band ends at 0.53; stay inside it
     alt_share = float(roads_cfg.get("road_tile_share", 0.5)) if asphalt_alt else 0.0
+    # ONE STRETCHED IMAGE PER ROAD SEGMENT instead of a repeating tile.
+    # Opt-in (`roads.single_stretch`, default False — every existing preset
+    # is byte-for-byte unchanged) because it is a look, not a correctness
+    # fix: the hurricane roads asked for a single wet-asphalt image spanning
+    # each street rather than the ~3.6 m tiling `texture_scale=(0.28,0.28)`
+    # plus world-space `project_uvw` otherwise produces. See `_stretch_
+    # variant` and `_make_ribbon`'s `stretch=` mode for the mechanism.
+    single_stretch = bool(roads_cfg.get("single_stretch", False))
+    # HOW BIG ONE COPY OF THE IMAGE IS ON THE GROUND, in metres, on both axes
+    # — see `_make_ribbon`'s COVER section. Bigger than the carriageway on
+    # purpose: at 14 m against a ~7 m road the middle half of the image lands
+    # on the asphalt and the rest is cropped, and the pattern repeats every
+    # 14 m down the street instead of once over its whole length. Raise it
+    # for a coarser grain and a tighter crop, lower it toward the road width
+    # to use the full image across and repeat more often.
+    stretch_cover_m = float(roads_cfg.get("stretch_cover_m", 14.0))
+    road_stretch_mat = _stretch_variant("asphalt") if single_stretch else ""
     # THREE GROUNDS, NOT ONE. A single grass made undeveloped land render as
     # mown lawn that nobody had built on, which is the opposite of what the
     # sparseness is for: unplatted ground has to LOOK unplatted or leaving it
@@ -1277,9 +1387,11 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
                               asphalt_alt, uv_along_m=ROAD_TRIM_REPEAT_M,
                               v_span=ROAD_TRIM_V)
         else:
+            road_mat = (road_stretch_mat or asphalt_mat) if single_stretch else asphalt_mat
             ok = _make_ribbon(stage, f"{gnd}/road_{e.id}", e.pts, e.half_w,
                               z_asphalt, ssf, uv_asphalt, (0.15, 0.15, 0.15),
-                              asphalt_mat)
+                              road_mat, stretch=single_stretch,
+                              cover_m=stretch_cover_m)
         if ok is not None:
             n_road += 1
             n_road_alt += 1 if use_alt else 0

@@ -393,7 +393,11 @@ _AIRSTACK_ROOT = os.environ.get("AIRSTACK_ASSET_ROOT", "").strip() or _REPO_ROOT
 
 LOCAL_ASSET_ROOTS = {
     "airstack": _AIRSTACK_ROOT,
-    "objaverse": os.path.join(SCENE_GEN_DIR, "assets", "objaverse"),
+    # Same override contract as AIRSTACK_ASSET_ROOT: a portable (dataset
+    # freeze) build points this at the Nucleus mirror of the objaverse tree
+    # so no build-machine path ever composes into the stage.
+    "objaverse": (os.environ.get("OBJAVERSE_ASSET_ROOT", "").strip()
+                  or os.path.join(SCENE_GEN_DIR, "assets", "objaverse")),
 }
 
 

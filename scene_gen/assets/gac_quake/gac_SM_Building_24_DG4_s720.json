@@ -1,0 +1,7955 @@
+{
+ "bbox": [
+  -28.76201820373535,
+  -44.62361526489258,
+  -4.935758113861084,
+  26.71493911743164,
+  44.91889190673828,
+  44.11181624974614
+ ],
+ "cell": "/World/bake/g23",
+ "counts": {
+  "authored": 250,
+  "loose": 61,
+  "pieces": 253,
+  "prims": 4052,
+  "static": 1143,
+  "usd_mb": 29.47
+ },
+ "default_prim": "/World",
+ "index": 23,
+ "kind": "gac",
+ "level": "DG4",
+ "name": "SM_Building_24",
+ "notes": [
+  "[qgac] roof_plant reseated (per-footprint): 5 piece(s) moved -0.16..-0.16 m",
+  "glass_loss: 6 pane(s) voided, 48 % of storeys 4-9 on S/W",
+  "soft_storey: storey 0 crushed to 0.68 m on N and 3.07 m on S \u2014 the block above tilts 2.5 deg over a 55 m span; 17 piece(s) of it gone, 1 pier stump(s) left, 230 piece(s) above moved",
+  "roof_plant (sliced): 5 carried with a storey crush, 0 re-seated on real support after a region loss"
+ ],
+ "quake": {
+  "btype": "rc_glass",
+  "crown_m": 1.98,
+  "extent_m": {
+   "E": 14.43,
+   "N": 13.58,
+   "S": 13.58,
+   "W": 14.43
+  },
+  "fall_sides": [
+   "E",
+   "N",
+   "S",
+   "W"
+  ],
+  "grade": "DG4",
+  "plan": {
+   "H": 42.68,
+   "btype": "rc_glass",
+   "collapse": null,
+   "displaced": {
+    "/World/bake/g23/pieces/core_x_0_01_0045": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/core_x_0_02_0068": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/core_x_0_03_0091": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/core_x_0_04_0114": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/core_x_0_05_0137": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/core_x_0_06_0160": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/core_x_0_07_0183": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/core_x_0_08_0206": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/core_x_0_09_0229": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NE_0_01_0026": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NE_0_02_0049": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NE_0_03_0072": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NE_0_04_0095": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NE_0_05_0118": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NE_0_06_0141": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NE_0_07_0164": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NE_0_08_0187": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NE_0_09_0210": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NW_0_01_0025": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NW_0_02_0048": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NW_0_03_0071": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NW_0_04_0094": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NW_0_05_0117": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NW_0_06_0140": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NW_0_07_0163": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NW_0_08_0186": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_NW_0_09_0209": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SE_0_01_0024": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SE_0_02_0047": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SE_0_03_0070": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SE_0_04_0093": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SE_0_05_0116": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SE_0_06_0139": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SE_0_07_0162": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SE_0_08_0185": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SE_0_09_0208": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SW_0_01_0023": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SW_0_02_0046": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SW_0_03_0069": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SW_0_04_0092": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SW_0_05_0115": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SW_0_06_0138": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SW_0_07_0161": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SW_0_08_0184": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/corner_SW_0_09_0207": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_E_0_10_0246": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_E_1_10_0247": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_E_2_10_0248": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_E_3_10_0249": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_E_4_10_0250": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_E_5_10_0251": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_N_0_10_0237": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_N_1_10_0238": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_N_2_10_0239": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_S_0_10_0234": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_S_1_10_0235": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_S_2_10_0236": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_W_0_10_0240": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_W_1_10_0241": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_W_2_10_0242": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_W_3_10_0243": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_W_4_10_0244": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_W_5_10_0245": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_corner_NE_0_10_0233": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_corner_NW_0_10_0232": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_corner_SE_0_10_0231": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/parapet_corner_SW_0_10_0230": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_0_01_0039": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_0_02_0062": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_0_03_0085": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_0_04_0108": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_0_05_0131": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_0_06_0154": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_0_07_0177": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_0_08_0200": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_0_09_0223": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_2_01_0041": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_2_02_0064": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_2_03_0087": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_2_04_0110": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_2_05_0133": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_2_06_0156": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_2_07_0179": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_2_08_0202": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_2_09_0225": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_3_01_0042": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_3_02_0065": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_3_03_0088": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_3_04_0111": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_3_05_0134": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_3_06_0157": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_3_07_0180": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_3_08_0203": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_3_09_0226": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_5_01_0044": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_5_02_0067": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_5_03_0090": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_5_04_0113": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_5_05_0136": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_5_06_0159": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_5_07_0182": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_5_08_0205": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_E_5_09_0228": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_0_01_0030": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_0_02_0053": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_0_03_0076": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_0_04_0099": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_0_05_0122": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_0_06_0145": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_0_07_0168": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_0_08_0191": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_0_09_0214": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_2_01_0032": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_2_02_0055": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_2_03_0078": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_2_04_0101": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_2_05_0124": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_2_06_0147": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_2_07_0170": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_2_08_0193": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_N_2_09_0216": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_0_01_0027": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_0_02_0050": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_0_03_0073": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_0_04_0096": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_0_05_0119": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_0_06_0142": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_0_07_0165": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_0_08_0188": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_0_09_0211": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_2_01_0029": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_2_02_0052": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_2_03_0075": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_2_04_0098": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_2_05_0121": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_2_06_0144": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_2_07_0167": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_2_08_0190": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_S_2_09_0213": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_0_01_0033": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_0_02_0056": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_0_03_0079": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_0_04_0102": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_0_05_0125": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_0_06_0148": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_0_07_0171": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_0_08_0194": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_0_09_0217": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_2_01_0035": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_2_02_0058": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_2_03_0081": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_2_04_0104": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_2_05_0127": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_2_06_0150": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_2_07_0173": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_2_08_0196": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_2_09_0219": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_3_01_0036": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_3_02_0059": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_3_03_0082": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_3_04_0105": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_3_05_0128": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_3_06_0151": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_3_07_0174": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_3_08_0197": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_3_09_0220": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_5_01_0038": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_5_02_0061": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_5_03_0084": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_5_04_0107": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_5_05_0130": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_5_06_0153": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_5_07_0176": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_5_08_0199": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/pier_W_5_09_0222": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/roof_x_0_10_0252": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_1_01_0040": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_1_02_0063": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_1_03_0086": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_1_04_0109": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_1_05_0132": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_1_06_0155": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_1_07_0178": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_1_08_0201": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_1_09_0224": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_4_01_0043": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_4_02_0066": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_4_03_0089": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_4_04_0112": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_4_05_0135": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_4_06_0158": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_4_07_0181": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_4_08_0204": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_E_4_09_0227": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_N_1_01_0031": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_N_1_02_0054": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_N_1_03_0077": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_N_1_04_0100": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_N_1_05_0123": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_N_1_06_0146": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_N_1_07_0169": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_N_1_08_0192": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_N_1_09_0215": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_S_1_01_0028": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_S_1_02_0051": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_S_1_03_0074": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_S_1_04_0097": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_S_1_05_0120": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_S_1_06_0143": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_S_1_07_0166": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_S_1_08_0189": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_S_1_09_0212": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_1_01_0034": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_1_02_0057": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_1_03_0080": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_1_04_0103": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_1_05_0126": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_1_06_0149": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_1_07_0172": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_1_08_0195": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_1_09_0218": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_4_01_0037": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_4_02_0060": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_4_03_0083": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_4_04_0106": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_4_05_0129": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_4_06_0152": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_4_07_0175": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_4_08_0198": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    },
+    "/World/bake/g23/pieces/wall_W_4_09_0221": {
+     "after": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "axis": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "deg": 2.4999999999999996,
+     "pivot": [
+      0.0,
+      -27.44,
+      3.074004815491477
+     ],
+     "translate": [
+      0.0,
+      0.0,
+      -0.8059951845085229
+     ],
+     "twist_deg": 0.0,
+     "twist_pivot": [
+      0.0,
+      0.0,
+      3.074004815491477
+     ],
+     "why": "soft storey 0 (differential crush)"
+    }
+   },
+   "fit_ops": [
+    {
+     "mass": "main",
+     "op": "displace_above",
+     "storey": 0,
+     "transform": {
+      "after": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "axis": [
+       -1.0,
+       0.0,
+       0.0
+      ],
+      "deg": 2.4999999999999996,
+      "pivot": [
+       0.0,
+       -27.44,
+       3.074004815491477
+      ],
+      "translate": [
+       0.0,
+       0.0,
+       -0.8059951845085229
+      ],
+      "twist_deg": 0.0,
+      "twist_pivot": [
+       0.0,
+       0.0,
+       3.074004815491477
+      ],
+      "why": "soft storey 0 (differential crush)"
+     }
+    },
+    {
+     "incline_deg": 0.0,
+     "incline_side": "N",
+     "mass": "main",
+     "op": "columns_to_pile",
+     "pile": 0,
+     "storey": 0
+    },
+    {
+     "mass": "main",
+     "op": "deactivate_partitions",
+     "storeys": [
+      0
+     ]
+    },
+    {
+     "base_z": 0.0,
+     "heap_h": 1.8770888261866572,
+     "mass": "main",
+     "op": "bury_props",
+     "storeys": [
+      0
+     ]
+    }
+   ],
+   "glass": [
+    "/World/bake/g23/pieces/wall_S_1_05_0120",
+    "/World/bake/g23/pieces/wall_S_1_07_0166",
+    "/World/bake/g23/pieces/wall_S_1_09_0212",
+    "/World/bake/g23/pieces/wall_W_1_06_0149",
+    "/World/bake/g23/pieces/wall_W_4_06_0152",
+    "/World/bake/g23/pieces/wall_W_4_08_0198"
+   ],
+   "glass_bands": [
+    {
+     "frac": 0.48329478565729345,
+     "n": 6,
+     "sides": [
+      "S",
+      "W"
+     ],
+     "storeys": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+     ]
+    }
+   ],
+   "grade": "DG4",
+   "ground": null,
+   "interior": {
+    "sides": [
+     "N"
+    ],
+    "storeys": [
+     0,
+     1
+    ]
+   },
+   "macroblocks": [],
+   "notes": [
+    "glass_loss: 6 pane(s) voided, 48 % of storeys 4-9 on S/W",
+    "soft_storey: storey 0 crushed to 0.68 m on N and 3.07 m on S \u2014 the block above tilts 2.5 deg over a 55 m span; 17 piece(s) of it gone, 1 pier stump(s) left, 230 piece(s) above moved"
+   ],
+   "panels": [],
+   "piles": [
+    {
+     "along": null,
+     "authored": {
+      "n_all": 243,
+      "n_static": 239
+     },
+     "base_z": 0.0,
+     "crown_est_m": 5.1216,
+     "crown_m": 1.8770888261866572,
+     "depth_m": null,
+     "elem_h_m": 3.88,
+     "fit": [],
+     "kind": "dome",
+     "mass": "main",
+     "offset_m": 0.0,
+     "panels": [
+      [
+       "/World/bake/g23/fit_g23/col_main_0_0_0",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_0_1",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_0_2",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_0_3",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_0_4",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_0_5",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_0_6",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_0_7",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_0_8",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_1_0",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_1_1",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_1_2",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_1_3",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_1_4",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_1_5",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_1_6",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_1_7",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_1_8",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_2_0",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_2_1",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_2_2",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_2_3",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_2_4",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_2_5",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_2_6",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_2_7",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_2_8",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_3_0",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_3_1",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_3_2",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_3_3",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_3_4",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_3_5",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_3_6",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_3_7",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ],
+      [
+       "/World/bake/g23/fit_g23/col_main_0_3_8",
+       [
+        0.44999998807907104,
+        0.44999998807907104,
+        3.6600000858306885
+       ]
+      ]
+     ],
+     "sides": [
+      "S",
+      "E",
+      "N",
+      "W"
+     ],
+     "spread_est": 0.3,
+     "spread_frac": 0.1500804211405698,
+     "stub_h_m": 0.0,
+     "tag": "soft0"
+    }
+   ],
+   "recipes": [
+    [
+     "glass_loss",
+     {
+      "frac": [
+       0.4,
+       0.55
+      ],
+      "sides": 2
+     }
+    ],
+    [
+     "soft_storey",
+     {
+      "lean_deg": 2.5,
+      "storey": 0
+     }
+    ]
+   ],
+   "regions": [],
+   "removed": [
+    "/World/bake/g23/pieces/core_x_0_00_0022",
+    "/World/bake/g23/pieces/corner_NE_0_00_0003",
+    "/World/bake/g23/pieces/corner_NW_0_00_0002",
+    "/World/bake/g23/pieces/corner_SE_0_00_0001",
+    "/World/bake/g23/pieces/corner_SW_0_00_0000",
+    "/World/bake/g23/pieces/pier_E_0_00_0016",
+    "/World/bake/g23/pieces/pier_E_2_00_0018",
+    "/World/bake/g23/pieces/pier_E_3_00_0019",
+    "/World/bake/g23/pieces/pier_E_5_00_0021",
+    "/World/bake/g23/pieces/pier_N_0_00_0007",
+    "/World/bake/g23/pieces/pier_N_2_00_0009",
+    "/World/bake/g23/pieces/pier_S_0_00_0004",
+    "/World/bake/g23/pieces/pier_W_0_00_0010",
+    "/World/bake/g23/pieces/pier_W_2_00_0012",
+    "/World/bake/g23/pieces/pier_W_3_00_0013",
+    "/World/bake/g23/pieces/pier_W_5_00_0015",
+    "/World/bake/g23/pieces/wall_E_1_00_0017",
+    "/World/bake/g23/pieces/wall_E_4_00_0020",
+    "/World/bake/g23/pieces/wall_N_1_00_0008",
+    "/World/bake/g23/pieces/wall_S_1_00_0005",
+    "/World/bake/g23/pieces/wall_W_1_00_0011",
+    "/World/bake/g23/pieces/wall_W_4_00_0014"
+   ],
+   "stats": {
+    "n_displaced": 230,
+    "n_glass": 6,
+    "n_macroblocks": 0,
+    "n_panels": 0,
+    "n_pieces": 253,
+    "n_piles": 1,
+    "n_removed": 22,
+    "n_storeys": 11,
+    "n_sub": 3,
+    "n_tears": 1,
+    "n_tears_dropped": 21,
+    "removed_frac": 0.08695652173913043
+   },
+   "storey_collapse": {
+    "capped": false,
+    "crush_m": 1.8770888261866572,
+    "drop_far_m": 0.8059951845085229,
+    "drop_lean_m": 3.1998271631181625,
+    "h_st": 3.88,
+    "lean_deg": 2.4999999999999996,
+    "lean_drawn_deg": 2.5,
+    "lean_side": "N",
+    "mechanism": "crush",
+    "n_above": 230,
+    "offset_m": 0.0,
+    "pivot": [
+     0.0,
+     -27.44,
+     3.074004815491477
+    ],
+    "pivot_side": "S",
+    "r_far_m": 3.074004815491477,
+    "r_lean_m": 0.6801728368818373,
+    "span_m": 54.88,
+    "storey": 0,
+    "sway_deg": 0.0,
+    "twist_deg": 0.0
+   },
+   "stub": null,
+   "style": "gac_SM_Building_24",
+   "tear_scope": {
+    "main": {
+     "sides": [
+      "E",
+      "N",
+      "S",
+      "W"
+     ],
+     "storeys": [
+      0
+     ]
+    }
+   },
+   "tears": [
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.3813022683182455,
+       "cls": "above",
+       "kind": "z",
+       "line": 7.946166391031527,
+       "loose_above": false,
+       "pen": 1.1214772597595455
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_E_0_01_0039",
+     "side": "E",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.4470415175633873,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.139517124105474,
+       "loose_above": false,
+       "pen": 1.3148279928334918
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/wall_E_1_01_0040",
+     "side": "E",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.4451261362698495,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.133883650761685,
+       "loose_above": false,
+       "pen": 1.3091945184407336
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_E_2_01_0041",
+     "side": "E",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.4491181123868694,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.145624757488534,
+       "loose_above": false,
+       "pen": 1.3209356246672628
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_E_3_01_0042",
+     "side": "E",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.4054958028952722,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.01732385409672,
+       "loose_above": false,
+       "pen": 1.1926347143978593
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/wall_E_4_01_0043",
+     "side": "E",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.38285896804588315,
+       "cls": "above",
+       "kind": "z",
+       "line": 7.950744919642828,
+       "loose_above": false,
+       "pen": 1.1260557883702444
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_E_5_01_0044",
+     "side": "E",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.477773216668502,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.229904480523635,
+       "loose_above": false,
+       "pen": 1.4052153431426528
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_N_0_01_0030",
+     "side": "N",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.4421237752969965,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.125053180029873,
+       "loose_above": false,
+       "pen": 1.300364044991166
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/wall_N_1_01_0031",
+     "side": "N",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.5234796417275915,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.364335140119858,
+       "loose_above": false,
+       "pen": 1.5396460050811516
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_N_2_01_0032",
+     "side": "N",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.5172673481309075,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.346063685479406,
+       "loose_above": false,
+       "pen": 1.5213745533261984
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/corner_NE_0_01_0026",
+     "side": "N",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "right"
+     ],
+     "cuts": [
+      {
+       "amp": 0.55,
+       "cls": "right",
+       "kind": "v",
+       "line": 16.632632303034665,
+       "loose_hi": false,
+       "pen": 2.1135003916766486
+      }
+     ],
+     "dropped": false,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_S_2_00_0006",
+     "side": "S",
+     "storey": 0
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.4265998187715714,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.079394449908257,
+       "loose_above": false,
+       "pen": 1.254705349328151
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/corner_SW_0_01_0023",
+     "side": "S",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.5125190805890324,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.332098161136084,
+       "loose_above": false,
+       "pen": 1.5074090605559776
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_S_0_01_0027",
+     "side": "S",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.3603970062334535,
+       "cls": "above",
+       "kind": "z",
+       "line": 7.884680295384381,
+       "loose_above": false,
+       "pen": 1.0599911948042748
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/wall_S_1_01_0028",
+     "side": "S",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.5159192768801704,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.34209873846296,
+       "loose_above": false,
+       "pen": 1.5174096378828539
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/corner_SE_0_01_0024",
+     "side": "S",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.4834540863027354,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.246612964409078,
+       "loose_above": false,
+       "pen": 1.4219237832433393
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_W_0_01_0033",
+     "side": "W",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.10049410752746282,
+       "cls": "above",
+       "kind": "z",
+       "line": 7.287756766965131,
+       "loose_above": false,
+       "pen": 0.2955709044925377
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/core_x_0_01_0045",
+     "side": "W",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.3515044593307209,
+       "cls": "above",
+       "kind": "z",
+       "line": 7.858525724906904,
+       "loose_above": false,
+       "pen": 1.0338366450903556
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/wall_W_1_01_0034",
+     "side": "W",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.37187158115922014,
+       "cls": "above",
+       "kind": "z",
+       "line": 7.918428980202001,
+       "loose_above": false,
+       "pen": 1.0937399445859415
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_W_2_01_0035",
+     "side": "W",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.5117103263712685,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.329719385072778,
+       "loose_above": false,
+       "pen": 1.5050303716802012
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_W_3_01_0036",
+     "side": "W",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.39592394628415123,
+       "cls": "above",
+       "kind": "z",
+       "line": 7.989171212593812,
+       "loose_above": false,
+       "pen": 1.164482194953386
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/wall_W_4_01_0037",
+     "side": "W",
+     "storey": 1
+    },
+    {
+     "classes": [
+      "above"
+     ],
+     "cuts": [
+      {
+       "amp": 0.46294660842903024,
+       "cls": "above",
+       "kind": "z",
+       "line": 8.18629671965551,
+       "loose_above": false,
+       "pen": 1.361607671850089
+      }
+     ],
+     "dropped": true,
+     "mass": "main",
+     "path": "/World/bake/g23/pieces/pier_W_5_01_0038",
+     "side": "W",
+     "storey": 1
+    }
+   ]
+  }
+ },
+ "rehome": {
+  "failed": 0,
+  "needed": 12,
+  "pruned": 0,
+  "rebound": 1252,
+  "rehomed": 12
+ },
+ "root": "/World/bake",
+ "schema": 1,
+ "seed": 720,
+ "settle": {
+  "airborne_off": 26,
+  "baked": 61,
+  "below_grade": 1,
+  "bodies": 61,
+  "clamped": 1,
+  "converged": true,
+  "moved_max": 7.939122716973466,
+  "moved_mean": 2.30749238505404,
+  "quiet_used": 150,
+  "rescued": 1,
+  "solve_s": 12.659552574157715,
+  "spread_max": 5.476992024254392,
+  "steps_cap": 7200,
+  "steps_used": 1600,
+  "still_moving": 0,
+  "still_moving_paths": [],
+  "stop_reason": "rest"
+ },
+ "src_kept": false,
+ "tag": "g23",
+ "timings": {
+  "build_s": 41.2,
+  "export_s": 1.0,
+  "settle_s": 13.3,
+  "total_s": 66.6
+ },
+ "top_z": 44.11181624974614,
+ "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_24_DG4_s720.usd"
+}

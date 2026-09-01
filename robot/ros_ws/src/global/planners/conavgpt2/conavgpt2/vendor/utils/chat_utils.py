@@ -308,7 +308,23 @@ def chat_with_gpt4v(chat_history, model=None):
             
     # print(ground_json)
     LAST_CALL["parse"] = "failed"
+    # SPREAD THE FLEET, DO NOT STACK IT. Upstream fell back to
+    #     {f"robot_{i}": "frontier_0" for i in range(CONFIG.num_agents)}
+    # which sends EVERY robot to the SAME frontier. On a failed round the whole
+    # team converges on one point, re-explores ground the others already hold,
+    # and the search area stops growing -- the opposite of what a multi-robot
+    # method is for. Measured on the 2026-09-01 tornado L1 team cell: 3 of 44
+    # rounds took this path.
+    #
+    # Round-robin over the frontiers that actually exist instead. It is still a
+    # degraded fallback -- nothing here knows which frontier suits which robot,
+    # that is what the VLM was for -- but it preserves DISPERSION, which is the
+    # property the fleet cannot recover on its own. num_frontier is whatever the
+    # caller offered this round; guard it so a zero can never modulo-divide.
+    n_front = max(1, int(num_frontier or 1))
     print(f"VLM assignment failed after retries (model={model}, "
-          f"base_url={CONFIG.base_url}); falling back to frontier_0 for every robot")
-    ground_json = {f"robot_{i}": "frontier_0" for i in range(CONFIG.num_agents)}
+          f"base_url={CONFIG.base_url}); falling back to a round-robin over "
+          f"{n_front} frontier(s) to keep the robots spread out")
+    ground_json = {f"robot_{i}": f"frontier_{i % n_front}"
+                   for i in range(CONFIG.num_agents)}
     return ground_json

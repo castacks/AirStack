@@ -1,0 +1,2171 @@
+"""tornado_urban_usd — apply an urban-tornado damage PLAN to a sliced
+building and author its street debris.
+
+`disaster/tornado_urban.py` (stream L, parallel round) is the PURE planner:
+it walks `quake_flow.describe`'s element table, the wind model
+(`tornado.wind_at`) and the T0..T4 ladder in
+`scene_gen/_plans/urban_tornado_plan.md` §2.6 and produces the JSON-
+serialisable plan described in that document's §2.8 — no `pxr` anywhere in
+that half. This module is the OTHER half: it takes that plan and a live USD
+stage and does the three things a plan can ask for on a SLICED building
+(remove a piece, void its glass, rigid-displace a hanging panel or a
+macroblock) plus the one thing only this module owns — turning every
+removed piece into street debris.
+
+WHY THIS REUSES `quake_sliced` RATHER THAN REDERIVING IT
+----------------------------------------------------------
+`disaster/quake_sliced.py` already solved "how do you damage a building that
+is a bag of kit-shaped pieces cut out of one merged mesh" for the earthquake
+ladder, on the SAME piece grid (`gac_slice`/`gac_storey_slice`) this ladder
+damages. Its `apply_plan` is the reference for every mechanism this module
+needs:
+
+  * glass -> void: a pane is a `GeomSubset` on a piece, not a prim. The
+    FIRST draft of this module called `quake_sliced._void_glass` directly
+    for this, on the theory that "exactly the way `quake_sliced.apply_plan`
+    does it" meant reusing its function verbatim. The lead's end-to-end
+    container probe on a REAL GAC slice (SM_Building_02, level T3) found
+    that theory wrong: the planner listed 13 glass pieces and `apply_plan`
+    voided 0 subsets. `quake_sliced._void_glass` has TWO matching paths and
+    both are dead ends on GAC — see this module's OWN `_void_glass` below,
+    which replaces it, for why. `quake_sliced.py` is the earthquake
+    stream's file and is not edited here; the lead is recording this blind
+    spot in the tornado skill instead.
+  * rigid displacement: `quake_sliced.rigid_matrix(spec)` turns a plain
+    JSON dict into the 4x4 row-vector matrix `quake_flow._transform_prims`
+    post-multiplies onto a prim's world transform. ONE implementation, used
+    here unchanged, so a macroblock this ladder tips into the street moves
+    by the exact arithmetic `quake_sliced`'s own tests already check.
+  * roof furniture: `quake_sliced._sweep_roof_props_sliced` IDENTIFIES roof
+    plant by two ctx-level lists, `ctx["roof_plant"]` / `ctx["roof_fixed"]`
+    (paths of tanks/AC units placed on the roof by `quake_flow.dress_roof`).
+    This module reuses that IDENTIFICATION — read those two keys — but not
+    its band-carry / region-reseat MECHANICS, which need `plan["fit_ops"]`
+    and `plan["collapse"]`, fields the tornado plan (§2.8) does not carry.
+    A tornado's roof plant does not get carried down a storey that crushed
+    under it (there is no crush here); it is torn off and gone, which is
+    what the ladder table already says in words ("rooftop plant swept",
+    "rooftop light props gone") — so `roof_props == "sweep"` here is a
+    straight deactivate of whatever `ctx["roof_plant"]` / `ctx["roof_fixed"]`
+    name, nothing more. Note this round's `wreck_urban` does not itself call
+    `quake_flow.dress_roof` (see that function's docstring) — until a later
+    round wires roof-furniture placement into the urban-tornado ctx, those
+    two keys are simply absent and "sweep" is a documented no-op, exactly
+    the shape the lead's container-probe ctx (`{"mats": {}, ...}`, no
+    `roof_plant` key) exercises.
+
+DEBRIS IS THE ONE THING ONLY THIS MODULE OWNS. `disaster/planks.py` is the
+existing model for "a wind event's debris is boards, not fracture chunks",
+and its docstring gives the reasons this round leans on again: it does not
+scale, a Voronoi cut is the wrong SHAPE for shed material, and a box needs
+no solver. This ladder's debris is architectural fragments (spalled panel,
+brick block, coping, glass shard, roof deck sheet), not sawn timber, so it
+does not reuse `planks.build` directly — but it reuses `planks.py`'s two
+central ideas verbatim:
+
+  * ONE MERGED MESH PER CLASS. `build_debris` groups by (kind, material)
+    the same way `planks.build` groups by (class, skin) — a wrecked city
+    block sheds thousands of fragments and a plate holds dozens of wrecked
+    buildings; one prim per fragment is a six-figure prim count for
+    geometry that never moves again.
+  * SEAT ON THE FACE, NOT THE CORNER. This is "FLOATING DEBRIS" cause 1 in
+    `.agents/skills/build-tornado-scenes/SKILL.md`: `planks._lay` used to
+    seat every board so its LOWEST ROTATED CORNER touched grade, which
+    means NO board ever lay on its face — the centre floated up by however
+    much the piece's own tilt demanded (measured: p50 0.079 m, p90 0.373 m,
+    32% of a 758-board field more than 10 cm up, with a fully DETACHED
+    shadow on the low-sun render that made it unmissable). The fix bedding
+    a piece `_BED_M` (2 cm) into whatever it lands on, capped so a steep
+    tilt still rests on its own corner rather than sinking through, is
+    reproduced here as `_seat_z` — see that function for the reduced,
+    one-`tilt_deg` form this ladder's fragments need (a planner fragment
+    carries a single tilt about its own long axis, not `_lay`'s independent
+    pitch+roll draw, so the formula is `_lay`'s bedding rule collapsed to
+    that one degree of freedom, not `_lay` called directly).
+
+GLASS IS OPAQUE, NOT TRANSPARENT. §2.9 of the plan: a broken pane over
+asphalt read from 60 m needs to be a dark HOLE, and a physically-transparent
+glass shard lying flat on grey asphalt is close to invisible at that
+distance — the same reasoning `quake_sliced._glass_void` already encodes
+for the earthquake ladder ("NOT `mats["glass"]` — that is the pale intact
+pane tint and it renders as a bright rectangle where a window should now be
+a dark hole"). This module builds exactly ONE such void material
+(`_ensure_void_material`) and uses it BOTH to rebind a broken pane's
+`GeomSubset` (this module's own `_void_glass`, below) AND as the "glass"
+debris class's own material, so a window that broke and the shard that
+came from it are wearing the same dark-glass look.
+
+THE `_void_glass` FIX (round 2, against a REAL slice). Every GAC material
+prim is named `UnrealMaterial` (`gac_slice.window_centres`'s own docstring:
+"Empty on GAC in the sense that matters"), so `quake_sliced._void_glass`'s
+inline name check (`"glass" in cur.GetPrim().GetName().lower()`) never
+fires on GAC at all. Its texture check does not either, for a subtler
+reason: GAC's `UsdPreviewSurface` does not hold its diffuse map as a
+`Get()`-able value on the `diffuseColor` input — that input is CONNECTED to
+a separate `UsdUVTexture` shader whose `inputs:file` holds the actual
+texture, so `quake_sliced._tex_of`'s `inp.Get()` returns `None` and the
+texture check never matches either. Both of `quake_sliced._void_glass`'s
+two matching paths are therefore dead ends on this asset, which is exactly
+what the container probe measured (13 listed, 0 voided).
+
+`detail.gac_slice.window_centres` already solved this correctly — its own
+nested `_tex` closure FOLLOWS the connection — and `gac_fire._diffuse_of`
+is a second, independent copy of the same fix for the same reason (neither
+is importable on its own: one is a closure, the other returns a different
+tuple shape for a different caller). This module's `_glass_tex_and_name` is
+a THIRD copy, reproduced with attribution rather than imported, feeding
+`detail.gac_slice.is_glazing` — the one glazing matcher every other
+consumer in this codebase already agrees on, so this ladder's glass call
+does not re-derive a fourth ad hoc test.
+"""
+
+import json as _json
+import math
+
+from pxr import Gf, Sdf, UsdGeom, UsdShade, Vt
+
+from . import damage
+from . import planks
+from . import quake_flow as qf
+from . import quake_sliced as qs
+
+# ---------------------------------------------------------------------------
+# geometry constants — the same box topology `quake_flow._box` / `planks.py`
+# use (corner order, face winding, face normals). Duplicated rather than
+# imported: `planks._box`'s signature takes a FULL pitch+roll spec dict and
+# this ladder's fragments carry a single `tilt_deg` (see `_seat_z`), so the
+# per-fragment corner maths below is its own small function, not a call into
+# `planks._box` with a fabricated `pitch=0` spec. The topology itself (corner
+# order, winding, face normals) is not private know-how — it already appears
+# twice in this codebase (`quake_flow._box`, `planks._box`) and a third,
+# identical copy here keeps this module's box authoring readable without an
+# import that would otherwise be the only reason to reach into `planks`'s
+# geometry internals.
+# ---------------------------------------------------------------------------
+_CORNERS = ((-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1),
+            (-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1))
+_FACES = ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4),
+          (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7))
+_FACE_N = ((0.0, 0.0, -1.0), (0.0, 0.0, 1.0), (0.0, -1.0, 0.0),
+           (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0))
+
+_BED_M = planks._BED_M   # the 2 cm bedding sink, `planks._lay`'s own constant
+
+# THE VOID TONE. Dark glossy near-black — a broken pane and a glass shard are
+# both this, never physically transparent glass (see the module docstring).
+_VOID_RGB = (0.030, 0.028, 0.030)
+_VOID_ROUGHNESS = 0.15
+
+# THE REPO SCHEME, NOT A BUILD-MACHINE PATH. `os.path.join(<this file's own
+# dirname>, ...)` was the first draft here and it is exactly the trap
+# `.agents/skills/freeze-portable-scenes/SKILL.md` documents: that string is
+# whatever this Python file's absolute path happens to be on the machine
+# that IMPORTED it, and it gets baked into the authored `Sdf.AssetPath`
+# verbatim — fine on the build machine, broken the moment the layer is
+# anchored on Nucleus or the checkout moves. `airstack://` is the repo's own
+# portable scheme (`scene_generator.LOCAL_ASSET_ROOTS`): resolved through
+# `sg._join_asset_root` AT THE POINT OF USE (`debris_material`, below), the
+# same call-site pattern `quake_flow._c_look_at` uses for its own textured
+# ground looks, so a frozen/portable build (`AIRSTACK_ASSET_ROOT` pointed at
+# a Nucleus mirror) gets a Nucleus path and an ordinary dev build gets the
+# local checkout — decided at BIND time, not import time.
+_TEX_BRICK = ("airstack://scene_gen/assets/materials/megascans/"
+             "Brick_Wall_Worn/T_sexkaitb_1K_B.jpg")
+_TEX_CONCRETE = ("airstack://scene_gen/assets/materials/megascans/"
+                 "Damaged_Concrete_Floor/T_vizbefe_2K_B.png")
+
+# One tile per ~1.0 m — `damage._pbr`'s `scale_uv` is repeats PER METRE
+# (smaller = bigger features; its own docstring: "~0.45 puts one tile across
+# a bit over two metres"), so 1.0 puts one tile across ~1.0 m.
+_TILE_REPEATS_PER_M = (1.0, 1.0)
+
+
+def _safe_name(s):
+    """A USD-prim-legal token from an arbitrary material-hint string."""
+    s = str(s or "unknown")
+    out = "".join(c if (c.isalnum() or c == "_") else "_" for c in s)
+    return out or "unknown"
+
+
+def _fix_diffuse_tint(stage, path, rgb):
+    """Author `diffuse_tint` (`damage._pbr` never does) — the ONE slot that
+    multiplies over a bound `diffuse_texture`.
+
+    READ THE MDL, ROUND 4 (D3). `/isaac-sim/kit/mdl/core/Base/
+    OmniPBR_ClearCoat.mdl` lines 652-654, verbatim:
+
+        color diffuse        = tex::texture_isvalid(diffuse_texture)
+                               ? desaturated_base : diffuse_color_constant;
+        color tinted_diffuse = multiply_colors(diffuse, diffuse_tint, 1.0).tint;
+
+    So with a VALID map the albedo is `texture * diffuse_tint` and
+    `diffuse_color_constant` is not in the product at all — it is the
+    map-failed FALLBACK colour, nothing else. Two consequences this module
+    lives by (§8 D3):
+
+      * whatever is passed HERE is the whole multiply. Round 3 passed the
+        ~0.30 class rgb, which is a 70% knock-down of a cladding map that
+        is itself only ~0.4 mean — an effective albedo near 0.10, i.e. the
+        near-black berms of the round-3 bench (A3/B1/B3). The tint must be
+        a near-neutral GRIME value (`_CLASS_LOOK`'s middle field, ~0.8-0.9,
+        slightly desaturated); the TEXTURE carries the colour;
+      * `diffuse_color_constant` must stay a PLAUSIBLE class albedo, never
+        white. A white constant is invisible while the map resolves and
+        renders a field of white litter the moment one does not — which is
+        exactly what B4/B5's "white paper" reads like."""
+    sh = UsdShade.Shader.Get(stage, path + "/Shader")
+    if sh:
+        sh.CreateInput("diffuse_tint",
+                       Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*rgb))
+
+
+def _ensure_void_material(stage, ctx):
+    """The one dark-glass-void material, built once and cached under BOTH
+    `ctx["mats"]["void"]` (where `quake_sliced._glass_void` looks for it —
+    see `_glass_void`'s own key order, `("void", "scar_shadow", "crack",
+    "dark_concrete")`) and `ctx["mats"]["tornado_debris:glass"]` (where
+    `debris_material` looks for the glass-shard class), so a broken pane and
+    the shards that came from it share the literal same material prim."""
+    mats = ctx.setdefault("mats", {})
+    got = mats.get("void")
+    if got is not None:
+        mats.setdefault("tornado_debris:glass", got)
+        return got
+    parent = ctx.get("parent") or "/World"
+    path = "{0}/TornadoDebrisLooks/void".format(parent)
+    mat = damage._pbr(stage, path, _VOID_RGB, _VOID_ROUGHNESS)
+    mats["void"] = mat
+    mats["tornado_debris:glass"] = mat
+    return mat
+
+
+def _glass_tex_and_name(mat_prim):
+    """(diffuse basename, MATERIAL PRIM NAME) of `mat_prim`.
+
+    REPRODUCED, with attribution, from `detail.gac_slice.window_centres`'s
+    own nested `_tex` closure (that function, lines ~217-236) — not
+    imported, because a closure cannot be, and the second existing copy of
+    this exact logic, `gac_fire._diffuse_of` (line ~1161), returns a
+    different tuple shape for a different caller so it is not a drop-in
+    replacement either. This is deliberately the THIRD copy rather than a
+    fourth ad hoc reimplementation: same walk, same fallback order, so a
+    change to how GAC/downtowncity materials are laid out only needs
+    finding (and fixing) in three well-known places, not guessing how many
+    there are.
+
+    THE BUG THIS EXISTS TO AVOID (found on a REAL slice, not a synthetic
+    one): a GAC/downtowncity `UsdPreviewSurface`'s `diffuseColor` input is
+    not a `Get()`-able value — it is CONNECTED to a separate `UsdUVTexture`
+    shader whose `inputs:file` holds the actual texture. Reading
+    `sh.GetInput("diffuseColor").Get()` directly (what `quake_sliced.
+    _tex_of` does) returns `None` on every such material, silently. Also
+    returns MATERIAL NAME (not just the texture) for the same reason
+    `window_centres._tex` does: downtowncity's own window materials
+    (`Glass_window`, `Window_003/4/5`, `rollershutter_window_01_001`) carry
+    NO diffuse map at all, so the name is the only evidence there is —
+    `gac_slice.is_glazing` takes `mat_name` as its second matching chance
+    for exactly this reason.
+    """
+    from pxr import Sdf, Usd, UsdShade
+
+    if not mat_prim or not mat_prim.IsValid():
+        return "", ""
+    mname = mat_prim.GetName()
+    for c in Usd.PrimRange(mat_prim):
+        sh = UsdShade.Shader(c)
+        if not sh or sh.GetIdAttr().Get() != "UsdPreviewSurface":
+            continue
+        d = sh.GetInput("diffuseColor")
+        if d is not None and d.HasConnectedSource():
+            ts = UsdShade.Shader(d.GetConnectedSource()[0].GetPrim())
+            f = ts.GetInput("file") if ts else None
+            v = f.Get() if f else None
+            if isinstance(v, Sdf.AssetPath) and v.path:
+                return v.path.rsplit("/", 1)[-1], mname
+        break
+    return "", mname
+
+
+def _surface_tex_and_name(mat_prim):
+    """(FULL diffuse-texture URL, basename, MATERIAL PRIM NAME) of
+    `mat_prim` — `_glass_tex_and_name`'s connection-following walk (same
+    method, same fallback order), generalised to also return a BINDABLE
+    URL rather than only the basename glazing-matching needs. Reproduced as
+    its own copy rather than a `_glass_tex_and_name` edit for the same
+    reason that function documents its own THIRD-copy status: this file's
+    glazing machinery (`_void_glass`/`_has_glazing_binding`/
+    `annotate_glazing`) is a live, concurrently-edited region this round
+    (`apply_plan`'s glass step), and widening its return shape is exactly
+    the kind of change that region discipline says stays out.
+
+    `Sdf.AssetPath` carries two strings: `path` (the AUTHORED value, often
+    only a bare filename on this asset library — the same "no directory"
+    gap `_glass_tex_and_name`'s own basename-only return already lives
+    with) and `resolvedPath` (what the stage's asset resolver actually
+    found it at, once the value has been composed). `resolvedPath` is
+    preferred — the same order `disaster/gac_fire.py`'s own
+    `_diffuse_of` (`(v.resolvedPath or v.path)`) already uses for the
+    identical read — falling back to `path` when nothing resolved (an
+    in-memory test stage with a made-up filename, most commonly), so a
+    caller always gets *some* string it can hand `damage._pbr(texture=...)`
+    rather than a bare basename with nowhere to load it from.
+    """
+    from pxr import Sdf, Usd, UsdShade
+
+    if not mat_prim or not mat_prim.IsValid():
+        return "", "", ""
+    mname = mat_prim.GetName()
+    for c in Usd.PrimRange(mat_prim):
+        sh = UsdShade.Shader(c)
+        if not sh or sh.GetIdAttr().Get() != "UsdPreviewSurface":
+            continue
+        d = sh.GetInput("diffuseColor")
+        if d is not None and d.HasConnectedSource():
+            ts = UsdShade.Shader(d.GetConnectedSource()[0].GetPrim())
+            f = ts.GetInput("file") if ts else None
+            v = f.Get() if f else None
+            if isinstance(v, Sdf.AssetPath) and (v.resolvedPath or v.path):
+                url = v.resolvedPath or v.path
+                name = str(v.path or url).rsplit("/", 1)[-1]
+                return str(url), name, mname
+        break
+    return "", "", mname
+
+
+def annotate_surface(stage, placements):
+    """Stamp `_tex_url` / `_tex_name` onto each placement dict, IN PLACE,
+    from a REAL read of its prim's DOMINANT non-glazing bound texture —
+    the `annotate_glazing` pattern (same walk, same "measure, don't guess"
+    discipline), generalised from "does this piece carry ANY glazing" to
+    "what does the REST of this piece look like". Returns the number of
+    placements with a non-empty `_tex_url`.
+
+    F3, `.agents/skills/build-tornado-scenes/SKILL.md`'s "THE DEBRIS IS NOT
+    ALL SAWN TIMBER" section, applied verbatim to this ladder: "the debris
+    is supposed to retain the colour of the house/roof ... BIND THE
+    TEXTURE, NOT THE MATERIAL" — a piece's own kit/GAC MATERIAL is UV-space
+    (or, on GAC, bound to a source-asset `Section*/UnrealMaterial` the
+    debris mesh has no matching UVs for at all, being an authored box with
+    no `st`); the TEXTURE is what `debris_material` re-projects triplanar
+    the same way `planks.skin_material` does for the suburb ladder.
+
+    RESOLUTION ORDER (per piece):
+      1. SUBSETS FIRST. `UsdGeom.Subset.GetAllGeomSubsets` on every `Mesh`
+         under the piece; for each subset, resolve its bound material via
+         `_surface_tex_and_name` and skip it if `gac_slice.is_glazing`
+         matches (a window pane is not cladding — the SAME exclusion
+         `annotate_glazing`/`_void_glass` apply, just inverted: this
+         function wants what is LEFT after glazing is removed). Among the
+         REMAINING (non-glazing) subsets, the one with the most faces
+         (`GetIndicesAttr()` length) wins — the largest single material on
+         the piece is its dominant cladding, exactly the same "biggest
+         subset wins" rule a piece with more than one non-glazing material
+         (a spandrel band plus a masonry pier, say) needs.
+      2. SUBSET-LESS MESH -> THE MESH'S OWN BINDING. A kit module (round 2
+         vocabulary: `_window_named`'s sibling case) carries no subsets at
+         all — one material bound directly to the mesh prim, the same
+         shape `annotate_glazing`'s own subset-less branch already handles
+         for the SAME reason. This is a straight either/or per mesh, not a
+         combined pool: a subset-bearing mesh's own top-level binding
+         (typically a `ShellFallbackLooks` placeholder on a live GAC slice)
+         is never consulted, matching `_void_glass`'s own documented shape
+         ("this only ever rebinds SUBSETS, never the piece prim's own
+         ... binding").
+
+    A piece with more than one `Mesh` prim under it (uncommon, but the walk
+    does not assume exactly one) pools candidates across every mesh and
+    picks the single largest-by-face-count winner over the whole piece —
+    the same "DOMINANT" reading `_classify`'s caller wants, not a per-mesh
+    average.
+    """
+    from pxr import Usd, UsdGeom, UsdShade
+    from detail import gac_slice as gsl
+
+    n_hit = 0
+    for p in placements:
+        path = p.get("prim_path")
+        prim = stage.GetPrimAtPath(path) if path else None
+        best_url, best_name, best_faces = "", "", -1
+        if prim and prim.IsValid():
+            for mesh_prim in Usd.PrimRange(prim):
+                if not mesh_prim.IsA(UsdGeom.Mesh):
+                    continue
+                mesh = UsdGeom.Mesh(mesh_prim)
+                subs = UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(mesh))
+                if subs:
+                    for s in subs:
+                        cur = UsdShade.MaterialBindingAPI(
+                            s.GetPrim()).ComputeBoundMaterial()[0]
+                        if not cur or not cur.GetPrim().IsValid():
+                            continue
+                        url, name, mat_name = _surface_tex_and_name(cur.GetPrim())
+                        if gsl.is_glazing(name, mat_name=mat_name):
+                            continue
+                        if not url:
+                            continue
+                        idx = s.GetIndicesAttr().Get()
+                        n_faces = len(idx) if idx else 0
+                        if n_faces > best_faces:
+                            best_url, best_name, best_faces = url, name, n_faces
+                else:
+                    cur = UsdShade.MaterialBindingAPI(
+                        mesh_prim).ComputeBoundMaterial()[0]
+                    if not cur or not cur.GetPrim().IsValid():
+                        continue
+                    url, name, mat_name = _surface_tex_and_name(cur.GetPrim())
+                    if gsl.is_glazing(name, mat_name=mat_name) or not url:
+                        continue
+                    counts = mesh.GetFaceVertexCountsAttr().Get()
+                    n_faces = len(counts) if counts else 0
+                    if n_faces > best_faces:
+                        best_url, best_name, best_faces = url, name, n_faces
+        p["_tex_url"] = best_url
+        p["_tex_name"] = best_name
+        if best_url:
+            n_hit += 1
+
+    print("[tornado_urban_usd] surface: {0} of {1} pieces carry a resolved "
+          "cladding texture (non-glazing, dominant by face count)".format(
+              n_hit, len(placements)))
+    return n_hit
+
+
+def _window_named(path):
+    """Is this prim, BY NAME, a kit window/door MODULE? Kit module prim
+    names carry their category (`bld_dw_terrace_windows0_4_50`), so the
+    name is the honest signal on a build whose materials carry none."""
+    leaf = str(path).rsplit("/", 1)[-1].lower()
+    return ("window" in leaf) or ("wnd" in leaf) or ("_door" in leaf)
+
+
+def _has_glazing_binding(stage, path):
+    """Does ANY mesh under `path` carry a glazing binding — on a subset or
+    directly on the mesh prim — that `_void_glass` could rebind? The
+    partition test `apply_plan`'s glass step uses to route a listed piece
+    to REBIND (sliced GAC/dtc, real glass materials) vs KNOCK-OUT (a kit
+    window module with none)."""
+    from pxr import Usd, UsdGeom, UsdShade
+    from detail import gac_slice as gsl
+
+    prim = stage.GetPrimAtPath(path) if path else None
+    if not prim or not prim.IsValid():
+        return False
+    for mesh in Usd.PrimRange(prim):
+        if not mesh.IsA(UsdGeom.Mesh):
+            continue
+        subs = UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(mesh))
+        targets = [s.GetPrim() for s in subs] or [mesh]
+        for t in targets:
+            cur = UsdShade.MaterialBindingAPI(t).ComputeBoundMaterial()[0]
+            if not cur or not cur.GetPrim().IsValid():
+                continue
+            tex_basename, mat_name = _glass_tex_and_name(cur.GetPrim())
+            if gsl.is_glazing(tex_basename, mat_name=mat_name):
+                return True
+    return False
+
+
+def _void_glass(stage, paths, void_mat):
+    """Rebind every GLAZING `GeomSubset` under each of `paths` to
+    `void_mat`. THIS IS NOT `quake_sliced._void_glass` — see the module
+    docstring's "THE `_void_glass` FIX" section for the container-probe
+    measurement (13 glass pieces listed, 0 subsets voided) that found why:
+    that function's texture check reads `diffuseColor` without following
+    its connection to the `UsdUVTexture` that actually carries the map, and
+    its name check never fires either because every GAC material prim is
+    named `UnrealMaterial`.
+
+    This walks the same shape `quake_sliced._void_glass` does (a sliced
+    piece keeps the source asset's `GeomSubset`s, one per material, so the
+    panes are addressable even though the slicer cannot cut a window out)
+    but resolves each subset's bound material with `_glass_tex_and_name`
+    (which DOES follow the connection) and matches with
+    `detail.gac_slice.is_glazing` — the one glazing matcher every other
+    consumer in this codebase (`gac_fire`, `dtc_catalogue`, the census/probe
+    tools) already agrees on, rather than a fourth inline keyword test.
+    `is_glazing` also covers downtowncity's texture-less `Glass_window`-
+    named materials (via `mat_name`) and excludes `awning` (`GLASS_TEX_
+    NOT`), neither of which the old inline check did.
+
+    Per the lead's note: on a live slice each PIECE prim is bound to
+    `<cell>/pieces/ShellFallbackLooks/<role>` while its SUBSETS bind the
+    source asset's own `Section*/UnrealMaterial` — the slicer's own design.
+    On a SLICED piece this only ever rebinds SUBSETS, never the piece
+    prim's own `ShellFallbackLooks` binding — which is why it walks
+    `Usd.PrimRange` down to every `Mesh` rather than trusting the
+    top-level binding. On a KIT module mesh (round 2), which carries NO
+    subsets at all, the fallback branch rebinds the MESH itself when its
+    one directly-bound material is glazing.
+    """
+    if void_mat is None or not paths:
+        return 0
+    from detail import gac_slice as gsl
+    from pxr import Usd, UsdGeom, UsdShade
+
+    n = 0
+    for path in paths:
+        prim = stage.GetPrimAtPath(path) if path else None
+        if not prim or not prim.IsValid() or not prim.IsActive():
+            continue
+        for mesh in Usd.PrimRange(prim):
+            if not mesh.IsA(UsdGeom.Mesh):
+                continue
+            subs = UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(mesh))
+            for s in subs:
+                cur = UsdShade.MaterialBindingAPI(s.GetPrim()).ComputeBoundMaterial()[0]
+                if not cur or not cur.GetPrim().IsValid():
+                    continue
+                tex_basename, mat_name = _glass_tex_and_name(cur.GetPrim())
+                if gsl.is_glazing(tex_basename, mat_name=mat_name):
+                    UsdShade.MaterialBindingAPI.Apply(s.GetPrim()).Bind(void_mat)
+                    n += 1
+            if not subs:
+                # ROUND 2: a KIT module mesh carries no subsets (one
+                # material on the mesh prim; a window is its own module).
+                # Void the WHOLE MODULE when its binding is glazing — the
+                # frame darkens with the pane, which is the "dark hole"
+                # read a broken window wants anyway. See annotate_glazing's
+                # matching branch.
+                cur = UsdShade.MaterialBindingAPI(
+                    mesh).ComputeBoundMaterial()[0]
+                if cur and cur.GetPrim().IsValid():
+                    tex_basename, mat_name = _glass_tex_and_name(
+                        cur.GetPrim())
+                    if gsl.is_glazing(tex_basename, mat_name=mat_name):
+                        UsdShade.MaterialBindingAPI.Apply(mesh).Bind(void_mat)
+                        n += 1
+    return n
+
+
+def annotate_glazing(stage, placements):
+    """Stamp `_glass_faces` / `_glass_frac` onto each placement dict, IN
+    PLACE, from a REAL read of its prim's material bindings — not a role
+    guess. Returns the number of placements with `_glass_faces > 0`.
+
+    THE LIVE PROBE FINDING this exists to fix (SM_Building_02, level T3):
+    the slicer's BAY_SPLITS phase puts the actual window opening in the
+    NARROW sub-panel of a bay, and on this asset that sub-panel classifies
+    as role `pier` — 18 `pier` pieces and 9 `core` pieces carry `Section7`
+    / `M_Building_01_Windows_Inst_BaseColor.png` (10,860 faces total,
+    `is_glazing` True); every `wall` piece carries exactly ONE subset,
+    `M_Building_01_WallBack`, no glazing at all. `_void_glass` above is
+    correct — it rebinds every glazing subset it is HANDED — but a
+    role-based "wall = pane" pick (what a planner would do without this)
+    can never find glass on this asset, because the glass is not on the
+    `wall` role here. This function measures the truth per piece instead of
+    guessing from role, so the planner (stream L) can prefer whichever
+    pieces actually carry glazing, on WHATEVER role the slicer happened to
+    put it on for this particular asset.
+
+    `_glass_faces` is the sum of `GetIndicesAttr()` lengths over every
+    `GeomSubset` that `_glass_tex_and_name` + `gac_slice.is_glazing` match
+    (same connection-following read `_void_glass` uses, so a piece this
+    function says has glass is a piece `_void_glass` can actually void).
+    `_glass_frac` is that count over the piece's TOTAL face count (summed
+    `GetFaceVertexCountsAttr()` length across every `Mesh` under the
+    prim), `0.0` when the prim resolves to nothing so a `0/0` never raises.
+    Both are plain `int`/`float` — this is JSON-serialisable planner input,
+    per §2.8, not a pxr object.
+    """
+    from pxr import Usd, UsdGeom, UsdShade
+    from detail import gac_slice as gsl
+
+    n_hit = 0
+    n_glazing_faces_total = 0
+    for p in placements:
+        path = p.get("prim_path")
+        prim = stage.GetPrimAtPath(path) if path else None
+        n_glazing = 0
+        n_faces = 0
+        if prim and prim.IsValid():
+            for mesh_prim in Usd.PrimRange(prim):
+                if not mesh_prim.IsA(UsdGeom.Mesh):
+                    continue
+                mesh = UsdGeom.Mesh(mesh_prim)
+                counts = mesh.GetFaceVertexCountsAttr().Get()
+                n_faces += len(counts) if counts else 0
+                subs = UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(mesh))
+                for s in subs:
+                    cur = UsdShade.MaterialBindingAPI(s.GetPrim()).ComputeBoundMaterial()[0]
+                    if not cur or not cur.GetPrim().IsValid():
+                        continue
+                    tex_basename, mat_name = _glass_tex_and_name(cur.GetPrim())
+                    if gsl.is_glazing(tex_basename, mat_name=mat_name):
+                        idx = s.GetIndicesAttr().Get()
+                        n_glazing += len(idx) if idx else 0
+                if not subs:
+                    # ROUND 2 (stream K's kit probes): a KIT module mesh has
+                    # NO GeomSubsets — ONE material bound directly on the
+                    # mesh prim, and a window is its own module, not a
+                    # subset of a wall. Every kit probe printed "0 of N
+                    # pieces carry glass" until this branch existed. When
+                    # the mesh's own binding is glazing, every face of the
+                    # mesh is glazing.
+                    cur = UsdShade.MaterialBindingAPI(
+                        mesh_prim).ComputeBoundMaterial()[0]
+                    if cur and cur.GetPrim().IsValid():
+                        tex_basename, mat_name = _glass_tex_and_name(
+                            cur.GetPrim())
+                        if gsl.is_glazing(tex_basename, mat_name=mat_name):
+                            n_glazing += len(counts) if counts else 0
+        p["_glass_faces"] = int(n_glazing)
+        p["_glass_frac"] = float(n_glazing) / float(max(1, n_faces))
+        if n_glazing > 0:
+            n_hit += 1
+            n_glazing_faces_total += n_glazing
+
+    print("[tornado_urban_usd] glazing: {0} of {1} pieces carry glass "
+          "(faces {2})".format(n_hit, len(placements), n_glazing_faces_total))
+    return n_hit
+
+
+def _classify(kind, material):
+    """Which of the FIVE look buckets in §2.9 a (kind, material) pair gets
+    -- `glass` / `brick` / `concrete` / `metal` / `membrane`, and nothing
+    else. `None` means unrecognised — a flat neutral fallback, printed so a
+    typo in a planner's material hint is visible rather than silently grey.
+
+    R5 (round 2, 2026-09-01): the OLD sixth bucket, `deck` (matched by
+    `kind == "deck"` alone, with no keyword test at all), routed to
+    `planks.wood_material` in `debris_material` below -- pale sawn timber on
+    a masonry/curtain-wall city, which is exactly the suburb-lumber
+    signature the user's ground-evidence review called out. `deck` as a
+    KIND no longer exists in the planner's own vocabulary
+    (`tornado_urban._kind_of` now returns `membrane` or `metal` for a
+    roof-shed piece, never `deck`), and this function's fallback-by-kind
+    path is retired with it -- `membrane` is matched by MATERIAL now
+    (`tornado_urban._material_hint` returns the literal string
+    `"membrane"` for that kind), the same way every other kind already
+    resolves its bucket, so there is no longer a kind-only escape hatch a
+    stray/legacy `material` string could fall through un-checked.
+    """
+    m = str(material or "").lower()
+    if "glass" in m or "glaz" in m or "window" in m:
+        return "glass"
+    if "brick" in m or "coping" in m or "masonry" in m or "stone" in m:
+        return "brick"
+    if "concrete" in m:
+        return "concrete"
+    if "metal" in m or "steel" in m or "alumin" in m:
+        return "metal"
+    if "membrane" in m or "bitumen" in m or "felt" in m or "roofing" in m:
+        return "membrane"
+    return None
+
+
+def _resolve_texture(path):
+    """`airstack://...` -> an absolute local-checkout path, or whatever
+    `AIRSTACK_ASSET_ROOT` names (an `omniverse://...` Nucleus mirror for a
+    portable/frozen build) — resolved HERE, at authoring time, every time a
+    material is built, not baked once into a module-level constant.
+
+    `damage._pbr` does NOT run its `texture` argument through
+    `scene_generator._join_asset_root` itself — checked: it hands whatever
+    string it is given straight to `Sdf.AssetPath`. (The "References an
+    asset that can not be found: 'airstack://.../Soil_Mud/...'" Hydra-error
+    comment this module's docstring points at belongs to
+    `planks.skin_material`, a DIFFERENT function that does its own
+    `sg._join_asset_root` call before binding — not to `_pbr`.) So the
+    resolve happens at the CALL SITE instead, the exact pattern
+    `quake_flow._c_look_at` already uses for its own `_pbr(texture=...)`
+    calls: `sg._join_asset_root("airstack://..." + rel, "")` computed fresh
+    right before authoring, so a later portable/frozen rebuild (a different
+    `AIRSTACK_ASSET_ROOT`) resolves differently without this module needing
+    to change.
+    """
+    import scene_generator as sg
+    return sg._join_asset_root(path, "")
+
+
+# THE PER-BUCKET LOOK — `(flat_rgb, grime_tint, roughness)`, ONE table for
+# every branch below so the textured and the flat path can never drift.
+# `glass` is deliberately absent: it never takes a texture (see
+# `debris_material`'s own guard) and keeps its unconditional void-material
+# path.
+#
+# ROUND 4 (D3) SPLIT THE OLD SINGLE `rgb` IN TWO, because the two uses are
+# not the same number and sharing one is what produced the near-black berms
+# on the round-3 bench:
+#
+#   `flat_rgb`   — `damage._pbr`'s `diffuse_color_constant`. The ACTUAL
+#                  albedo on an untextured branch (`metal`, `membrane`, the
+#                  unrecognised fallback), and the map-failed FALLBACK on a
+#                  textured one (never white — see `_fix_diffuse_tint`).
+#                  Raised across the board from round 3: 0.22-0.40 linear on
+#                  a class that is then ALSO multiplied by a grime tint is
+#                  black at 60-90 m over asphalt that is itself ~0.18.
+#   `grime_tint`  — `_fix_diffuse_tint`'s multiply over a bound map, and the
+#                  ONLY thing that survives into the albedo when a texture
+#                  resolves (`texture * diffuse_tint`, MDL 652-654). Near
+#                  neutral and slightly desaturated: 0.82-0.90 brightness,
+#                  channel spread <= 0.06 — DUST ON THE MAP, not a colour of
+#                  its own. Round 3 passed the class rgb here (0.30 for
+#                  brick), i.e. a 70% knock-down of the building's own
+#                  cladding map: the berm went black and the inherited
+#                  texture became invisible, which is D3 in one line. The
+#                  colour of a berm is now the SOURCE BUILDING's, full stop;
+#                  this only dirties it.
+_CLASS_LOOK = {
+    #            flat / fallback rgb      grime tint over a map      rough
+    "brick": ((0.44, 0.38, 0.34), (0.88, 0.85, 0.82), 0.88),
+    "concrete": ((0.48, 0.475, 0.465), (0.87, 0.87, 0.86), 0.85),
+    "metal": ((0.44, 0.45, 0.46), (0.90, 0.90, 0.90), 0.35),
+    "membrane": ((0.30, 0.275, 0.25), (0.83, 0.82, 0.80), 0.90),
+}
+_CLASS_LOOK_DEFAULT = ((0.45, 0.45, 0.45), (0.86, 0.86, 0.86), 0.70)
+
+
+def debris_material(stage, ctx, kind, material, tex_url=None, tex_name=None):
+    """One material per (kind, material) LOOK BUCKET (not per fragment,
+    per §2.9), cached in `ctx["mats"]` under a `"tornado_debris:"` key — OR,
+    when the fragment carries a SOURCE TEXTURE (`tex_url`, `tex_name`; from
+    `tornado_urban._ledger_removed` copying `annotate_surface`'s
+    `_tex_url`/`_tex_name` stamp onto a façade fragment, per the module's
+    own docstring and `.agents/skills/build-tornado-scenes/SKILL.md`'s "THE
+    DEBRIS IS NOT ALL SAWN TIMBER" — "the debris is supposed to retain the
+    colour of the house/roof ... BIND THE TEXTURE, NOT THE MATERIAL"), ONE
+    TRIPLANAR material per DISTINCT texture instead, cached under
+    `"tornado_debris:src:<basename>"`.
+
+    R5 (round 2): there is no longer a kind-based fallback bucket. The
+    retired `deck` bucket (`kind == "deck"` alone, no keyword test) used to
+    be exactly that fallback, and it resolved to `planks.wood_material` —
+    pale sawn timber, the suburb-lumber signature a masonry/curtain-wall
+    city must never wear. A fragment whose own `material` string matches
+    nothing recognised now falls to the flat neutral-grey "unrecognised"
+    branch below instead (or, if it DOES carry a texture, to
+    `_CLASS_LOOK_DEFAULT`'s neutral tint over that texture — see below),
+    same as every other kind already did.
+
+    THE TEXTURED PATH (R3b/F3). Guarded on `tex_url` being non-empty AND
+    `bucket != "glass"` — glass keeps its own void look unconditionally
+    (`tornado_urban._ledger_removed` never passes a texture in for a glass
+    fragment in the first place, since it is deposited from `plan["glass"]`
+    by a separate call that carries no `source_tex` argument at all; this
+    is a second, redundant guard here rather than a trust). One
+    `damage._pbr` per distinct texture BASENAME (`tex_name`, or the tail of
+    `tex_url` when no name was given), triplanar at `_TILE_REPEATS_PER_M`
+    (~1.0 repeat/m) — the SAME tile rate the flat `brick`/`concrete`
+    branches below already use, per the suburb skill's tile-scale lesson:
+    "a fragment and a board lying beside it have to be the same material at
+    the same scale or the pile reads as two buildings". The fragment's own
+    CLASS bucket contributes only ROUGHNESS and a near-neutral GRIME tint
+    (`_CLASS_LOOK`'s second field, ~0.85, via `_fix_diffuse_tint` — the one
+    slot that multiplies over a bound map; see that function for the MDL
+    lines). ROUND 4 (D3): it no longer contributes a COLOUR. A grey-stone
+    brownstone's berm comes out grey stone and a red-brick building's comes
+    out red brick because the MAP says so, and the class only dirties it —
+    round 3 multiplied the ~0.30 class rgb over the map instead, which is
+    why every berm on the round-3 bench rendered near-black whatever
+    building stood over it. `build_debris` groups its meshes by (kind,
+    `source_tex_name` or `material`) so a two-texture building still merges
+    to two meshes, not one per fragment.
+    """
+    mats = ctx.setdefault("mats", {})
+    bucket = _classify(kind, material)
+    parent = ctx.get("parent") or "/World"
+    looks = "{0}/TornadoDebrisLooks".format(parent)
+
+    tex_url = str(tex_url or "")
+    if tex_url and bucket != "glass":
+        base = _safe_name(tex_name or tex_url.rsplit("/", 1)[-1])
+        key = "tornado_debris:src:" + base
+        got = mats.get(key)
+        if got is not None:
+            return got
+        rgb, grime, rough = _CLASS_LOOK.get(bucket, _CLASS_LOOK_DEFAULT)
+        path = looks + "/src_" + base
+        mat = damage._pbr(stage, path, rgb, rough, texture=tex_url,
+                          scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
+        # ROUND 4 (D3): the GRIME tint, not the class rgb. `_pbr`'s own
+        # `tint=rgb` above only lands on `diffuse_color_constant`, which a
+        # valid map takes out of the product entirely (MDL 652-654) — it is
+        # the map-failed fallback, kept at a plausible class albedo on
+        # purpose. This line is the whole multiply the berm actually wears.
+        _fix_diffuse_tint(stage, path, grime)
+        mats[key] = mat
+        print("[tornado_urban_usd] {0}/{1} -> SOURCE TEXTURE {2} (the "
+              "building's own cladding — {3} grime tint {4:.2f} on top, "
+              "{5:.2f} repeats/m)".format(
+                  kind, material, base, bucket or "neutral", grime[0],
+                  _TILE_REPEATS_PER_M[0]))
+        return mat
+
+    key = "tornado_debris:" + (bucket or "flat_" + _safe_name(material))
+    got = mats.get(key)
+    if got is not None:
+        return got
+
+    if bucket == "glass":
+        mat = _ensure_void_material(stage, ctx)
+        print("[tornado_urban_usd] {0}/{1} -> void tone (dark glossy, NOT "
+              "transparent — a see-through shard over asphalt at 60 m is "
+              "invisible, plan_.md section 2.9)".format(kind, material))
+    elif bucket == "brick":
+        path = looks + "/brick"
+        # ROUND 4 (D3): the SAME double-darkening the source-textured path
+        # above carried. R5 read "clean bare brick" off the round-1 tint and
+        # answered it by dropping the tint to 0.30 — but that tint is the
+        # only multiply a bound map gets (MDL 652-654), so Brick_Wall_Worn
+        # (itself ~0.4 mean) came out at ~0.12 and the branch stopped being
+        # brick-coloured at all. The map already IS worn, mortar-streaked
+        # masonry; what it needed was dirtying, not a 70% knock-down. The
+        # grime tint below keeps R5's intent (brightness pulled down a
+        # little, channel spread compressed to 0.06 so a heap reads greyer
+        # and flatter than one clean brick face) at a brightness the eye can
+        # still resolve against ~0.18 asphalt.
+        rgb, grime, rough = _CLASS_LOOK["brick"]
+        mat = damage._pbr(stage, path, rgb, rough,
+                          texture=_resolve_texture(_TEX_BRICK),
+                          scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
+        _fix_diffuse_tint(stage, path, grime)
+        print("[tornado_urban_usd] {0}/{1} -> Brick_Wall_Worn + neutral "
+              "grime tint {2:.2f} (masonry/coping texture)".format(
+                  kind, material, grime[0]))
+    elif bucket == "concrete":
+        path = looks + "/concrete"
+        rgb, grime, rough = _CLASS_LOOK["concrete"]
+        mat = damage._pbr(stage, path, rgb, rough,
+                          texture=_resolve_texture(_TEX_CONCRETE),
+                          scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
+        _fix_diffuse_tint(stage, path, grime)
+        print("[tornado_urban_usd] {0}/{1} -> Damaged_Concrete_Floor + "
+              "neutral grime tint {2:.2f}".format(kind, material, grime[0]))
+    elif bucket == "metal":
+        path = looks + "/metal"
+        # No metal basecolour map lives under scene_gen/assets/materials/
+        # (checked: only brick/concrete/soil megascans packs and the quake
+        # rubble jpgs are there) — flat grey, low roughness for a bit of
+        # sheen. `damage._pbr` never exposes a metallic input (always
+        # authors `metallic_constant = 0.0`), so "metallic" here is
+        # approximated by roughness alone, not a true metalness flip.
+        # ROUND 4 (D3): 0.30 -> 0.44. This branch binds NO map, so its rgb
+        # IS the albedo and is applied exactly once — but 0.30 was picked as
+        # a tint to sit ON a texture, and weathered galvanised sheet /
+        # rooftop decking is a mid grey, not a dark one.
+        rgb, _grime, rough = _CLASS_LOOK["metal"]
+        mat = damage._pbr(stage, path, rgb, rough)
+        print("[tornado_urban_usd] {0}/{1} -> flat mid grey {2:.2f}, "
+              "roughness {3:.2f} (no metal texture under scene_gen/assets/"
+              "materials/; damage._pbr has no metallic input either)".format(
+                  kind, material, rgb[0], rough))
+    elif bucket == "membrane":
+        path = looks + "/membrane"
+        # R5's NEW bucket, replacing the old `deck` -> `planks.wood_material`
+        # route. A built-up / modified-bitumen flat roof is dark grey-brown
+        # and matte — no basecolour map for it lives under
+        # scene_gen/assets/materials/ (same gap `metal` above already
+        # documents), so this is flat colour + high roughness, the same
+        # no-texture pattern `metal` uses just above, not a texture pick.
+        # ROUND 4 (D3): 0.22 -> 0.30. Bitumen roofing IS the darkest debris
+        # class in the scene and stays so — but 0.22 linear against ~0.18
+        # asphalt is barely a value step, and a torn sheet that cannot be
+        # told from the road it is lying on is a hole in the ground truth,
+        # not a dark material.
+        rgb, _grime, rough = _CLASS_LOOK["membrane"]
+        mat = damage._pbr(stage, path, rgb, rough)
+        print("[tornado_urban_usd] {0}/{1} -> flat dark grey-brown {2:.2f}, "
+              "roughness {3:.2f} (built-up/bitumen roof membrane — never "
+              "planks.wood_material; no roofing-membrane texture under "
+              "scene_gen/assets/materials/ either)".format(
+                  kind, material, rgb[0], rough))
+    else:
+        path = looks + "/flat_" + _safe_name(material)
+        rgb, _grime, rough = _CLASS_LOOK_DEFAULT
+        mat = damage._pbr(stage, path, rgb, rough)
+        print("[tornado_urban_usd] {0}/{1} -> UNRECOGNISED material hint, "
+              "flat neutral grey {2:.2f} fallback".format(
+                  kind, material, rgb[0]))
+
+    mats[key] = mat
+    return mat
+
+
+def _seat_z(t, w, tilt_deg, ground_z=0.0):
+    """The box-centre Z that seats a fragment ON ITS FACE at `ground_z`,
+    reproducing `planks._lay`'s bedding rule (see the module docstring and
+    the tornado skill's "FLOATING DEBRIS" section, cause 1) collapsed to the
+    ONE tilt degree of freedom a planner fragment carries.
+
+    `_lay` seats a board with independent pitch (about its width axis) and
+    roll (about its length axis) draws; a plan fragment (§2.8) carries a
+    single `tilt_deg`, described as pitch about the box's own LONG axis —
+    mechanically `_lay`'s "roll" term with pitch fixed at zero, which is
+    also why the fragment's length axis stays perfectly horizontal (a
+    rotation about its own X axis does not move the X axis) while its
+    width/thickness cross-section rocks.
+
+    `half_h` is the height of the box centre above its LOWEST corner at this
+    tilt — the same quantity `_lay` computes before bedding. `bed` is the
+    fixed 2 cm (or half the thickness for a thin shard) sink both a flat and
+    a tilted piece get, so:
+
+      flat  (`tilt_deg == 0`): half_h == t/2, z = ground_z + t/2 - bed
+      tilted:                  lowest corner = z - half_h = ground_z - bed
+
+    — the two cases §3's test checks by name, and in both the piece's own
+    lowest vertex lands within `[-bed, 0]` of `ground_z`, never above it and
+    never buried past its own half-thickness.
+    """
+    tilt = math.radians(float(tilt_deg or 0.0))
+    half_h = 0.5 * (abs(float(t) * math.cos(tilt))
+                    + abs(float(w) * math.sin(tilt)))
+    bed = min(_BED_M, float(t) / 2.0)
+    return float(ground_z) + half_h - bed
+
+
+def _frag_box(l, w, t, x, y, z, yaw_deg, tilt_deg):
+    """One fragment's 8 world points and 6 face normals.
+
+    `R = Rz(yaw) . Rx(tilt)` in the row-vector convention this codebase
+    uses elsewhere (`quake_sliced._rot3`, `planks._box`) — tilt (roll about
+    the box's own length/X axis) applied first, yaw (about world Z) applied
+    second, matching `planks._box`'s `Rz(yaw) @ Ry(pitch) @ Rx(roll)` with
+    `pitch` fixed at zero. Cross-checked numerically against that formula
+    before use (not just derived on paper).
+    """
+    hl, hw, ht = 0.5 * float(l), 0.5 * float(w), 0.5 * float(t)
+    cy, sy = math.cos(math.radians(yaw_deg)), math.sin(math.radians(yaw_deg))
+    ct, st = math.cos(math.radians(tilt_deg)), math.sin(math.radians(tilt_deg))
+    m00, m01, m02 = cy, -sy * ct, sy * st
+    m10, m11, m12 = sy, cy * ct, -cy * st
+    m20, m21, m22 = 0.0, st, ct
+    pts = []
+    for (sx, sy2, sz) in _CORNERS:
+        a, b, c = sx * hl, sy2 * hw, sz * ht
+        pts.append((x + m00 * a + m01 * b + m02 * c,
+                    y + m10 * a + m11 * b + m12 * c,
+                    z + m20 * a + m21 * b + m22 * c))
+    nrm = [(m00 * n[0] + m01 * n[1] + m02 * n[2],
+            m10 * n[0] + m11 * n[1] + m12 * n[2],
+            m20 * n[0] + m21 * n[1] + m22 * n[2]) for n in _FACE_N]
+    return pts, nrm
+
+
+def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
+    """Author `<parent>/tornado_debris/<kind>_<label>` — ONE merged
+    `UsdGeom.Mesh` per (kind, LABEL) class, boxes seated per `_seat_z`,
+    `faceVarying` normals (24 per box — a shared-vertex box averages its
+    normals at the corners and renders as a pillow, the same reason
+    `quake_flow._box` and `planks.build` both author them this way).
+    Returns the authored mesh paths.
+
+    ROUND 3b (§8e F3): `label` is `source_tex_name` when a fragment carries
+    one, `material` otherwise — grouping by TEXTURE rather than by the
+    class-hint string when one is available, so two façade fragments off
+    the SAME building (same texture) still merge into one mesh/one material
+    even though a texture-less fragment of the same class would have used a
+    different label. A fragment with no `source_tex_name` (every roof/
+    glass fragment, and any façade fragment whose piece carried no
+    resolvable texture) groups exactly as before this round — `label ==
+    material` in that case, so an all-untextured plan (every existing
+    fixture/test) authors byte-identical paths to before.
+    """
+    if not fragments:
+        return []
+
+    root = "{0}/tornado_debris".format(parent)
+    UsdGeom.Scope.Define(stage, Sdf.Path(root))
+
+    by_class = {}
+    for frag in fragments:
+        kind = str(frag.get("kind") or "debris")
+        material = str(frag.get("material") or "unknown")
+        tex_name = str(frag.get("source_tex_name") or "")
+        label = tex_name or material
+        entry = by_class.setdefault(
+            (kind, label), {"material": material, "tex_name": tex_name,
+                           "tex_url": "", "frags": []})
+        if not entry["tex_url"]:
+            entry["tex_url"] = str(frag.get("source_tex") or "")
+        entry["frags"].append(frag)
+
+    made = []
+    for (kind, label), entry in sorted(by_class.items()):
+        group = entry["frags"]
+        material = entry["material"]
+        pts, counts, idx, nrm = [], [], [], []
+        for frag in group:
+            size = frag.get("size") or (0.5, 0.3, 0.1)
+            l, w, t = (float(q) for q in size)
+            x = float(frag.get("x") or 0.0)
+            y = float(frag.get("y") or 0.0)
+            yaw_deg = float(frag.get("yaw_deg") or 0.0)
+            tilt_deg = float(frag.get("tilt_deg") or 0.0)
+            # ROUND 3 (stream DB's berm stacking, lead fix): a berm fragment
+            # may carry `z_lift` — its authored height WITHIN the heap
+            # (`tornado_urban._deposit_berm`'s profile, up to `berm_h`).
+            # `_seat_z` alone flattens every fragment to grade, which turns
+            # a rubble berm into a flat mat; the lift is added ON TOP of the
+            # face-seated z, so a lifted fragment rests conceptually on the
+            # heap below it (authored, never simulated — the same call
+            # `quake_rubble` makes for its mound scatter). Non-berm
+            # fragments carry no `z_lift` and are byte-identical.
+            z = _seat_z(t, w, tilt_deg, ground_z=ground_z) \
+                + max(0.0, float(frag.get("z_lift") or 0.0))
+            p, n = _frag_box(l, w, t, x, y, z, yaw_deg, tilt_deg)
+            base = len(pts)
+            pts.extend(Gf.Vec3f(*q) for q in p)
+            for fi, face in enumerate(_FACES):
+                counts.append(4)
+                idx.extend(base + v for v in face)
+                nrm.extend([Gf.Vec3f(*n[fi])] * 4)
+
+        path = "{0}/{1}_{2}".format(root, _safe_name(kind), _safe_name(label))
+        m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+        m.CreatePointsAttr(Vt.Vec3fArray(pts))
+        m.CreateFaceVertexCountsAttr(Vt.IntArray(counts))
+        m.CreateFaceVertexIndicesAttr(Vt.IntArray(idx))
+        m.CreateNormalsAttr(Vt.Vec3fArray(nrm))
+        m.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
+        m.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+        xs = [q[0] for q in pts]
+        ys = [q[1] for q in pts]
+        zs = [q[2] for q in pts]
+        m.CreateExtentAttr([Gf.Vec3f(min(xs), min(ys), min(zs)),
+                            Gf.Vec3f(max(xs), max(ys), max(zs))])
+
+        mat = debris_material(stage, ctx, kind, material,
+                              tex_url=entry["tex_url"],
+                              tex_name=entry["tex_name"])
+        if mat is not None:
+            UsdShade.MaterialBindingAPI.Apply(m.GetPrim()).Bind(mat)
+        made.append(path)
+        if ctx.get("verbose", True):
+            print("[tornado_urban_usd] {0:<24s} {1:3d} fragment(s) -> 1 "
+                  "mesh, {2} point(s)".format(
+                      "{0}/{1}".format(kind, label), len(group), len(pts)))
+    return made
+
+
+# ---------------------------------------------------------------------------
+# ROUND 3b F2a (§8e, stream FX1) — RAGGED TEARS on the apply side.
+#
+# NOT `quake_sliced._author_tears`, called wholesale. That function's own
+# SECOND half, `_author_floor_edges` -> `quake_flow._ragged_slabs` ->
+# `quake_flow._a_roofify`, is unconditionally called at its end and:
+#   (a) reads `ctx["fit"]["slabs"]` with a bare `ctx["fit"]` lookup — a
+#       `KeyError` the moment `plan["tear_scope"]` is non-empty (any real
+#       tear job) against a ctx this ladder never builds one for on its own
+#       (F2b, below, builds a MUCH smaller thing under the same key, on
+#       purpose — see `_author_interior`'s own docstring for why it is not
+#       `quake_flow.fit_interior`'s full storey/column/content rig either);
+#   (b) `_a_roofify`'s own docstring is explicit that it is destructive in a
+#       way this ladder must never be: "Swap EVERY kit roof tile of `mass`
+#       for an authored slab ... ALL OF THEM, not just the one a recipe is
+#       about to break" — calling it here would silently overwrite F1's own
+#       carefully-computed per-tile roof SURVIVAL (`tornado_urban.
+#       _shed_unsupported_roof`) with a blanket re-author the moment any
+#       tear exists on the building at all.
+# Reused instead: the three PRIMITIVES `_author_tears`'s own first half
+# calls — `fire_collapse._tear_perimeter`, `fire_collapse._own_rng`,
+# `fracture.stable_seed` — in the SAME per-mass driving loop, minus the
+# floor-edge call. This is not a copy of `_author_tears`'s body (its own
+# per-mass loop is five lines of glue around those three calls); it is a
+# small NEW function built from the same reusable pieces.
+# ---------------------------------------------------------------------------
+#: THE TEAR LOOK — round 4 (D2). Two multiplies over the piece's OWN map
+#: (`_fix_diffuse_tint`'s slot; see that function for the MDL lines that make
+#: it the only one that survives a valid texture):
+#:   `_TEAR_FACE_TINT`  the surviving/broken-away WALL surface. The same
+#:                      near-neutral grime `debris_material`'s brick bucket
+#:                      uses, so a torn stub and the berm under it are the
+#:                      same material at the same tile rate — the suburb
+#:                      skill's "a fragment and a board lying beside it have
+#:                      to be the same material at the same scale".
+#:   `_TEAR_CUT_TINT`   the CUT faces only (the `core` GeomSubset
+#:                      `fracture.face_subset` puts every invented face in).
+#:                      Mortar/core darkening ONCE — a broken masonry edge is
+#:                      the unweathered inside of the wall, in shadow.
+_TEAR_FACE_TINT = (0.88, 0.85, 0.82)
+_TEAR_CUT_TINT = (0.60, 0.575, 0.55)
+_TEAR_FACE_ROUGH = 0.88
+_TEAR_CUT_ROUGH = 0.93
+#: The FALLBACK when a piece carries no resolvable texture: neutral grey
+#: PLASTER, never a generic brick photo. `quake_flow._t_core_mat`'s own
+#: fallback is brick 70 % of the time (`QuakeLooks/c_brick` — the megascans
+#: `Brick_Wall_Worn` map), which is precisely the user's round-4 verdict,
+#: "the damaged parts have some other building's material on it": measured
+#: on the real SM_Building_02 T4 probe, **854 of 1210** tear fragments had
+#: their cut faces bound to that one generic map.
+_TEAR_FALLBACK_RGB = (0.52, 0.505, 0.485)
+_TEAR_CUT_FALLBACK_RGB = (0.36, 0.35, 0.335)
+
+
+def _tear_material(stage, ctx, tex_url, tex_name, cut):
+    """The material a torn face wears: a triplanar of THE PIECE'S OWN
+    annotated cladding texture (`annotate_surface`'s `_tex_url`/`_tex_name`
+    stamp), grimed for a wall face and darkened once for a cut face —
+    or neutral grey plaster when the piece carries no texture at all.
+
+    One material per (texture basename, face kind), cached in `ctx["mats"]`
+    under `"tornado_tear:*"` keys — the same cache-in-ctx discipline
+    `debris_material` uses for its own `"tornado_debris:*"` keys, and
+    deliberately NOT `ctx["cache"]` (which `quake_flow._clad_material` owns
+    and keys by raw texture string).
+
+    WHY NOT `quake_flow._clad_material`, which is what `fire_collapse.
+    _tear_perimeter` reaches for on its own: (a) it is fed
+    `damage.bound_texture`, which returns the FIRST material found on the
+    first mesh's first subset — on a GAC slice that is whichever subset the
+    slicer wrote first, measured as `M_Building_01_WallBack` (the blind
+    back-wall map) 255 times, `M_Images` (a poster/signage atlas) 24 times
+    and the actual `Concrete_02` cladding 6 times on one T4 probe; and
+    (b) it authors at a fixed `scale_uv=(0.45, 0.45)`, a different tile
+    rate from everything else this ladder puts on the same building, which
+    is the "rectangular darker mismatched-tiling patch" read. `annotate_
+    surface` measures the DOMINANT NON-GLAZING texture instead, which is
+    the piece's actual cladding.
+    """
+    mats = ctx.setdefault("mats", {})
+    parent = ctx.get("parent") or "/World"
+    looks = "{0}/TornadoTearLooks".format(parent)
+    kind = "cut" if cut else "face"
+    tex_url = str(tex_url or "")
+    if tex_url:
+        base = _safe_name(tex_name or tex_url.rsplit("/", 1)[-1])
+        key = "tornado_tear:src:{0}:{1}".format(base, kind)
+        got = mats.get(key)
+        if got is not None:
+            return got
+        rgb = _TEAR_CUT_FALLBACK_RGB if cut else _TEAR_FALLBACK_RGB
+        tint = _TEAR_CUT_TINT if cut else _TEAR_FACE_TINT
+        rough = _TEAR_CUT_ROUGH if cut else _TEAR_FACE_ROUGH
+        path = "{0}/{1}_{2}".format(looks, kind, base)
+        mat = damage._pbr(stage, path, rgb, rough, texture=tex_url,
+                          scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
+        _fix_diffuse_tint(stage, path, tint)
+        mats[key] = mat
+        return mat
+    key = "tornado_tear:plaster:" + kind
+    got = mats.get(key)
+    if got is not None:
+        return got
+    rgb = _TEAR_CUT_FALLBACK_RGB if cut else _TEAR_FALLBACK_RGB
+    path = "{0}/{1}_plaster".format(looks, kind)
+    # NO TEXTURE, so no `_fix_diffuse_tint`: with no map the albedo IS
+    # `diffuse_color_constant` (MDL 652-654, see `_fix_diffuse_tint`), and
+    # multiplying a grime tint over it a second time is the double-darkening
+    # that produced round 3's near-black berms.
+    mat = damage._pbr(stage, path, rgb, _TEAR_CUT_ROUGH if cut
+                      else _TEAR_FACE_ROUGH)
+    mats[key] = mat
+    return mat
+
+
+def _tex_of_element(e):
+    """`(url, name)` of a plan element's own annotated cladding texture."""
+    p = (e or {}).get("p") or {}
+    return str(p.get("_tex_url") or ""), str(p.get("_tex_name") or "")
+
+
+def _reface_tear_fragments(stage, ctx, by_frag, paths, stats):
+    """Rebind the fragments `fire_collapse._tear_perimeter` just authored so
+    every damaged face wears THE BUILDING'S OWN material — round 4, D2.
+
+    `by_frag` maps a fragment's PARENT prim name (`brk_<tag>_<piece leaf>`,
+    `quake_flow._break`'s own naming) to that piece's `(tex_url, tex_name)`.
+
+    Two rebinds per fragment, and the split matters:
+
+      * the `core` GeomSubset — `fracture.face_subset`'s "every face that is
+        NOT the façade", i.e. the CUT faces, the back and the reveals — takes
+        the darkened cut material. `quake_flow._t_core_bind` has already
+        bound it to `_t_core_mat`, which for a urm building is the generic
+        megascans brick 70 % of the time whatever the building is made of.
+        These are the LARGEST faces on a chunk (`_t_core_mat`'s own
+        docstring) so they carry the read.
+      * the fragment PRIM's own binding is replaced ONLY when it is still
+        one of `quake_flow`'s generic looks (anything under
+        `<parent>/QuakeLooks/`): a `c_brick`/`mortar`/`plaster` draw from
+        `_chunk_material`'s 35 % inner share, or a `clad_*` world triplanar
+        of whatever `damage.bound_texture` picked first. A fragment that
+        `fire_collapse.skin_fragment` successfully re-skinned carries the
+        PARENT'S OWN material and UVs (`/src/.../UnrealMaterial` on a live
+        GAC slice — 701 of 1210 fragments on the T4 probe) and is left
+        exactly as it is; that path is already right and beats any
+        re-projection.
+
+    The prim-level bind is WEAK (`quake_flow._bind`), the same strength
+    `skin_fragment` uses and for the same reason: a `strongerThanDescendants`
+    bind here would take the cut material back off the `core` subset, which
+    is a child prim.
+    """
+    from pxr import UsdShade
+
+    for frag in paths:
+        prim = stage.GetPrimAtPath(frag) if frag else None
+        if not prim or not prim.IsValid():
+            stats["missing"] += 1
+            continue
+        parent_name = str(frag).rsplit("/", 2)[-2] if "/" in str(frag) else ""
+        tex_url, tex_name = by_frag.get(parent_name, ("", ""))
+        if not tex_url:
+            stats["no_tex"] += 1
+        # 1) the cut faces
+        sub = prim.GetChild("core")
+        if sub and sub.IsValid():
+            qf._bind(stage, str(sub.GetPath()),
+                     _tear_material(stage, ctx, tex_url, tex_name, True))
+            stats["cut"] += 1
+        else:
+            stats["no_core"] += 1
+        # 2) the fragment's own surface, only where a generic look is on it
+        cur = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]
+        cur_path = (str(cur.GetPrim().GetPath())
+                    if cur and cur.GetPrim().IsValid() else "")
+        generic = "{0}/QuakeLooks/".format(ctx.get("parent") or "/World")
+        if (not cur_path) or cur_path.startswith(generic):
+            qf._bind(stage, str(frag),
+                     _tear_material(stage, ctx, tex_url, tex_name, False))
+            stats["face"] += 1
+        else:
+            stats["kept_skin"] += 1
+
+
+def _author_tears(stage, ctx, plan):
+    """Ragged tears on every surviving façade piece bordering a hole
+    (`plan["tears"]`, `tornado_urban._plan_tears`/`_cap_tears`'s own JSON-
+    safe job list). Re-resolves each job's `path` against `ctx["info"][
+    "elements"]` (a plan round-tripped through JSON carries no live
+    reference) — this ctx must therefore carry a REAL `info["elements"]`
+    with authored `prim_path`s, which is true the moment `apply_plan` is
+    called from `wreck_urban`/`tornado_kit.wreck_kit` (both build `info`
+    from placements already on the stage). `ctx["cache"]` is set here if
+    absent: `fire_collapse._tear_perimeter` -> `quake_flow._clad_material`
+    reads it as a plain per-texture material cache, a key this ladder's
+    own ctx never otherwise needs (its own materials all live in
+    `ctx["mats"]` under `"tornado_debris:*"`/`"void"` keys instead).
+    Returns the number of pieces/slabs touched.
+
+    ROUND 4 (D2) — EVERY TORN FACE WEARS THIS BUILDING'S OWN MATERIAL.
+    `_tear_perimeter`'s own material choices come from `damage.
+    bound_texture` (the FIRST subset found on the piece) and, for the cut
+    faces, from `quake_flow._t_core_mat` (a generic megascans brick 70 % of
+    the time on a `urm` building). Measured on the real SM_Building_02 T4
+    probe BEFORE this pass: of 1210 authored fragments, **854 had their cut
+    faces on one generic `QuakeLooks/c_brick`**, 83 whole fragments were on
+    it too, and 310 more wore a `clad_*` world triplanar of the blind
+    `WallBack` map (255) / a poster atlas (24) at a tile rate nothing else
+    on the building uses — the user's "the damaged parts have some other
+    building's material on it" and "random textures that don't match that
+    building", one number each. `_reface_tear_fragments` (above) rebinds
+    what that pass got wrong from `annotate_surface`'s MEASURED per-piece
+    dominant cladding texture, and leaves alone every fragment
+    `fire_collapse.skin_fragment` already skinned with the parent's own
+    material and UVs.
+    """
+    tears = [t for t in (plan.get("tears") or ()) if not t.get("dropped")]
+    if not tears:
+        return 0
+    import random as _random
+
+    import numpy as _np
+
+    from . import fire_collapse as fc
+    from . import fracture
+
+    ctx.setdefault("velocity", {})
+    ctx.setdefault("cache", {})
+    info = ctx["info"]
+    by_path = {(e.get("p") or {}).get("prim_path"): e
+              for e in info["elements"] if (e.get("p") or {}).get("prim_path")}
+    by_mass = {}
+    for t in tears:
+        by_mass.setdefault(t.get("mass") or "main", []).append(t)
+    n = 0
+    n_failed_resolve = 0
+    tag = ctx.get("tag")
+    reface = {"cut": 0, "face": 0, "kept_skin": 0, "no_core": 0,
+              "no_tex": 0, "missing": 0}
+    ctx.setdefault("_tear_statics", [])
+    ctx.setdefault("loose", [])
+    for mass in sorted(by_mass):
+        m = info["masses"].get(mass) or info["masses"]["main"]
+        jobs = []
+        for t in by_mass[mass]:
+            e = by_path.get(t.get("path"))
+            if e is None or e.get("dead"):
+                n_failed_resolve += 1
+                continue
+            jobs.append({"el": e, "side": t.get("side"),
+                        "cuts": t.get("cuts") or []})
+        if not jobs:
+            continue
+        seed = fracture.stable_seed(tag, mass, "tear")
+        prng = _random.Random(seed)
+        pnrng = _np.random.default_rng(seed & 0xFFFFFFFF)
+        # ROUND 4 (D2): what did THIS call author? `_tear_perimeter` extends
+        # `ctx["_tear_statics"]` and `ctx["loose"]` in place and returns only
+        # a count, so the fragments it made are the TAIL of those two lists —
+        # snapshot the lengths, diff after. (`fire_collapse` is read-only for
+        # this stream; wrapping is the whole point of this local driver.)
+        n_st0 = len(ctx["_tear_statics"])
+        n_lo0 = len(ctx["loose"])
+        with fc._own_rng(ctx, prng, pnrng):
+            n += fc._tear_perimeter(ctx, plan, m, prng, jobs)
+        # `quake_flow._break`'s naming: fragments land under
+        # `<parent>/brk_<tag>_<piece leaf name>/frag_NNN`, so the parent
+        # prim's name maps a fragment back to the piece it came from — and
+        # therefore to that piece's own `annotate_surface` texture stamp.
+        by_frag = {}
+        for j in jobs:
+            path = ((j.get("el") or {}).get("p") or {}).get("prim_path")
+            if not path:
+                continue
+            by_frag["brk_{0}_{1}".format(tag, str(path).rsplit("/", 1)[-1])] = \
+                _tex_of_element(j.get("el"))
+        _reface_tear_fragments(
+            stage, ctx, by_frag,
+            list(ctx["_tear_statics"][n_st0:]) + list(ctx["loose"][n_lo0:]),
+            reface)
+    if tears or n_failed_resolve:
+        print("[tear] tornado_urban_usd ({0}): {1} piece(s) touched, {2} "
+              "job(s) dropped, {3} could not be re-resolved".format(
+                  tag, n,
+                  sum(1 for t in (plan.get("tears") or ()) if t.get("dropped")),
+                  n_failed_resolve))
+        print("[tear] reface ({0}): {1} cut-face subset(s) + {2} fragment "
+              "surface(s) rebound to the piece's OWN cladding texture, {3} "
+              "left on fire_collapse's own facade skin, {4} had no `core` "
+              "subset, {5} had no annotated texture (neutral plaster), {6} "
+              "prim(s) missing".format(
+                  tag, reface["cut"], reface["face"], reface["kept_skin"],
+                  reface["no_core"], reface["no_tex"], reface["missing"]))
+        ctx.setdefault("notes", []).append(
+            "tears: {0} piece(s) torn; {1} cut face(s) + {2} fragment "
+            "surface(s) refaced to the building's own cladding "
+            "({3} neutral-plaster fallback)".format(
+                n, reface["cut"], reface["face"], reface["no_tex"]))
+    ctx["_tear_reface"] = reface
+    return n
+
+
+# ---------------------------------------------------------------------------
+# ROUND 3b F2b (§8e, stream FX1) — VISIBLE INTERIORS: `quake_flow.
+# fit_interior` for every OPENED storey/side, plus a dark-but-textured
+# interior BACKING quad so the hole reads as a gutted, floor-lined
+# interior instead of a black slab (the plan brief's own "the black slab
+# reads as a texture hole, not a gutted floor").
+# ---------------------------------------------------------------------------
+_FIT_INTERIOR_FRAC = 0.18   # a plan's own `stats["removed_frac"]` (BY
+                            # FAÇADE AREA, `tornado_urban`'s own metric) at
+                            # or above this authors a fit-out on its own;
+                            # below it, the OR checks below (the two "big
+                            # hole" recipes, and — ROUND 4 — any removed
+                            # piece or any voided pane at all) still fire it
+_FIT_INTERIOR_RECIPES = frozenset({"facade_collapse", "chunk"})
+
+# ---------------------------------------------------------------------------
+# ROUND 4, DEFECT D1 (stream K) — THE BACKING REWORK
+# ---------------------------------------------------------------------------
+# What round 3 authored, and what the user saw. ONE quad per (side, storey)
+# spanning the UNION of every removed piece's along-side extent on that
+# side, at `_INTERIOR_BACKING_RGB = (0.08, 0.08, 0.08)` and 0.5 m inset.
+# Two independent failures compounded:
+#
+#   1. THE SPAN. A union is not a hole. B1's south elevation lost pieces at
+#      both ends of every storey, so the union was the WHOLE side and the
+#      quad became black cladding wrapping the building — four of them
+#      stacked read as a gutted black box (B1_obl, B3_obl's corner).
+#      A parapet's own removal fed the same union, so the black band ran
+#      up over the roof line where there is no interior at all.
+#   2. THE ALBEDO. `_pbr(..., tint=rgb)` sets `diffuse_color_constant` to
+#      `rgb` AND `_fix_diffuse_tint` then sets `diffuse_tint` to the same
+#      `rgb` — the round-4 D3 double-tint finding. 0.08 applied twice is
+#      0.0064: pure void black, whatever the map underneath it says.
+#
+# THE REWORK, in three parts:
+#
+#   * PER-HOLE quads. `_opened_holes` walks the REMOVED wall/pier/corner
+#     pieces (never parapet, never roof — there is no room behind a
+#     coping), takes each piece's OWN measured span and z-extent
+#     (`fire_collapse.el_span` / `el_z_span`, the same measurement the tear
+#     pass uses), and merges only pieces that actually ABUT
+#     (`_HOLE_MERGE_GAP_M`). Two holes at opposite ends of one elevation
+#     stay two quads with standing wall between them.
+#   * A TEXTURED, DARK-WARM material. Base colour WHITE, the class tint on
+#     `diffuse_tint` only (the D3 prescription), over the concrete map, so
+#     the authored effective albedo is `_INTERIOR_BACKING_ALBEDO` — 0.34 /
+#     0.29 / 0.24, a dim warm room — and never the product of two tints.
+#   * THE STOREFRONT RING (B2/D4). A ground storey whose bays are GLAZED
+#     is see-through: the round-3 bench's `dw_terrace` cell was a glass
+#     ring you could look straight through to the far elevation's glass,
+#     with the upper floors apparently standing on it. Nothing is REMOVED
+#     there — ground-storey structure is never removed (`tornado_kit`'s own
+#     guard) — so a hole-driven backing pass can never fix it. One
+#     CONTINUOUS quad per side at storey 0, set the same inset in, is the
+#     shop's back wall: correct behind intact glass, correct behind a
+#     voided pane, and the four of them close a shallow room the eye
+#     stops in.
+# ---------------------------------------------------------------------------
+
+#: MEASURED mean sRGB of `_TEX_CONCRETE`'s own map (PIL, 256x256 resample):
+#: (0.445, 0.422, 0.403). The tint below is derived from it rather than
+#: guessed so the ALBEDO is the number under review, not the multiplier.
+_TEX_CONCRETE_MEAN_SRGB = (0.445, 0.422, 0.403)
+#: The interior backing's effective albedo — a dim, warm room seen from
+#: outside in daylight. The round-4 brief's own band is 0.25-0.35; this
+#: sits at 0.30 mean with red > green > blue.
+_INTERIOR_BACKING_ALBEDO = (0.34, 0.29, 0.24)
+#: ... which over that map is this `diffuse_tint`. `diffuse_color_constant`
+#: is WHITE (see `_interior_backing_material`): the tint multiplies ONCE.
+_INTERIOR_BACKING_TINT = tuple(
+    float(a) / float(m) for a, m in
+    zip(_INTERIOR_BACKING_ALBEDO, _TEX_CONCRETE_MEAN_SRGB))
+#: Kept for any reader/test that still asks for the flat colour: it is the
+#: albedo, not the old 0.08 void.
+_INTERIOR_BACKING_RGB = _INTERIOR_BACKING_ALBEDO
+_INTERIOR_BACKING_ROUGHNESS = 0.93
+#: The backing sits this far INSIDE the wall line. 0.5 m read as a pane
+#: swapped for a black one; >= 1.2 m is the round-4 requirement and reads
+#: as ROOM DEPTH — you see the floor slab and the wall behind it.
+_INTERIOR_INSET_M = 1.35
+#: ... clamped on a small mass so two opposite backings can never cross:
+#: never more than this share of the mass's own smaller plan dimension.
+_INTERIOR_INSET_MAX_FRAC = 0.30
+#: Two removed pieces whose spans are within this of each other are ONE
+#: hole (they were adjacent bays). Anything further apart keeps standing
+#: wall between it and stays a separate quad.
+_HOLE_MERGE_GAP_M = 0.40
+#: A backing quad is a thin slab, not a wall.
+_BACKING_T_M = 0.18
+#: A hole longer than this is SEGMENTED into per-bay panels rather than
+#: authored as one slab: `t_out_of_plane_top` legitimately peels a whole
+#: 32 m top-storey elevation on `brownstone_row`, and one 32 m plane
+#: behind it is the flat black band again, however well it is textured.
+#: The segments are CONTIGUOUS (never a gap to see through) and alternate
+#: their inset by `_BACKING_SEG_DEPTH_STEP` so the back wall reads as rooms
+#: at different depths — the segmentation the round-4 brief asks for
+#: ("PER-BAY backing quads"), sized off the mass's own bay module.
+_BACKING_SEG_MAX_M = 6.0
+_BACKING_SEG_MIN_M = 3.0
+_BACKING_SEG_DEPTH_STEP = 0.55
+#: Per building, so a pathological plan cannot author hundreds of boxes.
+_MAX_BACKING_QUADS = 64
+#: A storefront ring is a GROUND-STOREY band, never a full-height shell:
+#: on a mass whose `levels` carries no first-floor entry the storey-0 span
+#: would otherwise be the whole building and the ring would hide the
+#: interior it exists to reveal.
+_SHOP_MAX_H_M = 7.0
+#: Fit-out CONTENTS (chairs, desks) are pushed at least this far in from
+#: any OPENED wall line, so nothing pokes out through a torn edge. 
+#: `quake_flow.fit_interior` already keeps props `WALL_INSET + 1.5` =
+#: 2.05 m in from every wall; this is the extra keep-out on the sides that
+#: are actually open, applied here (the caller) rather than in
+#: `quake_flow.py`, which is the earthquake stream's file.
+_PROP_EDGE_KEEPOUT_M = 2.6
+
+
+def _ensure_fit_mats(stage, ctx):
+    """`quake_flow.fit_interior` insists on plain `mats["plaster"]` (every
+    partition, every btype) and `mats["timber"]` (a urm slab) — DIRECT
+    dict lookups, unlike its own `concrete_look` (built through `_c_look_
+    at`, which is self-seeding and needs nothing pre-populated). Tornado's
+    `ctx["mats"]` carries neither key (this ladder's own materials are the
+    `"void"`/`"tornado_debris:*"` keys `debris_material` builds) — built
+    here, once, rather than editing `quake_flow.fit_interior` itself
+    (earthquake's file, not touched this round).
+
+    ROUND 4: both are TEXTURED now. They were flat `damage._pbr` neutrals,
+    and a flat neutral partition seen through a hole is exactly the "random
+    single coloured rectangles" the round-4 verdict names (rule 5: no
+    untextured single-colour rectangles anywhere). Same map and the same
+    single-tint arrangement as the backing (`_interior_backing_material`'s
+    own docstring): white base, the look on `diffuse_tint`, world-projected
+    triplanar so an authored `_box` with no UVs still shows grain at the
+    right physical size. `timber` keeps a warm dark tone for a urm floor
+    plate — a dusty boarded floor seen from above, never pale sawn lumber
+    (rule 5 again: no lumber reads anywhere urban).
+    """
+    mats = ctx.setdefault("mats", {})
+    parent = ctx.get("parent") or "/World"
+    tex = _resolve_texture(_TEX_CONCRETE)
+    if mats.get("plaster") is None:
+        path = "{0}/TornadoFitLooks/plaster".format(parent)
+        rgb = (0.42, 0.40, 0.37)
+        mats["plaster"] = damage._pbr(
+            stage, path, rgb, 0.90, texture=tex,
+            scale_uv=_TILE_REPEATS_PER_M, tint=(1.0, 1.0, 1.0))
+        _fix_diffuse_tint(stage, path, tuple(
+            float(a) / float(m) for a, m in zip(rgb, _TEX_CONCRETE_MEAN_SRGB)))
+    if mats.get("timber") is None:
+        path = "{0}/TornadoFitLooks/timber".format(parent)
+        rgb = (0.26, 0.21, 0.16)
+        mats["timber"] = damage._pbr(
+            stage, path, rgb, 0.88, texture=tex,
+            scale_uv=_TILE_REPEATS_PER_M, tint=(1.0, 1.0, 1.0))
+        _fix_diffuse_tint(stage, path, tuple(
+            float(a) / float(m) for a, m in zip(rgb, _TEX_CONCRETE_MEAN_SRGB)))
+    return mats
+
+
+def _interior_backing_material(stage, ctx):
+    """ONE textured interior-wall material per building, cached on the ctx.
+
+    THE DOUBLE-TINT, AVOIDED EXPLICITLY (round-4 D3's finding, applied
+    here): `damage._pbr(..., texture=T, tint=X)` writes `X` into
+    `diffuse_color_constant`, and `_fix_diffuse_tint` then writes it into
+    `diffuse_tint` as well — so a class colour lands on the map TWICE. The
+    old `(0.08, 0.08, 0.08)` therefore rendered at ~0.006 and the quads
+    read as holes cut in the world. Here `diffuse_color_constant` is WHITE
+    and the look goes on `diffuse_tint` alone, so the authored albedo is
+    exactly `_INTERIOR_BACKING_ALBEDO` over the map's own grain.
+    """
+    mats = ctx.setdefault("mats", {})
+    key = "tornado_debris:interior_backing"
+    got = mats.get(key)
+    if got is not None:
+        return got
+    parent = ctx.get("parent") or "/World"
+    path = "{0}/TornadoDebrisLooks/interior_backing".format(parent)
+    mat = damage._pbr(stage, path, _INTERIOR_BACKING_ALBEDO,
+                      _INTERIOR_BACKING_ROUGHNESS,
+                      texture=_resolve_texture(_TEX_CONCRETE),
+                      scale_uv=_TILE_REPEATS_PER_M, tint=(1.0, 1.0, 1.0))
+    _fix_diffuse_tint(stage, path, _INTERIOR_BACKING_TINT)
+    mats[key] = mat
+    return mat
+
+
+def _wants_fit_interior(plan):
+    """Does this plan open the envelope at all?
+
+    ROUND 4 adds the third clause. The first two (an area threshold and two
+    named recipes) were tuned for the ROUND-3 ladder, where only a big
+    recipe opened anything; with the kit guard in place a T3/T4 plan is a
+    toothed band and a corner, well under `_FIT_INTERIOR_FRAC` by area, and
+    every one of its holes still needs a room behind it. A voided PANE
+    counts too — that is the `dw_terrace` storefront case (D4): nothing is
+    removed there and the building is see-through anyway.
+    """
+    stats = plan.get("stats") or {}
+    if float(stats.get("removed_frac") or 0.0) >= _FIT_INTERIOR_FRAC:
+        return True
+    for r in (plan.get("regions") or ()):
+        if r.get("recipe") in _FIT_INTERIOR_RECIPES:
+            return True
+    return bool(plan.get("removed") or plan.get("glass"))
+
+
+def _opened_storeys_sides(ctx, plan):
+    """`{storey: {side: (t0, t1)}}` — the along-side extent (mass-local
+    metres, `fire_collapse.el_span`) of every REMOVED wall/pier/corner
+    piece, unioned per (storey, side).
+
+    KEPT, and still used — but ONLY to decide WHICH STOREYS get a
+    `quake_flow.fit_interior` pass and which prop keep-out sides apply.
+    The BACKING no longer reads it (that is `_opened_holes`, below): a
+    union spanning a whole elevation is exactly what made round 3's quads
+    read as black cladding.
+    """
+    from . import fire_collapse as fc
+
+    info = ctx.get("info") or {}
+    masses = info.get("masses") or {}
+    by_path = {(e.get("p") or {}).get("prim_path"): e
+              for e in (info.get("elements") or ())
+              if (e.get("p") or {}).get("prim_path")}
+    out = {}
+    for p in plan.get("removed") or ():
+        e = by_path.get(p)
+        if e is None:
+            continue
+        pp = e.get("p") or {}
+        side = pp.get("_side")
+        if side not in qs.SIDES:
+            continue
+        storey = int(pp.get("_storey", 0))
+        m = masses.get(e.get("mass") or "main") or masses.get("main")
+        if m is None:
+            continue
+        t0, t1 = fc.el_span(m, e, side=side)
+        band = out.setdefault(storey, {}).setdefault(side, [t0, t1])
+        band[0] = min(band[0], t0)
+        band[1] = max(band[1], t1)
+    return out
+
+
+_BACKING_ROLES = ("wall", "pier", "corner")
+
+
+def _side_run_len(m, side):
+    return float(m["W"]) if side in ("S", "N") else float(m["D"])
+
+
+def _inset_for(m):
+    """`_INTERIOR_INSET_M`, clamped so two opposite backings on a narrow
+    mass can never cross each other."""
+    small = min(float(m.get("W") or 0.0), float(m.get("D") or 0.0))
+    if small <= 0.0:
+        return _INTERIOR_INSET_M
+    return min(_INTERIOR_INSET_M, _INTERIOR_INSET_MAX_FRAC * small)
+
+
+def _opened_holes(ctx, plan):
+    """The list of ACTUAL HOLES a backing quad goes behind.
+
+    One record per contiguous run of removed wall/pier/corner pieces on one
+    (mass, side): `{"mass", "side", "storey", "t0", "t1", "z0", "z1"}`,
+    with spans and z-extents measured off each piece itself
+    (`fire_collapse.el_span` / `el_z_span`) and merged only where two
+    pieces are within `_HOLE_MERGE_GAP_M` of each other along the wall.
+
+    ROLES. `parapet`/`parapet_corner` are excluded outright — there is no
+    interior behind a parapet, and including them is what ran round 3's
+    black band up over B1's roof line. `roof` has no side at all. A CORNER
+    piece contributes to BOTH of its legs (`quake_sliced._CORNER_SIDES`),
+    so a corner loss is backed on the two elevations that meet there rather
+    than falling through the S/E/N/W test the way round 3's version did.
+    """
+    from . import fire_collapse as fc
+
+    info = ctx.get("info") or {}
+    masses = info.get("masses") or {}
+    by_path = {(e.get("p") or {}).get("prim_path"): e
+              for e in (info.get("elements") or ())
+              if (e.get("p") or {}).get("prim_path")}
+    raw = {}
+    for p in plan.get("removed") or ():
+        e = by_path.get(p)
+        if e is None:
+            continue
+        pp = e.get("p") or {}
+        if pp.get("_role") not in _BACKING_ROLES:
+            continue
+        side = pp.get("_side")
+        if side in qs.SIDES:
+            legs = (side,)
+        elif side in qs._CORNER_SIDES:
+            legs = qs._CORNER_SIDES[side]
+        else:
+            continue
+        mass = e.get("mass") or "main"
+        m = masses.get(mass) or masses.get("main")
+        if m is None:
+            continue
+        storey = int(pp.get("_storey", 0))
+        z0, z1 = fc.el_z_span(m, e)
+        for leg in legs:
+            t0, t1 = fc.el_span(m, e, side=leg)
+            raw.setdefault((mass, leg, storey), []).append(
+                (min(t0, t1), max(t0, t1), float(z0), float(z1)))
+
+    holes = []
+    for (mass, side, storey), spans in sorted(raw.items()):
+        m = masses.get(mass) or masses.get("main")
+        run = _side_run_len(m, side)
+        cur = None
+        for t0, t1, z0, z1 in sorted(spans):
+            t0 = max(0.0, min(run, t0))
+            t1 = max(0.0, min(run, t1))
+            if t1 - t0 < 0.05:
+                continue
+            if cur is not None and t0 <= cur["t1"] + _HOLE_MERGE_GAP_M:
+                cur["t1"] = max(cur["t1"], t1)
+                cur["z0"] = min(cur["z0"], z0)
+                cur["z1"] = max(cur["z1"], z1)
+                continue
+            if cur is not None:
+                holes.append(cur)
+            cur = {"mass": mass, "side": side, "storey": storey,
+                  "t0": t0, "t1": t1, "z0": z0, "z1": z1}
+        if cur is not None:
+            holes.append(cur)
+    return holes
+
+
+def _glazed_ground_sides(ctx, plan):
+    """The sides whose GROUND storey is glazed — the storefront ring (D4).
+
+    Evidence, in order: a storey-0 piece that `annotate_glazing` measured
+    (`_glass_faces > 0`) or that the plan voided (`plan["glass"]`), then
+    the grid's own opening vocabulary (`quake_sliced.is_opening`, the
+    sub-index `tornado_kit.adapt` stamps from a piece's window/door NAME).
+    A ground storey with no glazing anywhere is opaque, nothing can be seen
+    through it, and it gets no ring."""
+    info = ctx.get("info") or {}
+    els = list(info.get("elements") or ())
+    if not els:
+        return {}
+    n_sub = qs.n_sub_of(els)
+    voided = set(plan.get("glass") or ())
+    out = {}
+    for e in els:
+        pp = e.get("p") or {}
+        if int(pp.get("_storey", 0)) != 0:
+            continue
+        side = pp.get("_side")
+        if side not in qs.SIDES:
+            continue
+        if pp.get("_role") in ("roof", "core"):
+            continue
+        glazed = (float(pp.get("_glass_faces") or 0) > 0
+                  or pp.get("prim_path") in voided
+                  or qs.is_opening(pp, n_sub))
+        if glazed:
+            out.setdefault(e.get("mass") or "main", set()).add(side)
+    return out
+
+
+def _clamp_fit_props(stage, ctx, info, fit, opened):
+    """Push every fit-out prop `_PROP_EDGE_KEEPOUT_M` in from any wall line
+    that is OPEN at its own storey, so a chair never hangs out through a
+    torn edge (B3's own "chair floating on a ledge").
+
+    Done HERE, on the paths `quake_flow.fit_interior` just returned, rather
+    than inside `fit_interior` itself: that function is the earthquake
+    stream's file and its `footprint=` hook clamps the COLUMN grid only,
+    never the contents. Returns the number of props actually moved.
+    """
+    from pxr import Gf, UsdGeom
+
+    masses = info.get("masses") or {}
+    moved = 0
+    for (mtag, storey), paths in sorted((fit.get("props") or {}).items()):
+        m = masses.get(mtag) or masses.get("main")
+        if m is None:
+            continue
+        sides = set((opened.get(int(storey)) or {}).keys())
+        if not sides:
+            continue
+        W, D = float(m["W"]), float(m["D"])
+        for path in paths or ():
+            prim = stage.GetPrimAtPath(path)
+            if not prim or not prim.IsValid():
+                continue
+            ops = UsdGeom.Xformable(prim).GetOrderedXformOps()
+            top = None
+            for op in ops:
+                if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+                    top = op
+                    break
+            if top is None:
+                continue
+            t = top.Get()
+            lx, ly = qf._to_local(m, float(t[0]), float(t[1]))
+            nlx, nly = lx, ly
+            k = _PROP_EDGE_KEEPOUT_M
+            if "S" in sides:
+                nly = max(nly, -D / 2.0 + k)
+            if "N" in sides:
+                nly = min(nly, D / 2.0 - k)
+            if "W" in sides:
+                nlx = max(nlx, -W / 2.0 + k)
+            if "E" in sides:
+                nlx = min(nlx, W / 2.0 - k)
+            # A mass narrower than two keep-outs collapses to its own
+            # centreline rather than inverting.
+            if D <= 2.0 * k:
+                nly = 0.0
+            if W <= 2.0 * k:
+                nlx = 0.0
+            if abs(nlx - lx) < 1e-6 and abs(nly - ly) < 1e-6:
+                continue
+            wx, wy = qf._to_world(m, nlx, nly)
+            top.Set(Gf.Vec3d(float(wx), float(wy), float(t[2])))
+            moved += 1
+    return moved
+
+
+def _author_interior(stage, ctx, plan):
+    """`quake_flow.fit_interior` for every opened storey, plus a textured
+    interior backing behind every actual HOLE and (when the ground storey
+    is glazed) a storefront ring at street level. Gated on
+    `_wants_fit_interior`. Returns `{"n_fit": ..., "n_backing": ...}`.
+
+    `ctx["fit"] = fit_interior(...)`'s own return is stored on the ctx —
+    the SAME key `quake_flow._ragged_slabs`/`_a_slab_rim` read — but
+    nothing in THIS ladder's own tear path (`_author_tears`, above) reads
+    it: this module's tear driver deliberately skips `quake_sliced.
+    _author_tears`'s floor-edge half. Stored anyway so a probe/bench can
+    inspect what was authored.
+    """
+    if not _wants_fit_interior(plan):
+        return {"n_fit": 0, "n_backing": 0}
+    opened = _opened_storeys_sides(ctx, plan)
+    holes = _opened_holes(ctx, plan)
+    shop = _glazed_ground_sides(ctx, plan)
+    if not (opened or holes or shop):
+        return {"n_fit": 0, "n_backing": 0}
+
+    info = ctx["info"]
+    _ensure_fit_mats(stage, ctx)
+    parent = ctx.get("parent") or "/World"
+    tag = _safe_name("tornado_{0}".format(ctx.get("tag") or "b"))
+    # `ctx["rng"]` is normally the ladder's own shared generator (`wreck_
+    # urban`/`wreck_kit` always construct one) -- but `fire_collapse.
+    # _own_rng` (the tear pass just above, when tears exist) SAVES AND
+    # RESTORES whatever was on `ctx["rng"]`/`ctx["nrng"]` at entry, and on
+    # a ctx that never carried one (a minimal stub, e.g. a bare-`apply_
+    # plan` test fixture) that "restore" leaves an explicit `None` behind
+    # rather than the absent key it found. Falls back to a fresh,
+    # per-`tag` generator rather than propagating that `None` into `fit_
+    # interior`'s own `rng.randrange(...)` call — the same "tolerant of a
+    # partial ctx" rule `apply_plan`'s own docstring states.
+    rng = ctx.get("rng")
+    if rng is None:
+        import random as _random
+
+        from . import fracture
+        rng = _random.Random(fracture.stable_seed(ctx.get("tag"), "fit_interior"))
+    # STOREYS. Every opened storey, plus — when a storefront ring is going
+    # in — storey 0 AND storey 1: `fit_interior`'s slab `i` is the FLOOR of
+    # storey `i` (its top at `levels[i]`), so storey 1's slab is what caps
+    # the shop and stops the eye carrying on up into an empty shell.
+    storeys = set(opened)
+    storeys.update(int(h["storey"]) for h in holes)
+    if shop:
+        storeys.update((0, 1))
+    fit = qf.fit_interior(stage, parent, info, ctx["mats"], rng,
+                          storeys=sorted(storeys), tag=tag)
+    ctx["fit"] = fit
+    ctx.setdefault("static_extra", [])
+    ctx["static_extra"].extend(fit.get("all") or [])
+    n_props_moved = _clamp_fit_props(stage, ctx, info, fit, opened)
+
+    mat = _interior_backing_material(stage, ctx)
+    root = "{0}/tornado_interior_backing".format(parent)
+    UsdGeom.Scope.Define(stage, Sdf.Path(root))
+    masses = info["masses"]
+    n_backing = 0
+    seen = set()
+
+    def _quad(name, m, side, t_mid, width, cz, height, extra_inset=0.0):
+        inset = _inset_for(m) + float(extra_inset)
+        lx, ly = qf._p_wall_point(m, side, t_mid)
+        ox, oy = qf._outward(m, side)
+        wx, wy = qf._to_world(m, lx, ly)
+        wx -= ox * inset
+        wy -= oy * inset
+        yaw = m["yaw"] + (0.0 if side in ("S", "N") else 90.0)
+        path = "{0}/{1}".format(root, name)
+        qf._box(stage, path, wx, wy, cz, float(width), _BACKING_T_M,
+                float(height), yaw, mat)
+        ctx["static_extra"].append(path)
+        return path
+
+    # -- 1) per-BAY quads behind each HOLE ---------------------------------
+    for h in holes:
+        if n_backing >= _MAX_BACKING_QUADS:
+            break
+        m = masses.get(h["mass"]) or masses["main"]
+        height = max(0.6, h["z1"] - h["z0"])
+        cz = h["z0"] + height / 2.0
+        span = max(0.6, h["t1"] - h["t0"])
+        seg = min(_BACKING_SEG_MAX_M,
+                  max(_BACKING_SEG_MIN_M, float(m.get("module") or 4.0)))
+        n_seg = max(1, int(math.ceil(span / seg)))
+        w_seg = span / float(n_seg)
+        for k in range(n_seg):
+            if n_backing >= _MAX_BACKING_QUADS:
+                break
+            t0 = h["t0"] + k * w_seg
+            name = "backing_{0}_{1}_{2:02d}_{3:04d}".format(
+                h["side"], _safe_name(h["mass"]), int(h["storey"]),
+                int(round(t0 * 10.0)))
+            if name in seen:
+                continue
+            seen.add(name)
+            _quad(name, m, h["side"], t0 + w_seg / 2.0, w_seg, cz, height,
+                  extra_inset=(_BACKING_SEG_DEPTH_STEP if (k % 2) else 0.0))
+            n_backing += 1
+
+    # -- 2) the storefront ring (D4) ---------------------------------------
+    n_shop = 0
+    for mass, sides in sorted(shop.items()):
+        m = masses.get(mass) or masses["main"]
+        lv = list(m["levels"])
+        z0 = float(lv[0]) if lv else float(m.get("z0", 0.0))
+        z1 = float(lv[1]) if len(lv) > 1 else float(m["top"])
+        height = max(1.2, min(_SHOP_MAX_H_M, (z1 - z0) * 0.96))
+        inset = _inset_for(m)
+        for side in sorted(sides):
+            if n_backing >= _MAX_BACKING_QUADS:
+                break
+            run = _side_run_len(m, side)
+            # The four quads meet at the corners of the inset rectangle:
+            # each is its own run shortened by one inset at each end.
+            width = max(0.6, run - 2.0 * inset)
+            name = "backing_{0}_{1}_shop".format(side, _safe_name(mass))
+            if name in seen:
+                continue
+            seen.add(name)
+            _quad(name, m, side, run / 2.0, width, z0 + height / 2.0, height)
+            n_backing += 1
+            n_shop += 1
+
+    if n_backing:
+        print("[tornado_urban_usd] interior: {0} fit-out prim(s), {1} "
+              "backing quad(s) ({2} behind holes, {3} storefront) over {4} "
+              "fitted storey(s); {5} prop(s) clamped inboard".format(
+                  len(fit.get("all") or []), n_backing, n_backing - n_shop,
+                  n_shop, len(storeys), n_props_moved))
+    out = {"n_fit": len(fit.get("all") or []), "n_backing": n_backing,
+           "n_backing_holes": n_backing - n_shop, "n_backing_shop": n_shop,
+           "n_props_clamped": n_props_moved,
+           "n_holes": len(holes), "storeys": sorted(storeys),
+           "inset_m": float(_inset_for(masses.get("main")
+                                       or next(iter(masses.values())))),
+           "albedo": [float(q) for q in _INTERIOR_BACKING_ALBEDO]}
+    # `apply_plan`'s own counts dict (another region of this file) only
+    # forwards `n_fit`/`n_backing`; the full record goes on the ctx so a
+    # probe, a test or the bench manifest can read what was actually
+    # authored without re-walking the stage.
+    ctx["interior"] = out
+    return out
+
+
+
+def apply_plan(stage, ctx, plan, verbose=True):
+    """Do to the stage what `tornado_urban.plan_damage` decided (§2.8's
+    schema). Tolerant of a partial plan — any of `"displaced"`,
+    `"roof_props"`, `"debris"`, `"glass"`, `"removed"` may be absent (the
+    planner may land in stages) and are treated as empty/`"keep"`; a listed
+    prim path that does not resolve on the stage is COUNTED, never raised.
+    Returns a small counts dict.
+    """
+    plan = plan or {}
+    mats = ctx.setdefault("mats", {})
+    ctx.setdefault("static_extra", [])
+    ctx.setdefault("notes", [])
+
+    # 1) GLASS FIRST, same reason `quake_sliced.apply_plan` orders it first:
+    #    it binds materials on pieces that may be about to move, and a moved
+    #    piece carries its bindings with it. Calls THIS module's OWN
+    #    `_void_glass` (not `quake_sliced._void_glass` — see the module
+    #    docstring's "THE `_void_glass` FIX"): the earthquake stream's
+    #    version measured 0 subsets voided against a real GAC slice.
+    glass_paths = list(plan.get("glass") or ())
+    n_glass = 0
+    n_glass_removed = 0
+    if glass_paths:
+        void_mat = _ensure_void_material(stage, ctx)
+        rebind, knock_out = [], []
+        for path in glass_paths:
+            if _has_glazing_binding(stage, path):
+                rebind.append(path)
+            elif _window_named(path):
+                knock_out.append(path)
+            else:
+                rebind.append(path)   # `_void_glass` no-ops on it, counted 0
+        n_glass = _void_glass(stage, rebind, void_mat)
+        # ROUND 2, THE KIT VOCABULARY (measured, `tools/_tk_glass_probe.py`):
+        # a KIT window is its own MODULE with NO glazing material anywhere —
+        # Downtown_West window modules carry subsets bound to untextured /
+        # shared-atlas materials that legitimately fail `is_glazing`, and the
+        # MCE families paint their windows into one facade atlas (those are
+        # never listed as glass at all). So "pane out" on a kit building is
+        # the module KNOCKED OUT to a dark opening — the same read the fire
+        # ladder's "windows out to a black void" uses — never a rebind.
+        for path in knock_out:
+            if qf._deactivate(stage, path):
+                n_glass_removed += 1
+        if knock_out:
+            ctx["notes"].append(
+                "glass: {0} window MODULE(s) knocked out (kit vocabulary — "
+                "no glazing material to rebind)".format(n_glass_removed))
+
+    # 2) REMOVAL. `stage.GetPrimAtPath` on a path the plan named but the
+    #    stage does not have is a MISSING count, not an exception — a
+    #    refused/blacklisted building or a stale plan must never crash the
+    #    apply step.
+    n_removed = 0
+    missing = []
+    for path in sorted(plan.get("removed") or ()):
+        prim = stage.GetPrimAtPath(path) if path else None
+        if not prim or not prim.IsValid():
+            missing.append(path)
+            continue
+        if qf._deactivate(stage, path):
+            n_removed += 1
+    if missing:
+        msg = ("[tornado_urban_usd] {0} removed-piece path(s) not found on "
+               "the stage (never raised): {1}").format(
+                   len(missing), ", ".join(missing[:8]) +
+                   (", ..." if len(missing) > 8 else ""))
+        ctx["notes"].append(msg)
+        if verbose:
+            print(msg)
+
+    # 2.5) ROUND 3b F2a (§8e) — THE PERIMETER OF EVERY HOLE. After removal
+    #      (the pieces a tear is "against" must already be gone) and BEFORE
+    #      rigid displacement, the same ordering `quake_sliced.apply_plan`
+    #      uses for its own tear step and for the same reason: a piece
+    #      about to be rotated into the street (a hanging panel, a
+    #      macroblock) must still be WHOLE when this runs. Safe on a
+    #      fractured/sliced piece per the earthquake round's own VTK guard
+    #      (`.agents/skills/build-earthquake-scenes/SKILL.md`, "GAC reseat"/
+    #      "Sliced tears landed" sections) — `fire_collapse._tear_perimeter`
+    #      is the SAME machinery that round measured against real slices;
+    #      see `_author_tears`'s own docstring for the one piece of it
+    #      (`_author_floor_edges`) this ladder deliberately does not call.
+    n_tears = _author_tears(stage, ctx, plan)
+
+    # 3) RIGID DISPLACEMENT — `quake_sliced.rigid_matrix(spec)` fed straight
+    #    into a `Gf.Matrix4d` (`quake_sliced._gf`) and post-multiplied onto
+    #    each prim's world transform by `quake_flow._transform_prims`, one
+    #    matrix built per DISTINCT spec (grouped, the way
+    #    `quake_sliced.apply_plan` groups its own `plan["displaced"]` loop).
+    n_displaced = 0
+    displaced = plan.get("displaced") or {}
+    groups = {}
+    for path in sorted(displaced):
+        key = _json.dumps(displaced[path], sort_keys=True)
+        groups.setdefault(key, []).append(path)
+    for key in sorted(groups):
+        spec = _json.loads(key)
+        M = qs._gf(spec)
+        paths = groups[key]
+        n_displaced += qf._transform_prims(stage, paths, M)
+        ctx["static_extra"].extend(paths)
+
+    # 3.5) ROUND 3b F2b (§8e) — VISIBLE INTERIORS. After displacement (a
+    #      hanging/leaning piece is still in its ORIGINAL position for the
+    #      opened-span measurement either way, since `_opened_storeys_
+    #      sides` reads REMOVED pieces only, but this keeps every "what
+    #      does the settled façade look like" step grouped before the
+    #      purely-additive furniture/debris steps that follow).
+    fit_counts = _author_interior(stage, ctx, plan)
+
+    # 4) ROOF PROPS. See the module docstring: this reuses
+    #    `_sweep_roof_props_sliced`'s IDENTIFICATION (`ctx["roof_plant"]` /
+    #    `ctx["roof_fixed"]`), not its carry/reseat mechanics — a tornado
+    #    sweeps roof furniture off, it does not carry it down a crushed
+    #    storey (there is no crush here).
+    n_roof = 0
+    if plan.get("roof_props") == "sweep":
+        plant = list(dict.fromkeys(
+            list(ctx.get("roof_plant") or ()) + list(ctx.get("roof_fixed") or ())))
+        for path in plant:
+            if qf._deactivate(stage, path):
+                n_roof += 1
+                ctx["static_extra"].append(path)
+        if not plant:
+            ctx["notes"].append(
+                "roof_props: sweep requested but ctx carries no "
+                "roof_plant/roof_fixed paths — this round does not author "
+                "roof furniture itself (see module docstring); a no-op "
+                "here is expected until a later round wires that in")
+
+    # 5) DEBRIS. Authored, never simulated — every removed piece's material
+    #    is already on the ground.
+    fragments = list(plan.get("debris") or ())
+    made = []
+    if fragments:
+        ground_z = ctx.get("ground_z", 0.0)
+        made = build_debris(stage, ctx.get("parent") or "/World", fragments,
+                            ctx, ground_z=ground_z)
+        ctx["static_extra"].extend(made)
+
+    for line in plan.get("notes") or ():
+        if line not in ctx["notes"]:
+            ctx["notes"].append(line)
+
+    out = {"n_removed": n_removed, "n_missing": len(missing),
+           "n_glass": n_glass, "n_glass_removed": n_glass_removed,
+           "n_displaced": n_displaced,
+           "n_debris_meshes": len(made), "n_fragments": len(fragments),
+           "n_roof_props": n_roof, "n_tears": n_tears,
+           "n_fit": fit_counts["n_fit"], "n_backing": fit_counts["n_backing"],
+           "notes": list(ctx["notes"])}
+    if verbose:
+        print("[tornado_urban_usd] {0}: {1} removed ({2} missing), {3} "
+              "displaced, {4} glass voided (+{5} window module(s) knocked "
+              "out), {6} roof prop(s) swept, {7} debris mesh(es) from {8} "
+              "fragment(s), {9} tear(s), {10} fit-out prim(s), {11} "
+              "backing quad(s)".format(
+                  plan.get("level") or "plan", n_removed, len(missing),
+                  n_displaced, n_glass, n_glass_removed, n_roof, len(made),
+                  len(fragments), n_tears, fit_counts["n_fit"],
+                  fit_counts["n_backing"]))
+    return out
+
+
+def wreck_urban(stage, cell, placements, style, level, rng, nrng, mats, tag,
+                wind, btype=None, height_class=None, intensity=None,
+                usd=None, verbose=True):
+    """Apply the urban-tornado ladder to one sliced building and return
+    `quake_flow.wreck_building`'s ctx, unchanged in shape — the same
+    contract `quake_sliced.wreck_sliced` honours, so a later bake launcher
+    can call this wherever `quake_gac_bake_launch_script.py` calls that.
+
+    `x`/`y`/`yaw` are the CELL's and are always zero here, for the same
+    reason `wreck_sliced` defaults them to zero: the slicer writes every
+    piece in the cell's own local frame (`gac_storey_slice.slice_to_kit`),
+    so `describe` is always called at the cell origin.
+
+    Calls `annotate_glazing(stage, placements)` BEFORE `qf.describe(...)`,
+    so the stamped `_glass_faces`/`_glass_frac` land on each placement dict
+    while it is still the raw dict `describe`/`classify` carry forward
+    unchanged as `e["p"]` — the element table's per-piece measurement of
+    glazing, not a role guess (see that function's own docstring for why a
+    role guess is wrong on assets like SM_Building_02, where the glazing
+    sits on `pier`/`core` pieces, never `wall`).
+
+    Until stream L's `disaster/tornado_urban.py` lands, this guards the
+    import and returns a ctx with `plan=None` rather than raising — call
+    `apply_plan(stage, ctx, plan, ...)` directly against a plan built
+    elsewhere (a fixture, or a real plan once L's module exists) in the
+    meantime, which is exactly how this module's own tests exercise it.
+
+    This function does NOT call `quake_flow.dress_roof` — see
+    `apply_plan`'s ROOF PROPS step for why that is a documented gap, not an
+    oversight: earthquake's `dress_roof` needs earthquake-only material
+    keys (`mats["tank_wood"]`, `mats["plant_metal"]`) this ladder's `mats`
+    is not guaranteed to carry, and roof-furniture PLACEMENT for the urban-
+    tornado ladder is not yet decided (a later round's job).
+    """
+    annotate_glazing(stage, placements)
+    annotate_surface(stage, placements)  # FX2 HOOK (§8e F3) — one line, mirrors annotate_glazing above
+    info = qf.describe(style, placements, 0.0, 0.0, 0.0)
+    if btype is None:
+        btype = qs.construction_type(usd or style, H=info.get("H"))
+    info["type"] = btype
+
+    ctx = {"stage": stage, "parent": cell, "info": info, "rng": rng,
+           "nrng": nrng, "mats": mats if mats is not None else {},
+           "tag": tag, "loose": [], "static_extra": [], "velocity": {},
+           "authored": [], "notes": [], "verbose": verbose}
+    ctx["sliced"] = {"style": style, "usd": usd, "btype": btype,
+                     "level": level, "intensity": intensity,
+                     "height_class": height_class, "n_pieces": len(placements)}
+
+    try:
+        from . import tornado_urban
+    except ImportError as exc:
+        note = ("tornado_urban planner unavailable ({0}) — no plan run; "
+                "call apply_plan(stage, ctx, plan) directly with a plan "
+                "from elsewhere until stream L lands its module").format(exc)
+        ctx["notes"].append(note)
+        ctx["plan"] = None
+        if verbose:
+            print("[tornado_urban_usd] " + note)
+        return ctx
+
+    plan = tornado_urban.plan_damage(info, info["elements"], level, btype,
+                                     rng, wind, height_class=height_class,
+                                     intensity=intensity)
+    ctx["plan"] = plan
+    ctx["counts"] = apply_plan(stage, ctx, plan, verbose=verbose)
+    if verbose:
+        print("[tornado_urban_usd] {0} ({1}, {2}, {3:.0f} m, {4} "
+              "piece(s)): {5}".format(
+                  style, btype, level, info.get("H") or 0.0, len(placements),
+                  ctx["counts"]))
+
+    # R7 HOOK (stream RF, `disaster/tornado_roof.py`): the roof-damage pass,
+    # run on its OWN rng stream (`tornado_roof.roof_seed(tag)`) so the
+    # façade plan above is byte-identical whether or not this ever runs —
+    # see that module's own docstring ("THE SEPARATE RNG STREAM").
+    import random as _random
+
+    from . import tornado_roof
+    roof_rng = _random.Random(tornado_roof.roof_seed(tag))
+    roof_plan = tornado_roof.plan_roof(info, info["elements"], level, wind,
+                                       roof_rng, height_class, intensity,
+                                       facade_plan=plan)
+    ctx["roof_plan"] = roof_plan
+    ctx["roof_counts"] = tornado_roof.apply_roof(stage, ctx, roof_plan,
+                                                 verbose=verbose)
+    return ctx

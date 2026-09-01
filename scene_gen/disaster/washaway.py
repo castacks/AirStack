@@ -1280,7 +1280,7 @@ _RAFT_TINT = {
     # further" fallback; still G-leaning by design (real stripped canopy is
     # olive, not brown) but at a luma low enough that the hue is barely
     # perceptible rather than a visible sage cast.
-    "vegetation": (0.090, 0.095, 0.050),
+    "vegetation": (0.082, 0.066, 0.040),  # SODDEN BROWN, R>G. The olive exemption died 2026-09-01 -- user, live in the GUI: "still looks like too much green debris". Dead vegetation in muddy floodwater is brown.
     # WET BARK, NOT SAWN TIMBER. A bole that has been in the water is the
     # darkest thing in the debris field -- soaked bark is well under half the
     # albedo of the pale `Ash_Planks` map every raft class is bound to, and
@@ -3757,6 +3757,40 @@ FENCE_WIND_PCTILE = 0.70
 # "rotate ~85 degrees" -- a small per-panel spread so a whole downed run
 # does not look like one stamped copy repeated.
 FENCE_FLAT_LEAN_LO_DEG, FENCE_FLAT_LEAN_HI_DEG = 80.0, 88.0
+# A DOWNED FENCE RUN IS NOT A TIDY ROW OF FLAT PANELS (2026-09-01, user on
+# the live 500 m plate: "the fallen fences look fine now except it's too
+# perfectly fallen. Some of them should blow away, disappear, overlap,
+# etc"). Three separate defects behind that one sentence, three knobs:
+#
+#  1. EVERY flattened panel lay at 80-88 deg, so a whole run went down at
+#     one angle. A real run fails panel by panel as each post breaks or each
+#     rail lets go, and a fair share end up PARTLY down — leaning on the
+#     next panel, on a bush, on its own broken post — rather than flat.
+#     `FENCE_PARTIAL_SHARE` of them now draw from `FENCE_PARTIAL_LEAN_*`.
+#  2. NOTHING WAS EVER CARRIED OFF ON DRY LAND. `action == "gone"` fired
+#     only past `FENCE_WATER_DEPTH_GONE_M`, i.e. only where surge floated
+#     the panel away — so on the dry half of the plate a fence could be
+#     flattened but never removed, even in the strongest wind. A light
+#     timber panel in a design-level gust is exactly the thing that goes
+#     over the neighbourhood; `FENCE_WIND_GONE_SHARE` of the wind-flattened
+#     ones now simply leave.
+#  3. PANELS STAYED ON THEIR SURVEY LINE. A fallen panel skids downwind and
+#     twists as it goes, and adjacent ones end up lying ACROSS each other —
+#     the overlap the report asks for. `FENCE_SLIDE_M` / `FENCE_YAW_JITTER_
+#     DEG` displace and twist each one independently, so a run that fails
+#     together does not land in formation.
+# RAISED 2026-09-01 on the second look: "they still seem very in order. They
+# need to be more scattered. It's a fence, a hurricane will blow it away."
+# The first pass was too timid — a 0.55 m skid is less than a fifth of a
+# panel, so a failed run still landed recognisably ON its own survey line,
+# and 18% carried off left most of a flattened run present and accounted
+# for. A timber panel is one of the lightest things on the lot and the
+# thing most likely to simply leave.
+FENCE_PARTIAL_SHARE = 0.34
+FENCE_PARTIAL_LEAN_LO_DEG, FENCE_PARTIAL_LEAN_HI_DEG = 22.0, 68.0
+FENCE_WIND_GONE_SHARE = 0.42    # was 0.18 -- most of a downed run leaves
+FENCE_SLIDE_M = 1.9             # was 0.55 -- sigma of the downwind skid, m
+FENCE_YAW_JITTER_DEG = 38.0     # was 14.0 -- sigma of the twist in plan
 FENCE_GONE_RAFT_LO, FENCE_GONE_RAFT_HI = 1, 3
 FENCE_GONE_DRIFT_LO_M, FENCE_GONE_DRIFT_HI_M = 2.0, 6.0
 # A raft below this depth is effectively beached, not floating -- pulling a
@@ -3882,6 +3916,12 @@ def fence_specs(fences, depth_fn, wind_bearing_fn, wind_intensity_fn,
                 wind_pctile=FENCE_WIND_PCTILE,
                 lean_lo_deg=FENCE_FLAT_LEAN_LO_DEG,
                 lean_hi_deg=FENCE_FLAT_LEAN_HI_DEG,
+                partial_share=FENCE_PARTIAL_SHARE,
+                partial_lo_deg=FENCE_PARTIAL_LEAN_LO_DEG,
+                partial_hi_deg=FENCE_PARTIAL_LEAN_HI_DEG,
+                wind_gone_share=FENCE_WIND_GONE_SHARE,
+                slide_m=FENCE_SLIDE_M,
+                yaw_jitter_deg=FENCE_YAW_JITTER_DEG,
                 n_raft_lo=FENCE_GONE_RAFT_LO, n_raft_hi=FENCE_GONE_RAFT_HI,
                 drift_lo_m=FENCE_GONE_DRIFT_LO_M,
                 drift_hi_m=FENCE_GONE_DRIFT_HI_M,
@@ -3970,11 +4010,31 @@ def fence_specs(fences, depth_fn, wind_bearing_fn, wind_intensity_fn,
         windy = float(wind_intensity_fn(fx, fy)) > threshold
         if near_house or windy:
             bearing = float(wind_bearing_fn(fx, fy))
-            lean_deg = rng.uniform(lean_lo_deg, lean_hi_deg)
+            # CARRIED OFF. See `FENCE_WIND_GONE_SHARE`: a light panel in a
+            # design-level gust leaves the lot entirely. No rafts — this one
+            # went downwind over dry ground, not out on the water, and the
+            # plate-wide land-debris field is already what represents
+            # material that came from somewhere nobody can name.
+            if rng.random() < wind_gone_share:
+                out.append({"x": fx, "y": fy, "yaw": fyaw, "length": flen,
+                            "action": "gone", "rafts": []})
+                continue
+            # PART-WAY DOWN, for a third of the rest — see
+            # `FENCE_PARTIAL_SHARE`.
+            if rng.random() < partial_share:
+                lean_deg = rng.uniform(partial_lo_deg, partial_hi_deg)
+            else:
+                lean_deg = rng.uniform(lean_lo_deg, lean_hi_deg)
             out.append({"x": fx, "y": fy, "yaw": fyaw, "length": flen,
                         "action": "flat",
                         "lean_deg": _fence_fall_lean(fyaw, bearing, lean_deg),
-                        "azimuth_deg": bearing})
+                        "azimuth_deg": bearing,
+                        # SKID AND TWIST, so adjacent panels overlap instead
+                        # of landing in formation. Applied by
+                        # `apply_fence_pose`; a decision dict without them
+                        # (an older caller's) still poses exactly as before.
+                        "slide_m": rng.gauss(0.0, slide_m),
+                        "yaw_jitter_deg": rng.gauss(0.0, yaw_jitter_deg)})
             continue
 
         out.append({"x": fx, "y": fy, "yaw": fyaw, "length": flen,
@@ -4017,22 +4077,75 @@ def measure_fence(stage, prim, ssf=1.0):
     yaw = float(rot[2]) if rot is not None else 0.0
     x, y = float(t[0]) / ssf, float(t[1]) / ssf
 
-    ca, sa = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+    # THE PANEL'S LONG AXIS IS NOT `rotateXYZ[2]`. FIXED 2026-09-01 on the
+    # user's report against the live 500 m plate: "a lot of fences look like
+    # they're on their short side (which is wrong) and are standing up
+    # straight".
+    #
+    # `rotateXYZ[2]` is the AUTHORED yaw, and for most fence assets that is
+    # the run bearing PLUS the asset's own `yaw-offset` — the correction that
+    # turns art modelled along its own local axis onto the boundary line.
+    # `suburban.yaml`'s privacy panel (objaverse 1cec32ae..., the one in the
+    # report) is native 0.08 x 3.51 with its long axis on local +Y and
+    # `yaw-offset: 90.0`, so the authored yaw points ACROSS the panel, not
+    # along it. Projecting onto it returned the 0.08 m THICKNESS as
+    # `length_m` — and `apply_fence_pose` then hinged the "blown flat"
+    # rotation about that same across-panel axis, tipping each panel over its
+    # END onto its short side. One bug, both symptoms.
+    #
+    # SELF-CORRECTING, rather than plumbing `yaw-offset` through: measure the
+    # extent along BOTH candidate axes and keep the longer. A fence panel is
+    # long and thin by definition (3.51 x 0.08 here, 5.28 x 0.33 for the
+    # railing, 2.00 x 0.09 for the picket), so the two are never close and
+    # the choice is unambiguous. This also fixes every other asset in the
+    # pool at once, whatever offset each declares, and keeps working if a new
+    # one is added with a different convention.
+    # THE POINTS THEMSELVES, NOT THEIR AABB. This function's docstring has
+    # always promised "MEASURED, POINTS-BASED, never `UsdGeom.BBoxCache`",
+    # and `bake.world_point_bounds` does honour the never-BBoxCache half —
+    # but it returns the world AXIS-ALIGNED BOX of those points, and
+    # projecting that box's four plan corners onto a candidate bearing is
+    # not the same as projecting the geometry. For a panel aligned with
+    # world X/Y they agree exactly; at any oblique bearing the box is
+    # strictly larger than the panel inside it, so `length_m` over-read by
+    # up to the panel's own thickness (measured: 3.587 m at a 37 deg run
+    # bearing, 3.571 m at 205 deg, against a true 3.510 m).
+    #
+    # That never flipped the long-axis CHOICE — the error is bounded by the
+    # thickness and the two candidates differ by the whole length — so the
+    # hinge was already correct. It made `length_m` itself wrong, which
+    # `fence_specs` threads into its decision dict for downstream use. Since
+    # `world_point_bounds` already transforms every point in order to bound
+    # them, projecting them directly costs nothing extra and removes the
+    # error rather than documenting it.
     xc = UsdGeom.XformCache(Usd.TimeCode.Default())
-    lo = hi = None
+    corners = []
     for p in Usd.PrimRange(prim):
         if not p.IsA(UsdGeom.Mesh):
             continue
-        b = bake.world_point_bounds(p, xc)
-        if b is None:
+        pts = UsdGeom.Mesh(p).GetPointsAttr().Get()
+        if not pts:
             continue
-        (bx0, by0, _bz0), (bx1, by1, _bz1) = b
-        for cx in (bx0, bx1):
-            for cy in (by0, by1):
-                proj = (cx / ssf) * ca + (cy / ssf) * sa
-                lo = proj if lo is None else min(lo, proj)
-                hi = proj if hi is None else max(hi, proj)
-    length = (hi - lo) if (lo is not None and hi is not None) else 0.0
+        m = xc.GetLocalToWorldTransform(p)
+        for v in pts:
+            w = m.Transform(Gf.Vec3d(float(v[0]), float(v[1]), float(v[2])))
+            corners.append((w[0] / ssf, w[1] / ssf))
+
+    def _extent(a_deg):
+        ca, sa = math.cos(math.radians(a_deg)), math.sin(math.radians(a_deg))
+        lo = hi = None
+        for cx, cy in corners:
+            q = cx * ca + cy * sa
+            lo = q if lo is None else min(lo, q)
+            hi = q if hi is None else max(hi, q)
+        return 0.0 if lo is None else (hi - lo)
+
+    len_along, len_across = _extent(yaw), _extent(yaw + 90.0)
+    if len_across > len_along:
+        yaw = (yaw + 90.0) % 360.0
+        length = len_across
+    else:
+        length = len_along
     return x, y, yaw, length
 
 
@@ -4053,11 +4166,11 @@ def apply_fence_pose(stage, prim_path, decision, ssf=1.0, ground_z_m=None):
     appending a rotate to an already-placed prim's op list "applies it in
     the wrong frame"). Unlike `tip_tree`, the placement `rotateXYZ` is not
     kept as a SEPARATE op alongside a new one: it is folded into ONE
-    combined `orient` quaternion (`lean_rot * yaw_rot`, `Gf.Rotation`'s `*`
-    performing the RIGHT operand first) so there is no ambiguity left about
-    which frame `decision["lean_deg"]`'s axis is expressed in — the axis is
-    built directly from `decision["yaw"]`, the panel's own placement
-    bearing, so folding the two into one op cannot desynchronise them.
+    combined `orient` quaternion (`place_rot * lean_rot` -- `Gf.Rotation`'s
+    `*` composes LEFT-FIRST; this docstring asserted "RIGHT operand first"
+    for a long time and it is simply false, see the verification in the
+    body) so there is no ambiguity left about which frame
+    `decision["lean_deg"]`'s axis is expressed in.
 
     SEATED POINTS-BASED, NEVER BBOX: after the rotation is authored, every
     Mesh descendant's WORLD points are measured (`bake.world_point_bounds`)
@@ -4088,17 +4201,102 @@ def apply_fence_pose(stage, prim_path, decision, ssf=1.0, ground_z_m=None):
         vals[op.GetOpName().split(":")[-1]] = op.Get()
     t = vals.get("translate") or Gf.Vec3d(0.0, 0.0, 0.0)
     sc = vals.get("scale")
+    rot = vals.get("rotateXYZ")
+    # THE GROUND IS MEASURED OFF THE STANDING PANEL, not read off its
+    # translate (fixed 2026-09-01: "it's floating").
+    #
+    # `t[2]` IS NOT THE GROUND. `apply_placements` folds the asset's
+    # anchor->centroid offset into the translation, so a placed prim's
+    # translate z is the ground PLUS that offset — and seating the tipped
+    # panel's lowest point at `t[2]` therefore parks it that offset ABOVE
+    # the grass. It went unnoticed while the composition bug had panels
+    # standing on their ends (they were wrong in a louder way); with the
+    # pose corrected, the leftover gap is the only thing still visibly
+    # wrong.
+    #
+    # The panel as PLACED is already sitting correctly on the ground —
+    # `suburb_scene` places fences through `apply_placements`' own
+    # `ground_snap`. So its own lowest world point, measured BEFORE anything
+    # is re-authored, IS the local ground height, whatever `t[2]` happens to
+    # mean for this asset. Measuring it also makes the seat robust to the
+    # skid below: a panel that slides a metre keeps a ground reference taken
+    # from its own geometry rather than from a stale translate.
+    _pre = None
+    for _p in Usd.PrimRange(prim):
+        if not _p.IsA(UsdGeom.Mesh):
+            continue
+        _b = bake.world_point_bounds(_p, UsdGeom.XformCache(
+            Usd.TimeCode.Default()))
+        if _b is None:
+            continue
+        _pre = _b[0][2] if _pre is None else min(_pre, _b[0][2])
     ground_z_stage = (float(ground_z_m) * ssf if ground_z_m is not None
-                      else float(t[2]))
+                      else (_pre if _pre is not None else float(t[2])))
 
-    yaw = float(decision["yaw"])
-    axis = Gf.Vec3d(math.cos(math.radians(yaw)), math.sin(math.radians(yaw)),
-                    0.0)
+    # TWO DIFFERENT ANGLES, AND THEY ARE NOT THE SAME ONE (fixed 2026-09-01
+    # alongside `measure_fence`'s long-axis fix):
+    #
+    #   * the HINGE runs along the panel's own length, and that is
+    #     `decision["yaw"]` — which `measure_fence` now reports as the LONG
+    #     axis, correcting for whatever `yaw-offset` the asset declares.
+    #   * the PLACEMENT rotation is whatever `apply_placements` authored on
+    #     this prim, offset included. Rebuilding it from `decision["yaw"]`
+    #     was only ever correct while the two happened to coincide; now that
+    #     `measure_fence` reports the true long axis they differ by the
+    #     asset's offset, and reusing it here would re-yaw every panel 90 deg
+    #     off its boundary.
+    #
+    # So the placement half is read back off the PRIM, not reconstructed —
+    # and read back in FULL. The old code folded only Z, silently discarding
+    # any roll and pitch `apply_placements` had authored (its op is
+    # rotateXYZ, all three components); for an asset needing an up-axis
+    # correction that alone would drop a standing panel onto its side.
+    hinge_yaw = float(decision["yaw"])
+    axis = Gf.Vec3d(math.cos(math.radians(hinge_yaw)),
+                    math.sin(math.radians(hinge_yaw)), 0.0)
     lean_rot = Gf.Rotation(axis, float(decision["lean_deg"]))
-    yaw_rot = Gf.Rotation(Gf.Vec3d(0.0, 0.0, 1.0), yaw)
-    combined = lean_rot * yaw_rot
+    place = rot if rot is not None else Gf.Vec3f(0.0, 0.0, 0.0)
+    place_rot = (Gf.Rotation(Gf.Vec3d(0.0, 0.0, 1.0), float(place[2]))
+                 * Gf.Rotation(Gf.Vec3d(0.0, 1.0, 0.0), float(place[1]))
+                 * Gf.Rotation(Gf.Vec3d(1.0, 0.0, 0.0), float(place[0])))
+    # OPERAND ORDER: `Gf.Rotation.__mul__` composes LEFT-FIRST. Verified in
+    # this repo's own pxr rather than assumed, because this function's
+    # docstring asserted the opposite for as long as it has existed
+    # ("`Gf.Rotation`'s `*` performing the RIGHT operand first") and that
+    # claim is simply false:
+    #
+    #     (Gf.Rotation(Z,90) * Gf.Rotation(X,90)).TransformDir((1,0,0))
+    #        -> (0, 0, 1)      which is Z-then-X, i.e. LEFT applied first
+    #        -> (0, 1, 0)      is what right-first would have given
+    #
+    # So `lean_rot * place_rot` leaned the panel FIRST, while its geometry
+    # was still in its own unplaced local frame, using a hinge axis
+    # expressed in WORLD coordinates — a frame mismatch — and only then
+    # yawed it onto the boundary. Measured across four run bearings on the
+    # real 0.08 x 3.51 x 1.83 panel, the resulting world Z extent was
+    # 3.510 / 2.851 / 0.080 / 3.215 m at 0 / 37 / 90 / 205 deg: the panel
+    # ends up standing on its 3.51 m END at most bearings (the reported
+    # "on their short side"), and is only correct at 90 deg by coincidence.
+    # `place_rot * lean_rot` places first and then leans about the world
+    # axis, which is the intent, and gives a 0.08 m Z extent — the panel's
+    # own thickness, i.e. genuinely flat — at every bearing.
+    combined = place_rot * lean_rot
     q = combined.GetQuat()
     im = q.GetImaginary()
+
+    # THE SKID, along the fall azimuth (the bearing the panel goes DOWN
+    # toward, which `fence_specs` already records). Adjacent panels each
+    # draw their own, so a run that fails together still ends up lying
+    # ACROSS itself rather than in a tidy line — the "overlap" half of the
+    # report. Zero for a decision dict built before this existed, and zero
+    # when no azimuth was recorded, so no older caller changes.
+    _slide = float(decision.get("slide_m") or 0.0)
+    _az = decision.get("azimuth_deg")
+    if _slide and _az is not None:
+        _ar = math.radians(float(_az))
+        t = Gf.Vec3d(float(t[0]) + math.cos(_ar) * _slide * ssf,
+                     float(t[1]) + math.sin(_ar) * _slide * ssf,
+                     float(t[2]))
 
     def _apply(tz):
         xf.SetXformOpOrder([])

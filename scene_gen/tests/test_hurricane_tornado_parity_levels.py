@@ -51,12 +51,17 @@ STRUCTURAL = ("roof_collapsed", "partial_collapse", "leveled")
 
 # Target bands from the master brief -- see `hurricane.py`'s
 # `_TORNADO_LEVEL_CUTS` comment for the fit that hits them.
+# RE-CUT 2026-09-01, user doctrine (live review): "Tornado and hurricane are
+# both largely wind damage. Besides directionality the damage is similar."
+# The survey-conservative structural share is overridden by design intent:
+# a tornado-like damage mix, scattered by the hurricane field. `swept`
+# remains surge-only at every level.
 TARGETS = {
-    "L2": {"pristine": (0.55, 0.65), "roof_stripped": (0.30, 0.40),
-          "structural_max": 0.05},
-    "L3": {"pristine": (0.25, 0.35), "roof_stripped": (0.45, 0.55),
-          "roof_collapsed": (0.08, 0.12), "partial_collapse": (0.03, 0.05),
-          "leveled_max": 0.02},
+    "L2": {"pristine": (0.45, 0.65), "roof_stripped": (0.30, 0.45),
+          "structural_max": 0.10},
+    "L3": {"pristine": (0.20, 0.30), "roof_stripped": (0.38, 0.48),
+          "roof_collapsed": (0.13, 0.20), "partial_collapse": (0.05, 0.10),
+          "leveled_max": 0.08},
 }
 
 

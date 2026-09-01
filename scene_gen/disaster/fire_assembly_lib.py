@@ -441,6 +441,18 @@ def load_dump_positions(path):
     cannot get a street bias falls back to the original unweighted
     round-robin (`street_side_ranks` below returns `{}` too), it does not
     fail the build over a missing/stale dump path.
+
+    `x_m_orig`/`y_m_orig` WIN OVER `x_m`/`y_m` WHEN PRESENT — `tools/
+    fc_dump_crop.py`'s own additive fields, the FULL-CITY position a
+    cropped dump's `x_m`/`y_m` were re-centred FROM. A caller of this
+    function (`urban_fire_city_launch_script.put_the_fire_back`'s street-
+    facing bias, and `capture`'s oblique-camera occluder list) compares
+    these positions against a manifest record's own coordinate, which that
+    launcher keeps in the FULL-CITY frame throughout (see its own
+    `FC_CROP_WINDOW` docstring — the stage is never translated) — so this
+    function has to return the same frame, not whatever frame the dump file
+    happens to be in. Absent on an ordinary (uncropped) dump, so `x_m_orig
+    == x_m` there and this is a pure no-op.
     """
     try:
         with open(path) as fh:
@@ -450,7 +462,9 @@ def load_dump_positions(path):
             i = p.get("i")
             if i is None:
                 continue
-            out[int(i)] = {"x": float(p["x_m"]), "y": float(p["y_m"]),
+            x = float(p["x_m_orig"]) if "x_m_orig" in p else float(p["x_m"])
+            y = float(p["y_m_orig"]) if "y_m_orig" in p else float(p["y_m"])
+            out[int(i)] = {"x": x, "y": y,
                            "W": float(p.get("W") or 1.0),
                            "D": float(p.get("D") or 1.0),
                            "H": float(p.get("H") or 0.0),

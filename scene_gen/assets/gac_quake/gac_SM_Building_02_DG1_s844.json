@@ -1,0 +1,145 @@
+{
+ "bbox": [
+  -13.989446640014648,
+  -7.210000038146973,
+  3.469446951953614e-18,
+  13.989446640014648,
+  7.210000038146973,
+  39.04815877427648
+ ],
+ "cell": "/World/bake/g27",
+ "counts": {
+  "authored": 6,
+  "loose": 6,
+  "pieces": 239,
+  "prims": 1351,
+  "static": 319,
+  "usd_mb": 4.26
+ },
+ "default_prim": "/World",
+ "index": 27,
+ "kind": "gac",
+ "level": "DG1",
+ "name": "SM_Building_02",
+ "notes": [
+  "[qgac] roof_plant reseated (per-footprint): 6 piece(s) moved -1.03..-1.03 m",
+  "glass_loss: 1 pane(s) voided, 14 % of storeys 7-10 on S",
+  "roof_plant: 6 dropped to physics, 0 buried"
+ ],
+ "quake": {
+  "btype": "urm",
+  "crown_m": 0.0,
+  "extent_m": {},
+  "fall_sides": [],
+  "grade": "DG1",
+  "plan": {
+   "H": 39.160000000000004,
+   "btype": "urm",
+   "collapse": null,
+   "displaced": {},
+   "fit_ops": [],
+   "glass": [
+    "/World/bake/g27/pieces/wall_S_4_07_0145"
+   ],
+   "glass_bands": [
+    {
+     "frac": 0.13827652794506387,
+     "n": 1,
+     "sides": [
+      "S"
+     ],
+     "storeys": [
+      7,
+      8,
+      9,
+      10
+     ]
+    }
+   ],
+   "grade": "DG1",
+   "ground": null,
+   "interior": {
+    "sides": [],
+    "storeys": []
+   },
+   "macroblocks": [],
+   "notes": [
+    "glass_loss: 1 pane(s) voided, 14 % of storeys 7-10 on S"
+   ],
+   "panels": [],
+   "piles": [],
+   "recipes": [
+    [
+     "glass_loss",
+     {
+      "frac": [
+       0.05,
+       0.15
+      ],
+      "sides": 1
+     }
+    ]
+   ],
+   "regions": [],
+   "removed": [],
+   "stats": {
+    "n_displaced": 0,
+    "n_glass": 1,
+    "n_macroblocks": 0,
+    "n_panels": 0,
+    "n_pieces": 239,
+    "n_piles": 0,
+    "n_removed": 0,
+    "n_storeys": 12,
+    "n_sub": 3,
+    "n_tears": 0,
+    "n_tears_dropped": 0,
+    "removed_frac": 0.0
+   },
+   "storey_collapse": null,
+   "stub": null,
+   "style": "gac_SM_Building_02",
+   "tear_scope": {},
+   "tears": []
+  }
+ },
+ "rehome": {
+  "failed": 0,
+  "needed": 14,
+  "pruned": 0,
+  "rebound": 498,
+  "rehomed": 14
+ },
+ "root": "/World/bake",
+ "schema": 1,
+ "seed": 844,
+ "settle": {
+  "airborne_off": 0,
+  "baked": 6,
+  "below_grade": 0,
+  "bodies": 6,
+  "clamped": 0,
+  "converged": true,
+  "moved_max": 0.09272711015395182,
+  "moved_mean": 0.03446026612070983,
+  "quiet_used": 50,
+  "rescued": 0,
+  "solve_s": 0.718364953994751,
+  "spread_max": 0.008848482100339379,
+  "steps_cap": 7200,
+  "steps_used": 400,
+  "still_moving": 0,
+  "still_moving_paths": [],
+  "stop_reason": "rest"
+ },
+ "src_kept": false,
+ "tag": "g27",
+ "timings": {
+  "build_s": 15.7,
+  "export_s": 0.2,
+  "settle_s": 0.9,
+  "total_s": 21.1
+ },
+ "top_z": 39.04815877427648,
+ "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_02_DG1_s844.usd"
+}

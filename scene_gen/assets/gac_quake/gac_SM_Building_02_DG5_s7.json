@@ -1,0 +1,506 @@
+{
+ "bbox": [
+  -32.33255386352539,
+  -21.101505279541016,
+  -5.117271900177002,
+  22.950153350830078,
+  18.94935417175293,
+  11.012603759765625
+ ],
+ "cell": "/World/bake/g0",
+ "counts": {
+  "authored": 58,
+  "loose": 6,
+  "pieces": 239,
+  "prims": 1366,
+  "static": 62,
+  "usd_mb": 6.04
+ },
+ "default_prim": "/World",
+ "index": 0,
+ "kind": "gac",
+ "level": "DG5",
+ "name": "SM_Building_02",
+ "notes": [
+  "[qgac] roof_plant reseated (per-footprint): 7 piece(s) moved -1.03..-1.03 m",
+  "masonry_collapse: 214 piece(s) down, 4 panel(s) laid on the mound, stub kept on E/N (2.5 m standing, trim to 2.2 m), dome over the footprint falling toward S/W (crown ~11.0 m)",
+  "roof_plant: 6 dropped to physics, 1 buried"
+ ],
+ "quake": {
+  "btype": "urm",
+  "crown_m": 5.72,
+  "extent_m": {
+   "E": 9.35,
+   "N": 9.35,
+   "S": 11.71,
+   "W": 16.93
+  },
+  "fall_sides": [
+   "S",
+   "W"
+  ],
+  "grade": "DG5",
+  "plan": {
+   "H": 39.160000000000004,
+   "btype": "urm",
+   "collapse": {
+    "fall_sides": [
+     "S",
+     "W"
+    ],
+    "kind": "masonry_collapse",
+    "n_panels": 4,
+    "n_removed": 214,
+    "stub": true
+   },
+   "displaced": {},
+   "fit_ops": [
+    {
+     "mass": "main",
+     "op": "deactivate_slabs"
+    },
+    {
+     "mass": "main",
+     "op": "deactivate_columns"
+    },
+    {
+     "mass": "main",
+     "op": "deactivate_partitions",
+     "storeys": null
+    },
+    {
+     "base_z": 0.0,
+     "heap_h": 10.964800000000002,
+     "mass": "main",
+     "op": "bury_props",
+     "storeys": null
+    }
+   ],
+   "glass": [],
+   "glass_bands": [],
+   "grade": "DG5",
+   "ground": null,
+   "interior": {
+    "sides": [],
+    "storeys": []
+   },
+   "macroblocks": [],
+   "notes": [
+    "masonry_collapse: 214 piece(s) down, 4 panel(s) laid on the mound, stub kept on E/N (2.5 m standing, trim to 2.2 m), dome over the footprint falling toward S/W (crown ~11.0 m)"
+   ],
+   "panels": [
+    [
+     "/World/bake/g0/pieces/parapet_E_1_11_0236",
+     [
+      0.6054685328686755,
+      4.8364800855401295,
+      0.5056840512847884
+     ]
+    ],
+    [
+     "/World/bake/g0/pieces/wall_N_4_10_0207",
+     [
+      5.672374239984308,
+      0.3132921427742259,
+      3.559999986313585
+     ]
+    ],
+    [
+     "/World/bake/g0/pieces/wall_S_4_10_0201",
+     [
+      5.672374258695321,
+      0.24826655337393433,
+      3.5600000200557247
+     ]
+    ],
+    [
+     "/World/bake/g0/pieces/wall_W_1_08_0172",
+     [
+      0.30080321593277404,
+      4.836480136382509,
+      3.5600000084426497
+     ]
+    ]
+   ],
+   "piles": [
+    {
+     "along": null,
+     "authored": {
+      "n_all": 51,
+      "n_static": 47
+     },
+     "base_z": 0.0,
+     "crown_est_m": 10.964800000000002,
+     "crown_m": null,
+     "depth_m": null,
+     "elem_h_m": null,
+     "fit": [],
+     "kind": "dome",
+     "mass": "main",
+     "offset_m": 0.0,
+     "panels": [
+      [
+       "/World/bake/g0/pieces/wall_S_4_10_0201",
+       [
+        5.672374258695321,
+        0.24826655337393433,
+        3.5600000200557247
+       ]
+      ],
+      [
+       "/World/bake/g0/pieces/wall_W_1_08_0172",
+       [
+        0.30080321593277404,
+        4.836480136382509,
+        3.5600000084426497
+       ]
+      ],
+      [
+       "/World/bake/g0/pieces/parapet_E_1_11_0236",
+       [
+        0.6054685328686755,
+        4.8364800855401295,
+        0.5056840512847884
+       ]
+      ],
+      [
+       "/World/bake/g0/pieces/wall_N_4_10_0207",
+       [
+        5.672374239984308,
+        0.3132921427742259,
+        3.559999986313585
+       ]
+      ]
+     ],
+     "sides": [
+      "S",
+      "W"
+     ],
+     "spread_est": 0.27,
+     "spread_frac": null,
+     "stub_h_m": 2.477039950899211,
+     "tag": "masonry_collapse"
+    }
+   ],
+   "recipes": [
+    [
+     "masonry_collapse",
+     {}
+    ]
+   ],
+   "regions": [],
+   "removed": [
+    "/World/bake/g0/pieces/core_x_0_01_0043",
+    "/World/bake/g0/pieces/core_x_0_02_0066",
+    "/World/bake/g0/pieces/core_x_0_03_0084",
+    "/World/bake/g0/pieces/core_x_0_04_0102",
+    "/World/bake/g0/pieces/core_x_0_05_0120",
+    "/World/bake/g0/pieces/core_x_0_06_0138",
+    "/World/bake/g0/pieces/core_x_0_07_0156",
+    "/World/bake/g0/pieces/core_x_0_08_0174",
+    "/World/bake/g0/pieces/core_x_0_09_0192",
+    "/World/bake/g0/pieces/core_x_0_10_0215",
+    "/World/bake/g0/pieces/corner_NE_0_01_0024",
+    "/World/bake/g0/pieces/corner_NE_0_02_0047",
+    "/World/bake/g0/pieces/corner_NE_0_10_0196",
+    "/World/bake/g0/pieces/corner_NW_0_01_0023",
+    "/World/bake/g0/pieces/corner_NW_0_02_0046",
+    "/World/bake/g0/pieces/corner_NW_0_03_0068",
+    "/World/bake/g0/pieces/corner_NW_0_04_0086",
+    "/World/bake/g0/pieces/corner_NW_0_05_0104",
+    "/World/bake/g0/pieces/corner_NW_0_06_0122",
+    "/World/bake/g0/pieces/corner_NW_0_07_0140",
+    "/World/bake/g0/pieces/corner_NW_0_08_0158",
+    "/World/bake/g0/pieces/corner_NW_0_09_0176",
+    "/World/bake/g0/pieces/corner_NW_0_10_0195",
+    "/World/bake/g0/pieces/corner_SE_0_01_0022",
+    "/World/bake/g0/pieces/corner_SE_0_02_0045",
+    "/World/bake/g0/pieces/corner_SE_0_10_0194",
+    "/World/bake/g0/pieces/corner_SW_0_00_0000",
+    "/World/bake/g0/pieces/corner_SW_0_01_0021",
+    "/World/bake/g0/pieces/corner_SW_0_02_0044",
+    "/World/bake/g0/pieces/corner_SW_0_03_0067",
+    "/World/bake/g0/pieces/corner_SW_0_04_0085",
+    "/World/bake/g0/pieces/corner_SW_0_05_0103",
+    "/World/bake/g0/pieces/corner_SW_0_06_0121",
+    "/World/bake/g0/pieces/corner_SW_0_07_0139",
+    "/World/bake/g0/pieces/corner_SW_0_08_0157",
+    "/World/bake/g0/pieces/corner_SW_0_09_0175",
+    "/World/bake/g0/pieces/corner_SW_0_10_0193",
+    "/World/bake/g0/pieces/parapet_E_0_11_0235",
+    "/World/bake/g0/pieces/parapet_E_2_11_0237",
+    "/World/bake/g0/pieces/parapet_N_0_11_0226",
+    "/World/bake/g0/pieces/parapet_N_1_11_0227",
+    "/World/bake/g0/pieces/parapet_N_2_11_0228",
+    "/World/bake/g0/pieces/parapet_N_3_11_0229",
+    "/World/bake/g0/pieces/parapet_N_4_11_0230",
+    "/World/bake/g0/pieces/parapet_N_5_11_0231",
+    "/World/bake/g0/pieces/parapet_S_0_11_0220",
+    "/World/bake/g0/pieces/parapet_S_1_11_0221",
+    "/World/bake/g0/pieces/parapet_S_2_11_0222",
+    "/World/bake/g0/pieces/parapet_S_3_11_0223",
+    "/World/bake/g0/pieces/parapet_S_4_11_0224",
+    "/World/bake/g0/pieces/parapet_S_5_11_0225",
+    "/World/bake/g0/pieces/parapet_W_0_11_0232",
+    "/World/bake/g0/pieces/parapet_W_1_11_0233",
+    "/World/bake/g0/pieces/parapet_W_2_11_0234",
+    "/World/bake/g0/pieces/parapet_corner_NE_0_11_0219",
+    "/World/bake/g0/pieces/parapet_corner_NW_0_11_0218",
+    "/World/bake/g0/pieces/parapet_corner_SE_0_11_0217",
+    "/World/bake/g0/pieces/parapet_corner_SW_0_11_0216",
+    "/World/bake/g0/pieces/pier_E_0_01_0040",
+    "/World/bake/g0/pieces/pier_E_0_02_0063",
+    "/World/bake/g0/pieces/pier_E_0_10_0212",
+    "/World/bake/g0/pieces/pier_E_2_01_0042",
+    "/World/bake/g0/pieces/pier_E_2_02_0065",
+    "/World/bake/g0/pieces/pier_E_2_10_0214",
+    "/World/bake/g0/pieces/pier_N_0_01_0031",
+    "/World/bake/g0/pieces/pier_N_0_02_0054",
+    "/World/bake/g0/pieces/pier_N_0_03_0075",
+    "/World/bake/g0/pieces/pier_N_0_04_0093",
+    "/World/bake/g0/pieces/pier_N_0_05_0111",
+    "/World/bake/g0/pieces/pier_N_0_06_0129",
+    "/World/bake/g0/pieces/pier_N_0_07_0147",
+    "/World/bake/g0/pieces/pier_N_0_08_0165",
+    "/World/bake/g0/pieces/pier_N_0_09_0183",
+    "/World/bake/g0/pieces/pier_N_0_10_0203",
+    "/World/bake/g0/pieces/pier_N_2_01_0033",
+    "/World/bake/g0/pieces/pier_N_2_02_0056",
+    "/World/bake/g0/pieces/pier_N_2_03_0077",
+    "/World/bake/g0/pieces/pier_N_2_04_0095",
+    "/World/bake/g0/pieces/pier_N_2_05_0113",
+    "/World/bake/g0/pieces/pier_N_2_06_0131",
+    "/World/bake/g0/pieces/pier_N_2_07_0149",
+    "/World/bake/g0/pieces/pier_N_2_08_0167",
+    "/World/bake/g0/pieces/pier_N_2_09_0185",
+    "/World/bake/g0/pieces/pier_N_2_10_0205",
+    "/World/bake/g0/pieces/pier_N_3_01_0034",
+    "/World/bake/g0/pieces/pier_N_3_02_0057",
+    "/World/bake/g0/pieces/pier_N_3_03_0078",
+    "/World/bake/g0/pieces/pier_N_3_04_0096",
+    "/World/bake/g0/pieces/pier_N_3_05_0114",
+    "/World/bake/g0/pieces/pier_N_3_06_0132",
+    "/World/bake/g0/pieces/pier_N_3_07_0150",
+    "/World/bake/g0/pieces/pier_N_3_08_0168",
+    "/World/bake/g0/pieces/pier_N_3_09_0186",
+    "/World/bake/g0/pieces/pier_N_3_10_0206",
+    "/World/bake/g0/pieces/pier_N_5_01_0036",
+    "/World/bake/g0/pieces/pier_N_5_02_0059",
+    "/World/bake/g0/pieces/pier_N_5_03_0080",
+    "/World/bake/g0/pieces/pier_N_5_04_0098",
+    "/World/bake/g0/pieces/pier_N_5_05_0116",
+    "/World/bake/g0/pieces/pier_N_5_06_0134",
+    "/World/bake/g0/pieces/pier_N_5_07_0152",
+    "/World/bake/g0/pieces/pier_N_5_08_0170",
+    "/World/bake/g0/pieces/pier_N_5_09_0188",
+    "/World/bake/g0/pieces/pier_N_5_10_0208",
+    "/World/bake/g0/pieces/pier_S_0_01_0025",
+    "/World/bake/g0/pieces/pier_S_0_02_0048",
+    "/World/bake/g0/pieces/pier_S_0_03_0069",
+    "/World/bake/g0/pieces/pier_S_0_04_0087",
+    "/World/bake/g0/pieces/pier_S_0_05_0105",
+    "/World/bake/g0/pieces/pier_S_0_06_0123",
+    "/World/bake/g0/pieces/pier_S_0_07_0141",
+    "/World/bake/g0/pieces/pier_S_0_08_0159",
+    "/World/bake/g0/pieces/pier_S_0_09_0177",
+    "/World/bake/g0/pieces/pier_S_0_10_0197",
+    "/World/bake/g0/pieces/pier_S_2_01_0027",
+    "/World/bake/g0/pieces/pier_S_2_02_0050",
+    "/World/bake/g0/pieces/pier_S_2_03_0071",
+    "/World/bake/g0/pieces/pier_S_2_04_0089",
+    "/World/bake/g0/pieces/pier_S_2_05_0107",
+    "/World/bake/g0/pieces/pier_S_2_06_0125",
+    "/World/bake/g0/pieces/pier_S_2_07_0143",
+    "/World/bake/g0/pieces/pier_S_2_08_0161",
+    "/World/bake/g0/pieces/pier_S_2_09_0179",
+    "/World/bake/g0/pieces/pier_S_2_10_0199",
+    "/World/bake/g0/pieces/pier_S_3_01_0028",
+    "/World/bake/g0/pieces/pier_S_3_02_0051",
+    "/World/bake/g0/pieces/pier_S_3_03_0072",
+    "/World/bake/g0/pieces/pier_S_3_04_0090",
+    "/World/bake/g0/pieces/pier_S_3_05_0108",
+    "/World/bake/g0/pieces/pier_S_3_06_0126",
+    "/World/bake/g0/pieces/pier_S_3_07_0144",
+    "/World/bake/g0/pieces/pier_S_3_08_0162",
+    "/World/bake/g0/pieces/pier_S_3_09_0180",
+    "/World/bake/g0/pieces/pier_S_3_10_0200",
+    "/World/bake/g0/pieces/pier_S_5_00_0009",
+    "/World/bake/g0/pieces/pier_S_5_01_0030",
+    "/World/bake/g0/pieces/pier_S_5_02_0053",
+    "/World/bake/g0/pieces/pier_S_5_03_0074",
+    "/World/bake/g0/pieces/pier_S_5_04_0092",
+    "/World/bake/g0/pieces/pier_S_5_05_0110",
+    "/World/bake/g0/pieces/pier_S_5_06_0128",
+    "/World/bake/g0/pieces/pier_S_5_07_0146",
+    "/World/bake/g0/pieces/pier_S_5_08_0164",
+    "/World/bake/g0/pieces/pier_S_5_09_0182",
+    "/World/bake/g0/pieces/pier_S_5_10_0202",
+    "/World/bake/g0/pieces/pier_W_0_00_0016",
+    "/World/bake/g0/pieces/pier_W_0_01_0037",
+    "/World/bake/g0/pieces/pier_W_0_02_0060",
+    "/World/bake/g0/pieces/pier_W_0_03_0081",
+    "/World/bake/g0/pieces/pier_W_0_04_0099",
+    "/World/bake/g0/pieces/pier_W_0_05_0117",
+    "/World/bake/g0/pieces/pier_W_0_06_0135",
+    "/World/bake/g0/pieces/pier_W_0_07_0153",
+    "/World/bake/g0/pieces/pier_W_0_08_0171",
+    "/World/bake/g0/pieces/pier_W_0_09_0189",
+    "/World/bake/g0/pieces/pier_W_0_10_0209",
+    "/World/bake/g0/pieces/pier_W_2_01_0039",
+    "/World/bake/g0/pieces/pier_W_2_02_0062",
+    "/World/bake/g0/pieces/pier_W_2_03_0083",
+    "/World/bake/g0/pieces/pier_W_2_04_0101",
+    "/World/bake/g0/pieces/pier_W_2_05_0119",
+    "/World/bake/g0/pieces/pier_W_2_06_0137",
+    "/World/bake/g0/pieces/pier_W_2_07_0155",
+    "/World/bake/g0/pieces/pier_W_2_08_0173",
+    "/World/bake/g0/pieces/pier_W_2_09_0191",
+    "/World/bake/g0/pieces/pier_W_2_10_0211",
+    "/World/bake/g0/pieces/roof_x_0_11_0238",
+    "/World/bake/g0/pieces/wall_E_1_01_0041",
+    "/World/bake/g0/pieces/wall_E_1_02_0064",
+    "/World/bake/g0/pieces/wall_E_1_10_0213",
+    "/World/bake/g0/pieces/wall_N_1_01_0032",
+    "/World/bake/g0/pieces/wall_N_1_02_0055",
+    "/World/bake/g0/pieces/wall_N_1_03_0076",
+    "/World/bake/g0/pieces/wall_N_1_04_0094",
+    "/World/bake/g0/pieces/wall_N_1_05_0112",
+    "/World/bake/g0/pieces/wall_N_1_06_0130",
+    "/World/bake/g0/pieces/wall_N_1_07_0148",
+    "/World/bake/g0/pieces/wall_N_1_08_0166",
+    "/World/bake/g0/pieces/wall_N_1_09_0184",
+    "/World/bake/g0/pieces/wall_N_1_10_0204",
+    "/World/bake/g0/pieces/wall_N_4_01_0035",
+    "/World/bake/g0/pieces/wall_N_4_02_0058",
+    "/World/bake/g0/pieces/wall_N_4_03_0079",
+    "/World/bake/g0/pieces/wall_N_4_04_0097",
+    "/World/bake/g0/pieces/wall_N_4_05_0115",
+    "/World/bake/g0/pieces/wall_N_4_06_0133",
+    "/World/bake/g0/pieces/wall_N_4_07_0151",
+    "/World/bake/g0/pieces/wall_N_4_08_0169",
+    "/World/bake/g0/pieces/wall_N_4_09_0187",
+    "/World/bake/g0/pieces/wall_S_1_00_0005",
+    "/World/bake/g0/pieces/wall_S_1_01_0026",
+    "/World/bake/g0/pieces/wall_S_1_02_0049",
+    "/World/bake/g0/pieces/wall_S_1_03_0070",
+    "/World/bake/g0/pieces/wall_S_1_04_0088",
+    "/World/bake/g0/pieces/wall_S_1_05_0106",
+    "/World/bake/g0/pieces/wall_S_1_06_0124",
+    "/World/bake/g0/pieces/wall_S_1_07_0142",
+    "/World/bake/g0/pieces/wall_S_1_08_0160",
+    "/World/bake/g0/pieces/wall_S_1_09_0178",
+    "/World/bake/g0/pieces/wall_S_1_10_0198",
+    "/World/bake/g0/pieces/wall_S_4_00_0008",
+    "/World/bake/g0/pieces/wall_S_4_01_0029",
+    "/World/bake/g0/pieces/wall_S_4_02_0052",
+    "/World/bake/g0/pieces/wall_S_4_03_0073",
+    "/World/bake/g0/pieces/wall_S_4_04_0091",
+    "/World/bake/g0/pieces/wall_S_4_05_0109",
+    "/World/bake/g0/pieces/wall_S_4_06_0127",
+    "/World/bake/g0/pieces/wall_S_4_07_0145",
+    "/World/bake/g0/pieces/wall_S_4_08_0163",
+    "/World/bake/g0/pieces/wall_S_4_09_0181",
+    "/World/bake/g0/pieces/wall_W_1_00_0017",
+    "/World/bake/g0/pieces/wall_W_1_01_0038",
+    "/World/bake/g0/pieces/wall_W_1_02_0061",
+    "/World/bake/g0/pieces/wall_W_1_03_0082",
+    "/World/bake/g0/pieces/wall_W_1_04_0100",
+    "/World/bake/g0/pieces/wall_W_1_05_0118",
+    "/World/bake/g0/pieces/wall_W_1_06_0136",
+    "/World/bake/g0/pieces/wall_W_1_07_0154",
+    "/World/bake/g0/pieces/wall_W_1_09_0190",
+    "/World/bake/g0/pieces/wall_W_1_10_0210"
+   ],
+   "stats": {
+    "n_displaced": 0,
+    "n_glass": 0,
+    "n_macroblocks": 0,
+    "n_panels": 4,
+    "n_pieces": 239,
+    "n_piles": 1,
+    "n_removed": 220,
+    "n_storeys": 12,
+    "n_sub": 3,
+    "n_tears": 0,
+    "n_tears_dropped": 0,
+    "removed_frac": 0.9205020920502092
+   },
+   "storey_collapse": null,
+   "stub": {
+    "height_m": 2.477039950899211,
+    "keep": true,
+    "kept": [
+     "/World/bake/g0/pieces/core_x_0_00_0020",
+     "/World/bake/g0/pieces/corner_NE_0_00_0003",
+     "/World/bake/g0/pieces/corner_NW_0_00_0002",
+     "/World/bake/g0/pieces/corner_SE_0_00_0001",
+     "/World/bake/g0/pieces/pier_N_0_00_0010",
+     "/World/bake/g0/pieces/pier_N_2_00_0012",
+     "/World/bake/g0/pieces/pier_N_3_00_0013",
+     "/World/bake/g0/pieces/pier_N_5_00_0015",
+     "/World/bake/g0/pieces/pier_S_0_00_0004",
+     "/World/bake/g0/pieces/pier_S_2_00_0006",
+     "/World/bake/g0/pieces/pier_S_3_00_0007",
+     "/World/bake/g0/pieces/pier_W_2_00_0018",
+     "/World/bake/g0/pieces/wall_E_1_00_0019",
+     "/World/bake/g0/pieces/wall_N_1_00_0011",
+     "/World/bake/g0/pieces/wall_N_4_00_0014"
+    ],
+    "note": "cut the stub down to residual_m once a clipped shell can be fractured (work package H)",
+    "residual_m": 2.231558440806999,
+    "sides_kept": [
+     "E",
+     "N"
+    ],
+    "sides_lost": [
+     "S",
+     "W"
+    ],
+    "storey": 0,
+    "top_z": 2.477039950899211
+   },
+   "style": "gac_SM_Building_02",
+   "tear_scope": {},
+   "tears": []
+  }
+ },
+ "rehome": {
+  "failed": 0,
+  "needed": 14,
+  "pruned": 0,
+  "rebound": 48,
+  "rehomed": 14
+ },
+ "root": "/World/bake",
+ "schema": 1,
+ "seed": 7,
+ "settle": {
+  "airborne_off": 10,
+  "baked": 6,
+  "below_grade": 0,
+  "bodies": 6,
+  "clamped": 0,
+  "converged": true,
+  "moved_max": 35.35044696219953,
+  "moved_mean": 33.27858302758944,
+  "quiet_used": 250,
+  "rescued": 0,
+  "solve_s": 2.072333335876465,
+  "spread_max": 3.2437345958049235,
+  "steps_cap": 7200,
+  "steps_used": 1400,
+  "still_moving": 0,
+  "still_moving_paths": [],
+  "stop_reason": "rest"
+ },
+ "src_kept": false,
+ "tag": "g0",
+ "timings": {
+  "build_s": 16.9,
+  "export_s": 0.2,
+  "settle_s": 2.1,
+  "total_s": 23.8
+ },
+ "top_z": 11.012603759765625,
+ "usd": "/isaac-sim/AirStack/scene_gen/assets/gac_quake/gac_SM_Building_02_DG5_s7.usd"
+}
