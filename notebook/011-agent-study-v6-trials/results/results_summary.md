@@ -94,7 +94,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 34 | A2 / claude-opus-5 / #5 | **R8** (full ladder) | 12 / 20 | 1 h 43 m | $20.45 | Zero failures; triple-verified R7 before stopping. A2/opus cell final: 5/5 R8. |
 | 35 | A3 / claude-sonnet-5 / #5 | **NULL** (0 rungs) | 18 / 20 | 3 h 00 m | $35.68 | Never cleared R4 in-session (7 R4 fails + 2 R5 fails after R3); stopped with 2 calls left; final state fails everything. A3/sonnet cell final: R6,R6,NULL,NULL,NULL. |
 | 36 | A4 / claude-opus-5 / #5 | **R3** | 0 / 0 (open loop) | 58 min | $18.79 | Shortest session of the campaign; planner not persisted. A4/opus cell final: R8,R3,R5,R8,R3. |
-| 37 | A1 / claude-opus-5 / #5 | — running | — | — | — | Started 2026-09-01 14:36 UTC. |
+| 37 | A1 / claude-opus-5 / #5 | **R6** | 10 / 20 | 2 h 23 m | $16.00 | Opened with a direct R7 pass, verified every rung (incl. R7 ×3), but the scoring R7 flight on a FRESH eval route lost corridor order — a genuine fresh-route generalization failure (not persistence). A1/opus cell final: R8×4,R6. |
+| 38 | A2 / claude-sonnet-5 / #5 | — running | — | — | — | Started 2026-09-01 17:08 UTC. |
 
 ### Round-4 synthesis (32 trials, 4 per cell, 2026-09-01)
 
