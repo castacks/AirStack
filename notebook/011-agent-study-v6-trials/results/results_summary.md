@@ -92,7 +92,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 32 | A4 / claude-sonnet-5 / #4 | **R3** | 0 / 0 (open loop) | 1 h 25 m | $16.86 | Stack flies but planner not persisted — the recurring open-loop failure mode. |
 | 33 | A1 / claude-sonnet-5 / #5 | **R5** | 8 / 20 | 1 h 37 m | $7.97 | A1's first sub-ceiling score. Flawless 8-for-8 in-session climb (R1–R8), but the final state boots ALPHA (R5 pass, 0.05 m) with no beta node — swap-not-persisted reaches the scaffolded arm (1/9 A1 trials vs 2/4 A2/son). Not a flake: both scoring bring-ups healthy, planner simply absent. |
 | 34 | A2 / claude-opus-5 / #5 | **R8** (full ladder) | 12 / 20 | 1 h 43 m | $20.45 | Zero failures; triple-verified R7 before stopping. A2/opus cell final: 5/5 R8. |
-| 35 | A3 / claude-sonnet-5 / #5 | — running | — | — | — | Started 2026-09-01 09:39 UTC. |
+| 35 | A3 / claude-sonnet-5 / #5 | **NULL** (0 rungs) | 18 / 20 | 3 h 00 m | $35.68 | Never cleared R4 in-session (7 R4 fails + 2 R5 fails after R3); stopped with 2 calls left; final state fails everything. A3/sonnet cell final: R6,R6,NULL,NULL,NULL. |
+| 36 | A4 / claude-opus-5 / #5 | — running | — | — | — | Started 2026-09-01 13:09 UTC. |
 
 ### Round-4 synthesis (32 trials, 4 per cell, 2026-09-01)
 
