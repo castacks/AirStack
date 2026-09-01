@@ -118,6 +118,19 @@ the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
 
+### 2026-09-01 — Round 4 complete (4/cell): model×scaffolding interaction emerges
+
+Cumulative (entry [011](011-agent-study-v6-trials/results/results_summary.md)):
+**A1 R8×8 · A2/opus R8×4 vs A2/son R8,R5,R6,R5 · A3 R6×5,R3,NULL×2 ·
+A4/opus R8,R3,R5,R8 vs A4/son NULL,R6,R8,R3.** New finding: the
+**scaffolding×model interaction** — opus holds the ceiling without
+scaffolding (A2/opus 4/4 R8), sonnet does not (A2/son 1/4) despite
+being 4/4 WITH it (A1/son) — scaffolding matters most for the smaller
+model. Failure taxonomy stabilized: swap-not-persisted (A2/son, A4),
+R7-chase self-destruction (A3/son ×2), time-capped assembly (A3/opus);
+all three absent in A1 (8/8 R8). Round 5 (final, → 5/cell = 40
+trials) started.
+
 ### 2026-08-31 — Round 3 complete (3/cell): A1's zero-variance ceiling vs everyone else's spread
 
 Cumulative (entry [011](011-agent-study-v6-trials/results/results_summary.md)):

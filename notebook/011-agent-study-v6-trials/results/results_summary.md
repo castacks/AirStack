@@ -89,7 +89,26 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 29 | A1 / claude-opus-5 / #4 | **R8** (full ladder) | 6 / 20 | 1 h 31 m | $15.76 | Six clean calls; R7+R8 blind at scoring. A1 8/8. |
 | 30 | A2 / claude-sonnet-5 / #4 | **R5** | 8 / 20 | 3 h 54 m | $18.49 | Slow 3 h before first judge call (long self-validation + several 20-min command timeouts; transcript shows NO API-lapse impact — 0 error events). In-session reached R7-fail; final state flies alpha (1.19 m) but no working beta — swap persistence failure again. A2/sonnet R8,R5,R6,R5 vs A2/opus R8×4: clean model split within the ablated arm. |
 | 31 | A3 / claude-opus-5 / #4 | **R6** | 12 / 20 | 3 h 21 m | $41.28 | Costliest trial of the campaign. ~2 h to R1, then steady; consolidated R6, no in-session R7 attempt. Ops: agent used a variant container name (study-a3-ros) that evaded standard teardown — swept post-trial. |
-| 32 | A4 / claude-sonnet-5 / #4 | — running | — | — | — | Started 2026-09-01 04:05 UTC. Closes round 4. |
+| 32 | A4 / claude-sonnet-5 / #4 | **R3** | 0 / 0 (open loop) | 1 h 25 m | $16.86 | Stack flies but planner not persisted — the recurring open-loop failure mode. |
+| 33 | A1 / claude-sonnet-5 / #5 | — running | — | — | — | Started 2026-09-01 05:53 UTC. Final round begins. |
+
+### Round-4 synthesis (32 trials, 4 per cell, 2026-09-01)
+
+Cumulative: **A1 R8×8 · A2/opus R8×4 vs A2/son R8,R5,R6,R5 ·
+A3 R6×5,R3,NULL×2 · A4/opus R8,R3,R5,R8 vs A4/son NULL,R6,R8,R3.**
+
+- **A1 remains perfect (8/8 R8)** — no other cell is.
+- **Within-A2 model split is now the sharpest secondary finding**:
+  opus 4/4 R8 without scaffolding vs sonnet 1/4 — scaffolding appears
+  to matter more for the smaller model (A1/sonnet is 4/4). Same
+  direction in A4 means/medians (opus ~R6.0, sonnet ~R4.7).
+- **A3: 8/8 capped ≤R6** — no bare-parts trial has ever passed R7;
+  2 of 8 destroyed a working system attempting it.
+- **A4: 3/8 R8, 5/8 ≤R6** — persistent-state failures dominate (the
+  planner runs in-session but isn't in bring-up).
+- Recurring failure taxonomy for the paper: (1) swap-not-persisted
+  (A2/son ×2, A4 ×3), (2) R7-chase self-destruction (A3/son ×2),
+  (3) time-capped assembly (A3/opus #1). All three are absent in A1.
 
 ### Round-3 synthesis (24 trials, 3 per cell, 2026-08-31)
 
