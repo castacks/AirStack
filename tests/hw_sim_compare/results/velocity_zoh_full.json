@@ -1,0 +1,8 @@
+{
+  "mode": "full",
+  "robot": "robot_1",
+  "n_sim_pose": 8351,
+  "n_sim_vel": 8351,
+  "mavros_mode": "OFFBOARD",
+  "armed": true
+}

@@ -1,0 +1,9 @@
+{
+  "mode": "step",
+  "robot": "robot_1",
+  "n_sim_pose": 85,
+  "n_sim_vel": 42,
+  "mavros_mode": "OFFBOARD",
+  "armed": true,
+  "step_t0_s": 2.971108475991059
+}

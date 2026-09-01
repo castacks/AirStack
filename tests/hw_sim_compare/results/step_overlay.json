@@ -1,0 +1,17 @@
+{
+  "sim_file": "/home/pranavkumara/Desktop/AirStack/tests/hw_sim_compare/results/velocity_zoh_step.npz",
+  "n_sim_pose": 85,
+  "rmse": {
+    "xyz": 3.579759398619142,
+    "xy": 2.714390975601312,
+    "z": 2.3338292533037284
+  },
+  "overlap_s": 7.403102911019232,
+  "step": {
+    "t0_s": 2.971108475991059,
+    "dead_time_s": 0.20151280600111932,
+    "tau_s": 0.15119157801382244,
+    "hardware_target_dead_s": 0.12,
+    "hardware_target_tau_s": 0.555
+  }
+}

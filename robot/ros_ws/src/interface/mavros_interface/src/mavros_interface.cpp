@@ -466,19 +466,24 @@ namespace mavros_interface
             if (!is_ardupilot ||
                 (in_air && ((this->get_clock()->now() - in_air_start_time).seconds() > post_takeoff_command_delay_time)))
             {
+                // velocity_command is map/world ENU (hardware
+                // /drone_1/fmu/velocity_command). MAVROS setpoint_raw converts
+                // ENU → NED when FRAME_LOCAL_NED is set — do not convert here
+                // (that double-flips z and sits the vehicle on the floor).
+                // FRAME_BODY_NED is also wrong for map-frame commands.
                 mavros_msgs::msg::PositionTarget msg;
-                msg.coordinate_frame = mavros_msgs::msg::PositionTarget::FRAME_BODY_NED;
+                msg.coordinate_frame = mavros_msgs::msg::PositionTarget::FRAME_LOCAL_NED;
                 msg.type_mask = mavros_msgs::msg::PositionTarget::IGNORE_PX |
                                 mavros_msgs::msg::PositionTarget::IGNORE_PY |
                                 mavros_msgs::msg::PositionTarget::IGNORE_PZ |
                                 mavros_msgs::msg::PositionTarget::IGNORE_AFX |
                                 mavros_msgs::msg::PositionTarget::IGNORE_AFY |
                                 mavros_msgs::msg::PositionTarget::IGNORE_AFZ |
-                                mavros_msgs::msg::PositionTarget::IGNORE_YAW;
+                                mavros_msgs::msg::PositionTarget::IGNORE_YAW_RATE;
                 msg.velocity.x = cmd->twist.linear.x;
                 msg.velocity.y = cmd->twist.linear.y;
                 msg.velocity.z = cmd->twist.linear.z;
-                msg.yaw_rate = cmd->twist.angular.z;
+                msg.yaw = 0.0;
                 velocity_target_pub_->publish(msg);
             }
         }

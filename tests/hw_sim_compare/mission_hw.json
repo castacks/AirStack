@@ -1,0 +1,100 @@
+{
+  "source_bag": "/home/pranavkumara/Downloads/drone1_20260812_030151",
+  "bag_start_epoch_s": 1786503711.9033282,
+  "duration_s": 107.73443055152893,
+  "frames": {
+    "pose": "world",
+    "velocity_command": "map",
+    "goal": "map"
+  },
+  "topics_in_bag": [
+    "/drone_1/fmu/out/vehicle_odometry",
+    "/drone_1/fmu/velocity_command",
+    "/drone_1/odometry_conversion/odometry",
+    "/drone_1/pose",
+    "/svg/drone_1/goal_command"
+  ],
+  "px4_ulog_like_topics": [],
+  "ulog_in_bag": false,
+  "ulog_note": "This rosbag is not a PX4 ulog. Gains for this setup are Neelay's SE3Controller defaults (see drone_soccer/controller_gains.py), not a flight-specific param snapshot. Motor-delay work still needs the VOXL 2 ulog.",
+  "takeoff": {
+    "first_nonzero_command_log_time_s": 7.343618392944336,
+    "altitude_m": 1.0
+  },
+  "waypoints": [
+    {
+      "log_time_s": 61.048,
+      "frame": "map",
+      "x": 0.0,
+      "y": -2.0,
+      "z": 1.0,
+      "yaw_rad": 0.0
+    },
+    {
+      "log_time_s": 72.047,
+      "frame": "map",
+      "x": 0.0,
+      "y": -3.0,
+      "z": 1.0,
+      "yaw_rad": 0.0
+    },
+    {
+      "log_time_s": 81.464,
+      "frame": "map",
+      "x": -1.0,
+      "y": -3.0,
+      "z": 1.0,
+      "yaw_rad": 0.0
+    },
+    {
+      "log_time_s": 89.93,
+      "frame": "map",
+      "x": -2.0,
+      "y": -3.0,
+      "z": 1.0,
+      "yaw_rad": 0.0
+    }
+  ],
+  "land": {
+    "last_nonzero_command_log_time_s": 102.79322123527527,
+    "velocity_m_s": 0.8
+  },
+  "start_pose_m": [
+    0.0242180023342371,
+    0.03534889966249466,
+    0.0012374342186376452
+  ],
+  "end_pose_m": [
+    -2.0426480770111084,
+    -3.005737066268921,
+    -0.03807242214679718
+  ],
+  "controller": {
+    "class": "LocalWaypointController",
+    "primary_input": "v_des from /drone_1/fmu/velocity_command (ZOH 20 Hz)",
+    "gains": {
+      "kp": [
+        0.95,
+        0.95,
+        5.0
+      ],
+      "kv": [
+        1.8,
+        1.8,
+        8.0
+      ],
+      "k_R": [
+        0.09,
+        0.09,
+        0.045
+      ],
+      "k_Omega": [
+        0.028,
+        0.028,
+        0.014
+      ],
+      "source": "01_21_03_position_mode.ulg (2026-07-30), SE3Controller defaults"
+    },
+    "do_not": "feed these waypoints through the position loop for the primary hardware comparison"
+  }
+}

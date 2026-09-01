@@ -1,0 +1,50 @@
+{
+  "plant": {
+    "usd": "simulation/isaac-sim/assets/robots/starling2max.usd",
+    "physics_mass_kg": 0.557,
+    "com_m": [
+      0.00102,
+      0.00016,
+      0.00741
+    ],
+    "inertia_diag_kgm2": [
+      0.002943,
+      0.001857,
+      0.004649
+    ]
+  },
+  "velocity_topic": "/robot_1/interface/velocity_command",
+  "frame": "map ENU TwistStamped, angular=0, ZOH 20 Hz",
+  "px4_params": {
+    "MPC_XY_VEL_P_ACC": 1.8,
+    "MPC_Z_VEL_P_ACC": 8.0,
+    "MPC_XY_VEL_MAX": 0.6,
+    "MPC_XY_P": 0.95,
+    "MPC_Z_P": 5.0
+  },
+  "step": {
+    "dead_time_s": 0.2,
+    "tau_s": 0.15,
+    "hardware_target_dead_s": 0.12,
+    "hardware_target_tau_s": 0.555,
+    "note": "sim tau ~3.7x faster than hardware (no motor delay); dead time ~200 ms vs 120 ms. No-delay baseline, gains not retuned."
+  },
+  "overlay_rmse": {
+    "xyz": 4.3140136262133755,
+    "xy": 2.6146045522191566,
+    "z": 3.4314073792934496
+  },
+  "overlap_s": 97.97742435295368,
+  "sim_end_m": [
+    1.7333565950393677,
+    0.0881659984588623,
+    5.9578704833984375
+  ],
+  "hw_end_m": [
+    -2.0426480770111084,
+    -3.005737066268921,
+    -0.03807242214679718
+  ],
+  "n_sim_pose": 8350,
+  "sim_pose_hz": 85.21350765379971
+}
