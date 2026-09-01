@@ -708,7 +708,46 @@ BURY = {
     "rebar": (0.50, 0.80),         # rubble_research.md sec3b — "rebar tangles / small debris"
 }
 
-PANEL_LEAN_DEG = (30.0, 70.0)      # rubble_research.md sec3b (was 55-80)
+PANEL_LEAN_DEG = (50.0, 80.0)      # rubble_research.md sec3b (was 55-80, then
+#                                    30-70) — round-6 diagnosis, rect-cutouts
+#                                    review 2026-08-31: my first attempt at
+#                                    this fix LOWERED the range to (10, 35)
+#                                    (matching `PANEL_TILT_DEG`'s numbers) on
+#                                    the assumption that a smaller number
+#                                    reads as "less lean". MEASURED that
+#                                    assumption is backwards before touching
+#                                    the render: `_orient_on_surface` aligns
+#                                    local +Z (the panel's HEIGHT axis, since
+#                                    it is placed the way it stood in the
+#                                    wall) to the mound's surface normal
+#                                    FIRST, then tips it `tilt` degrees
+#                                    further FROM THAT ALIGNMENT — so 0 deg
+#                                    is standing bolt upright and 90 deg is
+#                                    flat on its face; the number counts
+#                                    degrees tipped AWAY FROM STANDING, not
+#                                    degrees propped up from lying. 150-seed
+#                                    measurement of the REAL `plan_pile` (a
+#                                    22x18x20 m rc dome, stub_h_m=1.4, a
+#                                    throwaway harness reusing `tools/
+#                                    rubble_preview.py`'s idiom),
+#                                    angle from vertical of the panel's own
+#                                    up axis: old (30,70) -> mean 53 deg;
+#                                    (10,35) -> mean 32 deg — MORE upright,
+#                                    the wrong direction, would have made
+#                                    "stands with a perfect rectangle
+#                                    outline" worse. (50,80) -> mean 67 deg
+#                                    (21 deg off horizontal), matching a
+#                                    physical cross-check (a 3 m panel
+#                                    resting its far edge on a 1.4 m stub
+#                                    leans arccos(1.4/3.0) ~ 62 deg from
+#                                    vertical) and reading as clearly LYING,
+#                                    propped rather than standing — the
+#                                    round-4 "pile lays panels whole" intent,
+#                                    just no longer upright. This is closer
+#                                    to the original (55,80) than to the
+#                                    (30,70) it replaces; whatever motivated
+#                                    that earlier reduction was not this
+#                                    artefact.
 PANEL_TILT_DEG = (10.0, 35.0)      # round4 brief — general (non-leaning) panel tilt
 RAFT_TILT_DEG = (0.0, 25.0)        # round4 brief
 RAFT_CROWN_TILT_DEG = (5.0, 25.0)  # round4 brief — crown-group subset

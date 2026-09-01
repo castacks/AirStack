@@ -100,23 +100,43 @@ def read_mesh(stage, src_path, verbose=True):
         # one arbitrary material — the lost-textures report. The mesh's own
         # binding is the default for any face no subset claims.
         fm = {}
-        mb = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]
-        dflt = 0
-        if mb and mb.GetPrim().IsValid():
-            k = str(mb.GetPrim().GetPath())
-            if k not in mat_ix:
-                mat_ix[k] = len(mats)
-                mats.append(mb)
-            dflt = mat_ix[k]
-        elif not mats:
-            mat_ix[""] = 0
-            mats.append(None)
+        # MATERIAL PURPOSE. `ComputeBoundMaterial()` with no argument only
+        # resolves an `allPurpose` binding — it does NOT fall back to one
+        # authored specifically under the `full` (render-quality) purpose,
+        # which is exactly how GreatAmericanCity binds its facade materials
+        # on a live, Nucleus-connected stage (measured: a `full`-purpose bind
+        # that the no-argument call misses entirely, confirmed both ways in
+        # a synthetic stage — `Bind(mat, materialPurpose=full)` +
+        # `ComputeBoundMaterial()` -> None, `ComputeBoundMaterial(full)` ->
+        # the material). Asking for `full` is a strict superset: USD's own
+        # purpose-fallback resolves a `full` query against a plain
+        # `allPurpose` bind too when no `full`-specific one exists, so this
+        # never finds LESS than the old no-argument call did.
+        mb = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial(
+            materialPurpose=UsdShade.Tokens.full)[0]
+        # A STABLE "no material" SENTINEL. The previous `elif not mats:`
+        # only ever created the `""` -> `None` slot the FIRST time this loop
+        # saw a prim with no bound material — every LATER unbound prim fell
+        # through to `dflt = 0` regardless of what `mats[0]` actually held,
+        # silently wearing whatever real material the first-processed prim
+        # in the traversal happened to bind (index-0 contamination, the same
+        # class of bug the mesh-level-default comment above already fixed
+        # for the "no subset claims this face" case — just one level up).
+        # Keying `""` through the SAME `mat_ix` dict every prim shares makes
+        # the slot exist exactly once, correctly typed `None`, independent
+        # of traversal order.
+        k = str(mb.GetPrim().GetPath()) if mb and mb.GetPrim().IsValid() else ""
+        if k not in mat_ix:
+            mat_ix[k] = len(mats)
+            mats.append(mb if k else None)
+        dflt = mat_ix[k]
         for sub in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)):
-            mp = UsdShade.MaterialBindingAPI(sub.GetPrim()).ComputeBoundMaterial()[0]
+            mp = UsdShade.MaterialBindingAPI(sub.GetPrim()).ComputeBoundMaterial(
+                materialPurpose=UsdShade.Tokens.full)[0]
             key = str(mp.GetPrim().GetPath()) if mp and mp.GetPrim().IsValid() else ""
             if key not in mat_ix:
                 mat_ix[key] = len(mats)
-                mats.append(mp)
+                mats.append(mp if key else None)
             for f in (sub.GetIndicesAttr().Get() or []):
                 fm[int(f)] = mat_ix[key]
         for f in range(len(counts)):
@@ -1256,7 +1276,7 @@ def as_placements(stage, cells, scope, style, mats, start_index=0,
         nm = "{0}_{1}_{2}_{3:02d}_{4:04d}".format(
             role, side.replace("-", "x"), bay, storey, j)
         path = "{0}/{1}".format(scope, nm)
-        if not write_piece(stage, path, piece, mats):
+        if not write_piece(stage, path, piece, mats, role=role):
             continue
         P = piece["P"]
         c = P.mean(axis=0)
@@ -1545,8 +1565,83 @@ def _fix_advertised_bands(spec, pls, style, verbose=True):
             b["h"] = real_h
 
 
-def write_piece(stage, path, piece, mats):
-    """One clipped fragment as a USD Mesh with `st` and per-material subsets."""
+# role -> (diffuseColor rgb, roughness) for `_role_fallback_material`. Kept
+# to the roles `as_placements` actually emits (see `_ROLE_SUB`'s keys plus
+# "roof", which never runs through `_ROLE_SUB`). Values are a plain, cheap
+# stand-in for "this is a wall" / "this is the core" — not an attempt to
+# match any real GAC facade, just something visibly not-flat-grey.
+_ROLE_FALLBACK_RGB = {
+    "wall": (0.30, 0.28, 0.25), "corner": (0.30, 0.28, 0.25),
+    "pier": (0.30, 0.28, 0.25), "parapet": (0.27, 0.25, 0.22),
+    "parapet_corner": (0.27, 0.25, 0.22), "core": (0.14, 0.135, 0.125),
+    "roof": (0.20, 0.19, 0.18),
+}
+_ROLE_FALLBACK_DEFAULT_RGB = (0.30, 0.28, 0.25)
+_ROLE_FALLBACK_ROUGHNESS = 0.85
+
+
+def _role_fallback_material(stage, scope, role):
+    """A plain, fully self-contained `UsdPreviewSurface` for the faces a
+    sliced piece's SOURCE genuinely had no material for (`mats[mi] is
+    None`) — created once per `scope` and reused after that.
+
+    Deliberately NOT a copy of, or a reference to, anything from the source
+    asset. `read_mesh`'s harvested `mats[mi]` entries wrap whatever Material
+    prim the composed SOURCE stage resolved at slice time, and GAC's own
+    facade materials are themselves references out to per-material Nucleus
+    assets — fine while the slice runs against a live, Nucleus-connected
+    stage, but once the sliced pieces are exported into a standalone
+    per-building bake, that reference rides along unresolved: the target
+    path still exists in the file (`.Bind()` wrote a real relationship) but
+    composes down to an empty, TYPELESS placeholder prim, so
+    `ComputeBoundMaterial()` on it returns nothing and the piece renders as
+    flat fallback. `tools/gac_shell_bind_repair.py`'s docstring has the
+    measurement: 0 of the 12-14 GAC facade materials survived per file,
+    across all 33 checked bakes. A plain embedded `UsdPreviewSurface` never
+    performs an external reference at all, so a piece bound to THIS can
+    never go stale the same way — Kit resolves it via the universal render
+    context (falling back off `mdl` when nothing more specific is bound),
+    and any offline consumer (this repo's own test suite, `bind_check.py`,
+    a bpy preview) sees a real, typed Material immediately.
+    """
+    from pxr import Sdf, UsdShade
+
+    mat_path = "{0}/ShellFallbackLooks/{1}".format(
+        scope, role if role in _ROLE_FALLBACK_RGB else "wall")
+    existing = stage.GetPrimAtPath(mat_path)
+    if existing and existing.IsValid() and existing.IsA(UsdShade.Material):
+        return UsdShade.Material(existing)
+    rgb = _ROLE_FALLBACK_RGB.get(role, _ROLE_FALLBACK_DEFAULT_RGB)
+    mat = UsdShade.Material.Define(stage, Sdf.Path(mat_path))
+    sh = UsdShade.Shader.Define(stage, Sdf.Path(mat_path).AppendChild("PreviewSurface"))
+    sh.CreateIdAttr("UsdPreviewSurface")
+    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(
+        tuple(float(c) for c in rgb))
+    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(_ROLE_FALLBACK_ROUGHNESS)
+    sh.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
+    mat.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
+    return mat
+
+
+def write_piece(stage, path, piece, mats, role=None):
+    """One clipped fragment as a USD Mesh with `st` and per-material subsets.
+
+    `role` (one of `as_placements`'s cells — "wall"/"corner"/"pier"/"core"/
+    "parapet"/"parapet_corner"/"roof") picks the fallback material used for
+    any face whose source triangle had `mats[mi] is None` (no material
+    resolvable at the source — see `read_mesh`'s "no material" sentinel).
+    `None` (the default) falls back to "wall".
+
+    NEVER SKIPS. The mesh ALWAYS gets a direct (mesh-level) binding to the
+    role fallback FIRST, before any per-material subset is added — so any
+    face a subset does not claim (there is no `mi >= len(mats)`/`None` case
+    left unhandled, and a `mi` this loop never sees at all because it fell
+    off the mesh during clipping cannot exist) still resolves to something
+    real rather than nothing. A subset for an `mi` with a genuine (harvested)
+    material then simply overrides that direct default for its own faces —
+    ordinary USD binding-strength behaviour, and the same reason `_deck_slab`
+    et al. never have to check "does this piece have a subset at all" first.
+    """
     import numpy as np
     from pxr import Sdf, UsdGeom, UsdShade, Vt
 
@@ -1562,9 +1657,19 @@ def write_piece(stage, path, piece, mats):
         "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying)
     pv.Set(Vt.Vec2fArray([tuple(map(float, piece["UV"][i]))
                           for i in piece["tris"].ravel()]))
+    scope = path.rsplit("/", 1)[0]
+    fallback = _role_fallback_material(stage, scope, role or "wall")
+    UsdShade.MaterialBindingAPI.Apply(me.GetPrim()).Bind(fallback)
     for mi in sorted(set(int(q) for q in piece["MID"])):
         faces = [int(k) for k, q in enumerate(piece["MID"]) if int(q) == mi]
-        if not faces or mi >= len(mats) or mats[mi] is None:
+        if not faces:
+            continue
+        if mi >= len(mats) or mats[mi] is None:
+            # No source material for this index — the mesh-level fallback
+            # bound above already covers these faces; a subset here would
+            # only ever bind the SAME fallback, so skip it (partition
+            # completeness is a renderer non-issue: unclaimed faces use the
+            # direct binding regardless).
             continue
         # familyName MUST be `materialBind`.
         # `CreateGeomSubset(geom, name, elementType, indices)` leaves the

@@ -3783,6 +3783,301 @@ _HUMAN_POSES = {
         "upperarm_l+": ((1.0, 0.0, 0.0), -22.0),
         "lowerarm_l": ((0.0, 1.0, 0.0), 70.0),
     },
+
+    # ---- FIRE-VICTIM POSES (disaster/fire_people.py). ADDED 2026-08-31 after
+    # the bench review: "the poses are completely wrong ... the current people
+    # look like they're about to jump off the roof", "the people on the roof
+    # need to just be standing. not like bent", "I need one hand raised as the
+    # rescue signal", "torso poking outside, but their legs and lower body is
+    # inside". None of the existing table served these four situations without
+    # reading wrong, so these are new rather than reused. VERIFY ON SIGHT at
+    # the bench relaunch — every number below was checked analytically against
+    # the real rp_carla rig (`_pose_joint_transforms`, forward-kinematics,
+    # 95-joint UE4 skeleton — same tool `tools/pose_check.py` uses) but never
+    # rendered.
+    #
+    # MEASURED ON rp_carla (mpu 0.01): pelvis 0.9834, upperarm 0.2417,
+    # lowerarm 0.2867, thigh 0.4727, calf 0.3646 — matches the header
+    # constants above to 3 decimal places, so the FK tool used to solve these
+    # is trustworthy against this rig.
+
+    # UPRIGHT AND NEUTRAL. This is the "just standing" pose the roof classes
+    # were missing: `idle`'s arm-plumb correction (identical 40/8 Y deltas)
+    # with the stance widened by 8 deg of THIGH ABDUCTION each leg (a Y delta
+    # on a leg that hangs plumb at rest, same mechanism `sit_ground`'s
+    # `thigh_r+`/`lying_supine`'s `thigh_r+` use to fall a knee outward — here
+    # it just widens the stance) instead of the fore-aft stride `walk` uses. No
+    # spine or head delta at all: `stand_slump`'s whole silhouette is its
+    # forward pitch (-10/-12/-6) and dropped head (-18/-10), which is exactly
+    # the "bent" / "about to jump" read the review objected to on a roof deck.
+    # Anchored at the soles like `idle` — no ground-contact solve, offset 0.
+    "stand_calm": {
+        "thigh_l": ((0.0, 1.0, 0.0), 8.0),
+        "thigh_r": ((0.0, 1.0, 0.0), -8.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+
+    # THE STANDARD RESCUE SIGNAL — both arms overhead. NOT the cut `wave`: that
+    # was ONE rigid straight arm on a lone figure and read as a broken limb.
+    # This is symmetric (both arms), softly bent at the elbow and spread apart
+    # (a V, not two parallel poles) precisely so it does not repeat that
+    # silhouette, and it is only ever authored on figures in a GROUP context
+    # (roof / roof_victim / window), never alone.
+    #
+    # Arms swing about X exactly the way a leg does once the A-pose splay is
+    # corrected to plumb (`upperarm_*`: Y 40/-40, matching `idle`) — MEASURED:
+    # a pure X delta of -180 on the plumbed arm puts the elbow dead vertical
+    # over the shoulder (elbow-rel-to-shoulder = (-0.02, 0.00, +0.240), i.e.
+    # the full 0.242 m upperarm length, 0 lateral/forward error). -155 (this
+    # pose) leaves the arm short of straight overhead by design — a fully
+    # vertical arm reads as a flagpole; short of it reads as a person raising
+    # both arms. The `++` delta spreads each arm 18 deg further out (Y) after
+    # the swing, so the two hands finish apart rather than touching, and the
+    # forearms fold 25 deg at the elbow rather than staying ramrod straight.
+    # MEASURED (rp_carla, 1.731 m): hand 0.124 m above `head_end`, 0.355 m
+    # lateral half-spread — both hands clear the head and are visibly apart
+    # from directly above, which is the read a rescue signal needs from a
+    # drone. Legs widened 8 deg (as `stand_calm`) so the whole figure reads as
+    # standing square, not mid-stride. Anchored at the soles, offset 0.
+    "wave_help": {
+        "thigh_l": ((0.0, 1.0, 0.0), 8.0),
+        "thigh_r": ((0.0, 1.0, 0.0), -8.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), -155.0),
+        "upperarm_l++": ((0.0, 1.0, 0.0), 18.0),
+        "lowerarm_l": ((1.0, 0.0, 0.0), -25.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "upperarm_r+": ((1.0, 0.0, 0.0), -155.0),
+        "upperarm_r++": ((0.0, 1.0, 0.0), -18.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -25.0),
+    },
+
+    # LEANING OUT OF A WINDOW, PELVIS-HINGED — FINALIZED 2026-09-01 from the
+    # 8-variant bench pose row (`fire_people.WINDOW_POSE_VARIANTS`, now
+    # retired — see that name's own history for the 7 rejected mechanisms).
+    # Coordinator's verdict on the render: "`lw_pelvis_posx` — clean forward
+    # lean out of the wall plane, face visible, reads as a person leaning
+    # out. REJECTED: spine-chain variants hinge so deep the head passes
+    # through the glazing ... mixed_posx reads as standing-looking-down."
+    #
+    # THIS IS A DIFFERENT JOINT FROM EVERY OTHER POSE IN THIS TABLE. Nothing
+    # else here ever puts a delta on `pelvis` — every other forward-leaning
+    # pose (`dig_bent`, `stand_slump`, the retired spine-only `lean_window`)
+    # hinges the SPINE CHAIN with the legs left untouched. A `pelvis` delta
+    # rotates the ROOT-ADJACENT joint itself, so BOTH the spine chain and
+    # both legs hang from the rotated frame — a true rigid seesaw, legs
+    # included. That is exactly why the spine-only mechanism read as
+    # "bent the wrong way" on a real render while this one did not: this
+    # pack's actual USD Skel evaluation was answering a different question
+    # (which joint reads as the body's own forward hinge) than three rounds
+    # of `_pose_joint_transforms` derivation had modelled it as.
+    #
+    # SIGN, MEASURED, NOT ASSUMED. Every OTHER trunk-forward pose in this
+    # table leans in +Y (spine stands UP at rest, so `v(a)`'s NEGATIVE X
+    # gives +Y — see `dig_bent`'s own account). The bench row tested BOTH
+    # signs on `pelvis` and the WINNING one was `lw_pelvis_posx`: POSITIVE
+    # 35 deg, leaning in -Y, the opposite of the convention every other pose
+    # here follows. Do not "fix" this sign to match the others — it was
+    # fixed once already (the retired spine-only version), on paper, and
+    # that is the version that rendered backwards. -Y is what this specific
+    # class's `_pass_window` yaw computation actually treats as outward.
+    #
+    # MODERATE ANGLE — the row's own magnitude (35 deg) read as right;
+    # `pelvis` +30 here splits the difference with the request's own
+    # "~25-35 deg" and leaves a small margin off the row's tested extreme.
+    # MEASURED (rp_carla, 1.731 m): head 0.262 m of -Y off the pelvis
+    # (0.152 of stature — `_LEAN_WINDOW_HEAD_FRAC_H` below), hand_l 0.612 m
+    # — a clearly braced-forward arm silhouette.
+    #
+    # ARMS FOLLOW THE SAME -Y SIGN — the opposite of the retired version's
+    # arms for the same reason the pelvis sign flipped: an arm hangs DOWN
+    # like a leg, and `v(a)`'s NEGATIVE X is what sends a down-hanging limb
+    # toward -Y (the leg convention: thigh -20 = forward = -Y). Plumbed
+    # (Y ±40) then swung -55 about X, forearm -16 further.
+    #
+    # HEAD COUNTERED, KEPT SUBTLE — coordinator: "a small head/neck-up
+    # counter-rotation so the face looks outward rather than at the
+    # pavement ... keep it subtle." `neck_01` -16 / `head` -9 (sum -25
+    # against the pelvis's own +30) leaves the head's NET rotation at only
+    # +5 deg — close to level, legible as looking outward, not the dramatic
+    # counter the retired version needed against its much larger 78 deg
+    # spine lean.
+    #
+    # LEGS ARE NOT INDEPENDENTLY POSED, BUT THEY DO MOVE — a consequence of
+    # hinging at `pelvis` rather than the spine, and left as-is: the row's
+    # own render is what approved this, legs included, and the window
+    # class's own sill-hip z placement (`fire_people._pass_window`,
+    # `op["z_sill"] - _HIP_H * H`) still lands the PELVIS at the sill
+    # correctly regardless — a joint's own rotation never moves its own
+    # position, so the pelvis sits at exactly its rest height (0.983 m on
+    # rp_carla) whatever angle it is turned through. The legs stay behind
+    # the wall panel below the sill either way.
+    "lean_window": {
+        "pelvis": ((1.0, 0.0, 0.0), 30.0),
+        "neck_01": ((1.0, 0.0, 0.0), -16.0),
+        "head": ((1.0, 0.0, 0.0), -9.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), -55.0),
+        "lowerarm_l": ((1.0, 0.0, 0.0), -16.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "upperarm_r+": ((1.0, 0.0, 0.0), -55.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -16.0),
+    },
+
+    # ======================================================================
+    # THROWAWAY — WINDOW-POSE EMPIRICAL SEARCH, 2026-09-01. DELETE AFTER THE
+    # BENCH ROW SETTLES WHICH ONE ACTUALLY LEANS OUT. User: "the people in
+    # windows look completely wrong, they're just standing straight."
+    # Coordinator: "empirical search instead of derivation ... one render
+    # settles the UE/USD mapping question that three rounds of paper
+    # derivation have not."
+    #
+    # Every one of these was checked with `_pose_joint_transforms` against
+    # the real rig — the arithmetic composes without error for all eight —
+    # which is exactly why derivation alone cannot pick a winner: `lean_
+    # window`'s own numbers ALSO composed correctly on paper and still
+    # rendered backwards (bench-v2). What is being searched here is not
+    # "does this pose compute", it is "which axis and sign the actual
+    # Isaac Sim skinning/skeleton pipeline treats as forward" — a question
+    # only a render answers.
+    #
+    # Arms and stance are IDENTICAL across all eight (`idle`'s plumb
+    # correction, feet at `stand_calm`'s 8 deg abduction) so the ONLY
+    # variable between renders is the hinge mechanism itself:
+    #
+    #   pelvis_negx / pelvis_posx   a single hinge at the ROOT-adjacent
+    #     `pelvis` joint (children: BOTH legs and the whole spine chain —
+    #     the legs tip WITH the trunk, a true rigid seesaw). MEASURED:
+    #     head lands 0.298 m / -0.316 m of Y off the pelvis.
+    #   pelvis_negy / pelvis_posy   the CONTROL for "wrong axis": a Y delta
+    #     on `pelvis` rolls the hips SIDEWAYS (one hip up, one down) with
+    #     no forward/back motion at all — MEASURED head_dy = -0.011 m,
+    #     i.e. no lean. Included because the coordinator asked for both
+    #     axes explicitly; expected to read as "tips sideways", not a lean.
+    #   spine_negx / spine_posx   the CURRENT `lean_window` mechanism
+    #     (spine_01/02/03 distributed, legs untouched) at both signs.
+    #     MEASURED: head 0.208 m / -0.225 m of Y.
+    #   mixed_negx / mixed_posx   pelvis AND spine share the hinge (legs
+    #     tip partway, trunk adds the rest) at both signs. MEASURED: head
+    #     0.260 m / -0.276 m of Y.
+    #
+    # `fire_people._pass_window_pose_experiment` (gated on `cfg["window_
+    # pose_experiment"]`, off by default) places one figure per surviving
+    # name here at consecutive real openings of the bench's intact F3
+    # building — see that function's own docstring.
+    "lw_pelvis_negx": {
+        "pelvis": ((1.0, 0.0, 0.0), -35.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0), "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0), "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+        "thigh_l": ((0.0, 1.0, 0.0), 8.0), "thigh_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+    "lw_pelvis_posx": {
+        "pelvis": ((1.0, 0.0, 0.0), 35.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0), "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0), "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+        "thigh_l": ((0.0, 1.0, 0.0), 8.0), "thigh_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+    "lw_pelvis_negy": {
+        "pelvis": ((0.0, 1.0, 0.0), -35.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0), "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0), "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+        "thigh_l": ((0.0, 1.0, 0.0), 8.0), "thigh_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+    "lw_pelvis_posy": {
+        "pelvis": ((0.0, 1.0, 0.0), 35.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0), "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0), "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+        "thigh_l": ((0.0, 1.0, 0.0), 8.0), "thigh_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+    "lw_spine_negx": {
+        "spine_01": ((1.0, 0.0, 0.0), -20.0), "spine_02": ((1.0, 0.0, 0.0), -12.0),
+        "spine_03": ((1.0, 0.0, 0.0), -7.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0), "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0), "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+        "thigh_l": ((0.0, 1.0, 0.0), 8.0), "thigh_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+    "lw_spine_posx": {
+        "spine_01": ((1.0, 0.0, 0.0), 20.0), "spine_02": ((1.0, 0.0, 0.0), 12.0),
+        "spine_03": ((1.0, 0.0, 0.0), 7.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0), "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0), "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+        "thigh_l": ((0.0, 1.0, 0.0), 8.0), "thigh_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+    "lw_mixed_negx": {
+        "pelvis": ((1.0, 0.0, 0.0), -15.0),
+        "spine_01": ((1.0, 0.0, 0.0), -12.0), "spine_02": ((1.0, 0.0, 0.0), -8.0),
+        "spine_03": ((1.0, 0.0, 0.0), -5.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0), "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0), "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+        "thigh_l": ((0.0, 1.0, 0.0), 8.0), "thigh_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+    "lw_mixed_posx": {
+        "pelvis": ((1.0, 0.0, 0.0), 15.0),
+        "spine_01": ((1.0, 0.0, 0.0), 12.0), "spine_02": ((1.0, 0.0, 0.0), 8.0),
+        "spine_03": ((1.0, 0.0, 0.0), 5.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0), "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0), "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+        "thigh_l": ((0.0, 1.0, 0.0), 8.0), "thigh_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+    # ====================================================================
+
+    # SUPINE, ONE ARM EXTENDED — for a figure partially buried in collapse
+    # rubble (`fire_people.casualty_apron`/`roof_debris`), reaching clear of
+    # the debris that covers the rest of them. Distinct from `lying_prone_
+    # reach` (BOTH arms overhead, face-down, "2.1 m of ground length"): this
+    # is face-UP and ASYMMETRIC — one arm reaching, one arm pinned close to
+    # the body — because the whole point is a figure whose one side is under
+    # material and whose other is not.
+    #
+    # Authored upright like every lying pose; `disaster.people`/`disaster.
+    # fire_people`'s `prone=True` branch lays it down by roll (-90, face-up —
+    # see `LYING_POSES`/`LYING_ROLL`) and lifts it by half the measured body
+    # DEPTH, exactly as `lying_supine` is.
+    #
+    # THE REACHING ARM MUST LEAVE THE GROUND PLANE, WHICH RULES OUT A Y DELTA
+    # — the opposite of what `lying_prone_reach` needs. A first draft of this
+    # pose copied `lying_prone_reach`'s Y-axis magnitude (118-128, "up beside
+    # the head") on the argument that both are face-up/face-down arm deltas
+    # and both therefore "stay in the ground plane". That argument is correct
+    # for `lying_prone_reach` (an arm lying flat past the head IS the point)
+    # and wrong here: a delta about Y for a face-up figure keeps the limb IN
+    # the plane the body is lying in, so the hand ends up lying flat on the
+    # ground beside the head — MEASURED (`_pose_joint_transforms`, the real
+    # rig): after the `-90` supine roll the hand sits only 0.098 m above the
+    # pelvis LINE, which is buried under exactly the same rubble surface as
+    # the rest of the body. "Reaching clear of the debris" needs height, and
+    # height for a face-up limb comes from an X delta instead — the trap the
+    # LATERAL poses' own comment documents (X keeps a limb down once the body
+    # is on its SIDE) is mirrored here: for a face-up body it is the X axis
+    # that lifts a limb OUT of the ground plane. Bring the arm to plumb first
+    # (`upperarm_r`: Y -40, `idle`'s own correction) and then swing it -108
+    # about X — MEASURED: the hand finishes 0.688 m forward and 0.411 m PROUD
+    # of the pelvis line once the body is rolled supine, a real reach up and
+    # out rather than a hand resting on the ground beside the head.
+    # Left arm and legs are `lying_supine`'s own proven values verbatim
+    # (15/50 tucked arm, the asymmetric raised-knee legs) — reused rather than
+    # re-solved because they are already reviewed and correct for this
+    # attitude, and the whole point of the new arm is to be the ONE thing
+    # that differs. MEASURED, left (resting) hand: 0.101 m above the pelvis
+    # line — close against the body, not reaching, which is the contrast that
+    # makes the right arm read as reaching.
+    "buried_reach": {
+        "thigh_r": ((1.0, 0.0, 0.0), -19.0),
+        "calf_r": ((1.0, 0.0, 0.0), 72.0),
+        "thigh_r+": ((0.0, 1.0, 0.0), 12.0),
+        "thigh_l": ((1.0, 0.0, 0.0), -4.0),
+        "thigh_l+": ((0.0, 1.0, 0.0), -10.0),
+        "spine_02": ((1.0, 0.0, 0.0), 6.0),
+        "head": ((0.0, 0.0, 1.0), 24.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "upperarm_r+": ((1.0, 0.0, 0.0), -108.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -16.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 15.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 50.0),
+    },
 }
 
 # Metres to ADD to a placement's z so the pose's own support surface lands on
@@ -4005,6 +4300,29 @@ _POSE_Z_OFFSET = {
     # they scissor the legs and lift a heel: anchored at the soles, no drop.
     "support_l": 0.0,
     "support_r": 0.0,
+    # ---- THE 2026-08-31 FIRE-VICTIM POSES. `stand_calm` / `wave_help` /
+    # `lean_window` touch NO leg joint at all (only the stance-widening thigh
+    # abduction, which does not move the ankle), so they are anchored at the
+    # soles exactly like `idle` — MEASURED, `foot_l` unchanged from rest — and
+    # not in `_POSE_GROUND_CONTACT` for the same reason `idle`/`walk` are not:
+    # a contact solve on an unmoved ankle would return 0 anyway.
+    "stand_calm": 0.0,
+    "wave_help": 0.0,
+    "lean_window": 0.0,
+    # `buried_reach` is a lying pose (see `LYING_POSES`/`fire_people.LYING_ROLL`
+    # for the roll that lays it down face-up); like `lying_supine`/`lying_prone`
+    # its z comes from half the measured body depth, never from this table.
+    "buried_reach": 0.0,
+    # THROWAWAY window-pose search poses — approximate (0.0, soles-anchored)
+    # rather than solved: a pelvis hinge DOES swing the whole leg with it
+    # (unlike the spine-only variants, which leave the legs untouched and
+    # are genuinely exact at 0.0), so the pelvis/mixed variants carry a few
+    # cm of float or sink at the feet. Acceptable for a one-off pose-
+    # selection bench row; not carried forward once one variant ships.
+    "lw_pelvis_negx": 0.0, "lw_pelvis_posx": 0.0,
+    "lw_pelvis_negy": 0.0, "lw_pelvis_posy": 0.0,
+    "lw_spine_negx": 0.0, "lw_spine_posx": 0.0,
+    "lw_mixed_negx": 0.0, "lw_mixed_posx": 0.0,
 }
 
 
@@ -4273,8 +4591,20 @@ def apply_placements(stage,
                        scale=(float(p["scale"]) * stx,
                               float(p["scale"]) * sty, float(p["scale"])))
         if instance_categories and p.get("category") in instance_categories:
-            prim.SetInstanceable(True)
-            n_instanced += 1
+            # NEVER INSTANCE A GPRIM-ROOTED PLACEMENT. An asset whose
+            # referenced ROOT prim is itself a Mesh puts no Mesh inside its
+            # prototype — Hydra draws the prototype and the building renders
+            # as NOTHING (fire-city review 2026-08-31: 5 Mesh-rooted assets
+            # = 10 of 75 buildings invisible, including the block that made
+            # the brownstones look missing). Xform-rooted assets instance
+            # fine; gprim roots stay un-instanced.
+            if prim.IsA(UsdGeom.Gprim):
+                print("[scene_gen] NOT instanced (gprim-rooted asset would "
+                      "render empty as a prototype): "
+                      + os.path.basename(str(p.get("usd", "?"))))
+            else:
+                prim.SetInstanceable(True)
+                n_instanced += 1
 
     print(f"[scene_gen] Applied {len(placements)} placements under '{parent_path}' "
           f"({len(proto_index)} unique USDs, scale_factor={ssf}"

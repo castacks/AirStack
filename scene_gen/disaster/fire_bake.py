@@ -260,10 +260,22 @@ def bake_tag(entry):
 # so the dead flag is serialised AS IT STANDS AFTER THE LADDER, which is the
 # whole point of recording the events at the end of a bake rather than at
 # the start.
+#
+# `"synthetic"` (2026-08-31, ADDITIVE — "avoid fires at the extreme top of
+# buildings... unless we're 100% sure about windows on the top floor"):
+# `gac_fire.openings_provider` sets `e["synthetic"] = True` on every opening
+# its bay-window fallback invented (never on a real, measured one), so
+# `fire_assembly_lib`'s top-storey filter can tell "sure" from "not sure"
+# straight off the sidecar. ABSENT means real — every bake baked before this
+# field existed round-trips exactly as it always has (`op_from_json` never
+# invents the key), and `fire_assembly_lib.is_synthetic_op` falls back to
+# the pre-existing `"gac_window_synth"` vs `"gac_window"` `name` convention
+# for exactly those older bakes.
 _OP_SCALARS = ("ua", "ub", "va", "vb", "hua", "hub", "hva", "hvb", "out")
 _EV_SCALARS = ("u0", "u1", "z_sill", "z_head", "w_t", "h_eq", "A_v",
                "tau", "intensity", "drift")
-_E_KEYS = ("mass", "x", "y", "z", "side", "storey", "name", "role", "dead")
+_E_KEYS = ("mass", "x", "y", "z", "side", "storey", "name", "role", "dead",
+          "synthetic")
 
 
 def frame_to_json(fr):
@@ -291,14 +303,27 @@ def mass_to_json(m):
     reads out of it is `soot_plume.parapet_height`, which sums the `h` of the
     bands flagged `parapet`. Keeping that and dropping the rest means the
     sidecar cannot drift out of step with `urban_building`'s style table.
+
+    NOT LOSSY ON `deck_z`, AS OF 2026-08-31. `gac_fire.mass_from_grid`
+    measures the real roof SURFACE and its own docstring says the bbox `top`
+    "is the parapet coping, not the deck" — and then this function dropped
+    the measurement on the floor, so every consumer that asked a real bake
+    sidecar for a deck height got nothing. `fire_people.deck_z()` reads
+    `doc["fire"]["deck_z"]` and then `masses[*]["deck_z"]`; both were dead,
+    so every roof group it has ever placed fell through to its third
+    fallback (`H - PARAPET_EST_M`, `deck_source="estimated"`) and its own
+    `SIDECAR_FIELD_USE` table says so in writing. `None` for a kit mass,
+    which never carries one — the consumers all test `is not None`.
     """
     spec = m.get("spec") or {}
     bands = [{"h": float(b.get("h", 0.0)), "parapet": bool(b.get("parapet"))}
              for b in (spec.get("bands") or [])]
+    deck = m.get("deck_z")
     return {"tag": m.get("tag", "main"), "cx": float(m["cx"]),
             "cy": float(m["cy"]), "yaw": float(m.get("yaw", 0.0)),
             "W": float(m["W"]), "D": float(m["D"]), "z0": float(m["z0"]),
             "top": float(m["top"]),
+            "deck_z": (None if deck is None else float(deck)),
             "levels": [float(z) for z in (m.get("levels") or [])],
             "module": float(m.get("module", 4.0)),
             "spec": {"bands": bands}}
@@ -308,6 +333,11 @@ def mass_from_json(d):
     m = dict(d)
     m["levels"] = [float(z) for z in (d.get("levels") or [])]
     m["spec"] = {"bands": list((d.get("spec") or {}).get("bands") or [])}
+    # `deck_z` round-trips as a float or stays absent; never as a string, and
+    # never coerced to 0.0 — every consumer tests `is not None`, and a 0.0
+    # deck would seat a roof group at grade.
+    if d.get("deck_z") is not None:
+        m["deck_z"] = float(d["deck_z"])
     return m
 
 
@@ -517,6 +547,14 @@ def sidecar(entry, fire, masses, events, bbox, top_z, seats, notes,
         "cell": "{0}/{1}".format(BAKE_ROOT, bake_tag(entry)),
         "textures_dir": textures_dir,
         "src_kept": bool(src_kept),
+        # `deck_z` IS COPIED, NOT DERIVED. `gac_fire.prepare` stashes the
+        # MEASURED roof-deck height on this same `fire` dict
+        # (`fire["deck_z"] = m.get("deck_z")`, and its comment explains why
+        # it has to ride here rather than on the mass), and this fixed key
+        # list used to drop it — so the one channel `gac_fire` built to
+        # carry it ended at the sidecar and `fire_people.deck_z()` fell
+        # through to `H - PARAPET_EST_M` for every roof group ever placed.
+        # `None` on the kit path, whose `plan_fire` never sets the key.
         "fire": {"origin": int(fire["origin"]),
                  "storeys": [int(s) for s in fire["storeys"]],
                  "top": int(fire["top"]),
@@ -526,6 +564,8 @@ def sidecar(entry, fire, masses, events, bbox, top_z, seats, notes,
                  "roof": bool(fire["roof"]),
                  "level": fire["level"],
                  "state": fire.get("state"),
+                 "deck_z": (None if fire.get("deck_z") is None
+                            else float(fire["deck_z"])),
                  "finish": fire.get("finish")},
         "masses": {k: mass_to_json(v) for k, v in masses.items()},
         "storeys": int(fire["n_storeys"]),
@@ -538,6 +578,21 @@ def sidecar(entry, fire, masses, events, bbox, top_z, seats, notes,
         "counts": dict(counts or {}),
         "settle": dict(settle_info or {}),
     }
+    # BOTH CHANNELS, NOT ONE. `fire_people.deck_z()` looks at
+    # `doc["fire"]["deck_z"]` FIRST and `masses[*]["deck_z"]` second, and
+    # the second is the one a consumer reaching for a specific mass will
+    # use. On the gac/dtc path the measurement only ever reaches this
+    # function on `fire` — `burn_building` rebuilds `ctx["info"]["masses"]`
+    # from `quake_flow.describe`, which measures a fresh box off the sliced
+    # pieces and knows nothing about `deck_z` (gac_fire's own comment where
+    # it sets `fire["deck_z"]` spells this out) — so back-fill it onto the
+    # mass the fire is on. Never overwrite a mass that measured its own.
+    _dz = doc["fire"].get("deck_z")
+    if _dz is not None:
+        _mt = doc["fire"].get("mass") or "main"
+        _mm = doc["masses"].get(_mt) or doc["masses"].get("main")
+        if isinstance(_mm, dict) and _mm.get("deck_z") is None:
+            _mm["deck_z"] = float(_dz)
     if extra:
         doc.update(extra)
     return doc
@@ -671,6 +726,11 @@ _CANDIDATE_PREFIXES = (
     # MOTIVATING CASE: "spall halos stamped on a wall that a collapse then
     # took away". `spallhalo_x` also starts with `spall`, hence the order.
     "spallhalo", "spall",
+    # `r_render_peel`'s exposed-substrate patches and their scorch lips —
+    # same wall-stamp class as spall since the 2026-08-31 fix anchored them
+    # on measured wall relief; before this line the judge never LOOKED at a
+    # peel, which is how 0.44 m floaters shipped (peel agent's flag).
+    "peelhalo", "peel",
     # bearing joist stubs / roof rafter teeth left in a wall pocket after a
     # slab or roof failure (`urban_fire._joist_stubs`, the rafter-teeth
     # recipe), exposed reinforcement in a spall (`r_spall`'s `sbar_`) and
@@ -749,7 +809,7 @@ _LEAN_MIN_DIAG_M = 1.2      # smaller than this cannot lean, only hang
 # the judge already said "not contact", the exemption just never asked).
 # See `_flat_normal`/`_wall_backing_contact` and their use in
 # `_judge_candidates` below.
-_WALL_DECAL_FAMILIES = {"spall", "spallhalo", "crack"}
+_WALL_DECAL_FAMILIES = {"spall", "spallhalo", "crack", "peel", "peelhalo"}
 _WALL_BAR_FAMILIES = {"sbar", "rebar"}
 _WALL_ATTACHED = _WALL_DECAL_FAMILIES | _WALL_BAR_FAMILIES
 #: how close real (non-stamp) geometry must sit behind a flat wall stamp,
@@ -1722,10 +1782,31 @@ def verify_export(usd_path, doomed=("/src",), expect_root=BAKE_ROOT,
     except Exception as exc:
         info["bbox_error"] = str(exc)
 
+    # 5) THE SETTLE ACTUALLY CAME TO REST. Not a property of the exported
+    # USD — a body frozen mid-flight is ordinary geometry by the time it
+    # gets here, which is exactly why this check has to read the sidecar and
+    # why `BAKE VERIFY OK` printed over a bake that had just deleted 80
+    # bodies for still moving (`city_smoke43`, 2026-08-31). Only
+    # `still_moving` gates the verdict: the box-based `below_grade` count is
+    # a known over-report (`settle._z_min`) and the frozen kit bake carries
+    # 59 of them by design, so failing on that would fail every kit record.
+    side = os.path.splitext(usd_path)[0] + ".json"
+    st_info = {}
+    if os.path.exists(side):
+        try:
+            with open(side) as fh:
+                st_info = (json.load(fh) or {}).get("settle") or {}
+        except Exception as exc:                   # pragma: no cover
+            info["settle_read_error"] = str(exc)
+    info["settle"] = st_info
+    info["n_still_moving"] = int(st_info.get("still_moving") or 0)
+    info["settle_converged"] = st_info.get("converged")
+
     info["ok"] = (info["meshes"] > 0 and not missing
                   and not info["remote_unreachable"]
                   and not stray and not unresolved
-                  and not phys and not flow)
+                  and not phys and not flow
+                  and not info["n_still_moving"])
     if verbose:
         report_verify(info)
     return info
@@ -1759,6 +1840,17 @@ def report_verify(info):
         print("    STRAY     {0}".format(p))
     for a in (info.get("doomed_arcs") or [])[:6]:
         print("    ARC       {0}".format(a))
+    if info.get("settle"):
+        st = info["settle"]
+        print("  rest        {0} still moving, {1} below grade (boxes), {2} "
+              "clamped, converged={3}, stop={4}".format(
+                  st.get("still_moving"), st.get("below_grade"),
+                  st.get("clamped"), st.get("converged"),
+                  st.get("stop_reason")))
+        if info.get("n_still_moving"):
+            print("    NOT AT REST  {0} body(s) were frozen mid-flight and "
+                  "DELETED from this export -- the settle did not converge"
+                  .format(info["n_still_moving"]))
     print("  physics     {0} prim(s) still carry a Physics*/Physx* schema"
           .format(info.get("n_physics_prims")))
     for p in (info.get("physics_prims") or [])[:4]:

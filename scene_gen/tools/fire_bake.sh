@@ -71,8 +71,15 @@
 #                    and FB_SEED + 7*i for `build_building`, which is exactly
 #                    what `gac_fire_bench_launch_script.py` gives column i
 #                                              (default 7)
-#   SETTLE_STEPS     step target per building  (default 2400)
-#   SETTLE_QUIET     quiet-phase steps         (default 400)
+#   SETTLE_STEPS     step target per building, F5/F5c/F6 tier (default 2400)
+#   SETTLE_QUIET     quiet-phase steps, F5/F5c/F6 tier        (default 400)
+#   SETTLE_STEPS_LOW step target, F0-F3 tier   (default 600) -- see
+#   SETTLE_QUIET_LOW quiet-phase steps, F0-F3 tier (default 150) -- PER-LEVEL
+#   SETTLE_STEPS_MID step target, F4 tier      (default 1600) -- SETTLE
+#   SETTLE_QUIET_MID quiet-phase steps, F4 tier (default 300) -- BUDGETS below
+#   FB_LEVEL_SETTLE  1 (default) applies the tiering above per entry's own
+#                    LEVEL; 0 is the flat pre-2026-08-31 behaviour (every
+#                    entry gets SETTLE_STEPS/SETTLE_QUIET regardless of level)
 #   SETTLE_DECOMP_M  convex-decomposition threshold, m (default 0.8)
 #   SETTLE_FABRIC    1 keeps PhysX transforms in Fabric during the settle
 #                    (no per-step USD write-back; read back once at the end)
@@ -81,6 +88,28 @@
 #   TIMEOUT_S        per-building ceiling      (default 5400)
 #   CONTAINER        container name            (default isaac-sim)
 #   REPO             repo path in container    (default /isaac-sim/AirStack)
+#
+# PER-LEVEL SETTLE BUDGETS (2026-08-31, time-crunch directive: "make sure
+# the bakes are all lazy"). `urban_fire.LADDER` only puts loose bodies in the
+# pile from `fire_collapse`/`partial_collapse`/`floor_burnthrough`/
+# `roof_burnthrough` — `street_debris` is hand-placed straight into
+# `authored`, never `loose`. F0/F1 have NONE of those four in either
+# construction type; F2/F3 have at most one (roof_burnthrough, urm only, up
+# to frac 0.20-0.34); F4 is a real mix (0-144 loose bodies measured across
+# the last sweep's F4 records); F5/F5c/F6 ALWAYS run a collapse recipe and
+# routinely settle 400-600+ bodies, so that tier keeps `SETTLE_STEPS`/
+# `SETTLE_QUIET` exactly as before — "a level with real debris keeps its
+# full settle". Below that, `settle.run`'s own chunked `_settle_phase`
+# ALREADY exits the instant a chunk finds nothing moving (`converge=True`
+# only ever makes `steps`/`quiet_steps` a FLOOR it may run past, up to
+# `max_steps=3*steps` — see settle.py's docstring), so a lower tier is not
+# "cut the settle short and hope": it shrinks the CHUNK SIZE
+# (`max(30, steps//12)`) so that poll fires sooner, and it lowers the
+# worst-case ceiling for a level that is supposed to have almost nothing to
+# settle. Margins were sized off the last city sweep's sidecars: LOW tier's
+# worst observed `steps_used` was 1200 (of a 7200 cap) on an F3 kit record,
+# MID tier's was 1600 (of 7200) on an F4 kit record — the new ceilings (3x
+# the tier's own target) sit 1.5-3x above both.
 
 set -u
 
@@ -90,13 +119,42 @@ FB_OUT=${FB_OUT:-/isaac-sim/.cache/fire_bakes}
 FB_SEED=${FB_SEED:-7}
 SETTLE_STEPS=${SETTLE_STEPS:-2400}
 SETTLE_QUIET=${SETTLE_QUIET:-400}
+SETTLE_STEPS_LOW=${SETTLE_STEPS_LOW:-600}
+SETTLE_QUIET_LOW=${SETTLE_QUIET_LOW:-150}
+SETTLE_STEPS_MID=${SETTLE_STEPS_MID:-1600}
+SETTLE_QUIET_MID=${SETTLE_QUIET_MID:-300}
+FB_LEVEL_SETTLE=${FB_LEVEL_SETTLE:-1}
 SETTLE_DECOMP_M=${SETTLE_DECOMP_M:-0.8}
 SETTLE_FABRIC=${SETTLE_FABRIC:-0}      # 1 = PhysX->Fabric, no per-step USD write-back (settle.py)
+SETTLE_REST_V2=${SETTLE_REST_V2:-1}    # settle.py's corrected rest/grade measurements; forced OFF
+#                                        for `kit:` records, whose look is frozen against the old ones
 FB_BAKED_KITS=${FB_BAKED_KITS:-1}
 TIMEOUT_S=${TIMEOUT_S:-5400}
 LAUNCHER="$REPO/simulation/isaac-sim/launch_scripts/fire_bake_launch_script.py"
 HOSTLOGDIR="$HOME/docker/isaac-sim/logs"
 CLOGDIR="/isaac-sim/.nvidia-omniverse/logs"
+
+# settle_for_level LEVEL -- sets REC_STEPS/REC_QUIET/REC_TIER for one entry.
+# F0-F3 = "low", F4 = "mid", F5/F5c/F6 (and anything unrecognised, so an
+# unknown level fails SAFE toward the full budget) = "high" = unchanged
+# SETTLE_STEPS/SETTLE_QUIET.
+settle_for_level() {
+  local lvl="$1"
+  if [ "$FB_LEVEL_SETTLE" = "0" ]; then
+    REC_STEPS=$SETTLE_STEPS; REC_QUIET=$SETTLE_QUIET; REC_TIER="flat"
+    return
+  fi
+  case "$lvl" in
+    F0|F1|F2|F3)
+      REC_STEPS=$SETTLE_STEPS_LOW; REC_QUIET=$SETTLE_QUIET_LOW; REC_TIER="low" ;;
+    F4)
+      REC_STEPS=$SETTLE_STEPS_MID; REC_QUIET=$SETTLE_QUIET_MID; REC_TIER="mid" ;;
+    F5|F5c|F6)
+      REC_STEPS=$SETTLE_STEPS; REC_QUIET=$SETTLE_QUIET; REC_TIER="high" ;;
+    *)
+      REC_STEPS=$SETTLE_STEPS; REC_QUIET=$SETTLE_QUIET; REC_TIER="high(unknown level $lvl)" ;;
+  esac
+}
 
 DRY=0
 VERIFY_ONLY=0
@@ -105,7 +163,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1 ;;
     --verify-only) VERIFY_ONLY=1 ;;
-    -h|--help) sed -n '2,70p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,113p' "$0"; exit 0 ;;
     -*) echo "fire_bake.sh: unknown flag $1" >&2; exit 2 ;;
     *) ENTRIES+=("$1") ;;
   esac
@@ -148,7 +206,7 @@ if [ "$VERIFY_ONLY" = 1 ]; then
 fi
 
 echo "fire_bake.sh: ${#ENTRIES[@]} building(s) -> $CONTAINER:$FB_OUT"
-echo "              seed base $FB_SEED, settle ${SETTLE_STEPS}+${SETTLE_QUIET}, decomp ${SETTLE_DECOMP_M} m"
+echo "              seed base $FB_SEED, settle (F5/F5c/F6) ${SETTLE_STEPS}+${SETTLE_QUIET}$([ "$FB_LEVEL_SETTLE" != 0 ] && echo ", (F0-F3) ${SETTLE_STEPS_LOW}+${SETTLE_QUIET_LOW}, (F4) ${SETTLE_STEPS_MID}+${SETTLE_QUIET_MID}"), decomp ${SETTLE_DECOMP_M} m"
 echo
 
 t_all=$(date +%s)
@@ -170,16 +228,31 @@ EOF
   CLOG="$CLOGDIR/$STEM.log"
   HLOG="$HOSTLOGDIR/$STEM.log"
 
-  ENVS="ISAAC_SIM_HEADLESS=true PYTHONUNBUFFERED=1"
+  # PYTHONHASHSEED IS NOT COSMETIC HERE. `urban_fire.r_render_peel` does
+  # `for side in sides_hit:` over a SET of side letters, and Python
+  # randomises `str` hashes per PROCESS, so that loop runs E/W/S in a
+  # different order every bake — which hands the shared `rng` a different
+  # draw order from that point on and changes every debris placement after
+  # it. Measured 2026-08-31 on `kit_brownstone_row_F5c_o4_SEW_s198`: two
+  # bakes of the SAME record with the SAME code moved 326 meshes, mirrored
+  # the `peelrow` windrow 40 m end-for-end, and changed top_z 21.69 -> 20.76
+  # m. Pinning the seed makes a bake reproducible; it does NOT make it match
+  # a bake taken before this line existed.
+  ENVS="ISAAC_SIM_HEADLESS=true PYTHONUNBUFFERED=1 PYTHONHASHSEED=0"
   ENVS="$ENVS FB_KIND=$KIND FB_NAME=$NAME FB_LEVEL=$LEVEL"
   ENVS="$ENVS FB_SEED=$SEED FB_BUILD_SEED=$BUILD_SEED FB_INDEX=$i"
   ENVS="$ENVS FB_ORIGIN=$ORIGIN FB_SIDES=$SIDES"
   ENVS="$ENVS FB_OUT=$FB_OUT FB_BAKED_KITS=$FB_BAKED_KITS FB_VERIFY=1"
-  ENVS="$ENVS SETTLE_STEPS=$SETTLE_STEPS SETTLE_QUIET=$SETTLE_QUIET"
+  # PER-LEVEL SETTLE BUDGET — see the header comment.
+  settle_for_level "$LEVEL"
+  ENVS="$ENVS SETTLE_STEPS=$REC_STEPS SETTLE_QUIET=$REC_QUIET"
   ENVS="$ENVS SETTLE_DECOMP_M=$SETTLE_DECOMP_M SETTLE_FABRIC=$SETTLE_FABRIC"
+  REST_V2=$SETTLE_REST_V2
+  [ "$KIND" = "kit" ] && REST_V2=0   # the MCE kit look is FROZEN -- see settle.py
+  ENVS="$ENVS SETTLE_REST_V2=$REST_V2"
   RUN="mkdir -p '$CLOGDIR' '$FB_OUT'; : > '$CLOG'; cd /isaac-sim && env $ENVS PYTHONPATH=\"\$ISAAC_SIM_PYTHONPATH\" timeout ${TIMEOUT_S}s /isaac-sim/python.sh $LAUNCHER --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --no-window > '$CLOG' 2>&1; echo \"EXIT \$?\" >> '$CLOG'"
 
-  echo "=== [$i] $ent -> $STEM"
+  echo "=== [$i] $ent -> $STEM  settle=$REC_TIER(${REC_STEPS}+${REC_QUIET})"
   echo "+ docker exec $CONTAINER bash -c \"$RUN\""
   if [ "$DRY" = 1 ]; then USDS+=("$FB_OUT/$STEM.usd"); i=$((i+1)); continue; fi
 

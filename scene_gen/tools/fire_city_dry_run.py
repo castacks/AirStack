@@ -613,7 +613,7 @@ def build_solve_inputs(burnable_list, manifest_dg0, cache):
 # Stage 3: the spread solve + the exactly-N-F5c enforcement
 # ---------------------------------------------------------------------------
 def run_spread(buildings, local_to_global, final_btype, height_class,
-              fire_spec, seed, n):
+              fire_spec, seed, n, extra_blocked_local=frozenset()):
     """Runs `pick_origin` + `solve`, capped to `n`. Returns `(plan,
     origin_local, notes)` — `plan` is `urban_fire_spread.solve`'s own return
     (local index space), `notes` a list of human-readable strings describing
@@ -625,7 +625,23 @@ def run_spread(buildings, local_to_global, final_btype, height_class,
     `urban_fire_city.damaged_manifest` re-applies (from `typology`, not this
     dict) as the authoritative gate on the final manifest. Applying it here
     too means `_enforce_target_f5c` below (which reads and writes `plan`
-    directly) sees an already-honest starting point."""
+    directly) sees an already-honest starting point.
+
+    `extra_blocked_local` (LOCAL index space, i.e. `buildings`' own `"i"` —
+    see `_solve_from_layout`'s translation from a caller's GLOBAL placement
+    indices) is a CALLER-SUPPLIED firebreak set, unioned with the `rc_glass`
+    origin-eligibility block below and handed to BOTH `pick_origin` (so an
+    excluded building can never be drawn as the origin either) and `solve`'s
+    own `blocked=` (so it is never in the graph at all — the same "not on
+    the graph" discipline `urban_fire_city.burnable`'s pack-blacklist/height-
+    cap gates already use, see that module's docstring). It exists for
+    `tools/fire_city_union.py`'s auto-clean loop: a placements dump can carry
+    a genuine geometry defect (two buildings placed close enough to actually
+    overlap, not just touch — `check_footprint`'s own `OVERLAP_TOL_M`) that
+    no amount of fire-model tuning can paper over, and the honest fix is to
+    never light one member of the offending pair, exactly like any other
+    firebreak. Default `frozenset()` reproduces the old behaviour (every
+    burnable candidate is in the graph) exactly."""
     from disaster import urban_fire_spread as ufs
 
     rng = random.Random(int(seed))
@@ -651,13 +667,21 @@ def run_spread(buildings, local_to_global, final_btype, height_class,
         # with a clearer message than "no unblocked building to ignite".
         raise ValueError("run_spread: every burnable candidate is rc_glass -- "
                           "no origin can ever reach F5/F5c/F6")
-    origin_local = ufs.pick_origin(buildings, blocked=rc_glass_local, rng=rng,
+    blocked_local = rc_glass_local | frozenset(extra_blocked_local or ())
+    if len(blocked_local) >= len(buildings):
+        raise ValueError(
+            "run_spread: extra_blocked_local plus the rc_glass block covers "
+            "every burnable candidate -- no origin can ever be picked "
+            "(rc_glass alone: {0} of {1}; combined: {2})".format(
+                len(rc_glass_local), len(buildings), len(blocked_local)))
+    origin_local = ufs.pick_origin(buildings, blocked=blocked_local, rng=rng,
                                    epicenter=fire_spec["epicenter"])
     elapsed_s = fire_spec["duration_s"] * fire_spec["start_offset_frac"]
     wind_dir = math.radians(fire_spec["heading_deg"])
     plan = ufs.solve(buildings, origin_local, elapsed_s, wind_dir=wind_dir,
                      wind_mps=fire_spec["wind_mps"], rng=rng,
                      btype_of=lambda b: final_btype[b["i"]], max_burnt=n,
+                     blocked=blocked_local,
                      height_class_of=lambda b: height_class[b["i"]])
     return plan, origin_local, elapsed_s
 
@@ -760,6 +784,23 @@ def _enforce_target_f5c(plan, origin_local, final_btype, height_class, target=1)
     return notes
 
 
+def _block_rect_at(layout, x, y):
+    """The `(x0, y0, x1, y1)` block rect containing `(x, y)`, or `None` --
+    the same iteration `urban_fire_city.typology_at` does over `layout[
+    "_typology_of"]`, just returning the RECT instead of the name. This is
+    the `block_rect` `disaster.urban_fire_spread.street_side_score` wants:
+    the layout already carries block rects (`districts.rezone_blocks`'s own
+    keys), and a real road corridor is exactly a block's own complement in
+    the region (`disaster.fire_people.derive_layout`'s `rect_complement`) --
+    so "how far to the edge of THIS block" is "how far to the street", with
+    no separate road-polygon lookup needed."""
+    for rect in (layout or {}).get("_typology_of") or {}:
+        x0, y0, x1, y1 = rect
+        if x0 <= x <= x1 and y0 <= y <= y1:
+            return rect
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Stage 4: the manifest (urban_fire_city.damaged_manifest + dry-run-only
 # enrichment for the seven checks)
@@ -783,7 +824,20 @@ def build_manifest(preset, seed, n, layout, placements, buildings,
     function has no CLI knob for). The manifest's own `"roof_outcome_count"`
     reports how many records actually ended up showing a `ROOF_LEVELS`
     outcome (`F5c`/`F6`), for the report and for a caller that wants to
-    confirm the budget held without re-deriving it."""
+    confirm the budget held without re-deriving it.
+
+    STREET-FACING SIDE PREFERENCE (2026-08-31 user policy) is wired in
+    HERE, at the one call site that has everything it takes: `buildings`
+    (every burnable candidate's own footprint, the neighbour set `disaster.
+    urban_fire_spread.street_side_score` scores against) and `layout` (for
+    `_block_rect_at`, the block `b` was zoned into — a real road corridor is
+    exactly that block's own complement in the region, see `disaster.
+    fire_people.derive_layout`). Each record gets its OWN `street_score`
+    closure bound to its own building and block rect, handed to `ufs.
+    entry_for_plan_fire` alongside the per-record `rng` it already got —
+    see that function's docstring for exactly where the score can and
+    cannot move a side (the entry side itself never moves; the origin's
+    free choice and F3+'s single extra corner side do)."""
     from disaster import urban_fire_city as ufc
     from disaster import urban_fire_spread as ufs
 
@@ -802,8 +856,12 @@ def build_manifest(preset, seed, n, layout, placements, buildings,
         gi = local_to_global[p["i"]]
         b = buildings[p["i"]]
         n_st = n_storeys[p["i"]]
-        storey, sides = ufs.entry_for_plan_fire(p, n_st, random.Random(
-            int(seed) + 97 * gi))
+        block_rect = _block_rect_at(layout, b["x"], b["y"])
+        street_score = (lambda s, _b=b, _rect=block_rect:
+                       ufs.street_side_score(_b, s, buildings, _rect))
+        storey, sides = ufs.entry_for_plan_fire(
+            p, n_st, random.Random(int(seed) + 97 * gi),
+            street_score=street_score)
         via_local = p.get("via")
         rec = {
             "i": gi,
@@ -887,17 +945,43 @@ def check_district_rule(manifest):
 
 
 def check_contiguity(manifest):
+    """Every record traces back to a declared origin, with no cycles.
+
+    THE FOREST CASE (2026-08-31, the two-seed union manifest): before the
+    FIRE_MAX_H_M height gate (`urban_fire_city`'s gate 6), a two-seed union
+    built from `downtown_fire_500` seeds 4 and 35 always ended up with a
+    SINGLE root in practice -- seed 35's own fire happened to be a strict
+    subset of seed 4's own reach every time (both funnelled through the
+    same 302 m `SM_Building_31` stepping stone), so `manifest["origins"]`
+    (plural -- the union step's own record of BOTH seeds' starting points)
+    was carried purely for documentation and this check's original
+    single-root assertion never actually saw a second root to accept or
+    reject. With `SM_Building_31` refused as a firebreak, the two seeds'
+    fires genuinely stay separate (two disjoint trees) -- exactly what
+    "union of two ignition points" always claimed to mean -- so this check
+    now validates a FOREST: `manifest["origins"]`, when present, names
+    every root a `via=None` record is allowed to be; every record must
+    trace back to ONE of them, and the set of actual `via=None` records
+    must equal that declared set exactly (no undeclared extra root, no
+    declared root missing from the data). Without `"origins"` (every OTHER
+    manifest this checks, including every single-fire manifest `run_dry`/
+    `run_dry_from_dump` ever produces, and every existing test fixture)
+    this falls back to `[manifest.get("origin")]`, so single-fire
+    behaviour -- exactly one root, exactly matching `"origin"` -- is
+    completely unchanged, including the `detail["root"]` key callers
+    already read.
+    """
     recs = manifest["records"]
     by_i = {r["i"]: r for r in recs}
-    roots = [r["i"] for r in recs if r.get("via") is None]
-    if len(roots) != 1:
-        return False, {"reason": "expected exactly one record with via=None "
-                                 "(the origin)", "found": roots}
-    root = roots[0]
-    if root != manifest.get("origin"):
-        return False, {"reason": "the via=None record is not the manifest's "
-                                 "declared origin", "via_none_i": root,
-                       "manifest_origin": manifest.get("origin")}
+    declared = manifest.get("origins")
+    if declared is None:
+        declared = [manifest.get("origin")]
+    declared = sorted(set(o for o in declared if o is not None))
+    found = sorted(r["i"] for r in recs if r.get("via") is None)
+    if found != declared:
+        return False, {"reason": "the records with via=None do not exactly "
+                                 "match the manifest's declared origin(s)",
+                       "found": found, "declared": declared}
     for r in recs:
         cur = r["i"]
         seen = set()
@@ -911,10 +995,13 @@ def check_contiguity(manifest):
                                          "the manifest", "from": r["i"],
                                "missing": cur}
             cur = cur_rec.get("via")
-        if root not in seen:
-            return False, {"reason": "record does not trace back to the "
-                                     "origin", "i": r["i"]}
-    return True, {"n_records": len(recs), "root": root}
+        if not seen & set(declared):
+            return False, {"reason": "record does not trace back to any "
+                                     "declared origin", "i": r["i"]}
+    detail = {"n_records": len(recs), "roots": found}
+    if len(found) == 1:
+        detail["root"] = found[0]          # back-compat: the common case
+    return True, detail
 
 
 def check_level_distribution(manifest):
@@ -944,14 +1031,32 @@ def check_level_distribution(manifest):
 
 
 def check_entry_points(manifest):
+    """(2026-08-31 policy) F3+ vents 2 OR 3 sides now, never just 1 -- see
+    `disaster.urban_fire_spread.entry_for_plan_fire`'s own docstring for the
+    side-count draw this checks. F1/F2 is unchanged: exactly 1.
+
+    (2026-08-31, `ORIGIN_FRAC_CAP`) `origin_frac` may never exceed
+    `urban_fire_spread.ORIGIN_FRAC_CAP` for ANY mechanism -- this replaces an
+    earlier "spot origin_frac should be high (~0.88)" LOWER-bound check that
+    is now the wrong invariant on purpose: `solve()` used to let a brand
+    landing on the roof start a fire at 0.88 of a mass's height, which on a
+    20-30 storey GAC tower pinned every flame/soot/smoke event to a handful
+    of storeys under the roof with the entire lower building untouched --
+    "fire still seems to be on the higher floors rather than all over" (user
+    review against the 39-record `fire_city_500m` manifest). The solver now
+    caps every mechanism's `origin_frac` at `ORIGIN_FRAC_CAP`, and
+    `tools/fire_city_lower_origins.py` redraws a low-biased `origin_frac` for
+    any pre-existing record above it -- `how` stays whatever mechanism lit
+    the building (a `spot` record can legitimately have a low `origin_frac`
+    now), so the UPPER bound is the only thing left to check."""
     from disaster import urban_fire_spread as ufs
 
     bad = []
     for r in manifest["records"]:
         sides = r.get("sides") or []
         rank = ufs.RANK.get(r.get("level"), 0)
-        if rank >= ufs.RANK["F3"] and len(sides) != 2:
-            bad.append([r["i"], f"F3+ should vent 2 sides, got {sides}"])
+        if rank >= ufs.RANK["F3"] and len(sides) not in (2, 3):
+            bad.append([r["i"], f"F3+ should vent 2-3 sides, got {sides}"])
         elif ufs.RANK["F1"] <= rank < ufs.RANK["F3"] and len(sides) != 1:
             bad.append([r["i"], f"F1/F2 should vent 1 side, got {sides}"])
         for s in sides:
@@ -961,9 +1066,10 @@ def check_entry_points(manifest):
         if n_st is not None and storey is not None and not (0 <= storey < n_st):
             bad.append([r["i"], f"storey {storey} out of range [0,{n_st})"])
         how, frac = r.get("how"), r.get("origin_frac")
-        if how == "spot" and frac is not None and frac < 0.7:
-            bad.append([r["i"], f"spot origin_frac should be high (~0.88), "
-                               f"got {frac}"])
+        if frac is not None and frac > ufs.ORIGIN_FRAC_CAP + 1e-9:
+            bad.append([r["i"], f"origin_frac {frac} exceeds ORIGIN_FRAC_CAP "
+                               f"({ufs.ORIGIN_FRAC_CAP}) -- no mechanism may "
+                               f"start a fire above half the mass"])
         if how == "attached" and frac is not None and frac > 0.4:
             bad.append([r["i"], f"attached origin_frac should be low "
                                f"(~0.22), got {frac}"])
@@ -1106,7 +1212,7 @@ def run_all_checks(manifest, manifest_dg0=None):
 # ---------------------------------------------------------------------------
 def _solve_from_layout(preset, resolved_seed, n, collapse, config, layout,
                        placements, resolver, fire_spec, dump_provenance=None,
-                       roof_collapse_max=None):
+                       roof_collapse_max=None, extra_blocked_global=None):
     """The burnable-set / spread / manifest tail shared by `run_dry`
     (layout freshly built in-process, `resolver` a real `SizeResolver`) and
     `run_dry_from_dump` (layout loaded from a `FC_DUMP` placements dump,
@@ -1116,7 +1222,17 @@ def _solve_from_layout(preset, resolved_seed, n, collapse, config, layout,
 
     `roof_collapse_max` — see `build_manifest`'s own docstring — flows
     straight through to it; `None` means "use `urban_fire_city.
-    damaged_manifest`'s own default"."""
+    damaged_manifest`'s own default".
+
+    `extra_blocked_global` — see `run_spread`'s own docstring for what this
+    is FOR (a caller-supplied firebreak, e.g. `tools/fire_city_union.py`'s
+    auto-clean loop dropping a placement that overlaps another one in the
+    dump's own geometry). Given here in the placements list's GLOBAL index
+    space (an `i` a caller who read `manifest["records"]`/`["refused"]`
+    already has); translated to `run_spread`'s LOCAL (`buildings`-list)
+    space via `local_to_global` right below, the same translation
+    `build_manifest`'s own `via`/`i` fields already do in the other
+    direction."""
     from disaster import quake as q
 
     burnable_list, refused_gate, building_typology = gather_burnable(
@@ -1132,9 +1248,13 @@ def _solve_from_layout(preset, resolved_seed, n, collapse, config, layout,
     buildings, local_to_global, final_btype, n_storeys, height_class = \
         build_solve_inputs(burnable_list, manifest_dg0, cache)
 
+    extra_blocked_set = frozenset(extra_blocked_global or ())
+    extra_blocked_local = frozenset(
+        k for k, gi in enumerate(local_to_global) if gi in extra_blocked_set)
+
     plan, origin_local, elapsed_s = run_spread(
         buildings, local_to_global, final_btype, height_class, fire_spec,
-        resolved_seed, n)
+        resolved_seed, n, extra_blocked_local=extra_blocked_local)
     notes = _enforce_target_f5c(plan, origin_local, final_btype, height_class,
                                 target=collapse)
 
@@ -1166,27 +1286,32 @@ def _solve_from_layout(preset, resolved_seed, n, collapse, config, layout,
         "fire_spec": fire_spec,
         "buildings": buildings, "local_to_global": local_to_global,
         "final_btype": final_btype, "plan": plan, "notes": notes,
+        "extra_blocked_global": sorted(extra_blocked_set),
     }
     return manifest, checks, report_extras
 
 
 def run_dry(preset: str, seed=None, n: int = 16, collapse: int = 1,
-           roof_collapse_max=None):
+           roof_collapse_max=None, extra_blocked_global=None):
     """Runs the whole pipeline once, building the layout FRESH, in this
     process (needs `pxr` — see `build_layout`). Returns `(manifest, checks,
     report_extras)` — `report_extras` carries the numbers the markdown
     report wants that are not part of the JSON manifest itself (typology
-    tallies, refusal-reason tally, the per-building spread table)."""
+    tallies, refusal-reason tally, the per-building spread table).
+
+    `extra_blocked_global` — see `run_spread`'s docstring; passed straight
+    through to `_solve_from_layout`."""
     config, layout, placements, resolver = build_layout(preset, seed=seed)
     resolved_seed = int(config.get("seed", seed if seed is not None else 0))
     fire_spec = _raw_fire_spec(preset)
     return _solve_from_layout(preset, resolved_seed, n, collapse, config,
                               layout, placements, resolver, fire_spec,
-                              roof_collapse_max=roof_collapse_max)
+                              roof_collapse_max=roof_collapse_max,
+                              extra_blocked_global=extra_blocked_global)
 
 
 def run_dry_from_dump(dump_path: str, seed=None, n: int = 16, collapse: int = 1,
-                      roof_collapse_max=None):
+                      roof_collapse_max=None, extra_blocked_global=None):
     """`run_dry`, but the layout is LOADED from a placements dump the city
     launcher wrote (`FC_DUMP`, `FC_INTACT_ONLY=1`) instead of rebuilt
     host-side — see `load_placements_dump` and the module docstring's
@@ -1201,7 +1326,14 @@ def run_dry_from_dump(dump_path: str, seed=None, n: int = 16, collapse: int = 1,
     the dump recorded, regardless of `seed`. `preset` is always the one the
     dump itself names (the layout was solved for that preset's district
     rules; there is no "override" that would still describe the same
-    city)."""
+    city).
+
+    `extra_blocked_global` — see `run_spread`'s docstring; passed straight
+    through to `_solve_from_layout`. This is `tools/fire_city_union.py`'s
+    hook for excluding a placement index known (from a prior run's own
+    `check_footprint` violation) to overlap another one in THIS dump's
+    geometry — a data defect, not a fire-model decision, fenced off the
+    same way any other firebreak is."""
     config, layout, placements, dump_seed, preset, dump_sha256 = \
         load_placements_dump(dump_path)
     resolved_seed = int(seed) if seed is not None else dump_seed
@@ -1210,7 +1342,8 @@ def run_dry_from_dump(dump_path: str, seed=None, n: int = 16, collapse: int = 1,
     return _solve_from_layout(preset, resolved_seed, n, collapse, config,
                               layout, placements, None, fire_spec,
                               dump_provenance=dump_provenance,
-                              roof_collapse_max=roof_collapse_max)
+                              roof_collapse_max=roof_collapse_max,
+                              extra_blocked_global=extra_blocked_global)
 
 
 def _manifest_only(preset, seed, n=16, collapse=1, roof_collapse_max=None):

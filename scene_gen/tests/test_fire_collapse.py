@@ -1409,6 +1409,195 @@ def test_a_reskinned_fragment_is_never_charred_whole():
     assert fc.skin_fragment(ctx, None, "/bench/brk/frag_001") is None
 
 
+# ---------------------------------------------------------------------------
+# THE PEEL: on the wall it is drawn on, and in that building's own colour
+# ---------------------------------------------------------------------------
+# User review of the live 500 m fire city (2026-08-31), on
+# `kit_brownstone_row_F4_o4_EN_s438`, prim `.../k14/peel_k14_166`: "this
+# doesn't match the material of the building it's on. it's also not on the
+# building, it's floating". Both halves are `urban_fire.r_render_peel`
+# reaching into this module — the PLANE through the module's own geometry
+# (`_stamp_frame`), the FACE through `tone_material` — so they are pinned
+# here, beside the tear's own tests, which is the machinery they reuse.
+#
+# 0.38 m is `urban_building.PIECES["SM_MBuilding03_Facade_B_Upper"]`'s own
+# `ymin`: a brownstone's upper storey is a projecting BAY, and
+# `quake_flow._piece_frame` hands the bbox front back as if it were the wall.
+_BAY_M = 0.38
+
+
+def _module_stage(tex="M_MBuilding03_Facades_BaseColor.png"):
+    """`(ctx, e, fr)` for ONE kit module shaped the way family 03's upper
+    storey measures: a 4 x 3 m wall face ON the placement line, and a bay
+    standing `_BAY_M` in front of it over the middle metre. In-memory stage,
+    no Kit, no Nucleus — the geometry is authored here.
+    """
+    from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
+    from disaster import damage
+
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+    for q in ("/W", "/W/k0", "/W/k0/parts", "/W/k0/parts/mod_0"):
+        UsdGeom.Xform.Define(stage, q)
+    mat = damage._pbr(stage, "/W/k0/FireLooks/soot_0", (0.2, 0.2, 0.2), 1.0,
+                      texture=tex)
+
+    def quad(path, y, x0, x1):
+        # wound so the face normal is (0, -1, 0) — the module's OUTWARD
+        # direction at yaw 0, which is what `_wall_relief` selects on
+        m = UsdGeom.Mesh.Define(stage, path)
+        pts = [(x0, y, 0.0), (x1, y, 0.0), (x1, y, 3.0), (x0, y, 3.0)]
+        m.CreatePointsAttr(Vt.Vec3fArray([Gf.Vec3f(*q) for q in pts]))
+        m.CreateFaceVertexCountsAttr(Vt.IntArray([4]))
+        m.CreateFaceVertexIndicesAttr(Vt.IntArray([0, 1, 2, 3]))
+        UsdGeom.PrimvarsAPI(m).CreatePrimvar(
+            "st", Sdf.ValueTypeNames.TexCoord2fArray,
+            UsdGeom.Tokens.faceVarying).Set(
+                Vt.Vec2fArray([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0),
+                               (0.0, 1.0)]))
+        UsdShade.MaterialBindingAPI.Apply(m.GetPrim()).Bind(mat)
+
+    quad("/W/k0/parts/mod_0/wall", 0.0, 0.0, 4.0)
+    quad("/W/k0/parts/mod_0/bay", -_BAY_M, 1.5, 2.5)
+    spall = damage._pbr(stage, "/W/k0/FireLooks/spall_face",
+                        (0.052, 0.049, 0.045), 1.0)
+    ctx = {"stage": stage, "parent": "/W/k0", "cache": {},
+           "mats": {"spall_face": spall}, "notes": []}
+    e = {"name": "SM_MBuilding03_Facade_B_Upper", "z": 0.0, "h": 3.0,
+         "side": "S", "storey": 4, "role": "wall",
+         "p": {"prim_path": "/W/k0/parts/mod_0"}}
+    # exactly what `quake_flow._piece_frame` returns for this piece: the bbox
+    # front (`ymin`) with its own 2 cm pad
+    fr = (0.0, 0.0, 0.0, 4.0, 3.0, -(_BAY_M + 0.02), False)
+    return ctx, e, fr
+
+
+def _diffuse(mat):
+    from pxr import UsdShade
+    sh = UsdShade.Shader.Get(mat.GetPrim().GetStage(),
+                             mat.GetPath().AppendChild("Shader"))
+    return tuple(float(q) for q in sh.GetInput("diffuse_color_constant").Get())
+
+
+def test_a_peel_lands_on_the_wall_and_not_on_the_bay_in_front_of_it():
+    """The defect, in one number. `_piece_frame`'s depth is the front of the
+    BAY, so the shipped stamp stood 0.436 m off the façade (measured on
+    `kit_brownstone_row_F4_o4_EN_s438`: peels at y = 7.436 against a wall
+    line at y = 7.000). `_stamp_frame` measures the module instead."""
+    ctx, e, fr = _module_stage()
+
+    # what the bug looked like: the frame alone puts the stamp 0.436 m out,
+    # the shipped bake's own number (0.38 bay + 0.02 pad + SCAR_PROUD)
+    was = qf._b_face_pt(fr, 0.5, 1.5, uf.SCAR_PROUD)
+    assert abs(abs(was[1]) - 0.436) < 1e-6, was
+
+    on_wall = uf._stamp_frame(ctx, e, fr, 0.5, 1.5)
+    on_bay = uf._stamp_frame(ctx, e, fr, 2.0, 1.5)
+    # over the flat wall the plane IS the wall: the pad and nothing else
+    assert abs(-on_wall[5] - uf.PEEL_WALL_PAD) < 1e-6, on_wall
+    # ...and where the bay really is in front, the stamp is on the BAY —
+    # the frontmost outward surface at that (u, v), not a global plane
+    assert abs(-on_bay[5] - (_BAY_M + uf.PEEL_WALL_PAD)) < 1e-6, on_bay
+    # nothing else about the frame moves
+    assert on_wall[:5] == fr[:5] and on_wall[6:] == fr[6:]
+
+    now = qf._b_face_pt(on_wall, 0.5, 1.5, uf.SCAR_PROUD)
+    assert abs(abs(now[1]) - (uf.PEEL_WALL_PAD + uf.SCAR_PROUD)) < 1e-6, now
+    # and the halo it sits on stays behind it, on the same plane
+    halo = qf._b_face_pt(on_wall, 0.5, 1.5, uf.SCAR_HALO_PROUD)
+    assert abs(halo[1]) < abs(now[1])
+
+
+def test_a_module_that_cannot_be_measured_keeps_its_frame():
+    """No stage, no module, no geometry — the stamp must behave exactly as it
+    did rather than land somewhere invented."""
+    ctx, e, fr = _module_stage()
+    ghost = dict(e, name="ghost", p={"prim_path": "/W/k0/parts/nope"})
+    assert uf._stamp_frame(ctx, ghost, fr, 0.5, 1.5) == fr
+
+
+def test_the_relief_is_measured_once_per_piece():
+    """The cache is per piece NAME: every placement of a kit module is the
+    same geometry in its own frame, so a 40-module terrace measures once."""
+    ctx, e, fr = _module_stage()
+    uf._stamp_frame(ctx, e, fr, 0.5, 1.5)
+    key = (e["name"], ())
+    assert key in ctx["cache"]["wall_relief"]
+    assert len(ctx["cache"]["wall_relief"][key][0]) >= 2      # wall + bay
+
+
+def test_the_peel_face_is_sampled_from_the_modules_own_map(monkeypatch=None):
+    """THE MATERIAL PIN. The exposed substrate must come from the map the
+    module is wearing — after `r_smoke_stain` that is its SOOTED copy — and
+    never from a stage-shared triplanar (`mats["brick_bare"]`, which every
+    peel in the city wore: 28 of 28 stamps over `city_4`)."""
+    from disaster import soot_plume as spl
+
+    ctx, e, fr = _module_stage()
+    keep = spl._read_rgb
+    spl._read_rgb = lambda url, max_px=2048: np.full((4, 4, 3), 0.20,
+                                                     dtype=np.float32)
+    try:
+        mat, how = uf._peel_face_mat(ctx, e)
+    finally:
+        spl._read_rgb = keep
+    assert how == "tone"
+    # a material of this BUILDING's, under its own cell, not a shared look
+    assert str(mat.GetPath()).startswith(
+        ctx["parent"] + uf.PEEL_FACE_PREFIX), mat.GetPath()
+    # screen 0.20 -> linear, then opened up to the calcined substrate
+    want = min(uf.PEEL_FACE_CLAMP[1],
+               max(uf.PEEL_FACE_CLAMP[0],
+                   (0.20 ** fc.TEAR_TONE_GAMMA) * uf.PEEL_FACE_GAIN))
+    for q in _diffuse(mat):
+        assert abs(q - want) < 1e-5, (q, want)
+
+
+def test_an_office_card_can_never_become_the_peel_face():
+    """`is_fake_interior` gates the peel's pick exactly as it gates the
+    tear's: cubicles and ceiling tiles are not what is under a render. With
+    nothing else readable the peel takes the flat `spall_face`, which is a
+    defensible thing to see, and SAYS so through the note's own tally."""
+    ctx, e, fr = _module_stage(tex="M_Building_24_Office_Fake_BaseColor.png")
+    mat, how = uf._peel_face_mat(ctx, e)
+    assert how == "flat"
+    assert mat is ctx["mats"]["spall_face"]
+
+
+def test_the_tears_own_tone_is_unchanged_at_the_defaults():
+    """`tone_material` grew `gain`/`clamp`/`prefix`/`cache_key` for the peel;
+    at the defaults it must still be the function the tear has always
+    called — same name, same cache, same linear tone."""
+    from disaster import soot_plume as spl
+
+    ctx, _e, _fr = _module_stage()
+    sk = {"tex": "M_MBuilding03_Facades_BaseColor.png", "mat": "", "uv": None}
+    keep = spl._read_rgb
+    spl._read_rgb = lambda url, max_px=2048: np.full((4, 4, 3), 0.20,
+                                                     dtype=np.float32)
+    try:
+        mat = fc.tone_material(ctx, sk)
+    finally:
+        spl._read_rgb = keep
+    assert str(mat.GetPath()) == ctx["parent"] + fc.TEAR_TONE_PREFIX + "0"
+    assert "tear_tone" in ctx and "peel_face" not in ctx
+    for q in _diffuse(mat):
+        assert abs(q - 0.20 ** fc.TEAR_TONE_GAMMA) < 1e-6
+
+
+def test_the_peel_recipe_reaches_for_neither_a_shared_brick_nor_a_bare_frame():
+    """The two lines the review was about, pinned at the source: the recipe
+    binds what `_peel_face_mat` sampled (never `mats["brick_bare"]`) onto the
+    frame `_stamp_frame` measured (never `_piece_frame`'s raw one)."""
+    import inspect
+
+    src = inspect.getsource(uf.r_render_peel)
+    assert "brick_bare" not in src
+    assert "_peel_face_mat(ctx, e)" in src
+    assert "_stamp_frame(ctx, e, fr, u, v)" in src
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

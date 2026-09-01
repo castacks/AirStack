@@ -38,6 +38,12 @@ Env:
                   last three are the foundation family, quake_flow.FOUNDATION)
     ARCH_VARIANTS variants per damaged grade (default 1) — `_v1`, `_v2`, ...
     SETTLE_STEPS  per-row ceiling (default 2200)
+    SETTLE_BODY_BUDGET  max loose (physics) bodies per row (default 3000);
+                  `-1` = unlimited, today's behaviour. See
+                  `disaster.quake_collapse.apply_settle_budget`. A "block"
+                  style (main mass + several storeys-tall wings) is where
+                  this actually bites — measured at 18,771 bodies / 1.5 h+
+                  for `block_residential` DG3-5 before this existed.
 """
 
 import math
@@ -72,6 +78,7 @@ import scene_generator as sg                                  # noqa: E402
 from scene_prep import get_stage_meters_per_unit              # noqa: E402
 from detail import urban_building as ub                       # noqa: E402
 from disaster import bake, fracture, settle, quake_flow as qf  # noqa: E402
+from disaster import quake_collapse as qc                      # noqa: E402
 try:
     # BELT AND BRACES FOR ANY FLOATER IN A KIT ARCHETYPE BAKE, not just roof
     # props: `fire_bake_launch_script.py`'s own call site, after the settle
@@ -129,6 +136,54 @@ GRADES = [q.strip() for q in os.environ.get(
     "ARCH_GRADES", "DG0,DG1,DG2,DG3,DG4,DG5,SETTLE,TILT,OV").split(",") if q.strip()]
 VARIANTS = max(1, int(os.environ.get("ARCH_VARIANTS") or "1"))
 SETTLE_STEPS = int(os.environ.get("SETTLE_STEPS") or "2200")
+# ROUND 8 — SETTLE BODY BUDGET. User: "15000 bodies seems like too much, you
+# wanna place some by hand or something." A style row's settle is ALL of its
+# grades' loose bodies at once (see the module docstring above); a "block"
+# style (`block_residential`, `block_office`, `block_stone`,
+# `block_commercial` — a main mass plus several storeys-tall WINGS,
+# `quake_collapse.collapse_masses`'s own docstring) multiplies every
+# per-element/per-storey break population by both the mass count and each
+# wing's own storey count, and a total/pancake grade on one of these hit
+# 18,771 bodies and a 1.5 h settle that had to be killed
+# (`quake_collapse.SETTLE_BODY_BUDGET_ENV`'s own module docstring has the
+# full arithmetic). `qc.settle_body_budget()` reads the SAME env var this
+# launcher does, because the budget has to live somewhere the GAC/sliced
+# bake can reach it too later — only the archetype path actually calls it
+# this round. `None` (env `SETTLE_BODY_BUDGET=-1`) is unlimited, i.e. today's
+# behaviour, byte-for-byte.
+SETTLE_BODY_BUDGET = qc.settle_body_budget()
+# OPT-IN, NOT STRICT BY DEFAULT (round 7 — was strict-by-default in round 6).
+# `steps` used to be a hard CEILING with no convergence loop and no failure
+# mode: a body that could not reach a real rest inside the budget (a roof
+# prop with a whole storey to fall on a 0.3-0.9 m/s kick,
+# `disaster/quake_collapse.py`'s old `_sweep_roof_props`) simply froze
+# mid-air and got exported — the manifest's own `still_moving` stat read 0
+# ("converged") because that only measures 4 mm/step-chunk velocity at the
+# end of a fixed budget, never whether anything is actually supported.
+# `converge=True` (below, unchanged) makes `steps` a TARGET instead, run up
+# to `settle.run`'s own `max_steps` (3x by default); `strict=SETTLE_STRICT`
+# turns a settle that still could not converge into a raised
+# `SettleNotConverged` instead of a silent warning.
+#
+# Round-6 shipped that strict by default, and round-7's re-bake measured the
+# cost: 5 of 18 styles' DG3-5 piles do not converge within the 3x step
+# budget (a big total-collapse heap with a genuinely long tail, not a bug
+# each time), so strict-by-default raised on the FIRST one of those and
+# killed the whole batch behind it — a third of the library never exported,
+# reported as "0 failed" (see the `os._exit` note at the end of `main`, and
+# the per-style try/except above that no longer lets one row's raise take
+# the rest of the batch with it). `SETTLE_STRICT=1` opts back into the hard
+# guarantee for a caller who would rather fail loudly than ship anything
+# unconverged; `settle.run`'s own `strict=None` default reads the SAME env
+# var the OPPOSITE way (opt IN to strict already, absent an override), so
+# this driver still resolves it itself rather than leaving the ambiguous
+# default. Either way, `deactivate_airborne` (the per-building sweep that runs
+# right after each row's settle, further down in `main`) remains the floater
+# backstop: a body that never converges is still swept out of the export if
+# it is left hanging in the air, whether or not `SETTLE_STRICT` would also
+# have raised on it.
+SETTLE_STRICT = os.environ.get("SETTLE_STRICT", "").strip() in (
+    "1", "true", "True")
 # _o_ MERGE. ON for this driver unless told otherwise (`.env` leaks EMPTY
 # strings for everything compose forwards, so `or "on"` and not a default
 # argument). `both` also writes the UNMERGED file under `<ARCH_DIR>/_raw/`
@@ -237,155 +292,205 @@ def main():
     # pitch is per style — a department store is 42 x 30 m and a total
     # collapse spreads 0.5 H past that.
     records, miss = [], 0
+    # ROUND 7: one style's `SettleNotConverged` (or anything else raised while
+    # authoring/settling/exporting its row) used to kill the WHOLE process —
+    # Kit reports that as rc=0 regardless (see the note by `os._exit` below),
+    # so 6/15 real batch crashes shipped as "0 failed". Each style row now
+    # runs in its own try/except (below) and a failure is recorded here
+    # instead of stopping the styles after it.
+    failed = []
     y = 0.0
     for si, st in enumerate(STYLES):
         spec = ub.STYLES[st]
         W, D = ub.footprint(spec)
         H = ub.height(spec)
         pitch = max(60.0, max(W, D) + 1.2 * H + 20.0)
-        row = []
-        timing = {}
-        loose, static, vel = [], ["/World/arch_ground"], {}
-        for li, (grade, level) in enumerate(levels):
-            X = li * pitch
-            parent = "{0}/a_{1}_{2}".format(PARENT, st, level)
-            UsdGeom.Scope.Define(stage, Sdf.Path(parent))
-            pls = ub.build_building(st, X, y, 0.0, random.Random(SEED))
-            sg.apply_placements(stage, pls, parent, ssf)
-            ub.apply_glass_tint(stage, pls)
-            paths = [p["prim_path"] for p in pls if p.get("prim_path")]
-            if grade == "DG0":
-                # PRISTINE STILL GETS ITS ROOFTOP PLANT. `wreck_building` with
-                # no recipes only runs `dress_roof`; without it a DG0 roof is
-                # bare while its DG1 neighbour carries tanks and AC units.
-                res0 = qf.wreck_building(stage, parent, st, pls, X, y, 0.0, "DG0",
-                                         random.Random(SEED + 1), np.random.default_rng(SEED + 1),
-                                         mats, "{0}_{1}".format(st, level), mat_cache=cache)
-                static += paths + res0["static_extra"]
-                row.append((st, level, X, y, paths + res0["authored"]))
-                continue
-            seed = SEED + (abs(hash((st, level))) % 100000)
-            tf0 = time.time()
-            res = qf.wreck_building(stage, parent, st, pls, X, y, 0.0, grade,
-                                    random.Random(seed), np.random.default_rng(seed),
-                                    mats, "{0}_{1}".format(st, level), mat_cache=cache)
-            loose += res["loose"]
-            static += res["static_extra"]
-            vel.update(res["velocity"])
-            everything = (paths + res["loose"] + res["static_extra"]
-                          + res["authored"] + list(res["fit"]["all"]))
-            timing[(st, level)] = dict(fracture_s=round(time.time() - tf0, 1),
-                                       loose=len(res["loose"]),
-                                       **_rubble_fields(res))
-            row.append((st, level, X, y, everything))
-            print("[qarch] {0:<16} {1:<7} {2:5d} loose {3:5d} static {4:5d} authored  {5:.0f} s"
-                  .format(st, level, len(res["loose"]), len(res["static_extra"]),
-                          len(res["authored"]), time.time() - tf0))
-        for _ in range(5):
-            omni.kit.app.get_app().update()
-        settle_info = {}
-        if loose:
-            print("[qarch] settling row {0} ({1}): {2} bodies".format(si, st, len(loose)))
-            ts0 = time.time()
-            info = settle.run(stage, loose, static, steps=SETTLE_STEPS, kick=0.12,
-                              rng=random.Random(SEED + si), bake_result=True,
-                              velocity_map=vel, density=1900.0, max_speed=6.0,
-                              settle_note=True)
-            settle_info = dict(settle_s=round(time.time() - ts0, 1),
-                               settle_solve_s=round(float(info.get("solve_s", 0.0)), 1),
-                               settle_bodies=len(loose),
-                               settle_steps=int(info.get("steps_used", 0)),
-                               still_moving=int(info.get("still_moving", 0)))
-            print("[qarch]   row {0} settle: {1}".format(si, settle_info))
-        for _ in range(5):
-            omni.kit.app.get_app().update()
-
-        # -- nothing hangs in the air -----------------------------------
-        # `fire_bake_launch_script.py`'s own call site: after the settle
-        # and before the export, per BUILDING (`fb.BAKE_ROOT` is one
-        # building there; here one row is several, so this loop is the
-        # same check scoped to each building's own parent scope) — a
-        # body the settle above could not bring down in SETTLE_STEPS
-        # bakes wherever it froze, roof prop or ordinary fracture chip
-        # alike.
-        airborne_by = {}
-        if fb is not None:
-            row_airborne = 0
-            for st_, level, X, Y, paths in row:
-                parent_path = "{0}/a_{1}_{2}".format(PARENT, st_, level)
-                try:
-                    n_off = fb.deactivate_airborne(stage, parent_path,
-                                                   verbose=False)
-                except Exception as exc:
-                    print("[qarch] WARNING: deactivate_airborne failed for "
-                          "{0}: {1}".format(parent_path, exc))
-                    n_off = 0
-                if n_off:
-                    airborne_by[(st_, level)] = n_off
-                    row_airborne += n_off
-            if row_airborne:
-                print("[qarch]   row {0} ({1}) airborne sweep: {2} "
-                      "deactivated across {3} building(s)".format(
-                          si, st, row_airborne, len(airborne_by)))
-            for _ in range(2):
+        try:
+            row = []
+            timing = {}
+            loose, static, vel = [], ["/World/arch_ground"], {}
+            # path -> the ONE building scope (this style/grade's own
+            # "a_{style}_{level}" parent) that authored it — SETTLE_BODY_
+            # BUDGET's per-piece `_deck_support_z` query is scoped to this
+            # rather than the whole row, since a piece never needs to land
+            # on a DIFFERENT grade's own building 60+ m away on the grid.
+            piece_root = {}
+            for li, (grade, level) in enumerate(levels):
+                X = li * pitch
+                parent = "{0}/a_{1}_{2}".format(PARENT, st, level)
+                UsdGeom.Scope.Define(stage, Sdf.Path(parent))
+                pls = ub.build_building(st, X, y, 0.0, random.Random(SEED))
+                sg.apply_placements(stage, pls, parent, ssf)
+                ub.apply_glass_tint(stage, pls)
+                paths = [p["prim_path"] for p in pls if p.get("prim_path")]
+                if grade == "DG0":
+                    # PRISTINE STILL GETS ITS ROOFTOP PLANT. `wreck_building` with
+                    # no recipes only runs `dress_roof`; without it a DG0 roof is
+                    # bare while its DG1 neighbour carries tanks and AC units.
+                    res0 = qf.wreck_building(stage, parent, st, pls, X, y, 0.0, "DG0",
+                                             random.Random(SEED + 1), np.random.default_rng(SEED + 1),
+                                             mats, "{0}_{1}".format(st, level), mat_cache=cache)
+                    static += paths + res0["static_extra"]
+                    row.append((st, level, X, y, paths + res0["authored"]))
+                    continue
+                seed = SEED + (abs(hash((st, level))) % 100000)
+                tf0 = time.time()
+                res = qf.wreck_building(stage, parent, st, pls, X, y, 0.0, grade,
+                                        random.Random(seed), np.random.default_rng(seed),
+                                        mats, "{0}_{1}".format(st, level), mat_cache=cache)
+                loose += res["loose"]
+                for _p in res["loose"]:
+                    piece_root[_p] = parent
+                static += res["static_extra"]
+                vel.update(res["velocity"])
+                everything = (paths + res["loose"] + res["static_extra"]
+                              + res["authored"] + list(res["fit"]["all"]))
+                timing[(st, level)] = dict(fracture_s=round(time.time() - tf0, 1),
+                                           loose=len(res["loose"]),
+                                           **_rubble_fields(res))
+                row.append((st, level, X, y, everything))
+                print("[qarch] {0:<16} {1:<7} {2:5d} loose {3:5d} static {4:5d} authored  {5:.0f} s"
+                      .format(st, level, len(res["loose"]), len(res["static_extra"]),
+                              len(res["authored"]), time.time() - tf0))
+            for _ in range(5):
+                omni.kit.app.get_app().update()
+            settle_info = {}
+            n_loose_authored = len(loose)
+            budget_report = []
+            if loose:
+                budget_seed = SEED + (abs(hash(("settle_budget", st))) % 100000)
+                loose, geo, budget_report = qc.apply_settle_budget(
+                    stage, loose, SETTLE_BODY_BUDGET,
+                    root=lambda p: piece_root.get(p, PARENT),
+                    ground_z=0.0, rng=random.Random(budget_seed))
+                static += geo
+                print("[qarch]   settle budget row {0} ({1}): {2} loose -> "
+                      "{3} kept for physics (budget {4}) + {5} placed "
+                      "geometrically".format(
+                          si, st, n_loose_authored, len(loose),
+                          SETTLE_BODY_BUDGET, len(geo)))
+                # BUDGET=0 (or every piece placed geometrically): `loose` can
+                # come back empty, so the settle below never runs and would
+                # otherwise leave `settle_info` without a record of what
+                # happened to this row at all — record it here too, the
+                # settle-stats fields below simply overwrite these on top
+                # when a settle does run.
+                settle_info = dict(settle_bodies=len(loose),
+                                   settle_budget=SETTLE_BODY_BUDGET,
+                                   settle_budget_geometric=len(budget_report),
+                                   settle_budget_authored=n_loose_authored)
+            if loose:
+                print("[qarch] settling row {0} ({1}): {2} bodies".format(si, st, len(loose)))
+                ts0 = time.time()
+                info = settle.run(stage, loose, static, steps=SETTLE_STEPS, kick=0.12,
+                                  rng=random.Random(SEED + si), bake_result=True,
+                                  velocity_map=vel, density=1900.0, max_speed=6.0,
+                                  settle_note=True, converge=True,
+                                  strict=SETTLE_STRICT)
+                settle_info = dict(settle_s=round(time.time() - ts0, 1),
+                                   settle_solve_s=round(float(info.get("solve_s", 0.0)), 1),
+                                   settle_bodies=len(loose),
+                                   settle_steps=int(info.get("steps_used", 0)),
+                                   still_moving=int(info.get("still_moving", 0)),
+                                   settle_budget=SETTLE_BODY_BUDGET,
+                                   settle_budget_geometric=len(budget_report),
+                                   settle_budget_authored=n_loose_authored)
+                print("[qarch]   row {0} settle: {1}".format(si, settle_info))
+            for _ in range(5):
                 omni.kit.app.get_app().update()
 
-        # export the row now, so a crash later still leaves it on disk
-        for st_, level, X, Y, paths in row:
-            name = "bld_{0}_{1}.usd".format(st_, level)
-            out = os.path.join(OUT_DIR, name)
-            try:
-                raw_mb = raw_prims = None
-                if MERGE == "both":                                   # _o_
-                    raw_dir = os.path.join(OUT_DIR, "_raw")
-                    os.makedirs(raw_dir, exist_ok=True)
-                    rout = os.path.join(raw_dir, name)
-                    rs = {}
-                    if bake.export_object(stage, None, paths, rout,
-                                          recenter=(X, Y, 0.0), merge="off",
-                                          stats_out=rs):
-                        raw_mb = round(os.path.getsize(rout) / 1e6, 2)
-                        raw_prims = rs.get("out_prims")
-                es = {}
-                if bake.export_object(stage, None, paths, out,
-                                      recenter=(X, Y, 0.0),
-                                      merge=("off" if MERGE == "off" else "on"),
-                                      stats_out=es):
-                    m, ok, ms = bake.validate(out)
-                    mb = round(os.path.getsize(out) / 1e6, 2)
-                    print("[qarch]   {0:<34} {1:6.2f} MB  {2:6d} prims  "
-                          "({3} src meshes -> {4} merged + {5} kept, {6} mats)"
-                          .format(name, mb, es.get("out_prims", 0),
-                                  es.get("src_meshes", 0), es.get("merged_prims", 0),
-                                  es.get("kept_src", 0), es.get("materials", 0))
-                          + ("" if raw_mb is None else
-                             "   [raw {0:.2f} MB / {1} prims]".format(raw_mb, raw_prims)))
-                    records.append(dict(usd=os.path.abspath(out), meshes=m,
-                                        bound_missing=ms, kind="bld", style=st_,
-                                        level=level, W=W, D=D, H=H,
-                                        family=spec.get("family"),
-                                        type=qf.FAMILY_TYPE.get(spec.get("family")),
-                                        mb=mb, prims=es.get("out_prims"),
-                                        src_meshes=es.get("src_meshes"),
-                                        merge=es.get("mode"),
-                                        raw_mb=raw_mb, raw_prims=raw_prims,
-                                        airborne_off=airborne_by.get(
-                                            (st_, level), 0),
-                                        **timing.get((st_, level), {}), **settle_info))
-                    miss += ms
-            except Exception as exc:
-                import traceback
-                traceback.print_exc()
-                print("[qarch] export FAILED for {0}: {1}".format(os.path.basename(out), exc))
-        man_path = os.path.join(OUT_DIR, "archetypes.json")
-        # read-merge-write under a file lock: bake_quake_headless.sh runs two
-        # styles at once and the last writer would otherwise drop the other's
-        # records
-        import fcntl
-        with open(man_path + ".lock", "w") as _lk:
-            fcntl.flock(_lk, fcntl.LOCK_EX)
-            bake.write_manifest(man_path, merge_manifest(man_path, records))
-            fcntl.flock(_lk, fcntl.LOCK_UN)
+            # -- nothing hangs in the air -----------------------------------
+            # `fire_bake_launch_script.py`'s own call site: after the settle
+            # and before the export, per BUILDING (`fb.BAKE_ROOT` is one
+            # building there; here one row is several, so this loop is the
+            # same check scoped to each building's own parent scope) — a
+            # body the settle above could not bring down in SETTLE_STEPS
+            # bakes wherever it froze, roof prop or ordinary fracture chip
+            # alike.
+            airborne_by = {}
+            if fb is not None:
+                row_airborne = 0
+                for st_, level, X, Y, paths in row:
+                    parent_path = "{0}/a_{1}_{2}".format(PARENT, st_, level)
+                    try:
+                        n_off = fb.deactivate_airborne(stage, parent_path,
+                                                       verbose=False)
+                    except Exception as exc:
+                        print("[qarch] WARNING: deactivate_airborne failed for "
+                              "{0}: {1}".format(parent_path, exc))
+                        n_off = 0
+                    if n_off:
+                        airborne_by[(st_, level)] = n_off
+                        row_airborne += n_off
+                if row_airborne:
+                    print("[qarch]   row {0} ({1}) airborne sweep: {2} "
+                          "deactivated across {3} building(s)".format(
+                              si, st, row_airborne, len(airborne_by)))
+                for _ in range(2):
+                    omni.kit.app.get_app().update()
+
+            # export the row now, so a crash later still leaves it on disk
+            for st_, level, X, Y, paths in row:
+                name = "bld_{0}_{1}.usd".format(st_, level)
+                out = os.path.join(OUT_DIR, name)
+                try:
+                    raw_mb = raw_prims = None
+                    if MERGE == "both":                                   # _o_
+                        raw_dir = os.path.join(OUT_DIR, "_raw")
+                        os.makedirs(raw_dir, exist_ok=True)
+                        rout = os.path.join(raw_dir, name)
+                        rs = {}
+                        if bake.export_object(stage, None, paths, rout,
+                                              recenter=(X, Y, 0.0), merge="off",
+                                              stats_out=rs):
+                            raw_mb = round(os.path.getsize(rout) / 1e6, 2)
+                            raw_prims = rs.get("out_prims")
+                    es = {}
+                    if bake.export_object(stage, None, paths, out,
+                                          recenter=(X, Y, 0.0),
+                                          merge=("off" if MERGE == "off" else "on"),
+                                          stats_out=es):
+                        m, ok, ms = bake.validate(out)
+                        mb = round(os.path.getsize(out) / 1e6, 2)
+                        print("[qarch]   {0:<34} {1:6.2f} MB  {2:6d} prims  "
+                              "({3} src meshes -> {4} merged + {5} kept, {6} mats)"
+                              .format(name, mb, es.get("out_prims", 0),
+                                      es.get("src_meshes", 0), es.get("merged_prims", 0),
+                                      es.get("kept_src", 0), es.get("materials", 0))
+                              + ("" if raw_mb is None else
+                                 "   [raw {0:.2f} MB / {1} prims]".format(raw_mb, raw_prims)))
+                        records.append(dict(usd=os.path.abspath(out), meshes=m,
+                                            bound_missing=ms, kind="bld", style=st_,
+                                            level=level, W=W, D=D, H=H,
+                                            family=spec.get("family"),
+                                            type=qf.FAMILY_TYPE.get(spec.get("family")),
+                                            mb=mb, prims=es.get("out_prims"),
+                                            src_meshes=es.get("src_meshes"),
+                                            merge=es.get("mode"),
+                                            raw_mb=raw_mb, raw_prims=raw_prims,
+                                            airborne_off=airborne_by.get(
+                                                (st_, level), 0),
+                                            **timing.get((st_, level), {}), **settle_info))
+                        miss += ms
+                except Exception as exc:
+                    import traceback
+                    traceback.print_exc()
+                    print("[qarch] export FAILED for {0}: {1}".format(os.path.basename(out), exc))
+            man_path = os.path.join(OUT_DIR, "archetypes.json")
+            # read-merge-write under a file lock: bake_quake_headless.sh runs two
+            # styles at once and the last writer would otherwise drop the other's
+            # records
+            import fcntl
+            with open(man_path + ".lock", "w") as _lk:
+                fcntl.flock(_lk, fcntl.LOCK_EX)
+                bake.write_manifest(man_path, merge_manifest(man_path, records))
+                fcntl.flock(_lk, fcntl.LOCK_UN)
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            grades_str = ",".join(sorted(set(g for g, _lvl in levels)))
+            print("[qarch] STYLE FAILED {0} {1}: {2}".format(st, grades_str, exc))
+            failed.append({"style": st, "grades": grades_str, "error": str(exc)})
         y += pitch + 20.0
 
     dt = time.time() - t0
@@ -397,6 +502,25 @@ def main():
     print("  {0:.0f} MB, {1:.0f} s, {2} unresolved material(s)".format(sz, dt, miss))
     print("=" * 72 + "\n")
 
+    n_ok = len(STYLES) - len(failed)
+    fail_names = ", ".join(f["style"] for f in failed)
+    print("[qarch] batch summary: {0} ok / {1} failed{2}".format(
+        n_ok, len(failed), " ({0})".format(fail_names) if failed else ""))
+
+    # A companion to `archetypes.json`, not a replacement: `quake.load_
+    # manifest` indexes every record in that file by (style, level) and
+    # would either KeyError or silently mis-key on a summary row with no
+    # "style"/"level", so this run's ok/failed tally lives in its OWN file
+    # next to it instead of inside the manifest.
+    summary_path = os.path.join(OUT_DIR, "archetypes_run_summary.json")
+    try:
+        import json
+        with open(summary_path, "w") as _sf:
+            json.dump(dict(styles=list(STYLES), grades=GRADES, ok=n_ok,
+                           failed=failed, seconds=round(dt, 1)), _sf, indent=1)
+    except Exception as exc:
+        print("[qarch] WARNING: could not write {0}: {1}".format(summary_path, exc))
+
     app = omni.kit.app.get_app()
     # headless: exit once the manifest is written (KEEP_OPEN=1 to stay)
     if (os.environ.get("KEEP_OPEN", "").strip() == "1"
@@ -404,6 +528,25 @@ def main():
         while simulation_app.is_running():
             app.update()
     simulation_app.close()
+    if failed:
+        # KIT SWALLOWS AN UNCAUGHT PYTHON EXCEPTION AND EXITS 0 — that is
+        # the round-7 bug this file exists to fix (`SettleNotConverged`
+        # crashed 6/15 batches and every one of them still reported rc=0;
+        # the traceback only shows up as an `[omni.kit.app._impl] [py
+        # stderr]` log line, which is Kit's OWN script-runner catching it,
+        # logging it, and then shutting the app down cleanly regardless).
+        # A `sys.exit(1)` here raises `SystemExit`, which is STILL just an
+        # exception — if Kit's wrapper is the broad `except:`/`except
+        # BaseException:` its own log line implies, it swallows that
+        # exactly the same way and the caller is back to rc=0. `os._exit()`
+        # is the raw `_exit()` syscall: no exception is raised, so there is
+        # no handler anywhere — Kit's or Python's own atexit machinery — to
+        # intercept it, which makes it the only one of the two verified (by
+        # elimination, from the log evidence above) to still reach the
+        # container's own exit status. `simulation_app.close()` already ran
+        # above so this only forces the FINAL exit code, not the shutdown
+        # itself.
+        os._exit(1)
 
 
 if __name__ == "__main__":

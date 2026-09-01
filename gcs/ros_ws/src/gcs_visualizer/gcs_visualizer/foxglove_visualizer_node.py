@@ -373,8 +373,23 @@ class FoxgloveVisualizerNode(Node):
 
         self._pub = self.create_publisher(MarkerArray, '/gcs/robot_markers', 10)
 
+        # BAG-SIZE DECIMATION. Measured on a 3 h iteration: this node's
+        # republished layers are 90 % of a 26.7 GiB bag -- eight
+        # /gcs/<robot>/occupancy grids at ~225 KB and ~1 Hz (76 %) plus
+        # /gcs/robot_markers off the 10 Hz timer below (14 %). A 24-cell sweep
+        # writes ~650 GB. N>1 publishes every Nth message and slows the marker
+        # timer by the same factor. 1 = unchanged.
+        self._viz_decimate = max(1, int(os.environ.get('GCS_VIZ_DECIMATE') or 1))
+        self._viz_counts = {}
+        if self._viz_decimate > 1:
+            self.get_logger().info(
+                f'GCS_VIZ_DECIMATE={self._viz_decimate}: republishing every '
+                f'{self._viz_decimate}th layer message and running the marker '
+                f'timer at {0.1 * self._viz_decimate:.2f}s. map_origin and '
+                f'sim_ground are NOT affected.')
+
         self.create_timer(5.0, self._discover_robots)
-        self.create_timer(0.1, self._publish_markers)
+        self.create_timer(0.1 * self._viz_decimate, self._publish_markers)
         self._discover_robots()
 
     def _discover_robots(self):
@@ -542,6 +557,14 @@ class FoxgloveVisualizerNode(Node):
             out = translate_occupancy_grid(msg, bx, by, bz)
         else:
             return
+        # Decimate AFTER the frame translation is known to be possible, and
+        # count per (robot, topic) so one chatty layer cannot starve another.
+        if self._viz_decimate > 1:
+            key = (robot_name, src_topic)
+            count = self._viz_counts.get(key, 0) + 1
+            self._viz_counts[key] = count
+            if count % self._viz_decimate:
+                return
         pub.publish(out)
 
     def _update_map_origin(self, robot_name: str, enu_xyz) -> None:

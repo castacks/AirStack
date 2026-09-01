@@ -642,11 +642,51 @@ def register_style(g, name, pieces_of=None, family="01"):
     the measured grid and installs it, along with per-piece sizes in
     `ub.PIECES` so `classify` reads the real storey height rather than its
     3.0 m fallback.
+
+    THE STOREY COUNT IS FILTERED THE SAME WAY `gac_fire.mass_from_grid`
+    FILTERS ITS OWN `levels`, and for the same reason: `grid_for`'s raw
+    `g["storeys"]` can carry one mark within 0.5 m of the bbox top — the
+    parapet coping on a measured lattice that happens to phase-lock this
+    close, or (on a `regular_grid` fallback, whose lines run `z0` to `z1`
+    inclusive) the bbox top ITSELF, always exactly `z1`. `mass_from_grid`
+    already treats that mark as "not a floor" for `fire["top"]`/
+    `fire["n_storeys"]`; this function used to count it anyway, so the
+    runtime storey table `_mass_specs` builds from `ub.STYLES[name]` (what
+    `quake_flow.describe` — fire AND the sliced earthquake ladder both go
+    through it — actually hands every recipe) carried ONE MORE entry than
+    fire planning's own count, a phantom storey sitting at/above the real
+    roof. `r_expose_interior`'s catch floor could walk onto it and land ON
+    the parapet instead of one storey below the deck (SM_Building_11 F4,
+    user review 2026-08-31: "roof seems to have a bunch of debris ...
+    building can't just have debris on its roof for no reason"); worse,
+    `r_fire_collapse`'s own `n_lv = len(m["levels"])` fed `s0` and the
+    heap-height formula's `m["top"]` from the SAME inflated table, so a
+    building that genuinely DID collapse still piled heap chips and
+    fit-out column tops above its real, collapsed deck (SM_Building_26 F5,
+    user review 2026-08-31: "this building has debris on the roof and
+    pillars sticking out, i thought we were fixing that").
+
+    Filtering here, at the one place that BUILDS the runtime table, fixes
+    every reader downstream at once and needs no per-recipe deck-height
+    guard to compensate for it. Silently skipped when `g` carries no
+    `"bbox"` (test/tool fixtures that hand-build a grid with no bbox key —
+    `tests/test_quake_sliced.py`'s `_fixture`, `tools/quake_gac_probe.py`
+    — a synthetic grid built storey-by-storey already has no phantom mark
+    to filter, and the production callers, `gac_storey_slice.grid_for`'s
+    `measure_grid`/`regular_grid`, always set `bbox`).
     """
     from detail import urban_building as ub
 
     per = g["storey_h"]
-    n = max(1, len(g["storeys"]))
+    storeys = g.get("storeys") or []
+    bbox = g.get("bbox")
+    if bbox is not None:
+        (_x0, _y0, z0), (_x1, _y1, z1) = bbox
+        filtered = sorted(z for z in storeys if z0 - 1e-6 <= z < z1 - 0.5)
+        if not filtered or filtered[0] > z0 + 0.5:
+            filtered = [float(z0)] + filtered
+        storeys = filtered
+    n = max(1, len(storeys))
     module = None
     for b in (g.get("bays") or {}).values():
         if b and b.get("pitch"):

@@ -233,6 +233,115 @@ def robot_containers():
     return sorted(list_containers(ROBOT_CONTAINER_PATTERN), key=index)
 
 
+def robot_is_wedged(n, containers):
+    """Should this robot's bringup be restarted? Two questions, in order.
+
+    1. IS MAVROS ALIVE? If the process is gone the robot is dead in the water
+       and must be relaunched, full stop. This check MUST come first, because
+       mavros log files SURVIVE the process that wrote them: a robot whose
+       mavros was killed still has `Got HEARTBEAT` sitting in an old log, so a
+       history-only test would read it as healthy and never restart it. That
+       is exactly how six robots sat with zero mavros processes for 20 minutes
+       while the gate counted down.
+
+    2. HAS THE LIVE MAVROS EVER SEEN A HEARTBEAT? Only the NEWEST log counts.
+       A WEDGED robot never logs one: it initialises every plugin, registers
+       no ROS node, sits at 0.3 % CPU, and carries the Fast DDS SHM port
+       failure. A FLAPPING robot logs alternating
+
+           Got HEARTBEAT, connected. FCU: PX4 Autopilot
+           Lost connection, HEARTBEAT timed out
+
+       because the PX4 link is intermittent under sim load. The gate samples
+       `connected` with a single `echo --once`, so a flapper looks identical
+       to a wedge from the gate. Restarting a flapper destroys a working link.
+
+    Returns True only for (1) or a live-but-never-connected mavros.
+    """
+    cname = containers[n - 1] if len(containers) >= n else f"airstack-robot-desktop-{n}"
+    probe = (
+        "echo -n 'mavros procs: '; pgrep -xc mavros_node || true; "
+        "newest=$(ls -t /root/.ros/log/mavros_node_*.log 2>/dev/null | head -1); "
+        "echo -n 'heartbeats: '; "
+        "[ -n \"$newest\" ] && grep -c 'Got HEARTBEAT' \"$newest\" || echo 0"
+    )
+    r = sh(["docker", "exec", cname, "bash", "-lc", probe], timeout=30)
+    out = (r.stdout or "")
+    if r.returncode != 0:
+        log(f"robot_{n}: wedge probe failed (rc={r.returncode}) - not restarting")
+        return False
+
+    def field(label):
+        for line in out.splitlines():
+            if line.startswith(label):
+                tail = line.split(":", 1)[1].strip()
+                return int(tail) if tail.isdigit() else 0
+        return 0
+
+    procs, beats = field("mavros procs:"), field("heartbeats:")
+    if procs == 0:
+        log(f"robot_{n}: mavros NOT RUNNING - wedged, will restart")
+        return True
+    if beats > 0:
+        log(f"robot_{n}: mavros alive with {beats} heartbeat(s) - flapping, "
+            f"not wedged; leaving it alone")
+        return False
+    log(f"robot_{n}: mavros alive but ZERO heartbeats - wedged, will restart")
+    return True
+
+
+def restart_robot_bringup(n, containers):
+    """Restart ONE robot's autonomy launch in place, leaving the sim alone.
+
+    WHY. One arbitrary robot per run (robot_2, _6, _1, _1 over four runs)
+    never reaches PX4 ready: mavros comes up, never sees a heartbeat, and its
+    log carries
+
+        [RTPS_TRANSPORT_SHM Error] Failed init_port fastrtps_portNNNN:
+        open_and_lock_file failed -> Function open_port_internal
+
+    All eight replicas race to create the same Fast DDS port files in the
+    SHARED host /dev/shm (`ipc: host` plus the /dev/shm bind mount that
+    common/fastdds.xml needs for the SHM half of LARGE_DATA), so the loser is
+    random. The state is NOT self-healing: the gate burns its full 2400 s and
+    fails the iteration, which is how four runs died.
+
+    Restarting is cheap because PX4 SITL does NOT run here -- Pegasus owns it
+    inside the isaac-sim container -- so the vehicle, the world and the other
+    seven robots are untouched. `bws` is deliberately not re-run: the
+    workspace is already built.
+
+    NEVER USE `pkill -f` IN THIS FUNCTION. The first version ended with
+    `pkill -f '[r]obot.launch'`, and this command line legitimately CONTAINS
+    the string `robot.launch.xml` inside the tmux send-keys argument, so the
+    exec killed itself (exit 143 = 128 + SIGTERM) before reaching the
+    relaunch -- taking mavros down on four robots and bringing none of them
+    back. Bracketing the first character only stops a pattern matching its own
+    literal text; it does nothing when the cmdline really does contain the
+    target string. So: `tmux kill-session` takes the launch and every child
+    with it, and the one stray we still sweep is matched by EXACT PROCESS
+    NAME (`pkill -x mavros_node`), which can never match this bash.
+
+    The relaunch is typed into a fresh interactive tmux shell because `sws` is
+    a .bashrc ALIAS and would not expand under `docker exec bash -lc`.
+    """
+    cname = containers[n - 1] if len(containers) >= n else f"airstack-robot-desktop-{n}"
+    inner = (
+        "tmux kill-session -t bringup 2>/dev/null; sleep 2; "
+        "pkill -x mavros_node 2>/dev/null; sleep 2; "
+        "tmux new -d -s bringup; sleep 1; "
+        "tmux send-keys -t bringup:0.0 "
+        '"sws && ros2 launch $LAUNCH_PACKAGE robot.launch.xml role:=$AUTONOMY_ROLE" ENTER; '
+        "sleep 1; tmux list-sessions"
+    )
+    r = sh(["docker", "exec", cname, "bash", "-lc", inner], timeout=90)
+    ok = r.returncode == 0 and "bringup:" in (r.stdout or "")
+    if not ok:
+        log(f"RECOVER robot_{n}: relaunch on {cname} FAILED (rc={r.returncode}) "
+            f"{(r.stderr or '').strip()[:200]}")
+    return ok
+
+
 def gcs_container():
     names = list_containers("gcs")
     return names[0] if names else None
@@ -666,6 +775,10 @@ class Stack:
         deadline = started + cfg["timeout_s"]
         connected, ready_at = set(), {}
         pending = list(range(1, self.num_robots + 1))
+        # Wedged-robot recovery (see restart_robot_bringup). 0 disables.
+        recover_after = float(cfg.get("recover_after_s", 360))
+        max_recover = int(cfg.get("max_recoveries", 2))
+        recoveries, last_recover = {}, {}
 
         while pending and time.time() < deadline:
             for n in list(pending):
@@ -686,8 +799,30 @@ class Stack:
                     ready_at[n] = round(time.time() - started, 2)
                     pending.remove(n)
             if pending:
+                elapsed = time.time() - started
                 log(f"waiting for PX4: connected={sorted(connected)} pending={pending} "
-                    f"elapsed={time.time() - started:.0f}s")
+                    f"elapsed={elapsed:.0f}s")
+                # A robot still SILENT long after its peers answered is not
+                # slow, it is wedged. Restart just its bringup instead of
+                # spending the rest of the gate on it. Robots already in
+                # `connected` are excluded: those have a live heartbeat and are
+                # merely waiting on EKF convergence, which a restart would
+                # throw away.
+                if recover_after > 0 and elapsed >= recover_after and connected:
+                    containers = robot_containers()
+                    for n in list(pending):
+                        if n in connected or recoveries.get(n, 0) >= max_recover:
+                            continue
+                        if elapsed - last_recover.get(n, 0.0) < recover_after:
+                            continue
+                        if not robot_is_wedged(n, containers):
+                            continue
+                        recoveries[n] = recoveries.get(n, 0) + 1
+                        last_recover[n] = elapsed
+                        log(f"RECOVER robot_{n}: silent {elapsed:.0f}s while "
+                            f"{sorted(connected)} answered - attempt "
+                            f"{recoveries[n]}/{max_recover}")
+                        restart_robot_bringup(n, containers)
                 time.sleep(cfg["poll_interval_s"])
 
         if pending:
@@ -1242,6 +1377,29 @@ def run_step(stack, container, step_spec, step_index):
     record["duration_s"] = round(time.time() - t0, 2)
     log(f"step {step_index}: {'OK' if record['ok'] else 'FAILED'} "
         f"({record['duration_s']}s)")
+
+    # PRINT WHY A STEP FAILED. The failing command's stdout+stderr is already
+    # captured into `output_tail` and was then silently dropped, so a failed
+    # step logged nothing but its duration. Iteration 4 of the 2026-08-31 run
+    # was lost twice for two DIFFERENT reasons -- the team planner dying on
+    # offboard-compute (step 10) and a robot with dead stereo perception
+    # (step 5, which prints a whole diagnostic block: node list, sensor topic
+    # count, global_mapper PointCloudCallback lines) -- and BOTH explanations
+    # sat unprinted in this record while the containers holding the underlying
+    # logs were torn down before anyone could read them. Two blind diagnoses
+    # for want of one log call.
+    if not record.get("ok"):
+        per_robot = record.get("per_robot")
+        if isinstance(per_robot, dict):
+            failures = [(k, v) for k, v in per_robot.items()
+                        if isinstance(v, dict) and not v.get("ok", True)]
+        else:
+            failures = [(record.get("target", "?"), record)] \
+                if record.get("output_tail") else []
+        for who, res in failures:
+            out = (res.get("output_tail") or "").strip()
+            head = f"step {step_index}: [{who}] exit={res.get('exit')}"
+            log(f"{head}\n{out}" if out else f"{head} (no output captured)")
     return record
 
 
@@ -1320,6 +1478,17 @@ def snapshot_task_logs(dest_dir):
     gcs = gcs_container()
     if gcs:
         targets.append(gcs)
+    # offboard-compute is where the TEAM arms (conavgpt2_team) launch their
+    # planner -- step 10 runs `ros2 launch search_baselines
+    # conavgpt2_team.launch.xml` THERE, not on the robots. It was not in this
+    # list, so when iteration 4 failed twice (step 10, then step 5) the only
+    # file explaining why -- /tmp/search/planner.log in that container -- was
+    # destroyed by the teardown before it could be read, twice. TEE_LOG_GLOBS
+    # already covers /tmp/search/*.log; it just never ran against this
+    # container.
+    for name in list_containers("offboard-compute"):
+        if name not in targets:
+            targets.append(name)
     _copy_tmp_tee_logs(dest_dir)
     name_pred = " -o ".join(f"-name '{g}'" for g in CONTROL_STACK_GLOBS)
     tar = "/tmp/control_stack_logs.tar.gz"

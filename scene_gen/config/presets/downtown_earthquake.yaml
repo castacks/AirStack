@@ -43,9 +43,16 @@ overrides:
     destroyed_fraction: 0.0
     # Lean-and-sink is site-specific (soft soil) and rare in a block: at the
     # compiler's 0.63 a third of the plat tilted. 0.12 x intensity, gated by
-    # slenderness in `quake.assemble`, gives a handful.
+    # slenderness in `quake.assemble`, gave a handful. Raised to 0.2
+    # (2026-08-31, showcase-scene proposal E): the earthquake TEST scene
+    # wants "tilted" and "tilted + partial collapse" clearly visible a
+    # couple of times each, not just once — this is the cheapest knob for
+    # more `DGn+tilt` mild-tilt-overlay combinations (`quake.py`'s `p_tilt`,
+    # not the foundation-family SETTLE/TILT/OV draw, which is unaffected).
+    # No quota mechanism was built (deferred as unnecessary complexity); this
+    # is a tuning nudge only.
     debris:
-      tilt_chance: 0.12
+      tilt_chance: 0.2
     # The shaking field, the soft-soil patch and the dust halo are compiled
     # from `severity` and `region_m` (compile_disaster.compile_earthquake),
     # so REGION_M / SEVERITY on the launch line move all of them together.
@@ -53,13 +60,108 @@ overrides:
     #   field: {radius_m: 60.0, falloff_m: 120.0}
     #   soft_soil: {center: [-70.0, 65.0], rx_m: 90.0, ry_m: 60.0, rate: 0.8}
     # or set `soft-soil: false` at the top level of this spec.
-  # ROAD ASPHALT, matched to the suburb wildfire scene: the local megascans
-  # asphalt swatch instead of shared.yaml's Nucleus MI_Asphalt. `apply_ground_planes`
-  # reads `usds.materials.asphalt`; the urban marking vocabulary is drawn on
-  # top by `road_markings.py` and is unchanged.
+  # ROAD ASPHALT. Was the clean megascans `Road_Asphalt` swatch, matched to
+  # the suburb wildfire scene (comment kept for history: that swap replaced
+  # shared.yaml's Nucleus MI_Asphalt). Changed 2026-08-31 (showcase-scene
+  # proposal C): an earthquake scene should not have pristine road paint
+  # right next to collapsed buildings (measured — `~/scorch_previews/
+  # eq500_v3/b4_brownstone_row_DG4_obl.png` shows exactly that). `apply_
+  # ground_planes` binds this ONE material to the single asphalt plane
+  # spanning the whole region (`scene_generator.py`), so this is a uniform,
+  # scene-wide look, not a per-building damage decal — the same megascans
+  # `Damaged_Asphalt`/`Damaged_Asphalt_02`/`Crushed_Asphalt_Ground` trio
+  # `quake_flow.py`'s per-building ground materials already mix from
+  # (crc32-of-tag, see its `"asph"`/`"pave"` families) proves this asset
+  # already renders correctly in this pipeline. The urban marking
+  # vocabulary is drawn on top by `road_markings.py` and is unchanged.
   usds:
     materials:
-      asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+      asphalt: "airstack://scene_gen/assets/materials/megascans/Damaged_Asphalt_02.usda"
+    # ---- highrise pool, MINUS the two supertall outliers ---------------------
+    # ROUND 6 FOLLOW-UP (2026-09-01): eq500_v4 (seed 9, urban_quake_v5) put
+    # SM_Building_31 (measured — `urban_gac.yaml`'s own `highrise` comment —
+    # 60.3 x 142.2 x 302.2 m) in the `core` ring, right where `epicenter`
+    # sits, at DG2 ("untouched" per `quake._mono_pass`): a pristine 302 m
+    # tower dead centre in a 250-500 m downtown, black-framing `epi_obl.png`
+    # (camera clearance budgeted for ~95 m off the next-tallest building
+    # actually placed, 103.7 m) and dominating `epi_top.png`. NOT a
+    # measurement bug — `_mono_dims`/`SizeResolver` measured it correctly;
+    # confirmed against `urban_gac.yaml`'s own pre-recorded comment for this
+    # exact asset, byte-for-byte (60.3 x 142.2 x 302.2). It is a genuine
+    # supertall that the `highrise` typology's round-6 mirror of
+    # `downtown_gac.yaml`'s 800 m showcase ring mix (`core: {highrise:
+    # 0.85}`) carried into THIS much smaller, camera-reviewed disaster
+    # preset without re-screening the pool for it.
+    #
+    # SM_Building_31 (302.2 m) and SM_Building_16 (312.0 m) are ALREADY a
+    # matched, precedented special case elsewhere in this codebase —
+    # `downtown_1000.yaml`'s `building_props.no_roof_props` excludes exactly
+    # these two "everywhere" because they carry a crown/setback rather than
+    # a flat deck. They are also a clean outlier pair on height alone: the
+    # `highrise` pool's other nine members run 134.4-231.4 m (a tight
+    # cluster against the p50 143 m the pool's own docstring gives), then
+    # jumps 71 m clear to 302.2 / 312.0 — there is no third member anywhere
+    # near them.
+    #
+    # Fixed here, not in `urban_gac.yaml` / `urban_quake_v5.yaml`: the
+    # shared asset-set pool is deliberately BYTE-FOR-BYTE `urban_gac`'s (see
+    # that file's own header) and `downtown_gac.yaml` / `downtown_1000.yaml`
+    # legitimately want these two towers for their own big-region showcase
+    # blocks. `resolve_asset_set` merges `config` (this preset, post
+    # `compile_disaster.deep_merge`) OVER the asset set — a bare list key
+    # REPLACES the inherited pool outright (`_deep_merge`'s own docstring:
+    # "everything else ... is replaced outright") — so this list, copied
+    # verbatim from `urban_gac.yaml`'s `highrise` pool minus those two
+    # entries, only ever affects THIS preset's placement.
+    buildings:
+      highrise:
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_10.usd"
+          scale: 0.01
+          yaw-offset: 180
+          tags: ["front:E"]
+          # 86.0 x 60.1 x 135.2 m — 4-sided any, front E, blank -
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_13.usd"
+          scale: 0.01
+          yaw-offset: 90
+          tags: ["front:N"]
+          # 29.9 x 44.5 x 139.9 m — 4-sided any, front N, blank -
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_14.usd"
+          scale: 0.01
+          yaw-offset: 0
+          tags: ["front:W"]
+          # 85.4 x 58.0 x 193.5 m — 4-sided any, front W, blank -
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_15.usd"
+          scale: 0.01
+          yaw-offset: 180
+          tags: ["front:E"]
+          # 84.5 x 56.9 x 230.5 m — 4-sided any, front E, blank -
+        # SM_Building_16 (84.5 x 56.9 x 312.0 m) excluded — see header above.
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_17.usd"
+          scale: 0.01
+          yaw-offset: 180
+          tags: ["front:E"]
+          # 85.4 x 57.4 x 135.3 m — 4-sided any, front E, blank -
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_18.usd"
+          scale: 0.01
+          yaw-offset: 0
+          tags: ["front:W"]
+          # 42.0 x 42.0 x 150.1 m — 4-sided any, front W, blank -
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_20.usd"
+          scale: 0.01
+          yaw-offset: 90
+          tags: ["place_corner", "front:N", "blank:W"]
+          # 61.5 x 85.4 x 151.0 m — 3-sided corner, front N, blank W
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_23.usd"
+          scale: 0.01
+          yaw-offset: 0
+          tags: ["front:W"]
+          # 44.6 x 56.6 x 134.4 m — 4-sided any, front W, blank -
+        # SM_Building_31 (60.3 x 142.2 x 302.2 m) excluded — see header above.
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Amar_Tower.usdc"
+          scale: 1.0
+          yaw-offset: 270
+          tags: ["front:S"]
+          # 42.3 x 48.8 x 231.4 m — 4-sided any, front S, blank -
   # ---- block shape -----------------------------------------------------------
   # The built-in BSP always splits whichever side is longer, which drives every
   # block toward square: measured over this same region it gives a median
@@ -98,7 +200,16 @@ overrides:
   layout:
     # Inherited max_block_m 70 is BELOW every measured block short side
     # (60-116 m) and silently caps the per-typology targets below.
-    max_block_m: 200
+    # 340, not 200 (round 6, `urban_quake_v5`): the `highrise` typology
+    # (below, mirroring `downtown_gac.yaml`) targets a block_long_m up to
+    # 210 m — 200 would silently clamp it, refusing the very buildings that
+    # typology exists for, exactly as `downtown_gac.yaml`'s own comment
+    # describes for its own identical change. This is a CEILING, not a
+    # promise: the actual block a 250 m region's subdivider can produce is
+    # still bounded by the region itself, so raising the cap costs nothing
+    # here — it only stops it from clamping a target that would otherwise
+    # never be reached anyway.
+    max_block_m: 340
     anisotropic:
       enabled: true
       long_axis: x            # blocks run long east-west, as Manhattan's do
@@ -330,6 +441,61 @@ overrides:
       eye_height_m:     1.08   # AASHTO driver eye
       sign_face_z_m:    2.1    # MUTCD 2A.18 urban mounting height
       min_obstruction_m: 1.0
+
+    # --- plazas/courts dressing (round 6b) ----------------------------------
+    # This preset had NO `city_detail.plazas` block at all until this round.
+    # `_place_plazas` (city_detail.py ~line 1559) early-returns unless
+    # `city_detail.plazas.enabled` is set, and the COURTS pass — the allée of
+    # trees + bench pairs it lays on every OTHER typology's block-interior
+    # slack (~line 2384) — lives inside that same function, so it died with
+    # the same early return. Every open paved gap in the quake city — the
+    # towers' own plaza aprons AND the ordinary leftover space behind every
+    # brick_midrise / midrise / lowrise / rowhouse block — went completely
+    # undressed. That is the dominant cause of the "empty building places"
+    # report.
+    #
+    # Modelled on `downtown_gac.yaml`'s own `plazas` block — that preset's
+    # closest relative here: `districts.rings` / `districts.typologies`
+    # above are an explicit ROUND 6 mirror of GAC's own five-ring /
+    # six-typology system, so `highrise` in THIS file is the SAME typology
+    # GAC's own comment below describes (`perimeter_depth_m: 0` +
+    # `building_gap_m: 30.0` — a block that IS the building, with large
+    # paved gaps between two to four towers). Copied VERBATIM rather than
+    # re-derived: every knob below sizes an individual arrangement against
+    # the PHYSICAL footprint of the bench/fountain/cafe assets, not against
+    # the region, so nothing here needs rescaling for this preset's smaller
+    # 250 m plate.
+    #
+    # `typologies: [highrise]` restricts the fountain / bench-ring / cafe-row
+    # composition to the skyscraper typology, same as GAC — the user's own
+    # scope for that pattern. Every OTHER typology in this preset's ring mix
+    # (tower, brick_midrise, midrise, lowrise, rowhouse) still gets treated:
+    # `court_typologies` defaults to `None`, which the function reads as
+    # "everything else", so the COURTS pass plants the tree allée + bench
+    # pairs there without one extra line here. That is what puts the worst
+    # measured block back in play — a 67.3 x 103.2 m brick_midrise leaf with
+    # one 3,849 m2 free rect and 0 arrangements at baseline.
+    plazas:
+      enabled: true
+      typologies: [highrise]
+      min_side_m:    15.0
+      min_area_m2:   280.0
+      max_per_block: 2
+      podium_margin_m: 1.5
+      edge_margin_m:   2.5
+      max_radius_m:   13.0
+      min_radius_m:    5.0
+      fountain_chance: 0.65
+      ring_gap_m:      2.2
+      bench_spacing_m: 6.5
+      trash_cans_per_plaza: 2
+      streetlights_per_plaza: 4
+      planter_spacing_m: 5.0
+      planter_inset_m:   1.2
+      cafe_setback_m:    3.0
+      cafe_spacing_m:    4.5
+      cafe_min_run_m:    8.0
+      cluster_radius_frac: 0.35
 
     categories:
       # UNITS. spacing_m is metres of BLOCK FRONTAGE RING per prop, and the
@@ -890,28 +1056,46 @@ overrides:
     # likely at that distance, which is the prior on where a zoning nucleus
     # lands. `mix` is that prior.
     rings:
-      # to_frac widened from 0.40: we are modelling A DOWNTOWN, not a
-      # uniformly-sampled 800 m of Philadelphia. The measured core mix is
-      # only 17% tower, so a narrow core ring yields ~1 tower in the whole
-      # city. The mixes below are measured and unchanged; this is not.
-      # Row houses are 14-15 m against 22-33 m midrise and 44-131 m towers, so
-      # a lone terrace standing among them reads as a small building in the
-      # wrong place. Real brownstone stock is not distributed that way — the
-      # West Village and Brooklyn Heights are their OWN districts, block after
-      # block of one height. Concentrating rowhouse in `edge` and taking it out
-      # of `mid` almost entirely is what turns those buildings from scattered
-      # oddities into a neighbourhood.
-      - {name: core, to_frac: 0.56, furniture_scale: 1.0,
-         mix: {tower: 0.45, midrise: 0.55, rowhouse: 0.00}}   # 250 m: a few towers, not a forest
-      - {name: mid,  to_frac: 0.68, furniture_scale: 1.3,
-         mix: {tower: 0.20, midrise: 0.80, rowhouse: 0.00}}
-      # Pulled in from 0.72 and the share raised from 0.75: the terrace ring is
-      # the one district that loses blocks to its own geometry, since any block
-      # too deep for a pair refuses and rebuilds as mid-rise. Widening the ring
-      # is what buys brownstones; raising the share alone just re-rolls blocks
-      # that were going to refuse anyway.
-      - {name: edge, to_frac: 1.01, furniture_scale: 1.9,
-         mix: {tower: 0.03, midrise: 0.97, rowhouse: 0.00}}
+      # ROUND 6 (`urban_quake_v5`, 2026-08-31): FIVE RINGS, MIRRORING
+      # `downtown_gac.yaml`'s OWN five-ring / six-typology system in full,
+      # replacing the three rings (core/mid/edge; tower/midrise/rowhouse
+      # only, `rowhouse` always at mix weight 0.00) this preset used alone.
+      #
+      # USER REQUEST: "I want you to use the newer layout gen we have that
+      # includes buildings from GAC and MCE. You can place downtown city env
+      # buildings but only undamaged. That way we have brownstones,
+      # skyscrapers, etc." Under the OLD three rings, downtowncity and the
+      # AEC brownstones could NEVER be selected by rezone, structurally,
+      # regardless of what the asset set placed: downtowncity lives only in
+      # `intact` / `lowrise` / `highrise` (no typology here ever drew from
+      # any of the three) and AEC lives only in `rowhouse` (drawn at weight
+      # 0.00 at every ring) — confirmed empirically, `urban_quake_v5.yaml`'s
+      # first dry run (region 500, `_plans/eq_v5_city_dry_run.md`) showed 0
+      # downtowncity / 0 AEC placed for exactly this reason.
+      #
+      # `to_frac` IS SCALE-INVARIANT ACROSS THIS COPY: it is a fraction of
+      # the region's own half-diagonal (`downtown_gac.yaml`'s own note), and
+      # `downtown_gac`'s region (800 x 800) and this preset's (250 x 250,
+      # UNCHANGED by this round) are both SQUARE, so the same fractions solve
+      # the same even-ish per-ring area share regardless of the region's
+      # absolute size — no re-solving needed, unlike a differently-SHAPED
+      # region would need (`downtown_gac.yaml`'s own "Re-solve if the region
+      # changes SHAPE" warning does not apply here). `mix` and
+      # `furniture_scale` are copied VERBATIM alongside it — no quake-specific
+      # reason to diverge on either. See `typologies:`, below, for which
+      # typology PARAMETERS also had to move with this (midrise's pool,
+      # tower's height/block range) and which one did NOT (rowhouse — already
+      # tuned specifically for this 250 m plate, kept as-is).
+      - {name: core,  to_frac: 0.360, furniture_scale: 1.0,
+         mix: {highrise: 0.85, tower: 0.15}}
+      - {name: inner, to_frac: 0.500, furniture_scale: 1.1,
+         mix: {highrise: 0.40, tower: 0.40, brick_midrise: 0.20}}
+      - {name: mid,   to_frac: 0.575, furniture_scale: 1.3,
+         mix: {tower: 0.25, brick_midrise: 0.50, midrise: 0.25}}
+      - {name: outer, to_frac: 0.700, furniture_scale: 1.6,
+         mix: {brick_midrise: 0.25, midrise: 0.42, lowrise: 0.33}}
+      - {name: edge,  to_frac: 1.01, furniture_scale: 1.9,
+         mix: {midrise: 0.15, lowrise: 0.25, rowhouse: 0.60}}
 
     # ZONING MAP. Concentric rings alone give a city where every block is the
     # same KIND of place and only the storey count changes. Land use is grown
@@ -1045,74 +1229,138 @@ overrides:
         run_median_m: 45.0
         run_sigma: 0.70
         run_gap_m: [3.0, 9.0]
-      midrise:
+      # ROUND 6 (`urban_quake_v5`, 2026-08-31): SIX TYPOLOGIES, RANKED,
+      # mirroring `downtown_gac.yaml`'s own set (rowhouse 0, lowrise 1,
+      # midrise 2, brick_midrise 3, tower 4, highrise 5) instead of this
+      # preset's own three (rowhouse 0, midrise 1, tower 2). `rowhouse`
+      # above needed no change at all — its rank was already 0, and its
+      # block/height params are KEPT UNCHANGED (not mirrored from
+      # `downtown_gac.yaml`'s own rowhouse): they were measured and tuned
+      # specifically against blocks THIS 250 m plate's own subdivider
+      # produces (see the extensive "MEASURED" comments in `rowhouse`,
+      # above) — a legitimate quake-specific (region-size) divergence, not
+      # an oversight. `midrise` and `tower` below DO change their numeric
+      # params, not just their rank, because the reason each one had its old
+      # number is gone: `midrise`'s pool itself changes (old `midrise` ->
+      # `midrise_v2`, a different asset population `downtown_gac.yaml`'s own
+      # author already measured and tuned for), and `tower`'s old 65 m
+      # height cap was never a deliberate quake-specific choice — its own
+      # comment said only "mirroring midrise's draw" — it was an artefact of
+      # this preset having no separate `highrise` tier for the tall stock;
+      # now that one exists (below), `tower` goes back to the SAME 44.7-131 m
+      # band `downtown_gac.yaml` gives it. `lowrise` / `brick_midrise` /
+      # `highrise` are brand new here and mirror `downtown_gac.yaml` exactly
+      # — see that file's own typologies for the full per-asset derivation
+      # this only summarises.
+      #
+      # BLOCK SIZES BELOW ARE UNSCALED FOR THE SMALLER 250 m PLATE (copied
+      # from the 800 m `downtown_gac.yaml` as `block_short_m`/`block_long_m`
+      # TARGETS, not promises) — `layout.max_block_m` (below, raised to 340
+      # to match) is a ceiling that no longer clamps them, but the ACTUAL
+      # block a small region's subdivider can produce is still bounded by
+      # the region itself, so at 250 m some of the largest targets (`tower`'s
+      # 250 m long-axis ceiling, `highrise`'s 210 m) will rarely if ever be
+      # reached — exactly as `urban_quake_v4.yaml`'s own header already
+      # accepted for the un-typology'd GAC entries it flagged in this exact
+      # spot. `tools/layout_dry_run.py`'s report (`_plans/
+      # eq_v5_city_dry_run.md`), not a guess here, is what actually gets
+      # placed at a given region size; re-tuning these for 250 m specifically
+      # is a natural follow-up once that report is in hand, not done here.
+      lowrise:
         rank: 1
-        pools: [midrise]
+        pools: [lowrise]
         morphology: pack
-        # Build the block's frontage BAND and leave the middle as courtyard.
-        # Packing the whole interior let buildings sit at the back of the block
-        # with a deep apron of bare paving at the street, which from the
-        # pavement reads as an enormous sidewalk. 45 m takes the deepest asset
-        # in the pool plus room to shuffle; the slack moves to the middle, where
-        # a dense block actually keeps it.
-        # 32, not 45. `_perimeter_rects` only carves a courtyard when the block
-        # exceeds 2*depth + min_side, and min_side across this pool is 18.5 m
-        # (MBuilding01), so 45 demanded a 108.5 m block short side while the
-        # targets below produced 80-115 m. The courtyard therefore almost never
-        # formed and packing fell back to the whole interior -- which is exactly
-        # the "built at the back with an apron of paving" artefact the band
-        # exists to prevent, and why measured built_frac sat at 0.60. At 32 the
-        # threshold is 82.5 m, under the floor below, so EVERY midrise block now
-        # forms a real perimeter block. 32 m is also about one building deep:
-        # the pool's depths run 18.5-45.1 m, median 32.0.
-        perimeter_depth_m: 24.0        # kit depths run 12-30 m
-        height_median_m: 21.0          # kit mid-rises are 13-26 m
-        height_sigma: 0.45
-        # ASSET CHECK, all 13 midrise assets: narrowest side per asset runs
-        # 18.5-45.1 m (widest narrow side is Building_TypeB_C at 45.1), so the
-        # pool needs a 49.1 m block short side and NOT the 80-115 m set here
-        # before -- the old comment called this asset-anchored, and it was not.
-        # The short axis is held near Manhattan's measured 79.7 m because that
-        # is what the perimeter band wants, and the LONG axis is what moves:
-        # at [135, 200] the achieved ratio was 1.64x against a measured 2.3x,
-        # which is why the city read as a fine uniform lattice at 62.5
-        # blocks/km2 against Manhattan's 35.
-        block_short_m: [52.0, 72.0]    # 250 m plate; kit assets need >= 30
-        block_long_m: [95.0, 130.0]    # 250 m plate
-      tower:
+        perimeter_depth_m: 26.0
+        # MEASURED across the eleven Dmytro sheds: 11.1-16.7 m.
+        height_median_m: 13.5
+        height_sigma: 0.22
+        # Narrowest side per asset runs 25.0-45.1 m, so the pool needs a 49 m
+        # short side for its widest member to have anywhere to stand.
+        block_short_m: [62.0, 84.0]
+        block_long_m: [150.0, 210.0]
+      midrise:
         rank: 2
+        # NOT `midrise` — that key is `urban.yaml`'s and still holds the
+        # eleven 11-17 m Dmytro sheds this typology used to draw from.
+        # `midrise_v2` is what `downtown_gac.yaml`'s own author built to
+        # answer "there's too many low rises, we need more mid rises": same
+        # typology name and rank, a richer draw list underneath it — kit
+        # archetypes (still fully damageable), the MCE same_art original
+        # MBuilding01, two downtowncity fillers and four GAC buildings all
+        # ride along in this ONE pool (`urban_gac.yaml`'s own `midrise_v2`).
+        pools: [midrise_v2]
+        morphology: pack
+        perimeter_depth_m: 32.0
+        # MEASURED across the pool: 29.0-48.0 m.
+        height_median_m: 36.0
+        height_sigma: 0.28
+        block_short_m: [85.0, 112.0]
+        block_long_m: [205.0, 270.0]
+      brick_midrise:
+        rank: 3
+        pools: [brick_midrise]
+        morphology: terrace
+        facing_offset_deg: 0.0
+        # MEASURED across the pool: 38.6-71.8 m, p50 59.3.
+        height_median_m: 58.0
+        height_sigma: 0.22
+        # Its own grain, offset from the row-house district's 400 m sections
+        # so the two terrace districts do not run parallel where they meet.
+        cross_grain: 260.0
+        max_superblocks: 2
+        street_w_m: 6.0
+        street_park_w_m: 2.4
+        alley_m: 2.0
+        alley_max_m: 30.0
+        # THE BAND IS SET BY THE POOL'S DEEPEST MEMBER, SM_Building_04 at
+        # 31.5 m in X after its yaw-offset — see `downtown_gac.yaml`'s own
+        # note for the full arithmetic.
+        block_short_m: [72.0, 84.0]
+        block_long_m: [190.0, 250.0]
+        # END-CAPS ON THE TWO SHORT EDGES — see `downtown_gac.yaml`'s own
+        # note (user, 2026-08-29, on a brick terrace block): SM_Building_02
+        # is compact enough (28.0 x 14.4 m) to close a short edge without
+        # eating the terrace's own alley.
+        terrace_end_caps:
+          pools: [midrise_v2]
+          max_depth_m: 30.0
+        run_median_m: 95.0
+        run_sigma: 0.45
+        run_gap_m: [3.0, 8.0]
+      tower:
+        rank: 4
         pools: [tower]
         morphology: pack
-        # Towers are 50-96 m in plan, so the band has to clear the largest of
-        # them or _perimeter_rects falls back to the whole block anyway.
-        perimeter_depth_m: 30.0        # kit towers are 25 x 20
-        # 85, not the measured 66: the core is meant to READ as a high-rise
-        # district. At 66 with sigma 0.45 the typical draw is 60-70 m, which the
-        # library answers with BG_Building_B/F and MBuilding02, so the 131 m
-        # BG_Building_E sits in a tail that ~16 draws almost never reach. Moving
-        # the median up makes tall the norm here rather than the exception.
-        height_median_m: 42.0          # kit towers 33-43 m
-        height_sigma: 0.45
-        height_max_m: 65.0
-        # 70-110, not 95-120. A tower block holds exactly ONE building, so the
-        # bigger the tower block the FEWER towers exist: at 95-120 m the core
-        # produced only 16 towers against 149 midrise, because a midrise block
-        # packs ten small buildings while a tower block packs one. Dropping the
-        # floor to 70 m both multiplies the tower count and gives the 50-60 m
-        # BG_Building_A / C / E blocks they fit, instead of only the 80-96 m
-        # BG_Building_F and MBuilding02. The top stays at 110 so MBuilding02
-        # (91.1 x 96.1) still has somewhere to stand.
-        # ASSET CHECK, all 7 tower assets: narrowest sides are 20.6 / 36.5 /
-        # 40.1 / 40.2 / 50.4 / 51.3 / 91.1 m. MBuilding02 (91.1 x 96.1) is the
-        # binding one and needs a 95.1 m short side; at the previous 70 m floor
-        # it could never be placed at all. The floor moves to 78 so most of the
-        # pool still fits in a modest block, and the ceiling to 118 so
-        # MBuilding02 has somewhere to stand. This does cost tower COUNT -- a
-        # tower block holds exactly one building -- which is the trade the note
-        # above describes, now made against measured footprints rather than a
-        # guess.
-        block_short_m: [50.0, 70.0]    # 250 m plate; kit towers need >= 25
-        block_long_m: [90.0, 130.0]    # 250 m plate
+        perimeter_depth_m: 60.0
+        # MEASURED: the merged pool (Muyang + GreatAmericanCity 08/09/11/12/
+        # 19/21/22/26/27/28 + the standalone concrete towers) runs
+        # 44.7-131.0 m — the SAME band `downtown_gac.yaml` gives this
+        # typology, now that `highrise` (below) exists to take the tail this
+        # preset used to force into `tower` at a 65 m cap.
+        height_median_m: 78.0
+        height_sigma: 0.35
+        height_max_m: 140.0
+        block_short_m: [78.0, 118.0]
+        block_long_m: [190.0, 250.0]
+      highrise:
+        rank: 5
+        pools: [highrise]
+        morphology: pack
+        perimeter_depth_m: 0.0          # a highrise block IS the building
+        # MEASURED across the pool: 103.7-312.0 m, p50 143.
+        height_median_m: 165.0
+        height_sigma: 0.40
+        height_max_m: 320.0
+        # SIZED TO SM_Building_31 (60.3 x 142.2 m in plan after its
+        # yaw-offset) — the binding footprint in the whole library — same as
+        # `downtown_gac.yaml`. THE GAP THE PACKER ITSELF LEAVES between two
+        # towers on the same block (`_typ_gap`) is what actually keeps them
+        # apart, not `tall_min_gap_m` (inert for this typology — the whole
+        # pool is tall, so a "shorter" fallback never has anywhere to
+        # redirect to; see `downtown_gac.yaml`'s own note).
+        building_gap_m: 30.0
+        block_short_m: [95.0, 130.0]
+        block_long_m: [150.0, 210.0]
 
   # ---- parks (parks.py) ------------------------------------------------------
   # build_city gives a park ONE trail entering and leaving at opposite edge

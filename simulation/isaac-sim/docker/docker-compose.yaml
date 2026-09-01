@@ -143,6 +143,24 @@ services:
       # To pin a device deliberately, export CUDA_VISIBLE_DEVICES in the
       # calling environment and accept the warning above.
       - CUDA_VISIBLE_DEVICES
+      # MULTI-GPU RENDERING. Spreads the drones' ZED render products across the
+      # visible cards. Empty/unset = OFF (the launcher treats "", 0, 1, false,
+      # off, no as off), so this is inert until .env sets it.
+      #
+      # Why it was off: Kit's OWN default is multiGpu/enabled=True, which makes
+      # it probe every device NVML reports and, when NVML and CUDA disagree,
+      # drop EVERY card and render in software. That disagreement was caused by
+      # CUDA_VISIBLE_DEVICES being pinned to a subset while the runtime injected
+      # all four device nodes — see the long comment above. With CVD now passed
+      # through as a bare name (i.e. left unset), they agree: measured
+      # 2026-08-31 on the running sim, 0 "CUDA being in bad state" lines,
+      # NVML = 4, cuInit = 0, CUDA devices = 4.
+      #
+      # DO NOT also set ISAAC_SIM_CUDA_DEVICES to a subset while using this —
+      # that is exactly what recreated the mismatch.
+      # Verify it took: the Kit log's SceneRenderer line should stop saying
+      # `device mask: 0x1`.
+      - ISAAC_SIM_MULTIGPU=${ISAAC_SIM_MULTIGPU:-}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
@@ -412,6 +430,24 @@ services:
       # To pin a device deliberately, export CUDA_VISIBLE_DEVICES in the
       # calling environment and accept the warning above.
       - CUDA_VISIBLE_DEVICES
+      # MULTI-GPU RENDERING. Spreads the drones' ZED render products across the
+      # visible cards. Empty/unset = OFF (the launcher treats "", 0, 1, false,
+      # off, no as off), so this is inert until .env sets it.
+      #
+      # Why it was off: Kit's OWN default is multiGpu/enabled=True, which makes
+      # it probe every device NVML reports and, when NVML and CUDA disagree,
+      # drop EVERY card and render in software. That disagreement was caused by
+      # CUDA_VISIBLE_DEVICES being pinned to a subset while the runtime injected
+      # all four device nodes — see the long comment above. With CVD now passed
+      # through as a bare name (i.e. left unset), they agree: measured
+      # 2026-08-31 on the running sim, 0 "CUDA being in bad state" lines,
+      # NVML = 4, cuInit = 0, CUDA devices = 4.
+      #
+      # DO NOT also set ISAAC_SIM_CUDA_DEVICES to a subset while using this —
+      # that is exactly what recreated the mismatch.
+      # Verify it took: the Kit log's SceneRenderer line should stop saying
+      # `device mask: 0x1`.
+      - ISAAC_SIM_MULTIGPU=${ISAAC_SIM_MULTIGPU:-}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring

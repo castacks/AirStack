@@ -155,6 +155,65 @@ _ORIENT = {
 }
 
 
+# Geometry below an asset's own origin — a tree's root ball and root flare, a
+# bollard's footing, a hydrant's buried barrel — is authored to sit BELOW
+# grade. `z = surface + base` lifts the asset until that clears the ground,
+# which floats it by exactly the depth of the part that was meant to be
+# buried. MEASURED on `downtown_fire_500` seed 4: the AEC `Shumard_Oak` has
+# `base` 0.533 m, so every one of the 187 kerb oaks stood 0.533 m above the
+# pavement — reported as "this tree is floating on the sidewalk"
+# (`street_tree_63_428/Shumard_Oak_trunk`, user 2026-08-31). Anything
+# shallower than this is sunk back to grade; deeper, and the origin probably
+# is not the base at all and lifting is still the safer read.
+#
+# Same constant and same rule as `districts._BELOW_GRADE_MAX_M` /
+# `districts._place_z`, which had already solved this for BUILDINGS (the
+# brownstone's sunken front court). Street furniture never got the fix.
+_BELOW_GRADE_MAX_M = 1.2
+
+
+def _seat_z(surface: float, fp: dict) -> float:
+    """Placement z for a prop standing on a surface at height *surface*."""
+    b = float(fp["base"])
+    return surface + (0.0 if 0.0 < b <= _BELOW_GRADE_MAX_M else b)
+
+
+def _surface_field(layout: dict, sidewalk_top: float):
+    """``surface_at(x, y) -> z`` — the top of whatever ground is under a point.
+
+    `apply_ground_planes` lays FOUR surfaces, not one, and street furniture
+    was seated on the sidewalk's height wherever it stood:
+
+        asphalt base   z = 0.00   (the whole region)
+        block grass    z = 0.01   (every block)
+        block paving   z = 0.02   (`layout["paved_blocks"]`, a downtown's
+                                   block interiors)
+        sidewalk ring  z = sidewalk_top (0.115 on this preset)
+
+    A kerb prop is on the ring and was right; anything INSIDE the block was
+    not. That is the `interior` zone (dumpsters, 5 m in from a 3.5 m ring)
+    and every plaza and court arrangement this module now places, all of
+    which stood ~0.1 m proud of the paving they are meant to be on.
+    """
+    rings = [tuple(r) for r in (layout.get("sidewalk_rects") or ())]
+    paved = [tuple(r) for r in (layout.get("paved_blocks") or ())]
+    blocks = [_rect(b) for b in (layout.get("blocks") or ())]
+
+    def surface_at(x, y):
+        for r in rings:
+            if r[0] <= x <= r[2] and r[1] <= y <= r[3]:
+                return sidewalk_top
+        for r in paved:
+            if r[0] <= x <= r[2] and r[1] <= y <= r[3]:
+                return 0.02
+        for r in blocks:
+            if r[0] <= x <= r[2] and r[1] <= y <= r[3]:
+                return 0.01
+        return 0.0
+
+    return surface_at
+
+
 def _rect(block):
     """Block corners as (xmin, ymin, xmax, ymax)."""
     x0, y0, x1, y1 = block
@@ -218,6 +277,24 @@ class _Occupancy:
                 for gy in range(int(math.floor(r[1] / c)),
                                 int(math.floor(r[3] / c)) + 1)]
 
+    def fits(self, rect) -> bool:
+        """Would *rect* be accepted, claiming nothing?
+
+        A COMPOSED GROUP has to be placed all-or-nothing — two benches back to
+        back are a group; one bench facing a gap where its twin was refused is
+        the "seating scattered at random" defect this file's plaza section
+        exists to avoid, and `reserve` cannot be undone once it has claimed.
+        So the group tests every member first and only then reserves them.
+        """
+        r = (rect[0] - self.pad, rect[1] - self.pad,
+             rect[2] + self.pad, rect[3] + self.pad)
+        for k in self._keys(r):
+            for o in self._cells.get(k, ()):
+                if not (r[2] <= o[0] or r[0] >= o[2]
+                        or r[3] <= o[1] or r[1] >= o[3]):
+                    return False
+        return True
+
     def reserve(self, rect) -> bool:
         """Claim *rect*; False (and nothing claimed) if it hits a reservation."""
         r = (rect[0] - self.pad, rect[1] - self.pad,
@@ -231,6 +308,28 @@ class _Occupancy:
         for k in keys:
             self._cells.setdefault(k, []).append(r)
         return True
+
+    def release(self, rect) -> None:
+        """Give a reservation back.
+
+        ALL-OR-NOTHING GROUPS need it. "No lone furniture" (user, 2026-08-31:
+        a café set "on the sidewalk with nothing else makes no sense") means a
+        café set, a bench or a planter may only stand as part of a composed
+        group, so a group whose second member cannot be placed must take its
+        first member back off the ground rather than leave it standing alone.
+        `reserve` is one-way, so this is the undo — and it must be given the
+        SAME rect `reserve` was given, since the pad is re-applied here.
+        """
+        r = (rect[0] - self.pad, rect[1] - self.pad,
+             rect[2] + self.pad, rect[3] + self.pad)
+        for k in self._keys(r):
+            cell = self._cells.get(k)
+            if not cell:
+                continue
+            for i in range(len(cell) - 1, -1, -1):
+                if all(abs(cell[i][j] - r[j]) < 1e-9 for j in range(4)):
+                    del cell[i]
+                    break
 
 
 def stopping_sight_distance(speed_kph: float, reaction_s: float = 2.5,
@@ -996,7 +1095,7 @@ def _stopline_setback(config: dict, sig_cfg: dict) -> float:
             + float(m.get("stop_bar_advance_m", 1.2)))
 
 
-def _place_signals(junctions, blocks, pools, resolver, rng, occ, surface_z,
+def _place_signals(junctions, blocks, pools, resolver, rng, occ, surface_at,
                    corner_margin: float, exclusions, tally, pole_pad=0.0,
                    yaw_trim: float = 0.0, stopline_m: float = 0.0):
     """One mast-arm assembly per approach at every signalised junction.
@@ -1089,7 +1188,7 @@ def _place_signals(junctions, blocks, pools, resolver, rng, occ, surface_z,
             trim = yaw_trim if side >= 0.0 else -yaw_trim
             out.append({
                 "usd": u, "x_m": x, "y_m": y,
-                "z_m": surface_z + fp["base"],
+                "z_m": _seat_z(surface_at(x, y), fp),
                 "yaw_deg": _mast_yaw(arm_yaw, fp, pool["yaw"](u)) + trim,
                 "roll_deg": 90.0 if au == "Y" else 0.0,
                 "pitch_deg": 0.0,
@@ -1424,7 +1523,40 @@ def _plaza_wall_runs(free_rect, obstacles, eps: float = 0.3,
     return runs
 
 
-def _place_plazas(config, layout, placements, resolver, rng, occ, surface_z,
+def _allee_plan(rect, pitch_m: float, edge_m: float, row_gap_min_m: float):
+    """``(axis, rows, stations)`` — the grid an ALLÉE of trees stands on.
+
+    An allée, not a scatter: two rows of trees down the long axis of an open
+    gap at one even pitch, which is what a real plaza does with the ground it
+    is not building on and what makes the planting read as designed. *axis* is
+    ``"x"`` when the gap runs long east-west; *rows* are the ACROSS
+    coordinates of the row(s); *stations* the ALONG coordinates shared by both
+    rows, centred in the gap so the composition is symmetric about it.
+
+    Collapses to ONE centre row when the gap is too narrow to hold two of them
+    *row_gap_min_m* apart — a 10 m service alley gets a single line of trees,
+    not two rows a metre from each other. Returns no stations at all when the
+    gap is shorter than the pitch it is asked for, which is the "this is a
+    sliver, leave it as paving" case.
+    """
+    x0, y0, x1, y1 = rect
+    w, h = x1 - x0, y1 - y0
+    axis = "x" if w >= h else "y"
+    length, across = (w, h) if axis == "x" else (h, w)
+    a0, a1 = (y0, y1) if axis == "x" else (x0, x1)
+    l0, l1 = (x0, x1) if axis == "x" else (y0, y1)
+    rows = ([a0 + edge_m, a1 - edge_m]
+            if across - 2.0 * edge_m >= row_gap_min_m
+            else [(a0 + a1) / 2.0])
+    usable = length - 2.0 * edge_m
+    if usable < 0.0 or pitch_m <= 0.0:
+        return axis, rows, []
+    n = int(usable // pitch_m) + 1
+    start = (l0 + l1) / 2.0 - (n - 1) * pitch_m / 2.0
+    return axis, rows, [start + i * pitch_m for i in range(n)]
+
+
+def _place_plazas(config, layout, placements, resolver, rng, occ, surface_at,
                   usds, default_scale, asset_root, exclusions, tally) -> list:
     """Fountain-or-planter plazas in the large paved gaps of a highrise block.
 
@@ -1482,6 +1614,112 @@ def _place_plazas(config, layout, placements, resolver, rng, occ, surface_z,
     cafe_spacing = max(2.0, float(cfg.get("cafe_spacing_m", 4.5)))
     cafe_min_run = float(cfg.get("cafe_min_run_m", 8.0))
     cluster_radius_frac = float(cfg.get("cluster_radius_frac", 0.35))
+    # ---- TREES (user, 2026-08-31, on the built city): "the props it places
+    # in the empty areas in skyscraper blocks can also have trees. Make it
+    # like an arrangement of trees with seating". Two structured layers, both
+    # composed rather than scattered — see the module section above.
+    #
+    #   RING   an allée circling the seating court, one even pitch, offset off
+    #          the bench pitch so a tree stands BETWEEN two benches instead of
+    #          behind one. This is the "trees with seating" arrangement.
+    #   ALLÉE  two rows down the long axis of the rest of the gap, at one
+    #          pitch, with a composed BENCH PAIR every few stations — which is
+    #          what the module note above means by "the rest of a long gap
+    #          stays quiet paving" no longer being good enough: a 30 x 108 m
+    #          corridor is a plaza's own bosque, not leftover.
+    tree_ring_gap = float(cfg.get("tree_ring_gap_m", 3.2))
+    tree_ring_spacing = max(2.5, float(cfg.get("tree_ring_spacing_m", 10.0)))
+    tree_pitch = max(3.0, float(cfg.get("tree_pitch_m", 11.0)))
+    tree_edge = float(cfg.get("tree_edge_m", 4.0))
+    tree_row_min = float(cfg.get("tree_row_gap_min_m", 7.0))
+    allee_skip_pad = float(cfg.get("allee_skip_pad_m", 1.5))
+    # Every Nth allée station carries a seating group instead of bare paving.
+    # 0 switches the seating off and leaves a pure bosque.
+    seat_every = max(0, int(cfg.get("allee_seat_every", 3)))
+    # ---- THE TREE BUDGET, AND WHY IT IS A NUMBER AND NOT A PITCH.
+    # A Shumard_Oak is 54,766 points and a Douglas_Fir 56,262. This preset
+    # family already pays for 188 kerb trees and its own `street_trees`
+    # comment records the reason its frontage pitch is a KNOWING deviation
+    # from the 6-9 m standard: at an 8 m pitch the pass produced 317 trees,
+    # "a canopy closed over the whole street and 37.8% of the scene's
+    # geometry", and one OOM kill. Planting a plaza bosque at its design
+    # pitch of ~10 m and a court in every block would put ~215 more on top
+    # of that, i.e. double the tree geometry in the scene.
+    #
+    # So the pitch stays honest (a bosque at 16 m is not a bosque) and the
+    # COUNT is capped instead, per composition and then over the whole pass.
+    # PLAZAS AND COURTS HAVE SEPARATE BUDGETS, not one shared counter: the
+    # plaza loop runs first, and with one counter it spent 124 of 130 before
+    # the court loop started, so the last blocks in the city came out bare
+    # while the first were planted — a gradient across the map that no rule
+    # in this file intends. Within a budget, a composition is capped again so
+    # one long corridor cannot take the lot.
+    #
+    # MEASURED at these defaults on `downtown_fire_500` seed 4: 188 kerb trees
+    # become ~290. The preset's own OOM anecdote is at 317, so raising either
+    # budget is a real cost decision and is left to the scene.
+    tree_budget = max(0, int(cfg.get("tree_budget", 75)))
+    trees_per_plaza = max(0, int(cfg.get("max_trees_per_plaza", 12)))
+    # Share of a tree's crown its trunk/pit actually occupies — the same
+    # number `build()` uses for the kerb rows, read from the same key so a
+    # plaza tree and a street tree reserve ground on one rule.
+    canopy_frac = float((config.get("city_detail") or {})
+                       .get("canopy_footprint_frac", 0.25))
+    # ...but not less than this half-extent. A crown OVERHANGING a bench is
+    # shade and is the point; a trunk standing 2.4 m from a planter, which is
+    # what the bare `canopy_frac` trunk reservation allowed, is a tree growing
+    # out of the furniture. MEASURED: `tools/plaza_check.py` on `downtown_gac`
+    # found exactly one such pair among 133 plaza trees. This is a GROUND
+    # clearance, not a crown one — raising it past ~3 m starts refusing trees
+    # the composition wants.
+    tree_clear = float(cfg.get("tree_clearance_m", 2.0))
+    # How close two members of a composed group have to be to read as one
+    # group. The same number `tools/block_fill_probe.py` audits against, so a
+    # prop this pass keeps is a prop the audit calls composed.
+    composed_span = float(cfg.get("composed_span_m", 8.0))
+    seat_clear = float(cfg.get("seat_clearance_m", 0.35))
+    # ---- COURTS. The other half of the same 2026-08-31 report — "there is a
+    # lot of empty space in the blocks (non skyscraper)". `districts`'
+    # measured answer is that no building in this library is under 13.5 m
+    # across, so a 12-19 m deep leftover can never be built on however many
+    # infill passes look at it (see `districts._justify`, which is what moved
+    # those leftovers OFF the street frontage and into the block interior in
+    # the first place). What a block interior like that actually holds is a
+    # planted court, so it gets the allée WITHOUT the plaza composition: no
+    # centrepiece, no bench ring, no café row — those belong to a plaza, and a
+    # service court that had them would read as one.
+    court_cfg = cfg.get("courts") or {}
+    courts_on = bool(court_cfg.get("enabled", True))
+    court_min_side = float(court_cfg.get("min_side_m", 9.0))
+    court_min_area = float(court_cfg.get("min_area_m2", 250.0))
+    court_max_per_block = max(0, int(court_cfg.get("max_per_block", 2)))
+    # Two arrangements 20 m apart in one block read as one loose scatter, not
+    # as two compositions — the same reason the preset's own park superblocks
+    # carry a `min_separation_m`. Measured against the tool that grades them
+    # (`tools/plaza_check.py` merges anything within 22 m into one cluster),
+    # so a gap this wide is also what keeps them separable for review.
+    court_min_sep = float(court_cfg.get("min_separation_m", 24.0))
+    court_pitch = max(3.0, float(court_cfg.get("tree_pitch_m",
+                                               tree_pitch * 1.4)))
+    # PER BLOCK as well as per pass. A single global counter walked the block
+    # list in order and planted the first blocks it reached until it ran out,
+    # so half the city was planted and half bare — measured, `brick_midrise`
+    # came out with 7 props against `tower`'s 21 for no reason but iteration
+    # order. The per-block cap is what makes the courts an even treatment.
+    # A COURT IS SHALLOWER THAN A PLAZA CORRIDOR and needs its own row
+    # geometry, or it never gets two rows at all and so never gets its
+    # seating: MEASURED, 17 of the 20 court rects in this scene are 10-14 m
+    # deep bands, and at the plaza's 4 m set-in and 7 m minimum row gap every
+    # one of them collapsed to a single line of trees. At 3 m and 6 m a 14 m
+    # band carries two rows 8 m apart with the bench pair between them, which
+    # is the arrangement, and a 10 m alley still collapses to one row, which
+    # is correct for an alley.
+    court_edge = float(court_cfg.get("tree_edge_m", 3.0))
+    court_row_min = float(court_cfg.get("tree_row_gap_min_m", 6.0))
+    court_budget = max(0, int(court_cfg.get("tree_budget", 60)))
+    court_block_budget = max(0, int(court_cfg.get("max_trees_per_block", 5)))
+    trees_per_court = max(0, int(court_cfg.get("max_trees_per_court", 4)))
+    court_typologies = court_cfg.get("typologies")   # None = everything else
 
     features = (config.get("usds") or {}).get("park_features") or []
     planter_pool = _pool(usds, "planters", default_scale, asset_root)
@@ -1491,6 +1729,14 @@ def _place_plazas(config, layout, placements, resolver, rng, occ, surface_z,
     trash_pool = _pool(usds, "trash_cans", default_scale, asset_root)
     light_pool = _pool(usds, "streetlights", default_scale, asset_root)
     cafe_pool = _pool(usds, "cafe_sets", default_scale, asset_root)
+    # The KERB register, not the park one. `street_trees` is the pool sized for
+    # a paved setting (Shumard_Oak at an 11.4 m crown, Douglas_Fir at 6.0);
+    # `trees` holds park specimens up to a 25.4 m crown, which would swallow a
+    # 30 m plaza whole — see `urban.yaml`'s own note on why Black_Oak is in one
+    # and not the other. Falls back to the park pool only when a scene has
+    # sourced no street trees at all.
+    tree_pool = (_pool(usds, "street_trees", default_scale, asset_root)
+                or _pool(usds, "trees", default_scale, asset_root, tag="park"))
 
     if not bench_pool or not (features or planter_pool or rock_pool):
         print("[city_detail] plazas: no bench or centrepiece assets in the "
@@ -1525,14 +1771,15 @@ def _place_plazas(config, layout, placements, resolver, rng, occ, surface_z,
         sc, au = pool["scale"](usd), pool["axis_up"](usd)
         fp = resolver.get(usd, cat, scale=sc, axis_up=au)
         out.append({
-            "usd": usd, "x_m": x, "y_m": y, "z_m": surface_z + fp["base"],
+            "usd": usd, "x_m": x, "y_m": y,
+            "z_m": _seat_z(surface_at(x, y), fp),
             "yaw_deg": yaw + pool["yaw"](usd),
             "roll_deg": 90.0 if au == "Y" else 0.0, "pitch_deg": 0.0,
             "scale": sc, "axis_up": au, "category": cat,
         })
         tally[cat] = tally.get(cat, 0) + 1
         plaza_tally[cat] = plaza_tally.get(cat, 0) + 1
-        return fp
+        return out[-1]
 
     def place_free(usd, cat, x, y, yaw, pool, pole=False):
         """Reserve the conservative square a free-yaw prop reserves elsewhere
@@ -1555,9 +1802,10 @@ def _place_plazas(config, layout, placements, resolver, rng, occ, surface_z,
                else max(fp["sx"], fp["sy"])) / 2.0
         if exclusions and _in_exclusion(x, y, exclusions):
             return None
-        if not occ.reserve((x - half, y - half, x + half, y + half)):
+        rect = (x - half, y - half, x + half, y + half)
+        if not occ.reserve(rect):
             return None
-        return emit(usd, cat, x, y, yaw, pool)
+        return emit(usd, cat, x, y, yaw, pool), rect
 
     def place_along(usd, cat, x, y, out_yaw, pool):
         """Reserve the true oriented footprint against a wall — the same
@@ -1570,12 +1818,333 @@ def _place_plazas(config, layout, placements, resolver, rng, occ, surface_z,
         hx, hy = _half_extents(out_yaw, along, across)
         if exclusions and _in_exclusion(x, y, exclusions):
             return None
-        if not occ.reserve((x - hx, y - hy, x + hx, y + hy)):
+        rect = (x - hx, y - hy, x + hx, y + hy)
+        if not occ.reserve(rect):
             return None
         yaw = _prop_yaw(out_yaw, fp, _ALONG, pool["yaw"](usd), rng)
-        return emit(usd, cat, x, y, yaw, pool)
+        return emit(usd, cat, x, y, yaw, pool), rect
+
+    def _crown_r(usd):
+        fp = resolver.get(usd, "street_tree", scale=tree_pool["scale"](usd),
+                          axis_up=tree_pool["axis_up"](usd))
+        # CIRCUMSCRIBING circle, not the bbox: these are placed at a random
+        # yaw (`_CANOPY` mode), so the bbox corner is what actually reaches
+        # furthest and a bbox test lets a crown swing out over the road.
+        return fp, math.hypot(fp["sx"], fp["sy"]) / 2.0
+
+    def place_canopy(x, y, bound=None):
+        """A tree: reserve the TRUNK, keep the CROWN inside *bound*.
+
+        `_occ_extent(..., _CANOPY, canopy_frac)` is the same ground rule the
+        kerb rows use — reserving the whole crown would leave room for about
+        one tree per plaza, and a crown over a bench is shade, which is the
+        point. What a crown may NOT do is leave the block: `tools/plaza_check`
+        caught a court oak 6.5 m from a block edge whose 7.3 m circumscribing
+        radius reached out over the carriageway. So the species is drawn from
+        those that fit the room actually available here, largest first — a
+        big oak in the middle of a court, a fir at its edge — and the station
+        is skipped when none do.
+        """
+        if exclusions and _in_exclusion(x, y, exclusions):
+            return None
+        room = None
+        if bound is not None:
+            room = min(x - bound[0], y - bound[1], bound[2] - x, bound[3] - y)
+            if room <= 0.0:
+                return None
+        cands = [u for u in tree_pool["paths"]
+                 if room is None or _crown_r(u)[1] <= room]
+        if not cands:
+            return None
+        usd = rng.choice(cands)
+        fp, _r = _crown_r(usd)
+        t, _ = _occ_extent(fp, _CANOPY, canopy_frac)
+        h = max(t / 2.0, tree_clear)
+        rect = (x - h, y - h, x + h, y + h)
+        if not occ.reserve(rect):
+            return None
+        return emit(usd, "street_tree", x, y, rng.uniform(0.0, 360.0),
+                    tree_pool), rect
+
+    def place_seat_group(x, y, face_a):
+        """A BENCH PAIR back to back at *(x, y)*, seats facing *face_a* and its
+        opposite — a composed group, placed all-or-nothing.
+
+        The suburb rule this file inherits is that seating is never a lone
+        bench dropped on open ground; the pair (with the allée's own two trees
+        flanking it) is the smallest thing that reads as a designed seat.
+
+        ONE RESERVATION FOR THE PAIR, and a rotation-safe one: the two benches
+        stand 0.6 m apart and would refuse each other under separate
+        reservations, and an ORIENTED box for each was what let a court bench's
+        CORNER reach a neighbouring prop that its own axis-aligned extent
+        cleared — measured by `tools/plaza_check.py` against `parks._box_hit`,
+        which is a real SAT. So the group reserves the square that
+        circumscribes both benches at any yaw, plus knee room, and is placed
+        only if that square is free (`_Occupancy.fits`).
+        """
+        usd_a = rng.choice(bench_pool["paths"])
+        usd_b = rng.choice(bench_pool["paths"])
+        plan, half = [], 0.0
+        for usd, face in ((usd_a, face_a), (usd_b, face_a + 180.0)):
+            sc, au = bench_pool["scale"](usd), bench_pool["axis_up"](usd)
+            fp = resolver.get(usd, "bench", scale=sc, axis_up=au)
+            along, across = _occ_extent(fp, _FACE, canopy_frac)
+            dx, dy = _unit(face)
+            off = across / 2.0 + 0.15
+            px, py = x + dx * off, y + dy * off
+            if exclusions and _in_exclusion(px, py, exclusions):
+                return 0
+            # rotation-safe: the half-diagonal from the GROUP centre
+            half = max(half, math.hypot(along / 2.0, across / 2.0 + off))
+            plan.append((usd, face, px, py, fp))
+        half += seat_clear
+        box = (x - half, y - half, x + half, y + half)
+        if not occ.fits(box):
+            return 0
+        occ.reserve(box)
+        for usd, face, px, py, fp in plan:
+            emit(usd, "bench", px, py,
+                 _prop_yaw(face, fp, _FACE, bench_pool["yaw"](usd), rng),
+                 bench_pool)
+        return 2                       # always a PAIR, never one
+
+    def undo(items):
+        """Take a half-composed group back off the ground.
+
+        NO LONE FURNITURE means a group is all or nothing, and the pieces are
+        already emitted and reserved by the time the last one is refused. This
+        removes the placement, un-counts it in both tallies and gives the
+        occupancy grid its ground back, so the next composition may use it.
+        """
+        for d, rect in items:
+            out.remove(d)
+            cat = d["category"]
+            tally[cat] = tally.get(cat, 1) - 1
+            plaza_tally[cat] = plaza_tally.get(cat, 1) - 1
+            occ.release(rect)
+
+    def keep_grouped(items, span, min_n=2):
+        """Thin a just-placed run down to what is actually a GROUP.
+
+        A run walked at a 4.5 m pitch can lose most of its members to the
+        occupancy grid and leave two survivors 12 m apart — which is two lone
+        props, not a café terrace, and is exactly what the no-lone-furniture
+        rule is about. Anything with no companion within *span* is taken back,
+        and if fewer than *min_n* are left the whole run goes.
+        """
+        keep = [it for it in items
+                if any(o is not it
+                       and math.hypot(o[0]["x_m"] - it[0]["x_m"],
+                                      o[0]["y_m"] - it[0]["y_m"]) <= span
+                       for o in items)]
+        kept_ids = {id(it) for it in keep}
+        undo([it for it in items if id(it) not in kept_ids])
+        if len(keep) < min_n:
+            undo(keep)
+            return 0
+        return len(keep)
+
+    def place_planters(x, y, r, n):
+        """A planter GROUP, never a single tub: *n* of them on a circle of
+        radius *r*. Returns how many stood; a group of one is taken back."""
+        got = []
+        for k in range(n):
+            th = rng.uniform(0.0, 2.0 * math.pi) if r < 0.5 \
+                else math.radians(rng.uniform(0.0, 360.0) + k * 360.0 / n)
+            p = place_free(rng.choice(planter_pool["paths"]), "planter",
+                           x + math.cos(th) * r, y + math.sin(th) * r,
+                           rng.uniform(0.0, 360.0), planter_pool)
+            if p:
+                got.append(p)
+        return keep_grouped(got, composed_span)   # a lone tub is not a planting
+
+    def place_cafe_run(walls, r_plaza, cx, cy, n_max):
+        """Tables against a wall a building actually stands on — the same
+        `_plaza_wall_runs` find the plaza's café row uses. NEVER on a
+        sidewalk and never one on its own: a run of fewer than two tables is
+        taken back, because "a café set with nothing else makes no sense"."""
+        if not cafe_pool or not walls:
+            return 0
+        centre_of = lambda yaw: cy if yaw in (180.0, 0.0) else cx
+        runs = []
+        for out_yaw, edge, lo, hi in walls:
+            c = centre_of(out_yaw)
+            lo2, hi2 = max(lo, c - r_plaza), min(hi, c + r_plaza)
+            if hi2 - lo2 >= cafe_min_run:
+                runs.append((out_yaw, edge, lo2, hi2, hi2 - lo2))
+        if not runs:
+            return 0
+        runs.sort(key=lambda r: -r[4])
+        out_yaw, edge, lo, hi, run_len = runs[0]
+        n_c = max(1, min(n_max, round(run_len / cafe_spacing)))
+        step = run_len / n_c
+        got = []
+        for k in range(n_c):
+            sm = lo + (k + 0.5) * step
+            wx, wy = (edge, sm) if out_yaw in (180.0, 0.0) else (sm, edge)
+            px, py = _inset(wx, wy, out_yaw, cafe_setback)
+            p = place_along(rng.choice(cafe_pool["paths"]), "cafe_set",
+                            px, py, out_yaw, cafe_pool)
+            if p:
+                got.append(p)
+        return keep_grouped(got, composed_span)   # one table is not a terrace
+
+    # -----------------------------------------------------------------
+    # THE ARRANGEMENT FAMILIES
+    # -----------------------------------------------------------------
+    # (user, 2026-08-31) "I want the arrangements in openings between
+    # buildings ... in nonuniform places i want it", and "a tree cluster with
+    # benches around it here, a double tree row with planters there" — i.e.
+    # NOT one composition stamped into every void. Three families, drawn per
+    # opening, each anchored at an IRREGULAR point inside it rather than at
+    # its centre:
+    #
+    #   rows    two lines of trees down the opening's long axis at one pitch,
+    #           a bench pair between them and a planter group at one end. The
+    #           formal one; wants a long opening.
+    #   grove   4-7 trees on a jittered ring around a composed bench pair —
+    #           the informal one, and the only one a squarish opening can
+    #           hold.
+    #   corner  the planting pushed into ONE end of the opening with a bench
+    #           pair beside it and a café run against whatever building wall
+    #           borders it, leaving the rest of the opening as open paving.
+    #
+    # Every family is composed: no family can emit a lone bench, a lone
+    # planter or a lone café table, and each takes its own pieces back rather
+    # than leave one standing (see `place_seat_group`, `place_planters`,
+    # `place_cafe_run`).
+    def _anchor(fr, margin, jitter=0.75):
+        """A point inside *fr* at least *margin* from its edges, drawn off
+        centre — this is what makes the arrangements land in nonuniform
+        places instead of one per void, dead centre, every time."""
+        fx0, fy0, fx1, fy1 = fr
+        sx = max(0.0, (fx1 - fx0) / 2.0 - margin) * jitter
+        sy = max(0.0, (fy1 - fy0) / 2.0 - margin) * jitter
+        return ((fx0 + fx1) / 2.0 + rng.uniform(-sx, sx),
+                (fy0 + fy1) / 2.0 + rng.uniform(-sy, sy))
+
+    def lay_rows(fr, bound, budget, pitch, edge, row_min, skip=None,
+                 seating=True):
+        """Family `rows` — the allée. Rows are walked from the middle
+        outward so a budget that runs out thins the ENDS of a long opening
+        rather than planting one half of it and leaving the other bare."""
+        axis, rows, stations = _allee_plan(fr, pitch, edge, row_min)
+        mid_i = (len(stations) - 1) / 2.0
+        order = sorted(range(len(stations)), key=lambda i: (abs(i - mid_i), i))
+        n_t = n_s = 0
+        for i in order:
+            if n_t >= budget:
+                break
+            st = stations[i]
+            for a in rows:
+                tx, ty = (st, a) if axis == "x" else (a, st)
+                if skip and (skip[0] - allee_skip_pad <= tx
+                             <= skip[2] + allee_skip_pad
+                             and skip[1] - allee_skip_pad <= ty
+                             <= skip[3] + allee_skip_pad):
+                    continue
+                if place_canopy(tx, ty, bound=bound):
+                    n_t += 1
+            if not (seating and seat_every and bench_pool and len(rows) == 2
+                    and n_t and i % seat_every == seat_every // 2):
+                continue
+            mid = (rows[0] + rows[1]) / 2.0
+            bx, by = (st, mid) if axis == "x" else (mid, st)
+            if skip and (skip[0] - allee_skip_pad <= bx <= skip[2] + allee_skip_pad
+                         and skip[1] - allee_skip_pad <= by
+                         <= skip[3] + allee_skip_pad):
+                continue
+            # Seats look ACROSS the allée, at the row of trees opposite —
+            # which is also what puts their backs together on its centre line.
+            n_s += place_seat_group(bx, by, 90.0 if axis == "x" else 0.0)
+        return n_t, n_s
+
+    def lay_grove(fr, bound, budget, seating=True):
+        """Family `grove` — an irregular ring of trees round a bench pair."""
+        r = min((fr[2] - fr[0]), (fr[3] - fr[1])) / 2.0 - 1.0
+        if r < 3.0 or budget <= 0:
+            return 0, 0
+        ring_r = min(max(3.5, r * rng.uniform(0.45, 0.8)), 11.0)
+        ax, ay = _anchor(fr, ring_r + 1.0)
+        n_s = (place_seat_group(ax, ay, rng.uniform(0.0, 360.0))
+               if seating and bench_pool else 0)
+        n = min(budget, rng.randint(4, 7))
+        phase0 = rng.uniform(0.0, 360.0)
+        n_t = 0
+        for k in range(n):
+            # jittered angle and radius: a grove is planted, not surveyed
+            th = math.radians(phase0 + k * 360.0 / n + rng.uniform(-14.0, 14.0))
+            rr = ring_r * rng.uniform(0.82, 1.18)
+            if place_canopy(ax + math.cos(th) * rr, ay + math.sin(th) * rr,
+                            bound=bound):
+                n_t += 1
+        if n_t and planter_pool:
+            place_planters(ax, ay, ring_r * 0.55, rng.randint(2, 3))
+        return n_t, n_s
+
+    def lay_corner(fr, bound, budget, walls, seating=True):
+        """Family `corner` — planting pushed into one end, café against the
+        wall, the rest of the opening left as open paving."""
+        fx0, fy0, fx1, fy1 = fr
+        w, h = fx1 - fx0, fy1 - fy0
+        along_x = w >= h
+        frac = rng.uniform(0.34, 0.46)
+        end = rng.random() < 0.5
+        sub = ((fx0, fy0, fx0 + w * frac, fy1) if along_x and end else
+               (fx1 - w * frac, fy0, fx1, fy1) if along_x else
+               (fx0, fy0, fx1, fy0 + h * frac) if end else
+               (fx0, fy1 - h * frac, fx1, fy1))
+        n_t, n_s = lay_grove(sub, bound, budget, seating=seating)
+        if n_t:
+            cx, cy = (sub[0] + sub[2]) / 2.0, (sub[1] + sub[3]) / 2.0
+            place_cafe_run(walls, min(w, h) * 0.6, cx, cy, 4)
+        return n_t, n_s
+
+    def lay_arrangement(fr, bound, walls, budget=0, pitch=None, edge=None,
+                        row_min=None, skip=None, seating=True, family=None):
+        """One composed arrangement in one opening between buildings.
+
+        The family is drawn from what the opening's SHAPE can actually hold —
+        `rows` needs a long thin gap, a grove needs room for a ring — and
+        then at random among those, which is what stops the city reading as
+        one pattern repeated.
+        """
+        if not tree_pool or budget <= 0:
+            return 0, 0
+        w, h = fr[2] - fr[0], fr[3] - fr[1]
+        pitch = pitch or tree_pitch
+        edge = tree_edge if edge is None else edge
+        row_min = tree_row_min if row_min is None else row_min
+        _ax, rows, stations = _allee_plan(fr, pitch, edge, row_min)
+        options = []
+        if len(stations) >= 3 and len(rows) == 2:
+            options += ["rows", "rows"]        # weighted: the formal default
+        if min(w, h) >= 9.0:
+            options.append("grove")
+        if max(w, h) >= 28.0 and min(w, h) >= 9.0:
+            options.append("corner")
+        if not options:
+            options = ["rows"]
+        pick = family or options[rng.randrange(len(options))]
+        if pick == "grove":
+            return lay_grove(fr, bound, budget, seating=seating)
+        if pick == "corner":
+            return lay_corner(fr, bound, budget, walls, seating=seating)
+        return lay_rows(fr, bound, budget, pitch, edge, row_min, skip=skip,
+                        seating=seating)
 
     n_plazas, n_candidates = 0, 0
+    n_trees = n_court_trees = n_seats = n_courts = 0
+    # Where the arrangements ended up, for `tools/block_fill_probe.py`'s
+    # evidence figure: it draws these so a reviewer can see that every
+    # cluster sits in an opening between buildings, at an irregular spot in
+    # it, and not on a sidewalk.
+    # RESET, not append: `tools/plaza_check.py` calls `build()` twice over one
+    # layout to diff the plaza pass against itself, and an accumulating list
+    # would describe the second run as having twice the arrangements.
+    layout["_arrangement_rects"] = []
+    courts_at = layout["_arrangement_rects"]
     kinds = {"fountain": 0, "planters": 0, "rocks": 0, "empty": 0}
 
     for raw in layout.get("blocks") or ():
@@ -1614,14 +2183,22 @@ def _place_plazas(config, layout, placements, resolver, rng, occ, surface_z,
 
         for fr in free[:max_per_block]:
             fx0, fy0, fx1, fy1 = fr
-            cx, cy = (fx0 + fx1) / 2.0, (fy0 + fy1) / 2.0
-            r_avail = min((fx1 - fx0) / 2.0, (fy1 - fy0) / 2.0) - edge_margin
+            # NOT DEAD CENTRE. (user, 2026-08-31) "in nonuniform places i want
+            # it" — a plaza centred in every gap makes a 30 x 108 m corridor
+            # and a 40 x 42 m one read as the same design at two scales. The
+            # anchor is drawn inside whatever slack the composition leaves
+            # after its own radius, so it moves without ever leaving the gap.
+            cx, cy = _anchor(fr, min_radius + edge_margin)
+            r_avail = min(cx - fx0, fx1 - cx, cy - fy0, fy1 - cy) - edge_margin
+            courts_at.append([round(fx0, 1), round(fy0, 1),
+                              round(fx1, 1), round(fy1, 1)])
             if r_avail < min_radius - 1e-6:
                 continue          # belt-and-braces; min_side already implies this
             r_max = max(min_radius, min(r_avail, max_radius))
 
             phase = rng.uniform(0.0, 360.0)
             keep_r, kind, ring_r_floor = 0.0, "empty", 0.0
+            here_trees = 0
 
             # ---- the centrepiece: fountain first if it is rolled AND fits,
             # else a planter cluster, else a rock cluster, else nothing.
@@ -1729,6 +2306,26 @@ def _place_plazas(config, layout, placements, resolver, rng, occ, surface_z,
                               cx + math.cos(th) * (ring_r + 1.0),
                               cy + math.sin(th) * (ring_r + 1.0),
                               math.degrees(th) + 180.0, light_pool, pole=True)
+                # ---- the tree ring: an allée circling the seating, one even
+                # pitch, offset by HALF A BENCH PITCH so a trunk stands
+                # between two benches rather than behind one. Radius is
+                # bounded by the gap (`r_avail`), like every other radius in
+                # this composition, so a narrow gap gets the ring it can hold
+                # or none at all rather than trees in the towers.
+                tree_r = min(ring_r + tree_ring_gap, r_avail)
+                if tree_pool and tree_r >= ring_r + 1.0 and n_trees < tree_budget:
+                    n_tr = max(3, int(round(2.0 * math.pi * tree_r
+                                            / tree_ring_spacing)))
+                    n_tr = min(n_tr, trees_per_plaza,
+                               tree_budget - n_trees)
+                    for i in range(n_tr):
+                        th = math.radians(phase + bench_pitch * 0.5
+                                          + i * 360.0 / n_tr)
+                        if place_canopy(cx + math.cos(th) * tree_r,
+                                        cy + math.sin(th) * tree_r,
+                                        bound=rect):
+                            n_trees += 1
+                            here_trees += 1
 
             # The plaza's own footprint, not the free rect's — see the module
             # note above on why the café row and the planter line are walked
@@ -1740,26 +2337,8 @@ def _place_plazas(config, layout, placements, resolver, rng, occ, surface_z,
 
             # ---- café row against whichever tower wall borders this gap,
             # clipped to the plaza's own footprint along that wall.
-            if cafe_pool:
-                centre_of = lambda yaw: cy if yaw in (180.0, 0.0) else cx
-                runs = []
-                for out_yaw, edge, lo, hi in _plaza_wall_runs(fr, obstacles):
-                    c = centre_of(out_yaw)
-                    lo2, hi2 = max(lo, c - r_plaza), min(hi, c + r_plaza)
-                    if hi2 - lo2 >= cafe_min_run:
-                        runs.append((out_yaw, edge, lo2, hi2, hi2 - lo2))
-                if runs:
-                    runs.sort(key=lambda r: -r[4])
-                    out_yaw, edge, lo, hi, run_len = runs[0]
-                    n_c = max(1, round(run_len / cafe_spacing))
-                    step = run_len / n_c
-                    for k in range(n_c):
-                        s = lo + (k + 0.5) * step
-                        wx, wy = ((edge, s) if out_yaw in (180.0, 0.0)
-                                 else (s, edge))
-                        px, py = _inset(wx, wy, out_yaw, cafe_setback)
-                        place_along(rng.choice(cafe_pool["paths"]),
-                                   "cafe_set", px, py, out_yaw, cafe_pool)
+            wall_runs = _plaza_wall_runs(fr, obstacles)
+            place_cafe_run(wall_runs, r_plaza, cx, cy, 99)
 
             # ---- planters around the plaza's own edge, defining it rather
             # than sprinkled through it — the same edge-walk `build()` uses
@@ -1767,22 +2346,135 @@ def _place_plazas(config, layout, placements, resolver, rng, occ, surface_z,
             # instead of a block. No jitter: an edge line is meant to read
             # as regular.
             if planter_pool:
+                edge = []
                 for x, y, _oy, _blk, _appr, _corner in _frontage_slots(
                         [plaza_rect], planter_spacing, rng,
                         inset_m=planter_inset):
-                    place_free(rng.choice(planter_pool["paths"]), "planter",
-                              x, y, rng.uniform(0.0, 360.0), planter_pool)
+                    got = place_free(rng.choice(planter_pool["paths"]),
+                                     "planter", x, y,
+                                     rng.uniform(0.0, 360.0), planter_pool)
+                    if got:
+                        edge.append(got)
+                # The edge line is a LINE — two tubs left at opposite corners
+                # of the plaza after the rest were refused is two lone props.
+                keep_grouped(edge, composed_span)
+
+            # ---- and the REST of the gap, which used to stay bare paving:
+            # two rows of trees down its long axis at one pitch, stepping
+            # around the plaza's own square, with a composed bench pair every
+            # few stations. On a 30 x 108 m corridor that is a bosque with the
+            # plaza set into it, which is what the space actually is.
+            # TREES ONLY down a plaza's own corridor. The plaza's seating is
+            # its ring, twenty metres away and composed around a centrepiece;
+            # a second, unrelated bench pair in the same open space is the
+            # "seating scattered rather than composed" defect wearing a
+            # different hat. Courts get the seating instead — they have no
+            # ring of their own.
+            t_n, s_n = lay_arrangement(
+                fr, rect, wall_runs, skip=plaza_rect, seating=False,
+                family="rows",
+                budget=min(trees_per_plaza - here_trees,
+                           tree_budget - n_trees))
+            n_trees += t_n
+            n_seats += s_n
 
             n_plazas += 1
 
-    if n_plazas:
+    # ------------------------------------------------------------------
+    # COURTS — the same allée, on the block interiors that are NOT plazas.
+    # ------------------------------------------------------------------
+    # `districts._justify` moved every block's unbuildable slack off the
+    # street frontage and into the block interior, where it belongs; this is
+    # what stands in it. No centrepiece and no bench ring: a mid-rise block's
+    # back court is a planted service yard, not a civic space, and giving it
+    # the plaza composition would say the opposite. Trees and a composed
+    # bench pair, and nothing else.
+    if courts_on and tree_pool:
+        for raw in layout.get("blocks") or ():
+            t = typ_of.get(tuple(raw)) or typ_of.get(raw)
+            if t is None or t in wanted or t == "park":
+                continue
+            if court_typologies is not None and t not in court_typologies:
+                continue
+            bx0, by0, bx1, by1 = _rect(raw)
+            rect = (bx0 + inset, by0 + inset, bx1 - inset, by1 - inset)
+            obstacles = [districts._rect_of(p, resolver, margin=podium_m)
+                        for p in houses
+                        if bx0 <= p["x_m"] <= bx1 and by0 <= p["y_m"] <= by1]
+            if not obstacles:
+                continue
+            # Same guard the plaza loop uses: build_city's own human/car
+            # scatter ran long before this pass and knows nothing about a
+            # court coming.
+            for p in placements:
+                if (p.get("category") not in ("human", "car")
+                        or not (bx0 <= p["x_m"] <= bx1
+                                and by0 <= p["y_m"] <= by1)):
+                    continue
+                fp = resolver.get(p.get("usd", ""), p.get("category"),
+                                  scale=p.get("scale"),
+                                  axis_up=p.get("axis_up", "Z"))
+                h = max(fp["sx"], fp["sy"]) / 2.0
+                occ.reserve((p["x_m"] - h, p["y_m"] - h,
+                            p["x_m"] + h, p["y_m"] + h))
+            free = districts.free_rects(rect, obstacles,
+                                        min_side=court_min_side)
+            free = [f for f in free
+                    if (f[2] - f[0]) * (f[3] - f[1]) >= court_min_area]
+            # AN OPENING BETWEEN BUILDINGS, not any leftover paving. A gap
+            # with no building standing flush against any of its sides is
+            # bounded only by block edges — that is the sidewalk-side apron,
+            # and an arrangement there is exactly the "on the sidewalk with
+            # nothing else" case. `_plaza_wall_runs` is the same test the
+            # plaza café row uses to find a wall worth sitting against.
+            walled = [(f, _plaza_wall_runs(f, obstacles)) for f in free]
+            walled = [(f, wr) for f, wr in walled if wr]
+            walled.sort(key=lambda fw: -(fw[0][2] - fw[0][0])
+                        * (fw[0][3] - fw[0][1]))
+            here = 0
+            used: list = []
+            picked = []
+            for fr, wr in walled:
+                if len(picked) >= court_max_per_block:
+                    break
+                fcx, fcy = (fr[0] + fr[2]) / 2.0, (fr[1] + fr[3]) / 2.0
+                if any(math.hypot(fcx - ux, fcy - uy) < court_min_sep
+                       for ux, uy in used):
+                    continue
+                used.append((fcx, fcy))
+                picked.append((fr, wr))
+            for fr, wr in picked:
+                t_n, s_n = lay_arrangement(
+                    fr, rect, wr,
+                    budget=min(trees_per_court,
+                               court_block_budget - here,
+                               court_budget - n_court_trees),
+                    pitch=court_pitch, edge=court_edge,
+                    row_min=court_row_min)
+                here += t_n
+                if t_n:
+                    n_courts += 1
+                    courts_at.append([round(fr[0], 1), round(fr[1], 1),
+                                      round(fr[2], 1), round(fr[3], 1)])
+                n_court_trees += t_n
+                n_seats += s_n
+
+    if n_plazas or n_courts:
         detail = "  ".join(f"{k}={v}" for k, v in sorted(plaza_tally.items()))
         print(f"[city_detail] plazas: {n_plazas} composed of "
               f"{n_candidates} candidate free rect(s) on "
               f"{len(wanted)} typolog{'y' if len(wanted) == 1 else 'ies'} "
               f"(fountain={kinds['fountain']} planters={kinds['planters']} "
-              f"rocks={kinds['rocks']} empty={kinds['empty']})\n"
-              f"[city_detail]   {detail}")
+              f"rocks={kinds['rocks']} empty={kinds['empty']}); "
+              f"{n_courts} planted court(s) on the other typologies; "
+              f"{n_trees}/{tree_budget} plaza + {n_court_trees}/"
+              f"{court_budget} court tree(s), {n_seats} bench(es) in "
+              f"composed groups"
+              + ("  <- TREE BUDGET SPENT (city_detail.plazas.tree_budget / "
+                 ".courts.tree_budget); later blocks got none"
+                 if (n_trees >= tree_budget
+                     or n_court_trees >= court_budget) else "")
+              + f"\n[city_detail]   {detail}")
     elif n_candidates:
         print(f"[city_detail] plazas: 0 composed ({n_candidates} candidate "
               f"free rect(s) found, but 0 fit — check min_side_m/min_area_m2)")
@@ -1854,6 +2546,31 @@ def build(config: dict, layout: dict, resolver, rng=None,
     # is also how a real street ends up with an evenly filled kerb.
     slide_m = float(cfg.get("slide_m", 3.0))
 
+    # ---- NO LONE FURNITURE ------------------------------------------------
+    # (user, 2026-08-31, pointing at `cafe_set_64_578`): "on the sidewalk with
+    # nothing else makes no sense ... a cafe_set/bench/planter may only exist
+    # as part of a composed arrangement". Two rules follow.
+    #
+    # FRONTAGE_OFF — a category that has no business on a kerb at all. A café
+    # terrace belongs to a building's own open ground, in the gap between two
+    # buildings, which is where `_place_plazas` puts it; on the frontage ring
+    # it is a table on a pavement with nothing to belong to. Emptying the
+    # category here rather than in the preset keeps every scene that turns
+    # plazas on consistent, and a scene can put it back with
+    # `city_detail.frontage_off: []`.
+    #
+    # COMPOSED — a category that MAY stand on a kerb, but only as a run of at
+    # least `composed_group_min`: a pair of benches, a line of planters. The
+    # anchor recruits its companions along the same frontage and the whole
+    # group is taken back if it cannot get them (see `_try_slot` /
+    # `_Occupancy.release`).
+    frontage_off = set(cfg.get("frontage_off", ("cafe_sets",)) or ())
+    composed_cats = set(cfg.get("composed_categories",
+                                ("benches", "planters")) or ())
+    group_min = max(1, int(cfg.get("composed_group_min", 2)))
+    group_max = max(group_min, int(cfg.get("composed_group_max", 3)))
+    group_gap = float(cfg.get("composed_group_gap_m", 0.8))
+
     usds = config.get("usds") or {}
     default_scale = float(config.get("asset_scale", 1.0))
     asset_root = str(config.get("asset_root", "") or "")
@@ -1862,6 +2579,11 @@ def build(config: dict, layout: dict, resolver, rng=None,
     corridors = layout.get("road_corridors") or []
 
     surface_z = _sidewalk_top(config, resolver, default_scale, asset_root)
+    # WHICH surface a prop stands on, not one height for the whole city — see
+    # `_surface_field`. `surface_z` stays the SIDEWALK top, which is still
+    # what the sightline geometry measures against (a sign's face height is
+    # measured from the pavement it stands on).
+    surface_at = _surface_field(layout, surface_z)
 
     # ---- traffic control ---------------------------------------------------
     sig_cfg = cfg.get("signals") or {}
@@ -1900,7 +2622,7 @@ def build(config: dict, layout: dict, resolver, rng=None,
     }
     if any(signal_pools.values()):
         signals, unplaced = _place_signals(
-            junctions, blocks, signal_pools, resolver, rng, occ, surface_z,
+            junctions, blocks, signal_pools, resolver, rng, occ, surface_at,
             float(sig_cfg.get("corner_margin_m", 1.4)), exclusions, tally,
             pole_pad, float(sig_cfg.get("yaw_offset_deg", 0.0)),
             _stopline_setback(config, sig_cfg))
@@ -1962,6 +2684,12 @@ def build(config: dict, layout: dict, resolver, rng=None,
         # Off is still spacing 0 with no near_corner_m.
         if base_spacing <= 0.0 and float(spec.get("near_corner_m", 0.0)) <= 0.0:
             continue
+        if name in frontage_off:
+            print(f"[city_detail] {name}: not a kerb category — placed only "
+                  f"in composed arrangements inside the blocks "
+                  f"(city_detail.frontage_off)")
+            continue
+        composed = name in composed_cats
 
         pool = _pool_of(name)
         if pool is None:
@@ -2027,25 +2755,13 @@ def build(config: dict, layout: dict, resolver, rng=None,
                     scale_f = float(d.get("furniture_scale", 1.0)) or 1.0
             groups.setdefault(round(scale_f, 3), []).append(block)
 
-        for scale_f, grp in sorted(groups.items()):
-            if near_corner > 0.0:
-                slots = (s for b in grp for s in _corner_slots(b, near_corner))
-            else:
-                slots = _frontage_slots(grp, base_spacing * scale_f, rng,
-                                        phase=phases[name],
-                                        jitter_frac=jitter,
-                                        inset_m=ring_inset)
-
-            for px, py, out_yaw, block, approach, corner in slots:
-                # Signage that a driver reads only makes sense on the approach
-                # side of the junction; the far-side twin is what made corner
-                # signs look scattered.
-                if mode == _TRAFFIC and near_corner > 0.0 and not approach:
-                    continue
-                if control_gate and corner is not None and not _signed_here(
-                        junctions, block, corner, out_yaw, control_gate):
-                    continue
-
+            # ONE SLOT'S SEARCH, lifted into a closure so a COMPOSED
+            # category can run it again for the companions of a group and
+            # take the whole group back if one of them has nowhere to stand.
+            # Behaviour for every other category is unchanged: `_try_slot`
+            # is the same search, in the same order, drawing from `rng` in
+            # the same sequence.
+            def _try_slot(px, py, out_yaw, block):
                 use_guard = (guard_pool is not None and guard_chance > 0.0
                              and rng.random() < guard_chance)
                 src = guard_pool if use_guard else pool
@@ -2121,37 +2837,99 @@ def build(config: dict, layout: dict, resolver, rng=None,
                     spot = (x, y, max(want, floor))
                     break
                 if spot is None:
-                    dropped[name] = dropped.get(name, 0) + 1
-                    continue
+                    return None
                 x, y, used_inset = spot
+                return {"u": u, "fp": fp, "sc": sc, "au": au, "cat": cat,
+                        "mode": slot_mode, "x": x, "y": y,
+                        "inset": used_inset, "out_yaw": out_yaw,
+                        "src": src, "rect": rect,
+                        "along": along}
 
+            def _emit_slot(rec):
                 if keeps_sightline:
                     # The sign faces the traffic it governs, so its facing IS
                     # the upstream direction of the approach it has to be seen
                     # from.
-                    sight.reserve(x, y, out_yaw + 90.0, out_yaw, used_inset,
-                                  eye_off, ssd,
-                                  min(face_z, surface_z + fp["sz"]), eye_z)
-
+                    sight.reserve(rec["x"], rec["y"], rec["out_yaw"] + 90.0,
+                                  rec["out_yaw"], rec["inset"], eye_off, ssd,
+                                  min(face_z, surface_z + rec["fp"]["sz"]),
+                                  eye_z)
                 out.append({
-                    "usd": u,
-                    "x_m": x, "y_m": y,
-                    "z_m": surface_z + fp["base"],
-                    "yaw_deg": _prop_yaw(out_yaw, fp, slot_mode,
-                                         src["yaw"](u), rng),
-                    "roll_deg": 90.0 if au == "Y" else 0.0,
+                    "usd": rec["u"],
+                    "x_m": rec["x"], "y_m": rec["y"],
+                    "z_m": _seat_z(surface_at(rec["x"], rec["y"]),
+                                   rec["fp"]),
+                    "yaw_deg": _prop_yaw(rec["out_yaw"], rec["fp"],
+                                         rec["mode"],
+                                         rec["src"]["yaw"](rec["u"]), rng),
+                    "roll_deg": 90.0 if rec["au"] == "Y" else 0.0,
                     "pitch_deg": 0.0,
-                    "scale": sc,
-                    "axis_up": au,
-                    "category": cat,
+                    "scale": rec["sc"],
+                    "axis_up": rec["au"],
+                    "category": rec["cat"],
                 })
                 # Recorded under both names: `cat` for readability, `name`
                 # because `clearances` is keyed on the config's plural keys.
-                placed.setdefault(name, []).append((x, y))
-                if cat != name:
-                    placed.setdefault(cat, []).append((x, y))
-                tally[cat] = tally.get(cat, 0) + 1
-                n += 1
+                placed.setdefault(name, []).append((rec["x"], rec["y"]))
+                if rec["cat"] != name:
+                    placed.setdefault(rec["cat"], []).append((rec["x"],
+                                                              rec["y"]))
+                tally[rec["cat"]] = tally.get(rec["cat"], 0) + 1
+
+        for scale_f, grp in sorted(groups.items()):
+            if near_corner > 0.0:
+                slots = (s for b in grp for s in _corner_slots(b, near_corner))
+            else:
+                slots = _frontage_slots(grp, base_spacing * scale_f, rng,
+                                        phase=phases[name],
+                                        jitter_frac=jitter,
+                                        inset_m=ring_inset)
+
+            for px, py, out_yaw, block, approach, corner in slots:
+                # Signage that a driver reads only makes sense on the approach
+                # side of the junction; the far-side twin is what made corner
+                # signs look scattered.
+                if mode == _TRAFFIC and near_corner > 0.0 and not approach:
+                    continue
+                if control_gate and corner is not None and not _signed_here(
+                        junctions, block, corner, out_yaw, control_gate):
+                    continue
+
+                rec = _try_slot(px, py, out_yaw, block)
+                if rec is None:
+                    dropped[name] = dropped.get(name, 0) + 1
+                    continue
+                group = [rec]
+                if composed:
+                    # NO LONE FURNITURE (user, 2026-08-31): "a cafe_set/bench/
+                    # planter may only exist as part of a composed
+                    # arrangement". On a kerb the composition available is a
+                    # RUN — a pair of benches back along the same frontage, a
+                    # line of planters — so the anchor recruits companions
+                    # either side of itself, and if it cannot get enough of
+                    # them the anchor comes back off the ground too
+                    # (`_Occupancy.release`) rather than standing on its own.
+                    ux, uy = _unit(out_yaw + 90.0)
+                    step = rec["along"] + group_gap
+                    for k in range(1, group_max):
+                        nxt = None
+                        for sgn in (1.0, -1.0):
+                            nxt = _try_slot(px + ux * step * k * sgn,
+                                            py + uy * step * k * sgn,
+                                            out_yaw, block)
+                            if nxt is not None:
+                                break
+                        if nxt is None:
+                            break
+                        group.append(nxt)
+                    if len(group) < group_min:
+                        for g in group:
+                            occ.release(g["rect"])
+                        dropped[name] = dropped.get(name, 0) + len(group)
+                        continue
+                for g in group:
+                    _emit_slot(g)
+                    n += 1
 
         if n == 0:
             print(f"[city_detail] {name}: 0 placed "
@@ -2163,7 +2941,7 @@ def build(config: dict, layout: dict, resolver, rng=None,
     # when off — see `_place_plazas` — so this cannot perturb the sequence
     # every category above already drew.
     out.extend(_place_plazas(config, layout, placements, resolver, rng, occ,
-                             surface_z, usds, default_scale, asset_root,
+                             surface_at, usds, default_scale, asset_root,
                              exclusions, tally))
 
     total = sum(tally.values())

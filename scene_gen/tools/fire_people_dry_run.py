@@ -281,8 +281,11 @@ _CLASS_STYLE = {
     "at_car":         ("s", "#7b4fb5", 22, "at a kerb parking bay"),
     "window":         ("^", "#f2c14e", 40, "at a window, above the fire"),
     "roof":           ("*", "#00b3b3", 78, "roof refuge (intact deck)"),
+    "roof_victim":    ("*", "#e0a72e", 66, "stranded on an intact roof"),
     "casualty_apron": ("X", "#c1121f", 46, "prone at the rubble apron edge"),
     "roof_debris":    ("P", "#8d0801", 46, "under roof-deck debris"),
+    "interior_trapped": ("D", "#ff6f3c", 42,
+                         "visible through a broken wall (conscious/passed out)"),
 }
 
 
@@ -388,6 +391,10 @@ def render_png(plan, path, title):
             ax.annotate("z{0:.0f}".format(r["z"]), (r["x"], r["y"]),
                         textcoords="offset points", xytext=(4, 3),
                         color="#00b3b3", fontsize=5.0, zorder=11)
+        elif r["cls"] == "roof_victim":
+            ax.annotate("z{0:.0f}".format(r["z"]), (r["x"], r["y"]),
+                        textcoords="offset points", xytext=(4, 3),
+                        color="#e0a72e", fontsize=5.0, zorder=11)
         elif r["cls"] in ("casualty_apron", "roof_debris"):
             ax.annotate("{0:.0f}%".format(100.0 * r.get("covered_frac", 0.0)),
                         (r["x"], r["y"]), textcoords="offset points",
@@ -427,6 +434,11 @@ def print_census(plan):
     print("  region            {0} m   burning buildings {1} of {2} "
           "placements".format(m.get("region_m"), m["n_burning"],
                               m["n_placements"]))
+    if m.get("manifest_records_skipped"):
+        print("  manifest match    {0} of {1} manifest record(s) SKIPPED — "
+              "no longer this dump's own building: {2}".format(
+                  m["manifest_records_skipped"], m.get("n_manifest_records"),
+                  m.get("manifest_records_skipped_by_reason")))
     print("  wind (toward)     {0:.0f} deg   epoch {1} s".format(
         m["heading_deg"], m.get("epoch_s")))
     print("  ground layout     {0}".format(m["layout_source"]))
@@ -482,6 +494,77 @@ def print_census(plan):
     return cen
 
 
+def print_skipped_records(plan, n_examples=8):
+    """The manifest records `_Solver` refused to build into a `_Building` at
+    all — index not in this dump, or the dump's own geometry at that index
+    has moved (see `fire_people._manifest_matches_dump`). Printed by name so
+    "the dry run ran short" and "the dry run crashed" are never confused with
+    each other."""
+    skipped = getattr(plan.solver, "skipped_records", None) or []
+    if not skipped:
+        print("")
+        print("  MANIFEST <-> DUMP MATCH   all {0} record(s) matched this "
+              "dump by index AND geometry".format(
+                  plan.meta.get("n_manifest_records", len(plan.records))))
+        return
+    print("")
+    print("  MANIFEST <-> DUMP MATCH")
+    print("   {0} of {1} manifest record(s) SKIPPED (never built into a "
+          "building, never budgeted, never placed):".format(
+              len(skipped), plan.meta.get("n_manifest_records")))
+    print("   {0:>5}  {1:<6}  {2:<16}  {3}".format(
+        "i", "level", "reason", "detail"))
+    for s in skipped[:n_examples]:
+        detail = ""
+        if s["reason"] == "geometry_drift":
+            detail = "{0:.0f} m off, {1:.0f} m size diff -> now {2}".format(
+                s.get("dist_m", 0.0), s.get("size_diff_m", 0.0),
+                s.get("dump_cell"))
+        print("   {0:>5}  {1:<6}  {2:<16}  {3}".format(
+            s.get("i"), s.get("level"), s["reason"], detail))
+    if len(skipped) > n_examples:
+        print("   ... and {0} more".format(len(skipped) - n_examples))
+
+
+def print_sidecar_report(plan):
+    """One row per SURVIVING building: whether a sidecar matched, which of
+    `fire_people.SIDECAR_FIELD_USE` it actually supplied, and which classes
+    are bench-free versus flagged for that building. See
+    `fire_people._Building.sidecar_report`.
+    """
+    rows = fp.sidecar_reports(plan)
+    print("")
+    print("  SIDECAR COMPLETENESS  (evacuee/onlooker/at_car are always "
+          "bench-free and not building-specific; not shown per row)")
+    print("   what each field feeds, and the fallback when it is absent:")
+    for field, feeds, fallback in fp.SIDECAR_FIELD_USE:
+        print("    - {0}".format(field))
+        print("        -> {0}".format(feeds))
+        print("        fallback: {0}".format(fallback))
+    if not rows:
+        print("   (no surviving buildings — nothing to report)")
+        return
+    print("")
+    print("   {0:>5}  {1:<6}  {2:>4}  {3:<10}  {4:<9}  {5:<9}  {6:<22}  "
+          "{7}".format("i", "level", "H_m", "sidecar?", "deck_z",
+                       "win.sides", "bench-free", "needs-bench"))
+    for r in rows:
+        print("   {0:>5}  {1:<6}  {2:>4.0f}  {3:<10}  {4:<9}  {5:<9}  "
+              "{6:<22}  {7}".format(
+                  r["building_i"], r["level"], r["H_m"],
+                  "yes" if r["has_sidecar"] else "no", r["deck_z_source"],
+                  ",".join(r["window_sides_measured"]) or "-",
+                  ",".join(r["bench_free_classes"]) or "-",
+                  ",".join(r["needs_bench_classes"]) or "-"))
+    n_sc = sum(1 for r in rows if r["has_sidecar"])
+    n_deck_est = sum(1 for r in rows if r["deck_z_source"] == "estimated")
+    n_roof_elig = sum(1 for r in rows if r["roof_eligible"])
+    print("   {0} of {1} building(s) matched a sidecar; {2} of {1} have "
+          "deck_z on the 'estimated' path ({3} of those {1} are roof-"
+          "eligible) — see SIDECAR_FIELD_USE's deck_z row".format(
+              n_sc, len(rows), n_deck_est, n_roof_elig))
+
+
 def print_converter(plan, n_examples=3):
     """Run `fire_people.to_placements` and show what the launcher will get.
 
@@ -509,9 +592,9 @@ def print_converter(plan, n_examples=3):
     want = [("a street stander", lambda r: r["cls"] in fp.STREET_CLASSES
              and not r.get("prone") and r.get("pose") in ("idle", "walk")),
             ("a prone burial", lambda r: bool(r.get("prone"))),
-            ("a window sill-sitter", lambda r: r["cls"] == "window"
-             and r.get("variant") == "sill_sit"),
+            ("a window leaner", lambda r: r["cls"] == "window"),
             ("a roof figure", lambda r: r["cls"] == "roof"),
+            ("a roof victim", lambda r: r["cls"] == "roof_victim"),
             ("a kerb sitter", lambda r: r.get("pose") == "sit_edge"
              and r["cls"] in fp.STREET_CLASSES)]
     by_id = {}
@@ -627,6 +710,8 @@ def main(argv=None):
     png = render_png(plan, out, title)
 
     print_census(plan)
+    print_skipped_records(plan)
+    print_sidecar_report(plan)
     print_converter(plan)
     ok = print_checks(plan)
     if png:
@@ -635,6 +720,16 @@ def main(argv=None):
     if args.json:
         fp.write_records(args.json, plan)
         print("  JSON -> {0}".format(args.json))
+    # A FULLY-STALE MANIFEST "PASSES" EVERY RULE TRIVIALLY (0 records
+    # checked against every gate) — the degrade-gracefully behaviour
+    # `_Solver.__init__` is supposed to have, not evidence the run is
+    # usable. Fail it explicitly rather than let `fire_people_rerun.sh`
+    # report green on an empty scene.
+    if plan.meta.get("n_burning", 0) <= 0:
+        print("  ZERO BURNING BUILDINGS SURVIVED THE MANIFEST <-> DUMP "
+              "MATCH — every rule above passed on 0 records, which is not "
+              "evidence of anything. FAILING this run.")
+        ok = False
     print("")
     return 0 if ok else 1
 

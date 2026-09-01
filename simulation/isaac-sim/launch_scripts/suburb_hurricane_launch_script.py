@@ -29,14 +29,26 @@ the mistake this file exists to avoid:
      different rungs. On a tornado plate that would be a bug; here it is the
      entire spatial model.
 
-  3. THE PROGRESSION IS ROOF-DOWN AND IT STOPS THERE. Most of this plate is
-     in the four roof states — `shingles_lost` through `roof_stripped` — and
-     structural collapse is a minority. A hurricane scene where half the
-     houses are levelled is a tornado scene with the track taken out.
+  3. THE PROGRESSION LANDS MOSTLY IN THE LIGHT RUNGS AND STOPS SHORT OF A
+     TORNADO'S. As of STREAM S (2026-08-31, "adjust the pattern of house
+     damage") the houses reference the TORNADO's own archetype library and
+     six-level ladder (`hurricane.tornado_level_for_intensity` maps this
+     file's near-uniform field onto it) — most of the plate lands in
+     `pristine`/`roof_stripped`, structural levels stay a minority even at
+     L3, and `leveled` is rare. A hurricane scene where a large share of the
+     houses are `leveled` is a tornado scene with the track taken out; see
+     that function's own comment for the fitted target bands.
 
-  4. THE DEBRIS IS VEGETATION, NOT PLANKS. ~70% leaves, twigs, fronds and
-     limbs. `disaster.planks`' sawn-timber field is the tornado's signature
-     and is deliberately not called at low levels.
+  4. THE HOUSE DEBRIS IS THE TORNADO'S OWN MACHINERY (`disaster.washaway.
+     land_debris_specs` over `disaster.planks.scatter_from_wreck`), FLOOD-
+     AWARE: the per-house budget is keyed to level rather than to a flat
+     count, a region-wide litter field only ever lands on DRY ground (a
+     piece the mask would drop into real water is the raft field's job),
+     and every piece's bearing comes from `hurricane.wind_bearing_at`
+     rather than one fixed track heading. See `# LAND DEBRIS`. The TREE
+     debris is still this file's own model — mostly vegetation (leaves,
+     twigs, fronds, limbs; see `disaster.hurricane.debris_mix`), which has
+     no tornado equivalent to borrow.
 
   5. THERE IS WATER, AND IT IS THE OTHER HALF OF THE SCENE. `disaster.surge`
      imposes a synthetic ground (the suburb plate is dead flat — see that
@@ -46,8 +58,10 @@ the mistake this file exists to avoid:
      ribbons rather than as per-building texture rebinds.
 
   6. `swept` IS NOT A WIND LEVEL. A slab swept clean is a SURGE signature and
-     `disaster.hurricane_flow` refuses to produce one. Where this scene shows
-     bare slabs, `surge.house_water_state(...)["swept"]` put them there.
+     `hurricane.tornado_level_for_intensity` structurally cannot return one —
+     it has no depth/surge input at all. Where this scene shows bare slabs,
+     `surge.house_water_state(...)["swept"]` (or `washaway.house_surge_
+     state`) put them there.
 
 NO PEOPLE. Survivors are a later pass — nothing here calls `disaster.people`
 or `disaster.tornado_people`. NO FIRE.
@@ -63,12 +77,23 @@ all". Full account in the `build-wildfire-scenes` skill.
 
 Env knobs:
 
-    ARCH_DIR      archetype library (default `scene_gen/assets/archetypes_hurricane`)
+    ARCH_DIR      TREE archetype library (default `scene_gen/assets/archetypes_hurricane`)
+    HOUSE_ARCH_DIR  HOUSE archetype library — the TORNADO's six-level library
+                  (default `scene_gen/assets/archetypes_tornado`; bake it
+                  with `bake_tornado_archetypes_launch_script.py`, not the
+                  hurricane baker). See "HOUSES = TORNADO, VERBATIM" above.
     SCENE_CONFIG  preset (default `suburb_hurricane_500_l2`)
     HUR_SEED      seed for the damage draws (default 11)
     HUR_WATER     0 disables every water layer (wind-only scene, for A/B)
     HUR_GROUND    0 disables the wet/mud ground overlay
-    HUR_DEBRIS    vegetation debris pieces per damaged house (default 60)
+    HUR_DEBRIS    structural-level land-debris ceiling, matched to the
+                  tornado's own `TOR_PLANKS` (default 140); `roof_stripped`
+                  houses are capped well under it — see `# LAND DEBRIS`
+    HUR_DEBRIS_REGION_PER100  ambient litter density across the DRY plate,
+                  boards per 100 m2 (default 1.0; 0 disables it) — the
+                  tornado's `scatter_over_region` idea, masked to dry ground
+                  only (a piece the mask would drop into real water is the
+                  raft field's job, never double-placed here)
     SURGE_*       water tuning — see `disaster.surge.knobs_from_env`
     SNAP_DIR      write viewport PNGs here (MUST sit under the mounted log dir)
 """
@@ -173,10 +198,25 @@ SCENE_CONFIG = _env("SCENE_CONFIG", "suburb_hurricane_500_l2")
 SEED = int(_env("HUR_SEED", "11"))
 ARCH_DIR = _env("ARCH_DIR",
                 os.path.join(_SCENE_GEN_DIR, "assets", "archetypes_hurricane"))
+# THE HOUSE LIBRARY IS THE TORNADO'S, not this file's own `archetypes_
+# hurricane` — see the module docstring's "HOUSES = TORNADO, VERBATIM" and
+# `build-hurricane-scenes`: the same fit-out, the same six-level ladder
+# (pristine/roof_stripped/roof_collapsed/partial_collapse/leveled/swept),
+# the same `house_<style>_<level>.usd` naming, baked once by
+# `bake_tornado_archetypes_launch_script.py`. `ARCH_DIR` above is UNCHANGED
+# and still the tree library -- the hurricane's own defoliated/limbed/
+# leaning/fallen/snapped canopy states have no tornado equivalent to borrow.
+HOUSE_ARCH_DIR = _env(
+    "HOUSE_ARCH_DIR",
+    os.path.join(_SCENE_GEN_DIR, "assets", "archetypes_tornado"))
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
 DO_WATER = _flag("HUR_WATER")
 DO_GROUND = _flag("HUR_GROUND")
-N_DEBRIS = int(_env("HUR_DEBRIS", "60"))
+# STRUCTURAL-LEVEL LAND-DEBRIS CEILING, matched to the tornado's own
+# `TOR_PLANKS` default (140) — see "# LAND DEBRIS" in the house/water pass:
+# `roof_collapsed`/`partial_collapse`/`leveled` houses approach this budget,
+# `roof_stripped` houses are capped well under it.
+N_DEBRIS = int(_env("HUR_DEBRIS", "140"))
 # THE WASH-AWAY PASS HAS ITS OWN SWITCH, separate from `HUR_WATER`. It moves
 # and re-seats real prims where the rest of the water half only adds surfaces,
 # so it is the part most likely to take the process down with it — and when a
@@ -187,13 +227,17 @@ SNAP_DIR = _env("SNAP_DIR", "")
 if SNAP_DIR:
     os.makedirs(SNAP_DIR, exist_ok=True)
 
-# THE FOUR ROOF STATES KEEP THEIR STREET YAW. A house that has lost its
-# covering is still a house facing the street, and yawing it to the wind — the
-# tornado's `_TRACK_YAWED` trick — would make a neighbourhood of intact
-# footprints all point the same way, which is the one thing a hurricane does
-# NOT do to a street grid. Only the two collapse levels, whose footprint is a
-# heap rather than a building, take the wind bearing.
-_WIND_YAWED = ("partial_collapse", "leveled")
+# EVERY HOUSE KEEPS ITS STREET YAW, always — unlike the tornado's own
+# `_TRACK_YAWED` trick, which turns `leveled`/`swept` piles to face the
+# track because a corridor's whole read is "everything went one way."
+# A hurricane has no such single corridor bearing to turn a pile toward:
+# `hurricane.wind_bearing_at` varies continuously across the plate (it is a
+# spatial stand-in for time-of-arrival, not a track), so re-yawing a pile to
+# it would rotate each wrecked house to a DIFFERENT bearing depending on
+# where it sits — the opposite of "everything went one way" and not a
+# reading anyone could make sense of from the air. Wind bearing is used for
+# exactly one thing on this plate: the DEBRIS a house sheds (`# LAND
+# DEBRIS`, below), never the house's own placement yaw.
 
 # THE GREEN SPECIES USD PER SPECIES. Copied from the tornado assembly, and it
 # is not optional: under `assembly=True` the layout STRIPS every tree out of
@@ -212,6 +256,11 @@ TREE_SPECIES = {
     "American_Beech": "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/American_Beech.usd",
 }
 
+
+
+class _SurgeDisabled(Exception):
+    """`SURGE=0`: not an error, and not caught by the water block's own
+    `except Exception` as a failure -- see where it is raised."""
 
 
 def _ref(stage, dst, usd, x, y, yaw, ssf, scale=1.0, instance=True):
@@ -486,6 +535,18 @@ def main():
     arch = {os.path.splitext(f)[0]: os.path.join(ARCH_DIR, f)
             for f in (os.listdir(ARCH_DIR) if os.path.isdir(ARCH_DIR) else [])
             if f.endswith(".usd")}
+    # THE HOUSE LIBRARY, separately -- see `HOUSE_ARCH_DIR`'s own comment.
+    # `arch` above stays the TREE dict (`archetypes_hurricane`); `harch` is
+    # the tornado's own six-level house library and is what the house loop
+    # below reads.
+    if not os.path.isdir(HOUSE_ARCH_DIR):
+        print("[hurricane] HOUSE_ARCH_DIR {0} does not exist — run "
+              "bake_tornado_archetypes_launch_script.py first"
+              .format(HOUSE_ARCH_DIR))
+    harch = {os.path.splitext(f)[0]: os.path.join(HOUSE_ARCH_DIR, f)
+            for f in (os.listdir(HOUSE_ARCH_DIR)
+                     if os.path.isdir(HOUSE_ARCH_DIR) else [])
+            if f.endswith(".usd")}
 
     region = tuple(binfo.get("region") or (-250, -250, 250, 250))
     rw, rh = region[2] - region[0], region[3] - region[1]
@@ -532,14 +593,31 @@ def main():
     print("[hurricane] surge {0:.1f} m -> {1}".format(
         float(scfg["surge_m"]), ssumm))
 
-    # 4) HOUSES -------------------------------------------------------------
+    # 4) HOUSES -- THE TORNADO'S OWN LOOP, VERBATIM, over the HURRICANE
+    #    PATTERN. Reference `house_<style>_<level>.usd` from `HOUSE_ARCH_DIR`
+    #    (the tornado's six-level library), keep every house's STREET yaw
+    #    (see the comment above the removed `_WIND_YAWED`), recolour row
+    #    homes only (`bool(h.get("row")) and bool(_pal)`, batched through
+    #    `pal_jobs` exactly like `suburb_tornado_launch_script`), and fall
+    #    back to a live-built house on a missing archetype -- identical to
+    #    that script's own fallback, not a hurricane-specific rewrite of it.
+    #    THE ONLY HURRICANE-SPECIFIC PIECE IN THIS LOOP is which LEVEL a
+    #    house lands on (`hu.tornado_level_for_intensity`, the hurricane
+    #    field mapped onto the tornado's six-level vocabulary) and that
+    #    `swept` can ONLY come from the surge, never from wind -- everything
+    #    else below is the tornado's own mechanism.
     fp_by_style = {e["style"]: max(e["w"], e["d"])
                    for e in ss.modular_catalogue(config)}
     UsdGeom.Scope.Define(stage, Sdf.Path(PARENT + "/inst"))
     n_h = miss_h = n_swept = 0
     htally = {}
     era_tally = {}
-    wrecks = []          # (x, y, footprint, intensity, level, palette)
+    pal_jobs = []
+    # (x, y, footprint, intensity, level, palette) -- same schema and same
+    # "archetype's own baked palette wins" rule the tornado's `wrecks` list
+    # uses, so `land_debris_specs` (job 4, below) can be handed this list
+    # exactly as `planks.scatter_from_wreck` already expects it.
+    wrecks = []
     wtally = {}          # what the WATER did, counted separately from the wind
     _h_recs = []
     for i, h in enumerate(houses):
@@ -565,24 +643,27 @@ def main():
                           .format(_sexc))
                 wtally["_serr"] = wtally.get("_serr", 0) + 1
         if wst.get("swept") or _sl == "swept":
-            # SURGE, NOT WIND. `hurricane_flow` refuses to emit `swept`; the
-            # water is the only thing on this plate allowed to clear a slab.
+            # SURGE, NOT WIND -- "slab swept clean is surge, never wind."
+            # `tornado_level_for_intensity` never returns `swept`; the water
+            # is the only thing on this plate allowed to clear a slab.
             level = "swept"
             _sl = "swept"
             n_swept += 1
         else:
-            level = hu.house_level_for_intensity(it, drng, vuln=vuln)
+            level = hu.tornado_level_for_intensity(it, drng, vuln=vuln)
         htally[level] = htally.get(level, 0) + 1
-        yaw = (float(hu.wind_bearing_at(hcfg, h["x"], h["y"]))
-               + drng.uniform(-14.0, 14.0)
-               if level in _WIND_YAWED else h["yaw"])
+        # STREET YAW, ALWAYS -- see the comment where `_WIND_YAWED` used to
+        # live. `hurricane.wind_bearing_at` is used ONLY for debris (job 4,
+        # `# LAND DEBRIS` below), never for a house's own placement yaw.
+        yaw = h["yaw"]
         key = "house_{0}_{1}".format(h["style"], level)
-        usd = arch.get(key) or arch.get("house_{0}_pristine".format(h["style"]))
+        usd = harch.get(key) or harch.get("house_{0}_pristine".format(h["style"]))
         if not usd:
-            # BUILD IT LIVE INSTEAD OF LEAVING A HOLE — the tornado launcher's
-            # argument holds unchanged: an absent building in a disaster scene
-            # reads as a deliberate empty lot, so a missing archetype must not
-            # `continue`.
+            # BUILD IT LIVE INSTEAD OF LEAVING A HOLE -- the tornado
+            # launcher's fallback, unchanged: an absent building in a
+            # disaster scene reads as a deliberate empty lot, so a missing
+            # archetype must not `continue` before at least an intact house
+            # stands at the right pose.
             miss_h += 1
             try:
                 _fp = "{0}/inst/h_{1}".format(PARENT, i)
@@ -597,36 +678,67 @@ def main():
                 sg.apply_placements(stage, _pls, _fp, ssf)
                 mh.apply_palette(stage, _pls, _fp)
                 n_h += 1
+                if level != "pristine":
+                    wrecks.append((h["x"], h["y"],
+                                   fp_by_style.get(h["style"], 12.0), it,
+                                   level, _hpal))
             except Exception as _exc:
                 if miss_h == 1:
                     print("[hurricane] live house fallback FAILED: {0}"
                           .format(_exc))
             continue
+        # Row homes are recoloured per unit; the same USD forbids authoring
+        # inside an instance that makes the tornado terrace opt out of
+        # instancing -- EXACTLY that condition, no "differs from the
+        # archetype's own default" extension.
         _pal = h.get("palette")
         _recolour = bool(h.get("row")) and bool(_pal)
-        # A WRAPPER XFORM PER HOUSE, and the reference one level down.
-        #
-        # `_ref` authors `xformOp:translate` and `xformOp:rotateZ` on whatever
-        # prim it is given. `washaway.apply_washaway` then wants to author its
-        # OWN translate/rotate to push the house off its slab — and USD
-        # refuses to add an xform op that already exists, with an exception
-        # whose `str()` is EMPTY. That produced `washaway FAILED on
-        # .../h_2: ` with nothing after the colon, and every one of the 43
-        # flooded houses silently kept its original pose.
-        #
-        # So: `h_{i}` is a bare Xform that nothing else touches and the surge
-        # is free to move, and `h_{i}/model` carries the reference and the
-        # placement ops. Instancing still applies to the child, which is where
-        # the geometry actually is.
+        # A WRAPPER XFORM PER HOUSE, and the reference one level down --
+        # KEPT from the pre-rewrite file, not part of the tornado's own
+        # pattern. `_ref` authors `xformOp:translate`/`rotateZ` on whatever
+        # prim it is given, and `washaway.apply_washaway` (below) wants to
+        # author its OWN translate/rotate to push a flooded house off its
+        # slab -- USD refuses to add an xform op that already exists, with
+        # an exception whose `str()` is EMPTY, which is what silently ate
+        # every one of 43 flooded houses' displacement before this split
+        # existed. So `h_{i}` is a bare Xform nothing else touches and the
+        # surge is free to move, and `h_{i}/model` carries the reference and
+        # the placement ops; instancing still applies to the child, which is
+        # where the geometry actually is.
         _hp = "{0}/inst/h_{1}".format(PARENT, i)
         UsdGeom.Xform.Define(stage, Sdf.Path(_hp))
         if _ref(stage, _hp + "/model", usd, h["x"], h["y"], yaw, ssf,
                 instance=not _recolour):
             n_h += 1
+            # FOR THE GROUND TRUTH. The level lives in the ARCHETYPE'S
+            # FILENAME and a USD reference does not publish it, so a stage
+            # walk can never recover it -- the same reason `scene_api.
+            # build_scene` keeps `house_objects`. Collected here because
+            # this is the only place that knows the prim path, the style,
+            # the level, the era and the water depth together.
+            _h_recs.append({"prim_path": _hp, "style": h["style"],
+                            "level": level, "x": float(h["x"]),
+                            "y": float(h["y"]), "yaw_deg": float(yaw),
+                            "row": bool(h.get("row")),
+                            "intensity": float(it),
+                            "gust_mps": float(gust(h["x"], h["y"])),
+                            "code_era": era, "vulnerability": float(vuln),
+                            "water_depth_m": float(wst.get("depth", 0.0)),
+                            "swept_by_surge": bool(wst.get("swept"))})
+            if _recolour:
+                pal_jobs.append({"prim_path": _hp + "/model",
+                                 "palette": _pal, "category": "house"})
             if level != "pristine":
+                # THE PALETTE THE ARCHETYPE WAS BAKED WITH -- same rule the
+                # tornado's own `wrecks` entry uses: `bake_tornado_
+                # archetypes_launch_script` dresses each style with `mh.
+                # STYLES[style]["palette"]` before it damages it, so read
+                # the style default first and only fall back to this
+                # placement's own palette.
                 wrecks.append((h["x"], h["y"],
                                fp_by_style.get(h["style"], 12.0), it, level,
-                               _pal))
+                               mh.STYLES.get(h["style"], {}).get("palette")
+                               or h.get("palette")))
             # THE WATER'S OWN DAMAGE, on top of the wind's. This is what makes
             # the flooded half read as flooded rather than as a dry
             # neighbourhood with a blue sheet over it: houses off their slabs
@@ -637,11 +749,28 @@ def main():
             # way reads as noise, not as a current.
             if DO_WASHAWAY and _sl and _sl != "wet":
                 try:
+                    # NEIGHBOUR-AWARE DRIFT (D6, 2026-09-01): a floated house
+                    # strands AGAINST an obstacle, it never overlaps one -- the
+                    # "house flying onto another house" review note. `blocked`
+                    # carries every OTHER house footprint; the spec marches the
+                    # drift and stops 0.5-1 m clear (same idiom as the car
+                    # blockers). Pitch/roll capped in `collapse_spec` itself.
+                    _blocked = [(o["x"], o["y"],
+                                 fp_by_style.get(o["style"], 12.0))
+                                for o in houses if o is not h]
                     _spec = (wash.shift_spec(float(wst["depth"]),
                                              float(scfg["shore_bearing_deg"]),
-                                             drng)
+                                             drng,
+                                             x=float(h["x"]), y=float(h["y"]),
+                                             own_fp_m=fp_by_style.get(
+                                                 h["style"], 12.0),
+                                             blocked=_blocked)
                              if _sl == "shifted" else
-                             wash.collapse_spec(float(wst["depth"]), drng)
+                             wash.collapse_spec(float(wst["depth"]), drng,
+                                                x=float(h["x"]), y=float(h["y"]),
+                                                own_fp_m=fp_by_style.get(
+                                                    h["style"], 12.0),
+                                                blocked=_blocked)
                              if _sl == "collapsed" else {})
                     _spec.setdefault("mudline_z", wst.get("mudline_z"))
                     wash.apply_washaway(stage, _hp, _sl, _spec, ssf=ssf)
@@ -651,19 +780,13 @@ def main():
                         print("[hurricane] washaway FAILED on {0}: {1}"
                               .format(_hp, _wexc))
                     wtally["_err"] = wtally.get("_err", 0) + 1
-            # FOR THE GROUND TRUTH. The level lives in the ARCHETYPE FILENAME
-            # and a USD reference does not publish it, so a stage walk can
-            # never recover it. This is the only place that knows the prim
-            # path, the style, the level, the era and the water depth together.
-            _h_recs.append({"prim_path": _hp, "style": h["style"],
-                            "level": level, "x": float(h["x"]),
-                            "y": float(h["y"]), "yaw_deg": float(yaw),
-                            "row": bool(h.get("row")),
-                            "intensity": float(it),
-                            "gust_mps": float(gust(h["x"], h["y"])),
-                            "code_era": era, "vulnerability": float(vuln),
-                            "water_depth_m": float(wst.get("depth", 0.0)),
-                            "swept_by_surge": bool(wst.get("swept"))})
+    if pal_jobs:
+        try:
+            n_pal = mh.apply_palette(stage, pal_jobs, PARENT)
+            print("[hurricane] row homes: {0} subset(s) recoloured across "
+                  "{1} unit(s)".format(n_pal, len(pal_jobs)))
+        except Exception as _exc:
+            print("[hurricane] row-home palette FAILED: {0}".format(_exc))
     print("[hurricane] houses {0} referenced, {1} live fallback(s); "
           "{2} swept by surge".format(n_h, miss_h, n_swept))
     if wtally:
@@ -692,7 +815,18 @@ def main():
     for j, t in enumerate(trees):
         it = float(inten(t["x"], t["y"]))
         sp = t.get("species") or ""
-        level = hu.tree_level_for_intensity(it, trng, species=sp or None)
+        # SATURATED-SOIL WINDTHROW BOOST (see `hurricane.windthrow_depth_
+        # boost`'s docstring). `depth` is the SAME callable §3 built for the
+        # houses (`sgw.depth_at`) — reused here rather than re-resolved, so
+        # the tree ladder and the house/water passes always agree about
+        # where the water is. Without this, L2's field tops out at 0.598
+        # and even the full jitter cannot reach `leaning`/`fallen`/
+        # `snapped`, so a flooded plate could never show a single fallen
+        # tree — precisely backwards, since standing water is where root
+        # anchorage fails first.
+        depth_m = float(depth(t["x"], t["y"]))
+        level = hu.tree_level_for_intensity(it, trng, species=sp or None,
+                                             depth_m=depth_m)
         ttally[level] = ttally.get(level, 0) + 1
         # THE TWO SOURCES ARE AUTHORED AT DIFFERENT SCALES AND MIXING THEM UP
         # DESTROYS THE SCENE. A baked archetype is metres (`scale = 1.0`); the
@@ -708,8 +842,16 @@ def main():
         # give-away turned up: two renders with completely different lighting
         # came back BYTE-IDENTICAL, because the camera could not see the
         # lights at all.
+        # `pristine` IS NOW BAKED TOO (`bake_hurricane_trees.py`'s cotton-
+        # ball section) and is tried here like every other level — this
+        # used to skip the archetype dict outright for `pristine` and go
+        # straight to the raw, undamaged, CENTIMETRE-scale species USD,
+        # which is the file that put a full, undamaged, unverified-material
+        # canopy on the hot path for every tree the intensity ladder itself
+        # called undamaged. That raw USD is now only a last-resort fallback
+        # for a species missing from `TREE_SPECIES`/`arch` entirely.
         key = "tree_{0}_{1}".format(sp, level)
-        usd = arch.get(key) if level != "pristine" else None
+        usd = arch.get(key)
         scale = 1.0
         if not usd:
             # FALL BACK TO THE GREEN SPECIES USD, never to nothing. A missing
@@ -838,6 +980,23 @@ def main():
         tw = time.time()
         wrng = random.Random(SEED + 61)
         try:
+            # `SURGE=0` IS DOCUMENTED AT THE TOP OF THIS FILE AND WAS NEVER
+            # HONOURED HERE. `surge.enabled()` exists for exactly this and no
+            # caller in this launcher consulted it, so setting SURGE=0 built
+            # the whole flood anyway and reported success.
+            #
+            # That is not a cosmetic gap: an off-switch that silently does
+            # nothing invalidates any experiment run through it. A control
+            # render taken with SURGE=0 came back all but identical to the
+            # water-on plate (`deep_water_top` differed by 0.12/255, with no
+            # pixel off by more than 8), which reads as overwhelming evidence
+            # that the water is invisible -- and is instead just two renders
+            # of the same scene. Being able to turn the water OFF is what
+            # makes "is the water rendering at all?" answerable.
+            if not sgw.enabled():
+                print("[hurricane] SURGE=0 -- water pass skipped "
+                      "(no inundation, ponding, deposits or rafts)")
+                raise _SurgeDisabled()
             # `water_materials` is called by the builders themselves; it is
             # invoked here only so a material failure is reported against the
             # material rather than surfacing later as an untextured plane.
@@ -859,6 +1018,21 @@ def main():
             # against whatever is still standing. Without them the flood is an
             # empty sheet, which is the other half of "it doesn't look like
             # anything happened here".
+            #
+            # DEBRIS STREAM REVIEW, 2026-08-31: rafts lay perfectly flat on
+            # TOP of the opaque quad (paper on a table — see `BASE_L3/
+            # deepest_flooded_house_obl.png`), were one uniform pale colour,
+            # confetti'd evenly over open water with nothing at the waterline
+            # and nothing against a house. `washaway._one_raft`/`raft_specs`
+            # now give every piece a kind-dependent draft (it actually
+            # crosses the water surface instead of resting on it), a real
+            # tilt, a wet-darkened tint, a denser strand line at the
+            # waterline, coarse hurricane stock (panels/fence/siding
+            # strips/two-tone roof sections), and — new here — a real
+            # per-style footprint (`fp_by_style`, not the old bare `(x, y)`
+            # that fell back to a generic 10 m box for every house) plus
+            # `obstacles=` so trees (and, best-effort, cars found by a stage
+            # walk) collect their own up-flow clusters too.
             try:
                 if not DO_WASHAWAY:
                     raise RuntimeError("washaway disabled (HUR_WASHAWAY=0)")
@@ -878,18 +1052,404 @@ def main():
                     _kw = wash.raft_kind_weights(_veg)
                 except Exception:
                     _kw = None
-                _rs = wash.raft_specs(_wcfg, region, wrng,
-                                      [(r["x"], r["y"]) for r in _h_recs],
-                                      sgw.depth_at(scfg, region,
-                                                   np.random.default_rng(SEED + 41)),
-                                      kind_weights=_kw)
+                _depth_fn = sgw.depth_at(scfg, region,
+                                         np.random.default_rng(SEED + 41))
+                # A canopy/parked-car footprint is not recorded per instance
+                # anywhere upstream, so a flat stand-in is used — best-effort,
+                # not a claim of measured size. Cars are walked off the stage
+                # the same way the surge car pass above already does; failing
+                # that walk only loses the car clusters, never the rafts.
+                _TREE_OBSTACLE_FP_M = 3.0
+                _CAR_OBSTACLE_FP_M = 4.6
+                _obstacles = [(t["x"], t["y"], _TREE_OBSTACLE_FP_M)
+                             for t in _t_recs]
+                try:
+                    _oroot = stage.GetPrimAtPath(Sdf.Path(PARENT))
+                    for _cp in (Usd.PrimRange(_oroot)
+                               if _oroot and _oroot.IsValid() else ()):
+                        if not (_cp.IsA(UsdGeom.Xformable)
+                               and _cp.GetName().lower().startswith("car_")):
+                            continue
+                        _cw = UsdGeom.Xformable(_cp).ComputeLocalToWorldTransform(
+                            Usd.TimeCode.Default())
+                        _obstacles.append((float(_cw[3][0]) / ssf,
+                                          float(_cw[3][1]) / ssf,
+                                          _CAR_OBSTACLE_FP_M))
+                except Exception:
+                    pass   # obstacle clustering is a bonus, never a gate
+                # `wind_bearing_fn`, ADDED for the DENSITY pass (2026-08-31,
+                # user: "the debris in the flooded area needs to increase a
+                # lot in number"): the same `hu.wind_bearing_at(hcfg, x, y)`
+                # lambda the "# LAND DEBRIS" block below already builds,
+                # threaded here too so `raft_specs`'s new mid-water
+                # drift-line pass (`washaway._drift_line_specs`) has a real
+                # wind direction to align to instead of authoring nothing.
+                #
+                # HOUSE-MATCHED SKIN, ADDED (DEBRIS D5 review: "the debris
+                # placed in the water all look like they have the same
+                # texture. match them to the houses they are near"). `wrecks`
+                # (built during the house loop, §3 above) already carries
+                # each non-pristine house's own baked-style PALETTE, exactly
+                # the same list `land_debris_specs`'s `skins_fn` reads below
+                # — `wash.raft_specs`'s new optional 4th `houses` tuple field
+                # wants a `mh.palette_skins(...)`-shaped dict, not a raw
+                # palette name, so it is resolved here once per house rather
+                # than per raft.
+                # WIDENED, DEBRIS D6 review (2026-09-01): "match them to the
+                # nearest house's colors" — the ORIGINAL loop below only
+                # covered `wrecks` (non-pristine houses), so a raft's
+                # nearest neighbour being a PRISTINE house (the common case
+                # on a lightly-damaged plate) fell straight through to
+                # `_RAFT_TINT`'s generic tint no matter how close it stood.
+                # `washaway._apply_nearest_house_skin` (inside `raft_specs`
+                # now) does the actual nearest-neighbour search over the
+                # WHOLE `houses` list it is handed, so all this loop has to
+                # do is make sure every house — not just the wrecked ones —
+                # has an entry here: every `_h_recs` record's own style has a
+                # baked default palette (`mh.STYLES[style]["palette"]`), the
+                # same fallback `wrecks`' own entries already use.
+                _house_skins_by_xy = {}
+                for _rec in _h_recs:
+                    _pal = mh.STYLES.get(_rec["style"], {}).get("palette")
+                    if _pal:
+                        try:
+                            _house_skins_by_xy[(float(_rec["x"]), float(_rec["y"]))] \
+                                = mh.palette_skins(_pal)
+                        except Exception:
+                            pass
+                # THE PLATE'S OWN NEIGHBOURHOOD PALETTE, for pieces beyond
+                # `washaway._HOUSE_SKIN_MATCH_R_M` of every house — one skin
+                # dict per distinct STYLE actually built here (not per
+                # house), so a piece far from any specific house still draws
+                # a colour a real house on THIS plate wears rather than a
+                # single hardcoded generic tint. Never falls back to
+                # anything green: every name comes from `mh.PALETTES`.
+                _skin_pool_by_style = {}
+                for _rec in _h_recs:
+                    _st = _rec["style"]
+                    if _st in _skin_pool_by_style:
+                        continue
+                    _pal = mh.STYLES.get(_st, {}).get("palette")
+                    if _pal:
+                        try:
+                            _skin_pool_by_style[_st] = mh.palette_skins(_pal)
+                        except Exception:
+                            pass
+                _rs = wash.raft_specs(
+                    _wcfg, region, wrng,
+                    [(r["x"], r["y"], fp_by_style.get(r["style"], 12.0),
+                     _house_skins_by_xy.get((float(r["x"]), float(r["y"]))))
+                    for r in _h_recs],
+                    _depth_fn, kind_weights=_kw, obstacles=_obstacles,
+                    wind_bearing_fn=lambda x, y: hu.wind_bearing_at(hcfg, x, y),
+                    skin_pool=list(_skin_pool_by_style.values()))
+                # MATERIALS FOR WHATEVER SKINS THE FIELD ACTUALLY DREW — one
+                # `planks.skin_material` per DISTINCT name found on `_rs`,
+                # the same `mh.palette_texture` + `planks.skin_material` pair
+                # the "# LAND DEBRIS" block below already uses for its own
+                # skinned pieces (and the SAME material-name vocabulary, so
+                # a plate that uses both never builds the same look twice
+                # under two different paths).
+                _raft_skin_names = sorted({s["skin"] for s in _rs
+                                          if s.get("skin")})
+                _raft_skin_mats = {}
+                for _n in _raft_skin_names:
+                    try:
+                        _tex, _tint = mh.palette_texture(stage, PARENT, _n)
+                        if _tex:
+                            _raft_skin_mats[_n] = planks.skin_material(
+                                stage, "{0}/RaftLooks/skin_{1}"
+                                      .format(PARENT, _n),
+                                _tex, tint=_tint,
+                                tile_m=1.35 if _n.startswith("shingle")
+                                else 1.05)
+                    except Exception as _skexc:
+                        print("[hurricane] raft skin {0} unavailable: {1}"
+                             .format(_n, _skexc))
                 made_w["rafts"] = wash.build_rafts(
-                    stage, PARENT + "/rafts", _rs, ssf=ssf)
+                    stage, PARENT + "/rafts", _rs, ssf=ssf,
+                    skin_mats=_raft_skin_mats)
+                print("[hurricane] debris rafts: {0} piece(s), {1} "
+                     "house-matched skin group(s) ({2})".format(
+                         len(_rs), len(_raft_skin_mats),
+                         ", ".join(sorted(_raft_skin_mats)) or "none"))
+
+                # FLOATING FALLEN TREES — ADDED (DEBRIS D5 review, second
+                # half of "I don't really see floating tree trunks/fallen
+                # down trees in the flood. Add that."): whole
+                # `tree_<species>_fallen.usd` archetypes, the SAME baked
+                # library `arch` (§5 TREES, above) already references for
+                # windthrow on DRY ground, referenced a second time in OPEN
+                # water with a Z translate that seats the TRUNK at the
+                # waterline instead of on grade. `wash.floating_tree_specs`
+                # is pure Python (no `pxr`); this loop is the "small
+                # reference loop" its own docstring points to, following the
+                # tree pass's own `_ref` idiom (`_ref` itself always writes
+                # Z=0, so a full 3-component translate needs its own copy of
+                # the pattern rather than a call to that shared helper).
+                try:
+                    _float_tree_names = [n for n in wash._FLOAT_TREE_TRUNK_M
+                                         if n in arch]
+                    if not _float_tree_names:
+                        raise RuntimeError(
+                            "no tree_*_fallen archetype in ARCH_DIR ({0})"
+                            .format(ARCH_DIR))
+                    # HOUSES ONLY -- NOT `_obstacles` (trees, cars).
+                    # `floating_tree_specs`'s own "HOUSES ONLY, DELIBERATELY"
+                    # docstring section records why: this plate's ~1,684
+                    # trees, fed in as a second exclusion population the way
+                    # `raft_specs`'s `obstacles=` works, were MEASURED to
+                    # leave almost no point on the whole plate more than
+                    # 12 m from its nearest tree, and cut the placed count
+                    # from 27 to 2 on the real L3 layout.
+                    _float_specs = wash.floating_tree_specs(
+                        _wcfg, region, wrng, _depth_fn,
+                        houses=[(r["x"], r["y"],
+                                fp_by_style.get(r["style"], 12.0))
+                               for r in _h_recs],
+                        archetypes=_float_tree_names)
+                    _ft_scope = PARENT + "/rafts/float_trees"
+                    UsdGeom.Scope.Define(stage, Sdf.Path(_ft_scope))
+                    _n_float = 0
+                    for _fi, _fs in enumerate(_float_specs):
+                        _fusd = arch.get(_fs["archetype"])
+                        if not _fusd:
+                            continue
+                        _fp_path = "{0}/t_{1}".format(_ft_scope, _fi)
+                        _fprim = stage.DefinePrim(Sdf.Path(_fp_path), "Xform")
+                        if not _fprim.GetReferences().AddReference(_fusd):
+                            continue
+                        _fxf = UsdGeom.Xformable(_fprim)
+                        _fxf.AddTranslateOp().Set(Gf.Vec3d(
+                            _fs["x"] * ssf, _fs["y"] * ssf, _fs["z"] * ssf))
+                        _fxf.AddRotateZOp().Set(float(_fs["yaw"]))
+                        _fprim.SetInstanceable(True)
+                        _n_float += 1
+                    made_w["float_trees"] = _n_float
+                    print("[hurricane] floating fallen trees: {0} placed "
+                         "(species: {1})".format(
+                             _n_float, ", ".join(sorted(
+                                 set(s["archetype"]
+                                    for s in _float_specs)))))
+                except Exception as _ftexc:
+                    print("[hurricane] floating fallen trees FAILED: {0}"
+                         .format(_ftexc))
             except Exception as _rexc:
                 print("[hurricane] debris rafts FAILED: {0}".format(_rexc))
+
+            # LAND DEBRIS — wind-torn sheathing, shingle sheets, siding and
+            # framing littering the yard downwind of a damaged house. THE
+            # TORNADO'S OWN MACHINERY (`washaway.land_debris_specs` wraps
+            # `planks.scatter_from_wreck` exactly as the tornado's plank
+            # field does, same comet shape, same "the debris wears what the
+            # house wore" skinning), FLOOD-AWARE: budget keyed to LEVEL
+            # rather than to `HUR_DEBRIS` alone, and a `# REGION FIELD`
+            # addition (below) that only ever lands on dry ground.
+            #
+            # THE BUDGET IS SPLIT BY LEVEL, not read off intensity alone.
+            # `wrecks[i][3]` is the RAW field intensity, and this file's
+            # storm is near-uniform (`hurricane.intensity_field`'s own
+            # docstring: single digits of percent spread across a plate) —
+            # measured on the real GT populations, `it` sits in a ~0.10-wide
+            # band regardless of level (L2 0.50-0.60, L3 0.65-0.77), so an
+            # intensity-only budget (the tornado's own approach, where
+            # level and intensity move together along one corridor gradient)
+            # would hand a `roof_stripped` house nearly the SAME piece count
+            # as a `leveled` one on this plate. Splitting the budget by level
+            # is what "roof_stripped gets fewer" actually requires here.
+            # `HUR_DEBRIS` sets the STRUCTURAL ceiling (`TOR_PLANKS`'s own
+            # 140 default), matching the tornado's own per-wreck budget at
+            # its highest levels; the light tier is capped well under it.
+            try:
+                if not DO_WASHAWAY:
+                    raise RuntimeError("washaway disabled (HUR_WASHAWAY=0)")
+                _lrng = random.Random(SEED + 97)
+                _n_hi_heavy = float(N_DEBRIS)          # TOR_PLANKS's own 140
+                _n_lo_heavy = 0.5 * _n_hi_heavy
+                _n_hi_light = min(60.0, 0.43 * _n_hi_heavy)
+                _n_lo_light = 0.42 * _n_hi_light
+                _wrecks_light = [w for w in wrecks if w[4] == "roof_stripped"]
+                _wrecks_heavy = [w for w in wrecks
+                                 if w[4] in ("roof_collapsed",
+                                            "partial_collapse", "leveled")]
+                # THE DEBRIS WEARS WHAT THE HOUSE WORE — the same
+                # `mh.palette_skins`/`mh.palette_texture` re-projection the
+                # tornado plank field already uses, so a `siding`/`deck`
+                # piece off a coastal-blue cottage is that cottage's own
+                # wall/roof material, not a generic fallback tint.
+                # LAND DEBRIS ON SUBMERGED GROUND (D2 review): a house still
+                # standing IN the flood sheds wind debris same as a dry one,
+                # but a comet that lands on ground actually underwater
+                # should float, not sit invisibly on the sea floor under an
+                # opaque water body. `_depth_fn`/`_wcfg` are the SAME ones
+                # the "# DEBRIS RAFTS" block above already built for
+                # `raft_specs` — reused, not recomputed — so land debris and
+                # rafts agree on exactly where the water is.
+                _skins_fn = lambda w: mh.palette_skins(w[5]) if w[5] else None
+                _bearing_fn = lambda x, y: hu.wind_bearing_at(hcfg, x, y)
+                _ld, _ld_rafts = [], []
+                if _wrecks_light:
+                    _l, _r = wash.land_debris_specs(
+                        _wrecks_light, _bearing_fn, _lrng,
+                        min_level="roof_stripped",
+                        n_lo=_n_lo_light, n_hi=_n_hi_light,
+                        skins_fn=_skins_fn, depth_fn=_depth_fn,
+                        water_level_m=_wcfg["water_level_m"])
+                    _ld += _l
+                    _ld_rafts += _r
+                if _wrecks_heavy:
+                    _l, _r = wash.land_debris_specs(
+                        _wrecks_heavy, _bearing_fn, _lrng,
+                        min_level="roof_collapsed",
+                        n_lo=_n_lo_heavy, n_hi=_n_hi_heavy,
+                        skins_fn=_skins_fn, depth_fn=_depth_fn,
+                        water_level_m=_wcfg["water_level_m"])
+                    _ld += _l
+                    _ld_rafts += _r
+                # # REGION FIELD — loose litter across the plate at large,
+                # not just on a damaged lot, the same argument the tornado's
+                # `scatter_over_region` makes for its corridor ("what is
+                # lying there came from somewhere else"). MASKED TO DRY
+                # GROUND ONLY (`depth <= 0.10 m`, the same
+                # `LAND_DEBRIS_SUBMERGED_DEPTH_M` floor `land_debris_specs`
+                # itself uses to decide "is this piece actually underwater"):
+                # a piece the mask would place in real water is the RAFT
+                # field's job (`raft_specs`, above) and is dropped here
+                # rather than double-placed or converted, exactly as this
+                # stream's own brief asks. `hcfg["heading_deg"]` (the storm's
+                # dominant heading) stands in for `heading_deg` because
+                # `planks.scatter_over_region` takes one fixed bearing, not a
+                # per-point callable — the per-house comets above are what
+                # carry `wind_bearing_at`'s spatial variation; this field is
+                # ambient background litter, not a directional signature.
+                _region_per100 = float(_env("HUR_DEBRIS_REGION_PER100", "1.0"))
+                if _region_per100 > 0.0:
+                    _region_specs = planks.scatter_over_region(
+                        region, inten, float(hcfg["heading_deg"]), _lrng,
+                        per_100m2=_region_per100, cell_m=14.0,
+                        ground_z=wash.LAND_DEBRIS_GROUND_Z_M,
+                        min_intensity=0.12)
+                    _n_region_wet = 0
+                    for _sp in _region_specs:
+                        if _depth_fn(_sp["x"], _sp["y"]) > \
+                                wash.LAND_DEBRIS_SUBMERGED_DEPTH_M:
+                            _n_region_wet += 1
+                            continue
+                        _ld.append(_sp)
+                    print("[hurricane] land debris region field: {0} piece(s) "
+                         "on dry ground, {1} dropped (submerged, the rafts' "
+                         "job)".format(len(_region_specs) - _n_region_wet,
+                                      _n_region_wet))
+                # SKIN MATERIALS BUILT ONCE, BEFORE either consumer — moved
+                # ahead of the `build_rafts` call below (DEBRIS D5 review:
+                # "match them to the houses they are near"). `_ld_rafts`
+                # (land debris that turned out to land on submerged ground,
+                # `land_debris_specs`'s own `depth_fn` branch) now carries a
+                # `"skin"` field too, preserved from the land piece it
+                # converted from — a house-matched skin should not vanish
+                # just because the piece floats instead of lying on grass —
+                # so the skin-name set has to union BOTH lists before either
+                # is built, not just `_ld`'s.
+                _ld_skins = sorted({s["skin"] for s in _ld if s.get("skin")}
+                                   | {s["skin"] for s in _ld_rafts
+                                      if s.get("skin")})
+                _ld_skin_mats = {}
+                for _n in _ld_skins:
+                    try:
+                        _tex, _tint = mh.palette_texture(stage, PARENT, _n)
+                        if _tex:
+                            _ld_skin_mats[_n] = planks.skin_material(
+                                stage, "{0}/LandDebrisLooks/skin_{1}"
+                                      .format(PARENT, _n),
+                                _tex, tint=_tint,
+                                tile_m=1.35 if _n.startswith("shingle")
+                                else 1.05)
+                    except Exception as _skexc:
+                        print("[hurricane] land debris skin {0} "
+                             "unavailable: {1}".format(_n, _skexc))
+                if _ld_rafts:
+                    made_w["land_debris_rafts"] = wash.build_rafts(
+                        stage, PARENT + "/rafts_from_land", _ld_rafts,
+                        ssf=ssf, skin_mats=_ld_skin_mats)
+                made_w["land_debris"] = planks.build(
+                    stage, PARENT + "/land_debris", _ld,
+                    planks.materials(stage, PARENT + "/land_debris"), ssf,
+                    skin_mats=_ld_skin_mats)
+            except Exception as _lexc:
+                print("[hurricane] land debris FAILED: {0}".format(_lexc))
+
+            # FENCES — "fences stand intact in 2 m of surge" (DEBRIS D3
+            # review). `suburb_scene`/`scene_generator.apply_placements`
+            # lands ~600 picket/rail panels under
+            # `PARENT + "/fence_<group>_<i>"`, one placement per panel, and
+            # nothing above this point (the wind pass, `apply_washaway`/
+            # `apply_car_washaway`, the raft/land-debris blocks) ever reads
+            # one. `wash.fence_specs` is the pure decision (measured
+            # geometry + depth/wind/house callables -> gone/flat/stands);
+            # `wash.apply_fence_pose` is the stage edit. This block is
+            # ONLY the walk between them: find every `fence_*` prim under
+            # `PARENT`, measure it (`wash.measure_fence`, points-based —
+            # see that function's own docstring), decide, apply, and merge
+            # whatever floated loose into the SAME per-kind raft mesh the
+            # rest of the field uses.
+            try:
+                if not DO_WASHAWAY:
+                    raise RuntimeError("washaway disabled (HUR_WASHAWAY=0)")
+                _frng = random.Random(SEED + 131)
+                _froot = stage.GetPrimAtPath(Sdf.Path(PARENT))
+                _fence_paths = [
+                    str(_cp.GetPath())
+                    for _cp in (Usd.PrimRange(_froot)
+                               if _froot and _froot.IsValid() else ())
+                    if _cp.GetName().startswith("fence_")]
+                _fence_geo = [
+                    wash.measure_fence(stage, stage.GetPrimAtPath(_pth),
+                                       ssf=ssf)
+                    for _pth in _fence_paths]
+                # `inten` -- NOT a freshly-built `hu.intensity_field(...)`.
+                # That closure was already made once, at the top of this
+                # script (`inten = hu.intensity_field(hcfg, region, np.
+                # random.default_rng(SEED + 23))`), and is what EVERY
+                # house's own wind-damage LEVEL was read from
+                # (`house_level_for_intensity(inten(h["x"], h["y"]), ...)`
+                # in the wind pass above). Building a second one here from
+                # `wrng` -- a plain `random.Random` already advanced by
+                # however many draws every earlier block in this function
+                # happened to make -- would give the fence wind-percentile
+                # check a DIFFERENT small-noise realisation of the same
+                # field than the one that actually damaged the houses, and
+                # a non-reproducible one (its exact draw depends on call
+                # order elsewhere in this function). Reusing `inten`
+                # verbatim is both more correct and simpler.
+                _fdecisions = wash.fence_specs(
+                    _fence_geo, _depth_fn,
+                    lambda x, y: hu.wind_bearing_at(hcfg, x, y), inten,
+                    wrecks, _wcfg["water_level_m"], _frng)
+                _n_fgone = _n_fflat = _n_fstand = 0
+                _fence_rafts = []
+                for _pth, _fdec in zip(_fence_paths, _fdecisions):
+                    wash.apply_fence_pose(stage, _pth, _fdec, ssf=ssf)
+                    _n_fgone += int(_fdec["action"] == "gone")
+                    _n_fflat += int(_fdec["action"] == "flat")
+                    _n_fstand += int(_fdec["action"] == "stands")
+                    _fence_rafts.extend(_fdec.get("rafts") or ())
+                if _fence_rafts:
+                    made_w["fence_rafts"] = wash.build_rafts(
+                        stage, PARENT + "/rafts_from_fences", _fence_rafts,
+                        ssf=ssf)
+                made_w["fences"] = "{0} ({1} gone, {2} flat, {3} standing)" \
+                    .format(len(_fence_paths), _n_fgone, _n_fflat, _n_fstand)
+            except Exception as _fexc:
+                print("[hurricane] fences FAILED: {0}".format(_fexc))
+
             print("[hurricane] water in {0:.0f}s: {1}".format(
                 time.time() - tw,
                 ", ".join("{0} {1}".format(k, v) for k, v in made_w.items())))
+        except _SurgeDisabled:
+            # SURGE=0, deliberate -- already announced at the raise site.
+            # Caught BEFORE the generic handler so an intentional skip is
+            # never reported as "WATER PASS FAILED".
+            pass
         except Exception as exc:
             import traceback
             print("[hurricane] WATER PASS FAILED: {0}".format(exc))
@@ -922,16 +1482,68 @@ def main():
             # soft edge in the right place instead of a step.
             cov = sgw.silt_coverage(scfg, region,
                                     np.random.default_rng(SEED + 31))
-            made_g = ground.build_overlay(
-                stage, cov, region, ssf, mud_z, material_parent=PARENT,
-                root="/World/siltGround", cell_m=kn["cell_m"],
-                bands=kn["bands"], tile_m=kn["tile_m"],
-                op_range=kn["op_range"], texture=sgw.SILT_TEXTURE,
-                # You cannot silt water. A pool is a hole in the lawn with
-                # water below grade; an overlay cell drawn over it is a film
-                # floating on the surface. Same exclusion the burn scar makes.
-                skip=ground.skip_rects(binfo.get("pool_rects") or (), pad=0.0))
-            print("[hurricane] silt overlay: {0} cell(s)".format(len(made_g)))
+
+            # WET vs DRY SILT, split by distance from the CURRENT waterline
+            # (`sgw.signed_depth_at`, unclamped — never `sgw.depth_at`'s
+            # clamped output, same reason every hump inside `surge.py` uses
+            # the signed form). Reviewed: "flat brown polygons... wearing a
+            # photograph of DRY cracked earth", including right at the
+            # water's edge. `SILT_TEXTURE` genuinely IS that dry-earth
+            # photograph — correct for silt that has had days to dry out
+            # further inland, wrong for silt the surge only just uncovered.
+            # `sgw.WET_SILT_TEXTURE` (derived: darker, more saturated, a
+            # flattened normal, lower roughness — see `disaster.surge`'s WET
+            # SILT comment block) takes over inside `sgw._DEPOSIT_WET_BAND_M`
+            # of the waterline; `SILT_TEXTURE` keeps the drier, outer extent
+            # of the same coverage field unchanged.
+            sd = sgw.signed_depth_at(scfg, region, None)
+            wet_band_m = float(os.environ.get(
+                "SILT_WET_BAND_M", sgw._DEPOSIT_WET_BAND_M))
+
+            def _wet_cov(x, y):
+                return cov(x, y) if abs(sd(x, y)) <= wet_band_m else 0.0
+
+            def _dry_cov(x, y):
+                return cov(x, y) if abs(sd(x, y)) > wet_band_m else 0.0
+
+            # SOFTER OPACITY FLOOR + MORE BANDS than `ground.knobs_from_env`'s
+            # shared default (0.30-0.97 over 12 bands, tuned for the BURN
+            # SCAR, which this call also drives via `kn`). At `op_lo=0.30`,
+            # the `coverage_at <= 0.06` skip inside `ground.build_overlay`
+            # jumps straight from "no overlay at all" to a ~33% opacity band
+            # the instant a cell crosses that threshold — the "hard darker
+            # outline" the review named around every silt patch. Kept
+            # `SILT_`-prefixed (not `GROUND_*`) so retuning it does not also
+            # retune the fire scar, which reads the same `GROUND_*` knobs.
+            silt_bands = int(os.environ.get("SILT_BANDS", "0") or 0) or max(
+                24, int(kn["bands"]))
+            op_lo = float(os.environ.get("SILT_OPACITY_MIN", "0.04"))
+            op_hi = float(os.environ.get("SILT_OPACITY_MAX", "")
+                         or kn["op_range"][1])
+            # You cannot silt water. A pool is a hole in the lawn with water
+            # below grade; an overlay cell drawn over it is a film floating
+            # on the surface. Same exclusion the burn scar makes.
+            pool_skip = ground.skip_rects(binfo.get("pool_rects") or (),
+                                          pad=0.0)
+
+            made_wet = ground.build_overlay(
+                stage, _wet_cov, region, ssf, mud_z, material_parent=PARENT,
+                root="/World/siltGroundWet", cell_m=kn["cell_m"],
+                bands=silt_bands, tile_m=kn["tile_m"], op_range=(op_lo, op_hi),
+                texture=sgw.WET_SILT_TEXTURE,
+                normal_tex=sgw.WET_SILT_NORMAL_TEXTURE,
+                orm_tex=sgw.WET_SILT_ORM_TEXTURE, roughness=0.18,
+                skip=pool_skip)
+            made_dry = ground.build_overlay(
+                stage, _dry_cov, region, ssf, mud_z, material_parent=PARENT,
+                root="/World/siltGroundDry", cell_m=kn["cell_m"],
+                bands=silt_bands, tile_m=kn["tile_m"], op_range=(op_lo, op_hi),
+                texture=sgw.SILT_TEXTURE, normal_tex=sgw.SILT_NORMAL_TEXTURE,
+                orm_tex=sgw.SILT_ORM_TEXTURE, roughness=0.85, skip=pool_skip)
+            made_g = made_wet + made_dry
+            print("[hurricane] silt overlay: {0} cell(s) ({1} wet, {2} dry, "
+                 "wet band {3:.1f} m)".format(
+                     len(made_g), len(made_wet), len(made_dry), wet_band_m))
         except Exception as exc:
             print("[hurricane] silt overlay FAILED: {0}".format(exc))
 
@@ -989,44 +1601,151 @@ def main():
                 _snaps = _load("snapshots")
                 _snaps.hide_decorations()
             cx, cy = 0.5 * (region[0] + region[2]), 0.5 * (region[1] + region[3])
+            import inspect
+            # Only the render-product module takes `avoid`/`region`; the
+            # viewport FALLBACK above is the shared `snapshots` module and
+            # has neither. Passing either blind would TypeError inside the
+            # outer handler and cost every snapshot on exactly the path
+            # taken when the preferred one already failed -- so ask first.
+            _ov_kw = {}
+            if "region" in inspect.signature(_snaps.overview).parameters:
+                _ov_kw["region"] = region
             _snaps.overview(stage, (cx, cy), max(rw, rh),
-                            os.path.join(SNAP_DIR, "overview.png"), ssf)
+                            os.path.join(SNAP_DIR, "overview.png"), ssf,
+                            **_ov_kw)
             # THE SUBJECTS ARE CHOSEN ALONG THE WATER GRADIENT, not along a
             # track — there is no track. What has to be judged here is (a) the
             # shoreline, (b) a flooded street, (c) dry damaged houses well
             # inland, so the ladder and the water can each be seen doing their
             # own job rather than being confused for one another.
-            _pts = {}
-            # Subjects along the WATER gradient — there is no track to
-            # walk. `surge.review_points` picks the shoreline, the deepest
-            # standing water and a dry inland spot, so the damage ladder and
-            # the flood can each be seen doing their own job rather than
-            # being confused for one another.
+            #
+            # STREAM C, 2026-08-31: `hurricane_cameras_png.select_review_
+            # subjects` is now the single source of truth for the FULL
+            # 10-subject list -- the 3 water-gradient ones (`review_points`,
+            # margin-fixed so none of them land on the plate's cut edge any
+            # more), `worst_house`/`deepest_flooded_house`, and 5 NEW close
+            # subjects (`stripped_roof_house`/`collapsed_house`/`raft_field`/
+            # `fallen_tree`/`flooded_street`) so debris, house damage and
+            # trees have something closer than a 45 m establishing shot to
+            # be judged from. Offline-verified against this exact function in
+            # `tests/test_review_points_cameras.py` and plotted (no render)
+            # by `tools/hurricane_cameras_png.py`.
+            _pts, _overrides = {}, {}
             try:
-                _pts.update(sgw.review_points(scfg, region))
+                _tools_dir = os.path.join(_SCENE_GEN_DIR, "tools")
+                if _tools_dir not in sys.path:
+                    sys.path.insert(0, _tools_dir)
+                import hurricane_cameras_png as _hcp
+                _gt_like = {"region": region, "surge": scfg,
+                           "houses": _h_recs, "trees": _t_recs}
+                for _name, _s in _hcp.select_review_subjects(_gt_like, depth_fn=locals().get("depth")).items():
+                    _pts[_name] = (_s["x"], _s["y"])
+                    if "obl_dist" in _s:
+                        _overrides[_name] = {k: _s[k] for k in (
+                            "obl_dist", "obl_h", "aim_h", "azimuth_deg")
+                            if k in _s}
+                    if _s.get("note"):
+                        print("[hurricane] {0}: {1}".format(_name, _s["note"]))
+                # `raft_field` above always used the documented FALLBACK (the
+                # deepest flooded house's up-flow side) -- `GT_hurricane.json`
+                # never carries raft specs, but THIS launcher just built the
+                # real ones (`_rs`, step 6) and can do better when they made
+                # it that far (`DO_WASHAWAY`/a raft-build failure both leave
+                # `_rs` unbound -- `locals().get` rather than a bare name so
+                # neither case is an exception here).
+                _rs_live = locals().get("_rs")
+                if _rs_live and "raft_field" in _pts:
+                    _dc = _hcp.densest_cluster(_rs_live)
+                    if _dc is not None:
+                        _rx, _ry, _rn = _dc
+                        _pts["raft_field"] = (_rx, _ry)
+                        _overrides.setdefault("raft_field", {})[
+                            "azimuth_deg"] = sgw._grad_deg(depth, _rx, _ry) % 360.0
+                        print("[hurricane] raft_field: real cluster of {0} "
+                              "piece(s) at ({1:.1f}, {2:.1f}) -- overriding "
+                              "the up-flow-side fallback"
+                              .format(_rn, _rx, _ry))
             except Exception as _e:
-                print("[hurricane] review points unavailable: {0}".format(_e))
-            if _h_recs:
-                _worst = max(_h_recs, key=lambda r: hu.HOUSE_LEVELS.index(
-                    r["level"]) if r["level"] in hu.HOUSE_LEVELS else 99)
-                _pts["worst_house"] = (_worst["x"], _worst["y"])
-                _wet = [r for r in _h_recs if r["water_depth_m"] > 0.15]
-                if _wet:
-                    _w0 = max(_wet, key=lambda r: r["water_depth_m"])
-                    _pts["deepest_flooded_house"] = (_w0["x"], _w0["y"])
+                print("[hurricane] select_review_subjects unavailable ({0}); "
+                      "falling back to the water-gradient subjects only"
+                      .format(_e))
             if not _pts:
-                _pts["centre"] = (cx, cy)
-            _snaps.views_around(stage, _pts, SNAP_DIR, ssf)
-            print("[hurricane] snapshots -> {0} ({1} subject(s))"
-                  .format(SNAP_DIR, len(_pts)))
+                # TOTAL fallback (helper import/selection itself failed) --
+                # the pre-STREAM-C behaviour, so a broken import never costs
+                # every subject.
+                try:
+                    _pts.update(sgw.review_points(scfg, region))
+                except Exception as _e:
+                    print("[hurricane] review points unavailable: {0}"
+                          .format(_e))
+                if _h_recs:
+                    _worst = max(_h_recs, key=lambda r: hu.HOUSE_LEVELS.index(
+                        r["level"]) if r["level"] in hu.HOUSE_LEVELS else 99)
+                    _pts["worst_house"] = (_worst["x"], _worst["y"])
+                if not _pts:
+                    _pts["centre"] = (cx, cy)
+            # Trees are the only thing on this plate tall and dense enough to
+            # stand between the oblique camera and its subject; hand over the
+            # STANDING ones (a felled trunk lying flat is not a sightline
+            # obstruction the way a canopy is) so the bearing can step off
+            # one rather than shooting the flood through a canopy
+            # (`snapshots_rp._clear_azimuth`). `region` lets that same
+            # function ALSO require the bearing to look toward the plate's
+            # interior, and lets `_cap_oblique_range` shrink a close
+            # subject's range if its frame's top edge would otherwise
+            # ray-trace past the plate — see `views_around`'s docstring.
+            _kw = {}
+            _params = inspect.signature(_snaps.views_around).parameters
+            if "avoid" in _params:
+                _kw["avoid"] = [(t["x"], t["y"]) for t in _t_recs
+                               if t.get("level") not in ("fallen", "snapped")]
+            if "region" in _params:
+                _kw["region"] = region
+            _default_pts = {k: v for k, v in _pts.items()
+                           if k not in _overrides}
+            if _default_pts:
+                _snaps.views_around(stage, _default_pts, SNAP_DIR, ssf, **_kw)
+            for _name, _xy in _pts.items():
+                if _name not in _overrides:
+                    continue
+                _ckw = dict(_kw)
+                _ckw.update(_overrides[_name])
+                try:
+                    _snaps.views_around(stage, {_name: _xy}, SNAP_DIR, ssf,
+                                        **_ckw)
+                except Exception as _e:
+                    print("[hurricane] close subject {0} snapshot FAILED: {1}"
+                          .format(_name, _e))
+            print("[hurricane] snapshots -> {0} ({1} subject(s): {2})"
+                  .format(SNAP_DIR, len(_pts), ", ".join(sorted(_pts))))
         except Exception as _exc:
             import traceback
             print("[hurricane] snapshots FAILED: {0}".format(_exc))
             traceback.print_exc()
 
+    # HUR_EXPORT_STAGE=1: dump the ROOT LAYER (references intact, cheap --
+    # not a flatten) next to the snapshots so the composed scene can be
+    # audited offline with bare pxr. Added 2026-09-01 while chasing trees
+    # that tally as placed but do not render.
+    if os.environ.get("HUR_EXPORT_STAGE", "").strip() == "1" and SNAP_DIR:
+        try:
+            _sp = os.path.join(SNAP_DIR, "stage_root.usda")
+            stage.GetRootLayer().Export(_sp)
+            print("[hurricane] stage root layer -> {0}".format(_sp))
+        except Exception as _exc:
+            print("[hurricane] stage export FAILED: {0}".format(_exc))
     print("[hurricane] SCENE_DONE")
-    while simulation_app.is_running():
-        omni.kit.app.get_app().update()
+    # EXIT ONCE THE CAPTURES ARE ON DISK. Spinning in `app.update()` after
+    # SCENE_DONE kept every finished render resident on the card (11.6 GB at
+    # L2, measured 2026-08-31) until someone killed it by hand, and the next
+    # launch then shared the GPU with a zombie -- the two-Isaac black-frame
+    # trap. Same contract as `downtown_quake_launch_script`: KEEP_OPEN=1 (or
+    # HUR_KEEP_OPEN=1) holds the stage open for inspection; the default is
+    # to fall through to `simulation_app.close()` in `__main__`.
+    if (os.environ.get("HUR_KEEP_OPEN", "").strip() == "1"
+            or os.environ.get("KEEP_OPEN", "").strip() == "1"):
+        while simulation_app.is_running():
+            omni.kit.app.get_app().update()
 
 
 if __name__ == "__main__":

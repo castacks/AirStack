@@ -478,14 +478,32 @@ def _same_art_material(usd, config, default=_SAME_ART_DEFAULT_TYPE):
     config's `asset_root` to build the placement's own (absolute) `usd`, so
     the placement's usd always ENDS WITH the pool entry's own string.
     Returns `default` when no pool entry tags this asset — a bare-string
-    entry, or an asset set someone forgot to tag."""
+    entry, or an asset set someone forgot to tag.
+
+    PREFERS A TAGGED MATCH OVER THE FIRST MATCH (round 6, `urban_quake_v5`):
+    the same asset can legitimately appear in more than one pool now that a
+    same_art / GAC building rides through `urban_gac`'s inherited `intact` /
+    `midrise` / `tower` pools (untagged there — `urban.yaml` and
+    `urban_gac.yaml` carry no `material:` field on any of them) AS WELL AS a
+    metadata-only pool an asset set adds purely to tag it (`urban_quake_v5
+    .yaml`'s `quake_material_tags`). `_pool_entries` walks pools in dict
+    order, and the untagged copy sits EARLIER in that order (it comes from
+    the base asset set, loaded first; the metadata pool is always a later
+    override) — a plain first-match-wins scan would find the untagged entry
+    and silently return `default` even though a tagged entry exists further
+    on. So this scans every suffix match and returns the first one that
+    actually CARRIES a `material:` field; only when every match is untagged
+    (or there is no match at all) does it fall back to `default`."""
     u = str(usd)
     for e in _pool_entries(config):
         if not isinstance(e, dict):
             continue
         eu = str(e.get("usd", "")).strip()
-        if eu and u.endswith(eu):
-            return str(e.get("material") or default)
+        if not eu or not u.endswith(eu):
+            continue
+        mat = e.get("material")
+        if mat:
+            return str(mat)
     return default
 
 
@@ -885,7 +903,13 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
             elif _is_gac(p.get("usd")):
                 gac = True
             else:
-                continue                    # not a kit archetype either: leave it to `_mono_pass`
+                # Not a kit archetype, same_art, or GAC either: leave it to
+                # `_mono_pass`, further down — which is where a downtowncity
+                # or AEC building is now caught and skipped OUTRIGHT
+                # (`_is_pristine_pack`, round 6), rather than getting the
+                # generic monolith fallback lean everything else here still
+                # does.
+                continue
         path = p.get("prim_path")
         prim = stage.GetPrimAtPath(path) if path else None
         if not prim or not prim.IsValid():
@@ -899,6 +923,7 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
             if not dims:
                 continue
             W0, D0, H0 = (v / ssf for v in dims)
+            _warn_if_oversized(p["usd"], W0, D0, H0, path, verbose)
             btype = _same_art_material(p["usd"], config)
             x, y = float(p["x_m"]), float(p["y_m"])
             inten = float(field(x, y))
@@ -939,6 +964,7 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
             if not dims:
                 continue
             W0, D0, H0 = (v / ssf for v in dims)
+            _warn_if_oversized(p["usd"], W0, D0, H0, path, verbose)
             btype = _same_art_material(p["usd"], config)
             x, y = float(p["x_m"]), float(p["y_m"])
             inten = float(field(x, y))
@@ -1271,6 +1297,78 @@ def _bld_masses(records, manifest, placements):
     return out
 
 
+# ---------------------------------------------------------------------------
+# PRISTINE-ONLY PACKS (round 6, `urban_quake_v5`; NARROWED round 6c,
+# 2026-08-31): downtowncity carries NO damage pipeline at all — no
+# per-building bake like GAC, no size-matched kit twin like MCE's same_art,
+# and (`kit_substitute.route()` would send it to `'slice'`, which `quake`
+# never calls for anything) no storey/bay grid a slicer could cut safely
+# either. Before round 6, it fell through `assemble`'s main loop exactly
+# like any other non-kit/non-same_art/non-GAC asset (`style` is None,
+# `ks.pack_of` is `"other"`, `_is_gac` is False -> the `continue` on "leave
+# it to `_mono_pass`") and so was fully exposed to `_mono_pass`'s rigid lean
+# / sink / DG5 ruin-tower swap fallback — the SAME fallback a standalone
+# monolith with genuinely no better option gets. The user's request
+# (2026-08-31): "You can place downtown city env buildings but only
+# undamaged" asks for something STRONGER than "no damage pipeline" for this
+# pack specifically: never touched at all, not even the rigid-body lean.
+#
+# THE AEC BROWNSTONES WERE ADDED HERE TOO IN ROUND 6, AND THAT WAS TOO WIDE.
+# Round 6's header (kept in git history) read the same user quote above as
+# covering "downtown city env buildings ... and the AEC brownstones", but
+# the quote itself only names downtowncity. A LATER, more specific request
+# the same day (earthquake TEST/showcase scene, 2026-08-31) asks for the
+# opposite for this pack: "AEC brownstones, GAC, and MCE kit buildings must
+# all appear damaged. DowntownCity buildings must be SKIPPED for damage —
+# placed pristine as filler only." So `"assets/aec/"` is removed from
+# PRISTINE_PACKS here (round 6c) — an AEC brownstone now falls through to
+# the SAME generic monolith fallback standalone monoliths already get (see
+# "THIS DOES NOT TOUCH THE MONOLITH FALLBACK ITSELF" below): rigid heavy/
+# mild lean+sink from `_mono_pass`, scored on the RC vulnerability curve
+# (`_mono_pass` always scores `"rc"`), no fracture and no partial-collapse
+# geometry of its own. A REAL fractured/partial-collapse AEC ladder (de-
+# instance the asset — it fails `monolith_damage.cut_shell` with a Tf error
+# because it is internally instanced, `tools/openings_probe.py` — then a
+# `quake_sliced.CONSTRUCTION` entry, a bake driver, and pod time) is
+# DEFERRED, a follow-on task, not done here. Do not re-add `"assets/aec/"`
+# to this tuple without re-reading this paragraph and the showcase-scene
+# request it satisfies.
+#
+# THIS DOES NOT TOUCH THE MONOLITH FALLBACK ITSELF. Standalone monoliths
+# (the `assets/standalone/` 2026-08-26 drop `urban_gac.yaml` folds into
+# `rowhouse+`/`lowrise`/`tower+`/`destroyed+`), Muyang DownTown
+# (`BG_Building_*`), Dmytro FactoryDistrict, and now (round 6c) the AEC
+# brownstones — all reachable through `urban_gac`'s inheritance chain the
+# same way downtowncity is — keep TODAY's `_mono_pass` fallback lean
+# unchanged. "No damage pipeline of its own" is not the same claim as "must
+# never lean, sink, or ruin-swap"; only downtowncity gets the stronger,
+# opt-in guarantee below.
+# `kit_substitute.UNBURNABLE` (Muyang DownTown, gated out of the FIRE
+# ladder for a DIFFERENT reason — no glass subset, no pieces, urban_quake_v3
+# .yaml's own header) is FIRE-only: it is read through `route()`, which
+# `quake`'s `decide_building` only ever calls for a `same_art` asset — Muyang
+# DownTown is never `same_art` (`kit_substitute.SAME_ART` names
+# `ModernCityEnvironment/` only), so `route()`/`UNBURNABLE` are never even
+# reached for it here. There was no existing quake-side blacklist to
+# preserve; this section is the first one.
+PRISTINE_PACKS = ("downtowncity/",)
+
+
+def _is_pristine_pack(usd):
+    """True when `usd` names an asset from a pack with no damage pipeline
+    that must stay COMPLETELY untouched by `assemble` — no grade drawn, no
+    `_mono_pass` lean/sink/ruin-swap, no heap-clearance / pounding-interaction
+    bookkeeping (those all key off `records`, which a pristine-pack building
+    never enters). See PRISTINE_PACKS. Substring match on the resolved
+    placement path, same discipline `_is_gac` and `_same_art_material` use —
+    a pool entry's bare relative path (`downtowncity/Amar_Tower.usdc`,
+    `assets/aec/brownstone/...`) is always a SUFFIX-adjacent substring of the
+    placement's absolute (`asset_root`-prefixed) `usd`, regardless of which
+    URL scheme (`omniverse://`, `airstack://`) the pool used."""
+    u = str(usd).replace("\\", "/")
+    return any(k in u for k in PRISTINE_PACKS)
+
+
 def _mono_dims(stage, prim, p):
     """(W, D, H) of a placed monolith in ITS OWN yaw frame, from the world
     bound: the layout places at 0/90/180/270, where the world box is exact."""
@@ -1289,6 +1387,55 @@ def _mono_dims(stage, prim, p):
     return float(sx), float(sy), float(sz)
 
 
+# Loud-warning threshold for a `_mono_dims` measurement (round 6 follow-up,
+# 2026-09-01): eq500_v4 (seed 9, urban_quake_v5) placed SM_Building_31 — a
+# GAC `highrise`-pool building measuring 60.3 x 142.2 x 302.2 m, confirmed
+# against `urban_gac.yaml`'s own pre-recorded comment for that asset — in
+# the `core` ring next to `epicenter`, black-framing the epicentre review
+# camera (clearance budgeted for ~95 m off the next-tallest building
+# actually placed, 103.7 m). That was NOT a measurement bug — it is a
+# genuine 300+ m supertall the `highrise` typology's own pool carries for a
+# much bigger showcase preset (`downtown_gac.yaml`) — but nothing printed a
+# trace of it in THIS preset's build log, so the anomaly was only found by
+# an after-the-fact review of `quake_buildings.json` and the rendered
+# frames. 150 m is comfortably above every kit archetype, same_art original
+# and ordinary GAC/tower-pool building (`tower`'s own band tops out at
+# 131-140 m) and comfortably below the `highrise` pool's own supertall
+# outliers (302.2 / 312.0 m) — see `downtown_earthquake.yaml`'s
+# `overrides.usds.buildings.highrise`, which now excludes those two for
+# this preset. A one-off warning per asset (`_MONO_HEIGHT_WARNED`) keeps a
+# scene with many copies of the same oversized building from flooding the
+# log.
+MONO_HEIGHT_WARN_M = 150.0
+_MONO_HEIGHT_WARNED: set = set()
+
+
+def _warn_if_oversized(usd, W, D, H, prim_path=None, verbose=True):
+    """Loud, de-duplicated warning when a monolith/GAC/same_art building's
+    MEASURED height exceeds `MONO_HEIGHT_WARN_M` — the guard `_mono_dims`
+    itself cannot carry (it has no config/region context), placed instead at
+    each of its three call sites (`assemble`'s `same_art`/`gac` branches and
+    `_mono_pass`). Names the asset so this class of building is visible in
+    the NEXT scene's build log instead of only in a post-hoc
+    `quake_buildings.json` / rendered-frame review, whether the cause turns
+    out to be a real axis/unit measurement bug or (as with SM_Building_31)
+    a genuine supertall that does not belong in this preset's pool."""
+    if H <= MONO_HEIGHT_WARN_M or not verbose:
+        # `verbose=False` must not itself consume the one-time dedup slot —
+        # a later, verbose call for the same asset still has to print.
+        return
+    key = str(usd)
+    if key in _MONO_HEIGHT_WARNED:
+        return
+    _MONO_HEIGHT_WARNED.add(key)
+    print("[quake] WARNING: {0} measures {1:.1f} x {2:.1f} x {3:.1f} m "
+          "(H > {4:.0f} m) at {5} — check for an axis/unit measurement "
+          "bug (`_mono_dims`/`SizeResolver`) or exclude/cap this asset "
+          "in its pool if it is genuinely this tall".format(
+              os.path.basename(str(usd)), W, D, H, MONO_HEIGHT_WARN_M,
+              prim_path or "?"))
+
+
 def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
                tally, bounds=None, ground_at=None, verbose=True):
     """Damage for buildings that are NOT kit archetypes (standalone monoliths
@@ -1301,7 +1448,15 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
       * DG3: half of them a mild lean (2-4 deg, 0.3-0.5 m);
       * DG0-DG2: untouched (the dust halo of the neighbours still reaches it).
     Records carry W/D/H so the ground pass and the pounding pass see them;
-    `mono=True` keeps them out of the live interaction rebuild."""
+    `mono=True` keeps them out of the live interaction rebuild.
+
+    PRISTINE_PACKS (round 6, `urban_quake_v5`; narrowed to downtowncity only
+    in round 6c) are skipped BEFORE any of the above — a downtowncity
+    building never even gets measured or drawn a grade, so it gets none of
+    this: no lean, no sink, no ruin swap,
+    no tally entry, no `records` entry (and therefore no heap-clearance or
+    pounding-interaction bookkeeping either, both of which only ever look at
+    `records`). See `_is_pristine_pack`'s own docstring."""
     ruins = []
     for e in ((config.get("usds") or {}).get("buildings") or {}).get("destroyed") or []:
         u = e.get("usd") if isinstance(e, dict) else e
@@ -1319,8 +1474,12 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
         # second `_is_gac` check) — without this, an already-damaged GAC
         # building would be rigid-leaned a SECOND time on top of its own
         # bake, the same double-transform trap `style_of`'s own docstring
-        # describes for the kit foundation family.
-        if style or p.get("category") != "house" or _is_gac_bake(p.get("usd")):
+        # describes for the kit foundation family. `_is_pristine_pack` is the
+        # round-6 addition, narrowed in round 6c: downtowncity must stay
+        # completely untouched (see PRISTINE_PACKS's own docstring); AEC
+        # brownstones now DO fall into the generic monolith fallback below.
+        if (style or p.get("category") != "house" or _is_gac_bake(p.get("usd"))
+                or _is_pristine_pack(p.get("usd"))):
             continue
         path = p.get("prim_path")
         prim = stage.GetPrimAtPath(path) if path else None
@@ -1330,6 +1489,7 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
         if not dims:
             continue
         W, D, H = (v / ssf for v in dims)
+        _warn_if_oversized(p.get("usd"), W, D, H, path, verbose)
         x, y = float(p["x_m"]), float(p["y_m"])
         inten = float(field(x, y))
         grade = qf.level_for_intensity(inten * grade_scale, "rc", rng,
@@ -2143,10 +2303,43 @@ def _d_interactions(stage, config, stats, placements, arch_dir, parent=None,
         stats["tally"][key] = stats["tally"].get(key, 0) + 1
     if loose_all:
         from . import settle
-        settle.run(stage, loose_all, [q for q in static_all if q],
-                   steps=settle_steps, kick=0.12, rng=random.Random(seed + 5),
-                   bake_result=True, velocity_map=vel_all, density=1900.0,
-                   max_speed=6.0)
+        # CONVERGE, DON'T HOPE. `steps`/`settle_steps` used to be a hard cap
+        # (eq500_v4: 1800/1800 used, `tank_ix1_2` frozen mid-flight over a
+        # destroyed building — the roof-plant half of that bug is fixed at
+        # the source by `_d_settle_roof_plant_now` above, which pulls tanks/
+        # AC units out of `loose_all` before they ever get here). `converge=
+        # True` makes `steps` a target the throw phase may run past (up to
+        # `max_steps`) instead of a ceiling it bakes against regardless;
+        # `rest_v2=True` is the matching measurement fix (points-based rest,
+        # net travel over a window, a stall freezes the jittering bodies
+        # instead of giving up) the fire/tornado bakes already turn on for
+        # every non-kit settle. `strict` is intentionally left at its
+        # default (env-gated) — a bad settle here still only warns.
+        info = settle.run(stage, loose_all, [q for q in static_all if q],
+                          steps=settle_steps, kick=0.12, rng=random.Random(seed + 5),
+                          bake_result=True, velocity_map=vel_all, density=1900.0,
+                          max_speed=6.0, converge=True, rest_v2=True)
+        # THE NET FOR WHATEVER STILL DIDN'T CONVERGE. Roof plant never
+        # reaches this settle at all (see above), so anything still moving
+        # at the cap is fracture debris from the pair itself — exactly what
+        # `fire_bake.deactivate_airborne` (the bake pipeline's own 2026-08-31
+        # fix) already judges and switches off: it re-derives support from
+        # the real geometry left standing and deactivates whatever has none,
+        # so a frozen fragment ships invisible instead of active-and-airborne.
+        if verbose and info.get("still_moving"):
+            print("[quake] interactions: settle still had {0} body(ies) "
+                  "moving at the step cap; sweeping for airborne debris"
+                  .format(info["still_moving"]))
+        try:
+            from . import fire_bake as fb
+            n_off = fb.deactivate_airborne(stage, scope, verbose=False)
+            if n_off and verbose:
+                print("[quake] interactions: airborne sweep deactivated {0} "
+                      "still-unsupported body(ies) under {1}".format(n_off, scope))
+        except Exception as exc:
+            print("[quake] interactions: airborne sweep failed ({0}); a "
+                  "still-moving body may ship active in the export"
+                  .format(exc))
     dt = time.time() - t0
     if verbose:
         print("[quake] interactions: {0} pair(s) — {1} live, {2} geometric, "
@@ -2189,7 +2382,48 @@ def _d_live_lean(stage, scope, tag, rec, p, nb, mats, cache, ssf, seed,
     res = qf.wreck_building(stage, holder, style, pls, x, y, yaw,
                             [(recipe, {})], rng, _np.random.default_rng(seed),
                             mats, tag, fit_storeys=None, mat_cache=cache)
+    _d_settle_roof_plant_now(res)
     return res
+
+
+def _d_settle_roof_plant_now(res):
+    """Resolve this building's rooftop plant (tanks, AC units) GEOMETRICALLY
+    instead of handing it to the interaction's shared physics settle.
+
+    `wreck_building`'s generic end-of-recipe pass (`quake_flow.
+    _b_settle_roof_plant`) always routes surviving roof plant into
+    `ctx["loose"]` for a PhysX settle. That is fine for the main per-building
+    ladder, which settles alone with its own step budget, but not here: the
+    live `lean_on`/`collapse_onto` interaction (`_d_live_lean`, above) shares
+    ONE settle with however many fracture fragments the pair shed —
+    `eq500_v4` handed it 155 rigid bodies for 3 pairs — and a heavy tank
+    competing for that shared budget can starve and freeze mid-flight
+    (`tank_ix1_2`: 1800/1800 steps used, still moving at export).
+
+    The whole-body rigid transform (`r_lean_on`/`r_collapse_onto`, via
+    `_everything(ctx)`) already carried the tank onto whatever the lean or
+    collapse left of its roof BEFORE `_b_settle_roof_plant` ran, so its
+    position is already right — it only needs the same geometric resolution
+    `quake_flow._settle_foundation_roof_plant` already gives the
+    `tilt_severe`/`overturn` families: seat it on the deck under its own
+    footprint (`quake_collapse._deck_support_z`), or drop it to grade
+    (`quake_flow._a_bury_props`) when that deck no longer faces up at all.
+
+    Pulling the paths back OUT of `ctx["loose"]` first is what lets
+    `_settle_foundation_roof_plant` treat them as unresolved instead of
+    skipping them as already-handed-to-physics (its own `pth in loose_now`
+    guard). Returns `(n_seated, n_dropped)`, or `(0, 0)` if this building
+    dressed no roof plant at all."""
+    plant = list(dict.fromkeys(
+        list(res.get("roof_plant") or ()) + list(res.get("roof_fixed") or ())))
+    if not plant:
+        return 0, 0
+    plant_set = set(plant)
+    res["loose"] = [p for p in res["loose"] if p not in plant_set]
+    res["velocity"] = {k: v for k, v in res.get("velocity", {}).items()
+                       if k not in plant_set}
+    m = res["info"]["masses"][res.get("roof_plant_mass", "main")]
+    return qf._settle_foundation_roof_plant(res, m, label="interaction")
 
 
 def _d_geom_lean(stage, scope, tag, ma, nb, p, prim, mats, rng, pr, ssf):

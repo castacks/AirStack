@@ -1,0 +1,243 @@
+# ASSET SET: urban_quake_v5 — round 6: `urban_gac`'s FULL layout diversity
+# (GreatAmericanCity + downtowncity + the AEC brownstones + the original
+# urban.yaml kit/MCE/Muyang/Dmytro stock, all inherited unchanged) with the
+# earthquake DAMAGE WIRING layered on top in `disaster/quake.py`, not in
+# this file's building pools.
+#
+# USER REQUEST (2026-08-31, verbatim): "I want you to use the newer layout
+# gen we have that includes buildings from GAC and MCE. You can place
+# downtown city env buildings but only undamaged. That way we have
+# brownstones, skyscrapers, etc."
+#
+# ============================================================================
+# THE BUILDING LIST IS BYTE-FOR-BYTE `urban_gac`'s. NOTHING IS GRAFTED IN.
+# ============================================================================
+# `urban_quake_v3` / `urban_quake_v4` (the previous round) each REPLACED
+# `urban.yaml`'s own `intact` / `midrise` / `tower` / `rowhouse` pools bare,
+# down to a small curated set: the three ModernCityEnvironment (MCE)
+# originals `kit_substitute.SAME_ART` recognises, plus five kit DG0 styles
+# already proven at F5c in the fire ladder. That curation made sense when
+# the ONLY way to add a real (non-generic-kit) building was to hand-pick it.
+#
+# It turns out to be UNNECESSARY here: `urban.yaml` — the base every asset
+# set in this file ultimately extends, `urban_gac` included — ALREADY
+# CARRIES every one of those eight assets, bare, in its own `intact` /
+# `midrise` / `tower` pools (verified 2026-08-31 against
+# `config/asset_sets/urban.yaml` lines 103-203):
+#   * MBuilding01 — `intact` (bare string, scale 1.0) AND `midrise` (scale
+#     1.0 dict, comment: "authored in metres")
+#   * MBuilding02, MBuilding05 — both in `tower` (scale 0.01)
+#   * bld_apartment_DG0, bld_brownstone_DG0, bld_commercial_DG0,
+#     bld_office_wide_DG0, bld_commercial_mid_DG0 — all five in BOTH
+#     `intact` and `midrise`
+# `urban_gac` (`extends: urban`) never touches `intact` / `midrise` /
+# `tower` with a BARE key — only `intact+` / `rowhouse+` / `tower+` /
+# `destroyed+` (append) and three brand-new bare pools (`lowrise` /
+# `brick_midrise` / `highrise`, which `urban.yaml` never defined, so a bare
+# key there OWNS a pool rather than REPLACING one — the trap this file's own
+# header warns about does not apply to a key that never existed upstream).
+# So all eight assets `urban_quake_v3` painstakingly re-added are already
+# live, unchanged, through the `urban_gac` chain — appending them again here
+# would DOUBLE their draw weight (`urban_quake_v4`'s own header already
+# names this exact trap: "a name in BOTH pools doubles its draw weight").
+#
+# Per the user's follow-up constraint (2026-08-31): "Make sure to use the
+# same building list from the yaml from the current city gen" — verified the
+# base already places every one of them, so NOTHING is added to any pool a
+# typology actually draws from. `urban_quake_v4`'s 31 GAC names are ALSO
+# already fully covered: `urban_gac.yaml` places all 31 (`intact+` carries
+# every one; `tower+` carries 10 of them; `lowrise` / `brick_midrise` /
+# `highrise` carry the rest) — v4's own curated subset was never a superset
+# of `urban_gac`'s, so there is nothing from v4 left to port over either.
+#
+# `extends: urban_gac` therefore carries, unchanged: the GAC diversity
+# (`intact+` / `rowhouse+` / `tower+` / `lowrise` / `brick_midrise` /
+# `highrise`), the downtowncity fillers (folded into `intact+` / `lowrise` /
+# `highrise`), the AEC brownstone terrace (`rowhouse+`, plus `urban.yaml`'s
+# own `rowhouse`), the `assets/standalone/` 2026-08-26 drop (`rowhouse+` /
+# `lowrise` / `tower+` / `destroyed+`), the kit archetypes, the three MCE
+# originals, Muyang DownTown, and Dmytro FactoryDistrict — every building
+# `urban_gac` itself places, unchanged.
+#
+# Street furniture, tiles, vehicles, park content: `urban_gac` never touches
+# ANY of those pools either (only `usds.buildings.*`), so they ride through
+# from `urban.yaml` exactly as they do for `urban_quake` today — CONFIRMED
+# by reading `urban_quake.yaml` end to end (2026-08-31): its only deltas
+# from `urban.yaml` are the two `usds.buildings` overrides this file also
+# carries (below) and the four building pools it replaces bare; nothing
+# else is touched, anywhere in that file. `urban_gac -> urban` and
+# `urban_quake -> urban` are therefore siblings at exactly the same
+# furniture / tile / vehicle / park level — going through `urban_gac`
+# instead of `urban_quake` loses nothing on that front, and
+# `tools/layout_dry_run.py`'s dry run (see `_plans/eq_v5_city_dry_run.md`)
+# confirms the same non-`house` category counts show up either way.
+#
+# ============================================================================
+# TWO OVERRIDES UNDER `usds.buildings`, NEITHER OF WHICH PLACES A BUILDING
+# ============================================================================
+# 1. `damaged: []` / `destroyed: []` — bare, CLEARING (not appending) — the
+#    SAME two lines `urban_quake.yaml` carries, for the SAME reason ("NO
+#    PRE-MADE RUINS ... Damage here comes from the assembly pass swapping
+#    references, so both pools are cleared"). `downtown_earthquake.yaml`'s
+#    own `overrides` already force `damaged_fraction` / `destroyed_fraction`
+#    to 0.0 (`scene_generator.build_city`'s fate-weighted pre-rezone pick
+#    then never draws from either pool regardless of what asset-set is
+#    named) — so against TODAY's one preset this is redundant, not a
+#    behaviour change. It is kept anyway as defence in depth, exactly
+#    matching `urban_quake.yaml`'s own discipline: without it, `urban_gac`'s
+#    inherited Muyang `damaged` pool (5 pre-broken shells,
+#    `urban_nucleus.yaml`) and its own `destroyed+` append (`urban_nucleus.
+#    yaml`'s own 10 Muyang ruins + `urban_gac`'s 6 standalone
+#    `ruin_tower_*`, 16 total — measured 2026-08-31 via `resolve_asset_set`,
+#    not guessed) would sit live in this asset set, one preset change away
+#    from getting packed at layout time with no relation to the quake field
+#    at all — the exact bug `urban_quake.yaml`'s own header calls out.
+#
+# 2. `quake_material_tags` — a NEW pool key, but METADATA ONLY: it is not
+#    named by any `districts.typologies.*.pools` list in ANY preset, so
+#    `build_city` never draws a single building from it — it places ZERO
+#    buildings, changes ZERO placement counts, and is invisible to
+#    `tools/layout_dry_run.py`'s `by_style` tally. Its only reader is
+#    `disaster.quake._same_art_material`, which scans EVERY list under
+#    `usds.buildings` (`_pool_entries`'s own docstring: "every raw
+#    `usds.buildings.<pool>` list entry across the WHOLE asset set"), by
+#    asset SUFFIX, regardless of which typology — if any — actually draws
+#    that pool.
+#
+#    WHY IT EXISTS: `_same_art_material` reads a pool entry's `material:`
+#    field — the `urm` / `rc` / `rc_glass` vocabulary `quake_flow.
+#    FAMILY_TYPE` uses, NOT `urban_gac.yaml`'s own texture-name `material:`
+#    (concrete / brick / steel — see `_same_art_material`'s own docstring)
+#    — and defaults to `"rc"` when nothing tags the asset. Neither
+#    `urban.yaml` (checked: zero `material:` keys anywhere in the file) nor
+#    `urban_gac.yaml` (checked: the GAC `SM_Building_*` entries carry no
+#    `material:` field at all — only the UNRELATED `assets/standalone/`
+#    drop does, and in the concrete/brick/steel vocabulary, not
+#    urm/rc/rc_glass) tags MBuilding01, MBuilding05, or any of the 31 GAC
+#    buildings. Left untagged, `_same_art_material` would default ALL of
+#    them to "rc" — WRONG for MBuilding01 (urm) and MBuilding05 (rc_glass),
+#    and wrong for 21 of the 31 GAC buildings (11 urm + 10 rc_glass; only
+#    the 10 already-`rc` ones would happen to default correctly). That is
+#    not a cosmetic miss: `btype` selects `qf.level_for_intensity`'s whole
+#    EMS-98 vulnerability curve (urm collapses far more readily than
+#    rc_glass at the same field intensity) and biases `kit_substitute.
+#    best_style`'s twin choice (`prefer_type`).
+#
+#    The table below is copied VERBATIM from `urban_quake_v4.yaml`'s own
+#    per-building classification (its header explains how each of the 31
+#    GAC buildings was matched to urm / rc / rc_glass off `urban_gac.yaml`'s
+#    OWN pool membership — `brick_midrise` -> urm, `highrise` -> rc_glass,
+#    everything else -> plain rc) plus `urban_quake_v3.yaml`'s three MCE
+#    entries; only the `usd` / `material` fields survive the copy —
+#    `scale` / `yaw-offset` / `tags` are meaningless on a pool nothing ever
+#    places from.
+# ============================================================================
+extends: urban_gac
+
+usds:
+  buildings:
+    damaged: []
+    destroyed: []
+
+    quake_material_tags:
+      # ---- MCE same_art originals (urban_quake_v3) -----------------------
+      - {usd: "Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd", material: urm}
+      - {usd: "Muyang/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd", material: rc}
+      - {usd: "Muyang/ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd", material: rc_glass}
+
+      # ---- GreatAmericanCity, all 31 (classification from urban_quake_v4) -
+      # urm — the eleven brick_midrise-family members (nine `brick_midrise`
+      # pool members plus _02/_06_Small, height-split into `midrise`/`tower`)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_01.usd", material: urm}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_02.usd", material: urm}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_03.usd", material: urm}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_04.usd", material: urm}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_05.usd", material: urm}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_06_Small.usd", material: urm}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_07.usd", material: urm}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_25.usd", material: urm}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_26.usd", material: urm}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_29.usd", material: urm}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_30.usd", material: urm}
+      # rc — plain concrete, no brick/glass call-out
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_08.usd", material: rc}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_09.usd", material: rc}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_11.usd", material: rc}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_12.usd", material: rc}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_19.usd", material: rc}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_21.usd", material: rc}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_22.usd", material: rc}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_24.usd", material: rc}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_27.usd", material: rc}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_28.usd", material: rc}
+      # rc_glass — glass curtain-wall towers (urban_gac.yaml's `highrise`)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_10.usd", material: rc_glass}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_13.usd", material: rc_glass}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_14.usd", material: rc_glass}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_15.usd", material: rc_glass}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_16.usd", material: rc_glass}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_17.usd", material: rc_glass}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_18.usd", material: rc_glass}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_20.usd", material: rc_glass}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_23.usd", material: rc_glass}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_31.usd", material: rc_glass}
+
+# ============================================================================
+# THE DAMAGE WIRING LIVES IN `disaster/quake.py`, NOT HERE
+# ============================================================================
+# * downtowncity (`usd` contains "downtowncity/") and the AEC brownstones
+#   (`usd` contains "assets/aec/") are now PRISTINE-ALWAYS — see
+#   `disaster.quake.PRISTINE_PACKS` / `_is_pristine_pack`. `assemble` never
+#   even measures them: no grade, no `_mono_pass` lean / sink / ruin-swap,
+#   no heap / rubble / pounding-interaction bookkeeping (all of that keys
+#   off `records`, which they never enter). A ground fissure or dust patch
+#   authored independently of any one building may still cross underneath
+#   one — that is fine, only the BUILDING itself must stay untouched.
+#   Standalone monoliths (the `assets/standalone/` 2026-08-26 drop, Muyang
+#   DownTown, Dmytro FactoryDistrict) are NOT on this list and keep today's
+#   `_mono_pass` fallback lean unchanged — "no damage pipeline of its own"
+#   is a different claim from "must never lean"; only downtowncity and AEC
+#   get the stronger guarantee the user asked for.
+# * GAC buildings drawn a grade above DG0 get `decide_gac_building`'s
+#   per-building bake if one exists at `assets/gac_quake/`; without one they
+#   are `kept` — their OWN mesh reference, never swapped to an unrelated
+#   building or a generic ruin (`destroyed` is cleared above, so the
+#   DG5-tower-ruin-swap branch in `_mono_pass` can never fire on one either)
+#   — and, like any other kept monolith, may still receive `_mono_pass`'s
+#   rigid lean / sink fallback. Unchanged from `urban_quake_v4`, pinned here
+#   by `tests/test_quake_v5_city.py`.
+# * MCE same_art originals get `decide_building`'s size-matched kit twin,
+#   using the `quake_material_tags` table above for construction type — the
+#   SAME mechanism `urban_quake_v3` established, now able to see the
+#   correct type without a bare-key pool replacement.
+#
+# ============================================================================
+# FOLLOW-UP LANDED (2026-08-31, same round): `downtown_earthquake.yaml`'s
+# ring/typology section now MIRRORS `downtown_gac.yaml`'s five rings / six
+# typologies in full (`rowhouse`/`lowrise`/`midrise`/`brick_midrise`/
+# `tower`/`highrise`), not the three (`rowhouse`/`midrise`/`tower`,
+# `rowhouse` always at mix weight 0.00) it used alone before. This was
+# originally logged here as a KNOWN LIMITATION — the coordinator's own
+# follow-up correctly overrode that call: "the entire point of the user's
+# request is that downtowncity + AEC brownstones actually appear ... so the
+# preset extension you identified is IN scope now." See
+# `config/presets/downtown_earthquake.yaml`'s own `rings:` / `typologies:`
+# comments for the full delta (what mirrors `downtown_gac.yaml` exactly —
+# `lowrise`/`brick_midrise`/`highrise`, `midrise`'s pool, `tower`'s height
+# range — and the ONE typology that deliberately did NOT change:
+# `rowhouse`'s block/height params stay the ones already measured and tuned
+# for THIS 250 m plate, a legitimate quake-specific divergence).
+#
+# CONFIRMED (region 500, `tools/layout_dry_run.py --asset-set
+# urban_quake_v5`, `_plans/eq_v5_city_dry_run.md`): downtowncity, GAC
+# (including `highrise` members — SM_Building_10/13/14/17/18/20 all placed),
+# all three MCE originals, kit, and standalone content now place together
+# in one run. `pristine_aec` specifically lives in only ONE typology
+# (`rowhouse`), drawn at only the `edge` ring's mix — whether a
+# rowhouse-ranked zoning nucleus forms AT ALL is per-seed random (Harris &
+# Ullman's multiple-nuclei model); measured over seeds 1-12 at this same
+# region/asset-set it was nonzero for 5 of 12 (this preset's own committed
+# `seed: 42` happened not to draw one at region 500) — ordinary zoning
+# variance, not a gap. `tests/test_quake_v5_city.py` pins a specific seed
+# (9) that reliably draws both downtowncity and AEC, as a deterministic
+# placement-level proof the mechanism itself works.

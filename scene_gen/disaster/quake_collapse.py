@@ -124,21 +124,50 @@ ALL_ROLES = SHELL_ROLES + ROOF_ROLES
 # units on the "main" mass's roof before any recipe runs, and hands every one
 # of them to physics UNCONDITIONALLY at the very end of `wreck_building`
 # (`_b_settle_roof_plant`) — right for a roof that survived, wrong for one
-# this family just took away: a tank with nothing under it has to fall a
-# whole storey height on gravity alone inside one settle's step budget, and a
-# body that does not make it down in time bakes frozen mid-air — "a row of
-# water tanks hovering in the sky" (round-5 review, `ne_obl.png`: a `qc_*`
-# recipe removed the roof/top storeys under them and nothing resolved it at
-# plan time). Only the modes that actually remove the roof or the top storey
-# of the mass `dress_roof` used: `elevation`/`corner` reach the parapet by
+# this family just took away. `elevation`/`corner` reach the parapet by
 # construction (`_spans_elevation` always runs to `top_i`), and `total` /
-# `pancake` take the whole shell including the roof. `soft_storey` /
-# `mid_storey` are NOT here: `_author_band` already carries the roof (and
-# whatever sits on it, via `_els`) down WITH the block above when the band
-# reaches that high, and a prop this family does not itself track is not this
-# family's plan to re-derive twice.
+# `pancake` take the whole shell including the roof: those three (plus
+# `corner`) are handled HERE, by `_sweep_roof_props`.
+#
+# ROUND 5 tried a velocity kick + the generic settle and it was NOT enough:
+# "a tank with nothing under it has to fall a whole storey height on gravity
+# alone inside one settle's step budget, and a body that does not make it
+# down in time bakes frozen mid-air" — exactly what round 6 found baked,
+# active and bolt upright, on `bld_brownstone_row_DG3.usd` (fell ~1 m of a
+# required ~3 m and froze) and on `bld_office_wide_DG4.usd` (never moved by
+# any recipe at all — see below — then only partly dropped by the same
+# generic settle). The manifest's `still_moving: 0` said "converged" for
+# both: that stat only measures whether a body moved >4 mm in the LAST
+# settle chunk, not whether it landed on anything. `_sweep_roof_props` now
+# resolves the landing GEOMETRICALLY — a points/triangle support probe under
+# the prop's own footprint (`_deck_support_z`, the `tri_soup` idiom from
+# `tools/fc_roof_deck_probe.py`) — and places it there directly, the same
+# "pure geometry, no physics dependency" contract the `total`/`pancake` bury
+# path already had.
+#
+# `soft_storey` / `mid_storey` are NOT here: `_author_band` carries the roof
+# down WITH the block above when the band reaches that high, and — as of
+# this round, for real — the roof plant with it (`ctx["roof_plant"]` /
+# `ctx["roof_fixed"]` are now in `_author_band`'s own "above" list; they used
+# to be in neither that list nor `_els`, which is what let a soft-storey
+# crush move the roof out from under a tank that never moved at all —
+# measured on `bld_office_wide_DG4.usd` above). A prop this family's OTHER
+# recipes already carry is not this family's plan to re-derive twice.
 ROOF_PROP_MODES = ("elevation", "corner", "total", "pancake")
-ROOF_PROP_FALL_V = (0.3, 0.9)      # small downward/outward kick, m/s
+# A resolved drop deeper than this share of the mass's own TOP-STOREY height
+# does not get to land bolt upright: `quake_flow._a_bury_props`'s tip/roll
+# (a random near-horizontal axis, 20-75 deg) is reused verbatim — the same
+# dressing DG5 already trusts for "the contents of a collapsed building are
+# under the rubble," not a new one invented for this path. Shallower than
+# that, the small idle tip `quake_flow._b_settle_roof_plant` already gives an
+# untouched prop (`quake_flow.B_ROOF_PLANT_TIP_DEG`) is enough — it barely
+# fell.
+ROOF_PROP_BIG_TIP_STOREY_FRAC = 0.5
+# The support probe's own slop, in metres: a candidate deck triangle up to
+# this far ABOVE a prop's current resting height still counts (authored
+# geometry interpenetrates by a few cm all over this family; see
+# `_deck_support_z`).
+ROOF_PROP_SUPPORT_MARGIN_M = 0.5
 
 # THE STAIRCASE, `fire_collapse`'s own: the share of the region's full width
 # lost at the FAILURE LINE, ramping to 1.0 at the top of the mass. 0.55 gives
@@ -655,6 +684,14 @@ def plan_collapse(ctx, mode="elevation", mass=None, side=None, corner=None,
                     {pitch_m, base_z, top_z, plates: [{storey, z, tilt_deg,
                      axis, jitter, sides, top}]}.
       roof          "kill" | "stack" | "ragged" — what happens to the roof.
+      floor_ragged  True on `elevation`/`corner` (infill or not): the exposed
+                    floor/ceiling slab along the failed side is broken by
+                    `quake_flow._ragged_slabs` rather than left a machined
+                    rectangle. False elsewhere (`crush` handles its own two
+                    slabs with `_a_slab_rim`; `total`/`pancake` break every
+                    slab into boards/a stack). `_author_one` reads this
+                    field rather than re-deriving `mode`/`infill` itself, so
+                    the plan is the one place this decision is made.
       throw         (base, top) m/s for the per-fragment outward velocity.
       budget        {"modules", "edges", "trimmed_storeys", "over_modules",
                      "over_edges"} — what was spent and what did not fit.
@@ -724,6 +761,7 @@ def plan_collapse(ctx, mode="elevation", mass=None, side=None, corner=None,
             "bury_props": False, "crush": None, "stack": None, "heaps": [],
             "region": {}, "sweep": False, "roof": "ragged", "teeth": False,
             "blind_sides": (), "extra": [], "roof_prop_fall": [],
+            "floor_ragged": False,
             "throw": (THROW_BASE, THROW_TOP)}
     plan["masses"] = [mtag]
 
@@ -910,6 +948,18 @@ def _plan_partial(ctx, plan, m, prng, mode, side, corner, from_storey,
     plan["_trimmed"] = trimmed
     plan["sweep"] = True
     plan["roof"] = "ragged"
+    # THE EXPOSED FLOOR/CEILING SLAB EDGE IS RAGGED EITHER WAY. An RC infill
+    # loss only takes the wall panel (`roles = ("wall",)` above, not the
+    # frame), but the slab that panel used to hide behind is the SAME
+    # dead-straight authored box `fit_interior` built either way, and it is
+    # the "exposed floor plates with dead-straight rectangular edges"
+    # artefact whether the opening came from an infill loss or a masonry
+    # elevation/corner failure. This used to read `not infill` and skip the
+    # break for the infill case — round-6 diagnosis (rect-cutouts review,
+    # 2026-08-31) found no reason a slab exposed behind a missing infill
+    # panel should stay a machined rectangle when the same slab exposed by a
+    # peeled masonry wall does not.
+    plan["floor_ragged"] = True
     plan["cut_z"] = float(m["levels"][s0]) - 0.4
     if infill:
         # dropped infill panels have no height to gather speed over
@@ -1646,7 +1696,14 @@ def _author_heaps(ctx, plan, m, prng):
         n += len(made)
         if plan["crush"] and plan["crush"]["storey"] > 0:
             # a collar authored in the air beside a MID-storey band must fall
-            # rather than hover (`r_soft_storey`'s own correction)
+            # rather than hover (`r_soft_storey`'s own correction) — and, same
+            # as there, the mound/apron are a world-baked mesh with no xform
+            # op, safe only as long as they stay STATIC; recentre them to a
+            # local frame before they become a loose RigidBody, or settle's
+            # kick throws them (round 7, s4g2/office_DG4 `collar_1_mound`).
+            from . import quake_rubble_usd as qru
+            qru.recentre_for_loose(ctx["stage"],
+                                   (ret.get("mound"), ret.get("apron")))
             keep = set(made)
             ctx["static_extra"] = [q for q in ctx["static_extra"]
                                    if q not in keep]
@@ -1812,13 +1869,36 @@ def _fall_fitout(ctx, plan, m, prng):
 # `prng`, so a recipe's whole random stream is identical either way (the seeds
 # are hashed from the prim path — `fracture.stable_seed`).
 CHIP_MAX_FACES = 320       # bigger than this is not one of our boxes
-_CHIP_PLANK = {"chips": (2, 5), "depth_frac": (0.03, 0.18), "ends": 0.50,
-               "rough_frac": 0.13, "warp_frac": 0.012, "twist_deg": 5.0}
-_CHIP_PRISM = {"chips": (2, 5), "depth_frac": (0.03, 0.16), "ends": 0.35,
-               "rough_frac": 0.10}
-_CHIP_SLAB = {"chips": (3, 7), "depth_frac": (0.025, 0.13), "ends": 0.0,
-              "rough_frac": 0.14}
+#
+# ROUND 6 adds `bites` (very large corner losses sized by the SECTION, not by
+# the span along the cut normal) and `gouges` (scallops taken out at a station
+# ALONG the piece). See the long note on `quake_rubble_usd._CHIP_KIND` for the
+# measurement that forced them: a plane clip can only remove material at an
+# extreme corner, so round 5 left the middle of every slender piece — and every
+# straight edge run of every plate — exactly as cast.
+_CHIP_GOUGE = {"gouge_depth": (0.07, 0.26), "gouge_big_p": 0.26,
+               "gouge_big_frac": (0.30, 0.45), "gouge_vol_frac": 0.20,
+               "gouge_budget": 760, "rough_lam_frac": 1.7,
+               "bite_frac": (0.32, 0.78),
+               "min_loss": 0.07, "max_loss": 0.36}
+_CHIP_PLANK = dict(_CHIP_GOUGE, chips=(2, 5), depth_frac=(0.03, 0.18),
+                   ends=0.50, rough_frac=0.065, bites=(1, 2), gouges=(2, 4),
+                   warp_frac=0.012, twist_deg=5.0)
+_CHIP_PRISM = dict(_CHIP_GOUGE, chips=(2, 5), depth_frac=(0.03, 0.16),
+                   ends=0.35, rough_frac=0.055, bites=(1, 2), gouges=(2, 4))
+# A SLAB IS THE STOP-SIGN CASE. Round 5 cut its four corners off and left every
+# edge between them a ruler-straight line and both decks dead flat — which is
+# the flat grey plate lying on the rubble mound in `eq500_v3/b0_apartment_DG5_
+# obl.png`. It needs its damage on the EDGE RUNS, so it gets the most gouges of
+# any kind and a bigger refinement budget to put them on.
+_CHIP_SLAB = dict(_CHIP_GOUGE, chips=(3, 7), depth_frac=(0.025, 0.13),
+                  ends=0.0, rough_frac=0.07, bites=(1, 3), gouges=(4, 6),
+                  gouge_budget=900)
 CHIP_WARP_ASPECT = 3.0     # only a genuinely long piece is bowed
+CHIP_TINY_M = 0.32         # longest dimension below this: silhouette only
+CHIP_SMALL_M = 0.85        # below this: a quarter of the gouge budget
+#                            (see `spec_for_shape` for the population counts
+#                            that make this a cost control rather than a knob)
 
 
 def _chip_ok(counts, indices, npts):
@@ -1929,6 +2009,69 @@ def _chip_prim(stage, path, spec, tessellate=False):
     pv.Set(Vt.Vec2fArray([Gf.Vec2f(float(a), float(b))
                           for a, b in qru._planar_st(nv, nf, 0.9)]))
     return True
+
+
+def spec_for_shape(size, timber=False):
+    """The `_CHIP_*` table entry a piece of these dimensions should use.
+
+    ROUND 6, and it exists because of what the census found. `fracture.
+    chip_box` is wired into exactly four emitters — `quake_rubble_usd._box`
+    (the rubble mound's large elements), the fit-out slabs a collapse drops,
+    the cells `quake_flow._break_box` leaves, and `quake_sliced`'s slabs /
+    columns / partitions. Every OTHER authored cuboid in the earthquake path
+    is emitted by `quake_flow._box` and never sees a chip: `_p_lintels`
+    (3-6 lintel / quoin / coping bars per masonry heap — the straight-edged
+    bars in the DG5 shots), `_disturb_interior`, `_c_clods`, `_c_kerb`,
+    `_c_fissures`, `_c_overturn_ground`, `_b_crumbs`, `_d_chunk`,
+    `_d_face_band`, `_shaft`, `_buckled_pavement`, `fit_interior`'s standing
+    columns and piers, `_roof_box` and `r_signage_fail`. `grep -c chip
+    quake_flow.py` is 1, and that one hit is a comment.
+
+    Wiring any of them is one line — `_chip_pieces(ctx, made,
+    spec_for_shape(size))` after the emitter's own `ctx["loose"] += made` —
+    because `_chip_prim`'s refusal ladder already rejects anything that is not
+    one of our own small, closed, UV-less boxes. This picks the table entry so
+    that call site does not have to know about the tables:
+
+      plate-like (thinnest axis under a third of the next)  -> `_CHIP_SLAB`
+      timber                                                -> `_CHIP_PLANK`
+      everything else (bars, stubs, blocks)                 -> `_CHIP_PRISM`
+
+    THE SIZE LADDER IS THE COST CONTROL, and without it this wiring is
+    unaffordable. `quake_flow`'s unchipped populations are not a handful of
+    lintels: `_disturb_interior` alone authors `W*D/100*9` litter boxes PER
+    STOREY (about 27 on a 20 x 15 m mass, so 130-190 for a seven-storey
+    building), `_b_crumbs` 5-12 per loss patch, `_c_kerb` one per 1.25 m of
+    kerb line. At the full 760-triangle gouge budget a single building would
+    pay several hundred thousand triangles and seconds of authoring time for
+    pieces that are 6-55 cm across — sub-pixel at survey altitude and already
+    reading as crumbs at contact range.
+
+    So the budget follows the piece's LONGEST dimension:
+
+      under `CHIP_TINY_M`   chips and end steps only, no gouge pass, no
+                            refinement — a 30-60 triangle piece whose
+                            SILHOUETTE is no longer a rectangle, which is all
+                            that can read at that size;
+      under `CHIP_SMALL_M`  a gouge pass on a quarter budget;
+      above it              the full table entry, unchanged.
+
+    Measured on the ladder: a 0.18 m crumb 42 triangles, a 0.45 m litter box
+    186, a 1.8 m lintel 310-714.
+    """
+    ext = sorted(abs(float(q)) for q in size)
+    if timber:
+        base = _CHIP_PLANK
+    elif ext[0] < 0.34 * max(ext[1], 1e-9):
+        base = _CHIP_SLAB
+    else:
+        base = _CHIP_PRISM
+    if ext[2] >= CHIP_SMALL_M:
+        return base
+    if ext[2] >= CHIP_TINY_M:
+        return dict(base, gouges=(1, 2), gouge_budget=max(
+            200, int(base.get("gouge_budget", 760)) // 4))
+    return dict(base, gouges=(0, 0), bites=(1, 1), rough_frac=0.0)
 
 
 def _chip_pieces(ctx, paths, spec, tessellate=False, beam=False, beam_keep=()):
@@ -2068,6 +2211,18 @@ def _author_band(ctx, plan, m, prng, snap_before_tears):
     new in `static_extra` whose world z sits at or above the band's ceiling
     belongs to the block. Leave them behind and the seam grows a row of
     fragments hanging where the storey used to be.
+
+    SO DOES THE ROOF PLANT (round-6 fix). `ctx["roof_plant"]` /
+    `ctx["roof_fixed"]` — the tanks and AC units `quake_flow.dress_roof`
+    seats on THIS mass's own roof — are in neither `_els` (structural kit
+    elements only) nor any `fit[...]` collection above, so before this fix
+    they rode NOTHING: the real roof (an `_els` element) came down in
+    `above` while the tank standing on it stayed exactly where `dress_roof`
+    put it, floating once the block below it dropped away. That is why
+    `ROOF_PROP_MODES` could leave `soft_storey`/`mid_storey` out — the claim
+    that this function already carries "whatever sits on the roof" used to
+    be false; it is asserted here and enforced by the same z-threshold test
+    every other category above uses, not merely claimed in a comment.
     """
     from pxr import UsdGeom
     fc, qf = _fc(), _qf()
@@ -2078,6 +2233,7 @@ def _author_band(ctx, plan, m, prng, snap_before_tears):
     mtag = plan["mass"]
     k, z_hi, z_lo = c["storey"], c["z_hi"], c["z_lo"]
     ox, oy = qf._outward(m, c["lean_side"])
+    xf = UsdGeom.XformCache()
 
     above = []
     for e in qf._els(ctx, mass=None):
@@ -2105,9 +2261,35 @@ def _author_band(ctx, plan, m, prng, snap_before_tears):
         if i > k or (mtag == "main" and mt != "main"):
             above.extend(props)
 
+    # THE ROOF PLANT RIDES DOWN TOO. `dress_roof` seats tanks/AC units on
+    # THIS mass's own roof (`ctx["roof_plant_mass"]`, always "main" in
+    # practice) BEFORE any recipe runs, and until this fix nothing here ever
+    # looked at them: a soft/mid-storey crush moved the real roof (it's
+    # already in `above` above, via the `role in ("roof",)` branch) out from
+    # under a tank that stayed exactly where `dress_roof` put it — measured
+    # on `bld_office_wide_DG4.usd`, roof at 22 m, tank frozen at 17.3-19.9 m
+    # (between the two lower slabs a later, unrelated physics pass dropped it
+    # to). Same z-threshold test as every other category above: this mass,
+    # at or above the crush ceiling. Anything already resolved (kicked loose
+    # or buried by `_sweep_roof_props`) is already filtered by the `in
+    # ctx["loose"]` check below, same as everything else in `above`.
+    if mtag == ctx.get("roof_plant_mass", "main"):
+        for pth in (list(ctx.get("roof_plant") or ())
+                    + list(ctx.get("roof_fixed") or ())):
+            if not pth:
+                continue
+            pr = stage.GetPrimAtPath(pth)
+            if not pr or not pr.IsValid() or not pr.IsActive():
+                continue
+            try:
+                t = xf.GetLocalToWorldTransform(pr).ExtractTranslation()
+            except Exception:
+                continue
+            if float(t[2]) >= z_hi - 0.05:
+                above.append(pth)
+
     # the new statics the tears left, split by height
     _new_lo, new_st = fc._new_since(ctx, snap_before_tears)
-    xf = UsdGeom.XformCache()
     for pth in new_st:
         pr = stage.GetPrimAtPath(pth) if pth else None
         if not pr or not pr.IsValid():
@@ -2305,6 +2487,596 @@ def roof_prop_footprint_lost(plan, m, footprint):
     return n_in * 2 > len(pts)
 
 
+# Same threshold `tools/fc_roof_deck_probe.py` uses for "is this triangle
+# part of a deck": area-weighted normal, keep the ones facing enough like
+# straight up. Shared by name so the authoring-time probe below and the
+# offline verifier (`tools/roof_plant_seat_probe.py`) can never quietly
+# drift apart on what counts as "support."
+ROOF_PROP_UP_THRESHOLD = 0.72
+
+
+def _deck_support_z(stage, root, cx, cy, half_w, half_d, z_ceiling,
+                    exclude=(), margin=ROOF_PROP_SUPPORT_MARGIN_M,
+                    up_threshold=ROOF_PROP_UP_THRESHOLD, candidates=None):
+    """The highest Z of any UPWARD-FACING triangle under a prop's own
+    footprint — the `tri_soup` idiom `tools/fc_roof_deck_probe.py` already
+    uses to answer "does the roof actually reach up there", run live against
+    the STAGE mid-authoring instead of an exported file, so a fallen prop can
+    be placed on whatever is REALLY there instead of handed a kick and a
+    step budget and hoped for (round-5's mechanism, and round-5's bug: it
+    already failed silently once — `bld_brownstone_row_DG3.usd` froze ~2 m
+    short).
+
+    `candidates` (round 8, `SETTLE_BODY_BUDGET`'s own perf fix): an OPTIONAL
+    precomputed list from `_deck_support_candidates(stage, some_root)` —
+    walks that already-built list instead of `stage.Traverse()`, skipping
+    the per-mesh world-transform and fan-triangulation this function would
+    otherwise redo on EVERY call (the expensive, QUERY-INDEPENDENT half of
+    its own work — a caller running many footprint queries against the same
+    static scope, `apply_settle_budget`'s one call per over-budget piece,
+    pays for that once instead of once per query). Every QUERY-dependent
+    test — `exclude`, the Z/XY AABB prune, `up_threshold`, `margin`, the
+    5-point containment test — still runs exactly as it does on a live
+    traversal, against the SAME precomputed per-triangle data a fresh
+    traversal would compute fresh, so the answer is byte-identical to
+    calling this function with `candidates=None` against the same stage
+    state (`test_deck_support_z_cache_is_byte_identical_to_uncached` pins
+    this). `None` (the default — every one of this function's other FOUR
+    call sites, `_sweep_roof_props` here, `_settle_foundation_roof_plant` in
+    `quake_flow`, the sliced-path roof sweep in `quake_sliced`, and `tools/
+    roof_plant_seat_probe.py`, none of which pass this) runs the ORIGINAL
+    `stage.Traverse()` loop below completely unchanged.
+
+    Every Mesh under `root` (one building's own scope, never the whole
+    stage) is a candidate; a cheap per-prim AABB prune runs first (most of a
+    fractured building is nowhere near one prop's footprint) and only
+    survivors pay for the full triangle pass. `exclude` keeps a prop from
+    reporting ANOTHER unresolved prop as its own floor.
+
+    ROUND 7: the prune's Z test is on the mesh's BOTTOM (`lo[2]`), never its
+    top. A merged GAC/kit prim can legitimately span multiple heights — a
+    coping run or a raised section elsewhere on the SAME prim sitting well
+    above a genuine deck under THIS footprint (measured on a real bake:
+    `roof_x_0_14_0271` in `gac_SM_Building_19_DG1_*.usd` spans
+    z=[68.549, 70.196], real deck triangle at 69.276) — and pruning on the
+    mesh's top threw the whole candidate out whenever ANY part of it cleared
+    the ceiling, silently returning the wrong (or no) support under exactly
+    the merged prims this idiom exists to handle correctly. Only a mesh
+    whose entire z-range sits above `z_ceiling + margin` can be ruled out
+    without reading a single triangle; the XY rectangle-overlap tests were
+    always correct and are unchanged. `quake_sliced._reseat_roof_plant`
+    faced the same shape of bug on the seat side (a "ceiling" derived from
+    the ADVERTISED seat, not the query) and dropped its ceiling test
+    entirely rather than tune the margin — not an option here, since this
+    function sweeps the WHOLE building scope per call (`tools/roof_plant_
+    seat_probe.py` sweeps every archetype file) and an unbounded triangle
+    pass over every mesh regardless of height would cost real wall-clock.
+
+    Returns the resolved Z, or `None` if nothing upward-facing is under the
+    footprint at all (a genuine hole all the way down — the caller falls
+    back to this mass's own ground, `m["z0"]`).
+    """
+    import numpy as np
+    from pxr import Usd, UsdGeom
+
+    excl = set(str(p) for p in exclude)
+
+    if candidates is not None:
+        # CACHED PATH — every candidate's world AABB / triangle arrays were
+        # already computed once by `_deck_support_candidates`; only the
+        # QUERY-dependent tests run here, on those same arrays, so this
+        # branch answers exactly what the traversal below would for the
+        # same (cx, cy, half_w, half_d, z_ceiling, margin, up_threshold).
+        best = None
+        for path, lo, hi, A, B, C, nz, tz in candidates:
+            if path in excl:
+                continue
+            if (lo[2] > z_ceiling + margin or hi[0] < cx - half_w
+                    or lo[0] > cx + half_w or hi[1] < cy - half_d
+                    or lo[1] > cy + half_d):
+                continue
+            if len(A) == 0:
+                continue
+            cand = (nz > up_threshold) & (tz <= z_ceiling + margin)
+            ci = np.nonzero(cand)[0]
+            if not len(ci):
+                continue
+            qx = (cx - half_w, cx + half_w, cx + half_w, cx - half_w, cx)
+            qy = (cy - half_d, cy - half_d, cy + half_d, cy + half_d, cy)
+            Ax, Ay = A[ci, 0], A[ci, 1]
+            Bx, By = B[ci, 0], B[ci, 1]
+            Cx, Cy = C[ci, 0], C[ci, 1]
+            hit = np.zeros(len(ci), dtype=bool)
+            for px, py in zip(qx, qy):
+                d1 = (px - Bx) * (Ay - By) - (Ax - Bx) * (py - By)
+                d2 = (px - Cx) * (By - Cy) - (Bx - Cx) * (py - Cy)
+                d3 = (px - Ax) * (Cy - Ay) - (Cx - Ax) * (py - Ay)
+                neg = (d1 < 0) | (d2 < 0) | (d3 < 0)
+                pos = (d1 > 0) | (d2 > 0) | (d3 > 0)
+                hit |= ~(neg & pos)
+            tz_hit = tz[ci][hit]
+            if len(tz_hit):
+                cbest = float(tz_hit.max())
+                if best is None or cbest > best:
+                    best = cbest
+        return best
+
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    xc = UsdGeom.XformCache(Usd.TimeCode.Default())
+    root = str(root)
+    under_root = root in ("", "/")   # the pseudo-root: every prim qualifies,
+                                     # never just the ones literally AT "/"
+    best = None
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdGeom.Mesh) or not prim.IsActive():
+            continue
+        p = str(prim.GetPath())
+        if p in excl or not (under_root or p == root or p.startswith(root + "/")):
+            continue
+        rng_ = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+        if rng_.IsEmpty():
+            continue
+        lo, hi = rng_.GetMin(), rng_.GetMax()
+        # Z-PRUNE ON THE MESH'S BOTTOM, NEVER ITS TOP. A merged prim's own
+        # AABB can span multiple heights when a coping run or raised section
+        # ELSEWHERE on the same prim sits well above a genuine deck under
+        # THIS footprint — measured on a real bake: GAC `roof_x_0_14_0271`
+        # in `gac_SM_Building_19_DG1_*.usd` spans z=[68.549, 70.196], but its
+        # real up-facing deck triangle under the query footprint is at
+        # exactly 69.276. The OLD prune (`hi[2] > z_ceiling + margin`) threw
+        # the whole mesh out whenever its TOP cleared the ceiling, even
+        # though the triangle pass below would have found the lower deck —
+        # a false "no support" (or a wrong, lower support) under exactly the
+        # merged prims this idiom exists to handle. The only thing that
+        # legitimately rules a mesh OUT is its z-range never reaching
+        # `(-inf, z_ceiling + margin]` at all, i.e. its BOTTOM is already
+        # above the ceiling: nothing inside it can then be at or below
+        # `z_ceiling`. The XY tests are an ordinary rectangle-overlap check
+        # (footprint vs. mesh AABB) and were never the bug.
+        if (lo[2] > z_ceiling + margin or hi[0] < cx - half_w
+                or lo[0] > cx + half_w or hi[1] < cy - half_d
+                or lo[1] > cy + half_d):
+            continue
+        mesh = UsdGeom.Mesh(prim)
+        pts = mesh.GetPointsAttr().Get()
+        counts = mesh.GetFaceVertexCountsAttr().Get()
+        idx = mesh.GetFaceVertexIndicesAttr().Get()
+        if not pts or not counts or not idx:
+            continue
+        M = np.array(xc.GetLocalToWorldTransform(prim), dtype=np.float64)
+        P = np.array([[q[0], q[1], q[2]] for q in pts], dtype=np.float64)
+        P = (np.hstack([P, np.ones((len(P), 1))]) @ M)[:, :3]
+        counts = np.asarray(counts)
+        idx = np.asarray(idx)
+        off = np.concatenate([[0], np.cumsum(counts)[:-1]])
+        # THE QUERY RECTANGLE, NOT THE TRIANGLE'S CENTROID, HAS TO BE THE
+        # ONE TESTED FOR CONTAINMENT. A kit slab is authored as ONE big quad
+        # (`_box`'s own shape, `_roof_box`, every floor/roof piece in this
+        # file), and a fan triangulation of a wide quad puts each triangle's
+        # centroid well off to one SIDE of the quad's own middle — a 30 m
+        # slab's two triangles centre at roughly a quarter and three-
+        # quarters along its length, never at 0. Testing "is the centroid
+        # inside the prop's small footprint" against a face many times that
+        # footprint's size is therefore never true, and every real deck
+        # silently reads as no support at all (caught by
+        # `tests/test_quake_collapse.py::test_deck_support_z_finds_a_wide_
+        # slab_not_just_its_triangle_centroid` on exactly this shape, before
+        # this fix). The other way round instead: the same 4-corners-plus-
+        # centre 5 points `roof_prop_footprint_lost` already samples a prop's
+        # OWN footprint with, tested for point-in-triangle against each
+        # candidate face — right whichever one is bigger.
+        qx = (cx - half_w, cx + half_w, cx + half_w, cx - half_w, cx)
+        qy = (cy - half_d, cy - half_d, cy + half_d, cy + half_d, cy)
+        # VECTORISED FAN TRIANGULATION (ROUND 7 PERF FIX). The Z-prune fix
+        # above legitimately keeps far more meshes as candidates now — any
+        # mesh whose BOTTOM could hold up the prop, not just ones whose
+        # WHOLE AABB happened to fit under the ceiling — including, per
+        # building, whatever single big merged/LOD proxy mesh used to be
+        # pruned out wholesale by the old (wrong) test. Measured: with the
+        # scalar per-triangle Python loop this used to be, that alone took
+        # `tools/roof_plant_seat_probe.py` from ~2.3 s/file to ~5.3 s/file
+        # on `bld_apartment_DG*` (one newly-surviving 2754-face mesh,
+        # re-walked in pure Python once per roof prop). Grouping faces by
+        # vertex count and doing the up-face + ceiling + containment test
+        # as numpy array ops instead of a Python loop per triangle per
+        # query point brings it back down — same fan order, same
+        # `up_threshold` / `margin` / point-in-triangle test as the scalar
+        # version this replaces, so WHAT counts as support is unchanged,
+        # only how fast it is computed.
+        if len(counts):
+            tri_a, tri_b, tri_c = [], [], []
+            for fn in np.unique(counts[counts >= 3]):
+                fn = int(fn)
+                face_off = off[counts == fn]
+                verts = idx[face_off[:, None] + np.arange(fn)[None, :]]
+                a_idx = verts[:, 0]
+                for k in range(1, fn - 1):
+                    tri_a.append(a_idx)
+                    tri_b.append(verts[:, k])
+                    tri_c.append(verts[:, k + 1])
+            if tri_a:
+                ta, tb, tc = (np.concatenate(g) for g in (tri_a, tri_b, tri_c))
+                A, B, C = P[ta], P[tb], P[tc]
+                nrm = np.cross(B - A, C - A)
+                ar = 0.5 * np.linalg.norm(nrm, axis=1)
+                ok = ar > 1e-9
+                nz = np.zeros(len(ar))
+                nz[ok] = nrm[ok, 2] / (2.0 * ar[ok])
+                up = ok & (nz > up_threshold)
+                tz = (A[:, 2] + B[:, 2] + C[:, 2]) / 3.0
+                cand = up & (tz <= z_ceiling + margin)
+                ci = np.nonzero(cand)[0]
+                if len(ci):
+                    Ax, Ay = A[ci, 0], A[ci, 1]
+                    Bx, By = B[ci, 0], B[ci, 1]
+                    Cx, Cy = C[ci, 0], C[ci, 1]
+                    hit = np.zeros(len(ci), dtype=bool)
+                    for px, py in zip(qx, qy):
+                        d1 = (px - Bx) * (Ay - By) - (Ax - Bx) * (py - By)
+                        d2 = (px - Cx) * (By - Cy) - (Bx - Cx) * (py - Cy)
+                        d3 = (px - Ax) * (Cy - Ay) - (Cx - Ax) * (py - Ay)
+                        neg = (d1 < 0) | (d2 < 0) | (d3 < 0)
+                        pos = (d1 > 0) | (d2 > 0) | (d3 > 0)
+                        hit |= ~(neg & pos)
+                    tz_hit = tz[ci][hit]
+                    if len(tz_hit):
+                        cbest = float(tz_hit.max())
+                        if best is None or cbest > best:
+                            best = cbest
+    return best
+
+
+def _deck_support_candidates(stage, root):
+    """Precompute `_deck_support_z`'s own per-mesh world-space triangle data
+    for every Mesh under `root`, ONCE — feed the result to that function's
+    `candidates=` parameter instead of letting it re-traverse the stage and
+    re-triangulate every mesh on every call. `apply_settle_budget` (below)
+    is the reason this exists: many footprint queries against the SAME
+    static scope, one per over-budget piece, used to each pay for a full
+    `stage.Traverse()` plus a fresh world-transform + fan-triangulation of
+    every candidate mesh — the traversal and the triangulation are exactly
+    as expensive per query as they are per stage, since neither depends on
+    the query's own (cx, cy, half_w, half_d, z_ceiling); this factors that
+    query-INDEPENDENT half out so it runs once per root instead of once per
+    piece.
+
+    Degenerate triangles (`_deck_support_z`'s own `ok = ar > 1e-9` gate) are
+    DROPPED here rather than carried through and re-masked at query time —
+    a degenerate triangle's normal is the zero vector, so `nz` (its Z/area
+    ratio) is 0 and `nz > up_threshold` can only ever be `True` for a
+    caller-supplied `up_threshold < 0`, which nothing in this codebase ever
+    passes and `_deck_support_z`'s own `up = ok & (nz > up_threshold)` rules
+    out unconditionally regardless of threshold — so dropping them here
+    changes nothing any query could ever observe.
+
+    Returns `[(path, lo, hi, A, B, C, nz, tz), ...]`:
+      `lo`/`hi`   the mesh's world AABB corners (3-tuples of float) —
+                  `_deck_support_z`'s own per-candidate prune reads these
+                  exactly the way it always has, just precomputed;
+      `A`/`B`/`C` the world-space triangle corner arrays (already
+                  transformed, already fan-triangulated);
+      `nz`        each triangle's normal-Z / (2 x area) ratio — compared
+                  against a QUERY's own `up_threshold` inside
+                  `_deck_support_z`, never baked in here;
+      `tz`        each triangle's mean world Z.
+
+    `root` is baked in at build time (a cache is only ever valid for the
+    root it was built for — `apply_settle_budget` keys its own cache dict by
+    root string for exactly this reason). `exclude` is deliberately NOT
+    baked in: it is applied fresh, per query, inside `_deck_support_z`
+    itself (a `path in excl` check against this list's own `path` field),
+    since which paths are excluded is a per-QUERY decision, not a property
+    of the candidate set.
+    """
+    import numpy as np
+    from pxr import Usd, UsdGeom
+
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    xc = UsdGeom.XformCache(Usd.TimeCode.Default())
+    root = str(root)
+    under_root = root in ("", "/")
+    out = []
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdGeom.Mesh) or not prim.IsActive():
+            continue
+        p = str(prim.GetPath())
+        if not (under_root or p == root or p.startswith(root + "/")):
+            continue
+        rng_ = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+        if rng_.IsEmpty():
+            continue
+        lo, hi = rng_.GetMin(), rng_.GetMax()
+        mesh = UsdGeom.Mesh(prim)
+        pts = mesh.GetPointsAttr().Get()
+        counts = mesh.GetFaceVertexCountsAttr().Get()
+        idx = mesh.GetFaceVertexIndicesAttr().Get()
+        if not pts or not counts or not idx:
+            continue
+        counts_a = np.asarray(counts)
+        if not len(counts_a):
+            continue
+        idx_a = np.asarray(idx)
+        off = np.concatenate([[0], np.cumsum(counts_a)[:-1]])
+        M = np.array(xc.GetLocalToWorldTransform(prim), dtype=np.float64)
+        P = np.array([[q[0], q[1], q[2]] for q in pts], dtype=np.float64)
+        P = (np.hstack([P, np.ones((len(P), 1))]) @ M)[:, :3]
+        tri_a, tri_b, tri_c = [], [], []
+        for fn in np.unique(counts_a[counts_a >= 3]):
+            fn = int(fn)
+            face_off = off[counts_a == fn]
+            verts = idx_a[face_off[:, None] + np.arange(fn)[None, :]]
+            a_idx = verts[:, 0]
+            for k in range(1, fn - 1):
+                tri_a.append(a_idx)
+                tri_b.append(verts[:, k])
+                tri_c.append(verts[:, k + 1])
+        if not tri_a:
+            continue
+        ta, tb, tc = (np.concatenate(g) for g in (tri_a, tri_b, tri_c))
+        A, B, C = P[ta], P[tb], P[tc]
+        nrm = np.cross(B - A, C - A)
+        ar = 0.5 * np.linalg.norm(nrm, axis=1)
+        ok = ar > 1e-9
+        if not np.any(ok):
+            continue
+        A, B, C = A[ok], B[ok], C[ok]
+        nz = nrm[ok, 2] / (2.0 * ar[ok])
+        tz = (A[:, 2] + B[:, 2] + C[:, 2]) / 3.0
+        out.append((p, (float(lo[0]), float(lo[1]), float(lo[2])),
+                    (float(hi[0]), float(hi[1]), float(hi[2])),
+                    A, B, C, nz, tz))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# SETTLE BODY BUDGET (round 8)
+# ---------------------------------------------------------------------------
+# User, 2026-08-31: "settle/bake the buildings lazily. 15000 bodies seems
+# like too much, you wanna place some by hand or something." Measured:
+# `bake_quake_archetypes_launch_script.py` settles one whole STYLE ROW (every
+# grade's `ctx["loose"]`, summed) in a single PhysX scene. Most rows are
+# 1-3k bodies (`apartment_tall` DG3-5: 3,144, ~322 s); `block_residential`
+# hit 18,771 and ran over 1.5 h before being killed. The reason is not a bug,
+# it is the shape: `urban_building` builds a "block" style as a MAIN mass
+# plus WINGS (`collapse_masses`'s own docstring — `block_residential` is 5
+# masses, 2,377 elements, only 181 of them on `main`; a total/pancake grade
+# sweeps every one of those masses, per `r_masonry_collapse`'s own `for mt, m
+# in info["masses"].items()`), and every per-ELEMENT wall break
+# (`quake_flow._break`/`_break_split`, 10-24 loose cells each — 10-13 for a
+# ground-storey stub's `_break_split`, 18-24 for an ordinary wall element's
+# `_break`) and every
+# per-STOREY slab break (`_break_box_like`, 30-52 plank cells per slab per
+# storey) multiplies by BOTH the mass count (5x) AND each wing's own storey
+# count (16-20 storeys vs. `apartment_tall`'s single 9-storey mass) — not by
+# a bug, by simple element-count arithmetic on a building that is really five
+# buildings' worth of wall.
+#
+# Running every one of those cells through PhysX is not what makes a
+# collapse pile READ as one: the CROWN — the bigger pieces that fell the
+# furthest and are what a review camera's eye actually lands on — is what
+# needs a believable rest angle and real non-interpenetration. A crumb
+# buried three layers deep in a heap, or a plank under forty others, needs
+# to not float and not clip through the ground; it does not need a rigid
+# body to discover that. `SETTLE_BODY_BUDGET` (env, default 3000) caps how
+# many of a row's loose pieces get one at all.
+#
+# `apply_settle_budget` is called ONCE per row, on the SAME accumulated
+# `loose` list `settle.run` is about to receive, right before that call. It
+# ranks pieces by `rank_loose_for_settle_budget` (volume x current world Z —
+# a simple "z-and-size" proxy for visual importance, per this round's own
+# brief: a piece already sitting high is one about to fall the furthest and
+# land the most visibly). The top `budget` keep physics, unchanged. Every
+# piece past it is placed GEOMETRICALLY, right here, with the SAME idioms
+# this module and `quake_flow` already trust for exactly this rather than a
+# new one invented for the occasion:
+#   - `quake_flow._a_lay_flat` (via the `_qf()` lazy import `_sweep_roof_
+#     props`/`_a_bury_props` above already use to cross this exact module
+#     boundary) for the thin-axis-up orientation + yaw jitter — the SAME
+#     "measure the piece's own LOCAL mesh points, turn the thinnest axis up"
+#     idiom the DG5 masonry heap's plates already rest on, just called with
+#     `p=1.0` so every piece in the budget's overflow gets it, not a share;
+#   - `_deck_support_z` (this file, unchanged) for the landing height under
+#     the piece's own footprint, with a caller-supplied `ground_z` fallback
+#     exactly like `_sweep_roof_props`'s own OV/TILT path a few lines below;
+#   - a small downward sink (2-6 cm) so a laid piece does not hover a
+#     hairline above its support, the same "a few cm of interpenetration"
+#     tolerance `quake_sliced._reseat_roof_plant`'s round-6c fix already
+#     accepts.
+# A piece placed this way is returned in `geometric`, never in `kept` (the
+# trimmed loose list) — the caller appends it to the row's STATIC list
+# instead, so it costs the settle nothing: no rigid body, no step budget, no
+# convergence risk, and nothing for `deactivate_airborne` to have to sweep
+# afterward either.
+#
+# BACKWARD COMPAT: `budget is None`, or `budget >= len(loose)`, is a NO-OP —
+# `apply_settle_budget` returns the SAME loose list, an empty geometric list,
+# and touches NOTHING on the stage. A bake at a budget above the actual body
+# count (or with the env unset and the default raised past every row's real
+# count) reproduces byte-for-byte. `tests/test_settle_budget.py` pins this.
+SETTLE_BODY_BUDGET_ENV = "SETTLE_BODY_BUDGET"
+SETTLE_BODY_BUDGET_DEFAULT = 3000
+# A laid piece sinks this far below its resolved support, so it reads as
+# seated rather than balanced on a knife-edge contact.
+SETTLE_BUDGET_SINK_M = (0.02, 0.06)
+
+
+def settle_body_budget(default=SETTLE_BODY_BUDGET_DEFAULT):
+    """`SETTLE_BODY_BUDGET` from the environment: unset/empty -> `default`;
+    a non-negative integer -> that many bodies; a NEGATIVE integer (`-1`) ->
+    `None`, i.e. UNLIMITED — `apply_settle_budget` is then always a no-op,
+    today's behaviour. An unparseable value falls back to `default` rather
+    than raising: a typo in a launcher's environment should not crash a bake
+    that would otherwise run fine at the default."""
+    raw = os.environ.get(SETTLE_BODY_BUDGET_ENV, "").strip()
+    if raw == "":
+        return default
+    try:
+        n = int(raw)
+    except ValueError:
+        return default
+    return None if n < 0 else n
+
+
+def _settle_budget_world_aabb(stage, path, bc):
+    """(lo_x, lo_y, lo_z, hi_x, hi_y, hi_z) world AABB of `path`, or `None`
+    if the prim is missing, inactive, or has no resolvable extent."""
+    from pxr import UsdGeom
+    pr = stage.GetPrimAtPath(path)
+    if not pr or not pr.IsValid() or not pr.IsActive():
+        return None
+    r = bc.ComputeWorldBound(pr).ComputeAlignedRange()
+    if r.IsEmpty():
+        return None
+    lo, hi = r.GetMin(), r.GetMax()
+    return (float(lo[0]), float(lo[1]), float(lo[2]),
+            float(hi[0]), float(hi[1]), float(hi[2]))
+
+
+def rank_loose_for_settle_budget(stage, paths):
+    """`paths` ranked DESCENDING by volume x current-world-Z-midpoint — the
+    "z-and-size" proxy for visual importance this round's brief calls out
+    (measuring real per-triangle surface exposure is hard; a piece already
+    sitting high in the authored (pre-settle) stack is one about to fall the
+    furthest and land the most visibly, on the crown of the pile, so height
+    at THIS point, before any physics has run, is a fair stand-in). Ties
+    broken by path string, so the order is fully determined by stage content
+    — there is no rng draw in this function at all, this is a measurement,
+    not a choice.
+
+    Returns `[(path, score), ...]`, most important first. A piece with no
+    resolvable AABB (already gone, or not a boundable prim) scores `-1.0`
+    and sorts LAST — treated as the least urgent for physics rather than
+    raising, since there is nothing to measure."""
+    from pxr import Usd, UsdGeom
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    scored = []
+    for p in paths:
+        box = _settle_budget_world_aabb(stage, p, bc)
+        if box is None:
+            scored.append((p, -1.0))
+            continue
+        lx, ly, lz, hx, hy, hz = box
+        vol = max(hx - lx, 1e-4) * max(hy - ly, 1e-4) * max(hz - lz, 1e-4)
+        z_mid = 0.5 * (lz + hz)
+        scored.append((p, vol * max(z_mid, 0.0)))
+    scored.sort(key=lambda pr: (-pr[1], pr[0]))
+    return scored
+
+
+def _settle_budget_place_geometric(stage, path, ground_z, root, rng, exclude,
+                                   candidates=None):
+    """Seat one over-budget piece geometrically: lay it flat if it is a
+    plate (`quake_flow._a_lay_flat`'s own thin-axis test decides that, not
+    this function — a chunky, non-plate piece is left in its authored
+    orientation), find its landing Z under its own footprint
+    (`_deck_support_z`, `ground_z` fallback), sink it a few cm, done — no
+    rigid body registered anywhere. Returns a small report dict (used by the
+    test suite to assert seating within tolerance), or `None` if the piece
+    could not be resolved at all — the caller leaves an unresolved piece
+    loose rather than lose its geometry.
+
+    `candidates`: passed straight through to `_deck_support_z` — see that
+    function's own `candidates` parameter and `_deck_support_candidates`.
+    `None` (the default) is the original, uncached behaviour."""
+    from pxr import Usd, UsdGeom
+    qf = _qf()
+    fake_ctx = {"stage": stage, "rng": rng}
+    qf._a_lay_flat(fake_ctx, [path], p=1.0)
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    box = _settle_budget_world_aabb(stage, path, bc)
+    if box is None:
+        return None
+    lx, ly, lz, hx, hy, hz = box
+    cx, cy = 0.5 * (lx + hx), 0.5 * (ly + hy)
+    half_w = max(0.15, (hx - lx) / 2.0)
+    half_d = max(0.15, (hy - ly) / 2.0)
+    support = _deck_support_z(stage, root, cx, cy, half_w, half_d, lz,
+                              exclude=exclude, candidates=candidates)
+    if support is None:
+        support = float(ground_z)
+    sink = rng.uniform(*SETTLE_BUDGET_SINK_M)
+    dz = (support - sink) - lz
+    qf._transform_prims(stage, [path], qf._translate(0.0, 0.0, dz))
+    return {"path": path, "support_z": support, "bottom_before": lz,
+            "bottom_after": lz + dz}
+
+
+def apply_settle_budget(stage, loose_paths, budget, root="/",
+                        ground_z=0.0, rng=None, exclude=()):
+    """Split a row's accumulated `loose_paths` into `(kept, geometric,
+    report)`.
+
+    `kept` is the `budget` most visually-important pieces (by
+    `rank_loose_for_settle_budget`) — hand this to `settle.run` exactly as
+    before. `geometric` is everything past the budget, already placed at
+    rest on the stage (support + lay-flat + sink) with NO rigid body — the
+    caller appends these to its own STATIC collider list instead (so
+    whatever stays loose still rests against them correctly) and to its
+    export list (unchanged: a geometric piece is still the same prim path,
+    just transformed in place, exactly like a piece `settle.bake` would have
+    written back). `report` is one dict per geometric piece, for tests.
+
+    A NO-OP — `(list(loose_paths), [], [])`, nothing touched on the stage —
+    whenever `budget` is `None` or already covers every piece, so a bake at
+    a high-enough budget reproduces today's export byte-for-byte.
+
+    `root` scopes each `_deck_support_z` query: either a single path
+    (applied to every piece) or a callable `path -> root_path` for a caller
+    that knows which building authored which piece (tighter scoping cuts how
+    many candidate meshes the containment test itself has to walk, though
+    `_deck_support_z`'s own stage traversal cost is unchanged either way).
+    `ground_z` is the fallback landing height when nothing is found under a
+    piece's own footprint at all (e.g. this row's shared ground plane).
+    `exclude` is extra paths never to treat as a candidate support (on top
+    of every OTHER over-budget piece in this same call, which are excluded
+    from each other unconditionally — none of them are in a final position
+    yet, the same reasoning `_sweep_roof_props` already uses for its own
+    `exclude_paths = set(fall)`).
+
+    Deterministic: `rank_loose_for_settle_budget` draws no rng at all, and
+    every jitter this function itself draws comes from the caller-supplied
+    `rng` (a `random.Random`) in the fixed ranked order — the same seed
+    against the same stage content always yields the same split and the
+    same placements.
+
+    PERFORMANCE (round 8): every `_deck_support_z` query below is run
+    against a `_deck_support_candidates` cache, keyed by `root` string and
+    built the first time each distinct root is seen in this call —
+    `stage.Traverse()` and the per-mesh world-transform/triangulation
+    happen ONCE per root, not once per over-budget piece. This is safe
+    because nothing outside `over` moves during this function (`kept`
+    pieces are untouched here — they only move later, in `settle.run`) and
+    every path IN `over` is already excluded from being its own or another
+    piece's support via `exclude_all` regardless of whether its cached
+    geometry predates a later move — see `_deck_support_candidates`'s own
+    docstring and `test_deck_support_z_cache_is_byte_identical_to_uncached`.
+    """
+    paths = list(loose_paths)
+    if budget is None or budget >= len(paths):
+        return paths, [], []
+    rng = rng if rng is not None else random.Random(0)
+    root_fn = root if callable(root) else (lambda _p: root)
+    ranked = rank_loose_for_settle_budget(stage, paths)
+    over = [p for p, _score in ranked[budget:]]
+    exclude_all = set(exclude) | set(over)
+    report, geometric = [], []
+    cand_cache = {}
+    for p in over:
+        r = root_fn(p)
+        if r not in cand_cache:
+            cand_cache[r] = _deck_support_candidates(stage, r)
+        rec = _settle_budget_place_geometric(
+            stage, p, ground_z, r, rng, exclude_all,
+            candidates=cand_cache[r])
+        if rec is None:
+            continue
+        report.append(rec)
+        geometric.append(p)
+    geo_set = set(geometric)
+    kept = [p for p in paths if p not in geo_set]
+    return kept, geometric, report
+
+
 def _sweep_roof_props(ctx, plan, m, prng):
     """Resolve every rooftop prop whose support this plan just took away —
     the fix for "a row of water tanks hovering in the sky" (round-5 review,
@@ -2312,6 +3084,23 @@ def _sweep_roof_props(ctx, plan, m, prng):
     and nothing upstream of the generic end-of-build pass
     (`quake_flow._b_settle_roof_plant`) ever asked whether their OWN roof
     survived.
+
+    ROUND 6: round 5's own fix — a small velocity kick plus
+    `ctx["loose"]`, left for the generic settle to carry the rest of the way
+    down — bakes frozen mid-air exactly as its own docstring warned it
+    might, MEASURED on `bld_brownstone_row_DG3.usd` (fell ~1 m of a required
+    ~3 m). This resolves the landing GEOMETRICALLY instead: a support probe
+    under the prop's own footprint (`_deck_support_z`), placed there as pure
+    static geometry — no rigid body, no step budget, no settle dependency —
+    the same contract the `total`/`pancake` bury path below already keeps.
+    A drop deeper than `ROOF_PROP_BIG_TIP_STOREY_FRAC` of this mass's own
+    top-storey height does NOT land bolt upright: it gets
+    `quake_flow._a_bury_props`'s own tip/roll, reused verbatim. Shallower
+    than that, it gets the small idle tip `quake_flow._b_settle_roof_plant`
+    already gives an untouched prop. Everything here draws from `prng` — the
+    per-building private generator this whole family is seeded from
+    (module docstring, "THE RNG CONTRACT") — so a rebake of the same
+    building at the same seed lands every prop in exactly the same place.
 
     `ctx["roof_plant_mass"]` is the one mass `dress_roof` ever seats plant
     on (always "main" in practice), so a wing's own total collapse — a
@@ -2321,11 +3110,10 @@ def _sweep_roof_props(ctx, plan, m, prng):
 
     Resolved paths are REMOVED from `ctx["roof_plant"]` / `ctx["roof_
     fixed"]`, which `_b_settle_roof_plant` reads FRESH after every recipe
-    has run (`wreck_building`'s own order): a path already sent to
-    `ctx["loose"]` with a deliberate kick, or already buried/deactivated,
-    must never go through that generic idle-tip-then-loose pass a second
-    time — a rigid body registered on the same prim path twice, or a
-    transform applied to a prim this call has already deactivated.
+    has run (`wreck_building`'s own order): a path this function has already
+    placed and made static must never go through that generic idle-tip-
+    then-loose pass a second time — a rigid body registered on a prim this
+    call already resolved.
 
     Returns `(n_fall, n_buried)`.
     """
@@ -2345,9 +3133,8 @@ def _sweep_roof_props(ctx, plan, m, prng):
     fc, qf = _fc(), _qf()
     stage = ctx["stage"]
     bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
-    xf = UsdGeom.XformCache()
     loose_now = set(ctx["loose"])
-    fall = []
+    fall, bbox_by_path = [], {}
     for pth in plant:
         pr = stage.GetPrimAtPath(pth)
         if not pr or not pr.IsValid() or not pr.IsActive() or pth in loose_now:
@@ -2361,6 +3148,7 @@ def _sweep_roof_props(ctx, plan, m, prng):
                     ((lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0))
         if roof_prop_footprint_lost(plan, m, footprint):
             fall.append(pth)
+            bbox_by_path[pth] = (lo, hi)
     plan["roof_prop_fall"] = list(fall)
     if not fall:
         return 0, 0
@@ -2385,22 +3173,58 @@ def _sweep_roof_props(ctx, plan, m, prng):
         qf._a_bury_props(ctx, fall, base, depth, keep=keep)
         return 0, len(fall)
 
+    # ELEVATION / CORNER: place each fallen prop on whatever is really there.
+    storey_h = max(2.5, float(m["top"]) - float(m["levels"][-1]))
+    big_drop_m = storey_h * ROOF_PROP_BIG_TIP_STOREY_FRAC
+    exclude_paths = set(fall)
+    n_placed = 0
     for pth in fall:
-        pr = stage.GetPrimAtPath(pth)
-        sd = None
-        try:
-            t = xf.GetLocalToWorldTransform(pr).ExtractTranslation()
-            lx, ly = qf._to_local(m, float(t[0]), float(t[1]))
-            sd = fc.region_side(plan, m, lx, ly)
-        except Exception:
-            pass
-        if sd is None:
-            sd = plan["sides"][0] if plan.get("sides") else "S"
-        ox, oy = qf._outward(m, sd)
-        v = prng.uniform(*ROOF_PROP_FALL_V)
-        ctx["velocity"][pth] = (ox * v, oy * v, -v)
-        ctx["loose"].append(pth)
-    return len(fall), 0
+        lo, hi = bbox_by_path[pth]
+        cx = (lo[0] + hi[0]) / 2.0
+        cy = (lo[1] + hi[1]) / 2.0
+        half_w = max(0.3, (hi[0] - lo[0]) / 2.0 * 1.15)
+        half_d = max(0.3, (hi[1] - lo[1]) / 2.0 * 1.15)
+        base_z = float(lo[2])
+        support = _deck_support_z(stage, ctx["parent"], cx, cy, half_w,
+                                  half_d, base_z, exclude=exclude_paths)
+        if support is None:
+            support = float(m["z0"])
+        drop = base_z - support
+        if drop > big_drop_m:
+            # A REAL FALL. DG5's own bury dressing, reused verbatim, not
+            # invented: it reads the prop's CURRENT (still unmoved) pivot
+            # and moves it in ONE transform straight to `support` (plus its
+            # own small upward jitter and up to 1.2 m of xy scatter — right
+            # for landing wrecked on a real floor/ground slab several
+            # metres across, same as a DG5 pile) with the 20-75 deg
+            # near-horizontal tip/roll that says "this did not stay
+            # upright." `keep=1.0`: every one of these is already resolved
+            # and placed, so none may be silently deactivated instead.
+            qf._a_bury_props(ctx, [pth], support, max(0.4, drop * 0.15), keep=1.0)
+        elif drop > 0.02:
+            # A SMALL DROP: correct the height, then the idle tip
+            # `quake_flow._b_settle_roof_plant` already gives a prop nobody
+            # kicked over — it barely fell, so it barely leans.
+            qf._transform_prims(stage, [pth], qf._translate(0.0, 0.0, support - base_z))
+            c = qf._pivot_of(ctx, pth)
+            M = qf._rot_about(c, (prng.uniform(-1, 1), prng.uniform(-1, 1), 0.0),
+                              prng.uniform(-qf.B_ROOF_PLANT_TIP_DEG,
+                                           qf.B_ROOF_PLANT_TIP_DEG))
+            qf._transform_prims(stage, [pth], M)
+            ctx["static_extra"].append(pth)
+        else:
+            # STILL SUPPORTED where it stands (this plan's region test can
+            # over-select a prop whose footprint majority is lost but whose
+            # ACTUAL rectangle still has a live cell under it) — the same
+            # idle tip, no translate needed.
+            c = qf._pivot_of(ctx, pth)
+            M = qf._rot_about(c, (prng.uniform(-1, 1), prng.uniform(-1, 1), 0.0),
+                              prng.uniform(-qf.B_ROOF_PLANT_TIP_DEG,
+                                           qf.B_ROOF_PLANT_TIP_DEG))
+            qf._transform_prims(stage, [pth], M)
+            ctx["static_extra"].append(pth)
+        n_placed += 1
+    return n_placed, 0
 
 
 def r_collapse(ctx, mode="elevation", **kw):
@@ -2496,7 +3320,7 @@ def _author_one(ctx, mode, kw):
             n_slabrim += len(qf._a_slab_rim(ctx, mtag, k, n_sides=2))
             n_slabrim += len(qf._a_slab_rim(ctx, mtag, k + 1, n_sides=2,
                                             bars=False))
-        elif plan["mode"] in ("elevation", "corner") and not plan["infill"]:
+        elif plan["floor_ragged"]:
             for sd in plan["sides"]:
                 qf._ragged_slabs(ctx, mtag, sd, set(plan["storeys"]))
                 lo_t, hi_t = plan["span"][(sd, plan["top_storey"])]

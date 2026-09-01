@@ -72,6 +72,15 @@ usds:
 then a preset with `asset-set: urban_gac`. Nothing else needs touching — roads,
 blocks, districts and furniture are unchanged.
 
+A disaster pass can need the same override for a different reason:
+`downtown_fire_500.yaml` overrides `usds.buildings.lowrise`/`midrise_v2` to
+drop every asset `kit_substitute.route()` cannot burn — `districts.
+_BurnabilityGuard` can swap at most one unburnable offender per block, so a
+pool that is mostly unburnable to begin with (the shared `urban_gac.yaml`
+pools mix burnable kit archetypes with permanently-unburnable shopfronts and
+factory sheds) starves the fire spread regardless. See `build-urban-fire-scenes`
+for the burnability table and the guard.
+
 **Check the footprints against the block targets before you run.** A block's short
 axis must exceed the largest building footprint or nothing tall can be placed at
 all; the shipped comment records exactly this, at `block_short_m: [36,46]` against
@@ -134,13 +143,49 @@ hard-won handling:
 - **not instanced by default.** Pass `instance_categories` to opt a category in.
   Instancing is opt-in because `prune_prims` deactivates sub-prims inside placed
   assets and USD forbids editing inside an instance — any category that pass
-  touches must stay un-instanced.
+  touches must stay un-instanced. A preset can opt in wholesale with
+  `instance_placements: true` (added 2026-08-31 for the 500 m fire city's
+  composition OOM — 66,590 placements of 87 unique USDs cost ~39 GB RSS
+  un-instanced and OOM-killed Kit twice); `generate_scene.py` then instances
+  every placement category not excluded by a `prune_prims` rule. If the preset
+  key doesn't survive whichever config-loading path a launcher uses,
+  `SG_INSTANCE_PLACEMENTS=1` works unconditionally as an env override.
 
 ## Traps
 
-- **Instancing a Mesh-rooted asset renders nothing.** The prims stay typed, loaded
-  and correctly bounded, so every check passes and the viewport is empty. Cost a
-  long debug on the CitySample kit.
+- **Instancing a Mesh-rooted asset used to render nothing — fixed 2026-08-31.**
+  When a referenced asset's ROOT prim is itself a Mesh, `SetInstanceable(True)`
+  puts everything the reference composes (materials, GeomSubsets, the mesh
+  itself) into the shared prototype while the drawn point stays outside it —
+  Hydra draws the prototype and the placement disappears; the identical root
+  cause on an asset whose per-face materials live as children of that same root
+  mesh instead reads as flat grey (a lit post or bench with "no texture").
+  Measured on the 500 m fire city: 14 of 110 distinct assets are gprim-rooted
+  and accounted for 161 of 1,469 placements (every streetlight and 50 of 62
+  benches among them). `apply_placements` now refuses to `SetInstanceable` any
+  placement whose composed prim `IsA(UsdGeom.Gprim)` and prints which asset it
+  skipped instead. Before trusting a newly-instanced pool, audit it with
+  `scene_gen/tools/fc_instance_material_probe.py` — it composes every asset
+  twice (plain vs. instanceable) and diffs the computed bound material of
+  every mesh, so the difference is measured, not inferred from the asset's
+  shape. Cost a long debug on the CitySample kit before this landed.
+- **`SizeResolver` falls back to a flat 30 x 20 x 24 m box for anything not
+  locally mirrored.** GAC/downtowncity are covered by checked-in caches
+  (`_plans/gac_buildings.json` / `dtc_buildings.json`); Muyang
+  (`BG_Building_*`, `SM_MERGED_BP_MBuilding*`), Dmytro (`Building_Type*`) and
+  `standalone/buildings/...` are not, and measure as `fallback_sizes.house` on
+  a host-side (no-Nucleus) build — `stepped_tower.usdc` is REALLY 65 x 78 x
+  81 m, an ~8x footprint-area error that changes which buildings a layout
+  even considers viable neighbours. `scene_gen/tools/measure_standalone_via_nucleus.py`
+  (bare `usd_python.sh`, no Kit) plus `scene_gen/tools/seed_standalone_cache.py`'s
+  checked-in `config/harvested/standalone_buildings.json` fix the SIZE.
+  They cannot make a host-side PACK match what Kit actually built — a bigger
+  real footprint can tip two buildings from clear to touching in the packer's
+  own spacing decision — so treat a host-side layout as a size source, never
+  as the layout itself: the only ground truth for what a scene contains is a
+  Kit dump (`FC_INTACT_ONLY=1 FC_DUMP=<path>` on the city launcher, ~45 s
+  headless), and any offline tool solving on top of a layout should load that
+  dump rather than rebuild the layout host-side.
 - **`docker logs isaac-sim` is empty** — read the tmux pane. See
   `run-isaac-sim-launcher`.
 - **Verify what is ON STAGE, not what was authored.** A builder returns the height

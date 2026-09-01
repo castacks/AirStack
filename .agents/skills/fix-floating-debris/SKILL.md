@@ -249,3 +249,45 @@ might be the wrong one:
   documented OOM). The affordable version is to settle the 78 ARCHETYPES, each
   in its own frame — which is what the bake already does, and what needs the
   points fix above to be trusted.
+
+---
+
+# The same blind spot recurred in `disaster/settle.py` (fire-city bakes, 2026-08-31)
+
+Independent of everything above — a different pipeline (per-building fire
+bakes, not the suburb wildfire plate), a different file — but the exact same
+mechanism, closing the loop the "Known gaps" section above predicted. Found on
+the `city_smoke43` fire-city smoke bake:
+
+`settle.py`'s below-grade audit (`_z_min`) used `UsdGeom.BBoxCache`, which is
+the AABB of a rotated shard's own local AABB and inflates DOWNWARD by up to
+1.74 m (measured p99 1.03 m / max 1.74 m on 566 gac bodies, p99 0.56 m / max
+0.70 m on 550 kit bodies). `_lift_below_grade` then hoisted 131 (gac) and 59
+(kit) bodies by that spurious amount — a repair pass MANUFACTURING floaters,
+exactly this skill's headline finding, in a completely different subsystem.
+Two more faults rode along: the final "still moving" recheck stepped only
+0.33 s and flagged anything over 12 mm/s (a body creeping in a settled pile,
+not one frozen mid-flight — 80 of 561 bodies deleted from one export for
+this alone), and the stall detector gave up the instant the moving-body count
+stopped setting a new all-time minimum, cutting a 400-step quiet phase off at
+350.
+
+**`SETTLE_REST_V2=1`** (opt-in — see `settle.py`'s own module docstring) is
+the fix: grade measured off `_points_z_min` instead of `BBoxCache`; a body
+counts as moving only if its NET travel over a rolling `creep_window` (1 cm
+`creep_tol`) exceeds the tolerance, however much it jitters inside the
+window; a stall freezes the jitterers (`rigidBodyEnabled=False`, so they keep
+holding up whatever is on them) and lets the loop keep chasing bodies that
+are genuinely still travelling; the convex-decomposition hull budget scales
+with piece size (`_scaled_decomp`) instead of one fixed budget for a 0.8 m
+chip and a 25 m sliced shell alike. Off by default — the MCE kit look is
+frozen and this switches the code path — but the fire drivers
+(`scene_gen/tools/fire_bake.sh`, `scene_gen/tools/fire_city_bake.sh`) turn it
+on for every baked record whose kind is not `kit`. `verify_export`/
+`REST_CHECK` fail a bake with `still_moving > 0`; `FB_REST_STRICT=1` makes
+that a hard failure of the driver script rather than a loud print.
+
+Same lesson as the section above, restated because it kept being true: a
+seating/rest AUDIT built on `BBoxCache` will pass a scene that is actually
+airborne, and the fix — for a shard as much as for a whole rigid body — is to
+measure the mesh's own POINTS, never its box.

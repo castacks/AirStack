@@ -84,6 +84,19 @@ WINDOW_ASPECT_RANGE = (0.2, 5.0)        # island width / height
 WINDOW_HEIGHT_RANGE_M = (0.8, 4.0)
 WINDOW_WIDTH_RANGE_M = (0.5, 8.0)
 WINDOW_FILL_MIN = 0.4                   # glazing face area / bbox area
+# A MERGED ISLAND'S BBOX IS NOT EXACTLY THE AUTHORED DIMENSION. Union-find
+# aggregates thousands of individual face bboxes (`_islands`); their extreme
+# corners carry the source mesh's own floating-point noise, so a window
+# authored at a round 4.0 x 4.0 m can merge to 4.000003 m and miss the `<=`
+# bound by a few microns (MEASURED, `tools/_gac_glass_probe_TMP.py`,
+# fire_dtc4 2026-08-31: SM_Building_26's E elevation lost 5 of its 85 real
+# islands this way — h=4.000001..4.000005 m against a hard 4.0 m ceiling,
+# every one aspect ~1.0-1.25 and fill 0.88-1.45, textbook windows in every
+# way except a sub-millimetre overshoot). `WINDOW_DIM_EPS_M` slack on both
+# height and width bounds absorbs that noise without opening the door to a
+# real curtain-wall/strip island (those overshoot by METRES, not
+# millimetres, and still fall to the STRIP_* split below).
+WINDOW_DIM_EPS_M = 0.08
 # CONTIGUOUS GLAZING IS A GRID OF BAYS, NOT "NO WINDOWS AT ALL". An island
 # the shape filter rejects for SIZE (a storey-strip window running the
 # height of the façade — dtc Building_12, z 9-27 m; a curtain wall whose
@@ -97,6 +110,58 @@ WINDOW_FILL_MIN = 0.4                   # glazing face area / bbox area
 STRIP_ROW_M = 3.2                       # bay-grid row pitch (storey-ish)
 STRIP_COL_M = 4.0                       # bay-grid column pitch
 STRIP_FILL_MIN = 0.4                    # min glazing fill to split at all
+# NEITHER SHAPE FIX ABOVE CATCHES A WALL WITH NO GLAZING FACES AT ALL.
+# `window_rects` only ever islands GEOMETRY that already matched
+# `gac_slice.is_glazing` on its texture/material name; a side (or a whole
+# building) that carries none gives `_islands` nothing to merge in the first
+# place, however loose the shape test gets. MEASURED
+# (`tools/_gac_glass_probe_TMP.py`, fire_dtc4 2026-08-31): `SM_Building_11`
+# and `SM_Building_27` have ZERO vertical faces on ANY glazing-tagged
+# material anywhere on the whole mesh — every texture on both ("...Metall...",
+# "...Marble...", "...Images_Fake_03...", "...Images_Office_Home...") misses
+# every token in `gac_slice.GLASS_TEX`, which is why `Building_27` never
+# joined the pack's other 9 known painted-glazing towers even though it is
+# named right beside them in that token list's own comment — a real gap in
+# the token list, but chasing one texture name per building is the same
+# whack-a-mole that list's history already is. And a wall can be a genuine,
+# intentional blank party wall: `SM_Building_26`'s glazing is real and only
+# on E (31488 candidate faces there, ZERO nearest-face candidates on S/N/W);
+# `SM_Building_02`'s real E-side glazing stops climbing a couple of storeys
+# short of its own roofline, so a fire planned at the top storey (a
+# mechanical/parapet floor with no windows at all) finds nothing there
+# either, even though E is a real elevation elsewhere on the same building.
+# A CALLER CAN ALSO JUST ASK FOR THE WRONG SIDE. The city bake never lets
+# `prepare` pick its own `sides` — `urban_fire_spread.entry_for_plan_fire`
+# hands them in, chosen by which NEIGHBOUR lit this building (contagion
+# geometry), never by which wall has glass — so a building whose only real
+# glazing is on E can still be told to vent on N and W.
+#
+# All three read the same downstream: `openings_provider` asked for a
+# (side, storey) inside the fire's own band that the real islands never
+# reached returns nothing, `soot_plume.plan_events` draws no events, and the
+# bake finishes as a building with a fire plan and no fire — the
+# starved-events trap, one level up. The fix here is NOT a shape test: it is
+# a synthetic bay-window grid over the MEASURED wall plane, authored only
+# for a (side, storey) the real islands leave completely empty (see
+# `_synthetic_side_rects` / `openings_provider`'s `band=` argument below), so
+# a building keeps its real windows wherever it has any and only ever
+# invents openings where there truly are none to find.
+SYN_BAY_PITCH_M = 4.0                   # centre-to-centre bay spacing
+SYN_WIN_W_M = 1.6                       # synthetic window width
+SYN_WIN_H_FRAC = 0.5                    # fraction of the storey band used
+SYN_SILL_FRAC = 0.35                    # sill height as a fraction of the band
+SYN_EDGE_MARGIN_M = 1.2                 # blank corner/pier margin per end
+#: "avoid fires at the extreme top of buildings cause a lot of them don't
+#: have windows there and it just looks weird... unless we're 100% sure
+#: about windows on the top floor" (user, 2026-08-31). A SYNTHETIC opening is
+#: never "sure" by definition — it is a plausible bay-window grid invented
+#: where the real islands found NOTHING — so the top `SYN_TOP_EXCLUDE_
+#: STOREYS` storeys of a mass (mechanical penthouse, parapet/roof-access
+#: floor, the top-floor "no real windows up there" pattern this whole
+#: mechanism exists to paper over) never get a synthetic grid at all. A
+#: building measured with REAL glazing on its top floor is untouched — this
+#: only ever gates `_synthetic_side_rects`.
+SYN_TOP_EXCLUDE_STOREYS = 2
 BAKE_PX_MIN, BAKE_PX_MAX = 1024, 2048
 # A texel is SHARED when faces more than this far apart in height both
 # sample it — the atlas tiles up the building, and a pre-slice bake would put
@@ -152,7 +217,9 @@ PACKS = {
         # USER BLACKLIST (2026-08-30): the Carved_* blocks read as the same
         # building ("B1, B3-B5 kinda all look the same ... blacklist it from
         # the pack") — never pick them for a fire row or a city pool.
-        "blacklist": ("Carved_", "Building_11"),
+        # Building_12 added 2026-08-31 (live-city review: "house_49_275/
+        # Building_12 let's blacklist this building").
+        "blacklist": ("Carved_", "Building_11", "Building_12"),
         # "cut up into triangles" (fire_dtc2 review, 2026-08-30): Building_12
         # rejects the measured grid anyway (confidence 0.46 < MIN_CONFIDENCE
         # 0.55) and falls back to `regular_grid` -- listed here too so that
@@ -553,14 +620,19 @@ def _poly_area(V):
 
 def _is_window_shaped(w, h, area):
     """Does a merged island of width `w`, height `h` and glazing face `area`
-    (m2) look like an actual window opening? See `WINDOW_*` above."""
+    (m2) look like an actual window opening? See `WINDOW_*` above.
+
+    The height/width bounds carry `WINDOW_DIM_EPS_M` of slack for the same
+    reason a merged island's dimensions are never bit-exact to the authored
+    size — see that constant's own comment."""
     if w <= 0 or h <= 0:
         return False
     aspect = w / h
     fill = area / (w * h) if w * h > 0 else 0.0
+    eps = WINDOW_DIM_EPS_M
     return (WINDOW_ASPECT_RANGE[0] <= aspect <= WINDOW_ASPECT_RANGE[1]
-            and WINDOW_HEIGHT_RANGE_M[0] <= h <= WINDOW_HEIGHT_RANGE_M[1]
-            and WINDOW_WIDTH_RANGE_M[0] <= w <= WINDOW_WIDTH_RANGE_M[1]
+            and WINDOW_HEIGHT_RANGE_M[0] - eps <= h <= WINDOW_HEIGHT_RANGE_M[1] + eps
+            and WINDOW_WIDTH_RANGE_M[0] - eps <= w <= WINDOW_WIDTH_RANGE_M[1] + eps
             and fill >= WINDOW_FILL_MIN)
 
 
@@ -781,14 +853,239 @@ def side_frame(m, side, planes=None):
     return (pl.get("W", cx - W / 2.0), cy + D / 2.0, 1.5 * math.pi, D, H, -0.02, False)
 
 
-def openings_provider(rects, m, planes=None):
+def _real_storeys_by_side(rects, m):
+    """`{side: sorted [storey indices]}` that carry at least one REAL window
+    island -- the same z -> storey classification `openings_provider`'s own
+    main loop uses to bucket a rect, factored out here so a caller can ask
+    "does this side have ANY real coverage in this storey range" (or "at
+    this one storey") WITHOUT building the whole `by` table first.
+
+    Used by `prepare`'s sides-reconciliation step (below) to (a) tell a
+    side with real glazing somewhere on the building from one with none at
+    all, and (b) find the nearest real coverage to slide the fire's origin
+    onto when the requested band misses it (fire_dtc5 review, 2026-08-31 --
+    see the block comment above `_reconcile_sides`)."""
+    levels = list(m["levels"])
+    out = {}
+    for side, rl in rects.items():
+        sts = set()
+        for (u0, u1, z0, z1) in rl:
+            zc = 0.5 * (z0 + z1)
+            st = 0
+            for i, lv in enumerate(levels):
+                if zc >= lv - 0.05:
+                    st = i
+            sts.add(st)
+        if sts:
+            out[side] = sorted(sts)
+    return out
+
+
+def _reconcile_sides(rects, sides, name=""):
+    """A compartment fire vents through openings that EXIST -- a blank wall
+    does not vent, however contagion got there. (bench review, 2026-08-31,
+    quoting the user on `gac_SM_Building_26_F5_o3_NW_s684`: "also has smoke
+    coming out of its sides that are blank rather than the windows. The
+    windows are on the long side.") `sides`, as handed to `prepare`, is
+    either explicit (the city bake: `urban_fire_spread.entry_for_plan_fire`
+    picks it by which NEIGHBOUR lit the building -- contagion geometry,
+    completely blind to which wall has glass) or this function's own
+    caller's island-count ranking (the `sides is None` bench path, which
+    already prefers real glazing but can still include a blank side to top
+    up the count). Either way `sides` can name a wall with zero real
+    islands on a building that has real glazing SOMEWHERE ELSE, and the
+    synthetic-openings fallback used to fill that blank wall in rather than
+    questioning the request -- flames and soot on a party wall while the
+    real windowed elevation stayed dark.
+
+    Returns `(venting_sides, note)`. `note` is a log line when the returned
+    sides differ from the request, `None` when they don't (an ALREADY-real
+    request, e.g. every healthy multi-sided building, is returned
+    byte-identical with no note -- this function only ever narrows or
+    substitutes, never widens with a side that was not either requested or
+    real).
+
+      * If the building has NO real glazing anywhere (`SM_Building_11`/
+        `SM_Building_27` -- painted windows this pack's texture-token list
+        does not catch), `sides` stands untouched: venting through a
+        painted-window wall is the least-wrong option, and the synthetic
+        fallback still applies to every requested side exactly as before
+        this reconciliation existed.
+      * Otherwise, any requested side that DOES carry real islands is kept,
+        in the order requested (`SM_Building_26`'s N/W request keeps
+        neither -- see below; a healthy building's request keeps every
+        side, which is what leaves it untouched).
+      * If NONE of the requested sides carry real islands (contagion's
+        whole pick is physically impossible on this building --
+        `SM_Building_26`: requested N/W, real glazing is E only), the
+        request is replaced outright with the real-glazed elevations,
+        ranked by island count ("sides are chosen by window-island
+        count"), taking as many as were originally requested.
+    """
+    ranked_real = [sd for sd in sorted(rects.keys(), key=lambda sd: -len(rects[sd]))
+                  if rects[sd]]
+    if not ranked_real:
+        return tuple(sides), None
+    kept = tuple(sd for sd in sides if sd in ranked_real)
+    if kept:
+        venting = kept
+    else:
+        venting = tuple(ranked_real[:max(1, len(sides))])
+    if venting == tuple(sides):
+        return venting, None
+    note = ("{0}: sides {1} requested by contagion -> venting {2} "
+           "(real glazing)".format(name, "/".join(sides), "/".join(venting)))
+    return venting, note
+
+
+def _nudge_origin_to_real(origin, venting_sides, real_by_side):
+    """If the ORIGIN STOREY ITSELF has no real opening on any venting side,
+    but real coverage exists somewhere at or below it, lower `origin` to
+    the nearest such storey. Returns `(origin, note)`.
+
+    WHY THE ORIGIN STOREY SPECIFICALLY. `soot_plume.plan_events`'s own
+    invariant is "the first event drawn is ALWAYS in the compartment of
+    origin, so the ladder's clean-below-origin signature is anchored to a
+    real vent" -- every level's band (F1's 1-2 storeys through F4+'s
+    origin-to-roof) starts AT the origin, so guaranteeing real coverage
+    there is enough to pull the WHOLE band onto real glazing without
+    touching `plan_fire`'s own band-width roll (which is an `rng` draw for
+    F3 and rerunning it here would desync every recipe that draws from the
+    same `rng` afterward). This only ever moves `origin` DOWN -- never past
+    0, never above what was asked -- so `plan_fire`'s own upper clamp
+    (`lo_min`, ensuring the band's MINIMUM size still fits under the roof)
+    is never at risk of being violated by a change this function makes.
+
+    A side with real glazing but no coverage ANYWHERE at or below the
+    requested origin (measured, `SM_Building_02`: E's real glazing stops a
+    couple of storeys short of the roofline, so a fire whose origin was
+    already pinned to the topmost storey has nothing below it to slide
+    onto either) is left for the synthetic-openings fallback, unchanged --
+    "prefer widening/lowering... if the level's band rules allow; else
+    fall back per today" (2026-08-31 policy)."""
+    if any(origin in real_by_side.get(sd, ()) for sd in venting_sides):
+        return origin, None
+    candidates = [st for sd in venting_sides for st in real_by_side.get(sd, ())
+                 if st <= origin]
+    if not candidates:
+        return origin, None
+    new_origin = max(candidates)
+    if new_origin == origin:
+        return origin, None
+    return new_origin, ("origin {0} -> {1} (nearest real glazing on {2})"
+                        .format(origin, new_origin, "/".join(venting_sides)))
+
+
+def max_synthetic_storey(n_levels, top_exclude=SYN_TOP_EXCLUDE_STOREYS):
+    """The highest 0-indexed storey `_synthetic_side_rects` is willing to
+    invent a window on, given `n_levels` (`len(m["levels"])`, i.e. the
+    building's own storey count) -- floored at 0 so a 1- or 2-storey
+    building (nothing left once the top `top_exclude` are cut) still gets
+    its ground floor rather than losing every synthetic opening outright."""
+    return max(0, int(n_levels) - 1 - int(top_exclude))
+
+
+def _synthetic_side_rects(m, side, storeys, top_exclude=SYN_TOP_EXCLUDE_STOREYS):
+    """A plausible bay-window grid on `side`, one row per storey in
+    `storeys` -- the fallback authored for a (side, storey)
+    `window_rects`/`_islands` found NOTHING at all for. See the block
+    comment above `SYN_BAY_PITCH_M` for why this exists instead of another
+    shape-filter tweak.
+
+    THE TOP `top_exclude` STOREYS NEVER GET A GRID (2026-08-31, "avoid fires
+    at the extreme top of buildings... unless we're 100% sure about windows
+    on the top floor") -- a synthetic opening is never "sure". `storeys`
+    entries above `max_synthetic_storey(len(m["levels"]), top_exclude)` are
+    dropped. If that empties the request entirely (a short building whose
+    whole requested band sits in the excluded top, e.g. a fire burning only
+    its top two storeys) the HIGHEST ALLOWED storey gets a grid instead of
+    the building showing nothing at all -- `note` (the second return value)
+    records that this fallback fired, `None` otherwise.
+
+    Returns `({storey: [(a0, a1, z0, z1), ...]}, note)` -- the rects already
+    in the ALONG-WALL `u` coordinate `soot_plume.side_u` counts (0 at the
+    side's own start corner, running to `side_length(m, side)`) -- the SAME
+    frame `openings_provider` converts its real, asset-frame `rects` into
+    below, so these splice straight into its `by` table with no further
+    conversion.
+
+    A window sits centred in ITS OWN storey's band (`levels[st]` to
+    `levels[st + 1]`, or `m["top"]` on the roof storey), not some
+    building-wide average floor height, so a short ground floor and a tall
+    penthouse both get a window that actually fits inside its own band."""
+    W, D = float(m["W"]), float(m["D"])
+    span = W if side in ("S", "N") else D
+    levels = list(m["levels"])
+    top = float(m["top"])
+    margin = SYN_EDGE_MARGIN_M if span > 2.0 * SYN_EDGE_MARGIN_M + 1.0 else 0.0
+    usable = max(1.0, span - 2.0 * margin)
+    n_bay = max(1, int(round(usable / SYN_BAY_PITCH_M)))
+    pitch = usable / n_bay
+    win_w = min(SYN_WIN_W_M, 0.7 * pitch)
+
+    max_st = max_synthetic_storey(len(levels), top_exclude)
+    requested = sorted({int(s) for s in storeys if 0 <= int(s) < len(levels)})
+    allowed = [st for st in requested if st <= max_st]
+    note = None
+    if requested and not allowed:
+        allowed = [max_st]
+        note = ("every requested storey ({0}) is in the excluded top "
+                "{1} of {2} -- synthesised on storey {3} instead".format(
+                    requested, top_exclude, len(levels), max_st))
+
+    out = {}
+    for st in allowed:
+        z0 = levels[st]
+        z1 = levels[st + 1] if st + 1 < len(levels) else top
+        band_h = max(0.1, z1 - z0)
+        h = min(WINDOW_HEIGHT_RANGE_M[1],
+               max(WINDOW_HEIGHT_RANGE_M[0], SYN_WIN_H_FRAC * band_h))
+        h = min(h, 0.85 * band_h)
+        zc = z0 + SYN_SILL_FRAC * band_h + 0.5 * h
+        zc = min(zc, z1 - 0.05 * band_h - 0.5 * h)
+        zc = max(zc, z0 + 0.05 * band_h + 0.5 * h)
+        rects = []
+        for i in range(n_bay):
+            uc = margin + (i + 0.5) * pitch
+            rects.append((uc - 0.5 * win_w, uc + 0.5 * win_w,
+                         zc - 0.5 * h, zc + 0.5 * h))
+        out[st] = rects
+    return out, note
+
+
+def openings_provider(rects, m, planes=None, band=None):
     """`(ctx, mass, side, storey) -> [opening records]` over the measured
     window islands: each record carries `span` (u0, u1, z_sill, z_head) in
     `soot_plume.side_u`'s convention plus the fields `_flame_sources` reads.
 
     `planes`, if given, is `window_rects`' measured `{side: plane_coord}`
     dict, forwarded to `side_frame` so every opening's `fr` sits on the real
-    façade plane instead of the mass bbox face."""
+    façade plane instead of the mass bbox face.
+
+    `band`, if given, is `(sides, storeys)` -- the fire plan's own venting
+    elevations and involved storey range (`fire["sides"]`, `fire["storeys"]`
+    in `prepare`). For any side in it whose REAL islands contribute nothing
+    across EVERY storey in that band, a synthetic bay-window grid
+    (`_synthetic_side_rects`) is authored for exactly that side's band
+    storeys and folded into the same `by` table the real islands populate --
+    see the block comment above `SYN_BAY_PITCH_M`. A side that already has
+    even one real opening somewhere in the band is left alone -- real
+    islands are never overridden, only topped up where they are completely
+    absent -- and a side outside `band` is never touched at all (`plan_fire`
+    only ever queries `fire["sides"]`, so nothing downstream can reach it).
+    `provider.synthetic_sides` records which sides needed it, for
+    `tools/_gac_starved_probe.py` and offline verification. EVERY synthetic
+    opening's own `e["synthetic"] = True` (2026-08-31, "avoid fires at the
+    extreme top of buildings... unless we're 100% sure about windows on the
+    top floor" -- `fire_bake._E_KEYS` now carries `"synthetic"`, additively,
+    so it DOES round-trip to the sidecar this time; a real opening never
+    sets the key at all, so "absent" still means "real" for every existing
+    bake). `fire_assembly_lib`'s own top-storey filter falls back to the
+    `"gac_window_synth"` vs `"gac_window"` name convention for a bake baked
+    before this field existed -- see that module's `is_synthetic_op`.
+    `provider.synthetic_notes` carries one string per side where
+    `_synthetic_side_rects`' own top-storey fallback fired (a short building
+    burning only in its excluded top storeys)."""
     W, D, cx, cy = m["W"], m["D"], m["cx"], m["cy"]
     levels = list(m["levels"])
     frames = {s: side_frame(m, s, planes) for s in ("S", "E", "N", "W")}
@@ -817,10 +1114,44 @@ def openings_provider(rects, m, planes=None):
                 "e": e, "m": m, "side": side, "storey": st, "mass": "main",
                 "span": (min(a, b), max(a, b), float(z0), float(z1))})
 
+    synthetic_sides = []
+    synthetic_notes = []
+    if band:
+        band_sides, band_storeys = band
+        band_storeys = [int(s) for s in band_storeys]
+        for side in band_sides:
+            if side not in ("S", "E", "N", "W"):
+                continue
+            if any(by.get((side, st)) for st in band_storeys):
+                continue          # at least one REAL opening in this band
+            synth, note = _synthetic_side_rects(m, side, band_storeys)
+            if not synth:
+                continue
+            synthetic_sides.append(side)
+            if note:
+                synthetic_notes.append("{0}: {1}".format(side, note))
+            for st, rl in synth.items():
+                for (a0, a1, z0, z1) in rl:
+                    e = {"mass": "main", "x": 0.5 * (a0 + a1),
+                         "y": 0.5 * (z0 + z1), "z": z0, "storey": st,
+                         "side": side, "role": "wall",
+                         "name": "gac_window_synth", "p": {}, "dead": False,
+                         "synthetic": True}
+                    by.setdefault((side, st), []).append({
+                        "fr": frames[side], "ua": a0, "ub": a1,
+                        "va": z0, "vb": z1, "hua": a0, "hub": a1,
+                        "hva": z0, "hvb": z1, "out": -0.05,
+                        "e": e, "m": m, "side": side, "storey": st,
+                        "mass": "main",
+                        "span": (min(a0, a1), max(a0, a1),
+                                float(z0), float(z1))})
+
     def provider(ctx, mtag, side, storey):
         return list(by.get((side, storey), []))
 
     provider.count = sum(len(v) for v in by.values())
+    provider.synthetic_sides = tuple(synthetic_sides)
+    provider.synthetic_notes = tuple(synthetic_notes)
     return provider
 
 
@@ -1624,16 +1955,50 @@ def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
     if sides is None:
         # THE FIRE VENTS WHERE THE WINDOWS ARE. A GAC asset carries its
         # glazing on one or two elevations and blank party walls elsewhere
-        # (`SM_Building_02`: 36 islands each on E and W, none on S/N), so a
-        # side drawn at random is a blank wall half the time and the
-        # building gets no events at all. Rank the elevations by island
-        # count and take as many as the level's plan wants.
-        ranked = sorted(rects.keys(), key=lambda sd: -len(rects[sd]))
-        ranked = [sd for sd in ranked if rects[sd]] or ["S"]
+        # (`SM_Building_02`: real glazing on E, none on S/N/W), so a side
+        # drawn at random is a blank wall half the time and the building
+        # gets no events at all. Rank the elevations by REAL island count
+        # first and take as many as the level's plan wants off the top.
+        #
+        # A BLANK SIDE IS STILL A CANDIDATE, JUST LAST. Real islands used to
+        # be the only candidates at all, with an empty `rects` collapsing to
+        # a single hardcoded `["S"]` regardless of how many sides the level
+        # wanted -- so a building with real glazing on only one elevation
+        # (or none, `SM_Building_11`/`SM_Building_27`, MEASURED: zero
+        # glazing-tagged faces anywhere on either mesh) could never get the
+        # 2-3 venting sides F3+ wants. The blank sides fill out the ring
+        # behind the real ones instead of being dropped, so `n_side` is
+        # never capped short of what the level asks for; every side past
+        # the real ones gets its openings from `openings_provider`'s
+        # synthetic fallback (`band=` below), never from here.
+        ranked_real = [sd for sd in sorted(rects.keys(), key=lambda sd: -len(rects[sd]))
+                      if rects[sd]]
+        ranked_blank = [sd for sd in ("S", "E", "N", "W") if sd not in ranked_real]
+        ranked = ranked_real + ranked_blank
         n_side = 1 if level in ("F1", "F2") else (2 if level == "F3" else
                                                   min(len(ranked), rng.randint(2, 4)))
         sides = tuple(ranked[:max(1, n_side)])
-    fire = uf.plan_fire(info, level, rng, origin=origin, sides=sides)
+    # RECONCILE THE REQUESTED SIDES AGAINST MEASURED REAL GLAZING. See
+    # `_reconcile_sides`'s own docstring. `sides` itself (the CALLER's
+    # value -- the city manifest's own `entry_side`/contagion fact) is
+    # never rewritten; only the venting sides `plan_fire` actually receives
+    # change, so `fire["sides"]` (what the sidecar and every downstream
+    # reader -- soot skin, events, people, `fire_assembly_lib`'s street
+    # bias -- consult) carries the physically-corrected answer while the
+    # manifest keeps recording what really lit the building.
+    venting_sides, note = _reconcile_sides(rects, sides, name=name)
+    if note:
+        print("[gac_fire] " + note)
+    # ...AND SLIDE A COVERED-ELSEWHERE ORIGIN ONTO ITS OWN REAL GLAZING.
+    # See `_nudge_origin_to_real`'s own docstring -- only ever lowers
+    # `origin`, only when the origin storey itself has no real opening on
+    # any venting side but one exists below it (`SM_Building_02`-style: the
+    # requested band's own storey is above where the real windows stop).
+    real_by_side = _real_storeys_by_side(rects, m)
+    origin, origin_note = _nudge_origin_to_real(origin, venting_sides, real_by_side)
+    if origin_note:
+        print("[gac_fire] {0}: {1}".format(name, origin_note))
+    fire = uf.plan_fire(info, level, rng, origin=origin, sides=venting_sides)
     # `deck_z` HAS TO RIDE ON `fire`, NOT ON `m`. `burn_building` never sees
     # this `info`/`mass` dict again -- it rebuilds its own `ctx["info"]` from
     # `quake_flow.describe(style, placements, ...)`, which measures a fresh
@@ -1658,7 +2023,22 @@ def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
     # and a plain kit `plan_fire` return never carries this key, which is
     # what keeps `urban_fire._plate`'s fallback box the kit path's only path).
     fire["footprints"] = footprints
-    provider = openings_provider(rects, m, planes=planes)
+    # THE SYNTHETIC-OPENINGS FALLBACK NEEDS THE FIRE'S OWN BAND. See the
+    # block comment above `SYN_BAY_PITCH_M` and `openings_provider`'s own
+    # docstring: a side in `fire["sides"]` that the real `rects` never put a
+    # single opening into, anywhere across `fire["storeys"]`, gets a
+    # synthetic bay-window grid instead of silently starving `plan_events`.
+    provider = openings_provider(rects, m, planes=planes,
+                                 band=(fire["sides"], fire["storeys"]))
+    # Recorded for offline verification only (`tools/_gac_starved_probe.py`)
+    # -- never reaches the sidecar; see `openings_provider`'s own docstring
+    # for why not. Every synthetic OPENING's own `e["synthetic"]` DOES reach
+    # the sidecar (`fire_bake._E_KEYS`) -- this is only the side-level
+    # summary, plus the top-storey-fallback notes, if any fired.
+    fire["synthetic_sides"] = list(provider.synthetic_sides)
+    if provider.synthetic_notes:
+        print("[gac_fire] {0}: synthetic-opening top-storey fallback: {1}"
+              .format(name, "; ".join(provider.synthetic_notes)))
     ctx0 = {"info": info, "fire": fire, "rng": rng, "tag": tag,
             "soot_openings": provider}
     events = spl.plan_events(ctx0, uf._severity)
@@ -1823,16 +2203,33 @@ def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
     # the kit's per-piece bake, with this building's own skin
     prebaked = set(str(v.GetPrim().GetPath()) for k, v in sooted.items()
                    if k not in ("_png", "_tiled") and hasattr(v, "GetPrim"))
-    # ONLY THE STOREYS SOMEBODY CAN SEE INTO GET A FIT-OUT. A GAC shell has
-    # no openings the slicer can empty — its burnt windows go to an opaque
-    # void tone — so props behind an intact façade are invisible and cost
-    # build time and prims for nothing ("on the next launch I don't want
-    # props that nobody can see", user 2026-08-30). The interior shows only
-    # where the shell is opened: through a burnt-through roof (the top
-    # three storeys, `burn_building`'s own rule) and where a collapse takes
-    # the shell away (`fire_collapse`: the top two; `partial_collapse`: the
-    # band on the lost elevation). `names`/`n_st` were computed above, before
-    # the slice, because the region cut needed them first.
+    # ONLY THE STOREYS SOMEBODY CAN SEE INTO GET A FULL FIT-OUT. `damage_
+    # windows` (below) burns every hot-side window in the fire's own storey
+    # band out to a real, see-through hole on EVERY level -- unconditional
+    # on `level`, unlike this block -- so there is always SOMETHING to back
+    # a burning building's own windows with; the recipes block further down
+    # keeps `expose_interior`'s own small, footprint-aware catch floor
+    # backing those regardless. What THIS `fit_storeys` set gates is
+    # `quake_flow.fit_interior`'s much heavier per-storey slab/column/
+    # partition/furniture GRID, laid on the mass's `W x D` bounding box --
+    # right on a kit's plain rectangle, wrong on an L-shaped or multi-tier
+    # whole-asset footprint (user, 2026-08-31, reviewing `gac_
+    # SM_Building_28_F4_o22_SEW_s219`: "this building is L shaped however,
+    # it's interior is rectangular and so it looks weird ... For building's
+    # who's insides are not gonna be shown (intact but burnt on the
+    # outside) don't have any interior") -- and costs real build time and
+    # prims for nothing when nobody can see it ("on the next launch I don't
+    # want props that nobody can see", user 2026-08-30). The grid earns its
+    # keep only where the shell is actually opened STRUCTURALLY: through a
+    # burnt-through roof (the top three storeys, `burn_building`'s own
+    # rule), where a collapse takes the shell away (`fire_collapse`: the
+    # top two; `partial_collapse`: the band on the lost elevation), or —
+    # below — where the ladder run for this exact (construction type,
+    # level) includes one of those recipes at all (`urban_fire.
+    # shows_interior`, the single computed source of truth `LADDER` itself
+    # drives; see that function's own docstring). `names`/`n_st` were
+    # computed above, before the slice, because the region cut needed them
+    # first.
     fit_storeys = set()
     if fire.get("roof") and names & {"roof_burnthrough", "fire_collapse"}:
         fit_storeys |= set(range(max(0, n_st - 3), n_st))
@@ -1870,41 +2267,44 @@ def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
                   "falling back to the whole burning band".format(exc))
             _lo = min(int(st) for st in fire["storeys"])
         fit_storeys |= set(range(_lo, n_st))
-    # THE BAND ITSELF, ON EVERY NON-COLLAPSE LEVEL, CAPPED AT FOUR STOREYS.
-    # `damage_windows` now burns a hot-side band window out to a real HOLE
-    # instead of an opaque void tone, so an F1-F4 building that never
-    # reaches the roof and never collapses used to show that hole onto
-    # NOTHING — `fit_storeys` stayed empty for every one of those levels,
-    # which stripped `gut_interior`/`expose_interior` out of the recipe list
-    # below even where `LADDER` calls for both (user review, 2026-08-30: the
-    # floor rubble the MCE kit path has never reached a GAC building).
-    # Capped, because `quake_flow.fit_interior`'s own per-storey cost (a
-    # furniture pool AND, on an `rc` frame, a full column grid, both sized
-    # off the WHOLE building footprint rather than one kit module) is not
-    # cheap on a merged asset. The LOWEST four of the band, nearest
-    # `origin`: a band tall enough to reach the roof is already covered up
-    # there by the roof/collapse rules above, so this rule's job is the part
-    # of the chimney those rules miss.
-    if level in ("F1", "F2", "F3", "F4"):
+    # THE FULL GRID, ONLY WHEN THIS (CONSTRUCTION TYPE, LEVEL)'S OWN LADDER
+    # ACTUALLY PUTS THE INTERIOR ON SHOW. Before 2026-08-31 this branch fired
+    # for every non-collapse level up to F4 unconditionally — the fix for
+    # "an F1-F4 building that never reaches the roof and never collapses
+    # used to show [damage_windows'] hole onto NOTHING" (user review,
+    # 2026-08-30) — but a full `fit_interior` grid was overkill for that:
+    # its job was only ever to give `expose_interior`'s catch floor
+    # something, and that recipe authors its own fallback plate (`_plate`,
+    # footprint-aware) with `ctx["fit"]` completely empty. `uf.shows_
+    # interior` restricts the actual GRID to levels whose ladder run
+    # reaches a burnthrough or a collapse — see the comment above
+    # `fit_storeys = set()`. The LOWEST four of the band, nearest `origin`,
+    # unchanged: a band tall enough to reach the roof is already covered up
+    # there by the roof/collapse rules above, so this rule's job is the
+    # part of the chimney those rules miss.
+    if level in ("F1", "F2", "F3", "F4") and uf.shows_interior(pre["btype"], level):
         fit_storeys |= set(sorted(int(st) for st in fire["storeys"])[:4])
-    # ...and with nothing open, `expose_interior`'s beams, catch floor and
-    # floor rubble "behind the openings" are behind opaque glass too: run
-    # the ladder without it (a recipe LIST is what `burn_building` takes in
-    # place of a level name; the fire plan itself is handed in as `fire=`)
+    # EXPOSE_INTERIOR'S OWN CATCH FLOOR BACKS `damage_windows`' REAL HOLES ON
+    # EVERY LEVEL, GRID OR NO GRID. `damage_windows` (below) burns a
+    # hot-side band window out to a real, see-through hole regardless of
+    # `level` — there is always something behind a burning building's own
+    # windows to back, even on a level whose ladder never reaches a
+    # burnthrough or a collapse (`fit_storeys` above may be empty for
+    # exactly that reason now). `r_gut_interior`/`r_expose_interior` both
+    # degrade cleanly to `ctx["fit"]` being empty — the former reports "0
+    # consumed" and does nothing, the latter still authors its one
+    # footprint-aware catch floor + rubble scatter at the top of the band
+    # (`_plate`, never `fit_interior`'s bounding-box grid) — so keeping both
+    # in the recipe list unconditionally costs nothing extra on a shell
+    # that otherwise stays closed (a recipe LIST is what `burn_building`
+    # takes in place of a level name; the fire plan itself is handed in as
+    # `fire=`).
     recipes = list(uf.LADDER.get(pre["btype"], {}).get(level, []))
-    if not fit_storeys:
-        recipes = [(n, kw) for n, kw in recipes
-                   if n not in ("expose_interior", "gut_interior")]
-    elif level in ("F1", "F2", "F3", "F4"):
-        # F1's OWN LADDER HAS NEITHER RECIPE (a kit F1 is smoke damage over
-        # an intact façade — nothing to see behind it). The GAC F1 band now
-        # sees behind its glazing too, so top them up here rather than in
-        # the shared `LADDER`, which the kit path stays frozen against.
-        have = set(n for n, _kw in recipes)
-        if "gut_interior" not in have:
-            recipes = recipes + [("gut_interior", {"frac": 0.4})]
-        if "expose_interior" not in have:
-            recipes = recipes + [("expose_interior", {})]
+    have = set(n for n, _kw in recipes)
+    if "gut_interior" not in have:
+        recipes = recipes + [("gut_interior", {"frac": 0.4})]
+    if "expose_interior" not in have:
+        recipes = recipes + [("expose_interior", {})]
     ctx = uf.burn_building(stage, cell, style, pls, 0.0, 0.0, 0.0, recipes, rng,
                            nrng, mats, tag, flow_root=flow_root,
                            origin=fire["origin"], sides=fire["sides"],
@@ -1921,9 +2321,13 @@ def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
                   "skin": pre["skin"]}
     ctx["notes"].append("gac: {0} piece(s), {1} sooted atlas(es), {2} subset(s) "
                         "rebound, {3} window(s) burnt out / crazed on the band, "
-                        "fit-out on {4} storey(s) ({5})"
+                        "full fit-out grid on {4} storey(s) ({5})"
                         .format(len(pls), n_atlas, n_rebound, n_glass,
                                 len(fit_storeys),
                                 "visible through the roof / collapse" if fit_storeys
-                                else "nothing is open, none authored"))
+                                else "shell stays closed — {0} {1} never "
+                                     "reaches a burnthrough/collapse; "
+                                     "expose_interior's own catch floor "
+                                     "still backs the band's real-hole "
+                                     "windows".format(pre["btype"], level)))
     return ctx

@@ -303,6 +303,47 @@ def _interior_seats(stage, ctx, rng, top_z, budget=None):
         out.append({"x": float(wx), "y": float(wy), "z": float(z),
                     "radius": 1.1, "scale": 1.1 * (0.6 + 0.6 * sev),
                     "mass": mtag, "storey": storey, "sev": sev})
+    if not fit.get("slabs") and f.get("storeys"):
+        # NO SLAB TO SEAT ON — but NOT "nothing was hot enough" (that case,
+        # a grid that WAS authored but had nothing above the severity
+        # floor, is unchanged: it still returns the empty list `out`
+        # already is here). This is the documented shape of a shell that
+        # stays closed (`gac_fire.burn_gac`/`urban_fire.shows_interior`
+        # skip `quake_flow.fit_interior`'s grid outright for a
+        # (construction type, level) whose ladder never reaches a
+        # burnthrough or a collapse), so there is no slab in `fit` at all
+        # to pick from, hot or not.
+        #
+        # A MASS-CENTRE FALLBACK, NOT A SKIP: `fire_assembly_lib.
+        # author_fire`'s own "last resort" branch (`if not is_flame or
+        # (n_flame == 0 and n_smoke == 0)`) reads `seats["interior"]` as ITS
+        # OWN ONLY smoke source for exactly this case — an F1 building has
+        # no `ACTIVE` flame state at all, so it hits that branch on EVERY
+        # bake, and any other level whose flame/side-smoke pick happens to
+        # come up empty hits it too. An empty seat list here would leave
+        # such a building showing NOTHING — indistinguishable from a fire
+        # that never ran, the exact "invisible fire" failure mode the event-
+        # starvation fix (`gac_fire.prepare`'s `openings_provider`) already
+        # exists to prevent one level up. One seat at the fire's own mass
+        # centre, at the middle storey of the burning band, is enough to
+        # read as smoke coming from inside the building without pretending
+        # a slab is there to stand on.
+        mtag = f.get("mass") or "main"
+        m = ctx["info"]["masses"].get(mtag) or ctx["info"]["masses"]["main"]
+        storeys = sorted(int(s) for s in f["storeys"])
+        storey = storeys[len(storeys) // 2]
+        z = m["levels"][min(storey, len(m["levels"]) - 1)] + 0.4
+        if top_z is not None:
+            z = min(z, float(top_z) - 0.5)
+        out.append({"x": float(m["cx"]), "y": float(m["cy"]), "z": float(z),
+                    "radius": 1.0, "scale": 0.9, "mass": mtag,
+                    "storey": storey, "sev": 0.3, "fallback": "mass_centre"})
+        print("[fb] interior seats: 0 from the fit-out grid (shell stays "
+              "closed for this level, no slab authored) -- 1 mass-centre "
+              "fallback seat added so the building still shows interior "
+              "smoke")
+    elif not out:
+        print("[fb] interior seats: 0 (no fire band at all)")
     return out
 
 

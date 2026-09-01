@@ -95,6 +95,24 @@ services:
       # uses the same transports; a LARGE_DATA participant and a default
       # (UDP) participant in different containers share no data channel.
       - FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
+    # FILE DESCRIPTOR LIMIT. The container default SOFT limit is 1024 while the
+    # hard limit is already 524288, so raising it costs nothing. Fast DDS spends
+    # descriptors per SHM port, per segment and per endpoint, and when a
+    # participant runs out, port creation fails with
+    #     [RTPS_TRANSPORT_SHM Error] Failed init_port fastrtps_portNNNN:
+    #     open_and_lock_file failed -> Function open_port_internal
+    # which is what stalled ONE arbitrary robot mid-mavros-init on four
+    # consecutive runs (robot_2, _6, _1, _1): its mavros initialised every
+    # plugin, registered no ROS node, sat at 0.3 % CPU and never saw a
+    # HEARTBEAT, so the readiness gate timed out at 2400 s. Isaac Sim raises its
+    # own limit for the same reason and logs it:
+    #     "The expected number of used file descriptors (2450) exceeds the
+    #      current system limit (1024). Attempting to set the system limit"
+    # Verified 2026-08-31: the signature disappeared entirely after this change.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 524288
     volumes:
       # shared /dev/shm: required for Fast DDS shared-memory transport
       # across containers (see common/fastdds.xml)

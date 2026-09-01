@@ -6,7 +6,7 @@ Everything a post-surge scene needs to LOOK like standing and receding
 floodwater, authored once as STATIC geometry with a material that reads
 right from 30-120 m: an inundation VOLUME (a real, closed mesh with
 thickness — see "THE WATER VOLUME" below; a flat quad only behind
-`SURGE_FLAT_WATER=1`), isolated ponding, silt/wrack/washover deposits.
+the DEFAULT since the 2026-08-31 revert), isolated ponding, silt/wrack/washover deposits.
 NOTHING here runs a fluid solver, NOTHING here is a physics body, and
 NOTHING here animates. That is a constraint from the user, verbatim (see
 `_plans/hurricane_water.md`): *"we don't need fluid simulations, we just need
@@ -120,7 +120,9 @@ stretching a mask once across the plate. Floodwater did not need a tiled
 diffuse — its colour is nearly uniform past 30-50 cm (S2.2) — so `alpha_map`
 rendered `depth_at` straight into ONE stretched opacity raster with a
 feathered edge, cut into a single flat quad spanning the WHOLE plate. That
-is `_build_inundation_flat` below now — kept as a `SURGE_FLAT_WATER=1`
+is `_build_inundation_flat` below now — and is the DEFAULT again; the
+volume is opt-in behind `SURGE_WATER_VOLUME=1` (see
+`_use_legacy_flat_water`). It was kept as an
 escape hatch, not the default. It has two problems the alpha map alone
 cannot fix, both named verbatim by the user: *"the water looks like a
 floating rectangle prim with like no width"* (a flat quad IS zero-width,
@@ -208,11 +210,11 @@ WHY THE SWAMP-WATER TEXTURE NEEDED THE OPACITY OFF THE BASE TEXTURE SLOT
 read it (module docstring precedent above, and `_plans/hurricane_water.md`
 S1.3.4/S3.7). The OLD `alpha_map` route needed that ONE slot stretched
 `1/span` across the whole plate — a non-repeating cutout mask has to cover
-the region exactly once. `WATER_DIFFUSE_TEXTURE` (S3's "surface variation"
-ask) wants the OPPOSITE: a small, REPEATING tile (`_WATER_DIFFUSE_REPEATS_
-PER_M`, one 20 m tile) so sediment streaks and scum read as texture up close
-rather than one smeared photo stretched over 500 m. Both cannot own the same
-`texture_scale` at once. Moving opacity OFF the base texture slot entirely —
+the region exactly once. A repeating surface-variation tile wants the
+OPPOSITE: a small tile so detail reads up close rather than one smeared
+photo stretched over 500 m. Both cannot own the same `texture_scale` at
+once. (The water body no longer binds a diffuse map at all — see
+`water_materials` — but the ponds do, and the constraint is the same one.) Moving opacity OFF the base texture slot entirely —
 onto a small set of pre-authored per-band `opacity_constant` materials
 (above) — is what frees `texture_scale` for the diffuse tile alone. The
 CLEARCOAT's ripple normal was always independent of this (its own
@@ -404,6 +406,69 @@ WATER_ORM_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
 # conflict this sidesteps.
 _WATER_DIFFUSE_REPEATS_PER_M = 0.05
 
+# WET SILT — the STREAM-W fix for "the wet dirt mounds/deposits look like
+# painted blobs wearing a photograph of dry cracked earth"
+# (`.agents/skills/build-hurricane-scenes/SESSION_2026-08-31.md` review).
+# `SILT_TEXTURE`/`WATER_DIFFUSE_TEXTURE` above are a photograph of DRY,
+# cracked earth — right for silt that has had days to dry out away from the
+# water, wrong for the pond bed, the water volume's own submerged bed, and
+# silt still inside the WET BAND at the current waterline (`_DEPOSIT_WET_
+# BAND_M` below), which should read dark, saturated, glossy and smooth.
+#
+# No dedicated wet-mud/wet-clay/river-silt Megascans pack exists in this
+# repo, and `tools/import_megascans.py` only converts a zip ALREADY sitting
+# in `~/Downloads` — it fetches nothing over the network and needs no
+# credentials, so there was simply no zip to convert here. DERIVED instead
+# from `SILT_TEXTURE`'s own source photograph (Soil_Mud/T_pjuph20_2K_*):
+# local diffuse contrast flattened 45% toward the map's own mean (spatial
+# luma std down to ~48% of the source — the crack PATTERN itself reads much
+# less prominently, "cracks only after days"), HSV saturation raised 0.531
+# -> 0.633 (a linear-light chroma boost — see `Soil_Mud_Wet.usda`'s own
+# comment for why blending toward the brief's literal (0.11,0.08,0.05)
+# anchor would have LOWERED saturation for this particular photo, which is
+# already more saturated in ratio terms than that anchor), overall linear
+# albedo mean renormalised to 0.050 (sourced 0.04-0.06 range), the normal
+# flattened 65% toward flat (mean Z-component 0.829 -> 0.980: "smooth at the
+# surface"), and the ORM's roughness (G) channel rewritten to ~0.18 (sourced
+# 0.12-0.25 range). Same `_B`/`_N`/`_ORM` naming convention as every other
+# imported pack. See `Soil_Mud_Wet.usda`'s header comment for the numbers in
+# one place, and the derivation script's own report for how they were made.
+WET_SILT_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
+                    "Soil_Mud_Wet/T_pjuph20wet_2K_B.png")
+WET_SILT_NORMAL_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
+                          "Soil_Mud_Wet/T_pjuph20wet_2K_N.png")
+WET_SILT_ORM_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
+                       "Soil_Mud_Wet/T_pjuph20wet_2K_ORM.png")
+# Mean LINEAR luminance of `WET_SILT_TEXTURE`, measured off the derived file
+# the same way `_WATER_TEX_MEAN_LINEAR`/`_MUD_TEX_MEAN_LINEAR` were —
+# `_dry_material`'s `tex_mean_linear` parameter exists exactly so a texture
+# other than `SILT_TEXTURE` does not silently reuse `_MUD_TEX_MEAN_LINEAR`
+# (see that parameter's own docstring for what using the wrong one did to
+# `WASHOVER_TEXTURE`).
+_WET_SILT_TEX_MEAN_LINEAR = 0.050
+# Repeats-per-metre for every WET_SILT_TEXTURE bind on a pond (core, rim,
+# mud base) -- STREAM-W2 (the "flat interior polygon" review, verbatim: "the
+# texture on the interior polygon part can be the muddy soil texture").
+#
+# The prior value was the `_make`/`_dry_material` DEFAULT (1.0 rep/m, a 1 m
+# tile), never set explicitly at any of the four pond call sites below or at
+# `build_ponding`'s own `mud_mat`. A 1 m tile is on the small side for a
+# pond up to 3.5 m in radius (`pond_radius_m`, `DEFAULTS`) seen from a
+# 22-475 m review-camera height (module docstring) -- fine detail that thin
+# aliases/moires at altitude long before it adds anything close-up. 0.22
+# rep/m puts one tile across ~4.5 m, inside the requested 2-6 m band and
+# close to `water_mud`'s own 0.5 rep/m (2 m tile, already in-band, left
+# alone -- that bed sits under the deep-water body, not a pond).
+_POND_MUD_REPEATS_PER_M = 0.22
+# How close to the CURRENT waterline (`_signed_depth_point`, unclamped —
+# NOT `depth_at`'s clamped output, same reason every other hump in this file
+# uses the signed form) a deposit has to sit to read as freshly WET rather
+# than as ageing/drying silt. TUNED, NOT SOURCED: the brief's own number
+# ("darken deposits within ~2 m of the waterline"). Consumed by
+# `build_deposits` (wrack/washover material selection) and by the launcher's
+# WET GROUND block (the silt overlay's wet-vs-dry material split).
+_DEPOSIT_WET_BAND_M = 2.0
+
 
 # ---------------------------------------------------------------------------
 # defaults and knobs
@@ -471,9 +536,19 @@ DEFAULTS = {
     # spreads that ramp across most of the plate's real depths, which top out
     # near 2.9 m. Still floodwater, still opaque where it is deep, but the
     # gradient is legible — which is the whole point of giving the water
-    # thickness instead of painting it on. Push it back toward 0.35 with
-    # SURGE_OPAQUE_M for a muddier storm.
-    "d_opaque_m": 0.90,
+    # thickness instead of painting it on.
+    #
+    # BACK TO 0.35, 2026-08-31. 0.90 was chosen to make the depth ramp
+    # legible from altitude, and it does — but it also keeps most of the
+    # flood thin enough to see the bed through, and on FLAT_L2 that read as
+    # a pale film with no waterline rather than as a flood. FINAL_L2, the
+    # plate reviewed as the best of the set, was 0.35. Legible depth grading
+    # is worth less than the flood reading as water at all, and the volume
+    # still earns its keep at 0.35: real thickness at the shoreline, a
+    # ragged waterline from geometry instead of a raster, and the whole
+    # 0-35 cm fringe — which is where the shoreline actually is — graded.
+    # Raise it with SURGE_OPAQUE_M for a clearer storm.
+    "d_opaque_m": 0.35,
     "alpha_gamma": 0.7,     # S3.0 L1 alpha formula
     "alpha_px": 2048,       # raised from the original 512 after a review
                             # called the shoreline a "visibly stepped edge" —
@@ -486,7 +561,7 @@ DEFAULTS = {
                             # run pays for, not just a final export -- pass a
                             # larger `n` to `alpha_map`/`build_inundation`
                             # for a full production bake. Only consumed by
-                            # the LEGACY flat quad (`SURGE_FLAT_WATER=1`) and
+                            # the DEFAULT flat quad and
                             # by `pond_specs`' "already opaque, skip" gate —
                             # the default volumetric `build_inundation` does
                             # not rasterise an alpha map at all (see
@@ -522,6 +597,14 @@ DEFAULTS = {
     "pond_base_per_100m2": 0.15,
     "pond_edge_boost_per_100m2": 1.2,
     "pond_radius_m": (0.6, 3.5),
+    # How far PAST the core disc the fading rim ring extends, in METRES —
+    # additive, not the old `_POND_RIM_GROW` RATIO. A ratio feathers a small
+    # pond (0.6 m) by centimetres and a big one (3.5 m) by most of a metre,
+    # which is backwards: the review asking for a soft edge ("flat
+    # untextured tan polygons... cartoon cut-outs") is about how the outline
+    # reads at ANY size. TUNED, NOT SOURCED: the brief's own "feather every
+    # deposit/pond edge over 0.5-1.0 m" range; 0.7 m is its midpoint.
+    "pond_rim_feather_m": 0.7,
 
     # -- L4b wrack windrows -- TUNED, NOT SOURCED for the rates; the
     # geometry itself reuses `scour_relief._ridge_spec` verbatim (S3.0 L4b) --
@@ -804,6 +887,32 @@ def _signed_depth_point(cfg, x, y):
     IDENTICALLY ZERO", which the clamped version cannot deliver.
     """
     return water_level(cfg) - _ground_z_point(cfg, float(x), float(y))
+
+
+def signed_depth_at(cfg, region, rng):
+    """PUBLIC `(x, y) -> UNCLAMPED signed depth (m)` — the same construction
+    as `depth_at`, but returning `_signed_depth_point`'s signed value instead
+    of clamping at 0. Exposed (not underscore-prefixed) because the
+    launcher's WET GROUND block needs it from OUTSIDE this module, to split
+    `silt_coverage` into a WET-band pass (`WET_SILT_TEXTURE`, close to the
+    current waterline) and a DRY inland pass (`SILT_TEXTURE`, the aged look,
+    further from it) — see `_DEPOSIT_WET_BAND_M` and the module's WET SILT
+    comment block. Every other caller inside this file goes straight to
+    `_signed_depth_point`; this wrapper exists for the cross-module use, not
+    to replace that.
+
+    `region`/`rng` are accepted, validated and NOT otherwise consulted — same
+    contract as `ground_z`/`depth_at` (the module docstring's "WHY `house_
+    water_state` HAS NO `region` ARGUMENT" applies here identically: the
+    terrain is evaluable at any point without a bound region).
+    """
+    kn = resolve_cfg(cfg)
+    _bounds(region)
+
+    def f(x, y):
+        return _signed_depth_point(kn, float(x), float(y))
+
+    return f
 
 
 def coverage(cfg, region, rng, n=96):
@@ -1205,7 +1314,7 @@ def silt_coverage(cfg, region, rng, gamma=0.85, islands=0.05):
     return coverage_at
 
 
-def review_points(cfg, region):
+def review_points(cfg, region, edge_margin_m=70.0):
     """2-4 world points `{name: (x, y)}` for a review camera, chosen along
     the WATER GRADIENT rather than along a track — there is no track here.
 
@@ -1215,9 +1324,28 @@ def review_points(cfg, region):
     (dropped if the plate is entirely dry). `"dry_inland"` is the driest
     (highest-`ground_z`) point. No `rng` — deterministic in `cfg`/`region`
     alone, sampled on a modest lattice (cheap: `48*48` `depth_at` calls).
+
+    `edge_margin_m` INSETS that lattice from every side of `region` before
+    the shore/deep/dry search runs. `_ground_z_point` is a near-monotonic
+    slope (plus band-limited relief) along `shore_bearing_deg`, so its
+    extremes — exactly what "deepest" and "driest" hunt for — sit ON the
+    plate's boundary by construction, and `depth_at`'s own "partly-opaque
+    depth" contour can run along an edge too when the shore runs close to
+    parallel with it. A review camera whose oblique looks toward a subject
+    sitting on the plate's cut edge frames the finite terrain slab's own
+    edge hanging over the background HDRI ground instead of any of the
+    disaster — the defect this margin exists to rule out at the SOURCE,
+    before any camera geometry runs (`snapshots_rp`'s `_clear_azimuth`/
+    `_cap_oblique_range` are the second line of defence, for subjects this
+    module does not choose, e.g. a specific damaged house). Capped at 49% of
+    each half-extent so a small `region` cannot invert the search bounds.
     """
     kn = resolve_cfg(cfg)
     x0, y0, x1, y1 = _bounds(region)
+    m = max(0.0, float(edge_margin_m))
+    mx = min(m, 0.49 * (x1 - x0))
+    my = min(m, 0.49 * (y1 - y0))
+    sx0, sy0, sx1, sy1 = x0 + mx, y0 + my, x1 - mx, y1 - my
     n = 48
     depth_fn = depth_at(kn, region, None)
     target = 0.5 * float(kn["d_opaque_m"])
@@ -1226,9 +1354,9 @@ def review_points(cfg, region):
     best_deep, deep_d = None, -1.0
     best_dry, dry_d = None, float("inf")
     for j in range(n):
-        y = y0 + (j + 0.5) * (y1 - y0) / n
+        y = sy0 + (j + 0.5) * (sy1 - sy0) / n
         for i in range(n):
-            x = x0 + (i + 0.5) * (x1 - x0) / n
+            x = sx0 + (i + 0.5) * (sx1 - sx0) / n
             d = depth_fn(x, y)
             err = abs(d - target)
             if err < shore_err:
@@ -1712,7 +1840,40 @@ _PALETTE = {
     # clean-sand/carbonate coast; still OPAQUE, grey-green -- "there is
     # deliberately no blue option" (S3.7)
     "carbonate": (0.105, 0.115, 0.098),
+    # BLUE, ADDED for the STREAM-W A/B ask ("a matched A/B at the end --
+    # brown (today's default) vs BLUE water"), overriding S3.7's "no blue
+    # option" deliberately and only as an OPT-IN comparison variant, never
+    # the default: a clear coastal look at low turbidity, sediment colour
+    # ~(0.05, 0.12, 0.16) linear -- a real, if less common, storm-surge
+    # colour (clean-sand/carbonate inlets under a clear sky, as opposed to
+    # this file's default turbid-mud Gulf/Atlantic sourcing). Selected ONLY
+    # by `SURGE_PALETTE=blue`; everything else about the water material
+    # (clearcoat/ripple/opacity bands) is untouched -- see `water_materials`
+    # for why ponds/deposits do NOT follow this (they use their own fixed
+    # mud `rgb`, never the water body's palette).
+    "blue": (0.05, 0.12, 0.16),
 }
+
+
+# The water BODY's clearcoat strength.
+#
+# BACK TO 1.0 WITH THE REVERT (see `_use_legacy_flat_water`): the flat quad
+# is the default now, it has always used the full-weight coat, and that is
+# the plate that was chosen.
+#
+# 0.30 IS STILL THE RIGHT NUMBER FOR THE VOLUME, and is left recorded here
+# rather than deleted, because it was measured rather than guessed: with the
+# volume on, flooded pixels rendered RGB (172, 163, 153) -- a flat,
+# colourless +65 on every channel over the mud bed beneath, when the
+# sediment albedo should land near (108, 90, 70). That is the coat
+# integrating the whole sky dome as an ambient add, and it is what made the
+# flood read as a sand flat. Dropping it to 0.30 moved the water to
+# (157, 144, 130) and flipped the overview's water-vs-dry contrast from
+# +11.4 to -10.6.
+#
+# So: anyone turning `SURGE_WATER_VOLUME=1` back on should set this to 0.30
+# first, or they will re-find that washout from scratch.
+_BODY_COAT_WEIGHT = 1.0
 
 
 def water_materials(stage, parent_path, suffix=""):
@@ -1722,7 +1883,7 @@ def water_materials(stage, parent_path, suffix=""):
     "pond_unpaved": mat, "pond_paved": mat, "pond_unpaved_rim": mat,
     "pond_paved_rim": mat}`.
 
-    `"inundation"` (kept for the LEGACY flat quad, `SURGE_FLAT_WATER=1` —
+    `"inundation"` (the DEFAULT flat quad —
     see `_build_inundation_flat`) is left WITHOUT `opacity_constant`/
     `opacity_texture` set — that legacy path adds those once it knows the
     region-specific alpha map and world-projection scale, exactly as
@@ -1737,11 +1898,19 @@ def water_materials(stage, parent_path, suffix=""):
     the module docstring's "THE WATER VOLUME" for why this is a set of
     pre-authored materials rather than a texture, and `build_inundation` for
     how a triangle's Beer-Lambert alpha picks which one of these it binds
-    to. Unlike the legacy `"inundation"`, these carry `WATER_DIFFUSE_TEXTURE`
-    (the Swamp_Water surface-variation map) as their diffuse, tinted by the
-    same sediment `rgb` — safe to tile at its own small `texture_scale` now
-    that opacity does not also need that slot (module docstring, "WHY THE
-    SWAMP-WATER TEXTURE NEEDED THE OPACITY OFF THE BASE TEXTURE SLOT").
+    to. They carry NO diffuse texture — like the legacy `"inundation"`, and
+    for the reason written out at the band list itself: a mud photograph on
+    an opaque water surface renders as a field of dirt. Their variation is
+    the sediment `rgb` under a Fresnel coat, the `ripple_png` clearcoat
+    normal, and the per-band opacity. `WATER_DIFFUSE_TEXTURE`/
+    `_WATER_DIFFUSE_REPEATS_PER_M` are no longer bound anywhere in this
+    function either — the STREAM-W wet-mounds fix moved the pond bed onto
+    `WET_SILT_TEXTURE` (the same photograph, DERIVED darker/smoother/glossier
+    — see the module's WET SILT comment block, "silt that has had days to
+    dry out" is the wrong look for standing water). Both constants are kept
+    for the `_tex_mean` luminance-normalisation lookup and as the DRY inland
+    silt look the launcher's WET GROUND block still binds directly (not
+    through this function) further from the waterline.
 
     The `_rim` pair is a fainter copy of the matching pond look, for
     `build_ponding`'s soft-edge ring — see that function for why a pond
@@ -1775,6 +1944,25 @@ def water_materials(stage, parent_path, suffix=""):
     else:
         rgb = _PALETTE.get(palette_name, _PALETTE["sediment"])
 
+    # THE PONDS ARE MUD, NOT WHATEVER PALETTE THE WATER BODY IS WEARING.
+    #
+    # Before this fix every `_make(...)` call — the water body's bands AND
+    # the four pond looks below — shared the SAME `rgb` closed over from the
+    # palette selected above, because `_make` had no way to say otherwise.
+    # That was invisible while `SURGE_PALETTE` only ever chose among the
+    # brown/dark sediment family, but the deliberate BLUE variant added below
+    # (`_PALETTE["blue"]`) would otherwise leak a blue tint onto every pond —
+    # "a puddle on a lawn is not blue" even when the flood itself is a clear
+    # coastal blue. `pond_rgb` runs the SAME sediment/turbidity interpolation
+    # as the default branch above, UNCONDITIONALLY (never `_PALETTE.get
+    # (palette_name, ...)`), so a pond's own colour never depends on
+    # `SURGE_PALETTE` at all — byte-identical to the pre-fix `rgb` whenever
+    # `palette_name == "sediment"` (the default), which is the only case any
+    # existing render has used.
+    pond_lo, pond_hi = _PALETTE["sediment_light"], _PALETTE["sediment"]
+    pond_rgb = tuple(pond_lo[i] + (pond_hi[i] - pond_lo[i]) * turbidity
+                     for i in range(3))
+
     ripple_png = None
     try:
         ripple_png = _write_ripple_normal_png(ripple_m, chop)
@@ -1783,7 +1971,13 @@ def water_materials(stage, parent_path, suffix=""):
 
     def _make(name, ccr, bump, opacity_const=None, diffuse_tex=None,
              normal_tex=None, orm_tex=None, tex_scale=(1.0, 1.0),
-             desaturation=0.0, flatten=1.0):
+             desaturation=0.0, flatten=1.0, coat_weight=1.0,
+             rgb_override=None):
+        # `rgb_override`: use THIS colour instead of the closed-over `rgb`
+        # (the water body's palette/turbidity colour) — see `pond_rgb`'s own
+        # comment above for why the four pond looks pass their own fixed mud
+        # colour here rather than inheriting whatever `SURGE_PALETTE` chose.
+        use_rgb = rgb if rgb_override is None else rgb_override
         path = "{0}/WaterLooks/{1}{2}".format(parent_path, name, suffix)
         mat = UsdShade.Material.Define(stage, Sdf.Path(path))
         sh = UsdShade.Shader.Define(stage, Sdf.Path(path).AppendChild("Shader"))
@@ -1799,10 +1993,10 @@ def water_materials(stage, parent_path, suffix=""):
         sh.SetSourceAssetSubIdentifier("OmniPBR_ClearCoat", "mdl")
         # BASE = the sediment volume, approximated as a diffuse body (S3.7)
         sh.CreateInput("diffuse_color_constant",
-                      Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*rgb))
+                      Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*use_rgb))
         if diffuse_tex:
             # Ponds (`SILT_TEXTURE`) and the water-volume bands
-            # (`WATER_DIFFUSE_TEXTURE`) both want this — never the LEGACY
+            # (`WATER_DIFFUSE_TEXTURE`) both want this — never the DEFAULT flat
             # `"inundation"` quad (S2.2: nearly uniform past 30-50 cm, and it
             # has no free `texture_scale` slot -- module docstring, "THE
             # SHORELINE USED TO COME FROM AN ALPHA MAP").
@@ -1837,7 +2031,6 @@ def water_materials(stage, parent_path, suffix=""):
             # overall brightness the way the mean-division was always meant
             # to, while leaving the texture's own hue alone: `final_pixel =
             # texture_rgb * k` with one `k` can only scale, never re-tint.
-            _k = max(1e-4, float(_WATER_TEX_MEAN_LINEAR))
             # Cap at 8, not 4. The cap exists only to stop a pathologically
             # dark texture demanding an absurd multiply; 4 was low enough to
             # CLIP the red and green channels of the raised sediment palette
@@ -1846,11 +2039,25 @@ def water_materials(stage, parent_path, suffix=""):
             # (That clipping risk is specific to the OLD per-channel form --
             # kept here anyway as the same cheap backstop against a future
             # pathologically dark texture.)
-            if diffuse_tex == WATER_DIFFUSE_TEXTURE:
-                _lum_k = min(8.0, _luminance(rgb) / _k)
+            #
+            # DICT, NOT A SINGLE `== WATER_DIFFUSE_TEXTURE` CHECK: `WET_SILT_
+            # TEXTURE` (the pond bed's own dark photograph, since the
+            # STREAM-W wet-mounds fix) needs the identical luminance
+            # normalisation for the identical reason — a dark texture times a
+            # dark tint compounds — and it has its OWN measured mean, not
+            # `WATER_DIFFUSE_TEXTURE`'s. `SILT_TEXTURE` is BYTE-IDENTICAL to
+            # `WATER_DIFFUSE_TEXTURE` (both name the same file), so this dict
+            # lookup is a superset of the old check, not a behaviour change
+            # for it.
+            _tex_mean = {WATER_DIFFUSE_TEXTURE: _WATER_TEX_MEAN_LINEAR,
+                        WET_SILT_TEXTURE: _WET_SILT_TEX_MEAN_LINEAR}.get(
+                diffuse_tex)
+            if _tex_mean is not None:
+                _k = max(1e-4, float(_tex_mean))
+                _lum_k = min(8.0, _luminance(use_rgb) / _k)
                 _tint = (_lum_k, _lum_k, _lum_k)
             else:
-                _tint = rgb
+                _tint = use_rgb
             sh.CreateInput("diffuse_tint",
                           Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*_tint))
             if desaturation:
@@ -1922,7 +2129,33 @@ def water_materials(stage, parent_path, suffix=""):
         # COAT = the air-water interface (S3.7)
         sh.CreateInput("enable_clearcoat", Sdf.ValueTypeNames.Bool).Set(True)
         sh.CreateInput("clearcoat_ior", Sdf.ValueTypeNames.Float).Set(1.333)
-        sh.CreateInput("clearcoat_weight", Sdf.ValueTypeNames.Float).Set(1.0)
+        # A FULL-WEIGHT COAT WASHES THE WATER OUT TO PALE GREY.
+        #
+        # Measured, not guessed. With the water pass switched off and back on
+        # (`SURGE=0`, once the launcher actually honoured it), the flooded
+        # pixels on `deep_water_top` render at RGB (172, 163, 153) — mean 65
+        # levels BRIGHTER than the mud bed underneath them, and nearly
+        # neutral. The sediment albedo (0.155, 0.115, 0.070) should land near
+        # (108, 90, 70) at this exposure, and the difference is a flat,
+        # colourless +65 on all three channels: the coat integrating the
+        # whole sky dome and adding it on top of the base.
+        #
+        # That is what made the flood read as a SAND FLAT rather than water —
+        # too bright to be muddy, too desaturated to be brown, and (in the
+        # overview) within 6 levels of the dry ground beside it, so the
+        # waterline stopped existing.
+        #
+        # Water reflects about 2% at normal incidence and most of the review
+        # cameras look near-nadir, so a weight of 1.0 is simply wrong for the
+        # geometry being rendered; the coat should be a grazing-angle sheen,
+        # not an ambient add. 0.30 keeps the sky in the surface at grazing
+        # angles — the reviewed "water is meant to be reflective in some way"
+        # — while letting the sediment carry the colour looking straight
+        # down.
+        #
+        # Scoped: ponds and the legacy flat quad keep 1.0 (default).
+        sh.CreateInput("clearcoat_weight",
+                      Sdf.ValueTypeNames.Float).Set(float(coat_weight))
         sh.CreateInput("clearcoat_tint",
                       Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(1.0, 1.0, 1.0))
         sh.CreateInput("clearcoat_transparency",
@@ -1995,27 +2228,77 @@ def water_materials(stage, parent_path, suffix=""):
 
     n_bands = _n_opacity_bands()
     bump = 0.3 + 1.1 * min(1.0, chop / 0.24)
+    # CHOP IS A WAVE STEEPNESS, NOT A MICROFACET ROUGHNESS, and passing it
+    # straight into `clearcoat_reflection_roughness` conflated the two. At
+    # the sourced `chop` of 0.10 ("flooded street, mild wind") that set the
+    # coat to 0.10 — a near-mirror — and the storm dome's sun came back off
+    # the flood as a hard specular disc blown out to pure white, several tens
+    # of metres across on `DEBRIS_L2/deep_water_top`. Glass-calm water on a
+    # clear day, in the middle of a hurricane.
+    #
+    # The two quantities correlate but are not the same number: a wind-
+    # roughened water surface sits around 0.18-0.35 microfacet roughness even
+    # when its wave steepness is small. This keeps the coat reflective enough
+    # to hold the sky (the reviewed "water is meant to be reflective in some
+    # way") while spreading the sun into a broad sheen instead of a disc.
+    # 0.10 chop -> 0.27.
+    #
+    # Scoped to the water BODY. The ponds pass their own much smoother values
+    # (0.03/0.05) on purpose — a puddle IS a small mirror, that look was
+    # reviewed, and a few square metres of it cannot blow out a plate.
+    #
+    # BACK TO `chop` WITH THE REVERT. Same story as `_BODY_COAT_WEIGHT`: the
+    # flat quad is the default and has always passed `chop` straight through,
+    # so this is what `FINAL_L2` rendered with.
+    #
+    # 0.18 + 0.9 * chop (= 0.27 at the sourced chop) IS still correct for the
+    # VOLUME and is recorded here for the same reason -- at a raw `chop` of
+    # 0.10 the water body is a near-mirror and the storm dome's sun came back
+    # off it as a hard specular disc blown out to pure white, tens of metres
+    # across. Turn the volume on and this line should go back with it.
+    body_ccr = float(chop)
     bands = [
-        _make("Body_band{0:02d}".format(i), chop, bump,
+        # NO DIFFUSE TEXTURE ON THE WATER BODY. It carried
+        # `WATER_DIFFUSE_TEXTURE` (Soil_Mud, a photograph of dry cracked
+        # earth) plus that map's normal and ORM, and the result -- reviewed
+        # on OPQ_0p35/OPQ_0p55 `deep_water_top` -- is a field of DIRT. Deep
+        # water is fully opaque by construction, so past the shoreline fringe
+        # the only thing on screen was the mud photo at full strength, with
+        # its own cracks and clods reading as ground rather than as a
+        # surface. The same map is bound as the pond BED and to the silt
+        # overlay, so the flood and the dry ground were wearing the same
+        # texture and the waterline stopped existing.
+        #
+        # This is why the earlier plates failed in the two different ways
+        # they did, and both were the texture: FIX_L2's "saturated ochre
+        # sheet" was this map times a 2.25 tint, and OPQ's "dry basin" is
+        # this map at the CORRECT tint. The texture was added to answer the
+        # review note "the water looks like a static color" -- but an albedo
+        # photograph is the wrong answer to it. Real floodwater IS nearly a
+        # static colour; what makes it read as water is that the SURFACE
+        # varies, not the albedo: a Fresnel sheen that picks up the sky, a
+        # ripple normal, and opacity that opens up toward the shoreline. All
+        # three are already here (`clearcoat_*` + `ripple_png` below at an
+        # INDEPENDENT `clearcoat_texture_scale`, and the per-band
+        # `opacity_const`), and they are what FINAL_L2 -- the plate reviewed
+        # as the best of the set -- was relying on with no diffuse map at
+        # all.
+        #
+        # `flatten` goes back to the sourced 1.0 with it: 0.2 existed only to
+        # blend a BASE bump into the coat's normal, and there is no base bump
+        # once `normal_tex` is gone. `desaturation` likewise only existed to
+        # tame the photograph's colour cast.
+        #
+        # The ponds keep their texture -- a puddle is shallow enough to see
+        # the bed THROUGH, so silt there is the bed, correctly.
+        _make("Body_band{0:02d}".format(i), body_ccr, bump,
              opacity_const=(i + 0.5) / n_bands,
-             diffuse_tex=WATER_DIFFUSE_TEXTURE,
-             # `SILT_NORMAL_TEXTURE`/`desaturation`/`flatten`: see `_make`'s
-             # own comments at the `normal_tex`/`clearcoat_flatten` inputs --
-             # the metre-to-tens-of-metres bump the coat was missing, a
-             # partial desaturation of the diffuse texture's own colour cast,
-             # and letting that bump reach the coat's reflection rather than
-             # only the diffuse shading. Scoped to the water body alone: no
-             # other `_make` caller (ponds, the legacy flat quad) passes
-             # `desaturation` or `flatten`, so they keep today's look.
-             normal_tex=SILT_NORMAL_TEXTURE,
-             orm_tex=WATER_ORM_TEXTURE,
-             tex_scale=(_WATER_DIFFUSE_REPEATS_PER_M,) * 2,
-             desaturation=0.35, flatten=0.2)
+             coat_weight=_BODY_COAT_WEIGHT)
         for i in range(n_bands)
     ]
 
     return {
-        # LEGACY (`SURGE_FLAT_WATER=1`) only -- see this function's own
+        # THE DEFAULT PATH -- see this function's own
         # docstring and `_build_inundation_flat`.
         "inundation": _make("Body", chop, bump),
         # DEFAULT `build_inundation` path -- see this function's docstring.
@@ -2025,15 +2308,23 @@ def water_materials(stage, parent_path, suffix=""):
         # asphalt, hence the lower roughness (S3.0 L2 "Material"). Textured
         # (see `_make`'s `diffuse_tex` branch) rather than a flat constant --
         # the reviewed "flat untextured tan polygon" complaint was ponds,
-        # named specifically.
+        # named specifically. WET_SILT_TEXTURE, not the dry cracked-earth
+        # SILT_TEXTURE -- a pond's bed is standing water, never "silt that
+        # dried out" (see the module's WET SILT comment block).
+        # `rgb_override=pond_rgb`: a pond's colour is ALWAYS mud, regardless
+        # of `SURGE_PALETTE` -- see `pond_rgb`'s own comment above.
         "pond_unpaved": _make("PondGrass", 0.03, 0.15, opacity_const=0.70,
-                              diffuse_tex=SILT_TEXTURE,
-                              normal_tex=SILT_NORMAL_TEXTURE,
-                              orm_tex=SILT_ORM_TEXTURE),
+                              diffuse_tex=WET_SILT_TEXTURE,
+                              normal_tex=WET_SILT_NORMAL_TEXTURE,
+                              orm_tex=WET_SILT_ORM_TEXTURE,
+                              tex_scale=(_POND_MUD_REPEATS_PER_M,) * 2,
+                              rgb_override=pond_rgb),
         "pond_paved": _make("PondPaved", 0.05, 0.15, opacity_const=0.65,
-                            diffuse_tex=SILT_TEXTURE,
-                            normal_tex=SILT_NORMAL_TEXTURE,
-                            orm_tex=SILT_ORM_TEXTURE),
+                            diffuse_tex=WET_SILT_TEXTURE,
+                            normal_tex=WET_SILT_NORMAL_TEXTURE,
+                            orm_tex=WET_SILT_ORM_TEXTURE,
+                            tex_scale=(_POND_MUD_REPEATS_PER_M,) * 2,
+                            rgb_override=pond_rgb),
         # RIM variants for `build_ponding`'s soft edge: same look, roughly
         # HALF the core's opacity, so a pond's outline fades into the
         # grass/asphalt over two steps instead of one hard cliff --
@@ -2043,36 +2334,69 @@ def water_materials(stage, parent_path, suffix=""):
         # reads as visibly fainter rather than a second near-equal step.
         "pond_unpaved_rim": _make("PondGrassRim", 0.03, 0.15,
                                   opacity_const=0.70 * 0.45,
-                                  diffuse_tex=SILT_TEXTURE,
-                                  normal_tex=SILT_NORMAL_TEXTURE,
-                                  orm_tex=SILT_ORM_TEXTURE),
+                                  diffuse_tex=WET_SILT_TEXTURE,
+                                  normal_tex=WET_SILT_NORMAL_TEXTURE,
+                                  orm_tex=WET_SILT_ORM_TEXTURE,
+                                  tex_scale=(_POND_MUD_REPEATS_PER_M,) * 2,
+                                  rgb_override=pond_rgb),
         "pond_paved_rim": _make("PondPavedRim", 0.05, 0.15,
                                 opacity_const=0.65 * 0.45,
-                                diffuse_tex=SILT_TEXTURE,
-                                normal_tex=SILT_NORMAL_TEXTURE,
-                                orm_tex=SILT_ORM_TEXTURE),
+                                diffuse_tex=WET_SILT_TEXTURE,
+                                normal_tex=WET_SILT_NORMAL_TEXTURE,
+                                orm_tex=WET_SILT_ORM_TEXTURE,
+                                tex_scale=(_POND_MUD_REPEATS_PER_M,) * 2,
+                                rgb_override=pond_rgb),
     }
 
 
 def _use_legacy_flat_water():
-    """`SURGE_FLAT_WATER=1` reverts `build_inundation` to the pre-rework
-    single flat quad + alpha-map cutout (`_build_inundation_flat`) -- a
-    cheap escape hatch for a quick bench iteration, or to rule the volume
-    out while debugging something else downstream of it. Off by default:
-    the volume is the entire point of this rework (module docstring, "THE
-    WATER VOLUME")."""
-    return os.environ.get("SURGE_FLAT_WATER", "0").strip().lower() in (
-        "1", "true", "yes")
+    """THE FLAT QUAD IS THE DEFAULT. Set `SURGE_WATER_VOLUME=1` (or
+    `SURGE_FLAT_WATER=0`) for the closed water volume instead.
+
+    REVERTED 2026-08-31, ON REVIEW, and the reasoning is worth keeping
+    because the volume is the better ENGINEERING and lost anyway.
+
+    The volume is a real closed solid: true thickness, a ragged waterline
+    that comes from geometry rather than a rasterised alpha map, and depth
+    that drives opacity through Beer-Lambert instead of being painted on.
+    Every one of those is more correct than what the flat quad does.
+
+    It also never looked as good. Across five review rounds the volume was
+    called, in order: a saturated ochre sheet, a dry basin, a pale film with
+    no waterline, and a sand flat -- while `FINAL_L2`, rendered with this
+    quad before any of that work, was picked as best every single time it
+    was put side by side with a volume plate. The last comparison
+    (`COMPARE_V2.png`) was the fourth such round and the verdict did not
+    move.
+
+    Two of those failures were the volume's own bugs and are fixed (the mud
+    photograph bound as a diffuse; the sky-dome wash from a full-strength
+    clearcoat -- see `_BODY_COAT_WEIGHT`). The residual is that a fully
+    opaque, near-uniform surface seen at a GRAZING angle reads as a mud
+    slope no matter what colour it is, and the flat quad's alpha-map cutout
+    happens to dodge that by staying partly transparent over its whole
+    extent. That is not a defect anyone has isolated; it is a look.
+
+    So the volume is kept, working and one env var away, rather than
+    deleted -- the depth grading is genuinely wanted and the oblique
+    problem is worth another pass. It is just not what ships today."""
+    env = os.environ
+    if env.get("SURGE_WATER_VOLUME", "").strip().lower() in ("1", "true", "yes"):
+        return False
+    return env.get("SURGE_FLAT_WATER", "1").strip().lower() not in (
+        "0", "false", "no")
 
 
 def build_inundation(stage, parent_path, cfg, region, rng, *, ssf=1.0,
                      materials=None, alpha_png=None):
-    """L1, the water surface. DEFAULT: a real closed VOLUME
-    (`_build_inundation_volume`) -- top flat at `water_level(cfg)`, bottom
-    following `ground_z`, tessellated only where wet. Behind
-    `SURGE_FLAT_WATER=1`: the original single flat quad with an alpha-map
-    cutout (`_build_inundation_flat`). See the module docstring's "THE WATER
-    VOLUME" for the full argument; this function is just the dispatch.
+    """L1, the water surface. DEFAULT: the flat quad + alpha-map cutout
+    (`_build_inundation_flat`). Behind `SURGE_WATER_VOLUME=1`: a real closed
+    VOLUME (`_build_inundation_volume`) -- top flat at `water_level(cfg)`,
+    bottom following `ground_z`, tessellated only where wet.
+
+    THAT DEFAULT WAS THE OTHER WAY ROUND UNTIL 2026-08-31 and was reverted
+    on review -- see `_use_legacy_flat_water` for why the better-engineered
+    path is not the shipped one. This function is just the dispatch.
 
     `ssf`/`materials` mean the same thing on both paths — see either
     private function's own docstring. `alpha_png` is consulted ONLY by the
@@ -2091,7 +2415,9 @@ def build_inundation(stage, parent_path, cfg, region, rng, *, ssf=1.0,
 
 def _build_inundation_volume(stage, parent_path, cfg, region, rng, *,
                              ssf=1.0, materials=None):
-    """The default L1 path: ONE closed-volume mesh from `water_volume_mesh`,
+    """The OPT-IN L1 path (`SURGE_WATER_VOLUME=1`; the default is the flat
+    quad -- see `_use_legacy_flat_water`): ONE closed-volume mesh from
+    `water_volume_mesh`,
     doubled into a TOP layer (flat at `water_level`) and a BOTTOM layer
     (`water_level - depth`, i.e. `ground_z`) sharing the SAME footprint
     indices offset by `N = len(mesh["points"])` — see `water_volume_mesh`'s
@@ -2153,10 +2479,20 @@ def _build_inundation_volume(stage, parent_path, cfg, region, rng, *,
         # the water column above it, which is what makes a flood shelve
         # visibly from pale at the edge to darker as it deepens. 0.30/0.25/0.18
         # is roughly twice the water's value, so shallow reads as bright mud
-        # and the gradient runs the right way round.
-        rgb=(0.30, 0.25, 0.18), rough=0.95, scale=(0.5, 0.5), desat=0.30,
-        texture=SILT_TEXTURE, normal=SILT_NORMAL_TEXTURE,
-        orm=SILT_ORM_TEXTURE)
+        # and the gradient runs the right way round. `rgb` is UNCHANGED by
+        # the STREAM-W wet-mounds fix below — it is the one measured value
+        # this saga's own docstring warns against re-darkening (see the
+        # module docstring, item 6 in the session record). Only the TEXTURE
+        # moves, from the dry cracked-earth `SILT_TEXTURE` to the derived
+        # `WET_SILT_TEXTURE` (this bed is, definitionally, always underwater
+        # — never "silt that has had days to dry out") and `rough` drops
+        # toward the derived pack's own 0.12-0.25 target (kept a little above
+        # it: this bed is seen through the water's own coat and Beer-Lambert
+        # opacity, not bare, so its own roughness matters less than a bare
+        # pond's).
+        rgb=(0.30, 0.25, 0.18), rough=0.35, scale=(0.5, 0.5), desat=0.30,
+        texture=WET_SILT_TEXTURE, normal=WET_SILT_NORMAL_TEXTURE,
+        orm=WET_SILT_ORM_TEXTURE, tex_mean_linear=_WET_SILT_TEX_MEAN_LINEAR)
 
     points, depths = mesh["points"], mesh["depths"]
     n_verts = len(points)
@@ -2274,7 +2610,9 @@ def _build_inundation_volume(stage, parent_path, cfg, region, rng, *,
 
 def _build_inundation_flat(stage, parent_path, cfg, region, rng, *, ssf=1.0,
                            materials=None, alpha_png=None):
-    """LEGACY (`SURGE_FLAT_WATER=1`): ONE quad at `water_level(cfg)`,
+    """THE DEFAULT L1 PATH (the volume is opt-in behind
+    `SURGE_WATER_VOLUME=1` -- see `_use_legacy_flat_water`): ONE quad at
+    `water_level(cfg)`,
     shoreline from an alpha map. Preserved unchanged from before the volume
     rework — see `build_inundation`'s docstring for the dispatch and the
     module docstring's "THE SHORELINE USED TO COME FROM AN ALPHA MAP" for
@@ -2391,9 +2729,6 @@ def _build_inundation_flat(stage, parent_path, cfg, region, rng, *, ssf=1.0,
 # larger than a mound (3.5 m vs 3.2 m radius) and the review named ponds as
 # "the worst offender".
 _POND_SIDES = 14
-# How much wider the rim is than the core, as a radius multiplier — see
-# `build_ponding`.
-_POND_RIM_GROW = 1.22
 
 
 def build_ponding(stage, parent_path, cfg, region, rng, *, ssf=1.0,
@@ -2411,12 +2746,15 @@ def build_ponding(stage, parent_path, cfg, region, rng, *, ssf=1.0,
         per-vertex jitter on top of the usual smooth wobble, and now bound
         to a textured pond look (`water_materials`) instead of a flat
         constant colour;
-      - a RIM ring `_POND_RIM_GROW` wider, at roughly HALF the core's
-        opacity, so the outline fades into the grass/asphalt over two steps
-        instead of one hard cliff. This is `ground.build_overlay`'s own fix
-        for the identical problem — a translucent cutout has a visible
-        edge — banded opacity, applied here to a pond's own outline instead
-        of a scar's;
+      - a RIM ring `pond_rim_feather_m` WIDER (an ADDITIVE metres offset, not
+        a radius multiplier — a ratio feathers a 0.6 m puddle by centimetres
+        and a 3.5 m one by most of a metre, which is backwards for a "soften
+        the outline" fix meant to apply at any pond size), at roughly HALF
+        the core's opacity, so the outline fades into the grass/asphalt over
+        two steps instead of one hard cliff. This is `ground.build_overlay`'s
+        own fix for the identical problem — a translucent cutout has a
+        visible edge — banded opacity, applied here to a pond's own outline
+        instead of a scar's;
       - for UNPAVED ponds only, a MUD BASE in the CORE's own footprint (not
         the rim's — see below), at true grade, directly under the water. A
         translucent pond sitting straight over the suburb's grass sheet
@@ -2459,11 +2797,18 @@ def build_ponding(stage, parent_path, cfg, region, rng, *, ssf=1.0,
     # A pond's own soil look, shared by every unpaved pond's mud base —
     # `materials`, if supplied, MAY carry one already (the `build_deposits`
     # "wrack"/"sand" convention); otherwise build it fresh here.
+    # WET_SILT_*, not the dry cracked-earth SILT_TEXTURE: this is the ground
+    # directly UNDER standing water, never "silt that has had days to dry
+    # out" — see the module's WET SILT comment block. `rough` dropped from
+    # 0.95 (a matte dry-earth value) toward the derived pack's own 0.12-0.25
+    # target; kept a little above that floor because this bed is seen
+    # THROUGH the pond's own coat and opacity, not bare.
     mud_mat = (materials or {}).get("pond_mud") or _dry_material(
         stage, "{0}/DepositLooks/pond_mud".format(parent_path),
-        rgb=(0.20, 0.17, 0.12), rough=0.95, scale=(1.0, 1.0), desat=0.35,
-        texture=SILT_TEXTURE, normal=SILT_NORMAL_TEXTURE,
-        orm=SILT_ORM_TEXTURE)
+        rgb=(0.20, 0.17, 0.12), rough=0.30,
+        scale=(_POND_MUD_REPEATS_PER_M,) * 2, desat=0.20,
+        texture=WET_SILT_TEXTURE, normal=WET_SILT_NORMAL_TEXTURE,
+        orm=WET_SILT_ORM_TEXTURE, tex_mean_linear=_WET_SILT_TEX_MEAN_LINEAR)
 
     def _factors():
         """`_POND_SIDES` `(angle, radius multiplier)` pairs for one pond's
@@ -2484,9 +2829,14 @@ def build_ponding(stage, parent_path, cfg, region, rng, *, ssf=1.0,
                        * rng.uniform(0.93, 1.07)))
         return out
 
-    def _ring_pts(cx, cy, r, factors, z_m):
-        return [Gf.Vec3f((cx + r * mult * math.cos(ang)) * ssf,
-                         (cy + r * mult * math.sin(ang)) * ssf, z_m)
+    def _ring_pts(cx, cy, r, factors, z_m, add_m=0.0):
+        # `add_m`: an ADDITIVE metres offset applied AFTER the wobble/jitter
+        # multiplier, so the rim sits a constant real-world distance past the
+        # core at every angle regardless of how far that angle's own wobble
+        # already pushed the core radius out — see `build_ponding`'s
+        # `pond_rim_feather_m` docstring for why this replaced a ratio.
+        return [Gf.Vec3f((cx + (r * mult + add_m) * math.cos(ang)) * ssf,
+                         (cy + (r * mult + add_m) * math.sin(ang)) * ssf, z_m)
                for ang, mult in factors]
 
     def _finish(path, pts, counts, idx, mat, z_m):
@@ -2531,7 +2881,8 @@ def build_ponding(stage, parent_path, cfg, region, rng, *, ssf=1.0,
                          r, cx, cy))
             factors = _factors()
             inner = _ring_pts(cx, cy, r, factors, z)
-            outer = _ring_pts(cx, cy, r * _POND_RIM_GROW, factors, z)
+            outer = _ring_pts(cx, cy, r, factors, z,
+                              add_m=float(kn["pond_rim_feather_m"]))
 
             base = len(core_pts)
             core_pts.extend(inner)
@@ -2754,6 +3105,25 @@ def build_deposits(stage, parent_path, cfg, region, rng, *, ssf=1.0,
     triples the material count for these two classes (six total, still a
     handful of merged meshes, not a per-piece cost) in exchange for a field
     that is visibly patchy rather than one flat colour from the air.
+
+    THE WET BAND, ADDED for the STREAM-W wet-mounds fix: a spec whose
+    UNCLAMPED signed distance from the current waterline (`_signed_depth_
+    point` — never `depth_at`'s clamped output, same reason every other hump
+    in this file uses the signed form) falls inside `_DEPOSIT_WET_BAND_M`
+    skips the tonal-noise variant entirely and is bound to a FOURTH, WET
+    look per class (`wrack_wet`/`sand_wet`) instead — darker, more saturated
+    and noticeably less rough than even the "wet (darkest)" end of the
+    existing three-variant ladder, because that ladder was never actually
+    tied to distance from the water: it is a spatial-noise mottling for
+    variety, not a physical wet/dry gradient. `wrack_specs`' own placement
+    hump (`wrack_peak_depth_m=0.0`, `wrack_width_m=0.15`) already puts nearly
+    every windrow inside this band by construction — a wrack line IS freshly
+    stranded litter, so that is correct, not an over-application. `_washover_
+    specs`' wider, softer hump (`washover_width_m=0.25`, rejection-sampled
+    rather than hard-clipped) lets some fans land further out, so washover
+    genuinely shows a MIX: wet sand right at the margin, drying fans further
+    up the beach. Materials go from 6 to 8 (two classes x (3 tonal + 1 wet)),
+    still a handful.
     """
     from pxr import UsdGeom, Sdf
 
@@ -2808,10 +3178,16 @@ def build_deposits(stage, parent_path, cfg, region, rng, *, ssf=1.0,
             j = min(_grid - 1, max(0, int((x - x0) / w_span * _grid)))
             return min(_N_VARIANTS - 1, int(_tonal[i, j] * _N_VARIANTS))
 
+        wet_band_m = float(kn.get("deposit_wet_band_m", _DEPOSIT_WET_BAND_M))
+        n_wet = 0
         for s in combined:
-            s["cls"] = "{0}_{1}".format(
-                s.get("cls", "soil"),
-                _variant(float(s.get("x", 0.0)), float(s.get("y", 0.0))))
+            base_cls = s.get("cls", "soil")
+            x, y = float(s.get("x", 0.0)), float(s.get("y", 0.0))
+            if abs(_signed_depth_point(kn, x, y)) <= wet_band_m:
+                s["cls"] = "{0}_wet".format(base_cls)
+                n_wet += 1
+            else:
+                s["cls"] = "{0}_{1}".format(base_cls, _variant(x, y))
 
         materials = materials or {}
         wrack_override = materials.get("wrack")
@@ -2825,6 +3201,13 @@ def build_deposits(stage, parent_path, cfg, region, rng, *, ssf=1.0,
         _SAND_TINTS = ((0.52, 0.47, 0.37),
                       (0.68, 0.62, 0.49),
                       (0.83, 0.77, 0.61))
+        # THE WET BAND'S OWN LOOK, per class -- darker and noticeably
+        # glossier than even `_WRACK_TINTS[0]`/`_SAND_TINTS[0]` (the palest
+        # end of the "wet (darkest) -> dried" ladder above is still a DRY-
+        # material roughness; freshly wet litter/sand at the water's edge is
+        # both darker AND lower-roughness than that). TUNED, NOT SOURCED.
+        _WRACK_WET_TINT = (0.020, 0.017, 0.012)
+        _SAND_WET_TINT = (0.34, 0.30, 0.22)
         mats = {}
         for i, tint in enumerate(_WRACK_TINTS):
             key = "wrack_{0}".format(i)
@@ -2841,16 +3224,26 @@ def build_deposits(stage, parent_path, cfg, region, rng, *, ssf=1.0,
                 texture=WASHOVER_TEXTURE, normal=WASHOVER_NORMAL_TEXTURE,
                 orm=WASHOVER_ORM_TEXTURE,
                 tex_mean_linear=_WASHOVER_TEX_MEAN_LINEAR)
+        mats["wrack_wet"] = wrack_override or _dry_material(
+            stage, "{0}/DepositLooks/wrack_wet".format(parent_path),
+            rgb=_WRACK_WET_TINT, rough=0.45, scale=(2.0, 2.0), desat=0.10,
+            texture=WRACK_TEXTURE, normal=WRACK_NORMAL_TEXTURE,
+            orm=WRACK_ORM_TEXTURE, tex_mean_linear=_WRACK_TEX_MEAN_LINEAR)
+        mats["sand_wet"] = sand_override or _dry_material(
+            stage, "{0}/DepositLooks/sand_wet".format(parent_path),
+            rgb=_SAND_WET_TINT, rough=0.28, scale=(1.2, 1.2), desat=0.05,
+            texture=WASHOVER_TEXTURE, normal=WASHOVER_NORMAL_TEXTURE,
+            orm=WASHOVER_ORM_TEXTURE, tex_mean_linear=_WASHOVER_TEX_MEAN_LINEAR)
 
         made += scour_relief.build(
             stage, "{0}/relief".format(root), combined, mats, ssf,
             verbose=False)
         print("[surge] deposits: {0} spec(s) ({1} wrack, {2} washover, "
-             "{3} tonal variants each) -> {4} merged mesh(es) {5} "
-             "(ssf={6:.4f})".format(
+             "{3} within the {4:.1f} m wet band) -> {5} merged mesh(es) {6} "
+             "(ssf={7:.4f})".format(
                  len(combined),
                  sum(1 for s in combined if s.get("cls", "").startswith("wrack")),
                  sum(1 for s in combined if s.get("cls", "").startswith("sand")),
-                 _N_VARIANTS, len(made), made, ssf))
+                 n_wet, wet_band_m, len(made), made, ssf))
 
     return made

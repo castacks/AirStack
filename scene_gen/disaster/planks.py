@@ -121,8 +121,21 @@ _TINT = {
     # `build(skin_mats=...)`); these tints are what they get when the caller
     # supplies none — the corridor scatter, which came from a house nobody can
     # name, and any bench that has no palette to hand.
-    "siding":    (0.96, 0.94, 0.90),
-    "deck":      (0.44, 0.42, 0.40),
+    #
+    # RE-TUNED, DEBRIS D6 review (hurricane raft-field green-cast audit,
+    # 2026-09-01): both were near-neutral pale (6.25% and 9.1% channel
+    # spread respectively) — UNDER `test_e_tint_targets_are_saturated_not_
+    # neutral`'s own 10% floor for the sibling `washaway._RAFT_TINT` table,
+    # the exact "almost no colour of its own, so ambient tint reads through
+    # it" shape that table's docstring diagnoses at length for `wall`/
+    # `panel`/`fence`/`siding_strip`/`timber`. These two are the ONLY
+    # fallback this module reaches for when a caller (a bare corridor
+    # scatter, a tornado bench with no palette, or a hurricane piece beyond
+    # `washaway._HOUSE_SKIN_MATCH_R_M` with no `skin_pool` supplied) has no
+    # house to match — saturating them the same way closes the same gap for
+    # every OTHER caller of this table, not just the hurricane raft field.
+    "siding":    (0.74, 0.68, 0.58),
+    "deck":      (0.38, 0.32, 0.26),
 }
 
 # THE TWO CLASSES THAT CARRY A HOUSE'S COLOUR. Everything else in the field is
@@ -130,14 +143,27 @@ _TINT = {
 SKINNED = ("siding", "deck")
 
 
-def _weighted(rng):
-    """Draw a stock class by weight."""
-    r = rng.random() * sum(v[0] for v in STOCK.values())
-    for name, spec in STOCK.items():
+def _weighted(rng, classes=None):
+    """Draw a stock class by weight.
+
+    `classes`, ADDED 2026-08-31 for the hurricane land-debris pass
+    (`disaster.washaway.land_debris_specs`): an optional iterable restricting
+    the draw to a NAMED SUBSET of `STOCK` (weights renormalised within it),
+    so a house that only lost its shingles can shed `deck`/`siding` without
+    a `stud` or `joist` ever coming up. `None` (the default) is the ORIGINAL,
+    UNRESTRICTED draw over every class — every existing caller (the tornado
+    plank field) gets byte-identical behaviour, because this is purely
+    additive over the plain `_weighted(rng)` contract.
+    """
+    pool = {k: v for k, v in STOCK.items() if classes is None or k in classes}
+    if not pool:
+        pool = dict(STOCK)
+    r = rng.random() * sum(v[0] for v in pool.values())
+    for name, spec in pool.items():
         r -= spec[0]
         if r <= 0.0:
             return name
-    return "stud"
+    return next(iter(pool))
 
 
 # ---------------------------------------------------------------------------
@@ -179,9 +205,33 @@ def wood_material(stage, path, tile_m=1.1, tint=(1.0, 1.0, 1.0),
     sh.CreateInput("enable_ORM_texture", Sdf.ValueTypeNames.Bool).Set(True)
     sh.CreateInput("ORM_texture", Sdf.ValueTypeNames.Asset).Set(
         Sdf.AssetPath(sg._join_asset_root(WOOD_ORM, "")))
-    # `diffuse_color_constant` MULTIPLIES the map in OmniPBR, so this is the
-    # tint and not a replacement colour — the grain survives it.
+    # `diffuse_color_constant` DOES NOT MULTIPLY THE MAP. That belief is what
+    # this comment used to assert, and it is wrong: in OmniPBR a bound
+    # `diffuse_texture` REPLACES `diffuse_color_constant` outright, and the
+    # surviving multiply slot is `diffuse_tint` (the same trap `damage._pbr`
+    # and `surge._make` both document).
+    #
+    # So every `tint=` this function has ever been passed was inert. The
+    # evidence was recorded twice without the cause being found:
+    # `quake_flow` tried a cedar tank at 0.50 and then at 0.085 and got
+    # PIXEL-IDENTICAL renders, concluded "the tint does not reach OmniPBR's
+    # diffuse when a texture is bound", and gave up on a textured tank
+    # entirely; `washaway.build_rafts` hit the same wall and worked around it
+    # by reaching past this function to set `diffuse_tint` on the shader
+    # itself. Two independent workarounds for one unfixed primitive.
+    #
+    # A large parameter change producing an identical render means the knob
+    # is not connected — that is the whole diagnosis, and it applies here.
+    #
+    # `diffuse_color_constant` is still set: it is what OmniPBR uses if the
+    # texture ever fails to resolve, and an untinted fallback would be worse.
+    # `_TINT`, `quake_flow`'s 0.50 and the tornado skins are all authored as
+    # MULTIPLIERS (near 1.0 = unchanged), which is exactly what `diffuse_tint`
+    # wants, so they need no mean-normalisation — unlike `surge._make`, whose
+    # `rgb` is an absolute albedo and must be divided by the texture's mean.
     sh.CreateInput("diffuse_color_constant",
+                   Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*tint))
+    sh.CreateInput("diffuse_tint",
                    Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*tint))
     sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
     sh.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
@@ -232,8 +282,64 @@ def skin_material(stage, path, texture, tint=(1.0, 1.0, 1.0), tile_m=1.05,
     sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
     sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
     if texture:
+        # `sg._join_asset_root` — NOT the raw string. This was the site of
+        # the "References an asset that can not be found:
+        # 'airstack://.../Soil_Mud/T_pjuph20_2K_B.png'" Hydra error that
+        # persisted through the hurricane water/silt work: `washaway.
+        # apply_washaway`'s "wet"/"scoured" levels call this function with
+        # `surge.SILT_TEXTURE` — an unexpanded `airstack://` string — and
+        # every OTHER texture-binding site in this codebase (`surge.py`,
+        # `ground.py`, `damage._pbr`) already runs its texture argument
+        # through `_join_asset_root` before handing it to `Sdf.AssetPath`.
+        # This one bound the scheme straight through, so the reference
+        # reached Hydra unexpanded and the resolver rejected it outright.
+        # `_join_asset_root` is a no-op passthrough for an already-absolute
+        # path or a real URL (omniverse://, file://, ...), so this is safe
+        # for every existing caller regardless of what kind of path it
+        # passes.
         sh.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset).Set(
-            Sdf.AssetPath(str(texture)))
+            Sdf.AssetPath(sg._join_asset_root(str(texture), "")))
+        # `diffuse_tint`, ADDED (DEBRIS D6 review, 2026-09-01) -- THE SAME BUG
+        # `wood_material` (above) documents at length and was fixed for: a
+        # bound `diffuse_texture` REPLACES `diffuse_color_constant` outright
+        # in OmniPBR, so setting only `diffuse_color_constant` here meant
+        # every `tint` this function was ever passed was INERT whenever
+        # `texture` was truthy -- which is every real caller
+        # (`land_debris_specs`/`raft_specs`'s own "# LAND DEBRIS"/"# DEBRIS
+        # RAFTS" blocks always pass one). Concretely: `detail.modular_house.
+        # palette_texture`'s whole reason for returning a tint alongside a
+        # texture path is that several styles' roofs (`shingle_slate`/
+        # `shingle_grey`/`shingle_brown`) share ONE base texture (`_SHINGLE`)
+        # differentiated ONLY by that tint (`MATERIAL_SOURCE`'s own blue-
+        # grey/weathered-grey/brown multipliers) -- with `diffuse_tint` never
+        # authored, every one of those styles' "deck"-skinned debris rendered
+        # as the SAME untinted charcoal shingle map regardless of which house
+        # it matched, which is exactly the "still looks the same debris
+        # everywhere" defect the nearest-house-matching feature this fix
+        # ships alongside is supposed to cure. `tint` is already a near-1.0
+        # MULTIPLIER (`palette_texture`'s own docstring: "the palette's own
+        # albedo multiplier folded into an RGB tint"), the same convention
+        # `wood_material`'s `tint` argument uses, so it goes on `diffuse_tint`
+        # directly -- no texture-mean normalisation needed (that is only for
+        # an ABSOLUTE target colour, e.g. `washaway.build_rafts`'s own
+        # `_RAFT_TINT` patch).
+        #
+        # DELIBERATELY GUARDED INSIDE `if texture:`, NOT AUTHORED
+        # UNCONDITIONALLY THE WAY `wood_material` DOES IT: that function
+        # always binds a texture, so `diffuse_tint`/`diffuse_color_constant`
+        # being identical is harmless there (the constant is dead the moment
+        # a texture exists). This function's `texture` is OPTIONAL --
+        # `_slab_material`/`apply_washaway`'s mud-ring/yard-patch callers
+        # sometimes pass `None` -- and it is NOT verified that OmniPBR leaves
+        # `diffuse_color_constant` un-multiplied by a `diffuse_tint` that
+        # still has SOME authored value when no texture is bound (the
+        # untextured branch is exactly the one this codebase's own offline
+        # predictor, `hurricane_layout_png.omnipbr_predict`, does NOT model
+        # a tint multiply for). Authoring `diffuse_tint` only when a texture
+        # is actually present keeps every existing no-texture caller
+        # (`test_skin_material_with_no_texture_authors_none`) byte-identical.
+        sh.CreateInput("diffuse_tint",
+                      Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*tint))
     sh.CreateInput("diffuse_color_constant",
                    Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*tint))
     sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
@@ -248,7 +354,6 @@ def skin_material(stage, path, texture, tint=(1.0, 1.0, 1.0), tile_m=1.05,
     mat.CreateDisplacementOutput("mdl").ConnectToSource(sh.ConnectableAPI(),
                                                         "out")
     mat.CreateVolumeOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
-    del sg
     return mat
 
 
@@ -265,9 +370,9 @@ def materials(stage, parent_path, tile_m=1.1):
 # where the pieces go
 # ---------------------------------------------------------------------------
 
-def _piece(rng, klass=None, scale=1.0):
-    """One board's dimensions and its class."""
-    k = klass or _weighted(rng)
+def _piece(rng, klass=None, scale=1.0, classes=None):
+    """One board's dimensions and its class. `classes` -- see `_weighted`."""
+    k = klass or _weighted(rng, classes=classes)
     _w, ln, wd, th = STOCK[k]
     return (k,
             rng.uniform(*ln) * scale,
@@ -367,8 +472,35 @@ def _lay(x, y, k, ln, wd, th, heading, rng, ground_z=0.0, tilt_p=0.05):
 
 
 def scatter_from_wreck(cx, cy, footprint_m, intensity, heading_deg, reach_m,
-                       rng, n_pieces=140, ground_z=0.0, scale=1.0, skins=None):
+                       rng, n_pieces=140, ground_z=0.0, scale=1.0, skins=None,
+                       classes=None, base_frac=0.30, base_s_scale=0.34,
+                       base_t_scale=0.40, tail_pow=1.9, tail_lateral_base=0.30,
+                       tail_lateral_growth=0.26):
     """The debris trail off ONE wrecked building. Returns a list of specs.
+
+    `classes`, ADDED 2026-08-31 for `disaster.washaway.land_debris_specs`:
+    an optional iterable of `STOCK` names restricting every piece this call
+    draws (see `_weighted`'s docstring) -- a hurricane house that only lost
+    its shingles sheds `deck`/`siding`, not framing. `None` keeps the
+    original unrestricted draw, unchanged for the tornado field.
+
+    `base_frac`/`base_s_scale`/`base_t_scale`/`tail_pow`/`tail_lateral_base`/
+    `tail_lateral_growth`, ADDED for the hurricane DEBRIS-stream "ring, not a
+    comet" fix: every one of these defaults to the ORIGINAL hardcoded
+    constant this function always used (0.30, 0.34, 0.40, 1.9, 0.30, 0.26),
+    so an unmodified caller (the tornado plank field, `scatter_over_region`)
+    draws a BYTE-IDENTICAL sequence -- same coin, same formula, just named
+    instead of inlined. `disaster.washaway.land_debris_specs` is the one
+    caller that overrides them: a hurricane house sheds roof/wall material
+    into open yard and the review found the result reading as a symmetric
+    halo around the house rather than a directional trail agreeing with the
+    wind, because the median tail draw (`reach * u**1.9` is concentrated
+    near `u=0`, i.e. near the building) landed inside the base cloud's own
+    spread. Lowering `tail_pow` biases `u**p` toward 1 (toward `reach`
+    rather than toward the building) and tightening the two lateral
+    coefficients narrows the cone the tail fans into as it travels — see
+    that function's own call for the tuned values and the offline plot that
+    verifies the resulting cone fraction.
 
     `skins` IS WHAT THIS HOUSE WAS MADE OF: `{"siding": <material name>,
     "deck": <material name>}`, from `detail.modular_house.palette_skins` on the
@@ -410,14 +542,14 @@ def scatter_from_wreck(cx, cy, footprint_m, intensity, heading_deg, reach_m,
 
     out = []
     for _ in range(n):
-        if rng.random() < 0.30:
+        if rng.random() < base_frac:
             # The mat on and immediately around the slab.
-            s = rng.gauss(0.0, fp * 0.34)
-            t = rng.gauss(0.0, fp * 0.40)
+            s = rng.gauss(0.0, fp * base_s_scale)
+            t = rng.gauss(0.0, fp * base_t_scale)
         else:
-            s = reach * (rng.random() ** 1.9)
-            t = rng.gauss(0.0, fp * 0.30 + s * 0.26)
-        k, ln, wd, tk = _piece(rng, scale=scale)
+            s = reach * (rng.random() ** tail_pow)
+            t = rng.gauss(0.0, fp * tail_lateral_base + s * tail_lateral_growth)
+        k, ln, wd, tk = _piece(rng, scale=scale, classes=classes)
         # TILT ONLY WHERE THERE IS SOMETHING TO LEAN ON. A board at 34 degrees
         # is resting on other debris, so the share has to follow the DEPTH of
         # the mat and not be a constant over the whole comet. Inside about a
@@ -438,7 +570,7 @@ def scatter_from_wreck(cx, cy, footprint_m, intensity, heading_deg, reach_m,
 
 def scatter_over_region(region, intensity_at, heading_deg, rng,
                         per_100m2=0.55, cell_m=12.0, ground_z=0.0,
-                        min_intensity=0.12, scale=1.0):
+                        min_intensity=0.12, scale=1.0, classes=None):
     """Loose timber strewn across the CORRIDOR, not just on the lots.
 
     THE TRACK ITSELF IS COVERED, and this is what a per-building scatter
@@ -470,7 +602,7 @@ def scatter_over_region(region, intensity_at, heading_deg, rng,
             lam = per_100m2 * area * (i ** 1.4)
             n = int(lam) + (1 if rng.random() < (lam - int(lam)) else 0)
             for _ in range(n):
-                k, ln, wd, tk = _piece(rng, scale=scale)
+                k, ln, wd, tk = _piece(rng, scale=scale, classes=classes)
                 out.append(_lay(ax + rng.random() * dx, ay + rng.random() * dy,
                                 k, ln, wd, tk, float(heading_deg), rng,
                                 ground_z=ground_z))

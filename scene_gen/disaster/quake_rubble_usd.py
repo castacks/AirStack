@@ -893,6 +893,71 @@ def _author_heightfield(stage, path, hf, uv_scale=None):
     return path
 
 
+def recentre_for_loose(stage, paths):
+    """Give a `_author_heightfield` mound/apron a LOCAL frame before a
+    caller adds it to `ctx["loose"]`.
+
+    `_author_heightfield` bakes `points` directly in WORLD space with NO
+    xform ops at all (see the module docstring) — correct, and cheap, for
+    the ordinary case where the mound stays a STATIC collider forever. But
+    `r_soft_storey`/`quake_collapse._author_heaps` both have a MID-storey
+    case where the collar is authored floating beside the crushed band and
+    is deliberately handed to `settle.run` as a loose RigidBody so physics
+    carries it down to the base. `settle.run` puts that body's origin at
+    its parent's identity frame while every point of a world-baked mesh
+    sits tens of metres away — the exact failure `settle.py`'s own
+    `no_local_frame` check is built to catch — so the random angular kick
+    every loose body gets swings that arm and throws the mound (measured: a
+    95.50 m "worst mover", then a hard `SettleNotConverged` — round 7,
+    s4g2/office_DG4's `rubble_office_DG4_collar_1_mound`).
+
+    Recentres `points` (and `extent`) on their own centroid and authors a
+    `translate` op putting that centroid back at the mesh's original world
+    position — same shape of fix `settle.bake` already assumes every OTHER
+    loose prim arrives with (a wrapper Xform around a referenced asset
+    always carries its own translate/rotate/scale). The world position of
+    every point is unchanged; `primvars:st` (baked from the ORIGINAL world
+    x, y) still lines up with it exactly.
+
+    A no-op for anything that already has an xform op (so calling this
+    twice, or on a "large"/instancer path that was never world-baked to
+    begin with, does nothing) or that is not a `UsdGeom.Mesh`. Returns the
+    number of paths actually recentred.
+    """
+    from pxr import Gf, UsdGeom, Vt
+
+    n = 0
+    for path in paths or ():
+        if not path:
+            continue
+        prim = stage.GetPrimAtPath(path)
+        if not prim or not prim.IsValid() or not prim.IsA(UsdGeom.Mesh):
+            continue
+        xformable = UsdGeom.Xformable(prim)
+        if xformable.GetOrderedXformOps():
+            continue
+        mesh = UsdGeom.Mesh(prim)
+        pts_attr = mesh.GetPointsAttr()
+        pts = pts_attr.Get()
+        if not pts:
+            continue
+        cnt = len(pts)
+        cx = sum(float(p[0]) for p in pts) / cnt
+        cy = sum(float(p[1]) for p in pts) / cnt
+        cz = sum(float(p[2]) for p in pts) / cnt
+        pts_attr.Set(Vt.Vec3fArray(
+            [Gf.Vec3f(float(p[0]) - cx, float(p[1]) - cy, float(p[2]) - cz)
+             for p in pts]))
+        ext_attr = mesh.GetExtentAttr()
+        ext = ext_attr.Get()
+        if ext:
+            ext_attr.Set([Gf.Vec3f(float(v[0]) - cx, float(v[1]) - cy,
+                                   float(v[2]) - cz) for v in ext])
+        xformable.AddTranslateOp().Set(Gf.Vec3d(cx, cy, cz))
+        n += 1
+    return n
+
+
 # ---------------------------------------------------------------------------
 # round-5: chipped authored boxes  ("they shouldn't look perfect")
 # ---------------------------------------------------------------------------
@@ -917,20 +982,50 @@ def _author_heightfield(stage, path, hf, uv_scale=None):
 #     loss, median ~19 %.
 # `warp_frac` is a fraction of the piece's own LONGEST dimension, converted to
 # metres here (a 3.2 m joist bows 6 cm), because `warp_mesh` works in metres.
+#
+# ROUND 6 — WHY EVERY ENTRY GREW `bites` AND `gouges`. The round-5 tables
+# above tuned `chips`/`depth_frac`/`ends`, and the user still called the
+# pillars perfect cuboids, for a reason no tuning of those three could reach:
+# a plane clip always removes material at the piece's EXTREME CORNER along the
+# cut normal, and every corner of a 0.4 x 0.4 x 3.5 m column is at one of its
+# two ends. `tools/pillar_break_bench.py` measured the cross-section fill at 44
+# stations on exactly that column through exactly this table: 22 %, 42 %, 61 %
+# at the bottom, 72-92 % at the top, and 85-99 % AT EVERY ONE OF THE FORTY
+# STATIONS IN BETWEEN. The renders agree — a straight prism with a bevelled
+# top. So each kind now also asks for
+#   `bites`   very large corner bites sized by the SECTION (`bite_frac`),
+#             which is what "random from small to very large chips" needs and
+#             what `depth_frac` — measured against the span along the cut
+#             normal, i.e. mostly against the piece's LENGTH — never gave;
+#   `gouges`  scallops bitten out at a station chosen ALONG the piece, the
+#             only mechanism in `fracture` that damages a shaft or the middle
+#             of a slab edge rather than a corner.
+# `max_loss` rises with them (a piece that loses a third of its section HAS
+# lost a third of its volume, and the old 0.27 ceiling would have scaled the
+# piece back up to hide it), and `rough_lam_frac` fixes a wavelength that was
+# being derived from the piece's LONGEST extent — 2.9 m on this column, i.e.
+# one gentle bow rather than surface relief.
+_GOUGE_COMMON = {"gouge_depth": (0.07, 0.26), "gouge_big_p": 0.26,
+                 "gouge_big_frac": (0.30, 0.45), "gouge_vol_frac": 0.20,
+                 "gouge_budget": 760, "rough_lam_frac": 1.7,
+                 "bite_frac": (0.32, 0.78),
+                 "min_loss": 0.07, "max_loss": 0.36}
 _CHIP_KIND = {
-    "lintel": {"chips": (2, 6), "depth_frac": (0.025, 0.15), "ends": 0.55,
-               "rough_frac": 0.10},
-    "quoin":  {"chips": (2, 6), "depth_frac": (0.03, 0.18), "ends": 0.30,
-               "rough_frac": 0.11},
-    "column": {"chips": (2, 6), "depth_frac": (0.025, 0.15), "ends": 0.55,
-               "rough_frac": 0.10},
-    "sill":   {"chips": (2, 6), "depth_frac": (0.025, 0.15), "ends": 0.50,
-               "rough_frac": 0.10},
-    "joist":  {"chips": (2, 6), "depth_frac": (0.025, 0.16), "ends": 0.60,
-               "rough_frac": 0.14, "warp_frac": 0.012, "twist_deg": 5.0},
+    "lintel": dict(_GOUGE_COMMON, chips=(2, 6), depth_frac=(0.025, 0.15),
+                   ends=0.55, rough_frac=0.055, bites=(1, 2), gouges=(2, 4)),
+    "quoin":  dict(_GOUGE_COMMON, chips=(2, 6), depth_frac=(0.03, 0.18),
+                   ends=0.30, rough_frac=0.06, bites=(1, 2), gouges=(2, 3),
+                   gouge_budget=420),
+    "column": dict(_GOUGE_COMMON, chips=(2, 6), depth_frac=(0.025, 0.15),
+                   ends=0.55, rough_frac=0.055, bites=(1, 2), gouges=(2, 4)),
+    "sill":   dict(_GOUGE_COMMON, chips=(2, 6), depth_frac=(0.025, 0.15),
+                   ends=0.50, rough_frac=0.055, bites=(1, 2), gouges=(2, 4)),
+    "joist":  dict(_GOUGE_COMMON, chips=(2, 6), depth_frac=(0.025, 0.16),
+                   ends=0.60, rough_frac=0.07, bites=(1, 2), gouges=(2, 4),
+                   warp_frac=0.012, twist_deg=5.0),
 }
-_CHIP_DEFAULT = {"chips": (2, 5), "depth_frac": (0.03, 0.15), "ends": 0.35,
-                 "rough_frac": 0.10}
+_CHIP_DEFAULT = dict(_GOUGE_COMMON, chips=(2, 5), depth_frac=(0.03, 0.15),
+                     ends=0.35, rough_frac=0.055, bites=(1, 2), gouges=(2, 4))
 
 
 def _chip_seed(*parts):

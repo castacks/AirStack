@@ -248,6 +248,72 @@ GROUND_POSES = ("sit_ground", "sit_edge", "crouch",
                 "dig_bent", "dig_kneel", "sit_slump", "stand_slump",
                 "trapped_sit")
 
+# =============================================================================
+# WINDOW_POSE_DIAGNOSIS — 2026-08-31, bench-v2 REJECTION
+# =============================================================================
+# User, verbatim: "These poses are completely wrong... The ones that are
+# supposed to be in the windows look like they're floating, looks like their
+# stomachs are out (bent the wrong way). The arms also look wrong... I think
+# there must be a diff in poseability/angles mapping in isaac-sim and UE."
+# Lead's own close-up read of `window_02`: standing bolt UPRIGHT, embedded in
+# a facade PILASTER (not an opening), arms splayed downward-outward like the
+# UNPOSED A-stance, head craned up — hip hinge and neck/head reading backwards.
+#
+# THE DIAGNOSTIC METHOD, per the lead's instruction: derive the convention
+# from a WORKING reference rather than from first principles, using the
+# SAME code path a render would use (`scene_generator._pose_joint_transforms`,
+# copied verbatim into a bare-`pxr` harness and run against the real
+# `rp_carla_rigged_001_ue4.usd` rest transforms — not a re-derivation, the
+# actual function).
+#
+# WHAT THAT COMPARISON FOUND, joint by joint, against poses that have shipped
+# in approved scenes (`sit_edge`, `stand_slump`, `dig_bent` here; the lying
+# poses in `scene_generator._HUMAN_POSES` for the tornado side):
+#
+#   | joint family | rest direction | verified "forward" sign | working example |
+#   |---|---|---|---|
+#   | thigh/calf (leg) | hangs DOWN | NEGATIVE X = forward (-Y) | `walk`: thigh_l -20 "left leg forward" |
+#   | upperarm, AFTER a `Y ~40` plumb correction | hangs DOWN (same as leg) | POSITIVE X = forward (+Y), i.e. the OPPOSITE sign from a leg | measured on `lean_window`'s own arms: +65X reaches 0.43 m past the pelvis in the SAME +Y direction the spine leans |
+#   | spine_01/02/03 (trunk) | stands UP | NEGATIVE X = forward pitch (+Y, not -Y) | `dig_bent` -46/-22/-10 ("78 deg of forward pitch"), `stand_slump` -10/-12/-6, BOTH shipped and neither drew this complaint |
+#   | neck_01/head | child of spine | POSITIVE X = counters/lifts (opposes the spine's negative pitch) | `dig_bent` neck_01 +12 "un-tuck: eyes on the pile"; `sit_slump` neck_01 -16 "head hanging" (negative = confirms the opposite reads as down) |
+#
+# EVERY SIGN ABOVE MATCHES A SHIPPED, UNCOMPLAINED-ABOUT POSE. This is the
+# important negative result: replaying the EXACT bake-time function against
+# the EXACT rig gives self-consistent, working-precedent-matching numbers for
+# `stand_calm`/`wave_help`/`lean_window` — the arithmetic is not obviously
+# wrong, and "arms splayed like the rest pose" does not match what the
+# authored deltas compute (arms braced FORWARD, not the A-pose's down-and-out
+# splay). That mismatch between "the numbers check out on paper" and "the
+# render looked wrong" is exactly why this file does NOT ship the new poses
+# this round (`fire_people.DEFAULTS["roof_use_new_pose"]` /
+# `["window_use_lean_pose"]`, both False) rather than re-deriving a second
+# guess at the sign — see the module-level rule this whole codebase already
+# keeps: "a pose whose numbers you cannot validate against a working
+# reference does not ship," and a rendered contradiction of a validated
+# derivation is not validated, it is a NEW open question, most likely
+# pointing at one of:
+#
+#   (a) the WINDOW PLACEMENT bug (`fire_people`'s `corner_margin_m` fix,
+#       same round) — a figure embedded in solid pilaster geometry has its
+#       lower body and possibly its arms clipping through opaque mesh, which
+#       can misread as "bent wrong" independent of whether the joint angles
+#       underneath are correct;
+#   (b) the rendered bench build using a pose table from BEFORE the last
+#       fix in this session landed (this file went through several
+#       concurrently-edited states in one afternoon; "which exact numbers
+#       were baked into bench-v2" is not fully reconstructable after the
+#       fact);
+#   (c) something in the USD Skel binding / reference / scale chain between
+#       `_bind_human_pose`'s authored `SkelAnimation` and Isaac Sim's actual
+#       skinning that this offline harness cannot exercise (no Isaac launch
+#       available this session — see the standing project rule).
+#
+# NONE OF (a)-(c) is confirmed. The fallback poses ship BECAUSE they cannot
+# be confirmed, not because (a)/(b)/(c) is known to be the cause. Re-enable
+# and re-render ONE knob at a time (roof pose OR window pose, never both in
+# the same bench relaunch) so a bad result can be attributed.
+# =============================================================================
+
 # THE POSES THAT ARE AUTHORED UPRIGHT AND PLACED LYING DOWN — see the comment
 # above them in `scene_generator._HUMAN_POSES`. The value is the `roll_deg`
 # that lays each one down correctly, and the pairing is not a preference: roll
@@ -262,6 +328,16 @@ LYING_POSES = {
     "lying_side_l": 90.0,         # on the left side   (+ LYING_SPIN)
     "lying_side_r": 90.0,         # on the right side  (+ LYING_SPIN)
     "lying_curled_l": 90.0,       # drawn up, on the left side
+    # `fire_people`'s new pose (item 1, 2026-08-31: "supine ... one arm
+    # extended — for partial burial"). Nothing in THIS module draws it —
+    # `people.py` has no burial class — but `_human_placement`'s prone
+    # branch falls through to a coin-flip roll for any pose absent from this
+    # table, which would face-plant a face-up `buried_reach` about half the
+    # time on the ctx-authoring path (`to_placements(ctx=...)` delegates
+    # here; the host-side `_placement_no_ctx` path reads `fire_people`'s own
+    # `LYING_ROLL` and was never at risk). Listing it here costs nothing and
+    # buys the "a lying pose placed upright is refused" guard for free.
+    "buried_reach": -90.0,        # face-up
 }
 
 # ...AND THE SPIN ABOUT THE BODY'S OWN LONG AXIS THAT PUTS ONE ON ITS SIDE.

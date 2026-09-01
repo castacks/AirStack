@@ -228,6 +228,87 @@ overrides:
   usds:
     materials:
       asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+    # BURNABLE-ONLY POOLS for `lowrise`/`midrise` — 2026-08-31, the fire
+    # solver's own complaint ("fire skips a lot of buildings"). The shared
+    # `urban_gac.yaml` `lowrise`/`midrise_v2` pools mix burnable kit
+    # archetypes with permanently-unburnable stock (Dmytro FactoryDistrict
+    # sheds, `standalone/buildings/...` shopfront blocks, Muyang/downtowncity
+    # pack-blacklisted names) — see `config/harvested/burnability_table.json`.
+    # `_BurnabilityGuard` can swap AT MOST the block's OWN worst offender; it
+    # cannot fix a typology whose pool is disproportionately unburnable to
+    # begin with (`_burnable_substitute` has nothing same-footprint-class
+    # and burnable to reach for in a 15-house `lowrise` block that drew 10
+    # unburnable houses from a 26-entry pool 19 of which are unburnable) —
+    # measured on the seed-4 Kit build: 10/15 `lowrise` houses and 10/29
+    # `midrise` houses unburnable, i.e. most of two entire typologies never
+    # enter `urban_fire_spread.solve()`'s graph at all.
+    #
+    # A PRESET-SCOPED override, not an edit to `urban_gac.yaml` — that asset
+    # set backs OTHER presets (earthquake, hurricane, plain `downtown_gac`)
+    # that have every reason to keep the full, visually-diverse pool; only a
+    # scene that actually catches fire needs "every building in these two
+    # typologies is fuel". `usds.buildings.<pool>` is a bare key here, which
+    # `scene_generator._deep_merge` (`resolve_asset_set`'s own merge, config
+    # wins) REPLACES outright rather than appends to — see the
+    # `generate-urban-city` skill's "Restricting the building library".
+    #
+    # `tower`/`highrise`/`brick_midrise` are UNTOUCHED: their own unburnable
+    # fraction (`tower` 6/22, `highrise` 3/10) is the >232 m landmark /
+    # oversized-standalone-tower gap the guard already handles as well as it
+    # can (`_BurnabilityGuard.filter_laid`'s own docstring) and is not this
+    # fix's business.
+    buildings:
+      # ---- lowrise: burnable-only (kit archetypes) -- 7 of the shared
+      # pool's 26 entries; every "standalone/buildings/..." shopfront block
+      # and every Dmytro FactoryDistrict shed dropped (all `slice`-routed,
+      # permanently unburnable regardless of size).
+      lowrise:
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_civic_offices_DG0.usd", scale: 1.0}   # 30.0 x 20.0 x 12.5 m — rc, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_DG0.usd", scale: 1.0}   # 22.0 x 14.0 x 14.0 m — urm, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_brownstone_row_DG0.usd", scale: 1.0}   # 38.0 x 14.0 x 17.0 m — urm, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_department_store_DG0.usd", scale: 1.0}   # 42.0 x 30.0 x 17.0 m — urm, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_dw_terrace_DG0.usd", scale: 1.0}   # 25.0 x 15.0 x 17.5 m — urm, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_DG0.usd", scale: 1.0}   # 22.0 x 17.0 x 18.0 m — urm, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_DG0.usd", scale: 1.0}   # 32.0 x 16.0 x 19.0 m — rc, kit
+      # ---- midrise (typology `midrise` draws from POOL `midrise_v2` --
+      # see `districts.typologies.midrise.pools` -- not a pool literally
+      # named `midrise`): burnable-only, 14 of the shared pool's 22 entries.
+      # Drops the 5 "standalone/buildings/..." blocks (`block_01`/`block_02`
+      # /`japanese_building`/`federal_bureau`/`abandoned_brick_building`,
+      # all `slice`-routed) and the 3 pack-blacklisted/unburnable whole
+      # assets (`BG_Building_D`, `Building_11`, `Building_12`).
+      midrise_v2:
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 20.0 m — urm, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_long_DG0.usd", scale: 1.0}   # 42.0 x 12.0 x 21.0 m — urm, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_wide_DG0.usd", scale: 1.0}   # 40.0 x 24.0 x 22.0 m — rc, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_walkup_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 23.0 m — urm, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_office_plain_DG0.usd", scale: 1.0}   # 32.0 x 24.0 x 25.0 m — rc, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_commercial_mid_DG0.usd", scale: 1.0}   # 30.0 x 18.0 x 26.0 m — urm, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_apartment_tall_DG0.usd", scale: 1.0}   # 27.0 x 17.0 x 33.0 m — urm, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_highrise_04_DG0.usd", scale: 1.0}   # 22.0 x 18.0 x 41.0 m — urm, kit
+        - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype/bld_tower_DG0.usd", scale: 1.0}   # 25.0 x 20.0 x 43.0 m — rc_glass, kit
+        - {usd: "Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd", scale: 1.0}
+          # 28.5 x 18.5 x 29.0 m — metre-authored, unlike its neighbours
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_02.usd"
+          scale: 0.01
+          yaw-offset: 180
+          tags: ["place_mid", "front:E", "blank:N,W,S"]
+          # 28.0 x 14.4 x 38.6 m — 1-sided mid, front E, blank N,W,S
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_24.usd"
+          scale: 0.01
+          yaw-offset: 90
+          tags: ["place_end", "front:N", "blank:W,S"]
+          # 29.0 x 58.0 x 43.2 m — 2-sided end, front N, blank W,S
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_29.usd"
+          scale: 0.01
+          yaw-offset: 180
+          tags: ["place_mid", "front:E", "blank:N,W,S"]
+          # 14.3 x 28.0 x 47.6 m — 1-sided mid, front E, blank N,W,S
+        - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_30.usd"
+          scale: 0.01
+          yaw-offset: 180
+          tags: ["front:E"]
+          # 28.4 x 42.4 x 48.0 m — 4-sided any, front E, blank -
   # ---- block shape -----------------------------------------------------------
   # The built-in BSP always splits whichever side is longer, which drives every
   # block toward square: measured over this same region it gives a median

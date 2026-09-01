@@ -199,6 +199,57 @@ def _gac_names_placed(placements: list) -> list:
     return sorted(names)
 
 
+# ---------------------------------------------------------------------------
+# ROUND 6, `urban_quake_v5` — the PACK breakdown.
+#
+# `by_style` (above) already answers "how many of each kit archetype style",
+# but a v5-scale run mixes packs `by_style`'s kit-only naming convention
+# (`_style_of`, `bld_<style>_DGn.usd` -> `<style>`) cannot even see: a same_art
+# MCE original, a GAC merged building, a downtowncity filler, an AEC
+# brownstone, a bare standalone monolith. This buckets every placed house by
+# the SAME pack rules `disaster.quake.assemble` and `_mono_pass` actually key
+# off (`disaster.quake._is_pristine_pack`, `_is_gac`, `kit_substitute.
+# pack_of`) — not a re-derivation, the identical calls — so this report and
+# the runtime decision can never silently drift apart. `pristine_downtowncity`
+# / `pristine_aec` are their own buckets rather than folded into
+# `standalone_other`: the whole point of round 6 is that these two NEVER
+# receive a damage decision, at any grade, and a reader should be able to see
+# that guarantee's denominator (how many were placed) at a glance.
+# ---------------------------------------------------------------------------
+def _pack_breakdown(placements: list) -> dict:
+    """{pack_label: count} for every placed house — see the module note
+    above. Labels: `kit` (a `bld_*` archetype), `mce_same_art` (an MCE
+    original `decide_building` can twin), `gac` (a GreatAmericanCity merged
+    building `decide_gac_building` can bake-swap), `pristine_downtowncity`
+    / `pristine_aec` (round 6: `_is_pristine_pack` — never receive a damage
+    decision), `standalone_other` (a whole-asset monolith with none of the
+    above — Muyang DownTown, Dmytro FactoryDistrict, the `assets/
+    standalone/` drop — still gets `_mono_pass`'s generic fallback)."""
+    from disaster import kit_substitute as ks
+    from disaster import quake as q
+
+    out: dict = {}
+    for p in placements:
+        if p.get("category") != "house":
+            continue
+        usd = p.get("usd", "")
+        if q._is_pristine_pack(usd):
+            label = ("pristine_downtowncity" if "downtowncity/" in str(usd)
+                     else "pristine_aec")
+        else:
+            pack = ks.pack_of(usd)
+            if pack == "kit":
+                label = "kit"
+            elif pack == "same_art":
+                label = "mce_same_art"
+            elif pack == "other" and q._is_gac(usd):
+                label = "gac"
+            else:
+                label = "standalone_other"
+        out[label] = out.get(label, 0) + 1
+    return dict(sorted(out.items()))
+
+
 def decision_tally(config: dict, placements: list, arch_dir: str,
                    gac_manifest: dict = None) -> dict:
     """Run `disaster.quake.decide_building` / `decide_gac_building` for every
@@ -349,7 +400,8 @@ def _corridor_length_m(c: dict) -> float:
     return abs(c["x1"] - c["x0"])
 
 
-def run_one(region_m: float, seed_note: str = "", asset_set: str = None) -> dict:
+def run_one(region_m: float, seed_note: str = "", asset_set: str = None,
+           seed: int = None) -> dict:
     # Plain (non-reloaded) imports: build_city creates its own
     # `random.Random(config["seed"])` per call and layout.city_layout's
     # PARK_RESERVES is slice-reassigned (`PARK_RESERVES[:] = ...`), not
@@ -361,11 +413,21 @@ def run_one(region_m: float, seed_note: str = "", asset_set: str = None) -> dict
     from detail import districts as districts_mod
 
     print(f"\n{'=' * 70}\n[dry_run] region_m = {region_m} x {region_m}"
-          f"{f', asset_set={asset_set}' if asset_set else ''}\n{'=' * 70}")
+          f"{f', asset_set={asset_set}' if asset_set else ''}"
+          f"{f', seed={seed}' if seed is not None else ''}\n{'=' * 70}")
 
     overrides = {"region_m": [float(region_m), float(region_m)]}
     if asset_set:
         overrides["asset-set"] = asset_set          # e.g. urban_quake_v3
+    # ROUND 6, `urban_quake_v5`: an explicit `seed` override, purely for
+    # reproducing / probing a SPECIFIC draw of the zoning nuclei (Harris &
+    # Ullman's multiple-nuclei model, `detail/districts.py`) — which ring
+    # gets a nucleus, and therefore whether a given typology (e.g. `rowhouse`,
+    # only ever drawn at one ring's mix) forms a block AT ALL this run, is
+    # itself randomised per seed. `None` (the default, unchanged CLI
+    # behaviour) leaves the preset's own committed `seed:` untouched.
+    if seed is not None:
+        overrides["seed"] = int(seed)
     config = compile_disaster.load_scene_config(
         "downtown_earthquake", spec_overrides=overrides)
 
@@ -431,6 +493,7 @@ def run_one(region_m: float, seed_note: str = "", asset_set: str = None) -> dict
         "region_m": region_m,
         "n_buildings": len(houses),
         "by_style": dict(sorted(by_style.items())),
+        "pack_breakdown": _pack_breakdown(placements),
         "footprints_m": footprints,
         "n_blocks": len(blocks),
         "n_road_corridors": len(corridors),
@@ -504,6 +567,56 @@ def _format_markdown(results: list) -> str:
         for style, n in res.get("by_style", {}).items():
             lines.append(f"| {style} | {n} |")
         lines.append("")
+
+        # ROUND 6, `urban_quake_v5`: the pack breakdown -- which of kit /
+        # mce_same_art / gac / pristine_downtowncity / pristine_aec /
+        # standalone_other each placed house belongs to (see
+        # `_pack_breakdown`'s own docstring). `pristine_downtowncity` and
+        # `pristine_aec` are the denominator for the "never receive a damage
+        # decision" guarantee -- 0 in either row means that pack placed none
+        # this run, not that the guarantee is untested.
+        pb = res.get("pack_breakdown")
+        if pb:
+            lines.append("### Pack breakdown (`disaster.quake` pack rules)\n")
+            lines.append("| pack | count |")
+            lines.append("|---|---|")
+            for label, n in pb.items():
+                lines.append(f"| {label} | {n} |")
+            lines.append("")
+            # ROUND 6 FOLLOW-UP: `downtown_earthquake.yaml`'s ring/typology
+            # section now MIRRORS `downtown_gac.yaml`'s five rings / six
+            # typologies (previously only rowhouse/midrise/tower, rowhouse
+            # always at mix weight 0.00 — see the git history on this file's
+            # own note, and `urban_quake_v5.yaml`'s header, for the state
+            # before this fix). `pristine_downtowncity` reliably places now
+            # (downtowncity lives in `intact`/`lowrise`/`highrise`, all three
+            # reachable from a ring mix at every seed sampled). `pristine_
+            # aec` lives ONLY in `rowhouse` — one typology, drawn at only the
+            # `edge` ring's mix (weight 0.60) — so whether a rowhouse-ranked
+            # AREA actually grows a NUCLEUS this particular seed (Harris &
+            # Ullman's multiple-nuclei zoning, `detail/districts.py`) is
+            # itself randomised: measured over seeds 1-12 at this same
+            # region/asset-set, `pristine_aec` was nonzero for 5 of 12
+            # (seeds 3, 5, 6, 9, 11 — counts 3-21) and 0 for the rest,
+            # INCLUDING this preset's own committed `seed: 42`. That is
+            # ordinary zoning-nucleus variance, not a gate or preset defect —
+            # `tests/test_quake_v5_city.py::
+            # test_v5_layout_places_at_least_one_downtowncity_and_one_aec_
+            # building_both_pristine` pins a SPECIFIC seed (9) that reliably
+            # draws both, as a deterministic placement-level proof the
+            # mechanism itself works; `tools/layout_dry_run.py --seed N` (the
+            # round-6 addition) reproduces any of the sampled seeds above.
+            if not pb.get("pristine_downtowncity") or not pb.get("pristine_aec"):
+                lines.append(
+                    "**Note:** one or both of `pristine_downtowncity` / "
+                    "`pristine_aec` is 0 in the table above — see the "
+                    "\"ROUND 6 FOLLOW-UP\" comment in `tools/layout_dry_run."
+                    "py::_format_markdown` (this preset's ring/typology "
+                    "section now mirrors `downtown_gac.yaml`'s; a 0 here is "
+                    "this run's particular zoning-nucleus draw, not a gap — "
+                    "`--seed 9` at this same region/asset-set reliably shows "
+                    "both nonzero, and `tests/test_quake_v5_city.py` pins "
+                    "that seed as a deterministic placement-level proof).\n")
 
         dt = res.get("decision_tally")
         if not dt:
@@ -620,12 +733,18 @@ def main():
     ap.add_argument("--md", default=None,
                      help="write a markdown summary (pool mix + decision "
                           "tally) to this path")
+    ap.add_argument("--seed", type=int, default=None,
+                     help="override the preset's own committed seed -- "
+                          "which zoning nuclei form (and so whether a "
+                          "typology drawn at only one ring, e.g. rowhouse, "
+                          "gets a block AT ALL) is randomised per seed; "
+                          "omit to use the preset's default")
     args = ap.parse_args()
 
     results = []
     for r in args.region:
         try:
-            res = run_one(r, asset_set=args.asset_set)
+            res = run_one(r, asset_set=args.asset_set, seed=args.seed)
         except Exception as exc:
             import traceback
             traceback.print_exc()

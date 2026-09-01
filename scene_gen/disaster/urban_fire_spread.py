@@ -213,6 +213,24 @@ BURNT_OUT_P = 0.30        # ...a cold URM shell is a gutted ruin     -> F6
 # the origin storey, reused here for "which building starts it".
 ORIGIN_BIAS = 1.7
 
+# ORIGIN_FRAC_CAP: no ignition mechanism may push a building's fire-floor
+# fraction above this, however it lit. `plan_fire`'s F4/F5/F5c/F6 band always
+# runs from the origin to the TOP of the mass (`BAND[level][1] >= 99`), and
+# F3's band is windowed by `n - origin` too — so an origin near the top of a
+# 20-30 storey GAC tower leaves the entire lower building untouched and
+# confines every flame/soot/smoke event to a handful of storeys under the
+# roof. That is exactly the "fire only on the higher floors" signature a
+# user flagged against the 39-record city manifest (2026-08-31): every
+# top-heavy record traced back to `how == "spot"` (a brand landing on the
+# roof, `frac = 0.88`) — the one mechanism deliberately biased toward the
+# top so it "reads instantly as a different mechanism from the wall-to-wall
+# spread happening down the street" (see `solve()`). The cap keeps that cue
+# — a spot fire still starts higher than every other mechanism, since
+# `origin`/`attached`/`radiation` (0.15/0.22/0.45) all sit under it — while
+# guaranteeing at least half of every mass stays below the origin, the same
+# threshold this fix's own audit used to flag a record as top-heavy.
+ORIGIN_FRAC_CAP = 0.5
+
 
 def level_for_age(age_s, btype="urm", rng=None, burnt_out_p=BURNT_OUT_P,
                   collapse_p=COLLAPSE_P):
@@ -566,6 +584,122 @@ def _wind_factor(brg, wind_dir, strength):
 
 
 # ---------------------------------------------------------------------------
+# STREET-FACING SIDE PREFERENCE (user policy, 2026-08-31 review of the live
+# 500 m city): "most of the fire seems to face a side/another building.
+# Let's try to keep it street facing."
+#
+# `entry_for_plan_fire` below is where a building's VENTING side(s) get
+# picked. Two of the three things that decide a side there are already
+# settled by the time this section's code ever runs, and neither is
+# renegotiable here:
+#
+#   * for a non-origin building the ENTRY side is the elevation FACING THE
+#     NEIGHBOUR THAT LIT IT (`solve()`'s own `side_facing`) — that is
+#     PHYSICAL REALISM, not a free choice, and re-picking it for a nicer
+#     camera angle would break the "one event moving through a street" read
+#     the whole spread model exists for (module docstring, "THE ENTRY POINT
+#     IS THE POINT"). This code never touches it.
+#   * how MANY sides vent at all is the side-COUNT policy just below
+#     (`entry_for_plan_fire`'s F3+ branch) — orthogonal to this section.
+#
+# What IS still a free choice, in exactly two places, is WHICH elevation:
+# the ORIGIN building's own entry side (nothing lit it, so nothing dictates
+# a direction) and, for F3+, WHICH of the two `side_neighbors(side)`
+# elevations gets added when only one is being added (see the count policy).
+# `street_side_score` scores every one of S/E/N/W by how open it is, and
+# `entry_for_plan_fire` uses that score to PREFER a street-facing elevation
+# in exactly those two free-choice spots — never overriding the entry side
+# itself.
+#
+# THE METRIC (plan's own "at minimum" suggestion): a facade is more
+# street-like the FARTHER it is from the nearest building that faces it and
+# the CLOSER it is to leaving the block it stands in (crossing into the
+# `road_corridors` a real layout carries — `disaster.fire_people.
+# derive_layout` builds exactly that as `rect_complement(region, blocks)`
+# off the same FC-dump typology blocks `urban_fire_city.typology_at` already
+# reads). Concretely: `score = neighbour_clearance - block_edge_distance`.
+# A big POSITIVE score means the facade reaches the edge of its own block
+# — the road — long before it would reach another building: genuinely
+# street-facing. A small or negative score means a neighbour sits AS CLOSE
+# OR CLOSER than the block boundary: that face looks at the neighbour,
+# however far away the road eventually is. `block_rect=None` (no layout
+# available — a synthetic bench, or a caller with no district data) drops
+# the second term and scores on neighbour clearance alone, which is exactly
+# the "at minimum" fallback: still bigger-is-more-open, just without the
+# road-crossing refinement.
+# ---------------------------------------------------------------------------
+#: defensive clamp on both terms of the score -- not a physical sight
+#: distance, just a ceiling so one very isolated building on a very large
+#: plate does not produce an unbounded score that swamps every comparison.
+STREET_SCORE_CAP_M = 200.0
+
+
+def _facade_point_and_normal(b, side):
+    """`(fx, fy, nx, ny)`: the world-space midpoint of `b`'s `side`
+    elevation and its OUTWARD unit normal. Same front-is--Y convention as
+    `_corners`/`side_facing` (`quake_flow._side_of`'s own "S")."""
+    hw, hd = b["W"] / 2.0, b["D"] / 2.0
+    lx, ly, lnx, lny = {"S": (0.0, -hd, 0.0, -1.0), "E": (hw, 0.0, 1.0, 0.0),
+                        "N": (0.0, hd, 0.0, 1.0), "W": (-hw, 0.0, -1.0, 0.0)
+                        }[side]
+    a = math.radians(b["yaw"])
+    ca, sa = math.cos(a), math.sin(a)
+    fx = b["x"] + ca * lx - sa * ly
+    fy = b["y"] + sa * lx + ca * ly
+    nx, ny = ca * lnx - sa * lny, sa * lnx + ca * lny
+    return fx, fy, nx, ny
+
+
+def _ray_exit_distance(px, py, dx, dy, rect):
+    """Distance from `(px, py)` — assumed inside axis-aligned `rect`
+    `(x0, y0, x1, y1)` — to where a ray in direction `(dx, dy)` leaves it.
+    `None` if the point is not actually inside `rect` or the direction is
+    the zero vector (never happens for a `_facade_point_and_normal` output,
+    but checked rather than assumed)."""
+    x0, y0, x1, y1 = rect
+    if not (x0 - 1e-6 <= px <= x1 + 1e-6 and y0 - 1e-6 <= py <= y1 + 1e-6):
+        return None
+    best = None
+    if abs(dx) > 1e-9:
+        t = ((x1 if dx > 0 else x0) - px) / dx
+        if t > 0:
+            best = t
+    if abs(dy) > 1e-9:
+        t = ((y1 if dy > 0 else y0) - py) / dy
+        if t > 0 and (best is None or t < best):
+            best = t
+    return best
+
+
+def street_side_score(b, side, buildings, block_rect=None,
+                      cap_m=STREET_SCORE_CAP_M):
+    """Higher = `side` more likely opens onto a STREET; lower = onto a
+    neighbouring building. See the section docstring above for the metric.
+
+    `buildings` is the plate's own building list (identity-compared against
+    `b`, so `b` itself is skipped even if it is also IN `buildings`, which
+    it usually is — callers do not need to filter it out first).
+    `block_rect` is the `(x0, y0, x1, y1)` block `b` was zoned into
+    (`urban_fire_city.typology_at`'s own key), or `None` to score on
+    neighbour clearance alone.
+    """
+    neighbour = cap_m
+    for c in buildings:
+        if c is b:
+            continue
+        if side_facing(b, c["x"], c["y"]) != side:
+            continue
+        neighbour = min(neighbour, gap_m(b, c))
+    neighbour = min(neighbour, cap_m)
+    if block_rect is None:
+        return neighbour
+    fx, fy, nx, ny = _facade_point_and_normal(b, side)
+    edge = _ray_exit_distance(fx, fy, nx, ny, block_rect)
+    edge = cap_m if edge is None else min(edge, cap_m)
+    return neighbour - edge
+
+
+# ---------------------------------------------------------------------------
 # The solve
 # ---------------------------------------------------------------------------
 def edges(buildings, wind_dir=0.0, wind_mps=5.0, rng=None,
@@ -740,6 +874,9 @@ def solve(buildings, origin_idx, elapsed_s, wind_dir=0.0, wind_mps=5.0,
         elif how[k] == "origin":
             side = None                    # drawn by the caller
             frac = 0.15                    # fires start low
+        # LOW-BIASED CAP. See ORIGIN_FRAC_CAP: no mechanism (today, only
+        # "spot" exceeds it) may start a fire above half the mass.
+        frac = min(frac, ORIGIN_FRAC_CAP)
         out.append({"i": k, "t_ignite": ti, "age": age, "level": lvl,
                     "height_class": cls,
                     "via": via[k], "how": how[k], "entry_side": side,
@@ -833,7 +970,7 @@ def cap_to_prefix(plan, n):
     return out
 
 
-def entry_for_plan_fire(rec, n_storeys, rng=None):
+def entry_for_plan_fire(rec, n_storeys, rng=None, street_score=None):
     """One spread record + a building's storey count -> `plan_fire` arguments.
 
     Returns `(origin_storey, sides)` to be passed straight through as
@@ -855,16 +992,37 @@ def entry_for_plan_fire(rec, n_storeys, rng=None):
         "the top storey" because on anything tall those are different
         places, and a brand fire that starts four floors down and climbs is
         the correct picture.
-      * F1/F2 vent through ONE elevation — the compartment that is alight
-        opens onto exactly one face. From F3 the fire has gone through the
-        floor plate, so it takes the elevation round the CORNER as well
-        (`side_neighbors`); `plan_fire`'s own default does the same thing,
-        this just makes the choice follow the source instead of a shuffle.
+      * F1/F2 vent through exactly ONE elevation — the compartment that is
+        alight opens onto exactly one face.
+      * F3+ vent through TWO OR THREE (2026-08-31 user policy: "live fire
+        seems to mostly only stay on 1 side of the building, it has to look
+        like more" — F3+ records were carrying 1-2 sides in practice, never
+        3). From F3 the fire has gone through the floor plate, so it always
+        takes at least one elevation round the CORNER from the entry side
+        (`side_neighbors`, exactly 2 candidates); which COUNT it takes is a
+        draw shifted up by one option from what this used to be a fixed
+        count of 1 — `rng.randint(1, len(nb))` now covers `{1, 2}` extra
+        elevations (2 or 3 total) with no `rng` still falling back to the
+        OLD deterministic "exactly 1 extra" (2 total), so a caller that
+        never passed an `rng` here (there was never a reason to, since the
+        old code did not read it for the count) sees no change at all.
+        F1/F2's single-elevation rule is untouched either way.
 
-    The ORIGIN building has `entry_side=None` (nothing lit it), so a side is
-    drawn from `rng` when one is supplied and falls back to "S" when it is
-    not — the caller that wants a specific street elevation should overwrite
-    it.
+    The ORIGIN building has `entry_side=None` (nothing lit it, so nothing
+    about contagion dictates a direction — see the module's "STREET-FACING
+    SIDE PREFERENCE" section above `street_side_score`), so its side is the
+    ONE place this function has a completely free choice of elevation, and
+    `street_score` (when given) decides it by ranking S/E/N/W rather than by
+    a uniform `rng` draw (which is still the fallback when `street_score` is
+    `None`, and `"S"` when `rng` is `None` too). The SAME function is also
+    consulted for F3+'s extra elevation, but ONLY when exactly one of the
+    two `side_neighbors(side)` candidates is being added — the more
+    street-facing of the two wins that tie (ties in `street_score` itself,
+    or no `street_score` at all, fall back to the OLD `rng.randrange` pick).
+    THE ENTRY SIDE ITSELF (the elevation facing the neighbour that actually
+    lit this building) is NEVER re-ranked by `street_score` — precedence is
+    entry-side REALISM first, street-facing VISIBILITY only where nothing
+    about contagion has already decided the answer (the two spots above).
     """
     n = max(1, int(n_storeys))
     frac = rec.get("origin_frac")
@@ -872,10 +1030,20 @@ def entry_for_plan_fire(rec, n_storeys, rng=None):
     storey = max(0, min(n - 1, int(round(frac * (n - 1)))))
     side = rec.get("entry_side")
     if side not in _SIDE_RING:
-        side = _SIDE_RING[rng.randrange(len(_SIDE_RING))] if rng else "S"
+        if street_score is not None:
+            side = max(_SIDE_RING, key=street_score)
+        else:
+            side = _SIDE_RING[rng.randrange(len(_SIDE_RING))] if rng else "S"
     if RANK.get(rec.get("level", "F0"), 0) >= RANK["F3"]:
         nb = side_neighbors(side)
-        return storey, (side, nb[rng.randrange(len(nb))] if rng else nb[0])
+        extra_n = (rng.randint(1, len(nb)) if rng else 1)
+        if extra_n >= len(nb):
+            return storey, (side,) + tuple(nb)
+        if street_score is not None:
+            chosen = max(nb, key=street_score)
+        else:
+            chosen = nb[rng.randrange(len(nb))] if rng else nb[0]
+        return storey, (side, chosen)
     return storey, (side,)
 
 
@@ -973,6 +1141,84 @@ def check(verbose=True):
             st, sides))
     if len(entry_for_plan_fire(pl[2], 6)[1]) != 2:
         bad.append("F3+ should vent through two elevations")
+    # --- (3) MORE SIDES BURNING: F3+ is now a draw over {2, 3}, F1/F2 always
+    # stays at 1 -- see `entry_for_plan_fire`'s own docstring. `random.
+    # Random(3).randint(1, 2) == 1` (the OLD, no-rng default: 2 total sides)
+    # and `random.Random(0).randint(1, 2) == 2` (the NEW option: 3 total) --
+    # both pinned here so a stdlib PRNG change would fail loudly rather than
+    # silently stop covering the 3-side branch.
+    if random.Random(3).randint(1, 2) != 1:
+        bad.append("random.Random(3).randint(1, 2) drifted -- the F3+ "
+                   "2-vs-3-sides check below assumes it is 1")
+    if random.Random(0).randint(1, 2) != 2:
+        bad.append("random.Random(0).randint(1, 2) drifted -- the F3+ "
+                   "3-sides check below assumes it is 2")
+    st3, sides3 = entry_for_plan_fire(pl[2], 6, random.Random(3))
+    if len(sides3) != 2:
+        bad.append("entry_for_plan_fire with an rng that draws 1 extra "
+                   "side should still give 2 total, got {0}".format(sides3))
+    st0, sides0 = entry_for_plan_fire(pl[2], 6, random.Random(0))
+    if len(sides0) != 3 or set(sides0[1:]) != set(side_neighbors(sides0[0])):
+        bad.append("entry_for_plan_fire with an rng that draws 2 extra "
+                   "sides should give 3 total (entry + BOTH corner "
+                   "neighbours), got {0}".format(sides0))
+    rec_f2 = {"origin_frac": 0.3, "entry_side": "S", "level": "F2"}
+    if len(entry_for_plan_fire(rec_f2, 5, random.Random(0))[1]) != 1:
+        bad.append("F1/F2 should stay at exactly 1 side even with an rng "
+                   "that would draw 2 extra sides for F3+")
+    # --- (2) STREET-FACING SIDE PREFERENCE ---------------------------------
+    # geometry: b0 has a close neighbour to its EAST and nothing at all to
+    # its WEST -- W must score strictly more street-facing than E.
+    _b0 = {"x": 0.0, "y": 0.0, "W": 10.0, "D": 10.0, "yaw": 0.0}
+    _b1 = {"x": 20.0, "y": 0.0, "W": 10.0, "D": 10.0, "yaw": 0.0}
+    _bl = [_b0, _b1]
+    if not (street_side_score(_b0, "W", _bl) >
+            street_side_score(_b0, "E", _bl)):
+        bad.append("street_side_score: an open side should outscore one "
+                   "with a close neighbour")
+    if street_side_score(_b0, "E", _bl) != gap_m(_b0, _b1):
+        bad.append("street_side_score without a block_rect should be "
+                   "exactly the neighbour clearance")
+    # with a block_rect: W reaches the block edge (45 m) long before it
+    # would reach a neighbour (there is none) -> a big positive score; E's
+    # neighbour (10 m clear) is much closer than that same 45 m edge -> a
+    # NEGATIVE score, even though the edge itself is far away.
+    _rect = (-50.0, -50.0, 50.0, 50.0)
+    sw = street_side_score(_b0, "W", _bl, block_rect=_rect)
+    se = street_side_score(_b0, "E", _bl, block_rect=_rect)
+    if not (sw > 0):
+        bad.append("street_side_score(W, block_rect): expected a positive "
+                   "(street-facing) score, got {0}".format(sw))
+    if not (se < 0):
+        bad.append("street_side_score(E, block_rect): a neighbour closer "
+                   "than the block edge should score negative, got "
+                   "{0}".format(se))
+    if abs(sw - 155.0) > 1e-6 or abs(se - (-35.0)) > 1e-6:
+        bad.append("street_side_score(block_rect) arithmetic drifted: "
+                   "W={0} (want 155.0) E={1} (want -35.0)".format(sw, se))
+    # entry_for_plan_fire: the ORIGIN's free choice follows street_score...
+    rec_origin = {"origin_frac": 0.15, "entry_side": None, "level": "F1"}
+    _prefer_e = lambda s: 10.0 if s == "E" else 0.0
+    _, sides_o = entry_for_plan_fire(rec_origin, 4, None, street_score=_prefer_e)
+    if sides_o != ("E",):
+        bad.append("entry_for_plan_fire should pick the origin's own entry "
+                   "side by street_score when one is given, got {0}".format(
+                       sides_o))
+    # ...but NEVER for a non-origin building's entry side (contagion wins).
+    rec_lit = {"origin_frac": 0.22, "entry_side": "W", "level": "F2"}
+    _, sides_lit = entry_for_plan_fire(rec_lit, 4, None, street_score=_prefer_e)
+    if sides_lit != ("W",):
+        bad.append("entry_for_plan_fire must never override a REAL entry "
+                   "side with street_score, got {0}".format(sides_lit))
+    # ...and for F3+, street_score is the TIEBREAK for the single extra
+    # corner side (only when exactly one is being added).
+    rec_f3 = {"origin_frac": 0.45, "entry_side": "S", "level": "F3"}
+    _, sides_f3 = entry_for_plan_fire(rec_f3, 6, random.Random(3),
+                                      street_score=_prefer_e)
+    if sides_f3 != ("S", "E"):
+        bad.append("entry_for_plan_fire's F3+ single extra side should "
+                   "follow street_score's preference, got {0}".format(
+                       sides_f3))
     # --- height class: typology is the source of truth --------------------
     for typ, want in TYPOLOGY_HEIGHT_CLASS.items():
         if height_class(typology=typ) != want:

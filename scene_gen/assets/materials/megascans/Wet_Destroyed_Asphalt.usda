@@ -34,7 +34,7 @@ def Material "Wet_Destroyed_Asphalt"
         bool inputs:enable_ORM_texture = 1
         asset inputs:ORM_texture = @./Wet_Destroyed_Asphalt/T_si1odala_4K_ORM.png@
         asset inputs:height_texture = @./Wet_Destroyed_Asphalt/T_si1odala_4K_H.png@
-        float2 inputs:texture_scale = (0.09, 0.09)
+        float2 inputs:texture_scale = (0.28, 0.28)  # 3.6 m tiles; 0.09 (11 m) stretched the potholes past legibility — only the hurricane presets reference this wrapper (cross-preset guard in test_surge_wet_mounds)
         bool inputs:project_uvw = 1
         bool inputs:world_or_object = 1
         token outputs:out (renderType = "material")

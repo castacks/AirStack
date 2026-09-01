@@ -1153,6 +1153,64 @@ def palette_skins(palette_name):
             "deck": pal.get("roof") or pal.get("roof_flat") or ROOF_SHINGLE}
 
 
+# A PER-HOUSE POOL, for DETACHED lots. `STYLES[style]["palette"]` is one fixed
+# colour per style — right for the catalogue (`build_catalogue`/`build_row`,
+# which exist to show what each style looks like) and for a whole-house
+# fallback build, and wrong for a street of them: every `cottage` on a plat
+# fell back to the same `STYLES["cottage"]["palette"]` (`wood_white`), so a
+# 27-house run of one style came out of the layout as one wall colour before
+# any archetype bake or launcher bug ever touched it. `row_housing.py` already
+# solved this for terraces (`PALETTE_SETS`, drawn once per district and varied
+# unit to unit); this is the same idea for the house that stands alone on its
+# own lot, where there is no "district" to draw for and each house draws for
+# itself. `concrete`/`concrete_pale` excluded, same reason `row_housing`
+# excludes them from its own sets: commercial concrete with a worn-asphalt
+# roof is not a colour anybody paints a house.
+HOUSE_PALETTE_POOL = ("siding_cream", "brick_red", "brick_buff",
+                      "wood_dark", "wood_white", "stucco")
+
+
+def draw_house_palette(seed_key, weights=None):
+    """A palette name from `HOUSE_PALETTE_POOL`, chosen by a STABLE HASH.
+
+    Deliberately NOT a live `rng.random()` draw. This is called once per
+    house from deep inside `suburb_scene.build_placements`'s per-lot loop,
+    whose single `rng` object also drives that SAME house's garage door,
+    driveway and pool detail immediately afterward — inserting a live draw
+    here would consume one more value off that stream for every house on the
+    plate and silently re-roll every one of those downstream choices for
+    every house, the same hazard `build_placements`' own `mod_share` draw
+    documents and avoids the same way (`hash((...)) % 1000`).
+
+    *seed_key* should fold in the scene's own seed (so two different seeds
+    diverge) and something identifying this one house (a parcel id plus the
+    lot centre is what the caller uses, mirroring the `mod_share` hash key) —
+    NOT the loop index alone, which would make every house in iteration order
+    draw off a slowly-incrementing hash and read as banding rather than as
+    scatter. The same (seed, house) pair always reproduces the same paint job.
+
+    *weights* overrides the flat default, e.g. from a scene config's
+    `suburb_parcel.house_palette_weights` — `{name: weight}` over any subset
+    of `HOUSE_PALETTE_POOL`; a name outside the pool or a weight of 0 drops
+    out. `None` or all-zero weights falls back to the caller's own default
+    (typically the style's own `STYLES[style]["palette"]`).
+    """
+    w = dict(weights) if weights else {n: 1.0 for n in HOUSE_PALETTE_POOL}
+    names = [n for n in HOUSE_PALETTE_POOL if float(w.get(n, 0.0)) > 0.0]
+    if not names:
+        return None
+    tot = sum(float(w[n]) for n in names)
+    if tot <= 0.0:
+        return None
+    frac = (hash(seed_key) % 1_000_003) / 1_000_003.0
+    r = frac * tot
+    for n in names:
+        r -= float(w[n])
+        if r <= 0.0:
+            return n
+    return names[-1]
+
+
 # What a diffuse/albedo texture is called in the packs this kit draws on —
 # BY FILENAME, which is how `apply_palette.current()` identifies a surface.
 _BASECOLOR_HINTS = ("basecolor", "base_color", "albedo", "diffuse", "_bc",

@@ -517,6 +517,34 @@ def test_the_construction_type_decides_where_the_failure_line_is():
     assert not plan["drop"], "an infill loss does not drop a floor plate"
 
 
+def test_infill_removal_still_rags_the_exposed_floor_edge():
+    """rect-cutouts review (2026-08-31): the slab an infill panel used to
+    hide behind is authored by `fit_interior` exactly like any other floor
+    slab — a plain rectangular box — so it needs `quake_flow._ragged_slabs`
+    on the failed side just as much as a masonry elevation/corner loss does.
+    `_author_one` used to skip the break entirely when `plan["infill"]` was
+    set (`elif ... and not plan["infill"]:`), leaving a machined-straight
+    slab edge behind every RC DG3 infill opening
+    (`LADDER_QC["rc"]["DG3"]` -> `qc_elevation(infill=True)`). The fix reads
+    the decision off the PLAN (`floor_ragged`) instead of re-deriving
+    `mode`/`infill` at authoring time, so this is checkable with no stage."""
+    _ctx_i, plan_i = _plan("block_residential", "elevation", infill=True)
+    assert plan_i["floor_ragged"] is True, (
+        "an infill elevation plan must still ask for a ragged floor edge")
+    # ...and the non-infill path is unchanged: still ragged.
+    _ctx_p, plan_p = _plan("block_residential", "elevation", infill=False)
+    assert plan_p["floor_ragged"] is True
+    _ctx_c, plan_c = _plan("apartment", "corner")
+    assert plan_c["floor_ragged"] is True
+    # band/total/pancake modes handle their own exposed slabs a different
+    # way (`_a_slab_rim` for a crush band; every slab is broken into boards
+    # or re-authored as a stack for total/pancake) and must NOT also run
+    # `_ragged_slabs` a second time on the same slab.
+    for mode in BAND + TOTALS:
+        _ctx_o, plan_o = _plan("block_residential", mode)
+        assert plan_o["floor_ragged"] is False, (mode, plan_o["floor_ragged"])
+
+
 @pytest.mark.parametrize("mode", PARTIAL + BAND + ("pancake",))
 def test_every_module_touching_the_hole_is_torn_and_knows_which_edge(mode):
     """THE ANSWER TO "SHARP STRAIGHT OR RECTANGULAR CUTS", checked from the
@@ -1104,13 +1132,16 @@ def test_mutation_a_module_outside_its_own_span_is_caught():
 # ---------------------------------------------------------------------------
 # ROOF PROPS THAT LOSE THEIR ROOF — `quake_collapse.roof_prop_footprint_lost`
 #
-# The AUTHORING half (`_sweep_roof_props`: real `ctx["roof_plant"]` paths,
-# `UsdGeom.BBoxCache`, `ctx["loose"]` + a velocity kick, `quake_flow.
-# _a_bury_props`) needs a stage and is out of reach here, exactly like the
-# fan/heap/tear machinery it sits beside. What IS pure — no `pxr`, no ctx even
-# — is the DECISION: does a prop's own footprint sit over roof area this plan
-# just killed. That decision is what a real footprint (measured off the
-# stage) and a synthetic one in this file are handed to identically.
+# The AUTHORING half (`_sweep_roof_props` / `_deck_support_z`: real
+# `ctx["roof_plant"]` paths, `UsdGeom.BBoxCache`, the geometric support probe,
+# `quake_flow._a_bury_props`) needs a stage — the `test_deck_support_z_*` and
+# `test_sweep_roof_props_*` tests below build a real (in-memory) one, exactly
+# because round 6 shipped a real bug (`_deck_support_z` missing a wide slab
+# entirely) that no purely-planner test could have caught. What IS pure — no
+# `pxr`, no ctx even — is the DECISION `roof_prop_footprint_lost` makes: does
+# a prop's own footprint sit over roof area this plan just killed. That
+# decision is what a real footprint (measured off the stage) and a synthetic
+# one in this file are handed to identically.
 # ---------------------------------------------------------------------------
 def _region_pts(plan, m):
     """One WORLD point safely INSIDE the plan's lost region (half its depth
@@ -1215,6 +1246,346 @@ def test_roof_prop_classification_takes_no_shared_draws():
             qc.roof_prop_footprint_lost(plan, m, [pt, pt, pt, pt, pt])
     assert ctx["rng"].getstate() == random.Random(7).getstate(), \
         "the roof-prop classifier drew from the SHARED rng"
+
+
+# ---------------------------------------------------------------------------
+# ROUND 6: `_deck_support_z` and `_sweep_roof_props`'s GEOMETRIC placement —
+# a real stage, on purpose (see the section note above).
+# ---------------------------------------------------------------------------
+def _stage_box(stage, path, cx, cy, cz, sx, sy, sz):
+    """One box Mesh, world-axis-aligned, no external reference — the same
+    shape every kit slab/wall piece in this codebase authors
+    (`quake_flow._box`'s own construction), so a synthetic stage exercises
+    the SAME "one big quad per face" case a real bake does."""
+    from pxr import Gf, Sdf, UsdGeom
+    hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
+    mesh = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    pts = []
+    for dz in (-hz, hz):
+        for dx, dy in ((-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)):
+            pts.append(Gf.Vec3f(cx + dx, cy + dy, cz + dz))
+    faces, counts = [], []
+    for f in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5),
+              (2, 3, 7, 6), (3, 0, 4, 7)):
+        faces.extend(f)
+        counts.append(4)
+    mesh.CreatePointsAttr(pts)
+    mesh.CreateFaceVertexCountsAttr(counts)
+    mesh.CreateFaceVertexIndicesAttr(faces)
+    mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    return mesh.GetPrim()
+
+
+def _empty_stage(root="/World/b0"):
+    from pxr import Sdf, Usd, UsdGeom
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    UsdGeom.Xform.Define(stage, Sdf.Path(root))
+    return stage, root
+
+
+def test_deck_support_z_finds_a_wide_slab_not_just_its_triangle_centroid():
+    """THE BUG THIS PINS: a kit slab is ONE big quad (`quake_flow._box`'s own
+    shape), and a naive "is the TRIANGLE'S CENTROID inside the query
+    rectangle" test never fires for a small prop over the middle of a wide
+    one — a fan triangulation of a 30 x 10 m quad centres its two triangles a
+    quarter and three-quarters along the long axis, never at the middle.
+    `_deck_support_z` samples the QUERY rectangle's own corners + centre
+    against each candidate triangle instead (point-in-triangle), so it has to
+    find a 30 m-wide slab from a 2 m-wide query centred on it."""
+    from pxr import Usd, UsdGeom
+    stage, root = _empty_stage()
+    _stage_box(stage, root + "/roof_west", -10, 0, 10, 10, 10, 0.3)
+    _stage_box(stage, root + "/roof_east", 10, 0, 10, 10, 10, 0.3)
+    _stage_box(stage, root + "/floor_below", 0, 0, 6.5, 30, 10, 0.3)
+    tank = root + "/tank_x_1"
+    _stage_box(stage, tank, 0, 0, 11.02, 1.6, 1.6, 2.0)   # base at z=10.02
+
+    support = qc._deck_support_z(stage, root, cx=0.0, cy=0.0, half_w=1.0,
+                                 half_d=1.0, z_ceiling=10.02, exclude={tank})
+    assert support is not None, \
+        "missed the wide floor slab entirely (the round-6 bug)"
+    assert abs(support - 6.65) < 0.05, support     # NOT the roof at ~10.3
+
+    # over the surviving west roof instead: a NARROWER candidate this time
+    tank2 = root + "/tank_x_2"
+    _stage_box(stage, tank2, -10, 0, 11.15, 1.6, 1.6, 2.0)
+    support2 = qc._deck_support_z(stage, root, cx=-10.0, cy=0.0, half_w=1.0,
+                                  half_d=1.0, z_ceiling=10.15, exclude={tank2})
+    assert support2 is not None and abs(support2 - 10.15) < 0.05, support2
+
+
+def test_deck_support_z_ignores_what_is_above_and_returns_none_over_a_true_gap():
+    stage, root = _empty_stage()
+    _stage_box(stage, root + "/floor_below", 0, 0, 6.5, 30, 10, 0.3)
+    # a slab ABOVE the query ceiling must never count as "support"
+    _stage_box(stage, root + "/roof_overhead", 0, 0, 20.0, 30, 10, 0.3)
+    support = qc._deck_support_z(stage, root, cx=0.0, cy=0.0, half_w=1.0,
+                                 half_d=1.0, z_ceiling=10.02)
+    assert support is not None and abs(support - 6.65) < 0.05, support
+    # nothing at all under a spot far from every authored box
+    gone = qc._deck_support_z(stage, root, cx=500.0, cy=500.0, half_w=1.0,
+                              half_d=1.0, z_ceiling=10.02)
+    assert gone is None
+
+
+def _office_wide_elevation_plan():
+    ctx0 = _ctx("office_wide", tag="b0")
+    plan = qc.plan_collapse(ctx0, mode="elevation")
+    m = ctx0["info"]["masses"][plan["mass"]]
+    return ctx0["info"], plan, m
+
+
+def _rig_stage_with_tank(info, plan, m, root="/World/stage/generated/b0"):
+    """A stage with ONE tank sitting where `dress_roof` would have put it
+    (roof height + 2 cm), over a WORLD point this plan's own region test
+    already calls "lost" (`_region_pts`'s own construction), plus a
+    surviving floor one storey down and the ground further below — enough
+    for `_sweep_roof_props` to have something real to resolve against."""
+    stage, _ = _empty_stage(root)
+    sd = plan["sides"][0]
+    lo, hi, dep = plan["region"][sd]
+    t_mid = 0.5 * (lo + hi)
+    ix, iy = qf._to_world(m, *fc.wall_point(m, sd, t_mid, out_m=-(dep * 0.5)))
+    tank_z0 = float(m["top"]) + 0.02
+    tank = root + "/tank_b0_1"
+    _stage_box(stage, tank, ix, iy, tank_z0 + 1.0, 1.6, 1.6, 2.0)
+    floor_z = float(m["levels"][-1])
+    _stage_box(stage, root + "/floor_below", m["cx"], m["cy"], floor_z,
+              m["W"] * 1.2, m["D"] * 1.2, 0.3)
+    _stage_box(stage, root + "/ground", m["cx"], m["cy"], float(m["z0"]),
+              m["W"] * 3.0, m["D"] * 3.0, 0.2)
+    return stage, tank, tank_z0, floor_z
+
+
+def _rig_ctx(stage, tank, seed=11, parent="/World/stage/generated/b0"):
+    return {"stage": stage, "parent": parent,
+           "rng": random.Random(seed), "nrng": np.random.default_rng(seed),
+           "roof_plant": [tank], "roof_fixed": [], "roof_plant_mass": "main",
+           "loose": [], "static_extra": [], "velocity": {}, "notes": [],
+           "tag": "b0"}
+
+
+def test_sweep_roof_props_places_a_fallen_tank_on_the_real_deck_not_a_kick():
+    """THE PRODUCTION BUG, reproduced and pinned: round 5's velocity-kick
+    mechanism froze `bld_brownstone_row_DG3.usd`'s tank ~1 m into a required
+    ~3 m fall and `bld_office_wide_DG4.usd`'s ~2-4.7 m short. This building
+    (`office_wide`, `elevation`) has the tank fall a full storey (>half of
+    `ROOF_PROP_BIG_TIP_STOREY_FRAC`), so it must land on the real floor
+    slab — not the kick's 0.3-0.9 m/s nudge and a hopeful settle — get a
+    real tip/roll (not stay bolt upright), come out as STATIC geometry (no
+    rigid body / step-budget dependency), and land in the SAME place for the
+    same seed."""
+    from pxr import Gf, Usd, UsdGeom
+    info, plan, m = _office_wide_elevation_plan()
+    stage, tank, tank_z0, floor_z = _rig_stage_with_tank(info, plan, m)
+    ctx = _rig_ctx(stage, tank)
+
+    n_fall, n_buried = qc._sweep_roof_props(ctx, plan, m, random.Random(99))
+    assert n_fall == 1 and n_buried == 0
+    assert tank not in ctx["roof_plant"], "not removed from roof_plant"
+    assert ctx["loose"] == [], "must not be a rigid body — no settle dependency"
+    assert tank in ctx["static_extra"]
+
+    pr = stage.GetPrimAtPath(tank)
+    assert pr.IsValid() and pr.IsActive(), "must not be deactivated (keep=1.0)"
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    r = bc.ComputeWorldBound(pr).ComputeAlignedRange()
+    assert r.GetMin()[2] < tank_z0 - 1.0, "did not fall at all"
+    assert abs(r.GetMin()[2] - (floor_z + 0.15)) < 0.6, \
+        ("landed far from the real floor slab", r.GetMin()[2], floor_z)
+
+    xf = UsdGeom.XformCache()
+    tr = Gf.Transform(xf.GetLocalToWorldTransform(pr))
+    assert tr.GetRotation().GetAngle() > 5.0, \
+        "landed bolt upright on a > half-storey drop"
+
+    # determinism: same building, same seeds -> the same landing
+    stage2, tank2, _, _ = _rig_stage_with_tank(info, plan, m)
+    ctx2 = _rig_ctx(stage2, tank2)
+    qc._sweep_roof_props(ctx2, plan, m, random.Random(99))
+    pr2 = stage2.GetPrimAtPath(tank2)
+    t1 = Gf.Transform(xf.GetLocalToWorldTransform(pr)).GetTranslation()
+    t2 = Gf.Transform(xf.GetLocalToWorldTransform(pr2)).GetTranslation()
+    assert (t1 - t2).GetLength() < 1e-6, "same seed must land the prop identically"
+
+
+def test_sweep_roof_props_small_drop_gets_the_idle_tip_not_the_bury_dressing():
+    """A drop shallower than `ROOF_PROP_BIG_TIP_STOREY_FRAC` of the top
+    storey's own height is not a "fell off the building" drop — it gets the
+    same small idle tip `quake_flow._b_settle_roof_plant` gives a prop
+    nobody kicked over (`quake_flow.B_ROOF_PLANT_TIP_DEG`), not the DG5
+    bury path's 20-75 deg roll."""
+    from pxr import Gf, Usd, UsdGeom
+    info, plan, m = _office_wide_elevation_plan()
+    root = "/World/stage/generated/b0"
+    stage, root = _empty_stage(root)
+    sd = plan["sides"][0]
+    lo, hi, dep = plan["region"][sd]
+    t_mid = 0.5 * (lo + hi)
+    ix, iy = qf._to_world(m, *fc.wall_point(m, sd, t_mid, out_m=-(dep * 0.5)))
+    tank_z0 = float(m["top"]) + 0.02
+    tank = root + "/tank_b0_1"
+    _stage_box(stage, tank, ix, iy, tank_z0 + 1.0, 1.6, 1.6, 2.0)
+    # a deck only 0.3 m under the tank's own base — a shallow drop
+    _stage_box(stage, root + "/deck_just_under", m["cx"], m["cy"],
+              tank_z0 - 0.3, m["W"] * 1.2, m["D"] * 1.2, 0.3)
+    ctx = _rig_ctx(stage, tank, parent=root)
+
+    n_fall, _ = qc._sweep_roof_props(ctx, plan, m, random.Random(5))
+    assert n_fall == 1
+    pr = stage.GetPrimAtPath(tank)
+    xf = UsdGeom.XformCache()
+    tr = Gf.Transform(xf.GetLocalToWorldTransform(pr))
+    assert tr.GetRotation().GetAngle() <= qf.B_ROOF_PLANT_TIP_DEG + 1e-6, \
+        "a barely-fallen prop should barely lean"
+
+
+# ---------------------------------------------------------------------------
+# ROUND 7: `_deck_support_z`'s per-prim AABB prune must never reject a mesh
+# on its TOP — only on its BOTTOM. See `_deck_support_z`'s own "ROUND 7" note
+# and `disaster/quake_sliced.py::_reseat_roof_plant`'s docstring (the
+# reference for the same class of bug, on the reseat side): a merged
+# GAC/kit prim can legitimately span multiple heights when a coping run or
+# raised section elsewhere on the SAME prim sits well above a genuine deck
+# under THIS footprint. Pruning on `hi[2]` threw the whole candidate mesh
+# out whenever ANY part of it (however far from the query XY) cleared the
+# ceiling; the fix prunes only on `lo[2]` — a mesh is a candidate whenever
+# its z-range could contain a triangle at or below `z_ceiling + margin`,
+# regardless of how much higher the rest of it reaches.
+# ---------------------------------------------------------------------------
+def _stage_merged_boxes(stage, path, boxes):
+    """ONE Mesh prim built from several axis-aligned boxes concatenated into
+    a single points/faceVertexCounts/faceVertexIndices triple — the same
+    shape a real bake's merge produces when a coping run and a flat deck,
+    authored as separate pieces, end up sharing one exported prim. `boxes`
+    is an iterable of `(cx, cy, cz, sx, sy, sz)`, each turned into 8 points
+    and 6 quad faces exactly like `_stage_box`, offset into one shared index
+    space so the whole thing is a SINGLE mesh (a single world AABB), not
+    several."""
+    from pxr import Gf, Sdf, UsdGeom
+    pts, faces, counts = [], [], []
+    for cx, cy, cz, sx, sy, sz in boxes:
+        base = len(pts)
+        hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
+        for dz in (-hz, hz):
+            for dx, dy in ((-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)):
+                pts.append(Gf.Vec3f(cx + dx, cy + dy, cz + dz))
+        for f in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5),
+                  (2, 3, 7, 6), (3, 0, 4, 7)):
+            faces.extend(base + i for i in f)
+            counts.append(4)
+    mesh = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    mesh.CreatePointsAttr(pts)
+    mesh.CreateFaceVertexCountsAttr(counts)
+    mesh.CreateFaceVertexIndicesAttr(faces)
+    mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    return mesh.GetPrim()
+
+
+def _stage_capless_shaft(stage, path, cx, cy, cz, sx, sy, sz):
+    """A tall, purely VERTICAL box — the 4 side-wall quads only, no top or
+    bottom cap — so it contributes zero up-facing triangles anywhere,
+    however tall it is or however much of its AABB sits under a query
+    footprint. Stands in for a chimney/shaft/parapet-stub whose own top is
+    nowhere near horizontal: a candidate that survives the (correct, XY +
+    lo[2]) prune but must still resolve to NO support once the triangle
+    test runs."""
+    from pxr import Gf, Sdf, UsdGeom
+    hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
+    pts = []
+    for dz in (-hz, hz):
+        for dx, dy in ((-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)):
+            pts.append(Gf.Vec3f(cx + dx, cy + dy, cz + dz))
+    faces, counts = [], []
+    for f in ((0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
+        faces.extend(f)
+        counts.append(4)
+    mesh = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    mesh.CreatePointsAttr(pts)
+    mesh.CreateFaceVertexCountsAttr(counts)
+    mesh.CreateFaceVertexIndicesAttr(faces)
+    mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    return mesh.GetPrim()
+
+
+def test_deck_support_z_finds_the_deck_under_a_merged_prim_with_a_far_coping_run():
+    """THE ROUND-7 BUG, PINNED: a single merged mesh carries a real,
+    up-facing deck at (0, 0) — top at z=69.276, exactly the real bake's own
+    measurement (`gac_SM_Building_19_DG1_*.usd`'s `roof_x_0_14_0271`) — and,
+    20 m away in X on the SAME prim, a raised coping run reaching z=70.196.
+    The merged prim's own world AABB is therefore z=[68.7, 70.196]: taller
+    than `z_ceiling + margin` by a wide margin. The OLD prune
+    (`hi[2] > z_ceiling + margin`) discarded the WHOLE mesh because of the
+    distant coping run and returned `None` (or fell through to a lower,
+    wrong candidate); the fix must find the real deck under the query's own
+    footprint regardless of what else, elsewhere, shares its prim."""
+    stage, root = _empty_stage()
+    _stage_merged_boxes(stage, root + "/roof_x_0_14_0271", [
+        (0.0, 0.0, 69.138, 6.0, 6.0, 0.276),          # the real deck: top 69.276
+        (20.0, 0.0, 70.048, 1.0, 1.0, 0.296),          # a coping run far away: top 70.196
+    ])
+    tank = root + "/tank_x_1"
+    _stage_box(stage, tank, 0.0, 0.0, 69.30, 1.6, 1.6, 2.0)   # base at 69.30
+
+    support = qc._deck_support_z(stage, root, cx=0.0, cy=0.0, half_w=1.0,
+                                 half_d=1.0, z_ceiling=69.30, exclude={tank})
+    assert support is not None, \
+        "the merged prim's far coping run pruned out its own real deck"
+    assert abs(support - 69.276) < 0.01, support
+
+
+def test_deck_support_z_none_when_a_tall_neighbour_has_no_up_face_under_the_footprint():
+    """A capless vertical shaft directly under the query footprint spans
+    z=[0, 45] — tall, and (after the fix) NOT pruned by `lo[2]` since its
+    bottom is at grade — but it is side-walls only, so it contributes zero
+    up-facing triangles anywhere. With nothing else in the scene, the
+    search must resolve to `None`, not a spurious "support" borrowed from
+    the shaft's own bounding box."""
+    stage, root = _empty_stage()
+    _stage_capless_shaft(stage, root + "/shaft_0", 0.0, 0.0, 22.5, 1.0, 1.0, 45.0)
+    support = qc._deck_support_z(stage, root, cx=0.0, cy=0.0, half_w=1.0,
+                                 half_d=1.0, z_ceiling=40.0)
+    assert support is None, support
+
+    # the SAME shaft, plus a genuine deck lower down and off to the side —
+    # the shaft must still contribute nothing, and the real deck must still
+    # be found under ITS OWN footprint.
+    _stage_box(stage, root + "/deck_real", 10.0, 0.0, 5.0, 4.0, 4.0, 0.3)
+    support2 = qc._deck_support_z(stage, root, cx=10.0, cy=0.0, half_w=1.0,
+                                  half_d=1.0, z_ceiling=40.0)
+    assert support2 is not None and abs(support2 - 5.15) < 0.05, support2
+
+
+def test_deck_support_z_performance_smoke_many_meshes_stays_bounded():
+    """Not a benchmark — a guard against the fix accidentally turning an
+    O(candidates) prune into an O(candidates) full triangle pass over every
+    mesh in the scope. 400 small boxes scattered over a wide field (the
+    scale of one building's own fractured piece count) plus the query prop;
+    a bare linear sweep over that many tiny meshes, each with a handful of
+    triangles, has no business taking more than a couple of seconds even on
+    a loaded CI box."""
+    import time
+    stage, root = _empty_stage()
+    rng = random.Random(11)
+    for i in range(400):
+        x = rng.uniform(-100.0, 100.0)
+        y = rng.uniform(-100.0, 100.0)
+        z = rng.uniform(0.0, 30.0)
+        _stage_box(stage, "{0}/piece_{1}".format(root, i), x, y, z,
+                  0.8, 0.8, 0.3)
+    # the genuine target, dead centre, findable regardless of the noise
+    _stage_box(stage, root + "/deck_target", 0.0, 0.0, 10.0, 4.0, 4.0, 0.3)
+    tank = root + "/tank_x_1"
+    _stage_box(stage, tank, 0.0, 0.0, 11.12, 1.6, 1.6, 2.0)
+
+    t0 = time.perf_counter()
+    support = qc._deck_support_z(stage, root, cx=0.0, cy=0.0, half_w=1.0,
+                                 half_d=1.0, z_ceiling=11.12, exclude={tank})
+    dt = time.perf_counter() - t0
+
+    assert support is not None and abs(support - 10.15) < 0.05, support
+    assert dt < 5.0, "401-mesh sweep took {0:.2f}s — the prune regressed".format(dt)
 
 
 if __name__ == "__main__":

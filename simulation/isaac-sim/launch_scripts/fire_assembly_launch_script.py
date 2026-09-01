@@ -191,7 +191,8 @@ def place_fire(stage, root, doc, masses, events, tag, rng, top_z,
                dx, dy, scale=1.0, max_emitters=9):
     return fal.place_fire(stage, root, doc, masses, events, tag, rng, top_z,
                           dx, dy, scale=scale, max_emitters=max_emitters,
-                          smoke=SMOKE)
+                          smoke=SMOKE,
+                          smoke_scale=float(_env("FA_SMOKE_SCALE", "1.0")))
 
 
 # ---------------------------------------------------------------------------

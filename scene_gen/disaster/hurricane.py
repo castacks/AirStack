@@ -108,6 +108,10 @@ minority ever reach `limbed`/`leaning`/`fallen`/`snapped`. Conifers still
 keep their needles and SNAP instead, same as the tornado model, and the
 sabal-palm "shaving-brush" survival story (80-93% even through Andrew at 165
 mph, fronds shed without losing the meristem) gets its own species cap below.
+"Most trees survive" also means a real plate should show a genuine
+UNTOUCHED minority, not zero — see `_TREE_CUTS`'s own 2026-08-31 (STREAM T5)
+re-cut for why `pristine` was originally left unreachable at both recorded
+plates and how much of the field it now gets back.
 
 DEBRIS IS TURNED INSIDE OUT FROM THE TORNADO'S
 --------------------------------------------------
@@ -586,13 +590,61 @@ HOUSE_LEVELS = ("pristine", "shingles_lost", "cover_lost", "deck_panels_lost",
 # `hurricane_flow._ROOF_FRAC`, which drops no bay for it): under 20% shingle
 # loss cannot be seen from 400 m, and pretending otherwise by dropping a
 # third of the roof is what produced "why are all the roofs gone?".
+#
+# RE-CUT AGAIN 2026-08-31, TWICE, and both times against the REAL house
+# population rather than the 800-SYNTHETIC-HOUSE sample above, which was
+# never checked against an actual scene's recorded (intensity, vulnerability)
+# pairs and was wrong: GT_hurricane.json (`~/hurricane_previews/V2_L3/`)
+# recorded 21 roof_collapsed + 14 partial_collapse + 1 leveled of 94 houses =
+# **38% structural**, against the synthetic sample's claimed 25%. The
+# level-2 plate's `roof_collapsed` share (1 of 136 = 0.7%) was already fine.
+#
+# ROUND 1 fixed the structural overshoot alone: raise the top three
+# boundaries (`roof_stripped`/`roof_collapsed`/`partial_collapse`), leave
+# `pristine`..`deck_panels_lost` untouched because L2 sits almost entirely
+# below them. That landed structural at 12% (good) but put 39% of the plate
+# in `roof_stripped` alone — a plurality state that, rendered, is a
+# neighbourhood of gutted roofs seen from the air ("a field of white boxes"),
+# exactly the look the ORIGINAL 2026-08-30 re-cut was trying to escape one
+# rung down (`deck_panels_lost`, see the comment above `_ROOF_FRAC` in
+# `hurricane_flow.py`). Raising the ceiling on structural without also
+# re-spreading the roof-cover bands underneath it just pushed the pile-up
+# into the next rung down.
+#
+# ROUND 2 (this one) refits ALL SEVEN boundaries at once by weighted
+# least-squares against five named targets for the level-3 population
+# (`tools/hurricane_house_cut_search.py`, `scipy.optimize.minimize` over
+# `log`-spaced gaps so the boundaries stay increasing and positive; structural
+# weighted 4x since it is the fraction a reviewer names first), instead of
+# hand-walking one boundary at a time and re-breaking the level below it:
+#
+#   target (level 3): pristine+shingles ~15%, cover_lost ~30%,
+#     deck_panels_lost ~25%, roof_stripped ~18%, structural ~12%
+#   ACHIEVED (94-house real population, 6000 resampled jitter draws):
+#     shingles 15.0%, cover 31.2%, deck 23.5%, roof_stripped 18.4%,
+#     roof_collapsed 8.7%, partial_collapse 3.2%, leveled ~0%
+#     -> structural 11.9%, and no single roof-cover rung exceeds a third of
+#        the plate.
+#   L2 (real 136-house population, same boundaries): pristine 13.4%,
+#     shingles 55.2%, cover 25.0%, deck 6.4%, roof_stripped ~0%, structural
+#     0% -> L2 is UNCHANGED in shape (its houses sit almost entirely below
+#     `deck_panels_lost`'s new 0.65 boundary, same as round 1).
+#   `leveled` is not reached by this specific 94-house sample (max resampled
+#   effective intensity is ~0.86, below its 0.90 floor) -- it stays the
+#   correct, rarest rung; a higher `site_gust_mps` or a worse `vuln` draw
+#   elsewhere on the ladder still reaches it.
+#
+# Locked in `scene_gen/tests/test_hurricane_house_cuts.py` against both GT
+# files with tolerances, so a future re-tune has an acceptance gate instead
+# of a synthetic-only self-check or a single-target search that only watches
+# the top of the ladder.
 _HOUSE_CUTS = ((0.360, "pristine"),
-               (0.440, "shingles_lost"),
-               (0.520, "cover_lost"),
-               (0.580, "deck_panels_lost"),
-               (0.630, "roof_stripped"),
-               (0.700, "roof_collapsed"),
-               (0.820, "partial_collapse"),
+               (0.480, "shingles_lost"),
+               (0.570, "cover_lost"),
+               (0.650, "deck_panels_lost"),
+               (0.720, "roof_stripped"),
+               (0.780, "roof_collapsed"),
+               (0.900, "partial_collapse"),
                (1.50, "leveled"))
 
 # THE TREE LADDER. `defoliated` sits at the BOTTOM and is deliberately the
@@ -635,21 +687,131 @@ TREE_LEVELS = ("pristine", "defoliated", "limbed", "leaning", "fallen",
 # narrow tail, and the SPREAD comes from a much larger jitter (see
 # `tree_level_for_intensity`) which is the honest place to put variance the
 # field genuinely does not carry.
-_TREE_CUTS = ((0.30, "pristine"),
-              (0.78, "defoliated"),
-              (0.86, "limbed"),
-              (0.90, "leaning"),
-              (0.97, "fallen"),
-              (1.50, "snapped"))
+#
+# RE-CUT AGAIN 2026-08-31 (STREAM T3), after the windthrow-boosted L3 field
+# was MEASURED to put 41.0% of trees into leaning/fallen/snapped combined
+# (690/1684, replayed against `V2_L3`'s real GT) against a target of "≈30%
+# (25-32%)", with `snapped` alone at 59.6% of that broadleaf structural
+# share against a "≤1/3" ceiling -- the 2026-08-30 cut above (`limbed` at
+# 0.86) was too LOW a gate once the saturated-soil boost (see
+# `windthrow_depth_boost`) is added on top of it every render, not just at
+# L2 where it was aimed.
+#
+# THE HONEST LIMIT OF A SINGLE SHARED CUT. `L2`'s (Cat-1, `site_gust_mps`
+# 55) and `L3`'s (Cat-3, `site_gust_mps` 70) own field intensities are
+# measured, boosted, NOT overlapping bands: L2's boosted effective
+# intensity (raw field + `windthrow_depth_boost`) tops out at 0.78 (mean
+# 0.61, replayed against `V2_L2`'s real tree/depth data); L3's STARTS at
+# 0.68 (mean 0.81). Because `windthrow_depth_boost` is a function of LOCAL
+# DEPTH alone and L3 is simultaneously the windier AND the wetter scene
+# (mean standing-water depth 0.76 m against L2's 0.28 m, replayed against
+# the same GT), ANY monotonic function of (intensity, depth) that lifts
+# enough of L2's population over a "structural" gate to reach 10% inevitably
+# lifts a LARGER share of L3's already-higher, already-wetter population
+# over the SAME gate -- measured by grid-searching the gate position against
+# every boost magnitude from 0.05 to 2.0: the lowest achievable L3
+# structural share, given L2 pinned to exactly 10%, floors at ≈34%, not 30%.
+# (The reverse trade exists too: a gate that lands L3 at its target centre
+# leaves L2 at ≈7%, not 10%.) This is not a tuning failure to iterate past;
+# it is what "L3 is windier and wetter than L2, and depth-driven windthrow
+# cannot un-know that" MEANS numerically. The cut below is the
+# violation-minimising point of that trade (found by the same grid search),
+# not a compromise arrived at by feel.
+#
+# MEASURED AT THIS CUT (replayed against `V2_L2`/`V2_L3`, `windthrow_
+# depth_boost` at its own re-tuned anchors below): L2 leaning+fallen+snapped
+# 7.4% (112/1504, up from 6.1% pre-retune -- still short of the 10% floor,
+# see the trade above), L3 31.2% (526/1684, DOWN from 41.0%, inside the
+# 25-32% target), L3 broadleaf snapped share 22.9% (105/458, DOWN from
+# 59.6%, inside the ≤1/3 ceiling). A side effect worth knowing rather than
+# being surprised by: because the `limbed` gate now sits above BOTH fields'
+# raw (unboosted) ceilings, essentially every leaning/fallen tree at EITHER
+# level is now standing in depth > 0.2 m (100% at both L2 and L3, replayed;
+# L3 was only 56.4% before this re-cut) -- a dry, wind-only windthrow has
+# become vanishingly rare at these two gust speeds, which is the intended
+# direction (saturated soil, not wind alone, is what puts most of these
+# trees down) but is a stronger dependency than the pre-retune cut had.
+#
+# RE-CUT AGAIN 2026-08-31 (STREAM T5), after the bake's own retention fix
+# (see `bake_hurricane_trees.py`'s "DAMAGE IS READ BY CROWN COLOUR" section)
+# exposed a SEPARATE fault in this file: `pristine`'s cut (0.30) sat below
+# EVERY jittered value either recorded plate can produce. `L3`'s field alone
+# (0.629-0.768) minus the full jitter never dips under 0.37; `L2`'s (0.499-
+# 0.600) minus jitter only just reaches 0.24, replayed to a measured 0.9%
+# (13/1504) pristine share. MEASURED CONSEQUENCE: `pristine` was 0.0% of L3
+# (0/1684) and functionally 0% of L2 -- every tree in the scene was drawn as
+# damaged, which contradicts this file's OWN documented sourcing two
+# comments up ("most trees SURVIVE a hurricane") and the user's own read of
+# the render ("I see only 1-2 trees in the whole scene" -- compounded by,
+# not caused by, the separate bake-retention fault the bake file's own
+# STREAM T5 section fixes; a render with NO pristine trees at all removes
+# even the one population that was never bald to begin with).
+#
+# THE SAME SD-STYLE TENSION `_TORNADO_LEVEL_CUTS` DOCUMENTS, ONE LEVEL DOWN.
+# `L2`'s field sits entirely below `L3`'s (0.499-0.600 vs 0.629-0.768), so
+# ANY single shared `pristine` cut high enough to give `L3` a real pristine
+# minority gives `L2` a MUCH larger one -- raising the cut to hand `L3`
+# 10-15% already pushes `L2` past 42-48%. Rather than fight this, the
+# directive's own target bands ACCEPT it: L3 pristine 15-25% (a genuine but
+# still-minority "sheltered survivor" share, matching the skill's own
+# survival data at the higher wind level) and L2 pristine 40-50% (a plurality
+# of untouched trees at the lower, Cat-1-local wind, where "most trees
+# survive uninjured" is the literally-correct reading). Grid-searched jointly
+# over the `pristine` cut, the `defoliated` upper cut (see below), and the
+# ladder's own `jitter` (the JITTER ITSELF has to widen too -- at the
+# ORIGINAL 0.26, no single `pristine` cut lands both scenes in their target
+# bands AND leaves L3's structural share inside 28-32% at the same time; a
+# WIDER jitter (0.30) is what makes a joint solution exist at all, the same
+# "jitter is the honest place to put variance the field doesn't carry" logic
+# `tree_level_for_intensity`'s own docstring already gives, just needing more
+# of it once THREE targets (two pristine bands, one structural band) have to
+# be hit off one shared ladder instead of two).
+#
+# `defoliated`'s UPPER cut also moves, from 0.78 to 1.00 -- independently of
+# `pristine`, and for an unrelated reason: at the OLD 0.78/1.09 split,
+# `limbed` (41.4% of L3, replayed) was the PLURALITY level, not `defoliated`
+# (28.3%), which is backwards from this file's own "defoliated wins by
+# volume" design (see the module docstring) and from the directive's own
+# "brown-crowned (defoliated) plurality" requirement. Moving ONLY this
+# boundary (never the fixed 1.09/1.19/1.44/1.94 downstream of it) shifts mass
+# from `limbed` into `defoliated` without touching the `limbed`-to-`leaning`
+# structural threshold at all, so the L2/L3 structural shares are UNCHANGED
+# by this half of the re-cut.
+#
+# MEASURED AT THIS CUT (`pristine` 0.30->0.64, `defoliated` 0.78->1.00,
+# jitter 0.26->0.30; replayed against `V2_L2`/`FINAL3_L3_brown`'s real GT,
+# `windthrow_depth_boost`/`dry_windthrow_chance` UNCHANGED): L2 pristine
+# 46.3% (697/1504, inside 40-50%), L2 structural (leaning+fallen+snapped)
+# 7.9% (119/1504, inside 6-8%); L3 pristine 15.7% (264/1684, inside 15-25%),
+# L3 defoliated 42.9% (722/1684, now the clear PLURALITY, more than 4x
+# `limbed`'s 10.4%/175), L3 structural 31.1% (523/1684, inside 28-32%, all
+# but unchanged from the pre-T5 31.2%, confirming the two boundary moves
+# above do not disturb it). See `test_hurricane_trees.py::test_l2_l3_
+# replay_against_real_gt` for the full per-level tally this is pinned to.
+_TREE_CUTS = ((0.64, "pristine"),
+              (1.00, "defoliated"),
+              (1.09, "limbed"),
+              (1.19, "leaning"),
+              (1.44, "fallen"),
+              (1.94, "snapped"))
 
 # Wide-crowned species whose root plate is too large, and whose crown too
 # wide, to lie down at a normal lean -- they fail in the STEM instead.
-# Carried over from `tornado.NO_UPROOT` for the identical geometric reason
-# (documented there against the Black_Oak archetype specifically); RE-VERIFY
-# against whatever tree archetypes a hurricane-specific bake eventually ships
-# with, since this list was measured against the TORNADO bake's geometry, not
-# a hurricane one -- none exists yet.
-NO_UPROOT = ("Black_Oak",)
+# `Black_Oak` was carried over from `tornado.NO_UPROOT` for the identical
+# geometric reason and IS NOW RE-VERIFIED against the hurricane-specific
+# bake (`tools/bake_hurricane_trees.py`): its single fused trunk+limb mesh
+# has vertices up to ~11 m off the trunk axis, and even the `snapped`
+# archetype's severed-top piece has to drop that off-axis mass rather than
+# rotate it, or the piece swings through several extra metres of height —
+# the same lever arm a `fallen` rotation cannot survive either.
+#
+# `Douglas_Fir` is here for a different, SOURCED reason, not a geometric
+# one: build-hurricane-scenes' species table has pines snapping mid-trunk
+# into same-height spars rather than uprooting -- a conifer's narrow, deep
+# taproot resists overturning better than its slender stem resists bending
+# under sustained sail load, the opposite failure balance from a broadleaf's
+# shallow, wide root plate.
+NO_UPROOT = ("Black_Oak", "Douglas_Fir")
 
 # Species whose survival story is "sheds fronds, keeps standing" rather than
 # "uproots or snaps" -- sabal palm measured at 80-93% survival even through
@@ -713,10 +875,278 @@ def house_level_for_intensity(i, rng, jitter=0.06, vuln=0.5):
     return _ladder(_HOUSE_CUTS, eff)
 
 
-def tree_level_for_intensity(i, rng, jitter=0.26, species=None):
+# ---------------------------------------------------------------------------
+# the house ladder AS THE TORNADO'S OWN SIX LEVELS (STREAM S, 2026-08-31)
+# ---------------------------------------------------------------------------
+#
+# USER DIRECTIVE: "Make sure that we're doing the same damage as tornado...
+# Same house generation including material. You need to just adjust the
+# pattern of house damage." The 8-level ladder above (`HOUSE_LEVELS`/
+# `_HOUSE_CUTS`/`house_level_for_intensity`) is a SEPARATE, independent
+# damage vocabulary keyed to a hurricane-specific archetype library
+# (`archetypes_hurricane`, `bake_hurricane_archetypes_launch_script.py`,
+# `hurricane_flow.py`'s per-construction-type recipes). It is LEFT IN PLACE,
+# unused by the launcher, rather than deleted: nothing else in this file or
+# its own tests reaches for a six-level cut, and ripping the 8-level ladder
+# out would break `test_hurricane_house_cuts.py` and every tool built on it
+# for no functional gain.
+#
+# `tornado_level_for_intensity` below is the launcher's new source of truth.
+# It reads the IDENTICAL field intensity `i` and the identical
+# `_resistance(vuln)` blend as `house_level_for_intensity` above -- the
+# per-building vulnerability draw is still what carries almost all of this
+# plate's variance (see the module docstring, S1.4-1.5) -- but returns one of
+# the TORNADO's own six level names (`pristine`, `roof_stripped`,
+# `roof_collapsed`, `partial_collapse`, `leveled`; never `swept` -- see
+# below) so the launcher can reference `house_<style>_<level>.usd` straight
+# out of the TORNADO archetype library instead of this file's own.
+#
+# THE CUTS ARE AN INDEPENDENT CALIBRATION, not a re-bucketing of
+# `_HOUSE_CUTS`. Collapsing four of the 8-level rungs into "roof_stripped"
+# does not land anywhere near the targets below (measured: it puts L3's
+# "pristine" share at 18% against a 25-35% target and "roof_stripped" at 75%
+# against 45-55%) because the two ladders are not photographs of the same
+# thing at different resolutions -- they are two different fits to the same
+# underlying (intensity, vulnerability) population. So `_TORNADO_LEVEL_CUTS`
+# was fit FRESH, jointly, against both real recorded scenes.
+#
+# TARGETS (this stream's own brief, itself shaped to the skill's "roofs are
+# the story at L2/L3, structural damage climbs but stays a minority even at
+# L3" reading and to Roueche et al.'s "every wind-only slab-sweep in the
+# hurricane record was surge-associated" finding, which is why `swept` has
+# no wind-only share at all):
+#
+#   L3 (site_gust_mps 70, Cat-3-local): pristine 25-35%, roof_stripped
+#     45-55%, roof_collapsed 8-12%, partial_collapse 3-5%, leveled <=2%
+#   L2 (site_gust_mps 55, Cat-1-local): pristine 55-65%, roof_stripped
+#     30-40%, structural (roof_collapsed+partial_collapse+leveled) <=5%
+#
+# FIT METHOD: `scipy.optimize.minimize` (Nelder-Mead, many random restarts)
+# over 4 monotone boundaries plus the jitter magnitude, against the REAL
+# (intensity, vulnerability) pairs recorded in two actual built scenes --
+# `~/hurricane_previews/FINAL2_L2_brown/GT_hurricane.json` (136 houses,
+# site_gust_mps 55) and `FINAL2_L3_brown/GT_hurricane.json` (94 houses,
+# site_gust_mps 70) -- not a synthetic sample, for the same reason
+# `_HOUSE_CUTS`'s own 2026-08-31 re-cut gives for abandoning its first
+# synthetic-only search: a real scene's houses are not uniformly spread
+# across intensity or vulnerability, and a cut tuned on a fabricated
+# population can hit its target on paper and miss the real one badly (that
+# re-cut measured a 25%-claimed structural share landing at 38% once
+# checked against a real GT). Because `_resistance(vuln)` compresses BOTH
+# scenes' raw field intensity (L2 0.50-0.60, L3 0.65-0.77 -- the field is
+# genuinely close to uniform, see `intensity_field`'s docstring) into
+# overlapping effective-intensity bands (L2 eff 0.33-0.59, L3 eff 0.42-0.77),
+# NO jitter-free set of cuts can hit both scenes' targets at once: a boundary
+# low enough to give L3 25-35% pristine gives L2 well under 55%, and vice
+# versa. The fit's jitter (~0.21, over three times `house_level_for_
+# intensity`'s own 0.06) is not a stylistic choice, it is what the trade
+# requires -- see the SD-style tension `_TREE_CUTS`'s own comment documents
+# for the L2/L3 tree ladder, the same shape of problem here on the house
+# side.
+#
+# MEASURED AT THIS FIT (expectation over many resampled jitter draws per
+# house, replayed against the same two real GT files -- see
+# `scene_gen/tests/test_hurricane_tornado_parity_levels.py` for the pinned
+# numbers and tolerances):
+#   L2: pristine ~61%, roof_stripped ~38%, structural ~1.4% (target bands
+#       55-65 / 30-40 / <=5, all satisfied)
+#   L3: pristine ~31%, roof_stripped ~53%, roof_collapsed ~12%,
+#       partial_collapse ~3%, leveled ~1% (target bands 25-35 / 45-55 /
+#       8-12 / 3-5 / <=2, all satisfied)
+_TORNADO_LEVEL_CUTS = ((0.49, "pristine"),
+                       (0.73, "roof_stripped"),
+                       (0.83, "roof_collapsed"),
+                       (0.88, "partial_collapse"),
+                       (3.00, "leveled"))
+
+# See `_TORNADO_LEVEL_CUTS`'s own comment for how this was fit alongside the
+# four boundaries above -- far larger than `house_level_for_intensity`'s
+# 0.06 because the two real scenes' effective-intensity bands overlap and
+# only a jitter this size can put both scenes' populations in their target
+# bands off a SINGLE shared set of cuts.
+_TORNADO_LEVEL_JITTER = 0.21
+
+
+def tornado_level_for_intensity(i, rng, jitter=_TORNADO_LEVEL_JITTER, vuln=0.5):
+    """Structural level for a house standing where the field intensity is
+    `i`, expressed on the TORNADO's own six-level ladder
+    (`pristine`/`roof_stripped`/`roof_collapsed`/`partial_collapse`/
+    `leveled`; never `swept` -- see `_TORNADO_LEVEL_CUTS`'s module comment).
+
+    Same `_resistance(vuln)` blend as `house_level_for_intensity`: a
+    pre-1976 house (`vuln` near 0.9) reaches a given rung at a meaningfully
+    lower wind than a FORTIFIED one (`vuln` near 0.1) standing in identical
+    wind, and that per-building draw -- not position -- is still most of
+    this plate's variance (see the module docstring, S1.4-1.5).
+
+    `swept` IS NEVER RETURNED. The launcher is responsible for overriding
+    this function's result with `"swept"` when `surge.house_water_state`
+    (or `washaway.house_surge_state`) says so -- "a bare, wind-swept slab is
+    a SURGE signature, never a wind one" (module docstring, citing Roueche
+    et al.: every one of 3,016 hurricane homes with complete destruction was
+    surge-associated). This function has no surge/depth input at all, so it
+    structurally cannot produce that state, which is the point.
+    """
+    eff = float(i) / _resistance(vuln)
+    if jitter > 0.0:
+        eff += rng.uniform(-jitter, jitter)
+    return _ladder(_TORNADO_LEVEL_CUTS, eff)
+
+
+# SATURATED-SOIL WINDTHROW BOOST (build-hurricane-scenes SESSION_2026-08-31
+# §4 item 2). A measured L2 field maxes at intensity 0.598, and even the
+# full jitter (+-0.30 as of the STREAM T5 widening; +-0.26 at the time this
+# boost was first written) only pushes that to 0.898 -- comfortably under
+# `_TREE_CUTS`'s `limbed` cut (1.09 as of the 2026-08-31 re-cut; 0.86 at
+# the time this boost was first written, when the jittered ceiling landed
+# "and only just" past it instead). THREE OF SIX LEVELS ARE UNREACHABLE AT
+# L2 either way, and the unreachable three are exactly the ones that put a
+# tree on the ground -- which is backwards, because L2 is the FLOODED level and
+# standing water is where root anchorage actually fails first. A tree
+# standing in saturated ground loses root-soil adhesion well before the
+# wind alone would take it, so local water depth raises the EFFECTIVE
+# intensity the ladder is read at, independent of the field's own
+# (near-uniform) value -- this is what lets a flooded low spot produce
+# fallen trees a dry lot at the same nominal intensity cannot.
+#
+# Anchors are TUNED, NOT SOURCED (no fragility study ties windthrow
+# probability to standing-water depth in centimetres), but the SHAPE is:
+# saturation effects begin mattering once water stands over most of the
+# root zone (a few tens of centimetres) and grow toward a ceiling by the
+# time a tree is standing in knee-to-thigh-deep water.
+# See `scene_gen/tests/test_hurricane_trees.py` for the measured L2/L3
+# tallies before and after this boost.
+#
+# RE-TUNED 2026-08-31 (STREAM T3) ALONGSIDE `_TREE_CUTS`'s re-cut, roughly
+# doubling both anchors (0.10/0.25 -> 0.22/0.55) -- see `_TREE_CUTS`'s own
+# comment for the measured before/after tallies and the honest limit of
+# what a single depth-driven boost can do once L3 is both windier AND
+# wetter than L2. A larger boost was searched up to 8x this value and the
+# achievable L3-structural-share floor (at L2 pinned to its 10% target)
+# never dropped below ≈34%; this magnitude is the smallest one that still
+# lands on the grid search's violation-minimising point, so it is not
+# pushed further than the trade requires.
+#
+# RE-TUNED AGAIN 2026-08-31 (STREAM T4, Correction 2: "dry-land windthrow is
+# zero"). `dry_windthrow_chance` below adds an INDEPENDENT wind-only path to
+# a structural outcome for trees with NO local flood depth -- until now,
+# 100% of leaning/fallen/snapped trees at BOTH L2 and L3 stood in >0.2 m of
+# water (replayed against real GT), which contradicts every hurricane
+# survey read for this project: Andrew's own windthrow was overwhelmingly
+# on DRY ground. Because the dry mechanism and this depth boost act on
+# DISJOINT populations (dry vs wet) they are strictly ADDITIVE -- adding the
+# dry share on top of the UNCHANGED 0.22/0.55 anchors measured L3's total
+# structural fraction at 34.5% (up from 31.2%), overshooting "near 30%".
+# These anchors are nudged down (0.22/0.55 -> 0.21/0.51) -- a SMALL
+# reduction of the WET contribution that makes room for the new DRY one --
+# grid-searched jointly with `_DRY_WINDTHROW_ONSET`/`_SLOPE` against both
+# real GT scenes for the combination landing closest to all four targets at
+# once (L3 dry ≈5-8%, L2 dry ≈2%, L3 total ≈30%, L2 total left near its own
+# previously-documented ≈7-8%). MEASURED AT THIS RE-TUNE (replayed against
+# `V2_L2`/`V2_L3`): L2 dry-structural 2.44% (27/1107 dry trees), L2 total
+# 7.05% (up only slightly from 6.98% pre-dry-mechanism at these anchors,
+# still "≈7-8%"); L3 dry-structural 6.31% (48/761 dry trees, inside the
+# 5-8% target), L3 total 30.23% (down from the un-compensated 34.5%, right
+# on the "near 30%" target). See `test_hurricane_trees.py`'s replay test
+# for the exact before/after tallies this re-tune is pinned to.
+_WINDTHROW_DEPTH_LO_M = 0.3
+_WINDTHROW_DEPTH_HI_M = 1.0
+_WINDTHROW_BOOST_LO = 0.21
+_WINDTHROW_BOOST_HI = 0.51
+
+
+def windthrow_depth_boost(depth_m):
+    """Effective-intensity ADD-ON from standing water at one tree's base.
+
+    0 below `_WINDTHROW_DEPTH_LO_M` (dry, or a puddle too shallow to matter);
+    ramps linearly to `_WINDTHROW_BOOST_HI` at `_WINDTHROW_DEPTH_HI_M`;
+    flat beyond that -- deeper water saturates the root zone no further
+    once the whole rooting depth is already submerged.
+
+    NOTE ON ROOTING CONTEXT (street-pit vs yard/park tree). The skill also
+    asks that a street/pit tree fail MORE than a grouped yard/park tree at
+    the same depth (measured urban survival: 64% at 0-3 sq m of rooting
+    space against 91% at >7 sq m). `tree_instances` as published by
+    `suburb_scene.py` (species/x/y/yaw only -- the placement `category`,
+    e.g. `street_tree` vs `yard_tree`, is computed during layout but
+    DISCARDED before the hurricane launcher ever sees the tree list; see
+    `suburb_scene.py:5278-5288`) carries no such field today, so this
+    function cannot condition on it without a change to that layout export,
+    which is out of this file's scope. Depth alone is applied uniformly;
+    the rooting-context term is a documented gap, not a silent omission.
+    """
+    d = float(depth_m)
+    if d <= 0.0:
+        return 0.0
+    if d <= _WINDTHROW_DEPTH_LO_M:
+        return _WINDTHROW_BOOST_LO * (d / _WINDTHROW_DEPTH_LO_M)
+    if d >= _WINDTHROW_DEPTH_HI_M:
+        return _WINDTHROW_BOOST_HI
+    span = _WINDTHROW_DEPTH_HI_M - _WINDTHROW_DEPTH_LO_M
+    frac = (d - _WINDTHROW_DEPTH_LO_M) / span
+    return _WINDTHROW_BOOST_LO + (_WINDTHROW_BOOST_HI - _WINDTHROW_BOOST_LO) * frac
+
+
+# DRY WIND-ONLY STRUCTURAL SHARE (Correction 2, 2026-08-31 STREAM T4). The
+# depth boost above is the ONLY way this model has ever put a tree down --
+# and because `_TREE_CUTS`'s `limbed` gate sits above BOTH fields' raw
+# (unboosted) intensity ceiling, wind alone, with zero depth boost, can
+# NEVER cross into `leaning`/`fallen`/`snapped`. Measured consequence: 100%
+# of leaning/fallen/snapped trees at BOTH L2 and L3 stand in >0.2 m of
+# water. That is backwards against every hurricane survey this project has
+# read -- Hurricane Andrew's own windthrow was overwhelmingly on DRY
+# ground; saturated soil lowers the bar, it is not the only door through
+# it. This adds an INDEPENDENT probabilistic path to a structural outcome
+# for a tree standing in LESS than `_DRY_WINDTHROW_DEPTH_M` of water, whose
+# normal (ladder + depth-boost) draw came back non-structural -- its own
+# `rng.random()` roll, using the RAW field intensity `i` (never `eff`, i.e.
+# computed BEFORE the depth boost is folded in), so it can be tuned
+# directly against the measured dry population instead of reverse-
+# engineered through the ladder's cuts.
+#
+# ONSET IS 0.52, NOT THE "~0.6" FIRST GUESSED, because 0.6 would leave the
+# term nearly INERT at L2: L2's own dry population (replayed against real
+# `V2_L2` GT) never exceeds field intensity 0.600 and averages 0.569 -- an
+# onset at 0.6 gives only the extreme top sliver of that range any nonzero
+# probability at all, nowhere near the "~2% of L2's dry trees" target. 0.52
+# sits below L2's whole dry-population mean and below L3's entire dry range
+# (0.682-0.768, replayed) too, so the mechanism actually reaches both
+# scenes rather than only the windier one. TUNED, NOT SOURCED (no fragility
+# study ties dry-windthrow probability to this field's intensity units) --
+# grid-searched jointly with `_WINDTHROW_BOOST_LO`/`_HI` (see that
+# constant's own comment for the compensating re-tune this required) for
+# the combination landing closest to all four targets from the real GT
+# replay at once. MEASURED RESULT: see `_WINDTHROW_BOOST_HI`'s comment for
+# the numbers, and `test_hurricane_trees.py` for the pinned replay.
+_DRY_WINDTHROW_DEPTH_M = 0.2
+_DRY_WINDTHROW_ONSET = 0.52
+_DRY_WINDTHROW_SLOPE = 0.28
+_DRY_WINDTHROW_CAP = 0.50
+
+
+def dry_windthrow_chance(intensity):
+    """Probability, in `[0, _DRY_WINDTHROW_CAP]`, that a tree standing on
+    DRY ground (no local flood depth) still goes structural from wind
+    alone. 0 at/below `_DRY_WINDTHROW_ONSET`; rises LINEARLY above it,
+    capped at `_DRY_WINDTHROW_CAP`. See `_DRY_WINDTHROW_ONSET`'s comment
+    for how the anchors were actually chosen (a joint grid search against
+    two real recorded scenes, not fit to a single number in isolation).
+    """
+    i = float(intensity)
+    if i <= _DRY_WINDTHROW_ONSET:
+        return 0.0
+    return min(_DRY_WINDTHROW_CAP, _DRY_WINDTHROW_SLOPE * (i - _DRY_WINDTHROW_ONSET))
+
+
+def tree_level_for_intensity(i, rng, jitter=0.30, species=None, depth_m=0.0):
     """Damage level for a tree standing where the field intensity is `i`.
 
-    A MUCH LARGER JITTER THAN THE HOUSES GET — 0.26 against their 0.06, and
+    A MUCH LARGER JITTER THAN THE HOUSES GET — 0.30 against their 0.06 (RAISED
+    2026-08-31, STREAM T5, from 0.26 -- see `_TREE_CUTS`'s own re-cut comment
+    for why: with only 0.26, no single `pristine` cut could put BOTH recorded
+    plates inside their target pristine bands while also holding L3's
+    structural share inside 28-32%; 0.30 is the smallest widening the joint
+    grid search needed for a solution to exist at all). Still well over
     three times what `tornado.tree_level_for_intensity` uses. Same reasoning
     that module gives, taken further because the hurricane field gives it no
     help: whether a given tree goes over depends on its rooting, its lean,
@@ -724,8 +1154,19 @@ def tree_level_for_intensity(i, rng, jitter=0.26, species=None):
     tornado at least has a cross-track gradient to separate outcomes with. A
     near-uniform field has NOTHING, so every bit of the variance that makes a
     stand look like a stand has to come from here. With the re-cut bands (see
-    `_TREE_CUTS`) this puts most of the plate in `defoliated` and leaves a
-    believable minority down, which is what the aerials show.
+    `_TREE_CUTS`) this puts most of the plate in `defoliated`, a genuine
+    minority pristine, and a believable minority down, which is what the
+    aerials show.
+
+    `depth_m` (local standing-water depth, metres, default 0 = dry) adds
+    `windthrow_depth_boost(depth_m)` to `i` BEFORE the jitter -- see that
+    function's docstring for why, and for the rooting-context field that is
+    NOT wired in here because the layout does not publish it. A tree with
+    `depth_m` under `_DRY_WINDTHROW_DEPTH_M` also gets an INDEPENDENT
+    chance (`dry_windthrow_chance(i)`) to be promoted to `leaning` even if
+    the ladder+boost draw came back non-structural -- see that function's
+    docstring for why a depth-only boost cannot ever produce a dry
+    windthrown tree by construction, which is the defect this closes.
 
     `species` applies two overrides, checked in this order:
 
@@ -738,10 +1179,21 @@ def tree_level_for_intensity(i, rng, jitter=0.26, species=None):
     Omit `species` and the ladder is returned unmodified, same contract as
     the tornado version, for a caller with no species to hand.
     """
-    lv = _ladder(_TREE_CUTS, float(i) + rng.uniform(-jitter, jitter))
+    eff = float(i) + windthrow_depth_boost(depth_m)
+    lv = _ladder(_TREE_CUTS, eff + rng.uniform(-jitter, jitter))
+    order = list(TREE_LEVELS)
+    # DRY WIND-ONLY STRUCTURAL SHARE -- see `_DRY_WINDTHROW_ONSET`'s comment.
+    # Only rolled for a tree that (a) is measured DRY and (b) did not
+    # already come back structural through the normal path -- it can only
+    # PROMOTE a non-structural draw to `leaning`, never demote or duplicate
+    # an already-structural one, so this is strictly additive over the
+    # depth-boost mechanism's disjoint (wet) population.
+    if float(depth_m) < _DRY_WINDTHROW_DEPTH_M and order.index(lv) < order.index("leaning"):
+        p = dry_windthrow_chance(i)
+        if p > 0.0 and rng.random() < p:
+            lv = "leaning"
     sp = str(species) if species else None
     if sp and sp in PALM_SPECIES:
-        order = list(TREE_LEVELS)
         if order.index(lv) > order.index("defoliated"):
             return "defoliated"
         return lv

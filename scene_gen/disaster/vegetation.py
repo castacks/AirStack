@@ -3131,7 +3131,12 @@ def bark_material(stage, path, tile_m=1.7, tint=(1.0, 1.0, 1.0),
         Sdf.AssetPath(sg._join_asset_root(BARK_BASE, "")))
     sh.CreateInput("normalmap_texture", Sdf.ValueTypeNames.Asset).Set(
         Sdf.AssetPath(sg._join_asset_root(BARK_NORMAL, "")))
+    # See `split_wood_material` just below and `planks.wood_material`:
+    # a bound `diffuse_texture` REPLACES `diffuse_color_constant`, so the
+    # tint only reaches the render through `diffuse_tint`.
     sh.CreateInput("diffuse_color_constant",
+                   Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*tint))
+    sh.CreateInput("diffuse_tint",
                    Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*tint))
     sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
     sh.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
@@ -3203,9 +3208,16 @@ def split_wood_material(stage, path, tile_m=0.75, tint=(1.0, 1.0, 1.0),
         Sdf.AssetPath(sg._join_asset_root(SPLIT_ROUGH, "")))
     sh.CreateInput("reflection_roughness_texture_influence",
                    Sdf.ValueTypeNames.Float).Set(1.0)
-    # MULTIPLIES the map in OmniPBR, so this is a tint and not a replacement
-    # colour — the grain survives it.
+    # `diffuse_color_constant` DOES NOT MULTIPLY A BOUND `diffuse_texture` in
+    # OmniPBR — it is REPLACED by it. The multiply slot is `diffuse_tint`.
+    # See `planks.wood_material` for the full write-up and the two renders
+    # that proved it. `LOG_BARK_TINT` (1.22, 1.10, 0.94) is above 1.0 in two
+    # channels, which is only meaningful as a multiply, so these tints go to
+    # `diffuse_tint` unnormalised. The constant is kept as the no-texture
+    # fallback.
     sh.CreateInput("diffuse_color_constant",
+                   Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*tint))
+    sh.CreateInput("diffuse_tint",
                    Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*tint))
     sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
     sh.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)

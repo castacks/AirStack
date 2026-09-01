@@ -1516,3 +1516,1319 @@ and failed in combined runs once another file legitimately imported
 quake_rubble; check transitive-import contracts in a fresh subprocess.
 (2) `pytest ... | tail -3` in a background command destroys the traceback
 you will need — keep full output in the task file and tail at read time.
+
+## Round 6b (2026-08-31)
+
+A team of six agents (pillar-bench, opus, INVESTIGATE+BUILD; tanks,
+rect-cutouts, brick-materials, empty-lots, scene-variety, all sonnet
+INVESTIGATE-ONLY until a GO), plus follow-on implementers (plazas-fix,
+brick-fix, pod-prep, fire-freeze-check), against the second OSMO review of
+the seed-9 `urban_quake_v5` scene (500 m, M7.8): the user's five per-photo
+complaints from round 5's fixes still visible (pillars/plates read as
+perfect cuboids, water tanks/AC units floating, brown untextured facade
+cards, straight rooflines / orphan window panels / intact dormers at
+removal boundaries, brownstone reading grey), a mid-round "why are there
+empty lots" question, and a mid-round new requirement: "TEST scene =
+variety showcase. Damaged population must include AEC brownstones + GAC +
+MCE; dtc pristine-only filler. Damage states all clearly present: full
+collapse, partial collapse, tilt, tilt+partial collapse, ground cracks. Use
+damaged-asphalt megascans on roads/cracked ground." Every root cause below
+was traced to a measured cause in the actual code (not assumption) before a
+fix landed, and every agent's report was independently re-verified by the
+lead against a pre-agent-edit worktree snapshot before acceptance.
+
+### 1. Root causes — several were NOT what earlier rounds assumed
+
+* **Pillars/plates still read as perfect cuboids.** Two independent causes,
+  not one. (a) `fracture._one_chip`'s clip geometry is anchored at the box's
+  own CORNERS — a shaft or pillar's own MIDDLE is structurally unreachable by
+  it, so no amount of retuning `depth_frac` or the roughening already in
+  place could ever touch it. (b) Separately, `quake_flow.py` authors roughly
+  fourteen of its own populations of `_box` cuboids (`_p_lintels`,
+  `_disturb_interior`, `_c_clods`, `_c_kerb`, `_c_fissures`,
+  `_c_overturn_ground`, `_b_crumbs`, `_d_chunk`, `_d_face_band`, `_shaft`,
+  `_buckled_pavement`, `fit_interior`'s standing columns/piers, `_roof_box`,
+  `r_signage_fail` — `quake_collapse.spec_for_shape`'s own docstring names
+  them), and NONE of them ever called `fracture.chip_box`, which had existed
+  since round 5 wired into only four OTHER emitters
+  (`quake_rubble_usd._box`, fit-out slabs, `_break_box` cells,
+  `quake_sliced`). `grep -c chip quake_flow.py` was 1 before this round, and
+  that one hit was a comment.
+* **Floating water tanks/silos, again.** Four compounding causes. (1)
+  `ROOF_PROP_MODES` never included `soft_storey`/`mid_storey`, and
+  `_author_band`'s own "above" list (`_els(...)` + `fit[...]`) never carried
+  `ctx["roof_plant"]`/`ctx["roof_fixed"]` — a tank on a crushed RC storey was
+  never in the set of things the recipe moved down with the rest of the
+  mass. (2) The elevation/corner path only gives a fallen prop a 0.3-0.9 m/s
+  kick and a fixed settle-step budget — the module's own docstring already
+  predicted this exact failure. (3) The bake's settle pass had no
+  strict/converge mode; `still_moving == 0` is a false negative (it measures
+  a fixed end-of-budget velocity, never whether anything is actually
+  supported). (4) Decisive: 0 of 162 manifest records had `airborne_off` set
+  — the entire existing archetype library predates `deactivate_airborne` and
+  was never rebaked with it, so every earlier "fix" was measured against
+  stale bakes. On top of all four, `quake_sliced.py`'s parallel GAC recipe
+  set never called the roof-prop sweep at all.
+* **Brown, untextured facade "cards."** `_face_patch`'s `inner_mat()` and the
+  pile-scale `_chunk_material` (10 more of 16 total sites found by census)
+  bound RAW `mats["brick"]` megascans references directly onto UV-less
+  authored meshes — a catalogued defect class this file already has a fix
+  pattern for (`_c_look`/`_c_look_at`, world-projected `project_uvw`) that
+  had simply never been migrated to these particular sites. Separately, kit
+  family "03" (called "brownstone" in earlier rounds) is MCE's
+  `MBuilding03` — pale, modern-cladding art, not masonry — so red-brick
+  dressing read as visibly wrong there regardless of the UV bug
+  (`FAMILY_TYPE["03"] = "urm"` is correct for the DAMAGE ladder, wrong for
+  texture choice). The separate "brownstone reads grey" report was ruled NOT
+  a bug: real asset naming/choice, and a rename would break every bake key.
+* **Rectangular cutouts / orphan panels / intact dormers at removal
+  boundaries.** Three causes. (1) The RC infill gate skipped `_ragged_slabs`
+  outright (the old `not plan["infill"]` condition), so a floor exposed by
+  an elevation/corner cut kept a clean rectangular edge instead of a torn
+  one. (2) Kept-whole rubble panels (`plan_pile`'s "panel" large-element
+  kind — a building's own kit module laid whole on the mound) were leaning
+  `PANEL_LEAN_DEG` = (30, 70)°, but `_orient_on_surface`'s convention is
+  0° = upright, 90° = flat — so that range read as STANDING, the opposite of
+  "a panel resting on a pile." (3) Sliced-GAC removal boundaries are raw by
+  design — the round-4 VTK guard fix that unblocked fracturing sliced pieces
+  was never resumed against them — and `disaster/monolith_damage.py` (built
+  for exactly this ragged-boundary problem on monoliths) has zero
+  production call sites; only tests/tools/docstrings reference it.
+* **Empty lots (mid-round question).** NOT the gprim-rooted instancing
+  refusal in `scene_generator.apply_placements` some earlier notes
+  suspected: `generate_scene.py`'s `inst_cats` stays `None` unless a preset
+  sets `instance_placements: true` (only `downtown_fire_500.yaml` does) or
+  `SG_INSTANCE_PLACEMENTS=1` is set — the earthquake preset sets neither, so
+  the quake path never instances anything and the gprim-refusal print never
+  even fires there; that whole bug class contributes NOTHING to quake-path
+  emptiness. The `districts.py` frontage fix (verified landed) measured only
+  +1.4 pt on this preset/seed (59.3% -> 60.7% street-wall — within
+  single-seed RNG confound). The DOMINANT cause: `downtown_earthquake.yaml`
+  had NO `city_detail.plazas` block at all, and `city_detail._place_plazas`
+  early-returns without one — which ALSO kills the COURTS pass (the tree-
+  allée + bench-pair dressing every OTHER typology's block interior gets),
+  since both live inside the same function. Every open paved gap in the
+  city — tower plaza aprons and ordinary leftover block-interior space alike
+  — went completely undressed. Worst measured block: a 67.3 x 103.2 m
+  `brick_midrise` leaf, 34.6% fill, 3,849 m2 free rect, 0 arrangements.
+* **New requirement mid-round: variety showcase.** `PRISTINE_PACKS`
+  (round 6) blocked AEC brownstones entirely — a prior session's deliberate
+  gate, now conflicting with the new request that AEC appear damaged. GAC
+  DG5 is unreachable (no bake at that grade exists yet).
+
+### 2. Fixes landed, per file
+
+* `disaster/fracture.py` — `gouge_arrays`/`_gouge_faces` (station-anchored
+  scallops bitten into a closed solid, one shared triangle-volume budget per
+  piece so a long face's gouge cannot cost more than a short one); a
+  `"bite"` chip kind (very large corner bites sized against the piece's TWO
+  LARGEST axes, not the longest); red-green edge subdivision so a chip pass
+  has geometry to displace before roughening; `rough_lam_frac` (per-lamella
+  roughening weight). All new knobs default to off/zero so a round-5 bake
+  reproduces byte-for-byte at the old defaults.
+* `disaster/quake_collapse.py` — `spec_for_shape`'s size ladder:
+  `CHIP_TINY_M = 0.32` (chips + end-steps only, no gouge pass, no
+  refinement — a 30-60 tri piece whose silhouette is the only thing that can
+  read at that size), `CHIP_SMALL_M = 0.85` (gouge pass on a quarter
+  triangle budget), full table above. `plan["floor_ragged"]` field replaces
+  the old infill gate. `_deck_support_z` (the `tri_soup` idiom from
+  `tools/fc_roof_deck_probe.py`, run live against the mid-authoring stage):
+  the highest upward-facing triangle Z under a prop's own footprint, so a
+  fallen roof prop is placed on what is REALLY there instead of a
+  kick-and-hope. `_sweep_roof_props` reworked to test the prop's own QUERY
+  RECTANGLE against each candidate face — not the face's centroid, which for
+  a wide kit slab's 2-triangle fan sits near a quarter/three-quarters along
+  its length and is never near the middle, so the old centroid test silently
+  read every real deck as unsupported — and to treat `root in ("", "/")` as
+  "every prim qualifies" rather than "only prims literally at `/`" (nothing
+  ever is). `_FACADE_SCAR_BRICK_P = {"03": 0.12}` (vs. 0.5 default) — family
+  03's scar weighting, since its brick dressing is the wrong art to begin
+  with.
+* `disaster/quake_flow.py` — `_C_TEX["concrete"]` added (bound to
+  `Damaged_Concrete_Floor`, sourced from `quake_rubble_usd._BEAM_SPEC`'s
+  already-proven map); 11 of 16 raw `mats["brick"]`/`mats["concrete"]`
+  reference sites migrated to `_c_look`/`_c_look_at`;
+  `_chip_authored(ctx, paths, timber=False, tessellate=True, why="")` — new
+  helper, wired at 11 call sites (`lintel`, `litter`, `cornerfrag`, `column`,
+  `colchunk` x2, `pavement`, `kerb`, `crumb`, `chunk`, `spall`), gated on
+  `_RUBBLE_MODE == "v2"` AND `chips_enabled()` (`QC_CHIP=0` bypasses — no new
+  switch introduced) and passing every piece through
+  `quake_collapse._chip_pieces`'s existing refusal ladder (UV'd meshes,
+  `CHIP_MAX_FACES`, non-tri/quad faces, open shells all pass through
+  untouched — the clipped-shell VTK SIGSEGV rule from round 4). Deliberately
+  left unchipped: `_c_clods`/`_c_fissures`/`_c_overturn_ground` (soil, not
+  cast concrete), `r_signage_fail` (sheet metal doesn't spall), `_shaft` (a
+  surviving shear core already gets a ragged crown from `fracture_partial`,
+  not debris), `_roof_box` (an intact roof slab must stay intact — only its
+  broken pieces get chipped), and `_d_chunk`'s own `flat=True` draw (a 12 mm
+  ground-hugging plate authored as a "stain," never registered as static
+  geometry — a bite out of it is triangles spent on something only ever seen
+  face-on; the non-flat chunks now get the ladder via `why="chunk"`).
+* `disaster/quake_rubble.py` — `PANEL_LEAN_DEG` corrected from (30, 70) to
+  `(50.0, 80.0)` after a 150-seed measurement of the real `plan_pile` found
+  the OLD range's mean angle-from-vertical was 53°, and the first proposed
+  fix, (10, 35) (matching `PANEL_TILT_DEG`'s numbers), would have made it
+  32° — MORE upright, the wrong direction, because `_orient_on_surface`
+  counts degrees tipped AWAY from standing (0° = upright, 90° = flat), not
+  degrees propped up from lying. (50, 80) gives a 67° mean, matching a
+  physical cross-check (a 3 m panel resting its far edge on a 1.4 m stub
+  leans arccos(1.4/3.0) ≈ 62° from vertical).
+* `disaster/quake_sliced.py` — `_sweep_roof_props_sliced` (the tank-fix's
+  sliced-path twin): carries `roof_plant`/`roof_fixed` through
+  `plan["fit_ops"]` displace_above specs, reseats via the union of
+  removed-piece XY rects + `_deck_support_z` + `_a_bury_props`; chip-box
+  wiring extended to this ladder's own dropped slabs, plus new laid-panel
+  dressing (sink + tilt + edge chunks) since a whole kept-whole kit panel
+  can never be VTK-cut.
+* `disaster/settle.py` / `bake_quake_archetypes_launch_script.py` —
+  `converge=True` makes `steps` a target instead of a hard budget (up to
+  `settle.run`'s own 3x `max_steps`); `strict=SETTLE_STRICT` turns an
+  unconverged settle into a raised `SettleNotConverged` instead of a silent
+  warning. Deliberately double-checked: `settle.run`'s OWN internal
+  `strict=None` default reads the SAME env var the OPPOSITE way (empty
+  string = not strict); the launcher resolves `SETTLE_STRICT` itself
+  (empty/unset = strict ON, `0`/`false` = the escape hatch) rather than
+  leaving the ambiguous shared default in play.
+* `config/presets/downtown_earthquake.yaml` — one contiguous
+  `# --- plazas/courts dressing (round 6b) ---` block (`plazas: {enabled:
+  true, typologies: [highrise], min_side_m: 15.0, min_area_m2: 280.0,
+  max_per_block: 2, podium_margin_m: 1.5, edge_margin_m: 2.5, ...}`, copied
+  verbatim off `downtown_gac.yaml`'s own block; `typologies: [highrise]`
+  scopes the fountain/bench-ring/cafe composition the same way GAC scopes
+  it, while every OTHER typology still gets the COURTS pass via
+  `court_typologies=None`'s "everything else" default); `debris.tilt_chance:
+  0.2` (was 0.12 default via `quake.assemble`); asphalt megascans binding
+  retargeted from `Damaged_Asphalt` to `Damaged_Asphalt_02`.
+* `disaster/quake.py` — `PRISTINE_PACKS` narrowed from `("downtowncity/",
+  "assets/aec/")` to `("downtowncity/",)`, with a trail comment explaining
+  why AEC was added and then removed the same day (a later, more specific
+  user request wants AEC brownstones damaged, DowntownCity pristine-only) —
+  an AEC brownstone now falls through to the SAME generic monolith fallback
+  standalone monoliths already get (`_mono_pass`, scored as `"rc"`) rather
+  than being skipped entirely.
+
+### 3. New tools/tests
+
+* `tools/pillar_break_bench.py` — bpy idiom borrowed from
+  `rubble_preview.py`, renders to `~/scorch_previews/pillar_bench/`;
+  `--heap` (with `--heap-seed`, `--heap-lintels`, `--heap-rubble`) exercises
+  the wired-in `quake_flow` chip populations at heap scale, not just one
+  pillar.
+* `tools/roof_plant_seat_probe.py` — points-based support verifier (not a
+  bbox audit — see the `PointInstancer`/`BBoxCache` blind spot below);
+  `--usd` (repeatable) targets specific archetype or GAC files;
+  `ROOF_PLANT_PROBE_LIMIT` env caps files scanned for a quick inline
+  `pytest` run (~8 s/file locally). `tests/test_roof_plant_seat_probe.py`
+  skips cleanly without the referenced assets present.
+* Test counts (this round; `test_kit_elevations.py` is round-5, unchanged
+  here): `tests/test_block_fill_and_plazas.py` 13/13; `tests/
+  test_chip_box.py` extended for the new gouge/bite/rough_lam_frac knobs —
+  39/39 on the bench-only fracture.py work, 164/164 after the `quake_flow`
+  wiring landed, both runs under `uv run --with vtk`; `tests/
+  test_quake_v5_city.py` (18 top-level test functions, several
+  parametrized) dropped to 12/22 mid-round when `PRISTINE_PACKS` was
+  narrowed ahead of the test file's own stale `("downtowncity/",
+  "assets/aec/")` expectation, reconciled (6 assertions changed) to 23/23;
+  brick-fix migration: 125 tests green, raw-material-binding census
+  31 -> 0; rect-fixes GO1 (`floor_ragged`): 85 tests including one new one;
+  GO2 (`PANEL_LEAN_DEG`): 150 tests; tanks-fix sliced-path wiring: 34/34.
+
+### 4. Verification discipline that worked
+
+Bench-first Blender renders before touching production code
+(`~/scorch_previews/pillar_bench/`, `rect_fixes/`, `brick_fixes/`); a
+cross-section fill metric for the empty-lots census; points-based probes
+preferred over bbox audits — a `PointInstancer`'s authored `extent` (and a
+`UsdGeom.BBoxCache` query on the instancer prim) reports the conservative
+envelope of its LARGEST instance, never any individual instance's true
+position, a blind spot round 4's rubble work already found and documented
+that resurfaced here for roof props; same-process A/B (`spec_overrides`) for
+yaml/config changes, so two runs are provably the same code and RNG rather
+than two different repo states; the lead re-running every agent's own tests
+before accepting a report, against a pre-agent-edit worktree snapshot. **The
+trap**: chip-related tests require `uv run --with vtk`, not bare `python3`
+— a bare interpreter lacks VTK and produces 19 phantom failures that look
+like real breakage; this bit two separate people in this round before being
+flagged clearly enough to stop recurring.
+
+### 5. Variety/composition decisions
+
+AEC brownstones are now damaged via the generic monolith fallback (rigid
+heavy/mild lean+sink from `_mono_pass`, scored on the RC vulnerability
+curve) rather than a real fracture ladder — a real AEC ladder is DEFERRED:
+the asset is internally instanced and fails `monolith_damage.cut_shell` with
+a Tf error (`tools/openings_probe.py`), so it needs de-instancing, a new
+`quake_sliced.CONSTRUCTION` entry, and a bake driver, none of which exist
+yet. GAC DG5 is unreachable until specific buildings are baked at that grade
+(queued: `SM_Building_02`, `SM_Building_24`); `decide_building` steps down
+to DG4 in the meantime. DowntownCity stays pristine-only by explicit
+`PRISTINE_PACKS` design (no damage pipeline exists for it, and the user does
+not want one). There is no quota/mixture-enforcement mechanism for the
+showcase mix; seed 9 is pinned because it is the seed that happens to place
+both AEC and DowntownCity buildings in the current layout.
+
+### 6. Pod state and re-bake plan
+
+Pod `airstack-dev-177` recon (read-only): RUNNING, tunnel on :2201, 4 TB
+disk, 158 GiB RAM free, shm 16G, VTK OK on both pythons. Three blockers
+found: (1) a stale seed-8/v4 Kit process sharing the GPU with the live
+seed-9/v5 scene (25.9/48.9 GB, 99% util) — directed to kill only the stale
+one; (2) the pod is missing ~1.5 GB of AEC tower/brownstone Vegetation
+assets and has only 13 MB of brownstone Materials (vs. 1.5 GB expected) —
+the scene had no trees and threw 403s; `AIRSTACK_ASSET_ROOT` was unset in
+the container; (3) pod git was 8 commits behind local, with 12 dirty files
+subsumed by local's already-committed state — a stash/pull recipe was
+directed. ALL existing pod bakes (36 GAC pair bakes, 8 kit-style batches,
+only 69/162 `airborne_off`) predate every fix landed this round and must be
+fully re-baked. Measured per-unit timing: heavy DG3-5 kit styles ~130-330
+s/style, light styles ~15-70 s per 4-style batch, GAC ~2-3 min/building
+bake. Sequence to the next scene run: wait on tanks-sliced + rect final
+report + fire-freeze-check -> regenerate the sync file list -> rsync code ->
+archetype bake chain -> GAC chain (+ the two DG5 candidates) -> gate on
+chip-proof lines in the log, 162/162 `airborne_off`, and the roof-plant
+probe passing both directions -> close the currently-open seed-9 scene ->
+relaunch seed-9, `urban_quake_v5`, M7.8, 500x500 -> pull photos. Runbook and
+sync list live under this session's own scratchpad, not the repo.
+
+### 7. Bug catalogue additions
+
+* **A chip pass anchored at box CORNERS cannot touch a shaft's middle.**
+  `fracture._one_chip`'s existing clip geometry is corner-reachable only;
+  retuning `depth_frac` or layering a roughen pass on top, which earlier
+  rounds tried, could never fix a pillar/column reading as a perfect prism,
+  because the geometry that needed removing was structurally out of reach.
+  Fixed by adding gouge/bite modes that anchor at a chosen STATION along a
+  face instead of at a corner.
+* **A shared helper existing in one file does not mean it is wired
+  everywhere it is needed.** `fracture.chip_box` shipped in round 5 wired
+  into four emitters; a whole OTHER file (`quake_flow.py`, ~14 of its own
+  cuboid-authoring populations) never called it, and `grep -c chip
+  quake_flow.py` staying at 1 (a comment) for a full round was the tell
+  nobody checked. The new `[chip] quake_flow: N chipped / M passed` proof
+  line exists specifically so a bake LOG shows the count fired instead of
+  the wiring being "believed done" (the same lesson round 5 already learned
+  once for this exact file, and repeated).
+* **Testing a triangle's centroid against a small footprint fails on wide
+  fan-triangulated quads.** A kit slab/`_box`/`_roof_box` is authored as one
+  big quad; its 2-triangle fan's centroids sit near a quarter and
+  three-quarters along the slab's own length, never near the middle — so
+  "is the centroid inside the prop's footprint" against a face many times
+  the footprint's size is never true, and `_deck_support_z` silently read
+  every real deck as unsupported until the query RECTANGLE itself (not the
+  triangle's centroid point) was tested for containment instead.
+* **`root in ("", "/")` needs an explicit branch, or a scoped-support query
+  silently scopes to nothing.** `_deck_support_z` takes `root` as "this one
+  building's own scope, never the whole stage" in the normal case, but a
+  caller occasionally passes the pseudo-root; treating that as "every prim
+  qualifies" rather than "only prims literally AT `/`" (which nothing ever
+  is) has to be an explicit special case, not assumed.
+* **A tilt-angle convention has to be measured, not guessed from another
+  table's numbers.** `PANEL_LEAN_DEG`'s first proposed fix, (10, 35)
+  (matching `PANEL_TILT_DEG`), would have made the panels MORE upright — the
+  wrong direction — because `_orient_on_surface` counts degrees tipped AWAY
+  from standing (0° = upright, 90° = flat), the opposite of what "a smaller
+  number reads as less lean" assumes. A 150-seed measurement against the
+  real planner, cross-checked with a physical `arccos` calculation, caught
+  this before it reached a render.
+* **Zero manifest records with a safety flag set means the library predates
+  the safety net, not that the net is failing.** 0/162 `airborne_off`
+  records was the decisive clue that every existing bake needed a full
+  re-run, not a targeted fix — a partial "some floaters, some not" pattern
+  would have suggested a recipe-specific bug instead.
+* **A `PointInstancer`'s authored `extent` (and a `BBoxCache` query on the
+  instancer prim) reports the conservative envelope of its LARGEST instance,
+  never any individual instance's true position.** This round re-hit the
+  same blind spot round 4's rubble work already found and documented —
+  `tools/roof_plant_seat_probe.py` was built points-based specifically so
+  this class of prop-seating question is never answered with a bbox again.
+* **Process: a completed subagent drops off the roster and cannot be
+  resumed by id once its transcript is gone.** Spawn a fresh implementer
+  with condensed context instead of trying to continue a "DONE" agent —
+  this happened repeatedly this round and cost nothing once recognized, but
+  the first instance cost a stalled follow-up before the lesson was named.
+* **Process: one-file-per-agent ownership plus string-anchored edits avoids
+  clobbers in shared files under concurrent editing.** `quake_collapse.py`
+  and `quake_sliced.py` were each touched by two different agents in
+  sequence without collision because each landed a self-contained,
+  delimited change rather than a diff against an assumed baseline.
+* **Process: concurrent sessions can drift the measurement baseline
+  mid-round.** The plazas-fix agent's own before/after fill numbers stopped
+  matching a previously-stored baseline because another, unrelated session
+  was live-editing `districts.py` at the same time; the agent caught this by
+  re-running its OWN "plazas off" case on the day's code and finding the
+  SAME drifted numbers, proving the drift predated and was independent of
+  its own change rather than assuming its own edit was at fault.
+
+### 8. Open items / next round
+
+* **RESOLVED — freeze intact**: the fire-freeze-check on the brick-material
+  migration (`quake_flow.fit_interior` is shared with `urban_fire`, the
+  MCE-fire-frozen policy). `tools/kit_burn_probe.py` run pre-change (from
+  `git show HEAD:`) vs current on apartment F5c / office F5c / apartment F1
+  was byte-identical in counts, FLAGs and material census; an isolated
+  `fit_interior` probe shows only the 64 rc slab/column prims re-binding
+  `concrete` → `c_concrete` (the intended fix), zero geometry change, and the
+  chip wiring is never reached from the fire recipes. Probe runs in the LOCAL
+  `isaac-sim` container via `usd_python.sh` (no Kit).
+* **PENDING at time of writing**: the rect-cutouts agent's final renders and
+  its two written HOLD design sketches — (a) the sliced-GAC
+  ragged-removal-boundary approach (was waiting on the pillar/chip work,
+  which has since landed) and (b) wiring `monolith_damage` into `_mono_pass`
+  (unblocked by the variety census, likely an Opus task next). GO1 (the
+  `floor_ragged` gate replacement) and GO2 (the `PANEL_LEAN_DEG` correction)
+  are both landed and tested; these two items are what remains open on that
+  agent's brief.
+* Real AEC fracture ladder (de-instance the asset, new
+  `quake_sliced.CONSTRUCTION` entry, bake driver, pod time) — deferred, not
+  started.
+* GAC DG5 bakes (`SM_Building_02`, `SM_Building_24`) — queued for the pod
+  re-bake batch, not yet run.
+* The open photo-review question from the tanks fix: a tank sitting upright
+  at full height on a surviving slab island will PASS the points-based
+  support probe yet may still visually read as "floating on an island"
+  rather than genuinely seated — judged only in the re-run photos, not
+  resolvable by the probe alone.
+* Two occluded review-camera frames (`epi_obl`, `nw_top`) from the v5
+  skyline — cameras need raising, or a per-request re-shoot from the
+  still-open scene.
+* Pod bakes are not yet mirrored back to the local checkout or Nucleus.
+
+## Round 6c (2026-08-31, afternoon)
+
+Round 6b's own re-bake (`rebake6b_chain.sh`, 15 archetype batches) reported
+0 failures. Agent 16 ("gates"), tasked with running round 6b's own gate
+checklist against that chain before the scene relaunch, found this was a
+false green: 6 of the 15 batches had actually crashed. Chasing that down —
+not assuming the reported 0 was real — is this round's throughline: a bake
+launcher that could not tell "finished" from "the process died silently,"
+a collar mound that free-falls 95 m through its own settle pass, a
+roof-plant fix whose real per-grade numbers were misreported on the first
+read and corrected on the second, a GAC reseat bug that turned out to cut
+both ways (false positives on two buildings, a real floater on a third),
+the sliced-tears line landing clean, two occluded review cameras fixed
+without moving any pixel that was not actually broken, and a new re-bake
+chain (`rebake6c_chain.sh`) now in flight to redo everything the false
+green had actually skipped.
+
+### 1. The false green — Kit exits 0 on an uncaught crash
+
+Isaac Kit swallows an uncaught Python exception raised inside a launcher
+and still exits the process with code 0 — there is no signal in the return
+code that anything went wrong. `bake_quake_archetypes_launch_script.py`'s
+`SETTLE_STRICT` flag defaulted to strict (True), so the first style in a
+batch whose rubble pile failed to converge raised `settle.SettleNotConverged`
+and killed the whole batch's Kit process on the spot — silently, as far as
+the calling shell could tell. Because the launcher only merges and writes
+a style's record into `archetypes.json` AFTER that style's own settle and
+export finish (`merge_manifest`/`bake.write_manifest`, called per style
+inside the same per-style block that raised), a mid-batch crash left every
+later style in that process with whatever record `archetypes.json` already
+had — a pre-round-6b bake. 57 of 162 manifest records stayed stale this way
+(51 at DG3-5 + 6 at OV/SETTLE/TILT), and `airborne_off` (the
+`deactivate_airborne` safety-sweep flag) was set on only 138/162 records.
+Measurement: 5 of the 18 archetype styles' DG3-5 piles do not converge
+within `settle.run`'s own 3x-`max_steps` budget — the five that crashed
+this way (s1g2 apartment, s2g2 brownstone, s3g2 commercial_mid, s5g2
+office_wide, s1g3 apartment_tall). A sixth crashed batch, s4g2 office, was
+a different bug — a `collar_1_mound` loose prim with "NO LOCAL XFORM," see
+section 2. The same gates run's roof-plant probe came back 218 floating
+lines across 67 files (vs. 226/65 before the round-6b fixes — effectively
+unchanged), and GAC's own probe flagged 5 floating props (the same three
+buildings — 12/19/24 — seed-independently, plus a new `02_DG5`); sections
+3 and 4 below cover what those numbers actually turned out to mean.
+
+Fixes, all in `bake_quake_archetypes_launch_script.py` unless noted:
+
+* Per-style `try`/`except` isolation around each style's settle+export
+  block, printing `[qarch] STYLE FAILED {style} {grades}: {exc}` on catch
+  so one style's exception can no longer take the rest of its batch down
+  with it.
+* `[qarch] batch summary: {ok} ok / {failed} failed` at the end of `main`.
+* An `archetypes_run_summary.json` sidecar recording the same counts
+  machine-readably, next to `archetypes.json`.
+* `os._exit(1)` called after `simulation_app.close()` whenever any style in
+  the batch failed — deliberately not `sys.exit`, since `sys.exit` raises
+  `SystemExit`, which is itself just another exception Kit can swallow and
+  still exit 0 on (this path is untested live as of this writing — the
+  in-flight `rebake6c_chain.sh` run is its first real exercise).
+* `SETTLE_STRICT` flipped from strict-by-default to opt-in (`SETTLE_STRICT=1`).
+  The launcher resolves the env var itself rather than trusting `settle.run`'s
+  own `strict=None` default, which the module's own docstring notes reads
+  the SAME env var the OPPOSITE way (empty/unset there means strict IS on) —
+  leaving that ambiguity in play would have meant this launcher and
+  `settle.run`'s own default silently disagreeing.
+* The chain scripts now grep each batch's log for
+  `SettleNotConverged|STYLE FAILED|Traceback` instead of trusting the
+  process return code — and deliberately NOT for the
+  `[Error] [disaster.settle] ... NOT AT REST` / `NO LOCAL XFORM` lines,
+  because a healthy NON-strict export prints those same diagnostics too (a
+  body that never converges but gets swept by `deactivate_airborne` anyway
+  still logs them); grepping on those lines would flag every good
+  non-strict bake as a false failure.
+* Non-strict cost, measured directly: on the apartment_tall row, the
+  airborne sweep deactivated 576 of 3144 bodies — running non-strict does
+  not mean nothing was wrong, it means the safety net absorbs the
+  non-convergence instead of a crash absorbing nothing.
+
+### 2. The collar mound — a world-baked heightfield with no local frame
+
+`r_soft_storey` (`quake_flow.py`) and `_author_heaps` (`quake_collapse.py`)
+each have a mid-storey path that moves the WHOLE authored pile — including
+the world-baked mound/apron heightfield `_author_heightfield` writes —
+into `ctx["loose"]`, handing it to `settle.run` as a loose RigidBody so
+physics can carry the collapsed collar down to the base. `_author_heightfield`
+bakes its mesh points directly in world space with NO xform ops at all, by
+design (cheap, and correct, for the ordinary case where the mound stays a
+permanent static collider). Handed to `settle.run` as loose instead, PhysX
+puts that body's origin at its parent's identity frame while every point of
+the mesh sits tens of metres away — exactly the state `settle.py`'s own
+`no_local_frame` check exists to catch — and the random angular kick every
+loose body receives then swings and throws the mound, because its real
+geometry is nowhere near its nominal origin. Measured: a 95.50 m "worst
+mover," followed by a hard `SettleNotConverged` — the s4g2/office_DG4 crash
+from section 1, on `rubble_office_DG4_collar_1_mound`.
+
+Fix: new `quake_rubble_usd.recentre_for_loose(stage, paths)`, called from
+both `r_soft_storey` and `_author_heaps` immediately before a collar's
+mound/apron paths are added to `ctx["loose"]`. It recentres a mesh's own
+`points` (and `extent`) on their centroid and adds a `translate` op putting
+that centroid back at the mesh's original world position — the same shape
+of fix `settle.bake` already assumes every OTHER loose prim arrives with (a
+wrapper `Xform` around a referenced asset always carries its own
+translate/rotate/scale). Every point's world position is unchanged, so
+`primvars:st` (baked from the original world x/y) still lines up exactly.
+It is a no-op on anything that already has an xform op, or is not a
+`UsdGeom.Mesh`. New test:
+`tests/test_quake_rubble_usd.py::test_recentre_for_loose_gives_collar_mound_a_local_xform`
+(23/23 on the file, 89/89 on the module, 5/5 on the routing subset that
+exercises this path).
+
+### 3. Roof plant, the real picture
+
+Agent 16's first per-grade read of the roof-plant probe's output (DG0 51 /
+DG1 73 / DG2 84 / DG3 104 / DG4 109 / DG5 82 / OV 149 / SETTLE 81 / TILT
+147) counted every PROBE line the tool prints — every prop it measured,
+seated or not — not FAIL lines, and was wrong: a DG0 "failure" count would
+have meant the probe itself was false-positiving on light-damage buildings
+that never touch roof-plant seating logic at all. The corrected read
+(agent B): true per-grade FAIL counts, of 218 total, are DG0 0, DG1 0, DG2
+1, DG3 19, DG4 ~30, DG5 ~38, OV ~68, SETTLE ~0, TILT ~65. No probe false
+positive either: a spot check on an apartment DG0 building found the deck's
+own up-facing tiles at z=18.00 and the plant's own base at z=18.02 — a 2 cm
+gap, genuinely seated. So the real defect is concentrated in OV and TILT,
+not spread evenly across every grade the first read implied.
+
+Root cause: OV/TILT roof plant IS carried by the building's rigid
+whole-body transform — `ctx["fit"]["all"] += roof_plant` runs before the
+`r_tilt_severe`/`r_overturn` recipes apply their own transform, so the
+plant moves with the mass. But `_b_settle_roof_plant` then hands that
+already-moved plant to the shared physics settle pass with no GEOMETRIC
+fallback for when the settle does not converge or the deck it landed near
+does not actually support it — gaps of 2-6 m at TILT, props stranded
+0.7-1.35 m at OV.
+
+Fix: new `quake_flow._settle_foundation_roof_plant(ctx, m)`, wired into
+both `r_tilt_severe` and `r_overturn` right after each applies its
+whole-body transform (`r_settlement` is untouched — it never needed this).
+For each prop still in `ctx["roof_plant"]`/`ctx["roof_fixed"]`, it queries
+`quake_collapse._deck_support_z` under the prop's own footprint; that
+function's own `ROOF_PROP_UP_THRESHOLD = 0.72` up-facing-triangle test is
+what actually decides the outcome per grade — a TILT-angle deck is still
+tipped less than the angle that threshold implies, so a real up-facing
+triangle is found and the prop is seated on it (`_deck_support_z`'s
+return value, translated straight onto the prop); an OV-angle deck (60-90
+degrees) has tipped past the threshold, `_deck_support_z` returns no
+support, and the prop instead falls through to `_a_bury_props`'s
+drop-to-grade path. New `tests/test_roof_plant_kit.py` (4 tests); a full
+sweep after agents A (section 1/2) and B landed came back 445 passed / 0
+failed (the sliced-tears work, section 5, was excluded — still in flight).
+DG3-5's residual FAIL count is mostly explained by the 51 stale manifest
+records from section 1 — the g2 batches already queued in
+`rebake6c_chain.sh` are effectively the test of whether this fix clears
+them once real settles run again.
+
+### 4. GAC reseat — the same bbox blind spot, cutting both ways
+
+`quake_sliced._reseat_roof_plant` — the GAC roof-plant seat fix from an
+earlier round — scored each candidate deck by its WHOLE-PIECE
+`UsdGeom.BBoxCache` top, with a `ctop <= pz0 + 0.30` ceiling meant to allow
+"a few cm of interpenetration." Agent C found `SM_Building_19` and
+`SM_Building_24` were ALREADY correctly seated — the verifier flagging them
+as floating was itself a false positive, caused by the SAME bbox blind spot
+that lives inside `quake_collapse._deck_support_z`'s own per-mesh AABB
+prune: a merged `roof_x_*` piece's overall bbox reaches 1-2.4 m higher than
+the real deck under a given tank, because the same prim also carries a
+coping run or a raised section elsewhere on the roof. `SM_Building_12` was
+genuinely floating, but for the OTHER-signed reason: its advertised seat
+height was too LOW, so the old `ctop <= pz0 + 0.30` ceiling excluded the
+real roof band entirely and the search fell through to a bare wall shell
+with zero up-facing triangles (e.g. `core_x_0_20`) that merely happened to
+still pass the other gates.
+
+Fix: `_reseat_roof_plant` now scores each candidate by the highest
+UP-FACING triangle actually reachable under the prop's own footprint (new
+`_mesh_up_faces` + `_pt_in_tri` helpers — the same query-rectangle-vs-
+triangle idiom `quake_collapse._deck_support_z` already trusts in
+production), and the `ctop <= pz0 + slack` ceiling is dropped entirely: a
+containment test that only ever fires on a genuine up-facing surface
+cannot be fooled by an unrelated tall neighbour the way a bbox-overlap test
+can. Measured on `SM_Building_12`: 98.016 m -> 102.787 m. 44/44 sliced
+tests green. `SM_Building_02_DG5` is out of this function's scope
+entirely — it is a `masonry_collapse` (urm total collapse) building, and
+its tank is seated by the physics settle, not by `_reseat_roof_plant`.
+
+Caveat, flagged by agent C rather than fixed by them: `quake_collapse.
+_deck_support_z` itself still has the SAME per-mesh AABB prune (margin 0.5)
+that `_reseat_roof_plant` just stopped needing (`_reseat_roof_plant`'s own
+candidate set is one building's small piece roster, so it can afford to
+skip the prune outright; `_deck_support_z` is a whole-stage scan and cannot,
+without the prune becoming unaffordable). `_deck_support_z` is called from
+FOUR separate places: the kit roof-prop sweep (`quake_collapse`'s own
+`_sweep_roof_props`), section 3's `_settle_foundation_roof_plant` tilt fix,
+the sliced-path roof sweep (`quake_sliced`), and `tools/
+roof_plant_seat_probe.py`'s own standalone verifier. Fixing the prune, and
+rebasing the 162-file FAIL baseline against the corrected function, is
+**PENDING at time of writing** — a "deck-probe" agent was in flight on it
+as of the coordination log's last entry.
+
+### 5. Sliced tears landed
+
+`quake_sliced.py` gained `_plan_tears`/`_author_tears` and a
+`QS_MAX_TEARS = 40` cap, implementing the design sketch in `scratchpad/
+design/sliced_gac_ragged_boundary.md`. New probe `tools/qs_tear_probe.py`
+was fixed this round to reach REAL baked kits instead of synthetic
+geometry — it now goes through `kit_bake._entry` (the manifest-row lookup)
+and `quake_gac_probe.load_real_kit` rather than constructing a stand-in kit
+inline. New bench `tools/tear_edge_bench.py`: a tear's fragments live under
+sibling `brk_*` scopes next to the piece they came from, not inside it, and
+the bench camera aims at the removed pieces' own world centroid rather than
+a fixed point. Measured: `straight_run_m` (the longest unbroken straight
+run along a removal boundary — the headline metric borrowed from
+`pillar_break_bench`) went from 7.742 m to 2.478 m; the design doc's own
+pre-implementation estimate was <0.8 m, so the landed result, while a large
+improvement, did not fully reach that estimate. Renders: `~/scorch_previews/
+sliced_tears/`. Synced to the pod.
+
+### 6. Cameras
+
+The five review points (`epi`/`ne`/`se`/`sw`/`nw`) had shared one fixed
+camera pose (`top_h=95`, `obl_dist=80`, `obl_h=40`, `azimuth_deg=225`)
+since earlier rounds — fine on the older kit-only skylines, but
+`urban_quake_v5` places taller GAC/downtowncity towers: the fixed oblique
+eye for `epi_obl` landed 12 m inside a 302 m mono tower's own footprint,
+and the fixed top-down eye for `nw_top` sat against a leaning 131 m
+DG4+tilt tower.
+
+Fix, entirely in `downtown_quake_launch_script.py`, stdlib `math` only (no
+`carb`/`omni`/Kit import, so it is testable offline): new
+`_review_camera_clearance`, built on `_camera_eye_blocked` /
+`_building_blocks` / `_footprint_radius` / `_review_camera_pose`. It raises
+`top_h` (for a top-down eye) or `obl_dist`/`obl_h` together (for an
+oblique eye) for one review point at a time, only when that point's fixed-
+pose camera EYE is actually inside a building's tilt-widened footprint,
+stepping the relevant number up (10% of its base value per step) until
+clear or a `max_mult=5.0` cap is hit. A leaning building's footprint radius
+is widened at height `z` by `z * tan(TILT_DEG_MAX)` (`TILT_DEG_MAX = 9.0`,
+mirroring `quake.py`'s own `tilt_deg` upper bound) — this is what catches
+`nw`'s tilted tower, whose upright footprint alone misses the fixed camera
+height by under half a metre. Landed values: `epi` raised to `(top_h=95,
+obl_dist=112, obl_h=56)`; `nw` raised to `top_h=133` only (its oblique was
+already clear). Every other point/pose combination returns the exact
+pre-fix constants — `_review_camera_clearance` is built specifically to
+return the unmodified base triple whenever nothing needed moving, so a
+caller can group points by the return value and re-issue the identical
+`views_around` call for any point that needed no fix. Verify script:
+`scratchpad/cameras/verify_review_cameras.py` (offline, no Kit);
+`py_compile` clean; synced to the pod (md5 f9fde10531a6 both sides).
+
+### 7. Process
+
+A spend-limit hit mid-round killed two running agents outright — the pod
+watcher and the sliced-tears implementer — mid-task. Their on-disk state
+survived the kill; the lead re-staffed the same work with a freshly
+spawned agent carrying condensed context, rather than trying to resume the
+killed agent's session (the limit reset about half an hour later; a
+heartbeat cron set up earlier in the round as a safety net for exactly
+this kind of silent stall fired in the meantime). Subagents were
+repeatedly classifier-blocked from running the pod's own kill/launch
+commands themselves (a stale Kit process's `docker exec` kill, and a chain
+launch, both blocked on a subagent's own attempt); the lead ran those
+commands directly instead — one kill needed a `/proc/<pid>/environ` guard
+rather than an argv guard, since argv alone could not distinguish the
+stale process from the live one sharing its GPU. A tunnel re-hold task
+died along with the subagent that had been holding it open (the task does
+not outlive its owning agent); the lead re-opened the tunnel directly in
+the background instead. Completed subagents drop off the roster once done
+and cannot be resumed by id — the same lesson round 6b already recorded,
+and still the reason follow-up work goes to a fresh agent with condensed
+context rather than an attempted resume. The lead re-ran every landed
+agent's own tests before accepting a report, against a pre-agent-edit
+worktree snapshot — this is what caught the "vtk env trap" recurring
+(chip-related tests need `uv run --with vtk`, not bare `python3`, or they
+produce phantom failures) before it was mistaken for a real regression a
+second time.
+
+### 8. Open at time of writing
+
+* `rebake6c_chain.sh`, launched on the pod: the 6 crashed g2 batches plus 5
+  g3 batches (tagged `r8_*`), grep-based failure detection. Paced at
+  roughly 6-8 minutes per style — heavier than first estimated — so a
+  heavy batch runs 25-30 minutes and the full chain's ETA is now ~3 hours,
+  not the original ~45-minute estimate.
+* GAC pass 2 (a planned second GAC bake pass, referenced as `/root/
+  gac_pass2.sh` on the pod) — not yet run; waiting on the full sweep and
+  the `_deck_support_z` prune fix (section 4).
+* Gates re-run against the corrected verifier, after the `_deck_support_z`
+  prune fix lands — not yet done.
+* The scene re-run — relaunching seed-9 `urban_quake_v5` — waits on
+  everything above.
+* The mono-wiring design (`scratchpad/design/mono_wiring.md`) — a design
+  sketch only, not started: bake-time per-(asset, grade, seed) treatment
+  for AEC brownstones (already a kit internally, 307-3684 named part
+  meshes, so it needs de-instance + a placement table + `wreck_sliced`, NOT
+  `monolith_damage.cut_shell`, which has a hardcoded -Y-front assumption
+  and a uv0 dependency no AEC asset actually has).
+* `quake_collapse`'s "fitout slabs" and "floor cells" chip families (the
+  `[chip] fitout slabs: ...` / `[chip] floor cells: ...` proof lines) fired
+  zero times this round — unexplained, flagged but not investigated.
+
+## Round 6d (2026-08-31, evening) — the settle body budget
+
+Round 6c's own re-bake chain (`rebake6c_chain.sh`) was still in flight when it
+hung: `block_residential`'s DG3-5 batch (`r8_s1g2`) settled its first three
+style rows cleanly and then sat on an 18,771-body pile for more than 1.5
+hours without converging. The user's own directive, mid-run — "settle/bake
+the buildings lazily... you wanna place some by hand or something" — is this
+round's throughline: stop throwing physics at every loose crumb a collapse
+recipe happens to author, measure which pieces actually need it, simulate
+only those, and place the rest by hand exactly as asked, plus the perf work
+that particular mechanism needed to be affordable at heap scale, and the
+re-bake bookkeeping the fix leaves behind.
+
+### 1. The trigger — an 18,771-body settle, and a false PASS underneath it
+
+`r8_s1g2` settled `apartment`, `apartment_long` and `apartment_tall`
+cleanly, then hit `block_residential` DG3-5: 18,771 loose bodies, against
+roughly 1-3k for every other style row this round measured (`quake_
+collapse.py`'s own "SETTLE BODY BUDGET" section records the range and calls
+out `apartment_tall` DG3-5 itself at 3,144; this round's chain also logged
+`commercial_mid` at 1,693 and `department_store` at 1,952). The settle ran
+past 1.5 hours without converging and was killed by the lead directly:
+SIGINT, sent only after confirming — via a `/proc/<pid>/environ` check
+matching `ARCH_STYLES` (argv alone can't distinguish a stale bake process
+from a live one sharing the same command line, the same guard round 6c's
+own Process section already used once this round for a different stale
+process) plus the chain log's current row — that this really was the hung
+`block_residential` settle and not something else sharing the GPU.
+
+The trap: Kit exits 0 whether a batch's process raises an uncaught exception
+(round 6c's own finding, section 1 above) or is stopped by an external
+SIGINT it shuts down on gracefully — either way nothing appends to
+`bake_quake_archetypes_launch_script.py`'s own `failed` list, so its
+"batch summary: N ok / 0 failed" line and the chain script's own grep-based
+verdict (round 6c's fix, hunting `SettleNotConverged|STYLE FAILED|
+Traceback`) both read `r8_s1g2` as a clean PASS. It was not: each style's
+`archetypes.json` record is only written inside that style's OWN per-style
+`try` block, right after its settle+export finishes, so `apartment`/
+`apartment_long`/`apartment_tall` had already landed their records before
+the kill and exported fine; `block_residential` DG3-5 was killed mid-settle,
+before it ever reached its own export or manifest write, and stayed on
+whatever stale record `archetypes.json` already had.
+
+### 2. Root cause — not a bug, arithmetic on five masses
+
+`urban_building.py`'s `block_residential` spec is not one building: it is a
+podium `main` mass (`fam02((9, 5), 0, ...)`, the "full block" note) plus
+four WINGS at 16, 16, 10 and 20 storeys — five masses in total. `quake_
+collapse.collapse_masses`'s own docstring gives the count: 2,377 elements,
+only 181 of them on `main`. A total or pancake grade sweeps every mass
+(`r_masonry_collapse`'s own `for mt, m in info["masses"].items()`), not just
+the podium, and every per-ELEMENT wall break (`quake_flow._break`/
+`_break_split`, 10-24 loose cells each) and every per-STOREY slab break
+(`_break_box_like`, 30-52 plank cells per slab per storey) multiplies by
+BOTH the mass count and each wing's own storey count — five masses' worth of
+wall and slab breaks, not one.
+
+The one population that does NOT inflate the loose count is interior
+litter: `quake_flow._disturb_interior` authors `W*D/100*9` litter boxes per
+storey (130-190 on a seven-storey mass) — plenty of geometry — but appends
+every one of them straight to `ctx["static_extra"]`, never `ctx["loose"]`,
+so it never touches a PhysX body count regardless of how many masses or
+storeys author it. The audit therefore comes down cleanly: wall-break and
+slab-break cells (the populations `settle.run` actually has to simulate)
+dominate the 18,771, multiplied by mass count and wing storeys; interior
+litter is already static and free.
+
+### 3. The design — `SETTLE_BODY_BUDGET`
+
+New env `SETTLE_BODY_BUDGET` (default 3000; `-1` = unlimited, today's
+unchanged behaviour), read once per launcher run via `quake_collapse.
+settle_body_budget()` and enforced by `quake_collapse.apply_settle_budget(
+stage, loose_paths, budget, root=..., ground_z=..., rng=..., exclude=())`.
+Deliberately placed in `quake_collapse.py` rather than the launcher itself —
+`bake_quake_archetypes_launch_script.py`'s own comment gives the reason:
+"the budget has to live somewhere the GAC/sliced bake can reach it too
+later." `quake_sliced.py` already does `from . import quake_collapse as qc`
+for `_chip_prim`/`_deck_support_z`, so it can adopt `apply_settle_budget` the
+same way without a new import; only the archetype path calls it this round.
+
+The mechanism, called once per row on the SAME accumulated `loose` list
+right before `settle.run` receives it:
+
+* rank every piece with `rank_loose_for_settle_budget` — volume x current
+  world-Z midpoint, ties broken by path string, no rng draw at all, so the
+  ranking is a measurement of stage content, not a choice (a piece already
+  sitting high in the authored, pre-settle stack is the one about to fall
+  furthest and land most visibly, on the crown of the pile);
+* the top `budget` pieces (`kept`) go to `settle.run` completely unchanged;
+* everything past the budget (`over`) is placed GEOMETRICALLY, right there,
+  with the same idioms this module and `quake_flow` already trust rather
+  than a new one invented for the occasion: `quake_flow._a_lay_flat`
+  (`p=1.0`, so every over-budget piece gets the thin-axis-up lay-flat, not a
+  share of it) for orientation, `_deck_support_z` for the landing height
+  under the piece's own footprint (with a caller-supplied `ground_z`
+  fallback), and a `SETTLE_BUDGET_SINK_M = (0.02, 0.06)` downward sink so a
+  laid piece does not hover a hairline above its support — the same
+  few-centimetre interpenetration tolerance `quake_sliced._reseat_roof_
+  plant`'s round-6c fix already accepts.
+* a placed piece comes back in `geometric`, never `kept` — the caller
+  (the archetype launcher) appends it to the row's static list instead, so
+  it costs the settle nothing: no rigid body, no step budget, no
+  convergence risk, and nothing for `deactivate_airborne` to sweep
+  afterward either.
+
+Backward compat: `budget is None` or `budget >= len(loose)` is an explicit
+no-op — `(list(loose_paths), [], [])`, nothing touched on the stage — pinned
+byte-identical by `tests/test_settle_budget.py::test_huge_budget_is_byte_
+identical_noop` / `test_budget_none_is_unlimited_noop` / `test_budget_
+exactly_equal_to_count_is_noop` (each asserts `stage.GetRootLayer().
+ExportToString()` is unchanged before and after). `budget=0` is the other
+extreme — every piece placed geometrically, `kept == []` — also tested
+(`test_budget_zero_is_all_geometric`).
+
+Wired into `bake_quake_archetypes_launch_script.py` only this round:
+`SETTLE_BODY_BUDGET = qc.settle_body_budget()` at module scope, `root=
+lambda p: piece_root.get(p, PARENT)` (a path -> parent-scope map built while
+authoring each row, so a piece is only ever landed on ITS OWN building
+rather than a different grade's building 60+ m away on the grid), a new
+`[qarch]   settle budget row {si} ({st}): {n_loose_authored} loose -> {n_
+kept} kept for physics (budget {budget}) + {n_geo} placed geometrically`
+proof line, and three new manifest fields — `settle_budget`, `settle_
+budget_geometric`, `settle_budget_authored` — recorded even on the `loose`
+empty edge case (`budget=0`) where the settle below never runs at all. The
+GAC/sliced path is not wired up yet.
+
+### 4. Performance hardening — the candidate-mesh cache
+
+Building `apply_settle_budget` immediately exposed a cost `_deck_support_z`
+had never been measured against: `apply_settle_budget` calls it once per
+over-budget piece, and the existing implementation re-runs a full `stage.
+Traverse()` plus a fresh per-mesh world-transform and fan-triangulation on
+EVERY call — for a heavy row that is hundreds to thousands of repeat
+traversals of the same static building scope. New `_deck_support_candidates(
+stage, root)` precomputes every candidate mesh's world AABB and world-space
+triangle arrays for a root ONCE, and an optional `candidates=` parameter on
+`_deck_support_z` walks that precomputed list instead of re-traversing —
+every query-dependent test (`exclude`, the Z/XY AABB prune, `up_threshold`,
+`margin`, the 5-point containment test) still runs exactly as it would on a
+live traversal, against the same precomputed data a fresh traversal would
+compute fresh. `apply_settle_budget` keys its own `cand_cache` dict by
+`root` string and builds it the first time each distinct root is seen in a
+call.
+
+Correctness argument (also why it is safe to cache across an entire
+over-budget batch rather than re-measuring per piece): every path in `over`
+is already excluded from being its own or another piece's support
+(`exclude_all = set(exclude) | set(over)`), regardless of whether its
+cached geometry predates a later move, because none of the over-budget
+pieces are in a final position yet during this call — the same reasoning
+`_sweep_roof_props` already uses for its own `exclude_paths = set(fall)`.
+`candidates=None` (the default) is unchanged and is what every one of
+`_deck_support_z`'s other four call sites still passes — `_sweep_roof_
+props` (this file), `quake_flow._settle_foundation_roof_plant`, the
+sliced-path roof sweep in `quake_sliced.py`, and `tools/roof_plant_seat_
+probe.py` — none of them touched this round.
+
+Measured (`tests/test_settle_budget.py::test_perf_cache_handles_2000_
+geometric_placements_in_single_digit_seconds`): 2,000 loose pieces resolved
+against a dedicated 500-mesh candidate floor scope in 1.25s (`uv run
+--python 3.13`, CPython 3.13, single process, numpy reference BLAS, no GPU)
+with the cache; an earlier, smaller-scale manual dry run (2,000 total
+prims, 1,200 geometric) had measured ~28s before the cache existed — call
+it a 20-25x speedup at this scale, though the two runs are not the exact
+same fixture. The test's own `assert dt < 10.0` is deliberately generous —
+a regression guard against the cache being lost, not a tight timing
+assertion on a loaded CI box.
+
+### 5. Verification
+
+`tests/test_settle_budget.py`: 16 tests — the env reader (`settle_body_
+budget`), the budget/no-op boundary (a respected split is a partition;
+`budget=0` is all-geometric; a huge/`None`/exactly-equal budget is a
+byte-identical no-op), that geometric pieces are actually seated within
+tolerance (points-based, not bbox — the same discipline this project's own
+bug catalogue already calls out), the ground-Z fallback case, determinism
+(same seed -> same split and placement), that the ranking itself draws no
+rng, that an unresolvable piece stays loose rather than being lost, that
+`root` accepts a callable, the cache's byte-identical-to-uncached guarantee
+(with and without `exclude`), that degenerate triangles are dropped safely,
+and the perf regression guard above.
+
+Integrated: a full sweep across every round 6b/6c/6d fix (collapse, kit
+roof, deck-support cache included) came back 508 passed / 0 failed. Look,
+not just numbers: `tools/settle_budget_bench.py` (offline, no Isaac Sim —
+authors a heap that already looks like a converged settle produced it,
+since this round's own constraint rules out ever calling `settle.run`/PhysX
+live to prove the mechanism) rendered a 5,000-piece dome twice, FULL
+(`budget=None`) against BUDGETED (`budget=SETTLE_BODY_BUDGET`), to `~/
+scorch_previews/settle_budget/`. The lead re-reviewed: full and budgeted
+read as visually indistinguishable at review distance.
+
+### 6. Bake bookkeeping
+
+`block_residential` DG3-5 plus its OV/SETTLE/TILT foundation-family grades
+need a full re-bake under the budget — staged on the pod as `/root/r9_
+block_residential.sh` with `SETTLE_BODY_BUDGET=3000` set explicitly, so the
+row this round exists for is provably running under it rather than trusting
+the launcher's own default. Every other style measured this round stayed
+comfortably under the ~1-3k range in section 1 above, so the budget is a
+documented no-op for all of them — nothing else needs a re-bake for this
+reason alone.
+
+Per-style body counts belong in the bug catalogue as the early-warning
+signal this round did not have going in: watch a chain log's `[qarch]
+settling row {si} ({st}): {n} bodies` line (or, once a bake runs under the
+budget, the `[qarch]   settle budget row ...` line above it) per style —
+the same live-Monitor-a-log-and-catch-it-early pattern this project already
+uses elsewhere — rather than discovering a multi-hour outlier only after it
+has already run past every other row's time budget.
+
+### 7. Bug catalogue additions
+
+* **Kit exits 0 on an external SIGINT the same way it does on an uncaught
+  exception — a manual kill produces the SAME false PASS round 6c's own
+  section 1 already documented for a crash.** Neither the launcher's own
+  `failed` list nor a chain script's grep-based verdict has anything to
+  match when a hung process is stopped from outside rather than raising —
+  the process still exits 0, and a batch with one un-exported row can still
+  print "N ok / 0 failed." The only durable signal is the per-style
+  manifest write itself: a style's `archetypes.json` record only lands
+  after ITS OWN settle+export finishes, so a killed row's record is simply
+  whatever predates the kill, however clean the batch summary reads.
+* **A "block" style is several buildings' worth of wall wearing one style
+  name.** `block_residential`'s podium-plus-four-wings shape multiplies
+  every per-element and per-storey break population by both the mass count
+  (5x) and each wing's own storey count — 2,377 elements versus 181 on the
+  podium alone. A per-style body cap or budget tuned against one
+  representative building will silently starve (or, as here, never finish)
+  the multi-mass styles unless each style's own body count is measured
+  before assuming a uniform budget is safe.
+* **Background tool tasks die at the harness's own timeout cap, or get
+  killed externally when a limit or a process manager reaps them — hold
+  anything that has to outlive that (a port-forward tunnel, a long settle)
+  with `nohup ... & disown` from a quick foreground call, and run a sweep
+  that has to actually finish in the FOREGROUND rather than trusting a
+  backgrounded task to still be there later.** This recurred again this
+  round on top of round 6c's own tunnel lesson (section 7 above).
+
+## Round 6e (2026-08-31, night) — the v4 photo review and the GAC shell root cause
+
+`eq500_v4` (round 6d's own scene, launched against the 20:58 UTC pod
+deadline) came back as 30 captures. The user's photo review passed the
+ragged-cutout, layout/dressing and building-variety work outright, but found
+new defects the earlier rounds' fixes hadn't touched, then a second look
+("still floating towers/silos + empty spaces") asked for a specific
+cross-check: prove there are no GHOST buildings — placements the layout
+planned that never actually got built. Two investigation agents
+(`ghost-diff`, `floater-forensics`) ran offline against the frozen evidence
+(the scene's own log, `quake_buildings.json`, and the mirrored pod bakes
+under `pod_prep/pod_bakes_fresh/`) — pod `airstack-dev-177` had already
+expired, so nothing here re-ran Isaac. `ghost-diff` cleared the ghost-building
+theory outright but surfaced two OTHER dispatchable bugs
+(`monolith-scale`, the assembly-interaction settle); `floater-forensics`
+found ONE root cause behind three separate-looking symptoms (dark podiums,
+the sky-grid of frozen debris, and the b7-b9 "floating tank" photos): a
+longstanding material-binding defect in the GAC slicer that has nothing to
+do with any round-6 fix. All four resulting fixes (`monolith-scale`,
+`assembly-settle`, `gac-shell`, `stranded-bands`) landed and were folded into
+a consolidated sweep (530 passed / 0 failed) before OSMO and Nucleus both
+went down — the backup pod `airstack-dev-182` (submitted ahead of the
+deadline, 48h) has been sitting in the OSMO queue ever since, unable to
+schedule. This section and the `dev182_bringup.sh` script in this session's
+own scratchpad are the outage's own prep work: nothing below has been
+re-verified in Isaac.
+
+### 1. The v4 review verdicts
+
+PASS: ragged cutouts (no more straight rooflines / orphan panels at removal
+boundaries), the layout/dressing pass (plazas, courts, street furniture), and
+building-population variety (AEC + GAC + MCE all visibly damaged, DowntownCity
+pristine-only). PARTIAL: cuboid debris (the `se_top` rooftop plates still read
+as perfect prisms — the pillar/chip wiring from round 6b covers pillars and
+authored bars but this specific rooftop-plate population was not in its 11
+call sites) and the brick facade fix (red decal-like blobs still visible on
+pale cladding at `b0`/`b5`). FAIL: water tanks (6 frames across 5 kit-archetype
+styles show a tank at what looks like full ASSEMBLY height over a crushed or
+missing storey — this is a DIFFERENT population from the GAC roof-plant bug
+below) and the review cameras (the `b0`-`b9` close-up obliques still have no
+clearance logic — see section 7 — so `b3`/`b4` are wall-fill and `sw_obl` gave
+up after three blank frames). The single WORST new defect: a frozen grid of
+plank/panel debris hanging in the sky at facade-grid spacing — `se_obl` shows
+100+ pieces, `nw_obl` a column of 12 — which section 3 below explains was
+never actually "debris that failed to settle" but standing shell pieces that
+were never moved, given physics, or swept at all. Also flagged: dark,
+untextured podium boxes on 2+ towers, one under-damaged DG5 tower (`b6`), and
+one floating boulder (`nw_top`). Best frames: `b2_obl`, `b9_obl`, `sw_top`.
+
+### 2. The ghost-diff verdict — no ghost buildings
+
+`ghost-diff` reproduced the seed-9 layout offline and cross-checked it
+against the scene's own build log and `quake_buildings.json` (the per-building
+record the launcher writes as it goes — the actual ground truth for what got
+built, not a re-derivation). Verdict: **no ghost buildings**. The offline
+repro placed 132 buildings where the log recorded 135 (a 3-building
+difference entirely explained by the offline-repro caveat below, not by
+anything failing to compose); `quake_buildings.json` itself has 134 records;
+0 building-reference failures (the log's 384 `WARN`/`Could not open asset`
+lines are ALL props — humans, planters, benches, street furniture referenced
+from Nucleus paths this sandbox cannot resolve — never a building); 0
+deactivations; and a stem-existence audit found all 112 kit-archetype/GAC
+stems the scene referenced were valid, present files. The "empty spaces" the
+user was seeing are **dressed plazas** — open, furnished ground the
+round-6b `plazas`/`COURTS` fix authors on purpose, not gaps where a building
+should have been. Overall city fill (61.94%) is stable against the earlier
+measurement, so there is no fill regression hiding behind the ghost-building
+question either.
+
+**Offline layout repro caveat (why the two counts don't match exactly).**
+`scene_generator.SizeResolver.get` measures a real USD's footprint once per
+`(path, axis)` and caches it; when `_measure_footprint` can't open an asset
+(every Nucleus-hosted `omniverse://...` GAC/AEC/downtowncity path, in an
+offline sandbox with no Nucleus mount) it falls through to
+`self.fallback.get(category, [4.0, 4.0])` — a per-category constant from the
+merged asset-set YAML, or the hardcoded `[4.0, 4.0]` pair if the category has
+no entry anywhere. **Correction to the coordination log's own shorthand**:
+for the "house" category specifically (what every building placement is
+sized as), that fallback is NOT the generic 4×4 m default — `urban.yaml`'s
+own `fallback_sizes.house: [30.0, 20.0, 24.0]` is configured and wins, so an
+offline repro's unresolvable buildings all pack as identical 30×20×24 m boxes
+rather than their real, wildly different GAC/AEC footprints (confirmed
+directly: `[scene_gen] fallback house: SM_Building_NN.usd -> 30.00 x 20.00 m`
+fires for 78 of the ~101 unique building assets this seed touches, the
+remaining ~23 being locally-committed kit/downtowncity assets that measure
+fine). The generic `[4.0, 4.0]` code default is real (`scene_generator.py`'s
+`SizeResolver.get`) but was not observed firing for buildings in this
+specific repro — it is the emergency case for a category with no configured
+fallback at all, not what actually ran here. Either way the effect is the
+same: an offline dry run's block-packing arithmetic (which building fits
+which slot, corner rounding, plaza sizing against a wrong footprint) diverges
+from what the real, Nucleus-connected pod run actually placed — **use the
+scene's own log and `quake_buildings.json` as ground truth, never an offline
+repro's placement list, for any question about what shipped in a specific
+scene.**
+
+### 3. The GAC shell root cause — one bug behind three symptoms
+
+`floater-forensics` found a SINGLE root cause behind the dark podiums, the
+frozen sky-grid, and most of the b7-b9 "floating tank" frames: every
+exterior-shell mesh (`wall_*`, `corner_*`, `core_x_*`, `pier_*`, `parapet_*`)
+`detail/gac_storey_slice.py` cuts comes out of a frozen per-building bake
+with **no usable material** — measured on all 33 manifest-live GAC bakes
+(`bind_census_before.txt`): **8,003 of 8,546 shell meshes unbound**, ranging
+from 0/197 bound (`SM_Building_21_DG2`) to a best case of 69/261
+(`SM_Building_25_DG4`) — no file in the set was clean. This is
+**longstanding, not a round-6 regression**: an old-bakes-vs-new-bakes
+comparison came back identical (246/246 unbound either way) — every round of
+"GAC walls are grey" complaint since this pipeline existed was this same bug.
+
+Two compounding defects, both real, found by dumping raw `GeomSubset`
+bindings instead of trusting `ComputeBoundMaterial()` alone:
+
+1. **`read_mesh`'s no-argument `ComputeBoundMaterial()` misses `full`-purpose
+   bindings.** GreatAmericanCity binds its facade materials under USD's
+   `full` (render-quality) purpose on a live, Nucleus-connected stage; a
+   bare `ComputeBoundMaterial()` call only resolves `allPurpose` and does
+   NOT fall back to `full` — confirmed in a synthetic stage in
+   `gac_storey_slice.py`'s own comment (`Bind(mat, materialPurpose=full)` +
+   `ComputeBoundMaterial()` → `None`, `ComputeBoundMaterial(materialPurpose=
+   full)` → the material). `read_mesh` harvested nothing for these faces, so
+   `write_piece` had no material to give them at all.
+2. **Even where a material WAS harvested and a `GeomSubset` bound, it still
+   fails to resolve inside a FROZEN, standalone per-building file.** The
+   relationship target is not dangling (`IsValid()` is True) — it is a bare,
+   TYPELESS placeholder: a reference out to a per-material Nucleus asset
+   (e.g. `GreatAmericanCity/.../Materials/M_Building_24_Metal_Inst.usd`) that
+   composes to nothing once the file is opened without that Nucleus mount.
+   `ComputeBoundMaterial()` requires the resolved prim to actually BE a
+   `UsdShadeMaterial`; a naive `GetPrimAtPath(target).IsValid()` says the
+   opposite, which is exactly what let this hide behind rounds of "maybe it's
+   a UV bug" review. Measured: `/World/bake/Looks` is 100% typeless stubs, 0
+   real materials, in every one of the 33 files — while `/World/bake/
+   QuakeLooks` (materials `quake_sliced.py`'s own damage code authors
+   directly, with a real embedded shader, never a reference) resolves fine.
+
+**This is the root cause of three photo-review symptoms at once**: dark
+untextured podiums (a shell mesh with no material renders flat black, not
+the fallback grey a missing-texture case usually shows); the tan-ish
+"sky-grid" panels (the SAME unbound-shell defect on pieces nobody happened to
+notice were floating, until section 5's mechanism put them in mid-air);
+and most of the b7-b9 "tank floating over an invisible building" frames — the
+tank is correctly seated, but the SHELL underneath it renders as nothing, so
+the tank reads as floating over empty air.
+
+**The fix, two parts:**
+
+* **Root fix, in `detail/gac_storey_slice.py`, for every FUTURE bake**:
+  `read_mesh` now asks `ComputeBoundMaterial(materialPurpose=UsdShade.
+  Tokens.full)` everywhere it used to call the bare, no-argument form (both
+  the mesh-level harvest and the per-`GeomSubset` harvest); this is a strict
+  superset (USD's own purpose-fallback still resolves a `full` query against
+  a plain `allPurpose` bind when no `full`-specific one exists), so it can
+  never find LESS than before. `write_piece` NEVER SKIPS any more: every
+  piece gets a direct mesh-level binding to a role-appropriate fallback
+  material FIRST (`_role_fallback_material` — a plain, fully self-contained
+  `UsdPreviewSurface`, deliberately never a reference to anything in the
+  source asset, so it can never go stale the same way inside a standalone
+  export), before any per-material `GeomSubset` is added on top of it.
+* **Repair tool, for bakes that already exist**: `tools/
+  gac_shell_bind_repair.py` copies each already-baked per-building USD and
+  rebinds every unbound shell mesh, on the COPY, without touching the
+  original. It does NOT try to bind from that file's own `/World/bake/
+  Looks` (every candidate there is equally an unresolved stub, per defect 2
+  above) — instead it redirects each unbound shell to a REAL,
+  already-embedded material from that SAME file's own `/World/bake/
+  QuakeLooks` scope, chosen by a role heuristic (`_piece_role`: `core_x_*` →
+  "core", everything else → "facade"; `_keyword_role` reads a broken
+  subset's own unresolvable target NAME for a `glass`/`metal`/`marble`
+  keyword before falling back to the piece-name default), with a
+  deterministic dominant-facade fallback when a role has no dedicated
+  QuakeLooks candidate in a given file. Repaired drop-ins verified prim-path
+  identical (2256/2256) to the originals at `pod_bakes_fresh/
+  gac_quake_repaired/`; 51/51 `test_quake_sliced.py` (the slicer's own root
+  fix, tested with a stage proven failing pre-fix). **Caveat, stated in the
+  tool's own docstring**: the repaired materials are plausible-not-true — the
+  real facade textures only come back once the NEXT GAC bake re-slices
+  through the fixed `gac_storey_slice.py` and Nucleus can resolve the
+  harvested references again.
+
+### 4. The assembly-interaction settle floater
+
+The one genuine PHYSICS floater in the whole review (as opposed to a
+material or a never-moved shell): `tank_ix1_2`, a water tank on a building
+INSIDE a live `lean_on`/`collapse_onto` interaction pair
+(`quake._d_interactions`), frozen mid-air at export. Root cause: the shared
+settle those pairs run (`quake._d_interactions`'s own `settle.run` call, after
+accumulating every pair's fracture debris into one `loose_all` list) used to
+hand roof plant (tanks, AC units) into that SAME shared settle alongside
+however many rigid bodies the pairs' own fracture sheds — `eq500_v4` handed
+it 155 bodies for 3 pairs — where a heavy tank can starve for the settle's
+step budget and freeze mid-flight; `tank_ix1_2` measured exactly at the
+1,800/1,800-step cap.
+
+Fix: `quake._d_settle_roof_plant_now(res)`, called from `_d_live_lean`
+immediately after `quake_flow.wreck_building` returns and BEFORE the caller
+appends anything to `loose_all`. It pulls every path in
+`res["roof_plant"]`/`res["roof_fixed"]` back OUT of `res["loose"]` (and its
+matching `res["velocity"]` entries) — pulling them out first is what lets
+`quake_flow._settle_foundation_roof_plant` treat them as unresolved rather
+than skip them as "already handed to physics" — then resolves each
+geometrically the same way the `tilt_severe`/`overturn` families already do:
+seat it on the deck under its own footprint
+(`quake_collapse._deck_support_z`), or drop it to grade
+(`quake_flow._a_bury_props`) when the deck no longer faces up at all. Roof
+plant on the interaction path now NEVER reaches the shared physics settle at
+all — there is nothing left in that budget for it to starve against.
+
+The settle call itself also picked up two matching fixes, since whatever
+IS left in `loose_all` after that (pure fracture debris, not roof plant)
+still needs the same honesty the round-6c bake gates already require:
+`converge=True` makes `steps` a target the throw phase may run past (up to
+`settle.run`'s own 3× `max_steps`) instead of a hard ceiling it bakes against
+regardless, and `rest_v2=True` turns on the same points-based rest
+measurement (net travel over a window, a stall freezes the jittering bodies
+instead of giving up on a raw velocity snapshot) the fire/tornado bakes
+already use for every non-kit settle. And for whatever still doesn't
+converge even so: `fire_bake.deactivate_airborne` now runs over the
+`quake_interact` scope after the settle — the same post-settle safety net
+the round-6b tank fix added to the ordinary per-building bake path, now
+covering the interaction path too. New test file (6 tests), 102/102 with
+`test_quake_collapse.py` and `test_roof_plant_kit.py` folded in.
+
+### 5. The stranded-band mechanism (the sky-grid, mechanically)
+
+Section 3 explains why the frozen sky-grid pieces render wrong (unbound
+shell material); this section is why they are floating in the first place —
+a SEPARATE bug from the GAC roof-plant reseat work in earlier rounds.
+`quake_sliced._apply_region` (the region-removal ladder behind `corner_fail`/
+`out_of_plane`) counts a VERTICAL neighbour (the same cell one storey up or
+down) as a boundary condition exactly like a horizontal one, and its own
+`kept_piers` draw rolls keep/lose PER CELL, independently, at every storey a
+wide multi-storey region touches — so it is entirely possible (measured: 2-12
+orphan instances per seed on `out_of_plane`) for the pier at `(side, storey,
+bay)` to survive its own draw while the pier directly beneath it, in the
+SAME column, part of the SAME removed region, loses its own independent
+draw. The survivor is left exactly where it was authored: nothing
+rigid-transforms it, nothing gives it physics, nothing sweeps it — a
+periodic, bay-pitch-spaced grid of shell pieces whose own support vanished
+one or two rows below. This is the sky-grid.
+
+The repair is deliberately NOT inside `_apply_region`/`plan_damage` itself —
+the pure planner's own RNG draws and `plan["removed"]` have to stay
+bit-identical (another agent's materials work reads the same plan; pinned by
+`test_stranded_bands_plan_removed_is_bit_identical`, a `sha256` hash over
+`sorted(plan["removed"])`). Instead it runs as a POST-`apply_plan` stage
+pass, the same shape as the round-6b roof-prop sweep:
+
+* `_orphaned_shell_candidates(info, plan, mass, loose=False|True)` — a
+  CHEAP, PURE pre-filter with no stage access, reading `info["elements"]`'s
+  own `_storey`/`_side`/`_bay` fields and each element's `dead` flag (set by
+  `apply_plan`'s removal step) to find live shell paths whose directly-below,
+  same-column cell was authored but is now entirely (`loose=False`) or
+  partially (`loose=True`) dead.
+* `_repair_stranded_shell_sliced(stage, ctx, plan)` — for each `loose=False`
+  candidate, drops it onto whatever REAL support
+  `quake_collapse._deck_support_z` finds under its own footprint (plus a
+  small tip, the same idiom the roof-prop reseat already uses) when that
+  drop is at most `_SHELL_ORPHAN_DROP_STOREYS_MAX` (2.0) storeys; beyond
+  that, or with nothing real found below at all, it deactivates the piece
+  instead and leaves it to the pile the building's own total-collapse mound
+  already accounts for in aggregate.
+* `_sweep_airborne_shell_sliced(stage, ctx, plan, gap_m=1.0)` — the SAFETY
+  NET, this module's own analogue of `fire_bake.deactivate_airborne`,
+  scoped to the shell only (fit-out and roof plant are already swept
+  elsewhere) and run with the broader `loose=True` gate, printing
+  `[qgac] airborne shell sweep: N deactivated` — it caught a second-order
+  orphan produced by the repair pass's OWN deletions in testing, which is
+  why it has to run last, after the repair, not instead of it.
+
+6 new tests (`test_orphaned_shell_candidates_finds_the_toothed_gap`,
+`test_repair_stranded_shell_drops_a_one_storey_gap_onto_real_support`,
+`test_repair_stranded_shell_deletes_a_multi_storey_gap`,
+`test_sweep_airborne_shell_catches_what_the_strict_repair_did_not`, plus the
+bit-identical `plan["removed"]` regression test above and one more); new
+preview tool `tools/stranded_bands_preview.py`.
+
+### 6. `SM_Building_31`/`SM_Building_16` — genuine supertalls, now excluded
+
+A separate, unrelated defect the same photo review turned up: `eq500_v4`
+placed `SM_Building_31` (measured 60.3 × 142.2 × 302.2 m, `house_29_241` in
+`quake_buildings.json`) in the `core` ring right next to the epicentre, at
+DG2 ("untouched"). Confirmed NOT a measurement bug —
+`test_mono_dims_reports_the_same_canonical_wdh_at_every_cardinal_yaw`
+pins `_mono_dims` returning the identical (W, D, H) at all four cardinal
+placement yaws, and the number matches `urban_gac.yaml`'s own pre-recorded
+comment for that exact asset byte-for-byte. It is a genuine 300+ m supertall
+that the round-6 `highrise` pool mirrored in from `downtown_gac.yaml`'s much
+bigger showcase-ring mix without re-screening it for a small, camera-reviewed
+disaster preset — and it black-framed the `epi_obl` review camera (whose
+clearance budget assumed nothing taller than the ~104 m next-tallest
+building actually placed) and dominated `epi_top`.
+
+Fix, two parts:
+
+* `downtown_earthquake.yaml`'s `overrides.usds.buildings.highrise` now
+  copies `urban_gac.yaml`'s own `highrise` pool verbatim MINUS
+  `SM_Building_31` and its 312.0 m sibling `SM_Building_16` — a bare list key
+  under `resolve_asset_set`'s merge replaces the inherited pool outright, so
+  this only affects this preset. Precedent already existed for exactly this
+  pair: `downtown_1000.yaml`'s `building_props.no_roof_props` already
+  excludes both "everywhere" for a different reason (they carry a
+  crown/setback, not a flat deck) — and they are a clean outlier on height
+  alone, with the pool's other nine members clustered 134.4-231.4 m before a
+  71 m jump to 302.2/312.0 with no third member anywhere near them.
+* `quake.MONO_HEIGHT_WARN_M = 150.0` — a loud, de-duplicated warning
+  (`quake._warn_if_oversized`, one print per asset via
+  `_MONO_HEIGHT_WARNED`) at all three `_mono_dims` call sites (`assemble`'s
+  `same_art`/`gac` branches and `_mono_pass`), so the NEXT scene's build log
+  names an oversized building the moment it's placed instead of only
+  surfacing in a post-hoc `quake_buildings.json`/photo review. 150 m sits
+  comfortably above every kit archetype, `same_art` original and ordinary
+  GAC/tower-pool building (the `tower` pool tops out at 131-140 m) and
+  comfortably below the two supertall outliers — the warning is meant to
+  fire on the NEXT unscreened pool import, not on this preset's normal
+  traffic.
+
+71/71 green (`test_quake_v5_city.py`, including the yaw-invariance
+regression above plus the existing twins/`style_of`/`gac_city` cases).
+
+### 7. Bug catalogue additions
+
+* **`ComputeBoundMaterial()` with no argument only resolves `allPurpose` —
+  it does not fall back to a `full`-purpose bind, even though USD's own
+  purpose-fallback WOULD resolve a `full` query against a plain `allPurpose`
+  bind.** A pack that binds its production materials under `full`
+  specifically (measured: GreatAmericanCity) makes the no-argument call
+  silently harvest nothing, with no exception and no obviously-wrong value —
+  just an empty material slot that later renders flat. Always ask for the
+  MOST SPECIFIC purpose a query cares about; it can only find a superset of
+  what the bare call finds.
+* **A relationship target that `IsValid()` reports True can still resolve to
+  nothing usable.** A reference to a per-material Nucleus asset composes
+  fine on a live, mounted stage and composes to an empty, typeless
+  placeholder once the referencing file is frozen and exported standalone —
+  `GetPrimAtPath(target).IsValid()` says "yes, something is there,"
+  `ComputeBoundMaterial()` (which additionally requires the resolved prim to
+  actually BE a `UsdShadeMaterial`) correctly says "no, nothing usable is."
+  Trusting the cheaper check first is what let a 100%-unbound `/World/bake/
+  Looks` scope pass casual inspection for as long as it did.
+* **Nucleus flakiness renders as "nothing composed" bake failures — retry,
+  don't debug.** Several GAC bake attempts this stretch of the round (and in
+  earlier rounds, per the pod-prep runbook's own recon) failed with a
+  composed-empty-stage symptom traceable to a transient Nucleus hiccup, not
+  a code defect; treating every such failure as a fresh bug to chase costs
+  more than a retry once Nucleus itself is confirmed reachable.
+* **The `b0`-`b9` close-up review cameras still have no clearance logic
+  (open, see below) — do not assume the round-6c camera fix covers them.**
+  That fix (`_review_camera_clearance`) only ever touches the five named
+  review points (`epi`/`ne`/`se`/`sw`/`nw`); the "ten worst buildings, one
+  oblique each" pass a few lines later in `downtown_quake_launch_script.py`
+  still calls `_snaps.views_around` with a bare fixed pose
+  (`top_h=70.0, obl_dist=55.0, obl_h=28.0`) and no clearance check at all —
+  exactly the class of bug the review-point fix was built to catch,
+  unfixed on a different camera set.
+* **A per-cell independent keep/lose draw on a MULTI-STOREY region needs an
+  explicit "is my own support still there" check, or a survivor floats.**
+  `_apply_region`'s `kept_piers` draw is correct in isolation (each cell's
+  own boundary condition is evaluated correctly) but was never checked
+  against the SAME column's cell one storey below — two independently-fair
+  coin flips can still leave a physically impossible result stacked on top
+  of each other, and nothing in the removal ladder itself was watching for
+  that combination.
+* **A repair that only reads a file's own "clean" scope has to prove that
+  scope is actually clean first.** The instinct to rebind an unbound shell
+  from that same file's OWN unused-looking material scope
+  (`/World/bake/Looks`) would have been a plausible-sounding fix that does
+  nothing — every candidate there is equally an unresolved Nucleus stub in a
+  frozen file. Only dumping raw `GeomSubset` bindings (not trusting
+  `ComputeBoundMaterial()` as the sole probe) found the SECOND, independent
+  reason the "obvious" fix wouldn't have worked.
+
+### 8. Open items
+
+* **GAC pass 3 — pending the OSMO/Nucleus outage.** dev-182 (48h, submitted
+  ahead of the `airstack-dev-177` deadline) has been queued and unable to
+  schedule since OSMO went down; the user has confirmed both OSMO and
+  Nucleus are down and will say when they are back. `dev182_bringup.sh` (this
+  session's own scratchpad) is prepped and ready to run once the tunnel is
+  reachable — see that script for the exact re-slice + re-bake + gate +
+  scene-relaunch sequence.
+* **OV/TILT roof-plant probe flags (33 + 42) — unclassified.** The most
+  recent probe sweep against the mirrored pod bakes read OV 33 / TILT 42
+  fails (of DG3 2 / DG4 6 / DG5 17 / OV 33 / TILT 42 total) — flagged to
+  `floater-forensics` as "tilted-deck probe semantics vs. real" but never
+  actually resolved: it is not yet known how many of the 33+42 are real
+  floaters (the same class `_settle_foundation_roof_plant`'s fix in round
+  6c targeted) versus probe false positives on a tipped deck the same way
+  `SM_Building_19`/`_24` were false positives in round 6c's GAC reseat work.
+  Needs its own measurement pass, not an assumption either way.
+* **Plaza/court density knob.** The user's "still... empty spaces" remark on
+  the v4 photos came AFTER the round-6b `plazas`/`COURTS` dressing fix had
+  already landed — the dressed-plaza verdict in section 2 confirms those
+  spaces are furnished on purpose, not a bug, but no agent this round
+  measured or proposed a specific density/knob change in response to the
+  complaint recurring. `city_detail.plazas`'s own `min_area_m2`/
+  `max_per_block` knobs are the likely lever, but this is a genuinely open
+  question, not a landed or even a designed fix.
+* Real AEC fracture ladder, GAC DG5 bakes beyond `SM_Building_02`/`_24`, and
+  the mono-wiring design sketch — all still deferred, carried over unchanged
+  from round 6b/6c (sections 8 / 8 of those rounds).

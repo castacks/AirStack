@@ -165,9 +165,15 @@ def test_env_treats_the_empty_string_as_absent():
 
 
 def test_emitter_budget_has_the_documented_default():
+    # 800 (was 560, was 200) as of 2026-08-31's THIRD review (cluster
+    # diversity, size-scaled allocation, residual flame pockets):
+    # `scene_gen/tools/fire_flow_dry_run.py`, run against the real
+    # 39-record `fire_city_500m_39.json` manifest, projects a NATURAL
+    # (unbudgeted) total of ~976 emitters; 800 stays comfortably under both
+    # that and the 15.3 GB VRAM cap — see `EMITTER_BUDGET`'s own comment.
     for call in _calls(CITY_TREE, "_env"):
         if call.args and getattr(call.args[0], "value", None) == "FA_EMITTER_BUDGET":
-            assert len(call.args) > 1 and call.args[1].value == "200"
+            assert len(call.args) > 1 and call.args[1].value == "800"
             return
     raise AssertionError("FA_EMITTER_BUDGET is not read with a default")
 
@@ -220,6 +226,48 @@ def test_dump_functions_exist():
     fns = _funcdefs(CITY_TREE)
     for name in ("default_dump_path", "_typology_rects", "dump_city_placements"):
         assert name in fns, "missing " + name
+
+
+# ---------------------------------------------------------------------------
+# 1c) FC_SKY -- the 2026-08-31 mid_day/sunset lighting preset knob
+# ---------------------------------------------------------------------------
+def test_fc_sky_defaults_to_sunset():
+    # "sunset" here means "the historical, unchanged dome-only path" -- see
+    # sky_presets.py's own docstring for why the city's "sunset" is not the
+    # bench's literal low-sun look. The city must only change lighting once
+    # this knob is flipped explicitly.
+    for call in _calls(CITY_TREE, "_env"):
+        if call.args and getattr(call.args[0], "value", None) == "FC_SKY":
+            assert call.args[1].value == "sunset"
+            return
+    raise AssertionError("FC_SKY is not read with a default")
+
+
+def test_fc_sky_gates_the_new_preset_path():
+    # The legacy `add_sky(resolve_sky(config), ...)` + `_disable_sky_sun`
+    # call must still run together under a branch keyed on SKY (the
+    # "sunset" default's byte-identical path), and `apply_sky_preset`
+    # (sky_presets.py) must be reachable from the SAME `if`/`else` -- so
+    # FC_SKY=sunset (the default) can never silently pick up the new path.
+    assert "from sky_presets import apply_sky_preset" in CITY_SRC
+    fn = _funcdefs(CITY_TREE).get("__init__")
+    assert fn is not None
+    found_legacy_branch = False
+    found_preset_branch = False
+    for node in ast.walk(fn):
+        if not isinstance(node, ast.If):
+            continue
+        if "SKY" not in ast.dump(node.test):
+            continue
+        if _calls(node, "add_sky") and _calls(node, "_disable_sky_sun"):
+            found_legacy_branch = True
+        if _calls(node, "apply_sky_preset"):
+            found_preset_branch = True
+    assert found_legacy_branch, (
+        "add_sky/_disable_sky_sun must still run together under an "
+        "`if ... SKY ...` branch")
+    assert found_preset_branch, (
+        "apply_sky_preset must be called under an `if ... SKY ...` branch")
 
 
 def test_fc_env_none_skips_load_environment():
@@ -586,7 +634,10 @@ def _original_inline(doc, masses, b):
     a paraphrase of itself."""
     W, D, H = b[3] - b[0], b[4] - b[1], b[5] - b[2]
     top_h = max(W, D) / 1.164 * 1.45 + H
-    obl_dist = max(50.0, 1.3 * max(W, D, H))
+    # 2026-08-31: H term deliberately 1.7x (was a shared 1.3x) — at 1.3x a
+    # 60 m+ tower's facade overflowed the frame (d31_apartment_tall, city_v3
+    # review). The width branch is the original arithmetic, verbatim.
+    obl_dist = max(50.0, 1.3 * max(W, D), 1.7 * H)
     obl_h = max(18.0, 0.4 * H)
     import math as _m
     fd = doc.get("fire") or {}

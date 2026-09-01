@@ -67,6 +67,7 @@ whose pool fits — the scene degrades to "smaller buildings than intended"
 rather than to "empty block".
 """
 
+import json
 import math
 import os
 import random
@@ -83,6 +84,397 @@ _FIT_TOL_M = 0.05
 # ground, which floats the stoop. Anything shallower than this is sunk back to
 # grade; deeper, and the origin probably isn't the ground floor.
 _BELOW_GRADE_MAX_M = 1.2
+
+
+# ---------------------------------------------------------------------------
+# burnability-aware pool selection — "I know we aren't using some buildings
+# for fire at all, we need to account for that in the layout gen" (user,
+# 2026-08-31). An unburnable asset (AEC brownstones / `standalone/buildings/
+# ...` / Muyang DownTown — always refused by `kit_substitute.route`; a GAC/
+# DTC pack-blacklisted name or a >232 m building — conditionally, per
+# `disaster.gac_fire.PACKS[...]['blacklist']` and `urban_fire_city.
+# FIRE_MAX_H_M`) standing next to another one fragments `urban_fire_spread`'s
+# graph into a firebreak the fire silently routes around; the census this
+# module's own docstring history is built on (`fire_city_dry_run.
+# gather_burnable`) found 8 of 75 `downtown_fire_500` seed-4 houses refused
+# this way.
+#
+# The checked-in table (`config/harvested/burnability_table.json`, generated
+# by `tools/gen_burnability_table.py`) is the boolean verdict of the REAL
+# gate (`disaster.urban_fire_city.burnable`), called once per pool asset,
+# offline. This module only ever does a plain dict lookup against it —
+# `districts.py` is imported for every scene, fire disaster or not, and must
+# not drag the fire stack (`disaster.gac_fire`/`kit_substitute`/`quake`/
+# `urban_fire_city`) into a build that never touches fire.
+# ---------------------------------------------------------------------------
+
+#: Matches `disaster.urban_fire_city.FIRE_MAX_H_M` — kept as a literal, not
+#: an import, for the same reason the table below is a lookup and not a live
+#: call. `tools/gen_burnability_table.py`'s docstring is the regeneration
+#: point if that constant ever moves.
+_LANDMARK_H_M = 232.0
+
+#: The smaller-of-two-areas / larger-of-two-areas ratio a substitute's raw
+#: footprint must clear against the entry it is replacing — see
+#: `_burnable_substitute`. Same default as `districts.pack_area_band`
+#: (`_pack_free`'s own "close enough to compete for one slot" band), reused
+#: here rather than invented fresh.
+_SUBSTITUTE_AREA_BAND = 0.55
+
+#: How much a substitute's rotated footprint may exceed the entry it is
+#: replacing, per axis, before `_burnable_substitute` refuses it (the
+#: OVERLAP defect, 2026-08-31 review) — floating-point slack, not a real
+#: allowance: a substitute that is even slightly bigger than what the
+#: guillotine reserved for the original can spill into a neighbour.
+_SUBSTITUTE_FIT_TOL_M = 0.05
+
+_BURNABILITY_TABLE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "config", "harvested", "burnability_table.json")
+
+_burnability_cache = None
+
+
+def _burnability_table() -> dict:
+    """`{typology: {basename: bool}}`, loaded once and cached for the life
+    of the process. A missing or unreadable file, or a typology the table
+    has never seen, resolves to `{}`, which makes `_is_unburnable` fail
+    OPEN (every asset treated as burnable) — a scene that never ran `gen_
+    burnability_table.py`, or whose pool/typology map has grown since, must
+    never have its fill rate regress because of a lookup miss.
+
+    KEYED BY TYPOLOGY, NOT ASSET ALONE (2026-08-31 review fix) — `usds.
+    buildings` pool KEYS are not typology names (the `midrise` TYPOLOGY
+    draws from the `midrise_v2` POOL; a `midrise` pool also exists but no
+    typology in `downtown_fire_500` references it), so a table keyed
+    purely by basename risked auditing the wrong pool for a typology and
+    would silently mismatch the day a gate starts reading typology at all.
+    `tools/gen_burnability_table.py` resolves each typology's REAL pool
+    list from `districts.typologies.<name>.pools`, exactly as `rezone_
+    blocks`/`infill_blocks` do, and writes one sub-table per typology.
+    Measured (that tool's own `--prove`): every verdict is IDENTICAL to the
+    single-table version for `downtown_fire_500` seed 4 — candidacy is
+    asset-and-material intrinsic, never typology-dependent, matching
+    `urban_fire_city`'s own self-test ("moving a placement into the tower
+    block should only change its typology, not its candidacy"). Keeping
+    the per-typology shape anyway: correct is correct even when it doesn't
+    move today's numbers.
+    """
+    global _burnability_cache
+    if _burnability_cache is None:
+        try:
+            with open(_BURNABILITY_TABLE_PATH) as fh:
+                _burnability_cache = dict(json.load(fh).get("assets") or {})
+        except (OSError, ValueError):
+            _burnability_cache = {}
+    return _burnability_cache
+
+
+def _asset_basename(usd: str) -> str:
+    base = str(usd).rsplit("/", 1)[-1]
+    for ext in (".usd", ".usdc", ".usda"):
+        if base.lower().endswith(ext):
+            return base[: -len(ext)]
+    return base
+
+
+def _is_unburnable(usd: str, typology) -> bool:
+    """`True` only for a (typology, name) pair the table KNOWS and marks
+    `False` — an unrecognised typology or name (an asset/typology added
+    since the table was last regenerated, or a non-building prop that
+    never belonged in it) is burnable by default, never a reason to swap
+    or refuse a placement."""
+    per_typ = _burnability_table().get(typology) or {}
+    return per_typ.get(_asset_basename(usd)) is False
+
+
+def _is_landmark(entry) -> bool:
+    """The >232 m exemption (`SM_Building_16`/`SM_Building_31` today,
+    whatever else clears the same bar tomorrow): unburnable by the same
+    height cap `urban_fire_city.burnable` enforces, but a landmark, not
+    firebreak clutter, so the swap rule below must leave it alone. Pool
+    membership already confines these to whichever typology lists them
+    (`highrise` in `urban_gac.yaml` today, never `tower` despite the user's
+    "tower/skyscraper-typology" phrasing — that pool's own name in THIS
+    asset-set just isn't the tall one); this predicate only decides whether
+    the swap applies, never where an asset may be drawn from."""
+    fp = entry[3] if len(entry) > 3 else {}
+    return float(fp.get("sz", 0.0)) > _LANDMARK_H_M
+
+
+def _rotated_wh(fp, yaw):
+    """(bw, bh) — *fp*'s own (sx, sy) swapped when *yaw* is an odd multiple
+    of 90, exactly as `_pack_free`'s own candidate-shape rotation does (see
+    `_pool_entries`'s module-level docstring on the sx/sy swap). Shared by
+    `_substitute_fits_street` and `_burnable_substitute`'s own footprint-fit
+    check so both compute "this entry's world-space footprint at this
+    already-decided yaw" the same way.
+    """
+    sx, sy = fp.get("sx", 0.0), fp.get("sy", 0.0)
+    if round(yaw) % 180 == 90:
+        return sy, sx
+    return sx, sy
+
+
+def _substitute_fits_street(cand, yaw, cx, cy, block_rect):
+    """`False` only when *cand* HAS a measured front, *block_rect* is known,
+    and that front (at the SAME candidate yaw the original slot already
+    solved for) would land on a real street the candidate's own footprint
+    does not actually reach — i.e. reusing the original position/yaw for a
+    NEWLY front-tagged substitute would recreate exactly the `house_16_223`
+    defect on different geometry.
+
+    Only fires when `cand`'s own `front0` is not `None`. Relaxing
+    `_burnable_substitute`'s front-match rule so an UNTAGGED target
+    (`front0 is None`, most of `tower`'s "any" filler stock) accepts a
+    TAGGED candidate (`podium_highrise` <- `SM_Building_27`, 2026-08-31
+    review) reuses a candidate-yaw that was never solved with that
+    candidate's front in mind at all -- this is the check that makes that
+    still safe. A target that already HAD a matching front0 needs no
+    re-check here: `front0` being equal by construction means `_rot_side`
+    of it at this same yaw reproduces the SAME world direction the slot was
+    actually scored against, whichever entry carries it.
+    """
+    cmeta = cand[5] if len(cand) > 5 else {}
+    cfront0 = cmeta.get("front0")
+    if cfront0 is None or block_rect is None:
+        return True
+    fpc = cand[3] if len(cand) > 3 else {}
+    bw, bh = _rotated_wh(fpc, yaw)
+    px, py = cx - bw / 2.0, cy - bh / 2.0
+    fsides = _street_sides(block_rect, px, py, bw, bh)
+    if not fsides:
+        return True
+    return _rot_side(cfront0, yaw) in fsides
+
+
+def _burnable_substitute(entry, pool, typology, cx=None, cy=None, yaw=None,
+                         block_rect=None):
+    """A pool-mate to stand in for *entry* — deterministic, no `rng` draw,
+    so a swap never perturbs any OTHER decision's random stream (seed-4
+    byte-identity depends on that). *cx*, *cy*, *yaw*, *block_rect* are the
+    ALREADY-DECIDED position/orientation *entry* would have been placed at
+    — needed only to re-verify a front-tagged candidate against real street
+    geometry when the target itself was untagged (`_substitute_fits_street`
+    below); omit them (the default) to skip that re-check entirely, which
+    is exactly right for a caller with no facing context at all.
+
+    NOT matched on raw `yaw-offset` — measured on `midrise_v2`, the pool
+    `downtown_fire_500` seed 4's own violations came from (`Building_11`/
+    `Building_12`, both `yaw-offset: 270`): every burnable entry in it
+    carries `yaw-offset: 0`, so a same-yaw-offset requirement finds zero
+    substitutes for either and both stay put. What actually has to match is
+    `front0` — the asset's front direction ALREADY NORMALISED TO THE
+    MODULE'S OWN CANONICAL "W" by `_pool_entries` (`_rot_side(front,
+    yaw_offset)`, see that function and the `urban-layout` skill) — because
+    the candidate yaw the packer already solved for *entry* was chosen to
+    put THAT normalised direction on the street; reusing it for a
+    substitute with the same `front0` points it exactly the same way
+    regardless of what its own raw `yaw-offset` happens to be.
+
+    `front0 is None` (no measured front at all — most of `tower`'s "any"
+    filler stock, `podium_highrise`/`office_tower`/etc.) has NO direction to
+    preserve, so it is NOT required to match a candidate's `front0` — an
+    untagged entry accepts ANY candidate's front0, tagged or not. Requiring
+    an exact `None == None` match here (the original rule) silently refused
+    every measured-front GAC building as a substitute for an untagged
+    "tower" entry, which is exactly why `podium_highrise` (1,176 m2, real
+    Nucleus size) had no substitute even though `SM_Building_27` (1,216 m2,
+    `front0="W"`) is a near-perfect footprint match: it was skipped purely
+    for HAVING a front tag the target never needed. A candidate WITH a
+    measured front still only substitutes for an entry that ALSO has one
+    when they agree — a real facing preference is never silently dropped
+    the other way around.
+
+    `blank0` must be a SUBSET of *entry*'s own (never MORE blank sides than
+    what already cleared `_pack_free`'s hard reject at this slot) and
+    `place` must be no more restrictive (`any` always qualifies; otherwise
+    an exact match). Footprint must be a similar CLASS too — the smaller of
+    the two raw, unrotated areas at least `_SUBSTITUTE_AREA_BAND` (0.55, the
+    same default `districts.pack_area_band` already uses for "close enough
+    to compete for one slot") of the larger, a RATIO test rather than a
+    symmetric one because the pool this rule actually had to fix
+    (`midrise_v2`) has exactly one front0/blank0/place match for
+    `Building_12` (828 m2) at `SM_Building_30` (1204 m2) — 45% bigger, which
+    a symmetric +/-40% window rejects but a same-ballpark ratio test should
+    not.
+
+    NEITHER ROTATED EXTENT MAY EXCEED *entry*'s OWN (2026-08-31 review: the
+    overlap defect). Matching only on AREA lets a substitute be, say, 40%
+    taller and narrower than the entry it replaces while keeping the same
+    area ratio — reused at *entry*'s own (cx, cy, yaw), it then spills past
+    whatever the guillotine actually reserved for *entry*'s footprint and
+    interpenetrates a neighbour the packer placed in good faith right next
+    to it. MEASURED, `Building_11` (35.4 x 30.9 m) swapped for `SM_Building_
+    30` (28.4 x 42.4 m) at unchanged (cx, cy, 0 deg) — same ballpark area,
+    11.5 m taller — overlapped `bld_apartment_tall_DG0` by 85.6 m2 in both
+    the seeded host build AND the Kit dump it was meant to match. Requiring
+    both `bw`/`bh` (at the SAME *yaw* — a candidate's own rotated shape) to
+    fit within *entry*'s own is strictly TIGHTER than the area ratio and
+    subsumes it for this purpose; the area ratio is kept as the
+    "not needlessly small" floor. `None` when nothing in *pool* qualifies —
+    the caller then keeps the unburnable draw rather than leaving a hole or
+    gambling on a wildly different size/orientation for a bare "something
+    has to stand here" swap.
+    """
+    if not pool:
+        return None
+    fp0 = entry[3] if len(entry) > 3 else {}
+    area0 = float(fp0.get("sx", 0.0)) * float(fp0.get("sy", 0.0))
+    if area0 <= 0.0:
+        return None
+    meta0 = entry[5] if len(entry) > 5 else {}
+    front0 = meta0.get("front0")
+    blank0 = meta0.get("blank0") or frozenset()
+    place0 = meta0.get("place", "any")
+    bw0 = bh0 = None
+    if yaw is not None:
+        bw0, bh0 = _rotated_wh(fp0, yaw)
+    for cand in pool:
+        if cand[0] == entry[0]:
+            continue
+        if _is_landmark(cand) or _is_unburnable(cand[0], typology):
+            continue
+        cmeta = cand[5] if len(cand) > 5 else {}
+        if front0 is not None and cmeta.get("front0") != front0:
+            continue
+        if (cmeta.get("blank0") or frozenset()) - blank0:
+            continue
+        cplace = cmeta.get("place", "any")
+        if cplace != "any" and cplace != place0:
+            continue
+        if yaw is not None and not _substitute_fits_street(
+                cand, yaw, cx, cy, block_rect):
+            continue
+        fpc = cand[3] if len(cand) > 3 else {}
+        areac = float(fpc.get("sx", 0.0)) * float(fpc.get("sy", 0.0))
+        if areac <= 0.0:
+            continue
+        if min(area0, areac) / max(area0, areac) < _SUBSTITUTE_AREA_BAND:
+            continue
+        if bw0 is not None:
+            bwc, bhc = _rotated_wh(fpc, yaw)
+            if bwc > bw0 + _SUBSTITUTE_FIT_TOL_M or bhc > bh0 + _SUBSTITUTE_FIT_TOL_M:
+                continue
+        return cand
+    return None
+
+
+def _log_swap(swap_log, entry, sub, cx, cy, yaw):
+    """Appends one `_BurnabilityGuard` swap decision to *swap_log* (a plain
+    list; `rezone_blocks`/`infill_blocks` share ONE such list for the whole
+    scene via `layout["_burn_swap_log"]`) -- the record `repair_overlaps`
+    consults to revert a substitute whose real footprint turned out to
+    overlap a neighbour back to the original draw the packer actually
+    validated for this slot. Keyed by the placement's own (cx, cy, yaw),
+    since that is the one thing `repair_overlaps` can still match against a
+    FINAL placement dict (which carries no pool-entry identity at all).
+    """
+    swap_log.append({
+        "cx": cx, "cy": cy, "yaw": yaw,
+        "original_usd": entry[0], "original_scale": entry[1],
+        "original_axis_up": entry[2],
+        "substitute_usd": sub[0], "substitute_scale": sub[1],
+        "substitute_axis_up": sub[2],
+    })
+
+
+class _BurnabilityGuard:
+    """Per-block bookkeeping for the "no firebreak cluster" rule: an
+    unburnable asset may stand at most ONCE per block; a second (or later)
+    draw is swapped, deterministically, for a burnable pool-mate of similar
+    footprint class (`_burnable_substitute`). A landmark (`_is_landmark`)
+    never counts against the block's one-unburnable allowance and is never
+    itself swapped.
+
+    ONE FRESH INSTANCE PER BLOCK — `rezone_blocks` and `infill_blocks` each
+    create one where their own per-block loop begins and run every
+    placement that block produces through `filter_laid`/`filter_one` before
+    it becomes a placement, so the count resets at each block boundary
+    exactly as "at most once per block" requires. *block_rect* is that same
+    block's own inset rect (the `rect` both callers already pass to
+    `_pack_free`) — threaded through to `_burnable_substitute` so a
+    front-tagged candidate standing in for an untagged target is checked
+    against the REAL street geometry at that position, not just accepted
+    on faith (`_substitute_fits_street`). *swap_log*, if given (a list;
+    `layout["_burn_swap_log"]`), records every actual substitution so
+    `repair_overlaps` can revert one whose real footprint overlaps a
+    neighbour back to the original draw (`_log_swap`).
+    """
+
+    def __init__(self):
+        self.used = False
+
+    def filter_one(self, entry, pool, typology, cx=None, cy=None, yaw=None,
+                   block_rect=None, swap_log=None):
+        if _is_landmark(entry) or not _is_unburnable(entry[0], typology):
+            return entry
+        if not self.used:
+            self.used = True
+            return entry
+        sub = _burnable_substitute(entry, pool, typology, cx, cy, yaw,
+                                   block_rect)
+        if sub is None:
+            return entry
+        if swap_log is not None and cx is not None:
+            _log_swap(swap_log, entry, sub, cx, cy, yaw)
+        return sub
+
+    def filter_laid(self, laid, pool, typology, block_rect=None,
+                    swap_log=None):
+        """Same rule as `filter_one`, applied across a whole block's
+        `laid` list at once -- and, unlike calling `filter_one` per entry
+        in order, choosing WHICH unburnable entry gets the block's one free
+        pass instead of always handing it to whichever happens to come
+        first.
+
+        WHY THIS MATTERS: measured on `downtown_fire_500` seed 4's `tower`
+        typology with real (Nucleus-seeded) sizes, one block's guillotine
+        pass laid `stepped_tower` (5,071 m2) before `podium_highrise`
+        (1,176 m2). A first-come-first-free allocation hands the pass to
+        `stepped_tower` — which HAS a same-footprint-class substitute
+        (`SM_MERGED_BP_MBuilding02`, 8,752 m2) sitting unused in the pool —
+        and then fails to find anything small enough to stand in for
+        `podium_highrise`, leaving TWO unburnable buildings in the block
+        despite a substitute existing for one of them. Computing every
+        unburnable entry's candidate substitute FIRST and reserving the
+        free pass for one that has NONE (falling back to positional order
+        only when every entry has a substitute, or none needs to choose)
+        lets `stepped_tower` take the swap it can afford and `podium_
+        highrise` keep the slot nothing else fits.
+
+        `self.used` (already spent by an earlier call for this SAME block —
+        `rezone_blocks` and `infill_blocks` share one guard via `layout
+        ["_burn_guard_by_block"]`) is respected exactly as before: no free
+        pass is granted at all once it is already gone, regardless of which
+        entries have substitutes this time.
+        """
+        unb_idx = [i for i, (e, _cx, _cy, _yaw) in enumerate(laid)
+                  if not _is_landmark(e) and _is_unburnable(e[0], typology)]
+        if not unb_idx:
+            return laid
+        subs = {}
+        for i in unb_idx:
+            e, cx, cy, yaw = laid[i]
+            subs[i] = _burnable_substitute(e, pool, typology, cx, cy, yaw,
+                                           block_rect)
+        free_idx = None
+        if not self.used:
+            no_sub = [i for i in unb_idx if subs[i] is None]
+            free_idx = no_sub[0] if no_sub else unb_idx[0]
+        out = list(laid)
+        for i in unb_idx:
+            if i == free_idx:
+                continue
+            e, cx, cy, yaw = out[i]
+            sub = subs[i]
+            if sub is None:
+                continue
+            if swap_log is not None:
+                _log_swap(swap_log, e, sub, cx, cy, yaw)
+            out[i] = (sub, cx, cy, yaw)
+        self.used = True
+        return out
 
 
 # ---------------------------------------------------------------------------
@@ -513,6 +905,40 @@ def _pool_entries(config: dict, resolver, key: str):
             fp["sx"], fp["sy"] = fp["sy"], fp["sx"]
         meta = _entry_meta(tag_ovr.get(p) or frozenset(), yaw_offset)
         out.append((p, sc, au, fp, yaw_offset, meta))
+    return out
+
+
+def _asset_meta_table(config: dict) -> dict:
+    """``{usd_path: {"front", "blank", "place", "never_corner", ...}}`` for
+    every unique asset across every ``usds.buildings`` pool — pure yaml-tag
+    derivation (`_entry_meta`), no resolver/geometry needed. Keyed by the
+    FULLY RESOLVED usd path (post `asset_root` join via `_normalize_usd_
+    list`), matching what every placement's own `"usd"` field already
+    carries.
+
+    Built for `repair_facing`/`repair_overlaps`: a post-hoc pass over the
+    FINAL placements list has no pool-entry object to read `meta` off of
+    (a placement dict is just usd/x/y/yaw/scale — the whole point of
+    `_new_placement` collapsing an entry to a plain dict), so recovering
+    "does this placement's asset have a measured front" means re-deriving
+    it from the SAME yaml tags the original pool-selection pass read,
+    independent of which pool actually drew it.
+    """
+    usds = config.get("usds") or {}
+    bld = usds.get("buildings") or usds.get("houses") or {}
+    default_scale = float(config.get("asset_scale", 1.0))
+    asset_root = str(config.get("asset_root", "") or "")
+    out: dict = {}
+    for raw in bld.values():
+        if not isinstance(raw, list):
+            continue
+        paths, _sc, _au, yaw_ovr, tag_ovr = _normalize_usd_list(
+            raw, default_scale, asset_root)
+        for p in paths:
+            if p in out:
+                continue
+            yaw_offset = float(yaw_ovr.get(p, 0.0))
+            out[p] = _entry_meta(tag_ovr.get(p) or frozenset(), yaw_offset)
     return out
 
 
@@ -1886,7 +2312,7 @@ def _yaw_score(bw: float, bh: float, yaw: float, block_rect, meta: dict,
 
 def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
                area_band: float = 0.55, reach=None, block_rect=None,
-               street_tol_m: float = 6.0):
+               street_tol_m: float = 6.0, justify: bool = True):
     """Guillotine-pack *pool* into *rect*; returns ``([(entry, cx, cy, yaw)], refused)``.
 
     Candidates are tried largest-footprint-first so a gap closes with one big
@@ -1937,6 +2363,12 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
     shows up in the `[districts]` log instead of just being a smaller city.
     ``None`` (the default) skips the whole test, which is what keeps this a
     no-op for any caller that has not been updated to pass a block rect.
+
+    *justify* (`districts.pack_justify`, default on) hands a residue no
+    library building could ever use back as gap between the buildings already
+    placed, instead of banking it at the block's far edge — see `_justify` for
+    the measurement that made this necessary. `justify=False` reproduces the
+    original corner-anchored packing placement for placement.
     """
     out, stack, refused = [], [tuple(rect)], 0
     while stack:
@@ -2045,9 +2477,42 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
                 score = _yaw_score(bw, bh, yaw, block_rect, meta, fsides)
                 cur = best_by_entry.get(id(e))
                 if cur is None or score > cur[0]:
-                    best_by_entry[id(e)] = (score, f)
-            kept.extend(f for _score, f in best_by_entry.values())
+                    best_by_entry[id(e)] = (score, f, fsides)
+            # A MEASURED FRONT THAT CANNOT REACH A REAL STREET HERE AT ANY
+            # SURVIVING ORIENTATION is refused outright rather than kept at
+            # its least-bad tie. `_yaw_score`'s tiers 2-4 only mean to break
+            # ties AMONG candidates that already put a front on a street
+            # (the docstring's own framing: "every surviving candidate
+            # already has NO blank side on a street"); an entry that carries
+            # no `blank:` tag at all (an "any"-class building with only a
+            # `front:` tag — SM_Building_26 is 28.4 m across its modelled
+            # face, 14.3 m deep) was never blank-gated, so when its OWN
+            # aspect ratio means neither yaw fitting a narrow guillotine
+            # remainder ever faces that remainder's real street, tier 1 is
+            # False for every one of its candidates and tiers 3-4 (which
+            # reward more street sides / more depth, oblivious to whether the
+            # FRONT is among them) can still make it win the slot outright —
+            # `house_16_223`, 2026-08-31. Only fires when the winning
+            # candidate's own `fsides` is non-empty (a street genuinely
+            # exists here); an entry whose best candidate has none at all is
+            # a true interior slot, nothing to get wrong, and is kept as
+            # before.
+            for score, f, fsides in best_by_entry.values():
+                e = f[0]
+                meta = e[5] if len(e) > 5 else {}
+                if meta.get("front0") and fsides and not score[0]:
+                    continue
+                kept.append(f)
             fits = kept
+            if not fits:
+                # Every survivor of the hard reject carried a front that
+                # cannot reach this slot's real street at any orientation
+                # its own footprint fits — the same "leave it bare" call
+                # `if not hard` already makes, just discovered one step
+                # later, after the per-entry facing collapse rather than
+                # before it.
+                refused += 1
+                continue
         if marks:
             marks = [f for f in marks if f in fits]      # survived `reach` + facing
         if marks:
@@ -2066,22 +2531,134 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
                                 sky.target(typ, x0, y0), x0, y0)
         e, bw, bh, yaw = next(f for f in oriented if f[0] is chosen)
 
-        cx, cy = x0 + bw / 2.0, y0 + bh / 2.0
+        # WHERE IN THE SUB-RECTANGLE — the low corner unless the residue is
+        # unbuildable, in which case the slack is handed back as gap. See
+        # `_justify`; `px, py == x0, y0` reproduces the original packing
+        # exactly, which is what `justify=False` forces.
+        px, py = (_justify(x0, y0, x1, y1, bw, bh, pool, gap, block_rect,
+                           e[5] if len(e) > 5 else {}, yaw, street_tol_m)
+                  if justify else (x0, y0))
+
+        cx, cy = px + bw / 2.0, py + bh / 2.0
         out.append((e, cx, cy, yaw))
         sky.record(cx, cy, e[3]["sz"], (bw, bh))
 
-        right_w, top_h = x1 - (x0 + bw) - gap, y1 - (y0 + bh) - gap
+        right_w, top_h = x1 - (px + bw) - gap, y1 - (py + bh) - gap
         if right_w >= top_h:
             if right_w > 0:
-                stack.append((x0 + bw + gap, y0, x1, y1))
+                stack.append((px + bw + gap, y0, x1, y1))
             if top_h > 0:
-                stack.append((x0, y0 + bh + gap, x0 + bw, y1))
+                # From the sub-rect's ORIGINAL low edge, not the justified
+                # one: the strip the shift opened up beside the building is
+                # still free ground above it, and anchoring this child at
+                # `px` would abandon it.
+                stack.append((x0, py + bh + gap, px + bw, y1))
         else:
             if top_h > 0:
-                stack.append((x0, y0 + bh + gap, x1, y1))
+                stack.append((x0, py + bh + gap, x1, y1))
             if right_w > 0:
-                stack.append((x0 + bw + gap, y0, x1, y0 + bh))
+                stack.append((px + bw + gap, y0, x1, py + bh))
     return out, refused
+
+
+def _pool_fits(pool, w: float, h: float) -> bool:
+    """Could ANY member of *pool* stand in a `w` x `h` rectangle, either way
+    round? The question `_justify` needs answered about a leftover.
+
+    Deliberately coarser than `_pack_free`'s own candidate loop: it ignores
+    `reach`, the blank-wall reject and the area band, so it only ever says
+    "something might fit here", never "something will". That is the safe
+    direction — a leftover this says nothing fits in is one NO run of the
+    packer could have used, so handing it back as gap cannot cost a building.
+    """
+    if w <= 0.0 or h <= 0.0:
+        return False
+    for e in pool:
+        sx, sy = e[3]["sx"], e[3]["sy"]
+        if (sx <= w and sy <= h) or (sy <= w and sx <= h):
+            return True
+    return False
+
+
+def _justify(x0, y0, x1, y1, bw, bh, pool, gap, block_rect, meta, yaw,
+             street_tol_m, eps: float = 0.5):
+    """Where the building actually goes inside its sub-rectangle.
+
+    THE HOLE AT THE FAR EDGE OF EVERY BLOCK. The guillotine anchors every
+    building at its sub-rectangle's low corner and pushes the residue to the
+    far side, so a block's unusable slack — the metres left over once no
+    library building fits any more — accumulates as ONE contiguous band along
+    the block's north and east edges. MEASURED on `downtown_fire_500` seed 4
+    before this existed: 27,771 m2 of open ground at least 8 m across inside
+    ten blocks (15.3% of all block interior), and every non-highrise block
+    carried a 8-19 m deep band on a STREET frontage — which is precisely the
+    "enormously wide sidewalk" artefact `_perimeter_rects` was written to
+    stop, arriving by the other axis. `infill_blocks` cannot close it: the
+    narrowest member of this library is 13.5 m across, so an 11 m band can
+    never hold a building however many passes look at it.
+
+    So when the residue on an axis is too small for anything in *pool*, the
+    building is JUSTIFIED to the far end of its sub-rectangle and the residue
+    is handed back as extra gap BETWEEN buildings instead — which is exactly
+    what `packing.building_gap_m`'s own preset comment says the slack is for
+    ("A bigger gap spreads the same buildings across the whole block, putting
+    the slack BETWEEN them instead of all of it at the edge"). The street wall
+    closes on the block edge; the slack lands inside, where a courtyard is a
+    real thing for a block to have.
+
+    Returns ``(px, py)``, the building's low corner. Identical to ``(x0, y0)``
+    whenever a residue could still hold something, so a block the packer fills
+    exactly is untouched.
+
+    THE FACING RE-CHECK is not optional. Moving a footprint toward the block
+    edge can put a face on a street that was interior when the candidate was
+    scored, and a `blank:` side arriving on a street is the one defect this
+    module refuses buildings outright to avoid. The shift is dropped on that
+    axis rather than reasoned about.
+    """
+    dx = x1 - x0 - bw
+    dy = y1 - y0 - bh
+    if dx > eps and _pool_fits(pool, dx - gap, y1 - y0):
+        dx = 0.0
+    if dy > eps and _pool_fits(pool, bw, dy - gap):
+        dy = 0.0
+    dx = dx if dx > eps else 0.0
+    dy = dy if dy > eps else 0.0
+    if not dx and not dy:
+        return x0, y0
+    px, py = x0 + dx, y0 + dy
+    if block_rect is not None:
+        fsides = _street_sides(block_rect, px, py, bw, bh, street_tol_m)
+        n_sides = len(fsides)
+        if n_sides >= 2 and (meta.get("place") == "mid"
+                             or meta.get("never_corner")):
+            return x0, y0
+        blank = meta.get("blank") or frozenset()
+        if blank:
+            if _rot_sides(meta.get("blank0") or frozenset(), yaw) & fsides:
+                return x0, y0
+        elif not _place_ok(meta.get("place", "any"), n_sides):
+            return x0, y0
+        # A MEASURED FRONT THAT MISSES THE STREET THE SHIFT JUST CREATED is
+        # the same defect as a `blank:` side landing there, just invisible to
+        # the check above for an entry that carries no `blank:` tag at all
+        # (an "any"-class building with only a `front:` tag, e.g.
+        # SM_Building_26). `_pack_free`'s own candidate generation and
+        # `_yaw_score` both run against the PRE-shift sub-rectangle, so a
+        # slot with 0 street sides at scoring time (nothing to prefer, tier 1
+        # moot, ties broken by insertion order) can still be the ONLY shape
+        # this entry's footprint fits into a narrow guillotine remainder --
+        # SM_Building_26 is 28.4 m across its modelled face and 14.3 m deep,
+        # so a remainder narrower than 28.4 m never even generates the
+        # candidate that would face perpendicular to it. `house_16_223`
+        # (2026-08-31): exactly this shape, the tie's arbitrary winner (front
+        # W) pushed flush against a real N street it was never scored
+        # against. Declining the shift leaves the residue as a gap, same as
+        # the far-edge case above.
+        front = meta.get("front0")
+        if front and fsides and _rot_side(front, yaw) not in fsides:
+            return x0, y0
+    return px, py
 
 
 def _lay_terrace_end_caps(rect, depth: float, pool, rng, sky, typ,
@@ -2320,6 +2897,11 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
     sky = _Skyline(cfg, rng)
     # The packer's greed, per scene. See `_pack_free`.
     area_band = float(cfg.get("pack_area_band", 0.55))
+    # Hand an unbuildable residue back as gap rather than banking it at the
+    # block's far edge — see `_justify`. ON by default because it fixes a
+    # measured defect (a 8-19 m bare band on a street frontage in every
+    # block); `districts.pack_justify: false` restores the original packing.
+    justify = bool(cfg.get("pack_justify", True))
     # How far in from the sidewalk line a building may sit and still count as
     # fronting the street. 0 disables the test. See `_street_reach`.
     frontage_max = float(cfg.get("frontage_max_m", 0.0))
@@ -2401,6 +2983,21 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                  if p.get("category") in keep_cats or p.get("category") == "house"]
 
     typ_of, counts, added, blank_refused, probe_refused = {}, {}, 0, 0, 0
+    # WHAT THE BLOCK WAS ACTUALLY BUILT FROM, which is not always what it was
+    # ZONED as. A terrace block outside its alley band is rebuilt from the next
+    # typology up (`rowhouse_refused` below) and `typ_of` keeps reporting the
+    # zoned name — deliberately, because everything downstream of this module
+    # keys damage policy and road width off `layout["_typology_of"]` and a
+    # block silently changing district would move those too.
+    #
+    # `infill_blocks` is the one consumer that needs the OTHER answer.
+    # MEASURED on `downtown_fire_500` seed 4: both `brick_midrise` blocks were
+    # terrace-refused and packed with `tower` stock, then infill read
+    # `typ_of`, saw `morphology: terrace`, and skipped them entirely as "back
+    # yards and service alley" — 3,943 m2 of leftover on two blocks that had
+    # no terrace in them at all, including a 1,190 m2 hole. So the built name
+    # is published separately and infill prefers it.
+    built_typ_of: dict = {}
     paved: list = []                 # terrace-block interiors to un-pave
     for blk in layout.get("blocks", []):
         if blk in parks:
@@ -2444,6 +3041,12 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
         typ["name"] = name
         typ_of[blk] = name
         counts[name] = counts.get(name, 0) + 1
+        # SHARED with `infill_blocks` via `layout` (same dict, same `blk`
+        # key) -- both passes build houses onto this SAME block, and the
+        # "at most one unburnable per block" rule has to see every house
+        # either one adds, not just its own.
+        burn_guard = layout.setdefault(
+            "_burn_guard_by_block", {}).setdefault(blk, _BurnabilityGuard())
 
         local = [o for o in obstacles
                  if o[2] > rect[0] and o[0] < rect[2]
@@ -2535,6 +3138,7 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                     if alt and pool_of.get(alt):
                         name, typ, pool = alt, dict(typologies[alt]), pool_of[alt]
                         typ["name"] = alt
+                        built_typ_of[blk] = alt
                         counts[alt] = counts.get(alt, 0) + 1
                         counts[  # the refused terrace no longer counts as one
                             "rowhouse_refused"] = counts.get(
@@ -2544,7 +3148,8 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                         for fr in free_rects(rect, local, min_side):
                             got, refused = _pack_free(
                                 fr, pool, _typ_gap(typ, gap), min_side, rng,
-                                sky, typ, area_band, reach, block_rect=rect)
+                                sky, typ, area_band, reach, block_rect=rect,
+                                justify=justify)
                             laid += got
                             blank_refused += refused
             elif quad:
@@ -2596,10 +3201,13 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                 for fr in free_rects(outer, local, min_side):
                     got, refused = _pack_free(
                         fr, pool, _typ_gap(typ, gap), min_side, rng, sky, typ,
-                        area_band, reach, block_rect=rect)
+                        area_band, reach, block_rect=rect, justify=justify)
                     laid += got
                     blank_refused += refused
 
+        laid = burn_guard.filter_laid(
+            laid, pool, typ["name"], rect,
+            swap_log=layout.setdefault("_burn_swap_log", []))
         for entry, cx, cy, yaw in laid:
             if exclusions and _in_exclusion(cx, cy, exclusions):
                 continue
@@ -2629,9 +3237,12 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
             if original in blocks:
                 i = blocks.index(original)
                 blocks[i:i + 1] = pieces
+            was_built = built_typ_of.pop(original, None)
             typ_of.pop(original, None)
             for p in pieces:
                 typ_of[p] = tname
+                if was_built:
+                    built_typ_of[p] = was_built
         layout["blocks"] = blocks
         print(f"[districts] {len(splits)} terrace superblock(s) split into "
               f"{sum(len(p) for _o, p, _t in splits)} blocks around their "
@@ -2653,6 +3264,7 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
         # for.
         counts["probe_refused"] = probe_refused
     layout["_typology_of"] = typ_of
+    layout["_built_typology_of"] = built_typ_of
     detail = "  ".join(f"{k}={v}" for k, v in sorted(counts.items()))
     print(f"[districts] rezoned {len(typ_of)} blocks -> {added} buildings "
           f"({len(doomed)} replaced, {n_paving} paving tiles removed from "
@@ -2784,6 +3396,21 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
     # over per-block selection either way — it already overrides the merged
     # pool today, and an explicit override is still explicit.
     per_block = bool(cfg.get("per_block_pool", False)) and not explicit_pools
+    # A GAP THIS BLOCK'S OWN STOCK CANNOT FILL MAY DROP A RANK. `per_block_pool`
+    # is what stops an 11.8 m Dmytro shed landing between two 300 m towers, and
+    # it is right — but it also means a leftover narrower than the district's
+    # own narrowest model stays bare FOREVER, however many passes look at it.
+    # MEASURED on `downtown_fire_500` seed 4: the `highrise` pool's slimmest
+    # member is 29.9 m across and five of its nine leftovers were 8-19 m deep,
+    # so the pass reported nine gaps and built three buildings.
+    #
+    # So a gap nothing in the block's own pool fits may be offered to the
+    # typologies BELOW it, nearest rank first, up to this many ranks down.
+    # One step keeps the district legible — a tower block may take a
+    # `tower`-rank infill, never a shed — and 0 restores the strict per-block
+    # behaviour exactly. Terrace pools are excluded here as everywhere else in
+    # this pass (`names`).
+    rank_fallback = max(0, int(cfg.get("rank_fallback", 1)))
     pool_by_typ: dict = {}
     if per_block:
         # Sized off the UNION of every non-terrace typology's pool, exactly
@@ -2817,6 +3444,7 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
     # zoned for, not something dropped into whatever gap was left over.
     sky.landmark_budget = 0
     area_band = float(dcfg.get("pack_area_band", 0.55))
+    justify = bool(dcfg.get("pack_justify", True))
     frontage_max = float(dcfg.get("frontage_max_m", 0.0))
     # INFILL USED TO UNDO THE PERIMETER MORPHOLOGY. `rezone_blocks` packs a
     # `perimeter_depth_m` band and leaves the middle open on purpose — "a dense
@@ -2850,12 +3478,37 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
 
     parks = set(park_blocks(layout, placements))
     typ_of = layout.get("_typology_of") or {}
-    added = gaps = blank_refused = 0
+    # THE TYPOLOGY THE BLOCK WAS BUILT FROM, not the one it was zoned as — see
+    # `built_typ_of` in `rezone_blocks`. A terrace block the alley band refused
+    # was packed from the next typology up and is not a terrace block at all;
+    # reading `typ_of` here skipped it as "back yards" and left its leftovers
+    # bare. Falls back to `typ_of` for every block that was built as zoned,
+    # which is all of them in a scene with no refusal.
+    built_of = layout.get("_built_typology_of") or {}
+    added = gaps = blank_refused = rank_fill = 0
     gap_area = 0.0
+
+    # Non-terrace typologies below a given rank, nearest first — the ladder
+    # `rank_fallback` walks. Built once; `names` is already terrace-free.
+    def _rank_of(n):
+        return float((typs.get(n) or {}).get("rank", 0.0))
+
+    def _lower_ranks(tname):
+        r = _rank_of(tname)
+        lower = sorted((n for n in names if n != tname and _rank_of(n) < r),
+                       key=_rank_of, reverse=True)
+        return lower[:rank_fallback]
+
+    def _pool_for(tname):
+        if tname not in pool_by_typ:
+            tc = (typs.get(tname) or {})
+            pool_by_typ[tname] = _pools_for(config, resolver,
+                                            tc.get("pools") or [tname], cache)
+        return pool_by_typ[tname]
     for blk in layout.get("blocks", []):
         if blk in parks:
             continue
-        tname = typ_of.get(blk)
+        tname = built_of.get(blk) or typ_of.get(blk)
         if tname is None:
             # No typology reached this block in `rezone_blocks` — too small,
             # no pool fit it, or (`districts.probe`) deliberately left
@@ -2870,11 +3523,13 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
         tcfg = (dcfg.get("typologies") or {}).get(tname) or {}
         if str(tcfg.get("morphology", "pack")) == "terrace":
             continue
+        # SHARED with `rezone_blocks` (see its own comment) -- infill adds
+        # MORE houses to a block `rezone_blocks` already built, so the guard
+        # must carry that pass's count forward rather than start over.
+        burn_guard = layout.setdefault(
+            "_burn_guard_by_block", {}).setdefault(blk, _BurnabilityGuard())
         if per_block:
-            if tname not in pool_by_typ:
-                pool_by_typ[tname] = _pools_for(
-                    config, resolver, tcfg.get("pools") or [tname], cache)
-            this_pool = pool_by_typ[tname]
+            this_pool = _pool_for(tname)
             if not this_pool:
                 # This typology's OWN pool resolved to nothing — the merged
                 # pool used to paper over that with whatever else the scene
@@ -2887,6 +3542,17 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
         rect = (blk[0] + inset, blk[1] + inset, blk[2] - inset, blk[3] - inset)
         typ = dict(tcfg)
         typ["name"] = tname
+        # A DISTRICT THAT RESERVES CLEAR GROUND KEEPS IT. `highrise` sets
+        # `building_gap_m: 30` precisely so a tower block is one or two towers
+        # with a plaza between them — that void is the design, not a packing
+        # residue, and `city_detail`'s plaza pass is what dresses it. Offering
+        # it to a lower rank filled it with mid-rises instead: MEASURED, the
+        # three `highrise` blocks went from 9 buildings and 13,949 m2 of open
+        # ground to 16 and 7,877, i.e. the rank ladder ate half the plazas.
+        # So the fallback only applies where the typology is content with the
+        # scene's own `building_gap_m`.
+        allow_fallback = (per_block and rank_fallback > 0
+                          and _typ_gap(tcfg, gap) <= gap + 1e-6)
         reach = _street_reach(rect, frontage_max)
         band = float(tcfg.get("perimeter_depth_m", 0.0)) if perimeter_only else 0.0
         for outer in _perimeter_rects(rect, band, min_gap):
@@ -2899,10 +3565,22 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
                 # came from this pass, packed at the global gap, and the
                 # closest tower pair was 2.0 m apart however `building_gap_m`
                 # was set on the typology.
+                use_pool = this_pool
+                if allow_fallback and not _pool_fits(
+                        this_pool, fr[2] - fr[0], fr[3] - fr[1]):
+                    for alt in _lower_ranks(tname):
+                        alt_pool = _pool_for(alt)
+                        if _pool_fits(alt_pool, fr[2] - fr[0],
+                                      fr[3] - fr[1]):
+                            use_pool, rank_fill = alt_pool, rank_fill + 1
+                            break
                 got, refused = _pack_free(
-                    fr, this_pool, _typ_gap(tcfg, gap), min_gap, rng, sky,
-                    typ, area_band, reach, block_rect=rect)
+                    fr, use_pool, _typ_gap(tcfg, gap), min_gap, rng, sky,
+                    typ, area_band, reach, block_rect=rect, justify=justify)
                 blank_refused += refused
+                got = burn_guard.filter_laid(
+                    got, use_pool, tname, rect,
+                    swap_log=layout.setdefault("_burn_swap_log", []))
                 for entry, cx, cy, yaw in got:
                     if exclusions and _in_exclusion(cx, cy, exclusions):
                         continue
@@ -2914,6 +3592,8 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
     n_models, n_packed, top_share = sky.diversity()
     refused_note = f"; blank_wall_refused={blank_refused}" if blank_refused else ""
     per_block_note = "; per_block_pool=True" if per_block else ""
+    if rank_fill:
+        per_block_note += f"; rank_fallback filled {rank_fill} gap(s)"
     tall_note = (f"; tall_fallback={sky.tall_fallback}" if sky.tall_fallback
                 else "")
     print(f"[districts] infill: {gaps} unbuilt gaps ({gap_area:,.0f} m2) "
@@ -2921,6 +3601,254 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
           f"{n_packed} (the city so far), top model "
           f"{100.0 * top_share:.1f}%{refused_note}{per_block_note}{tall_note}")
     return added
+
+
+def _fp_of(resolver, p):
+    return resolver.get(p["usd"], p.get("category", "house"),
+                        scale=p.get("scale", 1.0), axis_up=p.get("axis_up", "Z"))
+
+
+def _house_box(resolver, p):
+    """(x0, y0, x1, y1) — *p*'s ACTUAL final world footprint, from its own
+    real (x_m, y_m, yaw_deg, usd, scale, axis_up), not whatever the packer
+    thought it was reserving. Shared by `repair_facing`'s overlap check and
+    `repair_overlaps`."""
+    fp = _fp_of(resolver, p)
+    bw, bh = _rotated_wh(fp, float(p["yaw_deg"]))
+    x, y = float(p["x_m"]), float(p["y_m"])
+    return (x - bw / 2.0, y - bh / 2.0, x + bw / 2.0, y + bh / 2.0)
+
+
+def _boxes_overlap(a, b, tol: float = 0.2) -> bool:
+    """True when *a* and *b* overlap by MORE than a *tol* m touch — two
+    buildings sharing a party wall to the centimetre are not a defect;
+    genuinely occupying the same ground is."""
+    ox = min(a[2], b[2]) - max(a[0], b[0])
+    oy = min(a[3], b[3]) - max(a[1], b[1])
+    return ox > tol and oy > tol
+
+
+def repair_facing(config: dict, layout: dict, placements: list, resolver,
+                  street_tol_m: float = 6.0) -> dict:
+    """Final per-block facing REPAIR — runs once, at the very end of
+    `remap_buildings`, on every "house" placement's ACTUAL FINAL (x, y, yaw,
+    usd). This is deliberately NOT another packing-time preference: it is a
+    gate on the geometry the resolver really returned, so the same code is
+    correct whether the sizes behind it came from the host's offline caches,
+    a seeded real-Nucleus cache, or Kit's own live resolver — the 2026-08-31
+    decision to stop chasing host/Kit packing parity for facing specifically
+    (`SM_Building_13` violated 3 times, reproducibly, in a Kit-only
+    guillotine geometry the host packer never explores, despite `_pack_free`
+    /`_justify`'s own facing fix being byte-identical and violation-free on
+    every host reconstruction tried).
+
+    For every front-tagged placement whose front does not address a real
+    street (the SAME inset-corrected test the dump-side checker uses):
+
+      (a) `yaw += 180` if the OPPOSITE side addresses a street — the
+          footprint is unchanged (a 180 flip never changes which extent is
+          which), so this is always geometrically legal.
+      (b) else `yaw +/- 90` if the ROTATED footprint's front then addresses
+          a street AND the rotated footprint does not overlap any other
+          house (`_boxes_overlap`) — tried both directions, first that
+          works wins, deterministically (90 before -90).
+      (c) else left alone, logged as unrepairable.
+
+    Deterministic and IDEMPOTENT: reads only already-final placement fields
+    and a pure function of them, no `rng` — running this twice makes no
+    further change the second time (a fixed placement re-checks as already
+    correct; an unrepairable one re-logs the identical verdict).
+    """
+    meta_table = _asset_meta_table(config)
+    inset = block_inset(config, resolver)
+    blocks = [(x0 + inset, y0 + inset, x1 - inset, y1 - inset)
+             for (x0, y0, x1, y1) in (layout.get("_typology_of") or {}).keys()]
+
+    def block_of(x, y):
+        for b in blocks:
+            if b[0] <= x <= b[2] and b[1] <= y <= b[3]:
+                return b
+        return None
+
+    houses = [p for p in placements if p.get("category") == "house"]
+    checked = repaired_180 = repaired_90 = unrepairable = 0
+
+    for p in houses:
+        meta = meta_table.get(p.get("usd"))
+        front = meta.get("front") if meta else None
+        if not front:
+            continue
+        checked += 1
+
+        fp = _fp_of(resolver, p)
+        yaw = float(p["yaw_deg"])
+        cx, cy = float(p["x_m"]), float(p["y_m"])
+        block = block_of(cx, cy)
+        if block is None:
+            continue          # not inside any zoned block -- nothing to check
+
+        bw, bh = _rotated_wh(fp, yaw)
+        px, py = cx - bw / 2.0, cy - bh / 2.0
+        fsides = _street_sides(block, px, py, bw, bh, street_tol_m)
+        front_world = _rot_side(front, yaw)
+        if not fsides or front_world in fsides:
+            continue          # already correct, or a true interior slot
+
+        # (a) 180 flip -- same footprint, always legal.
+        if _rot_side(front_world, 180.0) in fsides:
+            p["yaw_deg"] = (yaw + 180.0) % 360.0
+            repaired_180 += 1
+            continue
+
+        # (b) +/-90 -- only if the re-oriented footprint both reaches a
+        # street with its front AND clears every other house.
+        fixed = False
+        others = [q for q in houses if q is not p]
+        other_boxes = [_house_box(resolver, q) for q in others]
+        for delta in (90.0, -90.0):
+            new_yaw = (yaw + delta) % 360.0
+            nbw, nbh = _rotated_wh(fp, new_yaw)
+            npx, npy = cx - nbw / 2.0, cy - nbh / 2.0
+            nfsides = _street_sides(block, npx, npy, nbw, nbh, street_tol_m)
+            if _rot_side(front, new_yaw) not in nfsides:
+                continue
+            nbox = (npx, npy, npx + nbw, npy + nbh)
+            if any(_boxes_overlap(nbox, ob) for ob in other_boxes):
+                continue
+            p["yaw_deg"] = new_yaw
+            repaired_90 += 1
+            fixed = True
+            break
+        if fixed:
+            continue
+
+        unrepairable += 1
+        print(f"[districts] facing: unrepairable {_asset_basename(p['usd'])} "
+             f"at ({cx:.1f}, {cy:.1f}) -- front faces {front_world}, only "
+             f"{sorted(fsides)} is a real street here, and neither a 180 "
+             f"flip nor a +/-90 (checked against overlap) reaches it")
+
+    print(f"[districts] facing repair: checked={checked} "
+         f"repaired_180={repaired_180} repaired_90={repaired_90} "
+         f"unrepairable={unrepairable}")
+    return {"checked": checked, "repaired_180": repaired_180,
+           "repaired_90": repaired_90, "unrepairable": unrepairable}
+
+
+def repair_overlaps(config: dict, layout: dict, placements: list, resolver,
+                    tol: float = 0.2) -> dict:
+    """Final safety net, run immediately after `repair_facing` (which can
+    itself change a footprint's rotated extent): detect every house-house
+    footprint overlap beyond a *tol* m touch and resolve it deterministically
+    — NEVER leaves two buildings interpenetrating, whatever produced the
+    overlap.
+
+    Root cause, diagnosed 2026-08-31 (fresh Kit dump + a byte-identical
+    seeded host reconstruction both reproduced it): a `_BurnabilityGuard`
+    substitute whose real (seeded/Kit) footprint is bigger, in one or both
+    extents, than the entry it replaced — `_burnable_substitute` reused the
+    SAME (cx, cy, yaw) the packer solved for the SMALLER original, so the
+    oversized substitute spills into whatever the packer put right next to
+    it. `_burnable_substitute` itself is now fixed (a substitute may never
+    exceed the original's own rotated extents), which is why this pass
+    finds nothing to do on a clean run — it exists for whatever that fix
+    does not cover, and never trusts that.
+
+    For each overlapping pair, in order:
+      1. If one side is a recorded `_BurnabilityGuard` swap
+         (`layout["_burn_swap_log"]`, matched by its own (x, y, yaw) — a
+         placement dict carries no pool-entry identity to check directly),
+         revert it to the ORIGINAL draw, which the packer already validated
+         fits this exact slot. If that still overlaps (the original itself
+         changed something else in the interim), the revert is undone.
+      2. Otherwise (or if the revert did not resolve it), the SMALLER-
+         footprint member of the pair is DROPPED (removed from
+         *placements* entirely) — an empty lot is a real thing a block can
+         have; two buildings occupying the same ground is not.
+
+    Deterministic: the pair search always resumes from the front of a
+    freshly rebuilt list, and each iteration permanently reverts one
+    specific swap or permanently drops one specific placement, so the
+    number of iterations is bounded and identical run to run.
+    """
+    swap_by_key = {}
+    for s in layout.get("_burn_swap_log") or []:
+        key = (round(s["cx"], 2), round(s["cy"], 2), round(s["yaw"] % 360.0, 1))
+        swap_by_key[key] = s
+
+    def find_overlap():
+        houses = [(i, p) for i, p in enumerate(placements)
+                 if p.get("category") == "house"]
+        boxes = [(i, _house_box(resolver, p)) for i, p in houses]
+        for a in range(len(boxes)):
+            for b in range(a + 1, len(boxes)):
+                i, bi = boxes[a]
+                j, bj = boxes[b]
+                if _boxes_overlap(bi, bj, tol):
+                    return i, j, bi, bj
+        return None
+
+    checked = reverted = dropped = 0
+    dropped_idx: set = set()
+    while True:
+        found = find_overlap()
+        if found is None:
+            break
+        i, j, bi, bj = found
+        checked += 1
+        pi, pj = placements[i], placements[j]
+
+        fixed = False
+        for p, other in ((pi, pj), (pj, pi)):
+            key = (round(float(p["x_m"]), 2), round(float(p["y_m"]), 2),
+                  round(float(p["yaw_deg"]) % 360.0, 1))
+            s = swap_by_key.get(key)
+            if s is None or s["substitute_usd"] != p.get("usd"):
+                continue
+            saved = (p["usd"], p.get("scale"), p.get("axis_up"))
+            p["usd"] = s["original_usd"]
+            p["scale"] = s["original_scale"]
+            p["axis_up"] = s["original_axis_up"]
+            if _boxes_overlap(_house_box(resolver, p),
+                              _house_box(resolver, other), tol):
+                p["usd"], p["scale"], p["axis_up"] = saved
+                continue
+            reverted += 1
+            fixed = True
+            print(f"[districts] overlap: reverted "
+                 f"{_asset_basename(saved[0])} back to "
+                 f"{_asset_basename(s['original_usd'])} at "
+                 f"({p['x_m']:.1f}, {p['y_m']:.1f})")
+            break
+        if fixed:
+            continue
+
+        area_i = (bi[2] - bi[0]) * (bi[3] - bi[1])
+        area_j = (bj[2] - bj[0]) * (bj[3] - bj[1])
+        drop_i = area_i <= area_j
+        drop_idx = i if drop_i else j
+        keep_idx = j if drop_i else i
+        dropped_idx.add(drop_idx)
+        dropped += 1
+        dp, kp = placements[drop_idx], placements[keep_idx]
+        print(f"[districts] overlap: unrepairable, dropped "
+             f"{_asset_basename(dp['usd'])} at "
+             f"({dp['x_m']:.1f}, {dp['y_m']:.1f}) -- overlapped "
+             f"{_asset_basename(kp['usd'])} at "
+             f"({kp['x_m']:.1f}, {kp['y_m']:.1f})")
+        # Physically remove it now so `find_overlap` never reconsiders a
+        # dropped placement (index-in-`placements` stays stable for
+        # everything ELSE since a `while True` re-derives `houses`/`boxes`
+        # from `placements` fresh every iteration).
+        placements[drop_idx] = dict(placements[drop_idx], category="_dropped_overlap")
+
+    if dropped_idx:
+        placements[:] = [p for i, p in enumerate(placements)
+                         if p.get("category") != "_dropped_overlap"]
+
+    print(f"[districts] overlap repair: checked={checked} "
+         f"reverted={reverted} dropped={dropped}")
+    return {"checked": checked, "reverted": reverted, "dropped": dropped}
 
 
 def remap_buildings(config: dict, layout: dict, placements: list, resolver,
@@ -2943,6 +3871,18 @@ def remap_buildings(config: dict, layout: dict, placements: list, resolver,
     try:
         from detail import parks
     except ImportError:
-        return len(typ_of)
-    parks.build(config, layout, placements, resolver, rng)
+        pass
+    else:
+        parks.build(config, layout, placements, resolver, rng)
+
+    # FINAL REPAIR, on the placement list every earlier pass has now
+    # finished mutating (`parks.build` can remove houses; nothing after
+    # this point adds or moves one) — see `repair_facing`/`repair_
+    # overlaps`'s own docstrings for why this replaces trying to make the
+    # host packer reproduce Kit bit for bit. Facing first: it can change a
+    # placement's yaw (and, on a +/-90 repair, its rotated footprint
+    # extent), so overlap detection has to run on what facing repair
+    # actually leaves behind, not before it.
+    repair_facing(config, layout, placements, resolver)
+    repair_overlaps(config, layout, placements, resolver)
     return len(typ_of)

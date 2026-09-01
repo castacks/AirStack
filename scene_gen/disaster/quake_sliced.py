@@ -60,6 +60,7 @@ THE SHAPE OF THE CODE
 import json as _json
 import math
 import os as _os
+import random
 
 import numpy as np
 
@@ -1539,6 +1540,146 @@ RECIPES_S = {
 
 
 # ---------------------------------------------------------------------------
+# THE PERIMETER OF EVERY HOLE (round 6b) — a ragged tear on every surviving
+# piece that touches a removed region, plus a ragged rim on the slab a
+# removed storey exposes.
+#
+# `fire_collapse.plan_edges` / `_tear_perimeter` already do exactly this for
+# the FIRE ladder on sliced GAC / downtowncity pieces (`fire_collapse.
+# is_sliced` / `edge_gap_tol` exist BECAUSE that ran on real slices,
+# 2026-08-30). This hooks the same machinery into the QUAKE ladder, from
+# THIS module only — `fire_collapse.py`, `quake_flow.py` and `fracture.py`
+# are not touched (the fire freeze). `quake_flow._a_slab_rim` /
+# `_ragged_slabs` do the slab half; both operate exclusively on
+# `ctx["fit"]["slabs"]` (`fit_interior`'s own authored `_box`es), never on a
+# clipped shell, so they are safe here in a way nothing that touches a piece
+# is.
+# ---------------------------------------------------------------------------
+QS_RAGGED = _os.environ.get("QS_RAGGED", "1").strip().lower() not in (
+    "0", "false", "no", "off")
+QS_MAX_TEARS = int(_os.environ.get("QS_MAX_TEARS", "40") or 40)
+QS_TEAR_TOL_M = float(_os.environ.get("QS_TEAR_TOL_M", "0.6") or 0.6)
+TEAR_PAD_M = 0.6          # fire_collapse.plan_partial_collapse's own `pad` order
+
+
+def _tear_rng(info, plan):
+    """A PRIVATE generator, seeded from the building's own identity.
+
+    Zero shared draws: `plan_damage` runs every recipe off `pctx["rng"]`,
+    and a tear pass that consumed from it would move every later outcome of
+    every OTHER recipe — and, in a multi-building bake, every later
+    building in the same process. Same discipline as `fire_collapse.
+    _own_rng` / `fracture.stable_seed`.
+    """
+    from . import fracture
+    return random.Random(fracture.stable_seed(
+        info.get("style"), plan.get("grade") or "",
+        len(info["elements"]), len(plan["_removed_set"])))
+
+
+def _plan_tears(pctx, plan):
+    """`fire_collapse.plan_edges` jobs for every hole this plan opened.
+
+    DRIVEN OFF `plan["_removed_set"]` (still live at this point in
+    `plan_damage`, before `_finalise` pops it) — NOT `plan["regions"]`: only
+    `s_corner_fail` and `s_out_of_plane` ever append a region record, and
+    `s_parapet_fall` / `s_infill_fail` — the commonest boundaries in the
+    measured GAC bakes — register no region at all, so a regions-driven pass
+    would leave the commonest hole untorn.
+
+    Returns [] when nothing was removed, when the building came down
+    entirely (`plan["collapse"]` — nothing left to tear), or when QS_RAGGED
+    is off. In every one of those cases the private rng below is never even
+    constructed, so a plan with tears disabled draws nothing extra from
+    anywhere and is byte-identical to one built before this pass existed.
+    """
+    if not QS_RAGGED or plan.get("collapse") or not plan["_removed_set"]:
+        return []
+    from . import fire_collapse as fc
+    from detail import urban_building as ub
+    info, g = pctx["info"], pctx["g"]
+    # `el_footprint`'s silent fallback: a piece with no row in `ub.PIECES`
+    # gets a guessed `module x 0.4 m` strip footprint and every adjacency
+    # answer built on it is garbage, with no error raised anywhere. Refuse
+    # rather than plan tears on geometry nobody measured.
+    missing = sum(1 for e in g.els if ub.PIECES.get(e.get("name")) is None)
+    if missing:
+        _note(pctx, "tears: skipped — {0} piece(s) with no urban_building."
+                    "PIECES row (footprint would be guessed)".format(missing))
+        return []
+    by_path = {_path(e): e for e in g.els if _path(e)}
+    prng = _tear_rng(info, plan)
+    moved = set(plan["displaced"]) | set(p for p, _s in plan["panels"])
+    by_mass = {}
+    for p in plan["_removed_set"]:
+        e = by_path.get(p)
+        if e is None or p in moved:
+            continue
+        by_mass.setdefault(e.get("mass") or "main", []).append(e)
+    out, scope = [], {}
+    for mass in sorted(by_mass):
+        kill = by_mass[mass]
+        m = info["masses"].get(mass) or info["masses"]["main"]
+        sides = sorted({e["side"] for e in kill if e["side"] in SIDES})
+        storeys = sorted({int(e["storey"]) for e in kill})
+        if not sides:
+            continue
+        edge_plan = {"mass": mass, "sides": tuple(sides), "storeys": storeys,
+                     "pad_m": TEAR_PAD_M, "kill": kill}
+        # `plan_edges` needs only `ctx["info"]["elements"]`.
+        jobs = fc.plan_edges({"info": info}, edge_plan, m, prng,
+                             tol=QS_TEAR_TOL_M,
+                             budget=max(0, QS_MAX_TEARS - len(out)))
+        for j in jobs:
+            e = j["el"]
+            dropped = bool(j.get("dropped"))
+            p = _path(e)
+            # A core piece (`classify` still calls it "wall" mid-plan) is
+            # several metres inboard — tearing it puts a ragged hole in the
+            # middle of the plan where nothing is visible. A piece that is
+            # itself removed or about to be MOVED must never also be torn:
+            # a torn piece is never a removed piece (the rule the round-6b
+            # `_sweep_roof_props_sliced` rect union depends on), and
+            # `_break_split`ing a prim that is about to be relocated tears a
+            # dead reference out from under the move.
+            if (e.get("p") or {}).get("_role") == "core":
+                dropped = True
+            if p in moved or p in plan["_removed_set"]:
+                dropped = True
+            j["dropped"] = dropped
+            j["mass"] = mass
+        out += jobs
+        scope[mass] = {"sides": sides, "storeys": storeys}
+    plan["tear_scope"] = scope
+    return out
+
+
+def _tears_to_json(jobs):
+    """`plan["tears"]`, stripped to plain JSON-safe records.
+
+    `j["el"]` is a live reference to an element dict — fine within one
+    process, but `plan_to_json` must not be asked to serialise it (a bug in
+    a recipe is meant to raise there, not this). `_author_tears` re-resolves
+    the element by prim path off `ctx["info"]["elements"]`, which already
+    carries it, so nothing is lost by dropping the reference here — and a
+    plan round-tripped through JSON authors identically to one fresh off
+    `plan_damage`.
+    """
+    out = []
+    for j in jobs:
+        e = j.get("el") or {}
+        out.append({
+            "path": _path(e), "side": j.get("side"),
+            "storey": int(j.get("storey", 0) or 0),
+            "mass": j.get("mass", "main"),
+            "classes": list(j.get("classes") or ()),
+            "cuts": [dict(c) for c in (j.get("cuts") or ())],
+            "dropped": bool(j.get("dropped")),
+        })
+    return out
+
+
+# ---------------------------------------------------------------------------
 # THE PLANNER
 # ---------------------------------------------------------------------------
 def plan_damage(info, elements, grade_or_recipes, btype, rng):
@@ -1566,6 +1707,14 @@ def plan_damage(info, elements, grade_or_recipes, btype, rng):
         fit_ops   [{op, ...}]        what to do with `ctx["fit"]`
         ground    {recipe, kwargs}   the foundation family, or None
         collapse / storey_collapse   the DG4-DG5 summaries
+        tears     [{path, side, storey, mass, classes, cuts, dropped}]
+                                     round-6b: the ragged tear job on every
+                                     surviving piece touching a hole (§
+                                     `_plan_tears`). JSON-safe as stored;
+                                     `_author_tears` re-resolves each `path`
+                                     against `ctx["info"]["elements"]`.
+        tear_scope {mass: {sides, storeys}}   which side/storey bands lost
+                                     pieces, for `_author_floor_edges`
         notes     [str]              one human-readable line per recipe
         stats     {...}
     """
@@ -1579,26 +1728,40 @@ def plan_damage(info, elements, grade_or_recipes, btype, rng):
         "stub": None, "glass": [], "glass_bands": [], "macroblocks": [],
         "regions": [], "interior": {"storeys": [], "sides": []},
         "fit_ops": [], "ground": None, "collapse": None,
-        "storey_collapse": None, "notes": list(guard_notes), "stats": {},
+        "storey_collapse": None, "tears": [], "tear_scope": {},
+        "notes": list(guard_notes), "stats": {},
         "_removed_set": set(),
     }
     pctx = _pctx(info, elements, btype, rng, plan)
     for name, kw in recs:
         RECIPES_S[name](pctx, **(kw or {}))
+    # ---- the whole perimeter of every hole (round 6b) ---------------------
+    # PURE. `fire_collapse.plan_edges` is geometry only — no pxr, no stage —
+    # so this stays in the planner and is host-testable, exactly as the kit
+    # ladder's own edge pass is checked in `tests/test_fire_collapse.py`.
+    plan["tears"] = _plan_tears(pctx, plan)
     return _finalise(pctx, plan)
 
 
 def _finalise(pctx, plan):
-    """A piece can be lost, moved or laid on the pile — never two of them."""
+    """A piece can be lost, moved or laid on the pile — never two of them.
+    A TORN piece is a fourth state, and a distinct one: it is always a
+    SURVIVING piece (never lost, moved or piled) that picked up a ragged cut
+    on the edge nearest a hole — see `_plan_tears`'s own note."""
     moved = set(plan["displaced"]) | set(p for p, _s in plan["panels"])
     plan["removed"] = [p for p in plan["removed"] if p not in moved]
     plan.pop("_removed_set", None)
     g = pctx["g"]
+    raw_tears = plan.get("tears") or []
+    n_tears = sum(1 for j in raw_tears if not j.get("dropped"))
+    n_tears_dropped = sum(1 for j in raw_tears if j.get("dropped"))
+    plan["tears"] = _tears_to_json(raw_tears)
     plan["stats"] = {
         "n_pieces": len(g.els), "n_sub": g.n_sub, "n_storeys": len(g.storeys),
         "n_removed": len(plan["removed"]), "n_displaced": len(plan["displaced"]),
         "n_panels": len(plan["panels"]), "n_piles": len(plan["piles"]),
         "n_glass": len(plan["glass"]), "n_macroblocks": len(plan["macroblocks"]),
+        "n_tears": n_tears, "n_tears_dropped": n_tears_dropped,
         "removed_frac": (len(plan["removed"]) / float(len(g.els))
                          if g.els else 0.0),
     }
@@ -1910,6 +2073,17 @@ def apply_plan(stage, ctx, plan, verbose=True):
         if e is not None:
             e["dead"] = True
 
+    # 2.5) THE PERIMETER OF EVERY HOLE (round 6b). After removal — the
+    #      pieces a tear is "against" must already be gone from the live
+    #      element table — and BEFORE the rigid displacement, so a
+    #      macroblock that is about to be rotated into the street is still
+    #      whole when this runs: `_break_split` deactivates its source, and
+    #      a moved-then-torn piece would be a dead prim sitting in the
+    #      street. `_plan_tears` already dropped any job whose target is in
+    #      `plan["displaced"]` / `plan["panels"]`, so this ordering is a
+    #      second, cheap guarantee of the same thing, not the only one.
+    n_tear = _author_tears(stage, ctx, plan)
+
     # 3) rigid displacement, grouped so one matrix is built per distinct move
     groups = {}
     for path, spec in sorted((plan.get("displaced") or {}).items()):
@@ -1945,12 +2119,113 @@ def apply_plan(stage, ctx, plan, verbose=True):
         if line not in ctx["notes"]:
             ctx["notes"].append(line)
     out = {"removed": n_rm, "displaced": n_mv, "glass": n_glass,
-           "piles": n_pile}
+           "piles": n_pile, "tears": n_tear}
     if verbose:
         print("[quake_sliced] {0}: {1} piece(s) removed, {2} displaced, "
-              "{3} glass subset(s) voided, {4} pile(s)".format(
-                  plan.get("grade") or "recipes", n_rm, n_mv, n_glass, n_pile))
+              "{3} glass subset(s) voided, {4} pile(s), {5} tear(s)".format(
+                  plan.get("grade") or "recipes", n_rm, n_mv, n_glass, n_pile,
+                  n_tear))
     return out
+
+
+def _author_tears(stage, ctx, plan):
+    """Tear every surviving piece that touches a hole, then ragged the slab
+    a removed storey exposes. Returns the total piece + slab count touched.
+
+    `fire_collapse._tear_perimeter` unchanged: one `quake_flow._break_split`
+    per piece, that piece's own cut judges unioned, the façade measured
+    BEFORE the split and re-skinned onto every static fragment afterwards
+    (`facade_skin` / `skin_fragment`). Runs entirely under a PRIVATE
+    `fire_collapse._own_rng` pair so ZERO draws come off the shared
+    `ctx["rng"]` / `ctx["nrng"]` — a tear pass that touched the shared
+    stream would move every later outcome in the same bake process,
+    including other buildings.
+
+    `plan["tears"]` is the JSON-safe record `_tears_to_json` wrote (a plan
+    round-tripped through `plan_from_json` carries the same shape), so the
+    element each job targets is re-resolved here by prim path rather than
+    carried as a live reference.
+    """
+    tears = [t for t in (plan.get("tears") or ()) if not t.get("dropped")]
+    n = 0
+    n_failed_resolve = 0
+    if tears:
+        from . import fire_collapse as fc
+        from . import fracture
+        # `fire_collapse._tear_perimeter` writes `ctx["velocity"][path]` for
+        # every loose shard — a key `wreck_sliced`'s own ctx always carries
+        # but that a hand-built ctx (a test, a bench) may not, since nothing
+        # before this pass ever read it in `quake_sliced`.
+        ctx.setdefault("velocity", {})
+        info = ctx["info"]
+        by_path = {_path(e): e for e in info["elements"] if _path(e)}
+        by_mass = {}
+        for t in tears:
+            by_mass.setdefault(t.get("mass") or "main", []).append(t)
+        for mass in sorted(by_mass):
+            m = info["masses"].get(mass) or info["masses"]["main"]
+            jobs = []
+            for t in by_mass[mass]:
+                e = by_path.get(t.get("path"))
+                if e is None or e.get("dead"):
+                    n_failed_resolve += 1
+                    continue
+                jobs.append({"el": e, "side": t.get("side"),
+                            "cuts": t.get("cuts") or []})
+            if not jobs:
+                continue
+            seed = fracture.stable_seed(ctx.get("tag"), mass, "tear")
+            prng = random.Random(seed)
+            pnrng = np.random.default_rng(seed & 0xFFFFFFFF)
+            with fc._own_rng(ctx, prng, pnrng):
+                n += fc._tear_perimeter(ctx, plan, m, prng, jobs)
+    # THE SLAB HALF. `_a_slab_rim` / `_ragged_slabs` only ever touch
+    # `ctx["fit"]["slabs"]` and `_a_roofify`'s roof boxes — authored
+    # `_box`es, never a clipped shell — so they are safe here in a way
+    # nothing that touches a piece is. Mirrors `quake_collapse._author_one`'s
+    # own ordering (crush -> slab rims; otherwise -> ragged slabs).
+    n += _author_floor_edges(stage, ctx, plan)
+    if tears or n_failed_resolve:
+        print("[tear] quake_sliced ({0}): {1} piece(s)/slab(s) touched, "
+              "{2} job(s) dropped, {3} could not be re-resolved".format(
+                  ctx.get("tag"), n,
+                  sum(1 for t in (plan.get("tears") or ()) if t.get("dropped")),
+                  n_failed_resolve))
+    return n
+
+
+def _author_floor_edges(stage, ctx, plan):
+    """The slab half of the ragged boundary. Only ever touches
+    `ctx["fit"]["slabs"]` and `_a_roofify`'s roof boxes — authored `_box`es,
+    never a clipped shell.
+
+    Gated on `QS_RAGGED` exactly like `_author_tears`'s piece half, so the
+    whole pass is a no-op when it is off and the bake is byte-identical to
+    round 6b (`plan["storey_collapse"]` / `plan["tear_scope"]` are set by
+    planning regardless — only the AUTHORING is gated here).
+    """
+    if not QS_RAGGED:
+        return 0
+    from . import fire_collapse as fc
+    from . import fracture
+    n = 0
+    sc = plan.get("storey_collapse") or {}
+    seed = fracture.stable_seed(ctx.get("tag"), "floor_edge")
+    prng = random.Random(seed)
+    pnrng = np.random.default_rng(seed & 0xFFFFFFFF)
+    with fc._own_rng(ctx, prng, pnrng):
+        if sc.get("storey") is not None:
+            k = int(sc["storey"])
+            mt = sc.get("mass", "main")
+            n += len(qf._a_slab_rim(ctx, mt, k, n_sides=2))
+            n += len(qf._a_slab_rim(ctx, mt, k + 1, n_sides=2, bars=False))
+        else:
+            for mt, sc2 in sorted((plan.get("tear_scope") or {}).items()):
+                sts = set(int(s) for s in sc2.get("storeys") or ())
+                for sd in sc2.get("sides") or ():
+                    qf._ragged_slabs(ctx, mt, sd, sts)
+                    n += 1
+    return n
 
 
 def _author_pile(stage, ctx, plan, spec, i, plan_pile, author):
@@ -2112,29 +2387,697 @@ def _measure_roof_tops(stage, elements, mass):
     return out
 
 
+def _mesh_up_faces(prim, xcache, up_threshold):
+    """Every UP-FACING triangle of `prim`, in world space, as
+    `(tri_z, (ax,ay), (bx,by), (cx,cy))` — a fan triangulation of each face,
+    the same `tri_soup` idiom `quake_collapse._deck_support_z` /
+    `tools/roof_plant_seat_probe.py` already trust in production, duplicated
+    here (not imported) because this pass deliberately has NO per-mesh AABB
+    prune (see `_reseat_roof_plant`'s docstring for why one would just
+    reintroduce the bug at a different margin).
+
+    Returns `None` when `prim` is not a `UsdGeom.Mesh` at all (a `UsdGeom.
+    Cube` test fixture, say — nothing to fan-triangulate, so the caller
+    falls back to that prim's own BBoxCache top, which is exact for a
+    single un-merged primitive), or `[]` when it is a Mesh with no usable
+    geometry."""
+    from pxr import UsdGeom
+    if not prim.IsA(UsdGeom.Mesh):
+        return None
+    mesh = UsdGeom.Mesh(prim)
+    pts = mesh.GetPointsAttr().Get()
+    counts = mesh.GetFaceVertexCountsAttr().Get()
+    idx = mesh.GetFaceVertexIndicesAttr().Get()
+    if not pts or not counts or not idx:
+        return []
+    M = np.array(xcache.GetLocalToWorldTransform(prim), dtype=np.float64)
+    P = np.array([[p[0], p[1], p[2]] for p in pts], dtype=np.float64)
+    P = (np.hstack([P, np.ones((len(P), 1))]) @ M)[:, :3]
+    counts = np.asarray(counts)
+    idx = np.asarray(idx)
+    off = np.concatenate([[0], np.cumsum(counts)[:-1]])
+    out = []
+    for n, o in zip(counts, off):
+        if n < 3:
+            continue
+        fan = idx[o:o + int(n)]
+        a = P[fan[0]]
+        for k in range(1, int(n) - 1):
+            b, c = P[fan[k]], P[fan[k + 1]]
+            nrm = np.cross(b - a, c - a)
+            mag = float(np.linalg.norm(nrm))
+            if mag <= 1e-9:
+                continue
+            nz = float(nrm[2]) / mag
+            if nz <= up_threshold:
+                continue
+            out.append((float((a[2] + b[2] + c[2]) / 3.0),
+                       (float(a[0]), float(a[1])),
+                       (float(b[0]), float(b[1])),
+                       (float(c[0]), float(c[1]))))
+    return out
+
+
+def _pt_in_tri(px, py, a, b, c):
+    """Sign-based point-in-triangle, exactly `_deck_support_z`'s own test —
+    the QUERY point against the CANDIDATE's triangle, never the other way
+    round (a candidate face many times a prop's footprint's size, the usual
+    shape for a kit/GAC slab, would never contain ITS OWN centroid inside a
+    small footprint if the test ran backwards)."""
+    d1 = (px - b[0]) * (a[1] - b[1]) - (a[0] - b[0]) * (py - b[1])
+    d2 = (px - c[0]) * (b[1] - c[1]) - (b[0] - c[0]) * (py - c[1])
+    d3 = (px - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (py - a[1])
+    neg = d1 < 0 or d2 < 0 or d3 < 0
+    pos = d1 > 0 or d2 > 0 or d3 > 0
+    return not (neg and pos)
+
+
 def _reseat_roof_plant(stage, ctx, mass="main"):
     """Correct `dress_roof`'s tank/AC seat for a SLICED (GAC) building —
     round-5 follow-up, the floating-roof-plant finding. See the section note
     above. Call AFTER `qf.dress_roof(ctx)`, before anything else moves
     `ctx["roof_plant"]`. Returns how many props were moved (0 = no
-    correction needed, or nothing to correct)."""
+    correction needed, or nothing to correct).
+
+    ROUND-7 FIX — POINTS-BASED, UNDER THE PROP'S OWN FOOTPRINT. The round-6
+    version (per-prop footprint, but scored by a candidate's WHOLE-PIECE
+    `UsdGeom.BBoxCache` top) still left `SM_Building_19`/`_12`/`_24` floating
+    2.5-3.8 m after a full re-bake with new seeds — the SAME gaps before and
+    after, so a deterministic geometric miss, not settle noise. Ground truth
+    (bare `pxr`, points, no Kit): a real up-facing deck triangle exists
+    EXACTLY under every one of those tanks' own footprints (measured:
+    `SM_Building_19` 69.276 m and `SM_Building_24` ~40.0-40.3 m, matching
+    each tank's own seat to within centimetres) — inside a merged `roof_x_*`
+    piece whose OVERALL bbox reaches 1-2.4 m higher because the SAME prim
+    also carries a coping run, or a raised section, ELSEWHERE on the roof. A
+    bbox-of-the-whole-piece score cannot tell "the deck under THIS footprint"
+    from "the tallest thing anywhere in this prim" — the exact
+    `UsdGeom.BBoxCache` blind spot the `fix-floating-debris` skill already
+    named for fracture debris, here for a stepped/multi-level roof instead.
+    `SM_Building_12` shows the other-signed failure of the SAME root cause:
+    the round-6 code's `ctop <= pz0 + 0.30` ceiling (sized for "a few cm of
+    interpenetration" — the ORIGINAL bug's shape, advertised too HIGH)
+    excludes the true roof band entirely when the advertised seat is instead
+    metres too LOW, and the search falls through to a bare, storey-height
+    WALL SHELL (zero real deck, e.g. `core_x_0_20` — a piece with no
+    up-facing triangle at all) that merely happens to still qualify.
+
+    The fix: score each candidate by the highest UP-FACING triangle actually
+    reachable under the PROP'S OWN footprint (`_mesh_up_faces` + `_pt_in_
+    tri`, the query-RECTANGLE-vs-triangle idiom `quake_collapse._deck_
+    support_z` already trusts in production) instead of its whole-mesh
+    envelope, and drop the `ctop <= pz0 + slack` ceiling altogether: a
+    containment test that only ever fires on a genuine up-facing surface
+    cannot be fooled by an unrelated tall neighbour the way a bbox-overlap
+    test can (a bare wall contributes NO candidate triangles at all, so it
+    can never win regardless of its own height), so the search is free to
+    find the real deck whether the advertised seat guessed too high or, as
+    these three buildings show, far too low. `info["elements"]` is one
+    building's own small piece roster (tens to a few hundred cells), not a
+    whole-stage scan, so — unlike `_deck_support_z` — this can afford to
+    skip the coarse per-mesh AABB prune entirely instead of tuning a margin
+    wide enough to survive a coping run without reintroducing the same
+    blind spot at a different scale.
+
+    A candidate that is not a `UsdGeom.Mesh` (a `UsdGeom.Cube` test fixture)
+    has no points/faces to fan-triangulate, so it falls back to its own
+    BBoxCache top — exact for a single un-merged primitive, which is all a
+    non-Mesh candidate here ever is."""
     info = ctx["info"]
     m = (info.get("masses") or {}).get(mass)
     plant = list(ctx.get("roof_plant") or ())
     if not plant or m is None:
         return 0
-    tops = _measure_roof_tops(stage, info.get("elements"), mass)
-    advertised = float(m["top"]) + 0.02
-    target = _roof_plant_target_z(m["top"], tops.values())
-    delta = target - advertised
-    if abs(delta) < 0.01:
-        return 0
-    n = qf._transform_prims(stage, plant, qf._translate(0.0, 0.0, delta))
-    if n:
+    from pxr import Usd, UsdGeom
+    from . import quake_collapse as qc          # read-only: a shared constant
+    up_threshold = qc.ROOF_PROP_UP_THRESHOLD
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    xcache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    cand = []
+    for e in info.get("elements") or ():
+        if e.get("mass") != mass:
+            continue
+        # NEVER a parapet: a coping run's own up-facing cap sits at the
+        # ADVERTISED height (or close to it) and its thin-wall footprint
+        # overlaps any edge-seated prop's footprint too, so with it in the
+        # pool the rim wins the support max and the prop stays ~3 m above
+        # the real deck (SM_02 DG4, round-6 audit). A tank stands on the
+        # DECK; rims only ever stand beside it — true whether the rim is
+        # scored by bbox or, as here, by its own up-facing triangles.
+        if "parapet" in str(e.get("role") or ""):
+            continue
+        pth = (e.get("p") or {}).get("prim_path")
+        if not pth:
+            continue
+        prim = stage.GetPrimAtPath(pth)
+        if not prim or not prim.IsValid():
+            continue
+        try:
+            r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+        except Exception:
+            continue
+        if r.IsEmpty():
+            continue
+        lo, hi = r.GetMin(), r.GetMax()
+        faces = _mesh_up_faces(prim, xcache, up_threshold)
+        cand.append((float(lo[0]), float(lo[1]), float(hi[0]), float(hi[1]),
+                    faces, float(hi[2])))
+    moved, deltas = 0, []
+    for pth in plant:
+        prim = stage.GetPrimAtPath(pth)
+        if not prim or not prim.IsValid():
+            continue
+        try:
+            r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+        except Exception:
+            continue
+        if r.IsEmpty():
+            continue
+        lo, hi = r.GetMin(), r.GetMax()
+        px0, py0, pz0 = float(lo[0]), float(lo[1]), float(lo[2])
+        px1, py1 = float(hi[0]), float(hi[1])
+        qxy = ((px0, py0), (px1, py0), (px1, py1), (px0, py1),
+              ((px0 + px1) / 2.0, (py0 + py1) / 2.0))
+        # support = highest UP-FACING surface actually reachable under this
+        # prop's own footprint, across every non-parapet candidate — no
+        # ceiling relative to `pz0` (see the docstring above for why one
+        # is no longer needed).
+        sup = None
+        for cx0, cy0, cx1, cy1, faces, cbtop in cand:
+            if not (cx0 < px1 and cx1 > px0 and cy0 < py1 and cy1 > py0):
+                continue
+            if faces is None:
+                sup = cbtop if sup is None else max(sup, cbtop)
+                continue
+            for tz, a, b, c in faces:
+                if sup is not None and tz <= sup:
+                    continue
+                if any(_pt_in_tri(qx, qy, a, b, c) for qx, qy in qxy):
+                    sup = tz
+        if sup is None:
+            continue
+        delta = (sup + 0.02) - pz0
+        if abs(delta) < 0.01:
+            continue
+        if qf._transform_prims(stage, [pth], qf._translate(0.0, 0.0, delta)):
+            moved += 1
+            deltas.append(delta)
+    if moved:
         ctx["notes"].append(
-            "[qgac] roof_plant reseated: advertised {0:.2f} m, measured "
-            "{1:.2f} m, {2} piece(s) moved {3:+.2f} m".format(
-                advertised, target, n, delta))
+            "[qgac] roof_plant reseated (per-footprint): {0} piece(s) moved "
+            "{1:+.2f}..{2:+.2f} m".format(moved, min(deltas), max(deltas)))
+    return moved
+
+
+# ---------------------------------------------------------------------------
+# ROUND-6 FOLLOW-UP: the roof-plant fix that reaches DAMAGE, not just dress
+# ---------------------------------------------------------------------------
+# `_reseat_roof_plant` (above) fixes `dress_roof`'s seat BEFORE any damage
+# recipe runs — right for "the advertised top was never the real deck," wrong
+# for "a recipe below just took the real deck away." Audit (2026-08-31,
+# `quake_collapse.py`'s round-6 fix for the kit ladder): `quake_sliced.py`
+# imports `quake_collapse` for nothing but `_chip_prim`, and every `s_*`
+# recipe here is a PURE PLANNER — `plan_damage(info, elements, ..., rng)`
+# takes no `ctx`, so a recipe cannot see `ctx["roof_plant"]` even though
+# `dress_roof` already ran and the props already exist on the stage by the
+# time planning happens. So neither of `quake_collapse`'s two mechanisms
+# (`_author_band`'s in-line carry, `_sweep_roof_props`'s in-line re-seat) can
+# be inlined into an `s_*` function here — both have to be a POST-`apply_
+# plan` pass instead, reading back what the plan already did.
+#
+# TWO MECHANISMS, reused by IMPORT, none reinvented:
+#
+#   1. BAND / STOREY CARRY. `s_soft_storey` (and `s_mid_storey` /
+#      `s_storey_collapse`, which call it) already record the ONE rigid
+#      transform "the block above storey k" got, as a `fit_ops` entry
+#      (`{"op": "displace_above", "mass", "storey", "transform": <spec>}`) —
+#      the SAME spec `apply_plan` fed `_gf` + `qf._transform_prims` for every
+#      piece above the crush. Any surviving `ctx["roof_plant"]` / `ctx["roof_
+#      fixed"]` path at or above that storey's ceiling gets the identical
+#      transform, so it rides down and tilts with the block it was standing
+#      on — the missing half `quake_collapse._author_band`'s docstring found
+#      false for the kit ladder, true here from the start (nothing here ever
+#      claimed otherwise; there was simply no call site for it before now).
+#
+#   2. REGION REMOVAL. `s_corner_fail` / `s_out_of_plane` (`_apply_region` /
+#      `_remove`) delete pieces outright, so there is no spec to carry — only
+#      `plan["removed"]`, a flat list of PATHS. `quake_collapse.
+#      roof_prop_footprint_lost`'s test (a prop's 5 points, majority inside
+#      `plan["region"]`) needs a world-space region polygon quake_collapse's
+#      OWN planner can build (`fc.in_region` + `_to_local`) because it runs
+#      against a fixed module grid; this module's plan has no such polygon,
+#      only paths. The equivalent built here: the world XY rectangles
+#      (widened `_REGION_MARGIN_M` so two adjoining removed pieces bridge
+#      the gap between them) of every REMOVED piece whose OWN bbox reaches
+#      within one storey height of the roof — i.e. it was part of the top
+#      band, not a ground-floor infill panel — unioned, then the SAME
+#      5-point-majority test against that union. A majority match is placed
+#      on real support via `quake_collapse._deck_support_z` (the `tri_soup`
+#      probe, unmodified) and tipped/buried exactly as the kit ladder now
+#      does: `quake_collapse.ROOF_PROP_BIG_TIP_STOREY_FRAC` decides the
+#      threshold, `quake_flow._a_bury_props` supplies the DG5-style tip/roll
+#      for a real fall, `quake_flow.B_ROOF_PLANT_TIP_DEG` the idle tip for a
+#      shallow one. KNOWN APPROXIMATION: `out_of_plane`'s macroblocks/panels
+#      are pulled back OUT of `plan["removed"]` once picked (they topple
+#      into the street rather than vanish), so the union can have a small
+#      gap exactly at a macroblock's ORIGINAL cell — `_REGION_MARGIN_M`
+#      bridges a single missing cell between two removed neighbours; it does
+#      not chase the macroblock's new position.
+#
+# TOTAL COLLAPSE IS OUT OF SCOPE HERE, ON PURPOSE: `plan.get("collapse")`
+# (set by `_total_collapse`, i.e. `masonry_collapse` / `pancake`) skips
+# mechanism 2 entirely, same as `quake_collapse._sweep_roof_props` keeps its
+# own total/pancake branch separate from elevation/corner — `wreck_sliced`'s
+# very next line, `qf._b_settle_roof_plant(ctx, ...)`, already owns burying
+# roof plant on a total collapse BY RECIPE NAME, and re-testing every prop
+# against the fresh pile here would double-process exactly what that call is
+# about to do.
+_REGION_MARGIN_M = 0.6
+
+
+def _sweep_roof_props_sliced(stage, ctx, plan):
+    """Post-`apply_plan` roof-plant fix for a sliced building. See the
+    section note above for the two mechanisms and why neither can run
+    in-line inside an `s_*` recipe. Call AFTER `apply_plan`, BEFORE
+    `quake_flow._b_settle_roof_plant`. Returns `(n_carried, n_reseated)`."""
+    plant = list(dict.fromkeys(
+        list(ctx.get("roof_plant") or ()) + list(ctx.get("roof_fixed") or ())))
+    if not plant:
+        return 0, 0
+
+    from pxr import Usd, UsdGeom
+    info = ctx["info"]
+    roof_mass = ctx.get("roof_plant_mass", "main")
+    m = info["masses"].get(roof_mass) or info["masses"].get("main")
+    if m is None:
+        return 0, 0
+
+    xf = UsdGeom.XformCache()
+    resolved = set()
+
+    # 1) BAND / STOREY CARRY -------------------------------------------------
+    n_carried = 0
+    for op in (plan.get("fit_ops") or ()):
+        if op.get("op") != "displace_above" or (op.get("mass") or "main") != roof_mass:
+            continue
+        lv = m["levels"]
+        k = int(op.get("storey", 0))
+        z_hi = lv[k + 1] if k + 1 < len(lv) else m["top"]
+        M = _gf(op["transform"])
+        carry = []
+        for pth in plant:
+            if pth in resolved:
+                continue
+            pr = stage.GetPrimAtPath(pth)
+            if not pr or not pr.IsValid() or not pr.IsActive():
+                continue
+            try:
+                t = xf.GetLocalToWorldTransform(pr).ExtractTranslation()
+            except Exception:
+                continue
+            if float(t[2]) >= z_hi - 0.05:
+                carry.append(pth)
+        if carry:
+            qf._transform_prims(stage, carry, M)
+            ctx["static_extra"] += carry
+            resolved.update(carry)
+            n_carried += len(carry)
+
+    # 2) REGION REMOVAL: majority-footprint-lost, then a geometric re-seat --
+    n_reseated = 0
+    if not plan.get("collapse"):        # total/pancake: _b_settle_roof_plant's job
+        storey_h = max(2.5, float(m["top"]) - float(m["levels"][-1]))
+        z_floor = float(m["top"]) - storey_h
+        bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+        removed_rects = []
+        for pth in (plan.get("removed") or ()):
+            pr = stage.GetPrimAtPath(pth)
+            if not pr or not pr.IsValid():
+                continue
+            try:
+                r = bc.ComputeWorldBound(pr).ComputeAlignedRange()
+            except Exception:
+                continue
+            if r.IsEmpty():
+                continue
+            lo, hi = r.GetMin(), r.GetMax()
+            if float(hi[2]) < z_floor:
+                continue
+            removed_rects.append((float(lo[0]) - _REGION_MARGIN_M,
+                                  float(lo[1]) - _REGION_MARGIN_M,
+                                  float(hi[0]) + _REGION_MARGIN_M,
+                                  float(hi[1]) + _REGION_MARGIN_M))
+
+        if removed_rects:
+            from . import quake_collapse as qc
+
+            fall = []
+            for pth in plant:
+                if pth in resolved:
+                    continue
+                pr = stage.GetPrimAtPath(pth)
+                if not pr or not pr.IsValid() or not pr.IsActive():
+                    continue
+                r = bc.ComputeWorldBound(pr).ComputeAlignedRange()
+                if r.IsEmpty():
+                    continue
+                lo, hi = r.GetMin(), r.GetMax()
+                pts = ((lo[0], lo[1]), (hi[0], lo[1]), (hi[0], hi[1]),
+                      (lo[0], hi[1]), ((lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0))
+                n_in = sum(1 for px, py in pts
+                          if any(rx0 <= px <= rx1 and ry0 <= py <= ry1
+                                 for rx0, ry0, rx1, ry1 in removed_rects))
+                if n_in * 2 > len(pts):
+                    fall.append((pth, lo, hi))
+
+            big_drop_m = storey_h * qc.ROOF_PROP_BIG_TIP_STOREY_FRAC
+            rng = ctx["rng"]
+            for pth, lo, hi in fall:
+                cx = (lo[0] + hi[0]) / 2.0
+                cy = (lo[1] + hi[1]) / 2.0
+                half_w = max(0.3, (hi[0] - lo[0]) / 2.0 * 1.15)
+                half_d = max(0.3, (hi[1] - lo[1]) / 2.0 * 1.15)
+                base_z = float(lo[2])
+                support = qc._deck_support_z(stage, ctx["parent"], cx, cy,
+                                             half_w, half_d, base_z,
+                                             exclude=(pth,))
+                if support is None:
+                    support = float(m["z0"])
+                drop = base_z - support
+                if drop > big_drop_m:
+                    # a real fall: the DG5-style bury dressing, reused
+                    # verbatim (see `quake_collapse._sweep_roof_props`'s own
+                    # comment on why this is reuse and not invention).
+                    qf._a_bury_props(ctx, [pth], support,
+                                     max(0.4, drop * 0.15), keep=1.0)
+                else:
+                    if drop > 0.02:
+                        qf._transform_prims(
+                            stage, [pth],
+                            qf._translate(0.0, 0.0, support - base_z))
+                    c = qf._pivot_of(ctx, pth)
+                    Mtip = qf._rot_about(
+                        c, (rng.uniform(-1, 1), rng.uniform(-1, 1), 0.0),
+                        rng.uniform(-qf.B_ROOF_PLANT_TIP_DEG,
+                                    qf.B_ROOF_PLANT_TIP_DEG))
+                    qf._transform_prims(stage, [pth], Mtip)
+                    ctx["static_extra"].append(pth)
+                resolved.add(pth)
+                n_reseated += 1
+
+    if ctx.get("roof_plant"):
+        ctx["roof_plant"] = [p for p in ctx["roof_plant"] if p not in resolved]
+    if ctx.get("roof_fixed"):
+        ctx["roof_fixed"] = [p for p in ctx["roof_fixed"] if p not in resolved]
+    if n_carried or n_reseated:
+        ctx["notes"].append(
+            "roof_plant (sliced): {0} carried with a storey crush, {1} "
+            "re-seated on real support after a region loss".format(
+                n_carried, n_reseated))
+    return n_carried, n_reseated
+
+
+# ---------------------------------------------------------------------------
+# STRANDED SHELL BANDS — the sky-grid finding (round 8, `stranded-bands`)
+# ---------------------------------------------------------------------------
+# Confirmed by photo + USD forensics on `eq500_v4` (`se_obl.png` ~850-1550,
+# 0-420; `nw_obl.png` ~690-815, 75-410): regular grids/columns of tan wall/
+# parapet ring pieces hanging in the sky. `_sweep_roof_props_sliced` above
+# fixes the ROOF-PLANT population (tanks, AC units — furniture `dress_roof`
+# placed on top of the deck); it says nothing about the SHELL ITSELF —
+# `gac_storey_slice.ring()` / `roof_and_parapet()`'s own `wall_*` / `corner_*`
+# / `parapet_*` placements — which is a different population with no carrier
+# of its own until now (`fire_bake.deactivate_airborne` is the kit ladder's
+# analog; this module never had one).
+#
+# TWO CASES, TRACED SEPARATELY:
+#
+# 1. BAND / STOREY CRUSH (`displace_above`). `s_soft_storey` already loops
+#    `g.els` for `_storey > k` with NO role filter at all, so every wall /
+#    pier / corner / parapet / parapet_corner / roof piece above the crushed
+#    band is already in `plan["displaced"]` and rides the identical spec
+#    `_apply_fit_ops`'s own "displace_above" branch uses for the fit-out.
+#    VERIFIED empirically (a fixture probe against `plan_damage` output: 59/59
+#    roof+parapet placements above a crushed storey land in `plan["displaced"]`,
+#    zero orphans) and pinned by
+#    `test_soft_storey_carries_every_shell_role_above_the_crush` below — no
+#    code change was needed here, only the regression test.
+#
+# 2. REGION REMOVAL (`corner_fail` / `out_of_plane`). `_apply_region`'s own
+#    `_boundary()` test counts a VERTICAL neighbour (`st-1`, `st+1`) as a
+#    boundary condition exactly like a horizontal one, so a wide, MULTI-
+#    STOREY region's two edge-bay columns are boundary cells at EVERY storey
+#    of the region, not just its top and bottom row. `kept_piers` then rolls
+#    keep/lose PER CELL, independently — so it is entirely possible (measured:
+#    3-12 instances per seed on a 10-storey fixture, `out_of_plane`) for the
+#    pier at (side, st, bay) to survive the draw while the pier at
+#    (side, st-1, bay) — directly beneath it, in the SAME column, part of the
+#    SAME region — loses its own, independent draw. The survivor is left
+#    exactly where it was authored: nothing rigid-transforms it, nothing gives
+#    it physics, nothing sweeps it. That is the sky-grid: a periodic (bay-
+#    pitch) pattern of kept boundary pieces whose own support just vanished
+#    two rows below.
+#
+# THE REPAIR IS DELIBERATELY NOT IN `_apply_region`/`plan_damage` ITSELF: the
+# pure planner's own RNG draws and `plan["removed"]` must stay bit-identical
+# (another agent's materials work reads the same plan), so this runs as a
+# POST-`apply_plan` stage pass, same shape as `_sweep_roof_props_sliced`
+# above: a CHEAP, PURE pre-filter off the grid (no stage) finds candidates,
+# then the real geometry (`quake_collapse._deck_support_z`, the SAME
+# `tri_soup` idiom, with its `candidates=` cache built ONCE per building so
+# the cost is bounded regardless of how many candidates there are) decides
+# what is actually there to land on.
+_SHELL_ORPHAN_DROP_STOREYS_MAX = 2.0   # beyond this many storeys of real
+                                       # fall, delete instead of dropping —
+                                       # the task's own ">2 storeys" ceiling
+_SHELL_ROLES_RUN = ("wall", "pier", "parapet")        # side + bay, in g.runs
+_SHELL_ROLES_CORNER = ("corner", "parapet_corner")    # corner + storey only
+
+
+def _shell_column_index(info, mass):
+    """`(side, storey, bay) -> [(path, alive)]` and `(corner, storey) ->
+    [(path, alive)]` for every wall/pier/corner/parapet/parapet_corner piece
+    of `mass` EVER authored — dead ones included, so "removed" (authored,
+    now `dead`) can be told apart from "never authored here at all" (an
+    entrance gap, the ground storey's own street-level opening). Pure: reads
+    `info["elements"]`'s own `_storey`/`_side`/`_bay` fields and each
+    element's `dead` flag (set by `apply_plan`'s removal step, so this must
+    be called AFTER `apply_plan` has run), no stage."""
+    els = [e for e in (info.get("elements") or ()) if e.get("mass") == mass]
+    n_sub = n_sub_of(els) or 1
+    idx_runs, idx_corners = {}, {}
+    for e in els:
+        p = e.get("p") or {}
+        role = p.get("_role")
+        path = p.get("prim_path")
+        if not path or role not in (_SHELL_ROLES_RUN + _SHELL_ROLES_CORNER):
+            continue
+        alive = not e.get("dead")
+        sd = p.get("_side")
+        st = int(p.get("_storey", e.get("storey", 0)))
+        if role in _SHELL_ROLES_RUN and sd in SIDES:
+            b = bay_no(p, n_sub)
+            idx_runs.setdefault((sd, st, b), []).append((path, alive))
+        elif role in _SHELL_ROLES_CORNER and sd in _CORNER_SIDES:
+            idx_corners.setdefault((sd, st), []).append((path, alive))
+    return idx_runs, idx_corners
+
+
+def _orphaned_shell_candidates(info, plan, mass, loose=False):
+    """Live shell paths whose directly-below, SAME-column cell was authored
+    but is now entirely `dead` — `_apply_region`'s per-cell toothing draw,
+    read back off the element table with no stage.
+
+    `loose=False` (item 2's own gate): the below cell must have EXISTED and
+    have EVERY one of its own pieces `dead`. `loose=True` (the safety net's
+    broader gate, item 3): the below cell may also be PARTIALLY lost — some
+    but not all of its pieces `dead` — since a surviving pier stub does not
+    always reach out to cover this piece's own footprint; the stage-time
+    `_deck_support_z` check that follows is what actually decides, this only
+    widens who gets asked. Either way the candidate itself must be alive and
+    not already claimed by a rigid `plan["displaced"]` transform (that piece
+    already has its own carrier)."""
+    displaced = set(plan.get("displaced") or {})
+    idx_runs, idx_corners = _shell_column_index(info, mass)
+
+    def _gone_enough(below):
+        if below is None:
+            return False
+        dead = [not alive for _p, alive in below]
+        return all(dead) if not loose else any(dead)
+
+    out = []
+    for (sd, st, b), items in idx_runs.items():
+        alive_here = [p for p, alive in items if alive and p not in displaced]
+        if alive_here and _gone_enough(idx_runs.get((sd, st - 1, b))):
+            out.extend(alive_here)
+    for (sd, st), items in idx_corners.items():
+        alive_here = [p for p, alive in items if alive and p not in displaced]
+        if alive_here and _gone_enough(idx_corners.get((sd, st - 1))):
+            out.extend(alive_here)
+    return out
+
+
+def _typical_storey_h(m):
+    lv = m.get("levels") or []
+    if len(lv) > 1:
+        return max(1.5, (float(lv[-1]) - float(lv[0])) / (len(lv) - 1))
+    return max(1.5, float(m.get("top", 3.0)) - float(m.get("z0", 0.0)))
+
+
+def _repair_stranded_shell_sliced(stage, ctx, plan):
+    """Item 2: a surviving shell piece whose own support was toothed away
+    below it (case 2 above) is dropped onto whatever REAL support
+    `quake_collapse._deck_support_z` finds under its own footprint — plus a
+    small settle tip, the same idle-tip idiom `_sweep_roof_props_sliced`
+    already uses for a shallow reseat — when that drop is a storey or two;
+    beyond `_SHELL_ORPHAN_DROP_STOREYS_MAX` storeys (or nothing real found
+    below it at all) it is deactivated instead and left to the pile already
+    authored for this building, the same call `_total_collapse`'s own
+    wholesale upper-storey removal makes for a piece the mound already
+    accounts for in aggregate — repositioning ONE big wall panel onto an
+    uneven rubble mound reads worse than the mound alone. Call AFTER
+    `apply_plan` (needs `e["dead"]`) and after `_sweep_roof_props_sliced`.
+    Returns `(n_dropped, n_deleted)`."""
+    from pxr import Usd, UsdGeom
+
+    from . import quake_collapse as qc
+
+    info = ctx["info"]
+    by_path = {(e.get("p") or {}).get("prim_path"): e
+              for e in (info.get("elements") or ())}
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    cache = None
+    n_dropped = n_deleted = 0
+    drops = []
+    for mass, m in (info.get("masses") or {}).items():
+        cand = _orphaned_shell_candidates(info, plan, mass, loose=False)
+        if not cand:
+            continue
+        if cache is None:
+            cache = qc._deck_support_candidates(stage, ctx["parent"])
+        h_st = _typical_storey_h(m)
+        for path in cand:
+            prim = stage.GetPrimAtPath(path)
+            if not prim or not prim.IsValid() or not prim.IsActive():
+                continue
+            try:
+                r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+            except Exception:
+                continue
+            if r.IsEmpty():
+                continue
+            lo, hi = r.GetMin(), r.GetMax()
+            cx, cy = (lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0
+            half_w = max(0.3, (hi[0] - lo[0]) / 2.0)
+            half_d = max(0.3, (hi[1] - lo[1]) / 2.0)
+            base_z = float(lo[2])
+            support = qc._deck_support_z(stage, ctx["parent"], cx, cy,
+                                        half_w, half_d, base_z,
+                                        exclude=(path,), candidates=cache)
+            if support is None:
+                support = float(m.get("z0", base_z))
+            drop = base_z - support
+            if drop <= 0.02:
+                continue
+            if drop > _SHELL_ORPHAN_DROP_STOREYS_MAX * h_st:
+                if qf._deactivate(stage, path):
+                    n_deleted += 1
+                    e = by_path.get(path)
+                    if e is not None:
+                        e["dead"] = True
+                continue
+            qf._transform_prims(stage, [path],
+                               qf._translate(0.0, 0.0, support - base_z))
+            rng = ctx["rng"]
+            ax = (rng.uniform(-1.0, 1.0), rng.uniform(-1.0, 1.0), 0.0)
+            if abs(ax[0]) + abs(ax[1]) < 1e-3:
+                ax = (1.0, 0.0, 0.0)
+            qf._transform_prims(stage, [path], qf._rot_about(
+                (cx, cy, support), ax,
+                rng.uniform(-qf.B_ROOF_PLANT_TIP_DEG, qf.B_ROOF_PLANT_TIP_DEG)))
+            ctx["static_extra"].append(path)
+            n_dropped += 1
+            drops.append(drop)
+    if n_dropped or n_deleted:
+        ctx["notes"].append(
+            "[qgac] stranded shell: {0} dropped to real support ({1:.2f}"
+            "..{2:.2f} m), {3} deleted (>{4:.0f} storeys of fall, left to "
+            "the pile)".format(n_dropped, min(drops) if drops else 0.0,
+                              max(drops) if drops else 0.0, n_deleted,
+                              _SHELL_ORPHAN_DROP_STOREYS_MAX))
+    return n_dropped, n_deleted
+
+
+def _sweep_airborne_shell_sliced(stage, ctx, plan, gap_m=1.0, verbose=True):
+    """Item 3, THE SAFETY NET: this module's analog of `fire_bake.
+    deactivate_airborne`, scoped to the shell (never the fit-out / roof
+    plant, both already swept above). Call last, where `wreck_sliced`
+    finishes.
+
+    NOT a scan of every shell piece in the building — walls are not decks,
+    so a plain wall-on-wall stack routinely has no real up-facing triangle
+    for `_deck_support_z` to find under an ORDINARY, undamaged piece (that
+    is exactly why `roof_and_parapet._ensure_roof` exists: a ring()'d piece
+    can come back with none at all), and testing every piece against that
+    idiom would flag intact buildings wholesale. The candidate pool stays
+    the SAME grid heuristic `_repair_stranded_shell_sliced` uses (`loose=
+    True` here: the below cell only has to have lost SOME of its own pieces,
+    not all of them, since a partial toothed loss can still leave this
+    piece's own footprint uncovered) — bounded cost, and this only ever
+    fires on a piece a real removal actually put in question. Whatever
+    `_repair_stranded_shell_sliced` already resolved is skipped (it is
+    `dead` or has moved); anything still found unsupported beyond `gap_m` is
+    deactivated, never repositioned — it already had its one chance."""
+    from pxr import Usd, UsdGeom
+
+    from . import quake_collapse as qc
+
+    info = ctx["info"]
+    by_path = {(e.get("p") or {}).get("prim_path"): e
+              for e in (info.get("elements") or ())}
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    cache = None
+    n = 0
+    for mass, m in (info.get("masses") or {}).items():
+        cand = _orphaned_shell_candidates(info, plan, mass, loose=True)
+        if not cand:
+            continue
+        if cache is None:
+            cache = qc._deck_support_candidates(stage, ctx["parent"])
+        z0 = float(m.get("z0", 0.0))
+        for path in cand:
+            prim = stage.GetPrimAtPath(path)
+            if not prim or not prim.IsValid() or not prim.IsActive():
+                continue
+            try:
+                r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+            except Exception:
+                continue
+            if r.IsEmpty():
+                continue
+            lo, hi = r.GetMin(), r.GetMax()
+            cx, cy = (lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0
+            half_w = max(0.3, (hi[0] - lo[0]) / 2.0)
+            half_d = max(0.3, (hi[1] - lo[1]) / 2.0)
+            base_z = float(lo[2])
+            if abs(base_z - z0) < 0.05:
+                continue    # sitting at grade already — not airborne
+            support = qc._deck_support_z(stage, ctx["parent"], cx, cy,
+                                        half_w, half_d, base_z,
+                                        exclude=(path,), candidates=cache)
+            if support is not None and base_z - support <= gap_m:
+                continue
+            if qf._deactivate(stage, path):
+                n += 1
+                e = by_path.get(path)
+                if e is not None:
+                    e["dead"] = True
+    if n:
+        ctx["notes"].append("[qgac] airborne shell sweep: {0} deactivated"
+                            .format(n))
+    if verbose:
+        print("[qgac] airborne shell sweep: {0} deactivated".format(n))
     return n
 
 
@@ -2200,6 +3143,19 @@ def wreck_sliced(stage, cell, placements, style, recipes, rng, nrng, mats, tag,
     ctx["plan"] = plan
     apply_plan(stage, ctx, plan, verbose=verbose)
 
+    # ROUND 6: roof plant carried with a storey crush, or re-seated on real
+    # support if a region loss reached the roof — BEFORE the generic settle
+    # pass below, which must never re-process what this already resolved
+    # (see the section note above `_sweep_roof_props_sliced`).
+    _sweep_roof_props_sliced(stage, ctx, plan)
+
+    # STRANDED SHELL BANDS (round 8, `stranded-bands`): a region removal's own
+    # toothing can keep a boundary pier two rows up from another one it lost
+    # in the same draw — see the section note above `_repair_stranded_shell_
+    # sliced`. Runs off `e["dead"]`, so AFTER `apply_plan`, same slot as the
+    # roof-plant sweep above (before settle touches anything further).
+    _repair_stranded_shell_sliced(stage, ctx, plan)
+
     # tanks / AC units follow their roof — and are BURIED on a total collapse,
     # which `_b_settle_roof_plant` decides from the recipe NAMES, so the two
     # modules have to spell `pancake` / `masonry_collapse` the same way.
@@ -2221,6 +3177,14 @@ def wreck_sliced(stage, cell, placements, style, recipes, rng, nrng, mats, tag,
         st.append(p)
     ctx["static_extra"] = st
     ctx["sliced"].update(plan["stats"])
+
+    # THE SAFETY NET, WHERE THIS FUNCTION FINISHES: `_repair_stranded_shell_
+    # sliced` targets the one traced mechanism; this catches anything else —
+    # a different recipe combination, a future recipe — that leaves a shell
+    # piece hanging with no real support (`fire_bake.deactivate_airborne`'s
+    # analog for this ladder).
+    _sweep_airborne_shell_sliced(stage, ctx, plan, verbose=verbose)
+
     if verbose:
         print("[quake_sliced] {0} ({1}, {2:.0f} m, {3} piece(s)): {4}".format(
             style, btype, info.get("H") or 0.0, len(placements),

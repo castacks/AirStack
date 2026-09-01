@@ -32,6 +32,7 @@
  * (https://theairlab.org).
  *
  */
+#include <chrono>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 
@@ -609,6 +610,13 @@ namespace mavros_interface
         }
 
         // Command Functions
+        // Deadline for a mavros service RESPONSE. MUST stay below
+        // takeoff_landing_task's 45 s SERVICE_RESPONSE_TIMEOUT: if this layer
+        // outlives the caller, the caller times out first and THIS node stays
+        // wedged on a dead service, which is exactly the failure that cost
+        // iterations 1, 3 and 6 (robot_3, robot_6, robot_8) their takeoffs.
+        static constexpr std::chrono::seconds MAVROS_SERVICE_TIMEOUT{20};
+
 
         bool request_control() override
         {
@@ -620,7 +628,14 @@ namespace mavros_interface
 
             auto result = set_mode_client_->async_send_request(request);
             std::cout << "waiting rc" << std::endl;
-            result.wait();
+            if (result.wait_for(MAVROS_SERVICE_TIMEOUT) !=
+                std::future_status::ready) {
+              RCLCPP_ERROR(this->get_logger(),
+                           "mavros request_control: no response within %lds — "
+                           "returning failure instead of blocking forever",
+                           static_cast<long>(MAVROS_SERVICE_TIMEOUT.count()));
+              return false;
+            }
             std::cout << "done rc" << std::endl;
 
             return result.get()->mode_sent;
@@ -633,7 +648,14 @@ namespace mavros_interface
 
             auto result = arming_client_->async_send_request(request);
             std::cout << "waiting arm" << std::endl;
-            result.wait();
+            if (result.wait_for(MAVROS_SERVICE_TIMEOUT) !=
+                std::future_status::ready) {
+              RCLCPP_ERROR(this->get_logger(),
+                           "mavros arm: no response within %lds — "
+                           "returning failure instead of blocking forever",
+                           static_cast<long>(MAVROS_SERVICE_TIMEOUT.count()));
+              return false;
+            }
             std::cout << "done arm" << std::endl;
 
             return result.get()->success;
@@ -646,7 +668,14 @@ namespace mavros_interface
 
             auto result = arming_client_->async_send_request(request);
             std::cout << "waiting disarm" << std::endl;
-            result.wait();
+            if (result.wait_for(MAVROS_SERVICE_TIMEOUT) !=
+                std::future_status::ready) {
+              RCLCPP_ERROR(this->get_logger(),
+                           "mavros disarm: no response within %lds — "
+                           "returning failure instead of blocking forever",
+                           static_cast<long>(MAVROS_SERVICE_TIMEOUT.count()));
+              return false;
+            }
             std::cout << "done disarm" << std::endl;
 
             return result.get()->success;
@@ -669,7 +698,14 @@ namespace mavros_interface
 
                 std::cout << "calling ardupilot takeoff 1" << std::endl;
                 auto takeoff_result = ardupilot_takeoff_client_->async_send_request(takeoff_request);
-                takeoff_result.wait();
+                if (takeoff_result.wait_for(MAVROS_SERVICE_TIMEOUT) !=
+                std::future_status::ready) {
+              RCLCPP_ERROR(this->get_logger(),
+                           "mavros takeoff: no response within %lds — "
+                           "returning failure instead of blocking forever",
+                           static_cast<long>(MAVROS_SERVICE_TIMEOUT.count()));
+              return false;
+            }
                 std::cout << "calling ardupilot takeoff 2" << std::endl;
                 if (takeoff_result.get()->success)
                 {

@@ -185,3 +185,4 @@ scene_gen/assets/concrete_rubble_debris/*
 # tools/split_debris_spreads.py; 840 usdc, 25 MB) — regenerate, do not track;
 # the catalogue is tracked
 scene_gen/assets/rubble_hd/*/
+scene_gen/assets/people/

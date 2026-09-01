@@ -71,7 +71,8 @@ emitter after the first few gets NO VOXELS — a city that renders with no
 smoke while every count in the log looks right. A row of 6 buildings could
 ignore this; 12-20 damaged buildings at the row's own per-building budget is
 150-350 emitters, so this launcher spends a GLOBAL budget
-(`FA_EMITTER_BUDGET`, default 200):
+(`FA_EMITTER_BUDGET`, default 800 as of 2026-08-31 — see that knob's own
+comment for the arithmetic behind the number):
 
   * buildings are RANKED by state — flame (F2/F3, actively burning) first,
     then smoulder (F4/F5/F6), then the F1 wisps and anything residual;
@@ -152,15 +153,88 @@ Env:
                    (`SetActive(False)`). An invisible prim still composes and
                    still costs memory; a deactivated one does not, but its
                    subtree can no longer be inspected in the viewport.
+    FC_SKY         `sunset` (default -- BYTE-IDENTICAL to every prior fire
+                   city render: `add_sky(resolve_sky(config), ...)` off the
+                   preset's own `sky_intensity`/`sky_exposure`, dome-only, no
+                   sun) or `mid_day` (see `sky_presets.py` -- high overhead
+                   sun, neutral-cool white, blue-sky dome; opt in here only
+                   after the bench (`fire_people_bench_launch_script.py`,
+                   `PB_SKY`) has been reviewed), or an explicit HDRI/stage
+                   path or URL (mid_day's numbers, dome textured instead).
     FA_FLOW        1 (default) authors the Flow stack and the emitters
     FA_SMOKE       1 (default) — 0 gives flames only, no plumes
-    FA_CELL_M      Flow density cell size, m (default 0.3 — the row's own
-                   low-fidelity grid)
-    FA_MAX_BLOCKS  the Flow block POOL (default 6144). `rtx/flow/maxBlocks`
-                   is a carb setting, not the USD attribute.
+    FA_CELL_M      Flow density cell size, m (default 0.55 as of the THIRD
+                   2026-08-31 review, up from 0.3/0.45 — coarsened on
+                   purpose to keep the block-pool need down at the higher
+                   emitter counts size-scaling/clusters/residual pockets
+                   ask for; see `CELL_M`'s own comment for the arithmetic)
+    FA_MAX_BLOCKS  the Flow block POOL (default 12288, unchanged since
+                   round 2 — already proven clean at 560 emitters/0.45 m
+                   cells; see `MAX_BLOCKS`'s own comment for why the SAME
+                   pool still covers the new, higher emitter count once
+                   `FA_CELL_M` coarsens). `rtx/flow/maxBlocks` is a carb
+                   setting, not the USD attribute.
     FA_EMITTERS    per-building opening budget before the global budget
-                   trims it (default 6)
-    FA_EMITTER_BUDGET  the GLOBAL emitter cap (default 200)
+                   trims it (default 30 as of the THIRD review, up from
+                   10/6 — see `MAX_EMITTERS`'s own comment: this is now the
+                   size-scaling CEILING, `fal.FLAME_WINDOWS_MAX`, not a flat
+                   per-building count)
+    FA_EMITTER_BUDGET  the GLOBAL emitter cap (default 800 as of the THIRD
+                   review, up from 560/200 — see `EMITTER_BUDGET`'s own
+                   comment)
+    FA_SIDE_SMOKE_FLAME  window/opening smoke sources an ACTIVELY-FLAMING
+                   building draws from its own burnt-OUT compartments
+                   (default 5; was the fixed `uf.SMOKE_EXTRA_MAX`=3)
+    FA_SIDE_SMOKE_MAX  window/opening smoke sources a SMOULDERING/burnt-out
+                   building draws from its SMOULDER events first, then its
+                   "out" events to fill the rest (default 6; was the fixed
+                   `spl.SMOULDER_EVENTS_MAX`=3, smoulder-only)
+    FA_ROOF_INTACT_MAX  roof-plume sources on a building whose roof has NOT
+                   collapsed (`fal.roof_has_collapsed`) — default 1, down
+                   from the original fixed 2, so side smoke dominates an
+                   intact roof per the 2026-08-31 review
+    FA_ROOF_COLLAPSED_MAX  roof-plume sources once the roof HAS collapsed
+                   (F5c/F6, or the sidecar's `top_z`/`deck_z` gap has
+                   closed) — default 2, unchanged: a real hole earns them
+    FA_STREET_DUMP  placements dump `street_side_ranks` scores a building's
+                   `sides` against, to bias the round-robin toward whichever
+                   one is more likely a real street (default: this run's own
+                   `FC_DUMP`, so passing that once covers both). Missing or
+                   unparseable degrades to no bias, not a failed build.
+    FA_STREET_BIAS  extra weight (`_side_weights`) the CHOSEN side's own
+                   round-robin turn gets, default 2 — see `fire_assembly_
+                   lib._round_robin`'s own docstring. WHICH side is chosen
+                   is a per-building weighted RANDOM draw
+                   (`fal.choose_street_side`, seeded off the bake's own
+                   stem — 2026-08-31 second review: "I want it randomized"),
+                   not the argmax.
+    FA_FLAME_MIN_CLUSTERS  minimum distinct `(side, storey)` flame clusters
+                   a "flame"-state building's own live events top up to,
+                   from dimmer "out"-event accents, when its own data alone
+                   has fewer (default 3; 0 disables — 2026-08-31 second
+                   review, "more actual places of fire on each building")
+    FA_FLAME_EXTRA_MAX  cap on how many extra cluster-top-up picks that
+                   adds (default 3)
+    FA_FLAME_SIZE_SCALE  1 (default) drives the flame-opening ceiling off
+                   `fal.flame_window_target(n_storeys)` instead of the flat/
+                   height-floor formula (2026-08-31 third review, "if the
+                   smaller building can have 5-7 fire windows, the bigger
+                   one should have more")
+    FA_SMOKE_SIZE_SCALE  1 (default) does the same for the two side-smoke
+                   caps, via `fal.smoke_window_target`
+    FA_SMOKE_WINDOW_JETS  1 (default) picks side smoke at the OPENING level
+                   (several window-sheet sources, one per opening) instead
+                   of one per EVENT at its own middle opening — 2026-08-31
+                   second review, "they should be coming out of windows
+                   similar to the fire"
+    FA_RESIDUAL_FLAME_FRAC  fraction of a same-height FLAME-state building's
+                   own `flame_window_target` that a "smoulder"(F4)/
+                   "residual"(F5/F5c/F6) building gets as SCATTERED single-
+                   window flame pockets (default 0.4; 0 restores the
+                   original F4-only top-up and no F5+ flame at all) —
+                   2026-08-31 third review, the headline case: a 28-storey
+                   F5 tower with 75 baked events authored zero flame before
+                   this
     FA_SCALE       emission scale multiplier (default 1.0)
     FA_SEED        rng seed for the per-emitter jitter (default 7)
     FC_SCORCH_VEG  1 (default) darkens street trees / greenery within reach
@@ -173,6 +247,50 @@ Env:
                    building — see `fire_assembly_lib.fire_apron_pass`. F5c/
                    F6 already drop a collapse heap and are not touched by
                    this pass. 0 skips it.
+    FA_APRON_SCALE density multiplier on top of `fire_assembly_lib.
+                   APRON_DENSITY` (default 1.0 — already the doubled
+                   2026-08-31-round-2 table; "the minor debris ... needs to
+                   increase"). One merged Mesh prim per qualifying building
+                   regardless of lump count, so this is cheap to raise
+                   further — see `tools/fire_street_debris_dry_run.py` for
+                   the per-building cost against the real 39-manifest.
+    FC_HIDE_PROPS  1 (default) hides a damaged building's COMPANION ROOF/WALL
+                   props (`gac_props`' `roof_house`/`roof_tank`/`roof_mast`/
+                   `roof_prop`/`wall_run`) along with its intact shell. They
+                   are SIBLINGS of the building placement, not children, so
+                   without this they keep standing at the elevation of a roof
+                   that is no longer drawn — 39 of them on this city's 20
+                   damaged buildings. Matched by `gac_props._place`'s own
+                   `of` tag; see `prop_tag`.
+    FC_UNINSTANCE_GPRIM_ROOTS
+                   1 (default) un-instances any placement whose composed root
+                   prim is a GPRIM. With `instance_placements: true` such an
+                   asset's materials, GeomSubsets and (for the renderer) its
+                   geometry all end up in the prototype while the drawn prim
+                   stays outside it — the asset reads untextured grey, or
+                   disappears. 161 of this city's 1469 placements: ALL 58
+                   streetlights, 50 of the 62 benches, 16 cars, 12 traffic
+                   lights, the fountains, and 10 buildings. Measured with
+                   `tools/fc_instance_material_probe.py`; see
+                   `_uninstance_gprim_roots`.
+    FC_PEOPLE      1 (default) runs the people pass
+    FC_PEOPLE_JSON the REVIEWED records file `tools/fire_people_dry_run.py`
+                   wrote. Its records are under the **`people`** key (not
+                   `records`); `FireCityApp.people_records` accepts either,
+                   or a bare list, and raises a named error otherwise.
+    FC_PEOPLE_MAX_DIST_M
+                   120 (default) — "only keep humans that are in the
+                   disaster". A record further than this from the nearest
+                   BURNING BUILDING'S FOOTPRINT (not its centre) is dropped
+                   with a count. 0 disables. Measured on
+                   `_plans/fire_people_final.json`: all 89 records are within
+                   59.5 m, so the default drops none — for THOSE it is a
+                   guard, not the mechanism. It also drives
+                   `cull_background_people`, which HIDES the city generator's
+                   OWN pedestrians (128 of them on this plate,
+                   `category == "human"` from `scene_generator` and
+                   `detail/parks.py`) outside the same radius — that is where
+                   the rule actually bites.
     SNAP_DIR       viewport captures, MUST be under
                    /isaac-sim/.nvidia-omniverse/logs/
     KEEP_OPEN      1 keeps the app up after the captures
@@ -242,6 +360,7 @@ sys.path.insert(0, _SCENE_GEN_DIR)
 from scene_prep import (add_sky, get_stage_meters_per_unit,     # noqa: E402
                         scale_stage_prim, settle_rigid_props)
 from scene_generator import resolve_sky, _make_resolver         # noqa: E402
+from sky_presets import apply_sky_preset                        # noqa: E402
 from generate_scene import generate_scene_on_stage              # noqa: E402
 from compile_disaster import load_scene_config, resolve_config_path  # noqa: E402
 from disaster import fire as fx                                 # noqa: E402
@@ -294,22 +413,168 @@ INTACT_ONLY = _flag("FC_INTACT_ONLY", "0")
 DUMP_PATH = _env("FC_DUMP", "")
 FC_ENV = _env("FC_ENV", "default")
 HIDE_MODE = _env("FC_HIDE", "invisible").lower()
+# "sunset" is the CURRENT look, kept as the default so the city only changes
+# once "mid_day" is chosen explicitly -- see this file's own docstring and
+# sky_presets.py for the full diagnosis/design.
+SKY = _env("FC_SKY", "sunset")
 FLOW = _env("FA_FLOW", "1") not in ("0", "false", "no")
 SMOKE = _env("FA_SMOKE", "1") not in ("0", "false", "no")
-CELL_M = float(_env("FA_CELL_M", "0.3"))
-MAX_BLOCKS = int(_env("FA_MAX_BLOCKS", "6144"))
-MAX_EMITTERS = int(_env("FA_EMITTERS", "6"))
-EMITTER_BUDGET = int(_env("FA_EMITTER_BUDGET", "200"))
+# FA_SMOKE_SCALE multiplies the smoke-only emission scale and the interior/
+# roof plume seat radii ("increase amount of smoke", user 2026-08-31);
+# budget-neutral — emitter COUNTS are untouched, estimator parity holds.
+SMOKE_SCALE = float(_env("FA_SMOKE_SCALE", "1.0"))
+# 0.55 (was 0.3, was 0.45 by explicit override on both live relaunches):
+# 2026-08-31 THIRD review coarsens the cell on purpose. `scene_gen/tools/
+# fire_flow_dry_run.py`, run against the real 39-record `fire_city_500m_39
+# .json` manifest, projects ~800 emitters at `FA_EMITTER_BUDGET=800` (the
+# natural, unbudgeted total is ~976) -- at the 0.45 m cell BOTH live
+# relaunches actually used, that needs ~16,600 blocks, well past the
+# 12288-block pool already proven clean. Voxel count goes as `1/cell**3`,
+# so 0.45 -> 0.55 cuts the requirement to ~9,100 blocks -- back under the
+# SAME 12288 pool round 2 already validated at 560 emitters, with margin,
+# rather than pushing the pool itself into untested territory. The
+# coordinator's own instruction: "raise FA_MAX_BLOCKS proportionally, and
+# coarsen FA_CELL_M slightly (0.45 -> up to 0.55) if the arithmetic needs
+# it... do not exceed ~15.3 GB projected total" -- the arithmetic needs it.
+CELL_M = float(_env("FA_CELL_M", "0.55"))
+# 12288 (was 6144): unchanged from round 2 (already proven clean at 560
+# emitters / 0.45 m cells) -- at 0.55 m cells and ~800-900 emitters the
+# projected need is ~9,100-10,200 blocks (see `CELL_M`'s own comment and
+# `fire_flow_dry_run.py`'s own projection), comfortably under this pool
+# without raising it into a range nothing has actually measured. Still an
+# ESTIMATE, not a substitute for the Kit-log OOM grep after an actual
+# relaunch (see `grep_kit_log`/`FLOW_OOM_NEEDLES`, and the skill's own
+# "Flow fails SILENTLY" warning -- a scene can under-report a full block
+# pool while looking completely normal in this launcher's own banner).
+MAX_BLOCKS = int(_env("FA_MAX_BLOCKS", "12288"))
+# 30 (was 10, was 6): with `FA_FLAME_SIZE_SCALE=1` this is `allocate_
+# emitters`' `cap` — the CEILING the allocator's own per-round `step`
+# climbs to (see that function's own docstring) — and must reach `fal.
+# FLAME_WINDOWS_MAX` (30) or a tall tower's own target is never fully
+# funded even with unlimited budget. A short building's `min(step, target)`
+# plateaus at its OWN (much smaller) target long before `step` gets this
+# high, so this does not by itself cost every building 30 openings.
+MAX_EMITTERS = int(_env("FA_EMITTERS", "30"))
+# 800 (was 560, was 200): THIRD review — cluster diversity, size-scaled
+# allocation and residual flame pockets all raise per-building demand; the
+# dry run's own natural (unbudgeted) total across the real 39-building
+# manifest is ~976, and 800 is comfortably below both that and the 15.3 GB
+# VRAM cap the coordinator set (~15.1 GB projected at 800, per `fire_flow_
+# dry_run.py`'s own two-point-calibrated model) — and the allocator's own
+# rank-first spending (see `allocate_emitters`) means nothing is dropped
+# WHOLE at this budget; the worst buildings (incl. the headline 28-storey
+# residual tower) are funded to their FULL target regardless, only the
+# lowest-ranked buildings' growth is trimmed.
+EMITTER_BUDGET = int(_env("FA_EMITTER_BUDGET", "800"))
+# SIDE SMOKE AT OPENING HEADS (2026-08-31 review: "let's have it from the
+# sides as well... F4 buildings especially should pour smoke from
+# openings"). `None` would fall back to the ORIGINAL fixed budgets inside
+# `place_fire` (`uf.SMOKE_EXTRA_MAX`/`spl.SMOULDER_EVENTS_MAX`, 3 each); this
+# launcher always passes a value, so its own default IS the effective one.
+SIDE_SMOKE_FLAME_MAX = int(_env("FA_SIDE_SMOKE_FLAME", "5"))
+SIDE_SMOKE_NONFLAME_MAX = int(_env("FA_SIDE_SMOKE_MAX", "6"))
+# ROOF VS SIDE (same review: "unless the roof is collapsed there should be
+# more smoke coming from sides than top"). `fal.roof_has_collapsed` decides
+# which cap applies per building — see that function's own docstring for
+# what it can and cannot tell from a kit vs. a GAC sidecar.
+# 0 (was 1), 2026-08-31: "there's also still smoke on the roofs of
+# non-collapsed buildings that look weird" — an intact roof now gets NO
+# plume at all; its smoke story is entirely window jets + interior seats
+# (which the vertical-bias redistribution below strengthens). A COLLAPSED
+# roof keeps its plumes unchanged — smoke rising from a broken deck is
+# correct, not a leftover look. The knob stays live for an A/B.
+ROOF_CAP_INTACT = int(_env("FA_ROOF_INTACT_MAX", "0"))
+ROOF_CAP_COLLAPSED = int(_env("FA_ROOF_COLLAPSED_MAX", "2"))
+# STREET-FACING BIAS (same review: "I want more of the actual 'fire'
+# elements on buildings, especially on street facing sides so it's
+# visible"). `FA_STREET_DUMP` is the placements dump `street_side_ranks`
+# scores against (default: `FC_DUMP`, so a run that is already passing that
+# knob for its own sake gets the bias for free); empty/missing/unparseable
+# degrades to `{}` (`fal.load_dump_positions`), which is "no bias" — the
+# ORIGINAL unweighted round-robin — not a failed build. `FA_STREET_BIAS` is
+# the extra weight (`_side_weights`) the ranked side's own round gets.
+STREET_DUMP_PATH = _env("FA_STREET_DUMP", "") or _env("FC_DUMP", "")
+STREET_BIAS_WEIGHT = int(_env("FA_STREET_BIAS", "2"))
+# MULTIPLE FLAME CLUSTERS (2026-08-31, second review: "more actual places of
+# fire on each building"). `0` for either disables the top-up entirely
+# (`fal.place_fire`'s `flame_min_clusters=None` path).
+FLAME_MIN_CLUSTERS = int(_env("FA_FLAME_MIN_CLUSTERS", "3"))
+FLAME_EXTRA_MAX = int(_env("FA_FLAME_EXTRA_MAX", "3"))
+# SIZE-SCALED ALLOCATION (2026-08-31, third review, item 4: "if the smaller
+# building can have 5-7 fire windows, the bigger one should have more").
+# `fal.flame_window_target`/`smoke_window_target` replace the flat/height-
+# floor formulas with a straight line in `n_storeys` — see those functions'
+# own docstrings for the exact clamp.
+FLAME_SIZE_SCALE = _flag("FA_FLAME_SIZE_SCALE", "1")
+SMOKE_SIZE_SCALE = _flag("FA_SMOKE_SIZE_SCALE", "1")
+# WINDOW-JET SMOKE GEOMETRY (2026-08-31, second review: "I see more smoke
+# but not really side smoke, they should be coming out of windows similar
+# to the fire"). `1` picks smoke at the OPENING level (several sources, one
+# per window) instead of one per EVENT at its own middle opening.
+SMOKE_WINDOW_JETS = _flag("FA_SMOKE_WINDOW_JETS", "1")
+# SMOKE COMPLEMENTS THE FLAME VERTICALLY (2026-08-31, "have more smoke on
+# lower floors so it looks like those have been burnt out if you're not
+# putting fire there"): ON by default — a side-smoke pick that used to rank
+# candidates highest-storey-first now ranks not-yet-lit-and-lower-storey
+# first instead (`fal.place_fire`'s own docstring has the full mechanism),
+# with a guarantee that at least one pick still lands near the flame itself.
+SMOKE_VERTICAL_BIAS = _flag("FA_SMOKE_VERTICAL_BIAS", "1")
+# NO FIRE AT THE EXTREME TOP UNLESS THE WINDOWS ARE REAL (2026-08-31, "avoid
+# fires at the extreme top of buildings... unless we're 100% sure about
+# windows on the top floor"): `fal.place_fire` runs this filter
+# UNCONDITIONALLY (it only ever touches a SYNTHETIC opening — see
+# `fal.drop_top_storey_synthetic`), so there is no knob to gate it here; the
+# per-building probe table has its own column.
+# RESIDUAL FLAME POCKETS (2026-08-31, third review, item 5 — the headline
+# case: a 28-storey F5 "residual" tower with 75 baked events authored ZERO
+# flame). `0` restores today's behaviour exactly (F4 keeps its ORIGINAL
+# top-up, F5/F5c/F6 gets none) — see `fal.place_fire`'s own docstring for
+# what a positive fraction does.
+RESIDUAL_FLAME_FRAC = float(_env("FA_RESIDUAL_FLAME_FRAC", "0.4"))
+# CONTACT SNAP (2026-08-31, "some of the fires seem to be floating outside
+# the building... make it go inside the building by some amount") — a
+# building with NO real glazing anywhere (`gac_fire.window_rects` never fills
+# `planes[side]`) gets its synthetic openings framed off the MASS BBOX face
+# instead of the real wall, which can sit metres off it (a parapet, a
+# setback, an L-notch the bbox spans). `fal.place_fire`'s `geom_root` opts
+# into a per-building contact test — one `vtkStaticCellLocator` over the
+# bake's own composed geometry, reused for every opening — that snaps a
+# floating opening onto the real wall (inset `FA_SNAP_INSET_M` further in)
+# or drops it outright if nothing real is within reach. ON by default: this
+# is a correctness fix, not a look knob — `FC_CONTACT_SNAP=0` restores the
+# pre-fix placement exactly (`geom_root=None`, `fal.place_fire`'s original
+# behaviour) for an A/B or if `vtk` turns out unavailable in some image.
+CONTACT_SNAP = _flag("FC_CONTACT_SNAP", "1")
+SNAP_TOL_M = float(_env("FA_SNAP_TOL_M", str(fal.SNAP_TOL_M)))
+SNAP_INSET_M = float(_env("FA_SNAP_INSET_M", str(fal.SNAP_INSET_M)))
+SNAP_REACH_IN_M = float(_env("FA_SNAP_REACH_IN_M", str(fal.SNAP_REACH_IN_M)))
+SNAP_REACH_OUT_M = float(_env("FA_SNAP_REACH_OUT_M",
+                              str(fal.SNAP_REACH_OUT_M)))
 SCALE = float(_env("FA_SCALE", "1.0"))
 SEED = int(_env("FA_SEED", "7"))
 SCORCH_VEG = _flag("FC_SCORCH_VEG", "1")
 FIRE_APRON = _flag("FC_FIRE_APRON", "1")
+# LIVE DENSITY KNOB (2026-08-31, second round: "the minor debris ... needs to
+# increase"). `fal.APRON_DENSITY`/`APRON_MAX_PER_SIDE` were raised for the
+# shipped default; this multiplies ON TOP of that table for further tuning
+# without a code edit — 1.0 is the (already denser) new default look.
+APRON_SCALE = float(_env("FA_APRON_SCALE", "1.0"))
 # THE PEOPLE PASS RUNS LAST ("after everything is baked in", user
 # 2026-08-31): FC_PEOPLE_JSON is the REVIEWED records file the fire_people
 # dry run wrote (its PNG is the 2-D gate) — the launcher never re-solves
 # placement, it authors what was approved.
 PEOPLE = _flag("FC_PEOPLE", "1")
 PEOPLE_JSON = _env("FC_PEOPLE_JSON", "")
+# "Only keep humans that are in the disaster" (user, 2026-08-31). Every
+# record already names the burning building it was solved against
+# (`building_i`), so this is a GUARD, not the mechanism — see `place_people`.
+PEOPLE_MAX_DIST_M = float(_env("FC_PEOPLE_MAX_DIST_M", "120"))
+# 1 (default) hides a damaged building's COMPANION ROOF/WALL PROPS along with
+# its intact shell — see `compose_bakes`.
+HIDE_PROPS = _flag("FC_HIDE_PROPS", "1")
+# 1 (default) un-instances any placement whose composed root prim is a GPRIM
+# — see `_uninstance_gprim_roots`.
+UNINSTANCE_GPRIM_ROOTS = _flag("FC_UNINSTANCE_GPRIM_ROOTS", "1")
 SNAP_DIR = _env("SNAP_DIR", "")
 KEEP_OPEN = _flag("KEEP_OPEN", "0")
 
@@ -608,6 +873,142 @@ def hide_intact(stage, path):
     return img.GetVisibilityAttr().Get() == UsdGeom.Tokens.invisible
 
 
+# ---------------------------------------------------------------------------
+# THE COMPANION PROPS (user, 2026-08-31: "/World/stage/generated/
+# roof_house_94_1354/LOD0 this roof house is floating with no building near
+# it" + "Lots of floating debris and roof props")
+# ---------------------------------------------------------------------------
+def prop_tag(usd, x_m, y_m):
+    """`detail/gac_props._place`'s own `of` tag, `"{basename}@{x:.1f},{y:.1f}"`.
+
+    `gac_props.dress()` authors the rooftop kit (`roof_house` stair/lift
+    bulkheads, `roof_tank`, `roof_mast`, `roof_prop`, `wall_run`) as SEPARATE
+    placements appended to the city's placement list — NOT as children of the
+    building they stand on. So hiding a damaged building's intact prim leaves
+    its props standing, unsupported, at the elevation of a roof that is no
+    longer drawn. The bake carries its OWN settled roof plant (see any F5c
+    sidecar's "roof plant: bulkhead on W, 1 row(s) of condensers on a pad"),
+    so the city's props for that building are pure duplication anyway.
+
+    MATCHED BY IDENTITY, NEVER PROXIMITY — `gac_props.roof_plant_of`'s own
+    rule, and its docstring says why: "Matching by nearest-position instead
+    fails on a real street, where the neighbour is closer than the far side of
+    the same building." `gac_props` is not imported here (this launcher does
+    not import the detail package) and the tag format is four characters of
+    contract; `scene_gen/tools/fc_prop_orphan_probe.py` replays `dress()`
+    offline and asserts this launcher's tag against `gac_props`' own.
+
+    THE TAG IS BUILT FROM THE PLACEMENT, NOT THE MANIFEST RECORD. `dress()`
+    formats the BUILDING PLACEMENT's `x_m`/`y_m` at one decimal; a record's
+    own `x`/`y` can differ from the placement by up to the 0.5 m
+    `resolve_cell` tolerates, which is enough to round differently and match
+    nothing.
+    """
+    base = str(usd).rsplit("/", 1)[-1]
+    name = base.rsplit(".", 1)[0] if "." in base else base
+    return "%s@%.1f,%.1f" % (name, float(x_m), float(y_m))
+
+
+def _uninstance_gprim_roots(stage, placements):
+    """Un-instance every placement whose composed root prim is a GPRIM.
+
+    THE BUG (2026-08-31, the 500 m fire city). `downtown_fire_500.yaml` turned
+    on `instance_placements: true` to survive the composition OOM, and
+    `scene_generator.apply_placements` then calls `SetInstanceable(True)` on
+    every placement in a category no prune rule blocks — `house` included.
+
+    USD instancing puts a prim's DESCENDANTS in the prototype and leaves the
+    instance prim itself outside it. For the ordinary asset (an `Xform` root
+    with meshes under it) that is exactly right. For an asset whose REFERENCED
+    ROOT PRIM IS ITSELF A MESH — the Unreal/Muyang exports this repo already
+    special-cases in `apply_placements` ("some assets have a Mesh as their
+    root prim") — the prototype ends up holding only the GeomSubsets and the
+    Looks, with NO Mesh in it, and Hydra draws the prototype. The building
+    renders NOTHING while everything anchored to it (its roof props, its
+    neighbours' shadows of it) stays. Measured on this city
+    (`tools/fc_prop_orphan_probe.py` + a root-prim census of all 43 building
+    assets): 10 of 75 buildings are Mesh-rooted — BG_Building_C and the eight
+    `Building_Type{A,D}_{A,B}` low blocks that make up most of the NE lowrise
+    quarter — and EXACTLY ONE of the 124 roof props stands on one of them:
+    index 1354, the `roof_house` the user named.
+
+    IT IS NOT ONLY THE BUILDINGS, and the second symptom looks different.
+    Same city, same user, same day: "Some props like the street lights also
+    look like they have no texture. What happened to it? same with some
+    benches." These packs author EVERY MATERIAL AS A CHILD OF THE ROOT MESH
+    (`/SM_lightpost_light_post_b/Section0/UnrealMaterial`, ...), and the
+    per-section bindings live on `GeomSubset`s that are children of it too —
+    so instancing separates the drawn points (which stay on the instance
+    prim) from the subsets and materials that texture them (which go to the
+    prototype). Whether a given asset then reads GREY or ABSENT is a Hydra
+    population detail; both are this one cause and both are fixed here.
+
+    MEASURED, by composing every asset in the run TWICE — plain and
+    instanceable — and diffing the computed bound material of every mesh
+    (`tools/fc_instance_material_probe.py`, run over
+    `scene_gen/_scene_assets.tsv`, the provenance stamp of the failing run
+    itself). 14 of the 110 distinct assets are gprim-rooted, and they account
+    for **161 of the 1469 placements**:
+
+        58  streetlight    SM_lightpost_light_post_b.usd   (ALL of them)
+        50  bench          SM_bench_wood_a.usd             (the other 12 are
+                           AEC ParkBench01, Xform-rooted and fine — which is
+                           exactly the user's "SOME benches")
+        16  car            Car_01_0.usd
+        12  traffic_light  SM_light_streetlight_complete.usd
+         7  planter        PlanterLarge_A.usd
+         8  park_feature   SM_prop_fountain_full + 3 water layers
+        10  house          BG_Building_C, Building_Type{A,D}_{A,B}
+
+    The other 96 assets come back `ok` — every bind kept — so the pass is a
+    scalpel, not a blanket un-instancing.
+
+    THE RIGHT HOME FOR THIS IS `scene_generator.apply_placements`, which
+    should never `SetInstanceable` a gprim-rooted prim; every other launcher
+    on `instance_placements: true` still ships these 161. This is the
+    launcher-side repair until that lands.
+
+    Cheap and safe: an instance prim keeps its own composed type, so the test
+    is local, and un-instancing 161 single-mesh props costs nothing against
+    the 1308 placements instancing is actually there for.
+    `FC_UNINSTANCE_GPRIM_ROOTS=0` disables it.
+    """
+    if not UNINSTANCE_GPRIM_ROOTS:
+        return []
+    fixed = []
+    for p in placements:
+        path = p.get("prim_path")
+        if not path:
+            continue
+        prim = stage.GetPrimAtPath(Sdf.Path(path))
+        if not prim or not prim.IsValid() or not prim.IsInstance():
+            continue
+        if not prim.IsA(UsdGeom.Gprim):
+            continue
+        prim.SetInstanceable(False)
+        fixed.append(p)
+    if fixed:
+        by_cat = {}
+        for p in fixed:
+            by_cat[p.get("category")] = by_cat.get(p.get("category"), 0) + 1
+        print("[fc] un-instanced {0} placement(s) whose ROOT PRIM IS A MESH — "
+              "an instanced gprim root leaves the prototype empty and the "
+              "asset renders NOTHING ({1})".format(
+                  len(fixed), ", ".join("{0}={1}".format(k, v)
+                                        for k, v in sorted(
+                                            by_cat.items(),
+                                            key=lambda kv: str(kv[0])))))
+        for p in fixed[:12]:
+            print("[fc]    {0}  {1}".format(
+                p.get("prim_path"), str(p.get("usd", "")).rsplit("/", 1)[-1]))
+        if len(fixed) > 12:
+            print("[fc]    ... and {0} more".format(len(fixed) - 12))
+    else:
+        print("[fc] un-instance pass: no placement has a gprim root "
+              "(nothing to repair)")
+    return fixed
+
+
 def place_holder(stage, stem, x, y, z, yaw_deg, ssf):
     """THE FRESH HOLDER — see this module's docstring. Returns its path."""
     holder = "{0}/{1}".format(FIRE_ROOT, stem)
@@ -651,7 +1052,12 @@ def fire_state(doc, events):
     return None, False
 
 
-def emitter_estimate(doc, events, max_emitters, smoke):
+def emitter_estimate(doc, events, max_emitters, smoke,
+                     side_smoke_flame_max=None, side_smoke_nonflame_max=None,
+                     roof_cap_intact=None, roof_cap_collapsed=None,
+                     flame_min_clusters=None, flame_extra_max=None,
+                     flame_size_scaling=False, smoke_size_scaling=False,
+                     smoke_window_jets=False, residual_flame_frac=0.0):
     """Predicted emitter count for `place_fire(..., max_emitters=...)`.
 
     Mirrors `fire_assembly_lib.place_fire`'s branch structure exactly,
@@ -659,6 +1065,22 @@ def emitter_estimate(doc, events, max_emitters, smoke):
     way it will actually cost. An UPPER BOUND: `_flame_sources` can author
     fewer than `per_opening` prims if a source fails to create, which is why
     the predicted and the actual counts are both printed per building.
+
+    `side_smoke_flame_max`/`side_smoke_nonflame_max`/`roof_cap_intact`/
+    `roof_cap_collapsed` — see `place_fire`'s own docstring for what each
+    caps; `None` (every call before 2026-08-31) reproduces the ORIGINAL
+    fixed budgets exactly (`uf.SMOKE_EXTRA_MAX`/`spl.SMOULDER_EVENTS_MAX`/2/
+    2), so an existing caller that never passes them sees no change.
+    `roof_has_collapsed`/`flame_window_target`/`smoke_window_target` (need
+    `fal`, not otherwise used by this function) are only consulted once a
+    caller actually opts into the knob that needs them — a bare
+    `emitter_estimate(doc, events, n, smoke)` call, exactly as tested, never
+    needs `fal` in scope at all.
+
+    `flame_min_clusters`/`flame_extra_max`/`flame_size_scaling`/`smoke_
+    size_scaling`/`smoke_window_jets`/`residual_flame_frac` — see `place_
+    fire`'s own docstring; all default to their OFF value (`None`/`False`/
+    `0.0`), reproducing the exact pre-2026-08-31 counts.
     """
     f = (doc or {}).get("fire") or {}
     state, wisp = fire_state(doc, events)
@@ -669,22 +1091,62 @@ def emitter_estimate(doc, events, max_emitters, smoke):
     evs = [ev for ev in (events or []) if _live(ev) and ev.get("ops")]
     is_flame = state == "flame"
     n_st = int(f.get("n_storeys") or 0)
-    max_open = (max(max_emitters, min(16, n_st // 2)) if n_st >= 12
-                else max_emitters)
+    if flame_size_scaling:
+        max_open = min(max_emitters, fal.flame_window_target(n_st))
+    else:
+        max_open = (max(max_emitters, min(16, n_st // 2)) if n_st >= 12
+                    else max_emitters)
     n_flame = n_open = 0
+    lit_groups = set()
     for ev in [e for e in evs if e["state"] == "flame"]:
         for _op in ev["ops"]:
             if n_open >= max_open:
                 break
             n_flame += uf.FLAME_PER_OPENING
+            lit_groups.add((ev.get("side"), ev.get("storey")))
             n_open += 1
-    if state == "smoulder" and not wisp:
+    residual_on = bool(residual_flame_frac) and float(residual_flame_frac) > 0.0
+    if state == "smoulder" and not wisp and not residual_on:
         for ev in [e for e in evs if e["state"] == "smoulder"]:
             for _op in ev["ops"]:
                 if n_open >= max(2, max_open // 2):
                     break
                 n_flame += max(1, uf.FLAME_PER_OPENING - 1)
                 n_open += 1
+    # MULTIPLE FLAME CLUSTERS — mirrors `place_fire`'s own extra-cluster
+    # top-up exactly (counting, not authoring).
+    if is_flame and flame_min_clusters is not None:
+        extra_max = fal.FLAME_EXTRA_MAX if flame_extra_max is None \
+            else int(flame_extra_max)
+        extra_budget = min(max(0, max_open - n_open), max(0, extra_max))
+        if len(lit_groups) < int(flame_min_clusters) and extra_budget > 0:
+            n_extra = 0
+            for ev in [e for e in evs if e["state"] == "out"]:
+                for _op in ev["ops"]:
+                    if n_extra >= extra_budget:
+                        break
+                    n_flame += max(1, uf.FLAME_PER_OPENING - 1)
+                    n_open += 1
+                    n_extra += 1
+                if n_extra >= extra_budget:
+                    break
+    # RESIDUAL FLAME POCKETS — mirrors `place_fire`'s `_scattered_selection_
+    # order` (AT MOST ONE OPENING PER EVENT), so this counts EVENTS, not
+    # total ops, unlike every other counting loop here.
+    if not is_flame and not wisp and residual_on:
+        residual_target = max(
+            fal.RESIDUAL_FLAME_MIN,
+            int(round(float(residual_flame_frac)
+                      * fal.flame_window_target(n_st))))
+        n_sm_pockets = len([e for e in evs if e["state"] == "smoulder"])
+        n_residual_sm = min(n_sm_pockets, residual_target)
+        n_residual_out = 0
+        if n_residual_sm < residual_target:
+            n_out_pockets = len([e for e in evs if e["state"] == "out"])
+            n_residual_out = min(n_out_pockets, residual_target - n_residual_sm)
+        n_residual = n_residual_sm + n_residual_out
+        n_flame += n_residual
+        n_open += n_residual
     if not smoke:
         return {"flame": n_flame, "smoke": 0, "interior": 0, "roof": 0,
                 "openings": n_open, "total": n_flame}
@@ -692,20 +1154,94 @@ def emitter_estimate(doc, events, max_emitters, smoke):
         n = len([e for e in evs if e["state"] == "smoulder"][:2])
         return {"flame": 0, "smoke": n, "interior": 0, "roof": 0,
                 "openings": 0, "total": n}
+    side_flame_cap = (fal.smoke_window_target(n_st) if smoke_size_scaling
+                      else (uf.SMOKE_EXTRA_MAX if side_smoke_flame_max is None
+                            else max(0, int(side_smoke_flame_max))))
+    side_nonflame_cap = (fal.smoke_window_target(n_st) if smoke_size_scaling
+                         else (spl.SMOULDER_EVENTS_MAX
+                               if side_smoke_nonflame_max is None
+                               else max(0, int(side_smoke_nonflame_max))))
+    out_fill_enabled = (side_smoke_nonflame_max is not None
+                       or smoke_size_scaling)
     if is_flame:
-        n_smoke = len([e for e in evs if e["state"] == "out"][:uf.SMOKE_EXTRA_MAX])
+        if smoke_window_jets:
+            # OPENING-LEVEL: counts every op across candidate events, capped
+            # — can exceed the event-level count below when a few events
+            # each carry several openings, which is the whole point (more
+            # window jets from the SAME compartments, not more compartments).
+            n_smoke = 0
+            for ev in [e for e in evs if e["state"] == "out"]:
+                for _op in ev["ops"]:
+                    if n_smoke >= side_flame_cap:
+                        break
+                    n_smoke += 1
+                if n_smoke >= side_flame_cap:
+                    break
+        else:
+            n_smoke = len([e for e in evs
+                          if e["state"] == "out"][:side_flame_cap])
     else:
-        n_smoke = len([e for e in evs
-                       if e["state"] == "smoulder"][:spl.SMOULDER_EVENTS_MAX])
+        # SMOULDER FIRST, "OUT" TO FILL THE REST — must mirror `place_fire`'s
+        # own two-pass pick exactly, INCLUDING the same gate: the "out" fill
+        # only happens once a caller explicitly customises
+        # `side_smoke_nonflame_max` OR turns on `smoke_size_scaling` — never
+        # for a bare call, which is what keeps this estimator honest for a
+        # caller that never opts in. Event ids are unique across the WHOLE
+        # events list (`fire_bake.events_to_json`'s `enumerate`), so a
+        # smoulder id and an "out" id never collide and the fill-in never has
+        # to exclude anything already picked.
+        if smoke_window_jets:
+            n_smoke = 0
+            for ev in [e for e in evs if e["state"] == "smoulder"]:
+                for _op in ev["ops"]:
+                    if n_smoke >= side_nonflame_cap:
+                        break
+                    n_smoke += 1
+                if n_smoke >= side_nonflame_cap:
+                    break
+            if out_fill_enabled and n_smoke < side_nonflame_cap:
+                for ev in [e for e in evs if e["state"] == "out"]:
+                    for _op in ev["ops"]:
+                        if n_smoke >= side_nonflame_cap:
+                            break
+                        n_smoke += 1
+                    if n_smoke >= side_nonflame_cap:
+                        break
+        else:
+            n_sm = min(len([e for e in evs if e["state"] == "smoulder"]),
+                      side_nonflame_cap)
+            n_out = 0
+            if out_fill_enabled:
+                n_out = min(len([e for e in evs if e["state"] == "out"]),
+                           max(0, side_nonflame_cap - n_sm))
+            n_smoke = n_sm + n_out
     seats = (doc or {}).get("seats") or {}
-    n_int = 0 if is_flame else len(seats.get("interior") or [])
-    n_roof = len(seats.get("roof") or []) if f.get("roof") else 0
+    # LAST RESORT: mirrors `place_fire`'s own fallback exactly — a building
+    # with zero flame AND zero side smoke still gets its interior seats, so
+    # the estimator prices what a starved-events building (e.g. `gac_
+    # SM_Building_29_F3_o7_ENW_s808` in `city_138`) will actually author
+    # instead of predicting 0 for a building that is not, in fact, empty.
+    n_int = (len(seats.get("interior") or [])
+            if (not is_flame or (n_flame == 0 and n_smoke == 0)) else 0)
+    n_roof = 0
+    if f.get("roof"):
+        roof_cap = 2
+        if roof_cap_intact is not None or roof_cap_collapsed is not None:
+            collapsed = fal.roof_has_collapsed(doc or {})
+            roof_cap = (roof_cap_collapsed if collapsed else roof_cap_intact)
+            roof_cap = 2 if roof_cap is None else max(0, int(roof_cap))
+        n_roof = min(len(seats.get("roof") or []), roof_cap)
     return {"flame": n_flame, "smoke": n_smoke, "interior": n_int,
             "roof": n_roof, "openings": n_open,
             "total": n_flame + n_smoke + n_int + n_roof}
 
 
-def allocate_emitters(rows, budget, cap, smoke):
+def allocate_emitters(rows, budget, cap, smoke, side_smoke_flame_max=None,
+                      side_smoke_nonflame_max=None, roof_cap_intact=None,
+                      roof_cap_collapsed=None, flame_min_clusters=None,
+                      flame_extra_max=None, flame_size_scaling=False,
+                      smoke_size_scaling=False, smoke_window_jets=False,
+                      residual_flame_frac=0.0):
     """Spend `budget` emitters across `rows`, worst building first.
 
     Sets `row["alloc"]` (the `max_emitters` to pass `place_fire`, or `None`
@@ -713,6 +1249,16 @@ def allocate_emitters(rows, budget, cap, smoke):
     predicted total. See this module's docstring for the rule; the ranking is
     state first (flame > smoulder > wisp/residual), then height, then
     manifest order, so the decision is deterministic.
+
+    `side_smoke_*`/`roof_cap_*`/`flame_*`/`smoke_*`/`residual_flame_frac`
+    are forwarded to every `emitter_estimate` call below, unchanged — see
+    that function's own docstring. WHEN `flame_size_scaling` IS ON, `cap`
+    (the ceiling `step` climbs to) should be `fal.FLAME_WINDOWS_MAX`, not
+    the flat `FA_EMITTERS` value — see `emitter_estimate`'s own `min(step,
+    flame_window_target(n_storeys))`: a short building's count PLATEAUS
+    once `step` exceeds its own target (the `delta <= 0` branch below marks
+    it "free" and stops charging it), which is what lets the freed budget
+    keep a tall building's `step` climbing across the rest of the range.
     """
     live = [r for r in rows if r.get("doc")]
     for r in rows:
@@ -738,7 +1284,12 @@ def allocate_emitters(rows, budget, cap, smoke):
     #    go below is priced here too, so a building that does not fit is
     #    dropped whole rather than quietly given a fire nobody can see.
     for r in order:
-        est = emitter_estimate(r["doc"], r["events"], 1, smoke)
+        est = emitter_estimate(r["doc"], r["events"], 1, smoke,
+                               side_smoke_flame_max, side_smoke_nonflame_max,
+                               roof_cap_intact, roof_cap_collapsed,
+                               flame_min_clusters, flame_extra_max,
+                               flame_size_scaling, smoke_size_scaling,
+                               smoke_window_jets, residual_flame_frac)
         if est["total"] == 0:
             r["alloc"], r["est"] = 1, est          # nothing to spend anyway
             continue
@@ -754,7 +1305,13 @@ def allocate_emitters(rows, budget, cap, smoke):
         for r in order:
             if r["alloc"] is None:
                 continue
-            est = emitter_estimate(r["doc"], r["events"], step, smoke)
+            est = emitter_estimate(r["doc"], r["events"], step, smoke,
+                                   side_smoke_flame_max,
+                                   side_smoke_nonflame_max,
+                                   roof_cap_intact, roof_cap_collapsed,
+                                   flame_min_clusters, flame_extra_max,
+                                   flame_size_scaling, smoke_size_scaling,
+                                   smoke_window_jets, residual_flame_frac)
             delta = est["total"] - r["est"]["total"]
             if delta <= 0:
                 r["alloc"] = step                  # free: no more openings
@@ -868,6 +1425,10 @@ class FireCityApp:
         t_layout = time.time()
         self.placements = generate_scene_on_stage(
             stage, config, parent_path=PARENT, scene_scale_factor=self.ssf)
+        # BEFORE the first update: an instanced gprim root renders nothing
+        # (see `_uninstance_gprim_roots`), and the repair has to be in place
+        # before anything downstream measures or photographs the city.
+        self.uninstanced = _uninstance_gprim_roots(stage, self.placements)
         for _ in range(10):
             omni.kit.app.get_app().update()
         settle_rigid_props(
@@ -875,10 +1436,23 @@ class FireCityApp:
             [p["prim_path"] for p in self.placements
              if p.get("settle") and p.get("prim_path")],
             ground_path=PARENT + "/ground")
-        add_sky(stage, resolve_sky(config),
-                intensity=float(config.get("sky_intensity", 3500.0)),
-                exposure=float(config.get("sky_exposure", -3.0)))
-        _disable_sky_sun(stage)
+        if SKY in ("", "sunset"):
+            # UNCHANGED -- byte-identical to every fire-city render before
+            # FC_SKY existed. See sky_presets.py's module docstring for why
+            # this dome-only path is what "sunset" means HERE specifically
+            # (no sun at all, not a literal low-sun look like the bench's).
+            add_sky(stage, resolve_sky(config),
+                    intensity=float(config.get("sky_intensity", 3500.0)),
+                    exposure=float(config.get("sky_exposure", -3.0)))
+            _disable_sky_sun(stage)
+        else:
+            # Still veto a borrowed stage's own sun (none of today's presets
+            # set `sky:`, but a future one might) before authoring ours, so
+            # there is never a second, unaccounted-for DistantLight.
+            _disable_sky_sun(stage)
+            resolved_sky = apply_sky_preset(stage, SKY, prefix="fc")
+            print("[fc] sky: FC_SKY={0} -> preset '{1}'".format(
+                SKY, resolved_sky))
         for _ in range(10):
             omni.kit.app.get_app().update()
         self.t_layout = time.time() - t_layout
@@ -969,10 +1543,49 @@ class FireCityApp:
         self.missing = missing
         return rows
 
+    def hide_companion_props(self, cell):
+        """Hide the roof/wall props that belong to the building at `cell`.
+
+        See `prop_tag` for the rule and why it is identity on the `of` tag
+        rather than a radius. Returns the list of prop placements hidden.
+        """
+        if not HIDE_PROPS:
+            return []
+        bld = self._placement_by_path.get(cell)
+        if bld is None:
+            return []
+        tag = prop_tag(bld.get("usd", ""), bld.get("x_m", 0.0),
+                       bld.get("y_m", 0.0))
+        out = []
+        for p in self._props_by_tag.get(tag, ()):
+            path = p.get("prim_path")
+            if path and hide_intact(self.stage, path):
+                out.append(p)
+            elif path:
+                print("[fc] WARNING: could not hide companion prop {0}"
+                      .format(path))
+        return out
+
     def compose_bakes(self):
         """Hide each intact cell and reference its bake under a fresh holder."""
         stage = self.stage
         UsdGeom.Xform.Define(stage, Sdf.Path(FIRE_ROOT))
+        # THE COMPANION-PROP INDEX (see `prop_tag`). Built once: `of` is the
+        # only explicit building->prop link in a placement list, and it is
+        # written by `gac_props._place` on every prop it authors.
+        self._placement_by_path = {p["prim_path"]: p for p in self.placements
+                                   if p.get("prim_path")}
+        self._props_by_tag = {}
+        for p in self.placements:
+            t = p.get("of")
+            if t:
+                self._props_by_tag.setdefault(t, []).append(p)
+        print("[fc] companion props: {0} placement(s) carry an `of` tag "
+              "across {1} building(s) (FC_HIDE_PROPS={2})".format(
+                  sum(len(v) for v in self._props_by_tag.values()),
+                  len(self._props_by_tag), int(HIDE_PROPS)))
+        self.hidden_props = []
+        self._hidden_cells = []
         placed, refused = [], []
         n_cell_matched = 0
         for r in self.rows:
@@ -1009,8 +1622,24 @@ class FireCityApp:
                               city.get("yaw_deg", 0.0), x, y, yaw))
             if hide_intact(stage, cell):
                 self.n_hidden += 1
+                self._hidden_cells.append(cell)
             else:
                 print("[fc] WARNING: could not hide {0}".format(cell))
+            # ... AND ITS COMPANION PROPS, which are siblings of the cell,
+            # not children of it, so hiding the cell leaves them hovering
+            # over a roof that is no longer drawn.
+            r["hidden_props"] = self.hide_companion_props(cell)
+            self.hidden_props += r["hidden_props"]
+            if r["hidden_props"]:
+                by_cat = {}
+                for q in r["hidden_props"]:
+                    by_cat[q.get("category")] = by_cat.get(q.get("category"),
+                                                           0) + 1
+                print("[fc]     + {0} companion prop(s) hidden with it ({1})"
+                      .format(len(r["hidden_props"]),
+                              ", ".join("{0}={1}".format(k, v) for k, v
+                                        in sorted(by_cat.items(),
+                                                  key=lambda kv: str(kv[0])))))
             holder, kid = place_holder(stage, r["stem"], x, y, z, yaw, self.ssf)
             if not kid.GetReferences().AddReference(r["usd"]):
                 print("[fc] *** FAILED to reference {0}".format(r["usd"]))
@@ -1040,8 +1669,27 @@ class FireCityApp:
             omni.kit.app.get_app().update()
         self.placed, self.refused = placed, refused
         print("[fc] {0} bake(s) composed, {1} refused, {2} intact prim(s) "
-              "hidden ({3})".format(len(placed), len(refused), self.n_hidden,
-                                    HIDE_MODE))
+              "hidden ({3}), {4} companion prop(s) hidden with them".format(
+                  len(placed), len(refused), self.n_hidden, HIDE_MODE,
+                  len(self.hidden_props)))
+        # THE ORPHAN CHECK. Anything still `of`-tagged to a hidden building
+        # after this pass is a prop the rule missed, and it will be standing
+        # in mid-air. Zero is the only acceptable number.
+        hidden_tags = set()
+        for cell in self._hidden_cells:
+            bld = self._placement_by_path.get(cell)
+            if bld:
+                hidden_tags.add(prop_tag(bld.get("usd", ""),
+                                         bld.get("x_m", 0.0),
+                                         bld.get("y_m", 0.0)))
+        done = {p.get("prim_path") for p in self.hidden_props}
+        left = [p for t in hidden_tags for p in self._props_by_tag.get(t, ())
+                if p.get("prim_path") not in done]
+        if left:
+            print("[fc] *** {0} prop(s) still tagged to a HIDDEN building — "
+                  "they are floating: {1}".format(
+                      len(left), ", ".join(str(p.get("prim_path"))
+                                           for p in left[:8])))
         # THE REGRESSION CHECK FOR THE 2026-08-30 INCIDENT: with a manifest
         # derived from `FC_DUMP`/`--placements-json`, Kit-to-Kit determinism
         # (same preset/seed -> same layout) means every record's cell should
@@ -1094,7 +1742,7 @@ class FireCityApp:
             self.aprons = []
             return
         rows = fal.fire_apron_pass(self.stage, FIRE_ROOT, self.placed,
-                                   seed=SEED)
+                                   seed=SEED, scale=APRON_SCALE)
         self.aprons = rows
         n_lumps = sum(r["n"] for r in rows)
         n_buildings = sum(1 for r in rows if r.get("prim"))
@@ -1113,6 +1761,166 @@ class FireCityApp:
                 n_lumps, n_buildings))
 
     # -- 4) the fire, under a GLOBAL emitter budget -------------------------
+    @staticmethod
+    def people_records(doc):
+        """The record list out of whatever shape the people JSON is in.
+
+        THE 2026-08-31 CRASH. `tools/fire_people_dry_run.py` writes
+        ``{"meta", "people", "census", "refused", "dropped", "degraded"}`` —
+        the records are under **`people`**, and there is no `records` key at
+        all. This launcher handed the whole dict to
+        `fire_people.to_placements`, whose fallback is ``list(
+        plan_or_records)``; on a dict that yields its KEYS, so `_convertible`
+        got the string ``"meta"`` and raised
+
+            AttributeError: 'str' object has no attribute 'get'
+
+        which propagated out of `run()` and killed the launch AFTER the whole
+        city, all 20 bakes and all 247 emitters were up — no people, and no
+        captures either, because `capture()` and `banner()` never ran. The
+        pane's own record of it: "URBAN FIRE CITY FAILED: 'str' object has no
+        attribute 'get'" at 50.4 s of app uptime.
+
+        `people` first, then `records`, then a bare list. Anything else is a
+        loud, named error rather than a shape guess.
+        """
+        if isinstance(doc, dict):
+            for key in ("people", "records"):
+                v = doc.get(key)
+                if isinstance(v, list):
+                    return v, key
+            raise TypeError(
+                "people JSON is a dict with keys {0} — expected a `people` or "
+                "`records` list (tools/fire_people_dry_run.py writes "
+                "`people`)".format(sorted(doc)))
+        if isinstance(doc, list):
+            return doc, "(bare list)"
+        raise TypeError("people JSON is a {0}; expected a list of records or "
+                        "a dict carrying one".format(type(doc).__name__))
+
+    def people_in_the_fire(self, recs):
+        """"Only keep humans that are in the disaster" (user, 2026-08-31).
+
+        `(kept, dropped)`, filtering on the distance to the nearest BURNING
+        BUILDING'S FOOTPRINT — not its centre. The centre is the wrong datum
+        on this scene by a wide margin: the four onlookers watching
+        `SM_Building_31` stand 122 m from its centre and 59 m from its wall,
+        because that building is 149 x 64 m in plan. Measured over
+        `_plans/fire_people_final.json` x `_plans/fire_city_500m.json`: every
+        one of the 89 records is within **59.5 m** of a burning footprint
+        (median 13.8 m), so the default 120 m drops nothing here.
+
+        THIS IS A GUARD, NOT THE MECHANISM. The records already come from a
+        solve that seeded every figure against a specific burning building
+        (`building_i`, and all 89 of this file's point at a manifest record),
+        so there are no background pedestrians to remove — the filter exists
+        so a hand-edited or re-solved records file cannot quietly scatter
+        onlookers across a city that is only burning in one corner.
+        `FC_PEOPLE_MAX_DIST_M=0` disables it.
+        """
+        if PEOPLE_MAX_DIST_M <= 0.0:
+            return list(recs), []
+        burning = []
+        for r in (getattr(self, "placed", None) or []):
+            rec = r.get("rec") or {}
+            burning.append((float(rec.get("x", 0.0)), float(rec.get("y", 0.0)),
+                            float(rec.get("W", 0.0)), float(rec.get("D", 0.0)),
+                            math.radians(float(rec.get("yaw_deg", 0.0)))))
+        if not burning:
+            print("[fc] people: nothing is burning on this stage — the "
+                  "distance filter has no datum, keeping all {0} record(s)"
+                  .format(len(recs)))
+            return list(recs), []
+        kept, dropped = [], []
+        for rec in recs:
+            px, py = float(rec.get("x", 0.0)), float(rec.get("y", 0.0))
+            best = 1e18
+            for cx, cy, W, D, a in burning:
+                dx, dy = px - cx, py - cy
+                ca, sa = math.cos(a), math.sin(a)
+                u = ca * dx + sa * dy
+                v = -sa * dx + ca * dy
+                d = math.hypot(max(0.0, abs(u) - W / 2.0),
+                               max(0.0, abs(v) - D / 2.0))
+                if d < best:
+                    best = d
+            (kept if best <= PEOPLE_MAX_DIST_M else dropped).append(
+                (rec, best))
+        if dropped:
+            print("[fc] people: {0} record(s) DROPPED — further than {1:.0f} m "
+                  "(FC_PEOPLE_MAX_DIST_M) from any burning building's "
+                  "footprint".format(len(dropped), PEOPLE_MAX_DIST_M))
+            for rec, d in sorted(dropped, key=lambda kv: -kv[1])[:8]:
+                print("[fc]    id {0} {1:<14} {2:.0f} m".format(
+                    rec.get("id"), rec.get("cls"), d))
+        far = max([d for _, d in kept], default=0.0)
+        print("[fc] people: {0}/{1} record(s) within {2:.0f} m of a burning "
+              "footprint (farthest kept {3:.1f} m)".format(
+                  len(kept), len(recs), PEOPLE_MAX_DIST_M, far))
+        return [rec for rec, _ in kept], [rec for rec, _ in dropped]
+
+    def cull_background_people(self):
+        """"Only keep humans that are in the disaster" — applied to the CITY's
+        OWN pedestrians, which is where the rule actually bites.
+
+        The 89 approved `fire_people` records were never the problem: every
+        one of them was solved against a specific burning building and all 89
+        sit within 59.5 m of a burning footprint. But `generate_scene_on_stage`
+        ALSO plants its own background population — `scene_generator`'s
+        sidewalk/crossing pedestrians and `detail/parks.py`'s park figures,
+        `category == "human"` — scattered across the whole plate with no idea
+        there is a fire on it. This run has **128 of them** against 75
+        buildings (`scene_gen/_scene_assets.tsv`), most of them blocks away
+        from anything burning, and they are what makes the scene read as a
+        normal Tuesday with a fire in the corner.
+
+        They are HIDDEN, not deleted: `FC_HIDE` already exists for exactly
+        this ("an invisible prim still composes and still costs memory; a
+        deactivated one does not"), the same treatment the intact shells get,
+        and it keeps the placement list and every index into it intact.
+
+        Same datum as `people_in_the_fire`: distance to the nearest burning
+        building's FOOTPRINT, `FC_PEOPLE_MAX_DIST_M` (0 disables).
+        """
+        if PEOPLE_MAX_DIST_M <= 0.0 or not getattr(self, "placed", None):
+            self.culled_people = []
+            return
+        burning = []
+        for r in self.placed:
+            rec = r.get("rec") or {}
+            burning.append((float(rec.get("x", 0.0)), float(rec.get("y", 0.0)),
+                            float(rec.get("W", 0.0)), float(rec.get("D", 0.0)),
+                            math.radians(float(rec.get("yaw_deg", 0.0)))))
+        kept, culled = 0, []
+        for p in self.placements:
+            if p.get("category") != "human" or not p.get("prim_path"):
+                continue
+            px, py = float(p.get("x_m", 0.0)), float(p.get("y_m", 0.0))
+            best = 1e18
+            for cx, cy, W, D, a in burning:
+                dx, dy = px - cx, py - cy
+                ca, sa = math.cos(a), math.sin(a)
+                u = ca * dx + sa * dy
+                v = -sa * dx + ca * dy
+                best = min(best, math.hypot(max(0.0, abs(u) - W / 2.0),
+                                            max(0.0, abs(v) - D / 2.0)))
+            if best <= PEOPLE_MAX_DIST_M:
+                kept += 1
+                continue
+            if hide_intact(self.stage, p["prim_path"]):
+                culled.append((p, best))
+        self.culled_people = [q for q, _d in culled]
+        n = kept + len(culled)
+        print("[fc] background pedestrians: {0} of the city's own {1} human "
+              "placement(s) hidden — further than {2:.0f} m "
+              "(FC_PEOPLE_MAX_DIST_M) from any burning footprint; {3} kept "
+              "in the fire".format(len(culled), n, PEOPLE_MAX_DIST_M, kept))
+        if culled:
+            far = max(d for _q, d in culled)
+            print("[fc]   farthest was {0:.0f} m out; the approved "
+                  "fire_people records are authored separately and are NOT "
+                  "touched by this pass".format(far))
+
     def place_people(self):
         """Author the approved people records onto the assembled city.
 
@@ -1120,6 +1928,13 @@ class FireCityApp:
         `apply_placements` dicts (pose binding, prone rolls, pose-z drops);
         NOT instanced — `_bind_human_pose` edits inside each rig. Runs after
         `put_the_fire_back` so figures land on the final scene.
+
+        NOTHING IN HERE MAY ABORT THE LAUNCH. The 2026-08-31 crash (see
+        `people_records`) took the captures down with it, which is the one
+        deliverable of a run; the whole pass is inside a try/except that
+        prints and returns. Progress is printed BEFORE the conversion and
+        again before authoring, so a pass that stops making progress is
+        distinguishable in the pane from one that never started.
         """
         if not PEOPLE:
             print("[fc] people: FC_PEOPLE=0 — skipped")
@@ -1129,18 +1944,62 @@ class FireCityApp:
                   "run tools/fire_people_dry_run.py and pass its records "
                   "JSON".format(PEOPLE_JSON))
             return
-        import json as _json
-        import scene_generator as _sg
-        from disaster import fire_people as fpl
-        doc = _json.load(open(PEOPLE_JSON))
-        placements, skipped = fpl.to_placements(doc)
-        _sg.apply_placements(self.stage, placements, PARENT + "/people",
-                             self.ssf)
-        by = {}
-        for r in (doc.get("records") if isinstance(doc, dict) else doc) or []:
-            by[r.get("cls", "?")] = by.get(r.get("cls", "?"), 0) + 1
-        print("[fc] people: {0} authored, {1} skipped ({2})".format(
-            len(placements), len(skipped),
+        t0 = time.time()
+        try:
+            import json as _json
+            import scene_generator as _sg
+            from disaster import fire_people as fpl
+            doc = _json.load(open(PEOPLE_JSON))
+            recs, key = self.people_records(doc)
+            print("[fc] people: {0} record(s) read from {1} (key {2!r})"
+                  .format(len(recs), PEOPLE_JSON, key))
+            recs, _out = self.people_in_the_fire(recs)
+            by = {}
+            for r in recs:
+                by[r.get("cls", "?")] = by.get(r.get("cls", "?"), 0) + 1
+            placements, skipped = fpl.to_placements(recs)
+            print("[fc] people: converting -> {0} placement(s), {1} skipped "
+                  "({2}); authoring under {3}/people".format(
+                      len(placements), sum(len(v) for v in skipped.values()),
+                      ", ".join("{0}={1}".format(k, len(v))
+                                for k, v in sorted(skipped.items())) or "none",
+                      PARENT))
+            # ONE CALL, NOT CHUNKS. `apply_placements` names a prim
+            # `<parent>/<category>_<group>_<i>` with `i` the index INTO THE
+            # LIST IT WAS GIVEN, and both `i` and `group` restart at 0 on
+            # every call — so authoring in chunks under one parent makes
+            # chunk 2's `human_0_0` land on chunk 1's prim and add a SECOND
+            # reference to it. The progress this pass needs instead is the
+            # asset count printed below: the slow step is the cold Nucleus
+            # fetch of each distinct RenderPeople rig, which happens once per
+            # asset, not once per figure.
+            assets = sorted({p["usd"] for p in placements})
+            print("[fc] people: {0} figure(s) over {1} distinct rig(s) — a "
+                  "cold Nucleus fetch of these is the slow step:".format(
+                      len(placements), len(assets)))
+            for u in assets:
+                print("[fc]    {0} x{1}".format(
+                    u.rsplit("/", 1)[-1],
+                    sum(1 for p in placements if p["usd"] == u)))
+            _sg.apply_placements(self.stage, placements, PARENT + "/people",
+                                 self.ssf)
+            omni.kit.app.get_app().update()
+            n_live = 0
+            for k in range(len(placements)):
+                pp = placements[k].get("prim_path")
+                if pp and self.stage.GetPrimAtPath(Sdf.Path(pp)).IsValid():
+                    n_live += 1
+            print("[fc] people: {0}/{1} prim(s) valid on the stage under "
+                  "{2}/people".format(n_live, len(placements), PARENT))
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            print("[fc] *** people pass FAILED ({0}) — the city, the bakes "
+                  "and the fire are all up; continuing to the captures "
+                  "WITHOUT people rather than aborting the run".format(exc))
+            return
+        print("[fc] people: {0} authored in {1:.0f} s ({2})".format(
+            len(placements), time.time() - t0,
             ", ".join("{0} {1}".format(k, v) for k, v in sorted(by.items()))))
         vram_mb("people placed")
 
@@ -1155,11 +2014,41 @@ class FireCityApp:
         print("[fc] flow stack up at {0} ({1} m cells, {2} block pool)".format(
             flow_root, CELL_M, MAX_BLOCKS))
 
-        predicted = allocate_emitters(self.placed, EMITTER_BUDGET,
-                                      MAX_EMITTERS, SMOKE)
+        # STREET-FACING BIAS — computed ONCE, from the dump, before the loop
+        # below (not per building): `fal.load_dump_positions` is a flat file
+        # read, cheap to call once and reuse, expensive to reopen 32 times
+        # for no reason. Missing/unparseable degrades to `{}` — every
+        # `street_side_ranks` call then also returns `{}` (see its own
+        # docstring) and `place_fire` falls back to its ORIGINAL unweighted
+        # round-robin, so a run with no dump path never fails over this.
+        street_positions = (fal.load_dump_positions(STREET_DUMP_PATH)
+                            if STREET_DUMP_PATH else {})
+        # kept for capture(): the same footprints double as the oblique
+        # review camera's occluder list (`fal.clear_oblique`)
+        self.street_positions = street_positions
+        print("[fc] street-facing bias: {0} from {1!r}".format(
+            "{0} building position(s) loaded".format(len(street_positions))
+            if street_positions else "OFF (no/unreadable dump)",
+            STREET_DUMP_PATH))
+
+        predicted = allocate_emitters(
+            self.placed, EMITTER_BUDGET, MAX_EMITTERS, SMOKE,
+            SIDE_SMOKE_FLAME_MAX, SIDE_SMOKE_NONFLAME_MAX,
+            ROOF_CAP_INTACT, ROOF_CAP_COLLAPSED,
+            FLAME_MIN_CLUSTERS if FLAME_MIN_CLUSTERS > 0 else None,
+            FLAME_EXTRA_MAX, FLAME_SIZE_SCALE, SMOKE_SIZE_SCALE,
+            SMOKE_WINDOW_JETS, RESIDUAL_FLAME_FRAC)
         print("\n[fc] EMITTER BUDGET {0} (FA_EMITTER_BUDGET), {1} damaged "
-              "building(s), per-building cap {2} opening(s) (FA_EMITTERS)"
-              .format(EMITTER_BUDGET, len(self.placed), MAX_EMITTERS))
+              "building(s), per-building cap {2} opening(s) (FA_EMITTERS), "
+              "side smoke {3}/{4} (flame/non-flame), roof cap {5}/{6} "
+              "(intact/collapsed), size-scaling flame={7} smoke={8}, "
+              "window-jets={9}, residual-flame-frac={10}, min-clusters={11}"
+              .format(EMITTER_BUDGET, len(self.placed), MAX_EMITTERS,
+                      SIDE_SMOKE_FLAME_MAX, SIDE_SMOKE_NONFLAME_MAX,
+                      ROOF_CAP_INTACT, ROOF_CAP_COLLAPSED,
+                      int(FLAME_SIZE_SCALE), int(SMOKE_SIZE_SCALE),
+                      int(SMOKE_WINDOW_JETS), RESIDUAL_FLAME_FRAC,
+                      FLAME_MIN_CLUSTERS))
         print("[fc]   {0:<3} {1:<30} {2:<5} {3:<9} {4:>3} {5:>5} {6:>6}  {7}"
               .format("#", "stem", "level", "state", "st", "alloc", "pred",
                       "note"))
@@ -1198,28 +2087,121 @@ class FireCityApp:
             fb.place(r["masses"], r["events"], r["doc"].get("seats"),
                      r["x"], r["y"], r["yaw"])
             top_z = r["bbox"][5] if r.get("bbox") else r["doc"].get("top_z")
+            sides = tuple((r["doc"].get("fire") or {}).get("sides") or ())
+            # KEY BY THE RECORD'S OWN GLOBAL DUMP INDEX, not the row's
+            # enumerate position: `street_positions` is keyed 214-297 (the
+            # dump's `i`), while `r["i"]` here is 0..N-1 — the wrong key
+            # returns `{}` and the street bias silently no-ops for every
+            # building while the launch banner still reads correct.
+            street_rank = fal.street_side_ranks(street_positions,
+                                                r["rec"].get("i"), sides)
+            # RANDOMISED, NOT ARGMAX (2026-08-31, second review: "street
+            # facing fires all seem to be in the top left. I want it
+            # randomized"). Seeded off the bake's own STEM — stable no
+            # matter which row this run happens to iterate it as — so two
+            # buildings sharing the identical `street_rank` pattern (common:
+            # `street_side_score`'s 200 m "nothing nearby" sentinel repeats
+            # across a whole district) still draw independently. See
+            # `fal.choose_street_side`'s own docstring for the measured
+            # cause and `_side_weights`' own docstring for why this function
+            # never recomputes the choice itself.
+            street_bias_side = fal.choose_street_side(
+                street_rank, "{0}-{1}-street".format(SEED, r["stem"]))
             res = fal.place_fire(
                 self.stage, flow_root, r["doc"], r["masses"], r["events"],
                 "c{0}".format(r["i"]), random.Random(SEED + 31 * r["i"]),
                 top_z, 0.0, 0.0, scale=SCALE, max_emitters=r["alloc"],
-                smoke=SMOKE)
+                smoke=SMOKE, smoke_scale=SMOKE_SCALE,
+                street_bias_side=street_bias_side,
+                street_bias_weight=STREET_BIAS_WEIGHT,
+                side_smoke_flame_max=SIDE_SMOKE_FLAME_MAX,
+                side_smoke_nonflame_max=SIDE_SMOKE_NONFLAME_MAX,
+                roof_cap_intact=ROOF_CAP_INTACT,
+                roof_cap_collapsed=ROOF_CAP_COLLAPSED,
+                flame_min_clusters=(FLAME_MIN_CLUSTERS
+                                    if FLAME_MIN_CLUSTERS > 0 else None),
+                flame_extra_max=FLAME_EXTRA_MAX,
+                flame_size_scaling=FLAME_SIZE_SCALE,
+                smoke_size_scaling=SMOKE_SIZE_SCALE,
+                smoke_window_jets=SMOKE_WINDOW_JETS,
+                residual_flame_frac=RESIDUAL_FLAME_FRAC,
+                smoke_vertical_bias=SMOKE_VERTICAL_BIAS,
+                # CONTACT SNAP — `bake_geometry_root` resolves to
+                # `<holder>/bake/bake`, where the referenced bake's own
+                # geometry actually composed (`compose_bakes` referenced it
+                # onto `<holder>/bake`; the bake's own default prim is
+                # `/World`, its content root `/World/bake`). `r["prim"]` is
+                # that holder path, set by `compose_bakes` for exactly this
+                # use. `None` (CONTACT_SNAP off) reproduces the pre-fix
+                # placement exactly.
+                geom_root=(fal.bake_geometry_root(r["prim"], r["doc"])
+                          if CONTACT_SNAP else None),
+                snap_tol_m=SNAP_TOL_M, snap_inset_m=SNAP_INSET_M,
+                snap_reach_in_m=SNAP_REACH_IN_M,
+                snap_reach_out_m=SNAP_REACH_OUT_M)
             res["i"] = r["i"]
             res["total"] = (res["flame"] + res["smoke"] + res["interior"]
                             + res["roof"])
             fires.append(res)
             print("[fc] d{0:<2} fire: {1} flame over {2} opening(s), {3} "
-                  "smoke, {4} interior, {5} roof = {6} (predicted {7}, "
-                  "state={8})".format(
+                  "side smoke, {4} interior, {5} roof = {6} (predicted {7}, "
+                  "state={8}, roof_collapsed={9}, street_rank={10}, "
+                  "boosted_side={11})".format(
                       r["i"], res["flame"], res.get("openings", 0),
                       res["smoke"], res["interior"], res["roof"],
                       res["total"], r.get("est", {}).get("total", 0),
-                      res.get("state")))
+                      res.get("state"), res.get("roof_collapsed"),
+                      street_rank or "n/a", street_bias_side or "none"))
             if res.get("note"):
                 print("[fc]     " + res["note"])
+            snap = res.get("snap") or {}
+            if snap.get("tested"):
+                print("[fc]     contact snap: {0} tested, {1} ok, {2} "
+                      "snapped, {3} dropped, worst pre-fix offset {4:.2f} m"
+                      .format(snap.get("tested", 0), snap.get("ok", 0),
+                              snap.get("snapped", 0), snap.get("dropped", 0),
+                              snap.get("worst_offset_m", 0.0)))
+            elif CONTACT_SNAP and not snap.get("locator"):
+                print("[fc]     contact snap: no locator built for {0} — "
+                      "vtk unavailable, or the composed bake carried no "
+                      "usable geometry".format(r["stem"]))
+            top = res.get("synthetic_top") or {}
+            if top.get("dropped"):
+                print("[fc]     top-storey synthetic: {0}/{1} synthetic "
+                      "opening(s) above storey {2} dropped".format(
+                          top.get("dropped", 0), top.get("tested", 0),
+                          top.get("max_allowed")))
         self.fires = fires
         total = sum(f["total"] for f in fires)
         print("[fc] {0} Flow emitter(s) in all (budget {1}, predicted {2})"
               .format(total, EMITTER_BUDGET, predicted))
+        if CONTACT_SNAP:
+            snap_tot = {"tested": 0, "ok": 0, "snapped": 0, "dropped": 0}
+            snap_worst = 0.0
+            n_locator = 0
+            for f in fires:
+                s = f.get("snap") or {}
+                for k in ("tested", "ok", "snapped", "dropped"):
+                    snap_tot[k] += s.get(k, 0)
+                snap_worst = max(snap_worst, s.get("worst_offset_m", 0.0))
+                n_locator += int(bool(s.get("locator")))
+            print("[fc] CONTACT SNAP (FC_CONTACT_SNAP=1): {0} building(s) "
+                  "with a locator, {1} opening(s) tested, {2} already "
+                  "touching, {3} snapped onto real geometry, {4} dropped "
+                  "(no geometry within reach), worst pre-fix offset "
+                  "{5:.2f} m (tol {6:.2f} m, inset {7:.2f} m)".format(
+                      n_locator, snap_tot["tested"], snap_tot["ok"],
+                      snap_tot["snapped"], snap_tot["dropped"], snap_worst,
+                      SNAP_TOL_M, SNAP_INSET_M))
+        top_tot = {"tested": 0, "dropped": 0}
+        for f in fires:
+            t = f.get("synthetic_top") or {}
+            for k in top_tot:
+                top_tot[k] += t.get(k, 0)
+        print("[fc] TOP-STOREY SYNTHETIC FILTER: {0} synthetic opening(s) "
+              "tested citywide, {1} dropped for sitting above the excluded "
+              "top storeys (kit and real-glazing GAC openings are never "
+              "tested)".format(top_tot["tested"], top_tot["dropped"]))
         if total > EMITTER_BUDGET:
             print("[fc] *** OVER BUDGET: {0} > {1}. Flow's block pool is "
                   "finite; past it every emitter after the first few gets no "
@@ -1316,12 +2298,25 @@ class FireCityApp:
                 H = (b[5] - b[2]) if b else 30.0
                 back = max(70.0, 1.8 * H)
                 fwd = max(150.0, 0.55 * span)
-                eye = ((org["x"] - back * ux) * self.ssf,
-                       (org["y"] - back * uy) * self.ssf,
-                       max(14.0, 0.45 * H) * self.ssf)
-                tgt = ((org["x"] + fwd * ux) * self.ssf,
-                       (org["y"] + fwd * uy) * self.ssf,
-                       (0.30 * H) * self.ssf)
+                ex, ey = org["x"] - back * ux, org["y"] - back * uy
+                tx, ty = org["x"] + fwd * ux, org["y"] + fwd * uy
+                ez, tz = max(14.0, 0.45 * H), 0.30 * H
+                # raise the eye until the sightline clears every building
+                # between it and the target (v4's wave was nose-to-wall
+                # against a neighbour's facade)
+                wobs = list((getattr(self, "street_positions", None)
+                             or {}).values())
+                if wobs:
+                    dd = math.hypot(ex - tx, ey - ty)
+                    azd = math.degrees(math.atan2(ey - ty, ex - tx))
+                    ez2 = fal.raise_over_sightline(tx, ty, tz, dd, azd,
+                                                   ez, wobs)
+                    if ez2 > ez:
+                        print("[fc] wave eye raised {0:.0f} -> {1:.0f} m "
+                              "to clear the sightline".format(ez, ez2))
+                        ez = ez2
+                eye = (ex * self.ssf, ey * self.ssf, ez * self.ssf)
+                tgt = (tx * self.ssf, ty * self.ssf, tz * self.ssf)
                 snaps.place_camera(self.stage, eye, tgt)
                 snaps.snapshot(os.path.join(SNAP_DIR, "wave_downwind.png"))
                 print("[fc] the wave: from ({0:+.0f}, {1:+.0f}) at {2:.0f} m "
@@ -1339,6 +2334,19 @@ class FireCityApp:
                     r["i"], r["doc"].get("name") or r["stem"],
                     r["doc"].get("level", ""))
                 vp = fal.fire_view_params(r["doc"], r["masses"], b)
+                # push the oblique out of any neighbour it would sit inside
+                # (3 of 32 city_v3 obliques were shot from inside a wall)
+                obs = [o for i2, o in
+                       (getattr(self, "street_positions", None) or {}).items()
+                       if i2 != r["rec"].get("i")]
+                if obs:
+                    vp, moved = fal.clear_oblique(vp, r["x"], r["y"], obs)
+                    if moved:
+                        print("[fc] obl camera for {0} pushed {1} step(s) "
+                              "clear of a neighbour (dist {2:.0f} m, "
+                              "h {3:.0f} m)".format(name, moved,
+                                                    vp["obl_dist"],
+                                                    vp["obl_h"]))
                 snaps.views_around(self.stage, {name: (r["x"], r["y"])},
                                    SNAP_DIR, self.ssf, top_h=vp["top_h"],
                                    obl_dist=vp["obl_dist"],
@@ -1451,6 +2459,7 @@ class FireCityApp:
         self.scorch_vegetation()
         self.fire_debris_apron()
         self.put_the_fire_back()
+        self.cull_background_people()
         self.place_people()
         self.capture()
         self.banner()
@@ -1490,6 +2499,15 @@ class FireCityApp:
                       "fuel placement(s) checked (FC_SCORCH_VEG={2})".format(
                           veg.get("trees", 0), veg.get("fuels_total", 0),
                           int(SCORCH_VEG)))
+            print("  background pedestrians hidden (outside the fire): {0}"
+                  .format(len(getattr(self, "culled_people", []) or [])))
+            print("  companion props hidden with their damaged building: {0} "
+                  "(FC_HIDE_PROPS={1});  gprim-root placements un-instanced: "
+                  "{2} (FC_UNINSTANCE_GPRIM_ROOTS={3})".format(
+                      len(getattr(self, "hidden_props", []) or []),
+                      int(HIDE_PROPS),
+                      len(getattr(self, "uninstanced", []) or []),
+                      int(UNINSTANCE_GPRIM_ROOTS)))
             aprons = getattr(self, "aprons", None)
             if aprons is not None:
                 n_b = sum(1 for r in aprons if r.get("prim"))

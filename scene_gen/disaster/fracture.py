@@ -2985,20 +2985,363 @@ def subdivide_to_budget(v, f, budget=260):
     return np.asarray(v, dtype=float), np.asarray(f, dtype=np.int64)
 
 
-def roughen_arrays(v, rng, amp_m, lam_scale=5.5):
+# ---------------------------------------------------------------------------
+# ROUND 6: THE TWO THINGS A HALF-SPACE CLIP CANNOT DO
+# ---------------------------------------------------------------------------
+#
+# THE MEASUREMENT THAT FORCED THIS. `tools/pillar_break_bench.py` renders the
+# production chip path on the two shapes the user keeps pointing at, and
+# samples the solid on a grid (`vtkSelectEnclosedPoints`) to get the CROSS-
+# SECTION FILL at 44 stations along a piece. On a 0.40 x 0.40 x 3.50 m concrete
+# column through `_CHIP_KIND["column"]`, round 5 gives:
+#
+#     station     1   2   3  ...  22  ...  41  42  43  44
+#     fill %     22  42  61      92       91  92  88  72
+#
+# — the two END stations lose material and THE OTHER FORTY DO NOT. The render
+# agrees: the shaft is a dead-straight prism for 3.2 of its 3.5 m and the piece
+# reads, correctly, as "a perfect cuboid with the top corner knocked off". That
+# is the user's complaint, made three review rounds running, and no amount of
+# retuning `depth_frac` fixes it, because:
+#
+#   A PLANE CLIP CAN ONLY REMOVE MATERIAL AT AN EXTREME CORNER. `_one_chip`
+#   cuts at `n * (hi - d)` where `hi` is the piece's MAXIMUM projection along
+#   the drawn normal, so whatever normal is drawn, the removed region contains
+#   the vertex that is extreme along it. On a convex box that is one of the 8
+#   corners — and all 8 corners of a slender column are at its two ends.
+#
+# So two mechanisms are added here, and they are the whole of the round-6 fix:
+#
+#   `subdivide_long_edges`  refine by EDGE LENGTH, not uniformly. The old
+#                           `subdivide_to_budget` spends its budget splitting a
+#                           column's 0.4 m section edges exactly as hard as its
+#                           3.5 m flank edges, so the shaft ends up with four
+#                           stations and there is nothing to displace.
+#
+#   `gouge_arrays`          bite localized scallops out of the surface, at a
+#                           STATION CHOSEN ALONG THE PIECE rather than at a
+#                           corner. This is the only mechanism in this file
+#                           that can take a quarter of the section out of the
+#                           middle of a column, or a big scallop out of the
+#                           middle of a slab's edge instead of sawing its
+#                           corners off into a stop-sign.
+#
+# Both are off unless asked for (`gouges=(0, 0)` reproduces round 5), and both
+# are driven from the `_CHIP_*` spec dicts, so a caller that does not set the
+# new keys is byte-for-byte unchanged.
+
+
+def subdivide_long_edges(v, f, target_m, budget=900, max_passes=5):
+    """Split only the edges longer than `target_m`. Stays watertight.
+
+    RED-GREEN REFINEMENT with a SHARED midpoint table: a triangle with 1, 2 or
+    3 over-long edges becomes 2, 3 or 4 triangles, and the neighbour across a
+    split edge splits that same edge at the same midpoint — so there is no
+    T-junction, no open edge, and no vertex moves.
+
+    WHY NOT `subdivide_to_budget`. That is a uniform 4-to-1 split, so it can
+    only ever land on 12, 48, 192, 768 ... triangles — it QUANTIZES the budget
+    into powers of four and strands whatever is left. Measured on a
+    0.4 x 0.4 x 3.5 m column at budget 760: uniform stops at 192 triangles with
+    a longest edge of 0.88 m, because the next step would be 768; this reaches
+    512 triangles and 0.45 m. That difference is the whole gouge pass — a
+    scallop 0.3 m across has nothing to displace at 0.88 m spacing. On the
+    2.5 x 1.6 x 0.12 m plate at the same budget it is 192/0.74 m against
+    472/0.37 m.
+
+    It is also anisotropic where the piece is: an edge already under
+    `target_m` is never split, so a short section axis stops paying once it is
+    fine enough while a long one keeps refining. (Face diagonals are long on
+    a slender piece, so their midpoints do land on the section — the split is
+    edge-length-driven, not axis-driven.)
+    """
+    v = [tuple(float(q) for q in p) for p in np.asarray(v, dtype=float)]
+    f = [tuple(int(q) for q in t) for t in np.asarray(f, dtype=np.int64)]
+    t2 = float(target_m) ** 2
+    for _ in range(int(max_passes)):
+        if not f:
+            break
+        long_e = set()
+        for tri in f:
+            for i, j in ((tri[0], tri[1]), (tri[1], tri[2]), (tri[2], tri[0])):
+                k = (i, j) if i < j else (j, i)
+                if k in long_e:
+                    continue
+                a, b = v[i], v[j]
+                if ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
+                        + (a[2] - b[2]) ** 2) > t2:
+                    long_e.add(k)
+        if not long_e:
+            break
+        # STOP BEFORE OVERSHOOTING, not after: each split edge adds one
+        # triangle to each of the (at most two) faces using it, so the pass
+        # costs at most 2 * len(long_e) triangles.
+        if len(f) + 2 * len(long_e) > int(budget):
+            break
+        mid = {}
+
+        def m(i, j):
+            k = (i, j) if i < j else (j, i)
+            r = mid.get(k)
+            if r is None:
+                a, b = v[i], v[j]
+                r = len(v)
+                v.append(((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5,
+                          (a[2] + b[2]) * 0.5))
+                mid[k] = r
+            return r
+
+        def is_long(i, j):
+            return ((i, j) if i < j else (j, i)) in long_e
+
+        nf = []
+        for a, b, c in f:
+            e = (is_long(a, b), is_long(b, c), is_long(c, a))
+            n = sum(e)
+            if n == 0:
+                nf.append((a, b, c))
+            elif n == 3:
+                p, q, r = m(a, b), m(b, c), m(c, a)
+                nf += [(a, p, r), (p, b, q), (r, q, c), (p, q, r)]
+            elif n == 1:
+                # rotate so the split edge is (a, b)
+                if e[1]:
+                    a, b, c = b, c, a
+                elif e[2]:
+                    a, b, c = c, a, b
+                p = m(a, b)
+                nf += [(a, p, c), (p, b, c)]
+            else:
+                # rotate so the UNSPLIT edge is (c, a) -> splits are ab and bc
+                if not e[0]:
+                    a, b, c = b, c, a
+                elif not e[1]:
+                    a, b, c = c, a, b
+                p, q = m(a, b), m(b, c)
+                nf += [(p, b, q), (a, p, q), (a, q, c)]
+        f = nf
+    return np.asarray(v, dtype=float), np.asarray(f, dtype=np.int64)
+
+
+def _gouge_faces(ext, rng, n):
+    """`n` distinct (axis, sign) faces to bite, drawn without replacement.
+
+    DISTINCT, because the acceptance test for this whole exercise is "no piece
+    is left with all its faces pristine": drawing the same flank three times
+    leaves three others untouched.
+
+    WEIGHTED BY THE SQUARE ROOT OF THE FACE AREA, not by the area. Straight
+    area is right for a column (its four 1.4 m2 flanks should outrank its two
+    0.16 m2 ends) and badly wrong for a slab, where the two 4 m2 decks outrank
+    the rim 21:1 — and a deck gouge can only ever be as deep as the plate is
+    thick, so the slab spent its whole budget on shallow dishes and came back
+    looking like a crumpled pillow rather than a slab with its edge bitten
+    out. The square root keeps the column's preference (2.9:1) while giving the
+    rim a real share."""
+    # NEVER GOUGE INTO A THIN AXIS. A gouge is a bite to depth `h`, and `h` is
+    # a fraction of the extent along the axis it bites into — so on the 12 cm
+    # deck of a slab the deepest possible gouge is 5 cm, which does not read as
+    # a bite out of a plate. It reads as the plate BEING BENT, and a run of
+    # them reads as crumpled cloth: that is exactly what the v2/v3 bench sheets
+    # showed for `plate`, decks warped into a pillow while the edge runs stayed
+    # smooth. Concrete does not bend. A slab's damage belongs on its RIM, so
+    # the two faces normal to an axis under a third of the piece's median
+    # extent are dropped from the draw entirely.
+    thin = 0.35 * float(np.median(np.asarray(ext, dtype=float)))
+    cand = []
+    for ax in range(3):
+        if float(ext[ax]) < thin:
+            continue
+        oa, ob = [q for q in range(3) if q != ax]
+        a = math.sqrt(float(ext[oa] * ext[ob]))
+        for sgn in (1.0, -1.0):
+            cand.append([ax, sgn, max(a, 1e-9)])
+    if not cand:
+        return []
+    out = []
+    for k in range(int(min(n, len(cand)))):
+        pool = cand
+        if k == 0:
+            # THE FIRST GOUGE GOES ON A FLANK, NOT AN END. On a bar the two
+            # end faces are already the only thing the plane clips can reach,
+            # and a draw that happens to send every gouge there leaves the
+            # shaft a prism again — measured over 14 column seeds, one came
+            # back with its middle at 0.91 of section while the other 13 were
+            # 0.19-0.81. Guaranteeing one flank bite is cheaper than widening
+            # the acceptance test to admit the piece that fails it.
+            la = int(np.argmax(ext))
+            flanks = [c for c in cand if c[0] != la]
+            if flanks and float(ext[la]) >= 2.2 * float(
+                    np.sort(np.asarray(ext, dtype=float))[1]):
+                pool = flanks
+        tot = sum(c[2] for c in pool)
+        x = rng.random() * tot
+        for c in pool:
+            x -= c[2]
+            if x <= 0.0:
+                break
+        cand.remove(c)
+        out.append(tuple(c[:2]))
+    return out
+
+
+def gouge_arrays(v, rng, n_gouges, depth_frac=(0.10, 0.30), big_p=0.28,
+                 big_frac=(0.34, 0.55), radius_mul=(0.9, 2.4),
+                 elong=(1.0, 1.9), station=(0.14, 0.86), taper=1.15,
+                 vol_frac=0.30, piece_vol=None):
+    """Bite `n_gouges` localized scallops INTO a closed solid. Points only.
+
+    THE MECHANISM THE CLIPS DO NOT HAVE (see the section note above): each
+    gouge is anchored at a STATION chosen along the face it sits on — by
+    default the middle 72 % of it — so a slender piece finally loses material
+    somewhere other than its two ends.
+
+    Per gouge:
+      * a face `(axis, sign)`, drawn without replacement, weighted by area;
+      * a depth `h`, a fraction of the piece's extent ALONG THAT AXIS, drawn
+        log-uniformly over `depth_frac` with a `big_p` tail into `big_frac` —
+        which is the user's "random from small to VERY LARGE": on a 0.4 m
+        column the tail takes 13-22 cm, a third to a half of the section;
+      * an elliptical footprint, `radius_mul` x the depth, stretched `elong`
+        along the face's longer axis and clamped to fit the face, with a
+        RAGGED rim (two azimuthal harmonics) so the scar outline is not a
+        circle;
+      * a near-CONICAL profile (`taper` > 1 sharpens the rim) rather than a
+        smooth bump — spalled concrete has an edge to it.
+
+    A vertex only moves if it is on the outer half of the piece along that
+    axis, and never past `0.15 x extent` from the far surface, so the solid
+    cannot be pushed through itself. Topology is untouched: no face is added,
+    removed or reordered, so a watertight input stays watertight.
+
+    Deterministic in `rng`. Returns a new array; the input is not modified.
+    """
+    v = np.array(np.asarray(v, dtype=float), copy=True)
+    n_gouges = int(n_gouges)
+    if len(v) < 8 or n_gouges <= 0:
+        return v
+    lo, hi = v.min(0), v.max(0)
+    ext = np.maximum(hi - lo, 1e-9)
+    if piece_vol is None:
+        piece_vol = float(np.prod(ext))
+    # ONE VOLUME BUDGET, SHARED. Without it a gouge on a long face is sized in
+    # metres off that face's own extent and a couple of them eat the piece: a
+    # 2.5 m slab edge scallop drawn at 0.30 of 2.5 m is 0.75 m deep. The budget
+    # is spent by SHRINKING THE FOOTPRINT, never the depth — a shallow wide
+    # dish reads as a dent, a deep narrow one reads as a bite, and the bite is
+    # the thing that was missing.
+    cap = float(vol_frac) * float(max(piece_vol, 1e-9)) / max(n_gouges, 1)
+    for ax, sgn in _gouge_faces(ext, rng, n_gouges):
+        oa, ob = [q for q in range(3) if q != ax]
+        if ext[oa] < ext[ob]:
+            oa, ob = ob, oa                      # oa is the face's LONG axis
+        lo, hi = v.min(0), v.max(0)
+        ext = np.maximum(hi - lo, 1e-9)
+        d0, d1 = max(float(depth_frac[0]), 1e-4), max(float(depth_frac[1]), 1e-3)
+        q = d0 * (d1 / d0) ** rng.random()
+        if rng.random() < float(big_p):
+            q = rng.uniform(*big_frac)
+        h = min(float(q), 0.45) * float(ext[ax])
+        # THE FOOTPRINT IS TIED TO THE DEPTH, and only then to the face.
+        #
+        # Both clamps are load-bearing and they fail in opposite directions.
+        # Allowing a radius up to the face's own extent turned a column's
+        # gouges into 1.4 m vertical creases — the v2 bench renders read as
+        # DRAPERY, not as spalled concrete, because a scallop four times
+        # longer than it is deep is a fold. Capping it at "half the extent"
+        # instead does the opposite harm on the 0.12 m rim of a slab: the
+        # footprint then sits inside the thickness and carves a groove along
+        # the middle of the edge rather than taking the edge out. So the cap
+        # is `3.2 x depth` (a bite is about as wide as it is deep, give or
+        # take), widened to at least 6 % of the face so a shallow gouge is not
+        # a pinprick, and finally limited by the face itself.
+        hi_u = float(min(0.95 * ext[oa], max(3.2 * h, 0.06 * float(ext[oa]))))
+        hi_v = float(min(0.95 * ext[ob], max(3.2 * h, 0.06 * float(ext[ob]))))
+        ru = float(np.clip(h * rng.uniform(*radius_mul) * rng.uniform(*elong),
+                           min(0.25 * float(ext[oa]), hi_u), hi_u))
+        rv = float(np.clip(h * rng.uniform(*radius_mul),
+                           min(0.25 * float(ext[ob]), hi_v), hi_v))
+        est = 0.5 * math.pi * ru * rv * h
+        if est > cap:
+            # SPEND THE OVERRUN ON `h` AND `ru`, NEVER ON `rv`. `rv` runs on
+            # the face's SHORT axis and is usually already pinned to it — on a
+            # slab's 0.12 m rim it is the thickness — and shrinking it is what
+            # turns a scallop out of the edge into a groove along the middle
+            # of it. Halving the overrun between the depth and the long
+            # footprint axis keeps the removed volume exact either way.
+            k = math.sqrt(cap / est)
+            ru = max(ru * k, 0.08 * float(ext[oa]))
+            h *= k
+        # keep the footprint on the face: a gouge centred a radius off the end
+        # of a thin axis is half a gouge
+        mu, mv = min(0.49, ru / ext[oa] * 0.55), min(0.49, rv / ext[ob] * 0.55)
+        cu = lo[oa] + ext[oa] * float(np.clip(rng.uniform(*station),
+                                              mu, 1.0 - mu))
+        cv = lo[ob] + ext[ob] * float(np.clip(rng.uniform(*station),
+                                              mv, 1.0 - mv))
+        ph1, ph2 = rng.uniform(0, 6.2832), rng.uniform(0, 6.2832)
+        k1, k2 = rng.choice((2, 3, 4)), rng.choice((5, 6, 7))
+
+        du = (v[:, oa] - cu) / ru
+        dv = (v[:, ob] - cv) / rv
+        # A SUPER-ELLIPSE, NOT A CIRCLE, and on an axis the footprint already
+        # spans, no falloff at all. A radial profile tapers towards the rim in
+        # EVERY direction — including across a slab's 12 cm thickness, where
+        # the footprint covers the whole face — so the bite came out
+        # lens-shaped: deepest at mid-thickness, shallower at the deck and the
+        # soffit. That is a rounded edge, which is why the v3/v4 plate sheets
+        # still read as soft. p=3.5 keeps a flat floor and a sharp rim, and
+        # zeroing a spanned axis makes the gouge a straight-through bite of the
+        # rim rather than a groove inside it.
+        if rv >= 0.85 * float(ext[ob]):
+            dv = np.zeros_like(dv)
+        if ru >= 0.85 * float(ext[oa]):
+            du = np.zeros_like(du)
+        pw = 3.5
+        t = (np.abs(du) ** pw + np.abs(dv) ** pw) ** (1.0 / pw)
+        th = np.arctan2(dv, du)
+        # RAGGED RIM: the same radius in every direction is a drill hole.
+        t = t * (1.0 + 0.30 * np.sin(k1 * th + ph1)
+                 + 0.16 * np.sin(k2 * th + ph2))
+        w = np.clip(1.0 - t, 0.0, 1.0) ** float(taper)
+        # only the outer part of the piece moves, full effect at the surface
+        s = v[:, ax] * sgn
+        s_out = float(s.max())
+        reach = max(1.7 * h, 0.30 * float(ext[ax]))
+        g = np.clip((s - (s_out - reach)) / max(reach, 1e-9), 0.0, 1.0)
+        floor = float(s.min()) + 0.15 * float(ext[ax])
+        v[:, ax] = sgn * np.maximum(s - h * w * g, np.minimum(s, floor))
+    return v
+
+
+def roughen_arrays(v, rng, amp_m, lam_scale=5.5, lam_m=None):
+    # `amp_m` may be a scalar or a PER-AXIS triple — see the note in `chip_box`
+    # about why a plate must not be roughened across its thickness.
     """`roughen`'s band-limited positional noise, on a raw point array.
 
     Keyed off POSITION (not per-vertex random) so vertices that coincide on a
     shared edge move together and the solid does not tear open — the same
     reason `roughen` above is written that way.
+
+    `lam_m` (round 6) sets the wavelength in METRES instead of deriving it from
+    the piece's LONGEST extent. That derivation is wrong for a bar: on a
+    0.4 x 0.4 x 3.5 m column `lam_scale / max_extent` puts the wavelength at
+    2.9 m, so the "roughening" is one gentle 4 cm bow over the whole shaft
+    rather than surface relief, and it contributes nothing to the piece
+    reading as broken. Callers that want relief pass a wavelength scaled to
+    the piece's SECTION.
     """
     v = np.asarray(v, dtype=float)
-    if not len(v) or amp_m <= 0.0:
+    amp = np.asarray(amp_m, dtype=float)
+    if amp.ndim == 0:
+        amp = np.repeat(amp, 3)
+    if not len(v) or not (amp > 0.0).any():
         return v
     ext = v.max(0) - v.min(0)
     L = float(max(ext.max(), 1e-6))
     ph = np.asarray([rng.random() * 100.0 for _ in range(3)], dtype=float)
-    fq = float(lam_scale) / L
+    fq = (float(lam_scale) / L if lam_m is None
+          else 6.2831853 / max(float(lam_m), 1e-6))
     d = np.stack([np.sin(v[:, 1] * fq + ph[0]) * np.cos(v[:, 2] * fq + ph[1]),
                   np.sin(v[:, 2] * fq + ph[1]) * np.cos(v[:, 0] * fq + ph[2]),
                   np.sin(v[:, 0] * fq + ph[2]) * np.cos(v[:, 1] * fq + ph[0])],
@@ -3006,7 +3349,7 @@ def roughen_arrays(v, rng, amp_m, lam_scale=5.5):
     d += 0.45 * np.stack([np.sin(v[:, 1] * fq * 2.7 + ph[2]),
                           np.sin(v[:, 2] * fq * 2.7 + ph[0]),
                           np.sin(v[:, 0] * fq * 2.7 + ph[1])], -1)
-    return v + d * float(amp_m)
+    return v + d * amp[None, :]
 
 
 def warp_mesh(points, rng, warp_m=0.0, twist_deg=0.0, axis=None):
@@ -3109,7 +3452,11 @@ def chip_box(points=None, faces=None, rng=None, chips=(2, 6),
              depth_frac=(0.04, 0.22), warp_m=0.0, sizes=None, bottom=False,
              rough_frac=0.0, seg=None, twist_deg=0.0, ends=0.0,
              big_p=0.16, bevel_p=0.22, min_loss=0.05, max_loss=0.27,
-             bar_aspect=2.2, max_grow=0.35, rough_budget=260):
+             bar_aspect=2.2, max_grow=0.35, rough_budget=260,
+             bites=(0, 0), bite_frac=(0.34, 0.95),
+             gouges=(0, 0), gouge_depth=(0.10, 0.30), gouge_big_p=0.28,
+             gouge_big_frac=(0.34, 0.55), gouge_budget=760,
+             gouge_vol_frac=0.30, rough_lam_frac=None):
     """Turn a rectangular solid into a broken-looking one. Arrays in/out.
 
     TWO INPUT FORMS, one output form:
@@ -3163,6 +3510,35 @@ def chip_box(points=None, faces=None, rng=None, chips=(2, 6),
                    pass came in under `min_loss` extra chips are attempted at
                    escalating depth, so a chipped piece is always visibly
                    chipped and never sliced in half.
+
+    ROUND 6 — the two knobs the "still perfect cuboids" complaint needed. Both
+    default OFF, so a caller that does not set them gets round-5 output byte
+    for byte; the `_CHIP_*` spec tables in `quake_rubble_usd` / `quake_collapse`
+    set them for the quake populations.
+
+      bites        (lo, hi) count of VERY LARGE corner bites, sized by the
+                   CROSS-SECTION rather than by the span along the cut normal
+                   (see `_one_chip`'s `bite` branch for why that distinction is
+                   the whole point). `bite_frac` is the share of the tightest
+                   cross-section reach each one takes; near 1.0 the corner
+                   comes off across the whole member.
+      gouges       (lo, hi) count of localized scallops bitten out of the
+                   surface by `gouge_arrays`, at a station chosen ALONG the
+                   piece. THE ONLY MECHANISM HERE THAT DAMAGES THE MIDDLE OF A
+                   SLENDER PIECE — every plane clip is anchored at an extreme
+                   corner, and a column's corners are all at its two ends, so
+                   without this the shaft is a perfect prism no matter what the
+                   volume loss says. `gouge_depth` / `gouge_big_frac` /
+                   `gouge_big_p` are the small-to-very-large draw.
+      gouge_budget triangle budget for the anisotropic refinement a gouge needs
+                   to have something to displace (`subdivide_long_edges`).
+                   Raising it is what a gouge costs; 760 puts ~13 cm stations
+                   on a 3.5 m column.
+      rough_lam_frac
+                   roughening wavelength as a fraction of the piece's SHORTEST
+                   extent. `None` keeps round 5's `lam_scale / longest extent`,
+                   which on a bar is a 3 m wavelength — one gentle bow, not
+                   surface relief.
 
     COST: 4.4-8.7 ms per piece on an idle machine — 2-6 corner chips, 2-4 end
     steps, one subdivision to `rough_budget` and the roughening pass, ending at
@@ -3220,8 +3596,11 @@ def chip_box(points=None, faces=None, rng=None, chips=(2, 6),
     # user objected to. The far end gets one step, the near end the rest — a
     # break is rarely symmetrical.
     n_far = 1 if n_end >= 2 else 0
+    n_bite = (rng.randint(int(bites[0]), int(bites[1]))
+              if int(bites[1]) > 0 else 0)
     kinds = ([("end", main_end)] * (n_end - n_far)
              + [("end", -main_end)] * n_far
+             + [("bite", None)] * n_bite
              + [(("bevel" if rng.random() < float(bevel_p) else "corner"), None)
                 for _ in range(n_chips)])
     rng.shuffle(kinds)
@@ -3229,7 +3608,7 @@ def chip_box(points=None, faces=None, rng=None, chips=(2, 6),
     floor_v = (1.0 - float(max_loss)) * v0
     for kind, la_sign in kinds:
         v, f = _one_chip(v, f, rng, kind, la, depth_frac, big_p, floor_v,
-                         la_sign=la_sign)
+                         la_sign=la_sign, bite_frac=bite_frac)
 
     # Under-chipped? A piece the draws happened to leave nearly intact is the
     # gift box the whole exercise is about, so force more bites at escalating
@@ -3252,11 +3631,47 @@ def chip_box(points=None, faces=None, rng=None, chips=(2, 6),
     # their own. It also costs no volume worth speaking of (the field is
     # zero-mean), unlike a fit-to-size, so the chip budget still means what it
     # says.
-    if rough_frac > 0.0:
-        v, f = subdivide_to_budget(v, f, budget=rough_budget)
-        thin = float(max(ext.min(), 1e-6))
-        v = roughen_arrays(v, rng, min(float(rough_frac) * thin, 0.30 * thin),
-                           lam_scale=7.5)
+    n_gouge = (rng.randint(int(gouges[0]), int(gouges[1]))
+               if int(gouges[1]) > 0 else 0)
+    if rough_frac > 0.0 or n_gouge > 0:
+        if n_gouge > 0:
+            # ANISOTROPIC REFINEMENT, and the target edge is solved from the
+            # budget rather than guessed: a surface of area A carries roughly
+            # 2A/t^2 triangles at edge length t, so t = sqrt(2A/budget) lands
+            # near the budget in one shot instead of over/undershooting by a
+            # factor of four the way a uniform 4-to-1 split does.
+            area = _tri_area(v, f)
+            tgt = float(np.clip(math.sqrt(2.0 * max(area, 1e-9)
+                                          / max(int(gouge_budget), 8)),
+                                0.02, 1.0))
+            v, f = subdivide_long_edges(v, f, tgt, budget=int(gouge_budget))
+            v = gouge_arrays(v, rng, n_gouge, depth_frac=gouge_depth,
+                             big_p=gouge_big_p, big_frac=gouge_big_frac,
+                             vol_frac=float(gouge_vol_frac),
+                             piece_vol=mesh_volume(v, f))
+        else:
+            v, f = subdivide_to_budget(v, f, budget=rough_budget)
+        if rough_frac > 0.0:
+            thin = float(max(ext.min(), 1e-6))
+            lam = (None if rough_lam_frac is None
+                   else max(float(rough_lam_frac) * thin, 1e-3))
+            amp = np.repeat(min(float(rough_frac) * thin, 0.30 * thin), 3)
+            if rough_lam_frac is not None:
+                # ACROSS THE THIN AXIS, ALMOST NOTHING. The round-5 wavelength
+                # came off the piece's LONGEST extent, so on a 2.5 m plate the
+                # noise was one 2 m bow and its amplitude did not read as
+                # texture at all. Shortening it to a fraction of the SECTION
+                # (which is what makes it read on a column) turned the same
+                # amplitude into a 20 cm corrugation, and 1.7 cm of corrugation
+                # on a 12 cm plate is not spalled concrete — it is crumpled
+                # foil. Measured on the 2.5 x 1.6 x 0.12 m plate: the pass grew
+                # the thickness 35 % (0.120 -> 0.162) and put 6 cm of relief on
+                # the deck, and the bench sheets read as cloth. Concrete plates
+                # do not bend, so the displacement along the piece's thinnest
+                # axis is cut to a third: the rim still gets relief, the deck
+                # stays a deck.
+                amp[int(np.argmin(ext))] *= 0.35
+            v = roughen_arrays(v, rng, amp, lam_scale=7.5, lam_m=lam)
 
     if sizes is not None and max_grow is not None:
         # A SAFETY NET WITH SLACK, not a hard fit. `roughen_arrays`' field is
@@ -3304,7 +3719,7 @@ def chip_box(points=None, faces=None, rng=None, chips=(2, 6),
 
 
 def _one_chip(v, f, rng, kind, la, depth_frac, big_p, floor_v, la_sign=None,
-              end_relief=(0.25, 0.90)):
+              end_relief=(0.25, 0.90), bite_frac=(0.34, 0.95)):
     """Attempt one chip; return the chipped arrays or the originals."""
     n = _chip_normal(rng, kind, la=la, la_sign=la_sign)
     proj = v @ n
@@ -3312,7 +3727,32 @@ def _one_chip(v, f, rng, kind, la, depth_frac, big_p, floor_v, la_sign=None,
     span = hi - float(proj.min())
     if span <= 1e-6:
         return v, f
-    if kind == "end" and la is not None:
+    if kind == "bite":
+        # A VERY LARGE CORNER BITE, SIZED BY THE SECTION. `depth_frac * span`
+        # (the `else` branch) measures the depth against the piece's extent
+        # ALONG THE NORMAL, which on a 3.5 m column is dominated by its LENGTH
+        # — so `depth_frac=(0.025, 0.15)` never meant "2.5-15 % of the
+        # section", and there was no way to ask for the big bite the user did
+        # ask for ("random from small to VERY LARGE chips"). Sizing `d` off the
+        # tightest reach across the two SMALLEST axes makes `bite_frac` mean
+        # exactly "this share of the cross-section goes", and a draw near 1.0
+        # takes the whole corner off across the member.
+        ext = v.max(0) - v.min(0)
+        order = np.argsort(ext)
+        # THE TWO LARGEST AXES, not the two smallest. The reach of a plane cut
+        # along axis i is `d / |n_i|`, so whichever axis is SHORTEST is the one
+        # the cut passes clean through — sizing `d` by it makes the bite
+        # vanish. On a 2.5 x 1.6 x 0.12 m plate the shortest axis is the
+        # 12 cm thickness, and sizing off it gave a 4 cm nick; sizing off the
+        # plan gives a half-metre corner chunk that cuts through the thickness,
+        # which is what a broken slab corner is. On a column the two largest
+        # are the length and one section axis, so the bite still reaches
+        # 32-78 % across the member.
+        a, b = int(order[2]), int(order[1])
+        cut = min(float(ext[a]) * max(abs(float(n[a])), 1e-3),
+                  float(ext[b]) * max(abs(float(n[b])), 1e-3))
+        d = float(max(cut, 1e-6)) * rng.uniform(*bite_frac)
+    elif kind == "end" and la is not None:
         # RELIEF, not depth-along-the-normal. The cut reaches `d/|n_i|` along
         # axis i, so sizing `d` by the SECTION (`relief` x the tightest
         # `ext_i * |n_i|` over the two cross axes) is what keeps the bite to a

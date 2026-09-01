@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#include <chrono>
 #include <takeoff_landing_planner/takeoff_landing_task.hpp>
 
 #include <airstack_common/ros2_helper.hpp>
@@ -146,6 +147,12 @@ void TakeoffLandingTaskNode::completion_percentage_callback(
 
 // ─────────────────────────── helper ───────────────────────────────────────────
 
+// Deadline for a service RESPONSE (not availability). See the git history:
+// an unbounded future.wait() here let a non-responding robot_command wedge the
+// task server with task_active_ stuck true, which REJECTED every retry and
+// cost whole iterations. A healthy arm answers in ~2 s.
+static constexpr std::chrono::seconds SERVICE_RESPONSE_TIMEOUT{45};
+
 bool TakeoffLandingTaskNode::set_trajectory_mode(int32_t mode)
 {
   if (!traj_mode_client_->wait_for_service(std::chrono::seconds(2))) {
@@ -155,7 +162,13 @@ bool TakeoffLandingTaskNode::set_trajectory_mode(int32_t mode)
   auto request = std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
   request->mode = mode;
   auto future = traj_mode_client_->async_send_request(request);
-  future.wait();
+  if (future.wait_for(SERVICE_RESPONSE_TIMEOUT) != std::future_status::ready) {
+    RCLCPP_ERROR(this->get_logger(),
+                 "set_trajectory_mode: no response within %lds - giving up so "
+                 "the task can abort instead of blocking forever",
+                 static_cast<long>(SERVICE_RESPONSE_TIMEOUT.count()));
+    return false;
+  }
   return future.get()->success;
 }
 
@@ -168,7 +181,14 @@ bool TakeoffLandingTaskNode::send_robot_command(uint8_t command)
   auto request = std::make_shared<airstack_msgs::srv::RobotCommand::Request>();
   request->command = command;
   auto future = robot_command_client_->async_send_request(request);
-  future.wait();
+  if (future.wait_for(SERVICE_RESPONSE_TIMEOUT) != std::future_status::ready) {
+    RCLCPP_ERROR(this->get_logger(),
+                 "robot_command(%u): no response within %lds - giving up so the "
+                 "task can abort and free task_active_ for the next attempt",
+                 static_cast<unsigned>(command),
+                 static_cast<long>(SERVICE_RESPONSE_TIMEOUT.count()));
+    return false;
+  }
   return future.get()->success;
 }
 

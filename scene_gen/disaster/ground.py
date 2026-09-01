@@ -90,7 +90,8 @@ def knobs_from_env(span_m):
 # ---------------------------------------------------------------------------
 
 def overlay_material(stage, path, opacity, tile_m, center=(0.0, 0.0),
-                     texture=BURNT_TEXTURE):
+                     texture=BURNT_TEXTURE, roughness=0.94, normal_tex=None,
+                     orm_tex=None):
     """A translucent burnt-ground OmniPBR with a CONSTANT opacity.
 
     ONE TILE PER `tile_m`, CENTRED ON `center`. OmniPBR's world projection
@@ -102,6 +103,19 @@ def overlay_material(stage, path, opacity, tile_m, center=(0.0, 0.0),
     every map it samples and so cannot tile a diffuse while stretching a mask
     once across the plate; the gradient comes from the geometry being split
     into bands instead.
+
+    `roughness`/`normal_tex`/`orm_tex`, ADDED for the hurricane silt overlay
+    (`disaster.surge`'s WET SILT fix): every existing caller (the burn scar)
+    omits them and gets EXACTLY the old behaviour — `roughness` defaults to
+    the sourced 0.94, and with no normal/ORM bound the material is diffuse-
+    only, byte-for-byte what this function always authored. A caller that
+    DOES pass a normal/ORM (a wet, glossy silt look wants both — flat matte
+    0.94 reads as dry, dusty ground) gets `reflection_roughness_texture_
+    influence` pinned to 0.0 so `roughness` stays authoritative regardless of
+    what the ORM's own roughness channel says — the bug catalogue's "the wet
+    pass changes nothing" entry (`reflection_roughness_texture_influence` is
+    1.0 elsewhere in this codebase's megascans `.usda` wrappers, which is
+    what made an otherwise-correct roughness constant silently do nothing).
     """
     from pxr import Gf, Sdf, UsdShade
 
@@ -123,8 +137,17 @@ def overlay_material(stage, path, opacity, tile_m, center=(0.0, 0.0),
                    Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(k, k))
     sh.CreateInput("texture_translate", Sdf.ValueTypeNames.Float2).Set(
         Gf.Vec2f(0.5 - center[0] * k, 0.5 - center[1] * k))
+    if normal_tex:
+        sh.CreateInput("normalmap_texture", Sdf.ValueTypeNames.Asset).Set(
+            Sdf.AssetPath(sg._join_asset_root(normal_tex, "")))
+    if orm_tex:
+        sh.CreateInput("enable_ORM_texture", Sdf.ValueTypeNames.Bool).Set(True)
+        sh.CreateInput("ORM_texture", Sdf.ValueTypeNames.Asset).Set(
+            Sdf.AssetPath(sg._join_asset_root(orm_tex, "")))
+        sh.CreateInput("reflection_roughness_texture_influence",
+                      Sdf.ValueTypeNames.Float).Set(0.0)
     sh.CreateInput("reflection_roughness_constant",
-                   Sdf.ValueTypeNames.Float).Set(0.94)
+                   Sdf.ValueTypeNames.Float).Set(float(roughness))
     sh.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(0.0)
     sh.CreateInput("enable_opacity", Sdf.ValueTypeNames.Bool).Set(True)
     sh.CreateInput("opacity_constant",
@@ -317,7 +340,8 @@ def skip_rects(rects, pad=0.0):
 def build_overlay(stage, coverage_at, region, ssf, z_m, *, material_parent,
                   root="/World/burnGround", cell_m=3.0, bands=12, tile_m=None,
                   op_range=(0.08, 0.50), texture=BURNT_TEXTURE, skip=None,
-                  verbose=True):
+                  verbose=True, roughness=0.94, normal_tex=None,
+                  orm_tex=None):
     """The scar as bands of translucent overlay. Returns the band prim paths.
 
     ONE MESH PER BAND, not one prim per cell: `region` is diced into
@@ -325,6 +349,10 @@ def build_overlay(stage, coverage_at, region, ssf, z_m, *, material_parent,
     becomes another face of that bucket's single mesh. A 250 m block costs
     `bands` prims and `bands` materials rather than thousands of each.
     `skip(x0, y0, x1, y1)` drops a cell (pools).
+
+    `roughness`/`normal_tex`/`orm_tex` pass straight through to
+    `overlay_material` for every band — see that function's own docstring.
+    Defaulted so every existing (burn-scar) caller is unaffected.
     """
     from pxr import Gf, Sdf, UsdGeom, UsdShade
 
@@ -369,7 +397,8 @@ def build_overlay(stage, coverage_at, region, ssf, z_m, *, material_parent,
         op = op_lo + (op_hi - op_lo) * (b + 0.5) / float(bands)
         mat = overlay_material(
             stage, "{0}/BurnLooks/band_{1}".format(material_parent, b), op,
-            tile_m=tile, center=center, texture=texture)
+            tile_m=tile, center=center, texture=texture, roughness=roughness,
+            normal_tex=normal_tex, orm_tex=orm_tex)
         pts, counts, idx = [], [], []
         # MERGE THE CELLS INTO RECTANGLES BEFORE AUTHORING THEM.
         #

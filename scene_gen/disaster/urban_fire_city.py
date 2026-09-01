@@ -24,9 +24,9 @@ spread solve (elsewhere) has decided WHICH candidates actually ignite and
 WHEN, turn that into the plan's JSON manifest schema (plan section 2) and
 into `fire_bake.sh` entry strings.
 
-THE FIVE GATES, IN ORDER (plan section 1; gate 2 is NARROWER than it used to
-be, gate 5 is NEW — see below). `burnable()` applies exactly these, and
-stops at the first one that fails:
+THE SIX GATES, IN ORDER (plan section 1; gate 2 is NARROWER than it used to
+be, gates 5 and 6 are NEW — see below). `burnable()` applies exactly these,
+and stops at the first one that fails:
 
   1. `placement["category"] == "house"` — only building placements are
      candidates at all (street furniture, trees, vehicles, debris are not).
@@ -56,6 +56,27 @@ stops at the first one that fails:
      enforced ONLY by a bench row picker (never by the city path), which is
      how three `dtc:Building_11` records reached a live bake manifest
      despite the pack table already naming it.
+  6. `H` does not exceed `FIRE_MAX_H_M` (2026-08-31, user policy reviewing
+     the live 500 m city: "don't let anything taller than the Amar tower be
+     on fire"). This is a SECOND, independent height gate — NOT the same
+     knob as the height-CLASS collapse cap in `disaster.urban_fire_spread`
+     (`height_class` / `cap_level_for_class`, see "WHERE THE OLD GATE 2
+     WENT" below): the class cap only ever restricts HOW BADLY an
+     already-burning building may collapse; this gate decides whether
+     something structurally this tall gets to be on fire AT ALL.
+     `FIRE_MAX_H_M` defaults to 232.0 m, set just above `Amar_Tower`'s own
+     measured 231.4 m (`_plans/dtc_buildings.json`) — Amar itself stays a
+     legitimate candidate, while the genuine monsters above it (GAC's
+     `SM_Building_16` at 312.0 m, `SM_Building_31` at 302.2 m) are refused,
+     with a reason naming the measured height and the cap
+     (`_height_cap_reason`). `H is None` (an unmeasured asset — the common
+     case in a synthetic test that hands `burnable()` an empty `size_of`)
+     never trips this gate: it refuses only a building this function
+     actually KNOWS is too tall, the same "never invent a reason"
+     discipline every gate here already follows. Like gate 5, a refusal
+     here is a FIREBREAK — the building never enters `urban_fire_spread.
+     solve()`'s graph at all, so it can never be picked as the origin and
+     never lit as somebody else's neighbour either.
 
 WHERE THE OLD GATE 2 WENT — HEIGHT CLASS, NOT A DISTRICT BAN (user policy,
 2026-08-31, superseding the earlier blanket "no fire in skyscraper
@@ -321,12 +342,46 @@ def _pack_blacklist_reason(kind, name):
     return None
 
 
+# ---------------------------------------------------------------------------
+# Gate 6: the max-fire-height cap (2026-08-31 user policy) — see the module
+# docstring's gate-6 paragraph for why this is a SEPARATE knob from the
+# height-CLASS collapse cap in `disaster.urban_fire_spread`.
+# ---------------------------------------------------------------------------
+#: Amar_Tower measures 231.4 m (`_plans/dtc_buildings.json`); the cap is set
+#: just above it so Amar itself stays a legitimate fire candidate while
+#: anything taller is refused. A plain module-level constant (not a
+#: preset/config knob yet) so a caller that wants a different cap for a
+#: different city can still override it by assignment before calling
+#: `burnable()`, the same convention `ROOF_COLLAPSE_MAX_DEFAULT` uses.
+FIRE_MAX_H_M = 232.0
+
+
+def _height_cap_reason(H):
+    """`reason` (a non-empty string) if `H` is a known height that exceeds
+    `FIRE_MAX_H_M`, else `None`. `H is None` (unmeasured) is NEVER a
+    reason to refuse — this gate only fires on a height it actually knows,
+    the same discipline every other gate in this module already follows."""
+    if H is None:
+        return None
+    h = float(H)
+    if h <= FIRE_MAX_H_M:
+        return None
+    return ("{0:.1f} m tall -- taller than the fire-height cap "
+            "(FIRE_MAX_H_M={1:.1f} m, set just above Amar_Tower's own "
+            "measured ~231.4 m) -- refused as a firebreak, the same "
+            "discipline gate 5's pack blacklist already uses: this building "
+            "never enters urban_fire_spread.solve()'s graph at all, so it "
+            "can never be the origin and never lit as anyone else's "
+            "neighbour").format(h, FIRE_MAX_H_M)
+
+
 def burnable(layout, placement, size_of):
-    """`(True, record)` | `(False, reason)` — the five gates of plan
-    section 1 (gate 5 added 2026-08-31, the pack blacklist), applied in
-    order; see the module docstring. `size_of(usd) -> (W, D, H)` (or a
-    `{usd: (W, D, H)}` dict) is injected rather than measured here, so
-    this function stays pure python.
+    """`(True, record)` | `(False, reason)` — the six gates of plan
+    section 1 (gate 5 added 2026-08-31, the pack blacklist; gate 6 added
+    2026-08-31, the max-fire-height cap), applied in order; see the module
+    docstring. `size_of(usd) -> (W, D, H)` (or a `{usd: (W, D, H)}` dict)
+    is injected rather than measured here, so this function stays pure
+    python.
 
     EVERY TYPOLOGY IS A CANDIDATE, INCLUDING `tower`/`highrise` — the
     blanket district-wide fire ban is LIFTED (2026-08-31 policy; see the
@@ -379,6 +434,10 @@ def burnable(layout, placement, size_of):
         kind, name_or_reason if kind in ("gac", "dtc") else None)
     if blacklist_reason is not None:
         return False, blacklist_reason
+
+    height_reason = _height_cap_reason(H)
+    if height_reason is not None:
+        return False, height_reason
 
     record = {
         "usd": usd, "x": x, "y": y,
@@ -667,9 +726,9 @@ def check(verbose=True):
     if (kind, name) != ("gac", "SM_Building_04"):
         bad.append("bake_kind on a GAC asset: got {0}".format((kind, name)))
 
-    dtc_usd = gf.DTC_DIR + "Building_12.usdc"
+    dtc_usd = gf.DTC_DIR + "Building_09.usdc"
     kind, name = bake_kind(dtc_usd, 25.0, 25.0, 40.0, "rc")
-    if (kind, name) != ("dtc", "Building_12"):
+    if (kind, name) != ("dtc", "Building_09"):
         bad.append("bake_kind on a downtowncity asset: got {0}".format((kind, name)))
 
     kit_usd = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/"
@@ -767,11 +826,54 @@ def check(verbose=True):
         bad.append("_pack_blacklist_reason missed Building_11")
     if _pack_blacklist_reason("dtc", "Carved_17") is None:
         bad.append("_pack_blacklist_reason missed a Carved_ prefix match")
-    if _pack_blacklist_reason("dtc", "Building_12") is not None:
-        bad.append("_pack_blacklist_reason false-positived on Building_12")
+    if _pack_blacklist_reason("dtc", "Building_09") is not None:
+        bad.append("_pack_blacklist_reason false-positived on Building_09")
     if _pack_blacklist_reason("gac", "Building_11") is not None:
         bad.append("_pack_blacklist_reason should not touch gac (no "
                   "blacklist entry in PACKS['gac'])")
+
+    # --- gate 6: the max-fire-height cap (2026-08-31) -----------------------
+    # Amar_Tower itself (231.4 m, the height the cap is set just above)
+    # must stay burnable -- the whole point of the +0.6 m margin.
+    p_amar_h = dict(p_gac, usd=gf.DTC_DIR + "Amar_Tower.usdc",
+                    x_m=150.0, y_m=60.0)
+    ok, rec = burnable(layout, p_amar_h, {p_amar_h["usd"]: (42.3, 48.8, 231.4)})
+    if not ok or rec["H"] != 231.4:
+        bad.append("burnable() should accept Amar_Tower at its own measured "
+                  "height (231.4 m), just under FIRE_MAX_H_M: {0}".format(
+                      (ok, rec)))
+
+    # a genuine monster (GAC's SM_Building_31, 302.2 m) must be refused, WITH
+    # a reason naming both the measured height and the cap.
+    p_tall = dict(p_gac, x_m=150.0, y_m=60.0)
+    ok, reason = burnable(layout, p_tall, {p_tall["usd"]: (60.3, 142.2, 302.2)})
+    if ok or "taller than the fire-height cap" not in reason \
+            or "302.2" not in reason:
+        bad.append("burnable() did not refuse a 302.2 m building over "
+                  "FIRE_MAX_H_M: {0}".format((ok, reason)))
+
+    # the boundary itself: exactly FIRE_MAX_H_M is allowed, one mm over is not.
+    p_boundary = dict(p_gac, x_m=150.0, y_m=60.0)
+    ok, _rec = burnable(layout, p_boundary,
+                        {p_boundary["usd"]: (20.0, 20.0, FIRE_MAX_H_M)})
+    if not ok:
+        bad.append("burnable() should accept a building exactly at "
+                  "FIRE_MAX_H_M")
+    ok, reason = burnable(layout, p_boundary,
+                          {p_boundary["usd"]: (20.0, 20.0, FIRE_MAX_H_M + 0.01)})
+    if ok:
+        bad.append("burnable() should refuse a building 1 cm over FIRE_MAX_H_M")
+
+    # an UNMEASURED height (H=None, the common case for an empty size_of in
+    # every OTHER test above) must never be refused by this gate -- it only
+    # fires on a height it actually knows.
+    if _height_cap_reason(None) is not None:
+        bad.append("_height_cap_reason(None) should never refuse -- an "
+                  "unmeasured height is not a known-too-tall height")
+    if _height_cap_reason(FIRE_MAX_H_M) is not None:
+        bad.append("_height_cap_reason at the cap itself should not refuse")
+    if _height_cap_reason(FIRE_MAX_H_M + 0.01) is None:
+        bad.append("_height_cap_reason just over the cap should refuse")
 
     # --- the district no longer gates candidacy, mutation-checked ----------
     # only the record's own `typology` field should change; a tower-block

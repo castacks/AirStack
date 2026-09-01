@@ -153,7 +153,23 @@ env:
   # ── the fleet and the sim ────────────────────────────────────────────────
   NUM_ROBOTS: 8
   ISAAC_SIM_HEADLESS: "true"
-  ISAAC_SIM_CUDA_DEVICES: "0"
+  # MULTI-GPU RENDERING. Spreads the drones' ZED render products across every
+  # visible card. Measured 2026-08-31 on an 8-robot frozen cell: the Kit
+  # SceneRenderer went from `device mask: 0x1` (all 16 camera streams on ONE
+  # card at 98 %, two 48 GB cards idle at 182 MiB) to `0xf`, and the search
+  # RTF went 0.068 -> 0.103, cutting a cell's search from 147 to 97 minutes.
+  ISAAC_SIM_MULTIGPU: "true"
+  # ISAAC_SIM_CUDA_DEVICES IS DELIBERATELY UNSET. Pinning it to a subset is
+  # what made NVML (4 devices) and CUDA (1) disagree, after which Kit logged
+  # six "Skipping NVIDIA GPU due CUDA being in bad state" lines, dropped EVERY
+  # card including the working one, and rendered in software at ~0.083 RTF
+  # while Isaac burned 273 % CPU. It is currently inert (the isaac compose
+  # passes CUDA_VISIBLE_DEVICES through as a bare name so it stays unset), but
+  # re-adding it alongside ISAAC_SIM_MULTIGPU would recreate that failure.
+  # Halve the GCS visualizer's republished layers. Those layers were 90 % of a
+  # 26.7 GiB per-cell bag (eight /gcs/<robot>/occupancy grids at 76 %, plus
+  # /gcs/robot_markers at 14 %); a 24-cell sweep wrote ~650 GB. 1 = original.
+  GCS_VIZ_DECIMATE: "2"
   ISAAC_SIM_USE_STANDALONE: "true"
   ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
   PLAY_SIM_ON_START: "true"

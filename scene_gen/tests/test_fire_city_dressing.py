@@ -50,6 +50,25 @@ WHAT THIS PINS DOWN, per `urban_fire_city_launch_script.py`'s two new knobs:
        the "merged, not one-prim-per-lump" requirement — and its point/face
        counts are exactly `8 * n_lumps` / `6 * n_lumps`.
 
+  ROUND 2 (2026-08-31, same day — "the minor debris ... needs to increase"):
+  `APRON_DENSITY`/`APRON_MAX_PER_SIDE` were raised and `apron_count`/
+  `apron_points_for_side`/`build_fire_apron`/`fire_apron_pass` all grew a
+  `scale` parameter (`FA_APRON_SCALE` at the launcher):
+    9. `scale` multiplies the count monotonically and the level-qualifies
+       floor of 2 survives even `scale=0` (the apron never goes fully empty
+       through this knob alone — `FC_FIRE_APRON=0` is the on/off switch);
+    10. every seat's perpendicular distance from its own wall line lands
+        inside `[APRON_SETBACK_M lo, hi]` (the "apron band") on ALL FOUR
+        sides, under a yaw, not just the one side round 1 checked;
+    11. every seat is strictly OUTSIDE the building's own footprint
+        rectangle — the apron can never overlap the wall it fell off;
+    12. `APRON_SETBACK_M`'s own upper bound stays a documented margin under
+        `APRON_ROAD_CLEARANCE_M` (`layout/city_layout.py`'s own "5 m ...
+        sidewalk a real block still keeps between its building line and the
+        kerb" figure) — the static form of "keep road centrelines mostly
+        clear" this offline math can actually check, since no road geometry
+        is available at this layer.
+
 WHAT THIS CANNOT SEE: whether the char/scorch tones actually read as burnt
 under a real light, whether the apron looks like debris rather than gravel
 at bench scale, and everything about Flow/materials downstream of a real
@@ -334,6 +353,97 @@ def test_world_masses_does_not_mutate_the_original():
 
 
 # ---------------------------------------------------------------------------
+# 6b) ROUND 2 (2026-08-31): the density scale knob
+# ---------------------------------------------------------------------------
+def test_apron_scale_multiplies_density():
+    n1 = fal.apron_count("F4", fal.APRON_REF_SPAN_M, scale=1.0)
+    n2 = fal.apron_count("F4", fal.APRON_REF_SPAN_M, scale=2.0)
+    nhalf = fal.apron_count("F4", fal.APRON_REF_SPAN_M, scale=0.5)
+    check("test_apron_scale_multiplies_density",
+          n2 >= n1 >= nhalf and n2 > nhalf,
+          "{0} (0.5x) <= {1} (1x) <= {2} (2x)".format(nhalf, n1, n2))
+
+
+def test_apron_scale_zero_still_leaves_the_floor():
+    # `FA_APRON_SCALE=0` is not the same knob as `FC_FIRE_APRON=0` — a
+    # qualifying level always shows AT LEAST the floor of 2, so the density
+    # multiplier alone cannot make a burning building's apron vanish.
+    n = fal.apron_count("F1", fal.APRON_REF_SPAN_M, scale=0.0)
+    check("test_apron_scale_zero_still_leaves_the_floor", n == 2, str(n))
+
+
+# ---------------------------------------------------------------------------
+# 6c) ROUND 2: the apron BAND — inside the setback range, outside the
+# footprint, and (statically) nowhere near a road centreline
+# ---------------------------------------------------------------------------
+def _local_perp_distance(m, side, wx, wy):
+    """How far outward (perpendicular to `side`'s own wall line) a WORLD
+    point sits, in the mass's local frame — the same quantity
+    `apron_points_for_side` adds `APRON_SETBACK_M` along when it authors a
+    seat. Negative means the point is on the BUILDING side of the wall
+    (inside the footprint)."""
+    from disaster import quake_flow as qf
+
+    lx, ly = qf._to_local(m, wx, wy)
+    W, D = m["W"], m["D"]
+    return {"S": -ly - D / 2.0, "N": ly - D / 2.0,
+           "W": -lx - W / 2.0, "E": lx - W / 2.0}[side]
+
+
+def _inside_footprint_xy(m, wx, wy):
+    from disaster import quake_flow as qf
+
+    lx, ly = qf._to_local(m, wx, wy)
+    return abs(lx) <= m["W"] / 2.0 and abs(ly) <= m["D"] / 2.0
+
+
+def test_apron_seats_stay_inside_the_setback_band_all_sides_and_yaw():
+    rng = random.Random(23)
+    ok = True
+    detail = ""
+    for side in ("S", "N", "E", "W"):
+        for yaw in (0.0, 37.0, 90.0, 210.0):
+            m = _fake_mass(W=26.0, D=16.0, cx=40.0, cy=-15.0, yaw=yaw)
+            pts = fal.apron_points_for_side(m, side, "F4", rng)
+            for x, y, s in pts:
+                d = _local_perp_distance(m, side, x, y)
+                lo, hi = fal.APRON_SETBACK_M
+                if not (lo - 1e-6 <= d <= hi + 1e-6):
+                    ok, detail = False, "side={0} yaw={1} d={2}".format(
+                        side, yaw, d)
+    check("test_apron_seats_stay_inside_the_setback_band_all_sides_and_yaw",
+          ok, detail)
+
+
+def test_apron_seats_are_strictly_outside_the_footprint():
+    rng = random.Random(29)
+    ok = True
+    for side in ("S", "N", "E", "W"):
+        m = _fake_mass(W=30.0, D=18.0, cx=-5.0, cy=8.0, yaw=53.0)
+        pts = fal.apron_points_for_side(m, side, "F5", rng)
+        for x, y, s in pts:
+            if _inside_footprint_xy(m, x, y):
+                ok = False
+    check("test_apron_seats_are_strictly_outside_the_footprint", ok)
+
+
+def test_apron_setback_stays_off_the_road():
+    # STATIC bound, not a per-scene road lookup — this offline math has no
+    # road geometry to test against. `layout/city_layout.py`'s own comment
+    # ("+5 m for the sidewalk a real block still keeps between its building
+    # line and the kerb") is the number `APRON_ROAD_CLEARANCE_M` mirrors;
+    # this pins the apron's own upper reach to a real margin under it so a
+    # future widening of `APRON_SETBACK_M` cannot silently start scattering
+    # debris toward a road centreline without failing this test first.
+    lo, hi = fal.APRON_SETBACK_M
+    margin = fal.APRON_ROAD_CLEARANCE_M - hi
+    check("test_apron_setback_stays_off_the_road",
+          0.0 < lo <= hi < fal.APRON_ROAD_CLEARANCE_M and margin >= 2.0,
+          "setback=({0}, {1}) clearance={2} margin={3}".format(
+              lo, hi, fal.APRON_ROAD_CLEARANCE_M, margin))
+
+
+# ---------------------------------------------------------------------------
 # 7) build_fire_apron: the level/side gates, and the merged-mesh prim budget
 # ---------------------------------------------------------------------------
 def _fake_placed_row(i, level, sides, W=20.0, D=10.0, x=0.0, y=0.0, yaw=0.0):
@@ -399,6 +509,19 @@ def test_fire_apron_pass_totals_across_a_small_city():
     n_meshes = sum(1 for r in out if r.get("prim"))
     check("test_fire_apron_pass_totals_across_a_small_city",
           len(out) == 3 and n_meshes == 2, str([r["prim"] for r in out]))
+
+
+def test_fire_apron_pass_scale_reaches_build_fire_apron():
+    # end-to-end plumbing check: `scale` passed to `fire_apron_pass` must
+    # actually change the lump count `build_fire_apron` authors, not just be
+    # accepted and dropped.
+    rows = [_fake_placed_row(0, "F4", ("S", "E"), x=0.0, y=0.0)]
+    n_1x = sum(r["n"] for r in fal.fire_apron_pass(
+        Usd.Stage.CreateInMemory(), "/World/fire", rows, seed=7, scale=1.0))
+    n_2x = sum(r["n"] for r in fal.fire_apron_pass(
+        Usd.Stage.CreateInMemory(), "/World/fire", rows, seed=7, scale=2.0))
+    check("test_fire_apron_pass_scale_reaches_build_fire_apron",
+          n_2x > n_1x, "{0} (1x) vs {1} (2x)".format(n_1x, n_2x))
 
 
 ALL_TESTS = [v for k, v in sorted(globals().items())

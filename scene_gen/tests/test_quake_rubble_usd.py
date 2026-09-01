@@ -341,6 +341,89 @@ def test_mound_mesh_and_material():
     assert reader.GetInput("varname").Get() == "st"
 
 
+def test_recentre_for_loose_gives_collar_mound_a_local_xform():
+    """Round 7 fix: `r_soft_storey`/`quake_collapse._author_heaps` hand a
+    MID-storey collar's mound/apron to `ctx["loose"]` so `settle.run` can
+    carry it down to the base. `_author_heightfield` bakes `points` in
+    WORLD space with NO xform op at all — fine as long as the mound stays
+    STATIC, but `settle.py`'s own `no_local_frame` check flags exactly this
+    shape (a `UsdGeom.Mesh` with no ordered xform ops whose point centroid
+    sits more than 3 m from the origin) as unsafe to simulate: the
+    RigidBody's origin lands at the parent's identity frame while the
+    geometry is off at the building's real position, and any angular
+    velocity swings that arm (measured: a 95.50 m "worst mover", s4g2/
+    office_DG4 `collar_1_mound`, round 7).
+
+    `quake_rubble_usd.recentre_for_loose` must turn that into something
+    `settle.run` accepts: an ordered `translate` op plus points recentred on
+    their own local origin, with every point's WORLD position unchanged.
+    """
+    st = _new_stage()
+    parent = "/World/Bldg"
+    # A building far from the stage origin, same as any real archetype row
+    # (`bake_quake_archetypes_launch_script.py` lays styles out along +Y with
+    # a per-style X pitch) — the centroid distance is what trips the
+    # `no_local_frame` heuristic, not the absolute scale of the mound.
+    cx, cy = 120.0, 45.0
+    plan, asset_root, _, _ = _stub_plan(with_apron=True)
+    mound, _, _ = _grid_dome(cx=cx, cy=cy)
+    apron, _, _ = _grid_dome(n=4, half=4.5, crown=0.3, cx=cx, cy=cy)
+    plan["mound"], plan["apron"] = mound, apron
+    plan["large"] = []
+    plan["instances"] = {}
+
+    out = qru.author(st, parent, plan, tag="collar_1", asset_root=asset_root)
+    mound_path, apron_path = out["mound"], out["apron"]
+    assert mound_path == parent + "/rubble_collar_1_mound"
+
+    def _world_points(path):
+        prim = st.GetPrimAtPath(path)
+        xf = UsdGeom.XformCache()
+        M = xf.GetLocalToWorldTransform(prim)
+        pts = UsdGeom.Mesh(prim).GetPointsAttr().Get()
+        return [M.Transform(Gf.Vec3d(p[0], p[1], p[2])) for p in pts]
+
+    def _centroid_radius(path):
+        pts = UsdGeom.Mesh(st.GetPrimAtPath(path)).GetPointsAttr().Get()
+        cx_ = sum(float(p[0]) for p in pts) / len(pts)
+        cy_ = sum(float(p[1]) for p in pts) / len(pts)
+        cz_ = sum(float(p[2]) for p in pts) / len(pts)
+        return (cx_ * cx_ + cy_ * cy_ + cz_ * cz_) ** 0.5
+
+    for path in (mound_path, apron_path):
+        prim = st.GetPrimAtPath(path)
+        # BEFORE: `_author_heightfield`'s documented contract — no xform ops
+        # at all, and (at this offset) exactly the pattern settle.py's
+        # `no_local_frame` check is watching for.
+        assert not UsdGeom.Xformable(prim).GetOrderedXformOps(), path
+        assert _centroid_radius(path) > 3.0, "test offset too small: " + path
+
+    before = {p: _world_points(p) for p in (mound_path, apron_path)}
+
+    n = qru.recentre_for_loose(st, (mound_path, apron_path))
+    assert n == 2, n
+
+    for path in (mound_path, apron_path):
+        prim = st.GetPrimAtPath(path)
+        ops = UsdGeom.Xformable(prim).GetOrderedXformOps()
+        # AFTER: has a local xform op -> `settle.py`'s `not GetOrderedXformOps()`
+        # gate no longer trips, and it is no longer the world-baked shape at
+        # all: the points themselves are now close to the local origin.
+        assert ops, "recentre_for_loose left {0} with no xform op".format(path)
+        assert _centroid_radius(path) < 1e-6, path
+        t = ops[0].Get()
+        assert abs(t[0] - cx) < 1e-4 and abs(t[1] - cy) < 1e-4, (path, t)
+        # the WORLD position of every point is exactly what it was before —
+        # recentre_for_loose changes the representation, not the geometry.
+        after = _world_points(path)
+        assert len(after) == len(before[path])
+        for wp_before, wp_after in zip(before[path], after):
+            assert (wp_before - wp_after).GetLength() < 1e-4, (path, wp_before, wp_after)
+
+    # idempotent: an xform op is now present, so a second call is a no-op.
+    assert qru.recentre_for_loose(st, (mound_path, apron_path)) == 0
+
+
 def test_apron_uses_paler_tint_and_shares_mound_scope():
     st = _new_stage()
     parent = "/World/Bldg"

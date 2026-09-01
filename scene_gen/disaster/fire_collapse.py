@@ -1829,7 +1829,8 @@ def project_uv(tris, uvs, corners, chunk=TEAR_CHUNK):
     return out
 
 
-def tone_material(ctx, sk):
+def tone_material(ctx, sk, gain=1.0, clamp=None, prefix=TEAR_TONE_PREFIX,
+                  cache_key="tear_tone", rough=TEAR_TONE_ROUGH):
     """A FLAT tone sampled from the parent's own façade map — the fallback
     for a piece whose UVs cannot be carried (no `primvars:st`, a degenerate
     façade, an unreadable atlas).
@@ -1839,6 +1840,22 @@ def tone_material(ctx, sk):
     as much as it is wall. `soot_plume._read_rgb` is the reader the rest of
     the fire pipeline uses (it can reach Nucleus), and the mean is converted
     from screen to LINEAR because `damage._pbr` takes linear albedo.
+
+    THE OTHER CALLER IS THE PEEL (`urban_fire._peel_face_mat`), which wants
+    the same sample of the same map for the same reason — a small patch that
+    cannot carry UVs still has to look like the building it is on — but
+    LIGHTER, because what a lost render exposes is calcined masonry rather
+    than the sooted face over it. That is what `gain` and `clamp` do, and
+    they act on the tone's MEAN, rescaling the whole triple: a per-channel
+    clamp would flatten a warm brownstone to the same grey as a cold render
+    at the ceiling, which is the identity this exists to keep. Measured on
+    the brownstone's own sooted atlases, all three sample screen
+    (0.336, 0.330, 0.309) = linear (0.091, 0.087, 0.075), so every channel
+    is over any sane fire-palette ceiling and a per-channel clamp returned
+    grey for all of them. `prefix` and `cache_key` keep the two populations
+    of material in their own names and their own cache, so neither can hand
+    the other a tone sampled at a different gain. At the defaults this is
+    exactly the function the tear has always called.
     """
     import numpy as np
     from . import damage, soot_plume as spl
@@ -1849,7 +1866,7 @@ def tone_material(ctx, sk):
         # flat sample of an office-interior map is still office beige on the
         # outside of a tower (row 5).
         return None
-    cache = ctx.setdefault("tear_tone", {})
+    cache = ctx.setdefault(cache_key, {})
     uvbox = None
     if sk.get("uv") is not None and len(sk["uv"]):
         uv = np.asarray(sk["uv"], dtype=float).reshape(-1, 2)
@@ -1894,9 +1911,15 @@ def tone_material(ctx, sk):
             img = crop
     rgb = np.clip(img.reshape(-1, 3).mean(axis=0), 0.0, 1.0)
     lin = tuple(float(q) ** TEAR_TONE_GAMMA for q in rgb)
-    mp = "{0}{1}{2}".format(ctx["parent"], TEAR_TONE_PREFIX,
+    if gain != 1.0 or clamp is not None:
+        lo, hi = clamp or (0.0, 1.0)
+        mean = sum(lin) / 3.0
+        want = min(hi, max(lo, mean * gain))
+        k = (want / mean) if mean > 1e-6 else 0.0
+        lin = tuple(min(1.0, q * k) for q in lin)
+    mp = "{0}{1}{2}".format(ctx["parent"], prefix,
                             len([k for k in cache if cache.get(k)]))
-    mat = damage._pbr(ctx["stage"], mp, lin, TEAR_TONE_ROUGH)
+    mat = damage._pbr(ctx["stage"], mp, lin, rough)
     cache[key] = mat
     return mat
 

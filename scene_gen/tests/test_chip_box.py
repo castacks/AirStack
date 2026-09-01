@@ -120,13 +120,25 @@ def test_chipped_pieces_are_still_solids():
             assert np.isfinite(ln).all() and (ln > 0).all(), (kind, seed)
 
 
-def test_volume_loss_stays_inside_the_two_to_thirty_percent_band():
+def test_volume_loss_stays_inside_the_band_the_spec_asked_for():
     """`min_loss`/`max_loss` are a CONTRACT, not a tendency.
 
     Under the floor the piece is still a gift box; over the ceiling the chip
     has become a bisection and the piece stops reading as the lintel/joist the
-    planner sized."""
+    planner sized. Round 6 raised the ceiling from 0.27 to 0.36 because a
+    piece that loses a third of its section HAS lost about a third of its
+    volume — the old ceiling made the final uniform scale inflate a properly
+    bitten piece to hide the loss. The band is read FROM the spec, so this
+    tracks the table instead of restating it."""
     for kind, sz in KINDS.items():
+        spec = qru._CHIP_KIND.get(kind, qru._CHIP_DEFAULT)
+        # SLACK FOR THE WARP. `chip_box` applies `warp_mesh` AFTER the
+        # exact-volume clamp on purpose (bowing a board costs volume the
+        # clamp would otherwise charge it for twice — see the note at the end
+        # of `chip_box`), so a bent kind can land a couple of points outside.
+        slack = 0.05 if spec.get("warp_frac") else 0.005
+        lo = float(spec.get("min_loss", 0.05)) - slack
+        hi = float(spec.get("max_loss", 0.27)) + slack
         v0, f0 = fr.box_arrays(*sz, bottom=True)
         vol0 = fr.mesh_volume(v0, f0)
         for seed in range(16):
@@ -135,7 +147,7 @@ def test_volume_loss_stays_inside_the_two_to_thirty_percent_band():
             # EXACT, not approximate: a final uniform scale pulls the piece
             # back into the band after the roughening pass has moved its
             # volume (see the note at the end of `chip_box`).
-            assert 0.045 <= loss <= 0.275, (kind, seed, loss)
+            assert lo <= loss <= hi, (kind, seed, loss)
 
 
 def test_chip_sizes_span_small_to_very_large():
@@ -151,8 +163,8 @@ def test_chip_sizes_span_small_to_very_large():
         losses = np.asarray([
             1.0 - fr.mesh_volume(*_chip(kind, 900 + seed)) / vol0
             for seed in range(40)])
-        assert float(losses.min()) < 0.11, (kind, losses.round(3))
-        assert float(losses.max()) > 0.22, (kind, losses.round(3))
+        assert float(losses.min()) < 0.16, (kind, losses.round(3))
+        assert float(losses.max()) > 0.28, (kind, losses.round(3))
         assert float(losses.max() - losses.min()) > 0.15, (kind,
                                                            losses.round(3))
         assert float(losses.std()) > 0.04, (kind, float(losses.std()))
@@ -286,7 +298,8 @@ def test_warp_bends_the_middle_and_keeps_the_length():
 def test_concrete_kinds_are_not_bent_and_timber_is():
     """Concrete does not bow. Only `joist` carries `warp_frac` in the table."""
     for kind in ("lintel", "quoin", "column", "slab"):
-        assert "warp_frac" not in qru._CHIP_KIND.get(kind, qru._CHIP_DEFAULT), kind
+        assert not qru._CHIP_KIND.get(kind, qru._CHIP_DEFAULT).get(
+            "warp_frac"), kind
     assert qru._CHIP_KIND["joist"].get("warp_frac", 0.0) > 0.0
 
 
@@ -298,10 +311,14 @@ def test_cost_per_piece_stays_a_handful_of_plane_cuts():
     Blender CPU render, where the same code measures 44 ms, and a wall-clock
     assertion would just be a flaky one. So the budget is expressed against a
     single capped VTK plane clip timed in the SAME process: a piece is 2-6
-    corner chips plus 2-4 end steps plus one subdivision, so ~10x one clip is
-    the expected cost and anything past 25x is a real regression (a lost
-    early-out, a subdivision that stopped respecting its budget) rather than a
-    busy machine."""
+    corner chips plus 2-4 end steps plus one subdivision.
+
+    ROUND 6 RAISED THE CEILING FROM 25x TO 70x, and that is the honest price
+    of the fix: a piece now also pays for 1-3 large section-sized bites, an
+    anisotropic refinement to `gouge_budget` (760-900 triangles against round
+    5's 66-256) and 2-6 gouge passes over every vertex. Measured across the
+    five kinds it lands at 12-30x. Past 70x is a real regression — a lost
+    early-out, or a refinement that stopped respecting its budget."""
     v, f = fr.box_arrays(1.8, 0.28, 0.26, bottom=True, seg=(4, 1, 1))
     fr._chip_clip(v, f, np.asarray([0.0, 0.0, -1.0]),
                   np.asarray([0.0, 0.0, 0.22]))            # warm VTK
@@ -317,7 +334,7 @@ def test_cost_per_piece_stays_a_handful_of_plane_cuts():
         for seed in range(8):
             _chip(kind, 300 + seed)
         per = (time.perf_counter() - t0) / 8.0
-        assert per < 25.0 * unit, (kind, per / unit, 1000.0 * per)
+        assert per < 70.0 * unit, (kind, per / unit, 1000.0 * per)
 
 
 # ---------------------------------------------------------------------------
@@ -355,10 +372,12 @@ def test_box_with_a_chip_spec_is_irregular_but_keeps_the_contract():
     # It is NOT clamped to it exactly: the roughening field pushes the bbox out
     # without costing volume, and paying for that in a fit-to-size cost a
     # 14 %-roughened lintel 48 % of its volume (see `chip_box`'s note).
-    assert max(zs) <= 0.26 * 1.25 + 1e-4, max(zs)
-    assert max(abs(p[0]) for p in pts) <= 0.9 * 1.25 + 1e-4
+    # `max_grow` (0.35) plus the few per cent the final exact-volume clamp
+    # may add on top of it — both documented in `chip_box`.
+    assert max(zs) <= 0.26 * 1.42 + 1e-4, max(zs)
+    assert max(abs(p[0]) for p in pts) <= 0.9 * 1.42 + 1e-4
     ext = UsdGeom.Mesh(st.GetPrimAtPath("/World/B/l")).GetExtentAttr().Get()
-    assert abs(ext[0][2]) < 1e-6 and ext[1][2] <= 0.26 * 1.25 + 1e-4
+    assert abs(ext[0][2]) < 1e-6 and ext[1][2] <= 0.26 * 1.42 + 1e-4
     st2 = UsdGeom.PrimvarsAPI(st.GetPrimAtPath("/World/B/l"))
     assert st2.HasPrimvar("st"), "the Blender preview needs a planar st"
 
@@ -505,7 +524,7 @@ def test_chip_prim_tessellates_and_chips_a_dropped_floor_plate():
     assert set(counts) == {3} and len(counts) > 12
     # still the same plate, still centred on its own local origin
     ext = pts.max(0) - pts.min(0)
-    assert 18.0 < ext[0] <= 22.0 * 1.26 and 14.0 < ext[1] <= 18.0 * 1.26
+    assert 18.0 < ext[0] <= 22.0 * 1.42 and 14.0 < ext[1] <= 18.0 * 1.42
     c = 0.5 * (pts.max(0) + pts.min(0))
     assert np.abs(c).max() < 1e-4, c
     # ... and no longer a rectangle: the top face is no longer one flat plane
@@ -553,7 +572,9 @@ def test_chip_prim_chips_a_break_box_cell_in_place():
                      dtype=np.int64).reshape(-1, 3)
     assert fr.open_edge_count(idx) == 0
     after = fr.mesh_volume(nv, idx)
-    assert 0.045 <= 1.0 - after / before <= 0.275, after / before
+    band = (float(qc._CHIP_PRISM["min_loss"]) - 0.005,
+            float(qc._CHIP_PRISM["max_loss"]) + 0.005)
+    assert band[0] <= 1.0 - after / before <= band[1], after / before
 
 
 def test_chip_pieces_is_a_no_op_under_qc_chip_0_and_rubble_v1(monkeypatch):
@@ -713,3 +734,402 @@ def test_author_prints_a_dress_proof_line_for_laid_panels(capsys):
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# ---------------------------------------------------------------------------
+# ROUND 6 — the shaft, the scallop, and the census
+# ---------------------------------------------------------------------------
+# WHAT ROUND 5 GOT WRONG AND WHY NO TEST CAUGHT IT. Every assertion above this
+# line measures VOLUME. The user's complaint is about SHAPE, and the two came
+# apart completely: on a 0.40 x 0.40 x 3.50 m column the round-5 table lost
+# 7-21 % of the volume and left the middle of the piece a perfect prism,
+# because a plane clip can only remove material at the extreme corner along
+# its own normal and every corner of that column is at one of its two ends.
+#
+# So the round-6 acceptance test is not a volume band. It is the CROSS-SECTION
+# FILL PROFILE — how much of the nominal section survives at each of 40
+# stations along the piece — measured by sampling points against the closed
+# surface (`vtkSelectEnclosedPoints`). The measurement lives in
+# `tools/pillar_break_bench.py` so the test and the render bench cannot drift:
+# the number asserted here is literally the number printed under the PNGs.
+
+sys.path.insert(0, os.path.normpath(os.path.join(_HERE, "..", "tools")))
+import pillar_break_bench as bench                   # noqa: E402
+
+
+def _profile(kind, seed):
+    v, f = _chip(kind, seed)
+    return bench.section_profile(v, f, KINDS[kind])[0]
+
+
+def test_the_middle_of_a_column_is_damaged_and_not_only_its_two_ends():
+    """THE round-6 test, and the one that would have caught round 5.
+
+    Round 5 on this exact column: 22/42/61 % at the bottom, 72-92 % at the
+    top, and 85-99 % at EVERY station in between — a bevelled prism. The bar
+    is set where the eye is: a shaft that never drops below ~0.90 of its
+    section reads as a cuboid at 7 m, whatever it lost at its ends."""
+    worst = []
+    for seed in range(14):
+        p = _profile("column", 700 + seed)
+        k = max(1, int(round(len(p) * 0.10)))          # drop the end stations
+        worst.append(float(p[k:-k].min()))
+    worst = np.asarray(worst)
+    # EVERY piece has a real bite somewhere along its shaft. The ceiling is
+    # 0.92 and not lower on purpose: "random from small to very large chips"
+    # means the population must CONTAIN a lightly-nicked piece, and the
+    # measured spread over 14 seeds is 0.19-0.91 with a median near 0.56.
+    # What round 5 did — every piece between 0.85 and 0.99 — is the failure.
+    assert worst.max() <= 0.92, worst.round(2)
+    # ... the typical piece loses a fifth of its section mid-shaft ...
+    assert float(np.median(worst)) <= 0.80, worst.round(2)
+    # ... and the tail loses a third or more.
+    assert worst.min() <= 0.66, worst.round(2)
+    assert float(worst.max() - worst.min()) > 0.35, worst.round(2)
+
+
+def test_a_plate_loses_its_edge_runs_not_only_its_four_corners():
+    """The stop-sign case. Round 5 cut a slab's four corners off and left
+    every edge between them a ruler-straight line — which is the flat grey
+    plate lying on the rubble mound in `eq500_v3/b0_apartment_DG5_obl.png`.
+
+    Measured along the plate's LONG axis: a piece whose section only dips at
+    its two ends has had its corners cut and nothing else."""
+    mids = []
+    for seed in range(14):
+        p = _profile("lintel", 800 + seed)
+        k = max(1, int(round(len(p) * 0.15)))
+        mids.append(float(p[k:-k].min()))
+    mids = np.asarray(mids)
+    assert mids.max() <= 0.93, mids.round(2)
+    assert float(np.median(mids)) <= 0.88, mids.round(2)
+
+
+def test_no_piece_is_left_with_all_six_faces_pristine():
+    """"They shouldn't look perfect" made countable. A face still carrying
+    >90 % of its nominal area, flat and in-plane, is a face that reads as
+    cast — and six of them is a cuboid."""
+    for kind in ("column", "lintel", "quoin", "joist", "slab"):
+        for seed in range(10):
+            v, f = _chip(kind, 400 + seed)
+            _faces, pristine = bench.face_report(v, f, KINDS[kind])
+            assert pristine <= 2, (kind, seed, pristine, _faces)
+
+
+def test_gouges_and_bites_off_reproduce_the_round_five_shape_exactly():
+    """The new mechanisms are OPT-IN. A caller that does not set them — every
+    non-quake user of `fracture` — gets the old arrays back byte for byte."""
+    sz = (0.45, 0.45, 2.0)
+    old = dict(chips=(2, 6), depth_frac=(0.025, 0.15), ends=0.55,
+               rough_frac=0.10)
+    a = fr.chip_box(sizes=sz, rng=random.Random(5), bottom=True, **old)
+    b = fr.chip_box(sizes=sz, rng=random.Random(5), bottom=True,
+                    bites=(0, 0), gouges=(0, 0), rough_lam_frac=None, **old)
+    assert np.array_equal(a[0], b[0]) and np.array_equal(a[1], b[1])
+
+
+def test_subdivide_long_edges_refines_only_the_long_ones_and_stays_closed():
+    """A T-junction or an open edge here would put the fan caps back into
+    every later cut — the round-3 defect the whole solidify pass exists for."""
+    def max_edge(v, f):
+        e = np.vstack([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]])
+        return float(np.linalg.norm(v[e[:, 0]] - v[e[:, 1]], axis=1).max())
+
+    for sz in ((0.4, 0.4, 3.5), (2.5, 1.6, 0.12)):
+        v, f = fr.box_arrays(*sz, bottom=True)
+        area = fr._tri_area(v, f)
+        tgt = float(np.clip(np.sqrt(2.0 * area / 760.0), 0.02, 1.0))
+        nv, nf = fr.subdivide_long_edges(v, f, tgt, budget=760)
+        # WATERTIGHT. A T-junction or an open edge here would put the fan caps
+        # back into every later cut.
+        assert fr.open_edge_count(nf) == 0, sz
+        assert _degenerate(nv, nf) == 0, sz
+        assert abs(fr.mesh_volume(nv, nf) - fr.mesh_volume(v, f)) < 1e-9, sz
+        # IT USES THE BUDGET. `subdivide_to_budget`'s uniform 4-to-1 split can
+        # only land on 12/48/192/768..., so at 760 it stops at 192 triangles
+        # and a 0.88 m longest edge — and a 0.3 m scallop has nothing to
+        # displace at that spacing. This is the whole reason the gouge pass
+        # needed a second refiner.
+        uv, uf = fr.subdivide_to_budget(v, f, budget=760)
+        assert len(nf) <= 760, (sz, len(nf))
+        assert len(nf) > 2 * len(uf), (sz, len(nf), len(uf))
+        assert max_edge(nv, nf) < 0.75 * max_edge(uv, uf), sz
+    # and it never overruns a budget, however fine the target
+    v, f = fr.box_arrays(0.4, 0.4, 3.5, bottom=True)
+    for budget in (60, 200, 760):
+        _v, _f = fr.subdivide_long_edges(v, f, 0.02, budget=budget)
+        assert len(_f) <= budget, (budget, len(_f))
+        assert fr.open_edge_count(_f) == 0, budget
+
+
+def test_a_gouge_never_opens_inverts_or_escapes_the_piece():
+    """Points only, so topology cannot change — but the displacement must not
+    push a vertex through the far face either, which would invert the solid
+    and give physics a hull with negative volume."""
+    v, f = fr.box_arrays(0.4, 0.4, 3.5, bottom=True)
+    v, f = fr.subdivide_long_edges(v, f, 0.13, budget=900)
+    v0 = fr.mesh_volume(v, f)
+    ext0 = v.max(0) - v.min(0)
+    for seed in range(20):
+        g = fr.gouge_arrays(v, random.Random(seed), 4, piece_vol=v0)
+        assert g.shape == v.shape and np.isfinite(g).all(), seed
+        assert fr.open_edge_count(f) == 0, seed
+        vol = fr.mesh_volume(g, f)
+        assert 0.30 * v0 < vol < v0 + 1e-9, (seed, vol / v0)
+        # never grows: a gouge only ever pushes material IN
+        assert ((g.max(0) - g.min(0)) <= ext0 + 1e-9).all(), seed
+
+
+def test_gouge_depth_spans_small_to_very_large():
+    """`gouge_big_p` is the tail the user asked for. Over a population, the
+    deepest bite has to be several times the shallowest."""
+    v, f = fr.box_arrays(0.4, 0.4, 3.5, bottom=True)
+    v, f = fr.subdivide_long_edges(v, f, 0.13, budget=900)
+    v0 = fr.mesh_volume(v, f)
+    loss = np.asarray([
+        1.0 - fr.mesh_volume(fr.gouge_arrays(v, random.Random(s), 3,
+                                             piece_vol=v0), f) / v0
+        for s in range(40)])
+    # `gouge_vol_frac` caps the TOTAL a gouge pass may take, so the ceiling
+    # here is a budget rather than a free draw; the point of the assertion is
+    # the SPREAD underneath it.
+    assert loss.min() < 0.04, loss.round(3)
+    assert loss.max() > 0.10, loss.round(3)
+    assert loss.max() > 4.0 * max(loss.min(), 1e-3), loss.round(3)
+
+
+def test_every_spec_table_entry_asks_for_the_round_six_mechanisms():
+    """A kind that forgets `gouges` is a kind that ships perfect cuboids —
+    which is exactly how round 5 shipped with the wiring 'done'."""
+    qc = _qc()
+    tables = [("qru." + k, s) for k, s in qru._CHIP_KIND.items()]
+    tables.append(("qru._CHIP_DEFAULT", qru._CHIP_DEFAULT))
+    tables += [("qc." + n, getattr(qc, n))
+               for n in ("_CHIP_PLANK", "_CHIP_PRISM", "_CHIP_SLAB")]
+    for name, spec in tables:
+        assert int(spec.get("gouges", (0, 0))[1]) >= 2, name
+        assert int(spec.get("bites", (0, 0))[1]) >= 1, name
+        assert spec.get("rough_lam_frac"), name
+        assert float(spec.get("max_loss", 0.27)) >= 0.30, name
+
+
+def test_spec_for_shape_routes_a_plate_a_bar_and_a_board():
+    """The helper a `quake_flow` emitter needs so its one-line wiring does not
+    have to know the tables. See its docstring for the census of every
+    population that is STILL unchipped."""
+    qc = _qc()
+    assert qc.spec_for_shape((2.5, 1.6, 0.12)) is qc._CHIP_SLAB
+    assert qc.spec_for_shape((1.8, 0.28, 0.26)) is qc._CHIP_PRISM
+    assert qc.spec_for_shape((0.45, 0.45, 2.0)) is qc._CHIP_PRISM
+    assert qc.spec_for_shape((3.2, 0.10, 0.20), timber=True) is qc._CHIP_PLANK
+
+
+def test_a_quake_flow_shaped_plain_box_is_accepted_by_the_chip_round_trip():
+    """PROOF THAT THE MISSING WIRING IS ONLY WIRING. Every unchipped
+    population listed in `spec_for_shape`'s docstring is a `quake_flow._box`:
+    a CENTRED 6-quad box with no `st`. `_chip_prim` must accept exactly that
+    shape, or adding the call would silently no-op."""
+    qc = _qc()
+    st = _stage()
+    from pxr import Gf, Sdf, UsdGeom, Vt
+    hx, hy, hz = 0.9, 0.14, 0.13                      # a `_p_lintels` bar
+    P = Gf.Vec3f
+    pts = [P(-hx, -hy, -hz), P(hx, -hy, -hz), P(hx, hy, -hz), P(-hx, hy, -hz),
+           P(-hx, -hy, hz), P(hx, -hy, hz), P(hx, hy, hz), P(-hx, hy, hz)]
+    m = UsdGeom.Mesh.Define(st, Sdf.Path("/World/B/lintel_00"))
+    m.CreatePointsAttr(Vt.Vec3fArray(pts))
+    m.CreateFaceVertexCountsAttr(Vt.IntArray([4] * 6))
+    m.CreateFaceVertexIndicesAttr(Vt.IntArray(
+        [i for q in [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4),
+                     (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)] for i in q]))
+    spec = qc.spec_for_shape((2 * hx, 2 * hy, 2 * hz))
+    assert qc._chip_prim(st, "/World/B/lintel_00", spec, tessellate=True)
+    out = UsdGeom.Mesh(st.GetPrimAtPath("/World/B/lintel_00"))
+    v = np.asarray([[p[0], p[1], p[2]] for p in out.GetPointsAttr().Get()])
+    cnt = np.asarray(out.GetFaceVertexCountsAttr().Get())
+    assert (cnt == 3).all() and len(cnt) > 12
+    _faces, pristine = bench.face_report(
+        v, np.asarray(out.GetFaceVertexIndicesAttr().Get()).reshape(-1, 3),
+        (2 * hx, 2 * hy, 2 * hz))
+    assert pristine <= 2, (pristine, _faces)
+
+
+# ---------------------------------------------------------------------------
+# ROUND 6b — wiring 4/4: the `quake_flow` cuboid populations
+# ---------------------------------------------------------------------------
+# `fracture.chip_box` existed for a whole round while `grep -c chip
+# quake_flow.py` was 1 — and that hit was a comment. The lintel bars, the
+# spall bands, the interior litter, the lifted paving slabs and the shattered
+# column chunks all shipped as perfect rectangles because nothing called the
+# helper on them. These tests pin the round trip for EVERY shape now wired, so
+# a future emitter cannot quietly go back to shipping a cuboid.
+#
+# SHAPES ARE READ FROM THE EMITTERS' OWN DRAW RANGES, not invented here:
+# `_p_lintels` (three branches), `_disturb_interior`'s litter, `_d_chunk`,
+# `_d_face_band`, `_b_crumbs`, `_buckled_pavement`, `_c_kerb`, and
+# `fit_interior`'s column at `COLUMN_W`.
+
+QF_SHAPES = {
+    # name              (sx, sy, sz)          expect a gouge pass?
+    "lintel_run":       ((1.80, 0.26, 0.24), True),
+    "quoin":            ((0.48, 0.35, 0.31), True),
+    "coping":           ((0.90, 0.38, 0.28), True),
+    "litter":           ((0.45, 0.30, 0.20), True),
+    "chunk":            ((0.60, 0.45, 0.30), True),
+    "spall_band":       ((0.90, 0.11, 0.65), True),
+    "crumb":            ((0.18, 0.12, 0.10), False),   # under CHIP_TINY_M
+    "pavement_slab":    ((2.10, 1.60, 0.14), True),
+    "kerb":             ((1.20, 0.32, 0.18), True),
+    "fit_column":       ((0.45, 0.45, 2.80), True),
+}
+
+
+def test_spec_for_shape_size_ladder_keeps_the_small_populations_affordable():
+    """THE COST CONTROL, and without it this wiring is unaffordable.
+
+    `_disturb_interior` authors `W*D/100*9` litter boxes PER STOREY and
+    `_b_crumbs` 5-12 per loss patch; at the full 760-triangle gouge budget one
+    building would pay several hundred thousand triangles for pieces a few
+    pixels across. The ladder has to actually bite."""
+    qc = _qc()
+    big = qc.spec_for_shape((1.80, 0.26, 0.24))
+    small = qc.spec_for_shape((0.60, 0.45, 0.30))
+    tiny = qc.spec_for_shape((0.18, 0.12, 0.10))
+    assert big["gouges"][1] >= 2 and big["gouge_budget"] >= 700
+    assert 0 < small["gouges"][1] < big["gouges"][1]
+    assert small["gouge_budget"] < big["gouge_budget"]
+    # a tiny piece gets SILHOUETTE ONLY — a bite, no gouge, no roughening
+    assert tiny["gouges"] == (0, 0) and tiny["bites"][1] >= 1
+    assert not tiny["rough_frac"]
+    # ... and the tiers still route by shape, not only by size
+    assert qc.spec_for_shape((2.10, 1.60, 0.14))["ends"] == \
+        qc._CHIP_SLAB["ends"]
+    assert qc.spec_for_shape((3.2, 0.10, 0.20), timber=True)["warp_frac"] > 0
+
+
+def test_every_wired_quake_flow_shape_round_trips_through_chip_prim():
+    """One round trip per emitter shape. The acceptance criterion is the same
+    one the pillar bench uses: the piece must come back a closed solid that is
+    no longer a cuboid."""
+    qc = _qc()
+    st = _stage()
+    for name, (sz, gouged) in QF_SHAPES.items():
+        path = "/World/B/qf_" + name
+        _plain_box(st, path, *sz)
+        spec = qc.spec_for_shape(sz)
+        assert qc._chip_prim(st, path, spec, tessellate=True), name
+        m = UsdGeom.Mesh(st.GetPrimAtPath(path))
+        v = np.asarray([[p[0], p[1], p[2]]
+                        for p in m.GetPointsAttr().Get()], dtype=float)
+        cnt = np.asarray(m.GetFaceVertexCountsAttr().Get())
+        f = np.asarray(m.GetFaceVertexIndicesAttr().Get(),
+                       dtype=np.int64).reshape(-1, 3)
+        assert (cnt == 3).all(), name
+        assert fr.open_edge_count(f) == 0, name          # still a solid
+        assert np.isfinite(v).all(), name
+        _faces, pristine = bench.face_report(v, f, sz)
+        assert pristine <= 2, (name, pristine, _faces)
+        # the ladder actually applied: a tiny piece stays cheap
+        assert len(f) <= 900, (name, len(f))
+        if not gouged:
+            assert len(f) <= 120, (name, len(f))
+
+
+def test_the_refusal_ladder_still_protects_kit_and_sliced_art():
+    """The wiring must never reach anything that is not one of our own boxes.
+    A UV-carrying mesh is kit/sliced art (chipping drops the cladding) and an
+    open shell is the `vtkStripper::GetPointCells` SIGSEGV in the round-4
+    catalogue — both have to PASS THROUGH, not be handled."""
+    qc = _qc()
+    st = _stage()
+    _plain_box(st, "/World/B/uv", 1.2, 0.3, 0.25, with_st=True)
+    assert not qc._chip_prim(st, "/World/B/uv", qc.spec_for_shape(
+        (1.2, 0.3, 0.25)))
+    from pxr import Sdf, UsdGeom, Vt
+    op = UsdGeom.Mesh.Define(st, Sdf.Path("/World/B/open"))
+    op.CreatePointsAttr(Vt.Vec3fArray([Gf.Vec3f(0, 0, 0), Gf.Vec3f(1, 0, 0),
+                                       Gf.Vec3f(1, 1, 0), Gf.Vec3f(0, 1, 0)]))
+    op.CreateFaceVertexCountsAttr(Vt.IntArray([4]))
+    op.CreateFaceVertexIndicesAttr(Vt.IntArray([0, 1, 2, 3]))
+    assert not qc._chip_prim(st, "/World/B/open",
+                             qc.spec_for_shape((1.0, 1.0, 0.01)))
+
+
+def _qf():
+    from disaster import quake_flow as qf
+    return qf
+
+
+def test_chip_authored_routes_a_mixed_bag_and_tallies_for_the_proof_line():
+    """`_chip_authored` is what every `quake_flow` call site uses. It must
+    measure each piece itself (one call site holds a lintel, a quoin and a
+    coping stone), tally into `ctx`, and never raise on a bad path."""
+    qf = _qf()
+    st = _stage()
+    paths = []
+    for name, (sz, _g) in QF_SHAPES.items():
+        p = "/World/B/mixed_" + name
+        _plain_box(st, p, *sz)
+        paths.append(p)
+    _plain_box(st, "/World/B/mixed_uv", 1.2, 0.3, 0.25, with_st=True)
+    ctx = {"stage": st, "parent": "/World/B", "mats": {}}
+    n = qf._chip_authored(ctx, paths + ["/World/B/mixed_uv", None, "/nope"],
+                          why="test")
+    assert n == len(paths), (n, len(paths))
+    assert ctx["_chip_n"] == n
+    assert ctx["_chip_m"] == 1, ctx["_chip_m"]       # the UV mesh passed
+    assert ctx["_chip_by"]["test"] == (n, 1)
+
+
+def test_chip_authored_is_a_no_op_under_qc_chip_0(monkeypatch):
+    """The escape hatch reaches the new wiring too: nothing is touched and
+    nothing is counted as chipped."""
+    qf = _qf()
+    st = _stage()
+    _plain_box(st, "/World/B/off", 1.8, 0.26, 0.24)
+    before = list(UsdGeom.Mesh(
+        st.GetPrimAtPath("/World/B/off")).GetPointsAttr().Get())
+    monkeypatch.setenv("QC_CHIP", "0")
+    ctx = {"stage": st, "parent": "/World/B", "mats": {}}
+    assert qf._chip_authored(ctx, ["/World/B/off"]) == 0
+    after = list(UsdGeom.Mesh(
+        st.GetPrimAtPath("/World/B/off")).GetPointsAttr().Get())
+    assert before == after
+
+
+def test_the_proof_line_is_printed_and_kept_in_the_notes(capsys):
+    """A scene bake log has to SHOW the chips fired. Round 5 shipped with the
+    wiring believed done and no positive evidence anywhere that it ran, which
+    is how three review rounds went by with the pillars still cuboids."""
+    qf = _qf()
+    st = _stage()
+    _plain_box(st, "/World/B/pl", 1.8, 0.26, 0.24)
+    ctx = {"stage": st, "parent": "/World/B", "mats": {}, "notes": []}
+    qf._chip_authored(ctx, ["/World/B/pl"], why="lintel")
+    qf._chip_report(ctx)
+    out = capsys.readouterr().out
+    assert "[chip] quake_flow:" in out and "chipped" in out and "passed" in out
+    assert "lintel" in out
+    assert any("[chip] quake_flow:" in q for q in ctx["notes"])
+
+
+def test_the_skip_decisions_are_recorded_where_they_were_made():
+    """Ground, soil, sheet metal, a surviving shear core and an INTACT roof
+    are deliberately not chipped. The reasoning has to survive next to the
+    code, or the next round re-litigates it from scratch (or, worse, wires
+    them)."""
+    import inspect
+    qf = _qf()
+    src = inspect.getsource(qf)
+    for name in ("_c_clods", "_c_fissures", "_c_overturn_ground",
+                 "r_signage_fail"):
+        i = src.index("def " + name + "(")
+        assert "NOT CHIPPED" in src[max(0, i - 900):i], name
+    for name in ("_shaft", "_roof_box"):
+        fn = getattr(qf, name)
+        assert "NOT CHIPPED" in (fn.__doc__ or ""), name
+    # and none of them grew a call
+    for name in ("_c_clods", "_c_fissures", "_c_overturn_ground",
+                 "r_signage_fail", "_shaft", "_roof_box"):
+        body = inspect.getsource(getattr(qf, name))
+        assert "_chip_authored(" not in body, name

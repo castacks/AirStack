@@ -11,30 +11,38 @@ tornado library does not contain.
 WHY THIS IS A SMALL SCRIPT AND `bake_tornado_archetypes_launch_script.py` IS
 A LARGE ONE
 ---------------------------------------------------------------------------
-The hurricane house ladder is the tornado ladder EXTENDED DOWNWARD. Its top
-four rungs are not merely similar to the tornado's — `hurricane_flow.BREAK_PLAN`
-REFERENCES `wind_flow.BREAK_PLAN` for them rather than copying it, so
-`roof_stripped`, `roof_collapsed`, `partial_collapse` and `leveled` are the
-same archetype, and `swept` is produced by the same bake. Re-baking them here
-would spend twenty minutes of solver time reproducing files that already exist
-byte-for-byte in intent.
+UPDATED 2026-08-31: this file used to LINK `roof_stripped` / `roof_collapsed`
+/ `partial_collapse` / `leveled` out of the tornado library (`hurricane_flow.
+BREAK_PLAN` referenced `wind_flow.BREAK_PLAN` for them). That library's
+output is fracture+settle debris — a fan of roof triangles and wall shards
+heaped on the lawn — which is a TORNADO signature, and the review found it
+still reads as one for a hurricane, plus fragments FROZEN IN MID-AIR where a
+truncated settle never finished (PhysX GPU dynamics does not engage in the
+OSMO workspace container, below). All SIX non-trivial house rungs are now
+built HERE, in this script, and NONE of them needs physics:
 
-What the tornado library genuinely lacks is the bottom of the hurricane
-ladder — the Cat 1-2 signature, and the majority outcome on a hurricane plate:
+    shingles_lost      a few bays of covering gone, deck intact         )
+    cover_lost         about half the covering gone, some windows in    ) SetActive(False)
+    deck_panels_lost   most covering/sheathing gone, holes to the attic ) + rafter lattice
+    roof_stripped      every bay gone, structure/walls whole            )
+    roof_collapsed     every roof bay hinged 15-35 deg, drops inward    ) rigid POSE,
+    partial_collapse   windward wall row racked 70-90 deg outward       ) no fracture,
+    leveled            every wall racked flat, roof settled low on top  ) no settle
 
-    shingles_lost      a few bays of covering gone, deck intact
-    cover_lost         about half the covering gone, some windows in
-    deck_panels_lost   most covering and sheathing gone, holes to the attic
+The first four are `SetActive(False)` on the kit's own per-bay roof meshes
+plus a window-piece swap (`hurricane_flow.strip_roof` / `.blow_out_windows`),
+now followed by `author_rafters` so a dropped bay does not read as an empty
+box — a lost shingle course is gone-or-there, not crazed, so fracturing for
+these would be both slower and wrong. The last three are rigid transform
+edits to the walls/roof that already exist (`hurricane_flow.pose_roof_
+collapsed` / `.pose_partial_collapse` / `.pose_leveled`) — no rigid body, no
+settle, no PhysX. `ROOF_LEVELS` below covers all seven non-pristine,
+non-swept rungs; `hf.wreck_building` dispatches each to the right one
+internally.
 
-AND NONE OF THE THREE NEEDS PHYSICS. They are `SetActive(False)` on the kit's
-own per-bay roof meshes plus a window-piece swap — `hurricane_flow.strip_roof`
-and `.blow_out_windows`, whose whole argument is that fracturing for these
-would be slower AND look wrong (a lost shingle course is gone-or-there, not
-crazed). So there is no fracture, no rigid body, no settle and no solver in
-this file at all, and it runs in seconds rather than in tens of minutes.
-
-That is also why this script SYMLINKS (or copies) the shared rungs out of the
-tornado library instead of rebuilding them: see `_link_shared`.
+`SHARED_LEVELS` is now just `pristine` (the assembly's own missing-archetype
+fallback) and `swept` (never produced by this ladder — `disaster.surge` owns
+it, see `_link_shared`).
 
 MEASURED ON THIS POD, AND THE REASON THE SPLIT MATTERS HERE MORE THAN USUAL:
 PhysX GPU dynamics does NOT engage in the OSMO workspace container. The
@@ -110,16 +118,28 @@ _req = _env("ARCH_STYLES", "")
 STYLES = ([s.strip() for s in _req.split(",") if s.strip()]
           if _req else list(mh.STYLES.keys()))
 
-# The rungs this script BUILDS. Exactly `hurricane_flow._ROOF_FRAC`'s keys —
-# read from the module rather than restated, so adding a fourth roof state
-# there does not need an edit here.
-ROOF_LEVELS = tuple(hf._ROOF_FRAC.keys())
+# The rungs this script BUILDS by SetActive-and-rafter (`hurricane_flow.
+# _ROOF_FRAC`'s keys) or by rigid POSE (`hurricane_flow._POSE_LEVELS`) —
+# read from the module rather than restated, so a new state there does not
+# need an edit here. `roof_stripped` joined `_ROOF_FRAC` 2026-08-31 (it used
+# to be linked from the tornado library, see the note below); `roof_
+# collapsed` / `partial_collapse` / `leveled` joined this script the same
+# day, replacing the tornado library's fracture+settle output for the same
+# reason `roof_stripped` did: a fan of roof triangles and wall shards heaped
+# on the lawn is a tornado signature, and it shipped fragments frozen in
+# mid-air where a truncated settle never finished. NONE of the six needs
+# `items`/`tag`/`nrng`/`planks_mats` — `hf.wreck_building` dispatches all of
+# them internally (see its own docstring).
+ROOF_LEVELS = tuple(hf._ROOF_FRAC.keys()) + hf._POSE_LEVELS
 
-# The rungs this script LINKS from the tornado library. `pristine` is included
-# because the assembly falls back to it for any missing archetype, so a
-# hurricane library without one is a library that renders empty lots.
-SHARED_LEVELS = ("pristine", "roof_stripped", "roof_collapsed",
-                 "partial_collapse", "leveled", "swept")
+# The rungs this script LINKS from the tornado library. Down to two:
+# `pristine` (the assembly falls back to it for any missing archetype, so a
+# hurricane library without one is a library that renders empty lots) and
+# `swept` (never produced by this file's own ladder at all — `disaster.
+# surge` owns it, and it rides along only so a shared archetype directory
+# has something to reference if surge ever wants the tornado's own swept
+# geometry as a starting point).
+SHARED_LEVELS = ("pristine", "swept")
 
 GRID = 40.0     # no settle here, so nothing is thrown between cells; the
                 # tornado baker's 50 m is sized for a 9 m/s debris throw.
@@ -258,7 +278,15 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     app = omni.kit.app.get_app()
 
-    combos = [(st, lv) for st in STYLES for lv in ROOF_LEVELS]
+    # ARCH_LEVELS (comma list) scopes a rebake to specific rungs. Added
+    # 2026-08-31: the three structural rungs are now TORNADO-CANON files
+    # adopted by `hurricane_house_pose_bake.py --adopt-tornado`; an unscoped
+    # rebake would silently overwrite them with rigid pose output. A palette
+    # rebake therefore runs with
+    #   ARCH_LEVELS=shingles_lost,cover_lost,deck_panels_lost,roof_stripped
+    _lv_req = [x.strip() for x in _env("ARCH_LEVELS", "").split(",") if x.strip()]
+    _levels = tuple(x for x in ROOF_LEVELS if not _lv_req or x in _lv_req)
+    combos = [(st, lv) for st in STYLES for lv in _levels]
     ncol = max(1, int(math.ceil(math.sqrt(len(combos)))))
     print("[harch] building {0} roof-state archetype(s): {1} style(s) x {2}"
           .format(len(combos), len(STYLES), list(ROOF_LEVELS)))
@@ -281,6 +309,27 @@ def main():
         rng = random.Random(SEED + idx)
         pls = mh.build_building(st, X, Y, 0.0, random.Random(SEED),
                                 category="house")
+        # STAMP THE STYLE'S PALETTE ONTO THE PLACEMENTS BEFORE apply_palette,
+        # exactly as `bake_tornado_archetypes_launch_script.py` does. Without
+        # this `pl.get("palette")` is empty on every placement `build_building`
+        # returns (it never stamps one itself — see its docstring and every
+        # OTHER caller in `modular_house.py`: `build_catalogue`, `build_row`,
+        # `build_plaza` and `suburb_scene.build_placements` all do this same
+        # assignment themselves), so `apply_palette`'s `pal = PALETTES.get(
+        # pl.get("palette") or "")` resolved `PALETTES.get("")` -> None for
+        # every subset on every style and the call two lines down rebound
+        # ZERO of them — silently: `apply_palette` has no "0 subsets" print.
+        # Every baked hurricane house therefore wore the KIT'S OWN untouched
+        # defaults regardless of style: `Cladding_01` walls, `Brick_01_Dirt`
+        # gables, and `Roof_Tiles_01_Inst`/`Roof_Felt_01` roofs — the two roof
+        # materials this module's own header calls "about a third acid-lime
+        # moss" and "more than half moss" and says are "replaced everywhere",
+        # which they were not. That is the uniform white/cream wall, repeated
+        # brick gable and mossy shingle roof on every style in every render.
+        pal = mh.STYLES[st].get("palette")
+        if pal:
+            for q in pls:
+                q["palette"] = pal
         sg.apply_placements(stage, pls, parent, ssf)
         mh.apply_palette(stage, pls, parent)
         built.append((st, lv, X, Y, parent, pls))
@@ -289,34 +338,56 @@ def main():
         app.update()
     print("[harch] kit build in {0:.0f}s".format(time.time() - t0))
 
-    # ---- the damage, such as it is: bays off, windows in, doors gone -------
+    # ---- the damage, such as it is: bays off/posed, windows in, doors gone -
     t1 = time.time()
-    n_bay = n_win = 0
+    n_bay = n_posed = 0
     for st, lv, X, Y, parent, pls in built:
         prim = stage.GetPrimAtPath(Sdf.Path(parent))
         rng = random.Random(SEED + hash((st, lv)) % 9973)
-        # COUNT THE BAYS BEFORE AND AFTER RATHER THAN TRUST A RETURN VALUE.
-        # `wreck_building` returns FRAGMENT PATHS, which are empty for every
-        # level this script builds (that is the whole point of them) — so the
-        # only honest measure of whether the roof was actually stripped is the
-        # active-bay count on the prim itself. A bake that reports "12 styles
-        # done" while every roof is still whole is precisely the silent
-        # failure this pipeline has hit before.
         try:
-            before = sum(1 for q in hf.roof_bay_prims(prim) if q.IsActive())
-            hf.wreck_building(stage, prim, lv, rng,
-                              wind_bearing_deg=_BAKE_BEARING, items=pls)
-            after = sum(1 for q in hf.roof_bay_prims(prim) if q.IsActive())
-            n_bay += max(0, before - after)
-            if before and before == after:
-                print("[harch] {0}/{1}: {2} bay(s) and NONE dropped — the "
-                      "roof is untouched".format(st, lv, before))
+            if lv in hf._ROOF_FRAC:
+                # COUNT THE BAYS BEFORE AND AFTER RATHER THAN TRUST A RETURN
+                # VALUE. `wreck_building` returns FRAGMENT PATHS, empty for
+                # every level this branch handles (that is the whole point
+                # of them) — so the only honest measure of whether the roof
+                # was actually stripped is the active-bay count on the prim
+                # itself. A bake that reports "12 styles done" while every
+                # roof is still whole is precisely the silent failure this
+                # pipeline has hit before.
+                before = sum(1 for q in hf.roof_bay_prims(prim) if q.IsActive())
+                hf.wreck_building(stage, prim, lv, rng,
+                                  wind_bearing_deg=_BAKE_BEARING, items=pls)
+                after = sum(1 for q in hf.roof_bay_prims(prim) if q.IsActive())
+                n_bay += max(0, before - after)
+                if before and before == after:
+                    print("[harch] {0}/{1}: {2} bay(s) and NONE dropped — "
+                          "the roof is untouched".format(st, lv, before))
+            else:
+                # `_POSE_LEVELS` — bays/walls stay ACTIVE (they are ROTATED,
+                # not deactivated), so the bay-count check above is
+                # meaningless here. `wreck_building` returns `[]` for these
+                # too (no fracture), so the honest check is instead: did any
+                # roof/wall transform actually change? Measured via a
+                # transform snapshot, not `roof_bay_prims(...).IsActive()`.
+                before_xf = {q.GetPath(): q.GetAttribute(
+                    "xformOp:transform").Get()
+                            for q in hf._meshes_of(prim, "house_roof")}
+                hf.wreck_building(stage, prim, lv, rng,
+                                  wind_bearing_deg=_BAKE_BEARING, items=pls)
+                moved = sum(1 for path, m0 in before_xf.items()
+                           if stage.GetPrimAtPath(path).GetAttribute(
+                               "xformOp:transform").Get() != m0)
+                n_posed += moved
+                if before_xf and not moved:
+                    print("[harch] {0}/{1}: {2} roof bay(s) and NONE posed "
+                          "— the roof is untouched".format(
+                              st, lv, len(before_xf)))
         except Exception as exc:
             print("[harch] {0}/{1} wreck FAILED: {2}".format(st, lv, exc))
     for _ in range(10):
         app.update()
-    print("[harch] roof damage in {0:.0f}s: {1} bay(s) dropped, {2} window(s) "
-          "blown".format(time.time() - t1, n_bay, n_win))
+    print("[harch] roof damage in {0:.0f}s: {1} bay(s) dropped, {2} bay(s) "
+          "posed".format(time.time() - t1, n_bay, n_posed))
 
     # ---- export -----------------------------------------------------------
     records, miss = [], 0

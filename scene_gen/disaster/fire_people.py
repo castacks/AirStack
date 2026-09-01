@@ -90,8 +90,9 @@ module keeps):
 | `evacuee` | 0.34 | small groups (2-5) on the sidewalk or the closed carriageway, **UPWIND** of their own burning building, past the standoff, with line of sight to a burning elevation | plan view, high contrast on pavement |
 | `onlooker` | 0.20 | 1.3-2.4 x the standoff out, at street corners and across intersections, groups of 2-4 | the distractor population at range |
 | `at_car` | 0.08 | 1-2 beside a kerb parking bay on the upwind block | partial occlusion by the car |
-| `window` | 0.16 | leaning out of / sitting in a window opening, **strictly above the fire band**, venting or adjacent elevation | torso or legs past the facade plane |
+| `window` | 0.16 | leaning out of a window opening, **strictly above the fire band**, venting or adjacent elevation, HIPS SUNK to the real sill height | torso and head past the facade plane; legs occluded by the wall below the sill |
 | `roof` | 0.12 | 2-4 near the roof edge of a building whose deck is intact, on the side away from the venting elevations | the easiest aerial target in the scene, and the control case |
+| `roof_victim` | see 5b2 | 2-3 near the roof edge of a building whose deck is intact, biased toward the STREET-facing edge, kept clear of the building's own smoke seats | a stranded figure, not a refuge crowd — the class that exists because `roof` is starved on tall real buildings |
 | `casualty_apron` | 0.07 | prone at the OUTER edge of an F5c building's debris windrow, partially under it | tornado-style partial burial |
 | `roof_debris` | 0.03 | prone under roof-deck material that came out over a failed elevation | ditto; **rarest, and degrades to zero** |
 
@@ -227,31 +228,47 @@ The clean fix is for the bake to record every opening it measured, not just
 the venting ones. That is `fire_bake`'s call, not this module's, and it is
 logged in §8.
 
-**THE POSE VOCABULARY DOES NOT CONTAIN A LEAN-OUT, so two variants are built
-out of what `scene_generator._HUMAN_POSES` actually has**, and both are
-measured rather than asserted (segment fractions of stature from Drillis &
-Contini 1966, the same source `people._LATERAL_HALF_BREADTH_H` uses):
+**`sill_sit` WAS BACKWARDS AND HAS BEEN RETIRED (2026-08-31, user on sight:
+"they need to be lower half inside the building and upper half outside").**
+It seated the pelvis ON the sill, `SILL_INSET_M` INSIDE the facade, with
+`sit_edge`'s thighs running forward 0.273 H — so the VISIBLE protruding part
+was the dangling calves and feet (the least identifiable part of a person),
+while the torso and head, which sit straight up from the pelvis, stayed
+recessed inside the facade plane the whole time: a face in a dark hole with a
+pair of legs hanging out from under it. That is the exact inverse of a
+rescue-window read and of what the user asked for.
 
-* **`sill_sit`** — `sit_edge` with the SEAT being the window sill
-  (`seat="sill"`, `z` = the sill height, which is what `people.
-  _human_placement` wants for a seated pose). Thighs run horizontally forward
-  0.273 H, so with the pelvis `SILL_INSET_M` inside the facade the knees and
-  the hanging shins are ~0.3 m OUTSIDE it and the whole torso is in the
-  opening. The most visible of the two, and the default wherever the opening
-  is tall and wide enough to hold a sitter.
-* **`lean_out`** — `stand_slump` on the storey floor: trunk pitched 28 deg
-  (spine_01 -10, spine_02 -12, spine_03 -6), which carries the crown
-  0.470 H * sin(28 deg) = 0.221 H forward of the pelvis, i.e. ~0.39 m, and
-  the acromion ~0.24 m. With the pelvis half a body-depth in — the belly
-  against the sill, which is what leaning out IS — that is **~0.22 m** of
-  head and shoulder past the plane. **Marginal, and every
-  `lean_out` record carries `needs_bench`** — 0.22 m is the difference
-  between "a face in a dark hole" and "head and shoulders over the street"
-  and no arithmetic settles which one it renders as.
+**THE POSE VOCABULARY DOES NOT CONTAIN A LEAN-OUT, so the single surviving
+variant, `lean_out`, is built out of what `scene_generator._HUMAN_POSES`
+actually has**, and it is measured rather than asserted (segment fractions of
+stature from Drillis & Contini 1966, the same source
+`people._LATERAL_HALF_BREADTH_H` uses):
 
-Both variants record `protrusion_m`, and `MIN_PROTRUSION_M` (0.15) is a hard
-refusal: **a window figure that does not break the facade plane is an
-interior figure with extra steps.**
+* **`lean_out`** — `stand_slump`, HIPS SUNK TO THE REAL SILL HEIGHT
+  (`op["z_sill"]`, the sidecar's own measured or lifted-grid opening — never
+  a guessed constant): `z` (the feet, the record's support surface) is
+  `z_sill - _HIP_H * H`, so the pelvis lands exactly at the sill. The pelvis
+  sits `lean_out_inset_m` (half a body depth) BEHIND the facade plane, and
+  since the legs hang almost straight down from it, the calves and feet stay
+  at that same recessed position — INSIDE the building, below the sill,
+  where the intact wall panel occludes them. `stand_slump`'s 28 deg forward
+  trunk pitch (spine_01 -10, spine_02 -12, spine_03 -6) then carries the
+  crown `0.470 H * sin(28 deg) = 0.221 H` forward of the pelvis, i.e.
+  ~0.39 m, and the acromion ~0.24 m — so with the pelvis half a body-depth
+  in, that is **~0.22 m** of head and shoulder PAST the plane: the torso and
+  head are what protrude, over the street, above the wall the legs are
+  hidden behind. **Marginal, and every `lean_out` record carries
+  `needs_bench`** — 0.22 m is the difference between "a face in a dark hole"
+  and "head and shoulders over the street" and no arithmetic settles which
+  one it renders as. A slight forward pitch toward the street is already what
+  the pose gives; there is no pose in the vocabulary with more of one.
+
+The record's `protrusion_m` is this quantity, and `MIN_PROTRUSION_M` (0.15) is
+a hard refusal: **a window figure that does not break the facade plane is an
+interior figure with extra steps.** A separate `lean_head_clear_m` (0.55 m)
+refuses an opening too short for a leaning head to clear the head frame —
+`z_head - z_sill` has to be at least that, or the candidate is skipped as
+`opening_too_short` rather than clipping the lintel.
 
 ## 5b. ROOFS — `deck_z`, never `top_z`
 
@@ -275,6 +292,76 @@ Eligibility is three gates, all of them checkable off the manifest:
 3. **there is a side away from the fire** — the group goes on the roof edge
    whose outward normal is most opposed to the mean venting normal, inset
    `roof_edge_band_m` from the parapet so nobody is standing on the coping.
+
+## 5b2. `roof_victim` — ADDED 2026-08-31, because `roof` is starved on the
+## REAL city and the user asked to see somebody up there
+
+**"I don't see any humans standing on roofs (non collapsed) as victims. I
+need some of those."** They were right not to see any: on `city_138`'s real
+32-building manifest, `roof`'s own `roof_max_h_m` (45 m) and its
+`ROOF_OK_LEVELS` (`F1`/`F2`/`F3`) leave exactly ZERO eligible buildings — the
+only two whose sidecar shows a genuinely intact deck (`i=280`, `i=282`, both
+`F3`) are 47-48 m, a couple of metres over the cap that exists for the
+aerial-appliance argument in 5b's point 2. `roof_victim` is a SEPARATE class
+rather than a `roof` config change because the two describe different
+people — `roof` is doctrine's "refuge crowd, reachable by a ladder,"
+`roof_victim` is "somebody stranded up there, still visible, whether or not
+a ladder could reach them" — and because raising `roof_max_h_m` itself would
+also loosen the `roof` class's own aerial-appliance argument for everybody
+already using it.
+
+Eligibility, checkable off the manifest AND the sidecar (never guessed):
+
+1. **not a collapse level** — `level not in roof_victim_excluded_levels`
+   (`F5c`, `F6` by default). Named explicitly rather than left to inference,
+   so a sidecar that is silent about roof collapse cannot accidentally admit
+   a shell that dropped its deck inward.
+2. **the sidecar's own fire state says the roof survived** —
+   `not roof_involved(rec, doc)` and `not roof_collapsed(rec, doc)`, the same
+   two functions `roof.roof_ok` and 5c's burial classes already trust, so a
+   real bake's measured `fire.roof`/`fire.top` overrides the manifest's
+   conservative band estimate exactly the way it does everywhere else in this
+   module.
+3. **`H <= roof_victim_max_h_m`** — 90 m by default, deliberately HIGHER than
+   `roof_max_h_m` (45 m). This is the whole reason the class exists at all:
+   at 45 m the real city offers nothing, and the user's ask was to see some.
+   90 m is not a claim that an aerial appliance reaches a stranded victim
+   there — it is a claim that a drone can still SEE one there, which is the
+   only thing this benchmark's camera cares about.
+
+**Placement is `roof`'s own edge geometry** (inset `roof_victim_edge_band_m`,
+default `(1.0, 3.5)` m — "keep them ~1 m back from the parapet edge", user —
+scattered `-0.72..0.72` of the half-width along the edge, same as `roof`),
+with two differences:
+
+* **BIASED TOWARD THE STREET-FACING EDGE**, not just the edge away from the
+  fire. `_roof_victim_street_sides` samples a point `roof_victim_street_
+  test_m` (8 m) past each non-venting edge and asks `sol.ground` whether it
+  reads as `road`/`sidewalk`/`paved` — an edge that does is ranked ahead of
+  `far_sides()`'s own away-from-the-fire order, an edge that does not (a
+  party wall, a service yard, a courtyard) falls to the back. "Visible from a
+  drone" (user) is mostly about which side of the roof a searching aircraft
+  is likely to be over, and that is the street, not the alley.
+* **KEPT CLEAR OF THE BUILDING'S OWN SMOKE.** "Keep them away from the smoke
+  tho" (user) — `_clear_of_smoke` reads the bake sidecar's own `seats`
+  dict (`fire_bake.sidecar`'s `{"interior": [...], "roof": [...]}`, the
+  positions `soot_plume` actually seats its flame/smoke sources at),
+  rotates every seat into the CITY frame the same way `fire_bake.place`
+  moves them (`_rot` by the cell yaw, translate by `(b.x, b.y)` — z is
+  untouched, exactly `place`'s own contract), and refuses any candidate
+  within `roof_victim_min_smoke_dist_m` (6 m, "several metres") of any of
+  them, `interior` and `roof` groups alike — a plume seated on the roof deck
+  itself would only exist on a building whose roof IS involved, which this
+  class's own eligibility already excludes, but the check costs nothing and
+  is not written to assume that stays true forever.
+
+**No singleton, same reason as `roof`.** A group of one is withdrawn and the
+budget it held is returned to the pool (`singleton_roof_victim_withdrawn`).
+`roof_victim_max_groups_per_building` (2, `roof`'s own default) keeps the
+whole class from landing on one deck the way the first real-city `roof` run
+did (5b's own point 3's citation). Poses lean toward distress rather than
+`roof`'s mixed idle/walk/stand crowd — `stand_slump`, `crouch`, `sit_ground`
+are the majority — because a `roof_victim` is stranded, not spectating.
 
 ## 5c. THE TWO BURIAL CLASSES — tornado conventions, verbatim
 
@@ -397,6 +484,25 @@ census says which was used.
 * **Nothing here has been rendered.** Every distance in §4 and every
   protrusion in §5a is arithmetic. The 2D dry run gates the x/y classes; the
   3D classes need the bench.
+* **`deck_z` NOW SURVIVES A REAL BAKE SIDECAR — RESOLVED 2026-08-31.**
+  `fire_bake.sidecar()` was measured (against `fire_bakes/city_4/
+  dtc_Building_11_F3_o5_SW_s66.json`) to write no `deck_z` at all; it has
+  SINCE been updated to persist the measured value into both `fire.deck_z`
+  and `masses.main.deck_z` (numeric for gac/dtc, e.g. 69.2755 for
+  SM_Building_19; `None` for a kit bake, which never measured one).
+  `deck_z()` reads `fire.deck_z` first, then `masses.main.deck_z`, then
+  falls back to `"estimated"` (`H - parapet_est_m`) — hit only for a kit
+  bake or a bake from before this fix. `SIDECAR_FIELD_USE` and
+  `_Building.sidecar_report()` say which path each building actually took.
+* **A MATCHED `i` IS NOT A MATCHED BUILDING.** A manifest solved against an
+  older run of the same BSP-generated city can have every one of its `i`
+  values still present in a fresh dump while most of them now name a
+  DIFFERENT house (measured 2026-08-31: 17 of 20, up to 309 m away, some a
+  different size entirely — `_Solver.__init__`'s own account). Every record
+  is re-verified against that dump placement's own `x/y/W/D/H`
+  (`_manifest_matches_dump`), not just looked up, and a manifest this stale
+  degrades to an EMPTY plan rather than seeding a crowd around geometry the
+  scene no longer has.
 """
 
 import json
@@ -423,7 +529,26 @@ import random
 # ---------------------------------------------------------------------------
 _PEOPLE_ROOT = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/"
                 "SEI-COA/People/Assets/")
-RIGGED_HUMANS = tuple(_PEOPLE_ROOT + n for n in (
+
+# LOCAL MIRROR FIRST, Nucleus fallback. The 2026-08-31 Nucleus outage
+# composed a live city with humans whose rig references never resolved
+# ("missing references", user review) — `scene_gen/assets/people/` is a
+# byte-mirror of the Assets tree (rigs + *_mat.usd + Textures/, fetched by
+# tools/_mirror_people_once.py), so a checkout that has run the mirror never
+# touches the server for people at all. A checkout without the mirror (CI, a
+# fresh clone) resolves every name to the Nucleus URL exactly as before.
+_LOCAL_PEOPLE_ROOT = os.environ.get(
+    "LOCAL_PEOPLE_ROOT",
+    os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  "..", "assets", "people")))
+
+
+def _people_asset(name):
+    local = os.path.join(_LOCAL_PEOPLE_ROOT, name)
+    return local if os.path.isfile(local) else _PEOPLE_ROOT + name
+
+
+RIGGED_HUMANS = tuple(_people_asset(n) for n in (
     "rp_carla_rigged_001_ue4.usd",
     "rp_claudia_rigged_002_ue4.usd",
     "rp_eric_rigged_001_ue4.usd",
@@ -431,7 +556,7 @@ RIGGED_HUMANS = tuple(_PEOPLE_ROOT + n for n in (
     "rp_nathan_rigged_003_ue4.usd",
     "rp_sophia_rigged_003_ue4.usd",
 ))
-POSED_HUMANS = tuple(_PEOPLE_ROOT + n for n in (
+POSED_HUMANS = tuple(_people_asset(n) for n in (
     "rp_dennis_posed_004.usd",
     "rp_fabienne_percy_posed_001.usd",
     "rp_mei_posed_001.usd",
@@ -473,14 +598,29 @@ _THIGH_L = 0.273         # hip -> knee, i.e. the forward reach of a sitter
 _LATERAL_HALF_BREADTH_H = 0.115   # people._LATERAL_HALF_BREADTH_H, copied
 _BODY_HALF_DEPTH_M = 0.17         # half the A-pose bbox depth (sy 0.33-0.40)
 
-CLASSES = ("evacuee", "onlooker", "at_car", "window", "roof",
-           "casualty_apron", "roof_debris")
-# The classes whose budget absorbs a degraded class's share.
+CLASSES = ("evacuee", "onlooker", "at_car", "window", "roof", "roof_victim",
+           "casualty_apron", "roof_debris", "interior_trapped")
+# The classes whose budget absorbs a degraded class's share WHEN THEY ARE
+# THEMSELVES ELIGIBLE. Kept as the historical default (the street classes are
+# ordinarily the deepest pool); `plan_people` no longer trusts this list
+# blindly — see ITEM 3 below — because with `street_classes` off it points at
+# two classes that are themselves ineligible and the give-back would vanish.
 _FALLBACK_CLASSES = ("evacuee", "onlooker")
 # The classes that live on the ground plane and go through the street gates.
 STREET_CLASSES = ("evacuee", "onlooker", "at_car")
 # The classes that are legitimately over or inside a building footprint.
-AERIAL_EXEMPT_CLASSES = ("window", "roof")
+AERIAL_EXEMPT_CLASSES = ("window", "roof", "roof_victim", "interior_trapped")
+
+# ITEM 3, 2026-08-31 user review ("No people on the ground that aren't like
+# part of the damage"): the three STREET classes (evacuee/onlooker/at_car —
+# crowd and bystanders on the sidewalk/road/kerb, none of them tied to a
+# specific piece of damage) are OFF BY DEFAULT. Every remaining class is
+# damage-tied: a window leaner, a roof victim, a burial, or a figure visible
+# through a broken wall. The code is not removed — a reviewer who wants the
+# fireground crowd back sets `FP_STREET_CLASSES=1` (env) or
+# `cfg["street_classes"] = True` (programmatic) — but the DEFAULT export, the
+# bench and the full-city solve now ship without it.
+STREET_CLASSES_ENV = "FP_STREET_CLASSES"
 
 # Poses, by class. Every name is a key of `scene_generator._HUMAN_POSES`;
 # `people.BANNED_POSES` ("wave") appears nowhere and must not be added.
@@ -494,24 +634,49 @@ _CLASS_POSES = {
                 ("sit_edge", 0.16), ("crouch", 0.10)),
     "onlooker": (("idle", 0.52), ("walk", 0.30), ("stand_slump", 0.18)),
     "at_car": (("idle", 0.34), ("stand_slump", 0.30), ("sit_edge", 0.36)),
-    "roof": (("idle", 0.40), ("walk", 0.14), ("stand_slump", 0.22),
-             ("crouch", 0.12), ("sit_ground", 0.12)),
+    # STAND_CALM / WAVE_HELP ONLY — 2026-08-31 user review, quoted: "The roof
+    # people need to just be standing. not like bent... don't need to be on
+    # the ledge." `idle`/`walk`/`crouch`/`sit_ground` all read as a figure
+    # bent at the waist or down on the deck (`stand_slump`'s -10/-12/-6 spine
+    # pitch is the same silhouette the review called "about to jump off the
+    # roof"); neither belongs on a refuge crowd standing on a flat, intact
+    # deck. `wave_help` gives a third of the group the rescue-signal read.
+    "roof": (("stand_calm", 0.65), ("wave_help", 0.35)),
+    # STRANDED, NOT SPECTATING — weighted MORE toward the rescue signal than
+    # `roof`'s crowd, because a `roof_victim` is alone up there and reaching
+    # for a ladder is the whole point of the class (section 5b2). Same two
+    # poses as `roof` for the same reason: nothing here may crouch or sit.
+    "roof_victim": (("wave_help", 0.55), ("stand_calm", 0.45)),
+    # `interior_trapped` draws its own two pose tables
+    # (`_INTERIOR_CONSCIOUS_POSES` / `_INTERIOR_UNCONSCIOUS_POSES`, section
+    # 5d) rather than an entry here — it needs the eye-height/sightline
+    # split by variant, which this flat per-class table has no room for.
 }
 # The lying attitudes, and the mix. A third face-up, a third face-down, a
 # third on a side — `tornado_people`'s own split, and for the same reason it
 # gives: there is no literature on the attitude distribution, so the set
 # covers the space evenly and says so.
-_LYING_POSES = (("lying_supine", 0.17), ("lying_supine_open", 0.16),
-                ("lying_prone", 0.17), ("lying_prone_reach", 0.16),
-                ("lying_side_l", 0.13), ("lying_side_r", 0.13),
-                ("lying_curled_l", 0.08))
+#
+# `buried_reach` ADDED 2026-08-31 (user review item 1/2): "supine ... one arm
+# extended — for partial burial." It is the only pose in this table authored
+# FOR this module rather than borrowed from `tornado_people`'s set, so it
+# carries its own share (0.14) taken evenly off the rest rather than added on
+# top — the mix still sums to a normalised distribution, not a longer list at
+# the old weights.
+_LYING_POSES = (("lying_supine", 0.15), ("lying_supine_open", 0.14),
+                ("lying_prone", 0.15), ("lying_prone_reach", 0.14),
+                ("lying_side_l", 0.11), ("lying_side_r", 0.11),
+                ("lying_curled_l", 0.06), ("buried_reach", 0.14))
 # `people.LYING_POSES` — the roll that lays each one down. Copied rather than
 # imported so this module has no import-time dependency; `tests/
-# test_fire_people.py` asserts the two agree.
+# test_fire_people.py` asserts the two agree. `buried_reach` started as
+# fire_people's own extra entry and has SINCE been added to
+# `people.LYING_POSES` too (2026-08-31, same review) — the two tables agree
+# key for key today, and the test pins that.
 LYING_ROLL = {"lying_prone": 90.0, "lying_prone_reach": 90.0,
               "lying_supine": -90.0, "lying_supine_open": -90.0,
               "lying_side_l": 90.0, "lying_side_r": 90.0,
-              "lying_curled_l": 90.0}
+              "lying_curled_l": 90.0, "buried_reach": -90.0}
 LYING_SPIN = {"lying_side_l": 90.0, "lying_side_r": -90.0,
               "lying_curled_l": 90.0}
 
@@ -536,12 +701,45 @@ DEFAULTS = {
     "total_min": 24,
     "total_max": 90,
 
+    # ITEM 3, 2026-08-31: OFF by default. "No people on the ground that
+    # aren't like part of the damage" — the street crowd is not tied to any
+    # specific damage, so `evacuee`/`onlooker`/`at_car` are excluded from the
+    # census unless explicitly turned back on (`FP_STREET_CLASSES=1` env, or
+    # `cfg["street_classes"] = True`). See `STREET_CLASSES_ENV`.
+    "street_classes": False,
+
+    # POSE FALLBACK, 2026-08-31 bench-v2 REJECTION, PARTIALLY RESOLVED
+    # 2026-09-01. The user rejected `stand_calm`/`wave_help`/`lean_window`
+    # on sight ("these poses are completely wrong ... Just spawn people
+    # only"). `roof_use_new_pose` STAYS OFF — the user's later verdict on
+    # `idle` roof figures was "the roof people on non collapsed roofs are
+    # good", i.e. the FALLBACK is what shipped and was approved; there is
+    # no still-pending "real" roof pose waiting behind this flag. `window_
+    # use_lean_pose` is now ON — the 8-variant bench pose row (`WINDOW_
+    # POSE_VARIANTS`) resolved the mapping question empirically and
+    # `lean_window` was rebuilt pelvis-hinged around the winning variant
+    # (see that pose's own comment in `scene_generator._HUMAN_POSES`).
+    "roof_use_new_pose": False,
+    "window_use_lean_pose": True,
+    # THROWAWAY window-pose empirical search, 2026-09-01 (see
+    # `_pass_window_pose_experiment`) — RETIRED, off by default and left
+    # unused: the row already produced its verdict (`lean_window` above).
+    # The mechanism is kept rather than deleted ("gate stays for posterity
+    # if trivial" — coordinator) since leaving it off costs nothing and a
+    # future pose question can reuse the same bench-row scaffolding.
+    "window_pose_experiment": False,
+
     "shares": {"evacuee": 0.34, "onlooker": 0.20, "at_car": 0.08,
-               "window": 0.16, "roof": 0.12, "casualty_apron": 0.07,
-               "roof_debris": 0.03},
+               "window": 0.16, "roof": 0.12, "roof_victim": 0.08,
+               "casualty_apron": 0.07, "roof_debris": 0.03,
+               # ITEM 2, 2026-08-31: figures visible INSIDE a partially
+               # collapsed building through its broken-open wall — see
+               # section 5d / `_pass_interior_trapped`.
+               "interior_trapped": 0.06},
     "group_sizes": {"evacuee": (2, 5), "onlooker": (2, 4), "at_car": (1, 2),
-                    "roof": (2, 4), "window": (1, 1),
-                    "casualty_apron": (1, 2), "roof_debris": (1, 1)},
+                    "roof": (2, 4), "roof_victim": (2, 3), "window": (1, 1),
+                    "casualty_apron": (1, 2), "roof_debris": (1, 1),
+                    "interior_trapped": (1, 2)},
     # Chiu et al. 2013: a casualty found ALONE is the 7.7 % case.
     "cluster_chance": 0.55,
 
@@ -601,22 +799,31 @@ DEFAULTS = {
     "head_h_m": 2.10,              # ...and head, when no sidecar says otherwise
     "opening_w_m": 1.20,
     "bay_pitch_m": 3.20,
-    # HOW FAR INSIDE THE FACADE PLANE THE PELVIS SITS, per variant — and
-    # they are different anchors, which is why there are two numbers.
-    #   sill_sit  the pelvis is ON the sill, set back onto the inner part of
-    #             it so the sitter is not balanced on the outer arris.
-    #   lean_out  the pelvis is half a body depth in, i.e. the BELLY is
-    #             against the sill — which is what leaning out of a window
-    #             is. Charging this variant the sill inset AS WELL as its own
-    #             body depth (the first draft did) left it 0.02 m of
-    #             protrusion, below `MIN_PROTRUSION_M`, so every `lean_out`
-    #             candidate was refused and the variant could never appear —
-    #             a whole branch dead behind a plausible-looking number.
-    "sill_inset_m": 0.20,
+    # HOW FAR INSIDE THE FACADE PLANE THE PELVIS SITS — half a body depth,
+    # i.e. the BELLY is against the sill, which is what leaning out of a
+    # window is. This is the ONLY term that positions the body horizontally;
+    # charging it the sill inset AS WELL as its own body depth (the first
+    # draft did, back when there was a second `sill_sit` variant) left it
+    # 0.02 m of protrusion, below `MIN_PROTRUSION_M`, so the variant could
+    # never appear — a whole branch dead behind a plausible-looking number.
     "lean_out_inset_m": _BODY_HALF_DEPTH_M,
-    "sit_head_clear_m": 0.95,      # opening height needed to hold a sitter
-    "sit_width_m": 0.65,
-    "sill_sit_share": 0.70,
+    # THE PELVIS-HINGED `lean_window`'s OWN INSET, FINALIZED 2026-09-01 —
+    # narrower than `lean_out_inset_m` (half a body depth, sized for the
+    # retired spine-only pose's larger head displacement). MEASURED: at
+    # `lean_out_inset_m` (0.17 m) the new pose's 0.152 H head reach gives
+    # only 0.10 m of net protrusion — UNDER `MIN_PROTRUSION_M` (0.15),
+    # which would refuse the whole class despite the pose being the one the
+    # bench row's own render approved. The pelvis hinge does not need as
+    # deep an inset to still read as "leaning out" — this is what the row
+    # actually showed — so the companion constant is re-tuned with it
+    # rather than re-deriving the pelvis angle a second time.
+    "lean_window_inset_m": 0.09,
+    # OPENING HEIGHT NEEDED FOR A LEANING HEAD TO CLEAR THE HEAD FRAME —
+    # `z_head - z_sill` has to be at least this or the candidate is refused
+    # as `opening_too_short` rather than clipping the lintel. Less than the
+    # old sitting figure's clearance (0.95) because leaning needs less
+    # headroom than sitting upright in the opening did.
+    "lean_head_clear_m": 0.55,
     # HOW MANY WINDOW FIGURES ONE BUILDING MAY CARRY. 3 is the nominal, but
     # the cap ADAPTS UPWARD when few buildings are eligible: on the real
     # seed-4 city only two of sixteen burning buildings have a storey both
@@ -639,6 +846,44 @@ DEFAULTS = {
     # (`window_too_high`) rather than shipped as an unfindable label. Same
     # number as `roof_max_h_m`, and for the same reason.
     "window_max_z_m": 45.0,
+    # ITEM 5, 2026-08-31 user review: "they can't be right next to the open
+    # flame. They have to be away from it." A window figure is refused if its
+    # opening is within this planar distance of any flame-bearing bake EVENT
+    # on the SAME elevation — "~2 openings / ~6 m", the user's own number.
+    # See `_clear_of_flame`.
+    "window_flame_clear_m": 6.0,
+    # An event counts as "flame" (as opposed to a low-severity smoke-only
+    # touch) at or above this `intensity` (the sidecar's own 0-1 event field,
+    # the same one `soot_plume`'s EC1 flame model reads). Conservative on
+    # purpose — a marginal event still keeps its clearance.
+    "window_flame_intensity_min": 0.30,
+    # HARD CAP, 2026-09-01 user follow-up on bench-v4: "Don't do any window
+    # leans on the top 2-3 stories always below." Applies on EVERY building,
+    # every level — not just collapse ones — a window figure is never in
+    # the top N storeys. See `_Building.window_storeys`.
+    "window_top_storeys_excluded": 3,
+    # CORNER MARGIN, item 3 (bench-v2 rejection: a figure centred on a
+    # pilaster). A derived (unmeasured) opening grid never draws a candidate
+    # within this many metres of either end of the wall face — see
+    # `openings_for_side`'s derived branch.
+    "corner_margin_m": 1.5,
+    # BENCH-V3 REJECTION (fallback window geometry): how far behind the
+    # facade plane the STANDING (`idle`) figure sits — a real body depth,
+    # not `lean_out_inset_m`'s 0.17 m, which was solved for a pose that
+    # reaches OUT from the sill and reads as "at the glass" on a figure that
+    # does not lean at all.
+    "window_stand_inset_m": 0.6,
+    # Minimum spandrel/sill band, `z_sill - floor_z`, for the STANDING
+    # fallback only — an opening with less than this is floor-to-ceiling
+    # glazing with nothing to hide legs behind, and is skipped
+    # (`no_spandrel`) rather than placed anyway.
+    "window_min_spandrel_m": 0.8,
+    # BENCH-V3 REJECTION (burial covering): max metres between a covering
+    # piece's bottom face and the body's own authored surface for the piece
+    # to count as "resting on the body" rather than floating detached from
+    # it — generous enough for the crest's own bands, tight enough that a
+    # half-metre gap (the reported symptom) fails the gate.
+    "cover_contact_tol_m": 0.35,
 
     # --- roofs ---
     "roof_max_h_m": 45.0,
@@ -655,17 +900,112 @@ DEFAULTS = {
     # groups on DIFFERENT edges of the same deck is two locations, which is
     # what coverage is counted in — see `far_sides`.
     "roof_max_groups_per_building": 2,
-    "roof_edge_band_m": (1.2, 3.5),
+    # WIDENED 2026-08-31 (user: "don't need to be on the ledge. Centre is
+    # fine"). (1.2, 3.5) hugged the parapet; this keeps the group a genuine
+    # few metres onto the deck instead of right at the coping. Still an inset
+    # off ONE edge (the group looks out over it, per `roof`'s own comment) —
+    # not the deck's geometric centre — but `out = max(0.4, half_out - e)`
+    # means a small deck still clamps sanely rather than pushing a group past
+    # its own midline.
+    "roof_edge_band_m": (2.5, 6.0),
     "parapet_est_m": 1.0,
 
+    # --- roof_victim (section 5b2) ---
+    # NEVER a collapse level, checked by NAME rather than left to inference —
+    # a sidecar silent on roof collapse must not admit a shell that dropped
+    # its deck inward.
+    "roof_victim_excluded_levels": ("F5c", "F6"),
+    # DELIBERATELY HIGHER THAN `roof_max_h_m` (45 m). At 45 m the real
+    # `city_138` manifest offers ZERO eligible buildings (measured
+    # 2026-08-31: the only two with a genuinely intact deck per their own
+    # sidecar are 47-48 m) — this class exists so the user's "I need some of
+    # those" has somewhere to land. Still a real cap, not none: a stranded
+    # figure on an actual skyscraper roof is unobservable by this
+    # benchmark's flight envelope the same way an 83 m window figure was
+    # (`window_max_z_m`'s own account).
+    "roof_victim_max_h_m": 90.0,
+    "roof_victim_max_groups_per_building": 2,
+    # WIDENED with `roof_edge_band_m` (user: "centre is fine") but kept
+    # tighter than `roof`'s — a `roof_victim` is specifically sited to be
+    # SEEN from the street (`_roof_victim_street_sides`), so it stays nearer
+    # its edge than the general refuge crowd does, just not hugging the
+    # coping the way (1.0, 3.5) did.
+    "roof_victim_edge_band_m": (2.0, 5.0),
+    # "KEEP THEM AWAY FROM THE SMOKE THO" (user). Planar distance from every
+    # one of the building's own bake-sidecar `seats` (interior AND roof
+    # plume groups, rotated into the city frame the same way
+    # `fire_bake.place` moves them) — "several metres".
+    "roof_victim_min_smoke_dist_m": 6.0,
+    # How far past a non-venting edge to sample the ground class when
+    # deciding whether that edge is "the street side" — has to clear the
+    # sidewalk and land on the carriageway/paved surface actually meant by
+    # "visible from a drone", not the kerb line itself.
+    "roof_victim_street_test_m": 8.0,
+
     # --- burial ---
-    "apron_band": (0.72, 1.00),    # of the run-out; the OUTER quarter
+    # RE-ANCHORED CLOSER TO THE WALL, 2026-09-01 user verdict on bench-v4:
+    # "the people who are under rubble look good but they are too far away
+    # from the actual debris" (coordinator: "the figures sit in the outer
+    # apron band while the heap is at the wall ... clean asphalt metres
+    # away"). The outer quarter (0.72-1.00) was where the windrow THINS to
+    # a few tens of centimetres — correct for "never buried past visibility"
+    # but, on the real `apron_run_m()` distances this module solves against
+    # (`apron_spread * H`, uncapped except by `max_wall_dist_m`), a wide
+    # tail on a tall building put the body well clear of anything a camera
+    # would read as rubble. Moved to (0.40, 0.65) — still never the deepest
+    # material at the wall line itself (`in_footprint` keeps the standing
+    # shell's own footprint off-limits regardless of band), but now over
+    # the SUBSTANTIAL part of the heap (`apron_surface_z`'s own (1-t)^1.3
+    # falloff means t=0.40-0.65 is 1.9-4.8x the debris depth of the old
+    # 0.72-1.00 band), not its thinning tail.
+    "apron_band": (0.40, 0.65),
     # ROOF DECK LANDS FURTHER OUT THAN THE WALL WINDROW'S OWN TAIL: it came
     # off the top and slid over the failed elevation, so its band starts a
-    # little inboard of the wall rubble's. Still never the mound.
-    "roof_debris_band": (0.62, 0.95),
+    # little inboard of the wall rubble's. Still never the mound. Re-
+    # anchored the same direction and for the same reason as `apron_band`.
+    "roof_debris_band": (0.35, 0.60),
     "out_depth_m": (1.15, 2.0),    # fire_collapse.OUT_DEPTH_M
     "max_covered_frac": MAX_COVERED_FRAC,
+    # WHETHER A BURIAL FIGURE GETS REAL COVERING DEBRIS AUTHORED OVER IT, not
+    # just a `covered_frac` number on the record. ITEM 2, 2026-08-31 user
+    # review: "the people must be partially visible through the rubble ...
+    # not part of the damage". See `_cover_burial`, which reuses
+    # `tornado_people`'s `_crest`/`_trim_spans`/`_cover_piece` per the
+    # coordinator's "look at tornado code" instruction. On by default — this
+    # is the fix, not an opt-in.
+    "author_burial_cover": True,
+    # HOW FAR THE BODY SINKS INTO THE WINDROW, as a fraction of its own
+    # DEPTH (not the windrow's) — `tornado_people`'s own `sink_frac`, and its
+    # own post-1-km-review value: 0.32 buried too much of the silhouette
+    # ("some are completely obscured"), 0.18 is what that review settled on.
+    # `apron_band`'s outer quarter is already thin, so this is a modest
+    # extra sink into it, not the whole story of how "torso/arm visible
+    # above the heap" is achieved — the covering pieces do most of that.
+    "sink_frac": (0.0, 0.18),
+
+    # --- interior_trapped (section 5d) ---
+    # A partial-collapse (F5c) building keeps everything BELOW its fire
+    # origin — `fire_collapse.plan_partial_collapse`'s own invariant, "NOTHING
+    # BELOW THE FIRE'S ORIGIN, EVER" — so the storey directly below the
+    # origin is a guaranteed-surviving floor slab, visible through the hole
+    # the failed elevation left. `fire.sides[0]` (the sidecar's own venting
+    # side) is used as the failed/lost elevation — the same inference
+    # `fire_collapse.plan_partial_collapse` itself makes by default.
+    "interior_trapped_conscious_share": 0.5,   # rest are passed out (prone)
+    # SET BACK FROM THE BROKEN EDGE — "don't have them right at the edge
+    # though, they need to be a little inside at a safe distance" (user).
+    # Metres in from the exposed slab/wall-opening edge.
+    "interior_setback_m": (1.5, 3.0),
+    # How far in from the SIDE walls of the slab (perpendicular to the
+    # setback direction) a figure may sit — keeps it off the flanks, in the
+    # part of the floor actually behind the hole rather than behind a
+    # standing side wall.
+    "interior_lateral_frac": 0.55,
+    # The oblique sightline check (a hole several storeys tall still shows a
+    # floor a couple of metres in) — minimum degrees above the horizontal a
+    # camera would need to look down the opening to see the figure, capped so
+    # a figure is never placed somewhere only a plumb-down shot could find.
+    "interior_min_sightline_deg": 25.0,
 
     "roof_ok_levels": ("F1", "F2", "F3"),
     "collapse_levels": ("F5c",),
@@ -686,6 +1026,50 @@ SIDE_NORMAL = {"S": (0.0, -1.0), "N": (0.0, 1.0),
                "E": (1.0, 0.0), "W": (-1.0, 0.0)}
 _ADJACENT = {"N": ("E", "W"), "S": ("E", "W"),
              "E": ("N", "S"), "W": ("N", "S")}
+
+# ---------------------------------------------------------------------------
+# EXACTLY WHICH SIDECAR FIELD EACH PASS READS, AND THE FALLBACK WHEN IT IS
+# ABSENT — for a reviewer, and for `tools/fire_people_dry_run.py`'s
+# per-building report (`building_sidecar_report`/`print_sidecar_report`).
+# `(field path in the sidecar doc, what reads it, what happens without it)`.
+#
+# THE deck_z ROW WAS STALE AND HAS BEEN CORRECTED (2026-08-31). Measured
+# against a REAL bake sidecar (`fire_bakes/city_4/dtc_Building_11_F3_o5_
+# SW_s66.json`) at first, `fire_bake.sidecar()` carried no `deck_z` anywhere
+# — its `"fire"` dict had only `origin, storeys, top, sides, n_storeys,
+# mass, roof, level, state, finish`, and `mass_to_json` dropped it from the
+# mass dict too (LOSSY ON `spec`, deliberately). `fire_bake` has SINCE been
+# updated to persist it: `sidecar()` now writes the measured value into BOTH
+# `fire.deck_z` and `masses.main.deck_z` (numeric for a gac/dtc bake, e.g.
+# 69.2755 for SM_Building_19; `None` for a kit bake, which never measured
+# one — `deck_z()` treats that `None` as absent and falls through). A
+# building whose bake predates this fix, or a kit-path building, is still on
+# the "estimated" (`H - parapet_est_m`) path — that is a real, load-bearing
+# case, not a leftover claim.
+SIDECAR_FIELD_USE = (
+    ("fire.top", "band_top() -> window_storeys()",
+     "urban_fire.BAND's ceiling off the manifest's own level+origin "
+     "(conservative: never under-refuses a window as safe)"),
+    ("fire.roof", "roof_involved()",
+     "band_top() >= n_storeys - 1, the same test the bake itself used"),
+    ("fire.roof_collapse (not a real field; inferred from `notes` text or "
+     "the level)", "roof_collapsed()",
+     "F5/F6 always; F5c only if roof_involved() — no sidecar round-trips "
+     "an explicit flag today"),
+    ("fire.deck_z, then masses.main.deck_z", "deck_z() for the roof class",
+     "H - parapet_est_m, deck_source='estimated' — hit whenever BOTH are "
+     "absent or None (a kit bake, or a bake from before fire_bake persisted "
+     "this)"),
+    ("events[*].ops[*] on a side", "openings_for_side() sidecar_grid vs "
+     "derived",
+     "a synthesised default grid (bay_pitch_m/opening_w_m/sill_h_m/"
+     "head_h_m), flagged needs_bench; the sidecar only ever carries "
+     "VENTING openings anyway (section 5a/8), so even a MATCHED sidecar "
+     "cannot supply the storeys this class actually wants"),
+    ("(none — not read at all)", "casualty_apron / roof_debris debris "
+     "footprint", "fire_collapse.OUT_SPREAD/OUT_DEPTH_M off the manifest's "
+     "own H; no sidecar field is consulted for either burial class"),
+)
 
 
 # ===========================================================================
@@ -829,7 +1213,26 @@ def load_sidecars(directory):
     city driver recorded one), because a manifest record can be matched by
     either and neither is guaranteed present. Files that are not fire-bake
     sidecars are skipped in silence; an unreadable one is reported.
-    """
+
+    **ALSO keyed by `(cell_or_tag, level)`, found 2026-08-31**
+    (`tools/people_float_audit.py`, cross-checking the live `city_138`
+    manifest against its own on-disk sidecars). A cell that was RE-BAKED at
+    more than one severity for iteration — the F3/F4/F5/F5c pairs this bake
+    directory actually carries for 10 cells, e.g.
+    `kit_apartment_tall_F3_o4_SNW_s758.json` AND
+    `..._F5_o4_SNW_s758.json`, same `tag` ("k14"), same `city.cell` — used
+    to collide on the BARE `cell`/`tag` key: `sorted(os.listdir(...))`
+    visits `F3` before `F5`, so the later file silently overwrote the
+    earlier one in `out`, and whichever bake happened to sort last won
+    regardless of which level the CURRENT manifest record actually is.
+    Measured: `i=257`'s manifest record is `F3`, but the plain `cell` key
+    returned the `F5` doc — 9 storeys of the wrong fire band, wrong
+    `fire.top`, wrong openings — for every run against this bake set until
+    now. The tuple key lets a caller ask for the SAME level it already
+    knows off the manifest record and get the file that actually matches;
+    the bare key is kept exactly as before (last-alphabetical-wins) as the
+    fallback for a caller with no level to hand, e.g. `_bake_tag`'s own
+    fallback path lower down."""
     out = {}
     if not directory or not os.path.isdir(directory):
         return out
@@ -845,11 +1248,26 @@ def load_sidecars(directory):
             continue
         if not isinstance(doc, dict) or "fire" not in doc:
             continue
+        # THE BAKE USD SITS RIGHT NEXT TO ITS SIDECAR, SAME BASENAME
+        # (`fire_city_bake.sh`'s own naming: `<tag>.json` / `<tag>.usd` in
+        # the same directory) — recorded here, under a leading-underscore key
+        # no bake writer uses, so `local_roof_z` can open the REAL geometry
+        # for a per-point deck height instead of trusting `deck_z`'s single
+        # scalar everywhere on the roof. Absent (not an error) for a sidecar
+        # whose sibling `.usd` was moved or never baked.
+        doc["_sidecar_path"] = path
+        level = doc.get("level")
         if doc.get("tag"):
-            out[str(doc["tag"])] = doc
+            tag = str(doc["tag"])
+            out[tag] = doc
+            if level is not None:
+                out[(tag, str(level))] = doc
         cell = ((doc.get("city") or {}).get("cell"))
         if cell:
-            out[str(cell)] = doc
+            cell = str(cell)
+            out[cell] = doc
+            if level is not None:
+                out[(cell, str(level))] = doc
     return out
 
 
@@ -979,6 +1397,39 @@ def deck_z(rec, doc=None, parapet_est_m=None):
     `gac_fire` measures it and puts it on the fire dict (`fire["deck_z"] =
     m.get("deck_z")`); its own comment on why `top_z` is wrong is quoted in
     section 5b. The estimate is `H - parapet_est_m`.
+
+    UPDATED 2026-08-31: `fire_bake.sidecar()` now PERSISTS this — it writes
+    the measured value into both `fire.deck_z` and `masses.main.deck_z`
+    (numeric for a gac/dtc bake, e.g. 69.2755 for SM_Building_19; `None` for
+    a kit bake, which never measured one). So the priority here is
+    `fire.deck_z`, then `masses.main.deck_z` specifically (not any mass —
+    an annex/wing mass is not the roof this class stands on), then a
+    sidecar-measured estimate, then a manifest-only one; every step is
+    `is not None`, so a kit bake's `None` falls through cleanly to the next
+    one instead of being mistaken for a zero.
+
+    **THE ESTIMATE PREFERS THE SIDECAR'S OWN `top_z` OVER `rec["H"]`, WHEN A
+    SIDECAR IS THERE AT ALL (found 2026-08-31, `people_float_audit.py`).**
+    `rec["H"]` is what the fire was SOLVED against; `doc["top_z"]` is
+    measured off the geometry that is actually STANDING in the scene, and
+    the two are not always the same building. The "brownstone mini blocks"
+    mechanic (`tools/fire_city_force_blocks.py`) re-skins a cell's `style`
+    to a kit archetype in place *"style may legally diverge from the cell's
+    real asset"*) without touching the manifest record's `x/y/W/D/H` — those
+    still describe whatever taller building the fire was originally solved
+    against at that cell. On `city_138`'s 3 forced brownstone cells
+    (`i=261/264/269`) that left `rec["H"]` 21.8-22.3 m against a REAL baked
+    `kit_brownstone` height of 17.1-18.8 m (`doc["top_z"]`) — a 2.4-4.1 m
+    error that put every `roof`/`roof_victim` figure on those three decks
+    floating in mid-air above the actual roof line, all under
+    `deck_source="estimated"` so nothing about the record looked wrong on
+    its own. `top_z` is only ever used for `roof_ok_levels` (F1-F3, never a
+    level with a rubble pile in it) via this class's own eligibility gates,
+    so it is never confused with a post-collapse debris top the way a bare
+    GAC bbox top would be (section 5b's own caution, which is about a
+    DIFFERENT quantity — `gac_fire`'s bbox top on a building whose own
+    `fire.deck_z` this branch is never reached for, because gac/dtc bakes
+    always measure one).
     """
     pe = float(parapet_est_m if parapet_est_m is not None
                else DEFAULTS["parapet_est_m"])
@@ -986,10 +1437,173 @@ def deck_z(rec, doc=None, parapet_est_m=None):
         f = doc.get("fire") or {}
         if f.get("deck_z") is not None:
             return float(f["deck_z"]), "sidecar"
-        for m in (doc.get("masses") or {}).values():
-            if isinstance(m, dict) and m.get("deck_z") is not None:
-                return float(m["deck_z"]), "sidecar_mass"
+        main = (doc.get("masses") or {}).get("main")
+        if isinstance(main, dict) and main.get("deck_z") is not None:
+            return float(main["deck_z"]), "sidecar_mass"
+        # `masses.main.top` — MEASURED 2026-08-31, `people_bench`'s own F3 kit
+        # apartment (`kit_apartment_tall_F3_o4_SNW_s758`), the ONLY roof-
+        # eligible building in the whole bench trio. `fire.deck_z` and
+        # `masses.main.deck_z` are both `None` (a kit bake never measures
+        # either), so this building fell all the way through to the
+        # `sidecar_top_z` branch below: `top_z` (35.82) - `parapet_est_m`
+        # (1.0) = 34.82. Opening the bake's own USD with bare `pxr` and
+        # measuring every mesh's world bbox found the real walkable deck
+        # (`deck_k14_4317`, a 27.00 x 17.00 m mesh matching `main["W"]`/
+        # `main["D"]` almost exactly) at z=[32.84, 33.00] — and `top_z`
+        # (35.82) turned out to be the top of `bulkcap_k14_2`, a 4.5 x 3.3 m
+        # ROOFTOP BULKHEAD CAP, not the deck at all. So `sidecar_top_z` was
+        # 1.82 m TOO HIGH on the one building the bench could test it on —
+        # "some buildings have railings so the roof is below that lip and
+        # people look like they're floating" (user, item 4), except the
+        # riser here is a stair/mechanical bulkhead rather than a railing.
+        # `masses.main["top"]` (33.0) matches the measured deck to two
+        # decimal places: it is the mass's own known constructed height —
+        # authoritative about the STRUCTURE, unlike `top_z`, which is a bbox
+        # over the WHOLE prim and picks up whatever rides highest on the
+        # roof (a bulkhead here; a railing/parapet on another archetype).
+        # Preferred over `sidecar_top_z` for exactly that reason, and NOT
+        # flagged `needs_bench` below — it is measured, not estimated, even
+        # though the number was not itself carried by `fire.deck_z`.
+        if isinstance(main, dict) and main.get("top") is not None:
+            return max(2.5, float(main["top"])), "sidecar_mass_top"
+        top_z = doc.get("top_z")
+        if top_z is not None:
+            return max(2.5, float(top_z) - pe), "sidecar_top_z"
     return max(2.5, float(rec["H"]) - pe), "estimated"
+
+
+# Sources trusted enough that a roof/roof_victim placement does not need a
+# bench check of its OWN z (a window figure's `needs_bench` is about the
+# opening grid, a separate question). `sidecar_top_z`/`estimated` are still
+# guesses — the one thing the 2026-08-31 measurement proved is that guessing
+# from a flat parapet height can be badly wrong.
+DECK_Z_BENCH_FREE_SOURCES = ("sidecar", "sidecar_mass", "sidecar_mass_top")
+
+# ---------------------------------------------------------------------------
+# LOCAL ROOF-Z SAMPLING — item 4, 2026-08-31 user review: "Some buildings have
+# railings so the roof is below that lip and people look like they're
+# floating rn." `deck_z()` above is ONE scalar per building's main mass,
+# measured at BAKE TIME (`gac_fire.mass_from_grid`'s area-binning walk down
+# from the bbox top) off the PRE-SLICE merged mesh. This module never has
+# that mesh — the sidecar is JSON, not geometry — so a candidate roof point
+# has always trusted the one global number, and a stepped or multi-tier deck
+# (a mechanical bulkhead, a raised plant platform, a genuinely tiered roof)
+# floats or sinks wherever the real local surface departs from it.
+#
+# `urban_fire._local_roof_z`/`_roof_tiles` already solve exactly this for a
+# LIVE, in-progress build — but by reading `role="roof"` elements off
+# `ctx["stage"]`, i.e. Python-side bookkeeping from the SAME session that
+# built the roof, which this module (a pure planner with no stage) never has.
+# MEASURED, 2026-08-31: a bare bake USD's roof meshes carry NO "roof" (or
+# "deck"/"parapet") substring anywhere in their prim paths — the role tag is
+# pure ctx-dict metadata that does not survive the export — so `_roof_tiles`'s
+# own selection mechanism cannot be ported verbatim to a cold-opened file.
+#
+# WHAT THIS DOES INSTEAD: the bake USD sits right next to its sidecar
+# (`load_sidecars` now records `doc["_sidecar_path"]`; same basename, `.usd`
+# extension), and it is a REAL, already-settled scene — opening it with a
+# bare `pxr` import (no Isaac, no live stage; same discipline
+# `people.bole_bearing_deg` already uses for a re-measured fallback) costs
+# nothing and needs no Nucleus. `local_roof_z` collects every mesh POINT
+# within `radius_m` of the candidate (x, y) and within a narrow Z band around
+# the sidecar's own `deck_z` hint, and returns their MEDIAN. Narrow — not the
+# `[deck_z-1.2, deck_z+2.8]` a first pass used — because a wide band pulled in
+# an unrelated raised structure on a real `city_138` roof (SM_Building_11:
+# points 2.17-2.52 m above the recorded `deck_z`, most likely a mechanical
+# bulkhead near that XY, not the walkable deck) and there is no semantic tag
+# left to tell "roof" apart from "rooftop plant" once the file is a bare mesh
+# soup. A band this tight instead answers a narrower, safer question — "is
+# there real deck surface within a few tens of centimetres of what the global
+# number already claims" — and gets NO ANSWER (falls through to the global
+# scalar) rather than a confidently wrong one whenever it is not. On the same
+# `city_138` bake this correctly returned nothing at every sampled point
+# (`SM_Building_11`'s local surface near typical candidate positions is not
+# within the tight band of its own recorded `deck_z` at all — worth a
+# reviewer's own look at that specific building; recorded as a discrepancy
+# rather than silently resolved either way) while on a second building
+# (`SM_Building_02`) it agreed with the global scalar to within 3-10 cm at
+# every one of eight sampled points — i.e. the common case is confirmation,
+# and the rare case is a flag, not a guess.
+_ROOF_Z_CACHE = {}
+
+
+def local_roof_z(usd_path, x, y, deck_z_hint, radius_m=2.2,
+                  band_lo=0.8, band_hi=1.0, min_points=8):
+    """The MEDIAN height of real mesh geometry within `radius_m` of `(x, y)`
+    and within `[deck_z_hint - band_lo, deck_z_hint + band_hi]`, or `None`
+    when `pxr` is unavailable, the file cannot be opened, or too few points
+    fall in the window to trust (`min_points`) — the caller's contract is to
+    fall back to `deck_z_hint` on `None`, never to raise.
+
+    Results are cached per `(usd_path, round(x,1), round(y,1))` — a roof pass
+    calls this once per CANDIDATE, and a small deck sees the same handful of
+    candidate cells retried across `_try` loops and, for `roof_victim`, a
+    second class on the same building.
+    """
+    key = (str(usd_path), round(float(x), 1), round(float(y), 1),
+           round(float(deck_z_hint), 2))
+    if key in _ROOF_Z_CACHE:
+        return _ROOF_Z_CACHE[key]
+    z = _local_roof_z_uncached(usd_path, x, y, deck_z_hint, radius_m,
+                               band_lo, band_hi, min_points)
+    _ROOF_Z_CACHE[key] = z
+    return z
+
+
+def _local_roof_z_uncached(usd_path, x, y, deck_z_hint, radius_m, band_lo,
+                           band_hi, min_points):
+    try:
+        from pxr import Usd, UsdGeom
+    except Exception:
+        return None
+    if not usd_path or not os.path.isfile(str(usd_path)):
+        return None
+    try:
+        stage = Usd.Stage.Open(str(usd_path))
+    except Exception:
+        return None
+    if stage is None:
+        return None
+    zlo = float(deck_z_hint) - float(band_lo)
+    zhi = float(deck_z_hint) + float(band_hi)
+    r2 = float(radius_m) ** 2
+    zs = []
+    try:
+        for prim in stage.Traverse():
+            if not prim.IsA(UsdGeom.Mesh) or not prim.IsActive():
+                continue
+            pts = UsdGeom.Mesh(prim).GetPointsAttr().Get()
+            if not pts:
+                continue
+            try:
+                xf = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(
+                    Usd.TimeCode.Default())
+            except Exception:
+                continue
+            for p in pts:
+                w = xf.Transform(p)
+                wz = float(w[2])
+                if wz < zlo or wz > zhi:
+                    continue
+                dx, dy = float(w[0]) - float(x), float(w[1]) - float(y)
+                if dx * dx + dy * dy <= r2:
+                    zs.append(wz)
+    except Exception:                                   # a malformed bake is data
+        return None
+    if len(zs) < int(min_points):
+        return None
+    zs.sort()
+    return zs[len(zs) // 2]
+
+
+def bake_usd_path(doc):
+    """The `.usd` sibling of a loaded sidecar's own `.json`, or `None`.
+    `load_sidecars` stashes the source path under `doc["_sidecar_path"]`."""
+    p = (doc or {}).get("_sidecar_path")
+    if not p:
+        return None
+    usd = os.path.splitext(str(p))[0] + ".usd"
+    return usd if os.path.isfile(usd) else None
 
 
 def storey_period(rec, doc=None):
@@ -1010,16 +1624,49 @@ def apron_run_m(rec, cfg):
                float(cfg["apron_spread"]) * float(rec["H"]))
 
 
-def standoff_m(rec, side, cfg):
+def venting_sides(rec, doc=None):
+    """Which elevations the fire actually vents through — from the sidecar
+    when there is one (`fire.sides`), otherwise the manifest's own `sides`.
+    Same "sidecar first, manifest as a conservative-ish fallback" pattern
+    `band_top`/`roof_involved`/`roof_collapsed` above already use, extended
+    to cover the one field those three don't touch.
+
+    THIS IS WHERE THE FIX FOR THE 2026-08-31 SMOKE-ON-A-BLANK-WALL BUG HAS
+    TO LAND. `gac_fire.prepare` now reconciles a GAC building's venting
+    sides against its MEASURED real glazing before baking — a manifest
+    `entry_side`/`sides` is the CONTAGION fact (which neighbour lit this
+    building) and is never rewritten, but the sidecar's `fire.sides` can
+    disagree with it (`SM_Building_26`: manifest says N/W by contagion,
+    sidecar says E — its only real glazing). Every OTHER read of "which
+    wall is this fire on" in this module goes through `_Building.sides`,
+    which this feeds; reading `rec.get("sides")` directly anywhere else
+    (as `standoff_m` used to) re-opens the same bug for the one thing this
+    module computes that never went through `_Building` -- the falling-
+    glass/debris KEEPOUT radius, which would otherwise still protect the
+    blank wall the manifest names instead of the real one people are
+    actually near."""
+    if doc:
+        f = doc.get("fire") or {}
+        sd = f.get("sides")
+        if sd:
+            return tuple(sd)
+    return tuple(rec.get("sides") or ())
+
+
+def standoff_m(rec, side, cfg, doc=None):
     """The HARD keepout from one elevation of one burning building.
 
     A burning elevation gets the falling-glass zone (`glass_fall_frac * H`);
     a burning elevation on a partially collapsed building gets whichever of
     that and the debris run-out is larger; anything else gets a nominal wall
     clearance. All scaled by `standoff_scale`. Section 4.
+
+    `doc`, the bake sidecar, decides which elevation counts as "burning"
+    (`venting_sides` above) — the manifest's own `sides` is a fallback for
+    when there is no sidecar yet, not a second opinion once one exists.
     """
     H = float(rec["H"])
-    fire_side = side in (rec.get("sides") or ())
+    fire_side = side in venting_sides(rec, doc)
     if fire_side:
         d = float(cfg["glass_fall_frac"]) * H
         if str(rec.get("level")) in cfg["collapse_levels"]:
@@ -1031,10 +1678,10 @@ def standoff_m(rec, side, cfg):
     return min(float(cfg["standoff_max_m"]), d * float(cfg["standoff_scale"]))
 
 
-def building_standoff_m(rec, cfg):
+def building_standoff_m(rec, cfg, doc=None):
     """The worst standoff over this building's elevations — the radius a
     street group is placed OUTSIDE of."""
-    return max(standoff_m(rec, s, cfg) for s in ("N", "E", "S", "W"))
+    return max(standoff_m(rec, s, cfg, doc) for s in ("N", "E", "S", "W"))
 
 
 def wind_vectors(heading_deg):
@@ -1079,7 +1726,13 @@ def place_frame(fr, dx, dy, yaw_deg):
 
 def _side_ops(doc, side):
     """Every measured opening on one elevation of a bake, in the bake's own
-    frame: `[(fr, u0, u1, z_sill, z_head, storey)]`."""
+    frame: `[(fr, u0, u1, z_sill, z_head, storey)]`. `doc=None` (no sidecar
+    matched at all) is a normal, common case — every caller used to guard it
+    individually (`if doc else []` / `has_doc and ...`); guarded HERE
+    instead so a new caller (`_pass_window`'s measured-side preference,
+    2026-09-01) cannot reintroduce the same crash by forgetting to."""
+    if not doc:
+        return []
     out = []
     for ev in (doc.get("events") or []):
         for op in (ev.get("ops") or []):
@@ -1149,7 +1802,19 @@ def openings_for_side(rec, side, storey, cfg, doc=None):
         width = float(cfg["opening_w_m"])
         sill_rel = float(cfg["sill_h_m"])
         head_rel = float(cfg["head_h_m"])
-        u_lo, u_hi = 0.0, 2.0 * half
+        # CORNER MARGIN — item 3, 2026-08-31 bench-v2 REJECTION: the lead's
+        # own close-up read found `window_02` centred on a facade PILASTER,
+        # not an opening. A derived grid has no idea where the real bays
+        # are; it can at least stop OFFERING the two candidates most likely
+        # to be structure rather than glass — the corner returns, where a
+        # pilaster, a column or a party-wall return is disproportionately
+        # likely on real facades of this pack (GAC/kit alike tend to frame
+        # a corner rather than glaze through it). Inset both ends by the
+        # larger of `corner_margin_m` and one full window width, so the
+        # first and last candidate slot is never adjacent to the corner.
+        margin = max(float(cfg.get("corner_margin_m", 1.5)),
+                    float(cfg["opening_w_m"]))
+        u_lo, u_hi = margin, max(margin, 2.0 * half - margin)
         source = "derived"
 
     out = []
@@ -1190,26 +1855,60 @@ def apron_surface_z(t, depth_m):
     return max(0.0, float(depth_m)) * max(0.0, 1.0 - float(t)) ** 1.3
 
 
-def window_protrusion_m(variant, inset_m, height_m=NOMINAL_HEIGHT_M):
-    """How far past the facade plane the furthest body part reaches, given
-    the pelvis `inset_m` behind that plane.
+def window_protrusion_m(inset_m, height_m=NOMINAL_HEIGHT_M):
+    """How far the head/shoulders clear the facade plane, given the pelvis
+    `inset_m` behind that plane and `lean_window`'s forward pitch — the ONLY
+    window geometry now (section 5a; the old seated `sill_sit` put the
+    recessed and the protruding halves backwards and was retired, and
+    `stand_slump`'s 28 deg variant that replaced it is retired in turn,
+    2026-08-31: "torso poking outside... legs inside" wanted more than 0.22 m
+    gave, and `stand_slump` never re-aimed the arms toward the opening at
+    all).
 
-    Section 5a. Both are the FORWARD REACH of the pose from the pelvis, less
-    the inset — the inset is the ONLY term that positions the body, and
-    charging a body-depth correction on top of it double-counts (see
-    `lean_out_inset_m`).
+    **THIS IS A MEASURED FRACTION, NOT A RIGID-ROTATION FORMULA — the
+    formula was wrong and the error was large.** The original version of
+    this function modelled the crown as carried `(_CROWN_H - _HIP_H) * H *
+    sin(pitch)` forward of the pelvis, i.e. as if the whole crown-to-hip span
+    pivoted rigidly about the hip by the pose's own cumulative spine angle.
+    It does not: `scene_generator._HUMAN_POSES`'s own `dig_bent` account
+    measures the identical effect (a cumulative 78 deg of RAW joint angle
+    across three spine bones carries `spine_03` forward by only 0.195 m, not
+    the ~0.35 m a rigid triangle would give), because each spine joint's
+    delta is applied on top of the PARENT's already-rotated frame rather than
+    as one hinge at the pelvis — a segmented chain accumulates displacement
+    far more slowly than a single rotation of the same total angle. Feeding
+    `lean_window`'s actual cumulative pitch (78 deg of raw joint angle, "hip
+    hinge ~30-40 deg" being the visual read that angle produces, not the
+    literal joint value) into the old formula predicted 0.31 m of protrusion
+    for a pose whose REAL FK-measured head position is only ~0.17 m forward
+    of the pelvis — i.e. the old formula would have shipped a window class
+    that reads as `protrusion_m: 0.31` in every record while the rendered
+    torso barely clears the sill at all.
 
-      `sill_sit`  the thigh reach, `0.273 H` forward of the pelvis, with the
-                  shins hanging below and outside it.
-      `lean_out`  the crown, carried `(_CROWN_H - _HIP_H) H sin(28 deg)`
-                  forward by `stand_slump`'s trunk pitch (spine_01 -10,
-                  spine_02 -12, spine_03 -6).
+    RE-MEASURED 2026-09-01 — `lean_window` is now the PELVIS-HINGED pose the
+    8-variant bench row settled on (`scene_generator._HUMAN_POSES`'s own
+    account of the render verdict), not the retired spine-chain version this
+    docstring's derivation history above was written against. MEASURED
+    (`scene_generator._pose_joint_transforms`, rp_carla, 1.731 m): the head
+    sits 0.262 m of -Y off the pelvis (note the SIGN — every other trunk-lean
+    pose in the table leans +Y; this one, empirically, leans the other way —
+    see the pose's own comment) — 0.152 of stature.
+    `_LEAN_WINDOW_HEAD_FRAC_H` is that fraction; the inset is the ONLY term
+    that positions the body horizontally, so it is not charged a second time
+    on top of it (see `lean_out_inset_m`). This is a LOWER BOUND on what
+    actually protrudes: `lean_window`'s arms brace forward of the torso by
+    considerably more (0.612 m past the pelvis on rp_carla) but the formula
+    stays conservative on the torso/head term alone, the same part of the
+    body `MIN_PROTRUSION_M` was written against.
     """
     H = float(height_m)
-    if variant == "sill_sit":
-        return _THIGH_L * H - float(inset_m)
-    return ((_CROWN_H - _HIP_H) * H * math.sin(math.radians(28.0))
-            - float(inset_m))
+    return _LEAN_WINDOW_HEAD_FRAC_H * H - float(inset_m)
+
+
+# See `window_protrusion_m`'s own account: MEASURED head-forward-of-pelvis
+# fraction for the FINALIZED pelvis-hinged `lean_window`, rp_carla
+# (0.262 m / 1.731 m stature).
+_LEAN_WINDOW_HEAD_FRAC_H = 0.152
 
 
 # ===========================================================================
@@ -1217,7 +1916,14 @@ def window_protrusion_m(variant, inset_m, height_m=NOMINAL_HEIGHT_M):
 # ===========================================================================
 def resolve_cfg(cfg=None):
     """`DEFAULTS` merged with a caller's overrides, one level deep for the
-    nested dicts so a caller can move one share without restating them all."""
+    nested dicts so a caller can move one share without restating them all.
+
+    `FP_STREET_CLASSES` (env) OVERRIDES `street_classes` WHEN SET, the same
+    precedence every other env-driven knob in this pipeline uses (the env is
+    for a human at a shell; a caller with a real `cfg` dict is doing it
+    programmatically and is assumed to mean it). Unset, the caller's `cfg` (or
+    `DEFAULTS`, off) wins.
+    """
     out = dict(DEFAULTS)
     out["shares"] = dict(DEFAULTS["shares"])
     out["group_sizes"] = dict(DEFAULTS["group_sizes"])
@@ -1226,6 +1932,8 @@ def resolve_cfg(cfg=None):
             out[k].update(v)
         else:
             out[k] = v
+    if STREET_CLASSES_ENV in os.environ:
+        out["street_classes"] = bool(int(os.environ[STREET_CLASSES_ENV]))
     return out
 
 
@@ -1236,6 +1944,8 @@ class _Building(object):
     def __init__(self, rec, cfg, doc=None):
         self.rec = rec
         self.doc = doc
+        self.cfg = cfg          # kept for sidecar_report(); every other
+                                 # method still takes cfg explicitly
         self.i = int(rec.get("i", -1))
         self.cell = rec.get("cell")
         self.x = float(rec["x"])
@@ -1245,7 +1955,7 @@ class _Building(object):
         self.H = float(rec["H"])
         self.yaw = float(rec.get("yaw_deg", 0.0))
         self.level = str(rec.get("level"))
-        self.sides = tuple(rec.get("sides") or ())
+        self.sides = venting_sides(rec, doc)
         self.n_storeys = max(1, int(rec.get("n_storeys") or 1))
         self.typology = rec.get("typology")
         self.band_top = band_top(rec, doc)
@@ -1253,17 +1963,36 @@ class _Building(object):
         self.roof_collapsed = roof_collapsed(rec, doc)
         self.deck_z, self.deck_source = deck_z(rec, doc,
                                                cfg["parapet_est_m"])
-        self.standoff = building_standoff_m(rec, cfg)
+        self.standoff = building_standoff_m(rec, cfg, doc)
         self.apron_run = apron_run_m(rec, cfg)
         self.radius = 0.5 * math.hypot(self.W, self.D)
 
     # -- the three eligibility questions the 3-D passes ask ---------------
     def window_storeys(self, cfg=None):
-        """Storeys strictly above the fire band AND below the drone's own
-        ceiling. Empty for F4 and worse, by `urban_fire.BAND` — section 5a —
-        and empty for a building whose fire band already tops the search
-        altitude band (`window_max_z_m`)."""
-        st = list(range(self.band_top + 1, self.n_storeys))
+        """Storeys strictly above the fire band, below the drone's own
+        ceiling, AND NEVER IN THE TOP `window_top_storeys_excluded` STOREYS
+        of the building — 2026-09-01 user follow-up on the bench-v4 ledge-
+        stander complaint: "The partially collapsed roof people might [be]
+        window lean people but too high. Don't do any window leans on the
+        top 2-3 stories always below." A HARD CAP on every building, every
+        level — not just collapse ones — because the same read (a standing
+        figure near the roofline with nothing obviously enclosing them
+        above) applies wherever the top storeys are. STACKS with the fire-
+        band floor: with a lowered origin, "above the band" is often
+        already the top storeys, so the eligible slice can be empty
+        (`band_top < storey <= n_storeys - 1 - excluded`) — that building
+        simply gets no window figures rather than the rule bending for it.
+
+        Empty for F4 and worse by `urban_fire.BAND` — section 5a — empty
+        for a building whose fire band already tops the search altitude
+        band (`window_max_z_m`), and now also empty for a building short
+        enough that the top-storey exclusion eats every storey the fire
+        band left standing.
+        """
+        excl = int((cfg or {}).get("window_top_storeys_excluded", 3)) \
+            if cfg is not None else int(DEFAULTS["window_top_storeys_excluded"])
+        hi = self.n_storeys - 1 - excl
+        st = list(range(self.band_top + 1, min(self.n_storeys, hi + 1)))
         if cfg is None:
             return st
         period = storey_period(self.rec, self.doc)
@@ -1277,6 +2006,27 @@ class _Building(object):
         if self.roof_involved:
             return False, "band_reaches_top"
         if self.H > float(cfg["roof_max_h_m"]):
+            return False, "too_tall({0:.0f}m)".format(self.H)
+        return True, ""
+
+    def roof_victim_ok(self, cfg):
+        """`(ok, reason)` for a stranded `roof_victim` — section 5b2.
+
+        Looser than `roof_ok` on two of its three gates (no `ROOF_OK_LEVELS`
+        restriction beyond the explicit collapse-level exclusion, and a
+        higher height cap), because it exists precisely for the buildings
+        `roof_ok` refuses on the real city. Never looser on the one gate that
+        actually matters: the roof has to be genuinely intact, per the
+        sidecar's own fire state when there is one.
+        """
+        if self.level in cfg["roof_victim_excluded_levels"]:
+            return False, "collapse_level({0})".format(self.level)
+        if self.roof_involved:
+            return False, "band_reaches_top"
+        if self.roof_collapsed:
+            return False, "roof_collapsed"
+        hcap = cfg.get("roof_victim_max_h_m")
+        if hcap is not None and self.H > float(hcap):
             return False, "too_tall({0:.0f}m)".format(self.H)
         return True, ""
 
@@ -1309,6 +2059,48 @@ class _Building(object):
     def far_side(self, cfg=None):
         return self.far_sides()[0]
 
+    def sidecar_report(self):
+        """Everything `tools/fire_people_dry_run.py`'s per-building report
+        prints: whether a sidecar matched at all, which of `SIDECAR_FIELD_USE`
+        it actually supplied, and which classes are eligible here versus
+        which of THOSE are bench-free by construction (never `needs_bench`).
+
+        `bench_free_classes`/`needs_bench_classes` are about THIS building's
+        3-D classes only (window/roof/burial) — street classes (evacuee/
+        onlooker/at_car) are always bench-free and are not building-specific,
+        so they are reported once by the dry run rather than per row.
+        """
+        has_doc = self.doc is not None
+        ops_sides = tuple(s for s in ("N", "E", "S", "W")
+                          if has_doc and _side_ops(self.doc, s))
+        window_ok = bool(self.window_storeys(self.cfg))
+        roof_ok, roof_why = self.roof_ok(self.cfg)
+        collapse_ok = self.level in self.cfg["collapse_levels"]
+        roof_debris_ok = self.roof_collapsed and collapse_ok
+        bench_free, needs_bench = [], []
+        if roof_ok:
+            bench_free.append("roof")
+        if window_ok:
+            (bench_free if ops_sides else needs_bench).append(
+                "window({0})".format("measured" if ops_sides else "derived"))
+        if collapse_ok:
+            needs_bench.append("casualty_apron")     # always — see 5c
+        if roof_debris_ok:
+            needs_bench.append("roof_debris")         # always — see 5c
+        return {
+            "building_i": self.i, "cell": self.cell, "level": self.level,
+            "H_m": round(self.H, 1), "has_sidecar": has_doc,
+            "deck_z_source": self.deck_source,
+            "window_sides_measured": list(ops_sides),
+            "window_eligible": window_ok,
+            "roof_eligible": roof_ok,
+            "roof_ineligible_why": None if roof_ok else roof_why,
+            "collapse_eligible": collapse_ok,
+            "roof_debris_eligible": roof_debris_ok,
+            "bench_free_classes": bench_free,
+            "needs_bench_classes": needs_bench,
+        }
+
 
 class Plan(object):
     """The output. `records` is the ground truth; everything else is
@@ -1322,6 +2114,14 @@ class Plan(object):
         self.degraded = {}
         self.dropped = {}
         self._group = 0
+        # ITEM 2, 2026-08-31 user review: real covering debris authored over
+        # a burial figure, not just a `covered_frac` NUMBER on the record —
+        # see `_cover_burial`. One list, shared by `casualty_apron` and
+        # `roof_debris`, in `planks`-spec shape (`x, y, z, len, wide, t, yaw,
+        # pitch, roll, class, propped`) so a launcher already able to author
+        # a `planks` field can author these with the same box-mesh call,
+        # bound to a rubble/char material instead of `planks.wood_material`.
+        self.covering = []
 
     def refuse(self, why):
         self.refused[why] = self.refused.get(why, 0) + 1
@@ -1394,11 +2194,75 @@ class _Solver(object):
                                     float(p["W"]), float(p["D"]),
                                     float(p.get("yaw_deg", 0.0))))
 
+        # A MANIFEST RECORD'S `i` MUST STILL BE THE SAME BUILDING IN *THIS*
+        # DUMP, and "the index exists" is NOT enough to conclude that.
+        # MEASURED, 2026-08-31, `_plans/fire_city_500m.json` (20 records)
+        # against a FRESH `_plans/fc_dump_500.json` (87 houses): every single
+        # one of the 20 `i` values IS present in the fresh dump — the BSP
+        # city regenerates the same index range run to run — but only 3 of
+        # the 20 still sit where the manifest says (`dist == 0.00`); the
+        # other 17 have moved 9.5-309 m, several with a DIFFERENT W/D/H
+        # entirely (e.g. `i=273`: same index, 211 m away, 103 m taller) —
+        # because a BSP re-layout renumbers which house lands at a given
+        # full-placement-list position. Checking presence alone would have
+        # waved all 20 through and put a crowd standing around a burning
+        # office block outline that, in this dump, is empty street. So a
+        # record is matched by `i` AND then re-verified against that same
+        # dump placement's own `x_m/y_m/W/D/H`; either check failing drops
+        # the record — never built into a `_Building`, never budgeted, never
+        # placed against geometry it does not own — and BOTH failure modes
+        # are counted and named rather than merged into one tally, so a
+        # reader can tell "stale index" from "reindexed BSP city" at a
+        # glance. See `tools/fire_people_dry_run.py`'s per-record report and
+        # `test_fire_people.py`'s
+        # `test_manifest_records_are_reverified_against_the_dump_not_just_indexed`.
+        dump_by_i = {}
+        for p in dump.get("placements") or []:
+            if p.get("i") is not None:
+                dump_by_i[int(p["i"])] = p
+
         sc = sidecars or {}
         self.buildings = []
+        # [{"i", "cell", "level", "reason", ...}], reported by the dry run
+        # and rolled into `plan.meta`.
+        self.skipped_records = []
         for rec in manifest.get("records") or []:
-            doc = sc.get(str(rec.get("cell"))) or sc.get(_bake_tag(rec))
+            ri = rec.get("i")
+            dp = dump_by_i.get(int(ri)) if ri is not None else None
+            if dp is None:
+                self.skipped_records.append({
+                    "i": ri, "cell": rec.get("cell"),
+                    "level": rec.get("level"), "reason": "index_not_in_dump"})
+                continue
+            ok, dist_m, size_diff_m = _manifest_matches_dump(rec, dp)
+            if not ok:
+                self.skipped_records.append({
+                    "i": ri, "cell": rec.get("cell"),
+                    "level": rec.get("level"), "reason": "geometry_drift",
+                    "dist_m": round(dist_m, 1),
+                    "size_diff_m": round(size_diff_m, 1),
+                    "dump_cell": dp.get("cell")})
+                continue
+            # LEVEL-QUALIFIED FIRST. A cell re-baked at more than one
+            # severity for iteration collides on the bare `cell`/`tag` key
+            # (`load_sidecars`'s own account, 2026-08-31) — the tuple key
+            # asks for the SAME level this manifest record already claims,
+            # so a re-baked cell resolves to the sidecar that actually
+            # matches it rather than to whichever file sorted last.
+            cell_s, level_s = str(rec.get("cell")), str(rec.get("level"))
+            doc = (sc.get((cell_s, level_s))
+                   or sc.get((_bake_tag(rec), level_s))
+                   or sc.get(cell_s) or sc.get(_bake_tag(rec)))
             self.buildings.append(_Building(rec, cfg, doc))
+        if self.skipped_records:
+            by_reason = {}
+            for r in self.skipped_records:
+                by_reason[r["reason"]] = by_reason.get(r["reason"], 0) + 1
+            print("[fire_people] {0} of {1} manifest record(s) SKIPPED — no "
+                  "longer this dump's own building (stale manifest vs a "
+                  "different city layout): {2}".format(
+                      len(self.skipped_records),
+                      len(manifest.get("records") or []), by_reason))
 
         self.down, self.up = wind_vectors(cfg["heading_deg"])
         self.placed = []          # [(x, y)] for the spacing test
@@ -1420,7 +2284,7 @@ class _Solver(object):
         of its elevations. Section 4(a)/(b)."""
         for b in self.buildings:
             for side in ("N", "E", "S", "W"):
-                need = standoff_m(b.rec, side, self.cfg)
+                need = standoff_m(b.rec, side, self.cfg, b.doc)
                 cx, cy, half = face_center(b.rec, side)
                 nx, ny = side_normal_world(side, b.yaw)
                 # Only the half-space in front of this elevation is its
@@ -1523,6 +2387,36 @@ class _Solver(object):
             if ux * nx + uy * ny >= lim:
                 return True
         return False
+
+
+# Tolerances for `_manifest_matches_dump`. Generous next to a real
+# building's own footprint (tens of metres) and tight next to the drift a
+# re-laid-out BSP city actually produces at the SAME index — see
+# `_Solver.__init__`'s account of the 2026-08-31 measurement (0.00 m on an
+# untouched house, 9.5-309 m on a reindexed one).
+MANIFEST_POSITION_TOL_M = 3.0
+MANIFEST_SIZE_TOL_M = 2.0
+
+
+def _manifest_matches_dump(rec, dp):
+    """`(ok, dist_m, size_diff_m)` — is manifest record `rec` still
+    describing the SAME building as the dump placement `dp` it was matched
+    to by `i`?
+
+    Compares `rec`'s own `x/y/W/D/H` (what the fire was actually solved
+    against) to `dp`'s `x_m/y_m/W/D/H` (what stands at that index in THIS
+    dump). Both must agree within tolerance; an index that merely exists is
+    not evidence the geometry behind it still does.
+    """
+    dist_m = math.hypot(float(rec.get("x", 0.0)) - float(dp.get("x_m", 0.0)),
+                        float(rec.get("y", 0.0)) - float(dp.get("y_m", 0.0)))
+    size_diff_m = max(
+        abs(float(rec.get("W", 0.0)) - float(dp.get("W", 0.0))),
+        abs(float(rec.get("D", 0.0)) - float(dp.get("D", 0.0))),
+        abs(float(rec.get("H", 0.0)) - float(dp.get("H", 0.0))))
+    ok = (dist_m <= MANIFEST_POSITION_TOL_M
+          and size_diff_m <= MANIFEST_SIZE_TOL_M)
+    return ok, dist_m, size_diff_m
 
 
 def _bake_tag(rec):
@@ -1773,19 +2667,132 @@ def _nearest_bay(sol, x, y):
     return None if best is None else (best[1], best[2], best[3])
 
 
+def _side_has_flame(doc, side, min_intensity):
+    """Does elevation `side` carry ANY flame-bearing bake event at all?
+
+    Presence only, no distance — the CONSERVATIVE half of item 5 ("prefer
+    non-flame elevations entirely when available"): `_pass_window` tries a
+    flame-free side first and falls back to `_clear_of_flame`'s per-opening
+    distance refusal only when every candidate elevation has fire on it
+    somewhere.
+    """
+    if not doc:
+        return False
+    thresh = float(min_intensity)
+    for ev in (doc.get("events") or []):
+        if float(ev.get("intensity", 0.0)) < thresh:
+            continue
+        for op in (ev.get("ops") or []):
+            if str(op.get("side") or ev.get("side")) == side:
+                return True
+    return False
+
+
+def _clear_of_flame(b, x, y, side, min_dist, min_intensity):
+    """Is `(x, y)` at least `min_dist` from every FLAME-BEARING bake event on
+    `side` of this building? Item 5, 2026-08-31 user review: "the people
+    through windows ... can't be right next to the open flame. They have to
+    be away from it."
+
+    Reads `events[*].ops[*]` the way `_side_ops` does, filtered to `side` and
+    to `intensity >= min_intensity` (the sidecar's own 0-1 event field — the
+    one `soot_plume`'s EC1 flame model reads, so "flame" here means the same
+    thing it means to the module that actually draws the fire). Each
+    surviving op's underlying element position (`op["e"]["x"/"y"]`, the
+    bake's own frame) is rotated into the CITY frame exactly the way
+    `_clear_of_smoke` rotates a seat: `_rot` by the cell yaw, translate by
+    the building's own `(x, y)`.
+    """
+    if not b.doc:
+        return True
+    thresh = float(min_intensity)
+    for ev in (b.doc.get("events") or []):
+        if float(ev.get("intensity", 0.0)) < thresh:
+            continue
+        for op in (ev.get("ops") or []):
+            if str(op.get("side") or ev.get("side")) != side:
+                continue
+            e = op.get("e") or {}
+            if "x" not in e or "y" not in e:
+                continue
+            wx, wy = _rot(float(e["x"]), float(e["y"]), b.yaw)
+            wx, wy = wx + b.x, wy + b.y
+            if math.hypot(x - wx, y - wy) < float(min_dist):
+                return False
+    return True
+
+
 def _pass_window(sol, plan, budget):
-    """Figures at window openings STRICTLY ABOVE the fire band, on venting
-    and adjacent elevations. Section 5a."""
+    """Figures LEANING OUT of window openings STRICTLY ABOVE the fire band,
+    on venting and adjacent elevations. Section 5a.
+
+    LOWER HALF INSIDE, UPPER HALF OUTSIDE (user, 2026-08-31): the pelvis is
+    sunk to the real, sidecar-measured sill height (`op["z_sill"]` — never a
+    guessed constant, and never a storey whose opening does not come out of
+    `openings_for_side`'s own grid) and set back `lean_out_inset_m` behind
+    the facade plane, so the legs — everything below hip height — stay at
+    that same recessed position, inside the solid wall panel under the sill,
+    where it occludes them. `lean_window`'s hip-hinged forward pitch (a
+    cumulative 78 deg of raw spine-chain joint angle — a segmented chain
+    needs roughly double the raw angle a rigid hinge would, see
+    `window_protrusion_m`'s own account — reading as the "~30-40 deg hinge"
+    the review asked for) then carries the torso and head past the facade
+    plane, arms braced forward as if on the sill —
+    over the street. The retired `sill_sit` variant had this backwards (5a's
+    own account).
+
+    AND NEVER RIGHT NEXT TO THE OPEN FLAME (item 5, same review): a
+    candidate opening is refused if it is within `window_flame_clear_m` of
+    any flame-bearing event on the SAME elevation — see `_clear_of_flame`.
+    """
     cfg, rng = sol.cfg, sol.rng
+    use_lean = bool(cfg.get("window_use_lean_pose", False))
+    # BENCH-V3 REJECTION, 2026-08-31: "she stands FULLY VISIBLE head-to-toe
+    # in FRONT of the glass, zero leg occlusion." The fallback (`idle`,
+    # standing on the floor) was using `lean_out_inset_m` (0.17 m) — a number
+    # solved for the OLD spine-hinged lean pose's pelvis-behind-the-sill
+    # geometry, not for a figure standing square with no forward reach.
+    # 0.17 m is less than a body's own depth, so an upright stander at that
+    # inset is still effectively AT the glazing plane, not visibly recessed
+    # behind it. `window_stand_inset_m` is a real body depth further in.
+    #
+    # THE FINALIZED (pelvis-hinged) LEAN POSE USES ITS OWN, narrower inset
+    # (`lean_window_inset_m`, see that constant's own account) — NOT `lean_
+    # out_inset_m`, which is sized for the retired spine-only mechanism's
+    # larger head displacement and would leave the new pose under
+    # `MIN_PROTRUSION_M`.
+    inset = (float(cfg["lean_window_inset_m"]) if use_lean
+            else float(cfg["window_stand_inset_m"]))
+    # A CONSTANT, NOT A PER-RECORD DRAW, WHEN LEANING. There is only one
+    # geometry, so whether it clears `MIN_PROTRUSION_M` is decided once — a
+    # config that sinks the pelvis too far in refuses the whole class up
+    # front. THE FALLBACK HAS NO SINGLE ANSWER: "how far the head clears the
+    # sill" depends on the sill height of the actual opening drawn, so it is
+    # computed per-candidate below instead (`head_clear_m`).
+    prot = window_protrusion_m(inset) if use_lean else None
     cands = []
+    top_excl = int(cfg.get("window_top_storeys_excluded", 3))
     for b in sol.buildings:
-        if not b.window_storeys():
+        # DISTINGUISH "no storey above the fire" FROM "the top-storey cap
+        # ate every storey the fire band left standing" — 2026-09-01: the
+        # user's own instruction is to count and report the latter rather
+        # than bend the rule for a short building. `band_only` re-derives
+        # the fire-band floor ALONE (no top-storey exclusion) so the two
+        # causes cannot be confused with each other.
+        band_only = list(range(b.band_top + 1, b.n_storeys))
+        if not band_only:
             plan.refuse("no_storey_above_fire")
+            continue
+        if not b.window_storeys():
+            plan.refuse("top_storeys_excluded")
             continue
         if not b.window_storeys(cfg):
             plan.refuse("window_too_high")
             continue
         cands.append(b)
+    if use_lean and prot < MIN_PROTRUSION_M:
+        plan.refuse("no_protrusion")
+        return 0
     if budget <= 0 or not cands:
         return 0
     per_cap = min(int(cfg["window_max_per_building_hard"]),
@@ -1810,7 +2817,46 @@ def _pass_window(sol, plan, budget):
                              int(len(storeys) * rng.random() ** 1.6))]
         vent = list(b.sides) or ["S"]
         adj = [s for v in vent for s in _ADJACENT[v] if s not in vent]
-        side = rng.choice(vent + adj) if adj else rng.choice(vent)
+        cand_sides = (vent + adj) if adj else vent
+        # ITEM 5, 2026-08-31 user review: "away from it" — CONSERVATIVE
+        # preference, not just a per-opening distance refusal. When at least
+        # one of this storey's candidate elevations has NO flame-bearing
+        # event on it at all, draw the side from that flame-free subset
+        # first; only fall back to every candidate side (still gated by
+        # `_clear_of_flame`'s per-opening check below) when none is.
+        flame_free = [s for s in cand_sides
+                     if not _side_has_flame(b.doc, s,
+                                            float(cfg["window_flame_intensity_min"]))]
+        # BENCH-V7 REJECTION, 2026-09-01: "the leaners [are] pasted flat on
+        # a BLANK BRICK wall (no windows anywhere in frame)." NOT a yaw
+        # mismatch (checked: the appended bench record's yaw matches the
+        # other three's own convention exactly — original city yaw_deg,
+        # unrotated). The real cause: `_ADJACENT` sides frequently have NO
+        # sidecar ops at all (`_side_ops` empty — the sidecar only ever
+        # records the elevation(s) that actually vented), so `openings_for_
+        # side` falls through to the synthetic uniform grid — a claim
+        # nobody has measured, and on a real building (measured on SM_
+        # Building_26's own N/S faces, `_side_ops` empty on both) that claim
+        # can be flatly WRONG: a blank party wall, not a row of windows.
+        # `flame_free` alone cannot see this — it answers "is there fire
+        # here", not "is there GLASS here". Now `flame_free` is intersected
+        # with MEASURED sides (`_side_ops` non-empty) first: a side this
+        # building's own bake actually recorded openings on beats an
+        # unverified guess, even a flame-free one. Only when NO measured
+        # side is flame-free does a measured-but-venting side get tried
+        # (the per-opening `_clear_of_flame` check below still keeps any
+        # individual choice safe), and only when NO side has ANY measured
+        # data at all does this fall through to a flame-free derived guess
+        # — the original behaviour, for the (still common) building whose
+        # sidecar simply never recorded anything to check against.
+        measured = [s for s in cand_sides if _side_ops(b.doc, s)]
+        pool = ([s for s in flame_free if s in measured] or measured
+               or flame_free or cand_sides)
+        side = rng.choice(pool)
+        # `openings_for_side` is the ONLY source of an opening's geometry —
+        # a real measured grid (`sidecar_grid`) when the sidecar has one on
+        # this side, else a synthesised default (`derived`, flagged
+        # `needs_bench`). Never a hand-rolled height.
         ops = openings_for_side(b.rec, side, storey, cfg, b.doc)
         if not ops:
             plan.refuse("no_openings")
@@ -1820,19 +2866,35 @@ def _pass_window(sol, plan, budget):
         if key in used_ops:
             plan.refuse("opening_taken")
             continue
-
-        w = op["u1"] - op["u0"]
-        h = op["z_head"] - op["z_sill"]
-        can_sit = (h >= float(cfg["sit_head_clear_m"])
-                   and w >= float(cfg["sit_width_m"]))
-        variant = ("sill_sit" if can_sit
-                   and rng.random() < float(cfg["sill_sit_share"])
-                   else "lean_out")
-        inset = float(cfg["sill_inset_m"] if variant == "sill_sit"
-                      else cfg["lean_out_inset_m"])
-        prot = window_protrusion_m(variant, inset)
-        if prot < MIN_PROTRUSION_M:
-            plan.refuse("no_protrusion")
+        # A leaning head needs the opening tall enough to clear the lintel.
+        if op["z_head"] - op["z_sill"] < float(cfg["lean_head_clear_m"]):
+            plan.refuse("opening_too_short")
+            continue
+        # BENCH-V3 REJECTION: "the lower body must be hidden by building
+        # fabric ... prefer openings that HAVE a solid spandrel/sill band
+        # below them ... an opening whose sill is near floor level, full-
+        # height glazing, cannot hide legs: skip those bays." Only the
+        # FALLBACK needs this — the lean pose sinks the pelvis TO the sill by
+        # construction, so a low sill there is a short reach, not a bare-leg
+        # exposure; the standing fallback's legs run all the way down to
+        # `floor_z` regardless of the sill, so THIS is the gate that decides
+        # whether anything is between them and the camera.
+        if not use_lean and (op["z_sill"] - op["floor_z"]
+                             < float(cfg["window_min_spandrel_m"])):
+            plan.refuse("no_spandrel")
+            continue
+        # THE CEILING IS ENFORCED ON THE SILL, NOT THE FEET. The sill (and
+        # everything above it — the torso, the head) is the highest point a
+        # camera could ever see; the feet, sunk below it so the hips land at
+        # sill height, are always lower still, so gating on the sill is the
+        # STRICTER of the two and automatically clears the feet check too.
+        # `window_storeys(cfg)` screens candidates with the DEFAULT sill
+        # height cheaply; a sidecar's MEASURED sill can sit metres higher up
+        # its own storey, which is why this is re-checked on the opening
+        # actually chosen (2026-08-31, the first sidecar run shipped four
+        # records over it before this existed).
+        if op["z_sill"] > float(cfg["window_max_z_m"]):
+            plan.refuse("window_too_high")
             continue
 
         # `out` in `_face_point` pushes along the frame's OUTWARD normal, so
@@ -1842,26 +2904,76 @@ def _pass_window(sol, plan, budget):
         px, py, _z = _face_point(op["fr"], op["u"], 0.0, -inset)
         f_yaw = float(op["fr"][2])
         nx, ny = math.sin(f_yaw), -math.cos(f_yaw)
-        if variant == "sill_sit":
-            pose, z, z_mode, seat = "sit_edge", op["z_sill"], "sill", "sill"
+        # ITEM 1 FALLBACK, 2026-08-31 bench-v2 REJECTION ("stomachs are out
+        # (bent the wrong way)... arms also look wrong"): `lean_window`
+        # cannot be proven correct without a render, and the lead's own
+        # close-up read (window_02: bolt upright, arms splayed like the rest
+        # pose, hip hinge and neck/head reading backwards) means shipping it
+        # again unverified is not an option. `cfg["window_use_lean_pose"]`
+        # (False by default now) is the switch back once a render confirms
+        # the pose; see WINDOW_POSE_DIAGNOSIS below for the comparison this
+        # is waiting on.
+        #
+        # FALLBACK GEOMETRY — "position-only protrusion, upright figure"
+        # (coordinator's own words): `idle` never moves a leg joint, so a
+        # figure standing on the STOREY'S OWN FLOOR (`op["floor_z"]`, feet at
+        # 0 relative to that storey) has its legs and hips behind the solid
+        # wall panel below the sill and its torso/head inside the opening's
+        # own [z_sill, z_head] vertical band at ordinary stature (~1.0-1.7 m
+        # off the floor) — the same "lower half inside, upper half outside"
+        # read the lean pose was trying to earn, produced here by GEOMETRY
+        # alone rather than by a pose whose joint math cannot be confirmed
+        # this round. No sill-sink term at all: sinking the hips to the sill
+        # only makes sense for a pose that leans forward from there.
+        head_clear = None
+        if use_lean:
+            # HIPS AT THE SILL: the feet (the record's own support surface)
+            # sit `_HIP_H * H` below it, so `lean_window`'s untouched,
+            # near-straight legs put the pelvis exactly at `op["z_sill"]`.
+            pose = "lean_window"
+            z = op["z_sill"] - _HIP_H * NOMINAL_HEIGHT_M
         else:
-            pose, z, z_mode, seat = ("stand_slump", op["floor_z"], "floor",
-                                     None)
-        # THE CEILING IS ENFORCED ON THE OPENING THAT WAS ACTUALLY CHOSEN,
-        # not only on the storey pre-filter. `window_storeys(cfg)` screens
-        # candidates with the DEFAULT sill height (`sill_h_m`), but with a
-        # sidecar the sill comes from the bake's own MEASURED ops and can sit
-        # metres higher up its storey — so the cheap filter passed a storey
-        # whose real opening was above the drone ceiling and four records
-        # shipped over it (2026-08-31, the first sidecar run). The pre-filter
-        # keeps its job of choosing candidates cheaply; this is the rule.
-        if z > float(cfg["window_max_z_m"]):
-            plan.refuse("window_too_high")
+            pose = "idle"
+            z = op["floor_z"]
+            # PER-CANDIDATE, NOT A CLASS CONSTANT (unlike `prot`): whether an
+            # `idle` stander's head clears the sill depends on THIS opening's
+            # own sill height relative to the floor it stands on, which
+            # varies with `openings_source` (measured vs derived) and the
+            # storey drawn. `_ACROMION_H` (shoulder) rather than `_CROWN_H`
+            # (crown) — the shoulders are the highest point a leaning-out
+            # pose would have guaranteed past the sill; holding the standing
+            # fallback to the same bar keeps the two variants comparable.
+            head_clear = z + _ACROMION_H * NOMINAL_HEIGHT_M - op["z_sill"]
+            if head_clear < MIN_PROTRUSION_M:
+                plan.refuse("no_head_clearance")
+                continue
+        z_mode, seat = "floor", None
+        # A WINDOW FIGURE MUST SIT ON ITS OWN BUILDING'S WALL — the same
+        # invariant `test_19` already asserts. A multi-module GAC/kit bake
+        # can carry several ops each measured relative to ITS OWN piece
+        # frame while sharing one recorded `side`; `openings_for_side`
+        # reuses a single op's frame (`ops[0]`) for every `u` the grid
+        # produces on that side, and a `u` that belonged to a DIFFERENT
+        # piece's frame reconstructs a point nowhere near this wall (found
+        # 2026-08-31 on a real 42 m `bld_apartment_long` sidecar: a `u` of
+        # ~37 m against a frame whose own piece spans a few metres put the
+        # figure 40 m off the actual facade, and once off the plate
+        # entirely). Never guessed away — refused and counted, the same
+        # discipline every other geometry check in this pass already keeps.
+        if dist_to_obb(px, py, b.x, b.y, b.W, b.D, b.yaw) > 2.0:
+            plan.refuse("opening_off_building")
+            continue
+        # ITEM 5: never right next to the open flame.
+        if not _clear_of_flame(b, px, py, side,
+                               float(cfg["window_flame_clear_m"]),
+                               float(cfg["window_flame_intensity_min"])):
+            plan.refuse("too_close_to_flame")
             continue
         if not sol.spaced(px, py):
             plan.refuse("too_close")
             continue
         usd, pose, rigged = _pick_human(rng, pose, allow_posed=False)
+        prot_out = prot if use_lean else head_clear
         plan.add({
             "cls": "window", "group": plan.next_group(), "usd": usd,
             "rigged": rigged, "x": round(px, 3), "y": round(py, 3),
@@ -1869,23 +2981,41 @@ def _pass_window(sol, plan, budget):
                 math.atan2(ny, nx)), 1),
             "pose": pose, "prone": False, "seat": seat, "z_mode": z_mode,
             "alive": True,
-            # `lean_out` clears the facade by ~0.17 m; that is at the edge of
-            # useful and only a close render settles it. See section 5a.
-            "needs_bench": (variant == "lean_out"
-                            or op["source"] == "derived"),
-            "variant": variant, "protrusion_m": round(prot, 3),
+            # A default (extrapolated) grid is a claim nobody has measured;
+            # marginal protrusion/clearance is also, on its own, at the edge
+            # of useful. Either one earns the flag. See section 5a. The
+            # fallback ALSO always needs the bench — it is a geometry-only
+            # substitute for a pose that has not been proven yet.
+            "needs_bench": (op["source"] == "derived"
+                            or prot_out < 2.0 * MIN_PROTRUSION_M
+                            or not use_lean),
+            "flame_clear_m": float(cfg["window_flame_clear_m"]),
+            "variant": "lean_out" if use_lean else "standing_at_opening",
+            "protrusion_m": round(prot_out, 3),
             "inset_m": inset, "sill_z": round(op["z_sill"], 3),
             "head_z": round(op["z_head"], 3), "floor_z": round(op["floor_z"], 3),
+            "hip_target_z": round(op["z_sill"], 3),
             "side": side, "storey": storey, "openings_source": op["source"],
             "building_i": b.i, "building_cell": b.cell,
             "building_level": b.level, "building_sides": list(b.sides),
             "band_top": b.band_top,
-            "reason": ("{0} at a {1} opening on storey {2} of {3} ({4}), "
-                       "side {5} ({6}), {7:.2f} m past the facade"
-                       .format(variant, op["source"], storey,
-                               b.n_storeys - 1, b.level, side,
-                               "venting" if side in vent else "adjacent",
-                               prot)),
+            "reason": (
+                ("leaning out of a {0} opening on storey {1} of {2} ({3}), "
+                 "side {4} ({5}): hips sunk to the sill ({6:.2f} m) so the "
+                 "wall occludes the legs, {7:.2f} m of torso and head past "
+                 "the facade"
+                 .format(op["source"], storey, b.n_storeys - 1, b.level,
+                         side, "venting" if side in vent else "adjacent",
+                         op["z_sill"], prot_out))
+                if use_lean else
+                ("standing upright on the floor of a {0} opening on storey "
+                 "{1} of {2} ({3}), side {4} ({5}): legs behind the wall "
+                 "panel below the sill ({6:.2f} m), {7:.2f} m of shoulder "
+                 "clearance above it — fallback pose, `lean_window` not "
+                 "shipped this round pending a render (bench-v2 rejection)"
+                 .format(op["source"], storey, b.n_storeys - 1, b.level,
+                         side, "venting" if side in vent else "adjacent",
+                         op["z_sill"], prot_out))),
         })
         used_ops.add(key)
         sol.placed.append((px, py))
@@ -1894,9 +3024,174 @@ def _pass_window(sol, plan, budget):
     return made
 
 
+# THROWAWAY EIGHT-VARIANT bench pose row for `lean_window`'s DIRECTION —
+# 2026-09-01, user: "the people in windows look completely wrong, they're
+# just standing straight." Coordinator: "empirical search instead of
+# derivation ... one render settles the UE/USD mapping question that three
+# rounds of paper derivation have not." See `scene_generator._HUMAN_POSES`'
+# own "THROWAWAY" block for the eight names and what each one hinges on.
+WINDOW_POSE_VARIANTS = ("lw_pelvis_negx", "lw_pelvis_posx",
+                       "lw_pelvis_negy", "lw_pelvis_posy",
+                       "lw_spine_negx", "lw_spine_posx",
+                       "lw_mixed_negx", "lw_mixed_posx")
+
+
+def _pass_window_pose_experiment(sol, plan):
+    """One figure per `WINDOW_POSE_VARIANTS` name, at CONSECUTIVE real
+    openings of the bench's intact (non-collapse) building — gated on
+    `cfg["window_pose_experiment"]`, off by default; never part of the real
+    census, never budgeted, never rule-checked by the normal gate. Bypasses
+    the flame/eligibility machinery `_pass_window` runs — this is a one-off
+    diagnostic bench row, not a placement the ground truth ships.
+
+    Picks the TALLEST eligible (non-collapse-level) building with real
+    measured openings (`sidecar_grid`) on some side, and a storey with at
+    least `len(WINDOW_POSE_VARIANTS)` openings so every variant gets its
+    own bay rather than doubling up — falls back to the derived grid, and
+    to fewer variants, rather than placing nothing.
+    """
+    cfg, rng = sol.cfg, sol.rng
+    # NOT JUST "not F5c" — a roof-collapsed/gutted F5/F6 shell is not what
+    # the coordinator meant by "the intact F3 building" either (found
+    # 2026-08-31: excluding only `collapse_levels` picked the bench's GAC
+    # F5 tower over its actual F3 kit apartment). Excludes every damage
+    # level worse than F3 the same way `roof_ok_levels` restricts itself to
+    # F1-F3 for the SAME "is this deck/facade still a normal building"
+    # reason, then prefers the SHORTEST eligible building — the intact F3
+    # kit apartment over any taller shell that happens to still qualify —
+    # so consecutive real bays land on one recognisable facade.
+    cands = [b for b in sol.buildings if b.level in ("F1", "F2", "F3")]
+    if not cands:
+        plan.refuse("window_pose_experiment_no_building")
+        return 0
+    cands.sort(key=lambda b: b.H)
+    made = 0
+    for b in cands:
+        # EVERY STOREY, NOT `window_storeys()` — this pass is a pose
+        # diagnostic on a real facade, not a fire-eligible-opening claim,
+        # so it is deliberately exempt from both the fire-band floor and
+        # the `window_top_storeys_excluded` cap those exist to enforce for
+        # the real census (found 2026-09-01: gating this pass on `window_
+        # storeys()` left the bench's OWN F3 building with zero eligible
+        # storeys once the top-3 cap landed, since its real sidecar band
+        # already reaches storey 8 of 11 — the experiment would have had
+        # nowhere to place a single figure on the one building it exists
+        # to test poses against).
+        storeys = list(range(b.n_storeys))
+        best_ops, best_side, best_storey = [], None, None
+        for side in (list(b.sides) or ["S", "N", "E", "W"]):
+            for storey in storeys:
+                ops = openings_for_side(b.rec, side, storey, cfg, b.doc)
+                if len(ops) > len(best_ops):
+                    best_ops, best_side, best_storey = ops, side, storey
+        if not best_ops:
+            continue
+        n = min(len(WINDOW_POSE_VARIANTS), len(best_ops))
+        nx, ny = side_normal_world(best_side, b.yaw)
+        inset = float(cfg["window_stand_inset_m"])
+        for k in range(n):
+            pose = WINDOW_POSE_VARIANTS[k]
+            op = best_ops[k]
+            px, py, _z = _face_point(op["fr"], op["u"], 0.0, -inset)
+            f_yaw = float(op["fr"][2])
+            fnx, fny = math.sin(f_yaw), -math.cos(f_yaw)
+            z = op["floor_z"]
+            usd, pose, rigged = _pick_human(rng, pose, allow_posed=False)
+            plan.add({
+                "cls": "window", "group": plan.next_group(), "usd": usd,
+                "rigged": rigged, "x": round(px, 3), "y": round(py, 3),
+                "z": round(z, 3),
+                "yaw_deg": round(math.degrees(math.atan2(fny, fnx)), 1),
+                "pose": pose, "prone": False, "seat": None,
+                "z_mode": "floor", "alive": True, "needs_bench": True,
+                "variant": "pose_experiment", "protrusion_m": 0.0,
+                "inset_m": inset, "sill_z": round(op["z_sill"], 3),
+                "head_z": round(op["z_head"], 3),
+                "floor_z": round(op["floor_z"], 3),
+                "side": best_side, "storey": best_storey,
+                "openings_source": op["source"],
+                "building_i": b.i, "building_cell": b.cell,
+                "building_level": b.level,
+                "building_sides": list(b.sides),
+                "reason": ("WINDOW POSE ROW variant {0!r} at opening {1} of "
+                          "{2} ({3}), storey {4} — throwaway, see "
+                          "scene_generator._HUMAN_POSES".format(
+                              pose, k, b.level, best_side, best_storey)),
+            })
+            sol.placed.append((px, py))
+            made += 1
+        break
+    if made == 0:
+        plan.refuse("window_pose_experiment_no_openings")
+    return made
+
+
+def _roof_seat_z(b, x, y):
+    """`(z, source, needs_bench)` for a roof-class figure at `(x, y)` on
+    building `b`.
+
+    ITEM 4, 2026-08-31 user review: "Some buildings have railings so the
+    roof is below that lip and people look like they're floating rn." Prefers
+    a LOCAL geometry sample (`local_roof_z`, real mesh points near this exact
+    (x, y) rather than one global scalar for the whole deck) whenever the
+    building has a local bake USD and the sample is not too sparse to trust;
+    falls back to `(b.deck_z, b.deck_source)` otherwise. KIT bakes carry a
+    sibling `.usd` in `city_138` just like gac/dtc ones (MEASURED, the bench
+    re-solve: 6 of 9 roof-class figures on `kit_apartment_tall_F3_o4_SNW_
+    s758` came back `local_mesh`), so the fallback is not a per-kind rule —
+    it fires per-CANDIDATE, whenever the sparse window genuinely finds no
+    mesh near this (x, y), and a sparse window means "no real mesh near
+    here", not "the deck is at this exact height". On GAC buildings whose
+    recorded `deck_z` does not match the local surface at all (the
+    SM_Building_11 discrepancy in `local_roof_z`'s own account) the tight
+    band finds nothing everywhere and the WHOLE building rides the global
+    scalar — conservative by design, and the bench relaunch is where that
+    building's deck gets looked at.
+    """
+    usd_path = bake_usd_path(b.doc) if b.doc else None
+    if usd_path:
+        z = local_roof_z(usd_path, x, y, b.deck_z)
+        if z is not None:
+            return z, "local_mesh", False
+    return b.deck_z, b.deck_source, b.deck_source not in DECK_Z_BENCH_FREE_SOURCES
+
+
+def _roof_interior_point(sol, b, cfg, side, rng, e_min, extra_ok=None):
+    """One point in the MIDDLE of a roof deck, kept off every parapet by a
+    hard `e_min`, leaning mildly toward `side` for diversity between more
+    than one group on the same deck — or `None`.
+
+    ITEM 4, 2026-08-31 user review: "don't need to be on the ledge. Centre
+    is fine." The old geometry inset a group `roof_edge_band_m` in from ONE
+    chosen edge and hugged it; this draws over the WHOLE interior of the
+    footprint instead (`+-0.6` of each half-extent, `along` and `out` both),
+    with a small lean toward `side` (`SIDE_NORMAL[side]`, the same unit
+    vector `_pass_roof`'s look-out yaw already uses) so two groups on one
+    deck do not land on top of each other. `e_min` is still enforced as a
+    HARD minimum clearance from every wall, not a band — nobody stands on
+    the coping either way.
+    """
+    bx, by = SIDE_NORMAL[side]
+    half_w, half_d = b.W / 2.0, b.D / 2.0
+    for _try in range(48):
+        lx = rng.uniform(-0.60, 0.60) * half_w + bx * 0.16 * half_w
+        ly = rng.uniform(-0.60, 0.60) * half_d + by * 0.16 * half_d
+        clear = min(half_w - abs(lx), half_d - abs(ly))
+        if clear < e_min:
+            continue
+        dx, dy = _rot(lx, ly, b.yaw)
+        x, y = b.x + dx, b.y + dy
+        if not sol.in_region(x, y) or not sol.spaced(x, y):
+            continue
+        if extra_ok is not None and not extra_ok(x, y):
+            continue
+        return x, y, clear
+    return None
+
+
 def _pass_roof(sol, plan, budget):
-    """2-4 near the roof edge, away from the venting side, on a building
-    whose deck is intact. Section 5b."""
+    """2-4 in the MIDDLE of the deck, on a building whose roof is intact.
+    Section 5b."""
     cfg, rng = sol.cfg, sol.rng
     cands = []
     for b in sol.buildings:
@@ -1930,9 +3225,7 @@ def _pass_roof(sol, plan, budget):
         side = ranked[nth % len(ranked)]
         gid = plan.next_group()
         want = min(_group_size(cfg, "roof", rng), budget - made)
-        e_lo, e_hi = cfg["roof_edge_band_m"]
-        # Local roof plan: the edge `side` runs across the building, and the
-        # group stands `e` metres in from it.
+        e_min = float(cfg["roof_edge_band_m"][0])
         placed_here = 0
         for k in range(want):
           # ONE DRAW PER MEMBER IS NOT ENOUGH. Without a retry the first
@@ -1941,51 +3234,52 @@ def _pass_roof(sol, plan, budget):
           # landing within `min_sep_m` of each other on a small deck loses
           # one outright, and a roof group of one is the lone-figure problem
           # again. Same expanding retry the street groups use.
-          for _try in range(48):
-            e = rng.uniform(e_lo, e_hi)
-            lx, ly = SIDE_NORMAL[side]
-            # In the BUILDING'S OWN frame: `out` runs along the chosen edge's
-            # normal and stops `e` metres short of the parapet; `along` runs
-            # across that edge and is kept off the corners (0.72 of the half
-            # width) so nobody stands on a corner coping.
-            half_along = (b.W / 2.0) if side in ("N", "S") else (b.D / 2.0)
-            half_out = (b.D / 2.0) if side in ("N", "S") else (b.W / 2.0)
-            along = rng.uniform(-0.72, 0.72) * half_along
-            out = max(0.4, half_out - e)
-            if side in ("N", "S"):
-                ox, oy = along, ly * out
-            else:
-                ox, oy = lx * out, along
-            dx, dy = _rot(ox, oy, b.yaw)
-            x, y = b.x + dx, b.y + dy
-            if not sol.in_region(x, y) or not sol.spaced(x, y):
-                continue
-            break
-          else:
+          found = _roof_interior_point(sol, b, cfg, side, rng, e_min)
+          if found is None:
             plan.refuse("group_member")
             continue
           if True:            # keeps the member body at one indent level
-            pose = _weighted(rng, list(_CLASS_POSES["roof"]))
-            usd, pose, rigged = _pick_human(
-                rng, pose, allow_posed=pose in ("idle", "walk"))
-            # Look out over the parapet.
+            x, y, clear = found
+            # FALLBACK TO `idle` BY DEFAULT (bench-v2 rejection: "still on
+            # the edge in unnatural poses" — the user's own words). `idle`
+            # is not the reason the review flagged this class (the review
+            # also singled out placement, "on the edge"), but a stander in a
+            # provably-correct pose while the new ones are unverified is
+            # what "just spawn people only" is asking for. `roof_use_new_
+            # pose=True` restores `stand_calm`/`wave_help` once proven; both
+            # still need a skeleton, so a posed static stays ineligible
+            # either way (it used to be eligible for plain `idle`/`walk`,
+            # before the pose restriction).
+            pose = (_weighted(rng, list(_CLASS_POSES["roof"]))
+                    if cfg.get("roof_use_new_pose") else "idle")
+            usd, pose, rigged = _pick_human(rng, pose, allow_posed=False)
+            # Look out toward this group's assigned side, same yaw
+            # `_roof_interior_point`'s own lean uses — a centred figure still
+            # needs a facing, and away from the venting side is the doctrine
+            # this class was built on (section 5b).
             nx, ny = side_normal_world(side, b.yaw)
+            z, deck_source, needs_bench = _roof_seat_z(b, x, y)
             plan.add({
                 "cls": "roof", "group": gid, "usd": usd, "rigged": rigged,
-                "x": round(x, 3), "y": round(y, 3), "z": round(b.deck_z, 3),
+                "x": round(x, 3), "y": round(y, 3), "z": round(z, 3),
                 "yaw_deg": round(math.degrees(math.atan2(ny, nx)), 1),
                 "pose": pose, "prone": False,
                 "seat": None, "z_mode": "deck", "alive": True,
-                "needs_bench": False,
-                "deck_source": b.deck_source, "roof_edge_m": round(e, 2),
+                # DECK Z NEEDS THE BENCH UNLESS THE SOURCE IS MEASURED
+                # (`local_mesh` counts). See `deck_z()`'s 2026-08-31 account
+                # of the 1.82 m bulkhead-cap error on `sidecar_top_z` —
+                # `estimated` is the same guess with no bake at all behind
+                # it.
+                "needs_bench": needs_bench,
+                "deck_source": deck_source, "roof_clear_m": round(clear, 2),
                 "side": side,
                 "building_i": b.i, "building_cell": b.cell,
                 "building_level": b.level, "building_sides": list(b.sides),
-                "reason": ("roof refuge on the {0} edge ({1} m in from the "
-                           "parapet) of a {2} building, deck z {3:.1f} m "
-                           "({4}); venting sides {5}"
-                           .format(side, round(e, 1), b.level, b.deck_z,
-                                   b.deck_source, ",".join(b.sides) or "-")),
+                "reason": ("roof refuge in the middle of the deck ({0} m "
+                           "clear of the nearest parapet) of a {1} building, "
+                           "deck z {2:.1f} m ({3}); venting sides {4}"
+                           .format(round(clear, 1), b.level, z,
+                                   deck_source, ",".join(b.sides) or "-")),
             })
             sol.placed.append((x, y))
             placed_here += 1
@@ -2000,6 +3294,336 @@ def _pass_roof(sol, plan, budget):
             plan.refuse("singleton_roof_withdrawn")
             made -= 1
     return made
+
+
+def _roof_victim_street_sides(sol, b, cfg):
+    """`far_sides()`'s own away-from-the-fire order, with the STREET-FACING
+    edges moved to the front. Section 5b2.
+
+    Sampling a point `roof_victim_street_test_m` past each non-venting edge
+    and asking `sol.ground` whether it reads as `road`/`sidewalk`/`paved`
+    tells the difference between an edge overlooking the street and one
+    overlooking a party wall, a service yard or a courtyard — a distinction
+    `far_sides()` on its own has no way to make, since it only knows which
+    way the fire is venting.
+    """
+    test_m = float(cfg["roof_victim_street_test_m"])
+    ranked = b.far_sides()
+    street, other = [], []
+    for s in ranked:
+        cx, cy, _half = face_center(b.rec, s)
+        nx, ny = side_normal_world(s, b.yaw)
+        tx, ty = cx + nx * test_m, cy + ny * test_m
+        if sol.ground.at(tx, ty) in ("road", "sidewalk", "paved"):
+            street.append(s)
+        else:
+            other.append(s)
+    return (street + other) or list(ranked)
+
+
+def _clear_of_smoke(b, x, y, min_dist):
+    """Is `(x, y)` at least `min_dist` from every one of `b`'s own bake-
+    sidecar smoke seats (`interior` AND `roof` plume groups)?
+
+    `fire_bake.sidecar()`'s own `seats` dict (`{"interior": [...],
+    "roof": [...]}`, each entry at least `x`/`y`/`z` in the BAKE'S OWN
+    frame) is rotated into the CITY frame exactly the way `fire_bake.place`
+    moves it: rotate `(x, y)` about the origin by the cell yaw, translate by
+    the building's own `(x, y)`, leave `z` untouched (a yaw about the
+    vertical axis never moves height, and `place`'s own docstring says so).
+    Reproduced with `_rot` rather than calling `fire_bake.place` so this
+    module keeps no import-time dependency on it, the same discipline
+    `_face_point`/`place_frame` already follow for the opening frames.
+    """
+    seats = (b.doc or {}).get("seats") or {}
+    for group in ("interior", "roof"):
+        for s in seats.get(group) or []:
+            wx, wy = _rot(float(s.get("x", 0.0)), float(s.get("y", 0.0)),
+                          b.yaw)
+            wx, wy = wx + b.x, wy + b.y
+            if math.hypot(x - wx, y - wy) < float(min_dist):
+                return False
+    return True
+
+
+def _pass_roof_victim(sol, plan, budget):
+    """2-3 stranded near the roof edge of a building whose deck is INTACT —
+    section 5b2. `roof`'s own edge geometry (inset from the parapet, kept off
+    the corners), with the edge choice biased toward the street and every
+    candidate kept clear of the building's own smoke.
+    """
+    cfg, rng = sol.cfg, sol.rng
+    cands = []
+    for b in sol.buildings:
+        ok, why = b.roof_victim_ok(cfg)
+        if ok:
+            cands.append(b)
+        else:
+            plan.refuse("roof_victim:" + why)
+    if budget <= 0 or not cands:
+        return 0
+    made, guard = 0, 0
+    used = {}
+    order = sorted(cands, key=lambda b: -b.H)
+    bi = 0
+    cap = int(cfg["roof_victim_max_groups_per_building"])
+    min_smoke = float(cfg["roof_victim_min_smoke_dist_m"])
+    while made < budget and guard < budget * 8 + 24:
+        guard += 1
+        b = order[bi % len(order)]
+        bi += 1
+        if used.get(b.i, 0) >= cap:
+            if all(used.get(c.i, 0) >= cap for c in order):
+                plan.refuse("roof_victim_decks_exhausted")
+                break
+            continue
+        nth = used.get(b.i, 0)
+        used[b.i] = nth + 1
+        ranked = _roof_victim_street_sides(sol, b, cfg)
+        side = ranked[nth % len(ranked)]
+        gid = plan.next_group()
+        want = min(_group_size(cfg, "roof_victim", rng), budget - made)
+        e_min = float(cfg["roof_victim_edge_band_m"][0])
+
+        def _smoke_ok(x, y, b=b, min_smoke=min_smoke, plan=plan):
+            if not _clear_of_smoke(b, x, y, min_smoke):
+                plan.refuse("roof_victim_near_smoke")
+                return False
+            return True
+
+        placed_here = 0
+        for k in range(want):
+          # SAME EXPANDING RETRY `roof` USES — one draw per member is not
+          # enough on a small deck once the smoke keepout is added on top of
+          # the corner/spacing rules.
+          found = _roof_interior_point(sol, b, cfg, side, rng, e_min,
+                                       extra_ok=_smoke_ok)
+          if found is None:
+            plan.refuse("group_member")
+            continue
+          if True:            # keeps the member body at one indent level
+            x, y, clear = found
+            # See `_pass_roof`'s identical fallback comment.
+            pose = (_weighted(rng, list(_CLASS_POSES["roof_victim"]))
+                    if cfg.get("roof_use_new_pose") else "idle")
+            usd, pose, rigged = _pick_human(rng, pose, allow_posed=False)
+            # Look out toward this group's assigned (street-biased) side,
+            # same as `roof`.
+            nx, ny = side_normal_world(side, b.yaw)
+            z, deck_source, needs_bench = _roof_seat_z(b, x, y)
+            plan.add({
+                "cls": "roof_victim", "group": gid, "usd": usd,
+                "rigged": rigged,
+                "x": round(x, 3), "y": round(y, 3), "z": round(z, 3),
+                "yaw_deg": round(math.degrees(math.atan2(ny, nx)), 1),
+                "pose": pose, "prone": False,
+                "seat": None, "z_mode": "deck", "alive": True,
+                "needs_bench": needs_bench,
+                "deck_source": deck_source, "roof_clear_m": round(clear, 2),
+                "side": side, "min_smoke_dist_m": min_smoke,
+                "building_i": b.i, "building_cell": b.cell,
+                "building_level": b.level, "building_sides": list(b.sides),
+                "reason": ("stranded in the middle of the deck of a {0} "
+                           "building (i={1}), {2} m clear of the nearest "
+                           "parapet toward the {3} (street-facing) side, "
+                           "deck z {4:.1f} m ({5}), >= {6:.0f} m clear of "
+                           "every smoke seat"
+                           .format(b.level, b.i, round(clear, 1), side,
+                                   z, deck_source, min_smoke)),
+            })
+            sol.placed.append((x, y))
+            placed_here += 1
+            made += 1
+        # NO SINGLETON, same reason as `roof`.
+        if placed_here == 1:
+            rec = plan.records[-1]
+            plan.records.remove(rec)
+            sol.placed.pop()
+            plan.refuse("singleton_roof_victim_withdrawn")
+            made -= 1
+    return made
+
+
+# ---------------------------------------------------------------------------
+# REAL COVERING DEBRIS FOR A BURIAL FIGURE — reusing tornado_people's
+# machinery. ITEM 2, 2026-08-31 user review, quoted: "the people must be
+# partially visible through the rubble ... [not] part of the damage."
+# Coordinator instruction, same review: "Look at tornado code for this:
+# Partial burial it does it very well" — REUSE the covered-fraction rules and
+# the seating-on-the-body's-own-crest geometry FROM `tornado_people` rather
+# than reimplementing them, because that module's own review history (the
+# 1 km tornado review's `max_covered_frac` 0.80 -> 0.55 correction, and the
+# `_crest`/`_BODY_RISE` fix for "boards passing through raised knees") is
+# what tuned every one of those numbers, and this module already CITES them
+# ("tornado conventions, verbatim", section 5c) without ever having called
+# the code that enforces them — `covered_frac`/`occlusion` were a DRAWN
+# number with no debris authored to make it true.
+#
+# WHAT TRANSFERS AND WHAT DOES NOT. The seating math — `_crest` (a rigid
+# piece rests on the body's own highest point over its footprint, not a
+# flat-chest height), `_trim_spans` (a pattern is SHORTENED before any piece
+# is authored so the module can never claim a body it has made invisible),
+# `_cover_piece` (the flat/propped placement geometry: x/y/z/yaw/pitch/roll)
+# — is pure body-and-debris-pile geometry and does not know or care what
+# knocked the building down; `_union`, likewise, is just span arithmetic.
+# What does NOT transfer is `tornado_people`'s STOCK: `_draw_cover_stock`
+# draws sawn lumber and sheet goods sized for a tornado's plank field, and a
+# fire collapse's windrow is masonry, concrete and charred structural debris
+# — `_FIRE_COVER_STOCK` below is this module's own draw, sized for the outer
+# quarter of a collapse windrow (`apron_band`, "the pile has thinned to a
+# few tens of centimetres") rather than a fresh plank mat, and always the
+# dark/char end of the palette (matching `fire_assembly_lib.APRON_CHAR_P`'s
+# own rule for anything lying on the ground near a burnt building).
+# ---------------------------------------------------------------------------
+
+# `tornado_people._OCCLUSION`'s own spans, for the patterns fire_people's
+# lighter-weighted vocabulary (module-level `OCCLUSION` above) actually
+# draws from. Every `cover_at` in that table IS the length of the matching
+# span here (`feet_shins` 0.30 <-> (0.00, 0.30), `legs` 0.52 <-> (0.00,
+# 0.52), etc.) — which is how `OCCLUSION`'s own numbers were chosen: off
+# this table, transcribed to a scalar, long before any code walked the span.
+_FIRE_OCCLUSION_SPANS = {
+    "none": None,
+    "feet_shins": (0.00, 0.30),
+    "legs": (0.00, 0.52),
+    "midriff": (0.42, 0.70),
+    "torso": (0.46, 0.84),
+    "flank": "lateral",
+}
+
+# (class, weight, along_m, across_m, thick_m) — "along"/"across" are named
+# for the BODY the same way `tornado_people._COVER_STOCK`'s are: `along` is
+# the stretch of the body's own length the piece hides, `across` is its
+# width crossing the body.
+_FIRE_COVER_STOCK = (
+    # `along` (the stretch of the body's own length ONE piece hides) is
+    # capped at 0.40 m across every class, 2026-09-01 bench-v4 rejection
+    # ("beyond material, make them read as debris: 2-4 smaller elongated
+    # pieces per figure ... crossing the body, not one big slab") — the old
+    # `rubble_slab` range (0.45-0.95 m) could cover a whole `feet_shins`
+    # span (0.00-0.30 of reach, ~0.53 m at NOMINAL_HEIGHT_M) in ONE piece,
+    # which is exactly the monolithic-slab read that was rejected.
+    ("rubble_slab", 0.42, (0.22, 0.40), (0.55, 1.05), (0.06, 0.14)),
+    ("brick_chunk", 0.34, (0.18, 0.34), (0.16, 0.30), (0.14, 0.24)),
+    ("char_beam", 0.24, (0.16, 0.26), (0.90, 1.80), (0.10, 0.18)),
+)
+
+
+def _draw_fire_cover_stock(rng):
+    r = rng.random() * sum(s[1] for s in _FIRE_COVER_STOCK)
+    for (k, w, along, across, th) in _FIRE_COVER_STOCK:
+        r -= w
+        if r <= 0.0:
+            return (k, rng.uniform(*along), rng.uniform(*across),
+                    rng.uniform(*th))
+    k, _w, along, across, th = _FIRE_COVER_STOCK[-1]
+    return (k, rng.uniform(*along), rng.uniform(*across), rng.uniform(*th))
+
+
+def _cover_burial(plan, rec, pose, x, y, ux, uy, reach, base_z, deck_z,
+                  pattern, height, rng, lift):
+    """Lay `pattern`'s covering pieces on one burial figure and write the
+    REAL `covered_frac`/`boards` fields — `tornado_people._cover`, ported
+    with a fire-appropriate stock draw (see the module note above).
+
+    `base_z` is the body's own ground plane (its support surface, AFTER any
+    sink — see `heap_z_at`/`_burial_record`); `deck_z` is the windrow's own
+    top surface at this point, the same "propped" reference
+    `tornado_people._cover_piece` uses to decide how far a propped piece
+    rises before it reaches the body. Appends every authored piece to
+    `plan.covering` and returns the covered spans (reach units), matching
+    `tornado_people._cover`'s own return.
+
+    `lift` is THIS RECORD's own `lying_lift(pose)` — the fire module's own
+    ground-to-centreline rise, already used to author the body itself
+    (`_placement_no_ctx`'s prone branch). CLAMPED AGAINST IT, bench-v3
+    REJECTION: `tornado_people._BODY_RISE`'s per-pose bands (calibrated for
+    a body lying on a debris-BOARD mat, tornado's own context) gave
+    `lying_curled_l` a band crest of 0.344 H — 0.61 m at this module's
+    NOMINAL_HEIGHT_M — while THIS pose's own `lying_lift` (0.115 H, "half
+    the body BREADTH", the number the body is actually authored with) is
+    0.205 m: a 0.41 m gap between where a piece was solved to rest and
+    where the body it is supposed to be covering actually sits, MEASURED on
+    the synthetic fixture's own record 68 (`burial_covering_contacts_the_
+    body` failing before this clamp existed). Two different tables, two
+    different calibrations, and nothing before this reconciled them. The
+    ceiling — `lift * 2.2`, i.e. is a bit more than a body's own full
+    thickness/breadth above the ground it is lying on — still lets a raised
+    knee or a drawn-up side pose earn SOME extra clearance over the flat
+    minimum, it just cannot run away to a gap a camera reads as floating.
+    """
+    from . import tornado_people as tp
+
+    cap = float(plan.cfg.get("max_covered_frac", MAX_COVERED_FRAC))
+    span = _FIRE_OCCLUSION_SPANS.get(pattern)
+    flank = (span == "lateral")
+    if span is None:
+        rec["occlusion"] = "none"
+        rec["covered_frac"] = 0.0
+        rec["boards"] = 0
+        return ()
+    if flank:
+        lo = rng.uniform(0.05, 0.22)
+        hi = min(1.0, lo + rng.uniform(0.50, 0.72))
+        trimmed = ((lo, hi),)
+    else:
+        trimmed = tp._trim_spans((span,), cap)
+    if not trimmed:
+        rec["occlusion"] = "none"
+        rec["covered_frac"] = 0.0
+        rec["boards"] = 0
+        return ()
+
+    laid, made = [], 0
+    for (lo, hi) in trimmed:
+        s = lo
+        guard = 0
+        while s < hi - 0.02 and guard < 10:
+            guard += 1
+            klass, along, across, thick = _draw_fire_cover_stock(rng)
+            w = along / max(reach, 1e-6)
+            if s + w > hi:
+                w = hi - s
+                along = w * reach
+                if along < 0.10:
+                    break
+            t = s + w * 0.5
+            px = x + ux * t * reach
+            py = y + uy * t * reach
+            # ON THE HIGHEST THING UNDER IT, exactly `tornado_people._cover`'s
+            # own rule — a rigid piece bears on the body's crest across its
+            # own footprint, not on the flat-chest height everywhere. CLAMPED
+            # to `lift * 2.2` above `base_z` — see this function's own
+            # docstring for the 0.41 m gap this closes.
+            crest = min(tp._crest(pose, s, s + w, height), lift * 2.2)
+            top_z = base_z + crest
+            propped = rng.random() < 0.30
+            sp = tp._cover_piece(px, py, ux, uy, along, across, thick,
+                                 klass, top_z, deck_z, rng, propped)
+            sp["for"] = "fire_burial"
+            # RECORD ID, so a covering piece can be traced back to the ONE
+            # body it covers — 2026-08-31 bench-v3 rejection: without this,
+            # "does this piece touch its own body" cannot be checked per
+            # figure, only "does SOME piece touch SOME body somewhere",
+            # which cannot catch a piece authored against the wrong figure's
+            # geometry.
+            sp["over_record_id"] = rec.get("id")
+            sp["cover_top_z"] = round(top_z, 3)
+            plan.covering.append(sp)
+            laid.append((s, s + w))
+            made += 1
+            # A small gap sometimes — a fitted lid is not what real debris
+            # does, `tornado_people._cover`'s own comment.
+            s += w * rng.uniform(0.85, 1.10)
+
+    cov = tp._union(laid)
+    if flank:
+        cov *= 0.5                      # half the WIDTH, so half the cover
+    cov = min(cov, cap)
+    rec["occlusion"] = pattern
+    rec["covered_frac"] = round(cov, 3)
+    rec["boards"] = made
+    return tuple(laid)
 
 
 def _burial_record(sol, plan, b, cls, side, t, gid, note):
@@ -2026,40 +3650,85 @@ def _burial_record(sol, plan, b, cls, side, t, gid, note):
     if not sol.spaced(x, y):
         plan.refuse("too_close")
         return None
+    # SAME CEILING THE STREET CLASSES CARRY, AND FOR THE SAME REASON
+    # (`test_39b`): `apron_run_m` is `apron_spread * H` with NO cap of its
+    # own, so a wide enough / tall enough F5c building can throw a burial
+    # figure further from the wall than `FC_PEOPLE_MAX_DIST_M`
+    # (`urban_fire_city_launch_script.py`, default 120 m) will keep on the
+    # stage — the launcher's cull is a GUARD on a datum this solver already
+    # owns (distance to the burning FOOTPRINT), not a second opinion, so it
+    # must never be the thing that drops a figure this solver placed on
+    # purpose. `max_wall_dist_m` (60 m) is comfortably under that guard for
+    # every real apron run measured so far and is reused here rather than a
+    # second constant, so `check_rules`'s `crowd_belongs_to_its_building`
+    # (rule 12b) covers burial figures the moment they carry `d_wall_m` too.
+    d_wall = dist_to_obb(x, y, b.x, b.y, b.W, b.D, b.yaw)
+    if d_wall > float(cfg["max_wall_dist_m"]):
+        plan.refuse("too_far_from_building")
+        return None
 
     pose = _weighted(rng, list(_LYING_POSES))
-    pattern, frac = _occlusion(rng)
+    pattern, _frac = _occlusion(rng)
     depth = rng.uniform(*cfg["out_depth_m"])
     surf = apron_surface_z(t, depth)
     usd, pose, _rigged = _pick_human(rng, pose, allow_posed=False)
     lift = lying_lift(pose)
     yaw = rng.uniform(0.0, 360.0)
+    # SUNK INTO THE PILE, NOT JUST RESTING ON IT — `tornado_people`'s own
+    # `sink_frac` (item 2, 2026-08-31: "torso/arm visible above the heap
+    # surface"). A fraction of the BODY's own depth, not the windrow's — the
+    # windrow is already thin out here (`apron_band`'s outer quarter), and
+    # sinking by the windrow's depth would put a body's spine through the
+    # slab it is lying on. `covered_frac` never counts this (it counts
+    # authored PIECES; see `_cover_burial`'s own comment on `flank`), so
+    # `sunk_frac` is recorded separately, `tornado_people`'s own convention.
+    body_depth = 2.0 * _BODY_HALF_DEPTH_M
+    sink_lo, sink_hi = cfg.get("sink_frac", (0.0, 0.18))
+    sink = body_depth * rng.uniform(float(sink_lo), float(sink_hi))
+    base_z = surf - sink
     rec = plan.add({
         "cls": cls, "group": gid, "usd": usd, "rigged": True,
         "x": round(x, 3), "y": round(y, 3),
         # `z` IS THE SUPPORT SURFACE ON EVERY CLASS, without exception — the
-        # debris top here, the ground/kerb for a stander, the sill for a
-        # sitter, the deck for a roof group. It is NOT the authored prim z:
-        # the lying LIFT (half the body depth, or 0.115 H on a side) is added
-        # by `to_placements`, which is also where `people._human_placement`
-        # would add it from the rig's MEASURED depth. Baking the lift in here
-        # made `z` mean two different things in two classes and would have
-        # been applied twice by any converter that trusted the contract.
-        "z": round(surf, 3),
+        # debris top here (SUNK by `sink`, see above), the ground/kerb for a
+        # stander, the sill for a sitter, the deck for a roof group. It is
+        # NOT the authored prim z: the lying LIFT (half the body depth, or
+        # 0.115 H on a side) is added by `to_placements`, which is also
+        # where `people._human_placement` would add it from the rig's
+        # MEASURED depth. Baking the lift in here made `z` mean two
+        # different things in two classes and would have been applied
+        # twice by any converter that trusted the contract.
+        "z": round(base_z, 3),
         "yaw_deg": round(yaw, 1), "pose": pose, "prone": True,
         "roll_deg": LYING_ROLL[pose], "pitch_deg": LYING_SPIN.get(pose, 0.0),
         "seat": None, "z_mode": "debris", "alive": False,
         # THE BENCH IS THE ONLY WAY TO CHECK ONE OF THESE. The tornado skill
         # is unambiguous and nothing in a 2-D dry run discharges it.
         "needs_bench": True,
-        "occlusion": pattern, "covered_frac": frac,
         "apron_t": round(t, 3), "apron_run_m": round(run, 2),
         "debris_depth_m": round(depth, 2), "surface_z": round(surf, 3),
+        "sink_m": round(sink, 3),
+        "sunk_frac": round(sink / max(body_depth, 1e-6), 3),
         "lift_m": round(lift, 3), "side": side,
+        "d_wall_m": round(d_wall, 2),
         "building_i": b.i, "building_cell": b.cell,
         "building_level": b.level, "building_sides": list(b.sides),
         "reason": note,
     })
+    # REAL COVERING DEBRIS, NOT JUST A DRAWN NUMBER — item 2, and the
+    # coordinator's "look at tornado code" instruction. `author_burial_cover`
+    # is on by default (see DEFAULTS); off degrades to the OLD metadata-only
+    # `covered_frac`/`occlusion` from the draw above, for a caller that wants
+    # the class without paying for the extra debris authoring.
+    if cfg.get("author_burial_cover", True):
+        from . import tornado_people as tp
+        ux, uy = tp._body_axis(pose, yaw, LYING_ROLL[pose])
+        _cover_burial(plan, rec, pose, x, y, ux, uy, NOMINAL_HEIGHT_M,
+                     base_z, surf, pattern, NOMINAL_HEIGHT_M, rng, lift)
+    else:
+        rec["occlusion"] = pattern
+        rec["covered_frac"] = _frac
+        rec["boards"] = 0
     sol.placed.append((x, y))
     return rec
 
@@ -2134,6 +3803,261 @@ def _pass_roof_debris(sol, plan, budget):
 
 
 # ---------------------------------------------------------------------------
+# `interior_trapped` — section 5d, ADDED 2026-08-31
+#
+# ITEM 2, user review: "For partially collapsed buildings the people must be
+# partially visible ... in the building itself visible through the broken
+# parts." Then, on sight: "What about humans that passed out on the floors
+# of partially collapsed buildings. You gotta have that" — and then, on the
+# placement itself: "don't have them right at the edge though, they need to
+# be a little inside at a safe distance."
+#
+# The class is two variants of the same situation, roughly evenly split
+# (`interior_trapped_conscious_share`): a CONSCIOUS figure standing or
+# leaning near the break, and an UNCONSCIOUS one lying where it fell on the
+# surviving slab. Both are placed the same way — a slab, a failed elevation,
+# a setback — and differ only in pose and attitude.
+# ---------------------------------------------------------------------------
+def _slab_z(b, standing=False):
+    """`(z, storey)` of the surviving floor slab BELOW the fire's origin, or
+    `(None, None)` if the sidecar cannot supply it.
+
+    `fire_collapse.plan_partial_collapse`'s own invariant, stated verbatim in
+    its source: "NOTHING BELOW THE FIRE'S ORIGIN, EVER." So storey
+    `origin - 1` (clamped to 0 — if the fire started on the ground floor, the
+    ground floor itself is the guaranteed surviving slab) always keeps its
+    floor, and `masses.main.levels` (persisted by `fire_bake.sidecar()`, a
+    full per-storey elevation array — NOT the lossy `spec`) gives its real
+    world z. `fire.sides[0]` (also persisted) is the elevation the collapse
+    actually failed on, in `plan_partial_collapse`'s own default (`sides =
+    (side or fire_sides[0],)`) — the same inference this module already
+    makes for smoke/window siting off that field elsewhere. Both are
+    ESTIMATES in the sense that the exact plan-view span of the hole is not
+    itself in the sidecar (`region[side]` never round-trips) — see
+    `_interior_trapped_ok`'s `needs_bench`.
+
+    `standing=True` GOES ONE STOREY FURTHER DOWN — bench-v4 ledge-stander
+    complaint, 2026-09-01: `origin - 1` is the TOP surviving storey, right
+    at the broken roof line, and a `stand_calm` figure planted there reads
+    from outside as someone standing on the ledge of a collapsed building
+    (dumped and confirmed against a real bench solve: the F5c office's own
+    `interior_trapped` conscious figure sat at exactly `origin - 1`).
+    Coordinator's own rule: "standing interior figures live at least one
+    full storey below the broken roof line; lying figures may stay higher."
+    `origin - 2`, clamped to 0 same as the base case — and if that clamp
+    lands on the SAME storey `origin - 1` already clamped to (only possible
+    when `origin <= 1`, i.e. there is no second storey to retreat to),
+    returns `(None, None)`: a standing figure with nowhere lower to go is
+    refused for this building rather than placed at the break anyway.
+    """
+    if not b.doc:
+        return None, None
+    main = (b.doc.get("masses") or {}).get("main")
+    levels = main.get("levels") if isinstance(main, dict) else None
+    origin = (b.doc.get("fire") or {}).get("origin")
+    if not levels or origin is None:
+        return None, None
+    base_storey = max(0, min(len(levels) - 1, int(origin) - 1))
+    if standing:
+        storey = max(0, min(len(levels) - 1, int(origin) - 2))
+        if storey >= base_storey:
+            return None, None
+    else:
+        storey = base_storey
+    try:
+        return float(levels[storey]), storey
+    except (TypeError, ValueError, IndexError):
+        return None, None
+
+
+def _interior_trapped_ok(b):
+    """Eligibility for `interior_trapped`.
+
+    Restricted to `collapse_levels` (F5c) exactly like `casualty_apron`: an
+    F5/F6 shell has lost its floors INWARD on every side (`roof_debris`'s own
+    account), so there is no single "lost elevation" with a slab behind it —
+    only a PARTIAL collapse has that shape. Requires a real bake sidecar
+    (`_slab_z` needs `masses.main.levels`/`fire.origin`) and at least one
+    recorded failed elevation (`fire.sides`) — this class places a figure to
+    a specific storey inside a specific building, too particular a claim to
+    synthesise the way a window's default opening grid can be.
+    """
+    if b.level not in DEFAULTS["collapse_levels"]:
+        return False
+    z, _storey = _slab_z(b)
+    return z is not None and bool(b.sides)
+
+
+def _interior_sightline_ok(setback_m, storey_period_m, min_deg, eye_h_m):
+    """Can an oblique drone camera, looking down at least `min_deg` above the
+    horizontal, still see a figure `setback_m` inside the broken-open
+    elevation, without the intact floor ONE STOREY UP (the origin's own
+    floor — the fire consumed the walls above this slab, not that floor)
+    occluding the view?
+
+    A conservative planar model, not a render: the opening's headroom is
+    treated as one storey (`storey_period_m`, this building's own measured
+    metres-per-storey) and the figure's visible point as `eye_h_m` above the
+    slab it stands or lies on — a torso height, not the crown, because a
+    torso is what the ground truth's occlusion classes actually score. The
+    line from a camera at `min_deg` grazing the top of that headroom reaches
+    `clear / tan(min_deg)` metres in before it is blocked by the floor above;
+    a deeper setback than that is refused rather than assumed visible.
+    """
+    clear = float(storey_period_m) - float(eye_h_m)
+    if clear <= 0.05:
+        return False
+    max_depth = clear / math.tan(math.radians(float(min_deg)))
+    return float(setback_m) <= max_depth
+
+
+# Poses for the CONSCIOUS variant — standing or leaning near the break, not
+# fully composed (`stand_calm`) and not signalling for a ladder
+# (`wave_help` is a roof/window gesture, not an interior one): mostly calm,
+# some crouched over the opening looking for a way down.
+_INTERIOR_CONSCIOUS_POSES = (("stand_calm", 0.55), ("crouch", 0.25),
+                             ("wave_help", 0.20))
+# Poses for the UNCONSCIOUS variant — "passed out", `prone=True`. `buried_
+# reach` (item 1's new pose, "for partial burial") reads just as well for a
+# figure that collapsed mid-motion as for one under rubble; `lying_supine`/
+# `lying_prone` cover the rest so a slab does not show the same silhouette
+# every time.
+_INTERIOR_UNCONSCIOUS_POSES = (("buried_reach", 0.40), ("lying_supine", 0.30),
+                               ("lying_prone", 0.30))
+# Eye height above the slab used for the sightline check, by variant — a
+# lying figure's highest visible point is much lower than a standing one's.
+_INTERIOR_EYE_H_M = {"conscious": 1.40, "passed_out": 0.30}
+
+
+def _pass_interior_trapped(sol, plan, budget):
+    """1-2 figures per partial-collapse building, visible INSIDE through the
+    broken-open wall, on the surviving floor slab. Section 5d.
+
+    Roughly `interior_trapped_conscious_share` conscious (standing/leaning,
+    facing the opening) and the rest passed out (lying where they fell —
+    small random yaw and a lateral jitter off the setback line, NOT centred
+    and squared to the wall, because a collapsed figure was not arranged).
+    Every candidate is SET BACK from the broken edge
+    (`interior_setback_m`, ~1.5-3 m) and sightline-checked
+    (`_interior_sightline_ok`) rather than placed at the lip.
+    """
+    cfg, rng = sol.cfg, sol.rng
+    cands = [b for b in sol.buildings if _interior_trapped_ok(b)]
+    if not cands:
+        plan.refuse("no_interior_trapped_building")
+    if budget <= 0 or not cands:
+        return 0
+    conscious_share = float(cfg["interior_trapped_conscious_share"])
+    lo_setback, hi_setback = cfg["interior_setback_m"]
+    lat_frac = float(cfg["interior_lateral_frac"])
+    min_deg = float(cfg["interior_min_sightline_deg"])
+    made, guard = 0, 0
+    while made < budget and guard < budget * 12 + 24:
+        guard += 1
+        b = rng.choice(cands)
+        conscious = rng.random() < conscious_share
+        # STANDING GOES ONE STOREY LOWER — bench-v4 ledge-stander fix, see
+        # `_slab_z`'s own account. A building with nowhere lower to retreat
+        # to (`origin <= 1`) cannot host a CONSCIOUS figure at all; rather
+        # than waste the draw, it becomes a passed-out one instead — a
+        # lying figure at the top surviving storey does not read as a
+        # ledge-stander, so it does not need the lower slab.
+        slab_z, storey = _slab_z(b, standing=conscious)
+        if slab_z is None and conscious:
+            conscious = False
+            slab_z, storey = _slab_z(b, standing=False)
+        if slab_z is None:
+            continue
+        side = rng.choice(list(b.collapse_sides()))
+        cx, cy, half = face_center(b.rec, side)
+        nx, ny = side_normal_world(side, b.yaw)
+        tx, ty = -ny, nx
+        period = storey_period(b.rec, b.doc)
+        variant = "conscious" if conscious else "passed_out"
+        eye_h = _INTERIOR_EYE_H_M[variant]
+
+        x = y = setback = None
+        for _try in range(24):
+            cand_setback = rng.uniform(lo_setback, hi_setback)
+            if not _interior_sightline_ok(cand_setback, period, min_deg,
+                                          eye_h):
+                plan.refuse("interior_no_sightline")
+                continue
+            along = rng.uniform(-lat_frac, lat_frac) * half
+            cx2 = cx - nx * cand_setback + tx * along
+            cy2 = cy - ny * cand_setback + ty * along
+            if not sol.in_region(cx2, cy2):
+                plan.refuse("off_plate")
+                continue
+            # THE ONE PLACE THIS CLASS *WANTS* TO BE INSIDE THE FOOTPRINT —
+            # it is the `interior_trapped` half of `AERIAL_EXEMPT_CLASSES`,
+            # the counterpart of `window`/`roof` carrying their own z.
+            if not point_in_obb(cx2, cy2, b.x, b.y, b.W, b.D, b.yaw,
+                                margin=0.0):
+                plan.refuse("interior_off_slab")
+                continue
+            if not sol.spaced(cx2, cy2):
+                plan.refuse("too_close")
+                continue
+            x, y, setback = cx2, cy2, cand_setback
+            break
+        if x is None:
+            continue
+
+        gid = plan.next_group()
+        if conscious:
+            pose = _weighted(rng, list(_INTERIOR_CONSCIOUS_POSES))
+            usd, pose, rigged = _pick_human(rng, pose, allow_posed=False)
+            # Face the opening — the same "look out" framing `roof` uses.
+            yaw = math.degrees(math.atan2(ny, nx))
+            rec = plan.add({
+                "cls": "interior_trapped", "group": gid, "usd": usd,
+                "rigged": rigged, "x": round(x, 3), "y": round(y, 3),
+                "z": round(slab_z, 3), "yaw_deg": round(yaw, 1),
+                "pose": pose, "prone": False, "seat": None,
+                "z_mode": "slab", "alive": True, "needs_bench": True,
+                "variant": "conscious", "storey": storey,
+                "setback_m": round(setback, 2), "side": side,
+                "min_sightline_deg": min_deg,
+                "building_i": b.i, "building_cell": b.cell,
+                "building_level": b.level, "building_sides": list(b.sides),
+                "reason": ("standing on the surviving storey-{0} slab of a "
+                           "partially collapsed ({1}) building, {2:.1f} m "
+                           "in from the broken {3} elevation, facing the "
+                           "opening".format(storey, b.level, setback, side)),
+            })
+        else:
+            pose = _weighted(rng, list(_INTERIOR_UNCONSCIOUS_POSES))
+            usd, pose, _rigged = _pick_human(rng, pose, allow_posed=False)
+            # COLLAPSED WHERE THEY FELL — a small random yaw, not squared to
+            # the wall the way a placed prop would be.
+            yaw = rng.uniform(0.0, 360.0)
+            lift = lying_lift(pose)
+            rec = plan.add({
+                "cls": "interior_trapped", "group": gid, "usd": usd,
+                "rigged": True, "x": round(x, 3), "y": round(y, 3),
+                "z": round(slab_z, 3), "yaw_deg": round(yaw, 1),
+                "pose": pose, "prone": True,
+                "roll_deg": LYING_ROLL[pose],
+                "pitch_deg": LYING_SPIN.get(pose, 0.0),
+                "seat": None, "z_mode": "slab", "alive": False,
+                "needs_bench": True, "variant": "passed_out",
+                "storey": storey, "setback_m": round(setback, 2),
+                "side": side, "lift_m": round(lift, 3),
+                "min_sightline_deg": min_deg,
+                "building_i": b.i, "building_cell": b.cell,
+                "building_level": b.level, "building_sides": list(b.sides),
+                "reason": ("passed out on the surviving storey-{0} slab of "
+                           "a partially collapsed ({1}) building, {2:.1f} m "
+                           "in from the broken {3} elevation"
+                           .format(storey, b.level, setback, side)),
+            })
+        sol.placed.append((x, y))
+        made += 1
+    return made
+
+
+# ---------------------------------------------------------------------------
 # The aerial-visibility filter
 # ---------------------------------------------------------------------------
 def _visible(sol, rec):
@@ -2142,18 +4066,29 @@ def _visible(sol, rec):
     ground truth is worse than a missing one."""
     cls = rec["cls"]
     if cls == "window":
+        # THROWAWAY pose-row records are diagnostic, not a real protrusion
+        # claim — exempt so the bench row actually ships (2026-09-01).
+        if rec.get("variant") == "pose_experiment":
+            return True, ""
         if float(rec.get("protrusion_m", 0.0)) < MIN_PROTRUSION_M:
             return False, "window_no_protrusion"
         return True, ""
-    if cls == "roof":
+    if cls in ("roof", "roof_victim"):
         if rec.get("z_mode") != "deck":
-            return False, "roof_not_on_deck"
+            return False, "{0}_not_on_deck".format(cls)
         return True, ""
     if cls in ("casualty_apron", "roof_debris"):
         if float(rec.get("covered_frac", 0.0)) > MAX_COVERED_FRAC:
             return False, "over_covered"
         if sol.in_any_footprint(rec["x"], rec["y"], margin=0.0):
             return False, "under_intact_shell"
+        return True, ""
+    if cls == "interior_trapped":
+        # THE INVERSE OF EVERY OTHER CLASS'S FOOTPRINT CHECK — this one
+        # WANTS to be inside its own building (on the slab), which is the
+        # whole reason it is in `AERIAL_EXEMPT_CLASSES`.
+        if rec.get("z_mode") != "slab":
+            return False, "interior_not_on_slab"
         return True, ""
     # street classes
     if sol.in_any_footprint(rec["x"], rec["y"]):
@@ -2211,22 +4146,39 @@ def plan_people(dump, manifest, seed=0, cfg=None, layout=None,
         "layout_source": sol.layout.get("_source", "caller-supplied layout"),
         "sidecars": len(sidecars or {}),
         "nominal_height_m": NOMINAL_HEIGHT_M,
+        # A manifest record skipped because it is no longer THIS dump's own
+        # building — see `_Solver.__init__` / `_manifest_matches_dump`. Never
+        # a crash: `n_burning` above is already the SURVIVING count, so a
+        # fully-stale manifest degrades to an empty plan rather than raising.
+        "n_manifest_records": len(manifest.get("records") or []),
+        "manifest_records_skipped": len(sol.skipped_records),
+        "manifest_records_skipped_by_reason": {
+            r: sum(1 for s in sol.skipped_records if s["reason"] == r)
+            for r in sorted({s["reason"] for s in sol.skipped_records})},
     }
     plan = Plan(cfg, meta)
 
     # --- budgets, with degradation ------------------------------------
     shares = dict(cfg["shares"])
+    street_on = bool(cfg.get("street_classes"))
     eligible = {
-        "evacuee": n_burn > 0,
-        "onlooker": n_burn > 0,
-        "at_car": n_burn > 0,
+        # ITEM 3: the street classes are ineligible OUTRIGHT when
+        # `street_classes` is off — not "no burning buildings", a policy
+        # choice, and `plan.degraded` (below) reports it as one rather than
+        # conflating it with a class that genuinely has nowhere to go.
+        "evacuee": street_on and n_burn > 0,
+        "onlooker": street_on and n_burn > 0,
+        "at_car": street_on and n_burn > 0,
         "window": any(b.window_storeys(cfg) for b in sol.buildings),
         "roof": any(b.roof_ok(cfg)[0] for b in sol.buildings),
+        "roof_victim": any(b.roof_victim_ok(cfg)[0] for b in sol.buildings),
         "casualty_apron": any(b.level in cfg["collapse_levels"]
                               for b in sol.buildings),
         "roof_debris": any(b.roof_collapsed
                            and b.level in cfg["collapse_levels"]
                            for b in sol.buildings),
+        "interior_trapped": any(_interior_trapped_ok(b)
+                                for b in sol.buildings),
     }
     give_back = 0.0
     for c in CLASSES:
@@ -2234,14 +4186,27 @@ def plan_people(dump, manifest, seed=0, cfg=None, layout=None,
             give_back += shares.get(c, 0.0)
             plan.degraded[c] = shares.get(c, 0.0)
             shares[c] = 0.0
+    # THE GIVE-BACK GOES TO WHATEVER IS STILL ELIGIBLE, NOT A HARD-CODED
+    # PAIR. `_FALLBACK_CLASSES` (evacuee/onlooker) used to be a safe sink
+    # because street classes were always eligible whenever ANY building was
+    # burning — but with `street_classes` off by default (item 3) they are
+    # now ROUTINELY the ones giving their own share back, and redistributing
+    # into a pair that just zeroed itself is a silent loss (the giveback
+    # computes `shares[c] * 0 / 0-ish` and vanishes). Spread it, weighted by
+    # each class's own remaining share, over every class this run actually
+    # kept eligible — `window`/`roof`/`roof_victim`/`casualty_apron`/
+    # `roof_debris`/`interior_trapped` when street is off, the historical
+    # pair (plus everything else) when it is on.
     if give_back > 0.0:
-        base = sum(shares[c] for c in _FALLBACK_CLASSES) or 1.0
-        for c in _FALLBACK_CLASSES:
+        sinks = [c for c in CLASSES if eligible.get(c) and shares.get(c, 0.0) > 0.0]
+        base = sum(shares[c] for c in sinks) or 1.0
+        for c in sinks:
             shares[c] += give_back * shares[c] / base
     ssum = sum(shares.values()) or 1.0
     budget = {c: int(round(total * shares[c] / ssum)) for c in CLASSES}
     meta["budget"] = dict(budget)
     meta["shares_effective"] = {c: round(shares[c] / ssum, 4) for c in CLASSES}
+    meta["street_classes"] = street_on
 
     # --- the passes, in a fixed order ---------------------------------
     # Order matters only through the shared spacing index and the shared
@@ -2250,26 +4215,41 @@ def plan_people(dump, manifest, seed=0, cfg=None, layout=None,
     # move; a street group can).
     _pass_window(sol, plan, budget["window"])
     _pass_roof(sol, plan, budget["roof"])
+    _pass_roof_victim(sol, plan, budget["roof_victim"])
     _pass_casualty_apron(sol, plan, budget["casualty_apron"])
     _pass_roof_debris(sol, plan, budget["roof_debris"])
-    _pass_street(sol, plan, "evacuee", budget["evacuee"],
-                 cfg["evacuee_band"], float(cfg["upwind_cos_evacuee"]))
-    _pass_street(sol, plan, "onlooker", budget["onlooker"],
-                 cfg["onlooker_band"], float(cfg["upwind_cos_onlooker"]))
-    _pass_at_car(sol, plan, budget["at_car"])
+    _pass_interior_trapped(sol, plan, budget["interior_trapped"])
+    # THROWAWAY window-pose bench row, 2026-09-01 — off by default, no
+    # budget, not part of the census; see `_pass_window_pose_experiment`.
+    if cfg.get("window_pose_experiment"):
+        _pass_window_pose_experiment(sol, plan)
+    if street_on:
+        _pass_street(sol, plan, "evacuee", budget["evacuee"],
+                     cfg["evacuee_band"], float(cfg["upwind_cos_evacuee"]))
+        _pass_street(sol, plan, "onlooker", budget["onlooker"],
+                     cfg["onlooker_band"], float(cfg["upwind_cos_onlooker"]))
+        _pass_at_car(sol, plan, budget["at_car"])
 
-    # --- REFLOW ---------------------------------------------------------
+    # --- REFLOW -----------------------------------------------------------
     # A class can be STARVED rather than degraded: `roof` has exactly one
     # eligible deck on the real seed-4 city, `window` only two eligible
     # buildings, so both spend less than their budget however hard they try.
     # Leaving the shortfall unspent shrinks the scene's head count for a
-    # reason that has nothing to do with how many people were there — so it
-    # is handed to the street classes, which always have somewhere to go.
-    # Recorded, because "the roof class placed 3 of 9" is a fact a reviewer
-    # needs and a silent top-up would hide it.
+    # reason that has nothing to do with how many people were there.
+    #
+    # WITH STREET CLASSES ON, the shortfall is handed to them, as before —
+    # they always have somewhere to go. WITH THEM OFF (the default), there
+    # is no damage-tied class guaranteed to have room for an arbitrary
+    # top-up (a slab holds two or three figures, not an open lot), so the
+    # shortfall is left unspent rather than forced somewhere that would
+    # overcrowd a keepout-bound class — the same "the head count is meant to
+    # drop" precedent `disaster.people`'s `min_burn_age_s` gate set. Recorded
+    # either way, because "the roof class placed 3 of 9" is a fact a
+    # reviewer needs and a silent top-up (or a silent non-top-up) would hide
+    # it.
     short = total - len(plan.records)
     plan.meta["shortfall_before_reflow"] = short
-    if short > 0:
+    if short > 0 and street_on:
         n_e = int(round(short * 0.6))
         _pass_street(sol, plan, "evacuee", n_e,
                      cfg["evacuee_band"], float(cfg["upwind_cos_evacuee"]))
@@ -2286,8 +4266,27 @@ def plan_people(dump, manifest, seed=0, cfg=None, layout=None,
         else:
             plan.dropped[why] = plan.dropped.get(why, 0) + 1
     plan.records = kept
+    # REMAP `over_record_id` ALONGSIDE THE REINDEX, not after it and not
+    # separately — `_cover_burial` tags each covering piece with its OWNING
+    # record's `id` at the moment it is authored, which is BEFORE this
+    # filter can drop an earlier record and shift every id after it. Build
+    # the old-id -> new-id map from the SAME loop that assigns the new ids,
+    # so the two can never disagree, then drop any piece whose owner did not
+    # survive the filter — a piece over a body the ground truth no longer
+    # ships is not evidence of anything.
+    old_to_new = {}
     for k, r in enumerate(plan.records):
+        old_to_new[r["id"]] = k
         r["id"] = k
+    if getattr(plan, "covering", None):
+        remapped = []
+        for sp in plan.covering:
+            old_id = sp.get("over_record_id")
+            if old_id is None or old_id not in old_to_new:
+                continue
+            sp["over_record_id"] = old_to_new[old_id]
+            remapped.append(sp)
+        plan.covering = remapped
     plan.meta["total_placed"] = len(plan.records)
     plan.solver = sol
     return plan
@@ -2321,12 +4320,26 @@ def _placement_no_ctx(rec, height_m=NOMINAL_HEIGHT_M):
         are authored with their soles at the origin, which is the assumption
         `people._human_placement` also makes for everything but a prop.
 
-    THE MEASURED PATH IS BETTER AND THE LAUNCHER HAS IT. Pass `ctx=` and the
-    whole job is delegated to `people._human_placement`, which measures each
-    character's stature and depth, solves ground poses against that rig's own
-    hip, and applies the male seated correction (`_MALE_SEATED_DZ_M`, -0.15 m
-    — "no amount of scaling fixes it"). This path exists so the converter is
-    testable and previewable with no Isaac, and it says so.
+    THE MEASURED PATH IS BETTER, and the LAUNCHER DOES NOT HAVE IT —
+    `urban_fire_city_launch_script.place_people` calls
+    `fpl.to_placements(recs)` with no `ctx=` (found 2026-08-31,
+    `tools/people_float_audit.py`, part 2), so THIS is the path that
+    actually authors the live city, not just a host-side preview of it. Pass
+    `ctx=` when you have one and the whole job is delegated to
+    `people._human_placement`, which measures each character's stature and
+    depth and solves ground poses against that rig's own hip instead of the
+    nominal constants below — the remaining gap between the two paths.
+
+    One correction is cheap enough to close even without a measured rig:
+    `people._seated_asset_dz` (`_MALE_SEATED_DZ_M`, -0.15 m — "no amount of
+    scaling fixes it") is a per-ASSET-NAME lookup, not a measurement, so it
+    is applied here too, by name, exactly like `_human_placement` applies
+    it — REUSED, not copied, so the two paths cannot drift apart on which
+    poses or which rigs it fires for. Without it, every MALE rig
+    (`rp_eric`/`rp_manuel`/`rp_nathan`/`rp_dennis`) `fire_people` ever draws
+    in `sit_edge` (the only `_SEAT_PLACED_POSES` member this module uses —
+    kerb and car-sill sitters, `evacuee`/`at_car`) is authored 0.15 m above
+    its kerb or sill in the live scene.
     """
     pose = rec.get("pose")
     yaw = float(rec["yaw_deg"]) + HUMAN_YAW_OFFSET_DEG
@@ -2342,6 +4355,11 @@ def _placement_no_ctx(rec, height_m=NOMINAL_HEIGHT_M):
                 dz = float(sg.pose_z_offset(rec["usd"], pose, height_m))
             except Exception:
                 dz = 0.0
+            try:
+                from . import people as ppl
+                dz += float(ppl._seated_asset_dz(rec["usd"], pose))
+            except Exception:
+                pass
         z = float(rec["z"]) + dz
         roll = pitch = 0.0
     out = {"usd": rec["usd"], "x_m": float(rec["x"]), "y_m": float(rec["y"]),
@@ -2384,9 +4402,59 @@ def _convertible(rec, known_pool):
     if known_pool is not None and rec.get("usd") not in known_pool:
         # No scale / axis_up / yaw offset for an asset this module does not
         # know. With a `ctx` the asset pools answer for it, so this only
-        # fires on the host path.
-        return "unknown_asset"
+        # fires on the host path. Membership is by BASENAME, not full path:
+        # a plan solved before the local People mirror existed carries the
+        # Nucleus URL for the same rig this module now resolves locally, and
+        # the asset is exactly as known either way (`_people_asset` maps the
+        # name back to the current best path at authoring time).
+        base = str(rec.get("usd") or "").rsplit("/", 1)[-1]
+        if base not in {u.rsplit("/", 1)[-1] for u in known_pool}:
+            return "unknown_asset"
     return None
+
+
+#: the keys a SERIALISED plan can carry its records under, most specific
+#: first. `tools/fire_people_dry_run.py` writes `people`; a hand-rolled or
+#: future writer may well use `records`, the name `Plan.records` uses in
+#: memory. See `_records_of`.
+RECORD_KEYS = ("people", "records")
+
+
+def _records_of(plan_or_records):
+    """The record list out of a `Plan`, a bare list, or a LOADED JSON DICT.
+
+    THE 2026-08-31 CRASH. `to_placements` used to fall back to
+    ``list(plan_or_records)``, and a dict iterates its KEYS — so
+    `json.load(open(fire_people_final.json))` handed straight in produced the
+    string ``"census"`` as the first "record" and `_convertible` died on
+
+        AttributeError: 'str' object has no attribute 'get'
+
+    inside `urban_fire_city_launch_script.place_people`, which took the whole
+    500 m city launch down with it AFTER every bake and every emitter was
+    already up. A dict is the shape a caller most naturally has (it is what
+    the dry run writes), so it is accepted here rather than left to fail on
+    the generic path — and anything else raises a TypeError that NAMES the
+    shapes, instead of a nonsense AttributeError three frames deeper.
+    """
+    if hasattr(plan_or_records, "records"):
+        return plan_or_records.records
+    if isinstance(plan_or_records, dict):
+        for key in RECORD_KEYS:
+            v = plan_or_records.get(key)
+            if isinstance(v, list):
+                return v
+        raise TypeError(
+            "to_placements got a dict with keys {0} — a serialised plan must "
+            "carry its records under one of {1} (tools/fire_people_dry_run.py "
+            "writes {2!r})".format(sorted(plan_or_records), list(RECORD_KEYS),
+                                   RECORD_KEYS[0]))
+    if isinstance(plan_or_records, (str, bytes)):
+        raise TypeError(
+            "to_placements got a {0}; it takes a Plan, a list of records, or "
+            "a loaded plan dict — not a path (load the JSON first)".format(
+                type(plan_or_records).__name__))
+    return list(plan_or_records)
 
 
 def to_placements(plan_or_records, ctx=None, tag_ids=False,
@@ -2434,8 +4502,7 @@ def to_placements(plan_or_records, ctx=None, tag_ids=False,
     `id`), which `apply_placements` ignores. It is OFF by default so the
     dicts match the documented contract key-for-key.
     """
-    recs = (plan_or_records.records if hasattr(plan_or_records, "records")
-            else list(plan_or_records))
+    recs = _records_of(plan_or_records)
     known = None if ctx is not None else set(RIGGED_HUMANS) | set(POSED_HUMANS)
     placements, skipped = [], {}
     for rec in recs:
@@ -2443,6 +4510,15 @@ def to_placements(plan_or_records, ctx=None, tag_ids=False,
         if why:
             skipped.setdefault(why, []).append(rec.get("id"))
             continue
+        # Re-anchor the rig to the CURRENT best path (local mirror first,
+        # Nucleus fallback) so a plan solved under the other root still
+        # authors — and heals — to whatever resolves today.
+        base = str(rec.get("usd") or "").rsplit("/", 1)[-1]
+        cur = _people_asset(base)
+        if cur != rec.get("usd") and base in {
+                u.rsplit("/", 1)[-1]
+                for u in RIGGED_HUMANS + POSED_HUMANS}:
+            rec = dict(rec, usd=cur)
         if ctx is not None:
             from . import people as ppl
             p = ppl._human_placement(ctx, rec["usd"], rec["x"], rec["y"],
@@ -2461,6 +4537,17 @@ def to_placements(plan_or_records, ctx=None, tag_ids=False,
             p["fire_people_id"] = rec.get("id")
         placements.append(p)
     return placements, skipped
+
+
+# ---------------------------------------------------------------------------
+# The sidecar-completeness report, one implementation for the dry run to
+# print and the tests to assert on. See `_Building.sidecar_report` and
+# `SIDECAR_FIELD_USE`.
+# ---------------------------------------------------------------------------
+def sidecar_reports(plan):
+    """`[dict, ...]`, one per SURVIVING building (i.e. after the index/
+    geometry check in `_Solver.__init__`), in manifest order."""
+    return [b.sidecar_report() for b in plan.solver.buildings]
 
 
 # ---------------------------------------------------------------------------
@@ -2541,7 +4628,13 @@ def check_rules(plan):
     """
     sol = plan.solver
     cfg = plan.cfg
-    recs = plan.records
+    # THROWAWAY pose-row records (`variant == "pose_experiment"`,
+    # 2026-09-01) are diagnostic-only — never budgeted, never flame-
+    # checked, never meant to satisfy the real window contract — so the
+    # WHOLE gate is blind to them, the same way it is blind to nothing else
+    # in `plan.records`. They still convert and render (`to_placements`
+    # does not filter by variant), just outside every rule below.
+    recs = [r for r in plan.records if r.get("variant") != "pose_experiment"]
     out = []
 
     def add(name, bad, n_checked, note=""):
@@ -2662,12 +4755,19 @@ def check_rules(plan):
            if r.get("d_wall_m") is not None and float(r["d_wall_m"]) > lim]
     add("crowd_belongs_to_its_building", bad,
         len([r for r in recs if r.get("d_wall_m") is not None]),
-        "max_wall_dist_m {0} m — a skyscraper's 0.33H zone is 100 m and "
-        "would not read as this fire's crowd".format(cfg["max_wall_dist_m"]))
+        "max_wall_dist_m {0} m, street AND burial classes alike — a "
+        "skyscraper's 0.33H zone is 100 m and would not read as this "
+        "fire's crowd, and it is also the guard against a stale sidecar "
+        "throwing debris further than FC_PEOPLE_MAX_DIST_M keeps on stage"
+        .format(cfg["max_wall_dist_m"]))
 
-    # 13a. no window figure above the drone's own ceiling
+    # 13a. no window figure above the drone's own ceiling — checked on the
+    #      SILL (the highest point a camera could ever see for this class),
+    #      not the feet, which sit lower still now that the hips are sunk to
+    #      the sill; see `_pass_window`'s own account.
     bad = [r["id"] for r in recs if r["cls"] == "window"
-           and float(r["z"]) > float(cfg["window_max_z_m"]) + 1e-6]
+           and float(r.get("sill_z", r["z"]))
+           > float(cfg["window_max_z_m"]) + 1e-6]
     add("windows_under_the_drone_ceiling", bad,
         len([r for r in recs if r["cls"] == "window"]),
         "window_max_z_m {0} m — the benchmark flies 15-40 m AGL".format(
@@ -2695,6 +4795,504 @@ def check_rules(plan):
         len([r for r in recs if str(r.get("pose")) in LYING_ROLL]),
         "people._human_placement RAISES on a lying pose placed upright")
 
+    # 15. roof_victim only on genuinely intact, non-collapsed roofs —
+    #     section 5b2. Re-derived off `_Building.roof_victim_ok`, exactly the
+    #     eligibility test the pass itself uses, so this rule cannot drift
+    #     from the placement code by restating a looser copy of it.
+    bad = []
+    for r in recs:
+        if r["cls"] != "roof_victim":
+            continue
+        b = by_i.get(r["building_i"])
+        if b is None or not b.roof_victim_ok(cfg)[0]:
+            bad.append(r["id"])
+    add("roof_victim_on_intact_roofs", bad,
+        len([r for r in recs if r["cls"] == "roof_victim"]),
+        "excluded levels {0}; never roof_involved or roof_collapsed per the "
+        "sidecar (or the manifest's own conservative band estimate when "
+        "there is none)".format(cfg["roof_victim_excluded_levels"]))
+
+    # 16. roof_victim stays clear of its own building's smoke seats —
+    #     "keep them away from the smoke tho" (user).
+    bad = []
+    min_smoke = float(cfg["roof_victim_min_smoke_dist_m"]) - 1e-6
+    for r in recs:
+        if r["cls"] != "roof_victim":
+            continue
+        b = by_i.get(r["building_i"])
+        if b is not None and not _clear_of_smoke(b, r["x"], r["y"], min_smoke):
+            bad.append(r["id"])
+    add("roof_victim_clear_of_smoke", bad,
+        len([r for r in recs if r["cls"] == "roof_victim"]),
+        "roof_victim_min_smoke_dist_m {0} m from every interior/roof seat "
+        "in the building's own bake sidecar".format(
+            cfg["roof_victim_min_smoke_dist_m"]))
+
+    # 17. roof / roof_victim are authored ON THE DECK, never the parapet
+    #     coping — RE-DERIVED THROUGH `_roof_seat_z`, the same function the
+    #     placement passes call, so a record whose z came from a local mesh
+    #     sample is not flagged as wrong just for disagreeing with the
+    #     building's global `deck_z` scalar (item 4, 2026-08-31: that
+    #     disagreement is the whole point of sampling locally).
+    bad = []
+    for r in recs:
+        if r["cls"] not in ("roof", "roof_victim"):
+            continue
+        b = by_i.get(r["building_i"])
+        if b is None or r.get("z_mode") != "deck":
+            bad.append(r["id"])
+            continue
+        want_z, want_source, _nb = _roof_seat_z(b, r["x"], r["y"])
+        if (abs(float(r["z"]) - want_z) > 1e-3
+                or str(r.get("deck_source")) != want_source):
+            bad.append(r["id"])
+    add("roof_on_deck", bad,
+        len([r for r in recs if r["cls"] in ("roof", "roof_victim")]),
+        "z (and its source) equals _roof_seat_z(building, x, y) — the local "
+        "mesh sample when one is trustworthy, else the global deck_z — "
+        "never top_z/parapet")
+
+    # 18. roof / roof_victim never stand closer to a parapet than the
+    #     configured minimum — ITEM 4, 2026-08-31 user review: "don't need
+    #     to be on the ledge." Re-checked geometrically off the building's
+    #     own footprint rather than trusting the record's own `roof_clear_m`
+    #     (which `_roof_interior_point` computed against the SAME formula,
+    #     so re-deriving it here is what makes this an independent check).
+    bad = []
+    for r in recs:
+        if r["cls"] not in ("roof", "roof_victim"):
+            continue
+        b = by_i.get(r["building_i"])
+        if b is None:
+            bad.append(r["id"])
+            continue
+        lx, ly = _rot(r["x"] - b.x, r["y"] - b.y, -b.yaw)
+        clear = min(b.W / 2.0 - abs(lx), b.D / 2.0 - abs(ly))
+        e_key = ("roof_edge_band_m" if r["cls"] == "roof"
+                 else "roof_victim_edge_band_m")
+        e_min = float(cfg[e_key][0])
+        if clear < e_min - 1e-3:
+            bad.append(r["id"])
+    add("roof_clear_of_parapet", bad,
+        len([r for r in recs if r["cls"] in ("roof", "roof_victim")]),
+        "roof_edge_band_m[0] / roof_victim_edge_band_m[0] as a HARD minimum "
+        "clearance from every wall, not a band hugging one edge")
+
+    # 18b. NO ROOF-STANDING FIGURE OF ANY CLASS ON ANY BUILDING WHOSE ROOF
+    #      IS BREACHED AT ALL — 2026-08-31, second bench-v2 round, quoted:
+    #      "we can't have people on roofs where the roof has collapsed ...
+    #      the partial collapse has a roof collapse but people are still on
+    #      the ledge there." `roof_ok()`/`roof_victim_ok()` already gate on
+    #      `self.level`/`self.roof_involved`/`self.roof_collapsed`, which is
+    #      WHY the bench trio's F5c office already places zero (verified
+    #      2026-08-31 against the real `city_138` sidecar: `roof_ok=(False,
+    #      'roof_deck_involved(F5c)')`, `roof_victim_ok=(False, 'collapse_
+    #      level(F5c)')` — the rejected build was almost certainly a stale
+    #      snapshot from mid-session). This rule does not trust that those
+    #      two functions stayed wired to the placement passes: it RE-DERIVES
+    #      `roof_involved`/`roof_collapsed` straight from the module-level
+    #      functions of the same name, off the building's own manifest
+    #      record and sidecar doc — not off `_Building`'s cached attributes,
+    #      which a future refactor could desync from the raw fields — and
+    #      ALSO refuses on `level` alone (F4/F5/F5c/F6, the union of both
+    #      classes' own exclusion sets) so a sidecar that is silent about
+    #      roof damage cannot accidentally admit one of these levels either.
+    bad = []
+    breached_levels = set(cfg["roof_victim_excluded_levels"]) | {
+        lvl for lvl in ("F1", "F2", "F3", "F4", "F5", "F5c", "F6")
+        if lvl not in cfg["roof_ok_levels"]}
+    for r in recs:
+        if r["cls"] not in ("roof", "roof_victim"):
+            continue
+        b = by_i.get(r["building_i"])
+        if b is None:
+            bad.append(r["id"])
+            continue
+        if (b.level in breached_levels
+                or roof_involved(b.rec, b.doc)
+                or roof_collapsed(b.rec, b.doc)):
+            bad.append(r["id"])
+    add("no_roof_figure_on_a_breached_roof", bad,
+        len([r for r in recs if r["cls"] in ("roof", "roof_victim")]),
+        "level in {0}, or roof_involved()/roof_collapsed() true per the "
+        "sidecar — re-derived independently of _Building's cached "
+        "attributes; F1-F3 with an intact, unbreached deck only"
+        .format(sorted(breached_levels)))
+
+    # 19. every window figure clears every flame-bearing event on its own
+    #     elevation by `window_flame_clear_m` — ITEM 5, 2026-08-31 user
+    #     review: "they can't be right next to the open flame." Re-derived
+    #     through `_clear_of_flame`, the same function `_pass_window` calls.
+    bad = []
+    flame_min = float(cfg["window_flame_intensity_min"])
+    flame_clear = float(cfg["window_flame_clear_m"])
+    for r in recs:
+        if r["cls"] != "window":
+            continue
+        b = by_i.get(r["building_i"])
+        if b is None or not _clear_of_flame(
+                b, r["x"], r["y"], r.get("side"), flame_clear, flame_min):
+            bad.append(r["id"])
+    add("windows_clear_of_flame", bad,
+        len([r for r in recs if r["cls"] == "window"]),
+        "window_flame_clear_m {0} m from any bake event with intensity >= "
+        "window_flame_intensity_min {1} on the SAME elevation".format(
+            flame_clear, flame_min))
+
+    # 20. a burial figure with `author_burial_cover` on and a non-"none"
+    #     pattern actually carries authored debris — ITEM 2, the coordinator
+    #     instruction ("look at tornado code ... partial burial"): a
+    #     `covered_frac` with no `boards` behind it is the exact gap that
+    #     instruction was about, and this rule is what would have caught it.
+    burial_cls = ("casualty_apron", "roof_debris")
+    bad = []
+    if bool(cfg.get("author_burial_cover", True)):
+        for r in recs:
+            if r["cls"] not in burial_cls:
+                continue
+            if r.get("occlusion") not in (None, "none") \
+                    and int(r.get("boards", 0)) <= 0:
+                bad.append(r["id"])
+    add("burial_cover_is_authored", bad,
+        len([r for r in recs if r["cls"] in burial_cls
+             and r.get("occlusion") not in (None, "none")]),
+        "author_burial_cover {0}; a non-'none' occlusion pattern must carry "
+        "boards > 0 (real pieces in plan.covering), not just a drawn "
+        "covered_frac".format(cfg.get("author_burial_cover", True)))
+
+    # 21. nothing is sunk further than its own measured body depth allows —
+    #     `sink_frac`'s own ceiling (0.18 by default; `tornado_people`'s own
+    #     post-1-km-review number), so a burial figure is never sunk deep
+    #     enough to explain full invisibility on its own.
+    bad = []
+    sink_hi = float((cfg.get("sink_frac") or (0.0, 0.18))[1]) + 1e-6
+    for r in recs:
+        if r["cls"] not in burial_cls:
+            continue
+        if float(r.get("sunk_frac", 0.0)) > sink_hi:
+            bad.append(r["id"])
+    add("burial_sink_bounded", bad,
+        len([r for r in recs if r["cls"] in burial_cls]),
+        "sunk_frac <= sink_frac[1] ({0})".format(sink_hi))
+
+    # 22. `interior_trapped` sits on the SURVIVING slab, set back from the
+    #     broken elevation by no less than the configured minimum and no
+    #     more than the sightline actually allows — re-derived through
+    #     `_interior_sightline_ok`, the same function the placement pass
+    #     calls, so this cannot drift into a looser copy of the same test.
+    bad = []
+    setback_lo = float(cfg["interior_setback_m"][0]) - 1e-6
+    min_deg = float(cfg["interior_min_sightline_deg"])
+    for r in recs:
+        if r["cls"] != "interior_trapped":
+            continue
+        b = by_i.get(r["building_i"])
+        setback = r.get("setback_m")
+        if b is None or setback is None or float(setback) < setback_lo:
+            bad.append(r["id"])
+            continue
+        period = storey_period(b.rec, b.doc)
+        eye_h = _INTERIOR_EYE_H_M.get(r.get("variant"), 1.40)
+        if not _interior_sightline_ok(setback, period, min_deg, eye_h):
+            bad.append(r["id"])
+    add("interior_trapped_setback_and_sightline", bad,
+        len([r for r in recs if r["cls"] == "interior_trapped"]),
+        "interior_setback_m[0] {0} m minimum, and never deeper than "
+        "_interior_sightline_ok allows at {1} deg".format(
+            cfg["interior_setback_m"][0], min_deg))
+
+    # 23. `interior_trapped` is on the GROUND-truth-eligible building only
+    #     (F5c, a real slab z, a recorded failed elevation) — re-derived off
+    #     `_interior_trapped_ok`, the same eligibility test the pass uses.
+    bad = []
+    for r in recs:
+        if r["cls"] != "interior_trapped":
+            continue
+        b = by_i.get(r["building_i"])
+        if b is None or not _interior_trapped_ok(b):
+            bad.append(r["id"])
+    add("interior_trapped_eligible_building", bad,
+        len([r for r in recs if r["cls"] == "interior_trapped"]),
+        "collapse_levels only, with a real masses.main.levels/fire.origin/"
+        "fire.sides in the sidecar")
+
+    # 22. interior_trapped is genuinely INSIDE its own building's footprint
+    #     — the inverse of rule 1, and the one class that WANTS this to be
+    #     true (section 5d).
+    by_i2 = {b.i: b for b in sol.buildings}
+    bad = []
+    for r in recs:
+        if r["cls"] != "interior_trapped":
+            continue
+        b = by_i2.get(r["building_i"])
+        if b is None or not point_in_obb(r["x"], r["y"], b.x, b.y, b.W, b.D,
+                                         b.yaw, margin=0.0):
+            bad.append(r["id"])
+    add("interior_trapped_is_inside_its_building", bad,
+        len([r for r in recs if r["cls"] == "interior_trapped"]),
+        "the AERIAL_EXEMPT class that wants the footprint check to fail")
+
+    # 23. interior_trapped never right at the broken edge — "they need to be
+    #     a little inside at a safe distance" (user).
+    lo_set, hi_set = cfg["interior_setback_m"]
+    bad = [r["id"] for r in recs
+           if r["cls"] == "interior_trapped"
+           and not (lo_set - 1e-6 <= float(r.get("setback_m", -1.0))
+                    <= hi_set + 1e-6)]
+    add("interior_trapped_setback_respected", bad,
+        len([r for r in recs if r["cls"] == "interior_trapped"]),
+        "interior_setback_m {0}".format(cfg["interior_setback_m"]))
+
+    # 24. interior_trapped sits on its own building's real slab z, not a
+    #     guessed one — re-derives `_slab_z` off the same sidecar the
+    #     placement pass read, so this cannot drift from the placement code.
+    #     `standing=` MATCHES THE RECORD'S OWN VARIANT (bench-v4 fix,
+    #     2026-09-01) — a `conscious` figure is authored one storey lower
+    #     than a `passed_out` one, so re-deriving with the base (non-
+    #     standing) slab for both would flag every ledge-fix-compliant
+    #     conscious record as wrong.
+    bad = []
+    for r in recs:
+        if r["cls"] != "interior_trapped":
+            continue
+        b = by_i2.get(r["building_i"])
+        standing = (r.get("variant") == "conscious")
+        slab_z, storey = (_slab_z(b, standing=standing) if b is not None
+                          else (None, None))
+        if (b is None or slab_z is None
+                or abs(float(r["z"]) - slab_z) > 1e-3
+                or int(r.get("storey", -1)) != storey):
+            bad.append(r["id"])
+    add("interior_trapped_on_its_own_slab", bad,
+        len([r for r in recs if r["cls"] == "interior_trapped"]),
+        "z == _slab_z(building), the storey directly below fire.origin")
+
+    # 25. interior_trapped clears the geometric sightline check — re-derives
+    #     `_interior_sightline_ok` off the record's own `setback_m` and the
+    #     building's own storey period, so an unwired or loosened gate cannot
+    #     pass silently.
+    bad = []
+    min_deg_cfg = float(cfg["interior_min_sightline_deg"])
+    for r in recs:
+        if r["cls"] != "interior_trapped":
+            continue
+        b = by_i2.get(r["building_i"])
+        if b is None:
+            bad.append(r["id"])
+            continue
+        period = storey_period(b.rec, b.doc)
+        eye_h = _INTERIOR_EYE_H_M.get(r.get("variant"), 1.0)
+        if not _interior_sightline_ok(float(r.get("setback_m", 1e9)), period,
+                                      float(r.get("min_sightline_deg",
+                                                   min_deg_cfg)), eye_h):
+            bad.append(r["id"])
+    add("interior_trapped_has_a_sightline", bad,
+        len([r for r in recs if r["cls"] == "interior_trapped"]),
+        "interior_min_sightline_deg {0} deg above horizontal, through one "
+        "storey of headroom".format(min_deg_cfg))
+
+    # 26. `street_classes` off means NO street-class figures at all — the
+    #     default this module now ships (item 3), re-checked against the
+    #     plan's own recorded knob so a caller that flips it back on is not
+    #     flagged.
+    bad = ([r["id"] for r in recs if r["cls"] in STREET_CLASSES]
+           if not plan.meta.get("street_classes") else [])
+    add("street_classes_off_means_no_street_figures", bad, len(recs),
+        "FP_STREET_CLASSES / cfg['street_classes'], default off")
+
+    # 27. every burial covering piece actually CONTACTS the one body it
+    #     covers — bench-v3 rejection, quoted: "figures FLOAT ... covering
+    #     pieces render as ... boxes hovering ABOVE the bodies, touching
+    #     nothing." Two checks per candidate piece, NOT the same for both
+    #     geometries `_cover_piece` can return: (a) FOR A FLAT PIECE
+    #     (`propped` False) — `_cover_piece` was solved to put its bottom
+    #     face at `cover_top_z`; if the piece's own `z`/`t` do not reproduce
+    #     that, the `planks`-spec contract drifted after the piece was
+    #     solved. A PROPPED piece's `z` is deliberately NOT its bottom face
+    #     (it is a diagonal beam from the debris surface up past the body —
+    #     `_cover_piece`'s own `rise`/`run`/`off` geometry — so this check
+    #     does not apply to one and is skipped rather than made to fail on a
+    #     shape it was never testing). (b) PLAUSIBLE CONTACT, both
+    #     geometries — `cover_top_z` (what the piece was SOLVED to reach,
+    #     regardless of how it got there) is not detached from the body's
+    #     OWN authored surface (`z` + `lift_m`, its support surface plus the
+    #     lying lift = its centreline) by more than `cover_contact_tol_m`,
+    #     generous enough for a body's real depth and the crest's own bands
+    #     but tight enough that a piece solved a half-metre off — the exact
+    #     symptom reported, and the exact gap `_cover_burial`'s `lift * 2.2`
+    #     clamp (same round) was added to close — fails loudly rather than
+    #     passing because SOME piece exists somewhere. Matched by
+    #     `over_record_id`, remapped alongside the aerial-visibility reindex
+    #     above, not by proximity — a nearby piece over the WRONG body would
+    #     pass a proximity check and prove nothing.
+    by_rec_id = {}
+    for sp in (getattr(plan, "covering", None) or []):
+        by_rec_id.setdefault(sp.get("over_record_id"), []).append(sp)
+    tol = float(cfg.get("cover_contact_tol_m", 0.35))
+    bad = []
+    for r in recs:
+        if r["cls"] not in ("casualty_apron", "roof_debris"):
+            continue
+        if float(r.get("covered_frac", 0.0)) <= 1e-6:
+            continue                  # "none" pattern authors no pieces
+        pieces = by_rec_id.get(r["id"]) or []
+        if not pieces:
+            bad.append(r["id"])
+            continue
+        body_surface = float(r["z"]) + float(r.get("lift_m", 0.0))
+        ok_any = False
+        for sp in pieces:
+            top_z = float(sp.get("cover_top_z", sp["z"]))
+            if not sp.get("propped"):
+                piece_bottom = float(sp["z"]) - float(sp["t"]) / 2.0
+                if abs(piece_bottom - top_z) > 0.05:
+                    continue           # (a) flat-piece authoring drift
+            if abs(top_z - body_surface) <= tol:
+                ok_any = True          # (b) plausible contact
+        if not ok_any:
+            bad.append(r["id"])
+    add("burial_covering_contacts_the_body", bad,
+        len([r for r in recs if r["cls"] in ("casualty_apron", "roof_debris")
+            and float(r.get("covered_frac", 0.0)) > 1e-6]),
+        "cover_contact_tol_m {0} m between a piece's bottom face and the "
+        "body's own z + lift_m".format(tol))
+
+    # 28. the STANDING fallback window figure sits a real body depth behind
+    #     the facade AND only ever draws an opening with a genuine spandrel/
+    #     sill band below it — bench-v3 rejection, quoted: "she stands
+    #     FULLY VISIBLE head-to-toe in FRONT of the glass, zero leg
+    #     occlusion."
+    bad = []
+    for r in recs:
+        if r["cls"] != "window" or r.get("variant") != "standing_at_opening":
+            continue
+        if (float(r.get("inset_m", 0.0))
+                < float(cfg["window_stand_inset_m"]) - 1e-6):
+            bad.append(r["id"])
+            continue
+        spandrel = float(r.get("sill_z", 0.0)) - float(r.get("floor_z", 0.0))
+        if spandrel < float(cfg["window_min_spandrel_m"]) - 1e-6:
+            bad.append(r["id"])
+    add("window_standing_fallback_is_recessed", bad,
+        len([r for r in recs if r["cls"] == "window"
+            and r.get("variant") == "standing_at_opening"]),
+        "window_stand_inset_m {0} m behind the facade, "
+        "window_min_spandrel_m {1} m of solid wall below the sill".format(
+            cfg["window_stand_inset_m"], cfg["window_min_spandrel_m"]))
+
+    # 29. no window figure ever in the top `window_top_storeys_excluded`
+    #     storeys of its own building — 2026-09-01 user follow-up on the
+    #     bench-v4 ledge-stander complaint: "Don't do any window leans on
+    #     the top 2-3 stories always below." Re-derived off the building's
+    #     own `n_storeys`, not the record's own `storey` field trusted
+    #     blindly.
+    by_i3 = {b.i: b for b in sol.buildings}
+    bad = []
+    top_excl = int(cfg["window_top_storeys_excluded"])
+    for r in recs:
+        if r["cls"] != "window":
+            continue
+        b = by_i3.get(r["building_i"])
+        if b is None or int(r.get("storey", -1)) > b.n_storeys - 1 - top_excl:
+            bad.append(r["id"])
+    add("window_below_the_top_storeys", bad,
+        len([r for r in recs if r["cls"] == "window"]),
+        "window_top_storeys_excluded {0} — storey <= n_storeys - 1 - {0} "
+        "on every building".format(top_excl))
+
+    # 30. NO STANDING interior_trapped FIGURE AT OR ABOVE THE TOP SURVIVING
+    #     STOREY — bench-v4 ledge-stander complaint, 2026-09-01, coordinator's
+    #     own rule: "on a collapse-level building, NO standing figure of any
+    #     class at or above (top_surviving_storey - 1) ... standing interior
+    #     figures live at least one full storey below the broken roof line;
+    #     lying figures may stay higher." Re-derives the BASE (non-standing)
+    #     slab storey independently and asserts every `conscious` record's
+    #     own storey is STRICTLY BELOW it; `passed_out` is exempt by name.
+    bad = []
+    for r in recs:
+        if r["cls"] != "interior_trapped" or r.get("variant") != "conscious":
+            continue
+        b = by_i2.get(r["building_i"])
+        _sz, base_storey = (_slab_z(b, standing=False) if b is not None
+                            else (None, None))
+        if (b is None or base_storey is None
+                or int(r.get("storey", 1 << 30)) >= base_storey):
+            bad.append(r["id"])
+    add("no_standing_interior_figure_at_the_break", bad,
+        len([r for r in recs if r["cls"] == "interior_trapped"
+            and r.get("variant") == "conscious"]),
+        "a conscious (standing) interior_trapped figure is always at least "
+        "one storey below the top surviving slab; lying figures are exempt")
+
+    # 31. EVERY WINDOW FIGURE'S WORLD POSITION FALLS INSIDE A REAL OPENING
+    #     RECT OF THE ELEVATION IT CLAIMS — bench-v7 REJECTION, 2026-09-01:
+    #     "the leaners [are] pasted flat on a BLANK BRICK wall (no windows
+    #     anywhere in frame)." Coordinator's hypothesis was a YAW/FRAME
+    #     mismatch between the appended bench record's yaw and the sidecar's
+    #     own opening frame; DISPROVEN by direct inspection (i=274's yaw_deg
+    #     matched its source city record exactly, same as the other three
+    #     bench buildings, and `_Building.sides` correctly resolved `('E',)`
+    #     from the sidecar). The REAL cause: `_pass_window`'s side choice
+    #     preferred a flame-free elevation over the only elevation with real
+    #     glazing data, and the "derived" synthetic grid it fell onto (a
+    #     party wall, on this asset) does not exist as glass at all — fixed
+    #     by preferring MEASURED sides (`_side_ops` non-empty) in the side
+    #     pool above. This rule is the geometric backstop the coordinator
+    #     asked for regardless of that fix's cause: "compute each window
+    #     figure's world position and confirm it lies within an ...opening
+    #     rect of the PLACED building... That assertion becomes a gate rule
+    #     ... so a frame mismatch can never render again."
+    #
+    #     Re-derives `openings_for_side(b.rec, r['side'], r['storey'], cfg,
+    #     b.doc)` FRESH — never the `op` `_pass_window` already chose — so a
+    #     future edit that lets placement and this rule diverge (a stale
+    #     cached frame, a yaw applied twice, a storey mismatch) is caught
+    #     here even if the placement code that produced `r["x"]/r["y"]`
+    #     itself has already gone stale. Every recomputed opening shares one
+    #     `fr` (`openings_for_side` builds it once per call and stamps it on
+    #     every returned dict), so the record's local coordinate along the
+    #     wall — `u = (x - fr_x) * cos(fr_yaw) + (y - fr_y) * sin(fr_yaw)`,
+    #     the exact inverse of `_face_point`'s own u-term, EXACT regardless
+    #     of the inset/depth term because that term is entirely along the
+    #     orthogonal (outward-normal) axis — must land inside SOME
+    #     recomputed opening's own `[u0, u1]` band, and that same opening's
+    #     `z_sill` must match the record's own stamped `sill_z` (the sill
+    #     the pose was built against). A record on the wrong elevation, the
+    #     wrong storey, or shifted by a stray rotation fails both checks at
+    #     once; a genuine leaner standing in its own real bay passes both.
+    bad = []
+    u_tol, z_tol = 0.10, 0.05
+    for r in recs:
+        if r["cls"] != "window":
+            continue
+        b = by_i3.get(r["building_i"])
+        if b is None or not r.get("side") or r.get("storey") is None:
+            bad.append(r["id"])
+            continue
+        ops = openings_for_side(b.rec, r["side"], int(r["storey"]), cfg,
+                                b.doc)
+        hit = False
+        for op in ops:
+            fr = op["fr"]
+            fx, fy, fyaw = float(fr[0]), float(fr[1]), float(fr[2])
+            u = ((float(r["x"]) - fx) * math.cos(fyaw)
+                + (float(r["y"]) - fy) * math.sin(fyaw))
+            if (op["u0"] - u_tol <= u <= op["u1"] + u_tol
+                    and abs(op["z_sill"] - float(r.get("sill_z", -1e9)))
+                    <= z_tol):
+                hit = True
+                break
+        if not hit:
+            bad.append(r["id"])
+    add("window_figure_is_in_an_opening", bad,
+        len([r for r in recs if r["cls"] == "window"]),
+        "the figure's world (x, y) inverts to a local `u` inside a FRESHLY "
+        "recomputed opening's own [u0, u1] on its stamped side/storey, and "
+        "that opening's z_sill matches the record's own sill_z, within "
+        "{0} m / {1} m — re-derived independently of the placement pass "
+        "so a yaw/frame mismatch cannot render undetected".format(
+            u_tol, z_tol))
+
     return out
 
 
@@ -2705,7 +5303,15 @@ def write_records(path, plan):
     doc = {"meta": dict(plan.meta), "people": plan.records,
            "census": summarise(plan),
            "refused": dict(plan.refused), "dropped": dict(plan.dropped),
-           "degraded": dict(plan.degraded)}
+           "degraded": dict(plan.degraded),
+           "manifest_records_skipped": list(
+               getattr(plan.solver, "skipped_records", []) or []),
+           "sidecar_report": sidecar_reports(plan),
+           # THE REAL COVERING DEBRIS `_cover_burial` authored over the
+           # burial classes — `planks`-spec shape, `["for"] ==
+           # "fire_burial"` — for a launcher to build alongside the people
+           # themselves. Empty when `author_burial_cover` is off.
+           "covering": list(getattr(plan, "covering", []) or [])}
     d = os.path.dirname(path)
     if d:
         os.makedirs(d, exist_ok=True)

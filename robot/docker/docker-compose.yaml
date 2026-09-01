@@ -349,6 +349,15 @@ services:
       service: robot_base
     image: *desktop_image
     environment:
+      # TEAM ARMS NEED THIS. The conavgpt2_team planner runs HERE, not on a
+      # robot, and search_planner aborts at construction without it:
+      #   RuntimeError: search_area_source=scene needs the scene name:
+      #   set RESULTS_SCENE ... or known_obstacles_scene
+      # Robot containers get it (this file, robot_base) and so does isaac-sim,
+      # but offboard-compute never did — so every conavgpt2_team cell died
+      # ~30 s into step 10. Reproduced 2026-08-31 by launching the team file
+      # on an isolated domain. That is 6 of the 24 cells in the frozen sweep.
+      - RESULTS_SCENE=${RESULTS_SCENE:-}
       # No robot identity and no domain: this container publishes no topics and
       # subscribes to none. (An interactive shell here prints the .bashrc
       # "ROBOT_NAME_SOURCE not valid" warning — that is the intended path.)

@@ -111,8 +111,56 @@ assert_contains "$RUN" "FB_KIND=kit FB_NAME=commercial_mid FB_LEVEL=F5c" "NEED e
 assert_contains "$RUN" "FB_KIND=dtc FB_NAME=Building_12 FB_LEVEL=F2" "NEED entry 2 (dtc) env is correct"
 assert_not_contains "$RUN" "FB_KIND=gac FB_NAME=SM_Building_02" "the HAVE (gac) entry never got a docker exec line"
 assert_contains "$RUN" "FB_OUT=$CITY_DIR" "FB_OUT points at the city-scoped subdir"
+
+# THE FROZEN-KIT GATE. `settle.py`'s corrected rest/grade measurements
+# (SETTLE_REST_V2) change which bodies a settle calls "still moving" and
+# which it lifts to grade, so they change the geometry a bake exports. The
+# MCE kit look is frozen against the OLD measurements, so a `kit:` record
+# must be baked with the flag OFF and everything else with it ON. If this
+# ever flips, a kit bake stops reproducing and nothing else says so.
+if grep -q "FB_KIND=kit .*SETTLE_REST_V2=0" "$RUN"; then
+  ok "the kit record is baked with SETTLE_REST_V2=0 (frozen look)"
+else
+  bad "the kit record did NOT get SETTLE_REST_V2=0"
+fi
+if grep -q "FB_KIND=dtc .*SETTLE_REST_V2=1" "$RUN"; then
+  ok "the dtc record is baked with SETTLE_REST_V2=1"
+else
+  bad "the dtc record did NOT get SETTLE_REST_V2=1"
+fi
+
+# PER-LEVEL SETTLE BUDGETS (2026-08-31). Record 1 is F5c (a real-debris
+# level, `partial_collapse` always runs) and must keep the full SETTLE_STEPS/
+# SETTLE_QUIET default (2400/400); record 2 is F2 (no collapse/burnthrough
+# recipe on either construction type at that level) and must get the LOW
+# tier's smaller target (600/150 by default) — "make the bakes lazy" cannot
+# quietly shrink the settle a level with real debris relies on.
+if grep -q "FB_KIND=kit .*SETTLE_STEPS=2400 SETTLE_QUIET=400" "$RUN"; then
+  ok "the F5c (kit) record keeps the full settle budget (2400+400)"
+else
+  bad "the F5c (kit) record did NOT keep the full settle budget"
+fi
+if grep -q "FB_KIND=dtc .*SETTLE_STEPS=600 SETTLE_QUIET=150" "$RUN"; then
+  ok "the F2 (dtc) record gets the low-tier settle budget (600+150)"
+else
+  bad "the F2 (dtc) record did NOT get the low-tier settle budget"
+fi
+assert_contains "$RUN" "settle=high(2400+400)" "record 1's status line names its tier (high)"
+assert_contains "$RUN" "settle=low(600+150)" "record 2's status line names its tier (low)"
+
 assert_contains "$RUN" "(dry run — nothing was executed)" "dry-run banner printed"
 assert_contains "$RUN" "0 baked, 1 skipped, 0 failed" "summary: 0 baked / 1 skipped / 0 failed"
+echo
+
+echo "=== FB_LEVEL_SETTLE=0: flat legacy budget, every level gets SETTLE_STEPS/SETTLE_QUIET ==="
+RUN_FLAT="$TMP/run_flat.out"
+FB_OUT="$FB_OUT_HOST" FB_LEVEL_SETTLE=0 bash "$TOOLS/fire_city_bake.sh" "$MANIFEST" --dry-run > "$RUN_FLAT" 2>&1
+if grep -q "FB_KIND=dtc .*SETTLE_STEPS=2400 SETTLE_QUIET=400" "$RUN_FLAT"; then
+  ok "FB_LEVEL_SETTLE=0 gives the F2 (dtc) record the flat/full budget too"
+else
+  bad "FB_LEVEL_SETTLE=0 did NOT flatten the F2 (dtc) record's budget"
+fi
+assert_contains "$RUN_FLAT" "settle=flat(2400+400)" "flat run's status line names the flat tier"
 echo
 
 echo "=== fire_city_bake.sh --dry-run --force: HAVE entry is planned too ==="

@@ -415,6 +415,56 @@ LADDER = {
 
 
 # ---------------------------------------------------------------------------
+# The no-interior gate — COMPUTED from LADDER, never a hardcoded level list.
+# ---------------------------------------------------------------------------
+# A recipe in this set is the only thing that ever puts the interior ON
+# SHOW: `roof_burnthrough`/`floor_burnthrough` cut a hole a camera (or a
+# window) can see clean through to whatever is behind it, and
+# `fire_collapse`/`partial_collapse` take a wall or the roof away outright.
+# Every other recipe in `LADDER` — `window_burnout`, `smoke_stain`,
+# `char_facade`, `render_peel`, `spall`, `curtain_burn`, `roof_scorch`,
+# `street_debris`, `flames` — works on the SHELL, and `gut_interior`/
+# `expose_interior` (present on some of these levels too) already degrade
+# to a no-op / their own small, footprint-aware fallback
+# (`r_expose_interior`'s catch floor, authored through `_plate`, not the
+# BOUNDING-BOX grid `fit_interior` lays down) when `ctx["fit"]` is empty —
+# see that function's own docstring. So none of them NEEDS `quake_flow.
+# fit_interior`'s full per-storey slab/column/partition/furniture grid to
+# exist at all: a building whose ladder run never reaches one of these four
+# recipes has a shell that stays closed, its openings going to darkened/
+# crazed glass rather than a real hole, and authoring a full interior
+# behind it is pure waste — worse, on an L-shaped or multi-tier whole-asset
+# building, `fit_interior`'s grid is a `W x D` BOUNDING BOX, so it comes out
+# rectangular under a footprint that is not (user, 2026-08-31, reviewing
+# `gac_SM_Building_28_F4_o22_SEW_s219`: "this building is L shaped however,
+# it's interior is rectangular and so it looks weird ... For building's
+# who's insides are not gonna be shown (intact but burnt on the outside)
+# don't have any interior").
+INTERIOR_EXPOSING_RECIPES = frozenset(
+    {"fire_collapse", "partial_collapse", "roof_burnthrough", "floor_burnthrough"})
+
+
+def shows_interior(btype, level):
+    """True if `LADDER[btype][level]` ever puts the interior on show (one of
+    `INTERIOR_EXPOSING_RECIPES` is in its recipe list). False means the
+    shell stays closed for that (construction type, severity) combination —
+    the caller has no reason to pay for a fit-out nobody will ever see
+    behind.
+
+    `gac_fire.burn_gac` is the one caller that acts on this (its own
+    `fit_storeys` top-up, `INTERIOR_EXPOSING_RECIPES` re-used directly there
+    so this stays a single source of truth). The kit-building path
+    (`burn_building`'s own `fit_storeys is None` default) does NOT check
+    this — that path is frozen (see the `build-urban-fire-scenes` skill's
+    bug catalogue and `tools/kit_burn_probe.py`), and every kit style is a
+    plain rectangular massing anyway, so `fit_interior`'s box was never
+    wrong there to begin with.
+    """
+    names = set(n for n, _kw in LADDER.get(btype, {}).get(level, ()))
+    return bool(names & INTERIOR_EXPOSING_RECIPES)
+
+
+# ---------------------------------------------------------------------------
 # Materials
 # ---------------------------------------------------------------------------
 # LINEAR ALBEDO, NOT SCREEN GREY — the single most expensive mistake in the
@@ -1391,6 +1441,37 @@ SOOT_TONE_MIN = 0.35
 # back to the graded tone instead of shipping the near-clean copy.
 SOOT_PALE_MAX = 0.45
 
+# THE FLOOR HAS TO TELL "STILL PALE" FROM "PALE ON AVERAGE, PATTERNED FOR
+# REAL". The checkerboard case above (`SOOT_PALE_MAX`'s own history) is a
+# NARROW band that spans a handful of skin rows and none of them lands in a
+# tongue — the composite comes back near-uniform AND pale, because it is
+# just the base map, unchanged. That population has LOW spread. But on a
+# genuine ring piece well inside the band (`wall_W_0_10_0034`, `SM_Building_
+# 23` F5, storey 10 of a 7-27 burn, S+W venting) the SAME floor was firing on
+# a subset whose composite legitimately carries a real gradient — a bright
+# base colour the plume only partially reaches still averages above 0.45 even
+# though two of that subset's neighbours on the identical piece read a clean
+# 0.503/0.268-mean gradient with real structure — and the floor threw the
+# gradient away for one FLAT, UNNUMBERED tone, "haven't gotten the scorch
+# pattern well" (user review, 2026-08-31, the piece named directly). The
+# checkerboard population and this one are told apart by SPREAD, not mean: a
+# composite that is really just the untouched base is near-flat by
+# construction (nothing but resampling noise varies across it); a composite
+# the plume genuinely reached unevenly is not. `SOOT_PALE_SPREAD_MIN` /
+# `SOOT_PALE_STD_MIN` ARE AN OR, not an AND: either signal of real structure
+# is enough to keep the bake — both have to read near-zero (a genuinely flat
+# result) before the floor is still allowed to fire. Thresholds picked
+# against the two populations `SOOT_PALE_MAX` itself was calibrated on: a
+# 0.3 m checkerboard band spanning a handful of skin rows samples close to
+# ONE row of the skin, so its own resampling noise floor is the bar — a
+# handful of `px`-canvas resample artefacts, not a real gradient. 0.05 of
+# luminance (p90-p10) and 0.02 std sit comfortably above that noise floor
+# and comfortably below what a real partial-coverage gradient shows —
+# verified end to end (the acceptance piece, `wall_W_0_10_0034`) with
+# `tools/repatch_gac_x_soot.py`'s extended ring-piece pass, not asserted.
+SOOT_PALE_SPREAD_MIN = 0.05     # covered-texel luminance p90 - p10
+SOOT_PALE_STD_MIN = 0.02        # covered-texel luminance std
+
 
 def _mesh_arrays(prim):
     """points / counts / indices / uv (+ interpolation, indices) of one
@@ -1552,7 +1633,8 @@ def _bind_soot(ctx, e, sk):
     mats = ctx.setdefault("soot_mats", {})
     stats = ctx.setdefault("soot_stats", {"unreadable": 0, "flat_material": 0,
                                           "skipped_notex": 0, "flat_tone": 0,
-                                          "no_uv": 0, "clean": 0})
+                                          "no_uv": 0, "clean": 0,
+                                          "pale_but_patterned": 0})
     cache = ctx.setdefault("cache", {})
     posmaps = cache.setdefault("soot_posmap", {})
     bases = cache.setdefault("soot_base", {})
@@ -1853,14 +1935,40 @@ def _bind_soot(ctx, e, sk):
             # and the atlas mean says nothing about what renders). A healthy
             # positional bake is far under the threshold and is kept — this
             # is a floor, not a replacement for the wall's own bake.
+            #
+            # ONLY OVER A GENUINELY FLAT RESULT. `tone_ok` (this whole branch
+            # is `one_off` already — see its own definition) is a real
+            # coverage/severity read, so a subset that lands here IS inside
+            # the fire's reach; the question is whether its OWN composite is
+            # still worth keeping. Mean alone cannot answer that — a subset
+            # the plume only partly reaches can average pale while carrying a
+            # real gradient (`wall_W_0_10_0034`, `SM_Building_23` F5, "haven't
+            # gotten the scorch pattern well", user review 2026-08-31: the
+            # floor discarded a genuinely baked composite for a flat,
+            # unnumbered tone on exactly this piece). SPREAD does: the
+            # checkerboard population `SOOT_PALE_MAX` exists for is a narrow
+            # band sampling a handful of skin rows that never cross a tongue,
+            # so it comes back near-uniform AND pale — nothing but resample
+            # noise varies across it. A subset with real luminance spread
+            # over its own covered texels is not that population, whatever
+            # its mean, and the bake below is kept.
             if tone_ok and float(out[mask].mean()) > SOOT_PALE_MAX:
-                UsdShade.MaterialBindingAPI(t).Bind(
-                    ctx["mats"]["soot" if cov > 0.70 else
-                                "soot_mid" if cov > SOOT_TONE_MIN else
-                                "soot_light"])
-                stats["flat_tone"] += 1
-                n += 1
-                continue
+                cov_lum = out[mask].mean(axis=-1) if out[mask].ndim > 1 \
+                    else out[mask]
+                spread = (float(np.percentile(cov_lum, 90)
+                                - np.percentile(cov_lum, 10))
+                          if cov_lum.size >= 8 else 0.0)
+                lum_std = float(cov_lum.std()) if cov_lum.size >= 2 else 0.0
+                if spread < SOOT_PALE_SPREAD_MIN and lum_std < SOOT_PALE_STD_MIN:
+                    UsdShade.MaterialBindingAPI(t).Bind(
+                        ctx["mats"]["soot" if cov > 0.70 else
+                                    "soot_mid" if cov > SOOT_TONE_MIN else
+                                    "soot_light"])
+                    stats["flat_tone"] += 1
+                    n += 1
+                    continue
+                stats["pale_but_patterned"] += 1
+                # falls through: the bake below is bound as-is, pattern kept
             if a_max < 0.05:
                 # let past the early exit only for the floor, which did not
                 # fire: the composite is already dark, so leave it alone
@@ -1929,7 +2037,26 @@ def _r_soot_overlay(ctx, heavy, role):
                 # exactly where the plume climbs to.
                 if not e["p"].get("prim_path"):
                     continue
-                e["_soot_cover"] = 0.5
+                # NOT 0.5. `_soot_cover` is not just this loop's own
+                # "did the crop reach it" flag — `_bind_soot` reads the SAME
+                # field as `cov` to gate `tone_ok`, the floor that force-
+                # binds a flat dark tone over a bake that came back too pale
+                # (`SOOT_PALE_MAX`). A fixed 0.5 is >= `SOOT_TONE_MIN` (0.35)
+                # on every merged piece regardless of storey, so the floor
+                # fired unconditionally on the below-origin block and the
+                # block above the band — exactly the storeys `_severity`'s
+                # own docstring says must stay a hard, clean cut ("the clean
+                # band stops reading"). Measured on `SM_Building_23` F5:
+                # `wall_x_0_00_0000` (storeys 0-6, origin=7) came back 82% of
+                # its area sooted, most of it at near-zero texture variance
+                # — a flat dark wash on a floor the fire never reached (user
+                # review, 2026-08-31: "haven't gotten the scorch pattern
+                # well", the SW_s1254 bake). Leaving this at 0.0 means
+                # `tone_ok` falls back to `in_fire` (a real per-storey
+                # `_severity` read, still granted its one storey of spill
+                # downward) and the per-texel `a_max` this same call samples
+                # a few lines into `_bind_soot` decides everything else —
+                # the compositor's own real measurement, not a placeholder.
                 if _bind_soot(ctx, e, sk):
                     n_piece += 1
                 continue
@@ -2430,6 +2557,275 @@ def r_spall(ctx, rate=0.3, bars=True):
 # stone calcine and spall instead, which is `r_spall`.
 PEEL_FAMILIES = ("03", "dw_b", "civ", "church")
 
+# WHERE A PEEL SITS, AND WHAT IT IS MADE OF. Both halves of one user review of
+# the live 500 m fire city (2026-08-31, `kit_brownstone_row_F4_o4_EN_s438`,
+# prim `bake/k14/peel_k14_166`): "this doesn't match the material of the
+# building it's on. it's also not on the building, it's floating".
+#
+# 1. THE PLANE. `quake_flow._piece_frame` returns the module's bbox FRONT
+#    along its outward axis (`ymin - 0.02`), and `_stamp_pt`'s docstring
+#    states the assumption that comes with it: "a kit module's frame depth is
+#    its wall face". That holds for the flat stock the SPALL families are made
+#    of (measured, `urban_building.PIECES`: `SM_MBuilding04_Facade_B` ymin
+#    0.00, `..01_Facade_A` -0.03, `..02_Facade_A` -0.10) and it is FALSE for
+#    exactly the stock that PEELS: a brownstone's upper storey is a projecting
+#    BAY (`SM_MBuilding03_Facade_B_Upper` ymin -0.38) over a stoop
+#    (`..03_FirstFloor_A` -1.50), and the Downtown_West frame is measured from
+#    the wrong side altogether (`-abs(xmin) - 0.02`, so
+#    `..lvl2_singlewindow` — 0.46 m of wall BEHIND its line and 0.02 m in
+#    front — is read as 0.48 m in front of it). On the shipped bake every one
+#    of the 10 peels and their 10 halos stands 0.430-0.436 m outside its own
+#    wall line (peels at y = 7.436 / x = 19.436 against lines at 7.000 and
+#    19.000 — mass 38 x 14, `tools/peel_backing_probe.py`): the bay's 0.38 +
+#    the frame's 0.02 pad + `SCAR_PROUD`, on a 0.2-0.5 m patch.
+#
+#    AND A PEEL IS NOT A CURL HANGING OFF THE WALL. `_scar` draws the
+#    substrate a sheet of render has EXPOSED — the sheets themselves are the
+#    `peelrow` windrow at the wall foot — so it is a flat patch OF the wall
+#    and belongs on the surface, never in the air in front of it.
+#
+#    So the plane is MEASURED, not assumed: the same answer `gac_fire.prepare`
+#    already gives the sliced path through `fire["planes"]`, which is the
+#    branch of `_stamp_pt` that exists because the sliced frames were wrong in
+#    the same way. `_wall_relief` reads the module's own outward-facing
+#    triangles once per kit piece and `_stamp_frame` puts the stamp on the
+#    frontmost of them AT THAT (u, v) — a peel drawn over the bay sits on the
+#    bay, one drawn beside it sits on the wall, and neither hangs in the gap
+#    between them.
+#
+#    SCOPED TO THE PEEL, DELIBERATELY. `r_spall` stamps through the same
+#    `_scar` on families 01/02/04/05, whose wall stock is authored with the
+#    cladding AT the bbox front (the measurements above), so the frame already
+#    IS their wall face and that path's output is frozen
+#    (`tools/kit_burn_probe.py`). The one piece in that stock with real relief
+#    is `..01_FirstFloor_A`, a 0.55 m entrance canopy a spall reaches only when
+#    the fire starts on the ground floor: same class, same helper, the day it
+#    is reviewed.
+PEEL_WALL_PAD = 0.02          # `_piece_frame`'s own pad, off the MEASURED face
+PEEL_RECESS_MAX = 0.25        # never stamp further behind the line than this
+
+# 2. WHAT THE LOST RENDER EXPOSES. The face was `mats["brick_bare"]`: ONE
+#    world-triplanar megascan brick sheet (`Brick_Wall_Worn/T_sexkaitb_1K_B.
+#    jpg`, 1.6 m repeats), built once per STAGE and shared by every building
+#    on it. So every peel in the city exposed the same red brick at full
+#    brightness whatever the building was made of and whatever colour the fire
+#    had left it — on a brownstone whose modules wear their own sooted atlases
+#    (46 `FireLooks/soot_*` on that bake) that is a red sticker on a black
+#    wall. Measured over the whole `city_4` set before this change: 28 of 28
+#    peel/halo stamps bound to the shared `/World/bake/FireLooks/brick_bare`,
+#    none to anything sampled from the building it is on.
+#
+#    THE FIX IS THE TEAR'S OWN FALLBACK. `fire_collapse.tone_material` samples
+#    a flat tone from the parent's own map over the parent's own UV box, and
+#    is already the accepted answer to "a fragment that cannot carry its
+#    parent's UVs must still look like the wall it came off". A peel is that
+#    problem exactly: a 0.2-0.5 m blob has no UVs worth carrying, but it has
+#    to read as THIS building's masonry. It samples the material the module is
+#    wearing NOW — after `r_smoke_stain` that is the SOOTED copy `_bind_soot`
+#    rebound, so the tone already carries the fire — and `PEEL_FACE_GAIN` then
+#    opens it up to the calcined substrate a lost render exposes, which is
+#    `_FLAT["spall_face"]`'s own rule ("a dirty buff about 1.5x the wall, not
+#    3x") applied per building instead of as one constant for all of them.
+#    `fire_collapse.is_fake_interior` gates the pick, exactly as it gates the
+#    tear's: an office card behind the glazing is never the façade, so it can
+#    never become the thing under the render either.
+#
+#    THE SAMPLE CARRIES THE HUE, THE PALETTE KEEPS THE VALUE. `PEEL_FACE_GAIN`
+#    and `PEEL_FACE_CLAMP` act on the tone's MEAN and rescale the triple, so a
+#    brownstone's warm substrate stays warm — the module atlases measure
+#    linear (0.091, 0.087, 0.075) and a per-channel clamp at any fire-palette
+#    ceiling returns the same grey for every one of them. The window is the
+#    palette's own light end: `_FLAT["soot_light"]` (0.048 mean) to a shade
+#    over `_FLAT["calcined"]` (0.062), which is what calcined masonry under
+#    soot measures and what stops a peel becoming a cow spot.
+PEEL_FACE_GAIN = 1.55
+PEEL_FACE_CLAMP = (0.030, 0.075)      # linear albedo, `_FLAT`'s own scale
+PEEL_FACE_PREFIX = "/FireLooks/peelface_"
+
+
+def _wall_relief(ctx, e, fr):
+    """This module's OUTWARD-facing triangles in its OWN frame, as
+    `(u0, u1, v0, v1, depth)` arrays — `u` along the wall the way
+    `quake_flow._b_face_pt` measures it, `v` from the module's own base z, and
+    `depth` metres in FRONT of the placement line.
+
+    Cached per piece name (plus its stretch, the only thing that changes a
+    placed module's shape), because every placement of a kit module is the
+    same geometry in its own frame: a 40-module terrace measures once. `None`
+    when the module is not on the stage or has no outward face to measure.
+    """
+    import numpy as np
+    from pxr import Usd, UsdGeom
+    from . import fire_collapse as fc
+
+    p = e.get("p") or {}
+    cache = ctx.setdefault("cache", {}).setdefault("wall_relief", {})
+    key = (e.get("name"), tuple(p.get("stretch") or ()))
+    hit = cache.get(key)
+    if hit is not None:
+        return hit or None
+    path = p.get("prim_path")
+    root = ctx["stage"].GetPrimAtPath(path) if path else None
+    if not root or not root.IsValid() or not root.IsActive():
+        cache[key] = False
+        return None
+    ox, oy, yaw, width, _h, _d, dw = fr
+    ca, sa = math.cos(yaw), math.sin(yaw)
+    along = np.array((ca, sa), dtype=float)      # `_b_face_pt`'s u direction
+    outw = np.array((sa, -ca), dtype=float)      # ...and its outward normal
+    org = np.array((float(ox), float(oy)), dtype=float)
+    z0 = float(e.get("z") or 0.0)
+    half = 0.5 * float(width) if dw else 0.0     # `_b_face_pt`'s own dw shift
+    xfc = UsdGeom.XformCache()
+    rows = []
+    for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdGeom.Mesh) or not prim.IsActive():
+            continue
+        mesh = UsdGeom.Mesh(prim)
+        pts = mesh.GetPointsAttr().Get()
+        cnt = mesh.GetFaceVertexCountsAttr().Get()
+        idx = mesh.GetFaceVertexIndicesAttr().Get()
+        if not pts or not cnt or not idx:
+            continue
+        M = np.array(xfc.GetLocalToWorldTransform(prim), dtype=float)
+        P = np.asarray([[q[0], q[1], q[2]] for q in pts], dtype=float)
+        P = P @ M[:3, :3] + M[3, :3]
+        ix, tri, o = list(idx), [], 0
+        for c in cnt:
+            c = int(c)
+            for k in range(1, c - 1):
+                tri.append((ix[o], ix[o + k], ix[o + k + 1]))
+            o += c
+        if not tri:
+            continue
+        T = P[np.asarray(tri, dtype=np.int64)]
+        n = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0])
+        ln = np.linalg.norm(n, axis=1)
+        ok = ln > 1e-12
+        if not ok.any():
+            continue
+        # OUTWARD-FACING, on the tear's own threshold: a sill's top face and a
+        # window reveal's return are not the surface a stamp goes on.
+        face = np.zeros(len(T), dtype=bool)
+        face[ok] = (n[ok, :2] @ outw) / ln[ok] > fc.TEAR_OUT_COS
+        if not face.any():
+            continue
+        Q = T[face]
+        rel = Q[:, :, :2] - org
+        u = rel @ along + half
+        d = rel @ outw
+        v = Q[:, :, 2] - z0
+        rows.append(np.stack([u.min(1), u.max(1), v.min(1), v.max(1),
+                              d.mean(1)], axis=1))
+    if not rows:
+        cache[key] = False
+        return None
+    A = np.vstack(rows)
+    out = (A[:, 0], A[:, 1], A[:, 2], A[:, 3], A[:, 4])
+    cache[key] = out
+    return out
+
+
+def _stamp_frame(ctx, e, fr, u, v):
+    """`fr` with its depth replaced by the module's MEASURED outward surface
+    at `(u, v)` — the wall the stamp is on, not the front of the bay hung off
+    it. The unchanged frame when nothing can be measured, so a module that is
+    not on the stage behaves exactly as it did.
+    """
+    import numpy as np
+
+    m = _wall_relief(ctx, e, fr)
+    if m is None:
+        return fr
+    u0, u1, v0, v1, d = m
+    if not len(d):
+        return fr
+    vr = float(v) - float(e.get("z") or 0.0)
+    sel = (u0 <= u) & (u <= u1) & (v0 <= vr) & (vr <= v1)
+    # THE FRONTMOST SURFACE AT THAT POINT, because that is the one you can
+    # see; away from any outward face (over an opening, say) the module's
+    # median depth is the wall itself.
+    depth = float(d[sel].max()) if bool(sel.any()) else float(np.median(d))
+    depth = max(-PEEL_RECESS_MAX, min(depth, -float(fr[5])))
+    return tuple(fr[:5]) + (-(depth + PEEL_WALL_PAD),) + tuple(fr[6:])
+
+
+def _module_skin(ctx, e):
+    """`{"mat", "tex", "uv"}` for this module's OWN outward cladding as it
+    stands NOW — `fire_collapse.tone_material` takes exactly this shape
+    (`facade_skin`'s return, without the geometry a flat tone does not need).
+
+    After `r_smoke_stain` the material bound here is the sooted copy
+    (`_bind_soot`'s `FireLooks/soot_N`), which is the point: the tone has to
+    be sampled from the wall as the fire left it, not as the kit shipped it.
+    A fake-interior or glass material is never a candidate — the same two
+    rules `facade_skin` applies, for the same reason.
+    """
+    from pxr import Usd, UsdGeom, UsdShade
+    from . import fire_collapse as fc, soot_plume as spl
+
+    p = e.get("p") or {}
+    path = p.get("prim_path")
+    root = ctx["stage"].GetPrimAtPath(path) if path else None
+    if not root or not root.IsValid():
+        return None
+    best = None
+    for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdGeom.Mesh) or not prim.IsActive():
+            continue
+        arr = _mesh_arrays(prim)
+        subs = list(UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)))
+        for t, sub in ([(q.GetPrim(), q) for q in subs] or [(prim, None)]):
+            try:
+                mat = UsdShade.MaterialBindingAPI(t).ComputeBoundMaterial()[0]
+            except Exception:
+                continue
+            if not mat or not mat.GetPrim().IsValid():
+                continue
+            mp = str(mat.GetPrim().GetPath())
+            _sh, _in, tex = spl.find_basecolor(mat.GetPrim())
+            if not tex:
+                continue
+            if fc.is_fake_interior(mp, tex):
+                continue                       # never the façade (row 5)
+            low = (mp + "|" + str(tex)).lower()
+            if any(k in low for k in fc.TEAR_GLASS_HINTS):
+                continue                       # glass is not the substrate
+            n_face = (len(sub.GetIndicesAttr().Get() or ()) if sub is not None
+                      else (len(arr["counts"]) if arr else 0))
+            # the building's OWN materials first (the per-cell sooted copies
+            # live under `ctx["parent"]`), then whichever covers most faces
+            own = 1 if mp.startswith(str(ctx["parent"]) + "/") else 0
+            rank = (own, int(n_face))
+            if best is None or rank > best[0]:
+                best = (rank, mp, tex, arr)
+    if best is None:
+        return None
+    _rank, mp, tex, arr = best
+    # The UV box is the whole mesh's, not the chosen subset's: these maps are
+    # per-module atlases (`_bind_soot`: "the base maps are UV ATLASES"), so
+    # the mesh's own box already crops to this module's corner of the sheet,
+    # and `tone_material` only takes a MEAN over it.
+    return {"mat": mp, "tex": tex, "glass": False,
+            "uv": (arr["uv"] if arr is not None else None)}
+
+
+def _peel_face_mat(ctx, e):
+    """(material, "tone"|"flat") — what the lost render exposes on THIS
+    module: its own sooted tone opened up to the substrate, or `spall_face`
+    when the module's map cannot be read at all."""
+    from . import fire_collapse as fc
+
+    sk = _module_skin(ctx, e)
+    mat = None
+    if sk is not None:
+        mat = fc.tone_material(ctx, sk, gain=PEEL_FACE_GAIN,
+                               clamp=PEEL_FACE_CLAMP,
+                               prefix=PEEL_FACE_PREFIX, cache_key="peel_face")
+    if mat is None:
+        return ctx["mats"]["spall_face"], "flat"
+    return mat, "tone"
+
 
 def r_render_peel(ctx, rate=0.35):
     """Rendered masonry: stucco comes off in SHEETS and lands at the wall foot.
@@ -2443,6 +2839,7 @@ def r_render_peel(ctx, rate=0.35):
 
     f, rng = ctx["fire"], ctx["rng"]
     n_patch, sides_hit = 0, set()
+    n_tone = n_flat = 0
     if ctx["info"].get("family") not in PEEL_FAMILIES:
         # not rendered — spall it instead, so the ladder entry is never a
         # silent no-op on a brick or stone building
@@ -2458,6 +2855,9 @@ def r_render_peel(ctx, rate=0.35):
         if fr is None:
             continue
         width = fr[3]
+        face_mat, how = _peel_face_mat(ctx, e)
+        n_tone += 1 if how == "tone" else 0
+        n_flat += 1 if how == "flat" else 0
         for _ in range(rng.randint(1, 2)):
             u = rng.uniform(0.2 * width, 0.8 * width)
             v = e["z"] + rng.uniform(0.4, max(0.6, e["h"] - 0.4))
@@ -2465,20 +2865,27 @@ def r_render_peel(ctx, rate=0.35):
             # the module, and a patch that big cannot read as anything but a
             # decal however it is shaded.
             ra = rng.uniform(0.18, 0.48)
-            _scar(ctx, fr, u, v, ra, ra * rng.uniform(0.8, 1.7),
-                  ctx["mats"]["brick_bare"], "peel", owner=e)
+            _scar(ctx, _stamp_frame(ctx, e, fr, u, v), u, v, ra,
+                  ra * rng.uniform(0.8, 1.7), face_mat, "peel", owner=e)
             n_patch += 1
         sides_hit.add(e["side"])
     # the windrow of fallen render at the foot of each affected wall
     m = ctx["info"]["masses"][f["mass"]]
-    for side in sides_hit:
+    for side in sorted(sides_hit):
         qf._heap(ctx, m, m["z0"], 0.0, 0.06, fill=False, sides=(side,),
                  depth_m=rng.uniform(0.16, 0.34), along=(-0.42, 0.42),
                  tag="peelrow",
                  mat_fn=lambda: (qf._a_mat(ctx, "dust") if rng.random() < 0.35
                                  else ctx["mats"]["soot_light"]))
-    ctx["notes"].append("render peel: {0} sheet(s) off, windrow on {1}"
-                        .format(n_patch, "/".join(sorted(sides_hit)) or "-"))
+    # THE FACE TALLY IS THE TRIPWIRE, in the sidecar of every bake: a module
+    # whose own map could not be read falls back to the one flat `spall_face`
+    # tone, and a regression to "every peel in the city wears the same
+    # material" is loud here instead of waiting for a review.
+    ctx["notes"].append(
+        "render peel: {0} sheet(s) off on {1} module(s) ({2} on the module's "
+        "own tone, {3} on the flat fallback), windrow on {4}".format(
+            n_patch, n_tone + n_flat, n_tone, n_flat,
+            "/".join(sorted(sides_hit)) or "-"))
 
 
 # ---------------------------------------------------------------------------
@@ -2834,6 +3241,88 @@ PAD_MARGIN = 0.45                       # housekeeping pad past the units
 BULKHEAD = (4.2, 3.0, 2.6)              # stair head: w, d, h
 
 
+def _roof_tiles(ctx, mass):
+    """`[(x0, y0, x1, y1, z), ...]` — one world-XY footprint + a
+    representative deck height PER `role="roof"` element of this mass,
+    cached in `ctx["cache"]`.
+
+    PER-TILE, not one bbox over the whole mass: `UsdGeom.BBoxCache` on the
+    mass would union every tier into the tallest one everywhere inside it —
+    exactly the bug this exists to fix (a multi-tier or L-shaped massing's
+    lower wing has its OWN roof piece(s), at its OWN height). Each tile's
+    footprint is the min/max of its OWN mesh points (never `BBoxCache`),
+    and its height is the mean of those points' Z — a flat deck tile's
+    points are all within a few mm of the same plane, so mean and max agree
+    to noise; mean is used because a stray point (a rim vertex, a lip)
+    should not set the whole tile's seat.
+    """
+    cache = ctx.setdefault("cache", {})
+    key = ("roof_tiles", mass)
+    if key in cache:
+        return cache[key]
+    from pxr import Usd, UsdGeom
+
+    from . import quake_flow as qf
+    stage = ctx["stage"]
+    tiles = []
+    for e in qf._els(ctx, mass=mass, role="roof"):
+        path = e["p"].get("prim_path")
+        if not path:
+            continue
+        prim = stage.GetPrimAtPath(path)
+        if not prim or not prim.IsValid() or not prim.IsActive():
+            continue
+        xlo = ylo = float("inf")
+        xhi = yhi = float("-inf")
+        zsum, zn = 0.0, 0
+        for sub in Usd.PrimRange(prim):
+            if not sub.IsA(UsdGeom.Mesh):
+                continue
+            raw = UsdGeom.Mesh(sub).GetPointsAttr().Get()
+            if not raw:
+                continue
+            xf = UsdGeom.Xformable(sub).ComputeLocalToWorldTransform(
+                Usd.TimeCode.Default())
+            for pt in raw:
+                w = xf.Transform(pt)
+                x, y, zz = float(w[0]), float(w[1]), float(w[2])
+                xlo, xhi = min(xlo, x), max(xhi, x)
+                ylo, yhi = min(ylo, y), max(yhi, y)
+                zsum += zz
+                zn += 1
+        if zn:
+            tiles.append((xlo, ylo, xhi, yhi, zsum / zn))
+    cache[key] = tiles
+    return tiles
+
+
+def _local_roof_z(ctx, mass, wx, wy, pad0=0.3, pad_max=4.0):
+    """The deck height of whichever roof tile's own XY footprint covers
+    `(wx, wy)`. `pad0`/`pad_max` forgive a query that lands just past a
+    tile's own measured edge (a mesh seam, a prop drawn near a parapet);
+    when several tiles legally overlap the padded box (a step between
+    tiers) the HIGHEST deck under the point wins — the one actually
+    reachable from directly above, where this dataset is shot from.
+
+    `None` means nothing found by `pad_max`: this position is off the
+    mass's real roof entirely — e.g. over the missing wing of an L — and
+    the caller drops the item rather than seat it on a made-up height
+    ("the roof props look floating since they are placed at roof height
+    but parts of the building that aren't roof height", user, 2026-08-31).
+    """
+    tiles = _roof_tiles(ctx, mass)
+    if not tiles:
+        return None
+    pad = float(pad0)
+    while pad <= pad_max:
+        hits = [z for (x0, y0, x1, y1, z) in tiles
+                if x0 - pad <= wx <= x1 + pad and y0 - pad <= wy <= y1 + pad]
+        if hits:
+            return max(hits)
+        pad *= 2.0
+    return None
+
+
 def dress_roof_urban(ctx, mass=None):
     """Structured rooftop plant. Replaces `quake_flow.dress_roof`.
 
@@ -2866,12 +3355,37 @@ def dress_roof_urban(ctx, mass=None):
     made, kind = [], ctx.setdefault("roof_plant_kind", {})
     mat_metal = ctx["mats"]["plant_metal"]
     mat_deck = ctx["mats"]["dark_concrete"]
+    # LOCAL SEATING, GAC PATH ONLY. `z` above is ONE height for the whole
+    # mass; on a multi-tier or L-shaped whole-asset building a prop drawn
+    # over a lower wing floats at the tall tier's height instead ("the roof
+    # props look floating since they are placed at roof height but parts of
+    # the building that aren't roof height", user, 2026-08-31). Gated on
+    # `soot_prebaked` being a real `set`/`frozenset` (only `gac_fire.
+    # burn_gac` sets it that way) so a kit building's `_seat_z` always
+    # returns the same flat `z` it always did — byte-identical,
+    # `kit_burn_probe.py` — because every kit style is a plain box with one
+    # true roof height everywhere on it anyway.
+    is_gac = isinstance(ctx.get("soot_prebaked"), (set, frozenset))
+    n_dropped = [0]
 
-    def _box(lx, ly, lz, sx, sy, sz, mat, tag):
+    def _seat_z(wx, wy):
+        if not is_gac:
+            return z
+        zl = _local_roof_z(ctx, mass, wx, wy)
+        if zl is None:
+            n_dropped[0] += 1
+            return None
+        return zl + 0.02
+
+    def _box(lx, ly, off, sx, sy, sz, mat, tag):
         wx, wy = qf._to_world(m, lx, ly)
+        zb = _seat_z(wx, wy)
+        if zb is None:
+            return None
         path = "{0}/{1}_{2}_{3}".format(ctx["parent"], tag, ctx["tag"],
                                         qf._uid(ctx))
-        qf._box(ctx["stage"], path, wx, wy, lz, sx, sy, sz, m["yaw"], mat)
+        qf._box(ctx["stage"], path, wx, wy, zb + off, sx, sy, sz, m["yaw"],
+                mat)
         ctx["authored"].append(path)
         return path
 
@@ -2886,14 +3400,16 @@ def dress_roof_urban(ctx, mass=None):
         bly = rng.uniform(-D / 2 + bd / 2 + 1.0, D / 2 - bd / 2 - 1.0)
         blx = (-W / 2 + bw / 2 + inset) if side == "W" else (W / 2 - bw / 2 - inset)
     if W > bw + 4 and D > bd + 4:
-        pth = _box(blx, bly, z + bh / 2.0, bw, bd, bh, mat_deck, "bulkhead")
-        made.append(pth)
-        kind[pth] = "bulkhead"
-        # its own parapet-height upstand roof, so it is not a bare box
-        pth = _box(blx, bly, z + bh + 0.10, bw + 0.30, bd + 0.30, 0.20,
-                   mat_deck, "bulkcap")
-        made.append(pth)
-        kind[pth] = "bulkhead"
+        pth = _box(blx, bly, bh / 2.0, bw, bd, bh, mat_deck, "bulkhead")
+        if pth:
+            made.append(pth)
+            kind[pth] = "bulkhead"
+            # its own parapet-height upstand roof, so it is not a bare box
+            pth = _box(blx, bly, bh + 0.10, bw + 0.30, bd + 0.30, 0.20,
+                       mat_deck, "bulkcap")
+            if pth:
+                made.append(pth)
+                kind[pth] = "bulkhead"
 
     # --- the condenser rows -----------------------------------------------
     # laid ALONG the building's long axis, on the opposite half from the
@@ -2913,18 +3429,25 @@ def dress_roof_urban(ctx, mass=None):
         for k in range(per_row):
             a = -span / 2.0 + k * AC_PITCH
             lx, ly = (a, cr) if long_x else (cr, a)
-            path = "{0}/ac_{1}_{2}".format(ctx["parent"], ctx["tag"],
-                                           qf._uid(ctx))
             wx, wy = qf._to_world(m, lx, ly)
-            # the housekeeping pad under the row, once per row
+            # the housekeeping pad under the row, once per row — its OWN
+            # position, not the first unit's: the pad runs the row's full
+            # span and can cover ground the row's own units don't
             if k == 0:
                 plx, ply = ((0.0, cr) if long_x else (cr, 0.0))
                 pw = (span + AC_W + 2 * PAD_MARGIN) if long_x else (AC_D + 2 * PAD_MARGIN)
                 pd = (AC_D + 2 * PAD_MARGIN) if long_x else (span + AC_W + 2 * PAD_MARGIN)
-                made.append(_box(plx, ply, z + 0.06, pw, pd, 0.12,
-                                 mat_deck, "acpad"))
-                kind[made[-1]] = "pad"
-            if qf._prop(ctx["stage"], path, qf._AC_UNIT, wx, wy, z + 0.12,
+                padp = _box(plx, ply, 0.06, pw, pd, 0.12, mat_deck, "acpad")
+                if padp:
+                    made.append(padp)
+                    kind[padp] = "pad"
+            zb = _seat_z(wx, wy)
+            if zb is None:
+                n_dropped[0] += 1
+                continue
+            path = "{0}/ac_{1}_{2}".format(ctx["parent"], ctx["tag"],
+                                           qf._uid(ctx))
+            if qf._prop(ctx["stage"], path, qf._AC_UNIT, wx, wy, zb + 0.12,
                         m["yaw"] + (0.0 if long_x else 90.0), 1.0, rng):
                 qf._b_bind_over(ctx["stage"], path, mat_metal)
                 made.append(path)
@@ -2939,11 +3462,15 @@ def dress_roof_urban(ctx, mass=None):
         tlx = max(-W / 2 + tr + 1.2, min(W / 2 - tr - 1.2, tlx))
         tly = max(-D / 2 + tr + 1.2, min(D / 2 - tr - 1.2, tly))
         wx, wy = qf._to_world(m, tlx, tly)
-        for pth in qf._tank(ctx, wx, wy, z, r=tr, h=rng.uniform(2.2, 2.8),
-                            yaw=m["yaw"]):
-            qf._b_bind_over(ctx["stage"], pth, mat_metal)   # steel, not cedar
-            made.append(pth)
-            kind[pth] = "tank"
+        zb = _seat_z(wx, wy)
+        if zb is None:
+            n_dropped[0] += 1
+        else:
+            for pth in qf._tank(ctx, wx, wy, zb, r=tr, h=rng.uniform(2.2, 2.8),
+                                yaw=m["yaw"]):
+                qf._b_bind_over(ctx["stage"], pth, mat_metal)   # steel, not cedar
+                made.append(pth)
+                kind[pth] = "tank"
 
     # --- vent stacks, in a line off the bulkhead --------------------------
     for k in range(rng.randint(2, 4)):
@@ -2952,10 +3479,14 @@ def dress_roof_urban(ctx, mass=None):
         vlx = max(-W / 2 + 1.0, min(W / 2 - 1.0, vlx + (2.0 if side in ("S", "N") else 0.0)))
         vly = max(-D / 2 + 1.0, min(D / 2 - 1.0, vly + (2.0 if side in ("E", "W") else 0.0)))
         wx, wy = qf._to_world(m, vlx, vly)
+        zb = _seat_z(wx, wy)
+        if zb is None:
+            n_dropped[0] += 1
+            continue
         path = "{0}/vent_{1}_{2}".format(ctx["parent"], ctx["tag"],
                                          qf._uid(ctx))
         h = rng.uniform(0.7, 1.4)
-        qf._cyl(ctx["stage"], path, (wx, wy, z), (wx, wy, z + h), 0.16,
+        qf._cyl(ctx["stage"], path, (wx, wy, zb), (wx, wy, zb + h), 0.16,
                 mat_metal)
         ctx["authored"].append(path)
         made.append(path)
@@ -2976,8 +3507,10 @@ def dress_roof_urban(ctx, mass=None):
     ctx["roof_plant_mass"] = mass
     ctx["notes"].append(
         "roof plant: bulkhead on {0}, {1} row(s) of condensers on a pad, "
-        "{2} fixed + {3} loose item(s)".format(side, rows, len(fixed),
-                                               len(plant)))
+        "{2} fixed + {3} loose item(s){4}".format(
+            side, rows, len(fixed), len(plant),
+            ", {0} dropped (no local roof support under them)".format(
+                n_dropped[0]) if n_dropped[0] else ""))
     return plant
 
 
@@ -3352,6 +3885,33 @@ def r_expose_interior(ctx, mass=None, beams=True, rubble=True):
         # authored at the failed storey's level, 3 m over the heap
         # (SM_Building_09 F6, fire_row1, 2026-08-30).
         top_s = min(top_s, int(ctx["collapse_s0"]) - 1)
+    if isinstance(ctx.get("soot_prebaked"), (set, frozenset)):
+        # HARD INVARIANT: on a level the building has NOT collapsed, a catch
+        # floor may never land at or above the real roof deck. It very
+        # nearly always did on a GAC building whose fire band already
+        # reaches the building's real top storey (an `origin` request past
+        # `n_storeys` clamps there — this building asked for storey 18 on a
+        # 16-storey block). `gac_slice.register_style` counts storeys off
+        # the RAW `grid_for` grid, one entry more than `gac_fire.
+        # mass_from_grid`'s own `levels` (which drops any mark within 0.5 m
+        # of the bbox top as the parapet coping, not a floor) — so the
+        # rebuilt runtime mass this function reads (`ctx["info"]["masses"]`,
+        # built post-slice by `quake_flow._mass_specs`) carries one PHANTOM
+        # storey beyond every real floor, sitting at the parapet coping. The
+        # `len(m["levels"]) - 1` clamp above is an index bound, not a floor
+        # bound, so it happily legalises `top_s` landing on that phantom
+        # entry instead of catching the walk-off — one storey pitch above
+        # the last real floor and (here) 2.4 m above the measured `deck_z`,
+        # with no `fire["footprints"]` entry for it either, so `_plate`
+        # fell back to the full W x D box: a slab of "roof debris" sitting
+        # on an intact deck (SM_Building_11 F4, o18-of-16, user review
+        # 2026-08-31 — "roof seems to have a bunch of debris ... building
+        # can't just have debris on its roof for no reason"). Walk back
+        # down through real storeys until the candidate is physically below
+        # the deck; there is no floor above the real top one to catch on.
+        deck_ceiling = ctx["fire"].get("deck_z", m["top"])
+        while top_s > 0 and m["levels"][top_s] >= deck_ceiling - 0.05:
+            top_s -= 1
     have = {k[1] for k, v in (fit.get("slabs") or {}).items()
             if k[0] == mass and v and stage.GetPrimAtPath(v).IsValid()
             and stage.GetPrimAtPath(v).IsActive()}
@@ -4738,9 +5298,17 @@ def burn_building(stage, parent, style, placements, x, y, yaw, level,
     # review, 2026-08-30, `fit_g6/col_main_10_2_1` on SM_Building_02 F5c).
     # `ctx["fire"]["footprints"]` is a key only `gac_fire.prepare` ever sets,
     # so this is None on the kit path and nothing there moves.
+    # THE 2 M ROOF SHORTEN IS GATED TO THE SLICED PATH ONLY, same rule as
+    # `dress_roof_urban`'s own local-seating fix just below: `soot_prebaked`
+    # is a real `set`/`frozenset` only when `gac_fire.burn_gac` set it, so
+    # this reads `col_roof_shorten=0.0` (the old height, unconditionally)
+    # for every kit-building call — byte-identical, `kit_burn_probe.py`.
+    is_gac = isinstance(ctx.get("soot_prebaked"), (set, frozenset))
     ctx["fit"] = qf.fit_interior(stage, parent, info, mats, rng,
                                  storeys=fit_storeys, tag=tag,
-                                 footprint=ctx["fire"].get("footprints"))
+                                 footprint=ctx["fire"].get("footprints"),
+                                 col_roof_shorten=(qf.COL_ROOF_SHORTEN_M
+                                                   if is_gac else 0.0))
     dress_roof_urban(ctx)
     ctx["fit"]["all"] += list(ctx.get("roof_plant", []))
     for name, kw in recipes:

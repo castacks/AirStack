@@ -734,6 +734,18 @@ COLUMN_W = 0.45
 # (`COLUMN_W * sqrt(2) / 2` = 0.32 m) whatever the mass yaw, so the whole
 # box lands inside the hull rather than just its centre.
 FIT_FOOTPRINT_M = 0.35
+# COLUMNS THAT REACH THE ROOF/DECK LINE POKE THROUGH IT. `fit_interior`'s
+# top-storey column runs from its own slab all the way to `m["top"]` -- the
+# roof/deck surface -- so its capital sits exactly at deck height and any
+# roof plant or parapet authored above it reads as growing OUT of a pillar
+# (user, 2026-08-31, `gac_SM_Building_28_F4_o22_SEW_s219`: "the structural
+# pillars look to be sticking out of the roof ... the ones that go to the
+# roof be 2 m shorter than they are. Won't make a visual difference to
+# buildings that even have them exposed"). Opt-in via `fit_interior(
+# col_roof_shorten=...)`; the default (0.0) authors exactly the old height,
+# so every caller that does not pass it -- every quake caller, and the
+# KIT-BUILDING fire path, which is frozen -- is byte-identical.
+COL_ROOF_SHORTEN_M = 2.0
 
 
 def _inside_inset(poly, x, y, inset):
@@ -824,7 +836,8 @@ def _prop(stage, path, usd, x, y, z_floor, yaw, scale, rng):
 
 
 def fit_interior(stage, parent, info, mats, rng, storeys=None,
-                 columns=True, partitions=True, tag="b", footprint=None):
+                 columns=True, partitions=True, tag="b", footprint=None,
+                 col_roof_shorten=0.0):
     """Author slabs (+ columns, partitions) for every mass of one building.
 
     Returns {"slabs": {(mass, storey): path}, "columns": {(mass, storey):
@@ -843,12 +856,28 @@ def fit_interior(stage, parent, info, mats, rng, storeys=None,
     nothing and authors exactly the grid this has always authored; a storey
     missing from the mapping is likewise unclamped. No rng is drawn in the
     column loop, so a clamped run leaves every later draw untouched.
+
+    `col_roof_shorten` (metres, default 0.0 — no-op) shortens ONLY the
+    TOP-STOREY run of a mass's columns — the ones whose height is measured
+    to `m["top"]` (the roof/deck line) rather than to the next slab down —
+    by this much, base unchanged, so the capital stops short of the roof
+    instead of piercing it (see `COL_ROOF_SHORTEN_M`'s own comment).
+    Mid-building columns are untouched either way, matching the user's own
+    call: shortening "won't make a visual difference to buildings that even
+    have them exposed."
     """
     from pxr import Sdf, UsdGeom
 
     btype = info["type"]
     t_slab = SLAB_T[btype]
-    slab_mat = mats["timber"] if btype == "urm" else mats["concrete"]
+    # WORLD-PROJECTED, not the raw referenced pack. Every slab/column here is
+    # an authored `_box` with no UVs, and `mats["concrete"]` is a REFERENCED
+    # `Damaged_Concrete_Floor.usda` that samples UV space on a mesh like
+    # that — one flat grey card, not poured-concrete texture (brick-fix
+    # round; see `_C_TEX`/`_c_look_at`, and `quake_rubble_usd._beam_look`,
+    # which already proved this same map/recipe on authored concrete bars).
+    concrete_look = _c_look_at(stage, parent, mats, "concrete")
+    slab_mat = mats["timber"] if btype == "urm" else concrete_look
     out = {"slabs": {}, "columns": {}, "partitions": [], "props": {}, "all": []}
     UsdGeom.Scope.Define(stage, Sdf.Path("{0}/fit_{1}".format(parent, tag)))
     pool = []
@@ -873,7 +902,14 @@ def fit_interior(stage, parent, info, mats, rng, storeys=None,
                 # irregular footprint (see `FIT_FOOTPRINT_M`)
                 fp = (footprint or {}).get(i)
                 pitch = max(4.0, float(m["module"]))
-                h_st = (m["levels"][i + 1] if i + 1 < n_lv else m["top"]) - z
+                reaches_roof = (i + 1 >= n_lv)
+                h_st = (m["levels"][i + 1] if not reaches_roof else m["top"]) - z
+                h_col = h_st - t_slab
+                if reaches_roof and col_roof_shorten > 0.0:
+                    # TOP END DOWN, BASE UNCHANGED — the column still reads
+                    # as resting on its own floor, just short of the
+                    # roofline it used to pierce.
+                    h_col = max(0.5, h_col - col_roof_shorten)
                 nx = max(2, int(round(W / pitch)) + 1)
                 ny = max(2, int(round(D / pitch)) + 1)
                 for a in range(nx):
@@ -889,9 +925,9 @@ def fit_interior(stage, parent, info, mats, rng, storeys=None,
                             continue        # outside the storey's own plan
                         cpath = "{0}/fit_{1}/col_{2}_{3}_{4}_{5}".format(
                             parent, tag, mtag, i, a, b)
-                        _box(stage, cpath, wx, wy, z + (h_st - t_slab) / 2.0,
-                             COLUMN_W, COLUMN_W, h_st - t_slab, m["yaw"],
-                             mats["concrete"])
+                        _box(stage, cpath, wx, wy, z + h_col / 2.0,
+                             COLUMN_W, COLUMN_W, h_col, m["yaw"],
+                             concrete_look)
                         cols.append(cpath)
                 out["columns"][(mtag, i)] = cols
                 out["all"].extend(cols)
@@ -1082,6 +1118,16 @@ def _t_core_mat(stage, parent, mats, btype, rng):
         # the pile something to catch the light on.
         key = ("mortar" if r < 0.35 else "dark_concrete" if r < 0.63
                else "brick" if r < 0.85 else "plaster_dusty")
+    # WORLD-PROJECTED, not the raw referenced pack. `mats["brick"]` is a
+    # REFERENCED `Brick_Wall_Worn.usda` that samples UV space; every core
+    # face this binds onto is an invented `GeomSubset` on a fracture
+    # fragment, which carries no UVs at all (`fracture._write_mesh` authors
+    # points/faces only) — so the raw reference rendered one flat brown card
+    # per subset instead of brick coursing (brick-fix round; see
+    # `_C_TEX`/`_c_look_at`, the same recipe `quake_rubble_usd._beam_look`
+    # already proved for the same map on authored concrete bar pieces).
+    if key == "brick":
+        return _c_look_at(stage, parent, mats, "brick")
     return mats.get(key) or mats.get("plaster")
 
 
@@ -1127,6 +1173,12 @@ def _chunk_material(stage, parent, cache, texture, mats, btype, rng,
             # is still standing on the building.
             key = ("dark_concrete" if r < 0.5
                    else ("mortar" if r < 0.8 else "plaster"))
+        # WORLD-PROJECTED, not the raw referenced pack — same reasoning as
+        # `_t_core_mat` just above: this binds onto a fracture chunk with no
+        # UVs, and `mats["brick"]`'s referenced material samples UV space
+        # there (one flat card), not the coursing `project_uvw` promises.
+        if key == "brick":
+            return _c_look_at(stage, parent, mats, "brick")
         return mats.get(key)
     return _clad_material(stage, parent, cache, texture)
 
@@ -2117,6 +2169,15 @@ def _p_lintels(ctx, m, n=None, base=None, tag="lintel"):
              sx, sy, sz, yaw_deg=rng.uniform(0.0, 360.0),
              mat=_a_mat(ctx, "brick_dusty" if rng.random() < 0.5 else "dust"))
         made.append(path)
+    # ROUND 6 — CHIP. These ARE the straight-edged bars the user pointed at in
+    # the b0/b1 DG5 shots: 3-6 per masonry heap, 1.1-2.2 m long, and until now
+    # authored as literal cuboids and never fractured (the docstring above says
+    # so in as many words: "authored, not cut"). A dressed stone that has been
+    # through a collapse is not cut, but it is not perfect either — its arrises
+    # spall and its bed ends snap. `spec_for_shape` gives the long lintel runs
+    # the full `_CHIP_PRISM` gouge pass and the 0.36-0.58 m quoins the small
+    # ladder.
+    _chip_authored(ctx, made, why="lintel")
     ctx["loose"] += made
     return made
 
@@ -2285,6 +2346,115 @@ def _box_dims(stage, path):
             max(zs) - min(zs), yaw)
 
 
+# ---------------------------------------------------------------------------
+# ROUND 6 — CHIPPING THE AUTHORED CUBOIDS THIS FILE EMITS
+# ---------------------------------------------------------------------------
+#
+# WHY THIS FILE NEEDED WIRING AT ALL. `fracture.chip_box` has existed since
+# round 5 and was wired into four emitters — `quake_rubble_usd._box`, the
+# fit-out slabs a collapse drops, the cells `_break_box` leaves, and
+# `quake_sliced`. It was never wired into THIS file, which is where most of
+# the earthquake path's cuboids are authored: before this round
+# `grep -c chip quake_flow.py` was 1, and that one hit was a comment. So the
+# lintel bars, the render spall bands, the interior litter, the lifted paving
+# slabs and the shattered column chunks all shipped as perfect rectangular
+# boxes, which is the "a lot of perfect rectangular debris" the user reported
+# on the first 500 m OSMO scene and again on the DG5 shots.
+#
+# EVERYTHING GOES THROUGH `quake_collapse._chip_pieces`, deliberately:
+#
+#   * it is already gated on `_RUBBLE_MODE == "v2"` AND `chips_enabled()`
+#     (`QC_CHIP=0`), so this file gains no new switch and no new default;
+#   * `_chip_prim`'s REFUSAL LADDER is the safety rule and it is not
+#     duplicated here — a mesh with real UVs (kit / sliced art, where chipping
+#     would silently drop the cladding), anything over `CHIP_MAX_FACES`, any
+#     face that is not a triangle or a quad, and any open shell are all passed
+#     through untouched. A clipped shell handed to VTK is the
+#     `vtkStripper::GetPointCells` SIGSEGV in the round-4 catalogue, so
+#     "pass it through" is the required behaviour, not a fallback;
+#   * `spec_for_shape` picks the table entry AND the size ladder, so a 6 cm
+#     crumb costs 42 triangles and a 1.8 m lintel gets the full gouge pass.
+#
+# WHAT IS DELIBERATELY *NOT* CHIPPED, and why, is recorded at each call site.
+# The short version: soil and ground relief are not cast concrete (`_c_clods`,
+# `_c_fissures`, `_c_overturn_ground`), sheet metal does not spall
+# (`r_signage_fail`), a surviving shear core is not debris (`_shaft`, which
+# already gets a ragged crown from `fracture_partial`), and an INTACT roof
+# slab must stay intact (`_roof_box` — its broken pieces are chipped, the
+# whole plate is not).
+
+
+def _chip_authored(ctx, paths, timber=False, tessellate=True, why=""):
+    """Chip authored `_box` cuboids in place. Returns how many changed.
+
+    Per-piece routing: each path is measured with `_box_dims` and handed the
+    `_CHIP_*` entry `quake_collapse.spec_for_shape` picks for that shape and
+    size, so one call site can hold a mixed bag (a lintel, a quoin and a
+    coping stone; a litter box and a slab fragment) without knowing anything
+    about the tables.
+
+    `tessellate=True` is the default because these are 8-corner `_box`
+    meshes and an 8-corner box has nothing for the roughening or gouge pass to
+    displace — `_chip_prim`'s own note. Pass False for a piece that is already
+    a fracture cell (it has its own vertices, and rebuilding it from its bbox
+    would throw its shape away).
+
+    Never raises, never logs per piece: it tallies into `ctx` so `damage()`
+    can print ONE proof line per building. A chip is cosmetic — losing one
+    must never cost a bake.
+    """
+    if not paths:
+        return 0
+    try:
+        from . import quake_collapse as qc
+    except Exception:
+        return 0
+    n = 0
+    ok = []
+    for p in paths:
+        if not p:
+            continue
+        try:
+            _cx, _cy, _cz, sx, sy, sz, _yaw = _box_dims(ctx["stage"], p)
+        except Exception:
+            continue                       # not one of our boxes; skip it
+        if not (sx > 0.0 and sy > 0.0 and sz > 0.0):
+            continue
+        spec = qc.spec_for_shape((sx, sy, sz), timber=timber)
+        try:
+            n += qc._chip_pieces(ctx, [p], spec, tessellate=tessellate)
+        except Exception as exc:           # a chip is cosmetic, always
+            print("[quake_flow] chip skipped on {0}: {1}".format(p, exc))
+        ok.append(p)
+    ctx["_chip_n"] = ctx.get("_chip_n", 0) + n
+    ctx["_chip_m"] = ctx.get("_chip_m", 0) + (len(ok) - n)
+    if why:
+        ctx.setdefault("_chip_by", {})
+        a, b = ctx["_chip_by"].get(why, (0, 0))
+        ctx["_chip_by"][why] = (a + n, b + len(ok) - n)
+    return n
+
+
+def _chip_report(ctx):
+    """One proof line per building, so a scene bake LOG shows the chips fired.
+
+    Round 5 shipped with the wiring believed done and no positive evidence in
+    any log that it ran; that is how three review rounds went by with the
+    pillars still cuboids. `_author_large` and `_author_floors` each print
+    their own line for the same reason — this is `quake_flow`'s.
+    """
+    n, m = int(ctx.get("_chip_n", 0)), int(ctx.get("_chip_m", 0))
+    if not (n or m):
+        return
+    by = ctx.get("_chip_by") or {}
+    detail = ", ".join("{0} {1}/{2}".format(k, v[0], v[0] + v[1])
+                       for k, v in sorted(by.items()))
+    line = "[chip] quake_flow: {0} chipped / {1} passed{2}".format(
+        n, m, (" (" + detail + ")") if detail else "")
+    print(line)
+    ctx.setdefault("notes", []).append(line)
+
+
 def _split_strip(ctx, path, m, side, depth, mat):
     """Cut a `_box` into an untouched REMAINDER and a STRIP `depth` wide
     along the mass's `side`; deactivate the original. Returns
@@ -2333,7 +2503,6 @@ def _ragged_slabs(ctx, mass, side, storeys, depth=(0.8, 2.6)):
     rng = ctx["rng"]
     m = ctx["info"]["masses"][mass]
     fit = ctx["fit"]
-    mats = ctx["mats"]
     btype = ctx["info"]["type"]
     # LOOSE slab pieces are debris, so they take the dark debris tints; the
     # SURVIVING cells are rebound to the slab's own material (`static_mat`).
@@ -2357,7 +2526,11 @@ def _ragged_slabs(ctx, mass, side, storeys, depth=(0.8, 2.6)):
         d = rng.uniform(*depth)
         keep_m = UsdShade.MaterialBindingAPI(
             ctx["stage"].GetPrimAtPath(pth)).ComputeBoundMaterial()[0]
-        rem, strip = _split_strip(ctx, pth, m, side, d + 2.2, mats["concrete"])
+        # WORLD-PROJECTED fallback (only used when `pth` had no bound
+        # material for `_split_strip` to inherit) — `mats["concrete"]` on
+        # this authored, UV-less slab box would be the raw referenced pack,
+        # one flat card (brick-fix round; see `_c_look`/`_C_TEX`).
+        rem, strip = _split_strip(ctx, pth, m, side, d + 2.2, _c_look(ctx, "concrete"))
         st, lo = _break_split(ctx, strip, 12 + rng.randrange(5),
                               _edge_judge(m, side, d, rng, btype=btype),
                               slab_mat, min_volume_frac=0.0008,
@@ -2385,7 +2558,7 @@ def _ragged_slabs(ctx, mass, side, storeys, depth=(0.8, 2.6)):
         if near - half > 1.0:
             continue
         d = rng.uniform(*depth)
-        rem, strip = _split_strip(ctx, box, m, side, d + 2.2, mats["concrete"])
+        rem, strip = _split_strip(ctx, box, m, side, d + 2.2, _c_look(ctx, "concrete"))
         bm = UsdShade.MaterialBindingAPI(ctx["stage"].GetPrimAtPath(strip)).ComputeBoundMaterial()[0]
         st, lo = _break_split(ctx, strip, 12 + rng.randrange(5),
                               _edge_judge(m, side, d, rng, btype=btype),
@@ -2630,12 +2803,21 @@ def _disturb_interior(ctx, mass, storeys, side=None):
             # DUSTY, NOT BRIGHT PLASTER. This litter is seen from NADIR
             # through a roof hole as often as it is seen in shadow behind a
             # broken wall, and at 0.66 luma in sunlight it is white confetti.
-            mat = (mats["brick"] if (ctx["info"]["type"] == "urm" and rng.random() < 0.5)
+            # WORLD-PROJECTED brick, not the raw referenced pack — this box
+            # is authored (`_box`) with no UVs (brick-fix round).
+            mat = (_c_look(ctx, "brick") if (ctx["info"]["type"] == "urm" and rng.random() < 0.5)
                    else (_a_mat(ctx, "plaster_dusty") if rng.random() < 0.45
                          else (_a_mat(ctx, "dust") if rng.random() < 0.4
                                else _a_mat(ctx, "concrete_dusty"))))
             _box(ctx["stage"], path, wx, wy, z + sz * 0.2, sz, sz * rng.uniform(0.5, 1.0),
                  sz * rng.uniform(0.3, 0.6), rng.uniform(0, 180), mat)
+            # ROUND 6 — CHIP, on the SMALL ladder. This is 12-55 cm litter and
+            # there are `W*D/100*9` of it per storey, so the full gouge budget
+            # would cost a seven-storey building several hundred thousand
+            # triangles for pieces that are a few pixels from a drone. What has
+            # to change at this size is the SILHOUETTE, and
+            # `spec_for_shape`'s tiny/small tiers buy exactly that.
+            _chip_authored(ctx, [path], why="litter")
             ctx["authored"].append(path)
             ctx["static_extra"].append(path)
 
@@ -4887,7 +5069,6 @@ def _corner_break(ctx, m, cx, cy, c_sides, reach, path, mat_fn):
     former closure variable (`m`, `cx`, `cy`, `c_sides`, `reach`) now an
     explicit parameter; the body is otherwise unchanged."""
     rng = ctx["rng"]
-    mats = ctx["mats"]
     btype = ctx["info"]["type"]
     rem = path
     statics, loose = [], []
@@ -4895,14 +5076,17 @@ def _corner_break(ctx, m, cx, cy, c_sides, reach, path, mat_fn):
     for sd in c_sides:
         # narrow: `reach` is already a bay and a half; the strip only
         # has to hold the notch's ragged edge, not half the roof
+        # WORLD-PROJECTED fallback — `mats["concrete"]` here would be the
+        # raw referenced pack on an authored, UV-less roof/slab box (brick-
+        # fix round; see `_c_look`/`_C_TEX`).
         rem, strip = _split_strip(ctx, rem, m, sd, min(reach * 0.75 + 0.5,
                                                         0.35 * (m["W"] if sd in ("S", "N") else m["D"])),
-                                  mats["concrete"])
+                                  _c_look(ctx, "concrete"))
         # ...AND ONLY THE CORNER'S LENGTH OF IT. A strip the full length
         # of the side leaves a crack line right across the roof; cut it
         # again along the OTHER corner side so the far part stays whole.
         far_rem, strip = _split_strip(ctx, strip, m, other[sd], reach + 3.4,
-                                      mats["concrete"])
+                                      _c_look(ctx, "concrete"))
         statics.append(far_rem)
         rr = reach + rng.uniform(0.0, 1.5)
         # THE WOBBLE RUNS IN ARC LENGTH, NOT IN RADIANS. `_wander` keyed on
@@ -4925,6 +5109,13 @@ def _corner_break(ctx, m, cx, cy, c_sides, reach, path, mat_fn):
                               **_p_slab_kw(ctx, rough=ROUGH_STRIP_M))
         statics += st
         loose += lo
+        # ROUND 6 — CHIP THE FRAGMENTS, NOT THE REMAINDER. `st`/`lo` are the
+        # notch's broken pieces; `rem` and `far_rem` are the parts of the roof
+        # slab that SURVIVED, and the whole point of `_split_strip` is that
+        # they stay one clean plate ("an intact roof stays one clean slab
+        # instead of a crack mosaic"). Biting scallops out of an undamaged
+        # roof would undo that.
+        _chip_authored(ctx, st + lo, tessellate=False, why="cornerfrag")
         _a_edge_bars(ctx, st, btype, m, sd)
     return rem, statics, loose
 
@@ -5102,7 +5293,17 @@ def _roof_box(ctx, e, thick=None):
     convex-hull collider"), so a roof that has to break or move is first
     replaced by a 0.25 m box at its own world bbox, bound to the tile's own
     texture (triplanar) so it still reads as that roof. Returns the box
-    path, or None if the piece could not be measured."""
+    path, or None if the piece could not be measured.
+
+    ROUND 6 — NOT CHIPPED HERE. This function produces the INTACT roof: a
+    single slab at the tile's own footprint, up to 22 x 18 m, which most
+    recipes then leave alone or hand to `_corner_break` / `_break_box_like`.
+    Chipping it would bite scallops out of a roof that is supposed to be
+    undamaged, and on a 22 m plate the ladder's footprint cap makes every
+    gouge a 20 cm dimple in an ocean of flat deck — cost with no read. The
+    BROKEN roof pieces are chipped, at the sites that break them
+    (`_corner_break`'s fragments, `_break_box`'s cells); the whole plate is
+    not."""
     from pxr import Gf, Usd, UsdGeom
     from . import damage
     stage = ctx["stage"]
@@ -5529,7 +5730,17 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
     collar = ret["all"]
     if storey > 0:
         # at a MID storey the collar is authored in the air beside the
-        # crushed band; let it fall to the base rather than hover
+        # crushed band; let it fall to the base rather than hover. The
+        # mound/apron are `_author_heightfield`'s world-baked mesh with no
+        # xform op — safe forever as a STATIC collider, fatal as a loose
+        # RigidBody (settle's random kick swings a 100 m+ arm and throws it;
+        # round 7, s4g2/office_DG4 `collar_1_mound`). Recentre those two
+        # paths to a local frame BEFORE they join `ctx["loose"]`; the other
+        # `collar` paths already carry their own translate/rotate/scale and
+        # are untouched by this call.
+        from . import quake_rubble_usd
+        quake_rubble_usd.recentre_for_loose(
+            ctx["stage"], (ret.get("mound"), ret.get("apron")))
         ctx["static_extra"] = [q for q in ctx["static_extra"] if q not in set(collar)]
         ctx["loose"] += collar
     for pth in list(fit["partitions"]):
@@ -5543,12 +5754,29 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
     for cpath in fit["columns"].get((mass, storey), []):
         cx_, cy_, cz_, sx_, sy_, sz_, yaw_ = _box_dims(ctx["stage"], cpath)
         if geo["mode"] == "sway":
+            # ROUND 6 — CHIP THE RACKED COLUMN. This is `fit_interior`'s
+            # standing column, and it is chipped HERE rather than at author
+            # time on purpose: `fit_interior` emits nx*ny per storey over every
+            # storey (over a hundred on a seven-storey plan) and all but the
+            # soft storey's are buried inside an intact building where nothing
+            # can see them. A column that has hinged through a soft storey is
+            # the one the opened elevation puts on camera, and a hinged RC
+            # column spalls its cover at the hinge. Chipping the exposed
+            # handful costs a hundredth of chipping the frame.
             M = _rot_about((cx_, cy_, z_lo), geo["axis"], geo["phi_deg"])
+            _chip_authored(ctx, [cpath], why="column")
             _transform_prims(ctx["stage"], [cpath], M)
             ctx["static_extra"].append(cpath)
             continue
         made = _break_box(ctx["stage"], cpath, 4, rng, nrng,
                           _a_mat(ctx, "concrete_dusty"), _a_mat(ctx, "dust"))
+        # ROUND 6 — and CHIP THE CHUNKS IT SHATTERS INTO. `_break_box` cells
+        # are Voronoi cells of a cuboid, i.e. near-cuboid prisms: the exact
+        # population `quake_collapse._author_floors` already chips for the
+        # floor decks, at a call site that was simply missed.
+        # `tessellate=False`: a cell already HAS its own vertices, and
+        # rebuilding it from its bbox would throw its cut shape away.
+        _chip_authored(ctx, made, tessellate=False, why="colchunk")
         lx_, ly_ = _to_local(m, cx_, cy_)
         residual = _soft_storey_residual(geo, m, lean_side, _side_of(m, lx_, ly_),
                                          lx_, ly_)
@@ -5710,6 +5938,10 @@ def r_pancake(ctx, mass="main", pitch_m=None):
             for cpath in cols:
                 made = _break_box(stage, cpath, 3, rng, nrng,
                                   _a_mat(ctx, "concrete_dusty"), _a_mat(ctx, "dust"))
+                # ROUND 6 — CHIP. Same population and same reason as the
+                # soft-storey shatter above: these short column chunks end up
+                # at eye level in the pancake heap.
+                _chip_authored(ctx, made, tessellate=False, why="colchunk")
                 ctx["loose"] += made
         # PARTITIONS COME DOWN WITH THE FLOORS. Left static they stayed at
         # their storey heights over the stack — a grid of white panels in
@@ -6923,6 +7155,13 @@ def _buckled_pavement(ctx, m, n, sides=None, lift=(0.1, 0.35), tilt=(4.0, 14.0))
                        rng.uniform(*tilt))
         _transform_prims(ctx["stage"], [path], M)
         made.append(path)
+    # ROUND 6 — CHIP. A paving slab that has been heaved up and tipped has
+    # CRACKED, and the giveaway that it has not is four ruler edges on a
+    # 1.4-2.6 m plate lying at an angle where the light catches every one of
+    # them. It is 0.14 m thick, so `gouge_arrays`' thin-axis rule keeps the
+    # wearing surface flat and puts the damage on the edge runs, which is
+    # where a lifted slab actually breaks.
+    _chip_authored(ctx, made, why="pavement")
     ctx["authored"] += made
     ctx["static_extra"] += made
     return made
@@ -7100,22 +7339,38 @@ _C_TEX = {
                "megascans/Crushed_Asphalt_Ground/T_sjyjcbja_8K_B.png"),
               (0.30, 0.30, 0.30), 0.95, (0.28, 0.28), 0.35),
     "brick": ("megascans/Brick_Wall_Worn/T_sexkaitb_1K_B.jpg", (0.48, 0.40, 0.36), 0.92, (0.70, 0.70), 0.15),
+    # WORLD-PROJECTED CONCRETE (brick-fix round). Every raw-referenced
+    # `mats["concrete"]` bind onto an authored (`_box`) or fracture-fragment
+    # mesh — `fit_interior`'s slabs/columns, `_split_strip`'s remainders,
+    # `_d_rubble_mat`/`_d_face_band`'s chunks/spall bands — is a REFERENCED
+    # `Damaged_Concrete_Floor.usda` sampling UV space on a mesh with none:
+    # one flat grey card, same defect as raw `mats["brick"]` above. Same
+    # texture/tint/roughness/repeats-per-metre as
+    # `quake_rubble_usd._BEAM_SPEC`, which already proved this exact map
+    # world-projected on authored concrete bar pieces (`_beam_look`) — reused
+    # here rather than re-derived so a broken beam and a slab/column/chunk
+    # elsewhere read as the one material. `rgb` is `_BEAM_SPEC["rgb"]` x its
+    # own 0.86 dust multiplier, pre-multiplied the same way `_C_TEX["brick"]`
+    # stores its tint already applied.
+    "concrete": ("megascans/Damaged_Concrete_Floor/T_vizbefe_2K_B.png",
+                 (0.447, 0.440, 0.426), 0.92, (0.90, 0.90), 0.25),
 }
 _C_FALLBACK = {"soil": "soil", "silt": "soil", "pave": "concrete",
-               "asph": "dark_concrete", "raft": "dark_concrete", "brick": "brick"}
+               "asph": "dark_concrete", "raft": "dark_concrete", "brick": "brick",
+               "concrete": "concrete"}
 
 
-def _c_look(ctx, key):
-    """One of `_C_TEX`, built once and cached IN the shared `mats` dict (so a
-    bench row or a city pays for it once), falling back to the kit material of
-    the same kind if the texture will not resolve."""
-    mats = ctx["mats"]
+def _c_look_at(stage, parent, mats, key, tag=None):
+    """Core of `_c_look`, callable without a full `ctx` dict — `fit_interior`,
+    `_t_core_mat` and `_chunk_material` only ever carry `(stage, parent,
+    mats, ...)`, not a `ctx`. `_c_look(ctx, key)` is a thin wrapper over this
+    one; behaviour for every existing `_c_look` caller is unchanged."""
     rel, rgb, rough, scale, desat = _C_TEX[key]
     suffix = key
     if isinstance(rel, (tuple, list)):
         # the cracked-ground mixture — variant per building, stable per run
         import zlib
-        i = zlib.crc32(str(ctx.get("tag", "")).encode()) % len(rel)
+        i = zlib.crc32(str(tag or "").encode()) % len(rel)
         rel = rel[i]
         suffix = "{0}_{1}".format(key, i)
     k = "c_" + suffix
@@ -7126,12 +7381,12 @@ def _c_look(ctx, key):
         import scene_generator as sg
         from pxr import Gf, Sdf, UsdShade
         from . import damage
-        path = "{0}/QuakeLooks/c_{1}".format(ctx["parent"], suffix)
+        path = "{0}/QuakeLooks/c_{1}".format(parent, suffix)
         got = damage._pbr(
-            ctx["stage"], path, rgb, rough, tint=rgb, scale_uv=scale,
+            stage, path, rgb, rough, tint=rgb, scale_uv=scale,
             texture=sg._join_asset_root(
                 "airstack://scene_gen/assets/materials/" + rel, ""))
-        sh = UsdShade.Shader.Get(ctx["stage"], path + "/Shader")
+        sh = UsdShade.Shader.Get(stage, path + "/Shader")
         if sh:
             sh.CreateInput("diffuse_tint",
                            Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*rgb))
@@ -7142,6 +7397,14 @@ def _c_look(ctx, key):
         got = mats.get(_C_FALLBACK[key])
     mats[k] = got
     return got
+
+
+def _c_look(ctx, key):
+    """One of `_C_TEX`, built once and cached IN the shared `mats` dict (so a
+    bench row or a city pays for it once), falling back to the kit material of
+    the same kind if the texture will not resolve."""
+    return _c_look_at(ctx["stage"], ctx["parent"], ctx["mats"], key,
+                      tag=ctx.get("tag"))
 
 
 # ---------------------------------------------------------------------------
@@ -7431,6 +7694,12 @@ def _c_soil_patch(ctx, cx, cy, z, r, elong=1.0, yaw_deg=0.0, mat=None,
     return path
 
 
+# ROUND 6 — NOT CHIPPED (`_c_clods`). These are SOIL: clods thrown out of a
+# heave, lumps of earth and fill. Soil does not spall a cast arris — it
+# crumbles and slumps — so the chip vocabulary (corner bites off a cast face,
+# a scalloped edge run) is the wrong physics and would read as broken
+# concrete lying in a grass verge. Their irregularity belongs to the ground
+# material and the tumble, not to `fracture`.
 def _c_clods(ctx, m, samples, n, at=None, spread=0.55, size=(0.16, 0.55),
              z_frac=(0.45, 1.0), stone_p=0.18, tag="clod", big_p=0.22,
              big_mult=(1.4, 2.2), tilt_p=0.55, tilt_deg=(6.0, 24.0)):
@@ -7613,6 +7882,15 @@ def _c_kerb(ctx, m, prof, tag="kerb"):
                              _rot_about((wx, wy, z), (math.cos(aa), math.sin(aa), 0.0),
                                         rng.uniform(-38, 38)))
         made.append(path)
+    # ROUND 6 — CHIP, LIGHTLY. Judgment call: a kerb is a PRECAST CONCRETE
+    # unit, not ground, so unlike the soil work in this section it does break
+    # rather than deform — a kerb shoved off its line snaps at its joints and
+    # spalls its arrises. At 0.9-1.5 m it straddles `CHIP_SMALL_M`, so the
+    # shorter segments get the quarter budget and the longer ones the full
+    # pass; either way `gouge_arrays`' thin-axis rule keeps the 0.18 m top
+    # face flat and puts the damage on the ends and the arrises, which is
+    # where a shoved kerb actually breaks.
+    _chip_authored(ctx, made, why="kerb")
     ctx["authored"] += made
     ctx["static_extra"] += made
     return made
@@ -7726,6 +8004,11 @@ def _c_lip_slabs(ctx, m, prof, n, tag="lip"):
     return made
 
 
+# ROUND 6 — NOT CHIPPED (`_c_fissures`). The boxes here are GROUND RELIEF:
+# they model the lips and steps either side of a ground crack, half sunk into
+# the terrain. What reads is the LINE they make and the shadow in it; a bite
+# out of one would open a hole between the piece and the ground it is meant to
+# be continuous with.
 def _c_fissures(ctx, m, corners=None, n_each=(1, 3), length=C_FISSURE_M,
                 width=(0.06 * FISSURE_SCALE, 0.22 * FISSURE_SCALE),
                 tag="fissure"):
@@ -7854,6 +8137,9 @@ def _c_subsidence(ctx, m, sink_m, plates_per_m=0.55, tag="dish"):
     return made
 
 
+# ROUND 6 — NOT CHIPPED (`_c_overturn_ground`). Same reason as `_c_clods`:
+# this is the disturbed earth and the torn turf where a building rotated out
+# of its footing, not a broken casting.
 def _c_overturn_ground(ctx, m, M, angle_deg=90.0, tag="ovg"):
     """THE GROUND HALF OF AN OVERTURN — the footprint the building was levered
     out of. The raft went over with the shell, so what stays is a crater with
@@ -8130,6 +8416,13 @@ def r_tilt_severe(ctx, tilt_deg=None, sink_m=None, side=None, max_drop_m=3.2):
     paths = _everything(ctx) + [raft] + list(ctx.pop("c_carry", []))
     _transform_prims(ctx["stage"], paths, M)
     ctx["static_extra"] += paths
+    # THE ROOF PLANT RODE `M` TOO (it was in `ctx["fit"]["all"]` before this
+    # recipe ran, so `_everything(ctx)` above already carried it) — but a
+    # 10-30 deg deck is not somewhere a free rigid body reliably comes to
+    # rest inside the settle's shared step budget. Seat it geometrically,
+    # right now, on the deck it is already sitting on. See the note above
+    # `_settle_foundation_roof_plant`.
+    _settle_foundation_roof_plant(ctx, m)
     # the low side also gets the WINDROW of silt squeezed from under the raft,
     # on top of the heave — wet mud, not rubble, so it takes the soil material
     _heap(ctx, m, m["z0"], 0.0, 0.12, fill=False, sides=(g["low"],),
@@ -8215,6 +8508,16 @@ def r_overturn(ctx, angle_deg=None, side="S"):
     # the loose bits get an outward-and-down shove so they clear the shell
     for q in ctx["loose"]:
         ctx["velocity"][q] = (ox * rng.uniform(0.5, 2.0), oy * rng.uniform(0.5, 2.0), -1.0)
+    # THE ROOF PLANT RODE `M` TOO (`_everything(ctx)` above already carried
+    # it, same as every kit piece and fit-out item), but past ~44 deg of
+    # tip the roof it is sitting on no longer faces up at all — there is no
+    # "resting on the deck" for a toppled building. Seat what still has a
+    # real deck under it (this call falls back cleanly for anything past
+    # `_qc.ROOF_PROP_UP_THRESHOLD`) and drop the rest to grade near the
+    # landing instead of handing every prop to a free-fall settle with
+    # nothing to converge to. See the note above `_settle_foundation_roof_
+    # plant`.
+    _settle_foundation_roof_plant(ctx, m)
     # 3) the ground: the footprint it was levered OUT of — a crater with the
     #    torn footing stubs round its rim, heaved earth on the hinge edge and
     #    ripped pavement on the side the mass swung over. Agent C owns this
@@ -8852,6 +9155,12 @@ def _b_crumbs(ctx, fr, m, u, n=None, spread=1.1, reach=(0.25, 1.5)):
              s, s * rng.uniform(0.5, 1.0), s * rng.uniform(0.4, 0.8),
              rng.uniform(0, 180), ctx["mats"][keys[rng.randrange(len(keys))]])
         made.append(path)
+    # ROUND 6 — CHIP, on the TINY ladder. These are 6-22 cm render crumbs and
+    # they fall under `CHIP_TINY_M`, so `spec_for_shape` gives them corner
+    # bites and end steps and NO gouge pass: a ~42-triangle piece whose
+    # outline is no longer a rectangle. At this size that is the whole of what
+    # can read, and a gouge budget here would be pure cost.
+    _chip_authored(ctx, made, why="crumb")
     ctx["authored"] += made
     return made
 
@@ -8870,6 +9179,21 @@ SCARS_MAX_CRACKS = 11      # pieces, so a bare `frac` of 0.18 put 59 patches
 #                            and 23 cracks on it — a rash, not damage. These
 #                            caps keep the count of MARKS roughly constant
 #                            with building size, which is what reads.
+
+# FAMILY-03 CORRECTION (brick-fix round). `inner_mat()`'s P(brick) — every
+# other family stays at the original 50/50 (round-1 tuning, now that
+# `mats["brick"]` -> `_c_look(ctx, "brick")` actually shows coursing instead
+# of a flat card). `FAMILY_TYPE["03"] = "urm"`, so this recipe treats family
+# 03 ("brownstone"/"brownstone_row") as masonry too, but its art
+# (`MBuilding03`) is PALE MODERN CLADDING over a frame, not brick or stone —
+# a bright brick-red patch on it read wrong even before the texture fix
+# (`b4_brownstone_row_DG4_obl.png`). What is actually behind a lost modern
+# render is dark substrate, not face brick, so family 03 goes heavily to
+# `scar` instead. Keyed on `ctx["info"]["family"]` (the raw kit family code,
+# e.g. "01"/"03"/"04"/"dw_b"/"church" — see `describe`), not `type`, because
+# `type` is what conflates 03 with the genuine brick/stone families here.
+_FACADE_SCAR_BRICK_P = {"03": 0.12}
+_FACADE_SCAR_BRICK_P_DEFAULT = 0.5
 
 
 def r_facade_scars(ctx, frac=0.22, mass=None, patches=(1, 2), crack_p=0.45,
@@ -8940,14 +9264,24 @@ def r_facade_scars(ctx, frac=0.22, mass=None, patches=(1, 2), crack_p=0.45,
         # wythe shows the dark mortar/rubble bed; a rendered frame shows the
         # red hollow-block infill. Both are DARKER than the wall — that is
         # the whole read.
-        # TEXTURED, MOSTLY. A flat colour patch is a paper cut-out however
-        # dark it is (B2_apt/0_apartment_tall_DG2_nw.png). The megascans
-        # brick is world-projected, so it lands on a UV-less patch mesh at
-        # metric scale and gives it courses — which is what says "the facing
-        # has come off and you are looking at the backing". A quarter stay
-        # flat `scar` for the ones that are dark mortar bed rather than block.
+        # TEXTURED, MOSTLY — BUT ONLY THROUGH `_c_look`. `Brick_Wall_Worn.usda`
+        # does carry `project_uvw`/`world_or_object` (checked directly in the
+        # pack), but `mats["brick"]` binds that material BY REFERENCE, and
+        # bound by reference it samples UV space regardless of those flags —
+        # on this hand-authored, UV-less patch mesh that is one flat brown
+        # card, not coursing (`b4_brownstone_row_DG4_obl.png`; see the
+        # earthquake skill's bug catalogue, "Megascans packs bound BY
+        # REFERENCE sample UV space"). `_c_look(ctx, "brick")` re-authors the
+        # SAME map fresh in-scene (`damage._pbr`) and gets the metric-scale
+        # coursing this comment used to credit to the raw reference. A share
+        # stays flat `scar` for the ones that are dark mortar bed rather than
+        # block, with the brick/scar mixture keyed per family below
+        # (`_FACADE_SCAR_BRICK_P`) — family 03's modern cladding is not brick
+        # at all under the render loss.
         def inner_mat():
-            return mats["brick"] if rng.random() < 0.5 else mats["scar"]
+            p = _FACADE_SCAR_BRICK_P.get(ctx["info"]["family"],
+                                        _FACADE_SCAR_BRICK_P_DEFAULT)
+            return _c_look(ctx, "brick") if rng.random() < p else mats["scar"]
         for k in range(rng.randrange(patches[0], patches[1] + 1)):
             if n_p >= max_patches:
                 break
@@ -9033,7 +9367,16 @@ def _lantern(ctx, x, y, z0, h, n_bars=None):
 
 def _shaft(ctx, m, h_frac=None):
     """The lift / stair shaft that survives a pancake as a lone concrete
-    tower (CTV building, Christchurch)."""
+    tower (CTV building, Christchurch).
+
+    ROUND 6 — NOT CHIPPED, and it is the clearest skip of the set. These four
+    boxes are a SURVIVING SHEAR CORE, the one thing left standing when
+    everything else pancaked: they are structure, not debris, and 0.25 m walls
+    up to 20 m tall are nothing like the piece sizes the chip ladder is tuned
+    for. They also already get the treatment they need three lines down —
+    `fracture.fracture_partial` cuts the top of each wall into six pieces, so
+    the crown is ragged by construction. Chipping first would additionally feed
+    a 700-triangle gouged mesh into that fracture for no gain."""
     rng = ctx["rng"]
     H = m["top"] - m["z0"]
     h = H * (h_frac if h_frac is not None else rng.uniform(0.45, 0.8))
@@ -9302,9 +9645,131 @@ def _b_settle_roof_plant(ctx, recipes=()):
     return n_loose
 
 
+# ROUND 7 — THE FOUNDATION FAMILY (`r_settlement` / `r_tilt_severe` /
+# `r_overturn`) DOES carry the roof plant with the whole-body rigid
+# transform: `wreck_building` appends `dress_roof`'s paths into
+# `ctx["fit"]["all"]` BEFORE any recipe runs (`ctx["fit"]["all"] += list(
+# ctx.get("roof_plant", []))`, right after `dress_roof(ctx)`), and
+# `_everything(ctx)` — what every foundation recipe rigid-transforms —
+# reads `ctx["fit"]["all"]` straight off. So this is NOT the "prop left
+# upright while the shell rotates under it" failure (verified: `bld_
+# apartment_OV.usd`'s un-merged AC units carry a local "up" axis of roughly
+# (-0.01, -0.98, 0.20) — tipped with the fallen shell, not (0, 0, 1)).
+#
+# What IS still broken: after the ride, `_b_settle_roof_plant` treats every
+# recipe identically — a small idle tip, then handed to `ctx["loose"]` for
+# the ROW'S SHARED PhysX settle. A level `settlement` (0.3-1.6 m straight
+# down) converges fine this way (measured: ~0 floaters across the whole
+# archetype library). `tilt_severe` (10-30 deg) and `overturn` (60-90 deg)
+# land the prop on a deck that is now tilted or toppled, and a free body
+# handed to a shared step budget either needs far more of it than it gets
+# (`roof_plant_seat_probe` measured `tilt_severe` props frozen 2-6 m short
+# of the real, still-tilted deck under them — the exact "does not make it
+# down in time" failure mode `quake_collapse._sweep_roof_props`'s own
+# docstring already named for the qc_* crush recipes) or never had a real
+# target at all (an `overturn`'s roof no longer faces up anywhere) and
+# drifts toward the row's bake-time ground plane, freezing 0.7-1.35 m above
+# true grade with no support the per-building archetype export can show
+# (that plane is never part of any one building's own exported prims).
+#
+# THE FIX: resolve it geometrically, the same way `_sweep_roof_props`
+# already resolves a fallen prop for the qc_* recipes — a support probe
+# under the prop's OWN (already-transformed) footprint, run against the
+# stage right now, never handed to a solver. `_qc.ROOF_PROP_UP_THRESHOLD`
+# (0.72, i.e. within ~44 deg of vertical) covers the whole `tilt_severe`
+# range (nz = cos(10..30 deg) = 0.98..0.87) so the still-standing, now-
+# tilted deck is found and the prop seats on it with the same few-cm gap it
+# had at `dress_roof` time. `overturn` (nz = cos(60..90 deg) = 0.50..0.0)
+# falls below the threshold — correctly: a toppled roof is no longer a
+# resting surface — so those props fall back to `_a_bury_props`'s "no
+# surviving deck" path, `keep=1.0` (every one is already resolved and
+# placed, so none may be silently deactivated), landing tipped near grade
+# close to wherever the overturn put them, instead of an unresolved
+# physics free-fall with nothing to converge to.
+#
+# NOT applied to `r_settlement`: it already measures at ~0 floaters and the
+# risk of touching a working grade outweighs the (redundant) benefit.
+def _settle_foundation_roof_plant(ctx, m, label="foundation"):
+    """Seat rooftop plant on the deck the whole-body transform just carried
+    it onto (`r_tilt_severe`, `r_overturn`), or drop it to grade when that
+    deck no longer faces up at all. See the module note above this
+    function for the measured failure this replaces.
+
+    Resolved paths are REMOVED from `ctx["roof_plant"]` / `ctx["roof_
+    fixed"]`, which `_b_settle_roof_plant` reads FRESH after every recipe
+    has run — the same contract `_sweep_roof_props` already keeps, so a
+    path this call has already placed never goes through the generic
+    idle-tip-then-loose pass a second time.
+
+    `label` only tags the `ctx["notes"]` line (e.g. `quake._d_live_lean`
+    passes `"interaction"` when it calls this for the same reason on the
+    `lean_on`/`collapse_onto` pair path); it changes nothing else.
+
+    Returns `(n_seated, n_dropped)`.
+    """
+    plant = list(dict.fromkeys(
+        list(ctx.get("roof_plant") or ()) + list(ctx.get("roof_fixed") or ())))
+    if not plant:
+        return 0, 0
+
+    from pxr import Usd, UsdGeom
+    rng = ctx["rng"]
+    stage = ctx["stage"]
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    loose_now = set(ctx["loose"])
+    exclude_paths = set(plant)     # a not-yet-resolved sibling prop must
+    #                                 never report as another one's floor
+    resolved, fall_to_grade = [], []
+    n_seated = 0
+    for pth in plant:
+        pr = stage.GetPrimAtPath(pth)
+        if not pr or not pr.IsValid() or not pr.IsActive() or pth in loose_now:
+            continue
+        r = bc.ComputeWorldBound(pr).ComputeAlignedRange()
+        if r.IsEmpty():
+            continue
+        lo, hi = r.GetMin(), r.GetMax()
+        cx, cy = (lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0
+        half_w = max(0.3, (hi[0] - lo[0]) / 2.0 * 1.15)
+        half_d = max(0.3, (hi[1] - lo[1]) / 2.0 * 1.15)
+        base_z = float(lo[2])
+        support = _qc._deck_support_z(stage, ctx["parent"], cx, cy, half_w,
+                                      half_d, base_z, exclude=exclude_paths)
+        resolved.append(pth)
+        if support is None:
+            fall_to_grade.append(pth)
+            continue
+        _transform_prims(stage, [pth], _translate(0.0, 0.0, support - base_z))
+        c = _pivot_of(ctx, pth)
+        M = _rot_about(c, (rng.uniform(-1, 1), rng.uniform(-1, 1), 0.0),
+                       rng.uniform(-B_ROOF_PLANT_TIP_DEG, B_ROOF_PLANT_TIP_DEG))
+        _transform_prims(stage, [pth], M)
+        ctx["static_extra"].append(pth)
+        n_seated += 1
+
+    n_dropped = 0
+    if fall_to_grade:
+        _a_bury_props(ctx, fall_to_grade, float(m["z0"]), 0.6, keep=1.0)
+        n_dropped = len(fall_to_grade)
+
+    gone = set(resolved)
+    if ctx.get("roof_plant"):
+        ctx["roof_plant"] = [p for p in ctx["roof_plant"] if p not in gone]
+    if ctx.get("roof_fixed"):
+        ctx["roof_fixed"] = [p for p in ctx["roof_fixed"] if p not in gone]
+    ctx["notes"].append("roof_plant({0}): {1} seated on deck, {2} "
+                        "dropped to grade".format(label, n_seated, n_dropped))
+    return n_seated, n_dropped
+
+
 SIGN_MATS = ("sign", "sign_red", "sign_blue")
 
 
+# ROUND 6 — NOT CHIPPED (`r_signage_fail`). Signs, fascias and awning frames
+# are SHEET METAL and its failure mode is the opposite of concrete's: it bends,
+# buckles, tears along a fold and peels. A corner bite and a spall scallop are
+# both brittle-material features and put stone damage on a tin sign. If these
+# ever need work it is `warp_mesh`/a tear, not `chip_box`.
 def r_signage_fail(ctx, n=None, awnings=None, lean_p=0.4):
     """Shop signage down on the sidewalk, and awnings torn off the front.
 
@@ -9626,15 +10091,21 @@ def _d_contact_angle(H, B, gap, Hn, max_deg=30.0, step=0.25):
 
 # --- authored pair debris --------------------------------------------------
 def _d_rubble_mat(ctx, urm=None):
-    """The dusty rubble palette, as `_heap` draws it."""
+    """The dusty rubble palette, as `_heap` draws it.
+
+    WORLD-PROJECTED brick/concrete, not the raw referenced packs: every
+    chunk this binds onto is an authored `_box` (`_d_chunk`) with no UVs, so
+    `mats["brick"]`/`mats["concrete"]` — REFERENCED megascans materials that
+    sample UV space — rendered one flat colour card per chunk instead of
+    brick/concrete texture (brick-fix round; see `_c_look`/`_C_TEX`)."""
     rng, mats = ctx["rng"], ctx["mats"]
     if urm is None:
         urm = ctx["info"].get("type") == "urm"
     r = rng.random()
     if urm:
-        return (mats["brick"] if r < 0.6 else
+        return (_c_look(ctx, "brick") if r < 0.6 else
                 mats["mortar"] if r < 0.9 else mats["plaster"])
-    return (mats["concrete"] if r < 0.5 else
+    return (_c_look(ctx, "concrete") if r < 0.5 else
             mats["dark_concrete"] if r < 0.92 else mats["plaster"])
 
 
@@ -9646,9 +10117,15 @@ def _d_chunk(ctx, m, lx, ly, z, s, tag="d", mat=None, flat=False):
     _box(ctx["stage"], path, wx, wy, z, s, s * rng.uniform(0.5, 1.0),
          (0.012 if flat else s * rng.uniform(0.35, 0.7)), rng.uniform(0, 180),
          mat if mat is not None else _d_rubble_mat(ctx))
-    ctx["authored"].append(path)
+    # ROUND 6 — CHIP THE CHUNKS, NOT THE FLAKES. `flat=True` authors a 12 mm
+    # plate lying on the ground: it is a stain with a thickness, it is not even
+    # registered as static geometry, and a bite out of a 12 mm sheet is not a
+    # readable feature — it is triangles spent on something that is only ever
+    # seen face-on. The real chunks get the ladder.
     if not flat:
+        _chip_authored(ctx, [path], why="chunk")
         ctx["static_extra"].append(path)
+    ctx["authored"].append(path)
     return path
 
 
@@ -9675,8 +10152,10 @@ def _d_face_band(ctx, m, side, z, span, height=(0.45, 0.85), thick=0.11,
             break
         h = rng.uniform(*height)
         zc = z + rng.uniform(-0.30, 0.10) * h
+        # WORLD-PROJECTED brick/concrete, not the raw referenced packs — this
+        # box is authored with no UVs, same as `_d_rubble_mat` above.
         mat = (mats["dark_concrete"] if rng.random() < dark
-               else (mats["brick"] if urm else mats["concrete"]))
+               else (_c_look(ctx, "brick") if urm else _c_look(ctx, "concrete")))
         if side in ("S", "N"):
             lx, ly = t + L / 2.0, (-m["D"] / 2.0 if side == "S" else m["D"] / 2.0)
             sx, sy = L, thick
@@ -9690,6 +10169,14 @@ def _d_face_band(ctx, m, side, z, span, height=(0.45, 0.85), thick=0.11,
         ctx["static_extra"].append(path)
         made.append(path)
         t += L + rng.uniform(0.06, 0.55) * (hi - lo) / n
+    # ROUND 6 — CHIP. A spall band is the one thing in this file that MUST NOT
+    # read as a rectangle: the docstring already says "one continuous strip is
+    # the thing that reads as a painted stripe", and a row of crisp rectangular
+    # blocks is the same failure one step down. Only the proud half of each box
+    # is visible (the rest is buried in the wall), so a bite taken out of the
+    # buried half costs nothing and a bite out of the proud half is exactly the
+    # ragged edge a spall has.
+    _chip_authored(ctx, made, why="spall")
     return made
 
 
@@ -10650,6 +11137,7 @@ def wreck_building(stage, parent, style, placements, x, y, yaw, recipes,
     ctx["fit"]["all"] += list(ctx.get("roof_plant", []))
     for name, kw in recipes:
         RECIPES[name](ctx, **(kw or {}))
+    _chip_report(ctx)                    # [chip] quake_flow: N chipped / M passed
     _b_settle_roof_plant(ctx, recipes)   # tanks / AC units follow their roof
     # everything still standing is static for the settle
     ctx["static_extra"] += [e["p"].get("prim_path") for e in _els(ctx)

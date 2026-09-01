@@ -36,6 +36,12 @@ services:
               driver: nvidia
     entrypoint: ''
     environment:
+      # Bag-size decimation for foxglove_visualizer_node's republished
+      # layers. Measured: 8 occupancy grids + /gcs/robot_markers are 90 %
+      # of a 26.7 GiB per-iteration bag; a 24-cell sweep writes ~650 GB.
+      # 2 halves it. 1 = original behaviour. map_origin and sim_ground
+      # are on separate publishers and are NOT decimated.
+      - GCS_VIZ_DECIMATE=${GCS_VIZ_DECIMATE:-1}
       - AUTOLAUNCH=${AUTOLAUNCH:-false}
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
@@ -85,6 +91,14 @@ services:
     privileged: true
     stdin_open: true
     tty: true
+    # Same 1024 -> 65536 soft-descriptor raise as the robot containers: the
+    # GCS is a Fast DDS participant on the SAME shared host /dev/shm and runs
+    # the ddsrouter plus one action_relay per robot, so it spends descriptors
+    # at eight times the rate of any single robot.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 524288
     volumes:
       # shared /dev/shm: required for Fast DDS shared-memory transport
       # across containers (see common/fastdds.xml)

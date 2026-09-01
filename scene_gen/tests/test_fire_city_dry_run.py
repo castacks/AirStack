@@ -89,7 +89,11 @@ def _base_manifest():
         _rec(3, "F1", 60.0, 0.0, W=18.0, D=12.0, kind="kit", asset=None,
             style="commercial_mid", btype="urm", via=0, how="spot",
             t=11800.0, age=200.0, sides=("W",), entry_side="W",
-            origin_frac=0.88, n_storeys=4),
+            # capped post-2026-08-31 (`ORIGIN_FRAC_CAP`): a spot ignition
+            # used to carry 0.88 here; `how` is still "spot" (nothing lit
+            # it differently) but the frac itself is now bounded like every
+            # other mechanism -- see `check_entry_points`.
+            origin_frac=0.45, n_storeys=4),
         _rec(4, "F4", 90.0, 0.0, W=18.0, D=12.0, kind="kit", asset=None,
             style="commercial_mid", btype="rc", via=3, how="radiation",
             t=13000.0, age=1000.0, sides=("E", "N"), entry_side="E",
@@ -262,6 +266,69 @@ def test_contiguity_mutation():
 
 
 # ---------------------------------------------------------------------------
+# contiguity — the FOREST case (2026-08-31): a two-seed union manifest that
+# genuinely unions two disjoint fires (`"origins"`, plural) rather than one
+# subsuming the other.
+# ---------------------------------------------------------------------------
+def _two_root_manifest():
+    """Two independent 2-building fires on one plate: 0 -> 1, and 10 -> 11.
+    Declares `"origins": [0, 10]` and no single `"origin"` at all -- the
+    union step's own schema (`_plans/fire_city_500m.json`)."""
+    m = _base_manifest()
+    m["records"] = [
+        _rec(0, "F5", 0.0, 0.0, via=None, how="origin", t=0.0, age=12000.0,
+            sides=("S", "E"), origin_frac=0.15, n_storeys=5),
+        _rec(1, "F4", 0.0, 17.5, via=0, how="attached", t=600.0, age=11400.0,
+            sides=("N", "E"), entry_side="N", n_storeys=6),
+        _rec(10, "F5", 200.0, 0.0, via=None, how="origin", t=0.0,
+            age=12000.0, sides=("S", "E"), origin_frac=0.15, n_storeys=5),
+        _rec(11, "F4", 200.0, 17.5, via=10, how="attached", t=600.0,
+            age=11400.0, sides=("N", "E"), entry_side="N", n_storeys=6),
+    ]
+    m["origins"] = [0, 10]
+    m["origin"] = 0
+    return m
+
+
+def test_contiguity_accepts_a_genuine_two_root_union():
+    m = _two_root_manifest()
+    ok, detail = fdr.check_contiguity(m)
+    assert ok, detail
+    assert detail["roots"] == [0, 10]
+    assert "root" not in detail          # no single "the" root for a forest
+
+
+def test_contiguity_rejects_an_undeclared_extra_root():
+    """A record claims via=None (a root) that "origins" never named."""
+    m = _two_root_manifest()
+    m["records"][3]["via"] = None        # building 11 now also a root
+    ok, detail = fdr.check_contiguity(m)
+    assert not ok
+    assert 11 in detail["found"] and 11 not in detail["declared"]
+
+
+def test_contiguity_rejects_a_declared_root_missing_from_the_data():
+    """"origins" names a root that no record actually has via=None for."""
+    m = _two_root_manifest()
+    m["origins"] = [0, 10, 999]
+    ok, detail = fdr.check_contiguity(m)
+    assert not ok
+    assert 999 in detail["declared"] and 999 not in detail["found"]
+
+
+def test_contiguity_without_origins_field_is_unchanged_single_root():
+    """No `"origins"` at all (every manifest `run_dry`/`run_dry_from_dump`
+    produce) -- falls back to `[manifest["origin"]]`, single-root semantics
+    completely unchanged from before the forest generalisation."""
+    m = _base_manifest()
+    assert "origins" not in m
+    ok, detail = fdr.check_contiguity(m)
+    assert ok
+    assert detail["root"] == 0
+    assert detail["roots"] == [0]
+
+
+# ---------------------------------------------------------------------------
 # level distribution — mutation-checked (four ways: origin, F2/F3, F1, ladder)
 # ---------------------------------------------------------------------------
 def test_level_distribution_mutation():
@@ -321,11 +388,109 @@ def test_entry_points_mutation():
     ok, detail = fdr.check_entry_points(bad_storey)
     assert not ok
 
-    # a "spot" entry with a low origin_frac (should be high, ~0.88).
+    # any origin_frac above ORIGIN_FRAC_CAP -- no mechanism may start a fire
+    # above half the mass (2026-08-31 fix for "fire only on higher floors").
     bad_frac = _base_manifest()
-    bad_frac["records"][3]["origin_frac"] = 0.1
+    bad_frac["records"][3]["origin_frac"] = 0.9
     ok, detail = fdr.check_entry_points(bad_frac)
     assert not ok
+
+
+# ---------------------------------------------------------------------------
+# entry points — (2026-08-31 policy) F3+ vents 2 OR 3 sides now.
+# ---------------------------------------------------------------------------
+def test_entry_points_accepts_three_sides_for_f3_plus():
+    three_sides = _base_manifest()
+    three_sides["records"][2]["sides"] = ["N", "E", "W"]     # F3 record
+    ok, detail = fdr.check_entry_points(three_sides)
+    assert ok, detail
+
+
+def test_entry_points_still_rejects_one_side_for_f3_plus():
+    one_side = _base_manifest()
+    one_side["records"][2]["sides"] = ["N"]                  # F3 record
+    ok, detail = fdr.check_entry_points(one_side)
+    assert not ok
+    assert detail["violations"] == [[2, "F3+ should vent 2-3 sides, got ['N']"]]
+
+
+def test_entry_points_still_rejects_four_sides_for_f3_plus():
+    four_sides = _base_manifest()
+    four_sides["records"][2]["sides"] = ["N", "E", "S", "W"]  # F3 record
+    ok, detail = fdr.check_entry_points(four_sides)
+    assert not ok
+
+
+def test_entry_points_f1_f2_still_reject_two_sides():
+    """F1/F2's own rule is unchanged by the F3+ policy: still exactly 1."""
+    two_sides = _base_manifest()
+    two_sides["records"][3]["sides"] = ["W", "N"]             # F1 record
+    ok, detail = fdr.check_entry_points(two_sides)
+    assert not ok
+
+
+# ---------------------------------------------------------------------------
+# _block_rect_at -- the block-rect lookup `street_side_score`'s block_rect
+# argument is wired from (2026-08-31 policy).
+# ---------------------------------------------------------------------------
+_HC_LAYOUT = {"_typology_of": {
+    (0.0, 0.0, 100.0, 100.0): "lowrise",
+    (100.0, 0.0, 250.0, 120.0): "brick_midrise",
+}}
+
+
+def test_block_rect_at_finds_the_containing_block():
+    assert fdr._block_rect_at(_HC_LAYOUT, 50.0, 50.0) == (0.0, 0.0, 100.0, 100.0)
+    assert fdr._block_rect_at(_HC_LAYOUT, 150.0, 60.0) == (100.0, 0.0, 250.0, 120.0)
+
+
+def test_block_rect_at_returns_none_off_the_block_map():
+    assert fdr._block_rect_at(_HC_LAYOUT, 900.0, 900.0) is None
+    assert fdr._block_rect_at({}, 0.0, 0.0) is None
+
+
+# ---------------------------------------------------------------------------
+# build_manifest -- the street-facing wiring (2026-08-31 policy): the
+# ORIGIN's free entry-side choice should prefer the side that is open (no
+# close neighbour, near the block edge) over one with a close neighbour,
+# even though nothing about contagion picked a side for it.
+# ---------------------------------------------------------------------------
+def test_build_manifest_wires_street_facing_preference_into_the_origin_side():
+    layout = {"_typology_of": {(0.0, 0.0, 100.0, 100.0): "lowrise"}}
+    # b0 (the origin) sits 1 m from the block's NORTH edge (100) and has a
+    # neighbour 14 m clear to its SOUTH -- N is the open/street side (no
+    # neighbour, 1 m from the edge), S faces the neighbour (14 m clear, but
+    # 89 m from the edge -- the neighbour is far closer than the street).
+    b0 = {"x": 50.0, "y": 94.0, "W": 10.0, "D": 10.0, "yaw": 0.0, "H": 12.0,
+         "style": "SM_Building_04", "i": 0}
+    b1 = {"x": 50.0, "y": 70.0, "W": 10.0, "D": 10.0, "yaw": 0.0, "H": 12.0,
+         "style": "neighbour", "i": 1}
+    buildings = [b0, b1]
+    local_to_global = [10, 1]
+    final_btype = {0: "urm", 1: "urm"}
+    n_storeys = {0: 5, 1: 5}
+    plan = [
+        {"i": 0, "t_ignite": 0.0, "age": 900.0, "level": "F1",
+         "height_class": "low", "via": None, "how": "origin",
+         "entry_side": None, "origin_frac": 0.15},
+        {"i": 1, "t_ignite": None, "age": None, "level": "F0",
+         "height_class": "low", "via": None, "how": None,
+         "entry_side": None, "origin_frac": 0.25},
+    ]
+    placements = [{"category": "_placeholder"}] * 10 + [
+        {"category": "house", "usd": _gf.GAC_DIR + "SM_Building_04.usd",
+         "x_m": 50.0, "y_m": 94.0, "yaw_deg": 0.0, "z_m": 0.0,
+         "prim_path": "/World/stage/generated/house_0_10"},
+    ]
+
+    manifest = fdr.build_manifest(
+        "synthetic", 999, 5, layout, placements, buildings, local_to_global,
+        final_btype, n_storeys, plan, origin_local=0, elapsed_s=900.0,
+        refused_gate=[])
+    assert manifest["n_achieved"] == 1
+    rec = manifest["records"][0]
+    assert rec["i"] == 10
+    assert rec["sides"] == ["N"], rec
 
 
 # ---------------------------------------------------------------------------

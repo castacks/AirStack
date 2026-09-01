@@ -43,6 +43,192 @@ import os
 import sys
 import time
 
+# ---------------------------------------------------------------------------
+# PURE REVIEW-CAMERA HELPERS -- stdlib only (`math`), no carb/omni/pxr. Kept
+# above the Kit imports below on purpose: `carb` and `isaacsim` are not
+# installed in a bare `python3` (measured -- ModuleNotFoundError for both,
+# offline, alongside this repo's `pxr` which IS installed standalone), so a
+# scratch offline test cannot `import` this whole module. It CAN lift just
+# these functions' source (e.g. via `ast`) and exercise the exact
+# placement/clearance math with no Kit and no SimulationApp.
+#
+# THE BUG THIS FIXES (`epi_obl` / `nw_top`, `urban_quake_v5`'s taller
+# skyline, review round on a 500x500 seed-9 scene): the five review points
+# below (`epi`/`ne`/`se`/`sw`/`nw`) all shared ONE fixed camera pose --
+# `top_h=95 / obl_dist=80 / obl_h=40` -- fine on the earlier kit-only
+# skylines, where nothing nearby came close to those numbers. `urban_quake_
+# v5` places GAC/downtowncity towers that do: a 302 m tower whose footprint
+# the fixed SW-oblique eye (`azimuth_deg=225`, `views_around`'s own default)
+# landed inside, 12 m from its centre (`epi_obl`); a 131 m "DG4+tilt" tower
+# 31 m from `nw`, whose LEAN puts its mass over that point at the 95 m
+# camera height even though its upright footprint alone falls half a metre
+# short (`nw_top`).
+#
+# THE FIX raises `top_h`/`obl_dist`/`obl_h` PER POINT, only when the fixed
+# pose is actually occluded, instead of raising the three constants for
+# every point -- which would also re-pose `ne`/`se`/`sw` (already fine, and
+# the user diffs frames across rounds). `ne`/`se`/`sw`/`epi`'s own top-down
+# come back byte-identical to the constants below; only the two points a
+# tall building actually blocks get lifted.
+#
+# NO YAW SURVIVES into `quake.assemble`'s records -- `W`/`D` are the
+# archetype's own LOCAL-frame footprint (`disaster/quake.py`'s
+# `_bld_masses` docstring: "in ITS OWN yaw frame"), and the per-building
+# yaw a real run draws is not carried into the review-camera pass at all.
+# So this uses the INSCRIBED-circle radius (0.5 * min(W, D)) for a
+# building's footprint reach: the one estimate that can never OVER-claim a
+# rotated rectangle's true reach regardless of which way it is actually
+# yawed (verified against this exact scene's `quake_buildings.json`: it is
+# what keeps `SM_Building_13`, 18.9 m from `epi` at H=139.9 m, from being
+# mis-flagged, matching the real `epi_top.png` -- a clean shot, not
+# embedded).
+#
+# A building whose `grade` records a lean (`"tilt"` or `"lean"` --
+# `disaster/quake.py`'s own foundation-failure/tilt damage states) gets its
+# reach WIDENED at height `z` by `z * tan(TILT_DEG_MAX)`. `TILT_DEG_MAX` is
+# `quake.py`'s OWN `tilt_deg` default upper bound
+# (`debris.get("tilt_deg", [3.0, 9.0])`), not a new number invented here: a
+# structure leaning at up to 9 deg has its mass at height `z` shifted
+# horizontally by `z * tan(9 deg)` -- exactly what puts `nw`'s tilted
+# tower's mass over a point its own upright footprint (radius 18.25 m)
+# misses by under half a metre at `z=95 m` (95 * tan(9 deg) = 15 m of
+# reach, twelve times the gap).
+TILT_DEG_MAX = 9.0
+
+
+def _review_points(span, ex, ey, dx=0.0, dy=0.0, pre=""):
+    """The five named review points (world metres): the epicentre and the
+    four quadrant corners at `span * 0.25` from the city centre `(dx, dy)`.
+    Same points the inline dict this replaces always built -- pulled into a
+    function only so the clearance fix and an offline test can both call it
+    without Kit."""
+    return {pre + "epi": (dx + float(ex), dy + float(ey)),
+            pre + "ne": (dx + span * 0.25, dy + span * 0.25),
+            pre + "sw": (dx - span * 0.25, dy - span * 0.25),
+            pre + "nw": (dx - span * 0.25, dy + span * 0.25),
+            pre + "se": (dx + span * 0.25, dy - span * 0.25)}
+
+
+def _footprint_radius(rec, z, margin_m=0.0):
+    """Inscribed-circle radius (m) of building record `rec` (a
+    `quake.assemble` records entry: `x`/`y`/`W`/`D`/`H`/`grade`) at height
+    `z`, plus `margin_m` -- widened for a leaning grade, see the module
+    comment above `TILT_DEG_MAX`."""
+    r = 0.5 * min(float(rec.get("W", 20.0)), float(rec.get("D", 20.0))) + margin_m
+    grade = str(rec.get("grade", ""))
+    if "tilt" in grade or "lean" in grade:
+        h = float(rec.get("H", 12.0))
+        r += min(max(z, 0.0), h) * math.tan(math.radians(TILT_DEG_MAX))
+    return r
+
+
+def _building_blocks(rec, x, y, z, margin_m=0.0):
+    """True if building record `rec` has solid mass (its tilt-widened
+    footprint, below its own height) at world point `(x, y, z)`."""
+    try:
+        rh = float(rec["H"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    if z >= rh:
+        return False
+    dx = x - float(rec.get("x", 0.0))
+    dy = y - float(rec.get("y", 0.0))
+    return math.hypot(dx, dy) <= _footprint_radius(rec, z, margin_m)
+
+
+def _camera_eye_blocked(records, x, y, z, margin_m=0.0):
+    """True if the review camera's OWN position `(x, y, z)` sits inside any
+    building's tilt-widened footprint, below that building's height
+    (`_building_blocks`).
+
+    DELIBERATELY AN EYE TEST, NOT A FULL EYE-TO-TARGET RAY MARCH: a target
+    point's own neighbourhood is EXPECTED to have buildings near it in a
+    downtown oblique review shot -- that is the subject's surroundings, not
+    an occlusion bug. Measured against this scene's real renders: sampling
+    the WHOLE ray flags nearly every oblique (there is almost always some
+    building somewhere between the camera and a ground-level target in a
+    dense city core), while `ne_obl`/`se_obl`/`sw_obl` are fine in the real
+    screenshots. What is actually wrong in `epi_obl`/`nw_top` is the CAMERA
+    ITSELF sitting inside, or immediately against, a tall mass -- exactly
+    what this checks, and the only place a foreground-black or
+    close-blurry-wall frame (see the launcher docstring) actually comes
+    from."""
+    for rec in records or []:
+        if _building_blocks(rec, x, y, z, margin_m):
+            return True
+    return False
+
+
+def _review_camera_pose(x, y, top_h, obl_dist, obl_h, azimuth_deg=225.0,
+                        aim_h=1.0):
+    """`(top_eye, top_target, obl_eye, obl_target)` for one review point, in
+    the same world-metre units `views_around` uses (its `ssf` scaling is
+    applied by the caller, same as today). Mirrors `snapshots_rp.
+    views_around`'s own eye/target formula for its region=None/avoid=None
+    fast path -- the ONLY path this launcher's call site (region/avoid never
+    passed) actually takes, so there is nothing else here to mirror."""
+    az = math.radians(azimuth_deg)
+    ex, ey = x + obl_dist * math.cos(az), y + obl_dist * math.sin(az)
+    return (x, y, top_h), (x, y, 0.0), (ex, ey, obl_h), (x, y, aim_h)
+
+
+def _review_camera_clearance(records, x, y, base_top_h, base_obl_dist,
+                             base_obl_h, azimuth_deg=225.0, margin_m=0.0,
+                             max_mult=5.0):
+    """`(top_h, obl_dist, obl_h)` for ONE review point: the base constants,
+    each raised only if the fixed pose's own camera EYE is actually blocked
+    (`_camera_eye_blocked`), by stepping the relevant number up until it
+    clears or `max_mult` * the base is reached (past that, a taller building
+    than this launcher's job to clear).
+
+    `margin_m` DEFAULTS TO 0 -- not a generous safety pad. A city core this
+    dense has SOME building within any double-digit metres of nearly every
+    point, so a positive `margin_m` here does not just add clearance to the
+    two genuinely blocked points, it also nudges `ne`/`se`/`sw`/`nw_obl` (all
+    already clear at `margin_m=0`) off their fixed pose for no reason --
+    measured while building this: `margin_m=15` moved `ne`'s and `nw`'s
+    oblique standoff even though neither shot was ever occluded, which
+    breaks the "byte-identical for everything but the two broken shots"
+    goal just as much as leaving them occluded would. The discrete step
+    size (10% of the base number) already overshoots the exact clearing
+    point by a few metres on its own, which is margin enough for the two
+    points this actually moves.
+
+    TOP steps `top_h` up alone -- the point IS the eye's (x, y), so nothing
+    else to move. OBLIQUE steps `obl_dist` OUT along the same fixed
+    `azimuth_deg` (never changes direction or the target) and scales
+    `obl_h` with it, so the shot keeps roughly today's look-down angle
+    instead of going flat.
+
+    Returns the UNCHANGED base triple, unmodified, whenever the fixed pose
+    was already clear -- so a caller can group points by this return value
+    and re-issue the exact original `views_around` call, byte-identical,
+    for every point that needed no fix.
+    """
+    top_h = base_top_h
+    step_h = max(5.0, base_top_h * 0.1)
+    while True:
+        if not _camera_eye_blocked(records, x, y, top_h, margin_m):
+            break
+        if top_h >= base_top_h * max_mult:
+            break
+        top_h += step_h
+
+    obl_dist, obl_h = base_obl_dist, base_obl_h
+    step_d = max(5.0, base_obl_dist * 0.1)
+    ratio = base_obl_h / base_obl_dist
+    az = math.radians(azimuth_deg)
+    while True:
+        ex, ey = x + obl_dist * math.cos(az), y + obl_dist * math.sin(az)
+        if not _camera_eye_blocked(records, ex, ey, obl_h, margin_m):
+            break
+        if obl_dist >= base_obl_dist * max_mult:
+            break
+        obl_dist += step_d
+        obl_h = obl_dist * ratio
+    return top_h, obl_dist, obl_h
+
+
 import carb
 from isaacsim import SimulationApp
 
@@ -511,13 +697,28 @@ class QuakeCityApp:
                     # obliques from the four corners, and the epicentre close up
                     fld = (city["config"].get("disaster") or {}).get("field") or {}
                     ex, ey = fld.get("center", [0.0, 0.0])
-                    pts = {pre + "epi": (dx + float(ex), dy + float(ey)),
-                           pre + "ne": (dx + span * 0.25, dy + span * 0.25),
-                           pre + "sw": (dx - span * 0.25, dy - span * 0.25),
-                           pre + "nw": (dx - span * 0.25, dy + span * 0.25),
-                           pre + "se": (dx + span * 0.25, dy - span * 0.25)}
-                    _snaps.views_around(self.stage, pts, SNAP_DIR, self.ssf,
-                                        top_h=95.0, obl_dist=80.0, obl_h=40.0)
+                    pts = _review_points(span, ex, ey, dx, dy, pre)
+                    # PER-POINT CLEARANCE (urban_quake_v5's taller skyline --
+                    # see the module comment above `TILT_DEG_MAX`): the base
+                    # pose is unchanged for every point where it is already
+                    # clear, so this groups points by the (possibly raised)
+                    # triple and re-issues `views_around` once per group --
+                    # a point needing no fix gets the EXACT SAME call as
+                    # before (byte-identical camera pose).
+                    _base_pose = (95.0, 80.0, 40.0)
+                    _groups = {}
+                    for _name, (_px, _py) in pts.items():
+                        _clear = _review_camera_clearance(
+                            self.stats.get("records", []), _px, _py, *_base_pose)
+                        _groups.setdefault(_clear, {})[_name] = (_px, _py)
+                    for (_top_h, _obl_dist, _obl_h), _group_pts in _groups.items():
+                        if (_top_h, _obl_dist, _obl_h) != _base_pose:
+                            print("[quake_city] review camera clearance: {0} -> "
+                                  "top_h={1:.0f} obl_dist={2:.0f} obl_h={3:.0f} "
+                                  "(tall building nearby)".format(
+                                      sorted(_group_pts), _top_h, _obl_dist, _obl_h))
+                        _snaps.views_around(self.stage, _group_pts, SNAP_DIR, self.ssf,
+                                            top_h=_top_h, obl_dist=_obl_dist, obl_h=_obl_h)
                 # the worst buildings, one oblique each
                 # rank: collapses first, then the foundation family, then
                 # the grades — `grade` is not always `DGn` any more

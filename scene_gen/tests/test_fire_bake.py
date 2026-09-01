@@ -282,6 +282,67 @@ def test_sidecar_extra_city_passthrough():
     print("  sidecar extra city  OK  (load_for_assembly returns doc['city'])")
 
 
+def test_deck_z_reaches_the_sidecar():
+    """`deck_z` — the MEASURED roof surface — must survive into the sidecar
+    on BOTH channels, and must stay `None` (never 0.0) for a kit bake.
+
+    `gac_fire.mass_from_grid` measures the real roof deck because the bbox
+    `top` "is the parapet coping, not the deck" (its own docstring), and
+    `gac_fire.prepare` puts it on the fire dict — `fire["deck_z"] =
+    m.get("deck_z")` — because `burn_building` rebuilds the masses from
+    `quake_flow.describe` and loses it. Both ends of that channel were dead
+    until 2026-08-31: `sidecar()`'s `"fire"` sub-dict copied a fixed key
+    list without it, and `mass_to_json` dropped it too, so
+    `fire_people.deck_z()` fell through to `H - PARAPET_EST_M` for every
+    roof group it has ever placed (its own `SIDECAR_FIELD_USE` table says
+    so). A 0.0 here would be worse than nothing: every consumer tests
+    `is not None`, so a zero would seat a roof group at grade.
+    """
+    m = _fake_mass()
+    m["deck_z"] = 18.1                       # a real measurement: top 19.2
+    fire = _fake_fire(m)
+    fire["deck_z"] = 18.1
+    doc = fb.sidecar({"kind": "gac", "name": "SM_Building_19", "level": "F5",
+                      "seed": 155, "index": 0},
+                     fire, {"main": m}, [_fake_event(0, m)],
+                     [-12.0, -8.0, 0.0, 12.0, 8.0, 19.2], 19.2,
+                     {"interior": [], "roof": []}, [], {}, {})
+    blob = json.loads(json.dumps(doc))       # a real JSON round trip
+    assert blob["fire"]["deck_z"] == 18.1, blob["fire"].get("deck_z")
+    assert blob["masses"]["main"]["deck_z"] == 18.1, blob["masses"]["main"]
+    assert blob["fire"]["deck_z"] < blob["masses"]["main"]["top"], \
+        "a deck at or above the bbox top is the parapet, not the deck"
+    back = fb.mass_from_json(blob["masses"]["main"])
+    assert back["deck_z"] == 18.1, back.get("deck_z")
+
+    # THE BACK-FILL. On the gac/dtc path the measurement only ever reaches
+    # `sidecar()` on `fire`, because `burn_building` rebuilt the masses; the
+    # per-mass channel has to be filled from it or half of
+    # `fire_people.deck_z`'s ladder stays dead.
+    m2 = _fake_mass()                        # mass with NO deck_z, as rebuilt
+    fire2 = _fake_fire(m2)
+    fire2["deck_z"] = 17.7
+    doc2 = fb.sidecar({"kind": "gac", "name": "SM_Building_19", "level": "F5",
+                       "seed": 155, "index": 0},
+                      fire2, {"main": m2}, [_fake_event(0, m2)],
+                      None, 19.2, {"interior": [], "roof": []}, [], {}, {})
+    assert doc2["masses"]["main"]["deck_z"] == 17.7, doc2["masses"]["main"]
+
+    # KIT: no measurement anywhere, and the key must be present-and-None so
+    # `doc["fire"]["deck_z"]` is not a KeyError and is not a false 0.0.
+    mk = _fake_mass()
+    fk = _fake_fire(mk)                      # `plan_fire` never sets deck_z
+    dock = json.loads(json.dumps(fb.sidecar(
+        {"kind": "kit", "name": "brownstone_row", "level": "F5c",
+         "seed": 198, "index": 1},
+        fk, {"main": mk}, [_fake_event(0, mk)], None, 19.2,
+        {"interior": [], "roof": []}, [], {}, {})))
+    assert dock["fire"]["deck_z"] is None, dock["fire"]["deck_z"]
+    assert dock["masses"]["main"]["deck_z"] is None, dock["masses"]["main"]
+    assert fb.mass_from_json(dock["masses"]["main"]).get("deck_z") is None
+    print("  deck_z sidecar      OK  (fire + mass, back-filled, None on kit)")
+
+
 def test_translate():
     """The column offset moves the wall frames, NOT `e["x"]/["y"]`."""
     m = _fake_mass()
@@ -706,7 +767,8 @@ def verify_paths(spec):
 
 
 TESTS = [test_manifest, test_out_stem_city_fields, test_event_round_trip,
-         test_sidecar_extra_city_passthrough, test_translate,
+         test_sidecar_extra_city_passthrough, test_deck_z_reaches_the_sidecar,
+         test_translate,
          test_place_rotation, test_emitter_geometry_survives,
          test_module_check, test_material_trap,
          test_export_detects_a_broken_bake]

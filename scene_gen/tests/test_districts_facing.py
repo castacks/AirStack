@@ -809,6 +809,428 @@ def test_tall_separation_off_by_default():
           "tall_min_h_m and tall_min_gap_m both default to 0.0")
 
 
+# 8. burnability-aware pool selection — "we aren't using some buildings for
+# fire at all, we need to account for that in the layout gen" (user,
+# 2026-08-31). `_is_unburnable`/`_is_landmark` are plain lookups against the
+# checked-in table (`config/harvested/burnability_table.json`, KEYED BY
+# TYPOLOGY since `usds.buildings` pool keys are not typology names -- see
+# `tools/gen_burnability_table.py`'s 2026-08-31 review-fix docstring) and
+# the `_LANDMARK_H_M` cutoff; `_burnable_substitute` finds a same-facing,
+# same-footprint-class, burnable pool-mate WITHIN THE SAME TYPOLOGY;
+# `_BurnabilityGuard` enforces "at most one unburnable per block" by
+# swapping every draw after the first. `dd._burnability_table` is
+# monkeypatched to a small two-typology fixture for every test in this
+# section so none of it depends on the real, evolving checked-in file --
+# restored in a `finally` so a failure here can't leak a stub into a later
+# test.
+# ---------------------------------------------------------------------------
+
+_FIXTURE_TABLE = {
+    "midrise": {"unburnable_a": False, "unburnable_b": False,
+               "burnable_match": True, "burnable_wrong_front": True,
+               "burnable_too_small": True, "burnable_c": True},
+    # a SEPARATE typology with a DIFFERENT verdict for the same basename --
+    # pins that the lookup is genuinely keyed by typology, not just by name
+    # with a typology parameter nobody reads.
+    "tower": {"unburnable_a": True, "tower_only_unburnable": False},
+}
+
+
+def _with_fixture_table(fn):
+    """Same idea as `@strict`, layered underneath it: swap in the fixture
+    table for the duration of *fn*, restore the real lookup afterward no
+    matter what *fn* does."""
+    def run(*a, **kw):
+        orig = dd._burnability_table
+        dd._burnability_table = lambda: {k: dict(v) for k, v in _FIXTURE_TABLE.items()}
+        try:
+            return fn(*a, **kw)
+        finally:
+            dd._burnability_table = orig
+    run.__name__ = fn.__name__
+    run.__doc__ = fn.__doc__
+    return run
+
+
+@strict
+@_with_fixture_table
+def test_is_unburnable_and_landmark():
+    print("\n[8a] _is_unburnable/_is_landmark: table lookup by "
+          "(typology, basename), unknown typology/name fails OPEN "
+          "(burnable)")
+    check(dd._is_unburnable("omniverse://x/unburnable_a.usd", "midrise") is True,
+          "a (typology, name) the table marks False: unburnable")
+    check(dd._is_unburnable("omniverse://x/burnable_c.usdc", "midrise") is False,
+          "a (typology, name) the table marks True: burnable")
+    check(dd._is_unburnable("omniverse://x/never_measured.usd", "midrise") is False,
+          "a name the table has never seen under this typology: fails OPEN")
+    check(dd._is_unburnable("omniverse://x/unburnable_a.usd", "rowhouse") is False,
+          "the SAME name under a typology the table never audited it for: "
+          "fails OPEN -- the lookup is genuinely per-typology")
+    check(dd._is_unburnable("omniverse://x/unburnable_a.usd", "tower") is False,
+          "the SAME name is unburnable under `midrise` (False, above) but "
+          "the fixture marks it BURNABLE (True) under `tower` -- that "
+          "typology's own answer wins, not `midrise`'s")
+    tall = _entry("tall.usd", 10, 10, sz=300.0)
+    short = _entry("short.usd", 10, 10, sz=50.0)
+    check(dd._is_landmark(tall) is True, ">232 m: a landmark")
+    check(dd._is_landmark(short) is False, "<=232 m: not a landmark")
+
+
+@strict
+@_with_fixture_table
+def test_burnable_substitute_matching():
+    print("\n[8b] _burnable_substitute: front0/blank0/place/area-band all "
+          "have to agree, WITHIN the given typology; None when nothing in "
+          "the pool qualifies")
+    target = _entry("unburnable_a.usd", 20, 30, place="any", front="E",
+                    yaw_offset=180)          # front0 == "W", blank0 == {}
+    check(target[5]["front0"] == "W", "sanity: target's front0 is W")
+
+    good = _entry("burnable_match.usd", 22, 28, place="any", front="E",
+                 yaw_offset=180)              # same front0, ~similar area
+    wrong_front = _entry("burnable_wrong_front.usd", 20, 30, place="any",
+                         front="W", yaw_offset=180)   # front0 == "E"
+    too_small = _entry("burnable_too_small.usd", 5, 5, place="any",
+                       front="E", yaw_offset=180)     # front0 == "W", tiny
+    still_unburnable = _entry("unburnable_b.usd", 20, 30, place="any",
+                              front="E", yaw_offset=180)
+
+    pool = [wrong_front, too_small, still_unburnable, good]
+    sub = dd._burnable_substitute(target, pool, "midrise")
+    check(sub is not None and sub[0] == "burnable_match.usd",
+          f"picks the one candidate matching front0/place/area, got "
+          f"{sub[0] if sub else None}")
+
+    # blank0 must be a SUBSET of the target's — a candidate with MORE blank
+    # sides than what already cleared the hard reject at this slot is never
+    # an acceptable stand-in, even with a matching front0.
+    blanker = _entry("blanker.usd", 20, 30, place="mid", front="E",
+                     yaw_offset=180, blank={"N", "S"})
+    dd._burnability_table = lambda: {
+        "midrise": dict(_FIXTURE_TABLE["midrise"], **{"blanker": True})}
+    check(dd._burnable_substitute(target, [blanker], "midrise") is None,
+          "a candidate with MORE blank sides than the target: rejected")
+
+    # No qualifying candidate at all -> None, not a crash or a bad guess.
+    check(dd._burnable_substitute(target, [wrong_front, too_small],
+                                  "midrise") is None,
+          "no candidate clears every gate: None")
+    check(dd._burnable_substitute(target, [], "midrise") is None,
+          "empty pool: None")
+
+    # A candidate that is only burnable under a DIFFERENT typology (the
+    # fixture's "tower": {"unburnable_a": True}, i.e. burnable there) must
+    # not be treated as qualifying for a `midrise` swap just because SOME
+    # typology likes it.
+    other_typ_only = _entry("unburnable_a.usd", 21, 29, place="any",
+                            front="E", yaw_offset=180)
+    check(dd._burnable_substitute(target, [other_typ_only], "midrise") is None,
+          "a candidate that is only burnable under a DIFFERENT typology "
+          "does not qualify here")
+
+    # front0 IS None (no measured front at all -- most of `tower`'s "any"
+    # filler stock) has nothing to preserve, so it must accept a candidate
+    # WITH a front tag too -- `podium_highrise` (front0 None, real Nucleus
+    # size 1,176 m2) finding no substitute in `SM_Building_27` (front0 "W",
+    # 1,216 m2) purely because of an exact-None-match requirement was the
+    # 2026-08-31 review bug this pins.
+    untagged_target = _entry("unburnable_untagged.usd", 26.7, 44.0,
+                             place="any")                     # front0 None
+    tagged_candidate = _entry("burnable_tagged.usd", 42.5, 28.6, place="any",
+                              front="E", yaw_offset=180)       # front0 "W"
+    dd._burnability_table = lambda: {
+        "midrise": dict(_FIXTURE_TABLE["midrise"],
+                       **{"unburnable_untagged": False,
+                          "burnable_tagged": True})}
+    sub2 = dd._burnable_substitute(untagged_target, [tagged_candidate],
+                                   "midrise")
+    check(sub2 is not None and sub2[0] == "burnable_tagged.usd",
+          f"an untagged (front0=None) target accepts a front-TAGGED "
+          f"candidate, got {sub2[0] if sub2 else None}")
+    # ...but the reverse still respects a REAL preference: a tagged target
+    # does not accept an untagged candidate as if front0=None meant
+    # "matches anything" symmetrically.
+    check(dd._burnable_substitute(tagged_candidate, [untagged_target],
+                                  "midrise") is None,
+          "a target WITH a measured front does not accept an untagged "
+          "(front0=None) candidate -- the relaxation is one-directional")
+
+
+@strict
+@_with_fixture_table
+def test_burnable_substitute_rejects_oversized_candidate():
+    print("\n[8b-3] _burnable_substitute: a candidate within the area band "
+          "but wider or taller than the target (at the SAME reused yaw) is "
+          "rejected -- the overlap defect, 2026-08-31 review: `Building_11` "
+          "(35.4 x 30.9) swapped for `SM_Building_30` (28.4 x 42.4) at "
+          "unchanged (cx, cy, yaw) overlapped a neighbour by 85.6 m2 in "
+          "both the seeded host build and the Kit dump it was meant to "
+          "match, despite passing the area-ratio check alone")
+    target = _entry("unburnable_a.usd", 20.0, 30.0, place="any")  # 600 m2
+    taller = _entry("burnable_taller.usd", 20.0, 40.0, place="any")  # 800 m2
+    wider = _entry("burnable_wider.usd", 28.0, 22.0, place="any")   # 616 m2
+    fits = _entry("burnable_fits.usd", 20.0, 28.0, place="any")     # 560 m2
+    dd._burnability_table = lambda: {
+        "midrise": dict(_FIXTURE_TABLE["midrise"],
+                       **{"unburnable_a": False, "burnable_taller": True,
+                          "burnable_wider": True, "burnable_fits": True})}
+
+    # No position context (yaw=None): the fit check does not apply at all
+    # (unchanged, pre-review behaviour) -- area ratio alone decides, and
+    # the FIRST qualifying pool member wins.
+    sub_no_ctx = dd._burnable_substitute(target, [taller], "midrise")
+    check(sub_no_ctx is not None and sub_no_ctx[0] == "burnable_taller.usd",
+          "no yaw given: the fit check is skipped, area ratio alone decides")
+
+    # WITH position context: a candidate taller than the target in Y, or
+    # wider in X, is refused even though its area is in-band.
+    check(dd._burnable_substitute(target, [taller], "midrise",
+                                  cx=0.0, cy=0.0, yaw=0.0) is None,
+          "taller than the target (40 > 30): rejected once yaw is given")
+    check(dd._burnable_substitute(target, [wider], "midrise",
+                                  cx=0.0, cy=0.0, yaw=0.0) is None,
+          "wider than the target (28 > 20): rejected once yaw is given")
+
+    # A candidate that fits within BOTH of the target's own extents is
+    # still accepted, and wins over the two oversized ones in the same
+    # pool.
+    pool = [taller, wider, fits]
+    sub = dd._burnable_substitute(target, pool, "midrise",
+                                  cx=0.0, cy=0.0, yaw=0.0)
+    check(sub is not None and sub[0] == "burnable_fits.usd",
+          f"the one candidate that fits both extents wins, got "
+          f"{sub[0] if sub else None}")
+
+    # Rotation is invariant to this check by construction: `_rotated_wh`
+    # swaps BOTH the target's and the candidate's (sx, sy) by the same
+    # yaw%180, so "does the candidate's rotated box fit the target's" comes
+    # out identically at yaw 90/270 as at yaw 0/180 -- confirmed directly
+    # rather than assumed.
+    check(dd._burnable_substitute(target, [wider], "midrise",
+                                  cx=0.0, cy=0.0, yaw=90.0) is None,
+          "still rejected at yaw 90 -- the fit test is rotation-invariant")
+
+
+@strict
+@_with_fixture_table
+def test_burnable_substitute_street_aware_for_untagged_target():
+    print("\n[8b-2] _burnable_substitute: an untagged target's front0=None "
+          "relaxation still checks a TAGGED candidate against the real "
+          "street at the reused position -- reusing the original slot's "
+          "candidate-yaw for a NEWLY front-tagged substitute was never "
+          "validated for that candidate's own front, and blindly trusting "
+          "it recreates `house_16_223` on different geometry")
+    block = (0.0, 0.0, 100.0, 100.0)      # a 100x100 block
+    untagged_target = _entry("unburnable_untagged.usd", 20.0, 20.0,
+                             place="any")                      # front0 None
+    front_w_ok = _entry("burnable_w.usd", 20.0, 20.0, place="any",
+                        front="E", yaw_offset=180)              # front0 "W"
+    dd._burnability_table = lambda: {
+        "midrise": dict(_FIXTURE_TABLE["midrise"],
+                       **{"unburnable_untagged": False,
+                          "burnable_w": True})}
+
+    # (a) Placed flush against the block's WEST edge, at candidate yaw 0 --
+    # front0 "W" rotated by yaw 0 is "W", which IS the street here: safe,
+    # the candidate qualifies.
+    sub_ok = dd._burnable_substitute(untagged_target, [front_w_ok],
+                                     "midrise", cx=10.0, cy=50.0, yaw=0.0,
+                                     block_rect=block)
+    check(sub_ok is not None and sub_ok[0] == "burnable_w.usd",
+          f"front lands on the real street here: accepted, got "
+          f"{sub_ok[0] if sub_ok else None}")
+
+    # (b) Placed flush against the block's NORTH edge instead (yaw still
+    # 0, front0 "W" -- now WRONG, the only street here is "N"): the exact
+    # defect `_substitute_fits_street` exists to catch. No other candidate
+    # in the pool -> None, not a silently-wrong swap.
+    sub_bad = dd._burnable_substitute(untagged_target, [front_w_ok],
+                                      "midrise", cx=50.0, cy=90.0, yaw=0.0,
+                                      block_rect=block)
+    check(sub_bad is None,
+          f"front would NOT land on the real street (N) here: rejected, "
+          f"got {sub_bad[0] if sub_bad else None}")
+
+    # (c) Same NORTH-edge position, but no street context at all
+    # (`block_rect=None`, the default every OTHER caller in this file's own
+    # tests already relies on) -- the check is skipped, matching the
+    # pre-street-aware behaviour exactly.
+    sub_no_ctx = dd._burnable_substitute(untagged_target, [front_w_ok],
+                                         "midrise")
+    check(sub_no_ctx is not None and sub_no_ctx[0] == "burnable_w.usd",
+          "no position/block_rect given at all: the street re-check is "
+          "skipped, not treated as a failure")
+
+    # (d) Interior position (no street on ANY side): nothing to violate,
+    # so even the "wrong" front0 direction is fine.
+    sub_interior = dd._burnable_substitute(untagged_target, [front_w_ok],
+                                           "midrise", cx=50.0, cy=50.0,
+                                           yaw=0.0, block_rect=block)
+    check(sub_interior is not None and sub_interior[0] == "burnable_w.usd",
+          "fully interior (0 street sides): front0 mismatch is moot, "
+          "candidate accepted")
+
+    # (e) A target that ALREADY has a matching front0 (front0 "W" itself),
+    # reused at a position/yaw where that front DOES reach the street (west
+    # edge, as in (a)) -- the same re-check still runs (it is unconditional
+    # on the CANDIDATE having a front0, not on whether it differs from the
+    # target's), but passes exactly because task 1's own facing fix
+    # guarantees a real pipeline never hands this function a target whose
+    # already-matching front0 sits somewhere its own street check would
+    # fail; a hand-built test that deliberately violates that precondition
+    # (a "wrong"-position same-front0 target) is testing an input the real
+    # pipeline cannot produce, not a case this function needs to special-
+    # case around.
+    tagged_target = _entry("unburnable_tagged.usd", 20.0, 20.0, place="any",
+                           front="E", yaw_offset=180)           # front0 "W"
+    dd._burnability_table = lambda: {
+        "midrise": dict(_FIXTURE_TABLE["midrise"],
+                       **{"unburnable_tagged": False, "burnable_w": True})}
+    sub_matched = dd._burnable_substitute(tagged_target, [front_w_ok],
+                                          "midrise", cx=10.0, cy=50.0,
+                                          yaw=0.0, block_rect=block)
+    check(sub_matched is not None and sub_matched[0] == "burnable_w.usd",
+          "target's own front0 already equals the candidate's, reused at "
+          "a position/yaw the front genuinely reaches: accepted")
+
+
+@strict
+@_with_fixture_table
+def test_burnability_guard_one_per_block():
+    print("\n[8c] _BurnabilityGuard: first unburnable draw kept, a second "
+          "swapped for a burnable pool-mate, landmarks exempt from both "
+          "the count and the swap")
+    unb1 = _entry("unburnable_a.usd", 20, 30, place="any", front="E",
+                 yaw_offset=180)
+    unb2 = _entry("unburnable_b.usd", 20, 30, place="any", front="E",
+                 yaw_offset=180)
+    sub = _entry("burnable_match.usd", 22, 28, place="any", front="E",
+                yaw_offset=180)
+    pool = [sub]
+
+    guard = dd._BurnabilityGuard()
+    first = guard.filter_one(unb1, pool, "midrise")
+    check(first[0] == "unburnable_a.usd",
+          "first unburnable draw in the block: kept as-is")
+    second = guard.filter_one(unb2, pool, "midrise")
+    check(second[0] == "burnable_match.usd",
+          f"second unburnable draw: swapped for the burnable pool-mate, "
+          f"got {second[0]}")
+
+    # A landmark never counts against the allowance and is never swapped,
+    # even after the block has already used its one "real" unburnable slot.
+    landmark = _entry("SM_Building_16.usd", 20, 30, sz=312.0, place="any",
+                      front="E", yaw_offset=180)
+    dd._burnability_table = lambda: {
+        "midrise": dict(_FIXTURE_TABLE["midrise"],
+                       **{"SM_Building_16": False})}
+    third = guard.filter_one(landmark, pool, "midrise")
+    check(third[0] == "SM_Building_16.usd",
+          "a >232 m landmark is never swapped, even as the block's second "
+          "unburnable-looking draw")
+    fourth = guard.filter_one(unb2, pool, "midrise")
+    check(fourth[0] == "burnable_match.usd",
+          "the landmark did not consume the block's one allowance -- a "
+          "REAL second unburnable draw right after it is still swapped")
+
+    # A fresh guard (a new block) resets the allowance.
+    fresh = dd._BurnabilityGuard()
+    check(fresh.filter_one(unb1, pool, "midrise")[0] == "unburnable_a.usd",
+          "a new block's guard starts with its allowance unused")
+
+    # Restore the FULL two-typology fixture -- the landmark sub-test above
+    # replaced the table with a `midrise`-only one and never put `tower`
+    # back, which would silently fail every `_is_unburnable(..., "tower")`
+    # lookup below OPEN rather than testing anything.
+    dd._burnability_table = lambda: {k: dict(v) for k, v in _FIXTURE_TABLE.items()}
+
+    # A name that is BURNABLE under `midrise` (not in that sub-table at all
+    # -- fails open) but the fixture marks unburnable under `tower`
+    # ("tower_only_unburnable": False) -- the guard's verdict follows
+    # whichever typology is passed at call time, per block, not a name-only
+    # lookup.
+    guard_tower = dd._BurnabilityGuard()
+    tower_only = _entry("tower_only_unburnable.usd", 20, 30, place="any",
+                        front="E", yaw_offset=180)
+    check(guard_tower.filter_one(tower_only, [], "midrise") is tower_only,
+          "burnable under `midrise` (unknown there, fails open): untouched")
+    guard_tower2 = dd._BurnabilityGuard()
+    kept_under_tower = guard_tower2.filter_one(tower_only, pool, "tower")
+    check(kept_under_tower[0] == "tower_only_unburnable.usd",
+          "unburnable under `tower`: still the first draw in THIS fresh "
+          "block, so kept as-is regardless (the allowance, not the swap, "
+          "is what fires first)")
+    check(guard_tower2.filter_one(tower_only, pool, "tower")[0]
+          == "burnable_match.usd",
+          "a SECOND `tower`-unburnable draw in the same block: swapped, "
+          "same as the `midrise` case above")
+
+
+@strict
+@_with_fixture_table
+def test_burnability_guard_ignores_burnable_and_no_substitute():
+    print("\n[8d] _BurnabilityGuard: a burnable entry always passes "
+          "through untouched; an unswappable second draw is kept rather "
+          "than dropped")
+    guard = dd._BurnabilityGuard()
+    ok = _entry("burnable_match.usd", 20, 30, place="any", front="E",
+               yaw_offset=180)
+    check(guard.filter_one(ok, [], "midrise") is ok,
+          "a burnable entry is never touched, empty pool or not")
+    check(guard.used is False,
+          "a burnable entry never consumes the block's unburnable allowance")
+
+    unb1 = _entry("unburnable_a.usd", 20, 30, place="any", front="E",
+                 yaw_offset=180)
+    unb2 = _entry("unburnable_b.usd", 20, 30, place="any", front="E",
+                 yaw_offset=180)
+    guard.filter_one(unb1, [], "midrise")          # consumes the allowance
+    kept = guard.filter_one(unb2, [], "midrise")   # no pool -- nothing to swap to
+    check(kept[0] == "unburnable_b.usd",
+          "no substitute available: the unburnable draw is kept rather "
+          "than the slot being dropped")
+
+    # A name that is unburnable under `midrise` but the table has never
+    # even seen under `rowhouse` -- fails OPEN, so this "unburnable" draw
+    # is actually treated as burnable when audited under the wrong
+    # typology, and does NOT consume the allowance.
+    guard2 = dd._BurnabilityGuard()
+    same_name_other_typ = guard2.filter_one(unb1, [], "rowhouse")
+    check(same_name_other_typ is unb1,
+          "unrecognised under THIS typology: fails open, passed through")
+    check(guard2.used is False,
+          "and does not consume the block's allowance either")
+
+
+@strict
+@_with_fixture_table
+def test_burnability_guard_filter_laid():
+    print("\n[8e] _BurnabilityGuard.filter_laid: same rule applied across a "
+          "whole block's (entry, cx, cy, yaw) list, positions/yaws "
+          "untouched")
+    unb1 = _entry("unburnable_a.usd", 20, 30, place="any", front="E",
+                 yaw_offset=180)
+    unb2 = _entry("unburnable_b.usd", 20, 30, place="any", front="E",
+                 yaw_offset=180)
+    # Both extents at or under unb2's own (20 x 30) -- filter_laid forwards
+    # real cx/cy/yaw to `_burnable_substitute`, which now also rejects a
+    # substitute wider or taller than the slot it is dropped into (the
+    # overlap defect, 2026-08-31 review); 22 x 28 traded height for width
+    # and used to pass on area ratio alone.
+    sub = _entry("burnable_match.usd", 20, 28, place="any", front="E",
+                yaw_offset=180)
+    laid = [(unb1, 10.0, 20.0, 0.0), (unb2, 50.0, 20.0, 180.0)]
+    out = dd._BurnabilityGuard().filter_laid(laid, [sub], "midrise")
+    check(len(out) == 2, "filter_laid: same length in and out")
+    check(out[0][0][0] == "unburnable_a.usd", "first entry: unchanged")
+    check(out[0][1:] == (10.0, 20.0, 0.0), "first entry: position/yaw untouched")
+    check(out[1][0][0] == "burnable_match.usd",
+          "second entry: swapped for the burnable pool-mate")
+    check(out[1][1:] == (50.0, 20.0, 180.0),
+          "second entry: position/yaw untouched by the swap")
+
+
 # ---------------------------------------------------------------------------
 
 def main():

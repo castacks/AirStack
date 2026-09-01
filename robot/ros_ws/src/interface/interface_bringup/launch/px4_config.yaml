@@ -13,7 +13,13 @@
                           # to achieve the same on a ROS launch file do: <rosparam param="sys/min_voltage">[16.2, 16.0]</rosparam>
     disable_diag: false   # disable all sys_status diagnostics, except heartbeat
     heartbeat_rate: 1.0   # send heartbeat rate in Hertz
-    conn_timeout: 10.0    # heartbeat timeout in seconds
+    # RAISED FROM 10.0 (2026-08-31). PX4's heartbeat is 1 Hz in SIM time; at
+    # the measured RTF of 0.059 that is ~17 WALL seconds between beats, while
+    # this timeout is in WALL seconds. At 10.0 every robot flapped on a 19 s
+    # cycle (connected 10 s, lost, reconnect 9 s later), which made the PX4
+    # readiness gate a coin flip and broke takeoff with `no relay_result`.
+    # 60.0 tolerates an RTF down to ~0.017.
+    conn_timeout: 60.0    # heartbeat timeout in seconds
 
 # sys_time
 /**/time:

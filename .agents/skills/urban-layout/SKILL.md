@@ -79,6 +79,38 @@ block interior** — which is exactly the "same orientation regardless of where 
 is" defect. `_normalize_usd_list` has always returned the offset;
 `districts._pool_entries` used to throw it away.
 
+## Facing is verified on the FINAL placement, not just preferred while packing
+
+`_pack_free`/`_justify`'s own `front:` soft preference — read at packing time —
+is byte-identical and violation-free on every host reconstruction tried, but
+is not a guarantee: a Kit-only guillotine layout can still leave a
+`front:`-tagged building not addressing a street (measured, 2026-08-31:
+`SM_Building_13` violated 3 times, reproducibly, in geometry the host packer
+never explores). `districts.repair_facing` is the fix — a deterministic,
+idempotent repair that runs once at the very end of `remap_buildings`, on
+every house's ACTUAL final `(x, y, yaw, usd)`, not on what the packer thought
+it reserved:
+
+1. `yaw += 180` if the OPPOSITE side addresses a street — footprint-neutral,
+   always legal;
+2. else `yaw +/- 90` (90 tried first) if the rotated footprint's front then
+   addresses a street AND does not overlap any other house's real footprint
+   (`_house_box`);
+3. else left alone, logged as unrepairable.
+
+`districts.repair_overlaps` runs immediately after (a facing fix can itself
+change a footprint's rotated extent) as a final safety net that never leaves
+two houses interpenetrating — including the case where a `_BurnabilityGuard`
+substitute's real footprint is bigger than the original it replaced in one or
+both extents (fixed at the substitution site too: a substitute may never
+exceed the original's own rotated extents).
+
+Because this runs on the geometry the resolver actually returned, it is
+correct whichever sizes fed it — a host-side offline cache, a seeded
+real-Nucleus cache, or Kit's own live resolver. The 2026-08-31 decision: stop
+chasing host/Kit packing parity for facing specifically, and verify facing on
+a real Kit dump (`FC_INTACT_ONLY=1 FC_DUMP=<path>`) instead.
+
 ## Terrace vs pack, and the block sizing that decides
 
 | morphology | rows | orients to street? |

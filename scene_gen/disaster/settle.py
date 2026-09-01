@@ -63,9 +63,85 @@ than after the fact:
 `SettleNotConverged` and the `!!!!` banner exist because the previous version
 of this printed a note. A bake that ships 200 airborne fragments must be
 impossible to mistake for one that worked.
+
+REST, MEASURED PROPERLY (`SETTLE_REST_V2`, opt-in)
+--------------------------------------------------
+Everything above was written against two measurements that are both wrong,
+and the fire-city smoke bake (2026-08-31, `city_smoke43`) is where they
+finally showed:
+
+  * **BELOW GRADE WAS MEASURED WITH `UsdGeom.BBoxCache`.** `_z_min` asked for
+    the world bound of a prim, which USD computes as the AABB of the LOCAL
+    extent box's eight transformed corners — the AABB of an AABB. For a
+    rotated Voronoi shard that inflates DOWNWARD, and the inflation is
+    exactly the size of the reported fault. Measured on the two smoke cells,
+    `points_z_min - bbox_z_min` over every settled body::
+
+        gac_SM_Building_19_F5   n=566   p90 0.45 m   p99 1.03 m   max 1.74 m
+        kit_brownstone_row_F5c  n=550   p90 0.18 m   p99 0.56 m   max 0.70 m
+
+    and the "worst body below grade" those two runs reported was -1.03 m and
+    -0.59 m. Those are the SAME numbers. Nothing was under the world: the
+    ground plane held, the boxes did not. `_lift_below_grade` then hoisted
+    131 (gac) and 59 (kit) bodies by that spurious amount, which is how a
+    repair pass MANUFACTURES floaters — the exact defect, and the exact
+    blind spot, of `.agents/skills/fix-floating-debris`. Points-based
+    afterwards: 73 meshes 2-18 cm low, worst -0.18 m, and the pipeline's own
+    ray-based `fire_bake.deactivate_airborne` probe flags zero.
+  * **"STILL MOVING" WAS A SPEED THRESHOLD WITH THE WRONG CLOCK.** The final
+    recheck stepped 20 substeps (0.33 s) and flagged anything that travelled
+    more than `rest_tol` = 4 mm — i.e. 12 mm/s. A body creeping at 12 mm/s
+    in a pile is at rest for every purpose this dataset has; it is not
+    "frozen mid-flight". 80 of 561 bodies were flagged on the gac cell and
+    `fire_bake_launch_script.py` DEACTIVATES what this flags, so 80 pieces
+    were deleted from the export for creeping.
+  * **AND THE STALL TEST GAVE UP EARLY.** `stall_chunks` counted any chunk
+    that failed to set a NEW ALL-TIME MINIMUM moving-body count, so a pile
+    grinding down 90 -> 85 -> 88 -> 86 "stalled". It cut the quiet phase —
+    the phase whose whole job is to stop things — off at 350 of its 400
+    steps, then printed "more steps will not help".
+
+`SETTLE_REST_V2=1` (or `rest_v2=True`) switches all of that to:
+
+  * grade measured off POINTS (`_points_z_min`), for both the audit and the
+    lift;
+  * a body is at rest when its NET travel over a rolling window of
+    `creep_window` chunks is under `creep_tol` (1 cm), however much it
+    jitters inside the window;
+  * a stall is a CUE, not a verdict: the bodies that are only jittering are
+    frozen where they stand (`rigidBodyEnabled=False`, so they keep holding
+    up whatever is on them) and the loop carries on for the ones that are
+    actually travelling;
+  * the convex-decomposition budget scales with the piece
+    (`_scaled_decomp`). `DECOMP_LIMITS` is one fixed budget for a 0.8 m chip
+    and a 25 m sliced core shell alike, and the smoke cell's still-moving
+    rate went 6-10% for pieces under 8 m to 29-71% for pieces over it.
+
+OFF BY DEFAULT, because the MCE kit look is frozen: with the flag unset this
+module takes byte-for-byte the code path it took before. The fire drivers
+(`tools/fire_city_bake.sh`, `tools/fire_bake.sh`) turn it on for every
+record whose kind is NOT `kit`.
 """
 
 import carb
+
+
+# --- rest v2 constants (see the module docstring) --------------------------
+CREEP_TOL_M = 0.01       # net travel over the window that still counts as rest
+CREEP_WINDOW = 3         # chunks in the rolling window
+CREEP_FREEZE_ROUNDS = 4  # how many times a stall may freeze and carry on
+REST_CHECK_STEPS = 60    # substeps of the final at-rest recheck (v2); 1.0 s
+BIG_PIECE_M = 6.0        # above this diagonal one fixed decomposition budget
+#                          is not enough — see `_scaled_decomp`
+#: How far under the floor a body's POINTS have to finish before that is a
+#: fault rather than a note. The clamp puts everything back on grade either
+#: way; what this decides is whether the `!!!!` banner fires. 0.10 m is the
+#: same order as the pipeline's own airborne tolerance
+#: (`fire_bake._AIR_TOL_M`), and below it there is nothing to see: the gac
+#: re-bake's worst body was 4 cm low, already clamped, and shouting about it
+#: trains the reader to ignore the banner — which is the one thing the
+#: banner cannot afford.
+GRADE_FAULT_M = 0.10
 
 
 class SettleNotConverged(RuntimeError):
@@ -124,6 +200,41 @@ def _bound_decomposition(prim, limits=None):
                       "({0}); cooking with the defaults".format(exc))
 
 
+def _scaled_decomp(size_m, limits=None):
+    """`DECOMP_LIMITS`, scaled to the piece. Identity below `BIG_PIECE_M`.
+
+    `DECOMP_LIMITS` is ONE budget for every body in the scene, and the scene
+    is not one scale. A 0.8 m chip and the 24.7 m sliced core shell of
+    `SM_Building_19` both got 8 hulls, 32 hull vertices and a 100k-voxel
+    grid: on the chip that is generous, on the shell it is a 0.25 m voxel and
+    eight hulls to cover a 19 x 15 x 5 m box that is mostly hole, so the
+    collider bears almost no relation to the geometry. Measured on the smoke
+    cell, still-moving rate by body diagonal::
+
+        0-2 m  10%    2-4 m   6%    4-6 m   9%    6-8 m  11%
+        8-10 m 29%   10-12 m 71%   12-14 m 50%   14-16 m 33%   18-22 m 30%
+
+    Every one of those movers was in the collapse heap, wedged, being pushed
+    apart at `maxDepenetrationVelocity` forever. Scaling the budget with the
+    piece is the cheap half of that fix (the other half is not making
+    fragments that big, which is `urban_fire`'s call, not this module's).
+    Capped at 4x so the cooker cannot be handed an unbounded job.
+    """
+    lim = dict(DECOMP_LIMITS)
+    lim.update(limits or {})
+    size_m = float(size_m or 0.0)
+    if size_m < BIG_PIECE_M:
+        return lim
+    k = min(4.0, size_m / BIG_PIECE_M)
+    lim["max_hulls"] = int(round(lim["max_hulls"] * k))
+    # 64 is PhysX's own per-hull vertex ceiling; asking for more is silently
+    # clamped, so ask for what is real.
+    lim["vertex_limit"] = int(min(64, round(lim["vertex_limit"]
+                                            * (1.0 + 0.5 * (k - 1.0)))))
+    lim["voxel_resolution"] = int(round(lim["voxel_resolution"] * k * k))
+    return lim
+
+
 def _iter(prim):
     from pxr import Usd
     return Usd.PrimRange(prim)
@@ -134,7 +245,8 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
             dynamic_approximation="convexHull", approx_map=None, gpu=True,
             bias=None, max_speed=None, damping=None, velocity_map=None,
             density=420.0, ccd=False, ground_plane_z=None,
-            decompose_larger_than=None, decomp_limits=None):
+            decompose_larger_than=None, decomp_limits=None,
+            decomp_scale=False):
     """Physics scene, static colliders, and a rigid body per loose piece.
 
     `velocity_map` is `{prim_path: (vx, vy, vz)}` in m/s, a PER-BODY initial
@@ -341,7 +453,7 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
     bodies = []
     no_collider = []
     no_local_frame = []
-    n_decomp = 0
+    n_decomp = n_big = 0
     for path in loose_paths:
         prim = stage.GetPrimAtPath(path)
         if not prim or not prim.IsValid():
@@ -364,10 +476,18 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
             approx = "convexDecomposition"
         if approx_map and path in approx_map:
             approx = approx_map[path]
+        lim = decomp_limits
         if approx == "convexDecomposition":
             n_decomp += 1
+            # THE BUDGET IS PER PIECE, NOT PER SCENE (v2 only; see
+            # `_scaled_decomp`). Off by default so the frozen kit bake cooks
+            # the same colliders it always did.
+            if decomp_scale:
+                lim = _scaled_decomp(sizes.get(path, 0.0), decomp_limits)
+                if lim.get("max_hulls", 0) > DECOMP_LIMITS["max_hulls"]:
+                    n_big += 1
         if not _apply_collider(prim, approximation=approx,
-                               decomp_limits=decomp_limits):
+                               decomp_limits=lim):
             # NOT A HARMLESS SKIP. A loose prim that never becomes a body is
             # not "left where it is" in any useful sense — it is left where
             # the DAMAGE stage authored it, which for a wrecked house is
@@ -472,7 +592,8 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
 
     return {"bodies": bodies, "static_meshes": n_static, "rigid": n_body,
             "no_collider": no_collider, "no_local_frame": no_local_frame,
-            "decomposed": n_decomp,
+            "decomposed": n_decomp, "decomp_scaled": n_big,
+            "sizes": sizes,
             "ground_plane": plane_path, "ccd": bool(ccd)}
 
 
@@ -729,8 +850,54 @@ def _cull_ledges(stage, bodies, zones=None, z_min=None, band_m=None):
 # ---------------------------------------------------------------------------
 
 
+def _freeze_creepers(bodies, paths):
+    """Switch off the rigid body of every prim in *paths*.
+
+    Returns the list of paths it ACTUALLY disabled — not the ones it was
+    offered. A stall can fire several times, and each time the whole
+    not-travelling set is offered again, so counting the offer instead of
+    the action reported "1631 body(s) FROZEN" on a pile of 561
+    (`city_smoke43` gac, 2026-08-31). A count larger than the body count is
+    the kind of number a reader stops believing.
+
+    NOT `SetActive(False)`, and not a delete: the body keeps its pose, its
+    collider and its place in the scene, so whatever is resting ON it is
+    still held up. It just stops being solved — which is the point, because
+    a body grinding in a wedge is not settling, it is a source of velocity
+    for everything it touches. `bake()` does this to every body at the end
+    anyway; this only does it early, and only to bodies that have already
+    proved they are going nowhere.
+    """
+    from pxr import Gf, UsdPhysics
+
+    want = set(str(q) for q in paths)
+    done = []
+    for prim in bodies:
+        if not prim or not prim.IsValid() or not prim.IsActive():
+            continue
+        if str(prim.GetPath()) not in want:
+            continue
+        body = UsdPhysics.RigidBodyAPI(prim)
+        if not body:
+            continue
+        try:
+            if body.GetRigidBodyEnabledAttr().Get() is False:
+                continue
+        except Exception:                          # pragma: no cover
+            pass
+        try:
+            body.CreateVelocityAttr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+            body.CreateAngularVelocityAttr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+        except Exception:                          # pragma: no cover
+            pass
+        body.CreateRigidBodyEnabledAttr(False)
+        done.append(str(prim.GetPath()))
+    return done
+
+
 def _settle_phase(bodies, chunk, cap, tol=0.001, rest_tol=0.004,
-                  stall_chunks=0, fabric=False):
+                  stall_chunks=0, fabric=False, creep_tol=0.0,
+                  creep_window=CREEP_WINDOW, freeze_rounds=0):
     """Step in chunks until the pile stops moving or `cap` steps are gone.
 
     Returns `(steps_used, moving, driver, at_rest, reason)`, where `moving`
@@ -750,14 +917,34 @@ def _settle_phase(bodies, chunk, cap, tol=0.001, rest_tol=0.004,
     `stall_chunks=0` keeps the historical behaviour exactly: chunked
     stepping with an early exit as soon as the busiest body moves less than
     a millimetre, `reason` only ever `"rest"` or `"cap"`. A non-zero value
-    adds the other half of a convergence test."""
+    adds the other half of a convergence test.
+
+    `creep_tol > 0` (v2) redefines `moving`: a body counts as moving only if
+    its NET travel over the last `creep_window` chunks exceeds `creep_tol`.
+    The per-chunk delta this used before cannot tell a body that is going
+    somewhere from one rocking a few millimetres in a wedge, and the pile
+    is full of the second kind. `freeze_rounds > 0` then makes a stall
+    actionable instead of terminal: the bodies that are only jittering are
+    frozen where they stand and the loop carries on for the rest, up to
+    `freeze_rounds` times. Returns a sixth element, the list of frozen
+    paths (always empty on the v1 path)."""
+    import collections
+
     import numpy as np
+
+    def _delta(a, b, keys):
+        return np.linalg.norm(
+            np.array([list(a[k]) for k in keys])
+            - np.array([list(b[k]) for k in keys]), axis=1)
 
     used, driver, moving = 0, None, 0
     at_rest = False
     reason = "cap"
     best, stalled = None, 0
+    frozen, rounds = [], 0
+    win = max(1, int(creep_window or 1))
     prev = _positions(bodies)
+    hist = collections.deque([prev], maxlen=win + 1)
     while used < cap:
         n = min(chunk, cap - used)
         driver = _step(n, fabric=fabric)
@@ -765,13 +952,25 @@ def _settle_phase(bodies, chunk, cap, tol=0.001, rest_tol=0.004,
         now = _positions(bodies)
         keys = [k for k in prev if k in now]
         if keys:
-            d = np.linalg.norm(
-                np.array([list(now[k]) for k in keys])
-                - np.array([list(prev[k]) for k in keys]), axis=1)
+            d = _delta(now, prev, keys)
             moved, moving = float(d.max()), int((d > rest_tol).sum())
         else:
             moved, moving = 0.0, 0
         prev = now
+        hist.append(now)
+        settled_keys = []
+        if creep_tol > 0.0 and len(hist) > win:
+            old_pos = hist[0]
+            kk = [k for k in old_pos if k in now]
+            if kk:
+                dd = _delta(now, old_pos, kk)
+                going = dd > float(creep_tol)
+                moving = int(going.sum())
+                settled_keys = [kk[i] for i in range(len(kk)) if not going[i]]
+                if moving == 0:
+                    at_rest = True
+                    reason = "rest"
+                    break
         if moved < tol:
             at_rest = True
             reason = "rest"
@@ -782,9 +981,28 @@ def _settle_phase(bodies, chunk, cap, tol=0.001, rest_tol=0.004,
             else:
                 stalled += 1
                 if stalled >= int(stall_chunks):
+                    # A STALL IS A CUE, NOT A VERDICT. The old code stopped
+                    # here and told the operator more steps would not help,
+                    # which was true and useless: the pile still had to be
+                    # baked, and everything still moving got deleted
+                    # downstream. Take the jittering bodies out of the solve
+                    # instead — they have not travelled `creep_tol` in
+                    # `creep_window` chunks, so freezing them changes no pose
+                    # anyone can see — and carry on for the ones that really
+                    # are going somewhere.
+                    if freeze_rounds and rounds < int(freeze_rounds) \
+                            and settled_keys:
+                        got = _freeze_creepers(bodies, settled_keys)
+                        if got:
+                            frozen.extend(got)
+                            rounds += 1
+                            best, stalled = None, 0
+                            hist.clear()
+                            hist.append(now)
+                            continue
                     reason = "stalled"
                     break
-    return used, moving, driver, at_rest, reason
+    return used, moving, driver, at_rest, reason, frozen
 
 
 def _quiet_bodies(bodies, damping=(1.6, 5.0), max_speed=6.0):
@@ -826,7 +1044,19 @@ def _bbox_cache():
 
 
 def _z_min(bc, prim):
-    """World-space min-z of a prim's geometry, or None if it has no extent."""
+    """World-space min-z of a prim's BOX. **This is not where it is.**
+
+    `ComputeWorldBound` transforms the eight corners of the prim's LOCAL
+    extent box and re-axis-aligns them: the AABB of an AABB. For anything
+    lying diagonally inside its own box — which is every Voronoi shard —
+    that reports a floor several tens of centimetres below the lowest real
+    vertex, and it reports it DOWNWARD as readily as upward. Measured on the
+    two `city_smoke43` cells the gap is p90 0.45 m / p99 1.03 m (gac) and
+    p90 0.18 m / p99 0.56 m (kit), which is the whole of the "below grade"
+    fault each of those runs reported. Use `_points_z_min` for any question
+    about whether something is on the ground; this is kept because the kit
+    bake is frozen against it.
+    """
     try:
         r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
     except Exception:                              # pragma: no cover
@@ -836,16 +1066,56 @@ def _z_min(bc, prim):
     return float(r.GetMin()[2])
 
 
-def _below_grade(stage, bodies, floor_z, tol=0.02):
+def _points_z_min(prim, xcache=None):
+    """World-space min-z of a prim's POINTS — the only number that is true.
+
+    Same maths as `bake.world_point_bounds`, reduced to the one axis this
+    module asks about and vectorised, because `_below_grade` runs it over
+    every body in the pile. `GfMatrix4d` is row-vector (`world = local * M`),
+    so world z is `P . M[:3, 2] + M[3, 2]`.
+
+    Returns None when nothing under *prim* carries points, so callers can
+    fall back to the box rather than silently treating "unmeasurable" as
+    "at grade".
+    """
+    import numpy as np
+
+    from pxr import UsdGeom
+
+    xf = xcache or UsdGeom.XformCache()
+    lo = None
+    for p in _iter(prim):
+        if not p.IsA(UsdGeom.Mesh):
+            continue
+        pts = UsdGeom.Mesh(p).GetPointsAttr().Get()
+        if not pts:
+            continue
+        m = np.array(xf.GetLocalToWorldTransform(p), dtype=float)
+        z = np.asarray(pts, dtype=float) @ m[:3, 2] + m[3, 2]
+        v = float(z.min())
+        if lo is None or v < lo:
+            lo = v
+    return lo
+
+
+def _below_grade(stage, bodies, floor_z, tol=0.02, points=False):
     """(count, worst_z, [(path, z_min), ...]) for bodies that finished under
     the floor. Geometry, not origins: a fragment whose pivot is above grade
-    with half its mesh under it is still a hole in the ground."""
-    bc = _bbox_cache()
+    with half its mesh under it is still a hole in the ground.
+
+    `points=True` measures with `_points_z_min` instead of the box. That is
+    the difference between an audit and a rumour — see `_z_min`."""
+    from pxr import UsdGeom
+
+    bc = None if points else _bbox_cache()
+    xf = UsdGeom.XformCache() if points else None
     worst, out = 0.0, []
     for prim in bodies:
         if not prim or not prim.IsValid() or not prim.IsActive():
             continue
-        z0 = _z_min(bc, prim)
+        z0 = _points_z_min(prim, xf) if points else _z_min(bc, prim)
+        if z0 is None and points:
+            z0 = _z_min(_bbox_cache(), prim)
         if z0 is None or z0 >= floor_z - tol:
             continue
         out.append((str(prim.GetPath()), z0))
@@ -854,7 +1124,8 @@ def _below_grade(stage, bodies, floor_z, tol=0.02):
     return len(out), worst, out[:5]
 
 
-def _lift_below_grade(stage, bodies, floor_z, tol=0.02, live=False):
+def _lift_below_grade(stage, bodies, floor_z, tol=0.02, live=False,
+                      points=False):
     """Raise anything under the floor until its lowest point is ON the floor.
 
     THE TIE BREAKS TOWARD THE GROUND, the same call `bake._reseat_roots`
@@ -871,13 +1142,15 @@ def _lift_below_grade(stage, bodies, floor_z, tol=0.02, live=False):
     """
     from pxr import Gf, UsdGeom, UsdPhysics
 
-    bc = _bbox_cache()
+    bc = None if points else _bbox_cache()
     xf = UsdGeom.XformCache()
     lifted = failed = 0
     for prim in bodies:
         if not prim or not prim.IsValid() or not prim.IsActive():
             continue
-        z0 = _z_min(bc, prim)
+        z0 = _points_z_min(prim, xf) if points else _z_min(bc, prim)
+        if z0 is None and points:
+            z0 = _z_min(_bbox_cache(), prim)
         if z0 is None or z0 >= floor_z - tol:
             continue
         dz = floor_z - z0
@@ -922,7 +1195,9 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         decompose_larger_than=None, decomp_limits=None, converge=False,
         max_steps=None, quiet_steps=0, quiet_damping=(1.6, 5.0),
         quiet_max_speed=6.0, rest_tol=0.004, stall_chunks=3, floor_z=None,
-        floor_tol=0.02, strict=None, fabric=None):
+        floor_tol=0.02, strict=None, fabric=None, rest_v2=None,
+        creep_tol=CREEP_TOL_M, creep_window=CREEP_WINDOW,
+        freeze_rounds=CREEP_FREEZE_ROUNDS):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -968,8 +1243,24 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         `_step` call instead of once per physics substep (see `_step`).
         OFF by default so every existing caller, including the fire and
         tornado bakes, steps exactly as before, byte for byte.
+      * `rest_v2=True` (or `SETTLE_REST_V2=1`) is the measurement fix — read
+        the module docstring, it is the whole reason this file changed on
+        2026-08-31. Grade is measured off POINTS instead of a box, rest is
+        net travel over a window instead of a per-chunk delta, a stall
+        freezes the jittering bodies and carries on instead of giving up,
+        and the convex-decomposition budget scales with the piece. OFF by
+        default because the MCE kit bake is frozen against the old
+        behaviour; the fire drivers turn it on for every non-`kit` record.
     """
     import numpy as np
+
+    if rest_v2 is None:
+        import os as _os
+        rest_v2 = _os.environ.get("SETTLE_REST_V2", "").strip() \
+            not in ("", "0", "false", "False")
+    rest_v2 = bool(rest_v2)
+    _creep = float(creep_tol) if rest_v2 else 0.0
+    _freeze = int(freeze_rounds) if rest_v2 else 0
 
     if fabric is None:
         import os as _os
@@ -984,11 +1275,13 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
                    velocity_map=velocity_map, density=density, ccd=ccd,
                    ground_plane_z=ground_plane_z,
                    decompose_larger_than=decompose_larger_than,
-                   decomp_limits=decomp_limits)
+                   decomp_limits=decomp_limits, decomp_scale=rest_v2)
     if not info["bodies"]:
         carb.log_warn("[settle] nothing to settle")
         return info
     info["fabric"] = bool(fabric)
+    info["rest_v2"] = rest_v2
+    info.pop("sizes", None)
 
     import time as _time
     _t0 = _time.time()
@@ -1010,9 +1303,11 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     if converge:
         cap = max(cap, int(max_steps) if max_steps is not None
                   else 3 * int(steps))
-    used, moving, driver, at_rest, reason = _settle_phase(
+    used, moving, driver, at_rest, reason, froze = _settle_phase(
         info["bodies"], chunk, cap, tol=0.001, rest_tol=rest_tol,
-        stall_chunks=stall_chunks if converge else 0, fabric=fabric)
+        stall_chunks=stall_chunks if converge else 0, fabric=fabric,
+        creep_tol=_creep, creep_window=creep_window, freeze_rounds=_freeze)
+    info["frozen_creep"] = list(froze)
     info["driver"] = driver
     info["steps_used"] = used
     info["steps_cap"] = cap
@@ -1028,14 +1323,19 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     info["rescued"] = info["rescue_failed"] = 0
     if floor_z is not None and int(quiet_steps or 0) > 0:
         info["rescued"], info["rescue_failed"] = _lift_below_grade(
-            stage, info["bodies"], float(floor_z), tol=floor_tol, live=True)
+            stage, info["bodies"], float(floor_z), tol=floor_tol, live=True,
+            points=rest_v2)
     info["quiet_used"] = 0
     if int(quiet_steps or 0) > 0:
         _quiet_bodies(info["bodies"], quiet_damping, quiet_max_speed)
         q_chunk = max(20, int(quiet_steps) // 8)
-        info["quiet_used"], moving, qdriver, q_rest, q_reason = _settle_phase(
+        (info["quiet_used"], moving, qdriver, q_rest, q_reason,
+         qfroze) = _settle_phase(
             info["bodies"], q_chunk, int(quiet_steps), tol=0.001,
-            rest_tol=rest_tol, stall_chunks=stall_chunks, fabric=fabric)
+            rest_tol=rest_tol, stall_chunks=stall_chunks, fabric=fabric,
+            creep_tol=_creep, creep_window=creep_window,
+            freeze_rounds=_freeze)
+        info["frozen_creep"] = list(info.get("frozen_creep") or []) + list(qfroze)
         info["driver"] = qdriver or info["driver"]
         # The quiet phase is the one that has to reach rest — it is the
         # phase whose whole job is to stop things.
@@ -1049,13 +1349,23 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     # NAME THEM, not just count them — "1 body(s) STILL MOVING" with no path
     # sends the next debugging pass back to a live rerun to find out which
     # one; the paths are sitting right here in `settled`/`after`.
-    _step(20, fabric=fabric)
+    # THE CLOCK MATTERS AS MUCH AS THE TOLERANCE. v1 stepped 20 substeps
+    # (0.33 s) and flagged anything that moved more than `rest_tol` = 4 mm,
+    # i.e. 12 mm/s — and `fire_bake_launch_script.py` DEACTIVATES what this
+    # flags, so 80 bodies creeping in a heap were deleted from the gac smoke
+    # cell for not being perfectly still. v2 measures NET travel over a full
+    # second and asks for `creep_tol` (1 cm), which is the same order of
+    # speed but immune to jitter: what survives it is a body actually going
+    # somewhere, which is the only kind worth deleting.
+    _check_steps = REST_CHECK_STEPS if rest_v2 else 20
+    _check_tol = _creep if rest_v2 else rest_tol
+    _step(_check_steps, fabric=fabric)
     settled = _positions(info["bodies"])
     still_moving_keys = [
         k for k in after
         if k in settled
         and float(np.linalg.norm(np.array(settled[k]) - np.array(after[k])))
-        > rest_tol]
+        > _check_tol]
     info["still_moving"] = len(still_moving_keys)
     info["still_moving_examples"] = still_moving_keys[:5]
     info["still_moving_paths"] = list(still_moving_keys)
@@ -1093,10 +1403,26 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     info["below_grade"] = 0
     info["below_grade_worst"] = 0.0
     info["below_grade_examples"] = []
+    info["below_grade_pts"] = 0
+    info["below_grade_pts_worst"] = 0.0
     if floor_z is not None:
         (info["below_grade"], info["below_grade_worst"],
          info["below_grade_examples"]) = _below_grade(
-            stage, info["bodies"], float(floor_z), tol=floor_tol)
+            stage, info["bodies"], float(floor_z), tol=floor_tol,
+            points=rest_v2)
+        if rest_v2:
+            info["below_grade_pts"] = info["below_grade"]
+            info["below_grade_pts_worst"] = info["below_grade_worst"]
+        else:
+            # MEASURE THE TRUTH EVEN WHEN THE REPAIR IS NOT ALLOWED TO USE
+            # IT. The kit bake is frozen against the box measurement, so it
+            # keeps clamping on that; the log still says how many bodies are
+            # REALLY under the world, so the gap between the two numbers is
+            # visible in every run instead of taking a smoke test to find.
+            (info["below_grade_pts"], info["below_grade_pts_worst"],
+             _bg_pts_ex) = _below_grade(
+                stage, info["bodies"], float(floor_z), tol=floor_tol,
+                points=True)
 
     info["solve_s"] = _time.time() - _t0
     # THE LEDGE CULL, off by default. `cull_ledges=True` (or the env var, so
@@ -1124,7 +1450,8 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     info["clamped"] = info["clamp_failed"] = 0
     if floor_z is not None and bake_result and info["below_grade"]:
         info["clamped"], info["clamp_failed"] = _lift_below_grade(
-            stage, info["bodies"], float(floor_z), tol=floor_tol, live=False)
+            stage, info["bodies"], float(floor_z), tol=floor_tol, live=False,
+            points=rest_v2)
 
     if settle_note:
         print("[settle] {0} rigid, {1} static, driver={2}, baked {3}".format(
@@ -1140,7 +1467,17 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
             if info.get("ground_plane") else ""))
         if info.get("decomposed"):
             print("[settle]   {0} body(s) cooked as convex DECOMPOSITIONS "
-                  "(the rest are hulls)".format(info["decomposed"]))
+                  "(the rest are hulls){1}".format(
+                      info["decomposed"],
+                      ", {0} of them on a SCALED budget (>= {1:.0f} m)".format(
+                          info["decomp_scaled"], BIG_PIECE_M)
+                      if info.get("decomp_scaled") else ""))
+        if info.get("frozen_creep"):
+            print("[settle]   {0} body(s) FROZEN where they stood after a "
+                  "stall (net travel under {1:.0f} cm over {2} chunk(s); they "
+                  "keep their pose and still hold up what is on them)".format(
+                      len(info["frozen_creep"]), 100.0 * float(creep_tol),
+                      creep_window))
         if info.get("culled_ledges"):
             print("[settle]   {0} body(s) culled off façade ledges "
                   "({1} zone(s))".format(info["culled_ledges"], len(LEDGE_ZONES)))
@@ -1155,8 +1492,15 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
                   info.get("quiet_used", 0), info.get("still_moving", 0)))
         if info.get("rescued") or info.get("clamped"):
             print("[settle]   {0} body(s) lifted back to grade before the "
-                  "quiet phase, {1} clamped after the bake".format(
-                      info.get("rescued", 0), info.get("clamped", 0)))
+                  "quiet phase, {1} clamped after the bake ({2})".format(
+                      info.get("rescued", 0), info.get("clamped", 0),
+                      "measured off POINTS" if rest_v2 else
+                      "measured off BOXES -- {0} body(s) are really under "
+                      "the world (worst {1:+.2f} m); the rest of that count "
+                      "is BBoxCache inflating a rotated shard downward, and "
+                      "the lift MANUFACTURES that much float".format(
+                          info.get("below_grade_pts", 0),
+                          info.get("below_grade_pts_worst", 0.0))))
         print("[settle]   drop  mean {0:+.2f} m   (down = collapsing)".format(
             info["drop_mean"]))
         # THE READING INVERTS WHEN THERE IS A BIAS. Horizontal spread is the
@@ -1174,6 +1518,32 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         if info["moved_max"] < 0.01:
             print("[settle] NOTHING MOVED — the solver did not run, or every "
                   "body was already resting and interlocked")
+
+    # ---- ONE GREPPABLE LINE, ALWAYS ------------------------------------
+    # The driver (`tools/fire_city_bake.sh`) reads this off the log to build
+    # its per-record summary. Everything above is for a human reading the
+    # log; this is the line that has to survive being scraped, so it is
+    # `key=value`, fixed keys, one line, printed whether or not anything is
+    # wrong. Before this existed, a bake that froze 80 bodies mid-flight and
+    # teleported 131 more still printed `verify=OK` on the driver's summary
+    # and nothing else, and the fault only surfaced by reading 500 lines of
+    # one container log by hand.
+    info["at_rest_ok"] = bool(
+        not info.get("still_moving")
+        and abs(float(info.get("below_grade_pts_worst") or 0.0))
+        <= GRADE_FAULT_M
+        and info.get("converged"))
+    print("[settle] REST_CHECK at_rest={0} still_moving={1} below_grade={2} "
+          "below_grade_pts={3} frozen={4} rescued={5} clamped={6} "
+          "converged={7} reason={8} steps={9}/{10} quiet={11} v2={12}".format(
+              1 if info["at_rest_ok"] else 0,
+              info.get("still_moving", 0), info.get("below_grade", 0),
+              info.get("below_grade_pts", 0), len(info.get("frozen_creep") or []),
+              info.get("rescued", 0), info.get("clamped", 0),
+              1 if info.get("converged") else 0,
+              info.get("stop_reason", "?"), info.get("steps_used", 0),
+              info.get("steps_cap", 0), info.get("quiet_used", 0),
+              1 if rest_v2 else 0))
 
     # ---- the verdict, and it is not a footnote ---------------------------
     faults = []
@@ -1196,14 +1566,35 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
             "piece becomes a 200+ m 'worst mover' or slips a ground plane "
             "CCD is supposed to hold it to; e.g. {1}".format(
                 len(info["no_local_frame"]), info["no_local_frame"][0]))
-    if info.get("below_grade"):
+    # BELOW GRADE IS ONLY A FAULT IF THE GEOMETRY IS REALLY DOWN THERE.
+    # The v1 count is a box count and the box lies (see `_z_min`): on the
+    # smoke cells it reported 131/59 bodies under the world where the POINTS
+    # say 3/0. Report the box count when that is what the run repaired
+    # against, but raise the fault on the points count, so a frozen-kit run
+    # stops crying wolf and a real hole in the ground still shouts.
+    _bg_bad = (info.get("below_grade_pts")
+               and abs(float(info.get("below_grade_pts_worst") or 0.0))
+               > GRADE_FAULT_M)
+    if _bg_bad:
         faults.append(
             "{0} body(s) finished BELOW GRADE (worst {1:.2f} m under the "
-            "floor) — the ground collider is not holding{2}".format(
-                info["below_grade"], info["below_grade_worst"],
+            "floor, measured off POINTS) — the ground collider is not "
+            "holding{2}".format(
+                info["below_grade_pts"], info["below_grade_pts_worst"],
                 "" if not info.get("clamped")
                 else "; {0} were clamped back onto it".format(
                     info["clamped"])))
+    elif info.get("below_grade_pts") and settle_note:
+        print("[settle]   {0} body(s) dipped under grade by up to {1:.2f} m "
+              "(points) and were clamped back on — under the {2:.2f} m fault "
+              "line, so this is a note, not a fault.".format(
+                  info["below_grade_pts"], abs(info["below_grade_pts_worst"]),
+                  GRADE_FAULT_M))
+    elif info.get("below_grade") and settle_note:
+        print("[settle]   {0} body(s) read below grade off their BOXES and "
+              "were clamped; none of them is really under the world (points "
+              "say 0). That clamp is lifting geometry that was already "
+              "seated -- see `_z_min`.".format(info["below_grade"]))
     if info.get("rescue_failed") or info.get("clamp_failed"):
         faults.append(
             "{0} body(s) could NOT be lifted (no translate op to edit)".format(

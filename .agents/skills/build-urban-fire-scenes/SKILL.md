@@ -1,6 +1,6 @@
 ---
 name: build-urban-fire-scenes
-description: Build or modify STRUCTURE fire damage on urban kit buildings in scene_gen — disaster/urban_fire.py's F0-F5 compartment-fire ladder (climbing, not sweeping; soot above openings, not below them; the shell stands, it does not burn away), the per-construction-type recipes (urm/rc/rc_glass), the soot_plume fire-EVENT model (2026-08-30: flames and scorch from ONE event list, EN 1991-1-2 flame + Heskestad plume + Riahi-Beyler thermophoretic deposition; wall_overlay/facade_bake are superseded), kit_substitute's per-pack routing for whole-asset city buildings (ModernCityEnvironment to its kit twin, GreatAmericanCity sliced, Muyang DownTown excluded), and the bug catalogue: the Scope.Define trap that snapped every kit building to the origin, the world-baked _cyl rebar that flew 205 m under a 6 m/s cap, fractionalCutoutOpacity's two required forms, the rectangular-scorch-edge fix, contiguous flame runs replacing a meaningless stride, and the Flow emitter budget that renders a city with no smoke while reporting success. Read before touching disaster/urban_fire.py, disaster/soot_plume.py, disaster/kit_substitute.py, or the urban_fire_bench / mce_fire launch scripts.
+description: Build or modify STRUCTURE fire damage on urban kit buildings in scene_gen — disaster/urban_fire.py's F0-F5 compartment-fire ladder (climbing, not sweeping; soot above openings, not below them; the shell stands, it does not burn away), the per-construction-type recipes (urm/rc/rc_glass), the soot_plume fire-EVENT model (2026-08-30: flames and scorch from ONE event list, EN 1991-1-2 flame + Heskestad plume + Riahi-Beyler thermophoretic deposition; wall_overlay/facade_bake are superseded), kit_substitute's per-pack routing for whole-asset city buildings (ModernCityEnvironment to its kit twin, GreatAmericanCity sliced, Muyang DownTown excluded), and the bug catalogue: the Scope.Define trap that snapped every kit building to the origin, the world-baked _cyl rebar that flew 205 m under a 6 m/s cap, fractionalCutoutOpacity's two required forms, the rectangular-scorch-edge fix, contiguous flame runs replacing a meaningless stride, and the Flow emitter budget that renders a city with no smoke while reporting success. Also covers CITY-SCALE fire, rebuilt 2026-08-31 on the downtown_fire_500 preset and urban_fire_city_launch_script.py: instancing ghosts on gprim-rooted assets (apply_placements, fc_instance_material_probe.py), burnability-aware layout (burnability_table.json, _BurnabilityGuard), the multi-seed fire_city_union.py manifest union, SETTLE_REST_V2 in the fire_bake.sh/fire_city_bake.sh drivers, and fire_people's manifest-vs-dump verification. Read before touching disaster/urban_fire.py, disaster/soot_plume.py, disaster/kit_substitute.py, disaster/urban_fire_city.py, or the urban_fire_bench / mce_fire / urban_fire_city launch scripts.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -810,16 +810,21 @@ for judging geometry alone), `UF_ORIGIN` (force every fire's start storey),
 
 ## Known gaps
 
-- **There is no city-scale fire, on purpose, for now.** `burn_monolith` and
-  everything downstream of it (`urban_fire_city.py`, its launch scripts, its
-  test, `tools/urban_fire_dryrun.py`) were deleted 2026-08-29 (bug 2, above).
-  The user's decision: "remove all city scale fire launches and other
-  references to monolith we will do that once we have buildings looking
-  good." Per-building damage (this document, `urban_fire.py`,
-  `wall_overlay.py`, `kit_substitute.py`, the `urban_fire_bench` /
-  `mce_fire` benches) is the active surface. City scale is future work, to
-  be rebuilt on `kit_substitute.route()` once the per-building look is
-  signed off — not a currently-broken feature to route around.
+- **City-scale fire was rebuilt 2026-08-31 — the paragraph below is
+  historical.** `burn_monolith` and everything downstream of it
+  (`urban_fire_city.py`, its launch scripts, its test,
+  `tools/urban_fire_dryrun.py`) were deleted 2026-08-29 (bug 2, above), on the
+  user's decision to hold city scale until per-building damage was signed
+  off and to rebuild it on `kit_substitute.route()` once it was. That is
+  exactly what happened: `disaster/urban_fire_city.py` was recreated, and
+  city-scale fire now runs on the `downtown_fire_500` preset through
+  `urban_fire_city_launch_script.py` — see the "City-scale fire" section
+  below for the pipeline and its own bug catalogue (instancing ghosts,
+  burnability-aware layout, the multi-seed manifest union, `SETTLE_REST_V2`
+  in the bake drivers, the people pass). Per-building damage (this document,
+  `urban_fire.py`, `kit_substitute.py`, the `urban_fire_bench` / `mce_fire`
+  benches, GAC's own per-building bake) remains the substrate city scale is
+  built on — nothing about it changed.
 - **The `fractionalCutoutOpacity` startup flag is missing from
   `pack_damage_bench_launch_script.py`** (bug 4, above; kept with updated
   prose — see bug 2) — it does not pass `KIT_ARGS`, so the `wall_overlay`
@@ -1711,3 +1716,141 @@ after, urm + rc + a family-05 skyscraper at F5c). Remember `rc_glass` F5c is
 DESIGNED to stand — F5c on a curtain-wall tower is F5 (Grenfell: the cladding
 burns, the frame does nothing) — so "no collapse on the glass tower" is correct,
 not a bug.
+
+## 2026-08-31 — City-scale fire, rebuilt on `kit_substitute.route()`
+
+The `downtown_fire_500` preset + `simulation/isaac-sim/launch_scripts/
+urban_fire_city_launch_script.py` is the pipeline the 2026-08-29 decision (see
+"Known gaps", above) promised: `tools/fire_city_dry_run.py` solves a real
+layout + `disaster.urban_fire_spread` host-side into a manifest;
+`tools/fire_city_union.py` unions several seeds' manifests into one denser
+city; `tools/fire_city_bake.sh` / `tools/fire_bake.sh` drive one Kit process
+per building (the "PER-BUILDING BAKE" design above, unchanged); the launcher
+assembles the bakes as static geometry and re-places Flow. Five things this
+scale surfaced that per-building damage never could.
+
+### Instancing ghosts — a gprim-rooted asset cannot be instanced
+
+`downtown_fire_500.yaml` sets `instance_placements: true` (the fix for a
+composition OOM — 66,590 un-instanced placements cost ~39 GB RSS). Whenever a
+placement's referenced ROOT prim is itself a Mesh (every Unreal/Muyang export
+this repo already special-cases elsewhere: `BG_Building_C`,
+`Building_Type{A,D}_{A,B}`, `SM_lightpost_light_post_b`, `SM_bench_wood_a`,
+`Car_01_0`, `SM_light_streetlight_complete`, `PlanterLarge_A`, the fountain
+parts), `SetInstanceable(True)` puts the root's materials, GeomSubsets and
+(for Hydra) its geometry into the shared prototype while the drawn point
+stays outside it — the placement renders as NOTHING, or as flat grey where
+only a binding was lost. Measured: 14 of 110 distinct assets, 161 of 1,469
+placements (all 58 streetlights, 50 of 62 benches, 16 cars, 12 traffic
+lights, 7 planters, 8 fountain/water pieces, 10 buildings) — this is the
+mechanism behind "some props like the street lights also look like they have
+no texture" and "this roof house is floating with no building near it"
+(user, 2026-08-31). `scene_generator.apply_placements` now refuses
+`SetInstanceable` on any placement whose composed prim `IsA(UsdGeom.Gprim)`;
+`urban_fire_city_launch_script._uninstance_gprim_roots`
+(`FC_UNINSTANCE_GPRIM_ROOTS=1` default) is a second, redundant repair at the
+launcher level for the same 161. Diagnose with
+`scene_gen/tools/fc_instance_material_probe.py` — it composes an asset twice
+(plain vs. instanceable) and diffs every mesh's computed bound material, so
+`GEOMETRY-GONE` vs. `MATERIALS-LOST` is measured, never guessed. **Open,
+unverified in a render:** the `human` category is not excluded by any
+`prune_prims` rule in this preset, and `scene_generator._bind_human_pose`
+authors its per-placement pose animation as a CHILD of the placement prim
+before `SetInstanceable` is called on it later in the same `apply_placements`
+loop — instancing that subtree risks pedestrians of the same asset sharing
+one baked-in pose.
+
+### Burnability-aware layout — an unburnable asset is a firebreak
+
+A single ignition saturates at 6-14 buildings when the spread graph is full
+of dead ends. `scene_gen/config/harvested/burnability_table.json`
+(`{typology: {asset: bool}}`, generated by `tools/gen_burnability_table.py
+--prove`, which checks its table against a synthetic layout run through the
+REAL `urban_fire_city.burnable()` gate) is keyed by TYPOLOGY, not by pool —
+`districts.typologies.<name>.pools` is the real map (the `midrise` typology
+draws from pool `midrise_v2`, not a pool named `midrise`). `districts.
+_BurnabilityGuard` allows at most one unburnable asset per block and swaps
+the rest, but the swap has to check the ROTATED footprint fit of the
+replacement against the original, not an area ratio — area alone let an
+oversized substitute spill into whatever the packer placed next to it
+(fixed: `_burnable_substitute` may never exceed the original's own rotated
+extents; `districts.repair_overlaps`, see `urban-layout`, is the safety net
+behind even that). None of this fixes a POOL that is mostly unburnable to
+start with: `downtown_fire_500.yaml` overrides `usds.buildings.lowrise`
+(26 → 7 entries) and `midrise_v2` (22 → 14) to burnable-only kit archetypes,
+because the shared `urban_gac.yaml` pools measured 10/15 `lowrise` and 10/29
+`midrise` houses unburnable on a seed-4 Kit build — most of two typologies
+never entering the spread graph at all. **Known gap:** `tower`/`highrise`
+are left untouched (their own unburnable fraction — 6/22, 3/10 — is
+`podium_highrise`/`slab_tower`/`BG_Building_C`, the `>FIRE_MAX_H_M`
+landmarks and oversized standalone towers the guard already handles as well
+as it can) because there is no burnable substitute at that footprint class to
+reach for.
+
+### The fire manifest union — one origin does not reach a whole city
+
+`urban_fire_spread.solve` is a single Dijkstra tree from one origin — some
+origins reach 30+ buildings, some reach 1. `tools/fire_city_union.py` runs
+`fire_city_dry_run.run_dry_from_dump` once per seed against the SAME
+placements dump and unions the record sets (`--auto` searches for a good
+seed combination; `--seeds a,b,c` reruns an explicit one). A naive
+concatenation gets two things wrong, both fixed here: the `F5c`/`F6`
+roof-outcome share budget is enforced PER MANIFEST, so three seeds each
+independently allowed 2 roof outcomes can total 6 — `union_records`
+re-applies the same budget to the final unioned list; and a placement-geometry
+defect in the dump (two buildings closer than `check_footprint`'s overlap
+tolerance) fails regardless of how many seeds are unioned, fixed by treating
+the higher-indexed member of each overlapping pair as an additional firebreak
+(`extra_blocked_global`) and re-solving to a fixed point. `--auto` selects on
+CONCENTRATION, not raw count — `adjacency_share` and `n_components` at a 25 m
+radius (a purely visual "does this read as a clump", not the fire mechanism's
+own 13/55 m reach) plus `street_facing_share` (how much of the chosen venting
+geometry honours the "prefer a street-facing façade" policy). `--max-records`
+trims a full union to a VRAM-constrained subset for a bake run (~250 MB per
+composed bake measured; a full union does not fit a 16.3 GB card but does fit
+a 32/48 GB one), keeping the tallest/most-clustered records. `FIRE_MAX_H_M`
+(232.0, set just above `Amar_Tower`'s own 231.4 m) and the `gac_fire.PACKS`
+blacklist (`Carved_`, `Building_11`, `Building_12` — the "B1, B3-B5 kinda all
+look the same" review) are the two other gates a stale manifest can silently
+disagree with after a layout change — a manifest's record indices name
+whatever building is at that cell in the dump it was solved against; always
+re-solve (`FC_INTACT_ONLY=1 FC_DUMP=<path>`, then re-run the union) rather
+than reuse an old manifest on a new dump.
+
+### `SETTLE_REST_V2` in the bake drivers
+
+`disaster/settle.py`'s below-grade/rest audit had the same `UsdGeom.
+BBoxCache` blind spot the `fix-floating-debris` skill documents for the
+suburb wildfire plate — read that skill for the mechanism. Here, the
+practical facts: `scene_gen/tools/fire_bake.sh` and `scene_gen/tools/
+fire_city_bake.sh` set `SETTLE_REST_V2=1` for every baked record whose kind
+is not `kit` (the MCE kit look stays frozen, byte-for-byte); `FB_REST_STRICT`
+makes a record that never came to rest a driver FAILURE instead of a loud
+print; both scripts also pin `PYTHONHASHSEED=0`, because `urban_fire.
+r_render_peel` used to iterate a `set` of side letters — a bake is not
+reproducible run to run unless that set is read back `sorted()`, which it now
+is. `deck_z` (the real roof-deck height, distinct from the parapet-coping
+bbox top `gac_fire.mass_from_grid` used to fall back to) now round-trips
+through the sidecar on both `ctx["fire"]["deck_z"]` and
+`masses["main"]["deck_z"]` — `fire_people.deck_z()` reads the first, then the
+second; before 2026-08-31 both were dead.
+
+### People — verify against the dump, and hide the extras
+
+`fire_people._manifest_matches_dump` re-checks every people-manifest record
+against the dump BY GEOMETRY (not just by index `i`) before placing it — a
+record naming a building that has since moved or resized is skipped and
+counted, not placed against geometry it no longer owns. `scene_gen/tools/
+fire_people_rerun.sh MANIFEST DUMP SIDECAR_DIR` is the one-command gate: it
+re-solves, prints the manifest<->dump match, the sidecar-completeness table,
+the census and the rule-check table, and exits non-zero if any of it cannot
+be trusted, so a lead can run it blind and read the exit code. Separately,
+the city generator plants its OWN ~128 background pedestrians on this plate
+(`category == "human"` from `scene_generator`/`detail/parks.py`) with no
+knowledge of where the fire is — `urban_fire_city_launch_script.
+cull_background_people` hides any of those further than
+`FC_PEOPLE_MAX_DIST_M` (120 default) from the nearest BURNING building's
+footprint, per the user's "only keep humans that are in the disaster"
+(2026-08-31). The people PASS itself (survivor placement) already names its
+own burning building per record, so this cull is a guard on the background
+extras, not the mechanism for the survivors.

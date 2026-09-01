@@ -56,7 +56,7 @@ LAYOUT = {"_typology_of": {
 }}
 
 GAC_USD = gf.GAC_DIR + "SM_Building_04.usd"        # 31.5 x 28.0 x 42.3 m
-DTC_USD = gf.DTC_DIR + "Building_12.usdc"
+DTC_USD = gf.DTC_DIR + "Building_09.usdc"
 DTC_BUILDING_11_USD = gf.DTC_DIR + "Building_11.usdc"       # user-blacklisted
 DTC_CARVED_04_USD = gf.DTC_DIR + "Carved_04.usdc"            # blacklisted prefix
 DTC_AMAR_TOWER_USD = gf.DTC_DIR + "Amar_Tower.usdc"          # NOT blacklisted
@@ -104,7 +104,7 @@ def test_bake_kind_gac():
 
 def test_bake_kind_dtc():
     assert ufc.bake_kind(DTC_USD, 25.0, 25.0, 40.0, "rc") == \
-        ("dtc", "Building_12")
+        ("dtc", "Building_09")
 
 
 def test_bake_kind_already_kit():
@@ -157,7 +157,7 @@ def test_burnable_dtc_in_brick_midrise():
     ok, rec = ufc.burnable(LAYOUT, p, {})
     assert ok
     assert rec["kind"] == "dtc"
-    assert rec["asset"] == "Building_12"
+    assert rec["asset"] == "Building_09"
     assert rec["style"] is None
     assert rec["typology"] == "brick_midrise"
 
@@ -254,7 +254,7 @@ def test_burnable_gate5_rejects_carved_prefix():
 
 
 def test_burnable_gate5_accepts_non_blacklisted_dtc():
-    for usd, name in ((DTC_USD, "Building_12"), (DTC_AMAR_TOWER_USD, "Amar_Tower")):
+    for usd, name in ((DTC_USD, "Building_09"), (DTC_AMAR_TOWER_USD, "Amar_Tower")):
         p = _house(usd, 150.0, 60.0, "/World/stage/generated/house_9_21")
         ok, rec = ufc.burnable(LAYOUT, p, {})
         assert ok, (name, rec)
@@ -265,12 +265,61 @@ def test_burnable_gate5_accepts_non_blacklisted_dtc():
 def test_pack_blacklist_reason_reads_gac_fire_packs_live():
     assert ufc._pack_blacklist_reason("dtc", "Building_11") is not None
     assert ufc._pack_blacklist_reason("dtc", "Carved_17") is not None
-    assert ufc._pack_blacklist_reason("dtc", "Building_12") is None
+    assert ufc._pack_blacklist_reason("dtc", "Building_09") is None
     assert ufc._pack_blacklist_reason("dtc", "Amar_Tower") is None
     # kinds with no "blacklist" entry at all never match anything
     assert ufc._pack_blacklist_reason("gac", "Building_11") is None
     assert ufc._pack_blacklist_reason("kit", "tower") is None
     assert ufc._pack_blacklist_reason("dtc", None) is None
+
+
+# ---------------------------------------------------------------------------
+# gate 6: the max-fire-height cap (2026-08-31 user policy review of the live
+# 500 m city -- "don't let anything taller than the amar tower be on fire").
+# `FIRE_MAX_H_M` defaults to 232.0 m, set just above `Amar_Tower`'s own
+# measured 231.4 m (`_plans/dtc_buildings.json`) so Amar itself stays
+# burnable while the genuine monsters above it (GAC's `SM_Building_16` at
+# 312.0 m, `SM_Building_31` at 302.2 m) are refused.
+# ---------------------------------------------------------------------------
+def test_height_cap_reason_never_fires_on_an_unmeasured_height():
+    assert ufc._height_cap_reason(None) is None
+
+
+def test_height_cap_reason_boundary_is_inclusive():
+    assert ufc._height_cap_reason(ufc.FIRE_MAX_H_M) is None
+    reason = ufc._height_cap_reason(ufc.FIRE_MAX_H_M + 0.01)
+    assert reason is not None
+    assert "taller than the fire-height cap" in reason
+
+
+def test_burnable_gate6_accepts_amar_tower_at_its_own_measured_height():
+    p = _house(DTC_AMAR_TOWER_USD, 150.0, 60.0,
+              "/World/stage/generated/house_9_22")
+    ok, rec = ufc.burnable(LAYOUT, p, {DTC_AMAR_TOWER_USD: (42.3, 48.8, 231.4)})
+    assert ok, rec
+    assert rec["kind"] == "dtc" and rec["asset"] == "Amar_Tower"
+    assert rec["H"] == 231.4
+
+
+def test_burnable_gate6_rejects_a_302m_gac_monster():
+    """GAC's `SM_Building_31` (302.2 m) -- one of the "302 m and 250+ m
+    monsters" the user flagged live in the 500 m city -- must be refused,
+    with a reason naming both the measured height and the cap."""
+    p = _house(GAC_USD, 150.0, 60.0, "/World/stage/generated/house_9_23")
+    ok, reason = ufc.burnable(LAYOUT, p, {GAC_USD: (60.3, 142.2, 302.2)})
+    assert not ok
+    assert "taller than the fire-height cap" in reason
+    assert "302.2" in reason
+    assert str(ufc.FIRE_MAX_H_M) in reason or "232.0" in reason
+
+
+def test_burnable_gate6_does_not_refuse_an_unmeasured_building():
+    """An empty `size_of` (H unknown) is the common case in every OTHER
+    test in this file -- gate 6 must never turn any of them into a false
+    refusal."""
+    p = _house(GAC_USD, 50.0, 50.0, "/World/stage/generated/house_0_10")
+    ok, rec = ufc.burnable(LAYOUT, p, {})
+    assert ok and rec["H"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -359,7 +408,7 @@ def test_damaged_manifest_keeps_only_burnable_records_in_order():
     manifest, refused = ufc.damaged_manifest(LAYOUT, placements, plan_records, 1000)
     assert [m["i"] for m in manifest] == [0, 1, 2]
     assert manifest[0]["kind"] == "gac" and manifest[0]["asset"] == "SM_Building_04"
-    assert manifest[1]["kind"] == "dtc" and manifest[1]["asset"] == "Building_12"
+    assert manifest[1]["kind"] == "dtc" and manifest[1]["asset"] == "Building_09"
     assert manifest[2]["kind"] == "gac" and manifest[2]["typology"] == "tower"
     assert manifest[0]["level"] == "F5"
     assert manifest[0]["how"] == "origin"

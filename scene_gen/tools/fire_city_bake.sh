@@ -89,6 +89,49 @@
 #                                              (default 7)
 #   SETTLE_STEPS, SETTLE_QUIET, SETTLE_DECOMP_M, SETTLE_FABRIC, FB_BAKED_KITS,
 #   TIMEOUT_S, CONTAINER, REPO                -- identical to fire_bake.sh
+#   SETTLE_REST_V2   1 (default) turns on `disaster.settle`'s corrected rest
+#                    and grade measurements FOR NON-`kit` RECORDS ONLY. The
+#                    MCE kit look is frozen against the old (box-based
+#                    below-grade, per-chunk still-moving) behaviour, so a
+#                    `kit:` record is always baked with it OFF and reproduces
+#                    byte for byte. Set 0 to bake everything the old way.
+#   FB_REST_STRICT   1 makes a record that did not come to rest a FAILURE
+#                    (non-zero exit) instead of a loud line.   (default 0)
+#
+# PER-LEVEL SETTLE BUDGETS (2026-08-31, time-crunch directive: "make sure
+# the bakes are all lazy"). `urban_fire.LADDER` only puts loose bodies in the
+# pile from `fire_collapse`/`partial_collapse`/`floor_burnthrough`/
+# `roof_burnthrough` -- `street_debris` is hand-placed straight into
+# `authored`, never `loose`. F0/F1 have NONE of those four in either
+# construction type; F2/F3 have at most one (roof_burnthrough, urm only, and
+# only up to frac 0.20-0.34); F4 is a real mix (0-144 loose bodies measured
+# across the last sweep's F4 records, `rc`/`rc_glass` often add nothing, urm
+# and a lucky draw can add a lot); F5/F5c/F6 ALWAYS run a collapse recipe and
+# routinely settle 400-600+ bodies. `SETTLE_STEPS`/`SETTLE_QUIET` above are
+# reused AS-IS for the F5/F5c/F6 tier (unchanged: 2400/400) -- "a level with
+# real debris keeps its full settle". Below that, `settle.run`'s own chunked
+# `_settle_phase` ALREADY exits the instant a chunk finds nothing moving
+# (`converge=True` only ever makes `steps`/`quiet_steps` a FLOOR it may run
+# past, up to `max_steps=3*steps` -- see settle.py's docstring), so a lower
+# tier is not "cut the settle short and hope" — it shrinks the CHUNK SIZE
+# (`max(30, steps//12)`) so the poll that finds "nothing moving" fires
+# sooner, and it lowers the worst-case ceiling for a level that is supposed
+# to have almost nothing to settle. Margins were sized off the last sweep's
+# sidecars (`counts.json`/`settle` fields): LOW tier's worst observed
+# `steps_used` was 1200 (of a 7200 cap) on an F3 kit record, MID tier's was
+# 1600 (of 7200) on an F4 kit record -- the new ceilings (`3x` the tier's own
+# target) sit 1.5-3x above both, so a heavier-than-typical draw still has
+# room to converge rather than getting capped mid-pile.
+#   SETTLE_STEPS_LOW   F0/F1/F2/F3 throw-phase step TARGET   (default 600)
+#   SETTLE_QUIET_LOW   F0/F1/F2/F3 quiet-phase step TARGET   (default 150)
+#   SETTLE_STEPS_MID   F4 throw-phase step TARGET            (default 1600)
+#   SETTLE_QUIET_MID   F4 quiet-phase step TARGET            (default 300)
+#   FB_LEVEL_SETTLE    1 (default) applies the tiering above per record's own
+#                      `FB_LEVEL`. 0 goes back to the flat pre-2026-08-31
+#                      behaviour: every record gets `SETTLE_STEPS`/
+#                      `SETTLE_QUIET` regardless of level (useful for an
+#                      apples-to-apples timing comparison, or if a level's
+#                      tier guess above ever needs to be pinned back to full).
 #
 # ASSUMPTIONS — same as fire_bake.sh: the isaac-sim container is UP for a
 # real bake (not for --dry-run / --verify-only), one bake at a time on
@@ -108,6 +151,16 @@ SETTLE_STEPS=${SETTLE_STEPS:-2400}
 SETTLE_QUIET=${SETTLE_QUIET:-400}
 SETTLE_DECOMP_M=${SETTLE_DECOMP_M:-0.8}
 SETTLE_FABRIC=${SETTLE_FABRIC:-0}
+SETTLE_REST_V2=${SETTLE_REST_V2:-1}
+FB_REST_STRICT=${FB_REST_STRICT:-0}
+# Per-level settle budgets -- see the header comment. F5/F5c/F6 keep the
+# SETTLE_STEPS/SETTLE_QUIET values above unchanged (the tier with real
+# debris); F0-F3 and F4 get their own, smaller targets below.
+SETTLE_STEPS_LOW=${SETTLE_STEPS_LOW:-600}
+SETTLE_QUIET_LOW=${SETTLE_QUIET_LOW:-150}
+SETTLE_STEPS_MID=${SETTLE_STEPS_MID:-1600}
+SETTLE_QUIET_MID=${SETTLE_QUIET_MID:-300}
+FB_LEVEL_SETTLE=${FB_LEVEL_SETTLE:-1}
 FB_BAKED_KITS=${FB_BAKED_KITS:-1}
 TIMEOUT_S=${TIMEOUT_S:-5400}
 LAUNCHER="$REPO/simulation/isaac-sim/launch_scripts/fire_bake_launch_script.py"
@@ -139,6 +192,29 @@ to_container_repo_path() {
   printf '%s%s\n' "$REPO" "${p#$REPO_HOST}"
 }
 
+# settle_for_level LEVEL -- sets REC_STEPS/REC_QUIET/REC_TIER for one record.
+# See the header comment (PER-LEVEL SETTLE BUDGETS) for why F0-F3 are "low",
+# F4 is "mid", and F5/F5c/F6 (and anything this ladder does not know, so an
+# unrecognised level fails SAFE toward the full budget rather than toward a
+# possibly-too-small guess) keep the SETTLE_STEPS/SETTLE_QUIET value as-is.
+settle_for_level() {
+  local lvl="$1"
+  if [ "$FB_LEVEL_SETTLE" = "0" ]; then
+    REC_STEPS=$SETTLE_STEPS; REC_QUIET=$SETTLE_QUIET; REC_TIER="flat"
+    return
+  fi
+  case "$lvl" in
+    F0|F1|F2|F3)
+      REC_STEPS=$SETTLE_STEPS_LOW; REC_QUIET=$SETTLE_QUIET_LOW; REC_TIER="low" ;;
+    F4)
+      REC_STEPS=$SETTLE_STEPS_MID; REC_QUIET=$SETTLE_QUIET_MID; REC_TIER="mid" ;;
+    F5|F5c|F6)
+      REC_STEPS=$SETTLE_STEPS; REC_QUIET=$SETTLE_QUIET; REC_TIER="high" ;;
+    *)
+      REC_STEPS=$SETTLE_STEPS; REC_QUIET=$SETTLE_QUIET; REC_TIER="high(unknown level $lvl)" ;;
+  esac
+}
+
 DRY=0
 VERIFY_ONLY=0
 FORCE=0
@@ -148,7 +224,7 @@ while [ $# -gt 0 ]; do
     --dry-run) DRY=1 ;;
     --verify-only) VERIFY_ONLY=1 ;;
     --force) FORCE=1 ;;
-    -h|--help) sed -n '2,90p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,139p' "$0"; exit 0 ;;
     -*) echo "fire_city_bake.sh: unknown flag $1" >&2; exit 2 ;;
     *)
       if [ -n "$MANIFEST" ]; then
@@ -232,6 +308,7 @@ t_all=$(date +%s)
 ok=0
 skipped=0
 fail=0
+notrest=0
 i=0
 declare -a SUMMARY=()
 declare -a USDS=()
@@ -259,17 +336,41 @@ EOF
   HLOG="$HOSTLOGDIR/city_${CITY_SEED}_$STEM.log"
   CITY_JSON_C="$CITY_JSON_DIR/$STEM.city.json"
 
-  ENVS="ISAAC_SIM_HEADLESS=true PYTHONUNBUFFERED=1"
+  # PYTHONHASHSEED IS NOT COSMETIC HERE — WITHOUT IT A BAKE IS NOT
+  # REPRODUCIBLE. `urban_fire.r_render_peel` ends with `for side in
+  # sides_hit:` over a SET of side letters, and CPython randomises `str`
+  # hashes per PROCESS, so that loop visits E/W/S in a different order every
+  # run. Each visit draws from the SHARED `rng`, so from that point on every
+  # subsequent debris placement in the build gets a different draw.
+  # MEASURED 2026-08-31, two bakes of `kit:brownstone_row:F5c:4:S,W,E:198`
+  # with byte-identical code: 326 meshes moved, the `peelrow` windrow
+  # mirrored 40 m end for end, prims 6998 -> 6977, top_z 21.69 -> 20.76 m,
+  # settle 1200 -> 1400 steps. That is why "re-bake the frozen kit record and
+  # check it reproduces" could not be answered before this line existed.
+  # Pinning the seed makes a bake reproducible from here on; it does NOT
+  # make one match a bake taken before it.
+  ENVS="ISAAC_SIM_HEADLESS=true PYTHONUNBUFFERED=1 PYTHONHASHSEED=0"
   ENVS="$ENVS FB_KIND=$KIND FB_NAME=$NAME FB_LEVEL=$LEVEL"
   ENVS="$ENVS FB_SEED=$SEED FB_BUILD_SEED=$BUILD_SEED FB_INDEX=$i"
   ENVS="$ENVS FB_ORIGIN=$ORIGIN FB_SIDES=$SIDES"
   ENVS="$ENVS FB_OUT=$CITY_OUT FB_BAKED_KITS=$FB_BAKED_KITS FB_VERIFY=1"
   ENVS="$ENVS FB_CITY_JSON=$CITY_JSON_C"
-  ENVS="$ENVS SETTLE_STEPS=$SETTLE_STEPS SETTLE_QUIET=$SETTLE_QUIET"
+  # PER-LEVEL SETTLE BUDGET — see the header comment. F0-F3 (and any
+  # unrecognised level, fail-safe) get REC_TIER=low/high; F4 gets "mid";
+  # F5/F5c/F6 get the SETTLE_STEPS/SETTLE_QUIET value unchanged ("high").
+  settle_for_level "$LEVEL"
+  ENVS="$ENVS SETTLE_STEPS=$REC_STEPS SETTLE_QUIET=$REC_QUIET"
   ENVS="$ENVS SETTLE_DECOMP_M=$SETTLE_DECOMP_M SETTLE_FABRIC=$SETTLE_FABRIC"
+  # THE KIT LOOK IS FROZEN, SO THE KIT KEEPS THE OLD SETTLE. Every other
+  # kind gets `disaster.settle`'s corrected measurements (points-based
+  # grade, net-travel rest, freeze-and-carry-on instead of giving up on a
+  # stall, size-scaled convex decomposition). See settle.py's docstring.
+  REST_V2=$SETTLE_REST_V2
+  [ "$KIND" = "kit" ] && REST_V2=0
+  ENVS="$ENVS SETTLE_REST_V2=$REST_V2"
   RUN="mkdir -p '$CLOGDIR' '$CITY_OUT'; : > '$CLOG'; cd /isaac-sim && env $ENVS PYTHONPATH=\"\$ISAAC_SIM_PYTHONPATH\" timeout ${TIMEOUT_S}s /isaac-sim/python.sh $LAUNCHER --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --no-window > '$CLOG' 2>&1; echo \"EXIT \$?\" >> '$CLOG'"
 
-  echo "=== [$i] $ENTRY -> $STEM  ($STATUS$([ "$FORCE" = 1 ] && [ "$STATUS" = "HAVE" ] && echo ", --force"))"
+  echo "=== [$i] $ENTRY -> $STEM  ($STATUS$([ "$FORCE" = 1 ] && [ "$STATUS" = "HAVE" ] && echo ", --force")) settle=$REC_TIER(${REC_STEPS}+${REC_QUIET})"
   echo "+ docker exec $CONTAINER bash -c \"$RUN\""
   if [ "$DRY" = 1 ]; then USDS+=("$CITY_OUT/$STEM.usd"); i=$((i+1)); continue; fi
 
@@ -281,8 +382,28 @@ EOF
     SZ=$(docker exec "$CONTAINER" bash -c "stat -c %s '$CITY_OUT/$STEM.usd' 2>/dev/null || echo 0")
     MB=$(awk -v b="$SZ" 'BEGIN{printf "%.1f", b/1e6}')
     VOK=$(docker exec "$CONTAINER" grep -c "BAKE VERIFY OK" "$CLOG" 2>/dev/null || echo 0)
-    echo "    DONE in ${dt}s, ${MB} MB, verify=$([ "$VOK" -gt 0 ] && echo OK || echo PROBLEM)"
-    SUMMARY+=("$(printf '%-2s %-42s %-6s %7ss %8s MB  %s' "$i" "$STEM" "$LEVEL" "$dt" "$MB" "$([ "$VOK" -gt 0 ] && echo verify-OK || echo VERIFY-PROBLEM)")")
+    # A SETTLE THAT DID NOT COME TO REST IS A DEFECT OF THIS RECORD, and
+    # until 2026-08-31 the only place it appeared was 500 lines down one
+    # container log: the driver printed `verify-OK` over a bake that had
+    # just deleted 80 bodies for being frozen mid-flight. `settle.run`
+    # prints one greppable `REST_CHECK key=value` line per bake; this
+    # scrapes it and puts the numbers on the record's own summary line.
+    RC=$(docker exec "$CONTAINER" grep -h "REST_CHECK" "$CLOG" 2>/dev/null | tail -1 || true)
+    AT_REST=$(printf '%s' "$RC" | sed -n 's/.*at_rest=\([0-9]*\).*/\1/p')
+    SM=$(printf '%s' "$RC" | sed -n 's/.*still_moving=\([0-9]*\).*/\1/p')
+    BGP=$(printf '%s' "$RC" | sed -n 's/.*below_grade_pts=\([0-9]*\).*/\1/p')
+    FRZ=$(printf '%s' "$RC" | sed -n 's/.*frozen=\([0-9]*\).*/\1/p')
+    RSN=$(printf '%s' "$RC" | sed -n 's/.*reason=\([a-z]*\).*/\1/p')
+    if [ -z "$RC" ]; then
+      REST="rest-?"
+    elif [ "${AT_REST:-0}" = "1" ]; then
+      REST="rest-OK$([ "${FRZ:-0}" != "0" ] && echo "(froze ${FRZ})")"
+    else
+      REST="NOT-AT-REST(${SM:-?} moving, ${BGP:-?} sunk, ${RSN:-?})"
+      notrest=$((notrest+1))
+    fi
+    echo "    DONE in ${dt}s, ${MB} MB, verify=$([ "$VOK" -gt 0 ] && echo OK || echo PROBLEM), $REST"
+    SUMMARY+=("$(printf '%-2s %-42s %-6s %7ss %8s MB  %-15s %s' "$i" "$STEM" "$LEVEL" "$dt" "$MB" "$([ "$VOK" -gt 0 ] && echo verify-OK || echo VERIFY-PROBLEM)" "$REST")")
     USDS+=("$CITY_OUT/$STEM.usd")
     ok=$((ok+1))
   else
@@ -298,8 +419,15 @@ done <<< "$CLASS_OUT"
 
 echo
 echo "========================================================================"
-echo "FIRE CITY BAKE   seed $CITY_SEED   $ok baked, $skipped skipped, $fail failed, $(( $(date +%s) - t_all )) s total"
+echo "FIRE CITY BAKE   seed $CITY_SEED   $ok baked, $skipped skipped, $fail failed, $notrest NOT AT REST, $(( $(date +%s) - t_all )) s total"
 if [ ${#SUMMARY[@]} -gt 0 ]; then printf '%s\n' "${SUMMARY[@]}"; fi
+if [ "$notrest" -gt 0 ]; then
+  echo
+  echo "  !! $notrest record(s) BAKED A PILE THAT WAS NOT AT REST."
+  echo "  !! Bodies still moving at bake time are DELETED from the export by"
+  echo "  !! fire_bake_launch_script.py, so those cells are missing debris."
+  echo "  !! grep REST_CHECK $HOSTLOGDIR/city_${CITY_SEED}_<stem>.log"
+fi
 echo "  bakes:      $CONTAINER:$CITY_OUT"
 echo "  city json:  $CONTAINER:$CITY_JSON_DIR"
 echo "  logs:       $HOSTLOGDIR/city_${CITY_SEED}_<stem>.log"
@@ -310,4 +438,5 @@ echo "FA_BAKES for the city assembly (manifest order):"
 echo
 echo "  FA_BAKES=$FA_LIST"
 echo "========================================================================"
+if [ "$FB_REST_STRICT" != "0" ] && [ "$notrest" -gt 0 ]; then exit 1; fi
 [ "$fail" = 0 ]

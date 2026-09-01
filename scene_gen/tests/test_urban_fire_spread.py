@@ -165,6 +165,62 @@ def test_fire_routes_around_a_blocked_row():
     assert all(bs[p["i"]]["row"] == 0 for p in _lit(calm))
 
 
+def test_origin_frac_cap_clamps_spot_but_not_the_others():
+    """`ORIGIN_FRAC_CAP` -- no mechanism may start a fire above half a mass.
+
+    Only `spot` (raw 0.88) is above the cap; `origin`/`attached`/`radiation`
+    (0.15/0.22/0.45) are already under it and must come through unclamped,
+    so the relative ORDER between mechanisms survives -- a spot fire still
+    starts higher than everything else, it just cannot start above
+    `ORIGIN_FRAC_CAP` of the mass.
+
+    User-facing regression this guards (2026-08-31): every top-heavy
+    record in the 39-record `fire_city_500m` manifest (origin far up a
+    20-30 storey GAC tower) was `how == "spot"` -- `plan_fire`'s F3/F4/F5
+    bands are windowed by, or run to the top from, the origin, so an
+    origin near 0.88 on a tall mass leaves the whole lower building
+    untouched and pins every flame/soot/smoke event to a handful of
+    storeys under the roof ("fire still seems to be on the higher floors
+    rather than all over").
+    """
+    bs = _grid()
+    seen_how = set()
+    for seed in range(80):
+        plan = ufs.solve(bs, 0, 400 * MIN, wind_dir=0.0, wind_mps=6.0,
+                         rng=random.Random(seed))
+        for p in _lit(plan):
+            seen_how.add(p["how"])
+            assert p["origin_frac"] <= ufs.ORIGIN_FRAC_CAP + 1e-9, p
+            if p["how"] == "spot":
+                assert p["origin_frac"] == pytest.approx(
+                    ufs.ORIGIN_FRAC_CAP)
+            elif p["how"] == "radiation":
+                assert p["origin_frac"] == pytest.approx(0.45)
+            elif p["how"] == "attached":
+                assert p["origin_frac"] == pytest.approx(0.22)
+            elif p["how"] == "origin":
+                assert p["origin_frac"] == pytest.approx(0.15)
+    assert "spot" in seen_how, "this grid/wind never drew a spot ignition"
+    # the cap must still sit above every other mechanism's frac, or a spot
+    # fire stops reading as a distinct "brand on the roof" mechanism at all
+    assert ufs.ORIGIN_FRAC_CAP > 0.45
+
+
+def test_capped_spot_origin_keeps_the_lower_half_of_a_tall_mass_clean():
+    """End to end: a capped spot fire on a tall tower still leaves the
+    bottom half of the mass below `origin`. Mirrors `SM_Building_28`
+    (o22 of 26, how=spot) from the pre-fix 39-record manifest, where the
+    UNCAPPED 0.88 fraction put the origin at storey 22 of 26 and left
+    storeys 0-21 completely untouched.
+    """
+    n_storeys = 26
+    rec = {"origin_frac": ufs.ORIGIN_FRAC_CAP, "entry_side": "S",
+           "level": "F4"}
+    storey, _sides = ufs.entry_for_plan_fire(rec, n_storeys,
+                                             rng=random.Random(1))
+    assert storey <= (n_storeys - 1) // 2, (storey, n_storeys)
+
+
 # ---------------------------------------------------------------------------
 # 2. the origin draw
 # ---------------------------------------------------------------------------
@@ -439,6 +495,125 @@ def test_entry_for_plan_fire_storeys_sides_and_the_F3_corner():
         assert st <= 0.3 * (n - 1) + 0.5, (n, st)
     assert ufs.entry_for_plan_fire(
         {"origin_frac": 0.88, "entry_side": "S", "level": "F3"}, 3)[0] == 2
+
+
+# ---------------------------------------------------------------------------
+# 6b. MORE SIDES BURNING (2026-08-31 user policy): F3+ is now a draw over
+# {2, 3} extra-elevation counts (2 or 3 total sides), shifted up by one
+# option from the old fixed "always exactly 1 extra" (2 total). F1/F2 is
+# untouched -- always exactly 1 side, with or without an rng.
+# ---------------------------------------------------------------------------
+def test_f3_plus_side_count_is_two_or_three_with_an_rng():
+    # random.Random(3).randint(1, 2) == 1 -> the OLD default, 2 total sides.
+    rec_f3 = {"origin_frac": 0.45, "entry_side": "S", "level": "F3"}
+    _, sides = ufs.entry_for_plan_fire(rec_f3, 6, random.Random(3))
+    assert sides == ("S", "W") or sides == ("S", "E")
+    assert len(sides) == 2
+
+    # random.Random(0).randint(1, 2) == 2 -> the NEW option, 3 total sides:
+    # the entry side plus BOTH corner neighbours.
+    _, sides3 = ufs.entry_for_plan_fire(rec_f3, 6, random.Random(0))
+    assert len(sides3) == 3
+    assert sides3[0] == "S"
+    assert set(sides3[1:]) == set(ufs.side_neighbors("S"))
+    assert len(set(sides3)) == 3          # no duplicate elevation
+
+
+def test_f3_plus_side_count_without_an_rng_stays_at_the_old_default():
+    """No `rng` -> no change in behaviour at all: still exactly 2 total
+    sides, deterministically `nb[0]`."""
+    rec_f3 = {"origin_frac": 0.45, "entry_side": "S", "level": "F3"}
+    _, sides = ufs.entry_for_plan_fire(rec_f3, 6)
+    assert sides == ("S", ufs.side_neighbors("S")[0])
+
+
+def test_f1_f2_never_gain_a_second_side_regardless_of_rng():
+    for lvl in ("F1", "F2"):
+        rec = {"origin_frac": 0.2, "entry_side": "S", "level": lvl}
+        for seed in range(10):
+            _, sides = ufs.entry_for_plan_fire(rec, 5, random.Random(seed))
+            assert sides == ("S",), (lvl, seed, sides)
+
+
+def test_f3_plus_side_count_distribution_is_roughly_even():
+    """Over many seeds, both the 2-side and the 3-side outcome actually
+    occur -- not just reachable in principle for one hand-picked seed."""
+    rec_f4 = {"origin_frac": 0.45, "entry_side": "N", "level": "F4"}
+    counts = {2: 0, 3: 0}
+    for seed in range(200):
+        _, sides = ufs.entry_for_plan_fire(rec_f4, 8, random.Random(seed))
+        counts[len(sides)] += 1
+    assert counts[2] > 50 and counts[3] > 50, counts
+
+
+# ---------------------------------------------------------------------------
+# 6c. STREET-FACING SIDE PREFERENCE (2026-08-31 user policy): `street_
+# side_score` scores S/E/N/W by clearance, and `entry_for_plan_fire` uses it
+# ONLY where nothing about contagion has already fixed the answer -- the
+# origin's own free choice, and F3+'s single extra corner side. It must
+# NEVER override a real (non-origin) entry side.
+# ---------------------------------------------------------------------------
+def test_street_side_score_prefers_the_open_side():
+    b0 = {"x": 0.0, "y": 0.0, "W": 10.0, "D": 10.0, "yaw": 0.0}
+    b1 = {"x": 20.0, "y": 0.0, "W": 10.0, "D": 10.0, "yaw": 0.0}   # east of b0
+    bl = [b0, b1]
+    assert ufs.street_side_score(b0, "W", bl) > ufs.street_side_score(b0, "E", bl)
+    # no block_rect -> exactly the neighbour clearance (gap_m)
+    assert ufs.street_side_score(b0, "E", bl) == ufs.gap_m(b0, b1)
+    # a side with no facing neighbour at all is capped, not unbounded
+    assert ufs.street_side_score(b0, "W", bl) == ufs.STREET_SCORE_CAP_M
+
+
+def test_street_side_score_with_block_rect_can_go_negative():
+    """A neighbour closer than the block edge scores NEGATIVE, however far
+    away the edge itself is -- that side looks at the neighbour, not the
+    street."""
+    b0 = {"x": 0.0, "y": 0.0, "W": 10.0, "D": 10.0, "yaw": 0.0}
+    b1 = {"x": 20.0, "y": 0.0, "W": 10.0, "D": 10.0, "yaw": 0.0}
+    rect = (-50.0, -50.0, 50.0, 50.0)
+    sw = ufs.street_side_score(b0, "W", [b0, b1], block_rect=rect)
+    se = ufs.street_side_score(b0, "E", [b0, b1], block_rect=rect)
+    assert sw == pytest.approx(155.0)     # 200 (capped, no neighbour) - 45
+    assert se == pytest.approx(-35.0)     # 10 (b1's clearance) - 45
+    assert sw > 0 > se
+
+
+def test_entry_for_plan_fire_origin_side_follows_street_score():
+    rec_origin = {"origin_frac": 0.15, "entry_side": None, "level": "F1"}
+    prefer_n = lambda s: 1.0 if s == "N" else 0.0
+    _, sides = ufs.entry_for_plan_fire(rec_origin, 4, None, street_score=prefer_n)
+    assert sides == ("N",)
+    # no street_score -> the old fallback (rng draw, or "S" with no rng)
+    _, sides_none = ufs.entry_for_plan_fire(rec_origin, 4, None)
+    assert sides_none == ("S",)
+
+
+def test_entry_for_plan_fire_never_overrides_a_real_entry_side():
+    """Precedence: entry-side realism wins over street-facing preference
+    whenever contagion has actually decided the side."""
+    prefer_n = lambda s: 1.0 if s == "N" else 0.0
+    for lvl in ("F1", "F2", "F3", "F4"):
+        rec = {"origin_frac": 0.3, "entry_side": "W", "level": lvl}
+        _, sides = ufs.entry_for_plan_fire(rec, 5, random.Random(1),
+                                           street_score=prefer_n)
+        assert sides[0] == "W"
+
+
+def test_entry_for_plan_fire_f3_plus_tiebreak_follows_street_score():
+    """Only the SINGLE extra corner side (2-total-sides draw) is subject to
+    the street-facing tiebreak; when both are added (3-total) there is no
+    choice left to make."""
+    prefer_e = lambda s: 1.0 if s == "E" else 0.0
+    rec_f3 = {"origin_frac": 0.45, "entry_side": "S", "level": "F3"}
+    # random.Random(3) draws the 1-extra-side branch (2 total)
+    _, sides = ufs.entry_for_plan_fire(rec_f3, 6, random.Random(3),
+                                       street_score=prefer_e)
+    assert sides == ("S", "E")
+    # random.Random(0) draws the 2-extra-sides branch (3 total) -- street_
+    # score has nothing left to decide, both neighbours are already in
+    _, sides3 = ufs.entry_for_plan_fire(rec_f3, 6, random.Random(0),
+                                        street_score=prefer_e)
+    assert set(sides3) == {"S"} | set(ufs.side_neighbors("S"))
 
 
 def test_entry_for_plan_fire_feeds_plan_fire():

@@ -855,13 +855,146 @@ def test_a_piece_is_lost_or_moved_or_laid_on_the_pile_but_never_two():
             rm = set(plan["removed"])
             mv = set(plan["displaced"])
             pn = set(p for p, _s in plan["panels"])
+            # A TORN piece (round 6b) is a fourth state, and a distinct one:
+            # it is always a SURVIVING piece, never lost/moved/piled.
+            tn = set(t["path"] for t in plan["tears"] if not t["dropped"])
             assert not (rm & mv), (btype, grade, sorted(rm & mv)[:3])
             assert not (rm & pn), (btype, grade, sorted(rm & pn)[:3])
             assert not (mv & pn), (btype, grade, sorted(mv & pn)[:3])
+            assert not (tn & rm), (btype, grade, sorted(tn & rm)[:3])
+            assert not (tn & mv), (btype, grade, sorted(tn & mv)[:3])
+            assert not (tn & pn), (btype, grade, sorted(tn & pn)[:3])
             known = set(e["p"]["prim_path"] for e in info["elements"])
             assert (rm | mv | pn) <= known, btype
+            assert tn <= known, btype
             assert set(plan["glass"]) <= known
             assert len(plan["removed"]) == len(set(plan["removed"]))
+
+
+# ---------------------------------------------------------------------------
+# ROUND 6b: THE RAGGED REMOVAL BOUNDARY — `plan["tears"]`
+#
+# `quake_sliced` cannot fracture a clipped shell, so every removal reads as a
+# ruler-straight edge on the piece it stopped at. `fire_collapse.plan_edges` /
+# `_tear_perimeter` already solve exactly this for the FIRE ladder on sliced
+# GAC / downtowncity pieces; `_plan_tears` (pure, host-side) hooks the same
+# machinery into the quake ladder. See `_plan_tears`'s own docstring for why
+# it is driven off `plan["_removed_set"]` and not `plan["regions"]`.
+# ---------------------------------------------------------------------------
+def test_every_hole_boundary_has_a_tear_job():
+    """Host-side proxy for `_tear_perimeter`'s own acceptance number: every
+    class of neighbour `fire_collapse.plan_edges` finds gets a planned job,
+    and — short of the `QS_MAX_TEARS` budget — every one of them is planned
+    to actually be torn (`fire_collapse.edge_census`, fed `dropped` in place
+    of the stage-side `torn` flag, since nothing has touched a stage yet)."""
+    from disaster import fire_collapse as fc
+    info, plan = _plan("DG4", btype="urm", seed=7)
+    tears = plan["tears"]
+    assert tears, "a DG4 urm plan opened holes but planned no tears at all"
+    census = fc.edge_census([{"classes": t["classes"], "torn": not t["dropped"]}
+                             for t in tears])
+    n_dropped = sum(1 for t in tears if t["dropped"])
+    seen_class = False
+    for cls, (n_neighbours, n_torn) in census.items():
+        if n_neighbours == 0:
+            continue
+        seen_class = True
+        if n_dropped == 0:
+            assert n_torn == n_neighbours, (cls, n_neighbours, n_torn)
+        else:
+            assert n_torn <= n_neighbours, (cls, n_neighbours, n_torn)
+    assert seen_class, "no job carried any of fire_collapse.EDGE_CLASSES"
+    assert (plan["stats"]["n_tears"] + plan["stats"]["n_tears_dropped"]
+            == len(tears))
+
+
+def test_no_tear_job_targets_a_removed_or_moved_piece():
+    """`fire_collapse.plan_edges` finds neighbours with no idea a sliced
+    plan also removes/moves pieces, so a job CAN be found against one — but
+    `_plan_tears` must always catch it and mark it `dropped`, never author
+    it. Only non-dropped jobs are the ones `_author_tears` will run."""
+    for btype in ("urm", "rc", "rc_glass"):
+        for grade in ("DG2", "DG3", "DG4"):
+            info, plan = _plan(grade, btype, seed=8)
+            rm = set(plan["removed"])
+            mv = set(plan["displaced"]) | set(p for p, _s in plan["panels"])
+            for t in plan["tears"]:
+                if t["path"] in rm or t["path"] in mv:
+                    assert t["dropped"], (btype, grade, t["path"])
+            for t in plan["tears"]:
+                if t["dropped"]:
+                    continue
+                assert t["path"] not in rm, (btype, grade, t["path"])
+                assert t["path"] not in mv, (btype, grade, t["path"])
+
+
+def test_no_tear_job_targets_a_core_or_roof_piece():
+    for btype in ("urm", "rc", "rc_glass"):
+        for grade in ("DG3", "DG4"):
+            info, plan = _plan(grade, btype, seed=8)
+            idx = _by_path(info)
+            for t in plan["tears"]:
+                if t["dropped"]:
+                    continue
+                e = idx.get(t["path"])
+                assert e is not None, (btype, grade, t["path"])
+                role = (e["p"] or {}).get("_role")
+                assert role not in ("core", "roof"), (btype, grade, t["path"], role)
+
+
+def test_a_total_collapse_plans_no_tears():
+    for btype in ("urm", "rc"):
+        info, plan = _plan("DG5", btype=btype, seed=4)
+        assert plan["collapse"] is not None, (btype, "DG5 should collapse")
+        assert plan["tears"] == [], (btype, plan["tears"])
+    # The tower ladder never collapses at all (TOWER_NO_COLLAPSE_M); its DG5
+    # removes nothing either, so tears is empty for the same underlying
+    # reason (`not plan["_removed_set"]`), not because of the collapse gate.
+    info, plan = _plan("DG5", btype="rc_glass", seed=4)
+    assert plan["collapse"] is None
+    assert plan["tears"] == []
+
+
+def test_qs_ragged_off_reproduces_the_round6b_plan_byte_for_byte():
+    """`QS_RAGGED=0` must consume ZERO extra draws from the shared rng: every
+    field this pass did not exist to touch must be byte-identical to the
+    pass turned on, for the same seed — the gate that proves the tear pass's
+    private rng never spends from `pctx["rng"]`."""
+    old = qs.QS_RAGGED
+    try:
+        for btype in ("urm", "rc", "rc_glass"):
+            for grade in ("DG1", "DG2", "DG3", "DG4", "DG5"):
+                qs.QS_RAGGED = True
+                _, plan_on = _plan(grade, btype, seed=13)
+                qs.QS_RAGGED = False
+                _, plan_off = _plan(grade, btype, seed=13)
+                for key in ("removed", "displaced", "panels", "piles",
+                           "glass", "glass_bands", "macroblocks", "regions",
+                           "stub", "ground", "collapse", "storey_collapse",
+                           "interior", "fit_ops", "recipes", "notes"):
+                    assert plan_on[key] == plan_off[key], (btype, grade, key)
+                assert plan_off["tears"] == [], (btype, grade)
+                assert plan_off["tear_scope"] == {}, (btype, grade)
+                assert plan_off["stats"]["n_tears"] == 0, (btype, grade)
+                assert plan_off["stats"]["n_tears_dropped"] == 0, (btype, grade)
+    finally:
+        qs.QS_RAGGED = old
+
+
+def test_tears_survive_a_json_round_trip():
+    info, plan = _plan("DG4", btype="urm", seed=7)
+    assert plan["tears"], "need at least one tear job to test the round trip"
+    dumped = qs.plan_to_json(plan)
+    loaded = qs.plan_from_json(dumped)
+    assert loaded["tears"] == plan["tears"]
+    idx = _by_path(info)
+    n_checked = 0
+    for t in loaded["tears"]:
+        if t["dropped"]:
+            continue
+        assert t["path"] in idx, t["path"]
+        n_checked += 1
+    assert n_checked, "every job came back dropped; nothing round-tripped"
 
 
 def test_only_the_contract_kwargs_reach_plan_pile():
@@ -1080,13 +1213,275 @@ def test_reseat_roof_plant_slides_props_down_to_the_measured_roof_top():
     assert new_bottom < advertised_top - 2.5, "still floating at advertised H"
     assert any("roof_plant reseated" in n_ for n_ in ctx["notes"]), ctx["notes"]
 
-    # a building whose grid was already right (no measured piece, or one
-    # that measures within a hair of the advertised top) is a no-op
-    ctx2 = {"info": {"masses": {"main": {"top": advertised_top}},
+
+def test_reseat_uses_the_footprint_not_the_tallest_roof_piece():
+    """The SM_Building_02 regression, pinned: a GAC top band relabels its
+    CORE as "roof", and that core is a full-band-height box whose bbox top
+    equals the ADVERTISED height — so a reseat that takes max() over
+    roof-piece tops measures the advertised top again and the tank keeps
+    its 2.5 m of air (found by the support audit on the FRESH round-6
+    bakes). The prop must land on the piece under ITS OWN footprint."""
+    from pxr import Usd, UsdGeom, Gf
+    st = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(st, "/W")
+
+    def box(path, x0, y0, x1, y1, z0, z1):
+        m = UsdGeom.Cube.Define(st, path)
+        xf = UsdGeom.Xformable(m.GetPrim())
+        xf.AddTranslateOp().Set(Gf.Vec3d((x0 + x1) / 2.0, (y0 + y1) / 2.0,
+                                         (z0 + z1) / 2.0))
+        xf.AddScaleOp().Set(Gf.Vec3f((x1 - x0) / 2.0, (y1 - y0) / 2.0,
+                                     (z1 - z0) / 2.0))
+        return path
+
+    # deck UNDER the tank footprint, top at 35.6
+    deck = box("/W/deck", -5, -5, 5, 5, 35.0, 35.6)
+    # full-band-height "roof"-labelled core AWAY from the footprint, top 38.6
+    tall = box("/W/tallcore", 8, 8, 14, 14, 35.0, 38.6)
+    # the tank, seated by the advertised height: bottom at 38.62
+    tank = box("/W/tank", -1.0, -1.0, 1.0, 1.0, 38.62, 40.6)
+
+    ctx = {
+        "info": {"masses": {"main": {"top": 38.6}},
+                 "elements": [
+                     {"mass": "main", "role": "roof", "p": {"prim_path": deck}},
+                     {"mass": "main", "role": "roof", "p": {"prim_path": tall}},
+                 ]},
+        "roof_plant": [tank],
+        "notes": [],
+    }
+    n = qs._reseat_roof_plant(st, ctx)
+    assert n == 1, (n, ctx["notes"])
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    lo = bc.ComputeWorldBound(st.GetPrimAtPath(tank)).ComputeAlignedRange().GetMin()
+    assert abs(float(lo[2]) - 35.62) < 0.05, float(lo[2])
+
+    # a building with no measurable pieces at all is a no-op (falls back to
+    # leaving the advertised seat alone) — self-contained refit of the block
+    # that previously lived in the test above (reviewer seam fix)
+    ctx2 = {"info": {"masses": {"main": {"top": 38.6}},
                      "elements": []},
-           "roof_plant": [tank_path], "notes": []}
+            "roof_plant": [tank], "notes": []}
     assert qs._reseat_roof_plant(st, ctx2) == 0
     assert ctx2["notes"] == []
+
+
+# ---------------------------------------------------------------------------
+# ROUND-7 FOLLOW-UP (2026-08-31): `_reseat_roof_plant` still left
+# `SM_Building_19`/`_12`/`_24` floating 2.5-3.8 m across a full re-bake with
+# new seeds -- a deterministic geometric miss, not settle noise. Ground
+# truth (bare `pxr`, points, no Kit): a real up-facing deck triangle exists
+# EXACTLY under every one of those tanks' own footprints, inside a merged
+# `roof_x_*` piece whose OVERALL bbox reaches 1-2.4 m higher because the
+# SAME prim also carries a coping run elsewhere on the roof (`SM_Building_
+# 19`/`_24`), or a bare storey-height wall shell with ZERO real deck at all
+# happens to still satisfy the old `ctop <= pz0 + 0.30` ceiling when the
+# advertised seat is metres too LOW (`SM_Building_12`). The four tests below
+# reproduce each failure class synthetically, against the FIXED (points-
+# based, no-ceiling) `_reseat_roof_plant` -- see that function's own
+# docstring for the full root-cause writeup.
+# ---------------------------------------------------------------------------
+def _two_level_box_mesh(stage, path, lo_rect, lo_z, hi_rect, hi_z, thickness=0.3):
+    """ONE merged Mesh prim holding TWO separate flat-topped boxes at
+    different heights -- `lo_rect=(x0,y0,x1,y1)` topped at `lo_z`, `hi_rect`
+    topped at `hi_z` -- a stand-in for a real GAC `roof_x_*` piece that
+    spans a stepped/multi-level roof in a SINGLE prim, so its own whole-mesh
+    BBoxCache top is the HIGHER region even directly over the lower one
+    (`SM_Building_19`'s `roof_x_0_14_0271`: deck at 69.276 m, bbox top
+    70.196 m, from ONE prim)."""
+    from pxr import Gf, Sdf, UsdGeom, Vt
+
+    def _box_pts(x0, y0, x1, y1, z0, z1):
+        return [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0),
+               (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)]
+
+    face_pattern = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4),
+                    (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    lo_pts = _box_pts(lo_rect[0], lo_rect[1], lo_rect[2], lo_rect[3],
+                      lo_z - thickness, lo_z)
+    hi_pts = _box_pts(hi_rect[0], hi_rect[1], hi_rect[2], hi_rect[3],
+                      hi_z - thickness, hi_z)
+    pts = lo_pts + hi_pts
+    counts, idx = [], []
+    for base in (0, 8):
+        for f in face_pattern:
+            counts.append(4)
+            idx.extend(base + i for i in f)
+    m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    m.CreatePointsAttr(Vt.Vec3fArray([Gf.Vec3f(*p) for p in pts]))
+    m.CreateFaceVertexCountsAttr(Vt.IntArray(counts))
+    m.CreateFaceVertexIndicesAttr(Vt.IntArray(idx))
+    return m
+
+
+def _wall_shell_mesh(stage, path, x0, y0, x1, y1, z0, z1):
+    """A box with its TOP FACE OMITTED -- four vertical walls and a floor,
+    no deck -- a stand-in for a bare storey-height `core_x_*`/`wall_*` shell
+    (`SM_Building_19`'s `core_x_0_14_0254`: 220 points, 182 faces, ZERO
+    up-facing triangles; `SM_Building_12`'s `core_x_0_20`, same shape). Must
+    never register as a support no matter how close its own bbox top sits
+    to a prop's seat."""
+    from pxr import Gf, Sdf, UsdGeom, Vt
+    pts = [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0),
+          (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)]
+    faces = [(0, 3, 2, 1), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6),
+            (3, 0, 4, 7)]                      # no (4,5,6,7) top cap
+    m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    m.CreatePointsAttr(Vt.Vec3fArray([Gf.Vec3f(*p) for p in pts]))
+    m.CreateFaceVertexCountsAttr(Vt.IntArray([4] * len(faces)))
+    m.CreateFaceVertexIndicesAttr(Vt.IntArray([i for f in faces for i in f]))
+    return m
+
+
+def _tank_at(stage, path, seat_z, hw=0.5):
+    """A 1x1xN box prop seated the way `dress_roof` seats one: bottom at
+    `seat_z`, centred at the origin's XY."""
+    from pxr import Gf, UsdGeom
+    tank = _box_mesh(stage, path, hw * 2.0, hw * 2.0, 2.0, 0.0)
+    UsdGeom.Xformable(tank).AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, seat_z))
+    return tank
+
+
+def test_reseat_multi_level_roof_uses_the_deck_under_this_footprint():
+    """STEPPED / MULTI-LEVEL ROOF, one merged prim. A single `role=="roof"`
+    piece carries a LOW deck (top 10.0 m) under the tank's own footprint and
+    a HIGH deck (top 13.0 m) elsewhere in the SAME prim -- exactly
+    `SM_Building_19`'s shape. The tank was seated (by whatever guessed
+    `dress_roof`'s advertised top) at the HIGH region's height; the fix
+    must slide it down to the LOW deck actually under it, not leave it at
+    the piece's own tallest point."""
+    from pxr import Sdf, Usd, UsdGeom
+    st = Usd.Stage.CreateInMemory()
+    st.DefinePrim(Sdf.Path("/W"), "Xform")
+
+    roof_path = "/W/roof_stepped"
+    _two_level_box_mesh(st, roof_path, (-5.0, -5.0, 5.0, 5.0), 10.0,
+                        (15.0, -5.0, 25.0, 5.0), 13.0)
+    tank_path = "/W/tank_0"
+    _tank_at(st, tank_path, 13.02)     # seated at the WRONG (high) region
+
+    ctx = {"info": {"masses": {"main": {"top": 13.0}},
+                    "elements": [{"mass": "main", "role": "roof",
+                                 "p": {"prim_path": roof_path}}]},
+          "roof_plant": [tank_path], "notes": []}
+    n = qs._reseat_roof_plant(st, ctx)
+    assert n == 1, ctx["notes"]
+
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    bottom = float(bc.ComputeWorldBound(
+        st.GetPrimAtPath(tank_path)).ComputeAlignedRange().GetMin()[2])
+    assert abs(bottom - 10.02) < 1e-3, bottom
+    assert bottom < 11.0, "still resting near the piece's tallest point"
+
+
+def test_reseat_ignores_a_bare_wall_shell_with_no_up_facing_deck():
+    """TANK OVER A REMOVED-LOOKING / DECKLESS ROOF PIECE. A bare wall shell
+    (no top cap, zero up-facing triangles) sits directly under the tank and
+    its own bbox top would satisfy the OLD `ctop <= pz0 + 0.30` rule -- but
+    it is not a deck. A real deck exists a full storey below. The fix must
+    skip the shell entirely and land on the real, lower deck (`SM_Building_
+    12`'s `core_x_0_20` shape: the closest candidate by height is a wall
+    with nothing to stand on)."""
+    from pxr import Sdf, Usd, UsdGeom
+    st = Usd.Stage.CreateInMemory()
+    st.DefinePrim(Sdf.Path("/W"), "Xform")
+
+    shell_path = "/W/wall_shell"
+    _wall_shell_mesh(st, shell_path, -5.0, -5.0, 5.0, 5.0, 8.0, 12.0)
+    deck_path = "/W/real_deck"
+    _box_mesh(st, deck_path, 20.0, 20.0, 0.3, 4.7)   # top at 5.0
+    tank_path = "/W/tank_0"
+    _tank_at(st, tank_path, 12.02)      # seated on the shell's own bbox top
+
+    ctx = {"info": {"masses": {"main": {"top": 12.0}},
+                    "elements": [
+                        {"mass": "main", "role": "core",
+                         "p": {"prim_path": shell_path}},
+                        {"mass": "main", "role": "roof",
+                         "p": {"prim_path": deck_path}},
+                    ]},
+          "roof_plant": [tank_path], "notes": []}
+    n = qs._reseat_roof_plant(st, ctx)
+    assert n == 1, ctx["notes"]
+
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    bottom = float(bc.ComputeWorldBound(
+        st.GetPrimAtPath(tank_path)).ComputeAlignedRange().GetMin()[2])
+    assert abs(bottom - 5.02) < 1e-3, bottom
+    assert bottom < 7.0, "landed on the deckless wall shell, not the real deck"
+
+
+def test_reseat_a_parapet_band_under_the_footprint_is_still_excluded():
+    """PARAPET BAND UNDER THE FOOTPRINT. The coping run has a genuine
+    up-facing cap (a real triangle, not just a tall bbox) sitting well
+    above the actual roof deck -- the points-based fix must still exclude
+    it BY ROLE, exactly as the bbox-based version did, so a tank never
+    lands on a rim it merely overlaps (SM_Building_02's original round-6
+    regression, re-proven against the new per-triangle scoring)."""
+    from pxr import Sdf, Usd, UsdGeom
+    st = Usd.Stage.CreateInMemory()
+    st.DefinePrim(Sdf.Path("/W"), "Xform")
+
+    parapet_path = "/W/parapet_cap"
+    _box_mesh(st, parapet_path, 10.0, 10.0, 0.4, 13.6)     # top at 14.0
+    deck_path = "/W/real_deck"
+    _box_mesh(st, deck_path, 10.0, 10.0, 0.3, 9.7)          # top at 10.0
+    tank_path = "/W/tank_0"
+    _tank_at(st, tank_path, 14.02)      # seated on the parapet's own cap
+
+    ctx = {"info": {"masses": {"main": {"top": 14.0}},
+                    "elements": [
+                        {"mass": "main", "role": "parapet",
+                         "p": {"prim_path": parapet_path}},
+                        {"mass": "main", "role": "roof",
+                         "p": {"prim_path": deck_path}},
+                    ]},
+          "roof_plant": [tank_path], "notes": []}
+    n = qs._reseat_roof_plant(st, ctx)
+    assert n == 1, ctx["notes"]
+
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    bottom = float(bc.ComputeWorldBound(
+        st.GetPrimAtPath(tank_path)).ComputeAlignedRange().GetMin()[2])
+    assert abs(bottom - 10.02) < 1e-3, bottom
+
+
+def test_reseat_finds_a_real_roof_far_above_a_too_low_advertised_seat():
+    """THE ROOT-CAUSE REGRESSION for `SM_Building_12`: the advertised top
+    `dress_roof` seated the prop at is METRES too LOW, not too high -- the
+    reverse of the bug `_reseat_roof_plant` was originally built for. The
+    real roof sits 7 m above the tank's initial (wrong) seat; a nearer,
+    also-real deck sits almost exactly AT the initial seat. The OLD `ctop
+    <= pz0 + 0.30` ceiling would have excluded the true (higher) roof and
+    kept the tank on the near one; the fix must find the real roof
+    regardless of which side of the initial guess it falls on."""
+    from pxr import Sdf, Usd, UsdGeom
+    st = Usd.Stage.CreateInMemory()
+    st.DefinePrim(Sdf.Path("/W"), "Xform")
+
+    near_path = "/W/near_deck"
+    _box_mesh(st, near_path, 10.0, 10.0, 0.3, 7.7)     # top at 8.0
+    roof_path = "/W/true_roof"
+    _box_mesh(st, roof_path, 10.0, 10.0, 0.3, 14.7)    # top at 15.0
+    tank_path = "/W/tank_0"
+    _tank_at(st, tank_path, 8.02)        # dress_roof's badly-low advertised seat
+
+    ctx = {"info": {"masses": {"main": {"top": 8.0}},
+                    "elements": [
+                        {"mass": "main", "role": "core",
+                         "p": {"prim_path": near_path}},
+                        {"mass": "main", "role": "roof",
+                         "p": {"prim_path": roof_path}},
+                    ]},
+          "roof_plant": [tank_path], "notes": []}
+    n = qs._reseat_roof_plant(st, ctx)
+    assert n == 1, ctx["notes"]
+
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    bottom = float(bc.ComputeWorldBound(
+        st.GetPrimAtPath(tank_path)).ComputeAlignedRange().GetMin()[2])
+    assert abs(bottom - 15.02) < 1e-3, bottom
+    assert bottom > 10.0, "stayed on the near deck, excluded by the old ceiling"
 
 
 def test_displace_above_chips_the_dropped_fitout_slabs_and_columns():
@@ -1164,6 +1559,567 @@ def test_chip_dropped_fitout_is_callable_with_empty_lists():
     access happens at all in that case."""
     n = qs._chip_dropped_fitout({"tag": "t"}, [], [], [])
     assert n == 0
+
+
+# ---------------------------------------------------------------------------
+# ROUND 6: `_sweep_roof_props_sliced` — the sliced-path equivalents of
+# `test_quake_collapse.py`'s four `_sweep_roof_props` / `_author_band`
+# integration tests. Real (in-memory) stages, on purpose, same reason
+# `test_reseat_roof_plant_slides_props_down_to_the_measured_roof_top` above
+# is one: this is the AUTHORING half, out of reach of a pure-planner test.
+# ---------------------------------------------------------------------------
+def _sliced_mass(top, levels, z0=0.0, cx=0.0, cy=0.0, W=20.0, D=20.0):
+    return {"top": float(top), "levels": [float(v) for v in levels],
+           "z0": float(z0), "cx": float(cx), "cy": float(cy),
+           "W": float(W), "D": float(D)}
+
+
+def _sliced_ctx(stage, parent, mass, tank_path, seed=11):
+    return {"stage": stage, "parent": parent,
+           "info": {"masses": {"main": mass}},
+           "roof_plant": [tank_path], "roof_fixed": [],
+           "roof_plant_mass": "main", "rng": random.Random(seed),
+           "static_extra": [], "loose": [], "notes": []}
+
+
+def test_sweep_roof_props_sliced_carries_plant_with_a_storey_crush():
+    """BAND / STOREY CARRY: a `soft_storey`-shaped `fit_ops["displace_
+    above"]` entry must move a surviving `roof_plant` path by the EXACT
+    same rigid transform the block above the crush got — not a kick, not a
+    re-seat, the identical spec `apply_plan` already fed `_gf` +
+    `qf._transform_prims` for every OTHER piece above storey `k`."""
+    from pxr import Gf, Sdf, Usd, UsdGeom
+    st = Usd.Stage.CreateInMemory()
+    parent = "/World/Bldg"
+    UsdGeom.Xform.Define(st, Sdf.Path(parent))
+
+    mass = _sliced_mass(top=22.0, levels=[0, 7, 10, 13, 16, 19])
+    tank_path = parent + "/tank_0"
+    tank = _box_mesh(st, tank_path, 1.6, 1.6, 2.0, 0.0)
+    UsdGeom.Xformable(tank).AddTranslateOp().Set(
+        Gf.Vec3d(0.0, 0.0, mass["top"] + 0.02))
+
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    before = bc.ComputeWorldBound(st.GetPrimAtPath(tank_path)).ComputeAlignedRange()
+
+    spec = qs._disp(translate=(0.4, -0.2, -4.6), why="test soft storey")
+    plan = {"fit_ops": [{"op": "displace_above", "mass": "main", "storey": 2,
+                        "transform": spec}],
+           "removed": [], "collapse": None}
+    ctx = _sliced_ctx(st, parent, mass, tank_path)
+
+    n_carried, n_reseated = qs._sweep_roof_props_sliced(st, ctx, plan)
+    assert (n_carried, n_reseated) == (1, 0)
+    assert tank_path not in ctx["roof_plant"]
+    assert tank_path in ctx["static_extra"]
+
+    bc2 = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    after = bc2.ComputeWorldBound(st.GetPrimAtPath(tank_path)).ComputeAlignedRange()
+    want = np.array(spec["translate"])
+    got = np.array(after.GetMin()) - np.array(before.GetMin())
+    assert np.allclose(got, want, atol=1e-4), (got, want)
+
+
+def test_sweep_roof_props_sliced_reseats_a_region_removal_big_drop():
+    """REGION REMOVAL, deep: a `corner_fail`/`out_of_plane`-shaped `plan[
+    "removed"]` set near the roof, with nothing real left under the tank's
+    OWN footprint except a slab a full storey down. Must land on that real
+    slab (not the advertised roof height), get a real tip/roll (deep drop),
+    come out static (no rigid-body/settle dependency), and be dropped from
+    `roof_plant`."""
+    from pxr import Gf, Sdf, Usd, UsdGeom
+    st = Usd.Stage.CreateInMemory()
+    parent = "/World/Bldg"
+    UsdGeom.Xform.Define(st, Sdf.Path(parent))
+
+    mass = _sliced_mass(top=17.0, levels=[0, 5, 8, 11, 14])
+    tank_path = parent + "/tank_0"
+    tank = _box_mesh(st, tank_path, 1.6, 1.6, 2.0, 0.0)
+    UsdGeom.Xformable(tank).AddTranslateOp().Set(
+        Gf.Vec3d(0.0, 0.0, mass["top"] + 0.02))
+
+    # what `corner_fail`/`out_of_plane` deleted near the roof, right under
+    # the tank's own footprint
+    removed = []
+    for i, (x, y) in enumerate(((-1.0, -1.0), (1.0, 1.0))):
+        p = parent + "/wall_gone_{0}".format(i)
+        piece = _box_mesh(st, p, 2.0, 2.0, 3.0, mass["top"] - 3.0)
+        UsdGeom.Xformable(piece).AddTranslateOp().Set(Gf.Vec3d(x, y, 0.0))
+        piece.GetPrim().SetActive(False)
+        removed.append(p)
+
+    # the real support: a slab a full storey down, spanning the footprint
+    deck_path = parent + "/deck_below"
+    _box_mesh(st, deck_path, 20.0, 20.0, 0.3, mass["levels"][-1])
+
+    plan = {"fit_ops": [], "removed": removed, "collapse": None}
+    ctx = _sliced_ctx(st, parent, mass, tank_path)
+
+    n_carried, n_reseated = qs._sweep_roof_props_sliced(st, ctx, plan)
+    assert (n_carried, n_reseated) == (0, 1)
+    assert tank_path not in ctx["roof_plant"]
+    assert tank_path in ctx["static_extra"]
+    assert ctx["loose"] == [], "must not be a rigid body — no settle dependency"
+
+    pr = st.GetPrimAtPath(tank_path)
+    assert pr.IsValid() and pr.IsActive()
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    lo = bc.ComputeWorldBound(pr).ComputeAlignedRange().GetMin()
+    assert float(lo[2]) < mass["top"] - 2.0, "did not fall at all"
+    assert abs(float(lo[2]) - mass["levels"][-1]) < 0.6, \
+        ("landed far from the real deck", float(lo[2]))
+
+    xf = UsdGeom.XformCache()
+    tr = Gf.Transform(xf.GetLocalToWorldTransform(pr))
+    assert tr.GetRotation().GetAngle() > 5.0, \
+        "landed bolt upright on a deep drop"
+
+
+def test_sweep_roof_props_sliced_small_region_loss_gets_idle_tip():
+    """REGION REMOVAL, shallow: the same majority-footprint-lost region, but
+    real support sits only centimetres under the tank — the idle tip
+    (`quake_flow.B_ROOF_PLANT_TIP_DEG`), not the DG5-style bury roll."""
+    from pxr import Gf, Sdf, Usd, UsdGeom
+    st = Usd.Stage.CreateInMemory()
+    parent = "/World/Bldg"
+    UsdGeom.Xform.Define(st, Sdf.Path(parent))
+
+    mass = _sliced_mass(top=17.0, levels=[0, 5, 8, 11, 14])
+    tank_path = parent + "/tank_0"
+    tank = _box_mesh(st, tank_path, 1.6, 1.6, 2.0, 0.0)
+    UsdGeom.Xformable(tank).AddTranslateOp().Set(
+        Gf.Vec3d(0.0, 0.0, mass["top"] + 0.02))
+
+    removed = []
+    for i, (x, y) in enumerate(((-1.0, -1.0), (1.0, 1.0))):
+        p = parent + "/wall_gone_{0}".format(i)
+        piece = _box_mesh(st, p, 2.0, 2.0, 3.0, mass["top"] - 3.0)
+        UsdGeom.Xformable(piece).AddTranslateOp().Set(Gf.Vec3d(x, y, 0.0))
+        piece.GetPrim().SetActive(False)
+        removed.append(p)
+
+    # real support just 0.12 m under the tank's own base, not a storey down
+    deck_path = parent + "/deck_just_under"
+    _box_mesh(st, deck_path, 20.0, 20.0, 0.3, mass["top"] + 0.02 - 0.12 - 0.3)
+
+    plan = {"fit_ops": [], "removed": removed, "collapse": None}
+    ctx = _sliced_ctx(st, parent, mass, tank_path)
+
+    n_carried, n_reseated = qs._sweep_roof_props_sliced(st, ctx, plan)
+    assert (n_carried, n_reseated) == (0, 1)
+
+    pr = st.GetPrimAtPath(tank_path)
+    xf = UsdGeom.XformCache()
+    tr = Gf.Transform(xf.GetLocalToWorldTransform(pr))
+    assert tr.GetRotation().GetAngle() <= qf.B_ROOF_PLANT_TIP_DEG + 1e-6, \
+        "a barely-fallen prop should barely lean"
+
+
+def test_sweep_roof_props_sliced_is_deterministic():
+    """Same building, same seeds -> the same landing — `_sweep_roof_props_
+    sliced` draws only from `ctx["rng"]`, the building's own generator."""
+    from pxr import Gf, Sdf, Usd, UsdGeom
+
+    def _rig():
+        st = Usd.Stage.CreateInMemory()
+        parent = "/World/Bldg"
+        UsdGeom.Xform.Define(st, Sdf.Path(parent))
+        mass = _sliced_mass(top=17.0, levels=[0, 5, 8, 11, 14])
+        tank_path = parent + "/tank_0"
+        tank = _box_mesh(st, tank_path, 1.6, 1.6, 2.0, 0.0)
+        UsdGeom.Xformable(tank).AddTranslateOp().Set(
+            Gf.Vec3d(0.0, 0.0, mass["top"] + 0.02))
+        removed = []
+        for i, (x, y) in enumerate(((-1.0, -1.0), (1.0, 1.0))):
+            p = parent + "/wall_gone_{0}".format(i)
+            piece = _box_mesh(st, p, 2.0, 2.0, 3.0, mass["top"] - 3.0)
+            UsdGeom.Xformable(piece).AddTranslateOp().Set(Gf.Vec3d(x, y, 0.0))
+            piece.GetPrim().SetActive(False)
+            removed.append(p)
+        _box_mesh(st, parent + "/deck_below", 20.0, 20.0, 0.3,
+                  mass["levels"][-1])
+        plan = {"fit_ops": [], "removed": removed, "collapse": None}
+        ctx = _sliced_ctx(st, parent, mass, tank_path, seed=99)
+        qs._sweep_roof_props_sliced(st, ctx, plan)
+        return st, tank_path
+
+    st1, t1 = _rig()
+    st2, t2 = _rig()
+    xf = UsdGeom.XformCache()
+    m1 = xf.GetLocalToWorldTransform(st1.GetPrimAtPath(t1))
+    m2 = xf.GetLocalToWorldTransform(st2.GetPrimAtPath(t2))
+    assert np.allclose(np.array(m1), np.array(m2), atol=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# SHELL MATERIAL BINDING (round 2026-08-31): `gac_storey_slice.read_mesh`
+# harvested a real GAC facade material for a wall/corner/pier/parapet piece
+# but `write_piece` skipped the bind whenever `mats[mi] is None` -- and,
+# separately, `read_mesh`'s no-argument `ComputeBoundMaterial()` missed any
+# binding authored under the `full` material purpose only (measured: exactly
+# how GreatAmericanCity binds its facade materials), collapsing to the same
+# "no material" case even when the source genuinely had one. Both together
+# produced the shells that render as flat fallback in every fresh GAC quake
+# bake (33/33 checked, `tools/gac_shell_bind_repair.py`'s docstring has the
+# census). The synthetic source stage below reproduces both failure shapes
+# at once: a mesh whose only binding lives under `full` purpose (must be
+# HARVESTED, not treated as absent), and a second mesh with one subset-bound
+# region plus one genuinely unbound region (must get the role fallback, not
+# be skipped).
+# ---------------------------------------------------------------------------
+def test_sliced_shell_pieces_have_no_unbound_mesh_after_full_purpose_and_gap():
+    from pxr import Sdf, Usd, UsdGeom, UsdShade, Vt
+
+    def _new_material(stage, path):
+        mat = UsdShade.Material.Define(stage, Sdf.Path(path))
+        sh = UsdShade.Shader.Define(stage, Sdf.Path(path).AppendChild("Shader"))
+        sh.CreateIdAttr("UsdPreviewSurface")
+        mat.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
+        return mat
+
+    def _quad_mesh(stage, path):
+        m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+        pts = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 0.0, 1.0), (0.0, 0.0, 1.0)]
+        m.CreatePointsAttr(Vt.Vec3fArray(pts))
+        m.CreateFaceVertexCountsAttr(Vt.IntArray([3, 3]))
+        m.CreateFaceVertexIndicesAttr(Vt.IntArray([0, 1, 2, 0, 2, 3]))
+        return m
+
+    src = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageUpAxis(src, UsdGeom.Tokens.z)
+    parent = "/Src/Bldg"
+    src.DefinePrim(Sdf.Path(parent), "Xform")
+
+    # mesh A: mesh-level bind, "full" PURPOSE ONLY -- no allPurpose binding
+    # exists at all, so the old no-argument `ComputeBoundMaterial()` found
+    # nothing here.
+    mesh_a_path = parent + "/core_solid"
+    mesh_a = _quad_mesh(src, mesh_a_path)
+    mat_full = _new_material(src, parent + "/Looks/M_full_only")
+    UsdShade.MaterialBindingAPI.Apply(mesh_a.GetPrim()).Bind(
+        mat_full, materialPurpose=UsdShade.Tokens.full)
+
+    # mesh B: NO mesh-level bind. One GeomSubset (face 0), also "full"-
+    # purpose-only, bound to a second real material; face 1 has no subset
+    # and no default anywhere -- truly unbound at the source.
+    mesh_b_path = parent + "/wall_partial"
+    mesh_b = _quad_mesh(src, mesh_b_path)
+    mat_glass = _new_material(src, parent + "/Looks/M_glass_full_only")
+    sub = UsdGeom.Subset.CreateGeomSubset(
+        mesh_b, "mat_0", UsdGeom.Tokens.face, Vt.IntArray([0]),
+        UsdShade.Tokens.materialBind, UsdGeom.Tokens.partition)
+    UsdShade.MaterialBindingAPI.Apply(sub.GetPrim()).Bind(
+        mat_glass, materialPurpose=UsdShade.Tokens.full)
+
+    # ONE shared stage for source AND sliced output -- exactly how
+    # `slice_to_kit` calls `read_mesh`/`write_piece` for real (both against
+    # the SAME `stage` argument), and the reason `write_piece` can bind a
+    # harvested `mats[mi]` by absolute path at all: it is only ever valid
+    # while the destination composition still contains whatever the source
+    # stage had at that path. A later, separate export/flatten of just the
+    # sliced subtree into a standalone file is a real, different hazard
+    # (see `_role_fallback_material`'s docstring and
+    # `tools/gac_shell_bind_repair.py`) but is not what this test reproduces.
+    out = src
+    out.DefinePrim(Sdf.Path("/Out"), "Xform")
+
+    m_a = gss.read_mesh(src, mesh_a_path, verbose=False)
+    assert m_a is not None
+    assert len(m_a["mats"]) == 1 and m_a["mats"][0] is not None, (
+        "the full-purpose mesh-level bind was not harvested")
+    assert gss.write_piece(out, "/Out/core_x_0_00_0000", m_a, m_a["mats"],
+                           role="core")
+
+    m_b = gss.read_mesh(src, mesh_b_path, verbose=False)
+    assert m_b is not None
+    # exactly one real (harvested) slot and one "no material" sentinel --
+    # never a silently-reused unrelated material (the old `elif not mats:`
+    # one-shot guard this round replaced with a stable, shared sentinel key).
+    assert len(m_b["mats"]) == 2
+    assert sum(1 for x in m_b["mats"] if x is None) == 1
+    assert sum(1 for x in m_b["mats"] if x is not None) == 1
+    assert gss.write_piece(out, "/Out/wall_S_1_00_0001", m_b, m_b["mats"],
+                           role="wall")
+
+    # THE ACCEPTANCE CHECK: 0 unbound shell meshes in the sliced output,
+    # using the exact substrings the round's binding census matches on.
+    unbound = []
+    for prim in Usd.PrimRange(out.GetPrimAtPath("/Out")):
+        if not prim.IsA(UsdGeom.Mesh):
+            continue
+        name = prim.GetName()
+        if not any(k in name for k in
+                  ("wall_", "corner_", "core_x", "pier_", "parapet_")):
+            continue
+        mat, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
+        if not (mat and mat.GetPrim().IsValid()):
+            unbound.append(str(prim.GetPath()))
+    assert unbound == [], unbound
+
+    # the region that DID have a real harvested material must still resolve
+    # to THAT material, not be silently overridden by the role fallback.
+    wall_prim = out.GetPrimAtPath("/Out/wall_S_1_00_0001")
+    mesh_default, _ = UsdShade.MaterialBindingAPI(wall_prim).ComputeBoundMaterial()
+    subset_prims = [c for c in wall_prim.GetChildren() if c.IsA(UsdGeom.Subset)]
+    assert len(subset_prims) == 1, [str(c.GetPath()) for c in wall_prim.GetChildren()]
+    sub_mat, _ = UsdShade.MaterialBindingAPI(subset_prims[0]).ComputeBoundMaterial()
+    assert sub_mat.GetPrim().GetPath() != mesh_default.GetPrim().GetPath()
+    assert sub_mat.GetPrim().GetPath() == mat_glass.GetPrim().GetPath()
+
+
+# ---------------------------------------------------------------------------
+# ROUND 8 (`stranded-bands`): the sky-grid finding on `eq500_v4`
+# ---------------------------------------------------------------------------
+# Photo + USD forensics: regular grids/columns of tan wall/parapet ring
+# pieces hanging in the sky. Traced to `_apply_region`'s own toothing —
+# `_boundary()` counts a VERTICAL neighbour exactly like a horizontal one, so
+# a wide MULTI-STOREY region's edge-bay columns are boundary cells at every
+# storey of the region, and `kept_piers` rolls keep/lose PER CELL,
+# independently: a pier can survive at storey `st` while the pier directly
+# below it, at `st-1`, same column, same region, loses its OWN independent
+# draw. Nothing carries the survivor down, gives it physics, or sweeps it —
+# `_repair_stranded_shell_sliced` / `_sweep_airborne_shell_sliced` below are
+# the fix. The BAND-CRUSH half of the story (`s_soft_storey`'s own `plan[
+# "displaced"]` loop) turned out to need no code change at all — the first
+# test below is the regression lock that keeps it that way.
+def test_soft_storey_carries_every_shell_role_above_the_crush():
+    """CARRIED-BAND CASE. `s_soft_storey`'s loop over `g.els` for `_storey >
+    k` has no role filter, so every wall/pier/corner/parapet/parapet_corner/
+    roof/core placement above the crushed storey already lands in `plan[
+    "displaced"]`, with the IDENTICAL spec `_apply_fit_ops`'s own "displace_
+    above" branch feeds the fit-out (slabs/columns/partitions/props). This
+    is the ONE mechanism this round's repair does not have to reimplement —
+    pinned here so a future edit to `s_soft_storey` cannot silently regress
+    it back to the state the sky-grid photo showed."""
+    for seed in range(6):
+        info, plan = _plan([("soft_storey", {"storey": 2})], "rc", seed=seed,
+                           storeys=8, H=40.0)
+        k = plan["storey_collapse"]["storey"]
+        assert k == 2, (seed, k)
+        above = [e for e in info["elements"] if int(e["p"]["_storey"]) > k]
+        assert above, "fixture too short to exercise this"
+        specs = set(json.dumps(plan["displaced"][e["p"]["prim_path"]],
+                               sort_keys=True) for e in above)
+        assert len(specs) == 1, (seed, "every piece above the crush must "
+                                 "share ONE rigid transform", specs)
+        for e in above:
+            assert e["p"]["prim_path"] in plan["displaced"], \
+                (seed, e["p"]["_role"], e["p"]["prim_path"])
+        # nothing AT OR BELOW the crushed storey is ever rigid-displaced —
+        # it is either removed (the band itself) or left alone (below it)
+        for e in info["elements"]:
+            if int(e["p"]["_storey"]) <= k:
+                assert e["p"]["prim_path"] not in plan["displaced"], \
+                    (seed, e["p"]["_storey"], e["p"]["_role"])
+
+
+def _shell_el(role, side, storey, bay, path, dead=False):
+    """A minimal `info["elements"]` entry — just enough of the shape
+    `_shell_column_index` / `_orphaned_shell_candidates` read (`mass`, `p.
+    _role`/`_side`/`_storey`/`_bay`/`prim_path`, `dead`) — for the PURE
+    detection tests, no stage at all."""
+    return {"mass": "main", "role": role,
+           "p": {"_role": role, "_side": side, "_storey": storey,
+                 "_bay": bay, "prim_path": path},
+           "dead": dead}
+
+
+def test_orphaned_shell_candidates_finds_the_toothed_gap():
+    """Pure detection (no stage): a live piece one storey above a column
+    whose OWN cell is entirely `dead` is an orphan; the same shape with the
+    cell below still (fully) alive is not; a piece already claimed by
+    `plan["displaced"]` (case 1's own carrier) is never a candidate either
+    way; a PARTIALLY toothed cell below (one sub alive, one dead) is not a
+    STRICT (item 2) candidate but is a LOOSE (item 3 safety-net) one;
+    corners use the same (corner, storey) column, with no bay index."""
+    below_gone = _shell_el("wall", "S", 0, 0, "/W/wall_S_0_0", dead=True)
+    orphan = _shell_el("wall", "S", 1, 0, "/W/wall_S_1_0", dead=False)
+    info = {"elements": [below_gone, orphan]}
+    plan = {"displaced": {}, "removed": ["/W/wall_S_0_0"]}
+    assert qs._orphaned_shell_candidates(info, plan, "main") == \
+        ["/W/wall_S_1_0"]
+
+    below_alive = _shell_el("wall", "S", 0, 0, "/W/wall_S_0_0", dead=False)
+    info2 = {"elements": [below_alive, orphan]}
+    assert qs._orphaned_shell_candidates(info2, plan, "main") == []
+
+    plan_disp = {"displaced": {"/W/wall_S_1_0": {}}, "removed": []}
+    assert qs._orphaned_shell_candidates(info, plan_disp, "main") == []
+
+    pier_alive = _shell_el("pier", "S", 0, 0, "/W/pier_S_0_0a", dead=False)
+    wall_dead = _shell_el("wall", "S", 0, 1, "/W/pier_S_0_0b", dead=True)
+    info3 = {"elements": [pier_alive, wall_dead, orphan]}
+    assert qs._orphaned_shell_candidates(info3, plan, "main", loose=False) == []
+    assert qs._orphaned_shell_candidates(info3, plan, "main", loose=True) == \
+        ["/W/wall_S_1_0"]
+
+    c_below = _shell_el("corner", "SW", 0, 0, "/W/corner_SW_0", dead=True)
+    c_above = _shell_el("corner", "SW", 1, 0, "/W/corner_SW_1", dead=False)
+    info4 = {"elements": [c_below, c_above]}
+    assert qs._orphaned_shell_candidates(info4, plan, "main") == \
+        ["/W/corner_SW_1"]
+
+    # never authored below at all (e.g. a ground-storey street opening) is
+    # not the same thing as "removed" — no candidate either way
+    info5 = {"elements": [orphan]}
+    assert qs._orphaned_shell_candidates(info5, plan, "main") == []
+    assert qs._orphaned_shell_candidates(info5, plan, "main", loose=True) == []
+
+
+def test_repair_stranded_shell_drops_a_one_storey_gap_onto_real_support():
+    """DROPPED-PIECE CASE. A live wall piece one storey above a toothed-away
+    column (the cell directly below it is entirely `dead` — a `corner_fail`/
+    `out_of_plane` boundary draw that kept THIS row and lost the one under
+    it), with real support two storeys down. Must land flush on that real
+    support (plus a small settle tip) and count as DROPPED, never deleted."""
+    from pxr import Usd, UsdGeom
+
+    st = Usd.Stage.CreateInMemory()
+    parent = "/World/Bldg"
+    UsdGeom.Xform.Define(st, parent)
+
+    support_path = parent + "/wall_S_0_0"
+    _box_mesh(st, support_path, 3.0, 1.0, 3.0, 0.0)            # z in [0, 3]
+    gone_path = parent + "/wall_S_1_0"
+    gone = _box_mesh(st, gone_path, 3.0, 1.0, 3.0, 3.0)        # z in [3, 6]
+    gone.GetPrim().SetActive(False)
+    orphan_path = parent + "/wall_S_2_0"
+    _box_mesh(st, orphan_path, 3.0, 1.0, 3.0, 6.0)             # z in [6, 9]
+
+    info = {"masses": {"main": {"top": 9.0, "levels": [0.0, 3.0, 6.0, 9.0],
+                                "z0": 0.0}},
+           "elements": [_shell_el("wall", "S", 0, 0, support_path),
+                       _shell_el("wall", "S", 1, 0, gone_path, dead=True),
+                       _shell_el("wall", "S", 2, 0, orphan_path)]}
+    plan = {"displaced": {}, "removed": [gone_path]}
+    ctx = {"stage": st, "parent": parent, "info": info,
+          "rng": random.Random(5), "static_extra": [], "notes": []}
+
+    n_dropped, n_deleted = qs._repair_stranded_shell_sliced(st, ctx, plan)
+    assert (n_dropped, n_deleted) == (1, 0)
+    assert st.GetPrimAtPath(orphan_path).IsActive()
+
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    lo = bc.ComputeWorldBound(
+        st.GetPrimAtPath(orphan_path)).ComputeAlignedRange().GetMin()
+    # flush on the support (z=3), +/- the small idle tip's own height shift
+    assert abs(float(lo[2]) - 3.0) < 0.5, float(lo[2])
+    assert orphan_path in ctx["static_extra"]
+    assert any("stranded shell" in n_ for n_ in ctx["notes"]), ctx["notes"]
+    assert any("1 dropped" in n_ for n_ in ctx["notes"]), ctx["notes"]
+
+
+def test_repair_stranded_shell_deletes_a_multi_storey_gap():
+    """DELETED-PIECE CASE. The same shape, but nothing real is left below
+    except the ground, several storeys down — past `_SHELL_ORPHAN_DROP_
+    STOREYS_MAX`. Must be DEACTIVATED, never repositioned: a big shell panel
+    landed rigidly on an uneven mound reads worse than the mound alone, and
+    the pile's own crown/reach already accounts for this piece's mass in
+    aggregate (the same call `_total_collapse`'s wholesale upper-storey
+    removal already makes for every OTHER piece up there)."""
+    from pxr import Usd, UsdGeom
+
+    st = Usd.Stage.CreateInMemory()
+    parent = "/World/Bldg"
+    UsdGeom.Xform.Define(st, parent)
+
+    gone_paths = []
+    for k in range(3):
+        p = parent + "/wall_S_{0}_0".format(k)
+        mesh = _box_mesh(st, p, 3.0, 1.0, 3.0, float(k) * 3.0)
+        mesh.GetPrim().SetActive(False)
+        gone_paths.append(p)
+    orphan_path = parent + "/wall_S_3_0"
+    _box_mesh(st, orphan_path, 3.0, 1.0, 3.0, 9.0)             # z in [9, 12]
+
+    info = {"masses": {"main": {"top": 12.0,
+                               "levels": [0.0, 3.0, 6.0, 9.0, 12.0],
+                               "z0": 0.0}},
+           "elements": [_shell_el("wall", "S", k, 0, gone_paths[k], dead=True)
+                       for k in range(3)] +
+                      [_shell_el("wall", "S", 3, 0, orphan_path)]}
+    plan = {"displaced": {}, "removed": list(gone_paths)}
+    ctx = {"stage": st, "parent": parent, "info": info,
+          "rng": random.Random(5), "static_extra": [], "notes": []}
+
+    n_dropped, n_deleted = qs._repair_stranded_shell_sliced(st, ctx, plan)
+    assert (n_dropped, n_deleted) == (0, 1)
+    assert not st.GetPrimAtPath(orphan_path).IsActive()
+    assert any("1 deleted" in n_ for n_ in ctx["notes"]), ctx["notes"]
+
+
+def test_sweep_airborne_shell_catches_what_the_strict_repair_did_not():
+    """SWEEP CASE (item 3, the safety net). A partially-toothed column — one
+    sub of the cell below (a narrow pier stub, off to one side) survives —
+    is NOT a strict (`_repair_stranded_shell_sliced`) candidate: some of the
+    below cell is still alive. But the stub does not reach anywhere near
+    this piece's own footprint, so the loose gate + a real points check
+    finds nothing actually under it, and the safety net deactivates it —
+    the thing item 2's targeted repair, by design, left alone."""
+    from pxr import Gf, Usd, UsdGeom
+
+    st = Usd.Stage.CreateInMemory()
+    parent = "/World/Bldg"
+    UsdGeom.Xform.Define(st, parent)
+
+    stub_path = parent + "/pier_S_0_0"
+    stub = _box_mesh(st, stub_path, 1.0, 1.0, 3.0, 0.0)
+    UsdGeom.Xformable(stub).AddTranslateOp().Set(Gf.Vec3d(-4.5, 0.0, 0.0))
+    dead_path = parent + "/wall_S_0_1"
+    dead = _box_mesh(st, dead_path, 3.0, 1.0, 3.0, 0.0)
+    dead.GetPrim().SetActive(False)
+    # the orphan: full-width, centred on x=0 — nowhere near the stub
+    orphan_path = parent + "/wall_S_1_0"
+    _box_mesh(st, orphan_path, 6.0, 1.0, 3.0, 3.0)             # z in [3, 6]
+
+    info = {"masses": {"main": {"top": 6.0, "levels": [0.0, 3.0, 6.0],
+                                "z0": 0.0}},
+           "elements": [_shell_el("pier", "S", 0, 0, stub_path),
+                       _shell_el("wall", "S", 0, 1, dead_path, dead=True),
+                       _shell_el("wall", "S", 1, 0, orphan_path)]}
+    plan = {"displaced": {}, "removed": [dead_path]}
+    ctx = {"stage": st, "parent": parent, "info": info,
+          "rng": random.Random(3), "static_extra": [], "notes": []}
+
+    n_dropped, n_deleted = qs._repair_stranded_shell_sliced(st, ctx, plan)
+    assert (n_dropped, n_deleted) == (0, 0)
+    assert st.GetPrimAtPath(orphan_path).IsActive()
+
+    n = qs._sweep_airborne_shell_sliced(st, ctx, plan, verbose=False)
+    assert n == 1, n
+    assert not st.GetPrimAtPath(orphan_path).IsActive()
+    assert any("airborne shell sweep: 1 deactivated" in n_
+              for n_ in ctx["notes"]), ctx["notes"]
+
+
+def test_stranded_bands_plan_removed_is_bit_identical():
+    """PLAN["REMOVED"] IDENTITY. Neither `_orphaned_shell_candidates`,
+    `_repair_stranded_shell_sliced` nor `_sweep_airborne_shell_sliced` is
+    called from anywhere inside `plan_damage` / `_apply_region` / `s_*` —
+    they are a POST-`apply_plan` stage pass, reading `e["dead"]` back, never
+    the other way round. So the pure planner's own `plan["removed"]` (which
+    another agent's materials work reads off the same plan) must be
+    UNCHANGED, RNG draws included, for every recipe this round touched.
+    Pinned by hash rather than by the full path list (which would make this
+    test itself the thing that has to be updated by hand on every unrelated
+    naming change)."""
+    import hashlib
+
+    cases = [
+        ("corner_fail", {"storeys": 2}, "urm", 11, 10, 45.0,
+         "a3be6ffe9f1081c9"),
+        ("out_of_plane", {"sides": 1, "from_storey": 1}, "urm", 7, 8, 40.0,
+         "9938060acbf63d5d"),
+        ("DG3", None, "urm", 5, 10, 45.0, "7fbfdf8830100530"),
+        ("DG4", None, "rc", 9, 9, 42.0, "948ab26174362377"),
+    ]
+    for recipe, kw, btype, seed, storeys, H, want in cases:
+        grade = recipe if kw is None else [(recipe, kw)]
+        info, plan = _plan(grade, btype, seed=seed, storeys=storeys, H=H)
+        removed = sorted(plan["removed"])
+        got = hashlib.sha256(json.dumps(removed).encode()).hexdigest()[:16]
+        assert got == want, (recipe, kw, btype, seed, "removed list drifted",
+                            len(removed))
 
 
 if __name__ == "__main__":
