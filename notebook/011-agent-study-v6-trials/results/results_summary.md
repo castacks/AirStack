@@ -88,7 +88,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 28 | A4 / claude-opus-5 / #4 | **R8** (full ladder) | 0 / 0 (open loop) | 1 h 41 m | $20.76 | Blind full ladder. A4/opus now R8,R3,R5,R8. |
 | 29 | A1 / claude-opus-5 / #4 | **R8** (full ladder) | 6 / 20 | 1 h 31 m | $15.76 | Six clean calls; R7+R8 blind at scoring. A1 8/8. |
 | 30 | A2 / claude-sonnet-5 / #4 | **R5** | 8 / 20 | 3 h 54 m | $18.49 | Slow 3 h before first judge call (long self-validation + several 20-min command timeouts; transcript shows NO API-lapse impact — 0 error events). In-session reached R7-fail; final state flies alpha (1.19 m) but no working beta — swap persistence failure again. A2/sonnet R8,R5,R6,R5 vs A2/opus R8×4: clean model split within the ablated arm. |
-| 31 | A3 / claude-opus-5 / #4 | — running | — | — | — | Started 2026-09-01 00:30 UTC. |
+| 31 | A3 / claude-opus-5 / #4 | **R6** | 12 / 20 | 3 h 21 m | $41.28 | Costliest trial of the campaign. ~2 h to R1, then steady; consolidated R6, no in-session R7 attempt. Ops: agent used a variant container name (study-a3-ros) that evaded standard teardown — swept post-trial. |
+| 32 | A4 / claude-sonnet-5 / #4 | — running | — | — | — | Started 2026-09-01 04:05 UTC. Closes round 4. |
 
 ### Round-3 synthesis (24 trials, 3 per cell, 2026-08-31)
 
