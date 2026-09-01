@@ -87,7 +87,8 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 27 | A3 / claude-sonnet-5 / #4 | **NULL** (0 rungs) | 17 / 20 | 2 h 25 m | $20.43 | Repeats trial 19's pattern: reached R6 in-session (14 calls), then three R7 avoidance attempts broke bring-up — final state fails everything. A3/sonnet is now 2-for-2 destroying its system chasing R7. |
 | 28 | A4 / claude-opus-5 / #4 | **R8** (full ladder) | 0 / 0 (open loop) | 1 h 41 m | $20.76 | Blind full ladder. A4/opus now R8,R3,R5,R8. |
 | 29 | A1 / claude-opus-5 / #4 | **R8** (full ladder) | 6 / 20 | 1 h 31 m | $15.76 | Six clean calls; R7+R8 blind at scoring. A1 8/8. |
-| 30 | A2 / claude-sonnet-5 / #4 | — running | — | — | — | Started 2026-08-31 20:17 UTC. |
+| 30 | A2 / claude-sonnet-5 / #4 | **R5** | 8 / 20 | 3 h 54 m | $18.49 | Slow 3 h before first judge call (long self-validation + several 20-min command timeouts; transcript shows NO API-lapse impact — 0 error events). In-session reached R7-fail; final state flies alpha (1.19 m) but no working beta — swap persistence failure again. A2/sonnet R8,R5,R6,R5 vs A2/opus R8×4: clean model split within the ablated arm. |
+| 31 | A3 / claude-opus-5 / #4 | — running | — | — | — | Started 2026-09-01 00:30 UTC. |
 
 ### Round-3 synthesis (24 trials, 3 per cell, 2026-08-31)
 
