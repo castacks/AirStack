@@ -2,6 +2,11 @@
 
 No-delay baseline. Same 20 Hz `TwistStamped` stream as hardware. Not Takeoff/Navigate/Land.
 
+This file is the **fidelity** claim (does the sim predict hardware). The
+**transfer-ease** claim (how much of the stack changed at the sim/hardware
+boundary) is in [`TRANSFER_EASE.md`](TRANSFER_EASE.md). Do not use RMSE or
+τ to argue that transfer was easy.
+
 ## Plant (`starling2max.usd`)
 
 | Quantity | Value |
