@@ -204,6 +204,13 @@ services:
       # `device mask: 0x1` UNLESS index 0 is confirmed (via the UUID check
       # above) to be this pod's own card, in which case 0x1 is correct.
       - ISAAC_SIM_MULTIGPU=${ISAAC_SIM_MULTIGPU:-}
+      # RENDERER GPU PIN. NVIDIA_VISIBLE_DEVICES/CUDA_VISIBLE_DEVICES do not
+      # affect Vulkan device selection at all — the renderer defaults to
+      # device 0 regardless. Set this to the pod's own verified device index
+      # (see the NVIDIA_VISIBLE_DEVICES comment above for how to find it) if
+      # device 0 is not confirmed to be this pod's own idle card. Same
+      # host-does-not-forward-automatically rule as every other var here.
+      - ISAAC_SIM_ACTIVE_GPU=${ISAAC_SIM_ACTIVE_GPU:-}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
@@ -534,6 +541,13 @@ services:
       # `device mask: 0x1` UNLESS index 0 is confirmed (via the UUID check
       # above) to be this pod's own card, in which case 0x1 is correct.
       - ISAAC_SIM_MULTIGPU=${ISAAC_SIM_MULTIGPU:-}
+      # RENDERER GPU PIN. NVIDIA_VISIBLE_DEVICES/CUDA_VISIBLE_DEVICES do not
+      # affect Vulkan device selection at all — the renderer defaults to
+      # device 0 regardless. Set this to the pod's own verified device index
+      # (see the NVIDIA_VISIBLE_DEVICES comment above for how to find it) if
+      # device 0 is not confirmed to be this pod's own idle card. Same
+      # host-does-not-forward-automatically rule as every other var here.
+      - ISAAC_SIM_ACTIVE_GPU=${ISAAC_SIM_ACTIVE_GPU:-}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
