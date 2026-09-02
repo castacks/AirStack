@@ -14,6 +14,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.xml')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name), glob('README.md')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -25,6 +26,10 @@ setup(
     entry_points={
         'console_scripts': [
             'mighty_bridge_node = mighty_bridge.bridge_node:main',
+            # Native MIGHTY -> PX4 setpoint path ("Option A"), launched only
+            # when MIGHTY_NATIVE_SETPOINTS is on. See README.md.
+            'mighty_native_setpoint_node = '
+            'mighty_bridge.native_setpoint_node:main',
         ],
     },
 )

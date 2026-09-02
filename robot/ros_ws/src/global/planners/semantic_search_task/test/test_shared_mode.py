@@ -97,6 +97,10 @@ def _install_ros_stubs() -> None:
     _stub_module('geometry_msgs.msg', Point=_Dummy, Polygon=_Dummy,
                  PolygonStamped=_Dummy, Pose=_Dummy, PoseStamped=_Dummy,
                  PoseArray=_Dummy)
+    _stub_module('visualization_msgs')
+    _stub_module('visualization_msgs.msg',
+                 Marker=type('Marker', (),
+                             {'ADD': 0, 'DELETE': 2, 'LINE_STRIP': 4}))
     _stub_module('nav_msgs')
     _stub_module('nav_msgs.msg', Odometry=_Dummy, Path=_Dummy)
     _stub_module('sensor_msgs')

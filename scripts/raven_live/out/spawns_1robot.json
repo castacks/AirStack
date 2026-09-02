@@ -1,0 +1,48 @@
+{
+ "NUM_ROBOTS": 1,
+ "SPAWN_CONFIGS": "[{\"x_m\": -27.01, \"y_m\": -19.37, \"orient\": [0.0, 0.0, -0.3827, 0.9239]}]",
+ "casualty_indices": [
+  17
+ ],
+ "casualties": [
+  {
+   "x": -12.865,
+   "y": -33.515,
+   "z": 0.136,
+   "pose": "lying_prone",
+   "attitude": "face_down",
+   "where": "yard",
+   "intensity": 0.735,
+   "yaw": 58.0,
+   "body_axis_deg": 58.0,
+   "reach_m": 1.84,
+   "alive": true,
+   "visibility": "full",
+   "occlusion": "none",
+   "covered_frac": 0.0,
+   "sunk_frac": 0.095,
+   "visible_parts": [
+    "feet",
+    "shins",
+    "thighs",
+    "hips",
+    "torso",
+    "arms",
+    "shoulders",
+    "head"
+   ],
+   "boards": 0,
+   "note": "yard, partial_collapse"
+  }
+ ],
+ "people_file": "/home/krrishjain/SEI-COA/disaster-dataset/_test_freeze/raven_suburb_tornado_250/GT_people.json",
+ "config": "suburb_tornado_250",
+ "spawn_dist_m": 20.0,
+ "separation_m": 36.8,
+ "substituted": true,
+ "flags": [
+  "!! SUBSTITUTED robot_1 (fully exposed): no casualty satisfying occlusion == 'none' within 3.0 m of the runbook's (-4.87, -24.86). Nearest qualifying is idx 17 at (-12.87, -33.52), 11.8 m away \u2014 using idx 17 at (-12.87, -33.52). The .env / mission SPAWN_CONFIGS in the runbook and in osmo/missions/raven_single_shared_test.yaml are now WRONG; use the ones this tool writes.",
+  "!! SUBSTITUTED robot_2 (partially covered): no casualty satisfying covered_frac in [0.3, 0.55] within 3.0 m of the runbook's (-16.46, -64.78). Nearest qualifying is idx 10 at (-4.79, -69.42), 12.6 m away \u2014 using idx 10 at (-4.79, -69.42). The .env / mission SPAWN_CONFIGS in the runbook and in osmo/missions/raven_single_shared_test.yaml are now WRONG; use the ones this tool writes."
+ ],
+ "warnings": []
+}

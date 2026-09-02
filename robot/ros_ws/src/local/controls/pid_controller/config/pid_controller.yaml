@@ -1,3 +1,9 @@
+# FEEDFORWARD GAINS (2026-09-02): pid_controller now passes the tracking
+# point's planned velocity into the position loops and planned acceleration
+# into the velocity loops as PID ff_value. These env-substituted gains scale
+# them; the 0.0 defaults keep every stack bit-identical unless a mission
+# opts in (PID_POS_FF=1.0 = exact velocity ff; PID_VEL_FF~0.102 = a/g
+# small-angle tilt ff).
 # pid_controller node parameters (position + velocity PID cascade gains).
 # Values moved verbatim from the inline <param> block the legacy
 # local_bringup/launch/local.launch.xml carried for pid_controller
@@ -6,10 +12,27 @@
   ros__parameters:
     target_frame: base_link_stabilized
 
+    # NATIVE-SETPOINT MUZZLE (MIGHTY_NATIVE_SETPOINTS, "Option A"). While
+    # mighty_bridge's native_setpoint_node streams PositionTargets straight to
+    # mavros/setpoint_raw/local it sets this node's `command_muted` over
+    # set_parameters, so PX4 never has two masters. NOT normally set here:
+    # false is the only correct start-up value (nothing is streaming yet), and
+    # a stack with the native path off never flips it. See
+    # pid_controller.cpp's command_muted declaration.
+    #
+    # command_mute_timeout is a DEADMAN, not a nicety: the streamer must
+    # re-assert command_muted at least this often or this node un-mutes itself
+    # and resumes commanding. Sized well above the streamer's 0.2 s refresh
+    # and well below PX4's 500 ms OFFBOARD failsafe would notice. Both are
+    # read on this node's ROS clock, which is sim time when use_sim_time is on
+    # — the same clock the streamer stamps its refreshes with.
+    command_muted: false
+    command_mute_timeout: 0.5
+
     x_p: 1.0
     x_i: 0.0
     x_d: 0.0
-    x_ff: 0.0
+    x_ff: $(env PID_POS_FF 0.0)
     x_d_alpha: 0.0
     x_min: -3.0
     x_max: 3.0
@@ -18,7 +41,7 @@
     y_p: 1.0
     y_i: 0.0
     y_d: 0.0
-    y_ff: 0.0
+    y_ff: $(env PID_POS_FF 0.0)
     y_d_alpha: 0.0
     y_min: -3.0
     y_max: 3.0
@@ -27,7 +50,7 @@
     z_p: 1.0
     z_i: 0.0
     z_d: 0.0
-    z_ff: 0.0
+    z_ff: $(env PID_POS_FF 0.0)
     z_d_alpha: 0.0
     z_min: -1.0
     z_max: 1.0
@@ -36,7 +59,7 @@
     vx_p: 0.2
     vx_i: 0.025
     vx_d: 0.0
-    vx_ff: 0.0
+    vx_ff: $(env PID_VEL_FF 0.0)
     vx_d_alpha: 0.9
     vx_min: -0.34
     vx_max: 0.34
@@ -45,7 +68,7 @@
     vy_p: 0.2
     vy_i: 0.025
     vy_d: 0.0
-    vy_ff: 0.0
+    vy_ff: $(env PID_VEL_FF 0.0)
     vy_d_alpha: 0.9
     vy_min: -0.34
     vy_max: 0.34
@@ -54,7 +77,7 @@
     vz_p: 0.2
     vz_i: 0.1
     vz_d: 0.0
-    vz_ff: 0.0
+    vz_ff: $(env PID_VZ_FF 0.0)
     vz_d_alpha: 0.0
     vz_min: -0.5
     vz_max: 1.0

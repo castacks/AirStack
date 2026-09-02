@@ -81,6 +81,16 @@ class PayloadVisualizerNode(Node):
         self._completed_cell_size_m = float(
             self.get_parameter('completed_cell_size_m').value)
 
+        # Text labels over detection boxes ("person [visited]" etc.). Read
+        # per-render so it can be flipped live:
+        #   ros2 param set /payload_visualizer discovery_labels false
+        # Startup default comes from env GCS_DISCOVERY_LABELS (unset = on).
+        import os as _os
+        self.declare_parameter(
+            'discovery_labels',
+            _os.getenv('GCS_DISCOVERY_LABELS', 'true').strip().lower()
+            not in ('0', 'false', 'no', 'off'))
+
         self.create_subscription(
             PeerProfileMsg, '/gossip/peers',
             self._on_peer_profile, GOSSIP_QOS)
@@ -428,6 +438,8 @@ class PayloadVisualizerNode(Node):
             box.color.a = 0.25
             box.lifetime = Duration(sec=0, nanosec=0)
             out.markers.append(box)
+            if not bool(self.get_parameter('discovery_labels').value):
+                continue   # boxes only — labels toggled off
             # Label above the box.
             txt = Marker()
             txt.header.frame_id = 'map'

@@ -657,6 +657,296 @@ def test_epicentre_fissures_reuse_c_fissure_trace_not_a_second_copy():
     assert 'qf._box(stage, path, mx, my, 0.02' not in src
 
 
+# ---------------------------------------------------------------------------
+# ROUND 7: "the fissure must be an OPENING cut INTO the ground ... a cracked
+# irregular opening and a floor below" (user, live review) — the pool
+# mechanism (`suburb_scene.apply_ground` subtracting `pool_at`'s hole
+# polygon from the lawn mesh before triangulating it), replicated for
+# `scene_generator.apply_ground_planes`'s city ground: a real hole cut
+# through whichever already-authored ground meshes a fissure crosses,
+# descending walls and a darker floor below grade, and the old solid mound
+# shrunk to a modest lip either side.
+# ---------------------------------------------------------------------------
+
+def _author_plane(stage, path, x0, y0, x1, y1, z, uv_scale_m=4.0):
+    """One quad `UsdGeom.Mesh`, byte-for-byte the shape
+    `scene_generator._make_plane_mesh` authors (4 points, 1 face, a "st"
+    vertex UV primvar) — so `_c_cut_ground_openings` is exercised against
+    exactly what `apply_ground_planes` actually leaves under a city's
+    `.../ground` scope, without pulling in `scene_generator` itself (heavy,
+    Kit-oriented) for a plain rectangle."""
+    from pxr import Gf, Sdf, UsdGeom, Vt
+
+    w, h = x1 - x0, y1 - y0
+    pts = Vt.Vec3fArray([Gf.Vec3f(x0, y0, z), Gf.Vec3f(x1, y0, z),
+                        Gf.Vec3f(x1, y1, z), Gf.Vec3f(x0, y1, z)])
+    u_max = w / uv_scale_m if uv_scale_m > 1e-9 else 1.0
+    v_max = h / uv_scale_m if uv_scale_m > 1e-9 else 1.0
+    uvs = Vt.Vec2fArray([Gf.Vec2f(0.0, 0.0), Gf.Vec2f(u_max, 0.0),
+                        Gf.Vec2f(u_max, v_max), Gf.Vec2f(0.0, v_max)])
+    mesh = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    mesh.CreatePointsAttr(pts)
+    mesh.CreateFaceVertexCountsAttr(Vt.IntArray([4]))
+    mesh.CreateFaceVertexIndicesAttr(Vt.IntArray([0, 1, 2, 3]))
+    mesh.CreateNormalsAttr(Vt.Vec3fArray([Gf.Vec3f(0, 0, 1)] * 4))
+    mesh.SetNormalsInterpolation(UsdGeom.Tokens.vertex)
+    mesh.CreateSubdivisionSchemeAttr("none")
+    pv = UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
+        "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex)
+    pv.Set(uvs)
+    return mesh
+
+
+def _face_centroids(stage, path):
+    """`[(cx, cy), ...]`, one per face, of the mesh at *path* — enough to
+    ask "does any triangle's own area sit where the hole was cut"."""
+    mesh = UsdGeom.Mesh(stage.GetPrimAtPath(path))
+    pts = mesh.GetPointsAttr().Get()
+    counts = mesh.GetFaceVertexCountsAttr().Get()
+    idx = mesh.GetFaceVertexIndicesAttr().Get()
+    out, i = [], 0
+    for c in counts:
+        face = idx[i:i + c]
+        i += c
+        out.append((sum(pts[v][0] for v in face) / c,
+                   sum(pts[v][1] for v in face) / c))
+    return out
+
+
+def test_cut_ground_openings_is_a_noop_without_ground_root():
+    """No `ctx["ground_root"]`: the bench, the archetype bake, and every
+    caller that predates this feature must see NO change at all — the same
+    non-breaking contract `ctx["ground_at"]` already holds for materials."""
+    st = _new_stage()
+    _author_plane(st, PARENT + "/ground/asphalt_base", -10, -10, 10, 10, 0.0)
+    before = _face_centroids(st, PARENT + "/ground/asphalt_base")
+    n = qf._c_cut_ground_openings({"stage": st}, [[(-1, -10), (1, -10),
+                                                   (1, 10), (-1, 10)]])
+    assert n == 0
+    assert _face_centroids(st, PARENT + "/ground/asphalt_base") == before
+
+
+def test_cut_ground_openings_hole_in_synthetic_ground_mesh():
+    """The mechanism in isolation: a hand-built hole quad cut straight
+    through one synthetic ground rectangle. The rectangle's single quad
+    face must become several triangles (the opening polygon actually
+    subtracted, not merely marked), and — the crack itself — no resulting
+    triangle's own centroid may fall inside the hole: the ground has an
+    actual gap there, not a cap over it."""
+    st = _new_stage()
+    root = PARENT + "/ground"
+    from pxr import UsdGeom
+    UsdGeom.Scope.Define(st, root)
+    _author_plane(st, root + "/asphalt_base", -50.0, -50.0, 50.0, 50.0, 0.0)
+    hole = [(-1.0, -20.0), (1.0, -20.0), (1.0, 20.0), (-1.0, 20.0)]
+    ctx = {"stage": st, "ground_root": root}
+    n = qf._c_cut_ground_openings(ctx, [hole])
+    assert n == 1
+
+    mesh = UsdGeom.Mesh(st.GetPrimAtPath(root + "/asphalt_base"))
+    counts = mesh.GetFaceVertexCountsAttr().Get()
+    assert len(counts) > 1, "the ground mesh still has its original single face"
+    assert all(c == 3 for c in counts), "the re-triangulated pieces are not triangles"
+
+    for (cx, cy) in _face_centroids(st, root + "/asphalt_base"):
+        assert not (-1.0 <= cx <= 1.0 and -20.0 <= cy <= 20.0), (
+            "a triangle centroid ({0}, {1}) falls inside the crack "
+            "opening — the ground still caps it".format(cx, cy))
+
+
+def test_cut_ground_openings_skips_meshes_the_hole_never_touches():
+    """A hole far from a ground rectangle's own extent must leave that
+    rectangle completely alone (the bbox-miss early-out), and one whose
+    extent it never actually enters (bbox hit, polygon miss) must also come
+    back unchanged rather than needlessly re-triangulated."""
+    st = _new_stage()
+    root = PARENT + "/ground"
+    from pxr import UsdGeom
+    UsdGeom.Scope.Define(st, root)
+    _author_plane(st, root + "/far", 200.0, 200.0, 210.0, 210.0, 0.0)
+    before = _face_centroids(st, root + "/far")
+    n = qf._c_cut_ground_openings(
+        {"stage": st, "ground_root": root},
+        [[(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]])
+    assert n == 0
+    assert _face_centroids(st, root + "/far") == before
+
+
+def test_cut_ground_openings_respects_ground_ssf():
+    """`ctx["ground_ssf"]` scales the hole into the mesh's own stage-unit
+    frame before it is cut — the exact frame mismatch `quake.ground_effects`
+    has (its own cracks in unscaled metres, the ground meshes in `* ssf`
+    stage units): a hole drawn in metres must land on a mesh authored at
+    `ssf=2.0` only once it is scaled up to match."""
+    st = _new_stage()
+    root = PARENT + "/ground"
+    from pxr import UsdGeom
+    UsdGeom.Scope.Define(st, root)
+    _author_plane(st, root + "/asphalt_base", -100.0, -100.0, 100.0, 100.0, 0.0)
+    hole_m = [(-0.5, -10.0), (0.5, -10.0), (0.5, 10.0), (-0.5, 10.0)]
+    n = qf._c_cut_ground_openings(
+        {"stage": st, "ground_root": root, "ground_ssf": 2.0}, [hole_m])
+    assert n == 1
+    for (cx, cy) in _face_centroids(st, root + "/asphalt_base"):
+        assert not (-1.0 <= cx <= 1.0 and -20.0 <= cy <= 20.0), (
+            "the hole was not scaled into the mesh's stage-unit frame")
+
+
+def test_fissure_opening_authors_walls_and_floor_below_grade():
+    """`_c_fissures` end to end: the wall mesh descends from grade, the
+    floor sits at (or very near) the wall's own deepest points, and the
+    floor binds the new darker `"pit_floor"` look while the walls keep the
+    crack's own soil/silt one — never folded into `made` (the soil/silt-only
+    contract `_c_fissures`' own docstring already promises)."""
+    st = _new_stage()
+    mats = qf.materials(st, PARENT)
+    m = _mass()
+    ctx = qf._c_ctx(st, PARENT, mats, random.Random(12), tag="pit")
+    made = qf._c_fissures(ctx, m, corners=("SW",), n_each=(1, 1),
+                          length=(10.0, 10.0))
+    assert made
+    walls = [p for p in ctx["authored"] if "_wall_" in p]
+    floors = [p for p in ctx["authored"] if "_floor_" in p]
+    assert walls, "no fissure wall mesh authored"
+    assert floors, "no fissure floor mesh authored"
+
+    wall_zs = [p[2] for w in walls for p in _mesh_pts(st, w)]
+    floor_zs = [p[2] for f in floors for p in _mesh_pts(st, f)]
+    assert max(wall_zs) <= m["z0"] + 1e-6, "the wall rim rises above grade"
+    assert min(wall_zs) < m["z0"] - 0.5, "the wall never goes meaningfully below grade"
+    assert min(floor_zs) < m["z0"] - 0.5, "the floor is not below grade"
+    assert abs(min(floor_zs) - min(wall_zs)) < 0.05, (
+        "the floor does not sit at the wall's own deepest point")
+
+    assert _families({_look_key(st, f) for f in floors}) == {"pit_floor"}
+    assert _families({_look_key(st, w) for w in walls}) <= {"soil", "silt"}
+    assert set(walls + floors).isdisjoint(set(made)), (
+        "the wall/floor leaked into the soil/silt-only `made` contract")
+    assert set(walls + floors) <= set(ctx["static_extra"])
+
+
+def test_fissure_opening_is_deterministic():
+    """Same seed, same pit: the wall mesh's own point cloud is byte-identical
+    across two independent stages, the same contract every other quake
+    ground pass already holds to."""
+    def _run(seed):
+        st = _new_stage()
+        mats = qf.materials(st, PARENT)
+        m = _mass()
+        ctx = qf._c_ctx(st, PARENT, mats, random.Random(seed), tag="detpit")
+        qf._c_fissures(ctx, m, corners=("NE",), n_each=(1, 1), length=(9.0, 9.0))
+        walls = sorted(p for p in ctx["authored"] if "_wall_" in p)
+        return [tuple(_mesh_pts(st, p)) for p in walls]
+
+    a, b = _run(33), _run(33)
+    assert a == b
+    assert a, "no wall authored — nothing to compare"
+
+
+def test_fissure_end_to_end_cuts_the_city_ground_mesh():
+    """The opening actually reaches the CITY ground, not only a synthetic
+    one built for the mechanism tests above: with `ctx["ground_root"]`
+    wired to a scope holding one `_make_plane_mesh`-shaped rectangle
+    (exactly what `apply_ground_planes` leaves under `<parent>/ground`), a
+    real fissure walked out of `_c_fissures` leaves that mesh with more
+    faces than the single quad it started as."""
+    st = _new_stage()
+    mats = qf.materials(st, PARENT)
+    m = _mass()
+    ground_root = PARENT + "/ground"
+    from pxr import UsdGeom
+    UsdGeom.Scope.Define(st, ground_root)
+    _author_plane(st, ground_root + "/asphalt_base", -60.0, -60.0, 60.0, 60.0, 0.0)
+    ctx = qf._c_ctx(st, PARENT, mats, random.Random(17), tag="e2e")
+    ctx["ground_root"] = ground_root
+    made = qf._c_fissures(ctx, m, corners=("SW",), n_each=(1, 1),
+                          length=(10.0, 10.0))
+    assert made
+    mesh = UsdGeom.Mesh(st.GetPrimAtPath(ground_root + "/asphalt_base"))
+    counts = mesh.GetFaceVertexCountsAttr().Get()
+    assert len(counts) > 1, "the city ground mesh was never cut"
+
+
+def test_fissure_lip_is_smaller_than_the_old_mound():
+    """Round 7: "the ridge/mould shrinks to a modest LIP" — its peak height
+    is now a small fraction of the crack's own width (0.16-0.30 x, tapered
+    and wobbled down from there), not the pre-round-7 mound's 0.45-0.85 x."""
+    st = _new_stage()
+    mats = qf.materials(st, PARENT)
+    m = _mass()
+    ctx = qf._c_ctx(st, PARENT, mats, random.Random(15), tag="lipcheck")
+    made = qf._c_fissures(ctx, m, corners=("SW",), n_each=(1, 1),
+                          length=(10.0, 10.0))
+    assert made
+    peak = max(p[2] for p in _mesh_pts(st, made[0])) - m["z0"]
+    assert peak <= 0.35 * qf.C_FISSURE_W[1]
+
+
+def test_fissure_depth_knob_default_and_env_overridable():
+    """`EQ_FISSURE_DEPTH_M` reaches `FISSURE_DEPTH_M` from the environment
+    the same way `EQ_FISSURE_SCALE`/`EQ_FISSURE_WIDTH_SCALE`/
+    `EQ_FISSURE_PAVE_DENSITY` reach theirs, and sits in the requested
+    "roughly 1-2.5 m" band by default."""
+    assert 1.0 <= qf.FISSURE_DEPTH_M <= 2.5
+    code = (
+        "import sys; sys.path.insert(0, {0!r});"
+        "from disaster import quake_flow as qf;"
+        "print(qf.FISSURE_DEPTH_M)"
+    ).format(os.path.normpath(os.path.join(_HERE, "..")))
+    env = dict(os.environ, EQ_FISSURE_DEPTH_M="2.4")
+    out = subprocess.run([sys.executable, "-c", code], env=env,
+                         capture_output=True, text=True, check=True).stdout
+    assert out.strip() == "2.4", out
+
+
+def test_fissure_pave_band_still_authored_alongside_the_opening():
+    """The cracked-asphalt band beside the crack survives this round
+    unchanged — authored alongside the new wall/floor, not replaced by
+    them."""
+    st = _new_stage()
+    mats = qf.materials(st, PARENT)
+    m = _mass()
+    ctx = qf._c_ctx(st, PARENT, mats, random.Random(6), tag="pv2")
+    made = qf._c_fissures(ctx, m, corners=("SW", "NE"), n_each=(1, 2))
+    assert made
+    pave_paths = [p for p in ctx["authored"]
+                 if "_pave_" in p and "_mound_" not in p]
+    wall_paths = [p for p in ctx["authored"] if "_wall_" in p]
+    assert pave_paths, "no cracked-asphalt plate authored beside the opening"
+    assert wall_paths, "no opening wall authored beside the cracked asphalt"
+
+
+def test_ground_effects_ctx_wires_ground_root_and_ssf():
+    """Round 7: `quake.ground_effects`'s own `_ctx()` must hand every
+    fissure ctx a `ground_root`/`ground_ssf` (`parent + "/ground"`, `ssf`)
+    so its epicentre cracks — the exact `epi_top.png`/`nw_top.png`
+    screenshots the user flagged as "weird" — can cut their own opening
+    through the city's ground meshes instead of only drawing a lip beside
+    them."""
+    import inspect
+
+    from disaster import quake
+
+    src = inspect.getsource(quake.ground_effects)
+    assert '"ground_root": parent + "/ground"' in src
+    assert '"ground_ssf": ssf' in src
+
+
+def test_assemble_forwards_parent_as_ground_root():
+    """Round 7: `quake.assemble`'s optional `parent` reaches every mild
+    lean's corner fissures as `ground_root`, so the per-building cracks the
+    live city actually authors get the same opening the epicentre ones do."""
+    import inspect
+
+    from disaster import quake
+
+    src = inspect.getsource(quake.assemble)
+    assert 'ground_root = (str(parent) + "/ground") if parent else None' in src
+    assert src.count("ground_root=ground_root") >= 2, (
+        "expected both the direct _tilt_prim call and the _mono_pass call "
+        "to forward ground_root")
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-v"]))

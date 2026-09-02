@@ -1,3 +1,4 @@
+import json
 import os
 import queue
 import re
@@ -10,6 +11,7 @@ import numpy as np
 import rclpy
 import rclpy.executors
 from geometry_msgs.msg import Point, Polygon, PolygonStamped, Pose
+from visualization_msgs.msg import Marker
 from nav_msgs.msg import Odometry
 from rclpy.action import ActionServer, ActionClient, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -319,6 +321,14 @@ class SemanticSearchTaskNode(Node):
         self._search_area_pub = self.create_publisher(
             PolygonStamped, f'{self._robot_prefix}/raven_nav/search_area',
             latched_qos)
+        # The same polygon as a LINE_STRIP Marker for Foxglove (user request
+        # 2026-09-02: "viz the search area under search/markers/search_area").
+        # Latched so it renders no matter when the panel subscribes; bridged
+        # to the GCS domain by the dds_router allowlist entry of the same
+        # name.
+        self._search_area_marker_pub = self.create_publisher(
+            Marker, f'{self._robot_prefix}/search/markers/search_area',
+            latched_qos)
         # Same latched polygon for the LVLM baseline (waypoint clamp).
         self._lvlm_search_area_pub = self.create_publisher(
             PolygonStamped, f'{self._robot_prefix}/lvlm_baseline/search_area',
@@ -379,6 +389,34 @@ class SemanticSearchTaskNode(Node):
         stamped.header.frame_id = 'map'
         stamped.polygon = polygon
         self._search_area_pub.publish(stamped)
+        self._publish_search_area_marker(polygon)
+
+    def _publish_search_area_marker(self, polygon: Polygon) -> None:
+        """The search polygon as a closed green LINE_STRIP Marker.
+
+        An empty polygon publishes a DELETE marker so a cleared constraint
+        also clears the drawing.
+        """
+        m = Marker()
+        m.header.stamp = self.get_clock().now().to_msg()
+        m.header.frame_id = 'map'
+        m.ns = 'search_area'
+        m.id = 0
+        if not polygon.points:
+            m.action = Marker.DELETE
+            self._search_area_marker_pub.publish(m)
+            return
+        m.action = Marker.ADD
+        m.type = Marker.LINE_STRIP
+        m.scale.x = 0.6              # line width (m)
+        m.color.g = 1.0
+        m.color.a = 0.9
+        m.pose.orientation.w = 1.0
+        pts = [Point(x=float(p.x), y=float(p.y), z=float(p.z) + 0.5)
+               for p in polygon.points]
+        pts.append(pts[0])           # close the loop
+        m.points = pts
+        self._search_area_marker_pub.publish(m)
 
     def _publish_lvlm_search_area(self, polygon: Polygon) -> None:
         """Latched search polygon (robot-local 'map' frame) for the LVLM baseline
@@ -1373,6 +1411,10 @@ class SemanticSearchTaskNode(Node):
             best_conf = 0.0
             rayfronts_ready = False
             prev_rf_sub_count = 0
+            # last atomic-vocabulary send (shared mode re-sends every 10 s;
+            # add_queries de-dupes, so this only matters after a mapper
+            # restart). 0.0 = never sent.
+            last_vocab_send_t = 0.0
             mapping_started = False
             navigation_started = False
             raven_published_waypoint = False
@@ -1394,7 +1436,10 @@ class SemanticSearchTaskNode(Node):
             # BEST_EFFORT QoS to match raven's publisher (some robots publish
             # global_plan as BEST_EFFORT, others RELIABLE; BEST_EFFORT accepts both).
             from nav_msgs.msg import Path
-            from rclpy.qos import QoSProfile, ReliabilityPolicy
+            # NOTE: no local rclpy.qos import here — a function-local import
+            # makes QoSProfile local to ALL of _execute, and the shared-mode
+            # wait above uses it first (UnboundLocalError, hit live 2026-09-02).
+            # The module-level import at the top of this file covers it.
             global_plan_qos = QoSProfile(
                 reliability=ReliabilityPolicy.BEST_EFFORT, depth=1)
             def _global_plan_cb(msg):
@@ -1548,6 +1593,18 @@ class SemanticSearchTaskNode(Node):
                     msg = _filter_raven(raw)
                     if msg:
                         last_rv_status = msg
+                        # ALSO gate the navigate activator on raven's stdout.
+                        # The BEST_EFFORT global_plan subscription was seen
+                        # matching none of the topic's four publishers (live
+                        # 2026-09-02: raven + random_walk + odom_modifier + a
+                        # bare-DDS router endpoint; the callback never fired
+                        # while `ros2 topic hz` measured 1.6 Hz), so the drone
+                        # hovered forever. raven's bracketed mode line proves
+                        # the planner is ticking and publishing — activation
+                        # must not be hostage to DDS endpoint pairing.
+                        if re.search(r'\[(Frontier-based|Ray-based|'
+                                     r'Voxel-based|LVLM-guided)\]', msg):
+                            raven_published_waypoint = True
 
                 # Out-of-bounds guard: raven only picks in-polygon frontiers, so
                 # from outside it has nothing to steer toward. Fly to the nearest
@@ -1603,20 +1660,41 @@ class SemanticSearchTaskNode(Node):
                 # Resend queries whenever rayfronts' subscriber appears (initial
                 # load AND any restart mid-task). All queries (target + background)
                 # so softmax stays meaningful.
+                #
+                # ORDER IS A CONTRACT: sim_0 must be the target. In shared mode
+                # the vocabulary goes as ONE JSON-array message — atomic, so a
+                # mapper (re)starting at any instant gets the whole ordered
+                # list in a single delivery. The per-label paced burst (legacy
+                # servers only) can lose its head to the DDS discovery race or
+                # be split by a supervisor restart, which is how `road` became
+                # q0 and every road rendered as `person` (live 2026-09-02).
+                # Shared mode ALSO re-sends every 10 s — the mapper's
+                # add_queries de-dupes, and this heals restarts that never
+                # produce a clean 0->N subscriber-count edge (crash loops).
                 rf_sub_count = self.count_subscribers(f'{self._rf_prefix}/new_text_query')
-                if rf_sub_count > 0 and prev_rf_sub_count == 0:
+                rf_edge = rf_sub_count > 0 and prev_rf_sub_count == 0
+                rf_periodic = (self._rayfronts_mode == 'shared'
+                               and rf_sub_count > 0
+                               and time.monotonic() - last_vocab_send_t >= 10.0)
+                if rf_edge or rf_periodic:
                     rayfronts_ready = True
-                    # DDS discovery race: count_subscribers flips to >0 before
-                    # the pub/sub match is fully wired — the first publish can
-                    # silently drop. Sleep, then pace publishes so rayfronts
-                    # processes each query before the next arrives.
-                    time.sleep(0.3)
-                    for q in all_queries:
-                        self._text_query_pub.publish(String(data=q))
-                        time.sleep(0.1)
-                    last_rf_status = f'Queries sent: {", ".join(all_queries)}'
-                    self.get_logger().info(
-                        f'Queries sent to rayfronts: {all_queries}')
+                    if rf_edge:
+                        # DDS discovery race: count_subscribers flips to >0
+                        # before the pub/sub match is fully wired — the first
+                        # publish can silently drop.
+                        time.sleep(0.3)
+                    if self._rayfronts_mode == 'shared':
+                        self._text_query_pub.publish(
+                            String(data=json.dumps(list(all_queries))))
+                    else:
+                        for q in all_queries:
+                            self._text_query_pub.publish(String(data=q))
+                            time.sleep(0.1)
+                    last_vocab_send_t = time.monotonic()
+                    if rf_edge:
+                        last_rf_status = f'Queries sent: {", ".join(all_queries)}'
+                        self.get_logger().info(
+                            f'Queries sent to rayfronts: {all_queries}')
                 if rf_sub_count == 0 and prev_rf_sub_count > 0:
                     rayfronts_ready = False
                     self.get_logger().info('rayfronts subscriber lost — will resend on reconnect')
@@ -1721,8 +1799,14 @@ def main(args=None):
     executor.add_node(node)
     try:
         executor.spin()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt,
+            rclpy.executors.ExternalShutdownException):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        # rclpy's SIGINT handler may already have shut the context down; a
+        # second shutdown raises RCLError and turns every clean Ctrl-C /
+        # `docker stop` into a crash-looking non-zero exit (same bug fixed in
+        # raven_nav_node.main()).
+        if rclpy.ok():
+            rclpy.shutdown()

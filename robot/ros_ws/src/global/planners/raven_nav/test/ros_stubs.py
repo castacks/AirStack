@@ -147,6 +147,7 @@ class _Logger:
         RECORDER.logs.append(f'{level}: {msg}')
     info = lambda self, m, **k: self._log('INFO', m)      # noqa: E731
     warn = lambda self, m, **k: self._log('WARN', m)      # noqa: E731
+    warning = lambda self, m, **k: self._log('WARN', m)   # noqa: E731
     error = lambda self, m, **k: self._log('ERROR', m)    # noqa: E731
     debug = lambda self, m, **k: self._log('DEBUG', m)    # noqa: E731
 
@@ -223,9 +224,21 @@ def install(monkeypatch=None):
         return m
 
     rclpy = mod('rclpy', init=lambda *a, **k: None,
-                shutdown=lambda *a, **k: None, spin=lambda *a, **k: None)
+                shutdown=lambda *a, **k: None, spin=lambda *a, **k: None,
+                ok=lambda *a, **k: True)
     mod('rclpy.node', Node=_Node)
     rclpy.node = sys.modules['rclpy.node']
+
+    # `main()` catches ExternalShutdownException alongside KeyboardInterrupt
+    # (rclpy's SIGINT handler tears the default context down before spin()
+    # returns). The stub `rclpy` is a plain module, not a package, so a
+    # submodule import only resolves if it is in sys.modules already.
+    class ExternalShutdownException(Exception):
+        pass
+
+    mod('rclpy.executors', ExternalShutdownException=ExternalShutdownException,
+        SingleThreadedExecutor=object, MultiThreadedExecutor=object)
+    rclpy.executors = sys.modules['rclpy.executors']
 
     class _Enum:
         def __getattr__(self, item):

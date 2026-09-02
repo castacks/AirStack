@@ -55,6 +55,42 @@ overrides:
     # config that never sets it is unaffected (`tests/
     # test_quake_style_blacklist.py`).
     style_blacklist: [office_wide]
+    # PER-DISTRICT DAMAGE BOOST (2026-09-01, user, verbatim: "more diversity
+    # in buildings destroyed — especially brownstone districts with the
+    # small buildings and the brick mid-rise districts"). The grade is
+    # drawn purely off the RADIAL field, so a district's damage today is an
+    # accident of where it landed relative to `epicenter` — a brownstone or
+    # brick_midrise block far from it stays pristine no matter how fragile
+    # that stock actually is. The real fix is a per-TYPOLOGY multiplier, but
+    # no district/typology label survives past `detail/districts.py`'s own
+    # rezone into a placement dict, so `disaster/quake._boosted_intensity`
+    # keys off STYLE FAMILY instead (`quake.TYPOLOGY_STYLE_FAMILIES`):
+    # `rowhouse` -> `brownstone`/`brownstone_row` (family "03"), `brick_
+    # midrise` -> the family-"04" brick stock (`commercial`, `commercial_
+    # mid`, `highrise_04`, `department_store`) — exactly the two families
+    # the user named, both `urm` (`quake_flow.FAMILY_TYPE`).
+    #
+    # CALIBRATED to ~1 grade of extra average damage: both families draw
+    # off IDENTICAL "urm" EMS-98 cuts (0.05/0.14/0.25/0.55/0.80), so one
+    # multiplier serves both. A pure statistical draw of `quake_flow.
+    # level_for_intensity` at representative field intensities (0.46-1.00,
+    # the spread this preset's radial field actually produces, 4000 trials
+    # per point) gives: mult 1.0 -> avg grade 2.68; mult 2.0 -> avg grade
+    # 3.73 (+1.05). Confirmed against the REAL offline `assemble` harness
+    # (`downtown_earthquake`, seeds 9/3/5/7, region 250): `commercial_mid`
+    # n=9 baseline avg 2.44 -> boosted avg (see `tests/
+    # test_quake_typology_damage_boost.py` / the round's own report for the
+    # exact post-boost numbers); `brownstone_row` places too rarely at this
+    # region for a large sample (typology-nucleus formation is stochastic —
+    # the SAME "nonzero for 5 of 12 seeds" variance this file's `rings:`
+    # comment already documents for AEC/downtowncity), so its own average is
+    # noisy at any one seed batch — the mechanism is still exercised and
+    # tested at the pure-function level regardless of sample size.
+    # DEFAULT EMPTY for every OTHER preset (`disaster.typology_damage_
+    # boost` absent there): `quake._typology_damage_boost` returns `{}`,
+    # `_boosted_intensity` is then a no-op, byte-identical to before this
+    # existed (`tests/test_quake_typology_damage_boost.py`).
+    typology_damage_boost: {rowhouse: 2.0, brick_midrise: 2.0}
     # Lean-and-sink is site-specific (soft soil) and rare in a block: at the
     # compiler's 0.63 a third of the plat tilted. 0.12 x intensity, gated by
     # slenderness in `quake.assemble`, gave a handful. Raised to 0.2

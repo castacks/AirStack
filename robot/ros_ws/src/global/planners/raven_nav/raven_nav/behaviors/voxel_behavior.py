@@ -47,6 +47,15 @@ VISITED_NEAR_M = 10.0           # OG:236 (`is_near_visited` threshold)
 STANDOFF_M = 1.0                # OG:158 (`offset`)
 MID_ALPHA = 0.8                 # OG:167
 VISIT_REACH_M = 3.0             # OG:194
+# Padding around a CONFIRMED-VISITED detection box (ctx.visited_bbs — the
+# node's detection memory, not this tier's own visited_clusters) inside which
+# new clusters are suppressed. Same pad as the ray tier's exclusion
+# (ray_behavior.VISITED_RAY_PAD_M) so the two tiers agree on what "already
+# visited" means. Without this the voxel tier revisits: the mapper keeps
+# re-emitting clusters at a confirmed casualty (live 2026-09-02, "it's going
+# to voxels inside existing BBs") because is_near_visited only knows about
+# clusters THIS tier flew to itself.
+VISITED_BB_PAD_M = 3.0
 
 
 @dataclass
@@ -187,9 +196,14 @@ class VoxelBehavior:
 
     def __init__(self, score_threshold: float = VOXEL_SCORE_THRESHOLD,
                  min_cluster_size: int = MIN_CLUSTER_VOXELS,
-                 vox_size: float = VOX_SIZE_M) -> None:
+                 vox_size: float = VOX_SIZE_M,
+                 max_extent_m: float = 0.0) -> None:
         self.score_threshold = float(score_threshold)
         self.min_cluster_size = int(min_cluster_size)
+        # 0 = off. Largest allowed AABB edge; bigger clusters are dropped as
+        # debris-pile false positives (measured 2026-09-02: FPs 4-4.5 m at
+        # conf 0.70-0.72 vs a true casualty <=2 m at conf 0.80).
+        self.max_extent_m = float(max_extent_m)
         self.vox_size = float(vox_size)
         self.clusters: List[VoxelCluster] = []
         self.unvisited: List[VoxelCluster] = []
@@ -209,7 +223,16 @@ class VoxelBehavior:
         if scores.ndim != 2 or max(cols) >= scores.shape[1]:
             return self.clusters
         rel = scores[:, cols]
-        mask = (rel > self.score_threshold).any(axis=1)     # OG:53-55
+        # SUMMED positive mass, not per-column (extends OG:53-55, which was
+        # written for ONE target). With several near-synonym positives
+        # ("person, casualty") the softmax splits the vote BETWEEN them at
+        # exactly the voxels both describe — measured live 2026-09-02 at the
+        # buried casualty: solo 0.68 -> per-column max 0.43 under
+        # person+casualty. The sum is the probability the voxel is ANY of the
+        # positives vs the backgrounds (identical to a merged-positive solo:
+        # buried 0.72-0.81, stander 0.98). For a single target the sum IS the
+        # column — OG behaviour unchanged, which og-parity pins.
+        mask = rel.sum(axis=1) > self.score_threshold
         if not np.any(mask):
             return self.clusters
         pts = np.round(np.asarray(xyz, dtype=np.float64)[mask], 3)   # OG:59
@@ -241,10 +264,15 @@ class VoxelBehavior:
             max_world = (max_voxel + 1) * self.vox_size + min_coords - half
             center = (min_world + max_world) / 2.0
             size = max_world - min_world
+            if self.max_extent_m > 0.0 and float(np.max(size)) > self.max_extent_m:
+                continue   # debris-pile FP filter (see __init__)
             col_sums = rel[sel].sum(axis=0)
             best = int(np.argmax(col_sums))
             label = str(ctx.query_labels[cols[best]])
-            confidence = float(np.mean(rel[sel][:, best]))
+            # Confidence = mean SUMMED positive mass over the cluster (the
+            # same statistic the mask thresholds); the label still names the
+            # strongest single wording.
+            confidence = float(np.mean(rel[sel].sum(axis=1)))
             self.clusters.append(VoxelCluster(
                 label=label, center=center, size=size,
                 num_voxels=int(sel.size), confidence=confidence))
@@ -255,8 +283,13 @@ class VoxelBehavior:
         the node — including in the frontier-only baseline, which is how that
         arm still reports passive detections."""
         self.detect(ctx)
+        visited_bbs = ctx.visited_bbs or []
         self.unvisited = [c for c in self.clusters
                           if not self.is_near_visited(c.center, c.size)
+                          and not any(
+                              cuboid_distance(c.center, c.size,
+                                              bb[:3], bb[3:6])
+                              < VISITED_BB_PAD_M for bb in visited_bbs)
                           and ctx.inside_area(c.center)]   # DEVIATION 2
         return self.clusters
 

@@ -76,7 +76,11 @@
         # formation_neighbor_offsets: []                  # [m] flat 3*N: δ_ij for each neighbor in same order as ids
 
         # --- Vehicle Dynamic Limits ---
-        v_max: 1.5                                      # [m/s]   Max velocity
+        # Env-tunable (loaded with allow_substs): missions set MIGHTY_V_MAX to
+        # slow transit without a rebuild. Default stays the module's 1.5 —
+        # RAISING it past ~2 breaks the bridge's 4 m start window (header
+        # note); lowering is always safe.
+        v_max: $(env MIGHTY_V_MAX 1.5)                  # [m/s]   Max velocity
         a_max: 5.0                                      # [m/s^2] Max acceleration
         j_max: 10.0                                     # [m/s^3] Max jerk
         w_max: 1.0                                      # [rad/s] Max yaw rate (~4.0 for hardware)

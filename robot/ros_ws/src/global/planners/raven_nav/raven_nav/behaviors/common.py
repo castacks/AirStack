@@ -17,7 +17,7 @@ itself, exactly as the OG file did.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 
@@ -97,6 +97,23 @@ class TickContext:
     waypoint_locked: bool = False
     target_waypoint: Optional[np.ndarray] = None
     target_waypoint2: Optional[np.ndarray] = None
+    # ── anti-revisit (novelty) ──────────────────────────────────────────────
+    # The set of (ix, iy) integer cells this robot has already observed, i.e.
+    # `CoverageTracker.cells`.  ALIASED, not copied: the node hands the tracker's
+    # live set straight through (a 250 m plate at 0.5 m is a quarter of a million
+    # tuples — copying it once per 5 Hz tick is not free).  Behaviours must treat
+    # it as READ-ONLY, and must not hold a reference across ticks expecting a
+    # snapshot: it grows under them as `_update_coverage` stamps.
+    # None = no coverage information -> the novelty term is identically 0 and
+    # scoring is bit-for-bit the pre-novelty behaviour.
+    observed_cells: Optional[Set[Tuple[int, int]]] = None
+    coverage_cell_size_m: float = 0.5         # CoverageTracker.cell_size_m
+    # Visited-target memory (own detections only): [cx,cy,cz,sx,sy,sz] rows.
+    # Ray candidates that HIT one of these boxes are excluded, so a found +
+    # visited person cannot keep dragging Ray-mode back (live 2026-09-02:
+    # the drone shuttled between visited casualties because their rays kept
+    # out-scoring everything). None/[] = no exclusion (OG behaviour).
+    visited_bbs: Optional[List[np.ndarray]] = None
 
     def clamp(self, p) -> np.ndarray:
         return clamp_z(p, self.min_altitude, self.max_altitude)

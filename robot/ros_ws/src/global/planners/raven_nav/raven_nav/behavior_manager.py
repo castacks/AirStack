@@ -28,6 +28,8 @@ class BehaviorManager:
     def __init__(self, score_threshold: float = 0.95,
                  voxel_score_threshold: float = 0.98,
                  voxel_min_cluster_size: int = 30,
+                 voxel_max_extent_m: float = 0.0,
+                 voxel_size_m: float = 0.5,
                  lvlm_enabled: bool = True,
                  lvlm_request_interval_s: float = 30.0,
                  lvlm_ray_threshold: float = 0.9,
@@ -37,7 +39,9 @@ class BehaviorManager:
         self.frontier_only = bool(frontier_only)
         self.voxel_behavior = VoxelBehavior(
             score_threshold=voxel_score_threshold,
-            min_cluster_size=voxel_min_cluster_size)
+            min_cluster_size=voxel_min_cluster_size,
+            max_extent_m=voxel_max_extent_m,
+            vox_size=voxel_size_m)
         self.ray_behavior = RayBehavior(score_threshold=score_threshold)
         self.lvlm_behavior = LvlmBehavior(
             request_interval_s=lvlm_request_interval_s,

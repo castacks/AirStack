@@ -2789,12 +2789,50 @@ class FireCityApp:
             # `disaster/baseline_captures.py`'s own module docstring for the
             # user directive this answers. Additive: nothing above this line
             # is touched or replaced.
+            # PER-UNIT BROWNSTONE VARIANCE, before the photos so the review
+            # frames show what ships. `Reference_Brownstone<N>Row` is one
+            # 6.67 m facade merged N times, so without this every brownstone
+            # in a rowhouse district is literally the same house; the tint is
+            # a layer over the MDL brick, and `aec_burn` binds its own soot
+            # later so a burning unit still reads as burnt, not tinted.
+            # AEC_VARIETY=0 turns it off.
+            try:
+                from disaster import aec_variety as _av
+                _av.apply_to_stage(self.stage)
+            except Exception as _exc:
+                print("[aec_variety] skipped: %s" % _exc)
+
             if BASELINE_CAPTURES:
                 obs = getattr(self, "street_positions", None) or {}
+                # CENTRE and BLOCKS, both of which this object already holds
+                # and the capture path previously threw away.
+                #
+                # centre: `plan_overviews` used to hardcode (0, 0), so any
+                # cell whose content is not centred on the stage origin got
+                # an overview of the wrong ground -- the legacy `city_top`
+                # shot a few lines above already computed the right centre
+                # and only `span` was forwarded.
+                #
+                # blocks: the `districts/` family shoots BURNING CLUSTERS,
+                # which on a one-corridor fire is a single component and so
+                # three frames for the whole cell. Passing the layout's own
+                # block rects turns on the `blocks/` family -- one plumb
+                # top-down per city block, ~2-4 s each.
+                _lay = (self.config.get("_city_layout") or {})
+                _typ_of = _lay.get("_typology_of") or {}
+                _blocks = []
+                for _b in (_lay.get("blocks") or []):
+                    _r = tuple(float(v) for v in _b[:4])
+                    _blocks.append((_r, _typ_of.get(_r) or _typ_of.get(_b)))
+                _centre = (0.0, 0.0)
+                if getattr(self, "crop_window", None) is not None:
+                    _cw = self.crop_window
+                    _centre = ((_cw[0] + _cw[2]) / 2.0, (_cw[1] + _cw[3]) / 2.0)
                 bc.capture_baseline(
                     self.stage, snaps, self.placed,
                     getattr(self, "people_records_final", []) or [],
-                    SNAP_DIR, span, obstacles=obs, ssf=self.ssf)
+                    SNAP_DIR, span, obstacles=obs, ssf=self.ssf,
+                    centre=_centre, blocks=_blocks)
         except Exception as exc:
             import traceback
             traceback.print_exc()

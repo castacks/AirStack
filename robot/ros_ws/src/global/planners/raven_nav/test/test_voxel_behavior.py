@@ -248,3 +248,91 @@ def test_ccl_scales_to_a_large_field():
     labels = connected_components(g)
     assert time.time() - t0 < 5.0
     assert len(set(labels.tolist())) == 1
+
+
+# ── visited-BB suppression (detection memory -> voxel tier) ─────────────────
+# Live 2026-09-02: "it's going to voxels inside existing BBs". The node's
+# ctx.visited_bbs (confirmed detections with status 'visited') only fed the
+# ray tier; the voxel tier's own visited_clusters never hears about a target
+# visited through the detection pipeline, so the mapper's re-emitted clusters
+# at a confirmed casualty re-fired forever.
+
+def _bb(center, size):
+    return np.concatenate([np.asarray(center, float), np.asarray(size, float)])
+
+
+def test_visited_bb_pad_matches_ray_tier():
+    from raven_nav.behaviors import ray_behavior as rb
+    assert vb.VISITED_BB_PAD_M == rb.VISITED_RAY_PAD_M == 3.0
+
+
+def test_cluster_inside_visited_bb_is_suppressed():
+    b = VoxelBehavior()
+    c = _one_box_ctx(visited_bbs=[_bb((20.0, 0.0, 3.0), (2.0, 2.0, 2.0))])
+    b.update(c)
+    assert b.clusters, 'detection itself must still see the cluster'
+    assert b.unvisited == []
+    assert b.condition_check(c) is False
+
+
+def test_cluster_within_pad_of_visited_bb_is_suppressed():
+    # Surface-to-surface gap ~2.75 m < VISITED_BB_PAD_M=3.0: the detected
+    # cluster spans x 18.75..21.25 (125 voxels + half-voxel margins), the
+    # visited bb face sits at x=24.0 (center 24.8, size 1.6).
+    b = VoxelBehavior()
+    c = _one_box_ctx(visited_bbs=[_bb((24.8, 0.0, 3.0), (1.6, 1.6, 1.6))])
+    b.update(c)
+    assert b.unvisited == []
+
+
+def test_cluster_beyond_pad_of_visited_bb_survives():
+    # Gap ~8.9 m > 3.0: visited bb center x=31, size 2 -> face at 30;
+    # cluster face at ~21.1.
+    b = VoxelBehavior()
+    c = _one_box_ctx(visited_bbs=[_bb((31.0, 0.0, 3.0), (2.0, 2.0, 2.0))])
+    b.update(c)
+    assert len(b.unvisited) == 1
+
+
+def test_no_visited_bbs_changes_nothing():
+    b = VoxelBehavior()
+    a = _one_box_ctx()                 # visited_bbs defaults to None
+    b.update(a)
+    assert len(b.unvisited) == 1
+
+
+# ── multi-positive SUMMED mass (query "person, casualty") ────────────────────
+# Near-synonym positives split the softmax at exactly the voxels both
+# describe (live 2026-09-02: buried casualty solo 0.68 -> per-column max 0.43
+# under person+casualty; sum 0.81). Detection thresholds the SUM of the
+# target columns; a single target is unchanged (sum of one column).
+
+def test_two_positives_summed_mass_crosses_the_gate():
+    pts = voxel_box((20.0, 0.0, 3.0), half_extent=1.0)
+    n = pts.shape[0]
+    # 4 columns: person, casualty, road, tree — person/casualty split 0.4/0.35
+    scores = np.zeros((n, 4))
+    scores[:, 0] = 0.40
+    scores[:, 1] = 0.35
+    c = ctx(vox_xyz=pts, vox_scores=scores,
+            query_labels=['person', 'casualty', 'road', 'tree'],
+            target_objects=['person', 'casualty'],
+            cur_pose=np.array([0.0, 0.0, 3.0]))
+    b = VoxelBehavior(score_threshold=0.6)
+    clusters = b.detect(c)
+    assert len(clusters) == 1, 'sum 0.75 > 0.6 must fire though no column does'
+    assert clusters[0].label == 'person'          # strongest single wording
+    assert clusters[0].confidence == pytest.approx(0.75, abs=1e-6)
+
+
+def test_two_positives_below_summed_gate_stay_silent():
+    pts = voxel_box((20.0, 0.0, 3.0), half_extent=1.0)
+    n = pts.shape[0]
+    scores = np.zeros((n, 4))
+    scores[:, 0] = 0.25
+    scores[:, 1] = 0.20
+    c = ctx(vox_xyz=pts, vox_scores=scores,
+            query_labels=['person', 'casualty', 'road', 'tree'],
+            target_objects=['person', 'casualty'],
+            cur_pose=np.array([0.0, 0.0, 3.0]))
+    assert VoxelBehavior(score_threshold=0.6).detect(c) == []

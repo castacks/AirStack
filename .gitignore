@@ -186,3 +186,6 @@ scene_gen/assets/concrete_rubble_debris/*
 # the catalogue is tracked
 scene_gen/assets/rubble_hd/*/
 scene_gen/assets/people/
+
+# RAVEN live-test freeze output (hundreds of MB of USD)
+_test_freeze/

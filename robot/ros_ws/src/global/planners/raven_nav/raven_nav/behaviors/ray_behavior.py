@@ -41,6 +41,9 @@ MIN_RAYS_PER_GROUP = 1          # OG:110
 DENSITY_WEIGHT = 5.0            # OG:128 (`k`)
 MAGNITUDE_M = 6.0               # OG:139 — wp1 = origin + 6*dir, wp2 = +12*dir
 UNLOCK_RADIUS_M = 4.0           # OG:187
+# Padding (m) added to each face of a visited AABB for the ray exclusion; a
+# BB and a ray bearing are both estimates, so a graze must still count.
+VISITED_RAY_PAD_M = 3.0
 
 
 @dataclass
@@ -117,7 +120,11 @@ class RayBehavior:
         if s.ndim != 2 or max(cols) >= s.shape[1]:
             return a
         rel = s[:, cols]
-        keep = np.nonzero((rel > thr).any(axis=1))[0]     # OG:44-46
+        # SUMMED positive mass across the target columns (extends OG:44-46
+        # to multi-positive queries — near-synonym positives split the
+        # softmax at true targets; see voxel_behavior.detect for the live
+        # measurement). Single target: sum == the column, OG unchanged.
+        keep = np.nonzero(rel.sum(axis=1) > thr)[0]
         if keep.size == 0:
             return a
 
@@ -140,6 +147,26 @@ class RayBehavior:
         orig, dirs, xy_unit = orig[forward], dirs[forward], xy_unit[forward]
         labels = [l for l, f in zip(labels, forward) if f]
         scores = scores[forward]
+
+        # TARGET ANTI-REVISIT (single-agent port of the old ray exclusion):
+        # drop rays that enter a VISITED target's AABB (padded) — those rays
+        # are the already-serviced person still lighting up the encoder.
+        if ctx.visited_bbs:
+            from raven_nav.ray_targets import ray_aabb_hits
+            keep2 = np.ones(orig.shape[0], dtype=bool)
+            for bb in ctx.visited_bbs:
+                bb = np.asarray(bb, dtype=float)
+                pad = bb.copy()
+                pad[3:6] = pad[3:6] + 2.0 * VISITED_RAY_PAD_M
+                for i in range(orig.shape[0]):
+                    if keep2[i] and ray_aabb_hits(orig[i], dirs[i], pad)[0]:
+                        keep2[i] = False
+            if not np.all(keep2):
+                orig, dirs, xy_unit = orig[keep2], dirs[keep2], xy_unit[keep2]
+                labels = [l for l, k in zip(labels, keep2) if k]
+                scores = scores[keep2]
+            if orig.shape[0] == 0:
+                return a
 
         groups = angle_bin_groups(xy_unit)
         averages = []

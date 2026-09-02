@@ -117,8 +117,41 @@ allowlist:
   # never cross DDS. Re-enable these two lines only for a live Foxglove session
   # that needs the voxel layers, and not for a long unattended sweep.
   #
-  # - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/voxels_sim/*"
-  # - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/voxel_rgb"
+  # ENABLED 2026-09-02 for exactly the case that note carves out: a LIVE,
+  # ATTENDED single-robot Foxglove session (raven_shared_t250_1robot) where the
+  # operator has to see the semantic map to tune voxel_score_threshold and
+  # voxel_min_cluster_size. The bandwidth argument above was measured at FOUR
+  # robots x 48 queries over a 48-iteration unattended sweep; this is one robot,
+  # 34 queries, one iteration, watched.
+  #
+  # >>> TURN THESE TWO LINES BACK OFF BEFORE ANY MULTI-ROBOT OR UNATTENDED
+  # >>> SWEEP. They killed the router at ~870 MB RSS last time.
+  #
+  # NOTE these entries alone are NOT sufficient: rayfronts gates every publish
+  # on get_subscription_count() > 0 (messaging_services/ros.py:147,
+  # visualizers/ros.py:155) and the DDS router's bare reader does NOT register
+  # as a ROS subscriber. voxel_keepalive_node.py (perception.launch.xml) is what
+  # actually makes these topics stream; without it this allowlist bridges
+  # silence.
+  # ONLY /all, NOT the wildcard. The `voxels_sim/*` wildcard is what caused the
+  # incident described above: rayfronts advertises one cloud PER QUERY, so the
+  # wildcard put 34 point-cloud streams (now 9, but still) through the router
+  # for one robot. /all carries EVERY query as a separate `sim_K` field on ONE
+  # cloud, so nothing is lost by dropping the per-query topics — colour by
+  # sim_K in Foxglove instead of switching topics. sim_0 is the TARGET
+  # (`person`); the full index->label order for a run is in that run's
+  # /robot_N/rayfronts/status JSON ("queries": [...], in index order) and is
+  # printed by scripts/raven_live/verify_topics.sh.
+  - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/voxels_sim/all"
+  - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/voxel_rgb"
+  # The ray half of the map — the out-of-range pixels that never became
+  # voxels. Without it the operator cannot tell "the casualty was never in the
+  # voxel map" from "it was, and scored low". One cloud, same shape as /all.
+  - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/rays_sim/all"
+  # The active search polygon as a latched LINE_STRIP Marker
+  # (semantic_search_task publishes it; user views it in Foxglove under
+  # search/markers/search_area).
+  - name: "rt/robot_$(env ROS_DOMAIN_ID)/search/markers/search_area"
 
   # behavior tree
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_commands"

@@ -97,7 +97,13 @@ fi
 # detector/ITM/VLM servers above are plain HTTP and stay ROS-free on purpose
 # (see the module docstring above).
 if [ "${START_RAYFRONTS_SERVER:-false}" = "true" ]; then
+  # ROS setup scripts read unset vars (AMENT_TRACE_SETUP_FILES, ...); under
+  # this script's `set -u` that aborts the whole container with
+  # "unbound variable" — the same trap raven_rayfronts_tests.sh hit. Drop
+  # nounset just for the source.
+  set +u
   source /opt/ros/jazzy/setup.bash
+  set -u
 
   # Every robot's participants live on the shared docker bridge network but
   # on their OWN ROS_DOMAIN_ID (see frames_scene_testenv.md §B) — SUBNET
@@ -112,6 +118,12 @@ if [ "${START_RAYFRONTS_SERVER:-false}" = "true" ]; then
   # the per-robot rayfronts.launch.xml sets (see interface_contract.md).
   export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
   export HYDRA_FULL_ERROR=1
+  # The RADSeg weights are pre-staged in /root/.cache (run-raven-single-shared
+  # runbook, prerequisite #0). Without this, transformers spends minutes
+  # retrying HF connectivity for siglip2's config files before falling back to
+  # that same cache (measured 2026-09-02: ~23 s x 7 files). Set 0 to allow a
+  # cold container to download instead.
+  export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 
   # rayfronts_cpp (the compiled OpenVDB/nanobind extension — mapping/
   # semantic_ray_frontiers_map.py's `import rayfronts_cpp`) is produced only
@@ -196,14 +208,50 @@ if [ "${START_RAYFRONTS_SERVER:-false}" = "true" ]; then
     sleep 1
   done
 
-  start_rayfronts rayfronts_mapping \
-    rayfronts.multi_robot_mapping_server \
-    --config-name "$RAYFRONTS_CONFIG" \
-    "${RF_CONFIG_DIR_ARGS[@]}" \
-    "dataset.robot_ids=[$RF_ROBOT_IDS_CSV]" \
-    encoder=client \
-    encoder.socket="$RAYFRONTS_SOCK" \
-    querying.compute_prob="${RAYFRONTS_COMPUTE_PROB:-True}"
+  # SUPERVISED (2026-09-02, user, test-only): the mapping server exits 99 on
+  # CUDA OOM (multi_robot_mapping_server.main) after dumping the map to
+  # /tmp/offboard/map_dump_oom_*.pt; this loop starts a fresh one so the
+  # robots keep exploring instead of oscillating on a frozen frontier set.
+  # The new server starts with an EMPTY map — the mission bag's
+  # rayfronts/msg_serv/*_sim/all snapshots are the cross-restart record.
+  # Appends to ONE log so the whole history reads in order; any exit
+  # restarts it (a crash loop is visible as repeated banners in the log).
+  start_rayfronts_mapping_supervised() {
+    local log="$LOG_DIR/rayfronts_mapping.log"
+    echo "[offboard-compute] starting rayfronts_mapping (supervised) -> $log"
+    (
+      cd "$RAYFRONTS_SRC"
+      attempt=0
+      while true; do
+        attempt=$((attempt + 1))
+        # QUERY-SWEEP HOOK (2026-09-02): /tmp/offboard/sweep_env, when
+        # present, is sourced before EVERY (re)start — the sweep driver
+        # writes per-combo RAYFRONTS_PROBE_* values and optional extra hydra
+        # overrides (RF_SWEEP_OVERRIDES, e.g. a different query_file), then
+        # kills the mapper; the next incarnation runs the new combo. Remove
+        # the file to fall back to the container env.
+        # shellcheck disable=SC1091
+        [ -f /tmp/offboard/sweep_env ] && . /tmp/offboard/sweep_env
+        echo "[supervisor] mapping server start #$attempt $(date -Is)" >> "$log"
+        # word-splitting of RF_SWEEP_OVERRIDES is intentional
+        # shellcheck disable=SC2086
+        python3 -m rayfronts.multi_robot_mapping_server \
+          --config-name "$RAYFRONTS_CONFIG" \
+          "${RF_CONFIG_DIR_ARGS[@]}" \
+          "dataset.robot_ids=[$RF_ROBOT_IDS_CSV]" \
+          encoder=client \
+          encoder.socket="$RAYFRONTS_SOCK" \
+          querying.compute_prob="${RAYFRONTS_COMPUTE_PROB:-True}" \
+          ${RF_SWEEP_OVERRIDES:-} \
+          >> "$log" 2>&1
+        rc=$?
+        echo "[supervisor] mapping server exited rc=$rc $(date -Is) — restart in 10s" >> "$log"
+        sleep 10
+      done
+    ) &
+    echo $! > "$LOG_DIR/rayfronts_mapping.pid"
+  }
+  start_rayfronts_mapping_supervised
 fi
 
 # Weights load before any port is bound (all three HTTP servers do this on

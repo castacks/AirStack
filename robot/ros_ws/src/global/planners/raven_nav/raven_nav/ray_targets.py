@@ -297,9 +297,20 @@ def build_targets(
         scores = [m.avg_score for m in members]
         if len(idxs) == 1:
             m = members[0]
-            # Single bearing: keep it as the ray (origin), unprojected — range is
-            # unknown, so don't invent a far point.
-            pos = np.asarray(m.avg_origin, dtype=float)
+            # Single bearing: no range, so project a display estimate at
+            # NOMINAL_RANGE_M along the bearing rather than reporting the
+            # ray origin. Commit 0bd932c2 ("updated organization", 2026-08-24)
+            # swapped this to the bare unprojected origin; that regressed two
+            # live consumers: raven_nav_node._publish_tables shows an
+            # "unconfirmed" discovery sitting on the robot's own position
+            # instead of out along its bearing, and discoveries._stable_id
+            # hashes on position, so two distinct simultaneous singleton
+            # bearings from the same robot (same avg_origin, different
+            # avg_dir) collide onto the same instance_id. The large
+            # NOMINAL_RANGE_M**2 covariance already tells consumers this
+            # estimate is low-confidence, so project it instead of hiding it
+            # at the origin.
+            pos = m.avg_origin + m.avg_dir * NOMINAL_RANGE_M
             status = 'unconfirmed'
             cov = np.eye(3) * (NOMINAL_RANGE_M ** 2)
         else:

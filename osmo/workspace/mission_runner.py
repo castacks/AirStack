@@ -1033,6 +1033,20 @@ class Recorder:
         staged = ([p for p in host_staging.iterdir() if p.name != ".gitkeep"]
                   if host_staging.is_dir() else [])
         if staged:
+            # The recorders run as root inside the containers, so the staged
+            # bag dirs are root-owned on the host bind mount and both
+            # os.rename (needs write on the dir itself to update '..') and
+            # the copy+rmtree fallback fail with PermissionError (killed two
+            # missions 2026-09-02). chown them to the invoking user through
+            # any still-running recorder container before moving.
+            uid, gid = os.getuid(), os.getgid()
+            for container in {c for c, _ in self.active}:
+                r = sh(["docker", "exec", container, "chown", "-R",
+                        f"{uid}:{gid}", BAG_STAGING_DIR], timeout=120)
+                if r.returncode == 0:
+                    break
+                log(f"WARN: bag chown via {container} failed: "
+                    f"{r.stderr.strip()[:150]}")
             used = "host move"
             for item in staged:
                 target = dest_dir / item.name
@@ -1244,6 +1258,7 @@ def run_step(stack, container, step_spec, step_index):
                     # set. The early no-feedback bail above exits before here, so
                     # this only prints when feedback was genuinely observed.
                     f"if [ \"$fb_seen\" -eq 1 ]; then echo OSMO_FEEDBACK_SEEN; fi\n"
+                    f"if [ \"$cancelled\" -eq 1 ]; then echo OSMO_CANCEL_SENT; fi\n"
                     f"cur=$(grep -c '^---' {result_file})\n"
                     f"if [ \"$cur\" -gt \"$pre\" ]; then "
                     f"grep -v '^---' {result_file} | tail -n 1; "
@@ -1256,8 +1271,15 @@ def run_step(stack, container, step_spec, step_index):
                 # retry the search or trip on_step_failure.
                 got_result = '"success"' in r.stdout
                 feedback_seen = 'OSMO_FEEDBACK_SEEN' in r.stdout
+                cancel_sent = 'OSMO_CANCEL_SENT' in r.stdout
+                # The cancel leniency exists for OUR OWN budget cancel — a
+                # (success=false, "Cancelled") result after WE cancelled is the
+                # intended outcome. It must never launder an instant rejection
+                # ("Takeoff first — drone is at 1.68m AGL") into a pass, which
+                # is exactly what happened live 2026-09-02: both robots'
+                # searches "succeeded" in 11 s without raven ever starting.
                 ok = ('"success": true' in r.stdout
-                      or (cancel_on_timeout and got_result))
+                      or (cancel_on_timeout and got_result and cancel_sent))
                 # pass_on_feedback: ran-at-all (feedback seen, or any result
                 # came back) is enough — outcome doesn't matter.
                 if pass_on_feedback:

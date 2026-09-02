@@ -1,0 +1,25 @@
+# shared_humans WITHOUT the feature compressor — raw 768-d map features.
+#
+# Exists for the query-sweep's fidelity-reference runs (2026-09-02): the
+# online PCA basis is refit on each incarnation's FIRST frame, which made
+# scores at the same GT voxel swing 0.75 -> 0.01 between restarts (the
+# "basis lottery"). Uncompressed features remove that variable. VRAM: fine
+# for short parked-drone sweeps (~2k voxels); the 41k-voxel OOM that
+# motivated PCA was a full 600 s search — do NOT run long missions on this
+# config without watching VRAM (the OOM-restart supervisor is the net).
+#
+# Select at mapper (re)start via the supervisor env: RAYFRONTS_CONFIG=
+# shared_humans_nopca (sweep_env), everything else inherited verbatim.
+defaults:
+  - shared_humans
+  - override feat_compressor: null
+  - _self_
+
+querying:
+  compressed: False
+
+# shared_humans carries a literal feat_compressor block (out_dim/path) that
+# would otherwise survive the group override and be mistaken for a live
+# compressor (instantiate of a dict without _target_ crashed on .is_fitted,
+# live 2026-09-02 20:43). Null it explicitly.
+feat_compressor: null

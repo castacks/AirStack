@@ -1,0 +1,14 @@
+RAVEN suburb_tornado_250 — spawn re-validation against the REAL casualty file
+  people file    /home/krrishjain/SEI-COA/disaster-dataset/_test_freeze/raven_suburb_tornado_250/GT_people.json
+  casualties     30
+  separation     36.8 m between the two picks
+
+  robot_1: casualty idx=17 (-12.87,-33.52) occlusion=none covered_frac=0.00 pose=lying_prone -> spawn (-27.01,-19.37) intensity=0.16 yaw=-45.0 deg
+  robot_2: casualty idx=10 (-4.79,-69.42) occlusion=feet_shins covered_frac=0.30 pose=lying_side_r -> spawn (5.21,-86.74) intensity=0.00 yaw=120.0 deg
+
+  SPAWN_CONFIGS (1 robot) = [{"x_m": -27.01, "y_m": -19.37, "orient": [0.0, 0.0, -0.3827, 0.9239]}]
+  SPAWN_CONFIGS (2 robot) = [{"x_m": -27.01, "y_m": -19.37, "orient": [0.0, 0.0, -0.3827, 0.9239]}, {"x_m": 5.21, "y_m": -86.74, "orient": [0.0, 0.0, 0.866, 0.5]}]
+
+  SUBSTITUTION FLAGS:
+    !! SUBSTITUTED robot_1 (fully exposed): no casualty satisfying occlusion == 'none' within 3.0 m of the runbook's (-4.87, -24.86). Nearest qualifying is idx 17 at (-12.87, -33.52), 11.8 m away — using idx 17 at (-12.87, -33.52). The .env / mission SPAWN_CONFIGS in the runbook and in osmo/missions/raven_single_shared_test.yaml are now WRONG; use the ones this tool writes.
+    !! SUBSTITUTED robot_2 (partially covered): no casualty satisfying covered_frac in [0.3, 0.55] within 3.0 m of the runbook's (-16.46, -64.78). Nearest qualifying is idx 10 at (-4.79, -69.42), 12.6 m away — using idx 10 at (-4.79, -69.42). The .env / mission SPAWN_CONFIGS in the runbook and in osmo/missions/raven_single_shared_test.yaml are now WRONG; use the ones this tool writes.

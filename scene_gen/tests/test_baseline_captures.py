@@ -120,11 +120,24 @@ def test_plan_overviews_shape_and_names():
 
 
 def test_plan_overviews_top_is_true_plumb():
+    """Plumb, centred, and HIGH ENOUGH TO SEE THE WHOLE PLATE.
+
+    The height assertion used to pin `1000 * OVERVIEW_TOP_FRAC` (= 950 m).
+    That constant was solved against the HORIZONTAL aperture only, and the
+    captures are 1280x720 with only `horizontalAperture` authored, so the
+    vertical field is narrower by the frame aspect and a square 1 km plate
+    came out cropped to roughly its middle 60 %. `overview_height_m` now
+    solves against the smaller half-angle instead — see
+    `test_overview_framing.py`, which checks the actual ground coverage
+    rather than the constant. `OVERVIEW_TOP_FRAC` is kept because the
+    oblique shots still use its sibling fractions.
+    """
     shots = bc.plan_overviews(1000.0)
     top = shots[0]
     assert top.eye[0] == 0.0 and top.eye[1] == 0.0
     assert top.target == (0.0, 0.0, 0.0)
-    assert abs(top.eye[2] - 1000.0 * bc.OVERVIEW_TOP_FRAC) < 1e-6
+    assert abs(top.eye[2] - bc.overview_height_m(1000.0)) < 1e-6
+    assert top.eye[2] > 1000.0 * bc.OVERVIEW_TOP_FRAC
 
 
 def test_plan_overviews_corners_are_opposite_and_scale_with_span():

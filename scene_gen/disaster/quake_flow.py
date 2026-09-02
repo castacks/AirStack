@@ -7493,6 +7493,17 @@ FISSURE_WIDTH_SCALE = float(
     _os.environ.get("EQ_FISSURE_WIDTH_SCALE", "2.0") or "2.0")
 C_FISSURE_W = (0.06 * FISSURE_SCALE * FISSURE_WIDTH_SCALE,
               0.22 * FISSURE_SCALE * FISSURE_WIDTH_SCALE)
+# ROUND 7 — THE OPENING'S DEPTH. "the fissure must be an OPENING cut INTO
+# the ground ... a floor below" (user, live review): `C_FISSURE_W` above is
+# now the OPENING's own top width (not a mound's crest width — see
+# `_c_fissure_trace`), and this is how far below grade its floor sits.
+# Real tension cracks (Adapazari/Niigata/Christchurch) open anywhere from a
+# few centimetres to well over a metre; 1.8 m sits mid-band and reads
+# clearly from a low-oblique drone angle without turning a corner crack
+# into a canyon. `EQ_FISSURE_DEPTH_M` reaches it from the environment the
+# same way `EQ_FISSURE_SCALE`/`EQ_FISSURE_WIDTH_SCALE`/
+# `EQ_FISSURE_PAVE_DENSITY` do.
+FISSURE_DEPTH_M = float(_os.environ.get("EQ_FISSURE_DEPTH_M", "1.8") or "1.8")
 C_SEG_M = 0.8              # crest / trench sampling step: fine enough to be jagged
 C_MAX_DROP_M = 2.4         # city mild tilt: keep the low corner out of the basement
 C_MIN_RISE_M = 0.12        # a lean always lifts its far edge at least this far
@@ -7631,10 +7642,19 @@ _C_TEX = {
     # stores its tint already applied.
     "concrete": ("megascans/Damaged_Concrete_Floor/T_vizbefe_2K_B.png",
                  (0.447, 0.440, 0.426), 0.92, (0.90, 0.90), 0.25),
+    # ROUND 7 — THE FISSURE'S OWN FLOOR, at the bottom of the opening
+    # `_c_fissure_opening` authors below grade. Darker than either "soil" or
+    # "silt" above: from a low oblique angle the bottom of a real open crack
+    # reads as a near-black band under its walls, not more of the same mud
+    # the walls are made of — a floor tinted the same as the walls reads as
+    # a shallow smear, not a hole with a bottom. Same rel as "silt" (the
+    # coarser, drier horizon), tint dropped hard.
+    "pit_floor": ("megascans/Dirt_Rough/T_yd0lfcqcc_1k_B.png",
+                  (0.16, 0.15, 0.14), 1.0, (0.55, 0.55), 0.75),
 }
 _C_FALLBACK = {"soil": "soil", "silt": "soil", "pave": "concrete",
                "asph": "dark_concrete", "raft": "dark_concrete", "brick": "brick",
-               "concrete": "concrete"}
+               "concrete": "concrete", "pit_floor": "soil"}
 
 
 def _c_look_at(stage, parent, mats, key, tag=None):
@@ -8528,24 +8548,325 @@ def _c_fissure_pave(ctx, stations, widths, z0, tag="fissure"):
     return made
 
 
+def _c_fissure_tangents(stations):
+    """Per-station LEFT NORMAL `(mx, my)` of a polyline's local tangent, from
+    the neighbouring stations rather than a stored heading — the same
+    measure `scour_relief._extrude` takes, so a curving fissure's
+    cross-section stays perpendicular to it round the bend instead of
+    shearing. Shared by the lip, the opening's walls/floor and the ground
+    cut, so all three read the crack's own wander identically."""
+    n = len(stations)
+    out = []
+    for k in range(n):
+        ax, ay = stations[max(0, k - 1)]
+        bx, by = stations[min(n - 1, k + 1)]
+        tx, ty = bx - ax, by - ay
+        tl = math.hypot(tx, ty) or 1.0
+        out.append((-ty / tl, tx / tl))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# ROUND 7 — THE POOL MECHANISM, PORTED. `suburb_scene.apply_ground` cuts a
+# swimming pool's water rectangle out of the lawn mesh BEFORE triangulating
+# it (`polygon_minus_convex`: for each hole edge, the part of the polygon
+# outside that edge and inside every earlier one — the standard partition
+# for "polygon minus a convex hole", done by repeated Sutherland-Hodgman
+# half-plane clips, `_clip_halfplane`). That is the ONLY thing that makes a
+# pool's water visible from above: the ground mesh itself gains a hole, and
+# the kit's own coping/floor assets are what make the drop read. Ported
+# here verbatim (not imported) for the same reason this file already keeps
+# its own copy of `scour_relief._TEX` rather than reaching across a heavy
+# module: `suburb_scene` is a 5,000+ line generator with its own top-level
+# state, and the two functions below are ~30 lines of pure geometry with no
+# `pxr` anywhere.
+# ---------------------------------------------------------------------------
+def _c_clip_halfplane(poly, a, b):
+    """Sutherland-Hodgman: the part of *poly* left of the directed line
+    a->b. Ported from `suburb_scene._clip_halfplane`."""
+    if not poly:
+        return []
+
+    def side(p):
+        return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])
+
+    out = []
+    n_pts = len(poly)
+    for i in range(n_pts):
+        cur, nxt = poly[i], poly[(i + 1) % n_pts]
+        sc, sx = side(cur), side(nxt)
+        if sc >= 0.0:
+            out.append(cur)
+        if (sc >= 0.0) != (sx >= 0.0):
+            t = sc / (sc - sx) if abs(sc - sx) > 1e-12 else 0.0
+            out.append((cur[0] + t * (nxt[0] - cur[0]),
+                        cur[1] + t * (nxt[1] - cur[1])))
+    return out
+
+
+def _c_polygon_minus_convex(poly, hole):
+    """*poly* with a CONVEX *hole* removed, as a list of polygons. Ported
+    from `suburb_scene.polygon_minus_convex` — see the module note above
+    `_c_clip_halfplane`."""
+    hole = list(hole)
+    if len(hole) < 3:
+        return [poly]
+    area = sum(hole[i][0] * hole[(i + 1) % len(hole)][1]
+              - hole[(i + 1) % len(hole)][0] * hole[i][1]
+              for i in range(len(hole)))
+    if area < 0:
+        hole = hole[::-1]
+    pieces, n = [], len(hole)
+    for i in range(n):
+        a, b = hole[i], hole[(i + 1) % n]
+        piece = _c_clip_halfplane(poly, b, a)
+        for j in range(i):
+            c, d = hole[j], hole[(j + 1) % n]
+            piece = _c_clip_halfplane(piece, c, d)
+            if not piece:
+                break
+        if len(piece) >= 3:
+            pieces.append(piece)
+    return pieces or [poly]
+
+
+def _c_cut_ground_openings(ctx, hole_quads):
+    """Cut *hole_quads* (convex XY polygons, in `ctx`'s OWN metre frame) out
+    of every ground-plane mesh under `ctx["ground_root"]` whose extent they
+    touch — `suburb_scene.apply_ground`'s pool mechanism, replicated for
+    `scene_generator.apply_ground_planes`'s city ground instead of
+    re-derived: read back the already-authored rectangle (one quad per
+    mesh, exactly what `_make_plane_mesh` ever authors), chain-subtract
+    every hole through it the way `apply_ground` chains multiple pool
+    rects, re-triangulate what is left with a centroid fan (`suburb_scene.
+    _make_polygon`'s own construction) and rewrite the SAME prim in place —
+    so its material binding, and every OTHER mesh's tiling, are untouched.
+
+    A no-op with no `ctx["ground_root"]` set — the bench, the archetype
+    bake, and any caller that predates this feature never wired one in, so
+    this is a pure addition on top of whatever ground handling already
+    existed (the same non-breaking contract `ctx["ground_at"]` already
+    holds for material lookups). `ctx.get("ground_ssf", 1.0)` converts the
+    ctx's own coordinates into the ground mesh's stage-unit frame: 1.0 (the
+    default) for every ctx that already authors in stage units — every
+    per-building path, where `quake._c_mass` bakes `* ssf` into the mass
+    frame itself — and `quake.ground_effects` wires in its own literal
+    `ssf` because its epicentre cracks author in UNSCALED metres (see that
+    function's own comment on why).
+
+    Returns the number of ground meshes actually rewritten."""
+    root = ctx.get("ground_root")
+    if not root or not hole_quads:
+        return 0
+    from pxr import Gf, Usd, UsdGeom, Vt
+
+    stage = ctx["stage"]
+    root_pr = stage.GetPrimAtPath(root)
+    if not root_pr or not root_pr.IsValid():
+        return 0
+    s = float(ctx.get("ground_ssf", 1.0))
+    holes = [[(float(x) * s, float(y) * s) for (x, y) in q] for q in hole_quads]
+    hx0 = min(x for q in holes for x, _y in q)
+    hx1 = max(x for q in holes for x, _y in q)
+    hy0 = min(y for q in holes for _x, y in q)
+    hy1 = max(y for q in holes for _x, y in q)
+
+    n_cut = 0
+    for pr in Usd.PrimRange(root_pr):
+        if not pr.IsA(UsdGeom.Mesh):
+            continue
+        mesh = UsdGeom.Mesh(pr)
+        counts = mesh.GetFaceVertexCountsAttr().Get()
+        if not counts or len(counts) != 1 or counts[0] not in (3, 4):
+            continue     # not a plain single-face plane this pass understands
+        pts = mesh.GetPointsAttr().Get()
+        if not pts or len(pts) != counts[0]:
+            continue
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        mx0, mx1, my0, my1 = min(xs), max(xs), min(ys), max(ys)
+        if mx1 < hx0 or mx0 > hx1 or my1 < hy0 or my0 > hy1:
+            continue         # bbox miss: cheap and correct to skip outright
+        z_mesh = float(pts[0][2])
+        poly = [(float(p[0]), float(p[1])) for p in pts]
+        pv = UsdGeom.PrimvarsAPI(mesh).GetPrimvar("st")
+        uvs = pv.Get() if pv and pv.HasValue() else None
+        if not uvs or len(uvs) != len(poly):
+            continue         # no matching UVs to carry forward: leave it alone
+        # `_make_plane_mesh` always authors corners (x0,y0),(x1,y0),(x1,y1),
+        # (x0,y1) with x1>x0, y1>y0 and UVs (0,0),(umax,0),(umax,vmax),
+        # (0,vmax) in the same order — so points[0]/[2] are the diagonal
+        # corners and the bilinear UV formula below is exact, with no
+        # dependency on any config uv-scale value at all.
+        x0c, y0c = poly[0]
+        x1c, y1c = poly[2]
+        u0c, v0c = float(uvs[0][0]), float(uvs[0][1])
+        u1c, v1c = float(uvs[2][0]), float(uvs[2][1])
+        dxc = (x1c - x0c) or 1.0
+        dyc = (y1c - y0c) or 1.0
+
+        def _uv(px, py):
+            return (u0c + (px - x0c) * (u1c - u0c) / dxc,
+                    v0c + (py - y0c) * (v1c - v0c) / dyc)
+
+        parts = [poly]
+        for hole in holes:
+            hxs = [p[0] for p in hole]
+            hys = [p[1] for p in hole]
+            if (max(hxs) < mx0 or min(hxs) > mx1
+                    or max(hys) < my0 or min(hys) > my1):
+                continue
+            nxt = []
+            for part in parts:
+                nxt += _c_polygon_minus_convex(part, hole)
+            parts = nxt
+        if len(parts) == 1 and parts[0] == poly:
+            continue          # no hole actually touched this rectangle
+
+        new_pts, new_uvs, new_counts, new_idx = [], [], [], []
+        for part in parts:
+            if len(part) < 3:
+                continue
+            cx = sum(p[0] for p in part) / len(part)
+            cy = sum(p[1] for p in part) / len(part)
+            base = len(new_pts)
+            new_pts.append(Gf.Vec3f(cx, cy, z_mesh))
+            new_uvs.append(Gf.Vec2f(*_uv(cx, cy)))
+            for (px, py) in part:
+                new_pts.append(Gf.Vec3f(px, py, z_mesh))
+                new_uvs.append(Gf.Vec2f(*_uv(px, py)))
+            m = len(part)
+            for i in range(m):
+                new_counts.append(3)
+                new_idx.extend([base, base + 1 + i, base + 1 + (i + 1) % m])
+        if not new_counts:
+            continue          # every piece degenerated: leave the original
+
+        mesh.CreatePointsAttr(Vt.Vec3fArray(new_pts))
+        mesh.CreateFaceVertexCountsAttr(Vt.IntArray(new_counts))
+        mesh.CreateFaceVertexIndicesAttr(Vt.IntArray(new_idx))
+        mesh.CreateNormalsAttr(Vt.Vec3fArray([Gf.Vec3f(0, 0, 1)] * len(new_pts)))
+        mesh.SetNormalsInterpolation(UsdGeom.Tokens.vertex)
+        pv.Set(Vt.Vec2fArray(new_uvs))
+        xs2 = [q[0] for q in new_pts]
+        ys2 = [q[1] for q in new_pts]
+        mesh.CreateExtentAttr([Gf.Vec3f(min(xs2), min(ys2), z_mesh),
+                              Gf.Vec3f(max(xs2), max(ys2), z_mesh)])
+        n_cut += 1
+    return n_cut
+
+
+def _c_fissure_opening(ctx, stations, tangents, wl, wr, z0, depth, batter,
+                       mat, tag="fissure"):
+    """THE OPENING ITSELF: descending walls and a floor swept along
+    *stations*, plus the hole cut through whichever already-authored city
+    ground meshes it crosses (`_c_cut_ground_openings`) so there is an
+    actual gap to look into rather than a mound covering where one should
+    be.
+
+    One cross-section per station — right rim, right floor edge, left
+    floor edge, left rim, in that order (`scour_relief._section`'s own
+    "right to left" convention) — swept exactly the way
+    `scour_relief._extrude` sweeps a ridge, just with FOUR points going
+    DOWN instead of three going up. There is nothing to reuse from
+    `scour_relief` for this half: that module never cuts below grade at
+    all (its own docstring, "WE CANNOT CUT A GROOVE, SO WE AUTHOR ITS
+    SPOIL") because the ground under it was one opaque merged sheet — a
+    limitation that held only because nothing had yet cut a real hole in
+    that sheet, which is exactly what this round does.
+
+    `batter` narrows the floor relative to the rim (a fraction of the top
+    half-width) so the walls lean in rather than standing perfectly
+    vertical — a fissure's faces are never plumb. `depth` is itself
+    taper-scaled per station (DIES AT BOTH ENDS, same as the lip) so the
+    pit pinches shut at each tip instead of ending in a vertical wall of
+    its own.
+
+    Returns the wall mesh path (or None if the trace was too short to
+    author anything)."""
+    n_st = len(stations)
+    if n_st < 2:
+        return None
+    wall_pts, wall_faces = [], []
+    floor_pts, floor_faces = [], []
+    rim = []          # [(right_xy, left_xy)] per station, for the ground cut
+    for k, (px, py) in enumerate(stations):
+        mx, my = tangents[k]
+        t = k / float(n_st - 1)
+        taper = math.sin(math.pi * t) ** 0.7
+        dz = max(0.04, depth * taper)
+        rt = (px - mx * wr[k], py - my * wr[k], z0)
+        lt = (px + mx * wl[k], py + my * wl[k], z0)
+        rb = (px - mx * wr[k] * batter, py - my * wr[k] * batter, z0 - dz)
+        lb = (px + mx * wl[k] * batter, py + my * wl[k] * batter, z0 - dz)
+        wb = len(wall_pts)
+        wall_pts.extend([rt, rb, lb, lt])
+        fb = len(floor_pts)
+        floor_pts.extend([rb, lb])
+        rim.append(((rt[0], rt[1]), (lt[0], lt[1])))
+        if k:
+            # right wall: previous (rt, rb) -> this (rt, rb)
+            wall_faces.append((wb - 4, wb - 3, wb + 1, wb + 0))
+            # left wall: previous (lb, lt) -> this (lb, lt)
+            wall_faces.append((wb - 2, wb - 1, wb + 3, wb + 2))
+            floor_faces.append((fb - 2, fb - 1, fb + 1, fb + 0))
+    wall_path = _c_geom_mesh(ctx, tag + "_wall", wall_pts, wall_faces, mat)
+    if wall_path:
+        floor_path = _c_geom_mesh(ctx, tag + "_floor", floor_pts, floor_faces,
+                                  _c_look(ctx, "pit_floor"))
+        ctx.setdefault("static_extra", [])
+        ctx["static_extra"] += [p for p in (wall_path, floor_path) if p]
+        hole_quads = [[rim[k][0], rim[k + 1][0], rim[k + 1][1], rim[k][1]]
+                     for k in range(n_st - 1)]
+        _c_cut_ground_openings(ctx, hole_quads)
+    return wall_path
+
+
 def _c_fissure_trace(ctx, x0, y0, heading0_deg, length_m, width_m, mat,
-                     tag="fissure", z0=0.0, step_m=1.2, pave=True):
+                     tag="fissure", z0=0.0, step_m=1.2, pave=True,
+                     opening=True):
     """ONE tension crack: from `(x0, y0)` on heading `heading0_deg`, walked
     `length_m` on a wandering heading (jittered +-16 deg every `step_m` —
     the exact per-step draw the old chain-of-boxes loop made, so a bench
-    tuned against it still means the same thing) and swept into ONE
-    continuous earthen mound via `scour_relief.geometry` — the tornado
-    suburb's own construction, called directly rather than reimplemented.
+    tuned against it still means the same thing).
 
-    THE ONE PLACE this construction lives: both `_c_fissures` (one call per
-    building corner) and `quake.ground_effects`'s epicentre soft-soil
-    cracks call this function, so "use the same code" (user) is true
-    between the two places a fissure is authored, not only within this
-    file.
+    ROUND 7 — THE OPENING, NOT THE MOUND. "The earthquake fissure looks
+    completely wrong ... a raised scour-relief ridge/mould-of-dirt ON the
+    ground ... the fissure must be an OPENING cut INTO the ground ... and a
+    floor below" (user, live review). `suburb_scene.apply_ground` already
+    solves exactly this for a swimming pool — a hole polygon subtracted
+    from the lawn mesh itself before it is triangulated, so the ground has
+    an actual gap rather than a sheet painted to look like one, and the
+    kit's own coping/floor assets are what makes the drop read. This
+    function now does the analogous three things for a crack:
+
+      1. cuts the SAME opening out of whichever already-authored city
+         ground meshes it crosses (`_c_fissure_opening` ->
+         `_c_cut_ground_openings`, the pool's own mechanism ported as
+         `_c_polygon_minus_convex` a few functions up);
+      2. authors the WALLS and FLOOR itself as new below-grade geometry —
+         soil/silt on the walls (the crack's own `mat`, same as before) and
+         a darker `"pit_floor"` look at the bottom;
+      3. keeps a much smaller raised LIP either side of the opening —
+         real fissures do heave a little at the rim, but it no longer
+         stands where the opening itself has to read, which is what made
+         the old construction look like a mound rather than a crack.
+
+    The lip is STILL swept via `scour_relief.geometry({"kind": "ridge",
+    ...})`, called once per flank and merged into one mesh — "use the same
+    code ... to create this ... mould of dirt" (user, round 5) stays true;
+    only its height and its plan offset (now OUTSIDE the opening instead of
+    centred on top of it) changed. `THE ONE PLACE this construction lives`:
+    both `_c_fissures` (one call per building corner) and
+    `quake.ground_effects`'s epicentre soft-soil cracks call this function.
+
+    `opening=False` skips the below-grade walls/floor and the ground cut,
+    authoring only the lip — the pre-round-7 look, for a caller (a bake
+    recipe with no city ground to cut, say) that wants the cheaper path.
 
     Also lays the cracked-asphalt band beside it (`_c_fissure_pave`,
-    `pave=False` to skip). Returns the mound mesh path, or None if the
-    trace never reached two stations inside `ctx.get("bounds")`."""
+    `pave=False` to skip). Returns the lip mesh path, or None if the trace
+    never reached two stations inside `ctx.get("bounds")`."""
     rng = ctx["rng"]
     heading = math.radians(heading0_deg)
     n = max(2, int(length_m / step_m))
@@ -8564,22 +8885,54 @@ def _c_fissure_trace(ctx, x0, y0, heading0_deg, length_m, width_m, mat,
         return None
 
     n_st = len(stations)
+    tangents = _c_fissure_tangents(stations)
+
+    # THE OPENING'S OWN EDGES. Independent left/right noise (not the same
+    # multiplier mirrored either side) is what keeps the trench from reading
+    # as a ruled slot — two more `_c_noise` band-limited wobbles, on top of
+    # the per-station width taper the wandering walk above already applies.
+    ln = _c_noise(rng, freqs=(0.7, 2.1, 4.4), amps=(0.32, 0.20, 0.10))
+    rn = _c_noise(rng, freqs=(0.65, 1.9, 4.0), amps=(0.32, 0.20, 0.10))
+    wl = [max(0.04, widths[k] * 0.5 * (1.0 + ln(k * step_m)))
+          for k in range(n_st)]
+    wr = [max(0.04, widths[k] * 0.5 * (1.0 + rn(k * step_m)))
+          for k in range(n_st)]
+
+    # THE LIP — much smaller than the old mound (`h0` used to run
+    # 0.45-0.85 of `width_m`; this is a rim heave, not the star of the
+    # feature) and offset OUTSIDE the opening by each side's own edge
+    # rather than centred on the crack at half its width.
     hn = _c_noise(rng, freqs=(0.6, 1.7), amps=(0.6, 0.3))
-    h0 = width_m * rng.uniform(0.45, 0.85)
-    ridge_st = []
-    for k, (px, py) in enumerate(stations):
-        t = k / float(n_st - 1)
-        # DIES AT BOTH ENDS — `scour_relief._ridge_spec`'s own taper: a bank
-        # standing at full height right up to a hard edge has two vertical
-        # walls, which no pile of earth has.
-        taper = math.sin(math.pi * t) ** 0.6
-        hh = max(0.01, h0 * taper * (0.72 + 0.30 * hn(k * step_m)))
-        ww = max(0.05, widths[k] * 0.5)
-        ridge_st.append((px, py, hh, hh, ww, ww, 0.0))
-    spec = {"kind": "ridge", "cls": "soil", "z": float(z0), "base": float(z0),
-           "x": x0, "y": y0, "stations": ridge_st}
-    pts3, faces = _scour_relief.geometry(spec)
-    path = _c_geom_mesh(ctx, tag + "_mound", pts3, faces, mat)
+    h0 = width_m * rng.uniform(0.16, 0.30)
+    lip_w = rng.uniform(0.22, 0.42)
+    ridge_pts, ridge_faces = [], []
+    for side, half_widths in ((1.0, wl), (-1.0, wr)):
+        st = []
+        for k, (px, py) in enumerate(stations):
+            mx, my = tangents[k]
+            t = k / float(n_st - 1)
+            # DIES AT BOTH ENDS — `scour_relief._ridge_spec`'s own taper: a
+            # bank standing at full height right up to a hard edge has two
+            # vertical walls, which no pile of earth has.
+            taper = math.sin(math.pi * t) ** 0.6
+            hh = max(0.01, h0 * taper * (0.72 + 0.30 * hn(k * step_m)))
+            ww = max(0.05, lip_w * 0.5)
+            off = half_widths[k] + lip_w * 0.5
+            st.append((px + mx * side * off, py + my * side * off,
+                       hh, hh, ww, ww, 0.0))
+        spec = {"kind": "ridge", "cls": "soil", "z": float(z0),
+               "base": float(z0), "x": x0, "y": y0, "stations": st}
+        p3, fa = _scour_relief.geometry(spec)
+        base = len(ridge_pts)
+        ridge_pts.extend(p3)
+        ridge_faces.extend(tuple(i + base for i in f) for f in fa)
+    path = _c_geom_mesh(ctx, tag + "_mound", ridge_pts, ridge_faces, mat)
+
+    if path and opening:
+        depth = max(1.0, min(2.5, FISSURE_DEPTH_M * rng.uniform(0.75, 1.3)))
+        batter = rng.uniform(0.55, 0.85)
+        _c_fissure_opening(ctx, stations, tangents, wl, wr, z0, depth,
+                           batter, mat, tag=tag)
     if path and pave:
         _c_fissure_pave(ctx, stations, widths, z0, tag=tag + "_pave")
     return path
@@ -8809,7 +9162,8 @@ def _c_ground_response(ctx_or_stage, m, low_side=None, drop_m=0.0, rise_m=0.0,
                        sink_m=0.0, M=None, raft=False, parent=None, mats=None,
                        rng=None, tag="ground", crest_scale=1.0, reach_scale=1.0,
                        boils=None, fissures=True, mudline=True, kerb=True,
-                       spill=True, bounds=None, ground_at=None):
+                       spill=True, bounds=None, ground_at=None,
+                       ground_root=None, ground_ssf=None):
     """THE ground response of a building that leaned or sank — the one entry
     point, used by the recipes (`tilt_sink`, `tilt_severe`, `settlement`) and
     by the city assembly's mild lean (`quake._tilt_prim`).
@@ -8829,11 +9183,24 @@ def _c_ground_response(ctx_or_stage, m, low_side=None, drop_m=0.0, rise_m=0.0,
     authored below to read via `_c_ground_look`. `None` (the default, and
     the only thing the bench or the bake ever pass) leaves `ctx` exactly as
     it always was.
+
+    `ground_root`/`ground_ssf` (round 7): forwarded straight onto
+    `ctx["ground_root"]`/`ctx["ground_ssf"]` so a corner fissure authored
+    below (`_c_fissures` -> `_c_fissure_trace`) can cut its own opening
+    through the city ground meshes — see `_c_cut_ground_openings`. `None`
+    (the default, and the only thing the bench, the bake, or a caller that
+    predates this feature ever pass) leaves `ctx` exactly as it always was:
+    the ground cut is then a no-op, same as `ground_at` absent leaves the
+    material lookups.
     """
     ctx = ctx_or_stage if isinstance(ctx_or_stage, dict) else _c_ctx(
         ctx_or_stage, parent, mats, rng, tag)
     if ground_at is not None:
         ctx["ground_at"] = ground_at
+    if ground_root is not None:
+        ctx["ground_root"] = ground_root
+    if ground_ssf is not None:
+        ctx["ground_ssf"] = ground_ssf
     if bounds is not None:
         ctx["bounds"] = tuple(float(q) for q in bounds)
     rngl = ctx["rng"]

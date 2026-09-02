@@ -42,7 +42,11 @@ CONTRACT_PARAMS = [
 ]
 
 NEW_PARAMS = ['lvlm_enabled', 'lvlm_request_interval_s', 'lvlm_ray_threshold',
-              'lvlm_vlm_url', 'lvlm_vlm_model', 'lvlm_image_topic']
+              'lvlm_vlm_url', 'lvlm_vlm_model', 'lvlm_image_topic',
+              'voxel_max_extent_m',
+              # env RAVEN_VOX_SIZE_M — must track the mapper's
+              # mapping.vox_size (0.3 as of 2026-09-02 night; OG 0.5)
+              'voxel_size_m']
 
 
 @pytest.mark.parametrize('name', CONTRACT_PARAMS)

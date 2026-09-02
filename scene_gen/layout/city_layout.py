@@ -128,7 +128,15 @@ already makes it ELIGIBLE for that pass; there is no per-corridor "give this
 one a bike lane" hook to plug a rule flag into, so none is added here.
 """
 
+import zlib
+
 from scene_generator import _jitter_posf
+
+#: Share of cells whose LOWER block target is reduced by `target_jitter`.
+#: See `targets`'s own note: this is what breaks a uniform strip without
+#: shrinking the whole city, and 0.25 is what kept block variety while
+#: leaving the repeat share where it was.
+_LO_JITTER_SHARE = 0.25
 
 # Blocks are cut straight from the corridor edges, so an abutting face matches
 # to within float noise rather than approximately.
@@ -455,15 +463,101 @@ def make_subdivider(layout_cfg: dict, config: dict = None):
             except ImportError:
                 area_at = None
 
+        # PER-CELL TARGET JITTER. OFF by default (0.0), and off reproduces the
+        # original targets exactly.
+        #
+        # THE DEFECT: the first split along the long axis cuts the plate into
+        # STRIPS, and every later split inside a strip runs the other way, so
+        # each block inherits its strip's long side unchanged. A district's
+        # target range is the same at every point in it, so nothing ever asks
+        # a cell already inside the range to split again -- and the whole
+        # strip comes out one width. MEASURED on `downtown_urban_1000` seed 8
+        # at 1 km: the left column is 245 m for eight consecutive blocks and
+        # the next is 235 m for six, with long sides across the plate landing
+        # on just 245 / 235 / 229 / 98. That is what makes a district read as
+        # copy-pasted even when every building in it differs -- identical
+        # CONTAINERS holding a similar count of similar-grain buildings look
+        # the same from above.
+        #
+        # Perturbing the TARGET per cell (not the cut position, which
+        # `_jittered_widths` already jitters) makes two cells in one strip
+        # want different extents, so one of them splits again and the strip
+        # stops being uniform. Keyed on the cell centre so it is stable across
+        # runs and independent of traversal order -- `hash()` is salted per
+        # interpreter and this pipeline has already been bitten by that.
+        target_jitter = float(aniso.get("target_jitter", 0.0) or 0.0)
+
+        def _cell_unit(x, y):
+            key = "%.1f,%.1f" % (x, y)
+            return (zlib.crc32(key.encode("utf-8")) % 10007) / 10007.0
+
         def targets(x, y):
             """(min_x, max_x, min_y, max_y) for the cell centred at (x, y)."""
             t = area_at.targets_at(x, y) if area_at is not None else None
             if not t:
-                return min_x, max_x, min_y, max_y
-            s_lo, s_hi, l_lo, l_hi = t
+                out = (min_x, max_x, min_y, max_y)
+            else:
+                s_lo, s_hi, l_lo, l_hi = t
+                out = ((l_lo, l_hi, s_lo, s_hi) if long_axis == "x"
+                       else (s_lo, s_hi, l_lo, l_hi))
+            if target_jitter <= 0.0:
+                return out
+            f = 1.0 + target_jitter * (_cell_unit(x, y) * 2.0 - 1.0)
+            # Scale the LONG axis only. The short axis is what a terrace pair
+            # or a building's depth physically needs (`_terrace_band` is sized
+            # off it), so moving it breaks the morphology fit that
+            # `districts` relies on; the long axis is free.
+            #
+            # CLAMPED to `max_block_m`. A raised target makes a cell believe
+            # it is already the right size and stop splitting, so an unclamped
+            # jitter emits blocks LONGER than the region's own ceiling --
+            # measured, a 463 m midrise block against a 340 m `max_block_m`,
+            # which is not a city block at all. The clamp costs nothing: a
+            # target above the ceiling could never have been honoured anyway.
+            #
+            # ONLY THE UPPER BOUND MOVES. `_recurse` gates splitting on
+            # `w >= 2 * t_min + road`, so raising the LOWER bound makes a cell
+            # decide it cannot be split and emit itself whole -- measured, a
+            # 463 m midrise block, because a jittered `t_min` of 232 m put the
+            # split threshold at 475 m and the 463 m cell missed it. Jittering
+            # `t_hi` alone still moves `t_mid`, which is what picks `k` in the
+            # even-split pass and therefore what varies the strip width, and
+            # it can never make a cell unsplittable.
+            cap = float(max_block_m) if max_block_m else None
+
+            # ...and the LOWER bound moves DOWNWARD only, for the complementary
+            # reason. `_recurse` needs `w >= 2 * t_lo + road` to split at all,
+            # so a strip that came out between `t_lo` and `2 * t_lo` is stuck
+            # at whatever width the first pass gave it -- MEASURED, a 323 m
+            # strip against `t_lo = 190` needs 391 m to be splittable and so
+            # survives whole, seven blocks of it down one side of the plate.
+            # Lowering `t_lo` on some cells lets exactly those strips break in
+            # two; raising it never can, which is why the jitter is one-sided
+            # in each direction rather than symmetric in both.
+            # ...but only on a MINORITY of cells. Lowering `t_lo` everywhere
+            # shrinks the whole city: smaller blocks want smaller buildings,
+            # fewer of the pool fit, and the repeats come back. MEASURED at
+            # `target_jitter: 0.22` applied to every cell, block variety went
+            # up (4 -> 24 distinct long sides) but the share of buildings in a
+            # same-model pair within 60 m went 8.9-13.2 % -> 14.7-19.2 %, and
+            # no seed scored 0.00 any more. Breaking a uniform strip only
+            # needs SOME of its cells to be splittable, so the reduction is
+            # spent on the top quartile and the rest of the city keeps its
+            # block size.
+            def _scale(lo, hi):
+                u = _cell_unit(y, x)
+                if u > 1.0 - _LO_JITTER_SHARE:
+                    lo = lo * (1.0 - target_jitter)
+                hi = hi * f
+                if cap:
+                    hi = min(hi, cap)
+                return lo, max(hi, lo)
+
             if long_axis == "x":
-                return l_lo, l_hi, s_lo, s_hi
-            return s_lo, s_hi, l_lo, l_hi
+                lo, hi = _scale(out[0], out[1])
+                return (lo, hi, out[2], out[3])
+            lo, hi = _scale(out[2], out[3])
+            return (out[0], out[1], lo, hi)
 
         border_w = brd_lanes * lane_w
         half_w, half_h = w_m / 2.0, h_m / 2.0

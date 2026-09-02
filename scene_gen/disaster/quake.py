@@ -599,7 +599,7 @@ def _typology_damage_boost(config):
     this reads a table with nothing in it, `_boosted_intensity` is then a
     no-op for every style, and `assemble` draws the IDENTICAL rng sequence
     it always has — pinned byte-for-byte by
-    `test_empty_table_pins_byte_identical_output_end_to_end`
+    `test_key_absent_and_key_present_empty_are_indistinguishable_end_to_end`
     (`tests/test_quake_typology_damage_boost.py`)."""
     dis = config.get("disaster") or {}
     raw = dis.get("typology_damage_boost") or {}
@@ -745,6 +745,18 @@ def _is_gac_bake(usd):
     double-transform trap `style_of`'s own docstring describes for the kit
     foundation family (`_TILT`/`_SETTLE`/`_OV`), same fix shape."""
     return "/{0}/".format(GAC_BAKE_DIRNAME) in str(usd).replace("\\", "/")
+
+
+def _is_aec(usd):
+    """True when `usd` names an AEC brownstone-row asset (`pack_of` ->
+    "other", same substring `_is_pristine_pack`'s own docstring names as its
+    example — `"assets/aec/brownstone/..."`). Narrows the fallthrough so
+    `_mono_pass` can route it through `aec_quake`'s named-part earthquake
+    ladder (de-instance + by-category-name removal + a real frontage pile)
+    INSTEAD of the generic rigid-lean monolith fallback everything else in
+    this branch still gets — see `_aec_pass_one`'s own docstring for the
+    fallback-on-failure guarantee this split depends on."""
+    return "assets/aec/" in str(usd).replace("\\", "/")
 
 
 def gac_name_of(usd):
@@ -1043,7 +1055,7 @@ SWAP_MIN_FOOTPRINT_M = 3.0
 
 def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
              tilt_chance=None, verbose=True, foundation_rate=None,
-             gac_dir=None):
+             gac_dir=None, parent=None):
     """Swap placed pristine archetypes for damaged ones by the field.
 
     Then the FOUNDATION pass: on the soft-soil patch a share of the
@@ -1054,6 +1066,16 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
 
     Returns a stats dict: `buildings`, `tally` (grade -> count),
     `tilted`, `missing`, `foundation`, `soft_soil`.
+
+    `parent` (round 7, optional): the SAME `parent_path` the launcher passed
+    to `generate_scene_on_stage` for this city — `apply_ground_planes`
+    authored the city's ground meshes under `parent + "/ground"`, and
+    passing it here lets every mild lean's corner fissures
+    (`_tilt_prim` -> `_c_tilt_ground` -> `quake_flow._c_ground_response`)
+    cut their own opening through them (`quake_flow._c_cut_ground_openings`).
+    `None` (the default, and what every caller that predates this feature
+    still passes) leaves the ground cut a no-op, same as `ground_at` absent
+    leaves the material lookups.
     """
     import scene_generator as sg
 
@@ -1101,6 +1123,10 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
     _gc = ground_class.GroundClass.from_config(config)
     ground_at = ((lambda x, y: _gc.at(x / ssf, y / ssf)) if _gc is not None
                  else None)
+    # ROUND 7: see this function's own docstring on `parent`. Computed once,
+    # not per building — every `_tilt_prim` call below forwards the same
+    # value.
+    ground_root = (str(parent) + "/ground") if parent else None
     grade_scale = float(dis.get("grade_scale", 1.0))
     dur_boost = float(dis.get("duration_boost", 1.0))     # research §13; rc types only
     if foundation_rate is None:
@@ -1332,7 +1358,8 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
             deg = rng.uniform(float(tilt_deg[0]), float(tilt_deg[1]))
             snk = rng.uniform(float(sink_m[0]), float(sink_m[1]))
             _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf,
-                       bounds=_c_plate_bounds(config, ssf), ground_at=ground_at)
+                       bounds=_c_plate_bounds(config, ssf), ground_at=ground_at,
+                       ground_root=ground_root)
             tilted += 1
             grade = grade + "+tilt"
         tally[grade] = tally.get(grade, 0) + 1
@@ -1369,7 +1396,8 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
     try:
         n_mono = _mono_pass(stage, config, placements, field, grade_scale, rng, ssf,
                             records, tally, bounds=_c_plate_bounds(config, ssf),
-                            ground_at=ground_at, verbose=verbose)
+                            ground_at=ground_at, ground_root=ground_root,
+                            verbose=verbose, parent=parent)
         n += n_mono
     except Exception as exc:
         import traceback
@@ -1488,7 +1516,8 @@ def _c_mass(p, rec, ssf=1.0):
 
 
 def _c_tilt_ground(stage, base, m, M, rng, geom=None, mats=None, tag=None,
-                   bounds=None, raft=True, scope=None, ground_at=None):
+                   bounds=None, raft=True, scope=None, ground_at=None,
+                   ground_root=None):
     """The ground response round a city building that leaned or sank, authored
     as SIBLINGS of the placed archetype (under `<base>/quake_tilt`) so it does
     not ride the archetype's transform. `base` is the placement scope, which
@@ -1497,7 +1526,14 @@ def _c_tilt_ground(stage, base, m, M, rng, geom=None, mats=None, tag=None,
     `ground_at` (round 5, WP E) is `assemble`'s `GroundClass.at`, already
     de-scaled to the layout's own metre frame — forwarded straight through to
     `quake_flow._c_ground_response` so its buckled pavement/kerb/spill pieces
-    pick their look from what is actually there."""
+    pick their look from what is actually there.
+
+    `ground_root` (round 7) is `assemble`'s own `<city parent>/ground` —
+    forwarded the same way so this building's corner fissures can cut their
+    opening through the city ground meshes (`ground_ssf` is left at its
+    default of 1.0: this ctx's own points are already `* ssf`, via `m`
+    itself, so it is already in the ground meshes' own stage-unit frame —
+    see `quake_flow._c_cut_ground_openings`'s docstring)."""
     from pxr import Sdf, UsdGeom
 
     scope = scope or (str(base) + "/quake_tilt")
@@ -1508,11 +1544,12 @@ def _c_tilt_ground(stage, base, m, M, rng, geom=None, mats=None, tag=None,
     return qf._c_ground_response(
         stage, m, M=M, raft=raft, parent=scope,
         mats=mats if mats is not None else _c_mats(stage, base),
-        rng=rng, tag=tag or _c_tag(), bounds=bounds, ground_at=ground_at, **kw)
+        rng=rng, tag=tag or _c_tag(), bounds=bounds, ground_at=ground_at,
+        ground_root=ground_root, **kw)
 
 
 def _tilt_prim(stage, prim, p, rec, deg, sink, rng, ssf, bounds=None,
-               ground=True, side=None, ground_at=None):
+               ground=True, side=None, ground_at=None, ground_root=None):
     """The city's MILD LEAN: a placed archetype leans TOWARD one of its sides,
     sinks, and gets the ground response round it.
 
@@ -1520,7 +1557,10 @@ def _tilt_prim(stage, prim, p, rec, deg, sink, rng, ssf, bounds=None,
     (measured — `quake_flow._c_read_M`) leans the building AWAY from that side
     and never lifts anything out of the ground. `_c_tilt_matrix` owns the
     matrix now, shared with `quake_flow.r_tilt_sink`, and pivots INSIDE the
-    footprint so the far edge comes clear. Returns its geometry dict."""
+    footprint so the far edge comes clear. Returns its geometry dict.
+
+    `ground_root` (round 7) forwards straight through to `_c_tilt_ground` —
+    see its own docstring."""
     from pxr import Gf, UsdGeom
 
     m = _c_mass(p, rec, ssf)
@@ -1537,7 +1577,8 @@ def _tilt_prim(stage, prim, p, rec, deg, sink, rng, ssf, bounds=None,
     xf.AddScaleOp().Set(Gf.Vec3f(tr.GetScale()))
     if ground:
         _c_tilt_ground(stage, str(prim.GetPath().GetParentPath()), m, M, rng,
-                       geom=g, bounds=bounds, ground_at=ground_at)
+                       geom=g, bounds=bounds, ground_at=ground_at,
+                       ground_root=ground_root)
     return g
 
 
@@ -1702,8 +1743,60 @@ def _warn_if_oversized(usd, W, D, H, prim_path=None, verbose=True):
               prim_path or "?"))
 
 
+def _aec_pass_one(stage, path, prim, p, rec, grade, rng, ssf, bounds=None,
+                  ground_at=None, ground_root=None, mats=None, verbose=True):
+    """Route one AEC brownstone-row placement through `aec_quake`'s named-
+    part earthquake ladder instead of `_mono_pass`'s generic rigid-lean
+    fallback. `grade` is never `"DG0"` here (the caller only calls this for
+    `grade != "DG0"`).
+
+    Returns True when the ladder ran (the caller must then skip the generic
+    fallback branch entirely — the ladder already authored this building's
+    damage); False when the row's geometry could not be measured
+    (`aec_quake.quake_row` raising, e.g. because the placement's own prim is
+    not a real AEC row hierarchy at all) and the caller MUST fall back to
+    today's generic monolith handling unchanged. This is not a hypothetical:
+    `tests/test_quake_v5_city.py::test_pristine_pack_gate_now_only_covers_
+    downtowncity` places a bare 20 m test cube at an AEC-shaped path and
+    asserts the exact fallback behaviour every OTHER non-kit monolith gets
+    (measured, graded, tallied, `records`-entered, rigid-leaned at DG4/DG5)
+    — this function's `try/except` is what keeps that test passing once AEC
+    is routed elsewhere for a REAL row.
+
+    TILT INTERPLAY: DG1-DG2 draw no lean at all here (mirrors `_mono_pass`'s
+    own DG0-DG2 "untouched" policy — the ladder's own cosmetic tier is
+    already the visible damage at these grades). DG3 leans 50% of the time
+    (`MONO_MILD_P`, the same coin flip the generic fallback draws) and DG4/
+    DG5 always lean, but at REDUCED magnitude (`AEC_LEAN_*`, not
+    `MONO_MILD_*`/`MONO_HEAVY_*`) — the ladder's own removal/pile damage
+    already reads as damaged, so a full-magnitude mono lean on top would be
+    double-counting the same event."""
+    from . import aec_quake as aq
+    seed = rng.getrandbits(32)
+    try:
+        aq.quake_row(stage, path, grade=grade, seed=seed, verbose=verbose,
+                    mats=mats)
+    except Exception as exc:
+        if verbose:
+            print("[quake] aec_quake FAILED on {0} ({1}); falling back to "
+                  "the generic monolith lean".format(path, exc))
+        return False
+    if grade in ("DG4", "DG5"):
+        deg = rng.uniform(*AEC_LEAN_HEAVY_DEG)
+        snk = rng.uniform(*AEC_LEAN_HEAVY_SINK)
+        _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf, bounds=bounds,
+                  ground_at=ground_at, ground_root=ground_root)
+    elif grade == "DG3" and rng.random() < MONO_MILD_P:
+        deg = rng.uniform(*AEC_LEAN_MILD_DEG)
+        snk = rng.uniform(*AEC_LEAN_MILD_SINK)
+        _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf, bounds=bounds,
+                  ground_at=ground_at, ground_root=ground_root)
+    return True
+
+
 def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
-               tally, bounds=None, ground_at=None, verbose=True):
+               tally, bounds=None, ground_at=None, verbose=True,
+               ground_root=None, parent=None):
     """Damage for buildings that are NOT kit archetypes (standalone monoliths
     from `urban_quake_v2`). They cannot be fractured, so the vocabulary is
     what a rigid body can show — drawn as RC on the same ladder cuts:
@@ -1722,14 +1815,31 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
     this: no lean, no sink, no ruin swap,
     no tally entry, no `records` entry (and therefore no heap-clearance or
     pounding-interaction bookkeeping either, both of which only ever look at
-    `records`). See `_is_pristine_pack`'s own docstring."""
+    `records`). See `_is_pristine_pack`'s own docstring.
+
+    AEC BROWNSTONE ROWS (this round): scored on the `urm` vulnerability
+    curve (not `rc` — `_is_aec`) and, at any grade above DG0, routed through
+    `aec_quake.quake_row`'s named-part ladder instead of the generic rigid
+    lean — see `_aec_pass_one`'s own docstring for the exact tilt interplay
+    and the fallback-on-failure guarantee. `parent` (optional — the same
+    `parent_path` `assemble` was given) lets the AEC frontage pile share the
+    city's own cached `quake_flow.materials` palette instead of the
+    procedural defaults `quake_rubble_usd.author` falls back to without one."""
     ruins = []
     for e in ((config.get("usds") or {}).get("buildings") or {}).get("destroyed") or []:
         u = e.get("usd") if isinstance(e, dict) else e
         if u:
             ruins.append(str(u))
+    aec_mats = None
+    if parent:
+        try:
+            aec_mats = qf.materials(stage, parent)
+        except Exception as exc:
+            if verbose:
+                print("[quake] AEC materials FAILED ({0}); frontage piles fall "
+                      "back to procedural defaults".format(exc))
     n = 0
-    n_ruin = n_heavy = n_mild = 0
+    n_ruin = n_heavy = n_mild = n_aec = 0
     for p in placements:
         style, _ = style_of(p.get("usd"))
         # `_is_gac_bake` catches what `style_of` cannot: a GAC building
@@ -1743,7 +1853,8 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
         # describes for the kit foundation family. `_is_pristine_pack` is the
         # round-6 addition, narrowed in round 6c: downtowncity must stay
         # completely untouched (see PRISTINE_PACKS's own docstring); AEC
-        # brownstones now DO fall into the generic monolith fallback below.
+        # brownstones now DO fall into this branch — routed to `aec_quake`
+        # below, not the generic monolith fallback (see `_is_aec`).
         if (style or p.get("category") != "house" or _is_gac_bake(p.get("usd"))
                 or _is_pristine_pack(p.get("usd"))):
             continue
@@ -1756,13 +1867,30 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
             continue
         W, D, H = (v / ssf for v in dims)
         _warn_if_oversized(p.get("usd"), W, D, H, path, verbose)
+        aec = _is_aec(p.get("usd"))
+        btype = "urm" if aec else "rc"
         x, y = float(p["x_m"]), float(p["y_m"])
         inten = float(field(x, y))
-        grade = qf.level_for_intensity(inten * grade_scale, "rc", rng,
+        grade = qf.level_for_intensity(inten * grade_scale, btype, rng,
                                        duration_boost=float((config.get("disaster") or {}).get("duration_boost", 1.0)))
         rec = {"W": W, "D": D, "H": H}
         n += 1
         label = grade
+        if aec and grade != "DG0":
+            if _aec_pass_one(stage, path, prim, p, rec, grade, rng, ssf,
+                             bounds=bounds, ground_at=ground_at,
+                             ground_root=ground_root, mats=aec_mats,
+                             verbose=verbose):
+                label = "AEC_" + grade
+                n_aec += 1
+                tally[label] = tally.get(label, 0) + 1
+                records.append(dict(style="mono", x=x, y=y, intensity=round(inten, 3),
+                                    grade=label, prim=path, W=round(W, 1),
+                                    D=round(D, 1), H=round(H, 1), mono=True))
+                continue
+            # aec_quake FAILED (or the geometry did not match its
+            # expectations) — fall straight through to the generic monolith
+            # branches below, unchanged, exactly as if `aec` were False.
         if grade == "DG5" and ruins and H >= MONO_RUIN_MIN_H:
             u = rng.choice(ruins)
             refs = prim.GetReferences()
@@ -1775,14 +1903,14 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
             deg = rng.uniform(*MONO_HEAVY_DEG)
             snk = rng.uniform(*MONO_HEAVY_SINK)
             _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf, bounds=bounds,
-                      ground_at=ground_at)
+                      ground_at=ground_at, ground_root=ground_root)
             label = "TILT" if grade == "DG5" else "DG4+tilt"
             n_heavy += 1
         elif grade == "DG3" and rng.random() < MONO_MILD_P:
             deg = rng.uniform(*MONO_MILD_DEG)
             snk = rng.uniform(*MONO_MILD_SINK)
             _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf, bounds=bounds,
-                      ground_at=ground_at)
+                      ground_at=ground_at, ground_root=ground_root)
             label = "DG3+tilt"
             n_mild += 1
         tally[label] = tally.get(label, 0) + 1
@@ -1791,7 +1919,7 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
                             H=round(H, 1), mono=True))
     if verbose and n:
         print("[quake] {0} monolith(s): {1} ruin swap(s), {2} heavy lean(s), {3} mild "
-              "lean(s)".format(n, n_ruin, n_heavy, n_mild))
+              "lean(s), {4} aec ladder(s)".format(n, n_ruin, n_heavy, n_mild, n_aec))
     return n
 
 
@@ -1799,6 +1927,14 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
 MONO_RUIN_MIN_H = 35.0          # m: only a tower becomes a ruin tower
 MONO_HEAVY_DEG = (5.0, 10.0)    # Adapazari 1999: 4-12 deg on intact blocks
 MONO_HEAVY_SINK = (0.8, 1.6)
+# AEC brownstone rows (see `_aec_pass_one`): a REDUCED-magnitude lean drawn
+# ON TOP of `aec_quake`'s own named-part ladder — the ladder's removal/pile
+# damage is already the visible event; a full mono-fallback lean would
+# double-count it. Roughly half of `MONO_HEAVY_*`/`MONO_MILD_*`.
+AEC_LEAN_HEAVY_DEG = (2.5, 5.0)
+AEC_LEAN_HEAVY_SINK = (0.3, 0.7)
+AEC_LEAN_MILD_DEG = (1.0, 2.0)
+AEC_LEAN_MILD_SINK = (0.12, 0.22)
 MONO_MILD_P = 0.5
 MONO_MILD_DEG = (2.0, 4.0)
 MONO_MILD_SINK = (0.3, 0.5)
@@ -2161,10 +2297,21 @@ def ground_effects(stage, config, stats, placements, arch_dir, parent, ssf,
     ground_at = _gc.at if _gc is not None else None
 
     # a minimal ctx so the per-building helpers can author here
+    #
+    # ROUND 7: `ground_root`/`ground_ssf` are what let `qf._c_fissure_trace`
+    # cut a real opening through the city ground meshes `apply_ground_planes`
+    # already authored under `parent + "/ground"` — `parent` here is the
+    # SAME parent_path the launcher passed to `generate_scene_on_stage`
+    # (verified against `downtown_quake_launch_script.py`, which calls both
+    # with the identical `parent`), so the scope is exactly where those
+    # meshes live. `ground_ssf` is `ssf` itself (not 1.0): this function's
+    # own fissures author in the UNSCALED metre frame (see the comment two
+    # lines above `_gc`), while the ground meshes are in stage units.
     def _ctx(tag):
         return {"stage": stage, "parent": scope, "rng": rng, "mats": mats, "tag": tag,
                 "authored": [], "static_extra": [], "loose": [], "velocity": {},
-                "notes": [], "n_uid": 0, "info": {"type": "rc"}, "ground_at": ground_at}
+                "notes": [], "n_uid": 0, "info": {"type": "rc"}, "ground_at": ground_at,
+                "ground_root": parent + "/ground", "ground_ssf": ssf}
 
     dcfg = (config.get("disaster") or {}).get("dust") or {}
     reach5 = float(dcfg.get("reach_h5", 1.0))

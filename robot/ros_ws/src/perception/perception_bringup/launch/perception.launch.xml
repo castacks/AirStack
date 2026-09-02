@@ -84,4 +84,17 @@
     <node pkg="perception_bringup" exec="topic_keepalive_node.py"
           name="topic_keepalive" output="screen" />
 
+    <!-- rayfronts publishes a cloud ONLY while it has a real ROS subscriber
+         (messaging_services/ros.py:147, visualizers/ros.py:155), and the DDS
+         router's reader does not count as one. This node holds silent
+         subscriptions open so the semantic voxel layers actually stream and
+         the dds_router allowlist has something to bridge to the GCS.
+         The script has existed since the rayfronts integration but was never
+         launched, which is why voxel_rgb / voxel_occ / the per-query heatmaps
+         were dead on the GCS while filtered_rays (which the gossip node
+         subscribes to) worked fine.
+         Cheap: BEST_EFFORT, depth 1, callbacks discard immediately. -->
+    <node pkg="perception_bringup" exec="voxel_keepalive_node.py"
+          name="voxel_keepalive" output="screen" />
+
 </launch>

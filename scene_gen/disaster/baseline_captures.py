@@ -181,7 +181,44 @@ OVERVIEW_AIM_H_MIN_M = 2.0
 OVERVIEW_FOCAL_MM = 18.0
 
 
-def plan_overviews(region_span_m):
+#: Capture aspect (w, h). The viewport path renders 1280x720 -- MEASURED on
+#: the shipped cells -- and `place_camera` authors only the HORIZONTAL
+#: aperture, so the vertical field is narrower by 9/16. The 0.95 standoff
+#: above was solved for the horizontal axis alone, which is why a SQUARE
+#: plate does not fit: at h = 0.95*span the horizontal ground coverage is
+#: 1.106*span but the vertical is ~0.62*span. Framing has to be solved
+#: against the SMALLER of the two half-angles.
+OVERVIEW_ASPECT = (1280.0, 720.0)
+#: 35 mm horizontal aperture `snapshots.place_camera` sets.
+OVERVIEW_APERTURE_MM = 20.955
+#: Margin so the plate does not touch the frame edge.
+OVERVIEW_MARGIN = 1.06
+
+
+def overview_height_m(span_m, focal_mm=OVERVIEW_FOCAL_MM,
+                      aspect=OVERVIEW_ASPECT,
+                      aperture_mm=OVERVIEW_APERTURE_MM,
+                      margin=OVERVIEW_MARGIN):
+    """Camera height that fits a *span_m* SQUARE in frame, both axes.
+
+    `half_fov = atan(aperture / (2 * focal))` horizontally; the vertical
+    half-angle is that scaled by the frame aspect. The plate is square, so
+    the binding constraint is whichever half-angle is smaller -- the
+    vertical one on any wider-than-tall capture. Returns the height at which
+    the span subtends that angle, times a margin.
+
+    At 1280x720, 18 mm: horizontal half-FOV 30.2 deg, vertical 17.8 deg, so
+    this returns ~1.65*span where the old rule returned 0.95*span. That is
+    the whole bug -- the shipped `overviews/city_top` was framing roughly
+    the middle 60 % of the cell and calling it the city.
+    """
+    half_h = math.atan(float(aperture_mm) / (2.0 * float(focal_mm)))
+    half_v = math.atan(math.tan(half_h) * float(aspect[1]) / float(aspect[0]))
+    half_min = min(half_h, half_v)
+    return float(margin) * (float(span_m) / 2.0) / math.tan(half_min)
+
+
+def plan_overviews(region_span_m, centre=(0.0, 0.0)):
     """3 shots: `overviews/city_top` (true top-down) and `overviews/
     city_corner_ne` / `overviews/city_corner_sw` (high obliques from
     opposite corners) -- the "whole overview of the city top down and also
@@ -189,16 +226,76 @@ def plan_overviews(region_span_m):
     corners so a fire in either half of the plate is never the far, hazy
     side of the one oblique shot."""
     span = float(region_span_m)
-    shots = [Shot("overviews/city_top", (0.0, 0.0, span * OVERVIEW_TOP_FRAC),
-                  (0.0, 0.0, 0.0), OVERVIEW_FOCAL_MM)]
+    cx, cy = float(centre[0]), float(centre[1])
+    # CENTRE, not (0, 0). A cell whose content is not centred on the stage
+    # origin -- any cropped cell, and any cell whose corridor sits off to one
+    # side -- gets an overview of the wrong patch of ground otherwise. The
+    # legacy shot in `urban_fire_city_launch_script` already did this; the
+    # `capture_baseline` path dropped the centre and kept only the span.
+    top_h = overview_height_m(span)
+    shots = [Shot("overviews/city_top", (cx, cy, top_h),
+                  (cx, cy, 0.0), OVERVIEW_FOCAL_MM)]
     dist = span * OVERVIEW_OBLIQUE_DIST_FRAC
     h = span * OVERVIEW_OBLIQUE_H_FRAC
     aim_h = max(OVERVIEW_AIM_H_MIN_M, span * OVERVIEW_AIM_H_FRAC)
     for tag, az in zip(("corner_ne", "corner_sw"), OVERVIEW_CORNER_AZIMUTHS_DEG):
         a = math.radians(az)
-        eye = (dist * math.cos(a), dist * math.sin(a), h)
+        eye = (cx + dist * math.cos(a), cy + dist * math.sin(a), h)
         shots.append(Shot("overviews/city_{0}".format(tag), eye,
-                          (0.0, 0.0, aim_h), OVERVIEW_FOCAL_MM))
+                          (cx, cy, aim_h), OVERVIEW_FOCAL_MM))
+    return shots
+
+
+# ===========================================================================
+# 1b) BLOCKS -- one true top-down per CITY BLOCK
+# ===========================================================================
+#: The `districts/` family below shoots BURNING CLUSTERS, not city blocks --
+#: connected components over the composed bakes, which on a one-corridor fire
+#: is a single component and therefore THREE frames for the whole cell. That
+#: leaves every unburnt block, and every block the fire only clipped,
+#: unphotographed. This family is the missing half: every block in the
+#: layout gets its own plumb top-down, so a reviewer can check zoning,
+#: density, frontage and damage block by block instead of inferring it from
+#: three obliques.
+BLOCK_FOCAL_MM = 24.0
+#: Framed on the block's LONG side plus a margin, so the surrounding streets
+#: are visible and the block reads in context rather than as a floating slab.
+BLOCK_MARGIN = 1.35
+#: Never closer than this, or a small block gives a camera inside a building.
+BLOCK_MIN_H_M = 90.0
+
+
+def plan_block_shots(blocks, focal_mm=BLOCK_FOCAL_MM):
+    """One plumb top-down per block.
+
+    *blocks* is `[(x0, y0, x1, y1, name), ...]` or `[(rect, name), ...]` or
+    plain rects -- whatever the caller has. The typology name, when present,
+    goes into the filename so a contact sheet sorts by district.
+
+    Height is solved with the same `overview_height_m` rule the overview
+    uses, against the block's long side, so a block fills the frame the same
+    way whatever its size -- the thing that makes a contact sheet
+    comparable.
+    """
+    shots = []
+    for i, entry in enumerate(blocks or []):
+        name = None
+        if isinstance(entry, (list, tuple)) and len(entry) == 2 \
+                and isinstance(entry[0], (list, tuple)):
+            rect, name = entry
+        elif isinstance(entry, (list, tuple)) and len(entry) >= 5:
+            rect, name = entry[:4], entry[4]
+        else:
+            rect = entry
+        x0, y0, x1, y1 = (float(v) for v in rect[:4])
+        cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+        span = max(x1 - x0, y1 - y0) * BLOCK_MARGIN
+        h = max(BLOCK_MIN_H_M, overview_height_m(span, focal_mm=focal_mm))
+        tag = "%03d" % i
+        if name:
+            tag += "_%s" % str(name)
+        shots.append(Shot("blocks/b%s" % tag, (cx, cy, h), (cx, cy, 0.0),
+                          focal_mm))
     return shots
 
 
@@ -651,7 +748,8 @@ def apply_sightline_clearance(shots, obstacles):
 # 7) the plan, assembled; the estimate; the execution loop
 # ===========================================================================
 def build_capture_plan(region_span_m, placed, people, obstacles=None,
-                       adjacency_m=DISTRICT_ADJACENCY_M):
+                       adjacency_m=DISTRICT_ADJACENCY_M, centre=(0.0, 0.0),
+                       blocks=None):
     """The whole plan: all 5 families, sightline-cleared where a helper
     exists for it, plus `"_all"` (every family concatenated, in the order
     the work order lists them, name-uniqueness already checked -- raises if
@@ -667,7 +765,8 @@ def build_capture_plan(region_span_m, placed, people, obstacles=None,
     """
     flat_obs = list((obstacles or {}).values())
     families = {
-        "overviews": plan_overviews(region_span_m),
+        "overviews": plan_overviews(region_span_m, centre=centre),
+        "blocks": plan_block_shots(blocks),
         "districts": plan_district_shots(placed, adjacency_m),
         "people": plan_people_shots(people),
         "groups": plan_group_shots(people),
@@ -677,7 +776,8 @@ def build_capture_plan(region_span_m, placed, people, obstacles=None,
             families[fam] = apply_sightline_clearance(families[fam], flat_obs)
     families["buildings"] = plan_building_shots(placed, obstacles)
     all_shots = []
-    for fam in ("overviews", "districts", "buildings", "people", "groups"):
+    for fam in ("overviews", "blocks", "districts", "buildings", "people",
+                "groups"):
         all_shots.extend(families[fam])
     assert_unique_names(all_shots)
     families["_all"] = all_shots
@@ -745,7 +845,7 @@ def run_capture_plan(stage, snaps, families, snap_dir, ssf=1.0,
 def capture_baseline(stage, snaps, placed, people, snap_dir, region_span_m,
                      obstacles=None, ssf=1.0, frames=DEFAULT_FRAMES,
                      adjacency_m=DISTRICT_ADJACENCY_M, prefix="bc",
-                     only_families=None):
+                     only_families=None, centre=(0.0, 0.0), blocks=None):
     """THE call a launcher makes: build the plan, then run it. See the
     module docstring's WIRING section for the 3-line snippet.
 
@@ -761,7 +861,8 @@ def capture_baseline(stage, snaps, placed, people, snap_dir, region_span_m,
         only_families = ([f.strip() for f in raw.split(",") if f.strip()]
                          or None)
     families = build_capture_plan(region_span_m, placed, people,
-                                  obstacles=obstacles, adjacency_m=adjacency_m)
+                                  obstacles=obstacles, adjacency_m=adjacency_m,
+                                  centre=centre, blocks=blocks)
     if only_families:
         families = {k: v for k, v in families.items()
                     if k in only_families and k != "_all"}

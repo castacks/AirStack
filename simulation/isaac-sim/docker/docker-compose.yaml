@@ -58,6 +58,9 @@ services:
       # than like a scene that was never asked for.
       - FROZEN_SCENE=${FROZEN_SCENE:-}
       - FROZEN_DATASET_ROOT=${FROZEN_DATASET_ROOT:-}
+      # Extra authored layer referenced on top of a frozen cell at
+      # /World/Overlay (e.g. the standing-person A/B detection rig).
+      - FROZEN_OVERLAY_USD=${FROZEN_OVERLAY_USD:-}
       # BARE NAME, like DETECTOR_URL in robot-base-docker-compose.yaml: the
       # script's default is 'ground' and `${SUBURB_COLLIDERS:-}` would define
       # this EMPTY, which is not 'off' and not 'ground' — it falls through to
@@ -395,6 +398,9 @@ services:
       # than like a scene that was never asked for.
       - FROZEN_SCENE=${FROZEN_SCENE:-}
       - FROZEN_DATASET_ROOT=${FROZEN_DATASET_ROOT:-}
+      # Extra authored layer referenced on top of a frozen cell at
+      # /World/Overlay (e.g. the standing-person A/B detection rig).
+      - FROZEN_OVERLAY_USD=${FROZEN_OVERLAY_USD:-}
       # BARE NAME, like DETECTOR_URL in robot-base-docker-compose.yaml: the
       # script's default is 'ground' and `${SUBURB_COLLIDERS:-}` would define
       # this EMPTY, which is not 'off' and not 'ground' — it falls through to

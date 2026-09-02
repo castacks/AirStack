@@ -14,9 +14,14 @@ Responsibilities (one node so the module adds a single process):
 - NavigateTask action server (``~/navigate_task``): walks the goal path's
   poses as successive ``term_goal`` checkpoints for MIGHTY, mirroring the
   droan_gl task contract (ADD_SEGMENT while navigating, TRACK on exit).
+- (opt-in, ``MIGHTY_NATIVE_SETPOINTS``) broadcasts on ``native_stream_active``
+  whether the follower / NavigateTask currently owns the vehicle, which is
+  what tells ``native_setpoint_node`` when it may take PX4 over directly.
+  See README.md, "Two command paths".
 """
 
 import math
+import os
 import threading
 import time
 
@@ -35,7 +40,10 @@ from airstack_msgs.srv import TrajectoryMode
 from dynus_interfaces.msg import State, Trajectory
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Bool
 from task_msgs.action import NavigateTask
+
+from mighty_bridge.native_setpoint import env_flag, heading_from_velocity
 
 # AirStack patch (ORIGIN.md): goals and global plans may arrive stamped in a
 # frame other than the robot's map (e.g. 'world', which the map_anchor node
@@ -45,12 +53,11 @@ import tf2_ros
 from tf2_geometry_msgs import do_transform_pose
 
 
-def heading_from_velocity(vx, vy, prev_yaw, min_speed=0.3):
-    """Yaw the body should hold: the direction of horizontal travel, or the
-    previous heading when moving too slowly for the direction to mean much."""
-    if math.hypot(vx, vy) < min_speed:
-        return prev_yaw
-    return math.atan2(vy, vx)
+# heading_from_velocity lives in native_setpoint.py now (imported above,
+# body unchanged): both command paths — this one's trajectory_override and the
+# native PositionTarget streamer — must point the nose the same way, so there
+# is exactly one copy of the rule. Re-exported here so existing importers of
+# `mighty_bridge.bridge_node.heading_from_velocity` keep working.
 
 
 def capped_speed(v, cap):
@@ -99,6 +106,19 @@ class MightyBridge(Node):
         # > mighty's goal_seen_radius (5.0) so the moving carrot never puts
         # the planner into GOAL_SEEN/GOAL_REACHED before the true route end
         self.declare_parameter('follow_lookahead_m', 8.0)
+        # Native MIGHTY->PX4 setpoint path (Option A, default OFF): broadcast
+        # whether the follower / NavigateTask currently owns the vehicle, so
+        # native_setpoint_node knows when it may stream PositionTargets and
+        # when it must hand control back to the pid. Purely additive — with
+        # the switch off no publisher and no timer are created at all, so this
+        # node's graph is exactly what it was.
+        # Default comes from the env var rather than a launch <param> because
+        # ROS 2 XML launch type-infers "0" as an int, which cannot bind to a
+        # bool parameter.
+        self.declare_parameter(
+            'publish_native_stream_active',
+            env_flag(os.environ.get('MIGHTY_NATIVE_SETPOINTS')))
+        self.declare_parameter('native_stream_heartbeat_s', 1.0)
 
         self.waypoint_tolerance = float(self.get_parameter('waypoint_tolerance_m').value)
         self.republish_s = float(self.get_parameter('term_goal_republish_s').value)
@@ -110,6 +130,11 @@ class MightyBridge(Node):
         self.follow_min_climb = float(self.get_parameter('follow_min_climb_m').value)
         self.follow_settle_s = float(self.get_parameter('follow_settle_s').value)
         self.follow_lookahead = float(self.get_parameter('follow_lookahead_m').value)
+        self.publish_native_active = bool(
+            self.get_parameter('publish_native_stream_active').value)
+        self.native_heartbeat_s = float(
+            self.get_parameter('native_stream_heartbeat_s').value)
+        self._native_active_pub = None
 
         self._lock = threading.Lock()
         self._odom = None            # latest nav_msgs/Odometry
@@ -204,6 +229,24 @@ class MightyBridge(Node):
         # conflation flush for the receding-horizon throttle
         self.create_timer(0.2, self._flush_pending_traj, callback_group=cb)
 
+        # Native setpoint path engagement broadcast (see the parameter's
+        # comment). TRANSIENT_LOCAL so a streamer that starts, or restarts,
+        # mid-route learns the current state at once; the heartbeat is the
+        # other half of the contract — the streamer treats "no engagement
+        # message for engage_timeout_s" as disengaged, which is what makes a
+        # dead bridge give the vehicle back instead of freezing the mute.
+        if self.publish_native_active:
+            native_qos = QoSProfile(
+                history=QoSHistoryPolicy.KEEP_LAST, depth=1,
+                reliability=QoSReliabilityPolicy.RELIABLE,
+                durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
+            self._native_active_pub = self.create_publisher(
+                Bool, 'native_stream_active', native_qos)
+            self._publish_native_active(False)
+            self.create_timer(self.native_heartbeat_s,
+                              self._native_active_heartbeat,
+                              callback_group=cb)
+
         # global_plan follower (see class docstring)
         if self.follow_enabled:
             from nav_msgs.msg import Path
@@ -214,7 +257,38 @@ class MightyBridge(Node):
         self.get_logger().info(
             f'mighty_bridge up (waypoint_tolerance={self.waypoint_tolerance} m, '
             f'stride={self.segment_stride}, world_frame={self.world_frame}, '
-            f'follow_global_plan={self.follow_enabled})')
+            f'follow_global_plan={self.follow_enabled}, '
+            f'native_setpoint_broadcast={self.publish_native_active})')
+
+    # ------------------------------------------------------------------
+    # engagement (native setpoint path)
+    # ------------------------------------------------------------------
+
+    def _set_route_active(self, active):
+        """THE single locus for the "MIGHTY owns the vehicle" flag.
+
+        `_route_active` gates the trajectory start guard and the yaw carry-over
+        in this node; with the native setpoint path armed it additionally tells
+        native_setpoint_node when it may stream PositionTargets to PX4. Every
+        assignment goes through here so the two can never disagree.
+
+        Must NOT be called while holding `self._lock` — it takes it.
+        """
+        with self._lock:
+            changed = self._route_active != bool(active)
+            self._route_active = bool(active)
+        if changed and self._native_active_pub is not None:
+            self._publish_native_active(bool(active))
+
+    def _publish_native_active(self, active):
+        msg = Bool()
+        msg.data = bool(active)
+        self._native_active_pub.publish(msg)
+
+    def _native_active_heartbeat(self):
+        with self._lock:
+            active = self._route_active
+        self._publish_native_active(active)
 
     # ------------------------------------------------------------------
     # conversions
@@ -509,8 +583,7 @@ class MightyBridge(Node):
                                f'{self.follow_lookahead} m)')
         # One-time controller timeline reset (duplicates — and therefore
         # does not require — the reference mission glue's mode switch).
-        with self._lock:
-            self._route_active = True
+        self._set_route_active(True)
         # AirStack patch (ORIGIN.md): the takeoff task leaves the trajectory
         # controller in ROBOT_POSE (tracking point pinned to the vehicle,
         # zero velocity), where an override is stored but never walked —
@@ -524,14 +597,12 @@ class MightyBridge(Node):
         while rclpy.ok():
             if self._task_active:
                 self.get_logger().info('follower: yielding to NavigateTask')
-                with self._lock:
-                    self._route_active = False
+                self._set_route_active(False)
                 return
             with self._lock:
                 plan = self._follow_plan
             if plan is None:
-                with self._lock:
-                    self._route_active = False
+                self._set_route_active(False)
                 return
             final = plan[-1].pose.position
             d_final = self._distance_to(final)
@@ -549,7 +620,7 @@ class MightyBridge(Node):
                 with self._lock:
                     self._follow_done_plan = (final.x, final.y, final.z)
                     self._follow_plan = None
-                    self._route_active = False
+                self._set_route_active(False)
                 return
             # Catch-up gate: if MIGHTY has gone idle (no trajectories) with
             # its committed end still far from the vehicle, withhold new
@@ -700,8 +771,7 @@ class MightyBridge(Node):
         self.term_goal_pub.publish(msg)
 
     def _finish(self, goal_handle, success, message):
-        with self._lock:
-            self._route_active = False
+        self._set_route_active(False)
         self._set_mode(TrajectoryMode.Request.TRACK)
         result = NavigateTask.Result()
         result.success = success
@@ -745,8 +815,7 @@ class MightyBridge(Node):
         self.get_logger().info(
             f'NavigateTask: {len(poses)} waypoints, goal tolerance {goal_tol:.2f} m')
 
-        with self._lock:
-            self._route_active = True
+        self._set_route_active(True)
         self._set_mode(TrajectoryMode.Request.TRACK)   # see _follow_route
 
         idx = 0

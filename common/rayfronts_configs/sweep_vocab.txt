@@ -1,0 +1,14 @@
+person
+road
+grass
+tree
+house
+roof
+wall
+fence
+car
+dirt
+rubble
+wreckage
+debris
+sky

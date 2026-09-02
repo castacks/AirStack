@@ -400,6 +400,27 @@ services:
       - RAYFRONTS_ROBOT_IDS=${RAYFRONTS_ROBOT_IDS:-}
       - RAYFRONTS_CONFIG=${RAYFRONTS_CONFIG:-shared_humans}
       - RAYFRONTS_SRC=${RAYFRONTS_SRC:-/root/AirStack/common/rayfronts}
+      # OPEN-SET PROBES, read by multi_robot_mapping_server directly from this
+      # container's environment (offboard_compute.sh starts it with a plain
+      # `python3 -m`, so the process inherits these; the script itself does not
+      # need to know about them). Both are DIAGNOSTIC: neither ever becomes a
+      # query column, so neither can move the softmax raven thresholds on.
+      #   RAYFRONTS_PROBE_PROMPTS — comma-separated alternative query wordings
+      #     scored against the map every raw-log cycle, e.g.
+      #     "person lying down,casualty,human body,mannequin".
+      #   RAYFRONTS_PROBE_POINTS  — JSON list of world-FLU [x,y] (or [x,y,z])
+      #     ground-truth positions, e.g. '[[-12.87,-33.52],[-4.79,-69.42]]';
+      #     the nearest semantic voxel within 3 m of each is logged with both
+      #     the live vocabulary's and the probe prompts' raw cosines.
+      #   RAYFRONTS_PROBE_BACKGROUND — the contrast set for the per-prompt
+      #     SOLO softmax logged as `label=raw/solo`. Set it byte-identical to
+      #     the mission's background_queries; needed explicitly because
+      #     shared_humans.yaml ships querying.query_file: null, so the mapper
+      #     cannot otherwise tell the positive from the background.
+      # Empty by default: unset means the probe logging is simply off.
+      - RAYFRONTS_PROBE_PROMPTS=${RAYFRONTS_PROBE_PROMPTS:-}
+      - RAYFRONTS_PROBE_POINTS=${RAYFRONTS_PROBE_POINTS:-}
+      - RAYFRONTS_PROBE_BACKGROUND=${RAYFRONTS_PROBE_BACKGROUND:-}
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       # RAYFRONTS_COMPUTE_PROB is already inherited from robot_base's own
       # `${RAYFRONTS_COMPUTE_PROB:-True}` (extends: above) — verified with

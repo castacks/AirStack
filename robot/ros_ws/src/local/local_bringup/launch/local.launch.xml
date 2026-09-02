@@ -81,6 +81,20 @@
                  value="/$(env ROBOT_NAME)/perception/stereo_image_proc/point_cloud" />
             <arg name="mighty_lidar_frame" value="camera_left" />
             <arg name="mighty_odometry_topic" value="$(var local_odometry_in_topic)" />
+            <!-- The bridge only starts following /global_plan once
+                 `z - z0 > follow_min_climb_m` AND |vz| < 0.2. Its default is
+                 8.0 m, which this file never overrode — so any mission taking
+                 off below ~8.2 m hung forever with the drone hovering and the
+                 gate logging `follower gate: ... climb_needed=8.0` on repeat
+                 (measured 2026-09-02: 768 consecutive failures at z=2.7 m,
+                 term_goal never published, raven planning into a void).
+                 1.0 m is enough to mean "airborne and settled" — the |vz|
+                 condition is what actually waits for the climb to finish, so
+                 this does not engage the follower mid-climb. It also removes a
+                 knife-edge: `> 8.0` against an 8.0 m takeoff that settles
+                 ~0.15 m short (0.3 m acceptance) can never pass, which is the
+                 same latent hang in frontier_vs_raven_compare.yaml. -->
+            <arg name="mighty_follow_min_climb_m" value="1.0" />
         </include>
     </group>
 

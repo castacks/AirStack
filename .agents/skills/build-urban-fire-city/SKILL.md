@@ -1,192 +1,236 @@
 ---
 name: build-urban-fire-city
-description: 'The end-to-end PROCEDURE for building a full burning-downtown cell — layout, fire manifest, per-building bakes, assembly, people, audit, freeze — from the `downtown_fire_*` presets and the `fire_city_*` tools. Seven numbered stages, each with the exact command, the env knobs and their defaults, where the outputs land (host vs container), the gate that must pass before the next stage, and the trap that costs a run: clearing the GAC kit cache and stale `FB_OUT` accumulation; `FC_INTACT_ONLY=1 FC_DUMP=` to dump placements and `gen_burnability_table.py --prove` to regenerate the firebreak table; `fire_city_dry_run.py` + `fire_city_union.py --auto/--seeds/--max-records` and the crop / `FC_CROP_WINDOW` / `x_orig` frame rule; `fire_city_bake.sh` over the four bake kinds (gac, dtc, kit, and — new 2026-09-02 — `aec`, the brownstone rows that burn by NAME through `aec_burn` instead of being sliced), the per-level settle tiers, `SETTLE_REST_V2`, and what a good bake log says; the assembly through `urban_fire_city_launch_script.py` with its frame guard, block audit, emitter budget and the Vulkan Flow-OOM grep that separates "a city on fire" from "a city with no smoke and every count right"; `fire_people_rerun.sh`; `city_layout_audit.py`; and the freeze. Read before rebuilding any urban-fire layout — and note that EVERY gac/dtc bake made before 2026-09-02 must be re-baked.'
+description: 'THE end-to-end procedure for a 1 km urban-fire cell, and the shared urban layout every other disaster builds on. Two commands: `make_cell_plan.sh` on the host (CPU only — layout, scored seed choice, wind-driven corridor fire, lazy-bake worklist, four review PNGs, gates) then `urban_fire_cell.sh` on the pod (clear, bake, assemble, people, freeze, cold-verify). Rewritten 2026-09-02: the 1.5 km-plate-plus-crop is GONE (1 km generated directly — the crop had taken highrise+tower from 27-31% of the plate to 46-58% of the delivered cell), the burnable-only pool cut is GONE (48-64 -> 75-88 distinct models; undamageable buildings are left undamaged instead of excluded from the city), the multi-ignition selection is GONE (one contiguous wind-driven corridor, because half the old checkerboard was a BAKE GAP rather than fire behaviour), and the level ladder is a real fire ladder rather than three copies of the same 5.6 h epoch. Carries the per-stage bake/assembly/freeze reference and bug catalogue, the four bake kinds, the determinism rule, why seed is first-class at 1 km, the block-strip monotony fix and its measured trade-off, per-unit brownstone variance, the overview camera that framed the middle 60% of every cell, and a gate list where every entry exists because a launcher printed correct counts, exited 0 and shipped an empty cell.'
 license: Apache-2.0
 metadata:
   author: AirLab CMU
   repository: AirStack
 ---
 
-# Building a full urban fire layout, end to end
+# Urban fire city, end to end
 
-`build-urban-fire-scenes` is the physics, the ladder, the recipes and the bug
-catalogue — the WHY. This file is the WHAT-YOU-TYPE: the seven stages that take
-a preset to a burning 500 m / 1 km / 1.5 km downtown cell, in order, with the
-gate for each. Read that skill before changing any damage code; read this one
-before rebuilding a layout.
+Two commands (below). This skill was rewritten on 2026-09-02: the layout and
+fire-selection stages were replaced outright, and the bake/assembly/freeze
+stages were re-gated. The per-stage reference for those later stages — still
+accurate, and still the bug catalogue that matters — is retained verbatim at
+the end under REFERENCE.
 
-```
-0. clear    kit cache, stale bakes (ALL pre-2026-09-02 ones), stale manifests
-1. layout   preset -> SCENE_CONFIG -> FC_INTACT_ONLY=1 FC_DUMP=<dump.json>
-                                   -> gen_burnability_table.py --prove
-2. manifest fire_city_dry_run.py (one seed) -> fire_city_union.py (many seeds)
-                                   -> [fc_dump_crop.py for a 1 km window]
-3. bakes    fire_city_bake.sh MANIFEST         one Kit process per building
-                                               kinds: gac | dtc | kit | aec
-4. assembly urban_fire_city_launch_script.py   bakes as static + Flow put back
-5. people   fire_people_rerun.sh -> FC_PEOPLE_JSON
-6. audit    city_layout_audit.py               the frame gate
-7. freeze   freeze-portable-scenes / freeze-disaster-dataset
-```
+`build-urban-fire-scenes` remains the physics, the F0-F5 ladder and the
+per-construction-type recipes; this is the procedure over it.
 
-Every Isaac step is run through the `run-isaac-sim-launcher` pattern (`airstack
-up isaac-sim`, then `docker exec isaac-sim tmux send-keys`); `docker logs
-isaac-sim` is empty for this container. Do not re-derive that here.
+Four things changed, each because something measurable was wrong.
 
-## Stage 0 — prerequisites and what to CLEAR
+## Why this exists — the four findings
 
-**Why this stage exists today.** Two fixes landed 2026-09-02 that invalidate
-every existing gac/dtc bake — most of "we will have to recreate all the
-layouts". `gac_fire.bake_atlases`' shared-texel test compared only the height
-(`dz`) between its forward and reverse rasterisations, so an atlas MIRRORED
-left-to-right passed as unique and was baked once by world position: the soot
-laid at the burning SE/NE corners landed on the clean SW/NW corners too. It now
-compares the full 3D distance (`d3 = np.linalg.norm(pa[both] - pb[both],
-axis=1)`), and an atlas that now flags TILED takes the per-piece bake after the
-slice. Separately, `quake_flow.fit_interior` ends the top storey's columns at
-`m.get("deck_z", m["top"])`, not the parapet-coping bbox top — pre-fix GAC
-bakes have columns standing through the roof.
+**1. The 1.5 km-plate-plus-1 km-crop over-weighted skyscrapers.** District
+rings are fractions of the region half-diagonal (`districts.py:538-544`), and
+`core` had been widened 0.276 -> 0.36 to fix a *500 m* problem. On a 1.5 km
+plate that multiplies by 9, and all three crop windows sat within 250 m of the
+plate centre, so the delivered cell kept the core and threw away the outer
+rings:
 
-```bash
-airstack up isaac-sim          # the container, per run-isaac-sim-launcher
+| | full 1.5 km plate | delivered 1 km crop |
+|---|---|---|
+| highrise+tower, block area | 27-31 % | **46-58 %** |
+| rowhouse+lowrise buildings | 36 % | **7 %** |
 
-# 1. GAC kit cache — have_kit() FALSE means every gac: bake does a LIVE slice
-#    (most of its wall time, and it takes the machine-wide slicer lock).
-#    -> scene_gen/assets/kits/<asset>.usd (gitignored) + kits.json (tracked)
-#    gate: "GAC KIT BAKE <ok>/<total>" with no "WARNING ... subset(s) rehomed"
-docker exec isaac-sim bash -c '/isaac-sim/AirStack/scene_gen/tools/usd_python.sh \
-    /isaac-sim/AirStack/scene_gen/tools/bake_gac_kits.py --assets all'
+Generating 1 km DIRECTLY makes the fractions mean what they say and removes
+the whole crop/frame bug class with it.
 
-# 2. stale bakes — container-side, under $FB_OUT/city_<seed>/
-docker exec isaac-sim bash -c 'rm -rf /isaac-sim/.cache/fire_bakes/city_<seed>'
-```
+**2. The burnable-only pool cut caused the repetition.** The fire presets
+replaced `lowrise` 26 -> 7 and `midrise_v2` 22 -> 14 so everything was fuel.
+Of the 7 lowrise, exactly ONE sat inside the packer's area band for a large
+gap, so every large lowrise gap drew the same model — six identical department
+stores in a line, repeated verbatim on four blocks. Measured, cut vs full
+pools at 1 km:
 
-**`FB_OUT` accumulates and nothing prunes it.** It defaults to
-`/isaac-sim/.cache/fire_bakes` — CONTAINER path, not the repo, because the bakes
-are working files by the user's own instruction. `fire_city_bake.sh` appends
-`city_<seed>/`; `fire_bake.sh` writes flat into `$FB_OUT`. A re-bake at a
-different seed leaves the old stems in place, and a directory handed to the
-assembly quietly builds however many columns it finds — **always paste the
-explicit comma list the driver prints.**
+    distinct models      48-64  ->  75-88
+    copies per model    7.2-9.6 -> 4.8-5.9
+    in a <=60 m repeat  22.7-37.5 % -> 15.3-22.6 %
 
-**Never reuse an old manifest on a new dump.** Its record indices name whatever
-building sat at that cell in the dump it was solved against; `FIRE_MAX_H_M`
-(232.0, just above `Amar_Tower`'s 231.4 m) and the `dtc` pack blacklist
-(`Carved_`, `Building_11`, `Building_12`) are two more gates a stale manifest
-can silently disagree with. Re-solve.
+**3. The level ladder was not a fire ladder.** `downtown_fire_1500`, `_lvl2`
+and `_lvl3` were byte-identical in the fire — all `duration_s: 28800`,
+`start_offset_frac: 0.70`. Every level solved the same 5.6 h fire, by which
+point everything burning is burnt out, and the levels were separated only by
+`fire_city_union`'s post-hoc `rebalance_severity`. That is why "Level 1 —
+early / contained" shipped holding nothing but F4 and F5.
 
-**Rendering on a pod:** `OSMO_SSH_LOCAL_PORT=2204
-scene_gen/tools/render_preflight_fire.sh` content-hashes every module the city
-launcher imports transitively and refuses a render against stale files
-(`build-scenes-on-osmo`).
+**4. Multi-ignition selection produced a checkerboard.** Six ignitions each
+reaching three or four buildings reads as six unrelated incidents. Worse, the
+solver can only touch an asset that HAS a bake, so it routed around every
+unbaked building and left it pristine mid-block. Measured on the old L3: of
+the intact buildings within 60 m of a burning one, **27 were burnable and 27
+had no bake at all** — half the checkerboard was a bake gap, not fire
+behaviour. That is also, in hindsight, what finding 2's pool cut was really
+solving.
 
-## Stage 1 — the layout, and the placements dump
+## The model: one wind-driven corridor
 
-The presets: `downtown_fire_500` (500 m plate, `seed: 4`, asset-set
-`urban_gac`, `instance_placements: true`) and the three 1.5 km baseline levels
-`downtown_fire_1500{,_lvl2,_lvl3}`. `downtown_fire_500.yaml` restricts
-`usds.buildings.lowrise` (26 -> 7) and `midrise_v2` (22 -> 14) to burnable-only
-pools — an unburnable asset is a firebreak, and the shared `urban_gac` pools
-measured 10/15 `lowrise` and 10/29 `midrise` unburnable.
+`disaster/fire_corridor.py`. One origin, one front, running downwind.
+EVERY building in the swathe burns — that is the contiguity guarantee, and it
+makes the bake list a geometric consequence rather than a guess. Level comes
+from the compartment-fire clock (`soot_plume.DURATION_S`): a building at
+along-distance `s` ignites when the front reaches it, so the burnt-out tail
+sits at the origin and the fresh head at the front.
 
-```bash
-docker exec isaac-sim tmux send-keys -t isaac 'clear; \
-  ISAAC_SIM_HEADLESS=true SCENE_CONFIG=downtown_fire_500 \
-  SG_INSTANCE_PLACEMENTS=1 PYTHONHASHSEED=0 \
-  FC_INTACT_ONLY=1 \
-  FC_DUMP=/isaac-sim/AirStack/scene_gen/_plans/fc_dump_500.json \
-  SNAP_DIR=/isaac-sim/.nvidia-omniverse/logs/fire_city_intact \
-  PYTHONUNBUFFERED=1 PYTHONPATH="$ISAAC_SIM_PYTHONPATH" /isaac-sim/python.sh \
-  /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/urban_fire_city_launch_script.py \
-  --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --no-window' ENTER
-```
+Both axes ride the level, because both are consequences of the same thing — a
+fire running longer has covered more ground AND burnt it worse. The heading
+does NOT, so the three cells do not all burn along one diagonal.
 
-**`SG_INSTANCE_PLACEMENTS=1` and `PYTHONHASHSEED=0` on EVERY stage that
-touches layout, not just the bake driver — see the determinism section
-after Stage 7.** Both are load-bearing for Stage 1's dump to actually match
-what Stage 4 rebuilds from the same preset/seed; omitting either on one
-stage but not the other reproduces a different-looking city and every
-manifest record fails to find its cell.
+| level | city seed | area | heading | epoch |
+|---|---|---|---|---|
+| L1 | 3 | 14 % | 70° ENE | 0.22 (1.8 h) |
+| L2 | 18 | 24 % | 160° SSE | 0.45 (3.6 h) |
+| L3 | 23 | 33 % | 285° WNW | 0.75 (6.0 h) |
 
-`FC_INTACT_ONLY=1` builds the city, writes the dump and stops (only
-`city_top.png` is captured). `FC_DUMP` defaults to
-`scene_gen/_plans/city_placements_<preset>_<seed>.json`; the repo is
-bind-mounted 1:1 at `/isaac-sim/AirStack`, so the dump is host-visible.
+A corridor prefers to grow ALONG the wind; when the plate runs out of run at
+that heading (a diagonal crosses 1 km in 1414 m, an axis-aligned line in
+1000 m) it fans out instead. Without that fallback any non-45° heading is
+refused above ~25 % coverage.
 
-Regenerate the firebreak table whenever a pool, a typology's `pools:` list, a
-pack blacklist, `FIRE_MAX_H_M`, or `kit_substitute.route`/`bake_kind` changed:
+## Seed is a first-class parameter
 
-```bash
-python3 scene_gen/tools/gen_burnability_table.py --preset downtown_fire_500 --prove --seed 4
-```
+At 1 km there are ~33 district nuclei against ~75 at 1.5 km, so the mix is
+high-variance: across 24 seeds, highrise+tower ranged **14.7 %-48.1 %** of
+block area. Do not take the preset's seed on faith.
 
-Writes `scene_gen/config/harvested/burnability_table.json` (CHECKED IN;
-`assets[typology][asset_basename] -> bool`, 79 rows over 6 typologies).
-**Gate:** the two `[prove] ... (must be 0)` intersections both read 0 and it
-prints `PROOF OK`; it exits 1 on `PROOF FAILED`. Keyed by TYPOLOGY, not pool —
-the `midrise` typology draws from pool `midrise_v2`.
+    python3 scene_gen/tools/pick_city_seed.py \
+        --config downtown_urban_1000 --region 1000 --seeds 0-23 \
+        --out scene_gen/_plans/seed_pick.json
 
-**Trap — instancing ghosts.** A placement whose composed ROOT prim is itself a
-Mesh renders as nothing (or flat grey) once `SetInstanceable(True)` is applied:
-measured 14 of 110 distinct assets, 161 of 1,469 placements. `apply_placements`
-now refuses it and `FC_UNINSTANCE_GPRIM_ROOTS=1` (default) repairs it again at
-the launcher; diagnose with `scene_gen/tools/fc_instance_material_probe.py`.
+Scores each seed against the same bands the review sheets and the pytest gates
+use, hard-gates on empty blocks, ranks them. Re-run it after ANY change to the
+subdivider or the districts config — those move every layout and invalidate
+the committed seeds.
 
-## Stage 2 — the fire manifest
+## The two commands
 
-One ignition is a Dijkstra tree from one origin; some origins reach 30
-buildings, some reach 1. Solve once per seed on the SAME dump, then union.
+    # HOST — CPU only. Layout, corridor, bake worklist, review PNGs, gates.
+    bash scene_gen/tools/make_cell_plan.sh                 # all three levels
+    LEVELS=1 bash scene_gen/tools/make_cell_plan.sh        # one
 
-```bash
-# ONE seed. --preset for a fresh layout; --placements-json against stage 1's
-# dump is the normal path. Host-side, no Kit, no docker, no Nucleus.
-cd scene_gen && uv run --python 3.13 --with usd-core --with numpy --with pyyaml \
-    python tools/fire_city_dry_run.py --placements-json _plans/fc_dump_500.json --n 16
-```
+    # POD — bake, assemble, people, freeze, verify.
+    FC_ACK_LAYOUT_GAPS=1 bash scene_gen/tools/urban_fire_cell.sh 1
+    BAKE_ARGS=--dry-run  bash scene_gen/tools/urban_fire_cell.sh 1   # preview
 
-Args: `--preset downtown_fire_500`, `--seed`, `--n 16`, `--collapse 1` (target
-F5c count), `--roof-collapse-max` (overrides `ROOF_COLLAPSE_MAX_DEFAULT`, 2),
-`--out`, `--md`. Defaults to `scene_gen/_plans/fire_city_<seed>.json` +
-`_report.md`. **Gate:** six checks (`district_rule`, `contiguity`,
-`level_distribution`, `entry_points`, `bakeability`, `footprint`) plus
-`determinism` all print `PASS`; the tool exits 1 otherwise.
+The split is the point: a 1 km city lays out in ~90 s on CPU and costs hours
+on a pod. Every decision that can be made from arithmetic is made and reviewed
+on the host, and the pod only ever sees a plan that already passed.
 
-```bash
-# MANY seeds, unioned. Explicit and reproducible:
-python3 scene_gen/tools/fire_city_union.py scene_gen/_plans/fc_dump_500.json \
-    --seeds 43,35,0 --n 40 --collapse 1 --roof-collapse-max 2 \
-    --out scene_gen/_plans/fire_city_500m.json \
-    --md  scene_gen/_plans/fire_city_500m_report.md
-# or let it find its own seeds against a REPLACEMENT dump:
-python3 scene_gen/tools/fire_city_union.py scene_gen/_plans/fc_dump_NEW.json --auto \
-    --sweep-max 500 --target-min 20 --target-pref 26 --out ... --md ...
-```
+**Look at the four sheets before spending a pod.** `<REVIEW_DIR>/L<N>_*`:
+`districts` (zoning, every block labelled), `diversity` (same-model pairs
+within 60 m ringed in red), `blockshapes` (block-size monotony per district),
+`damage` (where the fire runs, and a dashed ring for any manifest record that
+matched no building — that is what a frame shift looks like).
 
-`--auto` selects on CONCENTRATION (`adjacency_share`, `n_components` at
-`--adjacency-m 25`, `street_facing_share`), not raw count. `--profile
-baseline_l1|l2|l3` carries the built intensity ladder (burn fractions 0.12 /
-0.26 / 0.38, roof-collapse budgets 0 / 2 / computed). `--max-records N` also
-writes a VRAM-constrained subset beside `--out` as `<out>_<N>.json` — ~250 MB per
-composed bake measured, so a full union does not fit a 16 GB card but does fit a
-32/48 GB one. **Gate:** the same PASS table plus `subset stem verification: PASS`.
+## Gates, and why each one exists
 
-**The crop / frame rule — the bug that shipped three cells.** For the dataset's
-1 km contract on a 1.5 km plate:
+The recorded failure mode here is NOT a crash. It is a run that prints every
+count correctly, exits 0, and ships a cell with nothing in it. So the pod
+script asserts on OUTPUT, never on exit codes:
 
-```bash
-python3 scene_gen/tools/fc_dump_crop.py --in scene_gen/_plans/<dump>.json \
-    --centre 60 90 --size 1000 1000 --out scene_gen/_plans/<dump>_crop.json
-#   (or --window X0 Y0 X1 Y1; --no-recenter is for debugging the crop math only)
-```
+| gate | what it catches |
+|---|---|
+| `FREEZE_EXPORT=1` | defaults to `"0"` (freeze script:259) — without it the freeze captures snaps, writes GT, and **never writes a USD** |
+| `FC_BAKES="$FB_OUT/city_<seed>"` | `fire_city_bake.sh:258` appends `city_<seed>`; the assembly globs `FC_BAKES/*.usd` **non-recursively** (launcher:908). Point it at the parent and ZERO bakes compose — you get the intact city, silently |
+| `freeze_report.json` -> `portable_ok`, `sky_lights>0`, bbox ~1 km | `PortabilityError` is raised, caught, printed, and the process still exits 0 (freeze script:884-903) |
+| `grep 'Flow OOM check CLEAN'` | "does not crash and does not raise. It renders a city with NO smoke in it." `Kit log not found` is neither a pass nor a fail — treat as failure |
+| `manifest/city match: N/N` | the offline dump is a CPU reimplementation of what Kit builds; nothing else proves they agree. A mismatch reads as `4/34` and composes bakes onto the wrong buildings |
+| `FB_REST_STRICT=1` | NOT-AT-REST is data loss, not a warning — moving bodies are DELETED from the export and the cell ships missing debris, while the driver exits 0 |
+| stale-bake clearing | the cache keys on `<stem>.usd`+`.json` EXISTING, so a pre-2026-09-02 bake with mirrored-atlas soot or roof-piercing columns classifies HAVE and is skipped forever. A settle does not reproduce — delete, never "re-run to get the same pile" |
+| cold re-verify | the in-process gate verifies a file the same process just wrote. The `ComputeAllDependencies` `_UnpackValue` fallback here is normal, not a defect |
+| `fire_people_rerun.sh` | `fire_people.py` has **no argparse and no `__main__`** — calling it as a module is a silent no-op |
+| audit numbers, not exit code | `city_layout_audit.py` has no `sys.exit`; `\|\| die` on it is decorative |
+| `/dev/shm`, `ISAAC_SIM_PYTHONPATH`, `PYTHONUNBUFFERED`, container auto-detect | bus errors on a 64 MB shm; vtk vanishing inside a live SimulationApp; a bake that wrote 72 archetypes and printed nothing; `isaac-sim` vs `isaac-sim-livestream` |
 
-Such a dump is RE-CENTRED, so every record solved on it carries cropped
-coordinates and the stamp `x_orig`/`y_orig` is the only full-city value on it.
-`record_xy` is the ONE coordinate rule (`x_orig` wins), `compose_bakes` uses it,
-and `load_fire` un-shifts on the stamp whether or not `FC_CROP_WINDOW` is set;
-set `FC_CROP_WINDOW=cx,cy,W,H` at launch to deactivate everything outside the
-window (it never resizes or translates the stage). Getting this wrong put every
-bake one window-centre off its cell: "buildings are spawning on top of the road,
-they are empty blocks" (user, 2026-09-01). See `reassemble-buildings-in-frame`.
+`FC_ACK_LAYOUT_GAPS=1` is required because `final_disaster_dataset/Fire/Urban`
+is under a do-not-rebuild hold (see "Still open" above) and that is
+exactly where `FREEZE_OUT` defaults.
+
+## Layout variance knobs — all OFF by default
+
+Every one perturbs the RNG stream, so `downtown_gac`, the 500 m scenes and
+`downtown_earthquake` reproduce draw-for-draw only while they are off. The
+shared base turns them on; a pytest gate asserts the defaults.
+
+* `districts.pack_min_candidates` — widen the packer's area band until it
+  offers N distinct assets. Removes the pathological one-candidate case where
+  all four anti-repeat rules are inert by construction. **On its own this is
+  roughly neutral** (rep-share moved both ways across seeds); the lever is
+  pool size, not the band.
+* `districts.repeat_hard_ladder` — retry the hard repeat radius at R/2 before
+  failing open.
+* `districts.per_block_rng` — a per-block packing RNG. **Measured: this does
+  NOT fix same-district repetition** (0/40 comparable block pairs had
+  identical layouts even with it off). Kept because it costs nothing, but the
+  cause was elsewhere — see below.
+* `layout.anisotropic.target_jitter` — **this is the one that mattered.** The
+  first split cuts the plate into STRIPS and every block inherits its strip's
+  long side, so long sides landed on ~4 values city-wide (eight consecutive
+  245 m blocks, then six at 235 m). Jitter the per-cell target and that breaks
+  up: **4 -> 25 distinct long sides**, tower CV 0.02 -> 0.30.
+
+Two traps inside that last one, both found by measurement:
+raising the target's LOWER bound makes a cell unsplittable (`_recurse` needs
+`w >= 2*t_lo + road`) and emitted a 463 m block against a 340 m ceiling — the
+low bound must move DOWN. And lowering it on EVERY cell shrank the whole city:
+block variety improved but repeat share went 8.9-13.2 % -> 14.7-19.2 % and no
+seed scored 0.00. Restricting the reduction to a quartile (`_LO_JITTER_SHARE`)
+keeps the variety at 12.9-15.0 %. **That is a genuine trade, not a free win.**
+
+## Brownstone variance
+
+`Reference_Brownstone<N>Row` is not N houses — it is ONE 6.67 m facade merged
+N times, in all seven row assets. Mixing row LENGTHS therefore gives zero
+facade variance. `disaster/aec_variety.py` tints brick tone, trim and door per
+unit over the MDL brick (a tint, not a replacement — replacing it discards the
+mortar and courses), reusing `aec_burn`'s proven unit addressing and composing
+with soot rather than fighting it. `AEC_VARIETY=0` disables.
+
+Per-unit GEOMETRY variance, and per-unit collapse under fire, need the row
+sliced — see `slice-buildings-into-kits`. Not done.
+
+## Review imagery
+
+Two bugs fixed in `disaster/baseline_captures.py`:
+
+* the overview was hardcoded to `(0, 0)`, so any cell not centred on the stage
+  origin photographed the wrong ground;
+* its height came from the HORIZONTAL aperture alone, but captures are
+  1280x720 and `place_camera` authors only `horizontalAperture` — vertical
+  coverage was ~0.62*span, so a square 1 km plate was framed to roughly its
+  **middle 60 %**. `overview_height_m` now solves against the smaller
+  half-angle: **1619 m for a 1 km plate where the old rule gave 950 m.**
+
+New `blocks/` family: one plumb top-down per city block. The `districts/`
+family shoots BURNING CLUSTERS, which on a one-corridor fire is a single
+component — three frames for the entire cell.
+
+## Still open
+
+* The `manifest/city match` gate is wired but has never been exercised against
+  a real Kit build. Do the one-time `FC_INTACT_ONLY=1 FC_DUMP=` diff on the
+  pod before trusting the offline dump.
+* **The empty-block hold — believed resolved, not yet signed off.** A separate
+  investigation recorded "~70 % of city blocks ship empty" and put
+  `final_disaster_dataset/Fire/Urban` under a do-not-rebuild hold. That figure
+  did NOT reproduce: an offline seed-4 `downtown_fire_1500` build fills **105
+  of 106 blocks** (the 106th is the park), the shipped `level_1` USD has zero
+  buildings off-block, and **24 of 24 swept seeds had zero empty blocks**. The
+  number is what you get counting CROPPED content (320 houses) against
+  UNCROPPED block rects (106) — the same frame confusion as the level_3 bake
+  shift. Generating 1 km directly dissolves it either way. The hold is still
+  enforced in code (`FC_ACK_LAYOUT_GAPS=1`) until whoever set it agrees.
+* Only fire has a corridor. Tornado, quake and a future urban hurricane still
+  need their own damage stage on top of this layout.
+
+
+# REFERENCE — the later stages, unchanged
+
+Stages 3-7 below are the ORIGINAL pipeline's and remain accurate: the
+corridor work replaced how buildings are CHOSEN, not how they are baked,
+assembled or frozen. The gate table above supersedes any gate wording
+here that conflicts with it.
 
 ## Stage 3 — the bakes: one building, one Kit process
 
@@ -504,42 +548,3 @@ Paths are relative to `scene_gen/`, except `launch_scripts/` =
 | `disaster/urban_fire_city.py` | `bake_kind`, `burnable`, `damaged_manifest`, `entry_string` |
 | `disaster/aec_burn.py` | `LADDER`, `pick_units`/`parse_units`, `measure_row`/`plan_row`/`damage_row`/`author_row`/`burn_row`, `flames_row` |
 | `disaster/gac_fire.py` | `PACKS`, `place_source`, `bake_atlases` (the 3D shared-texel test) |
-
-## Known gaps / next
-
-* **The lost wall is bricks and its own fittings, no slabs.** In an `aec`
-  F5 bake the cut-out wall becomes `RUBBLE_BRICKS` brick-sized bodies plus
-  the window trims, doors and wall packs that sat in the lost region
-  (`_lose_wall`, "wall_part": rigid bodies with the wall's outward push —
-  left in place they hung in the hole as "floating window borders", user
-  2026-09-02); `WALL_STRIP_BODIES = False` because settled wall strips read
-  as grey concrete panels in the street. Verified offline only (F5 probe:
-  893 loose bodies, 11 wall parts on the 5Row); the first settled bake of it
-  is still to be looked at.
-* **The AEC bake path has never been run inside a real cell.** `build_aec` is
-  wired and its pure helpers are covered by `scene_gen/tests/test_aec_burn.py`,
-  but every render so far is from `aec_material_probe` / `aec_gac_showcase`,
-  not from `fire_city_bake.sh` -> the city launcher. Watch the holder frame and
-  the export on the first city run.
-* **The AEC export references the container-local asset path.** The brownstone
-  tree is mirrored at
-  `omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/`
-  with relative references, so a Nucleus-anchored `AIRSTACK_ASSET_ROOT` resolves
-  it by construction — but the soot PNGs are not, and `_lose_wall`'s re-authored
-  remainder binds the LIVE source material because the self-contained clone
-  renders white. Run the portable pass, then check `build_local` on the cell.
-* **`FB_UNITS` does not reach a city bake.** `fire_bake.sh` passes it through,
-  `fire_city_bake.sh` does not, so an `aec` record in a city manifest always
-  takes `pick_units`' seeded contiguous draw (one or two units, two 70% of the
-  time). Fine for variety, not controllable per record yet.
-* **Per-piece atlas routing costs texture memory.** An atlas that now correctly
-  flags TILED takes the post-slice per-piece bake at `SOOT_BAKE_PX_SLICE` (256,
-  128 small) instead of one shared atlas. Shares that flip:
-  `M_Building_05_WallBack` 0% by height vs 100% in 3D; `SM_Building_02`'s
-  `Concrete` 4% vs 98%, awnings and trim 76-100%. Budget for it.
-* **The Flow budget is per-file and unguarded** — no runtime check that a given
-  scene/GPU has the VRAM before Flow allocates. Past the defaults above, the
-  OOM grep is the only truth; the banner is not.
-* **`tower`/`highrise` pools are still not burnability-restricted** — no
-  burnable substitute exists at that footprint class, so their unburnable
-  fraction stays a firebreak by default.

@@ -1,0 +1,299 @@
+# raven_shared_t250_2robot — TWO drones, frozen RavenSuburbTornado250, shared
+# off-board RayFronts, `person` search, BAGS RECORDED.
+#
+# The two-robot half of tonight's live RAVEN test — robot_1 20 m from the
+# fully-exposed casualty, robot_2 20 m from the partially-covered one, on
+# opposite sides of the corridor (~42 m apart in the host dry run).
+# Adapted from osmo/missions/raven_single_shared_test.yaml; every deviation
+# from that file is marked "DIFF:" below. Its 1-robot twin is
+# osmo/missions/raven_shared_t250_1robot.yaml.
+#
+# RUN THE 1-ROBOT MISSION FIRST. If two drones fail, you cannot tell a
+# shared-mapper bug from a round-robin/VRAM one; if one drone worked, you
+# can.
+#
+#   python3 osmo/workspace/mission_runner.py \
+#       osmo/missions/raven_shared_t250_2robot.yaml --airstack-root "$(pwd)"
+#
+# WHAT mission_runner.py DOES WITH THIS FILE (read osmo/workspace/
+# mission_runner.py if you want to check):
+#   * it NEVER edits .env. `Stack.__init__` takes os.environ.copy(), merges
+#     this `env:` block on top, and hands that to `./airstack.sh up` as the
+#     subprocess environment — so these values beat .env for this run and
+#     revert the moment the process exits. A key NOT named here falls through
+#     to .env.
+#   * `stack.services` becomes `./airstack.sh up isaac-sim robot-desktop gcs
+#     offboard-compute` verbatim.
+#   * every iteration begins with `ensure_down()` — IT TEARS THE WHOLE STACK
+#     DOWN FIRST, including a running isaac-sim — and ends with `down()`.
+#     Do NOT run this while you still need the container Stage 1 built in.
+#     (The frozen cell is on disk by then, so nothing is lost.)
+#   * `record:` starts `ros2 bag record -s mcap` inside the containers,
+#     writing to /osmo_bags (host: <repo>/osmo/bags), then MOVES the bags to
+#     <repo>/osmo/results/<mission>_<stamp>/iter_001/bags/ before teardown.
+#   * a `semantic_search` step becomes, on the default `command_route: gcs`,
+#     a std_msgs/String JSON goal published to
+#     /robot_N/tasks/semantic_search/goal on GCS domain 0 (the same path
+#     Foxglove uses) with the `goal:` mapping below serialised as that JSON.
+#
+# PREREQUISITE this file cannot satisfy: FROZEN_SCENE must already exist.
+# That is scripts/raven_live/stage1_freeze.sh + validate_freeze.sh.
+#
+# GPU BUDGET — one 16 GB card. Isaac alone measured 14.2 GiB on the UNDAMAGED
+# 250 m suburb; this cell has more geometry, and this mission also starts the
+# RayFronts encoder (~3-4 GiB) and the VLM (~3 GiB at 3B/nf4). Real OOM risk.
+# The fallback ladder is in scripts/raven_live/flight_checklist.md — drop the
+# VLM first.
+
+name: raven_shared_t250_2robot
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs, offboard-compute]
+
+env:
+  # DIFF: two robots.
+  NUM_ROBOTS: 2
+  # DIFF: GUI on — a human is watching this run.
+  ISAAC_SIM_HEADLESS: "false"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  # The compose entry is ${PLAY_SIM_ON_START} with NO :- default, so leaving
+  # it out renders EMPTY and PegasusApp.play_on_start becomes False: the
+  # timeline never starts, /clock never ticks, and takeoff times out looking
+  # like a PX4 fault.
+  PLAY_SIM_ON_START: "true"
+
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  FROZEN_SCENE: /isaac-sim/AirStack/_test_freeze/raven_suburb_tornado_250
+  RESULTS_SCENE: RavenSuburbTornado250
+  # Clear it: FROZEN_SCENE wins anyway, but a leftover value makes the
+  # launcher print "SCENE_CONFIG=... is IGNORED" on every start.
+  SCENE_CONFIG: ""
+
+  # MOVED 2026-09-02 (live incident): both validate_freeze spawns sat INSIDE
+  # tree bboxes (its spawn search never checked
+  # RavenSuburbTornado250_obstacles.json) — the 1-robot run wedged in the
+  # canopy at takeoff. Replacements are obstacle-checked open points:
+  #   robot_1 (-58,-31): N-S road corridor, clearance 7.0 m, facing east down
+  #     the line idx28 (28 m) -> probed pair idx16/idx17 (~44 m), yaw -4.5 deg.
+  #   robot_2 (4.6,-72.8): clearance 3.4 m (best available in idx10's dense
+  #     block), 10 m from probed casualty idx10 (-4.79,-69.42), facing it
+  #     (yaw 160 deg). 75 m separation between the two spawns.
+  SPAWN_CONFIGS: '[{"x_m": -58.0, "y_m": -31.0, "orient": [0.0, 0.0, -0.0397, 0.9992]}, {"x_m": 4.6, "y_m": -72.8, "orient": [0.0, 0.0, 0.9851, 0.1719]}]'
+
+  ARCH_DIR: /isaac-sim/AirStack/scene_gen/assets/archetypes_tornado
+  PEOPLE_JSON: /isaac-sim/AirStack/_test_freeze/raven_suburb_tornado_250/humans_10.json
+  # ARCH_DIR/PEOPLE_JSON/TOR_* are all inert on the FROZEN_SCENE path (the
+  # people plan only runs under _BUILT) — kept for consistency with Stage 1.
+  GT_ANNOTATIONS: "on"
+
+  # Colliders on EVERY mesh (exact trimesh) — with the default `ground`
+  # the drone flew straight through houses (live 2026-09-02).
+  # colliders stay at the cheap `ground` default: avoidance is the
+  # PLANNER's job (mighty on the 360-degree lidar below); physics
+  # colliders would only turn a fly-through into a crash.
+  SUBURB_COLLIDERS: "ground"
+  ENABLE_LIDAR: "true"   # mighty maps from the Ouster now — 360-degree avoidance
+  MIGHTY_CLOUD_SUFFIX: "sensors/ouster/point_cloud"
+  MIGHTY_CLOUD_FRAME: "ouster"
+  MIGHTY_V_MAX: "1.0"   # slowed from 1.5 — see 1robot file's note
+  MIGHTY_OVERRIDE_PERIOD_S: "0.2"   # rung 1: 5x fresher trajectory anchors
+  MIGHTY_SEGMENT_STRIDE: "2"        # rung 1: denser corner tracking
+  # rung 2: trajectory feedforward through the pid cascade (planned velocity
+  # into the position loops, planned acceleration into the velocity loops).
+  PID_POS_FF: "1.0"     # exact planned-velocity feedforward
+  PID_VEL_FF: "0.102"   # ~1/g: planned accel [m/s^2] -> small-angle tilt [rad]
+  PID_VZ_FF: "0.0"      # thrust-axis ff left off (unknown thrust scaling)
+  RAVEN_VOX_SIZE_M: "0.3"    # matches shared_humans mapping.vox_size 0.30
+  RAVEN_VOXEL_MAX_EXTENT_M: "3.0"   # person-sized clusters only; measured FPs were 4-4.5 m piles
+  # frontier flight quality (user, live 2026-09-02): spread out over the
+  # plate instead of dithering locally; hold altitude between frontier hops.
+  RAVEN_FRONTIER_NOVELTY_W: "100.0"
+  RAVEN_FRONTIER_MAX_DZ_M: "2.0"   # max altitude change per frontier hop
+  ZED_WIDTH: "960"   # person = 1-2 ViT patches at 480 wide beyond 15 m — the measured detection limit
+  ZED_HEIGHT: "600"
+  # DIFF, AND THE IMPORTANT ONE. .env has ZED_PITCH_DEG=30, and
+  # raven_single_shared_test.yaml does not override it, so that 30 leaks in.
+  # This tilts the camera PRIM in Isaac; the URDF models no mount pitch, so TF
+  # cannot see the tilt and each consumer has to be told separately.
+  # search_planner (CoNavGPT/VLFM) reads this same variable for exactly that
+  # reason — RayFronts does NOT. Its dataset config
+  # (common/rayfronts/rayfronts/configs/dataset/multi_ros2isaacsim.yaml) takes
+  # the pose straight off /{robot}/odometry_conversion/odometry with
+  # src_coord_system: flu and assumes the camera is aligned with the body.
+  # Grep-verified: ZED_PITCH_DEG appears nowhere in raven_nav,
+  # semantic_search_task or common/rayfronts_configs. Left at 30, every voxel
+  # unprojects 30 deg off — a quietly, systematically wrong map that reads as
+  # "RayFronts can't find anything".
+  ZED_PITCH_DEG: "0"
+
+  DRONE_Z_M: "1.0"          # inert here — grep-verified, only
+                            # modular_house_preview_launch_script.py reads it.
+                            # Kept equal to SPAWN_HEIGHT_M so nobody "fixes" a
+                            # disagreement that does not exist.
+  SPAWN_HEIGHT_M: "1.0"     # the one the importer actually reads
+  MAP_ANCHOR_ENU: "true"
+
+  # ── RAYFRONTS_MODE=shared ────────────────────────────────────────────────
+  RAYFRONTS_MODE: shared
+  START_RAYFRONTS_SERVER: "true"
+  START_DETECTOR_SERVER: "false"
+  START_ITM_SERVER: "false"
+  RAYFRONTS_CONFIG: shared_humans
+  # DIFF: explicit rather than left to offboard_compute.sh's 1..NUM_ROBOTS
+  # default, so the mapper's dataset.robot_ids cannot silently disagree with
+  # how many robots actually came up.
+  RAYFRONTS_ROBOT_IDS: "1,2"
+  RAYFRONTS_COMPUTE_PROB: "True"
+  # Open-set PROBES (diagnostic; never query columns, so the softmax raven
+  # thresholds on is untouched). Alternative wordings scored against the map:
+  RAYFRONTS_PROBE_PROMPTS: "person lying down,person lying on the ground,casualty,human body,mannequin"
+  # GT casualties nearest the flight paths (world FLU x,y): idx17 exposed,
+  # idx16 midriff-covered, idx10 feet/shins-covered.
+  RAYFRONTS_PROBE_POINTS: '[[-12.87,-33.52],[-15.06,-35.4],[-4.79,-69.42]]'
+  # The contrast set for the per-prompt SOLO softmax the probe rows log
+  # (raw/solo). MUST stay byte-identical to background_queries below: solo
+  # answers "what would this wording score if it REPLACED person as the sole
+  # positive against the same background", so a different list makes the
+  # number incomparable to voxel_score_threshold. Needed explicitly because
+  # shared_humans.yaml ships querying.query_file: null, so the mapper has no
+  # other way to tell target from background.
+  RAYFRONTS_PROBE_BACKGROUND: "road, grass, tree, house, debris, sky, car, utility pole, street light, hydrant, crosswalk"
+  VLM_URL: http://offboard-compute:8000/v1
+  RAVEN_LVLM: "false"
+  START_VLM_SERVER: "false"  # rung-1: 2 drones + 2 lidars need the ~4 GiB; LVLM tier stays untested tonight
+  CONAVGPT2_VLM_MODEL: Qwen/Qwen2.5-VL-3B-Instruct
+  CONAVGPT2_VLM_QUANT: nf4
+  # RAVEN_LVLM left UNSET on purpose: raven_nav's default is true, and the var
+  # is a BARE-NAME compose passthrough, so an empty string here would BEAT
+  # that default. Only ever set it to the literal "false" (the OOM fallback).
+
+  # DIFF: .env line 179 says LOCAL_PLANNER=mighty, and the vendored asm_mighty
+  # arm has never been flown on this branch. raven_nav publishes the GLOBAL
+  # plan; the LOCAL planner is what flies it. Pin the known-good one so this
+  # bring-up test has exactly one new thing in it. Delete this line to accept
+  # .env's mighty deliberately.
+  LOCAL_PLANNER: droan
+
+  # The robot's OWN autolaunch bag recorder — off, because `record:` below is
+  # what records, and two recorders double the disk and CPU for nothing.
+  RECORD_BAGS: "false"
+
+# 250 m plate centred on the origin, +/-125 m per axis.
+# RESTRICTED 2026-09-02: the DAMAGE hull from RavenSuburbTornado250_region
+# .json (all 30 casualties + both spawns inside) — see the 1robot file's
+# comment for provenance. Replaces the full-plate square.
+search_area_250_plate: &search_area_250
+  points:
+    - {x: -125.0, y: -124.064, z: 0.0}
+    - {x: -116.638, y: -125.0, z: 0.0}
+    - {x: -65.328, y: -125.0, z: 0.0}
+    - {x: -62.061, y: -124.543, z: 0.0}
+    - {x: -33.519, y: -111.861, z: 0.0}
+    - {x: -2.565, y: -93.096, z: 0.0}
+    - {x: 30.628, y: -67.245, z: 0.0}
+    - {x: 109.188, y: 2.942, z: 0.0}
+    - {x: 119.366, y: 22.756, z: 0.0}
+    - {x: 123.038, y: 35.172, z: 0.0}
+    - {x: 124.815, y: 46.943, z: 0.0}
+    - {x: 124.815, y: 73.06, z: 0.0}
+    - {x: 121.079, y: 74.47, z: 0.0}
+    - {x: 105.535, y: 74.47, z: 0.0}
+    - {x: 92.917, y: 72.332, z: 0.0}
+    - {x: 70.988, y: 68.516, z: 0.0}
+    - {x: 26.655, y: 48.613, z: 0.0}
+    - {x: -25.216, y: 2.42, z: 0.0}
+    - {x: -32.946, y: -4.56, z: 0.0}
+    - {x: -95.064, y: -64.687, z: 0.0}
+    - {x: -125.0, y: -105.031, z: 0.0}
+
+on_step_failure: abort_iteration
+
+steps:
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 8.0, velocity_m_s: 0.5}
+      timeout_s: 180
+
+  - wait: 5
+
+  - action:
+      task: semantic_search
+      timeout_s: 900
+      cancel_on_timeout: true
+      pass_on_feedback: true
+      goal:
+        query: "person"   # REVERTED to the single OG query (2026-09-02 late): with
+        # debris in the background the casualty column adds nothing (buried
+        # bodies zero out regardless) and the summed two-positive gate was
+        # LOOSER than its single-positive calibration — two correlated
+        # human-words each take ~0.3 of the softmax on ambiguous clutter,
+        # the sum crosses the gate, and the ray tier sprayed 5x4.5 m
+        # confirmed-person boxes over debris (live 21:1x).
+
+        # common/rayfronts_configs/background_humans.txt, verbatim (33
+        # labels), comma-joined. Keep in sync by hand — the mission schema has
+        # no include/file mechanism.
+        background_queries: "road, grass, tree, house, debris, sky, car, utility pole, street light, hydrant, crosswalk"  # user 2026-09-02: og six + car, utility pole, street light, hydrant, crosswalk
+        search_area: *search_area_250
+        min_altitude_agl: 2.5
+        max_altitude_agl: 12.0
+        min_flight_speed: 0.5
+        max_flight_speed: 1.0
+        confidence_threshold: 0.95
+        # Softmax probability (RAYFRONTS_COMPUTE_PROB=True), not raw cosine —
+        # raw similarities top out ~0.16 and this gate would reject
+        # everything. 0.5 is a GUESS for a human-sized target; tune from the
+        # first run's debug/voxel_table and rays_sim/q*_person peaks.
+        voxel_score_threshold: 0.75  # 0.6 -> 0.75 (user 2026-09-02 night: FPs up after vox 0.3 + 12-label vocab; gates recalibrated)
+        score_threshold: 0.85  # RAY gate (2026-09-02 late): 0.5 was the 33-label-dilution value; with the 7-label vocab rays at 0.5-0.7 are the FP band (synthesized 4x6.5 m boxes with nothing lit at 0.6) — OG ran 0.95
+        # At vox 0.3 a lying human is ~6x2x1 = 12+ voxels (was ~4 at vox 0.5);
+        # 12 rejects the sub-0.3 m^3 blobs that flooded in after the vox
+        # change while every human pose still clears it.
+        voxel_min_cluster_size: 12
+
+  # Land is optional: by the time it runs the gating step has already
+  # produced its result, and a failed land must not fail the iteration (or
+  # discard the bag).
+  - action:
+      task: land
+      goal: {}
+      timeout_s: 180
+      optional: true
+
+# Both scopes. The GCS recorder (domain 0) catches everything dds_router
+# bridges; the per-robot recorders catch the NEW shared-mode/debug signals
+# that nothing bridges today — rayfronts/status, debug/voxel_table,
+# raven_nav/lvlm_request (grep-verified absent from dds_router.yaml and
+# gossip_payloads.yaml).
+record:
+  scope: both
+  # DIFF: the bags ARE the deliverable of this run. Abort the iteration rather
+  # than fly unrecorded.
+  required: true
+  topics:
+    - /tf
+    - /tf_static
+    - /{robot}/odometry_conversion/odometry
+    - /{robot}/global_plan
+    - /{robot}/navigation_mode
+    - /{robot}/raven_nav/discoveries
+    - /{robot}/raven_nav/confirmed_targets
+    - /{robot}/raven_nav/lvlm_trigger
+    - /{robot}/raven_nav/lvlm_request
+    - /{robot}/raven_nav/guiding_objects
+    - /{robot}/debug/voxel_table
+    - /{robot}/debug/ray_table
+    - /{robot}/rayfronts/status
+    # Full-map snapshots — the cross-restart record under the OOM-restart
+    # supervisor (see the 1robot file's note).
+    - /{robot}/rayfronts/msg_serv/voxels_sim/all
+    - /{robot}/rayfronts/msg_serv/rays_sim/all
+    - /{robot}/rayfronts/voxel_rgb
+    - /gcs/robot_markers
+    - /gcs/payload/{robot}/filtered_rays
+    - /gcs/payload/{robot}/filtered_frontiers
+    - /gcs/payload/{robot}/explored_area_coverage
+    - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/navigation_mode
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes

@@ -1122,6 +1122,15 @@ class _Skyline:
         self.tall_min_h = float(cfg.get("tall_min_h_m", 0.0))
         self.tall_gap = float(cfg.get("tall_min_gap_m", 0.0))
         self.tall_fallback = 0
+        #: retry the hard repeat radius at R/2 before failing open
+        #: (`districts.repeat_hard_ladder`). OFF reproduces the original
+        #: single-radius draw exactly — see `_pick`.
+        self.hard_ladder = bool(cfg.get("repeat_hard_ladder", False))
+        #: slots where even the halved hard radius could not be satisfied —
+        #: see `_pick`'s ladder. A nonzero count on a scene that sets
+        #: `repeat_hard_radius_m` means the pool is too thin for the block
+        #: sizes it is being asked to fill, not that the rule is off.
+        self.hard_fallback = 0
 
         self.used: dict = {}            # usd -> times placed
         self.at: dict = {}              # usd -> [(x, y)] of each placement
@@ -1286,13 +1295,39 @@ class _Skyline:
                 # member of the pool can still fill the slot, and count it.
                 self.tall_fallback += 1
         if self.hard_r2 > 0.0:
-            hard = [(e, wi) for e, wi in zip(candidates, w)
-                    if not self._within(e[0], x, y, self.hard_r2)]
-            if hard:
-                candidates, w = (list(t) for t in zip(*hard))
-            # else: every candidate already has a copy inside the hard
-            # radius — fall through to the soft path below with the ORIGINAL
-            # lists, because something still has to fill this slot.
+            # A LADDER, not a single try. The original went straight from
+            # "no candidate is clear of the full radius" to the soft path,
+            # which throws away a real distinction: a twin 44 m away and a
+            # twin 5 m away both failed a 45 m test, but only one of them is
+            # the defect a viewer reacts to. Halving the radius once keeps
+            # the near-touching case excluded even when the strict radius
+            # cannot be satisfied by anything in the pool.
+            #
+            # Still fails open at the end, and for the original reason:
+            # something has to fill this slot. `hard_fallback` counts how
+            # often it got that far, so a pool too thin for its own scene
+            # shows up in the build log instead of silently reading as
+            # "the repeat rules are on".
+            # `hard_ladder` is OFF by default and the single-radius branch is
+            # kept verbatim, for the same reproducibility reason
+            # `PACK_MIN_CANDIDATES` documents: narrowing the candidate list
+            # changes which entry a draw picks and perturbs the RNG stream
+            # for every later draw in the scene. MEASURED: with the ladder
+            # unconditional, seed 4 at 1 km moved 459 -> 434 houses.
+            radii = ((self.hard_r2, self.hard_r2 / 4.0) if self.hard_ladder
+                     else (self.hard_r2,))
+            for _r2 in radii:
+                hard = [(e, wi) for e, wi in zip(candidates, w)
+                        if not self._within(e[0], x, y, _r2)]
+                if hard:
+                    candidates, w = (list(t) for t in zip(*hard))
+                    break
+            else:
+                # else: every candidate already has a copy inside the hard
+                # radius — fall through to the soft path below with the
+                # ORIGINAL lists, because something still has to fill this
+                # slot.
+                self.hard_fallback += 1
         if self.repeat > 0.0:
             w = [wi / ((1.0 + self.used.get(e[0], 0)) ** self.repeat)
                  for e, wi in zip(candidates, w)]
@@ -2310,9 +2345,110 @@ def _yaw_score(bw: float, bh: float, yaw: float, block_rect, meta: dict,
             _depth_into_block(bw, bh, fsides))
 
 
+#: Fewest DISTINCT assets `_pack_free`'s area band must offer before the band
+#: stops widening. The band's job is to leave the skyline's repeat penalties
+#: something to choose between (see `_pack_free`'s docstring); with one
+#: candidate none of the four anti-repeat rules can act at all — the hard
+#: radius filter empties and falls through (`_Skyline._pick`), and both
+#: multipliers scale a single weight, which changes nothing. MEASURED: the
+#: fire presets cut `lowrise` 26 -> 7 assets, of which exactly ONE
+#: (`bld_department_store_DG0`, 1364 m2) sits inside a 0.55 band of the
+#: largest, so every large lowrise gap in the city drew the same model —
+#: six of them in one straight line 6.00 m apart, repeated verbatim on four
+#: separate blocks.
+#: OFF BY DEFAULT (0). Widening the band changes which entry a draw picks and
+#: therefore perturbs the RNG stream for every later draw in the scene — the
+#: same hazard `_tile_run`'s `no_repeat` documents at length, and for the same
+#: reason it must be opt-in: `downtown_gac`, the 500 m scenes and the
+#: earthquake preset all reproduce draw-for-draw only while this is 0. Turn it
+#: on per scene with `districts.pack_min_candidates`.
+#:
+#: MEASURED, and worth stating plainly: on its own this is roughly NEUTRAL for
+#: repetition at 1 km (rep-share 29.9 -> 33.3 on seed 3, 33.3 -> 27.0 on seed
+#: 7, 37.5 -> 30.7 on seed 13 — it moves both ways). It is not the lever. What
+#: it does is remove the PATHOLOGICAL case, where the band holds exactly one
+#: asset and all four anti-repeat rules are inert by construction. The lever
+#: is pool size: 48-64 distinct models for ~460-600 buildings puts a floor of
+#: 8-10 copies per model on the scene before any rule gets a say.
+PACK_MIN_CANDIDATES = 0
+
+#: How far the band may widen before it gives up. Below this a genuinely
+#: small asset starts winning a genuinely large gap, which reads as unbuilt
+#: block interior — the failure the band exists to prevent. Reaching the
+#: floor without finding `PACK_MIN_CANDIDATES` is not an error: it means the
+#: pool really is that thin at this footprint, and the widest band available
+#: is still the best answer.
+PACK_BAND_FLOOR = 0.20
+
+#: Multiplicative step. 0.85 reaches the floor in ~6 steps from 0.55.
+PACK_BAND_STEP = 0.85
+
+
+def _block_rng(base_seed, rect):
+    """A `random.Random` unique to one block, derived from the scene seed and
+    the block's own rectangle.
+
+    THE DEFECT THIS FIXES: `_pack_free` is a guillotine packer driven by one
+    RNG stream shared across the whole scene. Two blocks of near-identical
+    size and the same typology therefore get near-identical cut sequences —
+    the anisotropic subdivider deliberately converges blocks onto one target
+    aspect, so a district ends up holding several blocks that are the same
+    size AND laid out the same way. MEASURED on `downtown_gac` seed 8 at
+    1 km: midrise blocks #46/#47/#48 are 235x74, 235x74 and 235x73 m holding
+    11 buildings each, in visibly the same arrangement.
+
+    Seeding per block breaks that without touching WHICH models are drawn —
+    `_Skyline` keeps its own scene-wide stream, so the diversity and repeat
+    penalties are unaffected; only the internal geometry of each block moves.
+
+    Keyed on the rect rounded to a centimetre so the same block reproduces
+    across runs, and on the scene seed so a different city is a different
+    arrangement rather than the same one relabelled.
+    """
+    import random
+    key = (int(base_seed),) + tuple(int(round(v * 100.0)) for v in rect[:4])
+    # zlib.crc32 over a stable repr: `hash()` is salted per interpreter
+    # (PYTHONHASHSEED), which is exactly the class of desync this pipeline
+    # has already been bitten by.
+    import zlib
+    return random.Random(zlib.crc32(repr(key).encode("utf-8")))
+
+
+def _band_top(fits, area_band, min_candidates=PACK_MIN_CANDIDATES,
+              floor=PACK_BAND_FLOOR, step=PACK_BAND_STEP):
+    """The area band, WIDENED until it offers real choice.
+
+    Returns the `fits` entries within the band, and the band actually used.
+
+    `fits` holds one entry per (asset, orientation), so two orientations of
+    the same USD are two entries but ONE choice — the count that matters to
+    a repeat penalty is DISTINCT assets, and counting entries would declare
+    a single-asset band satisfied the moment that asset fitted both ways.
+    `e[0]` is the pool entry; `e[0][0]` its USD path (the same key
+    `_Skyline.used` and `_within` are keyed on).
+
+    Widening only ever ADDS candidates, and only when the strict band was
+    too thin to choose from, so a scene whose band already holds several
+    assets is untouched — `top` comes back byte-identical and the RNG stream
+    is undisturbed, which is what keeps the 500 m scenes reproducible.
+    """
+    best = max(f[1] * f[2] for f in fits)
+    band = float(area_band)
+    top = [f for f in fits if f[1] * f[2] >= best * band]
+    if not min_candidates:
+        # OFF — the original single-band expression, byte for byte, so a
+        # scene that does not ask for this reproduces draw for draw.
+        return top, band
+    while len({f[0][0] for f in top}) < min_candidates and band > floor + 1e-9:
+        band = max(floor, band * step)
+        top = [f for f in fits if f[1] * f[2] >= best * band]
+    return top, band
+
+
 def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
                area_band: float = 0.55, reach=None, block_rect=None,
-               street_tol_m: float = 6.0, justify: bool = True):
+               street_tol_m: float = 6.0, justify: bool = True,
+               pack_min_candidates: int = PACK_MIN_CANDIDATES):
     """Guillotine-pack *pool* into *rect*; returns ``([(entry, cx, cy, yaw)], refused)``.
 
     Candidates are tried largest-footprint-first so a gap closes with one big
@@ -2523,8 +2659,8 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
             chosen = sky.choose([f[0] for f in oriented], 0.0, x0, y0)
             sky.took_landmark()
         else:
-            best = max(f[1] * f[2] for f in fits)
-            top = [f for f in fits if f[1] * f[2] >= best * area_band]
+            top, _band_used = _band_top(fits, area_band,
+                                        min_candidates=pack_min_candidates)
             along = w >= h
             oriented = [f for f in top if (f[1] >= f[2]) == along] or top
             chosen = sky.choose([f[0] for f in oriented],
@@ -2897,6 +3033,17 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
     sky = _Skyline(cfg, rng)
     # The packer's greed, per scene. See `_pack_free`.
     area_band = float(cfg.get("pack_area_band", 0.55))
+    # Fewest DISTINCT assets the band must offer before it stops widening.
+    # 0 (the default) reproduces the original single-band draw exactly --
+    # see `_band_top` / `PACK_MIN_CANDIDATES`.
+    pack_min_cands = int(cfg.get("pack_min_candidates",
+                                 PACK_MIN_CANDIDATES) or 0)
+    # Give each block its own packing RNG so two same-sized blocks in one
+    # district stop coming out identically arranged. OFF by default: it
+    # changes the packer's draws and therefore every later draw in the
+    # scene. See `_block_rng`.
+    per_block_rng = bool(cfg.get("per_block_rng", False))
+    _scene_seed = int(config.get("seed", 0) or 0)
     # Hand an unbuildable residue back as gap rather than banking it at the
     # block's far edge — see `_justify`. ON by default because it fixes a
     # measured defect (a 8-19 m bare band on a street frontage in every
@@ -3147,9 +3294,12 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                         reach = _street_reach(rect, frontage_max)
                         for fr in free_rects(rect, local, min_side):
                             got, refused = _pack_free(
-                                fr, pool, _typ_gap(typ, gap), min_side, rng,
+                                fr, pool, _typ_gap(typ, gap), min_side,
+                                (_block_rng(_scene_seed, rect)
+                                 if per_block_rng else rng),
                                 sky, typ, area_band, reach, block_rect=rect,
-                                justify=justify)
+                                justify=justify,
+                                pack_min_candidates=pack_min_cands)
                             laid += got
                             blank_refused += refused
             elif quad:
@@ -3200,8 +3350,11 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
             for outer in _perimeter_rects(rect, band, min_side):
                 for fr in free_rects(outer, local, min_side):
                     got, refused = _pack_free(
-                        fr, pool, _typ_gap(typ, gap), min_side, rng, sky, typ,
-                        area_band, reach, block_rect=rect, justify=justify)
+                        fr, pool, _typ_gap(typ, gap), min_side,
+                        (_block_rng(_scene_seed, rect)
+                         if per_block_rng else rng), sky, typ,
+                        area_band, reach, block_rect=rect, justify=justify,
+                        pack_min_candidates=pack_min_cands)
                     laid += got
                     blank_refused += refused
 
@@ -3300,6 +3453,16 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
             print(f"[districts] tall_fallback={sky.tall_fallback} slot(s) "
                   f"where every tall candidate was too close to an existing "
                   f"tall building")
+        if sky.hard_fallback:
+            # The repeat HARD radius could not be satisfied even at half its
+            # setting, on this many slots. Unlike `tall_fallback` this one
+            # names a pool problem rather than a block-geometry one: the
+            # typology's pool has too few members of this footprint class to
+            # keep copies apart at the density being asked for.
+            print(f"[districts] hard_fallback={sky.hard_fallback} slot(s) "
+                  f"where every candidate had a copy within "
+                  f"{math.sqrt(sky.hard_r2) / 2.0:.0f} m — pool too thin at "
+                  f"this footprint")
         # PER-MODEL HISTOGRAM AND THE UNUSED LIST. "a lot of the building
         # assets are not being used" (user) is otherwise only visible by
         # counting distinct colours in a render. `sky.used` already IS this
@@ -3444,6 +3607,10 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
     # zoned for, not something dropped into whatever gap was left over.
     sky.landmark_budget = 0
     area_band = float(dcfg.get("pack_area_band", 0.55))
+    pack_min_cands = int(dcfg.get("pack_min_candidates",
+                                  PACK_MIN_CANDIDATES) or 0)
+    per_block_rng = bool(dcfg.get("per_block_rng", False))
+    _scene_seed = int(config.get("seed", 0) or 0)
     justify = bool(dcfg.get("pack_justify", True))
     frontage_max = float(dcfg.get("frontage_max_m", 0.0))
     # INFILL USED TO UNDO THE PERIMETER MORPHOLOGY. `rezone_blocks` packs a
@@ -3575,8 +3742,11 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
                             use_pool, rank_fill = alt_pool, rank_fill + 1
                             break
                 got, refused = _pack_free(
-                    fr, use_pool, _typ_gap(tcfg, gap), min_gap, rng, sky,
-                    typ, area_band, reach, block_rect=rect, justify=justify)
+                    fr, use_pool, _typ_gap(tcfg, gap), min_gap,
+                    (_block_rng(_scene_seed, rect)
+                     if per_block_rng else rng), sky,
+                    typ, area_band, reach, block_rect=rect, justify=justify,
+                    pack_min_candidates=pack_min_cands)
                 blank_refused += refused
                 got = burn_guard.filter_laid(
                     got, use_pool, tname, rect,

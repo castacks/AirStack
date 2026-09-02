@@ -1,0 +1,211 @@
+# This is the main .env file for AirStack, which sets DOCKER COMPOSE VARIABLES FOR VARIABLE INTERPOLATION IN docker-compose.yaml.
+# These variables do NOT get set within the robot container itself. For setting container environment variables, use env_file: attribute in docker-compose.yaml.
+# Standard Usage: airstack --env-file .env up
+
+# Warning: even though this file is organized into sections, all variables get propagated to all sub-level 
+#  docker-compose files, so be careful about naming conflicts.
+
+# =============== PROJECT ====================
+# THESE VARIABLES ARE USED TO TAG THE DOCKER IMAGES.
+# The name of the project. This is used as the repository name for the docker images, and also as part of the default image tag.
+PROJECT_NAME="airstack"
+# If you've run ./airstack.sh setup, then this will auto-generate from the git commit hash every time a change is made 
+# to a Dockerfile or docker-compose.yaml file. Otherwise this can also be set explicitly to make a release version.
+# auto-generated from git commit hash
+VERSION="0.19.0-alpha.1-disaster-dataset"
+# Choose "dev" or "prebuilt". "dev" is for mounted code that must be built live. "prebuilt" is for built ros_ws baked into the image
+DOCKER_IMAGE_BUILD_MODE="dev"  
+# Where to push and pull images from. Can replace with your docker hub username if using docker hub.
+PROJECT_DOCKER_REGISTRY="airlab-docker.andrew.cmu.edu/airstack"
+# This is the default profile that docker compose will use if you just run `docker compose up` without specifying a profile. 
+# It can be overridden with the --profile flag, or by setting the COMPOSE_PROFILES environment variable to a different value
+#  before running `docker compose up`.
+COMPOSE_PROFILES="desktop,isaac-sim"
+# ============================================
+
+# ================= Common ===================
+AUTOLAUNCH="true"  # If false, the docker-compose will just spawn idle docker containers with no launch command.
+NUM_ROBOTS="5"  # Number of robot containers to launch.  (1 for a single-drone run; see SPAWN_CONFIGS)
+RECORD_BAGS="false"  # "true" or "false"
+
+# ============== DATASET =======================
+# Where the FROZEN scenes land — one self-contained USD, a Materials/ folder and
+# the two ground-truth files per cell. Bind-mounted into the isaac-sim container
+# at /isaac-sim/final_disaster_dataset, and deliberately OUTSIDE the repo: at the
+# full 4 x 2 x 3 x 5 matrix this is hundreds of MB a scene, which has no business
+# sitting in the working tree.
+FINAL_DATASET_DIR="${HOME}/SEI-COA/final_disaster_dataset"
+
+# ============== ISAAC SIM =====================
+ISAAC_SIM_GUI="/isaac-sim/AirStack/simulation/isaac-sim/assets/scenes/simple_pegasus.scene.usd"
+# Set to "true" to launch Isaac Sim using a standalone Python script instead of USD file
+ISAAC_SIM_USE_STANDALONE="true" # "true" or "false"
+# Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)
+# scene_launch_script.py = the generated scene (scene_gen/generate_scene.py):
+#   zoned street furniture, crosswalks/stop bars, anisotropic blocks, districts.
+# Use suburb_preview_launch_script.py for the graph-based suburb.
+ISAAC_SIM_SCRIPT_NAME="example_multi_drone_scene_import.py"
+# Which scene the launch script builds. Presets are named for the SCENE, not
+# the generator version: downtown, suburb, suburb_net, and the disaster ones.
+# NOTE: downtown pulls 22 Objaverse props, so run the prepare_assets pre-flight
+# in scene_gen/config/presets/downtown.yaml first (already done once; re-running
+# is a sub-second no-op).
+# EMPTY for the modular_house bench: SCENE_CONFIG set is what selects the
+# GENERATED-scene path, and this bench is not one. Left at "downtown" it
+# reaches the container and a launcher reads os.environ before its own
+# default.
+SCENE_CONFIG="suburb"
+
+# 250 m undamaged suburb — the DETECTION CONTROL scene. A preset names a kind
+# of place; these pick the instance, so this needs no preset file.
+REGION_M="250x250"
+DISASTER_TYPE="none"
+DUMP_HOUSE_POSES=""   # set to 1 to dump lot frames to /tmp/house_poses.json
+
+# Spawn anywhere inside the 250 m block (rect = 2 opposite corners).
+# The derived default sits at (302, -144) on the 1600x1200 wildfire plat,
+# which is off the edge of a 250 m region entirely.
+# OPEN GROUND WEST OF THE COLLECTOR, clear of road, houses and yards.
+#
+# The previous (16.5, 18.0) was ON THE CARRIAGEWAY: the seed-42 layout puts a
+# single 11.6 m collector running (-2,-125) -> (5.7,-76.5) -> (19.5,125), so
+# 16.5 is 3.0 m INSIDE the road surface, and the nearest survivor was 15.4 m
+# away. Reproduce the layout offline with
+#   layout/suburb_net.generate(250, 250, random.Random(42+7717), {})
+# (pure python, no pxr) — it is seeded, so it matches the built scene.
+#
+# (-30, 25) is 43.7 m from the edge of that collector and 55.5 m from the
+# nearest of the 59 survivors in scene_gen/assets/archetypes/humans_11.json.
+# The only other pavement is the cul-de-sac arm running west at y ~ -48..-76,
+# well clear. Open ground, so no verge trees (those sit on the road verge at
+# 16-30 m spacing) and no yard trees.
+#
+# NOTE this must stay inside ~+-20 m of the block centre OR map_extent_m must
+# grow with it: suburb_mini.yaml's grid is centred on the TAKEOFF POINT and has
+# to reach the +-130 m search polygon. 300 m of extent only covers a spawn
+# within +-18 m; (-30, 25) needs 320. See that file.
+#
+# Heading 270 deg = [0, 0, sin(135), cos(135)] = [0, 0, 0.7071, -0.7071], and it
+# spawns facing EXACTLY that (-Y, south): odometry yaw measured 271 deg on
+# 2026-08-26. The quaternion is applied literally — there is NO 180 deg flip
+# in the convention.
+# THREE DRONES, 6 m apart on the same kerb, same heading; domain_id defaults to
+# the list index (1, 2, 3 = robot_1..3). Each planner cuts the search area into
+# NUM_ROBOTS strips and flies the one ROBOT_NAME says is its own.
+# FLEET (NUM_ROBOTS=3): three drones 6 m apart on the same kerb, same heading;
+# domain_id defaults to the list index (robot_1..3). SINGLE drone: keep the
+# first entry only and NUM_ROBOTS=1.
+SPAWN_CONFIGS='[{"x_m": -111.0, "y_m": -74.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}, {"x_m": -65.0, "y_m": -54.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}, {"x_m": 0.0, "y_m": -115.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}, {"x_m": 62.0, "y_m": 84.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}, {"x_m": 90.0, "y_m": 50.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}]'
+#SPAWN_CONFIGS='[{"x_m": -30.0, "y_m": 25.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}]'
+PLAY_SIM_ON_START="true"
+
+# ===============================================
+
+# ================= MS-AIRSIM =====================
+# Do not set if you want airstack to fetch a simple blocks world.
+# MS_AIRSIM_ENV_DIR=./simulation/ms-airsim/assets/scenes
+# MS_AIRSIM_BINARY_PATH="/ms-airsim-env/Blocks/LinuxNoEditor/Blocks.sh"
+# =================================================airst
+
+# ================= ROBOT =====================
+ROBOT_NAME_MAP_CONFIG_FILE="default_robot_name_map.yaml"  # Determines how to set ROBOT_NAME and ROS_DOMAIN_ID. See robot/docker/robot_name_map/
+
+URDF_FILE="robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf"
+
+# offboard API streaming out. this is so that ports don't conflict for multi-agent FCU communication. 
+OFFBOARD_BASE_PORT=14540
+ONBOARD_BASE_PORT=14580
+# ============== CoNavGPT2 RUN ===================
+# Everything one `airstack up isaac-sim robot-desktop gcs` needs for the
+# CoNavGPT2 bench. Set here rather than as env prefixes on the command line:
+# compose interpolates .env at container-CREATE time, so a var that is not in
+# here never reaches the container, and a per-service `VAR=x airstack up svc`
+# only configures the service it was typed in front of — which is how the sim
+# and the robot end up disagreeing about the camera pitch or the map anchor.
+
+# --- scene (modular_house_preview_launch_script.py) ---
+SPAWN_DRONE="1"          # the catalogue spawns no drone by default
+HOUSE_LIMIT="0"          # 0 = all 8 styles
+HOUSE_SEED="7"
+DRONE_XY="0,0"           # centre of the 250 m block, so map == world
+DRONE_Z_M="1.0"
+ENABLE_LIDAR="false"     # CoNavGPT reads no lidar; it costs ~3x the sim rate
+GT_ANNOTATIONS="on"      # emit ground truth from the layout generator
+RESULTS_SCENE="ModularHousePreview"   # names the annotation file the GCS draws
+
+# --- camera mount ---
+# Downward ZED tilt. READ BY BOTH SIDES: the launch script tilts the mount and
+# search_planner uses it as the default for camera_pitch_rad, because TF walks
+# the URDF and the URDF models no pitch. One variable so they cannot disagree.
+ZED_PITCH_DEG="30"
+ZED_WIDTH="480"          # baseline; raising it broke rgb/depth sync — see below
+ZED_HEIGHT="300"
+
+# --- frames ---
+# Publish the MEASURED world->map transform instead of the hardcoded identity.
+# `map` is anchored at the takeoff point, so identity is only true when the
+# drone spawns at the world origin. Must match DRONE_Z_M.
+MAP_ANCHOR_ENU="true"
+SPAWN_HEIGHT_M="1.0"
+
+# --- VLM ---
+OPENAI_BASE_URL="http://localhost:8000/v1"
+# 3B on the LOCAL bench: the one 16 GB card also carries Isaac (~9 GB), the shared
+# detector (~1.6 GB) and the robot stack; 7B nf4 (~6 GB) tips it into OOM and takes
+# Isaac down with it. 7B is the OSMO (2x48 GB) setting — flip it back there.
+CONAVGPT2_VLM_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"
+#CONAVGPT2_VLM_MODEL="Qwen/Qwen2.5-VL-7B-Instruct"
+CONAVGPT2_VLM_QUANT="nf4"
+# ================================================
+
+# --- offboard-compute: which shared model servers it starts (robot/docker/docker-compose.yaml) ---
+START_DETECTOR_SERVER="true"   # YOLO + MobileSAM on :8200, every arm
+START_VLM_SERVER="false"       # generative VLM on :8000, conavgpt2 (off for a vlfm/lawnmower fleet: GPU budget)
+START_ITM_SERVER="false"        # BLIP-2 ITM on :8100, vlfm
+# The checkpoint the SHARED detector loads (the server's choice wins over any
+# scene's yolo_world_weights). suburb_mini was measured on closed-set yolov8x
+# (people: same recall as yolov8l-world at 1/4 the latency); the wildfire plat
+# uses yolov8l-world. Match it to the scene being flown.
+CONAVGPT2_YOLO_WORLD_WEIGHTS="/root/.cache/conavgpt2_weights/yolov8x.pt"
+
+
+# WHICH STACK composes the autonomy graph (RFC #379 stacks, as on upstream
+# develop): stacks/<name>/launch/stack.launch.xml. full_mighty = the eval's
+# graph with the MIGHTY local planner (asm_mighty) behind /tasks/navigate —
+# droan spun in place on the plats. `none` = the legacy AUTONOMY_ROLE layer
+# dispatch (robot.launch.xml), where LOCAL_PLANNER below picks the planner.
+# Same as `./airstack.sh up --stack full_mighty`. See benchmark skill §4c.
+AIRSTACK_STACK=full_mighty
+LOCAL_PLANNER=mighty
+
+# --- RAVEN single-agent + shared off-board RayFronts (build plan
+# _plans/raven_single_rayfronts_shared_plan.md, §2.3/§2.4) — ALL COMMENTED
+# OUT, nothing here is live. Uncomment to run the shared-rayfronts arm
+# instead of today's per-robot rayfronts.launch.xml path; see the
+# run-raven-single-shared runbook (.agents/skills/run-raven-single-shared/
+# SKILL.md) for the full sequence and what is verified vs. not.
+#
+# Robot containers (per-robot rayfronts is what happens if these stay unset):
+#RAYFRONTS_MODE="shared"        # per_robot (default) | shared
+#RAVEN_LVLM="true"              # raven_nav's LVLM-guided behaviour; default true
+# The two softmax/timing gates on that same LVLM-guided behaviour
+# (raven_nav/params.py's lvlm_ray_threshold / lvlm_request_interval_s) —
+# tune these from the first run's rays_sim/q*_person peaks alongside the
+# goal's score_threshold / voxel_score_threshold (three softmax gates total;
+# see the runbook's tuning section).
+#RAVEN_LVLM_RAY_THRESHOLD="0.9"   # OG lvlm_behavior.py:78 default
+#RAVEN_LVLM_INTERVAL_S="30.0"     # OG LVLM/internvl3.py:35 default
+#VLM_URL="http://offboard-compute:8000/v1"   # already used by conavgpt2; raven's
+#                                             # lvlm_client falls back to this too
+#
+# offboard-compute (robot/docker/docker-compose.yaml's offboard-compute
+# service): starts encoder_server + multi_robot_mapping_server instead of
+# nothing, subscribing to every robot's RGB/depth/pose and publishing back
+# onto each robot's own domain under its existing topic names.
+#START_RAYFRONTS_SERVER="true"
+#RAYFRONTS_ROBOT_IDS=""         # empty -> 1..NUM_ROBOTS; or e.g. "1,2"
+#RAYFRONTS_CONFIG="shared_humans"
+#RAYFRONTS_SRC="/root/AirStack/common/rayfronts"   # resolves: offboard-compute's
+#                                                   # own compose mount (added
+#                                                   # alongside rayfronts_configs)
+#                                                   # puts the live source here

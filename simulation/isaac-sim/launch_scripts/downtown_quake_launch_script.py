@@ -533,8 +533,15 @@ class QuakeCityApp:
             if QUAKE_TILT:
                 kw["tilt_chance"] = float(QUAKE_TILT)
             t1 = time.time()
+            # `parent=parent` (round 7): lets every mild lean's corner
+            # fissures cut a real opening through THIS city's own ground
+            # meshes (`apply_ground_planes` authored them under
+            # `parent + "/ground"` a few lines up, in `generate_scene_on_
+            # stage`) instead of sitting on top of them as a mound — see
+            # `quake.assemble`'s own docstring on `parent`.
             stats = quake.assemble(stage, config, placements, ARCH_DIR,
-                                   seed=QUAKE_SEED + ci, ssf=ssf, **kw)
+                                   seed=QUAKE_SEED + ci, ssf=ssf, parent=parent,
+                                   **kw)
             t_assemble += time.time() - t1
             print("[quake_city] {0}: damage assembled in {1:.1f} s".format(
                 city["name"], time.time() - t1))

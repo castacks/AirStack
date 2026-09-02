@@ -137,3 +137,71 @@ def test_boosted_intensity_not_clamped_above_one():
     the odds of the top grades, not a value this function should cap."""
     assert q._boosted_intensity(0.9, "brownstone", {"rowhouse": 2.0}) == \
         pytest.approx(1.8)
+
+
+# ---------------------------------------------------------------------------
+# End to end, offline, on the REAL preset (`downtown_earthquake`) — same
+# same-process harness idiom as `test_quake_style_blacklist.py`'s
+# `_assemble_styles`: a real `generate_scene_on_stage` layout, a real
+# in-memory pxr stage, a real `disaster.quake.assemble` call, entirely local
+# files (no Nucleus/Isaac Sim needed — see that module's own header).
+#
+# NOT WIRED THROUGH `spec_overrides`: `compile_disaster.load_scene_config`'s
+# `overrides` block is DEEP-MERGED (its own documented contract), and
+# `deep_merge` recurses into a DICT-valued key rather than replacing it — an
+# override of `{"typology_damage_boost": {}}` therefore merges NOTHING into
+# an already non-empty table (the shipped preset's own `{rowhouse: ...,
+# brick_midrise: ...}`) and leaves it untouched, not cleared. So the two
+# variants below are built by mutating the COMPILED config dict directly
+# (key absent vs. key present-but-`{}`), sidestepping that merge semantics
+# entirely rather than fighting it.
+# ---------------------------------------------------------------------------
+def _assemble_grades_from_config(config):
+    from pxr import Usd
+    import generate_scene
+    import layout_dry_run as ldr
+
+    ldr._localize_building_urls(config["usds"])
+    stage = Usd.Stage.CreateInMemory()
+    placements = generate_scene.generate_scene_on_stage(
+        stage, config, parent_path="/World/stage/generated",
+        scene_scale_factor=1.0, snap_to_ground=False)
+
+    _SCENE_GEN = os.path.normpath(os.path.join(_HERE, ".."))
+    arch_dir = os.path.join(_SCENE_GEN, "assets", "archetype")
+    gac_dir = os.path.join(_SCENE_GEN, "assets", "gac_quake")
+    q.assemble(stage, config, placements, arch_dir, seed=11,
+              gac_dir=gac_dir, verbose=False)
+
+    houses = [p for p in placements if p.get("category") == "house"]
+    return [q.style_of(p.get("usd")) for p in houses]
+
+
+@pytest.mark.parametrize("seed,region_m", [(9, 250.0)])
+def test_key_absent_and_key_present_empty_are_indistinguishable_end_to_end(
+        seed, region_m):
+    """Whether `disaster.typology_damage_boost` is MISSING entirely or
+    present as an explicit `{}` must produce the exact same (style, level)
+    sequence, in the same order — `_typology_damage_boost`'s `dis.get(...)
+    or {}` already treats the two the same at the pure-function level
+    (`test_boost_table_empty_when_key_absent`); this proves the WIRING in
+    `assemble` (`dmg_boost` computed ONCE, then looked up per building)
+    carries that all the way through a real run without perturbing the rng
+    sequence — the guarantee every OTHER preset (which never sets the key
+    at all) relies on."""
+    import copy
+
+    import compile_disaster
+
+    overrides = {"region_m": [float(region_m), float(region_m)], "seed": seed}
+    base_config = compile_disaster.load_scene_config(
+        "downtown_earthquake", spec_overrides=overrides)
+
+    config_absent = copy.deepcopy(base_config)
+    config_absent.setdefault("disaster", {}).pop("typology_damage_boost", None)
+
+    config_empty = copy.deepcopy(base_config)
+    config_empty.setdefault("disaster", {})["typology_damage_boost"] = {}
+
+    assert _assemble_grades_from_config(config_absent) == \
+        _assemble_grades_from_config(config_empty)

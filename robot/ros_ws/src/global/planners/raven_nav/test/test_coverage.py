@@ -19,6 +19,22 @@ def test_stamping_points_marks_cells():
     assert t.cells == {(0, 0), (3, 4)}
 
 
+def test_cells_set_is_the_live_internal_set_not_a_copy():
+    """FrontierBehavior's anti-revisit term reads this every tick, so it is
+    deliberately an alias — the node documents the read-only contract."""
+    t = CoverageTracker(cell_size_m=1.0)
+    t.stamp_points(np.array([[0.5, 0.5]]))
+    s = t.cells_set
+    assert s == {(0, 0)}
+    assert s is t.cells                     # no per-tick copy
+    t.stamp_points(np.array([[3.2, 4.7]]))
+    assert s == {(0, 0), (3, 4)}            # the alias sees later stamps
+
+
+def test_cells_set_is_empty_before_anything_is_seen():
+    assert CoverageTracker().cells_set == set()
+
+
 def test_cell_centers_are_cell_middles():
     t = CoverageTracker(cell_size_m=2.0)
     t.stamp_points(np.array([[0.5, 0.5]]))

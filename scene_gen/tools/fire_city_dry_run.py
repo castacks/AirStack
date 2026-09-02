@@ -427,6 +427,19 @@ def _raw_fire_spec(preset: str) -> dict:
 # archetype-only manifest (the common case for `downtown_fire_500`) never
 # pays for it and needs no `pxr` install at all.
 # ---------------------------------------------------------------------------
+#: `(abspath, mtime_ns, size) -> the tuple load_placements_dump returns`.
+#: Every caller in `fire_city_union` (census, union_records once per ignition
+#: seed, street_facing_metrics, the `--profile` sweep's per-candidate union)
+#: re-reads the SAME dump, and each read re-parses the JSON and re-compiles
+#: the scene config through `compile_disaster`. MEASURED: a `--profile`
+#: sweep logged 105 recompiles in 15 minutes and was on course for ~70
+#: minutes on a 459-house 1 km dump, which makes the offline manifest loop —
+#: the whole point of being able to plan a cell without a GPU — unusable.
+#: Keyed on mtime+size as well as path so editing a dump in place still
+#: reloads it.
+_DUMP_CACHE: dict = {}
+
+
 def load_placements_dump(path):
     """`(config, layout, placements, seed, preset, sha256)` from a city
     placements dump written by `urban_fire_city_launch_script.
@@ -447,6 +460,14 @@ def load_placements_dump(path):
     treats a malformed dump as an empty one.
     """
     import hashlib
+
+    try:
+        _st = os.stat(path)
+        _key = (os.path.abspath(path), _st.st_mtime_ns, _st.st_size)
+    except OSError:
+        _key = None
+    if _key is not None and _key in _DUMP_CACHE:
+        return _DUMP_CACHE[_key]
 
     with open(path, "rb") as fh:
         raw = fh.read()
@@ -534,7 +555,10 @@ def load_placements_dump(path):
     else:
         config = {}
 
-    return config, layout, placements, int(seed), preset, sha256
+    out = (config, layout, placements, int(seed), preset, sha256)
+    if _key is not None:
+        _DUMP_CACHE[_key] = out
+    return out
 
 
 # ---------------------------------------------------------------------------

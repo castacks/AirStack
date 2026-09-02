@@ -1056,6 +1056,17 @@ class PegasusApp:
             if p and p.IsValid() and p.IsActive():
                 p.SetActive(False)
                 print(f"[frozen] deactivated {probe}", flush=True)
+        # FROZEN_OVERLAY_USD (2026-09-02): reference an EXTRA authored layer
+        # on top of the frozen cell — e.g. the standing-person A/B detection
+        # rig. The frozen cell itself is never edited (a finished cell must
+        # never be re-serialised — freeze-portable-scenes); the overlay is a
+        # plain .usda whose defaultPrim lands at /World/Overlay.
+        overlay_usd = os.environ.get("FROZEN_OVERLAY_USD", "").strip()
+        if overlay_usd:
+            oprim = stage.DefinePrim("/World/Overlay", "Xform")
+            oprim.GetReferences().AddReference(overlay_usd)
+            print(f"[frozen] OVERLAY referenced {overlay_usd} -> /World/Overlay",
+                  flush=True)
         self._wait_for_frozen_geometry(stage)
 
     def _wait_for_frozen_geometry(self, stage, timeout_s=600.0):
@@ -1454,6 +1465,36 @@ class PegasusApp:
         self._add_scene_colliders(stage)
         self._write_scene_annotations(stage, st)
 
+    @staticmethod
+    def _add_colliders_trimesh(root_prim):
+        """Static colliders for EVERYTHING under root, as exact triangle
+        meshes ("none" approximation), skipping point-less stub meshes.
+
+        NOT the stock `add_colliders`: that cooks a CONVEX HULL per mesh,
+        and on a flattened dataset cell the debris fields are MERGED meshes
+        (the tornado plank field is 1,578 boards in 15 meshes) — a convex
+        hull over one of those is a phantom wall across the corridor. A
+        static triangle mesh is exact, and PhysX only pays for it on
+        contact. Added 2026-09-02 after the first live flight ghosted
+        through houses with the default `ground` mode.
+        """
+        from pxr import UsdPhysics as _UP, UsdGeom as _UG
+        applied = skipped = 0
+        for p in Usd.PrimRange(root_prim):
+            if not (p.IsA(_UG.Mesh) or p.IsA(_UG.Gprim)):
+                continue
+            if p.IsA(_UG.Mesh):
+                pts = p.GetAttribute("points")
+                if not pts or not pts.Get():
+                    skipped += 1
+                    continue
+            _UP.CollisionAPI.Apply(p).CreateCollisionEnabledAttr(True)
+            if p.IsA(_UG.Mesh):
+                _UP.MeshCollisionAPI.Apply(p).CreateApproximationAttr().Set(
+                    "none")
+            applied += 1
+        return applied, skipped
+
     def _add_scene_colliders(self, stage):
         if COLLIDERS == "off":
             print("[scene] colliders: OFF (SUBURB_COLLIDERS=off)", flush=True)
@@ -1464,12 +1505,18 @@ class PegasusApp:
             carb.log_warn("{0} not found - no colliders added.".format(target))
             return
         t0 = time.time()
-        add_colliders(prim)
+        if COLLIDERS == "all":
+            applied, skipped = self._add_colliders_trimesh(prim)
+            note = " ({0} mesh collider(s) as trimesh, {1} empty skipped)".format(
+                applied, skipped)
+        else:
+            add_colliders(prim)
+            note = ""
         app = omni.kit.app.get_app()
         for _ in range(10):
             app.update()
-        print("[scene] colliders on {0} in {1:.0f}s"
-              .format(target, time.time() - t0), flush=True)
+        print("[scene] colliders on {0} in {1:.0f}s{2}"
+              .format(target, time.time() - t0, note), flush=True)
 
     def _write_scene_annotations(self, stage, st):
         """Ground truth for a GENERATED scene, from the generator's own record.

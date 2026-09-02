@@ -6,6 +6,8 @@
     - mighty_node        (MIGHTY Hermite-spline planner)
     - mighty_bridge      (NavigateTask action + odometry->State +
                           Trajectory->TrajectoryXYZVYaw adapter)
+    - mighty_native_setpoint  (OPT-IN, MIGHTY_NATIVE_SETPOINTS: Goal ->
+                          mavros_msgs/PositionTarget straight to MAVROS)
     - a static TF map -> mighty/init_pose (identity; satisfies the planner's
       hardware-mode initial-pose lookup — our map frame IS the global frame)
 
@@ -51,6 +53,30 @@
   <arg name="mighty_follow_min_climb_m" default="8.0"
        description="Climb since first odometry before the global_plan follower engages" />
 
+  <!-- ── Native MIGHTY -> PX4 setpoint path ("Option A"), DEFAULT OFF ─────
+       With MIGHTY_NATIVE_SETPOINTS unset/0 nothing below is launched, no new
+       topic exists, pid_controller's command_muted stays false and the flown
+       path is exactly today's: mighty trajectory -> bridge (stride + throttle)
+       -> trajectory_controller -> pid_controller -> attitude -> MAVROS.
+       With it 1/true, native_setpoint_node streams mighty_node's 100 Hz Goal
+       as mavros_msgs/PositionTarget on mavros/setpoint_raw/local while (and
+       only while) the follower / NavigateTask is engaged, muting the pid for
+       exactly that window. See mighty_bridge/README.md, "Two command paths".
+       Tested against $(eval ...) rather than a bare `if=` because compose
+       passes MIGHTY_NATIVE_SETPOINTS bare-name: it can arrive SET BUT EMPTY,
+       and a bare if="" is a launch-time error, not a false. -->
+  <arg name="mighty_native_setpoints" default="$(env MIGHTY_NATIVE_SETPOINTS 0)"
+       description="Arm the native MIGHTY->PX4 PositionTarget path (0/1/true/false)" />
+  <arg name="mighty_setpoint_raw_local_topic"
+       default="/$(env ROBOT_NAME)/interface/mavros/setpoint_raw/local"
+       description="Output setpoint stream (mavros_msgs/PositionTarget) to MAVROS" />
+  <arg name="mighty_pid_set_parameters_service"
+       default="/$(env ROBOT_NAME)/control/pid_controller/set_parameters"
+       description="pid_controller parameter service, used to mute it while streaming" />
+  <arg name="mighty_pid_command_topic"
+       default="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust"
+       description="pid_controller's output; watched only to confirm the handback" />
+
   <group>
     <push-ros-namespace namespace="mighty" />
 
@@ -74,12 +100,46 @@
     <!-- Bridge: NavigateTask action, odometry->State, Trajectory->segments -->
     <node pkg="mighty_bridge" exec="mighty_bridge_node" name="mighty_bridge" output="screen">
       <param name="follow_min_climb_m" value="$(var mighty_follow_min_climb_m)" />
+      <!-- Env-tunable anchor freshness (2026-09-02, controller ladder rung 1):
+           the defaults (1.0 s override period, stride 5) mean the trajectory
+           controller extrapolates from a stale, position-only anchor for up
+           to a second while MIGHTY replans at 100 Hz — measured overshoot
+           into canopy on abrupt turns at 1.4 m/s. Missions set
+           MIGHTY_OVERRIDE_PERIOD_S=0.2 / MIGHTY_SEGMENT_STRIDE=2. -->
+      <param name="override_period_s" value="$(env MIGHTY_OVERRIDE_PERIOD_S 1.0)" />
+      <param name="segment_stride" value="$(env MIGHTY_SEGMENT_STRIDE 5)" />
       <remap from="odometry" to="$(var mighty_odometry_topic)" />
       <remap from="global_plan" to="$(var mighty_global_plan_topic)" />
       <remap from="mighty_trajectory" to="trajectory" />
       <remap from="trajectory_override" to="$(var mighty_trajectory_override_topic)" />
       <remap from="set_trajectory_mode" to="$(var mighty_set_trajectory_mode_service)" />
       <remap from="~/navigate_task" to="$(var mighty_navigate_task_action)" />
+    </node>
+
+    <!-- Native MIGHTY -> PX4 setpoint streamer (see the arg block above).
+         `goal` and `native_stream_active` are RELATIVE names: they resolve
+         inside this same `mighty` namespace, beside mighty_node's `goal`
+         publisher and mighty_bridge's engagement broadcast — no remap needed
+         and no way for them to point at another robot. The node's own
+         `enabled` parameter defaults from MIGHTY_NATIVE_SETPOINTS too, so it
+         stays inert even if something launches it unconditionally. -->
+    <node pkg="mighty_bridge" exec="mighty_native_setpoint_node"
+          name="mighty_native_setpoint" output="screen"
+          if="$(eval '&quot;$(var mighty_native_setpoints)&quot;.strip().lower() in (&quot;1&quot;, &quot;true&quot;, &quot;yes&quot;, &quot;on&quot;)')">
+      <!-- Disengage grace (2026-09-02, measured on the first raven-search
+           flight): raven issues a NEW NavigateTask every few seconds, so a
+           disengage-means-handback rule thrashed engage/handback continuously
+           and flew as badly as the legacy path. A disengage is provisional for
+           this long; the next task normally re-engages inside the window and
+           the stream never breaks. 0 restores hand-back-immediately.
+           The node ALSO defaults this from MIGHTY_NATIVE_GRACE_S, so the two
+           agree and an empty value cannot become a launch-time type error. -->
+      <param name="disengage_grace_s" value="$(env MIGHTY_NATIVE_GRACE_S 4.0)" />
+      <remap from="odometry" to="$(var mighty_odometry_topic)" />
+      <remap from="setpoint_raw_local" to="$(var mighty_setpoint_raw_local_topic)" />
+      <remap from="pid_set_parameters" to="$(var mighty_pid_set_parameters_service)" />
+      <remap from="pid_command" to="$(var mighty_pid_command_topic)" />
+      <remap from="set_trajectory_mode" to="$(var mighty_set_trajectory_mode_service)" />
     </node>
 
     <!-- Identity init-pose frame for the planner's hardware-mode TF lookup -->

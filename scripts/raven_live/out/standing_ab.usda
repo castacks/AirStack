@@ -1,0 +1,26 @@
+#usda 1.0
+(
+    defaultPrim = "Overlay"
+    upAxis = "Z"
+    metersPerUnit = 1
+)
+
+def Xform "Overlay"
+{
+    # A/B detection rig (2026-09-02): ONE standing person in the open,
+    # 6.0 m east of casualty idx10 (-4.785, -69.422, lying_side_r,
+    # covered_frac 0.30 — feet/shins under a board). Facing bearing -54 deg
+    # (toward the sweep mission's spawn at (5.9, -75.8)); authored rotateZ =
+    # facing + 90 (RenderPeople art faces -Y; fire_people.HUMAN_YAW_OFFSET_
+    # DEG). Scale 0.01: the RP exports are in centimetres. z = 0.25, the
+    # local ground height at idx10.
+    def Xform "StandingPerson" (
+        prepend references = @/isaac-sim/AirStack/scene_gen/assets/people/rp_dennis_posed_004.usd@
+    )
+    {
+        double3 xformOp:translate = (1.21, -69.42, 0.25)
+        float3 xformOp:rotateXYZ = (0, 0, 36)
+        float3 xformOp:scale = (0.01, 0.01, 0.01)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+    }
+}

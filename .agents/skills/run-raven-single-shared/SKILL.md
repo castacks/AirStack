@@ -80,11 +80,12 @@ under real ROS + a compiled `rayfronts_cpp`) and exits non-zero on any real
 failure. Logs land under `/tmp/raven_rayfronts_tests_<timestamp>/`
 (override with `RAVEN_TEST_LOG_DIR`).
 
-**As of this writing this is NOT fully green** — see "What is UNVERIFIED"
-below for the exact failing suites. A SKIP row (a test dir another
-work-package hasn't landed yet, or no `cuda`-marked test existing yet) is
-expected and fine; a FAIL row is not, and this build should not be flown
-until the FAIL rows clear (or are individually understood and accepted).
+**Status 2026-09-02: fully green** — all eight suites PASS (host + container,
+`--gpu` included; 1,033 tests, zero failures), plus the end-to-end chain
+smoke `scripts/raven_rayfronts_tests.sh --e2e` (11 passed: fake robots →
+encoder_server → multi_robot_mapping_server → real raven_nav on CPU). A FAIL
+row appearing after new edits means this build should not be flown until it
+clears (or is individually understood and accepted).
 
 ---
 
@@ -117,6 +118,12 @@ through `mission_runner.py`.
 
 ## 3. Running it
 
+**Ordering rule (holds for BOTH paths): takeoff must complete
+(`SUCCEEDED`) before the semantic_search goal is sent — per robot.** The
+mission files sequence this; on the manual path send the TakeoffTask goal
+and wait for its result before the search goal.
+
+
 ### 3a. As a mission (preferred — one command, repeatable)
 
 ```bash
@@ -130,6 +137,29 @@ vocabulary from `common/rayfronts_configs/background_humans.txt`, search
 area = the 250 m plate ±125 m, `voxel_min_cluster_size: 4`). See the mission
 file's own header comment for the full parameter list and why each value was
 picked (several are explicitly flagged there as guesses — never flown).
+
+**Hard prerequisite #0 — warm the RADSeg weight cache.** DONE on this
+machine 2026-09-02 (+5 GB: `torch/hub/checkpoints/c-radio_v3-b_half.pth.tar`
+~521 MB + `google/siglip2-so400m-patch16-naflex` ~4.3 GB; offline load
+proven with `--network none` + a read-only cache). offboard_compute.sh now
+exports `HF_HUB_OFFLINE=1` by default in the rayfronts branch so startup
+skips transformers' minutes-long connectivity retries; set `HF_HUB_OFFLINE=0`
+on a machine whose cache was never warmed. Original context:
+`robot/docker/cache` on THIS machine has **no** `torch/hub` directory and no
+RADIO/siglip2 entries (previous per-robot rayfronts flights ran on OSMO pods,
+not here), so the shared server's `encoder=radseg` will try to download
+`NVlabs/RADIO c-radio_v3-b` + the `siglip2`/`sam` adaptors on first start —
+slow at best, a crash before the socket even binds if the container has no
+network. Warm it ONCE, with network, before the first live run (the same
+command every `osmo/missions/raven_bundle_*.yaml` uses as its warmup step):
+
+```bash
+docker run --rm -v "$(pwd)/robot/docker/cache:/root/.cache:rw" \
+  $(docker compose -f robot/docker/docker-compose.yaml config --format json \
+    | python3 -c "import json,sys; print(json.load(sys.stdin)['services']['robot-desktop']['image'])") \
+  python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', \
+version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"
+```
 
 **Hard prerequisite the mission file cannot satisfy itself**: `FROZEN_SCENE`
 (`/isaac-sim/AirStack/_test_freeze/raven_suburb_tornado_250`) must already
@@ -233,6 +263,13 @@ is real but does not by itself prove the shared-mode RUNTIME path works.
 - **The scene doesn't exist yet.** `_plans/raven_test_scene_runbook.md` §2's
   Isaac launch (build + freeze `RavenSuburbTornado250`) has not been run.
   Nothing past that point in this file has been exercised end to end.
+- **RADSeg has never crossed the encoder socket** (2026-09-02 attempt: the
+  weights are absent from `robot/docker/cache` — see prerequisite #0 in §3a;
+  the same rig was proven with `encoder=dummy`, so the wire path itself is
+  fine). Also note `radseg.py` hardcodes `torch.autocast("cuda", ...)` in
+  three places with `amp: True` defaulted — harmless on the real GPU
+  deployment, but a CPU-only smoke of the real model will need
+  `encoder.amp=False`.
 - **The shared mapping server has never processed real camera frames.**
   `scripts/raven_rayfronts_tests.sh`'s container tier proves `import
   rayfronts` + `import rayfronts_cpp` + `rclpy` + `torch` all work together

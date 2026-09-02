@@ -24,6 +24,15 @@ defaults:
   - override dataset: multi_ros2isaacsim   # low_memory: ros2isaacsim (1 robot)
   - override vis: multi_ros                # low_memory: ros
   - override messaging_service: multi_ros  # low_memory: ros
+  # PCA back ON (2026-09-02 evening, user: "use low_memory... that's what
+  # will stop OOM"). The uncompressed run OOMed live at 41k voxels
+  # (feature_query tried a 1.56 GiB alloc with 0.6 GiB free), froze every
+  # query publish for 8 min and the drone oscillated on stale frontiers.
+  # The old fit-on-33-query-vectors crash (pca_lowrank q=100 > 33) is FIXED
+  # at the root: mapping_server.add_queries now stores query feats RAW and
+  # run_queries compresses them lazily after the first FRAME fits the basis
+  # (mapping/base.py:310) — the query side can no longer be the thing that
+  # fits it.
   - override feat_compressor: pca
   - _self_
 
@@ -36,7 +45,18 @@ batch_size: 1        # one frame at a time: frames come from different robots
 
 # ---- querying --------------------------------------------------------------
 querying:
-  compressed: True
+  # False — REQUIRED with the PCA compressor here, and here is why (crash
+  # loop, live 2026-09-02 15:11, "(6x1152 and 768x100)"): the basis is fitted
+  # on the encoder's PRE-ALIGNMENT image features (768-d, mapping/base.py:310)
+  # while text queries live in the language space (1152-d siglip2). The two
+  # spaces only meet inside feature_query, which decompresses the map
+  # (100->768) and THEN runs align_spatial_features_with_language (768->1152)
+  # before the cosine — so queries must stay RAW and the query must run
+  # compressed=False. PCA's VRAM win is on the MAP side (stored voxel/ray
+  # feats are 100-d instead of 768-d); the decompress at query time is a
+  # ~130 MB transient at 40k voxels, not a leak. compressed=True would feed
+  # 100-d vectors into a 768-d alignment layer even without the shape crash.
+  compressed: False
   compute_prob: True
 
   # low_memory leaves this null and the launch file passes
@@ -50,25 +70,82 @@ querying:
   # scores ~1.0 for the only query and no threshold means anything.
   # NOTE: the size of this list moves raven's thresholds -- see the header of
   # background_humans.txt before changing it.
-  query_file: /root/AirStack/common/rayfronts_configs/background_humans.txt
+  #
+  # NULL as of 2026-09-02, deliberately. Two reasons:
+  #
+  # 1. INDEX ORDER. Labels loaded from this file are pinned at SERVER STARTUP
+  #    and take q0..qN; the mission's target arrives later from raven and gets
+  #    the LAST index. That is why `person` was q33 and the operator had to
+  #    colour by sim_33 to see anything. With this null the server starts with
+  #    an empty query set and the indices are the order queries ARRIVE — raven
+  #    sends its target first (raven_nav_node: query_labels = [target] +
+  #    background), so `person` is q0 / sim_0.
+  #
+  # 2. ONE SOURCE OF TRUTH. With a file pinned here AND background_queries in
+  #    the mission goal, the two lists had to be hand-synced and silently
+  #    disagreed (the file's 33 labels vs the mission's 33 in a different
+  #    order). Now the MISSION alone defines the vocabulary.
+  #
+  # The reference (known-working) single-robot deployment also ran this null.
+  # background_humans_t250.txt documents the 8-label set the mission sends and
+  # why those eight; it is a reference document now, not a loaded file.
+  # UN-NULLED 2026-09-02 (third pass): the two reasons for null are cured —
+  # (1) add_queries now preserves order, so a person-FIRST file pins
+  # person=q0/sim_0 at startup deterministically; (2) the mission's
+  # background_queries and this file are now the same 7 labels by
+  # construction (vocab_person_first.txt is the one source). The decisive
+  # argument FOR the file: after a supervisor restart the mapper's
+  # new_text_query subscriber has repeatedly come up DEAF (incarnations #2
+  # and #3, live 2026-09-02 20:03-20:10 — callbacks never fire though the
+  # node, executor and frame subs are healthy; suspected stale-SHM), so
+  # topic-delivered vocabulary cannot be trusted to arrive at all. Seeding
+  # from the file needs no delivery. Later new_text_query labels (raven's
+  # target, guiding queries) still merge on top and de-dupe.
+  query_file: /root/AirStack/common/rayfronts_configs/vocab_person_first.txt
 
-  period: 10
+  period: 15   # query cycle 10 -> 15 frames: the decompress+align transient is the OOM site; 12 labels x 0.3-vox count made it ~2x heavier
 
 # ---- input -----------------------------------------------------------------
 dataset:
-  rgb_resolution: [480, 480]
-  depth_resolution: [480, 480]
+  # Aspect-correct and patch-aligned (RADIO snaps to 16-multiples). The old
+  # [480,480] SQUARE resize stretched the 480x300 camera 1.6x vertically —
+  # distorted inputs for an encoder trained on natural images. 2026-09-02:
+  # camera raised to 960x600 (user-authorized: person at 15-20 m spanned
+  # only 1-2 ViT patches at 480 wide, raw cosine ~0.08 — signal, not
+  # threshold, was the detection limit).
+  # LOWERED from [608, 960] (2026-09-02 evening, user: config too heavy,
+  # keep the aspect). 640x400 is EXACTLY the camera's 1.6 aspect (960x600),
+  # both multiples of 16 for the ViT patch grid, and 2.3x fewer pixels
+  # through the encoder + alignment per frame. Detection headroom note: a
+  # person at 15-20 m spans ~2 patches at 640 wide (vs ~3 at 960, ~1.5 at
+  # 480) — if recall drops, PCA (the real OOM fix) leaves room to raise
+  # this again before anything else.
+  # BACK UP to 608x960 (2026-09-02, third pass): at 640x400 + PCA(100) the
+  # background labels' raw cosines COLLAPSED (road max 0.153 -> 0.063) while
+  # `person` kept a ~0.07 floor everywhere, so the x100 softmax painted MOST
+  # of the map as person (user: "it's just made most voxels into a person").
+  # PCA carries the VRAM problem now; resolution buys back the semantics.
+  rgb_resolution: [608, 960]
+  depth_resolution: [608, 960]
+  # bigger frames publish with more jitter; 0.01 starves the pairing.
+  sync_slop_s: 0.05
   frame_skip: 10          # PER ROBOT. Two robots at frame_skip 10 give the
                           # mapper roughly the frame rate one robot at
                           # frame_skip 5 used to.
   robot_ids: [1]          # override on the command line: dataset.robot_ids=[1,2]
   anchor_mode: gps
+  # Start mapping only after the drone has climbed 3 m — pre-takeoff
+  # ground-level frames integrated junk geometry (underground artifacts) and
+  # pre-search clutter (user 2026-09-02: "rayfronts should start with raven
+  # after take off").
+  start_after_climb_m: 7.0
 
 # ---- mapping ---------------------------------------------------------------
 mapping:
-  vox_size: 0.50          # unchanged. A standing adult is ~1 voxel in plan and
-                          # ~4 tall; a lying casualty is ~4x1x1. Going finer
-                          # multiplies VRAM across a 250 m plate.
+  vox_size: 0.30          # 0.5 -> 0.3 (user 2026-09-02 night): a lying human
+                          # is now ~6x2x1 voxels instead of ~4x1x1 — real
+                          # shape for the clusterer. ~4.6x more voxels per
+                          # volume; the caps below are cut to compensate.
   vox_accum_period: 1
 
   # low_memory: 1000. A human subtends a small fraction of a 480x480 frame, and
@@ -77,13 +154,13 @@ mapping:
   # contributes ~20 points -- and those are split over the ~4 voxels it
   # occupies. 4000 makes a single-voxel target survive one pass instead of
   # needing many.
-  max_pts_per_frame: 4000
+  max_pts_per_frame: 1500   # ->1500: OOM at 90 s of vox-0.3 x 12-label mapping (23:19)
 
   # Unchanged at 3000. These are FREE-space points; raising them alongside the
   # occupied ones would just re-balance the log-odds back to where it was.
-  max_empty_pts_per_frame: 3000
+  max_empty_pts_per_frame: 2000  # 3000 -> 2000: same trade
 
-  max_rays_per_frame: 500   # unchanged. Rays are the long-range "something
+  max_rays_per_frame: 200   # ->200: same OOM trade. Rays are the long-range "something
                             # person-like over there" signal raven's Ray
                             # behaviour flies at; 500/frame is already the
                             # per-frame cap that the OG run script lowered to
@@ -116,10 +193,64 @@ mapping:
   # single-observation noise (0 would keep everything).
   sem_pruning_thresh: 1
 
-feat_compressor:
-  out_dim: 100
-  path: null
-
 # How often the per-robot /robot_i/rayfronts/status topic is published.
 # semantic_search_task's shared mode polls this to decide the map is ready.
 status_period_s: 1.0
+
+# ---- open-set PROBES (diagnostics only) ------------------------------------
+# Both are normally set from the mission's env: block, which reaches the
+# mapping server through offboard-compute's container environment
+# (RAYFRONTS_PROBE_PROMPTS / RAYFRONTS_PROBE_POINTS). The env var WINS over the
+# value here; these keys exist so a bench run without a container can set the
+# same thing with a `probe_prompts=[...]` command-line override.
+#
+# NEITHER enters the published query set. With compute_prob=True the score of
+# every label is a softmax across the columns, so adding "casualty" as a column
+# just to see how it scores would move the numbers raven thresholds on. Probe
+# prompts are encoded once at startup into their own tensor and only ever
+# stacked onto the query feats for the read-only feature_query the raw-score
+# logger makes.
+#
+# probe_prompts: alternative query wordings to score against the map, e.g.
+#   ["person lying down", "casualty", "human body", "mannequin"].
+probe_prompts: null
+# probe_points: world-FLU [x, y] (or [x, y, z]) positions of interest — the GT
+# casualty positions. Every raw-log cycle the nearest semantic voxel within
+# 3 m of each is found and BOTH the live vocabulary's and the probe prompts'
+# raw cosines at that voxel are logged. A 2-element point matches
+# horizontally (no height constraint); a 3-element one matches in full 3D.
+probe_points: null
+# probe_background: the CONTRAST SET for the per-prompt SOLO softmax logged
+# beside each raw cosine as `label=raw/solo`.
+#
+#   solo_i = exp(100*cos_i) / (exp(100*cos_i) + sum_b exp(100*cos_b))
+#
+# with b over these labels ONLY — no sibling probes, no live positive. 100 is
+# the live temperature (rayfronts/utils.py compute_cos_sim). The probe prompts
+# are near-synonyms, so any softmax containing two of them splits the mass and
+# every one reads as a miss; solo instead answers "what would this wording
+# score if it REPLACED `person` as the sole query against the same background
+# vocabulary", which IS comparable to the mission's voxel_score_threshold. The
+# live positive gets the same number as the reference column.
+#
+# Set it byte-identical to the mission's background_queries. It has to be
+# explicit because query_file above is null, so nothing is seeded at startup
+# and there is no runtime signal telling target from background (raven sends
+# both on new_text_query and add_queries de-dupes through a set, which does
+# not even preserve "target first"). Unset and unseeded, the raw cosines are
+# still logged and the solo column is simply omitted.
+probe_background: null
+
+# ---- feature compressor -----------------------------------------------------
+# Same values as low_memory.yaml. path: null = fit the PCA basis online on the
+# FIRST FRAME's dense feature image (mapping/base.py:310) — the query side can
+# no longer trigger the fit (add_queries stores raw). For a better basis, fit
+# offline with scripts/fit_feat_compressor and point path: at the file.
+feat_compressor:
+  # 256, not low_memory's 100 (2026-09-02): the basis is fit online on ONE
+  # frame (mapping/base.py:310) — at 100 dims that single-frame basis
+  # reconstructs everything toward the frame mean and inter-class cosine
+  # differences wash out (the person-everywhere softmax above). 256 keeps a
+  # 3x memory win over the raw 768-d features with far better recon.
+  out_dim: 256
+  path: null

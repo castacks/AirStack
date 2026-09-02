@@ -92,6 +92,19 @@ class CoverageTracker:
         return True
 
     # ── reporting ───────────────────────────────────────────────────────────
+    @property
+    def cells_set(self) -> Set[Tuple[int, int]]:
+        """The LIVE internal cell set — an alias, not a copy.
+
+        `FrontierBehavior`'s anti-revisit term needs O(1) membership tests over
+        the observed cells on every tick. At 0.5 m over a 250 m plate that set
+        holds ~250k tuples, so copying it per tick (5 Hz) would cost more than
+        the scoring it feeds. Callers must treat the result as READ-ONLY, and
+        must not stash it expecting a snapshot: `stamp_points` /
+        `stamp_raycast` mutate it in place.
+        """
+        return self.cells
+
     def cell_centers_xy(self) -> np.ndarray:
         if not self.cells:
             return np.zeros((0, 2), dtype=np.float64)

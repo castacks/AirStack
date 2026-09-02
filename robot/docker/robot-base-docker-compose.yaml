@@ -95,6 +95,42 @@ services:
       # lvlm_enabled, default from this var, default true when unset —
       # again bare-name so an empty value here can't beat that default).
       - RAVEN_LVLM
+      - RAVEN_VOXEL_MAX_EXTENT_M
+      # mighty's map-input cloud (stacks/full_mighty): suffix under
+      # /$ROBOT_NAME/ and its TF frame. Unset = stereo depth cone.
+      - MIGHTY_CLOUD_SUFFIX
+      - MIGHTY_CLOUD_FRAME
+      # transit speed cap, substituted into mighty_disaster.yaml v_max
+      # (default 1.5 m/s when unset)
+      - MIGHTY_V_MAX
+      # bridge anchor freshness (controller ladder rung 1): trajectory
+      # override republish period and waypoint stride
+      - MIGHTY_OVERRIDE_PERIOD_S
+      - MIGHTY_SEGMENT_STRIDE
+      # controller ladder rung 2: pid_controller trajectory feedforward
+      # gains (0 = off, bit-identical legacy behaviour)
+      - PID_POS_FF
+      - PID_VEL_FF
+      - PID_VZ_FF
+      # controller ladder rung 3: the NATIVE MIGHTY->PX4 setpoint path
+      # ("Option A"). 0/unset = off and today's chain is bit-identical;
+      # 1/true launches mighty_bridge's native_setpoint_node, which streams
+      # mighty_node's 100 Hz dynus Goal to mavros/setpoint_raw/local as
+      # mavros_msgs/PositionTarget while the follower is engaged and mutes
+      # pid_controller for exactly that window (PX4 must never have two
+      # masters). Bare-name so an empty value cannot beat the node-side
+      # default — see mighty_bridge/README.md.
+      - MIGHTY_NATIVE_SETPOINTS
+      # How long a disengage is treated as PROVISIONAL before that handback
+      # runs (seconds, default 4.0). raven's search issues a new NavigateTask
+      # every few seconds; without this the vehicle thrashes
+      # engage->stream->handback->pid->engage and flies as badly as the legacy
+      # path. 0 = hand back immediately.
+      - MIGHTY_NATIVE_GRACE_S
+      - RAVEN_FRONTIER_NOVELTY_W
+      # raven cluster lattice; MUST match shared_humans mapping.vox_size
+      - RAVEN_VOX_SIZE_M
+      - RAVEN_FRONTIER_MAX_DZ_M
       # The two softmax/timing gates on that same LVLM-guided behaviour —
       # raven_nav/params.py's lvlm_ray_threshold (default 0.9, OG
       # lvlm_behavior.py:78) and lvlm_request_interval_s (default 30.0, OG

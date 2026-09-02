@@ -1,0 +1,12 @@
+person
+road
+grass
+tree
+house
+debris
+sky
+car
+utility pole
+street light
+hydrant
+crosswalk

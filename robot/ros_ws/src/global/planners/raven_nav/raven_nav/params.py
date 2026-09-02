@@ -54,6 +54,15 @@ PARAM_TABLE: List[Param] = [
           doc='OG voxel_behavior.py:78'),
     Param('voxel_min_confidence', 0.0,
           doc='drop reported AABBs below this mean score; 0 = report all'),
+    Param('voxel_size_m', None,
+          doc='None => env RAVEN_VOX_SIZE_M, default 0.5 (OG). MUST match '
+              'the mapper (shared_humans mapping.vox_size) — the cluster '
+              'lattice and AABB margins are built from it.'),
+    Param('voxel_max_extent_m', None,
+          doc='None => env RAVEN_VOXEL_MAX_EXTENT_M, default 0 = off. Drop '
+              'voxel clusters whose largest AABB edge exceeds this — a '
+              'person is <=~2 m lying; the measured FPs (2026-09-02) were '
+              '4-4.5 m debris piles that out-scored the softmax gate.'),
 
     # ── LVLM-guided behaviour (new) ─────────────────────────────────────────
     Param('lvlm_enabled', None,
@@ -216,6 +225,23 @@ def resolve_lvlm_interval_s(param_value: Optional[float], environ=None,
         return float(param_value)
     return env_float('RAVEN_LVLM_INTERVAL_S', LVLM_INTERVAL_DEFAULT_S,
                      environ=environ, warn=warn)
+
+
+def resolve_voxel_size_m(param_value, environ=None, warn=None):
+    """`voxel_size_m` unset (None) falls back to env RAVEN_VOX_SIZE_M,
+    default 0.5 (the OG lattice)."""
+    if param_value is not None:
+        return float(param_value)
+    return env_float('RAVEN_VOX_SIZE_M', 0.5, environ=environ, warn=warn)
+
+
+def resolve_voxel_max_extent_m(param_value, environ=None, warn=None):
+    """`voxel_max_extent_m` unset (None) falls back to env
+    RAVEN_VOXEL_MAX_EXTENT_M, default 0.0 (= filter off)."""
+    if param_value is not None:
+        return float(param_value)
+    return env_float('RAVEN_VOXEL_MAX_EXTENT_M', 0.0, environ=environ,
+                     warn=warn)
 
 
 def resolve_lvlm_ray_threshold(param_value: Optional[float], environ=None,

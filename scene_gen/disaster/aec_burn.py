@@ -1359,6 +1359,40 @@ def _lose_wall(stage, meas, plan, unit, rng, stats, verbose=True, scope=None):
         lo[perp], hi[perp] = a_lo, a_hi
         lo[along], hi[along] = cc - s / 2.0, cc + s / 2.0
         boxes.append((lo, hi))
+    # EVERYTHING SET IN THE LOST WALL GOES WITH IT: the window trims (glass
+    # and sashes are already gone), the doors, the wall packs — left where
+    # they were they hang in the hole as "floating window borders"
+    # (`/World/aec3_F5/BurnLayer/soot`, user 2026-09-02) and so do their
+    # soot-layer copies. With physics they are rigid bodies with the wall's
+    # own outward push and the settle drops them with the bricks; without,
+    # they are simply deactivated. Marked dead either way, so `author_row`
+    # never soots them.
+    looks = stage.DefinePrim(Sdf.Path(meas["root"]).AppendChild("BurnLooks"), "Scope")
+    metal_mat = _flat_material(stage, str(looks.GetPath().AppendChild("burnt_metal")),
+                               BURNT_METAL_RGB, 0.85)
+    out_sign0 = -1.0 if side in ("W", "S") else 1.0
+    n_parts = 0
+    for mrec in unit["meshes"]:
+        if mrec.get("dead") or mrec["cat"] not in (
+                "Windows", "Doors", "Generic_Models", "Lighting_Fixtures"):
+            continue
+        b = mrec["bbox"]
+        cc = (0.5 * (b[0] + b[3]), 0.5 * (b[1] + b[4]), 0.5 * (b[2] + b[5]))
+        inside = any(all(lo[k] - 0.3 <= cc[k] <= hi[k] + 0.3 for k in range(3))
+                     for lo, hi in boxes)
+        if not inside:
+            continue
+        if scope:
+            before = len(stats.get("loose") or [])
+            _drop_pieces(stage, meas, mrec, scope, metal_mat, stats, "wall_part",
+                         "wpart_{0}_{1}".format(unit["name"].rsplit("_", 1)[-1], mrec["name"][:20]))
+            for path in (stats.get("loose") or [])[before:]:
+                v = [0.0, 0.0, 0.0]
+                v[perp] = out_sign0 * rng.uniform(0.4, 1.6)
+                stats.setdefault("velocity", {})[path] = (v[0], v[1], 0.0)
+        else:
+            _kill(stage, mrec, stats, "wall_part")
+        n_parts += 1
     md = _mesh_dict_world(wall["prim"], mpu, xf)
     if md is None:
         return

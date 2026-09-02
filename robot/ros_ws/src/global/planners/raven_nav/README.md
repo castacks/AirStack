@@ -100,6 +100,30 @@ externally produced answer for tests and manual guidance.
    `detection_memory.py` accumulates merged AABBs with an observing/visited
    status for the benchmark. Neither steers the drone.
 
+### Novelty anti-revisit (re-enabled)
+
+`distance + momentum` alone makes the drone re-fly ground it has already
+cleared — a frontier centroid inside covered terrain is *near*, so it keeps
+winning. The frontier score therefore carries the **single-agent** form of the
+pre-rewrite node's novelty penalty (`35ce9e93`
+`behaviors/frontier_behavior.py:82-83, 126-146, 556-564`); only the peer
+repulsion, peer completed-zones and stuck blacklist were left behind. Each
+viewpoint pays `NOVELTY_WEIGHT (100.0) * f`, where `f` is the fraction of the
+`(2k+1)^2` cell window around its XY that `CoverageTracker` has already
+observed, `k = NOVELTY_NEIGHBORHOOD_CELLS (5)` — an 11x11 window, i.e. 5.5 m at
+the 0.5 m coverage grid. Fully re-covered ground is scored as if it were 100 m
+further away; untouched ground pays nothing. There is **no flag**: the term
+only reorders candidates, and `observed_cells` is empty at mission start and
+`None` in every context that does not supply it, in which case the score is
+bit-for-bit the OG `distance + momentum` — so the OG behaviour is what you get
+until coverage exists, and there is no second code path to keep honest. The
+node passes `CoverageTracker.cells_set`, the tracker's **live** set (aliased,
+not copied — 250 m at 0.5 m is ~250k tuples per tick); behaviours treat it as
+read-only. The pick is still the OG uniform draw over the top 5, so with five
+or fewer viewpoints a stale one stays in the draw; it only drops out once the
+penalty pushes it past the cut. `debug/frontier_table` prints the per-viewpoint
+novelty term next to the total.
+
 ### Two OG defects fixed (not deviations — the OG code contradicted itself)
 
 * `ray_behavior.py:85` applied the forward-filter mask to the direction array
@@ -241,13 +265,13 @@ uv run --with numpy --with scipy --with scikit-learn --with pytest \
 
 | file | what it pins |
 |---|---|
-| `test_frontier_behavior.py` | DBSCAN viewpoints, altitude gates, momentum, top-5 random pick, lock/unlock, both deviations |
+| `test_frontier_behavior.py` | DBSCAN viewpoints, altitude gates, momentum, the novelty anti-revisit term (window math, the 50-seed "covered ground is never picked", and `observed_cells=None` reproducing the old scores exactly), top-5 random pick, lock/unlock, both deviations |
 | `test_ray_behavior.py` | the 45 degree binning (first-fit, order-sensitive, running-mean centroid), the forward filter, density scoring, +6/+12 m waypoints |
 | `test_voxel_behavior.py` | 26-connected CCL, cluster boxes, the visited gate, the ray-cast standoff, both deviations |
 | `test_lvlm_behavior.py` | OG cleaning, the OG prompt text, the 30 s throttle, guiding-column mapping, and the whole HTTP client against a real `http.server` |
 | `test_behavior_manager.py` | priority, mode-switch reset, `frontier_only` short-circuit, LVLM off |
 | `test_detection_memory.py` | observing -> visited, stickiness, passive fly-by detection, the event log |
-| `test_coverage.py` | cell stamping, raycast pullback and rate limit, the fraction, the packed grid |
+| `test_coverage.py` | cell stamping, raycast pullback and rate limit, the fraction, the packed grid, the aliased `cells_set` accessor |
 | `test_results_schema.py` | the results keys against `compile_results.py` (it is actually run over a dump), and the two JSON topics against their readers |
 | `test_param_contract.py` | every `-p` flag `semantic_search_task/node.py` passes is declared |
 | `test_log_contract.py` | every log line survives `semantic_search_task._filter_raven`, loaded by file path |

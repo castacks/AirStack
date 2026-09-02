@@ -346,6 +346,29 @@ def test_a_repeated_answer_does_not_re_register_queries(node):
     assert len(rec.published[f'{RF}/new_text_query']) == 1
 
 
+def test_shared_mode_keeps_guiding_labels_off_new_text_query(monkeypatch):
+    # RAYFRONTS_MODE=shared: the shared server pins every new_text_query
+    # label forever (GuidingQueryRegistry.pin), so guiding objects must
+    # travel ONLY on the latched guiding_queries list or they can never be
+    # deleted when the LVLM moves on.
+    rec = ros_stubs.install()
+    monkeypatch.setenv('ROBOT_NAME', 'robot_1')
+    monkeypatch.setenv('ROS_DOMAIN_ID', '1')
+    monkeypatch.setenv('RAVEN_LVLM', 'false')
+    monkeypatch.setenv('RAYFRONTS_MODE', 'shared')
+    import importlib
+    import raven_nav.ros_io
+    importlib.reload(raven_nav.ros_io)
+    import raven_nav.raven_nav_node as rn
+    importlib.reload(rn)
+    from std_msgs.msg import String
+    n = rn.RavenNavNode()
+    n._lvlm_output_cb(String(data='a car, the roof'))
+    assert rec.published.get(f'{RF}/new_text_query', []) == []
+    assert json.loads(rec.last(f'{RF}/guiding_queries').data) == \
+        ['car', 'roof']
+
+
 def test_lvlm_mode_fires_on_a_guiding_column(monkeypatch, tmp_path):
     from std_msgs.msg import String
     rec = ros_stubs.install()

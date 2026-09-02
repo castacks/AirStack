@@ -64,10 +64,35 @@
          value="$(find-pkg-share local_bringup)/config/mighty_disaster.yaml" />
     <arg name="mighty_mapper_config"
          value="$(find-pkg-share local_bringup)/config/global_mapper_disaster.yaml" />
+    <!-- Which cloud feeds mighty's map. Default = the forward stereo depth
+         cloud (the eval sweep's choice: no Ouster there). That cone only
+         covers what the camera has SEEN — waypoints through never-observed
+         geometry fly straight through it (live 2026-09-02). For 360-degree
+         avoidance set ENABLE_LIDAR=true and:
+           MIGHTY_CLOUD_SUFFIX=sensors/ouster/point_cloud
+           MIGHTY_CLOUD_FRAME=ouster -->
     <arg name="mighty_lidar_topic"
-         value="/$(env ROBOT_NAME)/perception/stereo_image_proc/point_cloud" />
-    <arg name="mighty_lidar_frame" value="camera_left" />
+         value="/$(env ROBOT_NAME)/$(env MIGHTY_CLOUD_SUFFIX perception/stereo_image_proc/point_cloud)" />
+    <arg name="mighty_lidar_frame" value="$(env MIGHTY_CLOUD_FRAME camera_left)" />
     <arg name="mighty_odometry_topic" value="$(var local_odometry_in_topic)" />
+    <!-- The bridge only starts following /global_plan once
+         `z - z0 > follow_min_climb_m` AND |vz| < 0.2. The module default is
+         8.0 m and this include never overrode it, so any mission taking off
+         below ~8.2 m hung forever: the drone hovered, term_goal was never
+         published, and the global planner published into a void with no error
+         anywhere. Measured 2026-09-02 on raven_shared_t250_1robot at a 2.0 m
+         takeoff — 768 consecutive `follower gate: ... climb_needed=8.0` lines
+         at z=2.7 m, diagnosed as "RAVEN/RayFronts is broken" for an hour.
+         1.0 m just means "airborne"; the |vz| < 0.2 term is what actually
+         waits for the climb to settle, so this does NOT engage mid-climb.
+         It also kills a knife-edge: `> 8.0` against an 8.0 m takeoff that
+         settles ~0.15 m short (0.3 m acceptance) can NEVER pass, which is a
+         live hang in osmo/missions/frontier_vs_raven_compare.yaml.
+         NOTE: local_bringup/launch/local.launch.xml carries the same arg, but
+         that file is only reached on the legacy AUTONOMY_ROLE path — with
+         AIRSTACK_STACK set (.env:178 = full_mighty) robot.launch.xml:70-77
+         dispatches HERE and never loads it. This is the copy that runs. -->
+    <arg name="mighty_follow_min_climb_m" value="1.0" />
   </include>
 
   <!-- Trajectory controller: odometry in from odometry_conversion; serves the

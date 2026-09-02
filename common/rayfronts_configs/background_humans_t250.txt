@@ -1,0 +1,43 @@
+# Background vocabulary for the RavenSuburbTornado250 person search — SHORT.
+#
+# WHY 8 AND NOT 33
+# With querying.compute_prob=True every score is a SOFTMAX ACROSS ALL COLUMNS,
+# so each extra label divides the probability mass. The 33-label
+# background_humans.txt put `person` in a 34-way softmax and a correct but
+# unremarkable person voxel could not reach the mission's 0.5 gate even in
+# principle. The reference (known-working) deployment ran with
+# querying.query_file NULL — no pinned background at all. This is the middle
+# ground: enough context classes that `person` cannot win by default on
+# whatever happens to be in frame, few enough that a real hit clears a
+# meaningful threshold.
+#
+# WHY THESE EIGHT
+# Measured from the 2026-09-02 run's argmax histogram over 6039 voxels of this
+# exact cell: tree 3657, debris pile 2174, fallen tree 64, tarp 27, utility
+# pole 25, bush 21, asphalt 19, mud 12. Two classes own 96% of the map, so the
+# list is built around them plus the structures a suburb search must not
+# confuse for a casualty.
+#
+#   tree, debris pile   the 96% — without these `person` absorbs the whole map
+#   grass, road         the two ground planes a lying body is seen against
+#   house, roof         structure; `roof` separately because tornado roofs are
+#                       on the ground and are the biggest lying-flat distractor
+#   car                 the other human-scale, human-associated object
+#   sky                 the horizon half of every pitch-0 frame; without it the
+#                       sky competes for `person` mass on out-of-range pixels
+#
+# ORDER DOES NOT MATTER HERE. Index order is set by the order queries REACH the
+# server. `person` is q0 only because querying.query_file is now null and
+# raven sends its target first — see shared_humans.yaml.
+#
+# Keep in sync BY HAND with the mission's `background_queries` string
+# (osmo/missions/raven_shared_t250_1robot.yaml) — the mission schema has no
+# include mechanism.
+road
+grass
+tree
+debris pile
+house
+roof
+car
+sky

@@ -25,11 +25,13 @@ import json
 import os
 import re
 import threading
+import time
 from typing import List, Optional
 
 import numpy as np
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
                        ReliabilityPolicy)
@@ -107,6 +109,12 @@ def sanitize_topic_label(s: str) -> str:
 
 class RavenNavNode(Node):
 
+    # How often (monotonic seconds) the sim_k -> label mapping is re-verified
+    # against the live q{k}_{label} topic names even when the column COUNT is
+    # unchanged — a mapper restart can permute labels without changing their
+    # number (see _refresh_columns).
+    LABEL_REVERIFY_S = 5.0
+
     def __init__(self, *, context=None, cli_args=None):
         """`context` / `cli_args` exist for tests and for anyone embedding the
         node: `main()` leaves both None and gets exactly the old behaviour
@@ -121,6 +129,14 @@ class RavenNavNode(Node):
         self._prefix = f'/{self._robot_name}'
         ros_domain = os.getenv('ROS_DOMAIN_ID', '0')
         self._rf_prefix = f'/robot_{ros_domain}/rayfronts/msg_serv'
+        # RAYFRONTS_MODE=shared: the off-board server PINS every label that
+        # arrives on new_text_query as permanent mission vocabulary
+        # (GuidingQueryRegistry.pin), so guiding objects must reach it ONLY
+        # via guiding_queries or they become undeletable and the OG
+        # delete-when-dropped semantics are lost. per_robot: the legacy
+        # server only listens on new_text_query (and has no delete API).
+        self._rayfronts_shared = (
+            os.getenv('RAYFRONTS_MODE', '').strip().lower() == 'shared')
 
         # ── parameters ──────────────────────────────────────────────────────
         self._p = {}
@@ -137,6 +153,12 @@ class RavenNavNode(Node):
                     None, warn=self.get_logger().warn)
             elif spec.name == 'lvlm_ray_threshold':
                 default = P.resolve_lvlm_ray_threshold(
+                    None, warn=self.get_logger().warn)
+            elif spec.name == 'voxel_max_extent_m':
+                default = P.resolve_voxel_max_extent_m(
+                    None, warn=self.get_logger().warn)
+            elif spec.name == 'voxel_size_m':
+                default = P.resolve_voxel_size_m(
                     None, warn=self.get_logger().warn)
             self._p[spec.name] = self.declare_parameter(
                 spec.name, default).value
@@ -190,6 +212,7 @@ class RavenNavNode(Node):
         self._prev_ray_marker_count = 0
         self._prev_cluster_marker_count = 0
         self._detected_query_labels: Optional[List[str]] = None
+        self._labels_verified_ts: float = 0.0
         self._registered_queries: set = set()
         self._latest_image = None
 
@@ -204,6 +227,8 @@ class RavenNavNode(Node):
             score_threshold=float(self._p['score_threshold']),
             voxel_score_threshold=float(self._p['voxel_score_threshold']),
             voxel_min_cluster_size=int(self._p['voxel_min_cluster_size']),
+            voxel_max_extent_m=float(self._p['voxel_max_extent_m'] or 0.0),
+            voxel_size_m=float(self._p['voxel_size_m'] or 0.5),
             lvlm_enabled=bool(self._p['lvlm_enabled']),
             lvlm_request_interval_s=float(self._p['lvlm_request_interval_s']),
             lvlm_ray_threshold=float(self._p['lvlm_ray_threshold']),
@@ -349,16 +374,26 @@ class RavenNavNode(Node):
         return [lbl for _i, lbl in parsed]
 
     def _refresh_columns(self, n_sims: int) -> None:
+        # RE-VERIFY EVEN WHEN THE COUNT MATCHES (user directive, live
+        # 2026-09-02: "verify the sim_X order before assuming which is
+        # person"). A mapper restart that re-registers the SAME number of
+        # labels in a DIFFERENT order used to slip past the count-equality
+        # early-return below, leaving this node confirming `road` voxels as
+        # `person` off a stale sim_k -> label mapping. The topic-name scan is
+        # cheap; every LABEL_REVERIFY_S we run it regardless.
         cached = len(self._detected_query_labels or [])
-        if cached == n_sims:
+        now = time.monotonic()
+        if (cached == n_sims
+                and now - self._labels_verified_ts < self.LABEL_REVERIFY_S):
             return
         detected = self._detect_rayfronts_labels()
+        self._labels_verified_ts = now
         if detected is None or detected == self._detected_query_labels:
             return
         prev = self._detected_query_labels
         self._detected_query_labels = detected
         self._query_labels = list(detected)
-        self.get_logger().info(
+        self.get_logger().warning(
             f'[ray_table] column labels refreshed: {prev} -> {detected}')
 
     def _ray_all_cb(self, msg: PointCloud2):
@@ -489,7 +524,25 @@ class RavenNavNode(Node):
             min_altitude=self._min_altitude, max_altitude=self._max_altitude,
             waypoint_locked=self._waypoint_locked,
             target_waypoint=self._target_waypoint,
-            target_waypoint2=self._target_waypoint2)
+            target_waypoint2=self._target_waypoint2,
+            # Anti-revisit: FrontierBehavior penalises viewpoints whose cell
+            # neighbourhood is already covered. This is the tracker's LIVE set,
+            # deliberately aliased rather than copied — a 250 m plate at 0.5 m
+            # is ~250k tuples and this runs at the tick rate. Two consequences,
+            # both intended: (a) behaviours must treat it as read-only, and
+            # (b) `_update_coverage` runs after `_tick_context()` on the same
+            # tick, so by the time the behaviour scores, the set already
+            # includes this tick's stamps — the drone's current position never
+            # reads as novel.
+            observed_cells=self._coverage.cells_set,
+            coverage_cell_size_m=self._coverage.cell_size_m,
+            # Visited-target boxes for the ray anti-revisit exclusion
+            # (behaviors/ray_behavior.py). Own detections only.
+            visited_bbs=[
+                np.concatenate([np.asarray(ct.center, float),
+                                np.asarray(ct.size, float)])
+                for ct in self._detections.confirmed_targets()
+                if str(ct.status).lower() == 'visited'])
 
     # ── LVLM plumbing ───────────────────────────────────────────────────────
     def _apply_lvlm_answer(self, answer: str) -> None:
@@ -498,12 +551,16 @@ class RavenNavNode(Node):
         self._guiding_objects_pub.publish(String(data=json.dumps(objects)))
         # Whole list for the shared server (latched)...
         self._guiding_queries_pub.publish(String(data=json.dumps(objects)))
-        # ...and one message per NEW label for the legacy per-robot server.
-        for obj in objects:
-            if obj in self._registered_queries:
-                continue
-            self._registered_queries.add(obj)
-            self._text_query_pub.publish(String(data=obj))
+        # ...and one message per NEW label for the legacy per-robot server —
+        # but NOT in shared mode: the shared server pins every
+        # new_text_query label forever (see __init__), and guiding labels
+        # must stay deletable.
+        if not self._rayfronts_shared:
+            for obj in objects:
+                if obj in self._registered_queries:
+                    continue
+                self._registered_queries.add(obj)
+                self._text_query_pub.publish(String(data=obj))
         if beh.guiding_changed:
             self.get_logger().info(f'[lvlm] guiding objects: {objects}')
 
@@ -788,7 +845,7 @@ def main(args=None):
     node = RavenNavNode()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         try:
@@ -796,7 +853,18 @@ def main(args=None):
         except Exception:                                 # noqa: BLE001
             pass
         node.destroy_node()
-        rclpy.shutdown()
+        # rclpy's OWN SIGINT handler has already shut the default context down
+        # by the time spin() returns, so an unconditional second shutdown
+        # raises `RCLError: rcl_shutdown already called on the given context`
+        # — which used to escape main() as a traceback and a non-zero exit on
+        # every clean Ctrl-C / `docker stop` / spawner teardown, i.e. a normal
+        # end-of-mission looked like a planner crash to whoever reaped it.
+        # Measured in the robot container after SIGINT: spin() raises
+        # KeyboardInterrupt, rclpy.ok() is False, destroy_node() is fine,
+        # rclpy.shutdown() throws. Found by the e2e chain smoke
+        # (test/integration/test_e2e_shared_rayfronts.py).
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

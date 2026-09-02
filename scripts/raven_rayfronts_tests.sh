@@ -36,12 +36,23 @@
 # makes this script exit non-zero.
 #
 # Usage:
-#   scripts/raven_rayfronts_tests.sh [--gpu] [--host-only] [-h|--help]
+#   scripts/raven_rayfronts_tests.sh [--gpu] [--host-only] [--e2e] [-h|--help]
 #     --gpu        add `--gpus all` to the container run and also execute the
 #                  rayfronts `-m cuda` tests (skip both otherwise — no GPU is
 #                  touched by a default run). Use briefly; see the runbook
 #                  for the VRAM budget before running this on a loaded box.
 #     --host-only  run only the HOST tier (uv run) — skip docker entirely.
+#     --e2e        run ONLY the end-to-end chain smoke
+#                  robot/ros_ws/src/global/planners/raven_nav/test/integration/
+#                  test_e2e_shared_rayfronts.py, in the same throwaway
+#                  container. It forks the real `rayfronts.encoder_server`
+#                  (encoder=dummy, CPU) + `rayfronts.multi_robot_mapping_server`
+#                  (--config-name shared_humans) + `raven_nav_node` against two
+#                  fake robots on ROS domains 1 and 2, so it takes minutes, not
+#                  seconds — which is why the ordinary run does not even
+#                  COLLECT it (test/integration/conftest.py gates the file on
+#                  RAVEN_E2E, which this flag sets). Still CPU-only, still
+#                  --network none, still never touches the isaac-sim container.
 set -u
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -49,12 +60,14 @@ cd "$REPO_ROOT"
 
 GPU=false
 HOST_ONLY=false
+E2E=false
 for arg in "$@"; do
   case "$arg" in
     --gpu) GPU=true ;;
     --host-only) HOST_ONLY=true ;;
+    --e2e) E2E=true ;;
     -h|--help)
-      sed -n '2,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,52p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -161,6 +174,9 @@ run_host_suite() {   # run_host_suite <name> <workdir> <uv-with-args...> -- <pyt
   record_from_rc "host:$name" "$rc" "$(pytest_summary_line "$logfile")" "$logfile"
 }
 
+if [ "$E2E" = true ]; then
+  log "--e2e passed — skipping the HOST tier; only the chain smoke runs"
+else
 log "==================== HOST TIER (uv run) ===================="
 
 run_host_suite raven_nav \
@@ -183,6 +199,7 @@ run_host_suite scene_gen_people_json \
   "$REPO_ROOT/scene_gen/tests/test_people_json_to_annotations.py" \
   --with pytest -- \
   scene_gen/tests/test_people_json_to_annotations.py -q
+fi
 
 # ── (b) CONTAINER tier — throwaway docker run --rm of the robot image ───────
 log "==================== CONTAINER TIER (docker run --rm) ===================="
@@ -214,6 +231,7 @@ else
 # ("unbound variable") before a single suite runs. ROS's own setup scripts
 # are not nounset-safe; don't fight that here.
 GPU_MODE="${1:-cpu}"
+RUN_MODE="${2:-all}"     # all | e2e
 LOGDIR=/root/raven_test_logs
 RESULTS="$LOGDIR/container_results.tsv"
 : > "$RESULTS"
@@ -271,6 +289,24 @@ run_suite() {   # run_suite <name> <workdir> <pytest-args...>
   printf '%s\t%s\t%s\n' "$name" "$rc" "$summary" >> "$RESULTS"
 }
 
+if [ "$RUN_MODE" = "e2e" ]; then
+  # The full-chain smoke, and nothing else. RAVEN_E2E is what makes
+  # test/integration/conftest.py collect the file at all; -s keeps the
+  # subprocess-log dumps and the scene-colour/mode prints in the log instead
+  # of pytest's capture buffer (a wedged chain is diagnosed from those).
+  export RAVEN_E2E=1
+  # Keep the encoder/mapper/raven process logs on the MOUNTED log dir so they
+  # outlive the throwaway container (they are the only way to debug a wedged
+  # chain after the fact).
+  export RAVEN_E2E_LOG_DIR="$LOGDIR/e2e"
+  mkdir -p "$RAVEN_E2E_LOG_DIR"
+  run_suite raven_nav_e2e \
+    /root/AirStack/robot/ros_ws/src/global/planners/raven_nav \
+    test/integration/test_e2e_shared_rayfronts.py -q -s -rA -m e2e
+  echo "CONTAINER-HARNESS-DONE"
+  exit 0
+fi
+
 run_suite raven_nav /root/AirStack/robot/ros_ws/src/global/planners/raven_nav \
   test -q
 run_suite rayfronts_not_cuda /root/AirStack/common/rayfronts \
@@ -294,6 +330,14 @@ CONTAINER_EOF
       GPU_ARGS=(--gpus all)
       GPU_MODE_ARG=gpu
     fi
+    RUN_MODE_ARG=all
+    EXTRA_ARGS=()
+    if [ "$E2E" = true ]; then
+      RUN_MODE_ARG=e2e
+      # Six DDS participants across two domains plus torch: the 64 MB default
+      # /dev/shm is not enough for FastDDS' shared-memory segments here.
+      EXTRA_ARGS=(--shm-size=1g)
+    fi
     MOUNTS=(
       -v "$REPO_ROOT/robot/ros_ws:/root/AirStack/robot/ros_ws"
       -v "$REPO_ROOT/common/ros_packages:/root/AirStack/robot/ros_ws/src/common"
@@ -305,9 +349,11 @@ CONTAINER_EOF
 
     run_container() {   # run_container <extra network args...>
       docker run --rm "$@" \
-        "${ENV_ARGS[@]}" "${GPU_ARGS[@]}" "${MOUNTS[@]}" \
+        "${ENV_ARGS[@]}" "${GPU_ARGS[@]}" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}" \
+        "${MOUNTS[@]}" \
         "$IMAGE_TAG" \
-        bash /root/raven_test_logs/run_container_tests.sh "$GPU_MODE_ARG"
+        bash /root/raven_test_logs/run_container_tests.sh "$GPU_MODE_ARG" \
+             "$RUN_MODE_ARG"
     }
 
     log "starting throwaway container (--network none, no --name, --rm) — never touches isaac-sim"
@@ -346,7 +392,7 @@ CONTAINER_EOF
   fi
 fi
 
-if [ "$HOST_ONLY" = false ] && [ "$GPU" = false ]; then
+if [ "$HOST_ONLY" = false ] && [ "$GPU" = false ] && [ "$E2E" = false ]; then
   SUMMARY+=("container:rayfronts_cuda|SKIP|--gpu not passed|-")
 fi
 
