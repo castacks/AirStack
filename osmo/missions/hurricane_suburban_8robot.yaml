@@ -154,12 +154,27 @@ env:
   # ── the fleet and the sim ────────────────────────────────────────────────
   NUM_ROBOTS: 8
   ISAAC_SIM_HEADLESS: "true"
-  # MULTI-GPU RENDERING. Spreads the drones' ZED render products across every
-  # visible card. Measured 2026-08-31 on an 8-robot frozen cell: the Kit
-  # SceneRenderer went from `device mask: 0x1` (all 16 camera streams on ONE
-  # card at 98 %, two 48 GB cards idle at 182 MiB) to `0xf`, and the search
-  # RTF went 0.068 -> 0.103, cutting a cell's search from 147 to 97 minutes.
-  ISAAC_SIM_MULTIGPU: "true"
+  # MULTI-GPU RENDERING — OFF. Was "true" here (copy-pasted verbatim from
+  # frozen_suburban_8robot.yaml's 2026-08-31 measurement: Kit SceneRenderer
+  # went `device mask 0x1` -> `0xf`, RTF 0.068 -> 0.103, on a pod where the
+  # OTHER NVML-visible devices were genuinely this pod's own idle cards).
+  # That precondition does NOT hold on every pod: the launch script's own
+  # comment says this needs "a workflow that requests >1 GPU
+  # (osmo/workflows/airstack-mission-2gpu.yaml)" — this mission is submitted
+  # on airstack-mission-1gpu.yaml (ONE GPU reserved). On a shared OSMO host,
+  # the extra NVML-visible devices are routinely OTHER TENANTS' cards with no
+  # real /dev/nvidia* backing in this container (see docker-compose.yaml's
+  # NVIDIA_VISIBLE_DEVICES comment) — enabling multiGpu then makes Kit spread
+  # drone camera render products onto those phantom devices. Measured
+  # 2026-09-02 on airstack-mission-1gpu-56: reproduced TWICE, a segfault in
+  # Kit's own `_app` extension ~6-7 minutes into every attempt, right as
+  # per-drone camera render products start getting created (not at boot —
+  # driver/CUDA init itself was clean, `Peer access 0<->1/2/3 enabled` for
+  # all 4 NVML devices). Zero robots ever connected to PX4 in either case.
+  # Only pair this with a 1gpu workflow if you have freshly re-verified (this
+  # session, this pod) that every NVML-visible device has a real /dev/nvidia*
+  # file backing it — see run-osmo-baseline-mission/SKILL.md §3.
+  ISAAC_SIM_MULTIGPU: ""
   # ISAAC_SIM_CUDA_DEVICES IS DELIBERATELY UNSET. Pinning it to a subset is
   # what made NVML (4 devices) and CUDA (1) disagree, after which Kit logged
   # six "Skipping NVIDIA GPU due CUDA being in bad state" lines, dropped EVERY
