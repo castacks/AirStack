@@ -10,7 +10,7 @@ setup(
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name, ['package.xml', 'README.md']),
         ('share/' + package_name + '/launch', ['launch/raven_nav.launch.xml']),
         ('share/' + package_name + '/config', ['config/raven_nav.yaml']),
         # Ground-truth scene annotations, mirrored from gcs_visualizer/annotations

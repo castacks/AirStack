@@ -1314,6 +1314,98 @@ def test_reach_never_exceeds_the_absolute_ceiling():
     assert n_checked > 0
 
 
+def test_berm_fragments_have_a_size_mix_not_identical_cubes():
+    """ROUND 4 (v6 review): "the kit berms render as uniform light-grey
+    IDENTICAL boxes -- no texture read, no size/tone variation".
+
+    MEASURED on the offline bench stage before the fix (every box's own
+    edge lengths, read back off the authored meshes): B1's dominant
+    population, `coping` at 247 of ~400 fragments, ran plan-area
+    p10/p50/p90 = 0.12/0.17/0.20 m2 -- a 1.7x spread end to end, i.e. one
+    size. `_DIMS_SLAB`/`_SLAB_SHARE` add a minority of large units to every
+    blocky class; this pins the RESULTING spread rather than the table, so
+    a future range edit that flattens the mix fails here.
+    """
+    info, plan = _plan("midrise", "T4", seed=6, wind=fake_wind(200.0, 0.9),
+                       intensity=0.9)
+    by_kind = {}
+    for f in plan["debris"]:
+        if f["kind"] not in tu._BLOCKY_KINDS:
+            continue
+        l, w, _t = f["size"]
+        by_kind.setdefault(f["kind"], []).append(l * w)
+    assert by_kind, "need blocky debris to measure"
+    for kind, areas in sorted(by_kind.items()):
+        if len(areas) < 20:
+            continue
+        areas.sort()
+        p10 = areas[int(0.10 * len(areas))]
+        p90 = areas[int(0.90 * len(areas))]
+        assert p90 / max(1e-9, p10) >= 3.0, (kind, p10, p90, len(areas))
+    # and the mix never smuggles a plank back in
+    for f in plan["debris"]:
+        if f["kind"] not in tu._BLOCKY_KINDS:
+            continue
+        l, w, _t = f["size"]
+        assert max(l, w) / max(1e-9, min(l, w)) <= tu._MAX_ASPECT + 1e-6, f
+
+
+def test_masonry_tone_is_stamped_from_the_style_and_only_where_it_belongs():
+    """ROUND 4 (v6): B1/B3 are WHITE STONE kit buildings whose every
+    masonry fragment bound `TornadoDebrisLooks/brick` -- a red-brown map
+    (measured linear mean 0.213/0.109/0.071) -- because the class branch is
+    the only masonry look. The ledger now stamps the building's TONE token
+    (`_KIT_TONE`) so `tornado_urban_usd` can pick the matching rubble look.
+
+    Three invariants: a named kit style stamps its tone on BLOCKY fragments
+    only (never on the roof-shed sheet kinds or glass, which are not the
+    building's walls); an unnamed style (every SLICED A-row building, whose
+    class-branch look the review approved) stamps nothing at all; and the
+    tone is JSON-safe plain data like the rest of the fragment schema."""
+    import json
+
+    info = _fixture("midrise", seed=4, btype="urm")
+    info["style"] = "brownstone_row"
+    rng = random.Random(4)
+    plan = tu.plan_damage(info, info["elements"], "T4", "urm", rng,
+                          fake_wind(200.0, 0.9), intensity=0.9)
+    json.dumps(plan)
+    n_toned = 0
+    for f in plan["debris"]:
+        if f["kind"] in tu._BLOCKY_KINDS:
+            assert f["tone"] == "stone", f
+            n_toned += 1
+        else:
+            assert f["tone"] == "", f
+        assert 0 <= f["shade"] < max(1, tu._DEBRIS_SHADES), f
+    assert n_toned > 0
+
+    info2 = _fixture("midrise", seed=4, btype="urm")   # style stays the
+    rng2 = random.Random(4)                            # fixture's own
+    plan2 = tu.plan_damage(info2, info2["elements"], "T4", "urm", rng2,
+                           fake_wind(200.0, 0.9), intensity=0.9)
+    assert tu._tone_for(info2.get("style")) == ""
+    assert all(f["tone"] == "" for f in plan2["debris"])
+
+
+def test_shade_bands_are_deterministic_and_spread_across_a_berm():
+    """The per-mesh tone jitter must not be a draw (it would move every
+    downstream number in the plan) and must not put a whole berm in one
+    band. Deterministic on (source piece, fragment index) via
+    `_stable_shade` -- `zlib.crc32`, never `hash()`, which is salted per
+    process."""
+    kw = dict(wind=fake_wind(200.0, 0.9), intensity=0.9)
+    _i1, p1 = _plan("midrise", "T4", seed=6, **kw)
+    _i2, p2 = _plan("midrise", "T4", seed=6, **kw)
+    assert [f["shade"] for f in p1["debris"]] == [f["shade"] for f in p2["debris"]]
+    blocky = [f for f in p1["debris"] if f["kind"] in tu._BLOCKY_KINDS]
+    seen = set(f["shade"] for f in blocky)
+    assert len(seen) == max(1, tu._DEBRIS_SHADES), (seen, len(blocky))
+    for band in seen:
+        share = sum(1 for f in blocky if f["shade"] == band) / float(len(blocky))
+        assert 0.15 <= share <= 0.55, (band, share)
+
+
 def test_deck_kind_is_retired_from_kind_of_and_dims():
     """R5: `deck` must not be reachable anywhere in the debris vocabulary --
     not as a `_kind_of` return value (a `role == "roof"` piece is always
@@ -2058,6 +2150,161 @@ def test_cladding_band_on_a_narrow_face_reaches_for_storeys():
     assert wide and min(wide) >= 2, wide       # the wide face is untouched
     assert max(wide) <= 4, wide
     assert min(wide) < min(narrow) or len(set(wide)) > 1, (wide, narrow)
+
+
+# ---------------------------------------------------------------------------
+# ROUND 4 (D2, v6 review) -- "no piece stands on air" on the SLICED path, and
+# "no hole edge left square". The user, on the v6 lit bench: "wall_N_1_10_0204
+# -- some walls like this are still floating and some of the walls still have
+# even breaks".
+# ---------------------------------------------------------------------------
+def _grid_of(info):
+    return qs._Grid(info, info["elements"])
+
+
+def test_no_sliced_piece_stands_on_air():
+    """The invariant `_shed_unsupported_walls` exists to hold, over a spread
+    of seeds and both damaging levels. `displaced` pieces are excluded: they
+    are pitched about their own bottom outer edge and are attached there."""
+    seen_shed = 0
+    for fixture, btype, hc in (("midrise", "urm", "midrise"),
+                               ("lowrise", "urm", "lowrise"),
+                               ("tower", "rc", "tower")):
+        info = _fixture(fixture, seed=4, btype=btype)
+        for seed in range(6):
+            for level in ("T3", "T4"):
+                plan = _fc_plan(info, level=level, btype=btype, seed=seed,
+                                wind=fake_wind(15.0 + 23.0 * seed, 0.9),
+                                intensity=0.9, height_class=hc)
+                g = _grid_of(info)
+                left = tu._unsupported_survivors(
+                    g, plan["removed"],
+                    protect=set(plan.get("_support_protect") or ()))
+                assert left == [], (fixture, level, seed, left[:4])
+                seen_shed += plan["stats"]["n_support_shed"]
+    # and the pass is not a no-op everywhere (it would prove nothing if the
+    # fixtures never produced a floating piece in the first place)
+    assert seen_shed > 0, "no seed exercised the support pass at all"
+
+
+def test_support_pass_is_off_under_tu_support_0(monkeypatch):
+    """`TU_SUPPORT=0` is the A/B switch the container probe uses; it must
+    restore the round-3 answer exactly (no shed, and the note says so)."""
+    info = _fixture("midrise", seed=4, btype="urm")
+    monkeypatch.setattr(tu, "TU_SUPPORT_ON", False)
+    plan = _fc_plan(info, level="T4", btype="urm", seed=3,
+                    wind=fake_wind(35.0, 0.9), intensity=0.9)
+    assert plan["stats"]["n_support_shed"] == 0
+    assert any(n.startswith("support: DISABLED") for n in plan["notes"])
+
+
+def test_support_never_sheds_a_displaced_or_leaning_piece():
+    """A hanging panel / leaning macroblock is ATTACHED at its pivot -- the
+    one place this pass deliberately diverges from `tornado_kit.kit_guard`,
+    which demotes them. A piece must never be in `displaced` AND `removed`."""
+    for fixture, btype in (("lowrise", "urm"), ("midrise", "urm")):
+        info = _fixture(fixture, seed=4, btype=btype)
+        for seed in range(8):
+            plan = _fc_plan(info, level="T4", btype=btype, seed=seed,
+                            wind=fake_wind(20.0 + 17.0 * seed, 0.95),
+                            intensity=0.95)
+            shed = set(plan.get("support_shed") or ())
+            # SCOPED TO THIS PASS. `_shed_unsupported_roof` (round 3b F1,
+            # and unchanged here) can and does take a displaced PARAPET
+            # when its wall band empties -- pre-existing, deliberate, and
+            # not what this test is about.
+            assert not (shed & set(plan["displaced"])), (
+                fixture, seed, sorted(shed & set(plan["displaced"]))[:3])
+            assert not (shed & {mb["path"] for mb in
+                                (plan.get("macroblocks") or ())}), (
+                fixture, seed)
+
+
+def test_support_keeps_the_height_class_area_cap():
+    """The seed trade: the closure only ever ADDS and `_cap_removed_frac`
+    cannot hand back what it added, so the pass trades a recipe removal
+    instead of busting the cap."""
+    for fixture, btype, hc in (("midrise", "urm", "midrise"),
+                               ("lowrise", "urm", "lowrise")):
+        info = _fixture(fixture, seed=4, btype=btype)
+        cap = tu.HEIGHT_CAPS[hc]["max_removed_frac"]
+        for seed in range(8):
+            plan = _fc_plan(info, level="T4", btype=btype, seed=seed,
+                            wind=fake_wind(11.0 * seed, 0.95), intensity=0.95,
+                            height_class=hc)
+            if any(r.get("recipe") == "facade_collapse"
+                   for r in plan["regions"]):
+                continue          # Sec8c's documented carve-out
+            assert plan["stats"]["removed_frac"] <= cap + 1e-9, (
+                fixture, seed, plan["stats"]["removed_frac"], cap)
+
+
+def test_every_hole_border_piece_carries_a_tear():
+    """`stats["n_border_untorn"]` is the "even breaks" number: a surviving
+    piece touching a hole with no tear job keeps the slicer's own straight
+    boundary."""
+    saw_border = 0
+    for fixture, btype in (("midrise", "urm"), ("lowrise", "urm")):
+        info = _fixture(fixture, seed=4, btype=btype)
+        for seed in range(6):
+            for level in ("T3", "T4"):
+                plan = _fc_plan(info, level=level, btype=btype, seed=seed,
+                                wind=fake_wind(13.0 * seed + 20.0, 0.9),
+                                intensity=0.9)
+                saw_border += plan["stats"]["n_hole_border"]
+                # THE INVARIANT THIS MODULE OWNS: a border piece that
+                # `plan_edges` gave a job to is never dropped here.
+                assert plan["stats"]["n_border_untorn"] == 0, (
+                    fixture, level, seed,
+                    plan["stats"]["n_border_untorn"],
+                    plan["stats"]["n_hole_border"])
+                # ...and the part it does not own is BOUNDED and reported,
+                # never silently large (see `_finalise`'s own note): a few
+                # pieces `plan_edges` cannot see because its class tests key
+                # on `describe`'s storey and this grid keys on `_storey`.
+                nb = plan["stats"]["n_hole_border"]
+                assert plan["stats"]["n_border_no_job"] <= max(1, nb // 8), (
+                    fixture, level, seed,
+                    plan["stats"]["n_border_no_job"], nb)
+    assert saw_border > 0, "no plan opened a hole with a border at all"
+
+
+def test_cap_tears_never_drops_a_border_job():
+    """The cap bounds the DECORATIVE tears only; a border job is kept
+    whatever the cap, and does not count against it."""
+    jobs = [{"el": {"p": {"_role": "wall", "prim_path": "/p/%d" % i}},
+             "dropped": False} for i in range(9)]
+    border = {"/p/7", "/p/8"}
+    out = tu._cap_tears([dict(j) for j in jobs], 3, border=border)
+    kept = [j for j in out if not j.get("dropped")]
+    kept_paths = {(j["el"]["p"]["prim_path"]) for j in kept}
+    assert border <= kept_paths, kept_paths
+    # 3 non-border + the 2 border ones
+    assert len(kept) == 5, [j["el"]["p"]["prim_path"] for j in kept]
+    # ...and with the border switch off it is the flat round-3 cap again
+    out2 = tu._cap_tears([dict(j) for j in jobs], 3, border=None)
+    assert sum(1 for j in out2 if not j.get("dropped")) == 3
+
+
+def test_hole_border_is_geometric_at_the_corners():
+    """`_hole_border_paths` must not claim the corner at the FAR end of a
+    run. The index-only rule flagged all seven storeys of the SW corner
+    against a band nowhere near it (22 of 54 on the real T3 plan)."""
+    info = _fixture("midrise", seed=4, btype="urm")
+    g = _grid_of(info)
+    corners = [e for e in g.els
+               if (e.get("p") or {}).get("_side") in qs._CORNER_SIDES]
+    if not corners:
+        pytest.skip("fixture has no corner pieces")
+    side = "S"
+    bays = sorted(g.sides.get(side, ()) or ())
+    assert len(bays) >= 3, bays
+    mid = [qs._path(e) for e in g.at((side, 1, bays[len(bays) // 2]))]
+    border = tu._hole_border_paths(g, set(mid))
+    far = [qs._path(e) for e in corners
+           if not tu._touch_xy(e, g.at((side, 1, bays[len(bays) // 2]))[0])]
+    assert far, "expected at least one corner far from the mid bay"
+    assert not (set(far) & border), sorted(set(far) & border)[:4]
 
 
 if __name__ == "__main__":

@@ -691,6 +691,18 @@ KIT_TRIMMABLE_ROLES = ("wall", "pier", "corner")
 #: attached to. 5 m covers one bay either side on every measured kit style
 #: (widest bay module: 8 m, `office`'s ground band).
 KIT_ORNAMENT_RADIUS_M = 5.0
+#: ROUND 4 v7 (lead review): *"check the roof piece/parapet band no longer
+#: overhangs where the top storey is fully open on a side ... if >~50% of a
+#: side's top-storey pieces are gone the parapet band above that side
+#: should shed too"* — B1's roofline band floating over its emptied
+#: top-storey street wall. `tornado_urban._shed_unsupported_roof` already
+#: sheds a parapet with no SURVIVING wall/pier/corner piece within 6 m
+#: (`_ROOF_SUPPORT_RADIUS_M`), which is a LOCAL test: on a 38 m elevation
+#: with the wall gone in the middle and one pier still standing at each
+#: end, every parapet piece within 6 m of an end pier stays, and the band
+#: reads as continuous coping over a hole. This is the SIDE-WIDE test that
+#: catches exactly that case.
+KIT_PARAPET_SIDE_SHED_FRAC = 0.50
 _SUPPORT_MAX_PASSES = 12
 _TRIM_MAX_ROUNDS = 16
 
@@ -884,6 +896,71 @@ def _unsupported(g, e, removed):
     if not near:
         return False
     return all(q in removed for q in near)
+
+
+def _shed_open_side_parapets(g, removed, plan, note):
+    """Shed the parapet/coping band above any elevation whose TOP WALL BAND
+    is more than `KIT_PARAPET_SIDE_SHED_FRAC` gone. Returns the paths shed.
+
+    `tornado_urban._shed_unsupported_roof`'s parapet test is a 6 m local
+    radius, so a parapet piece near a surviving end pier passes it even
+    when the 30 m of wall it actually spans has gone. The user's own read
+    of that on the v6 bench: the roofline band floats over the emptied
+    top-storey street wall. A parapet is a cantilever off the wall below
+    it, so the honest rule is per ELEVATION, not per 6 m disc.
+
+    A `parapet_corner` goes if EITHER of its two legs qualifies — it is
+    supported at both ends, and losing one is enough.
+    """
+    by_mass_side = {}
+    for e in g.els:
+        p = e.get("p") or {}
+        if p.get("_role") not in KIT_STRUCT_ROLES:
+            continue
+        sd = p.get("_side")
+        if sd not in qs.SIDES:
+            continue
+        mass = e.get("mass") or "main"
+        by_mass_side.setdefault((mass, sd), []).append(e)
+    # the TOP wall band per mass — the storey a parapet sits on
+    top_band = {}
+    for (mass, sd), els in by_mass_side.items():
+        st = max(int((e.get("p") or {}).get("_storey", 0)) for e in els)
+        top_band[mass] = max(top_band.get(mass, -1), st)
+    open_sides = set()
+    for (mass, sd), els in by_mass_side.items():
+        band = [e for e in els
+                if int((e.get("p") or {}).get("_storey", 0)) == top_band.get(mass, -1)]
+        if not band:
+            continue
+        gone = sum(1 for e in band if qs._path(e) in removed)
+        if gone / float(len(band)) > KIT_PARAPET_SIDE_SHED_FRAC:
+            open_sides.add((mass, sd))
+    if not open_sides:
+        return []
+    moved = set(plan.get("displaced") or {})
+    shed = []
+    for e in g.els:
+        p = e.get("p") or {}
+        if p.get("_role") not in ("parapet", "parapet_corner"):
+            continue
+        path = qs._path(e)
+        if not path or path in removed or path in moved:
+            continue
+        mass = e.get("mass") or "main"
+        sd = p.get("_side")
+        legs = (sd,) if sd in qs.SIDES else qs._CORNER_SIDES.get(sd, ())
+        if any((mass, leg) in open_sides for leg in legs):
+            shed.append(path)
+    if shed:
+        note("kit guard: {0} parapet/coping piece(s) shed -- the top wall "
+             "band under them is more than {1:.0f}% gone on {2} "
+             "elevation(s); a parapet is a cantilever off that wall, and "
+             "the 6 m local support test keeps a whole band standing over "
+             "a hole as long as one end pier survives".format(
+                 len(shed), 100.0 * KIT_PARAPET_SIDE_SHED_FRAC,
+                 len(open_sides)))
+    return shed
 
 
 def _support_closure(g, seeds, extra=()):
@@ -1100,6 +1177,13 @@ def kit_guard(plan, info, elements, rng, wind, intensity, verbose=True):
                     intensity)
     n_roof, n_parapet = tu._shed_unsupported_roof(pctx, plan)
     counts["shed_roof"], counts["shed_parapet"] = int(n_roof), int(n_parapet)
+    # ... plus the SIDE-WIDE parapet rule that pass has no notion of.
+    side_shed = _shed_open_side_parapets(
+        g, set(plan["removed"]), plan, lambda t: notes.append(t))
+    for q in side_shed:
+        plan["removed"].append(q)
+        plan["_removed_set"].add(q)
+    counts["shed_parapet"] += len(side_shed)
     # Whatever that pass took beyond the closure is FIXED from here on: a
     # roof tile or a coping run over an emptied bay column is earned by the
     # hole under it, and rule 4 of the round's own brief ("no piece stands

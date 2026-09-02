@@ -217,6 +217,134 @@ def _synthetic():
     return blocks, corridors
 
 
+def _naive_overlap(recs, tol=0.05):
+    """The BUGGY audit method this module's new tests pin as a negative
+    control: an axis-aligned box straight off W/D, never rotated by
+    `yaw_deg`. This is what produced the "29-43 overlapping pairs per
+    level" report that motivated `building_overlap_pairs` -- reproduced
+    here so the regression is provable, not just asserted."""
+    pairs = []
+    for a in range(len(recs)):
+        ra = recs[a]
+        ax0, ay0 = ra["x_m"] - ra["W"] / 2.0, ra["y_m"] - ra["D"] / 2.0
+        ax1, ay1 = ra["x_m"] + ra["W"] / 2.0, ra["y_m"] + ra["D"] / 2.0
+        for b in range(a + 1, len(recs)):
+            rb = recs[b]
+            bx0, by0 = rb["x_m"] - rb["W"] / 2.0, rb["y_m"] - rb["D"] / 2.0
+            bx1, by1 = rb["x_m"] + rb["W"] / 2.0, rb["y_m"] + rb["D"] / 2.0
+            ox = min(ax1, bx1) - max(ax0, bx0)
+            oy = min(ay1, by1) - max(ay0, by0)
+            if ox > tol and oy > tol:
+                pairs.append((a, b))
+    return pairs
+
+
+# ---------------------------------------------------------------------------
+# 3b. building_overlap_pairs -- SAT over REAL, yaw-rotated footprints
+#
+# THE 2026-09-01 "SYSTEMIC LAYOUT DEFECT" REPORT. A prior audit reported
+# ~29-43 "overlapping" building pairs and 6-11 "empty blocks" per baseline
+# level, root-caused (unverified) as the packer sizing lots from nominal
+# footprints instead of each asset's real measured W/D. Reproduced here:
+# `detail.districts._pool_entries`/`_fp_of` both call `resolver.get()` (the
+# packer already uses real, resolver-measured footprints, never a nominal
+# constant); `districts.repair_overlaps` already runs on that real geometry
+# for all three baseline seeds and finds NOTHING to repair (`checked=0`,
+# host-rebuilt, verified interactively); and the shipped dumps' own
+# Kit-measured W/D show ZERO true (yaw-rotated) overlaps, ZERO buildings
+# spilling off their block, and ZERO non-boundary empty blocks -- see the
+# parametrized tests below. What DOES reproduce the reported numbers is a
+# NAIVE axis-aligned overlap check that skips the yaw rotation
+# `_pool_entries`/`_rotated_wh` apply everywhere else in the packer: a
+# building placed at yaw 90/270 has its W/D swapped in the world, and a
+# check that does not swap them flags every legitimately touching
+# 90-degree-turned neighbour as "overlapping". `_naive_overlap` above
+# reproduces this exact mechanism.
+# ---------------------------------------------------------------------------
+def test_building_overlap_pairs_party_wall_touch_is_not_an_overlap():
+    """The exact pair the "systemic defect" report cited by name:
+    `SM_Building_03` (yaw 180) and `SM_Building_06_Small` (yaw 90) in
+    `baseline_l1_dump.json`, at (-335.09, 126.89) and (-313.27, 126.94).
+    Rotated correctly, they share a party wall to within 2 cm -- not an
+    overlap. A naive (non-rotated) box reads it as a ~7 m overlap."""
+    a = {"usd": "SM_Building_03.usd", "x_m": -335.0853, "y_m": 126.8926,
+        "yaw_deg": 180.0, "W": 28.9268473815918, "D": 28.952466888427736}
+    b = {"usd": "SM_Building_06_Small.usd", "x_m": -313.2719, "y_m": 126.9406,
+        "yaw_deg": 90.0, "W": 28.8566162109375, "D": 14.700000000000001}
+    assert cla.building_overlap_pairs([a, b]) == []
+    assert _naive_overlap([a, b]) == [(0, 1)], (
+        "the naive (non-yaw) check should reproduce the false positive")
+
+
+def test_building_overlap_pairs_detects_a_genuine_overlap():
+    a = {"x_m": 0.0, "y_m": 0.0, "yaw_deg": 0.0, "W": 20.0, "D": 20.0}
+    b = {"x_m": 10.0, "y_m": 0.0, "yaw_deg": 0.0, "W": 20.0, "D": 20.0}
+    # centres 10 m apart, half-widths 10 + 10 -- a genuine 10 m interpenetration
+    assert cla.building_overlap_pairs([a, b]) == [(0, 1)]
+    # nudge apart past the tolerance: no overlap
+    c = dict(b, x_m=20.2)
+    assert cla.building_overlap_pairs([a, c]) == []
+
+
+def test_building_overlap_pairs_rotates_by_yaw_not_just_axis_swap():
+    # two 40 x 10 boxes, one yawed 90, sharing an edge exactly -- a
+    # continuous rotation (not a literal W/D swap) must land the same place
+    # a swap would for an exact 90-degree yaw.
+    a = {"x_m": 0.0, "y_m": 0.0, "yaw_deg": 0.0, "W": 40.0, "D": 10.0}
+    b = {"x_m": 25.0, "y_m": 0.0, "yaw_deg": 90.0, "W": 40.0, "D": 10.0}
+    # a's right edge at x=20; b yawed 90 is 10 wide in x, half-width 5,
+    # left edge at 20 -- touching, not overlapping
+    assert cla.building_overlap_pairs([a, b]) == []
+    assert cla.building_overlap_pairs([a, dict(b, x_m=24.0)]) == [(0, 1)]
+
+
+@pytest.mark.parametrize("level", [1, 2, 3])
+def test_shipped_baseline_dumps_have_zero_real_footprint_overlaps(level):
+    d = os.path.join(_PLANS, "baseline_l{0}_dump.json".format(level))
+    if not os.path.exists(d):
+        pytest.skip("baseline level {0} dump not present".format(level))
+    with open(d) as fh:
+        dump = json.load(fh)
+    recs = dump["placements"]
+    naive = _naive_overlap(recs)
+    real = cla.building_overlap_pairs(recs)
+    # the gate: zero TRUE overlaps once yaw is respected
+    assert real == [], (level, real[:5])
+    # document the false-positive mechanism is live on this exact fixture
+    # (guards against the fixture changing under the test without notice --
+    # if this ever goes to 0 the naive-vs-real contrast above has nothing
+    # left to demonstrate and should be revisited, not silently dropped)
+    assert len(naive) > 0, (
+        "expected the naive (non-yaw) check to still find false positives "
+        "on level {0} -- if the fixture changed, update this test's intent"
+        .format(level))
+
+
+@pytest.mark.parametrize("level", [1, 2, 3])
+def test_shipped_baseline_dumps_have_no_interior_empty_or_overhanging_blocks(level):
+    """The dump's OWN buildings against its OWN typology blocks, in the
+    dump's OWN (crop-recentred) frame, with the standard 70 m boundary
+    margin so a crop-edge sliver (legitimate, see `tools/crop_window.py`)
+    is not counted as an "empty block" or an "overhanging" building."""
+    d = os.path.join(_PLANS, "baseline_l{0}_dump.json".format(level))
+    if not os.path.exists(d):
+        pytest.skip("baseline level {0} dump not present".format(level))
+    with open(d) as fh:
+        dump = json.load(fh)
+    blocks = [(b["rect"][0], b["rect"][1], b["rect"][2], b["rect"][3],
+              b.get("name")) for b in dump["typology"]["blocks"]]
+    fps = [{"name": r.get("usd", ""),
+           "rect": cla.footprint_rect(r["x_m"], r["y_m"], r["W"], r["D"],
+                                      r.get("yaw_deg", 0.0)),
+           "centre": (r["x_m"], r["y_m"])} for r in dump["placements"]]
+    window = tuple(dump["crop"]["window"])
+    sx, sy = dump["crop"]["shift"]
+    window = (window[0] + sx, window[1] + sy, window[2] + sx, window[3] + sy)
+    rep = cla.audit_footprints(fps, blocks, window=window, margin_m=70.0)
+    assert rep["offenders"] == [], (level, rep["offenders"][:5])
+    assert rep["empty_blocks"] == [], (level, rep["empty_blocks"][:5])
+
+
 def test_footprint_rect_yaw():
     r0 = cla.footprint_rect(0.0, 0.0, 40.0, 20.0, 0.0)
     r90 = cla.footprint_rect(0.0, 0.0, 40.0, 20.0, 90.0)

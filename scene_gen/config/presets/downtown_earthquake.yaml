@@ -41,6 +41,20 @@ overrides:
   disaster:
     damaged_fraction: 0.0
     destroyed_fraction: 0.0
+    # STYLE BLACKLIST (2026-09-01, user, verbatim, after a review run kept
+    # surfacing the same problem style: "what if we blacklist it for the
+    # next test run?"). `office_wide` is a native kit archetype drawn
+    # straight off `urban_quake.yaml`'s own `midrise`/`tower` pools at
+    # LAYOUT time — this preset does not own that pool-selection code
+    # (`detail/districts.py` / `scene_generator.build_city`), so the swap
+    # happens on the DAMAGE side instead: every `office_wide` placement is
+    # re-styled to `office_plain` (same kit family, `urban_building.fam02`/
+    # `rc` — geometry-family compatible) at decide time, before any grade
+    # is drawn (`disaster/quake._resolve_blacklisted_style`). TEST-PRESET-
+    # SCOPED: `style_blacklist` is read only by THIS preset — every other
+    # config that never sets it is unaffected (`tests/
+    # test_quake_style_blacklist.py`).
+    style_blacklist: [office_wide]
     # Lean-and-sink is site-specific (soft soil) and rare in a block: at the
     # compiler's 0.63 a third of the plat tilted. 0.12 x intensity, gated by
     # slenderness in `quake.assemble`, gave a handful. Raised to 0.2

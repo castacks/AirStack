@@ -540,6 +540,84 @@ def test_fissure_cracked_asphalt_band_is_chipped_and_irregular():
     assert irregular, "every cracked-asphalt plate is still an 8-point box"
 
 
+def _world_y_range(stage, path):
+    """`(min_y, max_y)` of a prim's WORLD bounding box — NOT its raw mesh
+    points, which (`_box`'s own convention, unchanged by chipping) are
+    authored LOCAL to the prim's own translate/rotate xform ops."""
+    from pxr import Usd, UsdGeom
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    pr = stage.GetPrimAtPath(path)
+    rng = bc.ComputeWorldBound(pr).ComputeAlignedRange()
+    mn, mx = rng.GetMin(), rng.GetMax()
+    return float(mn[1]), float(mx[1])
+
+
+def _straight_stations(length_m, step=1.2):
+    """A straight polyline along +Y, `_c_fissure_pave`'s own `stations`
+    shape — for a framing where "coverage spans X% of the length" can be
+    measured directly off world Y, independent of the wandering heading a
+    real corner crack draws."""
+    n = max(2, int(length_m / step))
+    return [(0.0, i * length_m / (n - 1)) for i in range(n)]
+
+
+def test_fissure_pave_band_covers_the_whole_trace_and_scales_with_length():
+    """Coordinator, after reviewing the first cut's render: "only ~4 plates,
+    clustered near the ends ... the band must run the FULL length of the
+    trace." That cut drew `n` plates at `n` INDEPENDENT random stations —
+    for a short crack that is a handful of draws with no guarantee they
+    spread out. `_c_fissure_pave` now WALKS the arc length (place a plate,
+    gap, repeat), so this checks the two things that walk has to deliver:
+    more plates for a longer trace, and — measured off each plate's WORLD
+    bounding box, clipped to the trace's own [0, length] extent, since a
+    plate can legitimately overhang past either tip — the covered span
+    reaching most of the length, not just its own two ends."""
+    st = _new_stage()
+    mats = qf.materials(st, PARENT)
+
+    def _run(length_m, tag):
+        ctx = qf._c_ctx(st, "{0}/{1}".format(PARENT, tag), mats,
+                        random.Random(5), tag=tag)
+        stations = _straight_stations(length_m)
+        widths = [0.3] * len(stations)
+        made = qf._c_fissure_pave(ctx, stations, widths, 0.0, tag="fis")
+        return made
+
+    made_short = _run(6.0, "pavshort")
+    made_long = _run(40.0, "pavlong")
+    assert made_short and made_long
+    assert len(made_long) > len(made_short), (
+        "plate count does not scale with trace length: {0} short vs {1} "
+        "long".format(len(made_short), len(made_long)))
+
+    mins, maxs = [], []
+    for p in made_long:
+        lo, hi = _world_y_range(st, p)
+        mins.append(lo)
+        maxs.append(hi)
+    span = min(40.0, max(maxs)) - max(0.0, min(mins))
+    assert span >= 0.8 * 40.0, (
+        "cracked-asphalt band does not run the full trace: {0:.1f} m of "
+        "40.0 m covered".format(span))
+
+
+def test_fissure_pave_band_density_env_overridable():
+    """`EQ_FISSURE_PAVE_DENSITY` reaches `C_FISSURE_PAVE_DENSITY` the same
+    way `EQ_FISSURE_SCALE`/`EQ_FISSURE_WIDTH_SCALE` reach their knobs, and
+    sits in the "roughly 60-75%" band the coordinator asked for by
+    default."""
+    assert 0.55 <= qf.C_FISSURE_PAVE_DENSITY <= 0.80
+    code = (
+        "import sys; sys.path.insert(0, {0!r});"
+        "from disaster import quake_flow as qf;"
+        "print(qf.C_FISSURE_PAVE_DENSITY)"
+    ).format(os.path.normpath(os.path.join(_HERE, "..")))
+    env = dict(os.environ, EQ_FISSURE_PAVE_DENSITY="0.5")
+    out = subprocess.run([sys.executable, "-c", code], env=env,
+                         capture_output=True, text=True, check=True).stdout
+    assert out.strip() == "0.5", out
+
+
 def test_raft_plate_is_chipped_irregular_but_keeps_its_footprint():
     """The liked mechanic (a slab that shows only once a tilt levers it out
     of the ground) stays; only its edges go irregular. `max_grow` bounds how

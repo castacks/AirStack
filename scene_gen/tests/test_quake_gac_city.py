@@ -178,6 +178,74 @@ def test_fallback_with_nothing_baked_at_any_grade_keeps_the_original():
     assert "SM_Building_02" in out.get("reason", "")
 
 
+# ---------------------------------------------------------------------------
+# BUG FIX (2026-09-01): `SM_Building_17`'s exact manifest shape — this
+# building has exactly ONE bake, at `DG3` (a mid/high grade), the same shape
+# as the real `gac_quake.json` row this reproduces (`scene_gen/assets/
+# gac_quake/gac_SM_Building_17_DG3_s596.usd` / `.json`, verified to exist on
+# disk — see quake.py's own "BUG FIX" note on `decide_gac_building`). A kit
+# archetype is baked at every DG1-DG5 rung, so `decide_building`'s DOWN-only
+# fallback practically always lands on something; a GAC bake is sparse, and
+# the down-only fallback used to give up entirely whenever the ONLY baked
+# grade sat ABOVE the drawn one — reported "no baked GAC archetype ... at
+# any grade" even though the manifest row and the .usd both existed.
+# ---------------------------------------------------------------------------
+_B17_USD = _GAC_ROOT + "SM_Building_17.usd"
+
+
+def test_sm_building_17_shape_steps_up_when_drawn_below_its_only_bake():
+    """Drawn DG1, but SM_Building_17 (this exact manifest shape: one row,
+    DG3, nothing lower) is only baked at DG3 — must swap to DG3, not report
+    'no baked archetype at any grade'."""
+    manifest = _gac_manifest(
+        ("SM_Building_17", "DG3", "/gac_quake/gac_SM_Building_17_DG3_s596.usd"))
+    rng = random.Random(17)
+    out = q.decide_gac_building(_B17_USD, "DG1", manifest, rng,
+                                x=8.4, y=27.1, yaw_deg=180.0)
+    assert out["action"] == "twin"
+    assert out["grade"] == "DG3"
+    assert out["usd"] == "/gac_quake/gac_SM_Building_17_DG3_s596.usd"
+    assert out["stepped"] is True
+
+
+def test_sm_building_17_shape_steps_up_from_dg2_too():
+    """Same shape, drawn one grade closer (DG2) — still only DG3 baked."""
+    manifest = _gac_manifest(
+        ("SM_Building_17", "DG3", "/gac_quake/gac_SM_Building_17_DG3_s596.usd"))
+    rng = random.Random(18)
+    out = q.decide_gac_building(_B17_USD, "DG2", manifest, rng,
+                                x=0.0, y=0.0, yaw_deg=0.0)
+    assert out["action"] == "twin"
+    assert out["grade"] == "DG3"
+
+
+def test_only_baked_grade_above_draw_is_not_confused_with_no_bake_at_all():
+    """The two failure modes must produce DIFFERENT reason text: a building
+    with a real (if sparse) manifest entry that the up/down scan still
+    could not use (format bug) vs. one with no entry at all (genuinely not
+    baked yet) — see `decide_gac_building`'s `has_any_entry` branch."""
+    rng = random.Random(19)
+    # Genuinely nothing baked for this name: the ORIGINAL "no bake" message.
+    out_absent = q.decide_gac_building(_B17_USD, "DG1", {}, rng,
+                                       x=0.0, y=0.0, yaw_deg=0.0)
+    assert out_absent["action"] == "keep"
+    assert "no baked GAC archetype for 'SM_Building_17' at any grade" == \
+        out_absent["reason"]
+
+    # An entry exists (case-mismatched grade string: "dg3", not "DG3") that
+    # `_variants`' exact-match can never resolve at ANY of the up/down
+    # scan's DG1-DG5 tries — the format-mismatch branch, not the "no bake"
+    # one.
+    bad_manifest = {("SM_Building_17", "dg3"): {
+        "name": "SM_Building_17", "grade": "dg3", "style": "SM_Building_17",
+        "level": "dg3", "usd": "/gac_quake/gac_SM_Building_17_dg3_s596.usd"}}
+    out_bad = q.decide_gac_building(_B17_USD, "DG1", bad_manifest, rng,
+                                    x=0.0, y=0.0, yaw_deg=0.0)
+    assert out_bad["action"] == "keep"
+    assert out_bad["reason"] != out_absent["reason"]
+    assert "format mismatch" in out_bad["reason"]
+
+
 def test_absent_manifest_reason_names_the_building_for_per_name_dedup():
     """`assemble` dedupes its "kept, no bake" print by reason TEXT
     (`gac_reasons_seen`) — the reason must therefore be unique PER BUILDING

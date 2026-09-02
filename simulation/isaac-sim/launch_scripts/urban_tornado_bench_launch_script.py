@@ -848,9 +848,22 @@ def build_c2_cell(stage, cell_id, spec, ssf):
                                  placements=(), per_100m2=1.4)
     ground_ctx = {"parent": PARENT, "mats": {}, "verbose": False}
     meshes = tug.build(stage, cell, frags, ground_ctx, ground_z=0.0)
+    # STAIN: world frame, deliberately -- `ground.build_overlay` authors its
+    # band meshes under the GLOBAL /World/tornadoGroundStain scope (measured
+    # on the offline stage), so they never inherit this holder's transform.
+    # The scatter above is cell-local (authored under the cell); the stain
+    # must be given world coordinates or it lands at the plate origin.
+    region_w = (spec["x"] + region[0], spec["y"] + region[1],
+                spec["x"] + region[2], spec["y"] + region[3])
+    _c2cfg_w = dict(WIND_CFG)
+    _c2cfg_w["origin_m"] = [float(spec["x"]), float(spec["y"])]
+
+    def intensity_w(x, y):
+        return intensity(x - spec["x"], y - spec["y"])
+
     stain_paths = tug.stain_overlay(
-        stage, cell, region, _c2cfg, np.random.default_rng(
-            _seed_for(cell_id) + 1), intensity, ssf=ssf, verbose=False)
+        stage, cell, region_w, _c2cfg_w, np.random.default_rng(
+            _seed_for(cell_id) + 1), intensity_w, ssf=ssf, verbose=False)
     return {"holder": holder, "cell": cell, "n_pieces": len(frags),
             "ctx": {}, "counts": {},
             "summary": "{0} fragment(s) -> {1} mesh(es), stain {2} band(s)"

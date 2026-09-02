@@ -302,6 +302,7 @@ def test_answer_flows_into_guiding_objects(vlm_server):
 
 
 def test_encode_jpeg_roundtrips():
+    pytest.importorskip('cv2', reason='JPEG encoding needs OpenCV')
     img = np.zeros((8, 8, 3), dtype=np.uint8)
     data = lvlm_client.encode_jpeg(img)
     assert data[:2] == b'\xff\xd8'

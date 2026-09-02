@@ -1711,42 +1711,49 @@ def test_mutation_an_untorn_diagonal_neighbour_is_caught():
 
 
 @pytest.mark.parametrize("mode", PARTIAL + BAND)
-def test_the_ring_never_cuts_the_top_off_a_module_carrying_another(mode):
-    """A `z` cut taken from the TOP of a module whose bay carries a piece
-    standing on it (the parapet/cornice band on the top storey) leaves that
-    band hanging in the air. Same class of bug as soot baked onto a wall a
-    later recipe takes away, and it is why the roofline pass picks the
-    TOPMOST piece in each bay by overlap in t rather than by a rounded
-    midpoint (consecutive kit modules share ~0.12 m of t, so "any overlap"
-    chained a whole elevation into one bay).
+def test_the_ring_never_cuts_the_top_off_a_wall_carrying_a_parapet(mode):
+    """A parapet / cornice band has NOTHING else holding it up — it is a band
+    sitting on the top course of the wall — so a `z` cut taken from that
+    wall's top leaves the band in the air. Same class of bug as soot baked
+    onto a wall a later recipe takes away.
+
+    A full storey module above is deliberately NOT covered: it bears on the
+    floor slab, and a bite at the slab line is the same thing
+    `fire_collapse.plan_edges`'s own `below` class authors under a hole.
+
+    This is also what forced the roofline pass to group a bay by OVERLAP in t
+    rather than by a rounded midpoint: a corner's wall piece and the
+    parapet_corner on it are the same bay at different lengths (1.25 m against
+    1.81 m on `apartment_long`), and a midpoint bucket split them and cut the
+    wall with the parapet still standing on it.
     """
     for style in STYLES:
         ctx, plan = _plan(style, mode)
         m = _mass(ctx, plan)
-        live = [e for e in ctx["info"]["elements"]
-                if e["mass"] == plan["mass"] and e["role"] in fc.SHELL_ROLES
-                and not e.get("dead")]
         killed = set(id(e) for e in plan["kill"])
+        killed |= set(id(j["el"]) for j in plan["stub_jobs"])
+        bands = [e for e in ctx["info"]["elements"]
+                 if e["mass"] == plan["mass"]
+                 and e["role"] in ("parapet", "parapet_corner")
+                 and not e.get("dead") and id(e) not in killed]
         for j in plan["tears"]:
             if j.get("dropped"):
                 continue
-            tops = [c for c in j["cuts"]
-                    if c["kind"] == "z" and c.get("loose_above")]
-            if not tops:
+            if not [c for c in j["cuts"]
+                    if c["kind"] == "z" and c.get("loose_above")]:
                 continue
-            for e in live:
-                if id(e) in killed or e is j["el"] or e["side"] != j["side"]:
+            for e in bands:
+                if e is j["el"] or e["side"] != j["side"]:
                     continue
                 t0, t1 = fc.el_span(m, e)
                 za, _zb = fc.el_z_span(m, e)
+                if abs(za - j["zb"]) > 0.15:
+                    continue
                 ov = min(t1, j["t1"]) - max(t0, j["t0"])
                 if ov <= 0.5 * min(max(0.3, t1 - t0), j["w"]):
                     continue
-                # RESTING ON IT, not merely somewhere above it: a module two
-                # storeys up is carried by the wall between, not by this one.
-                assert abs(za - j["zb"]) > 0.15, (
-                    style, mode, j["name"], "top cut with", e.get("name"),
-                    "standing on it")
+                assert False, (style, mode, j["name"], "top cut with",
+                               e.get("name"), "standing on it")
 
 
 def test_the_second_ring_is_deterministic_and_takes_zero_shared_draws():
@@ -1813,6 +1820,22 @@ def test_the_boundary_counter_line_reports_every_treated_module(mode):
         assert "0/" in line
 
 
+@pytest.mark.parametrize("mode", PARTIAL + BAND)
+def test_no_tear_job_is_ever_written_without_a_cut(mode):
+    """`_tear_perimeter` skips a job with no judges (`if not judges:
+    continue`) but `boundary_line` counts it, so an empty job is a boundary
+    counter that can never reach N/N. The ring therefore creates its job LAST,
+    after the cut is known to be going in."""
+    for style in STYLES:
+        _c, plan = _plan(style, mode)
+        for j in plan["tears"]:
+            assert j["cuts"], (style, mode, j["name"], j["classes"])
+        # ...and no module ever carries two jobs (`_break_split` deactivates
+        # the source prim, so the second one would fracture a dead prim)
+        ids = [id(j["el"]) for j in plan["tears"]]
+        assert len(ids) == len(set(ids)), (style, mode)
+
+
 def test_parapet_fall_spends_its_side_budget_on_sides_that_still_have_one():
     """The 2026-08-31 review's "the top floor has a bunch of perfect
     rectangular wall pieces all intact".
@@ -1854,6 +1877,270 @@ def test_a_parapet_ring_left_standing_is_reported_not_silent():
         e["dead"] = True
     want, jobs, empty = qf._parapet_sides(ctx, "main", 3, 0.9)
     assert want == 3 and not jobs and len(empty) == 4
+
+
+# ---------------------------------------------------------------------------
+# Z-OUTLIER SWEEP (`quake_collapse.z_outlier_sweep`) — a real, measured defect:
+# `bld_brownstone_row_DG4.usd`'s `/Baked/LOD0_108` (2762 pts / 2754 faces)
+# settled at z~=17, on the roof deck, while its five topology-identical
+# siblings (`LOD0_105`/`106`/`107`/`109`/`110` — same signature, one
+# wall-break event's own cells) landed at z~=11, at the actual break line.
+# The gap from `LOD0_108` to the roof deck it stopped on is a real -0.07 m,
+# so `fire_bake.deactivate_airborne`'s points-based "is this seated" test
+# passes it outright — this sweep is the "does this body agree with its own
+# family" question nothing upstream ever asks.
+#
+# `_stage_box` (this file's own helper, above) gives every fixture chip the
+# SAME (8 pt / 6 face) topology, which is exactly what puts them in one
+# z-outlier GROUP. A support surface is authored as a single flat quad
+# (`_zo_plane`, 4 pts / 1 face) instead of another `_stage_box` for exactly
+# the opposite reason: a real deck's own topology never happens to collide
+# with a real fracture chip's (2762 pts / 2754 faces on the measured
+# defect), and a fixture where every prim is a generic box would collide
+# them by accident, testing an artefact of the fixture instead of the sweep.
+# ---------------------------------------------------------------------------
+def _zo_plane(stage, path, cx, cy, z, size=6.0):
+    """One flat, upward-facing quad (4 pts / 1 face) — a support surface
+    shaped for `_deck_support_z`, topologically distinct from the
+    `_stage_box`-shaped chips above it (see the section note)."""
+    from pxr import Gf, Sdf, UsdGeom
+    h = size / 2.0
+    mesh = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    mesh.CreatePointsAttr([Gf.Vec3f(cx - h, cy - h, z), Gf.Vec3f(cx + h, cy - h, z),
+                          Gf.Vec3f(cx + h, cy + h, z), Gf.Vec3f(cx - h, cy + h, z)])
+    mesh.CreateFaceVertexCountsAttr([4])
+    mesh.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+    mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    return path
+
+
+def _zo_chip(stage, root, name, cx, cy, bottom_z, size=1.0):
+    """One (8 pt / 6 face) fracture-cell-shaped box, `_stage_box`'s own
+    construction, at an explicit BOTTOM z (not centre — the world AABB
+    bottom is the measure `z_outlier_sweep` itself groups and thresholds
+    on)."""
+    p = "{0}/{1}".format(root, name)
+    _stage_box(stage, p, cx, cy, bottom_z + size / 2.0, size, size, size)
+    return p
+
+
+# Five siblings, one wall-break event's own cells: bottoms within 0.3 m of
+# each other, median (sorted index 2) exactly 11.05 — deliberately not all
+# identical, the same small real-world spread the measured defect's own
+# siblings show (`LOD0_105`..`110` span z=[10.999, 11.486]).
+_ZO_SIBLING_BOTTOMS = (10.90, 11.00, 11.05, 11.10, 11.20)
+
+
+def _zo_family_fixture(stage, root, outlier_bottom=17.05, deck_low=True,
+                       deck_high=True):
+    """The full scenario: five real siblings at the break line, ONE climber
+    at `outlier_bottom` (default 6.0 m above the siblings' median — past
+    the default 1.5 x 3.4 m = 5.1 m detection threshold, the same order of
+    magnitude as the measured defect's own 5.68 m), a real deck at the
+    siblings' own band (`deck_low`, the correct landing spot) and/or a
+    second deck exactly where the climber currently rests (`deck_high` —
+    the wrong "roof" it stopped on, gap = 0, matching the measured -0.07 m
+    the points-based audit already passes)."""
+    siblings = [_zo_chip(stage, root, "sib_{0}".format(i), i * 2.0, 0.0, bz)
+               for i, bz in enumerate(_ZO_SIBLING_BOTTOMS)]
+    outlier = _zo_chip(stage, root, "climber", 100.0, 100.0, outlier_bottom)
+    if deck_low:
+        _zo_plane(stage, root + "/deck_low", 100.0, 100.0, 11.05)
+    if deck_high:
+        _zo_plane(stage, root + "/deck_high", 100.0, 100.0, outlier_bottom)
+    return siblings, outlier
+
+
+def _bbox_z_range(stage, path):
+    from pxr import Usd, UsdGeom
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    pr = stage.GetPrimAtPath(path)
+    r = bc.ComputeWorldBound(pr).ComputeAlignedRange()
+    return float(r.GetMin()[2]), float(r.GetMax()[2])
+
+
+def test_z_outlier_enabled_env_reader(monkeypatch):
+    monkeypatch.delenv(qc.Z_OUTLIER_ENV, raising=False)
+    assert qc.z_outlier_enabled() is True
+
+    monkeypatch.setenv(qc.Z_OUTLIER_ENV, "")
+    assert qc.z_outlier_enabled() is True
+
+    monkeypatch.setenv(qc.Z_OUTLIER_ENV, "0")
+    assert qc.z_outlier_enabled() is False
+
+    monkeypatch.setenv(qc.Z_OUTLIER_ENV, "false")
+    assert qc.z_outlier_enabled() is False
+
+    monkeypatch.setenv(qc.Z_OUTLIER_ENV, "1")
+    assert qc.z_outlier_enabled() is True
+
+
+def test_z_outlier_detected_and_reseated_onto_real_support():
+    """THE MEASURED DEFECT, reproduced: a climber past the threshold, with
+    both the wrong (high) deck it actually stopped on and the right (low)
+    deck its siblings share both present. The reseat must find the LOW
+    deck — the search ceiling (`median + 1 storey`) is deliberately below
+    the high deck, so it can never just be handed back the same roof."""
+    stage, root = _empty_stage()
+    siblings, outlier = _zo_family_fixture(stage, root)
+
+    before_lo, before_hi = _bbox_z_range(stage, outlier)
+    assert abs(before_lo - 17.05) < 1e-6, "fixture must start on the high deck"
+
+    result = qc.z_outlier_sweep(stage, root, rng=random.Random(5), verbose=False)
+
+    assert result["reseated"] == 1, result
+    assert result["deactivated"] == 0, result
+    assert result["outliers"] == [outlier]
+
+    pr = stage.GetPrimAtPath(outlier)
+    assert pr.IsValid() and pr.IsActive(), "a re-seated body must stay active"
+    after_lo, _after_hi = _bbox_z_range(stage, outlier)
+    assert after_lo < 13.0, ("did not leave the high deck", after_lo)
+    assert abs(after_lo - 11.05) < 0.3, \
+        ("did not land on the real (low) deck", after_lo)
+
+
+def test_z_outlier_no_support_is_deactivated():
+    """The same climber, but its own footprint has nothing real under it
+    within `median + 1 storey` (only the high deck it wrongly stopped on
+    exists) — `_deck_support_z` must return `None`, and the sweep's answer
+    to a genuine hole all the way down is `fire_bake.deactivate_airborne`'s
+    own: turn it off."""
+    stage, root = _empty_stage()
+    _siblings, outlier = _zo_family_fixture(stage, root, deck_low=False)
+
+    result = qc.z_outlier_sweep(stage, root, rng=random.Random(5), verbose=False)
+
+    assert result["reseated"] == 0, result
+    assert result["deactivated"] == 1, result
+    assert result["outliers"] == [outlier]
+    pr = stage.GetPrimAtPath(outlier)
+    assert pr.IsValid() and not pr.IsActive(), \
+        "no real support anywhere under it -> deactivated, not left floating"
+
+
+def test_z_outlier_small_group_untouched():
+    """Two topology-identical chips, one 10 m above the other: with no
+    third member there is no majority to be an outlier FROM
+    (`min_group`, default 3) — the sweep must not even look at their Z,
+    and the stage must come back byte-for-byte."""
+    stage, root = _empty_stage()
+    _zo_chip(stage, root, "a", 0.0, 0.0, 11.0)
+    _zo_chip(stage, root, "b", 5.0, 0.0, 21.0)
+    before = stage.GetRootLayer().ExportToString()
+
+    result = qc.z_outlier_sweep(stage, root, rng=random.Random(1), verbose=False)
+
+    # `groups` counts every distinct topology signature FOUND (1 — both
+    # chips share one), regardless of whether it cleared `min_group`; only
+    # `outliers` (and the stage itself) prove nothing was acted on.
+    assert result["reseated"] == 0 and result["deactivated"] == 0
+    assert result["outliers"] == []
+    assert stage.GetRootLayer().ExportToString() == before, \
+        "a group under min_group must not be touched at all"
+
+
+def test_z_outlier_non_outliers_untouched():
+    """The five real siblings must come out of a sweep exactly where they
+    went in — only the climber may move."""
+    stage, root = _empty_stage()
+    siblings, outlier = _zo_family_fixture(stage, root)
+    before = {p: _bbox_z_range(stage, p) for p in siblings}
+
+    qc.z_outlier_sweep(stage, root, rng=random.Random(5), verbose=False)
+
+    for p in siblings:
+        assert _bbox_z_range(stage, p) == before[p], (p, "a non-outlier moved")
+        pr = stage.GetPrimAtPath(p)
+        assert pr.IsValid() and pr.IsActive(), (p, "a non-outlier was deactivated")
+
+
+# ---------------------------------------------------------------------------
+# `paths=` — THE MEASURED FALSE POSITIVE (real archetype file, unrestricted
+# scan): `prop_main_4_7` (a floor-4 fixture) shares its (180, 312) topology
+# with `prop_main_1_3`/`1_5`/`1_6` (floor 1) and `prop_main_2_0`/`2_3`
+# (floor 2) — one legitimate prop, repeated once per storey BY DESIGN. An
+# unrestricted scan of the WHOLE building sees one group of 6, the floor-4
+# copy 5.99 m above the floor-1/2 median, past the 5.1 m line — flagged and
+# moved, though nothing ever settled wrong. `paths=` is the fix: the
+# production caller (`bake_quake_archetypes_launch_script.py`) passes the
+# building's own `res["loose"]`, which a static per-floor prop is never
+# part of, so it never enters the candidate pool at all.
+# ---------------------------------------------------------------------------
+def test_z_outlier_unrestricted_scan_can_false_positive_on_a_per_storey_prop():
+    """Reproduces the measured false positive on a minimal fixture: three
+    floors' worth of one legitimate, unrelated prop, sharing one topology.
+    Without `paths=`, the sweep cannot tell "one wall-break event's cells"
+    from "one prop asset repeated once per storey" — this is not a bug in
+    the assertion, it is the documented reason `paths=` exists."""
+    stage, root = _empty_stage()
+    floor1 = _zo_chip(stage, root, "prop_floor1", 0.0, 0.0, 5.0)
+    floor2 = _zo_chip(stage, root, "prop_floor2", 3.0, 0.0, 8.0)
+    floor4 = _zo_chip(stage, root, "prop_floor4", 6.0, 0.0, 14.0)
+
+    result = qc.z_outlier_sweep(stage, root, rng=random.Random(2), verbose=False)
+
+    assert floor4 in result["outliers"], \
+        "the false positive this fixture demonstrates did not reproduce"
+    assert _bbox_z_range(stage, floor1) == (5.0, 6.0)
+    assert _bbox_z_range(stage, floor2) == (8.0, 9.0)
+    pr4 = stage.GetPrimAtPath(floor4)
+    moved = (not pr4.IsActive()) or _bbox_z_range(stage, floor4) != (14.0, 15.0)
+    assert moved, "flagged as an outlier but never actually acted on"
+
+
+def test_z_outlier_paths_allowlist_prevents_the_false_positive():
+    """The SAME three props, but the caller passes `paths=` naming only the
+    two that were ever actually loose (`floor4` stands in for a static prop
+    that never went through settle at all) — `floor4` must never even be
+    grouped, let alone flagged or moved."""
+    stage, root = _empty_stage()
+    floor1 = _zo_chip(stage, root, "prop_floor1", 0.0, 0.0, 5.0)
+    floor2 = _zo_chip(stage, root, "prop_floor2", 3.0, 0.0, 8.0)
+    floor4 = _zo_chip(stage, root, "prop_floor4", 6.0, 0.0, 14.0)
+    before_floor4 = _bbox_z_range(stage, floor4)
+
+    result = qc.z_outlier_sweep(stage, root, paths=[floor1, floor2],
+                                rng=random.Random(2), verbose=False)
+
+    assert result["reseated"] == 0 and result["deactivated"] == 0
+    assert result["outliers"] == []
+    assert _bbox_z_range(stage, floor4) == before_floor4
+    pr = stage.GetPrimAtPath(floor4)
+    assert pr.IsValid() and pr.IsActive()
+
+
+def test_z_outlier_deterministic_same_seed_same_placement():
+    def _run():
+        stage, root = _empty_stage()
+        _siblings, outlier = _zo_family_fixture(stage, root)
+        result = qc.z_outlier_sweep(stage, root, rng=random.Random(77),
+                                    verbose=False)
+        return result, _bbox_z_range(stage, outlier)
+
+    result_a, z_a = _run()
+    result_b, z_b = _run()
+    assert result_a == result_b
+    assert z_a == z_b, "same seed against the same stage content must land " \
+                       "the climber identically"
+
+
+def test_z_outlier_env_off_is_a_noop(monkeypatch):
+    """`EQ_Z_OUTLIER=0` disables the sweep entirely — no traversal, no
+    stage mutation, byte-for-byte, exactly `apply_settle_budget`'s own
+    `budget=None` contract."""
+    monkeypatch.setenv(qc.Z_OUTLIER_ENV, "0")
+    stage, root = _empty_stage()
+    _zo_family_fixture(stage, root)
+    before = stage.GetRootLayer().ExportToString()
+
+    result = qc.z_outlier_sweep(stage, root, rng=random.Random(5), verbose=False)
+
+    after = stage.GetRootLayer().ExportToString()
+    assert result == {"reseated": 0, "deactivated": 0, "groups": 0, "outliers": []}
+    assert after == before, "EQ_Z_OUTLIER=0 must not touch the stage at all"
 
 
 if __name__ == "__main__":

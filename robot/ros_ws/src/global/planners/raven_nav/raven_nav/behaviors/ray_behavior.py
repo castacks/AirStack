@@ -31,7 +31,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from raven_nav.behaviors.common import BehaviorOutput, TickContext, columns_for
+from raven_nav.behaviors.common import BehaviorOutput, TickContext
 from raven_nav.ray_groups import RayGroup
 
 # ── OG constants (ray_behavior.py line numbers) ─────────────────────────────

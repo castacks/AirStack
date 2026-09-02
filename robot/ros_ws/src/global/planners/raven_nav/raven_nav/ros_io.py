@@ -8,7 +8,7 @@ each helper raises a clear error if actually called.
 """
 from __future__ import annotations
 
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence
 
 import numpy as np
 
@@ -18,7 +18,7 @@ try:  # pragma: no cover - exercised implicitly in the container
     from std_msgs.msg import ColorRGBA, Header
     from geometry_msgs.msg import Point, PoseStamped
     from nav_msgs.msg import Path
-    from sensor_msgs.msg import PointCloud2, PointField
+    from sensor_msgs.msg import PointField
     from sensor_msgs_py import point_cloud2
     from visualization_msgs.msg import Marker, MarkerArray
 except Exception as _exc:  # noqa: BLE001

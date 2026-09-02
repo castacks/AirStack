@@ -348,6 +348,19 @@ services:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
     image: *desktop_image
+    # ONLY this service, not robot_base (so robot replicas do not carry
+    # these): the shared-rayfronts source and its config overlay, so
+    # RAYFRONTS_SRC's default (/root/AirStack/common/rayfronts) and
+    # --config-dir (/root/AirStack/common/rayfronts_configs) — see
+    # offboard_compute.sh's RAYFRONTS_MODE=shared section — actually resolve
+    # instead of silently falling back to whatever rayfronts/rayfronts_configs
+    # happened to be baked into the image at the last build. `extends` APPENDS
+    # list-valued `volumes:` (verified: `docker compose config` shows 20
+    # entries for this service after this change vs. 18 inherited from
+    # robot_base alone) — these two are added on top, not a replacement.
+    volumes:
+      - ../../common/rayfronts:/root/AirStack/common/rayfronts:rw
+      - ../../common/rayfronts_configs:/root/AirStack/common/rayfronts_configs:rw
     environment:
       # TEAM ARMS NEED THIS. The conavgpt2_team planner runs HERE, not on a
       # robot, and search_planner aborts at construction without it:

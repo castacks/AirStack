@@ -1,0 +1,224 @@
+# raven_single_shared_test — 2-robot smoke test of RAYFRONTS_MODE=shared:
+# ONE off-board multi_robot_mapping_server (offboard-compute) serving both
+# robots' single-agent raven_nav, on the frozen `RavenSuburbTornado250` scene
+# (_plans/raven_test_scene_runbook.md — WP-D) searching for `person`.
+#
+# Build plan: _plans/raven_single_rayfronts_shared_plan.md, §5 WP-C item 4.
+# This is a LOCAL smoke test, not an OSMO-pool batch run — no `nas_dest`
+# (nothing to auto-upload/auto-teardown; the point is to watch it live), and
+# `iterations: 1` (the default). Run it with:
+#
+#   python3 osmo/workspace/mission_runner.py \
+#       osmo/missions/raven_single_shared_test.yaml --airstack-root "$(pwd)"
+#
+# PREREQUISITE — NOT done by this file, and NOT something this mission can
+# do for you: the frozen scene at FROZEN_SCENE below must already exist.
+# That is _plans/raven_test_scene_runbook.md §2 (Isaac Sim, one launch,
+# `suburb_tornado_launch_script.py`, build + freeze) — explicitly NOT run
+# yet as of this writing (needs the user's go-ahead per that file's own
+# header). Until it exists, `airstack up` will come up but the scene import
+# step will fail to find FROZEN_SCENE — see the run-raven-single-shared
+# runbook (.agents/skills/run-raven-single-shared/SKILL.md) for the full
+# sequence and what is UNVERIFIED (this mission has never been flown).
+#
+# GPU BUDGET — read before running (see the runbook + WP-D's runbook §4):
+# one 16 GB card measured at 14.2 GiB with just the 250 m UNDAMAGED suburb
+# loaded. This mission ALSO starts the shared RayFronts encoder (~3-4 GiB)
+# and the VLM server for raven's LVLM-guided behaviour (~3 GiB at 3B nf4) —
+# real OOM risk. That is a budget decision for the user, not something to
+# silently work around (e.g. by disabling one of them here).
+
+name: raven_single_shared_test
+
+stack:
+  # offboard-compute alongside the usual three: this is the whole point of
+  # RAYFRONTS_MODE=shared — ONE mapping server for every robot instead of
+  # one per robot. `./airstack.sh up isaac-sim robot-desktop gcs
+  # offboard-compute` (mission_runner.py turns `services:` into exactly that
+  # argv).
+  services: [isaac-sim, robot-desktop, gcs, offboard-compute]
+
+env:
+  NUM_ROBOTS: 2
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  # Fly the ALREADY-FROZEN cell (WP-D's runbook §3), not a fresh build —
+  # example_multi_drone_scene_import.py's FROZEN_SCENE path spawns drones
+  # from SPAWN_CONFIGS and re-runs no people model at all (the tornado
+  # casualty model only runs in Stage 1, suburb_tornado_launch_script.py,
+  # which never spawns a drone at all — see the WP-D runbook §2's "why a
+  # freeze, not a direct fly").
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  FROZEN_SCENE: /isaac-sim/AirStack/_test_freeze/raven_suburb_tornado_250
+  RESULTS_SCENE: RavenSuburbTornado250
+  # WP-D's Stage 2 spawn pair (_plans/raven_test_scene_runbook.md §1b/§3):
+  # robot_1 20 m from casualty idx16 (occlusion: none, fully exposed);
+  # robot_2 20 m from casualty idx9 (occlusion: flank, covered_frac 0.33).
+  # HOST-APPROXIMATION coordinates (that file's own caveat: the real
+  # PEOPLE_JSON's deck_points can move which candidates get accepted) — §2
+  # step 5 of that runbook re-validates them against the REAL frozen file
+  # before flying; if they moved, regenerate this block per that section
+  # rather than flying these numbers against a population that no longer
+  # has these two casualties where this assumes.
+  SPAWN_CONFIGS: '[{"x_m": -3.12, "y_m": -4.94, "orient": [0.0, 0.0, -0.7373, 0.6756]}, {"x_m": -3.61, "y_m": -80.1, "orient": [0.0, 0.0, 0.9063, 0.4226]}]'
+  ARCH_DIR: /isaac-sim/AirStack/scene_gen/assets/archetypes_tornado
+  TOR_PEOPLE: "1"          # inert on the FROZEN_SCENE path (no tornado_people
+                            # call there) — kept only for consistency with
+                            # Stage 1, per the WP-D runbook's own comment.
+  PEOPLE_JSON: /isaac-sim/AirStack/_test_freeze/raven_suburb_tornado_250/humans_10.json
+  GT_ANNOTATIONS: "on"
+  ENABLE_LIDAR: "false"     # raven_nav has no lidar subscription (RayFronts
+                            # runs on RGB+depth only) — matches the plan §2.1
+                            # subscription list and today's .env default.
+  ZED_WIDTH: "480"
+  ZED_HEIGHT: "300"
+  DRONE_Z_M: "1.0"          # spawn height, must match SPAWN_HEIGHT_M below —
+                            # NOT a search altitude; raven_nav's own
+                            # min_altitude_agl/max_altitude_agl (below, in the
+                            # goal) govern cruise height once airborne.
+  MAP_ANCHOR_ENU: "true"
+  SPAWN_HEIGHT_M: "1.0"
+
+  # ── RAYFRONTS_MODE=shared (this build's WP-C contract) ────────────────────
+  # Robot containers: don't spawn rayfronts.launch.xml, wait on the shared
+  # server's status topic instead (semantic_search_task/node.py §2.3).
+  RAYFRONTS_MODE: shared
+  # offboard-compute: start encoder_server + multi_robot_mapping_server
+  # (offboard_compute.sh's RAYFRONTS_MODE=shared branch). RAYFRONTS_ROBOT_IDS
+  # is left UNSET on purpose — offboard_compute.sh defaults it to 1..NUM_ROBOTS
+  # (= "1,2" here) from the NUM_ROBOTS above, so there is exactly one place
+  # that says how many robots there are.
+  START_RAYFRONTS_SERVER: "true"
+  # raven_nav + shared rayfronts use no 2D detector; offboard_compute.sh
+  # would otherwise load YOLO + MobileSAM (~1.6 GiB) by default on the
+  # same 16 GB card Isaac already fills. Keep it off for this arm.
+  START_DETECTOR_SERVER: "false"
+  RAYFRONTS_CONFIG: shared_humans
+  # RAYFRONTS_SRC left UNSET: offboard-compute's own compose mount
+  # (../../common/rayfronts -> /root/AirStack/common/rayfronts, added
+  # alongside ../../common/rayfronts_configs — robot/docker/docker-compose.yaml)
+  # already puts the live source exactly where offboard_compute.sh's default
+  # (/root/AirStack/common/rayfronts) looks; no override needed.
+  RAYFRONTS_COMPUTE_PROB: "True"    # softmax over the query set, not raw
+                                     # cosine similarity — see the
+                                     # voxel_score_threshold comment below.
+  # raven's LVLM-guided behaviour talks to this. Also started on
+  # offboard-compute (START_VLM_SERVER below) — same endpoint every other
+  # VLM-consuming arm in this repo defaults to.
+  VLM_URL: http://offboard-compute:8000/v1
+  START_VLM_SERVER: "true"
+  CONAVGPT2_VLM_MODEL: Qwen/Qwen2.5-VL-3B-Instruct   # 3B nf4: the LOCAL/
+                                                       # single-16GB-card
+                                                       # setting (.env's own
+                                                       # comment) — flip to 7B
+                                                       # only on an OSMO-sized
+                                                       # (2x48 GiB) pod.
+  CONAVGPT2_VLM_QUANT: nf4
+  # RAVEN_LVLM left UNSET (raven_nav's own default: true) — START_VLM_SERVER
+  # above exists precisely so the LVLM-guided tier has an endpoint to reach;
+  # set RAVEN_LVLM: "false" here to drop to Voxel > Ray > Frontier only if
+  # the VLM is the thing that turns out to blow the GPU budget above.
+
+# ── search goal ──────────────────────────────────────────────────────────
+# 250 m plate centred on the origin, +/-125 m per axis — the plate
+# suburb_tornado_250.yaml compiles (scene_gen's region_m: [250, 250], world
+# frame centred on the origin per disaster.gt_hints.build's convention).
+search_area_250_plate: &search_area_250
+  points:
+    - {x: 125.0, y: 125.0, z: 0.0}
+    - {x: 125.0, y: -125.0, z: 0.0}
+    - {x: -125.0, y: -125.0, z: 0.0}
+    - {x: -125.0, y: 125.0, z: 0.0}
+
+on_step_failure: abort_iteration
+
+steps:
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 2.0, velocity_m_s: 0.5}
+      timeout_s: 180
+
+  - wait: 5
+
+  # No per-robot RADIO/RADSeg preload step here (unlike multi_raven_mission.
+  # yaml's `robot_1: torch.hub.load(...)`): in shared mode the encoder lives
+  # on offboard-compute's encoder_server, which loads it EAGERLY at container
+  # start (START_RAYFRONTS_SERVER=true above, applied before `airstack up`) —
+  # there is no lazy per-mission load to race here. offboard_compute.sh's own
+  # 300 s encoder-socket wait (before it even starts the mapping server) plus
+  # this node's RAYFRONTS_WAIT_TIMEOUT_S (default 180 s, semantic_search_task/
+  # node.py) is what actually absorbs that load time.
+  - action:
+      task: semantic_search
+      timeout_s: 900
+      cancel_on_timeout: true
+      pass_on_feedback: true
+      goal:
+        query: "person"
+        # common/rayfronts_configs/background_humans.txt, verbatim (33
+        # labels), comma-joined — WP-B's curated tornado-suburb background
+        # vocabulary. Keep this in sync with that file by hand; the mission
+        # schema has no "read this file" field (checked: env/goal values are
+        # plain strings, no include/file mechanism in mission_runner.py).
+        background_queries: "road, asphalt, driveway, sidewalk, grass, dirt, mud, gravel, tree, fallen tree, tree branch, bush, house, roof, brick wall, wooden fence, car, pickup truck, wood planks, lumber, rubble, debris pile, tarp, sky, cloud, utility pole, power line, trash can, mailbox, swimming pool, concrete slab, garage door, window"
+        search_area: *search_area_250
+        # A lying casualty's standoff point is ~0-1 m AGL (WP-A's deviation
+        # (1) from the OG paper — raven_single_rayfronts_shared_plan.md §3)
+        # — LOWER than the 5.0 m every building/vehicle-search mission in
+        # this directory uses. UNVERIFIED (never flown): tune after the
+        # first real run if the drone hovers too high to see a lying figure.
+        min_altitude_agl: 2.5
+        max_altitude_agl: 12.0
+        min_flight_speed: 0.5
+        max_flight_speed: 1.0
+        confidence_threshold: 0.95
+        # Softmax PROBABILITY (RAYFRONTS_COMPUTE_PROB=True above) — raw
+        # cosine similarities top out ~0.16 and this threshold would reject
+        # everything (see multi_raven_mission.yaml's own comment to this
+        # effect). 0.5 matches most existing scene templates' gate; a human
+        # is a much smaller/rarer-shaped target than a house or a car, so
+        # this is a GUESS, not a measured value — UNVERIFIED, tune from the
+        # first run's `debug/voxel_table` / `rays_sim` scores.
+        voxel_score_threshold: 0.5
+        # The RAY gate. raven_nav's default is now the OG paper value 0.95,
+        # tuned against the paper's FOUR background labels; with the 33
+        # labels above the softmax mass is spread far thinner and 0.95 is
+        # unreachable, so set it explicitly alongside the voxel gate. Same
+        # UNVERIFIED status — read the real peaks off `rays_sim/q*_person`.
+        score_threshold: 0.5
+        # Per plan §5 item 4 exactly. Small (a standing/lying human is ~1
+        # voxel column at vox_size=0.5 m — rayfronts_internals.md §8's
+        # small-object tuning note) — do not raise this toward the
+        # building-search missions' 30-80.
+        voxel_min_cluster_size: 4
+
+# Record BOTH scopes: the usual GCS-bridged set (tf/odom/the raven payloads
+# GCS actually re-publishes — payload_visualizer_node.py's PAYLOAD_HANDLERS,
+# interface_contract.md §3.2) AND direct per-robot-domain topics for the
+# NEW shared-mode / debug signals that no dds_router.yaml entry bridges to
+# GCS today (rayfronts/status, debug/voxel_table, raven_nav/lvlm_request) —
+# record.scope: robot writes those into each robot's OWN domain mcap.
+record:
+  scope: both
+  topics:
+    - /tf
+    - /tf_static
+    - /{robot}/odometry_conversion/odometry
+    - /{robot}/global_plan
+    - /{robot}/navigation_mode
+    - /{robot}/raven_nav/discoveries
+    - /{robot}/raven_nav/confirmed_targets
+    - /{robot}/raven_nav/lvlm_trigger
+    - /{robot}/raven_nav/lvlm_request
+    - /{robot}/raven_nav/guiding_objects
+    - /{robot}/debug/voxel_table
+    - /{robot}/debug/ray_table
+    - /{robot}/rayfronts/status
+    - /gcs/robot_markers
+    - /gcs/payload/{robot}/filtered_rays
+    - /gcs/payload/{robot}/filtered_frontiers
+    - /gcs/payload/{robot}/explored_area_coverage
+    - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/navigation_mode
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes

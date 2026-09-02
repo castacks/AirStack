@@ -231,6 +231,11 @@ PACKS = {
         "force_regular_grid": set(),   # no asset in this pack needs it
         "glazing_material_deny": set(),  # every GAC material prim is named
                                          # "UnrealMaterial" -- nothing to deny
+        "soot": "bake",           # bake into the merged atlases pre-slice
+                                  # (`bake_atlases`) -- every GAC material
+                                  # resolves a real UsdPreviewSurface
+                                  # diffuseColor map, so this has always
+                                  # worked. See `PACKS["aec"]`'s own note.
     },
     "dtc": {                     # downtowncity — one merged .usdc per asset,
                                  # materials INLINE in the same file
@@ -258,6 +263,7 @@ PACKS = {
         # top of the shape filter, because its own facets can locally look
         # window-shaped even though the material is never a window.
         "glazing_material_deny": {"window_ac"},
+        "soot": "bake",
     },
     "aec": {                      # AEC "small brownstone" rowhouses —
                                   # `Reference_Brownstone{2,5,6,8,10,11,12}
@@ -293,6 +299,36 @@ PACKS = {
         # not assumed).
         "force_regular_grid": set(),
         "glazing_material_deny": set(),
+        # MDL SOOT OVERLAY, NOT A BAKE. Every AEC facade material is a
+        # compiled NVIDIA vMaterials/Base `.mdl` module reference
+        # (`Brick_Wall_Red.mdl`, `Facade_Brick_*.mdl`, ...) with `info:id`
+        # UNSET and, at most, a handful of SCALAR parameter overrides
+        # (`diffuse_brightness`, `grime_weight`, `leak_color`, ...) — never
+        # an `Sdf.AssetPath`-valued texture input. MEASURED directly against
+        # the raw source stage (`tools/aec_material_probe.py`, every one of
+        # the first 7 materials on `Reference_Brownstone5Row`): the base-
+        # colour texture is baked INSIDE the compiled `.mdl` module and is
+        # simply not visible to USD attribute introspection —
+        # `soot_plume.find_basecolor`/`_diffuse_of` both correctly return
+        # `(None, None, None)` on every one. `bake_atlases` (the `gac`/`dtc`
+        # route) therefore cannot compose a sooted copy at all: it logs
+        # every AEC material as "without a diffuse map" and moves on
+        # (harmless), but the KIT-STYLE per-piece fallback that then runs on
+        # every un-prebaked piece (`urban_fire._bind_soot`) hits the exact
+        # same wall and falls back to `_flat_diffuse`'s flat (0.6, 0.6, 0.6)
+        # grey — soot baked over a pale, textureless swatch instead of real
+        # brick ("looks white with weird ash instead of brick with overlay",
+        # user). `"overlay"` routes these materials to `gac_fire.
+        # overlay_soot` instead: the brick MDL material is left bound and
+        # UNTOUCHED (real brick renders exactly as shipped) and the soot
+        # rides as a translucent decal quad standing proud of each
+        # elevation, textured directly from `soot_plume.skin`'s own
+        # unwrapped canvas — `disaster.wall_overlay`'s architecture (built
+        # for this exact "can't rewrite the base material" problem before
+        # GAC's per-piece UV bake superseded it there) fits AEC's MDL walls
+        # precisely. See `overlay_soot`'s own docstring for the mechanism
+        # and `PACKS["gac"]`'s note for why that pack stays on the old path.
+        "soot": "overlay",
     },
 }
 DEFAULT_KIND = "gac"
@@ -505,7 +541,24 @@ def mesh_without_props(mesh, tokens):
 def place_source(stage, cell, usd, scale=GAC_SCALE):
     """Reference the merged asset under `cell/src`, centred in plan on the
     cell with its base at the cell's z. Returns the holder path or None.
-    (The same seat `gac_kit_launch_script.place_source` uses.)"""
+    (The same seat `gac_kit_launch_script.place_source` uses.)
+
+    THE CENTRING IS DONE IN THE CELL'S OWN FRAME (2026-09-02).  It used to
+    subtract a WORLD-space bbox centre from the cell's world translation and
+    write that delta as the asset's LOCAL translate.  Under a cell with no
+    rotation (every bake launcher, every probe, the bench's yaw-0 holders)
+    the two frames coincide and it was right.  Under a YAWED holder — the
+    tornado city launcher yaws every holder by the placement's yaw, and the
+    bench's A-row is yawed 180 — the delta was applied along the rotated
+    axes: measured with usd-core on a corner-pivot GAC-sized box (60 x 142
+    m, pivot at the corner like SM_Building_30's, `_plans/gac_buildings.
+    json` cx -28 / cy +70), the source landed 109 m from its holder at yaw
+    90, 154 m at yaw 180, 109 m at yaw 270, dead on at yaw 0.  The intact
+    cell was already hidden, so the city showed an empty lot AND a building
+    on a road — the "frame changes when we reassemble it" the user named.
+    `ComputeRelativeBound(holder, cell)` measures the asset in the cell's
+    frame, so the correction is exact for any yaw (and identical to before
+    for yaw 0).  Test: `tests/test_place_source_frame.py`."""
     from pxr import Gf, Sdf, Usd, UsdGeom
 
     holder = cell + "/src"
@@ -520,14 +573,15 @@ def place_source(stage, cell, usd, scale=GAC_SCALE):
         xf.AddScaleOp().Set(Gf.Vec3f(scale, scale, scale))
     cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
                               [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
-    r = cache.ComputeWorldBound(stage.GetPrimAtPath(holder)).ComputeAlignedRange()
+    cell_prim = stage.GetPrimAtPath(cell)
+    r = cache.ComputeRelativeBound(stage.GetPrimAtPath(holder),
+                                   cell_prim).ComputeAlignedRange()
     if r.IsEmpty():
         return None
     mn, mx = r.GetMin(), r.GetMax()
-    c = UsdGeom.XformCache().GetLocalToWorldTransform(
-        stage.GetPrimAtPath(cell)).ExtractTranslation()
-    tr.Set(Gf.Vec3d(-(0.5 * (mn[0] + mx[0]) - c[0]),
-                    -(0.5 * (mn[1] + mx[1]) - c[1]), -(mn[2] - c[2])))
+    # `holder` is the cell's direct child with no ops of its own, so the
+    # cell-relative bound is expressed in exactly the frame `tr` acts in.
+    tr.Set(Gf.Vec3d(-0.5 * (mn[0] + mx[0]), -0.5 * (mn[1] + mx[1]), -mn[2]))
     return holder
 
 
@@ -1290,8 +1344,8 @@ def bake_atlases(stage, cell, mesh, sk, m, out_dir, verbose=True):
     per texture, through the mesh's own UVs. Returns
     `{key: UsdShade.Material}` where `key` is both the source material's
     prim path AND its texture url (so pieces can be rebound by either)."""
-    from PIL import Image
     from . import soot_bake as sb, soot_plume as spl
+    from . import tex_compress as tc
 
     P, UV, MID, mats = mesh["P"], mesh["UV"], mesh["MID"], mesh["mats"]
     n_tri = len(MID)
@@ -1371,10 +1425,11 @@ def bake_atlases(stage, cell, mesh, sk, m, out_dir, verbose=True):
         out[mask] = np.clip(desat * (1.0 - a) + rgba[:, :3] * a, 0.0, 1.0)
         digest = hashlib.md5(np.round(out * 255.0).astype(np.uint8).tobytes()
                              ).hexdigest()[:16]
-        png = os.path.join(out_dir, "gacsoot_{0}.png".format(digest))
-        if not os.path.exists(png):
-            Image.fromarray((np.clip(out, 0, 1) * 255.0 + 0.5)
-                            .astype(np.uint8)).save(png)
+        # `.dds` by default (`SOOT_TEX_COMPRESS`, see `tex_compress.py`),
+        # `.png` only with the gate off — `png` keeps its name for every
+        # downstream use below.
+        png = tc.save_soot_texture(
+            out, os.path.join(out_dir, "gacsoot_{0}".format(digest)))
         mpath = "{0}/SootLooks/m{1}".format(cell, len(by_tex))
         new = spl.piece_material_like(stage, mpath, mp, sh_path, inp, png)
         if new is None:
@@ -1397,6 +1452,155 @@ def bake_atlases(stage, cell, mesh, sk, m, out_dir, verbose=True):
                   stats["baked"], stats["clean"], stats.get("tiled", 0),
                   stats["notex"]))
     return sooted
+
+
+# ---------------------------------------------------------------------------
+# MDL SOOT OVERLAY — the route for a pack whose materials cannot be read at
+# all (`PACKS[kind]["soot"] == "overlay"`, today only "aec"). See that
+# table's own long comment for the measured reason `bake_atlases` cannot work
+# here (a compiled `.mdl` module's base-colour texture is not visible to USD
+# attribute introspection).
+# ---------------------------------------------------------------------------
+#: how far the decal stands proud of the real wall plane, in metres — enough
+#: to clear z-fighting against the brick mesh, small enough to still read as
+#: sitting ON the wall rather than floating off it. The same order of
+#: magnitude `urban_fire._stamp_pt`'s own wall stamps (spall/char patches)
+#: use, and `side_frame`'s own `-0.02` baseline depth already clears the
+#: mesh itself before this is added.
+OVERLAY_STANDOFF_M = 0.03
+
+
+def _write_overlay_textures(crop, out_dir, key):
+    """Two small, cached PNGs for one elevation's overlay decal —
+    `(diffuse_path, opacity_path)`. DELIBERATELY NEVER `tex_compress.
+    save_soot_texture`: that writer's default output (BC1/DXT1) is OPAQUE
+    RGB with no alpha channel at all — fine for the bake-into-map route's
+    fully pre-composited output, wrong here where the whole point is a
+    translucent decal whose coverage rides on a real alpha/opacity map. A
+    per-building overlay PNG pair is a handful of images at the skin
+    canvas's own resolution (`soot_plume.canvas_dims`, capped at
+    4096 x 2048), negligible next to the per-piece soot atlases this
+    replaces.
+
+    `crop` is a `soot_plume.piece_crop`-shaped (h, w, 4) RGBA array, row 0
+    the top of the wall (`soot_plume.skin`'s own convention) — the same row
+    order `wall_overlay.author_quad`'s UV mapping expects (`v=0` at the
+    quad's own bottom corner, `v=1` at its top), so no flip is needed here.
+    """
+    import hashlib as _hl
+
+    from PIL import Image
+
+    os.makedirs(out_dir, exist_ok=True)
+    a = np.asarray(crop, dtype=np.float32)
+    digest = _hl.md5(np.round(a * 255.0).astype(np.uint8).tobytes()).hexdigest()[:16]
+    dpath = os.path.join(out_dir, "sootovl_dif_{0}_{1}.png".format(key, digest))
+    opath = os.path.join(out_dir, "sootovl_opa_{0}_{1}.png".format(key, digest))
+    if not (os.path.exists(dpath) and os.path.exists(opath)):
+        rgb = (np.clip(a[..., :3], 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)
+        alpha = (np.clip(a[..., 3], 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)
+        Image.fromarray(rgb, "RGB").save(dpath)
+        Image.fromarray(alpha, "L").save(opath)
+    return dpath, opath
+
+
+def overlay_soot(stage, cell, mesh, sk, m, out_dir, tag="ovl", verbose=True):
+    """The MDL route: soot as a TRANSLUCENT DECAL standing proud of each
+    elevation instead of baked into a per-material atlas.
+
+    OFF BY DEFAULT since 2026-09-02 (`GF_MDL_OVERLAY=1` re-enables).
+    Rendered, the decals read exactly as the user described: "it looks like
+    a rectangle that's been placed on the side of the house ... also the
+    wrong size", with `mdlsootovl_a0_2` visibly standing off the wall, and
+    they darken the whole building. A soot pass that has to float geometry
+    in front of a facade is the wrong shape for this pipeline — GAC and MCE
+    composite soot INTO the base-colour map and bind a material copy, and
+    the brownstone can do the same: its `.mdl` modules are plain text
+    wrapping ordinary OmniPBR BaseColor/Normal/ORM PNGs (measured:
+    `Brick_Wall_Red.mdl` -> `./Brick_Wall_Red/Brick_Wall_Red_{BaseColor,N,
+    ORM}.png`, all present in the local mirror), so the textures ARE
+    recoverable by parsing the module and the standard bake path applies.
+    Until that lands, no decals.
+
+    For every source material `bake_atlases` could not find a diffuse map
+    for (the whole AEC brick library — see `PACKS["aec"]`'s comment), the
+    brick MDL material is left bound and untouched on the sliced pieces
+    (real brick renders exactly as shipped); the soot itself is laid on top
+    as one `wall_overlay`-authored quad per elevation that ever vented,
+    textured directly from `soot_plume.skin`'s own unwrapped canvas for that
+    side (`soot_plume.piece_crop`, the FULL span — u 0..side length, z from
+    the mass base to the parapet top) — this is the same "one continuous
+    surface wrapped around the building" canvas `tools/soot_elevation.py
+    --mode skin` already previews, so a render that matches that preview's
+    plume shape is the acceptance test (see that tool and the
+    `place-people-in-scenes`-style offline proof this change ships with).
+
+    The soot PATTERN is untouched: this only changes how it lands on the
+    piece, never `soot_plume.plan_events`/`skin`'s own physics.
+
+    Returns `(sooted, prebaked_paths)`. `sooted` is always `{}` — this route
+    rebinds nothing (`rebind_sooted` is therefore a no-op on it by design,
+    called anyway so the mixed-material case below still works).
+    `prebaked_paths` is the set of ORIGINAL material prim paths (still bound
+    on the sliced pieces after `slice_to_kit`, which binds the SAME
+    `UsdShade.Material` prims `read_mesh` harvested off the source mesh —
+    see that function's own "MESH-LEVEL BINDING" note) that had no readable
+    diffuse map. `gac_fire.burn_gac` folds this into `ctx["soot_prebaked"]`
+    so `urban_fire._bind_soot`'s per-piece kit-style bake — which hits the
+    exact same `find_basecolor` wall on these materials and falls back to
+    `_flat_diffuse`'s flat (0.6, 0.6, 0.6) grey, the "white with weird ash"
+    defect this whole route exists to fix — skips them outright rather than
+    stamping a second, redundant (and wrong-looking) soot pass on top of the
+    overlay decal.
+
+    A material this pack's own bake_atlases COULD read (measured: a handful
+    of non-brick materials on the AEC asset, e.g. trim/railings) is left
+    alone here entirely — `bake_atlases` still runs first and handles it the
+    normal way, unaffected by this function.
+    """
+    from . import soot_plume as spl
+    from . import wall_overlay as wov
+
+    prebaked = set()
+    for mat in (mesh or {}).get("mats") or []:
+        if mat is None:
+            continue
+        mp = mat.GetPrim()
+        _sh, _inp, tex = _diffuse_of(mp)
+        if not tex:
+            prebaked.add(str(mp.GetPath()))
+    if not prebaked:
+        # every material on this asset already has a readable base map --
+        # nothing for the overlay route to do (never hit on the aec pack
+        # today, kept as a safety net if a future asset in this pack ships
+        # ordinary UsdPreviewSurface materials throughout).
+        if verbose:
+            print("[gac_fire]   MDL soot overlay: every material had a "
+                  "readable base map -- nothing routed here")
+        return {}, set()
+
+    parapet = spl.parapet_height(m)
+    ctx = {"stage": stage, "parent": cell, "tag": tag, "authored": []}
+    n_sides = 0
+    for side in ("S", "E", "N", "W"):
+        L = spl.side_length(m, side)
+        crop = spl.piece_crop(sk, side, 0.0, L, m["z0"], m["top"] + parapet)
+        if float(crop[..., 3].max()) < 0.03:
+            continue          # this elevation never vented -- nothing to lay
+        fr = side_frame(m, side, planes=None)
+        dif_path, opa_path = _write_overlay_textures(
+            crop, out_dir, key="{0}_{1}".format(tag, side))
+        mat = wov.overlay_material_textured(
+            stage, "{0}/SootOverlayLooks/{1}".format(cell, side),
+            opa_path, dif_path, roughness=0.9)
+        wov.author_quad(ctx, fr, 0.0, L, m["z0"], m["top"] + parapet,
+                        OVERLAY_STANDOFF_M, mat, kind="mdlsootovl")
+        n_sides += 1
+    if verbose:
+        print("[gac_fire]   MDL soot overlay: {0} elevation(s) decaled, "
+              "{1} source material(s) routed away from the per-piece "
+              "kit-style bake".format(n_sides, len(prebaked)))
+    return {}, prebaked
 
 
 def rebind_sooted(stage, pls, sooted):
@@ -2168,14 +2372,28 @@ def prepare(stage, cell, name, level, rng, tag, origin=None, sides=None,
                       fire["top"], "/".join(fire["sides"]),
                       spl.summarise(events)))
     sooted = {}
+    overlay_prebaked = set()
     if mesh is not None and events:
         sooted = bake_atlases(stage, cell, mesh, sk, m,
                               out_dir or spl.OUT_DIR, verbose=verbose)
+        # MDL PACKS ALSO GET THE OVERLAY ROUTE (`PACKS[kind]["soot"] ==
+        # "overlay"`, today only "aec"). `bake_atlases` above still runs
+        # first and unconditionally — it correctly handles any material on
+        # this pack that DOES resolve a readable base map (measured: a
+        # handful of non-brick AEC materials do) and is a byte-identical
+        # no-op for every other pack, so this never changes what `gac`/`dtc`
+        # ship. See `overlay_soot`'s own docstring for the mechanism.
+        if (pack.get("soot") == "overlay"
+                and os.environ.get("GF_MDL_OVERLAY", "0").strip() == "1"):
+            _ovl_sooted, overlay_prebaked = overlay_soot(
+                stage, cell, mesh, sk, m, out_dir or spl.OUT_DIR, tag=tag,
+                verbose=verbose)
     return {"name": name, "style": style, "src": src, "grid": g,
             "measured": measured, "rects": rects, "mass": m, "info": info,
             "btype": btype, "fire": fire, "provider": provider,
             "collapse_plan": collapse_plan,
             "events": events, "skin": sk, "mesh": mesh, "sooted": sooted,
+            "overlay_prebaked": overlay_prebaked,
             "heavy": heavy, "planes": planes, "footprints": footprints,
             "kind": kind, "asset": asset, "url": url, "scale": scale,
             "trim_note": trim_note}
@@ -2286,6 +2504,16 @@ def burn_gac(stage, cell, name, level, rng, nrng, mats, tag, flow_root=None,
     # the kit's per-piece bake, with this building's own skin
     prebaked = set(str(v.GetPrim().GetPath()) for k, v in sooted.items()
                    if k not in ("_png", "_tiled") and hasattr(v, "GetPrim"))
+    # MDL MATERIALS ARE "PREBAKED" TOO, EVEN THOUGH NOTHING WAS ACTUALLY
+    # BAKED INTO THEM. `overlay_soot` (in `prepare`, above) already laid the
+    # soot on these elevations as a translucent decal and left the source
+    # MDL material bound and untouched — `pre["overlay_prebaked"]` is the
+    # set of THOSE materials' own paths (still bound on the sliced pieces
+    # unchanged, since nothing rebinds them), and folding it in here stops
+    # `urban_fire._bind_soot`'s per-piece kit-style fallback from also
+    # trying (and failing, into `_flat_diffuse`'s flat grey) to soot-bake
+    # them a second time.
+    prebaked |= set(pre.get("overlay_prebaked") or ())
     # ONLY THE STOREYS SOMEBODY CAN SEE INTO GET A FULL FIT-OUT. `damage_
     # windows` (below) burns every hot-side window in the fire's own storey
     # band out to a real, see-through hole on EVERY level -- unconditional

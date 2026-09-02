@@ -22,7 +22,7 @@ centreline.
 
 ## 1. Host dry runs (already done — reproduce with these exact commands)
 
-All three commands below were run from `scene_gen/` with `uv` supplying
+Every command below was run from `scene_gen/` with `uv` supplying
 `numpy`/`matplotlib`/`pyyaml`/`shapely`/`scikit-learn` on top of the system
 `python3` (no `pxr`, no Isaac Sim, no Nucleus). `fence_png.py` (imported by
 `tornado_png.py`) stubs the seven `pxr` submodules `scene_generator.py` /
@@ -65,22 +65,52 @@ in `plan_people`'s own docstring and degrades to the flat per-level
 `DEBRIS_Z_M` deck, which is exactly the bench/host-test convention the module
 already uses for its own catalogue bench.
 
-The harness that does this (not a repo deliverable — a scratch script, listed
-here so it can be re-run or promoted later):
-`/tmp/claude-1000/-home-krrishjain-SEI-COA-disaster-dataset/c85c0d3d-0c7a-472c-8dd8-3184a2ccc7c6/scratchpad/people_dry_run.py`.
+The tool that does this — **promoted into the repo**, `scene_gen/tools/
+tornado_people_dry_run.py` (the original session-scratchpad prototype does
+not survive the session, so this is the one to keep re-running). It builds
+the layout/damage/plank/relief pipeline (identical to `tornado_png.py`),
+runs `plan_people`, writes the casualty JSON, prints every casualty as
+`idx, x, y, pose, occlusion, covered_frac`, picks two of them (nearest the
+plate centre by default, or `--pick-exposed IDX` / `--pick-partial IDX` to
+pin specific ones), searches a ring `--spawn-dist-m` out from each for the
+lowest-intensity point clear of every house footprint, and prints the
+resulting `SPAWN_CONFIGS` JSON. `--overlay` additionally draws the track PNG
+with every casualty coloured by occlusion, the two picks ringed, and both
+spawns + facing arrows — the same run that writes the JSON, not a second
+build.
 
 ```bash
 cd scene_gen
 uv run --with numpy --with matplotlib --with pyyaml --with shapely \
-    --with scikit-learn python3 \
-    /tmp/claude-1000/-home-krrishjain-SEI-COA-disaster-dataset/c85c0d3d-0c7a-472c-8dd8-3184a2ccc7c6/scratchpad/people_dry_run.py
+    --with scikit-learn python3 tools/tornado_people_dry_run.py \
+    --config suburb_tornado_250 \
+    --out-json /home/krrishjain/raven_previews/suburb_tornado_250_people.json \
+    --overlay /home/krrishjain/raven_previews/suburb_tornado_250_people_overlay.png \
+    --pick-exposed 16 --pick-partial 9
 ```
+
+`--pick-exposed 16 --pick-partial 9` PINS THE PAIR THIS RUNBOOK USES. A bare
+invocation (no `--pick-*`) auto-picks the `none` casualty and the
+`covered_frac in [0.30, 0.55]` casualty each NEAREST THE PLATE CENTRE, which
+for this scene lands on idx 16 and idx **2** — a fine default in general, but
+idx 2 sits only ~20 m from idx 16 (their spawn rings would nearly touch,
+which defeats the point of a TWO-drone, two-sector test). idx 9 sits on the
+far side of the corridor from idx 16 (~42 m apart), which is the pair this
+runbook actually wants — hence the explicit pick.
 
 Output: **19 casualties placed** (refusals: `in_relief` 9, `in_wreck` 3,
 `off_track` 6, `too_close` 11, `wrong_surface` 33 — the planner trying many
 more candidates than it keeps, which is its own designed behaviour, not an
 error), written to
-`/home/krrishjain/raven_previews/suburb_tornado_250_people.json`.
+`/home/krrishjain/raven_previews/suburb_tornado_250_people.json`, plus the
+full candidate table and:
+
+```
+[tornado_people_dry_run] robot_1: casualty idx=16 (-4.87,-24.86) occlusion=none covered_frac=0.00 -> spawn (-3.12,-4.94) intensity=0.08 yaw=-95.0 deg
+[tornado_people_dry_run] robot_2: casualty idx=9 (-16.46,-64.78) occlusion=flank covered_frac=0.33 -> spawn (-3.61,-80.10) intensity=0.13 yaw=130.0 deg
+[tornado_people_dry_run] SPAWN_CONFIGS = [{"x_m": -3.12, "y_m": -4.94, "orient": [0.0, 0.0, -0.7373, 0.6756]}, {"x_m": -3.61, "y_m": -80.1, "orient": [0.0, 0.0, 0.9063, 0.4226]}]
+[tornado_people_dry_run] overlay -> /home/krrishjain/raven_previews/suburb_tornado_250_people_overlay.png
+```
 
 **Caveat, stated once and load-bearing for §2**: this file is a HOST
 APPROXIMATION. The real Isaac build's `deck_points` will be non-empty
@@ -89,25 +119,17 @@ APPROXIMATION. The real Isaac build's `deck_points` will be non-empty
 accept/refuse decisions near a wreck pile — so the real `PEOPLE_JSON` may not
 have EXACTLY 19 casualties at EXACTLY these coordinates. `intact`/`wrecks`/
 `canopies`/`road_pts`/the plank field are otherwise identical (same seed, same
-pure functions), so the population should be close, not identical. **§2 step
-4 re-validates the two chosen casualties against the REAL file before
-anything is flown.**
+pure functions), so the population should be close, not identical. **§2's
+"re-validate the two casualties" step, below, re-checks this against the REAL
+file before anything is flown.**
 
 ### 1c. The casualty overlay PNG
 
-```bash
-cd scene_gen
-uv run --with numpy --with matplotlib --with pyyaml --with shapely \
-    --with scikit-learn python3 \
-    /tmp/claude-1000/-home-krrishjain-SEI-COA-disaster-dataset/c85c0d3d-0c7a-472c-8dd8-3184a2ccc7c6/scratchpad/people_overlay.py
-```
-
-Output: `/home/krrishjain/raven_previews/suburb_tornado_250_people_overlay.png`
-— the track PNG with all 19 casualties scattered and coloured by `occlusion`,
-the two chosen casualties ringed (`A`, `B`), and both robot spawns + facing
-arrows drawn. Console also prints the exact spawn-to-casualty distance and
-yaw for each (`robot_1: ... dist=20.0 m yaw=-97.5 deg`, `robot_2: ... dist=
-20.0 m yaw=142.5 deg`).
+Written by the SAME command as §1b (`--overlay ...`), not a second run:
+`/home/krrishjain/raven_previews/suburb_tornado_250_people_overlay.png` — the
+track PNG with all 19 casualties scattered and coloured by `occlusion`, the
+two chosen casualties ringed (`A` = idx 16, `B` = idx 9), and both robot
+spawns + facing arrows drawn.
 
 ### 1d. The annotation conversion, previewed
 
@@ -120,18 +142,32 @@ python3 tools/people_json_to_annotations.py \
 
 Output: `19 person annotation(s), by occlusion {'midriff': 4, 'none': 7,
 'flank': 3, 'feet_shins': 2, 'banded': 1, 'torso_head': 2}`. **This preview
-file is NOT the real annotations file** — §2 step 5 re-runs this exact command
-against the real `PEOPLE_JSON` once the scene is actually built, into
+file is NOT the real annotations file** — §3's closing step re-runs this
+exact command against the real `GT_people.json` once the scene is actually
+built and flown, into
 `robot/ros_ws/src/global/planners/raven_nav/annotations/<RESULTS_SCENE>.json`.
 
-### 1e. Unit tests for the conversion tool
+### 1e. Unit tests
 
 ```bash
 python3 -m pytest scene_gen/tests/test_people_json_to_annotations.py -q
+python3 -m pytest scene_gen/tests/test_tornado_people_dry_run.py -q
 ```
 
-Result: **16 passed** (bare `python3`, no `uv`, no extra packages — the tool
-and its test only use `argparse`/`json`/`math`/`os`/`sys`).
+Results: **16 passed** for the annotation converter (bare `python3`, no
+`uv`, no extra packages — the tool and its test only use
+`argparse`/`json`/`math`/`os`/`sys`); **19 passed** for
+`tornado_people_dry_run`'s pure half (also bare `python3` — the test file
+only imports the tool module, never `fence_png`/`suburb_scene`/`disaster.*`,
+so nothing pulls in `numpy`/`matplotlib`/`pxr`). The test file covers the
+spawn-point math (`yaw_facing`'s distance-independent yaw + unit quaternion,
+`spawn_config_entry`'s rounding), the exposed/partial pick logic on a
+synthetic 5-record list (nearest-to-centre tie-break, the partial band's
+edges, explicit picks honoured with and without a criteria mismatch, both
+"no candidate" error paths), and `pick_spawn_point`'s ring search against
+synthetic house/intensity callables (avoids a blocked footprint, prefers
+lower intensity, returns `None` when the whole ring is blocked) — no scene
+build anywhere in it.
 
 ---
 
@@ -192,13 +228,14 @@ casualties, useful for a human sanity check before flying (not required).
 
 ```bash
 # 1. apply the STAGE 1 block above to .env (NOT done by this pass)
+# 2. airstack down
+# 3. airstack up isaac-sim
 airstack down
 airstack up isaac-sim
-# 2. WAIT for "[tornado] SCENE_DONE"-equivalent completion — this launcher's
-#    own banner is "[tornado] FREEZE_EXIT set — closing after the export"
-#    (see run-isaac-sim-launcher/SKILL.md for reading the tmux pane / piped
-#    log / Kit log instead of `docker logs`, which is empty for this
-#    container)
+# 4. WAIT for the launcher's own completion banner — with FREEZE_EXIT="1"
+#    that is "[tornado] FREEZE_EXIT set — closing after the export" (see
+#    run-isaac-sim-launcher/SKILL.md for reading the tmux pane / piped log /
+#    Kit log instead of `docker logs`, which is empty for this container)
 ```
 
 ### What to look for
@@ -214,7 +251,7 @@ airstack up isaac-sim
   (a copy of `PEOPLE_JSON`), `freeze_report.json`, and the exported `.usd`
   tree `disaster.freeze.export_scene` writes.
 
-### Step 4 (do this before flying) — re-validate the two casualties
+### 5. Before flying — re-validate the two casualties against the REAL file
 
 ```bash
 python3 - <<'PY'
@@ -229,11 +266,23 @@ PY
 ```
 
 Confirm a casualty near `(-4.9, -24.9)` is still `occlusion: none` and one
-near `(-16.5, -64.8)` is still a partial pattern in `[0.30, 0.55]`. If the
-real draw moved them (the `deck_points` caveat above), re-run
-`spawn_pick.py`'s method (§1's scratch script) against the REAL file to
-re-derive `SPAWN_CONFIGS` — do not fly the §3 numbers unmodified against a
-population that no longer has these two casualties where §3 assumes.
+near `(-16.5, -64.8)` is still a partial pattern in `[0.30, 0.55]`.
+
+If the real draw moved them (the `deck_points` caveat above): the LAYOUT
+(houses, track, intensity field) is unaffected by `deck_points` — only which
+candidate casualties get accepted can differ — so `tools/
+tornado_people_dry_run.py --config suburb_tornado_250` (no other flags) still
+regenerates the identical house footprints and intensity field the real
+build used. Find the index in ITS candidate table whose `(x, y)` matches the
+real file's nearest surviving casualty to `(-4.9, -24.9)` / `(-16.5, -64.8)`
+and re-run with `--pick-exposed <that index> --pick-partial <that index>` to
+get a spawn search against the real geometry; if neither survived at all,
+`tools/tornado_people_dry_run.py`'s own `pick_casualties`/`pick_spawn_point`
+functions can be called directly (import the module, no CLI) against the
+real `PEOPLE_JSON`'s `people` list plus a fresh `build_ctx(...)`'s
+`houses`/`inten`/`tn.frame(tcfg)` for the geometry callbacks. Either way, do
+not fly the §3 numbers unmodified against a population that no longer has
+these two casualties where §3 assumes.
 
 **Do NOT write `raven_nav/annotations/RavenSuburbTornado250.json` yet** — see
 §3's closing step for why running `people_json_to_annotations.py` now would
@@ -248,13 +297,14 @@ just get overwritten.
 ```bash
 ISAAC_SIM_SCRIPT_NAME="example_multi_drone_scene_import.py"
 FROZEN_SCENE="/isaac-sim/AirStack/_test_freeze/raven_suburb_tornado_250"
-# SCENE_CONFIG must be UNSET/empty — its presence together with FROZEN_SCENE
-# is what the importer's own `_FROZEN = bool(FROZEN_SCENE)` / `_BUILT =
-# bool(SCENE_CONFIG) and not _FROZEN` guard is for; leaving SCENE_CONFIG set
-# from STAGE 1 silently falls through to `_BUILT=False` anyway, but unset it
-# to avoid the ambiguity.
+# SCENE_CONFIG should be UNSET/empty. The importer's own guard
+# (`_FROZEN = bool(FROZEN_SCENE)`, `_BUILT = bool(SCENE_CONFIG) and not
+# _FROZEN`) means a leftover SCENE_CONFIG from STAGE 1 does not get built —
+# FROZEN_SCENE wins — but the script prints "FROZEN_SCENE is set, so
+# SCENE_CONFIG=... is IGNORED" every time it is left set, which is noise
+# worth avoiding by just clearing it.
 NUM_ROBOTS="2"
-SPAWN_CONFIGS='[{"x_m": -2.26, "y_m": -5.04, "orient": [0.0, 0.0, -0.7518, 0.6593]}, {"x_m": -0.60, "y_m": -76.95, "orient": [0.0, 0.0, 0.9469, 0.3214]}]'
+SPAWN_CONFIGS='[{"x_m": -3.12, "y_m": -4.94, "orient": [0.0, 0.0, -0.7373, 0.6756]}, {"x_m": -3.61, "y_m": -80.1, "orient": [0.0, 0.0, 0.9063, 0.4226]}]'
 RESULTS_SCENE="RavenSuburbTornado250"
 ARCH_DIR="/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado"
 TOR_PEOPLE="1"          # inert on this path (no tornado_people call here);
@@ -323,7 +373,7 @@ airstack up isaac-sim robot-desktop gcs
 Once the scene has loaded (the `GT_ANNOTATIONS=on` auto-write from
 `frozen_annotations.write_all` has already happened and used the wrong
 upright `(0.7, 0.7, 1.8)` box — see the `GT_ANNOTATIONS` comment above), run
-the SAME command as §2's would-be Step 5, now against the frozen cell's own
+`people_json_to_annotations.py` (§1d's tool) against the frozen cell's own
 `GT_people.json` (identical content to `PEOPLE_JSON`, written by Stage 1):
 
 ```bash
@@ -367,6 +417,9 @@ test WP-D exists to set up.
 ## 5. File list (this pass)
 
 - `scene_gen/config/presets/suburb_tornado_250.yaml` (new)
+- `scene_gen/tools/tornado_people_dry_run.py` (new — host casualty-plan +
+  spawn-pick tool, promoted from the original session scratchpad prototype)
+- `scene_gen/tests/test_tornado_people_dry_run.py` (new)
 - `scene_gen/tools/people_json_to_annotations.py` (new)
 - `scene_gen/tests/test_people_json_to_annotations.py` (new)
 - `_plans/raven_test_scene_runbook.md` (this file)
@@ -374,6 +427,3 @@ test WP-D exists to set up.
   `~/raven_previews/suburb_tornado_250_people.json`,
   `~/raven_previews/suburb_tornado_250_people_overlay.png`,
   `~/raven_previews/RavenSuburbTornado250_annotations_preview.json`
-- Scratch (not a repo deliverable, reusable): `people_dry_run.py`,
-  `spawn_pick.py`, `people_overlay.py` in this session's scratchpad
-  (path in §1b).

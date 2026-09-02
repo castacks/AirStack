@@ -262,3 +262,23 @@ rewrite that only works pre-flatten.
 (the matrix and directory contract), `benchmark-disaster-dataset` (what a run
 does with a cell), `slice-buildings-into-kits` (the same Kit-flatten / USD-slice
 split and the same poisoned `assetInfo`).
+
+## 2026-09-02 — the fourth defect: sliced pieces lose their source materials
+
+`verify()` catches build-machine paths, missing sky and cross-scope bindings.
+It does NOT catch this one, because the binding is not broken in a way a path
+check can see: a sliced building's piece is bound to a Material prim that is
+itself a REFERENCE out to a per-material asset, and in the exported file that
+prim composes to a bare TYPELESS placeholder. `GetPrimAtPath(target).IsValid()`
+returns True; `ComputeBoundMaterial()` returns nothing; the piece renders flat
+fallback grey. Measured: 0 of 12-14 GAC facade materials survived in 33 of 33
+per-building bakes — for months, unnoticed, because the fallback greys pass
+for concrete. On brick (AEC brownstones) the same defect is glaring.
+
+Fixed at the source in `gac_storey_slice._selfcontained_like` (re-author the
+material into the bake with its MDL module + subIdentifier + inputs, never a
+reference). The portable-export lesson generalises: **an exported cell must
+contain no binding whose resolution depends on a prim that lived only in the
+build-time composition.** If you add a check for this, the test is a COLD
+REOPEN asserting every bound material `IsA(UsdShade.Material)` — not a path
+scan, and not `IsValid()`.

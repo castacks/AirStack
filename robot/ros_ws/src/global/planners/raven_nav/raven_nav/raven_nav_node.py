@@ -107,8 +107,15 @@ def sanitize_topic_label(s: str) -> str:
 
 class RavenNavNode(Node):
 
-    def __init__(self):
-        super().__init__('raven_nav')
+    def __init__(self, *, context=None, cli_args=None):
+        """`context` / `cli_args` exist for tests and for anyone embedding the
+        node: `main()` leaves both None and gets exactly the old behaviour
+        (default context, global `--ros-args`). Pass a private
+        `rclpy.Context()` and the node binds to it — and then its parameters
+        must come from `cli_args`, because global arguments belong to the
+        default context."""
+        super().__init__('raven_nav', context=context, cli_args=cli_args,
+                         use_global_arguments=(context is None))
 
         self._robot_name = os.getenv('ROBOT_NAME', 'robot')
         self._prefix = f'/{self._robot_name}'
@@ -121,8 +128,16 @@ class RavenNavNode(Node):
             if spec.auto:            # use_sim_time: rclpy declares it itself
                 continue
             default = spec.default
+            # The three env-backed knobs: the declared default comes from the
+            # environment, so an explicit `-p` still overrides it.
             if spec.name == 'lvlm_enabled':
                 default = P.resolve_lvlm_enabled(None)
+            elif spec.name == 'lvlm_request_interval_s':
+                default = P.resolve_lvlm_interval_s(
+                    None, warn=self.get_logger().warn)
+            elif spec.name == 'lvlm_ray_threshold':
+                default = P.resolve_lvlm_ray_threshold(
+                    None, warn=self.get_logger().warn)
             self._p[spec.name] = self.declare_parameter(
                 spec.name, default).value
         ignored = [n for n in P.INERT_PARAMS
@@ -177,7 +192,6 @@ class RavenNavNode(Node):
         self._detected_query_labels: Optional[List[str]] = None
         self._registered_queries: set = set()
         self._latest_image = None
-        self._last_completed: List[str] = []
 
         self._coverage = CoverageTracker(
             cell_size_m=float(self._p['coverage_cell_size_m']),
@@ -459,7 +473,9 @@ class RavenNavNode(Node):
         b = self._boot_enu
         return np.array([p[0] + b[0], p[1] + b[1], p[2]], dtype=float)
 
-    def _context(self) -> TickContext:
+    def _tick_context(self) -> TickContext:
+        # NOT `_context`: rclpy's Node.__init__ stores the ROS context on
+        # `self._context`, and an instance attribute shadows a method.
         return TickContext(
             cur_pose=np.asarray(self._cur_pose, dtype=np.float64),
             now=self._now(),
@@ -704,7 +720,7 @@ class RavenNavNode(Node):
         if self._mission_start_ts is None:
             self._mission_start_ts = self._now()
 
-        ctx = self._context()
+        ctx = self._tick_context()
         # Perception first, and unconditionally: the frontier-only baseline
         # reports detections it never navigates to.
         self._manager.perceive(ctx)
@@ -746,7 +762,6 @@ class RavenNavNode(Node):
 
         completed = self._detections.completed_labels()
         self._completed_pub.publish(String(data=json.dumps(completed)))
-        self._last_completed = completed
 
         self.get_logger().info(
             P.format_status_line(self._behavior_mode,
@@ -766,7 +781,6 @@ class RavenNavNode(Node):
         self._nav_mode_pub.publish(String(data=P.NAV_MODE_TAG['Complete']))
         completed = self._detections.completed_labels()
         self._completed_pub.publish(String(data=json.dumps(completed)))
-        self._last_completed = completed
 
 
 def main(args=None):

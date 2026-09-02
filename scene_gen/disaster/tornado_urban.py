@@ -97,7 +97,7 @@ otherwise vary run to run):
     roof_props  "sweep" | "keep"
     debris      [{kind, size:[l,w,t], x, y, z, z_lift, yaw_deg, tilt_deg,
                   material, from: prim_path, stacked,
-                  source_tex, source_tex_name}, ...]
+                  source_tex, source_tex_name, tone, shade}, ...]
                  ROUND 3 (§8 R8) ADDS `z_lift`/`stacked` — NEVER a rename of
                  `z` (still always `0.0`, street grade, unchanged): `z_lift`
                  is a berm fragment's extra height WITHIN its own wall-base
@@ -125,6 +125,20 @@ otherwise vary run to run):
                  by the fragment's own class bucket, so the debris at a
                  grey-stone brownstone's own foot is grey stone and not a
                  flat class-average colour.
+                 ROUND 4 (v6 review) ADDS `tone`/`shade` — two more pure
+                 additions. `tone` is the SOURCE BUILDING's masonry colour
+                 token (`_KIT_TONE`/`_tone_for`: `"stone"`, `"tan"`, or
+                 `""`), stamped on BLOCKY fragments only, and it exists
+                 because a kit facade map is an ATLAS that cannot be tiled
+                 onto debris (`tornado_urban_usd._tiling_safe`) — without
+                 it a WHITE-STONE building's rubble takes the generic red
+                 brick class map, which the v6 bench measured on B1/B3.
+                 `shade` (0..`_DEBRIS_SHADES`-1) is the per-mesh tone-jitter
+                 band, deterministic on (source piece, fragment index) via
+                 `_stable_shade`, never a draw. Both are consumed by
+                 `tornado_urban_usd.build_debris`/`debris_material`, which
+                 group by them; `""`/`0` reproduce the pre-round look and
+                 prim paths exactly.
     notes       [str, ...]
     stats       {n_pieces, n_removed, removed_frac (BY FAÇADE AREA — see
                  `_facade_area_of`), removed_count_frac (by piece count, for
@@ -150,6 +164,7 @@ a real baked kit to confirm the reading was safe.
 
 import math
 import os as _os
+import zlib as _zlib
 
 from . import quake_flow as qf
 from . import quake_sliced as qs
@@ -1688,16 +1703,27 @@ TU_MAX_TEARS = int(_os.environ.get("TU_MAX_TEARS", str(qs.QS_MAX_TEARS))
                    or qs.QS_MAX_TEARS)
 
 
-def _cap_tears(jobs, cap):
+def _cap_tears(jobs, cap, border=None):
     """See the section comment above for both things this does and why
     neither is a change to `quake_sliced._plan_tears` itself: drop any job
     whose torn piece is this ladder's own "core" decoration class, then
     keep only the first `cap` non-dropped jobs (STABLE order), marking
     the rest `dropped=True` -- the exact field `_author_tears`
     (`disaster/tornado_urban_usd.py`, stream FX1's apply-side half) already
-    reads to skip a job. A no-op at the default cap (`TU_MAX_TEARS ==
-    QS_MAX_TEARS`, already <= what `_plan_tears` returns)."""
+    reads to skip a job.
+
+    ROUND 4 (D2, v6 review) -- `border` IS NEVER DROPPED. The user's "some
+    of the walls still have even breaks" is this cap: a job on a piece that
+    actually borders a hole is what makes that hole ragged, and dropping it
+    leaves the slicer's own straight piece boundary showing. Border jobs
+    (`_hole_border_paths`) are kept unconditionally and do not count against
+    `cap`; the cap now bounds only the DECORATIVE tears — pieces near the
+    damage but not on a hole edge — so the authored total stays bounded by
+    the hole perimeter, which the height-class area caps already bound.
+    `border` None (or `TU_TEAR_BORDER=0`) is the round-3 flat cap."""
+    border = set(border or ()) if TU_TEAR_BORDER_ON else set()
     kept = 0
+    n_border_kept = 0
     for j in jobs:
         if j.get("dropped"):
             continue
@@ -1705,11 +1731,597 @@ def _cap_tears(jobs, cap):
         if e is not None and (e.get("p") or {}).get("_role") == "core":
             j["dropped"] = True
             continue
+        if qs._path(e) in border:
+            j["border"] = True
+            n_border_kept += 1
+            continue
         if kept >= int(cap):
             j["dropped"] = True
         else:
             kept += 1
     return jobs
+
+
+# ---------------------------------------------------------------------------
+# ROUND 4 (D2, v6 review) -- THE SLICED SUPPORT POST-PASS: "no piece stands
+# on air".
+#
+# The user, on the v6 lit bench: "/World/tornado_bench/A3/cell/pieces/
+# wall_N_1_10_0204 -- some walls like this are still floating". Measured:
+# that piece is storey 10 of an 11-storey slice and every piece in its own
+# bay column below it had been removed by `t_out_of_plane_top` + `t_chunk`,
+# so it survived hanging in the air over a hole.
+#
+# Stream K built this rule for the KIT path (`tornado_kit._unsupported` /
+# `_support_closure`, inside `kit_guard`), and `tornado_urban` grew only the
+# ROOF half of it (`_shed_unsupported_roof`). The SLICED path had nothing
+# for walls. This is K's vocabulary re-stated on the sliced grid -- same
+# `_Grid` cell addressing (`g.at((side, storey, bay))`, `g.corners`,
+# `qs.bay_no`), same two-clause run rule, same closure -- and NOT an import
+# of it: `tornado_kit` imports THIS module (`import ... tornado_urban as tu`),
+# so depending on it here would be a cycle.
+#
+# ONE RULE IS DELIBERATELY NOT PORTED: K's `core` ORNAMENT test. On the kit
+# grid `core` is `tornado_kit.adapt`'s catch-all for portico / pediment /
+# ornament / balcony decoration; on a SLICED grid `core` is the building's
+# own interior core (11 pieces on SM_Building_02, one per storey, spanning
+# the footprint), which no recipe ever removes and which nothing else is
+# holding up. Applying the ornament radius test to those would gut the
+# building from the inside out. `core` is never unsupported here.
+# ---------------------------------------------------------------------------
+_SUPPORT_MAX_PASSES = 12
+#: `TU_SUPPORT=0` restores round-3 behaviour (no wall support pass) -- the
+#: A/B switch the container probe uses to report before/after.
+TU_SUPPORT_ON = _os.environ.get("TU_SUPPORT", "1") not in ("0", "", "false")
+
+
+def _cell_below(g, side, storey, bay):
+    """The pieces DIRECTLY under `(side, storey, bay)` — the nearest storey
+    below that actually carries a piece in that bay column, not blindly
+    `storey - 1`. `tornado_kit._cell_below`'s rule: a slice's storey table
+    is not uniform either (SM_Building_02's parapet band owns storey 11
+    while the wall runs stop at 10), and a bay empty at one index is not
+    evidence of a hole. `[]` when nothing at all sits under this cell."""
+    for s in range(int(storey) - 1, -1, -1):
+        got = g.at((side, s, bay))
+        if got:
+            return got
+    return []
+
+
+def _corner_below(g, corner, storey):
+    """`_cell_below` for a corner column (`_Grid.corners`)."""
+    for s in range(int(storey) - 1, -1, -1):
+        got = g.corners.get((corner, s))
+        if got:
+            return got
+    return []
+
+
+def _column_dead(g, side, storey, bay, removed):
+    """Is the whole bay column under `(side, storey, bay)` gone?"""
+    below = _cell_below(g, side, storey, bay)
+    if not below:
+        return False
+    return all(qs._path(e) in removed for e in below)
+
+
+def _unsupported(g, e, removed):
+    """Does element `e` stand on air, given the `removed` path set?
+
+    * `wall` / `pier` on a main side — unsupported when its OWN bay column
+      below is entirely gone AND it has no live NEIGHBOUR to span to (an
+      adjacent bay at its own storey that both survives and has a live
+      column of its own). The second clause is what keeps `quake_sliced.
+      _apply_region`'s TOOTHING working: a kept boundary pier inside a lost
+      band is standing on the bay next to it, which is the whole point of
+      toothing, while `wall_N_1_10_0204` — a whole bay column gone under it
+      and its neighbours gone too — still fails.
+    * `corner` / `parapet_corner` — the column test ONLY. A corner is the
+      END of both its runs; there is no bay beyond it to span to.
+    * `parapet` — the run rule, same as a wall. `_shed_unsupported_roof`
+      owns the "its wall BAND emptied" case and this owns "its own column
+      went"; both only ever add, and they agree.
+    * `core` — never (see the section comment).
+    * `roof` — NOT decided here; `_shed_unsupported_roof` owns roof tiles
+      and slabs and is re-run after this pass.
+    """
+    p = e.get("p") or {}
+    role = p.get("_role")
+    if role in ("roof", "core"):
+        return False
+    side = p.get("_side")
+    storey = int(p.get("_storey", 0))
+
+    if side in qs.SIDES:
+        if storey <= 0:
+            return False
+        bay = qs.bay_no(p, g.n_sub)
+        if not _column_dead(g, side, storey, bay, removed):
+            return False
+        if role in ("corner", "parapet_corner"):
+            return True
+        for nb in (bay - 1, bay + 1):
+            for e2 in g.at((side, storey, nb)):
+                if qs._path(e2) in removed:
+                    continue
+                if not _column_dead(g, side, storey, nb, removed):
+                    return False
+        return True
+
+    if side in qs._CORNER_SIDES:
+        if storey <= 0:
+            return False
+        below = _corner_below(g, side, storey)
+        if not below:
+            return False
+        return all(qs._path(e2) in removed for e2 in below)
+
+    return False
+
+
+def _support_closure(g, seeds, protect=()):
+    """`seeds` grown until nothing standing is unsupported. Returns
+    `(removed_set, shed_paths)`, `shed_paths` in discovery order so the
+    caller can ledger exactly what the SUPPORT rule took as opposed to what
+    a recipe took. `tornado_kit._support_closure`'s body on this grid.
+
+    `protect` — the plan's DISPLACED pieces — is never shed. This is where
+    this pass diverges from `tornado_kit.kit_guard`, which DEMOTES an
+    unsupported displaced piece to removed (its step 5). On the sliced
+    ladder a displaced piece is not standing on air: `t_hanging_panels` and
+    `t_out_of_plane_top` pitch it about its own BOTTOM OUTER EDGE and its
+    own docstring says so ("STILL ATTACHED (`displaced`, never
+    `removed`)"), and `t_facade_collapse`'s leaning macroblocks lean out of
+    an elevation whose lower storeys that same recipe just took — by
+    construction their column below is gone, and demoting them would delete
+    the one state Sec8c's carve-out exists to show. They are attached at
+    the pivot, so they are not candidates; they still count as LIVE for
+    everything else's column test, exactly as in `kit_guard`."""
+    removed = set(seeds)
+    protect = set(protect)
+    shed = []
+    for _ in range(_SUPPORT_MAX_PASSES):
+        newly = []
+        for e in g.els:
+            path = qs._path(e)
+            if not path or path in removed or path in protect:
+                continue
+            if _unsupported(g, e, removed):
+                newly.append(path)
+        if not newly:
+            break
+        removed.update(newly)
+        shed.extend(newly)
+    return removed, shed
+
+
+def _unsupported_survivors(g, removed, protect=()):
+    """THE AUDIT — every SURVIVING piece that still stands on air, given a
+    finished plan's removal set. Must be empty after `_finalise`; the
+    container probe and `test_no_sliced_piece_stands_on_air` both assert
+    that, and it is the one number the user's `wall_N_1_10_0204` note is
+    about."""
+    removed = set(removed)
+    protect = set(protect)
+    out = []
+    for e in g.els:
+        path = qs._path(e)
+        if not path or path in removed or path in protect:
+            continue
+        if _unsupported(g, e, removed):
+            out.append(path)
+    return out
+
+
+def _seed_keep_score(e, weights, top):
+    """How much a RECIPE removal belongs in a tornado's damage zone —
+    `tornado_kit._keep_score`'s shape on the sliced grid. The seed trade
+    below hands back the LOWEST scores first, so what survives a trade is
+    the coping, the top storeys, the windward face and the windward
+    corner."""
+    p = e.get("p") or {}
+    role, side = p.get("_role"), p.get("_side")
+    storey = int(p.get("_storey", 0))
+    score = 0.0
+    if role in ("parapet", "parapet_corner"):
+        score += 4.0
+    if role in ("corner",):
+        score += 0.5
+    score += 2.0 * float(weights.get(side, 0.0) or 0.0)
+    score += 1.5 * (storey / float(max(1, top)))
+    return score
+
+
+def _shed_unsupported_walls(pctx, plan, height_class):
+    """THE PASS. Demote every surviving wall/pier/corner/parapet piece that
+    stands on air to `removed` — ledgered as debris like any other removal
+    (the ledger and every removal-derived stat are RE-RUN downstream in
+    `_finalise`, never patched).
+
+    THE SEED TRADE, and why it both terminates and keeps the cap. The
+    closure only ever ADDS, so it can push a plan that `_cap_removed_frac`
+    just brought under the height-class area cap back over it — and those
+    additions are NOT restorable by that function, which only ever hands
+    back cells belonging to a `plan["regions"]` record. So when the closure
+    overshoots, this hands back the least-wanted SEED (a RECIPE removal,
+    lowest `_seed_keep_score` first) and re-derives the closure from the
+    smaller seed set. `_support_closure` is monotone in its seeds — fewer
+    seeds can only mean fewer sheds — so each trade strictly reduces the
+    result and the loop is bounded by the seed count. The alternative,
+    letting the closure win and noting the drift (which is the call
+    `tornado_kit.kit_guard` makes), leaves a plan over a cap that R2 Sec8.6
+    calls "strongly supported, do not loosen"; trading a seed keeps BOTH
+    invariants, at the cost of one recipe removal.
+
+    Returns the number of pieces the support rule took.
+    """
+    if not TU_SUPPORT_ON:
+        _note(pctx, "support: DISABLED (TU_SUPPORT=0) -- round-3 behaviour")
+        return 0
+    g = pctx["g"]
+    protect = set(plan.get("displaced") or ())
+    # ...AND THE TOOTHING'S OWN KEPT PIERS (stream K's collision report,
+    # verified by neutering: `test_toothing_no_boundary_row_is_all_or_
+    # nothing` failed with "every boundary pier removed" and passed with
+    # this pass off). `quake_sliced._apply_region` deliberately RETAINS a
+    # boundary pier inside a lost band -- that is the anti-"rectangular
+    # module cut-out" mechanism the whole ladder is built on, and it is
+    # exactly the shape the column test flags: its own bay column is gone
+    # under it by construction. A kept pier is load-bearing BY DESIGN
+    # INTENT; the ragged edge is the point. The plan does not carry
+    # `res["kept_piers"]` (the recipes only quote the count in a note), so
+    # it is re-derived here from the region records: a SURVIVING piece
+    # whose grid cell belongs to a region the ladder emptied is, by
+    # definition, a piece toothing chose to leave standing.
+    region_cells = set()
+    for r in plan.get("regions") or ():
+        for c in r.get("cells") or ():
+            region_cells.add(tuple(c))
+    if region_cells:
+        for e in g.els:
+            q = qs._path(e)
+            if not q or q in plan["_removed_set"]:
+                continue
+            if _cell_of(e, g.n_sub) in region_cells:
+                protect.add(q)
+    cap = HEIGHT_CAPS.get(height_class, HEIGHT_CAPS["midrise"])["max_removed_frac"]
+    total_area = _total_facade_area(g) or 1.0
+    idx = {qs._path(e): e for e in g.els}
+    weights = plan.get("side_weights") or {}
+    top = max([int((e.get("p") or {}).get("_storey", 0)) for e in g.els] or [1])
+
+    def _frac(rm):
+        return sum(_facade_area_of(idx[q]) for q in rm
+                   if q in idx
+                   and (idx[q].get("p") or {}).get("_side") in qs.SIDES) / total_area
+
+    seeds = set(plan["_removed_set"])
+    n_traded = 0
+    removed, shed = _support_closure(g, seeds, protect)
+    for _ in range(len(seeds) + 4):
+        if _frac(removed) <= cap or not seeds:
+            break
+        worst = min(seeds, key=lambda q: _seed_keep_score(
+            idx.get(q) or {}, weights, top))
+        seeds.discard(worst)
+        n_traded += 1
+        removed, shed = _support_closure(g, seeds, protect)
+
+    plan["_removed_set"] = set(removed)
+    plan["removed"] = sorted(removed)
+    plan["_support_protect"] = sorted(protect)
+    plan["support_shed"] = sorted(shed)
+    if shed:
+        _note(pctx, "support: {0} piece(s) shed that would have stood on air "
+                    "(own bay column below entirely gone and no live "
+                    "neighbour bay to span to; a corner has no bay to span "
+                    "to at all){1}".format(
+                        len(shed),
+                        "" if not n_traded else
+                        "; {0} recipe removal(s) traded back to stay under "
+                        "the {1} area cap {2:.2f}".format(
+                            n_traded, height_class, cap)))
+    return len(shed)
+
+
+# ---------------------------------------------------------------------------
+# ROUND 4 (D2, v6 review) -- TEAR COVERAGE: no hole edge left square.
+#
+# The other half of the same user note: "some of the walls still have even
+# breaks". Measured on the T4 probe: `quake_sliced._plan_tears` hands
+# `fire_collapse.plan_edges` a budget of `QS_MAX_TEARS` (40) PER MASS and
+# `_cap_tears` then capped the kept jobs at `TU_MAX_TEARS` (the same 40), so
+# on a plan that opens more hole perimeter than that — every T4 — the pieces
+# past the budget got no tear job at all and their break stayed on the
+# slicer's own straight piece boundary.
+#
+# Two changes, both here (neither `quake_sliced` nor `fire_collapse` is
+# touched): the PLANNING budget is raised for the duration of this module's
+# own `_plan_tears` call, and `_cap_tears` never drops a job on a piece that
+# actually borders a hole. The cap still bounds the DECORATIVE tears (a
+# piece near a hole but not on its edge); the border set is bounded by the
+# hole perimeter, which is bounded by the height-class area caps.
+# ---------------------------------------------------------------------------
+#: What `quake_sliced._plan_tears` is allowed to PLAN (it reads
+#: `qs.QS_MAX_TEARS` at call time as its `fire_collapse.plan_edges` budget).
+#: Raised only for the duration of the call below and restored in a
+#: `finally`, so no other consumer of that module sees a different value.
+TU_TEAR_PLAN_BUDGET = int(_os.environ.get("TU_TEAR_PLAN_BUDGET", "240") or 240)
+#: How big a gap between two footprints still counts as TOUCHING when
+#: `fire_collapse.plan_edges` decides whether a surviving piece is on a
+#: hole's edge. `quake_sliced.QS_TEAR_TOL_M` is 0.6 m, tuned on modelled KIT
+#: modules that butt; a SLICED piece's footprint is the bbox of a region cut
+#: and consecutive cells DO NOT BUTT (`plan_edges`'s own EDGE_GAP_FRAC note),
+#: so on this path the 0.6 m left real hole-edge neighbours unclassified —
+#: measured, see `_plan_tears_wide`.
+TU_TEAR_TOL_M = float(_os.environ.get("TU_TEAR_TOL_M", "0") or 0.0)
+#: `TU_TEAR_BORDER=0` restores round-3 behaviour (a flat cap that can leave
+#: a hole edge untorn) -- the A/B switch for the probe.
+TU_TEAR_BORDER_ON = _os.environ.get(
+    "TU_TEAR_BORDER", "1") not in ("0", "", "false")
+
+
+def _plan_tears_wide(pctx, plan):
+    """`quake_sliced._plan_tears` with the planning budget raised to
+    `TU_TEAR_PLAN_BUDGET` for the duration of the call.
+
+    `_plan_tears` passes `budget=max(0, QS_MAX_TEARS - len(out))` into
+    `fire_collapse.plan_edges`, reading that module global at CALL time, and
+    it is documented as an env-overridable knob. Raising it here (and
+    restoring it in a `finally`) is the only way to plan more border tears
+    without editing `quake_sliced.py`, which this stream does not own. The
+    number of jobs actually AUTHORED is still bounded by `_cap_tears`."""
+    old_budget, old_tol = qs.QS_MAX_TEARS, qs.QS_TEAR_TOL_M
+    try:
+        qs.QS_MAX_TEARS = max(old_budget, TU_TEAR_PLAN_BUDGET)
+        if TU_TEAR_TOL_M > 0:
+            qs.QS_TEAR_TOL_M = TU_TEAR_TOL_M
+        return qs._plan_tears(pctx, plan)
+    finally:
+        qs.QS_MAX_TEARS, qs.QS_TEAR_TOL_M = old_budget, old_tol
+
+
+def _border_over(e_live, m=None):
+    """`plan_edges`'s own `over = min(1.2, 0.3 * w)` — how much two pieces
+    one storey apart must OVERLAP along the wall before either is the
+    other's hole edge, measured on the SURVIVING piece's own width. A flat
+    threshold was looser than that on a narrow pier (0.51 m of overlap
+    against a 3.07 m pier reads as an edge at 0.30 and does not at 0.92),
+    and every piece the two rules disagreed about was a piece the audit
+    then reported as an untorn border."""
+    a0, a1 = _along_lo_hi(e_live, None, m)
+    return min(1.2, 0.3 * max(0.3, a1 - a0))
+_BORDER_TOL_M = 0.75      # `quake_sliced.QS_TEAR_TOL_M`'s 0.6 plus a little:
+                          # a sliced piece's footprint is the bbox of a
+                          # region cut and consecutive cells do not butt
+                          # (`fire_collapse.plan_edges`'s own EDGE_GAP_FRAC
+                          # note), so "touching" needs slack.
+
+
+def _touch_xy(e1, e2, tol=_BORDER_TOL_M):
+    """Do these two pieces' footprints touch in PLAN? Half-extent sum plus
+    `tol` on each axis, from `quake_sliced._size` and `describe`'s own
+    `lx`/`ly`. Used for the CORNER links only — a run-to-run neighbour is
+    decided by the grid's own bay/storey indices, which are exact."""
+    sx1, sy1, _ = qs._size(e1)
+    sx2, sy2, _ = qs._size(e2)
+    dx = abs(float(e1.get("lx", 0.0)) - float(e2.get("lx", 0.0)))
+    dy = abs(float(e1.get("ly", 0.0)) - float(e2.get("ly", 0.0)))
+    return (dx <= (sx1 + sx2) / 2.0 + tol) and (dy <= (sy1 + sy2) / 2.0 + tol)
+
+
+def _corner_tear_jobs(pctx, plan, already):
+    """Tear jobs for the CORNER pieces beside a hole — the ones
+    `fire_collapse.plan_edges` structurally cannot reach.
+
+    THE GAP, measured on the T3/T4 probes: `quake_sliced._plan_tears` builds
+    its `edge_plan["sides"]` from the removed pieces' sides FILTERED TO
+    `qs.SIDES` (the four main elevations), and `plan_edges`'s own `live()`
+    then enumerates `e["side"] == sd` for those sides only. A sliced
+    `corner` / `parapet_corner` piece carries `side` "SW"/"SE"/"NW"/"NE",
+    so it is in neither the lost set nor the `return`-class adjoining set
+    and NO job is ever emitted for it. 22 of 54 hole-border pieces on the
+    SM_Building_02 T3 plan were corner pieces butting the removed band's
+    own bay (`corner_SW_*` at x -14.0..-11.8 against `pier_S_0_*` starting
+    at -11.8 — they share an edge exactly), each keeping the slicer's own
+    square break. That is the user's "some of the walls still have even
+    breaks", on the windward corner where a tornado chunk always is.
+
+    THE FIX, without editing `fire_collapse` or `quake_sliced`: call
+    `plan_edges` a SECOND time per lost side with a SHADOW element list —
+    copies of the corner elements whose `side` is rewritten to that lost
+    main side. That is geometrically the right reading (a SW corner IS the
+    low-x end of the S wall line, which is exactly what `el_span`'s S
+    convention measures) and it makes them enumerable. The copies carry the
+    SAME `p` dict, so `_tears_to_json` records the real prim path and
+    `_author_tears` re-resolves the real element at apply time; the job's
+    recorded `side` is the LOST side, which is the direction the hole is on
+    and the one `_tear_perimeter` wants for `quake_flow._outward`.
+
+    A separate `_tear_rng` instance is used, so the run-piece draws in the
+    first pass are untouched and the corner cuts are still deterministic.
+    """
+    from . import fire_collapse as fc
+    info = pctx["info"]
+    removed = set(plan["_removed_set"])
+    moved = set(plan.get("displaced") or ()) | {q for q, _s in plan["panels"]}
+    scope = plan.get("tear_scope") or {}
+    if not scope:
+        return []
+    prng = qs._tear_rng(info, plan)
+    out = []
+    seen = set(already)
+    for mass in sorted(scope):
+        sc = scope[mass] or {}
+        m = info["masses"].get(mass) or info["masses"]["main"]
+        for sd in sc.get("sides") or ():
+            kill = [e for e in info["elements"]
+                    if (e.get("mass") or "main") == mass
+                    and e.get("side") == sd and qs._path(e) in removed]
+            if not kill:
+                continue
+            shadow = []
+            for e in info["elements"]:
+                cs = (e.get("p") or {}).get("_side")
+                if cs not in qs._CORNER_SIDES or sd not in qs._CORNER_SIDES[cs]:
+                    continue
+                q = qs._path(e)
+                if not q or q in removed or q in moved or q in seen:
+                    continue
+                if (e.get("mass") or "main") != mass:
+                    continue
+                c = dict(e)
+                c["side"] = sd
+                shadow.append(c)
+            if not shadow:
+                continue
+            ctx2 = {"info": dict(info, elements=list(kill) + shadow)}
+            edge_plan = {"mass": mass, "sides": (sd,),
+                         "storeys": sorted(sc.get("storeys") or ()),
+                         "pad_m": qs.TEAR_PAD_M, "kill": kill}
+            for j in fc.plan_edges(ctx2, edge_plan, m, prng,
+                                   tol=(TU_TEAR_TOL_M or qs.QS_TEAR_TOL_M),
+                                   budget=TU_TEAR_PLAN_BUDGET):
+                q = qs._path(j.get("el") or {})
+                if not q or q in seen:
+                    continue
+                j["mass"] = mass
+                j["dropped"] = bool(j.get("dropped"))
+                seen.add(q)
+                out.append(j)
+    return out
+
+
+def _along_lo_hi(e, side=None, m=None):
+    """A piece's span along an ELEVATION's own axis. With a mass frame this
+    is `fire_collapse.el_span` ITSELF — the very function `plan_edges` uses
+    to decide its `left`/`right`/`below`/`above` classes, so the audit and
+    the pass that fills it cannot disagree at the margin (they did: a
+    half-`_size` span put two pieces 0.5 m into each other where `el_span`'s
+    measured width put them 0.1 m apart, and every such piece surfaced as a
+    phantom "untorn border"). Without one it falls back to the placement's
+    own centre and `_size`, which is all a host-side fixture has.
+
+    `side` defaults to the piece's own; a CORNER piece has no single axis of
+    its own, so a caller comparing one against a run piece passes the RUN's
+    side — the same rewrite `_corner_tear_jobs` hands `plan_edges`."""
+    if side is None:
+        side = (e.get("p") or {}).get("_side") or e.get("side")
+    if m is not None:
+        try:
+            from . import fire_collapse as fc
+            t0, t1 = fc.el_span(m, e if e.get("side") == side
+                                else dict(e, side=side))
+            return float(t0), float(t1)
+        except Exception:                                   # noqa: BLE001
+            pass
+    sx, sy, _sz = qs._size(e)
+    if side in ("S", "N"):
+        c, half = float(e.get("lx", 0.0)), sx / 2.0
+    else:
+        c, half = float(e.get("ly", 0.0)), sy / 2.0
+    return c - half, c + half
+
+
+def _along_overlap(e1, e2, side=None, m=None):
+    """How much two pieces overlap along an elevation — `plan_edges`'s own
+    `min(b, t1) - max(a, t0)` test, which is what separates a piece UNDER A
+    HOLE from a piece under the kept pier beside it (and a corner under the
+    hole from one diagonally past its end)."""
+    a0, a1 = _along_lo_hi(e1, side, m)
+    b0, b1 = _along_lo_hi(e2, side, m)
+    return min(a1, b1) - max(a0, b0)
+
+
+def _hole_border_paths(g, removed, moved=(), masses=None):
+    """Every SURVIVING piece that touches a hole — `fire_collapse.
+    plan_edges`'s own adjacency, restated on this grid.
+
+    THE DEFINITION MATTERS, and getting it wrong twice is what this
+    docstring is for. Measured on the real SM_Building_02 T4 plan:
+
+      * an INDEX rule (same side, one storey, one BAY) claimed 24 pieces
+        that no hole is near. A `_Grid` bay holds `n_sub` runs (3 on this
+        asset), so "same bay" spans up to three pieces wide, and the
+        toothing deliberately keeps a boundary pier inside a lost band —
+        `pier_S_2_04` is in the band's own bay and directly under the pier
+        that SURVIVED, not under the hole.
+      * an INDEX rule for the corners claimed all seven storeys of the SW
+        corner against a band at the other end of the S run.
+
+    So both links are geometric, and split by relation exactly as
+    `plan_edges` splits its classes:
+
+      same storey  -> ABUTTING along the wall is the edge (`left`/`right`).
+      one storey   -> the spans must OVERLAP (`below`/`above`), not merely
+                      touch at a corner; a diagonal neighbour is not an
+                      edge, which is `plan_edges`'s own `over` test.
+      corners      -> footprint proximity (`_touch_xy`), since a corner is
+                      at ONE end of each of its two runs.
+
+    This set says which of `plan_edges`' jobs the cap may never drop, and
+    counts what a plan left square (`stats["n_border_untorn"]`)."""
+    removed = set(removed)
+    # A DISPLACED piece is never a tear candidate — `quake_sliced.
+    # _plan_tears` drops any job on a piece in `plan["displaced"]`
+    # ("`_break_split`ing a prim that is about to be relocated tears a dead
+    # reference out from under the move"), so counting one as an untorn
+    # border would report a defect the pipeline is right to have.
+    moved = set(moved)
+    border = set()
+
+    def _mass(e):
+        return (masses or {}).get(e.get("mass") or "main") if masses else None
+
+    def _add(els, against=None, mode="touch", axis=None):
+        for e2 in els or ():
+            q = qs._path(e2)
+            if not q or q in removed or q in moved:
+                continue
+            if against is not None:
+                m = _mass(e2)
+                if mode == "overlap":
+                    if _along_overlap(against, e2, axis, m) <= _border_over(e2, m):
+                        continue
+                elif not _touch_xy(against, e2):
+                    continue
+            border.add(q)
+
+    for e in g.els:
+        path = qs._path(e)
+        if not path or path not in removed:
+            continue
+        p = e.get("p") or {}
+        side = p.get("_side")
+        storey = int(p.get("_storey", 0))
+        if side in qs.SIDES:
+            bay = qs.bay_no(p, g.n_sub)
+            for ds in (-1, 0, 1):
+                for db in (-1, 0, 1):
+                    if ds == 0 and db == 0:
+                        continue
+                    _add(g.at((side, storey + ds, bay + db)), against=e,
+                         mode="touch" if ds == 0 else "overlap", axis=side)
+            for cs, sides_of in qs._CORNER_SIDES.items():
+                if side not in sides_of:
+                    continue
+                # SAME RELATION SPLIT AS THE RUNS, measured on the RUN's own
+                # axis: a corner beside the hole is an edge, a corner one
+                # storey up or down and past the hole's end is not.
+                for ds in (-1, 0, 1):
+                    _add(g.corners.get((cs, storey + ds)), against=e,
+                         mode="touch" if ds == 0 else "overlap", axis=side)
+        elif side in qs._CORNER_SIDES:
+            for ds in (-1, 0, 1):
+                if ds:
+                    _add(g.corners.get((side, storey + ds)))
+            for sd in qs._CORNER_SIDES[side]:
+                for ds in (-1, 0, 1):
+                    for b in sorted(g.sides.get(sd, ()) or ()):
+                        _add(g.at((sd, storey + ds, b)), against=e,
+                             mode="touch" if ds == 0 else "overlap", axis=sd)
+    return border
 
 
 # ---------------------------------------------------------------------------
@@ -2088,6 +2700,74 @@ _DIMS = {
 _THICK_RANGE = {"panel": (0.12, 0.40), "block": (0.12, 0.40),
                 "coping": (0.12, 0.40), "membrane": (0.02, 0.08),
                 "metal": (0.01, 0.06)}
+# ROUND 4 (v6 lit-bench review, "the B rubble is still not fixed ... the kit
+# berms render as uniform light-grey IDENTICAL boxes"). `_DIMS` above is one
+# narrow range per kind, so every fragment of a class comes out within a
+# factor of ~2.4 of every other one and a berm reads as a gravel bed. The
+# real thing is BIMODAL: mostly small spall with a MINORITY of large units
+# that fell whole -- `_plans/urban_tornado_research.md` §4's own Fort Worth
+# 2000 note, "a spalled EIFS/cladding panel or a tilt-up wall panel falls as
+# a unit near where it broke off". `_SLAB_SHARE` of every blocky fragment is
+# drawn from this second table instead. Aspect stays inside `_MAX_ASPECT`
+# BY CONSTRUCTION here too (panel 2.20/0.80 = 2.75, block 1.60/0.70 = 2.29,
+# coping 1.20/0.45 = 2.67), so the clamp in `_dims_for` is a no-op on a slab
+# draw and the "no planks" invariant holds for both halves of the mix.
+_SLAB_SHARE = 0.20
+_DIMS_SLAB = {
+    "panel": ((1.20, 2.20), (0.80, 1.60)),
+    "block": ((0.90, 1.60), (0.70, 1.30)),
+    "coping": ((0.60, 1.20), (0.45, 0.90)),
+}
+# ROUND 4 (v6) — THE MASONRY TONE, and the reason a hint table is the right
+# answer here rather than the building's own map.
+#
+# The debris class branches carry ONE masonry look, `brick` (Brick_Wall_Worn,
+# measured linear mean 0.213/0.109/0.071 -- a red-brown BRICK map). That is
+# right for the A row's red-brick GAC stock and it is what the v6 review
+# APPROVED there, so it stays untouched. It is wrong under B1/B3, whose kit
+# facades are WHITE STONE, and under B2, which is tan: a white building
+# shedding red brick is the same "material that isn't this building's"
+# defect the review has now called out twice.
+#
+# Why not just bind the building's own facade map? Because it is an ATLAS --
+# `_tiling_safe`/`_TILING_SAFE_TOKENS` in `tornado_urban_usd` documents the
+# measurement: `M_MBuilding03_Facades` is a packed sheet of windows, doors
+# and trim, and a triplanar world projection of it paints a random crop on
+# every fragment (that IS the "uniform light-grey identical boxes" in
+# B1_obl/B3_obl -- an atlas averaged over a 0.4 m cube). The map cannot be
+# reused; only its TONE can, and a tone is one token, not a texture.
+#
+# So: a per-STYLE tone token, stamped on the fragment by the ledger and
+# resolved to (rubble map, tint) by `tornado_urban_usd._TONE_LOOK`. Styles
+# absent from this table stamp NOTHING and take the class branch exactly as
+# before -- every sliced (A-row) building, and any kit style not listed.
+_KIT_TONE = {
+    "brownstone_row": "stone",   # B1: white/cream stone facade
+    "walkup": "stone",           # B3: same white stone kit stock
+    "dw_terrace": "tan",         # B2: tan/buff brick-and-stucco terrace
+}
+#: How many TONE-JITTERED variants of a masonry debris material a berm is
+#: split across. `build_debris` groups by (kind, label, tone, shade) so this
+#: multiplies the mesh count for the blocky kinds ONLY (3 groups -> 9 on a
+#: typical building; glass/membrane/metal stay at one each). Set to 1 to
+#: turn the jitter off entirely.
+_DEBRIS_SHADES = 3
+
+
+def _stable_shade(source_path):
+    """A stable 0..`_DEBRIS_SHADES`-1 offset for a source piece, so two
+    pieces do not start their fragments in the same tone band (which would
+    put every low-index fragment -- the ones `_thin_fragments` keeps first
+    -- in one shade). `zlib.crc32` rather than `hash()`: `hash()` on a str
+    is salted per process, and a plan must be identical run to run."""
+    return int(_zlib.crc32(str(source_path).encode("utf-8")) % 997)
+
+
+def _tone_for(style):
+    """The masonry tone token for a building `style`, or `""` for one this
+    table does not name (which is every sliced building -- their class
+    branch is the approved A-row look and must not move)."""
+    return _KIT_TONE.get(str(style or "").strip().lower(), "")
 _MAT_BY_BTYPE = {
     ("urm", "panel"): "brick", ("urm", "block"): "brick",
     ("rc", "panel"): "concrete_panel", ("rc", "block"): "concrete_panel",
@@ -2245,8 +2925,21 @@ def _lognormal(rng, sigma):
 
 
 def _mean_frag_area(kind):
+    """Expected plan area of ONE fragment of `kind` -- the divisor that
+    turns a piece's face area into a fragment COUNT
+    (`_frag_thickness_and_count`). ROUND 4 (v6 review) it has to account
+    for the SLAB MIX (`_DIMS_SLAB`/`_SLAB_SHARE`, below): a berm whose
+    fragments are 20% large chunks has a larger mean fragment, so the same
+    piece yields FEWER of them -- if this stayed the small-only mean the
+    count would over-shoot the source volume by the slab share."""
     (l_lo, l_hi), (w_lo, w_hi) = _DIMS.get(kind, ((0.3, 1.0), (0.3, 1.0)))
-    return ((l_lo + l_hi) / 2.0) * ((w_lo + w_hi) / 2.0)
+    small = ((l_lo + l_hi) / 2.0) * ((w_lo + w_hi) / 2.0)
+    slab_dims = _DIMS_SLAB.get(kind)
+    if not slab_dims:
+        return small
+    (sl_lo, sl_hi), (sw_lo, sw_hi) = slab_dims
+    slab = ((sl_lo + sl_hi) / 2.0) * ((sw_lo + sw_hi) / 2.0)
+    return (1.0 - _SLAB_SHARE) * small + _SLAB_SHARE * slab
 
 
 def _piece_face_area(size):
@@ -2299,7 +2992,18 @@ def _dims_for(kind, rng, thickness):
     of whichever numbers happen to be in the table. Sheet kinds
     (`membrane`/`metal`) are untouched -- a torn roof sheet IS long and thin.
     """
-    (l_lo, l_hi), (w_lo, w_hi) = _DIMS.get(kind, ((0.3, 1.0), (0.3, 1.0)))
+    table = _DIMS
+    if kind in _DIMS_SLAB and rng.random() < _SLAB_SHARE:
+        # ROUND 4 (v6 review, "the berm is identical cubes"): the SLAB
+        # DRAW. A real wall breach drops a few large units -- a whole
+        # spalled cladding panel, a corner block, a run of coping -- among
+        # the small spall, and it is that SIZE CONTRAST that reads as
+        # rubble from 60-90 m rather than as a gravel bed of identical
+        # boxes. One extra `rng.random()` per fragment; `_mean_frag_area`
+        # above already accounts for the mix so the fragment COUNT drops
+        # to match rather than the pile gaining volume.
+        table = _DIMS_SLAB
+    (l_lo, l_hi), (w_lo, w_hi) = table.get(kind, ((0.3, 1.0), (0.3, 1.0)))
     length = rng.uniform(l_lo, l_hi)
     width = rng.uniform(w_lo, w_hi)
     if kind in _BLOCKY_KINDS:
@@ -2494,7 +3198,7 @@ def _ledger_removed(pctx, plan, wind, intensity, region=None):
     glass_frags = []
 
     def _deposit(kind, mat, size, m, cx, cy, cz, source_path, target,
-                source_tex="", source_tex_name=""):
+                source_tex="", source_tex_name="", tone="", shade=0):
         theta = bearing + math.radians(rng.gauss(0.0, 18.0))
         C = _C_KIND.get(kind, 0.2)
         raw_reach = (C * speed * math.sqrt(max(0.0, 2.0 * cz / G_ACCEL))
@@ -2521,11 +3225,13 @@ def _ledger_removed(pctx, plan, wind, intensity, region=None):
             "x": float(wx), "y": float(wy), "z": 0.0, "z_lift": 0.0,
             "yaw_deg": float(rng.uniform(0.0, 360.0)), "tilt_deg": float(tilt),
             "material": mat, "from": source_path, "stacked": False,
+            "tone": str(tone or ""), "shade": int(shade or 0),
             "source_tex": str(source_tex or ""),
             "source_tex_name": str(source_tex_name or "")})
 
     def _deposit_berm(kind, mat, size, m, sd, cx, cy, bay_w, berm_h,
-                      source_path, target, source_tex="", source_tex_name=""):
+                      source_path, target, source_tex="", source_tex_name="",
+                      tone="", shade=0):
         """The berm's own landing model — position at the wall line under
         the piece's own bay run, `_BERM_OUT_M` out along the outward
         normal, an along-wall offset within `bay_w * _BERM_ALONG_MULT`,
@@ -2606,6 +3312,7 @@ def _ledger_removed(pctx, plan, wind, intensity, region=None):
             "yaw_deg": float(rng.uniform(0.0, 360.0)), "tilt_deg": float(tilt),
             "material": mat, "from": source_path,
             "stacked": bool(z_lift > 0.0),
+            "tone": str(tone or ""), "shade": int(shade or 0),
             "source_tex": str(source_tex or ""),
             "source_tex_name": str(source_tex_name or "")})
 
@@ -2619,6 +3326,12 @@ def _ledger_removed(pctx, plan, wind, intensity, region=None):
         if sd0 in _FACADE_SIDES:
             removed_by_side[sd0] = removed_by_side.get(sd0, 0) + 1
 
+    # ROUND 4 (v6 review): the building's own masonry TONE, resolved once
+    # per plan from its style (`_KIT_TONE`/`_tone_for`) and stamped on every
+    # BLOCKY fragment. `""` for every style the table does not name -- which
+    # is every sliced (A-row) building, whose class-branch look the review
+    # approved and which must not move.
+    tone = _tone_for(plan.get("style"))
     n_berm_total = 0
     for p in sorted(plan["removed"]):
         e = idx.get(p)
@@ -2674,14 +3387,26 @@ def _ledger_removed(pctx, plan, wind, intensity, region=None):
             # `_BERM_SHARE[level]` even when the per-building cap binds.
             is_berm = (n_berm > 0
                       and ((i + 1) * n_berm) // n != (i * n_berm) // n)
+            # The per-mesh tone JITTER band this fragment belongs to.
+            # DETERMINISTIC on (source piece, fragment index) rather than a
+            # draw, so it costs no rng and a re-plan of the same seed puts
+            # every fragment in the same band; `_thin_fragments`' own
+            # round-robin then keeps the three bands evenly represented
+            # after thinning instead of favouring one.
+            shade = (i + _stable_shade(p)) % max(1, _DEBRIS_SHADES) \
+                if kind in _BLOCKY_KINDS else 0
             if is_berm:
                 _deposit_berm(kind, mat, frag_size, m, sd, cx, cy, bay_w,
                               berm_h, p, struct_frags,
-                              source_tex=tex_url, source_tex_name=tex_name)
+                              source_tex=tex_url, source_tex_name=tex_name,
+                              tone=(tone if kind in _BLOCKY_KINDS else ""),
+                              shade=shade)
                 n_berm_total += 1
             else:
                 _deposit(kind, mat, frag_size, m, cx, cy, cz, p, struct_frags,
-                         source_tex=tex_url, source_tex_name=tex_name)
+                         source_tex=tex_url, source_tex_name=tex_name,
+                         tone=(tone if kind in _BLOCKY_KINDS else ""),
+                         shade=shade)
 
     glass_measured = pctx.get("glass_measured", False)
     for p in sorted(plan["glass"]):
@@ -2841,11 +3566,62 @@ def _finalise(pctx, plan, height_class, wind, intensity, region=None):
     # against wall bays that are merely BELOW the missing roof, not beside
     # a hole (see `_cap_tears`'s own note for the other reason this is not
     # `quake_sliced._plan_tears` called with no adaptation at all).
+    # ROUND 4 (D2, v6 review) -- THE WALL SUPPORT PASS, before the tears so
+    # the holes it opens get torn edges like any other hole, and after every
+    # cap/restore pass above (it interleaves with `_cap_removed_frac` itself
+    # -- see its own docstring for why that terminates).
+    n_support_shed = _shed_unsupported_walls(pctx, plan, height_class)
+
     raw_tears = []
+    border = set()
+    n_border_no_job = 0
     if str(plan.get("level")) in ("T3", "T4"):
-        raw_tears = _cap_tears(qs._plan_tears(pctx, plan), TU_MAX_TEARS)
+        border = _hole_border_paths(
+            g, plan["_removed_set"],
+            moved=set(plan["displaced"]) | {q for q, _s in plan["panels"]},
+            masses=pctx["info"].get("masses"))
+        # `TU_TEAR_BORDER=0` is the round-3 state end to end -- the flat
+        # `QS_MAX_TEARS` planning budget, no corner pass, and a cap that can
+        # drop a border job -- so the container probe's A/B measures the
+        # whole tear-coverage change, not just its last step.
+        raw_tears = (_plan_tears_wide(pctx, plan) if TU_TEAR_BORDER_ON
+                     else qs._plan_tears(pctx, plan))
+        if TU_TEAR_BORDER_ON:
+            # ...then the CORNER pieces `plan_edges` structurally cannot
+            # reach (see `_corner_tear_jobs`): every hole on a sliced
+            # building has two of them and they were the biggest untorn
+            # share in the audit.
+            raw_tears += _corner_tear_jobs(
+                pctx, plan, {qs._path(j.get("el") or {}) for j in raw_tears})
+        raw_tears = _cap_tears(raw_tears, TU_MAX_TEARS, border=border)
     n_tears = sum(1 for j in raw_tears if not j.get("dropped"))
     n_tears_dropped = sum(1 for j in raw_tears if j.get("dropped"))
+    torn = {qs._path(j.get("el")) for j in raw_tears if not j.get("dropped")}
+    has_job = {qs._path(j.get("el")) for j in raw_tears}
+    # TWO DIFFERENT FAILURES, and only one of them is this module's.
+    #   `n_border_untorn` — a hole-border piece `fire_collapse.plan_edges`
+    #       DID emit a job for, that something here then dropped. That is
+    #       the cap, it is where the user's "even breaks" came from, and
+    #       `_cap_tears`'s border carve-out is why it is 0.
+    #   `n_border_no_job` — `plan_edges` emitted nothing for the piece at
+    #       all. Its `left`/`right`/`below`/`above` tests key on
+    #       `describe`'s own `e["storey"]` while this grid keys on the
+    #       placement's `_storey`, and the two do not agree piece-for-piece
+    #       on every asset (the parapet band is the documented case), so a
+    #       few genuine edge neighbours are invisible to it. NOT fixable
+    #       from this module (`plan_edges` is `fire_collapse`'s), so it is
+    #       counted and reported rather than hidden.
+    n_border_no_job = len(border - has_job)
+    n_border_untorn = len((border & has_job) - torn)
+    if n_border_no_job:
+        _note(pctx, "tears: {0} of {1} hole-border piece(s) got no tear job "
+                    "at all (fire_collapse.plan_edges emitted none -- its "
+                    "class tests key on describe's storey, this grid on "
+                    "_storey)".format(n_border_no_job, len(border)))
+    if n_border_untorn:
+        _note(pctx, "tears: {0} hole-border piece(s) had a job and lost it "
+                    "-- the cap must never drop a border job".format(
+                        n_border_untorn))
     plan["tears"] = qs._tears_to_json(raw_tears)
 
     # ROUND 3b F1 (§8e) -- the roof/parapet support post-pass. AFTER tears
@@ -2913,6 +3689,15 @@ def _finalise(pctx, plan, height_class, wind, intensity, region=None):
         # and the tear block above `_ledger_removed`'s call.
         "n_tears": int(n_tears), "n_tears_dropped": int(n_tears_dropped),
         "n_roof_shed": int(n_roof_shed), "n_parapet_shed": int(n_parapet_shed),
+        # ROUND 4 (D2, v6 review) -- the two invariants the user's note
+        # turned into numbers: pieces the SUPPORT rule took because they
+        # stood on air, and hole-border pieces still carrying a square
+        # break. Both must read 0 for `n_unsupported` on a re-audit (see
+        # `_unsupported_survivors`) and 0 here.
+        "n_support_shed": int(n_support_shed),
+        "n_hole_border": int(len(border)),
+        "n_border_untorn": int(n_border_untorn),
+        "n_border_no_job": int(n_border_no_job),
     }
     if ledger["glass_shards_thinned"]:
         plan["notes"].append(

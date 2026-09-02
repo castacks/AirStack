@@ -648,3 +648,75 @@ bbox (trimmed via `PACKS["dtc"]["bbox_exclude"]`), 17 pieces at F3, ~50 min —
 use F5c (53 pieces, curtain-wall stripe) if the silhouette is wanted. Build
 time is `bake_atlases` (29-78 textures, seam-straddling UVs) — the tiled test
 now runs before the full-res rasterisation.
+
+---
+
+## 2026-09-02 — THE SLICED PIECES NEVER KEPT THEIR SOURCE MATERIALS. Read this before exporting any sliced city.
+
+**The defect, in one line: a sliced piece bound to a source-stage Material
+prim renders as flat fallback grey in the exported per-building bake, because
+that binding does not survive the export.** Measured by
+`tools/gac_shell_bind_repair.py` before this round: **0 of the 12-14 GAC
+facade materials survived, in 33 of 33 bakes.** `/World/bake/Looks` is 100%
+typeless stubs in every file. The relationship target still EXISTS and
+`GetPrimAtPath(...).IsValid()` says True — it is a reference out to a
+per-material asset (`.../Materials/M_*_Inst.usd`, an AEC vMaterials `.mdl`)
+that composes to a bare, TYPELESS placeholder once the bake is opened without
+its source mount, so `ComputeBoundMaterial()` returns nothing.
+
+**This was never GAC-specific and it was never "working".** GAC shipped
+looking acceptable only because its fallback tones (grey concrete, plaster)
+are plausible on grey concrete-and-glass towers — nobody looked twice. The
+same defect on an AEC brownstone, whose entire identity is BRICK, reads as
+"the buildings look white with a weird ash pattern instead of their brick"
+(user, 2026-09-02) and is unmissable. If a sliced pack ever looks
+"desaturated", "chalky" or "all the same colour", suspect this first.
+
+### The fix, and why it is re-authoring rather than referencing
+
+`gac_storey_slice._selfcontained_like(stage, scope, src_mat)` (new) clones a
+source material INTO the bake stage: an MDL shader's MODULE is visible to USD
+even when the module's internals are not (`info:mdl:sourceAsset` +
+`:subIdentifier` — e.g. `.../Masonry/Brick_Wall_Red.mdl` / `Brick_Wall_Red`),
+and so are its authored inputs. A fresh Material+Shader carrying the
+**RESOLVED** module path (never the authored relative one — the bake opens
+from a different directory), the same subIdentifier and a copy of every
+authored input performs no external prim reference at all, so it cannot decay
+into a stub. `write_piece` binds `_selfcontained_like(...) or mats[mi]`, so a
+source exposing no MDL module keeps the OLD behaviour exactly: this can only
+add surviving materials, never remove one.
+
+Proof that matters (do this for any future variant): author the clone, export
+the layer, **reopen COLD, and assert the prim `IsA(UsdShade.Material)` and
+its shader survives**. The old reference-based binding fails exactly that
+test; the clone passes it.
+
+### Three traps that made this take four bakes to see
+
+1. **`have_kit()` / `kit_bake.load_kit` silently skips the slicer.** A fix in
+   `write_piece` does NOTHING until the cached kit is invalidated —
+   `gac_fire` takes the cache shortcut and the bake "succeeds" carrying the
+   OLD bindings. Clear `scene_gen/assets/kits/<kind>:<Name>__*.usd` (and the
+   per-building bakes) before trusting any slicer change. This is the
+   "verify the control fired" rule in its most expensive form.
+2. **Census at GEOMSUBSET level, never mesh level.** `write_piece` binds the
+   role fallback on the MESH as a default and then overrides per-face with
+   `materialBind` GeomSubsets. `ComputeBoundMaterial()` on the MESH therefore
+   returns the FALLBACK even when every face is correctly bound — it looks
+   like a total failure and is not. Count subsets:
+   `[p for p in stage.Traverse() if p.GetTypeName()=="GeomSubset"]`. On a
+   fixed AEC brownstone F2 that reads **249 of 276 subsets on real materials**
+   (brick/glass/metal/oak) with the remainder correctly on fire materials.
+3. **`pkill -f <pattern>` matches the command line that LAUNCHES the pattern.**
+   Killing and re-launching a bake in one shell command kills the shell
+   (exit 144). The bracket trick (`fire_[b]ake.sh`) does not save you when the
+   same command also contains the literal launch string. Kill and launch in
+   SEPARATE invocations.
+
+### What is NOT fixed by this
+
+Only the SLICE path re-authors. Anything else that binds a source-stage
+material into an exported file has the same exposure. And the fix applies at
+BAKE time — bakes made before 2026-09-02 still carry the dead bindings; the
+user's decision (2026-09-02) is to leave existing GAC bakes alone and let the
+fix apply on the next export rather than re-bake the fleet.

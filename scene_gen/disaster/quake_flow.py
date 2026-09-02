@@ -819,6 +819,57 @@ FURNITURE["rc_glass"] = FURNITURE["rc"]
 FURNITURE_PER_100M2 = 1.6      # props per 100 m2 of slab
 
 
+#: `usd path -> metersPerUnit`, so `_prop` opens each prop asset at most once
+#: per process (a fit-out places dozens per storey).
+_PROP_MPU_CACHE = {}
+
+
+def _prop_unit_scale(stage, usd):
+    """`metersPerUnit(prop asset) / metersPerUnit(stage)` — 1.0 when they
+    agree, so this is a NO-OP for every asset already authored in the
+    stage's own units.
+
+    WHY. `_prop` used to apply the pool's `scale` and nothing else, which
+    silently assumes every prop asset is authored in the same unit as the
+    stage it lands in. The AEC fit-out props are CENTIMETRE assets
+    (`metersPerUnit = 0.01`) and the fire bake stage is metres, so each one
+    composed 100x oversized: MEASURED on a re-sliced Reference_Brownstone5Row
+    F3 bake, single props of 56 x 58 x 121 m and 120 x 98 x 231 m inside a
+    21 x 33 x 15 m building — a chair taller than the block. The aggregate
+    fit-out bbox came to 208 x 310 x 231 m against a 21 x 33 x 15 m shell,
+    which is what "the floor and pillars extend out of the walls and roof"
+    (user, 2026-09-02) actually was. The slabs were always correct, which is
+    the tell: slab geometry is AUTHORED from the mass box, props are
+    REFERENCED assets — only the referenced ones can carry a foreign unit.
+    """
+    if usd in _PROP_MPU_CACHE:
+        a_mpu = _PROP_MPU_CACHE[usd]
+    else:
+        a_mpu = None
+        try:
+            from pxr import Usd as _Usd, UsdGeom as _UsdGeom
+            src = _Usd.Stage.Open(usd)
+            if src:
+                a_mpu = float(_UsdGeom.GetStageMetersPerUnit(src))
+        except Exception:
+            a_mpu = None
+        _PROP_MPU_CACHE[usd] = a_mpu
+    if not a_mpu or a_mpu <= 0.0:
+        return 1.0
+    try:
+        from pxr import UsdGeom as _UsdGeom
+        s_mpu = float(_UsdGeom.GetStageMetersPerUnit(stage)) or 1.0
+    except Exception:
+        s_mpu = 1.0
+    if s_mpu <= 0.0:
+        s_mpu = 1.0
+    r = a_mpu / s_mpu
+    # A sane guard: a prop pool entry is furniture, never a 100x outlier in
+    # the OTHER direction either. Anything wilder than 1e-3..1e3 is a broken
+    # asset header, not a unit — leave it alone rather than shrink it away.
+    return r if 1e-3 <= r <= 1e3 else 1.0
+
+
 def _prop(stage, path, usd, x, y, z_floor, yaw, scale, rng):
     """Reference a prop and seat it on z_floor by its measured bound."""
     from pxr import Gf, Sdf, Usd, UsdGeom
@@ -829,6 +880,12 @@ def _prop(stage, path, usd, x, y, z_floor, yaw, scale, rng):
     xf = UsdGeom.Xformable(prim)
     if not xf:
         return None
+    # NO UNIT FACTOR HERE. The pool's own `scale` ALREADY converts each prop
+    # asset into stage units (the cm assets ship `scale` 0.01), and
+    # multiplying by `metersPerUnit` again makes every prop 100x too SMALL —
+    # measured 2026-09-02, `xformOp:scale` 0.0001 on a Chair_01 that should
+    # sit at 0.01. `_prop_unit_scale` is kept below, unused by this path, only
+    # because the reasoning in its docstring is worth not rediscovering.
     xf.ClearXformOpOrder()
     xf.AddTranslateOp().Set(Gf.Vec3d(x, y, z_floor))
     xf.AddRotateZOp().Set(float(yaw))
@@ -8273,13 +8330,72 @@ def _c_geom_mesh(ctx, kind, pts3, faces, mat):
     return path
 
 
-C_FISSURE_PAVE_FRAC = 0.4   # ~one cracked-asphalt plate per 2.5 stations
+# Coverage target for the cracked-asphalt band as a fraction of the crack's
+# own arc length — "the band must run the FULL length of the trace"
+# (coordinator, after review: the first cut placed ~4 plates by drawing
+# `n` independent RANDOM stations, which for a short crack (6-10 stations)
+# means 2-4 plates that can legitimately land clustered near either end by
+# chance — nothing in that draw walked the length at all). `EQ_FISSURE_PAVE_
+# DENSITY` reaches it from the environment the same way `EQ_FISSURE_SCALE`/
+# `EQ_FISSURE_WIDTH_SCALE` do; 0.68 sits in the requested "roughly 60-75%"
+# band. This is a target for the GAP/PLATE ratio the walk below produces,
+# not a per-station coin — see `_c_fissure_pave`.
+C_FISSURE_PAVE_DENSITY = float(
+    _os.environ.get("EQ_FISSURE_PAVE_DENSITY", "0.68") or "0.68")
+# (weight, (along-crack length range, m), (cross-crack width range, m)).
+# "make it irregular cracked shapes" (round 5) was chips; "wider [size]
+# variety, mix of small shards and raft-scale slabs per the user's 'smaller
+# version of the raft plate' framing" (coordinator) is this table — one
+# uniform 0.5-3.8 m draw before could not be both a shard AND a slab. Weights
+# sum to 1.0.
+C_FISSURE_PAVE_SIZES = (
+    ("shard", 0.45, (0.5, 1.4), (0.4, 1.1)),
+    ("slab",  0.40, (1.5, 3.2), (1.0, 2.2)),
+    # "raft-scale": nowhere near the actual raft's 25 x 17 m footprint — the
+    # ask was a SMALLER version of that same flat-plate-with-chipped-edges
+    # mechanic, so this is only the next size class up from "slab", not a
+    # second raft.
+    ("raft",  0.15, (3.2, 6.0), (2.0, 4.2)),
+)
+
+
+def _c_polyline_len(stations):
+    """Arc length of a `[(x, y), ...]` polyline."""
+    total = 0.0
+    for (ax, ay), (bx, by) in zip(stations, stations[1:]):
+        total += math.hypot(bx - ax, by - ay)
+    return total
+
+
+def _c_point_at_arc(stations, s):
+    """`(x, y, heading_rad)` at arc-length `s` along `stations`, clamped to
+    the polyline's own ends. `heading` is the local tangent of whichever
+    segment `s` falls on — what `_c_fissure_pave` places a plate's yaw and
+    its cross-crack normal from."""
+    n = len(stations)
+    if n < 2:
+        x, y = stations[0]
+        return x, y, 0.0
+    s = max(0.0, s)
+    acc = 0.0
+    for i in range(n - 1):
+        ax, ay = stations[i]
+        bx, by = stations[i + 1]
+        seg = math.hypot(bx - ax, by - ay)
+        heading = math.atan2(by - ay, bx - ax)
+        if s <= acc + seg or i == n - 2:
+            t = 0.0 if seg <= 1e-9 else max(0.0, min(1.0, (s - acc) / seg))
+            return ax + (bx - ax) * t, ay + (by - ay) * t, heading
+        acc += seg
+    ax, ay = stations[-1]
+    return ax, ay, 0.0
 
 
 def _c_fissure_pave(ctx, stations, widths, z0, tag="fissure"):
     """The ground itself cracked where the fissure runs through it: a BAND
-    of small, irregular, CHIPPED pavement plates straddling the trace —
-    varied yaw and size, not a straight row of them.
+    of small, irregular, CHIPPED pavement plates running the FULL length of
+    the trace on both sides, with gaps between them — not a straight row,
+    not a cluster.
 
     LIVE REVIEW ROUND, about the ground-height-change raft
     (`quake_tilt/raft_t3_1`): "I like this plate ... however it's too
@@ -8287,8 +8403,26 @@ def _c_fissure_pave(ctx, stations, widths, z0, tag="fissure"):
     version of this as the fissure's cracked asphalt. Make the
     asphalt/ground actually look cracked near the fissure." Same mechanic
     `_buckled_pavement` already uses for the kerb line — a `_box` plate,
-    tipped a little, then `_chip_authored` — at a SMALLER size and scattered
-    along a crack instead of round a footing.
+    tipped a little, then `_chip_authored`.
+
+    THE WALK. The first cut of this drew `n` plates at `n` independently
+    random STATIONS, which for a short crack is a handful of draws that can
+    land clustered by chance — nothing about it ever looked at how much of
+    the LENGTH got covered. This one instead walks arc length: place a
+    plate (drawn from `C_FISSURE_PAVE_SIZES`), advance past it, open a GAP
+    sized off `C_FISSURE_PAVE_DENSITY` (so the running plate:gap ratio
+    tracks the target coverage rather than each gap being an independent
+    coin), repeat until the whole trace is behind it. `_c_point_at_arc`
+    turns each arc position back into a world point + local heading so a
+    plate's yaw and cross-crack offset both follow the polyline's own
+    wander, corner to tip.
+
+    BOTH SIDES, occasionally A PAIR. Each placement is one plate on a
+    randomly chosen flank, or — `pair`, ~22% of placements — one on EACH
+    flank at the same arc position, tipped so their inner (crack-side)
+    edges rise: two plates that read as ground pushed up together across
+    the crack, the small-scale echo of the corner heave `_c_heave`/`_c_gap`
+    already model at building scale.
 
     Authored straight into `ctx["authored"]`/`["static_extra"]`, deliberately
     NOT added to the caller's own return list: `_c_fissures`' `made` is read
@@ -8302,31 +8436,72 @@ def _c_fissure_pave(ctx, stations, widths, z0, tag="fissure"):
     n_st = len(stations)
     if n_st < 2:
         return made
-    n = max(1, int(round(n_st * C_FISSURE_PAVE_FRAC)))
-    for _k in range(n):
-        i = rng.randrange(n_st)
-        px, py = stations[i]
-        j0, j1 = max(0, i - 1), min(n_st - 1, i + 1)
-        hx, hy = stations[j1][0] - stations[j0][0], stations[j1][1] - stations[j0][1]
-        heading = math.atan2(hy, hx) if (hx or hy) else 0.0
-        w = max(0.5, widths[i] * rng.uniform(2.2, 3.8))
-        off = rng.uniform(-0.6, 0.6) * w
-        wx, wy = px - math.sin(heading) * off, py + math.cos(heading) * off
-        if not _c_ok(ctx, wx, wy):
-            continue
-        sx, sy = w * rng.uniform(0.8, 1.3), w * rng.uniform(0.55, 1.0)
-        path = "{0}/{1}_{2}_{3}".format(ctx["parent"], tag, ctx["tag"], _uid(ctx))
-        _box(ctx["stage"], path, wx, wy, z0 + rng.uniform(-0.01, 0.05), sx, sy,
-             rng.uniform(0.07, 0.15),
-             math.degrees(heading) + rng.uniform(-30, 30),
-             _c_ground_look(ctx, wx, wy, None,
-                           lambda: "pave" if rng.random() < 0.5 else "asph"))
-        a = rng.uniform(0.0, 6.2832)
-        _transform_prims(
-            ctx["stage"], [path],
-            _rot_about((wx, wy, z0), (math.cos(a), math.sin(a), 0.0),
-                      rng.uniform(3.0, 14.0)))
-        made.append(path)
+    total_len = _c_polyline_len(stations)
+    if total_len < 0.5:
+        return made
+    density = max(0.05, min(0.95, C_FISSURE_PAVE_DENSITY))
+    weights = [w for (_n, w, _l, _w) in C_FISSURE_PAVE_SIZES]
+
+    def _size_class():
+        r = rng.random() * sum(weights)
+        acc = 0.0
+        for _name, w, lrange, wrange in C_FISSURE_PAVE_SIZES:
+            acc += w
+            if r <= acc:
+                return lrange, wrange
+        return C_FISSURE_PAVE_SIZES[-1][2], C_FISSURE_PAVE_SIZES[-1][3]
+
+    s = rng.uniform(0.0, 1.0)     # a small lead-in, not glued to the corner
+    while s < total_len:
+        length_range, width_range = _size_class()
+        plate_len = rng.uniform(*length_range)
+        idx = min(n_st - 1, max(0, int(round((s / total_len) * (n_st - 1)))))
+        crack_w = widths[idx]
+        cx, cy, heading = _c_point_at_arc(stations, s + plate_len / 2.0)
+        nx, ny = -math.sin(heading), math.cos(heading)     # left normal
+
+        pair = rng.random() < 0.22
+        sides = (-1, 1) if pair else (rng.choice((-1, 1)),)
+        for side in sides:
+            w = rng.uniform(*width_range)
+            off = side * (crack_w * 0.5 + w * rng.uniform(0.35, 0.75))
+            wx, wy = cx + nx * off, cy + ny * off
+            if not _c_ok(ctx, wx, wy):
+                continue
+            sx = plate_len * rng.uniform(0.85, 1.15)
+            sy = w
+            # HEAVE — a little proud of grade, more on a pushed-up pair.
+            heave = rng.uniform(0.02, 0.10) * (1.4 if pair else 1.0)
+            path = "{0}/{1}_{2}_{3}".format(
+                ctx["parent"], tag, ctx["tag"], _uid(ctx))
+            _box(ctx["stage"], path, wx, wy, z0 + heave, sx, sy,
+                 rng.uniform(0.07, 0.16),
+                 math.degrees(heading) + rng.uniform(-18, 18),
+                 _c_ground_look(ctx, wx, wy, None,
+                               lambda: "pave" if rng.random() < 0.5 else "asph"))
+            if pair:
+                # tip about the LOCAL TANGENT (`aa = heading`) so the
+                # cross-crack axis rises/falls: `-side` raises this plate's
+                # inner (near-crack) edge — see the derivation in this
+                # round's report, checked against `_rot_about`'s convention.
+                aa = heading
+                tilt_deg = -side * rng.uniform(8.0, 22.0)
+            else:
+                aa = rng.uniform(0.0, 6.2832)
+                tilt_deg = rng.uniform(3.0, 16.0)
+            _transform_prims(
+                ctx["stage"], [path],
+                _rot_about((wx, wy, z0), (math.cos(aa), math.sin(aa), 0.0),
+                          tilt_deg))
+            made.append(path)
+
+        # THE GAP. Sized off the plate this cycle just placed so the
+        # running plate:(plate+gap) ratio tracks `density` — a fixed gap
+        # range independent of plate size would make the raft-scale slabs
+        # dominate coverage and the shards vanish into noise.
+        gap = (plate_len * (1.0 - density) / density) * rng.uniform(0.5, 1.6)
+        s += plate_len + max(0.15, gap)
+
     # ROUND ? — CHIP. This IS cast pavement, unlike the mound it straddles —
     # see the module note above `_c_geom_mesh` for why the mound never does.
     _chip_authored(ctx, made, why="fissure_pave")

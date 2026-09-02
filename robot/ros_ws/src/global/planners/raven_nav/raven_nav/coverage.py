@@ -95,7 +95,9 @@ class CoverageTracker:
     def cell_centers_xy(self) -> np.ndarray:
         if not self.cells:
             return np.zeros((0, 2), dtype=np.float64)
-        arr = np.array(sorted(self.cells), dtype=np.float64)
+        # No sort: the caller only counts these, and a 250 m plate at 0.5 m
+        # is a quarter of a million cells every tick.
+        arr = np.array(list(self.cells), dtype=np.float64)
         return (arr + 0.5) * self.cell_size_m
 
     def coverage_fraction(self, polygon_xy: Optional[np.ndarray]) -> float:
@@ -122,7 +124,7 @@ class CoverageTracker:
         coordination_msgs/CoverageGrid — a row-major packed bitmask."""
         if not self.cells:
             return (self.cell_size_m, 0.0, 0.0, 0, 0, b'')
-        arr = np.array(sorted(self.cells), dtype=np.int64)
+        arr = np.array(list(self.cells), dtype=np.int64)
         min_c, max_c = arr.min(axis=0), arr.max(axis=0)
         width = int(max_c[0] - min_c[0] + 1)
         height = int(max_c[1] - min_c[1] + 1)

@@ -95,6 +95,13 @@ services:
       # lvlm_enabled, default from this var, default true when unset —
       # again bare-name so an empty value here can't beat that default).
       - RAVEN_LVLM
+      # The two softmax/timing gates on that same LVLM-guided behaviour —
+      # raven_nav/params.py's lvlm_ray_threshold (default 0.9, OG
+      # lvlm_behavior.py:78) and lvlm_request_interval_s (default 30.0, OG
+      # LVLM/internvl3.py:35). Bare-name for the same reason as RAVEN_LVLM
+      # above; unset -> that node-side default applies.
+      - RAVEN_LVLM_RAY_THRESHOLD
+      - RAVEN_LVLM_INTERVAL_S
       - LVLM_BASELINE=${LVLM_BASELINE:-false}
       - URDF_FILE=${URDF_FILE}
       # MAVROS

@@ -1346,6 +1346,30 @@ SOOT_BAKE_PX = int((os.environ.get("SOOT_BAKE_PX") or "768").strip() or 768)
 # and a 3-4 m pier at 256 px is still ~70 px/m for a soft gradient. The kit
 # path's 768 (`SOOT_BAKE_PX`) is FROZEN with the rest of the MCE look.
 SOOT_BAKE_PX_SLICE = int((os.environ.get("SOOT_BAKE_PX_SLICE") or "256").strip() or 256)
+# PER-PIECE RESOLUTION POLICY (2026-09-01, VRAM pass). `SOOT_BAKE_PX_SLICE`
+# is a flat 256 for every sliced piece regardless of its own size — measured
+# (`tools/soot_piece_size_probe.py` against the real `city_138` GAC corpus)
+# 42% of sooted GAC pieces have a horizontal bbox diagonal under
+# `SOOT_PIECE_SMALL_M`: piers, bay strips, small balconies that a 256 px
+# canvas is massive overkill for. Dropping just THOSE to
+# `SOOT_BAKE_PX_SLICE_SMALL` measured a 31% cut in the probed buildings'
+# soot VRAM (458.6 -> 315.1 MB across 16 real bakes) for zero visible loss
+# — a 3-4 m pier does not carry more soot detail than a 128 px canvas can
+# hold. `SOOT_BAKE_PX_SLICE` (256) is kept for anything at or above the
+# threshold, so a whole facade run or a large block face is untouched. Only
+# ever applies to the SLICED path (`one_off` in `_bind_soot`) — the kit
+# path's 768 stays exactly as frozen as the comment above says.
+SOOT_BAKE_PX_SLICE_SMALL = int(
+    (os.environ.get("SOOT_BAKE_PX_SLICE_SMALL") or "128").strip() or 128)
+SOOT_PIECE_SMALL_M = float(
+    (os.environ.get("SOOT_PIECE_SMALL_M") or "6.0").strip() or 6.0)
+# a piece whose own crop-mean soot coverage never reached this floor is
+# barely touched regardless of size — the same "OR", not "AND", applies as
+# for size: a big wall the plume only grazes does not need a big canvas
+# either. Well under `SOOT_TONE_MIN` (0.35, the point flat-tone takes over
+# entirely) on purpose — this only downgrades resolution, it never skips
+# the bake.
+SOOT_PIECE_LOW_COV = 0.15
 # a subset whose faces do not face OUT of the building (a ceiling, a floor,
 # a painted office interior behind the glass) cannot show its soot from
 # outside and is not baked at all
@@ -1624,6 +1648,7 @@ def _bind_soot(ctx, e, sk):
     import numpy as np
     from pxr import Usd, UsdGeom, UsdShade
     from . import quake_flow as qf, soot_bake as sb, soot_plume as spl
+    from . import tex_compress as tc
 
     stage = ctx["stage"]
     path = e["p"].get("prim_path")
@@ -1648,7 +1673,33 @@ def _bind_soot(ctx, e, sk):
     # process on the first GAC bench (2026-08-30). One-off pieces get no
     # cache entry and a smaller bake — a 4-9 m piece does not need 768 px.
     one_off = str(e["p"].get("usd", "")).startswith("slice://")
-    px = SOOT_BAKE_PX_SLICE if one_off else SOOT_BAKE_PX
+    if one_off:
+        # Sized off the PIECE'S OWN world bbox rather than any field on
+        # `e["p"]` (varies by slicer) so this works uniformly for every
+        # `slice://` piece; a piece this cannot measure at all (an
+        # unexpectedly empty bound) is left at the full canvas rather than
+        # risk under-resolving something large. See `SOOT_BAKE_PX_SLICE_SMALL`
+        # above for the measured saving this buys.
+        try:
+            _bbc = UsdGeom.BBoxCache(
+                Usd.TimeCode.Default(),
+                [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+                useExtentsHint=True)
+            _rng = _bbc.ComputeWorldBound(root).ComputeAlignedRange()
+            if _rng.IsEmpty():
+                _diag_m = float("inf")
+            else:
+                _sz = _rng.GetSize()
+                _diag_m = math.hypot(float(_sz[0]), float(_sz[1]))
+        except Exception:
+            _diag_m = float("inf")
+        _cov0 = float(e.get("_soot_cover", 0.0))
+        px = (SOOT_BAKE_PX_SLICE_SMALL
+              if _diag_m < SOOT_PIECE_SMALL_M
+              or 0.0 < _cov0 < SOOT_PIECE_LOW_COV
+              else SOOT_BAKE_PX_SLICE)
+    else:
+        px = SOOT_BAKE_PX
     # side "x" (a merged region-cut piece) faces every elevation: no single
     # outward direction for the facing test, and the skin is sampled by the
     # nearest elevation per texel (`_skin_sample`)
@@ -1977,12 +2028,13 @@ def _bind_soot(ctx, e, sk):
                 continue
             digest = _hl.md5(np.round(out * 255.0).astype(np.uint8).tobytes()
                              ).hexdigest()[:16]
-            png = os.path.join(spl.OUT_DIR, "sootbake_{0}.png".format(digest))
-            if not os.path.exists(png):
-                from PIL import Image
-                os.makedirs(spl.OUT_DIR, exist_ok=True)
-                Image.fromarray((np.clip(out, 0, 1) * 255.0 + 0.5)
-                                .astype(np.uint8)).save(png)
+            os.makedirs(spl.OUT_DIR, exist_ok=True)
+            # `png` keeps its name for every downstream use below (dedup
+            # key, `piece_material_like`/`piece_material`'s `tex_path`) —
+            # it is a `.dds` by default now (`SOOT_TEX_COMPRESS`, see
+            # `tex_compress.py`), `.png` only with the gate off.
+            png = tc.save_soot_texture(
+                out, os.path.join(spl.OUT_DIR, "sootbake_{0}".format(digest)))
             mkey = (str(bprim.GetPath()) if bprim is not None else "", png)
             mat = mats.get(mkey)
             if mat is None:
@@ -4694,6 +4746,52 @@ def r_fire_collapse(ctx, mass=None):
             ctx["notes"].append("fire collapse: frame columns on the failed "
                                 "storeys: {0} consumed, {1} toppled"
                                 .format(n_colgone, n_colfall))
+        # AND THE PARTITIONS FALL WITH THE FRAME — SAME TREATMENT, SAME
+        # REASON, RIGHT ABOVE. `fit_interior`'s partitions are conspicuously
+        # absent from every "storey at or above `s0` goes down/away" loop in
+        # this function (slabs, columns, props, all above) — and unlike a
+        # SURVIVING partition, `r_gut_interior` never relocates one either
+        # (that function only chars a partition in place or deactivates it
+        # outright; see its own docstring) — so a partition `fit_interior`
+        # stood on a storey THIS collapse then took away is left exactly
+        # where it was, now poking out past the shell's own new, shorter
+        # roofline. MEASURED on a bare-USD (no Kit, no physics) re-
+        # authoring of `aec:Reference_Brownstone10Row` F5 (default origin,
+        # seed 7): 3 of 6 checked fit-out prims — every one a partition —
+        # sat up to 5.38 m above the collapsed shell's own top
+        # (`tools/aec_overshoot_detail_probe.py`, `tools/
+        # aec_final_census.py`) — the "floor and pillars extend out of the
+        # walls and roof" defect (user, reviewing the AEC brownstone bakes)
+        # reproducing at AUTHORING TIME, no settle involved, on any sliced
+        # (GAC/AEC) building whose fire ladder reaches `fire_collapse` with
+        # a fitted-out storey at or above the failure line — this whole
+        # block is gated on `soot_prebaked` being a set/frozenset, "GAC
+        # ONLY (the kit path is frozen)" per the comment above it, so the
+        # kit path is untouched by this addition, same as everything else
+        # here. Same 70/30
+        # consumed/toppled split, same `_crng` stream as the columns loop
+        # just above: a partition on a failed storey is the same kind of
+        # debris to a falling floor a column is.
+        n_partfall = n_partgone = 0
+        for pth in list(fit.get("partitions") or []):
+            st_, mt_ = _storey_of_path(ctx, pth)
+            if mt_ != mass or st_ is None or st_ < s0 or pth in ctx["loose"]:
+                continue
+            pr_ = ctx["stage"].GetPrimAtPath(pth)
+            if not (pr_ and pr_.IsValid() and pr_.IsActive()):
+                continue
+            if _crng.random() < 0.70:
+                pr_.SetActive(False)
+                n_partgone += 1
+                continue
+            a_ = _crng.uniform(0.0, 2.0 * math.pi)
+            vel[pth] = (2.2 * math.cos(a_), 2.2 * math.sin(a_), 0.0)
+            ctx["loose"].append(pth)
+            n_partfall += 1
+        if n_partfall or n_partgone:
+            ctx["notes"].append("fire collapse: partitions on the failed "
+                                "storeys: {0} consumed, {1} toppled"
+                                .format(n_partgone, n_partfall))
         for (mt_, st_), pth in list(slabs.items()):
             if mt_ != mass or st_ < s0 or not pth:
                 continue

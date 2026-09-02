@@ -88,7 +88,10 @@
 #                    own `seed`, already baked into its entry string)
 #                                              (default 7)
 #   SETTLE_STEPS, SETTLE_QUIET, SETTLE_DECOMP_M, SETTLE_FABRIC, FB_BAKED_KITS,
-#   TIMEOUT_S, CONTAINER, REPO                -- identical to fire_bake.sh
+#   SOOT_TEX_COMPRESS, TIMEOUT_S, CONTAINER, REPO -- identical to fire_bake.sh
+#   (SOOT_TEX_COMPRESS: left unset here too unless the caller exports it, so
+#   the container-side default -- BC1 DDS soot textures, ON -- applies; the
+#   VRAM pass this driver now folds in, `disaster/tex_compress.py`)
 #   SETTLE_REST_V2   1 (default) turns on `disaster.settle`'s corrected rest
 #                    and grade measurements FOR NON-`kit` RECORDS ONLY. The
 #                    MCE kit look is frozen against the old (box-based
@@ -151,6 +154,9 @@ SETTLE_STEPS=${SETTLE_STEPS:-2400}
 SETTLE_QUIET=${SETTLE_QUIET:-400}
 SETTLE_DECOMP_M=${SETTLE_DECOMP_M:-0.8}
 SETTLE_FABRIC=${SETTLE_FABRIC:-0}
+SOOT_TEX_COMPRESS=${SOOT_TEX_COMPRESS:-}   # left EMPTY unless the caller set it --
+                                            # an explicit "" would force the
+                                            # container-side default OFF
 SETTLE_REST_V2=${SETTLE_REST_V2:-1}
 FB_REST_STRICT=${FB_REST_STRICT:-0}
 # Per-level settle budgets -- see the header comment. F5/F5c/F6 keep the
@@ -355,6 +361,7 @@ EOF
   ENVS="$ENVS FB_ORIGIN=$ORIGIN FB_SIDES=$SIDES"
   ENVS="$ENVS FB_OUT=$CITY_OUT FB_BAKED_KITS=$FB_BAKED_KITS FB_VERIFY=1"
   ENVS="$ENVS FB_CITY_JSON=$CITY_JSON_C"
+  [ -n "$SOOT_TEX_COMPRESS" ] && ENVS="$ENVS SOOT_TEX_COMPRESS=$SOOT_TEX_COMPRESS"
   # PER-LEVEL SETTLE BUDGET — see the header comment. F0-F3 (and any
   # unrecognised level, fail-safe) get REC_TIER=low/high; F4 gets "mid";
   # F5/F5c/F6 get the SETTLE_STEPS/SETTLE_QUIET value unchanged ("high").

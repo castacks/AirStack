@@ -183159,9 +183159,6855 @@
   "usd": "/isaac-sim/AirStack/scene_gen/assets/kits/SM_Building_02__be86c03e24399aa7.usd"
  },
  {
+  "asset": "aec:Reference_Brownstone8Row",
+  "bake_s": 45.44,
+  "fingerprint": "46fb1a04b5efd069",
+  "grid": {
+   "D": 53.19898831605962,
+   "H": 14.919974011381246,
+   "W": 20.973237446250664,
+   "bays": {},
+   "bbox": [
+    [
+     -10.416869795621835,
+     -26.548603754026107,
+     1.3877787807814457e-16
+    ],
+    [
+     10.556367650628829,
+     26.650384562033512,
+     14.919974011381246
+    ]
+   ],
+   "confidence": 0.0,
+   "measured": false,
+   "storey_h": 3.7299935028453115,
+   "storeys": [
+    1.3877787807814457e-16,
+    3.7299935028453115,
+    7.459987005690623,
+    11.189980508535935,
+    14.919974011381246
+   ],
+   "z0": 1.3877787807814457e-16
+  },
+  "materials": 196,
+  "mb": 20.326,
+  "n_pieces": 76,
+  "pieces": [
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "x",
+    "_size": [
+     20.973237446250664,
+     53.19898831605962,
+     1.8649968516402968
+    ],
+    "_storey": 0,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_x_0_00_0000",
+    "scale": 1.0,
+    "usd": "slice://wall_x_0_00_0000",
+    "x_m": 6.112410658170302,
+    "y_m": 0.3228168963575474,
+    "yaw_deg": 0.0,
+    "z_m": 1.3877787807814457e-16
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "SE",
+    "_size": [
+     1.0049809552951618,
+     2.070145442209242,
+     2.0203139919444952
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey_corner",
+    "name": "corner_SE_0_01_0001",
+    "scale": 1.0,
+    "usd": "slice://corner_SE_0_01_0001",
+    "x_m": 9.119605307059514,
+    "y_m": -25.687954269758013,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967501734148
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "NW",
+    "_size": [
+     1.7072905349897098,
+     2.082799770183332,
+     1.3775394903957152
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey_corner",
+    "name": "corner_NW_0_01_0002",
+    "scale": 1.0,
+    "usd": "slice://corner_NW_0_01_0002",
+    "x_m": -9.420277182233544,
+    "y_m": 25.599325222559337,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967396384337
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "NE",
+    "_size": [
+     1.6626130518464404,
+     1.5444990233930618,
+     2.084575945379539
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey_corner",
+    "name": "corner_NE_0_01_0003",
+    "scale": 1.0,
+    "usd": "slice://corner_NE_0_01_0003",
+    "x_m": 9.048548545306495,
+    "y_m": 25.134066799727513,
+    "yaw_deg": 0.0,
+    "z_m": 1.864996732002827
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.0530155636345535,
+     1.0660012292681813,
+     3.7299935964054423
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_0_01_0004",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_01_0004",
+    "x_m": -6.656830223487645,
+    "y_m": -25.038661099252266,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967010813309
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577116131757,
+     2.0999970819084837,
+     3.7299936937646483
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_1_01_0005",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_01_0005",
+    "x_m": -4.172399507684688,
+    "y_m": -25.578473026291263,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967103433025
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180521070489643,
+     2.099997641350342,
+     3.7299936187865157
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_2_01_0006",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_01_0006",
+    "x_m": -0.7106459442969326,
+    "y_m": -25.473500761482043,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967422653198
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180521099151024,
+     2.099998227208573,
+     3.729993569756092
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_3_01_0007",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_01_0007",
+    "x_m": 0.8436633086316401,
+    "y_m": -25.327394013146964,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967602605204
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577043614902,
+     2.09999933922526,
+     3.7299935133491267
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_4_01_0008",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_01_0008",
+    "x_m": 3.9915876431593293,
+    "y_m": -25.630239474142872,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967744214861
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805208845682396,
+     2.1000000770178,
+     3.729993568333777
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_5_01_0009",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_01_0009",
+    "x_m": 7.325489775738432,
+    "y_m": -25.639916295210764,
+    "yaw_deg": 0.0,
+    "z_m": 1.864996719436836
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805208950106536,
+     2.0873008932468693,
+     3.716565486106059
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_0_01_0010",
+    "scale": 1.0,
+    "usd": "slice://pier_N_0_01_0010",
+    "x_m": -6.701308295988659,
+    "y_m": 25.454011725369398,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967263688194
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577047023124,
+     2.1000000538544548,
+     3.72999353032789
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_1_01_0011",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_01_0011",
+    "x_m": -5.431169601618524,
+    "y_m": 25.57032281599579,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967263688194
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805210462821454,
+     2.0999989730870787,
+     3.729993510203659
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_2_01_0012",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_01_0012",
+    "x_m": -0.7791352558612793,
+    "y_m": 25.69946246335263,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967414123214
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805210068908885,
+     2.0999984280253514,
+     3.7299935178339565
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_3_01_0013",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_01_0013",
+    "x_m": 0.7910007124389076,
+    "y_m": 25.50224020519712,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967414123214
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577008360144,
+     2.09999780139216,
+     3.729993510203659
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_4_01_0014",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_01_0014",
+    "x_m": 3.9263748882410874,
+    "y_m": 25.764538344435472,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967414123214
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180520893525351,
+     2.099996799586762,
+     3.729993549388813
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_5_01_0015",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_01_0015",
+    "x_m": 7.362894049775595,
+    "y_m": 25.563521372766186,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967196104447
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.7172905385453383,
+     2.0827997635448803,
+     1.335424835284794
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_1_01_0016",
+    "scale": 1.0,
+    "usd": "slice://wall_W_1_01_0016",
+    "x_m": -9.401088444965522,
+    "y_m": -20.944287765314428,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967365582651
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6672905191631742,
+     2.082799759520917,
+     1.3431989683547187
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_4_01_0017",
+    "scale": 1.0,
+    "usd": "slice://wall_W_4_01_0017",
+    "x_m": -9.384781688341993,
+    "y_m": -14.299628922312184,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967396384337
+   },
+   {
+    "_bay": 6,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.7072905039772515,
+     0.06618300772349173,
+     0.7277654088460332
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_W_6_01_0018",
+    "scale": 1.0,
+    "usd": "slice://pier_W_6_01_0018",
+    "x_m": -9.859846602734724,
+    "y_m": -8.643701425367487,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967534610248
+   },
+   {
+    "_bay": 7,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.7072905221889076,
+     2.016616774161636,
+     1.4280725756695898
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_7_01_0019",
+    "scale": 1.0,
+    "usd": "slice://wall_W_7_01_0019",
+    "x_m": -9.478049605302465,
+    "y_m": -7.7048806834411385,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967460048835
+   },
+   {
+    "_bay": 9,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6972905290797584,
+     0.4160386276751178,
+     1.3437712001295954
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_W_9_01_0020",
+    "scale": 1.0,
+    "usd": "slice://pier_W_9_01_0020",
+    "x_m": -9.355650123501432,
+    "y_m": -1.919791529315291,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967428706624
+   },
+   {
+    "_bay": 10,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6972905290797584,
+     1.6667611482499183,
+     1.3437711997098485
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_10_01_0021",
+    "scale": 1.0,
+    "usd": "slice://wall_W_10_01_0021",
+    "x_m": -9.332554342137787,
+    "y_m": -0.1718865039841229,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967432904093
+   },
+   {
+    "_bay": 12,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6772905181044635,
+     0.7658942563879103,
+     1.3017511109900228
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_W_12_01_0022",
+    "scale": 1.0,
+    "usd": "slice://pier_W_12_01_0022",
+    "x_m": -9.326905625546242,
+    "y_m": 4.7492829209847445,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967447403801
+   },
+   {
+    "_bay": 13,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6772905344947588,
+     1.316905524803543,
+     1.3017511191721378
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_13_01_0023",
+    "scale": 1.0,
+    "usd": "slice://wall_W_13_01_0023",
+    "x_m": -9.30431003881247,
+    "y_m": 6.512494324458895,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967365582651
+   },
+   {
+    "_bay": 15,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.7172905151381137,
+     1.1157498924680471,
+     1.411474527087618
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_W_15_01_0024",
+    "scale": 1.0,
+    "usd": "slice://pier_W_15_01_0024",
+    "x_m": -9.381147525470295,
+    "y_m": 11.424244123795722,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967435638477
+   },
+   {
+    "_bay": 16,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.717290539653849,
+     0.9670499023162105,
+     1.4114745354196045
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_16_01_0025",
+    "scale": 1.0,
+    "usd": "slice://wall_W_16_01_0025",
+    "x_m": -9.363757900091416,
+    "y_m": 13.174981671008629,
+    "yaw_deg": 0.0,
+    "z_m": 1.864996735231861
+   },
+   {
+    "_bay": 18,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.66729051254117,
+     1.4656054852907943,
+     1.3182658180962705
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_W_18_01_0026",
+    "scale": 1.0,
+    "usd": "slice://pier_W_18_01_0026",
+    "x_m": -9.32704091536329,
+    "y_m": 18.095952514499363,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967428706624
+   },
+   {
+    "_bay": 19,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.667290529108179,
+     0.6171942801231545,
+     1.3182658176765236
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_19_01_0027",
+    "scale": 1.0,
+    "usd": "slice://wall_W_19_01_0027",
+    "x_m": -9.30970806037419,
+    "y_m": 19.848056288555895,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967432904093
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0049809510925805,
+     1.819962534291225,
+     1.257045796672812
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_0_01_0028",
+    "scale": 1.0,
+    "usd": "slice://pier_E_0_01_0028",
+    "x_m": 9.104185604422064,
+    "y_m": -23.548230829506355,
+    "yaw_deg": 0.0,
+    "z_m": 2.628264945445098
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.6229866150620058,
+     3.3599306759207828,
+     2.0845759527036645
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_1_01_0029",
+    "scale": 1.0,
+    "usd": "slice://wall_E_1_01_0029",
+    "x_m": 9.10110740169435,
+    "y_m": -20.915083664711258,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967246787018
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     1.8199624484388686,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_2_01_0030",
+    "scale": 1.0,
+    "usd": "slice://pier_E_2_01_0030",
+    "x_m": 9.143294428072483,
+    "y_m": -18.360136808543135,
+    "yaw_deg": 0.0,
+    "z_m": 2.6676349082396547
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     1.8199624512240007,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_3_01_0031",
+    "scale": 1.0,
+    "usd": "slice://pier_E_3_01_0031",
+    "x_m": 9.12783087341533,
+    "y_m": -16.546760543853917,
+    "yaw_deg": 0.0,
+    "z_m": 2.6676349082396547
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.7026130716337118,
+     3.3599306504944977,
+     2.1488378806439963
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_4_01_0032",
+    "scale": 1.0,
+    "usd": "slice://wall_E_4_01_0032",
+    "x_m": 9.110755260848451,
+    "y_m": -13.95988398135635,
+    "yaw_deg": 0.0,
+    "z_m": 1.864996732002827
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     1.8199624776612993,
+     1.3068297416126113
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_5_01_0033",
+    "scale": 1.0,
+    "usd": "slice://pier_E_5_01_0033",
+    "x_m": 9.117102676872857,
+    "y_m": -11.340498388704123,
+    "yaw_deg": 0.0,
+    "z_m": 2.707004871034212
+   },
+   {
+    "_bay": 6,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     1.8199625169910405,
+     1.3068297416126113
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_6_01_0034",
+    "scale": 1.0,
+    "usd": "slice://pier_E_6_01_0034",
+    "x_m": 9.099760898808954,
+    "y_m": -9.519982390370835,
+    "yaw_deg": 0.0,
+    "z_m": 2.707004871034212
+   },
+   {
+    "_bay": 7,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.6911109780935174,
+     3.3599306798756983,
+     2.1488378771917995
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_7_01_0035",
+    "scale": 1.0,
+    "usd": "slice://wall_E_7_01_0035",
+    "x_m": 9.102656649665734,
+    "y_m": -7.02146671344651,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967354550236
+   },
+   {
+    "_bay": 8,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.024980950715367,
+     1.8199624526403628,
+     1.2694917829077617
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_8_01_0036",
+    "scale": 1.0,
+    "usd": "slice://pier_E_8_01_0036",
+    "x_m": 9.115312777920186,
+    "y_m": -4.385881870140868,
+    "yaw_deg": 0.0,
+    "z_m": 2.6479499268423763
+   },
+   {
+    "_bay": 9,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.024980950715367,
+     1.819962439224252,
+     1.2694917829077617
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_9_01_0037",
+    "scale": 1.0,
+    "usd": "slice://pier_E_9_01_0037",
+    "x_m": 9.118824402427256,
+    "y_m": -2.586838724704138,
+    "yaw_deg": 0.0,
+    "z_m": 2.6479499268423763
+   },
+   {
+    "_bay": 10,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.657945073215215,
+     3.359930629382923,
+     2.052444998838717
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_10_01_0038",
+    "scale": 1.0,
+    "usd": "slice://wall_E_10_01_0038",
+    "x_m": 9.104671365289825,
+    "y_m": -0.11512709740253163,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967109114212
+   },
+   {
+    "_bay": 11,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0449809501997827,
+     1.8199624925993099,
+     1.257045796672812
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_11_01_0039",
+    "scale": 1.0,
+    "usd": "slice://pier_E_11_01_0039",
+    "x_m": 9.129979374868965,
+    "y_m": 2.6431502450811495,
+    "yaw_deg": 0.0,
+    "z_m": 2.628264945445098
+   },
+   {
+    "_bay": 12,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.6629864599252357,
+     1.819962474545751,
+     2.0203140174392082
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_12_01_0040",
+    "scale": 1.0,
+    "usd": "slice://pier_E_12_01_0040",
+    "x_m": 9.10734910093292,
+    "y_m": 4.62681098791152,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967246787018
+   },
+   {
+    "_bay": 13,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.6629866023142856,
+     3.359930655476205,
+     2.1167069203358926
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_13_01_0041",
+    "scale": 1.0,
+    "usd": "slice://wall_E_13_01_0041",
+    "x_m": 9.087785488656879,
+    "y_m": 7.320176914745793,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967246787018
+   },
+   {
+    "_bay": 14,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0049809510925805,
+     1.819962505164474,
+     1.2943837553776611
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_14_01_0042",
+    "scale": 1.0,
+    "usd": "slice://pier_E_14_01_0042",
+    "x_m": 9.101500714193495,
+    "y_m": 9.629985715723736,
+    "yaw_deg": 0.0,
+    "z_m": 2.6873198896369335
+   },
+   {
+    "_bay": 15,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.666998888523132,
+     1.819962460990558,
+     2.116706934816391
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_15_01_0043",
+    "scale": 1.0,
+    "usd": "slice://pier_E_15_01_0043",
+    "x_m": 9.089333267527644,
+    "y_m": 11.44579953077639,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967101982035
+   },
+   {
+    "_bay": 16,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.666999033351516,
+     3.359930690542301,
+     2.0524449995519345
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_16_01_0044",
+    "scale": 1.0,
+    "usd": "slice://wall_E_16_01_0044",
+    "x_m": 9.105583739266178,
+    "y_m": 14.15081519821796,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967101982035
+   },
+   {
+    "_bay": 17,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     1.819962442510322,
+     1.2694917829077617
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_17_01_0045",
+    "scale": 1.0,
+    "usd": "slice://pier_E_17_01_0045",
+    "x_m": 9.134501182603556,
+    "y_m": 16.60783416701509,
+    "yaw_deg": 0.0,
+    "z_m": 2.6479499268423763
+   },
+   {
+    "_bay": 18,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.687945085733185,
+     1.8199624672528039,
+     2.052444998838717
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_18_01_0046",
+    "scale": 1.0,
+    "usd": "slice://pier_E_18_01_0046",
+    "x_m": 9.116035269027467,
+    "y_m": 18.240641056462103,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967109114212
+   },
+   {
+    "_bay": 19,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.0149809734439188,
+     3.3599306904026136,
+     2.084575966470945
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_19_01_0047",
+    "scale": 1.0,
+    "usd": "slice://wall_E_19_01_0047",
+    "x_m": 9.090356386736852,
+    "y_m": 21.067672836512536,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967109114212
+   },
+   {
+    "_bay": 20,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     1.8199624763366025,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_20_01_0048",
+    "scale": 1.0,
+    "usd": "slice://pier_E_20_01_0048",
+    "x_m": 9.110226231295615,
+    "y_m": 23.634557521735914,
+    "yaw_deg": 0.0,
+    "z_m": 2.6676349082396547
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     16.773237530214036,
+     48.99898840025806,
+     3.7299938553209633
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "core_x_0_01_0049",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_01_0049",
+    "x_m": 3.250756200649839,
+    "y_m": -0.10388314254704142,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967010813309
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.0530155640412158,
+     1.0660012302725441,
+     3.729993647950905
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_0_02_0050",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_02_0050",
+    "x_m": -6.58020417420684,
+    "y_m": -24.95692427134329,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990114723832
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577037910144,
+     2.0999970458888697,
+     3.7299936073251443
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_1_02_0051",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_02_0051",
+    "x_m": -4.327783526978124,
+    "y_m": -25.169201300462205,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990155349593
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805210277633718,
+     2.099997627128719,
+     3.7299935186694997
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_2_02_0052",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_02_0052",
+    "x_m": -0.7584999958111126,
+    "y_m": -25.38034648630731,
+    "yaw_deg": 0.0,
+    "z_m": 5.59499020440991
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805210286794763,
+     2.0999982124373737,
+     3.7299934947220246
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_3_02_0053",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_02_0053",
+    "x_m": 1.0729903940830263,
+    "y_m": -25.442157742462918,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990216634401
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577067518471,
+     2.099999302634963,
+     3.7299934515295643
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_4_02_0054",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_02_0054",
+    "x_m": 4.279754770252744,
+    "y_m": -25.27332539389415,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990248103878
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.570298687485585,
+     2.1000000404275028,
+     3.7299935622866593
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_5_02_0055",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_02_0055",
+    "x_m": 7.245218146595966,
+    "y_m": -25.329002323051704,
+    "yaw_deg": 0.0,
+    "z_m": 5.59499022275648
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     3.9864367463524197,
+     2.1000000328486585,
+     3.729993680941371
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_1_02_0056",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_02_0056",
+    "x_m": -5.771136346799549,
+    "y_m": 25.537171592671378,
+    "yaw_deg": 0.0,
+    "z_m": 5.5949901741197525
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180521006740463,
+     2.0999989877174094,
+     3.7299936155689837
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_2_02_0057",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_02_0057",
+    "x_m": -0.6755354568200616,
+    "y_m": 25.717276408973124,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990225336933
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805209878122582,
+     2.0999984064775603,
+     3.7299936077515836
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_3_02_0058",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_02_0058",
+    "x_m": 0.9886403092199068,
+    "y_m": 25.85844136449053,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990225336933
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577013703658,
+     2.0999978389486493,
+     3.7299935999341836
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_4_02_0059",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_02_0059",
+    "x_m": 4.509374288611258,
+    "y_m": 25.764866112203602,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990225336933
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.6331554526675243,
+     2.099996799586762,
+     3.7299936837234764
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_5_02_0060",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_02_0060",
+    "x_m": 6.661319036366654,
+    "y_m": 25.584351199840512,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990139065715
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     15.32998002119406,
+     48.99898842100626,
+     3.729993903688462
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "core_x_0_02_0061",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_02_0061",
+    "x_m": 2.553216342033651,
+    "y_m": 0.08246577891882433,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990114723832
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.164258709178661,
+     1.4649620634271692,
+     0.5617595005372173
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_0_03_0062",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_03_0062",
+    "x_m": -6.651717477706047,
+    "y_m": -24.89148018917503,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983734334005
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.0255770253197625,
+     2.099997063606093,
+     3.729993645952497
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_1_03_0063",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_03_0063",
+    "x_m": -5.498206103649595,
+    "y_m": -25.2294483241657,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983637543907
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805210457411763,
+     2.0999976303279126,
+     3.729993622209898
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_2_03_0064",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_03_0064",
+    "x_m": -0.660349143136873,
+    "y_m": -25.478100488381422,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983653940034
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180521149922478,
+     2.099998229207838,
+     3.7299936257926323
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_3_03_0065",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_03_0065",
+    "x_m": 1.1155070877958009,
+    "y_m": -25.668716412861613,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983646344254
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577188765042,
+     2.0999993191714736,
+     3.729993625066477
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_4_03_0066",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_03_0066",
+    "x_m": 4.651515200491135,
+    "y_m": -25.382908082258588,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983643451583
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.4403565526779811,
+     2.1000000335238695,
+     3.7108195329659797
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_5_03_0067",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_03_0067",
+    "x_m": 6.678503205644254,
+    "y_m": -25.45868582551191,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983612693545
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.16992051652829954,
+     0.16992050906238276,
+     0.23545799448342564
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_0_03_0068",
+    "scale": 1.0,
+    "usd": "slice://pier_N_0_03_0068",
+    "x_m": -6.193571294482455,
+    "y_m": 24.59222140524605,
+    "yaw_deg": 0.0,
+    "z_m": 9.834387310820741
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577028685522,
+     2.1000000875934184,
+     3.7299935018188943
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_1_03_0069",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_03_0069",
+    "x_m": -5.442435971074022,
+    "y_m": 25.4997694057489,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983759153175
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180520993666913,
+     2.099999035124604,
+     3.729993459797379
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_2_03_0070",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_03_0070",
+    "x_m": -1.2049129532585303,
+    "y_m": 25.08831999452997,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983798365407
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180520935766014,
+     2.0999984538847514,
+     3.7299935216321387
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_3_03_0071",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_03_0071",
+    "x_m": 1.5214820510855007,
+    "y_m": 25.231346192656673,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983737942784
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577127661109,
+     2.0999978317814367,
+     3.729993479065474
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_4_03_0072",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_03_0072",
+    "x_m": 3.6538604276198745,
+    "y_m": 25.200211518714934,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983783835732
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.5134982390269194,
+     2.099996799586762,
+     3.7299935729162463
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_5_03_0073",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_03_0073",
+    "x_m": 6.518899958805598,
+    "y_m": 25.55698410202678,
+    "yaw_deg": 0.0,
+    "z_m": 9.32498368971179
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     15.375827397946392,
+     48.99898840158298,
+     3.7299937448525817
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "core_x_0_03_0074",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_03_0074",
+    "x_m": 2.825764557077825,
+    "y_m": -0.35761883290456326,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983573327781
+   },
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "x",
+    "_size": [
+     13.670627793879179,
+     53.19898749677496,
+     1.8649968276287865
+    ],
+    "_storey": 4,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_x_0_04_0075",
+    "scale": 1.0,
+    "usd": "slice://wall_x_0_04_0075",
+    "x_m": 2.099857753233108,
+    "y_m": 1.4908970174626135,
+    "yaw_deg": 0.0,
+    "z_m": 13.05497718375246
+   }
+  ],
+  "signature": "956d8b0717a3a166",
+  "slice_s": 45.27,
+  "src_usd": "/isaac-sim/AirStack/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone8Row.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/kits/aec:Reference_Brownstone8Row__956d8b0717a3a166.usd"
+ },
+ {
+  "asset": "aec:Reference_Brownstone10Row",
+  "bake_s": 55.68,
+  "fingerprint": "46fb1a04b5efd069",
+  "grid": {
+   "D": 66.50378801867416,
+   "H": 15.204165428336017,
+   "W": 20.973237446250664,
+   "bays": {},
+   "bbox": [
+    [
+     -10.416869795621835,
+     -33.20100360533339,
+     -2.7755575615628914e-16
+    ],
+    [
+     10.556367650628829,
+     33.302784413340774,
+     15.204165428336017
+    ]
+   ],
+   "confidence": 0.0,
+   "measured": false,
+   "storey_h": 3.8010413570840043,
+   "storeys": [
+    -2.7755575615628914e-16,
+    3.801041357084004,
+    7.6020827141680085,
+    11.403124071252012,
+    15.204165428336017
+   ],
+   "z0": -2.7755575615628914e-16
+  },
+  "materials": 245,
+  "mb": 25.319,
+  "n_pieces": 74,
+  "pieces": [
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "x",
+    "_size": [
+     20.973237446250664,
+     66.50378801867416,
+     1.900520767697265
+    ],
+    "_storey": 0,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_x_0_00_0000",
+    "scale": 1.0,
+    "usd": "slice://wall_x_0_00_0000",
+    "x_m": 6.067801846113975,
+    "y_m": 0.3449798219327706,
+    "yaw_deg": 0.0,
+    "z_m": -2.7755575615628914e-16
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "SE",
+    "_size": [
+     1.0249809907799392,
+     2.0701454422092382,
+     2.189768319547415
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey_corner",
+    "name": "corner_SE_0_01_0001",
+    "scale": 1.0,
+    "usd": "slice://corner_SE_0_01_0001",
+    "x_m": 9.132865203015225,
+    "y_m": -32.34480813347887,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206719823775
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "NW",
+    "_size": [
+     1.707290525154363,
+     2.082799761233666,
+     1.3542076465741504
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey_corner",
+    "name": "corner_NW_0_01_0002",
+    "scale": 1.0,
+    "usd": "slice://corner_NW_0_01_0002",
+    "x_m": -9.39235331109218,
+    "y_m": 32.25362584374284,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206705999003
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "NE",
+    "_size": [
+     1.6341150436543916,
+     1.5444990233930653,
+     2.0612440800423113
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey_corner",
+    "name": "corner_NE_0_01_0003",
+    "scale": 1.0,
+    "usd": "slice://corner_NE_0_01_0003",
+    "x_m": 9.046756431716526,
+    "y_m": 31.783274588346167,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206579272196
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.03301555650361,
+     1.0660012276836426,
+     3.8010413982747813
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_0_01_0004",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_01_0004",
+    "x_m": -6.638330763279093,
+    "y_m": -31.696934407924,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206497181137
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577106082692,
+     2.099997073554597,
+     3.801041515044458
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_1_01_0005",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_01_0005",
+    "x_m": -4.144211590555658,
+    "y_m": -32.23377758462061,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206345126875
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805209539216097,
+     2.0999976360191503,
+     3.8010414846277447
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_2_01_0006",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_01_0006",
+    "x_m": -0.7045020190581501,
+    "y_m": -32.12704455509266,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206670905936
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180521172144476,
+     2.0999982218773745,
+     3.801041471611107
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_3_01_0007",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_01_0007",
+    "x_m": 0.8573858937303637,
+    "y_m": -31.980093439683603,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520680107231
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577183072668,
+     2.099999299002132,
+     3.801041477586573
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_4_01_0008",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_01_0008",
+    "x_m": 3.9959868216301797,
+    "y_m": -32.280424517877435,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206741317653
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180520903862349,
+     2.100000042125874,
+     3.8010414904838754
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_5_01_0009",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_01_0009",
+    "x_m": 7.335495615103649,
+    "y_m": -32.29752244185206,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206612344627
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.18052090069966,
+     2.0873008932468835,
+     3.6932336055233055
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_0_01_0010",
+    "scale": 1.0,
+    "usd": "slice://pier_N_0_01_0010",
+    "x_m": -6.702302591391316,
+    "y_m": 32.10552339196737,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206675387383
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577012836186,
+     2.1000000538544583,
+     3.8010416010537416
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_1_01_0011",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_01_0011",
+    "x_m": -5.428914531952709,
+    "y_m": 32.221137421272665,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520667484665
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180520941933098,
+     2.0999989730870965,
+     3.8010415361264496
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_2_01_0012",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_01_0012",
+    "x_m": -0.7781694033190093,
+    "y_m": 32.3518623145823,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206781909756
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805210166800033,
+     2.0999984280253408,
+     3.8010415315381794
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_3_01_0013",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_01_0013",
+    "x_m": 0.7791957674082147,
+    "y_m": 32.18288575908909,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206827792458
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577098929067,
+     2.0999978013921883,
+     3.8010415315381794
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_4_01_0014",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_01_0014",
+    "x_m": 3.9269048822647354,
+    "y_m": 32.41693819560147,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206827792458
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805209069166107,
+     2.099996799586762,
+     3.801041586413197
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_5_01_0015",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_01_0015",
+    "x_m": 7.364176690731924,
+    "y_m": 32.21409467621163,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206455848604
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6972905275741077,
+     0.24154015057394673,
+     1.4463555737770868
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_0_01_0016",
+    "scale": 1.0,
+    "usd": "slice://pier_W_0_01_0016",
+    "x_m": -9.38043592602531,
+    "y_m": -28.52776403900168,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206691650862
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.697290519888906,
+     1.8412596287769532,
+     1.4463555883555999
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_1_01_0017",
+    "scale": 1.0,
+    "usd": "slice://wall_W_1_01_0017",
+    "x_m": -9.357155284444534,
+    "y_m": -26.77900461753459,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206545865732
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6772905253470718,
+     1.2756741589809657,
+     1.2784192565740793
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_2_01_0018",
+    "scale": 1.0,
+    "usd": "slice://pier_W_2_01_0018",
+    "x_m": -9.161835582616071,
+    "y_m": -21.819372976543324,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206659338265
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6772905262862832,
+     0.807125605719655,
+     1.2784192556783918
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_3_01_0019",
+    "scale": 1.0,
+    "usd": "slice://pier_W_3_01_0019",
+    "x_m": -9.149536782634899,
+    "y_m": -20.05821176403835,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520666829514
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.7172905350483756,
+     2.08279975441798,
+     1.3120929721900496
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_4_01_0020",
+    "scale": 1.0,
+    "usd": "slice://wall_W_4_01_0020",
+    "x_m": -9.2196885589549,
+    "y_m": -14.29187164175421,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206659338265
+   },
+   {
+    "_bay": 6,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.667290507432817,
+     1.059469945451485,
+     1.3198670900635046
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_6_01_0021",
+    "scale": 1.0,
+    "usd": "slice://pier_W_6_01_0021",
+    "x_m": -9.318411026340602,
+    "y_m": -8.532352182271529,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206705999003
+   },
+   {
+    "_bay": 7,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6672905311444168,
+     1.0233298314974588,
+     1.3198670900635046
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_7_01_0022",
+    "scale": 1.0,
+    "usd": "slice://wall_W_7_01_0022",
+    "x_m": -9.295933615082165,
+    "y_m": -6.768805607105181,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206705999003
+   },
+   {
+    "_bay": 8,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.7072905241125689,
+     2.0827997703537404,
+     1.4047407324691306
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_8_01_0023",
+    "scale": 1.0,
+    "usd": "slice://pier_W_8_01_0023",
+    "x_m": -9.420316710169214,
+    "y_m": -0.9982737004991418,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206746201408
+   },
+   {
+    "_bay": 10,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6972905226421897,
+     2.0827997538739105,
+     1.3204393550480344
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_10_01_0024",
+    "scale": 1.0,
+    "usd": "slice://wall_W_10_01_0024",
+    "x_m": -9.393030480417503,
+    "y_m": 5.653225823484777,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206430663089
+   },
+   {
+    "_bay": 12,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6772905253470718,
+     1.8773997159663462,
+     1.2784192565740793
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_12_01_0025",
+    "scale": 1.0,
+    "usd": "slice://pier_W_12_01_0025",
+    "x_m": -9.157660143078305,
+    "y_m": 11.471960257851936,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206659338265
+   },
+   {
+    "_bay": 13,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.7172905296549246,
+     4.984303041974481,
+     1.388142653637423
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_13_01_0026",
+    "scale": 1.0,
+    "usd": "slice://wall_W_13_01_0026",
+    "x_m": -9.282342225818496,
+    "y_m": 16.017657663838662,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206667376933
+   },
+   {
+    "_bay": 14,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.7172905415032993,
+     1.871096851764971,
+     1.3881426718439813
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_14_01_0027",
+    "scale": 1.0,
+    "usd": "slice://pier_W_14_01_0027",
+    "x_m": -9.350128591888382,
+    "y_m": 19.767292524625674,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520648531135
+   },
+   {
+    "_bay": 16,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6672905192349354,
+     2.0827997458771037,
+     1.2949340081025453
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_16_01_0028",
+    "scale": 1.0,
+    "usd": "slice://wall_W_16_01_0028",
+    "x_m": -9.374063004014324,
+    "y_m": 25.59886433768574,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206434442496
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.024980950715367,
+     2.699830839232817,
+     1.3317218624503706
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_0_01_0029",
+    "scale": 1.0,
+    "usd": "slice://pier_E_0_01_0029",
+    "x_m": 9.109094606250776,
+    "y_m": -29.78252633598529,
+    "yaw_deg": 0.0,
+    "z_m": 2.758567129079422
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.7011109678789644,
+     4.984303110991576,
+     2.1897683431951136
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_1_01_0030",
+    "scale": 1.0,
+    "usd": "slice://wall_E_1_01_0030",
+    "x_m": 9.107323852509355,
+    "y_m": -26.045522190349924,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520648334679
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.633924110926289,
+     2.6998308492302208,
+     1.9969821459415678
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_2_01_0031",
+    "scale": 1.0,
+    "usd": "slice://pier_E_2_01_0031",
+    "x_m": 9.107350221430258,
+    "y_m": -22.148775845068556,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520656763507
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.633924226392029,
+     2.6998308553446186,
+     1.9969821459415678
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_3_01_0032",
+    "scale": 1.0,
+    "usd": "slice://pier_E_3_01_0032",
+    "x_m": 9.083431611940567,
+    "y_m": -19.285748228785952,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520656763507
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.5939242227502657,
+     4.984303075605828,
+     2.061244081206024
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_4_01_0033",
+    "scale": 1.0,
+    "usd": "slice://wall_E_4_01_0033",
+    "x_m": 9.095043831583327,
+    "y_m": -15.422021771443372,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520656763507
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     2.6998308407903497,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_5_01_0034",
+    "scale": 1.0,
+    "usd": "slice://pier_E_5_01_0034",
+    "x_m": 9.128953312982878,
+    "y_m": -11.658566100383503,
+    "yaw_deg": 0.0,
+    "z_m": 2.6798269688268195
+   },
+   {
+    "_bay": 6,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.6741149409006955,
+     2.699830881720824,
+     2.0612440800423113
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_6_01_0035",
+    "scale": 1.0,
+    "usd": "slice://pier_E_6_01_0035",
+    "x_m": 9.111993153389637,
+    "y_m": -8.961046154497236,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206579272196
+   },
+   {
+    "_bay": 7,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.6741150502515758,
+     4.984303080554003,
+     2.125506015306768
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_7_01_0036",
+    "scale": 1.0,
+    "usd": "slice://wall_E_7_01_0036",
+    "x_m": 9.088173749666982,
+    "y_m": -5.021220556004114,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206579272196
+   },
+   {
+    "_bay": 8,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.6631557367736303,
+     2.1462246256874558,
+     2.1255060201781317
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_8_01_0037",
+    "scale": 1.0,
+    "usd": "slice://pier_E_8_01_0037",
+    "x_m": 9.057853457794312,
+    "y_m": -1.6721758745855864,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206530558558
+   },
+   {
+    "_bay": 9,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0249809907799392,
+     2.671871025926051,
+     2.029113092507586
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_9_01_0038",
+    "scale": 1.0,
+    "usd": "slice://pier_E_9_01_0038",
+    "x_m": 9.12227753221415,
+    "y_m": 1.2108848426451244,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206778297168
+   },
+   {
+    "_bay": 10,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.6291676201029084,
+     4.98430307438946,
+     2.02911311796563
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_10_01_0039",
+    "scale": 1.0,
+    "usd": "slice://wall_E_10_01_0039",
+    "x_m": 9.100336166536835,
+    "y_m": 5.287936311180794,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206523716727
+   },
+   {
+    "_bay": 11,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0449809501997827,
+     2.699830921583999,
+     1.257045796672812
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_11_01_0040",
+    "scale": 1.0,
+    "usd": "slice://pier_E_11_01_0040",
+    "x_m": 9.127959729035128,
+    "y_m": 9.095462050552504,
+    "yaw_deg": 0.0,
+    "z_m": 2.6404570060322627
+   },
+   {
+    "_bay": 12,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.6339242352642973,
+     2.3624288460555505,
+     1.9969821459415678
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_12_01_0041",
+    "scale": 1.0,
+    "usd": "slice://pier_E_12_01_0041",
+    "x_m": 9.077266294178715,
+    "y_m": 11.502986854075324,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520656763507
+   },
+   {
+    "_bay": 13,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.0049809552951618,
+     4.74013897629527,
+     2.093375028024864
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_13_01_0042",
+    "scale": 1.0,
+    "usd": "slice://wall_E_13_01_0042",
+    "x_m": 9.101059859736104,
+    "y_m": 15.50170521296297,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206775768952
+   },
+   {
+    "_bay": 14,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.638775023415878,
+     2.699830837702425,
+     2.09337507536965
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_14_01_0043",
+    "scale": 1.0,
+    "usd": "slice://pier_E_14_01_0043",
+    "x_m": 9.109716199618655,
+    "y_m": 19.380992011208665,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206302321092
+   },
+   {
+    "_bay": 15,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     2.6998308584269317,
+     1.2694917829077617
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_15_01_0044",
+    "scale": 1.0,
+    "usd": "slice://pier_E_15_01_0044",
+    "x_m": 9.123447738564822,
+    "y_m": 22.157765021402525,
+    "yaw_deg": 0.0,
+    "z_m": 2.660141987429541
+   },
+   {
+    "_bay": 16,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.659167632889499,
+     4.984303081974108,
+     2.061244085597858
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_16_01_0045",
+    "scale": 1.0,
+    "usd": "slice://wall_E_16_01_0045",
+    "x_m": 9.102811701090486,
+    "y_m": 25.99482122613354,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206523716727
+   },
+   {
+    "_bay": 17,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     2.699830867559438,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_17_01_0046",
+    "scale": 1.0,
+    "usd": "slice://pier_E_17_01_0046",
+    "x_m": 9.104665817031092,
+    "y_m": 29.86382143271468,
+    "yaw_deg": 0.0,
+    "z_m": 2.6798269688268195
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     16.773237527268527,
+     62.30378810287259,
+     3.8010416601939956
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "core_x_0_01_0047",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_01_0047",
+    "x_m": 3.2628459929380176,
+    "y_m": -0.08035461761693179,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520608344411
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.0330155596491286,
+     1.0660012239369756,
+     3.801041429400729
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_0_02_0048",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_02_0048",
+    "x_m": -6.568756198851641,
+    "y_m": -31.633204168877782,
+    "yaw_deg": 0.0,
+    "z_m": 5.701561993891612
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577038181249,
+     2.0999970405576818,
+     3.801041415833602
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_1_02_0049",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_02_0049",
+    "x_m": -4.299665790967837,
+    "y_m": -31.81559007266986,
+    "yaw_deg": 0.0,
+    "z_m": 5.701561997055432
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805209868969535,
+     2.0999976217975167,
+     3.8010413782084473
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_2_02_0050",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_02_0050",
+    "x_m": -0.762890891010864,
+    "y_m": -32.02363445084606,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562007192798
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805209281577564,
+     2.0999982017296297,
+     3.801041364602364
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_3_02_0051",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_02_0051",
+    "x_m": 1.0960851398975626,
+    "y_m": -32.06652808421483,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562009353992
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.0255770638698705,
+     2.0999992897869078,
+     3.8010413531574763
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_4_02_0052",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_02_0052",
+    "x_m": 4.2929708249990695,
+    "y_m": -31.917509769217514,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562009353992
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.590298686160697,
+     2.10000003291065,
+     3.8010414617104544
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_5_02_0053",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_02_0053",
+    "x_m": 7.2608582065048894,
+    "y_m": -31.98262883629343,
+    "yaw_deg": 0.0,
+    "z_m": 5.701561938641097
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     3.986436720676101,
+     2.100000032848662,
+     3.801041403741179
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_1_02_0054",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_02_0054",
+    "x_m": -5.761620532063976,
+    "y_m": 32.174124132684376,
+    "yaw_deg": 0.0,
+    "z_m": 5.7015620369683635
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180521012082258,
+     2.0999989877173917,
+     3.8010413458425676
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_2_02_0055",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_02_0055",
+    "x_m": -0.6798247583541144,
+    "y_m": 32.36831967684549,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562089317268
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805209685306037,
+     2.0999984064775603,
+     3.8010414237521033
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_3_02_0056",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_02_0056",
+    "x_m": 1.0740636158032106,
+    "y_m": 32.513173337101456,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562008342833
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577020203885,
+     2.0999978389486564,
+     3.8010413397127687
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_4_02_0057",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_02_0057",
+    "x_m": 4.441480441650712,
+    "y_m": 32.42940723224896,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562089317268
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.6331554548434042,
+     2.099996799586769,
+     3.801041418439781
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_5_02_0058",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_02_0058",
+    "x_m": 6.661326430313737,
+    "y_m": 32.23697793429622,
+    "yaw_deg": 0.0,
+    "z_m": 5.7015620197206625
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     15.32998002119406,
+     62.303788123620805,
+     3.8010417724623515
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "core_x_0_02_0059",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_02_0059",
+    "x_m": 2.829136764627922,
+    "y_m": -0.10143635304341471,
+    "yaw_deg": 0.0,
+    "z_m": 5.701561895724719
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.1442586962039822,
+     1.444962072960461,
+     0.9456392069327535
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_0_03_0060",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_03_0060",
+    "x_m": -6.62708183472918,
+    "y_m": -31.546304933454376,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603391198896
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577061360865,
+     2.0999970582749263,
+     3.8010414666856107
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_1_03_0061",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_03_0061",
+    "x_m": -5.499850785687211,
+    "y_m": -31.885882749510365,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603288945439
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805209853976786,
+     2.0999976349312597,
+     3.801041419687053
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_2_03_0062",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_03_0062",
+    "x_m": -0.6215399005179666,
+    "y_m": -32.131526322363165,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603332090207
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180521052137784,
+     2.099998233212915,
+     3.8010414182026704
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_3_03_0063",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_03_0063",
+    "x_m": 1.1151007557670396,
+    "y_m": -32.335034676366675,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603332182755
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.02557710535972,
+     2.09999930906935,
+     3.801041423640692
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_4_03_0064",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_03_0064",
+    "x_m": 4.669038643725338,
+    "y_m": -31.996623868402605,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603326910048
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.4603565546845179,
+     2.1000000348395247,
+     3.8010414568275266
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_5_03_0065",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_03_0065",
+    "x_m": 6.75236499474685,
+    "y_m": -32.076201336865076,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603296493188
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.16992051652829954,
+     0.16992050906238276,
+     0.23545799448342564
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_0_03_0066",
+    "scale": 1.0,
+    "usd": "slice://pier_N_0_03_0066",
+    "x_m": -6.193571294482455,
+    "y_m": 31.244621256553316,
+    "yaw_deg": 0.0,
+    "z_m": 9.846579371407906
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.0255770877018,
+     2.100000087593422,
+     3.801041429436742
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_1_03_0067",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_03_0067",
+    "x_m": -5.424961545637795,
+    "y_m": 32.13452375147147,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603331396841
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180521028407844,
+     2.099999035124604,
+     3.801041372961329
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_2_03_0068",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_03_0068",
+    "x_m": -1.2180842828789962,
+    "y_m": 31.755226518127646,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603378514523
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180520997408533,
+     2.0999984538847443,
+     3.801041372666795
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_3_03_0069",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_03_0069",
+    "x_m": 1.638944507947112,
+    "y_m": 31.83463788030051,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603378514523
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577126483614,
+     2.0999978340323118,
+     3.8010413723722625
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_4_03_0070",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_03_0070",
+    "x_m": 3.297354399777051,
+    "y_m": 31.86281382812302,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603378514523
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.5134982411978974,
+     2.099996799586769,
+     3.7914917457645636
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_5_03_0071",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_03_0071",
+    "x_m": 6.512958369191091,
+    "y_m": 32.22289373770487,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603347991933
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     15.385827397722874,
+     62.30378808786641,
+     3.801041539493756
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "core_x_0_03_0072",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_03_0072",
+    "x_m": 2.5224487772967903,
+    "y_m": -0.3549961873058431,
+    "yaw_deg": 0.0,
+    "z_m": 9.5026032465397
+   },
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "x",
+    "_size": [
+     13.670627793879179,
+     66.50378801867416,
+     1.900520719516983
+    ],
+    "_storey": 4,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_x_0_04_0073",
+    "scale": 1.0,
+    "usd": "slice://wall_x_0_04_0073",
+    "x_m": 2.017760441167197,
+    "y_m": 1.0737512733507855,
+    "yaw_deg": 0.0,
+    "z_m": 13.303644708819034
+   }
+  ],
+  "signature": "1ee29c0591f45ae6",
+  "slice_s": 55.56,
+  "src_usd": "/isaac-sim/AirStack/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone10Row.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/kits/aec:Reference_Brownstone10Row__1ee29c0591f45ae6.usd"
+ },
+ {
+  "asset": "aec:Reference_Brownstone2Row",
+  "bake_s": 6.16,
+  "fingerprint": "de5d39aa890b1f7d",
+  "grid": {
+   "D": 13.303789207786823,
+   "H": 14.63578428833084,
+   "W": 20.96323744647418,
+   "bays": {},
+   "bbox": [
+    [
+     -10.411869795733601,
+     -6.601004199889724,
+     1.5265566588595902e-16
+    ],
+    [
+     10.55136765074058,
+     6.7027850078970985,
+     14.63578428833084
+    ]
+   ],
+   "confidence": 0.0,
+   "measured": false,
+   "storey_h": 3.65894607208271,
+   "storeys": [
+    1.5265566588595902e-16,
+    3.65894607208271,
+    7.31789214416542,
+    10.97683821624813,
+    14.63578428833084
+   ],
+   "z0": 1.5265566588595902e-16
+  },
+  "materials": 24,
+  "mb": 5.254,
+  "n_pieces": 49,
+  "pieces": [
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "x",
+    "_size": [
+     20.96323744647418,
+     13.303789207786823,
+     1.8294730946315918
+    ],
+    "_storey": 0,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_x_0_00_0000",
+    "scale": 1.0,
+    "usd": "slice://wall_x_0_00_0000",
+    "x_m": 6.107336303192358,
+    "y_m": 0.32292007424590774,
+    "yaw_deg": 0.0,
+    "z_m": 1.5265566588595902e-16
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "SE",
+    "_size": [
+     1.0549809871627307,
+     2.0701454422092427,
+     2.07577668749558
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey_corner",
+    "name": "corner_SE_0_01_0001",
+    "scale": 1.0,
+    "usd": "slice://corner_SE_0_01_0001",
+    "x_m": 9.142413321530057,
+    "y_m": -5.744696316520772,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294730343373726
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "NW",
+    "_size": [
+     1.71729052844481,
+     2.0827997817985615,
+     1.4094563555912227
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey_corner",
+    "name": "corner_NW_0_01_0002",
+    "scale": 1.0,
+    "usd": "slice://corner_NW_0_01_0002",
+    "x_m": -9.441477058984479,
+    "y_m": 5.651874325312868,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294730152021472
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "NE",
+    "_size": [
+     1.691110954037578,
+     1.5444990233930618,
+     2.10790769235441
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey_corner",
+    "name": "corner_NE_0_01_0003",
+    "scale": 1.0,
+    "usd": "slice://corner_NE_0_01_0003",
+    "x_m": 9.045448431491193,
+    "y_m": 5.189263953202938,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294729971107708
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     1.3134538369693356,
+     2.099996029561181,
+     3.6589462319103285
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_S_1_01_0004",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_01_0004",
+    "x_m": -6.565562443545609,
+    "y_m": -5.157058924673286,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294729769451168
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716883888894476,
+     2.099996284396423,
+     3.6589460948957653
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_2_01_0005",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_01_0005",
+    "x_m": -5.376727368980173,
+    "y_m": -5.680760938534503,
+    "yaw_deg": 0.0,
+    "z_m": 1.829473021741153
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716883937257505,
+     2.099996495457357,
+     3.6589460757657335
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_3_01_0006",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_01_0006",
+    "x_m": -4.52752224338747,
+    "y_m": -5.844625251782856,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294730422241392
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     1.6092708918053416,
+     2.0999969676982158,
+     3.6589460769105413
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_S_4_01_0007",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_01_0007",
+    "x_m": -3.1424318169356207,
+    "y_m": -5.731921307600341,
+    "yaw_deg": 0.0,
+    "z_m": 1.829473043577094
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716885003881627,
+     2.0999971778161166,
+     3.6589460757657335
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_5_01_0008",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_01_0008",
+    "x_m": -2.1600737575381674,
+    "y_m": -5.685603523829592,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294730460748567
+   },
+   {
+    "_bay": 6,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716885028110424,
+     2.099997402205303,
+     3.6589460757657335
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_6_01_0009",
+    "scale": 1.0,
+    "usd": "slice://pier_S_6_01_0009",
+    "x_m": -1.2551528161568581,
+    "y_m": -5.713325325072544,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294730474278114
+   },
+   {
+    "_bay": 7,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     1.6092709355469434,
+     2.0999978436908044,
+     3.658946074704086
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_S_7_01_0010",
+    "scale": 1.0,
+    "usd": "slice://wall_S_7_01_0010",
+    "x_m": 0.03764113651444638,
+    "y_m": -5.44136746662717,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294730487807662
+   },
+   {
+    "_bay": 8,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716884881900309,
+     2.0999980829589395,
+     3.6589460557258087
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_8_01_0011",
+    "scale": 1.0,
+    "usd": "slice://pier_S_8_01_0011",
+    "x_m": 1.189466924843805,
+    "y_m": -5.3880323592161545,
+    "yaw_deg": 0.0,
+    "z_m": 1.82947304990387
+   },
+   {
+    "_bay": 9,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716885979672169,
+     2.09999830441639,
+     3.6589460535688
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_9_01_0012",
+    "scale": 1.0,
+    "usd": "slice://pier_S_9_01_0012",
+    "x_m": 2.0583226459230564,
+    "y_m": -5.83264264275877,
+    "yaw_deg": 0.0,
+    "z_m": 1.82947304990387
+   },
+   {
+    "_bay": 10,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     1.6092709363246103,
+     2.0999987164335003,
+     3.6589460535688
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_S_10_01_0013",
+    "scale": 1.0,
+    "usd": "slice://wall_S_10_01_0013",
+    "x_m": 3.3904284427212286,
+    "y_m": -5.62136966678514,
+    "yaw_deg": 0.0,
+    "z_m": 1.82947304990387
+   },
+   {
+    "_bay": 11,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716884536806209,
+     2.099998967928995,
+     3.6589460586855678
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_11_01_0014",
+    "scale": 1.0,
+    "usd": "slice://pier_S_11_01_0014",
+    "x_m": 4.552312558372356,
+    "y_m": -5.833105077420638,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294730447871022
+   },
+   {
+    "_bay": 12,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716884082473699,
+     2.0999991921649164,
+     3.658946069634007
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_12_01_0015",
+    "scale": 1.0,
+    "usd": "slice://pier_S_12_01_0015",
+    "x_m": 5.422158750320607,
+    "y_m": -5.987210621056215,
+    "yaw_deg": 0.0,
+    "z_m": 1.829473033838663
+   },
+   {
+    "_bay": 13,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     1.6092708497824812,
+     2.1000000120277686,
+     3.6589461184214906
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_S_13_01_0016",
+    "scale": 1.0,
+    "usd": "slice://wall_S_13_01_0016",
+    "x_m": 7.049374641666141,
+    "y_m": -5.701811911876545,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294730140095343
+   },
+   {
+    "_bay": 14,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716883905970425,
+     2.068634512305805,
+     1.2694917829077617
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_14_01_0017",
+    "scale": 1.0,
+    "usd": "slice://pier_S_14_01_0017",
+    "x_m": 7.953572216222036,
+    "y_m": -5.665260150809478,
+    "yaw_deg": 0.0,
+    "z_m": 2.635757938925191
+   },
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     16.763237493844898,
+     2.1000000875934157,
+     3.658946375913439
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_N_0_01_0018",
+    "scale": 1.0,
+    "usd": "slice://wall_N_0_01_0018",
+    "x_m": 2.4879442360595365,
+    "y_m": 5.599632530848787,
+    "yaw_deg": 0.0,
+    "z_m": 1.829472991742588
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6772905309954158,
+     0.5763057578323805,
+     1.3500993281958689
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_W_2_01_0019",
+    "scale": 1.0,
+    "usd": "slice://pier_W_2_01_0019",
+    "x_m": -9.343255951090482,
+    "y_m": -1.9082141705783757,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294730347273518
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     0.36919069359240275,
+     0.788995049937155,
+     0.3451224642537343
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_W_3_01_0020",
+    "scale": 1.0,
+    "usd": "slice://pier_W_3_01_0020",
+    "x_m": -8.423392989008775,
+    "y_m": -1.135796376403737,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294730363273557
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.677290525783448,
+     0.7174989861907466,
+     1.3500993273721906
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_W_4_01_0021",
+    "scale": 1.0,
+    "usd": "slice://wall_W_4_01_0021",
+    "x_m": -9.323928663761045,
+    "y_m": -0.10590725997119932,
+    "yaw_deg": 0.0,
+    "z_m": 1.82947303555103
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     0.7889951235195247,
+     1.2694917829077617
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_E_0_01_0022",
+    "scale": 1.0,
+    "usd": "slice://pier_E_0_01_0022",
+    "x_m": 9.16799395155057,
+    "y_m": -4.151210972011748,
+    "yaw_deg": 0.0,
+    "z_m": 2.635757938925191
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     1.456606342367329,
+     1.2694917829077617
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_E_1_01_0023",
+    "scale": 1.0,
+    "usd": "slice://wall_E_1_01_0023",
+    "x_m": 9.12341661438166,
+    "y_m": -3.0176627288459423,
+    "yaw_deg": 0.0,
+    "z_m": 2.635757938925191
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.7167222326789844,
+     0.7889951199367569,
+     2.0757767100644946
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_E_2_01_0024",
+    "scale": 1.0,
+    "usd": "slice://pier_E_2_01_0024",
+    "x_m": 9.110656450166504,
+    "y_m": -1.6982422051522825,
+    "yaw_deg": 0.0,
+    "z_m": 1.829473011768458
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.7167222252655918,
+     0.7889950687927022,
+     1.3918661136281005
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_E_3_01_0025",
+    "scale": 1.0,
+    "usd": "slice://pier_E_3_01_0025",
+    "x_m": 8.989152883556493,
+    "y_m": -1.3019527797575092,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294730238077999
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.7167223503693574,
+     1.4566062820124421,
+     2.1079076776967227
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_E_4_01_0026",
+    "scale": 1.0,
+    "usd": "slice://wall_E_4_01_0026",
+    "x_m": 9.090558930435188,
+    "y_m": 0.11512792747277442,
+    "yaw_deg": 0.0,
+    "z_m": 1.829473011768458
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     0.7889951544848686,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_E_5_01_0027",
+    "scale": 1.0,
+    "usd": "slice://pier_E_5_01_0027",
+    "x_m": 9.123305228800067,
+    "y_m": 1.166887439805516,
+    "yaw_deg": 0.0,
+    "z_m": 2.655442920322469
+   },
+   {
+    "_bay": 6,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     0.7889951428815332,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_E_6_01_0028",
+    "scale": 1.0,
+    "usd": "slice://pier_E_6_01_0028",
+    "x_m": 9.126764473003306,
+    "y_m": 1.973216903952036,
+    "yaw_deg": 0.0,
+    "z_m": 2.655442920322469
+   },
+   {
+    "_bay": 7,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     1.456606376495663,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_E_7_01_0029",
+    "scale": 1.0,
+    "usd": "slice://wall_E_7_01_0029",
+    "x_m": 9.111946511703675,
+    "y_m": 3.079015309110334,
+    "yaw_deg": 0.0,
+    "z_m": 2.655442920322469
+   },
+   {
+    "_bay": 8,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     0.7889951246463074,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_E_8_01_0030",
+    "scale": 1.0,
+    "usd": "slice://pier_E_8_01_0030",
+    "x_m": 9.126575625858242,
+    "y_m": 4.183454443363425,
+    "yaw_deg": 0.0,
+    "z_m": 2.655442920322469
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     16.763237515605745,
+     9.103789291985256,
+     3.658946373448077
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "core_x_0_01_0031",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_01_0031",
+    "x_m": 3.198490245716951,
+    "y_m": -0.05391006260927303,
+    "yaw_deg": 0.0,
+    "z_m": 1.8294729942079495
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     1.3134538279054961,
+     2.099996027830106,
+     3.6589461732932893
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_S_1_02_0032",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_02_0032",
+    "x_m": -6.423357270723452,
+    "y_m": -5.064280462482016,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419045079786
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716883860108142,
+     2.0999962565954693,
+     3.6589461399567274
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_2_02_0033",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_02_0033",
+    "x_m": -5.499626740222077,
+    "y_m": -5.451672708541664,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419072205888
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716884184135294,
+     2.099996493278212,
+     3.658946080889554
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_3_02_0034",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_02_0034",
+    "x_m": -4.532900146344535,
+    "y_m": -5.646035648506569,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419111545345
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     1.6092709182831975,
+     2.0999969397449014,
+     3.6589460872776103
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_S_4_02_0035",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_02_0035",
+    "x_m": -3.5068514690088293,
+    "y_m": -5.459032176087738,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419107698992
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716884662354341,
+     2.099997172102227,
+     3.658946090737807
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_5_02_0036",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_02_0036",
+    "x_m": -2.1218988973218145,
+    "y_m": -5.444881445200838,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419105615552
+   },
+   {
+    "_bay": 6,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716885205449563,
+     2.0999973930076807,
+     3.6589460941980043
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_6_02_0037",
+    "scale": 1.0,
+    "usd": "slice://pier_S_6_02_0037",
+    "x_m": -1.2369152774075776,
+    "y_m": -5.548141746902247,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419103532111
+   },
+   {
+    "_bay": 7,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     1.6092708896883476,
+     2.099997829617206,
+     3.6589460967991503
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_S_7_02_0038",
+    "scale": 1.0,
+    "usd": "slice://wall_S_7_02_0038",
+    "x_m": -0.06924581522722908,
+    "y_m": -5.432820101184084,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419103472669
+   },
+   {
+    "_bay": 8,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716884431787107,
+     2.099998045801695,
+     3.658946098175905
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_8_02_0039",
+    "scale": 1.0,
+    "usd": "slice://pier_S_8_02_0039",
+    "x_m": 1.273253593288971,
+    "y_m": -5.44041857502132,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419103472669
+   },
+   {
+    "_bay": 9,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716885119748414,
+     2.0999982784953373,
+     3.6589460995526615
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_9_02_0040",
+    "scale": 1.0,
+    "usd": "slice://pier_S_9_02_0040",
+    "x_m": 2.0746616832444458,
+    "y_m": -5.44023473968358,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419103472669
+   },
+   {
+    "_bay": 10,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     1.6092709327716839,
+     2.0999987242741067,
+     3.658946102094365
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_S_10_02_0041",
+    "scale": 1.0,
+    "usd": "slice://wall_S_10_02_0041",
+    "x_m": 3.3481926719397044,
+    "y_m": -5.396971329514044,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419103472669
+   },
+   {
+    "_bay": 11,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716884110194245,
+     2.0999989688423693,
+     3.6589461034711217
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_11_02_0042",
+    "scale": 1.0,
+    "usd": "slice://pier_S_11_02_0042",
+    "x_m": 4.706834524941901,
+    "y_m": -5.555031275149909,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419103472669
+   },
+   {
+    "_bay": 12,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.8716884171631509,
+     2.099999215827558,
+     3.658946104847878
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_12_02_0043",
+    "scale": 1.0,
+    "usd": "slice://pier_S_12_02_0043",
+    "x_m": 5.541611951290722,
+    "y_m": -5.663096466037812,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419103472669
+   },
+   {
+    "_bay": 13,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     1.6092708213676463,
+     2.100000047032956,
+     3.6589461725699977
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_S_13_02_0044",
+    "scale": 1.0,
+    "usd": "slice://wall_S_13_02_0044",
+    "x_m": 7.0180810684941894,
+    "y_m": -5.419020308006614,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419036497508
+   },
+   {
+    "_bay": 14,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     0.31146616525060544,
+     1.7510235645921135,
+     2.5003519002717765
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "pier_S_14_02_0045",
+    "scale": 1.0,
+    "usd": "slice://pier_S_14_02_0045",
+    "x_m": 7.762162561781341,
+    "y_m": -5.274261995664555,
+    "yaw_deg": 0.0,
+    "z_m": 6.647013297939828
+   },
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     13.113168785724735,
+     2.1000000875934157,
+     3.6589461965814767
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_N_0_02_0046",
+    "scale": 1.0,
+    "usd": "slice://wall_N_0_02_0046",
+    "x_m": -0.6774385057419088,
+    "y_m": 5.669320708004208,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419014210059
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     15.319980021417578,
+     9.103789312733465,
+     3.658946197199235
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "core_x_0_02_0047",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_02_0047",
+    "x_m": 2.0875340327508978,
+    "y_m": 0.027413194447603578,
+    "yaw_deg": 0.0,
+    "z_m": 5.488419036497508
+   },
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "x",
+    "_size": [
+     15.365827398169909,
+     13.303789207786823,
+     5.488419357387185
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone2Row_storey",
+    "name": "wall_x_0_03_0048",
+    "scale": 1.0,
+    "usd": "slice://wall_x_0_03_0048",
+    "x_m": 2.7397166020277823,
+    "y_m": 0.04176331707937248,
+    "yaw_deg": 0.0,
+    "z_m": 9.147364930943654
+   }
+  ],
+  "signature": "3524d9b4e3d67fa6",
+  "slice_s": 6.12,
+  "src_usd": "/isaac-sim/AirStack/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone2Row.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/kits/aec:Reference_Brownstone2Row__3524d9b4e3d67fa6.usd"
+ },
+ {
+  "asset": "aec:Reference_Brownstone8Row",
+  "bake_s": 42.44,
+  "fingerprint": "de5d39aa890b1f7d",
+  "grid": {
+   "D": 53.19898831605962,
+   "H": 14.919974011381246,
+   "W": 20.973237446250664,
+   "bays": {},
+   "bbox": [
+    [
+     -10.416869795621835,
+     -26.548603754026107,
+     1.3877787807814457e-16
+    ],
+    [
+     10.556367650628829,
+     26.650384562033512,
+     14.919974011381246
+    ]
+   ],
+   "confidence": 0.0,
+   "measured": false,
+   "storey_h": 3.7299935028453115,
+   "storeys": [
+    1.3877787807814457e-16,
+    3.7299935028453115,
+    7.459987005690623,
+    11.189980508535935,
+    14.919974011381246
+   ],
+   "z0": 1.3877787807814457e-16
+  },
+  "materials": 28,
+  "mb": 20.331,
+  "n_pieces": 76,
+  "pieces": [
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "x",
+    "_size": [
+     20.973237446250664,
+     53.19898831605962,
+     1.8649968516402968
+    ],
+    "_storey": 0,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_x_0_00_0000",
+    "scale": 1.0,
+    "usd": "slice://wall_x_0_00_0000",
+    "x_m": 6.112410658170302,
+    "y_m": 0.3228168963575474,
+    "yaw_deg": 0.0,
+    "z_m": 1.3877787807814457e-16
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "SE",
+    "_size": [
+     1.0049809552951618,
+     2.070145442209242,
+     2.0203139919444952
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey_corner",
+    "name": "corner_SE_0_01_0001",
+    "scale": 1.0,
+    "usd": "slice://corner_SE_0_01_0001",
+    "x_m": 9.119605307059514,
+    "y_m": -25.687954269758013,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967501734148
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "NW",
+    "_size": [
+     1.7072905349897098,
+     2.082799770183332,
+     1.3775394903957152
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey_corner",
+    "name": "corner_NW_0_01_0002",
+    "scale": 1.0,
+    "usd": "slice://corner_NW_0_01_0002",
+    "x_m": -9.420277182233544,
+    "y_m": 25.599325222559337,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967396384337
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "NE",
+    "_size": [
+     1.6626130518464404,
+     1.5444990233930618,
+     2.084575945379539
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey_corner",
+    "name": "corner_NE_0_01_0003",
+    "scale": 1.0,
+    "usd": "slice://corner_NE_0_01_0003",
+    "x_m": 9.048548545306495,
+    "y_m": 25.134066799727513,
+    "yaw_deg": 0.0,
+    "z_m": 1.864996732002827
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.0530155636345535,
+     1.0660012292681813,
+     3.7299935964054423
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_0_01_0004",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_01_0004",
+    "x_m": -6.656830223487645,
+    "y_m": -25.038661099252266,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967010813309
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577116131757,
+     2.0999970819084837,
+     3.7299936937646483
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_1_01_0005",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_01_0005",
+    "x_m": -4.172399507684688,
+    "y_m": -25.578473026291263,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967103433025
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180521070489643,
+     2.099997641350342,
+     3.7299936187865157
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_2_01_0006",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_01_0006",
+    "x_m": -0.7106459442969326,
+    "y_m": -25.473500761482043,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967422653198
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180521099151024,
+     2.099998227208573,
+     3.729993569756092
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_3_01_0007",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_01_0007",
+    "x_m": 0.8436633086316401,
+    "y_m": -25.327394013146964,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967602605204
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577043614902,
+     2.09999933922526,
+     3.7299935133491267
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_4_01_0008",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_01_0008",
+    "x_m": 3.9915876431593293,
+    "y_m": -25.630239474142872,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967744214861
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805208845682396,
+     2.1000000770178,
+     3.729993568333777
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_5_01_0009",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_01_0009",
+    "x_m": 7.325489775738432,
+    "y_m": -25.639916295210764,
+    "yaw_deg": 0.0,
+    "z_m": 1.864996719436836
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805208950106536,
+     2.0873008932468693,
+     3.716565486106059
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_0_01_0010",
+    "scale": 1.0,
+    "usd": "slice://pier_N_0_01_0010",
+    "x_m": -6.701308295988659,
+    "y_m": 25.454011725369398,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967263688194
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577047023124,
+     2.1000000538544548,
+     3.72999353032789
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_1_01_0011",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_01_0011",
+    "x_m": -5.431169601618524,
+    "y_m": 25.57032281599579,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967263688194
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805210462821454,
+     2.0999989730870787,
+     3.729993510203659
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_2_01_0012",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_01_0012",
+    "x_m": -0.7791352558612793,
+    "y_m": 25.69946246335263,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967414123214
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805210068908885,
+     2.0999984280253514,
+     3.7299935178339565
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_3_01_0013",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_01_0013",
+    "x_m": 0.7910007124389076,
+    "y_m": 25.50224020519712,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967414123214
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577008360144,
+     2.09999780139216,
+     3.729993510203659
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_4_01_0014",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_01_0014",
+    "x_m": 3.9263748882410874,
+    "y_m": 25.764538344435472,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967414123214
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180520893525351,
+     2.099996799586762,
+     3.729993549388813
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_5_01_0015",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_01_0015",
+    "x_m": 7.362894049775595,
+    "y_m": 25.563521372766186,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967196104447
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.7172905385453383,
+     2.0827997635448803,
+     1.335424835284794
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_1_01_0016",
+    "scale": 1.0,
+    "usd": "slice://wall_W_1_01_0016",
+    "x_m": -9.401088444965522,
+    "y_m": -20.944287765314428,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967365582651
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6672905191631742,
+     2.082799759520917,
+     1.3431989683547187
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_4_01_0017",
+    "scale": 1.0,
+    "usd": "slice://wall_W_4_01_0017",
+    "x_m": -9.384781688341993,
+    "y_m": -14.299628922312184,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967396384337
+   },
+   {
+    "_bay": 6,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.7072905039772515,
+     0.06618300772349173,
+     0.7277654088460332
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_W_6_01_0018",
+    "scale": 1.0,
+    "usd": "slice://pier_W_6_01_0018",
+    "x_m": -9.859846602734724,
+    "y_m": -8.643701425367487,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967534610248
+   },
+   {
+    "_bay": 7,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.7072905221889076,
+     2.016616774161636,
+     1.4280725756695898
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_7_01_0019",
+    "scale": 1.0,
+    "usd": "slice://wall_W_7_01_0019",
+    "x_m": -9.478049605302465,
+    "y_m": -7.7048806834411385,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967460048835
+   },
+   {
+    "_bay": 9,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6972905290797584,
+     0.4160386276751178,
+     1.3437712001295954
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_W_9_01_0020",
+    "scale": 1.0,
+    "usd": "slice://pier_W_9_01_0020",
+    "x_m": -9.355650123501432,
+    "y_m": -1.919791529315291,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967428706624
+   },
+   {
+    "_bay": 10,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6972905290797584,
+     1.6667611482499183,
+     1.3437711997098485
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_10_01_0021",
+    "scale": 1.0,
+    "usd": "slice://wall_W_10_01_0021",
+    "x_m": -9.332554342137787,
+    "y_m": -0.1718865039841229,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967432904093
+   },
+   {
+    "_bay": 12,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6772905181044635,
+     0.7658942563879103,
+     1.3017511109900228
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_W_12_01_0022",
+    "scale": 1.0,
+    "usd": "slice://pier_W_12_01_0022",
+    "x_m": -9.326905625546242,
+    "y_m": 4.7492829209847445,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967447403801
+   },
+   {
+    "_bay": 13,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6772905344947588,
+     1.316905524803543,
+     1.3017511191721378
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_13_01_0023",
+    "scale": 1.0,
+    "usd": "slice://wall_W_13_01_0023",
+    "x_m": -9.30431003881247,
+    "y_m": 6.512494324458895,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967365582651
+   },
+   {
+    "_bay": 15,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.7172905151381137,
+     1.1157498924680471,
+     1.411474527087618
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_W_15_01_0024",
+    "scale": 1.0,
+    "usd": "slice://pier_W_15_01_0024",
+    "x_m": -9.381147525470295,
+    "y_m": 11.424244123795722,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967435638477
+   },
+   {
+    "_bay": 16,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.717290539653849,
+     0.9670499023162105,
+     1.4114745354196045
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_16_01_0025",
+    "scale": 1.0,
+    "usd": "slice://wall_W_16_01_0025",
+    "x_m": -9.363757900091416,
+    "y_m": 13.174981671008629,
+    "yaw_deg": 0.0,
+    "z_m": 1.864996735231861
+   },
+   {
+    "_bay": 18,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.66729051254117,
+     1.4656054852907943,
+     1.3182658180962705
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_W_18_01_0026",
+    "scale": 1.0,
+    "usd": "slice://pier_W_18_01_0026",
+    "x_m": -9.32704091536329,
+    "y_m": 18.095952514499363,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967428706624
+   },
+   {
+    "_bay": 19,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.667290529108179,
+     0.6171942801231545,
+     1.3182658176765236
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_W_19_01_0027",
+    "scale": 1.0,
+    "usd": "slice://wall_W_19_01_0027",
+    "x_m": -9.30970806037419,
+    "y_m": 19.848056288555895,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967432904093
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0049809510925805,
+     1.819962534291225,
+     1.257045796672812
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_0_01_0028",
+    "scale": 1.0,
+    "usd": "slice://pier_E_0_01_0028",
+    "x_m": 9.104185604422064,
+    "y_m": -23.548230829506355,
+    "yaw_deg": 0.0,
+    "z_m": 2.628264945445098
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.6229866150620058,
+     3.3599306759207828,
+     2.0845759527036645
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_1_01_0029",
+    "scale": 1.0,
+    "usd": "slice://wall_E_1_01_0029",
+    "x_m": 9.10110740169435,
+    "y_m": -20.915083664711258,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967246787018
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     1.8199624484388686,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_2_01_0030",
+    "scale": 1.0,
+    "usd": "slice://pier_E_2_01_0030",
+    "x_m": 9.143294428072483,
+    "y_m": -18.360136808543135,
+    "yaw_deg": 0.0,
+    "z_m": 2.6676349082396547
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     1.8199624512240007,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_3_01_0031",
+    "scale": 1.0,
+    "usd": "slice://pier_E_3_01_0031",
+    "x_m": 9.12783087341533,
+    "y_m": -16.546760543853917,
+    "yaw_deg": 0.0,
+    "z_m": 2.6676349082396547
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.7026130716337118,
+     3.3599306504944977,
+     2.1488378806439963
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_4_01_0032",
+    "scale": 1.0,
+    "usd": "slice://wall_E_4_01_0032",
+    "x_m": 9.110755260848451,
+    "y_m": -13.95988398135635,
+    "yaw_deg": 0.0,
+    "z_m": 1.864996732002827
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     1.8199624776612993,
+     1.3068297416126113
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_5_01_0033",
+    "scale": 1.0,
+    "usd": "slice://pier_E_5_01_0033",
+    "x_m": 9.117102676872857,
+    "y_m": -11.340498388704123,
+    "yaw_deg": 0.0,
+    "z_m": 2.707004871034212
+   },
+   {
+    "_bay": 6,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     1.8199625169910405,
+     1.3068297416126113
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_6_01_0034",
+    "scale": 1.0,
+    "usd": "slice://pier_E_6_01_0034",
+    "x_m": 9.099760898808954,
+    "y_m": -9.519982390370835,
+    "yaw_deg": 0.0,
+    "z_m": 2.707004871034212
+   },
+   {
+    "_bay": 7,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.6911109780935174,
+     3.3599306798756983,
+     2.1488378771917995
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_7_01_0035",
+    "scale": 1.0,
+    "usd": "slice://wall_E_7_01_0035",
+    "x_m": 9.102656649665734,
+    "y_m": -7.02146671344651,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967354550236
+   },
+   {
+    "_bay": 8,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.024980950715367,
+     1.8199624526403628,
+     1.2694917829077617
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_8_01_0036",
+    "scale": 1.0,
+    "usd": "slice://pier_E_8_01_0036",
+    "x_m": 9.115312777920186,
+    "y_m": -4.385881870140868,
+    "yaw_deg": 0.0,
+    "z_m": 2.6479499268423763
+   },
+   {
+    "_bay": 9,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.024980950715367,
+     1.819962439224252,
+     1.2694917829077617
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_9_01_0037",
+    "scale": 1.0,
+    "usd": "slice://pier_E_9_01_0037",
+    "x_m": 9.118824402427256,
+    "y_m": -2.586838724704138,
+    "yaw_deg": 0.0,
+    "z_m": 2.6479499268423763
+   },
+   {
+    "_bay": 10,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.657945073215215,
+     3.359930629382923,
+     2.052444998838717
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_10_01_0038",
+    "scale": 1.0,
+    "usd": "slice://wall_E_10_01_0038",
+    "x_m": 9.104671365289825,
+    "y_m": -0.11512709740253163,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967109114212
+   },
+   {
+    "_bay": 11,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0449809501997827,
+     1.8199624925993099,
+     1.257045796672812
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_11_01_0039",
+    "scale": 1.0,
+    "usd": "slice://pier_E_11_01_0039",
+    "x_m": 9.129979374868965,
+    "y_m": 2.6431502450811495,
+    "yaw_deg": 0.0,
+    "z_m": 2.628264945445098
+   },
+   {
+    "_bay": 12,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.6629864599252357,
+     1.819962474545751,
+     2.0203140174392082
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_12_01_0040",
+    "scale": 1.0,
+    "usd": "slice://pier_E_12_01_0040",
+    "x_m": 9.10734910093292,
+    "y_m": 4.62681098791152,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967246787018
+   },
+   {
+    "_bay": 13,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.6629866023142856,
+     3.359930655476205,
+     2.1167069203358926
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_13_01_0041",
+    "scale": 1.0,
+    "usd": "slice://wall_E_13_01_0041",
+    "x_m": 9.087785488656879,
+    "y_m": 7.320176914745793,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967246787018
+   },
+   {
+    "_bay": 14,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0049809510925805,
+     1.819962505164474,
+     1.2943837553776611
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_14_01_0042",
+    "scale": 1.0,
+    "usd": "slice://pier_E_14_01_0042",
+    "x_m": 9.101500714193495,
+    "y_m": 9.629985715723736,
+    "yaw_deg": 0.0,
+    "z_m": 2.6873198896369335
+   },
+   {
+    "_bay": 15,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.666998888523132,
+     1.819962460990558,
+     2.116706934816391
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_15_01_0043",
+    "scale": 1.0,
+    "usd": "slice://pier_E_15_01_0043",
+    "x_m": 9.089333267527644,
+    "y_m": 11.44579953077639,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967101982035
+   },
+   {
+    "_bay": 16,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.666999033351516,
+     3.359930690542301,
+     2.0524449995519345
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_16_01_0044",
+    "scale": 1.0,
+    "usd": "slice://wall_E_16_01_0044",
+    "x_m": 9.105583739266178,
+    "y_m": 14.15081519821796,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967101982035
+   },
+   {
+    "_bay": 17,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     1.819962442510322,
+     1.2694917829077617
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_17_01_0045",
+    "scale": 1.0,
+    "usd": "slice://pier_E_17_01_0045",
+    "x_m": 9.134501182603556,
+    "y_m": 16.60783416701509,
+    "yaw_deg": 0.0,
+    "z_m": 2.6479499268423763
+   },
+   {
+    "_bay": 18,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.687945085733185,
+     1.8199624672528039,
+     2.052444998838717
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_18_01_0046",
+    "scale": 1.0,
+    "usd": "slice://pier_E_18_01_0046",
+    "x_m": 9.116035269027467,
+    "y_m": 18.240641056462103,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967109114212
+   },
+   {
+    "_bay": 19,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.0149809734439188,
+     3.3599306904026136,
+     2.084575966470945
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_E_19_01_0047",
+    "scale": 1.0,
+    "usd": "slice://wall_E_19_01_0047",
+    "x_m": 9.090356386736852,
+    "y_m": 21.067672836512536,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967109114212
+   },
+   {
+    "_bay": 20,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     1.8199624763366025,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_E_20_01_0048",
+    "scale": 1.0,
+    "usd": "slice://pier_E_20_01_0048",
+    "x_m": 9.110226231295615,
+    "y_m": 23.634557521735914,
+    "yaw_deg": 0.0,
+    "z_m": 2.6676349082396547
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     16.773237530214036,
+     48.99898840025806,
+     3.7299938553209633
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "core_x_0_01_0049",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_01_0049",
+    "x_m": 3.250756200649839,
+    "y_m": -0.10388314254704142,
+    "yaw_deg": 0.0,
+    "z_m": 1.8649967010813309
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.0530155640412158,
+     1.0660012302725441,
+     3.729993647950905
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_0_02_0050",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_02_0050",
+    "x_m": -6.58020417420684,
+    "y_m": -24.95692427134329,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990114723832
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577037910144,
+     2.0999970458888697,
+     3.7299936073251443
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_1_02_0051",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_02_0051",
+    "x_m": -4.327783526978124,
+    "y_m": -25.169201300462205,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990155349593
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805210277633718,
+     2.099997627128719,
+     3.7299935186694997
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_2_02_0052",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_02_0052",
+    "x_m": -0.7584999958111126,
+    "y_m": -25.38034648630731,
+    "yaw_deg": 0.0,
+    "z_m": 5.59499020440991
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805210286794763,
+     2.0999982124373737,
+     3.7299934947220246
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_3_02_0053",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_02_0053",
+    "x_m": 1.0729903940830263,
+    "y_m": -25.442157742462918,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990216634401
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577067518471,
+     2.099999302634963,
+     3.7299934515295643
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_4_02_0054",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_02_0054",
+    "x_m": 4.279754770252744,
+    "y_m": -25.27332539389415,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990248103878
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.570298687485585,
+     2.1000000404275028,
+     3.7299935622866593
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_5_02_0055",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_02_0055",
+    "x_m": 7.245218146595966,
+    "y_m": -25.329002323051704,
+    "yaw_deg": 0.0,
+    "z_m": 5.59499022275648
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     3.9864367463524197,
+     2.1000000328486585,
+     3.729993680941371
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_1_02_0056",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_02_0056",
+    "x_m": -5.771136346799549,
+    "y_m": 25.537171592671378,
+    "yaw_deg": 0.0,
+    "z_m": 5.5949901741197525
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180521006740463,
+     2.0999989877174094,
+     3.7299936155689837
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_2_02_0057",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_02_0057",
+    "x_m": -0.6755354568200616,
+    "y_m": 25.717276408973124,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990225336933
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805209878122582,
+     2.0999984064775603,
+     3.7299936077515836
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_3_02_0058",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_02_0058",
+    "x_m": 0.9886403092199068,
+    "y_m": 25.85844136449053,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990225336933
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577013703658,
+     2.0999978389486493,
+     3.7299935999341836
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_4_02_0059",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_02_0059",
+    "x_m": 4.509374288611258,
+    "y_m": 25.764866112203602,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990225336933
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.6331554526675243,
+     2.099996799586762,
+     3.7299936837234764
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_5_02_0060",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_02_0060",
+    "x_m": 6.661319036366654,
+    "y_m": 25.584351199840512,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990139065715
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     15.32998002119406,
+     48.99898842100626,
+     3.729993903688462
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "core_x_0_02_0061",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_02_0061",
+    "x_m": 2.553216342033651,
+    "y_m": 0.08246577891882433,
+    "yaw_deg": 0.0,
+    "z_m": 5.594990114723832
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.164258709178661,
+     1.4649620634271692,
+     0.5617595005372173
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_0_03_0062",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_03_0062",
+    "x_m": -6.651717477706047,
+    "y_m": -24.89148018917503,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983734334005
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.0255770253197625,
+     2.099997063606093,
+     3.729993645952497
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_1_03_0063",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_03_0063",
+    "x_m": -5.498206103649595,
+    "y_m": -25.2294483241657,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983637543907
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805210457411763,
+     2.0999976303279126,
+     3.729993622209898
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_2_03_0064",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_03_0064",
+    "x_m": -0.660349143136873,
+    "y_m": -25.478100488381422,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983653940034
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180521149922478,
+     2.099998229207838,
+     3.7299936257926323
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_3_03_0065",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_03_0065",
+    "x_m": 1.1155070877958009,
+    "y_m": -25.668716412861613,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983646344254
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577188765042,
+     2.0999993191714736,
+     3.729993625066477
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_S_4_03_0066",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_03_0066",
+    "x_m": 4.651515200491135,
+    "y_m": -25.382908082258588,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983643451583
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.4403565526779811,
+     2.1000000335238695,
+     3.7108195329659797
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_S_5_03_0067",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_03_0067",
+    "x_m": 6.678503205644254,
+    "y_m": -25.45868582551191,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983612693545
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.16992051652829954,
+     0.16992050906238276,
+     0.23545799448342564
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_0_03_0068",
+    "scale": 1.0,
+    "usd": "slice://pier_N_0_03_0068",
+    "x_m": -6.193571294482455,
+    "y_m": 24.59222140524605,
+    "yaw_deg": 0.0,
+    "z_m": 9.834387310820741
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577028685522,
+     2.1000000875934184,
+     3.7299935018188943
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_1_03_0069",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_03_0069",
+    "x_m": -5.442435971074022,
+    "y_m": 25.4997694057489,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983759153175
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180520993666913,
+     2.099999035124604,
+     3.729993459797379
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_2_03_0070",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_03_0070",
+    "x_m": -1.2049129532585303,
+    "y_m": 25.08831999452997,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983798365407
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180520935766014,
+     2.0999984538847514,
+     3.7299935216321387
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_3_03_0071",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_03_0071",
+    "x_m": 1.5214820510855007,
+    "y_m": 25.231346192656673,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983737942784
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577127661109,
+     2.0999978317814367,
+     3.729993479065474
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_N_4_03_0072",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_03_0072",
+    "x_m": 3.6538604276198745,
+    "y_m": 25.200211518714934,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983783835732
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.5134982390269194,
+     2.099996799586762,
+     3.7299935729162463
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "pier_N_5_03_0073",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_03_0073",
+    "x_m": 6.518899958805598,
+    "y_m": 25.55698410202678,
+    "yaw_deg": 0.0,
+    "z_m": 9.32498368971179
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     15.375827397946392,
+     48.99898840158298,
+     3.7299937448525817
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "core_x_0_03_0074",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_03_0074",
+    "x_m": 2.825764557077825,
+    "y_m": -0.35761883290456326,
+    "yaw_deg": 0.0,
+    "z_m": 9.324983573327781
+   },
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "x",
+    "_size": [
+     13.670627793879179,
+     53.19898749677496,
+     1.8649968276287865
+    ],
+    "_storey": 4,
+    "category": "bld_aec_Reference_Brownstone8Row_storey",
+    "name": "wall_x_0_04_0075",
+    "scale": 1.0,
+    "usd": "slice://wall_x_0_04_0075",
+    "x_m": 2.099857753233108,
+    "y_m": 1.4908970174626135,
+    "yaw_deg": 0.0,
+    "z_m": 13.05497718375246
+   }
+  ],
+  "signature": "12ca8a9e418541ca",
+  "slice_s": 42.25,
+  "src_usd": "/isaac-sim/AirStack/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone8Row.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/kits/aec:Reference_Brownstone8Row__12ca8a9e418541ca.usd"
+ },
+ {
+  "asset": "aec:Reference_Brownstone10Row",
+  "bake_s": 53.62,
+  "fingerprint": "de5d39aa890b1f7d",
+  "grid": {
+   "D": 66.50378801867416,
+   "H": 15.204165428336017,
+   "W": 20.973237446250664,
+   "bays": {},
+   "bbox": [
+    [
+     -10.416869795621835,
+     -33.20100360533339,
+     -2.7755575615628914e-16
+    ],
+    [
+     10.556367650628829,
+     33.302784413340774,
+     15.204165428336017
+    ]
+   ],
+   "confidence": 0.0,
+   "measured": false,
+   "storey_h": 3.8010413570840043,
+   "storeys": [
+    -2.7755575615628914e-16,
+    3.801041357084004,
+    7.6020827141680085,
+    11.403124071252012,
+    15.204165428336017
+   ],
+   "z0": -2.7755575615628914e-16
+  },
+  "materials": 28,
+  "mb": 25.323,
+  "n_pieces": 74,
+  "pieces": [
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "x",
+    "_size": [
+     20.973237446250664,
+     66.50378801867416,
+     1.900520767697265
+    ],
+    "_storey": 0,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_x_0_00_0000",
+    "scale": 1.0,
+    "usd": "slice://wall_x_0_00_0000",
+    "x_m": 6.067801846113975,
+    "y_m": 0.3449798219327706,
+    "yaw_deg": 0.0,
+    "z_m": -2.7755575615628914e-16
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "SE",
+    "_size": [
+     1.0249809907799392,
+     2.0701454422092382,
+     2.189768319547415
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey_corner",
+    "name": "corner_SE_0_01_0001",
+    "scale": 1.0,
+    "usd": "slice://corner_SE_0_01_0001",
+    "x_m": 9.132865203015225,
+    "y_m": -32.34480813347887,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206719823775
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "NW",
+    "_size": [
+     1.707290525154363,
+     2.082799761233666,
+     1.3542076465741504
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey_corner",
+    "name": "corner_NW_0_01_0002",
+    "scale": 1.0,
+    "usd": "slice://corner_NW_0_01_0002",
+    "x_m": -9.39235331109218,
+    "y_m": 32.25362584374284,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206705999003
+   },
+   {
+    "_bay": 0,
+    "_role": "corner",
+    "_side": "NE",
+    "_size": [
+     1.6341150436543916,
+     1.5444990233930653,
+     2.0612440800423113
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey_corner",
+    "name": "corner_NE_0_01_0003",
+    "scale": 1.0,
+    "usd": "slice://corner_NE_0_01_0003",
+    "x_m": 9.046756431716526,
+    "y_m": 31.783274588346167,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206579272196
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.03301555650361,
+     1.0660012276836426,
+     3.8010413982747813
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_0_01_0004",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_01_0004",
+    "x_m": -6.638330763279093,
+    "y_m": -31.696934407924,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206497181137
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577106082692,
+     2.099997073554597,
+     3.801041515044458
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_1_01_0005",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_01_0005",
+    "x_m": -4.144211590555658,
+    "y_m": -32.23377758462061,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206345126875
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805209539216097,
+     2.0999976360191503,
+     3.8010414846277447
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_2_01_0006",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_01_0006",
+    "x_m": -0.7045020190581501,
+    "y_m": -32.12704455509266,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206670905936
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180521172144476,
+     2.0999982218773745,
+     3.801041471611107
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_3_01_0007",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_01_0007",
+    "x_m": 0.8573858937303637,
+    "y_m": -31.980093439683603,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520680107231
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577183072668,
+     2.099999299002132,
+     3.801041477586573
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_4_01_0008",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_01_0008",
+    "x_m": 3.9959868216301797,
+    "y_m": -32.280424517877435,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206741317653
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180520903862349,
+     2.100000042125874,
+     3.8010414904838754
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_5_01_0009",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_01_0009",
+    "x_m": 7.335495615103649,
+    "y_m": -32.29752244185206,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206612344627
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.18052090069966,
+     2.0873008932468835,
+     3.6932336055233055
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_0_01_0010",
+    "scale": 1.0,
+    "usd": "slice://pier_N_0_01_0010",
+    "x_m": -6.702302591391316,
+    "y_m": 32.10552339196737,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206675387383
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577012836186,
+     2.1000000538544583,
+     3.8010416010537416
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_1_01_0011",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_01_0011",
+    "x_m": -5.428914531952709,
+    "y_m": 32.221137421272665,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520667484665
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180520941933098,
+     2.0999989730870965,
+     3.8010415361264496
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_2_01_0012",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_01_0012",
+    "x_m": -0.7781694033190093,
+    "y_m": 32.3518623145823,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206781909756
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805210166800033,
+     2.0999984280253408,
+     3.8010415315381794
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_3_01_0013",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_01_0013",
+    "x_m": 0.7791957674082147,
+    "y_m": 32.18288575908909,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206827792458
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577098929067,
+     2.0999978013921883,
+     3.8010415315381794
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_4_01_0014",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_01_0014",
+    "x_m": 3.9269048822647354,
+    "y_m": 32.41693819560147,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206827792458
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805209069166107,
+     2.099996799586762,
+     3.801041586413197
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_5_01_0015",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_01_0015",
+    "x_m": 7.364176690731924,
+    "y_m": 32.21409467621163,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206455848604
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6972905275741077,
+     0.24154015057394673,
+     1.4463555737770868
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_0_01_0016",
+    "scale": 1.0,
+    "usd": "slice://pier_W_0_01_0016",
+    "x_m": -9.38043592602531,
+    "y_m": -28.52776403900168,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206691650862
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.697290519888906,
+     1.8412596287769532,
+     1.4463555883555999
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_1_01_0017",
+    "scale": 1.0,
+    "usd": "slice://wall_W_1_01_0017",
+    "x_m": -9.357155284444534,
+    "y_m": -26.77900461753459,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206545865732
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6772905253470718,
+     1.2756741589809657,
+     1.2784192565740793
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_2_01_0018",
+    "scale": 1.0,
+    "usd": "slice://pier_W_2_01_0018",
+    "x_m": -9.161835582616071,
+    "y_m": -21.819372976543324,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206659338265
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6772905262862832,
+     0.807125605719655,
+     1.2784192556783918
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_3_01_0019",
+    "scale": 1.0,
+    "usd": "slice://pier_W_3_01_0019",
+    "x_m": -9.149536782634899,
+    "y_m": -20.05821176403835,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520666829514
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.7172905350483756,
+     2.08279975441798,
+     1.3120929721900496
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_4_01_0020",
+    "scale": 1.0,
+    "usd": "slice://wall_W_4_01_0020",
+    "x_m": -9.2196885589549,
+    "y_m": -14.29187164175421,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206659338265
+   },
+   {
+    "_bay": 6,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.667290507432817,
+     1.059469945451485,
+     1.3198670900635046
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_6_01_0021",
+    "scale": 1.0,
+    "usd": "slice://pier_W_6_01_0021",
+    "x_m": -9.318411026340602,
+    "y_m": -8.532352182271529,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206705999003
+   },
+   {
+    "_bay": 7,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6672905311444168,
+     1.0233298314974588,
+     1.3198670900635046
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_7_01_0022",
+    "scale": 1.0,
+    "usd": "slice://wall_W_7_01_0022",
+    "x_m": -9.295933615082165,
+    "y_m": -6.768805607105181,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206705999003
+   },
+   {
+    "_bay": 8,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.7072905241125689,
+     2.0827997703537404,
+     1.4047407324691306
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_8_01_0023",
+    "scale": 1.0,
+    "usd": "slice://pier_W_8_01_0023",
+    "x_m": -9.420316710169214,
+    "y_m": -0.9982737004991418,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206746201408
+   },
+   {
+    "_bay": 10,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6972905226421897,
+     2.0827997538739105,
+     1.3204393550480344
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_10_01_0024",
+    "scale": 1.0,
+    "usd": "slice://wall_W_10_01_0024",
+    "x_m": -9.393030480417503,
+    "y_m": 5.653225823484777,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206430663089
+   },
+   {
+    "_bay": 12,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.6772905253470718,
+     1.8773997159663462,
+     1.2784192565740793
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_12_01_0025",
+    "scale": 1.0,
+    "usd": "slice://pier_W_12_01_0025",
+    "x_m": -9.157660143078305,
+    "y_m": 11.471960257851936,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206659338265
+   },
+   {
+    "_bay": 13,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.7172905296549246,
+     4.984303041974481,
+     1.388142653637423
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_13_01_0026",
+    "scale": 1.0,
+    "usd": "slice://wall_W_13_01_0026",
+    "x_m": -9.282342225818496,
+    "y_m": 16.017657663838662,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206667376933
+   },
+   {
+    "_bay": 14,
+    "_role": "pier",
+    "_side": "W",
+    "_size": [
+     1.7172905415032993,
+     1.871096851764971,
+     1.3881426718439813
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_W_14_01_0027",
+    "scale": 1.0,
+    "usd": "slice://pier_W_14_01_0027",
+    "x_m": -9.350128591888382,
+    "y_m": 19.767292524625674,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520648531135
+   },
+   {
+    "_bay": 16,
+    "_role": "wall",
+    "_side": "W",
+    "_size": [
+     1.6672905192349354,
+     2.0827997458771037,
+     1.2949340081025453
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_W_16_01_0028",
+    "scale": 1.0,
+    "usd": "slice://wall_W_16_01_0028",
+    "x_m": -9.374063004014324,
+    "y_m": 25.59886433768574,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206434442496
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.024980950715367,
+     2.699830839232817,
+     1.3317218624503706
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_0_01_0029",
+    "scale": 1.0,
+    "usd": "slice://pier_E_0_01_0029",
+    "x_m": 9.109094606250776,
+    "y_m": -29.78252633598529,
+    "yaw_deg": 0.0,
+    "z_m": 2.758567129079422
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.7011109678789644,
+     4.984303110991576,
+     2.1897683431951136
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_1_01_0030",
+    "scale": 1.0,
+    "usd": "slice://wall_E_1_01_0030",
+    "x_m": 9.107323852509355,
+    "y_m": -26.045522190349924,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520648334679
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.633924110926289,
+     2.6998308492302208,
+     1.9969821459415678
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_2_01_0031",
+    "scale": 1.0,
+    "usd": "slice://pier_E_2_01_0031",
+    "x_m": 9.107350221430258,
+    "y_m": -22.148775845068556,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520656763507
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.633924226392029,
+     2.6998308553446186,
+     1.9969821459415678
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_3_01_0032",
+    "scale": 1.0,
+    "usd": "slice://pier_E_3_01_0032",
+    "x_m": 9.083431611940567,
+    "y_m": -19.285748228785952,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520656763507
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.5939242227502657,
+     4.984303075605828,
+     2.061244081206024
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_4_01_0033",
+    "scale": 1.0,
+    "usd": "slice://wall_E_4_01_0033",
+    "x_m": 9.095043831583327,
+    "y_m": -15.422021771443372,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520656763507
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     2.6998308407903497,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_5_01_0034",
+    "scale": 1.0,
+    "usd": "slice://pier_E_5_01_0034",
+    "x_m": 9.128953312982878,
+    "y_m": -11.658566100383503,
+    "yaw_deg": 0.0,
+    "z_m": 2.6798269688268195
+   },
+   {
+    "_bay": 6,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.6741149409006955,
+     2.699830881720824,
+     2.0612440800423113
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_6_01_0035",
+    "scale": 1.0,
+    "usd": "slice://pier_E_6_01_0035",
+    "x_m": 9.111993153389637,
+    "y_m": -8.961046154497236,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206579272196
+   },
+   {
+    "_bay": 7,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.6741150502515758,
+     4.984303080554003,
+     2.125506015306768
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_7_01_0036",
+    "scale": 1.0,
+    "usd": "slice://wall_E_7_01_0036",
+    "x_m": 9.088173749666982,
+    "y_m": -5.021220556004114,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206579272196
+   },
+   {
+    "_bay": 8,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.6631557367736303,
+     2.1462246256874558,
+     2.1255060201781317
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_8_01_0037",
+    "scale": 1.0,
+    "usd": "slice://pier_E_8_01_0037",
+    "x_m": 9.057853457794312,
+    "y_m": -1.6721758745855864,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206530558558
+   },
+   {
+    "_bay": 9,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0249809907799392,
+     2.671871025926051,
+     2.029113092507586
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_9_01_0038",
+    "scale": 1.0,
+    "usd": "slice://pier_E_9_01_0038",
+    "x_m": 9.12227753221415,
+    "y_m": 1.2108848426451244,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206778297168
+   },
+   {
+    "_bay": 10,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.6291676201029084,
+     4.98430307438946,
+     2.02911311796563
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_10_01_0039",
+    "scale": 1.0,
+    "usd": "slice://wall_E_10_01_0039",
+    "x_m": 9.100336166536835,
+    "y_m": 5.287936311180794,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206523716727
+   },
+   {
+    "_bay": 11,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0449809501997827,
+     2.699830921583999,
+     1.257045796672812
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_11_01_0040",
+    "scale": 1.0,
+    "usd": "slice://pier_E_11_01_0040",
+    "x_m": 9.127959729035128,
+    "y_m": 9.095462050552504,
+    "yaw_deg": 0.0,
+    "z_m": 2.6404570060322627
+   },
+   {
+    "_bay": 12,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.6339242352642973,
+     2.3624288460555505,
+     1.9969821459415678
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_12_01_0041",
+    "scale": 1.0,
+    "usd": "slice://pier_E_12_01_0041",
+    "x_m": 9.077266294178715,
+    "y_m": 11.502986854075324,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520656763507
+   },
+   {
+    "_bay": 13,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.0049809552951618,
+     4.74013897629527,
+     2.093375028024864
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_13_01_0042",
+    "scale": 1.0,
+    "usd": "slice://wall_E_13_01_0042",
+    "x_m": 9.101059859736104,
+    "y_m": 15.50170521296297,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206775768952
+   },
+   {
+    "_bay": 14,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.638775023415878,
+     2.699830837702425,
+     2.09337507536965
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_14_01_0043",
+    "scale": 1.0,
+    "usd": "slice://pier_E_14_01_0043",
+    "x_m": 9.109716199618655,
+    "y_m": 19.380992011208665,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206302321092
+   },
+   {
+    "_bay": 15,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0549809871627307,
+     2.6998308584269317,
+     1.2694917829077617
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_15_01_0044",
+    "scale": 1.0,
+    "usd": "slice://pier_E_15_01_0044",
+    "x_m": 9.123447738564822,
+    "y_m": 22.157765021402525,
+    "yaw_deg": 0.0,
+    "z_m": 2.660141987429541
+   },
+   {
+    "_bay": 16,
+    "_role": "wall",
+    "_side": "E",
+    "_size": [
+     1.659167632889499,
+     4.984303081974108,
+     2.061244085597858
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_E_16_01_0045",
+    "scale": 1.0,
+    "usd": "slice://wall_E_16_01_0045",
+    "x_m": 9.102811701090486,
+    "y_m": 25.99482122613354,
+    "yaw_deg": 0.0,
+    "z_m": 1.9005206523716727
+   },
+   {
+    "_bay": 17,
+    "_role": "pier",
+    "_side": "E",
+    "_size": [
+     1.0149809510400694,
+     2.699830867559438,
+     1.2819377691427114
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_E_17_01_0046",
+    "scale": 1.0,
+    "usd": "slice://pier_E_17_01_0046",
+    "x_m": 9.104665817031092,
+    "y_m": 29.86382143271468,
+    "yaw_deg": 0.0,
+    "z_m": 2.6798269688268195
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     16.773237527268527,
+     62.30378810287259,
+     3.8010416601939956
+    ],
+    "_storey": 1,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "core_x_0_01_0047",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_01_0047",
+    "x_m": 3.2628459929380176,
+    "y_m": -0.08035461761693179,
+    "yaw_deg": 0.0,
+    "z_m": 1.900520608344411
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.0330155596491286,
+     1.0660012239369756,
+     3.801041429400729
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_0_02_0048",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_02_0048",
+    "x_m": -6.568756198851641,
+    "y_m": -31.633204168877782,
+    "yaw_deg": 0.0,
+    "z_m": 5.701561993891612
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577038181249,
+     2.0999970405576818,
+     3.801041415833602
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_1_02_0049",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_02_0049",
+    "x_m": -4.299665790967837,
+    "y_m": -31.81559007266986,
+    "yaw_deg": 0.0,
+    "z_m": 5.701561997055432
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805209868969535,
+     2.0999976217975167,
+     3.8010413782084473
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_2_02_0050",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_02_0050",
+    "x_m": -0.762890891010864,
+    "y_m": -32.02363445084606,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562007192798
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805209281577564,
+     2.0999982017296297,
+     3.801041364602364
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_3_02_0051",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_02_0051",
+    "x_m": 1.0960851398975626,
+    "y_m": -32.06652808421483,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562009353992
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.0255770638698705,
+     2.0999992897869078,
+     3.8010413531574763
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_4_02_0052",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_02_0052",
+    "x_m": 4.2929708249990695,
+    "y_m": -31.917509769217514,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562009353992
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.590298686160697,
+     2.10000003291065,
+     3.8010414617104544
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_5_02_0053",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_02_0053",
+    "x_m": 7.2608582065048894,
+    "y_m": -31.98262883629343,
+    "yaw_deg": 0.0,
+    "z_m": 5.701561938641097
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     3.986436720676101,
+     2.100000032848662,
+     3.801041403741179
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_1_02_0054",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_02_0054",
+    "x_m": -5.761620532063976,
+    "y_m": 32.174124132684376,
+    "yaw_deg": 0.0,
+    "z_m": 5.7015620369683635
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180521012082258,
+     2.0999989877173917,
+     3.8010413458425676
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_2_02_0055",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_02_0055",
+    "x_m": -0.6798247583541144,
+    "y_m": 32.36831967684549,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562089317268
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.1805209685306037,
+     2.0999984064775603,
+     3.8010414237521033
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_3_02_0056",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_02_0056",
+    "x_m": 1.0740636158032106,
+    "y_m": 32.513173337101456,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562008342833
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577020203885,
+     2.0999978389486564,
+     3.8010413397127687
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_4_02_0057",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_02_0057",
+    "x_m": 4.441480441650712,
+    "y_m": 32.42940723224896,
+    "yaw_deg": 0.0,
+    "z_m": 5.701562089317268
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.6331554548434042,
+     2.099996799586769,
+     3.801041418439781
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_5_02_0058",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_02_0058",
+    "x_m": 6.661326430313737,
+    "y_m": 32.23697793429622,
+    "yaw_deg": 0.0,
+    "z_m": 5.7015620197206625
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     15.32998002119406,
+     62.303788123620805,
+     3.8010417724623515
+    ],
+    "_storey": 2,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "core_x_0_02_0059",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_02_0059",
+    "x_m": 2.829136764627922,
+    "y_m": -0.10143635304341471,
+    "yaw_deg": 0.0,
+    "z_m": 5.701561895724719
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.1442586962039822,
+     1.444962072960461,
+     0.9456392069327535
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_0_03_0060",
+    "scale": 1.0,
+    "usd": "slice://pier_S_0_03_0060",
+    "x_m": -6.62708183472918,
+    "y_m": -31.546304933454376,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603391198896
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.025577061360865,
+     2.0999970582749263,
+     3.8010414666856107
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_1_03_0061",
+    "scale": 1.0,
+    "usd": "slice://wall_S_1_03_0061",
+    "x_m": -5.499850785687211,
+    "y_m": -31.885882749510365,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603288945439
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.1805209853976786,
+     2.0999976349312597,
+     3.801041419687053
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_2_03_0062",
+    "scale": 1.0,
+    "usd": "slice://pier_S_2_03_0062",
+    "x_m": -0.6215399005179666,
+    "y_m": -32.131526322363165,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603332090207
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     2.180521052137784,
+     2.099998233212915,
+     3.8010414182026704
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_3_03_0063",
+    "scale": 1.0,
+    "usd": "slice://pier_S_3_03_0063",
+    "x_m": 1.1151007557670396,
+    "y_m": -32.335034676366675,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603332182755
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "S",
+    "_size": [
+     4.02557710535972,
+     2.09999930906935,
+     3.801041423640692
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_S_4_03_0064",
+    "scale": 1.0,
+    "usd": "slice://wall_S_4_03_0064",
+    "x_m": 4.669038643725338,
+    "y_m": -31.996623868402605,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603326910048
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "S",
+    "_size": [
+     1.4603565546845179,
+     2.1000000348395247,
+     3.8010414568275266
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_S_5_03_0065",
+    "scale": 1.0,
+    "usd": "slice://pier_S_5_03_0065",
+    "x_m": 6.75236499474685,
+    "y_m": -32.076201336865076,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603296493188
+   },
+   {
+    "_bay": 0,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.16992051652829954,
+     0.16992050906238276,
+     0.23545799448342564
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_0_03_0066",
+    "scale": 1.0,
+    "usd": "slice://pier_N_0_03_0066",
+    "x_m": -6.193571294482455,
+    "y_m": 31.244621256553316,
+    "yaw_deg": 0.0,
+    "z_m": 9.846579371407906
+   },
+   {
+    "_bay": 1,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.0255770877018,
+     2.100000087593422,
+     3.801041429436742
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_1_03_0067",
+    "scale": 1.0,
+    "usd": "slice://wall_N_1_03_0067",
+    "x_m": -5.424961545637795,
+    "y_m": 32.13452375147147,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603331396841
+   },
+   {
+    "_bay": 2,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180521028407844,
+     2.099999035124604,
+     3.801041372961329
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_2_03_0068",
+    "scale": 1.0,
+    "usd": "slice://pier_N_2_03_0068",
+    "x_m": -1.2180842828789962,
+    "y_m": 31.755226518127646,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603378514523
+   },
+   {
+    "_bay": 3,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     2.180520997408533,
+     2.0999984538847443,
+     3.801041372666795
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_3_03_0069",
+    "scale": 1.0,
+    "usd": "slice://pier_N_3_03_0069",
+    "x_m": 1.638944507947112,
+    "y_m": 31.83463788030051,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603378514523
+   },
+   {
+    "_bay": 4,
+    "_role": "wall",
+    "_side": "N",
+    "_size": [
+     4.025577126483614,
+     2.0999978340323118,
+     3.8010413723722625
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_N_4_03_0070",
+    "scale": 1.0,
+    "usd": "slice://wall_N_4_03_0070",
+    "x_m": 3.297354399777051,
+    "y_m": 31.86281382812302,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603378514523
+   },
+   {
+    "_bay": 5,
+    "_role": "pier",
+    "_side": "N",
+    "_size": [
+     0.5134982411978974,
+     2.099996799586769,
+     3.7914917457645636
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "pier_N_5_03_0071",
+    "scale": 1.0,
+    "usd": "slice://pier_N_5_03_0071",
+    "x_m": 6.512958369191091,
+    "y_m": 32.22289373770487,
+    "yaw_deg": 0.0,
+    "z_m": 9.502603347991933
+   },
+   {
+    "_bay": 0,
+    "_role": "core",
+    "_side": "-",
+    "_size": [
+     15.385827397722874,
+     62.30378808786641,
+     3.801041539493756
+    ],
+    "_storey": 3,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "core_x_0_03_0072",
+    "scale": 1.0,
+    "usd": "slice://core_x_0_03_0072",
+    "x_m": 2.5224487772967903,
+    "y_m": -0.3549961873058431,
+    "yaw_deg": 0.0,
+    "z_m": 9.5026032465397
+   },
+   {
+    "_bay": 0,
+    "_role": "wall",
+    "_side": "x",
+    "_size": [
+     13.670627793879179,
+     66.50378801867416,
+     1.900520719516983
+    ],
+    "_storey": 4,
+    "category": "bld_aec_Reference_Brownstone10Row_storey",
+    "name": "wall_x_0_04_0073",
+    "scale": 1.0,
+    "usd": "slice://wall_x_0_04_0073",
+    "x_m": 2.017760441167197,
+    "y_m": 1.0737512733507855,
+    "yaw_deg": 0.0,
+    "z_m": 13.303644708819034
+   }
+  ],
+  "signature": "742767569035c9fa",
+  "slice_s": 53.5,
+  "src_usd": "/isaac-sim/AirStack/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone10Row.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/kits/aec:Reference_Brownstone10Row__742767569035c9fa.usd"
+ },
+ {
   "asset": "aec:Reference_Brownstone5Row",
-  "bake_s": 25.44,
-  "fingerprint": "282514f0e28ff8b6",
+  "bake_s": 21.54,
+  "fingerprint": "81d488fd4f032f3e",
   "grid": {
    "D": 33.25378876186957,
    "H": 14.777865845169327,
@@ -183191,8 +190037,8 @@
    ],
    "z0": 3.191891195797325e-16
   },
-  "materials": 125,
-  "mb": 12.815,
+  "materials": 28,
+  "mb": 12.819,
   "n_pieces": 63,
   "pieces": [
    {
@@ -184394,982 +191240,8 @@
    }
   ],
   "signature": "b2495d1f4b1ba369",
-  "slice_s": 25.36,
+  "slice_s": 21.46,
   "src_usd": "/isaac-sim/AirStack/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone5Row.usd",
   "usd": "/isaac-sim/AirStack/scene_gen/assets/kits/aec:Reference_Brownstone5Row__b2495d1f4b1ba369.usd"
- },
- {
-  "asset": "aec:Reference_Brownstone2Row",
-  "bake_s": 7.82,
-  "fingerprint": "282514f0e28ff8b6",
-  "grid": {
-   "D": 13.303789207786823,
-   "H": 14.63578428833084,
-   "W": 20.96323744647418,
-   "bays": {},
-   "bbox": [
-    [
-     -10.411869795733601,
-     -6.601004199889724,
-     1.5265566588595902e-16
-    ],
-    [
-     10.55136765074058,
-     6.7027850078970985,
-     14.63578428833084
-    ]
-   ],
-   "confidence": 0.0,
-   "measured": false,
-   "storey_h": 3.65894607208271,
-   "storeys": [
-    1.5265566588595902e-16,
-    3.65894607208271,
-    7.31789214416542,
-    10.97683821624813,
-    14.63578428833084
-   ],
-   "z0": 1.5265566588595902e-16
-  },
-  "materials": 50,
-  "mb": 5.25,
-  "n_pieces": 49,
-  "pieces": [
-   {
-    "_bay": 0,
-    "_role": "wall",
-    "_side": "x",
-    "_size": [
-     20.96323744647418,
-     13.303789207786823,
-     1.8294730946315918
-    ],
-    "_storey": 0,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_x_0_00_0000",
-    "scale": 1.0,
-    "usd": "slice://wall_x_0_00_0000",
-    "x_m": 6.107336303192358,
-    "y_m": 0.32292007424590774,
-    "yaw_deg": 0.0,
-    "z_m": 1.5265566588595902e-16
-   },
-   {
-    "_bay": 0,
-    "_role": "corner",
-    "_side": "SE",
-    "_size": [
-     1.0549809871627307,
-     2.0701454422092427,
-     2.07577668749558
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey_corner",
-    "name": "corner_SE_0_01_0001",
-    "scale": 1.0,
-    "usd": "slice://corner_SE_0_01_0001",
-    "x_m": 9.142413321530057,
-    "y_m": -5.744696316520772,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294730343373726
-   },
-   {
-    "_bay": 0,
-    "_role": "corner",
-    "_side": "NW",
-    "_size": [
-     1.71729052844481,
-     2.0827997817985615,
-     1.4094563555912227
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey_corner",
-    "name": "corner_NW_0_01_0002",
-    "scale": 1.0,
-    "usd": "slice://corner_NW_0_01_0002",
-    "x_m": -9.441477058984479,
-    "y_m": 5.651874325312868,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294730152021472
-   },
-   {
-    "_bay": 0,
-    "_role": "corner",
-    "_side": "NE",
-    "_size": [
-     1.691110954037578,
-     1.5444990233930618,
-     2.10790769235441
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey_corner",
-    "name": "corner_NE_0_01_0003",
-    "scale": 1.0,
-    "usd": "slice://corner_NE_0_01_0003",
-    "x_m": 9.045448431491193,
-    "y_m": 5.189263953202938,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294729971107708
-   },
-   {
-    "_bay": 1,
-    "_role": "wall",
-    "_side": "S",
-    "_size": [
-     1.3134538369693356,
-     2.099996029561181,
-     3.6589462319103285
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_S_1_01_0004",
-    "scale": 1.0,
-    "usd": "slice://wall_S_1_01_0004",
-    "x_m": -6.565562443545609,
-    "y_m": -5.157058924673286,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294729769451168
-   },
-   {
-    "_bay": 2,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716883888894476,
-     2.099996284396423,
-     3.6589460948957653
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_2_01_0005",
-    "scale": 1.0,
-    "usd": "slice://pier_S_2_01_0005",
-    "x_m": -5.376727368980173,
-    "y_m": -5.680760938534503,
-    "yaw_deg": 0.0,
-    "z_m": 1.829473021741153
-   },
-   {
-    "_bay": 3,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716883937257505,
-     2.099996495457357,
-     3.6589460757657335
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_3_01_0006",
-    "scale": 1.0,
-    "usd": "slice://pier_S_3_01_0006",
-    "x_m": -4.52752224338747,
-    "y_m": -5.844625251782856,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294730422241392
-   },
-   {
-    "_bay": 4,
-    "_role": "wall",
-    "_side": "S",
-    "_size": [
-     1.6092708918053416,
-     2.0999969676982158,
-     3.6589460769105413
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_S_4_01_0007",
-    "scale": 1.0,
-    "usd": "slice://wall_S_4_01_0007",
-    "x_m": -3.1424318169356207,
-    "y_m": -5.731921307600341,
-    "yaw_deg": 0.0,
-    "z_m": 1.829473043577094
-   },
-   {
-    "_bay": 5,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716885003881627,
-     2.0999971778161166,
-     3.6589460757657335
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_5_01_0008",
-    "scale": 1.0,
-    "usd": "slice://pier_S_5_01_0008",
-    "x_m": -2.1600737575381674,
-    "y_m": -5.685603523829592,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294730460748567
-   },
-   {
-    "_bay": 6,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716885028110424,
-     2.099997402205303,
-     3.6589460757657335
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_6_01_0009",
-    "scale": 1.0,
-    "usd": "slice://pier_S_6_01_0009",
-    "x_m": -1.2551528161568581,
-    "y_m": -5.713325325072544,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294730474278114
-   },
-   {
-    "_bay": 7,
-    "_role": "wall",
-    "_side": "S",
-    "_size": [
-     1.6092709355469434,
-     2.0999978436908044,
-     3.658946074704086
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_S_7_01_0010",
-    "scale": 1.0,
-    "usd": "slice://wall_S_7_01_0010",
-    "x_m": 0.03764113651444638,
-    "y_m": -5.44136746662717,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294730487807662
-   },
-   {
-    "_bay": 8,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716884881900309,
-     2.0999980829589395,
-     3.6589460557258087
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_8_01_0011",
-    "scale": 1.0,
-    "usd": "slice://pier_S_8_01_0011",
-    "x_m": 1.189466924843805,
-    "y_m": -5.3880323592161545,
-    "yaw_deg": 0.0,
-    "z_m": 1.82947304990387
-   },
-   {
-    "_bay": 9,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716885979672169,
-     2.09999830441639,
-     3.6589460535688
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_9_01_0012",
-    "scale": 1.0,
-    "usd": "slice://pier_S_9_01_0012",
-    "x_m": 2.0583226459230564,
-    "y_m": -5.83264264275877,
-    "yaw_deg": 0.0,
-    "z_m": 1.82947304990387
-   },
-   {
-    "_bay": 10,
-    "_role": "wall",
-    "_side": "S",
-    "_size": [
-     1.6092709363246103,
-     2.0999987164335003,
-     3.6589460535688
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_S_10_01_0013",
-    "scale": 1.0,
-    "usd": "slice://wall_S_10_01_0013",
-    "x_m": 3.3904284427212286,
-    "y_m": -5.62136966678514,
-    "yaw_deg": 0.0,
-    "z_m": 1.82947304990387
-   },
-   {
-    "_bay": 11,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716884536806209,
-     2.099998967928995,
-     3.6589460586855678
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_11_01_0014",
-    "scale": 1.0,
-    "usd": "slice://pier_S_11_01_0014",
-    "x_m": 4.552312558372356,
-    "y_m": -5.833105077420638,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294730447871022
-   },
-   {
-    "_bay": 12,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716884082473699,
-     2.0999991921649164,
-     3.658946069634007
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_12_01_0015",
-    "scale": 1.0,
-    "usd": "slice://pier_S_12_01_0015",
-    "x_m": 5.422158750320607,
-    "y_m": -5.987210621056215,
-    "yaw_deg": 0.0,
-    "z_m": 1.829473033838663
-   },
-   {
-    "_bay": 13,
-    "_role": "wall",
-    "_side": "S",
-    "_size": [
-     1.6092708497824812,
-     2.1000000120277686,
-     3.6589461184214906
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_S_13_01_0016",
-    "scale": 1.0,
-    "usd": "slice://wall_S_13_01_0016",
-    "x_m": 7.049374641666141,
-    "y_m": -5.701811911876545,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294730140095343
-   },
-   {
-    "_bay": 14,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716883905970425,
-     2.068634512305805,
-     1.2694917829077617
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_14_01_0017",
-    "scale": 1.0,
-    "usd": "slice://pier_S_14_01_0017",
-    "x_m": 7.953572216222036,
-    "y_m": -5.665260150809478,
-    "yaw_deg": 0.0,
-    "z_m": 2.635757938925191
-   },
-   {
-    "_bay": 0,
-    "_role": "wall",
-    "_side": "N",
-    "_size": [
-     16.763237493844898,
-     2.1000000875934157,
-     3.658946375913439
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_N_0_01_0018",
-    "scale": 1.0,
-    "usd": "slice://wall_N_0_01_0018",
-    "x_m": 2.4879442360595365,
-    "y_m": 5.599632530848787,
-    "yaw_deg": 0.0,
-    "z_m": 1.829472991742588
-   },
-   {
-    "_bay": 2,
-    "_role": "pier",
-    "_side": "W",
-    "_size": [
-     1.6772905309954158,
-     0.5763057578323805,
-     1.3500993281958689
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_W_2_01_0019",
-    "scale": 1.0,
-    "usd": "slice://pier_W_2_01_0019",
-    "x_m": -9.343255951090482,
-    "y_m": -1.9082141705783757,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294730347273518
-   },
-   {
-    "_bay": 3,
-    "_role": "pier",
-    "_side": "W",
-    "_size": [
-     0.36919069359240275,
-     0.788995049937155,
-     0.3451224642537343
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_W_3_01_0020",
-    "scale": 1.0,
-    "usd": "slice://pier_W_3_01_0020",
-    "x_m": -8.423392989008775,
-    "y_m": -1.135796376403737,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294730363273557
-   },
-   {
-    "_bay": 4,
-    "_role": "wall",
-    "_side": "W",
-    "_size": [
-     1.677290525783448,
-     0.7174989861907466,
-     1.3500993273721906
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_W_4_01_0021",
-    "scale": 1.0,
-    "usd": "slice://wall_W_4_01_0021",
-    "x_m": -9.323928663761045,
-    "y_m": -0.10590725997119932,
-    "yaw_deg": 0.0,
-    "z_m": 1.82947303555103
-   },
-   {
-    "_bay": 0,
-    "_role": "pier",
-    "_side": "E",
-    "_size": [
-     1.0549809871627307,
-     0.7889951235195247,
-     1.2694917829077617
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_E_0_01_0022",
-    "scale": 1.0,
-    "usd": "slice://pier_E_0_01_0022",
-    "x_m": 9.16799395155057,
-    "y_m": -4.151210972011748,
-    "yaw_deg": 0.0,
-    "z_m": 2.635757938925191
-   },
-   {
-    "_bay": 1,
-    "_role": "wall",
-    "_side": "E",
-    "_size": [
-     1.0549809871627307,
-     1.456606342367329,
-     1.2694917829077617
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_E_1_01_0023",
-    "scale": 1.0,
-    "usd": "slice://wall_E_1_01_0023",
-    "x_m": 9.12341661438166,
-    "y_m": -3.0176627288459423,
-    "yaw_deg": 0.0,
-    "z_m": 2.635757938925191
-   },
-   {
-    "_bay": 2,
-    "_role": "pier",
-    "_side": "E",
-    "_size": [
-     1.7167222326789844,
-     0.7889951199367569,
-     2.0757767100644946
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_E_2_01_0024",
-    "scale": 1.0,
-    "usd": "slice://pier_E_2_01_0024",
-    "x_m": 9.110656450166504,
-    "y_m": -1.6982422051522825,
-    "yaw_deg": 0.0,
-    "z_m": 1.829473011768458
-   },
-   {
-    "_bay": 3,
-    "_role": "pier",
-    "_side": "E",
-    "_size": [
-     1.7167222252655918,
-     0.7889950687927022,
-     1.3918661136281005
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_E_3_01_0025",
-    "scale": 1.0,
-    "usd": "slice://pier_E_3_01_0025",
-    "x_m": 8.989152883556493,
-    "y_m": -1.3019527797575092,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294730238077999
-   },
-   {
-    "_bay": 4,
-    "_role": "wall",
-    "_side": "E",
-    "_size": [
-     1.7167223503693574,
-     1.4566062820124421,
-     2.1079076776967227
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_E_4_01_0026",
-    "scale": 1.0,
-    "usd": "slice://wall_E_4_01_0026",
-    "x_m": 9.090558930435188,
-    "y_m": 0.11512792747277442,
-    "yaw_deg": 0.0,
-    "z_m": 1.829473011768458
-   },
-   {
-    "_bay": 5,
-    "_role": "pier",
-    "_side": "E",
-    "_size": [
-     1.0149809510400694,
-     0.7889951544848686,
-     1.2819377691427114
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_E_5_01_0027",
-    "scale": 1.0,
-    "usd": "slice://pier_E_5_01_0027",
-    "x_m": 9.123305228800067,
-    "y_m": 1.166887439805516,
-    "yaw_deg": 0.0,
-    "z_m": 2.655442920322469
-   },
-   {
-    "_bay": 6,
-    "_role": "pier",
-    "_side": "E",
-    "_size": [
-     1.0149809510400694,
-     0.7889951428815332,
-     1.2819377691427114
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_E_6_01_0028",
-    "scale": 1.0,
-    "usd": "slice://pier_E_6_01_0028",
-    "x_m": 9.126764473003306,
-    "y_m": 1.973216903952036,
-    "yaw_deg": 0.0,
-    "z_m": 2.655442920322469
-   },
-   {
-    "_bay": 7,
-    "_role": "wall",
-    "_side": "E",
-    "_size": [
-     1.0149809510400694,
-     1.456606376495663,
-     1.2819377691427114
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_E_7_01_0029",
-    "scale": 1.0,
-    "usd": "slice://wall_E_7_01_0029",
-    "x_m": 9.111946511703675,
-    "y_m": 3.079015309110334,
-    "yaw_deg": 0.0,
-    "z_m": 2.655442920322469
-   },
-   {
-    "_bay": 8,
-    "_role": "pier",
-    "_side": "E",
-    "_size": [
-     1.0149809510400694,
-     0.7889951246463074,
-     1.2819377691427114
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_E_8_01_0030",
-    "scale": 1.0,
-    "usd": "slice://pier_E_8_01_0030",
-    "x_m": 9.126575625858242,
-    "y_m": 4.183454443363425,
-    "yaw_deg": 0.0,
-    "z_m": 2.655442920322469
-   },
-   {
-    "_bay": 0,
-    "_role": "core",
-    "_side": "-",
-    "_size": [
-     16.763237515605745,
-     9.103789291985256,
-     3.658946373448077
-    ],
-    "_storey": 1,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "core_x_0_01_0031",
-    "scale": 1.0,
-    "usd": "slice://core_x_0_01_0031",
-    "x_m": 3.198490245716951,
-    "y_m": -0.05391006260927303,
-    "yaw_deg": 0.0,
-    "z_m": 1.8294729942079495
-   },
-   {
-    "_bay": 1,
-    "_role": "wall",
-    "_side": "S",
-    "_size": [
-     1.3134538279054961,
-     2.099996027830106,
-     3.6589461732932893
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_S_1_02_0032",
-    "scale": 1.0,
-    "usd": "slice://wall_S_1_02_0032",
-    "x_m": -6.423357270723452,
-    "y_m": -5.064280462482016,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419045079786
-   },
-   {
-    "_bay": 2,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716883860108142,
-     2.0999962565954693,
-     3.6589461399567274
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_2_02_0033",
-    "scale": 1.0,
-    "usd": "slice://pier_S_2_02_0033",
-    "x_m": -5.499626740222077,
-    "y_m": -5.451672708541664,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419072205888
-   },
-   {
-    "_bay": 3,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716884184135294,
-     2.099996493278212,
-     3.658946080889554
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_3_02_0034",
-    "scale": 1.0,
-    "usd": "slice://pier_S_3_02_0034",
-    "x_m": -4.532900146344535,
-    "y_m": -5.646035648506569,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419111545345
-   },
-   {
-    "_bay": 4,
-    "_role": "wall",
-    "_side": "S",
-    "_size": [
-     1.6092709182831975,
-     2.0999969397449014,
-     3.6589460872776103
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_S_4_02_0035",
-    "scale": 1.0,
-    "usd": "slice://wall_S_4_02_0035",
-    "x_m": -3.5068514690088293,
-    "y_m": -5.459032176087738,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419107698992
-   },
-   {
-    "_bay": 5,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716884662354341,
-     2.099997172102227,
-     3.658946090737807
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_5_02_0036",
-    "scale": 1.0,
-    "usd": "slice://pier_S_5_02_0036",
-    "x_m": -2.1218988973218145,
-    "y_m": -5.444881445200838,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419105615552
-   },
-   {
-    "_bay": 6,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716885205449563,
-     2.0999973930076807,
-     3.6589460941980043
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_6_02_0037",
-    "scale": 1.0,
-    "usd": "slice://pier_S_6_02_0037",
-    "x_m": -1.2369152774075776,
-    "y_m": -5.548141746902247,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419103532111
-   },
-   {
-    "_bay": 7,
-    "_role": "wall",
-    "_side": "S",
-    "_size": [
-     1.6092708896883476,
-     2.099997829617206,
-     3.6589460967991503
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_S_7_02_0038",
-    "scale": 1.0,
-    "usd": "slice://wall_S_7_02_0038",
-    "x_m": -0.06924581522722908,
-    "y_m": -5.432820101184084,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419103472669
-   },
-   {
-    "_bay": 8,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716884431787107,
-     2.099998045801695,
-     3.658946098175905
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_8_02_0039",
-    "scale": 1.0,
-    "usd": "slice://pier_S_8_02_0039",
-    "x_m": 1.273253593288971,
-    "y_m": -5.44041857502132,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419103472669
-   },
-   {
-    "_bay": 9,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716885119748414,
-     2.0999982784953373,
-     3.6589460995526615
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_9_02_0040",
-    "scale": 1.0,
-    "usd": "slice://pier_S_9_02_0040",
-    "x_m": 2.0746616832444458,
-    "y_m": -5.44023473968358,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419103472669
-   },
-   {
-    "_bay": 10,
-    "_role": "wall",
-    "_side": "S",
-    "_size": [
-     1.6092709327716839,
-     2.0999987242741067,
-     3.658946102094365
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_S_10_02_0041",
-    "scale": 1.0,
-    "usd": "slice://wall_S_10_02_0041",
-    "x_m": 3.3481926719397044,
-    "y_m": -5.396971329514044,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419103472669
-   },
-   {
-    "_bay": 11,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716884110194245,
-     2.0999989688423693,
-     3.6589461034711217
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_11_02_0042",
-    "scale": 1.0,
-    "usd": "slice://pier_S_11_02_0042",
-    "x_m": 4.706834524941901,
-    "y_m": -5.555031275149909,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419103472669
-   },
-   {
-    "_bay": 12,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.8716884171631509,
-     2.099999215827558,
-     3.658946104847878
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_12_02_0043",
-    "scale": 1.0,
-    "usd": "slice://pier_S_12_02_0043",
-    "x_m": 5.541611951290722,
-    "y_m": -5.663096466037812,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419103472669
-   },
-   {
-    "_bay": 13,
-    "_role": "wall",
-    "_side": "S",
-    "_size": [
-     1.6092708213676463,
-     2.100000047032956,
-     3.6589461725699977
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_S_13_02_0044",
-    "scale": 1.0,
-    "usd": "slice://wall_S_13_02_0044",
-    "x_m": 7.0180810684941894,
-    "y_m": -5.419020308006614,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419036497508
-   },
-   {
-    "_bay": 14,
-    "_role": "pier",
-    "_side": "S",
-    "_size": [
-     0.31146616525060544,
-     1.7510235645921135,
-     2.5003519002717765
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "pier_S_14_02_0045",
-    "scale": 1.0,
-    "usd": "slice://pier_S_14_02_0045",
-    "x_m": 7.762162561781341,
-    "y_m": -5.274261995664555,
-    "yaw_deg": 0.0,
-    "z_m": 6.647013297939828
-   },
-   {
-    "_bay": 0,
-    "_role": "wall",
-    "_side": "N",
-    "_size": [
-     13.113168785724735,
-     2.1000000875934157,
-     3.6589461965814767
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_N_0_02_0046",
-    "scale": 1.0,
-    "usd": "slice://wall_N_0_02_0046",
-    "x_m": -0.6774385057419088,
-    "y_m": 5.669320708004208,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419014210059
-   },
-   {
-    "_bay": 0,
-    "_role": "core",
-    "_side": "-",
-    "_size": [
-     15.319980021417578,
-     9.103789312733465,
-     3.658946197199235
-    ],
-    "_storey": 2,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "core_x_0_02_0047",
-    "scale": 1.0,
-    "usd": "slice://core_x_0_02_0047",
-    "x_m": 2.0875340327508978,
-    "y_m": 0.027413194447603578,
-    "yaw_deg": 0.0,
-    "z_m": 5.488419036497508
-   },
-   {
-    "_bay": 0,
-    "_role": "wall",
-    "_side": "x",
-    "_size": [
-     15.365827398169909,
-     13.303789207786823,
-     5.488419357387185
-    ],
-    "_storey": 3,
-    "category": "bld_aec_Reference_Brownstone2Row_storey",
-    "name": "wall_x_0_03_0048",
-    "scale": 1.0,
-    "usd": "slice://wall_x_0_03_0048",
-    "x_m": 2.7397166020277823,
-    "y_m": 0.04176331707937248,
-    "yaw_deg": 0.0,
-    "z_m": 9.147364930943654
-   }
-  ],
-  "signature": "3524d9b4e3d67fa6",
-  "slice_s": 7.76,
-  "src_usd": "/isaac-sim/AirStack/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone2Row.usd",
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/kits/aec:Reference_Brownstone2Row__3524d9b4e3d67fa6.usd"
  }
 ]

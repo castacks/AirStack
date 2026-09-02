@@ -701,8 +701,10 @@ def strip_physics(stage, root=None, remove_prims=STRIP_PRIMS, verbose=True):
 #: leaf-name prefixes that mark a prim (or its NEAREST MATCHING ANCESTOR --
 #: see `_candidate_key`) as CANDIDATE debris for `deactivate_airborne`. Never
 #: kit/slice STRUCTURE (wall, pier, corner, core, parapet, roof, slab_, col_,
-#: beam_, deck_, roofslab_, part_, kit modules) -- structure is simply never
-#: in this tuple, so it is never a candidate no matter how it sits. Order
+#: beam_, deck_, roofslab_, kit modules) -- structure is simply never in this
+#: tuple, so it is never a candidate no matter how it sits, WITH ONE NAMED
+#: EXCEPTION (`"part_"`, below) that used to live in that same "never"
+#: parenthetical. Order
 #: matters ONLY where one entry is a prefix of another (`spallhalo` before
 #: `spall`) so the more specific name wins the by-prefix summary bucket.
 #: Confirmed against what `urban_fire.py`/`fire_collapse.py`/`quake_flow.py`
@@ -767,6 +769,52 @@ _CANDIDATE_PREFIXES = (
     # `acpad_...`, its own separate entry below -- an unqualified "ac"
     # would have matched it too, for the wrong reason.
     "ac_", "acpad", "tank", "bulkhead", "bulkcap",
+    # `quake_flow.fit_interior`'s PLASTER PARTITIONS -- moved here from the
+    # "never a candidate, it's structure" list on 2026-09-02 (AEC brownstone
+    # look-fix round). `r_gut_interior` chars roughly half of a burning
+    # storey's partitions in place and DEACTIVATES the other half outright
+    # (`urban_fire.r_gut_interior`: "Two ... plaster partitions per storey
+    # ... Half go, half char" -- neither branch repositions a survivor, so
+    # the assumption that a `part_` prim never moves held for as long as
+    # nothing physical ever touched one after `fit_interior` authored it.
+    # MEASURED FALSE on a real settled bake: `part_main_3_0` on
+    # `aec_Reference_Brownstone5Row_F3_s38.usd` sits 3.82 m ABOVE the
+    # building's own roofline (`tools/aec_overshoot_detail_probe.py` — the
+    # ONLY fit-out prim of 14 checked in that file, out of `slab_`/`col_`/
+    # `part_`/`prop_`, that overshoots the shell bbox at all). A fresh,
+    # bare-USD (no Kit, no physics) re-authoring of the identical building/
+    # level/rng under `quake_flow.fit_interior` places every partition
+    # correctly inside the shell (`tools/aec_partition_probe.py`: 0
+    # overshoot) -- so the defect is not in `fit_interior`'s own arithmetic,
+    # it is introduced SOMEWHERE BETWEEN authoring and the shipped export,
+    # almost certainly the Kit-side physics settle that runs in between (the
+    # exact class of defect this function's own bug catalogue is full of:
+    # "small things hang in the air after a collapse, and the settle cannot
+    # tell you"). "Floor and pillars extend out of the walls and roof"
+    # (user, reviewing the AEC brownstone bakes) is exactly what an
+    # unflagged floating partition or slab reads as. A partition sized like
+    # a real interior wall (`fit_interior`: `depth = D * rng.uniform(0.35,
+    # 0.7)`, easily double digits of metres on a wide plan) is well past the
+    # bounding-diagonal cap the OLD box-based judge used to exempt "big"
+    # structure with -- but that cap is GONE (see `_judge_candidates`'s own
+    # "REWRITTEN" note: candidates are chosen by NAME now, judged by real
+    # ray-cast geometry with no size limit at all), so there is no longer
+    # any reason size alone should keep a partition out of this list. A
+    # partition genuinely resting on its own floor (every one of them,
+    # measured, in every AEC/GAC bake checked except the one above) finds
+    # support on the very first downward ray and is never touched — this
+    # only ever fires on a prim the geometry itself says is not seated.
+    # `slab_`/`col_` are NOT added alongside it: neither showed a single
+    # overshoot across the four real AEC bakes measured
+    # (`tools/aec_overshoot_detail_probe.py`, every level F2-F5), so
+    # widening the change past what was actually observed broken stays
+    # unjustified. NEEDS A GPU RE-BAKE TO CONFIRM: this repo's offline tools
+    # cannot run Kit's physics settle, so nothing here proves a live bake's
+    # `deactivate_airborne` pass actually flags and removes a floating
+    # partition when one occurs -- only that a well-seated one (the normal
+    # case, every AEC/GAC bake but one) is provably unaffected (it seats on
+    # its own first downward ray, exactly like `slab_`/`col_` always have).
+    "part_",
 )
 
 #: how far down/out a ray reaches before giving up. 1000 m clears any single

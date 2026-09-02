@@ -117,11 +117,17 @@ class LvlmBehavior:
                 if str(l).strip().lower() not in keep]
 
     # ── condition ───────────────────────────────────────────────────────────
-    def condition_check(self, ctx: TickContext) -> bool:
+    def reset_flags(self) -> None:
+        """Cleared at the top of every mode_select, so a trigger raised on a
+        tick where the chain reached LVLM cannot fire again on a later tick
+        where Voxel or Ray won and condition_check was never called."""
         self.want_trigger = False
         self.want_request = False
         self._indices = np.zeros((0,), dtype=int)
         self._columns = []
+
+    def condition_check(self, ctx: TickContext) -> bool:
+        self.reset_flags()
         if not self.enabled:
             return False
         if not ctx.target_objects or not ctx.query_labels:

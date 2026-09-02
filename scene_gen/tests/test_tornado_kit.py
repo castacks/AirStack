@@ -774,25 +774,86 @@ def test_no_surviving_piece_stands_on_air():
                 assert not bad, (style, level, seed, bad[:4])
 
 
-def test_the_support_pass_is_what_makes_that_true():
-    """The control (memory: "verify the control first" — an invariant that
-    would hold anyway proves nothing). With `TK_GUARD=0` the SAME seeds
-    leave floaters; with the guard on they do not."""
+def test_support_rule_fires_on_a_hand_built_column_and_spares_toothing():
+    """THE RULE ITSELF, on a hand-built removal set — the deterministic
+    oracle. A statistical control over the whole ladder is not one: since
+    v6 `tornado_urban._shed_unsupported_walls` runs its OWN wall-support
+    pass inside `_finalise`, so how many floaters the unguarded ladder
+    leaves is now a property of ANOTHER stream's pass and moves whenever it
+    is retuned (measured: 263 strandings over 80 plans before that landed,
+    80 after).
+
+    Two halves, because the rule has two: a piece whose whole bay column is
+    gone AND whose neighbours are gone with it is unsupported; the same
+    piece with ONE live neighbour bay is not — that is what keeps
+    `quake_sliced._apply_region`'s toothing legal."""
+    placements = tk.kit_placements("walkup", seed=7)
+    info = qf.describe("walkup", placements, 0.0, 0.0, 0.0)
+    info["type"] = "urm"
+    els = tk.adapt(placements, info)
+    g = qs._Grid(info, els)
+
+    # find a bay column on one side with a piece at storey >= 2
+    target = None
+    for e in g.els:
+        p = e["p"]
+        if p.get("_side") != "S" or p.get("_role") not in ("wall", "pier"):
+            continue
+        if int(p["_storey"]) < 2:
+            continue
+        bay = qs.bay_no(p, g.n_sub)
+        below = [q for st in range(int(p["_storey"]))
+                 for q in g.at(("S", st, bay))]
+        if below:
+            target = (e, bay, int(p["_storey"]), below)
+            break
+    assert target, "no addressable bay column on walkup's S elevation"
+    e, bay, storey, below = target
+
+    col_gone = {qs._path(q) for q in below}
+    # neighbours at the same storey, and their own columns
+    nbr = set()
+    for b2 in (bay - 1, bay + 1):
+        for q in g.at(("S", storey, b2)):
+            nbr.add(qs._path(q))
+        for st in range(storey):
+            for q in g.at(("S", st, b2)):
+                nbr.add(qs._path(q))
+
+    # column gone but a neighbour bay still stands -> SUPPORTED (toothing)
+    assert not tk._unsupported(g, e, set(col_gone)), \
+        "a piece with a live neighbour bay must survive -- that is toothing"
+    # column gone AND both neighbour bays gone -> UNSUPPORTED
+    assert tk._unsupported(g, e, col_gone | nbr), (bay, storey)
+    # ... and the closure actually takes it
+    removed, shed = tk._support_closure(g, col_gone | nbr)
+    assert qs._path(e) in removed and qs._path(e) in shed
+
+
+def test_the_support_pass_still_catches_what_the_shared_pass_leaves():
+    """The control, stated as what it can honestly claim: over a sweep the
+    guard drives unsupported survivors to ZERO, and it is doing real work
+    (the unguarded plans still strand pieces even with
+    `tornado_urban._shed_unsupported_walls` in front of it, because this
+    guard restores the ground storey and trims to the look cap AFTER that
+    pass has run, and because an ORNAMENT is not on the grid that pass
+    walks)."""
     saved = tk.TK_GUARD_ON
     try:
         tk.TK_GUARD_ON = False
         n_off = 0
         for style in STYLES:
-            for level in ("T3", "T4"):
-                for seed in range(6):
+            for level in ("T2", "T3", "T4"):
+                for seed in range(8):
                     _pl, info, plan = _run(
-                        style, level, seed=seed, wind=fake_wind(40.0, 0.9),
+                        style, level, seed=seed, wind=fake_wind(35.0, 0.85),
                         intensity=tk.LEVEL_INTENSITY[level])
                     n_off += len(_unsupported_survivors(info, plan))
     finally:
         tk.TK_GUARD_ON = saved
-    assert n_off > 20, ("the unguarded ladder is expected to strand many "
-                        "pieces; got", n_off)
+    assert n_off > 0, ("the guard would be dead code if the unguarded "
+                       "ladder stranded nothing; got", n_off)
+    print("\nunguarded strandings over the sweep:", n_off)
 
 
 def test_displaced_and_removed_never_overlap_and_macroblocks_follow():
@@ -1009,9 +1070,18 @@ def test_backing_inset_is_room_depth_not_a_swapped_pane():
     assert insets
     for name, d in insets:
         assert d >= 1.2 - 1e-6, (name, d)
-    # ... and the panels are STAGGERED in depth, so a long hole does not
-    # read as one flat plane
-    assert len(set(round(d, 2) for _n, d in insets)) >= 2, insets
+    # ... and every segment of ONE hole sits at the SAME depth. v6
+    # staggered alternate segments 0.55 m deeper to break up a long plane;
+    # on the lit bench that read as a row of free-standing slabs (lead
+    # review v7), so a hole's panels must now be coplanar.
+    by_hole = {}
+    for name, d in insets:
+        if name.endswith("_shop"):
+            continue
+        by_hole.setdefault("_".join(name.split("_")[:4]), set()).add(round(d, 2))
+    assert by_hole, insets
+    for key, depths in by_hole.items():
+        assert len(depths) == 1, (key, depths)
 
 
 def test_backing_material_albedo_and_texture():
@@ -1109,7 +1179,8 @@ def test_fit_props_are_clamped_inboard_of_an_opened_wall():
     opened = {2: {"S": (0.0, 5.0), "N": (0.0, 5.0),
                   "E": (0.0, 5.0), "W": (0.0, 5.0)}}
     ctx = {"stage": stage, "parent": cell, "mats": {}, "tag": "props"}
-    moved = tuu._clamp_fit_props(stage, ctx, info, fit, opened)
+    rects = tuu._storey_plan_rects(info)
+    moved = tuu._clamp_fit_props(stage, ctx, info, fit, opened, rects)
     assert moved == 4, moved
     k = tuu._PROP_EDGE_KEEPOUT_M
     for p in paths:
@@ -1128,6 +1199,359 @@ def test_an_undamaged_plan_still_authors_no_interior_at_all():
     assert counts["n_fit"] == 0 and counts["n_backing"] == 0, counts
     assert not stage.GetPrimAtPath(
         cell + "/tornado_interior_backing").IsValid()
+
+
+# ===========================================================================
+# ROUND 4 v7 (lead review of the lit bench) — SELF-CONTAINED FIT-OUT
+# ===========================================================================
+# User: *"There's still issues with the roof, the floor is extending outside
+# the side wall [A4]. What are these random slabs you've made inside? in the
+# past we've done floor rectangles + pillars. We have rules for this. Check
+# the fire urban setting so that it looks self contained in the building."*
+#
+# Three checkable claims come out of that: the fit-out is FLOOR RECTANGLES +
+# PILLARS + CONTENTS and nothing else (no partitions), every one of those
+# prims is inside the storey's OWN measured plan (not the whole-building
+# bbox, which is what put A4's slabs through the curtain wall), and the
+# parapet band does not span an elevation whose wall has gone.
+# ===========================================================================
+
+
+def _fake_setback_info(seed=7):
+    """A KIT `walkup`, with its TOP TWO storeys stepped in 3 m on every side
+    — a synthetic setback, because every kit style this ladder accepts is a
+    plain cuboid and the defect only shows on a stepped plan (`SM_Building_
+    24`, a sliced asset this test suite must never compose host-side).
+
+    Built by moving the storey's own placements inward, so
+    `_storey_plan_rects` measures the step from exactly the evidence it
+    would measure on a real asset: the pieces themselves."""
+    placements = tk.kit_placements("walkup", seed=seed)
+    info = qf.describe("walkup", placements, 0.0, 0.0, 0.0)
+    info["type"] = "urm"
+    tk.adapt(placements, info)
+    m = info["masses"]["main"]
+    top = max(int((e["p"] or {}).get("_storey", 0)) for e in info["elements"])
+    step = 3.0
+    for e in info["elements"]:
+        p = e["p"]
+        if int(p.get("_storey", 0)) < top - 1:
+            continue
+        for attr, half in (("lx", m["W"] / 2.0), ("ly", m["D"] / 2.0)):
+            v = float(e.get(attr, 0.0))
+            e[attr] = v - step if v > 0 else v + step
+        e["x"] = float(e.get("x", 0.0)) + (-step if e.get("x", 0.0) > 0 else step)
+        e["y"] = float(e.get("y", 0.0)) + (-step if e.get("y", 0.0) > 0 else step)
+    return info, m, top, step
+
+
+def test_storey_plan_rects_measure_a_setback_off_the_pieces():
+    """The measurement the whole v7 fix rests on: a storey's plan is its
+    OWN pieces' bbox, not the mass's `W x D`."""
+    from disaster import tornado_urban_usd as tuu
+
+    info, m, top, step = _fake_setback_info()
+    rects = tuu._storey_plan_rects(info)
+    lower = rects[("main", 0)]
+    upper = rects[("main", top)]
+    assert (lower["lx1"] - lower["lx0"]) > (upper["lx1"] - upper["lx0"]) + 1.0, \
+        (lower, upper)
+    # the ground storey still measures (close to) the full mass plan
+    assert abs((lower["lx1"] - lower["lx0"]) - m["W"]) < 1.5, (lower, m["W"])
+
+
+def test_slabs_and_columns_stay_inside_every_storey_plan():
+    """A4's defect, on the synthetic setback: no fit-out prim may cross the
+    storey's own wall plane. Measured on the AUTHORED boxes."""
+    import numpy as np
+
+    from disaster import tornado_urban_usd as tuu
+
+    info, m, top, step = _fake_setback_info()
+    plan = _bench_plan("B3", "walkup", "T4", 0.85)[2]
+    stage, cell = _stub_stage(info, "/World/setback")
+    ctx = {"stage": stage, "parent": cell, "info": info,
+           "rng": random.Random(3), "nrng": np.random.default_rng(3),
+           "mats": {}, "tag": "setback", "loose": [], "static_extra": [],
+           "velocity": {}, "authored": [], "notes": [], "verbose": False}
+    # the plan's paths belong to a DIFFERENT build; author the interior
+    # directly off this info with a plan that opens the top storeys
+    removed = [e["p"]["prim_path"] for e in info["elements"]
+               if int(e["p"]["_storey"]) == top
+               and e["p"]["_side"] == "S"
+               and e["p"]["_role"] in ("wall", "pier")]
+    assert removed
+    plan = {"level": "T4", "removed": removed, "glass": [], "regions": [],
+            "stats": {"removed_frac": 0.2}, "displaced": {}}
+    out = tuu._author_interior(stage, ctx, plan)
+    assert out["n_fit"] > 0, out
+    rects = tuu._storey_plan_rects(info)
+    checked = 0
+    for (mtag, storey), path in sorted((ctx["fit"].get("slabs") or {}).items()):
+        rect = tuu._rect_for(rects, m, mtag, int(storey))
+        assert rect is not None, (mtag, storey)
+        cx, cy, _cz, sx, sy, _sz, _yaw = qf._box_dims(stage, path)
+        lcx, lcy = qf._to_local(m, cx, cy)
+        over = tuu._slab_overhang(m, rect, sx, sy, lcx, lcy)
+        assert over <= 1e-6, (path, storey, over)
+        checked += 1
+    assert checked >= 2, checked
+    assert out["slab_overhang_after_m"] <= 1e-6, out
+
+
+def test_the_clamp_is_what_makes_that_true():
+    """The control (memory: "verify the control first"). With
+    `TU_FIT_CLAMP=0` the SAME setback leaves the slabs on the mass bbox and
+    they overhang; with it on they do not."""
+    import numpy as np
+
+    from disaster import tornado_urban_usd as tuu
+
+    saved = tuu.TU_FIT_CLAMP
+    try:
+        tuu.TU_FIT_CLAMP = False
+        info, m, top, step = _fake_setback_info()
+        stage, cell = _stub_stage(info, "/World/setback_off")
+        ctx = {"stage": stage, "parent": cell, "info": info,
+               "rng": random.Random(3), "nrng": np.random.default_rng(3),
+               "mats": {}, "tag": "setback_off", "loose": [],
+               "static_extra": [], "velocity": {}, "authored": [],
+               "notes": [], "verbose": False}
+        removed = [e["p"]["prim_path"] for e in info["elements"]
+                   if int(e["p"]["_storey"]) == top
+                   and e["p"]["_side"] == "S"
+                   and e["p"]["_role"] in ("wall", "pier")]
+        plan = {"level": "T4", "removed": removed, "glass": [], "regions": [],
+                "stats": {"removed_frac": 0.2}, "displaced": {}}
+        tuu._author_interior(stage, ctx, plan)
+        fit_off = ctx["fit"]
+    finally:
+        tuu.TU_FIT_CLAMP = saved
+    # measure the UNCLAMPED slabs against the plan the clamp WOULD have used
+    info2, m2, top2, _s = _fake_setback_info()
+    rects = tuu._storey_plan_rects(info2)
+    worst = 0.0
+    for (mtag, storey), path in sorted((fit_off.get("slabs") or {}).items()):
+        rect = tuu._rect_for(rects, m2, mtag, int(storey))
+        if rect is None:
+            continue
+        cx, cy, _cz, sx, sy, _sz, _yaw = qf._box_dims(stage, path)
+        lcx, lcy = qf._to_local(m2, cx, cy)
+        worst = max(worst, tuu._slab_overhang(m2, rect, sx, sy, lcx, lcy))
+    assert worst > 1.0, ("the unclamped slab is expected to overhang a "
+                         "setback storey; got", worst)
+
+
+def test_slab_edge_is_recessed_on_a_side_that_is_actually_open():
+    """"the floor is extending outside the side wall" — a floor plate whose
+    edge is flush with a wall that is no longer there has nothing in front
+    of it to say where the building stopped. It is pulled back
+    `_SLAB_OPEN_EDGE_RECESS_M` further on the OPEN sides only; where the
+    wall survives the plate still runs to it."""
+    import numpy as np
+
+    from disaster import tornado_urban_usd as tuu
+
+    info, m, top, _step = _fake_setback_info()
+    stage, cell = _stub_stage(info, "/World/recess")
+    ctx = {"stage": stage, "parent": cell, "info": info,
+           "rng": random.Random(9), "nrng": np.random.default_rng(9),
+           "mats": {}, "tag": "recess", "loose": [], "static_extra": [],
+           "velocity": {}, "authored": [], "notes": [], "verbose": False}
+    removed = [e["p"]["prim_path"] for e in info["elements"]
+               if int(e["p"]["_storey"]) == top
+               and e["p"]["_side"] == "S"
+               and e["p"]["_role"] in ("wall", "pier")]
+    assert removed
+    plan = {"level": "T4", "removed": removed, "glass": [], "regions": [],
+            "stats": {"removed_frac": 0.2}, "displaced": {}}
+    tuu._author_interior(stage, ctx, plan)
+    opened = tuu._opened_storeys_sides(ctx, plan)
+    assert "S" in (opened.get(top) or {}), opened
+    rects = tuu._storey_plan_rects(info)
+    slabs = ctx["fit"]["slabs"]
+    # the OPEN storey's plate stops short on S; a CLOSED storey's does not
+    open_path = slabs.get(("main", top))
+    assert open_path, slabs
+    rect = tuu._rect_for(rects, m, "main", top)
+    cx, cy, _cz, _sx, sy, _sz, _yaw = qf._box_dims(stage, open_path)
+    _lx, lcy = qf._to_local(m, cx, cy)
+    gap_s = (lcy - sy / 2.0) - rect["ly0"]
+    assert gap_s >= tuu._SLAB_INSET_M + tuu._SLAB_OPEN_EDGE_RECESS_M - 1e-6, \
+        (gap_s, rect)
+    closed = [st for (mt, st) in slabs
+              if st != top and not (opened.get(st) or {})]
+    if closed:
+        st = closed[0]
+        r2 = tuu._rect_for(rects, m, "main", st)
+        cx2, cy2, _z, _sx2, sy2, _sz2, _y2 = qf._box_dims(
+            stage, slabs[("main", st)])
+        _l2, lcy2 = qf._to_local(m, cx2, cy2)
+        gap2 = (lcy2 - sy2 / 2.0) - r2["ly0"]
+        assert abs(gap2 - tuu._SLAB_INSET_M) < 1e-6, (st, gap2)
+
+
+def test_perimeter_pillars_survive_the_footprint_clamp():
+    """The footprint handed to `fit_interior` must be the WALL rectangle,
+    not the slab rectangle: `quake_flow._inside_inset` adds its own 0.35 m
+    on top, and 0.55 + 0.35 deletes the whole perimeter column ring — most
+    of the pillars visible through a hole (measured on A4: 216 columns ->
+    84 before this was corrected)."""
+    import numpy as np
+
+    from disaster import tornado_urban_usd as tuu
+
+    info, m, top, _step = _fake_setback_info()
+    info["type"] = "rc"                       # urm gets no columns at all
+    stage, cell = _stub_stage(info, "/World/pillars")
+    ctx = {"stage": stage, "parent": cell, "info": info,
+           "rng": random.Random(11), "nrng": np.random.default_rng(11),
+           "mats": {}, "tag": "pillars", "loose": [], "static_extra": [],
+           "velocity": {}, "authored": [], "notes": [], "verbose": False}
+    removed = [e["p"]["prim_path"] for e in info["elements"]
+               if int(e["p"]["_storey"]) == top and e["p"]["_side"] == "S"
+               and e["p"]["_role"] in ("wall", "pier")]
+    plan = {"level": "T4", "removed": removed, "glass": [], "regions": [],
+            "stats": {"removed_frac": 0.2}, "displaced": {}}
+    tuu._author_interior(stage, ctx, plan)
+    cols = ctx["fit"]["columns"]
+    total = sum(len(v) for v in cols.values())
+    assert total > 0, cols
+    # at least one column per fitted storey sits in the outer 1.2 m ring
+    perim = 0
+    for (mtag, storey), paths in cols.items():
+        rect = tuu._rect_for(tuu._storey_plan_rects(info), m, mtag, int(storey))
+        for path in paths:
+            cx, cy, _cz, _sx, _sy, _sz, _y = qf._box_dims(stage, path)
+            lx, ly = qf._to_local(m, cx, cy)
+            d = min(lx - rect["lx0"], rect["lx1"] - lx,
+                    ly - rect["ly0"], rect["ly1"] - ly)
+            if d < 1.2:
+                perim += 1
+    assert perim > 0, ("every perimeter pillar was clamped away", total)
+
+
+def test_no_partitions_are_authored_anywhere():
+    """"What are these random slabs you've made inside?" — `fit_interior`'s
+    plaster partitions are 2-3 free-standing 0.12 m walls per storey at
+    random plan positions, and through a torn facade they read as slabs
+    floating in the room. The shipped fire/quake look is FLOOR RECTANGLES +
+    PILLARS + CONTENTS."""
+    for cell, style, level, i in (("B1", "brownstone_row", "T4", 0.85),
+                                  ("B2", "dw_terrace", "T3", 0.65),
+                                  ("B3", "walkup", "T4", 0.85)):
+        _tuu, _stage, _c, ctx, _plan, _info, _counts = _author_cell(
+            style, level, i, cell)
+        assert ctx["interior"]["n_partitions"] == 0, (cell,
+                                                      ctx["interior"])
+        assert not (ctx["fit"].get("partitions") or []), cell
+        # ... and the floor rectangles are still there
+        assert ctx["fit"].get("slabs"), cell
+
+
+def test_backing_never_sits_outside_the_storey_wall_line():
+    """"make sure backing segments never protrude past the facade line" —
+    on a setback plan the MASS wall line is outside the glass, so a quad
+    placed against it and pushed in 1.35 m can still end up proud of the
+    facade."""
+    import numpy as np
+
+    from disaster import tornado_urban_usd as tuu
+
+    info, m, top, step = _fake_setback_info()
+    stage, cell = _stub_stage(info, "/World/setback_bk")
+    ctx = {"stage": stage, "parent": cell, "info": info,
+           "rng": random.Random(5), "nrng": np.random.default_rng(5),
+           "mats": {}, "tag": "setback_bk", "loose": [], "static_extra": [],
+           "velocity": {}, "authored": [], "notes": [], "verbose": False}
+    removed = [e["p"]["prim_path"] for e in info["elements"]
+               if int(e["p"]["_storey"]) == top
+               and e["p"]["_side"] == "S"
+               and e["p"]["_role"] in ("wall", "pier")]
+    plan = {"level": "T4", "removed": removed, "glass": [], "regions": [],
+            "stats": {"removed_frac": 0.2}, "displaced": {}}
+    out = tuu._author_interior(stage, ctx, plan)
+    assert out["n_backing_holes"] > 0, out
+    rects = tuu._storey_plan_rects(info)
+    root = stage.GetPrimAtPath(cell + "/tornado_interior_backing")
+    n = 0
+    for child in root.GetChildren():
+        name = child.GetName()
+        if name.endswith("_shop"):
+            continue
+        parts = name.split("_")
+        side, storey = parts[1], int(parts[3])
+        rect = tuu._rect_for(rects, m, "main", storey)
+        cx, cy, _cz, _sx, _sy, _sz, _yaw = qf._box_dims(
+            stage, str(child.GetPath()))
+        lx, ly = qf._to_local(m, cx, cy)
+        if side == "S":
+            assert ly >= rect["ly0"] + 1.2 - 1e-6, (name, ly, rect)
+        elif side == "N":
+            assert ly <= rect["ly1"] - 1.2 + 1e-6, (name, ly, rect)
+        elif side == "W":
+            assert lx >= rect["lx0"] + 1.2 - 1e-6, (name, lx, rect)
+        else:
+            assert lx <= rect["lx1"] - 1.2 + 1e-6, (name, lx, rect)
+        n += 1
+    assert n > 0
+
+
+def test_parapet_band_sheds_over_an_emptied_elevation():
+    """"if >~50% of a side's top-storey pieces are gone the parapet band
+    above that side should shed too" — B1's roofline band floating over its
+    emptied top-storey street wall. `tornado_urban._shed_unsupported_roof`'s
+    own parapet test is a 6 m LOCAL radius and passes a whole band as long
+    as one end pier survives, so this rule is per ELEVATION."""
+    placements = tk.kit_placements("brownstone_row", seed=7)
+    info = qf.describe("brownstone_row", placements, 0.0, 0.0, 0.0)
+    info["type"] = "urm"
+    els = tk.adapt(placements, info)
+    g = qs._Grid(info, els)
+    top = max(int(e["p"]["_storey"]) for e in g.els
+              if e["p"]["_role"] in tk.KIT_STRUCT_ROLES)
+    band = [e for e in g.els
+            if e["p"].get("_side") == "S"
+            and int(e["p"]["_storey"]) == top
+            and e["p"]["_role"] in tk.KIT_STRUCT_ROLES]
+    assert len(band) >= 4, len(band)
+    paras_s = [qs._path(e) for e in g.els
+               if e["p"].get("_role") in ("parapet", "parapet_corner")
+               and "S" in (e["p"].get("_side") or "")]
+    assert paras_s, "expected parapet pieces over the S elevation"
+
+    notes = []
+    plan = {"removed": [], "displaced": {}}
+    # 25% gone: below the threshold, the band stays
+    few = {qs._path(e) for e in band[:max(1, len(band) // 4)]}
+    assert not tk._shed_open_side_parapets(g, few, plan, notes.append)
+    # 80% gone: the band goes
+    many = {qs._path(e) for e in band[:int(len(band) * 0.8) + 1]}
+    shed = tk._shed_open_side_parapets(g, many, plan, notes.append)
+    assert shed, (len(band), len(many))
+    assert set(shed) <= set(paras_s), "only the S band's parapets may shed"
+    assert notes and "parapet/coping" in notes[0]
+
+
+def test_parapet_side_shed_never_re_fates_a_displaced_piece():
+    """A piece is REMOVED, DISPLACED or STANDING — never two."""
+    placements = tk.kit_placements("brownstone_row", seed=7)
+    info = qf.describe("brownstone_row", placements, 0.0, 0.0, 0.0)
+    info["type"] = "urm"
+    els = tk.adapt(placements, info)
+    g = qs._Grid(info, els)
+    top = max(int(e["p"]["_storey"]) for e in g.els
+              if e["p"]["_role"] in tk.KIT_STRUCT_ROLES)
+    band = [qs._path(e) for e in g.els
+            if e["p"].get("_side") == "S"
+            and int(e["p"]["_storey"]) == top
+            and e["p"]["_role"] in tk.KIT_STRUCT_ROLES]
+    paras_s = [qs._path(e) for e in g.els
+               if e["p"].get("_role") in ("parapet", "parapet_corner")
+               and "S" in (e["p"].get("_side") or "")]
+    plan = {"removed": [], "displaced": {paras_s[0]: {"t": 1}}}
+    shed = tk._shed_open_side_parapets(g, set(band), plan, lambda t: None)
+    assert paras_s[0] not in shed, paras_s[0]
 
 
 # ---------------------------------------------------------------------------

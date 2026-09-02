@@ -95,7 +95,7 @@ with the identical fresh `random.Random(seed)` immediately followed by a
 `plan_roof(..., rng=random.Random(roof_seed(tag)))` call on a wholly
 separate `random.Random` object.
 
-THE PLAN SCHEMA (`tornado_roof_plan.v1`, JSON-serialisable, plain floats,
+THE PLAN SCHEMA (`tornado_roof_plan.v2`, JSON-serialisable, plain floats,
 sorted collections where order would otherwise vary run to run):
 
     schema, level, btype, height_class, H
@@ -112,20 +112,38 @@ sorted collections where order would otherwise vary run to run):
                     piece (`top_storey_loss`) or the building carries no
                     usable mass box
     skip_reason     str or None
-    patches         [{side, corner, rect_local, area_m2, z, substrate,
-                     lip, sheets}, ...]     the PEEL PATCHES (§ below)
+    patches         [] — ALWAYS EMPTY, at every level, with no knob to
+                    refill it. The membrane-PEEL population is RETIRED
+                    (§ "ROUND 4" below); the key survives only so a reader
+                    written against v1 (`tools/tornado_roof_probe.py`
+                    iterates it) parses a v2 plan without an edit.
+    tear            {side, along_start_m, run_m, depth_m, p0_local,
+                     p1_local} or a zero stub — WHERE the membrane let go:
+                    the release line the sheets came off. RECORD ONLY,
+                    `apply_roof` authors no geometry from it.
+    sheets          [frag, ...]  the torn membrane/deck SHEETS the tear
+                    threw downwind (§ "SHED MEMBRANE SHEETS" below)
     scour           {side, frac, rect_local, z, tint} or a zero-frac stub
-    coping          {side, target_frac, already_removed_frac,
+    coping          {side, target_frac, already_removed_frac, tone,
                      piece_removed: [prim_path,...], boxes: [frag,...]}
+                    — `tone` is the building's masonry token
+                    (`tornado_urban._tone_for`, `""` for a style the table
+                    does not name), stamped onto every fallen-coping frag
+                    so `build_debris` routes it to the same pale-stone /
+                    tan rubble look the façade ladder's own coping takes
+                    instead of the generic red-brown brick class map
     props           {action, n_units, topple_frac, sweep_frac, n_topple,
                      n_thrown, topple: [frag,...], thrown: [frag,...]}
     notes           [str, ...]
-    stats           {roof_area_m2, n_patches, patch_coverage_frac,
-                     n_sheets, n_coping_pieces, n_coping_boxes, n_topple,
-                     n_thrown_props, scour_frac}
+    stats           {roof_area_m2, n_sheets, n_coping_pieces,
+                     n_coping_boxes, n_topple, n_thrown_props, scour_frac}
+                    — `n_patches`/`patch_coverage_frac` are GONE, not
+                    zeroed: nothing peels any more, and reporting a peel
+                    coverage of 0.0 would still be advertising a feature
+                    this module no longer has.
 
-A `frag` dict (patches' `sheets`, coping's `boxes`, props' `topple`/
-`thrown`) is shaped exactly like a `tornado_urban.plan_damage` debris
+A `frag` dict (the plan's own `sheets`, coping's `boxes`, props'
+`topple`/`thrown`) is shaped exactly like a `tornado_urban.plan_damage` debris
 record — `{kind, material, size:[l,w,t], x, y, z, yaw_deg, tilt_deg}` in
 WORLD (cell-local, per this codebase's own convention — `wreck_urban`/
 `wreck_kit` always call `quake_flow.describe` at the cell origin, so "world"
@@ -141,43 +159,52 @@ baseline so the two groups never collide on one merged-mesh prim path (the
 MATERIAL bucket — the only thing that decides the LOOK — is keyed off
 `material` alone, so both groups still share one look).
 
-PEEL PATCHES, PER LEVEL (§ design, `_PATCH_COUNT`/`_COVERAGE`): T1 draws
-0-1 patch at 8-18 % of the (inset) roof area; T2 draws 1-2 patches at
-20-40 %; T3 draws 2-3 at 45-70 %; T4 draws 2-3 at 60-90 %, its FIRST
-(largest-anchored) patch forced to span half the windward edge's own
-length verbatim ("one patch spanning the windward half"). Every patch is
-built from the windward EDGE inward (`_side_frame`'s `along`/`depth` axes),
-snapped near one end of that edge (never centred — `_draw_patches`'s own
-`end`/`jitter` draw), so its footprint always touches (or nearly touches)
-a windward CORNER, matching the record's own "failure initiates at the
-edge/corner metal." Per patch: an EXPOSED-SUBSTRATE quad 0.015 m above the
-roof plane (`_PATCH_Z_OFFSET`, thin enough to read as a material change,
-not a step), a curled/rolled LIP — a low triangular-prism ridge,
-`_author_lip` — along the patch's DOWNWIND boundary (the inner edge,
-farthest from the windward wall line the peel started at — the boundary
-between "membrane gone" and "membrane still attached", where the peeled
-sheet physically rolls up), and 2-6 torn membrane SHEET fragments released
-from that same boundary and carried along the wind bearing, landing either
-still on the roof or past its edge at grade (§2.7's own deposition shape,
-reusing `tornado_urban._C_KIND["membrane"]`/`REACH_MAX_H`/`_lognormal` for
-consistency with how the façade ladder already throws a shed roof piece).
+ROUND 4: THE MEMBRANE PEEL IS RETIRED. The peel patches this module
+shipped in round 3 — one EXPOSED-SUBSTRATE quad per patch plus a curled
+membrane LIP prism along its downwind boundary — are GONE, at every level,
+with no env knob to bring them back. The user's own call on the round-3
+bench, looking at `/World/tornado_bench/B3/cell/tornado_roof/
+patch_02_substrate`: "idk what this is but it looks weird and unnatural
+... I don't think we can make it look good in isaac-sim — don't do it."
 
-SUBSTRATE BY CONSTRUCTION TYPE (`_substrate_for`): urm's roof deck under a
-built-up membrane is overwhelmingly TIMBER on this stock's low/mid-rise
-fabric — dark brown-grey, flat tint (no timber texture asset exists under
-`scene_gen/assets/materials/`, so this is colour + high roughness, the same
-no-texture pattern `tornado_urban_usd.debris_material`'s own `metal`/
-`membrane` buckets already use rather than a texture pick). rc's roof deck
-is a poured/precast concrete slab — the SAME `Damaged_Concrete_Floor`
-texture `tornado_urban_usd`'s own "concrete" debris bucket already uses
-(re-declared here with attribution rather than imported, matching that
-module's own "third copy with attribution" precedent for
-`_glass_tex_and_name` — a private constant is not worth a cross-module
-import for one string). rc_glass's roof is the "bright insulation board"
-half of the brief's own either/or: a curtain-wall tower's built-up roof
-runs over insulation board, pale and flat (no insulation texture asset
-exists either, so flat tint again) — the ballast/gravel this substrate
-would otherwise carry is what `_draw_scour` darkens where it has blown off.
+They were right about the read, and the read was not a tint bug. A patch
+was authored as ONE axis-aligned rectangle covering half a roof (the
+probe's own two T3 buildings measured 0.61 and 0.53 of the inset roof
+area, in 2 and 3 patches), sitting 0.015 m PROUD of the roof plane —
+enough for the renderer to throw a hard drop shadow off two dead-straight
+edges — and, since round 4's `_roof_material` fix (`diffuse_tint` is the
+multiply slot over a bound map; `diffuse_color_constant` is only the
+map-failed fallback), drawn BRIGHTER than the membrane field around it.
+A real peeled flat roof reads the opposite way on every count: DARKER than
+the surviving membrane, irregular in outline (wind tears membrane in
+tongues off the windward edge, not in rectangles), FLUSH or slightly
+recessed, and bunched into a roll at the tear line. Fixing all four inside
+an axis-aligned-quad-plus-triangular-prism vocabulary means building a new
+geometry system (per-tongue outlines, a recessed deck cut, a swept roll) —
+not what a 60-90 m aerial read is worth. So: nothing is drawn on the roof
+PLANE any more except the one dark, flat gravel-scour band.
+
+WHAT SURVIVED. The peel's GROUND EVIDENCE — the torn membrane sheets it
+threw downwind — is the half of the signature that always read correctly
+(thin, small, scattered, seated flat by `build_debris`), so it is kept and
+now drawn DIRECTLY off the windward edge rather than off a patch that no
+longer exists (`_draw_shed_sheets`). Everything else this module does is
+untouched: the gravel-scour band, the coping strip (piece removal plus
+fallen ground evidence), the rooftop-prop topple/sweep, and the
+`top_storey_loss` handshake that skips the whole pass.
+
+SHED MEMBRANE SHEETS, PER LEVEL (`_SHEET_COUNT`). A tear RUN is drawn
+along the windward edge — `_TEAR_RUN_FRAC` of that edge's own length,
+snapped to one END of it (never centred, matching the record's own
+"failure initiates at the edge/corner metal"), reaching `_TEAR_DEPTH_M`
+in from the wall line — and `_SHEET_COUNT[level]` sheets are released from
+the inner side of that run at roof height, carried along the wind bearing
+by the same §2.7 `_deposit` model the coping boxes use (`tornado_urban.
+_C_KIND["membrane"]`/`REACH_MAX_H`/`_lognormal`), landing either still on
+the roof plane or past the building's own edge at grade. The run itself
+authors NO geometry at all; it is recorded in the plan (`tear`) purely so
+a reader can see where the sheets came from, and `apply_roof` never draws
+it.
 
 COPING STRIP. §2.6's own `t_parapet_fall` (T2+) already removes 30-60 % of
 a building's windward parapet PIECES as part of the façade ladder — this
@@ -251,24 +278,30 @@ def roof_seed(tag):
 # THE ROOF PLANE
 # ---------------------------------------------------------------------------
 ROOF_INSET_M = 0.4          # parapet/coping thickness the roof plane insets by
-_PATCH_Z_OFFSET = 0.015     # thin quad above the roof plane -- a material
-                            # change, not a step (§2.9's own "0.015 m above
-                            # the roof plane" for the peel substrate)
+_ROOF_Z_OFFSET = 0.015      # the scour band's own lift off the roof plane
+                            # — §2.9's own "0.015 m above the roof plane":
+                            # thin enough to read as a material change
+                            # rather than a step, thick enough not to
+                            # z-fight the roof it lies on
 
 LEVELS = ("T0", "T1", "T2", "T3", "T4")
 
-# level -> (n_patches_lo, n_patches_hi). T1 is drawn as a coin flip below
-# (`_T1_PATCH_P`) rather than `randint(0, 1)` so its OWN mean patch count
-# (and therefore mean coverage) sits meaningfully below T2's, not at half
-# of T2's by construction.
-_PATCH_COUNT = {"T0": (0, 0), "T1": (0, 1), "T2": (1, 2), "T3": (2, 3),
-                "T4": (2, 3)}
-_T1_PATCH_P = 0.55
+# level -> (n_sheets_lo, n_sheets_hi): how many torn membrane/deck SHEETS
+# the windward edge threw downwind. Round 3 drew these per PEEL PATCH (2-6
+# each across 0-3 patches, i.e. 0-6 / 2-12 / 4-18 / 4-18 by level); with
+# the patches retired the counts are stated directly, banded to land where
+# the old product did and monotone in level by construction.
+_SHEET_COUNT = {"T0": (0, 0), "T1": (0, 3), "T2": (2, 7), "T3": (5, 12),
+                "T4": (7, 16)}
 
-# level -> (coverage_lo, coverage_hi) of the INSET roof area, drawn only
-# when at least one patch is placed. §8's own numbers, verbatim.
-_COVERAGE = {"T0": (0.0, 0.0), "T1": (0.08, 0.18), "T2": (0.20, 0.40),
-            "T3": (0.45, 0.70), "T4": (0.60, 0.90)}
+# (lo, hi) metres: how far in from the windward wall line the membrane tore
+# before it let go, clamped to `_TEAR_DEPTH_MAX_FRAC` of the roof's own
+# depth. NOT a coverage fraction — nothing is drawn over this area any
+# more; it only sets the line the sheets were released from.
+_TEAR_DEPTH_M = (1.0, 4.0)
+_TEAR_DEPTH_MAX_FRAC = 0.6
+# (lo, hi) fraction of the windward edge's own length the tear ran along.
+_TEAR_RUN_FRAC = (0.35, 0.90)
 
 # level -> (scour_lo, scour_hi): the fraction of the windward edge's own
 # length the gravel-scour tint band runs along. Starts at T1 (roof-covering
@@ -301,9 +334,9 @@ _PROPS_TABLE = {
 def _roof_already_shed(facade_plan):
     """True when the FAÇADE plan already ledgered `top_storey_loss` --
     §2.6's ONE named exception where a `role == "roof"` piece is removed
-    and shed as debris. `plan_roof` must never author a peel/lip/sheet/
-    scour/coping/prop pass on a roof plane the façade pass has already
-    physically taken off the building (there is nothing left to peel)."""
+    and shed as debris. `plan_roof` must never author a sheet/scour/
+    coping/prop pass on a roof plane the façade pass has already
+    physically taken off the building (nothing is left up there)."""
     if not facade_plan:
         return False
     for r in (facade_plan.get("regions") or ()):
@@ -327,8 +360,8 @@ def _side_frame(side, rect):
     `along` runs along the wall line (the axis a bay index would run
     along); `depth` runs INTO the roof, away from that wall line -- 0 at
     the edge, growing toward the roof's own centre. `depth_max` is the
-    full inward extent available on that axis, so a patch/scour band can
-    be clamped to never cross the whole roof.
+    full inward extent available on that axis, so a scour band or a
+    tear run can be clamped to never cross the whole roof.
     """
     x0, y0, x1, y1 = rect
     if side == "S":
@@ -344,8 +377,10 @@ def _side_frame(side, rect):
             "edge_val": x1, "depth_sign": -1.0, "depth_max": (x1 - x0)}
 
 
-def _patch_rect(frame, along_start, along_len, depth_len):
-    """(x0, y0, x1, y1) local, from `frame`'s own along/depth axes."""
+def _band_rect(frame, along_start, along_len, depth_len):
+    """(x0, y0, x1, y1) local, from `frame`'s own along/depth axes -- the
+    gravel-scour band's own footprint (its only caller since the peel
+    patches that shared it were retired)."""
     a0 = frame["along_lo"] + along_start
     a1 = a0 + along_len
     e0 = frame["edge_val"]
@@ -360,9 +395,10 @@ def _patch_rect(frame, along_start, along_len, depth_len):
 
 
 def _inner_edge_line(frame, along_start, along_len, depth_len):
-    """The patch's DOWNWIND boundary -- the line at `depth_len` from the
-    windward wall, i.e. the far/inner edge of the patch, where a peeled
-    membrane's rolled lip sits. Returns (p0, p1) local points."""
+    """The line `depth_len` in from the windward wall, spanning
+    `along_len` from `along_start` -- the INNER side of the tear run,
+    where the membrane let go and the shed sheets were released from.
+    Returns (p0, p1) local points."""
     a0 = frame["along_lo"] + along_start
     a1 = a0 + along_len
     inner = frame["edge_val"] + frame["depth_sign"] * depth_len
@@ -384,41 +420,8 @@ def _wall_edge_line_local(m, side):
     return (hw, -hd), (hw, hd)          # "E"
 
 
-# which corner sits at the "lo"/"hi" end of a side's own along-axis run --
-# inverted from `quake_sliced._CORNER_END` (side, corner) -> lo/hi.
-_END_TO_CORNER = {}
-for _sc, _end in qs._CORNER_END.items():
-    _END_TO_CORNER[(_sc[0], _end)] = _sc[1]
-
-
 def _touching_corners(side):
     return [cn for cn, (a, b) in qs._CORNER_SIDES.items() if side in (a, b)]
-
-
-# ---------------------------------------------------------------------------
-# SUBSTRATE LOOK, BY CONSTRUCTION TYPE
-# ---------------------------------------------------------------------------
-# The SAME texture `tornado_urban_usd`'s own "concrete" debris bucket uses --
-# re-declared with attribution (that module's own precedent for a private
-# cross-module constant, see `_glass_tex_and_name`'s docstring) rather than
-# imported, since this is one string, not shared logic.
-_TEX_CONCRETE = ("airstack://scene_gen/assets/materials/megascans/"
-                 "Damaged_Concrete_Floor/T_vizbefe_2K_B.png")
-_TILE_REPEATS_PER_M = (1.0, 1.0)
-
-
-def _substrate_for(btype):
-    """(material_key, rgb, roughness, texture_or_None) for the EXPOSED-
-    SUBSTRATE region a peel patch reveals. See the module docstring's
-    "SUBSTRATE BY CONSTRUCTION TYPE" for the reasoning behind each pick;
-    none of the three has a dedicated texture asset under `scene_gen/
-    assets/materials/` except rc's concrete deck, which reuses the one
-    already vetted for exactly this kind of aerial-facing flat surface."""
-    if btype == "urm":
-        return "timber_deck", (0.16, 0.12, 0.09), 0.88, None
-    if btype == "rc_glass":
-        return "insulation_board", (0.62, 0.59, 0.52), 0.78, None
-    return "concrete_deck", (0.42, 0.41, 0.39), 0.82, _TEX_CONCRETE
 
 
 # ---------------------------------------------------------------------------
@@ -426,7 +429,8 @@ def _substrate_for(btype):
 # a roof fragment's reach is drawn from the SAME model the façade ladder's
 # own shed-roof-piece debris already uses, not a second, competing formula.
 # ---------------------------------------------------------------------------
-def _deposit(rng, m, lx0, ly0, release_h, wind, kind, material, size, c_kind):
+def _deposit(rng, m, lx0, ly0, release_h, wind, kind, material, size,
+             c_kind, tone=""):
     """One fragment released at local `(lx0, ly0)` at height `release_h`,
     carried along `wind["bearing_deg"]` with §2.7's own gaussian scatter and
     lognormal-drag reach. Returns a `tornado_urban`-shaped debris dict in
@@ -434,7 +438,7 @@ def _deposit(rng, m, lx0, ly0, release_h, wind, kind, material, size, c_kind):
     landing point is still inside the building's own footprint and to grade
     (0.0) when it carries past the edge -- "deposited downwind on the roof
     AND past it" (§8's own wording for the torn-sheet class). Used for the
-    peel patches' torn sheets and the coping strip's fallen boxes -- NOT for
+    shed membrane sheets and the coping strip's fallen boxes -- NOT for
     roof props, whose "stay on the roof, downwind" placement (§8: "throw 1-3
     onto the roof surface downwind") is a direct biased-anchor draw
     (`_downwind_point`) rather than a wind-reach-then-clip pass: a swept
@@ -466,17 +470,7 @@ def _deposit(rng, m, lx0, ly0, release_h, wind, kind, material, size, c_kind):
     return {"kind": str(kind), "material": str(material),
             "size": [float(q) for q in size], "x": float(wx), "y": float(wy),
             "z": float(z), "yaw_deg": float(rng.uniform(0.0, 360.0)),
-            "tilt_deg": float(tilt)}
-
-
-def _shares(rng, n):
-    """`n` positive weights summing to 1 -- how a level's total peel
-    coverage splits across its patches."""
-    if n <= 1:
-        return [1.0] * max(0, n)
-    draws = [0.4 + rng.random() for _ in range(n)]
-    tot = sum(draws)
-    return [d / tot for d in draws]
+            "tilt_deg": float(tilt), "tone": str(tone or "")}
 
 
 def _downwind_point(rng, rect, bearing_deg, bias):
@@ -499,86 +493,61 @@ def _downwind_point(rng, rect, bearing_deg, bias):
 
 
 # ---------------------------------------------------------------------------
-# PEEL PATCHES
+# SHED MEMBRANE SHEETS
+#
+# All that is left of the retired peel population (module docstring,
+# "ROUND 4"): the sheets it threw downwind. NOTHING here authors geometry
+# on the roof plane -- the tear run is a plan RECORD that sets the release
+# line and nothing else.
 # ---------------------------------------------------------------------------
-def _draw_patches(rng, level, windward, rect, roof_top, btype, m, wind):
-    lo_n, hi_n = _PATCH_COUNT.get(level, (0, 0))
-    if level == "T1":
-        n = 1 if rng.random() < _T1_PATCH_P else 0
-    else:
-        n = rng.randint(lo_n, hi_n) if hi_n > 0 else 0
-    if n <= 0:
-        return []
+def _zero_tear(side):
+    return {"side": side, "along_start_m": 0.0, "run_m": 0.0, "depth_m": 0.0,
+            "p0_local": None, "p1_local": None}
 
-    cov_lo, cov_hi = _COVERAGE.get(level, (0.0, 0.0))
-    total_cov = rng.uniform(cov_lo, cov_hi)
-    x0, y0, x1, y1 = rect
-    roof_area = max(1e-6, (x1 - x0) * (y1 - y0))
-    shares = _shares(rng, n)
+
+def _draw_shed_sheets(rng, level, windward, rect, roof_top, m, wind):
+    """`(tear, sheets)` -- the tear RUN along the windward edge and the
+    torn membrane/deck sheets released from its inner side.
+
+    The run is `_TEAR_RUN_FRAC` of the windward edge's own length, snapped
+    to ONE END of that edge (never centred: the record's own "failure
+    initiates at the edge/corner metal"), reaching `_TEAR_DEPTH_M` inward
+    but never past `_TEAR_DEPTH_MAX_FRAC` of the roof's own depth. Each
+    sheet is carried by the same `_deposit` model the coping boxes use, so
+    it lands either still on the roof plane or past the building's own
+    edge at grade.
+    """
+    lo_n, hi_n = _SHEET_COUNT.get(level, (0, 0))
+    n = rng.randint(lo_n, hi_n) if hi_n > 0 else 0
+    if n <= 0:
+        return _zero_tear(windward), []
+
     frame = _side_frame(windward, rect)
     along_total = max(1e-6, frame["along_hi"] - frame["along_lo"])
     depth_max = max(1e-6, frame["depth_max"])
-    sub_key, sub_rgb, sub_rough, sub_tex = _substrate_for(btype)
+    run = min(along_total, along_total * rng.uniform(*_TEAR_RUN_FRAC))
+    end = rng.choice(("lo", "hi"))
+    a0 = 0.0 if end == "lo" else max(0.0, along_total - run)
+    depth = max(0.5, min(depth_max * _TEAR_DEPTH_MAX_FRAC,
+                         rng.uniform(*_TEAR_DEPTH_M)))
+    p0_l, p1_l = _inner_edge_line(frame, a0, run, depth)
 
-    patches = []
-    for i, share in enumerate(shares):
-        area = max(1.0, total_cov * share * roof_area)
-        if level == "T4" and i == 0:
-            along_len = min(along_total * 0.98, along_total * 0.5)
-        else:
-            aspect = rng.uniform(1.2, 2.2)   # elongated along the edge
-            along_len = min(along_total * 0.9, math.sqrt(area * aspect))
-        along_len = max(1.5, min(along_len, along_total * 0.98))
-        depth_len = max(0.8, min(area / along_len, depth_max * 0.92))
-        # re-derive along_len against the clamped depth so the realised
-        # area still tracks the target reasonably closely
-        along_len = max(1.5, min(area / max(0.5, depth_len), along_total * 0.98))
+    sheets = []
+    for _s in range(n):
+        t = rng.random()
+        slx = p0_l[0] + t * (p1_l[0] - p0_l[0])
+        sly = p0_l[1] + t * (p1_l[1] - p0_l[1])
+        size = (rng.uniform(1.0, 3.0), rng.uniform(0.5, 2.0),
+               rng.uniform(0.006, 0.02))
+        sheets.append(_deposit(rng, m, slx, sly, roof_top, wind,
+                               "roof_sheet", "membrane", size,
+                               tu._C_KIND["membrane"]))
 
-        end = rng.choice(("lo", "hi"))
-        jitter = rng.uniform(0.0, 0.10) * along_total * rng.random()
-        if end == "lo":
-            a0 = jitter
-        else:
-            a0 = along_total - along_len - jitter
-        a0 = max(0.0, min(along_total - along_len, a0))
-
-        rx0, ry0, rx1, ry1 = _patch_rect(frame, a0, along_len, depth_len)
-        eps = max(0.05, 0.02 * along_total)
-        corner = None
-        if a0 <= eps:
-            corner = _END_TO_CORNER.get((windward, "lo"))
-        elif (a0 + along_len) >= along_total - eps:
-            corner = _END_TO_CORNER.get((windward, "hi"))
-
-        p0_l, p1_l = _inner_edge_line(frame, a0, along_len, depth_len)
-        lip_h = rng.uniform(0.20, 0.45)
-        lip_w = rng.uniform(0.25, 0.45)
-
-        n_sheets = rng.randint(2, 6)
-        sheets = []
-        for _s in range(n_sheets):
-            t = rng.random()
-            slx = p0_l[0] + t * (p1_l[0] - p0_l[0])
-            sly = p0_l[1] + t * (p1_l[1] - p0_l[1])
-            size = (rng.uniform(1.0, 3.0), rng.uniform(0.5, 2.0),
-                   rng.uniform(0.006, 0.02))
-            sheets.append(_deposit(rng, m, slx, sly, roof_top, wind,
-                                   "roof_sheet", "membrane", size,
-                                   tu._C_KIND["membrane"]))
-
-        patches.append({
-            "side": windward, "corner": corner,
-            "rect_local": [float(rx0), float(ry0), float(rx1), float(ry1)],
-            "area_m2": float(along_len * depth_len),
-            "z": float(roof_top + _PATCH_Z_OFFSET),
-            "substrate": {"material": sub_key, "rgb": [float(q) for q in sub_rgb],
-                          "roughness": float(sub_rough), "texture": sub_tex},
-            "lip": {"p0_local": [float(p0_l[0]), float(p0_l[1])],
-                    "p1_local": [float(p1_l[0]), float(p1_l[1])],
-                    "height_m": float(lip_h), "width_m": float(lip_w)},
-            "sheets": sheets,
-        })
-    return patches
+    tear = {"side": windward, "along_start_m": float(a0), "run_m": float(run),
+            "depth_m": float(depth),
+            "p0_local": [float(p0_l[0]), float(p0_l[1])],
+            "p1_local": [float(p1_l[0]), float(p1_l[1])]}
+    return tear, sheets
 
 
 # ---------------------------------------------------------------------------
@@ -593,13 +562,13 @@ def _draw_scour(rng, level, windward, rect, roof_top):
     frame = _side_frame(windward, rect)
     along_total = max(1e-6, frame["along_hi"] - frame["along_lo"])
     depth_len = max(0.8, min(frame["depth_max"] * 0.9, 1.0 + 3.5 * frac))
-    rx0, ry0, rx1, ry1 = _patch_rect(frame, 0.0, along_total, depth_len)
+    rx0, ry0, rx1, ry1 = _band_rect(frame, 0.0, along_total, depth_len)
     # gravel-ballast-stripped tone: darker than the intact roof, revealing
     # the dark felt/tar beneath (§ hurricane research 2.2's own sequence)
     tint = (0.30, 0.28, 0.26)
     return {"side": windward, "frac": float(frac),
             "rect_local": [float(rx0), float(ry0), float(rx1), float(ry1)],
-            "z": float(roof_top + _PATCH_Z_OFFSET), "tint": list(tint)}
+            "z": float(roof_top + _ROOF_Z_OFFSET), "tint": list(tint)}
 
 
 # ---------------------------------------------------------------------------
@@ -607,8 +576,20 @@ def _draw_scour(rng, level, windward, rect, roof_top):
 # ---------------------------------------------------------------------------
 def _draw_coping(rng, level, windward, info, elements, m, rect, roof_top,
                  wind, facade_plan):
+    # ROUND 4 (stream D's B-rubble fix, extended here): the building's own
+    # masonry TONE token, resolved from its style exactly the way the façade
+    # ledger resolves it (`tornado_urban._KIT_TONE`/`_tone_for`). Fallen
+    # coping classifies into `tornado_urban_usd._classify`'s `brick` bucket
+    # (its material string is the literal "coping"), which is TONEABLE -- so
+    # without this the white-stone B-row kits (`brownstone_row`, `walkup`)
+    # got the generic red-brown brick rubble map on their coping while the
+    # façade ladder's own coping fragments, three prims away on the same
+    # building, correctly bound the pale `stone` look. `""` for every style
+    # the table does not name (every sliced A-row building), which leaves
+    # those bindings exactly where the review approved them.
+    tone = tu._tone_for(info.get("style"))
     result = {"side": windward, "target_frac": 0.0, "already_removed_frac": 0.0,
-              "piece_removed": [], "boxes": []}
+              "tone": str(tone or ""), "piece_removed": [], "boxes": []}
     lo, hi = _COPING_FRAC.get(level, (0.0, 0.0))
     if hi <= 0.0:
         return result
@@ -648,7 +629,8 @@ def _draw_coping(rng, level, windward, info, elements, m, rect, roof_top,
         size = (rng.uniform(0.22, 0.50), rng.uniform(0.22, 0.50),
                rng.uniform(0.15, 0.35))
         boxes.append(_deposit(rng, m, lx, ly, roof_top, wind, "coping",
-                              "coping", size, tu._C_KIND["coping"]))
+                              "coping", size, tu._C_KIND["coping"],
+                              tone=tone))
     result["boxes"] = boxes
     return result
 
@@ -713,23 +695,22 @@ def _draw_props(rng, level, rect, roof_top, wind, m):
 # STATS
 # ---------------------------------------------------------------------------
 def _empty_stats():
-    return {"roof_area_m2": 0.0, "n_patches": 0, "patch_coverage_frac": 0.0,
-            "n_sheets": 0, "n_coping_pieces": 0, "n_coping_boxes": 0,
-            "n_topple": 0, "n_thrown_props": 0, "scour_frac": 0.0}
+    """`n_patches`/`patch_coverage_frac` are deliberately ABSENT, not
+    zeroed -- see the module docstring's schema note."""
+    return {"roof_area_m2": 0.0, "n_sheets": 0, "n_coping_pieces": 0,
+            "n_coping_boxes": 0, "n_topple": 0, "n_thrown_props": 0,
+            "scour_frac": 0.0}
 
 
 def _compute_stats(roof_plan, rect):
     x0, y0, x1, y1 = rect
     roof_area = max(1e-9, (x1 - x0) * (y1 - y0))
-    patches = roof_plan.get("patches") or ()
-    n_sheets = sum(len(p.get("sheets") or ()) for p in patches)
-    coverage = sum(float(p.get("area_m2") or 0.0) for p in patches) / roof_area
     coping = roof_plan.get("coping") or {}
     props = roof_plan.get("props") or {}
     scour = roof_plan.get("scour") or {}
     return {
-        "roof_area_m2": float(roof_area), "n_patches": len(patches),
-        "patch_coverage_frac": float(coverage), "n_sheets": int(n_sheets),
+        "roof_area_m2": float(roof_area),
+        "n_sheets": len(roof_plan.get("sheets") or ()),
         "n_coping_pieces": len(coping.get("piece_removed") or ()),
         "n_coping_boxes": len(coping.get("boxes") or ()),
         "n_topple": int(props.get("n_topple") or 0),
@@ -766,7 +747,7 @@ def plan_roof(info, elements, level, wind, rng, height_class, intensity,
     H = float(info.get("H") or m.get("top") or 0.0)
 
     roof_plan = {
-        "schema": "tornado_roof_plan.v1", "level": level, "btype": btype,
+        "schema": "tornado_roof_plan.v2", "level": level, "btype": btype,
         "height_class": str(height_class or ""), "H": H, "wind": wind,
         "roof": {"cx": float(m.get("cx", 0.0)), "cy": float(m.get("cy", 0.0)),
                 "yaw": float(m.get("yaw", 0.0)), "W": float(m.get("W", 0.0)),
@@ -774,7 +755,10 @@ def plan_roof(info, elements, level, wind, rng, height_class, intensity,
                 "inset": ROOF_INSET_M, "rect_local": None},
         "windward_side": None, "side_weights": {},
         "skipped": False, "skip_reason": None,
-        "patches": [], "scour": None, "coping": None, "props": None,
+        # `patches` is a permanently-empty v1 compatibility key: the
+        # membrane-peel population is retired and nothing refills it.
+        "patches": [], "tear": None, "sheets": [],
+        "scour": None, "coping": None, "props": None,
         "notes": [], "stats": {},
     }
 
@@ -805,17 +789,18 @@ def plan_roof(info, elements, level, wind, rng, height_class, intensity,
     roof_plan["roof"]["rect_local"] = [float(q) for q in rect]
     roof_top = float(m.get("top", H))
 
-    roof_plan["patches"] = _draw_patches(rng, level, windward, rect, roof_top,
-                                         btype, m, wind)
+    roof_plan["tear"], roof_plan["sheets"] = _draw_shed_sheets(
+        rng, level, windward, rect, roof_top, m, wind)
     roof_plan["scour"] = _draw_scour(rng, level, windward, rect, roof_top)
     roof_plan["coping"] = _draw_coping(rng, level, windward, info, elements, m,
                                        rect, roof_top, wind, facade_plan)
     roof_plan["props"] = _draw_props(rng, level, rect, roof_top, wind, m)
 
     roof_plan["notes"].append(
-        "roof: {0} patch(es) on {1}, scour {2:.2f}, coping target {3:.2f} "
-        "({4} piece(s) + {5} box(es)), props {6} ({7} topple / {8} thrown)"
-        .format(len(roof_plan["patches"]), windward,
+        "roof: {0} shed sheet(s) off {1}, scour {2:.2f}, coping target "
+        "{3:.2f} ({4} piece(s) + {5} box(es)), props {6} ({7} topple / "
+        "{8} thrown)"
+        .format(len(roof_plan["sheets"]), windward,
                 roof_plan["scour"]["frac"], roof_plan["coping"]["target_frac"],
                 len(roof_plan["coping"]["piece_removed"]),
                 len(roof_plan["coping"]["boxes"]),
@@ -828,31 +813,22 @@ def plan_roof(info, elements, level, wind, rng, height_class, intensity,
 # ===========================================================================
 # APPLY -- pxr from here down
 # ===========================================================================
-def _fix_diffuse_tint(stage, path, rgb):
-    """Same patch `tornado_urban_usd._fix_diffuse_tint` applies -- OmniPBR
-    REPLACES (does not multiply) a textured `diffuse_texture` with
-    `diffuse_color_constant`; `diffuse_tint` is the surviving multiply slot.
-    Reproduced here (one function, not worth an import for) rather than
-    reaching into `tornado_urban_usd`'s private helpers for it."""
-    sh = UsdShade.Shader.Get(stage, path + "/Shader")
-    if sh:
-        sh.CreateInput("diffuse_tint",
-                       Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*rgb))
-
-
-def _resolve_texture(path):
-    """Same `airstack://` -> resolved-path pattern `tornado_urban_usd.
-    _resolve_texture` uses, at authoring time, every time -- see that
-    function's own docstring for why this cannot be a module-level
-    constant."""
-    import scene_generator as sg
-    return sg._join_asset_root(path, "")
-
-
-def _roof_material(stage, ctx, key, rgb, roughness, texture=None):
+def _roof_material(stage, ctx, key, rgb, roughness):
     """One material per roof LOOK KEY, cached in `ctx["mats"]` under a
     `"tornado_roof:"` namespace so it never collides with the façade
-    ladder's own `"tornado_debris:"`-keyed materials in the same dict."""
+    ladder's own `"tornado_debris:"`-keyed materials in the same dict.
+
+    FLAT COLOUR ONLY, and only one key ships today (`scour`). The single
+    TEXTURED roof look this module ever had was the retired peel's
+    concrete-deck substrate, and it carried round 4's own trap with it:
+    per the OmniPBR MDL, `diffuse_color_constant` (what `damage._pbr`
+    writes from its `tint` argument) is only the map-failed FALLBACK and
+    `diffuse_tint` is the multiplier over a resolved map, so passing the
+    class rgb as the "tint" multiplied the texture down to ~0.4 of itself
+    on every patch. If a textured roof look is ever added back here, bind
+    the map, set `diffuse_tint` near-neutral on the shader, and leave the
+    class rgb as the constant -- do NOT assume `_pbr(tint=rgb)` tints.
+    """
     mats = ctx.setdefault("mats", {})
     cache_key = "tornado_roof:" + str(key)
     got = mats.get(cache_key)
@@ -860,18 +836,7 @@ def _roof_material(stage, ctx, key, rgb, roughness, texture=None):
         return got
     parent = ctx.get("parent") or "/World"
     path = "{0}/TornadoRoofLooks/{1}".format(parent, key)
-    tex = _resolve_texture(texture) if texture else None
-    mat = damage._pbr(stage, path, rgb, roughness, texture=tex,
-                      scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
-    if tex:
-        # Round 4 (stream D's cross-region finding): per the OmniPBR MDL,
-        # `diffuse_color_constant` (set by `_pbr(tint=rgb)`) is only the
-        # map-failed FALLBACK, and `diffuse_tint` is the multiplier over the
-        # resolved map -- passing the class rgb here multiplied the texture
-        # down to ~0.4 of itself on every textured roof patch/scour band.
-        # Near-neutral grime tint instead; the class rgb stays as the
-        # fallback constant.
-        _fix_diffuse_tint(stage, path, (0.87, 0.85, 0.83))
+    mat = damage._pbr(stage, path, rgb, roughness)
     mats[cache_key] = mat
     return mat
 
@@ -879,8 +844,9 @@ def _roof_material(stage, ctx, key, rgb, roughness, texture=None):
 def _author_quad(stage, path, rect_local, z, m, mat):
     """A single upward-facing quad, `rect_local` (roof-frame) converted to
     world (cell-local) corners via `quake_flow._to_world`, faceVarying
-    normals (+Z) -- the peel-patch substrate and the scour band are both
-    this, viewed from directly above where a rooftop is always read."""
+    normals (+Z) -- the gravel-scour band is the only thing this module
+    still draws on the roof plane, viewed from directly above where a
+    rooftop is always read."""
     x0, y0, x1, y1 = rect_local
     corners_l = ((x0, y0), (x1, y0), (x1, y1), (x0, y1))
     pts = [Gf.Vec3f(*qf._to_world(m, lx, ly), z) for lx, ly in corners_l]
@@ -892,88 +858,6 @@ def _author_quad(stage, path, rect_local, z, m, mat):
     m_msh.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
     m_msh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
     xs, ys, zs = [p[0] for p in pts], [p[1] for p in pts], [p[2] for p in pts]
-    m_msh.CreateExtentAttr([Gf.Vec3f(min(xs), min(ys), min(zs)),
-                            Gf.Vec3f(max(xs), max(ys), max(zs))])
-    if mat is not None:
-        UsdShade.MaterialBindingAPI.Apply(m_msh.GetPrim()).Bind(mat)
-    return path
-
-
-def _oriented_normal(p0, p1, p2, centroid):
-    a = (p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])
-    b = (p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])
-    n = (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0])
-    ln = math.sqrt(sum(q * q for q in n))
-    if ln < 1e-9:
-        return (0.0, 0.0, 1.0)
-    n = (n[0] / ln, n[1] / ln, n[2] / ln)
-    fc = ((p0[0] + p1[0] + p2[0]) / 3.0, (p0[1] + p1[1] + p2[1]) / 3.0,
-         (p0[2] + p1[2] + p2[2]) / 3.0)
-    d = ((fc[0] - centroid[0]) * n[0] + (fc[1] - centroid[1]) * n[1]
-        + (fc[2] - centroid[2]) * n[2])
-    return n if d >= 0.0 else (-n[0], -n[1], -n[2])
-
-
-_LIP_FACES = ((0, 2, 1), (3, 4, 5), (0, 3, 5, 2), (2, 5, 4, 1), (0, 1, 4, 3))
-
-
-def _author_lip(stage, path, p0_local, p1_local, height_m, width_m, base_z,
-                m, mat):
-    """A low right-triangle-cross-section ridge along `p0_local ->
-    p1_local` (the patch's downwind boundary, roof-frame local), the
-    closest a single static mesh gets to a rolled/curled membrane edge
-    without a many-segment cylinder.
-
-    Cross-section, at each end: A (upwind foot, roof level), B (downwind
-    foot, roof level, `width_m` from A), C (the ridge peak, `height_m`
-    above the midpoint). `A/B/C` at `p0` give vertices 0/1/2; at `p1` give
-    3/4/5. `_LIP_FACES` closes the prism (2 triangular caps, 2 sloped
-    quads, 1 base quad); each face's normal is computed from its own first
-    three points and flipped away from the prism's own centroid
-    (`_oriented_normal`) rather than relied on from vertex winding alone.
-    """
-    dx, dy = p1_local[0] - p0_local[0], p1_local[1] - p0_local[1]
-    ln = math.hypot(dx, dy)
-    if ln < 1e-6:
-        return None
-    ux, uy = dx / ln, dy / ln            # along the ridge line
-    nx, ny = -uy, ux                     # perpendicular, in-plane
-    hw = width_m / 2.0
-
-    def _abc(p_local):
-        ax, ay = p_local[0] - nx * hw, p_local[1] - ny * hw
-        bx, by = p_local[0] + nx * hw, p_local[1] + ny * hw
-        cx, cy = p_local[0], p_local[1]
-        A = qf._to_world(m, ax, ay) + (base_z,)
-        B = qf._to_world(m, bx, by) + (base_z,)
-        C = qf._to_world(m, cx, cy) + (base_z + height_m,)
-        return A, B, C
-
-    A0, B0, C0 = _abc(p0_local)
-    A1, B1, C1 = _abc(p1_local)
-    verts = [A0, B0, C0, A1, B1, C1]
-    centroid = tuple(sum(v[k] for v in verts) / 6.0 for k in range(3))
-
-    pts, counts, idx, nrm = [], [], [], []
-    for face in _LIP_FACES:
-        n = _oriented_normal(verts[face[0]], verts[face[1]], verts[face[2]],
-                             centroid)
-        base = len(pts)
-        counts.append(len(face))
-        for vi in face:
-            pts.append(Gf.Vec3f(*verts[vi]))
-            nrm.append(Gf.Vec3f(*n))
-        idx.extend(range(base, base + len(face)))
-
-    m_msh = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
-    m_msh.CreatePointsAttr(Vt.Vec3fArray(pts))
-    m_msh.CreateFaceVertexCountsAttr(Vt.IntArray(counts))
-    m_msh.CreateFaceVertexIndicesAttr(Vt.IntArray(idx))
-    m_msh.CreateNormalsAttr(Vt.Vec3fArray(nrm))
-    m_msh.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
-    m_msh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
-    xs = [p[0] for p in pts]; ys = [p[1] for p in pts]; zs = [p[2] for p in pts]
     m_msh.CreateExtentAttr([Gf.Vec3f(min(xs), min(ys), min(zs)),
                             Gf.Vec3f(max(xs), max(ys), max(zs))])
     if mat is not None:
@@ -1022,8 +906,9 @@ def apply_roof(stage, ctx, roof_plan, verbose=True):
     ctx.setdefault("mats", {})
     ctx.setdefault("static_extra", [])
     ctx.setdefault("notes", [])
-    counts = {"n_patch_quads": 0, "n_lips": 0, "n_sheet_meshes": 0,
-             "n_scour_quads": 0, "n_coping_removed": 0,
+    # No `n_patch_quads`/`n_lips` key: this pass authors neither, at any
+    # level, and a permanently-zero counter is a claim that it might.
+    counts = {"n_sheet_meshes": 0, "n_scour_quads": 0, "n_coping_removed": 0,
              "n_coping_missing": 0, "n_coping_boxes_mesh": 0,
              "n_props_mesh": 0}
 
@@ -1043,45 +928,23 @@ def apply_roof(stage, ctx, roof_plan, verbose=True):
     root = "{0}/tornado_roof".format(parent)
     UsdGeom.Scope.Define(stage, Sdf.Path(root))
 
-    # 1) PEEL PATCHES -- substrate quad, lip prism, torn sheets
-    all_sheets = []
-    for i, patch in enumerate(roof_plan.get("patches") or ()):
-        sub = patch.get("substrate") or {}
-        mat = _roof_material(stage, ctx, sub.get("material") or "deck",
-                             tuple(sub.get("rgb") or (0.4, 0.4, 0.4)),
-                             float(sub.get("roughness") or 0.8),
-                             texture=sub.get("texture"))
-        qpath = "{0}/patch_{1:02d}_substrate".format(root, i)
-        _author_quad(stage, qpath, patch["rect_local"], patch["z"], m, mat)
-        ctx["static_extra"].append(qpath)
-        counts["n_patch_quads"] += 1
-
-        lip = patch.get("lip") or {}
-        if lip.get("p0_local") and lip.get("p1_local"):
-            lip_mat = _roof_material(stage, ctx, "lip",
-                                     (0.20, 0.17, 0.14), 0.55)
-            lpath = "{0}/patch_{1:02d}_lip".format(root, i)
-            made = _author_lip(stage, lpath, lip["p0_local"], lip["p1_local"],
-                               float(lip.get("height_m") or 0.3),
-                               float(lip.get("width_m") or 0.35),
-                               patch["z"], m, lip_mat)
-            if made:
-                ctx["static_extra"].append(made)
-                counts["n_lips"] += 1
-
-        all_sheets.extend(patch.get("sheets") or ())
-
-    if all_sheets:
-        made = _author_fragments_grouped(stage, parent, all_sheets, ctx)
+    # 1) SHED MEMBRANE SHEETS -- debris only. NO substrate quad and NO
+    #    membrane lip is authored here at any level (module docstring,
+    #    "ROUND 4"); a v1 plan's own nested `patches[*]` are deliberately
+    #    IGNORED rather than replayed, so an old cached plan re-applied
+    #    through this function still puts nothing on the roof plane.
+    sheets = list(roof_plan.get("sheets") or ())
+    if sheets:
+        made = _author_fragments_grouped(stage, parent, sheets, ctx)
         ctx["static_extra"].extend(made)
         counts["n_sheet_meshes"] = len(made)
 
-    # 2) GRAVEL SCOUR -- one tinted band quad, no substrate exposure
+    # 2) GRAVEL SCOUR -- one tinted band quad, the only roof-plane art
     scour = roof_plan.get("scour") or {}
     if scour.get("rect_local") and float(scour.get("frac") or 0.0) > 0.0:
-        scour_mat = _roof_material(stage, ctx, "scour",
-                                   tuple(scour.get("tint") or (0.3, 0.28, 0.26)),
-                                   0.85)
+        scour_mat = _roof_material(
+            stage, ctx, "scour",
+            tuple(scour.get("tint") or (0.3, 0.28, 0.26)), 0.85)
         spath = "{0}/scour".format(root)
         _author_quad(stage, spath, scour["rect_local"], float(scour["z"]),
                     m, scour_mat)
@@ -1120,11 +983,10 @@ def apply_roof(stage, ctx, roof_plan, verbose=True):
             ctx["notes"].append(full)
 
     if verbose:
-        print("[tornado_roof] {0}: {1} patch quad(s)/{2} lip(s)/{3} sheet "
-              "mesh(es), {4} scour quad(s), {5} coping piece(s) removed "
-              "(+{6} missing)/{7} box mesh(es), {8} prop mesh(es)".format(
-                  roof_plan.get("level") or "plan", counts["n_patch_quads"],
-                  counts["n_lips"], counts["n_sheet_meshes"],
+        print("[tornado_roof] {0}: {1} shed-sheet mesh(es), {2} scour "
+              "quad(s), {3} coping piece(s) removed (+{4} missing)/{5} box "
+              "mesh(es), {6} prop mesh(es)".format(
+                  roof_plan.get("level") or "plan", counts["n_sheet_meshes"],
                   counts["n_scour_quads"], counts["n_coping_removed"],
                   counts["n_coping_missing"], counts["n_coping_boxes_mesh"],
                   counts["n_props_mesh"]))

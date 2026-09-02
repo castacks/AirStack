@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 """test_tornado_roof.py — does `disaster/tornado_roof.py`'s roof-damage pass
-place its peel patches on the windward edge, keep its coverage inside the
-per-level band, roll up its lip on the DOWNWIND boundary, sit its substrate
-quads exactly 0.015 m above the roof plane, refuse to peel a roof the
-façade ladder already shed, and — the one invariant every other check is
-worthless without — leave the FAÇADE plan byte-identical whether or not
-this module is ever called?
+author NO membrane-peel art at any level, throw its shed sheets off the
+windward edge in the per-level count band, sit its one remaining roof-plane
+quad (the gravel scour band) exactly 0.015 m above the roof, refuse to
+touch a roof the façade ladder already shed, and — the one invariant every
+other check is worthless without — leave the FAÇADE plan byte-identical
+whether or not this module is ever called?
+
+THE PEEL IS RETIRED (round 4, the user's own call on the bench: the
+substrate patches "look weird and unnatural ... I don't think we can make
+it look good in isaac-sim"). Two tests below pin that, one on the PLAN
+(`test_plan_never_carries_a_peel_patch_at_any_level`) and one on the
+authored STAGE (`test_apply_authors_no_substrate_or_lip_prims`) — the
+second is the one that matters, because a plan key can go quiet while the
+apply step keeps drawing.
 
     python3 -m pytest -q scene_gen/tests/test_tornado_roof.py
 
@@ -156,126 +164,128 @@ def test_facade_plan_unchanged_by_roof_hook():
 
 
 # ---------------------------------------------------------------------------
-# windward-snapped patches
+# THE PEEL IS RETIRED — the plan half
 # ---------------------------------------------------------------------------
-def test_patches_are_windward_snapped():
+def test_plan_never_carries_a_peel_patch_at_any_level():
+    """No level, no construction type, no seed produces a peel patch, and
+    the stats no longer carry the peel's own two counters at all (absent,
+    not zeroed — a zeroed `patch_coverage_frac` still advertises a feature
+    this module does not have)."""
+    for btype in ("urm", "rc", "rc_glass"):
+        for level in tr.LEVELS:
+            for seed in range(1, 8):
+                _info, _fp, rp = _plans("midrise", level, btype=btype,
+                                        seed=seed,
+                                        tag="nopeel_" + btype + level + str(seed))
+                assert rp["patches"] == [], (btype, level, seed)
+                assert "n_patches" not in rp["stats"]
+                assert "patch_coverage_frac" not in rp["stats"]
+                assert rp["schema"] == "tornado_roof_plan.v2"
+
+
+def test_module_exposes_no_peel_machinery():
+    """The peel tables/helpers are DELETED, not defaulted to zero — a
+    later round cannot re-enable the look by flipping a constant back."""
+    for gone in ("_PATCH_COUNT", "_COVERAGE", "_T1_PATCH_P", "_substrate_for",
+                 "_author_lip", "_draw_patches", "_shares"):
+        assert not hasattr(tr, gone), gone + " is still defined"
+
+
+# ---------------------------------------------------------------------------
+# the tear run — windward, end-snapped, never centred
+# ---------------------------------------------------------------------------
+def test_tear_run_is_windward_and_end_snapped():
+    """The shed sheets' release line runs along the WINDWARD edge (the
+    max-weight side), spans `_TEAR_RUN_FRAC` of that edge, and is snapped
+    to one END of it — never centred, matching the record's own "failure
+    initiates at the edge/corner metal"."""
     n_checked = 0
     for seed in range(1, 21):
         _info, _fp, rp = _plans("midrise", "T3", seed=seed,
-                                wind=fake_wind(35.0 + seed), tag="ws_" + str(seed))
+                                wind=fake_wind(35.0 + seed), tag="tear_" + str(seed))
+        tear = rp["tear"]
+        if tear["run_m"] <= 0.0:
+            continue
         weights = rp["side_weights"]
-        mean_w = _mean(weights.values())
-        for patch in rp["patches"]:
-            assert patch["side"] == rp["windward_side"]
-            assert weights[patch["side"]] >= mean_w - 1e-9, (
-                "patch side weight {0} below field mean {1}".format(
-                    weights[patch["side"]], mean_w))
-            n_checked += 1
-    assert n_checked > 0, "no patches were drawn across 20 T3 seeds -- test is vacuous"
+        assert tear["side"] == rp["windward_side"]
+        assert weights[tear["side"]] >= _mean(weights.values()) - 1e-9
+
+        frame = tr._side_frame(tear["side"], rp["roof"]["rect_local"])
+        along_total = frame["along_hi"] - frame["along_lo"]
+        lo_f, hi_f = tr._TEAR_RUN_FRAC
+        assert lo_f * along_total - 1e-6 <= tear["run_m"] <= hi_f * along_total + 1e-6
+        a0 = tear["along_start_m"]
+        assert (abs(a0) < 1e-9
+                or abs(a0 - (along_total - tear["run_m"])) < 1e-6), (
+            "tear run is not snapped to either end of the windward edge")
+        assert tear["depth_m"] <= frame["depth_max"] * tr._TEAR_DEPTH_MAX_FRAC + 1e-6
+        assert tear["depth_m"] <= tr._TEAR_DEPTH_M[1] + 1e-6
+        # the release line sits at that depth, spanning that run
+        p0, p1 = tear["p0_local"], tear["p1_local"]
+        inner = frame["edge_val"] + frame["depth_sign"] * tear["depth_m"]
+        if frame["along_axis"] == "x":
+            assert abs(p0[1] - inner) < 1e-6 and abs(p1[1] - inner) < 1e-6
+            assert abs(abs(p1[0] - p0[0]) - tear["run_m"]) < 1e-6
+        else:
+            assert abs(p0[0] - inner) < 1e-6 and abs(p1[0] - inner) < 1e-6
+            assert abs(abs(p1[1] - p0[1]) - tear["run_m"]) < 1e-6
+        n_checked += 1
+    assert n_checked > 0, "no tear run drawn across 20 T3 seeds — test is vacuous"
 
 
-def test_patches_never_sit_dead_centre_of_the_edge():
-    """Never centred: every patch's ALONG-axis position sits within the
-    code's own jitter bound (10 % of the edge length, `_draw_patches`'s own
-    `jitter` range) of one end of the windward edge -- recomputed here from
-    `rect_local` against the module's own `_side_frame`, not by trusting
-    the `corner` field (which only fires inside a much tighter epsilon and
-    is a bonus, not every patch's guarantee)."""
+def test_shed_sheets_are_thin_membrane_frags_seated_on_roof_or_grade():
     n_checked = 0
     for seed in range(1, 16):
-        _info, _fp, rp = _plans("midrise", "T2", seed=seed, tag="corner_" + str(seed))
-        side = rp["windward_side"]
-        roof_rect = rp["roof"]["rect_local"]
-        frame = tr._side_frame(side, roof_rect)
-        along_total = frame["along_hi"] - frame["along_lo"]
-        for patch in rp["patches"]:
-            x0, y0, x1, y1 = patch["rect_local"]
-            if frame["along_axis"] == "x":
-                a0, a1 = x0 - frame["along_lo"], x1 - frame["along_lo"]
-            else:
-                a0, a1 = y0 - frame["along_lo"], y1 - frame["along_lo"]
-            along_len = a1 - a0
-            dist_to_end = min(a0, along_total - along_len - a0)
-            assert dist_to_end <= 0.10 * along_total + 1e-6, (
-                "patch sits {0:.2f} m from the nearest edge end (edge is "
-                "{1:.2f} m long) -- not snapped".format(dist_to_end, along_total))
+        info, _fp, rp = _plans("midrise", "T4", seed=seed, tag="sheet_" + str(seed))
+        roof_top = info["masses"]["main"]["top"]
+        for f in rp["sheets"]:
+            assert f["kind"] == "roof_sheet"
+            assert f["material"] == "membrane"
+            assert f["size"][2] <= 0.02 + 1e-9, "a shed sheet is not thin"
+            assert (abs(f["z"] - roof_top) < 1e-9 or abs(f["z"]) < 1e-9), (
+                "a shed sheet landed at neither the roof plane nor grade")
             n_checked += 1
     assert n_checked > 0
 
 
 # ---------------------------------------------------------------------------
-# coverage bands and monotonicity
+# sheet-count bands and monotonicity
 # ---------------------------------------------------------------------------
-def test_coverage_in_band_per_level():
-    for level, (lo, hi) in tr._COVERAGE.items():
+def test_sheet_count_in_band_per_level():
+    for level, (lo, hi) in tr._SHEET_COUNT.items():
         for seed in range(1, 11):
             _info, _fp, rp = _plans("midrise", level, seed=seed,
-                                    tag="cov_" + level + str(seed))
-            cov = rp["stats"]["patch_coverage_frac"]
-            if rp["patches"]:
-                assert lo - 1e-6 <= cov <= hi + 1e-6, (
-                    "{0} seed {1}: coverage {2} outside [{3},{4}]".format(
-                        level, seed, cov, lo, hi))
-            else:
-                assert cov == 0.0
+                                    tag="cnt_" + level + str(seed))
+            n = rp["stats"]["n_sheets"]
+            assert n == len(rp["sheets"])
+            assert lo <= n <= hi, (
+                "{0} seed {1}: {2} shed sheets outside [{3},{4}]".format(
+                    level, seed, n, lo, hi))
 
 
-def test_monotone_mean_coverage_t1_to_t4():
+def test_monotone_mean_sheet_count_t1_to_t4():
     means = {}
     for level in ("T1", "T2", "T3", "T4"):
-        covs = []
+        counts = []
         for seed in range(1, 31):
             _info, _fp, rp = _plans("midrise", level, seed=seed,
                                     tag="mono_" + level + str(seed))
-            covs.append(rp["stats"]["patch_coverage_frac"])
-        means[level] = _mean(covs)
+            counts.append(rp["stats"]["n_sheets"])
+        means[level] = _mean(counts)
     assert means["T1"] <= means["T2"] <= means["T3"] <= means["T4"], means
     assert means["T4"] > means["T1"], means
 
 
 # ---------------------------------------------------------------------------
-# lip geometry
+# quad height above the roof plane — the scour band is the only one left
 # ---------------------------------------------------------------------------
-def test_lip_runs_along_the_downwind_boundary():
-    n_checked = 0
-    for seed in range(1, 16):
-        _info, _fp, rp = _plans("midrise", "T3", seed=seed, tag="lip_" + str(seed))
-        side = rp["windward_side"]
-        for patch in rp["patches"]:
-            x0, y0, x1, y1 = patch["rect_local"]
-            p0 = patch["lip"]["p0_local"]
-            p1 = patch["lip"]["p1_local"]
-            if side in ("S", "N"):
-                # the lip's own along-axis coordinate spans the patch's x
-                # extent, and its (shared) y coordinate sits on the FAR
-                # (downwind, away-from-the-wall) edge of the rect.
-                far_y = y1 if side == "S" else y0
-                assert abs(p0[1] - far_y) < 1e-6
-                assert abs(p1[1] - far_y) < 1e-6
-                xs = sorted((p0[0], p1[0]))
-                assert xs[0] >= x0 - 1e-6 and xs[1] <= x1 + 1e-6
-            else:
-                far_x = x1 if side == "W" else x0
-                assert abs(p0[0] - far_x) < 1e-6
-                assert abs(p1[0] - far_x) < 1e-6
-                ys = sorted((p0[1], p1[1]))
-                assert ys[0] >= y0 - 1e-6 and ys[1] <= y1 + 1e-6
-            assert 0.20 - 1e-9 <= patch["lip"]["height_m"] <= 0.45 + 1e-9
-            n_checked += 1
-    assert n_checked > 0
-
-
-# ---------------------------------------------------------------------------
-# quad height above the roof plane
-# ---------------------------------------------------------------------------
-def test_patch_and_scour_quads_are_0p015_above_roof_top():
+def test_scour_quad_is_0p015_above_roof_top():
     for seed in range(1, 11):
         info, _fp, rp = _plans("midrise", "T3", seed=seed, tag="z_" + str(seed))
         roof_top = info["masses"]["main"]["top"]
-        for patch in rp["patches"]:
-            assert abs(patch["z"] - (roof_top + 0.015)) < 1e-9
         if rp["scour"]["rect_local"] is not None:
             assert abs(rp["scour"]["z"] - (roof_top + 0.015)) < 1e-9
+        assert abs(tr._ROOF_Z_OFFSET - 0.015) < 1e-12
 
 
 # ---------------------------------------------------------------------------
@@ -311,6 +321,7 @@ def test_skips_when_facade_already_shed_the_roof():
             assert roof_plan["skipped"] is True
             assert roof_plan["skip_reason"]
             assert roof_plan["patches"] == []
+            assert roof_plan["sheets"] == []
             assert roof_plan["stats"] == tr._empty_stats()
             assert any("top_storey_loss" in n for n in roof_plan["notes"])
     assert fired, ("top_storey_loss never fired across 59 seeds -- test is "
@@ -348,6 +359,8 @@ def test_props_shares_match_table_by_level():
 def test_t0_authors_nothing():
     info, _fp, rp = _plans("midrise", "T0", seed=1, tag="t0")
     assert rp["patches"] == []
+    assert rp["sheets"] == []
+    assert rp["tear"]["run_m"] == 0.0
     assert rp["scour"]["frac"] == 0.0
     assert rp["coping"]["target_frac"] == 0.0
     assert rp["coping"]["boxes"] == []
@@ -396,6 +409,42 @@ def test_coping_boxes_authored_even_with_no_parapet_pieces_in_grid():
 
 
 # ---------------------------------------------------------------------------
+# coping TONE — the fallen-coping look follows the building's own masonry
+# ---------------------------------------------------------------------------
+def test_coping_boxes_carry_the_buildings_masonry_tone():
+    """`build_debris` groups and looks up by `frag["tone"]`; a fallen-coping
+    frag classifies into the TONEABLE `brick` bucket, so an unstamped one
+    binds the generic red-brown brick rubble map on a white-stone kit. Every
+    box must carry the same token `tornado_urban._tone_for` gives the
+    building's style — and a style the table does not name must still stamp
+    `""`, leaving the approved A-row class binding alone."""
+    n_toned = 0
+    for style, expect in (("brownstone_row", "stone"), ("dw_terrace", "tan"),
+                          ("office", "")):
+        _pls, info, facade_plan = tk.plan_for_kit(
+            style, "T3", random.Random(11), fake_wind(35.0), seed=11,
+            intensity=0.60)
+        assert tu._tone_for(info.get("style")) == expect, (style, expect)
+        roof_rng = random.Random(tr.roof_seed("tone_" + style))
+        rp = tr.plan_roof(info, info["elements"], "T3", fake_wind(35.0),
+                          roof_rng, "midrise", 0.6, facade_plan=facade_plan)
+        assert rp["coping"]["tone"] == expect, style
+        for box in rp["coping"]["boxes"]:
+            assert box["tone"] == expect, (style, box["tone"])
+            n_toned += 1
+    assert n_toned > 0, "no coping boxes drawn — test is vacuous"
+
+
+def test_sliced_style_stamps_no_tone():
+    """A sliced (A-row) building's style is absent from `_KIT_TONE`, so its
+    coping must stamp `""` and take the unchanged class branch."""
+    _info, _fp, rp = _plans("midrise", "T3", seed=5, tag="notone")
+    assert rp["coping"]["tone"] == ""
+    for box in rp["coping"]["boxes"]:
+        assert box["tone"] == ""
+
+
+# ---------------------------------------------------------------------------
 # kit-adapted buildings (tornado_kit) smoke run
 # ---------------------------------------------------------------------------
 def test_kit_adapted_buildings_smoke():
@@ -411,8 +460,9 @@ def test_kit_adapted_buildings_smoke():
                               tk.LEVEL_INTENSITY.get(level, 0.5),
                               facade_plan=facade_plan)
             json.dumps(rp)   # must stay JSON-safe
+            assert rp["patches"] == []          # peel retired, every level
             if level == "T0":
-                assert rp["patches"] == []
+                assert rp["sheets"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -432,8 +482,11 @@ def test_apply_roof_on_stub_stage():
     ctx = {"stage": stage, "parent": "/World/cell", "mats": {},
           "static_extra": [], "notes": []}
     counts = tr.apply_roof(stage, ctx, rp, verbose=False)
-    assert counts["n_patch_quads"] == len(rp["patches"])
-    assert counts["n_lips"] == len(rp["patches"])
+    assert "n_patch_quads" not in counts, (
+        "the counts dict still advertises a peel-patch counter")
+    assert "n_lips" not in counts
+    if rp["sheets"]:
+        assert counts["n_sheet_meshes"] >= 1
     assert counts["n_coping_missing"] == 0
     assert counts["n_coping_removed"] == len(rp["coping"]["piece_removed"])
     if rp["coping"]["boxes"]:
@@ -444,6 +497,77 @@ def test_apply_roof_on_stub_stage():
     for p in ctx["static_extra"]:
         prim = stage.GetPrimAtPath(p)
         assert prim and prim.IsValid(), "authored path missing: " + p
+
+
+def test_apply_authors_no_substrate_or_lip_prims():
+    """THE PIN. Walk the authored stage after `apply_roof` at every level
+    and every construction type: nothing named `*_substrate` or `*_lip`
+    may exist, the only mesh under `<cell>/tornado_roof` may be the scour
+    band, and none of the retired peel LOOKS may have been created."""
+    from pxr import Usd, UsdGeom
+
+    banned_looks = ("timber_deck", "insulation_board", "concrete_deck", "lip")
+    n_applied = 0
+    for btype in ("urm", "rc", "rc_glass"):
+        for level in ("T1", "T2", "T3", "T4"):
+            info, _fp, rp = _plans("midrise", level, btype=btype, seed=4,
+                                   tag="pin_" + btype + level)
+            stage = Usd.Stage.CreateInMemory()
+            stage.DefinePrim("/World/cell", "Xform")
+            for e in info["elements"]:
+                p = (e.get("p") or {}).get("prim_path")
+                if p:
+                    stage.DefinePrim(p, "Xform")
+            ctx = {"stage": stage, "parent": "/World/cell", "mats": {},
+                  "static_extra": [], "notes": []}
+            tr.apply_roof(stage, ctx, rp, verbose=False)
+            n_applied += 1
+
+            for prim in stage.Traverse():
+                name = prim.GetName()
+                assert "substrate" not in name, (btype, level, name)
+                assert not name.endswith("_lip"), (btype, level, name)
+            root = stage.GetPrimAtPath("/World/cell/tornado_roof")
+            if root and root.IsValid():
+                for child in root.GetChildren():
+                    assert child.GetName() == "scour", (
+                        "unexpected roof-plane prim {0} at {1}/{2}".format(
+                            child.GetName(), btype, level))
+                    assert child.IsA(UsdGeom.Mesh)
+            for look in banned_looks:
+                assert "tornado_roof:" + look not in ctx["mats"], look
+                assert not stage.GetPrimAtPath(
+                    "/World/cell/TornadoRoofLooks/" + look).IsValid(), look
+    assert n_applied == 12
+
+
+def test_apply_ignores_a_legacy_v1_plans_nested_patches():
+    """A cached `tornado_roof_plan.v1` replayed through today's apply step
+    must still put nothing on the roof plane — the patch branch is gone,
+    not conditional."""
+    from pxr import Usd
+
+    info, _fp, rp = _plans("midrise", "T4", seed=2, btype="rc", tag="legacy")
+    legacy = dict(rp)
+    legacy["schema"] = "tornado_roof_plan.v1"
+    legacy["sheets"] = []
+    legacy["patches"] = [{
+        "side": rp["windward_side"], "corner": None,
+        "rect_local": list(rp["roof"]["rect_local"]), "area_m2": 100.0,
+        "z": rp["roof"]["top"] + 0.015,
+        "substrate": {"material": "timber_deck", "rgb": [0.16, 0.12, 0.09],
+                      "roughness": 0.88, "texture": None},
+        "lip": {"p0_local": [-1.0, 0.0], "p1_local": [1.0, 0.0],
+                "height_m": 0.3, "width_m": 0.35},
+        "sheets": []}]
+    stage = Usd.Stage.CreateInMemory()
+    stage.DefinePrim("/World/cell", "Xform")
+    ctx = {"stage": stage, "parent": "/World/cell", "mats": {},
+          "static_extra": [], "notes": []}
+    tr.apply_roof(stage, ctx, legacy, verbose=False)
+    for prim in stage.Traverse():
+        assert "substrate" not in prim.GetName()
+        assert not prim.GetName().endswith("_lip")
 
 
 def test_apply_roof_on_skipped_plan_is_a_clean_noop():

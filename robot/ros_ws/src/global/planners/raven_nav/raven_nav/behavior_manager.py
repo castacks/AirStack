@@ -55,6 +55,9 @@ class BehaviorManager:
 
     def mode_select(self, ctx: TickContext) -> str:
         """OG:30-34. Returns the selected mode name."""
+        # LVLM side effects are one-shot per tick, and the chain may stop
+        # before LVLM's condition_check ever runs.
+        self.lvlm_behavior.reset_flags()
         if self.frontier_only:
             # OG:28 `self.behaviors = [self.frontier_behavior]`
             self.behavior_mode = self.frontier_behavior.name

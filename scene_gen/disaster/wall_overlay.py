@@ -378,6 +378,48 @@ def overlay_material(stage, path, mask_path, rgb, roughness):
     return mat
 
 
+def overlay_material_textured(stage, path, opacity_path, diffuse_path,
+                              roughness):
+    """Like `overlay_material` but with a per-pixel DIFFUSE texture instead
+    of a flat constant colour, for a decal whose own tone varies (a soot
+    skin's dark-to-ash gradient plus its noise fields, `soot_plume.
+    SOOT_DARK`..`SOOT_ASH`) and not merely its coverage.
+
+    `diffuse_path`/`opacity_path` are two SEPARATE images, never one RGBA
+    file serving both roles: `opacity_mode=2` (mono_luminance, same as
+    `overlay_material`) reads the LUMINANCE of `opacity_path`'s own RGB, and
+    a soot skin's colour is itself near-black -- feeding the SAME image to
+    both `diffuse_texture` and `opacity_texture` would read as near-zero
+    opacity everywhere the soot is darkest, exactly backwards. The caller
+    (`gac_fire._write_overlay_textures`) writes `opacity_path` as a plain
+    white-on-black coverage map (the skin's own alpha channel) and
+    `diffuse_path` as the skin's RGB, as PLAIN PNGs -- never through
+    `tex_compress.save_soot_texture`'s default BC1/DXT1 path, which is
+    OPAQUE RGB with no alpha channel at all (fine for the bake-into-map
+    route's fully-composited output, wrong for a decal whose whole job is
+    translucency)."""
+    from pxr import Sdf, UsdShade
+
+    mat = UsdShade.Material.Define(stage, Sdf.Path(path))
+    sh = UsdShade.Shader.Define(stage, Sdf.Path(path).AppendChild("Shader"))
+    sh.CreateIdAttr("OmniPBR")
+    sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
+    sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+    sh.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath(str(diffuse_path)))
+    sh.CreateInput("reflection_roughness_constant",
+                  Sdf.ValueTypeNames.Float).Set(float(roughness))
+    sh.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(0.0)
+    sh.CreateInput("enable_opacity", Sdf.ValueTypeNames.Bool).Set(True)
+    sh.CreateInput("enable_opacity_texture", Sdf.ValueTypeNames.Bool).Set(True)
+    sh.CreateInput("opacity_texture", Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath(str(opacity_path)))
+    sh.CreateInput("opacity_mode", Sdf.ValueTypeNames.Int).Set(2)
+    sh.CreateInput("opacity_threshold", Sdf.ValueTypeNames.Float).Set(0.0)
+    mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+    return mat
+
+
 def author_quad(ctx, fr, u0, u1, v0, v1, out, mat, kind="wallovl"):
     """A single quad on a wall run, `u0..u1` along it (`quake_flow.
     _piece_frame` units) and `v0..v1` in world height, `out` metres proud.

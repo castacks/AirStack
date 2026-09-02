@@ -139,7 +139,7 @@ def report_bake(path, cache_idx, fetched, global_tex):
     print("\n==== %s ====" % name)
     stage = Usd.Stage.Open(path)
     if stage is None:
-        print("  OPEN FAILED"); return
+        print("  OPEN FAILED"); return None
     by_group, rows, soot_rows = {}, [], []
     for url in sorted(collect_texture_urls(stage)):
         base = os.path.basename(url)
@@ -167,8 +167,14 @@ def report_bake(path, cache_idx, fetched, global_tex):
     print("  sootbake_*.png referenced: %d  dims: %s" %
           (len(soot_rows), ", ".join("%dx%d" % d for d in dims) or "n/a"))
     n_mesh, points, tris, n_mat, subsets, geo_bytes = geometry_stats(stage)
+    geo_mb = geo_bytes / (1024.0 * 1024.0)
     print("  meshes=%d points=%d tris=%d materials=%d geomsubsets=%d  geometry VRAM (rough, x2 BVH): %.2f MB"
-          % (n_mesh, points, tris, n_mat, subsets, geo_bytes / (1024.0 * 1024.0)))
+          % (n_mesh, points, tris, n_mat, subsets, geo_mb))
+    kind = ("gac" if name.startswith("gac_") else
+            "kit" if name.startswith("kit_") else "other")
+    return {"name": name, "kind": kind, "soot_mb": by_group.get("soot", 0.0),
+            "total_mb": sum(by_group.values()), "geo_mb": geo_mb,
+            "n_soot_tex": len(soot_rows)}
 
 def report_totals(global_tex):
     print("\n==== DEDUPLICATED TEXTURE TOTAL (all bakes) ====")
@@ -185,15 +191,70 @@ def report_totals(global_tex):
             print("  %-60s %-10s %8.2f MB  in %s" %
                   (g["base"], g["dims"], g["mb"], ",".join(sorted(g["bakes"]))))
 
+BC1_VS_RGBA8_MIPS = 8.0
+# BC1 (opaque, no-alpha DXT1) is exactly 0.5 bytes/texel vs. RGBA8's 4 --
+# and both scale by the same 4/3 full-mip-pyramid factor this whole
+# script's `mb = w*h*bpt*1.33` already assumes, so the ratio is exactly 8x
+# at any resolution. See `disaster/tex_compress.py` (`SOOT_TEX_COMPRESS`)
+# and `tools/soot_dds_probe.py` (measured against the real corpus: exactly
+# 8.00x, mean 42.7 dB PSNR on a 400-file sample, 2026-09-01).
+
+def report_projection(records, project_counts=(71, 130)):
+    """Per-building averages and a straight-line VRAM projection at
+    `project_counts` buildings -- soot and geometry are UNIQUE per building
+    (measured: zero content-hash collisions across a 48-building corpus) so
+    they scale linearly; BaseColor/Normal/ORM/other are the kit's own
+    shared assets and do NOT grow with building count past the point every
+    module type has appeared once, so they are reported as a floor, not
+    scaled. This is a projection, not a re-measurement -- a city with
+    materially different asset variety will move the shared floor."""
+    recs = [r for r in records if r]
+    if not recs:
+        print("\n(no bakes to project from)")
+        return
+    print("\n==== PER-BUILDING PROJECTION ====")
+    for kind in ("gac", "kit", "other"):
+        ks = [r for r in recs if r["kind"] == kind]
+        if not ks:
+            continue
+        soot = [r["soot_mb"] for r in ks]
+        geo = [r["geo_mb"] for r in ks]
+        print("  %-6s n=%-3d  soot avg %7.2f MB (sum %8.2f)   "
+              "geo avg %6.2f MB (sum %7.2f)"
+              % (kind, len(ks), sum(soot) / len(ks), sum(soot),
+                 sum(geo) / len(ks), sum(geo)))
+    soot_all = [r["soot_mb"] for r in recs]
+    geo_all = [r["geo_mb"] for r in recs]
+    n = len(recs)
+    soot_avg = sum(soot_all) / n
+    geo_avg = sum(geo_all) / n
+    print("  %-6s n=%-3d  soot avg %7.2f MB (sum %8.2f)   "
+          "geo avg %6.2f MB (sum %7.2f)"
+          % ("ALL", n, soot_avg, sum(soot_all), geo_avg, sum(geo_all)))
+    print("\n  projection = N * (soot_avg + geo_avg); soot also shown at "
+          "the measured BC1 ratio (%.2fx)" % BC1_VS_RGBA8_MIPS)
+    for N in project_counts:
+        soot_mb = N * soot_avg
+        geo_mb = N * geo_avg
+        print("    N=%-4d  soot %8.1f MB  geo %7.1f MB  "
+              "total(uncompressed) %8.1f MB (%.2f GB)   "
+              "soot@BC1 %7.1f MB -> total(BC1 soot) %8.1f MB (%.2f GB)"
+              % (N, soot_mb, geo_mb, soot_mb + geo_mb, (soot_mb + geo_mb) / 1024.0,
+                 soot_mb / BC1_VS_RGBA8_MIPS,
+                 soot_mb / BC1_VS_RGBA8_MIPS + geo_mb,
+                 (soot_mb / BC1_VS_RGBA8_MIPS + geo_mb) / 1024.0))
+
 def main():
     args = []
     for a in sys.argv[1:]:
         args.extend(sorted(glob.glob(a)) if "*" in a else [a])
     cache_idx = build_cache_index()
     fetched, global_tex = {}, {}
+    records = []
     for path in args:
-        report_bake(path, cache_idx, fetched, global_tex)
+        records.append(report_bake(path, cache_idx, fetched, global_tex))
     report_totals(global_tex)
+    report_projection(records)
 
 if __name__ == "__main__":
     raise SystemExit(main())

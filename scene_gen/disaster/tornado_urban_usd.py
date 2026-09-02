@@ -121,6 +121,7 @@ does not re-derive a fourth ad hoc test.
 
 import json as _json
 import math
+import os as _os
 
 from pxr import Gf, Sdf, UsdGeom, UsdShade, Vt
 
@@ -899,14 +900,103 @@ _CLASS_LOOK = {
     #            flat / fallback rgb      grime tint over a map      rough
     "brick": ((0.44, 0.38, 0.34), (0.88, 0.85, 0.82), 0.88),
     "concrete": ((0.48, 0.475, 0.465), (0.87, 0.87, 0.86), 0.85),
-    "metal": ((0.44, 0.45, 0.46), (0.90, 0.90, 0.90), 0.35),
+    # ROUND 4 (v6 render review): 0.35 roughness on a FLAT untextured sheet
+    # lying face-up specularly mirrors the whole sky dome and washes the
+    # B4/B5 pile to paper-white in the render even though the constant is a
+    # mid grey (bindings verified correct at USD level). Weathered deck in a
+    # collapse pile is dusty, not polished: rough 0.62, albedo eased down.
+    "metal": ((0.38, 0.39, 0.40), (0.90, 0.90, 0.90), 0.62),
     "steel_joist": ((0.15, 0.15, 0.16), (0.85, 0.85, 0.85), 0.45),
     "membrane": ((0.30, 0.275, 0.25), (0.83, 0.82, 0.80), 0.90),
 }
 _CLASS_LOOK_DEFAULT = ((0.45, 0.45, 0.45), (0.86, 0.86, 0.86), 0.70)
 
+# ROUND 4 (v6 lit-bench review, "the B rubble is still not fixed"): THE
+# MASONRY TONE, `(texture, fallback rgb, tint, roughness)` per tone token.
+#
+# WHAT THE OFFLINE BENCH STAGE MEASURED (bench_offline.usd, every debris
+# mesh's bound shader read back): B1 `brownstone_row` and B3 `walkup` are
+# WHITE STONE kit buildings and EVERY masonry mesh under them binds
+# `TornadoDebrisLooks/brick` -> `T_sexkaitb_1K_B.jpg`, whose own measured
+# linear mean is (0.213, 0.109, 0.071) -- a RED-BROWN brick map, R:G:B =
+# 1 : 0.51 : 0.33. A white building shedding red brick is the same "some
+# other building's material" defect the review has now named twice. (The v6
+# RENDER is a third state again: it predates the `_tiling_safe` gate, so
+# those meshes were still triplanar-projecting the `M_MBuilding03_Facades`
+# ATLAS -- a packed sheet of windows and trim averaged over a 0.4 m cube,
+# which is exactly the "uniform light-grey identical boxes" in B1_obl.)
+#
+# The class map carries the STRUCTURE, the tint carries the BUILDING'S TONE.
+# Bases are the earthquake pipeline's own rubble maps (`assets/materials/
+# quake/`, already in the repo and already the rubble look this codebase
+# ships), picked by measured mean rather than by name:
+#   rubble_rc_B_v3.jpg   linear mean (0.197, 0.177, 0.153)  R:G:B 1:0.90:0.78  sd 0.073
+#   rubble_urm_B_v3.jpg  linear mean (0.252, 0.221, 0.191)  R:G:B 1:0.88:0.76  sd 0.086
+# Tints are solved AGAINST those means for a target albedo, which is why
+# they are above 1.0 -- `diffuse_tint` is a plain multiply (MDL 654) and
+# both maps are darker than dressed stone rubble:
+#   stone  0.197*1.55, 0.177*1.62, 0.153*1.75 -> (0.305, 0.287, 0.268) pale warm grey
+#   tan    0.252*1.18, 0.221*1.12, 0.191*0.98 -> (0.297, 0.248, 0.187) buff
+# Map max at +4sd is ~0.5, so even the 1.75 channel stays under 1.0: no
+# clipping. `brick` and `concrete` are NOT tone tokens -- they are the
+# untouched class branches, and the A row's approved look is exactly them.
+_TEX_RUBBLE_NEUTRAL = ("airstack://scene_gen/assets/materials/quake/"
+                       "rubble_rc_B_v3.jpg")
+_TEX_RUBBLE_WARM = ("airstack://scene_gen/assets/materials/quake/"
+                    "rubble_urm_B_v3.jpg")
+_TONE_LOOK = {
+    #          texture               fallback rgb          tint                 rough
+    "stone": (_TEX_RUBBLE_NEUTRAL, (0.34, 0.33, 0.31), (1.55, 1.62, 1.75), 0.86),
+    "tan": (_TEX_RUBBLE_WARM, (0.33, 0.29, 0.23), (1.18, 1.12, 0.98), 0.87),
+}
+#: Buckets a tone token may re-route. A tone says "what masonry is this
+#: building made of"; it has no business touching glass, roof membrane,
+#: deck metal or bar joists, which are not the building's walls.
+_TONEABLE_BUCKETS = frozenset({"brick", "concrete"})
 
-def debris_material(stage, ctx, kind, material, tex_url=None, tex_name=None):
+#: Per-mesh TONE JITTER (`tornado_urban._DEBRIS_SHADES` decides how many
+#: shades the ledger stamps; this is the multiplier each one applies to its
+#: material's tint). SHADE 0 IS EXACTLY 1.0 -- an unstamped fragment (every
+#: fixture plan, every caller that passes no shade) must author byte-
+#: identically to before this round. The other two straddle it, so a berm's
+#: MEAN tone is still what the tone/class look says while its individual
+#: meshes are not all the same value -- the "no size/tone variation,
+#: identical boxes" half of the review. Only ever applied on a TEXTURED
+#: branch, where `diffuse_tint` is the live multiply; the flat branches
+#: (metal / membrane / steel_joist) are stream C's collapse populations and
+#: are left exactly as they are.
+_SHADE_MULT = (1.00, 0.82, 1.18)
+
+
+def _shade_tint(tint, shade):
+    """`tint` scaled by `_SHADE_MULT[shade]`, clamped to a sane range."""
+    try:
+        k = _SHADE_MULT[int(shade) % len(_SHADE_MULT)]
+    except (TypeError, ValueError):
+        k = 1.0
+    return tuple(min(2.5, max(0.0, float(c) * k)) for c in tint)
+
+# ROUND 4 (user review of the lit bench): "this debris has the most random
+# material ... If it's a concrete building then do concrete texture, brick
+# for brick". The suburb's "bind the texture, not the material" lesson holds
+# ONLY for TILING surface maps (siding, shingles, GAC's brick course). The
+# city kit facades are ATLASES -- M_MBuilding03_Facades is a packed sheet of
+# windows/doors/trim -- and a triplanar world projection of an atlas paints
+# random crops across every fragment. A source texture is honoured only when
+# its NAME says it is a tiling surface material; everything else falls to
+# the class bucket (brick building -> brick rubble map, rc -> concrete), the
+# same rule the quake rubble has always used.
+_TILING_SAFE_TOKENS = ("brick", "concrete", "stone", "tile", "plaster",
+                       "stucco", "shingle", "cobble", "asphalt")
+
+
+def _tiling_safe(name):
+    low = str(name or "").lower()
+    return any(t in low for t in _TILING_SAFE_TOKENS)
+
+
+def debris_material(stage, ctx, kind, material, tex_url=None, tex_name=None,
+                    tone="", shade=0):
     """One material per (kind, material) LOOK BUCKET (not per fragment,
     per §2.9), cached in `ctx["mats"]` under a `"tornado_debris:"` key — OR,
     when the fragment carries a SOURCE TEXTURE (`tex_url`, `tex_name`; from
@@ -956,16 +1046,44 @@ def debris_material(stage, ctx, kind, material, tex_url=None, tex_name=None):
     bucket = _classify(kind, material)
     parent = ctx.get("parent") or "/World"
     looks = "{0}/TornadoDebrisLooks".format(parent)
+    # ROUND 4 (v6): the tone/shade SUFFIX on every cache key and prim name.
+    # `ctx["mats"]` is handed IN by `wreck_urban`/`wreck_kit` and a city
+    # assembly shares one dict across buildings, so a key that ignored the
+    # tone would hand building 2's white-stone berm the red-brick material
+    # building 1 cached under the same bucket. Empty tone + shade 0 (every
+    # existing fixture/test plan, and every fragment a caller stamps
+    # nothing on) produces the EMPTY suffix, so those paths and keys are
+    # byte-identical to before.
+    tone = str(tone or "").strip().lower()
+    if tone not in _TONE_LOOK or bucket not in _TONEABLE_BUCKETS:
+        tone = ""
+    try:
+        shade = int(shade or 0)
+    except (TypeError, ValueError):
+        shade = 0
+    sfx = ("" if not tone else ":" + tone) + ("" if not shade else ":s%d" % shade)
 
     tex_url = str(tex_url or "")
+    if tex_url and bucket != "glass" and not (
+            _tiling_safe(tex_name) or _tiling_safe(tex_url.rsplit("/", 1)[-1])):
+        # ATLAS / non-tiling source (Facades, WallBack, Metal_Front,
+        # M_Images, trim sheets): drop it, the class branch below carries
+        # the look -- see `_TILING_SAFE_TOKENS`.
+        tex_url = ""
     if tex_url and bucket != "glass":
         base = _safe_name(tex_name or tex_url.rsplit("/", 1)[-1])
-        key = "tornado_debris:src:" + base
+        # SHADE only, never the tone: on this branch the building's own
+        # tiling map already carries its colour, so two buildings with
+        # different tone tokens and the same texture want the SAME
+        # material, not two identical copies of it.
+        ssfx = "" if not shade else ":s%d" % shade
+        key = "tornado_debris:src:" + base + ssfx
         got = mats.get(key)
         if got is not None:
             return got
         rgb, grime, rough = _CLASS_LOOK.get(bucket, _CLASS_LOOK_DEFAULT)
-        path = looks + "/src_" + base
+        grime = _shade_tint(grime, shade)
+        path = looks + "/src_" + base + ("" if not shade else "_s%d" % shade)
         mat = damage._pbr(stage, path, rgb, rough, texture=tex_url,
                           scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
         # ROUND 4 (D3): the GRIME tint, not the class rgb. `_pbr`'s own
@@ -982,12 +1100,30 @@ def debris_material(stage, ctx, kind, material, tex_url=None, tex_name=None):
                   _TILE_REPEATS_PER_M[0]))
         return mat
 
-    key = "tornado_debris:" + (bucket or "flat_" + _safe_name(material))
+    key = "tornado_debris:" + (bucket or "flat_" + _safe_name(material)) + sfx
     got = mats.get(key)
     if got is not None:
         return got
 
-    if bucket == "glass":
+    if tone:
+        # THE TONE BRANCH (v6). Fires only for a masonry bucket on a
+        # building whose style names a tone AND whose own facade map was
+        # not tiling-safe (a tiling source map returns above -- it already
+        # carries the building's colour, so B2's own `MI_Bricks_Props_B`
+        # panel debris still wins over this).
+        tex, rgb, tint, rough = _TONE_LOOK[tone]
+        tint = _shade_tint(tint, shade)
+        path = looks + "/" + tone + ("_s%d" % shade if shade else "")
+        mat = damage._pbr(stage, path, rgb, rough,
+                          texture=_resolve_texture(tex),
+                          scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
+        _fix_diffuse_tint(stage, path, tint)
+        print("[tornado_urban_usd] {0}/{1} -> {2} MASONRY TONE (rubble map "
+              "{3}, tint {4:.2f}/{5:.2f}/{6:.2f}, shade {7}) — this "
+              "building's own stone, not the generic brick class".format(
+                  kind, material, tone, tex.rsplit("/", 1)[-1],
+                  tint[0], tint[1], tint[2], shade))
+    elif bucket == "glass":
         mat = _ensure_void_material(stage, ctx)
         print("[tornado_urban_usd] {0}/{1} -> void tone (dark glossy, NOT "
               "transparent — a see-through shard over asphalt at 60 m is "
@@ -1006,6 +1142,8 @@ def debris_material(stage, ctx, kind, material, tex_url=None, tex_name=None):
         # and flatter than one clean brick face) at a brightness the eye can
         # still resolve against ~0.18 asphalt.
         rgb, grime, rough = _CLASS_LOOK["brick"]
+        grime = _shade_tint(grime, shade)
+        path += ("_s%d" % shade if shade else "")
         mat = damage._pbr(stage, path, rgb, rough,
                           texture=_resolve_texture(_TEX_BRICK),
                           scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
@@ -1016,6 +1154,8 @@ def debris_material(stage, ctx, kind, material, tex_url=None, tex_name=None):
     elif bucket == "concrete":
         path = looks + "/concrete"
         rgb, grime, rough = _CLASS_LOOK["concrete"]
+        grime = _shade_tint(grime, shade)
+        path += ("_s%d" % shade if shade else "")
         mat = damage._pbr(stage, path, rgb, rough,
                           texture=_resolve_texture(_TEX_CONCRETE),
                           scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
@@ -1175,9 +1315,21 @@ def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
         material = str(frag.get("material") or "unknown")
         tex_name = str(frag.get("source_tex_name") or "")
         label = tex_name or material
+        # ROUND 4 (v6): `tone` (the source building's masonry colour, from
+        # `tornado_urban._tone_for`) and `shade` (the per-mesh tone jitter,
+        # `_DEBRIS_SHADES`) join the group key. Both default to ""/0, and a
+        # group whose fragments carry neither authors the SAME prim path
+        # and binds the same material as before -- every existing fixture
+        # plan is untouched.
+        tone = str(frag.get("tone") or "")
+        try:
+            shade = int(frag.get("shade") or 0)
+        except (TypeError, ValueError):
+            shade = 0
         entry = by_class.setdefault(
-            (kind, label), {"material": material, "tex_name": tex_name,
-                           "tex_url": "", "frags": []})
+            (kind, label, tone, shade),
+            {"material": material, "tex_name": tex_name,
+             "tex_url": "", "frags": []})
         if not entry["tex_url"]:
             entry["tex_url"] = str(frag.get("source_tex") or "")
         entry["frags"].append(frag)
@@ -1201,7 +1353,7 @@ def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
                 reg = _v
         except ValueError:
             reg = None
-    for (kind, label), entry in sorted(by_class.items()):
+    for (kind, label, tone, shade), entry in sorted(by_class.items()):
         group = entry["frags"]
         material = entry["material"]
         pts, counts, idx, nrm = [], [], [], []
@@ -1234,7 +1386,10 @@ def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
                 idx.extend(base + v for v in face)
                 nrm.extend([Gf.Vec3f(*n[fi])] * 4)
 
-        path = "{0}/{1}_{2}".format(root, _safe_name(kind), _safe_name(label))
+        path = "{0}/{1}_{2}{3}{4}".format(
+            root, _safe_name(kind), _safe_name(label),
+            ("_" + _safe_name(tone)) if tone else "",
+            ("_s%d" % shade) if shade else "")
         m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
         m.CreatePointsAttr(Vt.Vec3fArray(pts))
         m.CreateFaceVertexCountsAttr(Vt.IntArray(counts))
@@ -1250,14 +1405,18 @@ def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
 
         mat = debris_material(stage, ctx, kind, material,
                               tex_url=entry["tex_url"],
-                              tex_name=entry["tex_name"])
+                              tex_name=entry["tex_name"],
+                              tone=tone, shade=shade)
         if mat is not None:
             UsdShade.MaterialBindingAPI.Apply(m.GetPrim()).Bind(mat)
         made.append(path)
         if ctx.get("verbose", True):
             print("[tornado_urban_usd] {0:<24s} {1:3d} fragment(s) -> 1 "
                   "mesh, {2} point(s)".format(
-                      "{0}/{1}".format(kind, label), len(group), len(pts)))
+                      "{0}/{1}{2}{3}".format(
+                          kind, label, ("/" + tone) if tone else "",
+                          ("/s%d" % shade) if shade else ""),
+                      len(group), len(pts)))
     return made
 
 
@@ -1345,6 +1504,12 @@ def _tear_material(stage, ctx, tex_url, tex_name, cut):
     looks = "{0}/TornadoTearLooks".format(parent)
     kind = "cut" if cut else "face"
     tex_url = str(tex_url or "")
+    if tex_url and not (
+            _tiling_safe(tex_name) or _tiling_safe(tex_url.rsplit("/", 1)[-1])):
+        # Same atlas rule as `debris_material`: a packed facade sheet on a
+        # cut face is a random crop, not mortar -- fall through to the
+        # neutral plaster/mortar fallback below.
+        tex_url = ""
     if tex_url:
         base = _safe_name(tex_name or tex_url.rsplit("/", 1)[-1])
         key = "tornado_tear:src:{0}:{1}".format(base, kind)
@@ -1686,13 +1851,12 @@ _BACKING_T_M = 0.18
 #: authored as one slab: `t_out_of_plane_top` legitimately peels a whole
 #: 32 m top-storey elevation on `brownstone_row`, and one 32 m plane
 #: behind it is the flat black band again, however well it is textured.
-#: The segments are CONTIGUOUS (never a gap to see through) and alternate
-#: their inset by `_BACKING_SEG_DEPTH_STEP` so the back wall reads as rooms
-#: at different depths — the segmentation the round-4 brief asks for
-#: ("PER-BAY backing quads"), sized off the mass's own bay module.
+#: The segments are CONTIGUOUS and COPLANAR, sized off the mass's own bay
+#: module. v6 staggered alternate segments 0.55 m deeper to break the plane
+#: up; on the lit bench that read as a row of free-standing slabs, so the
+#: stagger is gone (lead review v7) and only the segmentation remains.
 _BACKING_SEG_MAX_M = 6.0
 _BACKING_SEG_MIN_M = 3.0
-_BACKING_SEG_DEPTH_STEP = 0.55
 #: Per building, so a pathological plan cannot author hundreds of boxes.
 _MAX_BACKING_QUADS = 64
 #: A storefront ring is a GROUND-STOREY band, never a full-height shell:
@@ -1700,6 +1864,11 @@ _MAX_BACKING_QUADS = 64
 #: would otherwise be the whole building and the ring would hide the
 #: interior it exists to reveal.
 _SHOP_MAX_H_M = 7.0
+#: Fit-out CONTENTS are kept at least this far inside the STOREY's own
+#: measured plan rectangle (`_storey_plan_rects`) on every fitted storey —
+#: `quake_flow.fit_interior` draws them on the MASS bbox inset 1.5 m, which
+#: is outside the glass on a setback plan (A4).
+_PROP_PLAN_INSET_M = 1.5
 #: Fit-out CONTENTS (chairs, desks) are pushed at least this far in from
 #: any OPENED wall line, so nothing pokes out through a torn edge. 
 #: `quake_flow.fit_interior` already keeps props `WALL_INSET + 1.5` =
@@ -1839,19 +2008,323 @@ def _opened_storeys_sides(ctx, plan):
 
 
 _BACKING_ROLES = ("wall", "pier", "corner")
+#: Roles whose measured plan footprint DEFINES a storey's own outline —
+#: the exterior envelope, never a parapet (which sits above the roof and is
+#: routinely proud of or inset from the wall under it) and never a roof
+#: tile.
+_ENVELOPE_ROLES = ("wall", "pier", "corner")
+
+
+# ---------------------------------------------------------------------------
+# ROUND 4 v7 (lead review) — THE PER-STOREY PLAN, AND WHY A MASS BBOX IS NOT
+# ONE
+# ---------------------------------------------------------------------------
+# User, on the v6 lit bench: *"There's still issues with the roof, the floor
+# is extending outside the side wall [A4]. What are these random slabs
+# you've made inside? in the past we've done floor rectangles + pillars. We
+# have rules for this. Check the fire urban setting so that it looks self
+# contained in the building."*
+#
+# THE FLOOR SLAB. `quake_flow.fit_interior` authors every slab as ONE box of
+# `m["W"] - 2*WALL_INSET` by `m["D"] - 2*WALL_INSET` centred on the mass —
+# i.e. the WHOLE BUILDING's bounding box, inset 0.55 m. That is the plan
+# only for a cuboid. `SM_Building_24` (A4) is not one: its curtain wall
+# steps in above the podium, so a slab sized off the outer bbox stands
+# proud of the glass and the damaged corner shows floor plates hanging in
+# the street. This is the SAME defect the fire path already fixed once, in
+# the same words — `gac_fire._storey_footprints`'s own docstring quotes the
+# user from the fire review: *"the catch ... looks like it's coming outside
+# the side walls ... you can't treat it like a cuboid"* — and the fire path
+# fixed it two ways at once: `fit_interior(footprint=...)` clamps the
+# COLUMN grid (`FIT_FOOTPRINT_M`), and `urban_fire._plate` re-authors the
+# PLATE itself from the measured polygon instead of the box.
+#
+# `fit_interior`'s `footprint=` kwarg does NOT clamp the slab — read it:
+# the slab `_box` call is unconditional and takes `W`/`D` off the mass. So
+# this region mirrors the fire path on BOTH halves: it passes `footprint=`
+# for the columns, and it RE-CUTS the authored slab boxes to the measured
+# storey rectangle itself (`_recut_slabs`), the way `_plate` does. Editing
+# `quake_flow.fit_interior` would be the tidier fix and is NOT available —
+# that is the earthquake stream's file, and the fire/kit paths through it
+# are frozen.
+#
+# WHERE THE PLAN COMES FROM. The fire path measures it off the source
+# asset's merged MESH (`gac_fire._storey_footprints`), which only exists on
+# the `gac_fire.prepare` path. This ladder has no such mesh on either of
+# its two sources, but it does have the ELEMENT TABLE — every envelope
+# piece's own measured extent and position — which is the same evidence one
+# step later. `_storey_plan_rects` takes each storey's envelope pieces'
+# plan footprints and returns their axis-aligned bounding rectangle in the
+# MASS-LOCAL frame; the slab is that rectangle inset by `WALL_INSET`, so it
+# is inside all four wall planes by construction.
+#
+# WHY A RECTANGLE AND NOT A HULL. "In the past we've done floor rectangles
+# + pillars" — the shipped look, and an axis-aligned rectangle inset off
+# the storey's own bbox is guaranteed inside every wall plane of a convex
+# plan and cannot grow past one on a concave plan either (it is the bbox of
+# the walls, inset). A hull would fit a setback more tightly and is not
+# what the user asked for.
+#
+# PARTITIONS ARE OFF. The "random slabs inside" are `fit_interior`'s own
+# plaster partitions — 2-3 free-standing 0.12 m walls per storey at random
+# plan positions, which through a torn facade read as slabs floating in the
+# room. The proven fire/quake look is FLOOR RECTANGLES + PILLARS +
+# CONTENTS, so this ladder now calls `fit_interior(partitions=False)`.
+# Slabs, columns and contents are unchanged.
+# ---------------------------------------------------------------------------
+
+#: A/B KNOB, the same shape `tornado_kit.TK_GUARD` uses: `TU_FIT_CLAMP=0`
+#: turns the whole per-storey clamp off — `fit_interior` gets no
+#: `footprint=`, the slabs are left at their mass-bbox size, the props are
+#: clamped only against opened sides and the backing is placed off the mass
+#: wall line. That is the v6 behaviour exactly, which is what a before/after
+#: overhang measurement needs (`tools/tornado_fit_probe.py`).
+TU_FIT_CLAMP = _os.environ.get("TU_FIT_CLAMP", "1").strip().lower() not in (
+    "0", "false", "no")
+#: The slab sits this far inside the storey's own measured wall bbox —
+#: `quake_flow.WALL_INSET`'s own value, reused so a clamped slab and an
+#: unclamped one read identically where the plan IS the bbox.
+_SLAB_INSET_M = 0.55
+#: What `fit_interior(footprint=)` is handed: the storey's WALL rectangle,
+#: barely inset — NOT the slab rectangle. `quake_flow._inside_inset` then
+#: applies its own `FIT_FOOTPRINT_M` (0.35 m) on top. Handing it the slab
+#: rect instead (0.55 m in) pushes the effective keep-out to 0.90 m and
+#: deletes the entire PERIMETER column ring, which is most of the pillars
+#: you can actually see through a hole — measured on A4: 216 columns -> 84.
+#: The fire path passes the wall hull inset 0.35 m for the same reason
+#: (`gac_fire._storey_footprints(inset_m=0.35)`).
+_FOOTPRINT_INSET_M = 0.10
+#: A floor plate is RECESSED this much further on a side that is actually
+#: OPEN at that storey. The plate genuinely runs to the facade, so where
+#: the wall survives nothing changes; through a hole, a plate whose edge is
+#: flush with the (now missing) wall plane reads as a floor "extending
+#: outside the side wall" — the v6 review's own words on A4 — because there
+#: is nothing in front of it to say where the building stopped. Stopping it
+#: short puts the edge unambiguously inside.
+_SLAB_OPEN_EDGE_RECESS_M = 0.90
+#: A storey needs at least this many measured envelope pieces before its
+#: rectangle is trusted. Below it, no clamp — the same "no measurement, no
+#: clamping" rule `quake_flow._inside_inset` applies to a degenerate
+#: polygon.
+_PLAN_MIN_PIECES = 3
+#: ... and the rectangle is never allowed to shrink the slab below this
+#: share of the mass bbox: a storey whose only surviving envelope pieces
+#: are one short wall run would otherwise produce a sliver plate.
+_PLAN_MIN_FRAC = 0.45
 
 
 def _side_run_len(m, side):
     return float(m["W"]) if side in ("S", "N") else float(m["D"])
 
 
-def _inset_for(m):
+def _inset_for(m, rect=None):
     """`_INTERIOR_INSET_M`, clamped so two opposite backings on a narrow
-    mass can never cross each other."""
-    small = min(float(m.get("W") or 0.0), float(m.get("D") or 0.0))
+    plan can never cross each other. Measured on the STOREY's own rectangle
+    when one was measured, else on the mass bbox."""
+    if rect is not None:
+        small = min(rect["lx1"] - rect["lx0"], rect["ly1"] - rect["ly0"])
+    else:
+        small = min(float(m.get("W") or 0.0), float(m.get("D") or 0.0))
     if small <= 0.0:
         return _INTERIOR_INSET_M
     return min(_INTERIOR_INSET_M, _INTERIOR_INSET_MAX_FRAC * small)
+
+
+def _el_plan_pts(m, e):
+    """A piece's plan footprint as MASS-LOCAL (lx, ly) corner points.
+
+    TWO SOURCES, because this ladder has two. A KIT piece is measured in
+    `urban_building.PIECES`, and `fire_collapse.el_footprint` already turns
+    that measurement plus the piece's own yaw into exact local corners — it
+    is the same call `_opened_holes` uses for spans. A SLICED piece is not
+    in that table (`el_footprint` would fall through to its own
+    `module x 0.4 m` placeholder box, which is not a plan), but it carries
+    its measured `_size` and its centre, which is what the slicer stamped;
+    the local AABB of that is exact for the axis-aligned cut pieces
+    `gac_storey_slice` produces.
+    """
+    from . import fire_collapse as fc
+
+    name = e.get("name")
+    if name:
+        try:
+            from detail import urban_building as ub
+            if ub.PIECES.get(name):
+                return fc.el_footprint(m, e)
+        except Exception:
+            pass
+    p = e.get("p") or {}
+    sx, sy, _sz = p.get("_size") or (1.0, 1.0, 3.0)
+    lx, ly = qf._to_local(m, float(e.get("x", 0.0)), float(e.get("y", 0.0)))
+    hx, hy = abs(float(sx)) / 2.0, abs(float(sy)) / 2.0
+    return [(lx - hx, ly - hy), (lx + hx, ly - hy),
+            (lx + hx, ly + hy), (lx - hx, ly + hy)]
+
+
+def _storey_plan_rects(info):  # noqa: C901
+    """`{(mass, storey): {"lx0","lx1","ly0","ly1"}}` — each storey's own
+    measured plan, mass-local, as the axis-aligned bbox of its ENVELOPE
+    pieces' footprints (removed ones included: this is the building's plan,
+    not the damage).
+
+    A storey with fewer than `_PLAN_MIN_PIECES` measured pieces gets no
+    entry and is therefore never clamped. A rectangle that comes out under
+    `_PLAN_MIN_FRAC` of the mass bbox on either axis is widened back to
+    that floor — a sliver is a measurement failure, not a plan.
+    """
+    out = {}
+    if not TU_FIT_CLAMP:
+        return out
+    masses = info.get("masses") or {}
+    per = {}
+    for e in info.get("elements") or ():
+        p = e.get("p") or {}
+        if p.get("_role") not in _ENVELOPE_ROLES:
+            continue
+        mtag = e.get("mass") or "main"
+        m = masses.get(mtag) or masses.get("main")
+        if m is None:
+            continue
+        per.setdefault((mtag, int(p.get("_storey", 0))), []).append((m, e))
+    for key, items in per.items():
+        if len(items) < _PLAN_MIN_PIECES:
+            continue
+        m = items[0][0]
+        xs, ys = [], []
+        for mm, e in items:
+            for lx, ly in _el_plan_pts(mm, e):
+                xs.append(float(lx))
+                ys.append(float(ly))
+        if not xs:
+            continue
+        lx0, lx1, ly0, ly1 = min(xs), max(xs), min(ys), max(ys)
+        W, D = float(m["W"]), float(m["D"])
+        if (lx1 - lx0) < _PLAN_MIN_FRAC * W:
+            c = (lx0 + lx1) / 2.0
+            lx0, lx1 = c - _PLAN_MIN_FRAC * W / 2.0, c + _PLAN_MIN_FRAC * W / 2.0
+        if (ly1 - ly0) < _PLAN_MIN_FRAC * D:
+            c = (ly0 + ly1) / 2.0
+            ly0, ly1 = c - _PLAN_MIN_FRAC * D / 2.0, c + _PLAN_MIN_FRAC * D / 2.0
+        # never larger than the mass bbox itself
+        lx0, lx1 = max(lx0, -W / 2.0), min(lx1, W / 2.0)
+        ly0, ly1 = max(ly0, -D / 2.0), min(ly1, D / 2.0)
+        out[key] = {"lx0": lx0, "lx1": lx1, "ly0": ly0, "ly1": ly1}
+    return out
+
+
+def _rect_for(rects, m, mass, storey):
+    """The storey's own rectangle, walking DOWN to the nearest measured
+    storey below when this one has none of its own (a pure parapet/roof
+    band index carries no envelope piece — `dw_terrace`'s trim band is the
+    measured example). `None` when nothing was measured at all."""
+    for st in range(int(storey), -1, -1):
+        got = rects.get((mass, st))
+        if got:
+            return got
+    return None
+
+
+def _inner_rect(rect, inset):
+    """`rect` shrunk by `inset` on all four sides, never inverted."""
+    cx = (rect["lx0"] + rect["lx1"]) / 2.0
+    cy = (rect["ly0"] + rect["ly1"]) / 2.0
+    hx = max(0.5, (rect["lx1"] - rect["lx0"]) / 2.0 - inset)
+    hy = max(0.5, (rect["ly1"] - rect["ly0"]) / 2.0 - inset)
+    return {"lx0": cx - hx, "lx1": cx + hx, "ly0": cy - hy, "ly1": cy + hy}
+
+
+def _rect_poly_world(m, rect):
+    """`rect`'s four corners in world XY — `quake_flow.fit_interior`'s
+    `footprint=` wants a world-XY convex polygon per storey, exactly what
+    `gac_fire._storey_footprints` hands the fire path."""
+    return [qf._to_world(m, rect["lx0"], rect["ly0"]),
+            qf._to_world(m, rect["lx1"], rect["ly0"]),
+            qf._to_world(m, rect["lx1"], rect["ly1"]),
+            qf._to_world(m, rect["lx0"], rect["ly1"])]
+
+
+def _recut_box(stage, path, cx, cy, cz, sx, sy, sz):
+    """Re-cut an already-authored `quake_flow._box` in place: new points,
+    new extent, and the EXISTING translate op re-set (never a second
+    `AddTranslateOp`, which is what calling `_box` again on the same path
+    would do — two translate ops compose and the prim lands at twice the
+    offset)."""
+    from pxr import Gf, UsdGeom, Vt
+
+    prim = stage.GetPrimAtPath(path)
+    if not prim or not prim.IsValid():
+        return False
+    mesh = UsdGeom.Mesh(prim)
+    if not mesh:
+        return False
+    hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
+    P = Gf.Vec3f
+    pts = [P(-hx, -hy, -hz), P(hx, -hy, -hz), P(hx, hy, -hz), P(-hx, hy, -hz),
+           P(-hx, -hy, hz), P(hx, -hy, hz), P(hx, hy, hz), P(-hx, hy, hz)]
+    mesh.GetPointsAttr().Set(Vt.Vec3fArray(pts))
+    mesh.GetExtentAttr().Set([P(-hx, -hy, -hz), P(hx, hy, hz)])
+    for op in UsdGeom.Xformable(prim).GetOrderedXformOps():
+        if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+            op.Set(Gf.Vec3d(float(cx), float(cy), float(cz)))
+            break
+    return True
+
+
+def _slab_overhang(m, rect, sx, sy, lcx, lcy):
+    """How far (metres) a slab of local half-extents `sx/2, sy/2` centred at
+    local `(lcx, lcy)` sticks out past `rect` — the worst of the four
+    sides, 0.0 when it is inside. The number the audit reports."""
+    over = [rect["lx0"] - (lcx - sx / 2.0), (lcx + sx / 2.0) - rect["lx1"],
+            rect["ly0"] - (lcy - sy / 2.0), (lcy + sy / 2.0) - rect["ly1"]]
+    return max(0.0, max(over))
+
+
+def _recut_slabs(stage, info, fit, rects, opened=None):
+    """Re-cut every authored fit-out slab to its own storey's measured
+    rectangle, inset `_SLAB_INSET_M`. Returns
+    `{"n": recut, "before_max": m, "after_max": m, "per_side": {...}}` —
+    measured, so the report quotes overhang rather than intent."""
+    masses = info.get("masses") or {}
+    n = 0
+    before_max = after_max = 0.0
+    detail = []
+    for (mtag, storey), path in sorted((fit.get("slabs") or {}).items()):
+        m = masses.get(mtag) or masses.get("main")
+        if m is None:
+            continue
+        rect = _rect_for(rects, m, mtag, int(storey))
+        if rect is None:
+            continue
+        cx, cy, cz, sx, sy, sz, _yaw = qf._box_dims(stage, path)
+        lcx, lcy = qf._to_local(m, cx, cy)
+        before = _slab_overhang(m, rect, sx, sy, lcx, lcy)
+        inner = _inner_rect(rect, _SLAB_INSET_M)
+        for sd in (opened or {}).get(int(storey)) or ():
+            r = _SLAB_OPEN_EDGE_RECESS_M
+            if sd == "S":
+                inner["ly0"] = min(inner["ly0"] + r, inner["ly1"] - 0.5)
+            elif sd == "N":
+                inner["ly1"] = max(inner["ly1"] - r, inner["ly0"] + 0.5)
+            elif sd == "W":
+                inner["lx0"] = min(inner["lx0"] + r, inner["lx1"] - 0.5)
+            elif sd == "E":
+                inner["lx1"] = max(inner["lx1"] - r, inner["lx0"] + 0.5)
+        nsx = inner["lx1"] - inner["lx0"]
+        nsy = inner["ly1"] - inner["ly0"]
+        ncx, ncy = qf._to_world(m, (inner["lx0"] + inner["lx1"]) / 2.0,
+                                (inner["ly0"] + inner["ly1"]) / 2.0)
+        if _recut_box(stage, path, ncx, ncy, cz, nsx, nsy, sz):
+            n += 1
+            after = _slab_overhang(
+                m, rect, nsx, nsy, (inner["lx0"] + inner["lx1"]) / 2.0,
+                (inner["ly0"] + inner["ly1"]) / 2.0)
+            before_max = max(before_max, before)
+            after_max = max(after_max, after)
+            detail.append({"storey": int(storey), "before_m": round(before, 3),
+                           "after_m": round(after, 3),
+                           "size": [round(nsx, 2), round(nsy, 2)]})
+    return {"n": n, "before_max": round(before_max, 3),
+            "after_max": round(after_max, 3), "slabs": detail}
 
 
 def _opened_holes(ctx, plan):
@@ -1960,15 +2433,27 @@ def _glazed_ground_sides(ctx, plan):
     return out
 
 
-def _clamp_fit_props(stage, ctx, info, fit, opened):
-    """Push every fit-out prop `_PROP_EDGE_KEEPOUT_M` in from any wall line
-    that is OPEN at its own storey, so a chair never hangs out through a
-    torn edge (B3's own "chair floating on a ledge").
+def _clamp_fit_props(stage, ctx, info, fit, opened, rects):
+    """Keep every fit-out prop inside the room it is in.
 
-    Done HERE, on the paths `quake_flow.fit_interior` just returned, rather
-    than inside `fit_interior` itself: that function is the earthquake
-    stream's file and its `footprint=` hook clamps the COLUMN grid only,
-    never the contents. Returns the number of props actually moved.
+    TWO CLAMPS, both on the paths `quake_flow.fit_interior` just returned
+    (that function draws its contents on the MASS bbox — `lx = uniform(-W/2
+    + 1.5, W/2 - 1.5)` — which is the same cuboid assumption the slab makes,
+    so on a setback plan a chair lands outside the glass whether or not the
+    wall beside it is damaged):
+
+      1. THE STOREY PLAN. Every prop is pushed inside its storey's own
+         measured rectangle, inset `_PROP_PLAN_INSET_M` — the fix for A4's
+         setback, and the reason this now runs on EVERY fitted storey
+         rather than only the opened ones.
+      2. THE OPENED SIDES. A wall that is actually gone gets the bigger
+         `_PROP_EDGE_KEEPOUT_M` keep-out on top, so a chair never sits on
+         the lip of a torn edge (B3's own "chair floating on a ledge").
+
+    Done here rather than in `quake_flow.fit_interior`: that is the
+    earthquake stream's file, its `footprint=` hook clamps the COLUMN grid
+    only, and the fire/kit paths through it are frozen. Returns the number
+    of props actually moved.
     """
     from pxr import Gf, UsdGeom
 
@@ -1979,16 +2464,17 @@ def _clamp_fit_props(stage, ctx, info, fit, opened):
         if m is None:
             continue
         sides = set((opened.get(int(storey)) or {}).keys())
-        if not sides:
-            continue
-        W, D = float(m["W"]), float(m["D"])
+        rect = _rect_for(rects, m, mtag, int(storey))
+        if rect is None:
+            rect = {"lx0": -float(m["W"]) / 2.0, "lx1": float(m["W"]) / 2.0,
+                    "ly0": -float(m["D"]) / 2.0, "ly1": float(m["D"]) / 2.0}
+        room = _inner_rect(rect, _PROP_PLAN_INSET_M)
         for path in paths or ():
             prim = stage.GetPrimAtPath(path)
             if not prim or not prim.IsValid():
                 continue
-            ops = UsdGeom.Xformable(prim).GetOrderedXformOps()
             top = None
-            for op in ops:
+            for op in UsdGeom.Xformable(prim).GetOrderedXformOps():
                 if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
                     top = op
                     break
@@ -1996,22 +2482,23 @@ def _clamp_fit_props(stage, ctx, info, fit, opened):
                 continue
             t = top.Get()
             lx, ly = qf._to_local(m, float(t[0]), float(t[1]))
-            nlx, nly = lx, ly
+            nlx = min(max(lx, room["lx0"]), room["lx1"])
+            nly = min(max(ly, room["ly0"]), room["ly1"])
             k = _PROP_EDGE_KEEPOUT_M
             if "S" in sides:
-                nly = max(nly, -D / 2.0 + k)
+                nly = max(nly, rect["ly0"] + k)
             if "N" in sides:
-                nly = min(nly, D / 2.0 - k)
+                nly = min(nly, rect["ly1"] - k)
             if "W" in sides:
-                nlx = max(nlx, -W / 2.0 + k)
+                nlx = max(nlx, rect["lx0"] + k)
             if "E" in sides:
-                nlx = min(nlx, W / 2.0 - k)
-            # A mass narrower than two keep-outs collapses to its own
+                nlx = min(nlx, rect["lx1"] - k)
+            # A plan narrower than two keep-outs collapses to its own
             # centreline rather than inverting.
-            if D <= 2.0 * k:
-                nly = 0.0
-            if W <= 2.0 * k:
-                nlx = 0.0
+            if (rect["ly1"] - rect["ly0"]) <= 2.0 * k:
+                nly = (rect["ly0"] + rect["ly1"]) / 2.0
+            if (rect["lx1"] - rect["lx0"]) <= 2.0 * k:
+                nlx = (rect["lx0"] + rect["lx1"]) / 2.0
             if abs(nlx - lx) < 1e-6 and abs(nly - ly) < 1e-6:
                 continue
             wx, wy = qf._to_world(m, nlx, nly)
@@ -2021,10 +2508,14 @@ def _clamp_fit_props(stage, ctx, info, fit, opened):
 
 
 def _author_interior(stage, ctx, plan):
-    """`quake_flow.fit_interior` for every opened storey, plus a textured
-    interior backing behind every actual HOLE and (when the ground storey
-    is glazed) a storefront ring at street level. Gated on
-    `_wants_fit_interior`. Returns `{"n_fit": ..., "n_backing": ...}`.
+    """`quake_flow.fit_interior` for every opened storey — FLOOR RECTANGLES
+    + PILLARS + CONTENTS, all cut to the storey's own measured plan — plus
+    a textured interior backing behind every actual HOLE and (when the
+    ground storey is glazed) a storefront ring at street level. Gated on
+    `_wants_fit_interior`. Returns a counts dict.
+
+    See this region's own "THE PER-STOREY PLAN" comment for why the slab is
+    re-cut and the partitions are off.
 
     `ctx["fit"] = fit_interior(...)`'s own return is stored on the ctx —
     the SAME key `quake_flow._ragged_slabs`/`_a_slab_rim` read — but
@@ -2069,27 +2560,54 @@ def _author_interior(stage, ctx, plan):
     storeys.update(int(h["storey"]) for h in holes)
     if shop:
         storeys.update((0, 1))
+
+    masses = info["masses"]
+    rects = _storey_plan_rects(info)
+    m_main = masses.get("main") or next(iter(masses.values()))
+    # `footprint=` is keyed by STOREY only (`quake_flow.fit_interior`'s own
+    # signature, and the shape `urban_fire.burn_building` passes it), so a
+    # multi-mass building gets the MAIN mass's plan — the same limitation
+    # the fire path carries. Every style this ladder accepts is single-mass
+    # (`tornado_kit._refuse_if_unsupported`).
+    polys = {}
+    for st in sorted(storeys):
+        rect = _rect_for(rects, m_main, "main", st)
+        if rect is not None:
+            polys[st] = _rect_poly_world(m_main, _inner_rect(
+                rect, _FOOTPRINT_INSET_M))
     fit = qf.fit_interior(stage, parent, info, ctx["mats"], rng,
-                          storeys=sorted(storeys), tag=tag)
+                          storeys=sorted(storeys), tag=tag,
+                          partitions=False,
+                          footprint=(polys or None))
     ctx["fit"] = fit
     ctx.setdefault("static_extra", [])
     ctx["static_extra"].extend(fit.get("all") or [])
-    n_props_moved = _clamp_fit_props(stage, ctx, info, fit, opened)
+    slab_cut = _recut_slabs(stage, info, fit, rects, opened)
+    n_props_moved = _clamp_fit_props(stage, ctx, info, fit, opened, rects)
 
     mat = _interior_backing_material(stage, ctx)
     root = "{0}/tornado_interior_backing".format(parent)
     UsdGeom.Scope.Define(stage, Sdf.Path(root))
-    masses = info["masses"]
     n_backing = 0
     seen = set()
 
-    def _quad(name, m, side, t_mid, width, cz, height, extra_inset=0.0):
-        inset = _inset_for(m) + float(extra_inset)
+    def _quad(name, m, rect, side, t_mid, width, cz, height):
+        """One backing panel, positioned off the STOREY's own wall line —
+        not the mass bbox. On a setback plan (A4) the mass bbox line is
+        OUTSIDE the glass, so a quad placed against it and pushed in by
+        1.35 m can still end up proud of the facade: the exact "backing
+        segments protrude past the facade line" the lead flagged."""
+        inset = _inset_for(m, rect)
         lx, ly = qf._p_wall_point(m, side, t_mid)
-        ox, oy = qf._outward(m, side)
+        if side == "S":
+            ly = rect["ly0"] + inset
+        elif side == "N":
+            ly = rect["ly1"] - inset
+        elif side == "W":
+            lx = rect["lx0"] + inset
+        else:
+            lx = rect["lx1"] - inset
         wx, wy = qf._to_world(m, lx, ly)
-        wx -= ox * inset
-        wy -= oy * inset
         yaw = m["yaw"] + (0.0 if side in ("S", "N") else 90.0)
         path = "{0}/{1}".format(root, name)
         qf._box(stage, path, wx, wy, cz, float(width), _BACKING_T_M,
@@ -2097,14 +2615,38 @@ def _author_interior(stage, ctx, plan):
         ctx["static_extra"].append(path)
         return path
 
+    def _rect_along(m, rect, side):
+        """(lo, hi) of `rect` along `side`'s own wall axis, in the same
+        `t` metres `el_span`/`_p_wall_point` use."""
+        if side in ("S", "N"):
+            return rect["lx0"] + m["W"] / 2.0, rect["lx1"] + m["W"] / 2.0
+        return rect["ly0"] + m["D"] / 2.0, rect["ly1"] + m["D"] / 2.0
+
     # -- 1) per-BAY quads behind each HOLE ---------------------------------
+    #
+    # SEGMENTED, CONTIGUOUS AND COPLANAR. v6 staggered alternate segments
+    # 0.55 m deeper to break up a long plane; on the lit bench that read as
+    # a row of free-standing slabs rather than as a back wall (lead review,
+    # "or read as freestanding slabs"). The segmentation stays — it is what
+    # keeps a hole's backing a per-bay panel run rather than one 32 m slab
+    # — but every segment of one hole now sits at the SAME inset, so the
+    # run reads as one surface.
     for h in holes:
         if n_backing >= _MAX_BACKING_QUADS:
             break
         m = masses.get(h["mass"]) or masses["main"]
+        rect = _rect_for(rects, m, h["mass"], int(h["storey"]))
+        if rect is None:
+            rect = {"lx0": -float(m["W"]) / 2.0, "lx1": float(m["W"]) / 2.0,
+                    "ly0": -float(m["D"]) / 2.0, "ly1": float(m["D"]) / 2.0}
+        a_lo, a_hi = _rect_along(m, rect, h["side"])
+        t0h = max(h["t0"], a_lo)
+        t1h = min(h["t1"], a_hi)
+        if t1h - t0h < 0.3:
+            continue
         height = max(0.6, h["z1"] - h["z0"])
         cz = h["z0"] + height / 2.0
-        span = max(0.6, h["t1"] - h["t0"])
+        span = t1h - t0h
         seg = min(_BACKING_SEG_MAX_M,
                   max(_BACKING_SEG_MIN_M, float(m.get("module") or 4.0)))
         n_seg = max(1, int(math.ceil(span / seg)))
@@ -2112,53 +2654,65 @@ def _author_interior(stage, ctx, plan):
         for k in range(n_seg):
             if n_backing >= _MAX_BACKING_QUADS:
                 break
-            t0 = h["t0"] + k * w_seg
+            t0 = t0h + k * w_seg
             name = "backing_{0}_{1}_{2:02d}_{3:04d}".format(
                 h["side"], _safe_name(h["mass"]), int(h["storey"]),
                 int(round(t0 * 10.0)))
             if name in seen:
                 continue
             seen.add(name)
-            _quad(name, m, h["side"], t0 + w_seg / 2.0, w_seg, cz, height,
-                  extra_inset=(_BACKING_SEG_DEPTH_STEP if (k % 2) else 0.0))
+            _quad(name, m, rect, h["side"], t0 + w_seg / 2.0, w_seg, cz,
+                  height)
             n_backing += 1
 
     # -- 2) the storefront ring (D4) ---------------------------------------
     n_shop = 0
     for mass, sides in sorted(shop.items()):
         m = masses.get(mass) or masses["main"]
+        rect = _rect_for(rects, m, mass, 0)
+        if rect is None:
+            rect = {"lx0": -float(m["W"]) / 2.0, "lx1": float(m["W"]) / 2.0,
+                    "ly0": -float(m["D"]) / 2.0, "ly1": float(m["D"]) / 2.0}
         lv = list(m["levels"])
         z0 = float(lv[0]) if lv else float(m.get("z0", 0.0))
         z1 = float(lv[1]) if len(lv) > 1 else float(m["top"])
         height = max(1.2, min(_SHOP_MAX_H_M, (z1 - z0) * 0.96))
-        inset = _inset_for(m)
+        inset = _inset_for(m, rect)
         for side in sorted(sides):
             if n_backing >= _MAX_BACKING_QUADS:
                 break
-            run = _side_run_len(m, side)
+            a_lo, a_hi = _rect_along(m, rect, side)
             # The four quads meet at the corners of the inset rectangle:
             # each is its own run shortened by one inset at each end.
-            width = max(0.6, run - 2.0 * inset)
+            width = max(0.6, (a_hi - a_lo) - 2.0 * inset)
             name = "backing_{0}_{1}_shop".format(side, _safe_name(mass))
             if name in seen:
                 continue
             seen.add(name)
-            _quad(name, m, side, run / 2.0, width, z0 + height / 2.0, height)
+            _quad(name, m, rect, side, (a_lo + a_hi) / 2.0, width,
+                  z0 + height / 2.0, height)
             n_backing += 1
             n_shop += 1
 
     if n_backing:
-        print("[tornado_urban_usd] interior: {0} fit-out prim(s), {1} "
-              "backing quad(s) ({2} behind holes, {3} storefront) over {4} "
-              "fitted storey(s); {5} prop(s) clamped inboard".format(
-                  len(fit.get("all") or []), n_backing, n_backing - n_shop,
-                  n_shop, len(storeys), n_props_moved))
+        print("[tornado_urban_usd] interior: {0} fit-out prim(s) "
+              "({1} slab(s) re-cut to the measured storey plan, overhang "
+              "{2:.2f} m -> {3:.2f} m; partitions off), {4} backing quad(s) "
+              "({5} behind holes, {6} storefront) over {7} fitted "
+              "storey(s); {8} prop(s) clamped inboard".format(
+                  len(fit.get("all") or []), slab_cut["n"],
+                  slab_cut["before_max"], slab_cut["after_max"], n_backing,
+                  n_backing - n_shop, n_shop, len(storeys), n_props_moved))
     out = {"n_fit": len(fit.get("all") or []), "n_backing": n_backing,
            "n_backing_holes": n_backing - n_shop, "n_backing_shop": n_shop,
            "n_props_clamped": n_props_moved,
+           "n_partitions": len(fit.get("partitions") or []),
+           "n_slabs_recut": slab_cut["n"],
+           "slab_overhang_before_m": slab_cut["before_max"],
+           "slab_overhang_after_m": slab_cut["after_max"],
            "n_holes": len(holes), "storeys": sorted(storeys),
-           "inset_m": float(_inset_for(masses.get("main")
-                                       or next(iter(masses.values())))),
+           "inset_m": float(_inset_for(m_main,
+                                       _rect_for(rects, m_main, "main", 0))),
            "albedo": [float(q) for q in _INTERIOR_BACKING_ALBEDO]}
     # `apply_plan`'s own counts dict (another region of this file) only
     # forwards `n_fit`/`n_backing`; the full record goes on the ctx so a

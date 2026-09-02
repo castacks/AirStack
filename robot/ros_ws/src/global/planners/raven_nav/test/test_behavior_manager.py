@@ -1,7 +1,6 @@
 """BehaviorManager — priority chain, mode switching, and the interaction
 between the four behaviours on one shared TickContext."""
 import numpy as np
-import pytest
 
 from helpers import ctx, rays, scores_for, voxel_box, frontier_cloud_flu
 from raven_nav.behavior_manager import BehaviorManager
@@ -162,3 +161,20 @@ def test_perceive_is_safe_with_no_map_at_all():
     m.perceive(c)
     assert m.mode_select(c) == 'Frontier-based'
     assert m.behavior_execute('Frontier-based', c).path == []
+
+
+def test_lvlm_trigger_is_cleared_when_a_higher_behaviour_wins():
+    """The trigger and the VLM request are one-shot per tick, and the priority
+    chain may stop before LVLM's condition_check ever runs — a stale flag would
+    fire a spurious request while the drone is flying to a voxel cluster."""
+    m = _mgr()
+    m.lvlm_behavior.set_guiding_objects('roof')
+    c1 = _full_ctx(guiding_ray=True)
+    m.perceive(c1)
+    assert m.mode_select(c1) == 'LVLM-guided'
+    assert m.lvlm_behavior.want_trigger is True
+    c2 = _full_ctx(vox=True, guiding_ray=True)
+    m.perceive(c2)
+    assert m.mode_select(c2) == 'Voxel-based'
+    assert m.lvlm_behavior.want_trigger is False
+    assert m.lvlm_behavior.want_request is False

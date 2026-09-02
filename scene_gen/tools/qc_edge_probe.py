@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pxr import Usd, UsdGeom                                   # noqa: E402
 import scene_generator as sg                                   # noqa: E402
 from detail import urban_building as ub                        # noqa: E402
+from disaster import bake                                      # noqa: E402
 from disaster import fire_collapse as fc                       # noqa: E402
 from disaster import fracture, quake_flow as qf                # noqa: E402
 
@@ -42,7 +43,7 @@ def _pose(style, level):
     return GRADES.index(level) * pitch, 0.0
 
 
-def run(style, level):
+def run(style, level, export_dir=None):
     t0 = time.time()
     X, Y = _pose(style, level)
     stage = Usd.Stage.CreateInMemory()
@@ -90,17 +91,50 @@ def run(style, level):
                 j["name"], j["side"], j["storey"], j["classes"],
                 "failed" if j.get("failed") else "skipped"))
     print("  [qc] straight seams left: {0}".format(bad))
+    if export_dir:
+        # THE AUTHORED BUILDING, NO SETTLE. `bake_quake_archetypes_launch_
+        # script` runs PhysX between authoring and export; this path does not,
+        # because a second `SimulationApp` in a container that is already
+        # running a bench is not a look check, it is an outage. What the ring
+        # changes is the AUTHORED tear geometry, which is fully visible
+        # before anything falls.
+        os.makedirs(export_dir, exist_ok=True)
+        out = os.path.join(export_dir, "qc_{0}_{1}.usd".format(style, level))
+        # ...AND WITHOUT WHAT FELL. `_break_split` writes the loose fragments
+        # IN PLACE and they only move when the settle runs, so an unsettled
+        # export shows a torn module as an intact one — the tear is there, the
+        # near portion is simply still sitting in the hole it came out of.
+        # Deactivating `ctx["loose"]` leaves exactly what STANDS, which is the
+        # outline the review is about.
+        n_off = 0
+        for q in set(ctx.get("loose") or ()):
+            pr = stage.GetPrimAtPath(q) if q else None
+            if pr and pr.IsValid() and pr.IsActive():
+                pr.SetActive(False)
+                n_off += 1
+        print("  [qc] deactivated {0} loose prim(s) before export".format(n_off))
+        paths = [parent]
+        m0 = ctx["info"]["masses"]["main"]
+        ok = bake.export_object(stage, None, paths, out,
+                                recenter=(float(m0["cx"]), float(m0["cy"]),
+                                          0.0), merge=False)
+        print("  [qc] exported {0} -> {1}".format(bool(ok), out))
     return ctx
 
 
 def main():
     args = sys.argv[1:]
+    export_dir = None
+    if "--export" in args:
+        i = args.index("--export")
+        export_dir = args[i + 1]
+        del args[i:i + 2]
     styles = (args[0].split(",") if args else ["office_plain", "apartment_long"])
     level = args[1] if len(args) > 1 else "DG4"
     fracture.ensure_vtk(verbose=True)
     for s in styles:
         try:
-            run(s.strip(), level)
+            run(s.strip(), level, export_dir=export_dir)
         except Exception:                                      # pragma: no cover
             import traceback
             traceback.print_exc()

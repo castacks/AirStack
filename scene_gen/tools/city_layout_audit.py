@@ -36,11 +36,58 @@ WHAT IT MEASURES
                                     `road_corridors`, i.e. a host build or
                                     a Kit layout dump — the placement dump
                                     carries blocks only).
+  `centre_in_road(x, y, corridors)` a placement's own centre inside a
+                                    corridor (needs `--layout`, same as above).
+  `building_overlap_pairs(records)` BUILDING-VS-BUILDING footprint overlap —
+                                    a proper separating-axis test over each
+                                    record's REAL, yaw-ROTATED box (needs no
+                                    block/road/layout input, only the dump's
+                                    own `x_m`/`y_m`/`W`/`D`/`yaw_deg`). See
+                                    its own docstring: THE 2026-09-01
+                                    "SYSTEMIC LAYOUT DEFECT" investigation —
+                                    a report of ~29-43 "overlapping" building
+                                    pairs and 6-11 "empty blocks" per
+                                    baseline level did not reproduce against
+                                    this tool's rotation-correct footprints
+                                    (0/0/0 real overlaps, 0/0/0 non-boundary
+                                    empty blocks, 0/0/0 buildings overhanging
+                                    a block on all three shipped dumps —
+                                    `tests/test_city_layout_audit.py`'s
+                                    parametrized `test_shipped_baseline_
+                                    dumps_have_*` tests are that gate). It DOES
+                                    reproduce, in the same order of
+                                    magnitude, from a NAIVE axis-aligned
+                                    check that skips the yaw rotation the
+                                    packer applies everywhere else
+                                    (`detail.districts._pool_entries`/
+                                    `_rotated_wh`) — every "overlap" it finds
+                                    is a legitimately touching pair standing
+                                    at a relative 90-degree turn (a terrace
+                                    end, two guillotine-packed neighbours
+                                    sharing a party wall), not a placement
+                                    defect. The packer already sizes/spaces
+                                    every lot from each asset's REAL
+                                    resolver-measured footprint (never a
+                                    nominal constant — `_pool_entries`/
+                                    `_fp_of` both call `resolver.get()`), and
+                                    `districts.repair_overlaps` already runs
+                                    on that real geometry (verified: `checked
+                                    =0` on all three baseline seeds, host-
+                                    rebuilt) — this function exists so the
+                                    OFFLINE AUDIT agrees with the packer's
+                                    own verdict instead of re-litigating it
+                                    with a rotation-blind box.
   `manifest_frame_check(...)`       per record: distance between where the
                                     launcher WOULD place the bake and the
                                     intact cell it replaces, for both the
                                     shipped rule (`rec["x"]`) and the fixed
                                     one (`record_xy`).
+
+The CLI always runs `building_overlap_pairs` and a dump-self block audit
+(buildings vs. the dump's own typology blocks, in the dump's own frame) —
+no `--gt`/`--manifest`/`--layout` needed, so a dump can be gated the moment
+it exists. `--layout` (a host-built layout with `road_corridors`) adds
+`centre_in_road`.
 
 `record_xy(rec)` is the ONE coordinate rule: `x_orig`/`y_orig` when the
 record carries them (stamped by `urban_fire_city.burnable()` from a cropped
@@ -53,6 +100,11 @@ import json
 import math
 import os
 import sys
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+import fire_city_dry_run as _fdr        # noqa: E402 -- _obb_corners/_obb_overlap
 
 MIN_FRAC_IN_BLOCK = 0.97     # a building this far inside its block is "on it"
 CELL_MATCH_TOL_M = 0.5       # bake holder vs intact cell, same as resolve_cell
@@ -125,6 +177,74 @@ def road_overlap(rect, corridors):
               else tuple(c[:4]))
         tot += _overlap_area(rect, cr)
     return min(1.0, tot / area)
+
+
+def centre_in_road(x, y, corridors):
+    """True when point *(x, y)* (a building's own placement centre, not its
+    footprint) lies inside any road corridor — the strict "on the road"
+    reading `road_overlap`'s footprint-fraction test does not give you by
+    itself (a building can graze a corridor with 4% of its footprint while
+    its own centre stands nowhere near it)."""
+    for c in corridors:
+        cr = ((c["x0"], c["y0"], c["x1"], c["y1"]) if isinstance(c, dict)
+              else tuple(c[:4]))
+        if cr[0] <= x <= cr[2] and cr[1] <= y <= cr[3]:
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# building-vs-building overlap — SAT over REAL, yaw-rotated footprints
+# ---------------------------------------------------------------------------
+def building_overlap_pairs(records, tol=None):
+    """Every genuine footprint interpenetration among *records*
+    (`{"x_m", "y_m", "W", "D", "yaw_deg"}`-shaped dicts — a placements dump's
+    own `placements` list needs no adapting) via a proper separating-axis
+    test over each building's REAL, yaw-ROTATED oriented box — reusing
+    `fire_city_dry_run._obb_corners` / `_obb_overlap` / `OVERLAP_TOL_M`, the
+    SAME tolerance/definition the fire manifest solver already gates every
+    damaged record's footprint on (`check_footprint`), so "clean" here means
+    the same thing it means there.
+
+    WHY THIS MUST ROTATE BY YAW, NOT JUST OFFSET BY W/2, D/2: a placement's
+    `W`/`D` are the asset's extents in ITS OWN frame; at yaw 90/270 the
+    footprint standing in the WORLD is D wide x W deep, not W x D — exactly
+    the swap `detail.districts._pool_entries`/`_rotated_wh` apply everywhere
+    else in the packer. A naive axis-aligned check that skips this rotation
+    reads every legitimately touching pair standing at a relative 90-degree
+    turn (a terrace end, two guillotine-packed neighbours sharing a party
+    wall) as "overlapping".
+
+    MEASURED, 2026-09-01, on the three shipped `downtown_fire_1500[_lvl2/3]`
+    baseline dumps: a naive W x D box (no yaw rotation) reports 112 / 82 / 79
+    "overlapping" pairs per level — the example that motivated this function,
+    `SM_Building_03` (yaw 180) at (-335.09, 126.89) against
+    `SM_Building_06_Small` (yaw 90) at (-313.27, 126.94), among them, at a
+    naively-computed 7.1 m of "overlap". Rotated correctly by each building's
+    own `yaw_deg`, that same pair's footprints are 0.02 m apart — a party
+    wall, not a defect — and every naive "overlap" in all three dumps
+    resolves to a legitimate touch: this function reports 0 / 0 / 0 pairs on
+    the same three dumps. The packer already sizes and spaces every lot from
+    each asset's REAL resolver-measured footprint (`detail.districts.
+    _pool_entries`/`_fp_of` both call `resolver.get()`, never a nominal
+    config constant), and `districts.repair_overlaps` already runs on that
+    same real geometry and independently finds nothing to repair — this
+    function exists so the OFFLINE AUDIT agrees with the packer's own
+    verdict instead of re-litigating it with a rotation-blind box.
+
+    Returns `[(i, j), ...]` — index pairs into *records*, its own order."""
+    tol = _fdr.OVERLAP_TOL_M if tol is None else tol
+    corners = [_fdr._obb_corners(float(r["x_m"]), float(r["y_m"]),
+                                 float(r["W"]), float(r["D"]),
+                                 float(r.get("yaw_deg", 0.0)))
+              for r in records]
+    pairs = []
+    for a in range(len(records)):
+        ca = corners[a]
+        for b in range(a + 1, len(records)):
+            if _fdr._obb_overlap(ca, corners[b], tol):
+                pairs.append((a, b))
+    return pairs
 
 
 # ---------------------------------------------------------------------------
@@ -372,6 +492,59 @@ def main(argv=None):
 
     dump = _load(args.dump)
     blocks = unshifted_blocks(dump)
+
+    # BUILDING-VS-BUILDING SAT overlap, over the dump's own REAL, Kit-
+    # measured W/D (rotated by each record's own yaw_deg) -- independent of
+    # --gt/--manifest/--layout, since the placements dump alone carries
+    # everything this needs. See `building_overlap_pairs`'s own docstring
+    # for why this must be yaw-rotated and what a naive axis-aligned check
+    # gets wrong.
+    house_recs = [p for p in (dump.get("placements") or [])
+                 if p.get("W") is not None and p.get("D") is not None]
+    overlap_pairs = building_overlap_pairs(house_recs)
+    print("[audit] building-building footprint overlaps (SAT, real W/D, "
+         "yaw-correct): {0} pair(s) of {1} building(s)"
+         .format(len(overlap_pairs), len(house_recs)))
+    for i, j in overlap_pairs[:10]:
+        ri, rj = house_recs[i], house_recs[j]
+        print("[audit]    {0} @ ({1:.1f},{2:.1f}) x {3} @ ({4:.1f},{5:.1f})"
+              .format(os.path.basename(ri.get("usd", "")), ri["x_m"], ri["y_m"],
+                      os.path.basename(rj.get("usd", "")), rj["x_m"], rj["y_m"]))
+    report = {"dump": args.dump, "building_overlap_pairs": len(overlap_pairs)}
+
+    # SELF-AUDIT: the dump's OWN buildings against its OWN typology blocks,
+    # in the dump's OWN (possibly re-centred-by-crop) frame -- no --gt/
+    # --manifest/--layout needed, so this gates a dump the moment it exists,
+    # before any manifest is solved or any cell is baked. A crop's own
+    # window (`dump["crop"]["window"]`, already re-centred by
+    # `dump["crop"]["shift"]` the same way `x_m`/`y_m` are) is used with the
+    # same 70 m margin `main()`'s --gt path applies below, so a boundary
+    # sliver the crop legitimately left thin is not reported as "empty" or
+    # "overhanging" -- see `tools/crop_window.py`'s drop-not-cut / clip-not-
+    # drop rules for why the crop edge always leaves slivers like this.
+    self_blocks = [(b["rect"][0], b["rect"][1], b["rect"][2], b["rect"][3],
+                    b.get("name")) for b in (dump.get("typology") or {}).get("blocks") or []]
+    self_fps = [{"name": os.path.basename(r.get("usd", "")),
+                "rect": footprint_rect(r["x_m"], r["y_m"], r["W"], r["D"],
+                                       r.get("yaw_deg", 0.0)),
+                "centre": (r["x_m"], r["y_m"])} for r in house_recs]
+    self_window = tuple(dump.get("crop", {}).get("window")) if dump.get("crop") else None
+    if self_window:
+        sx, sy = dump["crop"].get("shift") or (0.0, 0.0)
+        self_window = (self_window[0] + sx, self_window[1] + sy,
+                      self_window[2] + sx, self_window[3] + sy)
+    a_self = audit_footprints(self_fps, self_blocks, args.min_frac,
+                              window=self_window, margin_m=70.0 if self_window else 0.0)
+    print("[audit] dump self-audit: {0} building(s), {1} block(s) -- "
+         "{2} overhang(ing) a block, {3} empty (non-boundary) block(s)"
+         .format(a_self["n"], len(self_blocks), len(a_self["offenders"]),
+                 len(a_self["empty_blocks"])))
+    for e in a_self["empty_blocks"][:10]:
+        print("[audit]    empty block {0} {1} {2:.0f} x {3:.0f} m"
+              .format(e["block"], e["name"], *e["size_m"]))
+    report["dump_self_overhang_offenders"] = len(a_self["offenders"])
+    report["dump_self_empty_blocks"] = len(a_self["empty_blocks"])
+
     corridors, region = [], None
     if args.layout:
         lay = _load(args.layout)
@@ -384,11 +557,26 @@ def main(argv=None):
         if unmatched:
             print("[audit]   unmatched (dump frame): {0}".format(unmatched[:6]))
         blocks = [tuple(b) + (None,) for b in hb]     # the full set
+        # CENTRE-IN-ROAD: a stricter reading than "> 3% of footprint on a
+        # road" -- the placement's own centre standing inside a corridor,
+        # over the dump's real (Kit-measured) footprints in the FULL-city
+        # frame (x_m_orig/y_m_orig when the dump is a crop, else x_m/y_m --
+        # `record_xy`-style: this loop reads the dump's own placement dicts,
+        # which carry `x_m_orig`/`y_m_orig`, not a manifest record's `x_orig`
+        # /`y_orig`, so it is spelled out here rather than reusing
+        # `record_xy`).
+        n_centre_road = sum(
+            1 for r in house_recs
+            if centre_in_road(float(r.get("x_m_orig", r["x_m"])),
+                              float(r.get("y_m_orig", r["y_m"])), corridors))
+        print("[audit] building placement CENTRES inside a road corridor: {0}"
+              .format(n_centre_road))
+        report["building_centres_on_road"] = n_centre_road
     crop = dump.get("crop") or {}
     window = crop.get("window")
     margin = 70.0 if (window and not args.layout) else 0.0
 
-    report = {"dump": args.dump, "n_blocks": len(blocks)}
+    report.update({"n_blocks": len(blocks)})
     intact, shipped_fp, fixed_fp = [], [], []
     if args.gt:
         gt = _load(args.gt)

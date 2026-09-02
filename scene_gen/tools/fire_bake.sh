@@ -85,6 +85,12 @@
 #                    (no per-step USD write-back; read back once at the end)
 #                                              (default 0)
 #   FB_BAKED_KITS    use pre-baked GAC kits    (default 1)
+#   SOOT_TEX_COMPRESS  1 (default, set inside the container -- NOT here) bakes
+#                    soot textures as BC1 DDS instead of PNG (~8x less VRAM,
+#                    same look -- `disaster/tex_compress.py`). Left UNSET by
+#                    this driver unless the caller exports it, so the
+#                    container-side default applies; export SOOT_TEX_COMPRESS=0
+#                    before running this script for an A/B baseline bake.
 #   TIMEOUT_S        per-building ceiling      (default 5400)
 #   CONTAINER        container name            (default isaac-sim)
 #   REPO             repo path in container    (default /isaac-sim/AirStack)
@@ -126,6 +132,10 @@ SETTLE_QUIET_MID=${SETTLE_QUIET_MID:-300}
 FB_LEVEL_SETTLE=${FB_LEVEL_SETTLE:-1}
 SETTLE_DECOMP_M=${SETTLE_DECOMP_M:-0.8}
 SETTLE_FABRIC=${SETTLE_FABRIC:-0}      # 1 = PhysX->Fabric, no per-step USD write-back (settle.py)
+SOOT_TEX_COMPRESS=${SOOT_TEX_COMPRESS:-}   # left EMPTY unless the caller set it --
+                                            # see the SOOT_TEX_COMPRESS note above;
+                                            # an explicit "" would force the
+                                            # container-side default OFF
 SETTLE_REST_V2=${SETTLE_REST_V2:-1}    # settle.py's corrected rest/grade measurements; forced OFF
 #                                        for `kit:` records, whose look is frozen against the old ones
 FB_BAKED_KITS=${FB_BAKED_KITS:-1}
@@ -243,6 +253,10 @@ EOF
   ENVS="$ENVS FB_SEED=$SEED FB_BUILD_SEED=$BUILD_SEED FB_INDEX=$i"
   ENVS="$ENVS FB_ORIGIN=$ORIGIN FB_SIDES=$SIDES"
   ENVS="$ENVS FB_OUT=$FB_OUT FB_BAKED_KITS=$FB_BAKED_KITS FB_VERIFY=1"
+  # only forwarded when the caller actually set it — see the declaration
+  # above for why an unconditional "SOOT_TEX_COMPRESS=$SOOT_TEX_COMPRESS"
+  # would silently force the container-side default OFF
+  [ -n "$SOOT_TEX_COMPRESS" ] && ENVS="$ENVS SOOT_TEX_COMPRESS=$SOOT_TEX_COMPRESS"
   # PER-LEVEL SETTLE BUDGET — see the header comment.
   settle_for_level "$LEVEL"
   ENVS="$ENVS SETTLE_STEPS=$REC_STEPS SETTLE_QUIET=$REC_QUIET"

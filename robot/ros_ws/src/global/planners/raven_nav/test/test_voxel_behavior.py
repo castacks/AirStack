@@ -215,3 +215,36 @@ def test_voxel_table_reports_state():
     b.update(c)
     t = b.voxel_table()
     assert 'voxel clusters=1' in t and 'unvisited' in t
+
+
+# ── CCL implementations agree ───────────────────────────────────────────────
+def test_the_two_ccl_paths_agree():
+    """The vectorised key-packing path and the dict-probe fallback must label
+    identically (the fallback only runs for absurd extents)."""
+    from raven_nav.behaviors.voxel_behavior import _dict_probe_components
+    rng = np.random.default_rng(4)
+    coords = np.unique(rng.integers(0, 12, size=(400, 3)), axis=0)
+    a = connected_components(coords)
+    b = _dict_probe_components(coords)
+
+    def partition(lbl):
+        return sorted(sorted(np.nonzero(lbl == v)[0].tolist())
+                      for v in set(lbl.tolist()))
+    assert partition(a) == partition(b)
+
+
+def test_ccl_labels_are_first_appearance_ordered():
+    coords = np.array([[50, 50, 50], [0, 0, 0], [51, 50, 50]])
+    assert connected_components(coords).tolist() == [0, 1, 0]
+
+
+def test_ccl_scales_to_a_large_field():
+    """A loose voxel_score_threshold leaves tens of thousands of voxels; the
+    tick must not stall on them."""
+    import time
+    r = np.arange(0, 40)
+    g = np.stack(np.meshgrid(r, r, r[:20], indexing='ij'), axis=-1).reshape(-1, 3)
+    t0 = time.time()
+    labels = connected_components(g)
+    assert time.time() - t0 < 5.0
+    assert len(set(labels.tolist())) == 1

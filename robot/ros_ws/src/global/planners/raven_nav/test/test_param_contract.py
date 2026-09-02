@@ -121,8 +121,20 @@ def test_defaults_are_the_original_raven_values():
     assert P.param('voxel_score_threshold').default == 0.98  # OG voxel:51
     assert P.param('voxel_min_cluster_size').default == 30   # OG voxel:78
     assert P.param('min_altitude_agl').default == 1.5        # OG frontier:33
-    assert P.param('lvlm_request_interval_s').default == 30.0
-    assert P.param('lvlm_ray_threshold').default == 0.9
+    # These two are env-resolved (default None in the table); the OG literals
+    # are the floor of the resolver.
+    assert P.LVLM_INTERVAL_DEFAULT_S == 30.0                 # OG internvl3:35
+    assert P.LVLM_RAY_THRESHOLD_DEFAULT == 0.9               # OG lvlm:78
+    assert P.resolve_lvlm_interval_s(None, environ={}) == 30.0
+    assert P.resolve_lvlm_ray_threshold(None, environ={}) == 0.9
+
+
+def test_env_resolved_params_declare_no_literal_default():
+    """A literal in the table would silently beat the env var, because the node
+    only consults the resolver for parameters whose table default is None."""
+    for name in ('lvlm_enabled', 'lvlm_request_interval_s',
+                 'lvlm_ray_threshold'):
+        assert P.param(name).default is None, name
 
 
 def test_every_param_carries_a_json_safe_default():
@@ -139,6 +151,52 @@ def test_lvlm_enabled_defaults_true_and_follows_raven_lvlm():
     assert P.resolve_lvlm_enabled(None, environ={'RAVEN_LVLM': 'yes'}) is True
     # an explicit parameter always wins
     assert P.resolve_lvlm_enabled(False, environ={'RAVEN_LVLM': 'true'}) is False
+
+
+def test_lvlm_ray_threshold_follows_its_env_var():
+    """The gate is a softmax over the WHOLE query set, so a long background
+    vocabulary dilutes every column and the OG 0.9 becomes unreachable — the
+    operator has to be able to move it without touching the mission goal."""
+    assert P.resolve_lvlm_ray_threshold(None, environ={}) == 0.9
+    assert P.resolve_lvlm_ray_threshold(
+        None, environ={'RAVEN_LVLM_RAY_THRESHOLD': '0.35'}) == 0.35
+    # an explicit -p always wins
+    assert P.resolve_lvlm_ray_threshold(
+        0.5, environ={'RAVEN_LVLM_RAY_THRESHOLD': '0.35'}) == 0.5
+
+
+def test_lvlm_interval_follows_its_env_var():
+    assert P.resolve_lvlm_interval_s(None, environ={}) == 30.0
+    assert P.resolve_lvlm_interval_s(
+        None, environ={'RAVEN_LVLM_INTERVAL_S': '5'}) == 5.0
+    assert P.resolve_lvlm_interval_s(
+        12.0, environ={'RAVEN_LVLM_INTERVAL_S': '5'}) == 12.0
+
+
+@pytest.mark.parametrize('resolver,var,default', [
+    ('resolve_lvlm_ray_threshold', 'RAVEN_LVLM_RAY_THRESHOLD', 0.9),
+    ('resolve_lvlm_interval_s', 'RAVEN_LVLM_INTERVAL_S', 30.0),
+])
+def test_garbage_env_value_warns_once_and_falls_back(resolver, var, default):
+    warnings = []
+    got = getattr(P, resolver)(None, environ={var: 'not-a-number'},
+                               warn=warnings.append)
+    assert got == default
+    assert len(warnings) == 1
+    assert var in warnings[0] and str(default) in warnings[0]
+
+
+@pytest.mark.parametrize('raw,want', [
+    ('', 30.0), ('  ', 30.0), ('0', 0.0), ('1e2', 100.0), ('-5', -5.0),
+])
+def test_env_float_parsing(raw, want):
+    assert P.env_float('X', 30.0, environ={'X': raw}) == want
+
+
+def test_env_float_does_not_warn_when_unset():
+    warnings = []
+    assert P.env_float('X', 7.0, environ={}, warn=warnings.append) == 7.0
+    assert warnings == []
 
 
 def test_image_topic_default_is_the_zed_left_rect():

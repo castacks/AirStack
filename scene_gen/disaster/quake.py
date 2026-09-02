@@ -507,6 +507,128 @@ def _same_art_material(usd, config, default=_SAME_ART_DEFAULT_TYPE):
     return default
 
 
+# ---------------------------------------------------------------------------
+# STYLE BLACKLIST (2026-09-01): a native kit STYLE this scene must never
+# place at all, e.g. `office_wide` — the user's own recurring complaint
+# ("what if we blacklist it for the next test run?"). `office_wide` is drawn
+# straight off the asset set's `midrise` pool at LAYOUT time
+# (`detail/districts.py` / `scene_generator.build_city`'s greedy pack), which
+# this module does not own (districts.py / city_detail.py / footprint-and-
+# dims code belongs to another session, off limits here) — so the pool
+# itself cannot be filtered from this side, and a preset-level style
+# blacklist has to act on the DAMAGE side instead: every placement already
+# assigned this style gets re-styled to a same-FAMILY substitute HERE, at
+# decide time, before any grade is drawn — see `_resolve_blacklisted_style`
+# and its call site in `assemble`, right after a placement's `style` is
+# resolved and its `prim` is confirmed valid.
+# ---------------------------------------------------------------------------
+def _style_blacklist(config):
+    """`disaster.style_blacklist` -> frozenset of `detail.urban_building.
+    STYLES` keys this config must never place. TEST-PRESET-SCOPED: this
+    reads one OPTIONAL key under `disaster:` and returns an empty set when
+    it is absent (the default for every preset but the one that opts in),
+    so any config that never sets it compiles byte-identical to before this
+    existed — no config-shape change, no new required key anywhere."""
+    dis = config.get("disaster") or {}
+    return frozenset(str(s) for s in (dis.get("style_blacklist") or ()))
+
+
+# Same-FAMILY substitute for a blacklisted style — `detail/urban_building.
+# STYLES`'s own per-style `family`/`type` tag (verified against
+# `assets/archetype/archetypes.json`), so the swap only changes WHICH
+# archetype in that family gets drawn, never the construction discipline
+# (bay rhythm, storey fit-out, the earthquake ladder itself) a family
+# implies. `office_wide` (family "02"/rc, "wide office, 40x24, 22 m") ->
+# `office_plain` (family "02"/rc, "office without balconies, 32x24, 25 m")
+# — both `urban_building.fam02`, geometry-family compatible.
+STYLE_BLACKLIST_SUBSTITUTE = {
+    "office_wide": "office_plain",
+}
+
+
+def _resolve_blacklisted_style(style, config):
+    """`style` unchanged unless it is BOTH blacklisted for `config`
+    (`_style_blacklist`) AND has a registered same-family substitute in
+    `STYLE_BLACKLIST_SUBSTITUTE` — a blacklisted style with no substitute on
+    file is left alone rather than silently vanishing (nothing to swap it
+    for is a config-authoring bug, not something this function should mask)."""
+    if not style or style not in _style_blacklist(config):
+        return style
+    return STYLE_BLACKLIST_SUBSTITUTE.get(style, style)
+
+
+# ---------------------------------------------------------------------------
+# PER-DISTRICT DAMAGE BOOST (2026-09-01): "more diversity in buildings
+# destroyed — especially brownstone districts with the small buildings and
+# the brick mid-rise districts" (user, verbatim). Today the damage grade is
+# purely radial from the epicentre (`sg.make_damage_field`), so which
+# districts read destroyed is only ever an accident of where they landed —
+# a brownstone or brick_midrise district far from the epicentre stays
+# pristine no matter how fragile that stock actually is.
+#
+# THE IDEAL KEY IS district/typology, NOT style: two placements of the same
+# kit style can sit in two different typologies (`commercial_mid` is a
+# `brick_midrise` pool member in `urban_gac.yaml` but also rides in
+# `urban_quake.yaml`'s plain `midrise` pool with no typology distinction at
+# all). It is not available here: a placement dict
+# (`scene_generator.build_city`'s own return value, unchanged by this
+# module) carries only `usd`/pose/`category` — `x_m`, `y_m`, `z_m`,
+# `yaw_deg`, `roll_deg`, `pitch_deg`, `scale`, `prim_path`, `axis_up` — no
+# district or typology field survives past `detail/districts.py`'s own
+# rezone, and that module is owned by another session, off limits here.
+# STYLE is therefore the fallback key `TYPOLOGY_STYLE_FAMILIES` maps a
+# preset-level label onto: not a perfect proxy, but the only one reachable
+# disaster-side, and exactly what the user named ("brownstone districts
+# with the small buildings" -> `brownstone`/`brownstone_row`; "brick
+# mid-rise districts" -> the brick/family-04 mid-rise kit stock).
+TYPOLOGY_STYLE_FAMILIES = {
+    "rowhouse": ("brownstone", "brownstone_row"),
+    # `block_commercial` (a `urban_building.STYLES` key) is deliberately
+    # NOT listed here — it has no baked archetype in `archetypes.json` at
+    # all (verified 2026-09-01), so it never reaches decide time as a
+    # placed kit `style` in the first place; listing it would be a dead
+    # entry that never matches anything.
+    "brick_midrise": ("commercial", "commercial_mid", "highrise_04",
+                      "department_store"),
+}
+
+
+def _typology_damage_boost(config):
+    """`disaster.typology_damage_boost` -> `{label: multiplier}` (float),
+    or `{}` when the key is absent. DEFAULT EMPTY: a config that never sets
+    this reads a table with nothing in it, `_boosted_intensity` is then a
+    no-op for every style, and `assemble` draws the IDENTICAL rng sequence
+    it always has — pinned byte-for-byte by
+    `test_empty_table_pins_byte_identical_output_end_to_end`
+    (`tests/test_quake_typology_damage_boost.py`)."""
+    dis = config.get("disaster") or {}
+    raw = dis.get("typology_damage_boost") or {}
+    return {str(k): float(v) for k, v in raw.items()}
+
+
+def _boosted_intensity(inten, style, boost_table):
+    """`inten`, multiplied by every `disaster.typology_damage_boost` entry
+    whose STYLE FAMILY (`TYPOLOGY_STYLE_FAMILIES`) `style` belongs to.
+    `inten` unchanged (not even the float wrapped) when `style` is falsy,
+    matches no boosted family, or `boost_table` is empty — the three ways
+    this is a no-op for every OTHER preset. Multiple matching labels
+    compose multiplicatively (a style is not expected to sit in more than
+    one family here, but nothing enforces that going forward).
+
+    NOT CLAMPED to `[0, 1]`: `quake_flow.level_for_intensity` already clamps
+    its own `v = i * rng.random() + jitter` draw, so an `inten` pushed above
+    1.0 by a large boost only ever raises the ODDS of the top grades — it
+    can never itself be read as "worse than DG5", there is no such grade.
+    """
+    if not boost_table or not style:
+        return inten
+    mult = 1.0
+    for label, families in TYPOLOGY_STYLE_FAMILIES.items():
+        if style in families and label in boost_table:
+            mult *= boost_table[label]
+    return inten * mult
+
+
 def decide_building(usd, grade, W, D, H, btype, manifest, rng,
                     x=None, y=None, yaw_deg=None, table=None):
     """The per-building SAME_ART decision, for a building already assigned
@@ -706,13 +828,28 @@ def decide_gac_building(usd, grade, gac_manifest, rng, x=None, y=None,
         "style": <the GAC building's own name>, "usd": <bake usd>,
         "stepped": <bool>, ...}`
           — swap the reference to the bake. `stepped` is True when the
-          drawn grade had no bake and the grade was walked DOWN until one
-          did — the identical fallback `decide_building` already uses.
+          drawn grade had no bake and the grade was walked DOWN, THEN UP,
+          until one did (see the BUG note below for why both directions
+          matter here, unlike `decide_building`'s kit-twin fallback).
 
     `x`/`y`/`yaw_deg` ride through UNCHANGED — the bake pipeline re-centres
     every bake on the building's own origin (its contract, mirroring the kit
     archetype bake), so the swap only ever replaces the reference, never the
     placement's transform.
+
+    BUG FIX (2026-09-01, `SM_Building_17`): a kit archetype is baked at
+    EVERY `DG1`-`DG5` rung (plus the foundation family), so stepping DOWN
+    from the drawn grade toward `DG1` — `decide_building`'s own fallback —
+    practically always lands on something. A GAC per-building bake is
+    SPARSE: `SM_Building_17` has exactly one bake, `DG3`. A city that draws
+    `DG1` or `DG2` for that building (a lower-intensity placement, or simply
+    a quieter roll) used to step DOWN from there — `DG1` -> `DG0`, nothing
+    baked at `DG0` ever (grade 0 means "keep the original", not "a bake") —
+    and give up with "no baked GAC archetype ... at any grade", even though
+    `gac_quake.json` carries a perfectly good `DG3` entry and the .usd file
+    on disk is fine. The manifest was never the problem; the fallback only
+    ever looked in ONE direction. Stepping UP from the ORIGINAL draw next
+    (once the down-scan is exhausted) is what actually reaches it.
     """
     out = {"x": x, "y": y, "yaw_deg": yaw_deg}
     if grade == "DG0":
@@ -724,15 +861,41 @@ def decide_gac_building(usd, grade, gac_manifest, rng, x=None, y=None,
     stepped = False
     if not vs:
         stepped = True
-        gi = int(grade[2])
+        gi0 = int(grade[2])
+        gi = gi0
         while gi > 0 and not vs:
             gi -= 1
             g = "DG{0}".format(gi)
             vs = _variants(gac_manifest, name, g)
+        if not vs:
+            # Down-only exhausted (as far as DG0, which is never baked) —
+            # this building's entire coverage may sit ABOVE the drawn
+            # grade (SM_Building_17: only DG3). Walk UP from the ORIGINAL
+            # draw before giving up; closer beats "not found" in either
+            # direction, and `stepped` already says "not the exact draw".
+            gi = gi0
+            while gi < 5 and not vs:
+                gi += 1
+                g = "DG{0}".format(gi)
+                vs = _variants(gac_manifest, name, g)
     if not vs:
-        out.update(action="keep", grade=grade,
-                   reason="no baked GAC archetype for '{0}' at any "
-                          "grade".format(name))
+        # Distinguish "this building was never baked at all" from "the
+        # manifest carries an entry for it but this lookup still could not
+        # resolve one" (a malformed `grade`/`name` field, not a missing
+        # bake) — the second case means the earlier up/down scan is not the
+        # bug, the manifest ROW is, and that is worth a different message
+        # in the scene log rather than silently reading as "no bake".
+        has_any_entry = any(n == name for (n, _lv) in gac_manifest)
+        if has_any_entry:
+            reason = ("manifest carries an entry for '{0}' but no grade "
+                      "resolved by up/down lookup from '{1}' — check the "
+                      "entry's 'grade'/'name' field for a format mismatch "
+                      "(case, whitespace, missing 'DG' prefix)".format(
+                          name, grade))
+        else:
+            reason = ("no baked GAC archetype for '{0}' at any "
+                      "grade".format(name))
+        out.update(action="keep", grade=grade, reason=reason)
         return out
     chosen = rng.choice(vs)
     final_grade = str(chosen.get("grade") or chosen.get("level")).split("_v")[0]
@@ -802,6 +965,80 @@ def _blocked(p, rec, fall_yaw_deg, H, placements):
             if along < bd:
                 best, bd = q, along
     return best
+
+
+def _swap_reference(stage, prim, p, usd, ssf=1.0):
+    """Swap the placed cell `prim`'s reference to the bake `usd` AND put the
+    cell into the FRAME THE BAKE WAS AUTHORED IN: translate `(x_m, y_m,
+    z_m)`, yaw only, scale 1 (metres).
+
+    THE 2026-09-02 "EMPTY BLOCK" ROOT CAUSE (eq500_v5, user: "buildings are
+    spawning on top of the road, they are empty blocks").  `apply_placements`
+    authors a placed cell as translate = (x_m - centroid_offset), rotateXYZ
+    = (roll, pitch, yaw), scale = the PACK'S scale — 0.01 for the
+    centimetre-authored GreatAmericanCity buildings, and a non-zero
+    centroid offset for any asset whose pivot is not its bbox centre.  The
+    old idiom here — "keep the transform, swap the reference" — composed a
+    metre-authored, origin-centred bake (every `gac_quake/*.usd` and every
+    `archetype/bld_*_DG*.usd` measures that way: bbox centre ~(0, 0), base
+    at z=0) under that same cell: a 69 m SM_Building_26 bake came out 0.69 m
+    tall, 14 cm wide, at the intact asset's centroid-corrected position —
+    invisible from the review camera, with its full-size rubble ring (drawn
+    from the record's own W/D) sitting round an empty lot.  21 of the 27
+    GAC originals in eq500_v5 went that way.  A same_art twin inherited
+    only the centroid offset (scale 1), so it stood up to half a footprint
+    off its lot — onto the street.
+
+    The bake owns its frame, so the cell must not keep the original's:
+    exactly the rule `urban_fire_city_launch_script.place_holder` states
+    ("the bake is already Z-up and already in metres, so the roll/pitch
+    apply_placements authors for a Y-up intact asset must NOT be carried
+    over" — and neither may its scale or centroid shift).  Precision-safe
+    via `scene_generator._set_xform_ops` (a referenced asset's own authored
+    ops compose onto the cell; re-adding at the wrong precision raises).
+    Returns the cell's `(x, y, yaw)` in metres for the caller's record.
+    Unit test: `tests/test_quake_swap_frame.py` (bare usd-core).
+    """
+    import scene_generator as sg
+    from pxr import UsdGeom
+
+    refs = prim.GetReferences()
+    refs.ClearReferences()
+    refs.AddReference(usd)
+    prim.Load()
+    x = float(p.get("x_m", 0.0))
+    y = float(p.get("y_m", 0.0))
+    z = float(p.get("z_m", 0.0))
+    yaw = float(p.get("yaw_deg", 0.0))
+    xf = UsdGeom.Xformable(prim)
+    if xf:
+        xf.ClearXformOpOrder()
+        sg._set_xform_ops(xf, prim,
+                          translate=(x * ssf, y * ssf, z * ssf),
+                          rotate=(0.0, 0.0, yaw),
+                          scale=(float(ssf), float(ssf), float(ssf)))
+    # THE COMPOSE GUARD — the check that would have caught the 1/100-scale
+    # bakes in one round: a swapped building must be building-sized.
+    from pxr import Usd
+    cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                              [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+    rng_ = cache.ComputeWorldBound(prim).ComputeAlignedRange()
+    if rng_.IsEmpty():
+        print("[quake] *** {0} composed NOTHING under {1} — the cell is now "
+              "an empty lot".format(os.path.basename(str(usd)), prim.GetPath()))
+    else:
+        sz = rng_.GetSize()
+        if max(sz[0], sz[1]) < SWAP_MIN_FOOTPRINT_M * ssf:
+            print("[quake] *** {0} composed at {1:.2f} x {2:.2f} x {3:.2f} m "
+                  "under {4} — not a building; a scale/frame trap".format(
+                      os.path.basename(str(usd)), sz[0], sz[1], sz[2],
+                      prim.GetPath()))
+    return x, y, yaw
+
+
+#: a swapped-in bake narrower than this on BOTH axes is not a building — it
+#: is the 2026-09-02 scale trap (`_swap_reference`) or an empty compose.
+SWAP_MIN_FOOTPRINT_M = 3.0
 
 
 def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
@@ -891,6 +1128,10 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
     # shape as same_art, above — see `decide_gac_building`'s docstring.
     gac_kept = gac_twins = 0
     gac_reasons_seen = set()
+    # PER-DISTRICT DAMAGE BOOST (`_boosted_intensity`'s own header comment):
+    # read ONCE, not per building — `{}` for every preset that never sets
+    # `disaster.typology_damage_boost`.
+    dmg_boost = _typology_damage_boost(config)
     for p in placements:
         if p.get("category") != "house":
             continue
@@ -914,6 +1155,25 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
         prim = stage.GetPrimAtPath(path) if path else None
         if not prim or not prim.IsValid():
             continue
+
+        # STYLE BLACKLIST (see `_resolve_blacklisted_style`'s own header
+        # comment): only ever touches an already-kit-styled placement
+        # (`same_art`/`gac` are never a `detail.urban_building` style name),
+        # and has to swap the STAGE reference here too, not just the
+        # bookkeeping — layout already placed the blacklisted archetype's
+        # own pristine (DG0) mesh, so a building that draws DG0 below (no
+        # further swap at all) would otherwise keep showing the blacklisted
+        # geometry even though every line from here on believes it is
+        # looking at the substitute.
+        if style:
+            sub_style = _resolve_blacklisted_style(style, config)
+            if sub_style != style:
+                sub_rec = manifest.get((sub_style, "DG0"))
+                if sub_rec:
+                    _swap_reference(stage, prim, p, sub_rec["usd"], ssf)
+                    p["usd"] = sub_rec["usd"]
+                    p["style"] = sub_style
+                    style = sub_style
 
         if same_art:
             # No manifest row of its own — the ONLY way to get this
@@ -945,10 +1205,7 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
                 continue                    # untouched; see the block comment above
             if decision.get("stepped"):
                 missing += 1
-            refs = prim.GetReferences()
-            refs.ClearReferences()
-            refs.AddReference(decision["usd"])
-            prim.Load()
+            _swap_reference(stage, prim, p, decision["usd"], ssf)
             p["usd"] = decision["usd"]
             p["style"] = decision["style"]
             style = decision["style"]
@@ -982,10 +1239,7 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
                 continue                    # untouched; `_mono_pass` gives it the fallback lean
             if decision.get("stepped"):
                 missing += 1
-            refs = prim.GetReferences()
-            refs.ClearReferences()
-            refs.AddReference(decision["usd"])
-            prim.Load()
+            _swap_reference(stage, prim, p, decision["usd"], ssf)
             p["usd"] = decision["usd"]
             p["style"] = decision["style"]
             style = decision["style"]
@@ -1001,7 +1255,7 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
             rec = manifest.get((style, "DG0")) or {}
             btype = rec.get("type") or qf.FAMILY_TYPE.get(rec.get("family", ""), "urm")
             x, y = float(p["x_m"]), float(p["y_m"])
-            inten = float(field(x, y))
+            inten = _boosted_intensity(float(field(x, y)), style, dmg_boost)
             grade = qf.level_for_intensity(inten * grade_scale, btype, rng,
                                            duration_boost=dur_boost)
             n += 1
@@ -1019,10 +1273,7 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
                 if vs:
                     chosen = rng.choice(vs)
                     grade = chosen["level"].split("_v")[0]
-                    refs = prim.GetReferences()
-                    refs.ClearReferences()
-                    refs.AddReference(chosen["usd"])
-                    prim.Load()
+                    _swap_reference(stage, prim, p, chosen["usd"], ssf)
                     p["usd"] = chosen["usd"]
         # FOUNDATION FAILURE: intact (or lightly damaged) buildings on the
         # strong-shaking side lean and sink. Gated on slenderness the way
@@ -1064,10 +1315,7 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
                 vs = _variants(manifest, style, lvl)
             if vs:
                 chosen = rng.choice(vs)
-                refs = prim.GetReferences()
-                refs.ClearReferences()
-                refs.AddReference(chosen["usd"])
-                prim.Load()
+                _swap_reference(stage, prim, p, chosen["usd"], ssf)
                 p["usd"] = chosen["usd"]
                 if lvl == "OV":
                     ov_used = True

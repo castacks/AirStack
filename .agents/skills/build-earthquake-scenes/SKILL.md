@@ -414,6 +414,47 @@ Budget target: ≤ 1 mound + 20 large + 4 instancers (≤ 900 instances) + shell
 fragments per DG5 archetype — prims down from ~7,000 authored per pile to
 under 2,000 before the bake merge, bodies unchanged or fewer.
 
+## 2026-09-02 — THE EMPTY-LOT ROOT CAUSE: swapped bakes inherited the intact cell's scale and centroid (`quake._swap_reference`)
+
+**What the user saw** (eq500_v5_local, and "the same issue" reported across
+the urban scenes): whole blocks reading as empty plazas, rubble rings round
+nothing, buildings on the street.  Round 6 had root-caused the empties as
+"dressed plazas".  They were not.
+
+**Measured offline** (usd-core, no Kit): every `gac_quake/*.usd` and
+`archetype/bld_*_DG*.usd` bake is authored in METRES, origin-centred, base at
+z=0 (SM_Building_26 DG3: bbox centre (0.8, -0.2), 1,272 meshes).  The block
+at (-243, 6)-(-12, 122) carried 7 buildings on record — SM_Building_11 (45 x
+109 x 64 m), three SM_Building_26, block_residential — and the render showed
+one kit building and a rubble outline.  `quake.assemble` swapped the
+reference with "keep the transform, swap the reference": the cell kept the
+0.01 scale op `apply_placements` authors for the centimetre-authored GAC
+pack, so a 69 m bake composed 0.69 m tall.  21 of the 27 GAC originals in
+that scene went that way; a same_art twin kept only the centroid correction
+of its pivot-at-a-corner original and stood up to half a footprint off its
+lot.  The records' own W/D were measured BEFORE the swap (`_mono_dims`), so
+`quake_buildings.json` looked perfectly in-block and the rubble/dust/heap
+passes drew full-size rings round the invisible speck.
+
+**The fix** — in ASSEMBLY, not the slicer (the bake frame is right):
+`quake._swap_reference(stage, prim, p, usd, ssf)` swaps the reference and
+re-authors the cell as translate `(x_m, y_m, z_m)`, rotateXYZ `(0, 0, yaw)`,
+scale `ssf` — the fire launcher's `place_holder` rule — then measures the
+composed bbox and prints `[quake] ***` when it is empty or under
+`SWAP_MIN_FOOTPRINT_M` on both axes.  All four swap sites in `assemble` go
+through it (same_art twin, GAC bake, kit DG0->DGn, foundation variants); the
+pair-interaction DG4 bump in `_d_geom_collapse` acts on a cell that already
+has the right frame and is left alone.  Test: `tests/test_quake_swap_frame.py`
+(bare usd-core: a corner-pivot centimetre box at scale 0.01 swapped for a
+metre bake — the naive swap is kept as the negative control).
+
+**Untested in a render** (user hold on Isaac).  Next launch: grep the pane
+for `[quake] ***` — zero lines is the pass condition — and audit the top-down
+with `tools/city_layout_audit.py`.  Note also that `snapshots_rp.overview`
+is a PERSPECTIVE camera at 0.95 x span (18 mm): a 93 m tower at the plate
+edge of a 500 m plate appears ~57 m outward, over the border road.  Judge
+edge overhang from records or an orthographic capture, never from that PNG.
+
 ## The debris catalogue
 
 `quake_rubble.CATALOGUE` — every entry gives `url` (relative to

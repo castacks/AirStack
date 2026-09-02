@@ -25,12 +25,15 @@ Departures from the OG source, all documented:
   clusters from a denser earlier tick lingered forever. Rebuilt per tick here;
 * clusters carry a `label` (argmax over the target columns, summed over the
   component's voxels) and a `confidence`, which the OG had no use for but the
-  AirStack detection reporting does.
+  AirStack detection reporting does;
+* the cluster box is half a voxel off in the OG (it treats the published voxel
+  position as a min corner; rayfronts publishes centres) — corrected here, see
+  the comment at the box computation.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import List, Tuple
 
 import numpy as np
 
@@ -76,19 +79,40 @@ _NEIGHBOUR_OFFSETS = tuple(
 )   # forward half of the 26-neighbourhood — OG:69 `np.ones((3,3,3))`
 
 
-def connected_components(coords: np.ndarray) -> np.ndarray:
-    """26-connected CCL over integer voxel coordinates (N,3) -> (N,) label ids.
+def _neighbour_edges(coords: np.ndarray):
+    """Index pairs of 26-connected voxels, vectorised.
 
-    Sparse union-find; same components as `scipy.ndimage.label` with a
-    3x3x3 structuring element (see test_og_parity.py). Labels are 0-based and
-    assigned in first-appearance order, which makes the output deterministic.
+    Coordinates are packed into one int64 key per voxel and each of the 13
+    forward neighbour offsets is resolved with a single `searchsorted` over the
+    sorted keys — the alternative, a per-voxel dict probe, costs a second per
+    tick once a loose `voxel_score_threshold` leaves 100k voxels standing.
     """
     n = coords.shape[0]
-    if n == 0:
-        return np.zeros((0,), dtype=np.int64)
-    index: Dict[Tuple[int, int, int], int] = {}
-    for i in range(n):
-        index[(int(coords[i, 0]), int(coords[i, 1]), int(coords[i, 2]))] = i
+    stride = np.int64(1) << np.int64(21)
+    if int(coords.max()) >= int(stride) // 2:
+        return None                      # absurd extent; caller falls back
+    basis = np.array([stride * stride, stride, 1], dtype=np.int64)
+    keys = coords.astype(np.int64) @ basis
+    order = np.argsort(keys, kind='stable')
+    skeys = keys[order]
+    src_all, dst_all = [], []
+    for off in _NEIGHBOUR_OFFSETS:
+        target = keys + int(np.array(off, dtype=np.int64) @ basis)
+        idx = np.searchsorted(skeys, target)
+        ok = idx < n
+        idx_c = np.where(ok, idx, 0)
+        ok &= skeys[idx_c] == target
+        if not np.any(ok):
+            continue
+        src_all.append(np.nonzero(ok)[0])
+        dst_all.append(order[idx_c[ok]])
+    if not src_all:
+        return np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64)
+    return np.concatenate(src_all), np.concatenate(dst_all)
+
+
+def _components_from_edges(n: int, src, dst) -> np.ndarray:
+    """Union-find over an edge list; labels in first-appearance order."""
     parent = list(range(n))
 
     def find(a: int) -> int:
@@ -97,26 +121,65 @@ def connected_components(coords: np.ndarray) -> np.ndarray:
             a = parent[a]
         return a
 
-    def union(a: int, b: int) -> None:
+    for a, b in zip(src.tolist(), dst.tolist()):
         ra, rb = find(a), find(b)
         if ra != rb:
             parent[max(ra, rb)] = min(ra, rb)
-
-    for i in range(n):
-        x, y, z = int(coords[i, 0]), int(coords[i, 1]), int(coords[i, 2])
-        for dx, dy, dz in _NEIGHBOUR_OFFSETS:
-            j = index.get((x + dx, y + dy, z + dz))
-            if j is not None:
-                union(i, j)
-
     labels = np.empty(n, dtype=np.int64)
-    seen: Dict[int, int] = {}
+    seen = {}
     for i in range(n):
         r = find(i)
         if r not in seen:
             seen[r] = len(seen)
         labels[i] = seen[r]
     return labels
+
+
+def connected_components(coords: np.ndarray) -> np.ndarray:
+    """26-connected CCL over integer voxel coordinates (N,3) -> (N,) label ids.
+
+    Same components as OG `scipy.ndimage.label` with a 3x3x3 structuring
+    element (voxel_behavior.py:69-70), pinned by test_og_parity.py — but sparse,
+    so a handful of stray voxels 500 m apart no longer allocates a dense grid
+    with 10^9 cells. Labels are 0-based, assigned in first-appearance order, so
+    the output is deterministic.
+    """
+    n = coords.shape[0]
+    if n == 0:
+        return np.zeros((0,), dtype=np.int64)
+    edges = _neighbour_edges(coords)
+    if edges is None:
+        return _dict_probe_components(coords)
+    src, dst = edges
+    try:
+        from scipy.sparse import coo_matrix          # noqa: PLC0415
+        from scipy.sparse.csgraph import connected_components as _cc
+        adj = coo_matrix((np.ones(src.size, dtype=np.uint8), (src, dst)),
+                         shape=(n, n))
+        _k, raw = _cc(adj, directed=False)
+    except ImportError:
+        return _components_from_edges(n, src, dst)
+    # renumber in first-appearance order so the labelling is stable
+    _uniq, first = np.unique(raw, return_index=True)
+    remap = np.empty(int(raw.max()) + 1, dtype=np.int64)
+    remap[raw[np.sort(first)]] = np.arange(first.size, dtype=np.int64)
+    return remap[raw]
+
+
+def _dict_probe_components(coords: np.ndarray) -> np.ndarray:
+    """Fallback for coordinates too large to pack into one int64 key."""
+    n = coords.shape[0]
+    index = {(int(c[0]), int(c[1]), int(c[2])): i for i, c in enumerate(coords)}
+    src, dst = [], []
+    for i in range(n):
+        x, y, z = int(coords[i, 0]), int(coords[i, 1]), int(coords[i, 2])
+        for dx, dy, dz in _NEIGHBOUR_OFFSETS:
+            j = index.get((x + dx, y + dy, z + dz))
+            if j is not None:
+                src.append(i)
+                dst.append(j)
+    return _components_from_edges(n, np.array(src, dtype=np.int64),
+                                  np.array(dst, dtype=np.int64))
 
 
 class VoxelBehavior:
@@ -153,9 +216,11 @@ class VoxelBehavior:
         rel = rel[mask]
 
         min_coords = pts.min(axis=0)
-        # OG:64 `((filtered_vox - min_coords)/vox_size).long()` — truncation,
-        # which for these non-negative offsets is a floor.
-        coords = np.floor((pts - min_coords) / self.vox_size).astype(np.int64)
+        # OG:64 `((filtered_vox - min_coords)/vox_size).long()` truncates;
+        # rayfronts voxel positions are exact multiples of vox_size
+        # (`geometry3d.pointcloud_to_sparse_voxels`: round(p/v)*v), so rounding
+        # is the same lattice index and survives float32 noise.
+        coords = np.round((pts - min_coords) / self.vox_size).astype(np.int64)
         comp = connected_components(coords)
         for cid in range(int(comp.max()) + 1 if comp.size else 0):
             sel = np.nonzero(comp == cid)[0]
@@ -164,8 +229,16 @@ class VoxelBehavior:
             cc = coords[sel]
             min_voxel = cc.min(axis=0)
             max_voxel = cc.max(axis=0)
-            min_world = min_voxel * self.vox_size + min_coords      # OG:83
-            max_world = (max_voxel + 1) * self.vox_size + min_coords  # OG:84
+            # OG:83-84 took the box as [min_p, max_p + vox], i.e. it treated
+            # the published voxel position as the voxel's MIN CORNER. It is the
+            # voxel CENTRE (`geometry3d.pointcloud_to_sparse_voxels` rounds),
+            # so the occupied volume is [min_p - vox/2, max_p + vox/2]: the OG
+            # box has the right size but sits half a voxel off along every
+            # axis. Corrected here; `test_og_parity.py` pins the two together
+            # through exactly that offset.
+            half = self.vox_size / 2.0
+            min_world = min_voxel * self.vox_size + min_coords - half
+            max_world = (max_voxel + 1) * self.vox_size + min_coords - half
             center = (min_world + max_world) / 2.0
             size = max_world - min_world
             col_sums = rel[sel].sum(axis=0)

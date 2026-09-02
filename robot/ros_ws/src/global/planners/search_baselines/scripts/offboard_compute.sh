@@ -140,17 +140,18 @@ if [ "${START_RAYFRONTS_SERVER:-false}" = "true" ]; then
     RF_ROBOT_IDS_CSV="$(seq -s, 1 "${NUM_ROBOTS:-1}")"
   fi
 
-  # No compose file in this repo mounts common/rayfronts or
-  # common/rayfronts_configs into /root/AirStack today (grep-verified against
-  # robot-base-docker-compose.yaml — it mounts ../ros_ws, ../../common/
-  # ros_packages, ../../common/fastdds.xml, ../../stacks, and a few
-  # devcontainer files, nothing under common/rayfronts*). Until that mount
-  # exists (a compose-only change, out of scope for this script), the default
-  # RAYFRONTS_SRC will not resolve — fall back to the image-baked copy rather
-  # than crash, and skip --config-dir since /opt/rayfronts already has WP-B's
-  # overlay merged in at whatever point the image was last built (see the
-  # run-raven-single-shared runbook: this fallback will NOT reflect
-  # uncommitted rayfronts/rayfronts_configs edits without a rebuild).
+  # robot/docker/docker-compose.yaml's offboard-compute service mounts
+  # ../../common/rayfronts and ../../common/rayfronts_configs to exactly these
+  # two paths (added on top of what it inherits from robot_base — robot
+  # replicas do NOT get these two), so this should not trigger in the normal
+  # compose-launched case. Kept as a safety net for anything that runs this
+  # script outside that compose service (e.g. a bare `docker run`, or an
+  # older offboard-compute container started before that mount landed) —
+  # fall back to the image-baked copy rather than crash, and skip
+  # --config-dir since /opt/rayfronts already has WP-B's overlay merged in at
+  # whatever point the image was last built (this fallback will NOT reflect
+  # uncommitted rayfronts/rayfronts_configs edits without a rebuild — see the
+  # run-raven-single-shared runbook).
   RF_CONFIG_DIR_ARGS=(--config-dir "$RAYFRONTS_CONFIG_DIR")
   if [ ! -d "$RAYFRONTS_SRC" ]; then
     echo "[offboard-compute] RAYFRONTS_SRC=$RAYFRONTS_SRC not found in this container" >&2

@@ -1055,32 +1055,76 @@ def _ring_edges(ctx, plan, m, prng, jobs, edge_kill):
             j["classes"].append(c)
             j["classes"] = [q for q in fc.EDGE_CLASSES if q in j["classes"]]
 
-    def _v(j, low_end, span):
-        """A vertical crack `span` of the module's width in from one end."""
+    def _has(e, kind, flag):
+        """Is that end of this module already cut? Two cracks at one end are
+        one crack with a sliver between them."""
+        j = by_el.get(id(e))
+        if j is None:
+            return False
+        key = "loose_hi" if kind == "v" else "loose_above"
+        return any(q["kind"] == kind and bool(q.get(key)) == flag
+                   for q in j["cuts"])
+
+    def _v(e, low_end, span):
+        """A vertical crack `span` of the module's width in from one end.
+
+        THE JOB IS CREATED LAST, after the cut is known to be going in. A job
+        with an empty `cuts` list is a module `_tear_perimeter` skips (`if not
+        judges: continue`) but `boundary_line` counts — a boundary counter
+        that can never reach N/N.
+        """
+        if _has(e, "v", not low_end):             # never two cracks at one end
+            return
+        j = _job(e)
         if j is None:
             return
         pen = prng.uniform(*span) * j["w"]
-        line = (j["t0"] + pen) if low_end else (j["t1"] - pen)
-        for q in j["cuts"]:                       # never two cracks at one end
-            if q["kind"] == "v" and bool(q.get("loose_hi")) == (not low_end):
-                return
         j["cuts"].append({"cls": "right" if low_end else "left", "kind": "v",
-                          "pen": pen, "line": line, "loose_hi": not low_end,
+                          "pen": pen,
+                          "line": (j["t0"] + pen) if low_end
+                          else (j["t1"] - pen),
+                          "loose_hi": not low_end,
                           "amp": min(fc.EDGE_AMP_MAX, fc.EDGE_AMP_FRAC * pen),
                           "ring": True})
         _cls(j, "right" if low_end else "left")
 
-    def _z(j, from_top, span):
+    def _carries_band(e):
+        """Does a surviving parapet / cornice band rest on this module's top?
+
+        A parapet has NOTHING else holding it up — it is a band sitting on the
+        top course — so taking that course away leaves it in the air. A full
+        storey module above is different: it bears on the floor slab, and a
+        bite at the slab line is the same thing `plan_edges`'s own `below`
+        class authors under a hole.
+        """
+        za_e, zb_e = fc.el_z_span(m, e)
+        t0_e, t1_e = fc.el_span(m, e)
+        w_e = max(0.3, t1_e - t0_e)
+        for q in rows.get((e["side"], int(e["storey"])), ()) or ():
+            if q is e or q["role"] not in ("parapet", "parapet_corner"):
+                continue
+            qa, _qb = fc.el_z_span(m, q)
+            q0, q1 = fc.el_span(m, q)
+            if abs(qa - zb_e) > 0.15:
+                continue
+            if min(q1, t1_e) - max(q0, t0_e) > 0.5 * min(w_e,
+                                                         max(0.3, q1 - q0)):
+                return True
+        return False
+
+    def _z(e, from_top, span):
         """A horizontal break `span` of the module's height in from one edge."""
+        if _has(e, "z", from_top):
+            return
+        j = _job(e)
         if j is None:
             return
         pen = prng.uniform(*span) * j["h"]
-        line = (j["zb"] - pen) if from_top else (j["za"] + pen)
-        for q in j["cuts"]:
-            if q["kind"] == "z" and bool(q.get("loose_above")) == from_top:
-                return
         j["cuts"].append({"cls": "below" if from_top else "above", "kind": "z",
-                          "pen": pen, "line": line, "loose_above": from_top,
+                          "pen": pen,
+                          "line": (j["zb"] - pen) if from_top
+                          else (j["za"] + pen),
+                          "loose_above": from_top,
                           "amp": min(fc.EDGE_AMP_MAX, fc.EDGE_AMP_FRAC * pen),
                           "ring": True})
         _cls(j, "below" if from_top else "above")
@@ -1107,9 +1151,9 @@ def _ring_edges(ctx, plan, m, prng, jobs, edge_kill):
                 lo = any(-0.25 * w <= (t0 - b) <= etol for _a, b in iv)
                 if not (hi or lo):
                     continue
-                j = _job(e)
-                _v(j, low_end=lo, span=RING_DIAG_PEN)
-                _z(j, from_top=from_top, span=RING_DIAG_PEN)
+                _v(e, low_end=lo, span=RING_DIAG_PEN)
+                if not (from_top and _carries_band(e)):
+                    _z(e, from_top=from_top, span=RING_DIAG_PEN)
 
     # ---- 2. the second bay along the wall --------------------------------
     first = set(id(j["el"]) for j in jobs
@@ -1133,7 +1177,7 @@ def _ring_edges(ctx, plan, m, prng, jobs, edge_kill):
                     else (t0n - fc.el_span(m, e)[1])
                 if gap > fc.edge_gap_tol(nb, max(0.3, t1n - t0n), 0.6):
                     continue
-                _v(_job(nb), low_end=(cls == "right"), span=RING_PEN2)
+                _v(nb, low_end=(cls == "right"), span=RING_PEN2)
 
     # ---- 3. the corner columns at the ends of a lost run -----------------
     reach = RING_CORNER_REACH_MODULES * module_m
@@ -1162,7 +1206,7 @@ def _ring_edges(ctx, plan, m, prng, jobs, edge_kill):
             vals = [(x if sd in ("S", "N") else y) for x, y in near]
             t_dead = sum(vals) / float(len(vals)) + L2
             t0, t1 = fc.el_span(m, e)
-            _v(_job(e), low_end=(t_dead <= 0.5 * (t0 + t1)),
+            _v(e, low_end=(t_dead <= 0.5 * (t0 + t1)),
                span=RING_CORNER_PEN)
 
     # ---- 4. the roofline of the elevations that did not fail -------------
@@ -1203,7 +1247,7 @@ def _ring_edges(ctx, plan, m, prng, jobs, edge_kill):
                     break
                 if prng.random() >= RING_TOP_P:
                     continue
-                _z(_job(e), from_top=True, span=RING_TOP_PEN)
+                _z(e, from_top=True, span=RING_TOP_PEN)
 
     # ---- 5. the block above a crushed storey -----------------------------
     # A `v` cut only. A `z` cut would take the top or the foot off a panel
@@ -1223,7 +1267,7 @@ def _ring_edges(ctx, plan, m, prng, jobs, edge_kill):
                     continue          # already at the edge of the crush gap
                 if prng.random() >= RING_SPALL_P:
                     continue
-                _v(_job(e), low_end=(prng.random() < 0.5), span=RING_SPALL_PEN)
+                _v(e, low_end=(prng.random() < 0.5), span=RING_SPALL_PEN)
 
     return {"modules": len(added), "new": len(new), "cap": ring_max}
 
@@ -3472,6 +3516,269 @@ def apply_settle_budget(stage, loose_paths, budget, root="/",
     geo_set = set(geometric)
     kept = [p for p in paths if p not in geo_set]
     return kept, geometric, report
+
+
+# ---------------------------------------------------------------------------
+# Z-OUTLIER SWEEP — one settled body a whole storey off its own siblings
+# ---------------------------------------------------------------------------
+# `bld_brownstone_row_DG4.usd`'s `/Baked/LOD0_108` (2762 pts / 2754 faces),
+# measured: z~=17, sitting on the roof deck, while its FIVE topology-
+# identical siblings (`LOD0_105`, `106`, `107`, `109`, `110` — same
+# signature, one wall-break event's own cells) landed at z~=11, at the
+# actual break line. A settle artefact — one body climbed, or got stuck,
+# on its way down — and nothing upstream catches it: the gap from `LOD0_
+# 108` to the roof deck it actually stopped on is a real -0.07 m, so
+# `fire_bake.deactivate_airborne`'s own points-based "is this seated"
+# test PASSES it. That test only ever asks "is this body resting on
+# something", never "does this body agree with its own family" — this
+# sweep is the second question.
+Z_OUTLIER_ENV = "EQ_Z_OUTLIER"
+Z_OUTLIER_MIN_GROUP = 3
+Z_OUTLIER_STOREYS_DEFAULT = 1.5
+Z_OUTLIER_RESEAT_STOREYS_DEFAULT = 1.0
+# `quake_flow.d_box_mass`'s own default storey height — a general sweep run
+# against an already-exported archetype file (this family's own offline
+# verification path, `tools/*_probe.py`-style) has no per-building spec to
+# read a real one from; the launcher's own per-row `H`/style spec is not
+# threaded through here for exactly that reason — one constant, honoured
+# the same way whether this runs mid-authoring or against a baked file.
+Z_OUTLIER_STOREY_H_DEFAULT = 3.4
+
+
+def z_outlier_enabled():
+    """`EQ_Z_OUTLIER` from the environment: unset/empty -> enabled (every
+    archetype bake gets the sweep unless told otherwise); `0`/`false`/
+    `False` -> disabled. Boolean, not numeric, because this sweep has no
+    budget to size, only an on/off — `settle_body_budget`'s own env-reader
+    convention, adapted."""
+    raw = os.environ.get(Z_OUTLIER_ENV, "").strip()
+    return raw not in ("0", "false", "False")
+
+
+def _mesh_topology_signature(prim):
+    """`(point_count, face_count)` of one Mesh prim, or `None` if it has no
+    resolvable points / `faceVertexCounts` — an empty or malformed mesh,
+    never a candidate for anything."""
+    from pxr import UsdGeom
+    mesh = UsdGeom.Mesh(prim)
+    pts = mesh.GetPointsAttr().Get()
+    counts = mesh.GetFaceVertexCountsAttr().Get()
+    if not pts or not counts:
+        return None
+    return (len(pts), len(counts))
+
+
+def _topology_groups(stage, root, allow=None):
+    """Every ACTIVE Mesh prim under `root` (a single path; the pseudo-root
+    `"/"` / `""` matches everything — `_deck_support_z`'s own `under_root`
+    convention), grouped by its exact `_mesh_topology_signature`.
+
+    `allow`, if given, is a set/sequence of candidate paths (as `str`) —
+    only a Mesh whose path is IN it is even considered. See
+    `z_outlier_sweep`'s own docstring for why this matters: without it, a
+    legitimate prop repeated once per storey (same topology, different
+    floor BY DESIGN, never a settle artefact) can collide with a real
+    outlier's detection. `None` (the default) keeps today's behaviour —
+    every Mesh under `root` is a candidate.
+
+    A mesh path containing a `Prototypes` scope (a `PointInstancer`'s
+    TEMPLATE geometry, never an individually placed piece) is never a
+    candidate — none of this family's debris packs are Mesh-typed
+    prototypes today (measured against the real archetype library: every
+    reference under a `Prototypes` scope in `bld_brownstone_row_DG4.usd`
+    fails to resolve rather than authoring a stray Mesh there), but the
+    exclusion costs nothing and a future pack could differ.
+
+    Returns `{(points, faces): [path, ...]}`, each list in stage-traversal
+    order — `Usd.Stage.Traverse()` is a stable depth-first walk, so this is
+    fully deterministic against the same stage content."""
+    from pxr import UsdGeom
+    root = str(root)
+    under_root = root in ("", "/")
+    allow_set = None if allow is None else set(str(p) for p in allow)
+    groups = {}
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdGeom.Mesh) or not prim.IsActive():
+            continue
+        p = str(prim.GetPath())
+        if not (under_root or p == root or p.startswith(root + "/")):
+            continue
+        if allow_set is not None and p not in allow_set:
+            continue
+        if "/Prototypes/" in p or p.endswith("/Prototypes"):
+            continue
+        sig = _mesh_topology_signature(prim)
+        if sig is None:
+            continue
+        groups.setdefault(sig, []).append(p)
+    return groups
+
+
+def z_outlier_sweep(stage, root, paths=None, storey_h=Z_OUTLIER_STOREY_H_DEFAULT,
+                    threshold_storeys=Z_OUTLIER_STOREYS_DEFAULT,
+                    reseat_storeys=Z_OUTLIER_RESEAT_STOREYS_DEFAULT,
+                    min_group=Z_OUTLIER_MIN_GROUP, rng=None, verbose=True):
+    """Find, and fix, one body from a topology-identical family that
+    settled a whole storey off where every one of its siblings did — the
+    module docstring above has the measured defect this exists for.
+
+    `paths`, if given, restricts which meshes under `root` are even
+    ELIGIBLE to be grouped — a building's own `res["loose"]` (the SAME
+    pool `settle.run`/`apply_settle_budget` already run on, from
+    `quake_flow.wreck_building`'s return), never the static shell/props.
+    `None` (the default) scans every Mesh under `root` instead — the ONLY
+    option against an already-exported archetype file, which carries no
+    `ctx` to read a loose list back from (this sweep's own offline
+    verification path, run against `bld_brownstone_row_DG4.usd`).
+
+    WHY THIS MATTERS, MEASURED: an unrestricted scan of that same file
+    also flagged `prop_main_4_7` — a floor-4 fixture — as an "outlier",
+    because the SAME prop recurs once per storey (`prop_main_1_3`/`1_5`/
+    `1_6` on floor 1, `prop_main_2_0`/`2_3` on floor 2, all sharing one
+    (180, 312) topology) and floor 4's own copy sits several storeys above
+    the floor-1/2 median BY DESIGN, not by any settle accident. A
+    legitimate prop repeated once per storey is never a "loose fracture-
+    cell mesh" and must never enter this sweep's candidate pool at all —
+    passing the building's own `paths` (its production call site, in
+    `bake_quake_archetypes_launch_script.py`) keeps every static/prop mesh
+    out from the start, so the false positive above cannot occur there;
+    only the unrestricted fallback (necessarily, over an exported file
+    with no loose-list metadata left) can still see it.
+
+    METHOD. Every eligible Mesh under `root` is grouped by its exact
+    (point count, face count) signature (`_topology_groups`) — the same
+    cheap, no-name-parsing test the real defect was found with: one
+    wall-break event's fracture cells are several meshes of identical chip
+    topology (an accident of how `fracture.solidify` tessellates one break
+    spec, not something any recipe tags on purpose), so grouping by name
+    would need inventing one. A group under `min_group` (default 3) is
+    left alone — two chips can legitimately land far apart with no
+    majority vote to be an outlier FROM.
+
+    Within a group of >= `min_group`, each member's Z is its world AABB
+    BOTTOM (`_settle_budget_world_aabb`) — "where does this piece actually
+    sit," the same measure `_sweep_roof_props`'s `base_z` and
+    `apply_settle_budget`'s `lz` already use, never a rotated fragment's
+    raw pivot translate, which can sit well above or below its own
+    footprint. The MEDIAN (never the mean — one outlier must not drag its
+    own threshold toward itself) is the group's resting band; any member
+    more than `threshold_storeys * storey_h` (default 1.5 x 3.4 m = 5.1 m)
+    above that median is an outlier — measured on the real defect: `LOD0_
+    108` sits 5.68 m above its siblings' median, past the 5.1 m line;
+    every sibling sits within 0.48 m of it.
+
+    RESEATING. An outlier is dropped onto the highest real support under
+    its OWN footprint (`_deck_support_z`, fed `_deck_support_candidates`'
+    cache — one traversal for the whole call, not one per outlier), but
+    the search CEILING is `median + reseat_storeys * storey_h` (default
+    ONE storey above the band — deliberately tighter than the detection
+    threshold), never the outlier's own current height. Searching up to
+    the outlier's own height would just find the very roof deck it wrongly
+    stopped on again; one storey above where its siblings actually rest is
+    what finds the real structure instead. Every OTHER outlier resolved in
+    this same call is excluded from every search (none of them are in a
+    final position yet — `apply_settle_budget`'s own `exclude_all`
+    reasoning), but a non-outlier sibling is not: it is real, resolved
+    geometry and a legitimate landing spot for another building's stray
+    piece.
+
+    A resolved drop gets the SAME small dressing every other
+    geometrically-placed piece in this family gets: sunk `SETTLE_BUDGET_
+    SINK_M` below the support so it reads as seated, then the idle tip
+    `quake_flow.B_ROOF_PLANT_TIP_DEG` gives an untouched prop
+    (`_sweep_roof_props`'s own "small drop" branch, reused verbatim) — no
+    velocity kick, no rigid body, no settle dependency: geometry in,
+    static geometry out. An outlier with NO real support anywhere under
+    its footprint (a genuine hole all the way down) is deactivated
+    instead — `fire_bake.deactivate_airborne`'s own answer to "nothing is
+    really there."
+
+    DETERMINISTIC. `rng` (default a fresh `random.Random(0)`) is the ONLY
+    source of randomness this function draws from — the tip axis/angle
+    for each resolved outlier, in sorted-path order — the median, the
+    outlier test and the support search are pure measurements with no
+    draw at all, so the same stage content and the same `rng` seed always
+    yield the same outliers and the same placements.
+
+    `EQ_Z_OUTLIER=0` (`z_outlier_enabled()`) disables this sweep entirely:
+    a no-op returning `{"reseated": 0, "deactivated": 0, "groups": 0,
+    "outliers": []}` without even traversing the stage.
+
+    Returns `{"reseated": N, "deactivated": M, "groups": <groups found>,
+    "outliers": [path, ...]}` (`path` order matches `outliers`' own
+    resolution order — sorted, so it too is deterministic).
+    """
+    if not z_outlier_enabled():
+        return {"reseated": 0, "deactivated": 0, "groups": 0, "outliers": []}
+
+    from pxr import Sdf, Usd, UsdGeom
+    qf = _qf()
+    rng = rng if rng is not None else random.Random(0)
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    groups = _topology_groups(stage, root, allow=paths)
+
+    boxes = {}
+
+    def _box_of(path):
+        if path not in boxes:
+            boxes[path] = _settle_budget_world_aabb(stage, path, bc)
+        return boxes[path]
+
+    threshold_m = float(threshold_storeys) * float(storey_h)
+    ceiling_pad_m = float(reseat_storeys) * float(storey_h)
+
+    outliers = []   # [(path, median_z), ...]
+    for _sig, group_paths in groups.items():
+        boxed = [(p, _box_of(p)) for p in group_paths]
+        boxed = [(p, b) for p, b in boxed if b is not None]
+        if len(boxed) < min_group:
+            continue
+        zs = sorted(b[2] for _p, b in boxed)
+        n = len(zs)
+        median_z = (zs[n // 2] if n % 2 else
+                   0.5 * (zs[n // 2 - 1] + zs[n // 2]))
+        for p, b in boxed:
+            if b[2] - median_z > threshold_m:
+                outliers.append((p, median_z))
+
+    if not outliers:
+        return {"reseated": 0, "deactivated": 0, "groups": len(groups),
+                "outliers": []}
+
+    outliers.sort(key=lambda t: t[0])
+    exclude_all = set(p for p, _mz in outliers)
+    cand_cache = _deck_support_candidates(stage, root)
+
+    n_reseat = n_deact = 0
+    for p, median_z in outliers:
+        box = _box_of(p)
+        lx, ly, lz, hx, hy, hz = box
+        cx, cy = 0.5 * (lx + hx), 0.5 * (ly + hy)
+        half_w = max(0.3, (hx - lx) / 2.0 * 1.15)
+        half_d = max(0.3, (hy - ly) / 2.0 * 1.15)
+        ceiling = median_z + ceiling_pad_m
+        support = _deck_support_z(stage, root, cx, cy, half_w, half_d,
+                                  ceiling, exclude=exclude_all,
+                                  candidates=cand_cache)
+        if support is None:
+            stage.GetPrimAtPath(Sdf.Path(p)).SetActive(False)
+            n_deact += 1
+            continue
+        sink = rng.uniform(*SETTLE_BUDGET_SINK_M)
+        dz = (support - sink) - lz
+        qf._transform_prims(stage, [p], qf._translate(0.0, 0.0, dz))
+        c = qf._pivot_of({"stage": stage}, p)
+        M = qf._rot_about(c, (rng.uniform(-1, 1), rng.uniform(-1, 1), 0.0),
+                          rng.uniform(-qf.B_ROOF_PLANT_TIP_DEG,
+                                       qf.B_ROOF_PLANT_TIP_DEG))
+        qf._transform_prims(stage, [p], M)
+        n_reseat += 1
+
+    if verbose and (n_reseat or n_deact):
+        print("[qarch] z-outlier sweep: {0} re-seated, {1} deactivated"
+              .format(n_reseat, n_deact))
+    return {"reseated": n_reseat, "deactivated": n_deact,
+           "groups": len(groups), "outliers": [p for p, _mz in outliers]}
 
 
 def _sweep_roof_props(ctx, plan, m, prng):

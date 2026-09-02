@@ -1623,6 +1623,99 @@ def _role_fallback_material(stage, scope, role):
     return mat
 
 
+def _selfcontained_like(stage, scope, src_mat):
+    """A SELF-CONTAINED clone of `src_mat`, authored into `stage`, or None.
+
+    WHY THIS EXISTS. `write_piece` used to bind a sliced piece straight to
+    `mats[mi]` — a Material prim on the composed SOURCE stage. Those prims
+    are themselves references out to per-material assets (GAC's
+    `.../Materials/M_*_Inst.usd`, AEC's vMaterials `.mdl` modules), and the
+    reference does NOT survive into a standalone per-building bake: the
+    target path still exists but composes to a bare TYPELESS placeholder, so
+    `ComputeBoundMaterial()` returns nothing and the piece renders as flat
+    fallback grey. `tools/gac_shell_bind_repair.py` measured it: 0 of the
+    12-14 GAC facade materials survived, in 33 of 33 bakes. On an AEC
+    brownstone — whose whole identity is its brick — the same defect reads as
+    "the buildings are white with a weird ash pattern" (user, 2026-09-02).
+
+    The fix is to re-author, not to reference: an MDL shader's MODULE is
+    visible to USD even when the module's internals are not
+    (`info:mdl:sourceAsset` + `:subIdentifier` — e.g.
+    `.../Masonry/Brick_Wall_Red.mdl` / `Brick_Wall_Red`), and so are its
+    authored inputs. A fresh Material+Shader carrying the RESOLVED module
+    path, the same subIdentifier and a copy of every authored input is a
+    faithful, self-contained equivalent: it performs no external prim
+    reference, so it cannot decay into a stub, and it keeps the real brick
+    (or the real OmniPBR texture set) instead of a role-coloured stand-in.
+
+    Returns None when the source exposes no MDL module — the caller then
+    keeps its previous behaviour exactly, so this can only ever add
+    surviving materials, never remove one.
+    """
+    from pxr import Sdf, UsdShade
+
+    if not src_mat:
+        return None
+    try:
+        src_prim = src_mat.GetPrim()
+        if not (src_prim and src_prim.IsValid()):
+            return None
+        shader = None
+        for ctx in ("mdl", ""):
+            try:
+                s = (UsdShade.Material(src_prim).ComputeSurfaceSource(ctx)[0]
+                     if ctx else
+                     UsdShade.Material(src_prim).ComputeSurfaceSource()[0])
+            except Exception:
+                s = None
+            if s:
+                shader = s
+                break
+        if not shader:
+            return None
+        asset = shader.GetSourceAsset("mdl")
+        sub = shader.GetSourceAssetSubIdentifier("mdl")
+        if not asset:
+            return None
+        # RESOLVED path, never the authored relative one: the bake is opened
+        # from a different directory than the source asset, so `./../Materials
+        # /Base/Masonry/Brick_Wall_Red.mdl` would not resolve there.
+        mdl_path = getattr(asset, "resolvedPath", "") or asset.path
+        if not mdl_path:
+            return None
+        name = _sanitise(src_prim.GetName())
+        mat_path = "{0}/SlicedSourceLooks/{1}".format(scope, name)
+        existing = stage.GetPrimAtPath(mat_path)
+        if existing and existing.IsValid() and existing.IsA(UsdShade.Material):
+            return UsdShade.Material(existing)
+        mat = UsdShade.Material.Define(stage, Sdf.Path(mat_path))
+        new_sh = UsdShade.Shader.Define(
+            stage, Sdf.Path(mat_path).AppendChild("Shader"))
+        new_sh.SetSourceAsset(Sdf.AssetPath(str(mdl_path)), "mdl")
+        if sub:
+            new_sh.SetSourceAssetSubIdentifier(str(sub), "mdl")
+        for inp in shader.GetInputs():
+            try:
+                val = inp.Get()
+                if val is None:
+                    continue
+                new_sh.CreateInput(
+                    inp.GetBaseName(), inp.GetTypeName()).Set(val)
+            except Exception:
+                continue
+        mat.CreateSurfaceOutput("mdl").ConnectToSource(
+            new_sh.ConnectableAPI(), "out")
+        mat.CreateSurfaceOutput().ConnectToSource(
+            new_sh.ConnectableAPI(), "out")
+        return mat
+    except Exception:
+        return None
+
+
+def _sanitise(name):
+    return "".join(c if (c.isalnum() or c == "_") else "_" for c in str(name))
+
+
 def write_piece(stage, path, piece, mats, role=None):
     """One clipped fragment as a USD Mesh with `st` and per-material subsets.
 
@@ -1685,5 +1778,12 @@ def write_piece(stage, path, piece, mats, role=None):
             UsdShade.Tokens.materialBind, UsdGeom.Tokens.partition)
         # APPLY the schema before binding — the non-applied constructor writes
         # a relationship USD warns about and the renderer ignores.
-        UsdShade.MaterialBindingAPI.Apply(sub.GetPrim()).Bind(mats[mi])
+        # Prefer a SELF-CONTAINED clone of the source material: binding the
+        # source prim directly does not survive the per-building export (it
+        # composes to a typeless stub and the piece renders flat fallback —
+        # see `_selfcontained_like`). Falls back to the old direct bind
+        # whenever no MDL module is exposed, so this never removes a binding
+        # that used to work.
+        bind_mat = _selfcontained_like(stage, scope, mats[mi]) or mats[mi]
+        UsdShade.MaterialBindingAPI.Apply(sub.GetPrim()).Bind(bind_mat)
     return path

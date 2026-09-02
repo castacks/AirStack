@@ -58,10 +58,14 @@ PARAM_TABLE: List[Param] = [
     # ── LVLM-guided behaviour (new) ─────────────────────────────────────────
     Param('lvlm_enabled', None,
           doc="None => env RAVEN_LVLM, default true"),
-    Param('lvlm_request_interval_s', 30.0,
-          doc='OG LVLM/internvl3.py:35'),
-    Param('lvlm_ray_threshold', 0.9,
-          doc='OG lvlm_behavior.py:78'),
+    Param('lvlm_request_interval_s', None,
+          doc='None => env RAVEN_LVLM_INTERVAL_S, default 30.0 '
+              '(OG LVLM/internvl3.py:35)'),
+    Param('lvlm_ray_threshold', None,
+          doc='None => env RAVEN_LVLM_RAY_THRESHOLD, default 0.9 '
+              '(OG lvlm_behavior.py:78). Tunable at run time because the gate '
+              'is a SOFTMAX over the whole query set: a 33-label background '
+              'vocabulary dilutes every column, and 0.9 becomes unreachable.'),
     Param('lvlm_vlm_url', '',
           doc="'' => env VLM_URL, then OPENAI_BASE_URL, then "
               'http://offboard-compute:8000/v1'),
@@ -178,11 +182,56 @@ def env_bool(name: str, default: bool, environ=None) -> bool:
     return bool(default)
 
 
+def env_float(name: str, default: float, environ=None, warn=None) -> float:
+    """Env var as a float. Unset or garbage -> `default` (and one warning)."""
+    env = os.environ if environ is None else environ
+    raw = str(env.get(name, '')).strip()
+    if not raw:
+        return float(default)
+    try:
+        return float(raw)
+    except ValueError:
+        if warn is not None:
+            warn(f'[params] {name}={raw!r} is not a number — using {default}')
+        return float(default)
+
+
 def resolve_lvlm_enabled(param_value: Optional[bool], environ=None) -> bool:
     """`lvlm_enabled` unset (None) falls back to env RAVEN_LVLM, default true."""
     if param_value is not None:
         return bool(param_value)
     return env_bool('RAVEN_LVLM', True, environ=environ)
+
+
+# The OG literals, and the floors of the two env fallbacks below.
+LVLM_INTERVAL_DEFAULT_S = 30.0      # OG LVLM/internvl3.py:35
+LVLM_RAY_THRESHOLD_DEFAULT = 0.9    # OG lvlm_behavior.py:78
+
+
+def resolve_lvlm_interval_s(param_value: Optional[float], environ=None,
+                            warn=None) -> float:
+    """`-p lvlm_request_interval_s` wins; otherwise env RAVEN_LVLM_INTERVAL_S,
+    otherwise the OG 30 s."""
+    if param_value is not None:
+        return float(param_value)
+    return env_float('RAVEN_LVLM_INTERVAL_S', LVLM_INTERVAL_DEFAULT_S,
+                     environ=environ, warn=warn)
+
+
+def resolve_lvlm_ray_threshold(param_value: Optional[float], environ=None,
+                               warn=None) -> float:
+    """`-p lvlm_ray_threshold` wins; otherwise env RAVEN_LVLM_RAY_THRESHOLD,
+    otherwise the OG 0.9.
+
+    Worth an env knob because the score is a softmax over the ENTIRE query set:
+    with the target labels plus a ~33-label background vocabulary, no column
+    reaches 0.9 and the behaviour can never fire, so the operator needs to move
+    the gate without touching the mission goal.
+    """
+    if param_value is not None:
+        return float(param_value)
+    return env_float('RAVEN_LVLM_RAY_THRESHOLD', LVLM_RAY_THRESHOLD_DEFAULT,
+                     environ=environ, warn=warn)
 
 
 def resolve_image_topic(param_value: str, robot_name: str) -> str:

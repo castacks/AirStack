@@ -839,6 +839,113 @@ def test_untextured_debris_classes_are_not_near_black():
             min(float(c) for c in v["diffuse_tint"]) >= 0.99, (kind, material)
 
 
+def test_masonry_tone_routes_a_white_stone_building_off_the_brick_map():
+    """ROUND 4 (v6 review, "the B rubble is still not fixed").
+
+    Measured on the offline bench stage BEFORE this fix: every masonry
+    debris mesh under B1 `brownstone_row` and B3 `walkup` -- both WHITE
+    STONE kit buildings -- bound `TornadoDebrisLooks/brick`, i.e.
+    `T_sexkaitb_1K_B.jpg`, a red-brown brick map (linear mean 0.213/0.109/
+    0.071, R:G:B 1 : 0.51 : 0.33). A tone token routes those to a neutral
+    rubble map with a tint solved for pale stone instead, while the tone-
+    less path -- every sliced A-row building, whose look the review
+    approved -- stays on the brick map, byte-identical.
+    """
+    stage = _build_stage()
+    ctx = _fresh_ctx(stage)
+
+    plain = tu.debris_material(stage, ctx, "block", "brick")
+    stone = tu.debris_material(stage, ctx, "block", "brick", tone="stone")
+    tan = tu.debris_material(stage, ctx, "block", "brick", tone="tan")
+
+    v_plain = _shader_inputs(stage, plain)
+    v_stone = _shader_inputs(stage, stone)
+    v_tan = _shader_inputs(stage, tan)
+
+    assert str(v_plain["diffuse_texture"].path).endswith("T_sexkaitb_1K_B.jpg")
+    assert plain.GetPrim().GetPath() != stone.GetPrim().GetPath()
+    for name, v in (("stone", v_stone), ("tan", v_tan)):
+        tex = str(v["diffuse_texture"].path)
+        assert "rubble" in tex, (name, tex)
+        assert not tex.endswith("T_sexkaitb_1K_B.jpg"), (name, tex)
+
+    # the stone tone must actually read PALE and NEUTRAL once multiplied
+    # over its own map's measured mean, not merely "a different texture".
+    map_mean = (0.197, 0.177, 0.153)          # rubble_rc_B_v3.jpg, measured
+    tint = tuple(float(c) for c in v_stone["diffuse_tint"])
+    alb = tuple(m * t for m, t in zip(map_mean, tint))
+    assert 0.24 <= min(alb) <= 0.42, alb
+    assert max(alb) - min(alb) <= 0.06, ("stone must not read warm", alb)
+    # ... and the tan one must stay WARMER than the stone one
+    tan_alb = tuple(m * float(t) for m, t in
+                    zip((0.252, 0.221, 0.191), v_tan["diffuse_tint"]))
+    assert (tan_alb[0] - tan_alb[2]) > (alb[0] - alb[2]), (alb, tan_alb)
+
+    # a tone never touches a bucket that is not the building's masonry
+    for kind, material in (("membrane", "membrane"), ("metal", "metal"),
+                           ("glass", "glass")):
+        m1 = tu.debris_material(stage, ctx, kind, material, tone="stone")
+        m2 = tu.debris_material(stage, ctx, kind, material)
+        assert m1.GetPrim().GetPath() == m2.GetPrim().GetPath(), (kind, material)
+
+
+def test_a_tiling_source_texture_still_beats_the_tone():
+    """The tone is the fallback for a building whose own facade map is an
+    ATLAS. When the piece DOES carry a tiling-safe map (B2's own
+    `MI_Bricks_Props_B`), that map is the building's colour and still
+    wins -- the tone must not overwrite real evidence."""
+    stage = _build_stage()
+    ctx = _fresh_ctx(stage)
+    mat = tu.debris_material(stage, ctx, "panel", "brick",
+                             tex_url="airstack://x/MI_Bricks_Props_B.png",
+                             tex_name="MI_Bricks_Props_B.png", tone="stone")
+    v = _shader_inputs(stage, mat)
+    assert str(v["diffuse_texture"].path).endswith("MI_Bricks_Props_B.png")
+
+
+def test_shade_bands_are_separate_materials_and_straddle_the_base_tone():
+    """The per-mesh tone jitter: shade 0 must be EXACTLY the unshaded
+    material (so every existing plan/fixture is byte-identical), and the
+    other bands must be distinct prims whose tints straddle it."""
+    stage = _build_stage()
+    ctx = _fresh_ctx(stage)
+    base = tu.debris_material(stage, ctx, "block", "brick")
+    s0 = tu.debris_material(stage, ctx, "block", "brick", shade=0)
+    assert base.GetPrim().GetPath() == s0.GetPrim().GetPath()
+    t0 = tuple(float(c) for c in _shader_inputs(stage, base)["diffuse_tint"])
+    tints = {}
+    for band in (1, 2):
+        m = tu.debris_material(stage, ctx, "block", "brick", shade=band)
+        assert m.GetPrim().GetPath() != base.GetPrim().GetPath(), band
+        tints[band] = tuple(float(c) for c in
+                            _shader_inputs(stage, m)["diffuse_tint"])
+    assert min(tints[1]) < min(t0) < min(tints[2]), (tints, t0)
+
+
+def test_build_debris_splits_a_berm_by_tone_and_shade(tmp_path):
+    """`build_debris` groups by (kind, label, tone, shade), so one berm
+    authors one mesh per tone band -- and a fragment carrying neither field
+    lands on the SAME prim path as before this round."""
+    stage = _build_stage()
+    ctx = _fresh_ctx(stage)
+    base = {"size": [0.4, 0.3, 0.15], "y": 1.0, "z": 0.0, "yaw_deg": 0.0,
+            "tilt_deg": 0.0, "from": "tone_group_test", "kind": "block",
+            "material": "brick"}
+    plan = {"schema": "tornado_urban_plan.v1", "level": "T4", "debris": [
+        dict(base, x=1.0, tone="stone", shade=0),
+        dict(base, x=2.0, tone="stone", shade=1),
+        dict(base, x=3.0, tone="stone", shade=2),
+        dict(base, x=4.0),                      # unstamped -> old path
+    ]}
+    out = tu.apply_plan(stage, ctx, plan, verbose=False)
+    assert out["n_debris_meshes"] == 4, out
+    assert stage.GetPrimAtPath(CELL + "/tornado_debris/block_brick").IsValid()
+    assert stage.GetPrimAtPath(
+        CELL + "/tornado_debris/block_brick_stone").IsValid()
+    assert stage.GetPrimAtPath(
+        CELL + "/tornado_debris/block_brick_stone_s2").IsValid()
+
+
 def test_debris_material_never_textures_the_glass_bucket():
     """`kind`/`material` classifying to the `glass` bucket must keep the
     unconditional void look even if (mistakenly, or defensively tested
@@ -1135,6 +1242,24 @@ def test_tear_material_uses_the_pieces_own_texture_and_darkens_only_the_cut():
     assert tu._TEAR_CUT_TINT[0] < tu._TEAR_FACE_TINT[0]
     # cached: same texture + same face kind -> the same material prim
     assert tu._tear_material(stage, ctx, url, "conc.png", True) == cut
+
+
+def test_atlas_source_textures_fall_back_to_class_and_plaster():
+    """ROUND 4 (user review): a packed facade ATLAS (M_MBuilding03_Facades,
+    WallBack, M_Images) must NEVER be triplanar-projected onto debris or
+    tear faces -- a world-projected atlas is random crops. Only tiling
+    surface maps (brick/concrete/stone/tile...) pass the gate; an atlas
+    routes debris to its CLASS branch and tears to the plaster fallback."""
+    stage = Usd.Stage.CreateInMemory()
+    ctx = _fresh_ctx(stage)
+    url = "omniverse://host/T/M_MBuilding03_Facades_BaseColor.png"
+    mat = tu.debris_material(stage, ctx, "panel", "brick",
+                             tex_url=url, tex_name="M_MBuilding03_Facades")
+    assert "src_" not in str(mat.GetPrim().GetPath())      # class branch
+    tctx = _tear_ctx(stage)
+    tm = tu._tear_material(stage, tctx, url, "M_MBuilding03_Facades", True)
+    sh = UsdShade.Shader.Get(stage, str(tm.GetPrim().GetPath()) + "/Shader")
+    assert sh.GetInput("diffuse_texture") is None or         sh.GetInput("diffuse_texture").Get() is None       # plaster fallback
 
 
 def test_tear_material_falls_back_to_neutral_plaster_never_generic_brick():

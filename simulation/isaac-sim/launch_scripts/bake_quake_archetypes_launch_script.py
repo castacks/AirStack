@@ -315,6 +315,15 @@ def main():
             # rather than the whole row, since a piece never needs to land
             # on a DIFFERENT grade's own building 60+ m away on the grid.
             piece_root = {}
+            # (style, level) -> this building's OWN `res["loose"]`, before
+            # any settle-budget split — `z_outlier_sweep`'s `paths=`
+            # allowlist, so it only ever groups genuine loose fracture
+            # cells and never a static prop/shell mesh (a legitimate prop
+            # repeated once per storey, same topology by DESIGN, would
+            # otherwise collide with a real outlier's own family — measured
+            # on `bld_brownstone_row_DG4.usd`: `prop_main_4_7`, `quake_
+            # collapse.z_outlier_sweep`'s own docstring has the numbers).
+            loose_by_building = {}
             for li, (grade, level) in enumerate(levels):
                 X = li * pitch
                 parent = "{0}/a_{1}_{2}".format(PARENT, st, level)
@@ -341,6 +350,7 @@ def main():
                 loose += res["loose"]
                 for _p in res["loose"]:
                     piece_root[_p] = parent
+                loose_by_building[(st, level)] = list(res["loose"])
                 static += res["static_extra"]
                 vel.update(res["velocity"])
                 everything = (paths + res["loose"] + res["static_extra"]
@@ -428,6 +438,46 @@ def main():
                               si, st, row_airborne, len(airborne_by)))
                 for _ in range(2):
                     omni.kit.app.get_app().update()
+
+            # -- one settled body a whole storey off its own siblings -------
+            # `quake_collapse.z_outlier_sweep`, run right after the airborne
+            # sweep above and scoped the same way (per BUILDING): a body the
+            # settle brought down onto REAL geometry — so the points-based
+            # airborne check above never flags it — but not the geometry its
+            # own topology-identical siblings landed on. Measured on
+            # `bld_brownstone_row_DG4.usd`'s `LOD0_108`: one wall-break
+            # event's fracture cell (2762 pts / 2754 faces) sat at z~=17 on
+            # the roof deck while its five siblings (same signature) landed
+            # at z~=11 at the actual break line — a -0.07 m gap to the deck
+            # it stopped on, which is exactly why no existing net caught it.
+            # `paths=loose_by_building[...]` restricts the sweep to this
+            # building's OWN loose fracture cells (never a static prop/
+            # shell mesh — `z_outlier_sweep`'s own docstring has the
+            # measured false positive, `prop_main_4_7`, that skipping this
+            # would let through). A DG0 (or any grade with nothing loose)
+            # has no entry at all and is skipped outright. `EQ_Z_OUTLIER=0`
+            # disables the sweep; `z_outlier_sweep` itself is the no-op in
+            # that case, so this call site needs no gate of its own.
+            zo_reseated = zo_deactivated = 0
+            for st_, level, X, Y, paths in row:
+                building_loose = loose_by_building.get((st_, level))
+                if not building_loose:
+                    continue
+                parent_path = "{0}/a_{1}_{2}".format(PARENT, st_, level)
+                try:
+                    zo = qc.z_outlier_sweep(stage, parent_path,
+                                            paths=building_loose, verbose=False)
+                except Exception as exc:
+                    print("[qarch] WARNING: z_outlier_sweep failed for "
+                          "{0}: {1}".format(parent_path, exc))
+                    zo = {"reseated": 0, "deactivated": 0}
+                zo_reseated += zo.get("reseated", 0)
+                zo_deactivated += zo.get("deactivated", 0)
+            if zo_reseated or zo_deactivated:
+                print("[qarch] z-outlier sweep: {0} re-seated, {1} "
+                      "deactivated".format(zo_reseated, zo_deactivated))
+            for _ in range(2):
+                omni.kit.app.get_app().update()
 
             # export the row now, so a crash later still leaves it on disk
             for st_, level, X, Y, paths in row:

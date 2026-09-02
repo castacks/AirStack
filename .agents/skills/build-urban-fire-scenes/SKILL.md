@@ -632,6 +632,49 @@ slicing MACHINE-WIDE — one slice at a time — deliberately at the slice level
 rather than in each tool, because ad-hoc verification scripts will not
 remember to take a lock themselves. Opt out with `GSS_NO_LOCK=1`.
 
+### 11. A manifest solved on a CROPPED dump, composed without `FC_CROP_WINDOW` — every bake one window-centre off its cell (the 2026-09-01 baseline cells)
+
+**What shipped.** All three `Fire/Urban/level_{1,2,3}/1` cells. The manifests
+were solved on re-centred 1 km crops of the 1.5 km dump (`fc_dump_crop.py`,
+shift = minus the window centre: L1 (-180, 180), L2 (100, 150), L3 (20, 230)),
+then composed into the FULL 1.5 km stage with no `FC_CROP_WINDOW` in the env.
+`load_fire` only un-shifted records when that env var was set. `resolve_cell`
+prefers `x_orig` and so hid the RIGHT intact building; `compose_bakes` read
+`rec["x"]` and put the holder at the cropped coordinate — one window-centre
+away. Every fire became an empty lot plus a burnt shell on a road or through a
+neighbour. The per-building captures framed on `r["x"]` and looked fine, which
+is why three review rounds missed it; the user found it in the GUI:
+"buildings are spawning on top of the road, they are empty blocks".
+
+**Measured** (`tools/city_layout_audit.py` against the shipped GT_hints and a
+host-rebuilt road network): substitutes with >3 % of their footprint on a road
+14/25, 38/71, 78/130; level-3 blocks that lost EVERY building (all hidden for
+fire) 6; intact buildings off-block 0/997. At the original-frame coordinate
+(`record_xy`) 0 / 0 / 0 overhang.
+
+**The fix** (`urban_fire_city_launch_script.py`): `record_xy` is the one
+coordinate rule (x_orig wins) and `compose_bakes` uses it; `load_fire`
+un-shifts on the STAMP, crop window or not (idempotent — `x_orig` is the exact
+full-city value); the FRAME GUARD refuses a bake whose holder would sit more
+than `CELL_MATCH_TOL_M` (0.5 m) from the cell it replaces, BEFORE anything is
+hidden; a post-compose BLOCK AUDIT reports every bake with less than
+`BLOCK_FRAC_MIN` of its footprint inside a typology block. Tests:
+`tests/test_city_layout_audit.py` (launcher source executed from the AST, the
+shipped fixtures when present, synthetic layouts).
+
+**The gate that would have caught it in one round.** Run the audit on the
+freeze output before calling a cell done:
+
+```bash
+python3 scene_gen/tools/city_layout_audit.py \
+    --gt <cell>/GT_hints.json --dump <the dump the manifest was solved on> \
+    --manifest <manifest.json> --png ~/fire_previews/road_overlap/<cell>.png
+```
+
+Zero substitutes overhanging a block and a `record_xy max 0.00 m` frame line
+are the pass condition. The shipped cells need a RE-FREEZE with the fixed
+launcher; the code change does not touch them.
+
 ## Flame placement — contiguous runs, and the Flow emitter budget
 
 **Emitters go at the openings, not scattered over the floor plate.**
@@ -1854,3 +1897,156 @@ footprint, per the user's "only keep humans that are in the disaster"
 (2026-08-31). The people PASS itself (survivor placement) already names its
 own burning building per record, so this cull is a guard on the background
 extras, not the mechanism for the survivors.
+
+## 2026-09-02 — AEC "small brownstones" burn now, and what that cost
+
+The user: *"I don't see any on fire on the small brownstones"*, then
+*"AEC one needs to be burnable I wanna see it in burnt states"*.
+
+### Why they never caught fire
+
+Not a spread-solver bias — a hard block, three layers deep:
+`kit_substitute.route()` said `('slice', None)` and `unburnable()` said False,
+but `urban_fire_city.bake_kind()` returned `(None, "...route() says 'slice'
+but fire_bake.KINDS=('gac','dtc','kit') has no bake kind for it — AEC
+brownstones ... must be REFUSED")`. That refusal propagated:
+`tools/gen_burnability_table.py` wrote `rowhouse/Reference_Brownstone*Row:
+false` into `config/harvested/burnability_table.json`, and the spread solver
+never selected one at any level. The assets were in every layout and in zero
+fire manifests.
+
+**Wired now:** `gac_fire.PACKS["aec"]` (dir
+`airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/`,
+scale 0.01, `construction_table=False`), `fire_bake.KINDS/SLICED_KINDS` gain
+`"aec"`, `bake_kind()` resolves it through the PACKS-prefix loop, and the
+burnability table's 7 rowhouse entries flipped to `true`. `fire_bake_launch_
+script.build_gac` already dispatched generically off `SLICED_KINDS` — no
+launcher change. Bake them like any sliced pack:
+`fire_bake.sh aec:Reference_Brownstone5Row:F3`.
+
+**Sliceability was never the problem** — verified end to end before wiring:
+63 pieces at F3, 49 at F2, the full 14-recipe ladder runs, no de-instancing
+needed (`gac_storey_slice.read_mesh` traverses instance proxies READ-ONLY, so
+the `monolith_damage.cut_shell` Tf-error that bit an earlier round does not
+apply to this path).
+
+### The MDL problem — soot must be an OVERLAY, not a bake
+
+Measured on a baked brownstone: **302 MDL shaders vs 13 UsdPreviewSurface**.
+The AEC facade materials are compiled vMaterials/Base `.mdl` modules
+(`Brick_Wall_Red`, `Facade_Brick_*`), and **an MDL module's base-colour
+texture is not visible to USD** — `soot_plume.find_basecolor` /
+`soot_bake`'s through-UV composite cannot read it, so every piece fell to a
+flat pale tone with soot stamped over it: *"all the buildings look white with
+weird ash pattern instead of their brick with overlay"* (user).
+
+So the GAC route (bake soot INTO the base map) is impossible here. The AEC
+route is `gac_fire._overlay_soot`: soot as a **translucent decal standing
+proud of each piece** (`OVERLAY_STANDOFF_M` 0.03), the brick MDL left bound
+and untouched underneath. This resurrects `wall_overlay.py` — superseded for
+GAC, exactly right for a pack whose materials cannot be read.
+
+**The opacity map is a SEPARATE image, never an RGBA.** `overlay_material`
+reads `opacity_mode=2` (mono_luminance) off `opacity_path`'s own RGB; handing
+one RGBA file to both `diffuse_texture` and `opacity_texture` makes opacity
+near-zero exactly where the soot is darkest — backwards. This also keeps the
+overlay clear of `tex_compress.py`'s BC1 soot compression, which is OPAQUE
+RGB with no alpha channel (correct for the bake-into-map route, fatal for an
+overlay).
+
+### Verifying the scorch without a render: the facade unfold
+
+The user's own method, and the one that settled this: *"take photos of the
+facades and match it with the 'unfolder' scorch pattern that's supposed to
+wrap around the facades."* `tools/aec_scorch_unfold.py` assembles one real
+elevation and writes `base` / `skin` / `overlay` PNGs to
+`~/scorch_previews/aec/`. Acceptance is the OVERLAY frame: brick visible at
+the base, the plume rooted at the real window heads, darkening continuously
+to the eaves, wrapping ACROSS piece boundaries. A skin that does not align to
+the real facade means the mass box feeding `soot_plume.skin` is wrong — that
+misalignment IS the bug, not a cosmetic offset.
+
+### And the thing underneath all of it
+
+The brownstones also exposed the sliced-material survival defect that had been
+silently degrading GAC for months — see **"THE SLICED PIECES NEVER KEPT THEIR
+SOURCE MATERIALS"** in `slice-buildings-into-kits`. Brick made it obvious;
+grey concrete had hidden it. Fixed at slice time
+(`gac_storey_slice._selfcontained_like`), applies on the next export, and the
+kit cache must be cleared for a slicer fix to take effect at all.
+
+## 2026-09-02 (late) — AEC brownstones: the architecture is PART-ADDRESSABLE, and the slicer was always the wrong tool
+
+Status: architecture settled and proven in renders; the soot IMPLEMENTATION is
+unfinished. Read this before touching `disaster/aec_soot.py`.
+
+### The decisive facts, each verified in a render or a measurement
+
+* **The raw asset renders perfect brick** (red/brown/grey, stoops, bays,
+  cornices) in our own Kit, today. Nothing is wrong with the asset, the MDL
+  modules, or the renderer. `aec_material_probe_launch_script.py` shows it
+  beside a sliced copy: raw = brick, sliced = white. **Slicing is what
+  destroys the materials.**
+* **It was never a merged mesh.** `Reference_Brownstone5Row` is
+  `Reference_Brownstone02_0{1..5}/…/Geometry/<Category>/<Type>/<mesh>` —
+  1535 meshes, and per unit: Structural_Framing 99, **Windows 80**,
+  Lighting_Fixtures 22, Doors 19, Floors 14, Ceilings 8. Five separately
+  addressable row houses. It belongs on the MCE-style whole-asset path
+  (`route() -> kit`-like), NOT `('slice', None)`.
+* **The interior already exists** (Floors, Ceilings, Stairs, Doors), so
+  `fit_interior` was fabricating a second one inside it — the source of
+  "floor and pillars extend out of the walls and roof".
+* **Instance proxies silently swallow every edit.** USD raises "authoring to
+  an instancing prototype is not allowed", and a bind onto a proxy resolves
+  to the prototype. One attempt reported "320 materials rebuilt" and changed
+  NOTHING on screen. De-instance the referenced copy first
+  (`SetInstanceable(False)`, 5 prims here) and BIND ON THE MESH.
+* **MDL cannot be read or re-pointed**, but it does not need to be: the
+  modules are plain text wrapping ordinary PNGs
+  (`Brick_Wall_Red.mdl -> ./Brick_Wall_Red/Brick_Wall_Red_{BaseColor,N,ORM}.png`;
+  vMaterials use `_diff/_norm/_multi_R_rough_G_ao_B_height`). "Export the MDL
+  as PNG" is just reading those — `tools/mdl_to_preview.module_textures`.
+  A re-authored `sourceAsset` renders WHITE even with `MDL_USER_PATH` /
+  `--/renderer/mdl/searchPaths` set; a `UsdPreviewSurface` built from the
+  textures renders everywhere and is self-contained.
+
+### Two soot mistakes worth never repeating
+
+1. **Never ramp soot INSIDE a texture.** These maps TILE across a wall, so a
+   gradient baked into the map repeats on every tile — "it's like a repeating
+   pattern" (user). Height variation belongs to the world-space field, never
+   to the inside of a tiling texture.
+2. **Never blend toward a greyscale mean.** It desaturates brick to "black and
+   white instead of base colour" (user). Soot DARKENS multiplicatively and
+   keeps hue; chroma only pulls at genuinely heavy deposition.
+
+Both are avoided for free by using the real pipeline, because it samples ONE
+world-space canvas: `plan_events -> skin` (EN 1991-1-2 flame, Heskestad plume,
+Riahi-Beyler deposition) then per part `soot_bake.uv_position_map` +
+`bake_module` — the same chain GAC/MCE use. The ctx shape it needs is exactly
+`gac_fire`'s: `{"info", "fire", "rng", "tag", "soot_openings": provider}`.
+
+### The advantage this asset has over GAC
+
+Openings do not have to be guessed from glass-face islands — the **Windows
+prims are named**, so opening rectangles are read directly, and the storey
+grid comes from the **Floors** prims. Fire plumes root at real windows. And
+because the five units are separate, a row can burn UNIT BY UNIT with intact
+neighbours, party wall by party wall, which is how rowhouse fires actually
+behave.
+
+### Where it stands / what is next
+
+`disaster/aec_soot.py` implements the chain above but is UNVERIFIED, and
+`tools/aec_facade_2d.py` (a no-Kit 2D elevation assembler — the right fast
+loop) currently classifies only ~31 of 1535 meshes onto any elevation: the
+side test + depth cull are wrong for this asset's mesh sizes. FIX THAT FIRST —
+a correct 2D facade is the cheapest possible proof that the material chain and
+part placement are right, before any render. Then cut the skin over it, then
+damage (windows out, lights dead, roof holed, per unit).
+
+**The tooling lesson**: `aec_material_probe_launch_script.py` (raw vs sooted,
+no bake) turned 4-minute bake cycles into 1-minute answers, and the 2D
+assembler is faster still. Build the cheap oracle BEFORE grinding on the
+expensive one — several hours went into bake cycles that a 2D image would
+have answered.

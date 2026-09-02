@@ -109,3 +109,27 @@ def test_negative_cells_shift_the_origin():
     t.stamp_points(np.array([[-2.5, -3.5]]))
     _res, ox, oy, w, h, _d = t.packed_grid()
     assert (ox, oy, w, h) == (-3.0, -4.0, 1, 1)
+
+
+def test_cell_centre_sampling_undercounts_a_grid_misaligned_polygon():
+    """Coverage tests each cell's CENTRE against the polygon, and the even-odd
+    test is asymmetric on the boundary (a centre on the left edge counts, one
+    on the right edge does not). So a small polygon whose cells straddle the
+    edge cannot read 100%: nine 2 m cells stamped by nine poses over this 6x6 m
+    square report 4/9 of the area. Harmless at mission scale (0.5 m cells over
+    a 250 m plate), but it decides what the integration harness can assert.
+    """
+    poly = np.array([[-3.0, -3.0], [3.0, -3.0], [3.0, 3.0], [-3.0, 3.0]])
+    coarse = CoverageTracker(cell_size_m=2.0)
+    xs, ys = np.meshgrid([-2.0, 0.0, 2.0], [-2.0, 0.0, 2.0])
+    pts = np.stack([xs.ravel(), ys.ravel()], axis=1)
+    coarse.stamp_points(pts)
+    assert len(coarse.cells) == 9                       # cells -1, 0, 1
+    assert coarse.coverage_fraction(poly) == pytest.approx(16.0 / 36.0, abs=1e-6)
+
+    # 1 m cells with the same nine poses keep every centre strictly inside.
+    fine = CoverageTracker(cell_size_m=1.0)
+    fine.stamp_points(np.stack(
+        [m.ravel() for m in np.meshgrid([-2.5, -0.5, 2.5], [-2.5, -0.5, 2.5])],
+        axis=1))
+    assert fine.coverage_fraction(poly) == pytest.approx(9.0 / 36.0, abs=1e-6)

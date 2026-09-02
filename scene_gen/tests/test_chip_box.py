@@ -1117,19 +1117,48 @@ def test_the_skip_decisions_are_recorded_where_they_were_made():
     """Ground, soil, sheet metal, a surviving shear core and an INTACT roof
     are deliberately not chipped. The reasoning has to survive next to the
     code, or the next round re-litigates it from scratch (or, worse, wires
-    them)."""
+    them).
+
+    LIVE REVIEW ROUND: the fissure's MOUND (the earthen ridge `_c_geom_mesh`
+    authors, called from `_c_fissure_trace` / `_c_fissures`) stays on this
+    list — still soil, still never chipped. Its new cracked-asphalt BAND
+    (`_c_fissure_pave`) does NOT: "make it irregular cracked shapes, not
+    just rectangles" / "make the asphalt/ground actually look cracked near
+    the fissure" (user) is cast pavement, not ground relief, and is
+    deliberately chipped — checked below, SEPARATELY, so this test still
+    fails if that call ever migrates onto the mound path instead of staying
+    where it belongs. The proximity check reads off `_c_geom_mesh`, not
+    `_c_fissures`, because `_c_fissures` no longer authors any geometry
+    itself — it only loops corners and delegates."""
     import inspect
     qf = _qf()
     src = inspect.getsource(qf)
-    for name in ("_c_clods", "_c_fissures", "_c_overturn_ground",
+    for name in ("_c_clods", "_c_geom_mesh", "_c_overturn_ground",
                  "r_signage_fail"):
         i = src.index("def " + name + "(")
         assert "NOT CHIPPED" in src[max(0, i - 900):i], name
     for name in ("_shaft", "_roof_box"):
         fn = getattr(qf, name)
         assert "NOT CHIPPED" in (fn.__doc__ or ""), name
-    # and none of them grew a call
-    for name in ("_c_clods", "_c_fissures", "_c_overturn_ground",
+    # NONE of the ground-relief/mound path grew a chip call. `_c_fissures`
+    # and `_c_fissure_trace` both only ever call INTO `_c_geom_mesh` (the
+    # mound mesh) and `_c_fissure_pave` (the asphalt band) — neither
+    # authors a box of its own any more — so this still means what it
+    # always meant: the ground relief itself is never chipped.
+    for name in ("_c_clods", "_c_fissures", "_c_fissure_trace",
+                 "_c_geom_mesh", "_c_overturn_ground",
                  "r_signage_fail", "_shaft", "_roof_box"):
         body = inspect.getsource(getattr(qf, name))
         assert "_chip_authored(" not in body, name
+
+    # THE ONE DELIBERATE EXCEPTION beside the mound: `_c_fissure_pave`'s
+    # cracked-asphalt band IS cast pavement, so it DOES chip — pinned here
+    # rather than folded into the "never chip" list above, so the test
+    # still means something in both directions: a chip call that goes
+    # missing here is caught exactly as one that appears above is.
+    pave_body = inspect.getsource(qf._c_fissure_pave)
+    i = pave_body.index("_chip_authored(")
+    rationale = pave_body[max(0, i - 300):i]
+    assert "CHIP" in rationale, (
+        "no rationale comment immediately above _c_fissure_pave's chip call")
+    assert "pavement" in rationale.lower()
