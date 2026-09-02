@@ -156,12 +156,9 @@ if the underlying runtime actually enforces it, which it does not on every
 host. **Do not spend more than the three tests above re-diagnosing this on a
 new pod** — if `docker exec <sim-container> nvidia-smi -L` shows more
 devices than the pod's own reservation, and the busy one is at index 0, this
-is the same issue. At that point the honest options are: accept
-software-rendering for that one mission (very slow, but correct), ask
-whoever operates OSMO's GPU scheduling to fix the isolation, or hope a
-resubmit lands on a host where index 0 happens to be the pod's own card (as
-`airstack-mission-1gpu-52` did — that mission never hit this bug, purely by
-placement luck, not because anything about it was configured better).
+is the same issue. **The actual fix is §3b below (`ISAAC_SIM_ACTIVE_GPU`) —
+none of the three table entries above are it; keep reading rather than
+falling back to accepting software rendering.**
 
 **Do not cancel the workflow to "fix" this.** Fixing in place means:
 identify the pod's owned card (above), decide which of the three tradeoffs
@@ -220,6 +217,52 @@ keeps costing GPU time long after you've stopped looking at it. Before
 walking away from any pod you've touched: `git status --short` in
 `/root/AirStack` on the pod itself, and either commit+push the fix or
 `git checkout --` the file back to clean.
+
+## 3b. The actual fix: `--/renderer/activeGpu`, not any `*_VISIBLE_DEVICES` var
+
+**None of `NVIDIA_VISIBLE_DEVICES`, `device_ids`, or `CUDA_VISIBLE_DEVICES`
+touch the layer that actually crashes.** Confirmed against Omniverse's own
+Linux troubleshooting documentation: "Environment variables like
+`CUDA_VISIBLE_DEVICES` have no effect on Vulkan applications." Isaac Sim's
+renderer is Vulkan-based and always defaults to device 0 regardless of any
+of those three variables — which is why every attempt in §3's table either
+did nothing or worked by accident (CUDA_VISIBLE_DEVICES "worked" only by
+forcing Kit into an unrelated software-rendering fallback, not by actually
+redirecting the renderer).
+
+The real symptom, once the zero-driver-visibility issue above is ruled out:
+`waiting for PX4: connected=[]` for a VARIABLE amount of time (225-411s
+measured across three reproductions) before Isaac Sim segfaults, always
+right as per-drone camera render products start getting created — preceded
+by `[Error] [omni.kit.imgui_renderer.plugin] ResourceLoader::endAndSubmit -
+Failed to wait for fence` / `Failed to upload font texture`. Cross-check
+`nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv`
+inside the container against the pod's own `nvidia-smi -L` — if device 0 is
+genuinely someone else's busy card, this is it.
+
+**The fix**: `--/renderer/activeGpu=<index>` on Kit's command line, added
+via a new `ISAAC_SIM_ACTIVE_GPU` env var (`example_multi_drone_scene_
+import.py` reads it, appends the flag). The index is Kit's OWN device
+numbering from its `[gpu.foundation]` log lines ("Device N: ... CUDA device
+index: M") — not automatically the same as `nvidia-smi`'s (they matched 1:1
+on `-56`, but verify per pod rather than assume).
+
+**The passthrough trap that cost a full retry cycle**: setting
+`ISAAC_SIM_ACTIVE_GPU` in the shell before launching `mission_runner.py`
+does nothing on its own — `docker-compose.yaml` does not forward host
+environment variables into the container automatically (the file says this
+explicitly right next to every other such knob), so the env var has to be
+added there too as `- ISAAC_SIM_ACTIVE_GPU=${ISAAC_SIM_ACTIVE_GPU:-}`. The
+first attempt at this fix set the var, relaunched, and got the identical
+crash — only grepping the Kit log's own `Cmd:` line (which showed the flag
+completely absent) caught that the value never reached the container at
+all. **Verify the flag actually landed on Kit's command line
+(`grep -a "Cmd:" kit_*.log`) before trusting a "the fix didn't work" result
+against this specific class of env-var wiring.**
+
+Confirmed working end-to-end on `airstack-mission-1gpu-56`, 2026-09-02: with
+the correct index set and passed through, all 8 robots connected to PX4 and
+the mission proceeded normally into search.
 
 ## 4. Never let a pod auto-shut-down while you're still using it
 
