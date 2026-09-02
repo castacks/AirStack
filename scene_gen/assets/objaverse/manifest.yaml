@@ -1,9 +1,9 @@
 # Objaverse assets cached locally, written by scene_gen/objaverse_assets.py.
-# Keyed by Objaverse uid — the same id the asset sets reference as objaverse://<uid>.
+# Keyed by Objaverse uid — the same id the asset packs reference as objaverse://<uid>.
 #
 # A record for provenance and attribution, NOT the source of truth: the asset
 # sets are. The USDs are git-ignored; `prepare_assets.py` rebuilds them
-# from whatever the asset sets reference.
+# from whatever the asset packs reference.
 #
 # `baked_scale` is already applied to the USD — do not re-apply it in a config.
 # `size_m` is the asset's real-world bounding box as cached.
@@ -774,23 +774,6 @@ assets:
     title: Gazebo
     uid: ab95dfb3816e4160989f26972c4c7c39
     usd: ab95dfb3816e4160989f26972c4c7c39/ab95dfb3816e4160989f26972c4c7c39.usdc
-  ad16f7085cb047b494997cf9efed5059:
-    author: Renafox
-    baked_scale: 0.009433
-    faces: 21578
-    fit: footprint
-    license: by
-    size_m:
-    - 5.942
-    - 6.9
-    - 2.808
-    source: https://sketchfab.com/3d-models/ad16f7085cb047b494997cf9efed5059
-    target_size_m: 6.9
-    texture_res: 2048
-    textures: 5
-    title: Free Burned Police Cars
-    uid: ad16f7085cb047b494997cf9efed5059
-    usd: ad16f7085cb047b494997cf9efed5059/ad16f7085cb047b494997cf9efed5059.usdc
   aedb8f44f78944c7a1d53ff14c6d3290:
     author: Dane Badenhorst
     baked_scale: 0.001103
@@ -1114,20 +1097,3 @@ assets:
     title: Bungalow The Clayton
     uid: f87535ec6d9a475db58965aa46ba6979
     usd: f87535ec6d9a475db58965aa46ba6979/f87535ec6d9a475db58965aa46ba6979.usdc
-  fdf39ca893a64368af45f82a6b6d68a4:
-    author: o0ozexo0o
-    baked_scale: 0.81558
-    faces: 41134
-    fit: footprint
-    license: by
-    size_m:
-    - 12.0
-    - 3.566
-    - 3.103
-    source: https://sketchfab.com/3d-models/fdf39ca893a64368af45f82a6b6d68a4
-    target_size_m: 12.0
-    texture_res: 2048
-    textures: 14
-    title: destroyed Bus 01
-    uid: fdf39ca893a64368af45f82a6b6d68a4
-    usd: fdf39ca893a64368af45f82a6b6d68a4/fdf39ca893a64368af45f82a6b6d68a4.usdc
