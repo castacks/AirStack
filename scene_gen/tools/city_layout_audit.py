@@ -271,6 +271,13 @@ def hints_footprints(gt):
     for h in gt.get("hints") or []:
         if h.get("class") not in ("Building", "Damaged building"):
             continue
+        if "bbox_min" not in h or "bbox_max" not in h:
+            # Many pristine "Building" hints carry no bbox at all (only
+            # prim_path/style/yaw) -- not every hint recorder computes one.
+            # Skipping them here (rather than crashing) means this function
+            # audits whatever subset of hints DOES carry geometry, which is
+            # still useful signal, instead of failing the whole audit run.
+            continue
         x0, y0 = h["bbox_min"][0], h["bbox_min"][1]
         x1, y1 = h["bbox_max"][0], h["bbox_max"][1]
         fps.append({"name": h.get("prim_path", "").split("/")[-1],
