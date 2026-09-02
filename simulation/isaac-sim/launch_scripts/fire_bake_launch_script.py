@@ -393,6 +393,79 @@ def build_gac(stage, ssf, mats):
     return bctx, [CELL + "/src"]
 
 
+def build_aec(stage, ssf, mats):
+    """The AEC brownstone path — `disaster/aec_burn.py` on the row asset
+    referenced RAW and CENTRED on the cell (`gac_fire.place_source`, the
+    same seat every sliced bake is placed by, so the city assembly's
+    `place_holder` at the record's centre lands it exactly as it lands a
+    GAC bake). Nothing is sliced and nothing is dropped: the asset stays
+    referenced, its MDL brick stays bound, the soot rides a conformal layer,
+    the damage ladder deactivates named parts, the collapse bodies live in
+    the unscaled `<asset>_debris` sibling and are settled by `main` like any
+    other bake's `loose`. See the build-urban-fire-scenes skill (2026-09-02
+    night) and `aec_burn`'s docstring.
+
+    Units: `FB_UNITS` (`2,3` / `2-3`), else a seeded contiguous pick
+    (`aec_burn.pick_units`) so a city of burning rows is not a city of
+    identical middle pairs. Recorded in the sidecar's `aec` block.
+    """
+    from disaster import aec_burn
+    url = gcf.asset_url(NAME, "aec")
+    scale = float(gcf.PACKS["aec"].get("scale", 0.01))
+    holder = gcf.place_source(stage, CELL, url, scale=scale)
+    if not holder:
+        raise RuntimeError("could not place {0}".format(url))
+    root = holder + "/asset"
+    rng = random.Random(SEED)
+    units = aec_burn.parse_units(_env("FB_UNITS", ""))
+    meas = aec_burn.measure_row(stage, root, verbose=True)
+    if units is None:
+        units = aec_burn.pick_units(len(meas["units"]), random.Random(SEED ^ 0xA5))
+    plan = aec_burn.plan_row(meas, level=LEVEL, units=units, seed=SEED,
+                             origin=(int(ORIGIN) if ORIGIN else None),
+                             sides=(tuple(SIDES) if SIDES else None), verbose=True)
+    dstats = aec_burn.damage_row(stage, meas, plan, verbose=True)
+    astats = aec_burn.author_row(stage, meas, plan, out_dir=TEX_DIR, verbose=True)
+    fire = dict(plan["fire"])
+    fire["events"] = plan["events"]
+    fire["deck_z"] = plan["m"].get("deck_z")
+    fire["units"] = list(units)
+    # the storey of origin keeps its floor: that is the slab the interior
+    # smoke seat sits on (the floors above it are on the pile)
+    origin_floor = None
+    for unit in plan["burning"]:
+        for mrec in unit["meshes"]:
+            b = mrec["bbox"]
+            if (mrec["cat"] == "Floors" and not mrec.get("dead")
+                    and aec_burn._storey_of(plan["levels"], 0.5 * (b[2] + b[5]))
+                    == int(fire["origin"])):
+                origin_floor = mrec["path"]
+                break
+        if origin_floor:
+            break
+    notes = ["aec: units {0} of {1}, {2} event(s), sides {3}, band {4}".format(
+        units, len(meas["units"]), len(plan["events"]), "/".join(fire["sides"]),
+        fire["storeys"])]
+    notes.append("aec damage: " + ", ".join(
+        "{0} {1}".format(k, len(v) if isinstance(v, (list, dict)) else v)
+        for k, v in sorted(dstats.items())))
+    notes.append("aec soot: {0} tri(s) on {1} part(s), {2} roof tri(s), {3} "
+                 "interior part(s) charred".format(
+                     astats.get("tris_soot"), astats.get("parts_soot"),
+                     astats.get("tris_roof", 0), astats.get("parts_char")))
+    bctx = {"fire": fire, "info": plan["info"], "stage": stage, "tag": TAG,
+            "rng": rng, "loose": list(dstats.get("loose") or []),
+            "static_extra": list(dstats.get("static") or []),
+            "velocity": dict(dstats.get("velocity") or {}),
+            "authored": [], "notes": notes,
+            "fit": {"slabs": {("main", int(fire["origin"])): origin_floor}},
+            "aec": {"units": list(units), "n_units": len(meas["units"]),
+                    "asset": url, "root": root, "damage": {
+                        k: (len(v) if isinstance(v, (list, dict)) else v)
+                        for k, v in dstats.items()}}}
+    return bctx, []
+
+
 def build_kit(stage, ssf, mats):
     """The ModernCityEnvironment kit path — `urban_fire.burn_building` over a
     `urban_building.build_building`, the same three lines
@@ -468,8 +541,12 @@ def main():
 
     mats = uf.materials(stage, fb.BAKE_ROOT)
     t_build = time.time()
-    bctx, doomed = (build_gac(stage, ssf, mats)
-                    if KIND in fb.SLICED_KINDS else build_kit(stage, ssf, mats))
+    if KIND in fb.SLICED_KINDS:
+        bctx, doomed = build_gac(stage, ssf, mats)
+    elif KIND == "aec":
+        bctx, doomed = build_aec(stage, ssf, mats)
+    else:
+        bctx, doomed = build_kit(stage, ssf, mats)
     build_s = time.time() - t_build
     for _ in range(6):
         omni.kit.app.get_app().update()
@@ -618,6 +695,8 @@ def main():
     extra = {"rehome": {k: v for k, v in rh.items() if k != "failed_paths"},
              "build_seed": BUILD_SEED,
              "baked_kit": (BAKED_KITS if KIND in fb.SLICED_KINDS else None)}
+    if bctx.get("aec"):
+        extra["aec"] = bctx["aec"]        # units, damage census, asset url
     if CITY_RECORD is not None:
         # Namespaced, per `fire_bake.sidecar`'s own `extra` contract -- a
         # loose splice of the city record's keys onto `doc` could silently
@@ -635,7 +714,12 @@ def main():
 
     if VERIFY:
         try:
-            fb.verify_export(out_usd, doomed=tuple(doomed) or ("/src",),
+            # an AEC bake KEEPS its asset under `<cell>/src` (nothing is
+            # sliced, nothing is doomed), so the "/src" default must not be
+            # applied to it: every one of its materials legitimately lives
+            # there
+            never = ("/__nothing_doomed__",) if KIND == "aec" else ("/src",)
+            fb.verify_export(out_usd, doomed=tuple(doomed) or never,
                              expect_root=fb.BAKE_ROOT, check_remote=False)
         except Exception as exc:
             import traceback

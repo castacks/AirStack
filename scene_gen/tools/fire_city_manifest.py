@@ -157,11 +157,14 @@ def entry_string(record):
     if kind not in fb.KINDS:
         raise ValueError("unknown or missing kind {0!r} (expected one of "
                           "{1})".format(record.get("kind"), "/".join(fb.KINDS)))
-    name = record.get("asset") if kind in fb.SLICED_KINDS else record.get("style")
+    # "asset"-shaped kinds (gac/dtc/aec) are named by their own file; `kit`
+    # is the one kind named by style. NOT `fb.SLICED_KINDS`: `aec` left that
+    # tuple on 2026-09-02 (it burns by name, unsliced) but is still an asset.
+    by_asset = kind != "kit"
+    name = record.get("asset") if by_asset else record.get("style")
     if not name:
         raise ValueError("no {0} name on a {1!r} record"
-                          .format("asset" if kind in fb.SLICED_KINDS else "style",
-                                  kind))
+                          .format("asset" if by_asset else "style", kind))
     seed = record.get("seed")
     if seed is None:
         raise ValueError("record has no seed")

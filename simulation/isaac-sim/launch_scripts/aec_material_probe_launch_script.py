@@ -48,20 +48,32 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.normpath(os.path.join(_HERE, "..", "utils")))
 sys.path.insert(0, "/isaac-sim/AirStack/scene_gen")
 
-RAW = os.environ.get(
-    "AEC_RAW",
-    "/isaac-sim/AirStack/scene_gen/assets/aec/brownstone/Assets/"
-    "Create_Brownstone02/Reference_Brownstone5Row.usd")
-OVERLAY = os.environ.get(
-    "AEC_OVERLAY",
-    "/isaac-sim/.cache/fire_bakes/aec_stale3/"
-    "aec_Reference_Brownstone5Row_F3_s7.usd")
-SLICED = os.environ.get(
-    "AEC_SLICED",
-    "/isaac-sim/.cache/fire_bakes/aec_Reference_Brownstone5Row_F3_s7.usd")
-EXPLODE = float(os.environ.get("AEC_EXPLODE", "1.45"))
-SNAP_DIR = os.environ.get("SNAP_DIR", "")
-KEEP_OPEN = os.environ.get("KEEP_OPEN", "0").strip() == "1"
+def _env(name, default=""):
+    """Empty counts as absent -- this container exports launcher knobs as
+    `""` (see the run-isaac-sim-launcher skill)."""
+    v = os.environ.get(name)
+    return default if not (v or "").strip() else v.strip()
+
+
+AEC_DIR = ("/isaac-sim/AirStack/scene_gen/assets/aec/brownstone/Assets/"
+           "Create_Brownstone02/")
+# AEC_ASSET names the row (Reference_Brownstone{2,5,6,8,10,11,12}Row);
+# AEC_RAW overrides with a full path.
+RAW = _env("AEC_RAW", AEC_DIR + _env("AEC_ASSET", "Reference_Brownstone5Row") + ".usd")
+# the B column is the untouched control -- the SAME asset, nothing done to it
+CLEAN = _env("AEC_CLEAN", RAW)
+SLICED = _env("AEC_SLICED",
+              "/isaac-sim/.cache/fire_bakes/aec_Reference_Brownstone5Row_F3_s7.usd")
+EXPLODE = float(_env("AEC_EXPLODE", "1.45"))
+SNAP_DIR = _env("SNAP_DIR", "")
+KEEP_OPEN = _env("KEEP_OPEN", "0") == "1"
+# the burn: `disaster/aec_burn.py` knobs
+AEC_LEVEL = _env("AEC_LEVEL", "F3")             # F0 / none = no burn
+AEC_UNITS = _env("AEC_UNITS", "")               # "2,3"; empty = middle two
+AEC_SEED = int(_env("AEC_SEED", "7"))
+AEC_ORIGIN = _env("AEC_ORIGIN", "")             # origin storey index
+AEC_SIDES = _env("AEC_SIDES", "")               # "W,E" (W = street front here)
+AEC_BURN_OUT = _env("AEC_BURN_OUT", "/isaac-sim/.cache/aec_burn_tex")
 
 # AEC assets are authored in CENTIMETRES; the probe stage is metres.
 RAW_SCALE = float(os.environ.get("AEC_RAW_SCALE", "0.01"))
@@ -194,26 +206,43 @@ def main():
     print("\n[aec] A SOOTED   {0}".format(RAW))
     a = _ref(stage, "/World/A_sooted", RAW, 0.0, 0.0, _auto_scale(RAW))
 
-    # SOOT, LIVE, IN THE MATERIAL — no export, no decal, no slice.
-    # An earlier attempt wrote a converted copy with
-    # `GetRootLayer().Export()`; the geometry of this asset lives in
-    # REFERENCED layers, so that file carried the rebuilt materials and ZERO
-    # meshes and rendered blank (measured 2026-09-02: 1535 -> 0 meshes).
-    # Editing the composed stage in place avoids the whole question.
-    if a is not None and float(os.environ.get("AEC_SOOT", "0")) > 0.0:
-        sys.path.insert(0, "/isaac-sim/AirStack/scene_gen/disaster")
-        sys.path.insert(0, "/isaac-sim/AirStack/scene_gen/tools")
-        import aec_soot
-        aec_soot.soot_building(
-            stage, "/World/A_sooted",
-            origin_frac=float(os.environ.get("AEC_ORIGIN_FRAC", "0.25")),
-            strength=float(os.environ.get("AEC_SOOT", "0.85")))
+    # THE BURN, LIVE ON THE COMPOSED STAGE -- no export, no slice, and the
+    # brick MDL is never touched: `disaster/aec_burn.py` lays the physics
+    # soot skin on a conformal layer over the burning units' exterior and
+    # chars their interiors (see that module's docstring for why not a
+    # bake-into-map on a ~1 m tiling brick). An earlier attempt wrote a
+    # converted copy with `GetRootLayer().Export()`; the geometry of this
+    # asset lives in REFERENCED layers, so that file carried the rebuilt
+    # materials and ZERO meshes and rendered blank (2026-09-02: 1535 -> 0
+    # meshes). Editing the composed stage in place avoids the question.
+    plan = None
+    if a is not None and AEC_LEVEL.upper() not in ("F0", "0", "NONE", "OFF"):
+        sys.path.insert(0, "/isaac-sim/AirStack/scene_gen")
+        from disaster import aec_burn
+        units = tuple(int(q) for q in AEC_UNITS.replace("/", ",").split(",")
+                      if q.strip()) or None
+        origin = int(AEC_ORIGIN) if AEC_ORIGIN else None
+        sides = tuple(q.strip().upper() for q in AEC_SIDES.replace("/", ",").split(",")
+                      if q.strip()) or None
+        _meas, plan, _stats = aec_burn.burn_row(
+            stage, "/World/A_sooted", level=AEC_LEVEL, units=units,
+            seed=AEC_SEED, origin=origin, sides=sides, out_dir=AEC_BURN_OUT)
         for _ in range(20):
             omni.kit.app.get_app().update()
 
-    print("[aec] B CLEAN    {0}".format(OVERLAY))
-    _ref(stage, "/World/B_clean", OVERLAY, 60.0, 0.0,
-         _auto_scale(OVERLAY))
+    print("[aec] B CLEAN    {0}".format(CLEAN))
+    _ref(stage, "/World/B_clean", CLEAN, 60.0, 0.0, _auto_scale(CLEAN))
+
+    # THE SOOT LAYER IS A FRACTIONAL CUTOUT. The startup flag alone does not
+    # survive stage composition and the carb form alone is too late for
+    # startup -- both, always (build-urban-fire-scenes skill, bug 4).
+    try:
+        import carb.settings
+        _cs = carb.settings.get_settings()
+        _cs.set_bool("/rtx/raytracing/fractionalCutoutOpacity", True)
+        _cs.set_bool("/rtx/pathtracing/fractionalCutoutOpacity", True)
+    except Exception as exc:
+        print("[aec] fractionalCutoutOpacity re-assert FAILED: {0}".format(exc))
     # C (the sliced bake) and the mdlsootovl decal column are RETIRED:
     # slicing rebuilt geometry and lost the materials, and the decals read as
     # rectangles stuck on the wall. The asset is part-addressable, so damage
@@ -246,12 +275,31 @@ def main():
             os.makedirs(SNAP_DIR, exist_ok=True)
             snaps.place_camera(stage, (30.0, -150.0, 55.0), (25.0, -20.0, 8.0))
             snaps.snapshot(os.path.join(SNAP_DIR, "aec_three_way.png"))
-            snaps.views_around(stage, {"A_sooted": (0.0, 0.0)}, SNAP_DIR, 1.0,
-                               top_h=60.0, obl_dist=45.0, obl_h=18.0,
-                               azimuth_deg=225.0, aim_h=7.0)
-            snaps.views_around(stage, {"B_clean": (60.0, 0.0)}, SNAP_DIR,
-                               1.0, top_h=60.0, obl_dist=45.0, obl_h=18.0,
-                               azimuth_deg=225.0, aim_h=7.0)
+            # PER COLUMN: the street front (the wall facing -x, with the
+            # stoops and bays), the rear, a close oblique of the burning
+            # units from each side, and the top/oblique pair.
+            for nm in ("A_sooted", "B_clean"):
+                p = stage.GetPrimAtPath("/World/{0}".format(nm))
+                r = bc.ComputeWorldBound(p).ComputeAlignedRange() if p else None
+                if r is None or r.IsEmpty():
+                    continue
+                mn, mx = r.GetMin(), r.GetMax()
+                cx, cy = 0.5 * (mn[0] + mx[0]), 0.5 * (mn[1] + mx[1])
+                d = 0.95 * max(mx[1] - mn[1], mx[0] - mn[0])
+                snaps.place_camera(stage, (mn[0] - d, cy, 10.0), (cx, cy, 5.5))
+                snaps.snapshot(os.path.join(SNAP_DIR, "{0}_front.png".format(nm)))
+                snaps.place_camera(stage, (mx[0] + d, cy, 10.0), (cx, cy, 5.5))
+                snaps.snapshot(os.path.join(SNAP_DIR, "{0}_rear.png".format(nm)))
+                by = plan["m"]["cy"] if (plan is not None and nm == "A_sooted") else cy
+                snaps.place_camera(stage, (mn[0] - 20.0, by - 9.0, 8.0),
+                                   (mn[0] + 4.0, by, 5.0))
+                snaps.snapshot(os.path.join(SNAP_DIR, "{0}_front_close.png".format(nm)))
+                snaps.place_camera(stage, (mx[0] + 20.0, by + 9.0, 8.0),
+                                   (mx[0] - 4.0, by, 5.0))
+                snaps.snapshot(os.path.join(SNAP_DIR, "{0}_rear_close.png".format(nm)))
+                snaps.views_around(stage, {nm: (cx, cy)}, SNAP_DIR, 1.0,
+                                   top_h=55.0, obl_dist=45.0, obl_h=18.0,
+                                   azimuth_deg=200.0, aim_h=6.0)
             print("[aec] snapshots -> {0}".format(SNAP_DIR))
         except Exception as exc:
             print("[aec] snapshots FAILED: {0}".format(exc))

@@ -253,6 +253,8 @@ EOF
   ENVS="$ENVS FB_SEED=$SEED FB_BUILD_SEED=$BUILD_SEED FB_INDEX=$i"
   ENVS="$ENVS FB_ORIGIN=$ORIGIN FB_SIDES=$SIDES"
   ENVS="$ENVS FB_OUT=$FB_OUT FB_BAKED_KITS=$FB_BAKED_KITS FB_VERIFY=1"
+  # an `aec:` row's burning units (`2,3`); empty = a seeded contiguous pick
+  ENVS="$ENVS FB_UNITS=${FB_UNITS:-}"
   # only forwarded when the caller actually set it — see the declaration
   # above for why an unconditional "SOOT_TEX_COMPRESS=$SOOT_TEX_COMPRESS"
   # would silently force the container-side default OFF

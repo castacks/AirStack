@@ -970,13 +970,30 @@ def fit_interior(stage, parent, info, mats, rng, storeys=None,
                 fp = (footprint or {}).get(i)
                 pitch = max(4.0, float(m["module"]))
                 reaches_roof = (i + 1 >= n_lv)
-                h_st = (m["levels"][i + 1] if not reaches_roof else m["top"]) - z
+                # THE TOP STOREY ENDS AT THE DECK, NOT THE BOX TOP. On a
+                # sliced GAC/dtc mass `m["top"]` is the parapet coping
+                # (`gac_fire.mass_from_grid`: 06_Small top 59.26 vs deck
+                # 58.42, 02 38.58 vs 38.13) and a column measured to it
+                # stands through the roof — "pillars popping through the
+                # roof ... on the top floor" (user, 2026-09-02). Every roof
+                # consumer reads `m.get("deck_z", m["top"])`; kit masses
+                # carry no `deck_z`, so the frozen kit look is byte-identical.
+                # `col_roof_shorten` (opt-in, nobody passed it) stays as an
+                # extra trim on top of that.
+                roof_line = float(m.get("deck_z", m["top"]))
+                h_st = (m["levels"][i + 1] if not reaches_roof else roof_line) - z
                 h_col = h_st - t_slab
                 if reaches_roof and col_roof_shorten > 0.0:
                     # TOP END DOWN, BASE UNCHANGED — the column still reads
                     # as resting on its own floor, just short of the
                     # roofline it used to pierce.
                     h_col = max(0.5, h_col - col_roof_shorten)
+                if reaches_roof and h_col < 0.8:
+                    # a sliver "storey" between the last slab and the deck
+                    # (the parapet zone the grid counted): no columns
+                    out["columns"][(mtag, i)] = []
+                    cols = None
+            if columns and btype != "urm" and cols is not None:
                 nx = max(2, int(round(W / pitch)) + 1)
                 ny = max(2, int(round(D / pitch)) + 1)
                 for a in range(nx):

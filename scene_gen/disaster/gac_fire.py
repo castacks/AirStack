@@ -1390,8 +1390,22 @@ def bake_atlases(stage, cell, mesh, sk, m, out_dir, verbose=True):
         both = ma & mb
         shared = 0.0
         if both.any():
-            dz = np.abs(pa[both][:, 2] - pb[both][:, 2])
-            shared = float((dz > SHARED_TEXEL_M).mean())
+            # THE FULL 3D DISTANCE, NOT THE HEIGHT DIFFERENCE. The test used
+            # to compare z only, so an atlas MIRRORED left-to-right (the SW
+            # corner's faces on the same texels as the SE corner's, at the
+            # same height) passed as unique and was baked once by position:
+            # the soot the plume laid at the burning SE/NE corners landed on
+            # the clean SW/NW corners too -- "GAC seems to wrap around the
+            # wall in the wrong direction ... only 1 piece is correct" (user,
+            # 2026-09-02, gac_SM_Building_06_Small_F5_s38). Measured with
+            # the skin rebuilt from that bake's sidecar: alpha 0.92/0.95 at
+            # SE/NE, 0.000 at SW/NW -- the plan was right, the atlas wrong.
+            # `M_Building_05_WallBack` reads 0 % shared by height and 100 %
+            # in 3D; SM_Building_02's Concrete 4 % vs 98 %, its awnings and
+            # trim 76-100 %. A shared atlas takes the per-piece bake after
+            # the slice, which samples every piece by its own world position.
+            d3 = np.linalg.norm(pa[both] - pb[both], axis=1)
+            shared = float((d3 > SHARED_TEXEL_M).mean())
         if shared > SHARED_FRAC_MAX:
             stats["tiled"] = stats.get("tiled", 0) + 1
             sooted.setdefault("_tiled", set()).add(tex)

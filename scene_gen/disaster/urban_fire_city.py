@@ -450,10 +450,10 @@ def burnable(layout, placement, size_of):
     if kind is None:
         return False, name_or_reason
 
-    # "asset"-shaped kinds: a sliced merged building, named by its own file
-    # (`gac_fire.PACKS`'s keys minus nothing today -- `gac`/`dtc`/`aec`, all
-    # three `fire_bake.SLICED_KINDS`). `kit` is the one kind named by STYLE
-    # instead (`bake_kind`'s `('kit', style)` case), never by a file name.
+    # "asset"-shaped kinds: a whole-asset building named by its own file
+    # (`gac_fire.PACKS`'s keys -- `gac`/`dtc` sliced, `aec` burnt by name
+    # through `aec_burn` since 2026-09-02). `kit` is the one kind named by
+    # STYLE instead (`bake_kind`'s `('kit', style)` case), never by a file.
     _ASSET_KINDS = ("gac", "dtc", "aec")
 
     blacklist_reason = _pack_blacklist_reason(

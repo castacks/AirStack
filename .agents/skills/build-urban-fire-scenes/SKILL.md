@@ -2050,3 +2050,454 @@ no bake) turned 4-minute bake cycles into 1-minute answers, and the 2D
 assembler is faster still. Build the cheap oracle BEFORE grinding on the
 expensive one — several hours went into bake cycles that a 2D image would
 have answered.
+
+## 2026-09-02 (later) — AEC brownstones BURN: soot by NAME on a conformal layer, the slicer and the bake both retired for this pack
+
+Status: shipped and rendered. `disaster/aec_burn.py` is now the burn path for
+the AEC rowhouse pack; `disaster/aec_soot.py`, `tools/aec_facade_2d.py` and
+`tools/aec_scorch_unfold.py` (the two "late" sections above) are superseded
+and should be deleted once this lands.
+
+The user, after the part-addressable finding: *"There's only 4 brownstones
+assets. They all are composed of the same type of things... You can just
+brute force it."* On what needs classifying at all: *"All the walls and
+windows are labeled. The rest can be guessed based on location. Interiors
+can all just be completely charred."* And why brute force is viable at all:
+*"everything in the 1500 has a name."* `measure_row` reads Windows and
+Floors by category name; everything else by which side of a wall plane its
+bbox sits on.
+
+### Measured on `Reference_Brownstone5Row`
+
+Five units, each 6.65 m along world Y (the row axis), 21 m deep along world
+X. Street front faces −X (canvas side `W`); rear faces +X (`E`). Per unit:
+ONE `Walls_Exterior/Walls_ExteriorFacade` mesh (1382 triangles, front+rear
+together) with faceVarying `st` spanning u −7.48..7.94, v −5.59..9.19 —
+~15 repeats each way, i.e. the 4K brick map tiles about every METRE of
+wall. 80 Windows meshes per unit, 13 window islands per elevation after a
+union-find over frame+glass boxes. Four storeys at z ≈ [−0.6, 2.5, 5.9,
+9.2] from the Floors prims; deck at 11.9 m from the largest-footprint Roofs
+mesh — not the lowest one, since a rear-extension roof at storey height
+would otherwise read as the deck and drop the top storey from the grid.
+
+Five different brick MDLs across the five units: `Facade_Brick_Grey_01`,
+`Facade_Brick_Red_Clinker_Mossy_Leaking`, `Facade_Brick_Red_Clinker_Sloppy_
+Paint_Job`, `Brick_Wall_Brown`, `Facade_Brick_Grey`. The two clinker units
+are procedural vMaterials — `clinker_diff.jpg` blended with paint/leak/grime
+masks (`clinker_mask_multi_R_rnd_color_G_grout_B_leaks.jpg`) — no single PNG
+holds their look, and `tools/mdl_to_preview.module_textures` even misfiles
+that mask as "base" because `_col` matches `rnd_color`. Known, not fixed —
+nothing on the burn path reads it any more.
+
+### Why not bake-into-map, why not the quad decal
+
+Bake-into-map (the GAC/MCE route) is wrong here for an arithmetic reason,
+not an aesthetic one: with a ~1 m tiling brick, `soot_bake.uv_position_map`
+folds every storey onto the same texel period — the "repeating pattern" the
+user rejected earlier is what that map produces BY CONSTRUCTION. A unique
+atlas would cost 50-100x the brick's texel density and still couldn't
+reproduce the clinker units, which have no baked base map at all — the MDL
+computes them at render time. The old per-elevation quad decal
+(`gac_fire.overlay_soot`) failed differently: it spans the mass BBOX, and
+the stoop and rear yard put that ~3.5 m proud of the real wall plane, with
+none of the wall's relief — *"a rectangle placed on the side of the
+house... the wrong size."* Both are retired; only `wall_overlay.py`'s
+material machinery survives, reused under a different mesh source.
+
+### What `aec_burn.py` does
+
+`measure_row` — units, bboxes, the instanceable prim per unit; per unit,
+window islands by side (grouped by the THINNEST bbox axis, never nearest
+bbox line — on a 6.65 m unit most front windows sit nearer a party wall
+than the front line), the storey grid, the two wall planes (medians of the
+window centres per side), and the deck z.
+
+`plan_row` — mass box = the burning units' OWN bbox, so neighbours stay
+clean; openings go to `gac_fire.openings_provider` in its absolute
+S/E/N/W convention, built off the named Windows islands; sides default to
+the elevations that actually have windows, front first — 1 side for
+F1/F2, 2 for F3, all for F4+; `urban_fire.plan_fire` draws origin/band;
+`soot_plume.plan_events` + `skin` build the physics canvas, seeded off
+`event_seed`.
+
+`author_row` — every exterior triangle of the burning units is DUPLICATED,
+pushed `STANDOFF_M` = 0.015 m along its own face normal, given `st` from
+its WORLD position on the skin's unwrapped S|E|N|W canvas
+(`soot_plume.perimeter_offsets`/`side_u`; v = (z−z0)/H since canvas row 0
+is the top), merged into ONE mesh `<root>/BurnLayer/soot` bound to
+`wall_overlay.overlay_material_textured` — diffuse from the skin RGB,
+opacity from its alpha, two SEPARATE PNGs from `gac_fire._write_overlay_
+textures` (one RGBA fed to both channels makes opacity near-zero exactly
+where the soot is darkest). Roof faces (|n_z| > 0.7 at/above the deck)
+sample the canvas at `deck_z − ROOF_K·d_inward`, so the deck picks up the
+plume's fringe near the burning parapet and cleans up inward.
+
+Interiors are parts strictly between the two wall planes (never at/through
+one — Floors/Ceilings/Walls/Casework/Structural_Columns are interior by
+category; Doors go through the position test, so a front door takes soot
+and an interior door chars) whose storey is in the fire band: rebound
+`strongerThanDescendants` to a flat `UsdPreviewSurface` char
+(`urban_fire._FLAT["char_concrete"]` tone, roughness 0.97). The facade
+wall's own INNER faces in those storeys get the same opaque char, chosen
+GEOMETRICALLY (front-half face with a rearward normal, or the mirror) —
+never by distance to the plane estimate, which sits between the bay
+windows and the main wall face on the front side.
+
+Only the burning units are de-instanced (`SetInstanceable(False)` on
+`Brownstone02_Instanced`), because a material bound onto an instance proxy
+silently resolves onto the prototype. The soot layer itself is authored
+from world-space triangle dumps read through instance proxies (read-only)
+and needs no de-instancing. Requires `fractionalCutoutOpacity` set BOTH
+ways — the startup flag and the carb re-assert after composition (bug 4
+above) — the launcher now does both. Nothing is removed and nothing moves
+in this pass; windows-out, roof holes and collapse are later.
+
+### The 2D oracle, before any render
+
+The user's own method: *"match it with the 'unfolder' scorch pattern."*
+`tools/aec_burn_probe.py NAME LEVEL UNITS SEED`, under `scene_gen/tools/
+usd_python.sh`, composes the row in bare USD, runs measure/plan/author, and
+writes `~/docker/isaac-sim/logs/aec_burn/<name>_<level>_u<units>_s<seed>_
+canvas.png` — the skin over a brick-tone background, every burning-unit
+window island as a white outline, fire events outlined by state (orange
+flame, blue out, yellow smoulder, grey stain), and the facade wall's OWN
+triangles in green in canvas space. Pass condition: the green wall outline
+frames the white window rectangles on the burning elevations and the plume
+roots sit on them. Verified before the first render, and the render matched.
+
+The probe also prints a winding check: near a wall plane, a strong-normal
+face should point away from it. On the rear wall, 99% of strong-normal
+faces within 0.6 m of the plane agree; the front reads only 33% — not a
+winding fault, since the front plane ESTIMATE sits between the bay windows
+and the main wall face, which is exactly why the inner/outer char selection
+is geometric rather than plane-relative.
+
+### Measured run and render verdict
+
+5Row, F3, units 2-3, seed 7: 11 events, canvas 2742×591 px at 40 px/m,
+alpha mean 0.28; 87k soot triangles from 488 exterior parts; 119 interior
+parts charred + 560 wall inner triangles; 2 units de-instanced. Chain runs
+~3 s in bare USD, ~40 s to the snapshot banner in Isaac. Also ran unchanged
+on `Reference_Brownstone8Row` (units 4,5) and `Reference_Brownstone2Row`.
+
+Render (`aec_burn1`, 2026-09-02 ~00:35): units 2-3 sooted, 1/4/5 clean
+brick; brick still visible at the base of the burning units; the stain
+runs continuous across bays, stoops, cornice and door surrounds; the party
+line between unit 1 and 2 reads as a hard stop, which is how a rowhouse
+fire actually spreads. F3 with origin storey 0 blackens nearly the whole
+front on this 4-storey house; F2 (one side, storeys 1-2) is the level that
+shows the clean-below signature.
+
+### Relaunch
+
+```
+AEC_LEVEL=F3 AEC_UNITS=2,3 AEC_SEED=7 AEC_ASSET=Reference_Brownstone5Row \
+ISAAC_SIM_HEADLESS=false KEEP_OPEN=1 \
+SNAP_DIR=/isaac-sim/.nvidia-omniverse/logs/aec_burn1 \
+PYTHONPATH="$ISAAC_SIM_PYTHONPATH" /isaac-sim/python.sh \
+/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/aec_material_probe_launch_script.py \
+--ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts \
+--/rtx/raytracing/fractionalCutoutOpacity=true \
+--/rtx/pathtracing/fractionalCutoutOpacity=true
+```
+
+| Env var | Meaning |
+|---|---|
+| `AEC_LEVEL` | fire level (`F0`/`none`/`off` = no burn) |
+| `AEC_UNITS` | 1-based, contiguous unit indices, e.g. `2,3`; empty = middle two |
+| `AEC_SEED` | RNG seed for `plan_events`/skin |
+| `AEC_ORIGIN` | origin storey index override |
+| `AEC_SIDES` | elevation letters to force, e.g. `W,E` (`W` = street front) |
+| `AEC_ASSET` | which row asset, e.g. `Reference_Brownstone5Row` |
+| `AEC_BURN_OUT` | soot texture cache dir (container path only) |
+
+Captures land in `SNAP_DIR`: `A_sooted_{front,rear,front_close,rear_close,
+top,obl}.png` and the matching `B_clean_*` set.
+
+| File | Role |
+|---|---|
+| `scene_gen/disaster/aec_burn.py` | `measure_row`/`plan_row`/`author_row`/`burn_row`, plus `preview_png` |
+| `scene_gen/tools/aec_burn_probe.py` | the 2D oracle + winding check, no Kit |
+| `simulation/isaac-sim/launch_scripts/aec_material_probe_launch_script.py` | A/B render, sooted vs untouched, live on the composed stage |
+| `scene_gen/tests/test_aec_burn.py` | unit coverage for the pure helpers only |
+
+### Open items
+
+`fire_bake`'s `aec` kind still routes through the slicer (`SLICED_KINDS`);
+wiring `burn_row` in there (bake = reference + `burn_row` + export, no
+slice) is next, to make this reachable from the normal bake driver instead
+of only the probe/launcher pair. And because the facade's `st` tiles,
+`aec_soot.py`/`aec_facade_2d.py`/`aec_scorch_unfold.py` are dead code on
+this pack — delete once this section's approach is committed.
+
+## 2026-09-02 (night) — the brownstone DAMAGE ladder, physics collapse, fire and smoke; and the GAC mirrored-atlas bug every bake carried
+
+Continuing directly from the soot-layer section above: that pass authored
+the conformal soot and interior char but removed and moved nothing. This
+session adds `aec_burn.LADDER`/`damage_row` (parts taken away), physics
+collapse of what falls, Flow flames/smoke off the same event list, and — a
+side finding on the GAC path, not the AEC one — a bug in `bake_atlases`'s
+shared-texel test that every GAC/dtc per-building bake made before today
+carries.
+
+### The ladder (`aec_burn.LADDER`, `damage_row`), run BEFORE the soot layer
+
+Damage runs first "so the layer is cut from what is left, never from a wall
+that is gone" (module docstring). Cumulative, one row per level:
+
+| Level | Adds over the level below |
+|---|---|
+| F1 | glass out only on the event openings |
+| F2 | glass on `GLASS_BASE + severity` share of in-band windows on burning sides; front-door glass out; doors charred |
+| F3 | sashes gone; frames rebound to burnt metal; 50% of ceilings; interior doors charred; the rear deck's timber gone, its steel charred |
+| F4 | every ceiling; timber floors above the origin storey; stairs; casework; interior doors gone; the roof deck and everything standing on it; **collapse** turns on |
+| F5 | one elevation lost (`_lose_wall`) |
+
+Every window is three named meshes grouped by the numeric id in
+`Windows_<id>_...`: glass (`Clear_Glass*` or unbound), sash (the smaller
+aluminium mesh), trim (the larger one, kept as `frame_char`'s target).
+Window side is the THINNEST bbox axis with a 0.77 aspect guard
+(`_side_by_shape`); a 45° bay pane (dx ≈ dy) goes to the wall ACROSS the
+row it is nearer, not the wall it is nearest by bbox line — six such panes
+per unit had landed on party-wall sides and dragged blank S/N sides into an
+F4 plan (aec_show2).
+
+Parts are interior by position between the two wall planes (medians of the
+window centres per side, front ≈ −6.9, rear ≈ +6.3 on the 5Row), except
+`Floors`/`Ceilings`/`Casework` which are interior wherever they sit
+(`INTERIOR_CATS`) — the roof build-up's own white "ceiling" slab at 12.1 m
+sits ABOVE the deck the largest-footprint `Roofs` mesh reports (11.8–11.9
+m), and testing the deck first left that slab exterior: a bright plate
+floating in every roofless shell (aec_show2 F4/F5 top views). `Walls`
+(`Basic_Wall_Existing`) is the areaway retaining wall at x ≈ −7.8, not a
+party wall, so it is never touched by the interior test.
+
+### The F5 wall loss (`_lose_wall`)
+
+The street elevation loses its top `WALL_LOSE_STOREYS` = 2 storeys on a
+two-step staircase — `WALL_SPAN_FRAC` 0.62–0.86 of the unit width at the
+top, narrowing to `WALL_PROFILE_FOOT` 0.55 of that below — cut out of the
+facade mesh with `vtkBox` clips (`_clip_box`, UVs interpolated across the
+cut). Front wins the tie-break on which side is lost (side `W` on this
+asset). The kept remainder is re-authored under `<root>/BurnLayer/wall_
+<unit>` bound to the LIVE source material: the export clone
+(`gac_storey_slice._selfcontained_like`) renders white in this Kit, so the
+per-building export path for AEC is still open.
+
+The clip box reaches `WALL_THROUGH_M` = 1.3 m past the window plane into
+the house. At the first cut, +0.7 m, the box cut the outer brick skin only
+and left the inner face standing in the hole: from the street the
+"collapse" read as a pale wall with window holes (aec_show2 F5). First
+render with the fix (`aec_show3`, 2026-09-02 ~00:35-ish): the front
+elevations torn open from storey 2 up with the charred interior and party
+walls showing, brick piled at the stoops. User verdict: *"Rest looks
+good."*
+
+### Physics collapse
+
+User: *"for more burnt out units there has to be actual collapse of
+structure."* With `collapse` (on from F4), the floors, ceilings, roof deck
+(`ROOF_SPLIT` = 4 pieces), roof plant and stairs in the band are cut into
+`COLLAPSE_SPLIT` = 3 pieces each (`_drop_pieces`, VTK box clips) and
+authored as rigid-body candidates in an UNSCALED sibling scope
+`<root>_debris` — world metres, local points about the centroid plus a
+translate op (`_author_body`; the `_cyl` lesson: the body's origin is its
+shape, and PhysX never sees the asset's 0.01 scale). F5 adds the wall
+strips (`STRIP_W_M` 1.4 m wide, split per storey too so a fragment is one
+storey tall) and `RUBBLE_BRICKS` = 220 brick-sized bodies (`BRICK_SIZE_M`
+0.20×0.095×0.06 m, `CHUNK_SIZE_M` 0.34×0.20×0.14 m, half of them charred,
+tone `RUBBLE_BRICK_RGB`) spawned just outside the lost face over the lost
+storeys with a 0.3–1.4 m/s outward push. Statics are the kept wall, the
+origin floor, the stoop/stairs and the areaway wall.
+
+`damage_row` returns `loose`/`static`/`velocity`; the launcher runs
+`settle.run(stage, loose, static, steps=700, kick=0.10, rng=..., bake_
+result=True, velocity_map=vel, density=900, max_speed=6, converge=True,
+max_steps=2100, quiet_steps=200, ccd=True, ground_plane_z=0, floor_z=0,
+decompose_larger_than=0.8)` once for the whole stage. Measured
+(`aec_show3`, four rows): 580 rigid, 91 static, 36.7 s on GPU, drop mean
+−6.76 m, spread 0.74 m mean / 2.54 m max, 7 bodies still moving at the step
+cap.
+
+Two user corrections landed after that render:
+
+1. On the authored rubble mound (`/World/aec3_F5/BurnLayer/rubble_06`):
+   *"this is not needed ... it'll be fine as long as you place some bricks
+   only."* Gone on the physics path (`if not scope:` gates
+   `_mound_tris`/`_author_tris` for the rubble body) — kept only for the
+   bare-USD probe, where nothing can fall.
+2. The bricks were too big and too clean — `BRICK_SIZE_M`/`CHUNK_SIZE_M`
+   dropped to real brick/chunk dimensions and `RUBBLE_BRICK_RGB` darkened
+   to a burnt tone, half the count charred outright.
+3. A wall strip (`wallslab_05_2`) sat wedged in the hole showing clean
+   brick: spawned exactly where the wall stood, it sat inside the KEPT
+   wall's own collider and never fell. Strips now start
+   `STRIP_STANDOFF_M` = 0.45 m outside the face, leaning out
+   `STRIP_LEAN_DEG` = 18° about their own foot (`_lose_wall`'s `scope`
+   branch) before the settle takes over.
+
+### Fire and smoke
+
+User: *"also add fire and smoke."* `aec_burn.flames_row` builds the ctx
+`urban_fire.r_flames` reads — `fit["slabs"]` on the origin storey ONLY,
+since the floors above it are on the debris pile, not where they were
+planned — off the SAME event list the soot came from. The opening frames
+sit on the REAL facade planes via `gac_fire.openings_provider(planes=...)`:
+the mass bbox face is the stoop/rear-yard extent, ~3.5 m proud of the wall,
+and an emitter placed there would burn in the street. The launcher
+(`aec_gac_showcase_launch_script.py`) authors the Flow stack once
+(`SHOW_FLOW`, `FLOW_CELL_M` 0.12 m, `FLOW_MAX_BLOCKS` 24576) before any row
+is burnt, then plays the timeline for `FLOW_WARMUP_FRAMES` = 240 frames
+before capturing, since the emitters inject per simulated step and a t=0
+capture is of an empty grid.
+
+A launcher trap on the way there: an `import omni.timeline` written INSIDE
+`main()` made `omni` a local name for the whole function body, so the
+`omni.usd.get_context()` call at the TOP of `main()` raised
+`UnboundLocalError` before a single row was referenced — fixed by moving
+the import to module level (it now sits beside `import omni.usd` at the
+top of the file). First measured row after the fix: F2 2Row, "9 flame
+source(s) over 3 opening(s)." Fire/smoke state follows `urban_fire.ACTIVE`
+by level — F2/F3 flame, F4 smoulder, F5 residual, F1 nothing. Rendered
+(aec_show4, 2026-09-02 ~05:25 UTC): window flames with smoke plumes over the
+F3 pair, the F5 pair's elevations torn open with the brick piles at the
+stoops. The same run's Kit log carried ONE `Out of GPU memory allocating
+resource 'flow'` line at 82 s (0.12 m cells / 24576 blocks, a 16 GB card
+holding the GUI, six columns and 667 settled bodies) — the flames still
+rendered, but that line is the "no smoke, every count right" failure, so the
+launcher now defaults to 0.14 m / 16384 and the settle to the bake driver's
+1400 + 400 quiet steps (14 wall strips had been frozen mid-air at 700 + 200).
+
+### The GAC mirrored-atlas bug
+
+User, on `gac_SM_Building_06_Small_F5_s38`: *"GAC seems to wrap around the
+wall in the wrong direction. only 1 piece is correct: .../pieces/pier_
+S_2_09_0082 but then all the others are on the other side: corner_SW_0_
+08_0061 ... on the other wall it's all correct except corner_NW_0_09_
+0078."* The fire on that asset vents on E only; the skin rebuilt from the
+bake's own sidecar (events → `soot_plume.skin`) reads alpha 0.919 at SE,
+0.951 at NE, 0.000 at SW, NW and along W — the PLAN was right. The bug was
+downstream, in `gac_fire.bake_atlases`'s pre-slice shared-texel test: it
+rasterised each atlas's faces forward and reversed and compared only
+HEIGHT (`dz`) between the two passes to decide whether the atlas tiles up
+the building. An atlas MIRRORED left-to-right — the SW corner's faces
+sitting on the SAME texels as the SE corner's, at the same height — passed
+that test as unique and was baked ONCE by world position: the soot the
+plume laid at the burning SE/NE corners landed on the clean SW/NW corners
+too.
+
+Measured with `tools`-style probes: `M_Building_05_WallBack` reads 0%
+shared by height and 100% shared in full 3D; on `SM_Building_02`,
+`Concrete` reads 4% vs 98%, `Awning` 100%, `Awning_Metal` 76%, `Beam_Trim`
+100%, `Metal` 16.7%. Fix, in `gac_fire.bake_atlases` around the comment
+block at `d3 = np.linalg.norm(...)`: compare the FULL 3D distance between
+the two rasterisations, `d3 = np.linalg.norm(pa[both] - pb[both], axis=1)`,
+not just `dz`. An atlas whose shared-texel fraction (`shared > SHARED_
+FRAC_MAX` = 0.08, at `SHARED_TEXEL_M` = 2.0 m) now correctly flags as
+TILED takes the per-piece bake AFTER the slice instead — each piece
+sampled by its own world position, at `SOOT_BAKE_PX_SLICE` (256, or 128 for
+small pieces) rather than the shared full-building atlas resolution, so the
+fix also costs texture memory on every atlas it now routes per-piece.
+After the re-bake, the SW-corner pieces carry no sooted subset and only the
+E-corner pieces do.
+
+State this plainly: EVERY GAC/dtc per-building bake made before 2026-09-02
+carries this defect on its unique-but-mirrored atlases — any bake baked
+before the fix in `gac_fire.bake_atlases` needs re-baking, not just the one
+the user flagged.
+
+The mass-frame check that cleared the first hypothesis, before the real
+bug was found: the bake's `masses.main` cx/cy = (0, 0) matches the pieces'
+own bbox centre. Every GAC asset has a corner pivot NATIVELY —
+`06_Small`'s native centre is (−13.6, 7.2), `02` is (−11.6, 7.1), `24` is
+(−14.5, 29), `09` is (−21.9, 29) — but `read_mesh` is called on the
+already-centred holder, so a pivot mismatch was not the cause and this line
+of investigation was a dead end.
+
+### Showcase launcher (`aec_gac_showcase_launch_script.py`)
+
+Two mechanisms side by side in one scene, on purpose: the brownstone rows
+are referenced raw and burnt in place (seconds per row); the GAC buildings
+are the per-building BAKES `fire_bake.sh` already writes, referenced as
+static geometry with no Flow re-placed — a materials review, not a smoke
+one, for that half of the scene.
+
+| Env var | Meaning |
+|---|---|
+| `AEC_ROWS` | comma list of `asset:level[:units[:seed]]`; default 2Row F2, 5Row F3, 8Row F4, 10Row F5 |
+| `SHOW_GAC` | comma list of GAC per-building bake `.usd` paths, referenced static |
+| `SHOW_PITCH` | metres between columns along +X, default 100 (a 67 m row's front camera needs the room; a 60 m pitch stood the camera inside the previous column) |
+| `SHOW_FLOW` / `FLOW_CELL_M` / `FLOW_MAX_BLOCKS` | Flow stack toggle and budget, 0.12 m cells / 24576 blocks |
+| `FLOW_WARMUP_FRAMES` | simulated frames played before capture, default 240 |
+| `SNAP_DIR` | capture directory |
+
+Captures land as `<col>_{front,rear,front_close,rear_close,top,obl}.png`
+per column plus `row.png` (full overview) and `row_street.png` (three-
+quarter street view). The plumb (straight-down) camera stands at `H + 40`
+m — a 62 m GAC tower under a fixed 55 m top view rendered solid black
+(aec_show2), so the top-view height now tracks the tallest column.
+
+Relaunch trap: the tmux `pipe-pane` from a PREVIOUS relaunch stays
+attached across an Isaac restart, so a new run's Kit log gets appended to
+by the OLD pane's pipe too — a script that greps the piped log file for
+`Traceback` can trip on the previous run's traceback, not this one's. Read
+the newest Kit log under `kit/logs/Kit/Isaac-Sim Python/5.1/` directly, or
+truncate the piped log before relaunching.
+
+### Nucleus
+
+Nothing new to upload for this pass: the AEC brownstone tree
+(`Materials/`, `Assets/Create_Brownstone02/`, `Assets/Vegetation/Shrub/`)
+is already mirrored byte-for-byte at `omniverse://airlab-nucleus.andrew.
+cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/`; every
+material reference in the USDs and MDLs is relative, so a Nucleus-anchored
+`AIRSTACK_ASSET_ROOT` resolves them by construction. The only local-only
+content is an unreferenced `Assets/Materials/` duplicate (1.5 GB) that
+nothing points at. The soot-layer PNGs this session's runs wrote
+(`AEC_BURN_OUT`, a container-local cache) are NOT on Nucleus and must
+travel with any frozen scene that uses them.
+
+### Files
+
+| File | Role |
+|---|---|
+| `scene_gen/disaster/aec_burn.py` | `LADDER`/`damage_row`/`_lose_wall`/`_drop_pieces`/`_author_body`/`flames_row`, plus `measure_row`/`plan_row`/`author_row`/`burn_row` from the soot pass above |
+| `scene_gen/disaster/gac_fire.py` | `bake_atlases`'s shared-texel test (`SHARED_TEXEL_M`, `SHARED_FRAC_MAX`), now on full 3D distance |
+| `scene_gen/disaster/urban_fire.py` | `SOOT_BAKE_PX_SLICE` / `SOOT_BAKE_PX_SLICE_SMALL`, the per-piece bake resolution a TILED atlas now pays |
+| `simulation/isaac-sim/launch_scripts/aec_gac_showcase_launch_script.py` | brownstone rows + GAC bakes, Flow stack, collapse settle, per-column captures |
+| `scene_gen/tools/aec_burn_probe.py` | the 2D oracle (soot pass), unaffected by this session's changes |
+
+### Open items
+
+* **The AEC bake path is WIRED and VERIFIED (2026-09-02 ~03:20).**
+  `fire_bake.SLICED_KINDS` is `("gac", "dtc")`; `aec` is its own kind in
+  `fire_bake_launch_script.build_aec`: the row asset referenced RAW and
+  centred by `gac_fire.place_source` (so the city's `place_holder` at the
+  record's centre lands it like a GAC bake), `aec_burn` measure → plan →
+  damage → author on it, the collapse bodies settled by `main` like any
+  other bake's `loose`, nothing sliced or dropped, `verify_export` run with
+  no doomed subtree (the materials legitimately live under `<cell>/src`),
+  an `aec` block in the sidecar (`units`, `n_units`, `damage`, `asset`).
+  Units: `FB_UNITS=2,3` (forwarded by `fire_bake.sh`) or `aec_burn.
+  pick_units` (a seeded contiguous one-or-two). `fire_city_manifest.
+  entry_string` names every non-`kit` kind by `asset`. Measured:
+  `FB_UNITS=2,3 fire_bake.sh aec:Reference_Brownstone5Row:F3` → built in
+  4 s, 5.3 MB, 12 events, 1 interior seat, EXIT 0; cold reopen: 439 meshes
+  in the two de-instanced units + layers, 252 MDL materials, none typeless,
+  `char` on 101 and `burnt_metal` on 120 prims. NOT yet composed into a
+  city cell — the next `fire_city_bake.sh` run is the test of that.
+* The AEC bake references the asset by its resolved CONTAINER path
+  (`/isaac-sim/AirStack/scene_gen/assets/aec/...`), like every bake's soot
+  PNGs: the freeze's portable pass is what makes it travel (the tree is on
+  Nucleus at the mirrored path, so the rewrite is mechanical).
+* `_lose_wall` binds the live source MDL to the kept wall piece because the
+  self-contained clone renders white in this Kit — fine for a bake that
+  keeps the asset referenced, which is exactly what `build_aec` does.
+* The lost wall is bricks only (`WALL_STRIP_BODIES = False`): settled wall
+  strips read as big grey panels in the street (aec_show6) and the user
+  asked for bricks.
+* Every pre-2026-09-02 GAC/dtc per-building bake needs a re-bake: the
+  mirrored-atlas soot (`bake_atlases`) and the top-storey columns through
+  the roof (`fit_interior` now ends them at `deck_z`) are both in every one
+  of them. The layouts are to be recreated — see the `build-urban-fire-city`
+  skill for the full procedure.

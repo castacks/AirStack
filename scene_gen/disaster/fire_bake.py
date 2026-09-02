@@ -106,7 +106,12 @@ STRIP_PRIMS = ("/World/physicsScene", "/World/settleGroundPlane",
 #: style built by `urban_building.build_building` + `urban_fire.burn_building`.
 KINDS = ("gac", "dtc", "aec", "kit")
 #: the kinds that route to the sliced merged-asset path
-SLICED_KINDS = ("gac", "dtc", "aec")
+#: the kinds that go through `gac_storey_slice`. `aec` is NOT one of them
+#: any more (2026-09-02): the brownstone rows are part-addressable and burn
+#: by name through `disaster/aec_burn.py` (`fire_bake_launch_script.
+#: build_aec`) -- slicing them destroyed their MDL materials and fabricated
+#: a second interior inside the one they ship with.
+SLICED_KINDS = ("gac", "dtc")
 
 #: applied API schemas and attribute prefixes that must not ship
 _PHYS_SCHEMA_PREFIX = ("Physics", "Physx")
