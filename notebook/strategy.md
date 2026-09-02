@@ -36,17 +36,17 @@ instrument are PRIMARY; Sec. VI (sim fidelity, defect mining, agent
 study, threats) is SUPPORTING
 ([positioning.md §Evidence hierarchy](../ICRA_2027_AirStack_Paper/paper_positioning.md)).
 
-Current phase (as of 2026-08-28 20:00): **campaign v6 TRIALS ARE
-RUNNING** (entry [011](011-agent-study-v6-trials/design_spec.md)).
-The preliminary trial arc caught two headless-environment defects
-(R8-implication scoring bug; `claude -p` session truncation), both
-fixed runner-side before any trial was scored; the first scored trial
-is a **full-ladder R8 pass** (A1/claude-sonnet-5, 9/20 judge calls,
-2 h 22 m, $13.31) — arm separation must now come from A2/A3/A4.
-Round-robin continues serially on the RTX 5090 box. v6 foundation:
-MIGHTY swap (entry [010](010-mighty-local-planner-module/design_spec.md),
-DONE, R7 solvability 5/5), pin `study/mighty-swap` @ `961fb9e1`,
-asm_mighty v0.1.0. In parallel: prose-ifying `main.tex`
+Current phase (as of 2026-09-02): **campaign v6 COMPLETE — 40/40
+trials scored** (entry [011](011-agent-study-v6-trials/design_spec.md),
+§(c-final)). All three arm gaps quantified with a stable failure
+taxonomy: A1 80% full-ladder / A2 60% (opus 5-for-5, sonnet 1-for-5 —
+legibility×model interaction) / A3 0% ≥R7 / A4 30% (open-loop
+lottery). Next for Sec. VI-C: survival figure + tab:agents generation,
+transcript-derived cycle/feedback stats, artifact bundle; T4/T5
+add-ons still open (P-5 blocks T5). v6 foundation: MIGHTY swap (entry
+[010](010-mighty-local-planner-module/design_spec.md), DONE), pin
+`study/mighty-swap` @ `961fb9e1`, asm_mighty v0.1.0. In parallel:
+prose-ifying `main.tex`
 section by section, and the release gate (7 paper-blocking items; ~63
 tasks still `\task{}` in `release_gate_and_tasks.tex` as of
 2026-08-27).
@@ -117,6 +117,24 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+### 2026-09-02 — CAMPAIGN v6 COMPLETE: 40/40 trials, all four gaps quantified
+
+The ladder campaign finished (entry
+[011](011-agent-study-v6-trials/results/results_summary.md), §(c-final)):
+**A1 80% full-ladder (survival 1.0→0.8) · A2 60% (opus 5/5, sonnet
+1/5 — the legibility×model interaction) · A3 0% ≥R7 in 10 tries with
+3 self-destructions · A4 30% R8, NULL→R8 lottery.** Mean rung 7.5 /
+6.9 / 3.9 / 4.7; cost $17–29/trial, ~$820 total, 4.2 days serial on
+one GPU, zero unresolved infra confounds (2 excluded+documented).
+Sec. VI-C now has its survival figure and tab:agents data; per-model
+reporting required for A2. Remaining for the paper: figure + table
+generation, transcript-derived cycle counts/feedback taxonomy, and the
+release-artifact bundle. T4/T5 add-ons remain open (P-5 still
+blocking T5). The exploratory section can now be written as a
+highlighted finding: every removed platform ingredient produced a
+distinct, named failure mode, absent under the full scaffolded
+closed-loop configuration.
 
 ### 2026-09-01 — Round 4 complete (4/cell): model×scaffolding interaction emerges
 

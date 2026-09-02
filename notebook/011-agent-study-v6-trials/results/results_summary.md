@@ -97,7 +97,81 @@ One row per SCORED trial (infra reruns noted, never scored). Runner:
 | 37 | A1 / claude-opus-5 / #5 | **R6** | 10 / 20 | 2 h 23 m | $16.00 | Opened with a direct R7 pass, verified every rung (incl. R7 ×3), but the scoring R7 flight on a FRESH eval route lost corridor order — a genuine fresh-route generalization failure (not persistence). A1/opus cell final: R8×4,R6. |
 | 38 | A2 / claude-sonnet-5 / #5 | **R5** | 20 / 20 (cap!) | 4 h 00 m (killed) | n/a (kill lost usage) | First cap exhaustion of the campaign + wall-clock kill: 5 R5 fails mid-run, buzzer-beater in-session R6 didn't survive to scoring. A2/son cell final: R8,R5,R6,R5,R5. |
 | 39 | A3 / claude-opus-5 / #5 | **R6** | 12 / 20 | 2 h 13 m | $28.17 | Fastest A3 climb of the campaign (R1–R6 in 1 h, first-try R1); one R7 attempt + independent R8 check, then deliberate consolidation stop with 8 calls unspent. A3/opus cell final: R3,R6,R6,R6,R6. |
-| 40 | A4 / claude-sonnet-5 / #5 | — running | — | — | — | Started 2026-09-01 23:46 UTC. FINAL TRIAL. |
+| 40 | A4 / claude-sonnet-5 / #5 | **R3** | 0 / 0 (open loop) | 58 min | $6.49 | Planner not persisted. A4/son cell final: NULL,R6,R8,R3,R3. |
+
+## (c-final) CAMPAIGN COMPLETE — full matrix and statistics (2026-09-02)
+
+**40/40 scored trials** (5 per arm×model cell), campaign
+`2026-08-icra27-vic-v6`, all under config `3b2402f6…` / prompt
+`afad954d…` / AirStack `961fb9e1` / runner `41ca11e`+ (scoring-fix
+lineage documented in §(b); 2 infra attempts excluded and archived).
+
+| Cell | #1 | #2 | #3 | #4 | #5 |
+|---|---|---|---|---|---|
+| A1 sonnet | R8 | R8 | R8 | R8 | R5 |
+| A1 opus | R8 | R8 | R8 | R8 | R6 |
+| A2 sonnet | R8 | R5 | R6 | R5 | R5 |
+| A2 opus | R8 | R8 | R8 | R8 | R8 |
+| A3 sonnet | R6 | R6 | NULL | NULL | NULL |
+| A3 opus | R3 | R6 | R6 | R6 | R6 |
+| A4 sonnet | NULL | R6 | R8 | R3 | R3 |
+| A4 opus | R8 | R3 | R5 | R8 | R3 |
+
+**Rung survival (fraction of trials scoring ≥ rung), pooled over
+models, n=10/arm** — the paper's survival-figure input:
+
+| Arm | ≥R1–R3 | ≥R4 | ≥R5 | ≥R6 | ≥R7 | R8 |
+|---|---|---|---|---|---|---|
+| A1 | 1.0 | 1.0 | 1.0 | 0.9 | 0.8 | **0.8** |
+| A2 | 1.0 | 1.0 | 1.0 | 0.7 | 0.6 | 0.6 |
+| A3 | 0.7 | 0.6 | 0.6 | 0.6 | **0.0** | 0.0 |
+| A4 | 0.9 | 0.5 | 0.5 | 0.4 | 0.3 | 0.3 |
+
+**tab:agents inputs (mean per arm; cost over trials with recorded
+usage — 2 wall-clock kills lost their usage events):**
+
+| Arm | Mean rung | Judge calls | Agent time | Cost |
+|---|---|---|---|---|
+| A1 | 7.5 | 9.8 | 2 h 08 m | $17.25 (10/10) |
+| A2 | 6.9 | 10.5 | 2 h 38 m | $18.11 (9/10) |
+| A3 | 3.9 | 13.6 | 2 h 40 m | $28.53 (9/10) |
+| A4 | 4.7 | 0 (by design) | 1 h 22 m | $16.07 (10/10) |
+
+Total recorded agent spend ≈ **$753** (+2 unrecorded kills + ~$35 of
+excluded infra attempts ≈ $820 all-in). Wall-clock: 2026-08-28 21:29 →
+2026-09-02 01:08 UTC (~4.2 days, strictly serial, one RTX 5090).
+
+**Headline findings (for Sec. VI-C prose):**
+
+1. **Platform gap**: A1 80% full-ladder vs A3 0% ever reaching R7 in
+   10 tries, at 1.65× A1's cost. 3/10 A3 trials destroyed a working
+   R6 system attempting avoidance ("R7-chase self-destruction").
+2. **Closed-loop gap**: same repo, blind (A4) = 30% R8 and a NULL→R8
+   lottery vs A1's 80% — verification-in-the-loop buys consistency,
+   not ceiling; A4 is fastest and cheapest but modal outcome is a
+   planner that never persists into bring-up.
+3. **Legibility×model interaction**: opus without scaffolding stays
+   perfect (A2/opus 5/5 R8, the only perfect cell); sonnet drops from
+   4/5 to 1/5 R8 when scaffolding is removed. Scaffolding matters
+   most for the smaller model.
+4. **Failure taxonomy** (mutually exclusive, covers every sub-R8
+   AirStack-arm score): swap-not-persisted (7), fresh-route R7
+   generalization miss (2 incl. A1/opus #5), non-booting final state
+   (1), cap/wall-clock exhaustion (1). A3 adds: assembly time-cap
+   (1), R7-chase self-destruction (3), R4-integration wall (1).
+5. Judge integrity held: final-state + fresh-route scoring repeatedly
+   caught in-session success that wasn't in the shipped system —
+   including twice in A1 — exactly the discrimination Amendment 1
+   added R7/R8 to provide.
+
+## (d) Analysis for the paper — next steps
+
+Raw per-trial artifacts in `agent_study/runs/` (pruned per retention
+policy). To produce: rung-survival figure (data above), tab:agents
+(mean±sd from per-trial table), cycle counts + feedback-taxonomy
+sentences from transcripts. Per-model splits must be reported (voice
+rule): pooling is defensible for A1/A3, NOT for A2 (interaction) —
+report A2 per-model.
 
 ### Round-4 synthesis (32 trials, 4 per cell, 2026-09-01)
 
