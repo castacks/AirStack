@@ -1022,16 +1022,20 @@ def kit_guard(plan, info, elements, rng, wind, intensity, verbose=True):
          the closure is what actually decides the removal set, and the trim
          only ever hands back SEEDS, so the two cannot fight.
       3. ROOF/PARAPET RE-SHED. `tornado_urban._shed_unsupported_roof`, run
-         again against the final holes so a tile that no longer sits over an
-         emptied span is not left shed by the pre-guard pass's verdict...
-         except that a roof piece already gone stays gone (that pass only
-         ADDS): shedding a tile is never the floating defect, so the
-         conservative direction is the safe one. Noted, not hidden.
-      4. A LAST SUPPORT PASS, because step 3 can strand an ornament under a
-         parapet it just took.
+         again against the guarded holes. That pass only ever ADDS, so a
+         tile it shed against the PRE-guard removal set stays shed even if
+         the trim has since restored the wall under it: shedding a roof
+         tile is never the floating defect, so the conservative direction
+         is the safe one. Noted, not hidden.
+      4. BUDGET + SUPPORT AGAIN, with step 3's sheds carried in as FIXED
+         (never trim candidates, always in the closure). Without this a
+         late roof shed pushes a plan back over the cap with nothing left
+         to check it -- measured on `office`/`commercial_mid` T4, which
+         landed at 0.204 / 0.207 against a 0.20 cap.
       5. DISPLACED pieces that ended up unsupported are DEMOTED to removed
          (a hanging panel with nothing under or beside it is a floating
-         panel), and their macroblock records go with them.
+         panel), their macroblock records go with them, and ONE more
+         closure runs because a demotion is itself a new removal.
       6. TEARS on pieces that are now gone are dropped.
       7. The DEBRIS LEDGER and every removal-derived `stats` field are
          RE-RUN (`tornado_urban._ledger_removed`), not patched: a fragment
@@ -1138,6 +1142,12 @@ def kit_guard(plan, info, elements, rng, wind, intensity, verbose=True):
         counts["demoted_displaced"] = len(demote)
         plan["macroblocks"] = [mb for mb in (plan.get("macroblocks") or ())
                                if mb.get("path") not in set(demote)]
+        # A demotion ADDS a removal, which can strand whatever was leaning
+        # on it -- one last closure, or the invariant this whole pass
+        # asserts (`test_no_surviving_piece_stands_on_air`) would hold
+        # everywhere except right here.
+        removed, shed3 = _support_closure(g, removed)
+        counts["shed_support"] += len(shed3)
         plan["removed"] = sorted(removed)
         plan["_removed_set"] = set(removed)
         notes.append(
@@ -1170,17 +1180,24 @@ def kit_guard(plan, info, elements, rng, wind, intensity, verbose=True):
 
     st = plan["stats"]
     notes.append(
-        "kit guard: removed {0} -> {1} piece(s); count_frac {2:.3f} -> "
-        "{3:.3f} (cap {4:.2f}), area_frac {5:.3f} -> {6:.3f} (cap "
-        "{7:.2f})".format(
+        "kit guard post-pass: removed {0} -> {1} piece(s); count_frac "
+        "{2:.3f} -> {3:.3f} (cap {4:.2f}), area_frac {5:.3f} -> {6:.3f} "
+        "(cap {7:.2f}) -- these two BEFORE numbers are already under the "
+        "rewritten kit ladder; the recipe-list rewrite above is where the "
+        "bulk of the reduction happens".format(
             n_before, st["n_removed"], before_c, st["removed_count_frac"],
             KIT_MAX_COUNT_FRAC.get(level, 0.0), before_a,
             st["removed_frac"], KIT_MAX_AREA_FRAC.get(level, 0.0)))
+    # NAMED HONESTLY: `*_after_ladder` is what `plan_damage` produced under
+    # the REWRITTEN kit ladder (`KIT_LADDER_T` — that rewrite is where the
+    # bulk of the reduction happens: measured on the bench's own B1,
+    # 0.452 -> 0.130), and `*_final` is after this post-pass, which mostly
+    # ADDS (support sheds) and only subtracts when the budget bites.
     plan["kit_guard"] = dict(counts, enabled=True,
-                             count_frac_before=before_c,
-                             count_frac_after=st["removed_count_frac"],
-                             area_frac_before=before_a,
-                             area_frac_after=st["removed_frac"])
+                             count_frac_after_ladder=before_c,
+                             count_frac_final=st["removed_count_frac"],
+                             area_frac_after_ladder=before_a,
+                             area_frac_final=st["removed_frac"])
     if verbose:
         print("[tornado_kit] guard: {0}".format(plan["kit_guard"]))
     return counts

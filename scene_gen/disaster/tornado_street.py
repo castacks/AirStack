@@ -219,6 +219,37 @@ guarantees a VISIBLE tipped car for review, the thrown mechanic is a
 separate, purely probabilistic enhancement, and conflating the two would
 make `min_tipped` silently change the measured thrown share.
 
+ROUND 4 (2026-09-01) -- WHAT THE LIT BENCH SHOWED AND WHAT CHANGED. The
+review photos of cell C1 (`~/tornado_previews/bench/C1_top.png`,
+`C1_obl.png`) carried four separate defects, and measuring them
+(`tools/tornado_street_seat_probe.py`, which rebuilds C1 on a bare stage
+and prints every prop's world lowest MESH POINT) found three distinct
+root causes, none of them in this file's DECISION half:
+
+  * "the truck/bus is inside the ground" -- the thrown GMC motorhome's
+    lowest vertex sat 2.527 m BELOW the plate and the forced second car
+    1.738 m below. `tornado.toss_prim` rebuilds a prim's op order from
+    `translate`/`rotateZ`/`scale` alone, so the `rotateXYZ` roll of 90
+    that `apply_placements` authors for every Y-UP asset (which is every
+    car in the urban pool) was silently discarded, and its bbox-based
+    seating measured `z_before` on an asset whose ground contact is its
+    local -Y. Fixed by `_pose_prim`, which replaces `toss_prim` on this
+    pass's four toss actions.
+  * "the lamp pole is floating" -- +0.788 m, from `toss_prim` seating on
+    a rotated BOUNDING BOX whose low corner is empty air (the lamp arm
+    only exists at the top of the pole). Fixed by `_points_min_z` /
+    `_seat_prim` -- rotate first, then measure real vertices, then
+    translate, which is the whole of the fix-floating-debris lesson.
+  * "the fallen tree reads as an intact standing tree" -- every uprooted
+    tree was authored at 46 degrees, because `vegetation.tip_tree`'s
+    seat-band bisection can never seat a leafed crown and bottoms out on
+    `lean_min_deg`. Fixed in `_apply_tree_level`: lay it down at the lean
+    that was drawn, seat it on its BUTT, and author the root plate.
+  * "the car is completely fine and upright" -- a legitimate draw
+    (`p_move` at i=0.85 is 0.627, so 37% of core cars stay parked) and
+    therefore a REVIEW FLOOR question, not a model one: `min_moved`, the
+    second floor beside `min_tipped`, added below.
+
 PURE. No `pxr` import anywhere in this module -- `tornado.py` and
 `tornado_urban_ground._footprint_test` (imported below) are both
 `pxr`-free at module level, by their own docstrings, for exactly this
@@ -798,6 +829,16 @@ def plan_street(placements, intensity_fn, wind_at_fn, rng, *,
 #: How far off grade a posed prop is allowed to end up before the seat
 #: report calls it out. 2 cm is the round-4 brief's own tolerance.
 SEAT_TOL_M = 0.02
+#: A prop that moved no further than this is treated as still standing on
+#: whatever surface it was placed on (a kerb, a sidewalk slab, a plaza
+#: deck), so its own pre-pose contact is the seating datum and `ground_z`
+#: is only a floor under it. Anything that travelled further LANDED
+#: somewhere else -- a car thrown 20-60 m has no business keeping the
+#: height of the parking bay it left -- and is seated on `ground_z`
+#: exactly. `scene_generator`'s own urban props are placed on
+#: `sidewalk_top` (0.015 m + the slab's own thickness), which is the
+#: height this rule exists to preserve.
+SEAT_STAY_PUT_M = 2.0
 
 
 def _wrap180(deg):
@@ -960,27 +1001,32 @@ def _parent_z_scale(stage, prim):
     return s if abs(s) > 1e-9 else 1.0
 
 
-def _seat_prim(stage, path, z_pre, ground_z=0.0):
+def _seat_prim(stage, path, z_pre, ground_z=0.0, travelled=None):
     """Slide *path* straight down (or up) its own local z until its lowest
     MESH POINT is back where it was before the pose -- and never below
     *ground_z*. Returns `(gap_m, seated)`.
 
-    THE DATUM IS `ground_z` WHEN ONE IS GIVEN (the default 0.0 -- the
-    plate every scene in this pipeline builds its roads on), and the
-    prop's OWN pre-pose lowest point when it is `None`.
+    THE DATUM DEPENDS ON WHETHER THE PROP WENT ANYWHERE, and both halves
+    of that were measured on cell C1 before this rule was written.
 
-    Preserving the pre-pose contact is the more conservative rule and it
-    was the first cut, but it is wrong for the two things this pass
-    actually does. A prop can arrive at this pass ALREADY off grade --
-    `scene_generator.apply_placements` seats on `SizeResolver`'s `base`,
-    measured with `useExtentsHint=True`, so it misses geometry outside a
-    stale authored `extent` (MEASURED, cell C1: the Shumard_Oak street
-    tree arrives 0.982 m below the plate, the GMC motorhome 0.139 m above
-    it) -- and preserving that faithfully is a correct implementation of
-    the wrong thing. And a THROWN car lands 20-60 m from where it was
-    parked, so "the height of the bay it was parked in" is not its ground
-    any more. Pass `None` only for a scene whose street props genuinely
-    stand on something raised that this pass must not flatten.
+      * It STAYED PUT (`travelled <= SEAT_STAY_PUT_M`): its own pre-pose
+        lowest point is the datum, so a prop standing on a kerb or a
+        sidewalk slab keeps that height -- `scene_generator` places urban
+        street props on `sidewalk_top`, not on z=0. `ground_z` is a FLOOR
+        under that, because a prop can arrive already sunk:
+        `apply_placements` seats on `SizeResolver`'s `base`, measured with
+        `useExtentsHint=True`, so it misses geometry outside a stale
+        authored `extent` (MEASURED: the Shumard_Oak street tree arrives
+        0.982 m below the plate, the GMC motorhome 0.139 m above it), and
+        preserving THAT faithfully is a correct implementation of the
+        wrong thing.
+      * It LANDED SOMEWHERE ELSE (`travelled > SEAT_STAY_PUT_M`, up to
+        60 m for a thrown car): `ground_z` exactly. The height of the bay
+        it was parked in is not its ground any more.
+
+    `travelled` is in METRES; `None` means "unknown", treated as stayed
+    put. `ground_z=None` disables the floor entirely and always
+    preserves the pre-pose contact.
     """
     from pxr import Gf, Sdf, UsdGeom
 
@@ -990,7 +1036,12 @@ def _seat_prim(stage, path, z_pre, ground_z=0.0):
     z_post = _points_min_z(stage, path)
     if z_post is None or z_pre is None:
         return None, False
-    target = float(z_pre) if ground_z is None else float(ground_z)
+    if ground_z is None:
+        target = float(z_pre)
+    elif travelled is None or float(travelled) <= SEAT_STAY_PUT_M:
+        target = max(float(z_pre), float(ground_z))
+    else:
+        target = float(ground_z)
     dz = target - z_post
     if abs(dz) < 1e-9:
         return 0.0, True
@@ -1007,7 +1058,7 @@ def _seat_prim(stage, path, z_pre, ground_z=0.0):
 
 
 def _pose_prim(stage, path, dx, dy, roll_deg, yaw_jitter_deg, pitch_deg=0.0,
-               ground_z=0.0):
+               ground_z=0.0, ssf=1.0):
     """Move, roll, pitch and RE-SEAT one placed prop. Returns
     `(ok, gap_m)`; `gap_m` is the seated prop's residual distance off its
     own datum, in metres of stage z (0 is perfect).
@@ -1119,7 +1170,9 @@ def _pose_prim(stage, path, dx, dy, roll_deg, yaw_jitter_deg, pitch_deg=0.0,
     if sc is not None:
         xf.AddScaleOp().Set(sc)
 
-    gap, _ok = _seat_prim(stage, path, z_pre, ground_z=ground_z)
+    gap, _ok = _seat_prim(stage, path, z_pre, ground_z=ground_z,
+                          travelled=math.hypot(float(dx), float(dy))
+                          / max(1e-9, float(ssf)))
     return True, gap
 
 
@@ -1451,7 +1504,7 @@ def _apply_action(stage, a, ssf, ground_z=0.0, root_plates=True,
         return _pose_prim(stage, path, dx, dy, a["roll_deg"],
                           a["yaw_jitter_deg"],
                           pitch_deg=a.get("pitch_deg", 0.0),
-                          ground_z=ground_z)
+                          ground_z=ground_z, ssf=ssf)
     if action == "level":
         return _apply_tree_level(stage, a, ssf=ssf, ground_z=ground_z,
                                  root_plates=root_plates,
@@ -1460,7 +1513,7 @@ def _apply_action(stage, a, ssf, ground_z=0.0, root_plates=True,
         return _pose_prim(stage, path, a["dx"] * ssf, a["dy"] * ssf,
                           a["roll_deg"], a["yaw_delta_deg"],
                           pitch_deg=a.get("pitch_deg", 0.0),
-                          ground_z=ground_z)
+                          ground_z=ground_z, ssf=ssf)
     return False, None
 
 

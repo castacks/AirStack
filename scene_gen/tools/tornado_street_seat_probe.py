@@ -320,8 +320,19 @@ def main():
             act = "tree:" + str(a.get("level")) + "/" + str(a.get("geom"))
         pre_pts, _pre_bb = before[path]
         post_pts = points_min_z(stage, path)
-        post_bb = bbox_min_z(stage, path)
         gap = None if post_pts is None else post_pts / ssf
+        # A TIPPED TREE IS SEATED ON ITS BUTT, not on its lowest leaf --
+        # the crown presses into the plate on purpose (see
+        # `_apply_tree_level`), so the honest gap for a tree is where its
+        # own pivot ended up.
+        if a is not None and a.get("action") == "level" and a.get("geom"):
+            tprim = stage.GetPrimAtPath(Sdf.Path(path))
+            if tprim and tprim.IsValid():
+                for op in UsdGeom.Xformable(tprim).GetOrderedXformOps():
+                    if op.GetOpName().split(":")[-1] == "translate":
+                        gap = (float(op.Get()[2]) / ssf
+                               - ts.TREE_ROOT_LIFT_M)
+                        break
         if gap is not None and abs(gap) > 0.02:
             n_bad += 1
         prim = stage.GetPrimAtPath(Sdf.Path(path))
@@ -352,6 +363,19 @@ def main():
                   "n/a" if gap is None else "{0:+.3f}".format(gap),
                   dims, bearing))
     print("-" * 132)
+    root = stage.GetPrimAtPath(Sdf.Path(cell + "/furniture"))
+    for ch in root.GetChildren():
+        if "rootplate" not in ch.GetName():
+            continue
+        z = points_min_z(stage, ch.GetPath().pathString)
+        bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                               [UsdGeom.Tokens.default_,
+                                UsdGeom.Tokens.render])
+        r = bc.ComputeWorldBound(ch).ComputeAlignedRange()
+        print("[seat] root plate {0}: min_z={1:.3f} max_z={2:.3f} "
+              "span={3:.2f} m".format(
+                  ch.GetName(), z / ssf, r.GetMax()[2] / ssf,
+                  max(r.GetSize()[0], r.GetSize()[1]) / ssf))
     print("[seat] {0} prop(s) off grade by > 2 cm".format(n_bad))
     tipped = sum(1 for a in actions if a.get("kind") == "car"
                  and a.get("toppled"))

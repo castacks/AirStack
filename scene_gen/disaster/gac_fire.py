@@ -174,6 +174,30 @@ DTC_DIR = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
            "scene_gen/assets/downtowncity/")
 DTC_SCALE = 1.0                  # `mpu = 1`: downtowncity is authored in metres
 
+# AEC BROWNSTONES. `airstack://`, not `omniverse://` — this pack ships as a
+# LOCAL mirror under the repo (`scene_gen/assets/aec/`, `.gitignore`d but
+# present on every built container/pod), the same tree every
+# `config/asset_sets/*.yaml` "rowhouse" pool already references
+# (`urban.yaml`: "airstack://scene_gen/assets/aec/brownstone/Assets/
+# Create_Brownstone02/Reference_Brownstone{N}Row.usd"). The `omniverse://
+# .../NVIDIA/Demos/AEC/Residential/Brownstones/...` path an earlier pass of
+# this investigation assumed is the RAW, un-mirrored NVIDIA content pack —
+# MEASURED unreachable from this container (`Usd.Stage.Open` on it raises
+# "Failed to open layer"), and it is not what any real placement's `usd`
+# field carries anyway. `AEC_DIR` matches production exactly so `bake_kind`'s
+# `usd.startswith(spec["dir"])` gate (a plain string prefix test against a
+# placement's OWN un-resolved `usd` field) actually fires for a real
+# building; `asset_url()` below resolves the `airstack://` scheme to an
+# openable path before anything calls `place_source` with it, the same way
+# every OTHER `airstack://` caller in this repo resolves before referencing
+# (`scene_generator._join_asset_root` — see `fire_pack_rows_launch_script.
+# place_asset`, `urban_tornado_bench_launch_script`'s `shed_url`). `gac`/`dtc`
+# are unaffected: an `omniverse://` URL passes `_join_asset_root` through
+# unchanged.
+AEC_DIR = "airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/"
+AEC_SCALE = 0.01                 # every AEC pool entry in the asset sets is
+                                  # authored `scale: 0.01` (centimetres)
+
 # Materials that are NOT the building. Amar_Tower carries a ROOF GARDEN baked
 # into the same merged mesh — MEASURED (`tools/_dtc_reg_probe.py`,
 # 2026-08-30): ten tree/grass subsets between z 217 m and z 231 m that inflate
@@ -235,6 +259,41 @@ PACKS = {
         # window-shaped even though the material is never a window.
         "glazing_material_deny": {"window_ac"},
     },
+    "aec": {                      # AEC "small brownstone" rowhouses —
+                                  # `Reference_Brownstone{2,5,6,8,10,11,12}
+                                  # Row.usd`, already a bag of ~300-1,500
+                                  # meshes each (internally INSTANCED, but
+                                  # `gac_storey_slice.read_mesh` traverses
+                                  # instance proxies read-only and writes
+                                  # brand-new pieces, so nothing needs
+                                  # de-instancing first — see the module's
+                                  # own MEASURED note by `read_mesh`)
+        "dir": AEC_DIR, "ext": ".usd", "scale": AEC_SCALE,
+        "style_prefix": "aec_",
+        "bbox_exclude": (),       # no baked-in landscaping in the *Row.usd
+                                  # files themselves (measured: `/Environment`
+                                  # is an empty sibling Xform, the row's own
+                                  # geometry lives entirely under
+                                  # `/World/Reference_Brownstone{N}Row`)
+        # ALWAYS masonry, always short. `Reference_Brownstone*Row` measures
+        # 14.6-15.3 m tall regardless of row length (`config/asset_sets/
+        # urban.yaml`'s own per-entry comments) -- nowhere near the 25 m
+        # height-rule cutoff to `rc`, so the height rule alone is correct
+        # and there is no per-name construction table to maintain here
+        # (unlike `dtc`, whose Amar_Tower needs a NAMED rc_glass override).
+        "construction_table": False,
+        # NO GLAZING SUBSET ANYWHERE ON THIS ASSET (MEASURED,
+        # `tools/openings_probe.py`: "NO glass subset -- windows are painted
+        # into the texture"). `gsl.window_centres` therefore returns nothing
+        # to measure a grid from, and `gac_storey_slice.grid_for` already
+        # falls back to `regular_grid` whenever its `wins` argument is empty
+        # -- forcing every name here would be redundant with that fallback,
+        # not a stronger guarantee, so this stays empty and the fallback is
+        # left to do its job (verified per-asset by the offline slice probe,
+        # not assumed).
+        "force_regular_grid": set(),
+        "glazing_material_deny": set(),
+    },
 }
 DEFAULT_KIND = "gac"
 
@@ -262,10 +321,34 @@ def split_kind(name, kind=None):
 
 
 def asset_url(name, kind=None):
-    """The Nucleus URL of merged asset `name` in pack `kind`."""
+    """The OPENABLE URL of merged asset `name` in pack `kind`.
+
+    `gac`/`dtc` are already-absolute `omniverse://` URLs and this is a no-op
+    for them (`scene_generator._join_asset_root` passes any string containing
+    `"://"` through unchanged once its own local-root scheme check misses).
+    `aec`'s `PACKS["aec"]["dir"]` is `airstack://...` — a repo-relative
+    pseudo-scheme every OTHER caller in this codebase resolves before handing
+    a URL to `place_source`/`AddReference` (`fire_pack_rows_launch_script.
+    place_asset`, `urban_tornado_bench_launch_script`'s `shed_url`) — so this
+    resolves it here too, the one place every `PACKS` consumer routes
+    through, rather than leaving each new caller to remember. Lazy import:
+    `scene_generator` lives one directory up from `disaster/`, and importing
+    it at module scope would need the same `sys.path` shim every other
+    `disaster.*` module already does lazily for a sibling import.
+    """
     k, bare = split_kind(name, kind)
     p = PACKS[k]
-    return p["dir"] + bare + p["ext"]
+    url = p["dir"] + bare + p["ext"]
+    scheme = url.split("://", 1)[0] if "://" in url else ""
+    if scheme and scheme != "omniverse":
+        import sys
+        _scene_gen = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if _scene_gen not in sys.path:
+            sys.path.insert(0, _scene_gen)
+        import scene_generator as _sg
+        if scheme in _sg.LOCAL_ASSET_ROOTS:
+            url = _sg._join_asset_root(url, "")
+    return url
 
 
 def asset_scale(url, default, verbose=True):

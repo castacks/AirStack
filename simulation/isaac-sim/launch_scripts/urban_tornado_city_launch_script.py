@@ -446,6 +446,11 @@ UT_STREET = _flag("UT_STREET", "1")
 # marked `"forced": True` and reported separately in the banner; they are
 # never also promoted to "thrown" (see `tornado_street`'s own docstring).
 UT_MIN_TIPPED = int(_env("UT_MIN_TIPPED", "2") or "0")
+# Round 4 (stream T): the SECOND review floor -- promote up to N in-track
+# cars to "moved" (shoved askew, forced=True, floor="moved"; never a tip, so
+# the Paulikas shares hold). DEFAULT 0 here -- the CITY ships the pure model;
+# the bench sets UT_MIN_MOVED=3 for review.
+UT_MIN_MOVED = int(_env("UT_MIN_MOVED", "0") or "0")
 
 
 def vram_mb(tag):
@@ -1353,7 +1358,8 @@ class TornadoCityApp:
             self.placements, self.inten, wind_at_fn, rng,
             buildings=buildings, bounds=self.plate,
             throw_m=float(self.tcfg.get("throw_m", 24.0)),
-            min_tipped=UT_MIN_TIPPED, car_length_fn=car_length_fn,
+            min_tipped=UT_MIN_TIPPED, min_moved=UT_MIN_MOVED,
+            car_length_fn=car_length_fn,
             car_heading_fn=car_heading_fn)
         self.street_actions = actions
 
@@ -1363,7 +1369,8 @@ class TornadoCityApp:
         # print itself under `[ut]`) — nothing left here but the env-
         # driven knobs and the launcher's own VRAM capture.
         self.street_counts = tst.apply_street(
-            self.stage, actions, min_tipped=UT_MIN_TIPPED, verbose=True)
+            self.stage, actions, min_tipped=UT_MIN_TIPPED,
+            min_moved=UT_MIN_MOVED, verbose=True)
 
         dt = time.time() - t0
         print("[ut] street pass: {0:.1f}s".format(dt))

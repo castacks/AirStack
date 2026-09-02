@@ -198,6 +198,82 @@ MAX_FALL_STOREYS = 6
 MAX_MODULES = 130
 # ...and the same shape for the edge tears (each is a `_break_split`).
 MAX_EDGE_MODULES = 200
+
+# ---------------------------------------------------------------------------
+# THE RING (round 7). "The break-aways should be like the urban fire's."
+#
+# MEASURED, not guessed (`tools/qc_edge_probe.py`, 2026-09-01, the archetype
+# bake's own pose and seed): `fire_collapse.plan_edges` -> `_tear_perimeter`
+# tears 100 % of what it is given — `apartment_long` DG4 15/15, `office_plain`
+# DG4 55/55, `commercial_mid` DG4 10/10, zero failures, zero straight seams on
+# the ORTHOGONAL perimeter. The machinery is not broken; the RING IS TOO
+# SMALL, and it is too small for a reason that is specific to the quake ladder
+# and does not apply to the fire's:
+#
+#   * a URM elevation PEELS FROM THE PARAPET DOWN (`URM_TOP_DOWN`), so the
+#     notch is 2-3 storeys of one wall. `fire_collapse`'s F5c hole starts at
+#     the fire's origin and is FIVE storeys of nearly the whole elevation
+#     (measured on the same building: fire kill 37 + 23 torn = 60 modules,
+#     34 % of the shell; quake kill 18 + 15 torn = 33, 19 %);
+#   * `plan_edges` tears only what is ORTHOGONALLY adjacent to a dead module —
+#     right, and enough when the hole is that big, because there is barely a
+#     pristine module left near it. Round a 2-storey notch it leaves a wall of
+#     factory rectangles ONE BAY OUT, a square re-entrant corner at every
+#     staircase step, and untouched corner columns at the ends of the run;
+#   * and a burnt building's boundary is dissolved by things a shaken one has
+#     none of — soot, `_drop_face_art`, blown-out openings. A quake wall keeps
+#     its clean kit face, so every seam the fire hides is visible here.
+#
+# So this family adds a SECOND RING of its own on top of `plan_edges`'s jobs
+# (never instead of them, and never by editing `fire_collapse`, which is
+# frozen). Same job schema, same judges, same `_tear_perimeter`; only the
+# penetrations are smaller, because a second-ring module is cracked and
+# spalled, not peeled.
+#
+# The share of a module's own width/height a second-bay bite takes. FEMA 306's
+# crack at a wall return, not a peel: a tenth to a quarter.
+RING_PEN2 = (0.10, 0.24)
+# The RE-ENTRANT CORNER of a staircase step — the module diagonally across
+# from the hole, which `plan_edges` cannot see (it overlaps the dead run in
+# NEITHER t nor z) and which is the sharpest right angle in the whole notch.
+# Bitten on both of its two exposed edges at once.
+RING_DIAG_PEN = (0.18, 0.38)
+# A CORNER COLUMN standing proud of a wall that has gone. `corner` /
+# `parapet_corner` pieces are 1.2-1.8 m square and are assigned to whichever
+# of their two walls `quake_flow._side_of` found nearest, so a corner at the
+# end of a lost run is routinely on the side that did NOT fail and escapes
+# every class `plan_edges` has. This is the "one wall extending further than
+# the rest" of the 2026-08-31 review.
+RING_CORNER_PEN = (0.20, 0.45)
+RING_CORNER_REACH_MODULES = 1.25
+# THE TOP COURSE OFF THE ROOFLINE, on the elevations the collapse did NOT
+# take. `r_parapet_fall` breaks a parapet band with `partial=None` — the band
+# goes entirely and the top-storey wall under it keeps a machined top edge, so
+# a building that lost one elevation still reads as "a bunch of perfect
+# rectangular wall pieces all intact" along the whole of the other three. Its
+# own `partial=True` branch (the parapet-less styles) already authors exactly
+# this look; this extends it to the styles that HAVE a band. Per module, not
+# a uniform band — a uniform take is just a lower machined line.
+RING_TOP_PEN = (0.10, 0.24)
+RING_TOP_P = 0.55
+# THE BLOCK ABOVE A CRUSHED STOREY IS NOT PRISTINE. `_author_band` moves it as
+# ONE RIGID BODY — which is right, it is what a soft storey does — so on the
+# rc DG4 rung every module above the band keeps its factory face and the whole
+# tower reads undamaged above the gap. Measured on the baked
+# `bld_office_plain_DG4`: 125 of its 128 meshes carry one identical 2.36 deg
+# tilt and only 3 are real debris. The record does not say the block is
+# undamaged: an infilled frame that has drifted enough to lose a storey shows
+# corner crushing and diagonal cracking in the panels above it (FEMA 306's
+# infill damage states; the Northridge and Kahramanmaraş soft-storey
+# photographs). So a light share of that block spalls at ONE edge — a chip,
+# never a peel, and never a horizontal cut (a panel with its top taken would
+# drop the band above it).
+RING_SPALL_P = 0.22
+RING_SPALL_PEN = (0.08, 0.18)
+# The ring's own cost ceiling. Each job is a `_break_split` (8-11 cells plus a
+# solidify), so this is what the look costs in bake time; `QC_RING_MAX=0`
+# turns the whole second ring off and gives back the round-6 look exactly.
+RING_MAX = 90
 # A band / total / pancake mode sweeps whole storeys and cannot raise a
 # failure line to get under a budget: a total collapse that left half the
 # building standing to save fracture time is not a total collapse. So for
@@ -833,7 +909,17 @@ def plan_collapse(ctx, mode="elevation", mass=None, side=None, corner=None,
     edge_plan["kill"] = edge_kill
     lim = int(MAX_EDGE_MODULES if max_edges is None else max_edges)
     tears = fc.plan_edges(ctx, edge_plan, m, prng, budget=lim)
+    # ...AND THE SECOND RING, this family's own. `plan_edges` covers the
+    # ORTHOGONAL perimeter and covers it completely (measured: 100 % torn on
+    # every style probed); what it cannot see is the bay one module out, the
+    # re-entrant corner of a staircase step, the corner column at the end of
+    # the run, and the roofline of the elevations that did not fail. See the
+    # RING_* block. Appended to the SAME list so `_tear_perimeter` authors
+    # both in one pass and no module is ever split twice.
+    ring = _ring_edges(ctx, plan, m, prng, tears, edge_kill)
     plan["tears"] = tears
+    plan["ring"] = ring
+    plan["ring_edges"] = int(ring["modules"])
 
     # THE BUDGET IS REPORTED, NEVER SILENTLY ENFORCED. `_plan_partial` raises
     # its failure line a storey at a time while it can (the notch gets
@@ -846,12 +932,300 @@ def plan_collapse(ctx, mode="elevation", mass=None, side=None, corner=None,
     dropped_edges = len([j for j in tears if j.get("dropped")])
     plan["budget"] = {
         "modules": n_mod, "module_cap": cap,
-        "edges": len(tears), "edge_cap": lim,
+        # `edges` is the FIRST ring only — the jobs `max_edges` / `edge_cap`
+        # actually governs. The second ring has a cap of its own
+        # (`QC_RING_MAX`) because it is a different cost with a different
+        # lever, and folding the two together made `edges > edge_cap` read as
+        # an overrun when nothing had overrun.
+        "edges": len(tears) - int(ring["new"]), "edge_cap": lim,
+        "ring": int(ring["modules"]), "ring_new": int(ring["new"]),
+        "ring_cap": int(ring["cap"]),
         "trimmed_storeys": int(plan.pop("_trimmed", 0)),
         "over_modules": max(0, n_mod - cap),
         "over_edges": dropped_edges,
     }
     return plan
+
+
+# ---------------------------------------------------------------------------
+# THE SECOND RING
+# ---------------------------------------------------------------------------
+def _ring_edges(ctx, plan, m, prng, jobs, edge_kill):
+    """Everything round the hole that `fire_collapse.plan_edges` cannot see.
+
+    Appends to `jobs` IN PLACE and returns how many modules it added or
+    extended. Pure geometry, host-side, no `pxr`: exactly `plan_edges`'s own
+    contract, and every job it writes carries the same keys and the same
+    `cuts` dicts, so `fire_collapse._tear_perimeter` authors them with the
+    same three judges and nothing here has to know about USD.
+
+    A module `plan_edges` already gave a job gets its extra cuts MERGED into
+    that job rather than a second one, because `quake_flow._break_split`
+    deactivates the source prim and a module can only be split once.
+
+    Four things, in the order they matter to a viewer:
+
+      1. RE-ENTRANT CORNERS. A staircase step's inner corner: the module that
+         is diagonally across from the dead run — it overlaps it in neither t
+         (so no left/right) nor z (so no above/below) — and is therefore the
+         one right angle in the notch `plan_edges` leaves whole. Bitten on
+         BOTH exposed edges at once, which is what makes it read as a broken
+         corner rather than as a chamfer.
+      2. THE SECOND BAY. The module one out from a first-ring tear, on the
+         same storey, bitten on its near end at `RING_PEN2`. This is the
+         "full intact rectangle with windows surviving" of the review: one
+         bay past a torn one, a factory module with a factory seam.
+      3. CORNER COLUMNS. `quake_flow._side_of` gives a corner piece whichever
+         of its two walls is nearest, and at a tie the dict order (S, N, W, E)
+         decides — so the corner at the end of a lost run is routinely
+         BOOKED TO THE OTHER WALL and escapes every one of `plan_edges`'s
+         classes, including `return` (which needs the dead run to reach
+         within `pad_m` of the wall's end). It then stands proud of the wall
+         that went: "one wall extending further than the rest".
+      4. THE ROOFLINE. On `elevation` / `corner`, when the loss reached the
+         top of the mass, the top course of the elevations that did NOT fail.
+         `r_parapet_fall` takes a parapet BAND whole (`partial=None`) and
+         leaves the wall under it a machined edge; on a style with no band it
+         already does exactly this instead (`partial=True`, "a course off most
+         of the side"). Drawn per module at `RING_TOP_P`, so the line that
+         comes out is irregular and not a second machined one.
+
+    `total` and `pancake` are skipped: nothing of the shell is left standing
+    to read as a rectangle except the blind-side stub, and `_author_stubs`
+    already tears that at its own height.
+    """
+    fc = _fc()
+    ring_max = int(_f("QC_RING_MAX", RING_MAX))
+    if ring_max <= 0 or plan["mode"] in ("total", "pancake"):
+        return {"modules": 0, "new": 0, "cap": ring_max}
+    mtag = plan["mass"]
+    module_m = max(4.0, float(m.get("module") or 4.0))
+    killed = set(id(e) for e in edge_kill)
+    by_el = dict((id(j["el"]), j) for j in jobs)
+    added = set()
+
+    dead = {}
+    for e in edge_kill:
+        if e["role"] not in fc.SHELL_ROLES:
+            continue
+        dead.setdefault((e["side"], int(e["storey"])), []).append(
+            fc.el_span(m, e))
+
+    rows = {}
+    for e in ctx["info"]["elements"]:
+        if e["mass"] != mtag or e["role"] not in fc.SHELL_ROLES:
+            continue
+        if e.get("dead") or id(e) in killed:
+            continue
+        rows.setdefault((e["side"], int(e["storey"])), []).append(e)
+    for k in rows:
+        rows[k].sort(key=lambda q: fc.el_span(m, q)[0])
+
+    new = set()
+
+    def _job(e):
+        j = by_el.get(id(e))
+        if j is not None and j.get("dropped"):
+            # `plan_edges` ran out of budget on this module and `_tear_
+            # perimeter` will skip it. A second job on the same element would
+            # be a second `_break_split` of a prim the first one deactivated.
+            return None
+        if j is None:
+            t0, t1 = fc.el_span(m, e)
+            za, zb = fc.el_z_span(m, e)
+            j = {"el": e, "name": e.get("name"), "side": e["side"],
+                 "storey": int(e["storey"]), "t0": t0, "t1": t1,
+                 "za": za, "zb": zb, "w": max(0.3, t1 - t0),
+                 "h": max(0.3, zb - za), "classes": [], "cuts": [],
+                 "ring": True}
+            by_el[id(e)] = j
+            jobs.append(j)
+            new.add(id(e))
+        added.add(id(e))
+        return j
+
+    def _room():
+        # The ring's own ceiling, counted in modules it has to SPLIT. Extra
+        # cuts merged into a job `plan_edges` already wrote cost nothing —
+        # `_tear_perimeter` unions the judges and breaks the prim once.
+        return len(new) < ring_max
+
+    def _cls(j, c):
+        if c not in j["classes"]:
+            j["classes"].append(c)
+            j["classes"] = [q for q in fc.EDGE_CLASSES if q in j["classes"]]
+
+    def _v(j, low_end, span):
+        """A vertical crack `span` of the module's width in from one end."""
+        if j is None:
+            return
+        pen = prng.uniform(*span) * j["w"]
+        line = (j["t0"] + pen) if low_end else (j["t1"] - pen)
+        for q in j["cuts"]:                       # never two cracks at one end
+            if q["kind"] == "v" and bool(q.get("loose_hi")) == (not low_end):
+                return
+        j["cuts"].append({"cls": "right" if low_end else "left", "kind": "v",
+                          "pen": pen, "line": line, "loose_hi": not low_end,
+                          "amp": min(fc.EDGE_AMP_MAX, fc.EDGE_AMP_FRAC * pen),
+                          "ring": True})
+        _cls(j, "right" if low_end else "left")
+
+    def _z(j, from_top, span):
+        """A horizontal break `span` of the module's height in from one edge."""
+        if j is None:
+            return
+        pen = prng.uniform(*span) * j["h"]
+        line = (j["zb"] - pen) if from_top else (j["za"] + pen)
+        for q in j["cuts"]:
+            if q["kind"] == "z" and bool(q.get("loose_above")) == from_top:
+                return
+        j["cuts"].append({"cls": "below" if from_top else "above", "kind": "z",
+                          "pen": pen, "line": line, "loose_above": from_top,
+                          "amp": min(fc.EDGE_AMP_MAX, fc.EDGE_AMP_FRAC * pen),
+                          "ring": True})
+        _cls(j, "below" if from_top else "above")
+
+    # ---- 1. the re-entrant corners of the staircase ----------------------
+    for (sd, s), run in sorted(rows.items()):
+        for e in run:
+            if not _room():
+                break
+            t0, t1 = fc.el_span(m, e)
+            w = max(0.3, t1 - t0)
+            etol = fc.edge_gap_tol(e, w, 0.6)
+            over = min(1.2, 0.3 * w)
+            for key, from_top in ((s + 1, True), (s - 1, False)):
+                iv = dead.get((sd, key)) or ()
+                # `plan_edges` owns anything the dead run sits OVER or UNDER:
+                # that is its `below` / `above`, and a module that already has
+                # its whole top or foot taken must not also lose both ends.
+                # A re-entrant corner is the one with no vertical overlap at
+                # all — the module diagonally across the staircase step.
+                if sum(max(0.0, min(b, t1) - max(a, t0)) for a, b in iv) > over:
+                    continue
+                hi = any(-0.25 * w <= (a - t1) <= etol for a, _b in iv)
+                lo = any(-0.25 * w <= (t0 - b) <= etol for _a, b in iv)
+                if not (hi or lo):
+                    continue
+                j = _job(e)
+                _v(j, low_end=lo, span=RING_DIAG_PEN)
+                _z(j, from_top=from_top, span=RING_DIAG_PEN)
+
+    # ---- 2. the second bay along the wall --------------------------------
+    first = set(id(j["el"]) for j in jobs
+                if not j.get("ring") and not j.get("dropped")
+                and ("left" in j["classes"] or "right" in j["classes"]))
+    for (sd, s), run in sorted(rows.items()):
+        for i, e in enumerate(run):
+            if id(e) not in first or not _room():
+                continue
+            jf = by_el[id(e)]
+            # away from the hole: a `left` job has the hole at higher t, so
+            # the bay one out is the one BELOW it in t, and vice versa.
+            for cls, nb in (("left", run[i - 1] if i else None),
+                            ("right", run[i + 1] if i + 1 < len(run) else None)):
+                if cls not in jf["classes"] or nb is None:
+                    continue
+                if id(nb) in killed or nb.get("dead") or not _room():
+                    continue
+                t0n, t1n = fc.el_span(m, nb)
+                gap = (fc.el_span(m, e)[0] - t1n) if cls == "left" \
+                    else (t0n - fc.el_span(m, e)[1])
+                if gap > fc.edge_gap_tol(nb, max(0.3, t1n - t0n), 0.6):
+                    continue
+                _v(_job(nb), low_end=(cls == "right"), span=RING_PEN2)
+
+    # ---- 3. the corner columns at the ends of a lost run -----------------
+    reach = RING_CORNER_REACH_MODULES * module_m
+    by_storey = {}
+    for e in edge_kill:
+        if e["role"] in fc.SHELL_ROLES:
+            by_storey.setdefault(int(e["storey"]), []).append(
+                (float(e["lx"]), float(e["ly"])))
+    for (sd, s), run in sorted(rows.items()):
+        near = [q for k in (s - 1, s, s + 1) for q in by_storey.get(k, ())]
+        if not near:
+            continue
+        for e in run:
+            if e["role"] not in ("corner", "parapet_corner"):
+                continue
+            if not _room():
+                break
+            ex, ey = float(e["lx"]), float(e["ly"])
+            d2 = min((ex - x) ** 2 + (ey - y) ** 2 for x, y in near)
+            if d2 > reach * reach:
+                continue
+            # The near end is the one facing the wall that went, measured on
+            # THIS piece's own side: the mean t of the dead run, against the
+            # piece's own midpoint.
+            L2 = (m["W"] if sd in ("S", "N") else m["D"]) / 2.0
+            vals = [(x if sd in ("S", "N") else y) for x, y in near]
+            t_dead = sum(vals) / float(len(vals)) + L2
+            t0, t1 = fc.el_span(m, e)
+            _v(_job(e), low_end=(t_dead <= 0.5 * (t0 + t1)),
+               span=RING_CORNER_PEN)
+
+    # ---- 4. the roofline of the elevations that did not fail -------------
+    # THE TOPMOST PIECE AT EACH BAY, NOT EVERY PIECE IN THE BAY. A top-storey
+    # wall module usually has a parapet/cornice band sitting on it, and taking
+    # a course off the WALL's top edge with the band still standing on it
+    # leaves the band hanging in the air — the same class of bug as soot on a
+    # wall a later recipe took away. Break the piece with the highest top in
+    # each bay and leave whatever it is standing on alone.
+    top = int(plan["top_storey"])
+    if plan["mode"] in ("elevation", "corner") and top in plan["storeys"]:
+        for sd in plan.get("keep_sides") or ():
+            # BAYS BY OVERLAP IN t, not by a rounded midpoint: a corner's wall
+            # piece and the parapet_corner standing on it are the same bay but
+            # different lengths (1.25 m against 1.81 m on `apartment_long`), so
+            # a midpoint bucket puts them in different bays and cuts the top
+            # off the WALL with the parapet still sitting on it.
+            # ...and MOSTLY overlapping, not merely touching: consecutive kit
+            # pieces on one wall share about 0.12 m of t (a 5.07 m wall module
+            # runs 0.96-6.03 and the next 5.96-11.03), so "any overlap" chains
+            # a whole elevation into one bay. Half the shorter piece separates
+            # 2 % neighbours from a 100 % wall-and-its-parapet pair.
+            bays = []
+            for e in sorted(rows.get((sd, top), ()),
+                            key=lambda q: fc.el_span(m, q)[0]):
+                t0, t1 = fc.el_span(m, e)
+                w_e = max(0.3, t1 - t0)
+                for b in bays:
+                    ov = min(b["t1"], t1) - max(b["t0"], t0)
+                    if ov > 0.5 * min(w_e, b["t1"] - b["t0"]):
+                        if fc.el_z_span(m, e)[1] > fc.el_z_span(m, b["e"])[1]:
+                            b["e"], b["t0"], b["t1"] = e, t0, t1
+                        break
+                else:
+                    bays.append({"t0": t0, "t1": t1, "e": e})
+            for e in [b["e"] for b in bays]:
+                if not _room():
+                    break
+                if prng.random() >= RING_TOP_P:
+                    continue
+                _z(_job(e), from_top=True, span=RING_TOP_PEN)
+
+    # ---- 5. the block above a crushed storey -----------------------------
+    # A `v` cut only. A `z` cut would take the top or the foot off a panel
+    # that is carrying the storeys above it, and the block moves as one rigid
+    # body — the fragment would ride down with a hole under it.
+    band = plan["band"][0] if plan["band"] else None
+    if band is not None:
+        for (sd, s), run in sorted(rows.items()):
+            if s <= int(band):
+                continue
+            for e in run:
+                if not _room():
+                    break
+                if e["role"] not in ("wall", "corner"):
+                    continue
+                if id(e) in by_el:
+                    continue          # already at the edge of the crush gap
+                if prng.random() >= RING_SPALL_P:
+                    continue
+                _v(_job(e), low_end=(prng.random() < 0.5), span=RING_SPALL_PEN)
+
+    return {"modules": len(added), "new": len(new), "cap": ring_max}
 
 
 # ---------------------------------------------------------------------------
@@ -1463,6 +1837,29 @@ def describe(plan):
                 plan["btype"], "/".join(plan["sides"]), plan["s0"],
                 len(plan["kill"]), len(plan["tears"]), len(plan["drop"]),
                 heaps, extra))
+
+
+def boundary_line(plan):
+    """`[qc] boundary tears: N/M modules treated (...)` — the bake-log line.
+
+    M is every SURVIVING module either ring put a judge on; N is how many of
+    them `_tear_perimeter` actually split. Anything but N/M is a kit seam
+    still standing at the edge of the hole, which is the whole complaint this
+    ring exists to answer, so the number is printed whether or not anything
+    went wrong. `ring` is the share of M this family's own second ring added
+    on top of `fire_collapse.plan_edges`'s orthogonal perimeter.
+    """
+    tears = plan.get("tears") or ()
+    live = [j for j in tears if not j.get("dropped")]
+    torn = [j for j in live if j.get("torn")]
+    ring = plan.get("ring") or {"modules": 0, "new": 0}
+    return ("[qc] boundary tears: {0}/{1} modules treated ({2} first ring, "
+            "{3} second ring of which {4} new module(s), {5} dropped over "
+            "budget, {6} failed to split)".format(
+                len(torn), len(live),
+                len(live) - int(ring["new"]), int(ring["modules"]),
+                int(ring["new"]), len(tears) - len(live),
+                len([j for j in live if j.get("failed")])))
 
 
 # ---------------------------------------------------------------------------
@@ -3414,6 +3811,10 @@ def _author_one(ctx, mode, kw):
             plan["budget"]["edges"], plan["budget"]["edge_cap"],
             ", OVER BUDGET" if (plan["budget"]["over_modules"]
                                 or plan["budget"]["over_edges"]) else ""))
+    # THE ONE LINE A BAKE LOG IS READ FOR. Every module the two rings put a
+    # judge on and how many of them `_tear_perimeter` actually split: anything
+    # but N/N is a factory seam still standing at the edge of the hole.
+    ctx["notes"].append(boundary_line(plan))
     return plan
 
 

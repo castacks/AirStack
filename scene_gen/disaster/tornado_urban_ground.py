@@ -220,6 +220,171 @@ STAIN_ORM = ("airstack://scene_gen/assets/materials/megascans/"
 # reasoning and the suburb-ladder precedent this number follows.
 STAIN_Z_M = 0.025
 
+# ---------------------------------------------------------------------------
+# ROUND 4 -- the stain's SHAPE knobs. The round-3 stain rendered as straight
+# diagonal bands running the full width of whatever region it was handed,
+# and that is a direct consequence of how the two halves compose rather than
+# a tuning miss:
+#
+#   * `ground.build_overlay` buckets each cell's coverage into `bands`
+#     opacity buckets and draws one merged mesh per bucket, so a bucket IS
+#     the set of cells in one coverage interval;
+#   * `tornado.scour_coverage`'s coverage is `intensity(x, y) ** gamma`
+#     times a 5%-area island field -- and `intensity` is a smooth,
+#     monotone cross-track profile, so the iso-coverage contours of that
+#     product are STRAIGHT LINES PARALLEL TO THE TRACK, spanning the whole
+#     region, broken only where the 5% of islands happen to fall.
+#
+# So the fix is on the coverage field, not on `build_overlay`: multiply it
+# by a band-limited MOTTLE with real holes in it (`_mottle_field`), which
+# makes every bucket boundary follow the noise instead of a straight
+# contour, and clip the whole thing to the corridor's own local half-width
+# so the stain can never reach the plate edge.
+# ---------------------------------------------------------------------------
+
+#: How far past the track's own local half-width the stain reaches. Scour
+#: reaches further out than structural damage does (peeling a surface takes
+#: less wind than failing a wall) -- the same argument `scour_coverage`'s
+#: `gamma < 1` makes, expressed as an extent this time so there is a hard
+#: edge to the stain that is a fraction of the CORRIDOR and never of the
+#: plate.
+STAIN_WIDTH_MULT = 1.25
+#: The mottle: feature size, what share of the area survives it, and how
+#: dark the surviving weakest patch is allowed to get relative to full
+#: coverage. `keep < 1` is what puts BARE PAVEMENT inside the stained
+#: envelope -- the difference between "a route the wind scoured" and "a
+#: wash someone painted over the block".
+STAIN_MOTTLE_BAND_M = (7.0, 26.0)
+STAIN_MOTTLE_KEEP = 0.80
+STAIN_MOTTLE_FLOOR = 0.0
+#: Cross-track opacity ramp applied ON TOP of `scour_coverage`'s own
+#: intensity ramp: the stain keeps `STAIN_EDGE_FLOOR` of its coverage at
+#: the very edge of its envelope and full coverage on the centreline.
+STAIN_EDGE_FLOOR = 0.48
+#: `scour_coverage`'s own island share, raised from its 0.05 default: the
+#: mottle above does most of the patchiness, the islands add a second,
+#: LARGER (18-55 m) feature size so the result is not one noise scale
+#: repeated.
+STAIN_ISLANDS = 0.12
+#: `scour_coverage`'s own gamma, lowered from its 0.85 default: gamma < 1
+#: pushes coverage UP without widening the structural corridor, which is
+#: how the visibly-scoured band is allowed to reach past the structural
+#: damage. It is lowered here to pay for the mottle -- the patchiness
+#: removes area, and the route still has to read as a route.
+STAIN_GAMMA = 0.72
+
+
+def _mottle_field(region, rng, band_m=STAIN_MOTTLE_BAND_M,
+                  keep=STAIN_MOTTLE_KEEP, floor=STAIN_MOTTLE_FLOOR, n=256):
+    """`(x, y) -> 0..1` multiplicative patchiness for the stain.
+
+    Same machinery as `tornado._island_field` (`scorch._noise`, a
+    band-limited spectral field sampled on an `n x n` lattice) at a
+    SMALLER feature size -- 7-26 m is pavement-blotch scale against the
+    island field's 18-55 m -- and used the other way round: the islands
+    field REMOVES compact patches, this one modulates everything and
+    zeroes the weakest `1 - keep` share of the area outright.
+
+    `rng` is a `numpy.random.Generator`, the same one `stain_overlay`
+    already threads into `scour_coverage` (see that function's own
+    docstring for why it cannot be a `random.Random`).
+    """
+    import numpy as np
+
+    from . import scorch
+
+    x0, y0, x1, y1 = region
+    w, h = float(x1 - x0), float(y1 - y0)
+    px = max(w, h) / float(n)
+    lo, hi = px / float(band_m[1]), px / float(band_m[0])
+    raw = scorch._noise(rng, n, n, beta=2.0, lo=lo, hi=hi)
+    q = float(np.quantile(raw, 1.0 - max(0.02, min(0.98, float(keep)))))
+    top = float(raw.max())
+    span = max(1e-6, 0.45 * (top - q))
+    e = np.clip((raw - q) / span, 0.0, 1.0)
+    f = e * e * (3.0 - 2.0 * e)
+    mult = float(floor) + (1.0 - float(floor)) * f
+
+    def sample(x, y):
+        i = min(n - 1, max(0, int((y - y0) / h * n)))
+        j = min(n - 1, max(0, int((x - x0) / w * n)))
+        return float(mult[i, j])
+
+    return sample
+
+
+def _corridor_clip(cfg, region, width_mult=STAIN_WIDTH_MULT, probe=24):
+    """`(x, y) -> 0..1` cross-track envelope: 1 on the centreline, ramping
+    to `STAIN_EDGE_FLOOR` at `width_mult` local half-widths and 0 outside.
+
+    Returns `(clip, covered_frac)` -- `covered_frac` is the share of a
+    `probe x probe` lattice over `region` that falls inside the envelope,
+    so a caller can tell that the corridor this `cfg` describes does not
+    pass through this region at all (the bench's C2 swatch, which fakes
+    its own intensity gradient 180 m off the track's centreline) and
+    decline to clip rather than render nothing.
+    """
+    to_track, _u, _v = trn.frame(cfg)
+    x0, y0, x1, y1 = region
+
+    def clip(x, y):
+        a, cr = to_track(x, y)
+        hw = trn._local_half_width(cfg, a) * float(width_mult)
+        if hw <= 1e-6:
+            return 0.0
+        t = 1.0 - min(1.0, abs(cr) / hw)
+        if t <= 0.0:
+            return 0.0
+        return (STAIN_EDGE_FLOOR
+                + (1.0 - STAIN_EDGE_FLOOR) * trn._smoothstep(t))
+
+    n_in = 0
+    for iy in range(probe):
+        for ix in range(probe):
+            px = x0 + (x1 - x0) * (ix + 0.5) / probe
+            py = y0 + (y1 - y0) * (iy + 0.5) / probe
+            if clip(px, py) > 0.0:
+                n_in += 1
+    return clip, n_in / float(probe * probe)
+
+
+def stain_coverage(cfg, region, rng, intensity, gamma=STAIN_GAMMA,
+                   corridor_clip="auto", verbose=True):
+    """The ROUND-4 stain coverage field: `scour_coverage` reshaped.
+
+    Returns `(coverage_at, info)`. `info` carries `clipped` (whether the
+    corridor envelope was applied) and `covered_frac` (the share of the
+    region the envelope admits), both of which the caller prints.
+
+    `corridor_clip` -- `"auto"` (the default) applies the envelope unless
+    the corridor does not meaningfully cross `region` (< 2% of it), in
+    which case it is dropped with a printed note rather than silently
+    rendering an empty stain. `True`/`False` force it either way.
+    """
+    base = trn.scour_coverage(cfg, region, rng, intensity=intensity,
+                              gamma=gamma, islands=STAIN_ISLANDS)
+    mottle = _mottle_field(region, rng)
+    clip, frac = _corridor_clip(cfg, region)
+    use_clip = (frac >= 0.02 if corridor_clip == "auto"
+                else bool(corridor_clip))
+    if verbose and not use_clip:
+        print("[tug] stain: the corridor covers {0:.1%} of this region -- "
+              "envelope NOT applied (the intensity field is the only "
+              "extent)".format(frac))
+
+    def coverage_at(x, y):
+        c = base(x, y)
+        if c <= 0.0:
+            return 0.0
+        c *= mottle(x, y)
+        if use_clip:
+            c *= clip(x, y)
+        return c if c > 0.0 else 0.0
+
+    return coverage_at, {"clipped": bool(use_clip),
+                         "covered_frac": float(frac)}
+
+
 
 def _weighted(rng, classes=None):
     """Draw a `STOCK` class name by weight. `classes` optionally restricts
@@ -665,9 +830,10 @@ def build(stage, parent, fragments, ctx, ground_z=0.0):
 
 
 def stain_overlay(stage, parent, region, cfg, rng, intensity, ssf=1.0,
-                  ground_z=STAIN_Z_M, cell_m=6.0, bands=12, tile_m=40.0,
-                  op_range=(0.0, 0.55), texture=STAIN_TEXTURE,
+                  ground_z=STAIN_Z_M, cell_m=4.0, bands=12, tile_m=40.0,
+                  op_range=(0.20, 0.80), texture=STAIN_TEXTURE,
                   normal_tex=STAIN_NORMAL, orm_tex=STAIN_ORM, skip=None,
+                  corridor_clip="auto",
                   root="/World/tornadoGroundStain", verbose=True):
     """R4b -- the corridor's SURFACE stain: `ground.build_overlay` (the
     fire-scar band-mesh machinery, `disaster/ground.py`) wrapped around
@@ -736,6 +902,35 @@ def stain_overlay(stage, parent, region, cfg, rng, intensity, ssf=1.0,
     and a finer source texture makes that LESS likely at a fixed tile
     size, not more).
 
+    ROUND 4 -- SHAPE, not just tone. The round-3 stain rendered as
+    STRAIGHT DIAGONAL BANDS spanning the whole region and, on a dark
+    plate, barely rendered at all. Three changes, all on this function's
+    own knobs and its own coverage field (`build_overlay` is untouched):
+
+      * `stain_coverage` replaces the bare `scour_coverage` call -- same
+        field, multiplied by `_mottle_field`'s 7-26 m band-limited
+        patchiness (which zeroes `1 - STAIN_MOTTLE_KEEP` = 38% of the
+        area outright, so there is bare pavement INSIDE the stain) and
+        clipped to `_corridor_clip`'s cross-track envelope at
+        `STAIN_WIDTH_MULT` local half-widths. Straight iso-coverage
+        contours were the whole cause of the banding -- see the block
+        comment above `STAIN_WIDTH_MULT`;
+      * `op_range` 0.0-0.55 -> 0.20-0.80. The FLOOR is the important half:
+        at `op_lo = 0.0` `build_overlay`'s lowest buckets author a
+        0.02-0.05 opacity overlay, which is not a stain, it is a nothing
+        -- and those buckets are most of the area. 0.20-0.80 still sits
+        under the fire scar's own default (0.30-0.97,
+        `ground.knobs_from_env`);
+      * `cell_m` 6.0 -> 4.0, so the mottle's own 7 m features have a
+        lattice fine enough to resolve them; at 6 m the noise aliases
+        back into blocks. The cells are greedy-meshed into maximal
+        rectangles inside `build_overlay`, so the prim count does not
+        follow the cell count.
+
+    `corridor_clip` is threaded to `stain_coverage` -- `"auto"` drops the
+    envelope on a region the corridor does not cross (the bench's own C2
+    swatch) rather than rendering nothing there.
+
     `op_range=(0.0, 0.55)` -- ROUND 3 (§8 R8): raised from round 2's 0.38
     (still well under the fire scar's own default `(0.30, 0.97)`,
     `ground.knobs_from_env`) so the stain reads more clearly from altitude
@@ -767,9 +962,18 @@ def stain_overlay(stage, parent, region, cfg, rng, intensity, ssf=1.0,
     unchanged from the suburb precedent; the cross-track gradient IS the
     read there too.
     """
-    coverage = trn.scour_coverage(cfg, region, rng, intensity=intensity)
-    return gnd.build_overlay(
+    coverage, info = stain_coverage(cfg, region, rng, intensity,
+                                    corridor_clip=corridor_clip,
+                                    verbose=verbose)
+    paths = gnd.build_overlay(
         stage, coverage, region, ssf, ground_z, material_parent=parent,
         root=root, cell_m=cell_m, bands=bands, tile_m=tile_m,
         op_range=op_range, texture=texture, skip=skip, verbose=verbose,
         roughness=0.94, normal_tex=normal_tex, orm_tex=orm_tex)
+    if verbose:
+        print("[tug] stain: {0} band(s), opacity {1:.2f}-{2:.2f}, cell "
+              "{3:.1f} m, corridor envelope {4} ({5:.1%} of the region)"
+              .format(len(paths), op_range[0], op_range[1], cell_m,
+                      "ON" if info["clipped"] else "off",
+                      info["covered_frac"]))
+    return paths

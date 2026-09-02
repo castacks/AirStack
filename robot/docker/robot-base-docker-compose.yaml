@@ -84,6 +84,17 @@ services:
       - ITM_URL
       - VLM_URL
       - RAYFRONTS_COMPUTE_PROB=${RAYFRONTS_COMPUTE_PROB:-True}
+      # per_robot (default, unset) | shared: semantic_search_task spawns
+      # rayfronts.launch.xml itself vs. waiting on a shared off-board
+      # multi_robot_mapping_server's status topic — see
+      # semantic_search_task/node.py's _resolve_rayfronts_mode (that default
+      # is what applies when this is unset, same BARE-NAME reasoning as
+      # DETECTOR_URL/ITM_URL/VLM_URL above: an empty string is not "unset").
+      - RAYFRONTS_MODE
+      # raven_nav's LVLM-guided behaviour (raven_nav/params.py's
+      # lvlm_enabled, default from this var, default true when unset —
+      # again bare-name so an empty value here can't beat that default).
+      - RAVEN_LVLM
       - LVLM_BASELINE=${LVLM_BASELINE:-false}
       - URDF_FILE=${URDF_FILE}
       # MAVROS

@@ -627,6 +627,147 @@ def test_overlay_rng_must_be_a_numpy_generator_not_stdlib_random():
             "expected stain_overlay to reject a stdlib random.Random rng")
 
 
+# ---------------------------------------------------------------------------
+# ROUND 4 -- the stain's SHAPE. Round 3 rendered as straight diagonal bands
+# spanning the whole region (measured: 1.02-1.49 separate runs of a given
+# opacity bucket per cross-track scanline, i.e. one solid stripe) at an
+# opacity floor of 0.023, which on a dark asphalt plate is nothing.
+# ---------------------------------------------------------------------------
+
+def _bandedness(cov, region, cell_m=4.0, bands=12):
+    """`ground.build_overlay`'s own bucketing, measured: the mean number of
+    SEPARATE RUNS of one opacity bucket across a cross-track scanline. A
+    field whose iso-coverage contours are straight lines parallel to the
+    track scores 1.0 -- one stripe, no breaks. Also returns the drawn
+    fraction of the region."""
+    x0, y0, x1, y1 = region
+    nx = max(1, int(round((x1 - x0) / cell_m)))
+    ny = max(1, int(round((y1 - y0) / cell_m)))
+    g = np.zeros((ny, nx))
+    for iy in range(ny):
+        for ix in range(nx):
+            g[iy, ix] = cov(x0 + (ix + 0.5) * (x1 - x0) / nx,
+                            y0 + (iy + 0.5) * (y1 - y0) / ny)
+    drawn = g > 0.06                       # build_overlay's own cutoff
+    bucket = np.minimum(bands - 1, (g * bands).astype(int))
+    runs = []
+    for iy in range(ny):
+        row = np.where(drawn[iy], bucket[iy], -1)
+        for b in range(bands):
+            mask = row == b
+            if not mask.any():
+                continue
+            runs.append(int(np.sum(mask[1:] & ~mask[:-1])) + int(mask[0]))
+    return (float(np.mean(runs)) if runs else 0.0), float(drawn.mean())
+
+
+def test_mottle_field_is_bounded_and_opens_real_holes():
+    """The patchiness is MULTIPLICATIVE and genuinely reaches zero -- a
+    mottle that only dims never puts bare pavement inside the stain."""
+    rng = np.random.default_rng(4)
+    m = tug._mottle_field(REGION, rng)
+    vals = [m(x, y) for x in np.linspace(-149, 149, 60)
+            for y in np.linspace(-149, 149, 60)]
+    assert min(vals) >= 0.0 and max(vals) <= 1.0
+    zero = sum(1 for v in vals if v <= 1e-9) / float(len(vals))
+    # STAIN_MOTTLE_KEEP is the share the noise keeps; the rest is holes.
+    assert 0.05 <= zero <= 0.45, zero
+    assert abs(zero - (1.0 - tug.STAIN_MOTTLE_KEEP)) < 0.18, (
+        zero, tug.STAIN_MOTTLE_KEEP)
+
+
+def test_stain_is_clipped_to_the_corridor_never_to_the_plate():
+    """The stain's extent is a multiple of the TRACK's own local
+    half-width. A 600 m plate around a 150 m track must leave the plate
+    edge clean no matter how wide the region is."""
+    cfg = _cfg(heading=90.0, width=150.0)
+    big = (-300.0, -300.0, 300.0, 300.0)
+    rng = np.random.default_rng(11)
+    cov, info = tug.stain_coverage(cfg, big, rng, _corridor_intensity(),
+                                   verbose=False)
+    assert info["clipped"] is True
+    to_track, _u, _v = trn.frame(cfg)
+    worst = 0.0
+    for x in np.linspace(-299, 299, 90):
+        for y in np.linspace(-299, 299, 90):
+            if cov(x, y) <= 0.0:
+                continue
+            a, c = to_track(x, y)
+            hw = trn._local_half_width(cfg, a)
+            worst = max(worst, abs(c) / hw)
+    assert worst <= tug.STAIN_WIDTH_MULT + 1e-6, worst
+    # ... and it really does reach past the structural corridor, which is
+    # the whole point of scour being wider than damage.
+    assert worst > 0.9, worst
+
+
+def test_stain_coverage_is_patchier_than_the_bare_scour_field():
+    """The reviewed defect, pinned as a number: the same seed, the same
+    region, the same intensity -- the round-4 field must break the round-3
+    field's straight opacity stripes."""
+    cfg = _cfg(heading=35.0, width=150.0)
+    region = (-250.0, -250.0, 250.0, 250.0)
+    # The REAL corridor field, not the fixture ridge: the straight-stripe
+    # failure is a property of `intensity_field`'s own smooth cross-track
+    # profile, so a fixture whose contours are not track-parallel would
+    # let round 3 off the hook.
+    inten = trn.intensity_field(cfg, region, np.random.default_rng(7))
+    b3, f3 = _bandedness(
+        trn.scour_coverage(cfg, region, np.random.default_rng(8),
+                           intensity=inten), region, cell_m=6.0)
+    cov4, _info = tug.stain_coverage(cfg, region, np.random.default_rng(8),
+                                     inten, verbose=False)
+    b4, f4 = _bandedness(cov4, region, cell_m=4.0)
+    print("  bandedness round3 {0:.2f} -> round4 {1:.2f}; drawn "
+          "{2:.1%} -> {3:.1%}".format(b3, b4, f3, f4))
+    assert b4 > b3 * 1.3, (b3, b4)
+    assert b4 > 1.8, b4
+    # still a ROUTE, not confetti: a good share of the corridor is stained
+    assert f4 > 0.05, f4
+
+
+def test_stain_opacity_floor_actually_renders():
+    """`build_overlay` maps bucket b to `op_lo + (op_hi-op_lo)*(b+0.5)/12`.
+    With round 3's `op_lo = 0.0` the lowest buckets -- most of the area --
+    author 0.02-0.07 opacity, which is not a stain. The default floor now
+    has to clear a threshold that a reviewer can actually see on dark
+    asphalt."""
+    import inspect
+    sig = inspect.signature(tug.stain_overlay)
+    lo, hi = sig.parameters["op_range"].default
+    assert lo >= 0.15, lo
+    assert hi >= 0.70, hi
+    assert sig.parameters["cell_m"].default <= 4.0
+
+
+def test_corridor_clip_is_dropped_where_the_track_does_not_reach():
+    """`corridor_clip="auto"`: a caller that hands in its OWN synthetic
+    intensity for a swatch nowhere near the cfg's centreline (the bench's
+    C2 cell) must still get a stain, not an empty scope."""
+    cfg = _cfg(heading=90.0, width=60.0)
+    far = (4000.0, 4000.0, 4050.0, 4050.0)
+    rng = np.random.default_rng(3)
+    cov, info = tug.stain_coverage(cfg, far, rng, lambda x, y: 0.8,
+                                   verbose=False)
+    assert info["clipped"] is False
+    assert info["covered_frac"] < 0.02
+    assert max(cov(x, y) for x in np.linspace(4001, 4049, 20)
+               for y in np.linspace(4001, 4049, 20)) > 0.06
+
+
+def test_stain_overlay_still_builds_and_reports_its_shape():
+    stage = _build_stage()
+    made = tug.stain_overlay(stage, "/World", REGION, _cfg(),
+                             np.random.default_rng(9), _corridor_intensity(),
+                             verbose=False)
+    assert made
+    zs = []
+    for p in made:
+        pts = UsdGeom.Mesh(stage.GetPrimAtPath(p)).GetPointsAttr().Get()
+        zs.extend(pt[2] for pt in pts)
+    assert zs and all(abs(z - tug.STAIN_Z_M) < 1e-6 for z in zs)
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-v"]))

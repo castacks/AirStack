@@ -602,6 +602,534 @@ def test_apply_plan_on_stub_stage_removes_and_authors_debris():
     assert stage.GetPrimAtPath(deb_root).IsValid()
 
 
+# ===========================================================================
+# ROUND 4, DEFECT D1 (stream K) — THE KIT GUARD, THE SUPPORT PASS AND THE
+# INTERIOR BACKING
+# ===========================================================================
+# The round-3 bench cells, measured with `plan_for_kit` at the bench's own
+# seeds BEFORE any of this landed:
+#
+#     CELL  STYLE            LEVEL  PIECES  REMOVED  count_frac  area_frac
+#     B1    brownstone_row   T4      208      94       0.452      0.344
+#     B2    dw_terrace       T3       92      11       0.120      0.147
+#     B3    walkup           T4      206      25       0.121      0.107
+#
+# and AFTER (the numbers `test_bench_b_cells_land_in_the_look_band` pins):
+#
+#     B1  34 removed  0.163 / 0.127
+#     B2   7 removed  0.076 / 0.074
+#     B3  20 removed  0.097 / 0.087
+#
+# The four invariants below are the ones a picture cannot be trusted for:
+# the LOOK cap, the ground storey, the support rule ("no piece stands on
+# air" — `.agents/skills/fix-floating-debris/SKILL.md`'s standing lesson
+# that the SUPPORT TEST, not a render, is the oracle), and the plan's own
+# internal consistency after the guard has rewritten it.
+# ===========================================================================
+
+
+def _kit_grid(info):
+    return qs._Grid(info, info["elements"])
+
+
+def _unsupported_survivors(info, plan):
+    """Every STANDING piece that the support rule says has nothing under
+    or beside it — the number this whole pass exists to drive to zero."""
+    g = _kit_grid(info)
+    removed = set(plan["removed"])
+    out = []
+    for e in g.els:
+        path = qs._path(e)
+        if path in removed:
+            continue
+        if tk._unsupported(g, e, removed):
+            p = e["p"]
+            out.append((path, p["_role"], p["_side"], p["_storey"]))
+    return out
+
+
+def test_kit_ladder_refuses_the_two_collapse_recipes_and_says_so():
+    """The recipe-list rewrite (`quake_sliced._guard`'s pattern): the two
+    §8c collapse recipes are OFF the kit ladder at every level and every
+    btype, and the plan RECORDS the refusal rather than carrying a recipe
+    that silently did nothing."""
+    for btype, by_level in tk.KIT_LADDER_T.items():
+        for level, recs in by_level.items():
+            names = [n for n, _kw in recs]
+            for banned in tk.KIT_BANNED_RECIPES:
+                assert banned not in names, (btype, level, banned)
+    # ... and the note reaches the plan of a building that WOULD have got
+    # one (lowrise urm at T4, i >= 0.85 — `brownstone_row` exactly).
+    _pl, _info, plan = _run("brownstone_row", "T4", seed=11, intensity=0.9)
+    joined = " ".join(plan["notes"])
+    assert "facade_collapse refused on a kit building" in joined
+    assert "top_storey_loss refused on a kit building" in joined
+    assert not any(r.get("recipe") in tk.KIT_BANNED_RECIPES
+                   for r in plan["regions"])
+
+
+def test_kit_ladder_swap_is_restored_even_on_a_raising_plan():
+    """`kit_ladder_installed` must put `tornado_urban.LADDER_T` back —
+    including when the body raises. A leaked swap would silently guard
+    every SLICED building in the same process too."""
+    saved = tu.LADDER_T
+    with tk.kit_ladder_installed() as guarded:
+        assert guarded is True
+        assert tu.LADDER_T is tk.KIT_LADDER_T
+    assert tu.LADDER_T is saved
+    try:
+        with tk.kit_ladder_installed():
+            raise RuntimeError("boom")
+    except RuntimeError:
+        pass
+    assert tu.LADDER_T is saved
+    # ... and a real plan call leaves it restored too.
+    _run("walkup", "T4", seed=3)
+    assert tu.LADDER_T is saved
+
+
+def test_look_cap_holds_on_every_style_and_level():
+    """`KIT_MAX_COUNT_FRAC` / `KIT_MAX_AREA_FRAC`, the round-4 LOOK cap, on
+    the SAME count metric the review quoted ("92/208 = 0.44")."""
+    for style in STYLES:
+        for level in LEVELS:
+            for seed in range(6):
+                _pl, _info, plan = _run(
+                    style, level, seed=seed, wind=fake_wind(40.0, 0.9),
+                    intensity=tk.LEVEL_INTENSITY[level])
+                st = plan["stats"]
+                assert st["removed_count_frac"] <= tk.KIT_MAX_COUNT_FRAC[level] + 1e-9, \
+                    (style, level, seed, st["removed_count_frac"])
+                assert st["removed_frac"] <= tk.KIT_MAX_AREA_FRAC[level] + 1e-9, \
+                    (style, level, seed, st["removed_frac"])
+
+
+def test_t4_still_removes_enough_to_read_as_damage():
+    """The cap must not turn T4 into an intact building: the round-4 brief
+    asks for ~0.15-0.20 of pieces at T4. Checked as a MEAN over seeds (a
+    single draw legitimately lands low), with a hard floor per draw so a
+    silently-dead ladder cannot pass."""
+    for style in STYLES:
+        vals = []
+        for seed in range(8):
+            _pl, _info, plan = _run(style, "T4", seed=seed,
+                                    wind=fake_wind(40.0, 0.9), intensity=0.9)
+            vals.append(plan["stats"]["removed_count_frac"])
+        mean = sum(vals) / float(len(vals))
+        # MEASURED spread over the five tested styles at this wind: 0.08
+        # (`dw_terrace`, 92 pieces of which 36 are one parapet/roof band)
+        # to 0.17 (`brownstone_row`). The floor is set under the lightest
+        # measured style rather than at the brief's own 0.15-0.20 LOOK
+        # target: this assertion exists to catch a SILENTLY DEAD ladder,
+        # and the target itself is a mean over the corridor, not a
+        # per-style contract.
+        assert 0.07 <= mean <= tk.KIT_MAX_COUNT_FRAC["T4"], (style, mean, vals)
+        assert min(vals) > 0.02, (style, vals)
+
+
+def test_ground_storey_structure_is_never_removed():
+    """Rule: "ground storey structural pieces are NEVER removed (glass loss
+    ok)". A missing ground storey is the single thing that makes a standing
+    building read as collapsed."""
+    for style in STYLES:
+        for level in ("T3", "T4"):
+            for seed in range(6):
+                _pl, info, plan = _run(
+                    style, level, seed=seed, wind=fake_wind(40.0, 0.9),
+                    intensity=0.9)
+                for e in _removed_els(info, plan):
+                    p = e["p"]
+                    assert not (int(p["_storey"]) == 0
+                                and p["_role"] in tk.KIT_STRUCT_ROLES), \
+                        (style, level, seed, p["_role"], p["_side"])
+
+
+def test_ground_storey_glass_still_breaks():
+    """... and the same rule must not have silently disarmed glass loss at
+    street level, which is what a broken shopfront IS."""
+    seen = 0
+    for style in STYLES:
+        for seed in range(8):
+            _pl, info, plan = _run(style, "T4", seed=seed,
+                                   wind=fake_wind(40.0, 0.9), intensity=0.9)
+            by_path = _by_path(info)
+            for q in plan["glass"]:
+                e = by_path.get(q)
+                if e is not None and int(e["p"]["_storey"]) == 0:
+                    seen += 1
+    assert seen > 0, "no ground-storey pane voided on any style/seed"
+
+
+def test_no_surviving_piece_stands_on_air():
+    """THE support invariant (`.agents/skills/fix-floating-debris/SKILL.md`:
+    the support test is the oracle, not a render). Every style, T2-T4,
+    several seeds."""
+    for style in STYLES:
+        for level in ("T2", "T3", "T4"):
+            for seed in range(6):
+                _pl, info, plan = _run(
+                    style, level, seed=seed, wind=fake_wind(40.0, 0.9),
+                    intensity=tk.LEVEL_INTENSITY[level])
+                bad = _unsupported_survivors(info, plan)
+                assert not bad, (style, level, seed, bad[:4])
+
+
+def test_the_support_pass_is_what_makes_that_true():
+    """The control (memory: "verify the control first" — an invariant that
+    would hold anyway proves nothing). With `TK_GUARD=0` the SAME seeds
+    leave floaters; with the guard on they do not."""
+    saved = tk.TK_GUARD_ON
+    try:
+        tk.TK_GUARD_ON = False
+        n_off = 0
+        for style in STYLES:
+            for level in ("T3", "T4"):
+                for seed in range(6):
+                    _pl, info, plan = _run(
+                        style, level, seed=seed, wind=fake_wind(40.0, 0.9),
+                        intensity=tk.LEVEL_INTENSITY[level])
+                    n_off += len(_unsupported_survivors(info, plan))
+    finally:
+        tk.TK_GUARD_ON = saved
+    assert n_off > 20, ("the unguarded ladder is expected to strand many "
+                        "pieces; got", n_off)
+
+
+def test_displaced_and_removed_never_overlap_and_macroblocks_follow():
+    """A piece is REMOVED, DISPLACED or STANDING — never two. The guard
+    demotes an unsupported displaced piece to removed, and its macroblock
+    record has to go with it or the applier leans a piece that is gone."""
+    for style in STYLES:
+        for seed in range(6):
+            _pl, _info, plan = _run(style, "T4", seed=seed,
+                                    wind=fake_wind(40.0, 0.9), intensity=0.9)
+            removed = set(plan["removed"])
+            disp = set(plan["displaced"] or {})
+            assert not (removed & disp), (style, seed, sorted(removed & disp))
+            for mb in plan.get("macroblocks") or ():
+                assert mb.get("path") not in removed, (style, seed, mb["path"])
+
+
+def test_debris_only_ever_comes_from_a_piece_that_is_actually_gone():
+    """The ledger is RE-RUN after the guard, not patched: a fragment whose
+    source piece is standing again would sit in the street with nothing
+    missing above it."""
+    for style in STYLES:
+        for level in ("T3", "T4"):
+            for seed in range(4):
+                _pl, _info, plan = _run(
+                    style, level, seed=seed, wind=fake_wind(40.0, 0.9),
+                    intensity=tk.LEVEL_INTENSITY[level])
+                gone = set(plan["removed"]) | set(plan["glass"])
+                for f in plan["debris"]:
+                    src = f.get("from")
+                    if src:
+                        assert src in gone, (style, level, seed, src)
+
+
+def test_tears_never_reference_a_piece_that_is_gone():
+    for style in STYLES:
+        for seed in range(6):
+            _pl, _info, plan = _run(style, "T4", seed=seed,
+                                    wind=fake_wind(40.0, 0.9), intensity=0.9)
+            removed = set(plan["removed"])
+            for t in plan.get("tears") or ():
+                assert t.get("path") not in removed, (style, seed, t["path"])
+
+
+def test_guarded_plan_is_still_a_valid_plan_and_json_round_trips():
+    """The guard must leave a plan `plan_damage` could have produced —
+    same keys, same types, `_removed_set` gone, stats consistent."""
+    for style in STYLES:
+        _pl, _info, plan = _run(style, "T4", seed=5, intensity=0.9)
+        assert "_removed_set" not in plan
+        st = plan["stats"]
+        assert st["n_removed"] == len(plan["removed"])
+        assert st["n_debris"] == len(plan["debris"])
+        assert st["n_displaced"] == len(plan["displaced"])
+        assert plan["removed"] == sorted(set(plan["removed"]))
+        assert plan["kit_guard"]["enabled"] is True
+        json.loads(json.dumps(tu.plan_to_json(plan)
+                              if hasattr(tu, "plan_to_json") else plan))
+
+
+def test_guard_is_deterministic_for_a_seed():
+    a = _run("brownstone_row", "T4", seed=17, intensity=0.9)[2]
+    b = _run("brownstone_row", "T4", seed=17, intensity=0.9)[2]
+    assert json.dumps(a, sort_keys=True, default=str) == \
+        json.dumps(b, sort_keys=True, default=str)
+
+
+# ---------------------------------------------------------------------------
+# the bench's own three B cells, at the bench's own seeds
+# ---------------------------------------------------------------------------
+_BENCH_CELLS = ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4", "B5",
+                "C1", "C2"]
+_BENCH_SEED = 7
+
+
+def _bench_wind():
+    """`urban_tornado_bench_launch_script._synth_wind_cfg` — the right-flank
+    rig (origin [0, 60], heading 35), reproduced so this test measures the
+    cells the reviewer is actually looking at."""
+    from disaster import tornado as tn
+
+    cfg = dict(tn.DEFAULTS)
+    cfg.update({"origin_m": [0.0, 60.0], "heading_deg": 35.0,
+                "width_m": 300.0, "wobble_m": 0.0, "edge_noise_m": 0.0,
+                "along_min": 1.0, "width_min": 1.0})
+    return tn.wind_at(cfg, 0.0, 0.0)
+
+
+def _bench_plan(cell_id, style, level, intensity):
+    seed = _BENCH_SEED * 1000003 + _BENCH_CELLS.index(cell_id)
+    return tk.plan_for_kit(style, level, random.Random(seed), _bench_wind(),
+                           seed=seed % 1000, intensity=intensity)
+
+
+def test_bench_b_cells_land_in_the_look_band():
+    """B1 was the round-4 headline defect at 94/208 = 0.452. These are the
+    numbers the fix actually produces on the bench's own seeds — pinned so
+    a later retune that quietly re-guts a brownstone fails here first."""
+    got = {}
+    for cell, style, level, i in (("B1", "brownstone_row", "T4", 0.85),
+                                  ("B2", "dw_terrace", "T3", 0.65),
+                                  ("B3", "walkup", "T4", 0.85)):
+        _pl, info, plan = _bench_plan(cell, style, level, i)
+        st = plan["stats"]
+        got[cell] = (st["n_pieces"], st["n_removed"],
+                     round(st["removed_count_frac"], 3),
+                     round(st["removed_frac"], 3))
+        assert not _unsupported_survivors(info, plan), cell
+        assert st["removed_count_frac"] <= tk.KIT_MAX_COUNT_FRAC[level] + 1e-9
+    print("\nbench B cells (guarded):", got)
+    # B1: was 0.452 by count. The cap is 0.20 and the brief's LOOK target
+    # is 0.15-0.20; anything at or above 0.25 is the gutted box again.
+    assert got["B1"][2] < 0.21, got["B1"]
+    assert got["B1"][1] < 45, got["B1"]
+    assert got["B3"][2] < 0.15, got["B3"]
+    assert got["B2"][2] < 0.13, got["B2"]
+
+
+# ---------------------------------------------------------------------------
+# stage tests — stub box prims (never a real kit USD host-side)
+# ---------------------------------------------------------------------------
+def _stub_stage(info, cell="/World/cell"):
+    from pxr import Sdf, Usd, UsdGeom
+
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    UsdGeom.Xform.Define(stage, Sdf.Path("/World"))
+    UsdGeom.Xform.Define(stage, Sdf.Path(cell))
+    for e in info["elements"]:
+        p = e["p"]
+        sx, sy, sz = p.get("_size") or (1.0, 1.0, 3.0)
+        cz = float(p.get("z_m", e.get("z", 0.0))) + max(sz, 0.05) / 2.0
+        qf._box(stage, p["prim_path"], float(p.get("x_m", e.get("x", 0.0))),
+                float(p.get("y_m", e.get("y", 0.0))), cz,
+                max(sx, 0.05), max(sy, 0.05), max(sz, 0.05), 0.0)
+    return stage, cell
+
+
+def _author_cell(style, level, intensity, cell_id, seed=None):
+    import numpy as np
+
+    from disaster import tornado_urban_usd as tuu
+
+    if seed is None:
+        seed = _BENCH_SEED * 1000003 + _BENCH_CELLS.index(cell_id)
+    _pl, info, plan = _bench_plan(cell_id, style, level, intensity)
+    stage, cell = _stub_stage(info, "/World/" + cell_id)
+    ctx = {"stage": stage, "parent": cell, "info": info,
+           "rng": random.Random(seed), "nrng": np.random.default_rng(seed),
+           "mats": {}, "tag": cell_id, "loose": [], "static_extra": [],
+           "velocity": {}, "authored": [], "notes": [], "verbose": False}
+    counts = tuu.apply_plan(stage, ctx, plan, verbose=False)
+    return tuu, stage, cell, ctx, plan, info, counts
+
+
+def test_backing_is_per_bay_behind_real_holes_and_never_behind_a_parapet():
+    """D1's backing defect, checked on the AUTHORED stage rather than on
+    intent: round 3 put ONE quad per (side, storey) spanning the union of
+    every removal — B1's whole 38 m south elevation, and a band over the
+    roof line where a parapet had gone. Every quad must now be a per-bay
+    panel behind a real hole (or the storefront ring), and no quad may sit
+    above the top wall band."""
+    from pxr import UsdGeom
+
+    tuu, stage, cell, ctx, plan, info, _counts = _author_cell(
+        "brownstone_row", "T4", 0.85, "B1")
+    got = ctx["interior"]
+    assert got["n_backing"] >= 4, got
+    assert got["n_backing_holes"] >= 3, got
+    m = info["masses"]["main"]
+    root = stage.GetPrimAtPath(cell + "/tornado_interior_backing")
+    assert root.IsValid()
+    seg_cap = tuu._BACKING_SEG_MAX_M + 0.01
+    z_top_wall = 0.0
+    for e in info["elements"]:
+        p = e["p"]
+        if p["_role"] in ("wall", "pier", "corner"):
+            z_top_wall = max(z_top_wall, float(e.get("z", 0.0))
+                             + float((p.get("_size") or (0, 0, 3))[2]))
+    n = 0
+    for child in root.GetChildren():
+        name = child.GetName()
+        cx, cy, cz, sx, sy, sz, _yaw = qf._box_dims(stage, str(child.GetPath()))
+        width = max(sx, sy)
+        if not name.endswith("_shop"):
+            assert width <= seg_cap, (name, width)
+            # a hole quad never spans a whole elevation
+            assert width < max(m["W"], m["D"]) * 0.55, (name, width)
+        # never above the wall band (a parapet has no room behind it)
+        assert cz - sz / 2.0 <= z_top_wall + 0.5, (name, cz, sz, z_top_wall)
+        n += 1
+    assert n == got["n_backing"]
+
+
+def test_backing_inset_is_room_depth_not_a_swapped_pane():
+    """>= 1.2 m in from the wall line (round-4 requirement; round 3 used
+    0.5 m, which reads as black cladding in the wall plane), measured on
+    the authored box, per side, on its own axis."""
+    tuu, stage, cell, ctx, plan, info, _counts = _author_cell(
+        "walkup", "T4", 0.85, "B3")
+    m = info["masses"]["main"]
+    root = stage.GetPrimAtPath(cell + "/tornado_interior_backing")
+    assert root.IsValid()
+    insets = []
+    for child in root.GetChildren():
+        side = child.GetName().split("_")[1]
+        cx, cy, _cz, _sx, _sy, _sz, _yaw = qf._box_dims(
+            stage, str(child.GetPath()))
+        lx, ly = qf._to_local(m, cx, cy)
+        d = (m["D"] / 2.0 - abs(ly)) if side in ("S", "N") \
+            else (m["W"] / 2.0 - abs(lx))
+        insets.append((child.GetName(), d))
+    assert insets
+    for name, d in insets:
+        assert d >= 1.2 - 1e-6, (name, d)
+    # ... and the panels are STAGGERED in depth, so a long hole does not
+    # read as one flat plane
+    assert len(set(round(d, 2) for _n, d in insets)) >= 2, insets
+
+
+def test_backing_material_albedo_and_texture():
+    """Effective albedo in the round-4 band (0.25-0.35), authored as
+    `diffuse_tint` x the map's own measured mean (stream D's MDL reading:
+    the tint MULTIPLIES the map, the constant is only the map-failed
+    fallback), with a real texture bound and neither slot left white."""
+    from pxr import UsdShade
+
+    tuu, stage, cell, ctx, plan, info, _counts = _author_cell(
+        "brownstone_row", "T4", 0.85, "B1")
+    path = cell + "/TornadoDebrisLooks/interior_backing"
+    sh = UsdShade.Shader.Get(stage, path + "/Shader")
+    assert sh, path
+    tint = tuple(float(q) for q in sh.GetInput("diffuse_tint").Get())
+    const = tuple(float(q) for q in
+                  sh.GetInput("diffuse_color_constant").Get())
+    tex = sh.GetInput("diffuse_texture").Get()
+    assert tex and str(tex.path).endswith(".png"), tex
+    eff = tuple(t * m for t, m in zip(tint, tuu._TEX_CONCRETE_MEAN_SRGB))
+    assert all(0.25 <= q <= 0.35 for q in eff), eff
+    assert eff[0] > eff[2], ("dark-WARM: red must lead blue", eff)
+    # the fallback constant is the same look, and is not white
+    assert max(const) < 0.9, const
+    for q, e in zip(const, eff):
+        assert abs(q - e) < 0.02, (const, eff)
+
+
+def test_storefront_ring_closes_a_glazed_ground_storey():
+    """D4/B2: `dw_terrace`'s ground storey was a see-through glass ring
+    with the upper floors apparently standing on it. Nothing is REMOVED
+    there, so only the storefront rule can fix it — one continuous quad per
+    glazed side, meeting at the corners of the inset rectangle."""
+    tuu, stage, cell, ctx, plan, info, _counts = _author_cell(
+        "dw_terrace", "T3", 0.65, "B2")
+    got = ctx["interior"]
+    assert got["n_backing_shop"] == 4, got
+    m = info["masses"]["main"]
+    inset = tuu._inset_for(m)
+    root = stage.GetPrimAtPath(cell + "/tornado_interior_backing")
+    shops = {}
+    for child in root.GetChildren():
+        if not child.GetName().endswith("_shop"):
+            continue
+        side = child.GetName().split("_")[1]
+        cx, cy, cz, sx, sy, sz, _yaw = qf._box_dims(
+            stage, str(child.GetPath()))
+        shops[side] = (max(sx, sy), cz, sz)
+    assert set(shops) == {"S", "E", "N", "W"}, sorted(shops)
+    for side, (w, cz, sz) in sorted(shops.items()):
+        run = m["W"] if side in ("S", "N") else m["D"]
+        assert abs(w - (run - 2.0 * inset)) < 0.05, (side, w, run, inset)
+        # ... and it is a GROUND-storey band, not a full-height shell
+        assert cz - sz / 2.0 < 1.0, (side, cz, sz)
+        assert sz <= tuu._SHOP_MAX_H_M + 1e-6, (side, sz)
+
+
+def test_fit_out_reaches_the_ground_and_first_storey_when_a_ring_is_authored():
+    """The ring alone would leave the eye carrying on up into an empty
+    shell: `fit_interior`'s slab `i` is the FLOOR of storey `i`, so storey
+    1's slab is what caps the shop."""
+    tuu, stage, cell, ctx, plan, info, _counts = _author_cell(
+        "dw_terrace", "T3", 0.65, "B2")
+    assert 0 in ctx["interior"]["storeys"]
+    assert 1 in ctx["interior"]["storeys"]
+    assert ("main", 1) in (ctx["fit"].get("slabs") or {})
+
+
+def test_fit_props_are_clamped_inboard_of_an_opened_wall():
+    """B3's "chair floating on a ledge": fit-out CONTENTS must not sit
+    within `_PROP_EDGE_KEEPOUT_M` of a wall line that is open. Checked on
+    synthetic prop prims — the real ones reference Nucleus assets this test
+    suite must never compose (`tornado_kit`'s own docstring)."""
+    from pxr import Gf, Sdf, UsdGeom
+
+    from disaster import tornado_urban_usd as tuu
+
+    placements = tk.kit_placements("walkup", seed=7)
+    info = qf.describe("walkup", placements, 0.0, 0.0, 0.0)
+    info["type"] = "urm"
+    tk.adapt(placements, info)
+    m = info["masses"]["main"]
+    stage, cell = _stub_stage(info, "/World/props")
+    # one prop hard against each wall line, at storey 2
+    paths = []
+    for i, (lx, ly) in enumerate((
+            (0.0, -m["D"] / 2.0 + 0.3), (0.0, m["D"] / 2.0 - 0.3),
+            (-m["W"] / 2.0 + 0.3, 0.0), (m["W"] / 2.0 - 0.3, 0.0))):
+        wx, wy = qf._to_world(m, lx, ly)
+        p = "{0}/prop_{1}".format(cell, i)
+        xf = UsdGeom.Xform.Define(stage, Sdf.Path(p))
+        xf.AddTranslateOp().Set(Gf.Vec3d(float(wx), float(wy), 6.0))
+        paths.append(p)
+    fit = {"props": {("main", 2): paths}}
+    opened = {2: {"S": (0.0, 5.0), "N": (0.0, 5.0),
+                  "E": (0.0, 5.0), "W": (0.0, 5.0)}}
+    ctx = {"stage": stage, "parent": cell, "mats": {}, "tag": "props"}
+    moved = tuu._clamp_fit_props(stage, ctx, info, fit, opened)
+    assert moved == 4, moved
+    k = tuu._PROP_EDGE_KEEPOUT_M
+    for p in paths:
+        t = UsdGeom.Xformable(stage.GetPrimAtPath(p)).GetOrderedXformOps()[0].Get()
+        lx, ly = qf._to_local(m, float(t[0]), float(t[1]))
+        assert m["W"] / 2.0 - abs(lx) >= k - 1e-6, (p, lx)
+        assert m["D"] / 2.0 - abs(ly) >= k - 1e-6, (p, ly)
+
+
+def test_an_undamaged_plan_still_authors_no_interior_at_all():
+    """The gate must not have been widened into "always": a T0 plan removes
+    nothing, voids nothing, and must author no fit-out and no backing."""
+    tuu, stage, cell, ctx, plan, info, counts = _author_cell(
+        "walkup", "T0", 0.05, "B3")
+    assert not plan["removed"] and not plan["glass"], plan["stats"]
+    assert counts["n_fit"] == 0 and counts["n_backing"] == 0, counts
+    assert not stage.GetPrimAtPath(
+        cell + "/tornado_interior_backing").IsValid()
+
+
 # ---------------------------------------------------------------------------
 # T1-T4 stats table, per style — printed by the report and by __main__
 # ---------------------------------------------------------------------------

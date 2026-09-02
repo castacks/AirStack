@@ -965,6 +965,64 @@ def _unshift_records_to_full_city(records, cx, cy, fields=(("x", "y"),)):
     return n
 
 
+def record_xy(rec):
+    """THE ONE COORDINATE RULE for a manifest record: `x_orig`/`y_orig` when
+    the record carries them, else `x`/`y`.  Same rule as `tools/
+    city_layout_audit.record_xy` (the offline audit executes THIS source
+    and checks the two agree).
+
+    WHY (the 2026-09-01 baseline incident).  The three shipped urban-fire
+    baseline cells were composed from manifests solved on RE-CENTRED 1 km
+    crops of the 1.5 km dump, WITHOUT `FC_CROP_WINDOW` in the env — and
+    `load_fire` only shifted records back to the full-city frame when that
+    env var was set.  `resolve_cell` (which prefers `x_orig`) still found
+    and HID the right intact building, but `compose_bakes` read `rec["x"]`
+    and put every bake holder one window-centre away from it: (+180, -180)
+    m in level 1, (-100, -150) in level 2, (-20, -230) in level 3.  Every
+    fire became an empty lot plus a burnt shell standing on a road or
+    through a neighbour.  Both consumers now go through this function, and
+    `compose_bakes` refuses a bake whose holder would sit more than
+    `CELL_MATCH_TOL_M` from the cell it hides (`_cell_distance` below)."""
+    if "x_orig" in rec and "y_orig" in rec:
+        return float(rec["x_orig"]), float(rec["y_orig"])
+    return float(rec.get("x", 0.0)), float(rec.get("y", 0.0))
+
+
+#: a bake holder may sit this far from the intact cell it replaces (the
+#: same tolerance `resolve_cell`'s route 1 accepts); anything further is a
+#: frame mismatch, never a legitimate placement.
+CELL_MATCH_TOL_M = 0.5
+#: a composed bake with less than this fraction of its footprint inside a
+#: typology block is reported as overhanging a road (a collapsed shell can
+#: legitimately spill a little; a building standing on a road cannot).
+BLOCK_FRAC_MIN = 0.90
+
+
+def _cell_distance(x, y, cell_placement):
+    """Metres between a bake holder at `(x, y)` and its intact cell's
+    placement (`x_m`/`y_m`, the stage frame Kit authored); 0 when the cell
+    has no placement record to compare against."""
+    if not cell_placement:
+        return 0.0
+    return math.hypot(x - float(cell_placement.get("x_m", x)),
+                      y - float(cell_placement.get("y_m", y)))
+
+
+def _frac_inside_blocks(rect, blocks):
+    """Fraction of the axis-aligned footprint `rect = (x0, y0, x1, y1)`
+    inside its best-overlapping block (`blocks` as `build_city`'s
+    `layout["blocks"]`, `(x0, y0, x1, y1)` tuples in the stage frame)."""
+    area = (rect[2] - rect[0]) * (rect[3] - rect[1])
+    if area <= 0.0:
+        return 0.0
+    best = 0.0
+    for b in blocks:
+        ox = max(0.0, min(rect[2], b[2]) - max(rect[0], b[0]))
+        oy = max(0.0, min(rect[3], b[3]) - max(rect[1], b[1]))
+        best = max(best, ox * oy)
+    return best / area
+
+
 def resolve_cell(stage, placements, rec):
     """`(prim_path, how)` for the INTACT city prim this bake replaces.
 
@@ -1759,12 +1817,28 @@ class FireCityApp:
         # braces for this, not a substitute for it (a record with neither
         # field still needs THIS shift). No-op, byte-identical to before,
         # when the env var is unset.
+        n_stamped = sum(1 for r in records if isinstance(r, dict)
+                        and "x_orig" in r and "y_orig" in r)
         if CROP_CENTRE is not None:
             n_shifted = _unshift_records_to_full_city(records, *CROP_CENTRE)
             print("[fc] FC_CROP_WINDOW active — shifted {0} manifest "
                  "record('s) coordinate(s) by ({1:+.1f}, {2:+.1f}) back to "
                  "the full city's own frame (this launcher's stage is never "
                  "translated)".format(n_shifted, *CROP_CENTRE))
+        elif n_stamped:
+            # THE 2026-09-01 BASELINE INCIDENT (see `record_xy`): a manifest
+            # solved on a cropped dump composed WITHOUT the crop window
+            # used to keep its re-centred `x`/`y`, and every bake landed one
+            # window-centre away from its cell.  The stamp is the exact
+            # full-city coordinate, so copying it back is always right —
+            # with or without a crop window — and idempotent.
+            n_shifted = _unshift_records_to_full_city(records, 0.0, 0.0)
+            print("[fc] *** {0} of {1} manifest record(s) carry x_orig/y_orig "
+                  "(solved on a CROPPED dump) but FC_CROP_WINDOW is unset — "
+                  "moved them back to the full-city frame anyway. This "
+                  "scene is the FULL plate, not the level's 1 km window; "
+                  "pass FC_CROP_WINDOW=cx,cy,W,H to crop it.".format(
+                      n_shifted, len(records)))
 
         # THE DISTRICT RULE, re-asserted at assembly time. The dry run proved
         # it; a hand-edited manifest can still break it, and a burning tower
@@ -1875,10 +1949,27 @@ class FireCityApp:
                 refused.append(r)
                 continue
             n_cell_matched += 1
-            x = float(rec.get("x", 0.0))
-            y = float(rec.get("y", 0.0))
+            x, y = record_xy(rec)
             z = float(rec.get("z", 0.0))
             yaw = float(rec.get("yaw_deg", 0.0))
+            # THE FRAME GUARD — before ANYTHING is hidden.  A holder that
+            # would sit more than CELL_MATCH_TOL_M from the cell it replaces
+            # is a frame mismatch (see `record_xy`), and composing it means
+            # an empty lot here plus a burnt shell on a road somewhere else.
+            # Refusing leaves the intact building standing, which at least
+            # reads as "no fire" rather than as two different bugs.
+            d_cell = _cell_distance(x, y, self._placement_by_path.get(cell))
+            if d_cell > CELL_MATCH_TOL_M:
+                print("[fc] *** record {0} ({1}): bake holder at ({2:+.1f}, "
+                      "{3:+.1f}) would sit {4:.1f} m from the intact cell it "
+                      "replaces ({5}) — the manifest's frame is not this "
+                      "stage's frame (a manifest solved on a cropped dump, "
+                      "composed without FC_CROP_WINDOW?). Refusing: nothing "
+                      "hidden, nothing placed.".format(
+                          r["i"], r["stem"], x, y, d_cell, cell))
+                r["skip"] = "frame mismatch: {0:.1f} m from cell".format(d_cell)
+                refused.append(r)
+                continue
             # the bake's own record of the cell it replaces, if the bake
             # driver wrote one — a disagreement means the manifest and the
             # bake are from different solves.
@@ -1946,6 +2037,29 @@ class FireCityApp:
               "hidden ({3}), {4} companion prop(s) hidden with them".format(
                   len(placed), len(refused), self.n_hidden, HIDE_MODE,
                   len(self.hidden_props)))
+        # THE BLOCK AUDIT — a composed bake standing on a road.  Judged on
+        # the bake's own on-stage bbox against the layout's typology blocks
+        # (the same measurement `tools/city_layout_audit.py` makes offline
+        # on a shipped cell's GT_hints.json).  Reported, not refused: a
+        # collapsed shell can legitimately spill past its lot line.
+        blocks = [tuple(b[:4]) for b in
+                  ((self.config.get("_city_layout") or {}).get("blocks") or [])]
+        if blocks:
+            n_over = 0
+            for r in placed:
+                b = r.get("bbox")
+                if not b:
+                    continue
+                frac = _frac_inside_blocks((b[0], b[1], b[3], b[4]), blocks)
+                r["block_frac"] = frac
+                if frac < BLOCK_FRAC_MIN:
+                    n_over += 1
+                    print("[fc] *** d{0} {1}: only {2:.0%} of its footprint "
+                          "is inside a typology block — it is standing on a "
+                          "road".format(r["i"], r["stem"], frac))
+            print("[fc] block audit: {0} of {1} composed bake(s) have less "
+                  "than {2:.0%} of their footprint inside a block".format(
+                      n_over, len(placed), BLOCK_FRAC_MIN))
         # THE ORPHAN CHECK. Anything still `of`-tagged to a hidden building
         # after this pass is a prop the rule missed, and it will be standing
         # in mid-air. Zero is the only acceptable number.

@@ -335,6 +335,27 @@ def place_holder(stage, stem, x, y, z, yaw_deg, ssf):
     return holder, cell
 
 
+def _seat_holder(stage, holder, x, y, z, yaw_deg, ssf):
+    """Round 4 -- THE TRANSFORM TRAP, closed for real. `describe`'s masses,
+    the tear pass's replacement meshes and `fit_interior` all compute in
+    WORLD frame and author under the cell, so a holder that already carries
+    its bench offset/yaw gets that transform applied TWICE -- the headless
+    audit measured brk_*/fit subtrees 10-118 m off their buildings, at
+    storey heights (the "floating random things"). Wreck at an IDENTITY
+    holder, then seat it here, after the wreck, so everything under it
+    (pieces, tears, fit-out, backing, debris) rides the move together.
+    NOTE: `urban_tornado_city_launch_script` has the same latent bug --
+    its place_holder is also set BEFORE the wreck. Fix it there before the
+    next city build."""
+    xf = UsdGeom.Xform(stage.GetPrimAtPath(Sdf.Path(holder)))
+    for op in xf.GetOrderedXformOps():
+        t = op.GetOpType()
+        if t == UsdGeom.XformOp.TypeTranslate:
+            op.Set(Gf.Vec3d(float(x) * ssf, float(y) * ssf, float(z) * ssf))
+        elif t == UsdGeom.XformOp.TypeRotateXYZ:
+            op.Set(Gf.Vec3f(0.0, 0.0, float(yaw_deg)))
+
+
 def _bbox(stage, path):
     """World-space aligned bbox of *path*, in STAGE units -- `tools/
     tornado_urban_probe.py._bbox`, copied verbatim."""
@@ -432,8 +453,15 @@ def build_ground(stage, ssf, config):
 # ---------------------------------------------------------------------------
 
 def build_a_cell(stage, cell_id, spec, ssf):
-    holder, cell = place_holder(stage, cell_id, spec["x"], spec["y"], 0.0,
-                               0.0, ssf)
+    # Round 4 (stream S's measured verdict): both GAC slices model their N
+    # (+ E) elevations and fill S/W with the blind M_Building_01_WallBack
+    # quad -- and this bench's wind AND camera both hit the S/W faces, so
+    # every A-row capture showed filler mottling ("mismatched patches") and
+    # A4 a bare wall. The holder ends up yawed 180 deg so cell-N faces
+    # world-S -- but it is placed at IDENTITY here and seated only AFTER
+    # the wreck (see `_seat_holder`: the world-frame machinery must run at
+    # the origin or everything it authors is transformed twice).
+    holder, cell = place_holder(stage, cell_id, 0.0, 0.0, 0.0, 0.0, ssf)
     kind, asset = gcf.split_kind(spec["asset"], spec.get("kind"))
     pack = gcf.PACKS[kind]
     url = gcf.asset_url(asset, kind)
@@ -451,12 +479,20 @@ def build_a_cell(stage, cell_id, spec, ssf):
         force_regular=force_regular)
 
     seed = _seed_for(cell_id)
+    # Catalogue bug 19 (the wind-frame trap): the plan is authored in the
+    # CELL frame, so a 180-deg holder yaw needs the bearing rotated by
+    # -yaw. Cell bearing 57.56 - 180 = -122.44 -> `_windward_side` = N,
+    # the modelled elevation; the damaged wall still ends up world-south,
+    # so `WINDWARD_BEARING_DEG`/`windward_wall_anchor` stay correct.
+    wind_cell = dict(WIND)
+    wind_cell["bearing_deg"] = float(WIND["bearing_deg"]) - 180.0
     ctx = tuu.wreck_urban(
         stage, cell, pls, style, spec["level"], random.Random(seed),
-        np.random.default_rng(seed), {}, "utb", WIND, btype=None,
+        np.random.default_rng(seed), {}, "utb", wind_cell, btype=None,
         height_class=None, intensity=spec["intensity"], usd=asset,
         verbose=False)
     counts = ctx.get("counts") or {}
+    _seat_holder(stage, holder, spec["x"], spec["y"], 0.0, 180.0, ssf)
     return {"holder": holder, "cell": cell, "n_pieces": len(pls),
             "ctx": ctx, "counts": counts,
             "summary": "{0} ({1}) T={2} pieces={3} removed={4} glass={5} "
@@ -473,8 +509,10 @@ def build_a_cell(stage, cell_id, spec, ssf):
 # ---------------------------------------------------------------------------
 
 def build_b_kit_cell(stage, cell_id, spec, ssf):
-    holder, cell = place_holder(stage, cell_id, spec["x"], spec["y"], 0.0,
-                               0.0, ssf)
+    # Round 4: identity holder during the wreck, seated after -- see
+    # `_seat_holder` (the transform trap; B2's displaced cornices and B1's
+    # 158 m-wide `parts` bbox were this).
+    holder, cell = place_holder(stage, cell_id, 0.0, 0.0, 0.0, 0.0, ssf)
     seed = _seed_for(cell_id)
     ctx = tk.wreck_kit(
         stage, cell, spec["style"], spec["level"], random.Random(seed),
@@ -483,6 +521,7 @@ def build_b_kit_cell(stage, cell_id, spec, ssf):
         verbose=False)
     counts = ctx.get("counts") or {}
     n_pieces = int((ctx.get("kit") or {}).get("n_pieces", 0))
+    _seat_holder(stage, holder, spec["x"], spec["y"], 0.0, 0.0, ssf)
     return {"holder": holder, "cell": cell, "n_pieces": n_pieces,
             "ctx": ctx, "counts": counts,
             "summary": "{0} T={1} pieces={2} removed={3} glass={4} "
@@ -617,7 +656,12 @@ def build_c1_cell(stage, cell_id, spec, ssf, config, resolver, pools):
     lights = pools.load(_raw_pool(config, "streetlights"))
     bins_ = pools.load(_raw_pool(config, "trash_cans"))
     signals = pools.load(_raw_pool(config, "traffic_lights"))
-    trees = pools.load(_raw_pool(config, "trees"))
+    # Round 4 (stream T): the STREET tree pool, not the park pool --
+    # urban.yaml's own comment: Black_Oak (19.7 m tall, 25.4 m crown) "is a
+    # park specimen, not a kerb tree", and measured its crown-centre offset
+    # never exceeds 0.79x its own crown radius at any lean, so it can never
+    # read fallen from above (bench-v3's giant middle "standing" tree).
+    trees = pools.load(_raw_pool(config, "street_trees"))
     cars = pools.load(_raw_pool(config, "cars"))
 
     placements = []
@@ -694,10 +738,17 @@ def build_c1_cell(stage, cell_id, spec, ssf, config, resolver, pools):
         def _wind_at_fn(_x, _y, _w=WIND):
             return _w
 
+        # Round 4 (stream T): the SECOND review floor -- `min_moved` (3 on
+        # this bench: side+thrown, roof, shoved-askew; 0 pristine) on top of
+        # `min_tipped` (2). A `min_moved` promotion is never a tip and is
+        # stamped forced=True, floor="moved", so the Paulikas shares hold.
+        _min_moved = int(_env("UT_MIN_MOVED", "3") or "3")
         actions = tornado_street.plan_street(
-            placements, _intensity_fn, _wind_at_fn, rng, min_tipped=2)
+            placements, _intensity_fn, _wind_at_fn, rng, min_tipped=2,
+            min_moved=_min_moved)
         street_counts = tornado_street.apply_street(
-            stage, actions, min_tipped=2, verbose=False)
+            stage, actions, min_tipped=2, min_moved=_min_moved,
+            verbose=False)
 
         # DEDUPE (coordinator): `plan_street` reads the SAME `category:
         # "car"` placements this cell already authors, so it covers both
@@ -774,20 +825,31 @@ def build_c2_cell(stage, cell_id, spec, ssf):
     holder, cell = place_holder(stage, cell_id, spec["x"], spec["y"], 0.0,
                                0.0, ssf)
     span = float(spec.get("span_m", 50.0))
-    region = (spec["x"] - span / 2.0, spec["y"] - span / 2.0,
-             spec["x"] + span / 2.0, spec["y"] + span / 2.0)
+    # Round 4 -- the transform trap, C2 edition: this region/cfg used WORLD
+    # coordinates while everything is authored under the (x, y) holder, so
+    # the whole swatch (debris + stain) landed doubled -- 105 m SE of its
+    # cell, off the plate, which is why C2 renders as an empty frame.
+    # LOCAL frame throughout: region centred on the cell origin, corridor
+    # origin at the cell origin; the holder transform carries it to place.
+    region = (-span / 2.0, -span / 2.0, span / 2.0, span / 2.0)
 
     def intensity(x, y):
         t = (x - region[0]) / max(1e-6, (region[2] - region[0]))
         return max(0.0, min(1.0, 0.20 + 0.70 * t))
 
     rng = random.Random(_seed_for(cell_id))
-    frags = tug.scatter_corridor(region, intensity, WIND_CFG, rng,
+    # Round 4 (stream T): centre the corridor cfg ON the swatch -- C2 sits
+    # 180 m off the shared track's centreline, so the corridor envelope
+    # capped its stain at 0.375 opacity (and the debris bearing pointed at
+    # a corridor the cell is not in). A local origin makes both meaningful.
+    _c2cfg = dict(WIND_CFG)
+    _c2cfg["origin_m"] = [0.0, 0.0]
+    frags = tug.scatter_corridor(region, intensity, _c2cfg, rng,
                                  placements=(), per_100m2=1.4)
     ground_ctx = {"parent": PARENT, "mats": {}, "verbose": False}
     meshes = tug.build(stage, cell, frags, ground_ctx, ground_z=0.0)
     stain_paths = tug.stain_overlay(
-        stage, cell, region, WIND_CFG, np.random.default_rng(
+        stage, cell, region, _c2cfg, np.random.default_rng(
             _seed_for(cell_id) + 1), intensity, ssf=ssf, verbose=False)
     return {"holder": holder, "cell": cell, "n_pieces": len(frags),
             "ctx": {}, "counts": {},
@@ -918,13 +980,23 @@ def _dispatch(stage, cell_id, ssf, config, resolver, pools):
     spec = CELLS[cell_id]
     kind = spec["kind"]
     # Round 4 (stream D): arm the debris landing clamp for THIS cell, in
-    # the CELL-LOCAL frame (plans are authored at x=y=yaw=0). tornado_urban
-    # re-reads this env per plan_damage call, but its import-time module
-    # value would WIN over the per-cell update -- so the relaunch line must
-    # NOT set TU_PLATE_REGION globally any more.
-    os.environ["TU_PLATE_REGION"] = "{0},{1},{2},{3}".format(
-        PLATE[0] - spec["x"], PLATE[1] - spec["y"],
-        PLATE[2] - spec["x"], PLATE[3] - spec["y"])
+    # the CELL-LOCAL frame (plans are authored at x=y=yaw=0 and the holder
+    # is seated AFTER the wreck). tornado_urban re-reads this env per
+    # plan_damage call, but its import-time module value would WIN over the
+    # per-cell update -- so the relaunch line must NOT set TU_PLATE_REGION
+    # globally any more. The plate must be transformed INTO the local frame
+    # with the SEAT yaw accounted for: the A row is seated at 180 deg, so
+    # its local region is the plate negated about the cell origin (the
+    # first offline audit of this fix measured A-row debris at y=136 on a
+    # 120 plate with the yaw-blind version).
+    yaw_seat = 180.0 if kind == "gac" else 0.0
+    if yaw_seat == 180.0:
+        region = (spec["x"] - PLATE[2], spec["y"] - PLATE[3],
+                  spec["x"] - PLATE[0], spec["y"] - PLATE[1])
+    else:
+        region = (PLATE[0] - spec["x"], PLATE[1] - spec["y"],
+                  PLATE[2] - spec["x"], PLATE[3] - spec["y"])
+    os.environ["TU_PLATE_REGION"] = "{0},{1},{2},{3}".format(*region)
     if kind == "gac":
         return build_a_cell(stage, cell_id, spec, ssf)
     if kind == "kit":

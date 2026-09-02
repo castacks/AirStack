@@ -1,0 +1,125 @@
+# ONE shared RayFronts map for N robots, tuned for HUMAN-sized targets.
+#
+#   python3 -m rayfronts.multi_robot_mapping_server \
+#           --config-name shared_humans \
+#           --config-dir /root/AirStack/common/rayfronts_configs \
+#           dataset.robot_ids=[1,2] \
+#           encoder=client encoder.socket=/tmp/rayfronts/encoder.sock
+#
+# Derived from low_memory.yaml (the config the per-robot launch file runs
+# today). Every deviation is listed below with the reason; anything not
+# mentioned is identical to low_memory.
+#
+# The three multi-robot groups (dataset/messaging_service/vis) live in the
+# rayfronts package's own configs/ dir; this file only selects them.
+
+defaults:
+  - default
+  - override mapping: semantic_ray_frontiers_map
+  - override encoder: client            # low_memory: radseg (in-process).
+                                        # The model now lives in
+                                        # rayfronts.encoder_server so one GPU
+                                        # copy serves every mapping server and
+                                        # a mapper restart does not reload it.
+  - override dataset: multi_ros2isaacsim   # low_memory: ros2isaacsim (1 robot)
+  - override vis: multi_ros                # low_memory: ros
+  - override messaging_service: multi_ros  # low_memory: ros
+  - override feat_compressor: pca
+  - _self_
+
+# ---- unchanged from low_memory --------------------------------------------
+compile: False
+amp: True
+depth_limit: 20.0
+batch_size: 1        # one frame at a time: frames come from different robots
+                     # and must not be collated into one batch.
+
+# ---- querying --------------------------------------------------------------
+querying:
+  compressed: True
+  compute_prob: True
+
+  # low_memory leaves this null and the launch file passes
+  # querying.text_query_mode=prompts on the command line. Set it here so the
+  # shared server cannot be started in a state where add_queries() raises
+  # "Invalid query type" the first time a robot asks a question.
+  text_query_mode: prompts
+
+  # The background vocabulary. With compute_prob=True the score of "person" is
+  # a SOFTMAX across all columns, so without background labels every voxel
+  # scores ~1.0 for the only query and no threshold means anything.
+  # NOTE: the size of this list moves raven's thresholds -- see the header of
+  # background_humans.txt before changing it.
+  query_file: /root/AirStack/common/rayfronts_configs/background_humans.txt
+
+  period: 10
+
+# ---- input -----------------------------------------------------------------
+dataset:
+  rgb_resolution: [480, 480]
+  depth_resolution: [480, 480]
+  frame_skip: 10          # PER ROBOT. Two robots at frame_skip 10 give the
+                          # mapper roughly the frame rate one robot at
+                          # frame_skip 5 used to.
+  robot_ids: [1]          # override on the command line: dataset.robot_ids=[1,2]
+  anchor_mode: gps
+
+# ---- mapping ---------------------------------------------------------------
+mapping:
+  vox_size: 0.50          # unchanged. A standing adult is ~1 voxel in plan and
+                          # ~4 tall; a lying casualty is ~4x1x1. Going finer
+                          # multiplies VRAM across a 250 m plate.
+  vox_accum_period: 1
+
+  # low_memory: 1000. A human subtends a small fraction of a 480x480 frame, and
+  # sampling is UNIFORM over the whole image (g3d.depth_to_sparse_occupancy_
+  # voxels), so at 1000 pts/frame a casualty covering 2% of the image
+  # contributes ~20 points -- and those are split over the ~4 voxels it
+  # occupies. 4000 makes a single-voxel target survive one pass instead of
+  # needing many.
+  max_pts_per_frame: 4000
+
+  # Unchanged at 3000. These are FREE-space points; raising them alongside the
+  # occupied ones would just re-balance the log-odds back to where it was.
+  max_empty_pts_per_frame: 3000
+
+  max_rays_per_frame: 500   # unchanged. Rays are the long-range "something
+                            # person-like over there" signal raven's Ray
+                            # behaviour flies at; 500/frame is already the
+                            # per-frame cap that the OG run script lowered to
+                            # 50, so this is the generous end.
+
+  fronti_subsampling: 5
+  fronti_subsampling_min_fronti: 9   # unchanged: this is the FRONTIER layer
+                                     # (where to explore next), not the
+                                     # detection layer. Small-object recall is
+                                     # bought in the semantic layer below.
+
+  ray_tracing: False
+  ray_accum_period: 1
+  ray_accum_phase: 0
+  ray_erosion: 0
+
+  occ_pruning_period: 128
+  occ_pruning_tolerance: 2
+
+  # low_memory: 32. Pruning runs 4x more often so a voxel that stops being
+  # occupied (a moving survivor, a mis-registered frame) is corrected quickly
+  # rather than lingering as a phantom detection for 32 frames.
+  sem_pruning_period: 8
+
+  # low_memory: 5. THE most consequential small-object knob. prune_semantic_
+  # voxels() erases any semantic voxel whose occupancy log-odds is <= this, and
+  # a human seen from one angle for a few frames barely gets above it: at
+  # occ_observ_weight=7 a voxel needs sustained hits to clear 5. Dropping to 1
+  # keeps a briefly-seen casualty in the map while still discarding
+  # single-observation noise (0 would keep everything).
+  sem_pruning_thresh: 1
+
+feat_compressor:
+  out_dim: 100
+  path: null
+
+# How often the per-robot /robot_i/rayfronts/status topic is published.
+# semantic_search_task's shared mode polls this to decide the map is ready.
+status_period_s: 1.0

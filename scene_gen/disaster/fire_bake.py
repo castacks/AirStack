@@ -98,13 +98,15 @@ BAKE_ROOT = "/World/bake"
 STRIP_PRIMS = ("/World/physicsScene", "/World/settleGroundPlane",
                "/World/ReviewCamera", "/World/flow")
 
-#: `gac` a GreatAmericanCity merged asset, `dtc` a downtowncity merged asset —
-#: both sliced and burnt by `gac_fire.burn_gac` (which resolves the pack from
-#: the kind, see `gac_fire.PACKS`); `kit` a ModernCityEnvironment kit style
-#: built by `urban_building.build_building` + `urban_fire.burn_building`.
-KINDS = ("gac", "dtc", "kit")
+#: `gac` a GreatAmericanCity merged asset, `dtc` a downtowncity merged asset,
+#: `aec` an AEC "small brownstone" rowhouse (`Reference_Brownstone*Row.usd`,
+#: already a bag of instanced parts — see `gac_fire.PACKS["aec"]`) — all
+#: three sliced and burnt by `gac_fire.burn_gac` (which resolves the pack
+#: from the kind, see `gac_fire.PACKS`); `kit` a ModernCityEnvironment kit
+#: style built by `urban_building.build_building` + `urban_fire.burn_building`.
+KINDS = ("gac", "dtc", "aec", "kit")
 #: the kinds that route to the sliced merged-asset path
-SLICED_KINDS = ("gac", "dtc")
+SLICED_KINDS = ("gac", "dtc", "aec")
 
 #: applied API schemas and attribute prefixes that must not ship
 _PHYS_SCHEMA_PREFIX = ("Physics", "Physx")

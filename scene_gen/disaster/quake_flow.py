@@ -413,6 +413,16 @@ def materials(stage, parent):
         # 0.12 linear -> ~0.41 on screen (was 0.40 -> 0.68: the pancake lift shaft
         # and every "dark" chunk rendered pale grey)
         "dark_concrete": ((0.12, 0.115, 0.105), 1.0),
+        # DRESSED STONE (round 7, `_DEBRIS_LOOK`). `bake_probe`'s own baked
+        # base-colour atlas for `SM_MBuilding01_Facade_A`/`FirstFloor_A`
+        # (family 01, "stone apartment block") is a grey-tan ashlar with no
+        # brick anywhere — before this its debris core drew the SAME
+        # brick-heavy mix as the genuinely-brick families under the shared
+        # `urm` bucket, which is the "wrong material" class of complaint.
+        # FLAT, no map, and numerically identical to
+        # `quake_rubble_usd._LOOK_MATERIALS["stone"]` so a kit stone
+        # building and a rubble-mound "stone" look read as one material.
+        "stone": ((0.30, 0.27, 0.23), 0.95),
         "crack": ((0.11, 0.10, 0.09), 1.0),
         # ---- round 2 (agent B): the user's "random white debris" ----
         # 0.66 luma plaster is the brightest thing in the set and it is what
@@ -1091,19 +1101,99 @@ def _t_ref(ctx, e=None):
     return (m["cx"], m["cy"], 0.5 * (m["z0"] + m["top"]))
 
 
-def _t_core_mat(stage, parent, mats, btype, rng):
-    """The inside of a wall: brick and mortar for masonry, dark concrete for a
-    frame. Drawn per fragment so a heap is not one flat colour."""
+# ---------------------------------------------------------------------------
+# DEBRIS LOOK BY FAÇADE FAMILY (round 7). Live-scene review, on a
+# `commercial_mid` DG3 pile's `merged_c_brick` chunks: "look good but seem to
+# be the wrong material and it doesn't match the rest of the building." Before
+# this table, `_t_core_mat`/`_chunk_material` (a fragment's cut-face core and
+# its whole-prim fallback, respectively — everything that ends up in a
+# `merged_c_brick`/`merged_c_stone`/`merged_dark_concrete`/... bucket at bake
+# time, `bake.py`'s merge pass names a bucket after the material prim it is
+# bound to) drew their mix from `btype` ALONE (`urm`/`rc`/`rc_glass` — three
+# buckets for eight kit families), which is exactly `_FACADE_SCAR_BRICK_P`'s
+# own diagnosis for the STANDING-wall scar case, promoted here to the
+# DEBRIS case it was deferred from: "`type` is what conflates 03 with the
+# genuine brick/stone families".
+#
+# CHECKED AGAINST THE KIT'S OWN BAKED TEXTURES (`~/scorch_previews/
+# bake_probe/*_base.png`, this agent's own probe), not assumed:
+#   * `SM_MBuilding04_Facade_A/B` (family "04" — `commercial`/
+#     `commercial_mid`/`department_store`/`highrise_04`, the family the
+#     live-review complaint's building is actually in) bakes as genuine
+#     reddish-brown coursed brick next to a plain grey stone accent panel —
+#     brick-DOMINANT is correct for this family; the debris channel was
+#     already drawing the right material class here. `dw_b` (storefront
+#     terrace, "brick above a shop front" per `FAMILY_TYPE`'s own comment)
+#     is the same kit era and stays brick-dominant too, at a slightly lower
+#     share (its ground band is a glazed/metal storefront, not brick).
+#   * `SM_MBuilding01_Facade_A`/`FirstFloor_A` (family "01" — `apartment`/
+#     `apartment_tall`/`apartment_long`/`highrise_01`) bakes as a grey-tan
+#     ASHLAR stone, no brick anywhere — this family (and `church`, the
+#     `CivilianArea` stone church set FAMILY_TYPE already calls "stone
+#     church") was drawing the SAME brick-heavy mix as 04/dw_b before this
+#     table, purely because both share the `urm` bucket. That is the actual
+#     "wrong material" bug this table fixes: a stone building shedding red
+#     brick chunks.
+#   * family "03" (`brownstone`/`brownstone_row`/`walkup`) keeps the
+#     brick-fix round's own finding (`_FACADE_SCAR_BRICK_P["03"] = 0.12`):
+#     `MBuilding03`'s art is pale modern cladding over a frame, not brick or
+#     stone, so its debris stays plaster/mortar-dominant with only the same
+#     small brick minority the facade-scar table already uses.
+#   * family "05" (`rc_glass` — concrete podium + glass curtain-wall tower)
+#     gets NO masonry-infill share in `_t_core_mat`'s non-urm branch: unlike
+#     a plain "rc" office/civic hall, this kit's tower bands are a glazing
+#     module with "no rendered pier" at all (the same reasoning
+#     `r_facade_scars` already uses to skip every RC family outright) — a
+#     22 % brick share on a modern glass tower's fragments read as exactly
+#     this bug's twin.
+#
+# Keyed on `ctx["info"]["family"]` (`_FACADE_SCAR_BRICK_P`'s own key, e.g.
+# "01"/"03"/"04"/"05"/"dw_b"/"church" — see `describe`), not `type`. A
+# family absent from this table (plain "rc" families "02"/"civ" — no
+# counter-evidence found for either) falls through to the ORIGINAL,
+# unchanged btype-only shares, so this table is additive: nothing that was
+# already right moves.
+#
+# Each urm entry's `p_core`/`p_chunk` is that family's OWN cladding-matched
+# material's ("masonry": "brick" or "stone") share, replacing the old flat
+# 0.70 / 0.45 "brick" cutoffs 1:1; the remainder keeps the ORIGINAL 2:1
+# mortar:dark_concrete (`_t_core_mat`) / 6:5 mortar:plaster (`_chunk_material`)
+# split of the two functions' own core/chunk mixes exactly, so a family with
+# no table entry (or the table's own 04/dw_b/01/church rows, all close to the
+# legacy default) renders identically to before this round.
+_DEBRIS_LOOK = {
+    "01":     {"masonry": "stone", "p_core": 0.70, "p_chunk": 0.45},
+    "03":     {"masonry": "brick", "p_core": 0.12, "p_chunk": 0.12},
+    "04":     {"masonry": "brick", "p_core": 0.70, "p_chunk": 0.45},
+    "dw_b":   {"masonry": "brick", "p_core": 0.65, "p_chunk": 0.42},
+    "church": {"masonry": "stone", "p_core": 0.70, "p_chunk": 0.45},
+    "05":     {"p_infill": 0.0},
+}
+# The legacy btype-only shares (families with no row above, or a non-urm
+# family's `p_infill` when the row does not set one) — UNCHANGED numbers.
+_DEBRIS_LOOK_URM_DEFAULT = {"masonry": "brick", "p_core": 0.70, "p_chunk": 0.45}
+_DEBRIS_LOOK_INFILL_DEFAULT = 0.22   # the original 0.85 - 0.63 rc brick share
+
+
+def _t_core_mat(stage, parent, mats, btype, rng, family=None):
+    """The inside of a wall: the family's own masonry (brick or stone) and
+    mortar, or dark concrete for a frame. Drawn per fragment so a heap is not
+    one flat colour."""
     r = rng.random()
     if btype == "urm":
-        # BRICK-HEAVY. The first solid bench (T_sol2_urm close-up) drew brick
-        # 55% and flat mortar/plaster the rest, and the flat greys won the
-        # read: the cut faces are the LARGEST faces on a chunk and they catch
-        # the light, so a 45% share of untextured grey turns a brick chunk
-        # into a concrete block. `plaster` is out of this mix entirely — it is
-        # a finish, not a core, and at 0.62 on screen it is the palest thing
-        # in the palette.
-        key = "brick" if r < 0.70 else ("mortar" if r < 0.90 else "dark_concrete")
+        # BRICK/STONE-HEAVY. The first solid bench (T_sol2_urm close-up) drew
+        # brick 55% and flat mortar/plaster the rest, and the flat greys won
+        # the read: the cut faces are the LARGEST faces on a chunk and they
+        # catch the light, so a 45% share of untextured grey turns a brick
+        # chunk into a concrete block. `plaster` is out of this mix entirely
+        # — it is a finish, not a core, and at 0.62 on screen it is the
+        # palest thing in the palette.
+        look = _DEBRIS_LOOK.get(family) or _DEBRIS_LOOK_URM_DEFAULT
+        p = look.get("p_core", _DEBRIS_LOOK_URM_DEFAULT["p_core"])
+        primary = look.get("masonry", _DEBRIS_LOOK_URM_DEFAULT["masonry"])
+        rest = 1.0 - p
+        key = (primary if r < p else
+               "mortar" if r < p + rest * (2.0 / 3.0) else "dark_concrete")
     else:
         # NOT `concrete`. That is the Worn_Pavement map, and on a 0.5 m chunk
         # its moss and joint grid read as a mossy boulder (visible all over
@@ -1115,9 +1205,12 @@ def _t_core_mat(stage, parent, mats, btype, rng):
         # has any surface at all. The infill panels of an RC frame of this
         # period ARE masonry (research §3.2, "RC frame with unreinforced
         # infill"), so a fifth of the core faces take the brick map and give
-        # the pile something to catch the light on.
+        # the pile something to catch the light on — UNLESS the family's own
+        # table row says this kit gives it no rendered pier at all (`"05"`).
+        p_infill = (_DEBRIS_LOOK.get(family) or {}).get(
+            "p_infill", _DEBRIS_LOOK_INFILL_DEFAULT)
         key = ("mortar" if r < 0.35 else "dark_concrete" if r < 0.63
-               else "brick" if r < 0.85 else "plaster_dusty")
+               else "brick" if r < 0.63 + p_infill else "plaster_dusty")
     # WORLD-PROJECTED, not the raw referenced pack. `mats["brick"]` is a
     # REFERENCED `Brick_Wall_Worn.usda` that samples UV space; every core
     # face this binds onto is an invented `GeomSubset` on a fracture
@@ -1126,13 +1219,18 @@ def _t_core_mat(stage, parent, mats, btype, rng):
     # per subset instead of brick coursing (brick-fix round; see
     # `_C_TEX`/`_c_look_at`, the same recipe `quake_rubble_usd._beam_look`
     # already proved for the same map on authored concrete bar pieces).
+    # "stone" is FLAT (no map — see `materials()`'s `flat` dict), same as
+    # `quake_rubble_usd._LOOK_MATERIALS["stone"]`.
     if key == "brick":
         return _c_look_at(stage, parent, mats, "brick")
+    if key == "stone":
+        return mats.get("stone") or _c_look_at(stage, parent, mats, "brick")
     return mats.get(key) or mats.get("plaster")
 
 
-def _t_core_bind(stage, parent, paths, out, mats, btype, rng, solid_m=None):
-    """Give every fragment a BRICK CORE.
+def _t_core_bind(stage, parent, paths, out, mats, btype, rng, solid_m=None,
+                 family=None):
+    """Give every fragment a masonry CORE (brick or stone, per `_DEBRIS_LOOK`).
 
     A solidified fragment carries the module's own cladding on the faces that
     were the façade and pipeline-invented geometry everywhere else — the cut
@@ -1150,19 +1248,23 @@ def _t_core_bind(stage, parent, paths, out, mats, btype, rng, solid_m=None):
         if sub is None:
             continue
         _bind(stage, str(sub.GetPath()),
-              _t_core_mat(stage, parent, mats, btype, rng))
+              _t_core_mat(stage, parent, mats, btype, rng, family=family))
         n += 1
     return n
 
 
 def _chunk_material(stage, parent, cache, texture, mats, btype, rng,
-                    inner_p):
+                    inner_p, family=None):
     if rng.random() < inner_p or not texture:
+        r = rng.random()
         if btype == "urm":
-            r = rng.random()
-            key = "brick" if r < 0.45 else ("mortar" if r < 0.75 else "plaster")
+            look = _DEBRIS_LOOK.get(family) or _DEBRIS_LOOK_URM_DEFAULT
+            p = look.get("p_chunk", _DEBRIS_LOOK_URM_DEFAULT["p_chunk"])
+            primary = look.get("masonry", _DEBRIS_LOOK_URM_DEFAULT["masonry"])
+            rest = 1.0 - p
+            key = (primary if r < p else
+                   "mortar" if r < p + rest * (0.30 / 0.55) else "plaster")
         else:
-            r = rng.random()
             # NOT `concrete` (round 3, agent T). That key is the Worn_Pavement
             # megascans map; on a 0.5 m chunk its moss and joint grid read as
             # a MOSSY BOULDER — visible all over the office close-ups
@@ -1170,15 +1272,20 @@ def _chunk_material(stage, parent, cache, texture, mats, btype, rng,
             # `_a_dustify` already records against it ("the green-and-white
             # striped mattress"). `_a_dustify` only rescues ~70 % of a
             # collapse's fragments from it and nothing at all on a piece that
-            # is still standing on the building.
+            # is still standing on the building. (No brick option in this
+            # branch at all, so no family override is needed here — see
+            # `_DEBRIS_LOOK`'s `p_infill`, which only affects `_t_core_mat`.)
             key = ("dark_concrete" if r < 0.5
                    else ("mortar" if r < 0.8 else "plaster"))
         # WORLD-PROJECTED, not the raw referenced pack — same reasoning as
         # `_t_core_mat` just above: this binds onto a fracture chunk with no
         # UVs, and `mats["brick"]`'s referenced material samples UV space
         # there (one flat card), not the coursing `project_uvw` promises.
+        # "stone" is FLAT, same as `_t_core_mat`'s "stone" branch.
         if key == "brick":
             return _c_look_at(stage, parent, mats, "brick")
+        if key == "stone":
+            return mats.get("stone") or _c_look_at(stage, parent, mats, "brick")
         return mats.get(key)
     return _clad_material(stage, parent, cache, texture)
 
@@ -1186,7 +1293,7 @@ def _chunk_material(stage, parent, cache, texture, mats, btype, rng,
 def _break(stage, parent, el, tag, n, rng, nrng, mats, cache, btype,
            inner_p=0.35, partial=None, mode="uniform", rough=0.012,
            min_volume_frac=0.002, consume=0.0, max_piece_m=None,
-           solid_m=None, style=None, core=True, **kw):
+           solid_m=None, style=None, core=True, family=None, **kw):
     """Fracture one element. Returns (static_paths, loose_paths).
 
     `consume` drops that share of the fragments, LARGEST first (the fracture
@@ -1241,10 +1348,10 @@ def _break(stage, parent, el, tag, n, rng, nrng, mats, cache, btype,
           else inner_p)
     for pth in list(st) + list(lo):
         _bind(stage, pth, _chunk_material(stage, parent, cache, tex, mats,
-                                          btype, rng, ip))
+                                          btype, rng, ip, family=family))
     if core:
         _t_core_bind(stage, parent, list(st) + list(lo), el.get("out"), mats,
-                     btype, rng, solid_m=solid_m)
+                     btype, rng, solid_m=solid_m, family=family)
     return list(st), list(lo)
 
 
@@ -1374,7 +1481,7 @@ def _break_split(ctx, path, n, judge, mat_fn, rough=ROUGH_M,
     if core and _e is not None:
         _t_core_bind(stage, ctx["parent"], st + lo, _e.get("out"),
                      ctx["mats"], ctx["info"]["type"], ctx["rng"],
-                     solid_m=solid_m)
+                     solid_m=solid_m, family=ctx["info"]["family"])
     src = stage.GetPrimAtPath(path)
     if src and src.IsValid():
         src.SetActive(False)
@@ -1861,11 +1968,21 @@ def _p_monolith(ctx, e, tag="mb"):
         print("[quake] _p_monolith write failed: {0}".format(exc))
         return None
     tex = damage.bound_texture(stage, path)
-    mat = (_clad_material(stage, ctx["parent"], ctx["cache"], tex) if tex
-           else ctx["mats"].get("brick"))
+    if tex:
+        mat = _clad_material(stage, ctx["parent"], ctx["cache"], tex)
+    else:
+        # FAMILY-MATCHED FALLBACK (round 7, `_DEBRIS_LOOK`): a monolith kept
+        # WHOLE (no fracture, so no core subset) with no bound texture used
+        # to fall back to flat `brick` regardless of family — the same
+        # "wrong material" bug `_DEBRIS_LOOK` fixes for fractured cores,
+        # just on the one path that never calls `_t_core_mat` at all.
+        mkey = _DEBRIS_LOOK.get(ctx["info"]["family"], {}).get("masonry", "brick")
+        mat = (ctx["mats"].get("stone") if mkey == "stone"
+               else ctx["mats"].get("brick"))
     _bind(stage, out, mat)
     _t_core_bind(stage, ctx["parent"], [out], e.get("out"), ctx["mats"],
-                 ctx["info"]["type"], ctx["rng"], solid_m=solid_m)
+                 ctx["info"]["type"], ctx["rng"], solid_m=solid_m,
+                 family=ctx["info"]["family"])
     src = stage.GetPrimAtPath(path)
     if src and src.IsValid():
         src.SetActive(False)
@@ -2025,7 +2142,8 @@ def _p_macroblocks(ctx, mass, side, from_storey=1, panels_out=None):
                 st_e, lo_e = _break(
                     ctx["stage"], ctx["parent"], e, ctx["tag"],
                     12 + rng.randrange(6), rng, ctx["nrng"], ctx["mats"],
-                    ctx["cache"], btype, inner_p=0.4, consume=0.25, **kw0)
+                    ctx["cache"], btype, inner_p=0.4, consume=0.25,
+                    family=ctx["info"]["family"], **kw0)
                 brk += list(st_e) + list(lo_e)
                 e["dead"] = True
                 n_shed += 1
@@ -2273,8 +2391,10 @@ def _p_ragged_courses(ctx, mass, storey, sides=None, band=(0.28, 0.85),
 
 def _mat_fn(ctx, texture, inner_p=0.35):
     btype = ctx["info"]["type"]
+    family = ctx["info"]["family"]
     return lambda: _chunk_material(ctx["stage"], ctx["parent"], ctx["cache"],
-                                   texture, ctx["mats"], btype, ctx["rng"], inner_p)
+                                   texture, ctx["mats"], btype, ctx["rng"],
+                                   inner_p, family=family)
 
 
 def _ragged_neighbours(ctx, mass, side, storeys, depth_bays=1.0, frac=0.45):
@@ -2977,31 +3097,72 @@ def _pick_sides(ctx, n, prefer_front=True):
     return sides[:max(0, min(4, int(n)))]
 
 
-def r_parapet_fall(ctx, sides=1, frac=0.5, mass="main"):
-    """Parapet / cornice pieces on `sides` walls break off and drop."""
-    rng, nrng = ctx["rng"], ctx["nrng"]
+def _parapet_sides(ctx, mass, sides, frac):
+    """Which sides `r_parapet_fall` actually breaks, and with what.
+
+    `(want, [(side, run, partial, frac)], [side with nothing left])`. Pure
+    element-table arithmetic — no stage — so it is assertable host-side, which
+    is the only way the bug below stays fixed.
+
+    THE SIDE BUDGET IS SPENT ON SIDES THAT HAVE SOMETHING TO BREAK (round 7,
+    2026-09-01). `_pick_sides` always returns S first, and in the urm ladders
+    a collapse recipe runs BEFORE `parapet_fall` and normally takes S — so
+    `_els` (which skips anything a recipe marked `dead`) handed back an empty
+    run, the top-storey-wall fallback was empty for the same reason, and one
+    of the `sides` slots was silently spent on a wall with nothing left on it.
+    On `bld_apartment_long_DG4` that left the whole 42 m N elevation carrying
+    EIGHT pristine 5.12 x 2.17 m parapet modules and eight pristine top-storey
+    wall modules under them — measured in the baked archetype, and it is the
+    user's "the top floor has a bunch of perfect rectangular wall pieces all
+    intact" (2026-08-31 review). So walk every side in `_pick_sides`'s own
+    order and count a side against the budget only when it yields a run. The
+    draw sequence is unchanged: `_pick_sides` shuffles the same 3-list
+    whatever `n` is, and nothing here draws.
+    """
     m = ctx["info"]["masses"][mass]
     top = len(m["levels"]) - 1
-    for side in _pick_sides(ctx, sides):
+    want = max(0, min(4, int(sides)))
+    jobs, empty = [], []
+    for side in _pick_sides(ctx, 4):
+        if len(jobs) >= want:
+            break
         run = list(_els(ctx, mass=mass, role=("parapet", "parapet_corner"),
                         side=side))
         # NO PARAPET BAND (brick commercial, the storefront terrace, the
         # church): the top course of the top storey goes instead — a
         # partial break with the cut line high, so a ragged edge is left.
         partial = None
+        frac_s = float(frac)
         if not run:
             run = list(_els(ctx, mass=mass, role="wall", side=side, storey=top))
             partial = True
-            frac = min(1.0, frac * 1.6)      # a course off most of the side
+            # PER SIDE. This used to rebind the loop's own `frac`, so one
+            # parapet-less side boosted every side after it in the same call.
+            frac_s = min(1.0, frac_s * 1.6)   # a course off most of the side
         if not run:
+            empty.append(side)
             continue
+        jobs.append((side, run, partial, frac_s))
+    return want, jobs, empty
+
+
+def r_parapet_fall(ctx, sides=1, frac=0.5, mass="main"):
+    """Parapet / cornice pieces on `sides` walls break off and drop.
+
+    WHICH sides is `_parapet_sides`' decision, and it is a decision with a
+    bug catalogue attached — read it there.
+    """
+    rng, nrng = ctx["rng"], ctx["nrng"]
+    m = ctx["info"]["masses"][mass]
+    want, jobs, empty = _parapet_sides(ctx, mass, sides, frac)
+    for side, run, partial, frac_s in jobs:
         # ALONG THE SIDE, spatially — the placement order is not a position
         # order once corners are appended, and the windrow below is placed
         # from the chosen pieces' own coordinates.
         along_key = (lambda e: e["lx"]) if side in ("S", "N") else (lambda e: e["ly"])
         run.sort(key=along_key)
         L = m["W"] if side in ("S", "N") else m["D"]
-        k = max(2 if len(run) > 2 else 1, int(round(len(run) * frac)))
+        k = max(2 if len(run) > 2 else 1, int(round(len(run) * frac_s)))
         start = rng.randrange(0, max(1, len(run) - k + 1))
         chosen = run[start:start + k]
         ts = [along_key(e) / L for e in chosen]
@@ -3011,7 +3172,8 @@ def r_parapet_fall(ctx, sides=1, frac=0.5, mass="main"):
                             (7 if partial else 5) + rng.randrange(4), rng, nrng,
                             ctx["mats"], ctx["cache"], ctx["info"]["type"],
                             inner_p=0.3, rough=0.01,
-                            partial=(rng.uniform(0.55, 0.78) if partial else None))
+                            partial=(rng.uniform(0.55, 0.78) if partial else None),
+                            family=ctx["info"]["family"])
             for pth in lo:
                 v = rng.uniform(0.8, 2.0)
                 ctx["velocity"][pth] = (ox * v, oy * v, 0.0)
@@ -3033,6 +3195,20 @@ def r_parapet_fall(ctx, sides=1, frac=0.5, mass="main"):
         _rubble(ctx, m, "windrow", sides=(side,), depth_m=depth,
                 along=(t0, t1), elem_h_m=elem_h_m,
                 tag="parapet_{0}".format(side))
+    # LOUDLY, IN THE NOTE AND ON STDOUT. A role lookup that comes back empty
+    # used to be an invisible `continue`; the only trace of it in a bake log
+    # was a missing windrow, which nobody reads a log for. If the recipe could
+    # not spend its whole budget the building still has a pristine parapet
+    # ring somewhere and the note has to say so.
+    if empty or len(jobs) < want:
+        msg = ("parapet_fall: {0}/{1} side(s) broken{2}{3}".format(
+            len(jobs), want,
+            "; nothing left to break on " + "/".join(empty) if empty else "",
+            "; BUDGET NOT SPENT — a parapet ring is still intact"
+            if len(jobs) < want else ""))
+        ctx["notes"].append(msg)
+        if len(jobs) < want:
+            print("[quake] " + msg)
 
 
 def r_glass_loss(ctx, frac=0.3):
@@ -5037,7 +5213,7 @@ def r_infill_fail(ctx, storeys=1, frac=0.4, mass="main"):
             st, lo = _break(ctx["stage"], ctx["parent"], e, ctx["tag"],
                             8 + rng.randrange(5), rng, nrng, ctx["mats"],
                             ctx["cache"], ctx["info"]["type"], inner_p=0.5,
-                            consume=0.4)
+                            consume=0.4, family=ctx["info"]["family"])
             m = ctx["info"]["masses"][mass]
             ox, oy = _outward(m, e["side"])
             for pth in lo:
@@ -5144,6 +5320,7 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
         st, lo = _break(ctx["stage"], ctx["parent"], e, ctx["tag"],
                         8 + rng.randrange(5), rng, nrng, ctx["mats"],
                         ctx["cache"], ctx["info"]["type"], inner_p=0.4,
+                        family=ctx["info"]["family"],
                         **_p_frac_kw(ctx))            # _p_ brick / prism cells
         ox, oy = _outward(m, e["side"])
         for pth in lo:
@@ -5477,7 +5654,8 @@ def r_out_of_plane(ctx, sides=1, from_storey=1, mass="main", which=None):
                             # _p_/round 3: 0.34 was tuned to HIDE plates —
                             # a kit fragment is a solid brick chunk now, so
                             # thinning it that hard just empties the fan.
-                            partial=None, consume=0.22, **_p_frac_kw(ctx))
+                            partial=None, consume=0.22,
+                            family=ctx["info"]["family"], **_p_frac_kw(ctx))
             # Outward speed grows with height: the wall rotates about its
             # foot, so the top leads.
             for pth in lo:
@@ -5700,6 +5878,7 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
         st, lo = _break(ctx["stage"], ctx["parent"], e, ctx["tag"],
                         8 + rng.randrange(5), rng, nrng, ctx["mats"],
                         ctx["cache"], info["type"], inner_p=0.5, consume=0.45,
+                        family=info["family"],
                         **_p_frac_kw(ctx))            # _p_ brick / prism cells
         sx, sy = _outward(m, e["side"])
         push = rng.uniform(0.8, 2.2)
@@ -5918,6 +6097,7 @@ def r_pancake(ctx, mass="main", pitch_m=None):
                             ctx["cache"], info["type"], inner_p=0.5,
                             # _p_/round 3: was 0.62 / 1.0 m against plates
                             partial=partial, consume=0.55, max_piece_m=1.2,
+                            family=info["family"],
                             **_p_frac_kw(ctx))        # _p_ prisms, not shards
             ox, oy = _outward(m, e["side"])
             H = max(1.0, m["top"] - m["z0"])
@@ -6843,7 +7023,8 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
                                 # crown. The cells are brick clusters now, so
                                 # the cap can rise and fewer need thinning.
                                 partial=None, consume=consume_,
-                                max_piece_m=max_piece_, **_p_frac_kw(ctx))
+                                max_piece_m=max_piece_, family=info["family"],
+                                **_p_frac_kw(ctx))
             ox, oy = _outward(m, e["side"])
             for pth in lo:
                 zf = min(1.0, max(0.0, (e["z"] - m["z0"]) / H))
@@ -7032,10 +7213,22 @@ def _raft(ctx, m, tag="raft", dress=True):
     `dark_concrete` came out as a white plate on the round-2 bench) with earth
     still clinging along the edge. The clinging clods have to ride the same
     rigid transform as the slab, so they are parked on `ctx["c_carry"]` for
-    the caller to add to its transform list."""
+    the caller to add to its transform list.
+
+    LIVE REVIEW ROUND — CHIPPED. "I like this plate ... however it's too
+    straight and rectangular. We need irregular." (user, on
+    `quake_tilt/raft_t3_1`). The mechanic — a slab that shows only once a
+    tilt levers it clear of the ground — stays exactly what it was; only its
+    edges go through `_chip_authored` (the same `fracture.chip_box` pass
+    `_buckled_pavement`/`_c_kerb` already use), tessellated so the
+    roughening/gouge pass has something on this 8-corner plate to displace.
+    Chipping happens here, before any tilt transform is applied — `_box_dims`
+    reads the mesh's LOCAL points, which a later `_transform_prims` never
+    touches."""
     path = "{0}/{1}_{2}_{3}".format(ctx["parent"], tag, ctx["tag"], _uid(ctx))
     _box(ctx["stage"], path, m["cx"], m["cy"], m["z0"] - 0.06 - RAFT_T / 2.0,
          m["W"] + 1.2, m["D"] + 1.2, RAFT_T, m["yaw"], _c_look(ctx, "raft"))
+    _chip_authored(ctx, [path], why="raft")
     ctx["authored"].append(path)
     ctx["static_extra"].append(path)
     if dress:
@@ -7216,6 +7409,16 @@ C_BOIL_DROP = 0.30         # below this drop it is not a liquefaction case
 # a code edit.
 FISSURE_SCALE = float(_os.environ.get("EQ_FISSURE_SCALE", "1.75") or "1.75")
 C_FISSURE_M = (2.0 * FISSURE_SCALE, 6.0 * FISSURE_SCALE)   # corner fissure length
+# LIVE REVIEW ROUND: "the fissure itself should be thicker" (user) — a
+# second, independent knob layered on TOP of `FISSURE_SCALE` (which only
+# ever touched length) so a bench sweep can fatten the crack without also
+# stretching it. Default doubles the crest width `_c_fissures` draws;
+# `EQ_FISSURE_WIDTH_SCALE` reaches it from the environment the same way
+# `EQ_FISSURE_SCALE` reaches `FISSURE_SCALE`.
+FISSURE_WIDTH_SCALE = float(
+    _os.environ.get("EQ_FISSURE_WIDTH_SCALE", "2.0") or "2.0")
+C_FISSURE_W = (0.06 * FISSURE_SCALE * FISSURE_WIDTH_SCALE,
+              0.22 * FISSURE_SCALE * FISSURE_WIDTH_SCALE)
 C_SEG_M = 0.8              # crest / trench sampling step: fine enough to be jagged
 C_MAX_DROP_M = 2.4         # city mild tilt: keep the low corner out of the basement
 C_MIN_RISE_M = 0.12        # a lean always lifts its far edge at least this far
@@ -8004,30 +8207,214 @@ def _c_lip_slabs(ctx, m, prof, n, tag="lip"):
     return made
 
 
-# ROUND 6 — NOT CHIPPED (`_c_fissures`). The boxes here are GROUND RELIEF:
-# they model the lips and steps either side of a ground crack, half sunk into
-# the terrain. What reads is the LINE they make and the shadow in it; a bite
-# out of one would open a hole between the piece and the ground it is meant to
-# be continuous with.
+# LIVE REVIEW ROUND — THE FISSURE IS `scour_relief`'S GEOMETRY, NOT A CHAIN OF
+# BOXES. "the fissure looks weird — use the same soil/mud material we have
+# and use in suburban tornado for its path and moulds of dirt. Use the same
+# code in fact to create this longer 'mould of dirt' aka fissure" (user).
+#
+# Round 5 already imported the LOOK (`_C_TEX["soil"]`/`["silt"]` ARE
+# `scour_relief._TEX`'s, see the module import above) but the GEOMETRY stayed
+# this file's own: a chain of flat, near-identical, 6 cm `_box` rectangles on
+# a wandering heading. From any distance that reads as a row of dark tiles,
+# not as ground that heaved — the tornado suburb solved exactly this
+# ("A SMOOTH EXTRUSION READS AS A MOULDING", `scour_relief`'s own module
+# docstring) by sweeping a cross-section along a polyline through
+# `_extrude`/`_section`, which is `scour_relief.geometry({"kind": "ridge",
+# ...})`. `_c_fissure_trace` below calls that function directly — the
+# extrusion math is `scour_relief`'s, read-only, not reimplemented here —
+# on a `stations` list this file still builds itself (a fissure radiates
+# from a building corner on its OWN heading; `scour_relief._ridge_spec`
+# draws a short windrow relative to a wind FLOW direction, which is not
+# this scene's geometry at all).
+#
+# STILL NOT CHIPPED. The mound is GROUND RELIEF — disturbed soil, not cast
+# concrete — so `_c_fissure_trace` never calls `_chip_authored` on it, same
+# reasoning as `_c_clods`/`_c_overturn_ground`. What chipping IS applied to
+# is the new cracked-asphalt band beside it (`_c_fissure_pave`): that one is
+# pavement, and chipping it is the whole point of adding it.
+def _c_geom_mesh(ctx, kind, pts3, faces, mat):
+    """Author a `scour_relief.geometry()` `(points, faces)` pair as one
+    doubleSided mesh with per-face Newell normals — `scour_relief._normal`
+    itself, reused rather than re-derived: a wobbled quad on an earthen
+    mound is not planar, and a cross product taken at one corner of it
+    points somewhere the face as a whole does not (`scour_relief._normal`'s
+    own docstring). Points are clamped to `ctx["bounds"]` exactly as
+    `_c_ribbon`'s rows are — a dropped vertex would tear the surface where a
+    dropped whole box would not."""
+    from pxr import Gf, Sdf, UsdGeom, Vt
+    if not pts3 or not faces:
+        return None
+    counts, idx, nrm = [], [], []
+    for f in faces:
+        n = _scour_relief._normal(pts3, f)
+        counts.append(len(f))
+        idx.extend(int(i) for i in f)
+        nrm.extend([Gf.Vec3f(float(n[0]), float(n[1]), float(n[2]))] * len(f))
+    pts = []
+    for (x, y, z) in pts3:
+        cx, cy = _c_clampxy(ctx, float(x), float(y))
+        pts.append(Gf.Vec3f(cx, cy, float(z)))
+    path = "{0}/{1}_{2}_{3}".format(ctx["parent"], kind, ctx["tag"], _uid(ctx))
+    mesh = UsdGeom.Mesh.Define(ctx["stage"], Sdf.Path(path))
+    mesh.CreatePointsAttr(Vt.Vec3fArray(pts))
+    mesh.CreateFaceVertexCountsAttr(Vt.IntArray(counts))
+    mesh.CreateFaceVertexIndicesAttr(Vt.IntArray(idx))
+    mesh.CreateNormalsAttr(Vt.Vec3fArray(nrm))
+    mesh.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
+    mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    mesh.CreateDoubleSidedAttr(True)
+    xs = [q[0] for q in pts]
+    ys = [q[1] for q in pts]
+    zs = [q[2] for q in pts]
+    mesh.CreateExtentAttr([Gf.Vec3f(min(xs), min(ys), min(zs)),
+                          Gf.Vec3f(max(xs), max(ys), max(zs))])
+    _bind(ctx["stage"], path, mat)
+    ctx["authored"].append(path)
+    return path
+
+
+C_FISSURE_PAVE_FRAC = 0.4   # ~one cracked-asphalt plate per 2.5 stations
+
+
+def _c_fissure_pave(ctx, stations, widths, z0, tag="fissure"):
+    """The ground itself cracked where the fissure runs through it: a BAND
+    of small, irregular, CHIPPED pavement plates straddling the trace —
+    varied yaw and size, not a straight row of them.
+
+    LIVE REVIEW ROUND, about the ground-height-change raft
+    (`quake_tilt/raft_t3_1`): "I like this plate ... however it's too
+    straight and rectangular. We need irregular. We can do a smaller
+    version of this as the fissure's cracked asphalt. Make the
+    asphalt/ground actually look cracked near the fissure." Same mechanic
+    `_buckled_pavement` already uses for the kerb line — a `_box` plate,
+    tipped a little, then `_chip_authored` — at a SMALLER size and scattered
+    along a crack instead of round a footing.
+
+    Authored straight into `ctx["authored"]`/`["static_extra"]`, deliberately
+    NOT added to the caller's own return list: `_c_fissures`' `made` is read
+    (by its callers, and by
+    `test_fissures_use_soil_look_not_a_flat_crack_color`) as "the crack's
+    own earth", soil/silt only — this is a related but separate population,
+    the same way `_ejecta`/`_c_clods` beside a heave are authored beside
+    `_c_heave`'s own return rather than folded into it."""
+    rng = ctx["rng"]
+    made = []
+    n_st = len(stations)
+    if n_st < 2:
+        return made
+    n = max(1, int(round(n_st * C_FISSURE_PAVE_FRAC)))
+    for _k in range(n):
+        i = rng.randrange(n_st)
+        px, py = stations[i]
+        j0, j1 = max(0, i - 1), min(n_st - 1, i + 1)
+        hx, hy = stations[j1][0] - stations[j0][0], stations[j1][1] - stations[j0][1]
+        heading = math.atan2(hy, hx) if (hx or hy) else 0.0
+        w = max(0.5, widths[i] * rng.uniform(2.2, 3.8))
+        off = rng.uniform(-0.6, 0.6) * w
+        wx, wy = px - math.sin(heading) * off, py + math.cos(heading) * off
+        if not _c_ok(ctx, wx, wy):
+            continue
+        sx, sy = w * rng.uniform(0.8, 1.3), w * rng.uniform(0.55, 1.0)
+        path = "{0}/{1}_{2}_{3}".format(ctx["parent"], tag, ctx["tag"], _uid(ctx))
+        _box(ctx["stage"], path, wx, wy, z0 + rng.uniform(-0.01, 0.05), sx, sy,
+             rng.uniform(0.07, 0.15),
+             math.degrees(heading) + rng.uniform(-30, 30),
+             _c_ground_look(ctx, wx, wy, None,
+                           lambda: "pave" if rng.random() < 0.5 else "asph"))
+        a = rng.uniform(0.0, 6.2832)
+        _transform_prims(
+            ctx["stage"], [path],
+            _rot_about((wx, wy, z0), (math.cos(a), math.sin(a), 0.0),
+                      rng.uniform(3.0, 14.0)))
+        made.append(path)
+    # ROUND ? — CHIP. This IS cast pavement, unlike the mound it straddles —
+    # see the module note above `_c_geom_mesh` for why the mound never does.
+    _chip_authored(ctx, made, why="fissure_pave")
+    ctx["authored"] += made
+    ctx.setdefault("static_extra", [])
+    ctx["static_extra"] += made
+    return made
+
+
+def _c_fissure_trace(ctx, x0, y0, heading0_deg, length_m, width_m, mat,
+                     tag="fissure", z0=0.0, step_m=1.2, pave=True):
+    """ONE tension crack: from `(x0, y0)` on heading `heading0_deg`, walked
+    `length_m` on a wandering heading (jittered +-16 deg every `step_m` —
+    the exact per-step draw the old chain-of-boxes loop made, so a bench
+    tuned against it still means the same thing) and swept into ONE
+    continuous earthen mound via `scour_relief.geometry` — the tornado
+    suburb's own construction, called directly rather than reimplemented.
+
+    THE ONE PLACE this construction lives: both `_c_fissures` (one call per
+    building corner) and `quake.ground_effects`'s epicentre soft-soil
+    cracks call this function, so "use the same code" (user) is true
+    between the two places a fissure is authored, not only within this
+    file.
+
+    Also lays the cracked-asphalt band beside it (`_c_fissure_pave`,
+    `pave=False` to skip). Returns the mound mesh path, or None if the
+    trace never reached two stations inside `ctx.get("bounds")`."""
+    rng = ctx["rng"]
+    heading = math.radians(heading0_deg)
+    n = max(2, int(length_m / step_m))
+    stations, widths = [(x0, y0)], [width_m]
+    x, y, w = x0, y0, width_m
+    for _i in range(n):
+        heading += math.radians(rng.uniform(-16, 16))
+        nx, ny = x + math.cos(heading) * step_m, y + math.sin(heading) * step_m
+        if not _c_ok(ctx, nx, ny):
+            break
+        x, y = nx, ny
+        w *= rng.uniform(0.72, 0.98)
+        stations.append((x, y))
+        widths.append(w)
+    if len(stations) < 2:
+        return None
+
+    n_st = len(stations)
+    hn = _c_noise(rng, freqs=(0.6, 1.7), amps=(0.6, 0.3))
+    h0 = width_m * rng.uniform(0.45, 0.85)
+    ridge_st = []
+    for k, (px, py) in enumerate(stations):
+        t = k / float(n_st - 1)
+        # DIES AT BOTH ENDS — `scour_relief._ridge_spec`'s own taper: a bank
+        # standing at full height right up to a hard edge has two vertical
+        # walls, which no pile of earth has.
+        taper = math.sin(math.pi * t) ** 0.6
+        hh = max(0.01, h0 * taper * (0.72 + 0.30 * hn(k * step_m)))
+        ww = max(0.05, widths[k] * 0.5)
+        ridge_st.append((px, py, hh, hh, ww, ww, 0.0))
+    spec = {"kind": "ridge", "cls": "soil", "z": float(z0), "base": float(z0),
+           "x": x0, "y": y0, "stations": ridge_st}
+    pts3, faces = _scour_relief.geometry(spec)
+    path = _c_geom_mesh(ctx, tag + "_mound", pts3, faces, mat)
+    if path and pave:
+        _c_fissure_pave(ctx, stations, widths, z0, tag=tag + "_pave")
+    return path
+
+
 def _c_fissures(ctx, m, corners=None, n_each=(1, 3), length=C_FISSURE_M,
-                width=(0.06 * FISSURE_SCALE, 0.22 * FISSURE_SCALE),
-                tag="fissure"):
+                width=C_FISSURE_W, tag="fissure"):
     """Tension cracks out of the corners: the stress concentration of a
-    footing that rotated. Chains of thin boxes on a wandering heading,
-    2-6 m before `FISSURE_SCALE` (research s3.13: "tension cracks ... offset
-    kerbs").
+    footing that rotated, 2-6 m before `FISSURE_SCALE` (research s3.13:
+    "tension cracks ... offset kerbs"); wider before the new
+    `FISSURE_WIDTH_SCALE` (`C_FISSURE_W`, "the fissure itself should be
+    thicker" — user).
 
     THE SOIL LOOK, NOT A FLAT DARK BOX (round 5 review: "are you using the
-    mud texture? it looks a little odd for the cracks in the ground ... use
-    the same texture we're using for dirt mounds in tornado suburb" — the
-    `crack` key in `materials()` is a flat near-black procedural colour with
-    no texture at all, which is what read as "odd": a photograph of a
-    tension crack shows disturbed native soil/dust along its whole trace, not
-    a jet-black slit — the flat `crack` colour is right for the deep VOID of
-    an opened gap (`_c_gap`), wrong here.). One `_c_ground_look` draw per
-    crack (not per box) — `_c_look`'s own per-building cache means every box
-    of the same crack still shares the exact material, no per-segment
-    flicker."""
+    mud texture? ... use the same texture we're using for dirt mounds in
+    tornado suburb" — the `crack` key in `materials()` is a flat near-black
+    procedural colour with no texture at all; the flat `crack` colour stays
+    right for the deep VOID of an opened gap (`_c_gap`), wrong here). One
+    `_c_ground_look` draw per crack (not per station) — `_c_look`'s own
+    per-building cache means the whole mound still shares one material, no
+    per-segment flicker.
+
+    THE GEOMETRY is `_c_fissure_trace`'s, see its docstring and the module
+    note above `_c_geom_mesh` for why it replaced the old chain of boxes.
+    `made` is the crack's own earth ONLY — the cracked-asphalt band
+    `_c_fissure_trace` also lays is a separate authored population (see
+    `_c_fissure_pave`'s docstring)."""
     rng = ctx["rng"]
     made = []
     W, D = m["W"], m["D"]
@@ -8039,25 +8426,14 @@ def _c_fissures(ctx, m, corners=None, n_each=(1, 3), length=C_FISSURE_M,
             L = rng.uniform(*length)
             heading = math.atan2(ly, lx) + rng.uniform(-0.7, 0.7) + math.radians(m["yaw"])
             wx, wy = _to_world(m, lx * 1.02, ly * 1.02)
-            w = rng.uniform(*width)
+            w0 = rng.uniform(*width)
             mat = _c_ground_look(
                 ctx, wx, wy, None,
                 lambda: "soil" if rng.random() < 0.7 else "silt")
-            step = 1.2
-            for _i in range(max(2, int(L / step))):
-                heading += math.radians(rng.uniform(-16, 16))
-                nx2, ny2 = wx + math.cos(heading) * step, wy + math.sin(heading) * step
-                mx, my = (wx + nx2) / 2.0, (wy + ny2) / 2.0
-                if not _c_ok(ctx, mx, my):
-                    break
-                path = "{0}/{1}_{2}_{3}".format(ctx["parent"], tag, ctx["tag"], _uid(ctx))
-                _box(ctx["stage"], path, mx, my, m["z0"] + 0.02, step * 1.12,
-                     w * rng.uniform(0.7, 1.3), 0.06, math.degrees(heading),
-                     mat)
+            path = _c_fissure_trace(ctx, wx, wy, math.degrees(heading), L, w0,
+                                    mat, tag=tag, z0=m["z0"])
+            if path:
                 made.append(path)
-                wx, wy = nx2, ny2
-                w *= rng.uniform(0.72, 0.98)
-    ctx["authored"] += made
     return made
 
 
@@ -8465,7 +8841,8 @@ def r_overturn(ctx, angle_deg=None, side="S"):
                 e["role"] in ("wall", "corner", "balcony") and e["storey"] == top):
             st, lo = _break(ctx["stage"], ctx["parent"], e, ctx["tag"],
                             7 + rng.randrange(4), rng, nrng, ctx["mats"],
-                            ctx["cache"], info["type"], inner_p=0.4, consume=0.25)
+                            ctx["cache"], info["type"], inner_p=0.4, consume=0.25,
+                            family=info["family"])
             ctx["loose"] += lo + st
             e["dead"] = True
     carried = []          # roof remainders ride with the shell (they are
@@ -10372,7 +10749,8 @@ def _d_crush_band(ctx, m, side, z_lo, z_hi, span=None, mass="main",
         st, lo = _break(ctx["stage"], ctx["parent"], e, ctx["tag"],
                         rng.randrange(*n_pieces), rng, nrng, ctx["mats"],
                         ctx["cache"], ctx["info"]["type"], inner_p=0.45,
-                        partial=partial, consume=0.18)
+                        partial=partial, consume=0.18,
+                        family=ctx["info"]["family"])
         keep = [q for q in lo if rng.random() >= loose_frac]
         drop = [q for q in lo if q not in keep]
         for q in drop:
@@ -10680,7 +11058,8 @@ def r_collapse_onto(ctx, side=None, mass="main", storeys=2, punch=True,
             continue
         st, lo = _break(ctx["stage"], ctx["parent"], e, ctx["tag"],
                         7 + rng.randrange(5), rng, ctx["nrng"], ctx["mats"],
-                        ctx["cache"], info["type"], inner_p=0.4, consume=0.22)
+                        ctx["cache"], info["type"], inner_p=0.4, consume=0.22,
+                        family=info["family"])
         for q in lo:
             ctx["velocity"][q] = _throw(e["z"] + e["h"] * 0.5, rng.random())
         ctx["loose"] += lo

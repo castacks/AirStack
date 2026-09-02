@@ -510,15 +510,16 @@ def test_apply_industrial_never_leaves_a_mesh_unbound_even_if_debris_material_mi
         assert mat and mat.GetPrim().IsValid(), (path, "STILL unbound after fallback")
 
 
-def test_steel_joist_material_string_resolves_via_the_existing_metal_bucket():
-    """Locks in the forward-compat claim in `_build_joists`'s own
-    docstring: `"steel_joist"` already routes through
-    `tornado_urban_usd._classify`'s substring match on `"steel"` into the
-    SAME `metal` bucket every other untextured metal fragment uses, so
-    nothing here depends on the new bucket this round's report proposes to
-    the lead landing first."""
+def test_steel_joist_material_string_resolves_to_the_dark_joist_bucket():
+    """Round 4: the lead landed the dedicated `steel_joist` bucket this
+    stream's report specced (dark bar-joist steel, plan 8c "joists dark
+    steel") -- `"steel_joist"` now routes there, ahead of the generic
+    `"steel"` substring match, and the bucket is darker than `metal`."""
     from disaster import tornado_urban_usd as tuw
-    assert tuw._classify("joist", "steel_joist") == "metal"
+    assert tuw._classify("joist", "steel_joist") == "steel_joist"
+    flat_joist, _grime_j, _r = tuw._CLASS_LOOK["steel_joist"]
+    flat_metal, _grime_m, _r2 = tuw._CLASS_LOOK["metal"]
+    assert max(flat_joist) < min(flat_metal)
 
 
 if __name__ == "__main__":

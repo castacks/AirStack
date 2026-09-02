@@ -1,78 +1,88 @@
+# raven_nav — single-agent RAVEN (Voxel > Ray > LVLM-guided > Frontier).
+#
+# NOTE: this file is read ONLY by launch/raven_nav.launch.xml. The mission path
+# (semantic_search_task) spawns the node with `ros2 run ... --ros-args -p ...`
+# and NO --params-file, so on a real run the declare_parameter() defaults in
+# raven_nav/params.py are what apply. The values below mirror those defaults;
+# every threshold is the original RAVEN paper value, with its source file.
 raven_nav:
   ros__parameters:
-    timer_period: 0.5       # seconds between behavior loop iterations
-    score_threshold: 0.65   # minimum softmax sim score to consider a ray
-    min_altitude_agl: 3.0   # filter rays/frontiers below this altitude (m)
-    max_altitude_agl: 15.0  # filter rays/frontiers above this altitude (m)
-    # Temporal confirmation: a detection must persist across N ticks before it
-    # counts, then rides out up to *_track_max_misses dropped ticks. 1 = off.
-    voxel_confirm_hits: 2
-    voxel_track_max_misses: 4
-    # Drop confirmed AABBs below this confidence (semantic score * persistence);
-    # 0 = report all. Raise (~0.3) to cut flickery low-persistence false positives.
+    timer_period: 0.5             # behaviour loop period (s)
+
+    # ── behaviour thresholds — ORIGINAL RAVEN values ────────────────────────
+    # Ray-based search fires when a ray's softmax score on a target column
+    # exceeds this (OG rayfronts/behaviors/ray_behavior.py:42).
+    score_threshold: 0.95
+    # Voxel-based go-to-object gate (OG behaviors/voxel_behavior.py:51).
+    voxel_score_threshold: 0.98
+    # Minimum voxels in a 26-connected component to become a target box
+    # (OG behaviors/voxel_behavior.py:78).
+    voxel_min_cluster_size: 30
+    # Report-side only: drop AABBs whose mean score is below this. 0 = report
+    # all. Not an OG knob; it exists because the benchmark scores detections.
     voxel_min_confidence: 0.0
-    ray_confirm_hits: 2
-    ray_track_max_misses: 4
-    # Ray-commit hysteresis: switch ray only if a rival beats it by this fraction
-    # and the current one has been held this long (s).
-    commit_swap_improvement_frac: 0.25
-    commit_min_hold_s: 4.0
-    # Engage voxel-mode on a cluster within this range even without a ray commit.
-    voxel_proximity_engage_m: 12.0
-    # Must match the query order registered in RayFronts (target + background)
+
+    # ── altitude band (DEVIATION 1) ─────────────────────────────────────────
+    # OG emitted whatever z the map gave it. Every waypoint is clamped into
+    # this band here, because a casualty's standoff point is ~0.5 m AGL.
+    min_altitude_agl: 3.0
+    max_altitude_agl: 15.0
+
+    # ── LVLM-guided behaviour ───────────────────────────────────────────────
+    # Enabled unless env RAVEN_LVLM says otherwise. An unreachable VLM endpoint
+    # disables it at startup (the chain then falls through to Frontier).
+    lvlm_enabled: true
+    lvlm_request_interval_s: 30.0   # OG LVLM/internvl3.py:35
+    lvlm_ray_threshold: 0.9         # OG behaviors/lvlm_behavior.py:78
+    lvlm_vlm_url: ''                # '' -> $VLM_URL, $OPENAI_BASE_URL, then
+                                    #       http://offboard-compute:8000/v1
+    lvlm_vlm_model: ''              # '' -> $CONAVGPT2_VLM_MODEL, else the
+                                    #       endpoint's first served model
+    lvlm_image_topic: ''            # '' -> /$ROBOT_NAME/sensors/front_stereo/
+                                    #       left/image_rect
+
+    # ── queries ─────────────────────────────────────────────────────────────
+    # Must match the query order registered in RayFronts (targets + background).
+    # The authoritative order is re-derived at runtime from the q{k}_<label>
+    # topic names rayfronts publishes.
     query_labels:
       - 'red building'
       - 'water tower'
       - 'radio tower'
-    # Which of the above to actually navigate toward (empty = all query_labels)
+    # Which of the above to navigate toward (empty = all query_labels).
     target_labels: []
-    # Confirmed BBs join the auction alongside rays. Rays bid as if their target
-    # is this factor further than the ray origin, so they don't look closer than a
-    # real BB. Main BB-vs-ray knob; tune per scene (larger = favor BBs).
-    ray_reach_factor: 3.0
-    # Gentle behind-only heading penalty for ray/BB target selection (front/side
-    # free): nearest-first, but won't fully reverse for a marginally-behind target.
-    target_behind_penalty_weight: 8.0
-    # Assignment hysteresis: a different target must beat the committed one by this
-    # much for the auction to switch (stops Hungarian swapping near-equal matchings).
-    commit_switch_margin_m: 8.0
-    # Max tasks per robot in the consensus bundle (head executed, tail reserved
-    # + replanned each tick). 1 = single-target.
-    bundle_len: 3
-    # Publish /debug/auction_solve JSON (full solve trace) + [auction] log lines.
-    debug_auction: true
-    # Run the frontier-only baseline: navigation ignores semantic cues.
-    # (semantic_search_task spawns raven_nav with -p args, not this file,
-    # and currently sets this to true — see semantic_search_task/node.py.)
-    frontier_only_baseline: false
-    # Run the VLFM baseline: semantic-ray exploration (blended with frontier-style
-    # distance + peer-repulsion + novelty costs for multi-robot coordination) +
-    # voxel go-to-object (behaviors/vlfm_behavior.py). Mutually exclusive with
-    # frontier_only_baseline. Uses voxel_score_threshold for the go-to-object gate.
-    vlfm_baseline: false
-    # Meters of travel one unit of semantic similarity is worth in the VLFM cost
-    # blend. Higher -> pursue the target harder; lower -> spread out / explore more.
-    vlfm_value_weight: 300.0
 
-    # Run the Co-NavGPT baseline ("VLM-Assign" arm, arXiv:2310.07937 adapted to
-    # multi-target / non-co-located starts): one VLM call per round assigns each
-    # robot a numbered frontier region; everything else is frontier exploration.
-    # Last in the precedence chain (frontier_only > vlfm > conavgpt) so an
-    # over-specified mission still runs exactly one baseline.
-    conavgpt_baseline: false
-    # Which robot hosts the single assigner node. One VLM call serves the whole
-    # team, so exactly one robot must run it; the rest read the answer over gossip.
-    conavgpt_leader_id: 1
-    # Upper bound on seconds between VLM rounds. Reaching the assigned region,
-    # losing it, or an expired assignment all open a round early, so this only
-    # caps how long a stale plan can stand when nothing else happens.
-    conavgpt_round_period_s: 30.0
-    # How many numbered regions the VLM is shown. More context costs prompt
-    # length and makes the numbering harder for a small model to keep straight.
-    conavgpt_max_regions: 12
-    # An assignment older than this is not worth flying to (the map has moved on):
-    # the robot reverts to nearest-frontier and the round is scored as a fallback.
-    conavgpt_assignment_ttl_s: 90.0
-    # Arriving inside this radius of the assigned region ends the round early —
-    # without it a robot would sit on a finished region until the period lapsed.
-    conavgpt_replan_on_reach_m: 8.0
+    # ── coverage / completion (DEVIATION 4) ─────────────────────────────────
+    # RAVEN had no "done"; semantic_search_task ends a search on
+    # navigation_mode == 'complete', which this threshold produces.
+    coverage_complete_threshold: 0.90
+    coverage_cell_size_m: 0.5
+    coverage_raycast_range_m: 30.0
+    coverage_raycast_min_step_m: 5.0
+
+    # ── output ──────────────────────────────────────────────────────────────
+    results_dir: ''
+    results_dump_period_s: 3.0
+    nav_output_enabled: true
+    debug_ray_table: true
+    debug_table_max_rows: 30
+    debug_table_period_sec: 5.0
+    debug_coordination: true
+
+    # ── the one surviving baseline (DEVIATION 3) ────────────────────────────
+    # Pure frontier navigation; passive voxel detection keeps running so the
+    # arm still reports confirmed_targets / discoveries.
+    frontier_only_baseline: false
+
+    # Parameters below are ACCEPTED (semantic_search_task still passes them)
+    # but INERT: the auction/consensus, peer state and the VLFM / Co-NavGPT
+    # baselines were removed with the multi-robot code. The node logs any that
+    # are set to a non-default value once, as ignored.
+    # vlfm_baseline, vlfm_use_voxel_targets, vlfm_value_weight,
+    # vlfm_ray_blacklist, conavgpt_baseline, conavgpt_leader_id,
+    # conavgpt_round_period_s, conavgpt_max_regions, conavgpt_assignment_ttl_s,
+    # conavgpt_replan_on_reach_m, bundle_len, voxel_confirm_hits,
+    # voxel_track_max_misses, voxel_proximity_engage_m, ray_confirm_hits,
+    # ray_track_max_misses, commit_swap_improvement_frac, commit_min_hold_s,
+    # commit_radius_m, ray_reach_factor, target_behind_penalty_weight,
+    # commit_switch_margin_m, debug_auction, bb_release_timeout_s

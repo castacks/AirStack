@@ -45,7 +45,26 @@ immediately; run it before trusting anything else in this file.
 
 ---
 
-## 1. THE BAKE — verify, do not run
+## 1. THE BAKE — SUPERSEDED 2026-09-01, READ THIS FIRST
+>
+> **This section's verdict ("no bake needed") was correct for the SIX-level
+> tornado ladder and is now WRONG.** On 2026-09-01 the hurricane was moved back
+> onto its own EIGHT-level ladder (`hurricane.house_level_for_intensity`) on the
+> user's instruction, because the six-level vocabulary has no cladding rung and
+> therefore cannot express the dataset's level-1 cell at all.
+>
+> That makes 24 archetypes — `house_<style>_{shingles_lost,cover_lost,
+> deck_panels_lost}.usd`, 8 styles x 3 levels — a HARD PREREQUISITE. They have
+> never been baked. The assembly resolves a missing key with
+> `... or harch.get("house_<style>_pristine")`, so an unbaked library renders
+> level 1 (20% cladding rungs) and level 2 (**85%**) as an essentially
+> undamaged suburb, silently.
+>
+> See `.agents/skills/export-hurricane-suburban/SKILL.md` §3, which is
+> authoritative. §1a-§1d below remain useful as the record of how the
+> archetype resolution path was traced.
+
+## 1. THE BAKE — verify, do not run (SUPERSEDED, see the note above)
 
 ### 1a. What the code actually asks the archetype libraries for
 

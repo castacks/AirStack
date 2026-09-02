@@ -1,0 +1,33 @@
+road
+asphalt
+driveway
+sidewalk
+grass
+dirt
+mud
+gravel
+tree
+fallen tree
+tree branch
+bush
+house
+roof
+brick wall
+wooden fence
+car
+pickup truck
+wood planks
+lumber
+rubble
+debris pile
+tarp
+sky
+cloud
+utility pole
+power line
+trash can
+mailbox
+swimming pool
+concrete slab
+garage door
+window

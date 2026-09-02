@@ -1,259 +1,243 @@
-import numpy as np
-from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseStamped
-from visualization_msgs.msg import Marker, MarkerArray
-from std_msgs.msg import String
+"""Ray-based search — numpy port of the original RAVEN behaviour.
 
-from raven_nav.behaviors.frontier_behavior import _points_in_polygon
-from raven_nav.behaviors.pursuit_stuck import (
-    RAY_APPROACH_VARIANTS, ray_variant_waypoints)
-from coordination_bringup.frame_utils import dir_to_quat
+Source: RayFronts_raven/rayfronts/behaviors/ray_behavior.py
+
+The OG pipeline, unchanged:
+  rays whose softmax score on ANY target column exceeds 0.95
+  -> keep only rays whose (origin + unit xy dir) target lies AHEAD of the drone
+  -> greedy 45-degree XY angle binning (incremental centroid, first fit wins)
+  -> per group: mean origin, normalised mean direction, density = ray count
+  -> best group = argmin( |mean_origin - pose| - 5 * density )
+  -> wp1 = origin + 6*dir, wp2 = origin + 12*dir
+  -> unlock once the drone is within 4 m of wp2
+
+Two documented departures from the OG source:
+
+* the RDF -> FLU flip happens in `raven_nav_node._ray_all_cb` (same formula)
+  rather than here, because rays reach us over a PointCloud2 instead of out of
+  the mapper's tensors;
+* OG:85 applied the forward-filter mask to `xy_dirs_np_normed` only, then
+  indexed the UNFILTERED `orig_world`/`dir_world` with the filtered group
+  indices (`OG:116-117`). That is an off-by-selection bug: with any ray
+  filtered out the group averages are computed from the wrong rays. Here the
+  mask is applied to all three arrays, which is what the code plainly meant.
+  `test_og_parity.py` pins the two implementations together on inputs where no
+  ray is filtered, so the bug is the only difference.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+
+import numpy as np
+
+from raven_nav.behaviors.common import BehaviorOutput, TickContext, columns_for
+from raven_nav.ray_groups import RayGroup
+
+# ── OG constants (ray_behavior.py line numbers) ─────────────────────────────
+RAY_SCORE_THRESHOLD = 0.95      # OG:42 — exposed as the `score_threshold` param
+ANGLE_BIN_DEG = 45.0            # OG:90
+MIN_RAYS_PER_GROUP = 1          # OG:110
+DENSITY_WEIGHT = 5.0            # OG:128 (`k`)
+MAGNITUDE_M = 6.0               # OG:139 — wp1 = origin + 6*dir, wp2 = +12*dir
+UNLOCK_RADIUS_M = 4.0           # OG:187
+
+
+@dataclass
+class RayAnalysis:
+    """Everything the OG `condition_check` + the front half of `execute`
+    derive from one ray cloud. Recomputed every tick by the node so passive
+    reporting (discoveries) works even when ray mode never fires."""
+
+    orig: np.ndarray = field(default_factory=lambda: np.zeros((0, 3)))
+    dirs: np.ndarray = field(default_factory=lambda: np.zeros((0, 3)))
+    scores: np.ndarray = field(default_factory=lambda: np.zeros((0,)))
+    labels: List[str] = field(default_factory=list)
+    groups: List[Dict] = field(default_factory=list)
+    averages: List[tuple] = field(default_factory=list)   # (origin, dir, density)
+    order: List[int] = field(default_factory=list)        # groups, best first
+
+    @property
+    def has_rays(self) -> bool:
+        return self.orig.shape[0] > 0
+
+
+def angle_bin_groups(xy_dirs: np.ndarray,
+                     angle_deg: float = ANGLE_BIN_DEG) -> List[Dict]:
+    """OG:87-111, verbatim: greedy first-fit binning of unit XY directions.
+
+    Each group keeps a running mean of its member directions as the centroid;
+    a direction joins the first group whose centroid is within `angle_deg`.
+    Order-sensitive by construction — that is the OG behaviour.
+    """
+    thresh = float(np.cos(np.deg2rad(angle_deg)))
+    groups: List[Dict] = []
+    for i, xy_dir in enumerate(np.asarray(xy_dirs, dtype=np.float64)):
+        assigned = False
+        for g in groups:
+            if float(np.dot(xy_dir, g['centroid'])) >= thresh:
+                g['indices'].append(i)
+                g['rays'].append(xy_dir)
+                c = np.mean(g['rays'], axis=0)
+                g['centroid'] = c / np.linalg.norm(c)
+                assigned = True
+                break
+        if not assigned:
+            groups.append({'centroid': xy_dir.copy(),
+                           'rays': [xy_dir], 'indices': [i]})
+    return [g for g in groups if len(g['rays']) >= MIN_RAYS_PER_GROUP]
 
 
 class RayBehavior:
-    # Weight on bearing continuity (same direction as / origin moving along the
-    # committed bearing) when picking which ray to follow.
-    DIR_WEIGHT = 20.0
+    name = 'Ray-based'
 
-    # When a ray approach is stuck, try alternate approach waypoints for the
-    # SAME lead (see pursuit_stuck). Only after all variants fail does the lead
-    # go on a cooldown so the drone stops orbiting an unreachable viewpoint.
-    STUCK_COOLDOWN_S = 60.0
-    STUCK_GROUP_RADIUS_M = 6.0
+    def __init__(self, score_threshold: float = RAY_SCORE_THRESHOLD) -> None:
+        self.score_threshold = float(score_threshold)
+        self.analysis = RayAnalysis()
+        self.current_target: str = ''
 
-    def __init__(self, get_clock, current_target_publisher=None,
-                 score_threshold=0.68,
-                 min_altitude=1.5, max_altitude=100.0):
-        self.get_clock = get_clock
-        self.name = 'Ray-based'
-        self.score_threshold = score_threshold
-        self.min_altitude = min_altitude
-        self.max_altitude = max_altitude
-        self.prev_filtered_marker_ids = 0
-        self.current_target = None
-        self.current_target_pub = current_target_publisher
+    # ── analysis ────────────────────────────────────────────────────────────
+    def analyse(self, ctx: TickContext,
+                columns: Optional[List[int]] = None,
+                threshold: Optional[float] = None) -> RayAnalysis:
+        """OG:16-54 (`condition_check`) + OG:61-125 (grouping).
 
-        # Set externally each tick before mode_select / execute.
-        self.ray_groups = []
-        self.assigned_target = None
+        `columns` defaults to the target columns; the LVLM behaviour reuses
+        this with its guiding columns and its own (lower) threshold.
+        """
+        thr = self.score_threshold if threshold is None else float(threshold)
+        a = RayAnalysis()
+        o, d, s = ctx.ray_origins, ctx.ray_dirs, ctx.ray_scores
+        if o is None or d is None or s is None or len(o) == 0:
+            return a
+        cols = ctx.target_columns() if columns is None else list(columns)
+        if not cols:
+            return a
+        s = np.asarray(s, dtype=np.float64)
+        if s.ndim != 2 or max(cols) >= s.shape[1]:
+            return a
+        rel = s[:, cols]
+        keep = np.nonzero((rel > thr).any(axis=1))[0]     # OG:44-46
+        if keep.size == 0:
+            return a
 
-        # Per-lead approach-variant cursor and cooldown, keyed by a coarse XY of
-        # the chosen investigation point. Advanced by note_stuck() (called by the
-        # node when the pursuit stuck monitor fires). {xy_key: {'variant','until'}}
-        self._approach_state: dict = {}
+        orig = np.asarray(o, dtype=np.float64)[keep]
+        dirs = np.asarray(d, dtype=np.float64)[keep]
+        best_rel = np.argmax(rel[keep], axis=1)
+        labels = [str(ctx.query_labels[cols[int(b)]]) for b in best_rel]
+        scores = rel[keep][np.arange(keep.size), best_rel]
 
-    def condition_check(self):
-        return self.assigned_target is not None and any(
-            g.label == self.assigned_target for g in self.ray_groups)
+        xy = dirs[:, :2]
+        nrm = np.linalg.norm(xy, axis=1, keepdims=True)
+        xy_unit = xy / np.where(nrm > 1e-12, nrm, 1.0)
 
-    def _now_s(self) -> float:
-        return self.get_clock().now().nanoseconds * 1e-9
+        # OG:74-85 — drop rays whose target lies behind the drone in XY.
+        cur_xy = np.asarray(ctx.cur_pose, dtype=np.float64)[:2]
+        to_target = (orig[:, :2] + xy_unit) - cur_xy[None, :]
+        forward = np.einsum('ij,ij->i', xy_unit, to_target) > 0
+        if not np.any(forward):
+            return a
+        orig, dirs, xy_unit = orig[forward], dirs[forward], xy_unit[forward]
+        labels = [l for l, f in zip(labels, forward) if f]
+        scores = scores[forward]
 
-    def _lead_key(self, origin):
-        # Coarse XY bucket so the same lead maps to one strike record across
-        # small origin jitter (rays for one target cluster within a few metres).
-        o = np.asarray(origin, dtype=float)
-        return (int(round(o[0] / self.STUCK_GROUP_RADIUS_M)),
-                int(round(o[1] / self.STUCK_GROUP_RADIUS_M)))
+        groups = angle_bin_groups(xy_unit)
+        averages = []
+        for g in groups:                                   # OG:113-125
+            idx = g['indices']
+            avg_o = orig[idx].mean(axis=0)
+            avg_d = dirs[idx].mean(axis=0)
+            avg_d = avg_d / (np.linalg.norm(avg_d) + 1e-12)
+            averages.append((avg_o, avg_d, len(g['rays'])))
+        pose = np.asarray(ctx.cur_pose, dtype=np.float64)
+        cost = [float(np.linalg.norm(av[0] - pose)) - DENSITY_WEIGHT * av[2]
+                for av in averages]                        # OG:128-129
+        order = list(np.argsort(np.asarray(cost), kind='stable'))
 
-    def note_stuck(self) -> None:
-        """Called by the node when the pursuit stuck monitor fires while in
-        ray mode: advance the current lead to its next approach variant, and
-        start a cooldown once every variant has been tried."""
-        best = getattr(self, '_last_best_group', None)
-        if best is None:
-            return
-        key = self._lead_key(best.avg_origin)
-        st = self._approach_state.setdefault(key, {'variant': 0, 'until': 0.0})
-        st['variant'] += 1
-        if st['variant'] >= RAY_APPROACH_VARIANTS:
-            # Exhausted all approaches — park this lead for a while and reset so
-            # it can be retried later (targets/obstacles may have changed).
-            st['until'] = self._now_s() + self.STUCK_COOLDOWN_S
-            st['variant'] = 0
+        a.orig, a.dirs, a.scores = orig, dirs, scores
+        a.labels, a.groups, a.averages = labels, groups, averages
+        a.order = [int(i) for i in order]
+        return a
 
-    def _lead_on_cooldown(self, origin) -> bool:
-        st = self._approach_state.get(self._lead_key(origin))
-        return bool(st and self._now_s() < st['until'])
+    def update(self, ctx: TickContext) -> RayAnalysis:
+        """Recompute and cache. Called once per tick by the node."""
+        self.analysis = self.analyse(ctx)
+        return self.analysis
 
-    def execute(self, cur_pose_np, waypoint_locked, target_waypoint1,
-                target_waypoint2, publisher_dict, assigned_target=None,
-                assigned_origin=None, assigned_dir=None,
-                search_area_xy=None):
-        path_publisher = publisher_dict['path']
+    def condition_check(self, ctx: TickContext) -> bool:   # noqa: ARG002
+        """OG:16-54 — fire when at least one ray beats the threshold."""
+        return self.analysis.has_rays and bool(self.analysis.groups)
 
-        target = assigned_target if assigned_target is not None else self.assigned_target
-        if target is None:
-            return waypoint_locked, target_waypoint1, target_waypoint2
+    # ── execution ───────────────────────────────────────────────────────────
+    def execute(self, ctx: TickContext) -> BehaviorOutput:
+        out = BehaviorOutput(waypoint_locked=ctx.waypoint_locked,
+                             target_waypoint=ctx.target_waypoint,
+                             target_waypoint2=ctx.target_waypoint2)
+        a = self.analysis
+        if not a.averages:
+            out.note = 'no ray groups'                     # OG:132-135
+            return out
+        pose = np.asarray(ctx.cur_pose, dtype=np.float64)
+        for gi in a.order:
+            origin, direction, _density = a.averages[gi]
+            direction = direction / (np.linalg.norm(direction) + 1e-12)
+            wp1 = ctx.clamp(origin + direction * MAGNITUDE_M)
+            wp2 = ctx.clamp(origin + direction * MAGNITUDE_M * 2.0)
+            # DEVIATION 2 — never route outside the mission polygon.
+            if not (ctx.inside_area(wp1) and ctx.inside_area(wp2)):
+                continue
+            out.target_waypoint = wp1
+            out.target_waypoint2 = wp2
+            out.path = [wp1, wp2]                          # OG:162-181
+            self.current_target = self._group_label(gi)
+            if float(np.linalg.norm(pose - wp2)) < UNLOCK_RADIUS_M:
+                out.waypoint_locked = False                # OG:187-188
+            return out
+        out.note = 'all ray groups outside search_area'
+        return out
 
-        groups = [g for g in self.ray_groups if g.label == target]
-        if not groups:
-            return waypoint_locked, target_waypoint1, target_waypoint2
+    def _group_label(self, gi: int) -> str:
+        idx = self.analysis.groups[gi]['indices']
+        counts: Dict[str, int] = {}
+        for i in idx:
+            lbl = self.analysis.labels[i]
+            counts[lbl] = counts.get(lbl, 0) + 1
+        return max(counts, key=lambda k: (counts[k], k)) if counts else ''
 
-        # Polygon constraint: reject any ray group whose origin OR investigation
-        # waypoint (origin + dir*6 m) falls outside the search area. Without
-        # this, the drone will happily fly across the polygon edge to chase a
-        # ray pointing outward — operator drew the polygon for a reason.
-        if search_area_xy is not None and search_area_xy.shape[0] >= 3:
-            pts_xy = np.array([
-                [g.avg_origin[0], g.avg_origin[1]] for g in groups
-            ] + [
-                [g.avg_origin[0] + g.avg_dir[0] * 6.0,
-                 g.avg_origin[1] + g.avg_dir[1] * 6.0] for g in groups
-            ], dtype=np.float64)
-            inside = _points_in_polygon(pts_xy, search_area_xy)
-            n = len(groups)
-            origin_in = inside[:n]
-            wp_in = inside[n:]
-            groups = [g for g, oi, wi in zip(groups, origin_in, wp_in)
-                      if oi and wi]
-            if not groups:
-                return waypoint_locked, target_waypoint1, target_waypoint2
+    # ── reporting ───────────────────────────────────────────────────────────
+    def ray_groups(self) -> List[RayGroup]:
+        """The OG angle groups as `RayGroup`s, for ray_targets/discoveries."""
+        a = self.analysis
+        out: List[RayGroup] = []
+        for gi, g in enumerate(a.groups):
+            idx = g['indices']
+            rg = RayGroup(label=self._group_label(gi),
+                          ray_origins=a.orig[idx],
+                          ray_dirs=a.dirs[idx],
+                          ray_scores=a.scores[idx])
+            rg.finalize(np.zeros(3))
+            out.append(rg)
+        return out
 
-        # Drop leads whose approaches all failed recently (cooldown from
-        # note_stuck) so the drone stops orbiting an unreachable viewpoint —
-        # unless every remaining lead is cooling down, in which case keep them
-        # (better a retry than no target at all).
-        reachable = [g for g in groups if not self._lead_on_cooldown(g.avg_origin)]
-        if reachable:
-            groups = reachable
+    def arrows(self):
+        """(origins, dirs, group_id) triple for the filtered_rays MarkerArray."""
+        a = self.analysis
+        gid = np.full(a.orig.shape[0], -1, dtype=int)
+        for i, g in enumerate(a.groups):
+            for j in g['indices']:
+                gid[j] = i
+        return a.orig, a.dirs, gid
 
-        # Prefer groups whose investigation waypoint (origin + dir*6 m, where the
-        # drone is actually sent) is ahead of the drone — don't backtrack to a ray
-        # for the same target seen from a viewpoint we've already passed. "Ahead"
-        # is along the committed bearing when following a target; fall back to all
-        # groups only if every one is behind (then the drone turns around).
-        if assigned_dir is not None:
-            af = np.asarray(assigned_dir, dtype=float)[:2]
-            af = af / (np.linalg.norm(af) + 1e-6)
-            forward_groups = [
-                g for g in groups
-                if float(np.dot(g.avg_origin[:2] + g.avg_dir[:2] * 6.0
-                                - cur_pose_np[:2], af)) > 0
-            ]
-        else:
-            forward_groups = [
-                g for g in groups
-                if np.dot(g.avg_dir[:2],
-                          g.avg_origin[:2] + g.avg_dir[:2] - cur_pose_np[:2]) > 0
-            ]
-        candidates = forward_groups if forward_groups else groups
-
-        self.current_target = target
-        if self.current_target_pub is not None:
-            self.current_target_pub.publish(String(data=target))
-
-        # Weighted pick: prefer the ray with the same direction as the committed
-        # bearing AND an origin moving along it (staying on one physical target),
-        # falling back to the closest when nothing matches well.
-        if (assigned_origin is not None and assigned_dir is not None):
-            ao = np.asarray(assigned_origin, dtype=float)
-            ad = np.asarray(assigned_dir, dtype=float)
-            ad_n = ad / (np.linalg.norm(ad) + 1e-6)
-            def _cost(g):
-                c = float(g.avg_dist_to_robot)
-                gd = np.asarray(g.avg_dir, dtype=float)
-                gd_n = gd / (np.linalg.norm(gd) + 1e-6)
-                c += self.DIR_WEIGHT * (1.0 - float(np.dot(gd_n, ad_n)))
-                rel = np.asarray(g.avg_origin, dtype=float) - ao
-                rn = float(np.linalg.norm(rel))
-                if rn > 1.0:
-                    c += self.DIR_WEIGHT * (1.0 - float(np.dot(rel / rn, ad_n)))
-                return c
-            best = min(candidates, key=_cost)
-        else:
-            k = 5.0
-            best = min(candidates,
-                       key=lambda g: g.avg_dist_to_robot - k * g.num_rays)
-
-        # Approach variant for this lead: 0 = canonical (origin + dir*6/*12);
-        # higher variants sidestep / climb / stop short after stuck strikes.
-        self._last_best_group = best
-        st = self._approach_state.get(self._lead_key(best.avg_origin))
-        variant = st['variant'] if st else 0
-        bd = np.asarray(best.avg_dir, dtype=float)
-        bd = bd / (np.linalg.norm(bd) + 1e-6)
-        target_waypoint1, target_waypoint2 = ray_variant_waypoints(
-            best.avg_origin, bd, variant)
-        target_waypoint1 = self._clamp_alt(target_waypoint1)
-        target_waypoint2 = self._clamp_alt(target_waypoint2)
-
-        path = Path()
-        path.header.stamp = self.get_clock().now().to_msg()
-        path.header.frame_id = 'map'
-        for wp in (target_waypoint1, target_waypoint2):
-            ps = PoseStamped()
-            ps.header.stamp = self.get_clock().now().to_msg()
-            ps.header.frame_id = 'map'
-            ps.pose.position.x = float(wp[0])
-            ps.pose.position.y = float(wp[1])
-            ps.pose.position.z = float(wp[2])
-            ps.pose.orientation.w = 1.0
-            path.poses.append(ps)
-        path_publisher.publish(path)
-
-        self._visualize_filtered_rays(groups, publisher_dict)
-        return waypoint_locked, target_waypoint1, target_waypoint2
-
-    def _clamp_alt(self, wp):
-        """Keep a variant waypoint inside the altitude band (a climb variant or
-        a downward bearing must not push the goal out of the flyable envelope)."""
-        wp = np.asarray(wp, dtype=float).copy()
-        wp[2] = float(np.clip(wp[2], self.min_altitude, self.max_altitude))
-        return wp
-
-    def _visualize_filtered_rays(self, groups, publisher_dict):
-        pub = publisher_dict['filtered_rays']
-        self._clear_filtered_rays(pub)
-        colors = [
-            (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0),
-            (1.0, 1.0, 0.0), (0.0, 1.0, 1.0), (1.0, 0.0, 1.0),
-            (0.5, 0.5, 0.5), (1.0, 0.5, 0.0), (0.5, 0.0, 1.0),
-            (0.0, 0.5, 0.5),
-        ]
-        arrow_length = 2.0
-        marker_array = MarkerArray()
-        j = 0
-        for i, g in enumerate(groups):
-            rr, gg, bb = colors[i % len(colors)]
-            for k in range(g.num_rays):
-                p0 = g.ray_origins[k]
-                qx, qy, qz, qw = dir_to_quat(g.ray_dirs[k])
-                arrow = Marker()
-                arrow.header.frame_id = 'map'
-                arrow.header.stamp = self.get_clock().now().to_msg()
-                arrow.ns = 'arrows'
-                arrow.id = j
-                arrow.type = Marker.ARROW
-                arrow.action = Marker.ADD
-                arrow.pose.position.x = float(p0[0])
-                arrow.pose.position.y = float(p0[1])
-                arrow.pose.position.z = float(p0[2])
-                arrow.pose.orientation.x = qx
-                arrow.pose.orientation.y = qy
-                arrow.pose.orientation.z = qz
-                arrow.pose.orientation.w = qw
-                arrow.scale.x = arrow_length
-                arrow.scale.y = 0.4
-                arrow.scale.z = 0.4
-                arrow.color.r = rr
-                arrow.color.g = gg
-                arrow.color.b = bb
-                arrow.color.a = 0.5
-                marker_array.markers.append(arrow)
-                j += 1
-        self.prev_filtered_marker_ids = j
-        pub.publish(marker_array)
-
-    def _clear_filtered_rays(self, pub):
-        if self.prev_filtered_marker_ids > 0:
-            clear_array = MarkerArray()
-            for i in range(self.prev_filtered_marker_ids):
-                m = Marker()
-                m.header.frame_id = 'map'
-                m.header.stamp = self.get_clock().now().to_msg()
-                m.ns = 'arrows'
-                m.id = i
-                m.action = Marker.DELETE
-                clear_array.markers.append(m)
-            pub.publish(clear_array)
+    def group_table(self) -> str:
+        a = self.analysis
+        lines = [f'ray groups={len(a.groups)} rays_kept={a.orig.shape[0]} '
+                 f'threshold={self.score_threshold:g}']
+        if a.averages:
+            lines.append(f'{"rank":>4} {"grp":>3} {"label":<18} {"n":>4} '
+                         f'{"ox":>8} {"oy":>8} {"oz":>7} {"dx":>6} {"dy":>6}')
+            for rank, gi in enumerate(a.order):
+                o, d, n = a.averages[gi]
+                lines.append(f'{rank:>4} {gi:>3} {self._group_label(gi):<18} '
+                             f'{n:>4} {o[0]:8.1f} {o[1]:8.1f} {o[2]:7.1f} '
+                             f'{d[0]:6.2f} {d[1]:6.2f}')
+        return '\n'.join(lines)

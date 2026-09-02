@@ -790,6 +790,311 @@ def test_apply_street_tips_a_tree_and_reports_a_failure():
 
 
 # ---------------------------------------------------------------------------
+# 11. ROUND 4 -- the min_moved floor, points-based seating, the axis-up
+# residual and the laid-down tree. Every number here comes from
+# `tools/tornado_street_seat_probe.py` / `tools/tornado_tree_fall_probe.py`
+# run against the real bench C1 cell in the container; these tests pin the
+# behaviour offline.
+# ---------------------------------------------------------------------------
+
+def _wedge_prim(stage, path, x=0.0, y=0.0, yaw_deg=0.0, roll_deg=0.0,
+                scale=1.0):
+    """A placement whose BOUNDING BOX LIES about it -- the whole point.
+
+    A 4 x 0.2 x 0.2 m spar with a single stub sticking out sideways at the
+    TOP: the bbox is 4 x 2 x 0.2 m but there is no geometry at all in the
+    (y = -1, z = 0) corner, which is exactly the corner `tornado.toss_prim`
+    lifts a rolled prop by. Modelled on the real streetlight
+    (`SM_lightpost_light_post_b.usd`, 0.55 x 2.19 x 6.01 m, the 2.19 being
+    a lamp arm that exists only at the top), which `toss_prim` floated
+    0.788 m off the road.
+    """
+    prim = UsdGeom.Xform.Define(stage, Sdf.Path(path))
+    xf = UsdGeom.Xformable(prim)
+    xf.ClearXformOpOrder()
+    xf.AddTranslateOp().Set(Gf.Vec3d(float(x), float(y), 0.0))
+    xf.AddRotateXYZOp().Set(Gf.Vec3f(float(roll_deg), 0.0, float(yaw_deg)))
+    xf.AddScaleOp().Set(Gf.Vec3f(float(scale), float(scale), float(scale)))
+    m = UsdGeom.Mesh.Define(stage, Sdf.Path(path + "/geo"))
+    pts = []
+    # the spar, along +z
+    for (px, py, pz) in ((-0.1, -0.1, 0.0), (0.1, -0.1, 0.0),
+                        (0.1, 0.1, 0.0), (-0.1, 0.1, 0.0),
+                        (-0.1, -0.1, 4.0), (0.1, -0.1, 4.0),
+                        (0.1, 0.1, 4.0), (-0.1, 0.1, 4.0)):
+        pts.append(Gf.Vec3f(px, py, pz))
+    # the arm, only at the top, only on -y
+    for (px, py, pz) in ((-0.05, -1.0, 3.8), (0.05, -1.0, 3.8),
+                        (0.05, -1.0, 4.0), (-0.05, -1.0, 4.0)):
+        pts.append(Gf.Vec3f(px, py, pz))
+    m.CreatePointsAttr(pts)
+    m.CreateFaceVertexCountsAttr([4] * 3)
+    m.CreateFaceVertexIndicesAttr([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+    m.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+    return prim
+
+
+def _world_min_z(stage, path):
+    return tst._points_min_z(stage, path)
+
+
+@strict
+def test_min_moved_floor_leaves_no_pristine_car_and_never_tips_one():
+    print("\n[cars] min_moved: the SECOND review floor -- no core car is "
+          "left parked, and it never adds a tipped or thrown car")
+    cars = [_car("/p/c%d" % k, x=k * 12.0) for k in range(3)]
+    n_seeds = 0
+    for seed in range(120):
+        base = _plan(cars, 0.85, seed, min_tipped=0, min_moved=0)
+        floored = _plan(cars, 0.85, seed, min_tipped=0, min_moved=3)
+        n_seeds += 1
+        check(len(floored) >= len(base),
+              "seed %d: the floor never removes an action" % seed)
+        if len(floored) < 3:
+            continue
+        check(len(floored) == 3,
+              "seed %d: min_moved=3 leaves no car untouched (%d acted on)"
+              % (seed, len(floored)))
+        base_tipped = sum(1 for a in base if a.get("toppled"))
+        add_tipped = sum(1 for a in floored
+                        if a.get("toppled") and a.get("floor") == "moved")
+        check(add_tipped == 0,
+              "seed %d: a min_moved promotion is never a TIP (%d)"
+              % (seed, add_tipped))
+        check(sum(1 for a in floored if a.get("thrown"))
+              == sum(1 for a in base if a.get("thrown")),
+              "seed %d: the thrown count is unchanged by the floor" % seed)
+        check(base_tipped <= sum(1 for a in floored if a.get("toppled")),
+              "seed %d: the floor never un-tips a car" % seed)
+    check(n_seeds == 120, "walked 120 seeds")
+
+
+@strict
+def test_min_moved_records_are_marked_and_min_zero_is_a_no_op():
+    print("\n[cars] a min_moved car is stamped forced/floor='moved'; "
+          "min_moved=0 changes nothing")
+    cars = [_car("/p/c%d" % k, x=k * 12.0) for k in range(3)]
+    for seed in range(40):
+        a0 = _plan(cars, 0.85, seed, min_tipped=0, min_moved=0)
+        a1 = _plan(cars, 0.85, seed, min_tipped=0, min_moved=0)
+        check(a0 == a1, "seed %d: min_moved=0 is deterministic" % seed)
+    acts = _plan(cars, 0.85, 3, min_tipped=0, min_moved=3)
+    forced = [a for a in acts if a.get("floor") == "moved"]
+    for a in forced:
+        check(a["forced"] is True, "a min_moved car is forced=True")
+        check(a["thrown"] is False, "a min_moved car is never thrown")
+        check(a["pose"] == "shoved",
+              "a min_moved car takes car_pose's shoved branch (got %r)"
+              % a["pose"])
+    check(json.loads(json.dumps(acts)) == acts,
+          "min_moved actions stay JSON round-trippable")
+
+
+@strict
+def test_points_seating_beats_the_bbox_that_floated_the_lamp():
+    print("\n[seat] a felled prop is seated by MESH POINTS, so a prop "
+          "whose bbox has an empty low corner does not float")
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    _wedge_prim(stage, "/World/street/lamp", x=3.0, y=0.0, yaw_deg=30.0)
+    z_pre = _world_min_z(stage, "/World/street/lamp")
+    check(abs(z_pre) < 1e-6, "the upright spar starts on grade (%.4f)" % z_pre)
+
+    fell = {"path": "/World/street/lamp", "kind": "felled",
+           "category": "streetlight", "action": "fell",
+           "bearing_deg": 40.0, "dist_m": 1.0, "roll_deg": 82.0,
+           "yaw_jitter_deg": 10.0}
+    counts = tst.apply_street(stage, [fell], verbose=False)
+    z_post = _world_min_z(stage, "/World/street/lamp")
+    check(abs(z_post) <= tst.SEAT_TOL_M,
+          "the felled spar's lowest VERTEX is on grade (%.4f m)" % z_post)
+    check(counts["n_off_grade"] == 0,
+          "apply_street reports 0 props off grade")
+    check(counts["n_seated"] == 1, "apply_street reports 1 prop seated")
+    check(abs(counts["max_gap_m"]) <= tst.SEAT_TOL_M,
+          "the reported worst gap is inside tolerance (%.4f)"
+          % counts["max_gap_m"])
+    # And the bbox-based answer really is different -- if it were not,
+    # this test would pass for the wrong reason.
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                           [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+    bb = bc.ComputeWorldBound(
+        stage.GetPrimAtPath(Sdf.Path("/World/street/lamp"))
+    ).ComputeAlignedRange()
+    check(float(bb.GetMin()[2]) < -0.2,
+          "the bbox of the SAME posed prim still reads well below grade "
+          "(%.3f) -- i.e. the two data really do disagree"
+          % float(bb.GetMin()[2]))
+
+
+@strict
+def test_a_prop_that_stays_put_keeps_its_kerb_height_and_a_thrown_one_does_not():
+    print("\n[seat] the datum depends on whether the prop went anywhere: "
+          "a kerb-standing prop keeps its kerb, a thrown one lands on "
+          "grade")
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    # Both start 0.18 m up -- `scene_generator` places urban street props
+    # on `sidewalk_top` (0.015 m + the slab's own thickness), never z=0.
+    for name in ("stay", "flung"):
+        p = _wedge_prim(stage, "/World/street/" + name)
+        for op in UsdGeom.Xformable(p).GetOrderedXformOps():
+            if op.GetOpName().split(":")[-1] == "translate":
+                op.Set(Gf.Vec3d(0.0, 0.0, 0.18))
+    check(abs(_world_min_z(stage, "/World/street/stay") - 0.18) < 1e-6,
+          "both start on a 0.18 m kerb")
+
+    stay = {"path": "/World/street/stay", "kind": "felled",
+           "category": "streetlight", "action": "fell",
+           "bearing_deg": 0.0, "dist_m": 0.9, "roll_deg": 80.0,
+           "yaw_jitter_deg": 0.0}
+    flung = {"path": "/World/street/flung", "kind": "carried",
+            "category": "trash_can", "action": "toss",
+            "bearing_deg": 0.0, "dist_m": 30.0, "roll_deg": 80.0,
+            "yaw_jitter_deg": 0.0, "pitch_deg": 0.0}
+    tst.apply_street(stage, [stay, flung], verbose=False)
+
+    z_stay = _world_min_z(stage, "/World/street/stay")
+    z_flung = _world_min_z(stage, "/World/street/flung")
+    check(abs(z_stay - 0.18) <= tst.SEAT_TOL_M,
+          "a prop that moved %.1f m (< SEAT_STAY_PUT_M) keeps its kerb "
+          "height (%.4f, want 0.18)" % (stay["dist_m"], z_stay))
+    check(abs(z_flung) <= tst.SEAT_TOL_M,
+          "a prop thrown 30 m lands on grade, not 0.18 m above it "
+          "(%.4f)" % z_flung)
+
+
+@strict
+def test_axis_up_placement_keeps_its_correction_and_rolls_about_the_long_axis():
+    print("\n[seat] a Y-up placement (rotateXYZ roll=90, the car pool's "
+          "own convention) keeps that 90 and still rolls about its LENGTH")
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    path = "/World/street/car"
+    prim = UsdGeom.Xform.Define(stage, Sdf.Path(path))
+    xf = UsdGeom.Xformable(prim)
+    xf.ClearXformOpOrder()
+    xf.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, 0.7))
+    # Y-up asset placed the way `AssetPools.roll_of`/`yaw_of` place one:
+    # roll 90 stands it up, and the art `yaw-offset` of 90 is folded into
+    # the yaw so the LENGTH ends up along the placement bearing (0 here).
+    xf.AddRotateXYZOp().Set(Gf.Vec3f(90.0, 0.0, 90.0))
+    xf.AddScaleOp().Set(Gf.Vec3f(1.0, 1.0, 1.0))
+    m = UsdGeom.Mesh.Define(stage, Sdf.Path(path + "/geo"))
+    # local X = width 2, local Y = height 1.4 (up), local Z = length 4.6
+    pts = []
+    for sx_ in (-1.0, 1.0):
+        for sy_ in (-0.7, 0.7):
+            for sz_ in (-2.3, 2.3):
+                pts.append(Gf.Vec3f(sx_, sy_, sz_))
+    m.CreatePointsAttr(pts)
+    m.CreateFaceVertexCountsAttr([4])
+    m.CreateFaceVertexIndicesAttr([0, 1, 3, 2])
+    m.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+
+    act = {"path": path, "kind": "car", "category": "car",
+          "action": "car_pose", "pose": "side", "dx": 0.0, "dy": 0.0,
+          "d_m": 0.0, "roll_deg": 90.0, "pitch_deg": 0.0,
+          "yaw_delta_deg": 0.0, "toppled": True, "thrown": False,
+          "forced": False, "floor": None, "intensity": 0.9}
+    tst.apply_street(stage, [act], verbose=False)
+
+    names = [op.GetOpName().split(":")[-1]
+            for op in UsdGeom.Xformable(prim).GetOrderedXformOps()]
+    check("axisUp" in names,
+          "the placement's axis-up correction survives as its own suffixed "
+          "op (ops: %r)" % names)
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                           [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+    r = bc.ComputeWorldBound(prim.GetPrim()).ComputeAlignedRange()
+    sz = r.GetSize()
+    # ON ITS SIDE: the 4.6 m LENGTH stays horizontal and the 2.0 m WIDTH
+    # becomes the height. Rolling about the width instead (the bug) would
+    # stand the 4.6 m length up and report a ~4.6 m tall car.
+    check(abs(float(sz[2]) - 2.0) < 0.05,
+          "a car on its side is its own WIDTH tall (%.2f m, want 2.0)"
+          % float(sz[2]))
+    check(max(float(sz[0]), float(sz[1])) > 4.0,
+          "its LENGTH is still horizontal (%.2f m)"
+          % max(float(sz[0]), float(sz[1])))
+    check(abs(float(r.GetMin()[2])) <= tst.SEAT_TOL_M,
+          "and it rests ON the plate, not in it (%.4f m)"
+          % float(r.GetMin()[2]))
+
+
+@strict
+def test_uprooted_tree_is_laid_down_and_seated_on_its_butt():
+    print("\n[trees] an uprooted tree keeps the lean it was DRAWN (no "
+          "seat-band bisection back to lean_min_deg) and its butt lands "
+          "one root plate off the ground")
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    path = "/World/street/tree"
+    _wedge_prim(stage, path, x=2.0, y=1.0, yaw_deg=140.0)
+    act = {"path": path, "kind": "tree", "category": "street_tree",
+          "action": "level", "level": "fallen", "geom": "uproot",
+          "azimuth_deg": 20.0, "lean_deg": 84.0, "lean_min_deg": 46.0,
+          "species": "Shumard_Oak", "intensity": 0.9}
+    tst.apply_street(stage, [act], verbose=False)
+
+    ops = {op.GetOpName().split(":")[-1]: op.Get()
+          for op in UsdGeom.Xformable(
+              stage.GetPrimAtPath(Sdf.Path(path))).GetOrderedXformOps()}
+    check("orient" in ops, "the tree carries tip_tree's orient op")
+    t = ops["translate"]
+    check(abs(float(t[2]) - tst.TREE_ROOT_LIFT_M) < 1e-4,
+          "the butt (tip_tree's own pivot) sits at TREE_ROOT_LIFT_M "
+          "(%.4f, want %.4f)" % (float(t[2]), tst.TREE_ROOT_LIFT_M))
+    # It really was laid DOWN: the quaternion's rotation angle is the lean.
+    q = ops["orient"]
+    ang = 2.0 * math.degrees(math.acos(min(1.0, abs(float(q.real)))))
+    check(abs(ang - 84.0) < 1.0,
+          "the applied lean is the 84 deg that was planned, not a "
+          "bisected-down 46 (%.1f)" % ang)
+    plate = stage.GetPrimAtPath(Sdf.Path(path + "_rootplate"))
+    check(bool(plate) and plate.IsValid(),
+          "a vegetation.root_plate sibling is authored at the butt")
+
+
+@strict
+def test_tip_azimuth_cancels_the_placement_yaw():
+    print("\n[trees] the fall azimuth handed to tip_tree is corrected for "
+          "the placement yaw its op order applies on top")
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    path = "/World/street/t2"
+    _wedge_prim(stage, path, x=0.0, y=0.0, yaw_deg=270.0)
+    tst._normalize_yaw_op(stage, path)
+    got = tst._tip_azimuth(stage, path, 63.0)
+    check(abs(got - (63.0 - 270.0)) < 1e-6,
+          "azimuth 63 under a 270 deg placement yaw is handed over as "
+          "-207 (got %.3f)" % got)
+    check(abs(tst._tip_azimuth(stage, "/World/street/nope", 63.0) - 63.0)
+          < 1e-6, "a missing prim degrades to the raw azimuth")
+
+
+@strict
+def test_uproot_lean_band_lays_the_tree_down():
+    print("\n[trees] TREE_UPROOT_RANGE_DEG is a LAID-DOWN band, and "
+          "lean_min_deg is no longer a floor anything bisects to")
+    lo, hi = tst.TREE_UPROOT_RANGE_DEG
+    check(lo >= 70.0, "the shallowest uproot lean is >= 70 deg (%.1f) -- "
+                      "measured off/crown_r 0.94 at 70, 0.73 at 46" % lo)
+    check(hi <= 92.0, "the deepest is <= 92 deg (%.1f)" % hi)
+    leans = []
+    for seed in range(300):
+        placements = [_prop("/p/t", "street_tree", x=1000.0 + seed * 20.0,
+                            usd=_tree_species_usd())]
+        act = _plan(placements, 0.97, seed)[0]
+        if act.get("geom") == "uproot":
+            leans.append(act["lean_deg"])
+    check(leans, "at least one uproot was drawn")
+    check(min(leans) >= lo - 1e-6 and max(leans) <= hi + 1e-6,
+          "every drawn uproot lean is inside the band (%.1f..%.1f)"
+          % (min(leans), max(leans)))
+
+
+# ---------------------------------------------------------------------------
 # runner
 # ---------------------------------------------------------------------------
 

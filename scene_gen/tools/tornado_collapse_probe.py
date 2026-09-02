@@ -83,7 +83,19 @@ def _dump_debris_material_bindings(stage, root_path):
     material's Shader, and report whether `diffuse_color_constant` reads as
     white -- ground truth for whether `apply_industrial`'s own binding call
     (not `tuw.debris_material`'s colour choices, D's region) is the cause.
+
+    Per the lead's own dichotomy (round4, relayed from D's MDL read): a
+    BOUND material whose `diffuse_texture` path fails to RESOLVE falls back
+    to `diffuse_color_constant` in OmniPBR -- so a white mesh is either (a)
+    not bound to any material at all, or (b) bound to a material whose
+    texture path is unresolvable while its constant happens to be light.
+    This dump checks BOTH: binding presence AND, for any authored
+    `diffuse_texture`, whether the resolved path actually exists on this
+    container's filesystem (a local `airstack://`-resolved path; a Nucleus
+    `omniverse://` path is reported but not filesystem-checked here).
     Returns `(n_mesh, n_unbound, n_white)`."""
+    import os
+
     from pxr import Usd, UsdGeom, UsdShade
     n_mesh = n_unbound = n_white = 0
     root = stage.GetPrimAtPath(root_path)
@@ -101,12 +113,32 @@ def _dump_debris_material_bindings(stage, root_path):
             continue
         sh = UsdShade.Shader.Get(stage, mat.GetPath().AppendChild("Shader"))
         dc = sh.GetInput("diffuse_color_constant").Get() if sh else None
+        tex_input = sh.GetInput("diffuse_texture") if sh else None
+        tex_val = tex_input.Get() if tex_input else None
+        tex_note = ""
+        if tex_val:
+            # `Sdf.AssetPath.path` is the raw string; `str(Sdf.AssetPath(...))`
+            # wraps it in "@...@" layer-path-expression delimiters, which
+            # made an earlier draft of this check `os.path.isfile("@/isaac-
+            # sim/.../foo.png@")` -- always False regardless of whether the
+            # file is really there. Caught by cross-checking against a
+            # direct `ls` on the container filesystem (see the report).
+            tex_path = tex_val.path if hasattr(tex_val, "path") else str(tex_val)
+            if tex_path.startswith("omniverse://"):
+                tex_note = "  texture={0} (Nucleus, not filesystem-checked)".format(tex_path)
+            else:
+                exists = os.path.isfile(tex_path)
+                tex_note = "  texture={0} exists_on_disk={1}".format(tex_path, exists)
+                if not exists:
+                    print("[tcp]   ** WARNING: {0}'s bound texture does NOT "
+                          "resolve on this filesystem -- MDL falls back to "
+                          "diffuse_color_constant={1} **".format(prim.GetPath(), dc))
         is_white = bool(dc) and all(float(c) > 0.9 for c in dc)
         if is_white:
             n_white += 1
-        print("[tcp]   {0} -> {1}  diffuse_color_constant={2}{3}".format(
+        print("[tcp]   {0} -> {1}  diffuse_color_constant={2}{3}{4}".format(
             prim.GetPath(), mat.GetPath(), dc,
-            "  ** WHITE **" if is_white else ""))
+            "  ** WHITE **" if is_white else "", tex_note))
     print("[tcp]   {0}: {1} mesh(es), {2} unbound, {3} white".format(
         root_path, n_mesh, n_unbound, n_white))
     return n_mesh, n_unbound, n_white

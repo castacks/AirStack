@@ -332,9 +332,143 @@ def _surface_tex_and_name(mat_prim):
     return "", "", mname
 
 
+#: THE OUTERMOST TOLERANCE (round 4, D2) — a candidate whose front is within
+#: this much of the frontmost candidate's is still "on the outside face" of
+#: the piece and competes on area. `fire_collapse.TEAR_OUTER_TOL_M`'s own
+#: value, restated here rather than imported so this function keeps its
+#: import-time dependency set unchanged (`fire_collapse` is imported lazily,
+#: inside the call, for `is_fake_interior` only).
+_SURFACE_OUTER_TOL_M = 0.25
+#: A piece whose centre is closer than this to the BUILDING's centre has no
+#: meaningful outward direction (a `core` piece, a slab). Ranking by
+#: outermost-ness there would be noise, so those fall back to area.
+_SURFACE_AXIS_MIN_M = 0.5
+#: The percentile of a candidate's own face centroids, projected on the
+#: outward axis, that stands for "how far forward this material sits" —
+#: `fire_collapse.facade_skin`'s own rule-2 statistic, and a percentile
+#: rather than a max so one stray face cannot promote a whole subset.
+_SURFACE_FRONT_PCT = 90.0
+
+
+def _mesh_face_proj(mesh_prim, xf_cache, axis):
+    """(F,) array — every face's centroid projected on `axis`, in WORLD
+    space — or None when the mesh cannot be read.
+
+    WORLD, not local: the only thing this is used for is comparing two
+    subsets OF THE SAME PIECE against an axis derived from world bboxes
+    (`annotate_surface`'s own `Cp - Cb`), so both sides of the comparison
+    have to be in one frame, and world is the only frame available here
+    without knowing the cell path. A yawed holder therefore changes nothing
+    about the ranking — the axis rotates with the geometry.
+    """
+    import numpy as np
+    from pxr import UsdGeom
+
+    mesh = UsdGeom.Mesh(mesh_prim)
+    pts = mesh.GetPointsAttr().Get()
+    cnt = mesh.GetFaceVertexCountsAttr().Get()
+    idx = mesh.GetFaceVertexIndicesAttr().Get()
+    if not pts or not cnt or not idx:
+        return None
+    P = np.asarray([[q[0], q[1], q[2]] for q in pts], dtype=float)
+    M = xf_cache.GetLocalToWorldTransform(mesh_prim)
+    R = np.asarray([[M[r][c] for c in range(3)] for r in range(3)], dtype=float)
+    T = np.asarray([M[3][0], M[3][1], M[3][2]], dtype=float)
+    d = (P @ R + T) @ np.asarray(axis, dtype=float)
+    cnt = np.asarray(cnt, dtype=np.int64)
+    idx = np.asarray(idx, dtype=np.int64)
+    if idx.size != int(cnt.sum()) or idx.max(initial=-1) >= P.shape[0]:
+        return None
+    ends = np.cumsum(cnt)
+    starts = ends - cnt
+    # per-face MEAN of its own vertices' projections, with no python loop:
+    # a prefix sum over the flattened corner list, differenced at the face
+    # boundaries. Works for mixed-arity faces (quads and triangles).
+    csum = np.concatenate(([0.0], np.cumsum(d[idx])))
+    return (csum[ends] - csum[starts]) / np.maximum(cnt, 1)
+
+
+def _rank_surface_candidates(cands, axis, xf_cache):
+    """Pick ONE of a piece's non-glazing textured candidates — OUTERMOST
+    first, area as the tie-break, exactly `fire_collapse.facade_skin`'s
+    rules 1-3 (this function is that ranking applied at ANNOTATION time,
+    where there is no `describe` mass frame yet, so the outward axis is
+    derived from world bboxes by the caller instead of from `e["out"]`).
+
+    ROUND 4 (D2) — WHY THIS REPLACED "BIGGEST SUBSET WINS". Measured on the
+    live `SM_Building_02` slice: a GAC `wall`/opening piece on a modelled
+    elevation carries BOTH its real cladding (`M_Building_01_Concrete_02`)
+    and the blind back-wall filler (`M_Building_01_WallBack`), and the
+    filler is the bigger subset by face count — it is one flat quad per
+    storey while the façade is split into mullions, reveals and a sill
+    course. So the largest-by-area rule stamped the BACK WALL as the
+    piece's cladding, and every consumer of that stamp inherited it: this
+    module's own tear faces (`_tear_material`) and the street debris
+    (`tornado_urban._ledger_removed` -> `debris_material`). Area was never
+    the property that makes something a façade; being the thing nothing
+    else is in front of is.
+
+      1. A candidate whose material name or base map matches
+         `fire_collapse.FAKE_INTERIOR_HINTS` (`Office_Fake`, `Ceiling`,
+         `M_Slab`, `Building_Floor`, ... — GAC hangs a printed interior
+         card BEHIND its glazing, facing out) is DEMOTED, not dropped: if
+         every candidate on the piece is one of those, the piece keeps it.
+         A parapet whose only texture is `M_Slab` is still a parapet.
+         NOTE `WallBack` is deliberately not on that list — on
+         GreatAmericanCity it IS the base texture of some real outward
+         subsets (`fire_collapse`'s own census, `pier_S_3_09_0102`), which
+         is exactly why this is an outermost test and not a name ban.
+      2. Of what is left, the OUTERMOST wins: candidates are ranked by the
+         90th percentile of their face centroids on the outward axis, and
+         only those within `_SURFACE_OUTER_TOL_M` of the front compete.
+      3. Among those, the largest face count wins — the ORIGINAL rule, now
+         applied only to what is actually on the outside face.
+
+    `axis` None (a core piece, or a stage with one placement and therefore
+    no derivable outward) falls straight through to rule 3, so the old
+    behaviour is exactly preserved wherever outermost-ness cannot be
+    decided. Returns `(winner, moved)`: `moved` is True when rule 2
+    changed the answer, for the caller's own census.
+    """
+    if not cands:
+        return None, False
+    from . import fire_collapse as fc
+
+    by_area = max(cands, key=lambda c: c["n"])
+    pool = [c for c in cands
+            if not fc.is_fake_interior(c["name"], c["mat"], c["url"])]
+    if not pool:
+        pool = list(cands)
+    if axis is not None and len(pool) > 1:
+        import numpy as np
+        proj_cache = {}
+        ranked = []
+        for c in pool:
+            key = str(c["mesh"].GetPath())
+            if key not in proj_cache:
+                proj_cache[key] = _mesh_face_proj(c["mesh"], xf_cache, axis)
+            proj = proj_cache[key]
+            if proj is None or not len(proj):
+                ranked = []
+                break
+            faces = c["faces"]
+            sel = (proj if faces is None
+                   else proj[np.asarray(faces, dtype=np.int64)
+                             [np.asarray(faces, dtype=np.int64) < len(proj)]])
+            if not len(sel):
+                ranked = []
+                break
+            ranked.append((c, float(np.percentile(sel, _SURFACE_FRONT_PCT))))
+        if ranked:
+            front = max(d for _c, d in ranked)
+            pool = [c for c, d in ranked if d >= front - _SURFACE_OUTER_TOL_M]
+    best = max(pool, key=lambda c: c["n"]) if pool else by_area
+    return best, best is not by_area
+
+
 def annotate_surface(stage, placements):
     """Stamp `_tex_url` / `_tex_name` onto each placement dict, IN PLACE,
-    from a REAL read of its prim's DOMINANT non-glazing bound texture —
+    from a REAL read of its prim's OUTERMOST non-glazing bound texture —
     the `annotate_glazing` pattern (same walk, same "measure, don't guess"
     discipline), generalised from "does this piece carry ANY glazing" to
     "what does the REST of this piece look like". Returns the number of
@@ -356,11 +490,10 @@ def annotate_surface(stage, placements):
          matches (a window pane is not cladding — the SAME exclusion
          `annotate_glazing`/`_void_glass` apply, just inverted: this
          function wants what is LEFT after glazing is removed). Among the
-         REMAINING (non-glazing) subsets, the one with the most faces
-         (`GetIndicesAttr()` length) wins — the largest single material on
-         the piece is its dominant cladding, exactly the same "biggest
-         subset wins" rule a piece with more than one non-glazing material
-         (a spandrel band plus a masonry pier, say) needs.
+         REMAINING (non-glazing) subsets, `_rank_surface_candidates` picks
+         the OUTERMOST one (largest face count only as the tie-break among
+         everything on the outside face) — ROUND 4, D2; see that function
+         for the measurement that retired the old "biggest subset wins".
       2. SUBSET-LESS MESH -> THE MESH'S OWN BINDING. A kit module (round 2
          vocabulary: `_window_named`'s sibling case) carries no subsets at
          all — one material bound directly to the mesh prim, the same
@@ -372,21 +505,66 @@ def annotate_surface(stage, placements):
          ("this only ever rebinds SUBSETS, never the piece prim's own
          ... binding").
 
+    THE OUTWARD AXIS is derived here rather than taken from a caller: this
+    runs BEFORE `quake_flow.describe`, so there is no mass frame and no
+    `e["out"]` yet. `normalize(piece centre - building centre)`, flattened
+    to horizontal, from the world bboxes of the placements themselves — the
+    geometric statement of outward for a perimeter piece, right for a
+    corner piece (it gives the diagonal), and degenerate exactly where it
+    should be (a core piece, or a single-placement stage), which falls back
+    to the old area rule.
+
     A piece with more than one `Mesh` prim under it (uncommon, but the walk
     does not assume exactly one) pools candidates across every mesh and
-    picks the single largest-by-face-count winner over the whole piece —
-    the same "DOMINANT" reading `_classify`'s caller wants, not a per-mesh
-    average.
+    ranks them together over the whole piece — the same "DOMINANT" reading
+    `_classify`'s caller wants, not a per-mesh average.
     """
+    import numpy as np
     from pxr import Usd, UsdGeom, UsdShade
     from detail import gac_slice as gsl
 
-    n_hit = 0
+    bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                           [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+    xf_cache = UsdGeom.XformCache()
+
+    # THE BUILDING'S OWN CENTRE, from the pieces themselves — the union of
+    # every placement's world bbox, so no cell path, mass frame or holder
+    # yaw is needed. `None` (nothing resolvable) disables rule 2 entirely.
+    lo = hi = None
+    prims = {}
     for p in placements:
         path = p.get("prim_path")
         prim = stage.GetPrimAtPath(path) if path else None
-        best_url, best_name, best_faces = "", "", -1
-        if prim and prim.IsValid():
+        if not prim or not prim.IsValid():
+            continue
+        prims[path] = prim
+        r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+        if r.IsEmpty():
+            continue
+        a, b = r.GetMin(), r.GetMax()
+        lo = [a[i] for i in range(3)] if lo is None else \
+            [min(lo[i], a[i]) for i in range(3)]
+        hi = [b[i] for i in range(3)] if hi is None else \
+            [max(hi[i], b[i]) for i in range(3)]
+    centre = None if lo is None else [(lo[i] + hi[i]) / 2.0 for i in range(3)]
+
+    n_hit = 0
+    n_moved = 0
+    for p in placements:
+        path = p.get("prim_path")
+        prim = prims.get(path)
+        cands = []
+        axis = None
+        if prim is not None:
+            if centre is not None:
+                r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+                if not r.IsEmpty():
+                    c = r.GetMidpoint()
+                    v = np.asarray([float(c[0]) - centre[0],
+                                    float(c[1]) - centre[1], 0.0])
+                    nrm = float(np.linalg.norm(v))
+                    if nrm > _SURFACE_AXIS_MIN_M:
+                        axis = v / nrm
             for mesh_prim in Usd.PrimRange(prim):
                 if not mesh_prim.IsA(UsdGeom.Mesh):
                     continue
@@ -404,9 +582,11 @@ def annotate_surface(stage, placements):
                         if not url:
                             continue
                         idx = s.GetIndicesAttr().Get()
-                        n_faces = len(idx) if idx else 0
-                        if n_faces > best_faces:
-                            best_url, best_name, best_faces = url, name, n_faces
+                        cands.append({
+                            "url": url, "name": name, "mat": mat_name,
+                            "n": len(idx) if idx else 0,
+                            "mesh": mesh_prim,
+                            "faces": list(idx) if idx else []})
                 else:
                     cur = UsdShade.MaterialBindingAPI(
                         mesh_prim).ComputeBoundMaterial()[0]
@@ -416,17 +596,22 @@ def annotate_surface(stage, placements):
                     if gsl.is_glazing(name, mat_name=mat_name) or not url:
                         continue
                     counts = mesh.GetFaceVertexCountsAttr().Get()
-                    n_faces = len(counts) if counts else 0
-                    if n_faces > best_faces:
-                        best_url, best_name, best_faces = url, name, n_faces
-        p["_tex_url"] = best_url
-        p["_tex_name"] = best_name
-        if best_url:
+                    cands.append({
+                        "url": url, "name": name, "mat": mat_name,
+                        "n": len(counts) if counts else 0,
+                        "mesh": mesh_prim, "faces": None})
+        best, moved = _rank_surface_candidates(cands, axis, xf_cache)
+        p["_tex_url"] = best["url"] if best else ""
+        p["_tex_name"] = best["name"] if best else ""
+        if best:
             n_hit += 1
+        if moved:
+            n_moved += 1
 
     print("[tornado_urban_usd] surface: {0} of {1} pieces carry a resolved "
-          "cladding texture (non-glazing, dominant by face count)".format(
-              n_hit, len(placements)))
+          "cladding texture (non-glazing, OUTERMOST subset — area only as "
+          "the tie-break); the outermost rule moved {2} piece(s) off the "
+          "largest-by-area answer".format(n_hit, len(placements), n_moved))
     return n_hit
 
 
@@ -646,6 +831,11 @@ def _classify(kind, material):
         return "brick"
     if "concrete" in m:
         return "concrete"
+    # Round 4 (stream C's spec): joists ahead of the generic metal match --
+    # "joists dark steel" per plan 8c; `tornado_collapse` stamps the
+    # literal material string "steel_joist".
+    if "joist" in m:
+        return "steel_joist"
     if "metal" in m or "steel" in m or "alumin" in m:
         return "metal"
     if "membrane" in m or "bitumen" in m or "felt" in m or "roofing" in m:
@@ -710,6 +900,7 @@ _CLASS_LOOK = {
     "brick": ((0.44, 0.38, 0.34), (0.88, 0.85, 0.82), 0.88),
     "concrete": ((0.48, 0.475, 0.465), (0.87, 0.87, 0.86), 0.85),
     "metal": ((0.44, 0.45, 0.46), (0.90, 0.90, 0.90), 0.35),
+    "steel_joist": ((0.15, 0.15, 0.16), (0.85, 0.85, 0.85), 0.45),
     "membrane": ((0.30, 0.275, 0.25), (0.83, 0.82, 0.80), 0.90),
 }
 _CLASS_LOOK_DEFAULT = ((0.45, 0.45, 0.45), (0.86, 0.86, 0.86), 0.70)
@@ -831,6 +1022,17 @@ def debris_material(stage, ctx, kind, material, tex_url=None, tex_name=None):
         _fix_diffuse_tint(stage, path, grime)
         print("[tornado_urban_usd] {0}/{1} -> Damaged_Concrete_Floor + "
               "neutral grime tint {2:.2f}".format(kind, material, grime[0]))
+    elif bucket == "steel_joist":
+        path = looks + "/steel_joist"
+        # Round 4 (stream C's spec): open-web bar joists read DARK against
+        # the light roof sheets lying over them -- plan 8c "joists dark
+        # steel". Flat colour like `metal` below (same no-map gap), just a
+        # near-black steel value and a duller sheen.
+        rgb, _grime, rough = _CLASS_LOOK["steel_joist"]
+        mat = damage._pbr(stage, path, rgb, rough)
+        print("[tornado_urban_usd] {0}/{1} -> flat dark steel {2:.2f}, "
+              "roughness {3:.2f} (bar joists, plan 8c)".format(
+                  kind, material, rgb[0], rough))
     elif bucket == "metal":
         path = looks + "/metal"
         # No metal basecolour map lives under scene_gen/assets/materials/
@@ -981,6 +1183,24 @@ def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
         entry["frags"].append(frag)
 
     made = []
+    # Round 4 (lead): the LAST-LINE landing clamp, for EVERY population
+    # that flows through here -- the planner's own reach caps only govern
+    # plan_damage's ledger, and the offline bench audit measured the ROOF-
+    # PEEL sheet population landing 16 m past the plate edge (onto the
+    # void) through this very function. Same per-call env contract as
+    # plan_damage's region fallback: TU_PLATE_REGION in the AUTHORING
+    # frame, re-read here on every call; absent = no clamp (probes/tests
+    # unchanged).
+    import os as _os
+    reg = None
+    _r = _os.environ.get("TU_PLATE_REGION", "").strip()
+    if _r:
+        try:
+            _v = tuple(float(q) for q in _r.split(","))
+            if len(_v) == 4:
+                reg = _v
+        except ValueError:
+            reg = None
     for (kind, label), entry in sorted(by_class.items()):
         group = entry["frags"]
         material = entry["material"]
@@ -990,6 +1210,9 @@ def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
             l, w, t = (float(q) for q in size)
             x = float(frag.get("x") or 0.0)
             y = float(frag.get("y") or 0.0)
+            if reg is not None:
+                x = min(max(x, reg[0] + 0.6), reg[2] - 0.6)
+                y = min(max(y, reg[1] + 0.6), reg[3] - 0.6)
             yaw_deg = float(frag.get("yaw_deg") or 0.0)
             tilt_deg = float(frag.get("tilt_deg") or 0.0)
             # ROUND 3 (stream DB's berm stacking, lead fix): a berm fragment
@@ -1370,10 +1593,13 @@ _FIT_INTERIOR_RECIPES = frozenset({"facade_collapse", "chunk"})
 #      stacked read as a gutted black box (B1_obl, B3_obl's corner).
 #      A parapet's own removal fed the same union, so the black band ran
 #      up over the roof line where there is no interior at all.
-#   2. THE ALBEDO. `_pbr(..., tint=rgb)` sets `diffuse_color_constant` to
-#      `rgb` AND `_fix_diffuse_tint` then sets `diffuse_tint` to the same
-#      `rgb` — the round-4 D3 double-tint finding. 0.08 applied twice is
-#      0.0064: pure void black, whatever the map underneath it says.
+#   2. THE ALBEDO. MEASURED on the exported stage by stream D: the round-3
+#      backing bound `T_vizbefe_2K_B.png` with `diffuse_color_constant =
+#      (0.08, 0.08, 0.08)` AND `diffuse_tint = (0.08, 0.08, 0.08)`. Per
+#      OmniPBR.mdl, `diffuse_color_constant` is the MAP-FAILED FALLBACK and
+#      `diffuse_tint` MULTIPLIES the resolved map — so the effective albedo
+#      was 0.08 x the map's own 0.445 mean ~= 0.03. That is the black slab,
+#      in numbers, and the fix is the TINT, not a bigger `rgb`.
 #
 # THE REWORK, in three parts:
 #
@@ -1384,10 +1610,13 @@ _FIT_INTERIOR_RECIPES = frozenset({"facade_collapse", "chunk"})
 #     pass uses), and merges only pieces that actually ABUT
 #     (`_HOLE_MERGE_GAP_M`). Two holes at opposite ends of one elevation
 #     stay two quads with standing wall between them.
-#   * A TEXTURED, DARK-WARM material. Base colour WHITE, the class tint on
-#     `diffuse_tint` only (the D3 prescription), over the concrete map, so
-#     the authored effective albedo is `_INTERIOR_BACKING_ALBEDO` — 0.34 /
-#     0.29 / 0.24, a dim warm room — and never the product of two tints.
+#   * A TEXTURED, DARK-WARM material. `diffuse_tint` is set so that TINT x
+#     the map's own measured mean lands on `_INTERIOR_BACKING_ALBEDO` —
+#     0.34 / 0.29 / 0.24, a dim warm room, inside the round-4 brief's own
+#     0.25-0.35 band — and `diffuse_color_constant` is set to that SAME
+#     albedo, so a build where the map does not resolve falls back to a dim
+#     warm wall rather than to white litter (stream D's own standing note:
+#     never leave a white constant behind a texture that can fail).
 #   * THE STOREFRONT RING (B2/D4). A ground storey whose bays are GLAZED
 #     is see-through: the round-3 bench's `dw_terrace` cell was a glass
 #     ring you could look straight through to the far elevation's glass,
@@ -1405,16 +1634,39 @@ _FIT_INTERIOR_RECIPES = frozenset({"facade_collapse", "chunk"})
 #: guessed so the ALBEDO is the number under review, not the multiplier.
 _TEX_CONCRETE_MEAN_SRGB = (0.445, 0.422, 0.403)
 #: The interior backing's effective albedo — a dim, warm room seen from
-#: outside in daylight. The round-4 brief's own band is 0.25-0.35; this
-#: sits at 0.30 mean with red > green > blue.
-_INTERIOR_BACKING_ALBEDO = (0.34, 0.29, 0.24)
-#: ... which over that map is this `diffuse_tint`. `diffuse_color_constant`
-#: is WHITE (see `_interior_backing_material`): the tint multiplies ONCE.
-_INTERIOR_BACKING_TINT = tuple(
-    float(a) / float(m) for a, m in
-    zip(_INTERIOR_BACKING_ALBEDO, _TEX_CONCRETE_MEAN_SRGB))
-#: Kept for any reader/test that still asks for the flat colour: it is the
-#: albedo, not the old 0.08 void.
+#: outside in daylight. The round-4 D1 brief's band is 0.25-0.35 and EVERY
+#: channel sits inside it (0.30 mean, red > green > blue: warm, not a grey
+#: card). A first cut at (0.34, 0.29, 0.24) was warmer still and put blue
+#: a hair under the band — kept in the record because "mean in band" is not
+#: the same claim as "in band".
+#:
+#: WHERE THIS DIVERGES FROM STREAM D, DELIBERATELY. D's round-4 rule for
+#: DEBRIS is "diffuse_tint NEAR-NEUTRAL (~0.87, 0.85, 0.83)", and it is
+#: right there: a fragment carries the SOURCE BUILDING's own texture and
+#: the tint must only add grime, never re-colour it. This material has no
+#: source texture — it is a generic concrete map standing in for a room
+#: interior — so what is under review is the ROOM'S DARKNESS, which D1
+#: pins directly (0.25-0.35) and D's 0.87 would put at 0.87 x 0.445 = 0.39,
+#: outside it. The tint below (0.74 / 0.71 / 0.67, hue ratio 1 : 0.96 :
+#: 0.90) is as close to D's neutral as the albedo band allows.
+_INTERIOR_BACKING_ALBEDO = (0.33, 0.30, 0.27)
+
+
+def _tint_for(albedo, mean=None):
+    """The `diffuse_tint` that puts `albedo` on screen over a map whose own
+    measured mean is `mean` — `diffuse_tint` MULTIPLIES the resolved map
+    (OmniPBR.mdl; measured by stream D on the exported round-3 stage,
+    where a 0.08 tint over this 0.445-mean map rendered at ~0.03). Stated
+    as a function so every look in this region is authored from the ALBEDO
+    it wants rather than from a multiplier someone has to reverse."""
+    mean = mean or _TEX_CONCRETE_MEAN_SRGB
+    return tuple(min(1.0, float(a) / float(m)) for a, m in zip(albedo, mean))
+
+
+_INTERIOR_BACKING_TINT = _tint_for(_INTERIOR_BACKING_ALBEDO)
+#: The FALLBACK `diffuse_color_constant` — what renders when the map does
+#: not resolve. Deliberately the same albedo, never white (a white constant
+#: is how a failed map turns into white litter) and never the old 0.08.
 _INTERIOR_BACKING_RGB = _INTERIOR_BACKING_ALBEDO
 _INTERIOR_BACKING_ROUGHNESS = 0.93
 #: The backing sits this far INSIDE the wall line. 0.5 m read as a pane
@@ -1486,31 +1738,30 @@ def _ensure_fit_mats(stage, ctx):
         rgb = (0.42, 0.40, 0.37)
         mats["plaster"] = damage._pbr(
             stage, path, rgb, 0.90, texture=tex,
-            scale_uv=_TILE_REPEATS_PER_M, tint=(1.0, 1.0, 1.0))
-        _fix_diffuse_tint(stage, path, tuple(
-            float(a) / float(m) for a, m in zip(rgb, _TEX_CONCRETE_MEAN_SRGB)))
+            scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
+        _fix_diffuse_tint(stage, path, _tint_for(rgb))
     if mats.get("timber") is None:
         path = "{0}/TornadoFitLooks/timber".format(parent)
         rgb = (0.26, 0.21, 0.16)
         mats["timber"] = damage._pbr(
             stage, path, rgb, 0.88, texture=tex,
-            scale_uv=_TILE_REPEATS_PER_M, tint=(1.0, 1.0, 1.0))
-        _fix_diffuse_tint(stage, path, tuple(
-            float(a) / float(m) for a, m in zip(rgb, _TEX_CONCRETE_MEAN_SRGB)))
+            scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
+        _fix_diffuse_tint(stage, path, _tint_for(rgb))
     return mats
 
 
 def _interior_backing_material(stage, ctx):
     """ONE textured interior-wall material per building, cached on the ctx.
 
-    THE DOUBLE-TINT, AVOIDED EXPLICITLY (round-4 D3's finding, applied
-    here): `damage._pbr(..., texture=T, tint=X)` writes `X` into
-    `diffuse_color_constant`, and `_fix_diffuse_tint` then writes it into
-    `diffuse_tint` as well — so a class colour lands on the map TWICE. The
-    old `(0.08, 0.08, 0.08)` therefore rendered at ~0.006 and the quads
-    read as holes cut in the world. Here `diffuse_color_constant` is WHITE
-    and the look goes on `diffuse_tint` alone, so the authored albedo is
-    exactly `_INTERIOR_BACKING_ALBEDO` over the map's own grain.
+    THE TWO SLOTS, PER OmniPBR.mdl (measured by stream D on the exported
+    round-3 stage, not inferred): `diffuse_tint` MULTIPLIES the resolved
+    `diffuse_texture`; `diffuse_color_constant` is what renders when the
+    map does NOT resolve. Round 3 set BOTH to `(0.08, 0.08, 0.08)`, so the
+    quads rendered at 0.08 x the map's own 0.445 mean ~= 0.03 — the black
+    slab. Here the tint is derived from the albedo the look wants
+    (`_tint_for`) and the constant is that SAME albedo, so the quad reads
+    identically whether or not the texture resolves, and neither slot is
+    white (a white constant behind a failed map is white litter).
     """
     mats = ctx.setdefault("mats", {})
     key = "tornado_debris:interior_backing"
@@ -1519,10 +1770,11 @@ def _interior_backing_material(stage, ctx):
         return got
     parent = ctx.get("parent") or "/World"
     path = "{0}/TornadoDebrisLooks/interior_backing".format(parent)
-    mat = damage._pbr(stage, path, _INTERIOR_BACKING_ALBEDO,
+    mat = damage._pbr(stage, path, _INTERIOR_BACKING_RGB,
                       _INTERIOR_BACKING_ROUGHNESS,
                       texture=_resolve_texture(_TEX_CONCRETE),
-                      scale_uv=_TILE_REPEATS_PER_M, tint=(1.0, 1.0, 1.0))
+                      scale_uv=_TILE_REPEATS_PER_M,
+                      tint=_INTERIOR_BACKING_RGB)
     _fix_diffuse_tint(stage, path, _INTERIOR_BACKING_TINT)
     mats[key] = mat
     return mat

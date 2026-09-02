@@ -1,0 +1,6 @@
+road
+grass
+tree
+house
+wood debris
+sky

@@ -88,9 +88,56 @@ def _filter_raven(line: str) -> str | None:
         return line
     if 'error' in low or 'exception' in low or 'traceback' in low:
         return f'ERROR: {line}'
-    if re.search(r'\[(Frontier-based|Ray-based|Voxel-based)\]', line):
+    if re.search(r'\[(Frontier-based|Ray-based|Voxel-based|LVLM-guided)\]', line):
         return line
     return None
+
+
+# ── RAYFRONTS_MODE=shared helpers (pure — see test/test_shared_mode.py) ──────
+
+def _resolve_rayfronts_mode(raw: str | None) -> str:
+    """Normalize the RAYFRONTS_MODE env var.
+
+    'per_robot' (default, and the fallback for any unrecognized value) spawns
+    rayfronts.launch.xml per the original per-robot behaviour. 'shared' skips
+    spawning rayfronts entirely — a multi_robot_mapping_server already runs
+    once, off-board, for every robot (see offboard_compute.sh) — and instead
+    waits on that robot's rayfronts status topic (_rayfronts_shared_ready).
+    """
+    mode = (raw or '').strip().lower()
+    return mode if mode in ('per_robot', 'shared') else 'per_robot'
+
+
+def _rayfronts_shared_ready(status: dict, required_batches: int) -> bool:
+    """True once a shared-mode rayfronts status payload says this robot is
+    anchored AND has produced at least required_batches frames.
+
+    `status` is the parsed JSON from `/robot_<id>/rayfronts/status`
+    (`{"anchored": bool, "frames_robot": int, ...}`, published by
+    multi_robot_mapping_server — see the build plan §2.2). The
+    semantic_search_task shared-mode wait loop polls this in place of
+    counting 'ms/batch' lines out of a spawned rayfronts' stdout, with the
+    same timeout/abort semantics as the per_robot wait.
+    """
+    if not isinstance(status, dict):
+        return False
+    if not status.get('anchored', False):
+        return False
+    try:
+        frames = int(status.get('frames_robot', 0) or 0)
+    except (TypeError, ValueError):
+        return False
+    return frames >= required_batches
+
+
+def _rayfronts_shared_frames(status: dict) -> int:
+    """Best-effort int(status['frames_robot']); 0 on any malformed input."""
+    if not isinstance(status, dict):
+        return 0
+    try:
+        return int(status.get('frames_robot', 0) or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _filter_lvlm(line: str) -> str | None:
@@ -230,11 +277,21 @@ class SemanticSearchTaskNode(Node):
         ros_domain = os.getenv('ROS_DOMAIN_ID', '0')
         self._robot_prefix = f'/{robot_name}'
         self._rf_prefix = f'/robot_{ros_domain}/rayfronts/msg_serv'
+        # Shared off-board mode's health/anchoring topic for THIS robot (see
+        # RAYFRONTS_MODE below) — published by the multi_robot_mapping_server
+        # running once on offboard-compute, not by anything in this container.
+        self._rf_status_topic = f'/robot_{ros_domain}/rayfronts/status'
 
         self._cbg = ReentrantCallbackGroup()
         self._task_active = False
         self._cur_pos = None
         self._cur_yaw = 0.0
+        # per_robot (default): spawn rayfronts.launch.xml ourselves and wait on
+        # its stdout, exactly as before. shared: a single rayfronts server
+        # already runs off-board for every robot; don't spawn or kill it here,
+        # just wait for its status topic to report this robot anchored and
+        # mapping. Any other value falls back to per_robot.
+        self._rayfronts_mode = _resolve_rayfronts_mode(os.getenv('RAYFRONTS_MODE'))
         # How long to wait for rayfronts to start mapping before giving up and
         # aborting the goal. Bounded so a rayfronts that dies or never receives
         # frames cannot silently park the drone for the whole mission — see the
@@ -546,14 +603,21 @@ class SemanticSearchTaskNode(Node):
 
         In debug mode this cancel is what makes the drone hold at task start
         (clearing any stale auto-follow); debug then never re-commands it.
+
+        RAYFRONTS_MODE=shared: the mapping server is a shared off-board
+        process this container did not spawn and does not own — never pkill
+        it here (it is serving every robot, not just this one's mission).
         """
-        for pattern in ['rayfronts.mapping_server', 'raven_nav_node']:
+        patterns = ['raven_nav_node']
+        if self._rayfronts_mode != 'shared':
+            patterns.insert(0, 'rayfronts.mapping_server')
+        for pattern in patterns:
             result = subprocess.run(
                 ['pkill', '-SIGTERM', '-f', pattern], capture_output=True)
             if result.returncode == 0:
                 self.get_logger().info(f'Killed existing {pattern} process(es)')
         time.sleep(2.0)
-        for pattern in ['rayfronts.mapping_server', 'raven_nav_node']:
+        for pattern in patterns:
             subprocess.run(['pkill', '-SIGKILL', '-f', pattern], capture_output=True)
 
         robot_name = os.getenv('ROBOT_NAME', 'robot_1')
@@ -1033,71 +1097,161 @@ class SemanticSearchTaskNode(Node):
             all_labels_yaml = str(all_queries).replace("'", '"')
             target_labels_yaml = str(queries).replace("'", '"')
 
-            rf_env = None
-            gpu = self._pick_rayfronts_gpu()
-            if gpu is not None:
-                rf_env = {**os.environ, 'CUDA_VISIBLE_DEVICES': gpu}
-                self.get_logger().info(f'rayfronts pinned to GPU {gpu}')
-            rayfronts_proc, rayfronts_q = self._spawn([
-                'ros2', 'launch', 'perception_bringup', 'rayfronts.launch.xml',
-            ], log_name='rayfronts', env=rf_env)
-
             mapping_batches_seen = 0
             required_batches = 8
-            self.get_logger().info(
-                f'Waiting for {required_batches} rayfronts mapping batches '
-                f'(timeout {self._rayfronts_wait_timeout_s:.0f}s)')
-            wait_deadline = time.time() + self._rayfronts_wait_timeout_s
-            while mapping_batches_seen < required_batches and rclpy.ok():
-                if goal_handle.is_cancel_requested:
-                    self._kill('rayfronts', rayfronts_proc)
-                    goal_handle.canceled()
-                    result = SemanticSearchTask.Result()
-                    result.success = False
-                    result.message = 'Cancelled'
-                    return result
-                # Without this bound the drone takes off and hovers for the
-                # entire mission whenever rayfronts fails to produce frames,
-                # while the action keeps publishing rayfronts feedback so the
-                # step still reports success. Two ways that happened in the 1st
-                # PFC: rayfronts died on the GPU (CUDA OOM / cuSOLVER handle
-                # failure), or its ROS input-stream spinner thread died with
-                # `InvalidHandle` and the process stayed alive delivering
-                # nothing. Both look identical from here — no batches — so fail
-                # loudly and let the mission retry the iteration.
-                if time.time() > wait_deadline:
-                    alive = rayfronts_proc.poll() is None
-                    self.get_logger().error(
-                        f'rayfronts produced {mapping_batches_seen}/'
-                        f'{required_batches} mapping batches in '
-                        f'{self._rayfronts_wait_timeout_s:.0f}s — '
-                        f'{"process alive but starved of frames" if alive else "process died"}. '
-                        f'Aborting instead of hovering for the rest of the '
-                        f'mission; check the rayfronts log for this robot.')
-                    self._kill('rayfronts', rayfronts_proc)
-                    result = SemanticSearchTask.Result()
-                    result.success = False
-                    result.message = (
-                        f'rayfronts never started mapping '
-                        f'({mapping_batches_seen}/{required_batches} batches in '
-                        f'{self._rayfronts_wait_timeout_s:.0f}s, '
-                        f'{"alive" if alive else "died"}) — no navigator started')
-                    goal_handle.abort()
-                    return result
-                for raw in _drain(rayfronts_q):
-                    low = _clean(raw).lower()
-                    if 'ms/batch' in low:
-                        mapping_batches_seen += 1
-                    msg = _filter_rayfronts(raw)
-                    if msg:
-                        last_rf_status = msg
-                fb = SemanticSearchTask.Feedback()
-                fb.status = f'[rayfronts] {last_rf_status}'
-                goal_handle.publish_feedback(fb)
-                time.sleep(0.2)
-            self.get_logger().info(
-                f'rayfronts processed {mapping_batches_seen} batches — '
-                f'starting raven')
+
+            if self._rayfronts_mode == 'shared':
+                # A single multi_robot_mapping_server already runs off-board
+                # (offboard-compute, started out-of-band — see WP-C's
+                # offboard_compute.sh) subscribing to every robot's RGB/depth/
+                # pose and publishing each robot's map outputs back onto that
+                # robot's own domain under its existing topic names, exactly
+                # like the per-robot server. Nothing to spawn or kill here —
+                # rayfronts_proc stays None for the rest of this task, so the
+                # `finally` block's _kill('rayfronts', ...) is a no-op and this
+                # container never touches that shared process. Just wait for
+                # its status topic to report this robot anchored and mapping.
+                status_qos = QoSProfile(
+                    reliability=ReliabilityPolicy.RELIABLE,
+                    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                    history=HistoryPolicy.KEEP_LAST,
+                    depth=1,
+                )
+                shared_status = {'anchored': False, 'frames_robot': 0}
+
+                def _rf_status_cb(msg):
+                    import json as _json
+                    try:
+                        parsed = _json.loads(msg.data)
+                    except Exception:
+                        return
+                    if isinstance(parsed, dict):
+                        shared_status.update(parsed)
+                status_sub = self.create_subscription(
+                    String, self._rf_status_topic, _rf_status_cb,
+                    status_qos, callback_group=self._cbg)
+                try:
+                    self.get_logger().info(
+                        f'RAYFRONTS_MODE=shared — waiting for '
+                        f'{self._rf_status_topic} to report anchored and '
+                        f'{required_batches} frames '
+                        f'(timeout {self._rayfronts_wait_timeout_s:.0f}s)')
+                    wait_deadline = time.time() + self._rayfronts_wait_timeout_s
+                    # Exit condition is the pure predicate _rayfronts_shared_ready
+                    # (anchored AND frames_robot >= required_batches) — NOT just
+                    # a frame count, so a server that has frames but hasn't
+                    # anchored this robot yet still holds the wait.
+                    while (not _rayfronts_shared_ready(shared_status, required_batches)
+                           and rclpy.ok()):
+                        if goal_handle.is_cancel_requested:
+                            goal_handle.canceled()
+                            result = SemanticSearchTask.Result()
+                            result.success = False
+                            result.message = 'Cancelled'
+                            return result
+                        anchored = bool(shared_status.get('anchored', False))
+                        mapping_batches_seen = _rayfronts_shared_frames(shared_status)
+                        # Same bound and failure shape as the per_robot wait:
+                        # a shared server that never anchors or never sees this
+                        # robot's frames must not silently hover the drone for
+                        # the whole mission.
+                        if time.time() > wait_deadline:
+                            self.get_logger().error(
+                                f'shared rayfronts status ({self._rf_status_topic}) '
+                                f'still reports {mapping_batches_seen}/'
+                                f'{required_batches} frames, anchored={anchored}, '
+                                f'after {self._rayfronts_wait_timeout_s:.0f}s. '
+                                f'Aborting instead of hovering for the rest of '
+                                f'the mission; check offboard-compute: '
+                                f'/tmp/offboard/rayfronts_mapping.log')
+                            result = SemanticSearchTask.Result()
+                            result.success = False
+                            result.message = (
+                                f'shared rayfronts never anchored/mapped this '
+                                f'robot ({mapping_batches_seen}/'
+                                f'{required_batches} frames, anchored='
+                                f'{anchored}, '
+                                f'{self._rayfronts_wait_timeout_s:.0f}s) — no '
+                                f'navigator started')
+                            goal_handle.abort()
+                            return result
+                        last_rf_status = (
+                            f'shared: robot frames {mapping_batches_seen}, '
+                            f'anchored {"yes" if anchored else "no"}')
+                        fb = SemanticSearchTask.Feedback()
+                        fb.status = f'[rayfronts] {last_rf_status}'
+                        goal_handle.publish_feedback(fb)
+                        time.sleep(0.2)
+                    mapping_batches_seen = _rayfronts_shared_frames(shared_status)
+                finally:
+                    self.destroy_subscription(status_sub)
+                self.get_logger().info(
+                    f'shared rayfronts reports {mapping_batches_seen} frames '
+                    f'for this robot — starting raven')
+            else:
+                rf_env = None
+                gpu = self._pick_rayfronts_gpu()
+                if gpu is not None:
+                    rf_env = {**os.environ, 'CUDA_VISIBLE_DEVICES': gpu}
+                    self.get_logger().info(f'rayfronts pinned to GPU {gpu}')
+                rayfronts_proc, rayfronts_q = self._spawn([
+                    'ros2', 'launch', 'perception_bringup', 'rayfronts.launch.xml',
+                ], log_name='rayfronts', env=rf_env)
+
+                self.get_logger().info(
+                    f'Waiting for {required_batches} rayfronts mapping batches '
+                    f'(timeout {self._rayfronts_wait_timeout_s:.0f}s)')
+                wait_deadline = time.time() + self._rayfronts_wait_timeout_s
+                while mapping_batches_seen < required_batches and rclpy.ok():
+                    if goal_handle.is_cancel_requested:
+                        self._kill('rayfronts', rayfronts_proc)
+                        goal_handle.canceled()
+                        result = SemanticSearchTask.Result()
+                        result.success = False
+                        result.message = 'Cancelled'
+                        return result
+                    # Without this bound the drone takes off and hovers for the
+                    # entire mission whenever rayfronts fails to produce frames,
+                    # while the action keeps publishing rayfronts feedback so the
+                    # step still reports success. Two ways that happened in the 1st
+                    # PFC: rayfronts died on the GPU (CUDA OOM / cuSOLVER handle
+                    # failure), or its ROS input-stream spinner thread died with
+                    # `InvalidHandle` and the process stayed alive delivering
+                    # nothing. Both look identical from here — no batches — so fail
+                    # loudly and let the mission retry the iteration.
+                    if time.time() > wait_deadline:
+                        alive = rayfronts_proc.poll() is None
+                        self.get_logger().error(
+                            f'rayfronts produced {mapping_batches_seen}/'
+                            f'{required_batches} mapping batches in '
+                            f'{self._rayfronts_wait_timeout_s:.0f}s — '
+                            f'{"process alive but starved of frames" if alive else "process died"}. '
+                            f'Aborting instead of hovering for the rest of the '
+                            f'mission; check the rayfronts log for this robot.')
+                        self._kill('rayfronts', rayfronts_proc)
+                        result = SemanticSearchTask.Result()
+                        result.success = False
+                        result.message = (
+                            f'rayfronts never started mapping '
+                            f'({mapping_batches_seen}/{required_batches} batches in '
+                            f'{self._rayfronts_wait_timeout_s:.0f}s, '
+                            f'{"alive" if alive else "died"}) — no navigator started')
+                        goal_handle.abort()
+                        return result
+                    for raw in _drain(rayfronts_q):
+                        low = _clean(raw).lower()
+                        if 'ms/batch' in low:
+                            mapping_batches_seen += 1
+                        msg = _filter_rayfronts(raw)
+                        if msg:
+                            last_rf_status = msg
+                    fb = SemanticSearchTask.Feedback()
+                    fb.status = f'[rayfronts] {last_rf_status}'
+                    goal_handle.publish_feedback(fb)
+                    time.sleep(0.2)
+                self.get_logger().info(
+                    f'rayfronts processed {mapping_batches_seen} batches — '
+                    f'starting raven')
 
             raven_args = [
                 'ros2', 'run', 'raven_nav', 'raven_nav_node',

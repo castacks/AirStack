@@ -39,10 +39,15 @@ and stops at the first one that fails:
   4. `bake_kind(usd, W, D, H, btype)` is not `(None, reason)` — the gate
      `route()` does NOT provide: `route()` says `'slice'` for every pack with
      real, unnamed parts alike (GAC, downtowncity, the AEC brownstones,
-     `standalone/buildings/...`), but only GAC and downtowncity have a
-     `fire_bake.KINDS` entry (`gac_fire.gac_fire`'s per-building bake). The
-     rest are refused here, WITH A REASON — never silently dropped, the same
-     discipline `kit_substitute.route`'s own docstring insists on.
+     `standalone/buildings/...`), but only a `fire_bake.KINDS` entry
+     (`gac_fire.burn_gac`'s per-building bake) actually has a bake path.
+     GAC, downtowncity AND the AEC brownstones (`gac_fire.PACKS["aec"]`,
+     2026-09-01 — `Reference_Brownstone*Row.usd`, already a bag of instanced
+     parts; nothing needed de-instancing, `gac_storey_slice.read_mesh`
+     traverses instance proxies read-only) all have one; only
+     `standalone/buildings/...` still lands here refused, WITH A REASON —
+     never silently dropped, the same discipline `kit_substitute.route`'s
+     own docstring insists on.
   5. `_pack_blacklist_reason(kind, name)` is `None` (2026-08-31) — the
      resolved `gac`/`dtc` asset NAME is not one of `gac_fire.PACKS[kind]
      ["blacklist"]`'s prefixes (`dtc`: `"Carved_"`, `"Building_11"` — a
@@ -232,17 +237,18 @@ def typology_at(layout, x, y):
 # The bake-kind gate — the one `route()` does not provide
 # ---------------------------------------------------------------------------
 def bake_kind(usd, W, D, H, btype):
-    """`("gac"|"dtc"|"kit", name_or_style)` or `(None, reason)` for `usd`.
+    """`("gac"|"dtc"|"aec"|"kit", name_or_style)` or `(None, reason)` for `usd`.
 
     In order:
 
       1. `usd` starts with a `gac_fire.PACKS[kind]["dir"]` prefix (`"gac"` for
-         `gac_fire.GAC_DIR`, `"dtc"` for `gac_fire.DTC_DIR`) -> `(kind, name)`
-         with `name` the asset's own basename, extension stripped per that
-         pack's `["ext"]`. Checked BEFORE calling `route()` because
-         `kit_substitute.pack_of()` has no idea these two Nucleus paths are
-         special — to it they are both just `"other"`, the same bucket as an
-         AEC brownstone.
+         `gac_fire.GAC_DIR`, `"dtc"` for `gac_fire.DTC_DIR`, `"aec"` for
+         `gac_fire.AEC_DIR` — added 2026-09-01) -> `(kind, name)` with `name`
+         the asset's own basename, extension stripped per that pack's
+         `["ext"]`. Checked BEFORE calling `route()` because
+         `kit_substitute.pack_of()` has no idea these three paths are
+         special — to it they are all just `"other"`, the same bucket as a
+         `standalone/buildings/...` monolith with no bake path at all.
       2. otherwise, `kit_substitute.route(usd, W, D, H, btype)`:
            - `('kit', style)` with a real `style` -> `("kit", style)` — a
              `bld_<style>_*.usd` kit build (`style` from its own filename) or
@@ -254,9 +260,10 @@ def bake_kind(usd, W, D, H, btype):
            - `('skip', reason)` -> `(None, reason)`, `route`'s own reason
              passed straight through (Muyang DownTown, a `same_art` refusal).
            - `('slice', None)` -> `(None, reason)` — the pack has real,
-             unnamed parts (GAC and downtowncity are handled above already,
-             so this is always AEC brownstones or `standalone/buildings/...`
-             at this point) but `fire_bake.KINDS` has no bake path for it.
+             unnamed parts (GAC, downtowncity AND the AEC brownstones are all
+             handled above already, so this is now always
+             `standalone/buildings/...` or an equivalent un-registered pack)
+             but `fire_bake.KINDS` has no bake path for it.
     """
     _ensure_scene_gen_on_path()
     from disaster import fire_bake as fb
@@ -281,13 +288,14 @@ def bake_kind(usd, W, D, H, btype):
         return "kit", val
     if action == "skip":
         return None, val
-    # action == "slice": a pack with real, unnamed parts that isn't GAC or
-    # downtowncity (both handled above) -- has no fire_bake.KINDS entry.
+    # action == "slice": a pack with real, unnamed parts that isn't GAC,
+    # downtowncity or an AEC brownstone (all three handled above) -- has no
+    # fire_bake.KINDS entry (e.g. standalone/buildings/...).
     return None, ("kit_substitute.route() says 'slice' (a pack with real, "
                   "unnamed parts) but fire_bake.KINDS={0} has no bake kind "
-                  "for it -- AEC brownstones and standalone/buildings/... "
-                  "land here and must be REFUSED, not silently dropped: "
-                  "{1}".format(fb.KINDS, u))
+                  "for it -- standalone/buildings/... and any other "
+                  "unregistered pack land here and must be REFUSED, not "
+                  "silently dropped: {1}".format(fb.KINDS, u))
 
 
 # ---------------------------------------------------------------------------
@@ -442,8 +450,14 @@ def burnable(layout, placement, size_of):
     if kind is None:
         return False, name_or_reason
 
+    # "asset"-shaped kinds: a sliced merged building, named by its own file
+    # (`gac_fire.PACKS`'s keys minus nothing today -- `gac`/`dtc`/`aec`, all
+    # three `fire_bake.SLICED_KINDS`). `kit` is the one kind named by STYLE
+    # instead (`bake_kind`'s `('kit', style)` case), never by a file name.
+    _ASSET_KINDS = ("gac", "dtc", "aec")
+
     blacklist_reason = _pack_blacklist_reason(
-        kind, name_or_reason if kind in ("gac", "dtc") else None)
+        kind, name_or_reason if kind in _ASSET_KINDS else None)
     if blacklist_reason is not None:
         return False, blacklist_reason
 
@@ -456,7 +470,7 @@ def burnable(layout, placement, size_of):
         "yaw_deg": float(placement.get("yaw_deg", 0.0)),
         "z": float(placement.get("z_m", placement.get("z", 0.0))),
         "kind": kind,
-        "asset": name_or_reason if kind in ("gac", "dtc") else None,
+        "asset": name_or_reason if kind in _ASSET_KINDS else None,
         "style": name_or_reason if kind == "kit" else None,
         "typology": typ, "W": W, "D": D, "H": H,
         "cell": placement.get("prim_path") or placement.get("cell"),
@@ -598,13 +612,13 @@ def _apply_height_class_policy(manifest, seed_base, roof_collapse_max):
 def entry_string(record):
     """`kind:name:level:origin:sides:seed` -- the `fire_bake.sh` manifest
     entry for one `damaged_manifest` record. `name` is `record["asset"]` for
-    `gac`/`dtc`, `record["style"]` for `kit`. Round-trips through
+    `gac`/`dtc`/`aec`, `record["style"]` for `kit`. Round-trips through
     `fire_bake.parse_entry` (all six fields are always written explicitly,
     including a possibly-empty `origin`/`sides`, so `parse_entry` never falls
     back to its own default-seed formula and reads back exactly this
     record's `seed`)."""
     kind = record["kind"]
-    name = record.get("asset") if kind in ("gac", "dtc") else record.get("style")
+    name = record.get("asset") if kind in ("gac", "dtc", "aec") else record.get("style")
     origin = record.get("origin")
     sides = record.get("sides") or ()
     return "{0}:{1}:{2}:{3}:{4}:{5}".format(
@@ -765,12 +779,32 @@ def check(verbose=True):
         bad.append("bake_kind on an unmatchable 302 m same_art tower did not "
                   "refuse: {0}".format((kind, reason)))
 
-    aec_usd = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/NVIDIA/Demos/"
-              "AEC/Buildings/Brownstone/Brownstone_01.usd")
-    kind, reason = bake_kind(aec_usd, 20.0, 15.0, 18.0, "urm")
+    # AEC brownstones (2026-09-01): now a registered `gac_fire.PACKS["aec"]`
+    # pack, same as `gac`/`dtc` above, so `bake_kind` resolves one straight
+    # off the `PACKS[kind]["dir"]` prefix match instead of falling through to
+    # `route()`'s generic `('slice', None)` refusal. `aec_usd` is the REAL
+    # production URL every `config/asset_sets/urban.yaml` rowhouse pool entry
+    # carries (`airstack://scene_gen/assets/aec/brownstone/Assets/
+    # Create_Brownstone02/Reference_Brownstone5Row.usd`) — an EARLIER form of
+    # this test used a plausible-looking `omniverse://.../NVIDIA/Demos/AEC/
+    # Buildings/Brownstone/Brownstone_01.usd` stand-in that does not exist on
+    # Nucleus (MEASURED: `Usd.Stage.Open` on it fails) and, more to the
+    # point, is not the URL any real placement's `usd` field ever carries.
+    aec_usd = gf.AEC_DIR + "Reference_Brownstone5Row.usd"
+    kind, name = bake_kind(aec_usd, 21.1, 33.4, 14.8, "urm")
+    if (kind, name) != ("aec", "Reference_Brownstone5Row"):
+        bad.append("bake_kind on an AEC brownstone: got {0}".format((kind, name)))
+
+    # a genuinely unregistered "real, unnamed parts" pack (standalone/
+    # buildings/... in the wild) must still be refused, WITH a fire_bake.
+    # KINDS reason -- this is the case `bake_kind`'s own final fallback
+    # still exists for now that AEC is no longer that case.
+    standalone_usd = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/"
+                      "Projects/SEI-COA/standalone/buildings/some_block.usd")
+    kind, reason = bake_kind(standalone_usd, 20.0, 15.0, 18.0, "urm")
     if kind is not None or "fire_bake.KINDS" not in (reason or ""):
-        bad.append("bake_kind on an AEC brownstone did not give a "
-                  "fire_bake.KINDS reason: {0}".format((kind, reason)))
+        bad.append("bake_kind on an unregistered slice-routed pack did not "
+                  "give a fire_bake.KINDS reason: {0}".format((kind, reason)))
 
     muyang_usd = "omniverse://airlab-nucleus.andrew.cmu.edu:443/Muyang/DownTown/Assets/BG_Building_A.usd"
     kind, reason = bake_kind(muyang_usd, 45.0, 45.0, 90.0, None)
@@ -810,10 +844,20 @@ def check(verbose=True):
     if ok or "route refused" not in reason or "unburnable" not in reason:
         bad.append("burnable() did not refuse Muyang DownTown: {0}".format((ok, reason)))
 
+    # AEC brownstones are burnable now (2026-09-01) -- (170, 70) is inside
+    # the "brick_midrise" block (100, 0, 250, 120) in `layout` above.
     p_aec = dict(p_gac, usd=aec_usd, x_m=170.0, y_m=70.0)
-    ok, reason = burnable(layout, p_aec, {})
+    ok, rec = burnable(layout, p_aec, {})
+    if not ok or rec["kind"] != "aec" or rec["asset"] != "Reference_Brownstone5Row" \
+            or rec["style"] is not None or rec["typology"] != "brick_midrise":
+        bad.append("burnable() should now accept an AEC brownstone: got "
+                  "{0}".format((ok, rec)))
+
+    p_standalone = dict(p_gac, usd=standalone_usd, x_m=170.0, y_m=70.0)
+    ok, reason = burnable(layout, p_standalone, {})
     if ok or "fire_bake.KINDS" not in reason:
-        bad.append("burnable() did not refuse an AEC brownstone: {0}".format((ok, reason)))
+        bad.append("burnable() did not refuse an unregistered slice-routed "
+                  "pack: {0}".format((ok, reason)))
 
     # --- gate 5: the pack blacklist (2026-08-31) ----------------------------
     p_b11 = dict(p_gac, usd=gf.DTC_DIR + "Building_11.usdc", x_m=150.0, y_m=60.0)

@@ -1147,6 +1147,24 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
         traceback.print_exc()
         print("[quake] heap clearance FAILED: {0}".format(exc))
         stats["cleared"] = {"error": str(exc)}
+    # PROP TOPPLE: streetlights, traffic signals, signs and street trees
+    # anywhere the FIELD is strong enough, not only within a heap's own reach
+    # (see `prop_topple`'s module docstring — user review, 2026-09-01: "make
+    # street lights, trees, signals all fall over if they're in damage
+    # range"). Runs AFTER `_clear_under_heaps` so its own `_already_tilted`
+    # guard sees whatever that pass already tipped and does not double it,
+    # and after `records` is fully populated so building footprints are
+    # known. Guarded the same way every other assembly-time pass here is.
+    try:
+        from . import prop_topple as pt
+        stats["prop_topple"] = pt.topple_props(
+            stage, config, placements, records, field, grade_scale, rng, ssf,
+            bounds=_c_plate_bounds(config, ssf), verbose=verbose)
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        print("[quake] prop topple FAILED: {0}".format(exc))
+        stats["prop_topple"] = {"error": str(exc)}
     # BATCH D: make a few pairs of buildings touch (see `_d_interactions`).
     # Guarded, because it is the one pass here that runs PhysX at assembly:
     # a failure must not cost the scene its grades.
@@ -1936,38 +1954,36 @@ def ground_effects(stage, config, stats, placements, arch_dir, parent, ssf,
         # small region: a 200 m two-city run put four boils on bare ground
         # outside the city. A boil fan is up to ~3.8 m across, so its CENTRE
         # needs that much more margin than a fissure segment.
-        fx0, fy0, fx1, fy1 = _c_plate_bounds(config)
         ctx["bounds"] = _c_plate_bounds(config, margin=GROUND_MARGIN_M + 4.0)
         if fissures:
-            # 2-4 cracks, each a chain of thin dark boxes following a noisy
-            # line roughly along the patch's long axis
+            # LIVE REVIEW ROUND: these are the epicentre-area cracks in
+            # `epi_top.png`/`nw_top.png` the user called "weird" — this loop
+            # used to build each one out of `qf._box` bound to
+            # `mats["rebar"]`/`mats["concrete"]` (flat procedural colours, no
+            # texture at all) instead of the shared soil/silt look, and as a
+            # chain of thin flat boxes rather than a swept mound. Both are
+            # exactly what `qf._c_fissure_trace` fixed for the per-building
+            # corner cracks (see its docstring): "use the same code in fact
+            # to create this longer 'mould of dirt' aka fissure" (user) means
+            # THIS loop calls that same function too, not a second copy of
+            # the fix. `qf._c_ground_look` picks the crack's own soil/silt
+            # material exactly as `qf._c_fissures` does, and the cracked-
+            # asphalt band (`qf._c_fissure_pave`) comes along for free.
             n_f = rng.randrange(2, 5)
             ang0 = 0.0 if rx >= ry else 90.0
             for k in range(n_f):
                 off = rng.uniform(-0.6, 0.6) * min(rx, ry)
                 length = rng.uniform(0.8, 1.6) * max(rx, ry)
-                a = math.radians(ang0 + rng.uniform(-25, 25))
+                a_deg = ang0 + rng.uniform(-25, 25)
+                a = math.radians(a_deg)
                 px = cx - math.cos(a) * length / 2.0 - math.sin(a) * off
                 py = cy - math.sin(a) * length / 2.0 + math.cos(a) * off
-                step = 3.0
-                w = rng.uniform(0.3, 0.9)
-                heading = a
-                for i in range(int(length / step)):
-                    heading += math.radians(rng.uniform(-14, 14))
-                    nx, ny = px + math.cos(heading) * step, py + math.sin(heading) * step
-                    mx, my = (px + nx) / 2.0, (py + ny) / 2.0
-                    if not (fx0 < mx < fx1 and fy0 < my < fy1):
-                        break
-                    path = "{0}/fissure_{1}".format(scope, qf._uid(ctx))
-                    qf._box(stage, path, mx, my, 0.02, step * 1.15, w * rng.uniform(0.7, 1.3),
-                            0.06, math.degrees(heading), mats["rebar"])
-                    # an upthrown lip on one side
-                    if rng.random() < 0.5:
-                        lp = "{0}/lip_{1}".format(scope, qf._uid(ctx))
-                        sgn = rng.choice((-1, 1))
-                        qf._box(stage, lp, mx - math.sin(heading) * sgn * w, my + math.cos(heading) * sgn * w,
-                                0.06, step * 1.1, 0.5, 0.12, math.degrees(heading), mats["concrete"])
-                    px, py = nx, ny
+                w0 = rng.uniform(*qf.C_FISSURE_W)
+                mat = qf._c_ground_look(
+                    ctx, px, py, None,
+                    lambda: "soil" if rng.random() < 0.7 else "silt")
+                if qf._c_fissure_trace(ctx, px, py, a_deg, length, w0, mat,
+                                       tag="epi", z0=0.0):
                     n_fis += 1
         if boils:
             n_b = int(rx * ry / 1400.0) + 4

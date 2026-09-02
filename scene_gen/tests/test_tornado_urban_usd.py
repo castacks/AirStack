@@ -1207,5 +1207,122 @@ def test_reface_rebinds_generic_looks_and_keeps_a_real_facade_skin():
     assert bound(paths[1]) == parent + "/src/asset/UnrealMaterial"
 
 
+def test_annotate_surface_ranks_outermost_before_area():
+    """ROUND 4 (D2) — THE OUTERMOST SUBSET WINS, AREA ONLY BREAKS TIES.
+
+    Two pieces so the building centre is derivable (the outward axis is
+    `piece centre - building centre`, and a single-placement stage has no
+    such axis — which is why the by-area test above still passes
+    unchanged). The near piece carries a SMALL outer subset (its +x face,
+    1 face) and a LARGE inner one (the other 5, whose 90th-percentile
+    front sits 1 m behind it). Area alone picks the inner map; that is the
+    bug this replaced — on the real SM_Building_02 slice it stamped the
+    floor slab / poster atlas / recessed trim sheet as a piece's cladding,
+    and both the tear faces and the street debris inherited it."""
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, Sdf.Path("/World"))
+    UsdGeom.Xform.Define(stage, Sdf.Path(CELL))
+    UsdGeom.Xform.Define(stage, Sdf.Path(PIECES))
+
+    near = PIECES + "/wall_E_outermost"
+    far = PIECES + "/wall_W_far"
+    qf._box(stage, near, 6.0, 0.0, 4.0, 1.0, 4.0, 4.0, yaw_deg=0.0)
+    qf._box(stage, far, -6.0, 0.0, 4.0, 1.0, 4.0, 4.0, yaw_deg=0.0)
+    mesh = UsdGeom.Mesh(stage.GetPrimAtPath(near))
+
+    # `quake_flow._box` face order: 0 -z, 1 +z, 2 -y, 3 +x, 4 +y, 5 -x.
+    mat_out = _make_textured_material(
+        stage, near + "/src/asset/LOD0/Section1/UnrealMaterial",
+        "T_Facade_Brick_1K_B.jpg")
+    sub_out = UsdGeom.Subset.CreateGeomSubset(
+        mesh, "outer", UsdGeom.Tokens.face, Vt.IntArray([3]),
+        UsdShade.Tokens.materialBind, UsdGeom.Tokens.partition)
+    UsdShade.MaterialBindingAPI.Apply(sub_out.GetPrim()).Bind(mat_out)
+
+    mat_in = _make_textured_material(
+        stage, near + "/src/asset/LOD0/Section2/UnrealMaterial",
+        "T_WallBack_Filler_1K_B.jpg")
+    sub_in = UsdGeom.Subset.CreateGeomSubset(
+        mesh, "inner", UsdGeom.Tokens.face, Vt.IntArray([0, 1, 2, 4, 5]),
+        UsdShade.Tokens.materialBind, UsdGeom.Tokens.partition)
+    UsdShade.MaterialBindingAPI.Apply(sub_in.GetPrim()).Bind(mat_in)
+
+    placements = [{"prim_path": near}, {"prim_path": far}]
+    tu.annotate_surface(stage, placements)
+    assert placements[0]["_tex_name"] == "T_Facade_Brick_1K_B.jpg", placements[0]
+
+    # ...and area is what decides among candidates that are BOTH on the
+    # outside face: put the big subset on the +x face too and it wins.
+    stage2 = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage2, Sdf.Path(PIECES))
+    qf._box(stage2, near, 6.0, 0.0, 4.0, 1.0, 4.0, 4.0, yaw_deg=0.0)
+    qf._box(stage2, far, -6.0, 0.0, 4.0, 1.0, 4.0, 4.0, yaw_deg=0.0)
+    m2 = UsdGeom.Mesh(stage2.GetPrimAtPath(near))
+    a = _make_textured_material(
+        stage2, near + "/src/asset/LOD0/Section1/UnrealMaterial", "T_A.jpg")
+    b = _make_textured_material(
+        stage2, near + "/src/asset/LOD0/Section2/UnrealMaterial", "T_B.jpg")
+    # both sit on the SAME +x plane -> the tolerance keeps both, area decides
+    s_a = UsdGeom.Subset.CreateGeomSubset(
+        m2, "a", UsdGeom.Tokens.face, Vt.IntArray([3]),
+        UsdShade.Tokens.materialBind, UsdGeom.Tokens.partition)
+    UsdShade.MaterialBindingAPI.Apply(s_a.GetPrim()).Bind(a)
+    s_b = UsdGeom.Subset.CreateGeomSubset(
+        m2, "b", UsdGeom.Tokens.face, Vt.IntArray([3, 3]),
+        UsdShade.Tokens.materialBind, UsdGeom.Tokens.partition)
+    UsdShade.MaterialBindingAPI.Apply(s_b.GetPrim()).Bind(b)
+    pl2 = [{"prim_path": near}, {"prim_path": far}]
+    tu.annotate_surface(stage2, pl2)
+    assert pl2[0]["_tex_name"] == "T_B.jpg", pl2[0]
+
+
+def test_annotate_surface_demotes_interior_maps_but_keeps_a_lone_one():
+    """Rule 1 is a DEMOTION, not a drop: a piece carrying both a floor-slab
+    map and a real one takes the real one even when the slab is outermost
+    AND bigger; a piece whose ONLY texture is that slab keeps it (a parapet
+    whose only map is `M_Slab` is still a parapet). `WallBack` is
+    deliberately not on `fire_collapse.FAKE_INTERIOR_HINTS` — on
+    GreatAmericanCity it IS a real outward base texture — which is why this
+    is an outermost test and not a name ban."""
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, Sdf.Path(PIECES))
+    mixed = PIECES + "/wall_E_mixed"
+    lone = PIECES + "/parapet_W_lone"
+    qf._box(stage, mixed, 6.0, 0.0, 4.0, 1.0, 4.0, 4.0, yaw_deg=0.0)
+    qf._box(stage, lone, -6.0, 0.0, 4.0, 1.0, 4.0, 4.0, yaw_deg=0.0)
+
+    m = UsdGeom.Mesh(stage.GetPrimAtPath(mixed))
+    slab = _make_textured_material(
+        stage, mixed + "/src/asset/LOD0/Section1/UnrealMaterial",
+        "Game_GreatAmericanCity_Materials_M_Slab_Inst_BaseColor.png")
+    s1 = UsdGeom.Subset.CreateGeomSubset(          # OUTERMOST and BIGGER
+        m, "slab", UsdGeom.Tokens.face, Vt.IntArray([3, 3, 3]),
+        UsdShade.Tokens.materialBind, UsdGeom.Tokens.partition)
+    UsdShade.MaterialBindingAPI.Apply(s1.GetPrim()).Bind(slab)
+    real = _make_textured_material(
+        stage, mixed + "/src/asset/LOD0/Section2/UnrealMaterial",
+        "T_Real_Cladding_1K_B.jpg")
+    s2 = UsdGeom.Subset.CreateGeomSubset(
+        m, "clad", UsdGeom.Tokens.face, Vt.IntArray([5]),
+        UsdShade.Tokens.materialBind, UsdGeom.Tokens.partition)
+    UsdShade.MaterialBindingAPI.Apply(s2.GetPrim()).Bind(real)
+
+    ml = UsdGeom.Mesh(stage.GetPrimAtPath(lone))
+    slab2 = _make_textured_material(
+        stage, lone + "/src/asset/LOD0/Section1/UnrealMaterial",
+        "Game_GreatAmericanCity_Materials_M_Slab_Inst_BaseColor.png")
+    s3 = UsdGeom.Subset.CreateGeomSubset(
+        ml, "slab", UsdGeom.Tokens.face, Vt.IntArray([0, 1, 2]),
+        UsdShade.Tokens.materialBind, UsdGeom.Tokens.partition)
+    UsdShade.MaterialBindingAPI.Apply(s3.GetPrim()).Bind(slab2)
+
+    placements = [{"prim_path": mixed}, {"prim_path": lone}]
+    n_hit = tu.annotate_surface(stage, placements)
+    assert n_hit == 2, n_hit
+    assert placements[0]["_tex_name"] == "T_Real_Cladding_1K_B.jpg", placements[0]
+    assert placements[1]["_tex_name"].endswith("M_Slab_Inst_BaseColor.png"), \
+        placements[1]
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

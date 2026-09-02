@@ -59,6 +59,8 @@ import random
 import subprocess
 import sys
 
+import pytest
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.normpath(os.path.join(_HERE, "..")))
 
@@ -406,6 +408,175 @@ def test_quake_soil_and_silt_match_scour_relief_field_for_field():
     assert qf._C_TEX["soil"] == sr._TEX["soil"]
     assert qf._C_TEX["silt"] == sr._TEX["silt"]
     assert qf._C_TEX["soil"] is sr._TEX["soil"]     # imported, not retyped
+
+
+# ---------------------------------------------------------------------------
+# LIVE REVIEW ROUND: the fissure is `scour_relief` geometry (a mould of
+# dirt), thicker; a cracked-asphalt band rides beside it; the tilt raft is
+# chipped irregular. "the fissure looks weird — use the same soil/mud
+# material we have and use in suburban tornado for its path and moulds of
+# dirt. Use the same code in fact to create this longer 'mould of dirt' aka
+# fissure" / "the cracked asphalt along the fissure looks weird — make it
+# irregular cracked shapes, not just rectangles" / "the fissure itself
+# should be thicker" / on `quake_tilt/raft_t3_1`: "it's too straight and
+# rectangular. We need irregular. We can do a smaller version of this as
+# the fissure's cracked asphalt." (user, live scene review).
+# ---------------------------------------------------------------------------
+
+def _mesh_pts(stage, path):
+    pr = stage.GetPrimAtPath(path)
+    return UsdGeom.Mesh(pr).GetPointsAttr().Get()
+
+
+def test_fissure_width_scale_env_overridable():
+    """`C_FISSURE_W` layers the new `EQ_FISSURE_WIDTH_SCALE` on top of
+    `FISSURE_SCALE` — a second, independent "thicker" knob, reachable from
+    the environment without a code edit, the same pattern
+    `test_fissure_knobs_scaled_up_and_env_overridable` already pins for
+    length."""
+    assert qf.FISSURE_WIDTH_SCALE >= 1.5
+    assert qf.C_FISSURE_W == (
+        0.06 * qf.FISSURE_SCALE * qf.FISSURE_WIDTH_SCALE,
+        0.22 * qf.FISSURE_SCALE * qf.FISSURE_WIDTH_SCALE)
+
+    code = (
+        "import sys; sys.path.insert(0, {0!r});"
+        "from disaster import quake_flow as qf;"
+        "print(qf.FISSURE_WIDTH_SCALE, qf.C_FISSURE_W)"
+    ).format(os.path.normpath(os.path.join(_HERE, "..")))
+    env = dict(os.environ, EQ_FISSURE_WIDTH_SCALE="3.0")
+    out = subprocess.run([sys.executable, "-c", code], env=env,
+                         capture_output=True, text=True, check=True).stdout
+    assert out.startswith("3.0 "), out
+
+
+def test_fissure_mound_is_a_continuous_ridge_not_a_box_chain():
+    """The old implementation authored a CHAIN of flat 8-point boxes, one
+    per ~1.2 m step. The new one sweeps `scour_relief.geometry`'s `ridge`
+    extrusion along the whole crack as ONE mesh: more than 8 points (an
+    8-point box would mean nothing changed), an open (doubleSided) ribbon,
+    and every station's cross-section actually present."""
+    st = _new_stage()
+    mats = qf.materials(st, PARENT)
+    m = _mass()
+    ctx = qf._c_ctx(st, PARENT, mats, random.Random(4), tag="ridge")
+    made = qf._c_fissures(ctx, m, corners=("SW",), n_each=(1, 1),
+                          length=(8.0, 8.0))
+    assert len(made) == 1
+    pts = _mesh_pts(st, made[0])
+    assert len(pts) > 8, "fissure mound is still an 8-point box"
+    pr = st.GetPrimAtPath(made[0])
+    mesh = UsdGeom.Mesh(pr)
+    assert bool(mesh.GetDoubleSidedAttr().Get()) is True
+
+
+def test_fissure_trace_invokes_scour_relief_geometry():
+    """"Use the same code in fact to create this longer 'mould of dirt' aka
+    fissure" — proven by SPYING on `scour_relief.geometry`, not just by
+    reading the mesh it produces: a monkeypatched wrapper must actually be
+    called, with a `ridge` spec, while a real fissure is authored."""
+    from disaster import scour_relief as sr
+    calls = []
+    real = sr.geometry
+
+    def spy(spec):
+        calls.append(spec)
+        return real(spec)
+
+    st = _new_stage()
+    mats = qf.materials(st, PARENT)
+    m = _mass()
+    ctx = qf._c_ctx(st, PARENT, mats, random.Random(9), tag="spy")
+    qf._scour_relief.geometry = spy
+    try:
+        made = qf._c_fissures(ctx, m, corners=("NE",), n_each=(1, 1),
+                              length=(6.0, 6.0))
+    finally:
+        qf._scour_relief.geometry = real
+    assert made
+    assert calls, "scour_relief.geometry was never called"
+    assert all(c["kind"] == "ridge" for c in calls)
+
+
+def test_fissure_trace_is_deterministic():
+    """Same seed, same crack: the mound's own point cloud is byte-identical
+    across two independent stages (the recipe/bake determinism contract
+    every other quake ground pass already holds to)."""
+    def _run(seed):
+        st = _new_stage()
+        mats = qf.materials(st, PARENT)
+        m = _mass()
+        ctx = qf._c_ctx(st, PARENT, mats, random.Random(seed), tag="det")
+        made = qf._c_fissures(ctx, m, corners=("SE",), n_each=(1, 1),
+                              length=(7.0, 7.0))
+        return [tuple(_mesh_pts(st, p)) for p in made]
+
+    a, b = _run(21), _run(21)
+    assert a == b
+    assert a, "no fissure authored — nothing to compare"
+
+
+def test_fissure_cracked_asphalt_band_is_chipped_and_irregular():
+    """The ground itself cracks near the fissure: a band of small pavement
+    plates, chipped IRREGULAR (round-6 `fracture.chip_box`, > 8 points —
+    the "not just rectangles" ask), tilted, with a pave/asph look — never
+    folded into `_c_fissures`' own soil/silt-only return (see
+    `_c_fissure_pave`'s docstring)."""
+    st = _new_stage()
+    mats = qf.materials(st, PARENT)
+    m = _mass()
+    ctx = qf._c_ctx(st, PARENT, mats, random.Random(6), tag="pv")
+    made = qf._c_fissures(ctx, m, corners=("SW", "NE"), n_each=(1, 2))
+    families = _families({_look_key(st, p) for p in made})
+    assert families
+    assert families <= {"soil", "silt"}          # unchanged contract
+
+    pave_paths = [p for p in ctx["authored"]
+                 if "_pave_" in p and "_mound_" not in p]
+    assert pave_paths, "no cracked-asphalt plate authored beside the fissure"
+    assert set(pave_paths) <= set(ctx["static_extra"])
+    assert _families({_look_key(st, p) for p in pave_paths}) <= {"pave", "asph"}
+    irregular = [p for p in pave_paths if len(_mesh_pts(st, p)) > 8]
+    assert irregular, "every cracked-asphalt plate is still an 8-point box"
+
+
+def test_raft_plate_is_chipped_irregular_but_keeps_its_footprint():
+    """The liked mechanic (a slab that shows only once a tilt levers it out
+    of the ground) stays; only its edges go irregular. `max_grow` bounds how
+    far a chip pass may swell the bbox, so the footprint stays recognisably
+    `(W + 1.2) x (D + 1.2) x RAFT_T` — the height-change plate still reads as
+    the same plate, just no longer a ruler-edged rectangle."""
+    st = _new_stage()
+    mats = qf.materials(st, PARENT)
+    m = _mass()
+    ctx = qf._c_ctx(st, PARENT, mats, random.Random(8), tag="raft")
+    path = qf._raft(ctx, m)
+    pts = _mesh_pts(st, path)
+    assert len(pts) > 8, "the raft plate is still a plain 8-point box"
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    zs = [p[2] for p in pts]
+    assert (max(xs) - min(xs)) == pytest.approx(m["W"] + 1.2, rel=0.25)
+    assert (max(ys) - min(ys)) == pytest.approx(m["D"] + 1.2, rel=0.25)
+    assert (max(zs) - min(zs)) == pytest.approx(qf.RAFT_T, rel=0.25)
+
+
+def test_epicentre_fissures_reuse_c_fissure_trace_not_a_second_copy():
+    """"Use the same code in fact ..." — `quake.ground_effects`'s soft-soil
+    epicentre cracks (the `epi_top.png`/`nw_top.png` screenshots) must route
+    through the SAME `_c_fissure_trace` the per-building corner cracks use,
+    not keep a second, independent chain-of-boxes implementation bound to
+    the flat `rebar`/`concrete` materials."""
+    import inspect
+
+    from disaster import quake
+
+    src = inspect.getsource(quake.ground_effects)
+    assert "_c_fissure_trace" in src
+    # the old implementation's fingerprint: a flat box straight onto the
+    # soft-soil centreline, bound to the bare rebar material
+    assert 'mats["rebar"])' not in src
+    assert 'qf._box(stage, path, mx, my, 0.02' not in src
 
 
 if __name__ == "__main__":

@@ -566,13 +566,26 @@ def test_a_tear_never_takes_the_whole_module(mode):
         for j in plan["tears"]:
             assert j["cuts"], (style, j["name"], "classed but not cut")
             for c in j["cuts"]:
+                # The SECOND RING draws from its own, smaller ranges (it
+                # cracks and spalls, it does not peel) — a ring cut judged
+                # against `fc.EDGE_PEN` would be "too small", which is the one
+                # direction this test does not care about. Every other
+                # invariant is the same for both rings.
+                ring = bool(c.get("ring"))
                 if c["kind"] == "v":
-                    lo, hi = fc.EDGE_PEN
+                    lo, hi = ((min(qc.RING_PEN2[0], qc.RING_DIAG_PEN[0],
+                                   qc.RING_CORNER_PEN[0], qc.RING_SPALL_PEN[0]),
+                               max(qc.RING_PEN2[1], qc.RING_DIAG_PEN[1],
+                                   qc.RING_CORNER_PEN[1], qc.RING_SPALL_PEN[1]))
+                              if ring else fc.EDGE_PEN)
                     assert lo * j["w"] - 1e-9 <= c["pen"] <= hi * j["w"] + 1e-9
                     assert j["t0"] < c["line"] < j["t1"], (style, j["name"])
                 elif c["kind"] == "z":
-                    lo, hi = (fc.EDGE_PEN if c["cls"] == "below"
-                              else fc.EDGE_PEN_ABOVE)
+                    lo, hi = ((min(qc.RING_DIAG_PEN[0], qc.RING_TOP_PEN[0]),
+                               max(qc.RING_DIAG_PEN[1], qc.RING_TOP_PEN[1]))
+                              if ring else
+                              (fc.EDGE_PEN if c["cls"] == "below"
+                               else fc.EDGE_PEN_ABOVE))
                     assert lo * j["h"] - 1e-9 <= c["pen"] <= hi * j["h"] + 1e-9
                     assert j["za"] < c["line"] < j["zb"], (style, j["name"])
                 else:
@@ -580,7 +593,9 @@ def test_a_tear_never_takes_the_whole_module(mode):
                 if c["cls"] == "above":
                     # a module standing ON the hole keeps its footing, or the
                     # storeys over it read as floating
-                    assert c["pen"] <= fc.EDGE_PEN_ABOVE[1] * j["h"] + 1e-9
+                    cap_a = (qc.RING_DIAG_PEN[1] if ring
+                             else fc.EDGE_PEN_ABOVE[1])
+                    assert c["pen"] <= cap_a * j["h"] + 1e-9
 
 
 @pytest.mark.parametrize("mode", qc.MODES)
@@ -862,7 +877,11 @@ def test_the_budgets_are_respected_and_an_overrun_is_reported(mode):
         _c, plan = _plan(style, mode)
         assert not _check_budget(plan, allow_over=band_or_total), \
             (style, mode, plan["budget"])
-        assert len(plan["tears"]) <= qc.MAX_EDGE_MODULES, (style, mode)
+        assert (plan["budget"]["edges"] <= qc.MAX_EDGE_MODULES
+                and plan["budget"]["ring_new"] <= plan["budget"]["ring_cap"]
+                and len(plan["tears"]) == (plan["budget"]["edges"]
+                                           + plan["budget"]["ring_new"])), \
+            (style, mode, plan["budget"])
     # EVERY MASS, on the modes that sweep them all: `wing3` of
     # `block_residential` is 1,194 elements on its own, so this is the one
     # place the cost of a DG5 in a city is visible offline.
@@ -906,7 +925,16 @@ def test_the_budgets_are_respected_and_an_overrun_is_reported(mode):
     _c, plan = _plan("commercial_mid", "mid_storey", max_edges=3)
     assert plan["budget"]["edge_cap"] == 3
     assert plan["budget"]["over_edges"] > 0, plan["budget"]
-    assert len([j for j in plan["tears"] if not j.get("dropped")]) == 3
+    # ...the FIRST ring only. `max_edges` is `fire_collapse.plan_edges`'s cap;
+    # the second ring answers to `QC_RING_MAX` and is counted separately, and
+    # it never picks up a module `plan_edges` dropped (that prim would be
+    # split twice).
+    first = [j for j in plan["tears"]
+             if not j.get("ring") and not j.get("dropped")]
+    assert len(first) == 3, len(first)
+    dropped = set(id(j["el"]) for j in plan["tears"] if j.get("dropped"))
+    assert not [j for j in plan["tears"]
+                if j.get("ring") and id(j["el"]) in dropped]
 
 
 def test_the_plan_is_stable_and_takes_zero_shared_draws():
@@ -1586,6 +1614,246 @@ def test_deck_support_z_performance_smoke_many_meshes_stays_bounded():
 
     assert support is not None and abs(support - 10.15) < 0.05, support
     assert dt < 5.0, "401-mesh sweep took {0:.2f}s — the prune regressed".format(dt)
+
+
+# ---------------------------------------------------------------------------
+# ROUND 7 — THE SECOND RING
+#
+# "Look at how we do partial collapse in the urban fire. There we figured out
+#  how to do non-straight/rectangular break-offs from buildings. I like what
+#  you're doing with partial collapse but the break-aways should be like
+#  that." (user, 2026-08-31, on the staged city)
+#
+# MEASURED FIRST (`tools/qc_edge_probe.py`, on the archetype bake's own pose
+# and seed): `fire_collapse.plan_edges` -> `_tear_perimeter` tears 100 % of
+# what it is handed — 15/15, 55/55, 10/10 on the three styles probed, zero
+# failures. The machinery was never broken; the RING WAS TOO SMALL, because
+# the quake ladder's notch is 2-3 storeys of one wall (URM peels from the
+# parapet down) where the fire's F5c hole is five storeys of nearly the whole
+# elevation. So everything below is about what is left PRISTINE beside a
+# correctly-torn hole, which is what the review actually photographed.
+# ---------------------------------------------------------------------------
+def _boundary_ring(ctx, plan, m):
+    """Every surviving shell module that TOUCHES the hole — orthogonally or
+    diagonally — as `{id(e): e}`. Deliberately re-derived here from the kill
+    list and the element table rather than read off `plan["tears"]`: a test
+    that asks the plan which modules it decided to tear and then checks it
+    tore them is a transcript.
+    """
+    killed = set(id(e) for e in plan["kill"])
+    killed |= set(id(j["el"]) for j in plan["stub_jobs"])
+    killed |= set(id(e) for e in plan["panels"])
+    dead = {}
+    for e in plan["kill"]:
+        if e["role"] not in fc.SHELL_ROLES:
+            continue
+        dead.setdefault((e["side"], int(e["storey"])), []).append(
+            fc.el_span(m, e))
+    out = {}
+    for e in ctx["info"]["elements"]:
+        if e["mass"] != plan["mass"] or e["role"] not in fc.SHELL_ROLES:
+            continue
+        if e.get("dead") or id(e) in killed:
+            continue
+        s = int(e["storey"])
+        t0, t1 = fc.el_span(m, e)
+        w = max(0.3, t1 - t0)
+        tol = fc.edge_gap_tol(e, w, 0.6)
+        for key in (s - 1, s, s + 1):
+            for a, b in dead.get((e["side"], key), ()):
+                touch = (min(b, t1) - max(a, t0) > min(1.2, 0.3 * w)
+                         if key != s else False)
+                side_by = (-0.25 * w <= (a - t1) <= tol
+                           or -0.25 * w <= (t0 - b) <= tol)
+                if touch or side_by:
+                    out[id(e)] = e
+    return out
+
+
+def _check_boundary(ctx, plan, m):
+    """Names of boundary modules that survive with no cut on them at all."""
+    jobs = dict((id(j["el"]), j) for j in plan["tears"]
+                if not j.get("dropped"))
+    bad = []
+    for k, e in _boundary_ring(ctx, plan, m).items():
+        j = jobs.get(k)
+        if j is None or not j["cuts"]:
+            bad.append("{0} {1} st{2}".format(e.get("name"), e["side"],
+                                              e["storey"]))
+    return bad
+
+
+@pytest.mark.parametrize("mode", PARTIAL + BAND)
+def test_no_module_at_a_break_boundary_survives_untorn(mode):
+    """THE ROUND-7 INVARIANT. Not "the jobs the plan wrote were cut" (which is
+    what `test_every_module_touching_the_hole_is_torn_and_knows_which_edge`
+    already asserts) but "no module TOUCHING the hole was left without a job"
+    — including the DIAGONAL ones, the re-entrant corner of every staircase
+    step, which `plan_edges` cannot see and which is the sharpest right angle
+    in the whole notch.
+    """
+    for style in STYLES:
+        ctx, plan = _plan(style, mode)
+        bad = _check_boundary(ctx, plan, _mass(ctx, plan))
+        assert not bad, (style, mode, bad[:8])
+
+
+def test_mutation_an_untorn_diagonal_neighbour_is_caught():
+    """`_check_boundary` has to FAIL when a boundary module loses its job —
+    otherwise the test above passes because it cannot see anything."""
+    ctx, plan = _plan("commercial_mid", "elevation")
+    m = _mass(ctx, plan)
+    assert not _check_boundary(ctx, plan, m)
+    ring = _boundary_ring(ctx, plan, m)
+    assert ring, "no boundary modules at all — the fixture stopped biting"
+    plan["tears"] = [j for j in plan["tears"] if id(j["el"]) not in ring]
+    assert _check_boundary(ctx, plan, m), "a stripped ring reported clean"
+
+
+@pytest.mark.parametrize("mode", PARTIAL + BAND)
+def test_the_ring_never_cuts_the_top_off_a_module_carrying_another(mode):
+    """A `z` cut taken from the TOP of a module whose bay carries a piece
+    standing on it (the parapet/cornice band on the top storey) leaves that
+    band hanging in the air. Same class of bug as soot baked onto a wall a
+    later recipe takes away, and it is why the roofline pass picks the
+    TOPMOST piece in each bay by overlap in t rather than by a rounded
+    midpoint (consecutive kit modules share ~0.12 m of t, so "any overlap"
+    chained a whole elevation into one bay).
+    """
+    for style in STYLES:
+        ctx, plan = _plan(style, mode)
+        m = _mass(ctx, plan)
+        live = [e for e in ctx["info"]["elements"]
+                if e["mass"] == plan["mass"] and e["role"] in fc.SHELL_ROLES
+                and not e.get("dead")]
+        killed = set(id(e) for e in plan["kill"])
+        for j in plan["tears"]:
+            if j.get("dropped"):
+                continue
+            tops = [c for c in j["cuts"]
+                    if c["kind"] == "z" and c.get("loose_above")]
+            if not tops:
+                continue
+            for e in live:
+                if id(e) in killed or e is j["el"] or e["side"] != j["side"]:
+                    continue
+                t0, t1 = fc.el_span(m, e)
+                za, _zb = fc.el_z_span(m, e)
+                ov = min(t1, j["t1"]) - max(t0, j["t0"])
+                if ov <= 0.5 * min(max(0.3, t1 - t0), j["w"]):
+                    continue
+                # RESTING ON IT, not merely somewhere above it: a module two
+                # storeys up is carried by the wall between, not by this one.
+                assert abs(za - j["zb"]) > 0.15, (
+                    style, mode, j["name"], "top cut with", e.get("name"),
+                    "standing on it")
+
+
+def test_the_second_ring_is_deterministic_and_takes_zero_shared_draws():
+    """Same building, same seed, same ring — and a ladder that has already
+    drawn from the shared rng gets the identical one, which is what lets this
+    family sit anywhere in a recipe list."""
+    for mode in ("elevation", "corner", "mid_storey"):
+        a = _plan("apartment", mode)[1]
+        ctx = _ctx("apartment")
+        for _ in range(37):
+            ctx["rng"].random()
+            ctx["nrng"].random()
+        b = qc.plan_collapse(ctx, mode=mode)
+        key = lambda p: [(j["name"], j["side"], j["storey"],
+                          tuple(j["classes"]),
+                          tuple(round(float(c.get("line", c.get("frac", 0.0))), 9)
+                                for c in j["cuts"]),
+                          bool(j.get("ring")))
+                         for j in p["tears"]]
+        assert key(a) == key(b), mode
+        assert a["budget"]["ring"] == b["budget"]["ring"], mode
+
+
+def test_the_second_ring_answers_to_its_own_cap_and_never_to_the_first():
+    """`QC_RING_MAX=0` gives back the round-6 look exactly: the first ring is
+    untouched, byte for byte, and nothing else in the plan moves."""
+    import os as _os
+    style, mode = "commercial_mid", "elevation"
+    on = _plan(style, mode)[1]
+    _os.environ["QC_RING_MAX"] = "0"
+    try:
+        off = _plan(style, mode)[1]
+    finally:
+        _os.environ.pop("QC_RING_MAX", None)
+    assert off["budget"]["ring"] == 0 and on["budget"]["ring"] > 0
+    assert not [j for j in off["tears"] if j.get("ring")]
+    first_on = [(j["name"], j["side"], j["storey"], tuple(j["classes"]))
+                for j in on["tears"] if not j.get("ring")]
+    # the first ring's own classes are `plan_edges`'s; the second ring may add
+    # a class to a job it merges into, so compare the modules and the cuts
+    # `plan_edges` itself drew
+    first_off = [(j["name"], j["side"], j["storey"], tuple(j["classes"]))
+                 for j in off["tears"]]
+    assert [q[:3] for q in first_on] == [q[:3] for q in first_off]
+    assert len(off["kill"]) == len(on["kill"])
+    assert off["s0"] == on["s0"] and off["sides"] == on["sides"]
+
+
+@pytest.mark.parametrize("mode", PARTIAL + BAND)
+def test_the_boundary_counter_line_reports_every_treated_module(mode):
+    """`[qc] boundary tears: N/M modules treated (...)` is the line a bake log
+    is read for, so it has to be true before anything is authored: M is every
+    live job, and the two ring counts add up to it."""
+    for style in ("commercial_mid", "apartment", "dw_terrace"):
+        _c, plan = _plan(style, mode)
+        line = qc.boundary_line(plan)
+        assert line.startswith("[qc] boundary tears: ")
+        live = [j for j in plan["tears"] if not j.get("dropped")]
+        assert "0/{0} modules treated".format(len(live)) in line, line
+        assert "{0} first ring".format(
+            len(live) - plan["budget"]["ring_new"]) in line, line
+        assert "{0} second ring".format(plan["budget"]["ring"]) in line, line
+        # nothing is authored yet, so nothing may claim to be torn
+        assert "0/" in line
+
+
+def test_parapet_fall_spends_its_side_budget_on_sides_that_still_have_one():
+    """The 2026-08-31 review's "the top floor has a bunch of perfect
+    rectangular wall pieces all intact".
+
+    `_pick_sides` returns S FIRST, and in the urm ladders a collapse recipe
+    runs before `parapet_fall` and normally takes S — so the old loop spent
+    one of its `sides` slots on a wall whose parapets were already `dead`,
+    silently, and a whole elevation kept its pristine parapet ring. Measured
+    on the baked `bld_apartment_long_DG4`: eight untouched 5.12 x 2.17 m
+    parapet modules on N.
+    """
+    ctx = _ctx("apartment_long")
+    m = ctx["info"]["masses"]["main"]
+    top = len(m["levels"]) - 1
+    # the collapse already took S, exactly as `qc_elevation` does
+    for e in ctx["info"]["elements"]:
+        if e["side"] == "S" and e["mass"] == "main" and (
+                e["role"] in ("parapet", "parapet_corner")
+                or int(e["storey"]) == top):
+            e["dead"] = True
+    want, jobs, empty = qf._parapet_sides(ctx, "main", 3, 0.9)
+    assert want == 3
+    assert "S" in empty, empty
+    assert len(jobs) == 3, [q[0] for q in jobs]
+    assert "S" not in [q[0] for q in jobs]
+    assert set(q[0] for q in jobs) == {"E", "W", "N"}
+    # ...and `frac` is per side: one parapet-less side must not boost the next
+    ctx2 = _ctx("commercial_mid")
+    _w2, jobs2, _e2 = qf._parapet_sides(ctx2, "main", 3, 0.5)
+    for _sd, _run, partial, frac_s in jobs2:
+        assert abs(frac_s - (0.8 if partial else 0.5)) < 1e-9, (partial, frac_s)
+
+
+def test_a_parapet_ring_left_standing_is_reported_not_silent():
+    """A role lookup that comes back empty used to be an invisible
+    `continue`. If the budget cannot be spent the note has to say so."""
+    ctx = _ctx("apartment")
+    for e in ctx["info"]["elements"]:
+        e["dead"] = True
+    want, jobs, empty = qf._parapet_sides(ctx, "main", 3, 0.9)
+    assert want == 3 and not jobs and len(empty) == 4
 
 
 if __name__ == "__main__":

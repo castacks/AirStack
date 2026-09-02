@@ -13,9 +13,12 @@ runs against a SYNTHETIC layout (three blocks: `lowrise`, `brick_midrise`,
   * the four gates of `burnable()`, in order, with the EXACT refusal reason
     for each: not-a-house, off the block map (a street), inside a no-fire
     (tower) district, `kit_substitute.route()`'s own reason (Muyang
-    DownTown), and the NEW gate `bake_kind()` adds that `route()` does not
-    (an AEC brownstone routes to 'slice' but has no `fire_bake.KINDS` entry);
-  * `bake_kind()` on one real asset per pack: GAC, downtowncity, an
+    DownTown), and the gate `bake_kind()` adds that `route()` does not (an
+    unregistered "real, unnamed parts" pack routes to 'slice' but has no
+    `fire_bake.KINDS` entry -- AEC brownstones used to be the example here;
+    as of 2026-09-01 they are a registered `gac_fire.PACKS["aec"]` pack and
+    ARE burnable, see `test_burnable_accepts_aec_brownstone`);
+  * `bake_kind()` on one real asset per pack: GAC, downtowncity, AEC, an
     already-kit build, a matchable `same_art` MCE merged asset, and an
     unmatchable one (refused, never sliced);
   * the district rule, MUTATION-CHECKED: a placement that is burnable at one
@@ -62,8 +65,19 @@ DTC_CARVED_04_USD = gf.DTC_DIR + "Carved_04.usdc"            # blacklisted prefi
 DTC_AMAR_TOWER_USD = gf.DTC_DIR + "Amar_Tower.usdc"          # NOT blacklisted
 KIT_USD = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
            "scene_gen/assets/archetype/bld_apartment_DG0.usd")
-AEC_BROWNSTONE_USD = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/NVIDIA/"
-                      "Demos/AEC/Buildings/Brownstone/Brownstone_01.usd")
+# 2026-09-01: AEC brownstones are a registered `gac_fire.PACKS["aec"]` pack
+# now (`Reference_Brownstone*Row.usd`, already a bag of instanced parts --
+# see gac_fire.py). `AEC_BROWNSTONE_USD` is the REAL production URL every
+# `config/asset_sets/urban.yaml` rowhouse pool entry carries -- an earlier
+# version of this constant used a plausible-looking `.../NVIDIA/Demos/AEC/
+# Buildings/Brownstone/Brownstone_01.usd` stand-in that is not reachable on
+# Nucleus (MEASURED: `Usd.Stage.Open` fails) and was never a real placement's
+# `usd` field anyway. `STANDALONE_USD` is a stand-in for a genuinely
+# UNREGISTERED "real, unnamed parts" pack, which is what `bake_kind`'s final
+# fallback still refuses.
+AEC_BROWNSTONE_USD = gf.AEC_DIR + "Reference_Brownstone5Row.usd"
+STANDALONE_USD = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/"
+                  "SEI-COA/standalone/buildings/some_block.usd")
 MUYANG_USD = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Muyang/"
              "DownTown/Assets/BG_Building_A.usd")
 SAME_ART_OK_USD = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/"
@@ -125,8 +139,13 @@ def test_bake_kind_same_art_refused_never_slices():
     assert reason and "kit style" in reason
 
 
-def test_bake_kind_aec_brownstone_refused_with_reason():
-    kind, reason = ufc.bake_kind(AEC_BROWNSTONE_USD, 20.0, 15.0, 18.0, "urm")
+def test_bake_kind_aec_brownstone():
+    assert ufc.bake_kind(AEC_BROWNSTONE_USD, 21.1, 33.4, 14.8, "urm") == \
+        ("aec", "Reference_Brownstone5Row")
+
+
+def test_bake_kind_unregistered_slice_pack_refused_with_reason():
+    kind, reason = ufc.bake_kind(STANDALONE_USD, 20.0, 15.0, 18.0, "urm")
     assert kind is None
     assert "fire_bake.KINDS" in reason
 
@@ -222,8 +241,18 @@ def test_burnable_gate3_rejects_unmatchable_same_art():
     assert "route refused" in reason
 
 
-def test_burnable_gate4_rejects_aec_brownstone():
+def test_burnable_accepts_aec_brownstone():
     p = _house(AEC_BROWNSTONE_USD, 170.0, 70.0, "x")
+    ok, rec = ufc.burnable(LAYOUT, p, {})
+    assert ok
+    assert rec["kind"] == "aec"
+    assert rec["asset"] == "Reference_Brownstone5Row"
+    assert rec["style"] is None
+    assert rec["typology"] == "brick_midrise"
+
+
+def test_burnable_gate4_rejects_unregistered_slice_pack():
+    p = _house(STANDALONE_USD, 170.0, 70.0, "x")
     ok, reason = ufc.burnable(LAYOUT, p, {})
     assert not ok
     assert "fire_bake.KINDS" in reason

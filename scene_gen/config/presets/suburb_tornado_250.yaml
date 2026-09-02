@@ -1,0 +1,359 @@
+# HIGH-LEVEL scene spec — a 250 x 250 m block of suburb with a tornado track
+# cut across it. THE MID-SIZE COUSIN of `suburb_tornado` (500 m, judged from
+# altitude) and `suburb_tornado_100` (100 m, judged from the ground).
+#
+# WHY THIS EXISTS. It is the RAVEN single-agent + shared-RayFronts test scene
+# (`_plans/raven_single_rayfronts_shared_plan.md` WP-D): two drones need a
+# plate small enough to fly and map end-to-end in a bring-up test, but with
+# enough intact fabric AND enough of the damage ladder that "find the
+# casualties" is a real search rather than a corridor with nothing else in
+# it. 250 m is close enough to see the whole plate from a sane survey
+# altitude while still holding a real street network (unlike the 100 m plate,
+# which has room for exactly one street and no cul-de-sacs at all).
+#
+# METHOD. Presets have no inheritance, and unlike `suburb_tornado_100` this
+# file is NOT a short diff against `compile_locale.compile_suburban` defaults
+# — it is `suburb_tornado.yaml` (500) with every knob that differs from
+# `suburb_tornado_100.yaml` (100) RE-DERIVED for 250 m. Every such knob below
+# is computed as
+#
+#     t = (250 - 100) / (500 - 100) = 0.375        # 250's position between
+#                                                    # the two shipped plates
+#     v(250) = v(100) + t * (v(500) - v(100))       # linear interpolation
+#
+# rounded to a clean number, UNLESS the interpolated number would violate a
+# hard constraint the source files documented (the track-width compiler cap,
+# a cul-de-sac's own minimum geometry) or the knob is a CAP rather than a
+# target and scales with plate AREA, not width (`max_cars`) — both are called
+# out individually below. Knobs that are IDENTICAL in both source files are
+# physical constants, not plate-scaled, and are carried over unchanged with
+# no interpolation math.
+#
+# BUILD IT. The archetype library is the SAME one both other tornado scenes
+# use — the bake is per (style, damage level) and has nothing to do with
+# plate size:
+#
+#     ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado \
+#     SCENE_CONFIG=suburb_tornado_250 \
+#     ISAAC_SIM_SCRIPT_NAME=suburb_tornado_launch_script.py \
+#     airstack up isaac-sim
+#
+# Or check it on the host first, no Isaac Sim needed:
+#     python3 scene_gen/tools/tornado_png.py --config suburb_tornado_250
+#
+# PEOPLE ARE NOT PLACED HERE. Exactly like `suburb_tornado`/`_100`, casualties
+# are a launch-script pass (`suburb_tornado_launch_script.py` step 7b,
+# `disaster.tornado_people.plan_people`), controlled by env `TOR_PEOPLE`
+# (default on) and `PEOPLE_JSON`, never by this file. See
+# `_plans/raven_test_scene_runbook.md` for the full env block this scene is
+# flown with.
+
+locale: suburban
+asset-set: suburban_park
+
+disaster-type: tornado
+# SAME EF3 / low-EF4 AS BOTH OTHER TORNADO PRESETS, per WP-D's spec: the
+# centreline is swept, the shoulders keep standing walls, the path edge is
+# roofs with their covering off. Not interpolated — severity is the disaster
+# class, not a plate-scaled quantity, and the ask was to hold it fixed so the
+# three tornado scenes are the same STORM at three sizes.
+severity: 0.82
+
+region_m: [250, 250]
+# THE 500 m PLATE'S OWN SEED. This file is derived FROM `suburb_tornado.yaml`
+# rather than freshly authored, so starting from its seed and re-checking the
+# corridor with `tornado_png.py` (rather than guessing a new one blind) is
+# the cheaper path — seed 10 turned out to still land the track across real
+# fabric on a 250 m crop (verified: see the tool's own output, in-path
+# fraction and damaged-house count both in band, no warnings printed).
+seed: 10
+
+# A POINT ON THE CENTRELINE, not an ignition point, offset toward the
+# south-west so the corridor crosses the fabric diagonally rather than
+# running along one edge (a track through the exact centre at 45 degrees is
+# symmetrical, and symmetry is the tell for an authored scene — same
+# reasoning both other presets give). SCALED BY THE PLATE-WIDTH RATIO TO THE
+# 500 m PRESET (250 / 500 = 0.5) applied to its absolute epicenter — exactly
+# half of `suburb_tornado.yaml`'s `[-90, -150]` — which keeps the corridor at
+# the same RELATIVE position on the plate (same offset from centre as a
+# fraction of the half-width) rather than at 100's independently-tuned point
+# (100's own epicenter is not a clean scale of 500's y-component either — see
+# its file — because it was hand-fit to a different seed's street layout).
+# Verified with `tornado_png.py`, not just computed: in-path fraction and
+# damaged-house count both land in band with no warnings for this seed.
+epicenter: [-45, -75]
+# Direction of travel, deg, 0 = +X / East. UNCHANGED from both other tornado
+# presets — a compass bearing is not a plate-scaled quantity.
+heading_deg: 38
+
+overrides:
+  # ---- THE TRACK ------------------------------------------------------------
+  disaster:
+    tornado:
+      # Tip to tip, in METRES. NOT a straight interpolation: `v(100)=46,
+      # v(500)=155, t=0.375` gives 86.9 m, but that is width/region = 0.348,
+      # ABOVE the compiler's 32% cap for THIS plate (0.32 * 250 = 80 m) and,
+      # more importantly, above the philosophy `suburb_tornado` deliberately
+      # chose for a scene meant to be flown and surveyed from the air with
+      # intact fabric on both sides (width/region = 0.31, comfortably under
+      # its own 160 m cap). `suburb_tornado_100`'s 0.46 ratio is not a
+      # counter-example to follow here — its own header explains it exists
+      # ONLY because that scene's subject is the GROUND RELIEF up close, which
+      # needs a proportionally wider corridor to read; this scene is a
+      # bring-up test flown by two drones at a normal search altitude, i.e.
+      # the 500 m scene's use case at half the size. So: anchor to 500's
+      # ratio instead of the raw interpolation — 0.31 * 250 = 77.5 -> 78.0 m,
+      # which leaves the same ~3% margin under the 80 m cap that 155 m leaves
+      # under 500's 160 m cap.
+      width_m: 78.0
+      # UNCHANGED — identical in both source files (0.22), so it is not a
+      # plate-scaled quantity: the shoulders are where the interesting damage
+      # classes live regardless of plate size.
+      core_frac: 0.22
+      # Linear interpolation: v(100)=16, v(500)=34, t=0.375 -> 22.75 -> 23.0.
+      # Plank debris travel scales with plate size so a board off a wrecked
+      # house stays inside the frame instead of leaving it (same concern the
+      # 100 m file raises about its own 16 m value against 500's 34).
+      throw_m: 23.0
+      # UNCHANGED — identical in both source files (9.0 m/s); PhysX throw
+      # speed is a material property of flying debris, not a plate-scaled one.
+      throw_speed_mps: 9.0
+
+  # ---- street furniture -------------------------------------------------------
+  # Interpolated the same way the 100 m preset motivates its own override:
+  # too sparse a lamp run answers "are the streetlights damaged?" with a
+  # sample of one or two. v(100)=45 (explicit override), v(500)=50 (the
+  # SUBURBAN DEFAULT from `compile_locale.compile_suburban`, never overridden
+  # by `suburb_tornado.yaml`) -> t=0.375 -> 46.9 -> 47.0. Made explicit here
+  # rather than left to the default, since this file's whole method is to
+  # show every plate-scaled number rather than let one hide behind whichever
+  # preset happens not to override it.
+  detail:
+    categories:
+      streetlights: {zone: furnishing, spacing_m: 47.0}
+
+  # ---- ROAD + DRIVEWAY MATERIALS, unchanged from both other tornado presets --
+  usds:
+    materials:
+      asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+      driveway: "airstack://scene_gen/assets/materials/megascans/Brick_Wall_Worn.usda"
+      driveway_asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+  roads:
+    # UNCHANGED — identical in both source files (0.5); a material mix ratio,
+    # not a plate-scaled quantity.
+    driveway_asphalt_share: 0.5
+    # ROAD-PAINT HEIGHT. v(100)=0.10, v(500)=0.16, t=0.375 -> 0.1225 -> 0.12.
+    # Both source files tie this to view distance (300 m for the 500 m plate,
+    # 40 m for the 100 m one, since a drone surveying a 250 m plate sits
+    # somewhere between the two, closer to the 500 m plate's altitude than the
+    # 100 m plate's close-in fly-by given the RAVEN bring-up flies at
+    # `DRONE_Z_M` rather than 40 m).
+    z_scale: 0.12
+
+  # UN-INSTANCE FENCES so the fire/tornado passes can author inside them (USD
+  # forbids authoring inside an instance) — same list both other tornado
+  # presets use; not plate-scaled.
+  instance_categories: ["plant", "sidewalk", "streetlight",
+                        "fire_hydrant", "sign", "crosswalk"]
+  layout:
+    region_m: [250, 250]
+
+  # ---- street network (suburb_net.py) ----------------------------------------
+  suburb_net:
+    # Splitting stops when a face is under this. Linear interpolation:
+    # v(100)=2000, v(500)=19000, t=0.375 -> 8375 -> 8400. Cross-check: a
+    # 250 m plate is 62,500 m2, so ~7.4 target-sized blocks fit it — enough
+    # for a real street grid and nowhere near the "whole plate is one block"
+    # failure the 100 m file's own reasoning warns about at its scale.
+    block_area_target_m2: 8400.0
+    # v(100)=700, v(500)=5000, t=0.375 -> 2312.5 -> 2300.
+    block_area_min_m2: 2300.0
+
+    # Curvilinear routes crossing the interior. v(100)=1, v(500)=2,
+    # t=0.375 -> 1.375, which rounds DOWN (under the 1.5 halfway point) to 1.
+    # Consistent with area rather than width: a 250 m square is a QUARTER the
+    # AREA of the 500 m square (62,500 vs 250,000 m2) — much closer to the
+    # 100 m plate's single-spine fabric than to the 500 m plate's "room for
+    # two" — so one collector, not two.
+    collectors: 1
+    # v(100)=0.22, v(500)=0.28, t=0.375 -> 0.2425 -> 0.24.
+    collector_wander: 0.24
+
+    # Centreline to centreline: two lot depths back to back plus the road.
+    # v(100)=32, v(500)=64, t=0.375 -> 44.0.
+    min_gap_m: 44.0
+
+    # Share of blocks left undeveloped. `suburb_tornado.yaml` (500) does NOT
+    # override this, so it inherits `suburb_net.DEFAULTS`'s 0.15; the 100 m
+    # preset explicitly zeroes it because a share of the THREE OR FOUR blocks
+    # that fit a 100 m plate is a coin flip. Treating the 500 m plate's
+    # inherited 0.15 as v(500): t=0.375 -> 0.05625 -> 0.06. At ~7 target
+    # blocks a 6% share is well clear of the "0 or 2 of 3" degenerate case the
+    # 100 m file measured, so it is worth turning back on rather than pinned
+    # at 0 like the 100 m plate.
+    undeveloped_share: 0.06
+
+    # Real plats meet at 70-110 degrees, not exactly 90. v(100)=30,
+    # v(500)=38, t=0.375 -> 33.0.
+    junction_skew_deg: 33.0
+    # UNCHANGED — identical in both source files (0.35); a fabric-typology
+    # constant (T- vs four-way share), not tied to plate size.
+    four_way_chance: 0.35
+
+    # Cul-de-sacs. v(100)=0.0 (DISABLED — a 100 m plate has no room for a
+    # 29 m bulb plus a 55-170 m stick), v(500)=0.24 -> t=0.375 -> 0.09.
+    # RE-ENABLED here (unlike the 100 m plate) because the geometry now fits:
+    # at `block_area_target_m2` 8400 a typical block runs roughly 90-100 m a
+    # side, well clear of a lollipop's minimum footprint.
+    dead_end_target: 0.09
+    # IFC Fig D103.1 figure, UNCHANGED — identical in both source files
+    # (14.64 m), and only needed now that `dead_end_target` is non-zero.
+    bulb_radius_m: 14.64
+    # SCALED BY THE PLATE-WIDTH RATIO (250 / 500 = 0.5) off `suburb_tornado`'s
+    # [55, 170] -> [27.5, 85], with the LOWER bound raised to 35 m so the
+    # stick clears the 14.64 m bulb's own 29.3 m diameter with room to read as
+    # a street rather than a driveway into a circle. The 100 m file has no
+    # value to interpolate FROM here (the feature is off there), so this is
+    # anchored to 500 alone, scaled by plate width — the same method used for
+    # `epicenter` above.
+    lollipop_len_m: [35.0, 85.0]
+
+    # UNCHANGED — identical in both source files (2.6); how strongly
+    # neighbouring streets prefer to run parallel is a fabric-typology
+    # constant, not a function of plate size.
+    grain_weight: 2.6
+    # v(100)=28, v(500)=34, t=0.375 -> 30.25 -> 30.0.
+    grain_swirl_deg: 30.0
+    # The plat grain has to turn over inside the plate to be visible.
+    # v(100)=90, v(500)=320, t=0.375 -> 176.25 -> 176.0.
+    grain_period_m: 176.0
+
+  # ---- the park (suburb_park.py) ---------------------------------------------
+  # UNCHANGED from `suburb_tornado.yaml`. Neither source file scales this with
+  # plate size — `parking_m` is a REGULATION-SIZED parking module (two
+  # double-loaded rows on a real aisle width), not a quantity that grows or
+  # shrinks with the plate; the 100 m preset does not override it at all
+  # (it does not reserve a park-sized block on that plate to begin with). A
+  # 250 m plate's park-eligible block is large enough for this module
+  # unchanged.
+  suburb_park:
+    parking_m: [64.0, 40.0]
+    parking_apron_w_m: 8.0
+
+  # ---- lots, houses, planting (suburb_parcel.py) -----------------------------
+  suburb_parcel:
+    modular_houses: true
+    modular_share: 1.0
+    # FRONTAGE PER DWELLING. v(100)=[16,22], v(500)=[22,32], t=0.375 ->
+    # [18.25, 25.75] -> [18.0, 26.0].
+    lot_width_m: [18.0, 26.0]
+    # v(100)=16, v(500)=21, t=0.375 -> 17.875 -> 18.0.
+    min_lot_depth_m: 18.0
+    # SIDE YARD. v(100)=3.0, v(500)=4.5, t=0.375 -> 3.5625 -> 3.5.
+    house_gap_m: 3.5
+    # v(100)=[4.5,7.5], v(500)=[6.5,11.0], t=0.375 -> [5.25, 8.8125] ->
+    # [5.25, 8.8].
+    setback_m: [5.25, 8.8]
+    # A district has to turn over inside the plate or the whole scene is one
+    # density class. v(100)=55, v(500)=180, t=0.375 -> 101.875 -> 100.0.
+    neighbourhood_m: 100.0
+    # Linear interpolation of each share, v(100) -> v(500), t=0.375, then
+    # renormalised to sum to 1.0 (estate nudged 0.0225 -> 0.03):
+    #   tight:  0.60 -> 0.34, t=0.375 -> 0.5025  -> 0.50
+    #   normal: 0.34 -> 0.40, t=0.375 -> 0.3625  -> 0.36
+    #   loose:  0.06 -> 0.20, t=0.375 -> 0.1125  -> 0.11
+    #   estate: 0.00 -> 0.06, t=0.375 -> 0.0225  -> 0.03
+    density_mix: {tight: 0.50, normal: 0.36, loose: 0.11, estate: 0.03}
+    # ---- ROW HOMES ----------------------------------------------------------
+    # Share of district seeds carrying a row-home development. v(100)=0.0
+    # (a 60-93 x 50-90 m development does not fit a 100 m plate at all),
+    # v(500)=0.225 -> t=0.375 -> 0.084 -> 0.09. RE-ENABLED here (unlike the
+    # 100 m plate) because at `neighbourhood_m` 100 and typical block runs of
+    # ~90-100 m a development CAN fit, just less often than on the 500 m
+    # plate — 0.09 reflects that it is rarer, not absent.
+    row_share: 0.09
+    # UNCHANGED from `suburb_tornado.yaml`: the court geometry itself
+    # (unit gap, units per row, front setback, parking supply, communal
+    # green) is sized against the KIT and against real zoning/parking
+    # figures, none of which change with plate size — only whether a
+    # development fits a given block at all, which `row_share` and the
+    # generator's own per-block fit test already govern.
+    row_housing:
+      unit_gap_m: 2.5
+      units_per_row: [3, 5]
+      front_setback_m: 7.5
+      bays_per_dwelling: 1.75
+      green_m: 6.0
+    # NOMINAL FALLBACK ONLY (unread on this path; see `suburb_tornado.yaml`'s
+    # own note) — unchanged.
+    house_w_m: [9.0, 13.0]
+    house_d_m: [8.0, 11.0]
+    # UNCHANGED from `suburb_tornado.yaml` — physical/asset constants that do
+    # not scale with plate size (fit-check side yard, skew-corner clearances,
+    # driveway width, house facing correction, planting spacing, pool
+    # clearances). Neither source preset varies most of these with plate
+    # size either — the 100 m file simply omits them and inherits
+    # `suburb_parcel.DEFAULTS`, which is not the right anchor for a 250 m
+    # scene built FROM the 500 m file.
+    junction_skew_clear_deg: 30.0
+    junction_skew_clear_m: 2.0
+    driveway_w_m: 3.2
+    house_yaw_offset_deg: -90.0
+    back_trees_per_100m2: 0.055
+    front_tree_chance: 0.45
+    street_tree_spacing_m: [16.0, 30.0]
+    pool_rear_m: 20.0
+    pool_rear_min_m: 9.5
+    pool_tree_clear_m: 11.0
+
+  # ---- parked cars (suburb_scene.build_cars) ---------------------------------
+  cars:
+    # Share of driveways holding a car. v(100)=0.80 (tornado-afternoon
+    # reasoning: short driveways hold one car at most, so the supply pressure
+    # is high), v(500)=0.55 (generic midday), t=0.375 -> 0.70625 -> 0.70. The
+    # interpolated setback (5.25-8.8 m) is still on the short side, so keeping
+    # more of the 100 m plate's afternoon-occupancy reasoning than the 500 m
+    # plate's midday one is the right lean.
+    driveway_chance: 0.70
+    # Share of a row-home court's bays holding a car — same reasoning as
+    # `suburb_tornado.yaml`'s note: UNCHANGED, because `row_housing.
+    # bays_per_dwelling` (1.75) is also unchanged and this is sized against
+    # it, not against the plate.
+    court_occupancy: 0.6
+    # Share of kerb slots holding a car. v(100)=0.55 (short driveways push
+    # the overflow onto the kerb), v(500)=0.12 (sparse — driveways handle
+    # it), t=0.375 -> 0.38875 -> 0.39.
+    street_density: 0.39
+    # UNCHANGED — identical in both source files ([7.0, 9.0]); a car's own
+    # footprint plus the room to get out of the space, not a plate-scaled
+    # quantity.
+    slot_spacing_m: [7.0, 9.0]
+    slot_gap_chance: 0.18
+    # KEEP-OUTS — unchanged from `suburb_tornado.yaml`; these are all
+    # asphalt-blob / dropped-kerb / hydrant clearances, not plate-scaled.
+    junction_clear_m: 8.0
+    apron_clear_m: 1.5
+    hydrant_clear_m: 3.0
+    kerb_gap_m: 0.35
+    # Driveway fit. v(100)=0.0, v(500)=1.0, t=0.375 -> 0.375 -> 0.4.
+    drive_rear_clear_m: 0.4
+    # v(100)=0.5, v(500)=0.8, t=0.375 -> 0.6125 -> 0.6.
+    drive_nose_clear_m: 0.6
+    # UNCHANGED — identical intent in both source files (nothing carries the
+    # `vintage` tag today; kept for whenever a correctly-sized period car is
+    # added) and glass-stripping is a renderer workaround, not a plate-scaled
+    # quantity.
+    vintage_chance: 0.06
+    strip_glass: true
+    # A CAP, NOT A TARGET, and NOT interpolated the way the distance/count
+    # knobs above are: it is un-instanced geometry ceiling that should track
+    # plate AREA (how many houses/cars can possibly exist), not plate WIDTH.
+    # `suburb_tornado_100.yaml` never overrides this at all — it silently
+    # inherits the 700 default, which was never measured for a 100 m plate
+    # and is not a real anchor to interpolate FROM. Scaling `suburb_tornado`'s
+    # measured 220 (which WAS sized against the 500 m plate's actual car
+    # population) by the plate AREA ratio (250 / 500)^2 = 0.25 gives 55;
+    # rounded up to 60 for headroom. The cap was never close to binding on
+    # the 500 m plate either, so exactness here matters little as long as it
+    # sits comfortably above the expected count.
+    max_cars: 60
