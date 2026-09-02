@@ -19,7 +19,7 @@
 >   the content. Never rewrite or prune it; correct an old entry only
 >   by appending a newer one.
 >
-> Last updated: 2026-08-28
+> Last updated: 2026-09-02
 
 ## Current direction
 
@@ -41,9 +41,11 @@ trials scored** (entry [011](011-agent-study-v6-trials/design_spec.md),
 §(c-final)). All three arm gaps quantified with a stable failure
 taxonomy: A1 80% full-ladder / A2 60% (opus 5-for-5, sonnet 1-for-5 —
 legibility×model interaction) / A3 0% ≥R7 / A4 30% (open-loop
-lottery). Next for Sec. VI-C: survival figure + tab:agents generation,
-transcript-derived cycle/feedback stats, artifact bundle; T4/T5
-add-ons still open (P-5 blocks T5). v6 foundation: MIGHTY swap (entry
+lottery). §(d) analysis DONE (2026-09-02): survival figure,
+tab:agents, cycle counts, feedback taxonomy — all recomputed from raw
+results.json and cross-checked against the hand tallies. Next for
+Sec. VI-C: prose-ify into the paper submodule + release-artifact
+bundle; T4/T5 add-ons still open (P-5 blocks T5). v6 foundation: MIGHTY swap (entry
 [010](010-mighty-local-planner-module/design_spec.md), DONE), pin
 `study/mighty-swap` @ `961fb9e1`, asm_mighty v0.1.0. In parallel:
 prose-ifying `main.tex`
@@ -102,7 +104,7 @@ come from the entries' own labels.
 
 | Campaign | Goal | Entries | Status |
 |---|---|---|---|
-| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md), [011-agent-study-v6-trials](011-agent-study-v6-trials/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DONE` — MIGHTY swapped in as `asm_mighty` v0.1.0; R7 reference solvability 5/5 under frozen v6; 011 `WIP` — TRIALS RUNNING, 1 scored (A1/sonnet = R8 full ladder), runner defects fixed pre-scoring (see log) |
+| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md), [011-agent-study-v6-trials](011-agent-study-v6-trials/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DONE` — MIGHTY swapped in as `asm_mighty` v0.1.0; R7 reference solvability 5/5 under frozen v6; 011 `DONE` — 40/40 trials scored + §(d) paper analysis complete 2026-09-02 (figure, tab:agents, cycles, taxonomy) |
 | Paper writing & positioning | Sec. I–V prose, case-study interviews, figures | — (lives in the `ICRA_2027_AirStack_Paper/` submodule; no notebook entries) | Related Work + Design Principles prose done 2026-08-03; interviews not recorded anywhere yet |
 | Release gate / v1.0 readiness | The seven paper-blocking items (clone-and-run, verified hardware path, …) | — (no notebook entries yet) | ~63 open `\task{}` vs 1 `\done{}` in `release_gate_and_tasks.tex` |
 | Modular AirStack (RFC #379/#380) | Monolith → modules, stacks, fleets — built to support the paper's modularity positioning: module swapping (C1) and easy upstreaming of features from forked projects (lead, recorded 2026-08-27) | [002-rfc-modular-airstack](002-rfc-modular-airstack/design_spec.md) | `WIP` per its header (impl merged to develop 2026-08-24 as PRs #388–#396; release mechanics, module CI tags, P3 dispatch smoke open) |
@@ -117,6 +119,26 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+### 2026-09-02 — Sec. VI-C analysis produced; recomputation matches
+
+Notebook 011 §(d) is complete
+([results_summary.md §(d)](011-agent-study-v6-trials/results/results_summary.md)):
+`d-analysis/analysis.py` recomputes everything from the 40
+`results.json`/`judge_log.jsonl`/`transcript.jsonl` files and
+cross-checks the hand-tallied §(c-final) — matrix, survival, and
+tab:agents all reproduce (one flag: A3 mean time is 2 h 39 m, hand
+table rounded to 2 h 40 m; A4's distinct prompt hash verified as the
+expected judge-cap-0 footer). Deliverables ready for the paper:
+rung-survival figure (pooled, Wilson bands; per-model small multiples
+for the appendix — the A2 opus/sonnet split panel is the interaction
+picture), generated `tab_agents.tex` with A2 per-model sub-rows, and
+the two protocol prose sentences (cycles: A1 median 1 judge cycle per
+rung everywhere, A3 2.5 at bring-up / 3 at integration, 5/10 A3
+trials burned 19 runs on R7 without a pass; taxonomy: judge verdicts,
+topic rates/contents, logs, TF errors). VI-C is now a writing task,
+not an analysis task; remaining study work is the release-artifact
+bundle and the optional T4/T5 add-ons.
 
 ### 2026-09-02 — CAMPAIGN v6 COMPLETE: 40/40 trials, all four gaps quantified
 

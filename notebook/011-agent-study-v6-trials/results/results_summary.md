@@ -1,7 +1,7 @@
 # Results Summary — Agent Study Campaign v6 Trials
 
-> Entry: [design_spec.md](../design_spec.md) · Status: **TRIALS
-> COMPLETE — 40/40 scored 2026-09-02** · Campaign
+> Entry: [design_spec.md](../design_spec.md) · Status: **DONE —
+> 40/40 scored + §(d) paper analysis complete 2026-09-02** · Campaign
 > `2026-08-icra27-vic-v6`, config
 > `3b2402f6…`, prompt `afad954d…`, AirStack `961fb9e1`
 > (study/mighty-swap, asm_mighty v0.1.0). Trial artifacts live in the
@@ -164,14 +164,133 @@ excluded infra attempts ≈ \$820 all-in). Wall-clock: 2026-08-28 21:29 →
    including twice in A1 — exactly the discrimination Amendment 1
    added R7/R8 to provide.
 
-## (d) Analysis for the paper — next steps
+## (d) Analysis for the paper — COMPLETE (2026-09-02)
 
-Raw per-trial artifacts in `agent_study/runs/` (pruned per retention
-policy). To produce: rung-survival figure (data above), tab:agents
-(mean±sd from per-trial table), cycle counts + feedback-taxonomy
-sentences from transcripts. Per-model splits must be reported (voice
-rule): pooling is defensible for A1/A3, NOT for A2 (interaction) —
-report A2 per-model.
+Everything recomputed from the 40 `results.json` +
+`judge_log.jsonl` + `transcript.jsonl` files by
+[d-analysis/analysis.py](d-analysis/analysis.py) — never from the
+hand-tallied tables above; full machine-generated record in
+[d-analysis/analysis_output.md](d-analysis/analysis_output.md).
+Inclusion rule: config `3b2402f6…`, scored ladder trials only;
+`.env-truncated*` / `.contaminated` / `.interrupted` archives excluded
+as documented infra failures (the paper's exclusion note cites them:
+2 pre-scoring runner defects §(b), 1 operator session kill, 1
+operator contamination — none scored, all archived with disposition).
+
+**Cross-check vs hand-tallied §(c-final):** score matrix, all rung
+survival fractions, and tab:agents means reproduce exactly, with
+**one flag** — A3 mean agent time recomputes to 2 h 39 m (159.4 min)
+where §(c-final) says 2 h 40 m (hand rounding; flagged, not silently
+corrected). Non-issue verified: A4's composed-prompt sha (`019dd8f7…`)
+differs from A1–A3 (`afad954d…`) only in the `{judge_cap}` footer
+("at most 20" → "at most 0" invocations) — diffed, expected open-loop
+wording from the frozen prompts.yaml, not a deviation. AirStack
+commit uniform (`961fb9e1`) across all 40. Total recorded spend
+\$752.87 over 38 recorded-usage trials; the 2 wall-clock kills
+(A3/opus #1, A2/sonnet #5) lost their usage events — every cost
+statistic is over recorded-usage trials and says so.
+
+### The section's figure — rung survival
+
+Pooled over models, n=10/arm, Wilson 95 % bands (per protocol
+§Reporting plan). Vector PDF for the paper +
+per-model small-multiples variant for the appendix/artifact:
+
+![Rung survival by arm](d-analysis/rung_survival.png)
+
+![Rung survival per model](d-analysis/rung_survival_per_model.png)
+
+```latex
+% Sec. VI-C figure (d-analysis/rung_survival.pdf)
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/rung_survival.pdf}
+  \caption{Fraction of trials scoring $\geq$ each ladder rung
+  (final-state scoring on fresh evaluation routes; $n{=}10$/arm,
+  pooled over models; shaded: Wilson 95\% intervals). Arms tie at the
+  R1--R5 floor; divergence appears as required completeness grows.
+  No A3 trial passed R7 in 10 attempts.}
+  \label{fig:rung_survival}
+\end{figure}
+```
+
+### tab:agents (generated: [d-analysis/tab_agents.tex](d-analysis/tab_agents.tex))
+
+A2 carries per-model sub-rows — the opus/sonnet interaction (5/5 vs
+1/5 at R8) makes pooling A2 indefensible under the protocol's
+variance rule; A1/A3/A4 pool defensibly (same-direction, overlapping
+cells).
+
+```latex
+\begin{table}[t]
+\centering
+\caption{Ladder outcomes per arm ($n{=}10$/arm; 5 per model). Mean $\pm$ s.d.
+Cost is over trials with recorded usage (two wall-clock-killed trials lost
+their usage events; $n$ in parentheses). A2 is reported per model: the
+opus--sonnet interaction (5/5 vs.\ 1/5 at R8) makes pooling indefensible.}
+\label{tab:agents}
+\begin{tabular}{lcccc}
+\toprule
+Arm & R8 success & Hours & Judge calls & Cost (USD) \\
+\midrule
+A1 & 8/10 & $2.1 \pm 0.4$ & $9.8 \pm 2.6$ & $17.25 \pm 7.86$ (10) \\
+A2 & 6/10 & $2.6 \pm 0.8$ & $10.5 \pm 4.1$ & $18.11 \pm 4.81$ (9) \\
+\quad sonnet-5 & 1/5 & $3.1 \pm 0.9$ & $11.8 \pm 4.8$ & $15.87 \pm 5.78$ (4) \\
+\quad opus-5 & 5/5 & $2.1 \pm 0.3$ & $9.2 \pm 3.1$ & $19.90 \pm 3.49$ (5) \\
+A3 & 0/10 & $2.7 \pm 0.7$ & $13.6 \pm 2.8$ & $28.53 \pm 9.18$ (9) \\
+A4 & 3/10 & $1.4 \pm 0.3$ & 0 (by design) & $16.07 \pm 4.46$ (10) \\
+\bottomrule
+\end{tabular}
+\end{table}
+```
+
+Supporting number not in the table (for prose, if wanted): mean
+output tokens — A1 115 k, A2 122 k, A3 **245 k**, A4 117 k (the
+"~2–3× tokens" observation is real: A3/A1 = 2.1×; reader computes
+the ratio, we report the measurements).
+
+### Cycle counts (single prose sentence, per protocol)
+
+From `judge_log.jsonl`, agent-initiated events (`scoring:0`);
+cycles-to-pass = judge invocations of a rung up to and including its
+first in-session pass. Median is **1 cycle at every rung for A1**
+(pooled median 1, mean 1.2, n=76 rung-passes, zero rungs attempted
+but never passed), while friction localizes exactly where the arms
+differ: A3 median 2.5 cycles at R1 (mean 3.2 — bring-up assembly) and
+3 at R4 (planner integration), A2 median 2 at R5 (provenance
+debugging), and the attempted-never-passed rungs are R7 for A2 (3
+trials) and R7/R4/R5 for A3 (5/1/1 trials, 19 spent runs). A4: no
+agent-initiated runs by design.
+
+**Paper sentence:** "Closed-loop agents with the full platform passed
+each rung in a median of one judge cycle (A1: pooled median 1, mean
+1.2, no rung ever left failing); without the platform, medians rose
+to 2.5 cycles at bring-up and 3 at planner integration, and five of
+ten A3 trials spent 19 judge runs on R7 without ever passing it."
+
+### Feedback taxonomy (single prose sentence, per protocol)
+
+Transcript scan (trials consuming each feedback kind at least once,
+of 10 per arm): failing judge/test verdicts A1 5, A2 7, A3 10, A4 0
+(by design); `ros2 topic hz/bw` rates 9–10 per arm (all 40 for
+`topic echo`); container/tmux/log-file output 40/40; TF error
+messages appeared in 7 A1, 7 A2, 5 A4, and 0 A3 transcripts (bare
+A3 stacks mostly failed before TF-dependent layers came up).
+
+**Paper sentence:** "Across arms, agents consumed harness verdicts
+(failing judge runs in 5–10 of 10 closed-loop trials per arm), topic
+rates and contents (`ros2 topic hz`/`echo`, in every trial), container
+and tmux logs (every trial), and TF error messages (in 19 of 40
+trials)."
+
+### What goes to the paper repo
+
+`rung_survival.pdf` (+ per-model PDF for appendix/artifact) and
+`tab_agents.tex` → copy into the ICRA submodule's figure/table dirs
+when prose-ifying VI-C; numbers in this section are the checkable
+source. Study assets (planners, prompts, judge, reference solution)
+and raw `runs/` artifacts stay in the PRIVATE `agent_study` repo
+until the study concludes.
 
 ## Appendix: per-round syntheses (historical, superseded by (c-final))
 
@@ -263,8 +382,3 @@ A3 R6,R3 · A4 R8,NULL.**
 
 Round-robin order: A1:son → A2:opus → A3:son → A4:opus → A1:opus →
 A2:son → repeat with rising trial index.
-
-## (d) Analysis for the paper — deferred
-
-Rung-survival curves and `tab:agents` inputs once cells have ≥5
-trials.

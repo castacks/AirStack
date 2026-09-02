@@ -2,7 +2,7 @@
 
 > Notebook entry: `notebook/011-agent-study-v6-trials/` · Date started: 2026-08-28 · Branch: `airstack-paper`
 >
-> **Status: `TRIALS COMPLETE`** <!-- 40/40 scored 2026-09-02; paper analysis (figure/table) pending -->
+> **Status: `DONE`** <!-- 40/40 scored + §(d) paper analysis complete 2026-09-02 (results/d-analysis/) -->
 >
 > **Canonical spec:** `agent_study/agent_study_protocol.md` (PRIVATE
 > submodule) — arms, ladder, caps, guardrails. Prerequisites and
