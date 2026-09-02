@@ -51,16 +51,37 @@ def _src():
 # (a) EVERY NON-SWEPT HOUSE REFERENCES THE TORNADO LIBRARY
 # ---------------------------------------------------------------------------
 
-def test_house_archetype_key_and_dir_are_the_tornado_ones():
-    """`HOUSE_ARCH_DIR` defaults into `archetypes_tornado` (not this file's
-    own `archetypes_hurricane`, which stays the TREE library), and the house
+def test_house_archetype_key_and_dir_are_the_eight_rung_library():
+    """`HOUSE_ARCH_DIR` defaults into `archetypes_hurricane`, and the house
     loop's `usd = harch.get(key) or ...` reads from `harch` -- built off
-    `HOUSE_ARCH_DIR` -- never from `arch` (`ARCH_DIR`, the tree dict)."""
+    `HOUSE_ARCH_DIR` -- never from `arch` (`ARCH_DIR`, the tree dict).
+
+    INVERTED 2026-09-02, the same way this file's ladder assertion was
+    inverted on 2026-09-01 and for the same reason. This test used to pin the
+    default to `archetypes_tornado`, which was right only while the launcher
+    called the tornado's SIX-level `tornado_level_for_intensity`. It now calls
+    the hurricane's own EIGHT-level `house_level_for_intensity`, whose bottom
+    three rungs (`shingles_lost`, `cover_lost`, `deck_panels_lost`) have no
+    tornado counterpart at all.
+
+    Pinning the old default was actively harmful, not merely stale: the house
+    loop resolves a missing key with `harch.get(key) or
+    harch.get("house_<style>_pristine")`, so a tornado library silently
+    substitutes an UNDAMAGED house for every cladding rung -- and level 1 is
+    20% cladding rungs, level 2 is 85%. The test would have gone on passing
+    while the two cells it covers rendered as a pristine suburb.
+
+    `archetypes_hurricane` carries BOTH libraries after
+    `bake_hurricane_archetypes_launch_script.py` runs: seven baked
+    non-pristine rungs plus `pristine`/`swept` copied across from the tornado
+    bake by `_link_shared`. So one directory, eight rungs, and `ARCH_DIR`
+    (trees) pointing at the same place is correct rather than a collision.
+    """
     src = _src()
-    m = re.search(r'HOUSE_ARCH_DIR\s*=\s*_env\(\s*"HOUSE_ARCH_DIR",\s*'
+    m = re.search(r'HOUSE_ARCH_DIR\s*=\s*_env\(\s*\n?\s*"HOUSE_ARCH_DIR",\s*'
                   r'(.+?)\)', src, re.S)
     assert m, "could not find the HOUSE_ARCH_DIR default"
-    assert "archetypes_tornado" in m.group(1), m.group(1)
+    assert "archetypes_hurricane" in m.group(1), m.group(1)
 
     m = re.search(r'harch\s*=\s*\{[^}]*HOUSE_ARCH_DIR', src, re.S)
     assert m, "`harch` must be built off HOUSE_ARCH_DIR"
@@ -94,6 +115,50 @@ def test_house_key_format_resolves_against_the_real_archetype_library():
             if key not in have:
                 missing.append(key)
     assert not missing, missing
+
+
+def test_the_eight_rung_hurricane_library_is_complete():
+    """`archetypes_hurricane` carries a file for EVERY rung the launcher's own
+    ladder can return, for every style.
+
+    THIS IS THE ASSERTION THAT WAS MISSING, and its absence cost a build.
+    The sibling test above proves the tornado SIX-level library is complete,
+    which was the right check while the launcher called
+    `tornado_level_for_intensity`. It has called the hurricane's own
+    EIGHT-level `house_level_for_intensity` since 2026-09-01, and nothing
+    checked that the three extra rungs existed -- they did not, anywhere in
+    the repository or on the Nucleus mirror, until 2026-09-02.
+
+    The failure mode is why this matters more than a normal missing-asset
+    test: the assembly resolves a missing key with `harch.get(key) or
+    harch.get("house_<style>_pristine")`, so an incomplete library does not
+    raise, does not warn and does not leave a hole. It silently renders an
+    UNDAMAGED house. Level 1 is 20% cladding rungs and level 2 is 85%, so both
+    cells would ship as a pristine suburb with some water in it and the only
+    symptom would be that the scene looks wrong.
+
+    `swept` is excluded for the same reason the tornado test excludes it:
+    `disaster.surge` owns that rung, not the wind ladder. It is copied in by
+    `_link_shared` in practice, but the ladder never returns it, so its
+    absence would not silently substitute anything.
+    """
+    from disaster import hurricane as hu
+
+    arch_dir = os.path.join(_SCENE_GEN_DIR, "assets", "archetypes_hurricane")
+    if not os.path.isdir(arch_dir):
+        import pytest
+        pytest.skip("archetypes_hurricane not present at {0}".format(arch_dir))
+    have = set(os.listdir(arch_dir))
+    missing = []
+    for style in mh.STYLES:
+        for level in hu.HOUSE_LEVELS:
+            key = "house_{0}_{1}.usd".format(style, level)
+            if key not in have:
+                missing.append(key)
+    assert not missing, (
+        "{0} archetype(s) missing from {1} -- the assembly will SILENTLY "
+        "substitute a pristine house for each: {2}".format(
+            len(missing), arch_dir, missing[:12]))
 
 
 # ---------------------------------------------------------------------------

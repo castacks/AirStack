@@ -143,40 +143,120 @@ ladder and deserves a proper reconciliation.
 
 ---
 
-# 3. THE BAKE — the blocker, and the way it fails is silent
+# 3. THE BAKE — DONE 2026-09-02, and the way it failed twice was silent
 
 **This supersedes `HURRICANE_RUNBOOK.md` §1**, which concluded "no bake
 needed". That was correct for the six-level ladder and is wrong now.
 
-The eight-level ladder needs three archetypes that **have never been baked
-anywhere in this repository**:
+**Settled: ONE MERGED LIBRARY in `archetypes_hurricane`, and
+`HOUSE_ARCH_DIR`'s DEFAULT NOW POINTS THERE.** The baker already builds all
+seven non-pristine rungs and `_link_shared` copies `pristine`/`swept` across
+from the tornado bake, so one directory carries the complete eight-rung ladder
+(8 styles x 8 rungs = 64 house files) beside the 34 tree archetypes `ARCH_DIR`
+reads out of the same place. The old default (`archetypes_tornado`, a
+SIX-rung library) was the silent-pristine trap itself, and
+`test_hurricane_tornado_parity_launcher.py` was *pinning* it — that assertion
+is inverted now, with the reasoning in its docstring.
 
-    house_<style>_shingles_lost.usd
-    house_<style>_cover_lost.usd
-    house_<style>_deck_panels_lost.usd
+The bake command that produced the shipped library:
 
-8 styles x 3 levels = **24 archetypes**. Verify with:
+    ARCH_SEED=7 HUR_LINK_MODE=copy BAKE_STRICT=1 \
+    ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane \
+    TORNADO_ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado \
+    ... bake_hurricane_archetypes_launch_script.py
 
-    ls scene_gen/assets/archetypes_tornado/ scene_gen/assets/archetypes_hurricane/ \
-      | grep -cE "shingles_lost|cover_lost|deck_panels_lost"      # must be 24
+**It needs `SimulationApp`** — it cannot be run offline. ~3 minutes for all 56
+roof states on an RTX 5090.
 
-**HOW IT FAILS, AND WHY YOU WILL NOT NOTICE.** The assembly resolves a house
-with `harch.get(key) or harch.get("house_<style>_pristine")`. A missing
-cladding archetype therefore does not raise, does not warn, and does not leave
-a hole — it silently substitutes an **undamaged house**. Level 1 is 20%
-cladding rungs and level 2 is **85%**, so an unbaked library renders those two
-cells as an essentially pristine suburb with some water in it, and the only
-symptom is that the scene looks wrong.
+## 3a. FIRST GET THE ASSETS — none of this is in git
 
-The baker is `simulation/isaac-sim/launch_scripts/bake_hurricane_archetypes_
-launch_script.py` (its `ROOF_LEVELS` already covers all seven non-pristine
-states). **It needs `SimulationApp`** — it cannot be run offline.
+`scene_gen/**/*.usd` is gitignored, so a fresh clone has **no archetypes at
+all** and `aec/` + `objaverse/` are empty too. Everything needed is on the
+Nucleus mirror and pulls with a bare `omni.client.copy` (no SimulationApp,
+~1 minute for the archetypes, ~1 minute for the rest):
 
-Note also that `HOUSE_ARCH_DIR` defaults to `archetypes_tornado` while the
-baker writes to `archetypes_hurricane`. Settle how the low rungs reach the
-resolver (merged library, changed default, or both directories searched)
-BEFORE the first bake — getting this wrong reproduces the silent-pristine
-failure with a full library sitting on disk.
+| tree | files | size | why it is needed |
+|---|---|---|---|
+| `archetypes_tornado` | 74 | 478 MB | the `pristine`/`swept` rungs `_link_shared` copies |
+| `archetypes_hurricane` | 34 | 195 MB | the tree ladder (houses are baked, not pulled) |
+| `aec` | 3230 | **5.8 GB** | the green species USDs `_GREEN_SPECIES_USD` names |
+| `objaverse` | 979 | 333 MB | 41 props; without them `compile_disaster` warns "will render as placeholder prisms" |
+
+The modular house kit itself is NOT pulled — `modular_house` references
+`omniverse://.../Library/Stages/RetroNeighborhood/...` directly and streams.
+
+**`docker exec` WITHOUT `-i` DISCARDS STDIN.** `docker exec c bash -c 'cat >
+/tmp/x.py' < local.py` writes an EMPTY file, then the run exits 0 having
+printed nothing, which reads like a silent library failure rather than a
+missing script. Use `docker exec -i`.
+
+## 3b. The two silent bake bugs, both found by MEASURING the output
+
+**The three POSE rungs baked out IDENTICAL TO PRISTINE.** `roof_collapsed`,
+`partial_collapse` and `leveled` — 24 of the 72 files — came out with their
+pristine roof and wall geometry to the centimetre. `terrace/roof_collapsed`
+was byte-identical to `terrace/shingles_lost`. Nothing raised; the banner said
+"exported 56 roof archetype(s), 0 failed".
+
+*Cause.* Every wall/roof pose starts at `hurricane_flow._single_transform_op`,
+which returns the prim's LONE `xformOp:transform` or `None` — and its own
+docstring says what it was written against: "Every piece `bake.export_object`
+writes carries exactly one of these". A kit piece on the BAKE stage does not:
+`sg.apply_placements` authors a translate/rotateXYZ/scale STACK on the
+placement holder and leaves the referenced mesh with no op of its own. So
+`_single_transform_op` is `None` for every bay and every wall, each pose
+returns 0, and `wreck_building` raises nothing. There is a second reason a
+live-stage pose would be wrong even with an op to write to: `_hinge_matrix`
+documents `old_matrix` as mapping local points to their CURRENT WORLD
+position, and every pivot/cap/drop is compared against world Z from
+`_floor_levels` — on a nested kit piece that silently mixes two frames.
+
+*Fix.* The pose rungs now take a ROUND TRIP: export the untouched assembly
+(`export_object` flattens to `/Baked/<mesh>`, one `xformOp:transform` each,
+world-baked), reference it back at `/World/pose_bench/...` at identity, pose
+THAT, and export the posed reference. The pose functions are unchanged — they
+are simply handed their documented input. Before/after, on the exported files:
+
+| | pristine | roof_collapsed | leveled |
+|---|---|---|---|
+| ranch roof z | 3.23–7.88 | **3.04–5.45** | **0.31–1.69** |
+| ranch wall z | -0.01–3.50 | -0.01–3.50 | **0.06–0.60** |
+
+0 bays posed became **154**.
+
+**The baker's own check could not see it.** It snapshotted
+`q.GetAttribute("xformOp:transform").Get()` before and after — which returns
+`None` on a prim that has no such attribute, so the comparison was `None ==
+None` and the warning it printed ("NONE posed — the roof is untouched") read
+like a tuning problem rather than a structural one. The check now runs against
+the referenced archetype, where every mesh really does carry one transform, so
+a no-op shows as a matrix that did not change.
+
+**A SCOPED REBAKE TRUNCATED THE MANIFEST.** `ARCH_LEVELS` exists so one rung
+can be re-cut without touching the others, but `archetypes.json` was written
+with a plain overwrite — so an `ARCH_LEVELS=roof_collapsed,partial_collapse,
+leveled` pass left a **40-record manifest describing a 72-file library**, the
+four covering rungs simply absent. It broke nothing downstream, which is
+exactly what makes it dangerous: `suburb_hurricane_launch_script` builds its
+`harch` index by GLOBBING the directory, never from the manifest, so the file
+quietly stops being a description of the library and no consumer complains.
+It merges on `(style, level)` now, newest wins, dropping records whose file is
+gone.
+
+## 3c. How the missing-archetype failure presents (unchanged, still true)
+
+The assembly resolves a house with `harch.get(key) or
+harch.get("house_<style>_pristine")`. A missing cladding archetype does not
+raise, does not warn, and does not leave a hole — it silently substitutes an
+**undamaged house**. Level 1 is 20% cladding rungs and level 2 is **85%**, so
+an unbaked library renders those two cells as an essentially pristine suburb
+with some water in it.
+
+`test_the_eight_rung_hurricane_library_is_complete` now asserts a file exists
+for every `hurricane.HOUSE_LEVELS` rung x every style, and was checked to go
+RED on one removed archetype. That is the assertion whose absence cost this
+build — its sibling proved the *tornado* six-level library complete and
+therefore passed throughout.
 
 ---
 
@@ -190,17 +270,93 @@ and there is no wind/surge logic anywhere in it. The hurricane pipeline is
 ~2,250 lines inline in `suburb_hurricane_launch_script.py`'s own `main()` and
 is not an importable, disaster-agnostic function.
 
-Export support therefore belongs INSIDE the hurricane launcher. The seven
-pieces are line-cited in `HURRICANE_RUNBOOK.md` §2b. The genuinely new one is a
-**`PEOPLE_VARIANT` knob, which that launcher does not have** — without it the
-five-cast people axis cannot be produced at all. `gt_hints.py` is already
-hurricane-aware, and `disaster.freeze.export_scene()` is fully generic and needs
-no hurricane-specific change.
+Export support therefore belongs INSIDE the hurricane launcher, and
+**it is wired now (2026-09-02)** — modelled on
+`suburb_tornado_launch_script.py`'s own freeze block (the closest sibling: the
+hurricane house loop is that file's loop verbatim) and on
+`freeze_urban_fire_city_launch_script.py` for the two waive knobs. Knob names
+are `freeze_dataset_launch_script.py`'s verbatim so the dataset tooling drives
+a hurricane cell with the same lines it drives a wildfire one:
 
-**`disaster/freeze.py` has ZERO offline test coverage.** Every previous freeze
-was proven live against wildfire only. The hurricane will be its first
-non-fire exercise, and its portability gate has never run on a stage carrying
-surge water, rafts or washaway-displaced houses.
+    FREEZE_OUT  FREEZE_NAME  FREEZE_EXPORT  FREEZE_COLLECT  FREEZE_SNAPS
+    FREEZE_EXIT  FREEZE_WAIVE_VEGETATION  FREEZE_WAIVE_ABOVE_INSTANCES
+    FREEZE_WAIVE_MIRRORED  PEOPLE_VARIANT
+
+`FREEZE_OUT` moves `GT_people.json`, `GT_hurricane.json`, `GT_hints.json`,
+`build_stats.json` and `snaps/` into the cell; unset reproduces the old
+behaviour exactly. `FREEZE_EXIT` WINS over `KEEP_OPEN`, or a loop over cells
+never reaches its second iteration.
+
+**`PEOPLE_VARIANT` offsets ONLY the people RNG** —
+`random.Random(SEED + 191 + 1000 * VARIANT)`. The wind field (`SEED + 23`),
+houses/water (`+5`), trees (`+9`) and cars (`+77`) are untouched, which is
+what makes the k cells of a level five casts over ONE geometry. Never fold the
+variant into `SEED`.
+
+**The cars had to be walked off the stage.** `gt_hints` wants
+`info["cars"]`, `binfo["cars"]` is never filled by the suburb generator, and
+this launcher's own car walk lives inside `if DO_WASHAWAY` — so a cell built
+with the wash-away pass off would ship a hint file with no vehicles at all.
+There is now an unconditional walk. Two traps in it:
+`GetMetadata("references")` returns an `Sdf.ReferenceListOp`, which is **not
+iterable** — the obvious one-liner raises `TypeError` on the first car and
+takes the whole walk down — so read the asset path off `GetPrimStack()`
+instead, checking all four list-op fields; and build a **fresh
+`UsdGeom.XformCache`**, because the wash-away/surge/settle passes re-author
+xformOps and a cache from earlier in `main()` reports every floated car at its
+pre-drift pose. Measured result: 220 vehicles classified (186 Car / 5 Van /
+29 Truck).
+
+`info["blockers"]` is `[]` — this pipeline has no road-blockage model (its
+land debris is a different, larger mechanism), so `Fallen Tree`/`Debris`
+road-blockage records and the **`Toppled` street-furniture records are absent
+from `GT_hints.json`** even though the scene places ~500 street-furniture
+items. The tornado has the same gap. It degrades the hint file; it breaks
+nothing.
+
+**`disaster/freeze.py` had ZERO offline test coverage** and the hurricane was
+its first non-fire exercise. It found a real problem — see §4a.
+
+## 4a. THE PORTABILITY GATE FIRES ON THIS PIPELINE. Use the mirror waiver.
+
+The first level-1 export **failed the gate**, and correctly:
+
+    sky_lights            2  (/World/FrozenDome, /World/FrozenSun)   PASS
+    cross_scope_bindings  0                                          PASS
+    build_local         162  (34,217 bindings)                       FAIL
+
+`make_portable` rewrote 1,226 asset paths to verified mirror targets, moved
+and re-bound 23 cross-scope looks, and converged its de-instancing fixpoint in
+one round — and **162 paths still came out build-local** in the flattened
+file: 110 `objaverse/`, 42 `aec/`, 10 `materials/`. That is the scan-vs-flatten
+divergence `freeze.make_portable`'s own dated note records (the live scan
+reports 0 offenders while the cold file still carries the bindings), and
+`FREEZE_WAIVE_MIRRORED=1` is the documented ship path for exactly it.
+
+**Check the twins before turning the waiver on, not after.** The waiver waives
+only paths with a stat-verified Nucleus twin and fails a twin-less one, so the
+honest pre-flight is to stat all of them yourself:
+
+    # for each build_local path P under /isaac-sim/AirStack/scene_gen/assets/
+    omni.client.stat(ASSET_MIRROR + P[len(ASSET_LOCAL_PREFIX):])
+
+162 of 162 existed, which is expected once §3a's pull has been done — the
+local trees came FROM the mirror. If any is missing, staging it is the fix;
+forcing the waiver is not, and `portable=False` is never the answer for a
+dataset build.
+
+**Verify COLD, on the artefact.** `_enforce_portable` gates the export, but it
+verifies a file the same process just wrote. `freeze.verify(path,
+expect_self_contained=False)` imports standalone under the container's
+`omni.usd.libs` (no SimulationApp, sub-second) — re-open every shipped cell in
+a fresh process and read `portable_ok` / `sky_lights` / `build_local` /
+`cross_scope_bindings` back. That is `freeze-portable-scenes` checklist item 5
+and neither sibling launcher does it.
+
+Expect `ComputeAllDependencies` to fail with the kit `assetInfo` poison
+(`_UnpackValue ... unsupported type enum value 0`) on every real cell; `verify`
+falls back to a `Stage.Traverse()` shader-attribute scan and says so. That is
+normal, not a defect.
 
 ---
 
@@ -366,25 +522,50 @@ rejecting the pathspec. To A/B a fix, copy to the scratchpad and edit the copy.
 Each line has the command that checks it. Run all of them before the first
 render.
 
-1. **The 24 cladding archetypes exist** (§3) —
-   `ls scene_gen/assets/archetypes_* | grep -cE "shingles_lost|cover_lost|deck_panels_lost"`
-   must print 24, and they must be on `HOUSE_ARCH_DIR`'s resolution path.
+0. **The assets are on disk at all** (§3a). A fresh clone has NONE of them —
+   `scene_gen/**/*.usd` is gitignored, `aec/` and `objaverse/` likewise.
+   `ls scene_gen/assets/archetypes_tornado/*.usd | wc -l` (expect 71+) and
+   `du -sh scene_gen/assets/aec` (expect ~5.5 GB). A compile that warns
+   "N Objaverse asset(s) are not cached and will render as placeholder prisms"
+   is telling you `objaverse/` is empty.
+1. **The full eight-rung library exists**, 8 styles x 8 rungs = **64** house
+   files in `archetypes_hurricane` —
+   `python3 -m pytest scene_gen/tests/test_hurricane_tornado_parity_launcher.py -q`
+   now asserts exactly this (`test_the_eight_rung_hurricane_library_is_complete`).
+   A bare `ls | grep -c` is weaker: it cannot tell you WHICH style/rung pair is
+   missing, and a missing one is silently replaced by a pristine house.
 2. **The launcher calls the eight-level ladder** —
    `grep -c "hu.house_level_for_intensity" simulation/isaac-sim/launch_scripts/suburb_hurricane_launch_script.py`
    must be >= 1.
 3. **The three presets compile at 1 km with distinct seeds** — load each and
-   assert `region_m == [1000, 1000]` and seeds 13 / 10 / 19.
-4. **Leaves are green** —
-   `python3 -c "import sys;sys.path.insert(0,'scene_gen/tools');import bake_hurricane_trees as b;print(b.TREE_LEAF_TINT)"`
-   must print `False`.
+   assert `region_m == [1000, 1000]` and seeds 13 / 10 / 19. The host needs
+   `pyyaml`/`numpy` and a stubbed `pxr` (the pattern is in
+   `suburb_hurricane_500_l2.yaml`'s header).
+4. **Leaves are green** — `TREE_LEAF_TINT` must be `False`. Read the default
+   off the source (`grep -A1 "^TREE_LEAF_TINT" scene_gen/tools/bake_hurricane_trees.py`
+   -> `HUR_TREE_TINT` defaulting to `"0"`); importing the module needs `pxr`
+   and `numpy`, which the host does not have and Kit's python does not either.
 5. **The tree archetypes audit clean** —
-   `python3 scene_gen/tools/hurricane_tree_audit.py` must report
-   `0 unresolvable material binding(s), 0 ... 0 unresolvable relative Asset path(s)`.
+   `python3 scene_gen/tools/hurricane_tree_audit.py`. NOTE it cannot run in
+   this container: it imports `bake_hurricane_trees`, which imports `numpy`,
+   which Kit's python lacks. Either install numpy for it or verify the trees
+   from the built scene instead (`trees N placed, 0 fell back to the green
+   species USD` in the run log is the equivalent live check).
 6. **The offline suite is green** — the hurricane test files
-   (`test_hurricane_{trees,fences,fence_axis,people,trap_debris,washaway_blockers,street_furniture,tornado_parity_*}.py`)
-   plus `test_washaway_debris.py`.
-7. **`PEOPLE_VARIANT` exists in the hurricane launcher** (§4). Without it the
-   five-cast axis cannot be produced.
+   (`test_hurricane_{fences,fence_axis,people,trap_debris,washaway_blockers,street_furniture,tornado_parity_*}.py`)
+   plus `test_washaway_debris.py`. Run them PER FILE, not batched.
+   `test_hurricane_trees.py` cannot collect on a host without `pxr` — that is
+   an environment gap, not a failure.
+7. **`PEOPLE_VARIANT` and the `FREEZE_*` knobs exist in the hurricane
+   launcher** (§4) — `grep -c FREEZE_OUT` must be nonzero.
+8. **The Nucleus target is where you think it is, and additive** —
+   `omni.client.list` the dataset root and confirm whether `Hurricane/`
+   already exists before the first upload.
+9. **Nobody else is on the container.** `docker inspect isaac-sim` and read
+   the `/isaac-sim/AirStack` MOUNT SOURCE: on a shared box it may be another
+   user's checkout entirely, in which case none of your code or assets is
+   what the launcher will see. `container_name: isaac-sim` and the fixed IP
+   `172.31.0.200` mean there can only be one.
 
 ---
 
@@ -392,12 +573,33 @@ render.
 
 - The `_HOUSE_CUTS` / `intensity_field` calibration mismatch (§2), currently
   absorbed by one preset value.
-- Export support inside the hurricane launcher, including `PEOPLE_VARIANT` (§4).
-- `disaster/freeze.py` has no offline tests and has never run on a hurricane
-  stage (§4).
+- **The 162 waived build-local paths (§4a).** The cells ship because every one
+  has a verified Nucleus twin, not because the paths are right. The underlying
+  scan-vs-flatten divergence in `make_portable` — the live scan reporting 0
+  offending prototypes while the cold flattened file still carries the
+  bindings — is unfixed, and a consumer with no route to
+  `airlab-nucleus.andrew.cmu.edu` cannot render these cells. `FREEZE_COLLECT=1`
+  is the real fix and is off for the same reason it is off on every shipped
+  cell (the `Usd_CrateFile::_UnpackValue` poison).
+- **`GT_hints.json` carries no street furniture.** `info["blockers"]` is `[]`
+  because this pipeline has no road-blockage model, so the ~500 signs,
+  streetlights, hydrants and bins the scene places — and the whole `Toppled`
+  class with them — are absent from the hint file. The tornado cells have the
+  identical gap. Deciding whether `street_furniture.py`'s own tally should feed
+  `gt_hints` is a design call nobody has made.
+- **`disaster/freeze.py` still has no offline tests.** It has now been run on a
+  hurricane stage (three cells, §4a) and behaved correctly, including failing
+  the gate when it should have — but that is one exercise, not coverage.
 - `washaway` reports an **implausible 42.2 x 33.1 m footprint on `h_49`** and
   substitutes a nominal 12 x 9 m. The guard works; the upstream units/frame bug
   it points at has not been chased.
+- **The level-1 review snapshots have nothing to photograph.** `worst_house`
+  and `stripped_roof_house` come back 47-72% background because level 1 has no
+  house above `shingles_lost` at all; the launcher says so
+  ("no cover_lost/deck_panels_lost/roof_stripped house on this plate") and
+  falls back to the most severe available. Correct behaviour, useless frames —
+  the subject list should skip a subject the plate cannot supply rather than
+  render the plate edge.
 - Douglas_Fir keeps 47-69% of its needles at every damage level (§5).
 - The `freeze-disaster-dataset` skill describes level 2 as "the brown scene".
   That referred to the removed tree tint. Brown ground and scour are fine;

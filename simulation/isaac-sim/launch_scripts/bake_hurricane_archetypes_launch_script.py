@@ -95,6 +95,14 @@ from disaster import hurricane as hu                            # noqa: E402
 from disaster import hurricane_flow as hf                       # noqa: E402
 
 PARENT = "/World/stage/generated"
+# WHERE THE POSE RUNGS ARE POSED. A `_POSE_LEVELS` archetype is built as a kit
+# assembly under PARENT, exported flat, referenced back HERE at identity, and
+# posed there — the pose functions need the flat, world-baked, one-transform-
+# per-mesh shape `bake.export_object` writes, and a live kit assembly is not
+# it (see the long note in the damage loop). Kept off PARENT so the pristine
+# assemblies are not disturbed and so nothing here can be mistaken for scene
+# content by anything that walks the generated subtree.
+POSE_PARENT = "/World/pose_bench"
 
 
 def _env(name, default):
@@ -276,6 +284,12 @@ def main():
     _, ssf = get_stage_meters_per_unit(stage)
     build_ground_and_light(stage)
     os.makedirs(OUT_DIR, exist_ok=True)
+    # Scratch for the pose rungs' pre-pose round trip. Under OUT_DIR (same
+    # filesystem, so nothing crosses a device) and prefixed `_` so a glob for
+    # `house_*.usd` cannot pick it up as a library entry. Removed at the end
+    # of a clean run; left behind on a crash, which is when you want it.
+    TMP_DIR = os.path.join(OUT_DIR, "_pose_src")
+    os.makedirs(TMP_DIR, exist_ok=True)
     app = omni.kit.app.get_app()
 
     # ARCH_LEVELS (comma list) scopes a rebake to specific rungs. Added
@@ -341,6 +355,11 @@ def main():
     # ---- the damage, such as it is: bays off/posed, windows in, doors gone -
     t1 = time.time()
     n_bay = n_posed = 0
+    # `(style, level) -> prim path` for the pose rungs, which are posed on a
+    # re-referenced flat archetype rather than on the kit assembly — see the
+    # long note in the `else:` branch. The export loop reads this to know
+    # which prim to export.
+    posed_paths = {}
     for st, lv, X, Y, parent, pls in built:
         prim = stage.GetPrimAtPath(Sdf.Path(parent))
         rng = random.Random(SEED + hash((st, lv)) % 9973)
@@ -365,23 +384,81 @@ def main():
             else:
                 # `_POSE_LEVELS` — bays/walls stay ACTIVE (they are ROTATED,
                 # not deactivated), so the bay-count check above is
-                # meaningless here. `wreck_building` returns `[]` for these
-                # too (no fracture), so the honest check is instead: did any
-                # roof/wall transform actually change? Measured via a
-                # transform snapshot, not `roof_bay_prims(...).IsActive()`.
+                # meaningless here.
+                #
+                # THE POSE FUNCTIONS CANNOT RUN ON A LIVE KIT ASSEMBLY, AND
+                # FAILING THAT WAY IS SILENT. `_squash_and_tilt` (and every
+                # wall pose under it) starts with `_single_transform_op`,
+                # which returns the prim's LONE `xformOp:transform` or
+                # `None` — and its own docstring says what it was written
+                # against: "Every piece `bake.export_object` writes carries
+                # exactly one of these". A kit piece on THIS stage does not:
+                # `sg.apply_placements` authors a translate/rotateXYZ/scale
+                # STACK on the placement holder and leaves the referenced
+                # mesh below it with no op of its own, so
+                # `_single_transform_op` is `None` for every roof bay and
+                # every wall, each pose returns 0, and `wreck_building`
+                # raises nothing. Measured on the first full bake
+                # (2026-09-02): all 24 pose archetypes — 8 styles x
+                # roof_collapsed/partial_collapse/leveled — exported with
+                # their PRISTINE roof and wall extents, e.g.
+                # `ranch/leveled` roof z=[3.23, 7.88] and walls z=[-0.01,
+                # 3.50], identical to `ranch/pristine` to the centimetre,
+                # and `terrace/roof_collapsed` byte-identical to
+                # `terrace/shingles_lost`.
+                #
+                # There is a second reason a live-stage pose would be wrong
+                # even with an op to write to: `_hinge_matrix` documents
+                # `old_matrix` as mapping local mesh points to their CURRENT
+                # WORLD position, and every pivot/cap/drop in
+                # `pose_roof_collapsed` is compared against world Z from
+                # `_floor_levels`. On a nested kit piece the mesh's own op
+                # is a LOCAL transform under the holder, so the arithmetic
+                # would silently mix two frames.
+                #
+                # So the pose rungs take a ROUND TRIP through the shape the
+                # pose code was written for: export the untouched assembly
+                # (`export_object` flattens to `/Baked/<mesh>`, one
+                # `xformOp:transform` each, world-baked), reference that
+                # back at identity, and pose THAT. Nothing about the pose
+                # functions changes; they are simply handed their documented
+                # input. The export loop below then exports the posed
+                # reference instead of the kit assembly.
+                _tmp = os.path.join(TMP_DIR,
+                                    "house_{0}_{1}.usd".format(st, lv))
+                if not bake.export_object(stage, None, [parent], _tmp,
+                                          recenter=(X, Y, 0.0)):
+                    print("[harch] {0}/{1}: pre-pose export produced nothing "
+                          "— level SKIPPED".format(st, lv))
+                    continue
+                _pp = "{0}/pose_{1}_{2}".format(POSE_PARENT, st, lv)
+                _pprim = stage.DefinePrim(Sdf.Path(_pp), "Xform")
+                _pprim.GetReferences().AddReference(os.path.abspath(_tmp))
+                for _ in range(2):
+                    app.update()
+                posed_paths[(st, lv)] = _pp
+                # NOW the snapshot check is meaningful: every mesh under the
+                # reference carries exactly one `xformOp:transform`, so a
+                # pose that does nothing shows up as a matrix that did not
+                # change rather than as `None == None`.
                 before_xf = {q.GetPath(): q.GetAttribute(
                     "xformOp:transform").Get()
-                            for q in hf._meshes_of(prim, "house_roof")}
-                hf.wreck_building(stage, prim, lv, rng,
+                            for q in (hf._meshes_of(_pprim, "house_roof")
+                                      + hf._meshes_of(_pprim, "house_wall"))}
+                hf.wreck_building(stage, _pprim, lv, rng,
                                   wind_bearing_deg=_BAKE_BEARING, items=pls)
                 moved = sum(1 for path, m0 in before_xf.items()
                            if stage.GetPrimAtPath(path).GetAttribute(
                                "xformOp:transform").Get() != m0)
                 n_posed += moved
                 if before_xf and not moved:
-                    print("[harch] {0}/{1}: {2} roof bay(s) and NONE posed "
-                          "— the roof is untouched".format(
+                    print("[harch] {0}/{1}: {2} roof/wall mesh(es) and NONE "
+                          "posed — the house is untouched".format(
                               st, lv, len(before_xf)))
+                elif not before_xf:
+                    print("[harch] {0}/{1}: the referenced archetype exposed "
+                          "NO roof/wall meshes — nothing to pose".format(
+                              st, lv))
         except Exception as exc:
             print("[harch] {0}/{1} wreck FAILED: {2}".format(st, lv, exc))
     for _ in range(10):
@@ -394,9 +471,16 @@ def main():
     for st, lv, X, Y, parent, _pls in built:
         out = os.path.join(OUT_DIR, "house_{0}_{1}.usd".format(st, lv))
         est = {}
+        # A POSE RUNG EXPORTS THE POSED REFERENCE, NOT THE KIT ASSEMBLY.
+        # `parent` is still standing there pristine — exporting it is exactly
+        # the bug this round trip exists to fix — and the reference was
+        # already recentred by the pre-pose export, so it takes no second
+        # recenter.
+        _src, _rc = ((posed_paths[(st, lv)], None)
+                     if (st, lv) in posed_paths else (parent, (X, Y, 0.0)))
         try:
-            ok = bake.export_object(stage, None, [parent], out,
-                                    recenter=(X, Y, 0.0), stats_out=est)
+            ok = bake.export_object(stage, None, [_src], out,
+                                    recenter=_rc, stats_out=est)
         except Exception as exc:
             print("[harch] export {0}/{1} FAILED: {2}".format(st, lv, exc))
             ok = False
@@ -433,9 +517,43 @@ def main():
           .format(f_bound, f_files, f_seen))
 
     man = os.path.join(OUT_DIR, "archetypes.json")
+    # A SCOPED REBAKE MUST NOT TRUNCATE THE MANIFEST. `ARCH_LEVELS` exists
+    # precisely so one rung can be re-cut without touching the others, and a
+    # plain overwrite here threw away every record the scoped run did not
+    # rebuild — measured 2026-09-02: an `ARCH_LEVELS=roof_collapsed,
+    # partial_collapse,leveled` rebake left a 40-record manifest describing a
+    # 72-file library, with the four covering rungs simply absent. It did not
+    # break the assembly (`suburb_hurricane_launch_script` builds its `harch`
+    # index by GLOBBING the directory, not from this file) which is exactly
+    # what makes it dangerous: nothing downstream complains, and the manifest
+    # quietly stops being a description of the library. Merge on
+    # `(style, level)`, newest wins, and drop any record whose file is gone.
+    prev = []
+    if os.path.isfile(man):
+        try:
+            with open(man) as fh:
+                prev = (json.load(fh) or {}).get("records") or []
+        except Exception as exc:                                 # noqa: BLE001
+            print("[harch] existing manifest unreadable, starting fresh: {0}"
+                  .format(exc))
+    merged = {}
+    for rec in list(prev) + list(records):
+        if not os.path.isfile(rec.get("usd") or ""):
+            continue
+        merged[(rec.get("style"), rec.get("level"))] = rec
+    out_recs = [merged[k] for k in sorted(merged, key=lambda q: (q[0] or "",
+                                                                q[1] or ""))]
     with open(man, "w") as fh:
-        json.dump({"kinds": ["house"], "records": records}, fh, indent=1)
-    print("[harch] manifest -> {0} ({1} record(s))".format(man, len(records)))
+        json.dump({"kinds": ["house"], "records": out_recs}, fh, indent=1)
+    print("[harch] manifest -> {0} ({1} record(s): {2} rebuilt this run, "
+          "{3} carried over)".format(man, len(out_recs), len(records),
+                                     len(out_recs) - len(records)))
+    # The pose round trip's scratch. Only on a clean run — a crash leaves it
+    # for inspection, which is the one time it is worth having.
+    try:
+        shutil.rmtree(TMP_DIR)
+    except Exception as exc:                                     # noqa: BLE001
+        print("[harch] could not remove {0}: {1}".format(TMP_DIR, exc))
     print("[harch] ARCH_DONE")
 
 

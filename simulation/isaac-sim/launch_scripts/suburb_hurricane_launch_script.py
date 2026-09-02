@@ -95,7 +95,32 @@ Env knobs:
                   only (a piece the mask would drop into real water is the
                   raft field's job, never double-placed here)
     SURGE_*       water tuning — see `disaster.surge.knobs_from_env`
-    SNAP_DIR      write viewport PNGs here (MUST sit under the mounted log dir)
+    SNAP_DIR      write viewport PNGs here (MUST sit under the mounted log
+                  dir). Defaults to `$FREEZE_OUT/snaps` when freezing.
+
+  THE DATASET FREEZE (`final_disaster_dataset/<Disaster>/<Locale>/level_<n>/
+  <k>/`). Every name here is `freeze_dataset_launch_script.py`'s verbatim, so
+  the dataset's own tooling drives a hurricane cell with the same lines it
+  drives a wildfire one:
+
+    FREEZE_OUT    the cell directory. Setting it moves `GT_people.json`,
+                  `GT_hurricane.json`, `GT_hints.json`, `build_stats.json`
+                  and `snaps/` under it. Unset = the old behaviour exactly.
+    FREEZE_NAME   basename for the exported `.usd`. Default is derived from
+                  FREEZE_OUT by the dataset contract
+                  (`hurricane_suburban_lvl2_3`), so it normally needs no value.
+    FREEZE_EXPORT 1 runs `disaster.freeze.export_scene` after the captures.
+    FREEZE_COLLECT 1 localises dependencies into `Materials/` (default 0,
+                  matching every cell shipped so far).
+    FREEZE_SNAPS  0 skips the review captures (default 1).
+    FREEZE_EXIT   1 closes the app after the export — WINS over KEEP_OPEN,
+                  because a loop over cells must not stall on a held stage.
+    FREEZE_WAIVE_VEGETATION / FREEZE_WAIVE_ABOVE_INSTANCES /
+    FREEZE_WAIVE_MIRRORED   the two portability safety valves; see the
+                  comment on their definitions and `freeze.make_portable`.
+    PEOPLE_VARIANT  integer k, the dataset's fifth axis. Offsets ONLY the
+                  people RNG (`SEED + 191 + 1000 * k`), leaving the wind
+                  field, houses, water, trees and cars bit-identical.
 """
 
 import math
@@ -195,22 +220,53 @@ def _flag(name, default="1"):
     return _env(name, default) not in ("", "0", "false", "False")
 
 
+def _default_freeze_name(out_dir):
+    """`<disaster>_<locale>_lvl<n>_<k>` from the dataset path.
+
+    The contract is `.../<Disaster>/<Locale>/level_<n>/<k>/`, capitalised in
+    the PATH and lowercase in the FILENAME, so the basename is derivable and
+    does not need a second env var that can disagree with the directory it
+    lands in. Byte-for-byte `freeze_dataset_launch_script._default_name` —
+    pure path string logic, no `scene_api` dependency — so a hurricane cell
+    and a wildfire cell are named by the same rule.
+    """
+    parts = [q for q in os.path.abspath(out_dir).split(os.sep) if q]
+    if len(parts) >= 4 and parts[-2].startswith("level_"):
+        dis, loc = parts[-4].lower(), parts[-3].lower()
+        return "{0}_{1}_lvl{2}_{3}".format(
+            dis, loc, parts[-2].split("_", 1)[1], parts[-1])
+    return "scene"
+
+
 PARENT = "/World/stage/generated"
 SCENE_CONFIG = _env("SCENE_CONFIG", "suburb_hurricane_500_l2")
 SEED = int(_env("HUR_SEED", "11"))
 ARCH_DIR = _env("ARCH_DIR",
                 os.path.join(_SCENE_GEN_DIR, "assets", "archetypes_hurricane"))
-# THE HOUSE LIBRARY IS THE TORNADO'S, not this file's own `archetypes_
-# hurricane` — see the module docstring's "HOUSES = TORNADO, VERBATIM" and
-# `build-hurricane-scenes`: the same fit-out, the same six-level ladder
-# (pristine/roof_stripped/roof_collapsed/partial_collapse/leveled/swept),
-# the same `house_<style>_<level>.usd` naming, baked once by
-# `bake_tornado_archetypes_launch_script.py`. `ARCH_DIR` above is UNCHANGED
-# and still the tree library -- the hurricane's own defoliated/limbed/
-# leaning/fallen/snapped canopy states have no tornado equivalent to borrow.
+# THE HOUSE LIBRARY IS THIS FILE'S OWN, NOT THE TORNADO'S — changed
+# 2026-09-02, and the old default was a silent-failure trap.
+#
+# This file calls `hu.house_level_for_intensity`, the hurricane's EIGHT-level
+# ladder, whose bottom three rungs (`shingles_lost`, `cover_lost`,
+# `deck_panels_lost`) have no tornado counterpart: `archetypes_tornado` is a
+# six-level library and always was. The house loop below resolves a missing
+# key with `harch.get(key) or harch.get("house_<style>_pristine")`, so
+# pointing at the tornado library does not raise, does not warn and does not
+# leave a hole — it silently substitutes an UNDAMAGED house for every
+# cladding rung. Level 1 is 20% cladding rungs and level 2 is 85%, so the
+# whole of those two cells would render as a pristine suburb with some water
+# in it, and the only symptom is that the scene looks wrong.
+#
+# `bake_hurricane_archetypes_launch_script.py` builds all seven non-pristine
+# rungs into `archetypes_hurricane` and copies `pristine`/`swept` across from
+# the tornado library (`_link_shared`), so ONE directory carries the complete
+# eight-rung ladder — 8 styles x 8 rungs = 64 house files, plus the 34 tree
+# archetypes `ARCH_DIR` reads out of the same place. Set `HOUSE_ARCH_DIR`
+# back to `archetypes_tornado` only if you have deliberately reverted the
+# launcher to `tornado_level_for_intensity`.
 HOUSE_ARCH_DIR = _env(
     "HOUSE_ARCH_DIR",
-    os.path.join(_SCENE_GEN_DIR, "assets", "archetypes_tornado"))
+    os.path.join(_SCENE_GEN_DIR, "assets", "archetypes_hurricane"))
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
 DO_WATER = _flag("HUR_WATER")
 DO_GROUND = _flag("HUR_GROUND")
@@ -225,15 +281,68 @@ N_DEBRIS = int(_env("HUR_DEBRIS", "140"))
 # 4-minute scene build dies there, the cheapest next question is always "is it
 # this pass?". `HUR_WASHAWAY=0` answers it in one run.
 DO_WASHAWAY = _flag("HUR_WASHAWAY")
-SNAP_DIR = _env("SNAP_DIR", "")
+
+# ---------------------------------------------------------------------------
+# DATASET FREEZE
+# ---------------------------------------------------------------------------
+#
+# `final_disaster_dataset/<Disaster>/<Locale>/level_<n>/<k>/` — the contract
+# `freeze-disaster-dataset` owns, capitalised in the PATH and lowercase in the
+# FILENAME. Knob names are `freeze_dataset_launch_script.py`'s VERBATIM
+# (`FREEZE_OUT`/`FREEZE_NAME`/`FREEZE_EXPORT`/`FREEZE_COLLECT`/`FREEZE_EXIT`/
+# `PEOPLE_VARIANT`) so the dataset's own tooling — `dataset_upload.py`, the
+# `FROZEN_SCENE` launcher path, the per-cell shell loops — drives a hurricane
+# cell with the same lines it drives a wildfire one.
+#
+# WHY THIS LIVES HERE AND NOT IN `freeze_dataset_launch_script.py`: that
+# launcher's only build path is `scene_api.build_scene()`, which is a wildfire
+# monolith — every damage decision keys off a fire arrival-time field and
+# `has_disaster` is gated on `config["disaster"]["fire"]`. Pointing it at a
+# hurricane preset builds an undamaged suburb. The hurricane pipeline is this
+# file's own `main()`; the export belongs where the scene is.
+FREEZE_OUT = _env("FREEZE_OUT", "")
+FREEZE_NAME = _env("FREEZE_NAME", "")
+FREEZE_EXPORT = _flag("FREEZE_EXPORT", "0")
+FREEZE_COLLECT = _flag("FREEZE_COLLECT", "0")
+FREEZE_SNAPS = _flag("FREEZE_SNAPS", "1")
+FREEZE_EXIT = _flag("FREEZE_EXIT", "0")
+# THE TWO PORTABILITY SAFETY VALVES, carried over from
+# `freeze_urban_fire_city_launch_script.py` unchanged in name, default and
+# meaning. Both OFF: the primary path de-instances every offending prototype
+# unconditionally, and this plate has thousands of AEC tree instances that
+# make that expensive. Turn `FREEZE_WAIVE_VEGETATION=1` on if de-instancing
+# proves too heavy, and `FREEZE_WAIVE_MIRRORED=1` only as the last-resort
+# ship path when the de-instancing fixpoint alone cannot clear the gate — it
+# waives ONLY paths with a stat-verified Nucleus twin, never a twin-less one.
+FREEZE_WAIVE_VEGETATION = _flag("FREEZE_WAIVE_VEGETATION", "0")
+FREEZE_WAIVE_ABOVE_INSTANCES = int(_env("FREEZE_WAIVE_ABOVE_INSTANCES", "500"))
+FREEZE_WAIVE_MIRRORED = _flag("FREEZE_WAIVE_MIRRORED", "0")
+# PEOPLE VARIANT — the dataset's fifth axis, and the ONLY seed it is allowed
+# to touch. The people draw is `SEED + 191`; the wind field is `SEED + 23`,
+# house/water `SEED + 5`, trees `SEED + 9`, cars `SEED + 77`. Offsetting the
+# people RNG by `1000 * VARIANT` leaves all five of those bit-identical, which
+# is what makes the k cells of a level five casts over ONE geometry rather
+# than five different scenes. Same arithmetic `freeze_dataset_launch_script`
+# uses for the wildfire cells.
+PEOPLE_VARIANT = int(_env("PEOPLE_VARIANT", "0"))
+if FREEZE_OUT:
+    os.makedirs(FREEZE_OUT, exist_ok=True)
+SNAP_DIR = _env("SNAP_DIR",
+                os.path.join(FREEZE_OUT, "snaps")
+                if (FREEZE_OUT and FREEZE_SNAPS) else "")
 if SNAP_DIR:
     os.makedirs(SNAP_DIR, exist_ok=True)
 # THE PEOPLE PASS — see "7c) THE PEOPLE" below and `disaster/hurricane_
 # people.py`. ON by default, same convention as every other `DO_*` flag on
 # this file.
 DO_PEOPLE = _flag("HUR_PEOPLE")
+# `FREEZE_OUT` WINS OVER `SNAP_DIR` for the ground truth. The captures are a
+# review artefact and may be turned off or redirected; `GT_people.json` is
+# part of the cell and has to land in the cell directory whatever the
+# snapshots do.
 PEOPLE_JSON = _env("HUR_PEOPLE_JSON",
-                   os.path.join(SNAP_DIR or HOUSE_ARCH_DIR, "GT_people.json"))
+                   os.path.join(FREEZE_OUT or SNAP_DIR or HOUSE_ARCH_DIR,
+                                "GT_people.json"))
 
 # EVERY HOUSE KEEPS ITS STREET YAW, always — unlike the tornado's own
 # `_TRACK_YAWED` trick, which turns `leveled`/`swept` piles to face the
@@ -544,12 +653,13 @@ def main():
             for f in (os.listdir(ARCH_DIR) if os.path.isdir(ARCH_DIR) else [])
             if f.endswith(".usd")}
     # THE HOUSE LIBRARY, separately -- see `HOUSE_ARCH_DIR`'s own comment.
-    # `arch` above stays the TREE dict (`archetypes_hurricane`); `harch` is
-    # the tornado's own six-level house library and is what the house loop
-    # below reads.
+    # `arch` above stays the TREE dict; `harch` is the EIGHT-rung house
+    # library (see HOUSE_ARCH_DIR's own comment) and is what the house loop
+    # below reads. Both default to `archetypes_hurricane`, which carries
+    # both kinds.
     if not os.path.isdir(HOUSE_ARCH_DIR):
         print("[hurricane] HOUSE_ARCH_DIR {0} does not exist — run "
-              "bake_tornado_archetypes_launch_script.py first"
+              "bake_hurricane_archetypes_launch_script.py first"
               .format(HOUSE_ARCH_DIR))
     harch = {os.path.splitext(f)[0]: os.path.join(HOUSE_ARCH_DIR, f)
             for f in (os.listdir(HOUSE_ARCH_DIR)
@@ -1918,8 +2028,19 @@ def main():
                 # instead of in the lawn beside it.
                 "deck_points": deck_points,
             }
+            # `SEED + 191` is the people draw's own offset; `1000 * VARIANT`
+            # is the dataset's fifth axis (see `PEOPLE_VARIANT` at the top of
+            # this file). NEVER fold the variant into `SEED` itself — that
+            # would move the wind field, the houses, the trees and the cars
+            # too, and the five k cells of a level would stop being one
+            # geometry.
             p_humans, p_debris, p_recs = hpp.plan_people(
-                _hpp_cfg, _hpp_ctx, random.Random(SEED + 191))
+                _hpp_cfg, _hpp_ctx,
+                random.Random(SEED + 191 + 1000 * PEOPLE_VARIANT))
+            if PEOPLE_VARIANT:
+                print("[hurricane] people variant {0}: rng seed {1} -> {2}"
+                      .format(PEOPLE_VARIANT, SEED + 191,
+                              SEED + 191 + 1000 * PEOPLE_VARIANT))
             if p_humans:
                 sg.apply_placements(stage, p_humans, PARENT + "/people", ssf,
                                     resolver=_hpp_resolver,
@@ -2013,7 +2134,8 @@ def main():
             traceback.print_exc()
 
     # 8) GROUND TRUTH -------------------------------------------------------
-    gt_path = os.path.join(SNAP_DIR or ARCH_DIR, "GT_hurricane.json")
+    gt_path = os.path.join(FREEZE_OUT or SNAP_DIR or ARCH_DIR,
+                           "GT_hurricane.json")
     try:
         import json as _json
         with open(gt_path, "w") as fh:
@@ -2028,6 +2150,139 @@ def main():
               .format(gt_path, len(_h_recs), len(_t_recs)))
     except Exception as exc:
         print("[hurricane] GT write FAILED: {0}".format(exc))
+
+    # 8b) THE DATASET GROUND TRUTH ------------------------------------------
+    #
+    # `GT_hurricane.json` above is this launcher's own record and stays as it
+    # is. `GT_hints.json` is the DATASET's class vocabulary — the same file
+    # every Fire and Tornado cell already carries — and `disaster/gt_hints.py`
+    # is already hurricane-aware (`EXTRA_CLASSES["hurricane"]`,
+    # `_HOUSE_DESTROYED["hurricane"]`). It wants `scene_api.build_scene`'s
+    # `info_out` shape; this launcher's own locals are already most of the way
+    # there and the gap is assembled here.
+    if FREEZE_OUT:
+        try:
+            import json as _json
+            from disaster import gt_hints as _gth
+
+            # CARS: WALKED OFF THE STAGE, UNCONDITIONALLY. `binfo["cars"]` is
+            # never filled by the suburb generator (`scene_api`'s own comment
+            # says so), and this file's existing car walk lives inside
+            # `if DO_WASHAWAY`, so a cell built with the wash-away pass off
+            # would ship a hint file with no vehicles in it at all. Same
+            # leaf-name route the wash-away pass takes — a placement's leaf
+            # prim name IS `f"{category}_{group}_{i}"`.
+            #
+            # A FRESH XformCache. The wash-away, surge and settle passes all
+            # re-author xformOps after any cache built earlier in `main()`,
+            # and `UsdGeom.XformCache` memoises without invalidating — a
+            # stale cache here would report every floated car at its
+            # pre-drift pose. See the fence/pose bug in the skill's catalogue.
+            _car_recs = []
+            try:
+                _xc = UsdGeom.XformCache(Usd.TimeCode.Default())
+                _croot = stage.GetPrimAtPath(Sdf.Path(PARENT))
+                for _cp in (Usd.PrimRange(_croot)
+                            if _croot and _croot.IsValid() else ()):
+                    if not _cp.IsA(UsdGeom.Xformable):
+                        continue
+                    if not _cp.GetName().lower().startswith("car_"):
+                        continue
+                    _m = _xc.GetLocalToWorldTransform(_cp)
+                    _rot = _m.ExtractRotation()
+                    _rpy = _rot.Decompose(Gf.Vec3d(1, 0, 0), Gf.Vec3d(0, 1, 0),
+                                          Gf.Vec3d(0, 0, 1))
+                    # THE REFERENCED ASSET, NOT THE PRIM NAME.
+                    # `gt_hints.vehicle_class` decides Car/Van/Truck from the
+                    # usd stem and nothing else, so a record with no `usd`
+                    # falls back to the base class for every vehicle.
+                    #
+                    # READ OFF THE PRIM STACK, NOT `GetMetadata("references")`
+                    # — that returns an `Sdf.ReferenceListOp`, which is not
+                    # iterable, so the obvious one-liner raises `TypeError`
+                    # on the FIRST car and takes the whole walk down with it
+                    # (the handler below turns that into an empty vehicle
+                    # class in the hint file, which is a quiet way to lose
+                    # every car). A reference can also arrive on any of four
+                    # list-op fields depending on how it was authored, so
+                    # check all of them rather than assuming `prepended`.
+                    _usd = ""
+                    for _spec in _cp.GetPrimStack():
+                        _rl = getattr(_spec, "referenceList", None)
+                        if _rl is None:
+                            continue
+                        for _fld in ("prependedItems", "explicitItems",
+                                     "addedItems", "appendedItems"):
+                            for _it in (getattr(_rl, _fld, None) or []):
+                                if getattr(_it, "assetPath", ""):
+                                    _usd = str(_it.assetPath)
+                                    break
+                            if _usd:
+                                break
+                        if _usd:
+                            break
+                    _car_recs.append({
+                        "prim_path": str(_cp.GetPath()), "usd": _usd,
+                        "roll_deg": round(float(_rpy[0]), 2),
+                        "pitch_deg": round(float(_rpy[1]), 2),
+                        "yaw_deg": round(float(_rpy[2]), 2),
+                        "axis_up": "Z", "heading_deg": None,
+                        # NO CAR OCCUPANTS IN THIS SCENE. `hurricane_people`
+                        # places dry-wreck, water and roof figures only —
+                        # there is no car-cabin scenario here, so claiming
+                        # `occupied` would be a label with nothing behind it.
+                        "occupied": False,
+                    })
+            except Exception as _cexc:                           # noqa: BLE001
+                print("[hurricane] car walk for GT_hints FAILED: {0}"
+                      .format(_cexc))
+
+            _info = {"parent": PARENT, "binfo": binfo,
+                     "house_objects": _h_recs, "tree_objects": _t_recs,
+                     "cars": _car_recs,
+                     # NO ROAD-BLOCKAGE MODEL IN THIS PIPELINE. The wildfire/
+                     # tornado "fallen tree across the carriageway" pass has
+                     # no hurricane equivalent — this scene's land debris is a
+                     # different, larger mechanism (`washaway.land_debris_
+                     # specs` / `planks.scatter_from_wreck`). Empty is the
+                     # honest value; it thins the Debris/Fallen Tree classes
+                     # and breaks nothing.
+                     "blockers": []}
+            _recs = _gth.build(stage, _info, ssf, disaster="hurricane")
+            _gth.write(os.path.join(FREEZE_OUT, "GT_hints.json"), _recs, meta={
+                "scene_config": SCENE_CONFIG, "seed": SEED,
+                "people_variant": PEOPLE_VARIANT, "disaster": "hurricane",
+                "region_m": [float(v) for v in region],
+                "site_gust_mps": hcfg.get("site_gust_mps"),
+                "surge_m": scfg.get("surge_m"),
+                "arch_dir": ARCH_DIR, "house_arch_dir": HOUSE_ARCH_DIR,
+                "units": "metres, world frame, plate centred on the origin",
+            })
+
+            _stats = {
+                "scene_config": SCENE_CONFIG, "seed": SEED,
+                "people_variant": PEOPLE_VARIANT, "disaster": "hurricane",
+                "region": [float(v) for v in region],
+                "houses": len(_h_recs), "house_tally": htally,
+                "era_tally": era_tally, "water_tally": wtally,
+                "trees": len(_t_recs), "tree_tally": ttally,
+                "cars": len(_car_recs), "car_tally": ctally,
+                "people": len(p_recs or ()),
+                "hurricane": {k: (list(v) if isinstance(v, tuple) else v)
+                              for k, v in hcfg.items()},
+                "surge": {k: (list(v) if isinstance(v, tuple) else v)
+                          for k, v in scfg.items()},
+                "arch_dir": ARCH_DIR, "house_arch_dir": HOUSE_ARCH_DIR,
+                "hint_counts": _gth.summarise(_recs),
+            }
+            with open(os.path.join(FREEZE_OUT, "build_stats.json"), "w") as fh:
+                _json.dump(_stats, fh, indent=1)
+            print("[hurricane] build_stats -> {0}".format(
+                os.path.join(FREEZE_OUT, "build_stats.json")))
+        except Exception as exc:
+            import traceback
+            print("[hurricane] GT_hints/build_stats FAILED: {0}".format(exc))
+            traceback.print_exc()
 
     # 9) LOOK AT IT ---------------------------------------------------------
     #
@@ -2254,6 +2509,51 @@ def main():
             print("[hurricane] stage root layer -> {0}".format(_sp))
         except Exception as _exc:
             print("[hurricane] stage export FAILED: {0}".format(_exc))
+    # 10) THE EXPORT --------------------------------------------------------
+    #
+    # RUNS LAST, after the ground truth and the review captures, for the same
+    # reason `freeze_dataset_launch_script.py` orders it that way: those are
+    # cheap and this is not, so an export that fails must not cost the labels,
+    # and a cell whose GT is already on disk can be re-frozen from the same
+    # seeds without rebuilding anything.
+    #
+    # `disaster.freeze.export_scene` reads the live stage out of
+    # `omni.usd.get_context()` and has no dependency on `scene_api`'s `info`
+    # shape, so it needs no hurricane-specific change — but this IS the first
+    # non-wildfire stage it has ever run on, and it has no offline test
+    # coverage at all. Read `freeze_report.json`'s `portable_ok` before
+    # trusting a cell.
+    if FREEZE_EXPORT and FREEZE_OUT:
+        import json as _json
+        from disaster import freeze as _freeze
+        _name = FREEZE_NAME or _default_freeze_name(FREEZE_OUT)
+        try:
+            _finfo = _freeze.export_scene(
+                FREEZE_OUT, _name, collect=FREEZE_COLLECT,
+                waive_above_instances=(FREEZE_WAIVE_ABOVE_INSTANCES
+                                       if FREEZE_WAIVE_VEGETATION else None),
+                waive_mirrored=FREEZE_WAIVE_MIRRORED)
+            _freeze.report(_finfo)
+            with open(os.path.join(FREEZE_OUT, "freeze_report.json"), "w") as fh:
+                _json.dump(_finfo, fh, indent=1)
+        except _freeze.PortabilityError as _exc:
+            # The gate fired — nothing ships, but `_exc.info` is the REAL,
+            # complete `verify()` result `_enforce_portable` already computed.
+            # Write it so the report says WHY instead of landing empty.
+            print("[hurricane] EXPORT FAILED (portability gate): {0}"
+                  .format(_exc))
+            try:
+                with open(os.path.join(FREEZE_OUT,
+                                       "freeze_report.json"), "w") as fh:
+                    _json.dump(_exc.info, fh, indent=1)
+            except Exception as _exc2:                           # noqa: BLE001
+                print("[hurricane] *** could not even write the failure "
+                      "report: {0}".format(_exc2))
+        except Exception as _exc:
+            import traceback
+            print("[hurricane] EXPORT FAILED: {0}".format(_exc))
+            traceback.print_exc()
+
     print("[hurricane] SCENE_DONE")
     # EXIT ONCE THE CAPTURES ARE ON DISK. Spinning in `app.update()` after
     # SCENE_DONE kept every finished render resident on the card (11.6 GB at
@@ -2262,7 +2562,13 @@ def main():
     # trap. Same contract as `downtown_quake_launch_script`: KEEP_OPEN=1 (or
     # HUR_KEEP_OPEN=1) holds the stage open for inspection; the default is
     # to fall through to `simulation_app.close()` in `__main__`.
-    if (os.environ.get("HUR_KEEP_OPEN", "").strip() == "1"
+    # `FREEZE_EXIT` WINS OVER `KEEP_OPEN`. A loop over cells is exactly the
+    # case where a held-open app means the shell's `for` never reaches the
+    # second iteration, and the two knobs are set by different people —
+    # `KEEP_OPEN` by whoever wants to look at a scene, `FREEZE_EXIT` by the
+    # batch that must not stall.
+    if not FREEZE_EXIT and (
+            os.environ.get("HUR_KEEP_OPEN", "").strip() == "1"
             or os.environ.get("KEEP_OPEN", "").strip() == "1"):
         while simulation_app.is_running():
             omni.kit.app.get_app().update()

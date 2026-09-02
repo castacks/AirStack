@@ -1,0 +1,623 @@
+{
+ "kinds": [
+  "house"
+ ],
+ "records": [
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_cottage_cover_lost.usd",
+   "meshes": 11,
+   "bound_missing": 0,
+   "style": "cottage",
+   "level": "cover_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_cottage_deck_panels_lost.usd",
+   "meshes": 11,
+   "bound_missing": 0,
+   "style": "cottage",
+   "level": "deck_panels_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_cottage_leveled.usd",
+   "meshes": 12,
+   "bound_missing": 0,
+   "style": "cottage",
+   "level": "leveled",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_cottage_partial_collapse.usd",
+   "meshes": 12,
+   "bound_missing": 0,
+   "style": "cottage",
+   "level": "partial_collapse",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_cottage_pristine.usd",
+   "style": "cottage",
+   "level": "pristine",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_cottage_roof_collapsed.usd",
+   "meshes": 13,
+   "bound_missing": 0,
+   "style": "cottage",
+   "level": "roof_collapsed",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_cottage_roof_stripped.usd",
+   "meshes": 11,
+   "bound_missing": 0,
+   "style": "cottage",
+   "level": "roof_stripped",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_cottage_shingles_lost.usd",
+   "meshes": 13,
+   "bound_missing": 0,
+   "style": "cottage",
+   "level": "shingles_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_cottage_swept.usd",
+   "style": "cottage",
+   "level": "swept",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_bungalow_cover_lost.usd",
+   "meshes": 27,
+   "bound_missing": 0,
+   "style": "l_bungalow",
+   "level": "cover_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_bungalow_deck_panels_lost.usd",
+   "meshes": 26,
+   "bound_missing": 0,
+   "style": "l_bungalow",
+   "level": "deck_panels_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_bungalow_leveled.usd",
+   "meshes": 28,
+   "bound_missing": 0,
+   "style": "l_bungalow",
+   "level": "leveled",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_bungalow_partial_collapse.usd",
+   "meshes": 29,
+   "bound_missing": 0,
+   "style": "l_bungalow",
+   "level": "partial_collapse",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_bungalow_pristine.usd",
+   "style": "l_bungalow",
+   "level": "pristine",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_bungalow_roof_collapsed.usd",
+   "meshes": 30,
+   "bound_missing": 0,
+   "style": "l_bungalow",
+   "level": "roof_collapsed",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_bungalow_roof_stripped.usd",
+   "meshes": 25,
+   "bound_missing": 0,
+   "style": "l_bungalow",
+   "level": "roof_stripped",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_bungalow_shingles_lost.usd",
+   "meshes": 30,
+   "bound_missing": 0,
+   "style": "l_bungalow",
+   "level": "shingles_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_bungalow_swept.usd",
+   "style": "l_bungalow",
+   "level": "swept",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_family_cover_lost.usd",
+   "meshes": 47,
+   "bound_missing": 0,
+   "style": "l_family",
+   "level": "cover_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_family_deck_panels_lost.usd",
+   "meshes": 46,
+   "bound_missing": 0,
+   "style": "l_family",
+   "level": "deck_panels_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_family_leveled.usd",
+   "meshes": 48,
+   "bound_missing": 0,
+   "style": "l_family",
+   "level": "leveled",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_family_partial_collapse.usd",
+   "meshes": 49,
+   "bound_missing": 0,
+   "style": "l_family",
+   "level": "partial_collapse",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_family_pristine.usd",
+   "style": "l_family",
+   "level": "pristine",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_family_roof_collapsed.usd",
+   "meshes": 50,
+   "bound_missing": 0,
+   "style": "l_family",
+   "level": "roof_collapsed",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_family_roof_stripped.usd",
+   "meshes": 45,
+   "bound_missing": 0,
+   "style": "l_family",
+   "level": "roof_stripped",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_family_shingles_lost.usd",
+   "meshes": 50,
+   "bound_missing": 0,
+   "style": "l_family",
+   "level": "shingles_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_l_family_swept.usd",
+   "style": "l_family",
+   "level": "swept",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_ranch_cover_lost.usd",
+   "meshes": 20,
+   "bound_missing": 0,
+   "style": "ranch",
+   "level": "cover_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_ranch_deck_panels_lost.usd",
+   "meshes": 20,
+   "bound_missing": 0,
+   "style": "ranch",
+   "level": "deck_panels_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_ranch_leveled.usd",
+   "meshes": 21,
+   "bound_missing": 0,
+   "style": "ranch",
+   "level": "leveled",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_ranch_partial_collapse.usd",
+   "meshes": 22,
+   "bound_missing": 0,
+   "style": "ranch",
+   "level": "partial_collapse",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_ranch_pristine.usd",
+   "style": "ranch",
+   "level": "pristine",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_ranch_roof_collapsed.usd",
+   "meshes": 23,
+   "bound_missing": 0,
+   "style": "ranch",
+   "level": "roof_collapsed",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_ranch_roof_stripped.usd",
+   "meshes": 19,
+   "bound_missing": 0,
+   "style": "ranch",
+   "level": "roof_stripped",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_ranch_shingles_lost.usd",
+   "meshes": 23,
+   "bound_missing": 0,
+   "style": "ranch",
+   "level": "shingles_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_ranch_swept.usd",
+   "style": "ranch",
+   "level": "swept",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_terrace_cover_lost.usd",
+   "meshes": 35,
+   "bound_missing": 0,
+   "style": "terrace",
+   "level": "cover_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_terrace_deck_panels_lost.usd",
+   "meshes": 34,
+   "bound_missing": 0,
+   "style": "terrace",
+   "level": "deck_panels_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_terrace_leveled.usd",
+   "meshes": 37,
+   "bound_missing": 0,
+   "style": "terrace",
+   "level": "leveled",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_terrace_partial_collapse.usd",
+   "meshes": 37,
+   "bound_missing": 0,
+   "style": "terrace",
+   "level": "partial_collapse",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_terrace_pristine.usd",
+   "style": "terrace",
+   "level": "pristine",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_terrace_roof_collapsed.usd",
+   "meshes": 38,
+   "bound_missing": 0,
+   "style": "terrace",
+   "level": "roof_collapsed",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_terrace_roof_stripped.usd",
+   "meshes": 31,
+   "bound_missing": 0,
+   "style": "terrace",
+   "level": "roof_stripped",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_terrace_shingles_lost.usd",
+   "meshes": 38,
+   "bound_missing": 0,
+   "style": "terrace",
+   "level": "shingles_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_terrace_swept.usd",
+   "style": "terrace",
+   "level": "swept",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_two_storey_cover_lost.usd",
+   "meshes": 19,
+   "bound_missing": 0,
+   "style": "two_storey",
+   "level": "cover_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_two_storey_deck_panels_lost.usd",
+   "meshes": 19,
+   "bound_missing": 0,
+   "style": "two_storey",
+   "level": "deck_panels_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_two_storey_leveled.usd",
+   "meshes": 20,
+   "bound_missing": 0,
+   "style": "two_storey",
+   "level": "leveled",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_two_storey_partial_collapse.usd",
+   "meshes": 20,
+   "bound_missing": 0,
+   "style": "two_storey",
+   "level": "partial_collapse",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_two_storey_pristine.usd",
+   "style": "two_storey",
+   "level": "pristine",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_two_storey_roof_collapsed.usd",
+   "meshes": 21,
+   "bound_missing": 0,
+   "style": "two_storey",
+   "level": "roof_collapsed",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_two_storey_roof_stripped.usd",
+   "meshes": 19,
+   "bound_missing": 0,
+   "style": "two_storey",
+   "level": "roof_stripped",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_two_storey_shingles_lost.usd",
+   "meshes": 21,
+   "bound_missing": 0,
+   "style": "two_storey",
+   "level": "shingles_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_two_storey_swept.usd",
+   "style": "two_storey",
+   "level": "swept",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_villa_cover_lost.usd",
+   "meshes": 15,
+   "bound_missing": 0,
+   "style": "villa",
+   "level": "cover_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_villa_deck_panels_lost.usd",
+   "meshes": 15,
+   "bound_missing": 0,
+   "style": "villa",
+   "level": "deck_panels_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_villa_leveled.usd",
+   "meshes": 16,
+   "bound_missing": 0,
+   "style": "villa",
+   "level": "leveled",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_villa_partial_collapse.usd",
+   "meshes": 17,
+   "bound_missing": 0,
+   "style": "villa",
+   "level": "partial_collapse",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_villa_pristine.usd",
+   "style": "villa",
+   "level": "pristine",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_villa_roof_collapsed.usd",
+   "meshes": 18,
+   "bound_missing": 0,
+   "style": "villa",
+   "level": "roof_collapsed",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_villa_roof_stripped.usd",
+   "meshes": 15,
+   "bound_missing": 0,
+   "style": "villa",
+   "level": "roof_stripped",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_villa_shingles_lost.usd",
+   "meshes": 18,
+   "bound_missing": 0,
+   "style": "villa",
+   "level": "shingles_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_villa_swept.usd",
+   "style": "villa",
+   "level": "swept",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_wide_house_cover_lost.usd",
+   "meshes": 31,
+   "bound_missing": 0,
+   "style": "wide_house",
+   "level": "cover_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_wide_house_deck_panels_lost.usd",
+   "meshes": 31,
+   "bound_missing": 0,
+   "style": "wide_house",
+   "level": "deck_panels_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_wide_house_leveled.usd",
+   "meshes": 32,
+   "bound_missing": 0,
+   "style": "wide_house",
+   "level": "leveled",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_wide_house_partial_collapse.usd",
+   "meshes": 32,
+   "bound_missing": 0,
+   "style": "wide_house",
+   "level": "partial_collapse",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_wide_house_pristine.usd",
+   "style": "wide_house",
+   "level": "pristine",
+   "kind": "house",
+   "source": "tornado_library"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_wide_house_roof_collapsed.usd",
+   "meshes": 33,
+   "bound_missing": 0,
+   "style": "wide_house",
+   "level": "roof_collapsed",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_wide_house_roof_stripped.usd",
+   "meshes": 30,
+   "bound_missing": 0,
+   "style": "wide_house",
+   "level": "roof_stripped",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_wide_house_shingles_lost.usd",
+   "meshes": 33,
+   "bound_missing": 0,
+   "style": "wide_house",
+   "level": "shingles_lost",
+   "kind": "house",
+   "source": "hurricane_bake"
+  },
+  {
+   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_hurricane/house_wide_house_swept.usd",
+   "style": "wide_house",
+   "level": "swept",
+   "kind": "house",
+   "source": "tornado_library"
+  }
+ ]
+}
