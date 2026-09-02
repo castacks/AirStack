@@ -21,7 +21,10 @@ USAGE
     python3 osmo/missions/make_rerun_mission.py --from-log /path/to/mission.log
 
 The `iterations` count is set to the number of cells and `environment_order`
-to `sequential`, so each named cell runs exactly once.
+to `round_robin`, so each named cell runs exactly once, in order
+(`mission_runner.load_mission` only accepts `round_robin`/`grouped` --
+`sequential` is not a valid value and crashes the runner before anything
+runs).
 """
 import argparse
 import re
@@ -91,7 +94,7 @@ def main():
     out["name"] = args.name or (spec["name"] + "_rerun")
     out["environments"] = [by_name[w] for w in wanted]
     out["iterations"] = len(wanted)
-    out["environment_order"] = "sequential"
+    out["environment_order"] = "round_robin"
     if spec.get("nas_dest"):
         out["nas_dest"] = spec["nas_dest"].rstrip("/") + "_rerun"
 

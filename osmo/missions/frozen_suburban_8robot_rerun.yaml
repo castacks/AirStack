@@ -44,7 +44,7 @@ env:
   LVLM_BASELINE: 'false'
   COMMS_RANGE_M: 5000
   GT_ANNOTATIONS: 'on'
-environment_order: sequential
+environment_order: round_robin
 iterations: 4
 environments:
 - name: firesuburbanl1v1_conavgpt2_team
