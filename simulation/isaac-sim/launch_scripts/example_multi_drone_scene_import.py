@@ -110,6 +110,39 @@ else:
           "entirely when CUDA cannot open them). "
           f"CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES', '<unset>')}",
           flush=True)
+
+# ACTIVE GPU (single-GPU pin, for the RENDERER specifically). NVIDIA_VISIBLE_
+# DEVICES / CUDA_VISIBLE_DEVICES do NOT affect Vulkan (confirmed against
+# Omniverse's own Linux troubleshooting doc: "Environment variables like
+# CUDA_VISIBLE_DEVICES have no effect on Vulkan applications") — the renderer
+# picks its device independently, via `--/renderer/activeGpu=<index>`, and
+# that index is Kit's OWN gpu.foundation device table (this pod: it matches
+# nvidia-smi/CUDA 1:1 — "Device N: CUDA device index: N" in the Kit log — but
+# that is NOT guaranteed on every pod; check the log's `[gpu.foundation]`
+# "Device N: ... CUDA device index: M" lines if this ever needs re-deriving).
+#
+# Root-caused 2026-09-02 on airstack-mission-1gpu-56: with NO activeGpu pin,
+# renderer defaults to device 0 regardless of NVIDIA_VISIBLE_DEVICES/
+# CUDA_VISIBLE_DEVICES — on a shared OSMO host where device 0 is a different,
+# heavily-loaded tenant's card (98% util measured), the renderer's resource
+# upload hangs (`ResourceLoader::endAndSubmit - Failed to wait for fence`,
+# `Failed to upload font texture`) and Kit segfaults minutes into scene setup,
+# at a time that varies with how contended device 0 happens to be (225s-411s
+# measured across 3 reproductions) — easy to misread as a code/timing bug.
+# Neither NVIDIA_VISIBLE_DEVICES nor CUDA_VISIBLE_DEVICES fixed it (former is
+# ignored by this host's runtime for enumeration purposes; latter genuinely
+# restricts CUDA but has zero effect on the Vulkan renderer that actually
+# crashed). Set ISAAC_SIM_ACTIVE_GPU to this pod's OWN verified device index
+# (via `nvidia-smi -L` at the pod's own shell to get the UUID, then
+# `docker exec isaac-sim nvidia-smi -L` to find its index inside the
+# container) whenever device 0 is not confirmed to be this pod's own card.
+_ACTIVE_GPU = os.environ.get("ISAAC_SIM_ACTIVE_GPU", "").strip()
+_ACTIVE_GPU_ARGS = []
+if _ACTIVE_GPU:
+    _ACTIVE_GPU_ARGS = [f"--/renderer/activeGpu={_ACTIVE_GPU}"]
+    print(f"[isaac] renderer pinned to GPU index {_ACTIVE_GPU} "
+          "(ISAAC_SIM_ACTIVE_GPU)", flush=True)
+
 _LIVESTREAM = _GENERATED and os.environ.get(
     "ISAAC_SIM_LIVESTREAM", "").lower() == "true"
 
@@ -129,12 +162,12 @@ elif _LIVESTREAM:
         "hide_ui": False,
         "renderer": "RaytracedLighting",
         "display_options": 3286,
-        "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS,
+        "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS + _ACTIVE_GPU_ARGS,
     })
 else:
     simulation_app = SimulationApp(launch_config={
         "headless": os.getenv("ISAAC_SIM_HEADLESS", "false").lower() == "true",
-        "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS,
+        "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS + _ACTIVE_GPU_ARGS,
     })
 
 if _GENERATED:
