@@ -143,6 +143,48 @@ services:
       # To pin a device deliberately, export CUDA_VISIBLE_DEVICES in the
       # calling environment and accept the warning above.
       - CUDA_VISIBLE_DEVICES
+      # WHICH PHYSICAL CARD IS "DEVICE 0" IS NOT THE SAME ON EVERY POD.
+      # With NVIDIA_VISIBLE_DEVICES left at the image default ("all"), the
+      # nvidia-container-runtime enumerates every GPU the DRIVER reports on
+      # the underlying bare-metal host — not just the one this pod's own
+      # Docker device reservation (`count: 1`) actually grants it — and the
+      # ORDER is not guaranteed to put this pod's own card first.
+      #
+      # MEASURED 2026-09-02 on airstack-mission-1gpu-56: `nvidia-smi -L` at
+      # the POD's own (outer) shell shows exactly one GPU, UUID
+      # ...0e496968... — that is the card this pod actually owns. Inside the
+      # isaac-sim CONTAINER, `nvidia-smi -L` shows FOUR GPUs, and that same
+      # UUID is INDEX 1, not 0: three other tenants' cards are visible
+      # alongside it. Kit's default device is index 0 (mask 0x1) — on this
+      # pod that was someone else's card, already at 45575/48935 MiB and 40%
+      # util, so Kit's own render-graph allocation failed with
+      # `ERROR_OUT_OF_DEVICE_MEMORY` and segfaulted a few seconds into scene
+      # load — NOT a "not enough VRAM for this scene" failure, a "rendering
+      # on somebody else's full card" failure. airstack-mission-1gpu-52 never
+      # hit this because index 0 happened to already be its own card there;
+      # it is pod-instance luck, not something the unset-CUDA_VISIBLE_DEVICES
+      # fix above guarantees.
+      #
+      # Bare name = passthrough, same reasoning as CUDA_VISIBLE_DEVICES above
+      # (compose renders an unset var as null / not defined, which is what we
+      # want — NEVER default this to a placeholder value). Unset here means
+      # "trust the image default (all)", which is only safe when device 0
+      # happens to be this pod's own card. When Kit crashes with
+      # `ERROR_OUT_OF_DEVICE_MEMORY` moments into scene load on a pod that
+      # should have an idle card:
+      #   1. `nvidia-smi -L` at the POD's own shell (not inside any
+      #      container) to get this pod's actual GPU UUID.
+      #   2. `docker exec isaac-sim nvidia-smi -L` to find which index that
+      #      UUID lands at inside the container.
+      #   3. If it is not 0, recreate the container with
+      #      `NVIDIA_VISIBLE_DEVICES=<that UUID>` exported in the calling
+      #      shell before `docker compose up -d --force-recreate isaac-sim`
+      #      (a running container's device bindings are fixed at creation —
+      #      a `docker exec`-scoped env override does not reach them).
+      # DO NOT set this to a bare index (`0`, `1`, ...) as a general fix —
+      # the index is only stable for one specific pod's lifetime; the UUID
+      # is the only thing worth hardcoding into a resubmit.
+      - NVIDIA_VISIBLE_DEVICES
       # MULTI-GPU RENDERING. Spreads the drones' ZED render products across the
       # visible cards. Empty/unset = OFF (the launcher treats "", 0, 1, false,
       # off, no as off), so this is inert until .env sets it.
@@ -159,7 +201,8 @@ services:
       # DO NOT also set ISAAC_SIM_CUDA_DEVICES to a subset while using this —
       # that is exactly what recreated the mismatch.
       # Verify it took: the Kit log's SceneRenderer line should stop saying
-      # `device mask: 0x1`.
+      # `device mask: 0x1` UNLESS index 0 is confirmed (via the UUID check
+      # above) to be this pod's own card, in which case 0x1 is correct.
       - ISAAC_SIM_MULTIGPU=${ISAAC_SIM_MULTIGPU:-}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
@@ -430,6 +473,48 @@ services:
       # To pin a device deliberately, export CUDA_VISIBLE_DEVICES in the
       # calling environment and accept the warning above.
       - CUDA_VISIBLE_DEVICES
+      # WHICH PHYSICAL CARD IS "DEVICE 0" IS NOT THE SAME ON EVERY POD.
+      # With NVIDIA_VISIBLE_DEVICES left at the image default ("all"), the
+      # nvidia-container-runtime enumerates every GPU the DRIVER reports on
+      # the underlying bare-metal host — not just the one this pod's own
+      # Docker device reservation (`count: 1`) actually grants it — and the
+      # ORDER is not guaranteed to put this pod's own card first.
+      #
+      # MEASURED 2026-09-02 on airstack-mission-1gpu-56: `nvidia-smi -L` at
+      # the POD's own (outer) shell shows exactly one GPU, UUID
+      # ...0e496968... — that is the card this pod actually owns. Inside the
+      # isaac-sim CONTAINER, `nvidia-smi -L` shows FOUR GPUs, and that same
+      # UUID is INDEX 1, not 0: three other tenants' cards are visible
+      # alongside it. Kit's default device is index 0 (mask 0x1) — on this
+      # pod that was someone else's card, already at 45575/48935 MiB and 40%
+      # util, so Kit's own render-graph allocation failed with
+      # `ERROR_OUT_OF_DEVICE_MEMORY` and segfaulted a few seconds into scene
+      # load — NOT a "not enough VRAM for this scene" failure, a "rendering
+      # on somebody else's full card" failure. airstack-mission-1gpu-52 never
+      # hit this because index 0 happened to already be its own card there;
+      # it is pod-instance luck, not something the unset-CUDA_VISIBLE_DEVICES
+      # fix above guarantees.
+      #
+      # Bare name = passthrough, same reasoning as CUDA_VISIBLE_DEVICES above
+      # (compose renders an unset var as null / not defined, which is what we
+      # want — NEVER default this to a placeholder value). Unset here means
+      # "trust the image default (all)", which is only safe when device 0
+      # happens to be this pod's own card. When Kit crashes with
+      # `ERROR_OUT_OF_DEVICE_MEMORY` moments into scene load on a pod that
+      # should have an idle card:
+      #   1. `nvidia-smi -L` at the POD's own shell (not inside any
+      #      container) to get this pod's actual GPU UUID.
+      #   2. `docker exec isaac-sim nvidia-smi -L` to find which index that
+      #      UUID lands at inside the container.
+      #   3. If it is not 0, recreate the container with
+      #      `NVIDIA_VISIBLE_DEVICES=<that UUID>` exported in the calling
+      #      shell before `docker compose up -d --force-recreate isaac-sim`
+      #      (a running container's device bindings are fixed at creation —
+      #      a `docker exec`-scoped env override does not reach them).
+      # DO NOT set this to a bare index (`0`, `1`, ...) as a general fix —
+      # the index is only stable for one specific pod's lifetime; the UUID
+      # is the only thing worth hardcoding into a resubmit.
+      - NVIDIA_VISIBLE_DEVICES
       # MULTI-GPU RENDERING. Spreads the drones' ZED render products across the
       # visible cards. Empty/unset = OFF (the launcher treats "", 0, 1, false,
       # off, no as off), so this is inert until .env sets it.
@@ -446,7 +531,8 @@ services:
       # DO NOT also set ISAAC_SIM_CUDA_DEVICES to a subset while using this —
       # that is exactly what recreated the mismatch.
       # Verify it took: the Kit log's SceneRenderer line should stop saying
-      # `device mask: 0x1`.
+      # `device mask: 0x1` UNLESS index 0 is confirmed (via the UUID check
+      # above) to be this pod's own card, in which case 0x1 is correct.
       - ISAAC_SIM_MULTIGPU=${ISAAC_SIM_MULTIGPU:-}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
