@@ -120,6 +120,16 @@ the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
 
+### 2026-09-02 — Correction: A3 R7-chase self-destructions are 2, not 3
+
+The "CAMPAIGN v6 COMPLETE" entry below (and 011's §(c-final) headline,
+now corrected in place with a marker) said 3/10 A3 trials destroyed a
+working R6 system chasing R7. The per-trial log supports 2 (trials 19
+and 27); the third zero-rung final state (trial 35) never cleared R4
+in-session — the R4-integration wall, a different mechanism. Caught
+while fact-checking the paper prose against the per-trial record; the
+paper text uses the corrected phrasing.
+
 ### 2026-09-02 — Sec. VI-C analysis produced; recomputation matches
 
 Notebook 011 §(d) is complete

@@ -144,8 +144,13 @@ excluded infra attempts ≈ \$820 all-in). Wall-clock: 2026-08-28 21:29 →
 **Headline findings (for Sec. VI-C prose):**
 
 1. **Platform gap**: A1 80% full-ladder vs A3 0% ever reaching R7 in
-   10 tries, at 1.65× A1's cost. 3/10 A3 trials destroyed a working
-   R6 system attempting avoidance ("R7-chase self-destruction").
+   10 tries, at 1.65× A1's cost. 3/10 A3 trials shipped final states
+   that passed no rung; 2 of those destroyed a working in-session R6
+   system attempting avoidance ("R7-chase self-destruction", trials
+   19+27), the third (trial 35) never cleared R4 in-session (the
+   R4-integration wall). [CORRECTED 2026-09-02: previously said 3/10
+   self-destructions; per-trial log supports 2 — the paper prose
+   follows the corrected count.]
 2. **Closed-loop gap**: same repo, blind (A4) = 30% R8 and a NULL→R8
    lottery vs A1's 80% — verification-in-the-loop buys consistency,
    not ceiling; A4 is fastest and cheapest but modal outcome is a
@@ -158,7 +163,8 @@ excluded infra attempts ≈ \$820 all-in). Wall-clock: 2026-08-28 21:29 →
    AirStack-arm score): swap-not-persisted (7), fresh-route R7
    generalization miss (2 incl. A1/opus #5), non-booting final state
    (1), cap/wall-clock exhaustion (1). A3 adds: assembly time-cap
-   (1), R7-chase self-destruction (3), R4-integration wall (1).
+   (1), R7-chase self-destruction (2), R4-integration wall (1).
+   [CORRECTED 2026-09-02: self-destruction count was 3.]
 5. Judge integrity held: final-state + fresh-route scoring repeatedly
    caught in-session success that wasn't in the shipped system —
    including twice in A1 — exactly the discrimination Amendment 1
