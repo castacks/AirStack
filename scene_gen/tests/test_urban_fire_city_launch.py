@@ -222,6 +222,12 @@ def test_fc_dump_only_writes_in_intact_only_mode():
                   "`if INTACT_ONLY:` guard in FireCityApp.__init__")
 
 
+def test_intact_only_cannot_enter_the_interactive_keepalive_loop():
+    """A batch dump must exit even when a caller only passed --no-window."""
+    compact = "".join(CITY_SRC.split())
+    assert "ifKEEP_OPENor(not_HEADLESSandnotINTACT_ONLY):" in compact
+
+
 def test_dump_functions_exist():
     fns = _funcdefs(CITY_TREE)
     for name in ("default_dump_path", "_typology_rects", "dump_city_placements"):

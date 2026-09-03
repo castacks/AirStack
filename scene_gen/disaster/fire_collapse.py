@@ -2721,12 +2721,18 @@ def _tear_perimeter(ctx, plan, m, prng, jobs):
         if not st_p and not lo_p:
             j["failed"] = True
             continue
-        # THE STANDING HALF IS STILL THAT WALL. Only the statics: a loose
-        # fragment is in the heap.
+        # THE STANDING HALF IS STILL THAT WALL. Fire keeps the historical
+        # behaviour (only statics) by default. Tornado opts loose fragments
+        # in too: they remain visually tied to this facade, and substituting
+        # a projected look creates a conspicuous material seam.
         ctx.setdefault("_tear_statics", []).extend(st_p)
         for q in st_p:
             how = skin_fragment(ctx, skin, q)
             skin_stats[how or "none"] += 1
+        if ctx.get("_skin_loose_tears"):
+            for q in lo_p:
+                how = skin_fragment(ctx, skin, q)
+                skin_stats[how or "none"] += 1
         # The shards drop at the lip of the hole and join the heap under it:
         # they were never thrown, they let go, so this is a fraction of the
         # peeled wall's own `THROW_TOP` and it is biased downward.

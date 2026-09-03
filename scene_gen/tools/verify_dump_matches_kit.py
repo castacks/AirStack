@@ -47,6 +47,7 @@ own docstring says the synthesised name is not guaranteed to equal Kit's, and
 nothing in the pipeline matches on it alone.
 """
 import argparse
+import collections
 import json
 import math
 import os
@@ -78,6 +79,29 @@ def main():
     off = json.load(open(a.offline))
     kit = json.load(open(a.kit))
     oh, kh = _houses(off), _houses(kit)
+
+    # Once packing diverges, W/D/H at a shared list index usually compares
+    # two unrelated assets. Also compare dimensions by model so a stale
+    # offline footprint can identify itself instead of being hidden by the
+    # downstream index avalanche it caused.
+    def _model_sizes(rows):
+        vals = collections.defaultdict(list)
+        for p in rows or ():
+            name = os.path.basename(str(p.get("usd") or ""))
+            if name and all(p.get(k) is not None for k in ("W", "D", "H")):
+                vals[name].append(tuple(float(p[k]) for k in ("W", "D", "H")))
+        return {name: tuple(sum(v[j] for v in samples) / len(samples)
+                            for j in range(3))
+                for name, samples in vals.items()}
+
+    oms = _model_sizes(off.get("placements"))
+    kms = _model_sizes(kit.get("placements"))
+    model_resized = []
+    for name in sorted(set(oms) & set(kms)):
+        ov, kv = oms[name], kms[name]
+        if any(abs(ov[j] - kv[j]) > max(0.05, 0.005 * abs(kv[j]))
+               for j in range(3)):
+            model_resized.append((name, ov, kv))
 
     print("offline : %-42s %5d houses, %6d placements, preset=%s seed=%s"
           % (os.path.basename(a.offline), len(oh),
@@ -133,6 +157,8 @@ def main():
     print("different model : %d" % len(swapped))
     print("different W/D/H : %d   (offline sizes come from the asset-set "
           "scrape, not from opening the USD)" % len(resized))
+    print("model size conflicts: %d   (same model, independent of index)"
+          % len(model_resized))
 
     for d, i, o, k in moved[:a.max_report]:
         print("   i=%-6d %7.2f m   offline(%9.2f,%9.2f)  kit(%9.2f,%9.2f)  %s"
@@ -142,6 +168,10 @@ def main():
         print("   i=%-6d MODEL  offline=%-32s kit=%s"
               % (i, os.path.basename(str(o.get("usd")))[:32],
                  os.path.basename(str(k.get("usd")))[:32]))
+    for name, ov, kv in model_resized[:a.max_report]:
+        print("   %-34s offline=%7.2f x %7.2f x %7.2f  "
+              "kit=%7.2f x %7.2f x %7.2f"
+              % ((name[:34],) + ov + kv))
 
     if moved:
         bad.append("%d house(s) moved more than %.2f m" % (len(moved), a.tol_m))

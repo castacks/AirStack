@@ -50,6 +50,7 @@ import random
 import sys
 
 import numpy as np
+import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.normpath(os.path.join(_HERE, "..")))
@@ -167,6 +168,26 @@ def _plan(grade, btype="urm", seed=5, **kw):
     rng = random.Random(seed)
     plan = qs.plan_damage(info, info["elements"], grade, btype, rng)
     return info, plan
+
+
+def test_registered_slice_preserves_measured_levels_and_real_roof_deck():
+    """A non-uniform measured grid must not be rebuilt as N median floors."""
+    style = "exact_measured_slice"
+    grid = {"bbox": ((0.0, 0.0, 0.0), (20.0, 12.0, 38.8)),
+            "storey_h": 3.86,
+            "storeys": [0.0, 3.1, 6.0, 9.5, 13.0, 16.6, 20.2, 23.8,
+                       27.4, 31.0, 34.5, 38.08],
+            "W": 20.0, "D": 12.0,
+            "bays": {s: {"pitch": 4.0} for s in ("S", "N", "E", "W")}}
+    pieces = [{"usd": "slice://roof", "_role": "roof", "z_m": 38.08,
+               "_storey": 11, "_size": (18.0, 10.0, 0.5)},
+              {"usd": "slice://wall", "_role": "wall", "z_m": 34.5,
+               "_storey": 10, "_size": (4.0, 0.3, 3.58)}]
+    gsl.register_style(grid, style, pieces_of=pieces)
+    mass = qf._mass_specs(style, 0.0, 0.0, 0.0)[0]
+    assert mass["levels"] == pytest.approx(grid["storeys"][:-1])
+    assert mass["top"] == pytest.approx(38.08)
+    assert mass["deck_z"] == pytest.approx(38.08)
 
 
 def _by_path(info):

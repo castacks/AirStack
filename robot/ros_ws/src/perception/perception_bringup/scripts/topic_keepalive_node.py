@@ -100,13 +100,21 @@ class TopicKeepalive(Node):
         robot = os.getenv('ROBOT_NAME', 'robot_1')
         prefix = f'/{robot}/'
         self._subs = []
-        for topic, msg_type, absolute, qos in TOPICS:
+        pipeline = os.getenv('ZED_PIPELINE', 'stereo').strip().lower()
+        topics = TOPICS
+        if pipeline == 'mono_rgbd':
+            topics = [entry for entry in TOPICS
+                      if 'front_stereo/right/' not in entry[0]
+                      and entry[0] != 'perception/stereo_image_proc/point_cloud']
+            topics.append(('sensors/front_stereo/left/depth_pcl',
+                           PointCloud2, False, SENSOR_QOS))
+        for topic, msg_type, absolute, qos in topics:
             full = topic if absolute else f'{prefix}{topic}'
             self._subs.append(
                 self.create_subscription(msg_type, full, lambda _msg: None, qos))
         self.get_logger().info(
             f'topic_keepalive subscribed to {len(self._subs)} topics '
-            f'(prefix={prefix})')
+            f'(prefix={prefix}, zed_pipeline={pipeline})')
 
 
 def main(args=None):

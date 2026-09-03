@@ -1,7 +1,8 @@
 <!-- PERCEPTION -->
 <launch>
     <arg name="launch_macvo" default="false" />
-    <arg name="launch_stereo_image_proc" default="true" />
+    <arg name="launch_stereo_image_proc"
+         default="$(eval '&quot;$(env ZED_PIPELINE stereo)&quot; == &quot;stereo&quot;')" />
     <!-- Toggle from top-level .env → LAUNCH_NATNET (passed into container via robot-base-docker-compose.yaml) -->
     <arg name="launch_natnet" default="$(env LAUNCH_NATNET false)"/>
 

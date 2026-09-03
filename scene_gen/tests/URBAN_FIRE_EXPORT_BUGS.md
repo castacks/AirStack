@@ -189,7 +189,26 @@ config/assets — is actually stale.
    part of CI/deploy for this pipeline whenever `fc_dump_1km_l<N>.json` is
    regenerated, not just once manually per level.
 3. Once the actual root cause is found, add a targeted regression test for it
-   specifically (this entry should be updated with that once known).
+specifically (this entry should be updated with that once known).
+
+### 2026-09-03 diagnostic and shutdown correction
+
+The apparent post-success hang was independent of the layout mismatch.
+Stage 3b passed `--no-window` but did not set `ISAAC_SIM_HEADLESS=true`.
+`--no-window` controls Kit window creation; it does not set the launcher's
+`_HEADLESS` flag.  Consequently the launcher printed `URBAN FIRE CITY DONE`
+and then deliberately entered its interactive update loop.  The wrapper now
+sets the headless environment explicitly, and the launcher itself excludes
+`FC_INTACT_ONLY` from that loop unless `KEEP_OPEN=1` was explicitly requested.
+
+`verify_dump_matches_kit.py` now also reports dimensions grouped by USD
+basename.  Comparing dimensions only at a shared placement index becomes
+meaningless as soon as packing has diverged (the two indices then name
+different models); the grouped report reveals whether a checked-in offline
+footprint differs from Kit's live Nucleus measurement and caused the first
+packing divergence.  Run the verifier once more on the already-written pair
+before regenerating either file; its `model size conflicts` section is the
+next root-cause discriminator.
 
 ---
 

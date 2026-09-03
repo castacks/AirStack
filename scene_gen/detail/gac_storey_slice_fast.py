@@ -108,12 +108,18 @@ def _split(pd, axis, value):
 
 
 def _sweep(pd, axis, cuts):
+    import vtk
+
     out, rest = [], pd
     for value in cuts:
+        if rest is None or not rest.GetNumberOfCells():
+            # Partition grammars rely on one output slot per interval even
+            # when a cut lies wholly outside the surviving geometry.
+            out.append(vtk.vtkPolyData())
+            rest = vtk.vtkPolyData()
+            continue
         below, rest = _split(rest, axis, value)
         out.append(below)
-        if not rest.GetNumberOfCells():
-            break
     out.append(rest)
     return out
 

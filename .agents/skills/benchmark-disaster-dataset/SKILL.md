@@ -1648,6 +1648,28 @@ cameras at 53 Hz). A `vlfm` mission carries 2.50 GiB of BLIP-2 rather than
 card is much less obviously earned on that arm — untried, so size it the same
 way until someone measures it.
 
+### Optional mono RGB-D benchmark profile
+
+`ZED_PIPELINE=mono_rgbd` is the opt-in fast path for runs that accept GT depth
+as the geometry source. It creates only the left render product, publishes
+left RGB, left GT depth, left camera info, and a `depth_pcl` PointCloud2 from
+that same product, and suppresses stereo processing. Keep the historical
+`stereo` default for comparison runs.
+
+Two repo-specific wiring facts are load-bearing:
+
+- `search_baselines/config/planner.yaml` historically consumes **right** GT
+  depth. A mono mission must set `SEARCH_DEPTH_TOPIC_TEMPLATE` to the left GT
+  topic; merely removing the right publisher stalls every planner tick.
+- MIGHTY must use `MIGHTY_CLOUD_SUFFIX=sensors/front_stereo/left/depth_pcl` and
+  `MIGHTY_CLOUD_FRAME=camera_left`. RAVEN can use mono cameras while retaining
+  its Ouster cloud instead. The left GT depth allowlist entry is also required
+  for a domain-0 team planner.
+
+Do not combine this with `ZED_RENDER_STEP>1` until the planner has been proven
+to tolerate the lower observation rate. Camera resolution is an independent,
+benchmark-semantic setting and is not changed by the mono profile.
+
 ---
 
 ## References

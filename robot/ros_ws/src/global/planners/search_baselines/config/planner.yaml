@@ -24,7 +24,7 @@ search_planner:
     # which reads as a camera fault and is a topic-name bug. Verified with
     # `ros2 topic info -v`: search_planner was absent from the right topic's
     # subscriber list entirely.
-    depth_topic_template: '/{robot}/sensors/front_stereo/right/depth_ground_truth'
+    depth_topic_template: '$(env SEARCH_DEPTH_TOPIC_TEMPLATE /{robot}/sensors/front_stereo/right/depth_ground_truth)'
     camera_info_topic_template: '/{robot}/sensors/front_stereo/left/camera_info'
     odom_topic_template: '/{robot}/odometry_conversion/odometry'
     # The EKF-fused fix, NOT raw/fix: raw/fix (GPS_RAW_INT) went silent for a

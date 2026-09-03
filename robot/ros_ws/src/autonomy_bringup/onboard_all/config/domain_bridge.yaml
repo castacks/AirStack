@@ -13,6 +13,11 @@ topics:
     from_domain: $(env ROS_DOMAIN_ID)
     to_domain: $(var gcs_domain)
 
+  sensors/front_stereo/left/depth_ground_truth:
+    type: sensor_msgs/msg/Image
+    from_domain: $(env ROS_DOMAIN_ID)
+    to_domain: $(var gcs_domain)
+
   # camera intrinsics — needed alongside depth for any depth-aware viewer
   sensors/front_stereo/right/camera_info:
     type: sensor_msgs/msg/CameraInfo

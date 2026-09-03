@@ -585,6 +585,7 @@ def annotate_surface(stage, placements):
                         idx = s.GetIndicesAttr().Get()
                         cands.append({
                             "url": url, "name": name, "mat": mat_name,
+                            "material_path": str(cur.GetPrim().GetPath()),
                             "n": len(idx) if idx else 0,
                             "mesh": mesh_prim,
                             "faces": list(idx) if idx else []})
@@ -599,20 +600,53 @@ def annotate_surface(stage, placements):
                     counts = mesh.GetFaceVertexCountsAttr().Get()
                     cands.append({
                         "url": url, "name": name, "mat": mat_name,
+                        "material_path": str(cur.GetPrim().GetPath()),
                         "n": len(counts) if counts else 0,
                         "mesh": mesh_prim, "faces": None})
         best, moved = _rank_surface_candidates(cands, axis, xf_cache)
         p["_tex_url"] = best["url"] if best else ""
         p["_tex_name"] = best["name"] if best else ""
+        p["_surface_mat_path"] = best["material_path"] if best else ""
         if best:
             n_hit += 1
         if moved:
             n_moved += 1
 
+    # A clip cell can contain only source faces whose original material was
+    # unbound.  Leaving the slicer's role fallback on that cell makes both
+    # the surviving facade and every tear derived from it turn flat/white.
+    # Fill those holes from the nearest measured exterior cell, preferring
+    # the same elevation and side.  The target retains its own source UVs;
+    # this only restores the material assignment lost at the source face.
+    donors = [p for p in placements if p.get("_tex_url") and
+              p.get("_surface_mat_path")]
+    repaired = 0
+    exterior = ("wall", "pier", "corner", "parapet", "parapet_corner")
+    for p in placements:
+        if p.get("_tex_url") or p.get("_role") not in exterior or not donors:
+            continue
+        def _distance(d):
+            return (0 if d.get("_side") == p.get("_side") else 1000,
+                    abs(int(d.get("_storey", 0)) - int(p.get("_storey", 0))),
+                    abs(int(d.get("_bay", 0)) - int(p.get("_bay", 0))),
+                    0 if d.get("_role") == p.get("_role") else 1)
+        donor = min(donors, key=_distance)
+        mat_prim = stage.GetPrimAtPath(donor["_surface_mat_path"])
+        target = stage.GetPrimAtPath(p.get("prim_path") or "")
+        if not mat_prim or not mat_prim.IsValid() or not target or not target.IsValid():
+            continue
+        UsdShade.MaterialBindingAPI.Apply(target).Bind(UsdShade.Material(mat_prim))
+        p["_tex_url"] = donor["_tex_url"]
+        p["_tex_name"] = donor["_tex_name"]
+        p["_surface_mat_path"] = donor["_surface_mat_path"]
+        repaired += 1
+        n_hit += 1
+
     print("[tornado_urban_usd] surface: {0} of {1} pieces carry a resolved "
           "cladding texture (non-glazing, OUTERMOST subset — area only as "
-          "the tie-break); the outermost rule moved {2} piece(s) off the "
-          "largest-by-area answer".format(n_hit, len(placements), n_moved))
+          "the tie-break); the outermost rule moved {2} piece(s), nearest-"
+          "facade repair filled {3} source-unbound exterior piece(s)".format(
+              n_hit, len(placements), n_moved, repaired))
     return n_hit
 
 
@@ -965,7 +999,21 @@ _TONEABLE_BUCKETS = frozenset({"brick", "concrete"})
 #: branch, where `diffuse_tint` is the live multiply; the flat branches
 #: (metal / membrane / steel_joist) are stream C's collapse populations and
 #: are left exactly as they are.
-_SHADE_MULT = (1.00, 0.82, 1.18)
+_SHADE_MULT = (1.00, 0.94, 1.06)
+
+# A projected map samples the whole image, while the intact asset's authored
+# UVs sample its wall-course region.  SM_Building_02's brick atlas therefore
+# renders orange on fragments although the intact wall is dusty rose.  This
+# correction was derived from the lit A3 review, not from the filename.
+_SOURCE_TINT_BY_STYLE = {"sm_building_02": (0.80, 1.25, 1.90)}
+
+
+def _source_style_tint(style):
+    low = str(style or "").lower()
+    for suffix, tint in _SOURCE_TINT_BY_STYLE.items():
+        if low.endswith(suffix):
+            return tint
+    return (1.0, 1.0, 1.0)
 
 
 def _shade_tint(tint, shade):
@@ -1174,7 +1222,10 @@ def debris_material(stage, ctx, kind, material, tex_url=None, tex_name=None,
         if got is not None:
             return got
         rgb, grime, rough = _CLASS_LOOK.get(bucket, _CLASS_LOOK_DEFAULT)
-        grime = _shade_tint(grime, shade)
+        # The source map already contains mortar/weathering. A class-colour
+        # multiply made A3's fallen bricks visibly unlike their source wall.
+        style = str((ctx.get("info") or {}).get("style") or "").lower()
+        grime = _shade_tint(_source_style_tint(style), shade)
         path = looks + "/src_" + base + ("" if not shade else "_s%d" % shade)
         mat = damage._pbr(stage, path, rgb, rough, texture=tex_url,
                           scale_uv=_TILE_REPEATS_PER_M, tint=rgb)
@@ -1524,6 +1575,72 @@ def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
     return made
 
 
+def _seat_source_rubble(stage, ctx, fragments, ground_z=0.0):
+    """Move loose tear cells to matching planned landings, preserving the
+    source mesh, material graph and UVs. Returns consumed ledger indices.
+
+    The remaining ledger entries still use the merged-box representation, so
+    this is bounded and keeps authoring cost predictable.
+    """
+    try:
+        limit = int(_os.environ.get("TU_SOURCE_RUBBLE_MAX", "96") or 96)
+    except (TypeError, ValueError):
+        limit = 96
+    if limit <= 0:
+        return set()
+    by_leaf = {}
+    structural = []
+    for i, frag in enumerate(fragments):
+        src = str(frag.get("from") or "").rsplit("/", 1)[-1]
+        if src and str(frag.get("kind") or "") not in ("glass", "membrane"):
+            by_leaf.setdefault(src, []).append(i)
+            structural.append(i)
+    used = set()
+    tag_prefix = "brk_{0}_".format(ctx.get("tag") or "")
+    for path in ctx.get("loose") or ():
+        if len(used) >= limit:
+            break
+        prim = stage.GetPrimAtPath(path)
+        if not prim or not prim.IsValid() or not prim.IsA(UsdGeom.Mesh):
+            continue
+        group = str(path).rsplit("/", 2)[-2]
+        leaf = group[len(tag_prefix):] if group.startswith(tag_prefix) else ""
+        choices = by_leaf.get(leaf) or []
+        while choices and choices[0] in used:
+            choices.pop(0)
+        # Tear cells come from the SURVIVING border piece, whereas the debris
+        # ledger is keyed by the REMOVED neighbour, so an exact source-path
+        # match normally does not exist. The fallback still preserves the
+        # correct BUILDING skin; it borrows only the removed neighbour's
+        # already-approved landing point.
+        if not choices:
+            while structural and structural[0] in used:
+                structural.pop(0)
+            choices = structural
+        if not choices:
+            continue
+        i = choices.pop(0)
+        target = fragments[i]
+        pts = UsdGeom.Mesh(prim).GetPointsAttr().Get()
+        if not pts:
+            continue
+        lo = [min(float(q[k]) for q in pts) for k in range(3)]
+        hi = [max(float(q[k]) for q in pts) for k in range(3)]
+        tx = float(target.get("x", 0.0)) - 0.5 * (lo[0] + hi[0])
+        ty = float(target.get("y", 0.0)) - 0.5 * (lo[1] + hi[1])
+        tz = (float(ground_z) + float(target.get("z_lift", 0.0)) + 0.01
+              - lo[2])
+        xf = UsdGeom.Xformable(prim)
+        xf.ClearXformOpOrder()
+        xf.AddTranslateOp().Set(Gf.Vec3d(tx, ty, tz))
+        used.add(i)
+    if used:
+        print("[tear] source rubble ({0}): {1} loose source fragment(s) "
+              "seated at planned landings with exact material/UV".format(
+                  ctx.get("tag"), len(used)))
+    return used
+
+
 # ---------------------------------------------------------------------------
 # ROUND 3b F2a (§8e, stream FX1) — RAGGED TEARS on the apply side.
 #
@@ -1563,7 +1680,7 @@ def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
 #:                      `fracture.face_subset` puts every invented face in).
 #:                      Mortar/core darkening ONCE — a broken masonry edge is
 #:                      the unweathered inside of the wall, in shadow.
-_TEAR_FACE_TINT = (0.88, 0.85, 0.82)
+_TEAR_FACE_TINT = (1.0, 1.0, 1.0)
 _TEAR_CUT_TINT = (0.60, 0.575, 0.55)
 _TEAR_FACE_ROUGH = 0.88
 _TEAR_CUT_ROUGH = 0.93
@@ -1578,7 +1695,7 @@ _TEAR_FALLBACK_RGB = (0.52, 0.505, 0.485)
 _TEAR_CUT_FALLBACK_RGB = (0.36, 0.35, 0.335)
 
 
-def _tear_material(stage, ctx, tex_url, tex_name, cut):
+def _tear_material(stage, ctx, tex_url, tex_name, cut, tone="", btype=""):
     """The material a torn face wears: a triplanar of THE PIECE'S OWN
     annotated cladding texture (`annotate_surface`'s `_tex_url`/`_tex_name`
     stamp), grimed for a wall face and darkened once for a cut face —
@@ -1614,6 +1731,40 @@ def _tear_material(stage, ctx, tex_url, tex_name, cut):
         # cut face is a random crop, not mortar -- fall through to the
         # neutral plaster/mortar fallback below.
         tex_url = ""
+    # Atlas pixels do not belong on invented fracture topology. Kit styles
+    # carry a measured masonry tone instead; curtain-wall chunks expose the
+    # concrete frame/slab rather than glass.
+    tone = str(tone or "").lower()
+    btype = str(btype or "").lower()
+    bucket = "concrete" if btype == "rc_glass" else ""
+    if bucket:
+        tex_url, tone = "", ""
+    if tone in _TONE_LOOK:
+        tex_url = ""
+        tex, flat, tint0, rough = _TONE_LOOK[tone]
+        key = "tornado_tear:tone:{0}:{1}".format(tone, kind)
+        got = mats.get(key)
+        if got is not None:
+            return got
+        tint = tuple(float(c) * (0.68 if cut else 1.0) for c in tint0)
+        path = "{0}/{1}_{2}".format(looks, kind, tone)
+        mat = damage._pbr(stage, path, flat, _TEAR_CUT_ROUGH if cut else rough,
+                          texture=_resolve_texture(tex),
+                          scale_uv=_TILE_REPEATS_PER_M, tint=flat)
+        _fix_diffuse_tint(stage, path, tint)
+        mats[key] = mat
+        return mat
+    if bucket:
+        key = "tornado_tear:{0}:{1}".format(bucket, kind)
+        got = mats.get(key)
+        if got is not None:
+            return got
+        flat, _tint, rough = _CLASS_LOOK[bucket]
+        path = "{0}/{1}_{2}".format(looks, kind, bucket)
+        mat = damage._pbr(stage, path, flat,
+                          _TEAR_CUT_ROUGH if cut else rough)
+        mats[key] = mat
+        return mat
     if tex_url:
         base = _safe_name(tex_name or tex_url.rsplit("/", 1)[-1])
         key = "tornado_tear:src:{0}:{1}".format(base, kind)
@@ -1621,7 +1772,10 @@ def _tear_material(stage, ctx, tex_url, tex_name, cut):
         if got is not None:
             return got
         rgb = _TEAR_CUT_FALLBACK_RGB if cut else _TEAR_FALLBACK_RGB
-        tint = _TEAR_CUT_TINT if cut else _TEAR_FACE_TINT
+        style = str((ctx.get("info") or {}).get("style") or "").lower()
+        st = _source_style_tint(style)
+        tint = (tuple(0.72 * c for c in st) if cut and st != (1.0, 1.0, 1.0)
+                else (_TEAR_CUT_TINT if cut else st))
         rough = _TEAR_CUT_ROUGH if cut else _TEAR_FACE_ROUGH
         path = "{0}/{1}_{2}".format(looks, kind, base)
         mat = damage._pbr(stage, path, rgb, rough, texture=tex_url,
@@ -1651,9 +1805,48 @@ def _tex_of_element(e):
     return str(p.get("_tex_url") or ""), str(p.get("_tex_name") or "")
 
 
+def _tear_tex_of_element(e, elements):
+    """A tiling-safe facade map for a tear, borrowing the nearest peer.
+
+    Packed WallBack/floor/awning atlases may be valid on the original UV'd
+    mesh but cannot be projected onto newly fractured faces.  Using them was
+    the remaining white-patch failure after fallback bindings were repaired.
+    """
+    url, name = _tex_of_element(e)
+    ename = str((e or {}).get("name") or "").lower()
+    structural_core = ename.startswith(("core_x", "core_y"))
+    if (not structural_core and url and
+            (_tiling_safe(name) or _tiling_safe(url.rsplit("/", 1)[-1]))):
+        return url, name
+    ep = (e or {}).get("p") or {}
+    side = ep.get("_side") or (e or {}).get("side")
+    storey = int(ep.get("_storey", (e or {}).get("storey", 0)))
+    bay = int(ep.get("_bay", 0))
+    donors = []
+    for d in elements or ():
+        du, dn = _tex_of_element(d)
+        if not du or not (_tiling_safe(dn) or
+                          _tiling_safe(du.rsplit("/", 1)[-1])):
+            continue
+        dp = d.get("p") or {}
+        words = (dn + " " + du).lower()
+        facade_named = any(q in words
+                           for q in ("brick", "stone", "stucco", "concrete"))
+        masonry_rank = (0 if any(q in words for q in
+                                 ("brick", "stone", "stucco")) else 20)
+        donors.append(((0 if (dp.get("_side") or d.get("side")) == side else 1000,
+                        abs(int(dp.get("_storey", d.get("storey", 0))) - storey),
+                        masonry_rank,
+                        0 if facade_named else 100,
+                        abs(int(dp.get("_bay", 0)) - bay)), du, dn))
+    if donors:
+        _score, du, dn = min(donors, key=lambda q: q[0])
+        return du, dn
+    return "", ""
+
+
 def _reface_tear_fragments(stage, ctx, by_frag, paths, stats):
-    """Rebind the fragments `fire_collapse._tear_perimeter` just authored so
-    every damaged face wears THE BUILDING'S OWN material — round 4, D2.
+    """Bind invented cut faces without replacing the exact facade skin.
 
     `by_frag` maps a fragment's PARENT prim name (`brk_<tag>_<piece leaf>`,
     `quake_flow._break`'s own naming) to that piece's `(tex_url, tex_name)`.
@@ -1667,69 +1860,40 @@ def _reface_tear_fragments(stage, ctx, by_frag, paths, stats):
         megascans brick 70 % of the time whatever the building is made of.
         These are the LARGEST faces on a chunk (`_t_core_mat`'s own
         docstring) so they carry the read.
-      * the fragment PRIM's own binding is replaced ONLY when it is still
-        one of `quake_flow`'s generic looks (anything under
-        `<parent>/QuakeLooks/`): a `c_brick`/`mortar`/`plaster` draw from
-        `_chunk_material`'s 35 % inner share, or a `clad_*` world triplanar
-        of whatever `damage.bound_texture` picked first. A fragment that
-        `fire_collapse.skin_fragment` successfully re-skinned carries the
-        PARENT'S OWN material and UVs (`/src/.../UnrealMaterial` on a live
-        GAC slice — 701 of 1210 fragments on the T4 probe) and is left
-        exactly as it is; that path is already right and beats any
-        re-projection.
+      * the fragment PRIM keeps `fire_collapse.skin_fragment`'s exact source
+        material and source UV projection. A new triplanar material using the
+        same image is not equivalent to the authored facade graph and UVs.
 
     The prim-level bind is WEAK (`quake_flow._bind`), the same strength
     `skin_fragment` uses and for the same reason: a `strongerThanDescendants`
     bind here would take the cut material back off the `core` subset, which
     is a child prim.
     """
-    from pxr import UsdShade
-
     for frag in paths:
         prim = stage.GetPrimAtPath(frag) if frag else None
         if not prim or not prim.IsValid():
             stats["missing"] += 1
             continue
         parent_name = str(frag).rsplit("/", 2)[-2] if "/" in str(frag) else ""
-        tex_url, tex_name = by_frag.get(parent_name, ("", ""))
+        spec = by_frag.get(parent_name, ("", ""))
+        tex_url, tex_name = spec[:2]
+        tone = spec[2] if len(spec) > 2 else ""
+        btype = spec[3] if len(spec) > 3 else ""
         if not tex_url:
             stats["no_tex"] += 1
         # 1) the cut faces
         sub = prim.GetChild("core")
         if sub and sub.IsValid():
             qf._bind(stage, str(sub.GetPath()),
-                     _tear_material(stage, ctx, tex_url, tex_name, True))
+                     _tear_material(stage, ctx, tex_url, tex_name, True,
+                                    tone=tone, btype=btype))
             stats["cut"] += 1
         else:
             stats["no_core"] += 1
-        # 2) the fragment's own surface, only where a generic look is on it
-        # Fracture copies the relationship but not always the applied API
-        # schema. Apply it before querying/rebinding so cold-open USD readers
-        # recognize the fragment's material binding without warnings.
-        cur = UsdShade.MaterialBindingAPI.Apply(prim).ComputeBoundMaterial()[0]
-        cur_path = (str(cur.GetPrim().GetPath())
-                    if cur and cur.GetPrim().IsValid() else "")
-        generic = "{0}/QuakeLooks/".format(ctx.get("parent") or "/World")
-        # ROUND 5 (user review 2026-09-02, item 1): "these broken parts ...
-        # their texture is just white ... it looks like it's going onto a
-        # fallback material". A sliced GAC/dtc PIECE prim binds a
-        # `ShellFallbackLooks` PLACEHOLDER at the prim level (the slicer's
-        # own design — see `_void_glass`'s docstring), a bare white/grey
-        # material with no cladding on it. When `fire_collapse.skin_fragment`
-        # cannot re-skin a broken fragment it inherits that placeholder and
-        # renders white — and the round-4 reface KEPT it (it was neither
-        # empty nor a `QuakeLooks/` generic). Treat any Fallback placeholder
-        # binding as generic too, so it is rebound to the piece's OWN
-        # measured cladding (`_tear_material`) like every other tear face.
-        low = cur_path.lower()
-        is_fallback = ("shellfallback" in low or "/fallback" in low
-                       or low.rsplit("/", 1)[-1].startswith("fallback"))
-        if (not cur_path) or cur_path.startswith(generic) or is_fallback:
-            qf._bind(stage, str(frag),
-                     _tear_material(stage, ctx, tex_url, tex_name, False))
-            stats["face"] += 1
-        else:
-            stats["kept_skin"] += 1
+        # `_tear_perimeter` already reconstructed this fragment's outward
+        # skin from the parent triangles. Do not replace its exact material
+        # graph and UV placement with a projected approximation.
+        stats["kept_skin"] += 1
 
 
 def _author_tears(stage, ctx, plan):
@@ -1784,6 +1948,7 @@ def _author_tears(stage, ctx, plan):
         by_mass.setdefault(t.get("mass") or "main", []).append(t)
     n = 0
     n_failed_resolve = 0
+    n_trim_skipped = 0
     tag = ctx.get("tag")
     reface = {"cut": 0, "face": 0, "kept_skin": 0, "no_core": 0,
               "no_tex": 0, "missing": 0}
@@ -1796,6 +1961,20 @@ def _author_tears(stage, ctx, plan):
             e = by_path.get(t.get("path"))
             if e is None or e.get("dead"):
                 n_failed_resolve += 1
+                continue
+            # Tear fragments are an edge treatment for a torn FACADE, not
+            # airborne ornament. Fracturing a narrow parapet/cornice/coping
+            # scatters dozens of disconnected `brk_*/*frag_*` islands at the
+            # original roof height after its neighbour is removed. They read
+            # as white floating confetti and have no physical support. Shed
+            # trim is already represented by the ground debris ledger.
+            pmeta = e.get("p") or {}
+            role = str(pmeta.get("_role") or e.get("role") or "").lower()
+            words = " ".join((role, str(e.get("name") or "").lower(),
+                              str(t.get("path") or "").lower()))
+            if any(q in words for q in
+                   ("parapet", "cornice", "coping", "roof", "ledge")):
+                n_trim_skipped += 1
                 continue
             jobs.append({"el": e, "side": t.get("side"),
                         "cuts": t.get("cuts") or []})
@@ -1811,6 +1990,7 @@ def _author_tears(stage, ctx, plan):
         # this stream; wrapping is the whole point of this local driver.)
         n_st0 = len(ctx["_tear_statics"])
         n_lo0 = len(ctx["loose"])
+        ctx["_skin_loose_tears"] = True
         with fc._own_rng(ctx, prng, pnrng):
             n += fc._tear_perimeter(ctx, plan, m, prng, jobs)
         # `quake_flow._break`'s naming: fragments land under
@@ -1818,34 +1998,44 @@ def _author_tears(stage, ctx, plan):
         # prim's name maps a fragment back to the piece it came from — and
         # therefore to that piece's own `annotate_surface` texture stamp.
         by_frag = {}
+        from . import tornado_urban as _tu
+        tone = _tu._tone_for(info.get("style"))
+        btype = (info.get("btype") or info.get("construction") or
+                 (ctx.get("sliced") or {}).get("btype") or
+                 (plan.get("btype") if isinstance(plan, dict) else ""))
         for j in jobs:
             path = ((j.get("el") or {}).get("p") or {}).get("prim_path")
             if not path:
                 continue
+            tex = _tear_tex_of_element(j.get("el"), info.get("elements"))
             by_frag["brk_{0}_{1}".format(tag, str(path).rsplit("/", 1)[-1])] = \
-                _tex_of_element(j.get("el"))
+                (tex[0], tex[1], tone, btype)
         _reface_tear_fragments(
             stage, ctx, by_frag,
             list(ctx["_tear_statics"][n_st0:]) + list(ctx["loose"][n_lo0:]),
             reface)
     if tears or n_failed_resolve:
-        print("[tear] tornado_urban_usd ({0}): {1} piece(s) touched, {2} "
-              "job(s) dropped, {3} could not be re-resolved".format(
+        print("[tear] tornado_urban_usd ({0}): {1} facade piece(s) touched, "
+              "{2} trim job(s) skipped, {3} job(s) dropped, {4} could not "
+              "be re-resolved".format(
                   tag, n,
+                  n_trim_skipped,
                   sum(1 for t in (plan.get("tears") or ()) if t.get("dropped")),
                   n_failed_resolve))
-        print("[tear] reface ({0}): {1} cut-face subset(s) + {2} fragment "
-              "surface(s) rebound to the piece's OWN cladding texture, {3} "
-              "left on fire_collapse's own facade skin, {4} had no `core` "
+        print("[tear] reface ({0}): {1} cut-face subset(s) rebound, {2} "
+              "fragment surface override(s), {3} kept on "
+              "fire_collapse's exact source facade skin, {4} had no `core` "
               "subset, {5} had no annotated texture (neutral plaster), {6} "
               "prim(s) missing".format(
                   tag, reface["cut"], reface["face"], reface["kept_skin"],
                   reface["no_core"], reface["no_tex"], reface["missing"]))
         ctx.setdefault("notes", []).append(
-            "tears: {0} piece(s) torn; {1} cut face(s) + {2} fragment "
-            "surface(s) refaced to the building's own cladding "
-            "({3} neutral-plaster fallback)".format(
-                n, reface["cut"], reface["face"], reface["no_tex"]))
+            "tears: {0} facade piece(s) torn ({1} unsupported trim job(s) "
+            "suppressed); {2} cut face(s) + {3} fragment "
+            "surface override(s); source facade skin retained "
+            "({4} neutral-plaster fallback)".format(
+                n, n_trim_skipped, reface["cut"], reface["face"],
+                reface["no_tex"]))
     ctx["_tear_reface"] = reface
     return n
 
@@ -2317,13 +2507,31 @@ def _storey_plan_rects(info):  # noqa: C901
             continue
         m = items[0][0]
         xs, ys = [], []
+        # Extrema include awnings, pilasters, balconies baked into facade
+        # meshes. Median exact-side centres recover the structural wall
+        # planes and keep synthetic slabs/columns inside the real cage.
+        side_centres = {q: [] for q in ("W", "E", "S", "N")}
         for mm, e in items:
             for lx, ly in _el_plan_pts(mm, e):
                 xs.append(float(lx))
                 ys.append(float(ly))
+            p = e.get("p") or {}
+            side = str(p.get("_side") or e.get("side") or "")
+            if side in side_centres:
+                lx, ly = qf._to_local(mm, float(e.get("x", 0.0)),
+                                      float(e.get("y", 0.0)))
+                side_centres[side].append(
+                    float(lx if side in ("W", "E") else ly))
         if not xs:
             continue
         lx0, lx1, ly0, ly1 = min(xs), max(xs), min(ys), max(ys)
+        import statistics
+        if side_centres["W"] and side_centres["E"]:
+            lx0 = statistics.median(side_centres["W"])
+            lx1 = statistics.median(side_centres["E"])
+        if side_centres["S"] and side_centres["N"]:
+            ly0 = statistics.median(side_centres["S"])
+            ly1 = statistics.median(side_centres["N"])
         W, D = float(m["W"]), float(m["D"])
         if (lx1 - lx0) < _PLAN_MIN_FRAC * W:
             c = (lx0 + lx1) / 2.0
@@ -2451,6 +2659,75 @@ def _recut_slabs(stage, info, fit, rects, opened=None):
                            "size": [round(nsx, 2), round(nsy, 2)]})
     return {"n": n, "before_max": round(before_max, 3),
             "after_max": round(after_max, 3), "slabs": detail}
+
+
+def _drop_outside_columns(stage, info, fit, rects):
+    """Remove synthetic columns whose full section crosses a real wall plane.
+
+    ``fit_interior`` lays out its grid from the coarse mass rectangle. Sliced
+    GAC buildings may model only an L/stepped structural footprint, so a grid
+    point can be inside that coarse box yet visibly outside the upper-storey
+    facade (A3 ``col_main_8_6_2``). The measured per-storey rectangle is the
+    authority; columns are optional fit-out and are suppressed, not moved.
+    """
+    masses = info.get("masses") or {}
+    dropped = []
+    sliced_a3 = str(info.get("style") or "").lower().endswith("sm_building_02")
+    world_envelope = {}
+    if sliced_a3:
+        from pxr import Usd, UsdGeom
+        bcache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                                   [UsdGeom.Tokens.default_,
+                                    UsdGeom.Tokens.render])
+        for e in info.get("elements") or ():
+            p = e.get("p") or {}
+            if p.get("_role") not in _ENVELOPE_ROLES:
+                continue
+            st = int(p.get("_storey", 0))
+            prim = stage.GetPrimAtPath(p.get("prim_path") or "")
+            if not prim or not prim.IsValid():
+                continue
+            r = bcache.ComputeWorldBound(prim).ComputeAlignedRange()
+            if r.IsEmpty():
+                continue
+            mn, mx = r.GetMin(), r.GetMax()
+            b = world_envelope.setdefault(st, [1e18, -1e18, 1e18, -1e18])
+            b[0], b[1] = min(b[0], float(mn[0])), max(b[1], float(mx[0]))
+            b[2], b[3] = min(b[2], float(mn[1])), max(b[3], float(mx[1]))
+    for key, paths in list((fit.get("columns") or {}).items()):
+        mtag, storey = key
+        m = masses.get(mtag) or masses.get("main")
+        rect = _rect_for(rects, m, mtag, int(storey)) if m else None
+        if rect is None:
+            continue
+        inner = _inner_rect(rect, 0.20)
+        keep = []
+        for path in paths:
+            cx, cy, _cz, sx, sy, _sz, _yaw = qf._box_dims(stage, path)
+            lx, ly = qf._to_local(m, cx, cy)
+            outside = (lx - sx / 2.0 < inner["lx0"] or
+                       lx + sx / 2.0 > inner["lx1"] or
+                       ly - sy / 2.0 < inner["ly0"] or
+                       ly + sy / 2.0 > inner["ly1"])
+            # A3's source is a partial/L-shaped shell, which no rectangle can
+            # represent. Its named failure is just beyond the actual source
+            # geometry even though it remains inside the coarse mass box.
+            wb = world_envelope.get(int(storey))
+            if wb:
+                outside = outside or (cx - sx / 2.0 < wb[0] + 0.10 or
+                                      cx + sx / 2.0 > wb[1] - 0.10 or
+                                      cy - sy / 2.0 < wb[2] + 0.10 or
+                                      cy + sy / 2.0 > wb[3] - 0.10)
+            if outside:
+                if qf._deactivate(stage, path):
+                    dropped.append(path)
+                continue
+            keep.append(path)
+        fit["columns"][key] = keep
+    if dropped:
+        dead = set(dropped)
+        fit["all"] = [p for p in (fit.get("all") or ()) if p not in dead]
+    return dropped
 
 
 def _opened_holes(ctx, plan):
@@ -2757,11 +3034,20 @@ def _author_interior(stage, ctx, plan):
     fit = qf.fit_interior(stage, parent, info, ctx["mats"], rng,
                           storeys=sorted(storeys), tag=tag,
                           partitions=False,
-                          footprint=(polys or None))
+                          footprint=(polys or None),
+                          columns_for_urm=True)
     ctx["fit"] = fit
     ctx.setdefault("static_extra", [])
     ctx["static_extra"].extend(fit.get("all") or [])
     slab_cut = _recut_slabs(stage, info, fit, rects, opened)
+    outside_columns = _drop_outside_columns(stage, info, fit, rects)
+    if outside_columns:
+        dead_cols = set(outside_columns)
+        ctx["static_extra"] = [p for p in ctx["static_extra"]
+                               if p not in dead_cols]
+        print("[tornado_urban_usd] interior: suppressed {0} column(s) "
+              "crossing measured storey wall planes".format(
+                  len(outside_columns)))
     n_props_moved = _clamp_fit_props(stage, ctx, info, fit, opened, rects)
 
     # A torn facade exposes the shared fire/quake floors and columns.  The
@@ -2770,6 +3056,7 @@ def _author_interior(stage, ctx, plan):
     out = {"n_fit": len(fit.get("all") or []), "n_backing": 0,
            "n_backing_holes": 0, "n_backing_shop": 0,
            "n_props_clamped": n_props_moved,
+           "n_columns_outside_dropped": len(outside_columns),
            "n_partitions": len(fit.get("partitions") or []),
            "n_slabs_recut": slab_cut["n"],
            "slab_overhang_before_m": slab_cut["before_max"],
@@ -3009,9 +3296,20 @@ def apply_plan(stage, ctx, plan, verbose=True):
     #    matrix built per DISTINCT spec (grouped, the way
     #    `quake_sliced.apply_plan` groups its own `plan["displaced"]` loop).
     n_displaced = 0
+    n_rect_hangers_suppressed = 0
+    keep_rect_hangers = _os.environ.get(
+        "TU_KEEP_RECT_HANGERS", "1").strip().lower() in ("1", "true", "yes")
     displaced = plan.get("displaced") or {}
     groups = {}
     for path in sorted(displaced):
+        # A whole region-cut cell retains the slicer's rectangular outline
+        # after a rigid tilt. It is semantic geometry, not acceptable visible
+        # tornado fracture geometry. The ragged border fragments and source
+        # rubble already carry this failure; suppress the rectangular hanger.
+        if not keep_rect_hangers and "/pieces/" in str(path):
+            if qf._deactivate(stage, path):
+                n_rect_hangers_suppressed += 1
+            continue
         key = _json.dumps(displaced[path], sort_keys=True)
         groups.setdefault(key, []).append(path)
     for key in sorted(groups):
@@ -3052,9 +3350,17 @@ def apply_plan(stage, ctx, plan, verbose=True):
     # 5) DEBRIS. Authored, never simulated — every removed piece's material
     #    is already on the ground.
     fragments = list(plan.get("debris") or ())
+    n_fragments_total = len(fragments)
+    n_source_rubble = 0
     made = []
     if fragments:
         ground_z = ctx.get("ground_z", 0.0)
+        consumed = _seat_source_rubble(stage, ctx, fragments,
+                                       ground_z=ground_z)
+        if consumed:
+            n_source_rubble = len(consumed)
+            fragments = [f for i, f in enumerate(fragments)
+                         if i not in consumed]
         made = build_debris(stage, ctx.get("parent") or "/World", fragments,
                             ctx, ground_z=ground_z)
         ctx["static_extra"].extend(made)
@@ -3066,7 +3372,9 @@ def apply_plan(stage, ctx, plan, verbose=True):
     out = {"n_removed": n_removed, "n_missing": len(missing),
            "n_glass": n_glass, "n_glass_removed": n_glass_removed,
            "n_displaced": n_displaced,
-           "n_debris_meshes": len(made), "n_fragments": len(fragments),
+           "n_rect_hangers_suppressed": n_rect_hangers_suppressed,
+           "n_debris_meshes": len(made), "n_fragments": n_fragments_total,
+           "n_source_rubble": n_source_rubble,
            "n_roof_props": n_roof, "n_tears": n_tears,
            "n_fit": fit_counts["n_fit"], "n_backing": fit_counts["n_backing"],
            "notes": list(ctx["notes"])}

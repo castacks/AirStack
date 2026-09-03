@@ -686,6 +686,27 @@ def register_style(g, name, pieces_of=None, family="01"):
         if not filtered or filtered[0] > z0 + 0.5:
             filtered = [float(z0)] + filtered
         storeys = filtered
+    # The measured floor marks are not necessarily a uniform lattice.  Keep
+    # them on the synthetic style instead of later reconstructing N copies of
+    # one median `storey_h` (SM_Building_02: that reconstruction put the roof
+    # 4.8 m too high and created protruding storey-10 columns).
+    z_base = float(bbox[0][2]) if bbox is not None else 0.0
+    roof_piece_z = [float(p.get("z_m", 0.0)) for p in (pieces_of or [])
+                    if p.get("_role") == "roof"]
+    parapet_piece_z = [float(p.get("z_m", 0.0)) for p in (pieces_of or [])
+                       if p.get("_role") in ("parapet", "parapet_corner")]
+    deck_z = (min(roof_piece_z) if roof_piece_z else
+              (min(parapet_piece_z) if parapet_piece_z else None))
+    if deck_z is not None:
+        storeys = [z for z in storeys if z < deck_z - 0.25]
+    envelope_roles = ("wall", "pier", "corner")
+    envelope_storeys = [int(p.get("_storey", 0)) for p in (pieces_of or [])
+                        if p.get("_role") in envelope_roles]
+    if envelope_storeys:
+        # A measured cut can sit below the roof yet bound only the dedicated
+        # roof/parapet band. It is not another occupiable floor. Keep exactly
+        # the starts backed by an envelope band.
+        storeys = storeys[:max(envelope_storeys) + 1]
     n = max(1, len(storeys))
     module = None
     for b in (g.get("bays") or {}).values():
@@ -697,6 +718,9 @@ def register_style(g, name, pieces_of=None, family="01"):
     ny = max(1, int(round((g["D"] - 2 * leg) / module)))
     spec = {"bays": (nx, ny), "note": "sliced from a merged mesh",
             "family": family,      # `quake_flow.FAMILY_TYPE` -> construction type
+            "measured_levels_m": [float(z) - z_base for z in storeys],
+            "measured_deck_m": ((float(deck_z) - z_base)
+                                if deck_z is not None else None),
             "bands": [{"sub": "storey", "h": per, "module": module,
                        "repeat": n, "walls": [], "corner": None},
                       {"sub": "parapet", "h": max(0.8, 0.35 * per),

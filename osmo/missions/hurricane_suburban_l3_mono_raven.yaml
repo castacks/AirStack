@@ -1,0 +1,330 @@
+# Fast-path validation sweep for Hurricane/Suburban/level_3/1.
+# Order is deliberately reversed from the interrupted sweep, with RAVEN first.
+# Submit on osmo/workflows/airstack-mission-8robot-2gpu.yaml.
+name: hurricane_suburban_l3_mono_raven
+nas_dest: /volume2/coa-sei
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs, offboard-compute]
+
+env:
+  NUM_ROBOTS: 8
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  ISAAC_SIM_MULTIGPU: ""
+  PLAY_SIM_ON_START: "true"
+  SCENE_CONFIG: ""
+  FROZEN_DATASET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset"
+  SUBURB_COLLIDERS: ground
+  SPAWN_HEIGHT_M: "0.5"
+  DRONE_Z_M: "0.5"
+  GT_ANNOTATIONS: "on"
+  COMMS_RANGE_M: "5000"
+  MAP_ANCHOR_ENU: "true"
+  OFFBOARD_COMPUTE_GPU: "1"
+
+  # Opt-in fast path. Resolution and per-method pitch are kept at their
+  # already-selected values below; no temporal slicing is enabled.
+  ZED_PIPELINE: mono_rgbd
+  ZED_RENDER_STEP: "1"
+  ISAAC_SIM_DLSS_MODE: performance
+  ISAAC_SIM_DISABLE_MOTION_BVH: "true"
+  ISAAC_SIM_DISABLE_VIEWPORT_UPDATES: "true"
+  SEARCH_DEPTH_TOPIC_TEMPLATE: "/{robot}/sensors/front_stereo/left/depth_ground_truth"
+  GCS_VIZ_DECIMATE: "10"
+
+  DETECTOR_URL: http://offboard-compute:8200
+  ITM_URL: http://offboard-compute:8100
+  VLM_URL: http://offboard-compute:8000/v1
+  CONAVGPT2_YOLO_WORLD_WEIGHTS: /root/.cache/conavgpt2_weights/yolov8l-world.pt
+  CONAVGPT2_VLM_MODEL: Qwen/Qwen2.5-VL-7B-Instruct
+  CONAVGPT2_VLM_QUANT: nf4
+  RAYFRONTS_CONFIG: shared_humans
+  RAYFRONTS_ROBOT_IDS: "1,2,3,4,5,6,7,8"
+  RAYFRONTS_WAIT_TIMEOUT_S: "600"
+  RAYFRONTS_COMPUTE_PROB: "True"
+  RAVEN_LVLM: "false"
+  MIGHTY_V_MAX: "1.0"
+  MIGHTY_A_MAX: "0.2"
+  MIGHTY_J_MAX: "1.0"
+  MIGHTY_OVERRIDE_PERIOD_S: "0.2"
+  MIGHTY_SEGMENT_STRIDE: "2"
+  MIGHTY_NATIVE_SETPOINTS: "1"
+  PID_POS_FF: "1.0"
+  PID_VEL_FF: "0.102"
+  PID_VZ_FF: "0.0"
+
+environment_order: round_robin
+iterations: 5
+
+environments:
+  - &raven
+    name: hurricanesuburbanl3v1_raven_mono
+    method: raven
+    is_raven: true
+    is_baseline: false
+    is_team: false
+    model_port: ""
+    scene_yaml: frozen_hurricane_suburban_lvl3.yaml
+    FROZEN_SCENE: Hurricane/Suburban/level_3/1
+    RESULTS_SCENE: HurricaneSuburbanL3V1
+    ZED_WIDTH: "960"
+    ZED_HEIGHT: "600"
+    ZED_PITCH_DEG: "0"
+    ENABLE_LIDAR: "true"
+    AIRSTACK_STACK: full_mighty
+    LOCAL_PLANNER: mighty
+    MIGHTY_CLOUD_SUFFIX: sensors/ouster/point_cloud
+    MIGHTY_CLOUD_FRAME: ouster
+    RAYFRONTS_MODE: shared
+    START_RAYFRONTS_SERVER: "true"
+    START_DETECTOR_SERVER: "false"
+    START_ITM_SERVER: "false"
+    START_VLM_SERVER: "false"
+    SPAWN_CONFIGS: &spawns >-
+      [{"x_m":-427.5,"y_m":-17.5,"orient":[0,0,0.0205,0.9998]},
+       {"x_m":-375.0,"y_m":-107.5,"orient":[0,0,0.1391,0.9903]},
+       {"x_m":-180.0,"y_m":35.0,"orient":[0,0,-0.0959,0.9954]},
+       {"x_m":-80.0,"y_m":-15.0,"orient":[0,0,0.0925,0.9957]},
+       {"x_m":42.5,"y_m":7.5,"orient":[0,0,-0.9962,0.0872]},
+       {"x_m":192.5,"y_m":0.0,"orient":[0,0,1.0,0.0]},
+       {"x_m":285.0,"y_m":-27.5,"orient":[0,0,0.9988,0.0481]},
+       {"x_m":422.5,"y_m":-157.5,"orient":[0,0,0.9841,0.1775]}]
+    search_area: &area
+      points: [{x: -500.0, y: -500.0, z: 0.0}, {x: 500.0, y: -500.0, z: 0.0},
+               {x: 500.0, y: 500.0, z: 0.0}, {x: -500.0, y: 500.0, z: 0.0}]
+    goal_per_robot: &sectors
+      1: {search_area: {points: [{x: -500, y: -500, z: 0}, {x: -375, y: -500, z: 0}, {x: -375, y: 500, z: 0}, {x: -500, y: 500, z: 0}]}}
+      2: {search_area: {points: [{x: -375, y: -500, z: 0}, {x: -250, y: -500, z: 0}, {x: -250, y: 500, z: 0}, {x: -375, y: 500, z: 0}]}}
+      3: {search_area: {points: [{x: -250, y: -500, z: 0}, {x: -125, y: -500, z: 0}, {x: -125, y: 500, z: 0}, {x: -250, y: 500, z: 0}]}}
+      4: {search_area: {points: [{x: -125, y: -500, z: 0}, {x: 0, y: -500, z: 0}, {x: 0, y: 500, z: 0}, {x: -125, y: 500, z: 0}]}}
+      5: {search_area: {points: [{x: 0, y: -500, z: 0}, {x: 125, y: -500, z: 0}, {x: 125, y: 500, z: 0}, {x: 0, y: 500, z: 0}]}}
+      6: {search_area: {points: [{x: 125, y: -500, z: 0}, {x: 250, y: -500, z: 0}, {x: 250, y: 500, z: 0}, {x: 125, y: 500, z: 0}]}}
+      7: {search_area: {points: [{x: 250, y: -500, z: 0}, {x: 375, y: -500, z: 0}, {x: 375, y: 500, z: 0}, {x: 250, y: 500, z: 0}]}}
+      8: {search_area: {points: [{x: 375, y: -500, z: 0}, {x: 500, y: -500, z: 0}, {x: 500, y: 500, z: 0}, {x: 375, y: 500, z: 0}]}}
+
+  - &team
+    name: hurricanesuburbanl3v1_conavgpt2_team_mono
+    method: conavgpt2_team
+    is_raven: false
+    is_baseline: true
+    is_team: true
+    model_port: "8000"
+    scene_yaml: frozen_hurricane_suburban_lvl3.yaml
+    FROZEN_SCENE: Hurricane/Suburban/level_3/1
+    RESULTS_SCENE: HurricaneSuburbanL3V1
+    ZED_WIDTH: "720"
+    ZED_HEIGHT: "450"
+    ZED_PITCH_DEG: "30"
+    ENABLE_LIDAR: "false"
+    AIRSTACK_STACK: full_mighty
+    LOCAL_PLANNER: mighty
+    MIGHTY_CLOUD_SUFFIX: sensors/front_stereo/left/depth_pcl
+    MIGHTY_CLOUD_FRAME: camera_left
+    RAYFRONTS_MODE: per_robot
+    START_RAYFRONTS_SERVER: "false"
+    START_DETECTOR_SERVER: "true"
+    START_ITM_SERVER: "false"
+    START_VLM_SERVER: "true"
+    SPAWN_CONFIGS: *spawns
+    search_area: *area
+    goal_per_robot: *sectors
+
+  - <<: *team
+    name: hurricanesuburbanl3v1_vlfm_mono
+    method: vlfm
+    is_team: false
+    model_port: "8100"
+    START_ITM_SERVER: "true"
+    START_VLM_SERVER: "false"
+  - <<: *team
+    name: hurricanesuburbanl3v1_lawnmower_mono
+    method: lawnmower
+    is_team: false
+    model_port: ""
+    START_VLM_SERVER: "false"
+  - <<: *team
+    name: hurricanesuburbanl3v1_frontier_mono
+    method: frontier
+    is_team: false
+    model_port: ""
+    START_VLM_SERVER: "false"
+
+ready: {timeout_s: 2400, poll_interval_s: 10}
+up_timeout_s: 5400
+iteration_attempts: 2
+on_step_failure: abort_iteration
+command_route: gcs
+
+# Compact/event-oriented bag: trajectories, results and detections remain;
+# repeated occupancy/value/voxel clouds are deliberately not recorded.
+record:
+  enabled: true
+  scope: gcs
+  required: true
+  topics:
+    - /tf_static
+    - /{robot}/odometry_conversion/odometry
+    - /{robot}/global_plan
+    - /{robot}/search/round_stats
+    - /{robot}/search/run_complete
+    - /{robot}/search/detection_image
+    - /{robot}/raven_nav/discoveries
+    - /{robot}/raven_nav/confirmed_targets
+    - /{robot}/raven_nav/explored_area_coverage
+    - /gcs/{robot}/map_origin
+    - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/explored_area_coverage
+    - /gcs/robot_markers
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes
+
+steps:
+  - run:
+      container: robot_1
+      cmd: |
+        A=/root/AirStack/robot/ros_ws/src/global/planners/raven_nav/annotations
+        S={{env.RESULTS_SCENE}}
+        for f in "$A/$S.json" "$A/${S}_obstacles.json" "$A/${S}_region.json"; do
+          [ -f "$f" ] || { echo "MISSING $f"; exit 1; }
+        done
+        echo "GT_READY $S"
+      timeout_s: 120
+
+  - run:
+      container: offboard-compute
+      cmd: |
+        if [ "{{env.is_raven}}" = "true" ]; then
+          for i in $(seq 1 60); do [ -S /tmp/rayfronts/encoder.sock ] && break; sleep 5; done
+          [ -S /tmp/rayfronts/encoder.sock ] || exit 1
+        else
+          MP="{{env.model_port}}"
+          for i in $(seq 1 360); do
+            curl -sf http://localhost:8200/health >/dev/null &&
+              { [ -z "$MP" ] || curl -sf "http://localhost:$MP/health" >/dev/null; } && exit 0
+            sleep 15
+          done
+          exit 1
+        fi
+      timeout_s: 5700
+
+  - run:
+      container: airstack-robot-desktop-{n}
+      cmd: |
+        source /root/.bashrc >/dev/null 2>&1 || true
+        export ROS_DOMAIN_ID={n} ROBOT_NAME=robot_{n}
+        for i in $(seq 1 60); do
+          ros2 node list 2>/dev/null | grep -qx /robot_{n}/mighty/mighty_bridge &&
+          timeout 15 ros2 topic echo /robot_{n}/$(printenv MIGHTY_CLOUD_SUFFIX) --once >/dev/null 2>&1 && exit 0
+          sleep 5
+        done
+        exit 1
+      timeout_s: 420
+
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 20.0, velocity_m_s: 2.0}
+      timeout_s: 420
+      robots: all
+
+  - action:
+      task: semantic_search
+      timeout_s: 13800
+      cancel_on_timeout: true
+      cancel_grace_s: 180
+      pass_on_feedback: true
+      goal_per_robot: "{{env.goal_per_robot}}"
+      goal:
+        query: person
+        background_queries: "road, grass, tree, house, wall, debris, sky, car, utility pole, street light, hydrant, crosswalk"
+        search_area: "{{env.search_area}}"
+        min_altitude_agl: 15.0
+        max_altitude_agl: 40.0
+        min_flight_speed: 0.5
+        max_flight_speed: 1.0
+        confidence_threshold: 0.95
+        voxel_score_threshold: 0.75
+        score_threshold: 0.85
+        voxel_min_cluster_size: 12
+        max_sim_seconds: 600.0
+    when: "{{env.is_raven}}"
+
+  - run:
+      container: airstack-robot-desktop-{n}
+      cmd: |
+        [ "{{env.is_team}}" = "true" ] && { echo TEAM_ARM; exit 0; }
+        source /root/.bashrc >/dev/null 2>&1 || true
+        export ROS_DOMAIN_ID={n} ROBOT_NAME=robot_{n}
+        mkdir -p /tmp/search
+        CFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config
+        nohup ros2 launch search_baselines {{env.method}}.launch.xml num_robots:=8 \
+          scene_params_file:=$CFG/{{env.scene_yaml}} > /tmp/search/planner.log 2>&1 &
+        echo $! > /tmp/search/planner.pid
+        sleep 25; kill -0 $(cat /tmp/search/planner.pid)
+      timeout_s: 420
+    when: "{{env.is_baseline}}"
+
+  - run:
+      container: offboard-compute
+      cmd: |
+        [ "{{env.is_team}}" = "true" ] || { echo SECTORED_ARM; exit 0; }
+        source /root/.bashrc >/dev/null 2>&1 || true
+        export ROS_DOMAIN_ID=0 ROBOT_NAME=robot_1 ZED_PITCH_DEG=30
+        export SEARCH_DEPTH_TOPIC_TEMPLATE='/{robot}/sensors/front_stereo/left/depth_ground_truth'
+        export DETECTOR_URL=http://localhost:8200 VLM_URL=http://localhost:8000/v1
+        mkdir -p /tmp/search
+        CFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config
+        nohup ros2 launch search_baselines conavgpt2_team.launch.xml num_robots:=8 \
+          scene_params_file:=$CFG/{{env.scene_yaml}} > /tmp/search/planner.log 2>&1 &
+        echo $! > /tmp/search/planner.pid
+        sleep 30; kill -0 $(cat /tmp/search/planner.pid)
+      timeout_s: 420
+    when: "{{env.is_baseline}}"
+
+  - run:
+      container: airstack-robot-desktop-{n}
+      cmd: |
+        [ "{{env.is_team}}" = "true" ] && { echo TEAM_ARM; exit 0; }
+        source /root/.bashrc >/dev/null 2>&1 || true
+        export ROS_DOMAIN_ID={n}
+        for i in $(seq 1 900); do
+          timeout 10 ros2 topic echo /robot_{n}/search/run_complete --once 2>/dev/null | grep -q 'data: true' && exit 0
+          kill -0 $(cat /tmp/search/planner.pid) || exit 1
+          sleep 15
+        done
+        exit 1
+      timeout_s: 13800
+    when: "{{env.is_baseline}}"
+
+  - run:
+      container: offboard-compute
+      cmd: |
+        [ "{{env.is_team}}" = "true" ] || { echo SECTORED_ARM; exit 0; }
+        source /root/.bashrc >/dev/null 2>&1 || true
+        export ROS_DOMAIN_ID=0
+        for i in $(seq 1 900); do
+          timeout 10 ros2 topic echo /robot_1/search/run_complete --once 2>/dev/null | grep -q 'data: true' && exit 0
+          kill -0 $(cat /tmp/search/planner.pid) || exit 1
+          sleep 15
+        done
+        exit 1
+      timeout_s: 13800
+    when: "{{env.is_baseline}}"
+
+  - action:
+      task: land
+      goal: {}
+      timeout_s: 180
+      robots: all
+    optional: true
+
+  - run:
+      container: airstack-robot-desktop-{n}
+      cmd: |
+        DEST=/root/AirStack/results/hurricane_suburban_l3_mono_raven/{{env.RESULTS_SCENE}}/{{env.method}}/robot_{n}
+        mkdir -p "$DEST"
+        cp -v /tmp/search/planner.log /tmp/raven_robot_{n}.log /tmp/rayfronts_robot_{n}.log "$DEST"/ 2>/dev/null || true
+        kill $(cat /tmp/search/planner.pid) 2>/dev/null || true
+      timeout_s: 120
+      expect_success: false

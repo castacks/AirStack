@@ -145,7 +145,8 @@ for L in $LEVELS; do
     say "3b/9 verify the offline dump against a real Kit build"
     dex "$CONTAINER" bash -lc "
         cd $REPO &&
-        SCENE_CONFIG='$PRESET' FC_INTACT_ONLY=1 FC_DUMP='$KITDUMP' \
+        ISAAC_SIM_HEADLESS=true SCENE_CONFIG='$PRESET' \
+        FC_INTACT_ONLY=1 FC_DUMP='$KITDUMP' \
         ./python.sh simulation/isaac-sim/launch_scripts/urban_fire_city_launch_script.py --no-window
     " > "${LOG_DIR}/l${L}_kitdump.log" 2>&1 || die "Kit intact-only dump (level $L)"
     python3 "$REPO/scene_gen/tools/verify_dump_matches_kit.py" \

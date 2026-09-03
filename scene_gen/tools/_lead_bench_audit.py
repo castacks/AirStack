@@ -3,12 +3,17 @@ Groups prims by cell holder (/W/bench children), and inside each cell
 flags any Mesh subtree hovering: z0 > ground + 2.5 m while horizontally
 offset from the cell's main building mass, or z0 > 2.5 m with empty space
 below (no geometry within its own footprint below it).
+
+Narrow fractured roof trim is checked separately.  Parapet/cornice shards
+can remain inside the building footprint and therefore passed the old XY
+test even though they were visibly suspended in open air.
 Usage: usd_python.sh _lead_bench_audit.py <stage.usd>"""
 import sys
 from collections import defaultdict
 from pxr import Usd, UsdGeom
 
 stage = Usd.Stage.Open(sys.argv[1])
+show_high = "--all-high" in sys.argv[2:]
 bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render"])
 
 def wbox(prim):
@@ -62,8 +67,17 @@ for holder in root.GetChildren():
             dx = max(0.0, max(ref_box[0] - b[3], b[0] - ref_box[3]))
             dy = max(0.0, max(ref_box[1] - b[4], b[1] - ref_box[4]))
             out_xy = max(dx, dy)
-        if z0 > 2.5 and (out_xy > 1.5 or ref_box is None):
+        low = gpath.lower()
+        unsupported_trim = "/brk_" in low and any(
+            token in low for token in
+            ("parapet", "cornice", "coping", "ledge"))
+        if unsupported_trim or (z0 > 2.5 and
+                                (out_xy > 1.5 or ref_box is None)):
             flagged[gpath] = (b, out_xy, groups[gpath])
+        elif show_high and z0 > 2.5:
+            print("  HIGH  %-72s n=%-3d z0=%.1f outXY=%.1f box=[%s]" % (
+                gpath, groups[gpath], b[2], out_xy,
+                ",".join("%.1f" % v for v in b)))
     if not flagged:
         print("  no floating subtrees flagged")
     for gpath, (b, out_xy, n) in sorted(flagged.items()):

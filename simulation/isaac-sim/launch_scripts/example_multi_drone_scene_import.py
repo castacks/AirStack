@@ -143,6 +143,26 @@ if _ACTIVE_GPU:
     print(f"[isaac] renderer pinned to GPU index {_ACTIVE_GPU} "
           "(ISAAC_SIM_ACTIVE_GPU)", flush=True)
 
+# Optional rendering-cost controls. All are intentionally opt-in: an unset
+# environment reproduces the established benchmark renderer exactly.
+_DLSS_NAMES = {"performance": 0, "balanced": 1, "quality": 2, "auto": 3}
+_DLSS_MODE = os.environ.get("ISAAC_SIM_DLSS_MODE", "").strip().lower()
+if _DLSS_MODE and _DLSS_MODE not in _DLSS_NAMES:
+    raise ValueError("ISAAC_SIM_DLSS_MODE must be performance, balanced, quality, or auto")
+_RTX_TUNING_ARGS = ([] if not _DLSS_MODE else
+                    [f"--/rtx/post/dlss/execMode={_DLSS_NAMES[_DLSS_MODE]}"])
+if os.environ.get("ISAAC_SIM_DISABLE_MOTION_BVH", "false").lower() == "true":
+    _RTX_TUNING_ARGS += [
+        "--/renderer/raytracingMotion/enabled=false",
+        "--/renderer/raytracingMotion/enableHydraEngineMasking=false",
+        "--/renderer/raytracingMotion/enableInstanceInPointInstancer=false",
+    ]
+_DISABLE_VIEWPORT_UPDATES = (
+    os.environ.get("ISAAC_SIM_DISABLE_VIEWPORT_UPDATES", "false").lower() == "true")
+if _RTX_TUNING_ARGS or _DISABLE_VIEWPORT_UPDATES:
+    print(f"[isaac] optional RTX tuning: args={_RTX_TUNING_ARGS}, "
+          f"disable_viewport_updates={_DISABLE_VIEWPORT_UPDATES}", flush=True)
+
 _LIVESTREAM = _GENERATED and os.environ.get(
     "ISAAC_SIM_LIVESTREAM", "").lower() == "true"
 
@@ -162,12 +182,13 @@ elif _LIVESTREAM:
         "hide_ui": False,
         "renderer": "RaytracedLighting",
         "display_options": 3286,
-        "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS + _ACTIVE_GPU_ARGS,
+        "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS + _ACTIVE_GPU_ARGS + _RTX_TUNING_ARGS,
     })
 else:
     simulation_app = SimulationApp(launch_config={
         "headless": os.getenv("ISAAC_SIM_HEADLESS", "false").lower() == "true",
-        "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS + _ACTIVE_GPU_ARGS,
+        "disable_viewport_updates": _DISABLE_VIEWPORT_UPDATES,
+        "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS + _ACTIVE_GPU_ARGS + _RTX_TUNING_ARGS,
     })
 
 if _GENERATED:
@@ -942,6 +963,7 @@ class PegasusApp:
                 camera_rotation_offset=[0.0, ZED_PITCH_DEG, 0.0],
                 frame_width=ZED_WIDTH,
                 frame_height=ZED_HEIGHT,
+                pipeline_mode=os.environ.get("ZED_PIPELINE", "stereo").strip().lower(),
             )
 
             if ENABLE_LIDAR:

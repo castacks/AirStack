@@ -698,6 +698,32 @@ def test_annotate_surface_subsetless_kit_mesh_uses_direct_binding():
     assert placements[0]["_tex_url"]
 
 
+def test_annotate_surface_repairs_source_unbound_facade_from_nearest_peer():
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, Sdf.Path(PIECES))
+    donor = PIECES + "/wall_N_3_00"
+    missing = PIECES + "/wall_N_3_01"
+    qf._box(stage, donor, -2.0, 5.0, 10.0, 4.0, 0.3, 3.0)
+    qf._box(stage, missing, 2.0, 5.0, 10.0, 4.0, 0.3, 3.0)
+    mat = _make_textured_material(
+        stage, PIECES + "/Looks/facade", "T_Facade_Brick_1K_B.jpg")
+    UsdShade.MaterialBindingAPI.Apply(stage.GetPrimAtPath(donor)).Bind(mat)
+    fallback = UsdShade.Material.Define(
+        stage, Sdf.Path(PIECES + "/ShellFallbackLooks/wall"))
+    UsdShade.MaterialBindingAPI.Apply(stage.GetPrimAtPath(missing)).Bind(fallback)
+    placements = [
+        {"prim_path": donor, "_role": "wall", "_side": "N",
+         "_storey": 3, "_bay": 0},
+        {"prim_path": missing, "_role": "wall", "_side": "N",
+         "_storey": 3, "_bay": 1},
+    ]
+    assert tu.annotate_surface(stage, placements) == 2
+    assert placements[1]["_tex_name"] == "T_Facade_Brick_1K_B.jpg"
+    bound = UsdShade.MaterialBindingAPI(
+        stage.GetPrimAtPath(missing)).ComputeBoundMaterial()[0]
+    assert bound.GetPath() == mat.GetPath()
+
+
 def test_annotate_surface_glazing_only_piece_stamps_empty_and_missing_prim_too():
     """A piece whose ONLY binding is glazing (subset or subset-less) must
     stamp `""`/`""`, never fall through to some other guess — and a
@@ -1224,6 +1250,46 @@ def _tear_ctx(stage, parent="/W/cell"):
     return {"stage": stage, "parent": parent, "tag": "t", "mats": {}}
 
 
+def test_tear_pass_suppresses_unsupported_roof_trim(monkeypatch):
+    """A cornice/parapet beside a removed wall must become ground debris,
+    not a cloud of fracture islands left at its original roof elevation."""
+    from disaster import fire_collapse as fc
+
+    stage = Usd.Stage.CreateInMemory()
+    ctx = _tear_ctx(stage)
+    wall = "/W/cell/pieces/wall_S_2_00"
+    cornice = "/W/cell/pieces/cornice_S_2_00"
+    for path in (wall, cornice):
+        UsdGeom.Xform.Define(stage, Sdf.Path(path))
+    ctx.update({
+        "info": {
+            "masses": {"main": {"W": 10.0, "D": 10.0}},
+            "elements": [
+                {"name": "wall_S_2_00", "p": {"prim_path": wall,
+                                                  "_role": "wall"}},
+                {"name": "cornice_S_2_00", "p": {"prim_path": cornice,
+                                                     "_role": "cornice"}},
+            ],
+        },
+        "loose": [], "_tear_statics": [], "notes": [],
+    })
+    seen = []
+
+    def fake_tear(_ctx, _plan, _mass, _rng, jobs):
+        assert _ctx["_skin_loose_tears"] is True
+        seen.extend(j["el"]["name"] for j in jobs)
+        return len(jobs)
+
+    monkeypatch.setattr(fc, "_tear_perimeter", fake_tear)
+    plan = {"tears": [
+        {"path": wall, "mass": "main", "side": "S", "cuts": []},
+        {"path": cornice, "mass": "main", "side": "S", "cuts": []},
+    ]}
+    assert tu._author_tears(stage, ctx, plan) == 1
+    assert seen == ["wall_S_2_00"]
+    assert "1 unsupported trim job(s) suppressed" in ctx["notes"][-1]
+
+
 def test_tear_material_uses_the_pieces_own_texture_and_darkens_only_the_cut():
     stage = Usd.Stage.CreateInMemory()
     ctx = _tear_ctx(stage)
@@ -1279,11 +1345,31 @@ def test_tear_material_falls_back_to_neutral_plaster_never_generic_brick():
         assert 0.25 < sum(rgb) / 3.0 < 0.6, rgb
 
 
-def test_reface_rebinds_generic_looks_and_keeps_a_real_facade_skin():
-    """The whole point of the split: a fragment `fire_collapse.
-    skin_fragment` already gave the parent's own material and UVs is LEFT
-    ALONE; only `quake_flow`'s generic looks (and an unbound fragment) are
-    replaced."""
+def test_tear_material_uses_kit_tone_not_window_atlas():
+    stage = Usd.Stage.CreateInMemory()
+    ctx = _tear_ctx(stage)
+    atlas = "omniverse://host/T/M_MBuilding03_Facades_BaseColor.png"
+    mat = tu._tear_material(stage, ctx, atlas, "M_MBuilding03_Facades",
+                            False, tone="stone", btype="urm")
+    sh = UsdShade.Shader.Get(stage, str(mat.GetPrim().GetPath()) + "/Shader")
+    tex = sh.GetInput("diffuse_texture").Get()
+    assert "rubble_rc_B_v3.jpg" in str(tex.path)
+    assert "M_MBuilding03_Facades" not in str(tex.path)
+
+
+def test_glass_tower_opaque_tear_is_concrete_not_glass():
+    stage = Usd.Stage.CreateInMemory()
+    ctx = _tear_ctx(stage)
+    mat = tu._tear_material(stage, ctx, "omniverse://host/glass.png",
+                            "glass", False, btype="rc_glass")
+    assert str(mat.GetPrim().GetPath()).endswith("/face_concrete")
+    sh = UsdShade.Shader.Get(stage, str(mat.GetPrim().GetPath()) + "/Shader")
+    assert sh.GetInput("diffuse_texture") is None or \
+        sh.GetInput("diffuse_texture").Get() is None
+
+
+def test_reface_keeps_exact_source_skin_and_only_rebinds_cut_faces():
+    """Invented cut faces change; a fragment's exact source skin does not."""
     stage = Usd.Stage.CreateInMemory()
     ctx = _tear_ctx(stage)
     parent = ctx["parent"]
@@ -1313,7 +1399,7 @@ def test_reface_rebinds_generic_looks_and_keeps_a_real_facade_skin():
              "no_tex": 0, "missing": 0}
     tu._reface_tear_fragments(stage, ctx, by_frag, paths, stats)
 
-    assert stats == {"cut": 3, "face": 2, "kept_skin": 1, "no_core": 0,
+    assert stats == {"cut": 3, "face": 0, "kept_skin": 3, "no_core": 0,
                      "no_tex": 1, "missing": 0}, stats
 
     def bound(path):
@@ -1325,11 +1411,9 @@ def test_reface_rebinds_generic_looks_and_keeps_a_real_facade_skin():
     for frag in paths:
         assert "/TornadoTearLooks/cut_" in bound(frag + "/core"), frag
         assert "QuakeLooks" not in bound(frag + "/core")
-    # the generic-bound and the unbound fragment were refaced...
-    assert "/TornadoTearLooks/face_" in bound(paths[0])
-    assert "/TornadoTearLooks/face_" in bound(paths[2])
-    # ...and the skinned one kept fire_collapse's own facade skin
-    assert bound(paths[1]) == parent + "/src/asset/UnrealMaterial"
+    assert "QuakeLooks/c_brick" in bound(paths[0])
+    assert "/src/asset/UnrealMaterial" in bound(paths[1])
+    assert bound(paths[2]) == ""
 
 
 def test_annotate_surface_ranks_outermost_before_area():

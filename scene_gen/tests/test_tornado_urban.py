@@ -2258,12 +2258,11 @@ def test_every_hole_border_piece_carries_a_tear():
                     fixture, level, seed,
                     plan["stats"]["n_border_untorn"],
                     plan["stats"]["n_hole_border"])
-                # ...and the part it does not own is BOUNDED and reported,
-                # never silently large (see `_finalise`'s own note): a few
-                # pieces `plan_edges` cannot see because its class tests key
-                # on `describe`'s storey and this grid keys on `_storey`.
+                # The tornado wrapper aligns `storey` with the sliced grid's
+                # authoritative `_storey` for the borrowed planning call, so
+                # every geometric hole-border piece must now receive a job.
                 nb = plan["stats"]["n_hole_border"]
-                assert plan["stats"]["n_border_no_job"] <= max(1, nb // 8), (
+                assert plan["stats"]["n_border_no_job"] == 0, (
                     fixture, level, seed,
                     plan["stats"]["n_border_no_job"], nb)
     assert saw_border > 0, "no plan opened a hole with a border at all"

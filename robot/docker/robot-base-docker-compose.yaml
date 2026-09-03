@@ -91,6 +91,7 @@ services:
       # is what applies when this is unset, same BARE-NAME reasoning as
       # DETECTOR_URL/ITM_URL/VLM_URL above: an empty string is not "unset").
       - RAYFRONTS_MODE
+      - RAYFRONTS_WAIT_TIMEOUT_S
       # raven_nav's LVLM-guided behaviour (raven_nav/params.py's
       # lvlm_enabled, default from this var, default true when unset —
       # again bare-name so an empty value here can't beat that default).
@@ -100,6 +101,8 @@ services:
       # /$ROBOT_NAME/ and its TF frame. Unset = stereo depth cone.
       - MIGHTY_CLOUD_SUFFIX
       - MIGHTY_CLOUD_FRAME
+      - ZED_PIPELINE
+      - SEARCH_DEPTH_TOPIC_TEMPLATE
       # transit speed cap, substituted into mighty_disaster.yaml v_max
       # (default 1.5 m/s when unset)
       - MIGHTY_V_MAX
@@ -208,4 +211,3 @@ services:
       # persistent model cache (huggingface / torch / clip / etc.) so rayfronts
       # doesn't redownload weights on every container start
       - ./cache:/root/.cache:rw
-

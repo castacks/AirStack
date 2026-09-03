@@ -253,15 +253,24 @@ def _mass_specs(style, x, y, yaw, spec=None, z0=0.0, tag="main"):
     W, D = ub.footprint(spec)
     levels = []
     z = z0
-    for band in spec["bands"]:
-        if band.get("parapet"):
-            continue
-        for _ in range(band.get("repeat", 1)):
-            levels.append(z)
-            z += band["h"]
-    top = z
+    measured = spec.get("measured_levels_m")
+    if measured:
+        levels = [z0 + float(q) for q in measured]
+        deck_m = spec.get("measured_deck_m")
+        top = z0 + (float(deck_m) if deck_m is not None
+                    else float(measured[-1]) + float(spec["bands"][0]["h"]))
+    else:
+        for band in spec["bands"]:
+            if band.get("parapet"):
+                continue
+            for _ in range(band.get("repeat", 1)):
+                levels.append(z)
+                z += band["h"]
+        top = z
     out = [dict(tag=tag, spec=spec, cx=x, cy=y, yaw=yaw, W=W, D=D, z0=z0,
                 levels=levels, top=top, module=spec["bands"][0]["module"])]
+    if spec.get("measured_deck_m") is not None:
+        out[0]["deck_z"] = z0 + float(spec["measured_deck_m"])
     ox, oy = -W / 2.0, -D / 2.0
     wings = list(spec.get("wings", []))
     if spec.get("tower"):
@@ -513,7 +522,10 @@ def _bind(stage, path, mat):
     from pxr import UsdShade
     pr = stage.GetPrimAtPath(path)
     if pr and pr.IsValid() and mat is not None:
-        UsdShade.MaterialBindingAPI(pr).Bind(mat)
+        # A relationship without the applied API schema is ignored by Hydra
+        # after cold-open (it warns, then renders the authored box white).
+        # fit_interior's slabs/columns all come through this helper.
+        UsdShade.MaterialBindingAPI.Apply(pr).Bind(mat)
 
 
 def _clad_material(stage, parent, cache, texture):
@@ -539,7 +551,7 @@ def _b_bind_over(stage, path, mat):
     from pxr import UsdShade
     pr = stage.GetPrimAtPath(path)
     if pr and pr.IsValid() and mat is not None:
-        UsdShade.MaterialBindingAPI(pr).Bind(
+        UsdShade.MaterialBindingAPI.Apply(pr).Bind(
             mat, bindingStrength=UsdShade.Tokens.strongerThanDescendants)
 
 
@@ -904,7 +916,7 @@ def _prop(stage, path, usd, x, y, z_floor, yaw, scale, rng):
 
 def fit_interior(stage, parent, info, mats, rng, storeys=None,
                  columns=True, partitions=True, tag="b", footprint=None,
-                 col_roof_shorten=0.0):
+                 col_roof_shorten=0.0, columns_for_urm=False):
     """Author slabs (+ columns, partitions) for every mass of one building.
 
     Returns {"slabs": {(mass, storey): path}, "columns": {(mass, storey):
@@ -932,6 +944,11 @@ def fit_interior(stage, parent, info, mats, rng, storeys=None,
     Mid-building columns are untouched either way, matching the user's own
     call: shortening "won't make a visual difference to buildings that even
     have them exposed."
+
+    `columns_for_urm` is opt-in because the quake/fire recipes historically
+    model URM as bearing walls.  Tornado damage can remove a broad facade
+    while leaving upper storeys, however; visible posts in that exposed bay
+    prevent the surviving shell from reading as unsupported/floating.
     """
     from pxr import Sdf, UsdGeom
 
@@ -962,7 +979,7 @@ def fit_interior(stage, parent, info, mats, rng, storeys=None,
                      W, D, t_slab, m["yaw"], slab_mat)
                 out["slabs"][(mtag, i)] = path
                 out["all"].append(path)
-            if columns and btype != "urm":
+            if columns and (btype != "urm" or columns_for_urm):
                 cols = []
                 # the storey's measured plan, when the caller has one: the
                 # grid is a bounding-box grid and its corners fall outside an
@@ -993,7 +1010,8 @@ def fit_interior(stage, parent, info, mats, rng, storeys=None,
                     # (the parapet zone the grid counted): no columns
                     out["columns"][(mtag, i)] = []
                     cols = None
-            if columns and btype != "urm" and cols is not None:
+            if columns and (btype != "urm" or columns_for_urm) \
+                    and cols is not None:
                 nx = max(2, int(round(W / pitch)) + 1)
                 ny = max(2, int(round(D / pitch)) + 1)
                 for a in range(nx):

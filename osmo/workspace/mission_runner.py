@@ -1131,6 +1131,18 @@ def run_step(stack, container, step_spec, step_index):
               "started_at": datetime.now(timezone.utc).isoformat()}
     t0 = time.time()
 
+    # Optional mission composition primitive. Templates have already been
+    # expanded for the current environment, so `when: "{{env.is_raven}}"`
+    # can share one mission between heterogeneous method arms. Omitted keeps
+    # every existing mission byte-for-byte equivalent.
+    when = step_spec.get("when", True)
+    if isinstance(when, str):
+        when = when.strip().lower() not in ("", "0", "false", "no", "off", "none")
+    if not when:
+        log(f"step {step_index}: skipped by when")
+        record.update(type="skip", ok=True, duration_s=0.0)
+        return record
+
     if "wait" in step_spec:
         seconds = float(step_spec["wait"])
         log(f"step {step_index}: wait {seconds}s")

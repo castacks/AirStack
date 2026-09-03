@@ -118,7 +118,7 @@ workflow:
       # memory note below), which is where the extra cores go.
       # (airstack-mission-2gpu.yaml runs 20/80Gi because it also carries a
       # robot + a quantised VLM server.)
-      cpu: 20
+      cpu: 12
       # ONE, down from two. Isaac Sim renders on GPU 0 and nothing measured
       # here ever used the second card: the settle that was supposed to need
       # it runs on CPU on these workers anyway (see the memory note), and a
@@ -143,7 +143,7 @@ workflow:
       # Batching the bake (`ARCH_STYLES=` on the tornado/quake bakers) cuts
       # peak memory ~3x and is worth doing ANYWAY — but it should be a choice,
       # not the only thing standing between a routine bake and a dead pod.
-      memory: 120Gi
+      memory: 80Gi
       # AirStack image set is large: airstack-dev-9 (2026-05-14) hit the
       # 100Gi container ephemeral cap during inner Compose's first image
       # extract, before the second image even started downloading. So the
@@ -169,4 +169,4 @@ workflow:
     # give the GPU back. A timeout is a backstop against a forgotten pod, not
     # a scheduling policy — so set it past any session you would actually sit
     # through and cancel deliberately instead.
-    exec_timeout: 20h
+    exec_timeout: 100h

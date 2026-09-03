@@ -751,7 +751,8 @@ def plan_roof(info, elements, level, wind, rng, height_class, intensity,
         "height_class": str(height_class or ""), "H": H, "wind": wind,
         "roof": {"cx": float(m.get("cx", 0.0)), "cy": float(m.get("cy", 0.0)),
                 "yaw": float(m.get("yaw", 0.0)), "W": float(m.get("W", 0.0)),
-                "D": float(m.get("D", 0.0)), "top": float(m.get("top", H)),
+                "D": float(m.get("D", 0.0)),
+                "top": float(m.get("deck_z", m.get("top", H))),
                 "inset": ROOF_INSET_M, "rect_local": None},
         "windward_side": None, "side_weights": {},
         "skipped": False, "skip_reason": None,
@@ -787,7 +788,7 @@ def plan_roof(info, elements, level, wind, rng, height_class, intensity,
 
     rect = _roof_rect_local(m)
     roof_plan["roof"]["rect_local"] = [float(q) for q in rect]
-    roof_top = float(m.get("top", H))
+    roof_top = float(m.get("deck_z", m.get("top", H)))
 
     roof_plan["tear"], roof_plan["sheets"] = _draw_shed_sheets(
         rng, level, windward, rect, roof_top, m, wind)

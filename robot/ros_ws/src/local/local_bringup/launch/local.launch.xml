@@ -78,8 +78,8 @@
             <arg name="mighty_mapper_config"
                  value="$(find-pkg-share local_bringup)/config/global_mapper_disaster.yaml" />
             <arg name="mighty_lidar_topic"
-                 value="/$(env ROBOT_NAME)/perception/stereo_image_proc/point_cloud" />
-            <arg name="mighty_lidar_frame" value="camera_left" />
+                 value="/$(env ROBOT_NAME)/$(env MIGHTY_CLOUD_SUFFIX perception/stereo_image_proc/point_cloud)" />
+            <arg name="mighty_lidar_frame" value="$(env MIGHTY_CLOUD_FRAME camera_left)" />
             <arg name="mighty_odometry_topic" value="$(var local_odometry_in_topic)" />
             <!-- The bridge only starts following /global_plan once
                  `z - z0 > follow_min_climb_m` AND |vz| < 0.2. Its default is

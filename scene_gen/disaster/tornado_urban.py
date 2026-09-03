@@ -1755,7 +1755,10 @@ def _cap_tears(jobs, cap, border=None):
         if j.get("dropped"):
             continue
         e = j.get("el")
-        if e is not None and (e.get("p") or {}).get("_role") == "core":
+        name = str((e or {}).get("name") or "").lower()
+        sliced_shell_core = name.startswith(("core_x", "core_y"))
+        if (e is not None and (e.get("p") or {}).get("_role") == "core"
+                and not sliced_shell_core):
             j["dropped"] = True
             continue
         if qs._path(e) in border:
@@ -2212,7 +2215,7 @@ TU_TEAR_PLAN_BUDGET = int(_os.environ.get("TU_TEAR_PLAN_BUDGET", "240") or 240)
 #: and consecutive cells DO NOT BUTT (`plan_edges`'s own EDGE_GAP_FRAC note),
 #: so on this path the 0.6 m left real hole-edge neighbours unclassified —
 #: measured, see `_plan_tears_wide`.
-TU_TEAR_TOL_M = float(_os.environ.get("TU_TEAR_TOL_M", "0") or 0.0)
+TU_TEAR_TOL_M = float(_os.environ.get("TU_TEAR_TOL_M", "0.75") or 0.75)
 #: `TU_TEAR_BORDER=0` restores round-3 behaviour (a flat cap that can leave
 #: a hole edge untorn) -- the A/B switch for the probe.
 TU_TEAR_BORDER_ON = _os.environ.get(
@@ -2230,6 +2233,18 @@ def _plan_tears_wide(pctx, plan):
     without editing `quake_sliced.py`, which this stream does not own. The
     number of jobs actually AUTHORED is still bounded by `_cap_tears`."""
     old_budget, old_tol = qs.QS_MAX_TEARS, qs.QS_TEAR_TOL_M
+    # `fire_collapse.plan_edges` reads the top-level `storey`; tornado's
+    # region grid and `_hole_border_paths` use the authoritative sliced
+    # `_storey`. Align them only for this borrowed planning call. Keeping the
+    # two indices divergent left real hole-border pieces with no job, hence a
+    # perfectly straight storey-cell silhouette. Restore every value below so
+    # the shared element table and the fire/quake paths are untouched.
+    saved_storeys = []
+    for e in pctx["info"].get("elements") or ():
+        p = e.get("p") or {}
+        if "_storey" in p:
+            saved_storeys.append((e, "storey" in e, e.get("storey")))
+            e["storey"] = int(p["_storey"])
     try:
         qs.QS_MAX_TEARS = max(old_budget, TU_TEAR_PLAN_BUDGET)
         if TU_TEAR_TOL_M > 0:
@@ -2237,6 +2252,11 @@ def _plan_tears_wide(pctx, plan):
         return qs._plan_tears(pctx, plan)
     finally:
         qs.QS_MAX_TEARS, qs.QS_TEAR_TOL_M = old_budget, old_tol
+        for e, existed, value in saved_storeys:
+            if existed:
+                e["storey"] = value
+            else:
+                e.pop("storey", None)
 
 
 def _border_over(e_live, m=None):
@@ -2350,6 +2370,63 @@ def _corner_tear_jobs(pctx, plan, already):
     return out
 
 
+def _sliced_core_tear_jobs(pctx, plan, already):
+    """Tear exposed ``core_x/core_y`` shell strips beside a removed cell.
+
+    These are genuine sliced source geometry, not kit ornament.  Their role
+    is ``core`` because they have no single facade side, so the normal edge
+    planner cannot enumerate them and leaves a factory-square end visible.
+    Temporarily project each touching strip onto the removed elevation and
+    reuse the same edge planner/judges as ordinary wall panels.
+    """
+    from . import fire_collapse as fc
+    info = pctx["info"]
+    removed = set(plan["_removed_set"])
+    scope = plan.get("tear_scope") or {}
+    seen = set(already)
+    out = []
+    prng = qs._tear_rng(info, plan)
+    for mass in sorted(scope):
+        m = info["masses"].get(mass) or info["masses"]["main"]
+        for sd in (scope[mass] or {}).get("sides") or ():
+            kill = [e for e in info["elements"]
+                    if (e.get("mass") or "main") == mass
+                    and e.get("side") == sd and qs._path(e) in removed]
+            if not kill:
+                continue
+            shadow = []
+            for e in info["elements"]:
+                q = qs._path(e)
+                name = str(e.get("name") or "").lower()
+                if (not name.startswith(("core_x", "core_y")) or not q or
+                        q in removed or q in seen or
+                        (e.get("mass") or "main") != mass):
+                    continue
+                if not any(abs(int(e.get("storey", 0)) -
+                               int(dead.get("storey", 0))) <= 1 and
+                           _touch_xy(e, dead) for dead in kill):
+                    continue
+                c = dict(e)
+                c["role"], c["side"] = "wall", sd
+                shadow.append(c)
+            if not shadow:
+                continue
+            ctx2 = {"info": dict(info, elements=list(kill) + shadow)}
+            edge_plan = {"mass": mass, "sides": (sd,),
+                         "storeys": sorted((scope[mass] or {}).get("storeys") or ()),
+                         "pad_m": qs.TEAR_PAD_M, "kill": kill}
+            for j in fc.plan_edges(ctx2, edge_plan, m, prng,
+                                   tol=(TU_TEAR_TOL_M or qs.QS_TEAR_TOL_M),
+                                   budget=TU_TEAR_PLAN_BUDGET):
+                q = qs._path(j.get("el") or {})
+                if not q or q in seen:
+                    continue
+                j["mass"], j["dropped"] = mass, bool(j.get("dropped"))
+                seen.add(q)
+                out.append(j)
+    return out
+
+
 def _along_lo_hi(e, side=None, m=None):
     """A piece's span along an ELEVATION's own axis. With a mass frame this
     is `fire_collapse.el_span` ITSELF — the very function `plan_edges` uses
@@ -2436,6 +2513,16 @@ def _hole_border_paths(g, removed, moved=(), masses=None):
             q = qs._path(e2)
             if not q or q in removed or q in moved:
                 continue
+            # Roof-edge trim is shed to the debris ledger, never fractured
+            # in place (`tornado_urban_usd._author_tears`). It is therefore
+            # not a visible wall-hole border and must not make this coverage
+            # audit report a knowingly unsupported tear job.
+            pp2 = e2.get("p") or {}
+            words = " ".join((str(pp2.get("_role") or e2.get("role") or ""),
+                              str(e2.get("name") or ""))).lower()
+            if any(k in words for k in
+                   ("parapet", "cornice", "coping", "roof", "ledge")):
+                continue
             if against is not None:
                 m = _mass(e2)
                 if mode == "overlap":
@@ -2479,6 +2566,63 @@ def _hole_border_paths(g, removed, moved=(), masses=None):
                         _add(g.at((sd, storey + ds, b)), against=e,
                              mode="touch" if ds == 0 else "overlap", axis=sd)
     return border
+
+
+def _fill_missing_border_tears(pctx, plan, border, jobs):
+    """Give every geometric hole border a shallow cut toward its nearest
+    removed neighbour when the borrowed edge classifier emitted no job."""
+    seen = {qs._path(j.get("el") or {}) for j in jobs}
+    missing = sorted(set(border) - seen)
+    if not missing:
+        return jobs
+    info = pctx["info"]
+    idx = {qs._path(e): e for e in info["elements"]}
+    dead = [e for e in info["elements"]
+            if qs._path(e) in plan["_removed_set"]]
+    for path in missing:
+        e = idx.get(path)
+        if not e:
+            continue
+        pp = e.get("p") or {}
+        side = pp.get("_side")
+        if side not in qs.SIDES:
+            continue
+        mass = e.get("mass") or "main"
+        st = int(pp.get("_storey", e.get("storey", 0)))
+        candidates = [d for d in dead
+                      if (d.get("mass") or "main") == mass
+                      and (d.get("p") or {}).get("_side") == side
+                      and abs(int((d.get("p") or {}).get(
+                          "_storey", d.get("storey", 0))) - st) <= 1]
+        if not candidates:
+            continue
+        d = min(candidates, key=lambda q:
+                abs(float(q.get("lx", 0.0)) - float(e.get("lx", 0.0))) +
+                abs(float(q.get("ly", 0.0)) - float(e.get("ly", 0.0))) +
+                3.0 * abs(int((q.get("p") or {}).get(
+                    "_storey", q.get("storey", 0))) - st))
+        dst = int((d.get("p") or {}).get("_storey", d.get("storey", 0)))
+        if dst != st:
+            z0 = float(e.get("z", 0.0))
+            h = max(0.3, float(e.get("h", qs._size(e)[2])))
+            above = dst > st
+            pen = min(0.45, 0.18 * h)
+            cut = {"cls": "below" if above else "above", "kind": "z",
+                   "pen": pen, "line": z0 + (h - pen if above else pen),
+                   "loose_above": above, "amp": min(0.22, 0.7 * pen)}
+        else:
+            m = info["masses"].get(mass) or info["masses"]["main"]
+            a0, a1 = _along_lo_hi(e, side, m)
+            b0, b1 = _along_lo_hi(d, side, m)
+            higher = (b0 + b1) > (a0 + a1)
+            pen = min(0.45, 0.18 * max(0.3, a1 - a0))
+            cut = {"cls": "left" if higher else "right", "kind": "v",
+                   "pen": pen, "line": a1 - pen if higher else a0 + pen,
+                   "loose_hi": higher, "amp": min(0.22, 0.7 * pen)}
+        jobs.append({"el": e, "side": side, "storey": st, "mass": mass,
+                     "classes": [cut["cls"]], "cuts": [cut],
+                     "dropped": False, "border": True})
+    return jobs
 
 
 # ---------------------------------------------------------------------------
@@ -3509,6 +3653,41 @@ def _ledger_removed(pctx, plan, wind, intensity, region=None):
     # is every sliced (A-row) building, whose class-branch look the review
     # approved and which must not move.
     tone = _tone_for(plan.get("style"))
+    # Sliced core strips and trim subsets often carry WallBack/beam atlases.
+    # They are structural pieces, but those pixels are not the exterior wall
+    # stock. Find real exterior donors once and borrow the closest course for
+    # any removed piece whose own stamp is not a usable facade surface.
+    facade_donors = []
+    want = (("brick", "stone", "stucco") if btype == "urm" else
+            ("concrete",))
+    for de in g.els:
+        dp = de.get("p") or {}
+        du = str(dp.get("_tex_url") or "")
+        dn = str(dp.get("_tex_name") or "")
+        words = (du + " " + dn).lower()
+        if (dp.get("_side") in _FACADE_SIDES and du and
+                any(q in words for q in want) and
+                not any(q in words for q in ("wallback", "beam_trim"))):
+            facade_donors.append(de)
+
+    def _facade_source(e, pp):
+        url = str(pp.get("_tex_url") or "")
+        name = str(pp.get("_tex_name") or "")
+        words = (url + " " + name).lower()
+        if (url and any(q in words for q in want) and
+                not any(q in words for q in ("wallback", "beam_trim"))):
+            return url, name
+        if not facade_donors:
+            return url, name
+        sd = pp.get("_side")
+        st = int(pp.get("_storey", e.get("storey", 0)))
+        donor = min(facade_donors, key=lambda d: (
+            0 if (d.get("p") or {}).get("_side") == sd else 1,
+            abs(int((d.get("p") or {}).get("_storey",
+                                           d.get("storey", 0))) - st)))
+        dp = donor.get("p") or {}
+        return str(dp.get("_tex_url") or ""), str(dp.get("_tex_name") or "")
+
     n_berm_total = 0
     for p in sorted(plan["removed"]):
         e = idx.get(p)
@@ -3531,8 +3710,7 @@ def _ledger_removed(pctx, plan, wind, intensity, region=None):
         # downstream `.get("source_tex")` always reads a string) for a roof
         # kind, an untextured piece, or a piece annotate_surface never saw.
         if kind in _FACADE_TEX_KINDS:
-            tex_url = str(pp.get("_tex_url") or "")
-            tex_name = str(pp.get("_tex_name") or "")
+            tex_url, tex_name = _facade_source(e, pp)
         else:
             tex_url = ""
             tex_name = ""
@@ -3770,6 +3948,8 @@ def _finalise(pctx, plan, height_class, wind, intensity, region=None):
             # share in the audit.
             raw_tears += _corner_tear_jobs(
                 pctx, plan, {qs._path(j.get("el") or {}) for j in raw_tears})
+            raw_tears = _fill_missing_border_tears(
+                pctx, plan, border, raw_tears)
         raw_tears = _cap_tears(raw_tears, TU_MAX_TEARS, border=border)
     n_tears = sum(1 for j in raw_tears if not j.get("dropped"))
     n_tears_dropped = sum(1 for j in raw_tears if j.get("dropped"))

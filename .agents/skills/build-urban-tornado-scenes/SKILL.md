@@ -503,6 +503,25 @@ stub-stage test via `uv run --with vtk --with trimesh`):
     5-storey cap made `facade_collapse` reachable on `brownstone_row`,
     `test_caps_hold_by_height_class` failed at 0.3508 vs 0.35; the test
     now honours §8c's carve-out instead of silently re-capping it.
+21. **Do not send a sliced `core_x/core_y` shell through the normal Voronoi
+    tear pass.** These are not kit ornament: an exposed square end can be
+    visible at a tornado opening, but the prim may contain a large merged
+    structural mesh. On A3 (`SM_Building_02`), adding two such pieces to
+    `_tear_perimeter` changed an approximately 31 s focused build into a
+    >4 min CPU pass. Cut only a shallow edge band (or re-slice that band),
+    and borrow the nearest exterior facade texture; the core's own
+    WallBack/concrete binding produces a conspicuous grey patch.
+22. **A matching texture URL is not a matching fragment material.** A3's
+    intact facade uses authored material graphs plus face-varying atlas UVs;
+    rebinding a fracture to a new triplanar shader using that same PNG changed
+    both colour and scale. `fire_collapse.skin_fragment` is the exact path:
+    preserve the source material and reconstruct its UVs on both standing and
+    tornado-loose tear cells; bind `TornadoTearLooks` only to the invented
+    `core` subset. The tornado tear planner must also temporarily align raw
+    `element["storey"]` with sliced `p["_storey"]`: otherwise genuine hole
+    borders receive no tear job and expose the rectangular slice grid. The
+    focused A3 audit after both fixes reported 715 exact-source skins, 711 cut
+    subsets, zero surface overrides, and zero uncovered wall-hole borders.
 
 ## Known gaps — the next round, in order
 

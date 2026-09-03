@@ -214,6 +214,11 @@ services:
       # device 0 is not confirmed to be this pod's own idle card. Same
       # host-does-not-forward-automatically rule as every other var here.
       - ISAAC_SIM_ACTIVE_GPU=${ISAAC_SIM_ACTIVE_GPU:-}
+      - ISAAC_SIM_DLSS_MODE=${ISAAC_SIM_DLSS_MODE:-}
+      - ISAAC_SIM_DISABLE_MOTION_BVH=${ISAAC_SIM_DISABLE_MOTION_BVH:-false}
+      - ISAAC_SIM_DISABLE_VIEWPORT_UPDATES=${ISAAC_SIM_DISABLE_VIEWPORT_UPDATES:-false}
+      - ZED_PIPELINE=${ZED_PIPELINE:-stereo}
+      - ZED_RENDER_STEP=${ZED_RENDER_STEP:-1}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
@@ -554,6 +559,11 @@ services:
       # device 0 is not confirmed to be this pod's own idle card. Same
       # host-does-not-forward-automatically rule as every other var here.
       - ISAAC_SIM_ACTIVE_GPU=${ISAAC_SIM_ACTIVE_GPU:-}
+      - ISAAC_SIM_DLSS_MODE=${ISAAC_SIM_DLSS_MODE:-}
+      - ISAAC_SIM_DISABLE_MOTION_BVH=${ISAAC_SIM_DISABLE_MOTION_BVH:-false}
+      - ISAAC_SIM_DISABLE_VIEWPORT_UPDATES=${ISAAC_SIM_DISABLE_VIEWPORT_UPDATES:-false}
+      - ZED_PIPELINE=${ZED_PIPELINE:-stereo}
+      - ZED_RENDER_STEP=${ZED_RENDER_STEP:-1}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring

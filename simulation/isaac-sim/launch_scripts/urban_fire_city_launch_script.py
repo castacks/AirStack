@@ -3009,7 +3009,12 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         print("URBAN FIRE CITY FAILED: {0}".format(_exc))
-    if KEEP_OPEN or not _HEADLESS:
+    # FC_INTACT_ONLY is a batch probe whose documented contract is "builds
+    # the city and STOPS".  `--no-window` does not set ISAAC_SIM_HEADLESS,
+    # so treating a missing env var as an interactive request made successful
+    # dump jobs print DONE and then update forever.  KEEP_OPEN remains the one
+    # explicit way to inspect an intact probe interactively.
+    if KEEP_OPEN or (not _HEADLESS and not INTACT_ONLY):
         _app = omni.kit.app.get_app()
         omni.timeline.get_timeline_interface().play()
         while simulation_app.is_running():

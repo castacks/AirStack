@@ -1012,17 +1012,25 @@ def _author_cell(style, level, intensity, cell_id, seed=None):
 
 def test_tornado_interiors_use_fit_out_without_backing_quads():
     """Every reviewed kit exposes floors/columns, never replacement walls."""
+    from pxr import UsdShade
+
     for style, level, intensity, cell_id in (
             ("brownstone_row", "T4", 0.85, "B1"),
             ("dw_terrace", "T3", 0.65, "B2"),
             ("walkup", "T4", 0.85, "B3")):
-        _tuu, stage, cell, ctx, _plan, _info, _counts = _author_cell(
+        _tuu, stage, cell, ctx, _plan, info, _counts = _author_cell(
             style, level, intensity, cell_id)
         got = ctx["interior"]
         assert got["n_fit"] > 0, (cell_id, got)
         assert got["n_backing"] == 0, (cell_id, got)
         assert got["n_partitions"] == 0, (cell_id, got)
         assert ctx["fit"].get("slabs"), cell_id
+        if info["type"] == "urm":
+            assert any(ctx["fit"].get("columns", {}).values()), cell_id
+            for paths in ctx["fit"]["columns"].values():
+                for path in paths:
+                    prim = stage.GetPrimAtPath(path)
+                    assert prim.HasAPI(UsdShade.MaterialBindingAPI), path
         assert not stage.GetPrimAtPath(
             cell + "/tornado_interior_backing").IsValid(), cell_id
 

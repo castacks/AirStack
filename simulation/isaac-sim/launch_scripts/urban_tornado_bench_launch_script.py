@@ -94,6 +94,11 @@ Env:
                     CreateInMemory()`, no Kit, no snapshots -- see "DUAL-
                     MODE" above. Quote its printed manifest table; do not
                     launch Isaac to get it.
+    UTB_FAST_SLICE  1 (default) uses the artifact-safe complementary-sweep
+                    slicer for canonical-cache misses.
+    UTB_KIT_CACHE   1 opts into the experimental canonical GAC cache.
+                    Default 0: cache material rehoming currently changes
+                    tornado glazing classification, so correctness wins.
     SNAP_DIR        viewport captures (ignored under UTB_PLAN_ONLY), MUST
                     be under /isaac-sim/.nvidia-omniverse/logs/.
     KEEP_OPEN       1 keeps the Kit app up after captures (ignored under
@@ -166,6 +171,7 @@ import scene_generator as sg                                       # noqa: E402
 from suburb_scene import AssetPools, _raw_pool                      # noqa: E402
 from compile_disaster import load_scene_config                     # noqa: E402
 from detail import gac_storey_slice as gss                         # noqa: E402
+from detail import kit_bake as kb                                  # noqa: E402
 from disaster import fracture                                       # noqa: E402
 from disaster import gac_fire as gcf                                # noqa: E402
 from disaster import quake_flow as qf                                # noqa: E402
@@ -221,6 +227,8 @@ UTB_CELLS_RAW = _env("UTB_CELLS", "")
 ASSET_CONFIG = _env("UTB_ASSET_CONFIG", "downtown_tornado_bench_500")
 SNAP_DIR = _env("SNAP_DIR", "")
 KEEP_OPEN = _flag("KEEP_OPEN", "0")
+FAST_SLICE = _flag("UTB_FAST_SLICE", "1")
+KIT_CACHE = _flag("UTB_KIT_CACHE", "0")
 
 #: `Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeC_A.usd` --
 #: 25.1 x 25.1 x 11.1 m, `config/asset_sets/urban_gac.yaml`'s own measured
@@ -476,17 +484,36 @@ def build_a_cell(stage, cell_id, spec, ssf):
     pack = gcf.PACKS[kind]
     url = gcf.asset_url(asset, kind)
     scale = gcf.asset_scale(url, pack["scale"], verbose=False)
-    src = gcf.place_source(stage, cell, url, scale)
-    if not src:
-        raise RuntimeError(
-            "place_source composed nothing for {0}".format(asset))
     btype_guess = qs.construction_type(asset)
     family = FAMILY_OF_BTYPE.get(btype_guess, "01")
-    style = "utb_{0}_{1}".format(_safe_token(asset).lower(), cell_id.lower())
+    # The canonical loader registers this asset name as the synthetic kit
+    # style. Use it on misses too, making cached and uncached plans identical.
+    style = asset
     force_regular = asset in (pack.get("force_regular_grid") or ())
-    pls, _grid, _measured = gss.slice_to_kit(
-        stage, src, cell, style, region=None, family=family, verbose=False,
-        force_regular=force_regular)
+    cache_hit = KIT_CACHE and kb.have_kit(asset, None)
+    if cache_hit:
+        pls, _grid, _measured = kb.load_kit(
+            stage, cell, asset, ssf=1.0, signature=None)
+        print("[bench] canonical slice HIT {0}: {1} pieces".format(
+            asset, len(pls)))
+    else:
+        src = gcf.place_source(stage, cell, url, scale)
+        if not src:
+            raise RuntimeError(
+                "place_source composed nothing for {0}".format(asset))
+        pls, _grid, _measured = gss.slice_to_kit(
+            stage, src, cell, style, region=None, family=family,
+            verbose=False, force_regular=force_regular)
+        # A one-off asset would pay an extra full slice without helping this
+        # iteration. Cache only assets selected more than once.
+        repeated = sum(1 for cid in CELL_ORDER
+                       if CELLS[cid].get("asset") == asset) > 1
+        if KIT_CACHE and repeated:
+            rec = kb.save_kit(
+                asset, None, url, scale, asset, region=None, family=family,
+                force_regular=force_regular, verbose=False)
+            print("[bench] canonical slice {0} {1}".format(
+                "STORED" if rec else "STORE FAILED", asset))
 
     seed = _seed_for(cell_id)
     seat = float(spec.get("seat", 0.0))
@@ -1045,6 +1072,10 @@ def run(stage, ssf):
 
     build_ground(stage, ssf, config)
     fracture.ensure_vtk(verbose=False)
+    if FAST_SLICE:
+        from detail import gac_storey_slice_fast
+        gac_storey_slice_fast.install()
+        print("[bench] fast complementary-sweep slicer enabled")
 
     results = {}
     for cell_id in CELL_ORDER:
@@ -1163,6 +1194,7 @@ def capture(stage, ssf, state):
         bcache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
                                    ["default", "render"])
         first = True
+        review_pose = None
         for c in CELL_ORDER:
             if c not in points:
                 continue
@@ -1187,11 +1219,51 @@ def capture(stage, ssf, state):
             # rendered the previous frame).
             snaps.views_around(stage, {c: points[c]}, SNAP_DIR, ssf,
                                frames=60 if first else 40, **rig)
+            # Damage-review contact sheet: the whole-building oblique is an
+            # orientation shot, not a geometry/material gate. Frame the
+            # authored break groups themselves and inspect all four sides.
+            damage_ranges = []
+            if prim and prim.IsValid():
+                for q in Usd.PrimRange(prim):
+                    if q.IsActive() and q.GetName().startswith("brk_"):
+                        qr = bcache.ComputeWorldBound(q).ComputeAlignedRange()
+                        if not qr.IsEmpty():
+                            damage_ranges.append(qr)
+            if damage_ranges:
+                lo = [min(float(r.GetMin()[i]) for r in damage_ranges)
+                      for i in range(3)]
+                hi = [max(float(r.GetMax()[i]) for r in damage_ranges)
+                      for i in range(3)]
+                aim = tuple((lo[i] + hi[i]) * 0.5 for i in range(3))
+                span = max(4.0 * ssf, hi[0] - lo[0], hi[1] - lo[1],
+                           hi[2] - lo[2])
+                dist = 1.15 * span
+                for label, dx, dy in (("E", 1, 0), ("N", 0, 1),
+                                      ("W", -1, 0), ("S", 0, -1)):
+                    eye = (aim[0] + dx * dist, aim[1] + dy * dist,
+                           aim[2] + 0.12 * span)
+                    snaps.place_camera(stage, eye, aim, focal_mm=28.0)
+                    snaps.snapshot(os.path.join(
+                        SNAP_DIR, "{0}_damage_{1}.png".format(c, label)),
+                        30)
+                # Leave the interactive viewport on the outward damage face,
+                # not on the overview shot authored below. This is the view
+                # the reviewer sees when KEEP_OPEN enters Play mode.
+                vx, vy = aim[0] - points[c][0] * ssf, aim[1] - points[c][1] * ssf
+                vl = max(1e-6, (vx * vx + vy * vy) ** 0.5)
+                vx, vy = vx / vl, vy / vl
+                review_pose = ((aim[0] + vx * dist, aim[1] + vy * dist,
+                                aim[2] + 0.12 * span), aim)
             first = False
         x0, y0, x1, y1 = PLATE
         span = max(x1 - x0, y1 - y0)
         snaps.overview(stage, (0.0, 0.0), span * 1.05,
                        os.path.join(SNAP_DIR, "bench_overview.png"), ssf)
+        if review_pose is not None:
+            snaps.place_camera(stage, review_pose[0], review_pose[1],
+                               focal_mm=28.0)
+            for _ in range(20):
+                app.update()
         print("[bench] snapshots ({0} cell(s) + 1 overview) -> {1}".format(
             len(points), SNAP_DIR))
     except Exception as exc:                                       # noqa: BLE001
@@ -1266,6 +1338,10 @@ def main_kit():
     UsdGeom.Scope.Define(stage, Sdf.Path(PARENT))
 
     state = run(stage, ssf)
+    _stage_out = _env("UTB_STAGE_OUT", "").strip()
+    if _stage_out:
+        stage.GetRootLayer().Export(_stage_out)
+        print("[bench] diagnostic stage -> {0}".format(_stage_out))
     capture(stage, ssf, state)
     report(state)
     ok = banner(state)
