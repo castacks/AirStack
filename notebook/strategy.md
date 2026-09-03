@@ -47,11 +47,12 @@ results.json and cross-checked against the hand tallies. Next for
 Sec. VI-C: prose-ify into the paper submodule + release-artifact
 bundle; T4/T5 add-ons still open (P-5 blocks T5). v6 foundation: MIGHTY swap (entry
 [010](010-mighty-local-planner-module/design_spec.md), DONE), pin
-`study/mighty-swap` @ `961fb9e1`, asm_mighty v0.1.0. In parallel:
-prose-ifying `main.tex`
-section by section, and the release gate (7 paper-blocking items; ~63
-tasks still `\task{}` in `release_gate_and_tasks.tex` as of
-2026-08-27).
+`study/mighty-swap` @ `961fb9e1`, asm_mighty v0.1.0. Paper state
+(2026-09-02): `main.tex` prose-ified end to end (Lessons stays a
+numbered list; team-data `\todo{}`s remain), claims audit run — six
+gaps fixed/flagged, see the 2026-09-02 direction-log entry; release
+gate still open (7 paper-blocking items; ~63 tasks `\task{}` in
+`release_gate_and_tasks.tex`).
 
 Hard calendar gates: **2026-09-15** ICRA submission; case-study
 interviews and release-gate items must land before the final claims
@@ -119,6 +120,29 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+### 2026-09-02 — main.tex prose-ified through VI; claims audit run: six claim–reality gaps fixed or flagged
+
+All remaining outline sections except Lessons (a deliberate numbered
+list) were prose-ified (paper submodule `f924b36`), and the lead's
+claims-audit task ran against the release branch alongside it
+(`analysis/claims_audit_2026-09-02.md` in the paper repo). Fixed in
+paper text: stale "per-layer bringup packages" → stack-level
+composition (RFC #379 reality); removed `AUTONOMY_ROLE` → split-stack
+wording; CI claim scoped (builds automatic per PR, flight marks
+per-PR by `/pytest` trigger — a decision option is making one flight
+mark automatic to restore the stronger sentence); gossip
+relay/radius-degradation model and GCS satellite tiles de-claimed
+(not implemented). Flagged for decisions: behavior layer ships no BT
+executor (release-gate item confirmed live; Swarm CBF's accounting
+paragraph names a "behavior-tree executor" the release line cannot
+back — raise in their interview); DFM2 disturbance module synced
+locally but not pinned in `airstack.yaml`. Build is clean at 11
+pages incl. red todos (~2 pages must come back before submission).
+Cross-platform agent evaluation added to Limitations as named future
+work requiring a stack-neutral task suite and judge (lead decision
+2026-09-02: rejected for this paper — home-field-benchmark confound
+plus deadline math; banked as a next-paper seed).
 
 ### 2026-09-02 — Correction: A3 R7-chase self-destructions are 2, not 3
 
