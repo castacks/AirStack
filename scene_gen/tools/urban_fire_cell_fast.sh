@@ -12,6 +12,8 @@ CONTAINER="${CONTAINER:-$(docker ps --format '{{.Names}}' | grep -m1 isaac-sim |
 LEVELS="${LEVELS:-${1:-1}}"
 FB_OUT="${FB_OUT:-/isaac-sim/.cache/fire_bakes/urban_1km}"
 FREEZE_OUT="${FREEZE_OUT:-/isaac-sim/final_disaster_dataset/Fire/Urban_fast}"
+NUCLEUS_DATASET="${NUCLEUS_DATASET:-omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset}"
+NUCLEUS_ASSET_ROOT="${NUCLEUS_ASSET_ROOT:-omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA}"
 LOG_DIR="${LOG_DIR:-/isaac-sim/logs/urban_fire_fast}"
 ISAAC_SIM_PYTHONPATH="${ISAAC_SIM_PYTHONPATH:-/isaac-sim/kit/python/lib/python3.11/site-packages}"
 
@@ -112,6 +114,7 @@ PY
   # exports.  That is exactly what the freeze launcher already does internally.
   FREEZE_START=$(now)
   dex "$CONTAINER" bash -lc "cd '$REPO' && \
+    REPO='$REPO' AIRSTACK_ASSET_ROOT='$NUCLEUS_ASSET_ROOT' \
     SCENE_CONFIG='$PRESET' FC_MANIFEST='$MANIFEST' FC_DUMP='$DUMP' FC_BAKES='$BAKES' \
     FC_LAYOUT_STAMP='$STAMP' \
     FREEZE_OUT='$CELL' FREEZE_HEADLESS=1 FREEZE_EXPORT=1 \
@@ -143,11 +146,26 @@ if not r.get("sky_lights"):
 print("fast cell gate OK:", usds[0])
 PY
   GATE_S=$(( $(now) - GATE_START ))
+
+  # Local output is disposable build scratch. Publish the COMPLETE cell,
+  # including review snapshots and every JSON sidecar, then open the USD from
+  # its Nucleus URL and resolve dependencies there. A local-only success is not
+  # considered a completed level.
+  PUBLISH_START=$(now)
+  REMOTE_CELL="$NUCLEUS_DATASET/Fire/Urban_fast/level_${L}/1"
+  say "publish complete cell to Nucleus"
+  dex "$CONTAINER" bash -lc "cd '$REPO' && bash scene_gen/tools/usd_python.sh \
+    scene_gen/tools/dataset_upload.py --local '$CELL' --remote '$REMOTE_CELL' \
+    --include-snaps" || die "Nucleus cell upload/size verification"
+  dex "$CONTAINER" bash -lc "cd '$REPO' && bash scene_gen/tools/usd_python.sh \
+    scene_gen/tools/verify_nucleus_cell.py '$REMOTE_CELL'" \
+    || die "cold-open published Nucleus cell"
+  PUBLISH_S=$(( $(now) - PUBLISH_START ))
   TOTAL_S=$(( $(now) - LEVEL_START ))
 
-  python3 - "$TLOG" "$VERIFY_S" "$BAKE_S" "$PEOPLE_S" "$FREEZE_S" "$GATE_S" "$TOTAL_S" <<'PY'
+  python3 - "$TLOG" "$VERIFY_S" "$BAKE_S" "$PEOPLE_S" "$FREEZE_S" "$GATE_S" "$PUBLISH_S" "$TOTAL_S" <<'PY'
 import json, sys
-keys = ("layout_verify_s", "bake_s", "people_gate_s", "combined_assemble_freeze_s", "gate_s", "total_s")
+keys = ("layout_verify_s", "bake_s", "people_gate_s", "combined_assemble_freeze_s", "gate_s", "nucleus_publish_verify_s", "total_s")
 vals = [int(x) for x in sys.argv[2:]]
 with open(sys.argv[1], "w") as f:
     json.dump(dict(zip(keys, vals)), f, indent=2)

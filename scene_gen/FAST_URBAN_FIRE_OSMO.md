@@ -27,6 +27,10 @@ lighting, texture and frozen-output gates.
 8. GPU PhysX with Fabric remains enabled. Convex-decomposition threshold 0.8 m
    remains enabled because the measured hull-only experiment was slower and
    failed the rest gate.
+9. Each completed cell, including snapshots and JSON sidecars, is uploaded to
+   Nucleus and reopened from the Nucleus URL. Success requires meshes, a sky,
+   no local absolute paths, no missing Nucleus assets, and no cross-scope
+   material bindings.
 
 ## Files to put on the pod
 
@@ -41,7 +45,10 @@ scene_gen/tools/osmo_sync.sh \
   scene_gen/tools/sync_sliced_kits.py \
   scene_gen/tools/experimental_warm_canonical_kits.py \
   scene_gen/tools/urban_fire_cell_fast.sh \
+  scene_gen/tools/verify_nucleus_cell.py \
+  scene_gen/tools/urban_fire_fast_preflight.py \
   simulation/isaac-sim/launch_scripts/experimental_fast_fire_bake_launch_script.py \
+  simulation/isaac-sim/launch_scripts/experimental_fast_freeze_urban_fire_city_launch_script.py \
   scene_gen/FAST_URBAN_FIRE_OSMO.md
 ```
 
@@ -52,6 +59,23 @@ AIRSTACK_ASSET_ROOT=omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-C
 ```
 
 ## Preflight and dry run
+
+The fast runner performs a CPU-only correctness preflight before spending GPU
+time. It verifies the manifest's placement-dump hash, preset and seed; rejects
+missing/unknown bake routes; and rejects host-local absolute asset paths
+(including the known AEC `airstack://` resolution failure).
+
+It also requires a content-addressed JSON layout proof tied to the dump,
+manifest, preset, asset-set/low-level configuration, and layout source files.
+An old empty `.dump_verified_*` stamp is deliberately invalid. When the proof
+is absent or stale, the runner builds one intact Kit city and runs
+`verify_dump_matches_kit.py`; only an exact match writes the proof. The
+experimental freeze launcher validates the same proof again, so directly
+invoking freeze cannot bypass the gate.
+
+Do not override this check. The current L1 offline dump was previously observed
+to disagree severely with a Kit dump. The next run must regenerate that Kit
+dump and either demonstrate that current sources agree or stop before baking.
 
 The host planning artifacts must already exist:
 
@@ -123,6 +147,20 @@ Outputs default to:
 - damaged bakes: `/isaac-sim/.cache/fire_bakes/urban_1km/city_<seed>/`
 - local sliced kits: `scene_gen/assets/kits/`
 - remote sliced kits: `omniverse://.../scene_gen/cache/sliced_kits/v1/`
+- published cells: `omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset/Fire/Urban_fast/level_<N>/1/`
+
+The local frozen cell and `.cache` directories are working scratch only. A
+level is not reported complete until `dataset_upload.py` has size-verified all
+cell files on Nucleus and `verify_nucleus_cell.py` has opened the USD directly
+from its Nucleus URL. Another device needs only Nucleus access and the URL; it
+does not need the pod's cache or the author's workstation assets. The cold
+check is saved beside the cell as `nucleus_verification.json`.
+
+The damaged bake files themselves may remain in `/isaac-sim/.cache` during the
+three-level build. They are composition inputs, not runtime dependencies: the
+freeze output is flattened before publication. The remote verifier rejects any
+remaining local sublayer/reference/payload target or local asset path, ensuring
+the published cell cannot reach back into that cache.
 
 ## Cache semantics
 
