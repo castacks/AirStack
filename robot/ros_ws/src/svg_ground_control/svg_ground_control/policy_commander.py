@@ -95,6 +95,48 @@ def compute_goal_reference(
     return center + offset
 
 
+class RandomGoalSpawner:
+    """Maintain one random XY goal inside an axis-aligned ENU rectangle."""
+
+    def __init__(
+        self,
+        minimum_xy: np.ndarray,
+        maximum_xy: np.ndarray,
+        arrival_radius_m: float,
+        seed: int | None = None,
+    ) -> None:
+        self.minimum_xy = np.asarray(minimum_xy, dtype=np.float32).reshape(2)
+        self.maximum_xy = np.asarray(maximum_xy, dtype=np.float32).reshape(2)
+        if np.any(self.minimum_xy >= self.maximum_xy):
+            raise ValueError(
+                'goal_spawn_min_xy must be strictly less than '
+                'goal_spawn_max_xy on both axes')
+        if arrival_radius_m <= 0.0:
+            raise ValueError('goal_arrival_radius must be positive')
+        self.arrival_radius_m = float(arrival_radius_m)
+        self._rng = np.random.default_rng(seed)
+        self.goal_xy = self._sample()
+
+    def _sample(self) -> np.ndarray:
+        return self._rng.uniform(
+            self.minimum_xy,
+            self.maximum_xy,
+        ).astype(np.float32)
+
+    def reset(self) -> np.ndarray:
+        """Start a run with a newly sampled goal."""
+        self.goal_xy = self._sample()
+        return self.goal_xy.copy()
+
+    def update(self, drone_xy: np.ndarray) -> tuple[np.ndarray, bool]:
+        """Resample after the drone enters the current goal's arrival disk."""
+        position = np.asarray(drone_xy, dtype=np.float32).reshape(2)
+        reached = np.linalg.norm(position - self.goal_xy) <= self.arrival_radius_m
+        if reached:
+            self.goal_xy = self._sample()
+        return self.goal_xy.copy(), bool(reached)
+
+
 def enu_waypoint_to_ned(waypoint: np.ndarray) -> np.ndarray:
     """Convert an ENU XYZ position waypoint to PX4's NED coordinates.
 
@@ -113,20 +155,43 @@ def compute_bounded_waypoint(
     policy_action: np.ndarray,
     bounds_min: np.ndarray,
     bounds_max: np.ndarray,
+    geofence_buffer_m: float = 0.5,
 ) -> np.ndarray:
-    """Convert a relative policy action into a bounded absolute waypoint.
+    """Convert a relative policy action into a buffered absolute waypoint.
+
+    Horizontal clamping activates only when the drone is within the configured
+    distance of any XY geofence face (or is already outside the fence). This
+    leaves the policy's XY waypoint unconstrained while the drone is safely in
+    the interior. Altitude is always clamped to preserve the floor and ceiling.
 
     Args:
         drone_position: Current absolute ENU position in meters.
         policy_action: Policy output ``(dx, dy, z_world)`` in meters.
         bounds_min: Minimum allowed absolute ENU XYZ position.
         bounds_max: Maximum allowed absolute ENU XYZ position.
+        geofence_buffer_m: Distance from an XY boundary at which horizontal
+            waypoint clamping activates.
 
     Returns:
-        Absolute ENU waypoint clamped to the configured flight area.
+        Absolute ENU waypoint with buffered XY and unconditional Z clamping.
     """
-    waypoint = compute_abs_waypoint(drone_position, policy_action)
-    return clamp_position(waypoint, bounds_min, bounds_max)
+    if not np.isfinite(geofence_buffer_m) or geofence_buffer_m < 0.0:
+        raise ValueError('geofence_buffer_m must be finite and non-negative')
+
+    drone = np.asarray(drone_position, dtype=np.float32).reshape(3)
+    minimum = np.asarray(bounds_min, dtype=np.float32).reshape(3)
+    maximum = np.asarray(bounds_max, dtype=np.float32).reshape(3)
+    waypoint = compute_abs_waypoint(drone, policy_action)
+
+    distance_to_xy_faces = np.concatenate((
+        drone[:2] - minimum[:2],
+        maximum[:2] - drone[:2],
+    ))
+    if np.any(distance_to_xy_faces <= geofence_buffer_m):
+        return clamp_position(waypoint, minimum, maximum)
+
+    waypoint[2] = np.clip(waypoint[2], minimum[2], maximum[2])
+    return waypoint
 
 
 def load_policy_checkpoint(
@@ -203,12 +268,17 @@ class PolicyCommander(Node):
         self.declare_parameter('goal_period_s', 8.0)
         self.declare_parameter('goal_phase_rad', 0.0)
         self.declare_parameter('goal_rotation_rad', 0.0)
+        self.declare_parameter('goal_spawn_min_xy', [-1.5, -1.5])
+        self.declare_parameter('goal_spawn_max_xy', [1.5, 1.5])
+        self.declare_parameter('goal_arrival_radius', 0.35)
+        self.declare_parameter('goal_random_seed', -1)
         self.declare_parameter('policy_dt', 0.02)
         self.declare_parameter('deterministic', True)
         self.declare_parameter('action_low', [-3.0, -3.0, 0.3])
         self.declare_parameter('action_high', [3.0, 3.0, 2.0])
         self.declare_parameter('bounds_min', [-3.0, -3.0, 0.3])
         self.declare_parameter('bounds_max', [3.0, 3.0, 1.2])
+        self.declare_parameter('geofence_buffer_m', 0.5)
         self.declare_parameter('odom_topic_template',
                                '/{name}/odometry_conversion/odometry')
         self.declare_parameter('ball_odom_topic_template',
@@ -249,15 +319,26 @@ class PolicyCommander(Node):
             self.get_parameter('goal_phase_rad').value)
         self.goal_rotation_rad = float(
             self.get_parameter('goal_rotation_rad').value)
-        self.target_xy = compute_goal_reference(
-            self.goal_trajectory,
-            0.0,
-            self.goal_center_xy,
-            self.goal_radius,
-            self.goal_period_s,
-            self.goal_phase_rad,
-            self.goal_rotation_rad,
-        )
+        self._random_goal_spawner: RandomGoalSpawner | None = None
+        if self.goal_trajectory == 'random':
+            random_seed = int(self.get_parameter('goal_random_seed').value)
+            self._random_goal_spawner = RandomGoalSpawner(
+                self.get_parameter('goal_spawn_min_xy').value,
+                self.get_parameter('goal_spawn_max_xy').value,
+                float(self.get_parameter('goal_arrival_radius').value),
+                None if random_seed < 0 else random_seed,
+            )
+            self.target_xy = self._random_goal_spawner.goal_xy.copy()
+        else:
+            self.target_xy = compute_goal_reference(
+                self.goal_trajectory,
+                0.0,
+                self.goal_center_xy,
+                self.goal_radius,
+                self.goal_period_s,
+                self.goal_phase_rad,
+                self.goal_rotation_rad,
+            )
         self._goal_reference_start = self.get_clock().now()
         self.action_low = np.asarray(
             self.get_parameter('action_low').value, dtype=np.float32)
@@ -267,6 +348,12 @@ class PolicyCommander(Node):
             self.get_parameter('bounds_min').value, 'bounds_min')
         self.bounds_max = vector3(
             self.get_parameter('bounds_max').value, 'bounds_max')
+        self.geofence_buffer_m = float(
+            self.get_parameter('geofence_buffer_m').value)
+        if (not np.isfinite(self.geofence_buffer_m)
+                or self.geofence_buffer_m < 0.0):
+            raise ValueError(
+                'geofence_buffer_m must be finite and non-negative')
         self.state_timeout_s = float(self.get_parameter('state_timeout_s').value)
         self.deterministic = bool(self.get_parameter('deterministic').value)
         self.running = False
@@ -331,6 +418,11 @@ class PolicyCommander(Node):
 
         prefix = str(self.get_parameter('debug_topic_prefix').value)
         self.publish_debug = bool(self.get_parameter('publish_debug').value)
+        # The current goal is operational data, not optional debug data. Keep
+        # publishing it even if observation/action telemetry is disabled.
+        self.goal_topic = f'{prefix}/goal'
+        self.goal_pub = self.create_publisher(
+            Float32MultiArray, self.goal_topic, 10)
         if self.publish_debug:
             self.obs_pub = self.create_publisher(
                 Float32MultiArray, f'{prefix}/obs', 10)
@@ -338,8 +430,6 @@ class PolicyCommander(Node):
                 Float32MultiArray, f'{prefix}/action', 10)
             self.waypoint_pub = self.create_publisher(
                 Float32MultiArray, f'{prefix}/waypoint', 10)
-            self.goal_pub = self.create_publisher(
-                Float32MultiArray, f'{prefix}/goal', 10)
 
         self.create_service(Trigger, '~/start', self._handle_start)
         self.create_service(Trigger, '~/stop', self._handle_stop)
@@ -354,22 +444,29 @@ class PolicyCommander(Node):
             f'odom={odom_topic} ball_odom={ball_odom_topic} '
             f'trajectory_out={trajectory_topic} '
             f'offboard_out={offboard_mode_topic} obs_dim={OBS_DIM} '
-            f'goal={self.goal_trajectory} '
+            f'goal={self.goal_trajectory} goal_topic={self.goal_topic} '
             f'center={self.goal_center_xy.tolist()} '
             f'radius={self.goal_radius:.3f}m period={self.goal_period_s:.3f}s '
-            f'rotation={self.goal_rotation_rad:.3f}rad')
+            f'rotation={self.goal_rotation_rad:.3f}rad '
+            f'geofence_buffer={self.geofence_buffer_m:.3f}m')
 
     def _handle_start(self, _request, response):
         self._goal_reference_start = self.get_clock().now()
-        self.target_xy = compute_goal_reference(
-            self.goal_trajectory,
-            0.0,
-            self.goal_center_xy,
-            self.goal_radius,
-            self.goal_period_s,
-            self.goal_phase_rad,
-            self.goal_rotation_rad,
-        )
+        if self._random_goal_spawner is not None:
+            self.target_xy = self._random_goal_spawner.reset()
+            self.get_logger().info(
+                f'New random goal: {self.target_xy.tolist()}')
+        else:
+            self.target_xy = compute_goal_reference(
+                self.goal_trajectory,
+                0.0,
+                self.goal_center_xy,
+                self.goal_radius,
+                self.goal_period_s,
+                self.goal_phase_rad,
+                self.goal_rotation_rad,
+            )
+        self._publish_goal()
         self.running = True
         response.success = True
         response.message = 'policy loop publishing enabled'
@@ -415,6 +512,18 @@ class PolicyCommander(Node):
 
     def _update_goal_reference(self) -> None:
         """Update the observation goal from the configured reference clock."""
+        if self._random_goal_spawner is not None:
+            odom = self._latest_drone_odom
+            if odom is None:
+                return
+            position = odom.pose.pose.position
+            self.target_xy, changed = self._random_goal_spawner.update(
+                np.array([position.x, position.y], dtype=np.float32))
+            if changed:
+                self.get_logger().info(
+                    'Goal reached; spawned new random goal: '
+                    f'{self.target_xy.tolist()}')
+            return
         elapsed_s = (
             self.get_clock().now() - self._goal_reference_start
         ).nanoseconds * 1e-9
@@ -454,6 +563,11 @@ class PolicyCommander(Node):
             self.target_xy,
         )
 
+    def _publish_goal(self) -> None:
+        goal_msg = Float32MultiArray()
+        goal_msg.data = [float(x) for x in self.target_xy]
+        self.goal_pub.publish(goal_msg)
+
     def _publish_debug(self, obs: np.ndarray, action: np.ndarray,
                        waypoint: np.ndarray) -> None:
         if not self.publish_debug:
@@ -467,9 +581,6 @@ class PolicyCommander(Node):
         wpt_msg = Float32MultiArray()
         wpt_msg.data = [float(x) for x in waypoint]
         self.waypoint_pub.publish(wpt_msg)
-        goal_msg = Float32MultiArray()
-        goal_msg.data = [float(x) for x in self.target_xy]
-        self.goal_pub.publish(goal_msg)
 
     def _publish_fmu_setpoint(self, waypoint: np.ndarray) -> None:
         """Publish a position setpoint and PX4 Offboard heartbeat directly."""
@@ -494,23 +605,26 @@ class PolicyCommander(Node):
         setpoint.acceleration = [float('nan')] * 3
         setpoint.jerk = [float('nan')] * 3
         # Preserve the old pose-command behavior: ENU yaw 0 becomes NED +pi/2.
-        setpoint.yaw = float(0.0) # temporarily test NED 0 
+        setpoint.yaw = float(np.pi / 2) # temporarily test NED 0
         setpoint.yawspeed = float('nan')
         self.trajectory_pub.publish(setpoint)
 
     def _policy_tick(self) -> None:
         if not self.running:
+            self._publish_goal()
             if self._last_waypoint is not None:
                 self._publish_fmu_setpoint(self._last_waypoint)
             return
 
         if not self._inputs_fresh():
+            self._publish_goal()
             self.get_logger().warn(
                 'Waiting for fresh drone odom and ball state',
                 throttle_duration_sec=2.0)
             return
 
         self._update_goal_reference()
+        self._publish_goal()
         obs = self._build_observation()
         if obs is None:
             return
@@ -532,6 +646,7 @@ class PolicyCommander(Node):
             action,
             self.bounds_min,
             self.bounds_max,
+            self.geofence_buffer_m,
         )
         self._last_waypoint = waypoint
 

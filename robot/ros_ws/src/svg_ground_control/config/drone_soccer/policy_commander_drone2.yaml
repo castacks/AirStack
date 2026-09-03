@@ -22,10 +22,11 @@
     deterministic: true
     action_low: [-3.0, -3.0, 0.5]
     action_high: [3.0, 3.0, 1.5]
-    # Absolute ENU waypoint fence: policy commands cannot exceed +/-3 m in XY.
+    # XY waypoints clamp only after the drone enters this distance from a
+    # horizontal fence face. Altitude always remains clamped.
     bounds_min: [-4.0, 0.7, 0.5]
     bounds_max: [4.0, 5.0, 1.5]
-    # Policy Z is active; the resulting absolute altitude is clamped below.
+    geofence_buffer_m: 0.5
     odom_topic_template: "/{name}/odometry_conversion/odometry"
     ball_odom_topic_template: "/{name}/mocap_odometry"
     ball_pose_topic_template: "/{name}/pose"

@@ -117,16 +117,23 @@ docker exec airstack-robot-desktop-1 bash -lc 'sws >/dev/null; bws --packages-se
 ```
 
 Before launching `policy_commander`, verify its Python inference dependencies.
-The `v0.18.0` robot image observed on AirStation did not include them even
-though the repository pins them in `svg_ground_control/requirements-policy.txt`:
+The `v0.18.0` robot image observed on AirStation does not include them. A
+`colcon build` of `svg_ground_control` also does **not** install the package's
+Python `install_requires`, so rebuilding the ROS package cannot fix
+`ModuleNotFoundError: No module named 'stable_baselines3'`.
+
+The standard `start_drone_soccer_lab_tmux.sh` launcher now checks these imports
+on every start and automatically installs the pinned
+`svg_ground_control/requirements-policy.txt` when needed. This makes container
+recreation self-healing. If launching the policy without that helper, use:
 
 ```bash
 docker exec airstack-robot-desktop-1 bash -lc 'python3 -c "import stable_baselines3, gymnasium"'
 docker exec airstack-robot-desktop-1 bash -lc 'python3 -m pip install --break-system-packages --no-cache-dir -r /root/AirStack/robot/ros_ws/src/svg_ground_control/requirements-policy.txt'
 ```
 
-The install is container-local and must be repeated after the container is
-recreated unless the dependencies have been added to a rebuilt robot image.
+The manual install is container-local. After recreation, either rerun it or use
+the standard tmux launcher, which performs the check and repair automatically.
 
 ## Start the Lab Stack
 
@@ -204,6 +211,32 @@ Expected:
 - MicroDDS client connected to agent IP `192.168.50.6`, port `8892`, with nonzero tx/rx.
 
 ## Start Runtime ROS Sessions
+
+For the current BV policy workflow, the host helper creates one tmux session
+inside the robot container and starts all non-policy infrastructure:
+
+```bash
+cd /home/yutongw/Desktop/AirStack
+./scripts/start_drone_soccer_lab_tmux.sh
+```
+
+It starts or reuses `robot-desktop` and the sibling Micro XRCE-DDS agent, then
+runs NatNet, `real_interfaces`, and `mocap_bridge` in container-side panes. The
+`policy` window contains launch/start/stop/goal commands but deliberately does
+not execute them, and the `shell` window is sourced for extra ROS commands.
+Detach with `Ctrl-b d`; reattach from the host with
+`docker exec -it airstack-robot-desktop-1 tmux attach-session -t drone_soccer_lab`.
+Stop the tmux session, DDS agent, and robot container with
+`./scripts/start_drone_soccer_lab_tmux.sh --stop`.
+
+Before creating or attaching to the session, the launcher verifies imports for
+`stable_baselines3` and `gymnasium`. Missing packages are installed from the
+repository's pinned `requirements-policy.txt`, preventing recreated v0.18.0
+containers from presenting a policy pane that cannot launch.
+
+When extending this launcher, target panes with the stable IDs returned by
+`split-window -P -F '#{pane_id}'`. Numeric pane indexes can be renumbered by
+later splits and can send a prepopulated command to the wrong pane.
 
 Run these inside the AirStack container or through `docker exec`. Keep them alive in separate tmux sessions.
 
@@ -361,6 +394,19 @@ For flight/test data, start recording before arming and stop after landing/disar
 ```
 
 The recorder defaults to the current two-drone setup (`drone_2`, `drone_3`) and the `VolleyBall` rigid body. Pass one or more `--drone NAME` options to override that list. It records each drone's PX4/AirStack state and namespaced policy-debug topics used for flight review, writes a timestamped MCAP bag under `/bags` in the container, and stops with `Ctrl-C`. Docker Compose bind-mounts `/bags` to `robot/bags` on the host.
+
+The recorder also includes `/policy_commander/goal`, the current two-element
+ENU XY goal from the policy commander. This is optional during the recorder's
+preflight check because the standard workflow starts rosbag before the policy;
+rosbag subscribes when the commander appears.
+
+The policy commander's XY geofence is deliberately buffered rather than a
+hard waypoint clamp. While the drone is more than `geofence_buffer_m` (default
+`0.5 m`) from every horizontal fence face, its commanded XY waypoint may lie
+outside `bounds_min`/`bounds_max`. Once the current drone position reaches the
+buffer (or is already outside), XY waypoints clamp to the fence. Z waypoints
+always clamp to the configured altitude floor and ceiling. Consequently, do
+not use waypoint bounds alone as a predictive hard-containment guarantee.
 
 Before a flight, check topic visibility without recording:
 

@@ -1,0 +1,4 @@
+- /bags/drone_3_VolleyBall_20260903_145810: Drone moves to the left in workspace. Goal is 1.057, 0.616. Seems weird.
+- /bags/drone_3_VolleyBall_20260903_150131: seem to achieve 1 goal. Suspect that yaw matters to downwash. 
+- /bags/drone_3_VolleyBall_20260903_150624: change the setpoint.yaw in policy_commander to pi/2.
+- /bags/drone_3_VolleyBall_20260903_153421: was in control of the ball the longest, but wasd not getting to goal (double check other bags to make sure this is the right one)

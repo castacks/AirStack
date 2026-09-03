@@ -19,6 +19,7 @@ OUTPUT_DIR="/bags"
 CHECK_ONLY=0
 ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-1}"
 EXCLUDED_TOPICS=()
+OPTIONAL_TOPICS=("/policy_commander/goal")
 
 usage() {
     cat <<'EOF'
@@ -150,6 +151,10 @@ for drone in "${DRONES[@]}"; do
     )
 done
 
+# The policy may be launched after recording starts. ros2 bag subscribes when
+# this named topic appears, so do not require its publisher during preflight.
+TOPICS+=("/policy_commander/goal")
+
 if [ "$INCLUDE_BALL" -eq 1 ]; then
     TOPICS+=("/${BALL}/pose" "/${BALL}/mocap_odometry")
 fi
@@ -172,6 +177,7 @@ if [ "${#EXCLUDED_TOPICS[@]}" -gt 0 ]; then
 fi
 
 printf -v TOPIC_ARGS '%q ' "${TOPICS[@]}"
+printf -v OPTIONAL_TOPIC_ARGS '%q ' "${OPTIONAL_TOPICS[@]}"
 
 echo "Recording flight bag"
 echo "  container : $CONTAINER"
@@ -210,17 +216,32 @@ set -u
 VISIBLE_TOPICS=\"\$(ros2 topic list)\"
 MISSING_TOPICS=0
 for topic in $TOPIC_ARGS; do
+    OPTIONAL=0
+    for optional_topic in $OPTIONAL_TOPIC_ARGS; do
+        if [ \"\$topic\" = \"\$optional_topic\" ]; then
+            OPTIONAL=1
+            break
+        fi
+    done
     if grep -Fxq \"\$topic\" <<< \"\$VISIBLE_TOPICS\"; then
         PUB_COUNT=\"\$(ros2 topic info \"\$topic\" 2>/dev/null | awk '/Publisher count:/ {print \$3}')\"
         if [ \"\${PUB_COUNT:-0}\" -gt 0 ]; then
             echo \"  OK      \$topic (publishers: \$PUB_COUNT)\"
         else
-            echo \"  NO PUB  \$topic\"
-            MISSING_TOPICS=1
+            if [ \"\$OPTIONAL\" -eq 1 ]; then
+                echo \"  WAIT    \$topic (will record when its publisher starts)\"
+            else
+                echo \"  NO PUB  \$topic\"
+                MISSING_TOPICS=1
+            fi
         fi
     else
-        echo \"  MISSING \$topic\"
-        MISSING_TOPICS=1
+        if [ \"\$OPTIONAL\" -eq 1 ]; then
+            echo \"  WAIT    \$topic (will record when its publisher starts)\"
+        else
+            echo \"  MISSING \$topic\"
+            MISSING_TOPICS=1
+        fi
     fi
 done
 if [ \"\$MISSING_TOPICS\" -ne 0 ]; then

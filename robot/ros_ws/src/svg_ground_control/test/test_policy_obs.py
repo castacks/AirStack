@@ -11,6 +11,7 @@ from drone_soccer.deploy.observation import (
     quaternion_to_rotation_matrix,
 )
 from svg_ground_control.policy_commander import (
+    RandomGoalSpawner,
     compute_bounded_waypoint,
     compute_goal_reference,
     enu_waypoint_to_ned,
@@ -119,8 +120,37 @@ def test_periodic_goal_reference_rejects_invalid_configuration() -> None:
         compute_goal_reference('spiral', 0.0, center, 1.5, 8.0)
 
 
-def test_absolute_policy_waypoint_clamps_xyz_to_fence() -> None:
-    """Policy waypoints must remain inside the absolute XYZ fence."""
+def test_random_goal_spawner_resamples_only_after_arrival() -> None:
+    spawner = RandomGoalSpawner(
+        minimum_xy=np.array([-2.0, 1.0]),
+        maximum_xy=np.array([3.0, 4.0]),
+        arrival_radius_m=0.25,
+        seed=7,
+    )
+    first = spawner.goal_xy.copy()
+    assert np.all(first >= [-2.0, 1.0])
+    assert np.all(first <= [3.0, 4.0])
+
+    unchanged, reached = spawner.update(first + [1.0, 0.0])
+    assert not reached
+    np.testing.assert_array_equal(unchanged, first)
+
+    second, reached = spawner.update(first + [0.1, 0.0])
+    assert reached
+    assert np.all(second >= [-2.0, 1.0])
+    assert np.all(second <= [3.0, 4.0])
+    assert not np.array_equal(second, first)
+
+
+def test_random_goal_spawner_rejects_invalid_region_and_radius() -> None:
+    with pytest.raises(ValueError, match='strictly less'):
+        RandomGoalSpawner([0.0, 0.0], [0.0, 1.0], 0.25)
+    with pytest.raises(ValueError, match='positive'):
+        RandomGoalSpawner([-1.0, -1.0], [1.0, 1.0], 0.0)
+
+
+def test_policy_waypoint_clamps_xyz_when_drone_is_near_xy_fence() -> None:
+    """XY snapping activates near either horizontal geofence boundary."""
     drone_position = np.array([2.8, -2.8, 0.9], dtype=np.float32)
     policy_action = np.array([2.0, -2.0, 1.7], dtype=np.float32)
     waypoint = compute_bounded_waypoint(
@@ -133,3 +163,47 @@ def test_absolute_policy_waypoint_clamps_xyz_to_fence() -> None:
         waypoint,
         np.array([3.0, -3.0, 1.2], dtype=np.float32),
     )
+
+
+def test_policy_waypoint_xy_is_unconstrained_in_safe_interior() -> None:
+    """A far-away policy target is allowed until the drone nears the fence."""
+    waypoint = compute_bounded_waypoint(
+        drone_position=np.array([1.0, -1.0, 0.9], dtype=np.float32),
+        policy_action=np.array([3.0, -3.0, 1.7], dtype=np.float32),
+        bounds_min=np.array([-3.0, -3.0, 0.3], dtype=np.float32),
+        bounds_max=np.array([3.0, 3.0, 1.2], dtype=np.float32),
+        geofence_buffer_m=0.5,
+    )
+    np.testing.assert_array_equal(
+        waypoint,
+        np.array([4.0, -4.0, 1.2], dtype=np.float32),
+    )
+
+
+@pytest.mark.parametrize('drone_x', [2.5, 3.2])
+def test_policy_waypoint_clamps_at_buffer_edge_and_outside(
+    drone_x: float,
+) -> None:
+    """The buffer boundary is inclusive, and an escaped drone stays guarded."""
+    waypoint = compute_bounded_waypoint(
+        drone_position=np.array([drone_x, 0.0, 0.9], dtype=np.float32),
+        policy_action=np.array([2.0, 0.0, 0.9], dtype=np.float32),
+        bounds_min=np.array([-3.0, -3.0, 0.3], dtype=np.float32),
+        bounds_max=np.array([3.0, 3.0, 1.2], dtype=np.float32),
+        geofence_buffer_m=0.5,
+    )
+    np.testing.assert_array_equal(
+        waypoint,
+        np.array([3.0, 0.0, 0.9], dtype=np.float32),
+    )
+
+
+def test_policy_waypoint_rejects_invalid_geofence_buffer() -> None:
+    with pytest.raises(ValueError, match='geofence_buffer_m'):
+        compute_bounded_waypoint(
+            drone_position=np.zeros(3, dtype=np.float32),
+            policy_action=np.zeros(3, dtype=np.float32),
+            bounds_min=-np.ones(3, dtype=np.float32),
+            bounds_max=np.ones(3, dtype=np.float32),
+            geofence_buffer_m=-0.1,
+        )

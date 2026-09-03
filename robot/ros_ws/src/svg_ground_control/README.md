@@ -146,18 +146,29 @@ observation from PX4 odometry plus ball mocap, and publishes PX4
 `TrajectorySetpoint` and `OffboardControlMode` messages directly to
 `/{name}/fmu/in/trajectory_setpoint` and
 `/{name}/fmu/in/offboard_control_mode`. The policy's full 3D waypoint is used.
-The resulting absolute waypoint is clamped to `[-3, 3] m` in ENU X/Y and to
-the configured altitude bounds.
+While the drone is more than `geofence_buffer_m` (default `0.5 m`) from every
+horizontal geofence face, the resulting ENU X/Y waypoint is left unconstrained.
+Once the drone is within that buffer—or is already outside the fence—the X/Y
+waypoint is clamped to `bounds_min` and `bounds_max`. Altitude is always
+clamped to the configured Z bounds.
 
-The ball goal supplied to the policy observation can be `fixed`, `circle`, or
-`figure8`. `target_x` and `target_y` specify the fixed goal or periodic-curve
-center. `goal_radius`, `goal_period_s`, and `goal_phase_rad` configure the
+The ball goal supplied to the policy observation can be `fixed`, `circle`,
+`figure8`, or `random`. `target_x` and `target_y` specify the fixed goal or
+periodic-curve center. `goal_radius`, `goal_period_s`, and `goal_phase_rad` configure the
 periodic modes. `goal_rotation_rad` then rotates the complete curve
 counter-clockwise in ENU around its center. Calling `/policy_commander/start`
 resets the reference phase. Before rotation, phase zero starts at
 `(target_x + goal_radius, target_y)`. The current XY reference is published on
 `<debug_topic_prefix>/goal` as
 `std_msgs/Float32MultiArray`.
+
+In `random` mode, one goal is sampled uniformly from the axis-aligned ENU
+rectangle defined by `goal_spawn_min_xy` and `goal_spawn_max_xy`. A new goal
+is sampled when the drone's XY position comes within `goal_arrival_radius` of
+the current goal. `goal_random_seed: -1` uses nondeterministic sampling; a
+non-negative seed makes test runs repeatable. Starting the policy samples a
+fresh first goal. The current goal topic remains active even when
+`publish_debug` is false and is included by `record_drone_flight_bag.sh`.
 
 The circle moves counter-clockwise in ENU. The figure eight is a Gerono
 lemniscate with `goal_radius` as its half-width and half that value as its
@@ -188,12 +199,27 @@ goal_trajectory: "figure8"
 goal_rotation_rad: 1.5707963267948966  # long axis along ENU Y
 ```
 
+Select arrival-triggered random goals inside a rectangular spawn region:
+
+```yaml
+goal_trajectory: "random"
+goal_spawn_min_xy: [-1.5, -1.5]
+goal_spawn_max_xy: [1.5, 1.5]
+goal_arrival_radius: 0.35
+goal_random_seed: -1
+```
+
 Install in the robot container:
 
 ```bash
 pip install --break-system-packages -r /root/AirStack/robot/ros_ws/src/svg_ground_control/requirements-policy.txt
 bws --packages-select svg_ground_control
 ```
+
+The standard `scripts/start_drone_soccer_lab_tmux.sh` launcher performs the
+policy dependency import check and installs `requirements-policy.txt`
+automatically when an older or recreated robot container is missing it.
+Running `bws`/`colcon` by itself does not install Python `install_requires`.
 
 The read-only `/root/drone_soccer` mount is included in the robot container's
 `PYTHONPATH`, so an editable install is neither needed nor writable.
