@@ -336,6 +336,50 @@ def _is_glazed_name(name):
     return name in qf._G2_WIN_FACES
 
 
+#: `tornado_urban_usd._window_named`'s own substring test, reproduced here
+#: so a piece's fate can be read off the PLAN alone (`kit_guard` runs both
+#: before any stage exists, on the pure planner path, and again on the real
+#: one) -- see `_is_kit_window_module`'s own docstring for why `category`,
+#: not the piece's kit asset `name`, is the faithful stand-in.
+_WINDOW_NAMED_TOKENS = ("window", "wnd", "_door")
+
+
+def _is_kit_window_module(p):
+    """Will `tornado_urban_usd.apply_plan`'s glass step KNOCK OUT (fully
+    deactivate) this placement if it ends up in `plan["glass"]`, rather than
+    rebind a real glazing subset?
+
+    `apply_plan` decides per piece with `_has_glazing_binding(stage, path)
+    or _window_named(path)` — a REAL bound glazing material rebinds; its
+    absence PLUS a window/door-named leaf prim knocks the whole module out
+    dark. `annotate_glazing` measures ZERO real glazing on every kit family
+    checked (`wreck_kit`'s own "window-name prior" comment — MCE paints
+    windows into one facade atlas, Downtown_West's window subsets bind
+    untextured/shared materials) — so for a kit building the ENTIRE
+    decision reduces to `_window_named`'s own leaf-name test, and this
+    reproduces it without a stage: `_window_named` tests the LAST SEGMENT
+    of the AUTHORED prim path, which `scene_generator.apply_placements`
+    builds as `{category}_{group}_{i}` — `category` is a fixed PREFIX of
+    that leaf (`group`/`i` are plain digits, so appending them can never
+    add or remove one of `_WINDOW_NAMED_TOKENS`), and `category` is set at
+    `urban_building.build_building` time, present on every placement dict
+    whether or not it has ever touched a stage. Testing it directly gives
+    the IDENTICAL answer `_window_named` gives on the real authored path
+    (dw_terrace's `"windows{k}"` band -> category `bld_dw_terrace_
+    windows0` -> leaf `bld_dw_terrace_windows0_4_50`, "window" in both) and
+    the identical answer on a style whose bands never say "window" at all
+    (`fam03`'s `ground`/`storey_bottom`/`storey_middle`/`storey_upper`/
+    `cornice` — ROUND 5 measured: `SM_MBuilding03_Facade_B_Middle`, a REAL
+    punched-window piece per `quake_flow._G2_WIN_FACES`, has neither
+    `_window_named` nor this test true for it, so a voided pane on
+    brownstone_row/walkup is honestly a no-op on the stage today — a
+    pre-existing property of `_window_named`'s own vocabulary, not
+    something this function changes).
+    """
+    leaf = str(p.get("category") or "").lower()
+    return any(tok in leaf for tok in _WINDOW_NAMED_TOKENS)
+
+
 def _corner_of(ub, name, lx, ly, yaw_deg):
     """SW/SE/NW/NE from the SIGN of a corner piece's own local (lx, ly),
     NUDGED first by its own measured bbox centre (rotated by its final
@@ -663,7 +707,58 @@ KIT_RECIPE_KW = {
     # `parapet_fall` was spending 5 of them on S/W/E. Two sides keeps the
     # coping loss where the wind is.
     "parapet_fall": {"n_sides": 2},
+    # NOTE: `glass_loss` is deliberately NOT retuned here (its own T3/T4
+    # `n_sides=4` is left alone) -- unlike every kwarg above, `n_sides`
+    # changes how many times `t_glass_loss` LOOPS (`ranked = _rank_sides(
+    # weights)[:n_sides]`, one `rng.uniform`/candidate-draw pass per side
+    # in the loop), which changes how many random numbers the SHARED `rng`
+    # stream consumes before every recipe AFTER it in the ladder runs --
+    # unlike `deg`/`corner_top_storeys`/the other retunes here, which only
+    # change the VALUE a fixed number of draws produce. Pinning `n_sides`
+    # down for kit therefore does not just concentrate glass loss; it
+    # reshuffles every later recipe's own random picks on EVERY kit style,
+    # not only the all-glazed one this was meant to fix (MEASURED: it
+    # walked `walkup` T4's bench plan from 20 removed pieces to 31 before
+    # `glass_gone` below ever ran, purely from `chunk`/`out_of_plane_top`
+    # drawing a different candidate set). `glass_gone`, below, reaches the
+    # SAME "concentrate the structural fallout on the wind side" result
+    # without touching `plan_damage`'s own recipe list or its rng stream
+    # at all -- it is a PLAN-LEVEL filter kit_guard applies to `plan[
+    # "glass"]` after the fact, so every OTHER style's byte-identical
+    # output survives (`test_guard_is_deterministic_for_a_seed` fixes only
+    # the SEED, but a retune here would have moved every one of them).
+    # ROUND 5 (lead review, B1 item 12): `t_hanging_panels`'s own 25-70 deg
+    # pitch swings a piece's far edge 1.5-2.8 m off the wall plane while
+    # only dropping it a fraction of that in z (a 3 m storey_middle panel
+    # at 46 deg -- the MEASURED B1 defect, `parts/bld_brownstone_row_
+    # storey_middle_5_84/LOD0` -- lands ~1.7 m proud of the wall with a
+    # visible gap top AND bottom to its still-standing neighbours). That
+    # reads as "floating", not "torn": a real siding/cladding failure on
+    # masonry bulges or buckles a little before it lets go, it does not
+    # swing out on a hinge like a barn door. 10-28 deg keeps the piece's
+    # own edge close enough to its neighbours to still look attached; the
+    # `KIT_HANG_SHED_DEG` safety net below sheds anything that still ends
+    # up too steep (this recipe's own outlier draws, and every macroblock
+    # `t_out_of_plane_top` displaces at its fixed 65-88 deg, which this
+    # kwarg patch cannot reach since that recipe takes no `deg` argument).
+    "hanging_panels": {"deg": (10.0, 28.0)},
 }
+
+#: A DISPLACED piece (still "attached", never in `plan["removed"]`) pitched
+#: at or past this many degrees reads as floating rather than hanging --
+#: see `KIT_RECIPE_KW["hanging_panels"]`'s own comment for the measured B1
+#: case. `kit_guard` step 5 sheds (demotes to removed, so it becomes real
+#: fallen debris) any displaced piece at or past this angle regardless of
+#: which recipe produced it -- the ONE way to also catch `t_out_of_plane_
+#: top`'s 65-88 deg macroblocks, which are not reachable through
+#: `KIT_RECIPE_KW` at all (`t_out_of_plane_top(pctx)` takes no kwargs; its
+#: pitch is `quake_sliced.MACRO_DEG`, a module constant). The review's own
+#: menu -- "support/seat it or shed it" -- and 35 sits above the retuned
+#: `hanging_panels` range (so a believable lean almost never sheds) and
+#: far below `MACRO_DEG`'s floor of 65 (so an out-of-plane macroblock is
+#: shed every time on a kit building, reading as a fallen section rather
+#: than a flat flap hanging off the street face).
+KIT_HANG_SHED_DEG = 35.0
 
 #: The LOOK cap, as a fraction of the building's own TOTAL piece count —
 #: the metric the round-4 review quoted ("92/208 = 0.44"). §2.6's
@@ -963,7 +1058,7 @@ def _shed_open_side_parapets(g, removed, plan, note):
     return shed
 
 
-def _support_closure(g, seeds, extra=()):
+def _support_closure(g, seeds, extra=(), phantom=()):
     """`seeds` (plus `extra`) grown until nothing standing is unsupported.
     Returns `(removed_set, shed_paths)` — `shed_paths` in discovery order,
     so a caller can report/ledger exactly what the SUPPORT rule took (as
@@ -972,20 +1067,37 @@ def _support_closure(g, seeds, extra=()):
     `extra` is the set of pieces some OTHER pass already took and that the
     budget trim may not hand back — in practice `tornado_urban.
     _shed_unsupported_roof`'s roof/parapet sheds, which are earned by a
-    hole under them and are never the gutted-box defect."""
+    hole under them and are never the gutted-box defect.
+
+    `phantom` is DIFFERENT from both: paths that count as GONE for the
+    support test only, never added to the returned `removed`/`shed` —
+    `kit_guard`'s own kit window-module knock-outs (`_is_kit_window_
+    module`), pieces `tornado_urban_usd.apply_plan` will fully deactivate
+    once `plan["glass"]` is applied even though `plan_damage` only ever
+    listed them as voided, not removed. Folding one into `removed` would
+    double-author it — both a voided pane AND a fallen structural fragment
+    off the SAME piece — so it is looked up here (`_unsupported`'s own
+    `removed` argument, which every column/neighbour/attachment test reads
+    off) without ever becoming a candidate itself: the loop below skips a
+    phantom path exactly like an already-removed one, so it can strand a
+    STANDING neighbour but is never re-decided or re-shed on its own
+    account."""
     removed = set(seeds) | set(extra)
+    phantom = set(phantom)
+    dead = removed | phantom
     shed = []
     for _ in range(_SUPPORT_MAX_PASSES):
         newly = []
         for e in g.els:
             path = qs._path(e)
-            if not path or path in removed:
+            if not path or path in dead:
                 continue
-            if _unsupported(g, e, removed):
+            if _unsupported(g, e, dead):
                 newly.append(path)
         if not newly:
             break
         removed.update(newly)
+        dead.update(newly)
         shed.extend(newly)
     return removed, shed
 
@@ -1036,7 +1148,7 @@ def _measure(g, removed):
     return len(removed) / float(n_all), area / total_area
 
 
-def _trim_to_budget(g, seeds, level, weights, top_band, extra=()):
+def _trim_to_budget(g, seeds, level, weights, top_band, extra=(), phantom=()):
     """Hand back the lowest-scoring TRIMMABLE seeds until the support
     closure of what is left is inside both `KIT_MAX_COUNT_FRAC[level]` and
     `KIT_MAX_AREA_FRAC[level]`.
@@ -1044,8 +1156,13 @@ def _trim_to_budget(g, seeds, level, weights, top_band, extra=()):
     The closure is recomputed from the SEEDS every round rather than
     incrementally un-shedding: restoring a seed can only ever ADD support,
     so a piece the support pass took in an earlier round may legitimately
-    stand again, and recomputing is the only way to see that. Returns
-    `(seeds, removed, shed, n_restored)`."""
+    stand again, and recomputing is the only way to see that. `phantom`
+    passes straight through to `_support_closure` (see that function's own
+    docstring) — it is never a trim CANDIDATE (it is not in `seeds`) and
+    never counted by `_measure` (it is never in the returned `removed`), so
+    it cannot itself push a plan over budget; it can only make the closure
+    correctly strand a piece that depends on it. Returns `(seeds, removed,
+    shed, n_restored)`."""
     cap_n = KIT_MAX_COUNT_FRAC.get(level, KIT_MAX_COUNT_FRAC["T4"])
     cap_a = KIT_MAX_AREA_FRAC.get(level, KIT_MAX_AREA_FRAC["T4"])
     idx = {qs._path(e): e for e in g.els}
@@ -1053,7 +1170,7 @@ def _trim_to_budget(g, seeds, level, weights, top_band, extra=()):
     extra = set(extra)
     n_all = len(g.els) or 1
     n_restored = 0
-    removed, shed = _support_closure(g, seeds, extra)
+    removed, shed = _support_closure(g, seeds, extra, phantom)
     for _ in range(_TRIM_MAX_ROUNDS):
         cfrac, afrac = _measure(g, removed)
         if cfrac <= cap_n and afrac <= cap_a:
@@ -1072,7 +1189,7 @@ def _trim_to_budget(g, seeds, level, weights, top_band, extra=()):
         for q in drop:
             seeds.discard(q)
         n_restored += len(drop)
-        removed, shed = _support_closure(g, seeds, extra)
+        removed, shed = _support_closure(g, seeds, extra, phantom)
     return seeds, removed, shed, n_restored
 
 
@@ -1121,7 +1238,7 @@ def kit_guard(plan, info, elements, rng, wind, intensity, verbose=True):
     """
     counts = {"restored_ground": 0, "restored_budget": 0, "shed_support": 0,
               "shed_roof": 0, "shed_parapet": 0, "demoted_displaced": 0,
-              "dropped_tears": 0}
+              "demoted_steep": 0, "dropped_tears": 0}
     if not TK_GUARD_ON:
         plan.setdefault("notes", []).append(
             "kit guard: DISABLED (TK_GUARD=0) -- round-3 behaviour")
@@ -1136,6 +1253,40 @@ def kit_guard(plan, info, elements, rng, wind, intensity, verbose=True):
     before_c = float((plan.get("stats") or {}).get("removed_count_frac") or 0.0)
     before_a = float((plan.get("stats") or {}).get("removed_frac") or 0.0)
     n_before = len(plan.get("removed") or ())
+
+    # ROUND 5 (lead review, B2 item 14): a kit WINDOW MODULE listed in
+    # `plan["glass"]` is not merely voided at apply time -- it is fully
+    # DEACTIVATED (`_is_kit_window_module`'s own docstring), so it can no
+    # longer hold up whatever is above it even though it was never in
+    # `plan["removed"]` and the support closure below has never looked at
+    # `plan["glass"]` at all. Measured on dw_terrace T3 (the bench's own
+    # B2 seed): `glass_loss` knocks out most of a window band that carries
+    # NO separate pier/frame piece at all (`dw_b`'s own `windows{k}` bands
+    # are 100% glazed modules), and the support test — checked against
+    # `removed` alone — found the storey above it standing on nothing.
+    # `glass_gone` is fed everywhere below as `phantom`: it makes a
+    # STANDING neighbour correctly strand (and, per the review's own
+    # "let it collapse" option, fall as real debris), but a glass-gone
+    # piece itself is never folded into `removed` — it is already
+    # accounted for as a voided pane, and double-authoring it as a fallen
+    # structural fragment too would be its own defect.
+    #
+    # WINDWARD SIDE ONLY. `t_glass_loss` itself may void panes on several
+    # sides (its own `n_sides`, `KIT_RECIPE_KW`'s own note on why THAT
+    # kwarg is left alone), but the structural CONSEQUENCE this phantom
+    # set drives should read the same way every other kit retune already
+    # does -- concentrated on the elevation the wind actually hit
+    # (`t_hanging_panels`'s own `sd = _rank_sides(weights)[0]` pick, same
+    # convention). A leeward window band losing its glass is real (flying
+    # debris breaks panes on every face) but is not, by itself, what a
+    # single-bearing wind-weighted ladder should read as a second point of
+    # collapse — measured without this restriction: `dw_terrace` T4 at
+    # bearing 90 lost 50% of its removed pieces off non-windward sides,
+    # under `test_windward_dominance_bearing_90_hits_south`'s 70% floor.
+    windward = tu._rank_sides(weights)[0] if weights else None
+    glass_gone = {q for q in (plan.get("glass") or ())
+                  if _is_kit_window_module((idx.get(q) or {}).get("p") or {})
+                  and (idx.get(q) or {}).get("p", {}).get("_side") == windward}
 
     struct_storeys = [int((e.get("p") or {}).get("_storey", 0)) for e in g.els
                       if (e.get("p") or {}).get("_role") in KIT_STRUCT_ROLES]
@@ -1156,7 +1307,7 @@ def kit_guard(plan, info, elements, rng, wind, intensity, verbose=True):
 
     # -- 2) budget + support ------------------------------------------------
     seeds, removed, shed, n_restored = _trim_to_budget(
-        g, seeds, level, weights, top_band)
+        g, seeds, level, weights, top_band, phantom=glass_gone)
     counts["restored_budget"] = n_restored
     counts["shed_support"] = len(shed)
     if n_restored:
@@ -1196,7 +1347,7 @@ def kit_guard(plan, info, elements, rng, wind, intensity, verbose=True):
     #       with nothing left to check it (measured: office/commercial_mid
     #       T4 landed at 0.204/0.207 against a 0.20 cap before this).
     seeds, removed, shed, n_restored2 = _trim_to_budget(
-        g, seeds, level, weights, top_band, extra=fixed)
+        g, seeds, level, weights, top_band, extra=fixed, phantom=glass_gone)
     counts["restored_budget"] += n_restored2
     counts["shed_support"] = len(shed)
     plan["removed"] = sorted(removed)
@@ -1211,33 +1362,69 @@ def kit_guard(plan, info, elements, rng, wind, intensity, verbose=True):
 
     # -- 5) displaced ------------------------------------------------------
     disp = plan.get("displaced") or {}
-    demote = []
+    dead = removed | glass_gone
+    demote, demote_steep = [], []
     for q in list(disp):
         e = idx.get(q)
         if e is None:
             continue
-        if q in removed or _unsupported(g, e, removed):
+        d = disp.get(q) or {}
+        # ROUND 5 (lead review, B1 item 12 / B3 item 15): "support/seat it
+        # or shed it" — a displaced piece pitched at or past
+        # `KIT_HANG_SHED_DEG` reads as floating rather than hanging (see
+        # that constant's own docstring for the measured B1 case and why
+        # this is the only lever that reaches `t_out_of_plane_top`'s own
+        # fixed 65-88 deg macroblocks). Checked whether or not the grid
+        # says it is "supported" — the grid only knows about its hinge
+        # bay, not the angle it swung out to.
+        steep = abs(float(d.get("deg") or 0.0)) >= KIT_HANG_SHED_DEG
+        if q in removed or steep or _unsupported(g, e, dead):
             demote.append(q)
+            if steep and q not in removed and not _unsupported(g, e, dead):
+                demote_steep.append(q)
     for q in demote:
         disp.pop(q, None)
         if q not in removed:
             removed.add(q)
     if demote:
         counts["demoted_displaced"] = len(demote)
+        counts["demoted_steep"] = len(demote_steep)
         plan["macroblocks"] = [mb for mb in (plan.get("macroblocks") or ())
                                if mb.get("path") not in set(demote)]
-        # A demotion ADDS a removal, which can strand whatever was leaning
-        # on it -- one last closure, or the invariant this whole pass
-        # asserts (`test_no_surviving_piece_stands_on_air`) would hold
-        # everywhere except right here.
-        removed, shed3 = _support_closure(g, removed)
-        counts["shed_support"] += len(shed3)
+        # -- 5.5) budget + support, A THIRD TIME. A demotion ADDS a
+        # removal, which can (a) strand whatever was leaning on it -- one
+        # last closure, or the invariant this whole pass asserts
+        # (`test_no_surviving_piece_stands_on_air`) would hold everywhere
+        # except right here -- and (b) walk a plan step 4 had already
+        # landed AT the look cap back OVER it, with nothing left to check:
+        # MEASURED on the bench's own walkup T4 seed, `KIT_HANG_SHED_DEG`
+        # shedding two `t_out_of_plane_top` macroblocks pushed count_frac
+        # 0.150 -> 0.165 against a plan already sitting on the cap. The
+        # SAME "late shed pushes a plan back over budget" problem step 4
+        # exists to fix for the roof pass, fixed the SAME way: `demote`
+        # joins `fixed` as EXTRA (never a trim candidate, always in the
+        # closure -- a piece shed for standing on air or pitching too
+        # steep is no less earned than a roof tile shed over an emptied
+        # bay), and `_trim_to_budget`'s own closure call subsumes the
+        # plain re-closure a demotion alone would otherwise need.
+        demote_fixed = fixed | set(demote)
+        seeds, removed, shed4, n_restored3 = _trim_to_budget(
+            g, seeds, level, weights, top_band, extra=demote_fixed,
+            phantom=glass_gone)
+        counts["restored_budget"] += n_restored3
+        counts["shed_support"] += len(shed4)
         plan["removed"] = sorted(removed)
         plan["_removed_set"] = set(removed)
         notes.append(
             "kit guard: {0} displaced piece(s) demoted to removed -- a "
             "leaning/hanging panel with nothing under or beside it is a "
-            "floating panel".format(len(demote)))
+            "floating panel ({1} of them shed purely for pitching past "
+            "{2:.0f} deg, still attached but too steep to read as "
+            "seated){3}".format(
+                len(demote), len(demote_steep), KIT_HANG_SHED_DEG,
+                "" if not n_restored3 else
+                "; {0} recipe removal(s) traded back afterward to stay "
+                "under the kit look cap".format(n_restored3)))
 
     # -- 6) tears ----------------------------------------------------------
     tears = list(plan.get("tears") or ())
