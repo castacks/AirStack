@@ -648,6 +648,9 @@ def test_annotate_surface_dominant_subset_by_face_count_wins_and_skips_glazing()
     path = PIECES + "/wall_S_dominant"
     qf._box(stage, path, 0.0, 0.0, 6.0, 4.0, 0.3, 4.0, yaw_deg=0.0)
     mesh = UsdGeom.Mesh(stage.GetPrimAtPath(path))
+    fallback = damage._pbr(stage, PIECES + "/ShellFallbackLooks/wall",
+                           (0.3, 0.3, 0.3), 0.9)
+    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(fallback)
 
     mat_small = _make_textured_material(
         stage, path + "/src/asset/LOD0/Section1/UnrealMaterial",
@@ -668,11 +671,13 @@ def test_annotate_surface_dominant_subset_by_face_count_wins_and_skips_glazing()
     _bind_gac_glazing(stage, path, [5], path + "/src/asset/LOD0/Section3/UnrealMaterial",
                       tex_name="M_Building_02_Glass_BaseColor.png")
 
-    placements = [{"prim_path": path}]
+    placements = [{"prim_path": path, "_role": "pier"}]
     n_hit = tu.annotate_surface(stage, placements)
     assert n_hit == 1, n_hit
     assert placements[0]["_tex_name"] == "T_Brick_Big_1K_B.jpg", placements[0]
     assert placements[0]["_tex_url"].endswith("T_Brick_Big_1K_B.jpg"), placements[0]
+    base = UsdShade.MaterialBindingAPI(mesh.GetPrim()).ComputeBoundMaterial()[0]
+    assert base.GetPath() == mat_big.GetPath()
 
 
 def test_annotate_surface_subsetless_kit_mesh_uses_direct_binding():

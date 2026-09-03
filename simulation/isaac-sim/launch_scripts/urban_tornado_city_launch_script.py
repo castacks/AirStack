@@ -400,6 +400,7 @@ FAMILY_OF_BTYPE = {"urm": "01", "rc": "02", "rc_glass": "05"}
 SCENE_CONFIG = _env("SCENE_CONFIG", "downtown_tornado_bench_500")
 UT_SEED = _env("UT_SEED", "")
 MAX_BUILDINGS = int(_env("UT_MAX_BUILDINGS", "0") or "0")
+FAST_SLICE = _flag("UT_FAST_SLICE", "1")
 LAYOUT_STREET = _flag("UT_LAYOUT_STREET", "0")
 SNAP_DIR = _env("SNAP_DIR", "")
 KEEP_OPEN = _flag("KEEP_OPEN", "0")
@@ -950,6 +951,10 @@ class TornadoCityApp:
             damaged = damaged_all
 
         fracture.ensure_vtk(verbose=True)
+        if FAST_SLICE:
+            from detail import gac_storey_slice_fast
+            gac_storey_slice_fast.install()
+            print("[ut] fast complementary-sweep slicer enabled")
 
         placed, failed = [], []
         total_pieces = 0

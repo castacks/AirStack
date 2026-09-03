@@ -551,6 +551,8 @@ def annotate_surface(stage, placements):
 
     n_hit = 0
     n_moved = 0
+    n_base_rebound = 0
+    exterior = ("wall", "pier", "corner", "parapet", "parapet_corner")
     for p in placements:
         path = p.get("prim_path")
         prim = prims.get(path)
@@ -609,6 +611,19 @@ def annotate_surface(stage, placements):
         p["_surface_mat_path"] = best["material_path"] if best else ""
         if best:
             n_hit += 1
+            # A sliced mesh intentionally carries a role fallback at prim
+            # level and its real source materials on face subsets.  That is
+            # visually correct only while the subset partition remains
+            # complete, and it makes Isaac's property panel misleadingly say
+            # ShellFallbackMaterial for a real facade piece.  Use the
+            # measured outermost source material as the weak/base binding;
+            # direct bindings on material subsets still win face by face.
+            if p.get("_role") in exterior:
+                mat_prim = stage.GetPrimAtPath(best["material_path"])
+                if mat_prim and mat_prim.IsValid():
+                    UsdShade.MaterialBindingAPI.Apply(prim).Bind(
+                        UsdShade.Material(mat_prim))
+                    n_base_rebound += 1
         if moved:
             n_moved += 1
 
@@ -621,7 +636,6 @@ def annotate_surface(stage, placements):
     donors = [p for p in placements if p.get("_tex_url") and
               p.get("_surface_mat_path")]
     repaired = 0
-    exterior = ("wall", "pier", "corner", "parapet", "parapet_corner")
     for p in placements:
         if p.get("_tex_url") or p.get("_role") not in exterior or not donors:
             continue
@@ -645,8 +659,10 @@ def annotate_surface(stage, placements):
     print("[tornado_urban_usd] surface: {0} of {1} pieces carry a resolved "
           "cladding texture (non-glazing, OUTERMOST subset — area only as "
           "the tie-break); the outermost rule moved {2} piece(s), nearest-"
-          "facade repair filled {3} source-unbound exterior piece(s)".format(
-              n_hit, len(placements), n_moved, repaired))
+          "facade repair filled {3} source-unbound exterior piece(s); "
+          "{4} exterior base binding(s) now name their measured source "
+          "material".format(
+              n_hit, len(placements), n_moved, repaired, n_base_rebound))
     return n_hit
 
 

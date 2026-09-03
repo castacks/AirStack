@@ -1,0 +1,53 @@
+# Small validation-pod shape for the four-run mono RGB-D benchmark.
+workflow:
+  name: airstack-mission-8robot-1gpu-12cpu-60gb
+  groups:
+  - name: airstack
+    tasks:
+    - name: workspace
+      lead: true
+      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
+      privileged: true
+      command: ["bash", "-c"]
+      args:
+      - |
+        set -uo pipefail
+        log() { echo "[mission-bootstrap] $*"; }
+        log "starting pod setup via baked entrypoint"
+        OSMO_AIRSTACK_UP=false /usr/local/bin/entrypoint.sh 2>&1 \
+          | tee /tmp/baked-entrypoint.log &
+        export BAKED_PID=$!
+        LAUNCHER=/root/AirStack/osmo/workspace/mission_launcher.sh
+        for i in $(seq 1 600); do [ -f "$LAUNCHER" ] && break; sleep 2; done
+        if [ ! -f "$LAUNCHER" ]; then
+          log "ERROR: $LAUNCHER not found after clone wait"
+          exec sleep infinity
+        fi
+        exec bash "$LAUNCHER"
+      environment:
+        OSMO_MISSION_FILE: "osmo/missions/hurricane_suburban_l3_mono_baselines.yaml"
+        OSMO_MISSION_KEEP_ALIVE: "false"
+        AIRSTACK_BRANCH: "krrishj18/osmo-mission-runner"
+        AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
+      credentials:
+        airlab-nucleus:
+          OMNI_USER: omni_user
+          OMNI_PASS: omni_pass
+          OMNI_SERVER: omni_server
+        airlab-docker-login:
+          AIRLAB_REGISTRY_USER: username
+          AIRLAB_REGISTRY_PASS: password
+        airlab-storage:
+          AIRLAB_STORAGE_USER: username
+          AIRLAB_STORAGE_PASS: password
+          AIRLAB_STORAGE_HOST: host
+
+  resources:
+    default:
+      cpu: 12
+      gpu: 1
+      memory: 60Gi
+      storage: 300Gi
+
+  timeout:
+    exec_timeout: 24h

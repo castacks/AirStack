@@ -1,7 +1,7 @@
-# Fast-path validation sweep for Hurricane/Suburban/level_3/1.
-# Order is deliberately reversed from the interrupted sweep, with RAVEN first.
-# Submit on osmo/workflows/airstack-mission-8robot-2gpu.yaml.
-name: hurricane_suburban_l3_mono_raven
+# Fast-path validation sweep for the four Hurricane/Suburban/level_3/1 baselines.
+# Order is deliberately reversed from the interrupted sweep.
+# Submit on osmo/workflows/airstack-mission-8robot-1gpu-12cpu-60gb.yaml.
+name: hurricane_suburban_l3_mono_baselines
 nas_dest: /volume2/coa-sei
 
 stack:
@@ -22,7 +22,6 @@ env:
   GT_ANNOTATIONS: "on"
   COMMS_RANGE_M: "5000"
   MAP_ANCHOR_ENU: "true"
-  OFFBOARD_COMPUTE_GPU: "1"
 
   # Opt-in fast path. Resolution and per-method pitch are kept at their
   # already-selected values below; no temporal slicing is enabled.
@@ -40,11 +39,6 @@ env:
   CONAVGPT2_YOLO_WORLD_WEIGHTS: /root/.cache/conavgpt2_weights/yolov8l-world.pt
   CONAVGPT2_VLM_MODEL: Qwen/Qwen2.5-VL-7B-Instruct
   CONAVGPT2_VLM_QUANT: nf4
-  RAYFRONTS_CONFIG: shared_humans
-  RAYFRONTS_ROBOT_IDS: "1,2,3,4,5,6,7,8"
-  RAYFRONTS_WAIT_TIMEOUT_S: "600"
-  RAYFRONTS_COMPUTE_PROB: "True"
-  RAVEN_LVLM: "false"
   MIGHTY_V_MAX: "1.0"
   MIGHTY_A_MAX: "0.2"
   MIGHTY_J_MAX: "1.0"
@@ -56,14 +50,14 @@ env:
   PID_VZ_FF: "0.0"
 
 environment_order: round_robin
-iterations: 5
+iterations: 4
 
-environments:
-  - &raven
-    name: hurricanesuburbanl3v1_raven_mono
-    method: raven
-    is_raven: true
-    is_baseline: false
+environment_templates:
+  - &geometry
+    name: hurricane_suburban_l3_geometry
+    method: template
+    is_raven: false
+    is_baseline: true
     is_team: false
     model_port: ""
     scene_yaml: frozen_hurricane_suburban_lvl3.yaml
@@ -77,8 +71,8 @@ environments:
     LOCAL_PLANNER: mighty
     MIGHTY_CLOUD_SUFFIX: sensors/ouster/point_cloud
     MIGHTY_CLOUD_FRAME: ouster
-    RAYFRONTS_MODE: shared
-    START_RAYFRONTS_SERVER: "true"
+    RAYFRONTS_MODE: per_robot
+    START_RAYFRONTS_SERVER: "false"
     START_DETECTOR_SERVER: "false"
     START_ITM_SERVER: "false"
     START_VLM_SERVER: "false"
@@ -138,6 +132,18 @@ environments:
     model_port: "8100"
     START_ITM_SERVER: "true"
     START_VLM_SERVER: "false"
+
+# Only these four entries are executed. The templates above retain the common
+# geometry anchors without adding another iteration.
+environments:
+  - <<: *team
+  - <<: *team
+    name: hurricanesuburbanl3v1_vlfm_mono
+    method: vlfm
+    is_team: false
+    model_port: "8100"
+    START_ITM_SERVER: "true"
+    START_VLM_SERVER: "false"
   - <<: *team
     name: hurricanesuburbanl3v1_lawnmower_mono
     method: lawnmower
@@ -150,7 +156,6 @@ environments:
     is_team: false
     model_port: ""
     START_VLM_SERVER: "false"
-
 ready: {timeout_s: 2400, poll_interval_s: 10}
 up_timeout_s: 5400
 iteration_attempts: 2
@@ -170,12 +175,7 @@ record:
     - /{robot}/search/round_stats
     - /{robot}/search/run_complete
     - /{robot}/search/detection_image
-    - /{robot}/raven_nav/discoveries
-    - /{robot}/raven_nav/confirmed_targets
-    - /{robot}/raven_nav/explored_area_coverage
     - /gcs/{robot}/map_origin
-    - /gcs/payload/{robot}/confirmed_targets
-    - /gcs/payload/{robot}/explored_area_coverage
     - /gcs/robot_markers
     - /gcs/sim_ground
     - /gcs/annotations/bboxes
@@ -195,18 +195,13 @@ steps:
   - run:
       container: offboard-compute
       cmd: |
-        if [ "{{env.is_raven}}" = "true" ]; then
-          for i in $(seq 1 60); do [ -S /tmp/rayfronts/encoder.sock ] && break; sleep 5; done
-          [ -S /tmp/rayfronts/encoder.sock ] || exit 1
-        else
-          MP="{{env.model_port}}"
-          for i in $(seq 1 360); do
-            curl -sf http://localhost:8200/health >/dev/null &&
-              { [ -z "$MP" ] || curl -sf "http://localhost:$MP/health" >/dev/null; } && exit 0
-            sleep 15
-          done
-          exit 1
-        fi
+        MP="{{env.model_port}}"
+        for i in $(seq 1 360); do
+          curl -sf http://localhost:8200/health >/dev/null &&
+            { [ -z "$MP" ] || curl -sf "http://localhost:$MP/health" >/dev/null; } && exit 0
+          sleep 15
+        done
+        exit 1
       timeout_s: 5700
 
   - run:
@@ -228,28 +223,6 @@ steps:
       timeout_s: 420
       robots: all
 
-  - action:
-      task: semantic_search
-      timeout_s: 13800
-      cancel_on_timeout: true
-      cancel_grace_s: 180
-      pass_on_feedback: true
-      goal_per_robot: "{{env.goal_per_robot}}"
-      goal:
-        query: person
-        background_queries: "road, grass, tree, house, wall, debris, sky, car, utility pole, street light, hydrant, crosswalk"
-        search_area: "{{env.search_area}}"
-        min_altitude_agl: 15.0
-        max_altitude_agl: 40.0
-        min_flight_speed: 0.5
-        max_flight_speed: 1.0
-        confidence_threshold: 0.95
-        voxel_score_threshold: 0.75
-        score_threshold: 0.85
-        voxel_min_cluster_size: 12
-        max_sim_seconds: 600.0
-    when: "{{env.is_raven}}"
-
   - run:
       container: airstack-robot-desktop-{n}
       cmd: |
@@ -263,7 +236,6 @@ steps:
         echo $! > /tmp/search/planner.pid
         sleep 25; kill -0 $(cat /tmp/search/planner.pid)
       timeout_s: 420
-    when: "{{env.is_baseline}}"
 
   - run:
       container: offboard-compute
@@ -280,7 +252,6 @@ steps:
         echo $! > /tmp/search/planner.pid
         sleep 30; kill -0 $(cat /tmp/search/planner.pid)
       timeout_s: 420
-    when: "{{env.is_baseline}}"
 
   - run:
       container: airstack-robot-desktop-{n}
@@ -295,7 +266,6 @@ steps:
         done
         exit 1
       timeout_s: 13800
-    when: "{{env.is_baseline}}"
 
   - run:
       container: offboard-compute
@@ -310,7 +280,6 @@ steps:
         done
         exit 1
       timeout_s: 13800
-    when: "{{env.is_baseline}}"
 
   - action:
       task: land
@@ -322,9 +291,9 @@ steps:
   - run:
       container: airstack-robot-desktop-{n}
       cmd: |
-        DEST=/root/AirStack/results/hurricane_suburban_l3_mono_raven/{{env.RESULTS_SCENE}}/{{env.method}}/robot_{n}
+        DEST=/root/AirStack/results/hurricane_suburban_l3_mono_baselines/{{env.RESULTS_SCENE}}/{{env.method}}/robot_{n}
         mkdir -p "$DEST"
-        cp -v /tmp/search/planner.log /tmp/raven_robot_{n}.log /tmp/rayfronts_robot_{n}.log "$DEST"/ 2>/dev/null || true
+        cp -v /tmp/search/planner.log "$DEST"/ 2>/dev/null || true
         kill $(cat /tmp/search/planner.pid) 2>/dev/null || true
       timeout_s: 120
       expect_success: false
