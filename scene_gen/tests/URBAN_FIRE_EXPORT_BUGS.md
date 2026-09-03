@@ -147,9 +147,9 @@ rather than composing a manifest against an unverified dump.
 
 ---
 
-## 5. CONFIRMED real host/pod determinism desync in the city layout — unresolved, highest priority
+## 5. Host/pod layout desync from offline dimensions — repaired and gated
 
-**Status: ROOT CAUSE UNCONFIRMED. Blocking. Highest-priority item for the new test suite.**
+**Status: root cause confirmed; canonical Kit-dimension repair implemented.**
 
 With Stage 3b actually run properly (`PYTHONHASHSEED=0` and
 `SG_INSTANCE_PLACEMENTS=1` set identically on both sides, matching the
@@ -209,6 +209,23 @@ footprint differs from Kit's live Nucleus measurement and caused the first
 packing divergence.  Run the verifier once more on the already-written pair
 before regenerating either file; its `model size conflicts` section is the
 next root-cause discriminator.
+
+The diagnostic found 66 conflicts across 122 models: apparent W/D
+transposes, square placeholder footprints, and a repeatable ~4.26 m height
+undercount on `bld_*_DG0`. The W/D signal included a dump-contract bug:
+offline serialized world-oriented axes while Kit serialized resolver-local
+axes. Both writers now declare `dimensions_space: world_xy` and serialize the
+same representation; the verifier normalizes old and new dumps before its
+model comparison.
+
+Packing no longer tries to repair another basename scrape. A real Kit dump is
+converted by `tools/kit_dump_to_dimension_catalog.py` into
+`config/harvested/urban_building_dimensions.json`, keyed by full USD URL,
+effective scale, and source up-axis. `tools/plan_png.py` gives that exact
+catalog priority over legacy basename measurements. If Stage 3b finds a
+mismatch, both cell drivers now merge the Kit measurements, regenerate that
+level's dump, manifest, worklist and review sheets, then rerun parity. Baking
+remains blocked unless the regenerated layout matches Kit exactly.
 
 ---
 

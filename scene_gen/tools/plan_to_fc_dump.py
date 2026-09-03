@@ -101,7 +101,8 @@ def build_doc(cfg, layout, placements, res, preset, seed):
         usd = str(p.get("usd", ""))
         base = os.path.basename(usd)
         n = model_no.setdefault(base, len(model_no))
-        fp = res.get(usd, "house")
+        fp = res.get(usd, "house", scale=p.get("scale", 1.0),
+                     axis_up=p.get("axis_up", "Z"))
         w, d = _yaw_swapped(fp, p.get("yaw_deg", 0.0))
         out.append({
             "i": i,
@@ -122,6 +123,7 @@ def build_doc(cfg, layout, placements, res, preset, seed):
     x0, y0, x1, y1 = layout["region"]
     return {
         "schema": SCHEMA,
+        "dimensions_space": "world_xy",
         "preset": preset,
         "seed": int(seed),
         "region_m": [round(x1 - x0, 3), round(y1 - y0, 3)],

@@ -5,6 +5,12 @@ This is an experimental path. It does not modify or invoke
 default. It retains the existing layout, rest, Flow, people, portability,
 lighting, texture and frozen-output gates.
 
+The layout proof is self-repairing. If the host plan differs from the real
+Kit dump, the driver harvests a canonical full-URL/scale/up-axis building
+dimension catalog from Kit, regenerates the affected level and reruns parity.
+It still refuses to bake if exact parity is not reached. Regenerated review
+sheets land under `${REVIEW_DIR:-$HOME/layout_review}`.
+
 ## What is accelerated
 
 1. The city manifest is deduplicated by final bake stem before Isaac starts.

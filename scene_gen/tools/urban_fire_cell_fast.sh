@@ -59,8 +59,19 @@ for L in $LEVELS; do
       FC_INTACT_ONLY=1 FC_DUMP='$KITDUMP' \
       /isaac-sim/python.sh '$REPO/simulation/isaac-sim/launch_scripts/urban_fire_city_launch_script.py' --no-window" \
       >"${LOG_DIR}/l${L}_kitdump.log" 2>&1 || die "Kit layout proof"
-    python3 "$REPO/scene_gen/tools/verify_dump_matches_kit.py" \
-      --offline "$DUMP" --kit "$KITDUMP" || die "layout proof mismatch"
+    if ! python3 "$REPO/scene_gen/tools/verify_dump_matches_kit.py" \
+      --offline "$DUMP" --kit "$KITDUMP"; then
+      DIMCAT="$REPO/scene_gen/config/harvested/urban_building_dimensions.json"
+      python3 "$REPO/scene_gen/tools/kit_dump_to_dimension_catalog.py" \
+        "$KITDUMP" --out "$DIMCAT" --merge-existing "$DIMCAT" \
+        || die "canonical dimension catalog"
+      LEVELS="$L" REVIEW_DIR="${REVIEW_DIR:-$HOME/layout_review}" \
+        bash "$REPO/scene_gen/tools/make_cell_plan.sh" \
+        || die "regenerate plan with canonical Kit dimensions"
+      python3 "$REPO/scene_gen/tools/verify_dump_matches_kit.py" \
+        --offline "$DUMP" --kit "$KITDUMP" \
+        || die "canonical dimensions did not reproduce Kit"
+    fi
     python3 "$REPO/scene_gen/tools/urban_fire_fast_preflight.py" \
       --repo "$REPO" --dump "$DUMP" --manifest "$MANIFEST" \
       --stamp "$STAMP" --write-stamp || die "write layout proof"

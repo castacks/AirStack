@@ -230,7 +230,8 @@ def test_intact_only_cannot_enter_the_interactive_keepalive_loop():
 
 def test_dump_functions_exist():
     fns = _funcdefs(CITY_TREE)
-    for name in ("default_dump_path", "_typology_rects", "dump_city_placements"):
+    for name in ("default_dump_path", "_typology_rects", "_dump_world_wh",
+                 "dump_city_placements"):
         assert name in fns, "missing " + name
 
 
@@ -311,7 +312,8 @@ def _load_dump_writer():
 
     ns = {"os": os, "json": json, "_SCENE_GEN_DIR": _SCENE_GEN,
           "_make_resolver": lambda config: _StubResolver()}
-    for name in ("default_dump_path", "_typology_rects", "dump_city_placements"):
+    for name in ("default_dump_path", "_typology_rects", "_dump_world_wh",
+                 "dump_city_placements"):
         exec(compile(ast.get_source_segment(CITY_SRC, fns[name]), CITY, "exec"), ns)
     return ns
 
@@ -351,6 +353,7 @@ def test_dump_city_placements_writes_only_houses_with_original_index(tmp_path):
     with open(path) as fh:
         doc = json.load(fh)
     assert doc["schema"] == "fire_city_placements_dump.v1"
+    assert doc["dimensions_space"] == "world_xy"
     assert doc["preset"] == "downtown_fire_500"
     assert doc["seed"] == 42
     assert doc["n_placements_total"] == 4
@@ -359,6 +362,9 @@ def test_dump_city_placements_writes_only_houses_with_original_index(tmp_path):
     assert doc["placements"][0]["usd"] == "assets/house_a.usd"
     for key in ("W", "D", "H"):
         assert key in doc["placements"][0]
+    assert doc["placements"][0]["W"] == 8.0
+    assert doc["placements"][0]["D"] == 10.0 + \
+        (len("assets/house_a.usd") % 5)
     assert doc["typology"]["blocks"] == [
         {"rect": [0.0, 0.0, 100.0, 100.0], "name": "lowrise"}]
 

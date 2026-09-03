@@ -84,18 +84,24 @@ def main():
     # two unrelated assets. Also compare dimensions by model so a stale
     # offline footprint can identify itself instead of being hidden by the
     # downstream index avalanche it caused.
-    def _model_sizes(rows):
+    def _model_sizes(doc):
         vals = collections.defaultdict(list)
-        for p in rows or ():
+        world_xy = (doc.get("dimensions_space") == "world_xy" or
+                    str(doc.get("_source", "")).startswith("plan_to_fc_dump"))
+        for p in doc.get("placements") or ():
             name = os.path.basename(str(p.get("usd") or ""))
             if name and all(p.get(k) is not None for k in ("W", "D", "H")):
-                vals[name].append(tuple(float(p[k]) for k in ("W", "D", "H")))
+                w, d, h = (float(p[k]) for k in ("W", "D", "H"))
+                if world_xy and 45.0 <= \
+                        (float(p.get("yaw_deg", 0.0)) % 180.0) < 135.0:
+                    w, d = d, w
+                vals[name].append((w, d, h))
         return {name: tuple(sum(v[j] for v in samples) / len(samples)
                             for j in range(3))
                 for name, samples in vals.items()}
 
-    oms = _model_sizes(off.get("placements"))
-    kms = _model_sizes(kit.get("placements"))
+    oms = _model_sizes(off)
+    kms = _model_sizes(kit)
     model_resized = []
     for name in sorted(set(oms) & set(kms)):
         ov, kv = oms[name], kms[name]

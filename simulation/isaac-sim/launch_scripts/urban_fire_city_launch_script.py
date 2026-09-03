@@ -799,6 +799,14 @@ def _typology_rects(layout):
             for rect, name in (layout or {}).get("_typology_of", {}).items()]
 
 
+def _dump_world_wh(fp, yaw_deg):
+    """World-axis W/D, matching tools/plan_to_fc_dump.py's dump contract."""
+    w, d = float(fp["sx"]), float(fp["sy"])
+    if 45.0 <= (float(yaw_deg) % 180.0) < 135.0:
+        return d, w
+    return w, d
+
+
 def dump_city_placements(path, preset, seed, config, placements, layout):
     """Write the city-placements dump `tools/fire_city_dry_run.py
     --placements-json` consumes — see the block comment above and this
@@ -846,6 +854,7 @@ def dump_city_placements(path, preset, seed, config, placements, layout):
         usd = p.get("usd")
         fp = resolver.get(usd, "house", scale=float(p.get("scale", 1.0)),
                           axis_up=p.get("axis_up", "Z"))
+        world_w, world_d = _dump_world_wh(fp, p.get("yaw_deg", 0.0))
         houses.append({
             "i": i, "cell": p.get("prim_path"), "usd": usd,
             "x_m": float(p.get("x_m", 0.0)), "y_m": float(p.get("y_m", 0.0)),
@@ -854,10 +863,11 @@ def dump_city_placements(path, preset, seed, config, placements, layout):
             "scale": float(p.get("scale", 1.0)),
             "category": p.get("category"),
             "axis_up": p.get("axis_up", "Z"),
-            "W": float(fp["sx"]), "D": float(fp["sy"]), "H": float(fp["sz"]),
+            "W": world_w, "D": world_d, "H": float(fp["sz"]),
         })
     doc = {
         "schema": "fire_city_placements_dump.v1",
+        "dimensions_space": "world_xy",
         "preset": preset, "seed": int(seed),
         "region_m": [float(v) for v in
                     config.get("layout", {}).get("region_m", [0.0, 0.0])],

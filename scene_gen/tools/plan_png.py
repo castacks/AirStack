@@ -59,6 +59,30 @@ _SIZE = re.compile(r"#.*?([\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)\s*m\b")
 # as 100 identical 30 x 20 m boxes — a plan that looks like a packing bug and
 # is not one.
 _USD = re.compile(r'["\']([^"\']+\.usd[ac]?)["\']')
+_CANONICAL_DIMS = os.path.join(_SCENE_GEN, "config", "harvested",
+                               "urban_building_dimensions.json")
+
+
+def canonical_dimensions(path=_CANONICAL_DIMS):
+    """Exact effective footprints harvested from a real Kit placement dump.
+
+    Keys include full URL, scale and up-axis.  Basenames are insufficient for
+    a mixed asset library, and raw-vs-effective dimensions are ambiguous for
+    centimetre-authored GAC/AEC assets.
+    """
+    try:
+        rows = json.load(open(path)).get("records") or []
+    except (OSError, ValueError, AttributeError):
+        return {}
+    out = {}
+    for r in rows:
+        try:
+            key = (str(r["usd"]), round(float(r["scale"]), 12),
+                   str(r.get("axis_up", "Z")).upper())
+            out[key] = tuple(float(r[k]) for k in ("W", "D", "H"))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
 
 
 def measured_sizes(paths):
@@ -137,9 +161,10 @@ class StubResolver:
     category, because a plan built from fallback boxes for the buildings it
     exists to validate is worse than no plan, and a bare count buried that."""
 
-    def __init__(self, sizes, fallbacks, json_sizes=None):
+    def __init__(self, sizes, fallbacks, json_sizes=None, exact_sizes=None):
         self.sizes = sizes
         self.json_sizes = json_sizes or {}
+        self.exact_sizes = exact_sizes or {}
         self.fallbacks = fallbacks or {}
         self.guessed = set()                # union, for callers that don't care
         self.guessed_buildings = set()
@@ -147,7 +172,11 @@ class StubResolver:
 
     def get(self, usd, category, scale=1.0, axis_up="Z", **_kw):
         name = os.path.basename(str(usd))
-        wh = self.json_sizes.get(name) or self.sizes.get(name)
+        exact_key = (str(usd), round(float(scale), 12),
+                     str(axis_up or "Z").upper())
+        wh = self.exact_sizes.get(exact_key)
+        if wh is None:
+            wh = self.json_sizes.get(name) or self.sizes.get(name)
         if wh is None:
             fb = self.fallbacks.get(category) or [4.0, 4.0, 4.0]
             wh = (float(fb[0]), float(fb[1]),
@@ -206,7 +235,12 @@ def build(config_name, seed=None, spec_overrides=None):
                                     default_ext=".usd"))
     json_sizes.update(measured_json([os.path.join(plans, "gac_faces.json")]))
     json_sizes.update(measured_json([os.path.join(plans, "dtc_faces.json")]))
-    res = StubResolver(sizes, cfg.get("fallback_sizes"), json_sizes)
+    exact_sizes = canonical_dimensions()
+    res = StubResolver(sizes, cfg.get("fallback_sizes"), json_sizes,
+                       exact_sizes=exact_sizes)
+    if exact_sizes:
+        print(f"[plan] canonical Kit dimensions: {len(exact_sizes)} "
+              "full-path/scale/up-axis record(s)")
     rng = random.Random(int(cfg.get("seed", 0)) + 7717)
 
     with city_layout.patched(cfg):
