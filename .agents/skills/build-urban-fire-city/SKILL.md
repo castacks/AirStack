@@ -267,6 +267,16 @@ an entry string (`kind:name:level:origin:sides:seed`) and a cache stem
 a described bake always mean the same file. Cache key = both `<stem>.usd` and
 `<stem>.json` existing (`HAVE` / `NEED` / `STALE` / `ERROR`).
 
+**Cold-run duplicate trap.** Classification is one snapshot taken before the
+loop. If the manifest repeats a stem that was `NEED`, `fire_city_bake.sh`
+launches every occurrence even though the first launch has already created
+the shared output; later occurrences overwrite it. Measured on the 1 km plans:
+L1 42 rows -> 38 unique stems, L2 74 -> 44, L3 86 -> 44. A deduplicating
+driver must retain the LAST occurrence and its original row index because
+`FB_BUILD_SEED = FB_SEED + 7*i`; that reproduces the artifact the sequential
+overwrite loop would finally leave. See `tools/fire_city_bake_fast.py` and
+`FAST_URBAN_FIRE_OSMO.md` for the isolated experimental path.
+
 **Where things land.** Bakes: `$FB_OUT/city_<seed>` in the container, host view
 `$HOME/docker/isaac-sim/cache/main/...` (the compose bind mount) — the driver
 keeps both because classification runs on the host and the bake in the

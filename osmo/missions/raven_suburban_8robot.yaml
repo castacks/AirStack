@@ -135,7 +135,11 @@
 # .agents/skills/run-raven-single-shared/SKILL.md.
 
 name: raven_suburban_8robot
-nas_dest: /volume2/coa-sei_raven
+# /volume2/coa-sei_raven never existed on the NAS -- same nonexistent-base bug
+# found and fixed in hurricane_suburban_8robot.yaml on 2026-09-03. Every prior
+# mission's results landed at /volume2/coa-sei/<mission_name>/, which is what
+# the upload rsyncs `osmo/results/` into.
+nas_dest: /volume2/coa-sei
 
 stack:
   services: [isaac-sim, robot-desktop, gcs, offboard-compute]

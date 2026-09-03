@@ -120,7 +120,9 @@
 # .agents/skills/freeze-disaster-dataset + freeze-dataset-state.
 
 name: urban_fire_8robot
-nas_dest: /volume2/coa-sei_urban
+# /volume2/coa-sei_urban never existed on the NAS -- same nonexistent-base bug
+# found and fixed in hurricane_suburban_8robot.yaml on 2026-09-03.
+nas_dest: /volume2/coa-sei
 
 stack:
   services: [isaac-sim, robot-desktop, gcs, offboard-compute]

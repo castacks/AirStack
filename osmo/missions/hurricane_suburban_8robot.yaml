@@ -121,7 +121,14 @@
 # .agents/skills/freeze-disaster-dataset + freeze-dataset-state.
 
 name: hurricane_suburban_8robot
-nas_dest: /volume2/coa-sei_hurricane
+# /volume2/coa-sei_hurricane never existed on the NAS -- every prior mission's
+# results landed at /volume2/coa-sei/<mission_name>/, so that's the base the
+# upload rsyncs `osmo/results/` into (which already nests <name>/<stamp>/
+# itself). Confirmed 2026-09-03: the wrong base silently fails the auto-upload
+# (mission_launcher.sh: "nas_dest base must already exist") and leaves the pod
+# alive burning GPU hours after the mission finishes, with nothing surfacing
+# the error short of an interactive check.
+nas_dest: /volume2/coa-sei
 
 stack:
   services: [isaac-sim, robot-desktop, gcs, offboard-compute]

@@ -1573,9 +1573,18 @@ def _plan_guarded(info, elements, level, btype, rng, wind, height_class,
         intensity = float((wind or {}).get(
             "intensity", (wind or {}).get("speed_frac", 0.0)))
     intensity = float(intensity)
-    with kit_ladder_installed() as guarded:
-        plan = tu.plan_damage(info, elements, level, btype, rng, wind,
-                              height_class=height_class, intensity=intensity)
+    old_support = tu.TU_SUPPORT_ON
+    try:
+        # Kit geometry has its own support/budget guard below. Running the
+        # sliced-grid closure first can shed leeward modules and makes the
+        # result dependent on two incompatible support models.
+        tu.TU_SUPPORT_ON = False
+        with kit_ladder_installed() as guarded:
+            plan = tu.plan_damage(info, elements, level, btype, rng, wind,
+                                  height_class=height_class,
+                                  intensity=intensity)
+    finally:
+        tu.TU_SUPPORT_ON = old_support
     if guarded:
         for note in KIT_LADDER_NOTES.get((btype, str(level))) or ():
             plan["notes"].append(note)

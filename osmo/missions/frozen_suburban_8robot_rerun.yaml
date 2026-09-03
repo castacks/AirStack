@@ -5,7 +5,9 @@
 #   - firesuburbanl3v1_conavgpt2_team
 #   - tornadosuburbanl1v1_conavgpt2_team
 name: frozen_suburban_8robot_rerun
-nas_dest: /volume2/coa-sei_rerun
+# /volume2/coa-sei_rerun never existed on the NAS -- make_rerun_mission.py's
+# generator bug (appending "_rerun" to the base), fixed 2026-09-03.
+nas_dest: /volume2/coa-sei
 stack:
   services:
   - isaac-sim

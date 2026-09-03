@@ -566,8 +566,17 @@ def t_glass_loss(pctx, base_frac=(0.05, 0.15), n_sides=1):
         n_band = max(1, int(round(len(sts) * (0.30 + 0.45 * min(1.0, f / max(hi, 1e-6))))))
         n_band = min(len(sts), n_band)
         max_i0 = max(0, len(sts) - n_band)
+        # ROUND 5 (user review 2026-09-02, items 3/4): SPREAD THE GLASS BAND
+        # DOWN THE FACE, do not park it at the top. Round 4 drew the band
+        # START `max_i0 - round(max_i0 * u ** 1.6)` — median ~0.67 of the
+        # range, i.e. the upper storeys — on the theory that a tornado's
+        # debris strike rises with height. The review's verdict ("damage is
+        # towards the top not low") is that on these mid-rises the WHOLE
+        # windward wall's glazing goes, so the visible band must start
+        # low/middle and run up. Same mild low bias as `t_cladding_band`
+        # (`u ** 1.3`, median ~0.4 of the range).
         if max_i0 > 0:
-            i0 = max_i0 - int(round(max_i0 * (rng.random() ** 1.6)))
+            i0 = int(round(max_i0 * (rng.random() ** 1.3)))
         else:
             i0 = 0
         band_st = sts[i0:i0 + n_band]
@@ -680,8 +689,17 @@ def t_panel_loss(pctx, frac=(0.05, 0.10), top_frac=(1.0 / 3.0)):
     """A scatter of windward OPENING (glazed) panels out — the T2 signature
     for both a curtain wall's spandrels and a frame's infill (the same
     piece-grid vocabulary as `quake_sliced.s_infill_fail`, restricted here
-    to the wind-picked windward face and its own top third rather than a
-    random storey band)."""
+    to the wind-picked windward face).
+
+    ROUND 5 (user review 2026-09-02, items 3/4): the scatter runs the FULL
+    HEIGHT of the windward face, not just its top third. The review's A1
+    verdict was "damage at the top not the bottom"; a tornado's windward
+    glazing goes low and middle at least as much as high, so the candidate
+    pool is now every windward glazed panel (the `_glass_frac`-driven ledger
+    and the height-class cap still bound how much actually breaks). `top_frac`
+    is kept in the signature for the ladder tables that pass it, but no longer
+    clips the pool to the top of the building.
+    """
     rng, g = pctx["rng"], pctx["g"]
     sts = sorted(g.storeys)
     if not sts:
@@ -689,18 +707,16 @@ def t_panel_loss(pctx, frac=(0.05, 0.10), top_frac=(1.0 / 3.0)):
     weights = pctx["side_weights"]
     sd = _rank_sides(weights)[0]
     w = weights.get(sd, 0.0)
-    n_top = max(1, int(round(len(sts) * float(top_frac))))
-    top_st = sts[-n_top:]
     lo, hi = frac
     f = rng.uniform(lo, hi) * max(0.3, w)
-    cand = [e for b in sorted(g.sides.get(sd, ())) for st in top_st
+    cand = [e for b in sorted(g.sides.get(sd, ())) for st in sts
             for e in g.at((sd, st, b)) if qs.is_opening(e.get("p") or {}, g.n_sub)]
     hit = [e for e in cand if rng.random() < f]
     if cand and not hit and f > 0.0:
         hit = [cand[rng.randrange(len(cand))]]
     qs._remove(pctx, hit, why="t_panel_loss")
-    _note(pctx, "panel_loss: {0} opening panel(s) out of the top third of "
-                "{1}".format(len(hit), sd))
+    _note(pctx, "panel_loss: {0} opening panel(s) out across the full height "
+                "of {1}".format(len(hit), sd))
 
 
 def t_cladding_band(pctx, storeys=(2, 4), bay_frac=(0.40, 0.70), keep_pier=None):
@@ -752,7 +768,18 @@ def t_cladding_band(pctx, storeys=(2, 4), bay_frac=(0.40, 0.70), keep_pier=None)
     n_st = rng.randint(st_lo, max(st_lo, st_hi))
     n_st = max(1, min(len(sts), n_st))
     max_i0 = max(0, len(sts) - n_st)
-    i0 = rng.randint(max_i0 // 2, max_i0) if max_i0 > 0 else 0
+    # ROUND 5 (user review 2026-09-02, items 3/4): BIAS THE BAND LOW, NOT
+    # HIGH. "A tornado loads the whole windward face" — the review saw the
+    # A1/A2 removal concentrated at the parapet band ("damage is towards the
+    # top not low"). The round-4 draw, `randint(max_i0 // 2, max_i0)`,
+    # ANCHORED the band in the UPPER HALF; a tornado's wind pressure and
+    # debris strike load the lower and middle storeys of a windward wall at
+    # least as hard (the ground-storey structure itself is never removed —
+    # that guard is elsewhere — but the storeys just above it are exactly
+    # where a cladding band should sit). Draw the start with a mild LOW bias
+    # (`u ** 1.3`, median ~0.4 of the range) so the band lands lower/middle
+    # and spreads up, never parked at the coping.
+    i0 = int(round(max_i0 * (rng.random() ** 1.3))) if max_i0 > 0 else 0
     band_st = sts[i0:i0 + n_st]
     frac = rng.uniform(*bay_frac)
     # ROUND 4 (D2): `_n_bays_for` — `int(round(nb * frac))` turned a
@@ -1773,6 +1800,84 @@ _SUPPORT_MAX_PASSES = 12
 #: `TU_SUPPORT=0` restores round-3 behaviour (no wall support pass) -- the
 #: A/B switch the container probe uses to report before/after.
 TU_SUPPORT_ON = _os.environ.get("TU_SUPPORT", "1") not in ("0", "", "false")
+#: ROUND 5 (user review 2026-09-02, item 5/8: "lots of these floating walls
+#: on A3, A4"). The grid support rule (`_column_dead` via `_cell_below`)
+#: treats a bay column with NOTHING in it below as SUPPORTED — deliberately,
+#: so a non-uniform storey table (the parapet band owns a storey index the
+#: walls do not) is not mistaken for a hole. But that same leniency lets a
+#: piece with genuinely nothing under it hang in the air. These two
+#: tolerances gate a GEOMETRIC fallback used ONLY in that "grid sees nothing
+#: below" case: a live piece counts as holding `e` up when their world-XY
+#: footprints overlap by at least `_GEOM_SUPPORT_OVERLAP_M` on both axes and
+#: its top reaches within `_GEOM_SUPPORT_GAP_M` of `e`'s base. A piece is
+#: therefore shed only when NOTHING — neither the grid column nor any real
+#: geometry — is beneath it, so a legitimate setback/cantilever (which has a
+#: wall directly under it in world space even when the bay INDEX shifts
+#: storey to storey) is never touched.
+_GEOM_SUPPORT_GAP_M = 0.6
+_GEOM_SUPPORT_OVERLAP_M = 0.3
+#: The geometric floater fallback is only trusted on a REGULAR grid. TWO
+#: gates, both measured on the real kits:
+#:   * STOREY-VALUE DENSITY. A real slice carries ~1.3 distinct `_storey`
+#:     values per metre of height (SM_Building_02: 51 values over 38.7 m);
+#:     the degenerate SM_Building_09 carries ~25 (1488 over 58.9 m) — bogus
+#:     per-piece storey values that make `_cell_below` meaningless and the
+#:     geometric fallback cascade to 75 % removed. Cap at `_PER_M` values per
+#:     metre (floor `_FLOOR`), which sits an order of magnitude above every
+#:     real building and an order below the degenerate one.
+#:   * EMPTY-BELOW FRACTION, kept as a secondary guard.
+#: When either fails, the round-3 leniency ("nothing below -> supported") is
+#: kept exactly as before this round.
+_GEOM_REGULAR_MAX_EMPTY = 0.4
+_GEOM_MAX_STOREYS_PER_M = 4.0
+_GEOM_MAX_STOREYS_FLOOR = 60
+
+
+def _cell_el(g, side, storey, bay):
+    """A representative placement at `(side, storey, bay)` for the geometric
+    support test — `None` when the cell is empty."""
+    got = g.at((side, storey, bay))
+    return got[0] if got else None
+
+
+def _geom_support_below(g, e, removed):
+    """Is any LIVE piece physically beneath `e`'s footprint, close enough to
+    hold it up? World-XY bbox overlap of at least `_GEOM_SUPPORT_OVERLAP_M`
+    on both axes with a piece whose top sits within `_GEOM_SUPPORT_GAP_M` of
+    `e`'s base and whose base is below `e`'s (genuinely under it). Catches
+    the real support the grid's bay-index walk misses; first supporter wins
+    (early exit)."""
+    if e is None:
+        return False
+    ex, ey, ez = float(e.get("x", 0.0)), float(e.get("y", 0.0)), float(e.get("z", 0.0))
+    sx, sy, _sz = (float(v) for v in qs._size(e))
+    ex0, ex1 = ex - sx / 2.0, ex + sx / 2.0
+    ey0, ey1 = ey - sy / 2.0, ey + sy / 2.0
+    for e2 in g.els:
+        if e2 is e:
+            continue
+        q = qs._path(e2)
+        if not q or q in removed:
+            continue
+        # A supporter is VERTICAL STRUCTURE, not the central core (which
+        # spans the whole footprint and would "hold up" every perimeter
+        # wall above it — the leniency this pass exists to remove) and not a
+        # roof/slab.
+        if (e2.get("p") or {}).get("_role") in ("core", "roof"):
+            continue
+        z2 = float(e2.get("z", 0.0))
+        s2x, s2y, s2z = (float(v) for v in qs._size(e2))
+        top2 = z2 + s2z
+        if top2 < ez - _GEOM_SUPPORT_GAP_M:      # too low to reach the base
+            continue
+        if z2 >= ez - 1e-6:                       # at or above e, not below it
+            continue
+        x2, y2 = float(e2.get("x", 0.0)), float(e2.get("y", 0.0))
+        ox = min(ex1, x2 + s2x / 2.0) - max(ex0, x2 - s2x / 2.0)
+        oy = min(ey1, y2 + s2y / 2.0) - max(ey0, y2 - s2y / 2.0)
+        if ox >= _GEOM_SUPPORT_OVERLAP_M and oy >= _GEOM_SUPPORT_OVERLAP_M:
+            return True
+    return False
 
 
 def _cell_below(g, side, storey, bay):
@@ -1799,9 +1904,31 @@ def _corner_below(g, corner, storey):
 
 
 def _column_dead(g, side, storey, bay, removed):
-    """Is the whole bay column under `(side, storey, bay)` gone?"""
+    """Is the whole bay column under `(side, storey, bay)` gone?
+
+    ROUND 5 (item 5/8, floating walls): when the GRID sees nothing in this
+    bay column below (`_cell_below` empty), do not conclude "supported"
+    outright — that leniency is what left `wall_N_1_10_0204` hanging. Fall
+    back to a GEOMETRIC test: the column is dead (nothing holds this cell up)
+    unless a live piece is physically beneath the cell's own piece
+    (`_geom_support_below`). A regular building's every upper piece has a
+    wall directly under it in world space, so this only ever fires "dead"
+    on a genuine floater.
+
+    THE GEOMETRIC FALLBACK IS GATED to REGULAR grids (`g._tu_geom_support`,
+    set once by `_shed_unsupported_walls`). On a DEGENERATE slice
+    (SM_Building_09: pieces spread over ~1488 bogus `_storey` values, so
+    `_cell_below` is empty for nearly every piece) the fallback would fire on
+    everything and its inevitable few false-negatives cascade through the
+    closure to gut the building — measured 75 % removed on that fixture. When
+    the flag is absent/False the round-3 leniency ("nothing below ->
+    supported") is kept, exactly as before this round.
+    """
     below = _cell_below(g, side, storey, bay)
     if not below:
+        if getattr(g, "_tu_geom_support", False):
+            return not _geom_support_below(g, _cell_el(g, side, storey, bay),
+                                           removed)
         return False
     return all(qs._path(e) in removed for e in below)
 
@@ -1960,6 +2087,36 @@ def _shed_unsupported_walls(pctx, plan, height_class):
         _note(pctx, "support: DISABLED (TU_SUPPORT=0) -- round-3 behaviour")
         return 0
     g = pctx["g"]
+    # ROUND 5 (item 5/8): decide ONCE whether this grid is REGULAR enough to
+    # trust the geometric "nothing below -> floater" fallback (`_column_dead`
+    # reads `g._tu_geom_support`). On a regular slice a wall/pier at storey>0
+    # almost always has a grid piece in its own bay column below, so a
+    # `_cell_below`-empty piece is a real signal; on a DEGENERATE slice
+    # (SM_Building_09's ~1488 bogus `_storey` values) `_cell_below` is empty
+    # for nearly everything and the fallback would gut the building. Gate on
+    # the empty-below FRACTION over the perimeter pieces at storey>0.
+    _perim = [e for e in g.els
+              if (e.get("p") or {}).get("_role") in ("wall", "pier", "corner")
+              and int((e.get("p") or {}).get("_storey", 0)) > 0
+              and (e.get("p") or {}).get("_side") in qs.SIDES]
+    _empty_below = sum(
+        1 for e in _perim
+        if not _cell_below(g, (e.get("p") or {}).get("_side"),
+                           int((e.get("p") or {}).get("_storey", 0)),
+                           qs.bay_no(e.get("p") or {}, g.n_sub)))
+    _frac_empty = (_empty_below / float(len(_perim))) if _perim else 1.0
+    _H = max(1.0, float(pctx.get("H") or 0.0))
+    _storey_cap = max(_GEOM_MAX_STOREYS_FLOOR, _GEOM_MAX_STOREYS_PER_M * _H)
+    _n_storeys = len(g.storeys)
+    _regular = (bool(_perim) and _frac_empty <= _GEOM_REGULAR_MAX_EMPTY
+                and _n_storeys <= _storey_cap)
+    g._tu_geom_support = _regular
+    _note(pctx, "support: geometric floater fallback {0} "
+                "(empty-below {1:.2f} <= {2:.2f}? ; {3} storey-value(s) <= "
+                "{4:.0f}?) over {5} perimeter piece(s)".format(
+                    "ON" if _regular else "OFF (degenerate grid)",
+                    _frac_empty, _GEOM_REGULAR_MAX_EMPTY, _n_storeys,
+                    _storey_cap, len(_perim)))
     protect = set(plan.get("displaced") or ())
     # ...AND THE TOOTHING'S OWN KEPT PIERS (stream K's collision report,
     # verified by neutering: `test_toothing_no_boundary_row_is_all_or_
@@ -2883,8 +3040,28 @@ def _kind_of(pp, btype=None):
     return "block"
 
 
+#: Tokens that would route a debris fragment onto a MASONRY (brick/stone)
+#: look — the one thing a GLASS building must never shed (user review
+#: 2026-09-02, item 10: "If it's a glass building then why is there brick
+#: debris on the floor?").
+_MASONRY_TOKENS = ("brick", "stone", "masonry", "coping")
+
+
 def _material_hint(pp, kind, btype):
     mat = pp.get("material") or pp.get("_material")
+    # ROUND 5 (user review 2026-09-02, item 10): THE DEBRIS CLASS FOLLOWS THE
+    # CONSTRUCTION TYPE. A curtain-wall (`rc_glass`) building sheds GLASS and
+    # METAL/MULLION debris, never brick — so its coping is a metal cap, not a
+    # masonry one, and a stray masonry-named `material` string on one of its
+    # pieces is not allowed to route that piece's rubble onto the brick map.
+    # (`_MAT_BY_BTYPE` already resolves its wall/pier panels to `metal`; this
+    # closes the coping and the raw-material leaks.)
+    if btype == "rc_glass":
+        if kind in ("coping", "membrane", "metal"):
+            return "metal"
+        if mat and not any(t in str(mat).lower() for t in _MASONRY_TOKENS):
+            return str(mat)
+        return _MAT_BY_BTYPE.get((btype, kind), "metal")
     if mat:
         return str(mat)
     if kind == "coping":

@@ -1010,7 +1010,24 @@ def _author_cell(style, level, intensity, cell_id, seed=None):
     return tuu, stage, cell, ctx, plan, info, counts
 
 
-def test_backing_is_per_bay_behind_real_holes_and_never_behind_a_parapet():
+def test_tornado_interiors_use_fit_out_without_backing_quads():
+    """Every reviewed kit exposes floors/columns, never replacement walls."""
+    for style, level, intensity, cell_id in (
+            ("brownstone_row", "T4", 0.85, "B1"),
+            ("dw_terrace", "T3", 0.65, "B2"),
+            ("walkup", "T4", 0.85, "B3")):
+        _tuu, stage, cell, ctx, _plan, _info, _counts = _author_cell(
+            style, level, intensity, cell_id)
+        got = ctx["interior"]
+        assert got["n_fit"] > 0, (cell_id, got)
+        assert got["n_backing"] == 0, (cell_id, got)
+        assert got["n_partitions"] == 0, (cell_id, got)
+        assert ctx["fit"].get("slabs"), cell_id
+        assert not stage.GetPrimAtPath(
+            cell + "/tornado_interior_backing").IsValid(), cell_id
+
+
+def _legacy_backing_is_per_bay_behind_real_holes_and_never_behind_a_parapet():
     """D1's backing defect, checked on the AUTHORED stage rather than on
     intent: round 3 put ONE quad per (side, storey) spanning the union of
     every removal — B1's whole 38 m south elevation, and a band over the
@@ -1049,7 +1066,7 @@ def test_backing_is_per_bay_behind_real_holes_and_never_behind_a_parapet():
     assert n == got["n_backing"]
 
 
-def test_backing_inset_is_room_depth_not_a_swapped_pane():
+def _legacy_backing_inset_is_room_depth_not_a_swapped_pane():
     """>= 1.2 m in from the wall line (round-4 requirement; round 3 used
     0.5 m, which reads as black cladding in the wall plane), measured on
     the authored box, per side, on its own axis."""
@@ -1084,7 +1101,7 @@ def test_backing_inset_is_room_depth_not_a_swapped_pane():
         assert len(depths) == 1, (key, depths)
 
 
-def test_backing_material_albedo_and_texture():
+def _legacy_backing_material_albedo_and_texture():
     """Effective albedo in the round-4 band (0.25-0.35), authored as
     `diffuse_tint` x the map's own measured mean (stream D's MDL reading:
     the tint MULTIPLIES the map, the constant is only the map-failed
@@ -1110,7 +1127,7 @@ def test_backing_material_albedo_and_texture():
         assert abs(q - e) < 0.02, (const, eff)
 
 
-def test_storefront_ring_closes_a_glazed_ground_storey():
+def _legacy_storefront_ring_closes_a_glazed_ground_storey():
     """D4/B2: `dw_terrace`'s ground storey was a see-through glass ring
     with the upper floors apparently standing on it. Nothing is REMOVED
     there, so only the storefront rule can fix it — one continuous quad per
@@ -1449,7 +1466,7 @@ def test_no_partitions_are_authored_anywhere():
         assert ctx["fit"].get("slabs"), cell
 
 
-def test_backing_never_sits_outside_the_storey_wall_line():
+def _legacy_backing_never_sits_outside_the_storey_wall_line():
     """"make sure backing segments never protrude past the facade line" —
     on a setback plan the MASS wall line is outside the glass, so a quad
     placed against it and pushed in 1.35 m can still end up proud of the

@@ -106,6 +106,7 @@ per-cell BUILT/SKIPPED(reason)/FAILED status table. Target < 5 min to DONE
 """
 
 import importlib
+import math
 import os
 import random
 import sys
@@ -247,16 +248,25 @@ def _centered(n, pitch):
 _A_X = _centered(4, GRID_PITCH)
 _B_X = _centered(5, GRID_PITCH)
 
-CELL_ORDER = ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4", "B5", "C1", "C2"]
+DEFAULT_CELL_ORDER = ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4", "B5"]
+# Stable IDs are part of the visual fixture.  Filtering the bench must not
+# redraw every later cell merely because an earlier optional cell is absent.
+CELL_SEED_INDEX = {c: i for i, c in enumerate(
+    ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4", "B5", "C1", "C2"])}
+CELL_ORDER = list(DEFAULT_CELL_ORDER)
 CELLS = {
     "A1": {"row": "A", "kind": "gac", "asset": "SM_Building_02", "level": "T2",
-          "intensity": 0.45, "x": _A_X[0], "y": A_Y},
+          "intensity": 0.45, "x": _A_X[0], "y": A_Y,
+          "seat": 180.0, "cell_bearing": 180.0},
     "A2": {"row": "A", "kind": "gac", "asset": "SM_Building_02", "level": "T3",
-          "intensity": 0.65, "x": _A_X[1], "y": A_Y},
+          "intensity": 0.65, "x": _A_X[1], "y": A_Y,
+          "seat": 180.0, "cell_bearing": 180.0},
     "A3": {"row": "A", "kind": "gac", "asset": "SM_Building_02", "level": "T4",
-          "intensity": 0.85, "x": _A_X[2], "y": A_Y},
+          "intensity": 0.85, "x": _A_X[2], "y": A_Y,
+          "seat": 180.0, "cell_bearing": 180.0},
     "A4": {"row": "A", "kind": "gac", "asset": "SM_Building_24", "level": "T3",
-          "intensity": 0.65, "x": _A_X[3], "y": A_Y},
+          "intensity": 0.65, "x": _A_X[3], "y": A_Y,
+          "seat": 90.0, "cell_bearing": 270.0},
     "B1": {"row": "B", "kind": "kit", "style": "brownstone_row", "level": "T4",
           "intensity": 0.85, "x": _B_X[0], "y": B_Y},
     "B2": {"row": "B", "kind": "kit", "style": "dw_terrace", "level": "T3",
@@ -273,7 +283,7 @@ CELLS = {
 }
 if UTB_CELLS_RAW:
     _wanted = {c.strip().upper() for c in UTB_CELLS_RAW.split(",") if c.strip()}
-    CELL_ORDER = [c for c in CELL_ORDER if c in _wanted]
+    CELL_ORDER = [c for c in CELL_SEED_INDEX if c in _wanted]
 
 #: The plate -- big enough to hold every cell above plus a margin. (x0, y0,
 #: x1, y1), metres.
@@ -292,7 +302,7 @@ def _seed_for(cell_id):
     `apply_damage` use, so a bench cell and its city counterpart draw from
     the same kind of stream (not the SAME draw -- the index space differs
     -- but the same recipe)."""
-    i = CELL_ORDER.index(cell_id) if cell_id in CELL_ORDER else hash(cell_id) % 997
+    i = CELL_SEED_INDEX.get(cell_id, 997)
     return UTB_SEED * 1000003 + i
 
 
@@ -479,20 +489,17 @@ def build_a_cell(stage, cell_id, spec, ssf):
         force_regular=force_regular)
 
     seed = _seed_for(cell_id)
-    # Catalogue bug 19 (the wind-frame trap): the plan is authored in the
-    # CELL frame, so a 180-deg holder yaw needs the bearing rotated by
-    # -yaw. Cell bearing 57.56 - 180 = -122.44 -> `_windward_side` = N,
-    # the modelled elevation; the damaged wall still ends up world-south,
-    # so `WINDWARD_BEARING_DEG`/`windward_wall_anchor` stay correct.
+    seat = float(spec.get("seat", 0.0))
     wind_cell = dict(WIND)
-    wind_cell["bearing_deg"] = float(WIND["bearing_deg"]) - 180.0
+    wind_cell["bearing_deg"] = float(spec.get(
+        "cell_bearing", float(WIND["bearing_deg"]) - seat))
     ctx = tuu.wreck_urban(
         stage, cell, pls, style, spec["level"], random.Random(seed),
         np.random.default_rng(seed), {}, "utb", wind_cell, btype=None,
         height_class=None, intensity=spec["intensity"], usd=asset,
         verbose=False)
     counts = ctx.get("counts") or {}
-    _seat_holder(stage, holder, spec["x"], spec["y"], 0.0, 180.0, ssf)
+    _seat_holder(stage, holder, spec["x"], spec["y"], 0.0, seat, ssf)
     return {"holder": holder, "cell": cell, "n_pieces": len(pls),
             "ctx": ctx, "counts": counts,
             "summary": "{0} ({1}) T={2} pieces={3} removed={4} glass={5} "
@@ -1002,13 +1009,16 @@ def _dispatch(stage, cell_id, ssf, config, resolver, pools):
     # its local region is the plate negated about the cell origin (the
     # first offline audit of this fix measured A-row debris at y=136 on a
     # 120 plate with the yaw-blind version).
-    yaw_seat = 180.0 if kind == "gac" else 0.0
-    if yaw_seat == 180.0:
-        region = (spec["x"] - PLATE[2], spec["y"] - PLATE[3],
-                  spec["x"] - PLATE[0], spec["y"] - PLATE[1])
-    else:
-        region = (PLATE[0] - spec["x"], PLATE[1] - spec["y"],
-                  PLATE[2] - spec["x"], PLATE[3] - spec["y"])
+    yaw_seat = float(spec.get("seat", 0.0))
+    angle = math.radians(-yaw_seat)
+    ca, sa = math.cos(angle), math.sin(angle)
+    corners = []
+    for wx in (PLATE[0], PLATE[2]):
+        for wy in (PLATE[1], PLATE[3]):
+            dx, dy = wx - spec["x"], wy - spec["y"]
+            corners.append((ca * dx - sa * dy, sa * dx + ca * dy))
+    region = (min(p[0] for p in corners), min(p[1] for p in corners),
+              max(p[0] for p in corners), max(p[1] for p in corners))
     os.environ["TU_PLATE_REGION"] = "{0},{1},{2},{3}".format(*region)
     if kind == "gac":
         return build_a_cell(stage, cell_id, spec, ssf)

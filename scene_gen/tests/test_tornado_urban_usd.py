@@ -1139,8 +1139,8 @@ def test_fit_interior_authors_for_a_chunk_plan_and_not_for_an_untouched_one():
           "notes": []}
     out = tu.apply_plan(stage, ctx, plan_chunk, verbose=False)
     assert out["n_fit"] > 0, "expected fit-out prims for a chunk plan"
-    assert out["n_backing"] > 0, "expected backing quads for a chunk plan"
-    assert stage.GetPrimAtPath(cell + "/tornado_interior_backing").IsValid()
+    assert out["n_backing"] == 0
+    assert not stage.GetPrimAtPath(cell + "/tornado_interior_backing").IsValid()
 
     info2, stage2, cell2 = _describe_and_author(seed=7)
     plan_none = _plan_with_one_recipe(info2, info2["elements"], "urm",
@@ -1155,7 +1155,7 @@ def test_fit_interior_authors_for_a_chunk_plan_and_not_for_an_untouched_one():
     assert not stage2.GetPrimAtPath(cell2 + "/tornado_interior_backing").IsValid()
 
 
-def test_backing_quads_sit_inside_the_wall_line():
+def _legacy_backing_quads_sit_inside_the_wall_line():
     """Every authored backing box's world position is CLOSER to the mass
     centre than the true wall line it backs — "a backing quad set just
     inside each opened side's wall line" (plan brief, §8e F2b), not

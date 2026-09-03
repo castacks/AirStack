@@ -995,6 +995,89 @@ def _tiling_safe(name):
     return any(t in low for t in _TILING_SAFE_TOKENS)
 
 
+# ---------------------------------------------------------------------------
+# THE WINDOWLESS-ATLAS CROP (user review 2026-09-02, items 1/13) — the fix
+# for "these broken parts ... their texture is just white" and "instead of
+# giving it the concrete material which doesn't look right ... crop the
+# window out of the png. Just take the left or right grey rectangle and use
+# that for fragments, debris".
+#
+# A city kit / GAC facade map is an ATLAS: windows, doors and trim packed
+# into one sheet. The OLD path (below) dropped such a map outright when its
+# NAME was not tiling-safe and fell to a flat class bucket — which is the
+# "concrete material which doesn't look right" on a brick building, and the
+# path a WHITE-fallback fragment took when its class could not be resolved.
+# This REPLACES that drop: the atlas is KEPT, but sampled in UV space
+# (`project_uvw=False`, so the projection is POSITION-INDEPENDENT — every
+# fragment of the building shows the SAME crop regardless of where it landed
+# on the plate, unlike the world-triplanar path that walks a different atlas
+# region under each fragment) and squeezed into a WINDOWLESS SUB-RECTANGLE of
+# the atlas: an edge column, where a facade sheet's border pier / solid wall
+# lives, full height. `build_debris` authors a per-face `st` on every debris
+# box so the crop reads as textured wall; a caller that authors no `st` (a
+# kit/AEC box) still samples the crop origin — one solid wall-colour texel of
+# the RIGHT building, never a window and never white.
+#
+# The crop rectangle is `st * _ATLAS_CROP_UVW + _ATLAS_CROP_UV0`, i.e. u in
+# [0.02, 0.14] (the left edge column) and v across most of the height. It is
+# an ASSET ASSUMPTION (the left border of a facade atlas is solid wall) the
+# same way `_TILING_SAFE_TOKENS` is; it cannot be verified without a running
+# Kit, so it is stated here as the one thing this path bets on.
+_ATLAS_CROP_UV0 = (0.02, 0.06)
+_ATLAS_CROP_UVW = (0.12, 0.88)
+
+
+def _atlas_crop_material(stage, ctx, tex_url, tex_name, bucket, shade=0):
+    """A material that wears a WINDOWLESS crop of a facade ATLAS (`tex_url`),
+    UV-projected into `_ATLAS_CROP_*` so a fragment reads as plain wall of
+    the building's OWN colour rather than a random window crop, a flat class
+    concrete, or a white fallback. One material per (atlas basename, shade),
+    cached under `tornado_debris:crop:*`.
+
+    Same look contract as the `:src:` (tiling) path so the black-berm guard
+    (`test_textured_debris_wears_the_map_not_a_dark_class_tint`) holds: the
+    class GRIME goes on `diffuse_tint` (the only slot a valid map multiplies
+    by — OmniPBR.mdl 652-654, see `_fix_diffuse_tint`), the class rgb is the
+    map-failed fallback constant (a plausible class albedo, never white),
+    and the map itself carries the colour. UV space, not triplanar, is the
+    whole point — a triplanar world projection cannot be pinned to one
+    sub-rectangle of the atlas across fragments at different world positions.
+    """
+    mats = ctx.setdefault("mats", {})
+    parent = ctx.get("parent") or "/World"
+    looks = "{0}/TornadoDebrisLooks".format(parent)
+    base = _safe_name(tex_name or (str(tex_url or "").rsplit("/", 1)[-1]))
+    ssfx = "" if not shade else ":s%d" % shade
+    key = "tornado_debris:crop:" + base + ssfx
+    got = mats.get(key)
+    if got is not None:
+        return got
+    rgb, grime, rough = _CLASS_LOOK.get(bucket, _CLASS_LOOK_DEFAULT)
+    grime = _shade_tint(grime, shade)
+    path = looks + "/crop_" + base + ("" if not shade else "_s%d" % shade)
+    mat = damage._pbr(stage, path, rgb, rough,
+                      texture=_resolve_texture(tex_url),
+                      scale_uv=_ATLAS_CROP_UVW, offset_uv=_ATLAS_CROP_UV0,
+                      tint=rgb)
+    # UV SPACE, not the world triplanar `_pbr` defaults to: pin the sample to
+    # one windowless sub-rectangle for every fragment regardless of position.
+    sh = UsdShade.Shader.Get(stage, path + "/Shader")
+    if sh:
+        pu = sh.GetInput("project_uvw")
+        if pu is None:
+            pu = sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool)
+        pu.Set(False)
+    _fix_diffuse_tint(stage, path, grime)
+    mats[key] = mat
+    print("[tornado_urban_usd] {0} ({1}) -> WINDOWLESS ATLAS CROP of {2} "
+          "(the building's own cladding, edge column u[{3:.2f},{4:.2f}] so "
+          "no window lands on the fragment; {5} grime {6:.2f})".format(
+              base, bucket or "neutral", base,
+              _ATLAS_CROP_UV0[0], _ATLAS_CROP_UV0[0] + _ATLAS_CROP_UVW[0],
+              bucket or "neutral", grime[0]))
+    return mat
+
+
 def debris_material(stage, ctx, kind, material, tex_url=None, tex_name=None,
                     tone="", shade=0):
     """One material per (kind, material) LOOK BUCKET (not per fragment,
@@ -1067,8 +1150,17 @@ def debris_material(stage, ctx, kind, material, tex_url=None, tex_name=None,
     if tex_url and bucket != "glass" and not (
             _tiling_safe(tex_name) or _tiling_safe(tex_url.rsplit("/", 1)[-1])):
         # ATLAS / non-tiling source (Facades, WallBack, Metal_Front,
-        # M_Images, trim sheets): drop it, the class branch below carries
-        # the look -- see `_TILING_SAFE_TOKENS`.
+        # M_Images, trim sheets). ROUND 5 (user review 2026-09-02, item 13):
+        # do NOT drop it to a flat class bucket ("the concrete material which
+        # doesn't look right", and the white fallback when a class did not
+        # resolve). Sample the atlas in a WINDOWLESS EDGE COLUMN instead, so
+        # the fragment wears the building's OWN cladding colour with no
+        # window on it (`_atlas_crop_material`). Roof-shed sheet kinds
+        # (`membrane`/`metal`) keep their flat class look — a torn membrane
+        # is roofing, not facade — matching `tornado_urban._FACADE_TEX_KINDS`.
+        if bucket in ("brick", "concrete") or bucket is None:
+            return _atlas_crop_material(stage, ctx, tex_url, tex_name, bucket,
+                                        shade=shade)
         tex_url = ""
     if tex_url and bucket != "glass":
         base = _safe_name(tex_name or tex_url.rsplit("/", 1)[-1])
@@ -1356,7 +1448,7 @@ def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
     for (kind, label, tone, shade), entry in sorted(by_class.items()):
         group = entry["frags"]
         material = entry["material"]
-        pts, counts, idx, nrm = [], [], [], []
+        pts, counts, idx, nrm, uvs = [], [], [], [], []
         for frag in group:
             size = frag.get("size") or (0.5, 0.3, 0.1)
             l, w, t = (float(q) for q in size)
@@ -1385,6 +1477,14 @@ def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
                 counts.append(4)
                 idx.extend(base + v for v in face)
                 nrm.extend([Gf.Vec3f(*n[fi])] * 4)
+                # ROUND 5 (windowless-atlas crop): a per-face [0,1] quad `st`
+                # so `_atlas_crop_material` (UV-space) samples the whole
+                # windowless sub-rectangle across each box face. The
+                # triplanar (`:src:`/class/tone) and flat (metal/membrane)
+                # materials ignore `st` entirely, so this is inert for every
+                # other look — it exists only for the crop path.
+                uvs.extend([Gf.Vec2f(0.0, 0.0), Gf.Vec2f(1.0, 0.0),
+                            Gf.Vec2f(1.0, 1.0), Gf.Vec2f(0.0, 1.0)])
 
         path = "{0}/{1}_{2}{3}{4}".format(
             root, _safe_name(kind), _safe_name(label),
@@ -1397,6 +1497,10 @@ def build_debris(stage, parent, fragments, ctx, ground_z=0.0):
         m.CreateNormalsAttr(Vt.Vec3fArray(nrm))
         m.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
         m.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+        stv = UsdGeom.PrimvarsAPI(m.GetPrim()).CreatePrimvar(
+            "st", Sdf.ValueTypeNames.TexCoord2fArray,
+            UsdGeom.Tokens.faceVarying)
+        stv.Set(Vt.Vec2fArray(uvs))
         xs = [q[0] for q in pts]
         ys = [q[1] for q in pts]
         zs = [q[2] for q in pts]
@@ -1599,11 +1703,28 @@ def _reface_tear_fragments(stage, ctx, by_frag, paths, stats):
         else:
             stats["no_core"] += 1
         # 2) the fragment's own surface, only where a generic look is on it
-        cur = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]
+        # Fracture copies the relationship but not always the applied API
+        # schema. Apply it before querying/rebinding so cold-open USD readers
+        # recognize the fragment's material binding without warnings.
+        cur = UsdShade.MaterialBindingAPI.Apply(prim).ComputeBoundMaterial()[0]
         cur_path = (str(cur.GetPrim().GetPath())
                     if cur and cur.GetPrim().IsValid() else "")
         generic = "{0}/QuakeLooks/".format(ctx.get("parent") or "/World")
-        if (not cur_path) or cur_path.startswith(generic):
+        # ROUND 5 (user review 2026-09-02, item 1): "these broken parts ...
+        # their texture is just white ... it looks like it's going onto a
+        # fallback material". A sliced GAC/dtc PIECE prim binds a
+        # `ShellFallbackLooks` PLACEHOLDER at the prim level (the slicer's
+        # own design — see `_void_glass`'s docstring), a bare white/grey
+        # material with no cladding on it. When `fire_collapse.skin_fragment`
+        # cannot re-skin a broken fragment it inherits that placeholder and
+        # renders white — and the round-4 reface KEPT it (it was neither
+        # empty nor a `QuakeLooks/` generic). Treat any Fallback placeholder
+        # binding as generic too, so it is rebound to the piece's OWN
+        # measured cladding (`_tear_material`) like every other tear face.
+        low = cur_path.lower()
+        is_fallback = ("shellfallback" in low or "/fallback" in low
+                       or low.rsplit("/", 1)[-1].startswith("fallback"))
+        if (not cur_path) or cur_path.startswith(generic) or is_fallback:
             qf._bind(stage, str(frag),
                      _tear_material(stage, ctx, tex_url, tex_name, False))
             stats["face"] += 1
@@ -2085,6 +2206,11 @@ TU_FIT_CLAMP = _os.environ.get("TU_FIT_CLAMP", "1").strip().lower() not in (
 #: `quake_flow.WALL_INSET`'s own value, reused so a clamped slab and an
 #: unclamped one read identically where the plan IS the bbox.
 _SLAB_INSET_M = 0.55
+#: A fit-out storey whose floor level is within this of (or above) the deck
+#: line is a PARAPET / sliver band, not a real floor — it gets no fit-out
+#: (no extra floor of furniture, no floating roof props). See
+#: `_author_interior`'s own "NO EXTRA FLOOR ABOVE THE ROOF" comment.
+_PARAPET_BAND_TOL_M = 0.5
 #: What `fit_interior(footprint=)` is handed: the storey's WALL rectangle,
 #: barely inset — NOT the slab rectangle. `quake_flow._inside_inset` then
 #: applies its own `FIT_FOOTPRINT_M` (0.35 m) on top. Handing it the slab
@@ -2564,6 +2690,59 @@ def _author_interior(stage, ctx, plan):
     masses = info["masses"]
     rects = _storey_plan_rects(info)
     m_main = masses.get("main") or next(iter(masses.values()))
+    # ROUND 5 (user review 2026-09-02, items 3/6): NO EXTRA FLOOR ABOVE THE
+    # ROOF, AND THE TOP PILLARS REACH THE TOP FLOOR. A recipe that takes a
+    # PARAPET-band piece (`parapet_fall`, `top_storey_loss`) puts that band's
+    # storey index into `opened`, and `fit_interior` would then author a
+    # whole floor of slab + columns + FURNITURE at the parapet level — the
+    # "extra floor of furniture and roof" with "roof props ... floating" the
+    # review flagged (`prop_main_11_*` on A3, 17 m off the footprint because
+    # the parapet band carries no measured plan to clamp to). It is also why
+    # the top pillars read "3 m short": the real top floor's columns
+    # correctly stop at the deck, but a phantom parapet floor ~3 m above them
+    # made them look short of it. The proven fire/quake interior is FLOORS +
+    # PILLARS; a parapet has neither, so clamp the fit-out to real floors
+    # (a floor whose level is strictly below the deck line). Single-mass by
+    # `tornado_kit._refuse_if_unsupported`, so the main mass decides.
+    # TWO signals for "this fit-out storey is a PARAPET band, not a real
+    # floor", unioned so a build that carries only one of them is still
+    # clamped:
+    #   (a) DECK-Z, when the sliced mass carries one: any floor level at or
+    #       above the deck line is above the roof.
+    #   (b) ENVELOPE STOREY — deck_z-INDEPENDENT, and the one that actually
+    #       fires on the bench build (which does not set deck_z, so (a) fell
+    #       back to the mass TOP and kept storey 11): the parapet band has NO
+    #       wall/pier/corner piece (only a `parapet` role), so any fit-out
+    #       storey ABOVE the highest storey that carries an envelope piece is
+    #       a parapet band. This is what leaves `prop_main_11_*` floating 12 m
+    #       off A3 when only (a) is used.
+    deck_z = float(m_main.get("deck_z", m_main.get("top", 1e18)))
+    _lv = list(m_main.get("levels") or [])
+    _has_deck = m_main.get("deck_z") is not None
+    _env_storeys = [int((e.get("p") or {}).get("_storey", 0))
+                    for e in (info.get("elements") or ())
+                    if (e.get("mass") or "main") == "main"
+                    and (e.get("p") or {}).get("_role") in _ENVELOPE_ROLES]
+    _top_env = max(_env_storeys) if _env_storeys else None
+    real_floors = set()
+    for i, z in enumerate(_lv):
+        if _has_deck and float(z) >= deck_z - _PARAPET_BAND_TOL_M:
+            continue
+        if _top_env is not None and i > _top_env:
+            continue
+        real_floors.add(i)
+    real_floors.add(0)  # the ground is always a real floor
+    if _lv:
+        dropped = sorted(s for s in storeys if s not in real_floors)
+        storeys = {s for s in storeys if s in real_floors}
+        if shop:
+            storeys.update({0, 1} & real_floors)
+        if dropped:
+            print("[tornado_urban_usd] interior: dropped {0} parapet-band "
+                  "storey(s) {1} from the fit-out (top envelope storey {2}, "
+                  "deck_z {3}) — items 3/6".format(
+                      len(dropped), dropped, _top_env,
+                      "%.1f" % deck_z if _has_deck else "unset"))
     # `footprint=` is keyed by STOREY only (`quake_flow.fit_interior`'s own
     # signature, and the shape `urban_fire.burn_building` passes it), so a
     # multi-mass building gets the MAIN mass's plan — the same limitation
@@ -2584,6 +2763,22 @@ def _author_interior(stage, ctx, plan):
     ctx["static_extra"].extend(fit.get("all") or [])
     slab_cut = _recut_slabs(stage, info, fit, rects, opened)
     n_props_moved = _clamp_fit_props(stage, ctx, info, fit, opened, rects)
+
+    # A torn facade exposes the shared fire/quake floors and columns.  The
+    # former per-hole backing quads recreated walls behind the holes and read
+    # as freestanding panels, so they are deliberately not authored.
+    out = {"n_fit": len(fit.get("all") or []), "n_backing": 0,
+           "n_backing_holes": 0, "n_backing_shop": 0,
+           "n_props_clamped": n_props_moved,
+           "n_partitions": len(fit.get("partitions") or []),
+           "n_slabs_recut": slab_cut["n"],
+           "slab_overhang_before_m": slab_cut["before_max"],
+           "slab_overhang_after_m": slab_cut["after_max"],
+           "n_holes": len(holes), "storeys": sorted(storeys),
+           "inset_m": float(_inset_for(
+               m_main, _rect_for(rects, m_main, "main", 0)))}
+    ctx["interior"] = out
+    return out
 
     mat = _interior_backing_material(stage, ctx)
     root = "{0}/tornado_interior_backing".format(parent)
