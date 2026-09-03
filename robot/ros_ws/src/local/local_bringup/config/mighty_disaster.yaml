@@ -81,8 +81,12 @@
         # RAISING it past ~2 breaks the bridge's 4 m start window (header
         # note); lowering is always safe.
         v_max: $(env MIGHTY_V_MAX 1.5)                  # [m/s]   Max velocity
-        a_max: 5.0                                      # [m/s^2] Max acceleration
-        j_max: 10.0                                     # [m/s^3] Max jerk
+        # Env-tunable (2026-09-02 night, user: cap accel for smoother flight).
+        # a_max 0.2 m/s^2 is very gentle; j_max dropped to 1.0 to match — a
+        # 10 m/s^3 jerk cap under a 0.2 accel cap is meaningless. Defaults
+        # keep the module's punchy values for any stack that doesn't set them.
+        a_max: $(env MIGHTY_A_MAX 5.0)                  # [m/s^2] Max acceleration
+        j_max: $(env MIGHTY_J_MAX 10.0)                 # [m/s^3] Max jerk
         w_max: 1.0                                      # [rad/s] Max yaw rate (~4.0 for hardware)
         drone_bbox: [0.6, 0.6, 0.6]  # [m] Vehicle bounding box (include prop guards for hardware)
 

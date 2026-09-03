@@ -100,7 +100,8 @@ def _install_ros_stubs() -> None:
     _stub_module('visualization_msgs')
     _stub_module('visualization_msgs.msg',
                  Marker=type('Marker', (),
-                             {'ADD': 0, 'DELETE': 2, 'LINE_STRIP': 4}))
+                             {'ADD': 0, 'DELETE': 2, 'LINE_STRIP': 4}),
+                 MarkerArray=_Dummy)
     _stub_module('nav_msgs')
     _stub_module('nav_msgs.msg', Odometry=_Dummy, Path=_Dummy)
     _stub_module('sensor_msgs')

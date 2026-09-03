@@ -3,6 +3,7 @@ road
 grass
 tree
 house
+wall
 debris
 sky
 car

@@ -207,6 +207,34 @@ class RavenNavNode(Node):
         self._prev_odom_xyz: Optional[np.ndarray] = None
         self._num_odom_samples = 0
         self._search_complete = False
+        # MAP-READY hold (see _rf_status_cb / _map_unusable). The real hazard
+        # when the shared mapper OOM-restarts is not that the process is
+        # briefly gone — it is that the MAP is empty and stays empty while it
+        # rebuilds, so flying on it gives garbage frontiers/detections. Status
+        # arrival resumes at 1 Hz the instant the process restarts, well
+        # before the map is usable, so we gate on the map itself: the status
+        # JSON carries frames_total (resets on restart) and vox_count
+        # (collapses, then climbs). Hold when the map has collapsed and until
+        # vox_count recovers past a floor — this covers BOTH the down window
+        # (no status at all) and the rebuild window.
+        self._last_rf_status_ts = None
+        self._rf_prev_frames = None
+        self._rf_map_ready = None            # None until first status
+        self._mapper_holding = False
+        self._rf_hold_timeout_s = float(
+            os.getenv('RAYFRONTS_HOLD_TIMEOUT_S', '') or 5.0)
+        self._rf_resume_vox = int(
+            os.getenv('RAYFRONTS_RESUME_VOX', '') or 300)
+        # RESTART-ON-COMPLETE (user 2026-09-02 night: "after the entire area
+        # is explored it'll reset and start over"). When on, reaching the
+        # coverage threshold wipes the explored map + frontier viewpoint
+        # memory and keeps exploring, instead of latching complete and
+        # hovering. env RAVEN_COVERAGE_RESTART, default off = OG benchmark
+        # behaviour (complete-and-hover) preserved for every other mission.
+        self._coverage_restart = (
+            os.getenv('RAVEN_COVERAGE_RESTART', '').strip().lower()
+            in ('1', 'true', 'yes'))
+        self._coverage_laps = 0
         self._last_results_dump_ts = 0.0
         self._last_table_ts = 0.0
         self._prev_ray_marker_count = 0
@@ -316,6 +344,14 @@ class RavenNavNode(Node):
                                  self._search_area_cb, LATCHED_QOS)
         self.create_subscription(String, f'{pfx}/raven_nav/lvlm_output',
                                  self._lvlm_output_cb, 10)
+        # Shared-mapper LIVENESS: /robot_N/rayfronts/status ticks at 1 Hz
+        # while the off-board mapper is up. When it OOM-restarts (~10 s down
+        # + warmup) this goes stale; raven then HOLDS instead of flying on a
+        # frozen/empty map and picking bad frontiers (user 2026-09-02 night).
+        rf_domain = os.getenv('ROS_DOMAIN_ID', '0')
+        self.create_subscription(
+            String, f'/robot_{rf_domain}/rayfronts/status',
+            self._rf_status_cb, 10)
         self._image_topic = P.resolve_image_topic(
             self._p['lvlm_image_topic'], self._robot_name)
         self.create_subscription(Image, self._image_topic,
@@ -491,6 +527,39 @@ class RavenNavNode(Node):
                 self.get_logger().warn(
                     f'[raven] nav_output_enabled -> {self._nav_output_enabled}')
         return SetParametersResult(successful=True)
+
+    def _rf_status_cb(self, msg) -> None:
+        """Track shared-mapper liveness AND map-readiness from the status
+        JSON (frames_total, vox_count)."""
+        self._last_rf_status_ts = self._now()
+        try:
+            s = json.loads(msg.data)
+            frames = int(s.get('frames_total', 0))
+            vox = int(s.get('vox_count', 0))
+        except (ValueError, TypeError, AttributeError):
+            return
+        # A restart resets frames_total to a small value. Detect the drop and
+        # mark the map not-ready until vox_count climbs back.
+        if self._rf_prev_frames is not None and frames < self._rf_prev_frames:
+            self._rf_map_ready = False
+        self._rf_prev_frames = frames
+        if self._rf_map_ready is None:
+            self._rf_map_ready = vox >= self._rf_resume_vox
+        elif not self._rf_map_ready and vox >= self._rf_resume_vox:
+            self._rf_map_ready = True
+
+    def _map_unusable(self) -> bool:
+        """Hold when the shared map is not usable: either the mapper has gone
+        fully silent (status stale) or it has restarted and the fresh map has
+        not rebuilt past the resume floor yet. False before the first status
+        (raven startup) and when disabled (timeout <= 0)."""
+        if not self._rayfronts_shared or self._rf_hold_timeout_s <= 0.0:
+            return False
+        if self._last_rf_status_ts is None:
+            return False
+        if (self._now() - self._last_rf_status_ts) > self._rf_hold_timeout_s:
+            return True                       # fully down: no status at all
+        return self._rf_map_ready is False    # restarted, still rebuilding
 
     # ── frames + helpers ────────────────────────────────────────────────────
     def _now(self) -> float:
@@ -755,13 +824,22 @@ class RavenNavNode(Node):
         for pct in self._coverage.new_milestones(frac):
             self.get_logger().info(
                 f'[coverage] reached {pct}% of polygon (actual {frac*100:.1f}%)')
-        if not self._search_complete and frac >= self._coverage_threshold:
-            self._search_complete = True
-            self._completion_reason = 'coverage'
-            self.get_logger().info(
-                f'search complete: coverage {frac*100:.1f}% >= '
-                f'{self._coverage_threshold*100:.1f}% of polygon area — '
-                'hovering in place')
+        if frac >= self._coverage_threshold and not self._search_complete:
+            if self._coverage_restart:
+                self._coverage_laps += 1
+                self.get_logger().info(
+                    f'[coverage] {frac*100:.1f}% >= '
+                    f'{self._coverage_threshold*100:.1f}% — RESETTING to '
+                    f're-explore (lap {self._coverage_laps})')
+                self._coverage.reset()
+                self._manager.frontier_behavior.visited_viewpoints.clear()
+            else:
+                self._search_complete = True
+                self._completion_reason = 'coverage'
+                self.get_logger().info(
+                    f'search complete: coverage {frac*100:.1f}% >= '
+                    f'{self._coverage_threshold*100:.1f}% of polygon area — '
+                    'hovering in place')
         elif self._debug_verbose:
             self.get_logger().info(
                 f'[coverage] {frac*100:.1f}% '
@@ -783,6 +861,26 @@ class RavenNavNode(Node):
         self._manager.perceive(ctx)
         self._publish_detections(ctx)
         self._update_coverage(ctx)
+
+        if self._map_unusable():
+            # Freeze at the current pose until the shared map is usable again.
+            if not self._mapper_holding:
+                self._mapper_holding = True
+                self.get_logger().warn(
+                    'shared map unusable (mapper down or rebuilding) — '
+                    'HOLDING position until vox_count >= %d'
+                    % self._rf_resume_vox)
+            hover = ctx.clamp(ctx.cur_pose)
+            self._waypoint_locked = True
+            self._target_waypoint = hover
+            self._target_waypoint2 = hover
+            self._path_pub.publish(ros_io.make_path(self._stamp(), [hover]))
+            self._nav_mode_pub.publish(String(data=P.NAV_MODE_IDLE))
+            return
+        if self._mapper_holding:
+            self._mapper_holding = False
+            self._waypoint_locked = False
+            self.get_logger().info('shared map rebuilt — resuming search')
 
         if self._search_complete:
             self._finish(ctx)

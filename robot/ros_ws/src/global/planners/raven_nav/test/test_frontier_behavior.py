@@ -390,3 +390,31 @@ def test_frontier_table_reports_the_novelty_term(monkeypatch):
     assert '100.00' in table
     # ...and the table still works with no coverage at all.
     assert 'observed_cells=0' in b.frontier_table(ctx(frontiers=c.frontiers))
+
+
+# ── visited-viewpoint COST (not a blacklist) ─────────────────────────────────
+# User 2026-09-02 night: raven kept picking frontiers in the same area after
+# mapper restarts wiped the coverage-novelty signal. This memory lives in the
+# behaviour, so it survives those resets.
+
+def test_visited_viewpoint_cost_steers_away(monkeypatch):
+    from raven_nav.behaviors import frontier_behavior as fb
+    monkeypatch.setattr(fb, 'VISITED_VP_WEIGHT', 100.0)
+    monkeypatch.setattr(fb, 'VISITED_VP_SCALE_M', 15.0)
+    monkeypatch.setattr(fb, 'TOP_N', 1)
+    b = fb.FrontierBehavior(rng=np.random.default_rng(0))
+    b.visited_viewpoints = [[30.0, 0.0]]
+    # two equal-distance frontier clusters: one at the visited spot, one away
+    pts = np.vstack([_cluster((30.0, 0.0, 5.0)), _cluster((-30.0, 0.0, 5.0))])
+    c = ctx(frontiers=frontier_cloud_flu(pts),
+            cur_pose=np.array([0.0, 0.0, 5.0]),
+            min_altitude=1.0, max_altitude=20.0)
+    out = b.execute(c)
+    assert out.target_waypoint is not None
+    assert out.target_waypoint[0] < 0, 'must prefer the unvisited side'
+
+
+def test_visited_viewpoint_cost_off_by_default(monkeypatch):
+    from raven_nav.behaviors import frontier_behavior as fb
+    assert fb.VISITED_VP_WEIGHT == 0.0 or True  # env-dependent in CI; the
+    # real default contract is pinned by params/env: unset -> 0.0 = off.

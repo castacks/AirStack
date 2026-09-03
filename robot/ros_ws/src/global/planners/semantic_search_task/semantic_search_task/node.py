@@ -11,7 +11,27 @@ import numpy as np
 import rclpy
 import rclpy.executors
 from geometry_msgs.msg import Point, Polygon, PolygonStamped, Pose
-from visualization_msgs.msg import Marker
+from visualization_msgs.msg import Marker, MarkerArray
+
+# Per-robot wheel colors — MUST match gcs_visualizer/gcs_utils.ROBOT_COLORS
+# (robot_1 red, robot_2 green, ...), so each drone's search-area outline is
+# drawn in the same color Foxglove already uses for its trail and voxel
+# gradient. Copied (the GCS workspace is not importable from the robot
+# workspace); keep in sync if the GCS palette changes.
+_ROBOT_COLORS = [
+    (0.90, 0.10, 0.10),
+    (0.10, 0.70, 0.20),
+    (0.20, 0.40, 1.00),
+    (1.00, 0.55, 0.00),
+    (0.70, 0.30, 0.90),
+    (0.00, 0.80, 0.85),
+    (1.00, 0.85, 0.10),
+    (1.00, 0.40, 0.70),
+    (0.40, 0.80, 0.40),
+    (0.55, 0.27, 0.07),
+    (0.30, 0.30, 0.30),
+    (0.95, 0.95, 0.95),
+]
 from nav_msgs.msg import Odometry
 from rclpy.action import ActionServer, ActionClient, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -321,13 +341,17 @@ class SemanticSearchTaskNode(Node):
         self._search_area_pub = self.create_publisher(
             PolygonStamped, f'{self._robot_prefix}/raven_nav/search_area',
             latched_qos)
-        # The same polygon as a LINE_STRIP Marker for Foxglove (user request
-        # 2026-09-02: "viz the search area under search/markers/search_area").
-        # Latched so it renders no matter when the panel subscribes; bridged
-        # to the GCS domain by the dds_router allowlist entry of the same
-        # name.
+        # The same polygon as a LINE_STRIP in a MarkerArray on the BASELINE
+        # overlay convention `{robot}/search/markers` (user 2026-09-02 night:
+        # follow the other baselines' topic names): dds_router already
+        # bridges that name, and gcs foxglove_visualizer_node already
+        # translates it by boot ENU and republishes under
+        # /gcs/<robot>/search/markers. Latched AND republished periodically
+        # from the task loop — the router's volatile reader never replays a
+        # latched message it joined after, which is why the polygon was
+        # invisible on the GCS all day.
         self._search_area_marker_pub = self.create_publisher(
-            Marker, f'{self._robot_prefix}/search/markers/search_area',
+            MarkerArray, f'{self._robot_prefix}/search/markers',
             latched_qos)
         # Same latched polygon for the LVLM baseline (waypoint clamp).
         self._lvlm_search_area_pub = self.create_publisher(
@@ -392,31 +416,40 @@ class SemanticSearchTaskNode(Node):
         self._publish_search_area_marker(polygon)
 
     def _publish_search_area_marker(self, polygon: Polygon) -> None:
-        """The search polygon as a closed green LINE_STRIP Marker.
+        """The search polygon as a closed green LINE_STRIP MarkerArray.
 
         An empty polygon publishes a DELETE marker so a cleared constraint
-        also clears the drawing.
+        also clears the drawing. Frame is the robot-local 'map' — the GCS
+        visualizer translates by boot ENU before drawing.
         """
         m = Marker()
         m.header.stamp = self.get_clock().now().to_msg()
         m.header.frame_id = 'map'
         m.ns = 'search_area'
         m.id = 0
-        if not polygon.points:
+        if polygon.points:
+            m.action = Marker.ADD
+            m.type = Marker.LINE_STRIP
+            m.scale.x = 0.6              # line width (m)
+            # this robot's wheel color (robot_1 red, robot_2 green, ...)
+            try:
+                idx = int(str(self._robot_prefix).rsplit('_', 1)[-1])
+            except ValueError:
+                idx = 1
+            r, g, b = _ROBOT_COLORS[(idx - 1) % len(_ROBOT_COLORS)]
+            m.color.r, m.color.g, m.color.b = float(r), float(g), float(b)
+            m.color.a = 0.9
+            m.pose.orientation.w = 1.0
+            pts = [Point(x=float(p.x), y=float(p.y), z=float(p.z) + 0.5)
+                   for p in polygon.points]
+            pts.append(pts[0])           # close the loop
+            m.points = pts
+        else:
             m.action = Marker.DELETE
-            self._search_area_marker_pub.publish(m)
-            return
-        m.action = Marker.ADD
-        m.type = Marker.LINE_STRIP
-        m.scale.x = 0.6              # line width (m)
-        m.color.g = 1.0
-        m.color.a = 0.9
-        m.pose.orientation.w = 1.0
-        pts = [Point(x=float(p.x), y=float(p.y), z=float(p.z) + 0.5)
-               for p in polygon.points]
-        pts.append(pts[0])           # close the loop
-        m.points = pts
-        self._search_area_marker_pub.publish(m)
+        arr = MarkerArray()
+        arr.markers.append(m)
+        self._search_area_marker_pub.publish(arr)
+        self._last_search_polygon = polygon
 
     def _publish_lvlm_search_area(self, polygon: Polygon) -> None:
         """Latched search polygon (robot-local 'map' frame) for the LVLM baseline
@@ -1676,6 +1709,11 @@ class SemanticSearchTaskNode(Node):
                 rf_periodic = (self._rayfronts_mode == 'shared'
                                and rf_sub_count > 0
                                and time.monotonic() - last_vocab_send_t >= 10.0)
+                if rf_periodic and getattr(self, '_last_search_polygon', None) \
+                        is not None:
+                    # Same reason as the vocab resend: latched messages never
+                    # replay through the router's volatile readers.
+                    self._publish_search_area(self._last_search_polygon)
                 if rf_edge or rf_periodic:
                     rayfronts_ready = True
                     if rf_edge:

@@ -1148,6 +1148,11 @@ def run_step(stack, container, step_spec, step_index):
         # send_goal path accepts it too.
         goal_obj = yaml.safe_load(goal) if isinstance(goal, str) else goal
         goal_json = json.dumps(goal_obj or {})
+        # Per-robot goal OVERRIDES (2026-09-02, multi-raven sectors): a
+        # mapping {robot_index: {field: value}} deep-merged over `goal` for
+        # that robot only — e.g. each drone its own search_area polygon,
+        # the way the team baselines assign regions. Keys may be int or str.
+        goal_overrides = spec.get("goal_per_robot") or {}
         timeout = float(spec.get("timeout_s", 120))
         # Per-robot retries for transient rejections (no GPS fix yet, PX4
         # position not converged, goal lost on the relay's volatile sub).
@@ -1199,7 +1204,14 @@ def run_step(stack, container, step_spec, step_index):
                 base = f"/robot_{n}/tasks/{task}"
                 result_file = f"/tmp/relay_result_{task}_{n}.out"
                 fb_file = f"/tmp/relay_feedback_{task}_{n}.out"
-                msg_yaml = json.dumps({"data": expand(goal_json, n)})
+                ov = goal_overrides.get(n, goal_overrides.get(str(n)))
+                if ov:
+                    merged = dict(goal_obj or {})
+                    merged.update(ov)
+                    robot_goal_json = json.dumps(merged)
+                else:
+                    robot_goal_json = goal_json
+                msg_yaml = json.dumps({"data": expand(robot_goal_json, n)})
                 cancel_yaml = json.dumps({"data": "osmo: timeout cancel"})
                 script = (
                     f"rm -f {result_file} {fb_file}\n"
@@ -1292,7 +1304,8 @@ def run_step(stack, container, step_spec, step_index):
 
             def send(n):
                 cmd = (f"ros2 action send_goal --feedback /robot_{n}/tasks/{task} "
-                       f"{action_type} {shlex.quote(expand(goal_json, n))}")
+                       f"{action_type} "
+                       f"{shlex.quote(expand(json.dumps({**(goal_obj or {}), **(goal_overrides.get(n, goal_overrides.get(str(n))) or {})}), n))}")
                 r = ros2_exec(container, cmd, domain_id=n, setup_bash=stack.setup_bash,
                               timeout=int(timeout + 15))
                 return {"exit": r.returncode, "ok": action_ok(r.stdout),

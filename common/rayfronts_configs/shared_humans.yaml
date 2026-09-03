@@ -252,5 +252,5 @@ feat_compressor:
   # reconstructs everything toward the frame mean and inter-class cosine
   # differences wash out (the person-everywhere softmax above). 256 keeps a
   # 3x memory win over the raw 768-d features with far better recon.
-  out_dim: 256
+  out_dim: 192  # 256 -> 192 (2026-09-02 night): still OOMing every ~5-6 min at vox 0.3 x 12 labels; -25% map feats
   path: null

@@ -101,6 +101,8 @@ env:
   # measured 1.39-1.45 m/s sustained at the 1.5 default; 1.0 gives the 4.5 Hz
   # ouster map and the replanner more reaction distance per update.
   MIGHTY_V_MAX: "1.0"
+  MIGHTY_A_MAX: "0.2"   # gentle accel for smooth flight (user 2026-09-02)
+  MIGHTY_J_MAX: "1.0"   # jerk cap matched to the low accel cap
   MIGHTY_OVERRIDE_PERIOD_S: "0.2"   # rung 1: 5x fresher trajectory anchors
   MIGHTY_SEGMENT_STRIDE: "2"        # rung 1: denser corner tracking
   # Native MIGHTY->PX4 path ON (user 2026-09-02 night: legacy still jerky):
@@ -117,7 +119,14 @@ env:
   RAVEN_VOXEL_MAX_EXTENT_M: "3.0"   # person-sized clusters only; measured FPs were 4-4.5 m piles
   # frontier flight quality (user, live 2026-09-02): spread out over the
   # plate instead of dithering locally; hold altitude between frontier hops.
+  RAYFRONTS_HOLD_TIMEOUT_S: "5.0"   # mapper fully silent this long => hold
+  RAYFRONTS_RESUME_VOX: "300"      # ...and stay held after a restart until the map rebuilds to this many voxels
+  RAVEN_COVERAGE_RESTART: "1"   # re-explore the sector on full coverage instead of hovering (user 2026-09-02)
   RAVEN_FRONTIER_NOVELTY_W: "100.0"
+  # soft cost near previously-chosen viewpoints — survives mapper
+  # restarts (behaviour memory), unlike the coverage novelty above
+  RAVEN_FRONTIER_VISITED_W: "30.0"
+  RAVEN_FRONTIER_VISITED_SCALE_M: "15.0"
   RAVEN_FRONTIER_MAX_DZ_M: "2.0"   # max altitude change per frontier hop
   ZED_WIDTH: "960"   # person = 1-2 ViT patches at 480 wide beyond 15 m — the measured detection limit
   ZED_HEIGHT: "600"
@@ -167,7 +176,7 @@ env:
   # number incomparable to voxel_score_threshold. Needed explicitly because
   # shared_humans.yaml ships querying.query_file: null, so the mapper has no
   # other way to tell target from background.
-  RAYFRONTS_PROBE_BACKGROUND: "road, grass, tree, house, debris, sky, car, utility pole, street light, hydrant, crosswalk"
+  RAYFRONTS_PROBE_BACKGROUND: "road, grass, tree, house, wall, debris, sky, car, utility pole, street light, hydrant, crosswalk"
   VLM_URL: http://offboard-compute:8000/v1
   # DIFF (2026-09-02): VLM OFF, and RAVEN_LVLM explicitly "false".
   # MEASURED GPU on this box: 14.1 of 16.3 GiB already in use with the stack
@@ -286,7 +295,7 @@ steps:
         # querying.query_file: null, so nothing is pre-pinned at startup and
         # index order is arrival order — raven sends the TARGET first.
         # Colour by sim_0 in Foxglove.
-        background_queries: "road, grass, tree, house, debris, sky, car, utility pole, street light, hydrant, crosswalk"  # user 2026-09-02: og six + car, utility pole, street light, hydrant, crosswalk
+        background_queries: "road, grass, tree, house, wall, debris, sky, car, utility pole, street light, hydrant, crosswalk"  # + wall (user 2026-09-02 night)
         # NO debris/wood-debris label — every combo containing one zeroed the
         # buried casualty (its board voxels vote debris under the x100
         # softmax); this 5-label set kept both rig subjects above the 0.6
@@ -411,6 +420,23 @@ record:
     - /{robot}/rayfronts/msg_serv/voxels_sim/all
     - /{robot}/rayfronts/msg_serv/rays_sim/all
     - /{robot}/rayfronts/msg_serv/frontiers
+    # WORLD-FRAME VOXEL CLOUDS (added 2026-09-02). Every /{robot}/rayfronts/...
+    # topic above is in THAT ROBOT'S OWN LOCAL `map` (spawn-anchored) — replayed
+    # raw in Foxglove it renders offset from the sim/GT/robot-marker layers by
+    # exactly the spawn point. foxglove_visualizer_node.py already fixes this
+    # live: it translates (and, for voxels_sim, rotates RDF->FLU first) by this
+    # robot's locked boot ENU and republishes under /rayfronts_debug/<robot>/...,
+    # frame_id 'map' (the GCS's global-ENU frame). These are the recorded
+    # counterparts to voxels_sim/all and voxel_rgb above — the ones a Foxglove
+    # layout should actually point at. NOT gated on a Foxglove client being
+    # connected: the node republishes on every source message regardless of
+    # subscriber count (verified against foxglove_visualizer_node.py — no
+    # get_subscription_count() gate anywhere in it), so this is a continuous
+    # stream, same cadence as the raw voxels_sim/all and voxel_rgb above. A bag
+    # recorded BEFORE this line existed has no fix on replay; use
+    # scripts/raven_live/fix_bag_voxel_frames.py to translate it after the fact.
+    - /rayfronts_debug/{robot}/voxels_sim/all
+    - /rayfronts_debug/{robot}/voxel_rgb
     - /gcs/robot_markers
     - /gcs/payload/{robot}/filtered_rays
     - /gcs/payload/{robot}/filtered_frontiers

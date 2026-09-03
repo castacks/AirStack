@@ -62,16 +62,14 @@ export ISAAC_SIM_PYTHONPATH="${ISAAC_SIM_PYTHONPATH:-/isaac-sim/kit/python/lib/p
 say () { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 die () { printf '\033[31mFAILED: %s\033[0m\n' "$*" >&2; exit 1; }
 
-# `final_disaster_dataset/Fire/Urban` is under an explicit do-not-rebuild hold
-# from the empty-block investigation. That finding did NOT reproduce (105 of 106
-# blocks filled; 24/24 swept seeds had zero empty blocks -- see the skill's
-# "Still open"), but the hold stands until whoever set it agrees. Refuse rather
-# than quietly overwrite.
-if [ "${FC_ACK_LAYOUT_GAPS:-0}" != "1" ]; then
-  die "Fire/Urban is under a do-not-rebuild hold from the empty-block
-     investigation (see the build-urban-fire-city skill, 'Still open').
-     Re-run with FC_ACK_LAYOUT_GAPS=1 once that is lifted, or point
-     FREEZE_OUT somewhere else."
+# NOTE: `final_disaster_dataset/Fire/Urban` was emptied earlier pending an
+# empty-block investigation. That finding did not reproduce (105 of 106 blocks
+# filled; 24/24 swept seeds had zero empty blocks -- see the
+# build-urban-fire-city skill, "Still open"), and generating 1 km directly
+# dissolves it either way, so the run is no longer gated on it. Set
+# FC_REFUSE_OVERWRITE=1 if you want the old refuse-if-present behaviour.
+if [ "${FC_REFUSE_OVERWRITE:-0}" = "1" ] && [ -d "$FREEZE_OUT" ]; then
+  die "$FREEZE_OUT exists and FC_REFUSE_OVERWRITE=1"
 fi
 
 mkdir -p "$LOG_DIR"
@@ -130,6 +128,31 @@ for L in $LEVELS; do
   BAKES="${FB_OUT}/city_${CITY_SEED}"
 
   say "LEVEL ${L} — ${PRESET}  (city seed ${CITY_SEED}, bakes -> ${BAKES})"
+
+  # ---- Stage 3b: PROVE THE OFFLINE DUMP IS THE CITY KIT BUILDS -------------
+  # The offline dump is a CPU reimplementation of `dump_city_placements`. If
+  # the two disagree the manifest names buildings the assembled city does not
+  # have in those positions and the bakes land on the wrong cells — visible
+  # three stages later as `manifest/city match: 4/34`, long after the cheap
+  # place to catch it. FC_INTACT_ONLY=1 dumps placements WITHOUT composing any
+  # bake, so this is cheap and needs no bakes to exist yet.
+  #
+  # Runs once per (preset, seed): the result is cached beside the dump, and
+  # FC_SKIP_DUMP_DIFF=1 skips it entirely once you trust a level.
+  KITDUMP="$REPO/scene_gen/_plans/kit_dump_l${L}.json"
+  STAMP="$REPO/scene_gen/_plans/.dump_verified_l${L}_s${CITY_SEED}"
+  if [ "${FC_SKIP_DUMP_DIFF:-0}" != "1" ] && [ ! -f "$STAMP" ]; then
+    say "3b/9 verify the offline dump against a real Kit build"
+    dex "$CONTAINER" bash -lc "
+        cd $REPO &&
+        SCENE_CONFIG='$PRESET' FC_INTACT_ONLY=1 FC_DUMP='$KITDUMP' \
+        ./python.sh simulation/isaac-sim/launch_scripts/urban_fire_city_launch_script.py --no-window
+    " > "${LOG_DIR}/l${L}_kitdump.log" 2>&1 || die "Kit intact-only dump (level $L)"
+    python3 "$REPO/scene_gen/tools/verify_dump_matches_kit.py" \
+        --offline "$DUMP" --kit "$KITDUMP" \
+      || die "the offline plan is not the city Kit builds — do not bake against it"
+    touch "$STAMP"
+  fi
 
   # ---- Stage 4: BAKE -------------------------------------------------------
   # Host-side driver: it issues its own `docker exec` per building. It is

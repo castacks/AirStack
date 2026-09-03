@@ -103,6 +103,8 @@ services:
       # transit speed cap, substituted into mighty_disaster.yaml v_max
       # (default 1.5 m/s when unset)
       - MIGHTY_V_MAX
+      - MIGHTY_A_MAX
+      - MIGHTY_J_MAX
       # bridge anchor freshness (controller ladder rung 1): trajectory
       # override republish period and waypoint stride
       - MIGHTY_OVERRIDE_PERIOD_S
@@ -128,6 +130,13 @@ services:
       # path. 0 = hand back immediately.
       - MIGHTY_NATIVE_GRACE_S
       - RAVEN_FRONTIER_NOVELTY_W
+      - RAVEN_COVERAGE_RESTART
+      # raven freezes if the shared mapper status goes stale this long (OOM restart)
+      - RAYFRONTS_HOLD_TIMEOUT_S
+      # min vox_count before raven resumes after a mapper restart (map rebuilt)
+      - RAYFRONTS_RESUME_VOX
+      - RAVEN_FRONTIER_VISITED_W
+      - RAVEN_FRONTIER_VISITED_SCALE_M
       # raven cluster lattice; MUST match shared_humans mapping.vox_size
       - RAVEN_VOX_SIZE_M
       - RAVEN_FRONTIER_MAX_DZ_M

@@ -95,9 +95,14 @@ env:
   ENABLE_LIDAR: "true"   # mighty maps from the Ouster now — 360-degree avoidance
   MIGHTY_CLOUD_SUFFIX: "sensors/ouster/point_cloud"
   MIGHTY_CLOUD_FRAME: "ouster"
-  MIGHTY_V_MAX: "1.0"   # slowed from 1.5 — see 1robot file's note
+  MIGHTY_V_MAX: "1.0"
+  MIGHTY_A_MAX: "0.2"   # gentle accel for smooth flight (user 2026-09-02)
+  MIGHTY_J_MAX: "1.0"   # jerk cap matched to the low accel cap   # slowed from 1.5 — see 1robot file's note
   MIGHTY_OVERRIDE_PERIOD_S: "0.2"   # rung 1: 5x fresher trajectory anchors
   MIGHTY_SEGMENT_STRIDE: "2"        # rung 1: denser corner tracking
+  # Native MIGHTY->PX4 path ON (was MISSING from this file — both drones flew
+  # legacy PID in the 2-robot run, hence the jerk; the 1robot file had it).
+  MIGHTY_NATIVE_SETPOINTS: "1"
   # rung 2: trajectory feedforward through the pid cascade (planned velocity
   # into the position loops, planned acceleration into the velocity loops).
   PID_POS_FF: "1.0"     # exact planned-velocity feedforward
@@ -107,7 +112,14 @@ env:
   RAVEN_VOXEL_MAX_EXTENT_M: "3.0"   # person-sized clusters only; measured FPs were 4-4.5 m piles
   # frontier flight quality (user, live 2026-09-02): spread out over the
   # plate instead of dithering locally; hold altitude between frontier hops.
+  RAYFRONTS_HOLD_TIMEOUT_S: "5.0"   # mapper fully silent this long => hold
+  RAYFRONTS_RESUME_VOX: "300"      # ...and stay held after a restart until the map rebuilds to this many voxels
+  RAVEN_COVERAGE_RESTART: "1"   # re-explore the sector on full coverage instead of hovering (user 2026-09-02)
   RAVEN_FRONTIER_NOVELTY_W: "100.0"
+  # soft cost near previously-chosen viewpoints — survives mapper
+  # restarts (behaviour memory), unlike the coverage novelty above
+  RAVEN_FRONTIER_VISITED_W: "30.0"
+  RAVEN_FRONTIER_VISITED_SCALE_M: "15.0"
   RAVEN_FRONTIER_MAX_DZ_M: "2.0"   # max altitude change per frontier hop
   ZED_WIDTH: "960"   # person = 1-2 ViT patches at 480 wide beyond 15 m — the measured detection limit
   ZED_HEIGHT: "600"
@@ -157,7 +169,7 @@ env:
   # number incomparable to voxel_score_threshold. Needed explicitly because
   # shared_humans.yaml ships querying.query_file: null, so the mapper has no
   # other way to tell target from background.
-  RAYFRONTS_PROBE_BACKGROUND: "road, grass, tree, house, debris, sky, car, utility pole, street light, hydrant, crosswalk"
+  RAYFRONTS_PROBE_BACKGROUND: "road, grass, tree, house, wall, debris, sky, car, utility pole, street light, hydrant, crosswalk"
   VLM_URL: http://offboard-compute:8000/v1
   RAVEN_LVLM: "false"
   START_VLM_SERVER: "false"  # rung-1: 2 drones + 2 lidars need the ~4 GiB; LVLM tier stays untested tonight
@@ -220,6 +232,46 @@ steps:
       task: semantic_search
       timeout_s: 900
       cancel_on_timeout: true
+      # PER-ROBOT SECTORS (user 2026-09-02 night: divide the hull into N
+      # drone areas like the other baselines). The damage hull is split by a
+      # line perpendicular to the spawn axis, offset to EQUALIZE AREA
+      # (11.2k m2 each); each spawn is inside its own sector (robot_1: 11
+      # casualties, robot_2: 19 — the scene clusters them). The base goal's
+      # search_area below is the FULL hull and acts only as the fallback if
+      # an override is missing.
+      goal_per_robot:
+        1:
+          search_area:
+            points:
+              - {"x": -125.0, "y": -124.06, "z": 0.0}
+              - {"x": -116.64, "y": -125.0, "z": 0.0}
+              - {"x": -65.33, "y": -125.0, "z": 0.0}
+              - {"x": -62.06, "y": -124.54, "z": 0.0}
+              - {"x": -56.18, "y": -121.93, "z": 0.0}
+              - {"x": 70.99, "y": 68.52, "z": 0.0}
+              - {"x": 70.99, "y": 68.52, "z": 0.0}
+              - {"x": 26.66, "y": 48.61, "z": 0.0}
+              - {"x": -25.22, "y": 2.42, "z": 0.0}
+              - {"x": -32.95, "y": -4.56, "z": 0.0}
+              - {"x": -95.06, "y": -64.69, "z": 0.0}
+              - {"x": -125.0, "y": -105.03, "z": 0.0}
+        2:
+          search_area:
+            points:
+              - {"x": -56.18, "y": -121.93, "z": 0.0}
+              - {"x": -33.52, "y": -111.86, "z": 0.0}
+              - {"x": -2.56, "y": -93.1, "z": 0.0}
+              - {"x": 30.63, "y": -67.25, "z": 0.0}
+              - {"x": 109.19, "y": 2.94, "z": 0.0}
+              - {"x": 119.37, "y": 22.76, "z": 0.0}
+              - {"x": 123.04, "y": 35.17, "z": 0.0}
+              - {"x": 124.81, "y": 46.94, "z": 0.0}
+              - {"x": 124.81, "y": 73.06, "z": 0.0}
+              - {"x": 121.08, "y": 74.47, "z": 0.0}
+              - {"x": 105.53, "y": 74.47, "z": 0.0}
+              - {"x": 92.92, "y": 72.33, "z": 0.0}
+              - {"x": 70.99, "y": 68.52, "z": 0.0}
+
       pass_on_feedback: true
       goal:
         query: "person"   # REVERTED to the single OG query (2026-09-02 late): with
@@ -233,7 +285,7 @@ steps:
         # common/rayfronts_configs/background_humans.txt, verbatim (33
         # labels), comma-joined. Keep in sync by hand — the mission schema has
         # no include/file mechanism.
-        background_queries: "road, grass, tree, house, debris, sky, car, utility pole, street light, hydrant, crosswalk"  # user 2026-09-02: og six + car, utility pole, street light, hydrant, crosswalk
+        background_queries: "road, grass, tree, house, wall, debris, sky, car, utility pole, street light, hydrant, crosswalk"  # + wall (user 2026-09-02 night)
         search_area: *search_area_250
         min_altitude_agl: 2.5
         max_altitude_agl: 12.0
@@ -289,6 +341,20 @@ record:
     - /{robot}/rayfronts/msg_serv/voxels_sim/all
     - /{robot}/rayfronts/msg_serv/rays_sim/all
     - /{robot}/rayfronts/voxel_rgb
+    # WORLD-FRAME VOXEL CLOUDS (added 2026-09-02, see the 1robot file's note
+    # for the full derivation). The raw /{robot}/rayfronts/... topics above are
+    # each robot's OWN LOCAL `map` (spawn-anchored) — replayed raw in Foxglove
+    # they render offset from the sim/GT/robot-marker layers by that robot's
+    # spawn point. foxglove_visualizer_node.py already fixes this live
+    # (translate, and for voxels_sim rotate RDF->FLU first, by the robot's
+    # locked boot ENU) and republishes under /rayfronts_debug/<robot>/...,
+    # frame_id 'map'. NOT gated on a Foxglove client being connected — verified
+    # against the node: no get_subscription_count() gate anywhere in it, so
+    # this is a continuous republish at the same cadence as the raw clouds
+    # above. A bag recorded before this line existed has no fix on replay; use
+    # scripts/raven_live/fix_bag_voxel_frames.py to translate it after the fact.
+    - /rayfronts_debug/{robot}/voxels_sim/all
+    - /rayfronts_debug/{robot}/voxel_rgb
     - /gcs/robot_markers
     - /gcs/payload/{robot}/filtered_rays
     - /gcs/payload/{robot}/filtered_frontiers

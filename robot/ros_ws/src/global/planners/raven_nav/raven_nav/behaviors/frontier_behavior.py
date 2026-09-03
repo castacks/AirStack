@@ -59,8 +59,20 @@ UNLOCK_RADIUS_M = 5.0           # OG:106
 import os as _os
 try:
     NOVELTY_WEIGHT = float(_os.getenv('RAVEN_FRONTIER_NOVELTY_W', '') or 0.0)
+    # Soft COST on frontier viewpoints near previously CHOSEN viewpoints
+    # (user 2026-09-02 night: "instead of blacklisting already visited
+    # frontiers lets add a cost"). Unlike the coverage-based novelty above,
+    # this memory lives in the BEHAVIOUR, so it survives rayfronts mapper
+    # restarts (whose map+frontier resets were re-serving the same area).
+    # Penalty per candidate: W * sum_i exp(-d_i / SCALE) over past choices.
+    VISITED_VP_WEIGHT = float(
+        _os.getenv('RAVEN_FRONTIER_VISITED_W', '') or 0.0)
+    VISITED_VP_SCALE_M = float(
+        _os.getenv('RAVEN_FRONTIER_VISITED_SCALE_M', '') or 15.0)
 except ValueError:
     NOVELTY_WEIGHT = 0.0
+    VISITED_VP_WEIGHT = 0.0
+    VISITED_VP_SCALE_M = 15.0
 # Per-hop ALTITUDE CAP for frontier waypoints. The centroid's own z is
 # still the destination — reachable over several hops — but one hop may
 # move z by at most this much, so exploration stops lurching across the
@@ -110,6 +122,8 @@ class FrontierBehavior:
     name = 'Frontier-based'
 
     def __init__(self, rng: Optional[np.random.Generator] = None) -> None:
+        # xy of previously CHOSEN viewpoints (VISITED_VP cost)
+        self.visited_viewpoints: list = []
         # OG used torch.randint over the top-5; a seedable Generator makes the
         # same choice reproducible in tests.
         self.rng = rng if rng is not None else np.random.default_rng()
@@ -197,6 +211,12 @@ class FrontierBehavior:
             NOVELTY_NEIGHBORHOOD_CELLS)
         self.last_novelty = novelty
         scores = scores + novelty
+        if VISITED_VP_WEIGHT > 0.0 and self.visited_viewpoints:
+            past = np.asarray(self.visited_viewpoints, dtype=np.float64)
+            d = np.linalg.norm(
+                vps[:, None, :2] - past[None, :, :2], axis=2)
+            scores = scores + VISITED_VP_WEIGHT * np.exp(
+                -d / max(VISITED_VP_SCALE_M, 1e-6)).sum(axis=1)
         self.last_scores = scores
 
         n = int(min(TOP_N, vps.shape[0]))                        # OG:69-72
@@ -208,6 +228,11 @@ class FrontierBehavior:
         wp1 = out.target_waypoint
         wp2 = out.target_waypoint2
         if not out.waypoint_locked:                              # OG:79-85
+            if VISITED_VP_WEIGHT > 0.0:
+                self.visited_viewpoints.append(
+                    [float(best[0]), float(best[1])])
+                if len(self.visited_viewpoints) > 50:
+                    self.visited_viewpoints.pop(0)
             if FRONTIER_MAX_DZ_M > 0.0:
                 # deviation 5: rate-limit the vertical component per hop
                 # (see FRONTIER_MAX_DZ_M above).

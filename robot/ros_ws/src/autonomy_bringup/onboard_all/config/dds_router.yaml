@@ -148,10 +148,6 @@ allowlist:
   # voxels. Without it the operator cannot tell "the casualty was never in the
   # voxel map" from "it was, and scored low". One cloud, same shape as /all.
   - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/rays_sim/all"
-  # The active search polygon as a latched LINE_STRIP Marker
-  # (semantic_search_task publishes it; user views it in Foxglove under
-  # search/markers/search_area).
-  - name: "rt/robot_$(env ROS_DOMAIN_ID)/search/markers/search_area"
 
   # behavior tree
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_commands"

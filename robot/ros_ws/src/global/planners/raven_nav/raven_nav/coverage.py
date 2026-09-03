@@ -45,6 +45,15 @@ class CoverageTracker:
         self.fraction: float = 0.0
         self.milestone: int = -1
 
+    def reset(self) -> None:
+        """Forget all explored cells — used by the restart-on-complete loop
+        (raven_nav_node) so a finished sector can be re-explored from scratch
+        instead of the drone hovering at the coverage threshold."""
+        self.cells.clear()
+        self._last_raycast_xy = None
+        self.fraction = 0.0
+        self.milestone = -1
+
     # ── stamping ────────────────────────────────────────────────────────────
     def to_cells(self, xys: np.ndarray) -> np.ndarray:
         xys = np.asarray(xys, dtype=np.float64).reshape(-1, 2)

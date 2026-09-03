@@ -208,9 +208,28 @@ component — three frames for the entire cell.
 
 ## Still open
 
-* The `manifest/city match` gate is wired but has never been exercised against
-  a real Kit build. Do the one-time `FC_INTACT_ONLY=1 FC_DUMP=` diff on the
-  pod before trusting the offline dump.
+* **Prove the offline dump matches Kit — once per (preset, seed).**
+  `plan_to_fc_dump.py` reimplements `dump_city_placements` on CPU; if they
+  disagree the manifest names buildings the assembled city does not have in
+  those positions. `urban_fire_cell.sh` now does this automatically as stage
+  3b (Kit intact-only dump, then `tools/verify_dump_matches_kit.py`), caches
+  a stamp beside the dump, and refuses to bake on a mismatch. To run it by
+  hand:
+
+        docker exec -e PYTHONHASHSEED=0 -e SG_INSTANCE_PLACEMENTS=1 isaac-sim \
+          bash -lc 'cd /isaac-sim/AirStack &&
+            SCENE_CONFIG=downtown_urban_fire_1000_l1 FC_INTACT_ONLY=1 \
+            FC_DUMP=$PWD/scene_gen/_plans/kit_dump_l1.json \
+            ./python.sh simulation/isaac-sim/launch_scripts/urban_fire_city_launch_script.py --no-window'
+
+        python3 scene_gen/tools/verify_dump_matches_kit.py \
+            --offline scene_gen/_plans/fc_dump_1km_l1.json \
+            --kit     scene_gen/_plans/kit_dump_l1.json
+
+  `FC_INTACT_ONLY=1` needs no bakes to exist, so it is cheap. Both sides must
+  run with `PYTHONHASHSEED=0` and `SG_INSTANCE_PLACEMENTS=1` or you are
+  diffing two different cities. `FC_SKIP_DUMP_DIFF=1` skips it once a level is
+  trusted.
 * **The empty-block hold — believed resolved, not yet signed off.** A separate
   investigation recorded "~70 % of city blocks ship empty" and put
   `final_disaster_dataset/Fire/Urban` under a do-not-rebuild hold. That figure

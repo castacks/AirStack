@@ -149,3 +149,18 @@ def test_cell_centre_sampling_undercounts_a_grid_misaligned_polygon():
         [m.ravel() for m in np.meshgrid([-2.5, -0.5, 2.5], [-2.5, -0.5, 2.5])],
         axis=1))
     assert fine.coverage_fraction(poly) == pytest.approx(9.0 / 36.0, abs=1e-6)
+
+
+def test_reset_forgets_all_cells():
+    from raven_nav.coverage import CoverageTracker
+    c = CoverageTracker(cell_size_m=1.0)
+    c.stamp_points(np.array([[0.0, 0.0], [5.0, 5.0], [10.0, 2.0]]))
+    assert len(c.cells_set) == 3
+    c.milestone = 5
+    c.reset()
+    assert c.cells_set == set()
+    assert c.fraction == 0.0
+    assert c.milestone == -1
+    # and it can accumulate again afterwards
+    c.stamp_points(np.array([[1.0, 1.0]]))
+    assert len(c.cells_set) == 1
