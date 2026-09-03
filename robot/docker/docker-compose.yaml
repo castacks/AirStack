@@ -392,6 +392,14 @@ services:
       # plan's §2.4. Off by default: today's per-robot rayfronts.launch.xml
       # path is unaffected either way.
       - START_RAYFRONTS_SERVER=${START_RAYFRONTS_SERVER:-false}
+      # WHOLE-CONTAINER GPU pin for a 2+ GPU pod — see offboard_compute.sh's
+      # header. Empty/unset (every mission before this one) exports nothing;
+      # only a non-empty value ever sets CUDA_VISIBLE_DEVICES, so this cannot
+      # hit the "empty means no devices" trap the isaac-sim service's own
+      # CUDA_VISIBLE_DEVICES comment (this file's other service block, not
+      # here) warns about — the emptiness is handled by an `if` inside the
+      # script, not by pouring this default straight into that var.
+      - OFFBOARD_COMPUTE_GPU=${OFFBOARD_COMPUTE_GPU:-}
       # Comma-separated robot ids the shared mapping server subscribes to
       # (dataset.robot_ids=[...]); unset -> offboard_compute.sh builds
       # 1..NUM_ROBOTS itself. NUM_ROBOTS is passed here ONLY for that
@@ -421,6 +429,9 @@ services:
       - RAYFRONTS_PROBE_PROMPTS=${RAYFRONTS_PROBE_PROMPTS:-}
       - RAYFRONTS_PROBE_POINTS=${RAYFRONTS_PROBE_POINTS:-}
       - RAYFRONTS_PROBE_BACKGROUND=${RAYFRONTS_PROBE_BACKGROUND:-}
+      # frames to integrate before the fresh mapper publishes any query
+      # result — suppresses restart false positives (default 5 in code)
+      - RAYFRONTS_WARMUP_FRAMES=${RAYFRONTS_WARMUP_FRAMES:-}
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       # RAYFRONTS_COMPUTE_PROB is already inherited from robot_base's own
       # `${RAYFRONTS_COMPUTE_PROB:-True}` (extends: above) — verified with

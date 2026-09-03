@@ -22,6 +22,10 @@
 #                                servers above, this ONE needs to be a real
 #                                ROS 2 participant per robot domain, so it is
 #                                the only branch below that sources ROS.
+#   OFFBOARD_COMPUTE_GPU=""      Pin every server this script starts to one
+#                                CUDA device (e.g. "1" on a 2-GPU pod where
+#                                Isaac Sim owns GPU 0). Empty/unset = pin
+#                                nothing, today's single-GPU behaviour.
 #
 # Logs: /tmp/offboard/<name>.log, also tailed to the container's stdout so
 # `docker logs offboard-compute` shows what happened.
@@ -29,6 +33,32 @@ set -u
 
 LOG_DIR="${OFFBOARD_LOG_DIR:-/tmp/offboard}"
 mkdir -p "$LOG_DIR"
+
+# WHOLE-CONTAINER GPU PIN, for a pod with more than one card (e.g. Isaac Sim
+# on GPU 0, this container on GPU 1 — osmo/workflows/airstack-mission-
+# 8robot-2gpu.yaml). Every server this script starts (detector/itm/vlm via
+# --device, and rayfronts' encoder_server/multi_robot_mapping_server, which
+# take NO --device flag and always land on whatever CUDA calls "cuda:0") is a
+# plain CUDA process launched from THIS shell, so exporting
+# CUDA_VISIBLE_DEVICES once here, before any of them start, pins all of them
+# together — no per-server plumbing needed.
+#
+# Unset (the default, every existing mission) exports NOTHING: an EMPTY
+# CUDA_VISIBLE_DEVICES is not "unset", it means "no devices" (the same trap
+# documented on the isaac-sim service in
+# simulation/isaac-sim/docker/docker-compose.yaml) — so this is a positive
+# `if`, never a `${OFFBOARD_COMPUTE_GPU:-}` default poured into the var
+# directly. Same mechanism osmo/missions/conavgpt2_wildfire_1robot.yaml
+# already uses for the VLM server it starts by hand in the robot_1 container
+# (`GPU="${CONAVGPT2_VLM_GPU:-}"; [ -n "$GPU" ] && export
+# CUDA_VISIBLE_DEVICES="$GPU"`) — proven compatible with this cluster's
+# runtime; a compose-level `device_ids:` reservation is NOT (see
+# .agents/skills/run-osmo-baseline-mission/SKILL.md §3: tested, still
+# enumerates every host GPU).
+if [ -n "${OFFBOARD_COMPUTE_GPU:-}" ]; then
+  export CUDA_VISIBLE_DEVICES="$OFFBOARD_COMPUTE_GPU"
+  echo "[offboard-compute] pinned: CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
+fi
 
 # The servers are ordinary python modules in the mounted workspace; no ROS is
 # sourced here on purpose (this container must not join a ROS domain), so the
