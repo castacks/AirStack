@@ -70,6 +70,22 @@ DEFAULT_HALF_WIDTH_M = 110.0
 #: else is a permanent refusal and the corridor should avoid it.
 _BAKEABLE_HINTS = ("no bake", "fire_b", "bake")
 
+#: Checked BEFORE `_BAKEABLE_HINTS`, not after: `bake_kind()`'s own
+#: `('slice', None)` refusal message for an unregistered pack
+#: (`standalone/buildings/...` and friends) reads "... fire_bake.KINDS=(...)
+#: has no bake kind for it ... must be REFUSED, not silently dropped" —
+#: its own SUBSTRING "no bake" false-positive-matched `_BAKEABLE_HINTS`
+#: above, so `unbakeable()` returned `False` for a refusal that names
+#: itself, in its own text, as a permanent one. Measured 2026-09-02: this
+#: put every `standalone/buildings/intact/*` and unregistered
+#: `Library/Stages/.../FactoryDistrict` placement into the corridor as
+#: "needs_bake" with `kind: null` — 44 of 61 records on one L1 run — instead
+#: of excluding them via `permanent_bad` before the corridor placement
+#: search ever ran, silently shipping most of a "burning" corridor
+#: undamaged. Exact-vocabulary override, not another substring guess: this
+#: matches `bake_kind()`'s own words for its own permanent case.
+_PERMANENT_HINTS = ("must be refused", "no bake kind for it")
+
 
 def _levels_by_duration():
     """`[(level, threshold_s), ...]` longest threshold first.
@@ -103,6 +119,8 @@ def level_for_age(age_s):
 def unbakeable(reason):
     """True when `burnable()`'s refusal is PERMANENT — no bake would fix it."""
     r = str(reason or "").lower()
+    if any(h in r for h in _PERMANENT_HINTS):
+        return True
     return not any(h in r for h in _BAKEABLE_HINTS)
 
 
