@@ -522,6 +522,15 @@ stub-stage test via `uv run --with vtk --with trimesh`):
     borders receive no tear job and expose the rectangular slice grid. The
     focused A3 audit after both fixes reported 715 exact-source skins, 711 cut
     subsets, zero surface overrides, and zero uncovered wall-hole borders.
+23. **Facade cells localise damage; they must not become its visible
+    boundary.** Deactivating a window module, dropping a precast panel intact,
+    or tilting one rectangular slice cell exposes the authoring grid. Reuse
+    `quake_flow.r_curtain_wall` / `r_window_glass` for retained cracked and
+    crazed panes, irregular remnants, mullions and sill/ground shards. Use the
+    `fire_collapse` perimeter tear for masonry/concrete, with zero untorn
+    geometric hole-border pieces as a hard gate. High-rises/towers retain the
+    structural shell: no stacked cladding band, whole-panel loss or rectangular
+    hanger; at T4 permit at most one <=2-storey, one-edge-bay ragged bite.
 
 ## Known gaps — the next round, in order
 

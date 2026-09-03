@@ -1046,8 +1046,8 @@ def resolve_cell(stage, placements, rec):
       1. the record's `i` (its index into the same placement list this
          process just rebuilt), accepted only if the placement at `i` has the
          SAME usd and is within 0.5 m of the record's own (x, y);
-      2. the record's `cell` path, if it is a valid prim on this stage;
-      3. the nearest `house` placement with the same usd within 2 m.
+      2. the nearest `house` placement with the same usd within 2 m;
+      3. the record's `cell` path only as a last legacy fallback.
 
     `(None, reason)` when all three fail — the caller then refuses to place
     the bake, because a burnt shell composed inside an intact one is worse
@@ -1078,11 +1078,6 @@ def resolve_cell(stage, placements, rec):
                            float(p.get("y_m", 0.0)) - ry)
             if d <= 0.5 and p.get("prim_path"):
                 return p["prim_path"], "index i={0} (d={1:.2f} m)".format(i, d)
-    cell = rec.get("cell")
-    if cell:
-        prim = stage.GetPrimAtPath(Sdf.Path(cell))
-        if prim and prim.IsValid():
-            return cell, "manifest cell path"
     best, best_d = None, 2.0
     for p in placements:
         if p.get("category") != "house" or p.get("usd") != rec.get("usd"):
@@ -1093,6 +1088,11 @@ def resolve_cell(stage, placements, rec):
             best, best_d = p["prim_path"], d
     if best:
         return best, "nearest same-asset placement (d={0:.2f} m)".format(best_d)
+    cell = rec.get("cell")
+    if cell:
+        prim = stage.GetPrimAtPath(Sdf.Path(cell))
+        if prim and prim.IsValid():
+            return cell, "legacy manifest cell path"
     return None, ("no placement matches i={0!r}, cell={1!r}, or a same-asset "
                   "house within 2 m of ({2:.1f}, {3:.1f}) — the layout this "
                   "launcher built is NOT the one the manifest was solved on"

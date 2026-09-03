@@ -1532,10 +1532,93 @@ class TornadoCityApp:
             snaps.snapshot(os.path.join(SNAP_DIR, "city_obl.png"))
             print("[ut] city overview oblique -> {0}".format(
                 os.path.join(SNAP_DIR, "city_obl.png")))
+
+            # Close review views are selected from ACTUAL T3/T4 outputs,
+            # rather than abstract track points that may land in an empty
+            # block or behind a tower.
+            severe = list(self.placed) + list(getattr(self, "kit_placed", []) or [])
+            severe = [r for r in severe if r.get("level") in ("T3", "T4")]
+            severe.sort(key=lambda r: (-float(r.get("intensity", 0.0)),
+                                       int(r.get("i", 0))))
+            close = {}
+            for r in severe[:6]:
+                close["damage_{0}_{1}".format(r.get("kind", "b"), r.get("i"))] = (
+                    float(r["x"]), float(r["y"]))
+            if close:
+                snaps.views_around(self.stage, close, SNAP_DIR, self.ssf,
+                                   top_h=75.0, obl_dist=85.0, obl_h=65.0,
+                                   azimuth_deg=obl_azimuth, aim_h=18.0)
+                print("[ut] close damage captures: {0}".format(len(close)))
         except Exception as exc:                                  # noqa: BLE001
             import traceback
             traceback.print_exc()
             print("[ut] snapshots FAILED: {0}".format(exc))
+
+    def audit_scene(self):
+        """Whole-stage material coverage and gross seating/fit bounds."""
+        bad_targets = fallback_uncovered = bad_uv = 0
+        fit_outside = floating = 0
+        examples = []
+        cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                                  [UsdGeom.Tokens.default_])
+        for p in Usd.PrimRange(self.stage.GetPrimAtPath(TORNADO_ROOT)):
+            if not p.IsActive() or not p.IsA(UsdGeom.Mesh):
+                continue
+            me = UsdGeom.Mesh(p)
+            counts = me.GetFaceVertexCountsAttr().Get() or []
+            nfaces = len(counts)
+            subsets = UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(p))
+            covered = set()
+            for sub in subsets:
+                covered.update(int(q) for q in (sub.GetIndicesAttr().Get() or []))
+                direct = UsdShade.MaterialBindingAPI(
+                    sub.GetPrim()).GetDirectBinding().GetMaterialPath()
+                if direct and not self.stage.GetPrimAtPath(direct).IsValid():
+                    bad_targets += 1
+                    examples.append("invalid material " + str(sub.GetPath()))
+            bound = UsdShade.MaterialBindingAPI(p).ComputeBoundMaterial()[0]
+            bp = str(bound.GetPath()) if bound else ""
+            if "Fallback" in bp and nfaces and len(covered) < nfaces:
+                fallback_uncovered += 1
+                examples.append("fallback uncovered " + str(p.GetPath()))
+            st = UsdGeom.PrimvarsAPI(p).GetPrimvar("st")
+            if st.IsDefined() and st.GetInterpolation() == UsdGeom.Tokens.faceVarying:
+                if len(st.Get() or []) != sum(int(q) for q in counts):
+                    bad_uv += 1
+                    examples.append("bad UV cardinality " + str(p.GetPath()))
+            path = str(p.GetPath())
+            if "/fit_tornado_" in path and any(
+                    k in p.GetName().lower() for k in ("slab", "col_")):
+                # Gross guard: no synthetic fit-out may escape its holder's
+                # measured W/D rectangle. Irregular-footprint suppression is
+                # handled earlier by the measured shell-plane pass.
+                holder_path = path.split("/cell/", 1)[0]
+                rec = next((r for r in (list(self.placed) +
+                            list(getattr(self, "kit_placed", []) or []))
+                            if r.get("holder") == holder_path), None)
+                if rec:
+                    box = cache.ComputeWorldBound(p).ComputeAlignedRange()
+                    if not box.IsEmpty():
+                        c = box.GetMidpoint()
+                        if (abs(float(c[0]) - float(rec["x"]) * self.ssf) >
+                                0.55 * float(rec["W"]) * self.ssf or
+                            abs(float(c[1]) - float(rec["y"]) * self.ssf) >
+                                0.55 * float(rec["D"]) * self.ssf):
+                            fit_outside += 1
+                            examples.append("fit outside " + path)
+            if ("/tornado_debris/" in path or "/tornado_ground/" in path):
+                box = cache.ComputeWorldBound(p).ComputeAlignedRange()
+                if not box.IsEmpty() and float(box.GetMin()[2]) > 0.08 * self.ssf:
+                    floating += 1
+                    examples.append("floating debris " + path)
+        self.audit = {"invalid_material_targets": bad_targets,
+                      "fallback_uncovered_meshes": fallback_uncovered,
+                      "bad_facevarying_uv": bad_uv,
+                      "fit_outside_bbox": fit_outside,
+                      "floating_debris_meshes": floating,
+                      "examples": examples[:12]}
+        print("[ut] AUDIT " + json.dumps(self.audit, sort_keys=True))
+        return self.audit
 
     # -- 7) report + banner -------------------------------------------------
     def _refusal_bucket(self, reason):
@@ -1697,6 +1780,7 @@ class TornadoCityApp:
         self.apply_damage()
         self.street_pass()
         self.ground_evidence()
+        self.audit_scene()
         self.capture()
         self.banner()
 

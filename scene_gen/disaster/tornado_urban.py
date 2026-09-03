@@ -865,7 +865,8 @@ def t_hanging_panels(pctx, n=(1, 3), deg=(25.0, 70.0)):
         len(chosen), sd))
 
 
-def t_chunk(pctx, keep_pier=None, corner_top_storeys=None):
+def t_chunk(pctx, keep_pier=None, corner_top_storeys=None,
+            max_storeys=None, max_bays_per_side=None):
     """ONE structural chunk on the windward corner — 1-2 bays each side of
     the corner (2-4 total), `max_chunk_storeys` (§2.6, by height class) tall.
 
@@ -889,6 +890,8 @@ def t_chunk(pctx, keep_pier=None, corner_top_storeys=None):
     height_class = pctx["height_class"]
     max_st = max(1, int(HEIGHT_CAPS.get(height_class, HEIGHT_CAPS["midrise"])
                         ["max_chunk_storeys"]))
+    if max_storeys is not None:
+        max_st = min(max_st, max(1, int(max_storeys)))
     # Corner selection reads only `side_weights` (no rng), so resolving it
     # before drawing `k`/`st_hi` changes nothing about the RNG draw
     # sequence -- it only lets the one-bay-side check below adjust `max_st`
@@ -938,7 +941,8 @@ def t_chunk(pctx, keep_pier=None, corner_top_storeys=None):
         if nb <= 0:
             continue
         end = qs._CORNER_END[(sd, cn)]
-        want = min(nb, rng.randint(1, 2))
+        bay_cap = 2 if max_bays_per_side is None else max(1, int(max_bays_per_side))
+        want = min(nb, rng.randint(1, bay_cap))
         run = qs._bay_run(rng, nb, want, end=end)
         for st in lost_st:
             for b in run:
@@ -1378,7 +1382,7 @@ LADDER_T = {
         ],
         "T4": [
             ("cladding_band", {"storeys": (2, 4), "bay_frac": (0.40, 0.70)}),
-            ("glass_loss", {"base_frac": (0.50, 0.80), "n_sides": 4}),
+            ("glass_loss", {"base_frac": (0.75, 0.95), "n_sides": 4}),
             ("parapet_fall", {"n_sides": 3, "frac": (0.30, 0.60)}),
             ("roof_props_sweep", {}),
             ("hanging_panels", {"n": (1, 3), "deg": (25.0, 70.0)}),
@@ -1489,15 +1493,57 @@ def _guard(recs, btype, info, height_class):
     instead of a recipe that silently did nothing.
     """
     H = float(info.get("H") or 0.0)
+    tall = height_class in ("highrise", "tower")
+    severe_local_bite = any(name == "chunk" for name, _kw in recs)
     out, notes = [], []
     for name, kw in recs:
         kw = dict(kw or {})
+        # A whole intact semantic panel is never acceptable visible tornado
+        # debris.  Panel cells remain useful to locate damage, but the visible
+        # result must go through the fracture/tear path below.
+        if name in ("panel_loss", "hanging_panels"):
+            notes.append("guard: {0} refused -- intact rectangular facade "
+                         "cells are localization metadata, not tornado "
+                         "fracture geometry".format(name))
+            continue
+        # T4 used to stack a broad cladding band and a corner chunk.  That
+        # creates two independent missing rectangles and reads as generalized
+        # collapse.  At the severe level the single boundary-local chunk is
+        # the structural envelope event; its perimeter is fractured later.
+        if severe_local_bite and name == "cladding_band":
+            notes.append("guard: cladding_band replaced by the single T4 "
+                         "localized ragged edge bite")
+            continue
+        # A tornado is primarily an ENVELOPE event on a tall building.  The
+        # old generic ladder could combine a multi-storey cladding rectangle,
+        # scattered whole-panel removal, hanging rectangular slice cells and
+        # a corner chunk on the same tower.  The result read as structural
+        # collapse even though the frame remained numerically present.  Keep
+        # tall RC/steel masses standing: glass_loss supplies the characteristic
+        # full-height shattered curtain wall; parapet/roof plant may go; only
+        # the most severe row (the one that contains `chunk`) gets ONE shallow,
+        # one-bay-per-face ragged edge bite.  `_author_tears` gives that bite
+        # its fractured perimeter, exact source material and exact source UV.
+        if tall and name == "cladding_band":
+            notes.append(
+                "guard: {0} refused on a {1} building ({2:.0f} m) -- tall "
+                "buildings retain their structural shell; tornado evidence "
+                "is glazing/roof loss plus at most one localized ragged edge "
+                "bite".format(name, height_class, H))
+            continue
+        if height_class != "lowrise" and name == "chunk":
+            kw["max_storeys"] = 2
+            kw["max_bays_per_side"] = 1
+            notes.append(
+                "guard: non-low-rise chunk localized to <=2 storeys and "
+                "one edge bay per face; the frame and remaining shell stand")
         if name == "out_of_plane_top":
-            if not HEIGHT_CAPS.get(height_class, {}).get("out_of_plane", False):
+            if height_class != "lowrise" or not HEIGHT_CAPS.get(
+                    height_class, {}).get("out_of_plane", False):
                 notes.append(
                     "guard: out_of_plane_top refused on a {0} building "
-                    "({1:.0f} m) -- no windward top-wall peel above "
-                    "midrise".format(height_class, H))
+                    "({1:.0f} m) -- whole-width top-wall peel is limited "
+                    "to vulnerable low-rise masonry".format(height_class, H))
                 continue
             if btype != "urm":
                 notes.append("guard: out_of_plane_top refused -- urm-only "

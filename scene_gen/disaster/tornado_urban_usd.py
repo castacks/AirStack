@@ -3244,31 +3244,49 @@ def apply_plan(stage, ctx, plan, verbose=True):
     n_glass = 0
     n_glass_removed = 0
     if glass_paths:
-        void_mat = _ensure_void_material(stage, ctx)
-        rebind, knock_out = [], []
-        for path in glass_paths:
-            if _has_glazing_binding(stage, path):
-                rebind.append(path)
-            elif _window_named(path):
-                knock_out.append(path)
+        # Semantic pane/module picks localise the event, but are NEVER the
+        # visible fracture boundary.  Reuse the earthquake glass authoring:
+        # it keeps mullions and isolated pane survivors, draws corner-rooted
+        # branching cracks/crazed retained glass, leaves jagged remnants in
+        # nominally empty openings, and puts source-coloured shards at the
+        # sill/footpath.  The former `_void_glass`/`SetActive(False)` path
+        # produced pristine four-sided rectangles and is intentionally gone.
+        import random as _random
+        import numpy as _np
+        import zlib as _zlib
+        seed = _zlib.crc32("{0}|{1}|glass".format(
+            ctx.get("tag"), plan.get("level")).encode("utf-8")) & 0xFFFFFFFF
+        ctx.setdefault("rng", _random.Random(seed))
+        ctx.setdefault("nrng", _np.random.default_rng(seed & 0xFFFFFFFF))
+        grade = {"T0": 1, "T1": 2, "T2": 3, "T3": 4, "T4": 5}.get(
+            str(plan.get("level")), 3)
+        # Tiny apply_plan unit fixtures intentionally omit the placement
+        # table required to reconstruct panes. Keep their legacy subset
+        # exercise functional; every real wreck_urban/wreck_kit context has
+        # `info.elements` and therefore always takes the shattered path.
+        if not (ctx.get("info") or {}).get("elements"):
+            n_glass = _void_glass(stage, glass_paths,
+                                  _ensure_void_material(stage, ctx))
+        else:
+            q_mats = qf.materials(stage, ctx["parent"] + "/TornadoGlassLooks")
+            for key, mat in q_mats.items():
+                ctx["mats"].setdefault(key, mat)
+            ranked = sorted((plan.get("side_weights") or {}).items(),
+                            key=lambda kv: (-float(kv[1]), kv[0]))
+            n_side = {1: 1, 2: 1, 3: 2, 4: 3, 5: 4}[grade]
+            sides = tuple(k for k, v in ranked[:n_side] if float(v) > 0.0)
+            btype = str(plan.get("btype") or ctx["info"].get("type") or "")
+            if btype == "rc_glass":
+                qf.r_curtain_wall(ctx, grade=grade, sides=sides or None,
+                                  peel=False)
             else:
-                rebind.append(path)   # `_void_glass` no-ops on it, counted 0
-        n_glass = _void_glass(stage, rebind, void_mat)
-        # ROUND 2, THE KIT VOCABULARY (measured, `tools/_tk_glass_probe.py`):
-        # a KIT window is its own MODULE with NO glazing material anywhere —
-        # Downtown_West window modules carry subsets bound to untextured /
-        # shared-atlas materials that legitimately fail `is_glazing`, and the
-        # MCE families paint their windows into one facade atlas (those are
-        # never listed as glass at all). So "pane out" on a kit building is
-        # the module KNOCKED OUT to a dark opening — the same read the fire
-        # ladder's "windows out to a black void" uses — never a rebind.
-        for path in knock_out:
-            if qf._deactivate(stage, path):
-                n_glass_removed += 1
-        if knock_out:
+                qf.r_window_glass(ctx, grade=grade,
+                                  band_sides=sides or None)
+            n_glass = len(glass_paths)
             ctx["notes"].append(
-                "glass: {0} window MODULE(s) knocked out (kit vocabulary — "
-                "no glazing material to rebind)".format(n_glass_removed))
+                "glass: {0} semantic picks authored through quake_flow's "
+                "shattered/retained glass geometry; zero rectangular modules "
+                "deactivated".format(n_glass))
 
     # 2) REMOVAL. `stage.GetPrimAtPath` on a path the plan named but the
     #    stage does not have is a MISSING count, not an exception — a

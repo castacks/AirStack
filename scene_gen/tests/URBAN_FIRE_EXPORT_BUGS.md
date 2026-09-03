@@ -227,6 +227,22 @@ mismatch, both cell drivers now merge the Kit measurements, regenerate that
 level's dump, manifest, worklist and review sheets, then rerun parity. Baking
 remains blocked unless the regenerated layout matches Kit exactly.
 
+### 2026-09-03 building-only parity correction
+
+The 3.2x total-placement gap was not evidence of a 3.2x layout difference.
+Kit's dump contains later city-detail and building-prop streams which the
+lightweight offline planner intentionally does not generate. Those extra
+records also shift full-list indices, so comparing houses at the same `i`
+paired unrelated buildings and produced the misleading near-100% moved/model
+figures.
+
+The verifier now gates only the building layout: each offline `house` must
+have a unique Kit `house` with the same asset and a world position within
+0.5 m, independent of list index. Details, props, total placement count, cell
+names, and stream order are ignored. Shared-index differences remain printed
+as diagnostics only. A run passes only when there are zero geometrically
+unmatched buildings on either side and zero per-model dimension conflicts.
+
 ---
 
 ## Related, not a code bug: `nas_dest` pointed at NAS bases that never existed
