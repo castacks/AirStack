@@ -121,6 +121,27 @@ the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
 
+### 2026-09-02 — behavior-layer story settled; "upstream = publish a module" woven into the paper
+
+Two lead clarifications closed audit findings 4 and 8 (paper
+submodule `940509c`). (1) Behavior layer: earlier AirStack shipped a
+behavior-tree executor, removed because a simple state machine proved
+easier; that state machine lives today in the GCS Foxglove task panel
+(robot-commands extension) and is acknowledged architectural debt.
+The paper now tells this as shipped (IV-A) with the onboard
+re-architecture named as roadmap (Limitations) — resolving the
+release-gate behavior item via the describe-what-ships branch, unless
+Hardware ships an executor before submission. Swarm CBF's
+"behavior-tree executor" sentence remains an interview question
+(possibly true version-scoped, pre-removal). (2) Positioning
+refinement: under RFC #379/#380/#385, contributing back ≠ merging to
+core — optional capabilities ship as pullable module repos
+(`asm_dfm2_disturbances` is the exemplar). Woven into III-A (module
+repos, pin-by-CLI, public index with declared + CI-verified compat),
+intro, abstract, the Q6 framing, and DFM2's Upstreamed paragraph.
+New release-gate-adjacent todos: verify the module index is public;
+register+pin asm_dfm2_disturbances before submission.
+
 ### 2026-09-02 — main.tex prose-ified through VI; claims audit run: six claim–reality gaps fixed or flagged
 
 All remaining outline sections except Lessons (a deliberate numbered
