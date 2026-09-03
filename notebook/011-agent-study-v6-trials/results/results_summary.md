@@ -1,5 +1,11 @@
 # Results Summary — Agent Study Campaign v6 Trials
 
+> **⚠ ARM RELABEL (2026-09-02, Amendment 2):** the paper and the
+> regenerated `d-analysis/` outputs use **A3 = open loop, A4 = bare
+> parts** (swapped). All sections below and all raw trial IDs keep the
+> ORIGINAL labels (**A3 = bare parts, A4 = open loop**). See the banner
+> in [design_spec.md](../design_spec.md).
+
 > Entry: [design_spec.md](../design_spec.md) · Status: **DONE —
 > 40/40 scored + §(d) paper analysis complete 2026-09-02** · Campaign
 > `2026-08-icra27-vic-v6`, config

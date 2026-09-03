@@ -19,6 +19,14 @@ archive suffix (.env-truncated*, .contaminated, .interrupted are documented
 infra exclusions), smoke=false, config_sha256 == CONFIG_SHA. Two wall-clock
 kills have cost_usd=null (usage event lost); cost stats are over trials
 with recorded usage and every cost row reports its n.
+
+ARM RELABEL (lead decision 2026-09-02, protocol Amendment 2): the paper
+and all outputs of this script present A3 = "A1 open loop" and A4 =
+"bare parts / assemble-it-yourself" — the SWAP of the original campaign
+labels. Raw trial directories, results.json, and the hand-tallied
+§(c-final) tables keep the ORIGINAL labels (A3 = bare parts, A4 = open
+loop) forever; RELABEL below maps raw -> display at load time, and the
+EXPECTED_* cross-check dicts stay keyed by RAW labels.
 """
 
 import json
@@ -34,9 +42,13 @@ RUNS = REPO / "agent_study" / "runs"
 CONFIG_SHA = "3b2402f61245fce4de2c6c8ec7ea0512cb30eb5b991a5b369468a1cafef31319"
 TRIAL_RE = re.compile(r"^(A[1-4])_(claude-(?:sonnet|opus)-5)_ladder_claude_(\d{3})$")
 
-ARMS = ["A1", "A2", "A3", "A4"]
+ARMS = ["A1", "A2", "A3", "A4"]  # display labels (post-relabel)
 MODELS = ["claude-sonnet-5", "claude-opus-5"]
 RUNG_NUM = {None: 0, **{f"R{i}": i for i in range(1, 9)}}
+
+# raw (on-disk) arm id -> display arm id; self-inverse, so RELABEL also
+# maps display -> raw for the EXPECTED_* cross-checks.
+RELABEL = {"A1": "A1", "A2": "A2", "A3": "A4", "A4": "A3"}
 
 # ---------------------------------------------------------------- expected
 # Hand-tallied values from results_summary.md §(c-final) (2026-09-02).
@@ -87,6 +99,8 @@ def load_trials():
             flag(f"{d.name}: unexpected config_sha256 {r['config_sha256'][:8]} — excluded")
             continue
         r["_dir"] = d
+        r["arm_raw"] = r["arm"]
+        r["arm"] = RELABEL[r["arm"]]  # present under post-relabel labels
         trials.append(r)
     return trials
 
@@ -121,8 +135,9 @@ def main():
         prompts_by_arm.setdefault(t["arm"], set()).add(t["prompt_sha256"])
     emit(f"airstack_commit: {sorted(c[:8] for c in commits)}; "
          f"composed-prompt sha per arm: { {a: sorted(p[:8] for p in ps) for a, ps in sorted(prompts_by_arm.items())} }")
-    emit("(A4's composed prompt differs from A1-A3 only in the {judge_cap} footer,")
-    emit(" 20 vs 0 — verified by diffing prompt.txt; expected open-loop wording.)")
+    emit("(A3's composed prompt — the open-loop arm — differs from the other arms")
+    emit(" only in the {judge_cap} footer, 20 vs 0 — verified by diffing")
+    emit(" prompt.txt; expected open-loop wording.)")
     if len(trials) != 40:
         flag(f"trial count {len(trials)} != 40")
     if len(commits) != 1:
@@ -151,8 +166,8 @@ def main():
             scores = [t["highest_rung_passed"] for t in ts]
             short = model.split("-")[1]
             emit(f"| {arm} {short} | " + " | ".join(s or "NULL" for s in scores) + " |")
-            if scores != EXPECTED_MATRIX[(arm, model)]:
-                flag(f"matrix {arm}/{model}: recomputed {scores} != §(c-final) {EXPECTED_MATRIX[(arm, model)]}")
+            if scores != EXPECTED_MATRIX[(RELABEL[arm], model)]:
+                flag(f"matrix {arm}/{model} (raw {RELABEL[arm]}): recomputed {scores} != §(c-final) {EXPECTED_MATRIX[(RELABEL[arm], model)]}")
 
     # ------------------------------------------------------------ survival
     emit()
@@ -176,8 +191,8 @@ def main():
     emit("|---|" + "---|" * 8)
     for arm in ARMS:
         emit(f"| {arm} | " + " | ".join(f"{v:.1f}" for v in survival[arm]) + " |")
-        if any(abs(a - b) > 1e-9 for a, b in zip(survival[arm], EXPECTED_SURVIVAL[arm])):
-            flag(f"survival {arm}: recomputed {survival[arm]} != §(c-final) {EXPECTED_SURVIVAL[arm]}")
+        if any(abs(a - b) > 1e-9 for a, b in zip(survival[arm], EXPECTED_SURVIVAL[RELABEL[arm]])):
+            flag(f"survival {arm} (raw {RELABEL[arm]}): recomputed {survival[arm]} != §(c-final) {EXPECTED_SURVIVAL[RELABEL[arm]]}")
     emit()
     emit("Per model (n=5/cell):")
     emit()
@@ -215,12 +230,12 @@ def main():
         if arm == "A2":  # protocol variance rule: pooling A2 not defensible
             for model in MODELS:
                 rows.append((f"A2 {model.split('-')[1]}", stats_for(by_cell[(arm, model)]), True))
-        # cross-check §(c-final)
-        exp = EXPECTED_TAB[arm]
+        # cross-check §(c-final) (hand tallies keep RAW labels)
+        exp = EXPECTED_TAB[RELABEL[arm]]
         got = (round(s["mean_rung"], 1), round(s["calls"][0], 1),
                round(s["hours"][0] * 60), round(s["cost"][0], 2), s["cost_n"])
         if got != exp:
-            flag(f"tab:agents {arm}: recomputed (rung,calls,min,cost,n)={got} != §(c-final) {exp}")
+            flag(f"tab:agents {arm} (raw {RELABEL[arm]}): recomputed (rung,calls,min,cost,n)={got} != §(c-final) {exp}")
 
     emit("| Arm | R8 success | Mean rung | Hours | Judge calls | Cost USD (n) | ktok out |")
     emit("|---|---|---|---|---|---|---|")
@@ -353,16 +368,18 @@ def main():
 
 
 # ---------------------------------------------------------------- figure
-ARM_LABEL = {
+ARM_LABEL = {  # post-relabel (Amendment 2): A3 = open loop, A4 = bare parts
     "A1": "A1 scaffolded, closed loop",
     "A2": "A2 scaffolding ablated",
-    "A3": "A3 bare parts (no platform)",
-    "A4": "A4 open loop (judge once)",
+    "A3": "A3 open loop (judge once)",
+    "A4": "A4 bare parts (no platform)",
 }
-# dataviz reference palette, categorical slots 1-4 (validated adjacent order)
-ARM_COLOR = {"A1": "#2a78d6", "A2": "#1baf7a", "A3": "#e34948", "A4": "#eda100"}
-ARM_MARKER = {"A1": "o", "A2": "s", "A3": "^", "A4": "D"}
-ARM_LS = {"A1": "-", "A2": "--", "A3": "-.", "A4": ":"}
+# dataviz reference palette; color/marker/linestyle follow the SEMANTIC
+# (bare parts stays red, open loop stays amber) so pre-relabel drafts of
+# the figure remain visually comparable.
+ARM_COLOR = {"A1": "#2a78d6", "A2": "#1baf7a", "A3": "#eda100", "A4": "#e34948"}
+ARM_MARKER = {"A1": "o", "A2": "s", "A3": "D", "A4": "^"}
+ARM_LS = {"A1": "-", "A2": "--", "A3": ":", "A4": "-."}
 
 
 def wilson(p, n, z=1.96):
@@ -457,7 +474,7 @@ def write_tab_agents(rows):
     ]
     for label, s, indent in rows:
         lab = r"\quad " + label.split()[1] + "-5" if indent else label
-        calls = "0 (by design)" if label == "A4" else f"${s['calls'][0]:.1f} \\pm {s['calls'][1]:.1f}$"
+        calls = "0 (by design)" if label == "A3" else f"${s['calls'][0]:.1f} \\pm {s['calls'][1]:.1f}$"
         lines.append(
             f"{lab} & {s['r8']}/{s['n']} "
             f"& ${s['hours'][0]:.1f} \\pm {s['hours'][1]:.1f}$ "

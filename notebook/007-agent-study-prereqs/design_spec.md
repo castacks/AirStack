@@ -1,5 +1,13 @@
 # Design Spec: Agent Study Prerequisites (ICRA'27 Sec. VI-C)
 
+> **⚠ ARM RELABEL (2026-09-02, Amendment 2):** the paper presents
+> **A3 = "A1 open loop"** and **A4 = "bare parts /
+> assemble-it-yourself"** — the swap of the original labels used
+> throughout this entry and in all raw artifacts (which stay
+> unchanged: A3 = bare parts, A4 = open loop). See
+> [011's banner](../011-agent-study-v6-trials/design_spec.md) and
+> `agent_study/agent_study_protocol.md` Amendment 2.
+
 > Notebook entry: `notebook/007-agent-study-prereqs/` · Date started: 2026-08-03 · Branch: `airstack-paper`
 >
 > **Status: `WIP`** <!-- P-1/P-2 DONE; P-3..P-8 not started -->

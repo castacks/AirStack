@@ -1,5 +1,15 @@
 # Design Spec: Agent Study Campaign v6 — Trial Execution (ICRA'27 Sec. VI-C)
 
+> **⚠ ARM RELABEL (lead decision 2026-09-02, protocol Amendment 2).**
+> The PAPER and the regenerated `results/d-analysis/` outputs present
+> **A3 = "A1 open loop"** and **A4 = "bare parts /
+> assemble-it-yourself"** — the swap of the original campaign labels.
+> Everything below this banner, the §(c) hand tallies, and all raw
+> trial artifacts (`agent_study/runs/A3_*`, `A4_*`, results.json,
+> transcripts) keep the ORIGINAL labels: **A3 = bare parts, A4 = open
+> loop**. `analysis.py` maps raw→display at load time and cross-checks
+> against the raw-labeled hand tallies. Do not rename raw artifacts.
+
 > Notebook entry: `notebook/011-agent-study-v6-trials/` · Date started: 2026-08-28 · Branch: `airstack-paper`
 >
 > **Status: `DONE`** <!-- 40/40 scored + §(d) paper analysis complete 2026-09-02 (results/d-analysis/) -->

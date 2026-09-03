@@ -39,9 +39,11 @@ study, threats) is SUPPORTING
 Current phase (as of 2026-09-02): **campaign v6 COMPLETE — 40/40
 trials scored** (entry [011](011-agent-study-v6-trials/design_spec.md),
 §(c-final)). All three arm gaps quantified with a stable failure
-taxonomy: A1 80% full-ladder / A2 60% (opus 5-for-5, sonnet 1-for-5 —
-legibility×model interaction) / A3 0% ≥R7 / A4 30% (open-loop
-lottery). §(d) analysis DONE (2026-09-02): survival figure,
+taxonomy — under the POST-RELABEL arm names (Amendment 2, 2026-09-02:
+A3 = open loop, A4 = bare parts; raw artifacts keep original labels):
+A1 80% full-ladder / A2 60% (opus 5-for-5, sonnet 1-for-5 —
+legibility×model interaction) / A3 30% (open-loop lottery) / A4 0%
+≥R7. §(d) analysis DONE (2026-09-02): survival figure,
 tab:agents, cycle counts, feedback taxonomy — all recomputed from raw
 results.json and cross-checked against the hand tallies. Next for
 Sec. VI-C: prose-ify into the paper submodule + release-artifact
@@ -120,6 +122,24 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+### 2026-09-02 — Amendment 2: arm labels A3/A4 SWAPPED for presentation (A3 = open loop, A4 = bare parts)
+
+Lead decision: the paper reads better with the arms ordered by what
+they remove — A3 = "A1 open loop" (was A4), A4 = "bare parts /
+assemble-it-yourself" (was A3). Implemented as a presentation-layer
+relabel: `analysis.py` maps raw→display at load and cross-checks
+against the unchanged raw-labeled hand tallies (figure/table/output
+regenerated, colors and markers follow the semantics so drafts stay
+visually comparable); main.tex VI-C, tab:agents, the figure caption,
+and positioning.md updated; relabel banners added to notebook 007/011
+(their body text and §(c-final) tallies keep original labels);
+protocol Amendment 2 recorded in the private agent_study repo. Raw
+trial artifacts (`runs/A3_*`/`A4_*`, results.json, transcripts) are
+NEVER renamed — the released artifact bundle must ship the mapping
+note. Entries below this one use the ORIGINAL labels (A3 = bare
+parts, A4 = open loop); per the append-only rule they are not
+rewritten.
 
 ### 2026-09-02 — behavior-layer story settled; "upstream = publish a module" woven into the paper
 
