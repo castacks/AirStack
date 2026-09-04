@@ -253,14 +253,21 @@ def assign_levels(members, *, epoch_s, length_m, front_speed_mps=None):
     return out, v
 
 
-def apply_collapse(levels, members, *, n_collapse=0, n_f6=0, seed=0):
+def apply_collapse(levels, members, *, n_collapse=0, n_f6=0, seed=0,
+                   exclude=frozenset()):
     """Promote the OLDEST F5 records to F5c / F6.
 
     Collapse is a consequence of how long a compartment has been alight, so
     it belongs at the burnt-out tail rather than being sprinkled. Deterministic
     given the same corridor.
     """
-    f5 = [i for i, (lvl, _t, _a) in levels.items() if lvl == "F5"]
+    # `levels` is assigned to every geometric corridor member, including
+    # permanent firebreaks that the manifest later omits.  Promoting one of
+    # those omitted records silently consumes the small F6/F5c budget and can
+    # leave a level-3 scene with no visible collapse at all.  Exclude them at
+    # selection time so the requested promotions survive into the manifest.
+    f5 = [i for i, (lvl, _t, _a) in levels.items()
+          if lvl == "F5" and i not in exclude]
     f5.sort(key=lambda i: -levels[i][2])          # oldest first
     for i in f5[:int(n_f6)]:
         levels[i] = ("F6",) + levels[i][1:]

@@ -23,7 +23,8 @@ die() { printf '\033[31mFAILED: %s\033[0m\n' "$*" >&2; exit 1; }
 now() { date +%s; }
 dex() {
   docker exec -e PYTHONHASHSEED=0 -e SG_INSTANCE_PLACEMENTS=1 \
-    -e PYTHONUNBUFFERED=1 -e ISAAC_SIM_PYTHONPATH="$ISAAC_SIM_PYTHONPATH" "$@"
+    -e PYTHONUNBUFFERED=1 -e ISAAC_SIM_PYTHONPATH="$ISAAC_SIM_PYTHONPATH" \
+    -e ISAAC_SIM_ACTIVE_GPU="${ISAAC_SIM_ACTIVE_GPU:-}" "$@"
 }
 
 mkdir -p "$LOG_DIR"

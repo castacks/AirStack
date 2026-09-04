@@ -125,7 +125,8 @@ def build(dump_path, *, target_frac, epoch_s, heading_deg=None,
 
     levels, v = fc.assign_levels(members, epoch_s=epoch_s, length_m=length_m)
     levels = fc.apply_collapse(levels, members, n_collapse=n_collapse,
-                               n_f6=n_f6, seed=seed)
+                               n_f6=n_f6, seed=seed,
+                               exclude=permanent_bad)
 
     records = []
     skipped_permanent = []

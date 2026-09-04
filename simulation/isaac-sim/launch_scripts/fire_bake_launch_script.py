@@ -164,9 +164,19 @@ _HEADLESS = _env("ISAAC_SIM_HEADLESS", "true").lower() in ("1", "true", "yes")
 # bake shows the same graded staining the assembly will.
 KIT_ARGS = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
             "--/rtx/pathtracing/fractionalCutoutOpacity=true"]
+_ACTIVE_GPU = _env("ISAAC_SIM_ACTIVE_GPU")
+if _ACTIVE_GPU:
+    KIT_ARGS.append("--/renderer/multiGpu/enabled=false")
+    print("[fire_bake] renderer/physics pinned to GPU {0}".format(
+        _ACTIVE_GPU), flush=True)
 
-simulation_app = SimulationApp(launch_config={"headless": _HEADLESS,
-                                              "extra_args": KIT_ARGS})
+_launch_config = {"headless": _HEADLESS, "extra_args": KIT_ARGS}
+if _ACTIVE_GPU:
+    # These must be SimulationApp config keys, not only extra_args: the app
+    # appends its default physics/cudaDevice=0 after extra_args.
+    _launch_config.update(active_gpu=int(_ACTIVE_GPU),
+                          physics_gpu=int(_ACTIVE_GPU))
+simulation_app = SimulationApp(launch_config=_launch_config)
 
 import omni.kit.app                                            # noqa: E402
 import omni.timeline                                           # noqa: E402

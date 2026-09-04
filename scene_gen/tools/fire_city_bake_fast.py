@@ -135,7 +135,8 @@ def main():
             "SETTLE_RETRY_FRACTION": os.environ.get(
                 "SETTLE_RETRY_FRACTION", "0.333333333333"),
         }
-        passthrough = ("ISAAC_SIM_PYTHONPATH", "SOOT_TEX_COMPRESS")
+        passthrough = ("ISAAC_SIM_PYTHONPATH", "SOOT_TEX_COMPRESS",
+                       "ISAAC_SIM_ACTIVE_GPU")
         for key in passthrough:
             if key in os.environ:
                 env[key] = os.environ[key]

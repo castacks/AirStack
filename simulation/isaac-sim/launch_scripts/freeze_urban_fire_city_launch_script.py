@@ -489,7 +489,12 @@ _extra_args = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
                "--/renderer/raytracingMotion/enableHydraEngineMasking=false",
                "--/renderer/raytracingMotion/enableInstanceInPointInstancer=false"]
 _multigpu_count = int(_env("FREEZE_MULTIGPU_COUNT", "0") or 0)
-if _multigpu_count > 1:
+_active_gpu = _env("ISAAC_SIM_ACTIVE_GPU")
+if _active_gpu:
+    _extra_args.append("--/renderer/multiGpu/enabled=false")
+    print("[freeze] renderer/physics pinned to GPU {0}".format(
+        _active_gpu), flush=True)
+elif _multigpu_count > 1:
     _extra_args.extend(["--/renderer/multiGpu/enabled=true",
                         "--/renderer/multiGpu/autoEnable=true",
                         "--/renderer/multiGpu/maxGpuCount={0}".format(
@@ -497,14 +502,18 @@ if _multigpu_count > 1:
     print("[freeze] distributing Hydra/RTX across {0} GPUs".format(
         _multigpu_count), flush=True)
 
-simulation_app = SimulationApp(launch_config={
+_launch_config = {
     "headless": _env("FREEZE_HEADLESS", "false").lower() in ("1", "true", "yes"),
     # SAME two flags `urban_fire_city_launch_script.py` and
     # `freeze_dataset_launch_script.py` both pass -- the bakes carry
     # fractional-cutout soot/glass materials and RTX forces them opaque
     # without this (see build-urban-fire-scenes' bug 4).
     "extra_args": _extra_args,
-})
+}
+if _active_gpu:
+    _launch_config.update(active_gpu=int(_active_gpu),
+                          physics_gpu=int(_active_gpu))
+simulation_app = SimulationApp(launch_config=_launch_config)
 
 from isaacsim.core.utils.extensions import enable_extension    # noqa: E402
 

@@ -331,6 +331,11 @@ _HEADLESS = _env("ISAAC_SIM_HEADLESS", "false").lower() in ("1", "true", "yes")
 # — the staining then renders as a hard binary stamp.
 KIT_ARGS = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
             "--/rtx/pathtracing/fractionalCutoutOpacity=true"]
+_ACTIVE_GPU = _env("ISAAC_SIM_ACTIVE_GPU")
+if _ACTIVE_GPU:
+    KIT_ARGS.append("--/renderer/multiGpu/enabled=false")
+    print("[urban_fire_city] renderer/physics pinned to GPU {0}".format(
+        _ACTIVE_GPU), flush=True)
 
 # GUARDED, so this module can also be LOADED AS A LIBRARY by a caller that
 # already has its own `SimulationApp` running — a second one in the same
@@ -345,8 +350,11 @@ KIT_ARGS = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
 # workflow every knob above is documented against) is BYTE-IDENTICAL to
 # before this guard: `__name__ == "__main__"` there, always.
 if __name__ == "__main__":
-    simulation_app = SimulationApp(launch_config={"headless": _HEADLESS,
-                                                  "extra_args": KIT_ARGS})
+    _launch_config = {"headless": _HEADLESS, "extra_args": KIT_ARGS}
+    if _ACTIVE_GPU:
+        _launch_config.update(active_gpu=int(_ACTIVE_GPU),
+                              physics_gpu=int(_ACTIVE_GPU))
+    simulation_app = SimulationApp(launch_config=_launch_config)
 else:
     simulation_app = None
 
