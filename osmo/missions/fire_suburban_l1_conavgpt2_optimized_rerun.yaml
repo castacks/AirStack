@@ -17,7 +17,7 @@ env:
   CONAVGPT2_VLM_GPU: ''
   NUM_ROBOTS: 8
   ISAAC_SIM_HEADLESS: 'true'
-  ISAAC_SIM_MULTIGPU: 'true'
+  ISAAC_SIM_MULTIGPU: ''
   GCS_VIZ_DECIMATE: '2'
   ISAAC_SIM_USE_STANDALONE: 'true'
   ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py

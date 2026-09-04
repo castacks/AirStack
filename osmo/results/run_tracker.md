@@ -139,8 +139,8 @@ cell/method for diagnosis rather than consuming the rest of the batch.
 
 | Order | Pod | Cells | Runs | Expected batch wall time | State |
 |---:|---|---|---:|---:|---|
-| 1 | `airstack-mission-1gpu-56` | Fire/Suburban L1 CoNavGPT2 | 1 | ~45 min | RUNNING — `fire_suburban_l1_conavgpt2_optimized_rerun/2026-09-04_20-14-35` |
-| 1 | `airstack-mission-1gpu-57` | Tornado/Suburban L3 CoNavGPT2 | 1 | ~45 min | RUNNING — `tornado_suburban_l3_conavgpt2_optimized/2026-09-04_20-14-35` |
+| 1 | `airstack-mission-1gpu-56` | Fire/Suburban L1 CoNavGPT2 | 1 | ~45 min | RUNNING — `fire_suburban_l1_conavgpt2_optimized_rerun/2026-09-04_20-34-18` |
+| 1 | `airstack-mission-1gpu-57` | Tornado/Suburban L3 CoNavGPT2 | 1 | ~45 min | RUNNING — `tornado_suburban_l3_conavgpt2_optimized/2026-09-04_20-34-17` |
 | 2 | `airstack-mission-1gpu-56` | Hurricane/Suburban L2 × frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ~3 h (12 h hard cap) | QUEUED |
 | 2 | `airstack-mission-1gpu-57` | Hurricane/Suburban L3 × frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ~3 h (12 h hard cap) | QUEUED |
 
@@ -159,6 +159,11 @@ stopped during startup once the accepted pre-optimization sweep was found.
 They were not uploaded and did not produce scored cells. Pod 57's earlier
 `19-51-50` preflight also exposed a launcher/Pegasus helper version mismatch;
 the matching helper was committed before the clean restart.
+
+The first focused starts at `20-14-35` were also stopped before scoring after
+the Kit command line showed unpinned, multi-GPU rendering. The clean starts
+above disable multi-GPU and explicitly pin both Kit and offboard CUDA to each
+pod's reserved card; their command lines were verified before preflight.
 
 ## Average 600-s scene performance
 
