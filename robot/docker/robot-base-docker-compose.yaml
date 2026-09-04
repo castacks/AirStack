@@ -103,6 +103,10 @@ services:
       - MIGHTY_CLOUD_FRAME
       - ZED_PIPELINE
       - SEARCH_DEPTH_TOPIC_TEMPLATE
+      # Sim-time budget for short RTF experiments. Canonical benchmark
+      # missions set 600; tuning missions can lower it without changing the
+      # installed scene overlay. offboard-compute inherits this base service.
+      - SEARCH_MAX_SIM_SECONDS=${SEARCH_MAX_SIM_SECONDS:-600}
       # transit speed cap, substituted into mighty_disaster.yaml v_max
       # (default 1.5 m/s when unset)
       - MIGHTY_V_MAX

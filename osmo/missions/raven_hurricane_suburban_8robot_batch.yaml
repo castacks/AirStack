@@ -1,0 +1,707 @@
+# Generated 3-cell RAVEN batch; actual mission capped below 12 hours.
+name: raven_hurricane_suburban_8robot_batch
+nas_dest: /volume2/coa-sei
+stack:
+  services:
+  - isaac-sim
+  - robot-desktop
+  - gcs
+  - offboard-compute
+env:
+  NUM_ROBOTS: 8
+  ISAAC_SIM_HEADLESS: 'true'
+  ISAAC_SIM_MULTIGPU: ''
+  GCS_VIZ_DECIMATE: '2'
+  ISAAC_SIM_USE_STANDALONE: 'true'
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: 'true'
+  SCENE_CONFIG: ''
+  FROZEN_DATASET_ROOT: omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset
+  SUBURB_COLLIDERS: ground
+  SPAWN_HEIGHT_M: '0.5'
+  DRONE_Z_M: '0.5'
+  ENABLE_LIDAR: 'true'
+  MIGHTY_CLOUD_SUFFIX: sensors/ouster/point_cloud
+  MIGHTY_CLOUD_FRAME: ouster
+  MAP_ANCHOR_ENU: 'true'
+  AIRSTACK_STACK: full_mighty
+  LOCAL_PLANNER: mighty
+  CONAVGPT_BASELINE: 'false'
+  FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  COMMS_RANGE_M: 5000
+  GT_ANNOTATIONS: 'on'
+  OFFBOARD_COMPUTE_GPU: '1'
+  RAYFRONTS_MODE: shared
+  START_RAYFRONTS_SERVER: 'true'
+  START_DETECTOR_SERVER: 'false'
+  START_ITM_SERVER: 'false'
+  RAYFRONTS_CONFIG: shared_humans
+  RAYFRONTS_ROBOT_IDS: 1,2,3,4,5,6,7,8
+  RAYFRONTS_COMPUTE_PROB: 'True'
+  RAYFRONTS_WAIT_TIMEOUT_S: '600'
+  VLM_URL: http://offboard-compute:8000/v1
+  RAVEN_LVLM: 'false'
+  START_VLM_SERVER: 'false'
+  CONAVGPT2_VLM_MODEL: Qwen/Qwen2.5-VL-3B-Instruct
+  CONAVGPT2_VLM_QUANT: nf4
+  MIGHTY_V_MAX: '1.0'
+  MIGHTY_A_MAX: '0.2'
+  MIGHTY_J_MAX: '1.0'
+  MIGHTY_OVERRIDE_PERIOD_S: '0.2'
+  MIGHTY_SEGMENT_STRIDE: '2'
+  MIGHTY_NATIVE_SETPOINTS: '1'
+  PID_POS_FF: '1.0'
+  PID_VEL_FF: '0.102'
+  PID_VZ_FF: '0.0'
+  RAVEN_VOX_SIZE_M: '0.3'
+  RAVEN_VOXEL_MAX_EXTENT_M: '3.0'
+  RAYFRONTS_HOLD_TIMEOUT_S: '0'
+  RAYFRONTS_RESUME_VOX: '300'
+  RAVEN_COVERAGE_RESTART: '1'
+  RAVEN_FRONTIER_EXCLUDE_OBSERVED: '1'
+  RAVEN_FRONTIER_NOVELTY_W: '100.0'
+  RAVEN_FRONTIER_VISITED_W: '30.0'
+  RAVEN_FRONTIER_VISITED_SCALE_M: '15.0'
+  RAVEN_FRONTIER_MAX_DZ_M: '2.0'
+  ZED_WIDTH: '960'
+  ZED_HEIGHT: '600'
+  ZED_PITCH_DEG: '0'
+environment_order: round_robin
+iterations: 3
+environments:
+- name: hurricanesuburbanl1v1_raven
+  method: raven
+  FROZEN_SCENE: Hurricane/Suburban/level_1/1
+  RESULTS_SCENE: HurricaneSuburbanL1V1
+  SPAWN_CONFIGS: "[{\"x_m\": -337.5, \"y_m\": -430.0, \"orient\": [0.0, 0.0, 0.4191, 0.9079]},\n {\"x_m\": -275.0, \"y_m\"\
+    : -190.0, \"orient\": [0.0, 0.0, 0.2691, 0.9631]},\n {\"x_m\": -142.5, \"y_m\": -180.0, \"orient\": [0.0, 0.0, 0.3922,\
+    \ 0.9199]},\n {\"x_m\": 7.5, \"y_m\": -107.5, \"orient\": [0.0, 0.0, 0.6643, 0.7475]},\n {\"x_m\": 137.5, \"y_m\": 50.0,\
+    \ \"orient\": [0.0, 0.0, -0.9712, 0.2381]},\n {\"x_m\": 212.5, \"y_m\": 162.5, \"orient\": [0.0, 0.0, -0.9336, 0.3584]},\n\
+    \ {\"x_m\": 360.0, \"y_m\": 327.5, \"orient\": [0.0, 0.0, -0.9244, 0.3815]},\n {\"x_m\": 412.5, \"y_m\": 420.0, \"orient\"\
+    : [0.0, 0.0, -0.9148, 0.4040]}]"
+  search_area:
+    points:
+    - x: -500.0
+      y: -364.8
+      z: 0.0
+    - x: -429.89
+      y: -494.53
+      z: 0.0
+    - x: -410.2
+      y: -500.0
+      z: 0.0
+    - x: 500.0
+      y: -500.0
+      z: 0.0
+    - x: 500.0
+      y: 447.8
+      z: 0.0
+    - x: 463.59
+      y: 500.0
+      z: 0.0
+    - x: -323.0
+      y: 500.0
+      z: 0.0
+    - x: -500.0
+      y: 87.47
+      z: 0.0
+  goal_per_robot:
+    1:
+      search_area:
+        points:
+        - x: -312.55
+          y: -615.88
+          z: 0.0
+        - x: -192.71
+          y: -500.0
+          z: 0.0
+        - x: -500.0
+          y: -182.2
+          z: 0.0
+        - x: -619.84
+          y: -298.08
+          z: 0.0
+    2:
+      search_area:
+        points:
+        - x: -80.66
+          y: -615.88
+          z: 0.0
+        - x: 39.18
+          y: -500.0
+          z: 0.0
+        - x: -500.0
+          y: 57.61
+          z: 0.0
+        - x: -619.84
+          y: -58.27
+          z: 0.0
+    3:
+      search_area:
+        points:
+        - x: 151.23
+          y: -615.88
+          z: 0.0
+        - x: 271.08
+          y: -500.0
+          z: 0.0
+        - x: -437.6
+          y: 232.9
+          z: 0.0
+        - x: -557.44
+          y: 117.02
+          z: 0.0
+    4:
+      search_area:
+        points:
+        - x: 381.69
+          y: -614.4
+          z: 0.0
+        - x: 501.53
+          y: -498.52
+          z: 0.0
+        - x: -366.33
+          y: 399.01
+          z: 0.0
+        - x: -486.17
+          y: 283.13
+          z: 0.0
+    5:
+      search_area:
+        points:
+        - x: 500.0
+          y: -496.93
+          z: 0.0
+        - x: 619.84
+          y: -381.05
+          z: 0.0
+        - x: -276.02
+          y: 545.43
+          z: 0.0
+        - x: -395.86
+          y: 429.55
+          z: 0.0
+    6:
+      search_area:
+        points:
+        - x: 500.0
+          y: -257.11
+          z: 0.0
+        - x: 619.84
+          y: -141.23
+          z: 0.0
+        - x: -112.25
+          y: 615.88
+          z: 0.0
+        - x: -232.09
+          y: 500.0
+          z: 0.0
+    7:
+      search_area:
+        points:
+        - x: 500.0
+          y: -17.29
+          z: 0.0
+        - x: 619.84
+          y: 98.59
+          z: 0.0
+        - x: 119.65
+          y: 615.88
+          z: 0.0
+        - x: -0.2
+          y: 500.0
+          z: 0.0
+    8:
+      search_area:
+        points:
+        - x: 500.0
+          y: 222.52
+          z: 0.0
+        - x: 619.84
+          y: 338.41
+          z: 0.0
+        - x: 351.54
+          y: 615.88
+          z: 0.0
+        - x: 231.7
+          y: 500.0
+          z: 0.0
+- name: hurricanesuburbanl2v1_raven
+  method: raven
+  FROZEN_SCENE: Hurricane/Suburban/level_2/1
+  RESULTS_SCENE: HurricaneSuburbanL2V1
+  SPAWN_CONFIGS: "[{\"x_m\": -372.5, \"y_m\": -335.0, \"orient\": [0.0, 0.0, 0.3583, 0.9336]},\n {\"x_m\": -287.5, \"y_m\"\
+    : -262.5, \"orient\": [0.0, 0.0, 0.3618, 0.9323]},\n {\"x_m\": -160.0, \"y_m\": -165.0, \"orient\": [0.0, 0.0, 0.3896,\
+    \ 0.9210]},\n {\"x_m\": -32.5, \"y_m\": -32.5, \"orient\": [0.0, 0.0, 0.3824, 0.9240]},\n {\"x_m\": 125.0, \"y_m\": 82.5,\
+    \ \"orient\": [0.0, 0.0, -0.9586, 0.2848]},\n {\"x_m\": 212.5, \"y_m\": 190.0, \"orient\": [0.0, 0.0, -0.9343, 0.3564]},\n\
+    \ {\"x_m\": 315.0, \"y_m\": 330.0, \"orient\": [0.0, 0.0, -0.9193, 0.3935]},\n {\"x_m\": 430.0, \"y_m\": 445.0, \"orient\"\
+    : [0.0, 0.0, -0.9205, 0.3907]}]"
+  search_area:
+    points:
+    - x: -500.0
+      y: 500.0
+      z: 0.0
+    - x: -500.0
+      y: -375.44
+      z: 0.0
+    - x: -395.63
+      y: -500.0
+      z: 0.0
+    - x: 500.0
+      y: -500.0
+      z: 0.0
+    - x: 500.0
+      y: 500.0
+      z: 0.0
+  goal_per_robot:
+    1:
+      search_area:
+        points:
+        - x: -287.47
+          y: -614.71
+          z: 0.0
+        - x: -165.82
+          y: -500.0
+          z: 0.0
+        - x: -500.0
+          y: -145.57
+          z: 0.0
+        - x: -621.66
+          y: -260.28
+          z: 0.0
+    2:
+      search_area:
+        points:
+        - x: -57.66
+          y: -614.71
+          z: 0.0
+        - x: 64.0
+          y: -500.0
+          z: 0.0
+        - x: -500.0
+          y: 98.16
+          z: 0.0
+        - x: -621.66
+          y: -16.55
+          z: 0.0
+    3:
+      search_area:
+        points:
+        - x: 172.16
+          y: -614.71
+          z: 0.0
+        - x: 293.81
+          y: -500.0
+          z: 0.0
+        - x: -500.0
+          y: 341.9
+          z: 0.0
+        - x: -621.66
+          y: 227.19
+          z: 0.0
+    4:
+      search_area:
+        points:
+        - x: 390.85
+          y: -602.92
+          z: 0.0
+        - x: 512.51
+          y: -488.21
+          z: 0.0
+        - x: -457.26
+          y: 540.3
+          z: 0.0
+        - x: -578.92
+          y: 425.59
+          z: 0.0
+    5:
+      search_area:
+        points:
+        - x: 500.0
+          y: -474.94
+          z: 0.0
+        - x: 621.66
+          y: -360.23
+          z: 0.0
+        - x: -297.6
+          y: 614.71
+          z: 0.0
+        - x: -419.26
+          y: 500.0
+          z: 0.0
+    6:
+      search_area:
+        points:
+        - x: 500.0
+          y: -231.21
+          z: 0.0
+        - x: 621.66
+          y: -116.5
+          z: 0.0
+        - x: -67.79
+          y: 614.71
+          z: 0.0
+        - x: -189.44
+          y: 500.0
+          z: 0.0
+    7:
+      search_area:
+        points:
+        - x: 500.0
+          y: 12.53
+          z: 0.0
+        - x: 621.66
+          y: 127.24
+          z: 0.0
+        - x: 162.03
+          y: 614.71
+          z: 0.0
+        - x: 40.37
+          y: 500.0
+          z: 0.0
+    8:
+      search_area:
+        points:
+        - x: 500.0
+          y: 256.26
+          z: 0.0
+        - x: 621.66
+          y: 370.97
+          z: 0.0
+        - x: 391.84
+          y: 614.71
+          z: 0.0
+        - x: 270.19
+          y: 500.0
+          z: 0.0
+- name: hurricanesuburbanl3v1_raven
+  method: raven
+  FROZEN_SCENE: Hurricane/Suburban/level_3/1
+  RESULTS_SCENE: HurricaneSuburbanL3V1
+  SPAWN_CONFIGS: "[{\"x_m\": -427.5, \"y_m\": -17.5, \"orient\": [0.0, 0.0, 0.0205, 0.9998]},\n {\"x_m\": -375.0, \"y_m\"\
+    : -107.5, \"orient\": [0.0, 0.0, 0.1391, 0.9903]},\n {\"x_m\": -180.0, \"y_m\": 35.0, \"orient\": [0.0, 0.0, -0.0959,\
+    \ 0.9954]},\n {\"x_m\": -80.0, \"y_m\": -15.0, \"orient\": [0.0, 0.0, 0.0925, 0.9957]},\n {\"x_m\": 42.5, \"y_m\": 7.5,\
+    \ \"orient\": [0.0, 0.0, -0.9962, 0.0872]},\n {\"x_m\": 192.5, \"y_m\": 0.0, \"orient\": [0.0, 0.0, 1.0000, 0.0000]},\n\
+    \ {\"x_m\": 285.0, \"y_m\": -27.5, \"orient\": [0.0, 0.0, 0.9988, 0.0481]},\n {\"x_m\": 422.5, \"y_m\": -157.5, \"orient\"\
+    : [0.0, 0.0, 0.9841, 0.1775]}]"
+  search_area:
+    points:
+    - x: -500.0
+      y: 500.0
+      z: 0.0
+    - x: -500.0
+      y: -500.0
+      z: 0.0
+    - x: 500.0
+      y: -500.0
+      z: 0.0
+    - x: 500.0
+      y: 500.0
+      z: 0.0
+  goal_per_robot:
+    1:
+      search_area:
+        points:
+        - x: -500.0
+          y: -500.0
+          z: 0.0
+        - x: -375.0
+          y: -500.0
+          z: 0.0
+        - x: -375.0
+          y: 500.0
+          z: 0.0
+        - x: -500.0
+          y: 500.0
+          z: 0.0
+    2:
+      search_area:
+        points:
+        - x: -375.0
+          y: -500.0
+          z: 0.0
+        - x: -250.0
+          y: -500.0
+          z: 0.0
+        - x: -250.0
+          y: 500.0
+          z: 0.0
+        - x: -375.0
+          y: 500.0
+          z: 0.0
+    3:
+      search_area:
+        points:
+        - x: -250.0
+          y: -500.0
+          z: 0.0
+        - x: -125.0
+          y: -500.0
+          z: 0.0
+        - x: -125.0
+          y: 500.0
+          z: 0.0
+        - x: -250.0
+          y: 500.0
+          z: 0.0
+    4:
+      search_area:
+        points:
+        - x: -125.0
+          y: -500.0
+          z: 0.0
+        - x: 0.0
+          y: -500.0
+          z: 0.0
+        - x: 0.0
+          y: 500.0
+          z: 0.0
+        - x: -125.0
+          y: 500.0
+          z: 0.0
+    5:
+      search_area:
+        points:
+        - x: 0.0
+          y: -500.0
+          z: 0.0
+        - x: 125.0
+          y: -500.0
+          z: 0.0
+        - x: 125.0
+          y: 500.0
+          z: 0.0
+        - x: 0.0
+          y: 500.0
+          z: 0.0
+    6:
+      search_area:
+        points:
+        - x: 125.0
+          y: -500.0
+          z: 0.0
+        - x: 250.0
+          y: -500.0
+          z: 0.0
+        - x: 250.0
+          y: 500.0
+          z: 0.0
+        - x: 125.0
+          y: 500.0
+          z: 0.0
+    7:
+      search_area:
+        points:
+        - x: 250.0
+          y: -500.0
+          z: 0.0
+        - x: 375.0
+          y: -500.0
+          z: 0.0
+        - x: 375.0
+          y: 500.0
+          z: 0.0
+        - x: 250.0
+          y: 500.0
+          z: 0.0
+    8:
+      search_area:
+        points:
+        - x: 375.0
+          y: -500.0
+          z: 0.0
+        - x: 500.0
+          y: -500.0
+          z: 0.0
+        - x: 500.0
+          y: 500.0
+          z: 0.0
+        - x: 375.0
+          y: 500.0
+          z: 0.0
+ready:
+  timeout_s: 2400
+  poll_interval_s: 10
+up_timeout_s: 5400
+iteration_attempts: 2
+on_step_failure: abort_iteration
+command_route: gcs
+record:
+  scope: both
+  required: true
+  topics:
+  - /tf
+  - /tf_static
+  - /{robot}/odometry_conversion/odometry
+  - /{robot}/global_plan
+  - /{robot}/navigation_mode
+  - /{robot}/raven_nav/discoveries
+  - /{robot}/raven_nav/confirmed_targets
+  - /{robot}/raven_nav/lvlm_trigger
+  - /{robot}/raven_nav/lvlm_request
+  - /{robot}/raven_nav/guiding_objects
+  - /{robot}/raven_nav/explored_area_coverage
+  - /{robot}/debug/voxel_table
+  - /{robot}/debug/ray_table
+  - /{robot}/rayfronts/status
+  - /{robot}/rayfronts/msg_serv/voxels_sim/all
+  - /{robot}/rayfronts/msg_serv/rays_sim/all
+  - /{robot}/rayfronts/voxel_rgb
+  - /{robot}/frontiers
+  - /{robot}/frontier_cloud
+  - /{robot}/current_target
+  - /{robot}/committed_target
+  - /rayfronts_debug/{robot}/voxels_sim/all
+  - /rayfronts_debug/{robot}/voxel_rgb
+  - /gcs/{robot}/map_origin
+  - /gcs/robot_markers
+  - /gcs/payload/{robot}/filtered_rays
+  - /gcs/payload/{robot}/filtered_frontiers
+  - /gcs/payload/{robot}/explored_area_coverage
+  - /gcs/payload/{robot}/confirmed_targets
+  - /gcs/payload/{robot}/navigation_mode
+  - /gcs/sim_ground
+  - /gcs/annotations/bboxes
+steps:
+- run:
+    container: robot_1
+    cmd: "A=/root/AirStack/robot/ros_ws/src/global/planners/raven_nav/annotations\nS={{env.RESULTS_SCENE}}\nfor f in \"$A/$S.json\"\
+      \ \"$A/${S}_obstacles.json\" \"$A/${S}_region.json\"; do\n  [ -f \"$f\" ] || { echo \"MISSING $f\"; exit 1; }\ndone\n\
+      python3 - \"$A\" \"$S\" <<'EOF'\nimport json, sys\na, s = sys.argv[1], sys.argv[2]\npeople = json.load(open(f\"{a}/{s}.json\"\
+      ))\nobst = json.load(open(f\"{a}/{s}_obstacles.json\"))\nreg = json.load(open(f\"{a}/{s}_region.json\"))\nmeta = next(e\
+      \ for e in reg if e.get(\"class\") == \"meta\")\nsrch = next(e for e in reg if e.get(\"class\") == \"search\")\nprint(f\"\
+      scene {s}: {len(people)} people, {len(obst)} obstacle boxes\")\nprint(f\"  frozen_usd  {meta.get('frozen_usd')}\")\n\
+      print(f\"  disaster    {meta.get('disaster')} / {meta.get('scene_config')}\")\nprint(f\"  search area {srch['area_m2']:,.0f}\
+      \ m2 \"\n      f\"({meta['search_frac_of_plate']:.0%} of the plate), \"\n      f\"{len(srch['polygon_xy'])} pts\")\n\
+      print(f\"  people inside the search {meta['people_inside_search']}\"\n      f\"/{meta['people_total']}\")\nassert len(people)\
+      \ == meta[\"people_total\"], \"people GT / region disagree\"\nassert meta[\"people_inside_search\"] > 0, \"no survivor\
+      \ is in the search area\"\nEOF\n"
+    timeout_s: 120
+- run:
+    container: offboard-compute
+    cmd: "SOCK=/tmp/rayfronts/encoder.sock\necho \"waiting up to 300s for $SOCK\"\nfor i in $(seq 1 60); do\n  [ -S \"$SOCK\"\
+      \ ] && { echo \"ENCODER_SOCKET_UP\"; break; }\n  sleep 5\ndone\n[ -S \"$SOCK\" ] || echo \"WARN: encoder socket not\
+      \ present after 300s (see rayfronts_encoder.log below)\"\nfor name in rayfronts_encoder rayfronts_mapping; do\n  pid_file=\"\
+      /tmp/offboard/$name.pid\"\n  if [ -f \"$pid_file\" ] && kill -0 \"$(cat \"$pid_file\")\" 2>/dev/null; then\n    echo\
+      \ \"$name ALIVE pid=$(cat \"$pid_file\")\"\n  else\n    echo \"$name NOT RUNNING \u2014 tail of its log:\"\n    tail\
+      \ -n 60 \"/tmp/offboard/$name.log\" 2>/dev/null || echo \"(no log yet)\"\n    exit 1\n  fi\ndone\necho \"--- pin check\
+      \ ---\"\ngrep -a \"pinned: CUDA_VISIBLE_DEVICES\" /tmp/offboard/*.log 2>/dev/null \\\n  || echo \"(no pin line \u2014\
+      \ OFFBOARD_COMPUTE_GPU is unset, or this ran before the pin fix)\"\ngrep -aE \"Traceback|Error\" /tmp/offboard/rayfronts_encoder.log\
+      \ /tmp/offboard/rayfronts_mapping.log 2>/dev/null \\\n  | tail -20 || true\n"
+    timeout_s: 360
+- run:
+    container: airstack-robot-desktop-{n}
+    cmd: "source /root/.bashrc >/dev/null 2>&1 || true\nexport ROBOT_NAME=robot_{n}\nexport ROS_DOMAIN_ID={n}\nfor i in $(seq\
+      \ 1 36); do\n  if ros2 node list 2>/dev/null | grep -qx \"/robot_{n}/mighty/mighty_bridge\"; then\n    echo \"BRIDGE_UP\
+      \ robot_{n}\"\n    grep -ah \"mighty_bridge up\" /root/.ros/log/mighty_bridge_*.log 2>/dev/null | tail -1\n    ros2\
+      \ action list 2>/dev/null | grep -qx \"/robot_{n}/tasks/navigate\" \\\n      && echo \"NAVIGATE_ACTION_PRESENT robot_{n}\"\
+      \ \\\n      || echo \"WARN: /robot_{n}/tasks/navigate not advertised\"\n    exit 0\n  fi\n  sleep 5\ndone\necho \"BRIDGE_MISSING\
+      \ robot_{n}: no /robot_{n}/mighty/mighty_bridge after 180 s.\"\necho \"--- mighty namespace as seen on this domain ---\"\
+      \nros2 node list 2>/dev/null | grep \"/mighty/\" || echo \"(no mighty nodes at all)\"\necho \"--- bring-up pane, mighty_bridge\
+      \ lines ---\"\ntmux capture-pane -p -S -30000 -t bringup:0.0 2>/dev/null \\\n  | grep -a \"mighty_bridge\" | tail -60\
+      \ || echo \"(pane history already rolled over)\"\nexit 1\n"
+    timeout_s: 300
+- run:
+    container: airstack-robot-desktop-{n}
+    cmd: "source /root/.bashrc >/dev/null 2>&1 || true\nexport ROBOT_NAME=robot_{n}\nexport ROS_DOMAIN_ID={n}\nDISP=/robot_{n}/perception/stereo_image_proc/disparity\n\
+      PC=/robot_{n}/perception/stereo_image_proc/point_cloud\nok_disp=0; npub=0\nfor i in $(seq 1 20); do\n  if [ \"$ok_disp\"\
+      \ = \"0\" ]; then\n    timeout 20 ros2 topic hz \"$DISP\" 2>/dev/null \\\n      | grep -m1 -q \"average rate\" && ok_disp=1\n\
+      \  fi\n  if [ \"$ok_disp\" = \"1\" ]; then\n    npub=$(ros2 topic info \"$PC\" 2>/dev/null \\\n           | grep -oE\
+      \ \"Publisher count: [0-9]+\" | grep -oE \"[0-9]+\")\n    npub=${npub:-0}\n    if [ \"$npub\" -gt 0 ]; then\n      echo\
+      \ \"PERCEPTION_OK robot_{n}: $DISP streaming, $PC has $npub publisher(s)\"\n      exit 0\n    fi\n  fi\n  sleep 5\n\
+      done\necho \"PERCEPTION_DEAD robot_{n}: disparity=$ok_disp cloud_publishers=$npub\"\necho \"--- is the sim publishing\
+      \ to this domain at all ---\"\nros2 topic list 2>/dev/null | grep -c \"/robot_{n}/sensors/\" || true\necho \"--- perception\
+      \ nodes on this domain ---\"\nros2 node list 2>/dev/null | grep -E \"stereo|point_cloud|disparity|global_mapper\" \\\
+      \n  || echo \"(no perception nodes)\"\necho \"--- global_mapper log, PointCloudCallback lines ---\"\ngrep -ah \"PointCloudCallback\"\
+      \ /root/.ros/log/global_mapper_node_*.log 2>/dev/null \\\n  | tail -20 || echo \"(the callback never fired \u2014 not\
+      \ one line)\"\nexit 1\n"
+    timeout_s: 420
+- action:
+    task: takeoff
+    goal:
+      target_altitude_m: 20.0
+      velocity_m_s: 2.0
+    timeout_s: 420
+    robots: all
+- wait: 5
+- action:
+    task: semantic_search
+    timeout_s: 13800
+    cancel_on_timeout: true
+    cancel_grace_s: 180
+    pass_on_feedback: true
+    goal_per_robot: '{{env.goal_per_robot}}'
+    goal:
+      query: person
+      background_queries: road, grass, tree, house, wall, debris, sky, car, utility pole, street light, hydrant, crosswalk
+      search_area: '{{env.search_area}}'
+      min_altitude_agl: 15.0
+      max_altitude_agl: 40.0
+      min_flight_speed: 0.5
+      max_flight_speed: 1.0
+      confidence_threshold: 0.95
+      voxel_score_threshold: 0.75
+      score_threshold: 0.85
+      voxel_min_cluster_size: 12
+      max_sim_seconds: 600.0
+- action:
+    task: land
+    goal: {}
+    timeout_s: 180
+    optional: true
+    robots: all
+- run:
+    container: airstack-robot-desktop-{n}
+    cmd: 'DEST=/root/AirStack/results/raven_suburban_8robot/{{env.RESULTS_SCENE}}/raven/robot_{n}
+
+      mkdir -p "$DEST"
+
+      cp -v /tmp/raven_robot_{n}.log "$DEST"/ 2>/dev/null || true
+
+      cp -v /tmp/rayfronts_robot_{n}.log "$DEST"/ 2>/dev/null || true
+
+      cp -v /tmp/lvlm_robot_{n}.log "$DEST"/ 2>/dev/null || true
+
+      echo "collected robot_{n} logs into $DEST"
+
+      '
+    timeout_s: 120
+    expect_success: false
+- run:
+    container: robot_1
+    cmd: 'DEST=/root/AirStack/results/raven_suburban_8robot/{{env.RESULTS_SCENE}}/raven
+
+      mkdir -p "$DEST"
+
+      cp -rv /root/.cache/raven_results "$DEST"/ 2>/dev/null || true
+
+      echo "# compiled_results.json"; cat "$DEST"/raven_results/compiled_results.json 2>/dev/null || echo "(missing)"
+
+      echo "# metrics.json"; cat "$DEST"/raven_results/metrics.json 2>/dev/null || echo "(missing)"
+
+      echo "# groundtruth_comparison.json"; cat "$DEST"/raven_results/groundtruth_comparison.json 2>/dev/null || echo "(missing)"
+
+      '
+    timeout_s: 180
+    expect_success: false
+- run:
+    container: offboard-compute
+    cmd: 'DEST=/root/AirStack/results/raven_suburban_8robot/{{env.RESULTS_SCENE}}/raven/offboard-compute
+
+      mkdir -p "$DEST"
+
+      cp -v /tmp/offboard/rayfronts_encoder.log "$DEST"/ 2>/dev/null || true
+
+      cp -v /tmp/offboard/rayfronts_mapping.log "$DEST"/ 2>/dev/null || true
+
+      cp -v /tmp/offboard/vlm_server.log "$DEST"/ 2>/dev/null || true
+
+      echo "# supervisor restarts this iteration"
+
+      grep -ac "mapping server start #" "$DEST"/rayfronts_mapping.log 2>/dev/null || true
+
+      '
+    timeout_s: 120
+    expect_success: false

@@ -31,7 +31,7 @@ python3 + PyYAML, and a checkout with airstack.sh — so it can be tested on
 any dev machine that can run `airstack up`.
 
 Command patterns (ros2 exec into the robot container with a per-robot
-ROS_DOMAIN_ID, two-gate PX4 readiness, action-result parsing) mirror
+ROS_DOMAIN_ID, three-gate PX4/state-data readiness, action-result parsing) mirror
 tests/conftest.py and tests/system/test_takeoff_hover_land.py.
 """
 
@@ -414,6 +414,34 @@ def load_mission(path):
                 raise ValueError(
                     "pass_on_feedback requires via: gcs (feedback liveness is only "
                     "tracked on the GCS action_relay path)")
+            try:
+                dispatch_stagger_s = float(action.get("dispatch_stagger_s", 0))
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "action dispatch_stagger_s must be a non-negative number, "
+                    f"got {action.get('dispatch_stagger_s')!r}")
+            if dispatch_stagger_s < 0:
+                raise ValueError(
+                    "action dispatch_stagger_s must be >= 0, "
+                    f"got {dispatch_stagger_s}")
+            prearm_via_mavros = action.get("prearm_via_mavros", False)
+            if not isinstance(prearm_via_mavros, bool):
+                raise ValueError(
+                    "action prearm_via_mavros must be a boolean, "
+                    f"got {prearm_via_mavros!r}")
+            if prearm_via_mavros and action.get("task") != "takeoff":
+                raise ValueError(
+                    "action prearm_via_mavros is only valid for task: takeoff")
+            try:
+                prearm_timeout_s = float(action.get("prearm_timeout_s", 25))
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "action prearm_timeout_s must be a positive number, "
+                    f"got {action.get('prearm_timeout_s')!r}")
+            if prearm_timeout_s <= 0:
+                raise ValueError(
+                    "action prearm_timeout_s must be > 0, "
+                    f"got {prearm_timeout_s}")
     return merged
 
 
@@ -429,8 +457,22 @@ def expand(text, n):
 
 
 def has_placeholder(*strings):
-    """True if any string contains a per-robot placeholder ({robot} or {n})."""
-    return any(s and ("{robot}" in s or "{n}" in s) for s in strings)
+    """True if executable text contains a per-robot placeholder.
+
+    Full-line shell comments are ignored. Mission comments often document the
+    literal ``{robot}``/``{n}`` syntax; treating those examples as executable
+    placeholders silently fans a pod-scoped command out N times. That made the
+    shared DDS route guard run eight concurrent copies on an eight-robot trial.
+    """
+    for value in strings:
+        if not value:
+            continue
+        executable = "\n".join(
+            line for line in str(value).splitlines()
+            if not line.lstrip().startswith("#"))
+        if "{robot}" in executable or "{n}" in executable:
+            return True
+    return False
 
 
 def step_robots(step_spec, num_robots):
@@ -765,18 +807,29 @@ class Stack:
             f"— proceeding, `up` may conflict")
 
     def wait_ready(self, container):
-        """Two sequential gates per robot (same as the system tests):
+        """Three sequential gates per robot:
         1. mavros/state reports connected=True (MAVROS ↔ PX4 heartbeat);
         2. local_position/odom publishes (PX4 EKF converged — the actual
-           precondition for arming; `connected` alone fires ~25s too early).
+           precondition for arming; `connected` alone fires ~25s too early);
+        3. odometry_conversion/odometry publishes (the canonical state every
+           task/controller consumes). A matched-but-dead conversion reader is
+           otherwise invisible until TakeoffTask rejects every goal.
         Returns {robot_n: seconds_to_ready}; raises on timeout."""
         cfg = self.mission["ready"]
         started = time.time()
         deadline = started + cfg["timeout_s"]
-        connected, ready_at = set(), {}
+        connected, raw_odom_at, ready_at = set(), {}, {}
         pending = list(range(1, self.num_robots + 1))
         # Wedged-robot recovery (see restart_robot_bringup). 0 disables.
         recover_after = float(cfg.get("recover_after_s", 360))
+        # Once every peer is fully ready, a lone silent replica is much less
+        # likely to be ordinary staggered startup. Allow a shorter, separately
+        # configured threshold without prematurely restarting several PX4s
+        # while the heavy scene is still coming online.
+        quorum_recover_after = float(
+            cfg.get("quorum_recover_after_s", recover_after))
+        dataflow_recover_after = float(
+            cfg.get("dataflow_recover_after_s", 60))
         max_recover = int(cfg.get("max_recoveries", 2))
         recoveries, last_recover = {}, {}
 
@@ -795,12 +848,43 @@ class Stack:
                               f"timeout 5 ros2 topic echo --once "
                               f"/robot_{n}/interface/mavros/local_position/odom",
                               domain_id=n, setup_bash=self.setup_bash, timeout=15)
+                if r.returncode != 0 or "pose:" not in r.stdout:
+                    continue
+                raw_odom_at.setdefault(n, time.time())
+                r = ros2_exec(container,
+                              f"timeout 5 ros2 topic echo --once "
+                              f"/robot_{n}/odometry_conversion/odometry",
+                              domain_id=n, setup_bash=self.setup_bash, timeout=15)
                 if r.returncode == 0 and "pose:" in r.stdout:
                     ready_at[n] = round(time.time() - started, 2)
                     pending.remove(n)
+                    continue
+
+                # A live MAVROS stream with no canonical odometry is a DDS
+                # dataflow wedge, not slow EKF convergence. It was observed on
+                # robot_6 in pod 56: graph endpoints matched and raw odometry
+                # ran at 4.8 Hz, yet odometry_conversion emitted zero messages
+                # and TakeoffTask rejected all three goals as state-stale.
+                # Relaunch this one pre-flight stack after a short grace; this
+                # is the same bounded recovery used for a silent MAVROS.
+                dataflow_age = time.time() - raw_odom_at[n]
+                if (dataflow_recover_after > 0
+                        and dataflow_age >= dataflow_recover_after
+                        and recoveries.get(n, 0) < max_recover):
+                    containers = robot_containers()
+                    log(f"RECOVER robot_{n}: raw odometry is live but canonical "
+                        f"odometry stayed silent for {dataflow_age:.0f}s - attempt "
+                        f"{recoveries.get(n, 0) + 1}/{max_recover}")
+                    if restart_robot_bringup(n, containers):
+                        recoveries[n] = recoveries.get(n, 0) + 1
+                        last_recover[n] = time.time() - started
+                        connected.discard(n)
+                        raw_odom_at.pop(n, None)
             if pending:
                 elapsed = time.time() - started
-                log(f"waiting for PX4: connected={sorted(connected)} pending={pending} "
+                log(f"waiting for PX4 + canonical odometry: "
+                    f"connected={sorted(connected)} "
+                    f"raw_odom={sorted(raw_odom_at)} pending={pending} "
                     f"elapsed={elapsed:.0f}s")
                 # A robot still SILENT long after its peers answered is not
                 # slow, it is wedged. Restart just its bringup instead of
@@ -808,12 +892,15 @@ class Stack:
                 # `connected` are excluded: those have a live heartbeat and are
                 # merely waiting on EKF convergence, which a restart would
                 # throw away.
-                if recover_after > 0 and elapsed >= recover_after and connected:
+                lone_pending = len(ready_at) >= self.num_robots - 1
+                recovery_after = (quorum_recover_after if lone_pending
+                                  else recover_after)
+                if recovery_after > 0 and elapsed >= recovery_after and connected:
                     containers = robot_containers()
                     for n in list(pending):
                         if n in connected or recoveries.get(n, 0) >= max_recover:
                             continue
-                        if elapsed - last_recover.get(n, 0.0) < recover_after:
+                        if elapsed - last_recover.get(n, 0.0) < recovery_after:
                             continue
                         if not robot_is_wedged(n, containers):
                             continue
@@ -826,8 +913,10 @@ class Stack:
                 time.sleep(cfg["poll_interval_s"])
 
         if pending:
-            raise RuntimeError(f"robots {pending} not ready within {cfg['timeout_s']}s "
-                               f"(connected so far: {sorted(connected)})")
+            raise RuntimeError(
+                f"robots {pending} not ready within {cfg['timeout_s']}s "
+                f"(connected: {sorted(connected)}, raw odometry: "
+                f"{sorted(raw_odom_at)})")
         log(f"PX4 ready: {ready_at}")
 
         # Gate 3 (only when actions route via the GCS): the per-robot
@@ -1173,6 +1262,22 @@ def run_step(stack, container, step_spec, step_index):
         # via: gcs only — no relay_feedback AND no result within this window
         # after publishing ⇒ the goal is presumed lost; fail fast and retry.
         feedback_timeout_s = int(spec.get("feedback_timeout_s", 15))
+        # Starting eight relay clients at the same instant creates 24 short-lived
+        # ROS CLI processes on the GCS (goal + feedback + result per robot).  On
+        # a loaded simulation that burst can make an otherwise healthy MAVROS
+        # arm service miss its response.  Missions may spread only the INITIAL
+        # dispatches while retaining parallel action execution and retries.
+        dispatch_stagger_s = float(spec.get("dispatch_stagger_s", 0))
+        # Optional benchmark reliability path. The takeoff task normally calls
+        # robot_command, whose server then calls MAVROS. Under an eight-robot,
+        # low-RTF load that extra local service hop has intermittently swallowed
+        # every request for one otherwise healthy robot: MAVROS, odometry and
+        # home were live, but PX4 never received an arm command. Pre-arming via
+        # MAVROS immediately before each goal makes the takeoff task skip that
+        # flaky hop. It remains opt-in because it changes only mission dispatch,
+        # not the takeoff action's general contract.
+        prearm_via_mavros = bool(spec.get("prearm_via_mavros", False))
+        prearm_timeout_s = float(spec.get("prearm_timeout_s", 25))
         # cancel_on_timeout (via:gcs only): on `timeout_s`, publish a CancelGoal
         # to the relay's .../cancel topic and wait up to cancel_grace_s for the
         # cancelled result, so an on-cancel finalize (e.g. semantic_search's
@@ -1189,6 +1294,68 @@ def run_step(stack, container, step_spec, step_index):
         pass_on_feedback = bool(spec.get("pass_on_feedback", False))
         robots = step_robots(spec, stack.num_robots)
         log(f"step {step_index}: action {task} {goal_json} via {via} → robots {robots}")
+
+        prearm_containers = robot_containers() if prearm_via_mavros else []
+
+        def prearm(n):
+            """Arm through MAVROS and prove the AirStack state path observed it."""
+            if len(prearm_containers) < n:
+                return {
+                    "exit": 1,
+                    "ok": False,
+                    "output_tail": (
+                        f"robot_{n}: no matching robot container; "
+                        f"found {prearm_containers}"),
+                }
+            cname = prearm_containers[n - 1]
+            service = f"/robot_{n}/interface/mavros/cmd/arming"
+            armed_topic = f"/robot_{n}/interface/is_armed"
+            service_timeout = max(1, int(prearm_timeout_s))
+            # CommandBool output differs slightly across ros2cli versions
+            # (`success=True` versus `success: true`), so accept both.
+            cmd = (
+                f"arm_out=$(timeout {service_timeout} ros2 service call {service} "
+                "mavros_msgs/srv/CommandBool '{value: true}' 2>&1); "
+                "arm_rc=$?; printf '%s\\n' \"$arm_out\"; "
+                "[ \"$arm_rc\" -eq 0 ] || exit \"$arm_rc\"; "
+                "printf '%s\\n' \"$arm_out\" | "
+                "grep -Eiq 'success[[:space:]]*[:=][[:space:]]*(true|True)' "
+                "|| { echo PREARM_REJECTED; exit 2; }; "
+                # The first state sample after a successful arm RPC can still
+                # be `false` while MAVROS propagates PX4's transition. Waiting
+                # for ONE sample and retrying the whole arm action turned that
+                # normal edge into 10-20 seconds of avoidable startup delay.
+                # Poll fresh samples until the configured bound.  Require two
+                # true publications before dispatching the action: ros2cli can
+                # receive the transition a scheduling slice before the
+                # already-running takeoff task updates its own subscription.
+                # Dispatching on that first edge made the task issue a
+                # duplicate ARM request; PX4 can reject the duplicate even
+                # though it is now armed, producing a false "failed to arm".
+                f"state_deadline=$(( $(date +%s) + {service_timeout} )); "
+                "state_ok=0; state_true_count=0; "
+                "while [ \"$(date +%s)\" -lt \"$state_deadline\" ]; do "
+                f"armed_out=$(timeout 5 ros2 topic echo --field data {armed_topic} "
+                "--once 2>/dev/null || true); "
+                "if printf '%s\n' \"$armed_out\" | "
+                "grep -Eiq '^[[:space:]]*true[[:space:]]*$'; then "
+                "state_true_count=$((state_true_count + 1)); "
+                "if [ \"$state_true_count\" -ge 2 ]; then "
+                "state_ok=1; break; fi; "
+                "else state_true_count=0; fi; sleep 1; done; "
+                "[ \"$state_ok\" -eq 1 ] "
+                "|| { echo PREARM_STATE_TIMEOUT; exit 3; }; "
+                f"echo PREARM_OK robot_{n}"
+            )
+            r = ros2_exec(
+                cname, cmd, domain_id=n, setup_bash=stack.setup_bash,
+                timeout=service_timeout + 25)
+            out = (r.stdout or "") + (r.stderr or "")
+            return {
+                "exit": r.returncode,
+                "ok": r.returncode == 0 and f"PREARM_OK robot_{n}" in out,
+                "output_tail": tail(out),
+            }
 
         if via == "gcs":
             gcs = gcs_container()
@@ -1327,12 +1494,33 @@ def run_step(stack, container, step_spec, step_index):
             res = {"ok": False, "exit": -1,
                    "output_tail": "not attempted — mission stop requested"}
             attempt = 0
+            initial_delay_s = robots.index(n) * dispatch_stagger_s
+            if initial_delay_s:
+                log(f"step {step_index}: staggering {task} for robot_{n} by "
+                    f"{initial_delay_s:g}s")
+                if STOP_EVENT.wait(initial_delay_s):
+                    res["attempts"] = attempt
+                    return n, res
             for attempt in range(1, max_attempts + 1):
                 if STOP_EVENT.is_set():
                     break
+                prearm_result = None
+                if prearm_via_mavros:
+                    log(f"step {step_index}: pre-arming robot_{n} via MAVROS "
+                        f"(attempt {attempt}/{max_attempts})")
+                    prearm_result = prearm(n)
+                    if not prearm_result["ok"]:
+                        res = {**prearm_result, "phase": "prearm"}
+                        log(f"step {step_index}: pre-arm robot_{n} attempt {attempt} "
+                            f"FAILED: {tail(res.get('output_tail', ''), 1)}")
+                        if attempt < max_attempts and not STOP_EVENT.is_set():
+                            time.sleep(retry_delay_s)
+                        continue
                 log(f"step {step_index}: sending {task} to robot_{n} "
                     f"(attempt {attempt}/{max_attempts})")
                 res = send(n)
+                if prearm_result is not None:
+                    res["prearm"] = prearm_result
                 if res["ok"]:
                     log(f"step {step_index}: {task} robot_{n} succeeded"
                         + (f" on attempt {attempt}" if attempt > 1 else ""))
@@ -1458,7 +1646,11 @@ def run_step(stack, container, step_spec, step_index):
 # lvlm_baseline / semantic_search_task are here too so the planner's rcl log is
 # captured as a SECOND path independent of the /tmp tee (TEE_LOG_GLOBS) — if one
 # collection path misses, the other still shows why the drone wasn't commanded.
-CONTROL_STACK_GLOBS = ("droan_gl*", "droan_local_planner*", "mighty*", "global_mapper*",
+# rclpy launch processes are recorded as python3_<pid>_<timestamp>.log rather
+# than by node name; include those small logs so mighty_bridge evidence is not
+# silently omitted from the artifacts.
+CONTROL_STACK_GLOBS = ("droan_gl*", "droan_local_planner*", "mighty*", "python3_*",
+                       "global_mapper*",
                        "trajectory_controller*",
                        "fixed_trajectory*", "takeoff_landing*", "mavros*",
                        "lvlm_baseline*", "semantic_search_task*", "raven_nav*")
@@ -1493,7 +1685,12 @@ TEE_LOG_GLOBS = ("/tmp/rayfronts_*.log", "/tmp/raven_*.log", "/tmp/lvlm_*.log",
 
 
 def _copy_tmp_tee_logs(dest_dir):
-    """Copy the raw /tmp tee logs from each container into <dest_dir>/<container>/.
+    """Copy raw /tmp tee logs from robot, GCS, and offboard containers.
+
+    Team planners run in offboard-compute, so restricting this helper to robot
+    and GCS containers silently loses their planner log at teardown.
+
+    Files land in <dest_dir>/<container>/.
     Idempotent (docker cp overwrites), so it is safe to call repeatedly — the
     snapshot loop calls it periodically so a hard pod cancel mid-iteration still
     leaves the most recent rayfronts/raven/lvlm stdout on disk."""
@@ -1501,6 +1698,9 @@ def _copy_tmp_tee_logs(dest_dir):
     gcs = gcs_container()
     if gcs:
         targets.append(gcs)
+    for name in list_containers("offboard-compute"):
+        if name not in targets:
+            targets.append(name)
     total = 0
     for name in targets:
         r = docker_exec(name, "ls " + " ".join(TEE_LOG_GLOBS) + " 2>/dev/null",
@@ -1622,10 +1822,17 @@ def snapshot_tmux_panes(dest_dir):
 def snapshot_build_logs(dest_dir):
     """colcon's own build logs. A package that fails to build takes its node
     down with it, and the reason is in `log/latest_build`, not in the pane
-    (the pane shows the summary line, not the compiler error)."""
+    (the pane shows the summary line, not the compiler error).
+
+    Every robot replica bind-mounts the same host ROS workspace, so its colcon
+    log tree is byte-identical. Copying it from all eight replicas used about
+    760 MB and two minutes per short benchmark teardown. One robot snapshot is
+    complete evidence; the GCS has a different workspace and remains separate.
+    """
     dest_dir.mkdir(parents=True, exist_ok=True)
     tar = "/tmp/colcon_build_logs.tar.gz"
-    targets = list(robot_containers())
+    robots = list(robot_containers())
+    targets = robots[:1]
     g = gcs_container()
     if g:
         targets.append(g)
@@ -1769,6 +1976,33 @@ def _format_resources(mem, ps_rows):
     return f"{memstr} {oom.group(0) if oom else ''} | {keystr} | top: {' '.join(top)}", key
 
 
+def _gpu_snapshot():
+    """One host-visible NVML sample, or an empty list without an NVIDIA GPU.
+
+    This deliberately runs on the mission-runner host rather than inside a
+    service container. OSMO can expose every host GPU through a container even
+    when the pod reserved only one; the pod shell's NVML view is the ownership
+    boundary. Recording that view makes peak VRAM/utilisation attributable to
+    this mission instead of accidentally including another tenant's card.
+    """
+    if not shutil.which("nvidia-smi"):
+        return []
+    fields = (
+        "index,uuid,name,memory.used,memory.total,utilization.gpu,"
+        "utilization.memory,power.draw,temperature.gpu"
+    )
+    r = sh([
+        "nvidia-smi", f"--query-gpu={fields}",
+        "--format=csv,noheader,nounits",
+    ], timeout=10)
+    if r.returncode != 0:
+        return []
+    sampled_at = datetime.now(timezone.utc).isoformat()
+    return [f"{sampled_at},{line.strip().replace(', ', ',')}"
+            for line in r.stdout.splitlines()
+            if line.strip()]
+
+
 def _ensure_sshpass():
     """True if sshpass is usable, installing it once if the image predates it."""
     global _SSHPASS_READY
@@ -1908,11 +2142,18 @@ def transport_snapshot_loop(iter_dir, stop_event, interval_s=5):
     """Periodic per-container health snapshot for debugging early process death:
       - transport.log : ddsrouter procs + domain-99 TCP (gossip dropout)
       - resources.log : cgroup memory, oom_kill counter, watched + heaviest procs
+      - gpu.csv       : host-owned GPU VRAM, utilisation, power and temperature
       - oom_dmesg.log : kernel OOM trail, captured when a watched process
         vanishes or the cgroup oom_kill counter increments
     """
     iter_dir.mkdir(parents=True, exist_ok=True)
     tlog, rlog = iter_dir / "transport.log", iter_dir / "resources.log"
+    glog = iter_dir / "gpu.csv"
+    if not glog.exists():
+        glog.write_text(
+            "sampled_at_utc,index,uuid,name,memory_used_mib,memory_total_mib,"
+            "gpu_util_pct,memory_util_pct,power_w,temperature_c\n",
+            encoding="utf-8")
     prev_oom, prev_key = {}, {}
     # Periodically copy the /tmp tee logs into iter_dir/logs so a hard pod cancel
     # (SIGKILL — run_iteration's finally never runs) still leaves recent
@@ -1920,6 +2161,10 @@ def transport_snapshot_loop(iter_dir, stop_event, interval_s=5):
     tee_every = max(1, round(30 / interval_s))
     tick = 0
     while not stop_event.is_set():
+        gpu_lines = _gpu_snapshot()
+        if gpu_lines:
+            with open(glog, "a", encoding="utf-8") as f:
+                f.write("\n".join(gpu_lines) + "\n")
         targets = list(robot_containers())
         gcs = gcs_container()
         if gcs:
@@ -2041,10 +2286,15 @@ def run_iteration(stack, mission, iter_dir):
                 snapshot_tmux_panes(iter_dir / "logs" / "tmux")
             except Exception as e:
                 log(f"WARN: tmux pane capture failed: {e}")
-            try:
-                snapshot_build_logs(iter_dir / "logs" / "colcon")
-            except Exception as e:
-                log(f"WARN: colcon log capture failed: {e}")
+            # A successful iteration already proved that every required package
+            # built and launched. Its shared colcon tree is ~95 MB compressed
+            # and expensive to re-tar; retain that forensic payload only for a
+            # failed/error/stopped iteration where a build fault is plausible.
+            if summary["status"] != "passed":
+                try:
+                    snapshot_build_logs(iter_dir / "logs" / "colcon")
+                except Exception as e:
+                    log(f"WARN: colcon log capture failed: {e}")
             try:
                 snapshot_ros_graph(iter_dir / "logs" / "rosgraph",
                                    stack.num_robots, stack.setup_bash)
@@ -2057,11 +2307,19 @@ def run_iteration(stack, mission, iter_dir):
         stack.down()
         summary["duration_s"] = round(time.time() - t0, 2)
         write_json(iter_dir / "iteration.json", summary)
-        # Push this iteration now rather than accumulating every bag on the pod.
-        try:
-            upload_iteration(iter_dir)
-        except Exception as e:                      # never fail a run on upload
-            log(f"WARN: per-iteration upload raised: {e}")
+        # Push successful iterations immediately.  Failed/stopped/error runs
+        # stay local for diagnosis and must not appear beside scored results on
+        # the NAS.  The opt-in restores the historical behaviour for a debug
+        # mission that explicitly wants remote failure artifacts.
+        upload_failed = os.environ.get(
+            "OSMO_UPLOAD_FAILED_ITERATIONS", "false").lower() == "true"
+        if summary["status"] == "passed" or upload_failed:
+            try:
+                upload_iteration(iter_dir)
+            except Exception as e:                  # never fail a run on upload
+                log(f"WARN: per-iteration upload raised: {e}")
+        else:
+            log(f"not uploading {iter_dir.name}: status={summary['status']}")
     return summary
 
 

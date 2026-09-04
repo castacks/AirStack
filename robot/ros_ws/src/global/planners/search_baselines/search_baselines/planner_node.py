@@ -949,7 +949,10 @@ class CoNavGPT2Node(Node):
         self._pending_round = None
         self._stop = False
         self._sim_t0 = None
+        self._sim_wall_t0 = None
         self._run_complete = False
+        self._sim_budget_monitor_started = False
+        self._finish_run_lock = threading.Lock()
         # Identifies this process's rows in an appended results file.
         self._run_id = f'{int(time.time())}-{os.getpid()}'
         self._bridge = CvBridge()
@@ -1571,23 +1574,16 @@ class CoNavGPT2Node(Node):
         `/clock` first: `use_sim_time` is on, so `get_clock()` IS `/clock`,
         which only advances while the timeline plays and stops when it pauses.
 
-        THEN THE OBSERVATION STAMPS, and that fallback is not belt-and-braces
-        — it is the only thing that makes the TEAM arm terminate. Isaac
-        publishes `/clock` from a per-drone OmniGraph node whose ROS2 context
-        is that drone's domain (`spawn_px4_multirotor_node`:
-        `<robot>_ROS2PublishClock`), so `/clock` exists on domains 1..N and
-        NOT on domain 0 — and `dds_router.yaml` does not bridge it (47
-        allowlist entries, none of them `rt/clock`; bridging it would put N
-        cross-amplified copies of the flight stack's time source on every
-        robot domain, which is not a change to make on a whim). The CoNavGPT2
-        team planner runs on domain 0. Its clock therefore reads 0.0 forever,
-        `_sim_budget_spent` was never true, `run_complete` never latched, and
-        the run only ended when the mission's gate timed out hours later.
+        THEN THE OBSERVATION STAMPS.  Multi-robot Isaac publishes per-drone
+        clocks on domains 1..N.  The dataset launcher additionally publishes
+        exactly one clock from its overhead-camera graph on domain 0 for this
+        shared planner.  We deliberately do not bridge the N per-drone clocks:
+        doing so would create competing, cross-amplified time sources.
 
-        Every bridged observation still carries a sim-time `header.stamp`
-        written by the sim, so the newest of them is the same clock read a
-        different way — and it is arguably the better reading for a budget,
-        because it is the time of the data the method actually processed.
+        Other launchers may not provide that domain-0 clock, so every bridged
+        observation remains a valid fallback: its `header.stamp` is simulation
+        time written by Isaac.  The independent clock is preferred because it
+        keeps advancing even if a camera or DDS observation route stalls.
         """
         now = self.get_clock().now().nanoseconds / 1e9
         if now > 0.0:
@@ -1616,22 +1612,91 @@ class CoNavGPT2Node(Node):
             return False
         if self._sim_t0 is None:
             self._sim_t0 = now
+            self._sim_wall_t0 = time.time()
             src = ('clock' if self.get_clock().now().nanoseconds > 0
                    else 'observation stamps (no /clock on this domain)')
             self.get_logger().info(
                 f'search_planner: sim budget {self._max_sim_seconds:.0f} s starts '
-                f'NOW, at sim t={now:.1f} s — the first tick with data. '
+                f'NOW, at sim t={now:.6f} s — the first tick with data. '
                 f'Time source: {src}')
+            self._start_sim_budget_monitor()
             return False
         return (now - self._sim_t0) >= self._max_sim_seconds
 
-    def _finish_run(self):
+    def _start_sim_budget_monitor(self):
+        """Latch the deadline even while the main mapping tick is busy.
+
+        A full eight-camera tick can spend minutes in mapping/frontier work.
+        Checking the budget only at the start of that tick lets a nominal
+        90-second benchmark run far past its endpoint and can leave the
+        mission waiting indefinitely.  Observation callbacks keep `_stamp`
+        current independently, so this tiny daemon watches the same clock and
+        provides a precise, workload-independent end marker.
+        """
+        if (self._max_sim_seconds <= 0.0 or
+                self._sim_budget_monitor_started):
+            return
+        self._sim_budget_monitor_started = True
+
+        def _watch():
+            while rclpy.ok() and not self._stop and not self._run_complete:
+                now = self._sim_now()
+                t0 = self._sim_t0
+                if (now is not None and t0 is not None and
+                        now - t0 >= self._max_sim_seconds):
+                    # Do not manipulate action futures from this auxiliary
+                    # thread. The mission observes run_complete immediately
+                    # and stops the planner after collecting its outputs.
+                    self._finish_run(cancel_goals=False,
+                                     trigger='sim-budget watchdog')
+                    return
+                time.sleep(0.05)
+
+        threading.Thread(target=_watch, name='sim-budget-watchdog',
+                         daemon=True).start()
+
+    def _finish_run(self, cancel_goals=True, trigger='plan loop'):
         """Sim budget spent: stop commanding, hold position, say so once.
 
         The node deliberately stays alive — the map, the frontier markers and
         the round table are what a run is read from afterwards, and they are all
         latched topics that would disappear with the process."""
-        self._run_complete = True
+        with self._finish_run_lock:
+            if self._run_complete:
+                return
+            self._run_complete = True
+            sim_now = self._sim_now()
+            wall_now = time.time()
+
+            # Publish before optional goal cancellation: cancellation can wait
+            # on a loaded executor, while the benchmark deadline itself must
+            # be visible immediately and exactly once.
+            msg = Bool()
+            msg.data = True
+            self._complete_pub.publish(msg)
+            for i in range(len(self._robots)):
+                self._log_detector_summary(i, final=True)
+
+            timing = ''
+            if sim_now is not None and self._sim_t0 is not None:
+                sim_elapsed = sim_now - self._sim_t0
+                overshoot = sim_elapsed - self._max_sim_seconds
+                timing = (f' at sim t={sim_now:.6f} s '
+                          f'(elapsed={sim_elapsed:.6f} s, '
+                          f'overshoot={overshoot:.6f} s)')
+                if self._sim_wall_t0 is not None:
+                    wall_elapsed = wall_now - self._sim_wall_t0
+                    rtf = sim_elapsed / wall_elapsed if wall_elapsed > 0 else 0.0
+                    timing += (f', wall_elapsed={wall_elapsed:.6f} s, '
+                               f'RTF={rtf:.9f}')
+            self.get_logger().info(
+                f'search_planner: sim budget spent '
+                f'({self._max_sim_seconds:.0f} s){timing} after '
+                f'{self._round} VLM rounds — planning stopped by {trigger}, '
+                f'node left up for the final map')
+
+        if not cancel_goals:
+            return
         for i, nav in enumerate(self._nav):
             if nav.handle is not None:
                 try:
@@ -1640,15 +1705,6 @@ class CoNavGPT2Node(Node):
                     pass
                 nav.handle = None
                 nav.result_future = None
-        msg = Bool()
-        msg.data = True
-        self._complete_pub.publish(msg)
-        for i in range(len(self._robots)):
-            self._log_detector_summary(i, final=True)
-        self.get_logger().info(
-            f'search_planner: sim budget spent ({self._max_sim_seconds:.0f} s) after '
-            f'{self._round} VLM rounds — planning stopped, node left up for the '
-            'final map')
 
     def _tick(self):
         if self._run_complete:
@@ -1670,6 +1726,8 @@ class CoNavGPT2Node(Node):
 
         offsets = []
         for i, agent in enumerate(self._agents):
+            if self._run_complete:
+                return
             pose = self._camera_pose(i, snap[i]['odom'], snap[i]['stamp'])
             if pose is None:
                 return
@@ -1777,6 +1835,8 @@ class CoNavGPT2Node(Node):
 
         goal_maps = []
         for i, agent in enumerate(self._agents):
+            if self._run_complete:
+                return
             agent.obstacle_map = obstacle_map
             agent.explored_map = explored_map
             agent.act(self._goal_points[i], grid_pose)
@@ -3556,6 +3616,8 @@ class CoNavGPT2Node(Node):
         return self._explore_speed
 
     def _command(self, i, agent, offset):
+        if self._run_complete:
+            return
         self._set_local_speed(i, self._intent_speed(agent))
         goal_xy = self._goal_xy(i, agent)
         path = self._build_path(agent, goal_xy, offset,

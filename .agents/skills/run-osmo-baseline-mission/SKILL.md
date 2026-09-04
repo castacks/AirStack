@@ -264,6 +264,162 @@ Confirmed working end-to-end on `airstack-mission-1gpu-56`, 2026-09-02: with
 the correct index set and passed through, all 8 robots connected to PX4 and
 the mission proceeded normally into search.
 
+### Pin offboard CUDA separately from Kit
+
+`ISAAC_SIM_ACTIVE_GPU` selects Kit's Vulkan renderer and PhysX CUDA device; it
+does **not** constrain detector/VLM processes in `offboard-compute`. On pod 56
+the pod shell owned one UUID at container index 1, while the container still
+enumerated four cards. Leaving offboard compute unpinned therefore put its
+`cuda:0` models on another tenant's physical GPU even though Isaac was
+correctly pinned to index 1.
+
+Set `OFFBOARD_COMPUTE_GPU=<container index>` for pod-specific reruns.
+`robot/ros_ws/src/global/planners/search_baselines/scripts/offboard_compute.sh`
+exports that as `CUDA_VISIBLE_DEVICES` for its whole process tree only when the
+value is non-empty. This is safe here because those services are pure CUDA,
+not Vulkan. Inside the constrained process the selected physical card is
+renumbered to `cuda:0`, so verify ownership by UUID, not by that logical label:
+
+```bash
+nvidia-smi -L
+docker exec offboard-compute nvidia-smi -L
+nvidia-smi --query-compute-apps=pid,process_name,used_memory,gpu_uuid \
+  --format=csv,noheader,nounits
+```
+
+The first command is the pod ownership boundary. Every Isaac, detector, and
+VLM PID must resolve to that UUID on a one-GPU mission.
+
+### Readiness includes canonical odometry, not only MAVROS
+
+`connected=true` plus live
+`/robot_N/interface/mavros/local_position/odom` is still insufficient for a
+flight. Observed on robot 6 on pod 56 (2026-09-04): raw odometry ran at 4.8 Hz,
+the `odometry_conversion` process and DDS endpoints existed, but
+`/robot_6/odometry_conversion/odometry` emitted zero messages. Every takeoff
+retry was rejected with `state estimate timed out`.
+
+Before sending any action, require one fresh message from all three stages:
+MAVROS connected, raw local-position odometry, and canonical converted
+odometry. If raw is live but canonical stays silent for 60 seconds, relaunch
+only that robot's bringup with `restart_robot_bringup`; never do this after
+takeoff. `mission_runner.Stack.wait_ready` implements this bounded recovery
+through `ready.dataflow_recover_after_s` and `ready.max_recoveries`.
+
+### Do not dispatch takeoff on the first armed-state edge
+
+Direct MAVROS pre-arming removes a flaky service hop, but the arming RPC alone
+is not the handoff gate. On pod 56, the runner received the first
+`is_armed=true` sample and immediately sent robot 3's takeoff goal while the
+long-lived takeoff task still held its preceding `false` sample. The task sent
+a duplicate ARM request, PX4 rejected it, and the action returned `failed to
+arm` even though a later state probe showed the vehicle armed in `AUTO.LOITER`.
+
+Require two fresh `/<robot>/interface/is_armed=true` publications before
+dispatch. The interface publishes at 20 Hz simulation time, so this adds only
+a bounded startup delay while giving every existing subscriber another state
+publication. Keep action success and 8/8 altitude checks as the real takeoff
+gate; an armed loitering vehicle is not a successful benchmark participant.
+
+### The simulation budget needs an independent watchdog
+
+Do not check a short benchmark's simulation deadline only between planner
+ticks. A team ConAVGPT2 tick maps eight depth clouds, extracts 3-D frontiers,
+and may run a VLM round; on pod 56 Candidate C entered one such tick before its
+90-second boundary and did not return for minutes. Isaac `/clock` and incoming
+observation stamps had advanced past the deadline, but `run_complete` could not
+latch because the next top-of-tick check never ran.
+
+`search_baselines/planner_node.py` starts a lightweight watchdog when it
+latches `_sim_t0`. It reads the same simulation-time source independently,
+publishes `run_complete` at the deadline, and logs precise simulated elapsed,
+overshoot, wall elapsed, and RTF. Keep this independent marker in short tuning
+runs; a wall timeout is not a substitute, and `budget / time between two busy
+tick logs` is not an accurate RTF measurement.
+
+The shared team planner runs on ROS domain 0, while Pegasus's per-airframe
+clock publishers live on domains 1..N. The dataset scene launcher therefore
+publishes exactly one domain-0 `/clock` from the overhead-camera OmniGraph.
+That clock branch runs every playback tick independently of the gated overhead
+render branch, so the watchdog still reaches its deadline if the central
+camera/odometry route stalls. Do **not** add `rt/clock` to the DDS Router
+allowlist: bridging the N per-airframe clocks creates competing,
+cross-amplified time publishers. Observation header stamps remain the planner's
+fallback for launchers that do not create the domain-0 graph.
+
+### A live DDS Router can still have a dead one-way route
+
+For a team planner on shared domain 0, `pgrep ddsrouter`, `ros2 topic list`,
+and even a publisher count are not sufficient health checks. Observed twice
+on pod 56 (2026-09-04): all eight main router processes stayed alive, but the
+central planner initially received camera/odometry inputs from only a subset
+of robots. After the missing observation route was refreshed, seven robots
+received `/global_plan` while robot 1's reverse route remained silent. The
+planner processed frames normally, yet the iteration correctly failed its
+8/8 plan-adoption gate.
+
+Gate the actual data flow on both sides of the timed window:
+
+1. Before planner launch, receive RGB, depth, camera info, canonical odometry,
+   and NavSatFix from every robot on domain 0.
+2. After launch, require every local MIGHTY bridge to log
+   `follower: adopted global_plan` from the current container lifetime.
+
+`osmo/workspace/team_dds_route_guard.py` implements both gates and bounded
+recovery. It restarts only an affected robot's **main** router: the process
+whose generated config is `/tmp/dds_router_*.yaml` and whose exact option is
+`--log-filter DDSROUTER`. Never touch the separate gossip router, whose filter
+is `DDSROUTER|DDSPIPE|FASTDDS`. Refreshing the main router after takeoff was
+validated to restore the route without restarting PX4, autonomy, or the
+container. Run these checks before accepting the planner's sim-budget start
+marker; otherwise a late repair contaminates the RTF trial.
+
+When relaunching a planner, terminate its recorded process group, wait, then
+SIGKILL any surviving exact-name `search_planner` process before starting the
+new one. A TERM-only `pkill` left an orphan planner subscribed to the same
+eight streams, making both performance and readiness results ambiguous.
+
+### Camera graph gating does not stop RTX rendering
+
+`IsaacSimulationGate.inputs:step=0` stops the downstream ROS helpers, but it
+does not deactivate a render product that Hydra already owns. On pod 56 the
+eight-way gate reduced callback publication to one camera per physics tick yet
+left GPU utilization near saturation because all eight 720x450 products still
+rendered. For real RTX time slicing, create the camera products through
+Replicator and call
+`render_product.hydra_texture.set_updates_enabled(False)` for inactive groups.
+
+Do not rotate Hydra products after a single physics step. A one-step wake was
+shorter than the renderer/writer pipeline latency: the graphs existed, but
+robot 2 produced no `depth_pcl` sample in a 20-second wall probe. Keep each
+group active for a short consecutive burst (`ZED_TIME_SLICE_BURST=8` was the
+first validated setting), then rotate. Validate an **actual** RGB, depth,
+camera-info and point-cloud message from every robot; publisher discovery alone
+can catch a transient endpoint from product initialization. More slice groups
+than cameras is intentional: empty groups are RTX-idle windows and reduce the
+average camera rate without changing image geometry.
+
+### Comments must not fan out pod-scoped commands
+
+The runner decides whether a `run` step is per-robot from its placeholders.
+Historically it searched the raw command, so a full-line comment documenting
+the literal robot placeholder silently fanned a pod-scoped DDS guard out eight
+times. `mission_runner.has_placeholder` now ignores full-line shell comments.
+Keep actual per-robot placeholders in executable command/container text and
+verify that a pod-scoped step log does not end with `-> robots [...]`.
+
+### Do not transfer the 50 Hz cube benchmark to an eight-drone mission
+
+Pegasus's isolated cube benchmark reports strong RTF at
+`PX4_PHYSICS_HZ=50`, with PX4's IMU integration rate synchronized. That does
+not make 50 Hz safe for a loaded eight-drone disaster flight. On pod 56 with
+four-way camera slicing, all eight vehicles reached MAVROS + odometry
+readiness, but robots 3–5 then exhausted direct MAVROS arm attempts. PX4's own
+console reported unstable heading, horizontal/vertical velocity, and roll
+attitude; only five peers armed. Reject the candidate before timing and keep
+production multi-robot missions at 100 Hz unless a later PX4-specific fix is
+validated with 8/8 takeoff and motion.
+
 ## 4. Never let a pod auto-shut-down while you're still using it
 
 Every one of the above failure modes shares a trap in common: `airstack.sh

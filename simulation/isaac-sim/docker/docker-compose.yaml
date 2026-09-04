@@ -215,11 +215,16 @@ services:
       # host-does-not-forward-automatically rule as every other var here.
       - ISAAC_SIM_ACTIVE_GPU=${ISAAC_SIM_ACTIVE_GPU:-}
       - ISAAC_SIM_DLSS_MODE=${ISAAC_SIM_DLSS_MODE:-}
+      - ISAAC_SIM_AA_MODE=${ISAAC_SIM_AA_MODE:-}
       - ISAAC_SIM_DISABLE_MOTION_BVH=${ISAAC_SIM_DISABLE_MOTION_BVH:-false}
       - ISAAC_SIM_DISABLE_VIEWPORT_UPDATES=${ISAAC_SIM_DISABLE_VIEWPORT_UPDATES:-false}
       - ZED_PIPELINE=${ZED_PIPELINE:-stereo}
       - ZED_RENDER_STEP=${ZED_RENDER_STEP:-1}
       - ZED_TIME_SLICE_GROUPS=${ZED_TIME_SLICE_GROUPS:-1}
+      - ZED_TIME_SLICE_BURST=${ZED_TIME_SLICE_BURST:-1}
+      - ZED_HYDRA_TIME_SLICE=${ZED_HYDRA_TIME_SLICE:-false}
+      - LIDAR_RENDER_STEP=${LIDAR_RENDER_STEP:-1}
+      - LIDAR_TIME_SLICE_GROUPS=${LIDAR_TIME_SLICE_GROUPS:-1}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
@@ -237,6 +242,9 @@ services:
       - OVERHEAD_COVERAGE_M=${OVERHEAD_COVERAGE_M:-}
       - OVERHEAD_ALTITUDE_M=${OVERHEAD_ALTITUDE_M:-}
       - OVERHEAD_PX_PER_METER=${OVERHEAD_PX_PER_METER:-}
+      - OVERHEAD_RENDER_STEP=${OVERHEAD_RENDER_STEP:-1}
+      - OVERHEAD_HYDRA_TIME_SLICE=${OVERHEAD_HYDRA_TIME_SLICE:-false}
+      - OVERHEAD_RENDER_BURST=${OVERHEAD_RENDER_BURST:-8}
       - RESULTS_SCENE=${RESULTS_SCENE:-}
       - GT_ANNOTATIONS=${GT_ANNOTATIONS:-off}
       # The generated wildfire plat: where its baked archetypes come from, and
@@ -561,11 +569,16 @@ services:
       # host-does-not-forward-automatically rule as every other var here.
       - ISAAC_SIM_ACTIVE_GPU=${ISAAC_SIM_ACTIVE_GPU:-}
       - ISAAC_SIM_DLSS_MODE=${ISAAC_SIM_DLSS_MODE:-}
+      - ISAAC_SIM_AA_MODE=${ISAAC_SIM_AA_MODE:-}
       - ISAAC_SIM_DISABLE_MOTION_BVH=${ISAAC_SIM_DISABLE_MOTION_BVH:-false}
       - ISAAC_SIM_DISABLE_VIEWPORT_UPDATES=${ISAAC_SIM_DISABLE_VIEWPORT_UPDATES:-false}
       - ZED_PIPELINE=${ZED_PIPELINE:-stereo}
       - ZED_RENDER_STEP=${ZED_RENDER_STEP:-1}
       - ZED_TIME_SLICE_GROUPS=${ZED_TIME_SLICE_GROUPS:-1}
+      - ZED_TIME_SLICE_BURST=${ZED_TIME_SLICE_BURST:-1}
+      - ZED_HYDRA_TIME_SLICE=${ZED_HYDRA_TIME_SLICE:-false}
+      - LIDAR_RENDER_STEP=${LIDAR_RENDER_STEP:-1}
+      - LIDAR_TIME_SLICE_GROUPS=${LIDAR_TIME_SLICE_GROUPS:-1}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
@@ -583,6 +596,9 @@ services:
       - OVERHEAD_COVERAGE_M=${OVERHEAD_COVERAGE_M:-}
       - OVERHEAD_ALTITUDE_M=${OVERHEAD_ALTITUDE_M:-}
       - OVERHEAD_PX_PER_METER=${OVERHEAD_PX_PER_METER:-}
+      - OVERHEAD_RENDER_STEP=${OVERHEAD_RENDER_STEP:-1}
+      - OVERHEAD_HYDRA_TIME_SLICE=${OVERHEAD_HYDRA_TIME_SLICE:-false}
+      - OVERHEAD_RENDER_BURST=${OVERHEAD_RENDER_BURST:-8}
       - RESULTS_SCENE=${RESULTS_SCENE:-}
       - GT_ANNOTATIONS=${GT_ANNOTATIONS:-off}
       # The generated wildfire plat: where its baked archetypes come from, and

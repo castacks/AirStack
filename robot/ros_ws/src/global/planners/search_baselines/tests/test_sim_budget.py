@@ -29,6 +29,7 @@ TWO CLAIMS ARE PINNED HERE.
 import os
 import sys
 import textwrap
+import time
 import types
 
 import pytest
@@ -46,7 +47,7 @@ def _method_src(name):
 
 
 def _build(names):
-    ns = {'os': os}
+    ns = {'os': os, 'time': time}
     body = '\n'.join(textwrap.dedent(_method_src(n)) for n in names)
     exec('class T:\n' + textwrap.indent(body, '    '), ns)   # noqa: S102
     return ns['T']
@@ -87,6 +88,8 @@ class Node(T):
         self._stamp = list(stamps)
         self._max_sim_seconds = budget
         self._sim_t0 = None
+        self._sim_wall_t0 = None
+        self.monitor_starts = 0
         self._log = _Log()
 
     def get_clock(self):
@@ -94,6 +97,11 @@ class Node(T):
 
     def get_logger(self):
         return self._log
+
+    def _start_sim_budget_monitor(self):
+        # The pure-logic test does not start a background thread; it records
+        # the handoff so we can prove the watchdog is armed once at t0.
+        self.monitor_starts += 1
 
 
 # ---------------------------------------------------------------------------
@@ -127,6 +135,15 @@ def test_t0_is_announced_with_its_time_source():
     assert any('sim budget 600 s starts NOW' in m for m in n._log.lines), \
         n._log.lines
     assert any('Time source: clock' in m for m in n._log.lines), n._log.lines
+
+
+def test_budget_watchdog_is_armed_once_when_t0_is_latched():
+    n = Node(clock_s=42.0)
+    n._sim_budget_spent()
+    n._clock.seconds = 43.0
+    n._sim_budget_spent()
+    assert n.monitor_starts == 1
+    assert n._sim_wall_t0 is not None
 
 
 def test_a_zero_budget_never_ends_the_run():

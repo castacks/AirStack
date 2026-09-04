@@ -138,6 +138,7 @@ else:
 # container) whenever device 0 is not confirmed to be this pod's own card.
 _ACTIVE_GPU = os.environ.get("ISAAC_SIM_ACTIVE_GPU", "").strip()
 _ACTIVE_GPU_ARGS = []
+_PHYSICS_GPU = int(_ACTIVE_GPU) if _ACTIVE_GPU else 0
 if _ACTIVE_GPU:
     _ACTIVE_GPU_ARGS = [f"--/renderer/activeGpu={_ACTIVE_GPU}"]
     print(f"[isaac] renderer pinned to GPU index {_ACTIVE_GPU} "
@@ -151,6 +152,19 @@ if _DLSS_MODE and _DLSS_MODE not in _DLSS_NAMES:
     raise ValueError("ISAAC_SIM_DLSS_MODE must be performance, balanced, quality, or auto")
 _RTX_TUNING_ARGS = ([] if not _DLSS_MODE else
                     [f"--/rtx/post/dlss/execMode={_DLSS_NAMES[_DLSS_MODE]}"])
+# Isaac's own ROS camera and motion-blur examples define this enum as
+# 0=disabled, 1=TAA, 2=FXAA, 3=DLSS, 4=DLAA. Keep it opt-in so established
+# benchmark rendering is unchanged; FXAA/off candidates let us distinguish
+# ray-tracing cost from DLSS post-processing cost without changing camera
+# geometry or detector resolution.
+_AA_NAMES = {"off": 0, "disabled": 0, "taa": 1, "fxaa": 2,
+             "dlss": 3, "dlaa": 4}
+_AA_MODE = os.environ.get("ISAAC_SIM_AA_MODE", "").strip().lower()
+if _AA_MODE and _AA_MODE not in _AA_NAMES:
+    raise ValueError(
+        "ISAAC_SIM_AA_MODE must be off, disabled, taa, fxaa, dlss, or dlaa")
+if _AA_MODE:
+    _RTX_TUNING_ARGS.append(f"--/rtx/post/aa/op={_AA_NAMES[_AA_MODE]}")
 if os.environ.get("ISAAC_SIM_DISABLE_MOTION_BVH", "false").lower() == "true":
     _RTX_TUNING_ARGS += [
         "--/renderer/raytracingMotion/enabled=false",
@@ -182,12 +196,14 @@ elif _LIVESTREAM:
         "hide_ui": False,
         "renderer": "RaytracedLighting",
         "display_options": 3286,
+        "physics_gpu": _PHYSICS_GPU,
         "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS + _ACTIVE_GPU_ARGS + _RTX_TUNING_ARGS,
     })
 else:
     simulation_app = SimulationApp(launch_config={
         "headless": os.getenv("ISAAC_SIM_HEADLESS", "false").lower() == "true",
         "disable_viewport_updates": _DISABLE_VIEWPORT_UPDATES,
+        "physics_gpu": _PHYSICS_GPU,
         "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS + _ACTIVE_GPU_ARGS + _RTX_TUNING_ARGS,
     })
 
@@ -791,6 +807,17 @@ OVERHEAD_CENTER_X_TOPIC = "/sim/overhead/center_x"
 OVERHEAD_CENTER_Y_TOPIC = "/sim/overhead/center_y"
 OVERHEAD_FRAME_ID      = "map"
 OVERHEAD_DOMAIN_ID     = 0
+# The map is static and used only for GCS/Foxglove visualization. Gate it in
+# physics ticks instead of ray-tracing a 2048-square image on every tick. The
+# effective period is render_step / PX4_PHYSICS_HZ (AirStack's PX4 profile is
+# normally 100 Hz, while upstream Pegasus defaults to 250 Hz). Keep the
+# default at 1 for existing launchers; benchmark missions opt in.
+OVERHEAD_RENDER_STEP   = max(
+    1, int(os.environ.get("OVERHEAD_RENDER_STEP", "").strip() or 1))
+OVERHEAD_HYDRA_TIME_SLICE = os.environ.get(
+    "OVERHEAD_HYDRA_TIME_SLICE", "false").strip().lower() == "true"
+OVERHEAD_RENDER_BURST = max(
+    1, int(os.environ.get("OVERHEAD_RENDER_BURST", "").strip() or 8))
 
 # THE PLAT, NOT THE SPAWN CROP. A generated region is 1600 x 1200 m centred on
 # the origin and the 225 m default above is a crop of it that is useless as a
@@ -923,7 +950,7 @@ class PegasusApp:
             center_x_m=OVERHEAD_CENTER_X_M,
             center_y_m=OVERHEAD_CENTER_Y_M,
         )
-        add_overhead_camera_publisher(
+        overhead_control = add_overhead_camera_publisher(
             parent_graph_path="/World/MapCameraGraph",
             camera_prim_path=cam_path,
             topic=OVERHEAD_TOPIC,
@@ -936,20 +963,55 @@ class PegasusApp:
             center_y_m=OVERHEAD_CENTER_Y_M,
             pixels_per_meter=OVERHEAD_PX_PER_METER,
             domain_id=OVERHEAD_DOMAIN_ID,
+            render_step=OVERHEAD_RENDER_STEP,
+            manage_render_updates=OVERHEAD_HYDRA_TIME_SLICE,
         )
+        self._overhead_render_products = []
+        if OVERHEAD_HYDRA_TIME_SLICE:
+            self._overhead_gate, self._overhead_render_products = overhead_control
+            self._overhead_render_period = OVERHEAD_RENDER_STEP
+            self._overhead_render_burst = min(
+                OVERHEAD_RENDER_BURST, self._overhead_render_period)
+            self._overhead_render_tick = 0
+            self._overhead_render_active = True
+            print(f"[overhead] Hydra render-product schedule: "
+                  f"{self._overhead_render_burst} active tick(s) every "
+                  f"{self._overhead_render_period}, "
+                  "domain-0 /clock remains continuous", flush=True)
 
         # Spawn all drones. ZED_TIME_SLICE_GROUPS=2 alternates two groups of
         # four cameras in an eight-robot run: only one group renders per sim
         # tick, while each camera's RGB/depth/info/PCL remain synchronized.
         self._zed_slice_groups = max(
             1, int(os.environ.get("ZED_TIME_SLICE_GROUPS", "1")))
-        self._zed_slice_gates = []
+        self._zed_slice_burst = max(
+            1, int(os.environ.get("ZED_TIME_SLICE_BURST", "1")))
+        self._zed_slice_gates = [[] for _ in range(self._zed_slice_groups)]
+        self._zed_slice_render_products = [
+            [] for _ in range(self._zed_slice_groups)]
         self._zed_slice_tick = 0
-        if self._zed_slice_groups > len(DRONE_CONFIGS):
-            raise ValueError("ZED_TIME_SLICE_GROUPS cannot exceed the number of drones")
+        self._zed_slice_active = 0
+        self._zed_manage_render_updates = os.environ.get(
+            "ZED_HYDRA_TIME_SLICE", "false").strip().lower() == "true"
+        self._lidar_slice_groups = max(
+            1, int(os.environ.get("LIDAR_TIME_SLICE_GROUPS", "1")))
+        self._lidar_slice_gates = [[] for _ in range(self._lidar_slice_groups)]
+        self._lidar_slice_tick = 0
+        self._lidar_slice_active = 0
+        # More groups than sensors is intentional: the empty groups become
+        # render-idle physics ticks. This provides a clean rate knob below one
+        # camera/tick without changing image resolution or synchronization.
         if self._zed_slice_groups > 1:
             print(f"[zed] staggered camera schedule: {self._zed_slice_groups} groups, "
-                  f"{len(DRONE_CONFIGS) / self._zed_slice_groups:g} cameras/tick",
+                  f"{len(DRONE_CONFIGS) / self._zed_slice_groups:g} cameras/tick, "
+                  f"{self._zed_slice_burst} consecutive tick(s)/group",
+                  flush=True)
+        if self._zed_manage_render_updates:
+            print("[zed] Hydra render-product updates follow the camera "
+                  "schedule (inactive products paused)", flush=True)
+        if ENABLE_LIDAR and self._lidar_slice_groups > 1:
+            print(f"[lidar] staggered sensor schedule: {self._lidar_slice_groups} groups, "
+                  f"{len(DRONE_CONFIGS) / self._lidar_slice_groups:g} lidars/tick",
                   flush=True)
         for cfg in DRONE_CONFIGS:
             i = cfg["domain_id"]
@@ -966,7 +1028,7 @@ class PegasusApp:
                 init_orient=cfg["orient"],
             )
 
-            zed_gate = add_zed_stereo_camera_subgraph(
+            zed_control = add_zed_stereo_camera_subgraph(
                 parent_graph_handle=graph_handle,
                 drone_prim=f"/World/drone{i}/base_link",
                 robot_name=f"robot_{i}",
@@ -976,12 +1038,19 @@ class PegasusApp:
                 frame_width=ZED_WIDTH,
                 frame_height=ZED_HEIGHT,
                 pipeline_mode=os.environ.get("ZED_PIPELINE", "stereo").strip().lower(),
+                manage_render_updates=self._zed_manage_render_updates,
             )
-            self._zed_slice_gates.append(
-                ((i - 1) % self._zed_slice_groups, zed_gate))
+            if self._zed_manage_render_updates:
+                zed_gate, zed_render_products = zed_control
+            else:
+                zed_gate, zed_render_products = zed_control, []
+            zed_group = (i - 1) % self._zed_slice_groups
+            self._zed_slice_gates[zed_group].append(zed_gate)
+            self._zed_slice_render_products[zed_group].extend(
+                zed_render_products)
 
             if ENABLE_LIDAR:
-                add_rtx_lidar_subgraph(
+                lidar_gate = add_rtx_lidar_subgraph(
                     parent_graph_handle=graph_handle,
                     drone_prim=f"/World/drone{i}/base_link",
                     robot_name=f"robot_{i}",
@@ -991,6 +1060,24 @@ class PegasusApp:
                     lidar_rotation_offset=[0.0, 0.0, 0.0],
                     min_range=cfg["lidar_min_range"],
                 )
+                self._lidar_slice_gates[(i - 1) % self._lidar_slice_groups].append(
+                    lidar_gate)
+
+        # Camera helpers start enabled. Establish group zero before playback so
+        # the hot loop only toggles the group that just finished and the group
+        # that is about to render. In the 8-way schedule this cuts OmniGraph
+        # attribute writes from eight per physics tick to two.
+        if self._zed_slice_groups > 1:
+            for group, gates in enumerate(self._zed_slice_gates[1:], start=1):
+                for gate in gates:
+                    gate.set(0)
+                for render_product in self._zed_slice_render_products[group]:
+                    render_product.hydra_texture.set_updates_enabled(False)
+        if ENABLE_LIDAR and self._lidar_slice_groups > 1:
+            for gates in self._lidar_slice_gates[1:]:
+                for gate in gates:
+                    if gate is not None:
+                        gate.set(0)
 
         # POST-SCALE ONLY, so the generated path never does it: there is no
         # scale_stage_prim on a generated plat, and toggling ~10^5 prims off
@@ -1774,11 +1861,48 @@ class PegasusApp:
         while simulation_app.is_running() and not self.stop_sim:
             world = World.instance()
             if world is not None and hasattr(world, '_scene'):
+                if self._overhead_render_products:
+                    phase = (self._overhead_render_tick
+                             % self._overhead_render_period)
+                    active = phase < self._overhead_render_burst
+                    if active != self._overhead_render_active:
+                        self._overhead_gate.set(1 if active else 0)
+                        for render_product in self._overhead_render_products:
+                            render_product.hydra_texture.set_updates_enabled(active)
+                        self._overhead_render_active = active
+                    self._overhead_render_tick += 1
                 if self._zed_slice_groups > 1:
-                    active = self._zed_slice_tick % self._zed_slice_groups
-                    for group, gate in self._zed_slice_gates:
-                        gate.set(1 if group == active else 0)
+                    # Hydra texture wake-up and the attached ROS writers are
+                    # pipelined. A one-frame awake interval can be disabled
+                    # again before the product produces anything. Keep each
+                    # group awake for a short burst; this preserves the same
+                    # long-run rendered-frame budget while amortizing toggles
+                    # and giving the pipeline consecutive frames to settle.
+                    active = ((self._zed_slice_tick // self._zed_slice_burst)
+                              % self._zed_slice_groups)
+                    if active != self._zed_slice_active:
+                        for gate in self._zed_slice_gates[self._zed_slice_active]:
+                            gate.set(0)
+                        for render_product in self._zed_slice_render_products[
+                                self._zed_slice_active]:
+                            render_product.hydra_texture.set_updates_enabled(False)
+                        for gate in self._zed_slice_gates[active]:
+                            gate.set(1)
+                        for render_product in self._zed_slice_render_products[active]:
+                            render_product.hydra_texture.set_updates_enabled(True)
+                        self._zed_slice_active = active
                     self._zed_slice_tick += 1
+                if ENABLE_LIDAR and self._lidar_slice_groups > 1:
+                    active = self._lidar_slice_tick % self._lidar_slice_groups
+                    if active != self._lidar_slice_active:
+                        for gate in self._lidar_slice_gates[self._lidar_slice_active]:
+                            if gate is not None:
+                                gate.set(0)
+                        for gate in self._lidar_slice_gates[active]:
+                            if gate is not None:
+                                gate.set(1)
+                        self._lidar_slice_active = active
+                    self._lidar_slice_tick += 1
                 world.step(render=True)
                 if world is not self.world:
                     self.world = world

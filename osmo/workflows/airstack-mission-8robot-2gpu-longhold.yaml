@@ -1,0 +1,176 @@
+# AirStack batch mission workflow on OSMO — EIGHT robots, TWO GPUs.
+#
+# Identical to airstack-mission-1gpu.yaml except `gpu: 2` in `resources:` and
+# this header. It exists for osmo/missions/raven_suburban_8robot.yaml: RAVEN
+# needs Isaac Sim on one card and the shared offboard-compute processes
+# (rayfronts encoder_server + multi_robot_mapping_server, and optionally the
+# VLM server for the LVLM-guided tier) on the OTHER, so they stop contending
+# for VRAM with Isaac's renderer — see that mission's own header for the full
+# GPU-split rationale and osmo/missions/raven_shared_t250_1robot.yaml's
+# ZED_PITCH_DEG comment for why RayFronts cannot share a card with a model
+# that OOMs it silently.
+#
+# WHY THIS FILE COPIES airstack-mission-1gpu.yaml's CPU/MEMORY, NOT
+# airstack-mission-8robot-1gpu.yaml's. That file's own header reasons — from
+# measured 2026-08-30 peaks — that eight robot stacks need cpu: 64 / memory:
+# 256Gi. That reasoning is sound but the NUMBER is not usable on this
+# cluster: `.agents/skills/run-osmo-baseline-mission/SKILL.md` §0 records
+# that `cpu: 64` **cannot schedule, ever**, on this cluster's 48-cpu nodes,
+# and that the frozen 8-robot suburban sweeps that actually ran (pods named
+# `airstack-mission-1gpu-NN` — see that skill's §3b) were submitted against
+# airstack-mission-1gpu.yaml's cpu: 24 / memory: 64Gi the whole time, not
+# against airstack-mission-8robot-1gpu.yaml at all. Whatever `resources:`
+# means to this scheduler, it is evidently a placement REQUEST rather than an
+# enforced runtime ceiling — the eight-robot fleet has run under it. This
+# file follows the same, empirically-used envelope rather than the
+# on-paper-correct-but-unschedulable one, and doubles only `gpu:`.
+#
+# `storage: 400Gi` (also carried from airstack-mission-1gpu.yaml, not the
+# 600Gi the 24-iteration 8robot-1gpu.yaml sizes for) is ample here: this
+# mission is 9 iterations, not 24, over the same ~240-260 MB frozen cells.
+#
+# WHO GETS WHICH GPU, AND WHAT ENFORCES IT — read in full before assuming
+# either half "just works":
+#
+#   GPU 0  Isaac Sim   Left UNPINNED. `simulation/isaac-sim/docker/
+#                       docker-compose.yaml`'s own CUDA_VISIBLE_DEVICES and
+#                       NVIDIA_VISIBLE_DEVICES entries are bare-name
+#                       passthroughs specifically so they stay UNSET —
+#                       that file's own comment block (dated 2026-08-31/09-02,
+#                       i.e. newer than the ISAAC_SIM_CUDA_DEVICES advice an
+#                       older workflow header in this directory still gives)
+#                       documents, with a measured A/B, that setting
+#                       CUDA_VISIBLE_DEVICES for Kit desyncs Omniverse's own
+#                       device enumeration from CUDA's and silently drops
+#                       Kit to SOFTWARE RENDERING (RTF ~0.083) rather than
+#                       erroring. Do NOT set ISAAC_SIM_CUDA_DEVICES on this
+#                       mission for that reason — it is not a knob this
+#                       workflow forgot to wire, it is a knob that must stay
+#                       off. On a pod where device 0 is confirmed (via
+#                       `nvidia-smi -L` at the pod's own shell vs.
+#                       `docker exec isaac-sim nvidia-smi -L`) to NOT be this
+#                       pod's own idle card, the fix is `ISAAC_SIM_ACTIVE_GPU`
+#                       (Kit's `--/renderer/activeGpu` flag — see
+#                       run-osmo-baseline-mission/SKILL.md §3b), set AFTER
+#                       diagnosing that specific pod, not pre-guessed here.
+#   GPU 1  offboard-    `OFFBOARD_COMPUTE_GPU` (mission env, this file does
+#          compute      not set it — the mission does) exports
+#                       CUDA_VISIBLE_DEVICES for offboard_compute.sh's own
+#                       process tree ONLY (detector/itm/vlm servers +
+#                       rayfronts' encoder_server + multi_robot_mapping_
+#                       server) — a plain-CUDA container with no Kit/Vulkan
+#                       renderer in it, so none of the Isaac-side caution
+#                       above applies here. See offboard_compute.sh's header
+#                       and robot/docker/docker-compose.yaml's
+#                       OFFBOARD_COMPUTE_GPU line for the wiring.
+#
+# A compose-level `device_ids:`/`NVIDIA_VISIBLE_DEVICES` reservation is
+# deliberately NOT how this split is done: run-osmo-baseline-mission/
+# SKILL.md §3 measured both as NOT ENFORCED by this cluster's container
+# runtime (a container still enumerates every host GPU regardless), so
+# `CUDA_VISIBLE_DEVICES` inside the process's own container is the only
+# mechanism confirmed to work here for an ordinary CUDA process.
+#
+# Submit:
+#   airstack osmo:mission osmo/missions/raven_suburban_8robot.yaml \
+#     --pool <gpu-pool> --branch <your-branch> \
+#     --workflow osmo/workflows/airstack-mission-8robot-2gpu.yaml
+#
+# Everything else — the DinD pod, the rebuild-free handoff to
+# mission_launcher.sh from the clone, credentials, NAS upload — is
+# airstack-mission-1gpu.yaml's, unchanged. Read that file's header for it.
+
+workflow:
+  name: airstack-mission-8robot-2gpu
+  groups:
+  - name: airstack
+    tasks:
+    - name: workspace
+      lead: true
+      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
+      # Required so the inner dockerd can run (same DinD setup as airstack-dev).
+      privileged: true
+      # Bootstrap: run the baked entrypoint for pod setup ONLY
+      # (OSMO_AIRSTACK_UP=false), backgrounded, then hand off to the launcher
+      # that ships in the freshly-cloned branch. This is what makes the
+      # mission engine rebuild-free — see the header comment.
+      command: ["bash", "-c"]
+      args:
+      - |
+        set -uo pipefail
+        log() { echo "[mission-bootstrap] $*"; }
+        log "starting pod setup via baked entrypoint (OSMO_AIRSTACK_UP=false)"
+        # Baked entrypoint for pod setup, backgrounded. `tee` streams its logs to
+        # `osmo workflow logs` and to a file the launcher greps for the terminal
+        # "sleeping forever" line. `tee` holds THIS task's stdout pipe open, so
+        # mission_launcher.sh kills BAKED_PID before it exits — otherwise
+        # osmo_exec never sees pipe EOF on our exit and the pod never frees the
+        # GPU (it hangs at RUNNING until exec_timeout).
+        OSMO_AIRSTACK_UP=false /usr/local/bin/entrypoint.sh 2>&1 \
+          | tee /tmp/baked-entrypoint.log &
+        export BAKED_PID=$!
+        LAUNCHER=/root/AirStack/osmo/workspace/mission_launcher.sh
+        log "waiting for branch clone to provide $LAUNCHER"
+        for i in $(seq 1 600); do [ -f "$LAUNCHER" ] && break; sleep 2; done
+        if [ ! -f "$LAUNCHER" ]; then
+          log "ERROR: $LAUNCHER not found after clone wait; sleeping for SSH debug"
+          exec sleep infinity
+        fi
+        log "handing off to mission_launcher.sh"
+        exec bash "$LAUNCHER"
+      environment:
+        # Mission selection — repo-relative path into the clone. Override at
+        # submit time to run a different mission.
+        OSMO_MISSION_FILE: "osmo/missions/raven_suburban_8robot.yaml"
+        # true  → pod sleeps after the mission; fetch results over ssh, then
+        #         `airstack osmo:down` (results die with the pod!).
+        # false → task exits when the mission ends: GPU freed, /osmo/output
+        #         uploaded to `outputs:` destinations.
+        OSMO_MISSION_KEEP_ALIVE: "true"
+        # The workflow remains inspectable after this cap fires; the mission
+        # runner receives SIGINT and tears the active stack down cleanly.
+        OSMO_MISSION_MAX_WALL_SECONDS: "43200"
+        AIRSTACK_BRANCH: "krrishj/disaster-dataset"        # branch entrypoint.sh clones
+        AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
+        # SSH_PUB_KEY is supplied at submit time (needed for osmo:fetch):
+        #   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
+      # Uncomment and point at a bucket the OSMO deployment can write to, to
+      # have /osmo/output uploaded automatically when the task exits (only
+      # meaningful with OSMO_MISSION_KEEP_ALIVE=false — a canceled workflow
+      # does not upload outputs):
+      #
+      # outputs:
+      #   - url: s3://<bucket>/airstack-missions/{{workflow_id}}/
+      credentials:
+        # Same per-user credentials as airstack-dev.yaml — see
+        # docs/tutorials/airstack_on_osmo.md "Step 0" / `airstack osmo:setup`.
+        # These map OSMO credential fields → pod env vars; no secret values live
+        # in this file.
+        airlab-nucleus:
+          OMNI_USER: omni_user
+          OMNI_PASS: omni_pass
+          OMNI_SERVER: omni_server
+        airlab-docker-login:
+          AIRLAB_REGISTRY_USER: username
+          AIRLAB_REGISTRY_PASS: password
+        # Optional: NAS result upload. Absent credential → nothing injected →
+        # upload disabled. Enabled per-mission via `nas_dest:` in the spec.
+        airlab-storage:
+          AIRLAB_STORAGE_USER: username
+          AIRLAB_STORAGE_PASS: password
+          AIRLAB_STORAGE_HOST: host
+
+  resources:
+    default:
+      # Copied verbatim from airstack-mission-1gpu.yaml — see this file's
+      # header for why (the 8-robot-shaped cpu/memory numbers cannot schedule
+      # on this cluster). Only gpu differs.
+      cpu: 24
+      gpu: 2
+      memory: 64Gi
+      storage: 400Gi
+
+  timeout:
+    # Four times the 12-hour mission cap so a completed or failed pod remains
+    # available for inspection, diagnosis and a manual rerun.
+    exec_timeout: 48h

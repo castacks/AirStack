@@ -157,6 +157,11 @@ env:
   # model lands on its card, its RTX render graph fails EVERY FRAME and stops
   # publishing camera images altogether.
   CONAVGPT2_VLM_GPU: ""
+  # Whole-process-tree pin used by offboard_compute.sh for the shared detector,
+  # ITM/VLM servers and any shared RayFronts process. Leave empty in this
+  # portable sweep; a pod-specific rerun must set it to the container index
+  # whose UUID matches the single GPU visible from the pod shell.
+  OFFBOARD_COMPUTE_GPU: ""
 
   # ── the fleet and the sim ────────────────────────────────────────────────
   NUM_ROBOTS: 8
@@ -196,6 +201,29 @@ env:
   ISAAC_SIM_USE_STANDALONE: "true"
   ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
   PLAY_SIM_ON_START: "true"
+  # Optional optimized sensor/renderer profile. Resolution and mission
+  # semantics stay fixed; only redundant geometry production and scheduling
+  # change. Unset flags retain the launcher's historical defaults.
+  ZED_PIPELINE: mono_rgbd
+  MIGHTY_CLOUD_SUFFIX: sensors/front_stereo/left/depth_pcl
+  # The team search planner must consume the same left-eye ground-truth depth.
+  # Its historical default is right depth for the stereo pipeline.
+  SEARCH_DEPTH_TOPIC_TEMPLATE: /{robot}/sensors/front_stereo/left/depth_ground_truth
+  ZED_TIME_SLICE_GROUPS: "2"
+  # The 2048x2048 map camera is visualization-only and the scene is static.
+  # AirStack simulates PX4 at 100 Hz, so this retains a fresh frame every 2.5
+  # simulated seconds without rendering it on every physics tick.
+  OVERHEAD_RENDER_STEP: "250"
+  ISAAC_SIM_DLSS_MODE: performance
+  ISAAC_SIM_DISABLE_MOTION_BVH: "true"
+  ISAAC_SIM_DISABLE_VIEWPORT_UPDATES: "true"
+  # LiDAR is disabled for these methods, but these flags define the safe
+  # schedule if a future profile enables it.
+  LIDAR_RENDER_STEP: "1"
+  LIDAR_TIME_SLICE_GROUPS: "2"
+  # RTF tuning missions override this (for example to 90) without editing the
+  # canonical scene overlay. Scored benchmark sweeps retain 600 simulated s.
+  SEARCH_MAX_SIM_SECONDS: "600"
 
   # THE SCENE. FROZEN_SCENE and SPAWN_CONFIGS are per-iteration and live in
   # `environments:` below; these are the knobs that are the same for all 24.
@@ -531,6 +559,11 @@ ready:
   # 2400 s vs the built path's 4200.
   timeout_s: 2400
   poll_interval_s: 10
+  # On pod 56, seven vehicles repeatedly became fully ready while robot 6's
+  # MAVROS remained alive with zero PX4 heartbeats. Recover that lone outlier
+  # at five minutes; keep the conservative six-minute threshold whenever more
+  # than one vehicle is still booting.
+  quorum_recover_after_s: 300
 
 up_timeout_s: 5400
 # A failed iteration is redone once, clean (down -> up -> fly -> down). The
@@ -704,7 +737,10 @@ steps:
         for i in $(seq 1 36); do
           if ros2 node list 2>/dev/null | grep -qx "/robot_{n}/mighty/mighty_bridge"; then
             echo "BRIDGE_UP robot_{n}"
-            grep -ah "mighty_bridge up" /root/.ros/log/mighty_bridge_*.log 2>/dev/null | tail -1
+            # rclpy names this file after the interpreter (python3_<pid>_<ts>.log),
+            # not after the ROS node. Search the flat ROS log directory rather
+            # than relying on an executable-derived filename.
+            grep -ah "mighty_bridge up" /root/.ros/log/*.log 2>/dev/null | tail -1
             ros2 action list 2>/dev/null | grep -qx "/robot_{n}/tasks/navigate" \
               && echo "NAVIGATE_ACTION_PRESENT robot_{n}" \
               || echo "WARN: /robot_{n}/tasks/navigate not advertised"
@@ -750,62 +786,40 @@ steps:
   #     — so if the lighting ever regresses this gate fails all eight at t=0
   #     rather than after another 81-minute iteration.
   #
-  #     The cloud must be flowing AND non-degenerate: `ros2 topic hz` proves
-  #     arrival, and width*height proves it is not an empty PointCloud2, which
-  #     is what a textureless scene produces and what a rate check alone would
-  #     happily pass.
+  #     This gate deliberately does not create another PointCloud2 reader: a
+  #     probe on an allowlisted high-bandwidth topic can make DDS Router relay
+  #     the stream to domain 0 and grow without bound. Instead it verifies both
+  #     ends of the local graph: a publisher exists and global_mapper_ros is a
+  #     subscriber to the exact cloud selected by MIGHTY_CLOUD_SUFFIX. The
+  #     latter catches a full_mighty/legacy-stack remap split, which otherwise
+  #     passes every publisher-only check while all drones hover.
   - run:
       container: airstack-robot-desktop-{n}
       cmd: |
         source /root/.bashrc >/dev/null 2>&1 || true
         export ROBOT_NAME=robot_{n}
         export ROS_DOMAIN_ID={n}
-        # PROBE THE DISPARITY, NOT THE CLOUD OR THE IMAGE. Both of those are on
-        # the dds_router ALLOWLIST (`onboard_all/config/dds_router.yaml`:
-        # `.../front_stereo/left/image_rect` and
-        # `.../perception/stereo_image_proc/point_cloud`), and `ros2 topic hz`
-        # creates a READER — which activates the robot->GCS bridge for a
-        # ~21 MB/s point cloud that nothing on the GCS side consumes, so the
-        # router buffers it without bound.
-        #
-        # That is not hypothetical: on 2026-08-30 this step ran at 22:01:00 and
-        # robot_2's ddsrouter went 114 MB -> 66,225 MB in dead-linear fashion
-        # over the next 80 minutes (growth ~21 MB/s, i.e. exactly the cloud's
-        # bitrate), the container reached 74.8 GB, and robot_2 vanished from
-        # the bag — 230 odometry messages against ~19,730 for every other
-        # robot, and ZERO global_plan / markers / occupancy / voxel_map. The
-        # robot itself flew fine (its own planner.log: 4,741 ticks, 25 gate
-        # passes, 2 people visited); only its telemetry was lost. The router
-        # config's own rayfronts note records the same failure mode: RSS
-        # 130 MB -> 870 MB on point-cloud streams until "it died and took every
-        # later iteration with it".
-        #
-        # `/perception/stereo_image_proc/disparity` is NOT allowlisted, so
-        # subscribing to it creates no cross-domain route — and it is a
-        # STRICTLY STRONGER signal: disparity exists only if BOTH rectified
-        # images arrived and the block matcher ran, and `point_cloud` is
-        # produced from it by the very next node in the same launch file.
-        DISP=/robot_{n}/perception/stereo_image_proc/disparity
-        PC=/robot_{n}/perception/stereo_image_proc/point_cloud
-        ok_disp=0; npub=0
+        PC=/robot_{n}/$(printenv MIGHTY_CLOUD_SUFFIX)
+        npub=0; mapper_sub=0
         for i in $(seq 1 20); do
-          if [ "$ok_disp" = "0" ]; then
-            timeout 20 ros2 topic hz "$DISP" 2>/dev/null \
-              | grep -m1 -q "average rate" && ok_disp=1
+          # `topic info` does not create a reader or open a high-bandwidth DDS
+          # route. MIGHTY's own local subscription provides the demand signal.
+          npub=$(ros2 topic info "$PC" 2>/dev/null \
+                 | grep -oE "Publisher count: [0-9]+" | grep -oE "[0-9]+")
+          npub=${npub:-0}
+          info=$(ros2 topic info "$PC" --verbose 2>/dev/null || true)
+          if printf '%s\n' "$info" \
+               | grep -A4 -F "Node name: global_mapper_ros" \
+               | grep -qF "Node namespace: /robot_{n}/mighty"; then
+            mapper_sub=1
           fi
-          if [ "$ok_disp" = "1" ]; then
-            # `topic info` does NOT subscribe, so this cannot open a route.
-            npub=$(ros2 topic info "$PC" 2>/dev/null \
-                   | grep -oE "Publisher count: [0-9]+" | grep -oE "[0-9]+")
-            npub=${npub:-0}
-            if [ "$npub" -gt 0 ]; then
-              echo "PERCEPTION_OK robot_{n}: $DISP streaming, $PC has $npub publisher(s)"
-              exit 0
-            fi
+          if [ "$npub" -gt 0 ] && [ "$mapper_sub" = "1" ]; then
+            echo "PERCEPTION_OK robot_{n}: $PC has $npub publisher(s) and global_mapper_ros subscribes"
+            exit 0
           fi
           sleep 5
         done
-        echo "PERCEPTION_DEAD robot_{n}: disparity=$ok_disp cloud_publishers=$npub"
+        echo "PERCEPTION_DEAD robot_{n}: $PC publisher_count=$npub mapper_sub=$mapper_sub"
         echo "This robot will take off and hover: with no point cloud the"
         echo "global mapper never builds a map, mighty's KD-tree stays null,"
         echo "no trajectory_override is ever published, and every goal the"
@@ -814,20 +828,28 @@ steps:
         echo "--- is the sim publishing to this domain at all ---"
         ros2 topic list 2>/dev/null | grep -c "/robot_{n}/sensors/" || true
         echo "--- perception nodes on this domain ---"
-        ros2 node list 2>/dev/null | grep -E "stereo|point_cloud|disparity|global_mapper" \
+        ros2 node list 2>/dev/null | grep -E "point_cloud|depth|global_mapper" \
           || echo "(no perception nodes)"
+        echo "--- selected cloud endpoint wiring ---"
+        ros2 topic info "$PC" --verbose 2>/dev/null || true
         echo "--- global_mapper log, PointCloudCallback lines ---"
         grep -ah "PointCloudCallback" /root/.ros/log/global_mapper_node_*.log 2>/dev/null \
           | tail -20 || echo "(the callback never fired — not one line)"
         exit 1
       timeout_s: 420
 
-  # 4. Takeoff — all eight robots in parallel via the GCS relay. 20 m AGL is
-  #    the bottom of the flight band in every frozen scene overlay.
+  # 4. Takeoff — action execution remains parallel, but spread the initial
+  #    relay publications over 21 s. Eight simultaneous goal/feedback/result
+  #    CLI triplets occasionally starved an otherwise-connected arm request on
+  #    pod 56. Pre-arm directly through MAVROS so the task skips the flaky
+  #    robot_command service hop. 20 m AGL is the bottom of the flight band.
   - action:
       task: takeoff
       goal: {target_altitude_m: 20.0, velocity_m_s: 2.0}
       timeout_s: 420
+      dispatch_stagger_s: 3
+      prearm_via_mavros: true
+      prearm_timeout_s: 25
       robots: all
 
   - wait: 5
@@ -946,6 +968,25 @@ steps:
       timeout_s: 240
     optional: true
 
+  # 4b. A live DDS Router PROCESS is not proof of a live ROUTE. At eight
+  #     robots a main router has twice remained running while only a subset of
+  #     its camera/odometry topics crossed to shared domain 0. Probe the exact
+  #     five inputs used by the team planner and restart only the affected
+  #     main router (never the separate gossip router) before starting the
+  #     timed search. Sectored planners stay on their native robot domains and
+  #     do not need this shared-route gate.
+  - run:
+      container: pod
+      cmd: |
+        if [ "{{env.method}}" != "conavgpt2_team" ]; then
+          echo "SKIP shared sensor route gate: {{env.method}} is sectored"; exit 0
+        fi
+        # This mission explicitly selects the left ground-truth depth stream;
+        # that is also the guard's default. This pod-scoped command must not
+        # contain an executable per-robot placeholder or it will fan out.
+        python3 osmo/workspace/team_dds_route_guard.py sensors --robots 8
+      timeout_s: 300
+
   # 5. THE SECTORED ARMS: one planner per robot, IN ITS OWN CONTAINER on its
   #    OWN DDS domain. Exits 0 on the conavgpt2 iterations, where step 6 runs
   #    instead.
@@ -978,12 +1019,44 @@ steps:
         CFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config
         SCENE=$CFG/{{env.scene_yaml}}
         [ -f "$SCENE" ] || { echo "MISSING scene overlay $SCENE (was the workspace rebuilt after the overlays were added?)"; exit 1; }
+        # Keep the canonical scene overlay at 600 sim-s while allowing cheap,
+        # controlled RTF trials. This copy is local to the container/run and
+        # changes exactly one planner parameter.
+        RUN_SCENE=/tmp/search/scene_params_runtime.yaml
+        python3 - "$SCENE" "$RUN_SCENE" "${SEARCH_MAX_SIM_SECONDS:-600}" <<'PY'
+        import sys, yaml
+        src, dst, seconds = sys.argv[1:]
+        doc = yaml.safe_load(open(src))
+        params = doc['search_planner']['ros__parameters']
+        params['max_sim_seconds'] = float(seconds)
+        with open(dst, 'w') as fh:
+            yaml.safe_dump(doc, fh, sort_keys=False)
+        print('runtime search budget:', params['max_sim_seconds'], 'sim s')
+        PY
+        SCENE=$RUN_SCENE
         # vlfm's keyframe rate is NOT overridden here: `ros2 launch` takes
         # declared launch ARGS (name:=value), not `--ros-args -p`, so a
         # parameter tacked on here would be silently ignored or reject the
         # launch. It is in the scene overlay instead (vlfm_keyframe_period_s:
         # 1.0), which every arm loads and only vlfm reads.
-        nohup ros2 launch search_baselines {{env.method}}.launch.xml \
+        if [ -f /tmp/search/planner.pid ]; then
+          OLD=$(cat /tmp/search/planner.pid 2>/dev/null || true)
+          if [[ "$OLD" =~ ^[0-9]+$ ]]; then
+            kill -TERM -- -"$OLD" 2>/dev/null || true
+            for _ in $(seq 1 10); do
+              kill -0 -- -"$OLD" 2>/dev/null || break
+              sleep 0.5
+            done
+            kill -KILL -- -"$OLD" 2>/dev/null || true
+          fi
+        fi
+        pkill -TERM -x search_planner 2>/dev/null || true
+        for _ in $(seq 1 10); do
+          pgrep -x search_planner >/dev/null 2>&1 || break
+          sleep 0.5
+        done
+        pkill -KILL -x search_planner 2>/dev/null || true
+        nohup setsid ros2 launch search_baselines {{env.method}}.launch.xml \
           num_robots:=8 \
           scene_params_file:=$SCENE \
           > /tmp/search/planner.log 2>&1 &
@@ -1028,7 +1101,38 @@ steps:
         CFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config
         SCENE=$CFG/{{env.scene_yaml}}
         [ -f "$SCENE" ] || { echo "MISSING scene overlay $SCENE"; exit 1; }
-        nohup ros2 launch search_baselines conavgpt2_team.launch.xml \
+        # Runtime-only budget override for short RTF trials; the installed
+        # benchmark overlay remains the canonical 600-s definition.
+        RUN_SCENE=/tmp/search/scene_params_runtime.yaml
+        python3 - "$SCENE" "$RUN_SCENE" "${SEARCH_MAX_SIM_SECONDS:-600}" <<'PY'
+        import sys, yaml
+        src, dst, seconds = sys.argv[1:]
+        doc = yaml.safe_load(open(src))
+        params = doc['search_planner']['ros__parameters']
+        params['max_sim_seconds'] = float(seconds)
+        with open(dst, 'w') as fh:
+            yaml.safe_dump(doc, fh, sort_keys=False)
+        print('runtime search budget:', params['max_sim_seconds'], 'sim s')
+        PY
+        SCENE=$RUN_SCENE
+        if [ -f /tmp/search/planner.pid ]; then
+          OLD=$(cat /tmp/search/planner.pid 2>/dev/null || true)
+          if [[ "$OLD" =~ ^[0-9]+$ ]]; then
+            kill -TERM -- -"$OLD" 2>/dev/null || true
+            for _ in $(seq 1 10); do
+              kill -0 -- -"$OLD" 2>/dev/null || break
+              sleep 0.5
+            done
+            kill -KILL -- -"$OLD" 2>/dev/null || true
+          fi
+        fi
+        pkill -TERM -x search_planner 2>/dev/null || true
+        for _ in $(seq 1 10); do
+          pgrep -x search_planner >/dev/null 2>&1 || break
+          sleep 0.5
+        done
+        pkill -KILL -x search_planner 2>/dev/null || true
+        nohup setsid ros2 launch search_baselines conavgpt2_team.launch.xml \
           num_robots:=8 \
           scene_params_file:=$SCENE \
           > /tmp/search/planner.log 2>&1 &
@@ -1043,6 +1147,50 @@ steps:
       timeout_s: 420
       attempts: 2
       retry_delay_s: 20
+
+  # 6b. PROVE THE REVERSE ROUTE CROSSED THE DDS BOUNDARY. The helper gates on
+  #     MIGHTY's first real plan adoption in all eight robot containers. If a
+  #     subset is missing, it refreshes only those main routers and waits for
+  #     the running planner to republish. This complements 4b: observations
+  #     can cross robot -> shared while plans on shared -> robot are stale.
+  - run:
+      container: pod
+      cmd: |
+        if [ "{{env.method}}" != "conavgpt2_team" ]; then
+          echo "SKIP shared plan route gate: {{env.method}} is sectored"; exit 0
+        fi
+        python3 osmo/workspace/team_dds_route_guard.py plans --robots 8
+      timeout_s: 300
+
+  # Sectored arms publish directly on each robot's native DDS domain. Keep the
+  # native adoption gate for those arms; the team arm passed the recoverable
+  # shared-route gate immediately above.
+  - run:
+      container: airstack-robot-desktop-{n}
+      cmd: |
+        if [ "{{env.method}}" = "conavgpt2_team" ]; then
+          echo "SKIP native plan route gate: team route already verified"; exit 0
+        fi
+        source /root/.bashrc >/dev/null 2>&1 || true
+        export ROS_DOMAIN_ID={n}
+        for i in $(seq 1 48); do
+          if grep -ahq "follower: adopted global_plan" \
+               /root/.ros/log/*.log 2>/dev/null; then
+            echo "GLOBAL_PLAN_ADOPTED robot_{n}"
+            grep -ah "follower: adopted global_plan" \
+              /root/.ros/log/*.log 2>/dev/null | tail -1
+            exit 0
+          fi
+          sleep 5
+        done
+        echo "GLOBAL_PLAN_NOT_ADOPTED robot_{n} after 240 s"
+        echo "--- endpoint QoS ---"
+        ros2 topic info /robot_{n}/global_plan --verbose 2>/dev/null || true
+        echo "--- bridge warnings ---"
+        grep -ah -E "global_plan|incompatible QoS" \
+          /root/.ros/log/*.log 2>/dev/null | tail -40 || true
+        exit 1
+      timeout_s: 300
 
   # 7. Gate on SIM time. The sectored arms latch run_complete PER ROBOT at 600
   #    sim-s from that robot's first data tick, so this fans out over all eight
@@ -1158,13 +1306,13 @@ steps:
           # of them is printed by mighty_bridge, a different process with a different
           # log. The block reported 0 on a healthy run and 0 on a run where the bridge
           # had never started, which is how eight hovering drones went unnoticed for
-          # 95 minutes. ~/.ros/log outlives the tmux scrollback and the runner already
-          # collects it (CONTROL_STACK_GLOBS "mighty*").
+          # 95 minutes. ~/.ros/log outlives the tmux scrollback and the runner
+          # collects rclpy's actual python3_* filenames as control-stack logs.
           echo "# MIGHTY bridge: alive now / came up / follower engaged / traj dropped"
           ros2 node list 2>/dev/null | grep -cx "/{robot}/mighty/mighty_bridge"
-          grep -ah "mighty_bridge up" /root/.ros/log/mighty_bridge_*.log 2>/dev/null | tail -1
-          grep -ah "follower: takeoff settled\|follower: engaging" /root/.ros/log/mighty_bridge_*.log 2>/dev/null | tail -2
-          cat /root/.ros/log/mighty_bridge_*.log 2>/dev/null | grep -ac "dropping trajectory"
+          grep -ah "mighty_bridge up" /root/.ros/log/*.log 2>/dev/null | tail -1
+          grep -ah "follower: takeoff settled\|follower: engaging" /root/.ros/log/*.log 2>/dev/null | tail -2
+          cat /root/.ros/log/*.log 2>/dev/null | grep -ac "dropping trajectory"
           echo "# the trajectory controller: did anything ever reach it"
           cat /root/.ros/log/trajectory_controller_*.log 2>/dev/null | grep -ac "Virtual waypoint does not correspond"
           echo "# detector-call failures seen by the planner"
@@ -1228,7 +1376,9 @@ steps:
   - run:
       container: airstack-robot-desktop-{n}
       cmd: |
-        kill "$(cat /tmp/search/planner.pid)" 2>/dev/null || true
+        PID=$(cat /tmp/search/planner.pid 2>/dev/null || true)
+        [ -z "$PID" ] || kill -- -"$PID" 2>/dev/null || true
+        pkill -x search_planner 2>/dev/null || true
         sleep 1; echo stopped robot_{n}
       timeout_s: 60
     optional: true
@@ -1236,7 +1386,9 @@ steps:
   - run:
       container: offboard-compute
       cmd: |
-        kill "$(cat /tmp/search/planner.pid)" 2>/dev/null || true
+        PID=$(cat /tmp/search/planner.pid 2>/dev/null || true)
+        [ -z "$PID" ] || kill -- -"$PID" 2>/dev/null || true
+        pkill -x search_planner 2>/dev/null || true
         sleep 1; echo stopped team planner
       timeout_s: 60
     optional: true

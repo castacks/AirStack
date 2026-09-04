@@ -37,6 +37,8 @@ osmo/results/<mission-name>/<UTC stamp>/
     ├── bags/robot_1/*.mcap   # open directly in Foxglove (no conversion)
     ├── logs/<container>.log  # docker logs snapshot per container
     ├── logs/<robot container>/   # raw /tmp/rayfronts_*.log + /tmp/raven_*.log tees
+    ├── gpu.csv               # pod-owned GPU VRAM/util/power/temp time series
+    ├── resources.log         # per-container RAM/OOM/process snapshots
     ├── ready.json            # per-robot seconds-to-PX4-ready
     ├── steps.json            # per-step command, output tail, pass/fail
     └── iteration.json        # iteration summary
@@ -61,8 +63,11 @@ Top-level keys (everything except `steps` is optional):
 | `iterations` | `1` | Full up→fly→down cycles. With `environments:` + `environment_order: grouped`, this is **per environment** (total = iterations × #environments) |
 | `iteration_attempts` | `1` | Max times to (re)run a single iteration until it passes. `>1`: a failed/errored iteration is redone (clean down→up→fly→down) up to this many attempts; a `passed`, manually `stopped`, or `abort_mission` outcome is never retried. Failed attempts' artifacts are preserved under `iter_NNN_failed_attempt_K`. With a fixed `SPAWN_SEED` the redo reproduces the same spawn layout |
 | `environment_order` | `round_robin` | With `environments:`: `round_robin` (iteration i → env[(i-1) % n], `iterations` is the total) \| `grouped` (each env runs `iterations` times in a row) |
-| `ready.timeout_s` | `600` | Max seconds to wait for PX4 readiness per iteration |
+| `ready.timeout_s` | `600` | Max seconds to wait for MAVROS, raw PX4 odometry, and canonical converted odometry per iteration |
 | `ready.poll_interval_s` | `5` | Seconds between readiness polls |
+| `ready.recover_after_s` | `360` | Relaunch one silent robot's bringup after this pre-flight grace period; `0` disables |
+| `ready.dataflow_recover_after_s` | `60` | Relaunch one robot when raw PX4 odometry is live but canonical `/odometry_conversion/odometry` remains silent; `0` disables |
+| `ready.max_recoveries` | `2` | Maximum bounded pre-flight bringup relaunches per robot |
 | `record.enabled` | `true` | Record an mcap per robot per iteration |
 | `record.scope` | `gcs` | `gcs` (one mcap on GCS domain 0) \| `robot` (one mcap per robot domain) \| `both` |
 | `record.topics` | tf + odom set | Topics to record; `{robot}` → `robot_N` |
@@ -94,6 +99,9 @@ result. The step passes when the action result reports `success: true`.
     retry_delay_s: 10             # wait between attempts (default 10)
     feedback_timeout_s: 15        # via gcs: no relay_feedback within this
                                   # window ⇒ goal presumed lost, retried
+    dispatch_stagger_s: 0         # delay each successive robot's initial goal
+    prearm_via_mavros: false      # takeoff only: arm directly, then verify state
+    prearm_timeout_s: 25          # timeout for that direct MAVROS arm request
     pass_on_feedback: false       # via gcs: pass as soon as feedback is seen
                                   # (the task RAN), regardless of success/fail;
                                   # only "never ran" (no feedback + no result
@@ -125,12 +133,31 @@ Available tasks (action type is derived as `task_msgs/action/<CamelCase>Task`):
 `semantic_search`, `chat`. Goal fields are defined in
 [`common/ros_packages/msgs/task_msgs/action/`](../../common/ros_packages/msgs/task_msgs/action/).
 Multi-robot action goals are sent **in parallel** across robots.
+`dispatch_stagger_s` delays only the initial per-robot dispatch; execution and
+retries remain parallel. For low-RTF, many-robot simulation takeoffs,
+`prearm_via_mavros: true` calls
+`/<robot>/interface/mavros/cmd/arming` immediately before each robot's goal and
+requires two fresh `/<robot>/interface/is_armed=true` publications to confirm
+the transition. Two samples matter under startup load: the short-lived runner
+subscriber can observe the first transition just before the already-running
+takeoff task updates its own subscription. Dispatching on that edge can make
+the task send a duplicate ARM command, which PX4 may reject even though the
+vehicle is already armed. This option bypasses the takeoff task's extra
+`robot_command` service hop, which can intermittently lose a response under
+startup load. It is rejected for non-takeoff actions and disabled by default.
 
 **`wait`** — sleep for N seconds (e.g. hover, let a planner run):
 
 ```yaml
 - wait: 30
 ```
+
+Search-baseline simulation budgets are latched inside `search_planner` when its
+first complete observation reaches the method. An independent watchdog tracks
+that same simulation clock while mapping/VLM ticks run, publishes
+`run_complete` at the configured deadline, and records exact simulated elapsed,
+wall elapsed, overshoot, and RTF in `planner.log`. Use that marker for short
+performance trials; a planner tick may span the nominal endpoint.
 
 **`run`** — arbitrary command; the escape hatch that makes any ROS 2 command
 work without runner changes. The step fails on non-zero exit unless
@@ -150,6 +177,16 @@ model download) before the step is marked failed.
     retry_delay_s: 10      # wait between attempts (default 10)
 ```
 
+For a central planner on shared DDS domain 0, process liveness is not enough:
+a robot's main DDS Router can remain alive while forwarding only a subset of
+its bidirectional topics. [`team_dds_route_guard.py`](../workspace/team_dds_route_guard.py)
+in `sensors` mode subscribes to RGB, depth, camera info, odometry, and GPS for
+every robot before planner launch; its `plans` mode then requires each local
+MIGHTY bridge to adopt a real global plan. Either mode restarts only the
+affected robot's main router and explicitly leaves its independent gossip
+router alone. Run the helper from a `container: pod` step, as in
+`hurricane_suburban_8robot.yaml`.
+
 **`topic_pub`** — `ros2 topic pub --once` per robot:
 
 ```yaml
@@ -167,6 +204,26 @@ model download) before the step is marked failed.
     type: std_srvs/srv/Trigger
     request: {}
 ```
+
+## Re-running selected environments
+
+`make_rerun_mission.py` copies selected environment entries into a one-pass
+`round_robin` mission. Repeat `--set-env KEY=VALUE` for pod-specific overrides
+without hand-editing the generated YAML; values intentionally remain strings.
+
+```bash
+python3 osmo/missions/make_rerun_mission.py \
+  --src osmo/missions/hurricane_suburban_8robot.yaml \
+  --failed hurricanesuburbanl1v1_conavgpt2_team \
+  --set-env ISAAC_SIM_ACTIVE_GPU=1 \
+  --set-env OFFBOARD_COMPUTE_GPU=1 \
+  --out osmo/missions/hurricane_suburban_l1_conavgpt2_rerun.yaml
+```
+
+On a shared OSMO host, derive both indices by matching the GPU UUID visible in
+the pod shell to the container's device table. `ISAAC_SIM_ACTIVE_GPU` selects
+Kit's Vulkan/physics device; `OFFBOARD_COMPUTE_GPU` constrains the pure-CUDA
+detector/VLM process tree. One does not imply the other.
 
 ## Method selection
 

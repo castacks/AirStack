@@ -250,8 +250,16 @@ class MightyBridge(Node):
         # global_plan follower (see class docstring)
         if self.follow_enabled:
             from nav_msgs.msg import Path
+            # DDS Router may recreate a cross-domain writer as BEST_EFFORT
+            # even when the original planner publisher is RELIABLE. A
+            # RELIABLE reader is incompatible with that writer and silently
+            # receives no route (observed on four of eight robots in the
+            # hurricane ConAVGPT team run on 2026-09-04). The planner
+            # republishes its latest dense route, so a depth-one BEST_EFFORT
+            # reader is the compatible, bounded choice: it accepts both
+            # RELIABLE and BEST_EFFORT writers and stale paths cannot queue.
             self.create_subscription(Path, 'global_plan', self._global_plan_cb,
-                                     reliable_qos, callback_group=cb)
+                                     latest_qos, callback_group=cb)
             self.create_timer(1.0, self._follow_tick, callback_group=cb)
 
         self.get_logger().info(

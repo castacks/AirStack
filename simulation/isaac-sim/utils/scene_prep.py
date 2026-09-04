@@ -364,7 +364,9 @@ def add_overhead_camera_publisher(parent_graph_path: str,
                                   center_y_m: float = 0.0,
                                   pixels_per_meter: float = 4.0,
                                   max_resolution: int = 2048,
-                                  domain_id: int = 0):
+                                  domain_id: int = 0,
+                                  render_step: int = 1,
+                                  manage_render_updates: bool = False):
     """Wire an orthographic camera to a raw ``sensor_msgs/Image`` topic, plus
     three spec ``std_msgs/Float32`` topics carrying ``coverage_m``,
     ``center_x_m``, ``center_y_m`` so consumers can size **and place** the
@@ -372,18 +374,30 @@ def add_overhead_camera_publisher(parent_graph_path: str,
 
     The image resolution is auto-derived from ``coverage_m × pixels_per_meter``
     and capped at ``max_resolution`` so a typo can't blow up bandwidth. Sim
-    scene is static, so we only need one valid frame — the GCS visualizer
-    catches it then unsubscribes, making the brief startup burst the only
-    network cost.
+    scene is static, so we only need occasional valid frames. ``render_step``
+    gates publication while the tiny scalar spec publishers continue at the
+    historical rate. A value of 1 preserves the original every-tick behavior.
+
+    A SimulationGate does not necessarily pause an already-created Hydra
+    texture. When ``manage_render_updates`` is true, this helper creates the
+    render product through Replicator, returns its handle with the gate's step
+    attribute, and lets the launcher pause actual texture updates between
+    short capture bursts. This mirrors the fleet ZED scheduling path.
 
     Builds a standalone OmniGraph at ``parent_graph_path`` with its own
     ROS2Context targeting ``domain_id`` regardless of which domain the
-    drones are using.
+    drones are using.  The graph also publishes the authoritative simulation
+    ``/clock`` for that domain.  In the multi-robot benchmark this is the one
+    domain-0 clock used by the shared planner; do not bridge the per-drone
+    clocks into domain 0 because that creates multiple competing publishers.
     """
     import omni.graph.core as og  # lazy so non-sim contexts can import scene_prep
 
     res = max(64, min(int(round(float(coverage_m) * float(pixels_per_meter))),
                       int(max_resolution)))
+    render_step = int(render_step)
+    if render_step < 1:
+        raise ValueError("overhead render_step must be >= 1")
 
     controller = og.Controller()
     g = parent_graph_path
@@ -394,6 +408,9 @@ def add_overhead_camera_publisher(parent_graph_path: str,
     nodes = {
         "context":      f"{g}/MapCameraROS2Context",
         "playback":     f"{g}/MapCameraOnPlaybackTick",
+        "sim_time":     f"{g}/MapCameraReadSimTime",
+        "clock":        f"{g}/MapCameraClockPublisher",
+        "gate":         f"{g}/MapCameraRenderGate",
         "create_rp":    f"{g}/MapCameraCreateRenderProduct",
         "rgb":          f"{g}/MapCameraRGBHelper",
         "frame":        f"{g}/MapCameraFrameId",
@@ -412,13 +429,50 @@ def add_overhead_camera_publisher(parent_graph_path: str,
         "cy_pub":       f"{g}/MapCameraCenterYPublisher",
     }
 
+    managed_render_products = []
+    if manage_render_updates:
+        import omni.replicator.core as rep
+
+        overhead_rp = rep.create.render_product(
+            camera_prim_path, (res, res), name="MapCamera_overhead_rp")
+        managed_render_products.append(overhead_rp)
+        image_nodes = []
+        image_connections = [
+            (f"{nodes['playback']}.outputs:tick", f"{nodes['gate']}.inputs:execIn"),
+            (f"{nodes['gate']}.outputs:execOut", f"{nodes['rgb']}.inputs:execIn"),
+        ]
+        image_values = [
+            (("inputs:step", nodes["gate"]), 1),
+            (("inputs:renderProductPath", nodes["rgb"]), str(overhead_rp.path)),
+        ]
+    else:
+        image_nodes = [
+            (nodes["create_rp"], "isaacsim.core.nodes.IsaacCreateRenderProduct"),
+        ]
+        image_connections = [
+            (f"{nodes['playback']}.outputs:tick", f"{nodes['gate']}.inputs:execIn"),
+            (f"{nodes['gate']}.outputs:execOut", f"{nodes['create_rp']}.inputs:execIn"),
+            (f"{nodes['create_rp']}.outputs:execOut", f"{nodes['rgb']}.inputs:execIn"),
+            (f"{nodes['create_rp']}.outputs:renderProductPath",
+             f"{nodes['rgb']}.inputs:renderProductPath"),
+        ]
+        image_values = [
+            (("inputs:step", nodes["gate"]), render_step),
+            (("inputs:cameraPrim", nodes["create_rp"]), camera_prim_path),
+            (("inputs:width", nodes["create_rp"]), res),
+            (("inputs:height", nodes["create_rp"]), res),
+        ]
+
     controller.edit(
         graph_id=g,
         edit_commands={
             og.Controller.Keys.CREATE_NODES: [
                 (nodes["context"],    "isaacsim.ros2.bridge.ROS2Context"),
                 (nodes["playback"],   "omni.graph.action.OnPlaybackTick"),
-                (nodes["create_rp"],  "isaacsim.core.nodes.IsaacCreateRenderProduct"),
+                (nodes["sim_time"],   "isaacsim.core.nodes.IsaacReadSimulationTime"),
+                (nodes["clock"],      "isaacsim.ros2.bridge.ROS2PublishClock"),
+                (nodes["gate"],       "isaacsim.core.nodes.IsaacSimulationGate"),
+                *image_nodes,
                 (nodes["rgb"],        "isaacsim.ros2.bridge.ROS2CameraHelper"),
                 (nodes["frame"],      "omni.graph.nodes.ConstantString"),
                 (nodes["topic"],      "omni.graph.nodes.ConstantString"),
@@ -433,11 +487,14 @@ def add_overhead_camera_publisher(parent_graph_path: str,
                 (nodes["cy_pub"],     "isaacsim.ros2.bridge.ROS2Publisher"),
             ],
             og.Controller.Keys.CONNECT: [
+                # Exactly one clock for the graph's ROS domain.  This branch
+                # is intentionally not gated with the expensive image render.
+                (f"{nodes['playback']}.outputs:tick",     f"{nodes['clock']}.inputs:execIn"),
+                (f"{nodes['sim_time']}.outputs:simulationTime",
+                 f"{nodes['clock']}.inputs:timeStamp"),
+                (f"{nodes['context']}.outputs:context",   f"{nodes['clock']}.inputs:context"),
                 # Image branch
-                (f"{nodes['playback']}.outputs:tick",     f"{nodes['create_rp']}.inputs:execIn"),
-                (f"{nodes['create_rp']}.outputs:execOut", f"{nodes['rgb']}.inputs:execIn"),
-                (f"{nodes['create_rp']}.outputs:renderProductPath",
-                 f"{nodes['rgb']}.inputs:renderProductPath"),
+                *image_connections,
                 (f"{nodes['context']}.outputs:context",   f"{nodes['rgb']}.inputs:context"),
                 (f"{nodes['frame']}.inputs:value",        f"{nodes['rgb']}.inputs:frameId"),
                 (f"{nodes['topic']}.inputs:value",        f"{nodes['rgb']}.inputs:topicName"),
@@ -456,9 +513,8 @@ def add_overhead_camera_publisher(parent_graph_path: str,
             ],
             og.Controller.Keys.SET_VALUES: [
                 (("inputs:domain_id",         nodes["context"]),  int(domain_id)),
-                (("inputs:cameraPrim",        nodes["create_rp"]), camera_prim_path),
-                (("inputs:width",             nodes["create_rp"]), res),
-                (("inputs:height",            nodes["create_rp"]), res),
+                (("inputs:topicName",         nodes["clock"]),    "/clock"),
+                *image_values,
                 (("inputs:type",              nodes["rgb"]), "rgb"),
                 (("inputs:value",             nodes["frame"]), str(frame_id)),
                 (("inputs:value",             nodes["topic"]), str(topic)),
@@ -501,7 +557,11 @@ def add_overhead_camera_publisher(parent_graph_path: str,
     print(f"[scene_prep] Overhead camera publisher wired: "
           f"{topic} ({res}x{res} raw Image), {spec_topic} ({coverage_m} m), "
           f"{center_x_topic}={center_x_m} m, {center_y_topic}={center_y_m} m, "
-          f"domain_id={domain_id}")
+          f"domain_id={domain_id}, render_step={render_step}, "
+          f"managed_hydra={manage_render_updates}")
+    if manage_render_updates:
+        gate_attribute = controller.attribute(f"{nodes['gate']}.inputs:step")
+        return gate_attribute, managed_render_products
 
 
 # ---------------------------------------------------------------------------

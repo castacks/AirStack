@@ -103,8 +103,16 @@ else
   [ -f "$MISSION_PATH" ] || MISSION_PATH="$MISSION"   # allow an absolute path
   if [ -f "$MISSION_PATH" ]; then
     log "running mission: $MISSION_PATH"
-    python3 "$AIRSTACK_ROOT/osmo/workspace/mission_runner.py" "$MISSION_PATH" \
-      --airstack-root "$AIRSTACK_ROOT"
+    if [ -n "${OSMO_MISSION_MAX_WALL_SECONDS:-}" ]; then
+      log "mission wall-time cap: ${OSMO_MISSION_MAX_WALL_SECONDS}s"
+      timeout --foreground --signal=INT --kill-after=15m \
+        "${OSMO_MISSION_MAX_WALL_SECONDS}s" \
+        python3 "$AIRSTACK_ROOT/osmo/workspace/mission_runner.py" "$MISSION_PATH" \
+          --airstack-root "$AIRSTACK_ROOT"
+    else
+      python3 "$AIRSTACK_ROOT/osmo/workspace/mission_runner.py" "$MISSION_PATH" \
+        --airstack-root "$AIRSTACK_ROOT"
+    fi
     log "mission_runner exited $?"
   else
     fail "mission file not found: $MISSION (looked under the clone and as an absolute path)"
