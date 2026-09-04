@@ -1197,7 +1197,8 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         quiet_max_speed=6.0, rest_tol=0.004, stall_chunks=3, floor_z=None,
         floor_tol=0.02, strict=None, fabric=None, rest_v2=None,
         creep_tol=CREEP_TOL_M, creep_window=CREEP_WINDOW,
-        freeze_rounds=CREEP_FREEZE_ROUNDS):
+        freeze_rounds=CREEP_FREEZE_ROUNDS, retry_passes=None,
+        retry_fraction=None):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -1251,11 +1252,24 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         and the convex-decomposition budget scales with the piece. OFF by
         default because the MCE kit bake is frozen against the old
         behaviour; the fire drivers turn it on for every non-`kit` record.
+      * A failed final rest check does not require rebuilding the damage stage.
+        `retry_passes` (or `SETTLE_RETRY_PASSES`, default 0) keeps the same
+        rigid bodies live and advances physics again for one-third of the
+        original `steps` budget per pass.  Each pass is rechecked and stops
+        as soon as the pile is at rest.  Set it to zero to retain the old
+        single-pass behaviour.
     """
     import numpy as np
 
+    import os as _os
+    if retry_passes is None:
+        retry_passes = int(_os.environ.get("SETTLE_RETRY_PASSES", "0"))
+    if retry_fraction is None:
+        retry_fraction = float(_os.environ.get("SETTLE_RETRY_FRACTION", "0.333333333333"))
+    retry_passes = max(0, int(retry_passes))
+    retry_fraction = max(0.0, float(retry_fraction))
+
     if rest_v2 is None:
-        import os as _os
         rest_v2 = _os.environ.get("SETTLE_REST_V2", "").strip() \
             not in ("", "0", "false", "False")
     rest_v2 = bool(rest_v2)
@@ -1263,7 +1277,6 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     _freeze = int(freeze_rounds) if rest_v2 else 0
 
     if fabric is None:
-        import os as _os
         fabric = _os.environ.get("SETTLE_FABRIC", "").strip() \
             not in ("", "0", "false", "False")
 
@@ -1371,6 +1384,45 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     info["still_moving_paths"] = list(still_moving_keys)
     after = settled
 
+    # KEEP PLAYING THE SAME STAGE when the first budget ends too early.  At
+    # this point the bodies are still live: `bake()` has deliberately not run
+    # yet.  This is the programmatic equivalent of leaving Play enabled for a
+    # little longer, without rebuilding, re-kicking, or recooking the scene.
+    # Run the full extension budget (rather than stopping on the earlier stall
+    # heuristic), then measure another complete rest window.  A successful
+    # check exits immediately; a genuine persistent mover gets at most three
+    # bounded extensions before the existing strict gate handles it.
+    info["retry_passes"] = 0
+    info["retry_steps"] = 0
+    retry_steps = int(np.ceil(float(steps) * retry_fraction))
+    needs_retry = bool(info.get("still_moving") or not info.get("converged"))
+    for retry_i in range(retry_passes if retry_steps > 0 and needs_retry else 0):
+        print("[settle] rest retry {0}/{1}: continuing live physics for "
+              "{2} step(s) ({3:.1%} of original budget)".format(
+                  retry_i + 1, retry_passes, retry_steps, retry_fraction))
+        _quiet_bodies(info["bodies"], quiet_damping, quiet_max_speed)
+        _step(retry_steps, fabric=fabric)
+        retry_before = _positions(info["bodies"])
+        _step(_check_steps, fabric=fabric)
+        retry_after = _positions(info["bodies"])
+        still_moving_keys = [
+            k for k in retry_before
+            if k in retry_after
+            and float(np.linalg.norm(np.array(retry_after[k]) -
+                                     np.array(retry_before[k]))) > _check_tol]
+        info["retry_passes"] = retry_i + 1
+        info["retry_steps"] += retry_steps
+        info["still_moving"] = len(still_moving_keys)
+        info["still_moving_examples"] = still_moving_keys[:5]
+        info["still_moving_paths"] = list(still_moving_keys)
+        info["converged"] = not still_moving_keys
+        info["stop_reason"] = "retry_rest" if not still_moving_keys else "retry_cap"
+        after = retry_after
+        if not still_moving_keys:
+            print("[settle] rest retry {0}/{1}: pile is at rest".format(
+                retry_i + 1, retry_passes))
+            break
+
     # HORIZONTAL vs VERTICAL is the whole question. A collapse drops pieces:
     # large -Z, small XY. An explosion throws them: large XY. One number for
     # total displacement cannot tell the two apart, and that is exactly the
@@ -1432,7 +1484,6 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     # of (cx, cy, W, D, yaw, z0) tuples may be passed instead of True to
     # override the registry.
     if cull_ledges is None:
-        import os as _os
         cull_ledges = _os.environ.get("SETTLE_CULL_LEDGES", "").strip() \
             not in ("", "0", "false", "False")
     if cull_ledges:
@@ -1490,6 +1541,10 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
                   info.get("steps_used", steps), info.get("steps_cap", steps),
                   "" if info.get("converged") else _stop_label,
                   info.get("quiet_used", 0), info.get("still_moving", 0)))
+        if info.get("retry_passes"):
+            print("[settle]   continued live physics for {0} retry pass(es), "
+                  "{1} additional step(s) total".format(
+                      info["retry_passes"], info.get("retry_steps", 0)))
         if info.get("rescued") or info.get("clamped"):
             print("[settle]   {0} body(s) lifted back to grade before the "
                   "quiet phase, {1} clamped after the bake ({2})".format(
@@ -1535,7 +1590,8 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         and info.get("converged"))
     print("[settle] REST_CHECK at_rest={0} still_moving={1} below_grade={2} "
           "below_grade_pts={3} frozen={4} rescued={5} clamped={6} "
-          "converged={7} reason={8} steps={9}/{10} quiet={11} v2={12}".format(
+          "converged={7} reason={8} steps={9}/{10} quiet={11} v2={12} "
+          "retries={13} retry_steps={14}".format(
               1 if info["at_rest_ok"] else 0,
               info.get("still_moving", 0), info.get("below_grade", 0),
               info.get("below_grade_pts", 0), len(info.get("frozen_creep") or []),
@@ -1543,7 +1599,8 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
               1 if info.get("converged") else 0,
               info.get("stop_reason", "?"), info.get("steps_used", 0),
               info.get("steps_cap", 0), info.get("quiet_used", 0),
-              1 if rest_v2 else 0))
+              1 if rest_v2 else 0, info.get("retry_passes", 0),
+              info.get("retry_steps", 0)))
 
     # ---- the verdict, and it is not a footnote ---------------------------
     faults = []

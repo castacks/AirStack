@@ -128,7 +128,12 @@ def main():
             # The measured good configuration.  Hull-only was slower and did
             # not converge on SM_Building_30 F5.
             "SETTLE_DECOMP_M": os.environ.get("SETTLE_DECOMP_M", "0.8"),
-            "SETTLE_FABRIC": "1", "SETTLE_REST_V2": "0" if kind == "kit" else "1",
+            "SETTLE_FABRIC": "1",
+            "SETTLE_REST_V2": os.environ.get(
+                "SETTLE_REST_V2", "0" if kind == "kit" else "1"),
+            "SETTLE_RETRY_PASSES": os.environ.get("SETTLE_RETRY_PASSES", "3"),
+            "SETTLE_RETRY_FRACTION": os.environ.get(
+                "SETTLE_RETRY_FRACTION", "0.333333333333"),
         }
         passthrough = ("ISAAC_SIM_PYTHONPATH", "SOOT_TEX_COMPRESS")
         for key in passthrough:

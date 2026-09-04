@@ -938,7 +938,19 @@ class PegasusApp:
             domain_id=OVERHEAD_DOMAIN_ID,
         )
 
-        # Spawn all drones
+        # Spawn all drones. ZED_TIME_SLICE_GROUPS=2 alternates two groups of
+        # four cameras in an eight-robot run: only one group renders per sim
+        # tick, while each camera's RGB/depth/info/PCL remain synchronized.
+        self._zed_slice_groups = max(
+            1, int(os.environ.get("ZED_TIME_SLICE_GROUPS", "1")))
+        self._zed_slice_gates = []
+        self._zed_slice_tick = 0
+        if self._zed_slice_groups > len(DRONE_CONFIGS):
+            raise ValueError("ZED_TIME_SLICE_GROUPS cannot exceed the number of drones")
+        if self._zed_slice_groups > 1:
+            print(f"[zed] staggered camera schedule: {self._zed_slice_groups} groups, "
+                  f"{len(DRONE_CONFIGS) / self._zed_slice_groups:g} cameras/tick",
+                  flush=True)
         for cfg in DRONE_CONFIGS:
             i = cfg["domain_id"]
             pos = [cfg["x_m"] * s, cfg["y_m"] * s, cfg["z_m"] * s]
@@ -954,7 +966,7 @@ class PegasusApp:
                 init_orient=cfg["orient"],
             )
 
-            add_zed_stereo_camera_subgraph(
+            zed_gate = add_zed_stereo_camera_subgraph(
                 parent_graph_handle=graph_handle,
                 drone_prim=f"/World/drone{i}/base_link",
                 robot_name=f"robot_{i}",
@@ -965,6 +977,8 @@ class PegasusApp:
                 frame_height=ZED_HEIGHT,
                 pipeline_mode=os.environ.get("ZED_PIPELINE", "stereo").strip().lower(),
             )
+            self._zed_slice_gates.append(
+                ((i - 1) % self._zed_slice_groups, zed_gate))
 
             if ENABLE_LIDAR:
                 add_rtx_lidar_subgraph(
@@ -1760,6 +1774,11 @@ class PegasusApp:
         while simulation_app.is_running() and not self.stop_sim:
             world = World.instance()
             if world is not None and hasattr(world, '_scene'):
+                if self._zed_slice_groups > 1:
+                    active = self._zed_slice_tick % self._zed_slice_groups
+                    for group, gate in self._zed_slice_gates:
+                        gate.set(1 if group == active else 0)
+                    self._zed_slice_tick += 1
                 world.step(render=True)
                 if world is not self.world:
                     self.world = world

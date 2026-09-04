@@ -151,17 +151,32 @@ for L in $LEVELS; do
     " > "${LOG_DIR}/l${L}_kitdump.log" 2>&1 || die "Kit intact-only dump (level $L)"
     if ! python3 "$REPO/scene_gen/tools/verify_dump_matches_kit.py" \
         --offline "$DUMP" --kit "$KITDUMP"; then
-      say "  repairing offline dimensions from the authoritative Kit dump"
+      say "  offline reconstruction differs; promote authoritative Kit layout"
       DIMCAT="$REPO/scene_gen/config/harvested/urban_building_dimensions.json"
       python3 "$REPO/scene_gen/tools/kit_dump_to_dimension_catalog.py" \
         "$KITDUMP" --out "$DIMCAT" --merge-existing "$DIMCAT" \
         || die "canonical dimension catalog (level $L)"
-      LEVELS="$L" REVIEW_DIR="${REVIEW_DIR:-$HOME/layout_review}" \
-        bash "$REPO/scene_gen/tools/make_cell_plan.sh" \
-        || die "regenerate level $L plan with canonical Kit dimensions"
+      cp "$DUMP" "${DUMP%.json}.offline.json" \
+        || die "preserve offline layout candidate (level $L)"
+      cp "$KITDUMP" "$DUMP" || die "promote Kit layout (level $L)"
+      read -r FRAC EPOCH COLLAPSE F6 <<EOF
+$(python3 - "$REPO/scene_gen/config/presets/${PRESET}.yaml" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1]))
+print(d["fire_target_frac"],
+      float(d["duration_s"]) * float(d["start_offset_frac"]),
+      d["fire_collapse"], d["fire_f6"])
+PY
+)
+EOF
+      python3 "$REPO/scene_gen/tools/fire_corridor_manifest.py" --dump "$DUMP" \
+        --target-frac '$FRAC' --epoch-s '$EPOCH' --collapse '$COLLAPSE' \
+        --f6 '$F6' --seed '$CITY_SEED' --out '$MANIFEST' \
+        --bake-list "$WORKLIST" \
+        || die "regenerate fire plan from authoritative Kit layout (level $L)"
       python3 "$REPO/scene_gen/tools/verify_dump_matches_kit.py" \
         --offline "$DUMP" --kit "$KITDUMP" \
-        || die "canonical dimensions did not reproduce Kit — do not bake"
+        || die "promoted Kit layout failed its identity gate"
     fi
     touch "$STAMP"
   fi

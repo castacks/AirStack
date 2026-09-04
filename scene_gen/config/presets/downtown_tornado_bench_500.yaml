@@ -203,6 +203,12 @@ sky_intensity: 2000.0
 sky_exposure: 0.0
 
 overrides:
+  disaster:
+    tornado:
+      # A RIDGE, not a flat damage plateau. The black centreline is the only
+      # cross-track location at peak intensity; severity falls smoothly toward
+      # the corridor edge, whose red contour carries only light damage.
+      core_frac: 0.0
   # Roof plant, water tanks, masts and fire escapes from the pack's own 122
   # props (`detail/gac_props.py`). UNDER `overrides`, not at the top level:
   # this preset is a HIGH-LEVEL spec compiled against `low_level/default.yaml`,

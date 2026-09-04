@@ -37,6 +37,21 @@ sheets land under `${REVIEW_DIR:-$HOME/layout_review}`.
    Nucleus and reopened from the Nucleus URL. Success requires meshes, a sky,
    no local absolute paths, no missing Nucleus assets, and no cross-scope
    material bindings.
+10. Every reusable per-building bake is normalized at the source-layer
+    boundary: shared `scene_gen/assets` paths and material composition arcs
+    point directly to their Nucleus mirrors before the city references them.
+    This prevents Kit flattening from resurrecting local paths out of a bake
+    prototype. Existing cache files are migrated without rebuilding and are
+    backed up under `city_<seed>/pre_portable_backup/`.
+11. If a final physics rest check fails, the same live stage continues for
+    one-third of its original step budget and is checked again, up to three
+    times. It does not rebuild, re-slice, retexture, re-kick or recook.
+12. Objaverse uses a separate `objaverse://` scheme, so
+    `AIRSTACK_ASSET_ROOT` does not repoint it. The runner size-verifies the
+    418 MB Objaverse cache on Nucleus once per run and launches freeze with
+    `OBJAVERSE_ASSET_ROOT` set to that Nucleus URL. This makes each source
+    USD's relative texture paths resolve on Nucleus before Kit flattens them;
+    otherwise they become absolute `/isaac-sim/...` paths in the final cell.
 
 ## Files to put on the pod
 
@@ -48,6 +63,7 @@ scene_gen/tools/osmo_sync.sh \
   scene_gen/detail/gac_storey_slice_fast.py \
   scene_gen/disaster/soot_bake_fast.py \
   scene_gen/tools/fire_city_bake_fast.py \
+  scene_gen/tools/normalize_fire_bake_cache.py \
   scene_gen/tools/sync_sliced_kits.py \
   scene_gen/tools/experimental_warm_canonical_kits.py \
   scene_gen/tools/urban_fire_cell_fast.sh \
@@ -63,6 +79,11 @@ Do not copy the multi-gigabyte asset tree. The pod workflow should set:
 ```bash
 AIRSTACK_ASSET_ROOT=omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA
 ```
+
+The runner uploads/verifies the much smaller local Objaverse cache itself.
+`SYNC_OBJAVERSE_TO_NUCLEUS=0` skips that sync only; the strict final gate still
+rejects any local Objaverse path. Override `NUCLEUS_OBJAVERSE_ROOT` only when
+using a different complete mirror.
 
 ## Preflight and dry run
 
@@ -167,6 +188,21 @@ three-level build. They are composition inputs, not runtime dependencies: the
 freeze output is flattened before publication. The remote verifier rejects any
 remaining local sublayer/reference/payload target or local asset path, ensuring
 the published cell cannot reach back into that cache.
+
+Before assembly, the runner invokes `normalize_fire_bake_cache.py` on the
+selected city's cache. A cold cache is already normalized by
+`fire_bake_launch_script.py`; an older warm cache is upgraded in place after
+first preserving each changed USD under `pre_portable_backup/`. The migration
+changes asset paths only and normally takes seconds, not bake time.
+
+Physics continuation defaults can be overridden for diagnostics:
+
+```bash
+SETTLE_RETRY_PASSES=3 SETTLE_RETRY_FRACTION=0.333333333333 \
+  bash scene_gen/tools/urban_fire_cell_fast.sh 1
+```
+
+Set `SETTLE_RETRY_PASSES=0` to reproduce the old single-check behavior.
 
 ## Cache semantics
 

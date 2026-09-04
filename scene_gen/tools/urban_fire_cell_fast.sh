@@ -14,6 +14,7 @@ FB_OUT="${FB_OUT:-/isaac-sim/.cache/fire_bakes/urban_1km}"
 FREEZE_OUT="${FREEZE_OUT:-/isaac-sim/final_disaster_dataset/Fire/Urban_fast}"
 NUCLEUS_DATASET="${NUCLEUS_DATASET:-omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset}"
 NUCLEUS_ASSET_ROOT="${NUCLEUS_ASSET_ROOT:-omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA}"
+NUCLEUS_OBJAVERSE_ROOT="${NUCLEUS_OBJAVERSE_ROOT:-${NUCLEUS_ASSET_ROOT%/}/scene_gen/assets/objaverse}"
 LOG_DIR="${LOG_DIR:-/isaac-sim/logs/urban_fire_fast}"
 ISAAC_SIM_PYTHONPATH="${ISAAC_SIM_PYTHONPATH:-/isaac-sim/kit/python/lib/python3.11/site-packages}"
 
@@ -27,6 +28,21 @@ dex() {
 
 mkdir -p "$LOG_DIR"
 RUN_START=$(now)
+
+# Objaverse is a separate pseudo-scheme from airstack:// and therefore has a
+# separate root override. Its source USDs use relative texture paths; opening
+# those USDs locally makes Kit resolve the paths to /isaac-sim/... while
+# flattening, even when every other asset already comes from Nucleus. Keep the
+# cache mirrored one-for-one, then compose the source USDs from Nucleus so
+# their relative textures resolve to Nucleus before the final flatten.
+if [ "${SYNC_OBJAVERSE_TO_NUCLEUS:-1}" = "1" ]; then
+  say "verify Objaverse source cache on Nucleus"
+  dex "$CONTAINER" bash -lc "cd '$REPO' && bash scene_gen/tools/usd_python.sh \
+    scene_gen/tools/dataset_upload.py \
+    --local '$REPO/scene_gen/assets/objaverse' \
+    --remote '$NUCLEUS_OBJAVERSE_ROOT'" \
+    || die "Nucleus Objaverse source-cache sync"
+fi
 
 for L in $LEVELS; do
   LEVEL_START=$(now)
@@ -61,16 +77,32 @@ for L in $LEVELS; do
       >"${LOG_DIR}/l${L}_kitdump.log" 2>&1 || die "Kit layout proof"
     if ! python3 "$REPO/scene_gen/tools/verify_dump_matches_kit.py" \
       --offline "$DUMP" --kit "$KITDUMP"; then
+      say "offline reconstruction differs; promote authoritative Kit layout"
       DIMCAT="$REPO/scene_gen/config/harvested/urban_building_dimensions.json"
       python3 "$REPO/scene_gen/tools/kit_dump_to_dimension_catalog.py" \
         "$KITDUMP" --out "$DIMCAT" --merge-existing "$DIMCAT" \
         || die "canonical dimension catalog"
-      LEVELS="$L" REVIEW_DIR="${REVIEW_DIR:-$HOME/layout_review}" \
-        bash "$REPO/scene_gen/tools/make_cell_plan.sh" \
-        || die "regenerate plan with canonical Kit dimensions"
+      cp "$DUMP" "${DUMP%.json}.offline.json" \
+        || die "preserve offline layout candidate"
+      cp "$KITDUMP" "$DUMP" || die "promote Kit layout"
+      read -r FRAC EPOCH COLLAPSE F6 <<EOF
+$(python3 - "$REPO/scene_gen/config/presets/${PRESET}.yaml" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1]))
+print(d["fire_target_frac"],
+      float(d["duration_s"]) * float(d["start_offset_frac"]),
+      d["fire_collapse"], d["fire_f6"])
+PY
+)
+EOF
+      python3 "$REPO/scene_gen/tools/fire_corridor_manifest.py" --dump "$DUMP" \
+        --target-frac "$FRAC" --epoch-s "$EPOCH" --collapse "$COLLAPSE" \
+        --f6 "$F6" --seed "$CITY_SEED" --out "$MANIFEST" \
+        --bake-list "$REPO/scene_gen/_plans/bake_l${L}.json" \
+        || die "regenerate fire plan from authoritative Kit layout"
       python3 "$REPO/scene_gen/tools/verify_dump_matches_kit.py" \
         --offline "$DUMP" --kit "$KITDUMP" \
-        || die "canonical dimensions did not reproduce Kit"
+        || die "promoted Kit layout failed its identity gate"
     fi
     python3 "$REPO/scene_gen/tools/urban_fire_fast_preflight.py" \
       --repo "$REPO" --dump "$DUMP" --manifest "$MANIFEST" \
@@ -102,8 +134,15 @@ PY
     fi
   fi
   FB_OUT="$FB_OUT" CONTAINER="$CONTAINER" REPO="$REPO" SETTLE_FABRIC=1 \
+    SETTLE_REST_V2="${SETTLE_REST_V2:-1}" \
     python3 "$REPO/scene_gen/tools/fire_city_bake_fast.py" "$MANIFEST" ${BAKE_ARGS:-} \
     || die "bake"
+  if [[ " ${BAKE_ARGS:-} " != *" --dry-run "* ]]; then
+    say "normalize reusable bake layers to Nucleus asset paths"
+    python3 "$REPO/scene_gen/tools/normalize_fire_bake_cache.py" "$BAKES" \
+      --backup-dir "$BAKES/pre_portable_backup" \
+      || die "portable bake-cache normalization"
+  fi
   if [ "${FB_NUCLEUS_KITS:-1}" = "1" ] && [[ " ${BAKE_ARGS:-} " != *" --dry-run "* ]]; then
     say "push newly sliced kits to Nucleus"
     dex "$CONTAINER" bash -lc "cd '$REPO' && bash scene_gen/tools/usd_python.sh \
@@ -127,6 +166,7 @@ PY
   FREEZE_START=$(now)
   dex "$CONTAINER" bash -lc "cd '$REPO' && \
     REPO='$REPO' AIRSTACK_ASSET_ROOT='$NUCLEUS_ASSET_ROOT' \
+    OBJAVERSE_ASSET_ROOT='$NUCLEUS_OBJAVERSE_ROOT' \
     SCENE_CONFIG='$PRESET' FC_MANIFEST='$MANIFEST' FC_DUMP='$DUMP' FC_BAKES='$BAKES' \
     FC_LAYOUT_STAMP='$STAMP' \
     FREEZE_OUT='$CELL' FREEZE_HEADLESS=1 FREEZE_EXPORT=1 \
@@ -168,7 +208,9 @@ PY
   say "publish complete cell to Nucleus"
   dex "$CONTAINER" bash -lc "cd '$REPO' && bash scene_gen/tools/usd_python.sh \
     scene_gen/tools/dataset_upload.py --local '$CELL' --remote '$REMOTE_CELL' \
-    --include-snaps" || die "Nucleus cell upload/size verification"
+    --include-snaps --native-tree-copy \
+    --workers '${DATASET_UPLOAD_WORKERS:-4}'" \
+    || die "Nucleus cell upload/size verification"
   dex "$CONTAINER" bash -lc "cd '$REPO' && bash scene_gen/tools/usd_python.sh \
     scene_gen/tools/verify_nucleus_cell.py '$REMOTE_CELL'" \
     || die "cold-open published Nucleus cell"

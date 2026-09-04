@@ -4,7 +4,7 @@
 #   - firesuburbanl2v1_conavgpt2_team
 #   - firesuburbanl3v1_conavgpt2_team
 #   - tornadosuburbanl1v1_conavgpt2_team
-name: frozen_suburban_8robot_rerun
+name: frozen_suburban_8robot_rerun_spliced
 # /volume2/coa-sei_rerun never existed on the NAS -- make_rerun_mission.py's
 # generator bug (appending "_rerun" to the base), fixed 2026-09-03.
 nas_dest: /volume2/coa-sei
@@ -24,7 +24,11 @@ env:
   CONAVGPT2_VLM_GPU: ''
   NUM_ROBOTS: 8
   ISAAC_SIM_HEADLESS: 'true'
-  ISAAC_SIM_MULTIGPU: 'true'
+  ISAAC_SIM_MULTIGPU: ''
+  ISAAC_SIM_ACTIVE_GPU: '2'
+  ISAAC_SIM_DLSS_MODE: performance
+  ISAAC_SIM_DISABLE_MOTION_BVH: 'true'
+  ISAAC_SIM_DISABLE_VIEWPORT_UPDATES: 'true'
   GCS_VIZ_DECIMATE: '2'
   ISAAC_SIM_USE_STANDALONE: 'true'
   ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
@@ -37,6 +41,12 @@ env:
   ZED_PITCH_DEG: '30'
   ZED_WIDTH: '720'
   ZED_HEIGHT: '450'
+  ZED_PIPELINE: mono_rgbd
+  ZED_RENDER_STEP: '1'
+  ZED_TIME_SLICE_GROUPS: '2'
+  SEARCH_DEPTH_TOPIC_TEMPLATE: '/{robot}/sensors/front_stereo/left/depth_ground_truth'
+  MIGHTY_CLOUD_SUFFIX: sensors/front_stereo/left/depth_pcl
+  MIGHTY_CLOUD_FRAME: camera_left
   MAP_ANCHOR_ENU: 'true'
   AIRSTACK_STACK: full_mighty
   LOCAL_PLANNER: mighty
@@ -47,7 +57,7 @@ env:
   COMMS_RANGE_M: 5000
   GT_ANNOTATIONS: 'on'
 environment_order: round_robin
-iterations: 4
+iterations: 3
 environments:
 - name: firesuburbanl1v1_conavgpt2_team
   method: conavgpt2_team
@@ -65,22 +75,6 @@ environments:
     \ {\"x_m\": 80.0, \"y_m\": 177.5, \"orient\": [0.0, 0.0, 0.9772, 0.2121]},\n {\"x_m\": 187.5, \"y_m\"\
     : 127.5, \"orient\": [0.0, 0.0, 0.9769, 0.2136]},\n {\"x_m\": 307.5, \"y_m\": 247.5, \"orient\": [0.0,\
     \ 0.0, 1.0000, 0.0072]}]"
-- name: firesuburbanl2v1_conavgpt2_team
-  method: conavgpt2_team
-  model_port: '8000'
-  scene_yaml: frozen_fire_suburban_lvl2.yaml
-  START_DETECTOR_SERVER: 'true'
-  START_ITM_SERVER: 'false'
-  START_VLM_SERVER: 'true'
-  FROZEN_SCENE: Fire/Suburban/level_2/1
-  RESULTS_SCENE: FireSuburbanL2V1
-  SPAWN_CONFIGS: "[{\"x_m\": -317.5, \"y_m\": -350.0, \"orient\": [0.0, 0.0, 0.4022, 0.9155]},\n {\"x_m\"\
-    : -182.5, \"y_m\": -192.5, \"orient\": [0.0, 0.0, 0.3926, 0.9197]},\n {\"x_m\": -97.5, \"y_m\": -92.5,\
-    \ \"orient\": [0.0, 0.0, 0.3752, 0.9269]},\n {\"x_m\": 22.5, \"y_m\": -15.0, \"orient\": [0.0, 0.0,\
-    \ 0.5489, 0.8359]},\n {\"x_m\": 112.5, \"y_m\": 135.0, \"orient\": [0.0, 0.0, -0.8920, 0.4520]},\n\
-    \ {\"x_m\": 272.5, \"y_m\": 205.0, \"orient\": [0.0, 0.0, -0.9544, 0.2986]},\n {\"x_m\": 210.0, \"\
-    y_m\": 445.0, \"orient\": [0.0, 0.0, -0.8289, 0.5595]},\n {\"x_m\": 425.0, \"y_m\": 377.5, \"orient\"\
-    : [0.0, 0.0, -0.9364, 0.3510]}]"
 - name: firesuburbanl3v1_conavgpt2_team
   method: conavgpt2_team
   model_port: '8000'
@@ -198,40 +192,26 @@ steps:
     timeout_s: 300
 - run:
     container: airstack-robot-desktop-{n}
-    cmd: "source /root/.bashrc >/dev/null 2>&1 || true\nexport ROBOT_NAME=robot_{n}\nexport ROS_DOMAIN_ID={n}\n\
-      # PROBE THE DISPARITY, NOT THE CLOUD OR THE IMAGE. Both of those are on\n# the dds_router ALLOWLIST\
-      \ (`onboard_all/config/dds_router.yaml`:\n# `.../front_stereo/left/image_rect` and\n# `.../perception/stereo_image_proc/point_cloud`),\
-      \ and `ros2 topic hz`\n# creates a READER \u2014 which activates the robot->GCS bridge for a\n#\
-      \ ~21 MB/s point cloud that nothing on the GCS side consumes, so the\n# router buffers it without\
-      \ bound.\n#\n# That is not hypothetical: on 2026-08-30 this step ran at 22:01:00 and\n# robot_2's\
-      \ ddsrouter went 114 MB -> 66,225 MB in dead-linear fashion\n# over the next 80 minutes (growth\
-      \ ~21 MB/s, i.e. exactly the cloud's\n# bitrate), the container reached 74.8 GB, and robot_2 vanished\
-      \ from\n# the bag \u2014 230 odometry messages against ~19,730 for every other\n# robot, and ZERO\
-      \ global_plan / markers / occupancy / voxel_map. The\n# robot itself flew fine (its own planner.log:\
-      \ 4,741 ticks, 25 gate\n# passes, 2 people visited); only its telemetry was lost. The router\n#\
-      \ config's own rayfronts note records the same failure mode: RSS\n# 130 MB -> 870 MB on point-cloud\
-      \ streams until \"it died and took every\n# later iteration with it\".\n#\n# `/perception/stereo_image_proc/disparity`\
-      \ is NOT allowlisted, so\n# subscribing to it creates no cross-domain route \u2014 and it is a\n\
-      # STRICTLY STRONGER signal: disparity exists only if BOTH rectified\n# images arrived and the block\
-      \ matcher ran, and `point_cloud` is\n# produced from it by the very next node in the same launch\
-      \ file.\nDISP=/robot_{n}/perception/stereo_image_proc/disparity\nPC=/robot_{n}/perception/stereo_image_proc/point_cloud\n\
-      ok_disp=0; npub=0\nfor i in $(seq 1 20); do\n  if [ \"$ok_disp\" = \"0\" ]; then\n    timeout 20\
-      \ ros2 topic hz \"$DISP\" 2>/dev/null \\\n      | grep -m1 -q \"average rate\" && ok_disp=1\n  fi\n\
-      \  if [ \"$ok_disp\" = \"1\" ]; then\n    # `topic info` does NOT subscribe, so this cannot open\
-      \ a route.\n    npub=$(ros2 topic info \"$PC\" 2>/dev/null \\\n           | grep -oE \"Publisher\
-      \ count: [0-9]+\" | grep -oE \"[0-9]+\")\n    npub=${npub:-0}\n    if [ \"$npub\" -gt 0 ]; then\n\
-      \      echo \"PERCEPTION_OK robot_{n}: $DISP streaming, $PC has $npub publisher(s)\"\n      exit\
-      \ 0\n    fi\n  fi\n  sleep 5\ndone\necho \"PERCEPTION_DEAD robot_{n}: disparity=$ok_disp cloud_publishers=$npub\"\
-      \necho \"This robot will take off and hover: with no point cloud the\"\necho \"global mapper never\
-      \ builds a map, mighty's KD-tree stays null,\"\necho \"no trajectory_override is ever published,\
-      \ and every goal the\"\necho \"search planner picks is eventually blacklisted. Seen on robot_3\"\
-      \necho \"in the 2026-08-30 09:09:51 run (10 m flown in 108 minutes).\"\necho \"--- is the sim publishing\
-      \ to this domain at all ---\"\nros2 topic list 2>/dev/null | grep -c \"/robot_{n}/sensors/\" ||\
-      \ true\necho \"--- perception nodes on this domain ---\"\nros2 node list 2>/dev/null | grep -E \"\
-      stereo|point_cloud|disparity|global_mapper\" \\\n  || echo \"(no perception nodes)\"\necho \"---\
-      \ global_mapper log, PointCloudCallback lines ---\"\ngrep -ah \"PointCloudCallback\" /root/.ros/log/global_mapper_node_*.log\
-      \ 2>/dev/null \\\n  | tail -20 || echo \"(the callback never fired \u2014 not one line)\"\nexit\
-      \ 1\n"
+    cmd: |
+      source /root/.bashrc >/dev/null 2>&1 || true
+      export ROBOT_NAME=robot_{n}
+      export ROS_DOMAIN_ID={n}
+      PC=/robot_{n}/sensors/front_stereo/left/depth_pcl
+      npub=0
+      for i in $(seq 1 20); do
+        # topic info creates no reader, so it cannot open a high-bandwidth DDS route.
+        npub=$(ros2 topic info "$PC" 2>/dev/null \
+               | grep -oE "Publisher count: [0-9]+" | grep -oE "[0-9]+")
+        npub=${npub:-0}
+        if [ "$npub" -gt 0 ]; then
+          echo "PERCEPTION_OK robot_{n}: $PC has $npub publisher(s)"
+          exit 0
+        fi
+        sleep 5
+      done
+      echo "PERCEPTION_DEAD robot_{n}: $PC publisher_count=$npub"
+      ros2 topic list 2>/dev/null | grep "/robot_{n}/sensors/front_stereo" || true
+      exit 1
     timeout_s: 420
 - action:
     task: takeoff

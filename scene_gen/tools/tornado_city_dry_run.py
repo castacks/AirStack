@@ -1543,8 +1543,11 @@ _TYPOLOGY_COLOUR = {
     "rowhouse": "#f6e4bf", "lowrise": "#f0c98a", "midrise": "#e2a05a",
     "brick_midrise": "#b96f3d", "tower": "#7a8caa", "highrise": "#4d5f80",
 }
-#: R1's own cap — the raw-field contour drawn as the "core band".
-_CORE_BAND_I = 0.72
+#: The red dashed line is the OUTER edge of light damage.  Severe damage is
+#: intentionally concentrated at the black centreline by presets which use a
+#: zero-width core; calling this a "core band" previously suggested the exact
+#: opposite severity relationship.
+_MINOR_DAMAGE_I = 0.36
 #: §2.3 gate 5's own T1 lower cut — the ground-evidence wash (item d);
 #: matches `tc._URBAN_CUTS`' T0/T1 boundary exactly (imported at call time
 #: via `tc.LEVELS`' own cut table would be circular here, so this is the
@@ -1663,7 +1666,7 @@ def draw_png(manifest, extras, out_path):
         else:
             _draw(r, _LEVEL_COLOUR.get(r["level"], "#999999"))
 
-    # ---- (c) corridor edges, centreline, CORE BAND --------------------------
+    # ---- (c) corridor edges, centreline, minor-damage boundary --------------
     to_track, (ux, uy), (vx, vy) = tn.frame(tcfg)
     ox, oy = tcfg["origin_m"]
     half = 0.5 * float(tcfg["width_m"])
@@ -1682,14 +1685,14 @@ def draw_png(manifest, extras, out_path):
                        (ed_r, dict(color="black", lw=0.9, ls="--"))):
         ax.plot([p[0] for p in pts], [p[1] for p in pts], zorder=5, **style)
 
-    # the CORE band, i >= 0.72 -- an irregular ribbon (along-track breathing
+    # The minor-damage boundary, i == 0.36 -- an irregular ribbon (along-track breathing
     # + edge noise both bend it), so it is drawn as a CONTOUR of the same raw
     # field every record was drawn from, not a fixed-offset line the way the
     # corridor edges above are (those ARE fixed-offset by construction --
     # `width_m` is a constant, the intensity profile inside it is not).
     if Z is not None:
         try:
-            ax.contour(xs, ys, Z, levels=[_CORE_BAND_I], colors="#8b0000",
+            ax.contour(xs, ys, Z, levels=[_MINOR_DAMAGE_I], colors="#8b0000",
                       linewidths=1.6, linestyles="dashed", zorder=5)
         except Exception:
             pass
@@ -1717,7 +1720,7 @@ def draw_png(manifest, extras, out_path):
     handles.append(Patch(facecolor="#8a7a5c", edgecolor="none", alpha=0.28,
                          label=f"ground evidence (i >= {_GROUND_EVIDENCE_I})"))
     handles.append(plt.Line2D([0], [0], color="#8b0000", lw=1.6, ls="--",
-                              label=f"core band (i >= {_CORE_BAND_I})"))
+                              label=f"minor-damage boundary (i = {_MINOR_DAMAGE_I})"))
     handles.append(plt.Line2D([0], [0], color="black", lw=1.6, label="centreline"))
     handles.append(plt.Line2D([0], [0], color="black", lw=0.9, ls="--",
                               label="corridor edge"))

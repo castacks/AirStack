@@ -219,6 +219,7 @@ services:
       - ISAAC_SIM_DISABLE_VIEWPORT_UPDATES=${ISAAC_SIM_DISABLE_VIEWPORT_UPDATES:-false}
       - ZED_PIPELINE=${ZED_PIPELINE:-stereo}
       - ZED_RENDER_STEP=${ZED_RENDER_STEP:-1}
+      - ZED_TIME_SLICE_GROUPS=${ZED_TIME_SLICE_GROUPS:-1}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
@@ -564,6 +565,7 @@ services:
       - ISAAC_SIM_DISABLE_VIEWPORT_UPDATES=${ISAAC_SIM_DISABLE_VIEWPORT_UPDATES:-false}
       - ZED_PIPELINE=${ZED_PIPELINE:-stereo}
       - ZED_RENDER_STEP=${ZED_RENDER_STEP:-1}
+      - ZED_TIME_SLICE_GROUPS=${ZED_TIME_SLICE_GROUPS:-1}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring

@@ -63,6 +63,19 @@ _CANONICAL_DIMS = os.path.join(_SCENE_GEN, "config", "harvested",
                                "urban_building_dimensions.json")
 
 
+def _canonical_asset_id(usd):
+    """Mount-independent identity for repo-local assets; URLs stay exact."""
+    value = str(usd).replace("\\", "/")
+    if "://" in value:
+        return value
+    marker = "/scene_gen/"
+    if marker in value:
+        return "airstack://scene_gen/" + value.split(marker, 1)[1]
+    if value.startswith("scene_gen/"):
+        return "airstack://" + value
+    return value
+
+
 def canonical_dimensions(path=_CANONICAL_DIMS):
     """Exact effective footprints harvested from a real Kit placement dump.
 
@@ -77,7 +90,8 @@ def canonical_dimensions(path=_CANONICAL_DIMS):
     out = {}
     for r in rows:
         try:
-            key = (str(r["usd"]), round(float(r["scale"]), 12),
+            key = (_canonical_asset_id(r["usd"]),
+                   round(float(r["scale"]), 12),
                    str(r.get("axis_up", "Z")).upper())
             out[key] = tuple(float(r[k]) for k in ("W", "D", "H"))
         except (KeyError, TypeError, ValueError):
@@ -172,7 +186,7 @@ class StubResolver:
 
     def get(self, usd, category, scale=1.0, axis_up="Z", **_kw):
         name = os.path.basename(str(usd))
-        exact_key = (str(usd), round(float(scale), 12),
+        exact_key = (_canonical_asset_id(usd), round(float(scale), 12),
                      str(axis_up or "Z").upper())
         wh = self.exact_sizes.get(exact_key)
         if wh is None:

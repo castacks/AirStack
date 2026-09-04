@@ -10,13 +10,27 @@ import json
 import os
 
 
+def canonical_asset_id(usd):
+    """Use one identity across /root/AirStack and /isaac-sim/AirStack."""
+    value = str(usd).replace("\\", "/")
+    if "://" in value:
+        return value
+    marker = "/scene_gen/"
+    if marker in value:
+        return "airstack://scene_gen/" + value.split(marker, 1)[1]
+    if value.startswith("scene_gen/"):
+        return "airstack://" + value
+    return value
+
+
 def build_catalog(docs, existing=None):
     found = {}
     sources = []
     if existing:
         sources.extend(existing.get("sources") or [])
         for r in existing.get("records") or ():
-            key = (str(r["usd"]), round(float(r["scale"]), 12),
+            key = (canonical_asset_id(r["usd"]),
+                   round(float(r["scale"]), 12),
                    str(r.get("axis_up", "Z")).upper())
             found[key] = tuple(float(r[k]) for k in ("W", "D", "H"))
     for path, doc in docs:
@@ -25,7 +39,8 @@ def build_catalog(docs, existing=None):
         for p in doc.get("placements") or ():
             if p.get("category") != "house":
                 continue
-            key = (str(p.get("usd") or ""), round(float(p.get("scale", 1.0)), 12),
+            key = (canonical_asset_id(p.get("usd") or ""),
+                   round(float(p.get("scale", 1.0)), 12),
                    str(p.get("axis_up", "Z")).upper())
             if not key[0] or any(p.get(k) is None for k in ("W", "D", "H")):
                 continue

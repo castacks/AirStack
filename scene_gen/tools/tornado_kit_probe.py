@@ -57,6 +57,13 @@ LEVEL = sys.argv[2] if len(sys.argv) > 2 else "T3"
 SEED = int(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3] else 7
 BEARING = float(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[4] else 35.0
 OUT_DIR = os.environ.get("TP_OUT") or "/isaac-sim/.cache/tornado_probe"
+KIT_SEED = int(os.environ.get("TP_KIT_SEED", str(SEED)))
+WIND_BEARING = os.environ.get("TP_WIND_BEARING")
+WIND_SPEED_FRAC = float(os.environ.get("TP_WIND_SPEED_FRAC", "1.0"))
+WIND_CROSS_FRAC = float(os.environ.get("TP_WIND_CROSS_FRAC", "0.0"))
+WIND_OVER = os.environ.get("TP_WIND_OVER", "0").lower() not in (
+    "0", "", "false", "no")
+INTENSITY_OVERRIDE = os.environ.get("TP_INTENSITY")
 
 
 def _bbox(stage, path):
@@ -112,15 +119,24 @@ def main():
                "width_m": 300.0, "wobble_m": 0.0, "edge_noise_m": 0.0,
                "along_min": 1.0, "width_min": 1.0})
     wind = tn.wind_at(cfg, 0.0, 0.0)
+    if WIND_BEARING is not None:
+        # Reproduce a city record exactly.  The positional track probe above
+        # remains the default; these overrides are only for replaying the
+        # already-computed, holder-local wind carried by a live manifest.
+        wind = {"bearing_deg": float(WIND_BEARING),
+                "speed_frac": WIND_SPEED_FRAC,
+                "cross_frac": WIND_CROSS_FRAC,
+                "over": WIND_OVER}
     print("[tkp] wind_at -> {0}".format(json.dumps(wind)))
 
-    intensity = tk.LEVEL_INTENSITY.get(LEVEL, 0.7)
+    intensity = (float(INTENSITY_OVERRIDE) if INTENSITY_OVERRIDE is not None
+                 else tk.LEVEL_INTENSITY.get(LEVEL, 0.7))
     rng = random.Random(SEED)
     nrng = np.random.default_rng(SEED & 0xFFFFFFFF)
 
     t1 = time.time()
     ctx = tk.wreck_kit(st, cell, STYLE, LEVEL, rng, nrng, {}, "tkp", wind,
-                       seed=SEED, btype=btype, intensity=intensity,
+                       seed=KIT_SEED, btype=btype, intensity=intensity,
                        verbose=True)
     t_wreck = time.time() - t1
 

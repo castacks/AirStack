@@ -70,6 +70,7 @@ def verify(url):
                 check_arc(payload.assetPath)
 
     local_paths, missing_assets, checked = set(), set(), set()
+    ignored_unreal_metadata = set()
     for prim in prims:
         for attr in prim.GetAttributes():
             if attr.GetTypeName() != Sdf.ValueTypeNames.Asset:
@@ -78,6 +79,17 @@ def verify(url):
             raw = getattr(value, "path", "") or ""
             resolved = getattr(value, "resolvedPath", "") or ""
             if not raw or raw.startswith("/Game/"):
+                continue
+            # Unreal's converter records its original content-browser token
+            # here (typically ``/Game/.../Material.Material``). Once a source
+            # layer is anchored on Nucleus, USD can spell that breadcrumb as
+            # ``omniverse://host/Game/...`` even though it is still provenance
+            # metadata, not a texture/shader input or a composition target.
+            # Audit it separately; do not weaken checks for any other asset
+            # attribute, including MDL sourceAsset fields.
+            if attr.GetName() == "info:unreal:sourceAsset":
+                if not resolved:
+                    ignored_unreal_metadata.add(raw)
                 continue
             if os.path.isabs(raw) and not raw.startswith("omniverse://"):
                 local_paths.add(raw)
@@ -112,6 +124,7 @@ def verify(url):
         "url": usd_url, "opened_from_nucleus": True, "meshes": meshes,
         "sky_lights": sky, "build_local": sorted(local_paths),
         "missing_nucleus_assets": sorted(missing_assets),
+        "ignored_unreal_source_metadata": sorted(ignored_unreal_metadata),
         "checked_nucleus_assets": len(checked),
         "cross_scope_bindings": cross, "missing_cell_files": missing_files,
         "checked_nucleus_arcs": len(checked_arcs),

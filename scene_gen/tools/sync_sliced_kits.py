@@ -7,6 +7,7 @@ cache path and merges by ``(asset, signature)``.
 """
 
 import argparse
+import glob
 import json
 import os
 import tempfile
@@ -41,14 +42,19 @@ def push(dst):
     current = kb.fingerprint()
     records = [r for r in records if r.get("fingerprint") == current
                and os.path.isfile(r.get("usd") or "")]
+    # A final damaged bake is content-addressed to the exact sliced-kit file it
+    # used. It can remain valid after kits.json advances to a newer fingerprint
+    # or drops a duplicate record. Publish every retained cache revision, not
+    # only files reachable from today's manifest, so warm bakes never acquire a
+    # dangling Nucleus reference during portability migration.
+    files = sorted(glob.glob(os.path.join(kb.KIT_DIR, "*.usd")))
     portable = []
     omni.client.create_folder(dst)
     ok = skip = fail = 0
     result, entries = omni.client.list(dst)
     sizes = ({e.relative_path: int(getattr(e, "size", 0) or 0) for e in entries}
              if _ok(result) else {})
-    for r in records:
-        src = r["usd"]
+    for src in files:
         name = os.path.basename(src)
         if sizes.get(name) == os.path.getsize(src):
             skip += 1
@@ -56,6 +62,8 @@ def push(dst):
             ok += 1
         else:
             fail += 1
+    for r in records:
+        name = os.path.basename(r["usd"])
         q = dict(r)
         q["usd"] = name
         portable.append(q)
@@ -68,7 +76,8 @@ def push(dst):
     finally:
         os.unlink(tmp)
     print("sliced-kit push: %d uploaded, %d already current, %d failed; "
-          "%d manifest records -> %s" % (ok, skip, fail, len(portable), dst))
+          "%d cached revision(s), %d manifest records -> %s" %
+          (ok, skip, fail, len(files), len(portable), dst))
     return 1 if fail else 0
 
 

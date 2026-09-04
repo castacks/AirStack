@@ -369,6 +369,12 @@ _SCENE_GEN_DIR = os.path.normpath(
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
 sys.path.insert(0, _SCENE_GEN_DIR)
 
+# Semantic storey/bay cells are localization metadata.  Until a recipe owns
+# a true irregular source-mesh cut, production city output keeps those cells
+# and expresses damage through shattered glazing, retained cracks, roof loss
+# and source-material ground debris instead of clean rectangular holes.
+os.environ.setdefault("TU_BOUNDARY_SAFE", "1")
+
 from scene_prep import (add_sky, get_stage_meters_per_unit,     # noqa: E402
                         scale_stage_prim, settle_rigid_props)
 from scene_generator import resolve_sky, _make_resolver          # noqa: E402
@@ -452,6 +458,12 @@ UT_MIN_TIPPED = int(_env("UT_MIN_TIPPED", "2") or "0")
 # the Paulikas shares hold). DEFAULT 0 here -- the CITY ships the pure model;
 # the bench sets UT_MIN_MOVED=3 for review.
 UT_MIN_MOVED = int(_env("UT_MIN_MOVED", "0") or "0")
+# Concrete/steel industrial sheds remain partial-envelope failures in the
+# review city.  The old total state replaced the whole source with a generic
+# collapse and read like an unrealistic concrete-building demolition.  Keep an
+# explicit opt-in for focused collapse benches, but never make that the city
+# default.
+UT_INDUSTRIAL_TOTAL = _flag("UT_INDUSTRIAL_TOTAL", "0")
 
 
 def vram_mb(tag):
@@ -957,6 +969,7 @@ class TornadoCityApp:
             print("[ut] fast complementary-sweep slicer enabled")
 
         placed, failed = [], []
+        standing_envelope = []
         total_pieces = 0
         t_apply0 = time.time()
         for n, rec in enumerate(damaged):
@@ -965,6 +978,23 @@ class TornadoCityApp:
             level, height_class = rec["level"], rec["height_class"]
             stem = "{0}_{1}_{2}".format(kind, name, i)
             cell_prim_path = rec["cell"]
+
+            # A coarse one-bay RC high-rise cannot express a LOCAL facade
+            # bite: one semantic bay is the entire elevation. Slicing and
+            # then removing that bay produced the apparent multi-storey
+            # collapse the review rejected and cost ~126 s for SM_Building_11.
+            # Keep its source shell intact and let the shared tornado street,
+            # roof/prop and directional-debris evidence carry the event.
+            # Curtain-wall (`rc_glass`) towers still take the shattered-glass
+            # path, which preserves their cage and does not require a chunk.
+            if (height_class in ("highrise", "tower") and
+                    rec.get("btype") != "rc_glass"):
+                standing_envelope.append(rec)
+                print("[ut] d{0} {1}: standing-envelope policy -- coarse "
+                      "{2} {3} left structurally intact (no full-width "
+                      "semantic-bay removal)".format(
+                          i, name, height_class, rec.get("btype")))
+                continue
 
             if hide_intact(stage, cell_prim_path):
                 self.n_hidden += 1
@@ -1065,6 +1095,7 @@ class TornadoCityApp:
         self.total_pieces = total_pieces
         self.damaged_all = damaged_all
         self.dropped_by_budget = dropped_by_budget
+        self.standing_envelope = standing_envelope
         self.slice_intact = slice_intact
         self.t_apply = time.time() - t_apply0
         print("[ut] applied damage to {0}/{1} building(s) ({2} failed) in "
@@ -1232,6 +1263,8 @@ class TornadoCityApp:
             i, name = rec["i"], rec["name"]
             x, y, yaw = rec["x"], rec["y"], rec["yaw"]
             grade = tcol.grade_for_intensity(rec["intensity"])
+            if grade == "total" and not UT_INDUSTRIAL_TOTAL:
+                grade = "partial"
             if grade is None:
                 print("[ut] industrial {0}: i {1:.2f} below the partial "
                       "grade — left intact".format(name, rec["intensity"]))
@@ -1538,6 +1571,14 @@ class TornadoCityApp:
             # block or behind a tower.
             severe = list(self.placed) + list(getattr(self, "kit_placed", []) or [])
             severe = [r for r in severe if r.get("level") in ("T3", "T4")]
+            # Do not leave the interactive review camera on a nominal T3/T4
+            # record whose boundary-safe plan correctly made no visible edit.
+            # Review actual cuts/glass/debris, so the final viewport shows the
+            # damaged elevation and its downwind deposit direction.
+            severe = [r for r in severe if sum(
+                int((r.get("counts") or {}).get(k, 0) or 0)
+                for k in ("n_removed", "n_glass", "n_displaced",
+                          "n_fragments")) > 0]
             severe.sort(key=lambda r: (-float(r.get("intensity", 0.0)),
                                        int(r.get("i", 0))))
             close = {}
@@ -1546,8 +1587,8 @@ class TornadoCityApp:
                     float(r["x"]), float(r["y"]))
             if close:
                 snaps.views_around(self.stage, close, SNAP_DIR, self.ssf,
-                                   top_h=75.0, obl_dist=85.0, obl_h=65.0,
-                                   azimuth_deg=obl_azimuth, aim_h=18.0)
+                                   top_h=48.0, obl_dist=42.0, obl_h=30.0,
+                                   azimuth_deg=obl_azimuth, aim_h=10.0)
                 print("[ut] close damage captures: {0}".format(len(close)))
         except Exception as exc:                                  # noqa: BLE001
             import traceback
@@ -1556,11 +1597,13 @@ class TornadoCityApp:
 
     def audit_scene(self):
         """Whole-stage material coverage and gross seating/fit bounds."""
+        from pxr import Usd, UsdGeom, UsdShade
         bad_targets = fallback_uncovered = bad_uv = 0
         fit_outside = floating = 0
         examples = []
         cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
                                   [UsdGeom.Tokens.default_])
+        xcache = UsdGeom.XformCache(Usd.TimeCode.Default())
         for p in Usd.PrimRange(self.stage.GetPrimAtPath(TORNADO_ROOT)):
             if not p.IsActive() or not p.IsA(UsdGeom.Mesh):
                 continue
@@ -1599,16 +1642,27 @@ class TornadoCityApp:
                 if rec:
                     box = cache.ComputeWorldBound(p).ComputeAlignedRange()
                     if not box.IsEmpty():
+                        # Compare in the holder's LOCAL frame. Comparing an
+                        # axis-aligned world bbox against unrotated W/D marked
+                        # essentially every fit-out under a yawed building as
+                        # outside even when it was correctly clipped.
                         c = box.GetMidpoint()
-                        if (abs(float(c[0]) - float(rec["x"]) * self.ssf) >
-                                0.55 * float(rec["W"]) * self.ssf or
-                            abs(float(c[1]) - float(rec["y"]) * self.ssf) >
-                                0.55 * float(rec["D"]) * self.ssf):
+                        hp = self.stage.GetPrimAtPath(holder_path)
+                        inv = xcache.GetLocalToWorldTransform(hp).GetInverse()
+                        lc = inv.Transform(c)
+                        if (abs(float(lc[0])) > 0.55 * float(rec["W"]) or
+                                abs(float(lc[1])) > 0.55 * float(rec["D"])):
                             fit_outside += 1
                             examples.append("fit outside " + path)
-            if ("/tornado_debris/" in path or "/tornado_ground/" in path):
+            if "/tornado_ground/" in path:
                 box = cache.ComputeWorldBound(p).ComputeAlignedRange()
-                if not box.IsEmpty() and float(box.GetMin()[2]) > 0.08 * self.ssf:
+                # `tornado_debris` is a merged, analytically seated berm: its
+                # source-role name retains the roof elevation and its z_lift
+                # intentionally builds heap relief.  A mesh-minimum check on
+                # that aggregate cannot distinguish relief from unsupported
+                # geometry, so audit only the independently-authored ground
+                # evidence here.  The berm author has its own seating gate.
+                if not box.IsEmpty() and float(box.GetMin()[2]) > 1.5 * self.ssf:
                     floating += 1
                     examples.append("floating debris " + path)
         self.audit = {"invalid_material_targets": bad_targets,

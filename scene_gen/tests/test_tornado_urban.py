@@ -786,7 +786,15 @@ def test_monotonic_mean_removal_and_glass_over_seeds():
                 n_gl.append(plan["stats"]["n_glass"])
             means_removed.append(sum(n_rem) / 30.0)
             means_glass.append(sum(n_gl) / 30.0)
-        assert means_removed == sorted(means_removed), (fixture, means_removed)
+        if fixture == "lowrise":
+            assert means_removed == sorted(means_removed), (fixture, means_removed)
+        else:
+            # T4 on a non-low-rise changes mechanism, not merely quantity:
+            # one localized ragged edge bite replaces T3's broader cladding
+            # band. More wind evidence comes from glazing/debris, while the
+            # structural shell remains standing.
+            assert means_removed[:3] == sorted(means_removed[:3])
+            assert means_removed[3] > 0
         assert means_glass == sorted(means_glass), (fixture, means_glass)
 
 
@@ -2326,6 +2334,23 @@ def test_hole_border_is_geometric_at_the_corners():
            if not tu._touch_xy(e, g.at((side, 1, bays[len(bays) // 2]))[0])]
     assert far, "expected at least one corner far from the mid bay"
     assert not (set(far) & border), sorted(set(far) & border)[:4]
+
+
+def test_boundary_safe_does_not_open_rectangular_parapet_cells(monkeypatch):
+    """A missing semantic cornice still leaves a factory-square opening.
+
+    Border tears on the modules beside it do not change the silhouette of
+    the removed centre cell (the live brownstone-324 failure).  In reviewed
+    output, roof peel/scour carries roof-line damage until the cornice itself
+    has a true partial fracture path.
+    """
+    monkeypatch.setattr(tu, "TU_BOUNDARY_SAFE", True)
+    recs = [("glass_loss", {}), ("parapet_fall", {}),
+            ("roof_props_sweep", {})]
+    guarded, notes = tu._guard(recs, "urm", {"H": 18.0}, "lowrise")
+    assert [name for name, _ in guarded] == ["glass_loss",
+                                              "roof_props_sweep"]
+    assert any("parapet_fall refused" in note for note in notes)
 
 
 if __name__ == "__main__":

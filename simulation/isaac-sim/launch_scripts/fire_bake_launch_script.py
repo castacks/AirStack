@@ -125,6 +125,11 @@ Env:
     SETTLE_DECOMP_M convex-decomposition threshold, metres (default 0.8 —
                     see `urban_fire_bench_launch_script.py` for the
                     measurement behind 0.8 rather than 2.5; 0 disables)
+    SETTLE_RETRY_PASSES number of in-process continuation attempts after a
+                    failed rest check (default 3; 0 restores old behaviour)
+    SETTLE_RETRY_FRACTION fraction of SETTLE_STEPS advanced per continuation
+                    attempt (default 1/3). The stage stays live: no rebuild,
+                    re-kick, or collider recook occurs between attempts.
     KEEP_PHYSICS    1 leaves the bodies live and skips the physics strip
     KEEP_OPEN       1 keeps the app up after the export
 
@@ -214,6 +219,8 @@ VERIFY = _env("FB_VERIFY", "1") not in ("0", "false", "no")
 SETTLE_STEPS = int(_env("SETTLE_STEPS", "2400"))
 SETTLE_QUIET = int(_env("SETTLE_QUIET", "400"))
 SETTLE_DECOMP_M = float(_env("SETTLE_DECOMP_M", "0.8"))
+SETTLE_RETRY_PASSES = int(_env("SETTLE_RETRY_PASSES", "3"))
+SETTLE_RETRY_FRACTION = float(_env("SETTLE_RETRY_FRACTION", "0.333333333333"))
 KEEP_PHYSICS = _env("KEEP_PHYSICS", "0") not in ("0", "false")
 
 ENTRY = {"kind": KIND, "name": NAME, "level": LEVEL, "seed": SEED,
@@ -573,7 +580,9 @@ def main():
             density=1600.0, max_speed=6.0, converge=True,
             max_steps=int(SETTLE_STEPS * 3), quiet_steps=SETTLE_QUIET,
             ccd=True, ground_plane_z=0.0, floor_z=0.0,
-            decompose_larger_than=(SETTLE_DECOMP_M or None)) or {}
+            decompose_larger_than=(SETTLE_DECOMP_M or None),
+            retry_passes=SETTLE_RETRY_PASSES,
+            retry_fraction=SETTLE_RETRY_FRACTION) or {}
     settle_s = time.time() - t_settle
     for _ in range(6):
         omni.kit.app.get_app().update()
@@ -581,6 +590,8 @@ def main():
         "steps_used", "steps_cap", "quiet_used", "converged", "stop_reason",
         "still_moving", "still_moving_paths", "below_grade", "clamped",
         "rescued", "baked", "moved_mean", "moved_max", "spread_max", "solve_s")}
+    settle_info["retry_passes"] = info.get("retry_passes", 0)
+    settle_info["retry_steps"] = info.get("retry_steps", 0)
     settle_info["bodies"] = len(info.get("bodies") or [])
     print("[fb] settled {0} body(s) in {1:.0f} s: converged={2}, still "
           "moving {3}, below grade {4}".format(
@@ -651,6 +662,13 @@ def main():
             print("[fb] removing stray root prim {0}".format(p.GetPath()))
             stage.RemovePrim(p.GetPath())
     stage.SetDefaultPrim(stage.GetPrimAtPath(Sdf.Path(fb.DEFAULT_PRIM)))
+
+    # Normalize the reusable BAKE, not only the eventual city. Kit's city
+    # flatten can reconstruct referenced prototypes from this root layer and
+    # resurrect its original local texture values after a live-stage rewrite.
+    # Fixing the small source layer closes that composition path and also
+    # keeps material reference arcs from degrading to fallback white.
+    fb.rewrite_shared_asset_paths(stage.GetRootLayer())
 
     os.makedirs(OUT_DIR, exist_ok=True)
     out_usd, out_json = fb.out_paths(ENTRY, OUT_DIR)

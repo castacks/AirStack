@@ -76,6 +76,7 @@ USAGE
     --dry-run      stat only; prints what WOULD move without copying.
 """
 import argparse
+import asyncio
 import os
 import sys
 
@@ -119,8 +120,18 @@ def _remote_join(remote_root, rel):
     return remote_root.rstrip("/") + "/" + rel
 
 
+async def _bounded_async(items, workers, operation):
+    semaphore = asyncio.Semaphore(workers)
+
+    async def one(item):
+        async with semaphore:
+            return await operation(item)
+
+    return await asyncio.gather(*(one(item) for item in items))
+
+
 def upload(local_root, remote_root, only, include_snaps, include_tmp,
-          dry_run, verbose=True):
+          dry_run, verbose=True, workers=1):
     """CALLER'S JOB to bracket this with `omni.client.initialize()`/
     `shutdown()` — see `_client_session` and the module docstring's "one
     `initialize()`/`shutdown()` per process" note. This function no longer
@@ -129,11 +140,17 @@ def upload(local_root, remote_root, only, include_snaps, include_tmp,
     have = need = copied = failed = 0
     errors = []
     planned = []
-    for rel, abspath, size in _iter_local(local_root, only,
-                                          include_snaps, include_tmp):
+    files = list(_iter_local(local_root, only, include_snaps, include_tmp))
+    remote_sizes = (dict(_iter_remote(remote_root, None))
+                    if workers > 1 else None)
+    for rel, abspath, size in files:
         dst = _remote_join(remote_root, rel)
-        r, entry = c.stat(dst)
-        if r == c.Result.OK and entry.size == size:
+        if workers > 1:
+            matches = remote_sizes.get(rel) == size
+        else:
+            r, entry = c.stat(dst)
+            matches = r == c.Result.OK and entry.size == size
+        if matches:
             have += 1
             continue
         need += 1
@@ -143,17 +160,28 @@ def upload(local_root, remote_root, only, include_snaps, include_tmp,
               "size), {2} to copy{3}".format(
                   local_root, have, need,
                   "  [DRY RUN]" if dry_run else ""))
-    for rel, abspath, dst, size in planned:
+    if not dry_run and workers > 1:
+        async def _copy(item):
+            return await c.copy_async(item[1], item[2],
+                                      behavior=c.CopyBehavior.OVERWRITE)
+        copy_results = asyncio.run(_bounded_async(planned, workers, _copy))
+    else:
+        copy_results = [None] * len(planned)
+    for index, (rel, abspath, dst, size) in enumerate(planned):
         if dry_run:
             print("  WOULD COPY  {0}  ({1:.1f} MB)".format(
                 rel, size / 1e6))
             continue
-        r = c.copy(abspath, dst, behavior=c.CopyBehavior.OVERWRITE)
+        r = (copy_results[index] if workers > 1 else
+             c.copy(abspath, dst, behavior=c.CopyBehavior.OVERWRITE))
         if str(r) == "Result.OK":
             copied += 1
-            if verbose:
+            if verbose and workers <= 1:
                 print("  copied  {0}  ({1:.1f} MB)".format(
                     rel, size / 1e6))
+            elif verbose and copied % 250 == 0:
+                print("  copied  {0}/{1} file(s)".format(
+                    copied, len(planned)))
         else:
             failed += 1
             errors.append((rel, str(r)))
@@ -166,7 +194,7 @@ def upload(local_root, remote_root, only, include_snaps, include_tmp,
 
 
 def verify(local_root, remote_root, only, include_snaps, include_tmp,
-          verbose=True):
+          verbose=True, workers=1):
     """Re-list every planned file on Nucleus and confirm size matches the
     local copy — the "verify listing after" step the task asks for. Returns
     the list of mismatches (empty = clean). Same calling convention as
@@ -174,22 +202,44 @@ def verify(local_root, remote_root, only, include_snaps, include_tmp,
     import omni.client as c
     bad = []
     n = 0
-    for rel, abspath, size in _iter_local(local_root, only,
-                                          include_snaps, include_tmp):
+    files = list(_iter_local(local_root, only, include_snaps, include_tmp))
+    remote_sizes = (dict(_iter_remote(remote_root, None))
+                    if workers > 1 else None)
+    for rel, abspath, size in files:
         n += 1
-        dst = _remote_join(remote_root, rel)
-        r, entry = c.stat(dst)
-        if r != c.Result.OK:
-            bad.append((rel, "NOT FOUND on Nucleus ({0})".format(r)))
-        elif entry.size != size:
+        if workers > 1:
+            remote_size = remote_sizes.get(rel)
+            if remote_size is None:
+                bad.append((rel, "NOT FOUND on Nucleus"))
+                continue
+        else:
+            r, entry = c.stat(_remote_join(remote_root, rel))
+            if r != c.Result.OK:
+                bad.append((rel, "NOT FOUND on Nucleus ({0})".format(r)))
+                continue
+            remote_size = entry.size
+        if remote_size != size:
             bad.append((rel, "size mismatch: local {0} vs remote {1}"
-                       .format(size, entry.size)))
+                       .format(size, remote_size)))
     if verbose:
         print("[dataset_upload] verify: {0}/{1} file(s) confirmed on "
               "Nucleus with a matching size".format(n - len(bad), n))
         for rel, why in bad[:20]:
             print("  MISMATCH  {0}  -- {1}".format(rel, why))
     return bad
+
+
+def native_tree_upload(local_root, remote_root, dry_run):
+    """Copy one complete directory through omni.client's native tree path."""
+    import omni.client as c
+    if dry_run:
+        print("[dataset_upload] WOULD NATIVE-COPY {0} -> {1}".format(
+            local_root, remote_root))
+        return True
+    result = c.copy(local_root, remote_root,
+                    behavior=c.CopyBehavior.OVERWRITE)
+    print("[dataset_upload] native tree copy: {0}".format(result))
+    return result == c.Result.OK
 
 
 # ---------------------------------------------------------------------------
@@ -296,11 +346,18 @@ def main(argv=None):
     ap.add_argument("--include-snaps", action="store_true")
     ap.add_argument("--include-tmp", action="store_true")
     ap.add_argument("--no-verify", action="store_true")
+    ap.add_argument("--workers", type=int,
+                    default=int(os.environ.get("DATASET_UPLOAD_WORKERS", "1")),
+                    help="bounded concurrent Nucleus requests (default 1)")
+    ap.add_argument("--native-tree-copy", action="store_true",
+                    help="use one recursive omni.client copy, then verify")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--download", action="store_true",
                     help="reverse direction: Nucleus -> --local (the "
                          "`dataset_pull.sh --from-nucleus` backend)")
     args = ap.parse_args(argv)
+    if args.workers < 1:
+        ap.error("--workers must be at least 1")
 
     print("[dataset_upload] local  {0}".format(args.local))
     print("[dataset_upload] remote {0}".format(args.remote))
@@ -316,14 +373,29 @@ def main(argv=None):
                               args.dry_run)
             return 1 if result["failed"] else 0
 
+        if args.native_tree_copy:
+            if args.only:
+                ap.error("--native-tree-copy does not support --only")
+            if not args.include_snaps or args.include_tmp:
+                ap.error("--native-tree-copy requires --include-snaps and "
+                         "cannot include temporary scratch")
+            if not native_tree_upload(args.local, args.remote, args.dry_run):
+                return 1
+            if args.dry_run or args.no_verify:
+                return 0
+            bad = verify(args.local, args.remote, None, True, False,
+                         workers=max(args.workers, 2))
+            return 1 if bad else 0
+
         result = upload(args.local, args.remote, args.only,
-                        args.include_snaps, args.include_tmp, args.dry_run)
+                        args.include_snaps, args.include_tmp, args.dry_run,
+                        workers=args.workers)
         if result["failed"]:
             return 1
         if args.dry_run or args.no_verify:
             return 0
         bad = verify(args.local, args.remote, args.only, args.include_snaps,
-                    args.include_tmp)
+                    args.include_tmp, workers=args.workers)
         return 1 if bad else 0
 
 

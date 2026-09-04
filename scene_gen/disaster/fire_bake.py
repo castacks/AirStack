@@ -79,6 +79,71 @@ import json
 import math
 import os
 
+
+# Shared assets are mirrored one-for-one on Nucleus. Baked buildings are
+# later referenced into a much larger city; if these paths remain local until
+# the city freeze, Kit can recreate them from a referenced prototype during
+# flattening and discard the city's stronger live-stage override. Normalize
+# them in the small bake layer itself, where they are ordinary authored specs.
+SHARED_ASSET_LOCAL_PREFIX = "/isaac-sim/AirStack/scene_gen/assets/"
+SHARED_ASSET_MIRROR = (
+    "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
+    "scene_gen/assets/")
+SHARED_KIT_LOCAL_PREFIX = SHARED_ASSET_LOCAL_PREFIX + "kits/"
+# Sliced kits are a versioned derived cache, not part of the one-for-one
+# source-asset mirror. Keep the legacy spelling so already-migrated bakes can
+# be corrected in place without rebuilding them.
+SHARED_KIT_LEGACY_MIRROR = SHARED_ASSET_MIRROR + "kits/"
+SHARED_KIT_MIRROR = (
+    "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
+    "scene_gen/cache/sliced_kits/v1/")
+
+
+def portable_shared_asset_path(path, local_prefix=SHARED_ASSET_LOCAL_PREFIX,
+                               mirror=SHARED_ASSET_MIRROR):
+    """Return the portable spelling of one authored USD asset path.
+
+    Per-bake soot images deliberately remain local here: the final cell freeze
+    collects those run-specific files. Only the project asset tree, whose
+    Nucleus mirror is maintained one-for-one, is rewritten.
+    """
+    path = str(path or "")
+    if path.startswith("omniverse:/") and not path.startswith("omniverse://"):
+        path = "omniverse://" + path[len("omniverse:/"):]
+    if path.startswith(SHARED_KIT_LOCAL_PREFIX):
+        return SHARED_KIT_MIRROR + path[len(SHARED_KIT_LOCAL_PREFIX):]
+    if path.startswith(SHARED_KIT_LEGACY_MIRROR):
+        return SHARED_KIT_MIRROR + path[len(SHARED_KIT_LEGACY_MIRROR):]
+    if path.startswith(local_prefix):
+        return mirror + path[len(local_prefix):]
+    return path
+
+
+def rewrite_shared_asset_paths(layer, verbose=True):
+    """Rewrite asset attributes and composition arcs in a bake root layer.
+
+    ``UsdUtils.ModifyAssetPaths`` is intentional: shader-only traversal misses
+    Material references, another route to a white fallback material. The large
+    final city crate cannot safely use this API because of poisoned kit
+    ``assetInfo`` values; the small bake layers can and are normalized before
+    they ever become city prototypes.
+    """
+    from pxr import UsdUtils
+
+    changed = [0]
+
+    def _fix(path):
+        new_path = portable_shared_asset_path(path)
+        if new_path != path:
+            changed[0] += 1
+        return new_path
+
+    UsdUtils.ModifyAssetPaths(layer, _fix)
+    if verbose:
+        print("[fb] portable cache: {0} shared asset path(s) -> Nucleus"
+              .format(changed[0]))
+    return changed[0]
+
 #: sidecar schema version — bump when a field changes meaning, not when one
 #: is added (readers use `.get`).
 SCHEMA = 1

@@ -47,3 +47,14 @@ def test_catalog_merges_existing_records():
     out = MOD.build_catalog([], existing=existing)
     assert out["sources"] == [{"path": "old"}]
     assert out["records"][0]["usd"] == "old.usd"
+
+
+def test_repo_local_catalog_identity_is_mount_independent():
+    row = {"category": "house", "scale": 0.01, "axis_up": "Z",
+           "yaw_deg": 0, "W": 10, "D": 20, "H": 30}
+    a = dict(row, usd="/isaac-sim/AirStack/scene_gen/assets/a.usd")
+    b = dict(row, usd="/root/AirStack/scene_gen/assets/a.usd")
+    out = MOD.build_catalog([("kit.json", {"placements": [a, b]})])
+    assert len(out["records"]) == 1
+    assert out["records"][0]["usd"] == \
+        "airstack://scene_gen/assets/a.usd"

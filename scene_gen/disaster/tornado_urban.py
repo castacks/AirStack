@@ -901,11 +901,11 @@ def t_chunk(pctx, keep_pier=None, corner_top_storeys=None,
     cn = corners_ranked[0]
     sa, sb = qs._CORNER_SIDES[cn]
     one_bay = g.n_bays.get(sa, 0) == 1 or g.n_bays.get(sb, 0) == 1
-    if one_bay and height_class in ("tower", "highrise") and max_st > 2:
-        max_st = 2
-        _note(pctx, "chunk: 1-bay side at the {0} corner on a {1} building "
-                    "-- storeys capped to 2 (a full-width band would be a "
-                    "slice, not a chunk)".format(cn, height_class))
+    if one_bay and height_class in ("tower", "highrise"):
+        _note(pctx, "chunk: refused at the {0} corner on a one-bay {1} "
+                    "slice -- one semantic bay is the whole elevation and "
+                    "cannot localize an edge bite".format(cn, height_class))
+        return
     k = rng.randint(1, max_st)
     # ROUND 2 (stream K's dw_terrace measurement): "region top >= 0.6 H" is
     # a HEIGHT constraint, and drawing the anchor by STOREY INDEX assumed
@@ -1501,10 +1501,16 @@ def _guard(recs, btype, info, height_class):
         # A whole intact semantic panel is never acceptable visible tornado
         # debris.  Panel cells remain useful to locate damage, but the visible
         # result must go through the fracture/tear path below.
-        if name in ("panel_loss", "hanging_panels"):
+        if name in ("panel_loss", "hanging_panels") or (
+                TU_BOUNDARY_SAFE and name in (
+                    "cladding_band", "chunk", "out_of_plane_top",
+                    "parapet_fall",
+                    "top_storey_loss", "facade_collapse")):
             notes.append("guard: {0} refused -- intact rectangular facade "
                          "cells are localization metadata, not tornado "
-                         "fracture geometry".format(name))
+                         "fracture geometry; keep the shell until this "
+                         "event has a true irregular source-mesh cut"
+                         .format(name))
             continue
         # T4 used to stack a broad cladding band and a corner chunk.  That
         # creates two independent missing rectangles and reads as generalized
@@ -1849,6 +1855,11 @@ _SUPPORT_MAX_PASSES = 12
 #: `TU_SUPPORT=0` restores round-3 behaviour (no wall support pass) -- the
 #: A/B switch the container probe uses to report before/after.
 TU_SUPPORT_ON = _os.environ.get("TU_SUPPORT", "1") not in ("0", "", "false")
+# Production city safety gate.  The legacy mechanism planner keeps these
+# recipes available for focused tests, but reviewed output must not expose
+# semantic rectangular cells as visible fracture boundaries.
+TU_BOUNDARY_SAFE = _os.environ.get(
+    "TU_BOUNDARY_SAFE", "0").lower() not in ("0", "", "false", "no")
 #: ROUND 5 (user review 2026-09-02, item 5/8: "lots of these floating walls
 #: on A3, A4"). The grid support rule (`_column_dead` via `_cell_below`)
 #: treats a bay column with NOTHING in it below as SUPPORTED — deliberately,
