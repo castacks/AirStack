@@ -132,9 +132,19 @@ cell/method for diagnosis rather than consuming the rest of the batch.
 
 | Order | Pod | Cells | Runs | Expected batch wall time | State |
 |---:|---|---|---:|---:|---|
-| 1 | `airstack-mission-1gpu-56` | Fire/Suburban L1–L3 × frontier, lawnmower, VLFM, CoNavGPT2 | 12 | ~9 h (12 h hard cap) | PREPARING |
-| 1 | `airstack-mission-1gpu-57` | Tornado/Suburban L1–L3 × frontier, lawnmower, VLFM, CoNavGPT2 | 12 | ~9 h (12 h hard cap) | PREPARING |
+| 1 | `airstack-mission-1gpu-56` | Fire/Suburban L1–L3 × frontier, lawnmower, VLFM, CoNavGPT2 | 12 | ~9 h (12 h hard cap) | RUNNING — `fire_suburban_8robot_optimized_batch/2026-09-04_19-51-50` |
+| 1 | `airstack-mission-1gpu-57` | Tornado/Suburban L1–L3 × frontier, lawnmower, VLFM, CoNavGPT2 | 12 | ~9 h (12 h hard cap) | RUNNING — `tornado_suburban_8robot_optimized_batch/2026-09-04_19-51-50` |
 | 2 | first healthy/free pod | Hurricane/Suburban L2–L3 × frontier, lawnmower, VLFM, CoNavGPT2 | 8 | ~6 h (12 h hard cap) | QUEUED |
+
+RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
+levels under a 12-hour mission cap, while the pod itself remains alive for 48
+hours for inspection and corrective reruns.
+
+| Workflow | Cells | State |
+|---|---|---|
+| `airstack-mission-8robot-2gpu-2` | Fire/Suburban L1–L3 RayFronts | QUEUED |
+| `airstack-mission-8robot-2gpu-3` | Hurricane/Suburban L1–L3 RayFronts | QUEUED |
+| `airstack-mission-8robot-2gpu-4` | Tornado/Suburban L1–L3 RayFronts | QUEUED |
 
 ## Average 600-s scene performance
 

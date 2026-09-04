@@ -481,14 +481,29 @@ os.environ["FC_INTACT_ONLY"] = "0"   # this launcher always wants the full,
 # ---------------------------------------------------------------------------
 from isaacsim import SimulationApp                            # noqa: E402
 
+_extra_args = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
+               "--/rtx/pathtracing/fractionalCutoutOpacity=true",
+               # Static export has no moving geometry.  Avoid building the
+               # motion BVH, which is pure VRAM overhead during a freeze.
+               "--/renderer/raytracingMotion/enabled=false",
+               "--/renderer/raytracingMotion/enableHydraEngineMasking=false",
+               "--/renderer/raytracingMotion/enableInstanceInPointInstancer=false"]
+_multigpu_count = int(_env("FREEZE_MULTIGPU_COUNT", "0") or 0)
+if _multigpu_count > 1:
+    _extra_args.extend(["--/renderer/multiGpu/enabled=true",
+                        "--/renderer/multiGpu/autoEnable=true",
+                        "--/renderer/multiGpu/maxGpuCount={0}".format(
+                            _multigpu_count)])
+    print("[freeze] distributing Hydra/RTX across {0} GPUs".format(
+        _multigpu_count), flush=True)
+
 simulation_app = SimulationApp(launch_config={
     "headless": _env("FREEZE_HEADLESS", "false").lower() in ("1", "true", "yes"),
     # SAME two flags `urban_fire_city_launch_script.py` and
     # `freeze_dataset_launch_script.py` both pass -- the bakes carry
     # fractional-cutout soot/glass materials and RTX forces them opaque
     # without this (see build-urban-fire-scenes' bug 4).
-    "extra_args": ["--/rtx/raytracing/fractionalCutoutOpacity=true",
-                   "--/rtx/pathtracing/fractionalCutoutOpacity=true"],
+    "extra_args": _extra_args,
 })
 
 from isaacsim.core.utils.extensions import enable_extension    # noqa: E402
@@ -499,6 +514,16 @@ enable_extension("omni.flowusd")
 import carb                                                    # noqa: E402
 import omni.kit.app                                            # noqa: E402
 import omni.usd                                                # noqa: E402
+
+# The freeze path writes USD and sidecars and captures no viewport when
+# FREEZE_SNAPS=0.  Prevent the default viewport from continually asking Hydra
+# for frames while thousands of city prims are being composed.
+if _env("FREEZE_DISABLE_VIEWPORT_UPDATES", "1").lower() in (
+        "1", "true", "yes"):
+    carb.settings.get_settings().set("/app/viewport/updatesEnabled", False)
+    carb.settings.get_settings().set(
+        "/persistent/app/viewport/updatesEnabled", False)
+    print("[freeze] viewport updates disabled", flush=True)
 
 from disaster import gt_hints                                  # noqa: E402
 
