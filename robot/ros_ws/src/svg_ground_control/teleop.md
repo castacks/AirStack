@@ -53,7 +53,9 @@ cd ~/AirStack/robot/ros_ws/src/svg_ground_control/scripts
 ./svg_teleop.sh hover      # 3 drones — you fly at them, the CBF pushes you back
 ```
 
-Add `--headless` to any of them to skip the Isaac viewport.
+Add `--headless` to any of them to skip the Isaac viewport. There is also
+`./svg_teleop.sh real` — one **real** drone, no sim; read
+[Real drone](#real-drone) before running it.
 
 Then fly it:
 
@@ -107,13 +109,61 @@ docker exec -it airstack-robot-desktop-1 tmux attach -t commander
 The commander logs `CBF active on: <drones> (residual ...)` whenever the
 filter is correcting someone.
 
+## Real drone
+
+The teleop node is transport-agnostic — the commander routes each drone's
+(CBF-filtered) command to MAVROS in sim or px4_interface (uXRCE-DDS) on
+hardware, and the sticks neither know nor care. One command brings up the
+whole real single-drone stack — agent, px4_interface, NatNet, mocap bridge,
+commander (`config/teleop_real.yaml`), joy, teleop, RViz:
+
+```bash
+./svg_teleop.sh real
+```
+
+It assumes experiment.md Part B is already done on this rig: VOXL provisioned
+(`voxl_setup_real_drone.sh`), EKF2 external-vision params set and verified
+(B4b, including the frame hand-check), and `natnet_ros2` built. The script
+gates on the agent session, `/drone_1/pose` from mocap, and odometry out of
+the EKF before starting teleop, and tells you which stage to debug when a gate
+fails.
+
+### Ground check — before the first takeoff
+
+Everything up to the sticks is checkable on the ground. With the stack up and
+**takeoff not called**:
+
+```bash
+./svg_teleop.sh monitor                          # sticks vs published command
+ros2 topic echo /svg/drone_1/teleop_command      # or raw, in the container
+```
+
+- right stick: `vx`/`vy` follow the sticks, correct directions, zero at rest
+- carry the drone up and down by hand: the altitude target seeds from the
+  measured height, and `vz` pushes back toward the target
+- the drone's marker tracks in RViz as you carry it (the B5 preflight)
+- unplug the pad: horizontal zeros, the altitude hold stays — that is the
+  intended dead-pad behavior (see [Safety](#safety))
+
+**Yaw cannot be ground-checked.** The real path negates the yaw rate where the
+sim path does not (`px4_interface` vs `mavros_interface`), so sim flights
+prove every axis except yaw sign. First flight: test yaw slowly, low, with a
+thumb on the RC kill switch. If it turns the wrong way, flip `yaw_sign`.
+
+Known limitation: the commander's takeoff is fixed-time staging (request
+control, arm, ascend) and does not confirm against `vehicle_status` — if PX4
+refuses to arm (EKF not ready, preflight failure), the drone simply stays put;
+check the drone's own status via QGC or `px4-listener`.
+
 ## Hardware and hybrid
 
-These take teleop the same way, but the bring-up differs (real interfaces,
-mocap, per-drone uXRCE agents). Read each config's own header before running.
+Multi-drone hardware configs take teleop the same way, but the bring-up
+differs (per-drone uXRCE agents on separate ports, more interfaces). Read each
+config's own header before running.
 
 | config | setup |
 |--------|-------|
+| `teleop_real.yaml` | ONE real drone, teleop — what `./svg_teleop.sh real` uses |
 | `hybrid_squeeze.yaml` | real holders + sim intruder |
 | `squeeze_rc_intruder.yaml` | all real, intruder on RC — `external_drones`, not teleop |
 | `swarm_real.yaml` | three real drones, hover |
@@ -151,11 +201,12 @@ values, and prints nothing unless the sticks are moving, because `joy_node`
 publishes on change.
 
 `joy_node` **negates every axis**, so a stick pushed right reads positive on
-the device and negative on `/joy`. That is what the `-1.0` defaults on
-`forward_sign`, `left_sign` and `climb_sign` undo. It also applies its own
-deadzone, and reports the triggers resting at `+1.0` rather than the device's
-`-1.0`. The two tables will disagree on sign for the same stick position, and
-that is correct.
+the device and negative on `/joy`. That is why the `*_sign` parameters exist —
+after the axis-convention fix only `left_sign` defaults to `-1.0`; the rest
+are `+1.0` (the [Axis signs](#axis-signs) table below is the authority). It
+also applies its own deadzone, and reports the triggers resting at `+1.0`
+rather than the device's `-1.0`. The two tables will disagree on sign for the
+same stick position, and that is correct.
 
 The velocity preview, showing the mapping against a stand-in drone without
 flying anything:
@@ -183,6 +234,12 @@ at the DDS level but cannot deserialize the messages — you get a stream of
 ## Parameters
 
 `ros2 run svg_ground_control safe_teleop --ros-args -p <name>:=<value>`
+
+The node's own defaults are conservative. `svg_teleop.sh` passes
+`max_speed_mps:=2.0` for the sim experiments (with matching 2.0
+`teleop_max_speed_mps` / `cbf_max_speed_mps` in the sim configs — the
+commander clamps to the smallest of the three, so all must agree). The real
+mode stays at `teleop_real.yaml`'s slower caps.
 
 | param | default | meaning |
 |-------|---------|---------|
@@ -241,10 +298,15 @@ applies on hardware; see `squeeze_rc_intruder.yaml`.
 This stack bypasses `drone_safety_monitor`. PX4 failsafes and the RC kill
 switch are the safety net.
 
-Both timeouts publish zero velocity rather than holding the last command, so
-an unplugged pad or lost odometry stops the drone instead of latching whatever
-it was last told. Zero velocity is not a position hold — a drone with a stale
-pad sags to the `min_altitude_m` floor rather than holding station.
+The two timeouts fail differently, on purpose. A stale pad (unplugged, dead
+battery) zeros horizontal and yaw but **keeps the altitude hold**, so the
+drone parks in the air at its held height rather than latching whatever it was
+last told — bring it down with `land` (or `hold`), or the RC kill switch.
+Stale odometry zeros everything including the vertical command — without a
+height measurement the altitude hold would be flying blind — and drops the
+altitude target, which re-seeds from the measured height when odometry
+returns. Neither case is a position hold: a drone commanded zero velocity
+stays roughly put but can drift.
 
 ## Keyboard teleop
 

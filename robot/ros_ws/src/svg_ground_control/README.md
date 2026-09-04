@@ -51,13 +51,16 @@ Ported from drone_soccer plus goal-tracking and a squeeze profile:
 a teleop drone's commanded velocity is still passed through the CBF filter
 like any autonomous drone unless it is also listed in `cbf_exempt_drones`
 (separate, opt-in, empty by default). `external_drones` are tracked for the
-filter but never commanded (e.g. RC-flown). Drive a teleop drone with
-`ros2 run svg_ground_control keyboard_teleop --ros-args -p drone:=drone_3`
-(one instance per teleop drone).
+filter but never commanded (e.g. RC-flown).
 
-A gamepad works too — `xbox_teleop` gives continuous proportional sticks
-instead of latched speed steps. See [teleop.md](teleop.md) for both drivers,
-finding your pad's axis numbers, and where each node has to run.
+The maintained way to hand-fly a drone is the **`safe_teleop`** gamepad driver
+(direct horizontal velocity, rate-controlled altitude with active hold, stick
+lock), brought up end to end by `scripts/svg_teleop.sh` — sim experiments
+(`solo`/`squeeze`/`hover`) and one real drone (`real`,
+[config/teleop_real.yaml](config/teleop_real.yaml)). See
+**[teleop.md](teleop.md)** for controls, pad diagnostics, axis signs, and the
+real-drone ground check. `keyboard_teleop` (latched speed steps, one instance
+per drone) and `xbox_teleop` remain as ad-hoc utilities.
 
 ## Hybrid sim/real, geofence, RViz
 
@@ -93,7 +96,10 @@ squeeze rollout), and [test/functional_squeeze_test.py](test/functional_squeeze_
   operator becomes the safety authority for it instead of the filter.
 - This stack bypasses `drone_safety_monitor`; PX4 failsafes and the RC kill
   switch are the safety net. Configure them before flying.
-- Stale odometry (> `state_timeout_s`) → zero-velocity command; stale teleop
-  input → zero. `~/hold` is the panic button.
+- Stale odometry (> `state_timeout_s`) → zero-velocity command. A stale
+  *teleop topic* (> `teleop_timeout_s`, i.e. the teleop node died) → zero. A
+  dead *gamepad* is different and intentional: `safe_teleop` keeps publishing,
+  zeroing horizontal but holding altitude, so the drone parks in the air — see
+  teleop.md "Safety". `~/hold` is the panic button.
 - `CBF emergency push-apart engaged` in the log means the QP went infeasible
   (drones inside each other's safety spheres) — land and investigate.

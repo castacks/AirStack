@@ -282,8 +282,10 @@ ros2 launch svg_ground_control ground_control.launch.py \
 
 > In the standard experiments a drone is **sim**, **real**, or **external**
 > (RC-flown, tracked-only) — none of the Part C tasks use teleop. This tool
-> remains available for ad-hoc debugging only (requires putting a drone in
-> `teleop_drones`, which no shipped config does).
+> remains available for ad-hoc debugging only. Gamepad teleop is a separate,
+> maintained path with its own configs (`teleop_single.yaml` sim,
+> `teleop_real.yaml` one real drone via `./svg_teleop.sh real`) — see
+> [teleop.md](teleop.md).
 
 ```bash
 cd ~/AirStack/robot/ros_ws && sws

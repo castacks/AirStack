@@ -43,9 +43,9 @@ swarm_commander:
     land_complete_altitude_m: 0.15
 
     cbf_safety_radius_m: 0.55
-    cbf_max_speed_mps: 1.2
+    cbf_max_speed_mps: 2.0
     cbf_alpha: 2.5
-    teleop_max_speed_mps: 1.2
+    teleop_max_speed_mps: 2.0
 
     # Breach -> all drones hold until /swarm_commander/reset_fence.
     fence_enabled: true

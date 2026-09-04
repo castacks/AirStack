@@ -11,8 +11,8 @@ Run it next to view.py to see whether joy_node is changing the values. It is,
 in two ways:
 
 * It negates every axis. A stick pushed right reads positive on the device and
-  negative on /joy. This is why teleop_node's forward_sign, left_sign and
-  climb_sign all default to -1.0 — they undo it.
+  negative on /joy. This is why teleop_node has *_sign parameters — only
+  left_sign defaults to -1.0; teleop.md's "Axis signs" table is the authority.
 * It applies its own deadzone, so a stick barely off center reads exactly
   0.000 here while view.py still shows the raw counts.
 

@@ -6,6 +6,9 @@
 #   ./svg_teleop.sh hover            three drones hovering, the CBF corrects you
 #   ./svg_teleop.sh squeeze --headless   same, no Isaac viewport
 #
+#   ./svg_teleop.sh real             ONE REAL DRONE (mocap + uXRCE-DDS), no sim.
+#                                    Read teleop.md "Real drone" first.
+#
 #   ./svg_teleop.sh takeoff      arm and ascend
 #   ./svg_teleop.sh start        hand control to the sticks
 #   ./svg_teleop.sh hold         stop where you are
@@ -13,7 +16,7 @@
 #   ./svg_teleop.sh reset-fence  clear a geofence breach
 #   ./svg_teleop.sh monitor      live sticks + commanded velocity (this terminal)
 #   ./svg_teleop.sh status       what is running, odometry, roles
-#   ./svg_teleop.sh logs <name>  isaac | iface | commander | teleop | joy
+#   ./svg_teleop.sh logs <name>  isaac | agent | natnet | iface | commander | teleop | joy
 #   ./svg_teleop.sh stop         kill everything, leave containers up
 #
 # Everything runs in tmux inside the containers, so nothing needs a terminal
@@ -53,12 +56,13 @@ detect_domain() {
 }
 rtmux()  { docker exec "$ROBOT" bash -lc "tmux kill-session -t $1 2>/dev/null; tmux new -d -s $1 \"export ROS_DOMAIN_ID=$ROS_DOMAIN; $2\"" 2>/dev/null; }
 
-need_containers() {
-    for c in "$ROBOT" "$ISAAC"; do
+need_containers() {   # need_containers <container...>  (default: robot only)
+    local list=("$@"); [ "${#list[@]}" -eq 0 ] && list=("$ROBOT")
+    for c in "${list[@]}"; do
         docker ps --format '{{.Names}}' | grep -qx "$c" || {
             red "Container '$c' is not running."
             echo "  cd ~/AirStack && AUTOLAUNCH=false ./airstack.sh up robot-desktop"
-            echo "  cd ~/AirStack && AUTOLAUNCH=false ./airstack.sh up isaac-sim"
+            [ "$c" = "$ISAAC" ] && echo "  cd ~/AirStack && AUTOLAUNCH=false ./airstack.sh up isaac-sim"
             exit 1
         }
     done
@@ -73,7 +77,8 @@ teardown() {
     rexec "pkill -f 'ros2 launch'; pkill -f launch_sim_interfaces; \
            pkill -9 -f swarm_commander; pkill -9 -f safe_teleop; pkill -9 -f joy_node; \
            pkill -9 -f rviz2; pkill -9 -f odom_modifier; pkill -9 -f odometry_conversion; \
-           pkill -9 -f robot_interface; pkill -9 -f position_setpoint; pkill -9 -f mavros" || true
+           pkill -9 -f robot_interface; pkill -9 -f position_setpoint; pkill -9 -f mavros; \
+           pkill -9 -f mocap_bridge; pkill -9 -f natnet; pkill -f MicroXRCEAgent" || true
     # Kill the whole server, not just our sessions: a server left over from an
     # earlier shell carries that shell's environment into everything it spawns.
     rexec "tmux kill-server 2>/dev/null" || true
@@ -109,7 +114,7 @@ bringup() {
         *) red "Unknown experiment '$opt' (want solo, squeeze or hover)"; exit 1 ;;
     esac
 
-    need_containers
+    need_containers "$ROBOT" "$ISAAC"
     detect_domain
     grn "$opt: $desc"
     echo "  $n drone(s), $config ${overrides:-(no overrides)}, you fly $drone"
@@ -179,7 +184,9 @@ bringup() {
     fi
 
     step "safe_teleop on $drone"
-    rtmux teleop "cd $WS && source install/setup.bash && ros2 run svg_ground_control safe_teleop --ros-args -p drone:=$drone 2>&1 | tee /tmp/teleop.log"
+    # max_speed_mps 2.0: full stick = 2 m/s (the node's own default is a
+    # conservative 1.0). The config's teleop/cbf caps are 2.0 to match.
+    rtmux teleop "cd $WS && source install/setup.bash && ros2 run svg_ground_control safe_teleop --ros-args -p drone:=$drone -p max_speed_mps:=2.0 2>&1 | tee /tmp/teleop.log"
     sleep 3
     grn "    driving $drone"
 
@@ -206,6 +213,120 @@ bringup() {
     echo "  ./svg_teleop.sh monitor"
     echo "  ./svg_teleop.sh status"
     echo "  ./svg_teleop.sh stop"
+}
+
+# One real drone over mocap + uXRCE-DDS. Same commander, same teleop node,
+# same takeoff/start/land — only the transport differs (px4_interface instead
+# of MAVROS, mocap instead of Isaac). No Isaac container needed.
+#
+# NOT covered here (do them first — experiment.md Part B): VOXL provisioning
+# (voxl_setup_real_drone.sh), EKF2 external-vision params + the frame
+# hand-check (B4b), and the RViz hand-carry preflight (B5).
+bringup_real() {
+    local drone=drone_1 config=teleop_real.yaml n=1
+
+    need_containers "$ROBOT"
+    detect_domain
+    grn "real: one REAL drone ($drone), gamepad teleop, mocap + uXRCE-DDS"
+    red "  This flies hardware. PX4 failsafes and the RC kill switch are the"
+    red "  safety net — keep a thumb on the kill switch. Yaw sign is UNVERIFIED"
+    red "  by sim (real path negates it, sim does not): test yaw slowly, low."
+
+    step "Clearing anything left from a previous run"
+    teardown
+    grn "    clean"
+
+    step "uXRCE-DDS agent (port 8888)"
+    rtmux agent "MicroXRCEAgent udp4 -p 8888 -v4 2>&1 | tee /tmp/agent.log"
+    wait_for "agent process" 30 \
+        "docker exec $ROBOT bash -lc 'pgrep -f MicroXRCEAgent >/dev/null'" || {
+        red "MicroXRCEAgent did not start (not in the image? see experiment.md B2)"; exit 1; }
+    # The client on the VOXL retries on its own; give it a moment but do not
+    # block forever — a missing session shows up as no odometry below anyway.
+    wait_for "drone session (is the drone powered + on wifi?)" 60 \
+        "docker exec $ROBOT bash -lc 'grep -q \"session established\" /tmp/agent.log'" || \
+        ylw "    no session yet — continuing, but expect the odometry gate to fail"
+
+    step "Real drone interfaces (px4_interface)"
+    rtmux iface "cd $WS && source install/setup.bash && ros2 launch svg_ground_control real_interfaces.launch.py drones:=$drone 2>&1 | tee /tmp/iface.log"
+
+    step "NatNet mocap"
+    if ! rexec "source $WS/install/setup.bash >/dev/null 2>&1; ros2 pkg prefix natnet_ros2 >/dev/null 2>&1; echo BUILT:\$?" | grep -q 'BUILT:0'; then
+        red "natnet_ros2 is not built. In the robot container:"
+        echo "  bws --packages-select natnet_ros2 && sws     (first build needs internet)"
+        exit 1
+    fi
+    rtmux natnet "cd $WS && source install/setup.bash && ros2 launch natnet_ros2 natnet_ros2.launch.py 2>&1 | tee /tmp/natnet.log"
+    wait_for "$drone mocap pose (is Motive streaming?)" 120 \
+        "docker exec $ROBOT bash -lc 'source $WS/install/setup.bash >/dev/null 2>&1; timeout 6 ros2 topic hz /$drone/pose 2>&1 | grep -q average'" || {
+        red "$drone never appeared on /$drone/pose. Motive not streaming, wrong"
+        red "serverIP, or the rigid body is not named $drone. ./svg_teleop.sh logs natnet"; exit 1; }
+
+    step "Ground controller + mocap bridge"
+    rtmux commander "cd $WS && source install/setup.bash && ros2 launch svg_ground_control ground_control.launch.py config:=$SHARE/config/$config use_mocap:=true 2>&1 | tee /tmp/commander.log"
+    wait_for "commander up" 60 \
+        "docker exec $ROBOT bash -lc 'grep -q \"SwarmCommander up\" /tmp/commander.log 2>/dev/null'" || {
+        red "Commander never started. ./svg_teleop.sh logs commander"; exit 1; }
+    sleep 3
+    if rexec "grep -q 'process has died' /tmp/commander.log"; then
+        red "    commander started then DIED — see ./svg_teleop.sh logs commander"
+        exit 1
+    fi
+    rexec "grep -m1 'SwarmCommander up' /tmp/commander.log | sed 's/.*SwarmCommander/    SwarmCommander/'"
+
+    # Mocap -> EKF -> odometry is the whole real state chain; no odometry here
+    # means the EKF is not fusing external vision (experiment.md B4b).
+    wait_for "$drone odometry (mocap -> EKF -> odometry_conversion)" 120 \
+        "docker exec $ROBOT bash -lc 'source $WS/install/setup.bash >/dev/null 2>&1; timeout 6 ros2 topic hz /$drone/odometry_conversion/odometry 2>&1 | grep -q average'" || {
+        red "$drone never produced odometry. Check the EKF2 external-vision"
+        red "params + QoS checks in experiment.md B4b. ./svg_teleop.sh logs iface"; exit 1; }
+
+    step "Checking for duplicate publishers"
+    local c
+    c=$(rexec "source $WS/install/setup.bash >/dev/null 2>&1; timeout 12 ros2 topic info /$drone/odometry_conversion/odometry 2>/dev/null | grep -m1 'Publisher count' | awk '{print \$3}'")
+    c=${c:-0}
+    if [ "$c" = "1" ]; then
+        echo "    $drone: 1 publisher"
+    else
+        red "    $drone: $c publishers — a stale interface is still running"
+        red "Run ./svg_teleop.sh stop and try again."; exit 1
+    fi
+
+    step "joy_node (your gamepad)"
+    rtmux joy "cd $WS && source install/setup.bash && ros2 run joy joy_node 2>&1 | tee /tmp/joy.log"
+    sleep 4
+    if rexec "grep -q 'Opened joystick' /tmp/joy.log"; then
+        rexec "grep -m1 'Opened joystick' /tmp/joy.log | sed 's/.*\\[joy_node\\]:/   /'"
+    else
+        ylw "    no joystick opened — is the pad plugged in? (ls /dev/input/js*)"
+    fi
+
+    step "safe_teleop on $drone"
+    rtmux teleop "cd $WS && source install/setup.bash && ros2 run svg_ground_control safe_teleop --ros-args -p drone:=$drone 2>&1 | tee /tmp/teleop.log"
+    sleep 3
+    grn "    driving $drone"
+
+    step "RViz"
+    rtmux rviz "cd $WS && source install/setup.bash && \
+        python3 src/svg_ground_control/scripts/rviz_for_run.py \
+            \$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/svg_drones.rviz \
+            /tmp/svg_drones_run.rviz $drone && \
+        rviz2 -d /tmp/svg_drones_run.rviz 2>&1 | tee /tmp/rviz.log"
+    sleep 3
+
+    echo
+    grn "Stack is up. GROUND CHECK BEFORE FLYING (teleop.md \"Real drone\"):"
+    echo "  ./svg_teleop.sh monitor          # wiggle sticks, check directions"
+    echo "  # and/or, in the container:"
+    echo "  ros2 topic echo /svg/$drone/teleop_command"
+    echo "  # carry the drone by hand: its RViz marker must track (B5 preflight)"
+    echo
+    red "Yaw cannot be ground-checked. First flight: yaw slowly, low altitude."
+    echo
+    grn "Then, thumb on the RC kill switch:"
+    echo "  ./svg_teleop.sh takeoff"
+    echo "  ./svg_teleop.sh start"
+    echo "  ./svg_teleop.sh land"
 }
 
 call_srv() {
@@ -268,10 +389,14 @@ status() {
     for s in iface commander teleop joy rviz; do
         if rexec "tmux has-session -t $s 2>/dev/null"; then grn "    $s: running"; else red "    $s: not running"; fi
     done
+    # Real-mode-only sessions: absent on a sim run, so only report when up.
+    for s in agent natnet; do
+        rexec "tmux has-session -t $s 2>/dev/null" && grn "    $s: running (real mode)"
+    done
     if iexec "pgrep -f svg_multi_drone_single_domain.py >/dev/null"; then
         grn "    isaac: running ($(iexec "pgrep -cf 'bin/px4'" | tr -d '\n') PX4 instance(s))"
     else
-        red "    isaac: not running"
+        red "    isaac: not running (expected on a real-drone run)"
     fi
 
     step "Drones"
@@ -293,16 +418,18 @@ status() {
 logs() {
     case "${1:-}" in
         isaac)     iexec "tail -40 /tmp/isaac.log" ;;
+        agent)     rexec "tail -40 /tmp/agent.log" ;;
+        natnet)    rexec "tail -40 /tmp/natnet.log" ;;
         iface)     rexec "tail -40 /tmp/iface.log" ;;
         commander) rexec "grep -vE 'CBF active' /tmp/commander.log | tail -40" ;;
         teleop)    rexec "tail -30 /tmp/teleop.log" ;;
         joy)       rexec "tail -20 /tmp/joy.log" ;;
         rviz)      rexec "tail -20 /tmp/rviz.log" ;;
-        *) red "logs <isaac|iface|commander|teleop|joy|rviz>"; exit 1 ;;
+        *) red "logs <isaac|agent|natnet|iface|commander|teleop|joy|rviz>"; exit 1 ;;
     esac
 }
 
-usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-}"; shift || true
 headless=false
@@ -310,6 +437,7 @@ for a in "$@"; do [ "$a" = "--headless" ] && headless=true; done
 
 case "$cmd" in
     solo|squeeze|hover) bringup "$cmd" "$headless" ;;
+    real)         bringup_real ;;
     takeoff)      call_srv takeoff ;;
     start)        call_srv start && open_monitor ;;
     hold)         call_srv hold ;;
