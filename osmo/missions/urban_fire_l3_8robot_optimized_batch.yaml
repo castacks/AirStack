@@ -5,6 +5,7 @@
 #   - fireurbanl3v1_vlfm
 #   - fireurbanl3v1_conavgpt2_team
 # Pod override: ISAAC_SIM_MULTIGPU=
+# Pod override: OFFBOARD_COMPUTE_GPU=1
 # Pod override: ZED_PIPELINE=mono_rgbd
 # Pod override: MIGHTY_CLOUD_SUFFIX=sensors/front_stereo/left/depth_pcl
 # Pod override: SEARCH_DEPTH_TOPIC_TEMPLATE=/{robot}/sensors/front_stereo/left/depth_ground_truth
@@ -61,6 +62,7 @@ env:
   LVLM_BASELINE: 'false'
   COMMS_RANGE_M: 5000
   GT_ANNOTATIONS: 'on'
+  OFFBOARD_COMPUTE_GPU: '1'
   ZED_PIPELINE: mono_rgbd
   MIGHTY_CLOUD_SUFFIX: sensors/front_stereo/left/depth_pcl
   SEARCH_DEPTH_TOPIC_TEMPLATE: /{robot}/sensors/front_stereo/left/depth_ground_truth
@@ -225,7 +227,20 @@ steps:
 - run:
     container: airstack-robot-desktop-{n}
     cmd: "source /root/.bashrc >/dev/null 2>&1 || true\nexport ROBOT_NAME=robot_{n}\nexport ROS_DOMAIN_ID={n}\n\
-      # PROBE THE DISPARITY, NOT THE CLOUD OR THE IMAGE. Both of those are on\n# the dds_router ALLOWLIST\
+      # The optimized benchmark uses simulator RGB-D (`mono_rgbd`), which\n# intentionally bypasses stereo\
+      \ matching and therefore never publishes\n# `/perception/stereo_image_proc/disparity`.  Validate\
+      \ the cloud Mighty\n# actually consumes without subscribing to it (subscribing here would\n# open\
+      \ the high-bandwidth DDS bridge route and can exhaust router RAM).\nif [ \"${ZED_PIPELINE:-}\" =\
+      \ \"mono_rgbd\" ]; then\n  PC=/robot_{n}/$(printenv MIGHTY_CLOUD_SUFFIX)\n  npub=0; mapper_sub=0\n\
+      \  for i in $(seq 1 30); do\n    npub=$(ros2 topic info \"$PC\" 2>/dev/null \\\n           | grep\
+      \ -oE \"Publisher count: [0-9]+\" | grep -oE \"[0-9]+\")\n    npub=${npub:-0}\n    info=$(ros2 topic\
+      \ info \"$PC\" --verbose 2>/dev/null || true)\n    if printf '%s\\n' \"$info\" \\\n         | grep\
+      \ -A4 -F \"Node name: global_mapper_ros\" \\\n         | grep -qF \"Node namespace: /robot_{n}/mighty\"\
+      ; then\n      mapper_sub=1\n    fi\n    if [ \"$npub\" -gt 0 ] && [ \"$mapper_sub\" = \"1\" ]; then\n\
+      \      echo \"PERCEPTION_OK robot_{n}: $PC has $npub publisher(s) and global_mapper_ros subscribes\"\
+      \n      exit 0\n    fi\n    sleep 5\n  done\n  echo \"PERCEPTION_DEAD robot_{n}: $PC publisher_count=$npub\
+      \ mapper_sub=$mapper_sub\"\n  ros2 topic info \"$PC\" --verbose 2>/dev/null || true\n  exit 1\n\
+      fi\n# PROBE THE DISPARITY, NOT THE CLOUD OR THE IMAGE. Both of those are on\n# the dds_router ALLOWLIST\
       \ (`onboard_all/config/dds_router.yaml`:\n# `.../front_stereo/left/image_rect` and\n# `.../perception/stereo_image_proc/point_cloud`),\
       \ and `ros2 topic hz`\n# creates a READER \u2014 which activates the robot->GCS bridge for a\n#\
       \ ~21 MB/s point cloud that nothing on the GCS side consumes, so the\n# router buffers it without\
@@ -265,9 +280,6 @@ steps:
       target_altitude_m: 20.0
       velocity_m_s: 2.0
     timeout_s: 420
-    dispatch_stagger_s: 3
-    prearm_via_mavros: true
-    prearm_timeout_s: 60
     robots: all
 - wait: 5
 - run:

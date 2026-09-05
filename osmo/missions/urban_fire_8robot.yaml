@@ -716,6 +716,34 @@ steps:
         source /root/.bashrc >/dev/null 2>&1 || true
         export ROBOT_NAME=robot_{n}
         export ROS_DOMAIN_ID={n}
+        # The optimized benchmark uses simulator RGB-D (`mono_rgbd`), which
+        # intentionally bypasses stereo matching and therefore never publishes
+        # `/perception/stereo_image_proc/disparity`.  Validate the cloud Mighty
+        # actually consumes without subscribing to it (subscribing here would
+        # open the high-bandwidth DDS bridge route and can exhaust router RAM).
+        if [ "${ZED_PIPELINE:-}" = "mono_rgbd" ]; then
+          PC=/robot_{n}/$(printenv MIGHTY_CLOUD_SUFFIX)
+          npub=0; mapper_sub=0
+          for i in $(seq 1 30); do
+            npub=$(ros2 topic info "$PC" 2>/dev/null \
+                   | grep -oE "Publisher count: [0-9]+" | grep -oE "[0-9]+")
+            npub=${npub:-0}
+            info=$(ros2 topic info "$PC" --verbose 2>/dev/null || true)
+            if printf '%s\n' "$info" \
+                 | grep -A4 -F "Node name: global_mapper_ros" \
+                 | grep -qF "Node namespace: /robot_{n}/mighty"; then
+              mapper_sub=1
+            fi
+            if [ "$npub" -gt 0 ] && [ "$mapper_sub" = "1" ]; then
+              echo "PERCEPTION_OK robot_{n}: $PC has $npub publisher(s) and global_mapper_ros subscribes"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "PERCEPTION_DEAD robot_{n}: $PC publisher_count=$npub mapper_sub=$mapper_sub"
+          ros2 topic info "$PC" --verbose 2>/dev/null || true
+          exit 1
+        fi
         # PROBE THE DISPARITY, NOT THE CLOUD OR THE IMAGE. Both of those are on
         # the dds_router ALLOWLIST (`onboard_all/config/dds_router.yaml`:
         # `.../front_stereo/left/image_rect` and
