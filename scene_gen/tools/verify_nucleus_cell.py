@@ -3,10 +3,14 @@
 import argparse
 import json
 import os
+import sys
 import tempfile
+from pathlib import Path
 
 import omni.client
 from pxr import Sdf, Usd, UsdGeom, UsdLux, UsdShade
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scene_gen.disaster import material_audit
 
 
 def _ok(url):
@@ -39,6 +43,7 @@ def verify(url):
 
     prims = list(Usd.PrimRange.Stage(stage, Usd.TraverseInstanceProxies()))
     meshes = sum(p.IsA(UsdGeom.Mesh) for p in prims)
+    materials = material_audit.audit(stage)
     sky = [str(p.GetPath()) for p in stage.Traverse()
            if p.IsA(UsdLux.DomeLight) or p.IsA(UsdLux.DistantLight)]
     # Instance-preserving freezes legitimately retain internal references.
@@ -130,10 +135,12 @@ def verify(url):
         "checked_nucleus_arcs": len(checked_arcs),
         "local_composition_arcs": sorted(local_arcs),
         "missing_nucleus_arcs": sorted(missing_arcs),
+        "materials": materials,
     }
     report["ok"] = bool(meshes and sky and not local_paths and
                         not missing_assets and not cross and not missing_files
-                        and not local_arcs and not missing_arcs)
+                        and not local_arcs and not missing_arcs
+                        and materials["ok"])
     print(json.dumps(report, indent=2))
     if not report["ok"]:
         raise RuntimeError("published Nucleus cell failed cold portability gate")

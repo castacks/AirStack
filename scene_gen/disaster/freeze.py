@@ -247,10 +247,12 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
         means geometry was dropped.
     """
     from pxr import Sdf, Usd, UsdGeom, UsdLux, UsdShade, UsdUtils
+    from . import material_audit
 
     out = {"path": usd_path,
            "size_mb": round(os.path.getsize(usd_path) / 1e6, 1)}
     st = Usd.Stage.Open(usd_path)
+    out["materials"] = material_audit.audit(st)
     out["prototypes"] = len(st.GetPrototypes())
     out["prims"] = sum(1 for _ in Usd.PrimRange.Stage(
         st, Usd.TraverseInstanceProxies()))
@@ -454,6 +456,7 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
                  and not out["build_local"]
                  and bool(out["sky_lights"])
                  and not out["cross_scope_bindings"]
+                 and out["materials"]["ok"]
                  and (not out["external"] or not expect_self_contained))
     out["self_contained"] = not (out["external"] or out["unresolved"])
 
@@ -471,7 +474,8 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
     # machine-path defects" with no asterisk.
     out["portable_ok"] = (out["meshes"] > 0 and not out["build_local"]
                           and bool(out["sky_lights"])
-                          and not out["cross_scope_bindings"])
+                          and not out["cross_scope_bindings"]
+                          and out["materials"]["ok"])
     return out
 
 
@@ -1400,7 +1404,7 @@ def _enforce_portable(info, waived_paths=None, *, waive_mirrored=False,
     primary, narrower mechanism; this is the gate-side fallback for
     whatever it could not reach.
 
-    Gated on `build_local`/`sky_lights`/`cross_scope_bindings`/`meshes`,
+    Gated on `build_local`/`sky_lights`/`cross_scope_bindings`/materials/`meshes`,
     NOT the broader `ok` — `ok` also factors in `unresolved`, whose scan
     can legitimately be the narrower `"fallback_shader_attrs"` pass on a
     kit-poisoned cell (see `verify`'s own docstring); this raise is not at
@@ -1446,7 +1450,8 @@ def _enforce_portable(info, waived_paths=None, *, waive_mirrored=False,
     info["portable_ok_before_waiver"] = info.get("portable_ok")
     gate_ok = (bool(info.get("meshes")) and not effective_bl
               and bool(info.get("sky_lights"))
-              and not info.get("cross_scope_bindings"))
+              and not info.get("cross_scope_bindings")
+              and bool((info.get("materials") or {}).get("ok")))
     info["portable_ok"] = gate_ok
     if gate_ok:
         if info["waived_mirror_paths"] and info.get("portable_ok_before_waiver") is False:
@@ -1467,6 +1472,14 @@ def _enforce_portable(info, waived_paths=None, *, waive_mirrored=False,
     if info.get("cross_scope_bindings"):
         lines.append("  {0} cross-scope material binding(s) -- renders grey"
                      .format(len(info["cross_scope_bindings"])))
+    if not (info.get("materials") or {}).get("ok"):
+        counts = (info.get("materials") or {}).get("counts") or {}
+        lines.append("  material resolution failed: {0} dangling, {1} "
+                     "typeless, {2} unbound/uncoloured, {3} surface-less"
+                     .format(counts.get("dangling_targets", 0),
+                             counts.get("typeless_targets", 0),
+                             counts.get("unbound_uncolored", 0),
+                             counts.get("surface_less_materials", 0)))
     if not info.get("meshes"):
         lines.append("  0 meshes")
     msg = "\n".join(lines)
@@ -1702,6 +1715,23 @@ def report(info):
         "  *** THESE RENDER UNTEXTURED GREY ***" if cx else ""))
     for c in cx[:8]:
         print("    CROSS-SCOPE {0}".format(c))
+    ma = info.get("materials") or {}
+    mc = ma.get("counts") or {}
+    print("  material-gate {0} visible mesh(es), {1} target(s), {2} "
+          "dangling, {3} typeless, {4} unbound/uncoloured, {5} "
+          "surface-less{6}".format(
+              mc.get("visible_meshes", 0), mc.get("targets", 0),
+              mc.get("dangling_targets", 0),
+              mc.get("typeless_targets", 0),
+              mc.get("unbound_uncolored", 0),
+              mc.get("surface_less_materials", 0),
+              "  *** WHITE/FALLBACK GEOMETRY ***"
+              if ma and not ma.get("ok") else ""))
+    if ma and not ma.get("ok"):
+        for key in ("dangling_targets", "typeless_targets",
+                    "unbound_uncolored", "surface_less_materials"):
+            for row in (ma.get("examples", {}).get(key) or [])[:2]:
+                print("    MATERIAL-{0} {1}".format(key.upper(), row))
     print("  portable_ok  {0}{1}".format(
         info.get("portable_ok"),
         "" if info.get("portable_ok")
