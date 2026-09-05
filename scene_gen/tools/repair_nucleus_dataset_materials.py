@@ -137,13 +137,20 @@ def _portability_failed(report):
                 report["cross_scope_bindings"])
 
 
-def _upload_collected(stage, work_dir, dependency_root):
-    """Publish make_portable's local fallbacks and author Nucleus URLs."""
+def _upload_collected(stage, work_dir, dependency_root,
+                      source_cell_root=None):
+    """Publish collected fallbacks and author permanent Nucleus URLs.
+
+    A legacy frozen cell can already contain a relative ``Materials/...``
+    dependency.  Once its root crate is moved to the immutable payload tree,
+    that relative path no longer has the original cell as its anchor.  Prefer
+    the local wrapper work tree when make_portable just collected the file;
+    otherwise copy the existing companion directly from the canonical Nucleus
+    cell.  Nothing needs to transit through the build machine.
+    """
     collected = {}
     prefix = "Materials/"
     for prim in stage.Traverse():
-        if not prim.IsA(UsdShade.Shader):
-            continue
         for attr in prim.GetAttributes():
             if attr.GetTypeName() != Sdf.ValueTypeNames.Asset:
                 continue
@@ -156,18 +163,26 @@ def _upload_collected(stage, work_dir, dependency_root):
                 attr.Set(Sdf.AssetPath(runtime_name))
                 continue
             local = os.path.join(work_dir, *raw.split("/"))
-            if not os.path.isfile(local):
-                raise RuntimeError("collected dependency missing locally: " +
-                                   local)
             target = dependency_root.rstrip("/") + "/" + raw
             if target not in collected:
+                if os.path.isfile(local):
+                    source = local
+                    expected = os.path.getsize(local)
+                else:
+                    source = (source_cell_root.rstrip("/") + "/" + raw
+                              if source_cell_root else None)
+                    expected = _stat(source) if source else None
+                if not source or expected is None:
+                    raise RuntimeError(
+                        "collected dependency missing locally and on Nucleus: "
+                        + raw)
                 result = omni.client.copy(
-                    local, target,
+                    source, target,
                     behavior=omni.client.CopyBehavior.OVERWRITE)
-                if not _ok(result) or _stat(target) != os.path.getsize(local):
+                if not _ok(result) or _stat(target) != expected:
                     raise RuntimeError("dependency upload failed: {0} [{1}]"
                                        .format(target, result))
-                collected[target] = os.path.getsize(local)
+                collected[target] = expected
             attr.Set(Sdf.AssetPath(target))
     return {"files": len(collected), "bytes": sum(collected.values()),
             "urls": sorted(collected)}
@@ -188,7 +203,7 @@ def _already_repaired(layer):
 
 
 def _build_wrapper(payload, relative, output, dependency_root,
-                   max_examples=25):
+                   source_cell_root=None, max_examples=25):
     """Build and validate one new wrapper locally; never modify payload."""
     source_layer = Sdf.Layer.FindOrOpen(payload)
     if source_layer is None:
@@ -252,8 +267,13 @@ def _build_wrapper(payload, relative, output, dependency_root,
         mirror_cache[path] = None
         return None
 
-    portable_materials = material_repair.repair_local_material_paths(
-        stage, resolve_mirror)
+    # make_portable now performs this same instance-preserving override. Reuse
+    # its report to avoid two full proxy traversals of a million-prim cell;
+    # retain the explicit resolver as a compatibility/fallback route.
+    portable_materials = portable.get("portable_materials")
+    if portable_materials is None or portable_materials["unresolved_paths"]:
+        portable_materials = material_repair.repair_local_material_paths(
+            stage, resolve_mirror)
     if portable_materials["unresolved_paths"]:
         raise RuntimeError("local material override unresolved: " +
                            repr(portable_materials["unresolved_paths"]))
@@ -274,7 +294,8 @@ def _build_wrapper(payload, relative, output, dependency_root,
         portable_materials["shadowed_paths"], separators=(",", ":"))
     layer.customLayerData = data
     dependencies = _upload_collected(
-        stage, os.path.dirname(output), dependency_root)
+        stage, os.path.dirname(output), dependency_root,
+        source_cell_root=source_cell_root)
     materials = material_audit.audit(stage, max_examples=max_examples)
     if not materials["ok"]:
         raise RuntimeError("unknown material failures remain: " +
@@ -403,8 +424,10 @@ def repair_one(dataset, payload_root, relative, *, apply=False,
     local = os.path.join(work_dir, "wrapper.usda")
     swapped = False
     try:
-        built = _build_wrapper(payload, relative, local, dependency_root,
-                               max_examples=max_examples)
+        built = _build_wrapper(
+            payload, relative, local, dependency_root,
+            source_cell_root=canonical.rsplit("/", 1)[0],
+            max_examples=max_examples)
         result = omni.client.copy(
             local, staging, behavior=omni.client.CopyBehavior.OVERWRITE)
         if not _ok(result):
