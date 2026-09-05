@@ -56,7 +56,13 @@ def main():
             max_speed=4.,density=420.,ccd=True,ground_plane_z=0.,floor_z=0.,
             approx_map=approx,decomp_limits={'max_hulls':4,'voxel_resolution':20000},
             converge=True,strict=False,rest_v2=True,
-            retry_passes=2,retry_fraction=.5)
+            # Keep the live simulation running when only a late fragment is
+            # still moving: three continuations, each one third of the
+            # original settle budget.  These remain configurable for an
+            # unusually stubborn asset without rebuilding its fracture.
+            retry_passes=int(os.environ.get('SETTLE_RETRY_PASSES','3')),
+            retry_fraction=float(os.environ.get(
+                'SETTLE_RETRY_FRACTION','0.333333333333')))
         if not result.get('driver','').startswith('SimulationContext'):
             raise RuntimeError('No explicit physics driver: '+str(result))
         from disaster.quake_suburban_bake import validate_settled_export

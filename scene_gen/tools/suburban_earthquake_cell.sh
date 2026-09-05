@@ -98,11 +98,24 @@ PY
         simulation/isaac-sim/launch_scripts/suburb_earthquake_bake_launch_script.py \
         --no-window" 2>&1 | tee -a "$RUN_LOG"
       GPU_BAKE_RC=${PIPESTATUS[0]}
-      if [ "$GPU_BAKE_RC" != 0 ]; then
+      # Kit can finish the Python launcher and still report success after a
+      # failed bake during shutdown.  Sidecar readiness is the durable truth,
+      # so inspect it even when docker exec returned zero.
+      UNREADY_AFTER_GPU=$(dex python3 - "$MANIFEST" <<'PY'
+import json,sys
+bad=0
+for row in json.load(open(sys.argv[1])):
+    try: ready=bool(json.load(open(row['sidecar'])).get('physics_ready'))
+    except Exception: ready=False
+    bad += not ready
+print(bad)
+PY
+      ) || die "count unfinished L${L} caches after GPU bake"
+      if [ "$GPU_BAKE_RC" != 0 ] || [ "$UNREADY_AFTER_GPU" -gt 0 ]; then
         # Each completed entry is durable and the launcher skips it. A driver
         # or GPU-PhysX incompatibility therefore falls back only for the
         # unfinished tail, never repeats successful work.
-        say "GPU cache bake exited ${GPU_BAKE_RC}; retry unfinished entries on CPU"
+        say "GPU cache bake rc=${GPU_BAKE_RC}, unfinished=${UNREADY_AFTER_GPU}; retry unfinished entries on CPU"
         dex bash -lc "cd '/isaac-sim/AirStack' && \
           QUAKE_BAKE_WORK='$MANIFEST' QUAKE_SETTLE_GPU=0 \
           ISAAC_SIM_ACTIVE_GPU='$ACTIVE_GPU' ISAAC_SIM_HEADLESS=true \
