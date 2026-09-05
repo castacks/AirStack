@@ -265,6 +265,9 @@ steps:
       target_altitude_m: 20.0
       velocity_m_s: 2.0
     timeout_s: 420
+    dispatch_stagger_s: 3
+    prearm_via_mavros: true
+    prearm_timeout_s: 60
     robots: all
 - wait: 5
 - run:

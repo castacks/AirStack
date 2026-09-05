@@ -194,7 +194,7 @@ steps:
     timeout_s: 420
     dispatch_stagger_s: 3
     prearm_via_mavros: true
-    prearm_timeout_s: 25
+    prearm_timeout_s: 60
     robots: all
 - wait: 5
 - run:
