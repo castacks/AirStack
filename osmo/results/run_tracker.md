@@ -16,17 +16,17 @@ Last reconciled against `/media/share/coa-sei`: **2026-09-04**.
 | **Fire** | **Urban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Fire** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Fire** | **Urban** | L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟦 |
+| **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L1–L3 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Suburban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
-| **Hurricane** | **Suburban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 |
+| **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Urban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 | 🟦 |
+| **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | **Earthquake** | **Suburban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 
@@ -70,8 +70,8 @@ Development history only:
 | Level | Completed methods | Remaining methods | Result folder |
 |---:|---|---|---|
 | L1 | Frontier, lawnmower, VLFM, CoNavGPT2 | RayFronts/RAVEN | See folders below |
-| L2 | — | All five methods | — |
-| L3 | — | All five methods | — |
+| L2 | Frontier, lawnmower, VLFM | CoNavGPT2 in progress; RayFronts/RAVEN | `hurricane_suburban_l2_8robot_optimized_batch/2026-09-04_22-53-30` |
+| L3 | Frontier, VLFM, CoNavGPT2 | Lawnmower rerun; RayFronts/RAVEN | `hurricane_suburban_l3_8robot_optimized_batch/2026-09-04_22-56-30` |
 
 L1 result folders:
 
@@ -125,10 +125,11 @@ progress with another agent. No benchmark result has been submitted yet.
 
 ## Next work queue
 
-1. 🟧 Rerun Fire/Suburban L1 CoNavGPT2 on pod 56.
-2. 🟦 Run Tornado/Suburban L3 CoNavGPT2 on pod 57.
-3. 🟦 Split Hurricane/Suburban L2 and L3 shared-planner methods across pods 56
-   and 57 after those focused runs finish.
+1. 🟨 Finish Hurricane/Suburban L2 CoNavGPT2 on pod 56, then upload the four
+   successful L2 results.
+2. 🟧 Diagnose and rerun Hurricane/Suburban L3 lawnmower; both attempts failed
+   during multi-robot takeoff/pre-arm, so neither was uploaded.
+3. 🟩 Fire/Suburban L1 and Tornado/Suburban L3 CoNavGPT2 focused reruns passed.
 4. 🟦 Run the queued 2-GPU RayFronts/RAVEN suburban missions.
 5. 🟦 Run the four shared-planner baselines on Urban Fire L1 and L2.
 6. 🟨 Finish and publish Urban Fire L3, then run its methods.
@@ -142,10 +143,10 @@ cell/method for diagnosis rather than consuming the rest of the batch.
 
 | Order | Pod | Cells | Runs | Expected batch wall time | State |
 |---:|---|---|---:|---:|---|
-| 1 | `airstack-mission-1gpu-56` | Fire/Suburban L1 CoNavGPT2 | 1 | ~45 min | RUNNING — `fire_suburban_l1_conavgpt2_optimized_rerun/2026-09-04_20-34-18` |
-| 1 | `airstack-mission-1gpu-57` | Tornado/Suburban L3 CoNavGPT2 | 1 | ~45 min | RUNNING — `tornado_suburban_l3_conavgpt2_optimized/2026-09-04_20-34-17` |
-| 2 | `airstack-mission-1gpu-56` | Hurricane/Suburban L2 × frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ~3 h (12 h hard cap) | QUEUED |
-| 2 | `airstack-mission-1gpu-57` | Hurricane/Suburban L3 × frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ~3 h (12 h hard cap) | QUEUED |
+| 1 | `airstack-mission-1gpu-56` | Fire/Suburban L1 CoNavGPT2 | 1 | ~45 min | PASSED — focused rerun completed before the L2 batch |
+| 1 | `airstack-mission-1gpu-57` | Tornado/Suburban L3 CoNavGPT2 | 1 | ~45 min | PASSED — focused rerun completed before the L3 batch |
+| 2 | `airstack-mission-1gpu-56` | Hurricane/Suburban L2 × frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ~3 h (12 h hard cap) | RUNNING — 3/4 passed; CoNavGPT2 at ~78%, live RTF ~0.31 |
+| 2 | `airstack-mission-1gpu-57` | Hurricane/Suburban L3 × frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ~3 h (12 h hard cap) | COMPLETE — 3/4 passed and uploaded; lawnmower failed twice and was not uploaded |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
