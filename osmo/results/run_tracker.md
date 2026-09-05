@@ -27,8 +27,8 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 |
-| **Earthquake** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Earthquake** | **Urban** | L2 | 🟩 | 🟨 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Suburban** | L1 | 🟩 | 🟨 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
@@ -147,11 +147,16 @@ passed 17/17 steps at team RTF 0.19510 and was uploaded and NAS-verified at
 19:23 UTC. L1 Lawnmower also passed 17/17 steps after its automatic robot-8
 startup recovery, at team RTF 0.20130, and was uploaded and NAS-verified at
 20:43 UTC. L1 VLFM passed 17/17 steps at team RTF 0.18919 and was uploaded
-and NAS-verified at 22:05 UTC. L1 CoNavGPT2 iteration 4/8 started immediately
-afterward. Its first attempt failed the perception-readiness gate because
+and NAS-verified at 22:05 UTC. L1 CoNavGPT2 then passed 17/17 steps on its
+second attempt at team RTF 0.25092 and was uploaded and NAS-verified at 23:51
+UTC, completing all four L1 baselines. Its first attempt failed the
+perception-readiness gate because
 robot 1's `global_mapper_ros` DDS subscription was not discovered after a
 flapping PX4 startup; the failed artifacts were retained locally and were not
-uploaded. The automatic second attempt started at 22:30 UTC. The queued 2-GPU workflow
+uploaded. On the second attempt, robot 4's odometry stopped crossing the stale
+main DDS-router path even though its local topic was healthy; restarting only
+that router restored the stream and allowed the 600.03-s search to finish in
+2391.34 wall seconds. L2 Frontier started immediately afterward. The queued 2-GPU workflow
 `airstack-mission-8robot-2gpu-7` remains a backup. L3's
 four optimized baseline cells are now running on pod 57 from
 `urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13`. The first
@@ -214,7 +219,7 @@ uploaded.
 | 4 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | — | STOPPED — two attempts hit the obsolete disparity gate; zero scored/uploaded runs |
 | 3 | `airstack-mission-1gpu-56` | Urban Fire L1/L2 Frontier | 2 | — | STOPPED — launched before canonical publication; zero scored/uploaded runs |
 | 5 | `airstack-mission-1gpu-56` | Urban Fire L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | 5 h 11 min | STOPPED FOR EARTHQUAKE CUTOVER — L1 Frontier, VLFM and CoNavGPT2 passed/uploaded (RTFs 0.219, 0.2115, 0.18784); Lawnmower failed twice and needs a focused rerun; Fire L2 remains deferred |
-| 6 | `airstack-mission-1gpu-56` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | L1 3/4; L2 0/4 | ≤12 h | RUNNING — L1 Frontier, Lawnmower and VLFM passed/uploaded at team RTFs 0.19510, 0.20130 and 0.18919; L1 CoNavGPT2 attempt 1 failed its robot-1 mapper discovery gate and was not uploaded; automatic attempt 2/2 is active |
+| 6 | `airstack-mission-1gpu-56` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | L1 4/4; L2 0/4 | ≤12 h | RUNNING — all four L1 methods passed/uploaded/NAS-verified at team RTFs 0.19510, 0.20130, 0.18919 and 0.25092; L2 Frontier is active |
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
@@ -259,7 +264,7 @@ short tuning runs are excluded.
 | Fire | — | 97.8 min / 0.102 (n=11) |
 | Hurricane | — | 38.3 min / 0.265 (n=9) |
 | Tornado | — | 77.4 min / 0.129 (n=11) |
-| Earthquake | 49.9 min / 0.201 (n=7) | — |
+| Earthquake | 48.6 min / 0.207 (n=8) | — |
 
 ## Actual results (detector-confirmed team progress and PPL)
 
