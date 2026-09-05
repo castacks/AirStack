@@ -131,6 +131,7 @@ PY
     --title 'Urban earthquake L${L} (M${MAG}) — exact damage assignment' \
     --out '$SNAPS/damage_plan.png'" \
     || die "L${L} damage map"
+  dex test -s "$SNAPS/damage_plan.png" || die "L${L} damage map is empty"
 
   PUBLISH_START=$(now)
   say "publish complete L${L} cell to Nucleus"
