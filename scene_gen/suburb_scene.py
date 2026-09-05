@@ -735,7 +735,7 @@ class _CanopyPool:
         """
         return len(self.usds) > 1 and (self.sizes[-1] - self.sizes[0]) > 0.5
 
-    def draw(self, rng, t):
+    def draw(self, rng, t, max_width=None):
         """One asset from the `band` of the pool nearest size *t* (0 small, 1 big).
 
         A SLIDING WINDOW RATHER THAN A HARD CUT, deliberately. A suburb where
@@ -748,10 +748,28 @@ class _CanopyPool:
         if n == 0:
             return None
         if n == 1 or not self.graded:
-            return self.usds[rng.randrange(n)]
-        k = max(1, int(self.band * n + 0.5))
-        lo = int(round(min(1.0, max(0.0, float(t))) * (n - k)))
-        return self.usds[lo + rng.randrange(k)]
+            candidates = list(range(n))
+        else:
+            k = max(1, int(self.band * n + 0.5))
+            lo = int(round(min(1.0, max(0.0, float(t))) * (n - k)))
+            candidates = list(range(lo, lo + k))
+        if max_width is not None:
+            # The parcel planner reserves a canopy disc before an asset is
+            # selected.  Species ranking alone is only a preference: it can
+            # still draw a crown wider than that reserved disc, which is why
+            # only the largest trees were reaching house walls in review.
+            # Keep the ranked window when possible, then fall back to any
+            # species that physically fits.  Refuse the station when even the
+            # smallest measured crown is too wide.
+            limit = max(0.0, float(max_width))
+            fitting = [i for i in candidates if self.sizes[i] <= limit]
+            if not fitting:
+                fitting = [i for i, width in enumerate(self.sizes)
+                           if width <= limit]
+            candidates = fitting
+        if not candidates:
+            return None
+        return self.usds[candidates[rng.randrange(len(candidates))]]
 
 
 def _size_t(dist_m, near_m, far_m):
@@ -4168,9 +4186,13 @@ def build_open_planting(config, resolver, net, blocks, rng, pools,
                     if bad is not None:
                         why[bad] = why.get(bad, 0) + 1
                         continue
+                    wall_d = house_idx.nearest(q)
+                    u = cpool.draw(
+                        rng, _size_t(wall_d, pc["near_m"], pc["far_m"]),
+                        max_width=2.0 * max(0.0, wall_d - pc["clear_m"]))
+                    if u is None:
+                        continue
                     mine.add(q)
-                    u = cpool.draw(rng, _size_t(house_idx.nearest(q),
-                                                pc["near_m"], pc["far_m"]))
                     out.append(pools.place(resolver, u, "tree", q[0], q[1],
                                            rng.uniform(0.0, 360.0), rng))
                     n_here += 1
@@ -4718,7 +4740,10 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
             if not len(cp):
                 continue
             u = cp.draw(rng, _size_t(house_idx.nearest(t["c"]),
-                                     pc["near_m"], pc["far_m"]))
+                                     pc["near_m"], pc["far_m"]),
+                        max_width=2.0 * float(t.get("r", 0.0)))
+            if u is None:
+                continue
             # DEFERRED. The paving keep-out needs every parcel's drives and
             # walks, and a parcel's `plan` — which is what decides where its
             # drive actually runs — is only stamped as its houses are placed.

@@ -7,11 +7,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 from team_progress import (
     TOTAL_RUNS_PER_BASELINE,
     assign_targets,
+    credit_target_circle,
+    geometry_from_markdown,
     markdown,
     point_in_polygon,
     resample_window,
     route_length,
-    visit_times,
 )
 
 
@@ -37,13 +38,17 @@ def test_fixed_sector_assignment_and_empty_robot_route():
     assert per_robot[3] == 0.0
 
 
-def test_resampling_and_first_physical_visit():
+def test_path_resampling():
     trajectory = resample_window([(10, 0, 0), (20, 20, 0)], 10, budget=10, step=1)
-    visits, visitors = visit_times(
-        {7: (10, 0)}, {7: 1}, {1: trajectory}, radius=1.0, shared=False)
-    assert visits[7] == 5.0
-    assert visitors[7] == 1
     assert np.allclose(trajectory[-1], [10, 20, 0])
+
+
+def test_one_detector_circle_credits_every_gt_person_inside_it():
+    gt = {1: (0, 0), 2: (5, 0), 3: (12.01, 0)}
+    hits = {}
+    credit_target_circle(gt, hits, (0, 0), radius=12.0, rel_t=8.0, robot=4)
+    assert set(hits) == {1, 2}
+    assert hits[1][:2] == (8.0, 4)
 
 
 def test_average_table_shows_final_matrix_denominator():
@@ -55,3 +60,13 @@ def test_average_table_shows_final_matrix_denominator():
     }])
     assert "| Frontier | 7/48 |" in rendered
     assert "Completed / total runs" in rendered
+
+
+def test_geometry_cache_reads_actual_path_column(tmp_path):
+    table = tmp_path / "old.md"
+    table.write_text(
+        "| Scene | Method | Run folder | GT | Visited | Progress | AUC | Actual team path | Ideal | PPL |\n"
+        "| Fire / Suburban L1 | Frontier | `run/iter` | 49 | 14 | .2 | .1 | 5.59 km | 1.71 km | .02 |\n")
+    assert geometry_from_markdown(table) == {
+        ("Fire / Suburban L1", "Frontier"): 5590.0,
+    }

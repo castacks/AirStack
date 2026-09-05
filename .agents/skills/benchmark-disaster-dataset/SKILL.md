@@ -1266,6 +1266,25 @@ mission's `record.topics`), keep the raw odometry/global_plan only for
 analysis, and add the origin back when you read them
 (`world = local + map_origin`).
 
+**Detector-confirmed progress is not drone proximity.** Score a GT person when
+its world XY lies inside the planner's `search_target` circle (12 m in the
+shipped benchmark). That marker exists only after the 0.65 detector gate,
+depth projection, accumulation and DBSCAN target clustering; one circle may
+therefore credit multiple GT people. Use the `/gcs/robot_N/search/markers`
+copies, which are already world-transformed. Raw `/robot_N/global_plan` first
+poses are not a safe substitute for robot start depots in shared CoNavGPT2;
+use timed world odometry there. Fixed-planner plans are robot-local and require
+`/gcs/robot_N/map_origin` when used as a cached start.
+
+**Do not scan to EOF waiting for eight channels.** Accepted bags can contain
+declared `global_plan` or search-marker channels with zero messages (an
+inactive robot). Derive the expected preamble channels from the MCAP summary's
+nonzero `channel_message_counts`. Search marker arrays persist both targets and
+an ever-growing trail, so decoding every marker-bearing chunk is unnecessarily
+quadratic-looking I/O: sparsely sample indexed chunks and always decode each
+channel's final chunk. Final target counts remain exact; report the sampling
+interval when using sampled first-appearance times for integrated progress.
+
 ### 9.u Every drone flew 1 m/s — droan's rollouts converged to a UNIT vector
 
 Same run: p90 ground speed 0.98 m/s on a 330 m open transit with the planner
