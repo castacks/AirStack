@@ -246,7 +246,19 @@ def snapshot(stage, path, res=RES, subframes=SUBFRAMES, region=None,
         # frames and writes eleven blanks is worse than one that fails loudly.
         for _ in range(8):
             app.update()
-        for attempt in range(3):
+        # A 700k-prim frozen-cell review can occasionally return several
+        # unrendered buffers in a row even though the next camera renders
+        # normally. Three tries proved too small on the urban-earthquake L1
+        # export (one of 78 required casualty views exhausted all three).
+        # Keep this bounded and configurable, but make the batch default
+        # robust enough that one transient buffer does not discard a
+        # half-hour scene build.
+        try:
+            attempts = max(3, min(20, int(os.environ.get(
+                "SNAP_BLANK_RETRIES", "8"))))
+        except ValueError:
+            attempts = 8
+        for attempt in range(attempts):
             rep.orchestrator.step(rt_subframes=int(subframes))
             for _ in range(4):
                 app.update()
@@ -264,7 +276,7 @@ def snapshot(stage, path, res=RES, subframes=SUBFRAMES, region=None,
                 _flag_offplate(arr, path, region, target)
                 return True
             carb.log_warn(f"[snapshots_rp] blank frame for {path} "
-                          f"(attempt {attempt + 1}/3); re-rendering")
+                          f"(attempt {attempt + 1}/{attempts}); re-rendering")
         print(f"[snapshots_rp] GAVE UP on {path}: frame stayed blank")
         return False
     except Exception as exc:
