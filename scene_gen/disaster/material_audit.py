@@ -59,8 +59,13 @@ def audit(stage, max_examples=25):
             counts["display_color_only"] += 1
             return True
         try:
+            # Query the render-quality purpose explicitly.  USD falls this
+            # back to allPurpose when no full-purpose binding exists, while
+            # the no-argument form does *not* find an authored `full` bind.
+            # Several city assets use that production binding convention.
             material = UsdShade.MaterialBindingAPI(
-                prim).ComputeBoundMaterial()[0]
+                prim).ComputeBoundMaterial(
+                    materialPurpose=UsdShade.Tokens.full)[0]
         except Exception as exc:  # pragma: no cover
             counts["binding_errors"] += 1
             example("unbound_uncolored", {

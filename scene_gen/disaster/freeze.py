@@ -359,6 +359,7 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
     build_local_bindings = 0
     dead_ancestral = set()
     dead_ancestral_bindings = 0
+    runtime_builtin = set()
     for prim in Usd.PrimRange.Stage(st, Usd.TraverseInstanceProxies()):
         if not prim.IsA(UsdShade.Shader):
             continue
@@ -371,6 +372,9 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
             if not ap or ap.startswith("/Game/"):
                 continue
             if ap.startswith(("omniverse://", "http://", "https://")):
+                continue
+            if ap.startswith("/isaac-sim/kit/mdl/"):
+                runtime_builtin.add(ap)
                 continue
             if not (os.path.isabs(ap) and not os.path.abspath(ap).startswith(here)):
                 continue
@@ -403,6 +407,7 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
     out["build_local_bindings"] = build_local_bindings
     out["dead_ancestral"] = sorted(dead_ancestral)
     out["dead_ancestral_bindings"] = dead_ancestral_bindings
+    out["runtime_builtin_assets"] = sorted(runtime_builtin)
 
     # THE CELL MUST CARRY ITS OWN LIGHT. Kit's flatten drops deactivated prims
     # outright, so deactivating the environment silently removed the sky and
@@ -429,7 +434,8 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
                 continue
             root = scope.GetPath().pathString
             for child in scope.GetChildren():
-                mat, _r = UsdShade.MaterialBindingAPI(child).ComputeBoundMaterial()
+                mat, _r = UsdShade.MaterialBindingAPI(child).ComputeBoundMaterial(
+                    materialPurpose=UsdShade.Tokens.full)
                 if not (mat and mat.GetPrim().IsValid()):
                     continue
                 mp = mat.GetPrim().GetPath().pathString
@@ -736,6 +742,8 @@ def _shader_asset_paths(prim_range):
             if not path or path.startswith(("/Game/", "omniverse://",
                                             "http://", "https://")):
                 continue
+            if path.startswith("/isaac-sim/kit/mdl/"):
+                continue              # renderer-supplied core MDL module
             if os.path.isabs(path) and os.path.isfile(path):
                 yield prim, attr, path
 
@@ -896,6 +904,13 @@ def make_portable(stage, mirror=ASSET_MIRROR, local_prefix=ASSET_LOCAL_PREFIX,
                         "per_round": []},
           "waived_mirror_paths": []}
 
+    # Repair measured defects in the third-party source assets before the
+    # mirror/collect pass.  The repair materials are therefore subjected to
+    # exactly the same portability rewrite as every other material.
+    from . import material_repair
+    out["material_repairs"] = material_repair.repair_known(
+        stage, verbose=verbose)
+
     dest_dir = (os.path.join(out_dir, MATERIALS_DIR, bake_local_subdir)
                if (out_dir and collect_bake_local) else None)
 
@@ -917,6 +932,8 @@ def make_portable(stage, mirror=ASSET_MIRROR, local_prefix=ASSET_LOCAL_PREFIX,
                 if not path or path.startswith(("/Game/", "omniverse://",
                                                 "http://", "https://")):
                     continue
+                if path.startswith("/isaac-sim/kit/mdl/"):
+                    continue          # renderer-supplied core MDL module
                 if not os.path.isabs(path):
                     continue                  # already relative/portable
                 if not os.path.isfile(path):
@@ -1118,32 +1135,14 @@ def make_portable(stage, mirror=ASSET_MIRROR, local_prefix=ASSET_LOCAL_PREFIX,
     out["waived_mirror_paths"] = sorted(waived_paths)
 
     # --- cross-scope bindings -----------------------------------------------
-    world = stage.GetPrimAtPath("/World")
-    if world and world.IsValid():
-        for scope in world.GetChildren():
-            if scope.GetName() in ("PhysicsScene", "stage"):
-                continue
-            root = scope.GetPath().pathString
-            looks_scope = root + "/Looks"
-            for child in scope.GetChildren():
-                api = UsdShade.MaterialBindingAPI(child)
-                mat, _rel = api.ComputeBoundMaterial()
-                if not (mat and mat.GetPrim().IsValid()):
-                    continue
-                src = mat.GetPrim().GetPath()
-                if src.pathString.startswith(root + "/"):
-                    continue                     # already inside the scope
-                dst = Sdf.Path(looks_scope + "/" + src.name)
-                if not stage.GetPrimAtPath(dst):
-                    UsdGeom.Scope.Define(stage, looks_scope)
-                    if not Sdf.CopySpec(stage.GetRootLayer(), src,
-                                        stage.GetRootLayer(), dst):
-                        continue
-                    out["looks_moved"] += 1
-                moved = UsdShade.Material(stage.GetPrimAtPath(dst))
-                if moved:
-                    UsdShade.MaterialBindingAPI(child).Bind(moved)
-                    out["rebound"] += 1
+    # The source material may live in a weaker sublayer/reference.  Copying
+    # only from the root layer therefore silently missed it.  Clone from the
+    # composed prim stack instead, which also makes this safe for repair
+    # wrappers around already-frozen crates.
+    cross_report = material_repair.repair_cross_scope(stage, verbose=verbose)
+    out["looks_moved"] += cross_report["looks_moved"]
+    out["rebound"] += cross_report["rebound"]
+    out["cross_scope_unresolved"] = cross_report["unresolved"]
 
     # --- 2. the light ------------------------------------------------------
     if add_light:

@@ -166,44 +166,72 @@ def author_people(stage, records, parent, blockers=(), total=12, seed=11,
             break
     eligible = [r for r in records if r["failure_sides"]]
     rng.shuffle(eligible)
-    for r in eligible:
-        for attempt in range(8):
+    # One casualty per damaged house imposed an undocumented hard ceiling:
+    # L1 has ten eligible houses but requests twelve people, so every rebuild
+    # deterministically authored 10/12 and failed only at the cold audit.
+    # Make bounded round-robin passes instead.  The first pass retains the
+    # prior distribution exactly; later passes may add at most one more person
+    # per house and still pass the same spacing, support, blocker and two-view
+    # sightline gates.
+    per_house = {}
+    for person in made:
+        key = person.get("building_prim")
+        per_house[key] = per_house.get(key, 0) + 1
+    for placement_pass in range(2):
+        pass_start = len(made)
+        for r in eligible:
             if len(made) >= total:
                 break
-            person = (qp._interior_person(stage, r, records, rng, made,
-                                          bounds, ssf)
-                      if attempt == 0 and r["storeys"] > 1 and r["mode"] == "partial_collapse"
-                      else qp._rubble_person(stage, r, records, rng, made,
-                                             bounds, ssf))
-            if not person:
+            if per_house.get(r["prim"], 0) > placement_pass:
                 continue
-            if person['state'] == 'rubble_casualty':
-                support = rubble_body_support(stage,person,r,records,parent,ssf)
-                if support is None:
+            for attempt in range(8):
+                person = (qp._interior_person(stage, r, records, rng, made,
+                                              bounds, ssf)
+                          if (placement_pass == 0 and attempt == 0 and
+                              r["storeys"] > 1 and
+                              r["mode"] == "partial_collapse")
+                          else qp._rubble_person(stage, r, records, rng, made,
+                                                 bounds, ssf))
+                if not person:
                     continue
-                z,n = support
-                dz = z-person['z']
-                person.update(z=round(z,3), support_samples=n,
-                              full_body_support_verified=True,
-                              z_mode='measured_full_body_surface')
-                person['review_target'][2] += dz
-                for eye in person['review_eyes']:
-                    eye[2] += dz
-                if not all(qp._clear_segment(stage,r,person['review_target'],eye,ssf)
-                           for eye in person['review_eyes']):
+                if person['state'] == 'rubble_casualty':
+                    support = rubble_body_support(
+                        stage, person, r, records, parent, ssf)
+                    if support is None:
+                        continue
+                    z, n = support
+                    dz = z-person['z']
+                    person.update(z=round(z, 3), support_samples=n,
+                                  full_body_support_verified=True,
+                                  z_mode='measured_full_body_surface')
+                    person['review_target'][2] += dz
+                    for eye in person['review_eyes']:
+                        eye[2] += dz
+                    if not all(qp._clear_segment(
+                            stage, r, person['review_target'], eye, ssf)
+                               for eye in person['review_eyes']):
+                        continue
+                ux, uy = tp._body_axis(
+                    person["pose"], person["yaw_deg"],
+                    fp.LYING_ROLL[person["pose"]])
+                stations = [(person["x"]+ux*t, person["y"]+uy*t)
+                            for t in (0, .9, 1.8)]
+                if any(math.hypot(x-bx, y-by) < rad+.4
+                       for x, y in stations for bx, by, rad in blockers):
                     continue
-            ux, uy = tp._body_axis(person["pose"], person["yaw_deg"], fp.LYING_ROLL[person["pose"]])
-            stations = [(person["x"]+ux*t, person["y"]+uy*t) for t in (0, .9, 1.8)]
-            if any(math.hypot(x-bx,y-by) < rad+.4 for x,y in stations for bx,by,rad in blockers):
-                continue
-            person.update(id="sqp_%03d" % len(made), status="unknown", alive=None,
-                          disaster="earthquake", sampling="visible_rescue_target")
-            if person["state"] == "rubble_casualty":
-                specs = qp._cover_specs(person, rng)
-                for spec in specs:
-                    spec["class"] = "sheathing" if rng.random() < .65 else "stud"
-                covers.extend(specs)
-            made.append(person)
+                person.update(id="sqp_%03d" % len(made), status="unknown",
+                              alive=None, disaster="earthquake",
+                              sampling="visible_rescue_target")
+                if person["state"] == "rubble_casualty":
+                    specs = qp._cover_specs(person, rng)
+                    for spec in specs:
+                        spec["class"] = ("sheathing" if rng.random() < .65
+                                         else "stud")
+                    covers.extend(specs)
+                made.append(person)
+                per_house[r["prim"]] = per_house.get(r["prim"], 0) + 1
+                break
+        if len(made) >= total or len(made) == pass_start:
             break
     # Reassign the contiguous scene IDs after retained + replacement records
     # are combined. previous_id preserves identity across the review revision.

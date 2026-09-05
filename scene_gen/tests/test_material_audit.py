@@ -37,6 +37,17 @@ def test_valid_material_and_deliberate_display_color_pass():
     assert report["counts"]["display_color_only"] == 1
 
 
+def test_full_purpose_material_is_a_valid_render_binding():
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, "/W")
+    mesh = _mesh(stage)
+    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(
+        _material(stage), materialPurpose=UsdShade.Tokens.full)
+    report = material_audit.audit(stage)
+    assert report["ok"]
+    assert report["counts"]["bound_targets"] == 1
+
+
 def test_dangling_typeless_and_surface_less_bindings_fail():
     stage = Usd.Stage.CreateInMemory()
     UsdGeom.Xform.Define(stage, "/W")

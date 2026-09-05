@@ -10,7 +10,19 @@ from pathlib import Path
 import omni.client
 from pxr import Sdf, Usd, UsdGeom, UsdLux, UsdShade
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from scene_gen.disaster import material_audit
+from scene_gen.disaster import material_audit, material_repair
+
+
+SHADOWED_LOCAL_KEY = "scene_gen_material_repair_shadowed_local_assets"
+
+
+def _shadowed_paths(value):
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            value = [value]
+    return {str(path) for path in (value or ())}
 
 
 def _ok(url):
@@ -75,6 +87,10 @@ def verify(url):
                 check_arc(payload.assetPath)
 
     local_paths, missing_assets, checked = set(), set(), set()
+    shadowed_allow = _shadowed_paths(
+        dict(layer.customLayerData or {}).get(SHADOWED_LOCAL_KEY, ()))
+    shadowed_local_paths = set()
+    runtime_assets = set()
     ignored_unreal_metadata = set()
     for prim in prims:
         for attr in prim.GetAttributes():
@@ -96,8 +112,14 @@ def verify(url):
                 if not resolved:
                     ignored_unreal_metadata.add(raw)
                 continue
+            if raw.startswith(material_repair.RUNTIME_ASSET_PREFIXES):
+                runtime_assets.add(raw)
+                continue
             if os.path.isabs(raw) and not raw.startswith("omniverse://"):
-                local_paths.add(raw)
+                if raw in shadowed_allow:
+                    shadowed_local_paths.add(raw)
+                else:
+                    local_paths.add(raw)
                 continue
             # `resolvedPath` is the USD resolver's answer while the stage is
             # anchored on Nucleus. Do not `stat()` package members such as
@@ -119,7 +141,8 @@ def verify(url):
                 continue
             root = scope.GetPath().pathString
             for child in scope.GetChildren():
-                mat, _ = UsdShade.MaterialBindingAPI(child).ComputeBoundMaterial()
+                mat, _ = UsdShade.MaterialBindingAPI(child).ComputeBoundMaterial(
+                    materialPurpose=UsdShade.Tokens.full)
                 if mat and mat.GetPrim().IsValid():
                     mp = mat.GetPrim().GetPath().pathString
                     if not mp.startswith(root + "/"):
@@ -128,6 +151,8 @@ def verify(url):
     report = {
         "url": usd_url, "opened_from_nucleus": True, "meshes": meshes,
         "sky_lights": sky, "build_local": sorted(local_paths),
+        "shadowed_build_local": sorted(shadowed_local_paths),
+        "runtime_builtin_assets": sorted(runtime_assets),
         "missing_nucleus_assets": sorted(missing_assets),
         "ignored_unreal_source_metadata": sorted(ignored_unreal_metadata),
         "checked_nucleus_assets": len(checked),
