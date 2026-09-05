@@ -11,7 +11,7 @@ if _gpu:
     _launch.update(active_gpu=int(_gpu),physics_gpu=int(_gpu))
 app=SimulationApp(_launch)
 import omni.usd
-from pxr import Usd,UsdGeom,UsdPhysics
+from pxr import Sdf,Usd,UsdGeom,UsdPhysics
 from isaacsim.core.api import SimulationContext
 REPO=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(REPO/'scene_gen'))
@@ -65,8 +65,30 @@ def main():
                 'SETTLE_RETRY_FRACTION','0.333333333333')))
         if not result.get('driver','').startswith('SimulationContext'):
             raise RuntimeError('No explicit physics driver: '+str(result))
-        from disaster.quake_suburban_bake import validate_settled_export
-        minimum_z=min(p[2] for path in meta['loose_paths']
+        # As in the shipped urban-fire and urban-quake bakers, never export a
+        # chip frozen in mid-flight.  The live simulation has already had all
+        # three continuation passes.  Removing one or two pathological shards
+        # costs no visible damage detail; accepting a larger failed pile is
+        # forbidden and remains a hard error.
+        moving=list(result.get('still_moving_paths') or
+                    result.get('still_moving_examples') or [])
+        deactivated=[]
+        for path in moving:
+            prim=stage.GetPrimAtPath(Sdf.Path(str(path)))
+            if prim and prim.IsValid() and prim.IsActive():
+                prim.SetActive(False)
+                deactivated.append(str(path))
+        from disaster.quake_suburban_bake import (
+            accept_bounded_unsettled_cull,validate_settled_export)
+        accept_bounded_unsettled_cull(
+            result,len(deactivated),
+            max_count=int(os.environ.get('QUAKE_MAX_UNSETTLED_CULL','2')))
+        if deactivated:
+            print('[quake_bake] DEACTIVATED_UNSETTLED '+
+                  str(len(deactivated))+' '+','.join(deactivated),flush=True)
+        active_loose=[path for path in meta['loose_paths']
+                      if stage.GetPrimAtPath(path).IsActive()]
+        minimum_z=min(p[2] for path in active_loose
                       for p in mesh_points(stage.GetPrimAtPath(path)))
         exported=validate_settled_export(result,minimum_z)
         # The temporary /World physics scene lies outside the referenced
@@ -76,12 +98,13 @@ def main():
                 UsdPhysics.RigidBodyAPI(prim).CreateRigidBodyEnabledAttr(False)
         meta['physics_bake']={k:v for k,v in result.items() if isinstance(v,(str,int,float,bool))}
         meta['physics_bake']['bodies']=len(meta['loose_paths'])
+        meta['physics_bake']['deactivated_unsettled_paths']=deactivated
         meta['physics_bake'].update(exported)
         meta['physics_bake']['pre_clamp_faults']=result.get('faults',[])
         from shapely.geometry import MultiPoint
         from disaster.quake_suburban_interactions import mesh_points
         meta['fracture_footprints']=[]
-        for path in meta['loose_paths']:
+        for path in active_loose:
             points=mesh_points(stage.GetPrimAtPath(path))
             shape=MultiPoint([(p[0],p[1]) for p in points]).convex_hull
             if shape.geom_type=='Polygon':

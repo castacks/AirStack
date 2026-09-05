@@ -14,6 +14,34 @@ REVISION = 'fractured_bearing_v5'
 NORMAL = {'S': (0., -1.), 'E': (1., 0.), 'N': (0., 1.), 'W': (-1., 0.)}
 
 
+def accept_bounded_unsettled_cull(result, deactivated, max_count=2):
+    """Turn a tiny, explicitly removed mid-flight tail into a valid solve.
+
+    Urban fire and urban earthquake already prefer an absent chip to debris
+    frozen in the air.  Suburban quake used to reject the whole house (and
+    therefore the whole three-level queue) when one persistent collision
+    jitter survived every live continuation.  Preserve the pre-cull verdict
+    in the report and accept only a complete, tightly bounded removal; a real
+    non-converged pile still fails :func:`validate_settled_export`.
+    """
+    before = int(result.get('still_moving') or 0)
+    if before <= 0:
+        return True
+    result['pre_deactivate_still_moving'] = before
+    result['deactivated_unsettled'] = int(deactivated)
+    result['pre_deactivate_still_moving_paths'] = list(
+        result.get('still_moving_paths') or
+        result.get('still_moving_examples') or [])
+    if before > int(max_count) or int(deactivated) != before:
+        return False
+    result['still_moving'] = 0
+    result['still_moving_paths'] = []
+    result['still_moving_examples'] = []
+    result['converged'] = True
+    result['stop_reason'] = 'bounded_unsettled_deactivated'
+    return True
+
+
 def validate_settled_export(result, minimum_z):
     """Check exported points after settle's final clamp, retaining its verdict.
 

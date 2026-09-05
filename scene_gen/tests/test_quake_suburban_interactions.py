@@ -212,3 +212,24 @@ def test_export_gate_checks_final_points_and_does_not_hide_failed_solve():
                       (dict(below_grade_pts_worst=-.21),0.),({},-.03),({},float('nan'))]:
         with pytest.raises(RuntimeError):
             validate_settled_export(dict(r,**changes),z)
+
+
+def test_only_a_complete_tiny_unsettled_tail_can_be_culled():
+    from disaster.quake_suburban_bake import accept_bounded_unsettled_cull
+    one=dict(converged=False,still_moving=1,
+             still_moving_paths=['/House/chip'])
+    assert accept_bounded_unsettled_cull(one,1)
+    assert one['converged'] and one['still_moving']==0
+    assert one['pre_deactivate_still_moving']==1
+    assert one['pre_deactivate_still_moving_paths']==['/House/chip']
+    assert one['deactivated_unsettled']==1
+
+    incomplete=dict(converged=False,still_moving=2,
+                    still_moving_paths=['/a','/b'])
+    assert not accept_bounded_unsettled_cull(incomplete,1)
+    assert incomplete['still_moving']==2 and not incomplete['converged']
+
+    too_many=dict(converged=False,still_moving=3,
+                  still_moving_paths=['/a','/b','/c'])
+    assert not accept_bounded_unsettled_cull(too_many,3)
+    assert too_many['still_moving']==3 and not too_many['converged']
