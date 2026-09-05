@@ -29,7 +29,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟨 | 🟨 | 🟦 |
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟨 | 🟨 | 🟨 | 🟨 | 🟦 |
-| **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟨 | 🟨 | 🟨 | 🟦 |
+| **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟨 | 🟨 | 🟦 |
 | **Earthquake** | **Suburban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 
 ## Fire
@@ -152,8 +152,9 @@ run folder (`17-13-17`) was stopped and not uploaded after robot 6 reproduced
 a takeoff obstruction on both clean stack attempts. Robot 6 was moved from
 `(212.5, 140)` to vetted clear point `(300, 200)` across all four environments;
 the corrected Frontier run passed 17/17 steps at team RTF 0.19188 and was
-uploaded and NAS-verified at 19:53 UTC. L3 Lawnmower started immediately
-afterward. Pod 56 has the accepted L1 Frontier result above.
+uploaded and NAS-verified at 19:53 UTC. L3 Lawnmower then passed at team RTF
+0.19888 and was uploaded and NAS-verified at 21:13 UTC; L3 VLFM started
+immediately afterward. Pod 56 has the accepted L1 results above.
 
 ### Suburban
 
@@ -203,7 +204,7 @@ uploaded.
 | 6 | `airstack-mission-1gpu-56` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | ≤12 h | RUNNING — L1 Frontier and Lawnmower passed/uploaded at team RTFs 0.19510 and 0.20130; iteration 3/8 L1 VLFM started at 20:43 UTC |
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
-| 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ≤12 h | RUNNING — corrected Frontier passed/uploaded/NAS-verified at team RTF 0.19188; Lawnmower iteration 2/4 started at 19:53 UTC |
+| 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ≤12 h | RUNNING — Frontier and Lawnmower passed/uploaded/NAS-verified at team RTFs 0.19188 and 0.19888; VLFM iteration 3/4 started at 21:13 UTC |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
@@ -242,7 +243,7 @@ short tuning runs are excluded.
 | Fire | — | 97.8 min / 0.102 (n=11) |
 | Hurricane | — | 38.3 min / 0.265 (n=9) |
 | Tornado | — | 77.4 min / 0.129 (n=11) |
-| Earthquake | 51.7 min / 0.193 (n=2) | — |
+| Earthquake | 50.8 min / 0.197 (n=4) | — |
 
 ## Actual results (detector-confirmed team progress and PPL)
 
