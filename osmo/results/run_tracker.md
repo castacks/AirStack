@@ -201,10 +201,10 @@ uploaded.
 | 4 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | — | STOPPED — two attempts hit the obsolete disparity gate; zero scored/uploaded runs |
 | 3 | `airstack-mission-1gpu-56` | Urban Fire L1/L2 Frontier | 2 | — | STOPPED — launched before canonical publication; zero scored/uploaded runs |
 | 5 | `airstack-mission-1gpu-56` | Urban Fire L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | 5 h 11 min | STOPPED FOR EARTHQUAKE CUTOVER — L1 Frontier, VLFM and CoNavGPT2 passed/uploaded (RTFs 0.219, 0.2115, 0.18784); Lawnmower failed twice and needs a focused rerun; Fire L2 remains deferred |
-| 6 | `airstack-mission-1gpu-56` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | ≤12 h | RUNNING — L1 Frontier and Lawnmower passed/uploaded at team RTFs 0.19510 and 0.20130; iteration 3/8 L1 VLFM started at 20:43 UTC |
+| 6 | `airstack-mission-1gpu-56` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | L1 2/4; L2 0/4 | ≤12 h | RUNNING — L1 Frontier and Lawnmower passed/uploaded at team RTFs 0.19510 and 0.20130; L1 VLFM is active |
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
-| 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ≤12 h | RUNNING — Frontier and Lawnmower passed/uploaded/NAS-verified at team RTFs 0.19188 and 0.19888; VLFM iteration 3/4 started at 21:13 UTC |
+| 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 2/4 | ≤12 h | RUNNING — Frontier and Lawnmower passed/uploaded/NAS-verified at team RTFs 0.19188 and 0.19888; VLFM is active |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
@@ -217,8 +217,8 @@ hours for inspection and corrective reruns.
 | `airstack-mission-8robot-2gpu-4` | Tornado/Suburban L1–L3 RayFronts | QUEUED |
 | `airstack-mission-8robot-2gpu-5` | Fire/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
 | `airstack-mission-8robot-2gpu-6` | Fire/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
-| `airstack-mission-8robot-2gpu-7` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
-| `airstack-mission-8robot-2gpu-8` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
+| `airstack-mission-8robot-2gpu-7` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | CANCELED — replaced by the active split run on pod 56 |
+| `airstack-mission-8robot-2gpu-8` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | CANCELED — replaced by the active split run on pod 57 |
 
 The broad Fire and Tornado batches started at `19-51-50` / `19-58-31` were
 stopped during startup once the accepted pre-optimization sweep was found.
