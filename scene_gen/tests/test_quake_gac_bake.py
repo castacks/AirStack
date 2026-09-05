@@ -311,6 +311,7 @@ def _apply_on_bare_stage(grade, btype, seed=13):
     freshly-authored bare stage — one building, ready for section C/D's
     assertions."""
     from pxr import Usd, UsdGeom
+    from test_quake_sliced import fake_sliced_building
 
     pls, style, _grid = fake_sliced_building(seed=seed)
     info = qf.describe(style, pls, 0.0, 0.0, 0.0)
