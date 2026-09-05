@@ -82,7 +82,8 @@ PY"; then
       ARCH_DIR='$ARCH_DIR' GAC_ARCH_DIR='$GAC_ARCH_DIR' \
       QUAKE_EXTENSIVE_REVIEW=1 QUAKE_REVIEW_MAJOR_MAX='${QUAKE_REVIEW_MAJOR_MAX:-48}' \
       FREEZE_OUT='$CELL' FREEZE_EXPORT=1 FREEZE_COLLECT=0 \
-      FREEZE_SNAPS=1 FREEZE_EXIT=1 PEOPLE_VARIANT='${PEOPLE_VARIANT:-1}' \
+      FREEZE_SNAPS=1 SNAP_DIR='$SNAPS' FREEZE_EXIT=1 \
+      PEOPLE_VARIANT='${PEOPLE_VARIANT:-1}' \
       ISAAC_SIM_HEADLESS=true \
       timeout '${QUAKE_TIMEOUT_S:-21600}s' /isaac-sim/python.sh \
       simulation/isaac-sim/launch_scripts/experimental_fast_freeze_urban_quake_city_launch_script.py \
