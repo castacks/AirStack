@@ -27,7 +27,9 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Earthquake** | **Urban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| **Earthquake** | **Urban** | L1 | 🟩 | 🟨 | 🟨 | 🟨 | 🟨 | 🟦 |
+| **Earthquake** | **Urban** | L2 | 🟩 | 🟨 | 🟨 | 🟨 | 🟨 | 🟦 |
+| **Earthquake** | **Urban** | L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | **Earthquake** | **Suburban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 
 ## Fire
@@ -118,8 +120,10 @@ canonical iteration and does not change the DONE status.
 
 ### Urban
 
-Urban Earthquake L1–L3 generation is complete and frozen-scene export is in
-progress with another agent. No benchmark result has been submitted yet.
+Urban Earthquake L1 and L2 are canonically published with GT and passing
+Nucleus verification reports. Their eight shared-baseline cells are queued in
+`airstack-mission-8robot-2gpu-7`. L3 export remains in progress. No completed
+Urban Earthquake benchmark result is uploaded yet.
 
 ### Suburban
 
@@ -142,9 +146,8 @@ progress with another agent. No benchmark result has been submitted yet.
 1. 🟨 Complete the pinned one-GPU Urban Fire fallback batches now running on
    pods 56 and 57; upload each passed iteration immediately and publish no
    failures.
-2. 🟨 Finish canonical Earthquake Urban/Suburban exports. The most recent Urban
-   freeze exited 1 and held the Suburban queue, so no Earthquake benchmark job
-   has been submitted against an incomplete cell.
+2. 🟨 Run queued Urban Earthquake L1–L2 workflow `-7`; finish and queue Urban
+   L3 and Suburban exports as their canonical cells pass verification.
 3. 🟩 Fire/Suburban L1 and Tornado/Suburban L3 CoNavGPT2 focused reruns passed.
 4. 🟦 Run the queued 2-GPU RayFronts/RAVEN suburban missions.
 
@@ -153,8 +156,9 @@ progress with another agent. No benchmark result has been submitted yet.
 The four shared-planner baselines are assigned to the existing 1-GPU pods,
 including an explicit fallback attempt for the heavier Urban Fire cells.
 RayFronts/RAVEN remains in the 2-GPU queue. Each active fallback is capped at
-12 wall-hours; a second identical failure pauses that cell/method for diagnosis
-rather than consuming the rest of the batch.
+12 wall-hours. A cell that exhausts its automatic attempts is diagnosed and
+requeued as a focused rerun; it remains outstanding until a passed result is
+uploaded.
 
 | Order | Pod | Cells | Runs | Expected batch wall time | State |
 |---:|---|---|---:|---:|---|
@@ -180,6 +184,7 @@ hours for inspection and corrective reruns.
 | `airstack-mission-8robot-2gpu-4` | Tornado/Suburban L1–L3 RayFronts | QUEUED |
 | `airstack-mission-8robot-2gpu-5` | Fire/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
 | `airstack-mission-8robot-2gpu-6` | Fire/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
+| `airstack-mission-8robot-2gpu-7` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
 
 The broad Fire and Tornado batches started at `19-51-50` / `19-58-31` were
 stopped during startup once the accepted pre-optimization sweep was found.
