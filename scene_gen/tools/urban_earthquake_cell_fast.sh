@@ -77,6 +77,7 @@ PY"; then
     dex bash -lc "cd '/isaac-sim/AirStack' && \
       REPO='/isaac-sim/AirStack' \
       AIRSTACK_ASSET_ROOT='$NUCLEUS_ROOT' \
+      OBJAVERSE_ASSET_ROOT='${NUCLEUS_ROOT}/scene_gen/assets/objaverse' \
       SCENE_CONFIG='$SCENE_CONFIG' ASSET_SET='$ASSET_SET' \
       REGION_M='$REGION_M' MAGNITUDE='$MAG' QUAKE_SEED='$SEED' \
       ARCH_DIR='$ARCH_DIR' GAC_ARCH_DIR='$GAC_ARCH_DIR' \
