@@ -190,7 +190,7 @@ uploaded.
 | 5 | `airstack-mission-1gpu-56` | Urban Fire L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | ≤12 h | RUNNING — L1 Frontier passed/uploaded at RTF 0.219 and VLFM passed/uploaded at RTF 0.2115; Lawnmower failed twice and needs a focused rerun; CoNavGPT2 began its 600-s timed search at 17:05 UTC (live RTF ~0.193); Fire L2 is deferred for the Earthquake cutover |
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
-| 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ≤12 h | RUNNING — Frontier takeoff retry 2/3 for robot 6 after its first action stalled at 6.5 m; zero completed/uploaded yet |
+| 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ≤12 h | RUNNING — Frontier takeoff retry 3/3 for robot 6 after two action timeouts at 6.5 m; zero completed/uploaded yet |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
