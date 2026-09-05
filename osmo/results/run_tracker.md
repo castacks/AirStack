@@ -131,9 +131,9 @@ canonical iteration and does not change the DONE status.
 ### Urban
 
 Urban Earthquake L1, L2 and L3 are canonically published with GT. The L1-L2
-shared-baseline cells are queued in `airstack-mission-8robot-2gpu-7`. L3 has
-its generated, validated overlay and four-cell optimized mission and is being
-submitted as a separate 2-GPU workflow. No completed Urban Earthquake benchmark
+shared-baseline cells are queued in `airstack-mission-8robot-2gpu-7`. L3's
+four optimized baseline cells are queued separately in
+`airstack-mission-8robot-2gpu-8`. No completed Urban Earthquake benchmark
 result is uploaded yet.
 
 ### Suburban
@@ -196,6 +196,7 @@ hours for inspection and corrective reruns.
 | `airstack-mission-8robot-2gpu-5` | Fire/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
 | `airstack-mission-8robot-2gpu-6` | Fire/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
 | `airstack-mission-8robot-2gpu-7` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
+| `airstack-mission-8robot-2gpu-8` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
 
 The broad Fire and Tornado batches started at `19-51-50` / `19-58-31` were
 stopped during startup once the accepted pre-optimization sweep was found.
