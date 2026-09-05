@@ -41,6 +41,7 @@ from an `.mdl` to its own `../textures/...` are unchanged, and only the ROOT
 layer's asset paths need the `Materials/` prefix.
 """
 
+import json
 import os
 import shutil
 import time
@@ -52,6 +53,23 @@ import time
 _COLLECT_DIRS = ("materials", "textures", "SubUSDs")
 
 MATERIALS_DIR = "Materials"
+
+# A source material inside a read-only instance prototype can retain its old
+# local texture attribute even after every mesh that used it has been rebound
+# to a portable clone. The old attribute is then inert, but Kit preserves it
+# in the flattened layer. Record exactly those successfully-shadowed source
+# paths so both cold gates can distinguish them from an active dependency.
+SHADOWED_LOCAL_ASSETS_KEY = "scene_gen_material_repair_shadowed_local_assets"
+
+
+def _shadowed_local_paths(value):
+    """Decode the JSON-string representation accepted by USDA and USDC."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            value = [value]
+    return {str(path) for path in (value or ())}
 
 
 # ---------------------------------------------------------------------------
@@ -355,13 +373,20 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
     # `build_local` defect (FAIL). Never allowlists `myan2` or any other
     # literal — a DIFFERENT dead author-machine path some other asset
     # carries is caught by the exact same test with no code change.
+    shadowed_allow = _shadowed_local_paths(
+        dict(st.GetRootLayer().customLayerData or {}).get(
+            SHADOWED_LOCAL_ASSETS_KEY, ()))
     build_local = set()
     build_local_bindings = 0
+    shadowed_build_local = set()
+    shadowed_build_local_bindings = 0
     dead_ancestral = set()
     dead_ancestral_bindings = 0
     runtime_builtin = set()
     for prim in Usd.PrimRange.Stage(st, Usd.TraverseInstanceProxies()):
-        if not prim.IsA(UsdShade.Shader):
+        # Some MDL exporters place texture inputs directly on the Material
+        # prim rather than its Shader child. Audit both representations.
+        if not (prim.IsA(UsdShade.Shader) or prim.IsA(UsdShade.Material)):
             continue
         for attr in prim.GetAttributes():
             if attr.GetTypeName() != Sdf.ValueTypeNames.Asset:
@@ -377,6 +402,10 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
                 runtime_builtin.add(ap)
                 continue
             if not (os.path.isabs(ap) and not os.path.abspath(ap).startswith(here)):
+                continue
+            if ap in shadowed_allow:
+                shadowed_build_local.add(ap)
+                shadowed_build_local_bindings += 1
                 continue
             if os.path.isfile(ap):
                 build_local.add(ap)
@@ -405,6 +434,8 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
     # absolutes are called out separately and are NEVER acceptable.
     out["build_local"] = sorted(build_local)
     out["build_local_bindings"] = build_local_bindings
+    out["shadowed_build_local"] = sorted(shadowed_build_local)
+    out["shadowed_build_local_bindings"] = shadowed_build_local_bindings
     out["dead_ancestral"] = sorted(dead_ancestral)
     out["dead_ancestral_bindings"] = dead_ancestral_bindings
     out["runtime_builtin_assets"] = sorted(runtime_builtin)
@@ -1133,6 +1164,34 @@ def make_portable(stage, mirror=ASSET_MIRROR, local_prefix=ASSET_LOCAL_PREFIX,
         _rewrite_pass()          # de-instancing off entirely -- still run
                                  # the plain (non-prototype) rewrite once
     out["waived_mirror_paths"] = sorted(waived_paths)
+
+    # Kit can reconstitute a vendor prototype during flatten even after the
+    # live-stage de-instancing/rewrite walk reported convergence. Repair the
+    # rendered binding instead of expanding shared geometry: clone each
+    # affected material, resolve its inputs through the same verified
+    # mirror-or-collect ladder, and author a stronger binding.
+    def _resolve_portable_material(path):
+        resolved = _resolve_local_path(
+            path, local_prefix=local_prefix, mirror=mirror,
+            extra_roots=extra_mirror_roots, dest_dir=dest_dir,
+            stat_fn=stat_fn, stat_cache=stat_cache, out=out)
+        return resolved if resolved != path else None
+
+    portable_materials = material_repair.repair_local_material_paths(
+        stage, _resolve_portable_material, verbose=verbose)
+    out["portable_materials"] = portable_materials
+    if portable_materials["unresolved_paths"]:
+        print("[freeze] *** portable material override unresolved: {0}"
+              .format(portable_materials["unresolved_paths"]), flush=True)
+
+    # Python list[str] customLayerData does not round-trip through all USDA /
+    # USDC combinations used here. JSON text does, and is also what the
+    # independent Nucleus verifier understands.
+    layer = stage.GetRootLayer()
+    layer_data = dict(layer.customLayerData or {})
+    layer_data[SHADOWED_LOCAL_ASSETS_KEY] = json.dumps(
+        portable_materials["shadowed_paths"], separators=(",", ":"))
+    layer.customLayerData = layer_data
 
     # --- cross-scope bindings -----------------------------------------------
     # The source material may live in a weaker sublayer/reference.  Copying

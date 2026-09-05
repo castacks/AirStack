@@ -136,6 +136,36 @@ def adapt_rubble(stage, house, traces):
     return changed
 
 
+ROOT_BALL_SOIL_MATERIAL = "/World/stage/generated/QuakeLooks/soil"
+
+
+def bind_root_ball_materials(stage, material_path=ROOT_BALL_SOIL_MATERIAL):
+    """Bind generated uprooted-tree root masses to the quake soil material.
+
+    Early frozen suburban-quake scenes created these meshes without a binding
+    or display colour. Keep this idempotent so the freeze launcher can repair
+    an already-assembled scene without repeating its CPU build.
+    """
+    from pxr import Usd, UsdGeom, UsdShade
+
+    material = UsdShade.Material.Get(stage, material_path)
+    if not material or not material.GetPrim().IsValid():
+        return 0
+    rebound = 0
+    for prim in Usd.PrimRange.Stage(stage, Usd.TraverseInstanceProxies()):
+        if not (prim.IsA(UsdGeom.Mesh)
+                and prim.GetName().endswith("_root_ball")):
+            continue
+        bound = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial(
+            materialPurpose=UsdShade.Tokens.full)[0]
+        if bound and bound.GetPrim().IsValid():
+            continue
+        UsdShade.MaterialBindingAPI.Apply(prim).Bind(
+            material, UsdShade.Tokens.strongerThanDescendants)
+        rebound += 1
+    return rebound
+
+
 def author(stage,houses,placements,trees,traces,soil,seed=10,tree_keepout=None):
     from pxr import Gf,UsdGeom
     from shapely.geometry import MultiPoint,box
@@ -255,7 +285,7 @@ def author(stage,houses,placements,trees,traces,soil,seed=10,tree_keepout=None):
                 a=math.radians(lean); b=math.radians(az)
                 vegetation.root_ball(stage,path+'_root_ball',(x,y),lift,
                      (math.sin(a)*math.cos(b),math.sin(a)*math.sin(b),math.cos(a)),
-                     .65,rng)
+                     .65,rng,mat_prim_path=ROOT_BALL_SOIL_MATERIAL)
                 changes.append(dict(prim=path,kind='tree',cause='root_failure',
                                     fault_id=q['id'],tilt_deg=lean,lift_m=lift))
         if not uproot and plane['affected']:
@@ -265,4 +295,7 @@ def author(stage,houses,placements,trees,traces,soil,seed=10,tree_keepout=None):
                 world_delta(tree_prim,Gf.Matrix4d(1.).SetTranslate(Gf.Vec3d(0,0,plane['dz'])))
                 plane.update(gx=0.,gy=0.,tilt_deg=0.,clearance_limited=True)
             changes.append(dict(prim=path,kind='tree',cause='ground',**plane))
+    # The material is supplied at creation above. This also makes the function
+    # repair-safe if a caller composes an older generated root ball first.
+    bind_root_ball_materials(stage)
     return changes

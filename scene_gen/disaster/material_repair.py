@@ -41,7 +41,8 @@ def _usable(material):
 
 def _clone_material(stage, source, name, *, scope=REPAIR_SCOPE):
     """Clone one composed material spec into the current edit layer."""
-    from pxr import Sdf, UsdGeom, UsdShade
+    import os
+    from pxr import Sdf, Usd, UsdGeom, UsdShade
 
     UsdGeom.Scope.Define(stage, scope)
     dst = Sdf.Path(scope).AppendChild(name)
@@ -51,6 +52,39 @@ def _clone_material(stage, source, name, *, scope=REPAIR_SCOPE):
     if not _usable(source):
         return None
     dst_layer = stage.GetEditTarget().GetLayer()
+    source_root = source.GetPrim().GetPath()
+
+    # CopySpec preserves a relative spelling but changes its anchoring layer.
+    # A vendor material's ``./materials/TreeBark_07.mdl`` therefore resolved
+    # beside the generated review scene after cloning instead of beside the
+    # source tree asset. Capture the source resolution before copying and
+    # author the resolved path on the clone; the subsequent portability pass
+    # can then map/collect it like every other real local dependency.
+    reanchored_assets = {}
+    for source_prim in Usd.PrimRange(source.GetPrim()):
+        relative = source_prim.GetPath().MakeRelativePath(source_root)
+        for attr in source_prim.GetAttributes():
+            if attr.GetTypeName() != Sdf.ValueTypeNames.Asset:
+                continue
+            value = attr.Get()
+            raw = getattr(value, "path", "") or ""
+            if (not raw or os.path.isabs(raw)
+                    or raw.startswith(("omniverse://", "http://", "https://"))
+                    or "/" not in raw):
+                continue
+            resolved = getattr(value, "resolvedPath", "") or ""
+            if not resolved:
+                for spec in attr.GetPropertyStack():
+                    authored = getattr(spec, "default", None)
+                    if getattr(authored, "path", None) != raw:
+                        continue
+                    resolved = Sdf.ComputeAssetPathRelativeToLayer(
+                        spec.layer, raw)
+                    if resolved:
+                        break
+            if resolved:
+                reanchored_assets[(relative.pathString,
+                                   attr.GetName())] = resolved
 
     def _finished_copy():
         copied = UsdShade.Material(stage.GetPrimAtPath(dst))
@@ -61,6 +95,12 @@ def _clone_material(stage, source, name, *, scope=REPAIR_SCOPE):
         # while unpacking that metadata *after* copying the usable shader
         # network.  Never let the poisoned metadata enter our output layer.
         copied.GetPrim().ClearMetadata("assetInfo")
+        for (relative, attr_name), resolved in reanchored_assets.items():
+            prim_path = (dst if relative in ("", ".")
+                         else dst.AppendPath(relative))
+            attr = stage.GetPrimAtPath(prim_path).GetAttribute(attr_name)
+            if attr:
+                attr.Set(Sdf.AssetPath(resolved))
         return copied
 
     for spec in source.GetPrim().GetPrimStack():

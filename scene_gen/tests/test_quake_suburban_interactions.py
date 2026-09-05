@@ -185,6 +185,30 @@ def test_actual_fracture_footprints_reach_fence_queries():
     assert shape.contains(Point(9,22))
 
 
+def test_generated_root_ball_gets_real_soil_material_idempotently():
+    from pxr import Gf,Usd,UsdGeom,UsdShade
+    stage=Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage,'/World/stage/generated/QuakeLooks')
+    soil=UsdShade.Material.Define(
+        stage,response.ROOT_BALL_SOIL_MATERIAL)
+    shader=UsdShade.Shader.Define(
+        stage,response.ROOT_BALL_SOIL_MATERIAL+'/Shader')
+    shader.CreateIdAttr('UsdPreviewSurface')
+    soil.CreateSurfaceOutput().ConnectToSource(
+        shader.ConnectableAPI(),'surface')
+    mesh=UsdGeom.Mesh.Define(
+        stage,'/World/stage/generated/trees/t_0001_root_ball')
+    mesh.CreatePointsAttr([Gf.Vec3f(0),Gf.Vec3f(1,0,0),Gf.Vec3f(0,1,0)])
+    mesh.CreateFaceVertexCountsAttr([3])
+    mesh.CreateFaceVertexIndicesAttr([0,1,2])
+
+    assert response.bind_root_ball_materials(stage)==1
+    bound=UsdShade.MaterialBindingAPI(mesh.GetPrim()).ComputeBoundMaterial(
+        materialPurpose=UsdShade.Tokens.full)[0]
+    assert bound.GetPath()==soil.GetPath()
+    assert response.bind_root_ball_materials(stage)==0
+
+
 def test_cache_key_ignores_world_pose_but_not_recipe():
     from disaster import quake_suburban_bake as bake
     h=dict(style='cottage',palette='red',mode='foundation',side='N',seed=13)

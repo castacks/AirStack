@@ -81,16 +81,36 @@ PY
   then
     say "local portable L${L} already exists; skipping build"
   else
+    REUSE_SCENE=0
+    # A freeze/material/upload failure does not invalidate the deterministic
+    # CPU assembly. Reuse it when its own cold audit passes; L1's older 10/12
+    # casualty scene deliberately fails this check and is rebuilt with the
+    # placement fix, while a good L2/L3 scene avoids another 30-80 minute pass.
+    if dex test -f "$SCENE/review_scene.usdc" \
+        -a -f "$SCENE/scene_report.json" \
+        -a -f "$SCENE/damage_plan.json"; then
+      if dex bash -lc "cd '/isaac-sim/AirStack' && bash scene_gen/tools/suburban_quake_cpu.sh \
+        scene_gen/tools/suburban_quake_audit.py '$SCENE' --cache '$CACHE' \
+        --expect-people '$PEOPLE'" 2>&1 | tee "$RUN_LOG"; then
+        REUSE_SCENE=1
+      fi
+    fi
     dex bash -lc "stamp=\$(date +%Y%m%d_%H%M%S); \
       if [ -d '$CELL' ]; then mv '$CELL' '${CELL}.failed_'\"\$stamp\"; fi; \
-      if [ -d '$WORK' ]; then mv '$WORK' '${WORK}.failed_'\"\$stamp\"; fi; \
       mkdir -p '$WORK' '$CELL/snaps'" || die "prepare L${L} directories"
 
-    say "write exact 2-D damage plan"
-    dex bash -lc "cd '/isaac-sim/AirStack' && /isaac-sim/python.sh \
-      scene_gen/tools/suburban_quake_plan.py --config '$CONFIG' --out '$PLAN'" \
-      2>&1 | tee "$RUN_LOG"
-    [ "${PIPESTATUS[0]}" = 0 ] || die "L${L} plan"
+    if [ "$REUSE_SCENE" = 1 ]; then
+      say "reuse audited L${L} CPU assembly; retry freeze/upload only"
+    else
+      dex bash -lc "stamp=\$(date +%Y%m%d_%H%M%S); \
+        if [ -d '$WORK' ]; then mv '$WORK' '${WORK}.failed_'\"\$stamp\"; fi; \
+        mkdir -p '$WORK'" || die "prepare fresh L${L} work directory"
+
+      say "write exact 2-D damage plan"
+      dex bash -lc "cd '/isaac-sim/AirStack' && /isaac-sim/python.sh \
+        scene_gen/tools/suburban_quake_plan.py --config '$CONFIG' --out '$PLAN'" \
+        2>&1 | tee "$RUN_LOG"
+      [ "${PIPESTATUS[0]}" = 0 ] || die "L${L} plan"
 
     say "prepare and deduplicate required house caches"
     dex bash -lc "cd '/isaac-sim/AirStack' && bash scene_gen/tools/suburban_quake_cpu.sh \
@@ -165,10 +185,11 @@ PY
       --config '$CONFIG' --cache '$CACHE' --scene-format usdc" \
       2>&1 | tee -a "$RUN_LOG"
     [ "${PIPESTATUS[0]}" = 0 ] || die "L${L} CPU assembly"
-    dex bash -lc "cd '/isaac-sim/AirStack' && bash scene_gen/tools/suburban_quake_cpu.sh \
-      scene_gen/tools/suburban_quake_audit.py '$SCENE' --cache '$CACHE' \
-      --expect-people '$PEOPLE'" 2>&1 | tee -a "$RUN_LOG"
-    [ "${PIPESTATUS[0]}" = 0 ] || die "L${L} cold CPU audit"
+      dex bash -lc "cd '/isaac-sim/AirStack' && bash scene_gen/tools/suburban_quake_cpu.sh \
+        scene_gen/tools/suburban_quake_audit.py '$SCENE' --cache '$CACHE' \
+        --expect-people '$PEOPLE'" 2>&1 | tee -a "$RUN_LOG"
+      [ "${PIPESTATUS[0]}" = 0 ] || die "L${L} cold CPU audit"
+    fi
     dex cp "${PLAN}.png" "$CELL/snaps/damage_plan.png" || die "copy L${L} map"
 
     say "render extensive review and freeze portable cell"

@@ -25,7 +25,8 @@ import omni.usd
 REPO=os.path.abspath(os.path.join(os.path.dirname(__file__),'../../..'))
 sys.path.insert(0,REPO+'/scene_gen')
 sys.path.insert(0,REPO+'/simulation/isaac-sim/utils')
-from disaster import freeze,quake_export
+from disaster import freeze,material_audit,material_repair,quake_export
+from disaster import quake_suburban_interactions
 import snapshots_rp as snapshots
 
 INPUT=os.environ['REVIEW_INPUT']
@@ -131,6 +132,23 @@ def main():
         raise RuntimeError('could not open '+source)
     for _ in range(40):
         app.update()
+
+    # Older CPU assemblies omitted the soil binding on generated uprooted-tree
+    # root masses. Repair those exact meshes in place so a freeze-only retry is
+    # sufficient, then fail early with concrete examples for any *other*
+    # material defect instead of spending minutes on review captures first.
+    root_balls = quake_suburban_interactions.bind_root_ball_materials(stage)
+    known = material_repair.repair_known(stage)
+    material_preflight = material_audit.audit(stage, max_examples=100)
+    material_preflight["root_ball_bindings_repaired"] = root_balls
+    material_preflight["known_repairs"] = known
+    with open(os.path.join(OUT, "material_preflight.json"), "w") as fh:
+        json.dump(material_preflight, fh, indent=1)
+    print("[suburban_quake_freeze] material preflight: root_balls=%d ok=%s" %
+          (root_balls, material_preflight["ok"]), flush=True)
+    if not material_preflight["ok"]:
+        raise RuntimeError("material preflight failed: " +
+                           repr(material_preflight["examples"]))
 
     states=collections.Counter(p.get('state') for p in report['people'])
     people_report=dict(interior_casualties=states.get('interior_casualty',0),

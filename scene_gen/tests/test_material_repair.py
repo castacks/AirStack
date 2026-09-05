@@ -1,6 +1,6 @@
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
-from scene_gen.disaster import material_audit, material_repair
+from scene_gen.disaster import freeze, material_audit, material_repair
 
 
 def _material(stage, path, color=(.3, .2, .1)):
@@ -201,3 +201,84 @@ def test_material_prim_asset_input_and_overlay_stay_portable_and_in_scope():
             if attr.GetTypeName() == Sdf.ValueTypeNames.Asset:
                 raw_assets.append(attr.Get().path)
     assert raw_assets == ["omniverse://server/materials/burn.png"]
+
+
+def test_material_clone_reanchors_relative_source_assets(tmp_path):
+    materials = tmp_path / "materials"
+    materials.mkdir()
+    mdl = materials / "TreeBark_07.mdl"
+    mdl.write_text("mdl 1.0; export material TreeBark_07() = material();")
+    asset_path = tmp_path / "tree.usda"
+    asset = Usd.Stage.CreateNew(str(asset_path))
+    root = UsdGeom.Xform.Define(asset, "/Asset")
+    asset.SetDefaultPrim(root.GetPrim())
+    material = _material(asset, "/Asset/Looks/Bark")
+    shader = UsdShade.Shader.Get(asset, "/Asset/Looks/Bark/Shader")
+    shader.CreateInput("source", Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath("./materials/TreeBark_07.mdl"))
+    asset.GetRootLayer().Save()
+
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, "/World/stage")
+    tree = stage.DefinePrim("/World/stage/tree")
+    tree.GetReferences().AddReference(str(asset_path))
+    source = UsdShade.Material.Get(stage, "/World/stage/tree/Looks/Bark")
+    cloned = material_repair._clone_material(stage, source, "BarkClone")
+
+    value = stage.GetAttributeAtPath(
+        str(cloned.GetPath()) + "/Shader.inputs:source").Get()
+    assert value.path == str(mdl)
+
+
+def test_freeze_marks_rebound_prototype_path_shadowed_in_cold_layer(tmp_path):
+    import json
+
+    texture = tmp_path / "leaves.png"
+    texture.write_bytes(b"not-an-image-needed-for-the-path-test")
+    asset_path = tmp_path / "tree.usda"
+    asset = Usd.Stage.CreateNew(str(asset_path))
+    root = UsdGeom.Xform.Define(asset, "/Asset")
+    asset.SetDefaultPrim(root.GetPrim())
+    material = _material(asset, "/Asset/Looks/Leaves")
+    shader = UsdShade.Shader.Get(asset, "/Asset/Looks/Leaves/Shader")
+    shader.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath(str(texture)))
+    mesh = _mesh(asset, "/Asset/leaves")
+    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
+    asset.GetRootLayer().Save()
+
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, "/World/stage")
+    tree = stage.DefinePrim("/World/stage/tree")
+    tree.GetReferences().AddReference(str(asset_path))
+    tree.SetInstanceable(True)
+    report = freeze.make_portable(
+        stage, out_dir=str(tmp_path / "cell"), deinstance_offenders=False,
+        local_prefix=str(tmp_path) + "/",
+        mirror="omniverse://server/assets", stat_fn=lambda _url: True)
+
+    assert report["portable_materials"]["materials_overridden"] == 1
+    data = dict(stage.GetRootLayer().customLayerData or {})
+    assert json.loads(data[freeze.SHADOWED_LOCAL_ASSETS_KEY]) == [str(texture)]
+    bound = UsdShade.MaterialBindingAPI(
+        stage.GetPrimAtPath("/World/stage/tree/leaves")
+    ).ComputeBoundMaterial(materialPurpose=UsdShade.Tokens.full)[0]
+    assert bound
+    paths = []
+    for prim in Usd.PrimRange(bound.GetPrim()):
+        for attr in prim.GetAttributes():
+            if attr.GetTypeName() == Sdf.ValueTypeNames.Asset:
+                paths.append(attr.Get().path)
+    assert paths == ["omniverse://server/assets/leaves.png"]
+
+    cold_path = tmp_path / "cold.usdc"
+    stage.Flatten().Export(str(cold_path))
+    cold = freeze.verify(str(cold_path), expect_self_contained=False)
+    assert cold["portable_ok"]
+    assert cold["build_local"] == []
+    # Core USD's flatten drops the now-unused source material entirely, while
+    # Kit's exporter can retain it. The audit metadata survives either shape.
+    cold_stage = Usd.Stage.Open(str(cold_path))
+    cold_data = dict(cold_stage.GetRootLayer().customLayerData or {})
+    assert json.loads(cold_data[freeze.SHADOWED_LOCAL_ASSETS_KEY]) == [
+        str(texture)]
