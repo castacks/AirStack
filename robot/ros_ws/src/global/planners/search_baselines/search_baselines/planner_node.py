@@ -1550,12 +1550,16 @@ class CoNavGPT2Node(Node):
     def _snapshot(self):
         with self._lock:
             out = []
+            missing = []
             for i in range(self._num_robots):
                 o = self._obs[i]
-                if 'rgb' not in o or 'depth' not in o or 'cam_K_raw' not in o:
-                    return None
+                absent = [key for key in ('rgb', 'depth', 'cam_K_raw')
+                          if key not in o]
                 if 'odom' not in o and self._pose_source != 'tf':
-                    return None
+                    absent.append('odom')
+                if absent:
+                    missing.append(f'{self._robots[i]}={"/".join(absent)}')
+                    continue
                 sw, sh = o['rgb_scale']
                 fx, fy, cx, cy = o['cam_K_raw']
                 out.append({
@@ -1566,6 +1570,11 @@ class CoNavGPT2Node(Node):
                     'odom': o.get('odom'),
                     'stamp': self._stamp[i],
                 })
+            if missing:
+                self.get_logger().info(
+                    'search_planner: waiting for inputs: ' + ', '.join(missing),
+                    throttle_duration_sec=10.0)
+                return None
             return out
 
     def _sim_now(self):
