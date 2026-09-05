@@ -66,6 +66,12 @@ def test_resolved_snapshot_directory_is_shared_with_review_helper():
     assert 'os.environ["SNAP_DIR"] = SNAP_DIR' in src
 
 
+def test_vram_probe_selects_the_configured_gpu_row():
+    src = LAUNCHER.read_text()
+    assert 'os.environ.get("ISAAC_SIM_ACTIVE_GPU"' in src
+    assert "if index >= len(rows):" in src
+
+
 def test_yawed_record_uses_its_real_rectangular_footprint():
     blocks = _helpers()["_building_blocks"]
     rec = {"x": 0.0, "y": 0.0, "W": 60.0, "D": 12.0, "H": 80.0,

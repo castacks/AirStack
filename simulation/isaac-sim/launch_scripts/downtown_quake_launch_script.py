@@ -392,11 +392,21 @@ def vram_mb(tag):
         out = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.total",
                               "--format=csv,noheader,nounits"],
                              capture_output=True, text=True, timeout=10).stdout
-        used, total = [float(x) for x in out.strip().split("\n")[0].split(",")[:2]]
+        rows = [[float(x) for x in row.split(",")[:2]]
+                for row in out.strip().splitlines() if row.strip()]
+        requested = os.environ.get("ISAAC_SIM_ACTIVE_GPU", "").strip()
+        index = int(requested) if requested.isdigit() else 0
+        # Some pod runtimes expose only the assigned card to nvidia-smi while
+        # Kit retains the host ordinal (for example activeGpu=2).  In that
+        # case the sole visible row is necessarily the card Kit is using.
+        if index >= len(rows):
+            index = 0
+        used, total = rows[index]
     except Exception as exc:                        # no nvidia-smi in the image?
         print("[quake_city] VRAM {0}: unavailable ({1})".format(tag, exc), flush=True)
         return None
-    print("[quake_city] VRAM {0}: {1:.0f} / {2:.0f} MiB".format(tag, used, total), flush=True)
+    print("[quake_city] VRAM {0}: {1:.0f} / {2:.0f} MiB (nvidia-smi row {3})"
+          .format(tag, used, total, index), flush=True)
     return used
 
 
