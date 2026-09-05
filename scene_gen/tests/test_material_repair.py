@@ -230,6 +230,50 @@ def test_material_clone_reanchors_relative_source_assets(tmp_path):
     assert value.path == str(mdl)
 
 
+def test_relative_material_asset_is_overridden_before_flatten(tmp_path):
+    materials = tmp_path / "materials"
+    materials.mkdir()
+    texture = materials / "leaves.png"
+    texture.write_bytes(b"path-resolution-test")
+    asset_path = tmp_path / "tree.usda"
+    asset = Usd.Stage.CreateNew(str(asset_path))
+    root = UsdGeom.Xform.Define(asset, "/Asset")
+    asset.SetDefaultPrim(root.GetPrim())
+    material = _material(asset, "/Asset/Looks/Leaves")
+    shader = UsdShade.Shader.Get(asset, "/Asset/Looks/Leaves/Shader")
+    shader.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath("./materials/leaves.png"))
+    mesh = _mesh(asset, "/Asset/leaves")
+    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
+    asset.GetRootLayer().Save()
+
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, "/World/stage")
+    tree = stage.DefinePrim("/World/stage/tree")
+    tree.GetReferences().AddReference(str(asset_path))
+    tree.SetInstanceable(True)
+    seen = []
+
+    def resolve(path):
+        seen.append(path)
+        return "omniverse://server/assets/tree/leaves.png"
+
+    report = material_repair.repair_local_material_paths(stage, resolve)
+    assert seen == [str(texture)]
+    assert report["materials_overridden"] == 1
+    assert report["gprims_rebound"] == 1
+    assert report["shadowed_paths"] == [str(texture)]
+    proxy = stage.GetPrimAtPath("/World/stage/tree/leaves")
+    bound = UsdShade.MaterialBindingAPI(proxy).ComputeBoundMaterial(
+        materialPurpose=UsdShade.Tokens.full)[0]
+    assets = []
+    for prim in Usd.PrimRange(bound.GetPrim()):
+        for attr in prim.GetAttributes():
+            if attr.GetTypeName() == Sdf.ValueTypeNames.Asset:
+                assets.append(attr.Get().path)
+    assert assets == ["omniverse://server/assets/tree/leaves.png"]
+
+
 def test_freeze_marks_rebound_prototype_path_shadowed_in_cold_layer(tmp_path):
     import json
 

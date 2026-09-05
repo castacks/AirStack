@@ -257,11 +257,23 @@ def repair_local_material_paths(stage, resolver, verbose=True,
                 continue
             value = attr.Get()
             raw = getattr(value, "path", "") or ""
-            if (raw and not raw.startswith(("/Game/", "omniverse://",
-                                            "http://", "https://"))
-                    and not raw.startswith(RUNTIME_ASSET_PREFIXES)
-                    and os.path.isabs(raw)):
-                paths.append(raw)
+            resolved = getattr(value, "resolvedPath", "") or ""
+            if (not raw or raw.startswith(("/Game/", "omniverse://",
+                                           "http://", "https://"))
+                    or raw.startswith(RUNTIME_ASSET_PREFIXES)):
+                continue
+            # A referenced vendor material commonly authors
+            # ``./materials/foo.mdl`` or ``textures/foo.png``.  That spelling
+            # looks portable on the composed live stage, but Kit's flatten
+            # resolves it against the source layer and writes the resulting
+            # build-machine absolute path.  Classify by the resolver's answer
+            # as well as by the authored spelling, and use that absolute
+            # source as the clone/rewrite key.  `_clone_material` reanchors
+            # the same relative value before this function rewrites it.
+            source = raw if os.path.isabs(raw) else resolved
+            if (source and os.path.isabs(source)
+                    and not source.startswith(RUNTIME_ASSET_PREFIXES)):
+                paths.append(source)
         if not paths:
             continue
         owner = prim
