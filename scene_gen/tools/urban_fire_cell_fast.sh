@@ -11,7 +11,7 @@ REPO="${REPO:-/isaac-sim/AirStack}"
 CONTAINER="${CONTAINER:-$(docker ps --format '{{.Names}}' | grep -m1 isaac-sim || echo isaac-sim)}"
 LEVELS="${LEVELS:-${1:-1}}"
 FB_OUT="${FB_OUT:-/isaac-sim/.cache/fire_bakes/urban_1km}"
-FREEZE_OUT="${FREEZE_OUT:-/isaac-sim/final_disaster_dataset/Fire/Urban_fast}"
+FREEZE_OUT="${FREEZE_OUT:-/isaac-sim/final_disaster_dataset/Fire/Urban}"
 NUCLEUS_DATASET="${NUCLEUS_DATASET:-omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset}"
 NUCLEUS_ASSET_ROOT="${NUCLEUS_ASSET_ROOT:-omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA}"
 NUCLEUS_OBJAVERSE_ROOT="${NUCLEUS_OBJAVERSE_ROOT:-${NUCLEUS_ASSET_ROOT%/}/scene_gen/assets/objaverse}"
@@ -205,7 +205,7 @@ PY
   # its Nucleus URL and resolve dependencies there. A local-only success is not
   # considered a completed level.
   PUBLISH_START=$(now)
-  REMOTE_CELL="$NUCLEUS_DATASET/Fire/Urban_fast/level_${L}/1"
+  REMOTE_CELL="$NUCLEUS_DATASET/Fire/Urban/level_${L}/1"
   say "publish complete cell to Nucleus"
   dex "$CONTAINER" bash -lc "cd '$REPO' && bash scene_gen/tools/usd_python.sh \
     scene_gen/tools/dataset_upload.py --local '$CELL' --remote '$REMOTE_CELL' \
