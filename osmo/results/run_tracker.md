@@ -23,12 +23,12 @@ Last reconciled against `/media/share/coa-sei`: **2026-09-04**.
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
-| **Tornado** | **Urban** | L1–L3 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| **Tornado** | **Urban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 | 🟦 |
-| **Earthquake** | **Urban** | L1–L3 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| **Earthquake** | **Suburban** | L1–L3 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| **Earthquake** | **Urban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| **Earthquake** | **Suburban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 
 ## Fire
 
@@ -89,7 +89,8 @@ are startup-invalid.
 
 ### Urban
 
-🟥 No completed Urban Tornado scenes or benchmark results are recorded.
+Urban Tornado L1–L3 generation is complete and frozen-scene export is in
+progress with another agent. No benchmark result has been submitted yet.
 
 ### Suburban
 
@@ -103,11 +104,13 @@ canonical iteration and does not change the DONE status.
 
 ### Urban
 
-🟥 No completed Urban Earthquake scene/benchmark matrix is recorded.
+Urban Earthquake L1–L3 generation is complete and frozen-scene export is in
+progress with another agent. No benchmark result has been submitted yet.
 
 ### Suburban
 
-🟥 No completed Suburban Earthquake scene/benchmark matrix is recorded.
+Suburban Earthquake L1–L3 generation is complete and frozen-scene export is in
+progress with another agent. No benchmark result has been submitted yet.
 
 ## Failed and superseded attempts
 
