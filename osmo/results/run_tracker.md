@@ -30,7 +30,9 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 |
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 |
-| **Earthquake** | **Suburban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| **Earthquake** | **Suburban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Earthquake** | **Suburban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Earthquake** | **Suburban** | L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 
 ## Fire
 
@@ -164,8 +166,11 @@ started immediately afterward. Pod 56 has the accepted L1 results above.
 
 ### Suburban
 
-Suburban Earthquake L1–L3 generation is complete and frozen-scene export is in
-progress with another agent. No benchmark result has been submitted yet.
+Suburban Earthquake L1 and L2 are complete and ready for benchmark runs. L1 is
+queued next on pod 57 after Urban Earthquake L3; L2 is queued next on pod 56
+after Urban Earthquake L1–L2. Each level will run Frontier, Lawnmower, VLFM and
+CoNavGPT2 with the optimized 8-robot profile. L3 is not yet marked ready. No
+Suburban Earthquake benchmark result has been submitted yet.
 
 ## Failed and superseded attempts
 
@@ -180,12 +185,11 @@ progress with another agent. No benchmark result has been submitted yet.
 
 ## Next work queue
 
-1. 🟨 Complete the pinned one-GPU Urban Fire fallback batches now running on
-   pods 56 and 57; upload each passed iteration immediately and publish no
-   failures.
-2. 🟨 Run queued Urban Earthquake L1–L2 workflow `-7`; finish and queue Urban
-   L3 and Suburban exports as their canonical cells pass verification.
-3. 🟩 Fire/Suburban L1 and Tornado/Suburban L3 CoNavGPT2 focused reruns passed.
+1. 🟨 Complete the active Urban Earthquake batches on pods 56 and 57; upload
+   each passed iteration immediately and publish no failures.
+2. 🟦 Run Suburban Earthquake L1 on pod 57 and L2 on pod 56 immediately after
+   those active batches finish.
+3. 🟧 Rerun Urban Fire L1 Lawnmower and all four Urban Fire L2 methods.
 4. 🟦 Run the queued 2-GPU RayFronts/RAVEN suburban missions.
 
 ## Active batch plan
@@ -211,6 +215,8 @@ uploaded.
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 3/4 | ≤12 h | RUNNING — Frontier, Lawnmower and VLFM passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888 and 0.21211; CoNavGPT2 is active |
+| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L3 completes |
+| 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L1–L2 completes |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
