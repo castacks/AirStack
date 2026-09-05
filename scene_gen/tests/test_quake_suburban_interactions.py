@@ -22,6 +22,16 @@ def test_displacement_sign_and_falloff():
     assert ground.fault_sample(0,0,[])['z']==0
 
 
+def test_fault_sample_endpoint_roundoff_never_becomes_complex():
+    # With 14 points, ``pi * 13 / 13`` can round just beyond pi. The tapered
+    # endpoint must remain a real zero instead of producing a complex width.
+    trace=dict(id='endpoint',points=[(float(i),0.) for i in range(14)],
+               width=.5,band=3.,heave=.3,drop=.2,depth=.8)
+    sample=ground.fault_sample(13.,0.,[trace])
+    assert isinstance(sample['z'],float)
+    assert sample['z']==0.
+
+
 def test_rupture_bounds_scale_beyond_the_250m_review():
     import random
     trace=ground._trace(300.,0.,0.,80.,random.Random(4),0,

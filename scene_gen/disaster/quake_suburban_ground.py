@@ -69,7 +69,13 @@ def fault_sample(x,y,traces):
                 continue
             nx,ny=-vy/length,vx/length
             signed=(x-px)*nx+(y-py)*ny
-            taper=math.sin(math.pi*(i+t)/max(1,len(pts)-1))**.5
+            # The analytical phase is in [0, pi], but multiplying before the
+            # division can round the final endpoint a few ulps past pi (for
+            # example with 14 points). ``sin`` is then a tiny negative value
+            # and fractional exponentiation produces a complex number.
+            phase=max(0.,min(1.,(i+t)/max(1,len(pts)-1)))
+            taper=(0. if phase in (0.,1.) else
+                   math.sqrt(max(0.,math.sin(math.pi*phase))))
             half_width=tr['width']/2*taper
             edge=max(0.,distance-half_width)
             weight=max(0.,1.-edge/max(.001,tr['band']*taper))**1.5*taper
