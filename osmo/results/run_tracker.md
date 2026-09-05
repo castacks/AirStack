@@ -13,15 +13,15 @@ Last reconciled against `/media/share/coa-sei`: **2026-09-04**.
 
 | Disaster | Locale | Level | Scene ready | Frontier | Lawnmower | VLFM | CoNavGPT2 | RayFronts/RAVEN |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| **Fire** | **Urban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
-| **Fire** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Fire** | **Urban** | L1 | 🟧 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| **Fire** | **Urban** | L2 | 🟧 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | **Fire** | **Urban** | L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L1–L3 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 |
+| **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Urban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -41,14 +41,17 @@ Last reconciled against `/media/share/coa-sei`: **2026-09-04**.
 | L3 | 47/47 bakes complete and normalized on `airstack-dev-198`; RTX OOM was mitigated, then the content gate found 24/85 manifest records drifting from the live Kit layout | Regenerate/reconcile the authoritative Kit dump and fire manifest, then freeze, upload and cold-verify | `urban_fire_8robot/<timestamp>` |
 
 No completed Urban Fire benchmark result is currently present under
-`/media/share/coa-sei`.
+`/media/share/coa-sei`. On 2026-09-04 both L1 and L2 resolved their expected
+Nucleus filenames, but `Usd.Stage` could not open either published file. Both
+preflight attempts were stopped before scoring and were not uploaded. The
+cells must be re-exported/re-uploaded and cold-open verified before rerunning.
 
 ### Suburban
 
 The accepted pre-optimization 8-robot sweep is
 `frozen_suburban_8robot/2026-08-31_11-11-42`. Frontier, lawnmower and VLFM
-passed at L1–L3; CoNavGPT2 passed at L2–L3. Fire L1 CoNavGPT2 failed and is the
-only shared-planner Fire/Suburban cell that needs a rerun.
+passed at L1–L3; CoNavGPT2 passed at L2–L3. The optimized Fire L1 CoNavGPT2
+rerun also passed, so all shared-planner Fire/Suburban cells are complete.
 
 Development history only:
 
@@ -70,7 +73,7 @@ Development history only:
 | Level | Completed methods | Remaining methods | Result folder |
 |---:|---|---|---|
 | L1 | Frontier, lawnmower, VLFM, CoNavGPT2 | RayFronts/RAVEN | See folders below |
-| L2 | Frontier, lawnmower, VLFM | CoNavGPT2 in progress; RayFronts/RAVEN | `hurricane_suburban_l2_8robot_optimized_batch/2026-09-04_22-53-30` |
+| L2 | Frontier, lawnmower, VLFM, CoNavGPT2 | RayFronts/RAVEN | `hurricane_suburban_l2_8robot_optimized_batch/2026-09-04_22-53-30` |
 | L3 | Frontier, VLFM, CoNavGPT2 | Lawnmower rerun; RayFronts/RAVEN | `hurricane_suburban_l3_8robot_optimized_batch/2026-09-04_22-56-30` |
 
 L1 result folders:
@@ -125,13 +128,14 @@ progress with another agent. No benchmark result has been submitted yet.
 
 ## Next work queue
 
-1. 🟨 Finish Hurricane/Suburban L2 CoNavGPT2 on pod 56, then upload the four
-   successful L2 results.
-2. 🟧 Diagnose and rerun Hurricane/Suburban L3 lawnmower; both attempts failed
-   during multi-robot takeoff/pre-arm, so neither was uploaded.
+1. 🟨 Finish the Hurricane/Suburban L3 lawnmower rerun on pod 57; its hardened
+   pre-arm/takeoff step has passed and the mission is entering the search.
+2. 🟧 Re-export/re-upload and cold-open verify Urban Fire L1 and L2 on Nucleus.
+   Their current filenames resolve, but both USD stages fail to open.
 3. 🟩 Fire/Suburban L1 and Tornado/Suburban L3 CoNavGPT2 focused reruns passed.
 4. 🟦 Run the queued 2-GPU RayFronts/RAVEN suburban missions.
-5. 🟦 Run the four shared-planner baselines on Urban Fire L1 and L2.
+5. 🟦 Run the four shared-planner baselines on Urban Fire L1 and L2 after the
+   Nucleus cold-open gate passes.
 6. 🟨 Finish and publish Urban Fire L3, then run its methods.
 
 ## Active batch plan
@@ -145,8 +149,10 @@ cell/method for diagnosis rather than consuming the rest of the batch.
 |---:|---|---|---:|---:|---|
 | 1 | `airstack-mission-1gpu-56` | Fire/Suburban L1 CoNavGPT2 | 1 | ~45 min | PASSED — focused rerun completed before the L2 batch |
 | 1 | `airstack-mission-1gpu-57` | Tornado/Suburban L3 CoNavGPT2 | 1 | ~45 min | PASSED — focused rerun completed before the L3 batch |
-| 2 | `airstack-mission-1gpu-56` | Hurricane/Suburban L2 × frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ~3 h (12 h hard cap) | RUNNING — 3/4 passed; CoNavGPT2 at ~78%, live RTF ~0.31 |
+| 2 | `airstack-mission-1gpu-56` | Hurricane/Suburban L2 × frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ~3 h (12 h hard cap) | COMPLETE — 4/4 passed, uploaded and verified |
 | 2 | `airstack-mission-1gpu-57` | Hurricane/Suburban L3 × frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ~3 h (12 h hard cap) | COMPLETE — 3/4 passed and uploaded; lawnmower failed twice and was not uploaded |
+| 3 | `airstack-mission-1gpu-57` | Hurricane/Suburban L3 lawnmower | 1 | ~1 h (4 h hard cap) | RUNNING — readiness and hardened takeoff passed |
+| 3 | `airstack-mission-1gpu-56` | Urban Fire L1/L2 | 8 | <12 h | BLOCKED — L1 and L2 Nucleus USDs resolve but fail to open; zero scored/uploaded runs |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
