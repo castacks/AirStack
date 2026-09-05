@@ -342,10 +342,33 @@ from isaacsim import SimulationApp
 # these are set at start-up (wildfire skill, ground-overlay history). They
 # are re-asserted after the stage is built, because loading the Pegasus
 # environment resets the render property they map onto.
-simulation_app = SimulationApp(launch_config={
-    "headless": os.environ.get("ISAAC_SIM_HEADLESS", "false").strip().lower() in ("1", "true", "yes"),
-    "extra_args": ["--/rtx/raytracing/fractionalCutoutOpacity=true",
-                   "--/rtx/pathtracing/fractionalCutoutOpacity=true"]})
+_kit_args = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
+             "--/rtx/pathtracing/fractionalCutoutOpacity=true",
+             # This exporter has no moving render geometry after its internal
+             # bake passes.  Avoid the motion BVH's duplicate RTX allocation.
+             "--/renderer/raytracingMotion/enabled=false",
+             "--/renderer/raytracingMotion/enableHydraEngineMasking=false",
+             "--/renderer/raytracingMotion/enableInstanceInPointInstancer=false"]
+_active_gpu = os.environ.get("ISAAC_SIM_ACTIVE_GPU", "").strip()
+if _active_gpu:
+    # SimulationApp defaults multi-GPU ON.  On shared OSMO hosts that makes
+    # this one-GPU job allocate RTX acceleration structures on other tenants'
+    # cards; an unrelated full card then produces VK_ERROR_OUT_OF_DEVICE_MEMORY
+    # even though our assigned card has tens of GiB free.
+    _kit_args.append("--/renderer/multiGpu/enabled=false")
+    print("[quake_city] renderer/physics pinned to GPU {0}".format(
+        _active_gpu), flush=True)
+_launch_config = {
+    "headless": os.environ.get("ISAAC_SIM_HEADLESS", "false").strip().lower()
+                in ("1", "true", "yes"),
+    "extra_args": _kit_args,
+}
+if _active_gpu:
+    # Config keys are required for PhysX as well as the renderer; an
+    # extra-arg alone is overwritten by SimulationApp's cudaDevice default.
+    _launch_config.update(active_gpu=int(_active_gpu),
+                          physics_gpu=int(_active_gpu))
+simulation_app = SimulationApp(launch_config=_launch_config)
 
 from isaacsim.core.utils.extensions import enable_extension
 

@@ -72,6 +72,14 @@ def test_vram_probe_selects_the_configured_gpu_row():
     assert "if index >= len(rows):" in src
 
 
+def test_launcher_pins_renderer_and_physics_to_assigned_gpu():
+    src = LAUNCHER.read_text()
+    assert '"--/renderer/multiGpu/enabled=false"' in src
+    assert "_launch_config.update(active_gpu=int(_active_gpu)" in src
+    assert "physics_gpu=int(_active_gpu)" in src
+    assert '"--/renderer/raytracingMotion/enabled=false"' in src
+
+
 def test_prop_seating_avoids_second_live_physics_timeline():
     src = LAUNCHER.read_text()
     assert "seat_rigid_props(stage, _targets)" in src
