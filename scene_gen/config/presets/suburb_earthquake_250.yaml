@@ -1,0 +1,77 @@
+# Early-response visual review, not a calibrated loss forecast.
+locale: suburban
+disaster-type: earthquake
+magnitude: 7.2
+seed: 10
+region_m: [250, 250]
+asset-set: suburban_park
+soft-soil:
+  center: [48, 28]
+  rx_m: 60
+  ry_m: 42
+  angle_deg: 25
+  rate: 0.65
+overrides:
+  # User-selected clear noon HDRI for suburban earthquake (not hurricane).
+  sky: omniverse://airlab-nucleus.andrew.cmu.edu:443/NVIDIA/Assets/Skies/2022_1/Skies/Clear/noon_grass.hdr
+  sky_intensity: 3000
+  sky_exposure: 0
+  sky_color: [1.0, 1.0, 1.0]
+  layout: {region_m: [250, 250]}
+  # A 250 m neighbourhood samples one shaking field. Soil and house
+  # vulnerability drive the local variation, not a tiny epicentral bullseye.
+  disaster:
+    field: {kind: radial, center: [-3000, 0], radius_m: 1000, falloff_m: 12000, inside: 1.0, outside: 0.25}
+    damaged_fraction: 0
+    destroyed_fraction: 0
+    humans_strewn: [0, 0]
+    humans_prone_fraction: 0
+  people: {enabled: false}
+  earthquake_suburban:
+    demand_scale: 1.15
+    people_total: 12
+    mild_damage_share: 0.65
+    # Explicit synthetic stock assumption; brick palettes are veneers,
+    # not evidence that a house is load-bearing unreinforced masonry.
+    construction: wood_frame_mixed_anchorage
+  roads: {z_scale: 0.12, driveway_asphalt_share: 0.5}
+  usds:
+    materials:
+      asphalt: airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda
+      driveway_asphalt: airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda
+  instance_categories: [plant, sidewalk, streetlight, fire_hydrant, sign, crosswalk]
+  suburb_net:
+    block_area_target_m2: 8400
+    block_area_min_m2: 2300
+    collectors: 1
+    collector_wander: 0.24
+    min_gap_m: 44
+    undeveloped_share: 0.06
+    junction_skew_deg: 33
+    four_way_chance: 0.35
+    dead_end_target: 0.09
+    bulb_radius_m: 14.64
+    lollipop_len_m: [35, 85]
+    grain_weight: 2.6
+    grain_swirl_deg: 30
+    grain_period_m: 176
+  suburb_parcel:
+    modular_houses: true
+    modular_share: 1.0
+    lot_width_m: [18, 26]
+    min_lot_depth_m: 18
+    house_gap_m: 3.5
+    setback_m: [5.25, 8.8]
+    neighbourhood_m: 100
+    density_mix: {tight: 0.50, normal: 0.36, loose: 0.11, estate: 0.03}
+    row_share: 0.09
+    house_yaw_offset_deg: -90
+    back_trees_per_100m2: 0.055
+    front_tree_chance: 0.45
+    street_tree_spacing_m: [16, 30]
+    pool_tree_clear_m: 11
+  cars:
+    driveway_chance: 0.70
+    street_density: 0.39
+    max_cars: 60
+    strip_glass: true
