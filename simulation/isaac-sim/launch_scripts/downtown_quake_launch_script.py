@@ -366,7 +366,7 @@ _SCENE_GEN_DIR = os.path.normpath(
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
 sys.path.insert(0, _SCENE_GEN_DIR)
 from scene_prep import (scale_stage_prim, add_sky,               # noqa: E402
-                        get_stage_meters_per_unit, settle_rigid_props)
+                        get_stage_meters_per_unit, seat_rigid_props)
 from scene_generator import resolve_sky                          # noqa: E402
 from generate_scene import generate_scene_on_stage               # noqa: E402
 from compile_disaster import load_scene_config                   # noqa: E402
@@ -760,20 +760,29 @@ class QuakeCityApp:
                      "/rtx/pathtracing/fractionalCutoutOpacity"):
             carb.settings.get_settings().set_bool(_key, True)
         for city in self.cities:
-            settle_rigid_props(
-                stage,
-                [p["prim_path"] for p in placements
-                 if p.get("settle") and p.get("prim_path")
-                 and p["prim_path"].startswith(city["parent"] + "/")],
-                # The whole-region asphalt mesh is sufficient support for
-                # these few toppled street props.  Passing the ground Scope
-                # recursively put CollisionAPI on every lane dash, bike
-                # marking, pavement strip, and material prim (thousands of
-                # edits) and could crash RTX scene-db while syncing them.
-                # Sidewalks are only centimetres above this plane, so using
-                # the base preserves the visible resting pose while making
-                # the settle both bounded and reliable.
-                ground_path=city["parent"] + "/ground/asphalt_base")
+            # These props already carry the intended toppled/strewn rotation.
+            # A second live timeline on this fully assembled RTX scene crashed
+            # reproducibly in rtx.scenedb even with only six bodies.  Point-
+            # seat the existing poses instead: it preserves all geometry and
+            # orientation and moves only world Z until the real lowest vertex
+            # touches the appropriate authored surface.
+            _layout = city["config"].get("_city_layout") or {}
+            _sidewalk_z = float(_layout.get("sidewalk_top_m", 0.02)) * ssf
+            _targets = {}
+            for p in placements:
+                _path = p.get("prim_path")
+                if not (p.get("settle") and _path
+                        and _path.startswith(city["parent"] + "/")):
+                    continue
+                _category = str(p.get("category") or "").lower()
+                if _category in ("car", "vehicle", "truck", "van"):
+                    _ground_z = 0.0              # asphalt road
+                elif _category == "tree":
+                    _ground_z = 0.01 * ssf       # authored grass plane
+                else:
+                    _ground_z = _sidewalk_z      # paving / sidewalk / rubble
+                _targets[_path] = _ground_z
+            seat_rigid_props(stage, _targets)
         add_sky(stage, resolve_sky(config))
         _disable_sky_sun(stage)
         self.placements = placements

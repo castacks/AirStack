@@ -72,10 +72,12 @@ def test_vram_probe_selects_the_configured_gpu_row():
     assert "if index >= len(rows):" in src
 
 
-def test_prop_settle_uses_single_support_mesh_not_whole_ground_scope():
+def test_prop_seating_avoids_second_live_physics_timeline():
     src = LAUNCHER.read_text()
-    assert 'ground_path=city["parent"] + "/ground/asphalt_base"' in src
-    assert 'ground_path=city["parent"] + "/ground")' not in src
+    assert "seat_rigid_props(stage, _targets)" in src
+    assert "settle_rigid_props(" not in src
+    assert '_category in ("car", "vehicle", "truck", "van")' in src
+    assert '_layout.get("sidewalk_top_m", 0.02)' in src
 
 
 def test_yawed_record_uses_its_real_rectangular_footprint():

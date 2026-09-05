@@ -5,6 +5,7 @@ Functions:
     get_stage_meters_per_unit   — Read stage unit scale
     scale_stage_prim            — Apply a uniform scale transform to a prim
     add_colliders               — Recursively apply CollisionAPI to all meshes
+    seat_rigid_props            — Point-seat authored toppled props, no simulation
     settle_rigid_props          — Physics-drop toppled props to rest, then freeze
     add_dome_light              — Add or update a dome light on the stage
     add_sky                     — Skybox from HDRI (dome texture) or borrowed stage prims
@@ -146,6 +147,76 @@ def add_colliders(prim):
 # ---------------------------------------------------------------------------
 # Physics settling
 # ---------------------------------------------------------------------------
+
+def seat_rigid_props(stage, ground_z_by_path) -> int:
+    """Seat already-posed props on horizontal surfaces without running PhysX.
+
+    ``ground_z_by_path`` maps each top-level prop path to its target WORLD-Z
+    surface in stage units.  The generator has already authored the intended
+    toppled/flipped rotation; all this pass does is translate the complete
+    prop in world Z until its lowest transformed mesh vertex touches that
+    surface.
+
+    Mesh points are deliberate.  ``UsdGeom.BBoxCache`` transforms and then
+    re-axis-aligns a local bounding box, so thin diagonal meshes can appear to
+    touch the ground while their real geometry is still visibly airborne.
+    ``disaster.bake.world_point_bounds`` is the repository's validated tight
+    points-based measurement.
+
+    The top-level local transform is rebuilt from its world transform and its
+    parent's inverse.  This preserves rotation and scale and also makes the
+    world-Z correction exact under a translated or rotated city parent.
+    Returns the number of props successfully seated.
+    """
+    from disaster import bake
+
+    items = (ground_z_by_path.items()
+             if hasattr(ground_z_by_path, "items")
+             else ((path, 0.0) for path in ground_z_by_path))
+    seated = missing = no_mesh = 0
+    max_abs_dz = 0.0
+
+    for path, target_z in items:
+        prim = stage.GetPrimAtPath(path)
+        if not prim or not prim.IsValid():
+            missing += 1
+            continue
+
+        # A fresh cache per prop is required: XformCache does not notice the
+        # transform mutation made at the end of the preceding iteration.
+        cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+        lowest = None
+        for child in Usd.PrimRange(prim):
+            if not child.IsA(UsdGeom.Mesh):
+                continue
+            bounds = bake.world_point_bounds(child, cache)
+            if bounds is not None:
+                z = float(bounds[0][2])
+                lowest = z if lowest is None else min(lowest, z)
+        if lowest is None:
+            no_mesh += 1
+            continue
+
+        dz = float(target_z) - lowest
+        world = cache.GetLocalToWorldTransform(prim)
+        parent_world = cache.GetLocalToWorldTransform(prim.GetParent())
+        translation = world.ExtractTranslation()
+        world.SetTranslateOnly(Gf.Vec3d(
+            translation[0], translation[1], translation[2] + dz))
+        local = world * parent_world.GetInverse()
+
+        xform = UsdGeom.Xformable(prim)
+        xform.ClearXformOpOrder()
+        xform.AddTransformOp().Set(local)
+        seated += 1
+        max_abs_dz = max(max_abs_dz, abs(dz))
+
+    print("[scene_prep] point-seat: seated {0} prop(s), max |dz|={1:.4f}".format(
+        seated, max_abs_dz)
+        + (", {0} missing".format(missing) if missing else "")
+        + (", {0} without mesh points".format(no_mesh) if no_mesh else ""))
+    return seated
+
 
 def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
                        ground_path: str = None) -> int:
