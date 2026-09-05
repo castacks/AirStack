@@ -50,6 +50,14 @@ def audit(stage, max_examples=25):
 
     def check_target(prim, role):
         counts["targets"] += 1
+        # Procedural colour-only geometry normally has no binding at all.
+        # Avoid an expensive inherited-binding walk (and a USD warning) for
+        # that intentional representation. A BROKEN authored binding still
+        # goes through the full check even when displayColor is present.
+        authored = _authored_targets(prim)
+        if not authored and _display_color(prim):
+            counts["display_color_only"] += 1
+            return True
         try:
             material = UsdShade.MaterialBindingAPI(
                 prim).ComputeBoundMaterial()[0]
@@ -61,7 +69,7 @@ def audit(stage, max_examples=25):
             return False
 
         if not (material and material.GetPrim().IsValid()):
-            targets = _authored_targets(prim)
+            targets = authored
             dangling, typeless = [], []
             for target in targets:
                 target_prim = stage.GetPrimAtPath(target)
@@ -109,9 +117,17 @@ def audit(stage, max_examples=25):
                 example("surface_less_materials", material_path)
         return True
 
+    seen_proxy_meshes = set()
     for prim in Usd.PrimRange.Stage(stage, Usd.TraverseInstanceProxies()):
         if not prim.IsA(UsdGeom.Mesh):
             continue
+        if prim.IsInstanceProxy():
+            prototype_prim = prim.GetPrimInPrototype()
+            key = str(prototype_prim.GetPath()) if prototype_prim else ""
+            if key in seen_proxy_meshes:
+                counts["duplicate_instance_proxy_meshes"] += 1
+                continue
+            seen_proxy_meshes.add(key)
         imageable = UsdGeom.Imageable(prim)
         try:
             if imageable.ComputeVisibility() == UsdGeom.Tokens.invisible:
@@ -128,17 +144,20 @@ def audit(stage, max_examples=25):
         subsets = [subset for subset in
                    UsdGeom.Subset.GetAllGeomSubsets(imageable)
                    if subset.GetFamilyNameAttr().Get() == "materialBind"]
-        assigned = set()
+        assigned_count = 0
         for subset in subsets:
             indices = subset.GetIndicesAttr().Get() or []
             if not indices:
                 continue
-            assigned.update(int(index) for index in indices)
+            assigned_count += len(indices)
             check_target(subset.GetPrim(), "subset")
 
         face_count = len(UsdGeom.Mesh(
             prim).GetFaceVertexCountsAttr().Get() or [])
-        unassigned = max(0, face_count - len(assigned)) if subsets else 0
+        # `materialBind` families are non-overlapping/partitioned by USD
+        # convention. Summing cardinalities avoids allocating a Python set of
+        # every face index on multi-million-triangle frozen scenes.
+        unassigned = max(0, face_count - assigned_count) if subsets else 0
         if unassigned:
             counts["unassigned_faces"] += unassigned
             counts["meshes_with_unassigned_faces"] += 1
