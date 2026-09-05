@@ -1,0 +1,44 @@
+import numpy as np
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from team_progress import (
+    assign_targets,
+    point_in_polygon,
+    resample_window,
+    route_length,
+    visit_times,
+)
+
+
+def test_point_in_polygon_includes_boundary():
+    square = [(0, 0), (10, 0), (10, 10), (0, 10)]
+    assert point_in_polygon((5, 5), square)
+    assert point_in_polygon((0, 5), square)
+    assert not point_in_polygon((11, 5), square)
+
+
+def test_fixed_sector_assignment_and_empty_robot_route():
+    gt = {1: (2, 0), 2: (12, 0)}
+    sectors = {
+        1: [(-1, -1), (5, -1), (5, 1), (-1, 1)],
+        2: [(9, -1), (15, -1), (15, 1), (9, 1)],
+        3: [(19, -1), (25, -1), (25, 1), (19, 1)],
+    }
+    assignment = assign_targets(gt, sectors, [1, 2, 3], shared=False)
+    assert assignment == {1: 1, 2: 2}
+    total, per_robot = route_length(
+        {1: (0, 0), 2: (10, 0), 3: (20, 0)}, gt, gt, assignment, 1)
+    assert total == 4.0
+    assert per_robot[3] == 0.0
+
+
+def test_resampling_and_first_physical_visit():
+    trajectory = resample_window([(10, 0, 0), (20, 20, 0)], 10, budget=10, step=1)
+    visits, visitors = visit_times(
+        {7: (10, 0)}, {7: 1}, {1: trajectory}, radius=1.0, shared=False)
+    assert visits[7] == 5.0
+    assert visitors[7] == 1
+    assert np.allclose(trajectory[-1], [10, 20, 0])
