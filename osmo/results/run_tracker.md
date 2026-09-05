@@ -13,9 +13,9 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 
 | Disaster | Locale | Level | Scene ready | Frontier | Lawnmower | VLFM | CoNavGPT2 | RayFronts/RAVEN |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| **Fire** | **Urban** | L1 | 🟩 | 🟧 | 🟦 | 🟦 | 🟦 | 🟦 |
-| **Fire** | **Urban** | L2 | 🟩 | 🟧 | 🟦 | 🟦 | 🟦 | 🟦 |
-| **Fire** | **Urban** | L3 | 🟩 | 🟧 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Fire** | **Urban** | L1 | 🟩 | 🟨 | 🟨 | 🟨 | 🟨 | 🟦 |
+| **Fire** | **Urban** | L2 | 🟩 | 🟨 | 🟨 | 🟨 | 🟨 | 🟦 |
+| **Fire** | **Urban** | L3 | 🟩 | 🟨 | 🟨 | 🟨 | 🟨 | 🟦 |
 | **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -47,8 +47,9 @@ stopped during scene open and were not uploaded. L3 then opened correctly on
 pod 57, but two attempts were rejected by an obsolete stereo-disparity gate
 even though the optimized mission intentionally uses simulator RGB-D. Commit
 `bbeb4237` makes the gate validate the actual Mighty depth-cloud publisher and
-subscriber instead. The corrected L1–L2 and L3 batches are queued as 2-GPU
-workflows `airstack-mission-8robot-2gpu-5` and `-6`.
+subscriber instead. One-GPU fallback batches started on pods 56 and 57 at
+06:00 UTC on 2026-09-05. The corrected 2-GPU workflows
+`airstack-mission-8robot-2gpu-5` and `-6` remain queued as backups.
 
 ### Suburban
 
@@ -132,7 +133,8 @@ progress with another agent. No benchmark result has been submitted yet.
 
 ## Next work queue
 
-1. 🟨 Run the corrected Urban Fire L1–L2 and L3 2-GPU batches (`-5`, `-6`).
+1. 🟨 Complete the one-GPU Urban Fire fallback batches now running on pods 56
+   and 57; upload each passed iteration immediately and publish no failures.
 2. 🟨 Finish canonical Earthquake Urban/Suburban exports. The most recent Urban
    freeze exited 1 and held the Suburban queue, so no Earthquake benchmark job
    has been submitted against an incomplete cell.
@@ -141,10 +143,11 @@ progress with another agent. No benchmark result has been submitted yet.
 
 ## Active batch plan
 
-Only the four shared-planner baselines are assigned to the existing 1-GPU
-pods. Urban cells and RayFronts/RAVEN remain in the 2-GPU queue. Each listed
-batch is capped below 12 wall-hours; a second identical failure pauses that
-cell/method for diagnosis rather than consuming the rest of the batch.
+The four shared-planner baselines are assigned to the existing 1-GPU pods,
+including an explicit fallback attempt for the heavier Urban Fire cells.
+RayFronts/RAVEN remains in the 2-GPU queue. Each active fallback is capped at
+12 wall-hours; a second identical failure pauses that cell/method for diagnosis
+rather than consuming the rest of the batch.
 
 | Order | Pod | Cells | Runs | Expected batch wall time | State |
 |---:|---|---|---:|---:|---|
@@ -155,6 +158,8 @@ cell/method for diagnosis rather than consuming the rest of the batch.
 | 3 | `airstack-mission-1gpu-57` | Hurricane/Suburban L3 lawnmower | 1 | 61 min | PASSED — uploaded and verified at 03:40 UTC |
 | 4 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | — | STOPPED — two attempts hit the obsolete disparity gate; zero scored/uploaded runs |
 | 3 | `airstack-mission-1gpu-56` | Urban Fire L1/L2 Frontier | 2 | — | STOPPED — launched before canonical publication; zero scored/uploaded runs |
+| 5 | `airstack-mission-1gpu-56` | Urban Fire L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | ≤12 h | RUNNING — started 06:00 UTC with corrected RGB-D gate |
+| 5 | `airstack-mission-1gpu-57` | Urban Fire L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ≤12 h | RUNNING — started 06:00 UTC with corrected RGB-D gate |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
