@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# Experimental, non-destructive urban-earthquake dataset runner.
+# Optimized, non-destructive urban-earthquake dataset runner.
 #
 # It consumes the reviewed quake archetype library from Nucleus, builds one
 # live stage per level, writes complete GT/review evidence, freezes, uploads,
 # and cold-opens the published Nucleus cell.  The production launch path is
 # unchanged; all behaviour here is opt-in via FREEZE_* / QUAKE_* variables.
+# Finished cells use the canonical dataset contract expected by missions:
+# Earthquake/Urban/level_<L>/1/earthquake_urban_lvl<L>_1.usd.
 set -uo pipefail
 
 REPO="${REPO:-/root/AirStack}"
 CONTAINER="${CONTAINER:-isaac-sim}"
 LEVELS="${LEVELS:-${*:-1 2 3}}"
 LOG_DIR="${LOG_DIR:-/root/docker/isaac-sim/logs/urban_quake_fast}"
-FREEZE_ROOT="${FREEZE_ROOT:-/isaac-sim/final_disaster_dataset/Earthquake/Urban_fast}"
+FREEZE_ROOT="${FREEZE_ROOT:-/isaac-sim/final_disaster_dataset/Earthquake/Urban}"
 NUCLEUS_ROOT="${NUCLEUS_ROOT:-omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA}"
 NUCLEUS_DATASET="${NUCLEUS_DATASET:-${NUCLEUS_ROOT}/final_disaster_dataset}"
 ARCH_DIR="${ARCH_DIR:-${NUCLEUS_ROOT}/scene_gen/assets/archetype_r15}"
@@ -52,7 +54,7 @@ for L in $LEVELS; do
   SEED=$(seed_for "$L")
   CELL="${FREEZE_ROOT}/level_${L}/1"
   SNAPS="${CELL}/snaps"
-  REMOTE_CELL="${NUCLEUS_DATASET}/Earthquake/Urban_fast/level_${L}/1"
+  REMOTE_CELL="${NUCLEUS_DATASET}/Earthquake/Urban/level_${L}/1"
   RUN_LOG="${LOG_DIR}/l${L}_build_freeze.log"
   TIMING="${LOG_DIR}/l${L}_timings.json"
   LEVEL_START=$(now)

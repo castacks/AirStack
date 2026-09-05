@@ -1,8 +1,9 @@
-# Urban earthquake fast export (L1–L3)
+# Urban earthquake optimized export (L1–L3)
 
 This is the opt-in export path for the reviewed urban-earthquake scene.  It
-does not replace the existing launcher defaults or the current dataset tree.
-It writes to `Earthquake/Urban_fast` locally and on Nucleus.
+does not replace the existing launcher defaults. Finished cells use the
+canonical mission-facing `Earthquake/Urban` dataset path locally and on
+Nucleus; "fast" describes the implementation, not a separate dataset variant.
 
 ## Inputs
 
@@ -43,7 +44,7 @@ LEVELS="1 2 3" ISAAC_SIM_ACTIVE_GPU=2 \
 ```
 
 The driver runs levels sequentially and never tears the pod down.  An
-incomplete prior `Urban_fast` cell is moved to a timestamped sibling before a
+incomplete prior `Urban` cell is moved to a timestamped sibling before a
 retry.  A locally complete cell skips the expensive rebuild and resumes at
 upload/cold verification.
 
@@ -62,9 +63,9 @@ Each level is accepted only after all of these pass:
 Outputs are:
 
 ```text
-/isaac-sim/final_disaster_dataset/Earthquake/Urban_fast/level_<L>/1/
+/isaac-sim/final_disaster_dataset/Earthquake/Urban/level_<L>/1/
 omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/
-  final_disaster_dataset/Earthquake/Urban_fast/level_<L>/1/
+  final_disaster_dataset/Earthquake/Urban/level_<L>/1/
 ```
 
 Each cell contains one USD, `GT_people.json`, `GT_hints.json`,
