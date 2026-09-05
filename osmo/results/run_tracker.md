@@ -29,7 +29,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 |
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
-| **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 |
+| **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Suburban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
@@ -161,8 +161,10 @@ a takeoff obstruction on both clean stack attempts. Robot 6 was moved from
 the corrected Frontier run passed 17/17 steps at team RTF 0.19188 and was
 uploaded and NAS-verified at 19:53 UTC. L3 Lawnmower then passed at team RTF
 0.19888 and was uploaded and NAS-verified at 21:13 UTC. L3 VLFM passed at team
-RTF 0.21211 and was uploaded and NAS-verified at 22:29 UTC; L3 CoNavGPT2
-started immediately afterward. Pod 56 has the accepted L1 results above.
+RTF 0.21211 and was uploaded and NAS-verified at 22:29 UTC. L3 CoNavGPT2
+then passed at team RTF 0.21651 and was uploaded and NAS-verified at 23:43
+UTC, completing all four L3 baselines. Pod 56 has the accepted L1 results
+above.
 
 ### Suburban
 
@@ -214,8 +216,8 @@ uploaded.
 | 6 | `airstack-mission-1gpu-56` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | L1 3/4; L2 0/4 | ≤12 h | RUNNING — L1 Frontier, Lawnmower and VLFM passed/uploaded at team RTFs 0.19510, 0.20130 and 0.18919; L1 CoNavGPT2 attempt 1 failed its robot-1 mapper discovery gate and was not uploaded; automatic attempt 2/2 is active |
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
-| 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 3/4 | ≤12 h | RUNNING — Frontier, Lawnmower and VLFM passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888 and 0.21211; CoNavGPT2 is active |
-| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L3 completes |
+| 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
+| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | STARTING — follows completed Urban Earthquake L3 |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L1–L2 completes |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — starts after Suburban Earthquake L1 completes |
 
@@ -256,7 +258,7 @@ short tuning runs are excluded.
 | Fire | — | 97.8 min / 0.102 (n=11) |
 | Hurricane | — | 38.3 min / 0.265 (n=9) |
 | Tornado | — | 77.4 min / 0.129 (n=11) |
-| Earthquake | 50.6 min / 0.198 (n=6) | — |
+| Earthquake | 49.9 min / 0.201 (n=7) | — |
 
 ## Actual results (detector-confirmed team progress and PPL)
 
