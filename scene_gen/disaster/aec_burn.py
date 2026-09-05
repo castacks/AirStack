@@ -1256,27 +1256,37 @@ def _mesh_dict_world(prim, mpu, xf_cache):
             "UV": np.asarray(uv).reshape(-1, 2), "MID": np.zeros(T, dtype=np.int32)}
 
 
-def _clip_box(md, lo, hi, keep_outside=True):
-    """`vtkBox` clip of a mesh dict: the part OUTSIDE (default) or INSIDE
-    `[lo, hi]` (world metres), UVs interpolated across the cut."""
+def _clip_implicit(md, implicit, keep_outside=True):
+    """Clip a mesh dict by any VTK implicit function.
+
+    VTK implicit functions are negative on their inside.  The normal path
+    therefore keeps the positive/outside half; ``keep_outside=False`` keeps
+    the negative/inside half.  Keeping this small wrapper beside
+    :func:`_clip_box` lets non-fire damage use a rounded or oblique bite
+    without reimplementing the UV-carrying VTK conversion.
+    """
     import vtk
     from detail import gac_storey_slice as gss
     if md is None or not len(md["tris"]):
         return None
-    box = vtk.vtkBox()
-    box.SetBounds(float(lo[0]), float(hi[0]), float(lo[1]), float(hi[1]),
-                  float(lo[2]), float(hi[2]))
     cl = vtk.vtkClipPolyData()
     cl.SetInputData(gss._to_vtk(md))
-    cl.SetClipFunction(box)
-    # vtkBox is negative inside; the clip keeps the positive side unless
-    # InsideOut, so "keep outside" is the default orientation
+    cl.SetClipFunction(implicit)
     if not keep_outside:
         cl.InsideOutOn()
     cl.SetLocator(vtk.vtkNonMergingPointLocator())
     cl.Update()
-    out = gss._from_vtk(cl.GetOutput())
-    return out
+    return gss._from_vtk(cl.GetOutput())
+
+
+def _clip_box(md, lo, hi, keep_outside=True):
+    """`vtkBox` clip of a mesh dict: the part OUTSIDE (default) or INSIDE
+    `[lo, hi]` (world metres), UVs interpolated across the cut."""
+    import vtk
+    box = vtk.vtkBox()
+    box.SetBounds(float(lo[0]), float(hi[0]), float(lo[1]), float(hi[1]),
+                  float(lo[2]), float(hi[2]))
+    return _clip_implicit(md, box, keep_outside=keep_outside)
 
 
 def _write_world_piece(stage, path, root_prim, mpu, xf_cache, md, mat):
@@ -1305,13 +1315,23 @@ def _write_world_piece(stage, path, root_prim, mpu, xf_cache, md, mat):
     return mesh
 
 
-def _lose_wall(stage, meas, plan, unit, rng, stats, verbose=True, scope=None):
+def _lose_wall(stage, meas, plan, unit, rng, stats, verbose=True, scope=None,
+               author_rubble=True, layer_name="BurnLayer",
+               looks_name="BurnLooks"):
     """Cut the top `WALL_LOSE_STOREYS` storeys of one burning elevation out
     of the unit's facade mesh on a two-step staircase. With `scope` (the
     debris scope, i.e. a physics settle will follow) the cut-out strips are
     authored WHERE THEY STOOD as rigid bodies with an outward velocity and
     the bricks just outside the face, over a low static mound; without one
-    the strips are laid by hand on a taller mound (no physics available)."""
+    the strips are laid by hand on a taller mound (no physics available).
+
+    ``author_rubble=False`` stops after replacing the source façade with its
+    UV-preserving remainder.  Earthquake uses that geometry-only mode and
+    feeds the removed mass to its shared rubble-v2 planner; fire retains the
+    historical default, including its charred bricks and settle bodies.
+    ``layer_name``/``looks_name`` keep the authored namespaces honest for
+    that shared use.  All defaults are the shipped fire behaviour.
+    """
     from pxr import Sdf, Usd, UsdGeom, UsdShade
     from detail import gac_storey_slice as gss
     fire, m, levels = plan["fire"], plan["m"], plan["levels"]
@@ -1367,7 +1387,7 @@ def _lose_wall(stage, meas, plan, unit, rng, stats, verbose=True, scope=None):
     # own outward push and the settle drops them with the bricks; without,
     # they are simply deactivated. Marked dead either way, so `author_row`
     # never soots them.
-    looks = stage.DefinePrim(Sdf.Path(meas["root"]).AppendChild("BurnLooks"), "Scope")
+    looks = stage.DefinePrim(Sdf.Path(meas["root"]).AppendChild(looks_name), "Scope")
     metal_mat = _flat_material(stage, str(looks.GetPath().AppendChild("burnt_metal")),
                                BURNT_METAL_RGB, 0.85)
     out_sign0 = -1.0 if side in ("W", "S") else 1.0
@@ -1407,7 +1427,7 @@ def _lose_wall(stage, meas, plan, unit, rng, stats, verbose=True, scope=None):
     if not removed:
         return
     src_mat, _ = UsdShade.MaterialBindingAPI(wall["prim"]).ComputeBoundMaterial()
-    layer = stage.DefinePrim(Sdf.Path(meas["root"]).AppendChild("BurnLayer"), "Scope")
+    layer = stage.DefinePrim(Sdf.Path(meas["root"]).AppendChild(layer_name), "Scope")
     layer_scope = str(layer.GetPath())
     # LIVE STAGE: bind the source material prim itself. The export clone
     # (`gac_storey_slice._selfcontained_like`, a re-authored MDL sourceAsset)
@@ -1427,6 +1447,16 @@ def _lose_wall(stage, meas, plan, unit, rng, stats, verbose=True, scope=None):
     n_rem = sum(len(p["tris"]) for p in removed)
     stats["wall_lost_tris"] = stats.get("wall_lost_tris", 0) + int(n_rem)
 
+    result = {"side": side, "boxes": boxes, "kept_tris":
+              int(len(kept["tris"])) if kept is not None else 0,
+              "lost_tris": int(n_rem), "parts_removed": int(n_parts)}
+    if not author_rubble:
+        if verbose:
+            print("[aec_burn] {0}: {1} elevation partially lost ({2} tri(s) "
+                  "cut, {3} kept); rubble delegated to caller".format(
+                      unit["name"], side, n_rem, result["kept_tris"]))
+        return result
+
     # --- the rubble: a mound outside the wall foot, wall slabs on it -----
     out_sign = -1.0 if side in ("W", "S") else 1.0
     foot = plane + out_sign * 0.3
@@ -1438,7 +1468,7 @@ def _lose_wall(stage, meas, plan, unit, rng, stats, verbose=True, scope=None):
         foot = min(foot, bb[0] + 0.2) if out_sign < 0 else foot
     cx_m = foot + out_sign * depth * 0.5
     ca = c
-    looks = stage.DefinePrim(Sdf.Path(meas["root"]).AppendChild("BurnLooks"), "Scope")
+    looks = stage.DefinePrim(Sdf.Path(meas["root"]).AppendChild(looks_name), "Scope")
     mound_mat = _flat_material(stage, str(looks.GetPath().AppendChild("rubble_mound")),
                                RUBBLE_MOUND_RGB, 0.97)
     brick_mat = _flat_material(stage, str(looks.GetPath().AppendChild("rubble_brick")),
@@ -1596,6 +1626,8 @@ def _lose_wall(stage, meas, plan, unit, rng, stats, verbose=True, scope=None):
               "{4} kept), {5} slab(s) on a {6:.1f} x {7:.1f} m mound".format(
                   unit["name"], side, f0, n_rem, len(kept["tris"]) if kept else 0, k,
                   span * 1.1 + 2.0, depth))
+    result["wall_slabs"] = int(k)
+    return result
 
 
 def _rot_about_axis(axis, ang):
