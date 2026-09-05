@@ -97,7 +97,20 @@ PY
         timeout '${QUAKE_BAKE_TIMEOUT_S:-21600}s' /isaac-sim/python.sh \
         simulation/isaac-sim/launch_scripts/suburb_earthquake_bake_launch_script.py \
         --no-window" 2>&1 | tee -a "$RUN_LOG"
-      [ "${PIPESTATUS[0]}" = 0 ] || die "L${L} isolated cache bake"
+      GPU_BAKE_RC=${PIPESTATUS[0]}
+      if [ "$GPU_BAKE_RC" != 0 ]; then
+        # Each completed entry is durable and the launcher skips it. A driver
+        # or GPU-PhysX incompatibility therefore falls back only for the
+        # unfinished tail, never repeats successful work.
+        say "GPU cache bake exited ${GPU_BAKE_RC}; retry unfinished entries on CPU"
+        dex bash -lc "cd '/isaac-sim/AirStack' && \
+          QUAKE_BAKE_WORK='$MANIFEST' QUAKE_SETTLE_GPU=0 \
+          ISAAC_SIM_ACTIVE_GPU='$ACTIVE_GPU' ISAAC_SIM_HEADLESS=true \
+          timeout '${QUAKE_BAKE_TIMEOUT_S:-21600}s' /isaac-sim/python.sh \
+          simulation/isaac-sim/launch_scripts/suburb_earthquake_bake_launch_script.py \
+          --no-window" 2>&1 | tee -a "$RUN_LOG"
+        [ "${PIPESTATUS[0]}" = 0 ] || die "L${L} isolated cache bake"
+      fi
     else
       say "all L${L} house caches were hits"
     fi
