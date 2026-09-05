@@ -135,10 +135,10 @@ canonical iteration and does not change the DONE status.
 ### Urban
 
 Urban Earthquake L1, L2 and L3 are canonically published with GT. The L1-L2
-shared-baseline cells are queued in `airstack-mission-8robot-2gpu-7`. L3's
-four optimized baseline cells are queued separately in
-`airstack-mission-8robot-2gpu-8`. No completed Urban Earthquake benchmark
-result is uploaded yet.
+shared-baseline cells remain queued in `airstack-mission-8robot-2gpu-7`. L3's
+four optimized baseline cells are now running on pod 57 from
+`urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_17-13-17`; Frontier is
+in startup. No completed Urban Earthquake benchmark result is uploaded yet.
 
 ### Suburban
 
@@ -187,6 +187,7 @@ uploaded.
 | 5 | `airstack-mission-1gpu-56` | Urban Fire L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | ≤12 h | RUNNING — L1 Frontier passed/uploaded at RTF 0.219 and VLFM passed/uploaded at RTF 0.2115; Lawnmower failed twice and needs a focused rerun; CoNavGPT2 is in readiness and L2 remains |
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
+| 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ≤12 h | RUNNING — Frontier startup began at 17:13 UTC; zero completed/uploaded yet |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
