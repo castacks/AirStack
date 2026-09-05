@@ -15,7 +15,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 |---|---|---:|---:|---:|---:|---:|---:|---:|
 | **Fire** | **Urban** | L1 | 🟩 | 🟨 | 🟨 | 🟨 | 🟨 | 🟦 |
 | **Fire** | **Urban** | L2 | 🟩 | 🟨 | 🟨 | 🟨 | 🟨 | 🟦 |
-| **Fire** | **Urban** | L3 | 🟩 | 🟨 | 🟨 | 🟨 | 🟨 | 🟦 |
+| **Fire** | **Urban** | L3 | 🟩 | 🟩 | 🟨 | 🟨 | 🟨 | 🟦 |
 | **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -38,7 +38,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 |---:|---|---|---|
 | L1 | Canonical frozen scene is published and passes a fresh Nucleus cold-open | Four baselines + RayFronts | `urban_fire_l12_8robot_optimized_batch/<timestamp>` |
 | L2 | Canonical frozen scene is published and passes a fresh Nucleus cold-open | Four baselines + RayFronts | `urban_fire_l12_8robot_optimized_batch/<timestamp>` |
-| L3 | Canonical frozen scene is published and has opened successfully in benchmark startup | Four baselines + RayFronts | `urban_fire_l3_8robot_optimized_batch/<timestamp>` |
+| L3 | Canonical frozen scene and Frontier baseline | Lawnmower, VLFM, CoNavGPT2 + RayFronts | `urban_fire_l3_8robot_optimized_1gpu/2026-09-05_06-00-18` |
 
 No completed Urban Fire benchmark result is currently present under
 `/media/share/coa-sei`. All three canonical scenes are now complete. The L1
@@ -48,8 +48,14 @@ pod 57, but two attempts were rejected by an obsolete stereo-disparity gate
 even though the optimized mission intentionally uses simulator RGB-D. Commit
 `bbeb4237` makes the gate validate the actual Mighty depth-cloud publisher and
 subscriber instead. One-GPU fallback batches started on pods 56 and 57 at
-06:00 UTC on 2026-09-05. The corrected 2-GPU workflows
-`airstack-mission-8robot-2gpu-5` and `-6` remain queued as backups.
+06:00 UTC on 2026-09-05. L3 Frontier passed, uploaded and verified. Its timed
+window was 54.8 min (RTF 0.183), but that RTF is excluded from the performance
+average because Kit had selected another host tenant's GPU rather than pod 57's
+reserved card. The bag remains valid for benchmark outcome metrics. The
+remaining jobs restarted at 07:45–07:46 UTC with Kit explicitly pinned to the
+reserved cards (Isaac indices 1 on pod 56 and 2 on pod 57) and hardened MAVROS
+pre-arm enabled. The corrected 2-GPU workflows `airstack-mission-8robot-2gpu-5`
+and `-6` remain queued as backups.
 
 ### Suburban
 
@@ -133,8 +139,9 @@ progress with another agent. No benchmark result has been submitted yet.
 
 ## Next work queue
 
-1. 🟨 Complete the one-GPU Urban Fire fallback batches now running on pods 56
-   and 57; upload each passed iteration immediately and publish no failures.
+1. 🟨 Complete the pinned one-GPU Urban Fire fallback batches now running on
+   pods 56 and 57; upload each passed iteration immediately and publish no
+   failures.
 2. 🟨 Finish canonical Earthquake Urban/Suburban exports. The most recent Urban
    freeze exited 1 and held the Suburban queue, so no Earthquake benchmark job
    has been submitted against an incomplete cell.
@@ -158,8 +165,9 @@ rather than consuming the rest of the batch.
 | 3 | `airstack-mission-1gpu-57` | Hurricane/Suburban L3 lawnmower | 1 | 61 min | PASSED — uploaded and verified at 03:40 UTC |
 | 4 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | — | STOPPED — two attempts hit the obsolete disparity gate; zero scored/uploaded runs |
 | 3 | `airstack-mission-1gpu-56` | Urban Fire L1/L2 Frontier | 2 | — | STOPPED — launched before canonical publication; zero scored/uploaded runs |
-| 5 | `airstack-mission-1gpu-56` | Urban Fire L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | ≤12 h | RUNNING — started 06:00 UTC with corrected RGB-D gate |
-| 5 | `airstack-mission-1gpu-57` | Urban Fire L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ≤12 h | RUNNING — started 06:00 UTC with corrected RGB-D gate |
+| 5 | `airstack-mission-1gpu-56` | Urban Fire L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | ≤12 h | RESTARTED 07:45 UTC — reserved GPU pin + MAVROS pre-arm; earlier L1 Frontier failed arm on robot 2 twice and was not uploaded |
+| 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
+| 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | RESTARTED 07:46 UTC — pinned to pod 57's reserved GPU |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
