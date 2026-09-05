@@ -42,6 +42,15 @@ MARKER_VERSION = "scene_gen_material_repair_version"
 MARKER_PAYLOAD = "scene_gen_material_repair_payload"
 MARKER_SOURCE = "scene_gen_material_repair_source"
 MARKER_SHADOWED = "scene_gen_material_repair_shadowed_local_assets"
+RUNTIME_RELATIVE_ASSETS = {
+    # Older freezes collected Kit's core MDL into the cell and authored this
+    # cell-relative spelling.  A repair wrapper lives above an immutable
+    # payload at a different Nucleus path, so that old relative path no longer
+    # has the same anchor.  Use the renderer's portable module identifier;
+    # every Isaac consumer already supplies OmniPBR through its MDL search
+    # path, and no build-machine file is required.
+    "Materials/bake_textures/OmniPBR.mdl": "OmniPBR.mdl",
+}
 
 
 def _ok(result):
@@ -141,6 +150,10 @@ def _upload_collected(stage, work_dir, dependency_root):
             value = attr.Get()
             raw = getattr(value, "path", "") or ""
             if not raw.startswith(prefix):
+                continue
+            runtime_name = RUNTIME_RELATIVE_ASSETS.get(raw)
+            if runtime_name:
+                attr.Set(Sdf.AssetPath(runtime_name))
                 continue
             local = os.path.join(work_dir, *raw.split("/"))
             if not os.path.isfile(local):
