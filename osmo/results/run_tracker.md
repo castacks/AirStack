@@ -145,10 +145,12 @@ passed 8/8 takeoff and all eight per-robot 600-s timed searches were active by
 18:29 UTC. The queued 2-GPU workflow
 `airstack-mission-8robot-2gpu-7` remains a backup. L3's
 four optimized baseline cells are now running on pod 57 from
-`urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_17-13-17`. Frontier's
-first iteration attempt failed takeoff: seven robots succeeded, but robot 6
-stalled at 6.5 m through all three action attempts. The failed attempt is not
-uploaded. No completed Urban Earthquake benchmark result is uploaded yet.
+`urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13`. The first
+run folder (`17-13-17`) was stopped and not uploaded after robot 6 reproduced
+a takeoff obstruction on both clean stack attempts. Robot 6 was moved from
+`(212.5, 140)` to vetted clear point `(300, 200)` across all four environments;
+the corrected Frontier run is in startup. No completed Urban Earthquake
+benchmark result is uploaded yet.
 
 ### Suburban
 
@@ -198,7 +200,7 @@ uploaded.
 | 6 | `airstack-mission-1gpu-56` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | ≤12 h | RUNNING — started 18:02 UTC; iteration 1/8 L1 Frontier passed 8/8 takeoff and entered the timed search by 18:29 UTC |
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
-| 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ≤12 h | RUNNING — Frontier iteration retry 2/2 reproduced robot 6's spawn obstruction; takeoff action retry 2/3 is active, attempt 1 was not uploaded; zero completed/uploaded yet |
+| 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ≤12 h | RUNNING — corrected Frontier startup began at 18:31 UTC with robot 6 moved to `(300,200)`; prior obstructed run stopped/not uploaded, zero completed/uploaded yet |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
