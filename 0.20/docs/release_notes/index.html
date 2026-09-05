@@ -5782,6 +5782,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#0208-2026-09-04" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.20.8 — 2026-09-04
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#0207-2026-08-30" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6023,6 +6034,17 @@ registered in mkdocs.yml) trims the rendered page to the section matching
 the repo-root .env VERSION, so each mike-deployed docs version carries only
 its own notes. -->
 
+<h2 id="0208-2026-09-04">0.20.8 — 2026-09-04<a class="headerlink" href="#0208-2026-09-04" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Docs builds no longer copy AirSim scene binaries.</strong> The <code>same-dir</code>
+  plugin publishes the whole repo tree as site content, and the downloaded
+  Microsoft AirSim UE4 scenes (<code>simulation/ms-airsim/assets/scenes/</code>) and
+  environments (<code>simulation/ms-airsim/environments/</code>) were not excluded —
+  every <code>mkdocs build</code> or <code>docs serve</code> on a machine with scenes fetched
+  copied ~15 GB of Unreal <code>.debug</code> binaries and zips into the site
+  directory. Both directories are now listed in <code>exclude_docs</code>. No pages or
+  links referenced them.</li>
+</ul>
 <h2 id="0207-2026-08-30">0.20.7 — 2026-08-30<a class="headerlink" href="#0207-2026-08-30" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Fixed 404s on every README-sourced docs page.</strong> The <code>exclude_docs</code>
