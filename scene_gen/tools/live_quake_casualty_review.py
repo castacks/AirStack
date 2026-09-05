@@ -267,6 +267,14 @@ def _capture_people(stage, app, people, buildings):
                      "side": rec.get("side"), "views": results})
         print("[quake_live_review] {0}: {1}/2 views".format(
             ident, sum(v["ok"] for v in results)), flush=True)
+    # The general city review that follows uses a different resolution.  An
+    # attached Replicator product is not freed when its Python handle falls
+    # out of scope, so release this casualty-only product explicitly instead
+    # of carrying both GPU buffer sets into the remaining 45 captures.
+    if hasattr(snaps, "close"):
+        snaps.close()
+        for _ in range(4):
+            app.update()
     return rows
 
 

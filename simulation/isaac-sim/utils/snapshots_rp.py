@@ -56,7 +56,8 @@ RES = (1600, 1600)
 # noise stops being visible on these scenes.
 SUBFRAMES = 24
 
-_STATE = {"rp": None, "annot": None, "res": None}
+_STATE = {"rp": None, "annot": None, "res": None, "pose": None,
+          "last_capture_pose": None}
 
 
 def _look_at(eye, target):
@@ -96,7 +97,49 @@ def place_camera(stage, eye, target, focal_mm=18.0):
     xf.ClearXformOpOrder()
     xf.AddTranslateOp().Set(Gf.Vec3d(*eye))
     xf.AddRotateXYZOp().Set(_look_at(eye, target))
+    # Keep the requested pose so ``snapshot`` can move to a nearby usable
+    # exterior viewpoint if RTX deterministically returns a blank frame for
+    # this exact camera position.  This happens when a review camera lands
+    # inside composed building geometry; rendering the identical pose twelve
+    # times can never recover from that.
+    _STATE["pose"] = (tuple(float(v) for v in eye),
+                      tuple(float(v) for v in target), float(focal_mm))
     return cam
+
+
+def _retry_camera_poses(eye, target):
+    """Nearby deterministic poses used only after an exact pose stays blank.
+
+    Orbiting a few degrees and moving outward/up preserves the subject and
+    review intent while escaping a facade, roof, tree crown, or other closed
+    mesh that happens to contain the requested camera.  A straight-down view
+    has no azimuth, so it receives a small lateral offset instead.  Pure math
+    keeps this helper host-testable.
+    """
+    ex, ey, ez = (float(v) for v in eye)
+    tx, ty, tz = (float(v) for v in target)
+    vx, vy = ex - tx, ey - ty
+    horiz = math.hypot(vx, vy)
+    dist = math.sqrt(vx * vx + vy * vy + (ez - tz) ** 2)
+    specs = ((8.0, 1.00, 0.06),
+             (-14.0, 1.15, 0.12),
+             (24.0, 1.30, 0.20))
+    out = []
+    for angle_deg, radial_scale, lift_frac in specs:
+        lift = max(0.75, dist * lift_frac)
+        if horiz < 1e-6:
+            # Keep a nadir capture effectively nadir while still invalidating
+            # the pathological exact camera/geometry intersection.
+            shift = max(0.5, 0.01 * max(dist, 1.0))
+            a = math.radians(angle_deg)
+            nx = ex + shift * math.cos(a)
+            ny = ey + shift * math.sin(a)
+        else:
+            a = math.radians(angle_deg)
+            nx = tx + radial_scale * (vx * math.cos(a) - vy * math.sin(a))
+            ny = ty + radial_scale * (vx * math.sin(a) + vy * math.cos(a))
+        out.append(((nx, ny, ez + lift), (tx, ty, tz)))
+    return out
 
 
 def _ensure_product(res):
@@ -111,6 +154,8 @@ def _ensure_product(res):
     import omni.replicator.core as rep
     if _STATE["rp"] is not None and _STATE["res"] == tuple(res):
         return _STATE["annot"]
+    if _STATE["rp"] is not None:
+        close()
     _STATE["rp"] = rep.create.render_product(CAM, resolution=tuple(res))
     _STATE["annot"] = rep.AnnotatorRegistry.get_annotator("rgb")
     _STATE["annot"].attach([_STATE["rp"]])
@@ -119,6 +164,32 @@ def _ensure_product(res):
     # assembly launcher and an orchestrator that waits for play never fires.
     rep.orchestrator.set_capture_on_play(False)
     return _STATE["annot"]
+
+
+def close():
+    """Release this helper's annotator/render product.
+
+    Replicator products survive Python handle replacement.  Leaving a 1280
+    casualty product alive while creating the 1600 district product leaks GPU
+    buffers and, on Kit shutdown, has crashed in ``omni.syntheticdata``.
+    Review launchers call this between capture families and before exit.
+    """
+    annot, rp = _STATE.get("annot"), _STATE.get("rp")
+    if annot is not None:
+        try:
+            annot.detach()
+        except Exception as exc:
+            carb.log_warn("[snapshots_rp] annotator detach failed: {0}".format(
+                exc))
+    if rp is not None:
+        try:
+            rp.destroy()
+        except Exception as exc:
+            carb.log_warn("[snapshots_rp] render product destroy failed: {0}"
+                          .format(exc))
+    _STATE["rp"] = None
+    _STATE["annot"] = None
+    _STATE["res"] = None
 
 
 def _write_png(rgb, path):
@@ -258,25 +329,47 @@ def snapshot(stage, path, res=RES, subframes=SUBFRAMES, region=None,
                 "SNAP_BLANK_RETRIES", "8"))))
         except ValueError:
             attempts = 8
+        requested_pose = _STATE.get("pose")
+        retry_poses = (_retry_camera_poses(
+            requested_pose[0], requested_pose[1]) if requested_pose else ())
+        # Spread the three pose fallbacks across the configured retry budget.
+        # With the batch default of 12 this tries the exact pose three times,
+        # then three nearby exterior poses for three frames each.
+        pose_after = {
+            max(1, attempts // 4): 0,
+            max(2, attempts // 2): 1,
+            max(3, (3 * attempts) // 4): 2,
+        }
         for attempt in range(attempts):
             rep.orchestrator.step(rt_subframes=int(subframes))
             for _ in range(4):
                 app.update()
             data = annot.get_data()
-            if data is None or not len(data):
-                continue
-            arr = np.asarray(data)
+            arr = None if data is None or not len(data) else np.asarray(data)
             # A real frame of an outdoor scene has both sky and ground in it.
             # Uniform (std ~ 0) means nothing was drawn. The threshold is
             # loose on purpose — a legitimately flat frame would still carry
             # sensor-level variation well above 1.0/255.
-            if float(arr[..., :3].std()) > 1.0:
+            if arr is not None and float(arr[..., :3].std()) > 1.0:
                 _write_png(arr, path)
                 print(f"[snapshots_rp] -> {path}")
+                _STATE["last_capture_pose"] = _STATE.get("pose")
                 _flag_offplate(arr, path, region, target)
                 return True
             carb.log_warn(f"[snapshots_rp] blank frame for {path} "
                           f"(attempt {attempt + 1}/{attempts}); re-rendering")
+            fallback_i = pose_after.get(attempt + 1)
+            if fallback_i is not None and fallback_i < len(retry_poses):
+                retry_eye, retry_target = retry_poses[fallback_i]
+                focal = requested_pose[2]
+                place_camera(stage, retry_eye, retry_target, focal_mm=focal)
+                for _ in range(8):
+                    app.update()
+                msg = ("[snapshots_rp] blank pose fallback {0}/3 for {1}: "
+                       "eye=({2:.2f}, {3:.2f}, {4:.2f})"
+                       .format(fallback_i + 1, path, *retry_eye))
+                carb.log_warn(msg)
+                print(msg)
         print(f"[snapshots_rp] GAVE UP on {path}: frame stayed blank")
         return False
     except Exception as exc:

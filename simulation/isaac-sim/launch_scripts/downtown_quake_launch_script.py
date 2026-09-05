@@ -1140,6 +1140,15 @@ class QuakeCityApp:
                 traceback.print_exc()
                 _review_errors.append("general review: {0}".format(exc))
                 print("[quake_city] snapshots FAILED: {0}".format(exc))
+            finally:
+                # Do not leave SyntheticData/RTX resources attached through
+                # freeze or Kit shutdown.  Besides reclaiming their buffers,
+                # this avoids the omni.syntheticdata shutdown crash seen when
+                # a review gate fails late in a large headless build.
+                if "_snaps" in locals() and hasattr(_snaps, "close"):
+                    _snaps.close()
+                    for _ in range(4):
+                        app.update()
         self._vram["end"] = vram_mb("after captures")
         try:
             env, hyd = self._vram.get("env"), self._vram.get("hydra")

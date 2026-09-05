@@ -146,6 +146,28 @@ def test_clear_azimuth_backward_compatible_with_no_region():
     assert d >= srp._CLEAR_M - 1e-6
 
 
+def test_blank_frame_retry_poses_escape_exact_oblique_position():
+    eye = (10.0, -20.0, 8.0)
+    target = (0.0, 0.0, 1.0)
+    poses = srp._retry_camera_poses(eye, target)
+    assert len(poses) == 3
+    assert len({tuple(round(v, 6) for v in p[0]) for p in poses}) == 3
+    for retry_eye, retry_target in poses:
+        assert retry_target == target
+        assert retry_eye != eye
+        assert retry_eye[2] > eye[2]
+
+
+def test_blank_frame_retry_poses_keep_nadir_near_subject():
+    eye = (4.0, 9.0, 100.0)
+    target = (4.0, 9.0, 0.0)
+    for retry_eye, retry_target in srp._retry_camera_poses(eye, target):
+        assert retry_target == target
+        assert math.hypot(retry_eye[0] - eye[0],
+                          retry_eye[1] - eye[1]) <= 1.01
+        assert retry_eye[2] > eye[2]
+
+
 def test_clear_azimuth_looks_inward_after_tree_avoidance():
     """A subject near the NE corner: the joint solve must land within the
     +/-60 deg inward cone even though a tree sits squarely on the naive

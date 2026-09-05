@@ -482,9 +482,10 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
 #: Prims REMOVED from the stage before the flatten. Everything here is a build
 #: or review aid that has no business in a shipped scene:
 #:
-#:   * `/World/ReviewCamera` — `snapshots.place_camera` re-uses ONE camera prim
-#:     for every capture, so the frozen scene would carry whatever pose the
-#:     last shot happened to leave it at. Asked for explicitly, 2026-08-27.
+#:   * `/World/ReviewCamera` and `/World/reviewCamRP` — the viewport and
+#:     headless-Replicator snapshot helpers each re-use ONE camera prim for
+#:     every capture, so the frozen scene would otherwise carry whatever pose
+#:     the last shot happened to leave it at. Asked for explicitly, 2026-08-27.
 #:   * the survivor and row-home LOCATOR POLES. They are authored deactivated
 #:     on every run, which is right for a live session — but this is the scored
 #:     artefact, and a 25 m magenta pole over each survivor group is the answer
@@ -495,6 +496,7 @@ def verify(usd_path, expect_region=None, expect_self_contained=True):
 #:     collector fetch its assets into `Materials/` for nothing.
 DEACTIVATE_DEFAULT = (
     "/World/ReviewCamera",
+    "/World/reviewCamRP",
     "/World/stage/generated/_people_poles",
     "/World/stage/generated/_rowhome_poles",
     "/World/GroundPlane",
