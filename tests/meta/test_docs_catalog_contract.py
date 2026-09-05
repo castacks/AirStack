@@ -151,7 +151,12 @@ def test_module_pages_carry_the_contracted_sections():
 
 
 def _load_mkdocs() -> dict:
-    """Parse mkdocs.yml, tolerating the !!python/name superfences tag."""
+    """Parse mkdocs.yml, tolerating the tags MkDocs resolves at load time.
+
+    ``!!python/name:`` (pymdownx superfences) collapses to the dotted name;
+    mkdocs' ``!ENV`` (``!ENV VAR`` or ``!ENV [VAR, default]``) collapses to
+    the default (or None), so a bare SafeLoader does not choke on it.
+    """
 
     class Loader(yaml.SafeLoader):
         pass
@@ -159,6 +164,14 @@ def _load_mkdocs() -> dict:
     Loader.add_multi_constructor(
         "tag:yaml.org,2002:python/name:", lambda loader, suffix, node: suffix
     )
+
+    def _env_tag(loader, node):
+        if isinstance(node, yaml.SequenceNode):
+            values = loader.construct_sequence(node)
+            return values[-1] if len(values) > 1 else None
+        return None
+
+    Loader.add_constructor("!ENV", _env_tag)
     return yaml.load(MKDOCS_YML.read_text(), Loader=Loader)
 
 
