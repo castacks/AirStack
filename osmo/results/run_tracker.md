@@ -2,9 +2,10 @@
 
 Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-09-05**.
 
-> **Legend:** 🟩 **DONE** · 🟦 **READY** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
+> **Legend:** 🟪 **SCENE READY** · 🟩 **DONE** · 🟦 **READY TO RUN** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
 >
-> 🟩 means a usable passed benchmark result exists. Pre-optimization results
+> 🟪 applies only to the scene-status column and means the canonical scene is
+> ready. 🟩 means a usable passed benchmark result exists. Pre-optimization results
 > count; failed or stopped attempts never count as DONE. 🟦 means the scene is
 > ready but the method has not run. 🟧 means the method failed or stopped and
 > needs a rerun. ⬜ means the scene itself is not ready.
@@ -13,23 +14,23 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 
 | Disaster | Locale | Level | Scene ready | Frontier | Lawnmower | VLFM | CoNavGPT2 | RayFronts/RAVEN |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| **Fire** | **Urban** | L1 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟦 |
-| **Fire** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
-| **Fire** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Fire** | **Urban** | L1 | 🟪 | 🟩 | 🟧 | 🟩 | 🟩 | 🟦 |
+| **Fire** | **Urban** | L2 | 🟪 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Fire** | **Urban** | L3 | 🟪 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Fire** | **Suburban** | L1 | 🟪 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Fire** | **Suburban** | L2 | 🟪 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Fire** | **Suburban** | L3 | 🟪 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L1–L3 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Hurricane** | **Suburban** | L1 | 🟪 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Hurricane** | **Suburban** | L2 | 🟪 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Hurricane** | **Suburban** | L3 | 🟪 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Urban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟨 | 🟨 | 🟦 |
-| **Earthquake** | **Urban** | L2 | 🟩 | 🟨 | 🟨 | 🟨 | 🟨 | 🟦 |
-| **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟨 | 🟨 | 🟦 |
+| **Tornado** | **Suburban** | L1 | 🟪 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Tornado** | **Suburban** | L2 | 🟪 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Tornado** | **Suburban** | L3 | 🟪 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Earthquake** | **Urban** | L1 | 🟪 | 🟩 | 🟩 | 🟨 | 🟨 | 🟦 |
+| **Earthquake** | **Urban** | L2 | 🟪 | 🟨 | 🟨 | 🟨 | 🟨 | 🟦 |
+| **Earthquake** | **Urban** | L3 | 🟪 | 🟩 | 🟩 | 🟨 | 🟨 | 🟦 |
 | **Earthquake** | **Suburban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 
 ## Fire
