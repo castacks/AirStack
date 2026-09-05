@@ -7,17 +7,23 @@ import math
 import random
 
 
-def traces_for_scene(houses, soil, seed=10):
+DEFAULT_BOUNDS = (-125.0, -125.0, 125.0, 125.0)
+
+
+def traces_for_scene(houses, soil, seed=10, bounds=DEFAULT_BOUNDS):
     rng=random.Random(seed+404)
     traces=[]
-    if soil:
+    # M5.5 compiles a geometrically described soft-soil zone with rate 0:
+    # it is useful provenance, but must not author liquefaction ruptures when
+    # the magnitude-duration gate says liquefaction is absent.
+    if soil and float(soil.get('rate',0.)) > 0.:
         cx,cy=soil['center']
         heading=math.radians(soil.get('angle_deg',0))
         for off in (-.45,0.,.45):
             length=soil['rx_m']*rng.uniform(1.15,1.6)
             x=cx-math.cos(heading)*length/2-math.sin(heading)*off*soil['ry_m']
             y=cy-math.sin(heading)*length/2+math.cos(heading)*off*soil['ry_m']
-            traces.append(_trace(x,y,heading,length,rng,len(traces)))
+            traces.append(_trace(x,y,heading,length,rng,len(traces),bounds))
     for h in houses:
         if h['mode'] != 'foundation':
             continue
@@ -25,17 +31,20 @@ def traces_for_scene(houses, soil, seed=10):
         # Bearing failure propagates outward from an existing footprint.
         x,y=_world(h['W']/2+.6,h['D']/2+.6,h)
         heading=math.radians(h['yaw']+rng.uniform(5,75))
-        traces.append(_trace(x,y,heading,rng.uniform(8,16),rng,len(traces)))
+        traces.append(_trace(x,y,heading,rng.uniform(8,16),rng,len(traces),bounds))
     return traces
 
 
-def _trace(x,y,heading,length,rng,index):
+def _trace(x,y,heading,length,rng,index,bounds=DEFAULT_BOUNDS):
+    xmin,ymin,xmax,ymax=map(float,bounds)
     points=[(x,y)]
     for _ in range(max(2,int(length/2.))):
         heading+=rng.uniform(-.12,.12)
         x+=2*math.cos(heading)
         y+=2*math.sin(heading)
-        if not (-124<x<124 and -124<y<124):
+        # Keep the tapered endpoint just inside the authored plate.  The old
+        # 124 m literal was the same one-metre inset for a 250 m review.
+        if not (xmin+1.<x<xmax-1. and ymin+1.<y<ymax-1.):
             break
         points.append((x,y))
     return dict(id='rupture_%02d'%index,points=points,width=rng.uniform(.3,.65),
@@ -183,7 +192,7 @@ def read_surfaces(stage,root):
     return sorted(result,key=lambda r:-r['z'])
 
 
-def author(stage,parent,traces,seed=10):
+def author(stage,parent,traces,seed=10,bounds=DEFAULT_BOUNDS):
     """Cut and replace bands with raised/broken pieces of THAT ground.
 
     Jittered Voronoi pavement/turf polygons are geometry replacement, not
@@ -196,7 +205,8 @@ def author(stage,parent,traces,seed=10):
     from shapely.ops import unary_union
     from pxr import UsdGeom
     from . import quake_flow as qf
-    plate=box(-125,-125,125,125)
+    xmin,ymin,xmax,ymax=map(float,bounds)
+    plate=box(xmin,ymin,xmax,ymax)
     lines=[LineString(t['points']) for t in traces if len(t['points'])>=2]
     if not lines:
         return dict(traces=traces,pieces=0)
@@ -213,11 +223,14 @@ def author(stage,parent,traces,seed=10):
     sites=[]
     from shapely.geometry import Point
     padded=band.buffer(4.)
-    for x in np.arange(-130,131,1.6):
-        for y in np.arange(-130,131,1.6):
+    px0,py0,px1,py1=padded.bounds
+    for x in np.arange(max(xmin-5.,px0),min(xmax+5.,px1)+1.6,1.6):
+        for y in np.arange(max(ymin-5.,py0),min(ymax+5.,py1)+1.6,1.6):
             if padded.contains(Point(x,y)):
                 sites.append((x+rng.uniform(-.65,.65),y+rng.uniform(-.65,.65)))
-    sites.extend([(-500,-500),(-500,500),(500,500),(500,-500)])
+    far=max(xmax-xmin,ymax-ymin)*2.+10.
+    sites.extend([(xmin-far,ymin-far),(xmin-far,ymax+far),
+                  (xmax+far,ymax+far),(xmax+far,ymin-far)])
     vor=Voronoi(np.array(sites))
     cells=[]
     for rid in vor.point_region[:-4]:
@@ -273,7 +286,7 @@ def author(stage,parent,traces,seed=10):
             key=surface['material'] or 'unbound'
             material_counts[key]=material_counts.get(key,0)+1
     # A dark exposed subsoil bed is visible through the seams/open rupture.
-    qf._c_geom_mesh(dict(stage=stage,parent=scope,tag='suburban',bounds=(-125,-125,125,125),authored=[]),
+    qf._c_geom_mesh(dict(stage=stage,parent=scope,tag='suburban',bounds=tuple(bounds),authored=[]),
                     'broken_edges',side_points,side_faces,soil)
     _mesh(stage,scope+'/exposed_subsoil',band,
           lambda x,y:min(-.12,fault_sample(x,y,traces)['z']-.12),

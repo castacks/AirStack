@@ -230,3 +230,34 @@ Artifacts: logs `suburban_quake_r9_{build,audit,live}.log`, scene directory
 `suburban_earthquake_250_r9`, review captures `suburban_earthquake_250_r9_review`,
 under the container's `.nvidia-omniverse/logs/` mount. Render review follows the
 cold-read gate and is not inferred from these numeric checks.
+
+## 1 km frozen-dataset queue
+
+The reviewed r9 mechanics are reused by three 1 km presets:
+`suburb_earthquake_1000_l{1,2,3}.yaml` (M5.5/M6.5/M7.5, seeds 31/41/51).
+The levels use distinct layouts, casualty-only populations, the noon sky, and
+the canonical output contract
+`Earthquake/Suburban/level_<L>/1/earthquake_suburban_lvl<L>_1.usd`.
+
+Run the complete sequential job on an Isaac pod host (not inside the
+container):
+
+```bash
+cd /root/AirStack
+LEVELS="1 2 3" ISAAC_SIM_ACTIVE_GPU=2 \
+  bash scene_gen/tools/suburban_earthquake_cell.sh
+```
+
+The runner first restores the damage cache from
+`/Projects/SEI-COA/scene_gen/assets/suburban_quake_cache/fractured_bearing_v5`,
+prepares only missing keys, settles only those keys, and uploads the expanded
+cache again. Assembly is CPU/USD-only and writes binary USDC to its work
+directory. One later Kit process renders the required whole-scene, damage and
+two-view casualty evidence and freezes the scored cell. The local portability
+gate, Nucleus size gate, and cold Nucleus open must all pass before the next
+level begins. No whole-neighbourhood physics is run.
+
+The work and cache trees live under `/isaac-sim/.cache/suburban_earthquake/`;
+they are intermediates, not dependencies of the frozen result. Final USD asset
+paths are checked for build-local references before upload, so a consumer only
+needs the canonical Nucleus cell.

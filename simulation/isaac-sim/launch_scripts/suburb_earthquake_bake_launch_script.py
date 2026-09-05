@@ -5,7 +5,11 @@ import random
 import sys
 from pathlib import Path
 from isaacsim import SimulationApp
-app=SimulationApp({'headless':True})
+_gpu=os.environ.get('ISAAC_SIM_ACTIVE_GPU','').strip()
+_launch={'headless':True,'extra_args':['--/renderer/multiGpu/enabled=false']}
+if _gpu:
+    _launch.update(active_gpu=int(_gpu),physics_gpu=int(_gpu))
+app=SimulationApp(_launch)
 import omni.usd
 from pxr import Usd,UsdGeom,UsdPhysics
 from isaacsim.core.api import SimulationContext
@@ -19,6 +23,8 @@ def main():
     with open(manifest) as f:
         work=json.load(f)
     completed=0
+    use_gpu=os.environ.get('QUAKE_SETTLE_GPU','0').strip().lower() in ('1','true','yes')
+    print('[quake_bake] physics backend '+('GPU' if use_gpu else 'CPU'),flush=True)
     for row in work:
         with open(row['sidecar']) as f:
             meta=json.load(f)
@@ -46,7 +52,7 @@ def main():
         print('[quake_bake] COLLIDERS '+str(len(meta['loose_paths']))+' bodies; '+str(len(approx))+' folded sections',flush=True)
         result=settle.run(stage,meta['loose_paths'],meta['static_paths'],
             steps=720,max_steps=1800,quiet_steps=120,kick=.12,
-            rng=random.Random(meta['seed']),bake_result=True,gpu=False,
+            rng=random.Random(meta['seed']),bake_result=True,gpu=use_gpu,
             max_speed=4.,density=420.,ccd=True,ground_plane_z=0.,floor_z=0.,
             approx_map=approx,decomp_limits={'max_hulls':4,'voxel_resolution':20000},
             converge=True,strict=False,rest_v2=True,

@@ -1,4 +1,4 @@
-"""CPU/USD assembly of the 250 m review, without starting or disturbing Kit."""
+"""CPU/USD assembly of a suburban earthquake, without starting Kit."""
 import argparse
 import json
 import os
@@ -71,7 +71,7 @@ def tree_fits(stage,prim,keepout):
     return not keepout.intersects(box(lo[0],lo[1],hi[0],hi[1]))
 
 
-def foundation_ground(stage,houses):
+def foundation_ground(stage,houses,bounds):
     import random
     from disaster import quake_flow as qf
     mats=qf.materials(stage,PARENT)
@@ -83,22 +83,45 @@ def foundation_ground(stage,houses):
         m=dict(cx=h['x'],cy=h['y'],yaw=h['yaw'],W=h['W'],D=h['D'],z0=0.,top=h['H'])
         result.append(qf._c_ground_response(stage,m,low_side=g['low'],drop_m=g['drop'],rise_m=g['rise'],
             parent=PARENT+'/quake_ground/foundation_'+h['id'],mats=mats,rng=random.Random(h['seed']+71),
-            tag=h['id'],bounds=(-125,-125,125,125),fissures=False,kerb=False,mudline=False,boils=False,
+            tag=h['id'],bounds=tuple(bounds),fissures=False,kerb=False,mudline=False,boils=False,
             ground_at=lambda x,y:'grass'))
     return result
 
 
-def build(out,config_name='suburb_earthquake_250',cache=None,people=True,previous_report=None):
+def _report_house(house):
+    """Keep the review/GT fields, not megabytes of per-fragment cache data."""
+    omit={'cache','debris_specs','fracture_footprints','physics_bake',
+          'collapse_zones','fracture_report'}
+    return {k:v for k,v in house.items() if k not in omit}
+
+
+def _vehicle_rows(placements):
+    keep=('category','prim_path','usd','roll_deg','pitch_deg','yaw_deg',
+          'heading_deg','axis_up','role')
+    return [{k:p.get(k) for k in keep if p.get(k) is not None}
+            for p in placements
+            if str(p.get('category') or '').lower()
+            in ('car','vehicle','truck','van') and p.get('prim_path')]
+
+
+def build(out,config_name='suburb_earthquake_250',cache=None,people=True,
+          previous_report=None,scene_format='usda'):
     started=time.time()
     out=os.path.abspath(out)
     os.makedirs(out,exist_ok=True)
-    scene_path=out+'/review_scene.usda'
+    scene_format=str(scene_format).lower().lstrip('.')
+    if scene_format not in ('usda','usdc'):
+        raise ValueError('scene_format must be usda or usdc')
+    scene_path=out+'/review_scene.'+scene_format
     if os.path.exists(scene_path):
         raise FileExistsError('Use a new revision directory; refusing to overwrite '+scene_path)
     stage=Usd.Stage.CreateNew(scene_path)
     UsdGeom.SetStageMetersPerUnit(stage,1.)
     UsdGeom.SetStageUpAxis(stage,'Z')
     stage.SetDefaultPrim(UsdGeom.Xform.Define(stage,'/World').GetPrim())
+    physics=UsdPhysics.Scene.Define(stage,'/World/PhysicsScene')
+    physics.CreateGravityDirectionAttr(Gf.Vec3f(0.,0.,-1.))
+    physics.CreateGravityMagnitudeAttr(9.81)
     cfg=load_scene_config(config_name)
     cfg.setdefault('usds',{})['humans']=[]
     configure_sky(stage,cfg)
@@ -106,8 +129,12 @@ def build(out,config_name='suburb_earthquake_250',cache=None,people=True,previou
     placements=ss.generate_suburb_on_stage(stage,cfg,parent_path=PARENT,
                         scene_scale_factor=1.,info_out=info,assembly=True)
     region=tuple(info['region'])
-    if tuple(round(v) for v in region)!=(-125,-125,125,125):
-        raise ValueError('Expected a 250 m region: '+repr(region))
+    expected_size=tuple(float(v) for v in cfg['layout']['region_m'])
+    expected=(-expected_size[0]/2.,-expected_size[1]/2.,
+              expected_size[0]/2.,expected_size[1]/2.)
+    if any(abs(float(a)-float(b))>.01 for a,b in zip(region,expected)):
+        raise ValueError('Suburban region disagrees with config: %r != %r' %
+                         (region,expected))
     seed=int(cfg.get('seed',10))
     field=sg.make_damage_field(cfg['disaster']['field'],region)
     houses=qs.plan_houses(info['house_instances'],cfg,field,seed)
@@ -143,10 +170,10 @@ def build(out,config_name='suburb_earthquake_250',cache=None,people=True,previou
             continue
         trees.append(dict(t,prim=root,species=chosen))
     soil=cfg['disaster'].get('soft_soil')
-    traces=ground.traces_for_scene(houses,soil,seed)
+    traces=ground.traces_for_scene(houses,soil,seed,region)
     print('[suburban_quake] authoring material-matched rupture surfaces',flush=True)
-    ground_report=ground.author(stage,PARENT,traces,seed)
-    ground_report['foundation_responses']=foundation_ground(stage,houses)
+    ground_report=ground.author(stage,PARENT,traces,seed,region)
+    ground_report['foundation_responses']=foundation_ground(stage,houses,region)
     print('[suburban_quake] applying local object interactions',flush=True)
     changes=interactions.author(stage,houses,placements,trees,traces,soil,seed,tree_keepout=keepout)
     blockers=[]
@@ -165,8 +192,10 @@ def build(out,config_name='suburb_earthquake_250',cache=None,people=True,previou
     if previous_report:
         with open(previous_report) as f:
             previous=json.load(f)['people']
+    people_requested=int(cfg['earthquake_suburban'].get('people_total',12))
     survivors=qs.author_people(stage,houses,PARENT,blockers,
-         total=int(cfg['earthquake_suburban'].get('people_total',12)),seed=seed,preferred=previous) if people else []
+         total=people_requested,seed=seed,preferred=previous,
+         bounds=region) if people else []
     if people and not survivors:
         raise RuntimeError('No casualties passed the geometry/sightline gates')
     # Referenced assets can carry dormant physics; explicitly disable every
@@ -176,11 +205,15 @@ def build(out,config_name='suburb_earthquake_250',cache=None,people=True,previou
         if prim.HasAPI(UsdPhysics.RigidBodyAPI):
             UsdPhysics.RigidBodyAPI(prim).CreateRigidBodyEnabledAttr(False)
             disabled+=1
-    report=dict(revision=qb.REVISION,region=region,houses=houses,trees=trees,
+    report_houses=[_report_house(h) for h in houses]
+    report=dict(revision=qb.REVISION,region=region,houses=report_houses,trees=trees,
                 people=survivors,ground=ground_report,interactions=changes,tree_clearance_changes=tree_changes,
+                people_requested=people_requested if people else 0,
+                vehicles=_vehicle_rows(placements),scene_path=scene_path,
                 settle=dict(global_steps=0,disabled_bodies=disabled,static_cached=True),
                 elapsed_s=time.time()-started)
-    for name,value in (('scene_report',report),('damage_plan',dict(region=region,houses=houses))):
+    for name,value in (('scene_report',report),
+                       ('damage_plan',dict(region=region,houses=report_houses))):
         with open(out+'/'+name+'.json','w') as f:
             json.dump(value,f,indent=2,default=str)
     stage.GetRootLayer().Save()
@@ -195,5 +228,8 @@ if __name__=='__main__':
     parser.add_argument('--cache')
     parser.add_argument('--previous-report',help='Revalidate and retain previously accepted casualty positions first')
     parser.add_argument('--no-people',action='store_true',help='geometry diagnostic only, not a complete review')
+    parser.add_argument('--scene-format',choices=('usda','usdc'),default='usda',
+                        help='use binary usdc for large dataset cells')
     args=parser.parse_args()
-    build(args.out,args.config,args.cache,not args.no_people,args.previous_report)
+    build(args.out,args.config,args.cache,not args.no_people,
+          args.previous_report,args.scene_format)

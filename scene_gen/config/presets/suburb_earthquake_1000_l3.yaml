@@ -1,0 +1,50 @@
+# EARTHQUAKE / SUBURBAN / DATASET LEVEL 3. Distinct 1 km layout.
+locale: suburban
+disaster-type: earthquake
+magnitude: 7.5
+seed: 51
+region_m: [1000, 1000]
+epicenter: [-80, 80]
+asset-set: suburban_park
+overrides:
+  sky: omniverse://airlab-nucleus.andrew.cmu.edu:443/NVIDIA/Assets/Skies/2022_1/Skies/Clear/noon_grass.hdr
+  sky_intensity: 3000
+  sky_exposure: 0
+  sky_color: [1.0, 1.0, 1.0]
+  disaster: {damaged_fraction: 0, destroyed_fraction: 0, humans_strewn: [0, 0], humans_prone_fraction: 0}
+  people: {enabled: false}
+  earthquake_suburban: {demand_scale: 1.15, people_total: 70, mild_damage_share: 0.65, construction: wood_frame_mixed_anchorage}
+  roads: {z_scale: 0.16, driveway_asphalt_share: 0.5}
+  usds:
+    materials:
+      asphalt: airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda
+      driveway: airstack://scene_gen/assets/materials/megascans/Brick_Wall_Worn.usda
+      driveway_asphalt: airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda
+  instance_categories: [plant, sidewalk, streetlight, fire_hydrant, sign, crosswalk]
+  layout: {region_m: [1000, 1000]}
+  suburb_net: {block_area_target_m2: 19000, block_area_min_m2: 5000, collectors: 2, collector_wander: 0.28, min_gap_m: 64, junction_skew_deg: 38, four_way_chance: 0.35, dead_end_target: 0.24, bulb_radius_m: 14.64, lollipop_len_m: [55, 170], grain_weight: 2.6, grain_swirl_deg: 34, grain_period_m: 320}
+  suburb_park: {parking_m: [64, 40], parking_apron_w_m: 8}
+  suburb_parcel:
+    modular_houses: true
+    modular_share: 1.0
+    lot_width_m: [22, 32]
+    neighbourhood_m: 180
+    density_mix: {tight: 0.34, normal: 0.40, loose: 0.20, estate: 0.06}
+    setback_m: [6.5, 11]
+    row_share: 0.225
+    row_housing: {unit_gap_m: 2.5, units_per_row: [3, 5], front_setback_m: 7.5, bays_per_dwelling: 1.75, green_m: 6}
+    house_w_m: [9, 13]
+    house_d_m: [8, 11]
+    house_gap_m: 4.5
+    min_lot_depth_m: 21
+    junction_skew_clear_deg: 30
+    junction_skew_clear_m: 2
+    driveway_w_m: 3.2
+    house_yaw_offset_deg: -90
+    back_trees_per_100m2: 0.055
+    front_tree_chance: 0.45
+    street_tree_spacing_m: [16, 30]
+    pool_rear_m: 20
+    pool_rear_min_m: 9.5
+    pool_tree_clear_m: 11
+  cars: {driveway_chance: 0.55, court_occupancy: 0.60, street_density: 0.12, slot_spacing_m: [7, 9], slot_gap_chance: 0.18, strip_glass: true, max_cars: 220}

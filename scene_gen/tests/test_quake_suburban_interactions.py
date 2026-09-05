@@ -22,6 +22,19 @@ def test_displacement_sign_and_falloff():
     assert ground.fault_sample(0,0,[])['z']==0
 
 
+def test_rupture_bounds_scale_beyond_the_250m_review():
+    import random
+    trace=ground._trace(300.,0.,0.,80.,random.Random(4),0,
+                        (-500.,-500.,500.,500.))
+    assert max(x for x,_ in trace['points'])>350.
+    assert all(-499.<x<499. and -499.<y<499. for x,y in trace['points'])
+
+
+def test_zero_rate_soft_soil_does_not_author_liquefaction_traces():
+    soil=dict(center=[0.,0.],rx_m=60.,ry_m=40.,angle_deg=0.,rate=0.)
+    assert ground.traces_for_scene([],soil,10)==[]
+
+
 def test_rigid_footprint_bridges_opening():
     p=response.support_plane(0,0,1,2,traces())
     assert p['affected'] and p['gy']>0
@@ -177,6 +190,16 @@ def test_cache_key_ignores_world_pose_but_not_recipe():
     h=dict(style='cottage',palette='red',mode='foundation',side='N',seed=13)
     assert bake.cache_key(h)==bake.cache_key(dict(h,x=100,y=-30,yaw=75))
     assert bake.cache_key(h)!=bake.cache_key(dict(h,side='S'))
+
+
+def test_cache_key_deduplicates_sides_only_when_geometry_is_identical():
+    from disaster import quake_suburban_bake as bake
+    base=dict(style='cottage',palette='wood_white',seed=13)
+    for mode in ('pristine','collapse'):
+        assert bake.cache_key(dict(base,mode=mode,side='N')) == \
+               bake.cache_key(dict(base,mode=mode,side='W'))
+    assert bake.cache_key(dict(base,mode='foundation',side='N')) != \
+           bake.cache_key(dict(base,mode='foundation',side='W'))
 
 
 def test_export_gate_checks_final_points_and_does_not_hide_failed_solve():

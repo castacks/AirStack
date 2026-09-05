@@ -269,6 +269,12 @@ def cache_key(rec):
     # Three deterministic variants per style/mode/side/palette. The cache
     # includes its recipe revision so old damage is never silently reused.
     spec = {k:rec.get(k) for k in ('style','palette','mode','side')}
+    # Side never reaches geometry for an intact house or a full collapse:
+    # pristine authors no failure, while collapse removes every module and
+    # distributes rubble over the whole footprint. Keeping four hashes for
+    # those identical results multiplied a 1 km cache for no visual benefit.
+    if spec['mode'] in ('pristine','collapse'):
+        spec['side'] = '*'
     spec.update(revision=REVISION,variant=int(rec['seed'])%3)
     return hashlib.sha256(json.dumps(spec,sort_keys=True).encode()).hexdigest()[:18],spec
 

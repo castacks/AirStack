@@ -17,10 +17,11 @@ def main():
     a=p.parse_args()
     scene=fence_png.build(config_name=a.config,house_instances=[])
     cfg=scene["cfg"]
-    region=(-125,-125,125,125)
+    width,height=(float(v) for v in cfg["layout"]["region_m"])
+    region=(-width/2.,-height/2.,width/2.,height/2.)
     field=sg.make_damage_field(cfg["disaster"]["field"],region)
     houses=qs.plan_houses(scene["house_instances"],cfg,field,cfg["seed"])
-    os.makedirs(os.path.dirname(a.out),exist_ok=True)
+    os.makedirs(os.path.dirname(a.out) or ".",exist_ok=True)
     with open(a.out+".json","w") as f:
         json.dump(dict(region=region,houses=houses),f,indent=2)
     import matplotlib
@@ -43,8 +44,11 @@ def main():
     tally=collections.Counter(h["mode"] for h in houses)
     from matplotlib.patches import Patch
     ax.legend(handles=[Patch(color=colors[m],label=f"{m}: {tally[m]}") for m in qs.MODES],loc="upper left",fontsize=8)
-    ax.set(xlim=(-125,125),ylim=(-125,125),aspect="equal",xlabel="metres",ylabel="metres",
-           title="250 × 250 m suburban earthquake — synthetic damage sample\nDashed: susceptible soil; house IDs match the live plan")
+    ax.set(xlim=(region[0],region[2]),ylim=(region[1],region[3]),
+           aspect="equal",xlabel="metres",ylabel="metres",
+           title=("%g × %g m suburban earthquake — exact damage plan\n"
+                  "Dashed: susceptible soil; house IDs match the built scene")
+                 % (width,height))
     fig.savefig(a.out+".png",dpi=160)
     print(dict(houses=len(houses),damage=tally,out=a.out))
 

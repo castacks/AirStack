@@ -122,7 +122,8 @@ def rubble_body_support(stage, person, house, records, parent, ssf=1.):
     return max(heights), len(samples)
 
 
-def author_people(stage, records, parent, blockers=(), total=12, seed=11, ssf=1., preferred=()):
+def author_people(stage, records, parent, blockers=(), total=12, seed=11,
+                  ssf=1., preferred=(), bounds=(-125.,-125.,125.,125.)):
     """Reuse earthquake support/sightlines and the established RP pose/cover.
 
     People are a visible rescue-target sample; status is deliberately unknown.
@@ -170,10 +171,10 @@ def author_people(stage, records, parent, blockers=(), total=12, seed=11, ssf=1.
             if len(made) >= total:
                 break
             person = (qp._interior_person(stage, r, records, rng, made,
-                                          (-125,-125,125,125), ssf)
+                                          bounds, ssf)
                       if attempt == 0 and r["storeys"] > 1 and r["mode"] == "partial_collapse"
                       else qp._rubble_person(stage, r, records, rng, made,
-                                             (-125,-125,125,125), ssf))
+                                             bounds, ssf))
             if not person:
                 continue
             if person['state'] == 'rubble_casualty':
