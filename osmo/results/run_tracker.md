@@ -27,7 +27,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 | 🟦 |
+| **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 |
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
@@ -144,7 +144,9 @@ shared-baseline batch started on pod 56 at 18:02 UTC under
 passed 17/17 steps at team RTF 0.19510 and was uploaded and NAS-verified at
 19:23 UTC. L1 Lawnmower also passed 17/17 steps after its automatic robot-8
 startup recovery, at team RTF 0.20130, and was uploaded and NAS-verified at
-20:43 UTC. L1 VLFM iteration 3/8 started immediately afterward. The queued 2-GPU workflow
+20:43 UTC. L1 VLFM passed 17/17 steps at team RTF 0.18919 and was uploaded
+and NAS-verified at 22:05 UTC. L1 CoNavGPT2 iteration 4/8 started immediately
+afterward. The queued 2-GPU workflow
 `airstack-mission-8robot-2gpu-7` remains a backup. L3's
 four optimized baseline cells are now running on pod 57 from
 `urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13`. The first
@@ -201,7 +203,7 @@ uploaded.
 | 4 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | — | STOPPED — two attempts hit the obsolete disparity gate; zero scored/uploaded runs |
 | 3 | `airstack-mission-1gpu-56` | Urban Fire L1/L2 Frontier | 2 | — | STOPPED — launched before canonical publication; zero scored/uploaded runs |
 | 5 | `airstack-mission-1gpu-56` | Urban Fire L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | 5 h 11 min | STOPPED FOR EARTHQUAKE CUTOVER — L1 Frontier, VLFM and CoNavGPT2 passed/uploaded (RTFs 0.219, 0.2115, 0.18784); Lawnmower failed twice and needs a focused rerun; Fire L2 remains deferred |
-| 6 | `airstack-mission-1gpu-56` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | L1 2/4; L2 0/4 | ≤12 h | RUNNING — L1 Frontier and Lawnmower passed/uploaded at team RTFs 0.19510 and 0.20130; L1 VLFM is active |
+| 6 | `airstack-mission-1gpu-56` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | L1 3/4; L2 0/4 | ≤12 h | RUNNING — L1 Frontier, Lawnmower and VLFM passed/uploaded at team RTFs 0.19510, 0.20130 and 0.18919; L1 CoNavGPT2 is active |
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 2/4 | ≤12 h | RUNNING — Frontier and Lawnmower passed/uploaded/NAS-verified at team RTFs 0.19188 and 0.19888; VLFM is active |
