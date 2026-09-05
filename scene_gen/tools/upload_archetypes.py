@@ -20,6 +20,7 @@ THE NAME. Nothing in the FILENAMES ever said quake (`bld_apartment_DG0.usd`,
 appeared. `archetype/` is what it becomes, and the library is not
 disaster-specific: the same shells are used by the fire and wind passes.
 """
+import argparse
 import os
 import sys
 import time
@@ -31,22 +32,42 @@ DST = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
        "scene_gen/assets/archetype")
 
 
-def main():
-    names = sorted(os.listdir(SRC))
-    print("%d entries -> %s" % (len(names), DST), flush=True)
-    omni.client.create_folder(DST)
+def main(argv=None):
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--src", default=SRC,
+        help="local source directory (default: %(default)s)")
+    ap.add_argument(
+        "--dst", default=DST,
+        help="Nucleus destination directory (default: %(default)s)")
+    ap.add_argument(
+        "--names-file", default="",
+        help="upload only these basenames, one per line (default: every file)")
+    args = ap.parse_args(argv)
+    if args.names_file:
+        names = sorted({os.path.basename(q.strip())
+                        for q in open(args.names_file) if q.strip()})
+    else:
+        names = sorted(os.listdir(args.src))
+    print("%d entries -> %s" % (len(names), args.dst), flush=True)
+    omni.client.create_folder(args.dst)
     ok = fail = skip = 0
     t0 = time.time()
     for i, nm in enumerate(names, 1):
-        src = os.path.join(SRC, nm)
+        src = os.path.join(args.src, nm)
         if not os.path.isfile(src):
             print("  SKIP (not a file) %s" % nm, flush=True)
             skip += 1
             continue
-        dst = DST + "/" + nm
+        dst = args.dst.rstrip("/") + "/" + nm
         r = omni.client.copy(src, dst, omni.client.CopyBehavior.OVERWRITE)
         if r == omni.client.Result.OK:
-            ok += 1
+            sr, _entry = omni.client.stat(dst)
+            if sr == omni.client.Result.OK:
+                ok += 1
+            else:
+                fail += 1
+                print("  FAIL %-46s copied but stat=%s" % (nm, sr), flush=True)
         else:
             fail += 1
             print("  FAIL %-46s %s" % (nm, r), flush=True)

@@ -540,9 +540,14 @@ def main():
     # -- the sidecar ------------------------------------------------------
     prims_n = sum(1 for _ in Usd.PrimRange(
         stage.GetPrimAtPath(Sdf.Path(CELL)), Usd.PrimAllPrimsPredicate))
+    rect = ctx.get("detached_rectangles") or {}
     counts = {"loose": len(ctx["loose"]), "static": len(ctx["static_extra"]),
               "authored": len(ctx["authored"]), "pieces": len(pls),
-              "prims": prims_n, "usd_mb": round(mb, 2)}
+              "prims": prims_n, "usd_mb": round(mb, 2),
+              "detached_rectangles_replaced": int(rect.get("replaced", 0)),
+              "detached_rectangle_pieces": int(rect.get("pieces", 0)),
+              "detached_rectangle_violations": len(
+                  rect.get("violations") or ())}
     timings = {"build_s": round(build_s, 1), "settle_s": round(settle_s, 1),
                "export_s": round(export_s, 1),
                "total_s": round(time.time() - t0, 1)}

@@ -2152,6 +2152,281 @@ def _author_heaps(ctx, plan, m, prng):
     return n
 
 
+def _fracture_fallen_partition(ctx, path):
+    """Turn one unsupported plaster divider into settleable wall chunks.
+
+    `fit_interior` authors a partition as one closed 0.12 m-thick box.  Sending
+    that box straight to PhysX preserves a complete room wall: after settling
+    it becomes the 6--10 m white sheet seen across the DG5 rubble pile.  The
+    support decision belongs to `_fall_fitout`; once that decision is made,
+    this helper fractures only that doomed divider in its own thin mid-plane.
+    Supported partitions elsewhere in the building never reach this function.
+
+    The fracture seed is derived from the prim path rather than either shared
+    generator.  Enabling this appearance fix therefore cannot move the shell,
+    slabs, piles, or any later recipe decision.  `mode="prism"` keeps one seed
+    layer through the 0.12 m thickness: gypsum breaks into broad irregular
+    pieces, not tetrahedral shards.  If VTK cannot fracture a particular box,
+    the source is retained, chipped in place, and still sent to settle; no
+    geometry silently disappears.
+
+    Returns ``(paths_to_settle, fractured)``.
+    """
+    import numpy as np
+
+    from . import fracture
+
+    qf = _qf()
+    stage = ctx["stage"]
+    prim = stage.GetPrimAtPath(path) if path else None
+    if not prim or not prim.IsValid() or not prim.IsActive():
+        return [], False
+
+    try:
+        _cx, _cy, _cz, sx, sy, sz, _yaw = qf._box_dims(stage, path)
+        ext = sorted((abs(float(sx)), abs(float(sy)), abs(float(sz))))
+        # About one 1.4 x 1.4 m face patch per requested cell.  The caps keep
+        # a short apartment divider recognisable and a long office divider
+        # well below the scene's rigid-body budget.
+        n_piece = max(6, min(18, int(round(ext[1] * ext[2] / 2.0))))
+    except Exception:
+        n_piece = 10
+
+    seed = fracture.stable_seed("quake_fallen_partition", str(path))
+    try:
+        made = qf._break_box(
+            stage, path, n_piece,
+            random.Random(seed), np.random.default_rng(seed),
+            qf._a_mat(ctx, "plaster_dusty"),
+            qf._a_mat(ctx, "dust"), inner_p=0.18,
+            mode="prism", consume=0.22, consume_pool=1.05,
+            max_piece_m=1.8)
+    except Exception as exc:
+        made = []
+        ctx.setdefault("notes", []).append(
+            "quake partition fracture failed for {0}: {1}: {2}".format(
+                path, type(exc).__name__, exc))
+    if made:
+        return made, True
+
+    # Fail visible, not absent: a chipped whole panel is inferior to chunks,
+    # but still better than deleting a room wall or aborting the entire bake.
+    _chip_pieces(ctx, [path], _CHIP_PRISM, tessellate=True)
+    qf._bind(stage, path, qf._a_mat(ctx, "plaster_dusty"))
+    ctx.setdefault("notes", []).append(
+        "quake partition fracture fallback (chipped whole panel): " + path)
+    return [path], False
+
+
+def _detached_rect_kind(ctx, path):
+    """Provenance class for a simple authored member sent to physics.
+
+    This is intentionally a positive list.  Sliced/GAC shell fragments can be
+    open, UV-rich meshes and must never enter the authored-box fracture path
+    merely because their bounding box happens to be rectangular.
+    """
+    # Prefer the authoring records over spelling.  Real kit members are named
+    # things like ``bld_office_plain_roof_7_210``: checking only for a
+    # ``roof_`` prefix misses the exact roof called out in review.  Fit-out
+    # dictionaries are even stronger provenance because only qf authored
+    # those slabs/columns/partitions.
+    fit = ctx.get("fit") or {}
+    if path in set((fit.get("slabs") or {}).values()):
+        return "slab"
+    if path in set(fit.get("partitions") or ()):
+        return "partition"
+    if any(path in (paths or ())
+           for paths in (fit.get("columns") or {}).values()):
+        return "column"
+    try:
+        e = _qf()._t_el(ctx, path)
+    except Exception:
+        e = None
+    if e and e.get("role") == "roof":
+        return "roof"
+
+    p = str(path or "").lower()
+    leaf = p.rsplit("/", 1)[-1]
+    if "/part_" in p or leaf.startswith("part_"):
+        return "partition"
+    if "/slab_" in p or leaf.startswith(("slab_", "deck_")):
+        return "slab"
+    if "/roofslab_" in p or leaf.startswith("roofslab_"):
+        return "roof"
+    if "/col_" in p or leaf.startswith(("col_", "column_")):
+        return "column"
+    return None
+
+
+def _simple_rect_info(ctx, path):
+    """Shape facts for one active pristine quad/box, else ``None``.
+
+    Eight points and six quad faces is ``quake_flow._box`` exactly; four
+    points and one/two faces is a kit roof tile.  Once chipping/fracture has
+    made the silhouette irregular it no longer matches, which is the gate's
+    desired definition of "intact rectangle".
+    """
+    from pxr import UsdGeom
+
+    stage = ctx["stage"]
+    pr = stage.GetPrimAtPath(path) if path else None
+    if not pr or not pr.IsValid() or not pr.IsActive() or not pr.IsA(UsdGeom.Mesh):
+        return None
+    if UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(pr)):
+        return None
+    mesh = UsdGeom.Mesh(pr)
+    pts = mesh.GetPointsAttr().Get() or ()
+    cnt = [int(q) for q in (mesh.GetFaceVertexCountsAttr().Get() or ())]
+    is_box = len(pts) == 8 and len(cnt) == 6 and all(q == 4 for q in cnt)
+    is_quad = len(pts) == 4 and len(cnt) in (1, 2) and all(q in (3, 4) for q in cnt)
+    if not (is_box or is_quad):
+        return None
+    qf = _qf()
+    try:
+        _cx, _cy, _cz, sx, sy, sz, _yaw = qf._box_dims(stage, path)
+    except Exception:
+        # `_box_dims` expects the authored-box xform layout.  A flat kit roof
+        # is handled by `_break_box_like`, whose element record owns its size.
+        from pxr import Usd
+        bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                               [UsdGeom.Tokens.default_])
+        r = bc.ComputeWorldBound(pr).ComputeAlignedRange()
+        if r.IsEmpty():
+            return None
+        lo, hi = r.GetMin(), r.GetMax()
+        sx, sy, sz = (float(hi[i] - lo[i]) for i in range(3))
+    ext = sorted((abs(float(sx)), abs(float(sy)), abs(float(sz))))
+    return {"size": (float(sx), float(sy), float(sz)), "ext": ext,
+            "area": ext[1] * ext[2], "quad": is_quad}
+
+
+def _oversized_detached_rect(ctx, path):
+    kind = _detached_rect_kind(ctx, path)
+    info = _simple_rect_info(ctx, path)
+    if not kind or not info:
+        return None
+    e = info["ext"]
+    bad = ((kind == "partition" and e[2] > 2.5)
+           or (kind in ("slab", "roof")
+               and (info["area"] > 16.0 or e[2] > 5.0))
+           or (kind == "column" and e[2] > 4.0))
+    return (kind, info) if bad else None
+
+
+def _fracture_detached_rect(ctx, path, kind, info):
+    """Replace one doomed pristine member with bounded irregular pieces."""
+    import numpy as np
+
+    from . import fracture
+
+    qf = _qf()
+    if kind == "partition":
+        return _fracture_fallen_partition(ctx, path)[0]
+
+    # A simple zero-thickness roof needs `_roof_box` before VTK/PhysX.  The
+    # element record is the only safe way to distinguish it from a sliced
+    # shell, and `_simple_rect_info` has already constrained it to four points.
+    if kind == "roof" and info.get("quad"):
+        e = qf._t_el(ctx, path)
+        if e is None:
+            return []
+        n = max(8, min(32, int(round(info["area"] / 5.0))))
+        seed = fracture.stable_seed("quake_detached_rect", kind, str(path))
+        from . import fire_collapse as fc
+        with fc._own_rng(ctx, random.Random(seed),
+                         np.random.default_rng(seed)):
+            return qf._break_box_like(ctx, e, n, timber=False, consume=0.12,
+                                      consume_pool=1.05, max_piece_m=2.8)
+
+    seed = fracture.stable_seed("quake_detached_rect", kind, str(path))
+    area = float(info["area"])
+    if kind in ("slab", "roof"):
+        n = max(8, min(36, int(round(area / 6.0))))
+        mat, inner, max_piece = (qf._a_mat(ctx, "concrete_dusty"),
+                                 qf._a_mat(ctx, "dust"), 2.8)
+    else:                         # a multi-storey / otherwise long column
+        n = max(3, min(9, int(round(info["ext"][2] / 1.4))))
+        mat, inner, max_piece = (qf._a_mat(ctx, "concrete_dusty"),
+                                 qf._a_mat(ctx, "dust"), 1.8)
+    made = qf._break_box(
+        ctx["stage"], path, n, random.Random(seed),
+        np.random.default_rng(seed), mat, inner, inner_p=0.22,
+        mode="prism", consume=0.10, consume_pool=1.05,
+        max_piece_m=max_piece)
+    if made:
+        _chip_pieces(ctx, made, _CHIP_SLAB if kind in ("slab", "roof")
+                     else _CHIP_PRISM, tessellate=False,
+                     beam=(kind in ("slab", "column")),
+                     beam_keep=("a_dust",))
+    return list(made)
+
+
+def normalize_detached_rectangles(ctx, strict=None):
+    """Enforce the no-pristine-rectangles invariant on ``ctx['loose']``.
+
+    Runs once after every recipe (including roof-plant follow) and before the
+    bake launcher sees the rigid-body list.  It changes only positive-listed,
+    authored fit-out/roof members that are already doomed and oversized.
+    Supported slabs and columns are never in ``loose`` and are untouched.
+
+    Returns a report.  In strict mode (default, ``EQ_RECT_GATE=1``), any
+    oversized pristine rectangle that survives a failed fracture aborts that
+    archetype instead of silently publishing the defect.
+    """
+    if strict is None:
+        strict = os.environ.get("EQ_RECT_GATE", "1").strip().lower() not in (
+            "0", "false", "no", "off")
+    old = list(ctx.get("loose") or ())
+    replaced = []
+    new_loose = []
+    for path in old:
+        bad = _oversized_detached_rect(ctx, path)
+        if not bad:
+            new_loose.append(path)
+            continue
+        kind, info = bad
+        velocity = ctx.get("velocity", {}).pop(path, None)
+        made = _fracture_detached_rect(ctx, path, kind, info)
+        if not made:
+            new_loose.append(path)
+            continue
+        replaced.append((path, kind, len(made)))
+        for q in made:
+            if q not in new_loose:
+                new_loose.append(q)
+            if velocity is not None:
+                ctx.setdefault("velocity", {})[q] = velocity
+        ctx["static_extra"] = [q for q in ctx.get("static_extra", ())
+                               if q != path]
+        fit = ctx.get("fit") or {}
+        fit["all"] = [q for q in fit.get("all", ()) if q != path]
+    ctx["loose"] = new_loose
+
+    violations = []
+    for path in ctx["loose"]:
+        bad = _oversized_detached_rect(ctx, path)
+        if bad:
+            kind, info = bad
+            violations.append({"path": path, "kind": kind,
+                               "size": info["size"]})
+    report = {"replaced": len(replaced),
+              "pieces": sum(q[2] for q in replaced),
+              "violations": violations, "details": replaced}
+    ctx["detached_rectangles"] = report
+    if replaced:
+        line = ("[rect-gate] {0} detached pristine member(s) -> {1} "
+                "irregular fragments; 0 survivors".format(
+                    report["replaced"], report["pieces"]))
+        print(line)
+        ctx.setdefault("notes", []).append(line)
+    if violations and strict:
+        raise RuntimeError(
+            "earthquake detached-rectangle gate: {0} oversized pristine "
+            "member(s) survived: {1}".format(
+                len(violations), ", ".join(q["path"] for q in violations[:6])))
+    return report
+
+
 def _fall_fitout(ctx, plan, m, prng):
     """Send down the fit-out that has lost its floor or its bearing wall.
 
@@ -2180,40 +2455,24 @@ def _fall_fitout(ctx, plan, m, prng):
     fc = _fc()
     mtag = plan["mass"]
     fit = ctx.get("fit") or {}
-    n = {"slab": 0, "part": 0, "col": 0, "prop": 0}
+    n = {"slab": 0, "part": 0, "part_frag": 0,
+         "col": 0, "prop": 0}
     Hm = max(3.0, float(m["top"]) - float(m["z0"]))
 
-    n_chip_slab = 0
     for key in plan["drop"]:
         slab = (fit.get("slabs") or {}).get(key)
         if not slab:
             continue
         pr = stage.GetPrimAtPath(slab)
         if pr and pr.IsValid() and pr.IsActive() and slab not in ctx["loose"]:
-            # ROUND 5: a fallen floor plate is not a rectangle. `_a_slab_rim`
-            # already made this point for the plate a soft storey leaves
-            # exposed ("a rectangular plate with four ruler edges") and tore
-            # two of its sides; a plate that comes down WHOLE never got that
-            # treatment, and it is the big pale slab in the user's DG5 shots.
-            # `tessellate=True` because an 8-corner box has nothing for the
-            # roughening pass to displace — see `_chip_prim`.
-            # `beam=True`: a fallen floor PLATE is a concrete floor, which is
-            # what the round-5 addendum's Damaged_Concrete_Floor scan is a
-            # photo of — and the pale untextured plate is the thing the user
-            # pointed at in the DG5 shots.
-            n_chip_slab += _chip_pieces(ctx, [slab], _CHIP_SLAB,
-                                        tessellate=True, beam=True)
+            # Do not merely chip this WHOLE plate.  Chipping changes its rim
+            # but leaves one building-width rigid body, which still lands as
+            # the giant intact rectangle called out in review.  The common
+            # end-of-recipe gate (`normalize_detached_rectangles`) sees this
+            # pristine authored slab in `loose` and fractures it into bounded
+            # concrete pieces before the launcher hands anything to PhysX.
             ctx["loose"].append(slab)
             n["slab"] += 1
-    if n["slab"]:
-        # ROUND-5 FOLLOW-UP proof line: this call site was silent before
-        # ("no positive log evidence that chips fire during a real bake") —
-        # `_author_floors`'s cell-chipping (below) already had one.
-        from . import fracture
-        ctx.setdefault("notes", []).append(
-            "[chip] fitout slabs: {0} chipped, {1} passed-through "
-            "(vtk={2})".format(n_chip_slab, n["slab"] - n_chip_slab,
-                               fracture.chips_enabled()))
 
     fall_storeys = set(int(s) for (mt, s) in plan["fit_fall"] if mt == mtag)
     region_storeys = set(int(s) for s in plan["fit_region_storeys"])
@@ -2272,13 +2531,23 @@ def _fall_fitout(ctx, plan, m, prng):
                     break
         if sd is None and s_ not in fall_storeys:
             continue
-        ctx["loose"].append(p)
+        drop_paths = [p]
+        if kind == "part":
+            drop_paths, fragmented = _fracture_fallen_partition(ctx, p)
+            if not drop_paths:
+                continue
+            if fragmented:
+                n["part_frag"] += len(drop_paths)
         ctx["static_extra"] = [q for q in ctx["static_extra"] if q != p]
-        if sd is not None and plan["throw"]:
-            ox, oy = qf._outward(m, sd)
-            zf = min(1.0, max(0.0, (float(t[2]) - float(m["z0"])) / Hm))
-            v = plan["throw"][0] + plan["throw"][1] * zf
-            ctx["velocity"][p] = (ox * v, oy * v, -0.15 * v)
+        for drop_path in drop_paths:
+            if drop_path not in ctx["loose"]:
+                ctx["loose"].append(drop_path)
+            if sd is not None and plan["throw"]:
+                ox, oy = qf._outward(m, sd)
+                zf = min(1.0, max(0.0,
+                                  (float(t[2]) - float(m["z0"])) / Hm))
+                v = plan["throw"][0] + plan["throw"][1] * zf
+                ctx["velocity"][drop_path] = (ox * v, oy * v, -0.15 * v)
         n[kind] += 1
     return n
 
@@ -4100,8 +4369,10 @@ def _author_one(ctx, mode, kw):
             n_plates, n_board, n_heap, n_teeth))
     ctx["notes"].append(
         "quake collapse fit-out: {0} slab(s), {1} partition(s), {2} "
-        "column(s), {3} prop(s) sent down".format(
-            n_fit["slab"], n_fit["part"], n_fit["col"], n_fit["prop"]))
+        "column(s), {3} prop(s) sent down; {4} partition fragment(s) "
+        "settled instead of whole sheets".format(
+            n_fit["slab"], n_fit["part"], n_fit["col"], n_fit["prop"],
+            n_fit["part_frag"]))
     if n_roof_fall or n_roof_buried:
         # `quake_flow`'s own "[quake] roof_plant: N dropped to physics, M
         # buried" banner line, one level up: this is what THIS plan already

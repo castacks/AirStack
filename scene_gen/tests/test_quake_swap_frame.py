@@ -155,6 +155,15 @@ def test_swap_reference_drops_a_y_up_originals_roll(tmp_path):
     assert abs(mn[2]) < 1e-6
 
 
+def test_swap_reference_rejects_a_missing_bake_instead_of_shipping_empty_lot(
+        city, tmp_path):
+    stage, p, _bake = city
+    prim = stage.GetPrimAtPath(p["prim_path"])
+    missing = str(tmp_path / "does_not_exist.usd")
+    with pytest.raises(RuntimeError, match="composed NOTHING"):
+        q._swap_reference(stage, prim, p, missing, 1.0)
+
+
 def test_assemble_calls_swap_reference_at_every_swap_site():
     """Source-level: no bare `ClearReferences` + `AddReference` pair is left
     in `assemble` (the mono ruin swap in `_mono_pass` is a separate pass

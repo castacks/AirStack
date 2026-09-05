@@ -18,10 +18,32 @@ bake, so the plat loads in seconds after the ~30-60 s layout.
 Env:
     SCENE_CONFIG   preset (default downtown_earthquake)
     ARCH_DIR       the quake archetype bake (default omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetype)
+    GAC_ARCH_DIR   optional GAC quake-bake directory; default remains the
+                  ``gac_quake`` sibling of ARCH_DIR. Useful for an isolated
+                  review candidate without replacing the current library.
     QUAKE_SEED     the grade / tilt draws (default 11); the layout seed is the preset's
     QUAKE_TILT     override `disaster.debris.tilt_chance` (0 disables leaning)
     QUAKE_GROUND   0 skips the ground pass (dust halo, fissures, boils, pounding)
+    QUAKE_REVIEW_PRIMS  comma-separated building prim paths to append to the
+                  close-review captures even when they are outside the top-10
+                  severity ranking (for example ``.../house_25_81``)
+    QUAKE_CASUALTIES casualty-only population target; unset derives a bounded
+                  count from DG3-DG5 buildings.  Ordinary city pedestrians
+                  are always deactivated.
+    QUAKE_REVIEW_PEOPLE number of earthquake casualties to capture at close
+                  range after the building views, or ``all`` for every
+                  casualty; each gets top + oblique views (default 0)
+    QUAKE_CASUALTY_REVIEW_ONLY 1 runs the deadline review pass instead of the
+                  general camera suite: selected Cirrus sky, incompatible red
+                  fit-out props hidden, and two close views of every casualty
+    QUAKE_EXTENSIVE_REVIEW 1 captures every casualty twice, whole-plate and
+                  district views from multiple bearings, and a bounded set of
+                  the most severe damaged buildings; writes review_manifest.json
     SNAP_DIR       viewport captures under /isaac-sim/.nvidia-omniverse/logs/<name>
+    FREEZE_OUT     dataset cell directory. When set, ground truth is written
+                  there and SNAP_DIR defaults to FREEZE_OUT/snaps.
+    FREEZE_EXPORT  1 freezes the live stage after review and enforces the
+                  portable-scene gate. FREEZE_EXIT=1 always exits afterward.
     REGION_M / DISASTER_TYPE / SEVERITY   spec overrides, as on the drone launcher
     ASSET_SET      asset set override: urban_quake (kit only, default of the preset) or
                    urban_quake_v2 (kit + a few standalone monoliths + ruin towers)
@@ -123,8 +145,12 @@ def _footprint_radius(rec, z, margin_m=0.0):
 
 
 def _building_blocks(rec, x, y, z, margin_m=0.0):
-    """True if building record `rec` has solid mass (its tilt-widened
-    footprint, below its own height) at world point `(x, y, z)`."""
+    """True if a record's tilt-widened footprint contains ``(x, y, z)``.
+
+    New records carry the placement yaw, so use the actual oriented
+    rectangle.  Old manifests lack it; retain the conservative inscribed
+    circle for those rather than pretending an axis-aligned box is exact.
+    """
     try:
         rh = float(rec["H"])
     except (KeyError, TypeError, ValueError):
@@ -133,6 +159,17 @@ def _building_blocks(rec, x, y, z, margin_m=0.0):
         return False
     dx = x - float(rec.get("x", 0.0))
     dy = y - float(rec.get("y", 0.0))
+    if "yaw_deg" in rec:
+        yaw = math.radians(float(rec.get("yaw_deg", 0.0)))
+        c, s = math.cos(yaw), math.sin(yaw)
+        lx, ly = c * dx + s * dy, -s * dx + c * dy
+        lean = 0.0
+        grade = str(rec.get("grade", ""))
+        if "tilt" in grade or "lean" in grade:
+            lean = min(max(z, 0.0), rh) * math.tan(
+                math.radians(TILT_DEG_MAX))
+        return (abs(lx) <= 0.5 * float(rec.get("W", 20.0)) + margin_m + lean
+                and abs(ly) <= 0.5 * float(rec.get("D", 20.0)) + margin_m + lean)
     return math.hypot(dx, dy) <= _footprint_radius(rec, z, margin_m)
 
 
@@ -170,6 +207,29 @@ def _review_camera_pose(x, y, top_h, obl_dist, obl_h, azimuth_deg=225.0,
     az = math.radians(azimuth_deg)
     ex, ey = x + obl_dist * math.cos(az), y + obl_dist * math.sin(az)
     return (x, y, top_h), (x, y, 0.0), (ex, ey, obl_h), (x, y, aim_h)
+
+
+def _building_review_pose(rec):
+    """A close review pose scaled to one building's footprint and height.
+
+    The old 70/55/28-m pose was simultaneously too distant for a 14-m
+    brownstone and *inside* a 131-m tower (the top camera was below its
+    roof).  Return ``top_h, obl_dist, obl_h, aim_h`` in world metres.  The
+    oblique aims at the damage-bearing middle of the elevation, while the
+    top camera clears the roof by enough to contain its footprint.
+    """
+    try:
+        w = max(1.0, float(rec.get("W", 20.0)))
+        d = max(1.0, float(rec.get("D", 20.0)))
+        h = max(1.0, float(rec.get("H", 12.0)))
+    except (TypeError, ValueError):
+        w, d, h = 20.0, 20.0, 12.0
+    footprint = max(w, d)
+    top_h = max(28.0, h + 0.72 * footprint + 6.0)
+    aim_h = max(2.0, min(h - 0.5, 0.45 * h))
+    obl_dist = max(28.0, 0.90 * h, 0.68 * footprint + 10.0)
+    obl_h = aim_h + max(7.0, 0.28 * h)
+    return top_h, obl_dist, obl_h, aim_h
 
 
 def _review_camera_clearance(records, x, y, base_top_h, base_obl_dist,
@@ -229,6 +289,51 @@ def _review_camera_clearance(records, x, y, base_top_h, base_obl_dist,
     return top_h, obl_dist, obl_h
 
 
+def _review_camera_azimuth(records, target, obl_dist, obl_h, aim_h,
+                           preferred=225.0, margin_m=2.0):
+    """Nearest clear bearing for a per-building oblique review.
+
+    Eye clearance alone missed a real failure in the seed-9 scene: the
+    brownstone camera sat just outside a tall neighbour's inscribed circle
+    but inside its rotated rectangular footprint, producing a black wall.
+    Records now carry yaw, and this searches the full circle for the bearing
+    closest to the lighting-friendly preference whose eye *and sightline*
+    clear every other building.  The target itself is excluded because the
+    ray is supposed to enter it at the end.
+    """
+    x, y = float(target["x"]), float(target["y"])
+    target_path = str(target.get("prim", ""))
+    others = [r for r in records or []
+              if str(r.get("prim", "")) != target_path]
+
+    def intrusion(azimuth):
+        a = math.radians(azimuth)
+        ex = x + obl_dist * math.cos(a)
+        ey = y + obl_dist * math.sin(a)
+        if _camera_eye_blocked(others, ex, ey, obl_h, margin_m):
+            return 1000
+        hits = 0
+        # Do not sample the last 8%: at attached/terraced footprints the
+        # subject's immediate neighbour may touch the target wall and is not
+        # a foreground obstruction. Forty samples keep spacing under ~3 m at
+        # the largest review distance used by this launcher.
+        for k in range(1, 38):
+            t = 0.92 * k / 38.0
+            qx, qy = ex + (x - ex) * t, ey + (y - ey) * t
+            qz = obl_h + (aim_h - obl_h) * t
+            if _camera_eye_blocked(others, qx, qy, qz, margin_m=0.2):
+                hits += 1
+        return hits
+
+    offsets = [0.0]
+    for d in range(15, 181, 15):
+        offsets.extend((-float(d), float(d)))
+    candidates = [preferred + d for d in offsets]
+    return min(candidates,
+               key=lambda az: (intrusion(az), abs((az - preferred + 180.0)
+                                                   % 360.0 - 180.0))) % 360.0
+
+
 import carb
 from isaacsim import SimulationApp
 
@@ -265,7 +370,7 @@ from scene_prep import (scale_stage_prim, add_sky,               # noqa: E402
 from scene_generator import resolve_sky                          # noqa: E402
 from generate_scene import generate_scene_on_stage               # noqa: E402
 from compile_disaster import load_scene_config                   # noqa: E402
-from disaster import quake                                       # noqa: E402
+from disaster import quake, quake_export, quake_people           # noqa: E402
 
 # NOT `import scene_launch_script`: that module builds its own SimulationApp
 # at import, and a second Kit app in one process is a segfault inside the
@@ -334,13 +439,44 @@ def _wait_for_stage(stage, timeout_s=10.0):
         time.sleep(0.1)
     return False
 
+def _env(name, default=""):
+    value = os.environ.get(name)
+    return default if value is None or not value.strip() else value.strip()
+
+
+def _flag(name, default="0"):
+    return _env(name, default).lower() not in ("", "0", "false", "no")
+
+
+def _default_freeze_name(out_dir):
+    parts = [q for q in os.path.abspath(out_dir).split(os.sep) if q]
+    if len(parts) >= 4 and parts[-2].startswith("level_"):
+        return "{0}_{1}_lvl{2}_{3}".format(
+            parts[-4].lower(), parts[-3].lower(),
+            parts[-2].split("_", 1)[1], parts[-1])
+    return "scene"
+
+
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
 SCENE_CONFIG = os.environ.get("SCENE_CONFIG") or "downtown_earthquake"
 ARCH_DIR = os.environ.get("ARCH_DIR") or os.path.join(
     _SCENE_GEN_DIR, "assets", "archetype")
+GAC_ARCH_DIR = os.environ.get("GAC_ARCH_DIR", "").strip() or None
 QUAKE_SEED = int(os.environ.get("QUAKE_SEED") or "11")
 QUAKE_TILT = os.environ.get("QUAKE_TILT", "").strip()
-SNAP_DIR = os.environ.get("SNAP_DIR", "").strip()
+FREEZE_OUT = _env("FREEZE_OUT")
+FREEZE_NAME = _env("FREEZE_NAME")
+FREEZE_EXPORT = _flag("FREEZE_EXPORT")
+FREEZE_COLLECT = _flag("FREEZE_COLLECT")
+FREEZE_SNAPS = _flag("FREEZE_SNAPS", "1")
+FREEZE_EXIT = _flag("FREEZE_EXIT")
+QUAKE_EXTENSIVE_REVIEW = _flag("QUAKE_EXTENSIVE_REVIEW")
+PEOPLE_VARIANT = int(_env("PEOPLE_VARIANT", "1"))
+if FREEZE_OUT:
+    os.makedirs(FREEZE_OUT, exist_ok=True)
+SNAP_DIR = _env(
+    "SNAP_DIR",
+    os.path.join(FREEZE_OUT, "snaps") if FREEZE_OUT and FREEZE_SNAPS else "")
 PARENT = "/World/stage/generated"
 
 
@@ -520,6 +656,11 @@ class QuakeCityApp:
         for ci, city in enumerate(cities):
             parent = city["parent"]
             config = load_scene_config(SCENE_CONFIG, spec_overrides=city["ov"] or None)
+            _generic_assets = quake_people.disable_generic_population(config)
+            print("[quake_city] generic city population disabled before "
+                  "authoring ({0} human asset(s)); casualties are authored "
+                  "against final damage geometry".format(_generic_assets),
+                  flush=True)
             t0 = time.time()
             placements = generate_scene_on_stage(
                 stage, config, parent_path=parent, scene_scale_factor=ssf)
@@ -541,6 +682,7 @@ class QuakeCityApp:
             # `quake.assemble`'s own docstring on `parent`.
             stats = quake.assemble(stage, config, placements, ARCH_DIR,
                                    seed=QUAKE_SEED + ci, ssf=ssf, parent=parent,
+                                   gac_dir=GAC_ARCH_DIR,
                                    **kw)
             t_assemble += time.time() - t1
             print("[quake_city] {0}: damage assembled in {1:.1f} s".format(
@@ -601,8 +743,6 @@ class QuakeCityApp:
         for _key in ("/rtx/raytracing/fractionalCutoutOpacity",
                      "/rtx/pathtracing/fractionalCutoutOpacity"):
             carb.settings.get_settings().set_bool(_key, True)
-        t_ready = time.time() - t_launch
-
         for city in self.cities:
             settle_rigid_props(
                 stage,
@@ -613,6 +753,25 @@ class QuakeCityApp:
         add_sky(stage, resolve_sky(config))
         _disable_sky_sun(stage)
         self.placements = placements
+        _raw_people_total = os.environ.get("QUAKE_CASUALTIES", "").strip()
+        _people_total = int(_raw_people_total) if _raw_people_total else None
+        _city_bounds = {}
+        for _city in self.cities:
+            _region = _city["config"]["layout"]["region_m"]
+            _rw, _rh = float(_region[0]), float(_region[-1])
+            _dx, _dy = _city["offset"]
+            _city_bounds[_city["name"]] = (
+                _dx - 0.5 * _rw, _dy - 0.5 * _rh,
+                _dx + 0.5 * _rw, _dy + 0.5 * _rh)
+        _tp = time.time()
+        self.people_records, self.people_report = \
+            quake_people.replace_population(
+                stage, placements, self.stats.get("records", []),
+                parent="/World/stage", ssf=ssf, seed=QUAKE_SEED,
+                total=_people_total, bounds_by_city=_city_bounds)
+        print("[quake_city] casualty population in {0:.1f} s".format(
+            time.time() - _tp), flush=True)
+        t_ready = time.time() - t_launch
 
         recs = self.stats.get("records", [])
         try:
@@ -620,8 +779,35 @@ class QuakeCityApp:
             os.makedirs(os.path.dirname(out), exist_ok=True)
             with open(out, "w") as fh:
                 json.dump(recs, fh, indent=1)
+            people_out = os.path.join(SNAP_DIR or "/tmp", "quake_people.json")
+            people_doc = quake_export.people_document(
+                self.people_records, self.people_report)
+            self.people_doc = people_doc
+            with open(people_out, "w") as fh:
+                json.dump(people_doc, fh, indent=1)
+            if FREEZE_OUT:
+                _regions = [c["config"]["layout"]["region_m"]
+                            for c in self.cities]
+                _region = [sum(float(q[0]) for q in _regions),
+                           max(float(q[-1]) for q in _regions)]
+                _mag = _env("MAGNITUDE")
+                quake_export.write_sidecars(
+                    stage, FREEZE_OUT, self.stats, placements, people_doc,
+                    ssf, SCENE_CONFIG, QUAKE_SEED, ARCH_DIR, GAC_ARCH_DIR,
+                    _region, magnitude=(float(_mag.lstrip("Mm"))
+                                        if _mag else None),
+                    people_variant=PEOPLE_VARIANT)
+            print("[quake_city] people: {0} casualty-only ({1} interior, "
+                  "{2} rubble), 0 standing/walking; ground truth -> {3}"
+                  .format(len(self.people_records),
+                          self.people_report["interior_casualties"],
+                          self.people_report["rubble_casualties"],
+                          (os.path.join(FREEZE_OUT, "GT_people.json")
+                           if FREEZE_OUT else people_out)))
         except Exception as exc:
-            print("[quake_city] could not write building records: {0}".format(exc))
+            print("[quake_city] could not write review records: {0}".format(exc))
+            if FREEZE_OUT:
+                raise
 
         print("\n" + "=" * 70)
         print("EARTHQUAKE DOWNTOWN READY")
@@ -672,7 +858,40 @@ class QuakeCityApp:
         except Exception as exc:
             print("[quake_city] hydra timing failed: {0}".format(exc))
         self._vram["hydra"] = vram_mb("hydra synced (BLAS built)")
-        if SNAP_DIR:
+        _casualty_review_only = os.environ.get(
+            "QUAKE_CASUALTY_REVIEW_ONLY", "0").strip().lower() in (
+                "1", "true", "yes")
+        _review_expected = 0
+        _review_success = 0
+        _review_errors = []
+        _casualty_report = None
+        if _casualty_review_only or QUAKE_EXTENSIVE_REVIEW:
+            _review_script = os.path.join(
+                _SCENE_GEN_DIR, "tools", "live_quake_casualty_review.py")
+            print("[quake_city] running exact casualty review pass: {0}".format(
+                _review_script), flush=True)
+            try:
+                with open(_review_script, "rb") as _fh:
+                    _review_code = compile(
+                        _fh.read(), _review_script, "exec")
+                exec(_review_code, {"__name__": "__main__",
+                                    "__file__": _review_script})
+                with open(os.path.join(
+                        SNAP_DIR, "casualty_review_done.json")) as _fh:
+                    _casualty_report = json.load(_fh)
+                _review_expected += int(
+                    _casualty_report.get("expected_views", 0))
+                _review_success += int(
+                    _casualty_report.get("successful_views", 0))
+                _review_errors.extend(
+                    _casualty_report.get("failed_views", ()))
+            except Exception as exc:
+                import traceback
+                traceback.print_exc()
+                _review_errors.append("casualty review: {0}".format(exc))
+                print("[quake_city] casualty review FAILED: {0}".format(
+                    exc), flush=True)
+        if not _casualty_review_only and SNAP_DIR:
             try:
                 import importlib.util as _ilu
                 # On an OSMO livestream pod the viewport capture SEGFAULTS
@@ -692,15 +911,43 @@ class QuakeCityApp:
                 xs = [c["offset"][0] for c in self.cities]
                 ws = [max(map(float, c["config"]["layout"]["region_m"])) for c in self.cities]
                 span_all = (max(xs) - min(xs)) + max(ws)
-                _snaps.overview(self.stage, ((max(xs) + min(xs)) / 2.0, 0.0), span_all * 1.05,
-                                os.path.join(SNAP_DIR, "plat_top.png"), self.ssf)
+                _whole_centre = ((max(xs) + min(xs)) / 2.0, 0.0)
+                _review_expected += 1
+                _review_success += bool(_snaps.overview(
+                    self.stage, _whole_centre, span_all * 1.05,
+                    os.path.join(SNAP_DIR, "plat_top.png"), self.ssf))
+                # One nadir plus four true whole-scene obliques.  These are
+                # direct render-product captures so the four views share one
+                # subject/target instead of pretending four district points
+                # are equivalent to four bearings of the complete plate.
+                if QUAKE_EXTENSIVE_REVIEW and os.path.basename(_sp) == "snapshots_rp.py":
+                    _cx, _cy = _whole_centre
+                    _dist = 0.70 * span_all
+                    _height = max(180.0, 0.48 * span_all)
+                    for _az in (45.0, 135.0, 225.0, 315.0):
+                        _a = math.radians(_az)
+                        _snaps.place_camera(
+                            self.stage,
+                            ((_cx + _dist * math.cos(_a)) * self.ssf,
+                             (_cy + _dist * math.sin(_a)) * self.ssf,
+                             _height * self.ssf),
+                            (_cx * self.ssf, _cy * self.ssf,
+                             min(45.0, 0.06 * span_all) * self.ssf))
+                        _review_expected += 1
+                        _review_success += bool(_snaps.snapshot(
+                            self.stage, os.path.join(
+                                SNAP_DIR, "plat_obl_{0:03d}.png".format(
+                                    int(_az)))))
                 for ci, city in enumerate(self.cities):
                     pre = "" if len(self.cities) == 1 else "c{0}_".format(ci)
                     dx, dy = city["offset"]
                     span = ws[ci]
                     if pre:
-                        _snaps.overview(self.stage, (dx, dy), span * 1.05,
-                                        os.path.join(SNAP_DIR, pre + "plat_top.png"), self.ssf)
+                        _review_expected += 1
+                        _review_success += bool(_snaps.overview(
+                            self.stage, (dx, dy), span * 1.05,
+                            os.path.join(SNAP_DIR, pre + "plat_top.png"),
+                            self.ssf))
                     # obliques from the four corners, and the epicentre close up
                     fld = (city["config"].get("disaster") or {}).get("field") or {}
                     ex, ey = fld.get("center", [0.0, 0.0])
@@ -724,23 +971,118 @@ class QuakeCityApp:
                                   "top_h={1:.0f} obl_dist={2:.0f} obl_h={3:.0f} "
                                   "(tall building nearby)".format(
                                       sorted(_group_pts), _top_h, _obl_dist, _obl_h))
-                        _snaps.views_around(self.stage, _group_pts, SNAP_DIR, self.ssf,
-                                            top_h=_top_h, obl_dist=_obl_dist, obl_h=_obl_h)
+                        _review_expected += 2 * len(_group_pts)
+                        _review_success += int(_snaps.views_around(
+                            self.stage, _group_pts, SNAP_DIR, self.ssf,
+                            top_h=_top_h, obl_dist=_obl_dist,
+                            obl_h=_obl_h))
+                        if QUAKE_EXTENSIVE_REVIEW:
+                            _opposite = {
+                                name + "_opposite": xy
+                                for name, xy in _group_pts.items()}
+                            _review_expected += 2 * len(_opposite)
+                            _review_success += int(_snaps.views_around(
+                                self.stage, _opposite, SNAP_DIR, self.ssf,
+                                top_h=_top_h, obl_dist=_obl_dist,
+                                obl_h=_obl_h, azimuth_deg=45.0))
                 # the worst buildings, one oblique each
                 # rank: collapses first, then the foundation family, then
                 # the grades — `grade` is not always `DGn` any more
                 _rank = {"DG5": 9, "OV": 8, "DG4": 7, "TILT": 6, "DG3": 5,
                          "SETTLE": 4, "DG2": 3, "DG1": 2, "DG0": 1}
-                worst = sorted(self.stats.get("records", []),
-                               key=lambda r: -_rank.get(r["grade"].split("+")[0], 0))[:10]
-                _snaps.views_around(
-                    self.stage, {"b{0}_{1}_{2}".format(i, r["style"], r["grade"].replace("+", "_")):
-                                 (r["x"], r["y"]) for i, r in enumerate(worst)},
-                    SNAP_DIR, self.ssf, top_h=70.0, obl_dist=55.0, obl_h=28.0)
+                _ordered = sorted(
+                    self.stats.get("records", []),
+                    key=lambda r: (-_rank.get(
+                        quake_export.base_grade(r.get("grade")), 0),
+                        float(r.get("x", 0.0)), float(r.get("y", 0.0))))
+                if QUAKE_EXTENSIVE_REVIEW:
+                    _major = [r for r in _ordered
+                              if quake_export.base_grade(r.get("grade"))
+                              in ("DG4", "DG5", "OV", "TILT")]
+                    _max_major = max(1, int(_env(
+                        "QUAKE_REVIEW_MAJOR_MAX", "48")))
+                    worst = _major[:_max_major]
+                    print("[quake_city] extensive review: {0}/{1} major "
+                          "building(s) selected".format(
+                              len(worst), len(_major)), flush=True)
+                else:
+                    worst = _ordered[:10]
+                _requested = {q.strip() for q in os.environ.get(
+                    "QUAKE_REVIEW_PRIMS", "").split(",") if q.strip()}
+                if _requested:
+                    _found = {str(r.get("prim")) for r in worst}
+                    for _r in self.stats.get("records", []):
+                        if str(_r.get("prim")) in _requested \
+                                and str(_r.get("prim")) not in _found:
+                            worst.append(_r)
+                            _found.add(str(_r.get("prim")))
+                    _missing = sorted(_requested - _found)
+                    if _missing:
+                        print("[quake_city] requested review prim(s) absent: "
+                              + ", ".join(_missing))
+                for i, r in enumerate(worst):
+                    _name = "b{0}_{1}_{2}".format(
+                        i, r["style"], r["grade"].replace("+", "_"))
+                    _top_h, _obl_dist, _obl_h, _aim_h = \
+                        _building_review_pose(r)
+                    _top_h, _obl_dist, _obl_h = _review_camera_clearance(
+                        self.stats.get("records", []), r["x"], r["y"],
+                        _top_h, _obl_dist, _obl_h, margin_m=2.0)
+                    _azimuth = _review_camera_azimuth(
+                        self.stats.get("records", []), r, _obl_dist,
+                        _obl_h, _aim_h)
+                    print("[quake_city] building review {0}: top={1:.0f}m, "
+                          "oblique={2:.0f}m/{3:.0f}m, aim={4:.0f}m, "
+                          "azimuth={5:.0f}deg".format(
+                              _name, _top_h, _obl_dist, _obl_h, _aim_h,
+                              _azimuth))
+                    _review_expected += 2
+                    _review_success += int(_snaps.views_around(
+                        self.stage, {_name: (r["x"], r["y"])}, SNAP_DIR,
+                        self.ssf, top_h=_top_h, obl_dist=_obl_dist,
+                        obl_h=_obl_h, aim_h=_aim_h,
+                        azimuth_deg=_azimuth))
+                # Optional close review of REAL earthquake-field casualties.
+                # Sampling evenly through their deterministic placement order
+                # shows several parts of the plate without adding a second
+                # population or moving anyone just for the camera.
+                _people_review_raw = os.environ.get(
+                    "QUAKE_REVIEW_PEOPLE", "0").strip().lower()
+                _casualties = [r for r in self.people_records
+                               if r.get("state") in quake_people.CASUALTY_STATES
+                               and r.get("active")]
+                _want_people = (len(_casualties)
+                                if _people_review_raw == "all"
+                                else max(0, int(_people_review_raw or 0)))
+                if _want_people and _casualties and not QUAKE_EXTENSIVE_REVIEW:
+                    _n = min(_want_people, len(_casualties))
+                    if _n == 1:
+                        _picked = [_casualties[len(_casualties) // 2]]
+                    else:
+                        _picked = [_casualties[int(round(
+                            j * (len(_casualties) - 1) / float(_n - 1)))]
+                                   for j in range(_n)]
+                    for _r in _picked:
+                        _name = "person_" + _r["id"]
+                        print("[quake_city] person review {0}: ({1:.1f}, {2:.1f}), "
+                              "{3}, near {4} {5}".format(
+                                  _r["id"], _r["x"], _r["y"],
+                                  _r.get("state", "casualty"),
+                                  _r.get("nearest_style", "?"),
+                                  _r.get("nearest_grade", "?")))
+                        _z = float(_r.get("z", 0.0))
+                        _review_expected += 2
+                        _review_success += int(_snaps.views_around(
+                            self.stage, {_name: (_r["x"], _r["y"])},
+                            SNAP_DIR, self.ssf,
+                            top_h=max(14.0, _z + 11.0),
+                            obl_dist=9.0, obl_h=_z + 4.2,
+                            aim_h=_z + 0.45))
                 print("[quake_city] snapshots -> {0}".format(SNAP_DIR))
             except Exception as exc:
                 import traceback
                 traceback.print_exc()
+                _review_errors.append("general review: {0}".format(exc))
                 print("[quake_city] snapshots FAILED: {0}".format(exc))
         self._vram["end"] = vram_mb("after captures")
         try:
@@ -761,9 +1103,80 @@ class QuakeCityApp:
                               n_km2, proj, card, 100.0 * proj / tot, tot), flush=True)
         except Exception as _exc:
             print("[quake_city] VRAM budget summary failed: {0}".format(_exc))
+        if SNAP_DIR:
+            import glob as _glob
+            _pngs = sorted(os.path.relpath(p, SNAP_DIR) for p in
+                           _glob.glob(os.path.join(SNAP_DIR, "**", "*.png"),
+                                      recursive=True))
+            _review_ok = bool(
+                _review_expected > 0
+                and _review_success == _review_expected
+                and not _review_errors)
+            _review_manifest = {
+                "schema": "airstack.earthquake-review/1",
+                "extensive": bool(QUAKE_EXTENSIVE_REVIEW),
+                "expected_views": int(_review_expected),
+                "successful_views": int(_review_success),
+                "failed": list(_review_errors),
+                "png_count": len(_pngs),
+                "pngs": _pngs,
+                "casualties": {
+                    "count": len(self.people_records),
+                    "expected_views": (0 if _casualty_report is None else
+                                       int(_casualty_report.get(
+                                           "expected_views", 0))),
+                    "successful_views": (0 if _casualty_report is None else
+                                         int(_casualty_report.get(
+                                             "successful_views", 0))),
+                },
+                "coverage": {
+                    "whole_scene": "nadir plus four oblique bearings",
+                    "districts": "epicentre and four quadrants, two bearings",
+                    "major_buildings": len(worst) if "worst" in locals() else 0,
+                    "people": "two geometry-verified exterior/drone views each",
+                },
+                "ok": _review_ok,
+            }
+            with open(os.path.join(SNAP_DIR, "review_manifest.json"), "w") as _fh:
+                json.dump(_review_manifest, _fh, indent=1)
+            if FREEZE_OUT:
+                with open(os.path.join(FREEZE_OUT,
+                                       "review_manifest.json"), "w") as _fh:
+                    json.dump(_review_manifest, _fh, indent=1)
+            print("[quake_city] REVIEW GATE {0}: {1}/{2} views, {3} PNG(s)"
+                  .format("OK" if _review_ok else "FAILED",
+                          _review_success, _review_expected, len(_pngs)),
+                  flush=True)
+            if QUAKE_EXTENSIVE_REVIEW and not _review_ok:
+                raise RuntimeError("earthquake extensive review gate failed")
+
+        # Export last: all labels and review evidence remain available if the
+        # portable-scene gate identifies a bad dependency.  A failed gate is
+        # fatal; the batch runner must never upload a merely written USD.
+        if FREEZE_EXPORT:
+            if not FREEZE_OUT:
+                raise RuntimeError("FREEZE_EXPORT=1 requires FREEZE_OUT")
+            from disaster import freeze as _freeze
+            _name = FREEZE_NAME or _default_freeze_name(FREEZE_OUT)
+            try:
+                _finfo = _freeze.export_scene(
+                    FREEZE_OUT, _name, collect=FREEZE_COLLECT)
+                _freeze.report(_finfo)
+                with open(os.path.join(
+                        FREEZE_OUT, "freeze_report.json"), "w") as _fh:
+                    json.dump(_finfo, _fh, indent=1)
+            except _freeze.PortabilityError as _exc:
+                with open(os.path.join(
+                        FREEZE_OUT, "freeze_report.json"), "w") as _fh:
+                    json.dump(_exc.info, _fh, indent=1)
+                raise
+            print("[quake_city] FREEZE DONE: {0}".format(
+                os.path.join(FREEZE_OUT, _name + ".usd")), flush=True)
         # headless: exit once the captures are on disk (KEEP_OPEN=1 to stay)
-        if (os.environ.get("KEEP_OPEN", "").strip() == "1"
-             or os.environ.get("ISAAC_SIM_HEADLESS", "false").strip().lower() not in ("1", "true", "yes")):
+        if (not FREEZE_EXIT
+             and (os.environ.get("KEEP_OPEN", "").strip() == "1"
+             or os.environ.get("ISAAC_SIM_HEADLESS", "false").strip().lower()
+             not in ("1", "true", "yes"))):
             while simulation_app.is_running():
                 app.update()
         self.timeline.stop()

@@ -192,6 +192,11 @@ def test_dg4_removes_exactly_one_units_wall():
     stage, root = _row_stage(_ROW5)
     stats = aq.quake_row(stage, root, grade="DG4", seed=7, verbose=False)
     assert len(stats["wall_unit_names"]) == 1
+    # The upper-front opening is not allowed to remain the two rectangular
+    # storey boxes supplied by the shared fire cutter.  Earthquake's second
+    # UV-preserving pass must actually remove additional boundary triangles.
+    assert stats["wall_ragged_lost_tris"] > 0
+    assert stats["wall_kept_tris"] > 0
 
 
 @_skip_no_asset

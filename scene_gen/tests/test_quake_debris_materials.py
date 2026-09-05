@@ -67,7 +67,7 @@ sys.path.insert(0, os.path.normpath(os.path.join(_HERE, "..")))
 from disaster import quake_flow as qf                      # noqa: E402
 from detail import urban_building as ub                    # noqa: E402
 
-from pxr import Usd, UsdGeom                                # noqa: E402
+from pxr import Sdf, Usd, UsdGeom                           # noqa: E402
 
 
 PARENT = "/World/Bldg"
@@ -168,6 +168,48 @@ def test_check_still_passes_with_the_new_table_in_place():
     (every ladder recipe known, every family has a `FAMILY_TYPE`) — this
     round touched neither, so it must still pass unchanged."""
     assert qf.check(verbose=False) == []
+
+
+def test_live_material_texture_paths_are_reanchored_for_hydra():
+    """Soil is a direct network whose textures have absolute opinions.
+
+    USD itself resolves ``./Soil_Mud/...`` correctly, but Fabric handed the
+    source-layer spelling to Hydra in the assembled city even after a
+    stronger absolute override.  The direct network removes that reference
+    boundary entirely while preserving the same three maps.
+    """
+    stage = _new_stage()
+    qf.materials(stage, PARENT)
+    material = stage.GetPrimAtPath(PARENT + "/QuakeLooks/soil")
+    assert not material.GetMetadata("references")
+    shader = stage.GetPrimAtPath(PARENT + "/QuakeLooks/soil/Shader")
+    assert shader and shader.IsValid()
+    for name in ("inputs:diffuse_texture", "inputs:normalmap_texture",
+                 "inputs:ORM_texture"):
+        value = shader.GetAttribute(name).Get()
+        assert isinstance(value, Sdf.AssetPath)
+        assert value.path and not value.path.startswith(".")
+        assert (value.path.startswith("omniverse://")
+                or os.path.isabs(value.path)), (name, value.path)
+
+
+def test_relative_material_assets_anchor_without_a_resolved_path():
+    """Kit may leave ``AssetPath.resolvedPath`` empty in a live reference.
+
+    The fallback join must therefore work from the material URL itself for
+    both local and Nucleus-backed material libraries, while MDL module names
+    remain search-path identifiers.
+    """
+    assert qf._anchored_asset_path(
+        "./Soil_Mud/T_B.jpg", "/assets/megascans/Soil_Mud.usda",
+    ) == "/assets/megascans/Soil_Mud/T_B.jpg"
+    assert qf._anchored_asset_path(
+        "./Soil_Mud/T_B.jpg",
+        "omniverse://server/Projects/scene_gen/assets/Soil_Mud.usda",
+    ) == "omniverse://server/Projects/scene_gen/assets/Soil_Mud/T_B.jpg"
+    assert qf._anchored_asset_path(
+        "OmniPBR.mdl", "/assets/megascans/Soil_Mud.usda",
+    ) == "OmniPBR.mdl"
 
 
 # ---------------------------------------------------------------------------

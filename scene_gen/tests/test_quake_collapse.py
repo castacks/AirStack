@@ -1312,6 +1312,147 @@ def _empty_stage(root="/World/b0"):
     return stage, root
 
 
+def _partition_ctx(stage, root, seed=13):
+    """Minimal real-material context for the fallen-partition fracture."""
+    from pxr import Sdf, UsdShade
+    mats = {}
+    for key in ("plaster", "plaster_dusty"):
+        mats[key] = UsdShade.Material.Define(
+            stage, Sdf.Path(root + "/Looks/" + key))
+    return {"stage": stage, "parent": root, "mats": mats,
+            "rng": random.Random(seed),
+            "nrng": np.random.default_rng(seed), "notes": [],
+            "loose": [], "static_extra": [], "velocity": {},
+            "fit": {"slabs": {}, "columns": {}, "partitions": [],
+                    "all": []},
+            "info": {"elements": []}}
+
+
+def test_fallen_partition_is_fractured_before_physics_not_dropped_as_a_sheet():
+    """Regression for the measured highrise_04 DG5 white-wall defect.
+
+    A 10 x 3 m, 0.12 m-thick divider used to enter settle as this exact
+    eight-vertex box.  It must now leave several bounded, non-box fragments;
+    supported partitions are safe because only `_fall_fitout` calls the
+    helper after its support/region test passes.
+    """
+    from pxr import UsdGeom
+    stage, root = _empty_stage()
+    path = root + "/fit_b0/part_main_3_1"
+    _stage_box(stage, path, 0.0, 0.0, 6.0, 0.12, 10.0, 3.0)
+    ctx = _partition_ctx(stage, root)
+
+    made, fractured = qc._fracture_fallen_partition(ctx, path)
+
+    assert fractured, ctx["notes"]
+    assert 4 <= len(made) <= 18, len(made)
+    assert not stage.GetPrimAtPath(path).IsActive(), \
+        "the complete room wall remained active behind its fragments"
+    point_counts = []
+    longest = []
+    for p in made:
+        prim = stage.GetPrimAtPath(p)
+        assert prim.IsValid() and prim.IsActive(), p
+        mesh = UsdGeom.Mesh(prim)
+        pts = mesh.GetPointsAttr().Get()
+        assert pts and mesh.GetFaceVertexIndicesAttr().Get(), p
+        point_counts.append(len(pts))
+        xyz = np.asarray([[float(q[0]), float(q[1]), float(q[2])]
+                          for q in pts])
+        longest.append(float(np.max(xyz.max(0) - xyz.min(0))))
+    assert max(longest) < 3.5, \
+        "a near-whole partition sheet survived: {0}".format(max(longest))
+    assert any(n != 8 for n in point_counts), \
+        "all outputs are still perfect eight-corner boxes"
+
+
+def test_fallen_partition_fracture_does_not_consume_shared_rngs():
+    """The appearance fix may not move any later collapse decision."""
+    stage, root = _empty_stage()
+    path = root + "/fit_b0/part_main_3_1"
+    _stage_box(stage, path, 0.0, 0.0, 6.0, 0.12, 8.0, 3.0)
+    ctx = _partition_ctx(stage, root, seed=31)
+    py_before = ctx["rng"].getstate()
+    np_before = repr(ctx["nrng"].bit_generator.state)
+
+    made, fractured = qc._fracture_fallen_partition(ctx, path)
+
+    assert fractured and made
+    assert ctx["rng"].getstate() == py_before
+    assert repr(ctx["nrng"].bit_generator.state) == np_before
+
+
+def test_detached_rectangle_gate_never_breaks_a_supported_slab(monkeypatch):
+    """The global rule applies to DETACHED members, not sound structure."""
+    stage, root = _empty_stage()
+    path = root + "/fit_b0/slab_main_9"
+    _stage_box(stage, path, 0.0, 0.0, 12.0, 32.0, 18.0, 0.28)
+    ctx = _partition_ctx(stage, root)
+    ctx["fit"]["slabs"][("main", 9)] = path
+    ctx["fit"]["all"].append(path)
+
+    report = qc.normalize_detached_rectangles(ctx)
+
+    assert report["replaced"] == 0
+    assert report["violations"] == []
+    assert stage.GetPrimAtPath(path).IsActive(), \
+        "a supported floor was fractured merely because it is rectangular"
+
+
+def test_detached_rectangle_gate_fractures_a_whole_fallen_slab(monkeypatch):
+    """A building-width plate may not reach PhysX as one pristine box."""
+    stage, root = _empty_stage()
+    path = root + "/fit_b0/slab_main_9"
+    _stage_box(stage, path, 0.0, 0.0, 12.0, 32.0, 18.0, 0.28)
+    ctx = _partition_ctx(stage, root, seed=47)
+    ctx["fit"]["slabs"][("main", 9)] = path
+    ctx["fit"]["all"].append(path)
+    ctx["loose"].append(path)
+    # Chipping is separately covered.  This test isolates the mandatory
+    # replacement and avoids making an optional cosmetic mesh pass its oracle.
+    monkeypatch.setattr(qc, "_chip_pieces", lambda *a, **k: 0)
+    py_before = ctx["rng"].getstate()
+    np_before = repr(ctx["nrng"].bit_generator.state)
+
+    report = qc.normalize_detached_rectangles(ctx)
+
+    assert report["replaced"] == 1, report
+    assert report["pieces"] >= 4, report
+    assert report["violations"] == [], report
+    assert not stage.GetPrimAtPath(path).IsActive()
+    assert path not in ctx["loose"] and path not in ctx["fit"]["all"]
+    assert len(ctx["loose"]) == report["pieces"]
+    assert all(stage.GetPrimAtPath(p).IsActive() for p in ctx["loose"])
+    assert all(qc._simple_rect_info(ctx, p) is None for p in ctx["loose"]), \
+        "the gate replaced one box with more pristine box topology"
+    assert ctx["rng"].getstate() == py_before
+    assert repr(ctx["nrng"].bit_generator.state) == np_before
+
+
+def test_real_kit_roof_name_is_classified_from_element_provenance():
+    """Regression for bld_office_plain_roof_7_210 from the 250 m review."""
+    stage, root = _empty_stage()
+    path = root + "/bld_office_plain_roof_7_210"
+    _stage_box(stage, path, 0.0, 0.0, 25.0, 8.0, 8.0, 0.0)
+    ctx = _partition_ctx(stage, root)
+    ctx["info"]["elements"].append(
+        {"role": "roof", "p": {"prim_path": path}})
+    ctx["loose"].append(path)
+
+    bad = qc._oversized_detached_rect(ctx, path)
+
+    assert bad is not None and bad[0] == "roof"
+
+
+def test_foundation_tilt_does_not_author_a_pristine_frame_on_every_storey():
+    """Only the locally distressed lower bay needs synthetic fit-out."""
+    assert qf._fit_scope_for_recipes(qf.FOUNDATION["TILT"]) == (1,)
+    assert qf._fit_scope_for_recipes(qf.FOUNDATION["SETTLE"]) == ()
+    assert qf._fit_scope_for_recipes(qf.FOUNDATION["OV"]) is None
+    assert qf._fit_scope_for_recipes(qf.LADDER["rc"]["DG3"]) is None
+    assert qf._fit_scope_for_recipes(qf.FOUNDATION["TILT"], (4, 5)) == (4, 5)
+
+
 def test_deck_support_z_finds_a_wide_slab_not_just_its_triangle_centroid():
     """THE BUG THIS PINS: a kit slab is ONE big quad (`quake_flow._box`'s own
     shape), and a naive "is the TRIANGLE'S CENTROID inside the query

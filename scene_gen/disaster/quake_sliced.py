@@ -3130,8 +3130,21 @@ def wreck_sliced(stage, cell, placements, style, recipes, rng, nrng, mats, tag,
         ctx["plan"] = None
         return ctx
 
-    ctx["fit"] = qf.fit_interior(stage, cell, info, mats, rng,
-                                 storeys=fit_storeys, tag=tag)
+    # Foundation-only motion has the same fit-out requirement here as it
+    # does for a native kit.  In particular, TILT needs only the locally
+    # distressed first storey; fabricating an otherwise invisible frame on
+    # every floor turns any later opening into the same pristine slab/column
+    # grid the review found on block_residential.  Keep all-storey fit-out for
+    # actual collapse recipes, where the newly exposed interior is needed.
+    fit_scope = qf._fit_scope_for_recipes(recs, fit_storeys)
+    ctx["fit"] = qf.fit_interior(
+        stage, cell, info, mats, rng, storeys=fit_scope, tag=tag,
+        col_roof_shorten=qf.COL_ROOF_SHORTEN_M)
+    if fit_scope is not None:
+        ctx["notes"].append(
+            "foundation fit-out limited to storeys {0}; intact upper shell "
+            "kept without synthetic exposed frame".format(
+                ",".join(str(q) for q in fit_scope) or "none"))
     qf.dress_roof(ctx)
     _reseat_roof_plant(stage, ctx)
     ctx["fit"]["all"] += list(ctx.get("roof_plant", []))
@@ -3160,6 +3173,12 @@ def wreck_sliced(stage, cell, placements, style, recipes, rng, nrng, mats, tag,
     # which `_b_settle_roof_plant` decides from the recipe NAMES, so the two
     # modules have to spell `pancake` / `masonry_collapse` the same way.
     qf._b_settle_roof_plant(ctx, [(n, kw) for n, kw in plan["recipes"]])
+
+    # Same pre-PhysX invariant as the native kit path.  This only recognizes
+    # qf-authored fit-out boxes by name/topology; sliced UV shell pieces are
+    # explicitly outside its positive list.
+    from . import quake_collapse as qc
+    qc.normalize_detached_rectangles(ctx)
 
     # everything still standing is static for the settle — `wreck_building`'s
     # own bookkeeping, byte for byte, so the settle and the bake see the same

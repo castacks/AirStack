@@ -56,18 +56,19 @@ everything the grade below it does:
        few pieces) with kerb debris at every unit's foot, some window UNITS
        voided (glass+sash+frame all killed as one group, `aec_burn._win_id`'s
        own grouping).
-  DG3  + 1-2 units' roof (deck + roof plant) removed/collapsed inward, more
-       and bigger scar decals ("wall cracks"), stoop/railing scatter on a
-       couple of units, a SMALL rubble pile at the frontage.
-  DG4  + one unit's Walls_Exterior (this asset's own single mesh for BOTH
-       the front and rear wall -- `aec_burn`'s docstring) is largely
-       removed along with its windows/doors/exterior fixtures, exposing its
-       Floors (never touched -- exposed, not removed); a bigger share of
-       roof loss across units; a BIG rubble pile at the frontage.
-  DG5  majority collapse: most units (never ALL -- one is always left
-       standing, the "gable/party-wall remnant" this asset has no separate
-       gable mesh to model any other way) lose their walls and roofs; a
-       HUGE pile burying the frontage.
+  DG3  + 1-2 units acquire an irregular partial roof-edge cave-in; only roof
+       plant whose footprint lost support is removed. More and bigger scar
+       decals ("wall cracks"), stoop/railing scatter on a couple of units,
+       and a SMALL rubble pile appear at the frontage.
+  DG4  + one unit's `Walls_Exterior` is clipped at its upper frontage using
+       `aec_burn._lose_wall`'s UV-preserving stepped profile. Windows and
+       fixtures go only where that opening actually is; the rear elevation,
+       lower storeys, and Floors survive. A bigger share of roof notches and
+       a BIG rubble pile appear at the frontage.
+  DG5  severe row damage: most units (never ALL -- one is always left as a
+       party-wall remnant) receive those partial upper-front failures and
+       roof-edge cave-ins; the row remains recognisable rather than becoming
+       a run of perfect rectangular voids. A HUGE pile buries the frontage.
 
 NO PHYSICS. Every removal is a `aec_burn._kill` (`SetActive(False)`, marked
 dead) or a hand-placed static box-chunk (`aec_burn._box_tris` +
@@ -214,13 +215,20 @@ def _roof_deck_parts(unit):
 
 
 def _parapet_edge_parts(unit, meas, frac=0.35):
-    """The `Roofs`-category parts nearest the FRONT wall plane -- a
-    parapet/cornice run sits over the street, and this asset does not label
-    that sub-category separately (`aec_burn`'s own docstring: an unlabelled
-    category is "told apart from the labelled ones by LOCATION only"). At
-    least one part if the unit has any roof parts at all."""
+    """The high ``Casework`` parts nearest the FRONT wall plane.
+
+    A real-asset probe showed that the brownstone's cornice/parapet is
+    labelled ``Casework``.  Its two ``Roofs`` meshes are instead the main
+    roof and the small lower porch roof.  Treating the nearest roof as a
+    cornice removed that entire rectangular porch, which was both the wrong
+    component and the source of a very clean break-off.  Require an elevated
+    casework part here; if this asset variant has none, omit cornice loss
+    rather than guessing at a structural roof.
+    """
     perp = meas["perp"]
-    parts = _roof_deck_parts(unit)
+    parts = [m for m in unit["meshes"] if not m.get("dead")
+             and m["cat"] == "Casework"
+             and m["bbox"][2] >= unit["deck_z"] + 0.25]
     if not parts:
         return []
     scored = sorted(parts, key=lambda m: abs(
@@ -315,36 +323,388 @@ def _author_scar(stage, meas, unit, root, mpu, xf, geo, mat, rng, tag):
     return path
 
 
-def _remove_roof(stage, unit, stats):
-    """Roof deck + roof plant, all of it -- "collapsed inward", never a
-    partial cut (no VTK clip; a whole named part is either there or it is
-    not, `aec_burn`'s own by-name idiom)."""
-    parts = _roof_deck_parts(unit) + _roof_plant_parts(unit)
-    for m in parts:
-        ab._kill(stage, m, stats["killed"], "roof_gone")
-    return len(parts)
+def _remove_roof(stage, unit, meas, rng, stats):
+    """Cut a ragged cluster of overlapping bites from the frontage roof edge.
 
+    The previous implementation deactivated every ``Roofs`` mesh in a chosen
+    terrace unit.  On this asset the main roof is one rectangular mesh, so a
+    DG3+ draw produced a perfectly rectangular, full-unit hole.  Here three
+    overlapping VTK spheres form one asymmetric notch.  The retained mesh is
+    written with its original ``st`` values and material, and only roof plant
+    whose *footprint* lies in the notch is removed.  The lower porch/deck roof
+    is deliberately left alone.
+    """
+    import vtk
+    from pxr import Sdf, Usd, UsdGeom, UsdShade
 
-def _remove_wall(stage, unit, meas, stats):
-    """This unit's `Walls_Exterior` (front AND rear, one mesh -- `aec_burn`'s
-    docstring), its Windows and Doors, and any exterior fixture actually set
-    into that wall. Everything set in a lost wall goes with it (`aec_burn.
-    _lose_wall`'s own note: left standing they read as floating window
-    frames) -- Floors are deliberately NOT in this list; they are what "the
-    wall exposes", not what falls with it."""
+    root = stage.GetPrimAtPath(meas["root"])
+    mpu = meas["mpu"]
+    xf = UsdGeom.XformCache(Usd.TimeCode.Default())
+    perp, along = meas["perp"], 1 - meas["perp"]
+    front = "W" if perp == 0 else "S"
+    out_sign = -1.0 if front in ("W", "S") else 1.0
+    # Select by footprint rather than Z.  Some row variants report a deck_z
+    # above the membrane's bbox; a Z threshold therefore skipped real main
+    # roofs while occasionally accepting the porch.  The main roof is the
+    # dominant XY-area roof part on every measured variant.
+    roof_parts = _roof_deck_parts(unit)
+    areas = [(m["bbox"][3] - m["bbox"][0])
+             * (m["bbox"][4] - m["bbox"][1]) for m in roof_parts]
+    max_area = max(areas, default=0.0)
+    decks = [m for m, area in zip(roof_parts, areas)
+             if max_area > 0.0 and area >= 0.78 * max_area]
+    if not decks:
+        return 0
+
+    # One shared bite field across every layer of the roof build-up, so the
+    # membrane/deck do not acquire mutually inconsistent support outlines.
+    edge = min(m["bbox"][perp] for m in decks) if out_sign < 0 else \
+           max(m["bbox"][3 + perp] for m in decks)
+    lo_a = min(m["bbox"][along] for m in decks)
+    hi_a = max(m["bbox"][3 + along] for m in decks)
+    width = max(1.0, hi_a - lo_a)
+    radius = min(2.35, max(1.25, rng.uniform(0.23, 0.34) * width))
+    # Anchor the notch at a real roof corner.  A mid-edge sphere can sit
+    # wholly inside one of this asset's two huge planar roof triangles; VTK
+    # then sees no sign change at any vertex and silently cuts nothing.  A
+    # corner-rooted cluster always crosses existing boundary vertices and is
+    # also the more credible unreinforced-masonry failure shape.
+    if rng.random() < 0.5:
+        ac = lo_a + rng.uniform(0.18, 0.36) * radius
+    else:
+        ac = hi_a - rng.uniform(0.18, 0.36) * radius
+    zc = unit["deck_z"] + 0.25
+    bites = vtk.vtkImplicitBoolean()
+    bites.SetOperationTypeToUnion()
+    offsets = ((0.0, 0.0, 1.0),
+               (-0.58, -0.12, 0.72),
+               (0.66, 0.08, 0.58))
+    for da, dp, rs in offsets:
+        sph = vtk.vtkSphere()
+        c = [0.0, 0.0, zc + rng.uniform(-0.10, 0.10)]
+        c[along] = ac + da * radius
+        c[perp] = edge + out_sign * (0.18 + dp * radius)
+        sph.SetCenter(*[float(q) for q in c])
+        sph.SetRadius(float(radius * rs))
+        bites.AddFunction(sph)
+
+    layer = stage.DefinePrim(
+        Sdf.Path(meas["root"]).AppendChild("QuakeBreaks"), "Scope")
+    tag = unit["name"].rsplit("_", 1)[-1]
     n = 0
-    for m in unit["meshes"]:
-        if m.get("dead"):
+    for i, mrec in enumerate(decks):
+        md = ab._mesh_dict_world(mrec["prim"], mpu, xf)
+        if md is None:
             continue
-        cat = m["cat"]
-        if cat in ("Walls_Exterior", "Windows", "Doors"):
-            ab._kill(stage, m, stats["killed"], "wall_gone")
-            n += 1
-        elif cat in ("Generic_Models", "Lighting_Fixtures") and not ab._is_interior(
-                m, unit, meas["perp"], unit["deck_z"]):
-            ab._kill(stage, m, stats["killed"], "wall_gone")
-            n += 1
+        removed = ab._clip_implicit(md, bites, keep_outside=False)
+        kept = ab._clip_implicit(md, bites, keep_outside=True)
+        if (removed is None or not len(removed["tris"]) or kept is None
+                or not len(kept["tris"])):
+            continue
+        mat, _ = UsdShade.MaterialBindingAPI(mrec["prim"]).ComputeBoundMaterial()
+        new = ab._write_world_piece(
+            stage, "{0}/roof_{1}_{2}".format(layer.GetPath(), tag, i),
+            root, mpu, xf, kept, mat if mat else None)
+        mrec["prim"].SetActive(False)
+        mrec["dead"] = True
+        stats["killed"]["roof_replaced"] = \
+            stats["killed"].get("roof_replaced", 0) + 1
+        stats["roof_lost_tris"] += int(len(removed["tris"]))
+        stats["roof_kept_tris"] += int(len(kept["tris"]))
+        n += 1
+
+    if not n:
+        return 0
+    # Support is a 2-D question.  A tall heat pump's centroid can sit above
+    # the sphere even when its feet are over the opening, so evaluate the
+    # footprint centre down at deck level.
+    for mrec in _roof_plant_parts(unit):
+        if mrec.get("dead"):
+            continue
+        b = mrec["bbox"]
+        q = [0.5 * (b[0] + b[3]), 0.5 * (b[1] + b[4]), zc]
+        if bites.EvaluateFunction(q) <= 0.0:
+            ab._kill(stage, mrec, stats["killed"], "roof_plant_unsupported")
     return n
+
+
+def _ellipsoid(center, radii):
+    """Return a VTK quadric whose negative half is one axis-aligned ellipsoid."""
+    import vtk
+    c = np.asarray(center, dtype=np.float64)
+    r = np.maximum(np.asarray(radii, dtype=np.float64), 1e-3)
+    a = 1.0 / (r * r)
+    q = vtk.vtkQuadric()
+    q.SetCoefficients(
+        float(a[0]), float(a[1]), float(a[2]), 0.0, 0.0, 0.0,
+        float(-2.0 * a[0] * c[0]), float(-2.0 * a[1] * c[1]),
+        float(-2.0 * a[2] * c[2]),
+        float(np.dot(a, c * c) - 1.0))
+    return q
+
+
+def _ragged_wall_edge(stage, unit, meas, boxes, rng, local):
+    """Cut a stepped masonry edge into ``_lose_wall``'s box opening.
+
+    The shared fire cutter supplies the correct elevation, storeys, UVs and
+    part removal, but its two box boundaries are visibly ruler-straight.  A
+    first implementation placed ellipsoids along those boundaries.  The real
+    AEC wall is made of a few very large triangles, however, and VTK only
+    samples an implicit function at vertices: most ellipsoids sat entirely
+    inside a triangle and made no cut at all.
+
+    This pass instead walks outward from the opening with overlapping boxes,
+    one 0.4--0.8 m masonry-sized course at a time.  Each new bite shares an
+    edge with the previous cut, so VTK always has boundary vertices to split.
+    Unequal sill depths and jamb widths form a recognisable stepped brick
+    failure rather than one large rectangle.  Only the *retained* wall is
+    changed; placement, UVs, source material and the intact rear/lower shell
+    all remain the fire cutter's decisions.
+    """
+    import vtk
+    from pxr import Sdf, Usd, UsdGeom, UsdShade
+    try:
+        from . import fracture
+    except ImportError:                   # bare aec_quake.py import
+        import fracture
+
+    wall = next((m for m in unit["meshes"]
+                 if m["cat"] == "Walls_Exterior" and not m.get("dead")), None)
+    if wall is None or not boxes:
+        return 0
+    prim = wall.get("prim")
+    if prim is None or not prim.IsValid() or not prim.IsActive():
+        return 0
+
+    perp, along = meas["perp"], 1 - meas["perp"]
+    # A private stream keeps adding/removing edge detail from moving the
+    # pile, wall-unit selection or any other damage outcome downstream.
+    seed_parts = [unit["name"]]
+    for lo, hi in boxes:
+        seed_parts.extend(round(float(q), 4) for q in tuple(lo) + tuple(hi))
+    erng = random.Random(fracture.stable_seed(*seed_parts))
+
+    cuts = []
+
+    def add_box(bounds):
+        q = vtk.vtkBox()
+        q.SetBounds(float(bounds[0]), float(bounds[3]),
+                    float(bounds[1]), float(bounds[4]),
+                    float(bounds[2]), float(bounds[5]))
+        cuts.append(q)
+
+    for lo, hi in boxes:
+        a0, a1 = float(lo[along]), float(hi[along])
+        z0, z1 = float(lo[2]), float(hi[2])
+        span_a, span_z = max(0.2, a1 - a0), max(0.2, z1 - z0)
+
+        # Sill: a complete partition prevents any long portion of the old
+        # z=z0 line surviving.  Jitter only the internal boundaries; boxes
+        # overlap by 5 cm so a new bite is topologically connected to the
+        # one before it even on a coarse source triangle.
+        n_sill = max(5, min(8, int(round(span_a / 0.58))))
+        a_edges = [a0]
+        for i in range(1, n_sill):
+            nominal = a0 + span_a * i / n_sill
+            a_edges.append(nominal + erng.uniform(-0.10, 0.10)
+                           * span_a / n_sill)
+        a_edges.append(a1)
+        last_depth = None
+        for i in range(n_sill):
+            depth = erng.uniform(0.38, min(1.18, 0.30 * span_z + 0.42))
+            if last_depth is not None and abs(depth - last_depth) < 0.16:
+                depth = (min(1.18, depth + 0.22) if depth < 0.78
+                         else max(0.38, depth - 0.22))
+            last_depth = depth
+            b = [float(q) for q in tuple(lo[:3]) + tuple(hi[:3])]
+            b[along], b[3 + along] = (a_edges[i] - 0.05,
+                                      a_edges[i + 1] + 0.05)
+            b[2], b[5] = z0 - depth, z0 + 0.42
+            add_box(b)
+
+        # Jambs: march bottom-to-top from the sill cut, again as overlapping
+        # courses.  The outside width alternates so neither side is a clean
+        # vertical and the two sides do not mirror one another.
+        n_jamb = max(5, min(8, int(round(span_z / 0.62))))
+        z_edges = [z0]
+        for i in range(1, n_jamb):
+            nominal = z0 + span_z * i / n_jamb
+            z_edges.append(nominal + erng.uniform(-0.10, 0.10)
+                           * span_z / n_jamb)
+        z_edges.append(z1)
+        for edge, sign in ((a0, -1.0), (a1, 1.0)):
+            last_width = None
+            for i in range(n_jamb):
+                width = erng.uniform(0.34, 0.94)
+                if last_width is not None and abs(width - last_width) < 0.14:
+                    width = (min(0.94, width + 0.20) if width < 0.64
+                             else max(0.34, width - 0.20))
+                last_width = width
+                b = [float(q) for q in tuple(lo[:3]) + tuple(hi[:3])]
+                if sign < 0.0:
+                    b[along], b[3 + along] = edge - width, edge + 0.34
+                else:
+                    b[along], b[3 + along] = edge - 0.34, edge + width
+                b[2], b[5] = z_edges[i] - 0.05, z_edges[i + 1] + 0.05
+                add_box(b)
+
+    if not cuts:
+        return 0
+
+    root = stage.GetPrimAtPath(meas["root"])
+    xf = UsdGeom.XformCache(Usd.TimeCode.Default())
+    md = ab._mesh_dict_world(prim, meas["mpu"], xf)
+    if md is None or not len(md["tris"]):
+        return 0
+    kept = md
+    lost = 0
+    applied = []
+    for cut in cuts:
+        removed = ab._clip_implicit(kept, cut, keep_outside=False)
+        next_kept = ab._clip_implicit(kept, cut, keep_outside=True)
+        if (removed is None or not len(removed["tris"])
+                or next_kept is None or not len(next_kept["tris"])):
+            continue
+        lost += int(len(removed["tris"]))
+        kept = next_kept
+        applied.append(cut)
+    if not lost or not applied:
+        return 0
+
+    mat, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
+    tag = unit["name"].rsplit("_", 1)[-1]
+    layer = stage.DefinePrim(
+        Sdf.Path(meas["root"]).AppendChild("QuakeBreaks"), "Scope")
+    new = ab._write_world_piece(
+        stage, "{0}/wall_{1}_ragged".format(layer.GetPath(), tag),
+        root, meas["mpu"], xf, kept, mat if mat else None)
+    prim.SetActive(False)
+    wall["prim"] = new.GetPrim()
+    wall["path"] = str(new.GetPath())
+
+    local["wall_kept_tris"] = int(len(kept["tris"]))
+    local["wall_lost_tris"] = int(local.get("wall_lost_tris", 0)) + lost
+    local["wall_ragged_lost_tris"] = \
+        int(local.get("wall_ragged_lost_tris", 0)) + lost
+
+    # A trim whose centre now lies in one of the edge bites has lost its
+    # support too.  The main cutter already removes most such parts; this
+    # catches the few that straddle the newly irregular boundary.
+    for mrec in unit["meshes"]:
+        if mrec is wall or mrec.get("dead") or mrec["cat"] not in (
+                "Windows", "Doors", "Generic_Models", "Lighting_Fixtures"):
+            continue
+        b = mrec["bbox"]
+        c = [0.5 * (b[0] + b[3]), 0.5 * (b[1] + b[4]),
+             0.5 * (b[2] + b[5])]
+        if any(cut.EvaluateFunction(c) <= 0.0 for cut in applied):
+            ab._kill(stage, mrec, local, "wall_part_ragged")
+    return lost
+
+
+def _notch_cornice(stage, unit, meas, mrec, rng, stats, index):
+    """Remove one irregular end bite while retaining the rest of a cornice.
+
+    The named ``Casework`` part spans a complete terrace unit.  Deactivating
+    it wholesale merely traded the old rectangular porch deletion for a
+    ruler-clean roofline.  A corner-rooted ellipsoid cluster is guaranteed
+    to cross vertices on this coarse mesh and leaves a visibly interrupted,
+    material-preserving run.
+    """
+    import vtk
+    from pxr import Sdf, Usd, UsdGeom, UsdShade
+
+    prim = mrec.get("prim")
+    if prim is None or not prim.IsValid() or not prim.IsActive():
+        return False
+    root = stage.GetPrimAtPath(meas["root"])
+    xf = UsdGeom.XformCache(Usd.TimeCode.Default())
+    md = ab._mesh_dict_world(prim, meas["mpu"], xf)
+    if md is None or not len(md["tris"]):
+        return False
+
+    perp, along = meas["perp"], 1 - meas["perp"]
+    b = mrec["bbox"]
+    a0, a1 = float(b[along]), float(b[3 + along])
+    span = max(0.2, a1 - a0)
+    r_a = min(0.95, max(0.42, rng.uniform(0.08, 0.15) * span))
+    if rng.random() < 0.5:
+        ac, direction = a0 + 0.22 * r_a, 1.0
+    else:
+        ac, direction = a1 - 0.22 * r_a, -1.0
+    pc = 0.5 * (float(b[perp]) + float(b[3 + perp]))
+    zc = 0.5 * (float(b[2]) + float(b[5]))
+    r_p = max(0.65, 1.25 * abs(float(b[3 + perp]) - float(b[perp])))
+    r_z = max(0.70, 1.15 * abs(float(b[5]) - float(b[2])))
+    field = vtk.vtkImplicitBoolean()
+    field.SetOperationTypeToUnion()
+    cuts = []
+    for shift, scale, zshift in ((0.0, 1.0, -0.06),
+                                  (0.62, 0.72, 0.13)):
+        c = [0.0, 0.0, zc + zshift * r_z]
+        c[along] = ac + direction * shift * r_a
+        c[perp] = pc
+        q = _ellipsoid(c, (r_p, r_a * scale, r_z) if perp == 0
+                       else (r_a * scale, r_p, r_z))
+        cuts.append(q)
+        field.AddFunction(q)
+
+    removed = ab._clip_implicit(md, field, keep_outside=False)
+    kept = ab._clip_implicit(md, field, keep_outside=True)
+    if (removed is None or not len(removed["tris"]) or kept is None
+            or not len(kept["tris"])):
+        return False
+    mat, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
+    tag = unit["name"].rsplit("_", 1)[-1]
+    layer = stage.DefinePrim(
+        Sdf.Path(meas["root"]).AppendChild("QuakeBreaks"), "Scope")
+    new = ab._write_world_piece(
+        stage, "{0}/cornice_{1}_{2}".format(layer.GetPath(), tag, index),
+        root, meas["mpu"], xf, kept, mat if mat else None)
+    prim.SetActive(False)
+    mrec["prim"] = new.GetPrim()
+    mrec["path"] = str(new.GetPath())
+    stats["killed"]["cornice_replaced"] = \
+        stats["killed"].get("cornice_replaced", 0) + 1
+    stats["cornice_lost_tris"] += int(len(removed["tris"]))
+    stats["cornice_kept_tris"] += int(len(kept["tris"]))
+    return True
+
+
+def _remove_wall(stage, unit, meas, rng, stats):
+    """Make a partial, UV-preserving upper-front façade failure.
+
+    The AEC asset stores front and rear in one ``Walls_Exterior`` mesh; whole
+    prim deactivation therefore removed *both* elevations and every window in
+    the unit.  Reuse the already validated fire cutter in geometry-only mode,
+    then let this module's rubble-v2 pile represent what fell.
+    """
+    levels = list(unit.get("levels") or [])
+    if len(levels) < 2:
+        return 0
+    front = "W" if meas["perp"] == 0 else "S"
+    local = {"loose": [], "static": [], "velocity": {}}
+    plan = {"fire": {"sides": [front], "origin": max(0, len(levels) - 2)},
+            "m": _row_mass(meas), "levels": levels}
+    result = ab._lose_wall(
+        stage, meas, plan, unit, rng, local, verbose=False, scope=None,
+        author_rubble=False, layer_name="QuakeBreaks", looks_name="QuakeLooks")
+    if not result:
+        return 0
+    _ragged_wall_edge(stage, unit, meas, result["boxes"], rng, local)
+    for key, val in local.items():
+        if key in ("loose", "static", "velocity", "wall_kept_tris",
+                   "wall_lost_tris", "wall_ragged_lost_tris", "wall_slabs"):
+            continue
+        if isinstance(val, int):
+            stats["killed"][key] = stats["killed"].get(key, 0) + val
+    stats["killed"]["wall_replaced"] = \
+        stats["killed"].get("wall_replaced", 0) + 1
+    stats["wall_kept_tris"] += int(local.get("wall_kept_tris", 0))
+    stats["wall_lost_tris"] += int(local.get("wall_lost_tris", 0))
+    stats["wall_ragged_lost_tris"] += \
+        int(local.get("wall_ragged_lost_tris", 0))
+    return 1
 
 
 def _do_unit(stage, meas, unit, spec, rng, root, mpu, xf, decal_scope,
@@ -380,12 +740,13 @@ def _do_unit(stage, meas, unit, spec, rng, root, mpu, xf, decal_scope,
         targets = _parapet_edge_parts(unit, meas)
     else:
         cn = spec.get("cornice_n")
-        pool = _roof_deck_parts(unit)
+        pool = _parapet_edge_parts(unit, meas, frac=1.0)
         targets = (rng.sample(pool, min(len(pool), rng.randint(*cn)))
                   if pool and cn else [])
-    for mrec in targets:
+    for target_i, mrec in enumerate(targets):
         b = mrec["bbox"]
-        ab._kill(stage, mrec, stats["killed"], "cornice")
+        if not _notch_cornice(stage, unit, meas, mrec, rng, stats, target_i):
+            continue
         pos = [0.0, 0.0, ground_z + rng.uniform(0.1, 0.3)]
         pos[along] = 0.5 * (b[along] + b[3 + along]) + rng.uniform(-0.3, 0.3)
         pos[perp] = plane + out_sign * rng.uniform(0.3, 1.3)
@@ -510,7 +871,11 @@ def quake_row(stage, root_path, grade="DG3", seed=7, verbose=True,
     stats = {"grade": grade, "root": str(root_path), "n_units": len(meas["units"]),
              "deinstanced": 0, "killed": {}, "debris": [], "debris_n": 0,
              "debris_kinds": {}, "scars": 0, "window_units_voided": 0,
-             "roof_unit_names": [], "wall_unit_names": [], "pile": None}
+             "roof_unit_names": [], "wall_unit_names": [], "pile": None,
+             "roof_lost_tris": 0, "roof_kept_tris": 0,
+             "wall_lost_tris": 0, "wall_kept_tris": 0,
+             "wall_ragged_lost_tris": 0,
+             "cornice_lost_tris": 0, "cornice_kept_tris": 0}
     if not spec:
         if verbose:
             print("[aec_quake] {0}: {1} -- no-op".format(root_path, grade))
@@ -554,13 +919,13 @@ def quake_row(stage, root_path, grade="DG3", seed=7, verbose=True,
     if spec.get("roof_units"):
         roof_units = _select_units(units, spec["roof_units"], rng, reserve=0)
         for u in roof_units:
-            _remove_roof(stage, u, stats)
+            _remove_roof(stage, u, meas, rng, stats)
     if spec.get("wall_units"):
         # reserve=1: never remove every unit's wall -- the "gable/party-wall
         # remnant" the DG5 prose asks for.
         wall_units = _select_units(units, spec["wall_units"], rng, reserve=1)
         for u in wall_units:
-            _remove_wall(stage, u, meas, stats)
+            _remove_wall(stage, u, meas, rng, stats)
     stats["roof_unit_names"] = [u["name"] for u in roof_units]
     stats["wall_unit_names"] = [u["name"] for u in wall_units]
 

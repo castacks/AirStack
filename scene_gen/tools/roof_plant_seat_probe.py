@@ -66,6 +66,10 @@ slack for the legitimate few-cm interpenetration `quake_collapse.
 ROOF_PROP_SUPPORT_MARGIN_M` already tolerates at author time) fails; no
 support found AT ALL (a genuine hole all the way down) fails outright.
 
+An item with no building support but whose base is already at ground is also
+valid: it fell through a destroyed roof and reached grade.  That is distinct
+from a no-support item still suspended above grade, which fails.
+
 NO KIT, NO SIMULATIONAPP. Bare `pxr` + `numpy` only, exactly like `tools/
 fc_roof_deck_probe.py` — safe to run beside a live Isaac session, and safe
 to run with no Isaac Sim at all, which is how this probe was written and
@@ -218,6 +222,10 @@ def check_archetype(usd_path, tolerance=DEFAULT_TOLERANCE_M,
     root = "/"
     by_mesh = _mesh_prims_by_material(stage, material_names)
     results = []
+    # Exclude EVERY roof-plant mesh from the support search.  Export normally
+    # merges by material, but merge=off/debug bakes can retain several meshes;
+    # one tank or AC must never count another one as a roof.
+    plant_paths = tuple(str(p.GetPath()) for p in by_mesh)
     for prim, mname in by_mesh.items():
         P, counts, idx = _world_points(prim)
         if P is None:
@@ -233,7 +241,12 @@ def check_archetype(usd_path, tolerance=DEFAULT_TOLERANCE_M,
             half_d = max(0.3, float(hi[1] - lo[1]) / 2.0 * 1.15)
             base_z = float(lo[2])
             support = qc._deck_support_z(stage, root, cx, cy, half_w, half_d,
-                                         base_z, exclude=(mesh_path,))
+                                         base_z, exclude=plant_paths)
+            # A roof item can legitimately fall through a destroyed building
+            # all the way to grade.  No structural support above ground is a
+            # failure; no support when already grounded is not.
+            if support is None and base_z <= tolerance:
+                support = 0.0
             gap = None if support is None else round(base_z - support, 3)
             ok = support is not None and gap <= tolerance
             results.append(dict(usd=usd_path, material=mname,
@@ -264,6 +277,10 @@ def main(argv=None):
                     help="max allowed gap in metres between a resting prop "
                          "and the real deck under it (default %(default)s)")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument(
+        "--repair", action="store_true",
+        help="repair unsupported rooftop-plant clusters in place before "
+             "checking (make a backup first for valuable bake outputs)")
     a = ap.parse_args(argv)
 
     paths = a.usd or sorted(glob.glob(DEFAULT_GLOB))
@@ -275,6 +292,10 @@ def main(argv=None):
     all_results = []
     for p in paths:
         try:
+            if a.repair:
+                from disaster import bake
+                bake.reseat_roof_plant_clusters_in_file(
+                    p, tolerance=a.tolerance, verbose=not a.quiet)
             all_results += check_archetype(p, tolerance=a.tolerance,
                                            verbose=not a.quiet)
         except Exception as exc:

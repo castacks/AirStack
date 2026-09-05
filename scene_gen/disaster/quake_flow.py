@@ -45,6 +45,7 @@ rest of `disaster/`, so the tables are host-checkable.
 
 import bisect
 import math
+import os
 import os as _os
 import random
 
@@ -385,10 +386,82 @@ MATERIAL_URLS = {
 }
 
 
+def _anchored_asset_path(asset_path, source_url):
+    """Return an absolute/URL asset path anchored beside ``source_url``.
+
+    ``Sdf.AssetPath.resolvedPath`` is deliberately not the only source of
+    truth here.  Kit's live resolver can leave it empty for a perfectly valid
+    relative input composed through a reference; Fabric then forwards the
+    original ``./foo`` spelling to Hydra, which resolves it against the live
+    stage instead of the referenced material layer.  The material URL is
+    already absolute (local path or Nucleus), so joining relative texture
+    inputs to its directory is deterministic in both cases.
+
+    Bare MDL module names such as ``OmniPBR.mdl`` are search-path identifiers,
+    not files beside the USDA, and must stay untouched.
+    """
+    path = str(asset_path or "")
+    if (not path or path.endswith(".mdl") or path.startswith(("/", "~"))
+            or "://" in path):
+        return path
+    rel = path[2:] if path.startswith("./") else path
+    base = str(source_url or "").rsplit("/", 1)[0]
+    if "://" in base:
+        return base.rstrip("/") + "/" + rel.lstrip("/")
+    return os.path.normpath(os.path.join(base, rel))
+
+
+def _direct_soil_material(stage, path, source_url):
+    """Author the Soil_Mud OmniPBR network directly on *stage*.
+
+    Referencing ``Soil_Mud.usda`` is valid USD, but Isaac Sim 5.1's
+    USD-to-MDL/Fabric material cache loses the source-layer anchor for this
+    particular referenced network.  Hydra then compiles the old literal
+    ``./Soil_Mud/...`` values even when stronger, absolute composed values
+    are visible through USD.  A direct network has no reference boundary to
+    lose and keeps the exact same maps and triplanar metric scale.
+
+    Texture paths are still derived from ``source_url``.  They therefore use
+    the local checkout during authoring and the canonical Nucleus mirror when
+    ``AIRSTACK_ASSET_ROOT`` points there for a portable/frozen build.
+    """
+    from pxr import Gf, Sdf, UsdShade
+
+    mat = UsdShade.Material.Define(stage, Sdf.Path(path))
+    # Be robust when a caller reuses a stage which already contains the old
+    # referenced form.  Local definitions below are then the only source of
+    # the material network.
+    mat.GetPrim().GetReferences().ClearReferences()
+    shader = UsdShade.Shader.Define(
+        stage, Sdf.Path(path).AppendChild("Shader"))
+    shader.CreateIdAttr("OmniPBR")
+    shader.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
+    shader.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+
+    tex_dir = "Soil_Mud/"
+    for name, filename in (
+            ("diffuse_texture", "T_pjuph20_1K_B.jpg"),
+            ("normalmap_texture", "T_pjuph20_1K_N.jpg"),
+            ("ORM_texture", "T_pjuph20_1K_ORM.jpg")):
+        url = _anchored_asset_path(tex_dir + filename, source_url)
+        shader.CreateInput(name, Sdf.ValueTypeNames.Asset).Set(
+            Sdf.AssetPath(url))
+    shader.CreateInput("enable_ORM_texture", Sdf.ValueTypeNames.Bool).Set(True)
+    shader.CreateInput("texture_scale", Sdf.ValueTypeNames.Float2).Set(
+        Gf.Vec2f(0.11, 0.11))
+    shader.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
+    shader.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
+    for output in (mat.CreateSurfaceOutput("mdl"),
+                   mat.CreateDisplacementOutput("mdl"),
+                   mat.CreateVolumeOutput("mdl")):
+        output.ConnectToSource(shader.ConnectableAPI(), "out")
+    return mat
+
+
 def materials(stage, parent):
     """The earthquake material set under `<parent>/QuakeLooks`. Cached on the
     stage: calling twice returns the same prims."""
-    from pxr import Gf, Sdf, UsdShade
+    from pxr import Gf, Sdf, Usd, UsdShade
     import scene_generator as sg
     from . import damage
 
@@ -396,10 +469,37 @@ def materials(stage, parent):
     out = {}
     for key, url in MATERIAL_URLS.items():
         path = scope + "/" + key
+        source_url = sg._join_asset_root(url, "")
+        if key == "soil":
+            out[key] = _direct_soil_material(stage, path, source_url)
+            continue
         if not UsdShade.Material.Get(stage, path):
             prim = stage.DefinePrim(Sdf.Path(path))
-            prim.GetReferences().AddReference(sg._join_asset_root(url, ""))
+            prim.GetReferences().AddReference(source_url)
             prim.Load()
+        else:
+            prim = stage.GetPrimAtPath(path)
+        # Hydra/Fabric does not retain the referenced layer's anchoring
+        # context for every composed shader value.  In a live quake city that
+        # turned Soil_Mud's valid ``./Soil_Mud/...`` inputs into runtime
+        # "asset can not be found" errors even though all files existed beside
+        # its USDA.  Do this even when another caller created the cached
+        # material first.  Prefer USD's resolved value, but explicitly anchor
+        # a relative value beside the referenced material when Kit leaves
+        # ``resolvedPath`` empty. ``OmniPBR.mdl`` stays on Kit's MDL search
+        # path by `_anchored_asset_path`'s rule.
+        for child in Usd.PrimRange(prim):
+            for attr in child.GetAttributes():
+                try:
+                    value = attr.Get()
+                except Exception:
+                    continue
+                if not isinstance(value, Sdf.AssetPath):
+                    continue
+                anchored = (value.resolvedPath
+                            or _anchored_asset_path(value.path, source_url))
+                if anchored and anchored != value.path:
+                    attr.Set(Sdf.AssetPath(anchored))
         out[key] = UsdShade.Material.Get(stage, path)
     # Interior plaster: flat, slightly warm, matte. Rebar: near-black rust.
     # Glass shards: pale blue-green, glossy. Slab edge / crushed concrete:
@@ -3102,7 +3202,19 @@ def _spall(ctx, mass, rate=0.15, storeys=None):
                                       ctx["cache"], tex) if tex else None,
             refine_max=5, edge_cell_m=0.30, **_kw)
         if not st:
-            # the whole module came away — that is a hole, not a spall
+            # The whole module came away — that is a rectangular module
+            # hole, not a spall. `_break_split` has already deactivated the
+            # source and authored its fragments, so merely `continue` left
+            # precisely that hole in tornado's boundary-safe pass. Roll this
+            # cosmetic attempt back completely: restore the textured source
+            # and deactivate every generated fragment.
+            src = ctx["stage"].GetPrimAtPath(path)
+            if src and src.IsValid():
+                src.SetActive(True)
+            for q in lo:
+                qp = ctx["stage"].GetPrimAtPath(q)
+                if qp and qp.IsValid():
+                    qp.SetActive(False)
             continue
         # WHAT COMES OFF A WALL IS DUST-COLOURED, and what is left behind in
         # the recess is the wall's own inner face, not a bright flap.
@@ -4171,7 +4283,7 @@ def _g_add_debris(ctx, acc, m, side, u_world, area, kind, density=1.0):
 
 def r_curtain_wall(ctx, grade=3, glass=None, mass=None, profile=None,
                    sides=None, out_frac=None, crack_frac=None, peel=None,
-                   scatter=False):
+                   scatter=False, restrict_sides=False):
     """A curtain-wall tower loses its GLASS in a BAND, and keeps its cage.
 
     The replacement for `r_glass_fallout`. Every number is from
@@ -4193,6 +4305,8 @@ def r_curtain_wall(ctx, grade=3, glass=None, mass=None, profile=None,
     grade = int(max(1, min(5, grade)))
     g = G_GRADE[grade]
     panes = _g_panes(ctx, mass)
+    if restrict_sides and sides:
+        panes = [p for p in panes if p.get("side") in set(sides)]
     if not panes:
         return
     kind = _g_kind(ctx, glass, rng)
@@ -4245,6 +4359,8 @@ def r_curtain_wall(ctx, grade=3, glass=None, mass=None, profile=None,
         # that never racked (G_final_tower/3_tower_DG3_nw.png). `rest` is
         # already sorted by the score, which carries the side weight.
         crack = rest[:n_crack]
+        ctx.setdefault("g_authored_sides", set()).update(
+            p["side"] for p in (out + crack))
         # --- author, merged --------------------------------------------------
         # one mesh per (kind, side, storey); debris one per (kind, side)
         accs, owners = {}, {}
@@ -5196,6 +5312,8 @@ def r_window_glass(ctx, grade=3, mass=None, sides=None, storeys=None,
                     out.append(rest.pop(rng.randrange(len(rest))))
         rest.sort(key=lambda q: -q["sc"])
         crack = rest[:int(round(g["crack"] * len(group)))]
+        ctx.setdefault("g_authored_sides", set()).update(
+            p["side"] for p in (out + crack))
         accs, owners = {}, {}
 
         def A(k_, side, storey, owner=None):
@@ -5284,7 +5402,46 @@ def r_window_glass(ctx, grade=3, mass=None, sides=None, storeys=None,
     return len(ops)
 
 
-def r_infill_fail(ctx, storeys=1, frac=0.4, mass="main"):
+def _infill_punch_judge(m, e, rng):
+    """Irregular, interior punch-out for one RC infill panel.
+
+    The old infill recipe fractured the *entire* kit wall module and sent
+    every cell to physics.  The neighbouring frame therefore exposed the
+    module's four factory seams as a perfect rectangular opening.  An infill
+    panel can leave its bay, but its masonry/plaster does not part on all four
+    manufactured mesh boundaries at once: diagonal cracking and corner
+    remnants remain around the opening.
+
+    This judge keeps those remnants.  It is a lobed superellipse in the
+    wall's own along/z plane; ``_break_split`` adds the decimetre-scale teeth
+    at its boundary.  The lobe phases come from the building's existing RNG,
+    so this remains deterministic with the rest of the recipe.
+    """
+    side = e["side"]
+    span = max(1.0, float(m.get("module") or 4.0))
+    t0 = _p_el_t(m, side, e)
+    tc = t0 + span * rng.uniform(0.43, 0.57)
+    zc = float(e["z"]) + float(e["h"]) * rng.uniform(0.43, 0.58)
+    rt = span * rng.uniform(0.36, 0.47)
+    rz = max(0.5, float(e["h"]) * rng.uniform(0.34, 0.46))
+    ph1, ph2 = rng.uniform(0.0, 6.2832), rng.uniform(0.0, 6.2832)
+
+    def judge(c):
+        u = (_a_side_t(m, side, c) - tc) / max(rt, 1e-6)
+        v = (float(c[2]) - zc) / max(rz, 1e-6)
+        a = math.atan2(v, u)
+        # Several unequal lobes, not the smooth ellipse that previously read
+        # like a boolean cut.  Clamp keeps the hole inside the panel so no
+        # factory module edge becomes the visible failure line.
+        edge = max(0.72, min(1.18,
+                            1.0 + 0.11 * math.sin(3.0 * a + ph1)
+                            + 0.07 * math.sin(5.0 * a + ph2)))
+        return (abs(u) ** 1.65 + abs(v) ** 1.65) < edge
+    return judge
+
+
+def r_infill_fail(ctx, storeys=1, frac=0.4, mass="main", sides=None,
+                  rubble=True, min_open=0):
     """RC frame: masonry infill panels between the columns blow out of the
     bottom `storeys` storeys. The façade module goes, the fragments drop at
     the foot of the wall, and the column/slab grid behind shows."""
@@ -5296,17 +5453,57 @@ def r_infill_fail(ctx, storeys=1, frac=0.4, mass="main"):
     # INFILL that drops out of an RC frame is the panel between the columns
     # on the storeys above it. Targeting storey 0 removed a couple of shop
     # windows and read as nothing.
+    from . import damage
+    from pxr import UsdShade
+
+    allowed_sides = set(sides or ("S", "E", "N", "W"))
+    forced = set()
+    if min_open:
+        candidates = [e for s in range(1, min(n_lv, 1 + storeys))
+                      for e in _els(ctx, mass=mass, role="wall", storey=s)
+                      if e["side"] in allowed_sides
+                      and e["p"].get("prim_path")]
+        rng.shuffle(candidates)
+        forced = {e["p"]["prim_path"] for e in candidates[:int(min_open)]}
     opened = set()
+    opened_sides = set()
+    opened_elements = []
     for s in range(1, min(n_lv, 1 + storeys)):
         for e in list(_els(ctx, mass=mass, role="wall", storey=s)):
-            if rng.random() >= frac:
+            if e["side"] not in allowed_sides:
+                continue
+            path = e["p"].get("prim_path")
+            if not path:
+                continue
+            if path not in forced and rng.random() >= frac:
+                continue
+            tex = damage.bound_texture(ctx["stage"], path)
+            bound = UsdShade.MaterialBindingAPI(
+                ctx["stage"].GetPrimAtPath(path)).ComputeBoundMaterial()[0]
+            keep_mat = (_clad_material(ctx["stage"], ctx["parent"],
+                                       ctx["cache"], tex) if tex else bound)
+            st, lo = _break_split(
+                ctx, path, 10 + rng.randrange(5),
+                _infill_punch_judge(m, e, rng), _mat_fn(ctx, tex, 0.5),
+                static_mat=keep_mat if keep_mat else None,
+                refine_max=6, edge_cell_m=0.28, max_loose_m=1.8,
+                edge_consume=0.35)
+            # A punch-out without BOTH a remnant and a loss has fallen back
+            # to the exact whole-module rectangle this function exists to
+            # prevent.  Roll the cosmetic attempt back rather than publish a
+            # clean aperture or silently erase a panel.
+            if not st or not lo:
+                src = ctx["stage"].GetPrimAtPath(path)
+                if src and src.IsValid():
+                    src.SetActive(True)
+                for pth in list(st) + list(lo):
+                    pr = ctx["stage"].GetPrimAtPath(pth)
+                    if pr and pr.IsValid():
+                        pr.SetActive(False)
                 continue
             opened.add(s)
-            st, lo = _break(ctx["stage"], ctx["parent"], e, ctx["tag"],
-                            8 + rng.randrange(5), rng, nrng, ctx["mats"],
-                            ctx["cache"], ctx["info"]["type"], inner_p=0.5,
-                            consume=0.4, family=ctx["info"]["family"])
-            m = ctx["info"]["masses"][mass]
+            opened_sides.add(e["side"])
+            opened_elements.append(e)
             ox, oy = _outward(m, e["side"])
             for pth in lo:
                 v = rng.uniform(0.3, 0.9)
@@ -5325,8 +5522,17 @@ def r_infill_fail(ctx, storeys=1, frac=0.4, mass="main"):
         # x the building dimension at h=0 ... corresponds to a low windrow,
         # ~0.3-0.6 m deep"), so v2 keeps the same draw rather than a fixed
         # constant.
-        _rubble(ctx, m, "windrow", sides=("S", "E", "N", "W"),
-                depth_m=rng.uniform(0.3, 0.6), spread_frac=0.1, tag="windrow")
+        if rubble and opened_sides:
+            _rubble(ctx, m, "windrow", sides=tuple(sorted(opened_sides)),
+                    depth_m=rng.uniform(0.3, 0.6), spread_frac=0.1,
+                    tag="windrow")
+        ctx["notes"].append(
+            "infill_fail: irregular punch-outs on {0}, storeys {1}; no "
+            "whole rectangular modules removed".format(
+                "/".join(sorted(opened_sides)),
+                ",".join(str(q) for q in sorted(opened))))
+    return {"storeys": sorted(opened), "sides": sorted(opened_sides),
+            "elements": opened_elements}
 
 
 def _corner_break(ctx, m, cx, cy, c_sides, reach, path, mat_fn):
@@ -9351,6 +9557,222 @@ def r_settlement(ctx, sink_m=None):
     ctx["notes"].append("settlement: sunk {0:.2f} m".format(sink))
 
 
+def _foundation_outer_masses(info, side):
+    """Tall masses whose footprint reaches the building's outer ``side``.
+
+    A compound kit style (``block_residential`` is a podium plus four wings)
+    cannot be distressed by blindly choosing ``main``: its main mass is only
+    the one-storey podium.  Resolve the actual outer wing geometrically and
+    prefer the tallest one, which is both visible and load-bearing.
+    """
+    main = info["masses"]["main"]
+    edge0 = {"S": -main["D"] / 2.0, "N": main["D"] / 2.0,
+             "W": -main["W"] / 2.0, "E": main["W"] / 2.0}[side]
+    found = []
+    for tag, m in info["masses"].items():
+        if len(m.get("levels") or ()) < 2:
+            continue
+        lx, ly = _to_local(main, m["cx"], m["cy"])
+        edge = {"S": ly - m["D"] / 2.0, "N": ly + m["D"] / 2.0,
+                "W": lx - m["W"] / 2.0, "E": lx + m["W"] / 2.0}[side]
+        reaches = ((edge <= edge0 + 1.2) if side in ("S", "W")
+                   else (edge >= edge0 - 1.2))
+        if reaches:
+            found.append((tag, m))
+    if not found:
+        found = [(tag, m) for tag, m in info["masses"].items()
+                 if len(m.get("levels") or ()) >= 2]
+    return sorted(found, key=lambda q: (-(q[1]["top"] - q[1]["z0"]),
+                                        -(q[1]["W"] * q[1]["D"]), q[0]))
+
+
+def _foundation_slab_patch(ctx, mass, side, storey, centre_t, span_m):
+    """Tear a local patch from an exposed fit-out slab edge.
+
+    Only the strip behind the damaged wall bay is affected; the rest of the
+    supported diaphragm remains one slab.  This is the local counterpart of
+    ``_ragged_slabs`` and prevents a foundation-damaged building from looking
+    like every complete floor plate was pulled from an unfinished BIM model.
+    """
+    from pxr import UsdShade
+
+    fit = ctx["fit"]
+    pth = (fit.get("slabs") or {}).get((mass, int(storey)))
+    if not pth:
+        return {"loose": [], "static": [], "interval": None}
+    m = ctx["info"]["masses"][mass]
+    L = m["W"] if side in ("S", "N") else m["D"]
+    half = min(0.42 * L, max(2.5, float(span_m) * 0.62))
+    t0, t1 = max(0.0, centre_t - half), min(L, centre_t + half)
+    depth = ctx["rng"].uniform(0.8, 1.8)
+    keep_m = UsdShade.MaterialBindingAPI(
+        ctx["stage"].GetPrimAtPath(pth)).ComputeBoundMaterial()[0]
+    rem, strip = _split_strip(ctx, pth, m, side, depth + 1.8,
+                              _c_look(ctx, "concrete"))
+    edge_judge = _edge_judge(m, side, depth, ctx["rng"],
+                             btype=ctx["info"]["type"])
+    ph = ctx["rng"].uniform(0.0, 6.2832)
+
+    def judge(c):
+        t = _a_side_t(m, side, c)
+        # Unequal ends keep this from becoming one rectangular notch in plan.
+        end_wob = 0.35 * math.sin((t - t0) * 1.7 + ph)
+        return edge_judge(c) and (t0 - end_wob < t < t1 + end_wob)
+
+    st, lo = _break_split(
+        ctx, strip, 14 + ctx["rng"].randrange(5), judge,
+        lambda: (_a_mat(ctx, "concrete_dusty")
+                 if ctx["rng"].random() < 0.7 else _a_mat(ctx, "dust")),
+        static_mat=keep_m if keep_m else None, rough=ROUGH_STRIP_M,
+        refine_max=6, edge_cell_m=0.30, max_loose_m=2.4,
+        min_volume_frac=0.0008)
+    fit["slabs"][(mass, int(storey))] = rem
+    fit["all"] = [q for q in fit["all"] if q != pth] + [rem] + st
+    ctx["loose"] += lo
+    ctx["static_extra"] += [rem] + st
+    _a_edge_bars(ctx, st, ctx["info"]["type"], m, side, p=0.8)
+    return {"loose": lo, "static": [rem] + st,
+            "interval": (t0, t1)}
+
+
+def _foundation_tilt_distress(ctx, side):
+    """Localized shell/frame distress that accompanies a severe RC tilt.
+
+    ``TILT`` used to rotate a completely pristine fitted-out building.  On an
+    open-frame style that exposed every perfect slab, column and plaster wall
+    and read as unfinished construction.  Damage one outer wing and one or two
+    lower storeys only: the concrete building remains overwhelmingly standing,
+    while the downhill bay has an irregular infill loss, a torn diaphragm edge,
+    a few snapped columns/partitions, and a real scanned-debris fan.
+
+    Rubble is deliberately deferred until after the rigid tilt transform; the
+    returned description is enough for ``r_tilt_severe`` to author it on the
+    ground instead of rotating the pile with the building.
+    """
+    if ctx["info"]["type"] != "rc":
+        return None
+    targets = _foundation_outer_masses(ctx["info"], side)
+    if not targets:
+        return None
+    # One wing is damage; every wing is demolition.  Equal candidates use the
+    # private RNG so repeated symmetric blocks do not always lose the west one.
+    best_h = targets[0][1]["top"] - targets[0][1]["z0"]
+    tied = [q for q in targets
+            if abs((q[1]["top"] - q[1]["z0"]) - best_h) < 0.1]
+    mass, m = tied[ctx["rng"].randrange(len(tied))]
+    n_lv = len(m["levels"])
+    # One storey is enough to express the bearing failure.  Guarantee one
+    # opened bay: a low probability draw that happens to pick zero must not
+    # turn this back into a pristine rigidly-rotated building.
+    n_storeys = 1
+    opened = r_infill_fail(ctx, storeys=n_storeys, frac=0.30, mass=mass,
+                           sides=(side,), rubble=False, min_open=1)
+    els = list((opened or {}).get("elements") or ())
+    if not els:
+        return None
+
+    # Centre the structural distress on an actually opened wall bay.
+    anchor = els[ctx["rng"].randrange(len(els))]
+    centre_t = _p_el_t(m, side, anchor) + 0.5 * max(
+        1.0, float(m.get("module") or 4.0))
+    span_m = max(4.0, float(m.get("module") or 4.0) * 1.6)
+    storey = max(1, int(anchor["storey"]))
+    slab = _foundation_slab_patch(ctx, mass, side, storey,
+                                  centre_t, span_m)
+    interval = slab.get("interval") or (centre_t - span_m / 2.0,
+                                         centre_t + span_m / 2.0)
+
+    # Snap a FEW columns in the same bay, never the whole frame.  Their
+    # fragments enter the same settle pass as the wall/slab pieces.
+    ox, oy = _outward(m, side)
+    cols = []
+    for key, paths in list((ctx["fit"].get("columns") or {}).items()):
+        mt, s = key
+        if mt != mass or int(s) not in {storey, max(0, storey - 1)}:
+            continue
+        for pth in list(paths or ()):
+            try:
+                cx, cy, _cz, _sx, _sy, _sz, _yaw = _box_dims(
+                    ctx["stage"], pth)
+                lx, ly = _to_local(m, cx, cy)
+                d = ({"S": ly + m["D"] / 2.0,
+                      "N": m["D"] / 2.0 - ly,
+                      "W": lx + m["W"] / 2.0,
+                      "E": m["W"] / 2.0 - lx}[side])
+                t = _a_side_t(m, side, (cx, cy, 0.0))
+            except Exception:
+                continue
+            if d <= 2.2 and interval[0] - 1.0 <= t <= interval[1] + 1.0:
+                cols.append((key, pth))
+    ctx["rng"].shuffle(cols)
+    snapped_cols = 0
+    for key, pth in cols[:max(1, min(3, len(cols)))]:
+        made = _break_box(
+            ctx["stage"], pth, 4 + ctx["rng"].randrange(3),
+            ctx["rng"], ctx["nrng"], _a_mat(ctx, "concrete_dusty"),
+            _a_mat(ctx, "dust"), inner_p=0.25, mode="prism",
+            consume=0.10, consume_pool=1.05, max_piece_m=1.6)
+        if not made:
+            continue
+        _chip_authored(ctx, made, tessellate=False, why="tilt_column")
+        ctx["loose"] += made
+        for q in made:
+            ctx["velocity"][q] = (ox * ctx["rng"].uniform(0.15, 0.55),
+                                   oy * ctx["rng"].uniform(0.15, 0.55), -0.2)
+        ctx["fit"]["all"] = [q for q in ctx["fit"]["all"] if q != pth]
+        ctx["fit"]["columns"][key] = [q for q in
+                                              ctx["fit"]["columns"][key]
+                                              if q != pth]
+        snapped_cols += 1
+
+    # Unsupported plaster in the same bay becomes chunks, not white sheets.
+    snapped_parts = 0
+    try:
+        from . import quake_collapse as qc
+        part_cands = []
+        for pth in list(ctx["fit"].get("partitions") or ()):
+            bits = pth.rsplit("/", 1)[-1].split("_")
+            try:
+                ps = int(bits[-2])
+                pm = "_".join(bits[1:-2])
+            except (ValueError, IndexError):
+                continue
+            if pm != mass or ps != storey:
+                continue
+            try:
+                cx, cy, _cz, _sx, _sy, _sz, _yaw = _box_dims(
+                    ctx["stage"], pth)
+                t = _a_side_t(m, side, (cx, cy, 0.0))
+            except Exception:
+                continue
+            if interval[0] - 2.0 <= t <= interval[1] + 2.0:
+                part_cands.append(pth)
+        ctx["rng"].shuffle(part_cands)
+        for pth in part_cands[:2]:
+            made, _fractured = qc._fracture_fallen_partition(ctx, pth)
+            if not made:
+                continue
+            ctx["loose"] += [q for q in made if q not in ctx["loose"]]
+            for q in made:
+                ctx["velocity"][q] = (ox * ctx["rng"].uniform(0.1, 0.4),
+                                       oy * ctx["rng"].uniform(0.1, 0.4), -0.1)
+            ctx["fit"]["all"] = [q for q in ctx["fit"]["all"] if q != pth]
+            ctx["fit"]["partitions"] = [q for q in
+                                                 ctx["fit"]["partitions"]
+                                                 if q != pth]
+            snapped_parts += len(made)
+    except Exception as exc:
+        ctx["notes"].append("tilt partition distress skipped: {0}".format(exc))
+
+    ctx["notes"].append(
+        "tilt distress: {0}/{1} storey {2}, irregular wall/slab edge, "
+        "{3} column(s) snapped, {4} partition fragment(s)".format(
+            mass, side, storey, snapped_cols, snapped_parts))
+    return {"mass": mass, "m": m, "side": side, "along": interval,
+            "storey": storey, "columns": snapped_cols,
+            "partitions": snapped_parts}
+
+
 def r_tilt_severe(ctx, tilt_deg=None, sink_m=None, side=None, max_drop_m=3.2):
     """Severe lean, 10-30 deg, on a raft that levers out of the ground on the
     high side while silt is squeezed out on the low side (Adapazari 1999).
@@ -9364,11 +9786,33 @@ def r_tilt_severe(ctx, tilt_deg=None, sink_m=None, side=None, max_drop_m=3.2):
     tilt = tilt_deg if tilt_deg is not None else rng.uniform(10.0, 30.0)
     sink = sink_m if sink_m is not None else rng.uniform(0.5, 2.0)
     side = side or rng.choice(["S", "E", "N", "W"])
+    # Private appearance RNG: adding/removing a chipped column cannot move the
+    # tilt angle, side, ground response, roof plant, or any later recipe draw.
+    from . import fracture
+    from . import fire_collapse as fc
+    import numpy as _np
+    dseed = fracture.stable_seed(ctx.get("tag", ""), "tilt_distress", side)
+    snap_lo = set(ctx.get("loose") or ())
+    snap_st = set(ctx.get("static_extra") or ())
+    with fc._own_rng(ctx, random.Random(dseed),
+                     _np.random.default_rng(dseed)):
+        distress = _foundation_tilt_distress(ctx, side)
+    new_lo = [q for q in ctx.get("loose", ()) if q not in snap_lo]
+    new_st = [q for q in ctx.get("static_extra", ()) if q not in snap_st]
     M, g = _c_tilt_matrix(m, side, tilt, sink, max_drop_m=max_drop_m)
     raft = _raft(ctx, m)
-    paths = _everything(ctx) + [raft] + list(ctx.pop("c_carry", []))
+    base_paths = _everything(ctx) + [raft] + list(ctx.pop("c_carry", []))
+    # Fragments created before the rigid foundation motion start in the same
+    # building frame and must ride that motion too.  Do not classify the loose
+    # ones as static merely because they were transformed with the shell.
+    paths = []
+    for pth in base_paths + new_lo + new_st:
+        pr = ctx["stage"].GetPrimAtPath(pth) if pth else None
+        if pth not in paths and pr and pr.IsValid() and pr.IsActive():
+            paths.append(pth)
     _transform_prims(ctx["stage"], paths, M)
-    ctx["static_extra"] += paths
+    loose_set = set(ctx.get("loose") or ())
+    ctx["static_extra"] += [q for q in base_paths if q not in loose_set]
     # THE ROOF PLANT RODE `M` TOO (it was in `ctx["fit"]["all"]` before this
     # recipe ran, so `_everything(ctx)` above already carried it) — but a
     # 10-30 deg deck is not somewhere a free rigid body reliably comes to
@@ -9384,6 +9828,24 @@ def r_tilt_severe(ctx, tilt_deg=None, sink_m=None, side=None, max_drop_m=3.2):
     _c_ground_response(ctx, m, low_side=g["low"], drop_m=g["drop"],
                        rise_m=g["rise"], tag="tiltsev", crest_scale=1.15,
                        reach_scale=1.1)
+    # The real asset-pack rubble is placed only AFTER the building has moved,
+    # so it stays seated on grade rather than leaning with the foundation.
+    if distress:
+        dm = dict(distress["m"])
+        dm["z0"] = float(m["z0"])
+        dm["top"] = max(float(dm["top"]), float(m["z0"]) + 6.0)
+        L = dm["W"] if side in ("S", "N") else dm["D"]
+        a0, a1 = distress["along"]
+        along = (max(-0.5, a0 / L - 0.5), min(0.5, a1 / L - 0.5))
+        rseed = fracture.stable_seed(ctx.get("tag", ""),
+                                     "tilt_distress_rubble", side)
+        with fc._own_rng(ctx, random.Random(rseed),
+                         _np.random.default_rng(rseed)):
+            _rubble(ctx, dm, "fan", sides=(side,), along=along,
+                    depth_m=0.55, spread_frac=0.12,
+                    elem_h_m=max(3.0, 2.0 * (dm["levels"][1]
+                                            - dm["levels"][0])),
+                    tag="tilt_distress")
     ctx["notes"].append(
         "tilt_severe: {0:.1f} deg toward {1}, sunk {2:.2f} m (low edge -{3:.2f} m, "
         "high edge +{4:.2f} m)".format(g["tilt"], side, g["sink"], g["drop"],
@@ -10461,9 +10923,24 @@ def _tank(ctx, x, y, z, r=1.2, h=2.6, yaw=0.0):
 
 
 def dress_roof(ctx, mass="main", tanks=None, acs=None):
-    """Rooftop plant on the top roof of `mass`: 0-2 water tanks and 2-6 AC
-    units. Called for EVERY level including pristine, so the damaged
-    grades have something to tip. Returns the prim paths."""
+    """Structured rooftop plant shared with the urban-fire pipeline.
+
+    The former quake-only implementation scattered 2-6 independently
+    rotated condensers over the roof.  They were numerically supported, but
+    an isolated unit near a damaged edge read as a random floating object in
+    the review scene.  Urban fire already solved the same visual defect with
+    a stair/lift bulkhead, aligned condenser rows, and a housekeeping pad;
+    use that implementation instead of maintaining two roof models.
+
+    ``tanks``/``acs`` are retained in the signature for compatibility.  No
+    production caller supplies them; an explicit value keeps the legacy
+    authoring path below for a diagnostic that needs an exact item count.
+    """
+    if tanks is None and acs is None:
+        from . import urban_fire
+        return urban_fire.dress_roof_urban(ctx, mass=mass)
+
+    # Legacy diagnostic path for callers requesting explicit counts.
     rng = ctx["rng"]
     m = ctx["info"]["masses"][mass]
     if len(m["levels"]) < 3:
@@ -12062,6 +12539,28 @@ def active_ladder():
     return LADDER_QC if _LADDER_MODE == "qc" else LADDER
 
 
+def _fit_scope_for_recipes(recipes, requested=None):
+    """Return the storeys that actually need synthetic interior structure.
+
+    A foundation ``TILT`` moves the intact shell and damages one lower bay.
+    Authoring fit-out on every storey made a 20-storey block expose 8,800
+    pristine slabs/columns/partitions and read as an unfinished BIM frame.
+    Only the first storey participates in `_foundation_tilt_distress`;
+    the real upper shell needs no fabricated interior behind an unbroken wall.
+
+    An explicit caller request always wins.  Every non-foundation recipe keeps
+    the historical ``None`` (all storeys) behaviour.
+    """
+    if requested is not None:
+        return requested
+    names = {str(name) for name, _kw in (recipes or ())}
+    if names == {"tilt_severe"}:
+        return (1,)
+    if names == {"settlement"}:
+        return ()
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -12087,14 +12586,28 @@ def wreck_building(stage, parent, style, placements, x, y, yaw, recipes,
         dress_roof(ctx)
         ctx["static_extra"] += list(ctx.get("roof_plant", []))
         return ctx
-    ctx["fit"] = fit_interior(stage, parent, info, mats, rng,
-                              storeys=fit_storeys, tag=tag)
+    fit_scope = _fit_scope_for_recipes(recipes, fit_storeys)
+    ctx["fit"] = fit_interior(
+        stage, parent, info, mats, rng, storeys=fit_scope, tag=tag,
+        # Quake-only opt-in.  The kit's top columns otherwise finish exactly
+        # at a zero-thickness roof tile and show through any missing patch as
+        # a forest of pristine posts protruding above the roof.
+        col_roof_shorten=COL_ROOF_SHORTEN_M)
+    if fit_scope is not None:
+        ctx["notes"].append(
+            "foundation fit-out limited to storeys {0}; intact upper shell "
+            "kept without synthetic exposed frame".format(
+                ",".join(str(q) for q in fit_scope) or "none"))
     dress_roof(ctx)
     ctx["fit"]["all"] += list(ctx.get("roof_plant", []))
     for name, kw in recipes:
         RECIPES[name](ctx, **(kw or {}))
-    _chip_report(ctx)                    # [chip] quake_flow: N chipped / M passed
     _b_settle_roof_plant(ctx, recipes)   # tanks / AC units follow their roof
+    # The final authoring invariant, before either PhysX or the exporter can
+    # hide provenance: no oversized pristine slab/roof/partition/column may
+    # enter settle as one rectangular rigid body.
+    _qc.normalize_detached_rectangles(ctx)
+    _chip_report(ctx)                    # [chip] quake_flow: N chipped / M passed
     # everything still standing is static for the settle
     ctx["static_extra"] += [e["p"].get("prim_path") for e in _els(ctx)
                             if e["p"].get("prim_path")]

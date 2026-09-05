@@ -32,6 +32,35 @@ import os
 
 _GEOM_SKIP = {"xformOpOrder"}   # transforms are re-baked as a world matrix
 
+_ASSET_LOCAL_PREFIX = "/isaac-sim/AirStack/scene_gen/assets/"
+_ASSET_MIRROR = (
+    "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
+    "scene_gen/assets/")
+_KIT_LOCAL_PREFIX = _ASSET_LOCAL_PREFIX + "kits/"
+_KIT_LEGACY_MIRROR = _ASSET_MIRROR + "kits/"
+_KIT_MIRROR = (
+    "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
+    "scene_gen/cache/sliced_kits/v1/")
+_MCE_TEXTURE_MIRROR = (
+    "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
+    "ModernCityEnvironment01/Materials/Textures/")
+_MODULAR_TEXTURE_MIRROR = (
+    "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
+    "ModularNeighborhood/Assets/Textures/")
+_MODULAR_TEXTURE_PREFIXES = (
+    "Bed_", "Chair_", "Fridge_", "Glass_", "Kitchen_", "Marble_",
+    "Office_Desk_", "Wood_",
+)
+_ISAAC_CORE_MDL_PREFIX = "/isaac-sim/kit/mdl/core/Base/"
+_MEGASCANS_RELATIVE_PACKS = frozenset((
+    "Brick_Wall_Worn", "Burnt_Forest_Floor", "Crushed_Asphalt_Ground",
+    "Damaged_Asphalt", "Damaged_Asphalt_02", "Damaged_Asphalt_B",
+    "Damaged_Concrete_Floor", "Dirt_Rough", "Road_Asphalt", "Road_Line",
+    "Road_Line_Dense", "Road_Line_White", "Road_Line_Yellow",
+    "Road_Marking_Line", "Soil_Mud", "Soil_Mud_Wet", "Swamp_Water",
+    "Wet_Destroyed_Asphalt", "Worn_Pavement",
+))
+
 
 def _reanchor_assets(v):
     """Rewrite asset-valued attribute values to their RESOLVED ABSOLUTE path.
@@ -59,6 +88,129 @@ def _reanchor_assets(v):
         return Sdf.AssetPathArray([Sdf.AssetPath(e.resolvedPath or e.path)
                                    for e in v])
     return v
+
+
+def portable_archetype_asset_path(path):
+    """Return the canonical portable path for a quake archetype asset.
+
+    Most paths have already been resolved to the local checkout by
+    :func:`_reanchor_assets`; that tree mirrors one-for-one onto Nucleus.
+    Two old material families can arrive unresolved instead:
+
+    * the project Megascans wrappers author ``./<pack>/<texture>``;
+    * ModernCityEnvironment kit materials author ``Textures/<texture>``
+      relative to their ``Materials`` layer.
+
+    Baking those strings into ``assets/archetype`` changes their anchor and
+    produces white fallback materials on another machine.  These mappings
+    are deliberately narrow; an unknown relative path is left visible for
+    the portability gate instead of being guessed.
+    """
+    path = str(path or "")
+    if path.startswith("omniverse:/") and not path.startswith("omniverse://"):
+        path = "omniverse://" + path[len("omniverse:/"):]
+    # Kit resolves built-in modules to an install-local absolute path while
+    # exporting.  Persisting that spelling makes the cache depend on the
+    # producer container's mount layout.  The basename is Kit's canonical
+    # cross-machine MDL search-path form (for example ``OmniPBR.mdl``).
+    if path.startswith(_ISAAC_CORE_MDL_PREFIX) and path.endswith(".mdl"):
+        return path.rsplit("/", 1)[-1]
+    if path.startswith(_KIT_LOCAL_PREFIX):
+        return _KIT_MIRROR + path[len(_KIT_LOCAL_PREFIX):]
+    if path.startswith(_KIT_LEGACY_MIRROR):
+        return _KIT_MIRROR + path[len(_KIT_LEGACY_MIRROR):]
+    if path.startswith(_ASSET_LOCAL_PREFIX):
+        return _ASSET_MIRROR + path[len(_ASSET_LOCAL_PREFIX):]
+    if path.startswith("airstack://scene_gen/assets/"):
+        return _ASSET_MIRROR + path[len("airstack://scene_gen/assets/"):]
+    for pack in _MEGASCANS_RELATIVE_PACKS:
+        prefix = "./" + pack + "/"
+        if path.startswith(prefix):
+            return (_ASSET_MIRROR + "materials/megascans/" +
+                    path[len("./"):])
+    # ``Textures/...`` is unfortunately used by TWO source packs.  The kit's
+    # facade maps carry a unique exported prefix; fit-out furniture does not.
+    # Keep this filename dispatch explicit and correct the short-lived wrong
+    # MCE spelling too, so the cache migration is idempotent after a retry.
+    if path.startswith(_MCE_TEXTURE_MIRROR):
+        name = path[len(_MCE_TEXTURE_MIRROR):]
+        if name.startswith(_MODULAR_TEXTURE_PREFIXES):
+            return _MODULAR_TEXTURE_MIRROR + name
+    if path.startswith("Textures/"):
+        name = path[len("Textures/"):]
+        if name.startswith("Game_ModernCityEnvironment01_"):
+            return _MCE_TEXTURE_MIRROR + name
+        if name.startswith(_MODULAR_TEXTURE_PREFIXES):
+            return _MODULAR_TEXTURE_MIRROR + name
+    return path
+
+
+def normalize_archetype_asset_paths(layer, verbose=True):
+    """Rewrite every asset field/composition arc in a small bake layer.
+
+    This runs on the reusable archetype before upload.  It intentionally uses
+    ``UsdUtils.ModifyAssetPaths`` here: unlike a flattened final city, these
+    compact by-value bake layers contain no poisoned kit ``assetInfo`` values
+    and the all-fields walk is what also reaches reference arcs and material
+    assets hidden outside a shader-only traversal.
+    """
+    from pxr import UsdUtils
+
+    changed = [0]
+
+    def _fix(path):
+        new_path = portable_archetype_asset_path(path)
+        if new_path != path:
+            changed[0] += 1
+        return new_path
+
+    UsdUtils.ModifyAssetPaths(layer, _fix)
+    if verbose:
+        print("[bake] portable archetype: {0} asset path(s) -> Nucleus"
+              .format(changed[0]))
+    return changed[0]
+
+
+def apply_material_binding_api(stage, verbose=True):
+    """Apply ``MaterialBindingAPI`` where this layer authors a binding.
+
+    ``MaterialBindingAPI(prim).Bind()`` authors a relationship even when the
+    API schema was never applied.  Kit happens to honour that relationship,
+    but core USD warns on every lookup and a cold archetype audit can emit
+    hundreds of thousands of warning lines.  Older exports contain exactly
+    that shape because :func:`export_object` copied relationships/bound
+    materials without applying the schema.
+
+    Only bindings authored in the stage's ROOT layer are repaired.  A binding
+    composed from a referenced prototype belongs to that referenced asset and
+    must not acquire an override in this cache layer merely because it was
+    visible during traversal.  Returns the number of prims changed.
+    """
+    from pxr import UsdShade
+
+    root = stage.GetRootLayer()
+    changed = 0
+    for prim in stage.TraverseAll():
+        if prim.HasAPI(UsdShade.MaterialBindingAPI):
+            continue
+        direct = False
+        for rel in prim.GetRelationships():
+            if not rel.GetName().startswith("material:binding"):
+                continue
+            try:
+                direct = any(spec.layer == root for spec in rel.GetPropertyStack())
+            except Exception:
+                direct = False
+            if direct:
+                break
+        if not direct:
+            continue
+        UsdShade.MaterialBindingAPI.Apply(prim)
+        changed += 1
+    if verbose:
+        print("[bake] portable archetype: MaterialBindingAPI applied to {0} "
+              "prim(s)".format(changed))
+    return changed
 
 
 def _bound_material_prim(prim):
@@ -280,7 +432,7 @@ def _carry_direct_binding(out, src_prim, dst_prim, resolve_material):
         return
     strength = UsdShade.MaterialBindingAPI.GetMaterialBindingStrength(
         db.GetBindingRel())
-    UsdShade.MaterialBindingAPI(dst_prim).Bind(
+    UsdShade.MaterialBindingAPI.Apply(dst_prim).Bind(
         UsdShade.Material(out.GetPrimAtPath(dst_mat_path)),
         bindingStrength=strength)
 
@@ -987,6 +1139,188 @@ def _shift_z(prim, dz):
     return hit
 
 
+_ROOF_PLANT_MATERIALS = ("tank_dark", "plant_metal")
+_ROOF_PLANT_XY_MERGE_M = 1.8
+
+
+def _point_clusters(points, counts, indices,
+                    xy_merge_m=_ROOF_PLANT_XY_MERGE_M):
+    """Physical objects in a by-material merged mesh.
+
+    Export merges every mesh sharing a material.  Face connectivity first
+    separates those sources; a small XY merge then rejoins the disconnected
+    barrel/legs/panels that make up one authored tank or AC unit.  Separate
+    roof objects remain separate, which is essential when only one of them
+    is floating.
+    """
+    import numpy as np
+
+    n = len(points)
+    parent = list(range(n))
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    counts = np.asarray(counts, dtype=np.int64)
+    indices = np.asarray(indices, dtype=np.int64)
+    off = 0
+    for count in counts:
+        face = indices[off:off + int(count)]
+        off += int(count)
+        if len(face):
+            for q in face[1:]:
+                union(int(face[0]), int(q))
+    fine = {}
+    for i in range(n):
+        fine.setdefault(find(i), []).append(i)
+    groups = list(fine.values())
+    if len(groups) <= 1:
+        return groups
+
+    P = np.asarray(points, dtype=np.float64)
+    boxes = []
+    for group in groups:
+        q = P[group]
+        boxes.append((float(q[:, 0].min()), float(q[:, 1].min()),
+                      float(q[:, 0].max()), float(q[:, 1].max())))
+    p2 = list(range(len(groups)))
+
+    def find2(a):
+        while p2[a] != a:
+            p2[a] = p2[p2[a]]
+            a = p2[a]
+        return a
+
+    def union2(a, b):
+        ra, rb = find2(a), find2(b)
+        if ra != rb:
+            p2[ra] = rb
+
+    m = float(xy_merge_m)
+    for i, (ax0, ay0, ax1, ay1) in enumerate(boxes):
+        for j in range(i + 1, len(boxes)):
+            bx0, by0, bx1, by1 = boxes[j]
+            if (ax0 - m <= bx1 and bx0 - m <= ax1
+                    and ay0 - m <= by1 and by0 - m <= ay1):
+                union2(i, j)
+    merged = {}
+    for i, group in enumerate(groups):
+        merged.setdefault(find2(i), []).extend(group)
+    return list(merged.values())
+
+
+def reseat_roof_plant_clusters_in_file(
+        path, grade=0.0, tolerance=0.12,
+        material_names=_ROOF_PLANT_MATERIALS, dry_run=False, verbose=True):
+    """Seat merged rooftop-tank/AC clusters in an exported quake archetype.
+
+    The author-time support pass fixes new bakes, but an exported library can
+    predate it.  A by-material merge may contain several independent roof
+    objects, so moving the whole mesh to fix one floater corrupts every other
+    one.  This pass finds physical clusters, measures upward-facing support
+    under each footprint with ``quake_collapse._deck_support_z``, and shifts
+    only that cluster's point indices in world Z.  With no surviving support,
+    it lands at grade; an object already at/below grade is left buried.
+
+    Returns one result dict per shifted cluster.  No file is changed when
+    ``dry_run`` is true.
+    """
+    import numpy as np
+    from pxr import Gf, Usd, UsdGeom, UsdShade, Vt
+    try:
+        from . import quake_collapse as qc
+    except ImportError:
+        import quake_collapse as qc
+
+    stage = Usd.Stage.Open(path)
+    if stage is None:
+        raise RuntimeError("cannot open " + path)
+    wanted = set(material_names)
+    xcache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    meshes = []
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdGeom.Mesh) or not prim.IsActive():
+            continue
+        mat, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
+        if not mat or mat.GetPath().name not in wanted:
+            continue
+        mesh = UsdGeom.Mesh(prim)
+        points = mesh.GetPointsAttr().Get()
+        counts = mesh.GetFaceVertexCountsAttr().Get()
+        indices = mesh.GetFaceVertexIndicesAttr().Get()
+        if not points or not counts or not indices:
+            continue
+        local = np.asarray([[q[0], q[1], q[2]] for q in points],
+                           dtype=np.float64)
+        M = np.asarray(xcache.GetLocalToWorldTransform(prim), dtype=np.float64)
+        world = np.hstack([local, np.ones((len(local), 1))]) @ M
+        groups = _point_clusters(world[:, :3], counts, indices)
+        meshes.append(dict(prim=prim, mesh=mesh, material=mat.GetPath().name,
+                           local=local, matrix=M, world=world, groups=groups,
+                           shifts=[]))
+
+    exclude = tuple(str(rec["prim"].GetPath()) for rec in meshes)
+    changed = []
+    for rec in meshes:
+        for cluster_i, group in enumerate(rec["groups"]):
+            q = rec["world"][group, :3]
+            lo, hi = q.min(axis=0), q.max(axis=0)
+            base_z = float(lo[2])
+            cx, cy = float((lo[0] + hi[0]) / 2.0), float((lo[1] + hi[1]) / 2.0)
+            half_w = max(0.3, float(hi[0] - lo[0]) * 0.575)
+            half_d = max(0.3, float(hi[1] - lo[1]) * 0.575)
+            support = qc._deck_support_z(
+                stage, "/", cx, cy, half_w, half_d, base_z,
+                exclude=exclude)
+            if support is None and base_z <= float(grade) + float(tolerance):
+                continue                       # already grounded/buried
+            target = float(grade) if support is None else float(support)
+            gap = base_z - target
+            if gap <= float(tolerance):
+                continue
+            dz = -gap
+            rec["shifts"].append((group, dz))
+            changed.append(dict(
+                path=str(rec["prim"].GetPath()), material=rec["material"],
+                cluster=cluster_i, base_z=round(base_z, 4),
+                support_z=(None if support is None else round(float(support), 4)),
+                dz=round(dz, 4)))
+
+    if not dry_run:
+        for rec in meshes:
+            if not rec["shifts"]:
+                continue
+            world = rec["world"].copy()
+            for group, dz in rec["shifts"]:
+                world[np.asarray(group, dtype=np.int64), 2] += dz
+            local_h = world @ np.linalg.inv(rec["matrix"])
+            local = local_h[:, :3] / np.maximum(local_h[:, 3:4], 1e-12)
+            rec["mesh"].GetPointsAttr().Set(
+                Vt.Vec3fArray.FromNumpy(local.astype(np.float32)))
+            lo, hi = local.min(axis=0), local.max(axis=0)
+            rec["mesh"].CreateExtentAttr().Set(Vt.Vec3fArray([
+                Gf.Vec3f(*[float(v) for v in lo]),
+                Gf.Vec3f(*[float(v) for v in hi])]))
+        if changed:
+            stage.GetRootLayer().Save()
+    if verbose:
+        print("[roof_plant_reseat] {0}: {1} cluster(s) shifted{2}".format(
+            os.path.basename(path), len(changed),
+            " (dry run)" if dry_run else ""))
+        for row in changed:
+            print("  {path} cluster {cluster}: base={base_z:.3f}, "
+                  "support={support_z}, dz={dz:+.3f}".format(**row))
+    return changed
+
+
 def reseat_meshes_in_file(path, grade=0.0, air_tol=_AIR_TOL_M, min_ovl=0.20,
                           names=("log_", "debris", "frag_", "brk_", "bole_"),
                           ground_only=("bole_",),
@@ -1425,7 +1759,7 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
         bound_here = False
         mp = material_for(prim)
         if mp:
-            UsdShade.MaterialBindingAPI(dm.GetPrim()).Bind(
+            UsdShade.MaterialBindingAPI.Apply(dm.GetPrim()).Bind(
                 UsdShade.Material(out.GetPrimAtPath(mp)))
             _note(mp, prim.GetName()); bound_here = True
         for sub in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)):
@@ -1435,7 +1769,7 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
                                  strip_dead=do_merge)
             smp = material_for(sp)
             if smp:
-                UsdShade.MaterialBindingAPI(ds.GetPrim()).Bind(
+                UsdShade.MaterialBindingAPI.Apply(ds.GetPrim()).Bind(
                     UsdShade.Material(out.GetPrimAtPath(smp)))
                 _note(smp, sp.GetName()); bound_here = True
         if not bound_here:
@@ -1686,7 +2020,7 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
                 continue
             n_merged_prims += 1
             if mat:
-                UsdShade.MaterialBindingAPI(p).Bind(
+                UsdShade.MaterialBindingAPI.Apply(p).Bind(
                     UsdShade.Material(out.GetPrimAtPath(mat)))
             else:
                 unbound.append(p)
@@ -1700,7 +2034,7 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
     fallback = wood_mat[0] or (object_mats[0] if object_mats else None)
     if fallback:
         for prim in unbound:
-            UsdShade.MaterialBindingAPI(prim).Bind(
+            UsdShade.MaterialBindingAPI.Apply(prim).Bind(
                 UsdShade.Material(out.GetPrimAtPath(fallback)))
 
     out.GetRootLayer().Save()

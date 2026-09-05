@@ -129,3 +129,83 @@ def test_the_probe_itself_flags_a_synthetic_floater():
     assert out, "the synthetic tank was not even found as a candidate"
     assert all(not r["ok"] for r in out), \
         "the probe passed a prop with nothing whatsoever underneath it"
+
+
+def test_export_repair_moves_only_the_floating_cluster(tmp_path):
+    """A merged material Mesh may contain both a seated and a floating AC.
+
+    Repairing the whole Mesh would bury the first while seating the second.
+    The export repair must discover the disconnected clusters and modify only
+    the floating cluster's point range; dry-run must not modify either one.
+    """
+    import numpy as np
+    from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+
+    rp = _rp()
+    from disaster import bake
+
+    path = str(tmp_path / "merged_roof_plant.usd")
+    stage = Usd.Stage.CreateNew(path)
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    UsdGeom.Xform.Define(stage, Sdf.Path("/Baked"))
+    mat = UsdShade.Material.Define(
+        stage, Sdf.Path("/Baked/Looks/plant_metal"))
+
+    def box_data(cx, cy, base_z, sx, sy, sz):
+        hx, hy = sx / 2.0, sy / 2.0
+        z0, z1 = base_z, base_z + sz
+        pts = [(cx + dx, cy + dy, z)
+               for z in (z0, z1)
+               for dx, dy in ((-hx, -hy), (hx, -hy),
+                              (hx, hy), (-hx, hy))]
+        faces = ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4),
+                 (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7))
+        return pts, faces
+
+    # One Mesh, two disconnected boxes more than XY_MERGE_M apart.
+    plant = UsdGeom.Mesh.Define(stage, Sdf.Path("/Baked/merged_plant_metal"))
+    pts, faces = [], []
+    for cx, base in ((-4.0, 0.0), (4.0, 2.0)):
+        p, f = box_data(cx, 0.0, base, 1.0, 1.0, 1.0)
+        off = len(pts)
+        pts.extend(p)
+        faces.extend(tuple(off + q for q in face) for face in f)
+    plant.CreatePointsAttr([Gf.Vec3f(*q) for q in pts])
+    plant.CreateFaceVertexCountsAttr([4] * len(faces))
+    plant.CreateFaceVertexIndicesAttr([q for face in faces for q in face])
+    plant.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    UsdShade.MaterialBindingAPI(plant.GetPrim()).Bind(mat)
+
+    # Its upper surface is exactly z=0 beneath both objects.
+    deck = UsdGeom.Mesh.Define(stage, Sdf.Path("/Baked/deck"))
+    p, f = box_data(0.0, 0.0, -0.2, 12.0, 4.0, 0.2)
+    deck.CreatePointsAttr([Gf.Vec3f(*q) for q in p])
+    deck.CreateFaceVertexCountsAttr([4] * len(f))
+    deck.CreateFaceVertexIndicesAttr([q for face in f for q in face])
+    deck.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    stage.GetRootLayer().Save()
+    stage = None
+
+    before = rp.check_archetype(path, verbose=False)
+    assert len(before) == 2
+    assert sum(not q["ok"] for q in before) == 1
+    dry = bake.reseat_roof_plant_clusters_in_file(
+        path, dry_run=True, verbose=False)
+    assert len(dry) == 1 and dry[0]["dz"] == -2.0
+    assert rp.check_archetype(path, verbose=False) == before
+
+    changed = bake.reseat_roof_plant_clusters_in_file(path, verbose=False)
+    assert len(changed) == 1 and changed[0]["dz"] == -2.0
+    after = rp.check_archetype(path, verbose=False)
+    assert len(after) == 2 and all(q["ok"] for q in after)
+    assert sorted(round(q["base_z"], 3) for q in after) == [0.0, 0.0]
+
+    # Independent point check: both disconnected objects now retain the same
+    # one-metre height and rest on the deck; neither was deleted or collapsed.
+    stage = Usd.Stage.Open(path)
+    P, counts, indices = rp._world_points(
+        stage.GetPrimAtPath("/Baked/merged_plant_metal"))
+    groups = rp._clusters(P, counts, indices)
+    assert sorted(round(float(P[g, 2].min()), 3) for g in groups) == [0.0, 0.0]
+    assert all(np.isclose(P[g, 2].max() - P[g, 2].min(), 1.0)
+               for g in groups)

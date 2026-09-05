@@ -90,8 +90,16 @@ def test_is_gac_bake_recognises_the_swapped_path_only():
     assert q._is_gac_bake(
         "/isaac-sim/AirStack/scene_gen/assets/gac_quake/"
         "gac_SM_Building_02_DG3_s0.usd")
+    # A cache/review/Nucleus mirror may relocate the bake.  Its identity is
+    # the strict filename contract, not one particular parent directory.
+    assert q._is_gac_bake(
+        "/tmp/eq_review_gac_overlay_r14/gac_SM_Building_30_DG3_s317.usd")
+    assert q._is_gac_bake(
+        "omniverse://host:443/Projects/cache/gac_SM_Building_11_TILT_s42.usdc")
     assert not q._is_gac_bake(_B02_USD)            # still the original GAC asset
     assert not q._is_gac_bake("omniverse://host/archetype/bld_office_DG3.usd")
+    assert not q._is_gac_bake("/tmp/gac_quake/gac_foo.usd")
+    assert not q._is_gac_bake("/tmp/gac_SM_Building_30_DG3_latest.usd")
 
 
 def test_gac_name_of_strips_root_and_extension():

@@ -9,6 +9,35 @@ metadata:
 
 # Skill: Build Earthquake Scenes (urban building damage)
 
+## Status on 2026-09-04 — r14 loose-rectangle gate and overlay routing
+
+The current review contract is one change round followed by one exact 2D map
+and one live Isaac scene; stop for user review after that.  The isolated r14
+candidate and all measurements are recorded in
+`scene_gen/_plans/eq_round6_progress.md`.
+
+Two invariants from this round are load-bearing:
+
+1. A detached oversized slab, roof, partition, or column may not reach export
+   as one pristine box.  Both native-kit and sliced bakes must call
+   `quake_collapse.normalize_detached_rectangles(ctx)`.  It inspects
+   `ctx["loose"]`, uses provenance rather than one archetype's naming scheme,
+   fractures with a private prim-path RNG, and aborts on survivors while
+   leaving genuinely supported structure alone.  Do not replace this with a
+   per-building name list.
+2. A swapped GAC bake is identified by its strict filename contract
+   `gac_<name>_<grade>_s<seed>.usd[a|c]`, never by requiring the parent folder
+   to be named `gac_quake`.  Cache, review-overlay and Nucleus paths relocate
+   valid bakes.  The old directory test made five overlay bakes fall through
+   `_mono_pass`, producing 22 damage records instead of 17 and damaging those
+   buildings twice.  `test_quake_gac_city.py` carries relocation positives and
+   malformed-name negatives.
+
+The exact live validation scene is `eq250_rect_review_r14_valid`: 17/17 prims
+and style/grade/X/Y/yaw assignments match r13, authored-ready in 110 s, first
+Hydra frame 1.5 s, and the launcher called `timeline.play()`.  Canonical bakes
+remain untouched pending the user's visual verdict.
+
 ## Status on 2026-08-30 (evening) — round 5 is in flight, read this first
 
 The first 500 m scene (eq500_gui, M7.8, 143 buildings) was shown to the user

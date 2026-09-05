@@ -80,10 +80,6 @@ for _p in (_HERE, _SG):
 from disaster import fire_bake as fb                           # noqa: E402
 from disaster import quake_flow as qf                          # noqa: E402
 from disaster import quake_sliced as qs                        # noqa: E402
-# Reused rather than re-derived — see the module docstring. Both files live
-# in this same directory with no package `__init__.py`, so a plain module
-# import (not a relative one) is how every file here reaches its siblings.
-from test_quake_sliced import fake_sliced_building              # noqa: E402
 
 try:
     from pxr import Gf, Sdf, Usd, UsdGeom                      # noqa: E402
@@ -102,6 +98,12 @@ def _plan(grade, btype="urm", seed=5, **kw):
     helper `test_quake_sliced.py` uses, kept here rather than imported so
     this file's own assertions are explicit about which `info`/`plan` they
     are reading (importing `_plan` too would hide that from a reader)."""
+    # Keep the pytest-based synthetic fixture out of the documented
+    # ``--verify`` path.  Isaac's bare-USD interpreter deliberately ships no
+    # pytest, and a cold check of already-baked files does not need the
+    # planner fixture at all.  Importing it at module scope made the verifier
+    # fail before it opened its first USD.
+    from test_quake_sliced import fake_sliced_building
     pls, style, grid = fake_sliced_building(seed=seed, **kw)
     info = qf.describe(style, pls, 0.0, 0.0, 0.0)
     info["type"] = btype

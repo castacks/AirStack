@@ -441,6 +441,59 @@ def _variants(manifest, style, grade):
     return out
 
 
+def attach_damage_metadata(records, placements, manifest):
+    """Attach the *chosen bake row* to each serialisable building record.
+
+    ``assemble`` historically returned only style/grade/footprint data even
+    though the exact row selected for the reference swap also carries the
+    physically meaningful fall side and measured rubble reach.  Downstream
+    review tools therefore looked the row up again by ``(style, grade)``.
+    That is ambiguous as soon as a level has variants, and it prevents a
+    people planner from placing an interior casualty at the opening that is
+    actually visible on the composed building.
+
+    Match by the placement's final reference URL first; fall back to the
+    first row for old callers that did not retain it.  The fallback semantics
+    are exactly ``_clear_under_heaps``'s existing semantics.  The record stays
+    JSON-safe and small: only placement-relevant scalar/list/dict fields are
+    copied, never the full manifest row.
+    """
+    by_prim = {str(p.get("prim_path")): p for p in placements or ()
+               if p.get("prim_path")}
+    fields = ("fall_sides", "failure_sides", "reach_m", "extent_m",
+              "crown_m", "type", "btype")
+    for rec in records or ():
+        p = by_prim.get(str(rec.get("prim") or ""))
+        if p is None:
+            continue
+        usd = str(p.get("usd") or "")
+        rec["damage_usd"] = usd
+        grade = str(rec.get("grade") or "DG0")
+        if grade.startswith("AEC_"):
+            grade = grade[4:]
+        grade = grade.split("+", 1)[0]
+        rows = _variants(manifest or {}, rec.get("style"), grade)
+        row = next((r for r in rows if str(r.get("usd") or "") == usd),
+                   rows[0] if rows else None)
+        if not row:
+            continue
+        rec["damage_level"] = str(row.get("level") or row.get("grade")
+                                  or grade)
+        for key in fields:
+            if key in row and row.get(key) is not None:
+                rec[key] = row[key]
+        # Old bakes predate the explicit structural-failure field.  Their
+        # fall sides were the same collapse planner's only side ledger and
+        # are exactly what the review map has always rendered as failures.
+        # Make that compatibility decision explicit once in the record.
+        if "failure_sides" not in rec and rec.get("fall_sides"):
+            rec["failure_sides"] = list(rec["fall_sides"])
+            rec["failure_sides_source"] = "legacy_fall_sides"
+        elif "failure_sides" in rec:
+            rec["failure_sides_source"] = "manifest"
+    return records
+
+
 # ---------------------------------------------------------------------------
 # SAME_ART ORIGINALS (round 5, WP A): a whole-asset building that is the same
 # ART as the kit (`kit_substitute.SAME_ART` — today just ModernCityEnvironment)
@@ -734,7 +787,7 @@ def _is_gac(usd):
 
 def _is_gac_bake(usd):
     """True once a placement has already been swapped to a per-building GAC
-    quake bake (`gac_<name>_<grade>_sN.usd` under `assets/gac_quake/`).
+    quake bake (`gac_<name>_<grade>_sN.usd`).
 
     `style_of` cannot recognise that filename (it is not `bld_`-prefixed)
     and the swapped path no longer contains "GreatAmericanCity/" either
@@ -743,8 +796,22 @@ def _is_gac_bake(usd):
     an already-swapped GAC building would fall through to `_mono_pass` and
     get rigid-leaned a SECOND time on top of its own bake's damage. Same
     double-transform trap `style_of`'s own docstring describes for the kit
-    foundation family (`_TILT`/`_SETTLE`/`_OV`), same fix shape."""
-    return "/{0}/".format(GAC_BAKE_DIRNAME) in str(usd).replace("\\", "/")
+    foundation family (`_TILT`/`_SETTLE`/`_OV`), same fix shape.
+
+    Recognition is deliberately based on the bake's filename contract, not
+    its parent directory.  Review overlays, local caches and Nucleus mirrors
+    legitimately relocate the same bake; tying this guard to `gac_quake/`
+    made those relocated bakes fall through and get damaged a second time."""
+    base = os.path.basename(str(usd).split("?", 1)[0].replace("\\", "/"))
+    stem, ext = os.path.splitext(base)
+    if ext.lower() not in (".usd", ".usda", ".usdc") or not stem.startswith("gac_"):
+        return False
+    prefix, marker, seed = stem.rpartition("_s")
+    if not marker or not seed.isdigit():
+        return False
+    return any(prefix.endswith("_" + grade)
+               for grade in ("DG0", "DG1", "DG2", "DG3", "DG4", "DG5",
+                             "SETTLE", "TILT", "OV"))
 
 
 def _is_aec(usd):
@@ -1036,15 +1103,18 @@ def _swap_reference(stage, prim, p, usd, ssf=1.0):
                               [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
     rng_ = cache.ComputeWorldBound(prim).ComputeAlignedRange()
     if rng_.IsEmpty():
-        print("[quake] *** {0} composed NOTHING under {1} — the cell is now "
-              "an empty lot".format(os.path.basename(str(usd)), prim.GetPath()))
+        raise RuntimeError(
+            "[quake] {0} composed NOTHING under {1}; refusing to leave an "
+            "empty damaged-building lot".format(
+                os.path.basename(str(usd)), prim.GetPath()))
     else:
         sz = rng_.GetSize()
         if max(sz[0], sz[1]) < SWAP_MIN_FOOTPRINT_M * ssf:
-            print("[quake] *** {0} composed at {1:.2f} x {2:.2f} x {3:.2f} m "
-                  "under {4} — not a building; a scale/frame trap".format(
-                      os.path.basename(str(usd)), sz[0], sz[1], sz[2],
-                      prim.GetPath()))
+            raise RuntimeError(
+                "[quake] {0} composed at {1:.2f} x {2:.2f} x {3:.2f} m "
+                "under {4}; refusing a scale/frame-trapped damaged building"
+                .format(os.path.basename(str(usd)), sz[0], sz[1], sz[2],
+                        prim.GetPath()))
     return x, y, yaw
 
 
@@ -1349,6 +1419,7 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
                 tally[lvl] = tally.get(lvl, 0) + 1
                 records.append(dict(style=style, x=x, y=y, intensity=round(inten, 3),
                                     grade=lvl, prim=path,
+                                    yaw_deg=round(float(p.get("yaw_deg", 0.0)), 3),
                                     W=round(float(rec.get("W", 20.0)), 1),
                                     D=round(float(rec.get("D", 20.0)), 1),
                                     H=round(H, 1)))
@@ -1370,6 +1441,7 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
         # values, so this changes nothing for them and fixes GAC.
         records.append(dict(style=style, x=x, y=y, intensity=round(inten, 3),
                             grade=grade, prim=path,
+                            yaw_deg=round(float(p.get("yaw_deg", 0.0)), 3),
                             W=round(float(rec.get("W", 20.0)), 1),
                             D=round(float(rec.get("D", 20.0)), 1),
                             H=round(H, 1)))
@@ -1403,6 +1475,11 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
         import traceback
         traceback.print_exc()
         print("[quake] monolith pass FAILED: {0}".format(exc))
+    # Preserve the exact selected bake's failure direction and measured
+    # rubble reach for review maps and damage-tied casualty placement.  This
+    # is metadata only; all reference swaps and damage decisions above are
+    # already complete.
+    attach_damage_metadata(records, placements, manifest)
     stats = {"buildings": n, "tally": tally, "tilted": tilted, "missing": missing,
              "records": records, "foundation": n_found,
              "soft_soil": (soft.centre + soft.radii) if soft else None,
@@ -1886,7 +1963,8 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
                 tally[label] = tally.get(label, 0) + 1
                 records.append(dict(style="mono", x=x, y=y, intensity=round(inten, 3),
                                     grade=label, prim=path, W=round(W, 1),
-                                    D=round(D, 1), H=round(H, 1), mono=True))
+                                    D=round(D, 1), H=round(H, 1), mono=True,
+                                    yaw_deg=round(float(p.get("yaw_deg", 0.0)), 3)))
                 continue
             # aec_quake FAILED (or the geometry did not match its
             # expectations) — fall straight through to the generic monolith
@@ -1916,7 +1994,8 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
         tally[label] = tally.get(label, 0) + 1
         records.append(dict(style="mono", x=x, y=y, intensity=round(inten, 3),
                             grade=label, prim=path, W=round(W, 1), D=round(D, 1),
-                            H=round(H, 1), mono=True))
+                            H=round(H, 1), mono=True,
+                            yaw_deg=round(float(p.get("yaw_deg", 0.0)), 3)))
     if verbose and n:
         print("[quake] {0} monolith(s): {1} ruin swap(s), {2} heavy lean(s), {3} mild "
               "lean(s), {4} aec ladder(s)".format(n, n_ruin, n_heavy, n_mild, n_aec))

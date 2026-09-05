@@ -247,6 +247,28 @@ def _rubble_fields(res):
     return out
 
 
+def _failure_fields(res):
+    """Structural failure faces, kept separate from rubble fall direction.
+
+    ``_rubble_fields`` intentionally unions every pile, including the shallow
+    windrow made by a fallen parapet.  Calling that union "failed faces" made
+    the 2-D review map promise missing façade on sides where the bake only
+    contained curb-side parapet debris.  The collapse planner is the source
+    of truth for actual shell/frame failure; record its sides independently.
+    """
+    sides, modes = [], []
+    for plan in (res.get("quake_collapse") or []):
+        mode = str(plan.get("mode") or "")
+        if mode and mode not in modes:
+            modes.append(mode)
+        for side in (plan.get("sides") or []):
+            if side in ("S", "E", "N", "W") and side not in sides:
+                sides.append(side)
+    if not sides and not modes:
+        return {}
+    return {"failure_sides": sides, "failure_modes": modes}
+
+
 def merge_manifest(path, records):
     old = []
     if os.path.exists(path):
@@ -342,7 +364,12 @@ def main():
                     static += paths + res0["static_extra"]
                     row.append((st, level, X, y, paths + res0["authored"]))
                     continue
-                seed = SEED + (abs(hash((st, level))) % 100000)
+                # Python's built-in hash is salted per process: two bakes
+                # with the same ARCH_SEED previously produced different
+                # failure faces and rubble, making one-building A/B review
+                # impossible.  Use the fracture module's stable crc32 seed.
+                seed = fracture.stable_seed(
+                    "quake_archetype", SEED, st, level)
                 tf0 = time.time()
                 res = qf.wreck_building(stage, parent, st, pls, X, y, 0.0, grade,
                                         random.Random(seed), np.random.default_rng(seed),
@@ -355,9 +382,16 @@ def main():
                 vel.update(res["velocity"])
                 everything = (paths + res["loose"] + res["static_extra"]
                               + res["authored"] + list(res["fit"]["all"]))
-                timing[(st, level)] = dict(fracture_s=round(time.time() - tf0, 1),
-                                           loose=len(res["loose"]),
-                                           **_rubble_fields(res))
+                rect = res.get("detached_rectangles") or {}
+                timing[(st, level)] = dict(
+                    fracture_s=round(time.time() - tf0, 1),
+                    loose=len(res["loose"]),
+                    detached_rectangles_replaced=int(rect.get("replaced", 0)),
+                    detached_rectangle_pieces=int(rect.get("pieces", 0)),
+                    detached_rectangle_violations=len(rect.get("violations") or ()),
+                    damage_seed=seed,
+                    **_failure_fields(res),
+                    **_rubble_fields(res))
                 row.append((st, level, X, y, everything))
                 print("[qarch] {0:<16} {1:<7} {2:5d} loose {3:5d} static {4:5d} authored  {5:.0f} s"
                       .format(st, level, len(res["loose"]), len(res["static_extra"]),
@@ -368,7 +402,8 @@ def main():
             n_loose_authored = len(loose)
             budget_report = []
             if loose:
-                budget_seed = SEED + (abs(hash(("settle_budget", st))) % 100000)
+                budget_seed = fracture.stable_seed(
+                    "quake_settle_budget", SEED, st)
                 loose, geo, budget_report = qc.apply_settle_budget(
                     stage, loose, SETTLE_BODY_BUDGET,
                     root=lambda p: piece_root.get(p, PARENT),
@@ -500,6 +535,34 @@ def main():
                                           recenter=(X, Y, 0.0),
                                           merge=("off" if MERGE == "off" else "on"),
                                           stats_out=es):
+                        # A reusable archetype is itself a published cache,
+                        # not merely an intermediate consumed by the final
+                        # scene freeze.  Normalize every local/shared asset
+                        # path before validation so opening this file directly
+                        # from Nucleus on another machine cannot fall back to
+                        # white materials or local-only rubble references.
+                        out_layer = Sdf.Layer.FindOrOpen(out)
+                        portable_paths = bake.normalize_archetype_asset_paths(
+                            out_layer, verbose=False)
+                        out_stage = Usd.Stage.Open(out_layer)
+                        binding_apis = bake.apply_material_binding_api(
+                            out_stage, verbose=False)
+                        if portable_paths or binding_apis:
+                            if not out_layer.Save():
+                                raise RuntimeError(
+                                    "failed to save portable metadata in " + out)
+                        del out_stage
+                        # The live author/settle passes protect new roof
+                        # equipment, but the final by-material merge can hide
+                        # several physical tanks/AC units inside one Mesh.
+                        # Audit and repair those clusters against the actual
+                        # EXPORTED support geometry before accepting the file.
+                        # This is deterministic geometry work, not another
+                        # simulation, and shifts only an unsupported cluster's
+                        # point range (never every item sharing its material).
+                        roof_plant_reseated = \
+                            bake.reseat_roof_plant_clusters_in_file(
+                                out, verbose=False)
                         m, ok, ms = bake.validate(out)
                         mb = round(os.path.getsize(out) / 1e6, 2)
                         print("[qarch]   {0:<34} {1:6.2f} MB  {2:6d} prims  "
@@ -520,6 +583,10 @@ def main():
                                             raw_mb=raw_mb, raw_prims=raw_prims,
                                             airborne_off=airborne_by.get(
                                                 (st_, level), 0),
+                                            roof_plant_reseated=len(
+                                                roof_plant_reseated),
+                                            portable_paths=portable_paths,
+                                            binding_apis=binding_apis,
                                             **timing.get((st_, level), {}), **settle_info))
                         miss += ms
                 except Exception as exc:
