@@ -72,6 +72,12 @@ def test_vram_probe_selects_the_configured_gpu_row():
     assert "if index >= len(rows):" in src
 
 
+def test_prop_settle_uses_single_support_mesh_not_whole_ground_scope():
+    src = LAUNCHER.read_text()
+    assert 'ground_path=city["parent"] + "/ground/asphalt_base"' in src
+    assert 'ground_path=city["parent"] + "/ground")' not in src
+
+
 def test_yawed_record_uses_its_real_rectangular_footprint():
     blocks = _helpers()["_building_blocks"]
     rec = {"x": 0.0, "y": 0.0, "W": 60.0, "D": 12.0, "H": 80.0,

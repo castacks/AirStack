@@ -765,7 +765,15 @@ class QuakeCityApp:
                 [p["prim_path"] for p in placements
                  if p.get("settle") and p.get("prim_path")
                  and p["prim_path"].startswith(city["parent"] + "/")],
-                ground_path=city["parent"] + "/ground")
+                # The whole-region asphalt mesh is sufficient support for
+                # these few toppled street props.  Passing the ground Scope
+                # recursively put CollisionAPI on every lane dash, bike
+                # marking, pavement strip, and material prim (thousands of
+                # edits) and could crash RTX scene-db while syncing them.
+                # Sidewalks are only centimetres above this plane, so using
+                # the base preserves the visible resting pose while making
+                # the settle both bounded and reliable.
+                ground_path=city["parent"] + "/ground/asphalt_base")
         add_sky(stage, resolve_sky(config))
         _disable_sky_sun(stage)
         self.placements = placements
