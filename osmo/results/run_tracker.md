@@ -13,7 +13,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 
 | Disaster | Locale | Level | Scene ready | Frontier | Lawnmower | VLFM | CoNavGPT2 | RayFronts/RAVEN |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| **Fire** | **Urban** | L1 | 🟩 | 🟩 | 🟧 | 🟩 | 🟨 | 🟦 |
+| **Fire** | **Urban** | L1 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Fire** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -38,7 +38,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 
 | Level | What is done | What is left | Intended run folder |
 |---:|---|---|---|
-| L1 | Canonical frozen scene; Frontier and VLFM baselines | Lawnmower rerun, CoNavGPT2 in progress + RayFronts | `urban_fire_l12_8robot_optimized_pod56/2026-09-05_12-49-49` |
+| L1 | Canonical frozen scene; Frontier, VLFM and CoNavGPT2 baselines | Lawnmower rerun + RayFronts | `urban_fire_l12_8robot_optimized_pod56/2026-09-05_12-49-49` |
 | L2 | Canonical frozen scene is published and passes a fresh Nucleus cold-open | Four baselines + RayFronts | `urban_fire_l12_8robot_optimized_batch/<timestamp>` |
 | L3 | Canonical frozen scene; all four shared-planner baselines | RayFronts | `urban_fire_l3_8robot_optimized_1gpu/2026-09-05_06-00-18`; `urban_fire_l3_remaining_8robot_optimized_pod57/2026-09-05_07-46-06` |
 
@@ -68,9 +68,12 @@ all eight drones at team RTF 0.2115 and is uploaded and verified. L1 Lawnmower
 exhausted two attempts (first the perception readiness gate, then takeoff with
 robot 8 pre-arm timing out and robot 4's action relay timing out); neither
 failed attempt was uploaded, so it requires a focused rerun. L1 CoNavGPT2
-passed 8/8 takeoff and began its 600-s timed team search at 17:05 UTC on pod
-56; its live RTF was approximately 0.193 at 215 simulated seconds. Two out-of-bounds L2 spawns were also fixed
-before L2 is attempted. The
+passed 17/17 steps and was uploaded and NAS-verified at 18:01 UTC. Its 600.06
+simulated seconds took 3194.47 wall seconds (RTF 0.18784) over 27 VLM rounds.
+The Fire runner was stopped at the iteration-5 boundary before an L2 stack was
+started so pod 56 could switch to Urban Earthquake; its stopped L2 stub was not
+uploaded. Two out-of-bounds L2 Fire spawns were already fixed for the later
+focused rerun. The
 corrected 2-GPU workflows `airstack-mission-8robot-2gpu-5`
 and `-6` remain queued as backups.
 
@@ -187,7 +190,7 @@ uploaded.
 | 3 | `airstack-mission-1gpu-57` | Hurricane/Suburban L3 lawnmower | 1 | 61 min | PASSED — uploaded and verified at 03:40 UTC |
 | 4 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | — | STOPPED — two attempts hit the obsolete disparity gate; zero scored/uploaded runs |
 | 3 | `airstack-mission-1gpu-56` | Urban Fire L1/L2 Frontier | 2 | — | STOPPED — launched before canonical publication; zero scored/uploaded runs |
-| 5 | `airstack-mission-1gpu-56` | Urban Fire L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | ≤12 h | RUNNING — L1 Frontier passed/uploaded at RTF 0.219 and VLFM passed/uploaded at RTF 0.2115; Lawnmower failed twice and needs a focused rerun; CoNavGPT2 began its 600-s timed search at 17:05 UTC (live RTF ~0.193); Fire L2 is deferred for the Earthquake cutover |
+| 5 | `airstack-mission-1gpu-56` | Urban Fire L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | 5 h 11 min | STOPPED FOR EARTHQUAKE CUTOVER — L1 Frontier, VLFM and CoNavGPT2 passed/uploaded (RTFs 0.219, 0.2115, 0.18784); Lawnmower failed twice and needs a focused rerun; Fire L2 remains deferred |
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4 | ≤12 h | RUNNING — Frontier full iteration retry 2/2 started at 17:58 UTC; attempt 1 failed after robot 6 stalled at 6.5 m and was not uploaded; zero completed/uploaded yet |
