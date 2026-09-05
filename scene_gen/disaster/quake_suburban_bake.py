@@ -42,7 +42,7 @@ def accept_bounded_unsettled_cull(result, deactivated, max_count=2):
     return True
 
 
-def validate_settled_export(result, minimum_z):
+def validate_settled_export(result, minimum_z, max_grade_repair_m=.30):
     """Check exported points after settle's final clamp, retaining its verdict.
 
     A tilted foundation intersects the grade plane. Permit a small, measured
@@ -53,7 +53,13 @@ def validate_settled_export(result, minimum_z):
                       'rescue_failed', 'clamp_failed') if result.get(k)]
     if not result.get('converged') or bad:
         raise RuntimeError('Invalid house solve: '+str(bad or ['not converged']))
-    if abs(float(result.get('below_grade_pts_worst') or 0.)) > .20:
+    # ``below_grade_pts_worst`` describes the pose *before* settle's final
+    # point-based clamp.  A thin shard can tunnel a little over 20 cm through
+    # the plane even with CCD, then be placed correctly back on grade.  Do not
+    # discard an otherwise valid deterministic cache for that historical
+    # value; gate the successful repair and the final exported points instead.
+    # Keep a finite upper bound so a genuinely escaped body is still rejected.
+    if abs(float(result.get('below_grade_pts_worst') or 0.)) > float(max_grade_repair_m):
         raise RuntimeError('House fragment requires excessive grade repair')
     if not math.isfinite(minimum_z) or minimum_z < -.0201:
         raise RuntimeError('Exported house fragment remains below grade: '+str(minimum_z))

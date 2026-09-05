@@ -15,6 +15,19 @@ NUCLEUS_ROOT="${NUCLEUS_ROOT:-omniverse://airlab-nucleus.andrew.cmu.edu:443/Proj
 NUCLEUS_DATASET="${NUCLEUS_DATASET:-${NUCLEUS_ROOT}/final_disaster_dataset}"
 CACHE_REMOTE="${CACHE_REMOTE:-${NUCLEUS_ROOT}/scene_gen/assets/suburban_quake_cache/fractured_bearing_v5}"
 
+# A direct multi-level invocation must never be fail-fast.  Route it through
+# the independent retry queue; the worker below is intentionally responsible
+# for exactly one level.  This makes the safe behaviour the default instead
+# of relying on a caller to remember a separate wrapper.
+if [ "${SUBURBAN_QUAKE_SINGLE_LEVEL:-0}" != 1 ]; then
+  set -- $LEVELS
+  if [ "$#" -gt 1 ]; then
+    exec env SUBURBAN_QUAKE_SINGLE_LEVEL=1 LEVELS="$LEVELS" \
+      REPO="$REPO" LOG_DIR="$LOG_DIR" \
+      bash "$REPO/scene_gen/tools/suburban_earthquake_queue.sh"
+  fi
+fi
+
 say() { printf '\n== %s ==\n' "$*"; }
 die() { printf 'FAILED: %s\n' "$*" >&2; exit 1; }
 now() { date +%s; }

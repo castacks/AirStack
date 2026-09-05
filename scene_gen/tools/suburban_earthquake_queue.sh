@@ -18,7 +18,7 @@ for level in $LEVELS; do
       "$level" "$attempt" "$ATTEMPTS" "$(date -u +%FT%TZ)"
     (
       cd "$REPO" || exit 1
-      LEVELS="$level" LOG_DIR="$LOG_DIR" \
+      SUBURBAN_QUAKE_SINGLE_LEVEL=1 LEVELS="$level" LOG_DIR="$LOG_DIR" \
         bash scene_gen/tools/suburban_earthquake_cell.sh
     )
     rc=$?
