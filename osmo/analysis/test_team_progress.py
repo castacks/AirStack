@@ -5,7 +5,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from team_progress import (
+    TOTAL_RUNS_PER_BASELINE,
     assign_targets,
+    markdown,
     point_in_polygon,
     resample_window,
     route_length,
@@ -42,3 +44,14 @@ def test_resampling_and_first_physical_visit():
     assert visits[7] == 5.0
     assert visitors[7] == 1
     assert np.allclose(trajectory[-1], [10, 20, 0])
+
+
+def test_average_table_shows_final_matrix_denominator():
+    assert TOTAL_RUNS_PER_BASELINE == 48
+    rendered = markdown([], [{
+        "method": "Frontier", "runs": 7, "progress": 0.1,
+        "progress_auc": 0.1, "actual_path_m": 1000,
+        "ideal_all_path_m": 500, "ppl": 0.05,
+    }])
+    assert "| Frontier | 7/48 |" in rendered
+    assert "Completed / total runs" in rendered

@@ -216,9 +216,9 @@ A physical visit means any drone came within **12 m horizontally** of a GT victi
 
 ### Average by baseline
 
-| Method | Runs | Avg progress | Avg time-integrated progress | Avg actual team path | Avg ideal all-target path | Avg PPL |
+| Method | Completed / total runs | Avg progress | Avg time-integrated progress | Avg actual team path | Avg ideal all-target path | Avg PPL |
 |---|---:|---:|---:|---:|---:|---:|
-| CoNavGPT2 | 5 | 0.144 | 0.097 | 5.09 km | 1.62 km | 0.0092 |
-| Frontier | 7 | 0.421 | 0.273 | 9.78 km | 2.24 km | 0.0345 |
-| Lawnmower | 7 | 0.494 | 0.299 | 12.34 km | 2.07 km | 0.0390 |
-| VLFM | 7 | 0.124 | 0.103 | 4.04 km | 1.96 km | 0.0049 |
+| CoNavGPT2 | 5/48 | 0.144 | 0.097 | 5.09 km | 1.62 km | 0.0092 |
+| Frontier | 7/48 | 0.421 | 0.273 | 9.78 km | 2.24 km | 0.0345 |
+| Lawnmower | 7/48 | 0.494 | 0.299 | 12.34 km | 2.07 km | 0.0390 |
+| VLFM | 7/48 | 0.124 | 0.103 | 4.04 km | 1.96 km | 0.0049 |

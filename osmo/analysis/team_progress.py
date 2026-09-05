@@ -47,6 +47,9 @@ ANNOT_TOPIC = "/gcs/annotations/bboxes"
 VISIT_RADIUS_M = 12.0
 BUDGET_S = 600.0
 METRIC_VERSION = 2
+# Four disasters x two locales x three levels x two scored fleet sizes
+# (4-drone and 8-drone), per benchmark-disaster-dataset/SKILL.md.
+TOTAL_RUNS_PER_BASELINE = 48
 START_RE = re.compile(r"sim budget \d+(?:\.\d+)? s starts NOW, at sim t=([\d.]+) s")
 ROBOT_RE = re.compile(r"airstack-robot-desktop-(\d+)")
 SCENE_RE = re.compile(r"(fire|hurricane|tornado|earthquake)(urban|suburban)l(\d+)", re.I)
@@ -402,10 +405,10 @@ def markdown(rows, avgs):
                    f'{r["progress_auc"]:.3f} | {r["actual_path_m"]/1000:.2f} km | '
                    f'{r["ideal_all_path_m"]/1000:.2f} km | {r["ppl"]:.4f} |')
     out += ["", "### Average by baseline", "",
-            "| Method | Runs | Avg progress | Avg time-integrated progress | Avg actual team path | Avg ideal all-target path | Avg PPL |",
+            "| Method | Completed / total runs | Avg progress | Avg time-integrated progress | Avg actual team path | Avg ideal all-target path | Avg PPL |",
             "|---|---:|---:|---:|---:|---:|---:|"]
     for a in avgs:
-        out.append(f'| {a["method"]} | {a["runs"]} | {a["progress"]:.3f} | '
+        out.append(f'| {a["method"]} | {a["runs"]}/{TOTAL_RUNS_PER_BASELINE} | {a["progress"]:.3f} | '
                    f'{a["progress_auc"]:.3f} | {a["actual_path_m"]/1000:.2f} km | '
                    f'{a["ideal_all_path_m"]/1000:.2f} km | {a["ppl"]:.4f} |')
     return "\n".join(out) + "\n"
