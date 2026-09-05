@@ -13,9 +13,9 @@ Last reconciled against `/media/share/coa-sei`: **2026-09-04**.
 
 | Disaster | Locale | Level | Scene ready | Frontier | Lawnmower | VLFM | CoNavGPT2 | RayFronts/RAVEN |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| **Fire** | **Urban** | L1 | 🟧 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| **Fire** | **Urban** | L2 | 🟧 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| **Fire** | **Urban** | L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| **Fire** | **Urban** | L1 | 🟩 | 🟧 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Fire** | **Urban** | L2 | 🟩 | 🟧 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Fire** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -41,10 +41,12 @@ Last reconciled against `/media/share/coa-sei`: **2026-09-04**.
 | L3 | 47/47 bakes complete and normalized on `airstack-dev-198`; RTX OOM was mitigated, then the content gate found 24/85 manifest records drifting from the live Kit layout | Regenerate/reconcile the authoritative Kit dump and fire manifest, then freeze, upload and cold-verify | `urban_fire_8robot/<timestamp>` |
 
 No completed Urban Fire benchmark result is currently present under
-`/media/share/coa-sei`. On 2026-09-04 both L1 and L2 resolved their expected
-Nucleus filenames, but `Usd.Stage` could not open either published file. Both
-preflight attempts were stopped before scoring and were not uploaded. The
-cells must be re-exported/re-uploaded and cold-open verified before rerunning.
+`/media/share/coa-sei`. All three scenes are complete. On 2026-09-04 the L1
+and L2 benchmark preflights resolved their expected Nucleus filenames, but
+`Usd.Stage` could not open the published copies. Both Frontier preflights were
+stopped before scoring and were not uploaded. This is a Nucleus publication
+problem, not unfinished scene generation: republish/cold-open the completed
+cells, then rerun Frontier and start the three untouched methods.
 
 ### Suburban
 
@@ -130,8 +132,9 @@ progress with another agent. No benchmark result has been submitted yet.
 
 1. 🟨 Finish the Hurricane/Suburban L3 lawnmower rerun on pod 57; its hardened
    pre-arm/takeoff step has passed and the mission is entering the search.
-2. 🟧 Re-export/re-upload and cold-open verify Urban Fire L1 and L2 on Nucleus.
-   Their current filenames resolve, but both USD stages fail to open.
+2. 🟧 Republish and cold-open verify the completed Urban Fire L1 and L2 scenes
+   on Nucleus. Their current filenames resolve, but both published USD stages
+   fail to open.
 3. 🟩 Fire/Suburban L1 and Tornado/Suburban L3 CoNavGPT2 focused reruns passed.
 4. 🟦 Run the queued 2-GPU RayFronts/RAVEN suburban missions.
 5. 🟦 Run the four shared-planner baselines on Urban Fire L1 and L2 after the
