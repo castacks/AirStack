@@ -477,6 +477,12 @@ if FREEZE_OUT:
 SNAP_DIR = _env(
     "SNAP_DIR",
     os.path.join(FREEZE_OUT, "snaps") if FREEZE_OUT and FREEZE_SNAPS else "")
+# The exact-casualty review is executed as a standalone helper inside this
+# process and intentionally gets its output contract from the environment.
+# Publish the resolved default as well as an explicit caller value so that a
+# frozen cell never falls back to the helper's old interactive-review folder.
+if SNAP_DIR:
+    os.environ["SNAP_DIR"] = SNAP_DIR
 PARENT = "/World/stage/generated"
 
 

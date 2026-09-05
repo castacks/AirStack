@@ -61,6 +61,11 @@ def test_launcher_no_longer_groups_all_buildings_at_fixed_pose():
     assert "top_h=70.0, obl_dist=55.0, obl_h=28.0" not in src
 
 
+def test_resolved_snapshot_directory_is_shared_with_review_helper():
+    src = LAUNCHER.read_text()
+    assert 'os.environ["SNAP_DIR"] = SNAP_DIR' in src
+
+
 def test_yawed_record_uses_its_real_rectangular_footprint():
     blocks = _helpers()["_building_blocks"]
     rec = {"x": 0.0, "y": 0.0, "W": 60.0, "D": 12.0, "H": 80.0,
