@@ -21,6 +21,17 @@ its own notes. -->
 
 - Nothing yet.
 
+## 0.20.8 — 2026-09-04
+
+- **Docs builds no longer copy AirSim scene binaries.** The `same-dir`
+  plugin publishes the whole repo tree as site content, and the downloaded
+  Microsoft AirSim UE4 scenes (`simulation/ms-airsim/assets/scenes/`) and
+  environments (`simulation/ms-airsim/environments/`) were not excluded —
+  every `mkdocs build` or `docs serve` on a machine with scenes fetched
+  copied ~15 GB of Unreal `.debug` binaries and zips into the site
+  directory. Both directories are now listed in `exclude_docs`. No pages or
+  links referenced them.
+
 ## 0.20.7 — 2026-08-30
 
 - **Fixed 404s on every README-sourced docs page.** The `exclude_docs`
