@@ -3402,7 +3402,12 @@ def dress_roof_urban(ctx, mass=None):
     # all the way through), so that is where `prepare` stashes it. The kit
     # path's `plan_fire` never sets this key, so `.get` falls straight back
     # to `top` there -- byte-identical.
-    z = ctx["fire"].get("deck_z", m["top"]) + 0.02
+    # ``dress_roof_urban`` is also the shared structured-roof implementation
+    # for earthquake kit buildings.  A quake ctx has no ``fire`` plan (and
+    # kit roofs are flat at ``m["top"]``), while the sliced/GAC fire path
+    # still supplies its measured ``deck_z`` exactly as before.
+    fire = ctx.get("fire") or {}
+    z = fire.get("deck_z", m["top"]) + 0.02
     W, D = m["W"], m["D"]
     made, kind = [], ctx.setdefault("roof_plant_kind", {})
     mat_metal = ctx["mats"]["plant_metal"]
