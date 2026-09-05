@@ -79,13 +79,40 @@ def main():
                 prim.SetActive(False)
                 deactivated.append(str(path))
         from disaster.quake_suburban_bake import (
-            accept_bounded_unsettled_cull,validate_settled_export)
+            accept_bounded_grade_cull,accept_bounded_unsettled_cull,
+            validate_settled_export)
+        cull_limit=int(os.environ.get('QUAKE_MAX_UNSETTLED_CULL','2'))
         accept_bounded_unsettled_cull(
-            result,len(deactivated),
-            max_count=int(os.environ.get('QUAKE_MAX_UNSETTLED_CULL','2')))
+            result,len(deactivated),max_count=cull_limit)
         if deactivated:
             print('[quake_bake] DEACTIVATED_UNSETTLED '+
                   str(len(deactivated))+' '+','.join(deactivated),flush=True)
+
+        # A deterministic thin shard can tunnel farther than the bounded
+        # post-clamp repair allows even after every live continuation.  Do
+        # what the urban quake/fire bakers already do for a pathological chip:
+        # omit at most the remaining tiny cull budget, never accept a deep
+        # teleport and never discard a real failed pile.
+        grade_limit=float(os.environ.get('QUAKE_MAX_GRADE_REPAIR_M','.30'))
+        grade_count=int(result.get('below_grade_pts') or 0)
+        grade_examples=list(result.get('below_grade_examples') or [])
+        grade_deactivated=[]
+        grade_budget=max(0,cull_limit-len(deactivated))
+        if (abs(float(result.get('below_grade_pts_worst') or 0.)) >
+                grade_limit and 0 < grade_count <= grade_budget and
+                len(grade_examples) >= grade_count):
+            for path,_z in grade_examples[:grade_count]:
+                prim=stage.GetPrimAtPath(Sdf.Path(str(path)))
+                if prim and prim.IsValid() and prim.IsActive():
+                    prim.SetActive(False)
+                    grade_deactivated.append(str(path))
+        accept_bounded_grade_cull(
+            result,len(grade_deactivated),max_count=grade_budget,
+            max_grade_repair_m=grade_limit)
+        if grade_deactivated:
+            print('[quake_bake] DEACTIVATED_BELOW_GRADE '+
+                  str(len(grade_deactivated))+' '+
+                  ','.join(grade_deactivated),flush=True)
         active_loose=[path for path in meta['loose_paths']
                       if stage.GetPrimAtPath(path).IsActive()]
         minimum_z=min(p[2] for path in active_loose
@@ -99,6 +126,7 @@ def main():
         meta['physics_bake']={k:v for k,v in result.items() if isinstance(v,(str,int,float,bool))}
         meta['physics_bake']['bodies']=len(meta['loose_paths'])
         meta['physics_bake']['deactivated_unsettled_paths']=deactivated
+        meta['physics_bake']['deactivated_below_grade_paths']=grade_deactivated
         meta['physics_bake'].update(exported)
         meta['physics_bake']['pre_clamp_faults']=result.get('faults',[])
         from shapely.geometry import MultiPoint

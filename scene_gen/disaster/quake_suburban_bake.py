@@ -42,6 +42,34 @@ def accept_bounded_unsettled_cull(result, deactivated, max_count=2):
     return True
 
 
+def accept_bounded_grade_cull(result, deactivated, max_count=2,
+                              max_grade_repair_m=.30):
+    """Accept removal of a tiny fragment tail that tunnelled too deeply.
+
+    The shared settle pass already clamps every below-grade body back onto
+    grade.  A large correction can nevertheless overlap the settled pile, so
+    the suburban cache gate rejects it.  For one or two pathological chips,
+    removing those exact bodies is safer than either accepting the teleport
+    or rebuilding the same deterministic failure forever.  Preserve the
+    measured pre-cull state in the sidecar; larger failures remain fatal.
+    """
+    before = int(result.get('below_grade_pts') or 0)
+    worst = abs(float(result.get('below_grade_pts_worst') or 0.))
+    if before <= 0 or worst <= float(max_grade_repair_m):
+        return True
+    result['pre_deactivate_below_grade_pts'] = before
+    result['pre_deactivate_below_grade_pts_worst'] = float(
+        result.get('below_grade_pts_worst') or 0.)
+    result['pre_deactivate_below_grade_examples'] = list(
+        result.get('below_grade_examples') or [])
+    result['deactivated_below_grade'] = int(deactivated)
+    if before > int(max_count) or int(deactivated) != before:
+        return False
+    result['below_grade_pts'] = 0
+    result['below_grade_pts_worst'] = 0.0
+    return True
+
+
 def validate_settled_export(result, minimum_z, max_grade_repair_m=.30):
     """Check exported points after settle's final clamp, retaining its verdict.
 

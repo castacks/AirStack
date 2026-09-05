@@ -241,6 +241,27 @@ def test_export_gate_checks_final_points_and_does_not_hide_failed_solve():
             validate_settled_export(dict(r,**changes),z)
 
 
+def test_only_a_complete_tiny_below_grade_tail_can_be_culled():
+    from disaster.quake_suburban_bake import (
+        accept_bounded_grade_cull, validate_settled_export)
+    one = dict(converged=True, still_moving=0, clamp_failed=0,
+               below_grade_pts=1, below_grade_pts_worst=-.40,
+               below_grade_examples=[('/House/chip', -.40)])
+    assert accept_bounded_grade_cull(one, 1)
+    assert one['below_grade_pts'] == 0
+    assert one['below_grade_pts_worst'] == 0.
+    assert one['pre_deactivate_below_grade_pts'] == 1
+    assert one['pre_deactivate_below_grade_pts_worst'] == -.40
+    assert validate_settled_export(one, 0.)['post_clamp_verified']
+
+    incomplete = dict(converged=True, still_moving=0, clamp_failed=0,
+                      below_grade_pts=1, below_grade_pts_worst=-.40,
+                      below_grade_examples=[('/House/chip', -.40)])
+    assert not accept_bounded_grade_cull(incomplete, 0)
+    with pytest.raises(RuntimeError):
+        validate_settled_export(incomplete, 0.)
+
+
 def test_only_a_complete_tiny_unsettled_tail_can_be_culled():
     from disaster.quake_suburban_bake import accept_bounded_unsettled_cull
     one=dict(converged=False,still_moving=1,
