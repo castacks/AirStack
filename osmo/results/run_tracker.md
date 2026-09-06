@@ -184,7 +184,7 @@ after Urban Earthquake L1–L2; L3 follows L1 on pod 57. Each level will run
 Frontier, Lawnmower, VLFM and CoNavGPT2 with the optimized 8-robot profile.
 L1 Frontier attempt 1 failed takeoff after robot 5 was auto-disarmed and all
 three bounded takeoff requests were rejected; it was retained locally and was
-not uploaded. The mission's clean automatic attempt 2 is pending.
+not uploaded. The mission's clean automatic attempt 2 started at 00:16 UTC.
 No Suburban Earthquake benchmark result has been accepted yet.
 
 ## Failed and superseded attempts
@@ -230,7 +230,7 @@ uploaded.
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
-| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | RUNNING — Frontier attempt 1 failed robot-5 takeoff and was not uploaded; clean automatic attempt 2 pending in `earthquake_suburban_l1_8robot_optimized_pod57/2026-09-05_23-45-04` |
+| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | RUNNING — Frontier attempt 1 failed robot-5 takeoff and was not uploaded; clean automatic attempt 2 started at 00:16 UTC in `earthquake_suburban_l1_8robot_optimized_pod57/2026-09-05_23-45-04` |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L1–L2 completes |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — starts after Suburban Earthquake L1 completes |
 
