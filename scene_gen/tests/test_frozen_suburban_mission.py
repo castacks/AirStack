@@ -634,6 +634,14 @@ def test_gpu_physics_is_selected_before_world_construction():
     assert 'world_settings["device"] = _PHYSICS_DEVICE' in launcher
     assert "is_gpu_dynamics_enabled()" in launcher
     assert 'broadphase != "GPU"' in launcher
+    # Pegasus uses CPU-facing articulation addForce/addTorque calls. Direct
+    # GPU API mode makes those illegal, even while GPU dynamics is enabled.
+    construct = launcher.index("self.pg._world = World(**world_settings)")
+    play = launcher.index("self.timeline.stop()", construct)
+    compatibility = launcher.index(
+        '"/physics/suppressReadback", False', construct)
+    assert construct < compatibility < play
+    assert "physics_context.enable_fabric(False)" in launcher
 
 
 def test_gpu_physics_crosses_both_isaac_compose_boundaries():

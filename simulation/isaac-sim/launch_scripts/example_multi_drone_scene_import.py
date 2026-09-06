@@ -911,13 +911,29 @@ class PegasusApp:
         self.world = self.pg.world
 
         physics_context = self.world.get_physics_context()
-        physics_device = SimulationManager.get_physics_sim_device()
+        if _GPU_PHYSICS:
+            # Pegasus drives each rotor through the ordinary PhysX
+            # articulation addForce/addTorque API. Isaac's CUDA *pipeline*
+            # (suppressReadback + Fabric) enables eENABLE_DIRECT_GPU_API,
+            # where those calls are illegal even though CUDA rigid-body
+            # dynamics itself supports them through CPU readback. Keep the
+            # expensive broadphase/solver on CUDA, but retain the CPU-facing
+            # articulation API Pegasus requires. This must happen before the
+            # first reset/play that creates the PhysX scene.
+            physics_context.enable_fabric(False)
+            carb.settings.get_settings().set_bool(
+                "/physics/suppressReadback", False)
+        physics_device = self.world.device
         broadphase = physics_context.get_broadphase_type()
         gpu_dynamics = physics_context.is_gpu_dynamics_enabled()
+        suppress_readback = carb.settings.get_settings().get_as_bool(
+            "/physics/suppressReadback")
         print("[isaac] physics effective device={0}, broadphase={1}, "
-              "gpu_dynamics={2} (requested={3})".format(
-                  physics_device, broadphase, gpu_dynamics, _PHYSICS_DEVICE),
-              flush=True)
+              "gpu_dynamics={2}, suppress_readback={3}, fabric={4} "
+              "(requested={5})".format(
+                  physics_device, broadphase, gpu_dynamics,
+                  suppress_readback, False if _GPU_PHYSICS else "default",
+                  _PHYSICS_DEVICE), flush=True)
         if _GPU_PHYSICS and (broadphase != "GPU" or not gpu_dynamics):
             raise RuntimeError(
                 "ISAAC_SIM_GPU_PHYSICS requested but PhysX did not enable "
