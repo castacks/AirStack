@@ -234,12 +234,15 @@ to advance to takeoff at 08:06 UTC. All eight takeoffs passed, including robot
 entered their timed windows at sim t=92.24–101.60 s; early `/clock` samples put
 the live team RTF near 0.046.
 The exact outstanding pod-57 list is L1 Lawnmower, VLFM and CoNavGPT2,
-followed by L3 Frontier, Lawnmower, VLFM and CoNavGPT2. A detached
-queue watcher now parses each completed 4-cell mission log, generates a
-focused mission for only methods that exhausted both attempts, and runs up to
-three focused rounds before advancing from L1 to L3 or leaving Earthquake
-work. This uses the generalized short-mission failure parser in `f9cdab38`;
-passed iterations continue to upload immediately and failed ones never upload.
+followed by L3 Frontier, Lawnmower, VLFM and CoNavGPT2. Detached queue watcher
+PID 3797074 enforces the 12-hour submission cap by stopping the current L1
+batch at the clean iteration-3 boundary, then launching the remaining L1 cells
+in a new bounded mission. L3 is likewise split into Frontier+Lawnmower and
+VLFM+CoNavGPT2 missions. Each cell gets one attempt per bounded mission; any
+failure is then generated as its own inspectable focused rerun for up to three
+rounds before advancing levels. This uses the generalized short-mission failure
+parser in `f9cdab38`; passed iterations are uploaded and verified promptly,
+while failed iterations never upload.
 
 ## Failed and superseded attempts
 
@@ -286,9 +289,9 @@ uploaded.
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
-| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | RUNNING — Frontier passed/uploaded/NAS-verified at team RTF 0.04565; Lawnmower recovered a robot-4 heartbeat wedge, passed all eight takeoffs and is in its timed search at live RTF ~0.046. VLFM and CoNavGPT2 remain queued. Any method exhausting attempts is automatically queued in a focused rerun before L3 |
+| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | RUNNING — Frontier passed/uploaded/NAS-verified at team RTF 0.04565; Lawnmower recovered a robot-4 heartbeat wedge, passed all eight takeoffs and is in its timed search at live RTF ~0.046. The batch stops at the next clean cell boundary; VLFM and CoNavGPT2 then run in a fresh bounded mission. Failed cells are automatically focused before L3 |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L1–L2 completes |
-| 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding; starts only after L1 plus any focused L1 reruns complete, then automatically focuses any L3 methods that exhaust attempts |
+| 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding; split into Frontier+Lawnmower then VLFM+CoNavGPT2 bounded missions after L1 and its focused reruns. Any failed L3 cell is automatically focused before advancing |
 | 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; mission and overlay validation passed. Starts after Suburban Earthquake L2 |
 | 11 | `airstack-mission-1gpu-56` | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.0–11.6 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L1 under a fresh 12-hour cap |
 
