@@ -233,12 +233,14 @@ No Suburban Earthquake benchmark result has been accepted yet.
 
 ## Next work queue
 
-1. 🟨 Complete the active Urban Earthquake batches on pods 56 and 57; upload
-   each passed iteration immediately and publish no failures.
-2. 🟦 Run Suburban Earthquake L1 then L3 on pod 57, and L2 on pod 56,
-   immediately after those active batches finish.
-3. 🟧 Rerun Urban Fire L1 Lawnmower and all four Urban Fire L2 methods.
-4. 🟦 Run the queued 2-GPU RayFronts/RAVEN suburban missions.
+1. 🟨 Complete Urban Earthquake L2 VLFM and CoNavGPT2 on pod 56;
+   upload each passed iteration immediately and publish no failures.
+2. 🟦 Run Suburban Earthquake L1 then L3 on pod 57, and L2 on pod 56.
+   Any Earthquake method that exhausts its normal attempts is inserted as a
+   focused rerun before either pod advances beyond its Earthquake queue.
+3. 🟦 Run Urban Hurricane L1–L2 on pod 56 after its Earthquake queue.
+4. 🟧 Rerun Urban Fire L1 Lawnmower and all four Urban Fire L2 methods.
+5. 🟦 Run the queued 2-GPU RayFronts/RAVEN suburban missions.
 
 ## Active batch plan
 
