@@ -146,7 +146,9 @@ assigned search sectors. Three distinct four-baseline missions passed dry-run
 and geometry/config validation with pod 57's assigned renderer index 2 and GPU
 PhysX enabled. They are queued after the remaining Suburban Earthquake L1/L3
 work, one level per fresh maximum-12-hour runner. Only passed iterations will
-upload, and each upload must be NAS-verified before the queue advances.
+upload, and each upload must be NAS-verified before the queue advances. The
+detached pod-57 Tornado queue watcher is PID 943128; it is explicitly held on
+the paused Earthquake watcher and cannot start until that predecessor exits.
 
 ### Suburban
 
