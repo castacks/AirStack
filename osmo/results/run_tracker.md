@@ -25,9 +25,9 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Tornado** | **Urban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
-| **Tornado** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
-| **Tornado** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Tornado** | **Urban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
+| **Tornado** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
+| **Tornado** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -149,6 +149,13 @@ work, one level per fresh maximum-12-hour runner. Only passed iterations will
 upload, and each upload must be NAS-verified before the queue advances. The
 detached pod-57 Tornado queue watcher is PID 943128; it is explicitly held on
 the paused Earthquake watcher and cannot start until that predecessor exits.
+The separate shared-RAVEN mission was submitted as
+`airstack-mission-8robot-2gpu-9` at 15:33 EDT on 2026-09-06 and is scheduling.
+It runs L1→L2→L3 from the same frozen plans with one shared RayFronts server on
+offboard GPU 1, GPU PhysX enabled, a 12-hour mission cap and a 48-hour
+inspectable pod hold. Passed iterations upload and verify immediately; the
+final whole-tree upload is disabled so failed attempts remain local and a
+successful upload cannot tear down the pod.
 
 ### Suburban
 
@@ -365,6 +372,7 @@ hours for inspection and corrective reruns.
 | `airstack-mission-8robot-2gpu-6` | Fire/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
 | `airstack-mission-8robot-2gpu-7` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | CANCELED — replaced by the active split run on pod 56 |
 | `airstack-mission-8robot-2gpu-8` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | CANCELED — replaced by the active split run on pod 57 |
+| `airstack-mission-8robot-2gpu-9` | Tornado/Urban L1–L3 RayFronts | PENDING/SCHEDULING — submitted 2026-09-06 15:33 EDT; 12 h mission cap, 48 h inspectable pod; passed-only immediate NAS uploads |
 
 The broad Fire and Tornado batches started at `19-51-50` / `19-58-31` were
 stopped during startup once the accepted pre-optimization sweep was found.
