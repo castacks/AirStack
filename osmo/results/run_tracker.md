@@ -21,7 +21,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Hurricane** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
-| **Hurricane** | **Urban** | L3 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| **Hurricane** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -101,11 +101,10 @@ Development history only:
 
 ### Urban
 
-Urban Hurricane L1–L2 are canonically exported and ready for benchmarking.
-Their eight shared-planner baselines are queued on pod 56 after the active
+Urban Hurricane L1–L3 are canonically exported and ready for benchmarking.
+Their twelve shared-planner baselines are queued on pod 56 after the active
 Urban Earthquake L2 batch and the already queued Suburban Earthquake L2 batch.
-Urban Hurricane L3 is not yet recorded as ready, and no Urban Hurricane
-benchmark result exists yet.
+No Urban Hurricane benchmark result exists yet.
 
 ### Suburban
 
@@ -262,7 +261,7 @@ while failed iterations never upload.
 2. 🟦 Run Suburban Earthquake L1 then L3 on pod 57, and L2 on pod 56.
    Any Earthquake method that exhausts its normal attempts is inserted as a
    focused rerun before either pod advances beyond its Earthquake queue.
-3. 🟦 Run Urban Hurricane L1–L2 on pod 56 after its Earthquake queue.
+3. 🟦 Run Urban Hurricane L1–L3 on pod 56 after its Earthquake queue.
 4. 🟧 Rerun Urban Fire L1 Lawnmower and all four Urban Fire L2 methods.
 5. 🟦 Run the queued 2-GPU RayFronts/RAVEN suburban missions.
 
@@ -294,6 +293,7 @@ uploaded.
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding; split into Frontier+Lawnmower then VLFM+CoNavGPT2 bounded missions after L1 and its focused reruns. Any failed L3 cell is automatically focused before advancing |
 | 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; mission and overlay validation passed. Starts after Suburban Earthquake L2 |
 | 11 | `airstack-mission-1gpu-56` | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.0–11.6 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L1 under a fresh 12-hour cap |
+| 12 | `airstack-mission-1gpu-56` | Hurricane/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — starts after Hurricane/Urban L2 under a fresh 12-hour cap; canonical Nucleus cold-open, GT, overlay and safe-spawn validation required before launch |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
