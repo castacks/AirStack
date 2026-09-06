@@ -226,6 +226,10 @@ team RTF 0.04565. The 15.54 GB accepted iteration was copied to
 `/media/share/coa-sei/earthquake_suburban_l1_8robot_optimized_pod57/2026-09-06_03-24-12/iter_001__earthquakesuburbanl1v1__frontier`
 and its passed `iteration.json`, bag manifest and byte-for-byte rsync state were
 verified before it was counted. L1 Lawnmower started immediately afterward.
+Its first startup left robot 4 with one stale heartbeat and no live connection;
+the other seven robots were healthy. A robot-4-only bringup restart preserved
+the simulation, restored its heartbeat and odometry, and allowed the iteration
+to advance to takeoff at 08:06 UTC.
 The exact outstanding pod-57 list is L1 Lawnmower, VLFM and CoNavGPT2,
 followed by L3 Frontier, Lawnmower, VLFM and CoNavGPT2. A detached
 queue watcher now parses each completed 4-cell mission log, generates a
@@ -279,7 +283,7 @@ uploaded.
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
-| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | RUNNING — Frontier passed/uploaded/NAS-verified at team RTF 0.04565; Lawnmower is active. VLFM and CoNavGPT2 remain queued. Any method exhausting attempts is automatically queued in a focused rerun before L3 |
+| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | RUNNING — Frontier passed/uploaded/NAS-verified at team RTF 0.04565; Lawnmower recovered a robot-4 heartbeat wedge with a scoped bringup restart and is in takeoff. VLFM and CoNavGPT2 remain queued. Any method exhausting attempts is automatically queued in a focused rerun before L3 |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L1–L2 completes |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding; starts only after L1 plus any focused L1 reruns complete, then automatically focuses any L3 methods that exhaust attempts |
 | 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; mission and overlay validation passed. Starts after Suburban Earthquake L2 |
