@@ -198,7 +198,31 @@ def credit_target_circle(gt, first_hits, center, radius, rel_t, robot):
                 first_hits[target] = hit
 
 
-def load_static_and_plan_starts(bag: Path):
+def load_annotation_gt(path):
+    """Read the launcher's canonical PEOPLE-only annotation JSON."""
+    entries = json.loads(Path(path).read_text())
+    gt = {}
+    for index, entry in enumerate(entries):
+        if entry.get("class") != "person":
+            continue
+        center = entry.get("bbox_world", {}).get("center_xyz_m", [])
+        if len(center) >= 2:
+            gt[index] = (float(center[0]), float(center[1]))
+    if not gt:
+        raise RuntimeError(f"no person records in GT annotation {path}")
+    return gt
+
+
+def annotation_name(scene):
+    """Map `Earthquake / Urban L1` to the launcher's annotation basename."""
+    match = re.fullmatch(r"(\w+) / (\w+) L(\d+)", scene)
+    if not match:
+        raise ValueError(f"cannot form annotation name from scene {scene!r}")
+    disaster, locale, level = match.groups()
+    return f"{disaster.title()}{locale.title()}L{level}V1.json"
+
+
+def load_static_and_plan_starts(bag: Path, fallback_gt=None):
     """Load static GT, sector polygons, and first global-plan stamps."""
     factory = DecoderFactory()
     gt, sectors, plan_starts, plan_xy, origins = {}, {}, {}, {}, {}
@@ -251,6 +275,8 @@ def load_static_and_plan_starts(bag: Path):
             if (gt and expected_plans and len(plan_starts) >= expected_plans
                     and len(origins) >= expected_plans):
                 break
+    if not gt and fallback_gt:
+        gt = load_annotation_gt(fallback_gt)
     if not gt:
         raise RuntimeError(f"no person_fill GT markers in {bag}")
     return gt, sectors, plan_starts, plan_xy, origins
@@ -499,11 +525,18 @@ def route_length(starts, gt, targets, assignment=None, time_limit_s=2):
 
 
 def analyze_iteration(iter_dir: Path, radius=VISIT_RADIUS_M, budget=BUDGET_S,
-                      cached_actual_path_m=None, chunk_stride=50):
+                      cached_actual_path_m=None, chunk_stride=50,
+                      gt_annotations_dir=None):
     scene, method, raw_method = identity(iter_dir)
     shared = raw_method == "conavgpt2_team"
     bag = find_bag(iter_dir)
-    gt, sectors, plan_starts, plan_xy, origins = load_static_and_plan_starts(bag)
+    fallback_gt = None
+    if gt_annotations_dir:
+        candidate = Path(gt_annotations_dir) / annotation_name(scene)
+        if candidate.exists():
+            fallback_gt = candidate
+    gt, sectors, plan_starts, plan_xy, origins = load_static_and_plan_starts(
+        bag, fallback_gt)
     raw_traj = None
     if cached_actual_path_m is None:
         raw_traj, _origins = load_world_trajectories(bag)
@@ -709,6 +742,8 @@ def main():
                    help="reuse unchanged actual-path lengths from an earlier result table")
     p.add_argument("--chunk-stride", type=int, default=50,
                    help="sample every Nth marker-bearing chunk (final state is always read)")
+    p.add_argument("--gt-annotations-dir",
+                   help="fallback directory of canonical <Scene>V1.json files when a bag omitted GT markers")
     args = p.parse_args()
     chosen = {}
     for root in args.run:
@@ -749,7 +784,8 @@ def main():
         cached_path = (None if raw == "conavgpt2_team"
                        else cached_geometry.get((scene, method)))
         return analyze_iteration(iteration, args.visit_radius, args.budget,
-                                 cached_path, args.chunk_stride)
+                                 cached_path, args.chunk_stride,
+                                 args.gt_annotations_dir)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
         futures = {}

@@ -6,14 +6,25 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from team_progress import (
     TOTAL_RUNS_PER_BASELINE,
+    annotation_name,
     assign_targets,
     credit_target_circle,
     geometry_from_markdown,
+    load_annotation_gt,
     markdown,
     point_in_polygon,
     resample_window,
     route_length,
 )
+
+
+def test_canonical_annotation_fallback(tmp_path):
+    annotation = tmp_path / "EarthquakeUrbanL1V1.json"
+    annotation.write_text(
+        '[{"class":"person","bbox_world":{"center_xyz_m":[1,2,3]}},'
+        '{"class":"tree","bbox_world":{"center_xyz_m":[4,5,6]}}]')
+    assert annotation_name("Earthquake / Urban L1") == annotation.name
+    assert load_annotation_gt(annotation) == {0: (1.0, 2.0)}
 
 
 def test_point_in_polygon_includes_boundary():
