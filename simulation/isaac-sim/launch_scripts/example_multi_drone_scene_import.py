@@ -144,6 +144,18 @@ if _ACTIVE_GPU:
     print(f"[isaac] renderer pinned to GPU index {_ACTIVE_GPU} "
           "(ISAAC_SIM_ACTIVE_GPU)", flush=True)
 
+# GPU PHYSICS (opt-in). Pegasus' WORLD_SETTINGS defaults to device="cpu".
+# More subtly, SimulationContext constructs PhysicsContext *before* applying
+# World(device=...), and PhysicsContext snapshots SimulationManager's current
+# device while choosing MBP/GPU broadphase and CPU/GPU dynamics. Passing only
+# device="cuda" to World is therefore too late on Isaac Sim 5.1: the scene can
+# render on the GPU while PhysX remains on CPU. Prime SimulationManager before
+# World is constructed, then verify the effective context below.
+_GPU_PHYSICS = os.environ.get(
+    "ISAAC_SIM_GPU_PHYSICS", "false").strip().lower() in (
+        "1", "true", "yes", "on")
+_PHYSICS_DEVICE = f"cuda:{_PHYSICS_GPU}" if _GPU_PHYSICS else "cpu"
+
 # Optional rendering-cost controls. All are intentionally opt-in: an unset
 # environment reproduces the established benchmark renderer exactly.
 _DLSS_NAMES = {"performance": 0, "balanced": 1, "quality": 2, "auto": 3}
@@ -269,6 +281,7 @@ import omni.usd
 import omni.client
 
 from omni.isaac.core.world import World
+from isaacsim.core.simulation_manager import SimulationManager
 
 # Pegasus imports
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
@@ -887,8 +900,30 @@ class PegasusApp:
 
         # Start Pegasus interface + world
         self.pg = PegasusInterface()
-        self.pg._world = World(**self.pg._world_settings)
+        world_settings = dict(self.pg._world_settings)
+        if _GPU_PHYSICS:
+            # This MUST precede World/PhysicsContext construction. See the
+            # ordering note beside _GPU_PHYSICS above.
+            SimulationManager.set_physics_sim_device(_PHYSICS_DEVICE)
+            world_settings["device"] = _PHYSICS_DEVICE
+        self.pg._world_settings = world_settings
+        self.pg._world = World(**world_settings)
         self.world = self.pg.world
+
+        physics_context = self.world.get_physics_context()
+        physics_device = SimulationManager.get_physics_sim_device()
+        broadphase = physics_context.get_broadphase_type()
+        gpu_dynamics = physics_context.is_gpu_dynamics_enabled()
+        print("[isaac] physics effective device={0}, broadphase={1}, "
+              "gpu_dynamics={2} (requested={3})".format(
+                  physics_device, broadphase, gpu_dynamics, _PHYSICS_DEVICE),
+              flush=True)
+        if _GPU_PHYSICS and (broadphase != "GPU" or not gpu_dynamics):
+            raise RuntimeError(
+                "ISAAC_SIM_GPU_PHYSICS requested but PhysX did not enable "
+                "GPU broadphase/dynamics (device={0}, broadphase={1}, "
+                "gpu_dynamics={2})".format(
+                    physics_device, broadphase, gpu_dynamics))
 
         self.timeline.stop()
 

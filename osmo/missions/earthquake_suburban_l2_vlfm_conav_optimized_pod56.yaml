@@ -55,6 +55,7 @@ env:
   LIDAR_TIME_SLICE_GROUPS: '2'
   SEARCH_MAX_SIM_SECONDS: '600'
   ISAAC_SIM_ACTIVE_GPU: '1'
+  ISAAC_SIM_GPU_PHYSICS: 'true'
 environment_order: round_robin
 iterations: 2
 environments:

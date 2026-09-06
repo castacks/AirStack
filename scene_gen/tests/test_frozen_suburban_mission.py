@@ -618,3 +618,29 @@ def test_the_planner_log_is_collected_off_the_pod(mission):
     assert "/tmp/search/*.log" in globs, \
         "planner.log is not collected; the scores die with the pod"
     assert "/tmp/search/*.jsonl" in globs
+
+
+def test_gpu_physics_is_selected_before_world_construction():
+    """Isaac 5.1's PhysicsContext snapshots SimulationManager's device while
+    World is being constructed. Setting World(device=...) alone is too late
+    and silently leaves the benchmark on MBP/CPU physics."""
+    launcher = open(os.path.join(
+        _REPO, "simulation", "isaac-sim", "launch_scripts",
+        "example_multi_drone_scene_import.py"), encoding="utf-8").read()
+    select = launcher.index(
+        "SimulationManager.set_physics_sim_device(_PHYSICS_DEVICE)")
+    construct = launcher.index("self.pg._world = World(**world_settings)")
+    assert select < construct
+    assert 'world_settings["device"] = _PHYSICS_DEVICE' in launcher
+    assert "is_gpu_dynamics_enabled()" in launcher
+    assert 'broadphase != "GPU"' in launcher
+
+
+def test_gpu_physics_crosses_both_isaac_compose_boundaries():
+    """Mission variables do not enter a container unless Compose forwards
+    them. Both headless and livestream Isaac services must carry this knob."""
+    compose = open(os.path.join(
+        _REPO, "simulation", "isaac-sim", "docker", "docker-compose.yaml"),
+        encoding="utf-8").read()
+    entry = "ISAAC_SIM_GPU_PHYSICS=${ISAAC_SIM_GPU_PHYSICS:-false}"
+    assert compose.count(entry) == 2

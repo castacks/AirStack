@@ -214,6 +214,10 @@ services:
       # device 0 is not confirmed to be this pod's own idle card. Same
       # host-does-not-forward-automatically rule as every other var here.
       - ISAAC_SIM_ACTIVE_GPU=${ISAAC_SIM_ACTIVE_GPU:-}
+      # Pegasus defaults World to CPU. The launcher primes SimulationManager
+      # before PhysicsContext construction when this is true; setting only
+      # World(device=cuda) happens too late to enable GPU dynamics in 5.1.
+      - ISAAC_SIM_GPU_PHYSICS=${ISAAC_SIM_GPU_PHYSICS:-false}
       - ISAAC_SIM_DLSS_MODE=${ISAAC_SIM_DLSS_MODE:-}
       - ISAAC_SIM_AA_MODE=${ISAAC_SIM_AA_MODE:-}
       - ISAAC_SIM_DISABLE_MOTION_BVH=${ISAAC_SIM_DISABLE_MOTION_BVH:-false}
@@ -568,6 +572,7 @@ services:
       # device 0 is not confirmed to be this pod's own idle card. Same
       # host-does-not-forward-automatically rule as every other var here.
       - ISAAC_SIM_ACTIVE_GPU=${ISAAC_SIM_ACTIVE_GPU:-}
+      - ISAAC_SIM_GPU_PHYSICS=${ISAAC_SIM_GPU_PHYSICS:-false}
       - ISAAC_SIM_DLSS_MODE=${ISAAC_SIM_DLSS_MODE:-}
       - ISAAC_SIM_AA_MODE=${ISAAC_SIM_AA_MODE:-}
       - ISAAC_SIM_DISABLE_MOTION_BVH=${ISAAC_SIM_DISABLE_MOTION_BVH:-false}
