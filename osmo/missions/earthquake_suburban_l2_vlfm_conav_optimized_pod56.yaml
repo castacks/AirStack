@@ -38,7 +38,7 @@ env:
   LVLM_BASELINE: 'false'
   COMMS_RANGE_M: 5000
   GT_ANNOTATIONS: 'on'
-  OFFBOARD_COMPUTE_GPU: ''
+  OFFBOARD_COMPUTE_GPU: '1'
   ZED_PIPELINE: mono_rgbd
   MIGHTY_CLOUD_SUFFIX: sensors/front_stereo/left/depth_pcl
   SEARCH_DEPTH_TOPIC_TEMPLATE: /{robot}/sensors/front_stereo/left/depth_ground_truth
