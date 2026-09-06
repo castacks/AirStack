@@ -448,6 +448,19 @@ def test_suburb_colliders_is_passed_by_bare_name():
     assert "SUBURB_COLLIDERS=${" not in isaac
 
 
+def test_colliders_off_keeps_the_prespawn_kit_update_barrier():
+    """A frozen scene already contains collision APIs.  Even when a mission
+    skips authoring another ground sheet, Kit must finish the pending PhysX
+    work before PX4 is spawned or heartbeats arrive without HIL odometry."""
+    launcher = open(os.path.join(
+        _REPO, "simulation", "isaac-sim", "launch_scripts",
+        "example_multi_drone_scene_import.py"), encoding="utf-8").read()
+    off = launcher.split('if COLLIDERS == "off":', 1)[1].split(
+        'print("[scene] colliders: OFF', 1)[0]
+    assert "omni.kit.app.get_app()" in off
+    assert re.search(r"for _ in range\(10\):\s*app\.update\(\)", off)
+
+
 # ---------------------------------------------------------------------------
 # the execution layer
 # ---------------------------------------------------------------------------

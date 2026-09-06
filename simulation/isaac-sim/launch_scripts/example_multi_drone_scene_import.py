@@ -1620,6 +1620,19 @@ class PegasusApp:
 
     def _add_scene_colliders(self, stage):
         if COLLIDERS == "off":
+            # Skipping collider AUTHORING must not skip the pre-spawn Kit
+            # barrier.  Frozen cells already contain collision APIs, and
+            # composing a large earthquake cell starts asynchronous PhysX
+            # cooking for those meshes.  Returning immediately here spawned
+            # PX4 while that cook was still monopolising the simulation loop:
+            # all eight MAVROS heartbeats connected, but HIL data never
+            # arrived and raw odometry remained empty for the full readiness
+            # timeout.  The non-off path has always pumped ten updates after
+            # collider setup; retain the same barrier for an existing-collider
+            # scene even though there is nothing new to author.
+            app = omni.kit.app.get_app()
+            for _ in range(10):
+                app.update()
             print("[scene] colliders: OFF (SUBURB_COLLIDERS=off)", flush=True)
             return
         target = (SCENE_PARENT + "/ground") if COLLIDERS == "ground" else "/World/stage"
