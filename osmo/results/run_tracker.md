@@ -28,7 +28,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Earthquake** | **Urban** | L2 | 🟩 | 🟨 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Earthquake** | **Urban** | L2 | 🟩 | 🟩 | 🟨 | 🟦 | 🟦 | 🟦 |
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Suburban** | L1 | 🟩 | 🟨 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
@@ -161,8 +161,9 @@ attempt failed at takeoff when robot 5 exhausted all three MAVROS pre-arm state
 checks; the other seven drones took off, and the failed attempt is retained
 locally but was not uploaded. The automatic second mission attempt started at
 00:17 UTC after a clean stack teardown, cleared all eight takeoffs (including
-robot 5 on its first pre-arm check), and entered the timed Frontier search at
-00:45 UTC. The queued 2-GPU workflow
+robot 5 on its first pre-arm check), and passed 17/17 steps at team RTF
+0.22040. It was uploaded and NAS-verified at 01:33 UTC. L2 Lawnmower started
+immediately afterward. The queued 2-GPU workflow
 `airstack-mission-8robot-2gpu-7` remains a backup. L3's
 four optimized baseline cells are now running on pod 57 from
 `urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13`. The first
@@ -234,7 +235,7 @@ uploaded.
 | 4 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | — | STOPPED — two attempts hit the obsolete disparity gate; zero scored/uploaded runs |
 | 3 | `airstack-mission-1gpu-56` | Urban Fire L1/L2 Frontier | 2 | — | STOPPED — launched before canonical publication; zero scored/uploaded runs |
 | 5 | `airstack-mission-1gpu-56` | Urban Fire L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 8 | 5 h 11 min | STOPPED FOR EARTHQUAKE CUTOVER — L1 Frontier, VLFM and CoNavGPT2 passed/uploaded (RTFs 0.219, 0.2115, 0.18784); Lawnmower failed twice and needs a focused rerun; Fire L2 remains deferred |
-| 6 | `airstack-mission-1gpu-56` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | L1 4/4; L2 0/4 | ≤12 h | RUNNING — all four L1 methods passed/uploaded/NAS-verified at team RTFs 0.19510, 0.20130, 0.18919 and 0.25092; L2 Frontier attempt 1 failed robot-5 pre-arm and was not uploaded; attempt 2/2 cleared all eight takeoffs and is in the timed search |
+| 6 | `airstack-mission-1gpu-56` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | L1 4/4; L2 1/4 | ≤12 h | RUNNING — all four L1 methods passed/uploaded/NAS-verified at team RTFs 0.19510, 0.20130, 0.18919 and 0.25092; L2 Frontier passed/uploaded/NAS-verified on retry at RTF 0.22040; L2 Lawnmower active |
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
@@ -279,7 +280,7 @@ short tuning runs are excluded.
 | Fire | — | 97.8 min / 0.102 (n=11) |
 | Hurricane | — | 38.3 min / 0.265 (n=9) |
 | Tornado | — | 77.4 min / 0.129 (n=11) |
-| Earthquake | 48.6 min / 0.207 (n=8) | — |
+| Earthquake | 48.3 min / 0.208 (n=9) | — |
 
 ## Actual results (detector-confirmed team progress and PPL)
 
