@@ -1,0 +1,263 @@
+# GENERATED from canonical Hurricane/Urban L1 GT via frozen_cell_plan.py.
+name: hurricane_urban_l1_8robot_optimized_pod56
+nas_dest: /volume2/coa-sei
+stack:
+  services:
+  - isaac-sim
+  - robot-desktop
+  - gcs
+  - offboard-compute
+env:
+  DETECTOR_URL: http://offboard-compute:8200
+  ITM_URL: http://offboard-compute:8100
+  VLM_URL: http://offboard-compute:8000/v1
+  CONAVGPT2_YOLO_WORLD_WEIGHTS: /root/.cache/conavgpt2_weights/yolov8l-world.pt
+  CONAVGPT2_VLM_MODEL: Qwen/Qwen2.5-VL-7B-Instruct
+  CONAVGPT2_VLM_QUANT: nf4
+  CONAVGPT2_VLM_GPU: ''
+  NUM_ROBOTS: 8
+  ISAAC_SIM_HEADLESS: 'true'
+  ISAAC_SIM_MULTIGPU: ''
+  GCS_VIZ_DECIMATE: '2'
+  ISAAC_SIM_USE_STANDALONE: 'true'
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: 'true'
+  SCENE_CONFIG: ''
+  FROZEN_DATASET_ROOT: omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset
+  SUBURB_COLLIDERS: ground
+  SPAWN_HEIGHT_M: '0.5'
+  ENABLE_LIDAR: 'false'
+  ZED_PITCH_DEG: '30'
+  ZED_WIDTH: '720'
+  ZED_HEIGHT: '450'
+  MAP_ANCHOR_ENU: 'true'
+  AIRSTACK_STACK: full_mighty
+  LOCAL_PLANNER: mighty
+  CONAVGPT_BASELINE: 'false'
+  FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  COMMS_RANGE_M: 5000
+  GT_ANNOTATIONS: 'on'
+  OFFBOARD_COMPUTE_GPU: ''
+  ZED_PIPELINE: mono_rgbd
+  MIGHTY_CLOUD_SUFFIX: sensors/front_stereo/left/depth_pcl
+  SEARCH_DEPTH_TOPIC_TEMPLATE: /{robot}/sensors/front_stereo/left/depth_ground_truth
+  ZED_TIME_SLICE_GROUPS: '32'
+  ZED_HYDRA_TIME_SLICE: 'true'
+  ZED_TIME_SLICE_BURST: '8'
+  OVERHEAD_HYDRA_TIME_SLICE: 'true'
+  OVERHEAD_RENDER_BURST: '8'
+  OVERHEAD_RENDER_STEP: '250'
+  ISAAC_SIM_DLSS_MODE: performance
+  ISAAC_SIM_DISABLE_MOTION_BVH: 'true'
+  ISAAC_SIM_DISABLE_VIEWPORT_UPDATES: 'true'
+  LIDAR_RENDER_STEP: '1'
+  LIDAR_TIME_SLICE_GROUPS: '2'
+  SEARCH_MAX_SIM_SECONDS: '600'
+  ISAAC_SIM_ACTIVE_GPU: '1'
+environment_order: round_robin
+iterations: 4
+environments:
+- name: hurricaneurbanl1v1_frontier
+  method: frontier
+  model_port: ''
+  scene_yaml: frozen_hurricane_urban_lvl1.yaml
+  START_DETECTOR_SERVER: 'true'
+  START_ITM_SERVER: 'false'
+  START_VLM_SERVER: 'false'
+  FROZEN_SCENE: Hurricane/Urban/level_1/1
+  RESULTS_SCENE: HurricaneUrbanL1V1
+  SPAWN_CONFIGS: '[{"x_m":-450.0,"y_m":392.5,"orient":[0.0,0.0,-0.3509,0.9364]},{"x_m":-365.0,"y_m":390.0,"orient":[0.0,0.0,-0.3979,0.9174]},{"x_m":-127.5,"y_m":190.0,"orient":[0.0,0.0,-0.4709,0.8822]},{"x_m":-112.5,"y_m":65.0,"orient":[0.0,0.0,-0.2580,0.9661]},{"x_m":5.0,"y_m":-5.0,"orient":[0.0,0.0,0.9239,0.3827]},{"x_m":175.0,"y_m":-140.0,"orient":[0.0,0.0,0.9436,0.3312]},{"x_m":265.0,"y_m":-267.5,"orient":[0.0,0.0,0.9230,0.3848]},{"x_m":430.0,"y_m":-352.5,"orient":[0.0,0.0,0.9416,0.3367]}]'
+- name: hurricaneurbanl1v1_lawnmower
+  method: lawnmower
+  model_port: ''
+  scene_yaml: frozen_hurricane_urban_lvl1.yaml
+  START_DETECTOR_SERVER: 'true'
+  START_ITM_SERVER: 'false'
+  START_VLM_SERVER: 'false'
+  FROZEN_SCENE: Hurricane/Urban/level_1/1
+  RESULTS_SCENE: HurricaneUrbanL1V1
+  SPAWN_CONFIGS: '[{"x_m":-450.0,"y_m":392.5,"orient":[0.0,0.0,-0.3509,0.9364]},{"x_m":-365.0,"y_m":390.0,"orient":[0.0,0.0,-0.3979,0.9174]},{"x_m":-127.5,"y_m":190.0,"orient":[0.0,0.0,-0.4709,0.8822]},{"x_m":-112.5,"y_m":65.0,"orient":[0.0,0.0,-0.2580,0.9661]},{"x_m":5.0,"y_m":-5.0,"orient":[0.0,0.0,0.9239,0.3827]},{"x_m":175.0,"y_m":-140.0,"orient":[0.0,0.0,0.9436,0.3312]},{"x_m":265.0,"y_m":-267.5,"orient":[0.0,0.0,0.9230,0.3848]},{"x_m":430.0,"y_m":-352.5,"orient":[0.0,0.0,0.9416,0.3367]}]'
+- name: hurricaneurbanl1v1_vlfm
+  method: vlfm
+  model_port: '8100'
+  scene_yaml: frozen_hurricane_urban_lvl1.yaml
+  START_DETECTOR_SERVER: 'true'
+  START_ITM_SERVER: 'true'
+  START_VLM_SERVER: 'false'
+  FROZEN_SCENE: Hurricane/Urban/level_1/1
+  RESULTS_SCENE: HurricaneUrbanL1V1
+  SPAWN_CONFIGS: '[{"x_m":-450.0,"y_m":392.5,"orient":[0.0,0.0,-0.3509,0.9364]},{"x_m":-365.0,"y_m":390.0,"orient":[0.0,0.0,-0.3979,0.9174]},{"x_m":-127.5,"y_m":190.0,"orient":[0.0,0.0,-0.4709,0.8822]},{"x_m":-112.5,"y_m":65.0,"orient":[0.0,0.0,-0.2580,0.9661]},{"x_m":5.0,"y_m":-5.0,"orient":[0.0,0.0,0.9239,0.3827]},{"x_m":175.0,"y_m":-140.0,"orient":[0.0,0.0,0.9436,0.3312]},{"x_m":265.0,"y_m":-267.5,"orient":[0.0,0.0,0.9230,0.3848]},{"x_m":430.0,"y_m":-352.5,"orient":[0.0,0.0,0.9416,0.3367]}]'
+- name: hurricaneurbanl1v1_conavgpt2_team
+  method: conavgpt2_team
+  model_port: '8000'
+  scene_yaml: frozen_hurricane_urban_lvl1.yaml
+  START_DETECTOR_SERVER: 'true'
+  START_ITM_SERVER: 'false'
+  START_VLM_SERVER: 'true'
+  FROZEN_SCENE: Hurricane/Urban/level_1/1
+  RESULTS_SCENE: HurricaneUrbanL1V1
+  SPAWN_CONFIGS: '[{"x_m":-450.0,"y_m":392.5,"orient":[0.0,0.0,-0.3509,0.9364]},{"x_m":-365.0,"y_m":390.0,"orient":[0.0,0.0,-0.3979,0.9174]},{"x_m":-127.5,"y_m":190.0,"orient":[0.0,0.0,-0.4709,0.8822]},{"x_m":-112.5,"y_m":65.0,"orient":[0.0,0.0,-0.2580,0.9661]},{"x_m":5.0,"y_m":-5.0,"orient":[0.0,0.0,0.9239,0.3827]},{"x_m":175.0,"y_m":-140.0,"orient":[0.0,0.0,0.9436,0.3312]},{"x_m":265.0,"y_m":-267.5,"orient":[0.0,0.0,0.9230,0.3848]},{"x_m":430.0,"y_m":-352.5,"orient":[0.0,0.0,0.9416,0.3367]}]'
+ready:
+  timeout_s: 3600
+  poll_interval_s: 10
+up_timeout_s: 5400
+iteration_attempts: 2
+on_step_failure: abort_iteration
+command_route: gcs
+record:
+  enabled: true
+  scope: gcs
+  required: true
+  topics:
+  - /tf_static
+  - /{robot}/odometry_conversion/odometry
+  - /{robot}/global_plan
+  - /{robot}/search/round_stats
+  - /{robot}/search/run_complete
+  - /{robot}/search/detection_image
+  - /gcs/{robot}/map_origin
+  - /gcs/{robot}/occupancy
+  - /gcs/{robot}/frontiers
+  - /gcs/{robot}/frontier_cloud
+  - /gcs/{robot}/voxel_map
+  - /gcs/{robot}/value_map
+  - /gcs/{robot}/search/markers
+  - /gcs/robot_markers
+  - /gcs/sim_ground
+  - /gcs/annotations/bboxes
+steps:
+- run:
+    container: robot_1
+    cmd: "A=/root/AirStack/robot/ros_ws/src/global/planners/raven_nav/annotations\nS={{env.RESULTS_SCENE}}\nfor f in \"$A/$S.json\" \"$A/${S}_obstacles.json\" \"$A/${S}_region.json\"; do\n  [ -f \"$f\" ] || { echo \"MISSING $f\"; exit 1; }\ndone\npython3 - \"$A\" \"$S\" <<'EOF'\nimport json, sys\na, s = sys.argv[1], sys.argv[2]\npeople = json.load(open(f\"{a}/{s}.json\"))\nobst = json.load(open(f\"{a}/{s}_obstacles.json\"))\nreg = json.load(open(f\"{a}/{s}_region.json\"))\nmeta = next(e for e in reg if e.get(\"class\") == \"meta\")\nsrch = next(e for e in reg if e.get(\"class\") == \"search\")\nprint(f\"scene {s}: {len(people)} people, {len(obst)} obstacle boxes\")\nprint(f\"  frozen_usd  {meta.get('frozen_usd')}\")\nprint(f\"  disaster    {meta.get('disaster')} / {meta.get('scene_config')}\")\nprint(f\"  search area {srch['area_m2']:,.0f} m2 \"\n      f\"({meta['search_frac_of_plate']:.0%} of the plate), \"\n      f\"{len(srch['polygon_xy'])} pts\")\nprint(f\"  people inside the search\
+      \ {meta['people_inside_search']}\"\n      f\"/{meta['people_total']}\")\nassert len(people) == meta[\"people_total\"], \"people GT / region disagree\"\nassert meta[\"people_inside_search\"] > 0, \"no survivor is in the search area\"\nEOF\n"
+    timeout_s: 120
+- run:
+    container: robot_1
+    cmd: "MP=\"{{env.model_port}}\"\necho \"waiting for offboard-compute: detector :8200${MP:+ + model :$MP}\"\nfor i in $(seq 1 360); do\n  d=$(curl -sf http://offboard-compute:8200/health 2>/dev/null | grep -c '\"status\": *\"ok\"')\n  if [ -n \"$MP\" ]; then\n    m=$(curl -sf \"http://offboard-compute:$MP/health\" 2>/dev/null | grep -c '\"status\": *\"ok\"')\n  else\n    m=1\n  fi\n  if [ \"$d\" = \"1\" ] && [ \"$m\" = \"1\" ]; then\n    echo OFFBOARD_READY\n    curl -s http://offboard-compute:8200/health | head -c 300; echo\n    [ -n \"$MP\" ] && { curl -s \"http://offboard-compute:$MP/health\" | head -c 200; echo; }\n    exit 0\n  fi\n  sleep 15\ndone\necho OFFBOARD_NOT_READY; exit 1\n"
+    timeout_s: 5700
+    attempts: 2
+    retry_delay_s: 20
+- run:
+    container: robot_1
+    cmd: "mkdir -p /tmp/search\n: > /tmp/search/server_metrics.jsonl\nnohup bash -c '\n  for i in $(seq 1 500); do\n    ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)\n    det=$(curl -s --max-time 5 http://offboard-compute:8200/metrics 2>/dev/null); [ -n \"$det\" ] || det=\"{}\"\n    itm=$(curl -s --max-time 5 http://offboard-compute:8100/metrics 2>/dev/null); [ -n \"$itm\" ] || itm=\"{}\"\n    vlm=$(curl -s --max-time 5 http://offboard-compute:8000/metrics 2>/dev/null); [ -n \"$vlm\" ] || vlm=\"{}\"\n    printf \"{\\\"ts\\\":\\\"%s\\\",\\\"detector\\\":%s,\\\"itm\\\":%s,\\\"vlm\\\":%s}\\n\" \"$ts\" \"$det\" \"$itm\" \"$vlm\" >> /tmp/search/server_metrics.jsonl\n    sleep 15\n  done\n' > /tmp/search/server_metrics_poller.log 2>&1 &\necho $! > /tmp/search/poller.pid\necho POLLER_STARTED pid=$(cat /tmp/search/poller.pid)\n"
+    timeout_s: 60
+- run:
+    container: airstack-robot-desktop-{n}
+    cmd: "source /root/.bashrc >/dev/null 2>&1 || true\nexport ROBOT_NAME=robot_{n}\nexport ROS_DOMAIN_ID={n}\nfor i in $(seq 1 36); do\n  if ros2 node list 2>/dev/null | grep -qx \"/robot_{n}/mighty/mighty_bridge\"; then\n    echo \"BRIDGE_UP robot_{n}\"\n    grep -ah \"mighty_bridge up\" /root/.ros/log/mighty_bridge_*.log 2>/dev/null | tail -1\n    ros2 action list 2>/dev/null | grep -qx \"/robot_{n}/tasks/navigate\" \\\n      && echo \"NAVIGATE_ACTION_PRESENT robot_{n}\" \\\n      || echo \"WARN: /robot_{n}/tasks/navigate not advertised\"\n    exit 0\n  fi\n  sleep 5\ndone\necho \"BRIDGE_MISSING robot_{n}: no /robot_{n}/mighty/mighty_bridge after 180 s.\"\necho \"Without it nothing serves tasks/navigate, nothing follows /global_plan,\"\necho \"nothing publishes trajectory_override \u2014 the drone will take off and hover.\"\necho \"--- mighty namespace as seen on this domain ---\"\nros2 node list 2>/dev/null | grep \"/mighty/\" || echo \"(no mighty nodes at all)\"\necho \"--- bring-up\
+      \ pane, mighty_bridge lines ---\"\ntmux capture-pane -p -S -30000 -t bringup:0.0 2>/dev/null \\\n  | grep -a \"mighty_bridge\" | tail -60 || echo \"(pane history already rolled over)\"\nexit 1\n"
+    timeout_s: 300
+- run:
+    container: airstack-robot-desktop-{n}
+    cmd: "source /root/.bashrc >/dev/null 2>&1 || true\nexport ROBOT_NAME=robot_{n}\nexport ROS_DOMAIN_ID={n}\n# The optimized benchmark uses simulator RGB-D (`mono_rgbd`), which\n# intentionally bypasses stereo matching and therefore never publishes\n# `/perception/stereo_image_proc/disparity`.  Validate the cloud Mighty\n# actually consumes without subscribing to it (subscribing here would\n# open the high-bandwidth DDS bridge route and can exhaust router RAM).\nif [ \"${ZED_PIPELINE:-}\" = \"mono_rgbd\" ]; then\n  PC=/robot_{n}/$(printenv MIGHTY_CLOUD_SUFFIX)\n  npub=0; mapper_sub=0\n  for i in $(seq 1 30); do\n    npub=$(ros2 topic info \"$PC\" 2>/dev/null \\\n           | grep -oE \"Publisher count: [0-9]+\" | grep -oE \"[0-9]+\")\n    npub=${npub:-0}\n    info=$(ros2 topic info \"$PC\" --verbose 2>/dev/null || true)\n    if printf '%s\\n' \"$info\" \\\n         | grep -A4 -F \"Node name: global_mapper_ros\" \\\n         | grep -qF \"Node namespace: /robot_{n}/mighty\"; then\n     \
+      \ mapper_sub=1\n    fi\n    if [ \"$npub\" -gt 0 ] && [ \"$mapper_sub\" = \"1\" ]; then\n      echo \"PERCEPTION_OK robot_{n}: $PC has $npub publisher(s) and global_mapper_ros subscribes\"\n      exit 0\n    fi\n    sleep 5\n  done\n  echo \"PERCEPTION_DEAD robot_{n}: $PC publisher_count=$npub mapper_sub=$mapper_sub\"\n  ros2 topic info \"$PC\" --verbose 2>/dev/null || true\n  exit 1\nfi\n# PROBE THE DISPARITY, NOT THE CLOUD OR THE IMAGE. Both of those are on\n# the dds_router ALLOWLIST (`onboard_all/config/dds_router.yaml`:\n# `.../front_stereo/left/image_rect` and\n# `.../perception/stereo_image_proc/point_cloud`), and `ros2 topic hz`\n# creates a READER \u2014 which activates the robot->GCS bridge for a\n# ~21 MB/s point cloud that nothing on the GCS side consumes, so the\n# router buffers it without bound.\n#\n# That is not hypothetical: on 2026-08-30 this step ran at 22:01:00 and\n# robot_2's ddsrouter went 114 MB -> 66,225 MB in dead-linear fashion\n# over the next 80 minutes\
+      \ (growth ~21 MB/s, i.e. exactly the cloud's\n# bitrate), the container reached 74.8 GB, and robot_2 vanished from\n# the bag \u2014 230 odometry messages against ~19,730 for every other\n# robot, and ZERO global_plan / markers / occupancy / voxel_map. The\n# robot itself flew fine (its own planner.log: 4,741 ticks, 25 gate\n# passes, 2 people visited); only its telemetry was lost. The router\n# config's own rayfronts note records the same failure mode: RSS\n# 130 MB -> 870 MB on point-cloud streams until \"it died and took every\n# later iteration with it\".\n#\n# `/perception/stereo_image_proc/disparity` is NOT allowlisted, so\n# subscribing to it creates no cross-domain route \u2014 and it is a\n# STRICTLY STRONGER signal: disparity exists only if BOTH rectified\n# images arrived and the block matcher ran, and `point_cloud` is\n# produced from it by the very next node in the same launch file.\nDISP=/robot_{n}/perception/stereo_image_proc/disparity\nPC=/robot_{n}/perception/stereo_image_proc/point_cloud\n\
+      ok_disp=0; npub=0\nfor i in $(seq 1 20); do\n  if [ \"$ok_disp\" = \"0\" ]; then\n    timeout 20 ros2 topic hz \"$DISP\" 2>/dev/null \\\n      | grep -m1 -q \"average rate\" && ok_disp=1\n  fi\n  if [ \"$ok_disp\" = \"1\" ]; then\n    # `topic info` does NOT subscribe, so this cannot open a route.\n    npub=$(ros2 topic info \"$PC\" 2>/dev/null \\\n           | grep -oE \"Publisher count: [0-9]+\" | grep -oE \"[0-9]+\")\n    npub=${npub:-0}\n    if [ \"$npub\" -gt 0 ]; then\n      echo \"PERCEPTION_OK robot_{n}: $DISP streaming, $PC has $npub publisher(s)\"\n      exit 0\n    fi\n  fi\n  sleep 5\ndone\necho \"PERCEPTION_DEAD robot_{n}: disparity=$ok_disp cloud_publishers=$npub\"\necho \"This robot will take off and hover: with no point cloud the\"\necho \"global mapper never builds a map, mighty's KD-tree stays null,\"\necho \"no trajectory_override is ever published, and every goal the\"\necho \"search planner picks is eventually blacklisted. Seen on robot_3\"\necho \"in the 2026-08-30\
+      \ 09:09:51 run (10 m flown in 108 minutes).\"\necho \"--- is the sim publishing to this domain at all ---\"\nros2 topic list 2>/dev/null | grep -c \"/robot_{n}/sensors/\" || true\necho \"--- perception nodes on this domain ---\"\nros2 node list 2>/dev/null | grep -E \"stereo|point_cloud|disparity|global_mapper\" \\\n  || echo \"(no perception nodes)\"\necho \"--- global_mapper log, PointCloudCallback lines ---\"\ngrep -ah \"PointCloudCallback\" /root/.ros/log/global_mapper_node_*.log 2>/dev/null \\\n  | tail -20 || echo \"(the callback never fired \u2014 not one line)\"\nexit 1\n"
+    timeout_s: 420
+- action:
+    task: takeoff
+    goal:
+      target_altitude_m: 20.0
+      velocity_m_s: 2.0
+    timeout_s: 420
+    dispatch_stagger_s: 3
+    prearm_via_mavros: true
+    prearm_timeout_s: 60
+    robots: all
+- wait: 5
+- run:
+    container: gcs
+    cmd: "python3 - <<'EOF'\nimport json, os, struct, time, zlib\nimport numpy as np\nimport rclpy\nfrom rclpy.qos import qos_profile_sensor_data\nfrom sensor_msgs.msg import Image\nfrom std_msgs.msg import Float32\n\nSCENE   = \"{{env.RESULTS_SCENE}}\"\nWARMUP  = float(os.environ.get(\"OVERHEAD_SNAP_WARMUP_S\") or 20.0)\nPERIOD  = float(os.environ.get(\"OVERHEAD_SNAP_PERIOD_S\") or 8.0)\nWANT    = int(os.environ.get(\"OVERHEAD_SNAP_FRAMES\") or 3)\nMIN_STD = float(os.environ.get(\"OVERHEAD_SNAP_MIN_STD\") or 4.0)\nDEADLINE = float(os.environ.get(\"OVERHEAD_SNAP_DEADLINE_S\") or 180.0)\n\ndef png(path, rgb):\n    hh, ww, _ = rgb.shape\n    raw = b\"\".join(b\"\\x00\" + rgb[y].tobytes() for y in range(hh))\n    def ch(tag, data):\n        return (struct.pack(\">I\", len(data)) + tag + data\n                + struct.pack(\">I\", zlib.crc32(tag + data) & 0xffffffff))\n    with open(path, \"wb\") as fh:\n        fh.write(b\"\\x89PNG\\r\\n\\x1a\\n\"\n                 + ch(b\"IHDR\", struct.pack(\"\
+      >IIBBBBB\", ww, hh, 8, 2, 0, 0, 0))\n                 + ch(b\"IDAT\", zlib.compress(raw, 6))\n                 + ch(b\"IEND\", b\"\"))\n\ndef to_rgb(msg):\n    arr = np.frombuffer(bytes(msg.data), dtype=np.uint8)\n    arr = arr.reshape((msg.height, msg.width, -1))\n    enc = (msg.encoding or \"\").lower()\n    if enc.startswith(\"rgba\"):  return arr[..., :3]\n    if enc.startswith(\"bgra\"):  return arr[..., [2, 1, 0]]\n    if enc.startswith(\"bgr\"):   return arr[..., ::-1]\n    return arr[..., :3]\n\nrclpy.init()\nnode = rclpy.create_node(\"overhead_snapshot\")\nstate = {\"first\": None, \"last_grab\": 0.0, \"saved\": 0,\n         \"spec\": {}, \"rejected\": 0}\n\ndef on_spec(key):\n    def cb(msg): state[\"spec\"][key] = float(msg.data)\n    return cb\nfor topic, key in ((\"/sim/overhead/spec\", \"coverage_m\"),\n                   (\"/sim/overhead/center_x\", \"center_x_m\"),\n                   (\"/sim/overhead/center_y\", \"center_y_m\")):\n    node.create_subscription(Float32,\
+      \ topic, on_spec(key),\n                             qos_profile_sensor_data)\n\ndef on_image(msg):\n    now = time.monotonic()\n    if state[\"first\"] is None:\n        state[\"first\"] = now\n        print(f\"first overhead frame: {msg.width}x{msg.height} \"\n              f\"{msg.encoding}; warming up {WARMUP:.0f} s\", flush=True)\n    if now - state[\"first\"] < WARMUP:                 return\n    if now - state[\"last_grab\"] < PERIOD:             return\n    if state[\"saved\"] >= WANT:                        return\n    rgb = to_rgb(msg)\n    std = float(rgb.std())\n    if std < MIN_STD:\n        state[\"rejected\"] += 1\n        print(f\"skip blank/near-uniform frame (std {std:.2f} \"\n              f\"< {MIN_STD})\", flush=True)\n        state[\"last_grab\"] = now\n        return\n    idx = state[\"saved\"] + 1\n    out = f\"/tmp/overhead_{SCENE}_{idx}.png\"\n    png(out, np.ascontiguousarray(rgb))\n    state[\"saved\"] = idx\n    state[\"last_grab\"] = now\n    print(f\"\
+      wrote {out} ({os.path.getsize(out)/1e6:.1f} MB, std {std:.1f})\",\n          flush=True)\n\nnode.create_subscription(Image, \"/sim/overhead/image\", on_image,\n                         qos_profile_sensor_data)\n\nend = time.monotonic() + DEADLINE\nwhile rclpy.ok() and time.monotonic() < end and state[\"saved\"] < WANT:\n    rclpy.spin_once(node, timeout_sec=0.5)\n\nmeta = dict(state[\"spec\"], scene=SCENE, frames=state[\"saved\"],\n            rejected_blank=state[\"rejected\"])\nwith open(f\"/tmp/overhead_{SCENE}.json\", \"w\") as fh:\n    json.dump(meta, fh, indent=2)\nprint(\"overhead snapshot:\", json.dumps(meta), flush=True)\nnode.destroy_node(); rclpy.shutdown()\n# Not fatal: a missing overhead camera must not cost the iteration.\nEOF\n"
+    timeout_s: 240
+  optional: true
+- run:
+    container: airstack-robot-desktop-{n}
+    cmd: "if [ \"{{env.method}}\" = \"conavgpt2_team\" ]; then\n  echo \"SKIP per-robot planner: {{env.method}} is a TEAM arm (step 6)\"; exit 0\nfi\nsource /root/.bashrc >/dev/null 2>&1 || true\nexport ROBOT_NAME=robot_{n}\nexport ROS_DOMAIN_ID={n}\nmkdir -p /tmp/search\nCFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config\nSCENE=$CFG/{{env.scene_yaml}}\n[ -f \"$SCENE\" ] || { echo \"MISSING scene overlay $SCENE (was the workspace rebuilt after the overlays were added?)\"; exit 1; }\n# vlfm's keyframe rate is NOT overridden here: `ros2 launch` takes\n# declared launch ARGS (name:=value), not `--ros-args -p`, so a\n# parameter tacked on here would be silently ignored or reject the\n# launch. It is in the scene overlay instead (vlfm_keyframe_period_s:\n# 1.0), which every arm loads and only vlfm reads.\nnohup ros2 launch search_baselines {{env.method}}.launch.xml \\\n  num_robots:=8 \\\n  scene_params_file:=$SCENE \\\n  > /tmp/search/planner.log 2>&1 &\necho $! > /tmp/search/planner.pid\n\
+      sleep 25\nif kill -0 \"$(cat /tmp/search/planner.pid)\" 2>/dev/null; then\n  echo PLANNER_STARTED robot_{n}\n  grep -a -E \"search area from the SCENE|sector [0-9]+/|search_planner starting\" /tmp/search/planner.log | head -3 || true\nelse\n  echo PLANNER_DEAD robot_{n}; tail -n 80 /tmp/search/planner.log; exit 1\nfi\n"
+    timeout_s: 420
+    attempts: 2
+    retry_delay_s: 15
+- run:
+    container: offboard-compute
+    cmd: "if [ \"{{env.method}}\" != \"conavgpt2_team\" ]; then\n  echo \"SKIP team planner: {{env.method}} is a SECTORED arm (step 5)\"; exit 0\nfi\nsource /root/.bashrc >/dev/null 2>&1 || true\nexport ROS_DOMAIN_ID=0          # gcs_domain \u2014 the shared/bridged domain\nexport ROBOT_NAME=robot_1       # team topics publish under robots[0]; label only\nexport ZED_PITCH_DEG=30         # MUST match env.ZED_PITCH_DEG; this container's env lacks it\nexport DETECTOR_URL=http://localhost:8200\nexport VLM_URL=http://localhost:8000/v1\nmkdir -p /tmp/search\nif ! ros2 pkg prefix search_baselines >/dev/null 2>&1; then\n  echo \"WORKSPACE_NOT_BUILT (robot/ros_ws/install missing \u2014 the robots build it at bring-up and this step runs after takeoff, so it should exist)\"; exit 1\nfi\nCFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config\nSCENE=$CFG/{{env.scene_yaml}}\n[ -f \"$SCENE\" ] || { echo \"MISSING scene overlay $SCENE\"; exit 1; }\nnohup ros2 launch search_baselines conavgpt2_team.launch.xml\
+      \ \\\n  num_robots:=8 \\\n  scene_params_file:=$SCENE \\\n  > /tmp/search/planner.log 2>&1 &\necho $! > /tmp/search/planner.pid\nsleep 30\nif kill -0 \"$(cat /tmp/search/planner.pid)\" 2>/dev/null; then\n  echo TEAM_PLANNER_STARTED\n  grep -a -E \"search area from the SCENE|search_planner starting|robots=\\[\" /tmp/search/planner.log | head -3 || true\nelse\n  echo TEAM_PLANNER_DEAD; tail -n 80 /tmp/search/planner.log; exit 1\nfi\n"
+    timeout_s: 420
+    attempts: 2
+    retry_delay_s: 20
+- run:
+    container: airstack-robot-desktop-{n}
+    cmd: "if [ \"{{env.method}}\" = \"conavgpt2_team\" ]; then\n  echo \"SKIP per-robot gate: team run is gated in step 8\"; exit 0\nfi\nsource /root/.bashrc >/dev/null 2>&1 || true\nexport ROS_DOMAIN_ID={n}\n# 900 polls x 15 s = 3 h 45 m of WALL clock for 600 s of SIM. That is\n# not slack, it is the real-time factor: eight stereo pairs rendering\n# on one card is the RTF this sweep has never measured, and a budget\n# that is generous in sim seconds can still be hours in wall seconds.\n# Every 20th poll prints the planner's own progress so a stalled run\n# is visible in the mission log within five minutes instead of at the\n# timeout.\nfor i in $(seq 1 900); do\n  if timeout 10 ros2 topic echo /{robot}/search/run_complete --once 2>/dev/null | grep -q \"data: true\"; then\n    echo RUN_COMPLETE {robot}; exit 0\n  fi\n  kill -0 \"$(cat /tmp/search/planner.pid)\" 2>/dev/null || {\n    echo PLANNER_EXITED {robot}; tail -n 80 /tmp/search/planner.log; exit 1; }\n  if [ $((i % 20)) -eq 0 ]; then\n\
+      \    echo \"--- {robot} poll $i\"\n    grep -a \"sim budget\" /tmp/search/planner.log | tail -1\n    grep -a \"ground speed\\|round [0-9]* |\" /tmp/search/planner.log | tail -1\n  fi\n  sleep 15\ndone\necho RUN_DID_NOT_COMPLETE {robot}; tail -n 40 /tmp/search/planner.log; exit 1\n"
+    timeout_s: 13800
+- run:
+    container: offboard-compute
+    cmd: "if [ \"{{env.method}}\" != \"conavgpt2_team\" ]; then\n  echo \"SKIP team gate: sectored run is gated in step 7\"; exit 0\nfi\nsource /root/.bashrc >/dev/null 2>&1 || true\nexport ROS_DOMAIN_ID=0\n# THE TEAM ARM HAS NO /clock. Isaac publishes it from a per-drone\n# OmniGraph node bound to that drone's ROS domain, so it exists on\n# domains 1..8 and NOT on 0, and dds_router.yaml does not bridge it.\n# `_sim_now` therefore falls back to the sim-time header stamps on the\n# bridged observations \u2014 the same clock read a different way. The\n# `Time source:` line printed at t0 says which one is in use, and it\n# is the first thing to read if this gate ever runs long.\nfor i in $(seq 1 900); do\n  if timeout 10 ros2 topic echo /robot_1/search/run_complete --once 2>/dev/null | grep -q \"data: true\"; then\n    echo TEAM_RUN_COMPLETE; exit 0\n  fi\n  kill -0 \"$(cat /tmp/search/planner.pid)\" 2>/dev/null || {\n    echo TEAM_PLANNER_EXITED; tail -n 80 /tmp/search/planner.log; exit 1;\
+      \ }\n  if [ $((i % 20)) -eq 0 ]; then\n    echo \"--- team poll $i\"\n    grep -a \"sim budget\" /tmp/search/planner.log | tail -1\n    grep -a \"round [0-9]* |\" /tmp/search/planner.log | tail -1\n  fi\n  sleep 15\ndone\necho RUN_DID_NOT_COMPLETE; tail -n 60 /tmp/search/planner.log; exit 1\n"
+    timeout_s: 13800
+- run:
+    container: airstack-robot-desktop-{n}
+    cmd: "if [ \"{{env.method}}\" = \"conavgpt2_team\" ]; then echo \"SKIP\"; exit 0; fi\nsource /root/.bashrc >/dev/null 2>&1 || true\nDEST=/root/AirStack/results/urban_fire_8robot/{{env.RESULTS_SCENE}}/{{env.method}}/{robot}\nmkdir -p \"$DEST\"\ncp -v /tmp/search/*.log \"$DEST\"/ 2>/dev/null || true\ncp -v /tmp/conavgpt2/search_planner_rounds.jsonl \"$DEST\"/ 2>/dev/null || true\n{\n  echo \"# sim budget: when it started and from which clock\"\n  grep -a \"sim budget\" /tmp/search/planner.log | head -2\n  echo \"# scene / sector / search area\"\n  grep -a \"search area from the SCENE\" /tmp/search/planner.log | head -1\n  grep -a \"sector [0-9]*/\" /tmp/search/planner.log | head -1\n  echo \"# ticks with a detection / total\"\n  grep -ac \"targets:\" /tmp/search/planner.log\n  grep -a \"targets:\" /tmp/search/planner.log | grep -acv \"'n': 0,\"\n  echo \"# detector gate, last summary, gate passes\"\n  grep -a \"detector gate:\" /tmp/search/planner.log | head -1\n  grep -a \"detector summary\"\
+      \ /tmp/search/planner.log | tail -1\n  grep -ac \"detector PASS\" /tmp/search/planner.log\n  echo \"# seen at >= 0.5 but under the gate, and the last three\"\n  grep -ac \"detector SEEN\" /tmp/search/planner.log\n  grep -a \"detector SEEN\" /tmp/search/planner.log | tail -3\n  echo \"# speed caps and the last measured ground speeds\"\n  grep -a \"NavigateTask max_speed ->\" /tmp/search/planner.log | head -6\n  grep -a \"ground speed\" /tmp/search/planner.log | tail -3\n  echo \"# people visited / given up / goals blacklisted\"\n  grep -ac \"target VISITED\" /tmp/search/planner.log\n  grep -ac \"GIVING UP\" /tmp/search/planner.log\n  grep -ac \"BLACKLISTED\" /tmp/search/planner.log\n  echo \"# lawnmower: known obstacles and lifted legs\"\n  grep -a \"known obstacles:\" /tmp/search/planner.log | head -1\n  grep -ac \"lifting it to\" /tmp/search/planner.log\n  echo \"# vlfm: last 'N scored, M failed' + view-score failures\"\n  grep -aoE \"[0-9]+ scored, [0-9]+ failed\" /tmp/search/planner.log\
+      \ | tail -1\n  grep -ac \"view score failed\" /tmp/search/planner.log\n  # THE BRIDGE'S OWN LOG, NOT planner.log. Until 2026-08-30 these greps ran\n  # against /tmp/search/planner.log, where \"mighty_bridge up\",\n  # \"follower: engaging\" and \"dropping trajectory\" CANNOT appear \u2014 every one\n  # of them is printed by mighty_bridge, a different process with a different\n  # log. The block reported 0 on a healthy run and 0 on a run where the bridge\n  # had never started, which is how eight hovering drones went unnoticed for\n  # 95 minutes. ~/.ros/log outlives the tmux scrollback and the runner already\n  # collects it (CONTROL_STACK_GLOBS \"mighty*\").\n  echo \"# MIGHTY bridge: alive now / came up / follower engaged / traj dropped\"\n  ros2 node list 2>/dev/null | grep -cx \"/{robot}/mighty/mighty_bridge\"\n  grep -ah \"mighty_bridge up\" /root/.ros/log/mighty_bridge_*.log 2>/dev/null | tail -1\n  grep -ah \"follower: takeoff settled\\|follower: engaging\" /root/.ros/log/mighty_bridge_*.log\
+      \ 2>/dev/null | tail -2\n  cat /root/.ros/log/mighty_bridge_*.log 2>/dev/null | grep -ac \"dropping trajectory\"\n  echo \"# the trajectory controller: did anything ever reach it\"\n  cat /root/.ros/log/trajectory_controller_*.log 2>/dev/null | grep -ac \"Virtual waypoint does not correspond\"\n  echo \"# detector-call failures seen by the planner\"\n  grep -acE \"detector.*(fail|error|timeout)\" /tmp/search/planner.log\n} > \"$DEST\"/summary.txt 2>&1\ncat \"$DEST\"/summary.txt\n"
+    timeout_s: 240
+    expect_success: false
+- run:
+    container: offboard-compute
+    cmd: "if [ \"{{env.method}}\" != \"conavgpt2_team\" ]; then echo \"SKIP\"; exit 0; fi\nDEST=/root/AirStack/results/urban_fire_8robot/{{env.RESULTS_SCENE}}/{{env.method}}\nmkdir -p \"$DEST\"\ncp -v /tmp/search/planner.log \"$DEST\"/ 2>/dev/null || true\ncp -v /tmp/conavgpt2/search_planner_rounds.jsonl \"$DEST\"/ 2>/dev/null || true\n{\n  grep -a \"search area from the SCENE\" /tmp/search/planner.log | head -1\n  echo \"# sim budget: when it started and from which clock\"\n  grep -a \"sim budget\" /tmp/search/planner.log | head -2\n  echo \"# rounds: last few total_s/server_s, overruns, parse failures\"\n  grep -aoE \"total_s=[0-9.]+.*server_s=[0-9.]+\" /tmp/search/planner.log | tail -5\n  grep -ac \"overran\" /tmp/search/planner.log\n  grep -ac \"parse\" /tmp/search/planner.log\n  echo \"# assignments issued / targets visited\"\n  grep -ac \"assign\" /tmp/search/planner.log\n  grep -ac \"target VISITED\" /tmp/search/planner.log\n} > \"$DEST\"/summary.txt 2>&1\ncat \"$DEST\"/summary.txt\n"
+    timeout_s: 240
+    expect_success: false
+- run:
+    container: robot_1
+    cmd: 'DEST=/root/AirStack/results/urban_fire_8robot/{{env.RESULTS_SCENE}}/{{env.method}}
+
+      mkdir -p "$DEST"
+
+      cp -v /tmp/search/server_metrics.jsonl "$DEST"/ 2>/dev/null || true
+
+      cp -v /tmp/search/server_metrics_poller.log "$DEST"/ 2>/dev/null || true
+
+      curl -s http://offboard-compute:8200/metrics > "$DEST"/detector_metrics_final.json 2>/dev/null || true
+
+      curl -s http://offboard-compute:8100/metrics > "$DEST"/itm_metrics_final.json 2>/dev/null || true
+
+      curl -s http://offboard-compute:8000/metrics > "$DEST"/vlm_metrics_final.json 2>/dev/null || true
+
+      echo "# detector:"; cat "$DEST"/detector_metrics_final.json; echo
+
+      echo "# itm:";      cat "$DEST"/itm_metrics_final.json; echo
+
+      echo "# vlm:";      cat "$DEST"/vlm_metrics_final.json; echo
+
+      echo "# poller samples: $(wc -l < /tmp/search/server_metrics.jsonl 2>/dev/null || echo 0)"
+
+      kill "$(cat /tmp/search/poller.pid)" 2>/dev/null || true
+
+      sleep 2; echo stopped
+
+      '
+    timeout_s: 180
+    expect_success: false
+- run:
+    container: airstack-robot-desktop-{n}
+    cmd: 'kill "$(cat /tmp/search/planner.pid)" 2>/dev/null || true
+
+      sleep 1; echo stopped robot_{n}
+
+      '
+    timeout_s: 60
+  optional: true
+- run:
+    container: offboard-compute
+    cmd: 'kill "$(cat /tmp/search/planner.pid)" 2>/dev/null || true
+
+      sleep 1; echo stopped team planner
+
+      '
+    timeout_s: 60
+  optional: true
