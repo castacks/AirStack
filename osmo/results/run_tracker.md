@@ -218,6 +218,10 @@ UTC validation run finished the cook before spawning PX4 but still reproduced
 search on this scene, it was restored in `ad1b46bb`. A fresh proven-config L1
 run started at 03:24 UTC in
 `earthquake_suburban_l1_8robot_optimized_pod57/2026-09-06_03-24-12`.
+All eight robots cleared takeoff, and Frontier entered its 600-second timed
+search at 03:55–03:58 UTC. A live `/clock` sample measured about 0.0447 RTF,
+projecting roughly 3.7 wall-hours for the timed window (about 07:40 UTC if it
+holds).
 The exact outstanding pod-57 list is L1 Frontier, Lawnmower, VLFM and
 CoNavGPT2, followed by L3 Frontier, Lawnmower, VLFM and CoNavGPT2. A detached
 queue watcher now parses each completed 4-cell mission log, generates a
@@ -272,7 +276,7 @@ uploaded.
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
-| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | RUNNING — all four methods remain outstanding. `colliders=off` repeatedly caused PX4-heartbeat/no-HIL-odometry stalls and uploaded nothing; proven `colliders=ground` was restored in `ad1b46bb`. Fresh run `2026-09-06_03-24-12` is active; any method exhausting attempts is automatically queued in a focused rerun before L3 |
+| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | RUNNING — all four methods remain outstanding. Proven `colliders=ground` run `2026-09-06_03-24-12` cleared all eight takeoffs; Frontier timed search is active at live RTF ~0.0447. Any method exhausting attempts is automatically queued in a focused rerun before L3 |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L1–L2 completes |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding; starts only after L1 plus any focused L1 reruns complete, then automatically focuses any L3 methods that exhaust attempts |
 | 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; mission and overlay validation passed. Starts after Suburban Earthquake L2 |
