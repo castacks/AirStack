@@ -265,8 +265,9 @@ steps:
     cmd: "if [ \"{{env.method}}\" = \"conavgpt2_team\" ]; then\n  echo \"SKIP per-robot planner: {{env.method}}\
       \ is a TEAM arm (step 6)\"; exit 0\nfi\nsource /root/.bashrc >/dev/null 2>&1 || true\nexport ROBOT_NAME=robot_{n}\n\
       export ROS_DOMAIN_ID={n}\nmkdir -p /tmp/search\nCFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config\n\
-      SCENE=$CFG/{{env.scene_yaml}}\n[ -f \"$SCENE\" ] || { echo \"MISSING scene overlay $SCENE (was the\
-      \ workspace rebuilt after the overlays were added?)\"; exit 1; }\n# vlfm's keyframe rate is NOT\
+      BASE_SCENE=$CFG/{{env.scene_yaml}}\n[ -f \"$BASE_SCENE\" ] || { echo \"MISSING scene overlay $BASE_SCENE (was the\
+      \ workspace rebuilt after the overlays were added?)\"; exit 1; }\n# The production overlay intentionally\
+      \ remains a 600-s benchmark. This smoke must override the ROS parameter\n# itself; SEARCH_MAX_SIM_SECONDS is not read by the planner.\nSCENE=/tmp/search/gpu_physics_100s_scene.yaml\nsed 's/max_sim_seconds: 600.0/max_sim_seconds: 100.0/' \"$BASE_SCENE\" > \"$SCENE\"\ngrep -q 'max_sim_seconds: 100.0' \"$SCENE\" || { echo BAD_SMOKE_BUDGET; exit 1; }\n# vlfm's keyframe rate is NOT\
       \ overridden here: `ros2 launch` takes\n# declared launch ARGS (name:=value), not `--ros-args -p`,\
       \ so a\n# parameter tacked on here would be silently ignored or reject the\n# launch. It is in the\
       \ scene overlay instead (vlfm_keyframe_period_s:\n# 1.0), which every arm loads and only vlfm reads.\n\
