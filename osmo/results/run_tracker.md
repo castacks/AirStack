@@ -19,7 +19,8 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Urban** | L1–L3 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| **Hurricane** | **Urban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Hurricane** | **Urban** | L2–L3 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -99,7 +100,11 @@ Development history only:
 
 ### Urban
 
-🟥 No completed Urban Hurricane scenes or benchmark results are recorded.
+Urban Hurricane L1 is canonically exported and ready for benchmarking. Its
+four shared-planner baselines are queued on pod 56 after the active Urban
+Earthquake L2 batch and the already queued Suburban Earthquake L2 batch.
+Urban Hurricane L2–L3 are not yet recorded as ready, and no Urban Hurricane
+benchmark result exists yet.
 
 ### Suburban
 
@@ -260,6 +265,7 @@ uploaded.
 | 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | RUNNING — `colliders=off` repeatedly caused PX4-heartbeat/no-HIL-odometry stalls and uploaded nothing; restoring its missing update barrier was insufficient. Proven `colliders=ground` was restored in `ad1b46bb`; a fresh run started at 03:24 UTC in `earthquake_suburban_l1_8robot_optimized_pod57/2026-09-06_03-24-12` |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L1–L2 completes |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — starts after Suburban Earthquake L1 completes |
+| 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — starts after Suburban Earthquake L2; canonical Nucleus cold-open, GT and spawn plan must pass before launch |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
