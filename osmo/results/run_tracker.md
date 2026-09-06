@@ -25,7 +25,9 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Tornado** | **Urban** | L1–L3 | 🟨 | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| **Tornado** | **Urban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Tornado** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Tornado** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -130,8 +132,21 @@ are startup-invalid.
 
 ### Urban
 
-Urban Tornado L1–L3 generation is complete and frozen-scene export is in
-progress with another agent. No benchmark result has been submitted yet.
+Urban Tornado L1–L3 are canonically published on Nucleus and ready for
+benchmarking. Standalone cold opens passed for all three canonical USDs
+(`tornado_urban_lvl1_1.usd`, `tornado_urban_lvl2_1.usd` and
+`tornado_urban_lvl3_1.usd`) in 7.12, 6.96 and 5.68 seconds. Every cell has its
+GT, build, freeze and Nucleus-verification sidecars; the published verification
+reports have `ok=true`, no missing Nucleus assets/arcs and `portable_ok=true`.
+The generated L1/L2/L3 overlays contain 6/9/11 survivors, all inside their
+search areas, and 2,052/2,122/2,008 obstacle boxes. Their eight generated
+sector spawns have minimum clearances 9.1/10.1/9.4 m; the sub-10 m L1 and L3
+points are the planner's explicit `roomiest` fallback and remain inside their
+assigned search sectors. Three distinct four-baseline missions passed dry-run
+and geometry/config validation with pod 57's assigned renderer index 2 and GPU
+PhysX enabled. They are queued after the remaining Suburban Earthquake L1/L3
+work, one level per fresh maximum-12-hour runner. Only passed iterations will
+upload, and each upload must be NAS-verified before the queue advances.
 
 ### Suburban
 
@@ -331,6 +346,9 @@ uploaded.
 | 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; mission and overlay validation passed. Starts after Suburban Earthquake L2 |
 | 11 | `airstack-mission-1gpu-56` | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.0–11.6 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L1 under a fresh 12-hour cap |
 | 12 | `airstack-mission-1gpu-56` | Hurricane/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 22/22 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.8 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L2 under a fresh 12-hour cap |
+| 13 | `airstack-mission-1gpu-57` | Tornado/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus USD/GT/asset verification and cold open passed; 6/6 survivors are inside the generated search area; generated spawns have 9.1–11.0 m clearance; mission/overlay dry-run passed with GPU PhysX. Starts after pod 57's remaining Earthquake work, after GPU-physics smoke authorization |
+| 14 | `airstack-mission-1gpu-57` | Tornado/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus USD/GT/asset verification and cold open passed; 9/9 survivors are inside the generated search area; generated spawns have 10.1–11.3 m clearance; mission/overlay dry-run passed with GPU PhysX. Starts after Tornado/Urban L1 under a fresh 12-hour cap |
+| 15 | `airstack-mission-1gpu-57` | Tornado/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus USD/GT/asset verification and cold open passed; 11/11 survivors are inside the generated search area; generated spawns have 9.4–10.9 m clearance; mission/overlay dry-run passed with GPU PhysX. Starts after Tornado/Urban L2 under a fresh 12-hour cap |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48

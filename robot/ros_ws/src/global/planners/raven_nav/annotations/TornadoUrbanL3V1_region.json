@@ -1,0 +1,111 @@
+[
+ {
+  "class": "search",
+  "polygon_xy": [
+   [
+    -290.064,
+    500.0
+   ],
+   [
+    -290.064,
+    -500.0
+   ],
+   [
+    332.494,
+    -500.0
+   ],
+   [
+    332.494,
+    500.0
+   ]
+  ],
+  "area_m2": 622558.0,
+  "source": "damage hull + 50 m pad, clipped to the plate",
+  "pad_m": 50.0
+ },
+ {
+  "class": "damage",
+  "polygon_xy": [
+   [
+    -240.064,
+    500.0
+   ],
+   [
+    -240.064,
+    -491.864
+   ],
+   [
+    -227.782,
+    -497.508
+   ],
+   [
+    -221.803,
+    -498.422
+   ],
+   [
+    -208.945,
+    -499.862
+   ],
+   [
+    269.687,
+    -499.862
+   ],
+   [
+    282.494,
+    -498.422
+   ],
+   [
+    282.494,
+    495.505
+   ],
+   [
+    274.012,
+    500.0
+   ]
+  ],
+  "area_m2": 522373.4,
+  "source": "convex hull of GT_hints damage classes",
+  "damage_classes": [
+   "Damaged building",
+   "Burnt Tree",
+   "Fallen Tree",
+   "Debris",
+   "Toppled"
+  ]
+ },
+ {
+  "class": "region",
+  "polygon_xy": [
+   [
+    -500.0,
+    -500.0
+   ],
+   [
+    500.0,
+    -500.0
+   ],
+   [
+    500.0,
+    500.0
+   ],
+   [
+    -500.0,
+    500.0
+   ]
+  ],
+  "area_m2": 1000000.0
+ },
+ {
+  "class": "meta",
+  "scene_config": "downtown_urban_tornado_1000_l3",
+  "disaster": "tornado",
+  "seed": 23,
+  "people_variant": 1,
+  "frozen_usd": "tornado_urban_lvl3_1.usd",
+  "people_total": 11,
+  "people_inside_damage": 11,
+  "people_inside_search": 11,
+  "damage_frac_of_plate": 0.5224,
+  "search_frac_of_plate": 0.6226
+ }
+]

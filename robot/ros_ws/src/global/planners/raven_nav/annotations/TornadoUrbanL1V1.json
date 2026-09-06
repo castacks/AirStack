@@ -1,0 +1,92 @@
+[
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -426.745,
+    -128.023,
+    2.437
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    21.005,
+    66.998,
+    0.91
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    150.45,
+    13.968,
+    0.921
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -342.373,
+    -96.298,
+    0.985
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    255.108,
+    135.1,
+    0.985
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    364.981,
+    178.894,
+    0.92
+   ],
+   "size_xyz_m": [
+    0.7,
+    0.7,
+    1.8
+   ]
+  }
+ }
+]
