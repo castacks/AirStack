@@ -1,0 +1,3445 @@
+{
+  "schema_version": 1,
+  "rows": [
+    {
+      "metric_version": 4,
+      "scene": "Earthquake / Urban L1",
+      "method": "CoNavGPT2",
+      "method_key": "conavgpt2_team",
+      "run_folder": "urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_004__earthquakeurbanl1v1_conavgpt2_team__conavgpt2_team",
+      "iter_dir": "/media/share/coa-sei/urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_004__earthquakeurbanl1v1_conavgpt2_team__conavgpt2_team",
+      "bag": "/media/share/coa-sei/urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_004__earthquakeurbanl1v1_conavgpt2_team__conavgpt2_team/bags/gcs/gcs_0.mcap",
+      "gt_victims": 39,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 7961.658479099235,
+      "ideal_all_path_m": 3187.497,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 0,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "offboard planner log",
+      "robots": 8,
+      "empty_oracle_routes": 2,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Earthquake / Urban L1",
+      "method": "Frontier",
+      "method_key": "frontier",
+      "run_folder": "urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_001__earthquakeurbanl1v1__frontier",
+      "iter_dir": "/media/share/coa-sei/urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_001__earthquakeurbanl1v1__frontier",
+      "bag": "/media/share/coa-sei/urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_001__earthquakeurbanl1v1__frontier/bags/gcs/gcs_0.mcap",
+      "gt_victims": 39,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 3983.053898330934,
+      "ideal_all_path_m": 5268.1849999999995,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 178,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 1,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Earthquake / Urban L1",
+      "method": "Lawnmower",
+      "method_key": "lawnmower",
+      "run_folder": "urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_002__earthquakeurbanl1v1_lawnmower__lawnmower",
+      "iter_dir": "/media/share/coa-sei/urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_002__earthquakeurbanl1v1_lawnmower__lawnmower",
+      "bag": "/media/share/coa-sei/urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_002__earthquakeurbanl1v1_lawnmower__lawnmower/bags/gcs/gcs_0.mcap",
+      "gt_victims": 39,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 7383.955977938265,
+      "ideal_all_path_m": 4808.226000000001,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 60,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "first global plan fallback",
+      "robots": 7,
+      "empty_oracle_routes": 1,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Earthquake / Urban L1",
+      "method": "VLFM",
+      "method_key": "vlfm",
+      "run_folder": "urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_003__earthquakeurbanl1v1__vlfm",
+      "iter_dir": "/media/share/coa-sei/urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_003__earthquakeurbanl1v1__vlfm",
+      "bag": "/media/share/coa-sei/urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_003__earthquakeurbanl1v1__vlfm/bags/gcs/gcs_0.mcap",
+      "gt_victims": 39,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 4159.7780071553725,
+      "ideal_all_path_m": 5352.064,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 339,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "unknown": {
+            "total": 39,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 2,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Earthquake / Urban L3",
+      "method": "CoNavGPT2",
+      "method_key": "conavgpt2_team",
+      "run_folder": "urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_004__earthquakeurbanl3v1_conavgpt2_team__conavgpt2_team",
+      "iter_dir": "/media/share/coa-sei/urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_004__earthquakeurbanl3v1_conavgpt2_team__conavgpt2_team",
+      "bag": "/media/share/coa-sei/urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_004__earthquakeurbanl3v1_conavgpt2_team__conavgpt2_team/bags/gcs/gcs_0.mcap",
+      "gt_victims": 64,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 6032.440866396573,
+      "ideal_all_path_m": 5146.245,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 0,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "offboard planner log",
+      "robots": 8,
+      "empty_oracle_routes": 0,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Earthquake / Urban L3",
+      "method": "Frontier",
+      "method_key": "frontier",
+      "run_folder": "urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_001__earthquakeurbanl3v1__frontier",
+      "iter_dir": "/media/share/coa-sei/urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_001__earthquakeurbanl3v1__frontier",
+      "bag": "/media/share/coa-sei/urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_001__earthquakeurbanl3v1__frontier/bags/gcs/gcs_0.mcap",
+      "gt_victims": 64,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 5146.190179209532,
+      "ideal_all_path_m": 8132.414000000001,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 29,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 1,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Earthquake / Urban L3",
+      "method": "Lawnmower",
+      "method_key": "lawnmower",
+      "run_folder": "urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_002__earthquakeurbanl3v1_lawnmower__lawnmower",
+      "iter_dir": "/media/share/coa-sei/urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_002__earthquakeurbanl3v1_lawnmower__lawnmower",
+      "bag": "/media/share/coa-sei/urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_002__earthquakeurbanl3v1_lawnmower__lawnmower/bags/gcs/gcs_0.mcap",
+      "gt_victims": 64,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 10350.612167614088,
+      "ideal_all_path_m": 8133.030000000001,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 15,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 1,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Earthquake / Urban L3",
+      "method": "VLFM",
+      "method_key": "vlfm",
+      "run_folder": "urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_003__earthquakeurbanl3v1__vlfm",
+      "iter_dir": "/media/share/coa-sei/urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_003__earthquakeurbanl3v1__vlfm",
+      "bag": "/media/share/coa-sei/urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_003__earthquakeurbanl3v1__vlfm/bags/gcs/gcs_0.mcap",
+      "gt_victims": 64,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 3307.93800601816,
+      "ideal_all_path_m": 7934.909,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 48,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "unknown": {
+            "total": 64,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "first global plan fallback",
+      "robots": 7,
+      "empty_oracle_routes": 0,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Fire / Suburban L1",
+      "method": "Frontier",
+      "method_key": "frontier",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_001__firesuburbanl1v1__frontier",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_001__firesuburbanl1v1__frontier",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_001__firesuburbanl1v1__frontier/bags/gcs/gcs_0.mcap",
+      "gt_victims": 49,
+      "detected_victims": 10,
+      "progress": 0.20408163265306123,
+      "progress_auc": 0.17511904874129253,
+      "actual_path_m": 5590.0,
+      "ideal_all_path_m": 1726.732,
+      "ideal_detected_path_m": 90.389,
+      "ppl": 0.003299952539155197,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 2210,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 10,
+          "progress": 0.20408163265306123,
+          "progress_auc": 0.17511904874129253
+        },
+        "17": {
+          "detected_victims": 11,
+          "progress": 0.22448979591836735,
+          "progress_auc": 0.19183503526704082
+        },
+        "22": {
+          "detected_victims": 15,
+          "progress": 0.30612244897959184,
+          "progress_auc": 0.2707044232707483
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "upright": {
+            "total": 16,
+            "detected": 3
+          },
+          "seated": {
+            "total": 29,
+            "detected": 5
+          },
+          "unknown": {
+            "total": 3,
+            "detected": 2
+          },
+          "crouched": {
+            "total": 1,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 49,
+            "detected": 10
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 49,
+            "detected": 10
+          }
+        },
+        "environment": {
+          "open_ground": {
+            "total": 13,
+            "detected": 7
+          },
+          "pools": {
+            "total": 5,
+            "detected": 0
+          },
+          "gridlock": {
+            "total": 16,
+            "detected": 0
+          },
+          "cul_de_sac": {
+            "total": 15,
+            "detected": 3
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 1,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 3,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 7,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Fire / Suburban L1",
+      "method": "Lawnmower",
+      "method_key": "lawnmower",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_002__firesuburbanl1v1_lawnmower__lawnmower",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_002__firesuburbanl1v1_lawnmower__lawnmower",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_002__firesuburbanl1v1_lawnmower__lawnmower/bags/gcs/gcs_0.mcap",
+      "gt_victims": 49,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 14530.0,
+      "ideal_all_path_m": 1778.964,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 809,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 1,
+          "progress": 0.02040816326530612,
+          "progress_auc": 0.010936394817993196
+        },
+        "22": {
+          "detected_victims": 4,
+          "progress": 0.08163265306122448,
+          "progress_auc": 0.04664217785503401
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "upright": {
+            "total": 16,
+            "detected": 0
+          },
+          "seated": {
+            "total": 29,
+            "detected": 0
+          },
+          "unknown": {
+            "total": 3,
+            "detected": 0
+          },
+          "crouched": {
+            "total": 1,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 49,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 49,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "open_ground": {
+            "total": 13,
+            "detected": 0
+          },
+          "pools": {
+            "total": 5,
+            "detected": 0
+          },
+          "gridlock": {
+            "total": 16,
+            "detected": 0
+          },
+          "cul_de_sac": {
+            "total": 15,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 1,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Fire / Suburban L1",
+      "method": "VLFM",
+      "method_key": "vlfm",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_003__firesuburbanl1v1__vlfm",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_003__firesuburbanl1v1__vlfm",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_003__firesuburbanl1v1__vlfm/bags/gcs/gcs_0.mcap",
+      "gt_victims": 49,
+      "detected_victims": 11,
+      "progress": 0.22448979591836735,
+      "progress_auc": 0.2040925185736735,
+      "actual_path_m": 4790.0,
+      "ideal_all_path_m": 1694.735,
+      "ideal_detected_path_m": 267.195,
+      "ppl": 0.012522453240168718,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 381,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 11,
+          "progress": 0.22448979591836735,
+          "progress_auc": 0.2040925185736735
+        },
+        "17": {
+          "detected_victims": 11,
+          "progress": 0.22448979591836735,
+          "progress_auc": 0.2040925185736735
+        },
+        "22": {
+          "detected_victims": 13,
+          "progress": 0.2653061224489796,
+          "progress_auc": 0.23463401558904765
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "upright": {
+            "total": 16,
+            "detected": 3
+          },
+          "seated": {
+            "total": 29,
+            "detected": 6
+          },
+          "unknown": {
+            "total": 3,
+            "detected": 2
+          },
+          "crouched": {
+            "total": 1,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 49,
+            "detected": 11
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 49,
+            "detected": 11
+          }
+        },
+        "environment": {
+          "open_ground": {
+            "total": 13,
+            "detected": 8
+          },
+          "pools": {
+            "total": 5,
+            "detected": 0
+          },
+          "gridlock": {
+            "total": 16,
+            "detected": 0
+          },
+          "cul_de_sac": {
+            "total": 15,
+            "detected": 3
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 1,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 3,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 8,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Fire / Suburban L2",
+      "method": "CoNavGPT2",
+      "method_key": "conavgpt2_team",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_008__firesuburbanl2v1_conavgpt2_team__conavgpt2_team",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_008__firesuburbanl2v1_conavgpt2_team__conavgpt2_team",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_008__firesuburbanl2v1_conavgpt2_team__conavgpt2_team/bags/gcs/gcs_0.mcap",
+      "gt_victims": 79,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 5679.079233817574,
+      "ideal_all_path_m": 1531.81,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 0,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "seated": {
+            "total": 40,
+            "detected": 0
+          },
+          "upright": {
+            "total": 24,
+            "detected": 0
+          },
+          "unknown": {
+            "total": 12,
+            "detected": 0
+          },
+          "crouched": {
+            "total": 3,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 79,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 79,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "parking_refuge": {
+            "total": 28,
+            "detected": 0
+          },
+          "open_ground": {
+            "total": 13,
+            "detected": 0
+          },
+          "gridlock": {
+            "total": 21,
+            "detected": 0
+          },
+          "cul_de_sac": {
+            "total": 15,
+            "detected": 0
+          },
+          "at_home": {
+            "total": 2,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "first global plan fallback",
+      "robots": 8,
+      "empty_oracle_routes": 3,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Fire / Suburban L2",
+      "method": "Frontier",
+      "method_key": "frontier",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_005__firesuburbanl2v1__frontier",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_005__firesuburbanl2v1__frontier",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_005__firesuburbanl2v1__frontier/bags/gcs/gcs_0.mcap",
+      "gt_victims": 79,
+      "detected_victims": 15,
+      "progress": 0.189873417721519,
+      "progress_auc": 0.12858312434308017,
+      "actual_path_m": 14110.0,
+      "ideal_all_path_m": 2274.82,
+      "ideal_detected_path_m": 341.894,
+      "ppl": 0.0046007499843005685,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 609,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 15,
+          "progress": 0.189873417721519,
+          "progress_auc": 0.12858312434308017
+        },
+        "17": {
+          "detected_victims": 21,
+          "progress": 0.26582278481012656,
+          "progress_auc": 0.17669388469597047
+        },
+        "22": {
+          "detected_victims": 24,
+          "progress": 0.3037974683544304,
+          "progress_auc": 0.20617658541873418
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "seated": {
+            "total": 40,
+            "detected": 7
+          },
+          "upright": {
+            "total": 24,
+            "detected": 5
+          },
+          "unknown": {
+            "total": 12,
+            "detected": 3
+          },
+          "crouched": {
+            "total": 3,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 79,
+            "detected": 15
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 79,
+            "detected": 15
+          }
+        },
+        "environment": {
+          "parking_refuge": {
+            "total": 28,
+            "detected": 5
+          },
+          "open_ground": {
+            "total": 13,
+            "detected": 0
+          },
+          "gridlock": {
+            "total": 21,
+            "detected": 0
+          },
+          "cul_de_sac": {
+            "total": 15,
+            "detected": 10
+          },
+          "at_home": {
+            "total": 2,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 2,
+      "detected_by_robot": {
+        "1": 4,
+        "2": 0,
+        "3": 0,
+        "4": 5,
+        "5": 0,
+        "6": 6,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Fire / Suburban L2",
+      "method": "Lawnmower",
+      "method_key": "lawnmower",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_006__firesuburbanl2v1_lawnmower__lawnmower",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_006__firesuburbanl2v1_lawnmower__lawnmower",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_006__firesuburbanl2v1_lawnmower__lawnmower/bags/gcs/gcs_0.mcap",
+      "gt_victims": 79,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 13370.0,
+      "ideal_all_path_m": 2275.663,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 135,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 1,
+          "progress": 0.012658227848101266,
+          "progress_auc": 0.010571730051413502
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "seated": {
+            "total": 40,
+            "detected": 0
+          },
+          "upright": {
+            "total": 24,
+            "detected": 0
+          },
+          "unknown": {
+            "total": 12,
+            "detected": 0
+          },
+          "crouched": {
+            "total": 3,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 79,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 79,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "parking_refuge": {
+            "total": 28,
+            "detected": 0
+          },
+          "open_ground": {
+            "total": 13,
+            "detected": 0
+          },
+          "gridlock": {
+            "total": 21,
+            "detected": 0
+          },
+          "cul_de_sac": {
+            "total": 15,
+            "detected": 0
+          },
+          "at_home": {
+            "total": 2,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 2,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Fire / Suburban L2",
+      "method": "VLFM",
+      "method_key": "vlfm",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_007__firesuburbanl2v1__vlfm",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_007__firesuburbanl2v1__vlfm",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_007__firesuburbanl2v1__vlfm/bags/gcs/gcs_0.mcap",
+      "gt_victims": 79,
+      "detected_victims": 27,
+      "progress": 0.34177215189873417,
+      "progress_auc": 0.26624515152147676,
+      "actual_path_m": 4520.0,
+      "ideal_all_path_m": 2263.945,
+      "ideal_detected_path_m": 339.828,
+      "ppl": 0.0256955192113812,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 803,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 27,
+          "progress": 0.34177215189873417,
+          "progress_auc": 0.26624515152147676
+        },
+        "17": {
+          "detected_victims": 29,
+          "progress": 0.3670886075949367,
+          "progress_auc": 0.2748651942321941
+        },
+        "22": {
+          "detected_victims": 32,
+          "progress": 0.4050632911392405,
+          "progress_auc": 0.29303439320474683
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "seated": {
+            "total": 40,
+            "detected": 13
+          },
+          "upright": {
+            "total": 24,
+            "detected": 9
+          },
+          "unknown": {
+            "total": 12,
+            "detected": 5
+          },
+          "crouched": {
+            "total": 3,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 79,
+            "detected": 27
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 79,
+            "detected": 27
+          }
+        },
+        "environment": {
+          "parking_refuge": {
+            "total": 28,
+            "detected": 10
+          },
+          "open_ground": {
+            "total": 13,
+            "detected": 6
+          },
+          "gridlock": {
+            "total": 21,
+            "detected": 0
+          },
+          "cul_de_sac": {
+            "total": 15,
+            "detected": 11
+          },
+          "at_home": {
+            "total": 2,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 2,
+      "detected_by_robot": {
+        "1": 4,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 16,
+        "6": 7,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Fire / Suburban L3",
+      "method": "CoNavGPT2",
+      "method_key": "conavgpt2_team",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_012__firesuburbanl3v1_conavgpt2_team__conavgpt2_team",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_012__firesuburbanl3v1_conavgpt2_team__conavgpt2_team",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_012__firesuburbanl3v1_conavgpt2_team__conavgpt2_team/bags/gcs/gcs_0.mcap",
+      "gt_victims": 84,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 6918.155530358176,
+      "ideal_all_path_m": 1889.306,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 0,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "seated": {
+            "total": 36,
+            "detected": 0
+          },
+          "upright": {
+            "total": 28,
+            "detected": 0
+          },
+          "unknown": {
+            "total": 18,
+            "detected": 0
+          },
+          "crouched": {
+            "total": 2,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 84,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 84,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "parking_refuge": {
+            "total": 28,
+            "detected": 0
+          },
+          "open_ground": {
+            "total": 13,
+            "detected": 0
+          },
+          "pools": {
+            "total": 7,
+            "detected": 0
+          },
+          "gridlock": {
+            "total": 21,
+            "detected": 0
+          },
+          "cul_de_sac": {
+            "total": 15,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "first global plan fallback",
+      "robots": 8,
+      "empty_oracle_routes": 4,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Fire / Suburban L3",
+      "method": "Frontier",
+      "method_key": "frontier",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_009__firesuburbanl3v1__frontier",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_009__firesuburbanl3v1__frontier",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_009__firesuburbanl3v1__frontier/bags/gcs/gcs_0.mcap",
+      "gt_victims": 84,
+      "detected_victims": 17,
+      "progress": 0.20238095238095238,
+      "progress_auc": 0.10497262191759922,
+      "actual_path_m": 11700.0,
+      "ideal_all_path_m": 2954.444,
+      "ideal_detected_path_m": 384.56899999999996,
+      "ppl": 0.006652088929588929,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 401,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 17,
+          "progress": 0.20238095238095238,
+          "progress_auc": 0.10497262191759922
+        },
+        "17": {
+          "detected_victims": 19,
+          "progress": 0.2261904761904762,
+          "progress_auc": 0.11798452700061508
+        },
+        "22": {
+          "detected_victims": 19,
+          "progress": 0.2261904761904762,
+          "progress_auc": 0.11798452700061508
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "seated": {
+            "total": 36,
+            "detected": 5
+          },
+          "upright": {
+            "total": 28,
+            "detected": 5
+          },
+          "unknown": {
+            "total": 18,
+            "detected": 7
+          },
+          "crouched": {
+            "total": 2,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 84,
+            "detected": 17
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 84,
+            "detected": 17
+          }
+        },
+        "environment": {
+          "parking_refuge": {
+            "total": 28,
+            "detected": 17
+          },
+          "open_ground": {
+            "total": 13,
+            "detected": 0
+          },
+          "pools": {
+            "total": 7,
+            "detected": 0
+          },
+          "gridlock": {
+            "total": 21,
+            "detected": 0
+          },
+          "cul_de_sac": {
+            "total": 15,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 2,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 8,
+        "6": 9,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Fire / Suburban L3",
+      "method": "Lawnmower",
+      "method_key": "lawnmower",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_010__firesuburbanl3v1_lawnmower__lawnmower",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_010__firesuburbanl3v1_lawnmower__lawnmower",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_010__firesuburbanl3v1_lawnmower__lawnmower/bags/gcs/gcs_0.mcap",
+      "gt_victims": 84,
+      "detected_victims": 4,
+      "progress": 0.047619047619047616,
+      "progress_auc": 0.0032611122486507936,
+      "actual_path_m": 14290.0,
+      "ideal_all_path_m": 2998.254,
+      "ideal_detected_path_m": 222.72,
+      "ppl": 0.0007421773467959612,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 120,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 4,
+          "progress": 0.047619047619047616,
+          "progress_auc": 0.0032611122486507936
+        },
+        "17": {
+          "detected_victims": 7,
+          "progress": 0.08333333333333333,
+          "progress_auc": 0.0057069464351388885
+        },
+        "22": {
+          "detected_victims": 9,
+          "progress": 0.10714285714285714,
+          "progress_auc": 0.007337502559464286
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "seated": {
+            "total": 36,
+            "detected": 2
+          },
+          "upright": {
+            "total": 28,
+            "detected": 1
+          },
+          "unknown": {
+            "total": 18,
+            "detected": 1
+          },
+          "crouched": {
+            "total": 2,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 84,
+            "detected": 4
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 84,
+            "detected": 4
+          }
+        },
+        "environment": {
+          "parking_refuge": {
+            "total": 28,
+            "detected": 0
+          },
+          "open_ground": {
+            "total": 13,
+            "detected": 0
+          },
+          "pools": {
+            "total": 7,
+            "detected": 0
+          },
+          "gridlock": {
+            "total": 21,
+            "detected": 4
+          },
+          "cul_de_sac": {
+            "total": 15,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 2,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 4,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Fire / Suburban L3",
+      "method": "VLFM",
+      "method_key": "vlfm",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_011__firesuburbanl3v1__vlfm",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_011__firesuburbanl3v1__vlfm",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_011__firesuburbanl3v1__vlfm/bags/gcs/gcs_0.mcap",
+      "gt_victims": 84,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 4220.0,
+      "ideal_all_path_m": 2924.697,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 217,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "seated": {
+            "total": 36,
+            "detected": 0
+          },
+          "upright": {
+            "total": 28,
+            "detected": 0
+          },
+          "unknown": {
+            "total": 18,
+            "detected": 0
+          },
+          "crouched": {
+            "total": 2,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "unknown": {
+            "total": 84,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "unknown": {
+            "total": 84,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "parking_refuge": {
+            "total": 28,
+            "detected": 0
+          },
+          "open_ground": {
+            "total": 13,
+            "detected": 0
+          },
+          "pools": {
+            "total": 7,
+            "detected": 0
+          },
+          "gridlock": {
+            "total": 21,
+            "detected": 0
+          },
+          "cul_de_sac": {
+            "total": 15,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 2,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Hurricane / Suburban L1",
+      "method": "CoNavGPT2",
+      "method_key": "conavgpt2_team",
+      "run_folder": "hurricane_suburban_l1_conavgpt2_gt600/2026-09-04_17-23-22/iter_001__hurricanesuburbanl1v1_conavgpt2_team__conavgpt2_team",
+      "iter_dir": "/media/share/coa-sei/hurricane_suburban_l1_conavgpt2_gt600/2026-09-04_17-23-22/iter_001__hurricanesuburbanl1v1_conavgpt2_team__conavgpt2_team",
+      "bag": "/media/share/coa-sei/hurricane_suburban_l1_conavgpt2_gt600/2026-09-04_17-23-22/iter_001__hurricanesuburbanl1v1_conavgpt2_team__conavgpt2_team/bags/gcs/gcs_0.mcap",
+      "gt_victims": 55,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 6468.616927548255,
+      "ideal_all_path_m": 2889.0029999999997,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 0,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "upright": {
+            "total": 55,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "partial": {
+            "total": 15,
+            "detected": 0
+          },
+          "full": {
+            "total": 40,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "submerged": {
+            "total": 15,
+            "detected": 0
+          },
+          "none": {
+            "total": 40,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "water": {
+            "total": 15,
+            "detected": 0
+          },
+          "roof": {
+            "total": 40,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "offboard planner log",
+      "robots": 8,
+      "empty_oracle_routes": 5,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Hurricane / Suburban L1",
+      "method": "Frontier",
+      "method_key": "frontier",
+      "run_folder": "hurricane_suburban_8robot/2026-09-02_20-13-16/iter_001__hurricanesuburbanl1v1__frontier",
+      "iter_dir": "/media/share/coa-sei/hurricane_suburban_8robot/2026-09-02_20-13-16/iter_001__hurricanesuburbanl1v1__frontier",
+      "bag": "/media/share/coa-sei/hurricane_suburban_8robot/2026-09-02_20-13-16/iter_001__hurricanesuburbanl1v1__frontier/bags/gcs/gcs_0.mcap",
+      "gt_victims": 55,
+      "detected_victims": 1,
+      "progress": 0.01818181818181818,
+      "progress_auc": 0.017511515204363635,
+      "actual_path_m": 5210.0,
+      "ideal_all_path_m": 4879.415,
+      "ideal_detected_path_m": 32.166,
+      "ppl": 0.00011225266096667248,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 744,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 1,
+          "progress": 0.01818181818181818,
+          "progress_auc": 0.017511515204363635
+        },
+        "17": {
+          "detected_victims": 1,
+          "progress": 0.01818181818181818,
+          "progress_auc": 0.017511515204363635
+        },
+        "22": {
+          "detected_victims": 1,
+          "progress": 0.01818181818181818,
+          "progress_auc": 0.017511515204363635
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "upright": {
+            "total": 55,
+            "detected": 1
+          }
+        },
+        "visibility": {
+          "partial": {
+            "total": 15,
+            "detected": 0
+          },
+          "full": {
+            "total": 40,
+            "detected": 1
+          }
+        },
+        "occlusion": {
+          "submerged": {
+            "total": 15,
+            "detected": 0
+          },
+          "none": {
+            "total": 40,
+            "detected": 1
+          }
+        },
+        "environment": {
+          "water": {
+            "total": 15,
+            "detected": 0
+          },
+          "roof": {
+            "total": 40,
+            "detected": 1
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 3,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 1,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Hurricane / Suburban L1",
+      "method": "Lawnmower",
+      "method_key": "lawnmower",
+      "run_folder": "hurricane_suburban_8robot/2026-09-02_20-13-16/iter_002__hurricanesuburbanl1v1_lawnmower__lawnmower",
+      "iter_dir": "/media/share/coa-sei/hurricane_suburban_8robot/2026-09-02_20-13-16/iter_002__hurricanesuburbanl1v1_lawnmower__lawnmower",
+      "bag": "/media/share/coa-sei/hurricane_suburban_8robot/2026-09-02_20-13-16/iter_002__hurricanesuburbanl1v1_lawnmower__lawnmower/bags/gcs/gcs_0.mcap",
+      "gt_victims": 55,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 8690.0,
+      "ideal_all_path_m": 3655.9700000000003,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 285,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "upright": {
+            "total": 55,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "partial": {
+            "total": 15,
+            "detected": 0
+          },
+          "full": {
+            "total": 40,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "submerged": {
+            "total": 15,
+            "detected": 0
+          },
+          "none": {
+            "total": 40,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "water": {
+            "total": 15,
+            "detected": 0
+          },
+          "roof": {
+            "total": 40,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "first global plan fallback",
+      "robots": 7,
+      "empty_oracle_routes": 4,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Hurricane / Suburban L1",
+      "method": "VLFM",
+      "method_key": "vlfm",
+      "run_folder": "hurricane_suburban_8robot/2026-09-02_20-13-16/iter_003__hurricanesuburbanl1v1__vlfm",
+      "iter_dir": "/media/share/coa-sei/hurricane_suburban_8robot/2026-09-02_20-13-16/iter_003__hurricanesuburbanl1v1__vlfm",
+      "bag": "/media/share/coa-sei/hurricane_suburban_8robot/2026-09-02_20-13-16/iter_003__hurricanesuburbanl1v1__vlfm/bags/gcs/gcs_0.mcap",
+      "gt_victims": 55,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 60.0,
+      "ideal_all_path_m": 0.0,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 0,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "upright": {
+            "total": 55,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "partial": {
+            "total": 15,
+            "detected": 0
+          },
+          "full": {
+            "total": 40,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "submerged": {
+            "total": 15,
+            "detected": 0
+          },
+          "none": {
+            "total": 40,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "water": {
+            "total": 15,
+            "detected": 0
+          },
+          "roof": {
+            "total": 40,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "first global plan fallback",
+      "robots": 0,
+      "empty_oracle_routes": 0,
+      "detected_by_robot": {}
+    },
+    {
+      "metric_version": 4,
+      "scene": "Tornado / Suburban L1",
+      "method": "CoNavGPT2",
+      "method_key": "conavgpt2_team",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_016__tornadosuburbanl1v1_conavgpt2_team__conavgpt2_team",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_016__tornadosuburbanl1v1_conavgpt2_team__conavgpt2_team",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_016__tornadosuburbanl1v1_conavgpt2_team__conavgpt2_team/bags/gcs/gcs_0.mcap",
+      "gt_victims": 30,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 1830.671599591491,
+      "ideal_all_path_m": 849.212,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 0,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "lying": {
+            "total": 30,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "partial": {
+            "total": 20,
+            "detected": 0
+          },
+          "full": {
+            "total": 10,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "feet_shins": {
+            "total": 10,
+            "detected": 0
+          },
+          "none": {
+            "total": 10,
+            "detected": 0
+          },
+          "torso_head": {
+            "total": 1,
+            "detected": 0
+          },
+          "legs": {
+            "total": 2,
+            "detected": 0
+          },
+          "midriff": {
+            "total": 1,
+            "detected": 0
+          },
+          "banded": {
+            "total": 3,
+            "detected": 0
+          },
+          "torso": {
+            "total": 3,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "yard": {
+            "total": 10,
+            "detected": 0
+          },
+          "street": {
+            "total": 3,
+            "detected": 0
+          },
+          "skirt": {
+            "total": 7,
+            "detected": 0
+          },
+          "pile": {
+            "total": 9,
+            "detected": 0
+          },
+          "trail": {
+            "total": 1,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "offboard planner log",
+      "robots": 8,
+      "empty_oracle_routes": 4,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Tornado / Suburban L1",
+      "method": "Frontier",
+      "method_key": "frontier",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_013__tornadosuburbanl1v1__frontier",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_013__tornadosuburbanl1v1__frontier",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_013__tornadosuburbanl1v1__frontier/bags/gcs/gcs_0.mcap",
+      "gt_victims": 30,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 10710.0,
+      "ideal_all_path_m": 941.117,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 271,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 1,
+          "progress": 0.03333333333333333,
+          "progress_auc": 0.009771111737388889
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "lying": {
+            "total": 30,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "partial": {
+            "total": 20,
+            "detected": 0
+          },
+          "full": {
+            "total": 10,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "feet_shins": {
+            "total": 10,
+            "detected": 0
+          },
+          "none": {
+            "total": 10,
+            "detected": 0
+          },
+          "torso_head": {
+            "total": 1,
+            "detected": 0
+          },
+          "legs": {
+            "total": 2,
+            "detected": 0
+          },
+          "midriff": {
+            "total": 1,
+            "detected": 0
+          },
+          "banded": {
+            "total": 3,
+            "detected": 0
+          },
+          "torso": {
+            "total": 3,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "yard": {
+            "total": 10,
+            "detected": 0
+          },
+          "street": {
+            "total": 3,
+            "detected": 0
+          },
+          "skirt": {
+            "total": 7,
+            "detected": 0
+          },
+          "pile": {
+            "total": 9,
+            "detected": 0
+          },
+          "trail": {
+            "total": 1,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 4,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Tornado / Suburban L1",
+      "method": "Lawnmower",
+      "method_key": "lawnmower",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_014__tornadosuburbanl1v1_lawnmower__lawnmower",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_014__tornadosuburbanl1v1_lawnmower__lawnmower",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_014__tornadosuburbanl1v1_lawnmower__lawnmower/bags/gcs/gcs_0.mcap",
+      "gt_victims": 30,
+      "detected_victims": 2,
+      "progress": 0.06666666666666667,
+      "progress_auc": 0.01675777911088889,
+      "actual_path_m": 11660.0,
+      "ideal_all_path_m": 894.256,
+      "ideal_detected_path_m": 40.746,
+      "ppl": 0.00023296740994854204,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 246,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 2,
+          "progress": 0.06666666666666667,
+          "progress_auc": 0.01675777911088889
+        },
+        "17": {
+          "detected_victims": 2,
+          "progress": 0.06666666666666667,
+          "progress_auc": 0.01675777911088889
+        },
+        "22": {
+          "detected_victims": 3,
+          "progress": 0.1,
+          "progress_auc": 0.02297833539316667
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "lying": {
+            "total": 30,
+            "detected": 2
+          }
+        },
+        "visibility": {
+          "partial": {
+            "total": 20,
+            "detected": 1
+          },
+          "full": {
+            "total": 10,
+            "detected": 1
+          }
+        },
+        "occlusion": {
+          "feet_shins": {
+            "total": 10,
+            "detected": 1
+          },
+          "none": {
+            "total": 10,
+            "detected": 1
+          },
+          "torso_head": {
+            "total": 1,
+            "detected": 0
+          },
+          "legs": {
+            "total": 2,
+            "detected": 0
+          },
+          "midriff": {
+            "total": 1,
+            "detected": 0
+          },
+          "banded": {
+            "total": 3,
+            "detected": 0
+          },
+          "torso": {
+            "total": 3,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "yard": {
+            "total": 10,
+            "detected": 1
+          },
+          "street": {
+            "total": 3,
+            "detected": 0
+          },
+          "skirt": {
+            "total": 7,
+            "detected": 1
+          },
+          "pile": {
+            "total": 9,
+            "detected": 0
+          },
+          "trail": {
+            "total": 1,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 4,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 1,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 1,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Tornado / Suburban L1",
+      "method": "VLFM",
+      "method_key": "vlfm",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_015__tornadosuburbanl1v1__vlfm",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_015__tornadosuburbanl1v1__vlfm",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_015__tornadosuburbanl1v1__vlfm/bags/gcs/gcs_0.mcap",
+      "gt_victims": 30,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 5080.0,
+      "ideal_all_path_m": 909.062,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 209,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 2,
+          "progress": 0.06666666666666667,
+          "progress_auc": 0.046256667310444435
+        },
+        "22": {
+          "detected_victims": 2,
+          "progress": 0.06666666666666667,
+          "progress_auc": 0.046256667310444435
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "lying": {
+            "total": 30,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "partial": {
+            "total": 20,
+            "detected": 0
+          },
+          "full": {
+            "total": 10,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "feet_shins": {
+            "total": 10,
+            "detected": 0
+          },
+          "none": {
+            "total": 10,
+            "detected": 0
+          },
+          "torso_head": {
+            "total": 1,
+            "detected": 0
+          },
+          "legs": {
+            "total": 2,
+            "detected": 0
+          },
+          "midriff": {
+            "total": 1,
+            "detected": 0
+          },
+          "banded": {
+            "total": 3,
+            "detected": 0
+          },
+          "torso": {
+            "total": 3,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "yard": {
+            "total": 10,
+            "detected": 0
+          },
+          "street": {
+            "total": 3,
+            "detected": 0
+          },
+          "skirt": {
+            "total": 7,
+            "detected": 0
+          },
+          "pile": {
+            "total": 9,
+            "detected": 0
+          },
+          "trail": {
+            "total": 1,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 4,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Tornado / Suburban L2",
+      "method": "CoNavGPT2",
+      "method_key": "conavgpt2_team",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_020__tornadosuburbanl2v1_conavgpt2_team__conavgpt2_team",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_020__tornadosuburbanl2v1_conavgpt2_team__conavgpt2_team",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_020__tornadosuburbanl2v1_conavgpt2_team__conavgpt2_team/bags/gcs/gcs_0.mcap",
+      "gt_victims": 40,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 4574.515588572675,
+      "ideal_all_path_m": 920.375,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 0,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "lying": {
+            "total": 40,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "full": {
+            "total": 21,
+            "detected": 0
+          },
+          "partial": {
+            "total": 19,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "none": {
+            "total": 21,
+            "detected": 0
+          },
+          "torso": {
+            "total": 1,
+            "detected": 0
+          },
+          "feet_shins": {
+            "total": 6,
+            "detected": 0
+          },
+          "flank": {
+            "total": 2,
+            "detected": 0
+          },
+          "legs": {
+            "total": 4,
+            "detected": 0
+          },
+          "banded": {
+            "total": 1,
+            "detected": 0
+          },
+          "torso_head": {
+            "total": 4,
+            "detected": 0
+          },
+          "midriff": {
+            "total": 1,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "street": {
+            "total": 9,
+            "detected": 0
+          },
+          "pile": {
+            "total": 9,
+            "detected": 0
+          },
+          "yard": {
+            "total": 10,
+            "detected": 0
+          },
+          "skirt": {
+            "total": 12,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "offboard planner log",
+      "robots": 8,
+      "empty_oracle_routes": 4,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Tornado / Suburban L2",
+      "method": "Frontier",
+      "method_key": "frontier",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_017__tornadosuburbanl2v1__frontier",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_017__tornadosuburbanl2v1__frontier",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_017__tornadosuburbanl2v1__frontier/bags/gcs/gcs_0.mcap",
+      "gt_victims": 40,
+      "detected_victims": 4,
+      "progress": 0.1,
+      "progress_auc": 0.06794583463758333,
+      "actual_path_m": 11380.0,
+      "ideal_all_path_m": 1028.01,
+      "ideal_detected_path_m": 177.398,
+      "ppl": 0.0015588576449912126,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 410,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 4,
+          "progress": 0.1,
+          "progress_auc": 0.06794583463758333
+        },
+        "17": {
+          "detected_victims": 7,
+          "progress": 0.175,
+          "progress_auc": 0.11466500238275
+        },
+        "22": {
+          "detected_victims": 9,
+          "progress": 0.225,
+          "progress_auc": 0.15711833616758333
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "lying": {
+            "total": 40,
+            "detected": 4
+          }
+        },
+        "visibility": {
+          "full": {
+            "total": 21,
+            "detected": 2
+          },
+          "partial": {
+            "total": 19,
+            "detected": 2
+          }
+        },
+        "occlusion": {
+          "none": {
+            "total": 21,
+            "detected": 2
+          },
+          "torso": {
+            "total": 1,
+            "detected": 0
+          },
+          "feet_shins": {
+            "total": 6,
+            "detected": 2
+          },
+          "flank": {
+            "total": 2,
+            "detected": 0
+          },
+          "legs": {
+            "total": 4,
+            "detected": 0
+          },
+          "banded": {
+            "total": 1,
+            "detected": 0
+          },
+          "torso_head": {
+            "total": 4,
+            "detected": 0
+          },
+          "midriff": {
+            "total": 1,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "street": {
+            "total": 9,
+            "detected": 1
+          },
+          "pile": {
+            "total": 9,
+            "detected": 1
+          },
+          "yard": {
+            "total": 10,
+            "detected": 0
+          },
+          "skirt": {
+            "total": 12,
+            "detected": 2
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 3,
+      "detected_by_robot": {
+        "1": 2,
+        "2": 1,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 1,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Tornado / Suburban L2",
+      "method": "Lawnmower",
+      "method_key": "lawnmower",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_018__tornadosuburbanl2v1_lawnmower__lawnmower",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_018__tornadosuburbanl2v1_lawnmower__lawnmower",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_018__tornadosuburbanl2v1_lawnmower__lawnmower/bags/gcs/gcs_0.mcap",
+      "gt_victims": 40,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 10560.0,
+      "ideal_all_path_m": 1069.817,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 0,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "lying": {
+            "total": 40,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "full": {
+            "total": 21,
+            "detected": 0
+          },
+          "partial": {
+            "total": 19,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "none": {
+            "total": 21,
+            "detected": 0
+          },
+          "torso": {
+            "total": 1,
+            "detected": 0
+          },
+          "feet_shins": {
+            "total": 6,
+            "detected": 0
+          },
+          "flank": {
+            "total": 2,
+            "detected": 0
+          },
+          "legs": {
+            "total": 4,
+            "detected": 0
+          },
+          "banded": {
+            "total": 1,
+            "detected": 0
+          },
+          "torso_head": {
+            "total": 4,
+            "detected": 0
+          },
+          "midriff": {
+            "total": 1,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "street": {
+            "total": 9,
+            "detected": 0
+          },
+          "pile": {
+            "total": 9,
+            "detected": 0
+          },
+          "yard": {
+            "total": 10,
+            "detected": 0
+          },
+          "skirt": {
+            "total": 12,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 3,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Tornado / Suburban L2",
+      "method": "VLFM",
+      "method_key": "vlfm",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_019__tornadosuburbanl2v1__vlfm",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_019__tornadosuburbanl2v1__vlfm",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_019__tornadosuburbanl2v1__vlfm/bags/gcs/gcs_0.mcap",
+      "gt_victims": 40,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 4780.0,
+      "ideal_all_path_m": 1037.635,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 194,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "lying": {
+            "total": 40,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "full": {
+            "total": 21,
+            "detected": 0
+          },
+          "partial": {
+            "total": 19,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "none": {
+            "total": 21,
+            "detected": 0
+          },
+          "torso": {
+            "total": 1,
+            "detected": 0
+          },
+          "feet_shins": {
+            "total": 6,
+            "detected": 0
+          },
+          "flank": {
+            "total": 2,
+            "detected": 0
+          },
+          "legs": {
+            "total": 4,
+            "detected": 0
+          },
+          "banded": {
+            "total": 1,
+            "detected": 0
+          },
+          "torso_head": {
+            "total": 4,
+            "detected": 0
+          },
+          "midriff": {
+            "total": 1,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "street": {
+            "total": 9,
+            "detected": 0
+          },
+          "pile": {
+            "total": 9,
+            "detected": 0
+          },
+          "yard": {
+            "total": 10,
+            "detected": 0
+          },
+          "skirt": {
+            "total": 12,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 3,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Tornado / Suburban L3",
+      "method": "Frontier",
+      "method_key": "frontier",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_021__tornadosuburbanl3v1__frontier",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_021__tornadosuburbanl3v1__frontier",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_021__tornadosuburbanl3v1__frontier/bags/gcs/gcs_0.mcap",
+      "gt_victims": 70,
+      "detected_victims": 2,
+      "progress": 0.02857142857142857,
+      "progress_auc": 0.01827142890885714,
+      "actual_path_m": 9780.0,
+      "ideal_all_path_m": 1792.212,
+      "ideal_detected_path_m": 208.561,
+      "ppl": 0.0006092930178206252,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 592,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 2,
+          "progress": 0.02857142857142857,
+          "progress_auc": 0.01827142890885714
+        },
+        "17": {
+          "detected_victims": 3,
+          "progress": 0.04285714285714286,
+          "progress_auc": 0.027407143363285712
+        },
+        "22": {
+          "detected_victims": 4,
+          "progress": 0.05714285714285714,
+          "progress_auc": 0.03654285781771428
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "lying": {
+            "total": 70,
+            "detected": 2
+          }
+        },
+        "visibility": {
+          "full": {
+            "total": 31,
+            "detected": 1
+          },
+          "partial": {
+            "total": 39,
+            "detected": 1
+          }
+        },
+        "occlusion": {
+          "none": {
+            "total": 31,
+            "detected": 1
+          },
+          "torso": {
+            "total": 7,
+            "detected": 0
+          },
+          "midriff": {
+            "total": 6,
+            "detected": 0
+          },
+          "legs": {
+            "total": 9,
+            "detected": 0
+          },
+          "torso_head": {
+            "total": 3,
+            "detected": 0
+          },
+          "flank": {
+            "total": 4,
+            "detected": 0
+          },
+          "feet_shins": {
+            "total": 8,
+            "detected": 1
+          },
+          "banded": {
+            "total": 2,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "skirt": {
+            "total": 17,
+            "detected": 0
+          },
+          "yard": {
+            "total": 20,
+            "detected": 2
+          },
+          "street": {
+            "total": 10,
+            "detected": 0
+          },
+          "pile": {
+            "total": 23,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 3,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 2
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Tornado / Suburban L3",
+      "method": "Lawnmower",
+      "method_key": "lawnmower",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_022__tornadosuburbanl3v1_lawnmower__lawnmower",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_022__tornadosuburbanl3v1_lawnmower__lawnmower",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_022__tornadosuburbanl3v1_lawnmower__lawnmower/bags/gcs/gcs_0.mcap",
+      "gt_victims": 70,
+      "detected_victims": 2,
+      "progress": 0.02857142857142857,
+      "progress_auc": 0.011974762381142859,
+      "actual_path_m": 13290.0,
+      "ideal_all_path_m": 1819.249,
+      "ideal_detected_path_m": 195.75,
+      "ppl": 0.00042083198968074814,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 426,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 2,
+          "progress": 0.02857142857142857,
+          "progress_auc": 0.011974762381142859
+        },
+        "17": {
+          "detected_victims": 2,
+          "progress": 0.02857142857142857,
+          "progress_auc": 0.011974762381142859
+        },
+        "22": {
+          "detected_victims": 2,
+          "progress": 0.02857142857142857,
+          "progress_auc": 0.011974762381142859
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "lying": {
+            "total": 70,
+            "detected": 2
+          }
+        },
+        "visibility": {
+          "full": {
+            "total": 31,
+            "detected": 2
+          },
+          "partial": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "none": {
+            "total": 31,
+            "detected": 2
+          },
+          "torso": {
+            "total": 7,
+            "detected": 0
+          },
+          "midriff": {
+            "total": 6,
+            "detected": 0
+          },
+          "legs": {
+            "total": 9,
+            "detected": 0
+          },
+          "torso_head": {
+            "total": 3,
+            "detected": 0
+          },
+          "flank": {
+            "total": 4,
+            "detected": 0
+          },
+          "feet_shins": {
+            "total": 8,
+            "detected": 0
+          },
+          "banded": {
+            "total": 2,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "skirt": {
+            "total": 17,
+            "detected": 0
+          },
+          "yard": {
+            "total": 20,
+            "detected": 2
+          },
+          "street": {
+            "total": 10,
+            "detected": 0
+          },
+          "pile": {
+            "total": 23,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 3,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 2,
+        "8": 0
+      }
+    },
+    {
+      "metric_version": 4,
+      "scene": "Tornado / Suburban L3",
+      "method": "VLFM",
+      "method_key": "vlfm",
+      "run_folder": "frozen_suburban_8robot/2026-08-31_11-11-42/iter_023__tornadosuburbanl3v1__vlfm",
+      "iter_dir": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_023__tornadosuburbanl3v1__vlfm",
+      "bag": "/media/share/coa-sei/frozen_suburban_8robot/2026-08-31_11-11-42/iter_023__tornadosuburbanl3v1__vlfm/bags/gcs/gcs_0.mcap",
+      "gt_victims": 70,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 4800.0,
+      "ideal_all_path_m": 1764.164,
+      "ideal_detected_path_m": 0.0,
+      "ppl": 0.0,
+      "target_circle_radius_m": 12.0,
+      "budget_s": 600.0,
+      "target_circle_messages_sampled": 313,
+      "radius_sensitivity": {
+        "12": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "17": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        },
+        "22": {
+          "detected_victims": 0,
+          "progress": 0.0,
+          "progress_auc": 0.0
+        }
+      },
+      "target_breakdowns": {
+        "pose": {
+          "lying": {
+            "total": 70,
+            "detected": 0
+          }
+        },
+        "visibility": {
+          "full": {
+            "total": 31,
+            "detected": 0
+          },
+          "partial": {
+            "total": 39,
+            "detected": 0
+          }
+        },
+        "occlusion": {
+          "none": {
+            "total": 31,
+            "detected": 0
+          },
+          "torso": {
+            "total": 7,
+            "detected": 0
+          },
+          "midriff": {
+            "total": 6,
+            "detected": 0
+          },
+          "legs": {
+            "total": 9,
+            "detected": 0
+          },
+          "torso_head": {
+            "total": 3,
+            "detected": 0
+          },
+          "flank": {
+            "total": 4,
+            "detected": 0
+          },
+          "feet_shins": {
+            "total": 8,
+            "detected": 0
+          },
+          "banded": {
+            "total": 2,
+            "detected": 0
+          }
+        },
+        "environment": {
+          "skirt": {
+            "total": 17,
+            "detected": 0
+          },
+          "yard": {
+            "total": 20,
+            "detected": 0
+          },
+          "street": {
+            "total": 10,
+            "detected": 0
+          },
+          "pile": {
+            "total": 23,
+            "detected": 0
+          }
+        }
+      },
+      "start_source": "per-robot planner logs",
+      "robots": 8,
+      "empty_oracle_routes": 3,
+      "detected_by_robot": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      }
+    }
+  ],
+  "averages": [
+    {
+      "method": "CoNavGPT2",
+      "runs": 7,
+      "progress": 0.0,
+      "progress_auc": 0.0,
+      "actual_path_m": 5637.8768893405695,
+      "ideal_all_path_m": 2344.7782857142856,
+      "ppl": 0.0
+    },
+    {
+      "method": "Frontier",
+      "runs": 9,
+      "progress": 0.08256547216764215,
+      "progress_auc": 0.05693373041697511,
+      "actual_path_m": 8623.24934194894,
+      "ideal_all_path_m": 3221.927666666667,
+      "ppl": 0.0018703549752025785
+    },
+    {
+      "method": "Lawnmower",
+      "runs": 9,
+      "progress": 0.015873015873015872,
+      "progress_auc": 0.0035548504156313935,
+      "actual_path_m": 11569.396460616928,
+      "ideal_all_path_m": 3048.1587777777777,
+      "ppl": 0.00015510852738058348
+    },
+    {
+      "method": "VLFM",
+      "runs": 9,
+      "progress": 0.06291799420190017,
+      "progress_auc": 0.05225974112168336,
+      "actual_path_m": 3968.6351125748365,
+      "ideal_all_path_m": 2653.467888888889,
+      "ppl": 0.004246441383505547
+    }
+  ],
+  "failed_analyses": 0,
+  "analysis_complete": true
+}

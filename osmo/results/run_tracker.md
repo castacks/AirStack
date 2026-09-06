@@ -283,6 +283,14 @@ A GT victim counts as detected when its world-frame XY location falls inside a *
 
 | Scene | Method | Run folder | GT | Detected | Detector-confirmed progress | Time-integrated progress | Actual team path | Ideal all-target path | PPL |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Earthquake / Urban L1 | CoNavGPT2 | `urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_004__earthquakeurbanl1v1_conavgpt2_team__conavgpt2_team` | 39 | 0 | 0.000 | 0.000 | 7.96 km | 3.19 km | 0.0000 |
+| Earthquake / Urban L1 | Frontier | `urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_001__earthquakeurbanl1v1__frontier` | 39 | 0 | 0.000 | 0.000 | 3.98 km | 5.27 km | 0.0000 |
+| Earthquake / Urban L1 | Lawnmower | `urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_002__earthquakeurbanl1v1_lawnmower__lawnmower` | 39 | 0 | 0.000 | 0.000 | 7.38 km | 4.81 km | 0.0000 |
+| Earthquake / Urban L1 | VLFM | `urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_003__earthquakeurbanl1v1__vlfm` | 39 | 0 | 0.000 | 0.000 | 4.16 km | 5.35 km | 0.0000 |
+| Earthquake / Urban L3 | CoNavGPT2 | `urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_004__earthquakeurbanl3v1_conavgpt2_team__conavgpt2_team` | 64 | 0 | 0.000 | 0.000 | 6.03 km | 5.15 km | 0.0000 |
+| Earthquake / Urban L3 | Frontier | `urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_001__earthquakeurbanl3v1__frontier` | 64 | 0 | 0.000 | 0.000 | 5.15 km | 8.13 km | 0.0000 |
+| Earthquake / Urban L3 | Lawnmower | `urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_002__earthquakeurbanl3v1_lawnmower__lawnmower` | 64 | 0 | 0.000 | 0.000 | 10.35 km | 8.13 km | 0.0000 |
+| Earthquake / Urban L3 | VLFM | `urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_003__earthquakeurbanl3v1__vlfm` | 64 | 0 | 0.000 | 0.000 | 3.31 km | 7.93 km | 0.0000 |
 | Fire / Suburban L1 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_001__firesuburbanl1v1__frontier` | 49 | 10 | 0.204 | 0.175 | 5.59 km | 1.73 km | 0.0033 |
 | Fire / Suburban L1 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_002__firesuburbanl1v1_lawnmower__lawnmower` | 49 | 0 | 0.000 | 0.000 | 14.53 km | 1.78 km | 0.0000 |
 | Fire / Suburban L1 | VLFM | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_003__firesuburbanl1v1__vlfm` | 49 | 11 | 0.224 | 0.204 | 4.79 km | 1.69 km | 0.0125 |
@@ -314,10 +322,10 @@ A GT victim counts as detected when its world-frame XY location falls inside a *
 
 | Method | Completed / total runs | Avg progress | Avg time-integrated progress | Avg actual team path | Avg ideal all-target path | Avg PPL |
 |---|---:|---:|---:|---:|---:|---:|
-| CoNavGPT2 | 5/48 | 0.000 | 0.000 | 5.09 km | 1.62 km | 0.0000 |
-| Frontier | 7/48 | 0.106 | 0.073 | 9.78 km | 2.23 km | 0.0024 |
-| Lawnmower | 7/48 | 0.020 | 0.005 | 12.34 km | 2.07 km | 0.0002 |
-| VLFM | 7/48 | 0.081 | 0.067 | 4.04 km | 1.51 km | 0.0055 |
+| CoNavGPT2 | 7/48 | 0.000 | 0.000 | 5.64 km | 2.34 km | 0.0000 |
+| Frontier | 9/48 | 0.083 | 0.057 | 8.62 km | 3.22 km | 0.0019 |
+| Lawnmower | 9/48 | 0.016 | 0.004 | 11.57 km | 3.05 km | 0.0002 |
+| VLFM | 9/48 | 0.063 | 0.052 | 3.97 km | 2.65 km | 0.0042 |
 
 ### Target-circle radius sensitivity
 
@@ -325,15 +333,23 @@ These rows change only the GT-to-target-circle association radius; the detector 
 
 | Method | Runs | 12 m progress | 17 m progress | Gain vs base | 22 m progress | Gain vs base |
 |---|---:|---:|---:|---:|---:|---:|
-| CoNavGPT2 | 5 | 0.000 | 0.000 | +0.000 | 0.000 | +0.000 |
-| Frontier | 7 | 0.106 | 0.136 | +0.030 | 0.167 | +0.061 |
-| Lawnmower | 7 | 0.020 | 0.028 | +0.008 | 0.047 | +0.027 |
-| VLFM | 7 | 0.081 | 0.094 | +0.013 | 0.105 | +0.024 |
+| CoNavGPT2 | 7 | 0.000 | 0.000 | +0.000 | 0.000 | +0.000 |
+| Frontier | 9 | 0.083 | 0.106 | +0.023 | 0.130 | +0.047 |
+| Lawnmower | 9 | 0.016 | 0.022 | +0.006 | 0.037 | +0.021 |
+| VLFM | 9 | 0.063 | 0.073 | +0.010 | 0.082 | +0.019 |
 
 #### Runs with zero detections at 12 m
 
 | Scene | Method | 12 m detected / GT | 17 m detected / GT | 22 m detected / GT |
 |---|---|---:|---:|---:|
+| Earthquake / Urban L1 | CoNavGPT2 | 0/39 | 0/39 | 0/39 |
+| Earthquake / Urban L1 | Frontier | 0/39 | 0/39 | 0/39 |
+| Earthquake / Urban L1 | Lawnmower | 0/39 | 0/39 | 0/39 |
+| Earthquake / Urban L1 | VLFM | 0/39 | 0/39 | 0/39 |
+| Earthquake / Urban L3 | CoNavGPT2 | 0/64 | 0/64 | 0/64 |
+| Earthquake / Urban L3 | Frontier | 0/64 | 0/64 | 0/64 |
+| Earthquake / Urban L3 | Lawnmower | 0/64 | 0/64 | 0/64 |
+| Earthquake / Urban L3 | VLFM | 0/64 | 0/64 | 0/64 |
 | Fire / Suburban L1 | Lawnmower | 0/49 | 1/49 | 4/49 |
 | Fire / Suburban L2 | CoNavGPT2 | 0/79 | 0/79 | 0/79 |
 | Fire / Suburban L2 | Lawnmower | 0/79 | 0/79 | 1/79 |
@@ -359,7 +375,7 @@ Breakdown opportunities count each GT victim once per completed run/method; the 
 | crouched | 0/23 | 0.000 |
 | lying | 10/490 | 0.020 |
 | seated | 38/391 | 0.097 |
-| unknown | 20/129 | 0.155 |
+| unknown | 20/541 | 0.037 |
 | upright | 27/476 | 0.057 |
 
 ### Detection breakdown by visibility
@@ -368,7 +384,7 @@ Breakdown opportunities count each GT victim once per completed run/method; the 
 |---|---:|---:|
 | full | 7/377 | 0.019 |
 | partial | 4/333 | 0.012 |
-| unknown | 84/799 | 0.105 |
+| unknown | 84/1211 | 0.069 |
 
 ### Detection breakdown by occlusion
 
@@ -383,12 +399,13 @@ Breakdown opportunities count each GT victim once per completed run/method; the 
 | submerged | 0/60 | 0.000 |
 | torso | 0/37 | 0.000 |
 | torso_head | 0/29 | 0.000 |
-| unknown | 84/799 | 0.105 |
+| unknown | 84/1211 | 0.069 |
 
 ### Detection breakdown by environment
 
 | Environment | Detected / opportunities | Detection rate |
 |---|---:|---:|
+| Earthquake / unknown | 0/412 | 0.000 |
 | Fire / at_home | 0/8 | 0.000 |
 | Fire / cul_de_sac | 27/165 | 0.164 |
 | Fire / gridlock | 4/216 | 0.019 |
