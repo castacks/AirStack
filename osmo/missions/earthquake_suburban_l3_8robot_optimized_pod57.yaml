@@ -24,7 +24,9 @@ env:
   PLAY_SIM_ON_START: 'true'
   SCENE_CONFIG: ''
   FROZEN_DATASET_ROOT: omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset
-  SUBURB_COLLIDERS: ground
+  # The frozen cell already contains Pegasus' collision GroundPlane. Avoid
+  # re-cooking the generated 1,800-mesh ground sheet on every iteration.
+  SUBURB_COLLIDERS: 'off'
   SPAWN_HEIGHT_M: '0.5'
   ENABLE_LIDAR: 'false'
   ZED_PITCH_DEG: '30'
@@ -328,11 +330,9 @@ steps:
     container: airstack-robot-desktop-{n}
     cmd: "if [ \"{{env.method}}\" = \"conavgpt2_team\" ]; then\n  echo \"SKIP per-robot gate: team run\
       \ is gated in step 8\"; exit 0\nfi\nsource /root/.bashrc >/dev/null 2>&1 || true\nexport ROS_DOMAIN_ID={n}\n\
-      # 900 polls x 15 s = 3 h 45 m of WALL clock for 600 s of SIM. That is\n# not slack, it is the real-time\
-      \ factor: eight stereo pairs rendering\n# on one card is the RTF this sweep has never measured,\
-      \ and a budget\n# that is generous in sim seconds can still be hours in wall seconds.\n# Every 20th\
+      # 1200 polls x 15 s = 5 h of WALL clock for 600 s of SIM. This is a safety\n# guard for unusually CPU-heavy frozen cells; the 12 h batch cap still governs\n# how many environments are submitted together. A budget in sim seconds can\n# still be hours in wall seconds.\n# Every 20th\
       \ poll prints the planner's own progress so a stalled run\n# is visible in the mission log within\
-      \ five minutes instead of at the\n# timeout.\nfor i in $(seq 1 900); do\n  if timeout 10 ros2 topic\
+      \ five minutes instead of at the\n# timeout.\nfor i in $(seq 1 1200); do\n  if timeout 10 ros2 topic\
       \ echo /{robot}/search/run_complete --once 2>/dev/null | grep -q \"data: true\"; then\n    echo\
       \ RUN_COMPLETE {robot}; exit 0\n  fi\n  kill -0 \"$(cat /tmp/search/planner.pid)\" 2>/dev/null ||\
       \ {\n    echo PLANNER_EXITED {robot}; tail -n 80 /tmp/search/planner.log; exit 1; }\n  if [ $((i\
@@ -350,7 +350,7 @@ steps:
       \ bridge it.\n# `_sim_now` therefore falls back to the sim-time header stamps on the\n# bridged\
       \ observations \u2014 the same clock read a different way. The\n# `Time source:` line printed at\
       \ t0 says which one is in use, and it\n# is the first thing to read if this gate ever runs long.\n\
-      for i in $(seq 1 900); do\n  if timeout 10 ros2 topic echo /robot_1/search/run_complete --once 2>/dev/null\
+      for i in $(seq 1 1200); do\n  if timeout 10 ros2 topic echo /robot_1/search/run_complete --once 2>/dev/null\
       \ | grep -q \"data: true\"; then\n    echo TEAM_RUN_COMPLETE; exit 0\n  fi\n  kill -0 \"$(cat /tmp/search/planner.pid)\"\
       \ 2>/dev/null || {\n    echo TEAM_PLANNER_EXITED; tail -n 80 /tmp/search/planner.log; exit 1; }\n\
       \  if [ $((i % 20)) -eq 0 ]; then\n    echo \"--- team poll $i\"\n    grep -a \"sim budget\" /tmp/search/planner.log\
