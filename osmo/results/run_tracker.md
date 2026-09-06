@@ -205,9 +205,13 @@ reproduced 8/8 heartbeats with 0/8 raw odometry. Investigation found the
 `colliders=off` optimization had also skipped the launcher's pre-spawn Kit
 update barrier, allowing PX4 to start while existing frozen-scene collision
 work still monopolized the simulation loop. The retry was stopped cleanly and
-not uploaded. The barrier fix was tested and pushed in `6cbedf72`; a fresh L1
-run started at 02:59 UTC in
-`earthquake_suburban_l1_8robot_optimized_pod57/2026-09-06_02-59-11`.
+not uploaded. The barrier fix was tested and pushed in `6cbedf72`; its 02:59
+UTC validation run finished the cook before spawning PX4 but still reproduced
+0/8 raw odometry, so it too was stopped and not uploaded. Because the earlier
+`ground` configuration is the only one proven to clear takeoff and enter timed
+search on this scene, it was restored in `ad1b46bb`. A fresh proven-config L1
+run started at 03:24 UTC in
+`earthquake_suburban_l1_8robot_optimized_pod57/2026-09-06_03-24-12`.
 No Suburban Earthquake benchmark result has been accepted yet.
 
 ## Failed and superseded attempts
@@ -253,7 +257,7 @@ uploaded.
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
-| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | RUNNING — the 01:29 collider-sheet-disabled run reproduced a PX4-heartbeat/no-HIL-odometry stall twice and was not uploaded. The missing pre-spawn Kit update barrier was restored in `6cbedf72`; a fresh fixed run started at 02:59 UTC in `earthquake_suburban_l1_8robot_optimized_pod57/2026-09-06_02-59-11` |
+| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | RUNNING — `colliders=off` repeatedly caused PX4-heartbeat/no-HIL-odometry stalls and uploaded nothing; restoring its missing update barrier was insufficient. Proven `colliders=ground` was restored in `ad1b46bb`; a fresh run started at 03:24 UTC in `earthquake_suburban_l1_8robot_optimized_pod57/2026-09-06_03-24-12` |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L1–L2 completes |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — starts after Suburban Earthquake L1 completes |
 
