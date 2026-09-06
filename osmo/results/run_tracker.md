@@ -241,7 +241,10 @@ nothing from this Lawnmower attempt was uploaded. Commit `5e6ce374` extends the
 wall-time camera deadline to 300 seconds and makes a fatal init terminate the
 planner process instead of leaving a misleading live launch parent. A fresh
 one-cell Lawnmower retry started at 12:04 UTC in
-`eq_sub_l1_lawnmower_attempt1/2026-09-06_12-04-23`.
+`eq_sub_l1_lawnmower_attempt1/2026-09-06_12-04-23`. One scoped robot-5
+readiness recovery succeeded, all eight takeoffs passed, and verification
+confirmed all eight planners entered their 600-second sim budgets at
+12:35–12:37 UTC; the delayed-camera failure is not present on the retry.
 The exact outstanding pod-57 list is L1 Lawnmower, VLFM and CoNavGPT2,
 followed by L3 Frontier, Lawnmower, VLFM and CoNavGPT2. Detached queue watcher
 PID 1776779 enforces the 12-hour cap by stopping the current L1 batch at the
@@ -298,7 +301,7 @@ uploaded.
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
-| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | RUNNING — Frontier passed/uploaded/NAS-verified at team RTF 0.04565. Lawnmower's invalid four-planner partial was stopped/not uploaded; its one-cell retry is active with the 300-second camera deadline and fatal-init process propagation fix. Every later method is blocked on verified NAS upload before advancing |
+| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | RUNNING — Frontier passed/uploaded/NAS-verified at team RTF 0.04565. Lawnmower's invalid partial was stopped/not uploaded; the fixed one-cell retry has all eight planners inside their timed search. Every later method is blocked on verified NAS upload before advancing |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h per launch | RUNNING — Frontier passed/uploaded/NAS-verified at team RTF 0.05664; Lawnmower recovered a silent robot 1 with both bounded readiness recoveries, passed all eight takeoffs and is in its timed search at live RTF ~0.053. The reproducible ~0.05 scene RTF cannot fit four methods inside one cap, so the runner stops only after Lawnmower passes/uploads; VLFM+CoNavGPT2 then receive a fresh focused 12-hour launch before Hurricane |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding as upload-gated one-cell missions after L1. Every pass must be NAS-verified before the next method; failed cells retry locally and never upload |
 | 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; mission and overlay validation passed. Starts after Suburban Earthquake L2 |
