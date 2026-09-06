@@ -24,9 +24,10 @@ env:
   PLAY_SIM_ON_START: 'true'
   SCENE_CONFIG: ''
   FROZEN_DATASET_ROOT: omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset
-  # The frozen cell already contains Pegasus' collision GroundPlane. Avoid
-  # re-cooking the generated 1,800-mesh ground sheet on every iteration.
-  SUBURB_COLLIDERS: 'off'
+  # Keep the generated ground collider. `off` connected all eight PX4
+  # heartbeats but repeatedly produced no HIL/raw odometry; `ground` is the
+  # only configuration that has cleared takeoff on this frozen quake cell.
+  SUBURB_COLLIDERS: 'ground'
   SPAWN_HEIGHT_M: '0.5'
   ENABLE_LIDAR: 'false'
   ZED_PITCH_DEG: '30'
