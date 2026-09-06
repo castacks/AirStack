@@ -306,6 +306,15 @@ only that robot's bringup with `restart_robot_bringup`; never do this after
 takeoff. `mission_runner.Stack.wait_ready` implements this bounded recovery
 through `ready.dataflow_recover_after_s` and `ready.max_recoveries`.
 
+A heartbeat in MAVROS's newest log is historical evidence, not proof that the
+link is live. Pod 57 produced a robot that logged one heartbeat, lost the link,
+and then remained absent from `/mavros/state` while all seven peers were ready;
+the old wedge classifier called it a flapper indefinitely and suppressed the
+restart. `ready.stale_heartbeat_recover_after_s` (900 s by default) now bounds
+that case: only after every peer is fully ready does the gate relaunch the one
+remaining robot's bringup. Keep the threshold long for heavy frozen scenes and
+never use this recovery after takeoff.
+
 ### Do not dispatch takeoff on the first armed-state edge
 
 Direct MAVROS pre-arming removes a flaky service hop, but the arming RPC alone

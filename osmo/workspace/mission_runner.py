@@ -828,6 +828,13 @@ class Stack:
         # while the heavy scene is still coming online.
         quorum_recover_after = float(
             cfg.get("quorum_recover_after_s", recover_after))
+        # A MAVROS process can emit one heartbeat, lose the link permanently,
+        # and then be misclassified as a healthy "flapper" forever because
+        # robot_is_wedged intentionally consults the newest log's history.
+        # Once every peer is fully ready, bound how long that historical edge
+        # may suppress a robot-only restart.
+        stale_heartbeat_recover_after = float(
+            cfg.get("stale_heartbeat_recover_after_s", 900))
         dataflow_recover_after = float(
             cfg.get("dataflow_recover_after_s", 60))
         max_recover = int(cfg.get("max_recoveries", 2))
@@ -902,12 +909,18 @@ class Stack:
                             continue
                         if elapsed - last_recover.get(n, 0.0) < recovery_after:
                             continue
-                        if not robot_is_wedged(n, containers):
+                        stale_heartbeat = (
+                            lone_pending
+                            and stale_heartbeat_recover_after > 0
+                            and elapsed >= stale_heartbeat_recover_after)
+                        if not stale_heartbeat and not robot_is_wedged(n, containers):
                             continue
                         recoveries[n] = recoveries.get(n, 0) + 1
                         last_recover[n] = elapsed
-                        log(f"RECOVER robot_{n}: silent {elapsed:.0f}s while "
-                            f"{sorted(connected)} answered - attempt "
+                        reason = ("stale heartbeat with all peers ready"
+                                  if stale_heartbeat else "silent")
+                        log(f"RECOVER robot_{n}: {reason} after {elapsed:.0f}s "
+                            f"while {sorted(connected)} answered - attempt "
                             f"{recoveries[n]}/{max_recover}")
                         restart_robot_bringup(n, containers)
                 time.sleep(cfg["poll_interval_s"])
