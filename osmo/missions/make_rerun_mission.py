@@ -51,7 +51,10 @@ def failures_from_log(path):
     cur = None
     failed_final = set()
     for ln in text.splitlines():
-        m = re.search(r"iteration (\d+)/24", ln)
+        # Missions range from a one-cell focused retry to the original
+        # 24-cell sweep.  Pinning this to `/24` made `--from-log` silently
+        # return no failures for the newer four-cell per-level missions.
+        m = re.search(r"iteration (\d+)/(\d+)", ln)
         if m:
             cur = int(m.group(1))
         m = re.search(r"environment: (\S+)", ln)
@@ -62,7 +65,9 @@ def failures_from_log(path):
             failed_final.add(cur)
         if cur and "ERROR: iteration aborted" in ln:
             failed_final.add(cur)
-    # an iteration that later produced `step 17: OK` recovered; drop it
+        # A later successful final step means an automatic retry recovered.
+        if cur and re.search(r"step \d+: OK", ln):
+            failed_final.discard(cur)
     return [env_of[i] for i in sorted(failed_final) if i in env_of]
 
 
