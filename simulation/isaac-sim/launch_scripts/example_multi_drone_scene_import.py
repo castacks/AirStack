@@ -923,15 +923,21 @@ class PegasusApp:
             physics_context.enable_fabric(False)
             carb.settings.get_settings().set_bool(
                 "/physics/suppressReadback", False)
-        physics_device = self.world.device
+        # world.device reflects the tensor/API pipeline, so it intentionally
+        # reports CPU when readback is enabled. The solver's actual CUDA
+        # ordinal lives in /physics/cudaDevice and is independently confirmed
+        # by gpu_dynamics + GPU broadphase below.
+        api_pipeline_device = self.world.device
+        cuda_ordinal = carb.settings.get_settings().get_as_int(
+            "/physics/cudaDevice")
         broadphase = physics_context.get_broadphase_type()
         gpu_dynamics = physics_context.is_gpu_dynamics_enabled()
         suppress_readback = carb.settings.get_settings().get_as_bool(
             "/physics/suppressReadback")
-        print("[isaac] physics effective device={0}, broadphase={1}, "
-              "gpu_dynamics={2}, suppress_readback={3}, fabric={4} "
-              "(requested={5})".format(
-                  physics_device, broadphase, gpu_dynamics,
+        print("[isaac] physics solver_cuda_device=cuda:{0}, "
+              "api_pipeline_device={1}, broadphase={2}, gpu_dynamics={3}, "
+              "suppress_readback={4}, fabric={5} (requested={6})".format(
+                  cuda_ordinal, api_pipeline_device, broadphase, gpu_dynamics,
                   suppress_readback, False if _GPU_PHYSICS else "default",
                   _PHYSICS_DEVICE), flush=True)
         if _GPU_PHYSICS and (broadphase != "GPU" or not gpu_dynamics):
@@ -939,7 +945,7 @@ class PegasusApp:
                 "ISAAC_SIM_GPU_PHYSICS requested but PhysX did not enable "
                 "GPU broadphase/dynamics (device={0}, broadphase={1}, "
                 "gpu_dynamics={2})".format(
-                    physics_device, broadphase, gpu_dynamics))
+                    f"cuda:{cuda_ordinal}", broadphase, gpu_dynamics))
 
         self.timeline.stop()
 
