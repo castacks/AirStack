@@ -334,14 +334,14 @@ steps:
       # 1200 polls x 15 s = 5 h of WALL clock for 600 s of SIM. This is a safety\n# guard for unusually CPU-heavy frozen cells; the 12 h batch cap still governs\n# how many environments are submitted together. A budget in sim seconds can\n# still be hours in wall seconds.\n# Every 20th\
       \ poll prints the planner's own progress so a stalled run\n# is visible in the mission log within\
       \ five minutes instead of at the\n# timeout.\nfor i in $(seq 1 1200); do\n  if timeout 10 ros2 topic\
-      \ echo /{robot}/search/run_complete --once 2>/dev/null | grep -q \"data: true\"; then\n    echo\
+      \ echo --qos-durability transient_local --qos-reliability reliable /{robot}/search/run_complete --once 2>/dev/null | grep -q \"data: true\"; then\n    echo\
       \ RUN_COMPLETE {robot}; exit 0\n  fi\n  kill -0 \"$(cat /tmp/search/planner.pid)\" 2>/dev/null ||\
       \ {\n    echo PLANNER_EXITED {robot}; tail -n 80 /tmp/search/planner.log; exit 1; }\n  if [ $((i\
       \ % 20)) -eq 0 ]; then\n    echo \"--- {robot} poll $i\"\n    grep -a \"sim budget\" /tmp/search/planner.log\
       \ | tail -1\n    grep -a \"ground speed\\|round [0-9]* |\" /tmp/search/planner.log | tail -1\n \
       \ fi\n  sleep 15\ndone\necho RUN_DID_NOT_COMPLETE {robot}; tail -n 40 /tmp/search/planner.log; exit\
       \ 1\n"
-    timeout_s: 13800
+    timeout_s: 18000
 - run:
     container: offboard-compute
     cmd: "if [ \"{{env.method}}\" != \"conavgpt2_team\" ]; then\n  echo \"SKIP team gate: sectored run\
@@ -351,13 +351,13 @@ steps:
       \ bridge it.\n# `_sim_now` therefore falls back to the sim-time header stamps on the\n# bridged\
       \ observations \u2014 the same clock read a different way. The\n# `Time source:` line printed at\
       \ t0 says which one is in use, and it\n# is the first thing to read if this gate ever runs long.\n\
-      for i in $(seq 1 1200); do\n  if timeout 10 ros2 topic echo /robot_1/search/run_complete --once 2>/dev/null\
+      for i in $(seq 1 1200); do\n  if timeout 10 ros2 topic echo --qos-durability transient_local --qos-reliability reliable /robot_1/search/run_complete --once 2>/dev/null\
       \ | grep -q \"data: true\"; then\n    echo TEAM_RUN_COMPLETE; exit 0\n  fi\n  kill -0 \"$(cat /tmp/search/planner.pid)\"\
       \ 2>/dev/null || {\n    echo TEAM_PLANNER_EXITED; tail -n 80 /tmp/search/planner.log; exit 1; }\n\
       \  if [ $((i % 20)) -eq 0 ]; then\n    echo \"--- team poll $i\"\n    grep -a \"sim budget\" /tmp/search/planner.log\
       \ | tail -1\n    grep -a \"round [0-9]* |\" /tmp/search/planner.log | tail -1\n  fi\n  sleep 15\n\
       done\necho RUN_DID_NOT_COMPLETE; tail -n 60 /tmp/search/planner.log; exit 1\n"
-    timeout_s: 13800
+    timeout_s: 18000
 - run:
     container: airstack-robot-desktop-{n}
     cmd: "if [ \"{{env.method}}\" = \"conavgpt2_team\" ]; then echo \"SKIP\"; exit 0; fi\nsource /root/.bashrc\
