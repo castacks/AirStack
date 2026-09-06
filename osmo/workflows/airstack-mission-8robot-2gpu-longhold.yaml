@@ -127,6 +127,11 @@ workflow:
         # false → task exits when the mission ends: GPU freed, /osmo/output
         #         uploaded to `outputs:` destinations.
         OSMO_MISSION_KEEP_ALIVE: "true"
+        # Passed iterations are uploaded and remotely verified by
+        # mission_runner as soon as they complete. Skipping the launcher's
+        # final whole-results-tree rsync keeps failed attempts off the NAS and
+        # prevents an otherwise-successful upload from tearing down the pod.
+        OSMO_MISSION_NO_FINAL_UPLOAD: "true"
         # The workflow remains inspectable after this cap fires; the mission
         # runner receives SIGINT and tears the active stack down cleanly.
         OSMO_MISSION_MAX_WALL_SECONDS: "43200"

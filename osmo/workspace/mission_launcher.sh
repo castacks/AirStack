@@ -129,7 +129,9 @@ if [ -f "${MISSION_PATH:-}" ]; then
 fi
 NAS_DEST="${OSMO_MISSION_UPLOAD_DEST:-$NAS_YAML_DEST}"
 
-if [ "${OSMO_MISSION_NO_UPLOAD:-false}" != "true" ] \
+if [ "${OSMO_MISSION_NO_FINAL_UPLOAD:-false}" = "true" ]; then
+  log "OSMO_MISSION_NO_FINAL_UPLOAD=true — skipping whole-tree NAS upload; passed iterations were uploaded individually"
+elif [ "${OSMO_MISSION_NO_UPLOAD:-false}" != "true" ] \
    && [ -n "${AIRLAB_STORAGE_USER:-}" ] && [ -n "${AIRLAB_STORAGE_PASS:-}" ] \
    && [ -n "$NAS_DEST" ]; then
   if ! command -v sshpass >/dev/null 2>&1; then
