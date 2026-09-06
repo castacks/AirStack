@@ -216,6 +216,12 @@ class CoNavGPT2Node(Node):
         self._info_tpl = self._p(
             'camera_info_topic_template',
             '/{robot}/sensors/front_stereo/left/camera_info')
+        # This is WALL time: on collider-heavy frozen scenes the first camera
+        # metadata can arrive more than a minute after the planner launches
+        # even though the stream is healthy. Keep it configurable and long
+        # enough for low-RTF benchmark cells.
+        self._camera_info_timeout_s = float(
+            self._p('camera_info_timeout_s', 300.0))
         self._odom_tpl = self._p(
             'odom_topic_template', '/{robot}/odometry_conversion/odometry')
         self._nav_tpl = self._p('navigate_action_template', '/{robot}/tasks/navigate')
@@ -1314,7 +1320,8 @@ class CoNavGPT2Node(Node):
                     # 30 s of weights loading. All three fleet planners died
                     # here on the first three-drone run.
                     hfov = None
-                    for _ in range(120):                       # <= 60 s
+                    deadline = time.monotonic() + self._camera_info_timeout_s
+                    while time.monotonic() < deadline:
                         with self._lock:
                             hfov = self._obs[0].get('hfov_rad')
                         if hfov or self._stop:
@@ -1323,7 +1330,8 @@ class CoNavGPT2Node(Node):
                     if not hfov:
                         raise RuntimeError(
                             'lawnmower spacing is derived from the camera footprint '
-                            'but no camera_info arrived within 60 s — is the '
+                            f'but no camera_info arrived within '
+                            f'{self._camera_info_timeout_s:g} s — is the '
                             f'camera publishing on {self._info_tpl}?')
                     spacing = lm.spacing_for_footprint(
                         self._altitude, hfov, self._lm_overlap)
@@ -1360,7 +1368,14 @@ class CoNavGPT2Node(Node):
         except Exception as exc:
             self.get_logger().fatal(f'search_planner failed to start: {exc}')
             self._stop = True
-            raise
+            # This runs in a daemon thread. Re-raising only kills that thread;
+            # the ROS node and its `ros2 launch` parent otherwise remain alive,
+            # so a PID-only mission gate accepts a planner that will never
+            # publish run_complete. Terminate the process through the existing
+            # main-thread signal handler so launch and the mission gate see the
+            # failure immediately.
+            os.kill(os.getpid(), signal.SIGTERM)
+            return
 
     # ── subscriptions ─────────────────────────────────────────────────────────
 

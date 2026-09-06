@@ -710,6 +710,15 @@ def test_09_same_actuation_as_the_frontier_arms():
           'rest — no nav_mode in the actuation, one tick for every arm')
 
 
+def test_10_slow_camera_start_is_bounded_and_init_failure_kills_the_node():
+    """Low-RTF frozen cells can deliver CameraInfo after one wall-minute."""
+    assert "self._p('camera_info_timeout_s', 300.0)" in SRC
+    init = _slice(SRC, '    def _init_agents', '    def _rgbd_callback')
+    assert 'time.monotonic() + self._camera_info_timeout_s' in init
+    assert 'os.kill(os.getpid(), signal.SIGTERM)' in init
+    assert 'raise\n' not in init.split('except Exception as exc:', 1)[1]
+
+
 if __name__ == '__main__':
     import pytest
     sys.exit(pytest.main([__file__, '-s', '-v']))
