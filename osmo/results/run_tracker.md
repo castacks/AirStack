@@ -268,7 +268,8 @@ uploaded.
 | 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | RUNNING — `colliders=off` repeatedly caused PX4-heartbeat/no-HIL-odometry stalls and uploaded nothing; restoring its missing update barrier was insufficient. Proven `colliders=ground` was restored in `ad1b46bb`; a fresh run started at 03:24 UTC in `earthquake_suburban_l1_8robot_optimized_pod57/2026-09-06_03-24-12` |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L1–L2 completes |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — starts after Suburban Earthquake L1 completes |
-| 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/8 | ≤12 h | QUEUED — starts after Suburban Earthquake L2; canonical Nucleus cold-open, GT and spawn plans must pass before launch |
+| 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; mission and overlay validation passed. Starts after Suburban Earthquake L2 |
+| 11 | `airstack-mission-1gpu-56` | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.0–11.6 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L1 under a fresh 12-hour cap |
 
 RayFronts/RAVEN is split into three 2-GPU workflows. Each runs three scene
 levels under a 12-hour mission cap, while the pod itself remains alive for 48
