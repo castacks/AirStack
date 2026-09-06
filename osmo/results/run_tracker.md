@@ -180,13 +180,19 @@ above.
 ### Suburban
 
 Suburban Earthquake L1–L3 are complete and ready for benchmark runs. L1
-started on pod 57 at 23:45 UTC from
+first started on pod 57 at 23:45 UTC from
 `earthquake_suburban_l1_8robot_optimized_pod57/2026-09-05_23-45-04`; L2 is queued next on pod 56
 after Urban Earthquake L1–L2; L3 follows L1 on pod 57. Each level will run
 Frontier, Lawnmower, VLFM and CoNavGPT2 with the optimized 8-robot profile.
 L1 Frontier attempt 1 failed takeoff after robot 5 was auto-disarmed and all
 three bounded takeoff requests were rejected; it was retained locally and was
-not uploaded. The mission's clean automatic attempt 2 started at 00:16 UTC.
+not uploaded. The clean automatic attempt 2 cleared all eight takeoffs, but
+the frozen scene held only about 0.0436 RTF and would exceed the bounded run
+gate, so it was stopped cleanly, retained locally and not uploaded. The cause
+was isolated to redundant cooking of the generated suburban ground-collider
+sheet; frozen suburban missions now use the scene's existing Pegasus ground
+plane and a 5-hour completion gate. A fresh optimized L1 run started at 01:29
+UTC in `earthquake_suburban_l1_8robot_optimized_pod57/2026-09-06_01-29-21`.
 No Suburban Earthquake benchmark result has been accepted yet.
 
 ## Failed and superseded attempts
@@ -232,7 +238,7 @@ uploaded.
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
-| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | RUNNING — Frontier attempt 1 failed robot-5 takeoff and was not uploaded; clean automatic attempt 2 started at 00:16 UTC in `earthquake_suburban_l1_8robot_optimized_pod57/2026-09-05_23-45-04` |
+| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | RUNNING — the original Frontier attempts were not uploaded (attempt 1 robot-5 takeoff failure; attempt 2 stopped at ~0.0436 RTF). Redundant frozen-ground collider cooking is now disabled; a fresh optimized run started at 01:29 UTC in `earthquake_suburban_l1_8robot_optimized_pod57/2026-09-06_01-29-21` |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED NEXT — starts after Urban Earthquake L1–L2 completes |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — starts after Suburban Earthquake L1 completes |
 
