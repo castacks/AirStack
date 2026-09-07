@@ -303,7 +303,9 @@ Acceptance requires all eight flight/perception gates and timed RTF at least
 0.12; a slower smoke is stopped for diagnosis rather than promoted to a full
 run. A parallel corrected L2 VLFM smoke started on dev pod 191 at 02:38 UTC
 with uploads disabled. Its reserved outer UUID `GPU-38264ce2…` maps to Isaac
-index 3; the solver banner and end-to-end gates are still pending.
+index 3. Its authoritative banner also confirms GPU broadphase/dynamics with
+CPU-facing readback and Fabric disabled; end-to-end flight/perception and RTF
+gates are still pending.
 The exact outstanding pod-57 list is L1 Lawnmower, VLFM and CoNavGPT2,
 followed by L3 Frontier, Lawnmower, VLFM and CoNavGPT2. Detached queue watcher
 PID 1776779 enforces the 12-hour cap by stopping the current L1 batch at the
